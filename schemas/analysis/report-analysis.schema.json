@@ -1,0 +1,546 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Venfour Report Analysis",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "analysisVersion",
+    "summary",
+    "metrics",
+    "findings"
+  ],
+  "properties": {
+    "analysisVersion": {
+      "type": "string",
+      "const": "1"
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "baseVehicleValue",
+        "conditionAdjustment",
+        "adjustedVehicleValue",
+        "total",
+        "comparableCount",
+        "findingCounts"
+      ],
+      "properties": {
+        "baseVehicleValue": {
+          "type": ["number", "null"]
+        },
+        "conditionAdjustment": {
+          "type": ["number", "null"]
+        },
+        "adjustedVehicleValue": {
+          "type": ["number", "null"]
+        },
+        "total": {
+          "type": ["number", "null"]
+        },
+        "comparableCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "findingCounts": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["PASS", "REVIEW", "WARNING"],
+          "properties": {
+            "PASS": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "REVIEW": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "WARNING": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        }
+      }
+    },
+    "metrics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "valuationArithmetic",
+        "condition",
+        "comparableAdjustedValues",
+        "comparableMileage",
+        "comparableAdjustments",
+        "mileageAdjustmentDirection",
+        "contributionPercentages",
+        "comparableNumbering"
+      ],
+      "properties": {
+        "valuationArithmetic": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status",
+            "expectedAdjustedVehicleValue",
+            "difference"
+          ],
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": ["reconciled", "mismatch", "unverifiable"]
+            },
+            "expectedAdjustedVehicleValue": {
+              "type": ["number", "null"]
+            },
+            "difference": {
+              "type": ["number", "null"]
+            }
+          }
+        },
+        "condition": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status",
+            "itemCount",
+            "usableValueImpactCount",
+            "missingValueImpactCount",
+            "sumDisclosedValueImpacts",
+            "totalAdjustment",
+            "valuationConditionAdjustment",
+            "differenceFromTotalAdjustment",
+            "differenceFromValuationAdjustment"
+          ],
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": ["reconciled", "mismatch", "unverifiable"]
+            },
+            "itemCount": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "usableValueImpactCount": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "missingValueImpactCount": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "sumDisclosedValueImpacts": {
+              "type": ["number", "null"]
+            },
+            "totalAdjustment": {
+              "type": ["number", "null"]
+            },
+            "valuationConditionAdjustment": {
+              "type": ["number", "null"]
+            },
+            "differenceFromTotalAdjustment": {
+              "type": ["number", "null"]
+            },
+            "differenceFromValuationAdjustment": {
+              "type": ["number", "null"]
+            }
+          }
+        },
+        "comparableAdjustedValues": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "count",
+            "missingCount",
+            "minimum",
+            "maximum",
+            "range",
+            "mean",
+            "median"
+          ],
+          "properties": {
+            "count": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "missingCount": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "minimum": {
+              "type": ["number", "null"]
+            },
+            "maximum": {
+              "type": ["number", "null"]
+            },
+            "range": {
+              "type": ["number", "null"]
+            },
+            "mean": {
+              "type": ["number", "null"]
+            },
+            "median": {
+              "type": ["number", "null"]
+            }
+          }
+        },
+        "comparableMileage": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "lossVehicleMileage",
+            "count",
+            "missingCount",
+            "minimum",
+            "maximum",
+            "mean",
+            "median",
+            "entries"
+          ],
+          "properties": {
+            "lossVehicleMileage": {
+              "type": ["number", "null"]
+            },
+            "count": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "missingCount": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "minimum": {
+              "type": ["number", "null"]
+            },
+            "maximum": {
+              "type": ["number", "null"]
+            },
+            "mean": {
+              "type": ["number", "null"]
+            },
+            "median": {
+              "type": ["number", "null"]
+            },
+            "entries": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "index",
+                  "comparableNumber",
+                  "mileage",
+                  "differenceFromLossVehicle"
+                ],
+                "properties": {
+                  "index": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "comparableNumber": {
+                    "type": ["integer", "null"]
+                  },
+                  "mileage": {
+                    "type": ["number", "null"]
+                  },
+                  "differenceFromLossVehicle": {
+                    "type": ["number", "null"]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "comparableAdjustments": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "fullyDisclosedCount",
+            "partiallyDisclosedCount",
+            "undisclosedCount",
+            "unavailableCount",
+            "entries"
+          ],
+          "properties": {
+            "fullyDisclosedCount": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "partiallyDisclosedCount": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "undisclosedCount": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "unavailableCount": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "entries": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "index",
+                  "comparableNumber",
+                  "listPrice",
+                  "adjustedValue",
+                  "netAdjustment",
+                  "disclosure",
+                  "components",
+                  "componentAdjustmentTotal",
+                  "expectedAdjustedValue",
+                  "difference",
+                  "reconciled"
+                ],
+                "properties": {
+                  "index": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "comparableNumber": {
+                    "type": ["integer", "null"]
+                  },
+                  "listPrice": {
+                    "type": ["number", "null"]
+                  },
+                  "adjustedValue": {
+                    "type": ["number", "null"]
+                  },
+                  "netAdjustment": {
+                    "type": ["number", "null"]
+                  },
+                  "disclosure": {
+                    "type": "string",
+                    "enum": ["full", "partial", "none", "unavailable"]
+                  },
+                  "components": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["package", "options", "mileage", "condition"],
+                    "properties": {
+                      "package": {
+                        "type": ["number", "null"]
+                      },
+                      "options": {
+                        "type": ["number", "null"]
+                      },
+                      "mileage": {
+                        "type": ["number", "null"]
+                      },
+                      "condition": {
+                        "type": ["number", "null"]
+                      }
+                    }
+                  },
+                  "componentAdjustmentTotal": {
+                    "type": ["number", "null"]
+                  },
+                  "expectedAdjustedValue": {
+                    "type": ["number", "null"]
+                  },
+                  "difference": {
+                    "type": ["number", "null"]
+                  },
+                  "reconciled": {
+                    "type": ["boolean", "null"]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "mileageAdjustmentDirection": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "checkedCount",
+            "consistentCount",
+            "inconsistentCount",
+            "unavailableCount",
+            "entries"
+          ],
+          "properties": {
+            "checkedCount": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "consistentCount": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "inconsistentCount": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "unavailableCount": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "entries": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "index",
+                  "comparableNumber",
+                  "lossVehicleMileage",
+                  "comparableMileage",
+                  "mileageAdjustment",
+                  "mileageDifference",
+                  "status"
+                ],
+                "properties": {
+                  "index": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "comparableNumber": {
+                    "type": ["integer", "null"]
+                  },
+                  "lossVehicleMileage": {
+                    "type": ["number", "null"]
+                  },
+                  "comparableMileage": {
+                    "type": ["number", "null"]
+                  },
+                  "mileageAdjustment": {
+                    "type": ["number", "null"]
+                  },
+                  "mileageDifference": {
+                    "type": ["number", "null"]
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": ["consistent", "inconsistent", "unavailable"]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "contributionPercentages": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "availability",
+            "availableCount",
+            "missingCount",
+            "displayedSum"
+          ],
+          "properties": {
+            "availability": {
+              "type": "string",
+              "enum": ["complete", "partial", "unavailable"]
+            },
+            "availableCount": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "missingCount": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "displayedSum": {
+              "type": ["number", "null"]
+            }
+          }
+        },
+        "comparableNumbering": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "integerNumberCount",
+            "missingNumberCount",
+            "duplicateNumbers",
+            "missingSequenceNumbers",
+            "outOfOrder"
+          ],
+          "properties": {
+            "integerNumberCount": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "missingNumberCount": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "duplicateNumbers": {
+              "type": "array",
+              "items": {
+                "type": "integer"
+              }
+            },
+            "missingSequenceNumbers": {
+              "type": "array",
+              "items": {
+                "type": "integer"
+              }
+            },
+            "outOfOrder": {
+              "type": "boolean"
+            }
+          }
+        }
+      }
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "code",
+          "status",
+          "category",
+          "title",
+          "description",
+          "comparableNumbers",
+          "evidence"
+        ],
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["PASS", "REVIEW", "WARNING"]
+          },
+          "category": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "comparableNumbers": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "evidence": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["path", "value"],
+              "properties": {
+                "path": {
+                  "type": "string"
+                },
+                "value": {}
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

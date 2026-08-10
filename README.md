@@ -1,4 +1,4 @@
-# Venfour CCC report extraction
+# Venfour CCC report extraction and analysis
 
 Venfour currently extracts structured valuation data directly from original CCC
 PDFs. The primary path sends the PDF to GPT-5.6 Sol (`gpt-5.6-sol`) with
@@ -19,6 +19,54 @@ Install the Python dependencies:
 ```sh
 python3 -m pip install -r requirements.txt
 ```
+
+## Phase 2: deterministic valuation analysis
+
+Extraction and analysis are separate stages:
+
+```text
+CCC PDF -> canonical report JSON -> deterministic analysis JSON
+```
+
+`scripts/analyze_report.py` reads an existing canonical extraction and runs local,
+rule-based checks. It does not call an AI model, require an API key, search the
+web, or make any external request. Analysis results are validated against
+`schemas/analysis/report-analysis.schema.json` and written atomically.
+
+Run the analyzer with an input and output path:
+
+```sh
+.venv/bin/python scripts/analyze_report.py \
+  data/extracted/ccc/ccc-001-camry-auto-club.json \
+  data/analyzed/ccc/ccc-001-camry-auto-club.analysis.json
+```
+
+The versioned output contains a valuation summary, comparable and mileage
+metrics, adjustment-reconciliation details, contribution availability, and
+structured findings with source JSON paths. Finding statuses mean:
+
+- `PASS`: the deterministic check was performed and the available data is
+  internally consistent.
+- `REVIEW`: data is unavailable, incomplete, different, statistically or
+  structurally notable, or otherwise worth human review. It is not proof of an
+  error or undervaluation.
+- `WARNING`: available values contain a definite arithmetic or structural
+  contradiction.
+
+Current checks cover valuation arithmetic; disclosed condition-impact totals;
+comparable numbering, repeated non-empty VINs, and missing values; disclosed,
+partial, and unavailable comparable adjustment breakdowns; mileage-adjustment
+direction; loss-vehicle versus comparable year, make, model, and trim;
+adjusted-value and mileage statistics; and displayed contribution percentages. A
+report total is retained as information but is not assumed to equal the adjusted
+vehicle value.
+
+The analyzer does not search for external market comparables, infer undisclosed
+adjustments or weights, reproduce a proprietary mileage formula, apply insurance
+law, determine legal entitlement, or definitively label a valuation fair or
+unfair. Those limitations are intentional; market search and user-facing
+explanation are later phases. Generated files under `data/analyzed/` are ignored,
+while deterministic test fixtures remain tracked.
 
 ## Deterministic regression tests
 
