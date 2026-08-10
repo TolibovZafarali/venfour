@@ -11,6 +11,7 @@ import os
 import sys
 import tempfile
 from collections.abc import Mapping
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -117,6 +118,15 @@ class OutputValidationError(PrototypeError):
     def __init__(self, errors: list[str]) -> None:
         super().__init__("Model output failed schema validation")
         self.errors = errors
+
+
+@dataclass(frozen=True)
+class AIExtractionResult:
+    """Parsed model output and request metadata before local validation."""
+
+    data: Any
+    model: str
+    usage: dict[str, int | None] | None
 
 
 def parse_args() -> argparse.Namespace:
@@ -426,6 +436,14 @@ def validate_comparable_numbers(data: Any) -> None:
         raise OutputValidationError(errors)
 
 
+def validate_extraction(data: Any, canonical_schema: dict[str, Any]) -> None:
+    """Apply the complete local validation contract for extracted report data."""
+
+    validate_output(data, canonical_schema)
+    validate_output(data, make_openai_schema(canonical_schema))
+    validate_comparable_numbers(data)
+
+
 def write_output(output_path: Path, data: Any) -> None:
     temporary_path: Path | None = None
     try:
@@ -493,6 +511,65 @@ def print_usage(response: Any) -> None:
     print(summary)
 
 
+def usage_details(response: Any) -> dict[str, int | None] | None:
+    """Return the token fields reported by OpenAI in a JSON-friendly shape."""
+
+    usage = get_field(response, "usage")
+    if usage is None:
+        return None
+
+    input_details = get_field(usage, "input_tokens_details")
+    output_details = get_field(usage, "output_tokens_details")
+    return {
+        "inputTokens": get_field(usage, "input_tokens"),
+        "outputTokens": get_field(usage, "output_tokens"),
+        "totalTokens": get_field(usage, "total_tokens"),
+        "cachedInputTokens": get_field(input_details, "cached_tokens"),
+        "cacheWriteInputTokens": get_field(input_details, "cache_write_tokens"),
+        "reasoningOutputTokens": get_field(output_details, "reasoning_tokens"),
+    }
+
+
+def extract_report_with_openai(
+    input_path: Path,
+    canonical_schema: dict[str, Any],
+) -> AIExtractionResult:
+    """Run the existing live extraction boundary and return parsed model data.
+
+    Canonical, API-strict, and comparable-number validation remain the caller's
+    responsibility so orchestration layers can apply the exact same checks to
+    live and deterministic fake extraction results.
+    """
+
+    validate_input(input_path)
+    require_api_key()
+    require_dependencies()
+    api_schema = make_openai_schema(canonical_schema)
+
+    try:
+        client = OpenAI()
+    except OpenAIError as exc:
+        raise PrototypeError(
+            f"OpenAI client could not be initialized: {exc}"
+        ) from exc
+
+    file_id = upload_pdf(client, input_path)
+    try:
+        response = request_extraction(client, file_id, api_schema)
+    finally:
+        delete_uploaded_file(client, file_id)
+
+    # Preserve usage reporting as soon as a billable response is available,
+    # including when parsing or downstream validation later fails.
+    print_usage(response)
+    data = parse_model_json(response_text(response))
+    return AIExtractionResult(
+        data=data,
+        model=str(get_field(response, "model", MODEL) or MODEL),
+        usage=usage_details(response),
+    )
+
+
 def main() -> int:
     args = parse_args()
     input_path = args.input_pdf.expanduser()
@@ -505,26 +582,10 @@ def main() -> int:
         require_api_key()
         require_dependencies()
         canonical_schema = read_canonical_schema()
-        api_schema = make_openai_schema(canonical_schema)
 
-        try:
-            client = OpenAI()
-        except OpenAIError as exc:
-            raise PrototypeError(
-                f"OpenAI client could not be initialized: {exc}"
-            ) from exc
-
-        file_id = upload_pdf(client, input_path)
-        try:
-            response = request_extraction(client, file_id, api_schema)
-        finally:
-            delete_uploaded_file(client, file_id)
-
-        print_usage(response)
-        data = parse_model_json(response_text(response))
-        validate_output(data, canonical_schema)
-        validate_output(data, api_schema)
-        validate_comparable_numbers(data)
+        extraction = extract_report_with_openai(input_path, canonical_schema)
+        data = extraction.data
+        validate_extraction(data, canonical_schema)
         write_output(output_path, data)
     except OutputValidationError as exc:
         print(f"Error: {exc}", file=sys.stderr)

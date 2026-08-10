@@ -20,6 +20,35 @@ Install the Python dependencies:
 python3 -m pip install -r requirements.txt
 ```
 
+## Phase 2.5: end-to-end report processing
+
+`scripts/process_report.py` turns one source PDF into both validated artifacts:
+
+```text
+CCC PDF -> GPT-5.6 Sol extraction -> canonical JSON -> deterministic analysis -> analysis JSON
+```
+
+Run it with a source report:
+
+```sh
+.venv/bin/python scripts/process_report.py \
+  data/raw/ccc/ccc-001-camry-auto-club.pdf
+```
+
+By default it writes
+`data/extracted/processed/<input-stem>.json` and
+`data/analyzed/processed/<input-stem>.analysis.json`. Use
+`--extraction-output` and `--analysis-output` to choose explicit paths. The
+first step calls the OpenAI API and therefore requires `OPENAI_API_KEY`; it also
+prints the existing API usage summary. Analysis remains deterministic and
+offline.
+
+Each valid artifact is written atomically. Extraction is committed first, so a
+later analysis failure leaves the valid extraction available and does not
+replace the analysis destination; any pre-existing analysis remains unchanged.
+Consumers should treat the pair as current only after a zero exit code, which
+means both outputs were validated and written successfully.
+
 ## Phase 2: deterministic valuation analysis
 
 Extraction and analysis are separate stages:
@@ -70,12 +99,14 @@ while deterministic test fixtures remain tracked.
 
 ## Deterministic regression tests
 
-The normal regression suite compares local JSON inputs with small, manually
-verified benchmark fixtures. It does not call OpenAI and does not require an
-`OPENAI_API_KEY`:
+The normal regression suite includes the complete orchestration flow using a
+deterministic fake only at the live OpenAI boundary. It validates extraction,
+runs and validates analysis, and checks the written artifacts using the small,
+manually verified benchmark fixtures. It makes no network requests, costs $0,
+and does not require an `OPENAI_API_KEY`:
 
 ```sh
-python3 -m unittest discover -s tests -v
+.venv/bin/python -m unittest discover -s tests -v
 ```
 
 The current benchmarks cover two real CCC reports:
@@ -86,19 +117,26 @@ The current benchmarks cover two real CCC reports:
 Only visually verified fields are benchmarked. Unverified report content is not
 treated as ground truth.
 
-## Optional live benchmark
+## Optional live benchmarks
 
-The live benchmark performs a fresh API extraction, validates the complete
-result against the schema, and compares the verified fields. It requires
-`OPENAI_API_KEY`, consumes API usage, prints usage information and every
-mismatch, and exits non-zero on failure.
-
-Run one report or both:
+The end-to-end live benchmark performs fresh API extraction, compares the
+verified fields, and only then runs the deterministic pipeline and its stable
+analysis checks. It requires `OPENAI_API_KEY`, consumes API usage, prints usage
+information and every mismatch, and exits non-zero on failure:
 
 ```sh
-python3 scripts/run_live_benchmark.py camry
-python3 scripts/run_live_benchmark.py elantra
-python3 scripts/run_live_benchmark.py all
+.venv/bin/python scripts/run_live_pipeline_benchmark.py camry
+.venv/bin/python scripts/run_live_pipeline_benchmark.py elantra
+.venv/bin/python scripts/run_live_pipeline_benchmark.py all
+```
+
+The extraction-only live benchmark remains available when analysis is not
+needed:
+
+```sh
+.venv/bin/python scripts/run_live_benchmark.py camry
+.venv/bin/python scripts/run_live_benchmark.py elantra
+.venv/bin/python scripts/run_live_benchmark.py all
 ```
 
 The source PDFs must exist under `data/raw/ccc/`. Raw reports in `data/raw/` and
