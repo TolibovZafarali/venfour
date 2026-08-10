@@ -1,0 +1,174 @@
+{
+  "vehicle": {
+    "year": 2024,
+    "make": "Hyundai",
+    "model": "Elantra",
+    "trim": "SEL",
+    "vin": "KMHLS4DG6RU755483",
+    "mileage": 46926,
+    "bodyStyle": "Sedan"
+  },
+  "valuation": {
+    "baseVehicleValue": 18749,
+    "conditionAdjustment": 297,
+    "adjustedVehicleValue": 19046,
+    "total": 19046
+  },
+  "condition": {
+    "totalAdjustment": 297,
+    "nonzeroValueImpacts": [
+      44,
+      148,
+      55,
+      44,
+      34,
+      -28
+    ]
+  },
+  "comparables": [
+    {
+      "number": 1,
+      "mileage": 40726,
+      "listPrice": 18800,
+      "adjustments": {
+        "package": 57,
+        "options": 894,
+        "mileage": -727,
+        "condition": -1351
+      },
+      "adjustedValue": 17673
+    },
+    {
+      "number": 2,
+      "mileage": 45291,
+      "listPrice": 19495,
+      "adjustments": {
+        "package": 57,
+        "options": 744,
+        "mileage": -172,
+        "condition": -1351
+      },
+      "adjustedValue": 18773
+    },
+    {
+      "number": 3,
+      "mileage": 42145,
+      "listPrice": 19998,
+      "adjustments": {
+        "package": 57,
+        "options": 894,
+        "mileage": -541,
+        "condition": -1351
+      },
+      "adjustedValue": 19057
+    },
+    {
+      "number": 4,
+      "mileage": 55729,
+      "listPrice": 17499,
+      "adjustments": {
+        "package": 57,
+        "options": 894,
+        "mileage": 727,
+        "condition": -1351
+      },
+      "adjustedValue": 17826
+    },
+    {
+      "number": 5,
+      "mileage": 41436,
+      "listPrice": 18395,
+      "adjustments": {
+        "package": 57,
+        "options": 894,
+        "mileage": -633,
+        "condition": -1351
+      },
+      "adjustedValue": 17362
+    },
+    {
+      "number": 6,
+      "mileage": 47856,
+      "listPrice": 19617,
+      "adjustments": {
+        "package": 57,
+        "options": 894,
+        "mileage": 92,
+        "condition": -1351
+      },
+      "adjustedValue": 19309
+    },
+    {
+      "number": 7,
+      "mileage": 44151,
+      "listPrice": 19608,
+      "adjustments": {
+        "package": null,
+        "options": null,
+        "mileage": null,
+        "condition": null
+      },
+      "adjustedValue": 18909
+    },
+    {
+      "number": 8,
+      "mileage": 51639,
+      "listPrice": 19608,
+      "adjustments": {
+        "package": null,
+        "options": null,
+        "mileage": null,
+        "condition": null
+      },
+      "adjustedValue": 19634
+    },
+    {
+      "number": 9,
+      "mileage": 42473,
+      "listPrice": 18214,
+      "adjustments": {
+        "package": null,
+        "options": null,
+        "mileage": null,
+        "condition": null
+      },
+      "adjustedValue": 16763
+    },
+    {
+      "number": 10,
+      "mileage": 52001,
+      "listPrice": 20400,
+      "adjustments": {
+        "package": null,
+        "options": null,
+        "mileage": null,
+        "condition": null
+      },
+      "adjustedValue": 20305
+    },
+    {
+      "number": 11,
+      "mileage": 40132,
+      "listPrice": 19900,
+      "adjustments": {
+        "package": null,
+        "options": null,
+        "mileage": null,
+        "condition": null
+      },
+      "adjustedValue": 18692
+    },
+    {
+      "number": 12,
+      "mileage": 55670,
+      "listPrice": 19995,
+      "adjustments": {
+        "package": null,
+        "options": null,
+        "mileage": null,
+        "condition": null
+      },
+      "adjustedValue": 20318
+    }
+  ]
+}

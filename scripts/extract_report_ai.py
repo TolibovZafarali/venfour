@@ -35,7 +35,7 @@ except ImportError:  # Keep imports safe so the CLI can report a clean error.
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SCHEMA_PATH = REPO_ROOT / "schemas" / "ccc" / "report.schema.json"
-MODEL = "gpt-5.6"
+MODEL = "gpt-5.6-sol"
 MAX_PDF_BYTES = 50 * 1024 * 1024
 
 EXTRACTION_INSTRUCTIONS = """\
@@ -80,10 +80,18 @@ Rules:
   as notes (not generic guideline text), and the exact signed amount as valueImpact.
   Populate condition.totalAdjustment only from a printed condition total; do not
   merge components or move an impact between rows.
-- Use the detailed, labeled loss-vehicle fields as authoritative. Use only the Trim
-  field for vehicle.trim. Map a printed Body Style to vehicle.bodyStyle (use Body Type
-  only when Body Style is absent), and a printed Transmission to vehicle.transmission.
-  Do not append cylinders, displacement, fuel, carburation, body, or transmission
+- Use the detailed, labeled loss-vehicle fields as authoritative. Associate each
+  value with its own label; do not take wrapped or nearby text from another row.
+  Use only the Trim field for vehicle.trim, and a printed Transmission field for
+  vehicle.transmission.
+- For vehicle.bodyStyle, prefer the exact value explicitly associated with the
+  Body Style label. The value must describe a physical body configuration, not a
+  transmission, drivetrain, engine, package, or trim qualifier. If Body Style is
+  absent, blank, or contains only such an unrelated qualifier, treat it as having
+  no usable value and use an explicitly printed Body Type value as the fallback.
+  Never infer a body style, and never substitute text from a composite vehicle
+  heading or an adjacent row.
+- Do not append cylinders, displacement, fuel, carburation, body, or transmission
   text from a composite vehicle heading to a trim.
 - For vehicle.equipment, include the loss-vehicle package and each named row marked
   present by a Standard checkmark or Additional Equipment icon, once. Exclude section

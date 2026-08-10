@@ -1,0 +1,150 @@
+{
+  "vehicle": {
+    "year": 2025,
+    "make": "Toyota",
+    "model": "Camry",
+    "trim": "SE",
+    "vin": "4T1DAACK2SU623063",
+    "mileage": 7192
+  },
+  "valuation": {
+    "baseVehicleValue": 31008,
+    "conditionAdjustment": 0,
+    "adjustedVehicleValue": 31008,
+    "total": 31030.50
+  },
+  "comparables": [
+    {
+      "number": 1,
+      "mileage": 11714,
+      "listPrice": 28999,
+      "adjustments": {
+        "package": null,
+        "options": null,
+        "mileage": null,
+        "condition": null
+      },
+      "adjustedValue": 29293
+    },
+    {
+      "number": 2,
+      "mileage": 9375,
+      "listPrice": 31600,
+      "adjustments": {
+        "package": null,
+        "options": null,
+        "mileage": null,
+        "condition": null
+      },
+      "adjustedValue": 31837
+    },
+    {
+      "number": 3,
+      "mileage": 3558,
+      "listPrice": 32899,
+      "adjustments": {
+        "package": null,
+        "options": null,
+        "mileage": null,
+        "condition": null
+      },
+      "adjustedValue": 31938
+    },
+    {
+      "number": 4,
+      "mileage": 11821,
+      "listPrice": 29597,
+      "adjustments": {
+        "package": null,
+        "options": null,
+        "mileage": null,
+        "condition": null
+      },
+      "adjustedValue": 30441
+    },
+    {
+      "number": 5,
+      "mileage": 6985,
+      "listPrice": 28797,
+      "adjustments": {
+        "package": null,
+        "options": null,
+        "mileage": null,
+        "condition": null
+      },
+      "adjustedValue": 28081
+    },
+    {
+      "number": 6,
+      "mileage": 11366,
+      "listPrice": 28997,
+      "adjustments": {
+        "package": null,
+        "options": null,
+        "mileage": null,
+        "condition": null
+      },
+      "adjustedValue": 29412
+    },
+    {
+      "number": 7,
+      "mileage": 10018,
+      "listPrice": 32995,
+      "adjustments": {
+        "package": null,
+        "options": null,
+        "mileage": null,
+        "condition": null
+      },
+      "adjustedValue": 32735
+    },
+    {
+      "number": 8,
+      "mileage": 9448,
+      "listPrice": 31259,
+      "adjustments": {
+        "package": null,
+        "options": null,
+        "mileage": null,
+        "condition": null
+      },
+      "adjustedValue": 31230
+    },
+    {
+      "number": 9,
+      "mileage": null,
+      "listPrice": 28997,
+      "adjustments": {
+        "package": null,
+        "options": null,
+        "mileage": null,
+        "condition": null
+      },
+      "adjustedValue": 29079
+    },
+    {
+      "number": 10,
+      "mileage": null,
+      "listPrice": 34955,
+      "adjustments": {
+        "package": null,
+        "options": null,
+        "mileage": null,
+        "condition": null
+      },
+      "adjustedValue": 35832
+    },
+    {
+      "number": 11,
+      "mileage": null,
+      "listPrice": 29990,
+      "adjustments": {
+        "package": null,
+        "options": null,
+        "mileage": null,
+        "condition": null
+      },
+      "adjustedValue": 31215
+    }
+  ]
+}
