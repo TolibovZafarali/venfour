@@ -20,6 +20,36 @@ Install the Python dependencies:
 python3 -m pip install -r requirements.txt
 ```
 
+## Phase 3A: provider-neutral market discovery
+
+Phase 3A establishes the offline boundary for discovering external vehicle
+listings:
+
+```text
+MarketSearchRequest -> MarketProvider adapter -> canonical MarketSearchResult
+```
+
+An adapter translates a provider-specific response into Venfour's common
+`MarketListing` contract. Discovery validates the request and normalized result
+but does not rank listings, compare them with CCC comparables, or calculate a
+valuation. A future live source only needs to implement the `MarketProvider`
+interface; downstream code remains provider-neutral.
+
+The current `FixtureMarketProvider` uses committed, explicitly synthetic Camry
+and Elantra records. It makes no network requests, requires no API key, costs
+$0, and must not be treated as verified current market data. No live
+vehicle-listing provider is integrated yet. Adapters trim surrounding
+whitespace, preserve numeric and null values, and never guess missing trim, VIN,
+mileage, price, or distance. Provider/source names use stable lowercase
+identifiers, and safe two-letter state abbreviations are uppercased without
+rewriting other location text.
+
+Run the complete offline test suite with:
+
+```sh
+.venv/bin/python -m unittest discover -s tests -v
+```
+
 ## Phase 2.5: end-to-end report processing
 
 `scripts/process_report.py` turns one source PDF into both validated artifacts:

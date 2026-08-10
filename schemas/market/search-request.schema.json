@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Venfour Market Search Request",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["year", "make", "model"],
+  "properties": {
+    "year": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "make": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "\\S"
+    },
+    "model": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "\\S"
+    },
+    "trim": {
+      "type": ["string", "null"],
+      "minLength": 1,
+      "pattern": "\\S"
+    },
+    "lossVehicleMileage": {
+      "type": ["integer", "null"],
+      "minimum": 0
+    },
+    "postalCode": {
+      "type": ["string", "null"],
+      "minLength": 1,
+      "pattern": "\\S"
+    },
+    "radiusMiles": {
+      "type": "integer",
+      "minimum": 0,
+      "default": 50
+    },
+    "resultLimit": {
+      "type": "integer",
+      "minimum": 1,
+      "default": 25
+    }
+  }
+}

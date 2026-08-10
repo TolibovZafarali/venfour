@@ -1,0 +1,97 @@
+{
+  "syntheticData": true,
+  "notice": "Fictional software-test records only; these are not verified or current market listings or prices.",
+  "records": [
+    {
+      "fixtureListingId": "synthetic-camry-001",
+      "detailsUrl": "https://fixtures.example/vehicles/synthetic-camry-001",
+      "vehicle": {
+        "modelYear": 2025,
+        "manufacturer": " Toyota ",
+        "modelName": " Camry ",
+        "grade": " SE ",
+        "vehicleIdentificationNumber": null
+      },
+      "odometerMiles": 8500,
+      "askingPrice": 32995,
+      "seller": {
+        "displayName": " Synthetic Toyota One ",
+        "locality": " St. Louis ",
+        "regionCode": " mo ",
+        "postal": " 63123 "
+      },
+      "milesFromSearch": 14,
+      "providerDebug": {
+        "inventoryStatus": "test-only",
+        "internalStockCode": "DO-NOT-EXPOSE-C1"
+      }
+    },
+    {
+      "fixtureListingId": null,
+      "detailsUrl": null,
+      "vehicle": {
+        "modelYear": 2025,
+        "manufacturer": "Toyota",
+        "modelName": "Camry",
+        "grade": null,
+        "vehicleIdentificationNumber": "SYNTHETIC-CAMRY-VIN"
+      },
+      "odometerMiles": null,
+      "askingPrice": 31450.75,
+      "seller": null,
+      "milesFromSearch": null,
+      "providerDebug": {
+        "inventoryStatus": "test-only",
+        "internalStockCode": "DO-NOT-EXPOSE-C2"
+      }
+    },
+    {
+      "fixtureListingId": "synthetic-elantra-001",
+      "detailsUrl": "https://fixtures.example/vehicles/synthetic-elantra-001",
+      "vehicle": {
+        "modelYear": 2024,
+        "manufacturer": " Hyundai ",
+        "modelName": " Elantra ",
+        "grade": " SEL ",
+        "vehicleIdentificationNumber": "SYNTHETIC-ELANTRA-VIN"
+      },
+      "odometerMiles": 12400,
+      "askingPrice": 23995,
+      "seller": {
+        "displayName": " Synthetic Hyundai One ",
+        "locality": " St. Charles ",
+        "regionCode": "MO",
+        "postal": "63301"
+      },
+      "milesFromSearch": 22.5,
+      "providerDebug": {
+        "inventoryStatus": "test-only",
+        "internalStockCode": "DO-NOT-EXPOSE-E1"
+      }
+    },
+    {
+      "fixtureListingId": "synthetic-elantra-002",
+      "detailsUrl": "https://fixtures.example/vehicles/synthetic-elantra-002",
+      "vehicle": {
+        "modelYear": 2024,
+        "manufacturer": "Hyundai",
+        "modelName": "Elantra",
+        "grade": "SEL Convenience",
+        "vehicleIdentificationNumber": null
+      },
+      "odometerMiles": 18750,
+      "askingPrice": 22750,
+      "seller": {
+        "displayName": null,
+        "locality": "Belleville",
+        "regionCode": "il",
+        "postal": null
+      },
+      "milesFromSearch": 31,
+      "providerDebug": {
+        "inventoryStatus": "test-only",
+        "internalStockCode": "DO-NOT-EXPOSE-E2"
+      }
+    }
+  ]
+}
