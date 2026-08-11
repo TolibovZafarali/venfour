@@ -20,6 +20,57 @@ Install the Python dependencies:
 python3 -m pip install -r requirements.txt
 ```
 
+## Phase 3C: deterministic comparable matching
+
+Phase 3C ranks already-discovered canonical `MarketListing` objects by factual
+similarity to the loss vehicle:
+
+```text
+ComparableTarget + MarketSearchResult -> ComparableRankingResult
+```
+
+The scorer in `venfour/comparables.py` is provider-neutral and makes no network
+requests. `MarketCheck` is only one possible source of canonical listings;
+future providers use the same scoring rules after normalization. Every input
+listing remains in the result. Normalized make and model mismatches are marked
+`INELIGIBLE` with structured reasons instead of being silently discarded.
+
+Comparable scoring version 1 uses a 0–100 scale. Make and model are eligibility
+gates, not points. Eligible candidates receive:
+
+| Factor | Maximum | Version 1 rule |
+| --- | ---: | --- |
+| Year | 20 | Same year: 20; one year apart: 12; two years: 4; three or more: 0 |
+| Trim | 20 | Exact normalized trim: 20; unavailable on either side: 10; different: 0 |
+| Mileage | 50 | Linear interpolation through 0 mi: 50, 5,000: 45, 10,000: 35, 25,000: 15, and 50,000+: 0 |
+| Distance | 10 | Full through 10 mi, then linear interpolation through 25 mi: 9, 50: 7, 100: 4, and 200+: 0 |
+
+A missing mileage receives 15 mileage points and a null `differenceMiles`; a
+missing distance receives 5 distance points and a null `distanceMiles`. These
+reduced values keep missing data distinct from a real zero-mile difference or
+zero-mile distance. Missing VIN is reported but has no score penalty. Text
+matching is case-insensitive, collapses whitespace, and does not use fuzzy make,
+model, or trim aliases. Mileage uses the absolute difference, so equal positive
+and negative gaps score identically. Displayed components are rounded to two
+decimal places and sum exactly to the displayed total.
+
+Scores of 85–100 are `STRONG`, 70–84.99 are `GOOD`, and lower eligible scores
+are `WEAK`. Those labels describe similarity under Venfour's version 1 rules;
+they do not establish legal admissibility, prove valuation error, or determine
+whether a listing is economically preferable. Eligible candidates sort by
+score descending, then smaller available mileage difference, smaller available
+distance, and finally original provider order. Ineligible candidates follow in
+their original order. The target and echoed market request must contain the
+same postal origin, including the case where both are unavailable. Without an
+origin, a provider-supplied distance remains in the listing as information but
+receives the neutral missing-distance score; mismatched origins are rejected.
+
+Listing price remains present for later phases, but it does not affect
+eligibility, any component, the total score, the tier, or any tie-break. This
+phase does not compare listings with CCC values, calculate a Venfour vehicle
+value, characterize a listing as over- or underpriced, or conclude that a CCC
+valuation is high or low.
+
 ## Phase 3B: live MarketCheck inventory
 
 Phase 3A established the provider-neutral boundary for discovering external
@@ -67,8 +118,9 @@ over time and should not be treated as deterministic fixtures.
 committed Camry and Elantra records are explicitly synthetic, make no network
 requests, require no API key, cost $0, and are not current market evidence.
 Normal tests use injected transports and fixtures, so they remain completely
-offline. Discovery still does not rank listings, compare them with CCC
-comparables, or calculate an alternative valuation; those are later phases.
+offline. Discovery itself does not rank listings. Phase 3C ranking is a
+separate, deterministic step and still does not compare external listings with
+CCC comparables or calculate an alternative valuation.
 
 Run the complete offline test suite with:
 
