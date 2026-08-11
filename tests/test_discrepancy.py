@@ -450,7 +450,7 @@ class DiscrepancyScenarioTests(unittest.TestCase):
         )
         self.assertEqual(result.classification, MATERIAL_UNDERVALUE_SIGNAL)
 
-    def test_high_dispersion_is_conflicting_and_low_strength(self) -> None:
+    def test_high_dispersion_with_ccc_inside_range_is_conflicting(self) -> None:
         result = analyze_prices([1_200_000, 1_600_000, 2_000_000, 2_400_000, 2_800_000])
 
         prices = result.historical_external_summary.prices
@@ -459,6 +459,47 @@ class DiscrepancyScenarioTests(unittest.TestCase):
         self.assertEqual(result.classification, CONFLICTING_EVIDENCE)
         self.assertEqual(result.evidence_strength, LOW)
         self.assertIn("EXTERNAL_MARKET_HIGH_DISPERSION", message_codes(result.findings))
+        self.assertIn("CCC_WITHIN_EXTERNAL_RANGE", message_codes(result.findings))
+
+    def test_high_dispersion_all_external_prices_above_ccc_is_potential(self) -> None:
+        result = analyze_prices(
+            [2_000_000, 2_400_000, 3_000_000, 3_600_000, 4_000_000],
+            ccc_vehicle_valuation_cents=1_500_000,
+        )
+
+        self.assertEqual(result.classification, POTENTIAL_UNDERVALUE)
+        self.assertEqual(result.evidence_strength, LOW)
+        self.assertIn("EXTERNAL_MARKET_HIGH_DISPERSION", message_codes(result.findings))
+        self.assertIn("CCC_BELOW_EXTERNAL_RANGE", message_codes(result.findings))
+        self.assertIn("POTENTIAL_GAP_THRESHOLD_MET", message_codes(result.findings))
+
+    def test_high_dispersion_all_external_prices_below_ccc_is_not_undervalue(
+        self,
+    ) -> None:
+        result = analyze_prices(
+            [2_000_000, 2_400_000, 3_000_000, 3_600_000, 4_000_000],
+            ccc_vehicle_valuation_cents=4_500_000,
+        )
+
+        self.assertEqual(result.classification, NO_MATERIAL_DISCREPANCY)
+        self.assertEqual(result.evidence_strength, LOW)
+        self.assertIn("EXTERNAL_MARKET_HIGH_DISPERSION", message_codes(result.findings))
+        self.assertIn("CCC_ABOVE_EXTERNAL_RANGE", message_codes(result.findings))
+
+    def test_high_dispersion_downgrades_clear_material_gap_to_potential(self) -> None:
+        coherent = analyze_prices(
+            [3_000_000] * 5,
+            ccc_vehicle_valuation_cents=1_500_000,
+        )
+        dispersed = analyze_prices(
+            [2_000_000, 2_400_000, 3_000_000, 3_600_000, 4_000_000],
+            ccc_vehicle_valuation_cents=1_500_000,
+        )
+
+        self.assertEqual(coherent.classification, MATERIAL_UNDERVALUE_SIGNAL)
+        self.assertEqual(coherent.evidence_strength, STRONG)
+        self.assertEqual(dispersed.classification, POTENTIAL_UNDERVALUE)
+        self.assertEqual(dispersed.evidence_strength, LOW)
 
     def test_bimodal_central_spread_is_conflicting_even_when_mad_is_zero(self) -> None:
         result = analyze_prices(
@@ -1025,17 +1066,60 @@ class PolicyBoundaryTests(unittest.TestCase):
 
     def test_dispersion_below_exact_and_above(self) -> None:
         cases = (
-            ([1_200_001, 1_600_001, 2_000_000, 2_399_999, 2_799_999], False),
-            ([1_200_000, 1_600_000, 2_000_000, 2_400_000, 2_800_000], True),
-            ([1_199_999, 1_599_999, 2_000_000, 2_400_001, 2_800_001], True),
+            (
+                [1_200_001, 1_600_001, 2_000_000, 2_399_999, 2_799_999],
+                NO_MATERIAL_DISCREPANCY,
+                STRONG,
+            ),
+            (
+                [1_200_000, 1_600_000, 2_000_000, 2_400_000, 2_800_000],
+                CONFLICTING_EVIDENCE,
+                LOW,
+            ),
+            (
+                [1_199_999, 1_599_999, 2_000_000, 2_400_001, 2_800_001],
+                CONFLICTING_EVIDENCE,
+                LOW,
+            ),
         )
-        for prices, conflicting in cases:
+        for prices, expected_classification, expected_strength in cases:
             with self.subTest(prices=prices):
                 result = analyze_prices(prices)
-                self.assertEqual(
-                    result.classification == CONFLICTING_EVIDENCE,
-                    conflicting,
+                self.assertEqual(result.classification, expected_classification)
+                self.assertEqual(result.evidence_strength, expected_strength)
+
+    def test_dispersion_boundary_preserves_clear_undervalue_direction(self) -> None:
+        cases = (
+            (
+                [1_800_001, 2_400_001, 3_000_000, 3_599_999, 4_199_999],
+                MATERIAL_UNDERVALUE_SIGNAL,
+                STRONG,
+                False,
+            ),
+            (
+                [1_800_000, 2_400_000, 3_000_000, 3_600_000, 4_200_000],
+                POTENTIAL_UNDERVALUE,
+                LOW,
+                True,
+            ),
+            (
+                [1_799_999, 2_399_999, 3_000_000, 3_600_001, 4_200_001],
+                POTENTIAL_UNDERVALUE,
+                LOW,
+                True,
+            ),
+        )
+        for prices, expected_classification, expected_strength, high in cases:
+            with self.subTest(prices=prices):
+                result = analyze_prices(
+                    prices,
+                    ccc_vehicle_valuation_cents=1_500_000,
                 )
+                codes = message_codes(result.findings)
+                self.assertEqual(result.classification, expected_classification)
+                self.assertEqual(result.evidence_strength, expected_strength)
+                self.assertEqual("EXTERNAL_MARKET_HIGH_DISPERSION" in codes, high)
+                self.assertIn("CCC_BELOW_EXTERNAL_RANGE", codes)
 
     def test_comparison_set_limit_below_exact_and_above(self) -> None:
         for count in (4, 5, 6):

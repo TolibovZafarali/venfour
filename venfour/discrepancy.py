@@ -1756,6 +1756,18 @@ def _gap_at_or_above_threshold(
     )
 
 
+def _range_strictly_spans_value(
+    minimum_cents: int | None,
+    maximum_cents: int | None,
+    value_cents: int,
+) -> bool:
+    return (
+        minimum_cents is not None
+        and maximum_cents is not None
+        and minimum_cents < value_cents < maximum_cents
+    )
+
+
 def _choose_primary_summary(
     historical: ExternalEvidenceSummary | None,
     current: ExternalEvidenceSummary | None,
@@ -1815,15 +1827,32 @@ def _classification(
         or primary_summary.prices.median_price_cents in {None, 0}
     ):
         return INSUFFICIENT_EVIDENCE
-    if _dispersion_at_or_above_threshold(
-        primary_summary, policy.high_dispersion_basis_points
-    ):
-        return CONFLICTING_EVIDENCE
-
     external_median = primary_summary.prices.median_price_cents
     if external_median is None:
         raise AssertionError("classification requires a median")
     difference = external_median - ccc_vehicle_valuation_cents
+    if _dispersion_at_or_above_threshold(
+        primary_summary, policy.high_dispersion_basis_points
+    ):
+        prices = primary_summary.prices
+        if _range_strictly_spans_value(
+            prices.minimum_price_cents,
+            prices.maximum_price_cents,
+            ccc_vehicle_valuation_cents,
+        ):
+            return CONFLICTING_EVIDENCE
+        if (
+            prices.minimum_price_cents is not None
+            and ccc_vehicle_valuation_cents < prices.minimum_price_cents
+            and _gap_at_or_above_threshold(
+                difference,
+                ccc_vehicle_valuation_cents,
+                policy.potential_gap_basis_points,
+            )
+        ):
+            return POTENTIAL_UNDERVALUE
+        return NO_MATERIAL_DISCREPANCY
+
     if (
         evidence_strength == STRONG
         and _gap_at_or_above_threshold(
@@ -2747,12 +2776,28 @@ def _expected_result_classification(
         or summary["prices"]["medianPriceCents"] in {None, 0}
     ):
         return INSUFFICIENT_EVIDENCE
-    if _result_dispersion_high(summary, policy):
-        return CONFLICTING_EVIDENCE
     median = summary["prices"]["medianPriceCents"]
     if median is None:
         raise AssertionError("classification requires external median")
     difference = median - valuation
+    if _result_dispersion_high(summary, policy):
+        prices = summary["prices"]
+        if _range_strictly_spans_value(
+            prices["minimumPriceCents"],
+            prices["maximumPriceCents"],
+            valuation,
+        ):
+            return CONFLICTING_EVIDENCE
+        if (
+            prices["minimumPriceCents"] is not None
+            and valuation < prices["minimumPriceCents"]
+            and difference > 0
+            and difference * 10_000
+            >= policy["potentialGapBasisPoints"] * valuation
+        ):
+            return POTENTIAL_UNDERVALUE
+        return NO_MATERIAL_DISCREPANCY
+
     if (
         strength == STRONG
         and difference > 0

@@ -139,11 +139,15 @@ records the policy it used.
 
 Classification proceeds conservatively. Unusable valuation inputs, a zero
 comparison denominator, or fewer than three independent selected comparables
-produce `INSUFFICIENT_EVIDENCE`. Sufficient but highly dispersed primary evidence
-produces `CONFLICTING_EVIDENCE`. A median at least 10% above the CCC vehicle
-valuation produces `MATERIAL_UNDERVALUE_SIGNAL` only when the evidence strength
-is `STRONG`; otherwise a difference of at least 5% produces
-`POTENTIAL_UNDERVALUE`. Remaining coherent cases produce
+produce `INSUFFICIENT_EVIDENCE`. Highly dispersed primary evidence produces
+`CONFLICTING_EVIDENCE` only when its observed range strictly spans both below
+and above the CCC valuation. When CCC is below the entire observed range and the
+median clears the potential threshold, high dispersion instead produces
+`POTENTIAL_UNDERVALUE`; when the whole range is below CCC, it produces no
+undervalue classification. A median at least 10% above the CCC vehicle valuation
+produces `MATERIAL_UNDERVALUE_SIGNAL` only when the evidence strength is `STRONG`
+and dispersion is below the high-dispersion threshold; otherwise a difference of
+at least 5% can produce `POTENTIAL_UNDERVALUE`. Remaining coherent cases produce
 `NO_MATERIAL_DISCREPANCY`, meaning that the policy found no material undervalue
 signal; a separate consistency finding appears only when the absolute median gap
 is below the potential threshold. A single low listing does not erase an
