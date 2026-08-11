@@ -26,8 +26,9 @@ it does not mean those broader capabilities are implemented in this repository.
 
 ## Current repository scope
 
-This repository contains the Python backend through Phase 3F and the initial
-customer-frontend foundation. The implemented backend pipeline covers:
+This repository contains the Python backend through Phase 3F and the
+customer-facing analysis-results web application. The implemented backend
+pipeline covers:
 
 - structured extraction and validation of CCC valuation reports;
 - normalized vehicle, valuation, and comparable data;
@@ -59,12 +60,13 @@ deterministic presentation model
 read-only JSON API
 ```
 
-The customer-facing application currently provides only a production-oriented
-frontend foundation: application providers, routing, a minimal shell, a typed
-HTTP client, a backend health query, reusable UI setup, and test infrastructure.
-The valuation workflow and finished product pages have not been implemented.
-Phase 3F also does not provide authentication, user ownership, report-upload
-endpoints, analysis-creation endpoints, or production deployment configuration.
+The customer-facing application includes its first product experience at
+`/analyses/:runId`: a responsive evidence report over the validated Phase 3E
+presentation contract. It presents the assessment, market-range comparison,
+loss-date comparables, current-market context, CCC comparables and adjustments,
+and important limitations. The frontend does not reproduce backend analysis or
+ranking logic. Upload, authentication, user ownership, analysis creation, and
+production deployment configuration remain outside the current scope.
 
 ## Evidence and engineering principles
 
@@ -163,6 +165,24 @@ cp .env.example .env.local
 deployment intentionally serves the API elsewhere and has an appropriate CORS
 policy.
 
+To create the deterministic representative material-undervalue analysis used by
+the frontend tests, run this once from the repository root:
+
+```sh
+.venv/bin/python scripts/seed_representative_analysis.py
+```
+
+Then start the API and frontend as shown above and open:
+
+```text
+http://localhost:5173/analyses/00000000-0000-4000-8000-000000000001
+```
+
+The seed command uses the existing offline orchestration fixtures to write a
+real validated analysis-run artifact under the ignored `data/analysis-runs/`
+directory. The normal frontend runtime still fetches the real
+`GET /api/v1/analyses/{runId}` endpoint.
+
 Available frontend checks are:
 
 ```sh
@@ -170,6 +190,14 @@ npm run lint
 npm run typecheck
 npm test
 npm run build
+```
+
+`AnalysisPresentation` TypeScript types are generated from the authoritative
+backend JSON Schema. Regenerate and verify them with:
+
+```sh
+npm run generate:contracts
+npm run check:contracts
 ```
 
 ## Phase 3F: read-only analysis presentation API
@@ -188,7 +216,7 @@ Phase 3E AnalysisPresentationService
       ↓
 Phase 3F read-only HTTP API
       ↓
-future Venfour dashboard
+Venfour analysis results page
 ```
 
 `GET /api/v1/analyses/{runId}` returns the validated

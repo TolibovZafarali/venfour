@@ -4,6 +4,7 @@ import {
 } from "react-router";
 
 import { AppShell } from "@/components/app-shell";
+import { AnalysisPage } from "@/pages/analysis-page";
 import { HomePage } from "@/pages/home-page";
 import { NotFoundPage } from "@/pages/not-found-page";
 import { WorkspacePage } from "@/pages/workspace-page";
@@ -15,6 +16,7 @@ export const appRoutes: RouteObject[] = [
     children: [
       { index: true, element: <HomePage /> },
       { path: "workspace", element: <WorkspacePage /> },
+      { path: "analyses/:runId", element: <AnalysisPage /> },
       { path: "*", element: <NotFoundPage /> },
     ],
   },

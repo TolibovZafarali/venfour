@@ -8,9 +8,11 @@
   },
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "npm run check:contracts && tsc -b && vite build",
     "preview": "vite preview",
-    "typecheck": "tsc -b --pretty false",
+    "generate:contracts": "node scripts/analysis-contract.mjs",
+    "check:contracts": "node scripts/analysis-contract.mjs --check",
+    "typecheck": "npm run check:contracts && tsc -b --pretty false",
     "lint": "eslint .",
     "test": "vitest run",
     "test:watch": "vitest"
@@ -42,6 +44,7 @@
     "eslint-plugin-react-refresh": "0.5.4",
     "globals": "17.9.0",
     "jsdom": "28.1.0",
+    "json-schema-to-typescript": "15.0.4",
     "msw": "2.15.0",
     "shadcn": "4.16.2",
     "tailwindcss": "4.3.3",
