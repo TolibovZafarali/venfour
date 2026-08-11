@@ -1,5 +1,6 @@
 import { delay, http, HttpResponse } from "msw";
-import { screen } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, test } from "vitest";
 
 import type {
@@ -232,6 +233,65 @@ function insufficientEvidenceAnalysis(): AnalysisPresentation {
   return analysis as AnalysisPresentation;
 }
 
+function fractionalPriceAnalysis(): AnalysisPresentation {
+  const analysis: AnalysisPresentationBase = structuredClone(
+    materialUndervalueAnalysis,
+  );
+  const firstComparable = analysis.comparablesUsed.primary[0];
+  if (!firstComparable) {
+    throw new Error("Representative fixture requires a primary comparable.");
+  }
+
+  firstComparable.advertisedPrice = {
+    cents: 2_180_050,
+    display: "$21,800.50",
+  };
+
+  return analysis as AnalysisPresentation;
+}
+
+function historicalWithoutCurrentContextAnalysis(): AnalysisPresentation {
+  const analysis: AnalysisPresentationBase = structuredClone(
+    materialUndervalueAnalysis,
+  );
+  analysis.secondaryExternalEvidence = null;
+  analysis.comparablesUsed.secondary = [];
+
+  return analysis as AnalysisPresentation;
+}
+
+function nonpositiveCccAnalysis(): AnalysisPresentation {
+  const analysis: AnalysisPresentationBase = structuredClone(
+    materialUndervalueAnalysis,
+  );
+  const comparison = analysis.cccValuation.comparisonToPrimaryEvidence;
+  if (!comparison) {
+    throw new Error("Representative fixture requires a primary comparison.");
+  }
+
+  analysis.assessment = {
+    ...analysis.assessment,
+    classification: "INSUFFICIENT_EVIDENCE",
+    classificationLabel: "Insufficient evidence",
+    summary:
+      "The CCC vehicle value is not positive, so a meaningful percentage comparison cannot be calculated.",
+  };
+  analysis.cccValuation.adjustedVehicleValue = { cents: 0, display: "$0.00" };
+  comparison.secondValue = { cents: 0, display: "$0.00" };
+  comparison.difference = { cents: 2_220_000, display: "$22,200.00" };
+  comparison.differencePercent = { basisPoints: null, display: null };
+  analysis.findings = [
+    {
+      code: "NONPOSITIVE_CCC_VEHICLE_VALUATION",
+      label: "CCC vehicle value is not positive",
+      description:
+        "A positive CCC vehicle value is required for a meaningful percentage comparison.",
+    },
+  ];
+
+  return analysis as AnalysisPresentation;
+}
+
 describe("analysis results page", () => {
   test("presents the material undervalue assessment and authoritative values", async () => {
     renderTestApp([analysisPath]);
@@ -248,14 +308,16 @@ describe("analysis results page", () => {
       }),
     ).toBeInTheDocument();
     expect(screen.getAllByText("50,000 miles").length).toBeGreaterThan(0);
-    expect(screen.getByText("Loss date May 19, 2026")).toBeInTheDocument();
+    expect(screen.getByText("Loss date").parentElement).toHaveTextContent(
+      "Loss dateMay 19, 2026",
+    );
 
-    expect(screen.getAllByText("$20,000.00").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("$22,200.00").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("$2,200.00").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("11.00%").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("$20,000").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("$22,200").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("$2,200").length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/11% above CCC/).length).toBeGreaterThan(0);
     expect(
-      screen.getAllByText("$21,800.00–$22,600.00").length,
+      screen.getAllByText("$21,800–$22,600").length,
     ).toBeGreaterThan(0);
     expect(
       screen.getByText(
@@ -265,7 +327,7 @@ describe("analysis results page", () => {
     expect(
       screen.getByRole("heading", { name: "What CCC used in its valuation" }),
     ).toBeInTheDocument();
-    expect(screen.getAllByText("$20,100.00").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("$20,100").length).toBeGreaterThan(0);
     expect(screen.getByText("Important limitations")).toBeInTheDocument();
     expect(
       screen.getByRole("region", { name: "Important limitations" }),
@@ -278,6 +340,16 @@ describe("analysis results page", () => {
     ).toBeInTheDocument();
     expect(
       screen.getByRole("region", { name: "What CCC used in its valuation" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("region", {
+        name: "Strong evidence suggests your CCC valuation may be low",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("figure", {
+        name: /CCC adjusted value \$20,000; selected loss-date historical range \$21,800 to \$22,600; median \$22,200/,
+      }),
     ).toBeInTheDocument();
 
     expect(screen.queryByText("MATERIAL_UNDERVALUE_SIGNAL")).not.toBeInTheDocument();
@@ -292,14 +364,17 @@ describe("analysis results page", () => {
         name: "Loss-date comparable vehicles",
       }),
     ).toBeInTheDocument();
-    expect(screen.getByText("Comparable 1")).toBeInTheDocument();
-    expect(screen.getByText("Comparable 5")).toBeInTheDocument();
+    const comparables = screen.getByRole("region", {
+      name: "Loss-date comparable vehicles",
+    });
+    expect(within(comparables).getByText("01")).toBeInTheDocument();
+    expect(within(comparables).getByText("05")).toBeInTheDocument();
     expect(
       screen.getAllByText("Verified active on loss date"),
     ).toHaveLength(5);
     expect(screen.getAllByText("Strong match")).toHaveLength(5);
-    expect(screen.getByText("$21,800.00")).toBeInTheDocument();
-    expect(screen.getByText("$22,600.00")).toBeInTheDocument();
+    expect(screen.getByText("$21,800")).toBeInTheDocument();
+    expect(screen.getByText("$22,600")).toBeInTheDocument();
     expect(screen.queryByText("99.5")).not.toBeInTheDocument();
   });
 
@@ -308,11 +383,8 @@ describe("analysis results page", () => {
 
     expect(
       await screen.findByRole("heading", {
-        name: "Loss-date and current-market evidence are kept separate",
+        name: "Current prices are context, not loss-date evidence",
       }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("heading", { name: "Loss-date market" }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("heading", { name: "Current market" }),
@@ -322,9 +394,27 @@ describe("analysis results page", () => {
         (_, element) =>
           element?.tagName === "P" &&
           element.textContent ===
-            "The current-market median of $20,000.00 is context only. It is not combined with the loss-date median of $22,200.00.",
+            "The current-market median of $20,000 is not combined with the loss-date median of $22,200.",
       ),
     ).toBeInTheDocument();
+  });
+
+  test("does not imply current-market context exists when it is absent", async () => {
+    useAnalysisResponse(historicalWithoutCurrentContextAnalysis());
+
+    renderTestApp([analysisPath]);
+
+    expect(
+      await screen.findByRole("heading", {
+        name: "Only loss-date market evidence is available",
+      }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("No separate current-market set")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", {
+        name: "Current prices are context, not loss-date evidence",
+      }),
+    ).not.toBeInTheDocument();
   });
 
   test("labels current-only evidence as the primary available context", async () => {
@@ -352,6 +442,12 @@ describe("analysis results page", () => {
     expect(
       screen.queryByRole("heading", { name: "Why Venfour flagged the valuation" }),
     ).not.toBeInTheDocument();
+    expect(screen.getByText("Current-market price position")).toBeInTheDocument();
+    expect(screen.getByText("Selected current-market range")).toBeInTheDocument();
+    expect(screen.getByText("Current-market median")).toBeInTheDocument();
+    expect(screen.queryByText("Loss-date price position")).not.toBeInTheDocument();
+    expect(screen.queryByText("Selected loss-date range")).not.toBeInTheDocument();
+    expect(screen.queryByText("Loss-date median")).not.toBeInTheDocument();
   });
 
   test("uses unsigned magnitudes when prose supplies the direction", async () => {
@@ -360,14 +456,14 @@ describe("analysis results page", () => {
     renderTestApp([analysisPath]);
 
     expect(
-      await screen.findByText(/That is \$1,200\.00 \(6\.00%\) below CCC/),
+      await screen.findByText(/That is \$1,200 \(6%\) below CCC/),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("heading", {
-        name: "The loss-date median is 6.00% below CCC",
+        name: "The loss-date median is 6% below CCC",
       }),
     ).toBeInTheDocument();
-    expect(screen.queryByText(/-\$1,200\.00.*below/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/-\$1,200.*below/)).not.toBeInTheDocument();
   });
 
   test("describes a CCC adjustment increase with the correct direction", async () => {
@@ -377,11 +473,11 @@ describe("analysis results page", () => {
 
     expect(
       await screen.findByText(
-        /adjusted median was \$20,300\.00, a \$200\.00 increase/,
+        /adjusted median was \$20,300, a \$200 increase/,
       ),
     ).toBeInTheDocument();
     expect(
-      screen.queryByText(/adjusted median was \$20,300\.00, a -\$200\.00/),
+      screen.queryByText(/adjusted median was \$20,300, a -\$200/),
     ).not.toBeInTheDocument();
   });
 
@@ -427,6 +523,68 @@ describe("analysis results page", () => {
       }),
     ).toBeInTheDocument();
     expect(screen.queryByText("Market timing")).not.toBeInTheDocument();
+  });
+
+  test("explains a nonpositive CCC value without showing an unavailable percent", async () => {
+    useAnalysisResponse(nonpositiveCccAnalysis());
+
+    renderTestApp([analysisPath]);
+
+    expect(
+      await screen.findByRole("heading", {
+        name: "The CCC vehicle value cannot support a market comparison",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", {
+        name: "The CCC vehicle value cannot be compared",
+      }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("above CCC")).toBeInTheDocument();
+    expect(screen.queryByText(/Not available above CCC/)).not.toBeInTheDocument();
+  });
+
+  test("keeps meaningful cents while removing unnecessary precision", async () => {
+    useAnalysisResponse(fractionalPriceAnalysis());
+
+    renderTestApp([analysisPath]);
+
+    expect(await screen.findByText("$21,800.50")).toBeInTheDocument();
+    expect(screen.queryByText("$22,200.00")).not.toBeInTheDocument();
+  });
+
+  test("reveals technical evidence, CCC adjustments, and limitations", async () => {
+    const user = userEvent.setup();
+    renderTestApp([analysisPath]);
+
+    const comparables = await screen.findByRole("region", {
+      name: "Loss-date comparable vehicles",
+    });
+    await user.click(
+      within(comparables).getByLabelText(
+        "Technical evidence details for comparable 1: 2024 Synthetic Sedan SEL",
+      ),
+    );
+    expect(screen.getByText("SYNTHETICVIN00001")).toBeVisible();
+
+    const cccEvidence = screen.getByRole("region", {
+      name: "What CCC used in its valuation",
+    });
+    await user.click(
+      within(cccEvidence).getByLabelText(
+        "Adjustment breakdown for CCC comparable 1: 2024 Synthetic Sedan SEL",
+      ),
+    );
+    expect(screen.getByText("SYNTHETICCCCVIN01")).toBeVisible();
+
+    await user.click(
+      screen.getByText("Review the limits and coverage notes for this analysis"),
+    );
+    expect(
+      screen.getByText(
+        "This evidence comparison is not an independent vehicle appraisal.",
+      ),
+    ).toBeVisible();
   });
 
   test("shows a report-shaped loading state", () => {

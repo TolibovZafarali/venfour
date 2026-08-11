@@ -9,7 +9,7 @@ import { ApiError } from "@/lib/api/client";
 function AnalysisLoadingState() {
   return (
     <section
-      className="mx-auto w-full max-w-6xl animate-pulse px-4 py-10 sm:px-6 sm:py-14"
+      className="mx-auto w-full max-w-[90rem] animate-pulse px-5 py-8 motion-reduce:animate-none sm:px-8 sm:py-10 lg:px-10 lg:py-12"
       aria-label="Loading analysis"
       aria-live="polite"
       aria-busy="true"
@@ -18,12 +18,12 @@ function AnalysisLoadingState() {
       <div className="h-4 w-48 rounded-full bg-muted" />
       <div className="mt-4 h-10 w-full max-w-2xl rounded-lg bg-muted" />
       <div className="mt-3 h-5 w-72 max-w-full rounded-full bg-muted" />
-      <div className="mt-10 rounded-2xl border bg-card p-6 sm:p-8">
+      <div className="mt-8 rounded-2xl border bg-card p-6 sm:p-8 lg:p-10">
         <div className="h-5 w-36 rounded-full bg-muted" />
         <div className="mt-5 h-9 w-full max-w-3xl rounded-lg bg-muted" />
         <div className="mt-4 h-5 w-full max-w-2xl rounded-full bg-muted" />
-        <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {[0, 1, 2, 3].map((item) => (
+        <div className="mt-10 grid gap-4 sm:grid-cols-3">
+          {[0, 1, 2].map((item) => (
             <div key={item} className="h-24 rounded-xl bg-muted" />
           ))}
         </div>
@@ -43,7 +43,7 @@ function AnalysisErrorState({ notFound, onRetry }: AnalysisErrorStateProps) {
 
   return (
     <section
-      className="mx-auto flex w-full max-w-6xl items-center px-4 py-20 sm:px-6 sm:py-28"
+      className="mx-auto flex w-full max-w-[90rem] items-center px-5 py-20 sm:px-8 sm:py-28 lg:px-10"
       role="alert"
     >
       <div className="max-w-xl">

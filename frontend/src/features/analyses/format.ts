@@ -26,7 +26,7 @@ const dateTimeFormatter = new Intl.DateTimeFormat("en-US", {
 const moneyFormatter = new Intl.NumberFormat("en-US", {
   style: "currency",
   currency: "USD",
-  minimumFractionDigits: 2,
+  minimumFractionDigits: 0,
   maximumFractionDigits: 2,
 });
 

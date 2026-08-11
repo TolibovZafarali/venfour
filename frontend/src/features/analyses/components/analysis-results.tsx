@@ -1,13 +1,7 @@
 import {
-  ArrowRight,
-  CalendarDays,
-  Check,
-  CheckCircle2,
   ChevronDown,
   CircleDot,
-  Gauge,
   Info,
-  MapPin,
 } from "lucide-react";
 import type { ReactNode } from "react";
 
@@ -50,8 +44,27 @@ const assessmentHeadings: Record<Assessment["classification"], string> = {
     "There isn’t enough reliable evidence to assess the CCC valuation",
 };
 
+function assessmentHeading(analysis: AnalysisPresentation) {
+  if (analysis.assessment.classification !== "INSUFFICIENT_EVIDENCE") {
+    return assessmentHeadings[analysis.assessment.classification];
+  }
+
+  const findingCodes = new Set(analysis.findings.map((finding) => finding.code));
+  if (findingCodes.has("MISSING_CCC_VEHICLE_VALUATION")) {
+    return "A CCC vehicle value is needed before this valuation can be assessed";
+  }
+  if (findingCodes.has("NONPOSITIVE_CCC_VEHICLE_VALUATION")) {
+    return "The CCC vehicle value cannot support a market comparison";
+  }
+  if (findingCodes.has("EXTERNAL_MEDIAN_ZERO")) {
+    return "The selected market median cannot support a comparison";
+  }
+
+  return assessmentHeadings.INSUFFICIENT_EVIDENCE;
+}
+
 function displayMoney(value: Money | NonnegativeMoney) {
-  return value.display ?? unavailable;
+  return value.display?.replace(/\.00$/, "") ?? unavailable;
 }
 
 function displayMoneyMagnitude(value: Money | NonnegativeMoney) {
@@ -59,8 +72,18 @@ function displayMoneyMagnitude(value: Money | NonnegativeMoney) {
   return display.startsWith("-$") ? `$${display.slice(2)}` : display;
 }
 
+function displayPercentage(value: string | null) {
+  if (!value) {
+    return unavailable;
+  }
+
+  return value
+    .replace(/(\.\d*?[1-9])0+%$/, "$1%")
+    .replace(/\.0+%$/, "%");
+}
+
 function displayPercentageMagnitude(value: string | null) {
-  return value?.replace(/^-/, "") ?? unavailable;
+  return displayPercentage(value).replace(/^-/, "");
 }
 
 function vehicleName({
@@ -88,20 +111,22 @@ interface SectionHeadingProps {
 
 function SectionHeading({ id, eyebrow, title, description }: SectionHeadingProps) {
   return (
-    <div className="max-w-3xl">
+    <div className="max-w-2xl">
       {eyebrow ? (
-        <p className="text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">
+        <p className="text-[0.7rem] font-semibold tracking-[0.16em] text-neutral-500 uppercase">
           {eyebrow}
         </p>
       ) : null}
       <h2
         id={id}
-        className="mt-2 text-2xl font-semibold tracking-tight text-balance sm:text-3xl"
+        className="mt-3 text-2xl font-semibold tracking-[-0.025em] text-balance sm:text-3xl"
       >
         {title}
       </h2>
       {description ? (
-        <p className="mt-3 leading-7 text-muted-foreground">{description}</p>
+        <p className="mt-3 max-w-xl text-[0.95rem] leading-7 text-neutral-600">
+          {description}
+        </p>
       ) : null}
     </div>
   );
@@ -116,18 +141,18 @@ interface MetricProps {
 
 function Metric({ label, value, detail, emphasis = false }: MetricProps) {
   return (
-    <div className="border-t border-border/80 pt-4">
-      <dt className="text-sm leading-5 text-muted-foreground">{label}</dt>
+    <div className="border-t border-neutral-200 pt-4">
+      <dt className="text-xs leading-5 font-medium text-neutral-500">{label}</dt>
       <dd
         className={cn(
-          "mt-1 font-semibold tracking-tight tabular-nums",
-          emphasis ? "text-3xl text-evidence" : "text-2xl",
+          "mt-1.5 font-semibold tracking-[-0.025em] text-neutral-950 tabular-nums",
+          emphasis ? "text-[2rem]" : "text-2xl",
         )}
       >
         {value}
       </dd>
       {detail ? (
-        <dd className="mt-1 text-sm text-muted-foreground">{detail}</dd>
+        <dd className="mt-1 text-sm font-medium text-neutral-600">{detail}</dd>
       ) : null}
     </div>
   );
@@ -189,6 +214,10 @@ function MarketRangeFigure({ analysis }: AnalysisResultsProps) {
     primary.evidenceBasis === "LOSS_DATE_HISTORICAL"
       ? "selected loss-date historical range"
       : "selected current-market range";
+  const evidenceTimingLabel =
+    primary.evidenceBasis === "LOSS_DATE_HISTORICAL"
+      ? "Loss-date"
+      : "Current-market";
   const relationshipCopy = {
     BELOW_OBSERVED_RANGE: `CCC’s value is below the entire ${evidenceLabel}.`,
     WITHIN_OBSERVED_RANGE: `CCC’s value falls within the ${evidenceLabel}.`,
@@ -241,7 +270,7 @@ function MarketRangeFigure({ analysis }: AnalysisResultsProps) {
 
   return (
     <figure
-      className="mt-8 rounded-xl border bg-background p-5 sm:p-6"
+      className="mt-8 overflow-hidden rounded-2xl bg-neutral-950 px-5 py-6 text-white sm:px-7 sm:py-7 lg:px-9 lg:py-8"
       aria-label={`CCC adjusted value ${displayMoney(
         analysis.cccValuation.adjustedVehicleValue,
       )}; ${evidenceLabel} ${displayMoney(
@@ -250,36 +279,41 @@ function MarketRangeFigure({ analysis }: AnalysisResultsProps) {
         primary.prices.maximumPrice,
       )}; median ${displayMoney(primary.prices.medianPrice)}.`}
     >
-      <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-end">
-        <div>
-          <p className="text-sm font-semibold">Value position</p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            All markers share the same dollar scale, extended beyond the shown
-            values to $1,000 boundaries for context.
+      <div className="grid gap-5 lg:grid-cols-[1fr_auto] lg:items-end">
+        <div className="max-w-2xl">
+          <p className="text-[0.7rem] font-semibold tracking-[0.16em] text-neutral-400 uppercase">
+            {evidenceTimingLabel} price position
+          </p>
+          <h3 className="mt-3 text-xl font-semibold tracking-[-0.02em] text-balance sm:text-2xl">
+            {relationshipCopy}
+          </h3>
+          <p className="mt-2 text-sm leading-6 text-neutral-400">
+            CCC’s value, the selected external range, and its median share one
+            consistent dollar scale.
           </p>
         </div>
-        <p className="text-xs text-muted-foreground tabular-nums">
+        <p className="text-xs text-neutral-400 tabular-nums">
           Scale: {formatMoneyCents(scaleMinimum)} –{" "}
           {formatMoneyCents(scaleMaximum)}
         </p>
       </div>
 
-      <div className="relative mt-9 h-20" aria-hidden="true">
-        <div className="absolute inset-x-0 top-8 h-px bg-border" />
+      <div className="relative mt-12 h-16 sm:mt-14" aria-hidden="true">
+        <div className="absolute inset-x-0 top-7 h-px bg-white/20" />
         <div
-          className="absolute top-[1.625rem] h-3 rounded-full bg-evidence/30 ring-1 ring-evidence/45"
+          className="absolute top-[1.2rem] h-4 rounded-full bg-white/25 ring-1 ring-white/45"
           style={{
             left: `${rangeStart}%`,
-            width: `${Math.max(rangeEnd - rangeStart, 0.8)}%`,
+            width: `${Math.max(rangeEnd - rangeStart, 1.2)}%`,
           }}
         />
         <div
-          className="absolute top-4 h-9 w-0.5 bg-foreground"
+          className="absolute top-0 h-14 w-0.5 bg-white"
           style={{ left: `${cccPosition}%` }}
         >
           <span
             className={cn(
-              "absolute -top-5 whitespace-nowrap text-xs font-semibold text-foreground",
+              "absolute -top-6 whitespace-nowrap text-xs font-semibold text-white",
               cccPosition > 70
                 ? "right-0"
                 : cccPosition < 30
@@ -291,54 +325,52 @@ function MarketRangeFigure({ analysis }: AnalysisResultsProps) {
           </span>
         </div>
         <div
-          className="absolute top-[1.4rem] size-4 rotate-45 border-2 border-background bg-evidence shadow-sm"
+          className="absolute top-[1rem] size-4 rotate-45 border-2 border-neutral-950 bg-white"
           style={{
             left: `${medianPosition}%`,
             transform: "translateX(-50%) rotate(45deg)",
           }}
         />
+        <span
+          className={cn(
+            "absolute top-[-0.5rem] whitespace-nowrap text-xs font-semibold text-white",
+            medianPosition > 70
+              ? "-translate-x-full"
+              : medianPosition < 30
+                ? "translate-x-2"
+                : "-translate-x-1/2",
+          )}
+          style={{ left: `${medianPosition}%` }}
+        >
+          Median
+        </span>
       </div>
 
-      <div className="grid gap-3 text-sm sm:grid-cols-3">
-        <div className="flex items-center gap-2">
-          <span className="h-5 w-0.5 bg-foreground" aria-hidden="true" />
-          <span>
-            CCC value{" "}
-            <strong className="font-semibold tabular-nums">
-              {displayMoney(analysis.cccValuation.adjustedVehicleValue)}
-            </strong>
-          </span>
+      <div className="grid border-t border-white/10 text-sm sm:grid-cols-3 sm:divide-x sm:divide-white/10">
+        <div className="py-4 sm:pr-5">
+          <p className="text-xs text-neutral-400">CCC valuation</p>
+          <p className="mt-1 text-lg font-semibold tracking-tight tabular-nums">
+            {displayMoney(analysis.cccValuation.adjustedVehicleValue)}
+          </p>
         </div>
-        <div className="flex items-center gap-2">
-          <span
-            className="h-2.5 w-6 rounded-full bg-evidence/35 ring-1 ring-evidence/50"
-            aria-hidden="true"
-          />
-          <span>
-            Range{" "}
-            <strong className="font-semibold tabular-nums">
-              {displayMoney(primary.prices.minimumPrice)}–
-              {displayMoney(primary.prices.maximumPrice)}
-            </strong>
-          </span>
+        <div className="border-t border-white/10 py-4 sm:border-t-0 sm:px-5">
+          <p className="text-xs text-neutral-400">
+            Selected {evidenceTimingLabel.toLowerCase()} range
+          </p>
+          <p className="mt-1 text-lg font-semibold tracking-tight tabular-nums">
+            {displayMoney(primary.prices.minimumPrice)}–
+            {displayMoney(primary.prices.maximumPrice)}
+          </p>
         </div>
-        <div className="flex items-center gap-2">
-          <span
-            className="size-3 rotate-45 bg-evidence"
-            aria-hidden="true"
-          />
-          <span>
-            Median{" "}
-            <strong className="font-semibold tabular-nums">
-              {displayMoney(primary.prices.medianPrice)}
-            </strong>
-          </span>
+        <div className="border-t border-white/10 py-4 sm:border-t-0 sm:pl-5">
+          <p className="text-xs text-neutral-400">
+            {evidenceTimingLabel} median
+          </p>
+          <p className="mt-1 text-lg font-semibold tracking-tight tabular-nums">
+            {displayMoney(primary.prices.medianPrice)}
+          </p>
         </div>
       </div>
-
-      <figcaption className="mt-5 border-t pt-4 font-medium">
-        {relationshipCopy}
-      </figcaption>
     </figure>
   );
 }
@@ -346,37 +378,95 @@ function MarketRangeFigure({ analysis }: AnalysisResultsProps) {
 function PrimaryAssessment({ analysis }: AnalysisResultsProps) {
   const primary = analysis.primaryExternalEvidence;
   const comparison = analysis.cccValuation.comparisonToPrimaryEvidence;
-  const gapLabel =
+  const undervalueAssessment =
     analysis.assessment.classification === "MATERIAL_UNDERVALUE_SIGNAL" ||
-    analysis.assessment.classification === "POTENTIAL_UNDERVALUE"
+    analysis.assessment.classification === "POTENTIAL_UNDERVALUE";
+  const gapLabel =
+    undervalueAssessment
       ? "Evidence gap"
       : "Difference from primary median";
+  const gapValue = comparison
+    ? displayMoneyMagnitude(comparison.difference)
+    : unavailable;
+  const gapPercent = comparison?.differencePercent.display
+    ? displayPercentageMagnitude(comparison.differencePercent.display)
+    : null;
+  const differenceCents = comparison?.difference.cents;
+  const gapRelationship =
+    typeof differenceCents === "number" && differenceCents > 0
+      ? "above CCC"
+      : typeof differenceCents === "number" && differenceCents < 0
+        ? "below CCC"
+        : typeof differenceCents === "number"
+          ? "matches CCC"
+          : "comparison unavailable";
 
   return (
-    <section className="mt-10 overflow-hidden rounded-2xl border border-evidence/25 bg-card shadow-[0_18px_50px_-42px_rgba(15,23,42,0.55)]">
-      <div className="border-l-4 border-evidence p-6 sm:p-8 lg:p-10">
-        <div className="max-w-4xl">
-          <div className="flex flex-wrap items-center gap-2 text-sm">
-            <span className="rounded-full bg-evidence/10 px-3 py-1 font-semibold text-evidence">
-              {analysis.assessment.evidenceStrengthLabel} evidence
-            </span>
-            <span className="text-muted-foreground">
-              {analysis.assessment.evidenceBasis === "LOSS_DATE_HISTORICAL"
-                ? "Based primarily on verified loss-date listings"
-                : analysis.assessment.evidenceBasis === "CURRENT_MARKET"
-                  ? "Based primarily on current-market listings"
-                  : "No primary market evidence available"}
-            </span>
+    <section
+      className="mt-8 overflow-hidden rounded-2xl border border-neutral-200 bg-white"
+      aria-labelledby="primary-assessment-heading"
+    >
+      <div className="p-6 sm:p-8 lg:p-10 xl:p-12">
+        <div className="grid gap-8 xl:grid-cols-[minmax(0,1.15fr)_minmax(21rem,0.55fr)] xl:gap-14">
+          <div className="max-w-3xl">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-sm">
+              <span className="inline-flex items-center gap-2 font-semibold text-neutral-950">
+                <span className="size-2 rounded-full bg-neutral-950" />
+                {analysis.assessment.evidenceStrengthLabel} evidence
+              </span>
+              <span className="text-neutral-500" aria-hidden="true">
+                /
+              </span>
+              <span className="text-neutral-600">
+                {analysis.assessment.evidenceBasis === "LOSS_DATE_HISTORICAL"
+                  ? "Verified loss-date listings are primary"
+                  : analysis.assessment.evidenceBasis === "CURRENT_MARKET"
+                    ? "Current-market listings are primary"
+                    : "No primary market evidence available"}
+              </span>
+            </div>
+            <h2
+              id="primary-assessment-heading"
+              className="mt-6 text-[2.15rem] leading-[1.08] font-semibold tracking-[-0.045em] text-balance sm:text-[2.8rem] xl:text-[3.4rem]"
+            >
+              {assessmentHeading(analysis)}
+            </h2>
+            <p className="mt-5 max-w-2xl text-base leading-7 text-neutral-600 sm:text-[1.05rem] sm:leading-8">
+              {assessmentSummary(analysis)}
+            </p>
           </div>
-          <h2 className="mt-5 text-3xl font-semibold tracking-[-0.025em] text-balance sm:text-4xl lg:text-[2.7rem] lg:leading-[1.12]">
-            {assessmentHeadings[analysis.assessment.classification]}
-          </h2>
-          <p className="mt-5 max-w-3xl text-base leading-7 text-muted-foreground sm:text-lg sm:leading-8">
-            {assessmentSummary(analysis)}
-          </p>
+
+          <div className="rounded-xl bg-neutral-100 p-5 sm:p-6 xl:p-7">
+            <p className="text-xs font-semibold tracking-[0.13em] text-neutral-500 uppercase">
+              {gapLabel}
+            </p>
+            <div className="mt-3 flex flex-wrap items-end gap-x-4 gap-y-1">
+              <p className="text-[2.6rem] leading-none font-semibold tracking-[-0.045em] text-neutral-950 tabular-nums sm:text-5xl">
+                {gapValue}
+              </p>
+              {comparison ? (
+                <p className="pb-1 text-base font-semibold text-neutral-700 tabular-nums">
+                  {gapPercent ? `${gapPercent} ` : null}
+                  {gapRelationship}
+                </p>
+              ) : null}
+            </div>
+            <p className="mt-4 text-sm leading-6 text-neutral-600">
+              {undervalueAssessment
+                ? "This is the difference between the selected market median and CCC’s adjusted value."
+                : "This comparison describes the available evidence; it is not a settlement calculation."}
+            </p>
+            <div className="mt-5 flex gap-3 border-t border-neutral-300 pt-5 text-sm leading-6 text-neutral-600">
+              <Info className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+              <p>
+                Evidence of a valuation gap is not money owed or a guaranteed
+                settlement increase.
+              </p>
+            </div>
+          </div>
         </div>
 
-        <dl className="mt-9 grid gap-x-8 gap-y-5 sm:grid-cols-2 lg:grid-cols-4">
+        <dl className="mt-9 grid grid-cols-2 gap-x-5 gap-y-5 [&>div:last-child]:col-span-2 sm:grid-cols-3 sm:gap-x-10 sm:[&>div:last-child]:col-span-1 xl:mt-11">
           <Metric
             label="CCC adjusted vehicle value"
             value={displayMoney(analysis.cccValuation.adjustedVehicleValue)}
@@ -393,14 +483,7 @@ function PrimaryAssessment({ analysis }: AnalysisResultsProps) {
             emphasis={Boolean(primary)}
           />
           <Metric
-            label={gapLabel}
-            value={
-              comparison ? displayMoney(comparison.difference) : unavailable
-            }
-            detail={comparison?.differencePercent.display ?? undefined}
-          />
-          <Metric
-            label="Observed market range"
+            label="Selected market range"
             value={
               primary
                 ? `${displayMoney(primary.prices.minimumPrice)}–${displayMoney(
@@ -412,15 +495,6 @@ function PrimaryAssessment({ analysis }: AnalysisResultsProps) {
         </dl>
 
         <MarketRangeFigure analysis={analysis} />
-
-        <div className="mt-6 flex gap-3 rounded-xl bg-muted/60 p-4 text-sm leading-6 text-muted-foreground">
-          <Info className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-          <p>
-            Market evidence is not an independent appraisal or a guaranteed
-            settlement amount. Advertised prices are not completed sales, and
-            this analysis does not determine what an insurer legally owes.
-          </p>
-        </div>
       </div>
     </section>
   );
@@ -475,6 +549,24 @@ function assessmentFindingExplanation(
         title: "Reliable external evidence is insufficient",
         body:
           "Too few independently selected comparable vehicles were available to support a reliable market comparison.",
+      };
+    case "MISSING_CCC_VEHICLE_VALUATION":
+      return {
+        title: "The CCC vehicle value is missing",
+        body:
+          "A market difference cannot be calculated until the CCC report provides a vehicle valuation to compare.",
+      };
+    case "NONPOSITIVE_CCC_VEHICLE_VALUATION":
+      return {
+        title: "The CCC vehicle value cannot be compared",
+        body:
+          "The CCC vehicle value is zero or below zero, so a meaningful percentage comparison cannot be calculated.",
+      };
+    case "EXTERNAL_MEDIAN_ZERO":
+      return {
+        title: "The selected market median cannot be compared",
+        body:
+          "The selected external median is zero, so it cannot support a meaningful comparison with the CCC vehicle value.",
       };
     case "CCC_AND_EXTERNAL_EVIDENCE_CONSISTENT":
       return {
@@ -638,32 +730,40 @@ function WhyFlagged({ analysis }: AnalysisResultsProps) {
     analysis.assessment.classification === "POTENTIAL_UNDERVALUE";
 
   return (
-    <section className="mt-20" aria-labelledby="why-heading">
-      <SectionHeading
-        id="why-heading"
-        eyebrow="Assessment details"
-        title={
-          undervalueAssessment
-            ? "Why Venfour flagged the valuation"
-            : "How Venfour reached this assessment"
-        }
-        description="These explanations combine the supported findings into the facts that matter most for understanding the result."
-      />
-      <ol className="mt-9 grid gap-x-10 gap-y-8 md:grid-cols-2">
-        {explanations.map((explanation, index) => (
-          <li key={`${explanation.title}-${index}`} className="flex gap-4">
-            <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-evidence/10 text-sm font-semibold text-evidence tabular-nums">
-              {index + 1}
-            </span>
-            <div>
-              <h3 className="font-semibold leading-6">{explanation.title}</h3>
-              <p className="mt-2 text-sm leading-6 text-muted-foreground">
+    <section
+      className="mt-14 border-t border-neutral-200 pt-12 sm:mt-16 sm:pt-14"
+      aria-labelledby="why-heading"
+    >
+      <div className="grid gap-8 lg:grid-cols-[minmax(14rem,0.55fr)_minmax(0,1.45fr)] lg:gap-14">
+        <SectionHeading
+          id="why-heading"
+          eyebrow="Assessment details"
+          title={
+            undervalueAssessment
+              ? "Why Venfour flagged the valuation"
+              : "How Venfour reached this assessment"
+          }
+          description="The supported findings, organized into the facts that matter most."
+        />
+        <ol className="grid sm:grid-cols-2 sm:gap-x-10">
+          {explanations.map((explanation, index) => (
+            <li
+              key={`${explanation.title}-${index}`}
+              className="border-t border-neutral-200 py-5 first:pt-0 sm:[&:nth-child(-n+2)]:pt-0"
+            >
+              <span className="text-[0.7rem] font-semibold tracking-[0.14em] text-neutral-400 tabular-nums">
+                {String(index + 1).padStart(2, "0")}
+              </span>
+              <h3 className="mt-2 font-semibold leading-6 text-neutral-950">
+                {explanation.title}
+              </h3>
+              <p className="mt-2 text-sm leading-6 text-neutral-600">
                 {explanation.body}
               </p>
-            </div>
-          </li>
-        ))}
-      </ol>
+            </li>
+          ))}
+        </ol>
+      </div>
     </section>
   );
 }
@@ -690,89 +790,75 @@ function ComparableCard({ comparable }: { comparable: ExternalComparable }) {
     comparable.lifecycleEvidence?.status === "RESOLVED";
 
   return (
-    <li className="rounded-xl border bg-card p-5 sm:p-6">
-      <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
-        <div>
-          <p className="text-xs font-semibold tracking-[0.13em] text-muted-foreground uppercase">
-            Comparable {comparable.rank}
+    <li className="bg-white px-5 py-4 sm:px-6 sm:py-5">
+      <div className="grid grid-cols-2 gap-x-4 gap-y-4 xl:grid-cols-[minmax(17rem,1.45fr)_minmax(7rem,0.6fr)_minmax(8rem,0.72fr)_minmax(10rem,0.9fr)_minmax(9rem,0.75fr)] xl:items-center xl:gap-x-6 xl:gap-y-0">
+        <div className="col-span-2 flex gap-3 xl:col-span-1">
+          <p className="w-6 shrink-0 pt-0.5 text-[0.7rem] font-semibold tracking-[0.13em] text-neutral-400 uppercase xl:text-neutral-500">
+            {String(comparable.rank).padStart(2, "0")}
           </p>
-          <h3 className="mt-2 text-lg font-semibold tracking-tight">
-            {vehicleName(comparable)}
-          </h3>
-          <div className="mt-3 flex flex-wrap gap-2">
-            <span className="rounded-full bg-evidence/10 px-2.5 py-1 text-xs font-semibold text-evidence">
-              {comparable.tierLabel}
-            </span>
-            {verifiedOnLossDate ? (
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-evidence/25 px-2.5 py-1 text-xs font-medium text-evidence">
-                <CheckCircle2 className="size-3.5" aria-hidden="true" />
-                Verified active on loss date
-              </span>
-            ) : null}
+          <div>
+            <h3 className="font-semibold tracking-[-0.015em] text-neutral-950">
+              {vehicleName(comparable)}
+            </h3>
+            <p className="mt-1 flex flex-wrap items-center gap-x-2 text-xs leading-5 text-neutral-600">
+              <span>{comparable.tierLabel}</span>
+              {verifiedOnLossDate ? (
+                <>
+                  <span aria-hidden="true">·</span>
+                  <span>Verified active on loss date</span>
+                </>
+              ) : null}
+            </p>
           </div>
         </div>
-        <div className="sm:text-right">
-          <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-            Advertised price
-          </p>
-          <p className="mt-1 text-2xl font-semibold tracking-tight tabular-nums">
+        <div>
+          <p className="text-xs text-neutral-500 xl:sr-only">Advertised price</p>
+          <p className="mt-1 text-xl font-semibold tracking-tight text-neutral-950 tabular-nums xl:mt-0">
             {displayMoney(comparable.advertisedPrice)}
+          </p>
+        </div>
+        <div>
+          <p className="text-xs text-neutral-500 xl:sr-only">Mileage</p>
+          <p className="mt-1 text-sm font-medium text-neutral-950 tabular-nums xl:mt-0">
+            {formatMileage(comparable.mileage)}
+          </p>
+          {comparable.mileageDifferenceFromLossVehicle !== null ? (
+            <p className="mt-1 text-xs text-neutral-500">
+              {formatMileageDifference(
+                comparable.mileageDifferenceFromLossVehicle,
+              )}
+            </p>
+          ) : null}
+        </div>
+        <div>
+          <p className="text-xs text-neutral-500 xl:sr-only">Dealer</p>
+          <p className="mt-1 text-sm font-medium text-neutral-950 xl:mt-0">
+            {comparable.dealer?.name ?? unavailable}
+          </p>
+          <p className="mt-1 text-xs leading-5 text-neutral-500">
+            {dealerLocation} · {formatDistance(comparable.distanceMiles)}
+          </p>
+        </div>
+        <div>
+          <p className="text-xs text-neutral-500 xl:sr-only">Evidence date</p>
+          <p className="mt-1 text-sm font-medium text-neutral-950 xl:mt-0">
+            {formatDate(comparable.evidenceDate)}
           </p>
         </div>
       </div>
 
-      <dl className="mt-6 grid gap-4 border-t pt-5 text-sm sm:grid-cols-2 lg:grid-cols-4">
-        <div>
-          <dt className="flex items-center gap-1.5 text-muted-foreground">
-            <Gauge className="size-4" aria-hidden="true" /> Mileage
-          </dt>
-          <dd className="mt-1 font-medium tabular-nums">
-            {formatMileage(comparable.mileage)}
-          </dd>
-          {comparable.mileageDifferenceFromLossVehicle !== null ? (
-            <dd className="mt-1 text-xs text-muted-foreground">
-              {formatMileageDifference(
-                comparable.mileageDifferenceFromLossVehicle,
-              )}
-            </dd>
-          ) : null}
-        </div>
-        <div>
-          <dt className="flex items-center gap-1.5 text-muted-foreground">
-            <MapPin className="size-4" aria-hidden="true" /> Dealer
-          </dt>
-          <dd className="mt-1 font-medium">
-            {comparable.dealer?.name ?? unavailable}
-          </dd>
-          <dd className="mt-1 text-xs text-muted-foreground">
-            {dealerLocation}
-          </dd>
-        </div>
-        <div>
-          <dt className="text-muted-foreground">Distance</dt>
-          <dd className="mt-1 font-medium tabular-nums">
-            {formatDistance(comparable.distanceMiles)}
-          </dd>
-        </div>
-        <div>
-          <dt className="flex items-center gap-1.5 text-muted-foreground">
-            <CalendarDays className="size-4" aria-hidden="true" /> Evidence date
-          </dt>
-          <dd className="mt-1 font-medium">
-            {formatDate(comparable.evidenceDate)}
-          </dd>
-        </div>
-      </dl>
-
-      <details className="group mt-5 border-t pt-4 text-sm">
-        <summary className="flex cursor-pointer list-none items-center gap-2 font-medium text-muted-foreground transition-colors hover:text-foreground">
+      <details className="group mt-3 border-t border-neutral-200 text-sm xl:ml-[2.25rem]">
+        <summary
+          className="flex min-h-11 cursor-pointer list-none items-center gap-2 rounded-sm font-medium text-neutral-500 transition-colors hover:text-neutral-950 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950"
+          aria-label={`Technical evidence details for comparable ${comparable.rank}: ${vehicleName(comparable)}`}
+        >
           Technical evidence details
           <ChevronDown
             className="size-4 transition-transform group-open:rotate-180"
             aria-hidden="true"
           />
         </summary>
-        <dl className="mt-4 grid gap-3 rounded-lg bg-muted/55 p-4">
+        <dl className="grid gap-3 rounded-lg bg-neutral-100 p-4 sm:grid-cols-2 sm:gap-x-8">
           <DetailRow label="VIN" value={comparable.vin ?? unavailable} />
           <DetailRow
             label="Listing ID"
@@ -822,7 +908,7 @@ function PrimaryComparables({ analysis }: AnalysisResultsProps) {
   }
 
   return (
-    <section className="mt-20" aria-labelledby="comparables-heading">
+    <section className="mt-14 sm:mt-16" aria-labelledby="comparables-heading">
       <SectionHeading
         id="comparables-heading"
         eyebrow="Primary evidence"
@@ -837,7 +923,17 @@ function PrimaryComparables({ analysis }: AnalysisResultsProps) {
             : "These selected vehicles form the primary current-market evidence set because sufficient loss-date evidence was unavailable."
         }
       />
-      <ol className="mt-9 grid gap-4">
+      <div
+        className="mt-7 hidden grid-cols-[minmax(17rem,1.45fr)_minmax(7rem,0.6fr)_minmax(8rem,0.72fr)_minmax(10rem,0.9fr)_minmax(9rem,0.75fr)] gap-x-6 px-6 text-[0.68rem] font-semibold tracking-[0.11em] text-neutral-500 uppercase xl:grid"
+        aria-hidden="true"
+      >
+        <span>Comparable vehicle</span>
+        <span>Price</span>
+        <span>Mileage</span>
+        <span>Dealer</span>
+        <span>Evidence date</span>
+      </div>
+      <ol className="mt-4 divide-y divide-neutral-200 overflow-hidden rounded-xl border border-neutral-200 xl:mt-3">
         {comparables.map((comparable) => (
           <ComparableCard
             key={`${comparable.source}-${comparable.sourceListingId ?? comparable.rank}`}
@@ -861,53 +957,48 @@ function EvidenceContextCard({
   return (
     <article
       className={cn(
-        "rounded-xl border p-5 sm:p-6",
-        primary ? "border-evidence/30 bg-evidence/[0.035]" : "bg-muted/35",
+        "rounded-xl border border-neutral-200 p-5 sm:p-6",
+        primary ? "bg-white" : "bg-neutral-100",
       )}
     >
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <span
-          className={cn(
-            "rounded-full px-2.5 py-1 text-xs font-semibold",
-            primary
-              ? "bg-evidence/10 text-evidence"
-              : "bg-background text-muted-foreground ring-1 ring-border",
-          )}
-        >
-          {primary ? "Primary evidence" : "Secondary context"}
-        </span>
-        <span className="text-xs text-muted-foreground">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <p className="text-[0.7rem] font-semibold tracking-[0.13em] text-neutral-500 uppercase">
+            {primary ? "Primary available market" : "Context only"}
+          </p>
+          <h3 className="mt-2 text-lg font-semibold tracking-tight text-neutral-950">
+            {historical ? "Loss-date market" : "Current market"}
+          </h3>
+        </div>
+        <span className="text-xs text-neutral-500">
           {formatDate(evidence.evidenceDate)}
         </span>
       </div>
-      <h3 className="mt-5 text-lg font-semibold">
-        {historical ? "Loss-date market" : "Current market"}
-      </h3>
-      <p className="mt-2 text-sm leading-6 text-muted-foreground">
+      <p className="mt-2 max-w-2xl text-sm leading-6 text-neutral-600">
         {historical
           ? "Listings verified for the date of loss."
           : primary
             ? "Current listings used as primary evidence because sufficient loss-date evidence was unavailable."
             : "Current listings shown only as a separate point of reference."}
       </p>
-      <dl className="mt-6 grid grid-cols-2 gap-5 border-t pt-5">
+      <dl className="mt-5 grid gap-5 border-t border-neutral-200 pt-5 sm:grid-cols-3">
         <div>
-          <dt className="text-xs text-muted-foreground">Median advertised price</dt>
-          <dd className="mt-1 text-xl font-semibold tracking-tight tabular-nums">
+          <dt className="text-xs text-neutral-500">Median advertised price</dt>
+          <dd className="mt-1 text-xl font-semibold tracking-tight text-neutral-950 tabular-nums">
             {displayMoney(evidence.prices.medianPrice)}
           </dd>
         </div>
         <div>
-          <dt className="text-xs text-muted-foreground">Selected listings</dt>
-          <dd className="mt-1 text-xl font-semibold tracking-tight tabular-nums">
-            {formatWholeNumber(evidence.selectedCount)}
-          </dd>
-        </div>
-        <div className="col-span-2">
-          <dt className="text-xs text-muted-foreground">Observed range</dt>
-          <dd className="mt-1 font-semibold tabular-nums">
+          <dt className="text-xs text-neutral-500">Observed range</dt>
+          <dd className="mt-1 text-xl font-semibold tracking-tight text-neutral-950 tabular-nums">
             {displayMoney(evidence.prices.minimumPrice)}–
             {displayMoney(evidence.prices.maximumPrice)}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-xs text-neutral-500">Selected listings</dt>
+          <dd className="mt-1 text-xl font-semibold tracking-tight text-neutral-950 tabular-nums">
+            {formatWholeNumber(evidence.selectedCount)}
           </dd>
         </div>
       </dl>
@@ -925,56 +1016,74 @@ function MarketContext({ analysis }: AnalysisResultsProps) {
     primary.evidenceBasis === "LOSS_DATE_HISTORICAL";
 
   return (
-    <section className="mt-20" aria-labelledby="market-context-heading">
-      <SectionHeading
-        id="market-context-heading"
-        eyebrow="Market timing"
-        title={
-          historicalPrimary
-            ? "Loss-date and current-market evidence are kept separate"
-            : "Current-market evidence is the primary available context"
-        }
-        description={
-          historicalPrimary
-            ? "Vehicle markets can change. Venfour preserves when each listing was observed so evidence from different dates is not blended into one price set."
-            : "Sufficient verified loss-date evidence was unavailable for this analysis, so the selected current listings provide the primary market context."
-        }
-      />
-      <div className="mt-9 grid gap-4 md:grid-cols-2">
-        <EvidenceContextCard evidence={primary} primary />
-        {secondary ? (
-          <EvidenceContextCard evidence={secondary} primary={false} />
-        ) : (
-          <article className="rounded-xl border border-dashed bg-muted/20 p-5 sm:p-6">
-            <p className="text-sm font-semibold">
-              {historicalPrimary
-                ? "No separate current-market set"
-                : "Loss-date evidence unavailable"}
-            </p>
-            <p className="mt-2 text-sm leading-6 text-muted-foreground">
-              {historicalPrimary
-                ? "This analysis does not include a secondary current-market price set."
-                : "A sufficient set of listings verified for the loss date was not available, so current-market evidence remains primary."}
-            </p>
-          </article>
-        )}
-      </div>
-      {secondary ? (
-        <div className="mt-4 flex gap-3 rounded-xl border bg-background p-4 text-sm leading-6 text-muted-foreground">
-          <Info className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-          <p>
-            The current-market median of{" "}
-            <strong className="font-semibold text-foreground tabular-nums">
-              {displayMoney(secondary.prices.medianPrice)}
-            </strong>{" "}
-            is context only. It is not combined with the loss-date median of{" "}
-            <strong className="font-semibold text-foreground tabular-nums">
-              {displayMoney(primary.prices.medianPrice)}
-            </strong>
-            .
-          </p>
+    <section
+      className="mt-14 border-t border-neutral-200 pt-12 sm:mt-16 sm:pt-14"
+      aria-labelledby="market-context-heading"
+    >
+      <div className="grid gap-8 lg:grid-cols-[minmax(14rem,0.55fr)_minmax(0,1.45fr)] lg:gap-14">
+        <SectionHeading
+          id="market-context-heading"
+          eyebrow="Market timing"
+          title={
+            historicalPrimary
+              ? secondary
+                ? "Current prices are context, not loss-date evidence"
+                : "Only loss-date market evidence is available"
+              : "Current-market evidence is the primary available context"
+          }
+          description={
+            historicalPrimary
+              ? secondary
+                ? "Vehicle markets can change. Venfour keeps evidence from different dates in separate price sets."
+                : "The verified loss-date set remains primary; this analysis has no separate current-market price set."
+              : "Sufficient verified loss-date evidence was unavailable, so selected current listings provide the primary comparison."
+          }
+        />
+        <div className="space-y-3">
+          {historicalPrimary && secondary ? (
+            <EvidenceContextCard evidence={secondary} primary={false} />
+          ) : historicalPrimary ? (
+            <article className="rounded-xl border border-dashed border-neutral-300 bg-neutral-50 p-5 sm:p-6">
+              <p className="text-sm font-semibold">
+                No separate current-market set
+              </p>
+              <p className="mt-2 text-sm leading-6 text-neutral-600">
+                This analysis does not include a secondary current-market price
+                set.
+              </p>
+            </article>
+          ) : (
+            <>
+              <EvidenceContextCard evidence={primary} primary />
+              <article className="rounded-xl border border-dashed border-neutral-300 bg-neutral-50 p-5 sm:p-6">
+                <p className="text-sm font-semibold">
+                  Loss-date evidence unavailable
+                </p>
+                <p className="mt-2 text-sm leading-6 text-neutral-600">
+                  A sufficient set of listings verified for the loss date was
+                  not available, so current-market evidence remains primary.
+                </p>
+              </article>
+            </>
+          )}
+          {historicalPrimary && secondary ? (
+            <div className="flex gap-3 px-1 pt-2 text-sm leading-6 text-neutral-600">
+              <Info className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+              <p>
+                The current-market median of{" "}
+                <strong className="font-semibold text-neutral-950 tabular-nums">
+                  {displayMoney(secondary.prices.medianPrice)}
+                </strong>{" "}
+                is not combined with the loss-date median of{" "}
+                <strong className="font-semibold text-neutral-950 tabular-nums">
+                  {displayMoney(primary.prices.medianPrice)}
+                </strong>
+                .
+              </p>
+            </div>
+          ) : null}
         </div>
-      ) : null}
+      </div>
     </section>
   );
 }
@@ -988,80 +1097,79 @@ function CccComparableCard({ row }: { row: CccComparableRow }) {
   ] as const;
 
   return (
-    <li className="rounded-xl border bg-card p-5 sm:p-6">
-      <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
+    <li className="rounded-xl border border-neutral-200 bg-white p-5 sm:p-6">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-xs font-semibold tracking-[0.13em] text-muted-foreground uppercase">
+          <p className="text-[0.7rem] font-semibold tracking-[0.13em] text-neutral-500 uppercase">
             CCC comparable {row.comparableNumber ?? row.index + 1}
           </p>
-          <h3 className="mt-2 font-semibold">{cccVehicleName(row)}</h3>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <h3 className="mt-2 font-semibold tracking-tight text-neutral-950">
+            {cccVehicleName(row)}
+          </h3>
+          <p className="mt-1 text-sm leading-5 text-neutral-500">
             {row.dealer ?? unavailable}
             {row.location ? ` · ${row.location}` : ""}
           </p>
         </div>
-        <span className="w-fit rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground">
+        <span className="text-xs font-medium text-neutral-500">
           {row.adjustmentDisclosureLabel}
         </span>
       </div>
 
-      <div className="mt-6 grid items-center gap-3 rounded-lg bg-muted/45 p-4 sm:grid-cols-[1fr_auto_1fr_auto_1fr]">
-        <div>
-          <p className="text-xs text-muted-foreground">Advertised price</p>
-          <p className="mt-1 font-semibold tabular-nums">
+      <div className="mt-5 grid grid-cols-3 divide-x divide-neutral-200 border-y border-neutral-200 py-4">
+        <div className="pr-3">
+          <p className="text-[0.68rem] leading-4 text-neutral-500">
+            Advertised
+          </p>
+          <p className="mt-1 text-sm font-semibold text-neutral-950 tabular-nums sm:text-base">
             {displayMoney(row.advertisedPrice)}
           </p>
         </div>
-        <ArrowRight
-          className="hidden size-4 text-muted-foreground sm:block"
-          aria-hidden="true"
-        />
-        <div>
-          <p className="text-xs text-muted-foreground">Net adjustment</p>
-          <p className="mt-1 font-semibold tabular-nums">
+        <div className="px-3">
+          <p className="text-[0.68rem] leading-4 text-neutral-500">
+            Net adjustment
+          </p>
+          <p className="mt-1 text-sm font-semibold text-neutral-950 tabular-nums sm:text-base">
             {displayMoney(row.netAdjustment)}
           </p>
         </div>
-        <ArrowRight
-          className="hidden size-4 text-muted-foreground sm:block"
-          aria-hidden="true"
-        />
-        <div>
-          <p className="text-xs text-muted-foreground">CCC-adjusted value</p>
-          <p className="mt-1 font-semibold tabular-nums">
+        <div className="pl-3">
+          <p className="text-[0.68rem] leading-4 text-neutral-500">
+            CCC adjusted
+          </p>
+          <p className="mt-1 text-sm font-semibold text-neutral-950 tabular-nums sm:text-base">
             {displayMoney(row.cccAdjustedComparableValue)}
           </p>
         </div>
       </div>
 
-      <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-3">
+      <dl className="mt-4 grid grid-cols-2 gap-4 text-sm">
         <div>
-          <dt className="text-muted-foreground">Mileage</dt>
-          <dd className="mt-1 font-medium tabular-nums">
+          <dt className="text-xs text-neutral-500">Mileage</dt>
+          <dd className="mt-1 font-medium text-neutral-950 tabular-nums">
             {formatMileage(row.mileage)}
           </dd>
         </div>
         <div>
-          <dt className="text-muted-foreground">Distance</dt>
-          <dd className="mt-1 font-medium tabular-nums">
+          <dt className="text-xs text-neutral-500">Distance</dt>
+          <dd className="mt-1 font-medium text-neutral-950 tabular-nums">
             {formatDistance(row.distanceMiles)}
           </dd>
         </div>
-        <div>
-          <dt className="text-muted-foreground">Adjustment disclosure</dt>
-          <dd className="mt-1 font-medium">{row.adjustmentDisclosureLabel}</dd>
-        </div>
       </dl>
 
-      <details className="group mt-5 border-t pt-4 text-sm">
-        <summary className="flex cursor-pointer list-none items-center gap-2 font-medium text-muted-foreground transition-colors hover:text-foreground">
+      <details className="group mt-4 border-t border-neutral-200 text-sm">
+        <summary
+          className="flex min-h-11 cursor-pointer list-none items-center gap-2 rounded-sm font-medium text-neutral-500 transition-colors hover:text-neutral-950 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950"
+          aria-label={`Adjustment breakdown for CCC comparable ${row.comparableNumber ?? row.index + 1}: ${cccVehicleName(row)}`}
+        >
           Adjustment breakdown
           <ChevronDown
             className="size-4 transition-transform group-open:rotate-180"
             aria-hidden="true"
           />
         </summary>
-        <dl className="mt-4 grid gap-3 rounded-lg bg-muted/55 p-4 sm:grid-cols-2">
+        <dl className="grid gap-3 rounded-lg bg-neutral-100 p-4 sm:grid-cols-2">
           {adjustments.map(([label, adjustment]) => (
             <div key={label} className="flex items-center justify-between gap-4">
               <dt className="text-muted-foreground">{label}</dt>
@@ -1087,7 +1195,10 @@ function CccComparables({ analysis }: AnalysisResultsProps) {
   }
 
   return (
-    <section className="mt-20" aria-labelledby="ccc-heading">
+    <section
+      className="mt-16 rounded-2xl border border-neutral-200 bg-neutral-100 p-5 sm:mt-20 sm:p-8 lg:p-10"
+      aria-labelledby="ccc-heading"
+    >
       <SectionHeading
         id="ccc-heading"
         eyebrow="CCC report context"
@@ -1097,7 +1208,7 @@ function CccComparables({ analysis }: AnalysisResultsProps) {
         )} comparable vehicles. The values below show the report’s advertised prices and disclosed adjustments without judging whether any individual adjustment was appropriate.`}
       />
 
-      <dl className="mt-9 grid gap-x-10 gap-y-5 rounded-xl border bg-muted/25 p-5 sm:grid-cols-3 sm:p-6">
+      <dl className="mt-7 grid gap-x-10 gap-y-5 sm:grid-cols-3">
         <Metric
           label="CCC advertised comparable median"
           value={displayMoney(summary.advertisedPrices.medianPrice)}
@@ -1113,7 +1224,7 @@ function CccComparables({ analysis }: AnalysisResultsProps) {
         />
       </dl>
 
-      <ol className="mt-4 grid gap-4">
+      <ol className="mt-6 grid gap-3 xl:grid-cols-3">
         {rows.map((row) => (
           <CccComparableCard key={row.index} row={row} />
         ))}
@@ -1140,20 +1251,20 @@ function ImportantLimitations({ analysis }: AnalysisResultsProps) {
 
   return (
     <section
-      className="mt-20 border-t pt-8"
+      className="mt-16 border-t border-neutral-200 pt-10 sm:mt-20"
       aria-labelledby="limitations-heading"
     >
-      <p className="text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">
+      <p className="text-[0.7rem] font-semibold tracking-[0.14em] text-neutral-500 uppercase">
         Read before relying on this analysis
       </p>
       <h2
         id="limitations-heading"
-        className="mt-2 text-xl font-semibold tracking-tight"
+        className="mt-2 text-xl font-semibold tracking-tight text-neutral-950"
       >
         Important limitations
       </h2>
       <details className="group mt-4">
-        <summary className="flex cursor-pointer list-none items-center justify-between gap-6 rounded-lg py-2 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring">
+        <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-6 rounded-sm focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-neutral-950">
           <span className="font-medium">
             Review the limits and coverage notes for this analysis
           </span>
@@ -1162,8 +1273,8 @@ function ImportantLimitations({ analysis }: AnalysisResultsProps) {
             aria-hidden="true"
           />
         </summary>
-        <div className="mt-6 rounded-xl border bg-muted/25 p-5 sm:p-7">
-          <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
+        <div className="mt-4 rounded-xl border border-neutral-200 bg-neutral-100 p-5 sm:p-7">
+          <p className="max-w-3xl text-sm leading-6 text-neutral-600">
             These limitations still apply when the evidence points to a
             meaningful gap. They define what this review does—and does
             not—establish.
@@ -1172,12 +1283,12 @@ function ImportantLimitations({ analysis }: AnalysisResultsProps) {
             {analysis.limitations.map((limitation, index) => (
               <li key={`${limitation.code}-${index}`} className="flex gap-3">
                 <CircleDot
-                  className="mt-1 size-4 shrink-0 text-muted-foreground"
+                  className="mt-1 size-4 shrink-0 text-neutral-400"
                   aria-hidden="true"
                 />
                 <div>
                   <h3 className="text-sm font-semibold">{limitation.label}</h3>
-                  <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                  <p className="mt-1 text-sm leading-6 text-neutral-600">
                     {limitation.description}
                   </p>
                 </div>
@@ -1215,31 +1326,38 @@ export function AnalysisResults({ analysis }: AnalysisResultsProps) {
 
   return (
     <article className="w-full bg-report-canvas">
-      <div className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 sm:py-14 lg:py-16">
-        <header>
-          <div className="flex items-center gap-2 text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">
-            <Check className="size-4 text-evidence" aria-hidden="true" />
-            Valuation evidence review
+      <div className="mx-auto w-full max-w-[90rem] px-5 py-8 sm:px-8 sm:py-10 lg:px-10 lg:py-12">
+        <header className="grid gap-6 border-b border-neutral-200 pb-7 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
+          <div>
+            <p className="text-[0.7rem] font-semibold tracking-[0.15em] text-neutral-500 uppercase">
+              Valuation evidence review
+            </p>
+            <h1 className="mt-3 text-2xl font-semibold tracking-[-0.03em] text-balance sm:text-3xl">
+              {vehicle}
+            </h1>
           </div>
-          <h1 className="mt-4 text-3xl font-semibold tracking-[-0.025em] text-balance sm:text-4xl lg:text-5xl">
-            {vehicle}
-          </h1>
-          <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-sm text-muted-foreground">
-            <span className="inline-flex items-center gap-2">
-              <Gauge className="size-4" aria-hidden="true" />
-              {formatMileage(analysis.vehicle.mileage)}
-            </span>
-            <span className="inline-flex items-center gap-2">
-              <CalendarDays className="size-4" aria-hidden="true" />
-              Loss date {formatDate(analysis.vehicle.lossDate)}
-            </span>
+          <dl className="flex flex-wrap gap-x-7 gap-y-3 text-sm">
+            <div>
+              <dt className="text-xs text-neutral-500">Mileage</dt>
+              <dd className="mt-1 font-medium text-neutral-950 tabular-nums">
+                {formatMileage(analysis.vehicle.mileage)}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-xs text-neutral-500">Loss date</dt>
+              <dd className="mt-1 font-medium text-neutral-950">
+                {formatDate(analysis.vehicle.lossDate)}
+              </dd>
+            </div>
             {analysis.vehicle.postalCode ? (
-              <span className="inline-flex items-center gap-2">
-                <MapPin className="size-4" aria-hidden="true" />
-                {analysis.vehicle.postalCode}
-              </span>
+              <div>
+                <dt className="text-xs text-neutral-500">Loss ZIP</dt>
+                <dd className="mt-1 font-medium text-neutral-950 tabular-nums">
+                  {analysis.vehicle.postalCode}
+                </dd>
+              </div>
             ) : null}
-          </div>
+          </dl>
         </header>
 
         <PrimaryAssessment analysis={analysis} />
@@ -1249,12 +1367,8 @@ export function AnalysisResults({ analysis }: AnalysisResultsProps) {
         <CccComparables analysis={analysis} />
         <ImportantLimitations analysis={analysis} />
 
-        <div className="mt-14 flex items-start gap-3 border-t pt-6 text-sm leading-6 text-muted-foreground">
-          <CheckCircle2
-            className="mt-0.5 size-4 shrink-0 text-evidence"
-            aria-hidden="true"
-          />
-          <p>
+        <div className="mt-12 border-t border-neutral-200 pt-6 text-sm leading-6 text-neutral-500">
+          <p className="max-w-2xl">
             This report keeps market evidence, CCC report data, and important
             limitations together so you can review the valuation with clearer
             context.
