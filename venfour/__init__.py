@@ -45,16 +45,29 @@ from .orchestration import (
     CurrentMarketSearchConfiguration,
     HistoricalMarketSearchConfiguration,
 )
+from .presentation import (
+    ANALYSIS_PRESENTATION_VERSION,
+    AnalysisPresentation,
+    AnalysisPresentationContractError,
+    AnalysisPresentationProjector,
+    AnalysisPresentationService,
+    validate_analysis_presentation,
+)
 
 __all__ = [
     "ANALYSIS_VERSION",
     "ANALYSIS_RUN_ANALYSIS_VERSION",
     "ANALYSIS_RUN_SCHEMA_VERSION",
+    "ANALYSIS_PRESENTATION_VERSION",
     "AnalysisExecutionError",
     "AnalysisInputError",
     "AnalysisOrchestrationError",
     "AnalysisOrchestrator",
     "AnalysisPersistenceError",
+    "AnalysisPresentation",
+    "AnalysisPresentationContractError",
+    "AnalysisPresentationProjector",
+    "AnalysisPresentationService",
     "AnalysisRetrievalError",
     "AnalysisRunAlreadyExistsError",
     "AnalysisRunArtifact",
@@ -85,4 +98,5 @@ __all__ = [
     "analyze_valuation_discrepancy",
     "rank_market_comparables",
     "valuation_discrepancy_request_from_report",
+    "validate_analysis_presentation",
 ]

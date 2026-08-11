@@ -20,6 +20,64 @@ Install the Python dependencies:
 python3 -m pip install -r requirements.txt
 ```
 
+## Phase 3E: deterministic analysis presentation projection
+
+Phase 3E is the provider-neutral presentation boundary over completed analysis
+runs. It turns the validated audit record into structured content that a later
+renderer can consume without requiring that renderer to understand Phase 3D
+internals:
+
+```text
+AnalysisRunRepository.get(runId)
+        ↓
+validated AnalysisRunArtifact
+        ↓
+Phase 3E AnalysisPresentationService + deterministic projector
+        ↓
+strict, presentation-ready AnalysisPresentation model
+        ↓
+future web UI / PDF / deterministic explanation layer
+```
+
+`AnalysisPresentationService` loads by run ID through the existing
+`AnalysisRunRepository`; it does not open audit JSON directly. Repository reads
+therefore retain the Phase 3D.2 schema, semantic, digest, and replay checks, so a
+malformed or tampered request, ranking, or result is rejected before projection.
+The service passes the validated artifact to the side-effect-free projector and
+returns a separately schema- and semantically validated presentation model.
+
+Phase 3D remains authoritative. The projector does not recalculate medians,
+ranges, dispersion, differences, thresholds, evidence strength, evidence
+selection, ranking, findings, limitations, or classification, and it never
+overrides a stored conclusion. It only organizes whitelisted stored facts and
+formats existing integer-cent and basis-point values for display. The original
+machine-readable classification, evidence-strength, evidence-basis, finding,
+and limitation codes remain alongside reviewed labels and concise descriptions.
+All presentation wording comes from deterministic templates; no language model
+or dynamically generated prose is used.
+
+Projection makes no current-market, historical-market, VIN-history, CCC,
+dealer-site, or other provider request. Historical loss-date evidence and
+current-market evidence remain explicitly labeled and separate. When Phase 3D
+uses historical evidence as primary and current evidence as secondary, Phase 3E
+preserves those roles and never averages them or creates a combined market
+median. Excluded, ambiguous, and unresolved records remain diagnostic rather
+than becoming priced comparables.
+
+Every stored limitation remains visible regardless of classification or
+evidence strength. Phase 3E provides no recommendations, negotiation strategy,
+settlement demand, insurer communication, or action guidance. Future web, PDF,
+and explanation renderers should consume `AnalysisPresentation` instead of raw
+analysis internals whenever possible, while the full `AnalysisRunArtifact`
+remains the authoritative audit record.
+
+The presentation can expose only facts retained in that artifact. Phase 3D.2
+stores the bounded target fields used by analysis and the CCC adjusted vehicle
+value that Phase 3D actually compared, but it does not retain the complete CCC
+report or independently expose its base value, report total, taxes, deductible,
+or settlement arithmetic. Phase 3E does not reconstruct, infer, or relabel those
+unavailable fields.
+
 ## Phase 3D.2: analysis orchestration and audit persistence
 
 Phase 3D.2 adds the provider-neutral application workflow that coordinates the
@@ -38,9 +96,9 @@ Phase 3D deterministic discrepancy analysis
     ↓
 Phase 3D.2 analysis-run orchestration
     ↓
-immutable audit artifact
+validated, immutable AnalysisRunArtifact
     ↓
-future Phase 3E presentation
+Phase 3E deterministic presentation projection
 ```
 
 `AnalysisOrchestrator` decides when the existing stages run; it does not
@@ -95,11 +153,10 @@ distinct errors. In particular, a persistence failure never reports the run as
 successfully saved.
 
 Phase 3D.2 adds no product CLI, language-model (LLM) call, prose generation,
-report renderer, settlement calculation, or negotiation output, and it does not
-implement Phase 3E. Its classifications are structured screening results, not
-legal advice or a legally owed settlement amount. Future Phase 3E presentation
-will consume the saved structured artifact without recalculating or changing its
-evidence selection or classification.
+report renderer, settlement calculation, or negotiation output. Its
+classifications are structured screening results, not legal advice or a legally
+owed settlement amount. Phase 3E consumes the saved structured artifact without
+recalculating or changing its evidence selection or classification.
 
 ## Phase 3D: conservative valuation-discrepancy analysis
 
