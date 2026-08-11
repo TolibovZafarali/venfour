@@ -1,0 +1,991 @@
+{
+  "presentationVersion": "1",
+  "runId": "00000000-0000-4000-8000-000000000001",
+  "analysisCreatedAt": "2026-08-21T12:34:56.789000Z",
+  "assessment": {
+    "classification": "MATERIAL_UNDERVALUE_SIGNAL",
+    "classificationLabel": "Material undervaluation signal",
+    "evidenceStrength": "STRONG",
+    "evidenceStrengthLabel": "Strong",
+    "evidenceBasis": "LOSS_DATE_HISTORICAL",
+    "evidenceBasisLabel": "Historical market evidence from the loss date",
+    "summary": "The strongest available external evidence produced a material undervaluation signal relative to the CCC adjusted vehicle value."
+  },
+  "vehicle": {
+    "year": 2024,
+    "make": "Synthetic",
+    "model": "Sedan",
+    "trim": "SEL",
+    "mileage": 50000,
+    "lossDate": "2026-05-19",
+    "postalCode": "63026"
+  },
+  "cccValuation": {
+    "valueCode": "CCC_ADJUSTED_VEHICLE_VALUE",
+    "valueLabel": "CCC adjusted vehicle value",
+    "adjustedVehicleValue": {
+      "cents": 2000000,
+      "display": "$20,000.00"
+    },
+    "explanation": "This is the CCC vehicle-market value used by Phase 3D when available; settlement totals are not substituted.",
+    "comparisonToPrimaryEvidence": {
+      "label": "Primary external median versus CCC adjusted vehicle value",
+      "evidenceBasis": "LOSS_DATE_HISTORICAL",
+      "firstValueLabel": "Primary external advertised-price median",
+      "secondValueLabel": "CCC adjusted vehicle value",
+      "firstValue": {
+        "cents": 2220000,
+        "display": "$22,200.00"
+      },
+      "secondValue": {
+        "cents": 2000000,
+        "display": "$20,000.00"
+      },
+      "difference": {
+        "cents": 220000,
+        "display": "$2,200.00"
+      },
+      "differencePercent": {
+        "basisPoints": 1100,
+        "display": "11.00%"
+      },
+      "cccPositionInExternalRange": "BELOW_OBSERVED_RANGE",
+      "cccPositionLabel": "Below the observed external range"
+    },
+    "supportingComparisons": {
+      "cccAdjustedMedianVsVehicleValuation": {
+        "label": "CCC adjusted comparable median versus CCC vehicle valuation",
+        "firstValueLabel": "CCC adjusted comparable median",
+        "secondValueLabel": "CCC adjusted vehicle value",
+        "firstValue": {
+          "cents": 2000000,
+          "display": "$20,000.00"
+        },
+        "secondValue": {
+          "cents": 2000000,
+          "display": "$20,000.00"
+        },
+        "difference": {
+          "cents": 0,
+          "display": "$0.00"
+        },
+        "differencePercent": {
+          "basisPoints": 0,
+          "display": "0.00%"
+        }
+      },
+      "cccAdvertisedMedianVsAdjustedMedian": {
+        "label": "CCC advertised median versus CCC adjusted comparable median",
+        "firstValueLabel": "CCC advertised-price median for paired rows",
+        "secondValueLabel": "CCC adjusted-value median for paired rows",
+        "firstValue": {
+          "cents": 2010000,
+          "display": "$20,100.00"
+        },
+        "secondValue": {
+          "cents": 2000000,
+          "display": "$20,000.00"
+        },
+        "difference": {
+          "cents": 10000,
+          "display": "$100.00"
+        },
+        "differencePercent": {
+          "basisPoints": 50,
+          "display": "0.50%"
+        }
+      },
+      "externalMedianVsCccAdjustedMedian": {
+        "label": "Primary external median versus CCC adjusted comparable median",
+        "firstValueLabel": "Primary external advertised-price median",
+        "secondValueLabel": "CCC adjusted comparable median",
+        "firstValue": {
+          "cents": 2220000,
+          "display": "$22,200.00"
+        },
+        "secondValue": {
+          "cents": 2000000,
+          "display": "$20,000.00"
+        },
+        "difference": {
+          "cents": 220000,
+          "display": "$2,200.00"
+        },
+        "differencePercent": {
+          "basisPoints": 1100,
+          "display": "11.00%"
+        }
+      }
+    }
+  },
+  "cccComparables": {
+    "summary": {
+      "totalCount": 3,
+      "advertisedPriceMissingCount": 0,
+      "adjustedValueMissingCount": 0,
+      "pairedValueCount": 3,
+      "pairedValueMissingCount": 0,
+      "fullyDisclosedAdjustmentCount": 3,
+      "partiallyDisclosedAdjustmentCount": 0,
+      "undisclosedAdjustmentCount": 0,
+      "unavailableAdjustmentCount": 0,
+      "advertisedPrices": {
+        "count": 3,
+        "minimumPrice": {
+          "cents": 1980000,
+          "display": "$19,800.00"
+        },
+        "maximumPrice": {
+          "cents": 2040000,
+          "display": "$20,400.00"
+        },
+        "medianPrice": {
+          "cents": 2010000,
+          "display": "$20,100.00"
+        },
+        "range": {
+          "cents": 60000,
+          "display": "$600.00"
+        },
+        "medianAbsoluteDeviation": {
+          "cents": 30000,
+          "display": "$300.00"
+        },
+        "centralHalfRange": {
+          "cents": 0,
+          "display": "$0.00"
+        },
+        "dispersion": {
+          "basisPoints": 149,
+          "display": "1.49%"
+        }
+      },
+      "adjustedValues": {
+        "count": 3,
+        "minimumPrice": {
+          "cents": 2000000,
+          "display": "$20,000.00"
+        },
+        "maximumPrice": {
+          "cents": 2000000,
+          "display": "$20,000.00"
+        },
+        "medianPrice": {
+          "cents": 2000000,
+          "display": "$20,000.00"
+        },
+        "range": {
+          "cents": 0,
+          "display": "$0.00"
+        },
+        "medianAbsoluteDeviation": {
+          "cents": 0,
+          "display": "$0.00"
+        },
+        "centralHalfRange": {
+          "cents": 0,
+          "display": "$0.00"
+        },
+        "dispersion": {
+          "basisPoints": 0,
+          "display": "0.00%"
+        }
+      },
+      "netAdjustments": {
+        "count": 3,
+        "minimum": {
+          "cents": -40000,
+          "display": "-$400.00"
+        },
+        "maximum": {
+          "cents": 20000,
+          "display": "$200.00"
+        },
+        "median": {
+          "cents": -10000,
+          "display": "-$100.00"
+        },
+        "range": {
+          "cents": 60000,
+          "display": "$600.00"
+        }
+      },
+      "adjustmentDirection": {
+        "code": "CCC_ADJUSTMENTS_REDUCE_COMPARABLE_VALUES",
+        "label": "CCC adjustments reduce the paired median",
+        "description": "For paired CCC rows, the adjusted-value median is below the advertised-price median; this describes direction only."
+      }
+    },
+    "rows": [
+      {
+        "index": 0,
+        "comparableNumber": 1,
+        "year": 2024,
+        "make": "Synthetic",
+        "model": "Sedan",
+        "trim": "SEL",
+        "vin": "SYNTHETICCCCVIN01",
+        "dealer": "Synthetic CCC Dealer 1",
+        "location": "Test City, MO 63026",
+        "distanceMiles": 11,
+        "mileage": 49500,
+        "advertisedPrice": {
+          "cents": 1980000,
+          "display": "$19,800.00"
+        },
+        "cccAdjustedComparableValue": {
+          "cents": 2000000,
+          "display": "$20,000.00"
+        },
+        "netAdjustment": {
+          "cents": 20000,
+          "display": "$200.00"
+        },
+        "adjustments": {
+          "package": {
+            "cents": 10000,
+            "display": "$100.00"
+          },
+          "options": {
+            "cents": 5000,
+            "display": "$50.00"
+          },
+          "mileage": {
+            "cents": 2500,
+            "display": "$25.00"
+          },
+          "condition": {
+            "cents": 2500,
+            "display": "$25.00"
+          }
+        },
+        "adjustmentDisclosure": "full",
+        "adjustmentDisclosureLabel": "Fully disclosed",
+        "contributionPercent": 34
+      },
+      {
+        "index": 1,
+        "comparableNumber": 2,
+        "year": 2024,
+        "make": "Synthetic",
+        "model": "Sedan",
+        "trim": "SEL",
+        "vin": "SYNTHETICCCCVIN02",
+        "dealer": "Synthetic CCC Dealer 2",
+        "location": "Test City, MO 63026",
+        "distanceMiles": 12,
+        "mileage": 50000,
+        "advertisedPrice": {
+          "cents": 2010000,
+          "display": "$20,100.00"
+        },
+        "cccAdjustedComparableValue": {
+          "cents": 2000000,
+          "display": "$20,000.00"
+        },
+        "netAdjustment": {
+          "cents": -10000,
+          "display": "-$100.00"
+        },
+        "adjustments": {
+          "package": {
+            "cents": -5000,
+            "display": "-$50.00"
+          },
+          "options": {
+            "cents": -2500,
+            "display": "-$25.00"
+          },
+          "mileage": {
+            "cents": -2500,
+            "display": "-$25.00"
+          },
+          "condition": {
+            "cents": 0,
+            "display": "$0.00"
+          }
+        },
+        "adjustmentDisclosure": "full",
+        "adjustmentDisclosureLabel": "Fully disclosed",
+        "contributionPercent": 33
+      },
+      {
+        "index": 2,
+        "comparableNumber": 3,
+        "year": 2024,
+        "make": "Synthetic",
+        "model": "Sedan",
+        "trim": "SEL",
+        "vin": "SYNTHETICCCCVIN03",
+        "dealer": "Synthetic CCC Dealer 3",
+        "location": "Test City, MO 63026",
+        "distanceMiles": 13,
+        "mileage": 50500,
+        "advertisedPrice": {
+          "cents": 2040000,
+          "display": "$20,400.00"
+        },
+        "cccAdjustedComparableValue": {
+          "cents": 2000000,
+          "display": "$20,000.00"
+        },
+        "netAdjustment": {
+          "cents": -40000,
+          "display": "-$400.00"
+        },
+        "adjustments": {
+          "package": {
+            "cents": -10000,
+            "display": "-$100.00"
+          },
+          "options": {
+            "cents": -10000,
+            "display": "-$100.00"
+          },
+          "mileage": {
+            "cents": -10000,
+            "display": "-$100.00"
+          },
+          "condition": {
+            "cents": -10000,
+            "display": "-$100.00"
+          }
+        },
+        "adjustmentDisclosure": "full",
+        "adjustmentDisclosureLabel": "Fully disclosed",
+        "contributionPercent": 33
+      }
+    ]
+  },
+  "primaryExternalEvidence": {
+    "role": "PRIMARY",
+    "evidenceBasis": "LOSS_DATE_HISTORICAL",
+    "evidenceBasisLabel": "Historical market evidence from the loss date",
+    "label": "Primary loss-date historical evidence",
+    "description": "Resolved listings active on the loss date form the primary external evidence set selected by Phase 3D.",
+    "provider": {
+      "name": "synthetic-historical",
+      "version": "fixture-historical-1"
+    },
+    "evidenceDate": "2026-05-19",
+    "coverage": {
+      "status": "SUPPORTED",
+      "statusLabel": "Loss date within provider coverage",
+      "asOfDate": "2026-08-10",
+      "historyWindowDays": 90
+    },
+    "resolvedCount": 5,
+    "unresolvedCount": 0,
+    "ambiguousCount": 0,
+    "rankedCandidateCount": 5,
+    "eligibleCandidateCount": 5,
+    "ineligibleCount": 0,
+    "identityMissingExcludedCount": 0,
+    "duplicateIdentityExcludedCount": 0,
+    "comparisonSetLimitExcludedCount": 0,
+    "selectedCount": 5,
+    "selectedWeakCount": 0,
+    "prices": {
+      "count": 5,
+      "minimumPrice": {
+        "cents": 2180000,
+        "display": "$21,800.00"
+      },
+      "maximumPrice": {
+        "cents": 2260000,
+        "display": "$22,600.00"
+      },
+      "medianPrice": {
+        "cents": 2220000,
+        "display": "$22,200.00"
+      },
+      "range": {
+        "cents": 80000,
+        "display": "$800.00"
+      },
+      "medianAbsoluteDeviation": {
+        "cents": 20000,
+        "display": "$200.00"
+      },
+      "centralHalfRange": {
+        "cents": 20000,
+        "display": "$200.00"
+      },
+      "dispersion": {
+        "basisPoints": 90,
+        "display": "0.90%"
+      }
+    }
+  },
+  "secondaryExternalEvidence": {
+    "role": "SECONDARY",
+    "evidenceBasis": "CURRENT_MARKET",
+    "evidenceBasisLabel": "Current market evidence",
+    "label": "Secondary current market evidence",
+    "description": "Current evidence is retained as secondary context and is not combined with the primary loss-date historical price set.",
+    "provider": {
+      "name": "synthetic-current",
+      "version": "fixture-current-1"
+    },
+    "evidenceDate": "2026-08-10",
+    "coverage": null,
+    "resolvedCount": 5,
+    "unresolvedCount": 0,
+    "ambiguousCount": 0,
+    "rankedCandidateCount": 5,
+    "eligibleCandidateCount": 5,
+    "ineligibleCount": 0,
+    "identityMissingExcludedCount": 0,
+    "duplicateIdentityExcludedCount": 0,
+    "comparisonSetLimitExcludedCount": 0,
+    "selectedCount": 5,
+    "selectedWeakCount": 0,
+    "prices": {
+      "count": 5,
+      "minimumPrice": {
+        "cents": 1950000,
+        "display": "$19,500.00"
+      },
+      "maximumPrice": {
+        "cents": 2050000,
+        "display": "$20,500.00"
+      },
+      "medianPrice": {
+        "cents": 2000000,
+        "display": "$20,000.00"
+      },
+      "range": {
+        "cents": 100000,
+        "display": "$1,000.00"
+      },
+      "medianAbsoluteDeviation": {
+        "cents": 10000,
+        "display": "$100.00"
+      },
+      "centralHalfRange": {
+        "cents": 10000,
+        "display": "$100.00"
+      },
+      "dispersion": {
+        "basisPoints": 50,
+        "display": "0.50%"
+      }
+    }
+  },
+  "comparablesUsed": {
+    "primary": [
+      {
+        "evidenceRole": "PRIMARY",
+        "evidenceBasis": "LOSS_DATE_HISTORICAL",
+        "source": "synthetic-historical",
+        "sourceListingId": "synthetic-historical-listing-001",
+        "vin": "SYNTHETICVIN00001",
+        "year": 2024,
+        "make": "Synthetic",
+        "model": "Sedan",
+        "trim": "SEL",
+        "mileage": 50000,
+        "lossVehicleMileage": 50000,
+        "mileageDifferenceFromLossVehicle": 0,
+        "advertisedPrice": {
+          "cents": 2180000,
+          "display": "$21,800.00"
+        },
+        "dealer": {
+          "name": "Synthetic Dealer 1",
+          "city": "Test City",
+          "state": "MO",
+          "postalCode": "63026"
+        },
+        "distanceMiles": 6,
+        "rank": 1,
+        "score": 100,
+        "tier": "STRONG",
+        "tierLabel": "Strong match",
+        "temporalBasis": "LISTING_RECORD_ACTIVE_ON_DATE",
+        "temporalBasisLabel": "Verified active on the evidence date from stored lifecycle records",
+        "evidenceDate": "2026-05-19",
+        "lifecycleEvidence": {
+          "status": "RESOLVED",
+          "basis": "LISTING_RECORD_ACTIVE_ON_DATE",
+          "basisLabel": "Verified active on the evidence date from stored lifecycle records",
+          "evidenceDate": "2026-05-19",
+          "recordFirstSeenAt": "2026-05-18T12:00:00Z",
+          "recordLastSeenAt": "2026-05-20T12:00:00Z",
+          "sourceFirstSeenAt": "2026-05-01T00:00:00Z",
+          "sourceLastSeenAt": "2026-05-31T23:59:59Z"
+        }
+      },
+      {
+        "evidenceRole": "PRIMARY",
+        "evidenceBasis": "LOSS_DATE_HISTORICAL",
+        "source": "synthetic-historical",
+        "sourceListingId": "synthetic-historical-listing-002",
+        "vin": "SYNTHETICVIN00002",
+        "year": 2024,
+        "make": "Synthetic",
+        "model": "Sedan",
+        "trim": "SEL",
+        "mileage": 50500,
+        "lossVehicleMileage": 50000,
+        "mileageDifferenceFromLossVehicle": 500,
+        "advertisedPrice": {
+          "cents": 2200000,
+          "display": "$22,000.00"
+        },
+        "dealer": {
+          "name": "Synthetic Dealer 2",
+          "city": "Test City",
+          "state": "MO",
+          "postalCode": "63026"
+        },
+        "distanceMiles": 7,
+        "rank": 2,
+        "score": 99.5,
+        "tier": "STRONG",
+        "tierLabel": "Strong match",
+        "temporalBasis": "LISTING_RECORD_ACTIVE_ON_DATE",
+        "temporalBasisLabel": "Verified active on the evidence date from stored lifecycle records",
+        "evidenceDate": "2026-05-19",
+        "lifecycleEvidence": {
+          "status": "RESOLVED",
+          "basis": "LISTING_RECORD_ACTIVE_ON_DATE",
+          "basisLabel": "Verified active on the evidence date from stored lifecycle records",
+          "evidenceDate": "2026-05-19",
+          "recordFirstSeenAt": "2026-05-18T12:00:00Z",
+          "recordLastSeenAt": "2026-05-20T12:00:00Z",
+          "sourceFirstSeenAt": "2026-05-01T00:00:00Z",
+          "sourceLastSeenAt": "2026-05-31T23:59:59Z"
+        }
+      },
+      {
+        "evidenceRole": "PRIMARY",
+        "evidenceBasis": "LOSS_DATE_HISTORICAL",
+        "source": "synthetic-historical",
+        "sourceListingId": "synthetic-historical-listing-003",
+        "vin": "SYNTHETICVIN00003",
+        "year": 2024,
+        "make": "Synthetic",
+        "model": "Sedan",
+        "trim": "SEL",
+        "mileage": 51000,
+        "lossVehicleMileage": 50000,
+        "mileageDifferenceFromLossVehicle": 1000,
+        "advertisedPrice": {
+          "cents": 2220000,
+          "display": "$22,200.00"
+        },
+        "dealer": {
+          "name": "Synthetic Dealer 3",
+          "city": "Test City",
+          "state": "MO",
+          "postalCode": "63026"
+        },
+        "distanceMiles": 8,
+        "rank": 3,
+        "score": 99,
+        "tier": "STRONG",
+        "tierLabel": "Strong match",
+        "temporalBasis": "LISTING_RECORD_ACTIVE_ON_DATE",
+        "temporalBasisLabel": "Verified active on the evidence date from stored lifecycle records",
+        "evidenceDate": "2026-05-19",
+        "lifecycleEvidence": {
+          "status": "RESOLVED",
+          "basis": "LISTING_RECORD_ACTIVE_ON_DATE",
+          "basisLabel": "Verified active on the evidence date from stored lifecycle records",
+          "evidenceDate": "2026-05-19",
+          "recordFirstSeenAt": "2026-05-18T12:00:00Z",
+          "recordLastSeenAt": "2026-05-20T12:00:00Z",
+          "sourceFirstSeenAt": "2026-05-01T00:00:00Z",
+          "sourceLastSeenAt": "2026-05-31T23:59:59Z"
+        }
+      },
+      {
+        "evidenceRole": "PRIMARY",
+        "evidenceBasis": "LOSS_DATE_HISTORICAL",
+        "source": "synthetic-historical",
+        "sourceListingId": "synthetic-historical-listing-004",
+        "vin": "SYNTHETICVIN00004",
+        "year": 2024,
+        "make": "Synthetic",
+        "model": "Sedan",
+        "trim": "SEL",
+        "mileage": 51500,
+        "lossVehicleMileage": 50000,
+        "mileageDifferenceFromLossVehicle": 1500,
+        "advertisedPrice": {
+          "cents": 2240000,
+          "display": "$22,400.00"
+        },
+        "dealer": {
+          "name": "Synthetic Dealer 4",
+          "city": "Test City",
+          "state": "MO",
+          "postalCode": "63026"
+        },
+        "distanceMiles": 9,
+        "rank": 4,
+        "score": 98.5,
+        "tier": "STRONG",
+        "tierLabel": "Strong match",
+        "temporalBasis": "LISTING_RECORD_ACTIVE_ON_DATE",
+        "temporalBasisLabel": "Verified active on the evidence date from stored lifecycle records",
+        "evidenceDate": "2026-05-19",
+        "lifecycleEvidence": {
+          "status": "RESOLVED",
+          "basis": "LISTING_RECORD_ACTIVE_ON_DATE",
+          "basisLabel": "Verified active on the evidence date from stored lifecycle records",
+          "evidenceDate": "2026-05-19",
+          "recordFirstSeenAt": "2026-05-18T12:00:00Z",
+          "recordLastSeenAt": "2026-05-20T12:00:00Z",
+          "sourceFirstSeenAt": "2026-05-01T00:00:00Z",
+          "sourceLastSeenAt": "2026-05-31T23:59:59Z"
+        }
+      },
+      {
+        "evidenceRole": "PRIMARY",
+        "evidenceBasis": "LOSS_DATE_HISTORICAL",
+        "source": "synthetic-historical",
+        "sourceListingId": "synthetic-historical-listing-005",
+        "vin": "SYNTHETICVIN00005",
+        "year": 2024,
+        "make": "Synthetic",
+        "model": "Sedan",
+        "trim": "SEL",
+        "mileage": 52000,
+        "lossVehicleMileage": 50000,
+        "mileageDifferenceFromLossVehicle": 2000,
+        "advertisedPrice": {
+          "cents": 2260000,
+          "display": "$22,600.00"
+        },
+        "dealer": {
+          "name": "Synthetic Dealer 5",
+          "city": "Test City",
+          "state": "MO",
+          "postalCode": "63026"
+        },
+        "distanceMiles": 10,
+        "rank": 5,
+        "score": 98,
+        "tier": "STRONG",
+        "tierLabel": "Strong match",
+        "temporalBasis": "LISTING_RECORD_ACTIVE_ON_DATE",
+        "temporalBasisLabel": "Verified active on the evidence date from stored lifecycle records",
+        "evidenceDate": "2026-05-19",
+        "lifecycleEvidence": {
+          "status": "RESOLVED",
+          "basis": "LISTING_RECORD_ACTIVE_ON_DATE",
+          "basisLabel": "Verified active on the evidence date from stored lifecycle records",
+          "evidenceDate": "2026-05-19",
+          "recordFirstSeenAt": "2026-05-18T12:00:00Z",
+          "recordLastSeenAt": "2026-05-20T12:00:00Z",
+          "sourceFirstSeenAt": "2026-05-01T00:00:00Z",
+          "sourceLastSeenAt": "2026-05-31T23:59:59Z"
+        }
+      }
+    ],
+    "secondary": [
+      {
+        "evidenceRole": "SECONDARY",
+        "evidenceBasis": "CURRENT_MARKET",
+        "source": "synthetic-current",
+        "sourceListingId": "synthetic-current-listing-001",
+        "vin": "SYNTHETICVIN00001",
+        "year": 2024,
+        "make": "Synthetic",
+        "model": "Sedan",
+        "trim": "SEL",
+        "mileage": 50000,
+        "lossVehicleMileage": 50000,
+        "mileageDifferenceFromLossVehicle": 0,
+        "advertisedPrice": {
+          "cents": 1950000,
+          "display": "$19,500.00"
+        },
+        "dealer": {
+          "name": "Synthetic Dealer 1",
+          "city": "Test City",
+          "state": "MO",
+          "postalCode": "63026"
+        },
+        "distanceMiles": 6,
+        "rank": 1,
+        "score": 100,
+        "tier": "STRONG",
+        "tierLabel": "Strong match",
+        "temporalBasis": "CURRENT_MARKET",
+        "temporalBasisLabel": "Current market listing",
+        "evidenceDate": "2026-08-10",
+        "lifecycleEvidence": null
+      },
+      {
+        "evidenceRole": "SECONDARY",
+        "evidenceBasis": "CURRENT_MARKET",
+        "source": "synthetic-current",
+        "sourceListingId": "synthetic-current-listing-002",
+        "vin": "SYNTHETICVIN00002",
+        "year": 2024,
+        "make": "Synthetic",
+        "model": "Sedan",
+        "trim": "SEL",
+        "mileage": 50500,
+        "lossVehicleMileage": 50000,
+        "mileageDifferenceFromLossVehicle": 500,
+        "advertisedPrice": {
+          "cents": 1990000,
+          "display": "$19,900.00"
+        },
+        "dealer": {
+          "name": "Synthetic Dealer 2",
+          "city": "Test City",
+          "state": "MO",
+          "postalCode": "63026"
+        },
+        "distanceMiles": 7,
+        "rank": 2,
+        "score": 99.5,
+        "tier": "STRONG",
+        "tierLabel": "Strong match",
+        "temporalBasis": "CURRENT_MARKET",
+        "temporalBasisLabel": "Current market listing",
+        "evidenceDate": "2026-08-10",
+        "lifecycleEvidence": null
+      },
+      {
+        "evidenceRole": "SECONDARY",
+        "evidenceBasis": "CURRENT_MARKET",
+        "source": "synthetic-current",
+        "sourceListingId": "synthetic-current-listing-003",
+        "vin": "SYNTHETICVIN00003",
+        "year": 2024,
+        "make": "Synthetic",
+        "model": "Sedan",
+        "trim": "SEL",
+        "mileage": 51000,
+        "lossVehicleMileage": 50000,
+        "mileageDifferenceFromLossVehicle": 1000,
+        "advertisedPrice": {
+          "cents": 2000000,
+          "display": "$20,000.00"
+        },
+        "dealer": {
+          "name": "Synthetic Dealer 3",
+          "city": "Test City",
+          "state": "MO",
+          "postalCode": "63026"
+        },
+        "distanceMiles": 8,
+        "rank": 3,
+        "score": 99,
+        "tier": "STRONG",
+        "tierLabel": "Strong match",
+        "temporalBasis": "CURRENT_MARKET",
+        "temporalBasisLabel": "Current market listing",
+        "evidenceDate": "2026-08-10",
+        "lifecycleEvidence": null
+      },
+      {
+        "evidenceRole": "SECONDARY",
+        "evidenceBasis": "CURRENT_MARKET",
+        "source": "synthetic-current",
+        "sourceListingId": "synthetic-current-listing-004",
+        "vin": "SYNTHETICVIN00004",
+        "year": 2024,
+        "make": "Synthetic",
+        "model": "Sedan",
+        "trim": "SEL",
+        "mileage": 51500,
+        "lossVehicleMileage": 50000,
+        "mileageDifferenceFromLossVehicle": 1500,
+        "advertisedPrice": {
+          "cents": 2010000,
+          "display": "$20,100.00"
+        },
+        "dealer": {
+          "name": "Synthetic Dealer 4",
+          "city": "Test City",
+          "state": "MO",
+          "postalCode": "63026"
+        },
+        "distanceMiles": 9,
+        "rank": 4,
+        "score": 98.5,
+        "tier": "STRONG",
+        "tierLabel": "Strong match",
+        "temporalBasis": "CURRENT_MARKET",
+        "temporalBasisLabel": "Current market listing",
+        "evidenceDate": "2026-08-10",
+        "lifecycleEvidence": null
+      },
+      {
+        "evidenceRole": "SECONDARY",
+        "evidenceBasis": "CURRENT_MARKET",
+        "source": "synthetic-current",
+        "sourceListingId": "synthetic-current-listing-005",
+        "vin": "SYNTHETICVIN00005",
+        "year": 2024,
+        "make": "Synthetic",
+        "model": "Sedan",
+        "trim": "SEL",
+        "mileage": 52000,
+        "lossVehicleMileage": 50000,
+        "mileageDifferenceFromLossVehicle": 2000,
+        "advertisedPrice": {
+          "cents": 2050000,
+          "display": "$20,500.00"
+        },
+        "dealer": {
+          "name": "Synthetic Dealer 5",
+          "city": "Test City",
+          "state": "MO",
+          "postalCode": "63026"
+        },
+        "distanceMiles": 10,
+        "rank": 5,
+        "score": 98,
+        "tier": "STRONG",
+        "tierLabel": "Strong match",
+        "temporalBasis": "CURRENT_MARKET",
+        "temporalBasisLabel": "Current market listing",
+        "evidenceDate": "2026-08-10",
+        "lifecycleEvidence": null
+      }
+    ]
+  },
+  "evidenceDiagnostics": {
+    "historicalCoverage": {
+      "provider": {
+        "name": "synthetic-historical",
+        "version": "fixture-historical-1"
+      },
+      "evidenceDate": "2026-05-19",
+      "status": "SUPPORTED",
+      "statusLabel": "Loss date within provider coverage",
+      "description": "The provider reported coverage for the requested historical evidence date.",
+      "asOfDate": "2026-08-10",
+      "historyWindowDays": 90
+    },
+    "exclusions": [],
+    "historicalIssues": []
+  },
+  "findings": [
+    {
+      "code": "HISTORICAL_PRIMARY_EVIDENCE",
+      "label": "Historical evidence is primary",
+      "description": "Resolved listings active on the loss date provide the primary external comparison."
+    },
+    {
+      "code": "CURRENT_EVIDENCE_SECONDARY",
+      "label": "Current evidence is secondary",
+      "description": "Current inventory is secondary context and is not combined with the loss-date historical price set."
+    },
+    {
+      "code": "EXTERNAL_MEDIAN_ABOVE_CCC",
+      "label": "External median is above CCC",
+      "description": "The selected external advertised-price median is above the CCC adjusted vehicle value."
+    },
+    {
+      "code": "CCC_BELOW_EXTERNAL_RANGE",
+      "label": "CCC value is below the external range",
+      "description": "The CCC adjusted vehicle value is below the selected external advertised-price range."
+    },
+    {
+      "code": "CCC_ADJUSTMENTS_REDUCE_COMPARABLE_VALUES",
+      "label": "CCC adjustments reduce the paired median",
+      "description": "For paired CCC rows, the adjusted-value median is below the advertised-price median; this describes direction only."
+    },
+    {
+      "code": "MATERIAL_GAP_THRESHOLD_MET",
+      "label": "Material gap threshold was met",
+      "description": "The stored primary median gap meets the material screening threshold with strong loss-date historical evidence."
+    }
+  ],
+  "limitations": [
+    {
+      "code": "NOT_AN_INDEPENDENT_APPRAISAL",
+      "label": "Not an independent appraisal",
+      "description": "This evidence comparison is not an independent vehicle appraisal."
+    },
+    {
+      "code": "DOES_NOT_CALCULATE_LEGAL_SETTLEMENT",
+      "label": "Does not calculate a legal settlement",
+      "description": "This analysis does not calculate a legally owed settlement amount."
+    },
+    {
+      "code": "POLICY_THRESHOLDS_NOT_LEGAL_STANDARDS",
+      "label": "Policy thresholds are not legal standards",
+      "description": "Classification thresholds are screening-policy thresholds, not legal or industry standards."
+    },
+    {
+      "code": "NEGOTIATION_OUTPUT_NOT_INCLUDED",
+      "label": "Negotiation output is not included",
+      "description": "Negotiation, demand, and action guidance are not included."
+    },
+    {
+      "code": "ADVERTISED_PRICES_NOT_TRANSACTIONS",
+      "label": "Advertised prices are not completed transactions",
+      "description": "External and CCC listing prices are advertised prices, not verified completed-sale prices."
+    },
+    {
+      "code": "NO_INDEPENDENT_MILEAGE_ADJUSTMENT",
+      "label": "No independent mileage adjustment",
+      "description": "Mileage differences are reported without an independent dollar-per-mile adjustment."
+    },
+    {
+      "code": "NO_INDEPENDENT_CONDITION_ADJUSTMENT",
+      "label": "No independent condition adjustment",
+      "description": "No independently invented vehicle-condition adjustment is applied."
+    },
+    {
+      "code": "NO_INDEPENDENT_OPTIONS_ADJUSTMENT",
+      "label": "No independent options adjustment",
+      "description": "No independently invented option, package, or equipment adjustment is applied."
+    },
+    {
+      "code": "PROVIDER_COVERAGE_LIMITED",
+      "label": "Provider coverage is limited",
+      "description": "Provider evidence may not capture every vehicle available in the relevant market."
+    },
+    {
+      "code": "CURRENT_LISTINGS_NOT_LOSS_DATE_EVIDENCE",
+      "label": "Current listings are not loss-date evidence",
+      "description": "Current inventory is current-market context and is not proof of loss-date conditions."
+    },
+    {
+      "code": "HISTORICAL_DATE_LEVEL_ONLY",
+      "label": "Historical evidence is date-level only",
+      "description": "Historical activity is established at calendar-date level; the exact loss time within that day is unavailable."
+    },
+    {
+      "code": "BOUNDED_EXTERNAL_COMPARISON_SET",
+      "label": "External comparison set is bounded",
+      "description": "External statistics use the bounded best-ranked eligible set selected without reference to price."
+    }
+  ],
+  "provenance": {
+    "runId": "00000000-0000-4000-8000-000000000001",
+    "presentationVersion": "1",
+    "analysisRunSchemaVersion": "1",
+    "orchestrationAnalysisVersion": "1",
+    "discrepancyAnalysisVersion": "1",
+    "comparableScoringVersion": "1",
+    "createdAt": "2026-08-21T12:34:56.789000Z",
+    "providers": {
+      "historical": {
+        "name": "synthetic-historical",
+        "version": "fixture-historical-1"
+      },
+      "current": {
+        "name": "synthetic-current",
+        "version": "fixture-current-1"
+      }
+    },
+    "requestDigest": {
+      "algorithm": "SHA-256",
+      "value": "4fa16e33f32f31a286b68738b4f3d43072837f996c7944eb0bde0105baa9eaef",
+      "label": "Phase 3D request integrity digest",
+      "description": "SHA-256 integrity check for the canonical Phase 3D request; this value is not a digital signature."
+    }
+  }
+}

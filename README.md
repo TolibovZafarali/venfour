@@ -20,6 +20,51 @@ Install the Python dependencies:
 python3 -m pip install -r requirements.txt
 ```
 
+## Phase 3F: read-only analysis presentation API
+
+Phase 3F exposes the Phase 3E presentation contract through one lightweight,
+production-capable Starlette ASGI application. The repository previously had no
+HTTP framework; Starlette supplies the small routing, JSON-response, error, and
+application-factory boundary this phase needs without adding a second framework
+or a response-model layer. Selection and operation of a production ASGI server
+remain deployment work.
+
+```text
+AnalysisRunArtifact
+      ↓
+Phase 3E AnalysisPresentationService
+      ↓
+Phase 3F read-only HTTP API
+      ↓
+future Venfour dashboard
+```
+
+`GET /api/v1/analyses/{runId}` returns the validated
+`AnalysisPresentation` JSON object directly, without an API envelope. The API
+calls `AnalysisPresentationService.get(run_id)` only. It does not read analysis
+files or raw provider data, call MarketCheck or another provider, rerun an
+analysis stage, or recalculate presentation values.
+
+Run IDs must be canonical lowercase UUIDv4 strings and are rejected before a
+service or repository lookup when malformed. API errors are deterministic JSON:
+`INVALID_RUN_ID` uses 400, `ANALYSIS_NOT_FOUND` uses 404, and unavailable,
+corrupt, or internally invalid stored analyses use the neutral
+`ANALYSIS_UNAVAILABLE` code with 500. Error responses do not include exception
+details, storage paths, raw JSON, configuration, credentials, or other internal
+state.
+
+The `/api/v1` prefix versions the HTTP contract only; it is independent of the
+analysis-run, discrepancy-analysis, comparable-scoring, and presentation schema
+versions carried in the presentation provenance. `GET /health` returns only
+`{"status":"ok"}` and does not access storage, enumerate files, execute
+analysis, or call a provider.
+
+No CORS policy is enabled by default, and Phase 3F adds no authentication or
+user-ownership model. It exposes no analysis creation, upload, or other mutation
+endpoint. OpenAPI generation is deferred because it is not native to the chosen
+minimal framework; the strict repository JSON Schemas remain the authoritative
+domain contracts.
+
 ## Phase 3E: deterministic analysis presentation projection
 
 Phase 3E is the provider-neutral presentation boundary over completed analysis

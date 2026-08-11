@@ -1,3 +1,4 @@
 PyMuPDF>=1.26,<2
 jsonschema>=4.26,<5
 openai>=2.53,<3
+starlette>=1.6,<2
