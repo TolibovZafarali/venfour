@@ -1,6 +1,7 @@
 data/raw/
 data/extracted/
 data/analyzed/
+data/analysis-runs/
 .env
 .env.*
 !.env.example

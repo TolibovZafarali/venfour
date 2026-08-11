@@ -1,0 +1,224 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.venfour.local/analysis/analysis-run.schema.json",
+  "title": "Venfour Analysis Run",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "analysisRunSchemaVersion",
+    "runId",
+    "createdAt",
+    "analysisVersion",
+    "discrepancyAnalysisVersion",
+    "comparableScoringVersion",
+    "requestDigest",
+    "providers",
+    "request",
+    "result"
+  ],
+  "properties": {
+    "analysisRunSchemaVersion": {
+      "const": "1"
+    },
+    "runId": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "Z$"
+    },
+    "analysisVersion": {
+      "const": "1"
+    },
+    "discrepancyAnalysisVersion": {
+      "const": "1"
+    },
+    "comparableScoringVersion": {
+      "const": "1"
+    },
+    "requestDigest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "providers": {
+      "$ref": "#/$defs/providers"
+    },
+    "request": {
+      "$ref": "#/$defs/analysisRunRequest"
+    },
+    "result": {
+      "$ref": "#/$defs/analysisRunResult"
+    }
+  },
+  "$defs": {
+    "providerMetadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "version"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "version": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1,
+          "pattern": "\\S"
+        }
+      }
+    },
+    "nullableProviderMetadata": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/providerMetadata"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "providers": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "current",
+        "historical"
+      ],
+      "properties": {
+        "current": {
+          "$ref": "#/$defs/nullableProviderMetadata"
+        },
+        "historical": {
+          "$ref": "#/$defs/nullableProviderMetadata"
+        }
+      }
+    },
+    "analysisRunRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "baseDiscrepancyRequest",
+        "lossDateSource",
+        "lossDateOverride",
+        "currentSearchRequest",
+        "historicalSearchRequest",
+        "currentObservedDate"
+      ],
+      "properties": {
+        "baseDiscrepancyRequest": {
+          "$ref": "https://schemas.venfour.local/analysis/valuation-discrepancy-request.schema.json"
+        },
+        "lossDateSource": {
+          "enum": [
+            "CCC_REPORT",
+            "OVERRIDE"
+          ]
+        },
+        "lossDateOverride": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date"
+        },
+        "currentSearchRequest": {
+          "oneOf": [
+            {
+              "$ref": "https://schemas.venfour.local/market/search-request.schema.json"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "historicalSearchRequest": {
+          "oneOf": [
+            {
+              "$ref": "https://schemas.venfour.local/market/historical-search-request.schema.json"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "currentObservedDate": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date"
+        }
+      }
+    },
+    "analysisRunResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "currentMarketResult",
+        "historicalMarketResult",
+        "currentRanking",
+        "historicalRanking",
+        "discrepancyRequest",
+        "discrepancyResult"
+      ],
+      "properties": {
+        "currentMarketResult": {
+          "oneOf": [
+            {
+              "$ref": "https://schemas.venfour.local/market/search-result.schema.json"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "historicalMarketResult": {
+          "oneOf": [
+            {
+              "$ref": "https://schemas.venfour.local/market/historical-search-result.schema.json"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "currentRanking": {
+          "oneOf": [
+            {
+              "$ref": "https://schemas.venfour.local/comparables/ranking-result.schema.json"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "historicalRanking": {
+          "oneOf": [
+            {
+              "$ref": "https://schemas.venfour.local/comparables/ranking-result.schema.json"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "discrepancyRequest": {
+          "$ref": "https://schemas.venfour.local/analysis/valuation-discrepancy-request.schema.json"
+        },
+        "discrepancyResult": {
+          "$ref": "https://schemas.venfour.local/analysis/valuation-discrepancy-result.schema.json"
+        }
+      }
+    }
+  }
+}

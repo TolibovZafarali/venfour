@@ -1,0 +1,636 @@
+"""Provider-neutral application orchestration for a complete analysis run.
+
+This module coordinates existing CCC projection, provider discovery, Phase 3C
+ranking, Phase 3D analysis, and immutable audit persistence.  It owns no market
+matching, ranking, historical-resolution, or discrepancy business rules.
+"""
+
+from __future__ import annotations
+
+import copy
+from collections.abc import Callable, Mapping
+from dataclasses import dataclass, field
+from datetime import date, datetime, timezone
+from typing import Any
+from uuid import UUID, uuid4
+
+from venfour.analysis_runs import (
+    AnalysisRunArtifact,
+    AnalysisRunContractError,
+    AnalysisRunRepository,
+    AnalysisRunValidationUnavailableError,
+    ProviderMetadata,
+    discrepancy_request_digest,
+    validate_analysis_run_artifact,
+)
+from venfour.comparables import ComparableContractError, rank_market_comparables
+from venfour.discrepancy import (
+    CurrentEvidenceInput,
+    DiscrepancyContractError,
+    HistoricalEvidenceInput,
+    ValuationDiscrepancyAnalyzer,
+    ValuationDiscrepancyPolicy,
+    ValuationDiscrepancyResult,
+    validate_valuation_discrepancy_request,
+    validate_valuation_discrepancy_result,
+    valuation_discrepancy_request_from_report,
+)
+from venfour.historical_market import (
+    SUPPORTED,
+    HistoricalMarketProvider,
+    HistoricalMarketSearchRequest,
+    discover_historical_market_evidence,
+    historical_evidence_to_market_search_result,
+    normalize_historical_market_search_request,
+)
+from venfour.market import (
+    MarketContractError,
+    MarketProvider,
+    MarketProviderError,
+    MarketSearchRequest,
+    discover_market_listings,
+    normalize_market_search_request,
+)
+
+
+RunIdFactory = Callable[[], UUID | str]
+Clock = Callable[[], datetime]
+
+
+class AnalysisOrchestrationError(Exception):
+    """Base class for expected application-layer analysis failures."""
+
+
+class AnalysisInputError(AnalysisOrchestrationError):
+    """The normalized CCC input or orchestration configuration is invalid."""
+
+    def __init__(self, message: str, details: tuple[str, ...] = ()) -> None:
+        super().__init__(message)
+        self.details = details
+
+
+class AnalysisRetrievalError(AnalysisOrchestrationError):
+    """A current or historical provider failed before analysis could complete."""
+
+    def __init__(self, stage: str, provider_error_type: str) -> None:
+        super().__init__(f"{stage.capitalize()} market retrieval failed")
+        self.stage = stage
+        self.provider_error_type = provider_error_type
+
+
+class AnalysisExecutionError(AnalysisOrchestrationError):
+    """Canonical pipeline stages could not produce a valid deterministic result."""
+
+
+class AnalysisPersistenceError(AnalysisOrchestrationError):
+    """Analysis completed, but its audit artifact was not successfully saved."""
+
+    def __init__(self, run_id: str) -> None:
+        super().__init__(
+            f"Analysis run {run_id} completed but its audit artifact was not saved"
+        )
+        self.run_id = run_id
+
+
+def _canonical_date(value: str, path: str) -> str:
+    if not isinstance(value, str) or not value.strip():
+        raise AnalysisInputError(
+            "Analysis date failed contract validation",
+            (f"{path}: expected an ISO YYYY-MM-DD date",),
+        )
+    normalized = value.strip()
+    try:
+        parsed = date.fromisoformat(normalized)
+    except ValueError as exc:
+        raise AnalysisInputError(
+            "Analysis date failed contract validation",
+            (f"{path}: expected an ISO YYYY-MM-DD date",),
+        ) from exc
+    if parsed.isoformat() != normalized:
+        raise AnalysisInputError(
+            "Analysis date failed contract validation",
+            (f"{path}: expected an ISO YYYY-MM-DD date",),
+        )
+    return normalized
+
+
+def _validate_search_bounds(radius_miles: Any, result_limit: Any, path: str) -> None:
+    details: list[str] = []
+    if (
+        not isinstance(radius_miles, int)
+        or isinstance(radius_miles, bool)
+        or radius_miles < 0
+    ):
+        details.append(f"{path}.radiusMiles: expected a non-negative integer")
+    if (
+        not isinstance(result_limit, int)
+        or isinstance(result_limit, bool)
+        or result_limit < 1
+    ):
+        details.append(f"{path}.resultLimit: expected a positive integer")
+    if details:
+        raise AnalysisInputError(
+            "Market search configuration failed contract validation", tuple(details)
+        )
+
+
+@dataclass(frozen=True)
+class CurrentMarketSearchConfiguration:
+    """Explicit current retrieval bounds and temporal observation provenance."""
+
+    observed_date: str
+    radius_miles: int = 50
+    result_limit: int = 25
+
+    def __post_init__(self) -> None:
+        object.__setattr__(
+            self,
+            "observed_date",
+            _canonical_date(self.observed_date, "$.currentSearch.observedDate"),
+        )
+        _validate_search_bounds(
+            self.radius_miles, self.result_limit, "$.currentSearch"
+        )
+
+
+@dataclass(frozen=True)
+class HistoricalMarketSearchConfiguration:
+    """Explicit historical retrieval bounds for the normalized loss date."""
+
+    radius_miles: int = 50
+    result_limit: int = 25
+
+    def __post_init__(self) -> None:
+        _validate_search_bounds(
+            self.radius_miles, self.result_limit, "$.historicalSearch"
+        )
+
+
+@dataclass(frozen=True)
+class AnalysisRunRequest:
+    """One complete application-layer analysis attempt.
+
+    Presence of a search configuration is the explicit retrieval policy for
+    that temporal stream.  No retry, widening, substitution, or weakness-based
+    fallback is performed.
+    """
+
+    ccc_report: Mapping[str, Any]
+    postal_code: str | None = None
+    loss_date_override: str | None = None
+    current_search: CurrentMarketSearchConfiguration | None = None
+    historical_search: HistoricalMarketSearchConfiguration | None = None
+    discrepancy_policy: ValuationDiscrepancyPolicy = field(
+        default_factory=ValuationDiscrepancyPolicy
+    )
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.ccc_report, Mapping):
+            raise AnalysisInputError(
+                "Normalized CCC report must be a JSON object",
+                ("$.cccReport: expected an object",),
+            )
+        object.__setattr__(self, "ccc_report", copy.deepcopy(dict(self.ccc_report)))
+        normalized_postal = (
+            self.postal_code.strip()
+            if isinstance(self.postal_code, str)
+            else self.postal_code
+        )
+        if normalized_postal == "":
+            normalized_postal = None
+        if normalized_postal is not None and not isinstance(normalized_postal, str):
+            raise AnalysisInputError(
+                "Analysis postal code failed contract validation",
+                ("$.postalCode: expected a string or null",),
+            )
+        object.__setattr__(self, "postal_code", normalized_postal)
+        if self.loss_date_override is not None and not isinstance(
+            self.loss_date_override, str
+        ):
+            raise AnalysisInputError(
+                "Analysis loss-date override failed contract validation",
+                ("$.lossDateOverride: expected a string or null",),
+            )
+        if self.current_search is not None and not isinstance(
+            self.current_search, CurrentMarketSearchConfiguration
+        ):
+            raise AnalysisInputError(
+                "Current market search configuration is invalid"
+            )
+        if self.historical_search is not None and not isinstance(
+            self.historical_search, HistoricalMarketSearchConfiguration
+        ):
+            raise AnalysisInputError(
+                "Historical market search configuration is invalid"
+            )
+        if not isinstance(self.discrepancy_policy, ValuationDiscrepancyPolicy):
+            raise AnalysisInputError("Discrepancy policy is invalid")
+
+
+@dataclass(frozen=True)
+class AnalysisRunResult:
+    """A complete analysis run returned only after successful persistence."""
+
+    artifact: AnalysisRunArtifact
+
+    @property
+    def run_id(self) -> str:
+        return self.artifact.run_id
+
+    @property
+    def created_at(self) -> str:
+        return self.artifact.created_at
+
+    @property
+    def discrepancy_result(self) -> Mapping[str, Any]:
+        return self.artifact.to_dict()["result"]["discrepancyResult"]
+
+    @property
+    def classification(self) -> str:
+        return self.artifact.result["discrepancyResult"]["classification"]
+
+
+class AnalysisOrchestrator:
+    """Coordinate existing deterministic stages and persist one audit record."""
+
+    def __init__(
+        self,
+        repository: AnalysisRunRepository,
+        *,
+        current_provider: MarketProvider | None = None,
+        historical_provider: HistoricalMarketProvider | None = None,
+        current_provider_version: str | None = None,
+        historical_provider_version: str | None = None,
+        analyzer: ValuationDiscrepancyAnalyzer | None = None,
+        run_id_factory: RunIdFactory | None = None,
+        clock: Clock | None = None,
+    ) -> None:
+        if not isinstance(repository, AnalysisRunRepository):
+            raise AnalysisInputError(
+                "Analysis run repository does not implement save/get"
+            )
+        self._repository = repository
+        self._current_provider = current_provider
+        self._historical_provider = historical_provider
+        self._current_provider_version = self._normalize_provider_version(
+            current_provider_version, "$.currentProviderVersion"
+        )
+        self._historical_provider_version = self._normalize_provider_version(
+            historical_provider_version, "$.historicalProviderVersion"
+        )
+        self._analyzer = analyzer if analyzer is not None else ValuationDiscrepancyAnalyzer()
+        if not callable(getattr(self._analyzer, "analyze", None)):
+            raise AnalysisInputError("Discrepancy analyzer must expose analyze(request)")
+        self._run_id_factory = run_id_factory if run_id_factory is not None else uuid4
+        self._clock = clock if clock is not None else lambda: datetime.now(timezone.utc)
+
+    @staticmethod
+    def _normalize_provider_version(value: str | None, path: str) -> str | None:
+        if value is None:
+            return None
+        if not isinstance(value, str) or not value.strip():
+            raise AnalysisInputError(
+                "Provider version metadata failed contract validation",
+                (f"{path}: expected a non-empty string or null",),
+            )
+        return value.strip()
+
+    @staticmethod
+    def _validate_normalized_report(report: Mapping[str, Any]) -> None:
+        try:
+            from scripts.extract_report_ai import (
+                OutputValidationError,
+                PrototypeError,
+                read_canonical_schema,
+                validate_extraction,
+            )
+        except ImportError as exc:
+            raise AnalysisExecutionError(
+                "Canonical CCC validation support is unavailable"
+            ) from exc
+        try:
+            validate_extraction(report, read_canonical_schema())
+        except OutputValidationError as exc:
+            raise AnalysisInputError(
+                "Normalized CCC report failed validation", tuple(exc.errors)
+            ) from exc
+        except (PrototypeError, OSError, TypeError, ValueError) as exc:
+            raise AnalysisExecutionError(
+                "Normalized CCC report validation could not complete"
+            ) from exc
+
+    @staticmethod
+    def _new_run_id(factory: RunIdFactory) -> str:
+        try:
+            raw = factory()
+        except Exception as exc:
+            raise AnalysisExecutionError("Run ID factory failed") from exc
+        try:
+            parsed = raw if isinstance(raw, UUID) else UUID(raw)
+        except (TypeError, ValueError, AttributeError) as exc:
+            raise AnalysisExecutionError(
+                "Run ID factory did not produce a UUID"
+            ) from exc
+        if parsed.version != 4:
+            raise AnalysisExecutionError("Run ID factory must produce UUIDv4 values")
+        return str(parsed)
+
+    @staticmethod
+    def _created_at(clock: Clock) -> str:
+        try:
+            value = clock()
+        except Exception as exc:
+            raise AnalysisExecutionError("Analysis clock failed") from exc
+        if not isinstance(value, datetime) or value.tzinfo is None:
+            raise AnalysisExecutionError(
+                "Analysis clock must produce a timezone-aware datetime"
+            )
+        try:
+            offset = value.utcoffset()
+        except Exception as exc:
+            raise AnalysisExecutionError("Analysis clock timezone is invalid") from exc
+        if offset is None:
+            raise AnalysisExecutionError(
+                "Analysis clock must produce a timezone-aware datetime"
+            )
+        try:
+            return (
+                value.astimezone(timezone.utc)
+                .isoformat(timespec="microseconds")
+                .replace("+00:00", "Z")
+            )
+        except (OverflowError, ValueError) as exc:
+            raise AnalysisExecutionError(
+                "Analysis clock could not be normalized to UTC"
+            ) from exc
+
+    @staticmethod
+    def _current_request(
+        base: Any, config: CurrentMarketSearchConfiguration
+    ) -> MarketSearchRequest:
+        return normalize_market_search_request(
+            MarketSearchRequest(
+                year=base.loss_vehicle.year,
+                make=base.loss_vehicle.make,
+                model=base.loss_vehicle.model,
+                trim=base.loss_vehicle.trim,
+                loss_vehicle_mileage=base.loss_vehicle.mileage,
+                postal_code=base.loss_vehicle.postal_code,
+                radius_miles=config.radius_miles,
+                result_limit=config.result_limit,
+            )
+        )
+
+    @staticmethod
+    def _historical_request(
+        base: Any, config: HistoricalMarketSearchConfiguration
+    ) -> HistoricalMarketSearchRequest:
+        if base.loss_date is None:
+            raise AnalysisInputError(
+                "Historical retrieval requires a normalized loss date",
+                ("$.lossDate: historical search is configured",),
+            )
+        if base.loss_vehicle.postal_code is None:
+            raise AnalysisInputError(
+                "Historical retrieval requires a verified postal code",
+                ("$.postalCode: historical search is configured",),
+            )
+        return normalize_historical_market_search_request(
+            HistoricalMarketSearchRequest(
+                evidence_date=base.loss_date,
+                year=base.loss_vehicle.year,
+                make=base.loss_vehicle.make,
+                model=base.loss_vehicle.model,
+                trim=base.loss_vehicle.trim,
+                loss_vehicle_mileage=base.loss_vehicle.mileage,
+                postal_code=base.loss_vehicle.postal_code,
+                radius_miles=config.radius_miles,
+                result_limit=config.result_limit,
+            )
+        )
+
+    def run(self, request: AnalysisRunRequest) -> AnalysisRunResult:
+        """Execute one complete run, returning only after its artifact is saved."""
+
+        if not isinstance(request, AnalysisRunRequest):
+            raise AnalysisInputError("request must be AnalysisRunRequest")
+        self._validate_normalized_report(request.ccc_report)
+        try:
+            base_request = valuation_discrepancy_request_from_report(
+                request.ccc_report,
+                postal_code=request.postal_code,
+                loss_date_override=request.loss_date_override,
+                policy=request.discrepancy_policy,
+            )
+            validate_valuation_discrepancy_request(base_request)
+        except (DiscrepancyContractError, ComparableContractError) as exc:
+            raise AnalysisInputError(
+                "Normalized CCC analysis inputs failed projection",
+                tuple(getattr(exc, "details", ())),
+            ) from exc
+
+        try:
+            current_search_request = (
+                self._current_request(base_request, request.current_search)
+                if request.current_search is not None
+                else None
+            )
+            historical_search_request = (
+                self._historical_request(base_request, request.historical_search)
+                if request.historical_search is not None
+                else None
+            )
+        except MarketContractError as exc:
+            raise AnalysisInputError(
+                "Market search configuration failed canonical validation",
+                tuple(getattr(exc, "details", ())),
+            ) from exc
+        if historical_search_request is not None and self._historical_provider is None:
+            raise AnalysisInputError(
+                "Historical search is configured without a historical provider"
+            )
+        if current_search_request is not None and self._current_provider is None:
+            raise AnalysisInputError(
+                "Current search is configured without a current provider"
+            )
+
+        historical_result = None
+        historical_ranking = None
+        historical_input = None
+        if historical_search_request is not None:
+            try:
+                historical_result = discover_historical_market_evidence(
+                    historical_search_request, self._historical_provider
+                )
+            except MarketProviderError as exc:
+                raise AnalysisRetrievalError(
+                    "historical", type(exc).__name__
+                ) from exc
+            try:
+                if (
+                    historical_result.coverage.status == SUPPORTED
+                    and historical_result.listing_count > 0
+                ):
+                    projected = historical_evidence_to_market_search_result(
+                        historical_result
+                    )
+                    historical_ranking = rank_market_comparables(
+                        base_request.loss_vehicle, projected
+                    )
+                historical_input = HistoricalEvidenceInput(
+                    result=historical_result, ranking=historical_ranking
+                )
+            except (MarketContractError, ComparableContractError) as exc:
+                raise AnalysisExecutionError(
+                    "Historical evidence could not be ranked"
+                ) from exc
+
+        current_result = None
+        current_ranking = None
+        current_input = None
+        if current_search_request is not None:
+            try:
+                current_result = discover_market_listings(
+                    current_search_request, self._current_provider
+                )
+            except MarketProviderError as exc:
+                raise AnalysisRetrievalError("current", type(exc).__name__) from exc
+            try:
+                current_ranking = rank_market_comparables(
+                    base_request.loss_vehicle, current_result
+                )
+                current_input = CurrentEvidenceInput(
+                    ranking=current_ranking,
+                    observed_date=request.current_search.observed_date,
+                )
+            except ComparableContractError as exc:
+                raise AnalysisExecutionError(
+                    "Current evidence could not be ranked"
+                ) from exc
+
+        try:
+            discrepancy_request = valuation_discrepancy_request_from_report(
+                request.ccc_report,
+                postal_code=request.postal_code,
+                loss_date_override=base_request.loss_date,
+                historical_evidence=historical_input,
+                current_evidence=current_input,
+                policy=request.discrepancy_policy,
+            )
+            validate_valuation_discrepancy_request(discrepancy_request)
+            discrepancy_result: ValuationDiscrepancyResult = self._analyzer.analyze(
+                discrepancy_request
+            )
+            if not isinstance(discrepancy_result, ValuationDiscrepancyResult):
+                raise TypeError(
+                    "discrepancy analyzer did not return ValuationDiscrepancyResult"
+                )
+            validate_valuation_discrepancy_result(discrepancy_result)
+        except Exception as exc:
+            raise AnalysisExecutionError(
+                "Deterministic discrepancy analysis failed"
+            ) from exc
+
+        run_id = self._new_run_id(self._run_id_factory)
+        created_at = self._created_at(self._clock)
+        current_metadata = (
+            ProviderMetadata(
+                current_result.provider, self._current_provider_version
+            ).to_dict()
+            if current_result is not None
+            else None
+        )
+        historical_metadata = (
+            ProviderMetadata(
+                historical_result.provider, self._historical_provider_version
+            ).to_dict()
+            if historical_result is not None
+            else None
+        )
+        discrepancy_request_data = discrepancy_request.to_dict()
+        artifact = AnalysisRunArtifact(
+            run_id=run_id,
+            created_at=created_at,
+            request_digest=discrepancy_request_digest(discrepancy_request_data),
+            providers={
+                "current": current_metadata,
+                "historical": historical_metadata,
+            },
+            request={
+                "baseDiscrepancyRequest": base_request.to_dict(),
+                "lossDateSource": (
+                    "OVERRIDE"
+                    if request.loss_date_override is not None
+                    else "CCC_REPORT"
+                ),
+                "lossDateOverride": (
+                    base_request.loss_date
+                    if request.loss_date_override is not None
+                    else None
+                ),
+                "currentSearchRequest": (
+                    current_search_request.to_dict()
+                    if current_search_request is not None
+                    else None
+                ),
+                "historicalSearchRequest": (
+                    historical_search_request.to_dict()
+                    if historical_search_request is not None
+                    else None
+                ),
+                "currentObservedDate": (
+                    request.current_search.observed_date
+                    if request.current_search is not None
+                    else None
+                ),
+            },
+            result={
+                "currentMarketResult": (
+                    current_result.to_dict() if current_result is not None else None
+                ),
+                "historicalMarketResult": (
+                    historical_result.to_dict()
+                    if historical_result is not None
+                    else None
+                ),
+                "currentRanking": (
+                    current_ranking.to_dict() if current_ranking is not None else None
+                ),
+                "historicalRanking": (
+                    historical_ranking.to_dict()
+                    if historical_ranking is not None
+                    else None
+                ),
+                "discrepancyRequest": discrepancy_request_data,
+                "discrepancyResult": discrepancy_result.to_dict(),
+            },
+        )
+        try:
+            validate_analysis_run_artifact(artifact)
+        except (
+            AnalysisRunContractError,
+            AnalysisRunValidationUnavailableError,
+        ) as exc:
+            raise AnalysisExecutionError(
+                "Completed analysis could not produce a valid audit artifact"
+            ) from exc
+
+        try:
+            self._repository.save(artifact)
+        except Exception as exc:
+            raise AnalysisPersistenceError(run_id) from exc
+        return AnalysisRunResult(artifact=artifact)
+
+
+__all__ = [
+    "AnalysisExecutionError",
+    "AnalysisInputError",
+    "AnalysisOrchestrationError",
+    "AnalysisOrchestrator",
+    "AnalysisPersistenceError",
+    "AnalysisRetrievalError",
+    "AnalysisRunRequest",
+    "AnalysisRunResult",
+    "CurrentMarketSearchConfiguration",
+    "HistoricalMarketSearchConfiguration",
+]

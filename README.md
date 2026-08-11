@@ -20,6 +20,87 @@ Install the Python dependencies:
 python3 -m pip install -r requirements.txt
 ```
 
+## Phase 3D.2: analysis orchestration and audit persistence
+
+Phase 3D.2 adds the provider-neutral application workflow that coordinates the
+existing stages and saves the complete structured evidence trail for later use:
+
+```text
+CCC extraction
+    ↓
+normalized valuation data
+    ↓
+current and/or loss-date market retrieval
+    ↓
+Phase 3C deterministic eligibility, scoring, and ranking
+    ↓
+Phase 3D deterministic discrepancy analysis
+    ↓
+Phase 3D.2 analysis-run orchestration
+    ↓
+immutable audit artifact
+    ↓
+future Phase 3E presentation
+```
+
+`AnalysisOrchestrator` decides when the existing stages run; it does not
+recalculate CCC facts, normalize provider payloads, rank comparables, resolve
+historical lifecycles, or classify discrepancies. Current and historical
+providers implement the existing `MarketProvider` and `HistoricalMarketProvider`
+boundaries and are supplied by dependency injection together with an
+`AnalysisRunRepository`. Tests can therefore use fully offline fake providers
+without changing orchestration behavior.
+
+When historical retrieval is configured, it runs first for the normalized loss
+date. Supported resolved evidence is projected into the unchanged Phase 3C
+ranker, while `OUT_OF_PROVIDER_RANGE`, ambiguous, and unresolved provenance is
+preserved exactly. Current inventory is retrieved only when explicitly
+configured and remains a separate temporal evidence stream. The orchestrator
+does not broaden trim, year, model, radius, or dates; retry with weaker
+eligibility; or search by price. Phase 3D alone applies the established
+historical/current precedence and classification rules.
+
+Completed runs are stored as strict, immutable JSON under
+`data/analysis-runs/<run-id>.json` by the default file repository. Each artifact
+retains the normalized CCC analysis inputs, exact search requests and normalized
+provider results, historical diagnostics, Phase 3C rankings, Phase 3D policy,
+request, and result. Files are validated before an atomic create-only save and
+are parsed, schema-validated, and semantically validated again on read. Corrupt,
+unknown, or internally inconsistent artifacts are rejected rather than repaired
+or silently migrated.
+
+Run metadata is separate from the deterministic calculation: `runId` is a
+UUIDv4, `createdAt` is a UTC timestamp, and explicit run-schema, orchestration,
+Phase 3C scoring, and Phase 3D discrepancy versions identify the rules used. A
+run also records whether its effective loss date came from the CCC report or an
+explicit override, preserving that orchestration decision without retaining the
+entire raw report. The SHA-256 `requestDigest` covers the canonical normalized
+Phase 3D request. Read
+validation verifies the digest and replays Phase 3C and Phase 3D to bind the
+stored rankings and result to their stored inputs. The digest detects accidental
+or isolated alteration; it is not a digital signature.
+
+Artifacts contain only canonical domain data and sanitized provider identity
+metadata. Provider objects, transports, raw responses, authorization headers,
+environment dumps, API keys, and credential-bearing URLs are forbidden. Runtime
+files under `data/analysis-runs/` are ignored by Git; synthetic test data remains
+tracked separately.
+
+Weak evidence, `INSUFFICIENT_EVIDENCE`, `NO_MATERIAL_DISCREPANCY`,
+`POTENTIAL_UNDERVALUE`, `MATERIAL_UNDERVALUE_SIGNAL`, and
+`CONFLICTING_EVIDENCE` are all valid completed outcomes and are persisted
+normally. Provider retrieval failures, deterministic execution failures,
+persistence failures, missing runs, and invalid persisted artifacts remain
+distinct errors. In particular, a persistence failure never reports the run as
+successfully saved.
+
+Phase 3D.2 adds no product CLI, language-model (LLM) call, prose generation,
+report renderer, settlement calculation, or negotiation output, and it does not
+implement Phase 3E. Its classifications are structured screening results, not
+legal advice or a legally owed settlement amount. Future Phase 3E presentation
+will consume the saved structured artifact without recalculating or changing its
+evidence selection or classification.
+
 ## Phase 3D: conservative valuation-discrepancy analysis
 
 Phase 3D is a provider-neutral, deterministic evidence-comparison layer. It
