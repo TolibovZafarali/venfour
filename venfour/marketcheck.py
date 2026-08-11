@@ -16,18 +16,9 @@ from urllib.request import (
     build_opener,
 )
 
-from venfour.market import (
-    MarketContractError,
-    MarketDealer,
-    MarketListing,
-    MarketProviderAuthenticationError,
-    MarketProviderError,
-    MarketProviderRateLimitError,
-    MarketProviderResponseError,
-    MarketProviderUnavailableError,
-    MarketSearchRequest,
-    MarketSearchResult,
-    validate_market_listing,
+from venfour.comparables import (
+    comparable_target_from_search_request,
+    rank_market_comparables,
 )
 from venfour.historical_market import (
     AMBIGUOUS,
@@ -42,6 +33,19 @@ from venfour.historical_market import (
     TemporalEvidence,
     validate_historical_market_search_result,
 )
+from venfour.market import (
+    MarketContractError,
+    MarketDealer,
+    MarketListing,
+    MarketProviderAuthenticationError,
+    MarketProviderError,
+    MarketProviderRateLimitError,
+    MarketProviderResponseError,
+    MarketProviderUnavailableError,
+    MarketSearchRequest,
+    MarketSearchResult,
+    validate_market_listing,
+)
 
 
 MARKETCHECK_ACTIVE_INVENTORY_URL = (
@@ -50,13 +54,20 @@ MARKETCHECK_ACTIVE_INVENTORY_URL = (
 MARKETCHECK_PAST_INVENTORY_URL = (
     "https://api.marketcheck.com/v2/search/car/recents"
 )
+MARKETCHECK_VIN_HISTORY_URL = "https://api.marketcheck.com/v2/history/car"
 MARKETCHECK_MAX_ROWS = 50
 MARKETCHECK_HISTORY_WINDOW_DAYS = 90
 MARKETCHECK_HISTORICAL_MAX_PAGES = 10
 MARKETCHECK_HISTORICAL_MIN_ROWS = 10
+MARKETCHECK_VIN_HISTORY_MAX_PAGES = 10
+MARKETCHECK_VIN_HISTORY_PAGE_SIZE = 50
 DEFAULT_TIMEOUT_SECONDS = 15.0
 
 QueryValue = str | int
+_HISTORY_PAGE_EXHAUSTED = object()
+_HISTORY_RECORD_MATCHED = "MATCHED"
+_HISTORY_RECORD_IRRELEVANT = "IRRELEVANT"
+_HISTORY_RECORD_UNVERIFIABLE = "UNVERIFIABLE"
 
 
 class MarketCheckTransport(Protocol):
@@ -263,12 +274,13 @@ class MarketCheckProvider:
             f"MarketCheck rejected the search request (HTTP {status})"
         )
 
-    def _request_page(
+    def _request_json(
         self,
         params: Mapping[str, QueryValue],
         *,
         endpoint: str = MARKETCHECK_ACTIVE_INVENTORY_URL,
-    ) -> Mapping[str, Any]:
+        allow_history_page_exhaustion: bool = False,
+    ) -> Any:
         failure: MarketProviderError | None = None
         body: bytes | None = None
         try:
@@ -284,6 +296,8 @@ class MarketCheckProvider:
                 exc.close()
             except Exception:
                 pass
+            if allow_history_page_exhaustion and status == 422:
+                return _HISTORY_PAGE_EXHAUSTED
             failure = self._http_error(status)
         except (URLError, TimeoutError, ConnectionError, OSError):
             failure = MarketProviderUnavailableError(
@@ -319,6 +333,15 @@ class MarketCheckProvider:
             raise MarketProviderResponseError(
                 "MarketCheck returned malformed JSON"
             )
+        return payload
+
+    def _request_page(
+        self,
+        params: Mapping[str, QueryValue],
+        *,
+        endpoint: str = MARKETCHECK_ACTIVE_INVENTORY_URL,
+    ) -> Mapping[str, Any]:
+        payload = self._request_json(params, endpoint=endpoint)
         return _mapping(
             payload,
             "$",
@@ -383,8 +406,10 @@ class MarketCheckProvider:
         self,
         value: Any,
         response_index: int,
+        *,
+        path_prefix: str = "$.listings",
     ) -> MarketListing:
-        path = f"$.listings[{response_index}]"
+        path = f"{path_prefix}[{response_index}]"
         record = _mapping(
             value,
             path,
@@ -684,14 +709,20 @@ def _normalized_timestamp(value: datetime) -> str:
     )
 
 
-class MarketCheckHistoricalProvider(MarketCheckProvider):
-    """Search expired lifecycle records and resolve exact-date price evidence.
+@dataclass(frozen=True)
+class _HistoricalCandidate:
+    response_index: int
+    vin: str
+    listing: MarketListing
 
-    ``active_inventory_date_range`` discovers candidate VINs. MarketCheck's
-    documented ``first_seen_at``/``last_seen_at`` interval is then checked on
-    each specific price/mileage record. Broader source-tenure timestamps are
-    retained as corroborating provenance when available, but never substituted
-    for this record-level interval.
+
+class MarketCheckHistoricalProvider(MarketCheckProvider):
+    """Discover dated candidate VINs and verify them with VIN History.
+
+    Past Inventory Search supplies a complete, bounded candidate VIN universe.
+    Each candidate is then resolved from the separate VIN History endpoint.
+    Only the history record's price and record-level lifecycle can establish
+    evidence for the requested calendar date.
     """
 
     def __init__(
@@ -744,13 +775,23 @@ class MarketCheckHistoricalProvider(MarketCheckProvider):
             "zip": request.postal_code,
             "radius": request.radius_miles,
             "active_inventory_date_range": f"{compact_date}-{compact_date}",
-            "nodedup": "true",
             "start": start,
             "rows": rows,
         }
         if request.trim is not None:
             params["trim"] = request.trim
         return params
+
+    def _vin_history_params(self, *, page: int) -> dict[str, QueryValue]:
+        if self._api_key is None:
+            raise MarketProviderAuthenticationError(
+                "MarketCheck API key is required"
+            )
+        return {
+            "api_key": self._api_key,
+            "page": page,
+            "sort_order": "desc",
+        }
 
     @staticmethod
     def _safe_identity_value(value: Any) -> str | None:
@@ -759,160 +800,493 @@ class MarketCheckHistoricalProvider(MarketCheckProvider):
         normalized = value.strip()
         return normalized or None
 
-    def _resolve_historical_records(
+    @staticmethod
+    def _context_value(value: Any) -> str | None:
+        if not isinstance(value, str):
+            return None
+        normalized = " ".join(value.split()).casefold()
+        return normalized or None
+
+    def _candidate_from_record(
         self,
-        raw_records: list[Any],
+        value: Any,
+        response_index: int,
+    ) -> tuple[_HistoricalCandidate | None, HistoricalEvidenceIssue | None]:
+        path = f"$.listings[{response_index}]"
+        record = _mapping(
+            value,
+            path,
+            "MarketCheck listing is malformed",
+        )
+        vin = self._safe_identity_value(record.get("vin"))
+        if vin is None:
+            return None, HistoricalEvidenceIssue(
+                status=UNRESOLVED,
+                reason="MISSING_LISTING_IDENTITY",
+            )
+        if self._contains_secret(vin):
+            raise MarketProviderResponseError(
+                "MarketCheck response could not be safely normalized"
+            )
+        listing = self._normalize_listing(record, response_index)
+        if listing.vin is None:
+            raise MarketProviderResponseError(
+                "MarketCheck response could not be safely normalized"
+            )
+        return (
+            _HistoricalCandidate(
+                response_index=response_index,
+                vin=listing.vin,
+                listing=listing,
+            ),
+            None,
+        )
+
+    def _discover_historical_candidates(
+        self,
         request: HistoricalMarketSearchRequest,
-    ) -> tuple[list[HistoricalEvidenceItem], list[HistoricalEvidenceIssue]]:
+    ) -> tuple[
+        list[_HistoricalCandidate],
+        list[tuple[int, HistoricalEvidenceIssue]],
+        str | None,
+    ]:
+        page_rows = min(
+            MARKETCHECK_MAX_ROWS,
+            max(MARKETCHECK_HISTORICAL_MIN_ROWS, request.result_limit),
+        )
+        candidates: list[_HistoricalCandidate] = []
+        issues: list[tuple[int, HistoricalEvidenceIssue]] = []
+        seen_vins: set[str] = set()
+        start = 0
+        known_num_found: int | None = None
+        pages = 0
+        consumed = 0
+        last_page_size = 0
+        last_rows = page_rows
+
+        while pages < MARKETCHECK_HISTORICAL_MAX_PAGES:
+            rows = page_rows
+            if known_num_found is not None:
+                available = known_num_found - start
+                if available <= 0:
+                    break
+                rows = min(rows, available)
+            payload = self._request_page(
+                self._historical_params(request, start=start, rows=rows),
+                endpoint=MARKETCHECK_PAST_INVENTORY_URL,
+            )
+            page, page_num_found = self._listing_page(
+                payload,
+                start=start,
+                rows=rows,
+            )
+            pages += 1
+            last_page_size = len(page)
+            last_rows = rows
+            if (
+                known_num_found is not None
+                and page_num_found is not None
+                and page_num_found != known_num_found
+            ):
+                return candidates, issues, "INCOMPLETE_PROVIDER_PAGINATION"
+            if page_num_found is not None:
+                known_num_found = page_num_found
+            for offset, raw_candidate in enumerate(page):
+                response_index = start + offset
+                candidate, issue = self._candidate_from_record(
+                    raw_candidate,
+                    response_index,
+                )
+                if issue is not None:
+                    issues.append((response_index, issue))
+                    continue
+                assert candidate is not None
+                identity = candidate.vin.casefold()
+                if identity not in seen_vins:
+                    seen_vins.add(identity)
+                    candidates.append(candidate)
+            consumed += len(page)
+            if not page:
+                break
+            next_start = start + rows
+            if known_num_found is not None and next_start >= known_num_found:
+                break
+            if len(page) < rows:
+                break
+            start = next_start
+
+        more_records_possible = (
+            known_num_found is not None and consumed < known_num_found
+        ) or (known_num_found is None and last_page_size == last_rows)
+        if not more_records_possible:
+            return candidates, issues, None
+        reason = (
+            "PAGINATION_SAFETY_LIMIT_REACHED"
+            if pages >= MARKETCHECK_HISTORICAL_MAX_PAGES
+            else "INCOMPLETE_PROVIDER_PAGINATION"
+        )
+        return candidates, issues, reason
+
+    def _request_vin_history_page(
+        self,
+        vin: str,
+        *,
+        page: int,
+    ) -> list[Mapping[str, Any]] | object:
+        endpoint = f"{MARKETCHECK_VIN_HISTORY_URL}/{quote(vin, safe='')}"
+        payload = self._request_json(
+            self._vin_history_params(page=page),
+            endpoint=endpoint,
+            allow_history_page_exhaustion=page > 1,
+        )
+        if payload is _HISTORY_PAGE_EXHAUSTED:
+            return payload
+        if not isinstance(payload, list):
+            raise MarketProviderResponseError(
+                "MarketCheck VIN history response is malformed",
+                ("$: expected an array",),
+            )
+        if len(payload) > MARKETCHECK_VIN_HISTORY_PAGE_SIZE:
+            raise MarketProviderResponseError(
+                "MarketCheck VIN history response is malformed",
+                ("$: returned more than 50 records",),
+            )
+        return [
+            _mapping(
+                value,
+                f"$[{index}]",
+                "MarketCheck VIN history response is malformed",
+            )
+            for index, value in enumerate(payload)
+        ]
+
+    def _fetch_vin_history(
+        self,
+        candidate: _HistoricalCandidate,
+    ) -> tuple[list[Mapping[str, Any]], HistoricalEvidenceIssue | None]:
+        records: list[Mapping[str, Any]] = []
+
+        for page_number in range(1, MARKETCHECK_VIN_HISTORY_MAX_PAGES + 1):
+            page = self._request_vin_history_page(
+                candidate.vin,
+                page=page_number,
+            )
+            if page is _HISTORY_PAGE_EXHAUSTED:
+                return records, None
+            assert isinstance(page, list)
+            records.extend(page)
+
+            if len(page) < MARKETCHECK_VIN_HISTORY_PAGE_SIZE:
+                return records, None
+
+        return records, HistoricalEvidenceIssue(
+            status=UNRESOLVED,
+            reason="PAGINATION_SAFETY_LIMIT_REACHED",
+            vin=candidate.vin,
+        )
+
+    def _validate_history_record_vin(
+        self,
+        record: Mapping[str, Any],
+        candidate: _HistoricalCandidate,
+    ) -> None:
+        if "vin" not in record:
+            return
+        vin = self._safe_identity_value(record.get("vin"))
+        if (
+            vin is None
+            or self._contains_secret(vin)
+            or vin.casefold() != candidate.vin.casefold()
+        ):
+            raise MarketProviderResponseError(
+                "MarketCheck VIN history response is inconsistent",
+                ("$.vin: does not match the requested candidate VIN",),
+            )
+
+    def _history_listing_id_matches_candidate(
+        self,
+        record: Mapping[str, Any],
+        candidate: _HistoricalCandidate,
+    ) -> bool:
+        history_id = self._safe_identity_value(record.get("id"))
+        return (
+            history_id is not None
+            and candidate.listing.source_listing_id is not None
+            and history_id == candidate.listing.source_listing_id
+        )
+
+    def _history_search_qualification(
+        self,
+        record: Mapping[str, Any],
+        candidate: _HistoricalCandidate,
+    ) -> str:
+        inventory_type = self._context_value(record.get("inventory_type"))
+        seller_type = self._context_value(record.get("seller_type"))
+        if (
+            inventory_type is not None and inventory_type != "used"
+        ) or (
+            seller_type is not None and seller_type != "dealer"
+        ):
+            return (
+                _HISTORY_RECORD_UNVERIFIABLE
+                if self._history_listing_id_matches_candidate(record, candidate)
+                else _HISTORY_RECORD_IRRELEVANT
+            )
+        if inventory_type is None or seller_type is None:
+            return _HISTORY_RECORD_UNVERIFIABLE
+        return _HISTORY_RECORD_MATCHED
+
+    def _history_context_qualification(
+        self,
+        record: Mapping[str, Any],
+        candidate: _HistoricalCandidate,
+    ) -> str:
+        listing_id_match = self._history_listing_id_matches_candidate(
+            record,
+            candidate,
+        )
+        dealer = candidate.listing.dealer
+        candidate_context = (
+            (dealer.name, dealer.city, dealer.state, dealer.postal_code)
+            if dealer is not None
+            else (None, None, None, None)
+        )
+        history_context = (
+            record.get("seller_name"),
+            record.get("city"),
+            record.get("state"),
+            record.get("zip"),
+        )
+        context_matches = 0
+        malformed_context = False
+        for candidate_value, history_value in zip(
+            candidate_context,
+            history_context,
+        ):
+            normalized_candidate = self._context_value(candidate_value)
+            normalized_history = self._context_value(history_value)
+            if history_value is not None and normalized_history is None:
+                malformed_context = True
+                continue
+            if normalized_candidate is None or normalized_history is None:
+                continue
+            if normalized_candidate != normalized_history:
+                return (
+                    _HISTORY_RECORD_UNVERIFIABLE
+                    if listing_id_match
+                    else _HISTORY_RECORD_IRRELEVANT
+                )
+            context_matches += 1
+        if malformed_context:
+            return _HISTORY_RECORD_UNVERIFIABLE
+        if listing_id_match or context_matches >= 2:
+            return _HISTORY_RECORD_MATCHED
+        return _HISTORY_RECORD_UNVERIFIABLE
+
+    def _normalize_vin_history_listing(
+        self,
+        record: Mapping[str, Any],
+        response_index: int,
+        candidate: _HistoricalCandidate,
+    ) -> MarketListing:
+        dealer_fields = {
+            "name": record.get("seller_name"),
+            "city": record.get("city"),
+            "state": record.get("state"),
+            "zip": record.get("zip"),
+        }
+        dealer: Mapping[str, Any] | None = (
+            dealer_fields
+            if any(value is not None for value in dealer_fields.values())
+            else None
+        )
+        adapted = {
+            "id": record.get("id"),
+            "vin": candidate.vin,
+            "price": record.get("price"),
+            "miles": record.get("miles"),
+            "vdp_url": record.get("vdp_url"),
+            "dealer": dealer,
+            "build": {
+                "year": candidate.listing.year,
+                "make": candidate.listing.make,
+                "model": candidate.listing.model,
+                "trim": candidate.listing.trim,
+            },
+            "dist": candidate.listing.distance_miles,
+        }
+        return self._normalize_listing(
+            adapted,
+            response_index,
+            path_prefix="$",
+        )
+
+    def _resolve_vin_history(
+        self,
+        candidate: _HistoricalCandidate,
+        raw_records: list[Mapping[str, Any]],
+        request: HistoricalMarketSearchRequest,
+    ) -> tuple[HistoricalEvidenceItem | None, HistoricalEvidenceIssue | None]:
         evidence_day = date.fromisoformat(request.evidence_date)
         day_start = datetime.combine(evidence_day, time.min, tzinfo=timezone.utc)
         next_day = day_start + timedelta(days=1)
 
-        groups: dict[tuple[str, str], list[tuple[int, Mapping[str, Any]]]] = {}
-        issue_rows: list[tuple[int, HistoricalEvidenceIssue]] = []
-        for index, value in enumerate(raw_records):
-            record = _mapping(
-                value,
-                f"$.listings[{index}]",
-                "MarketCheck listing is malformed",
+        intervals: list[
+            tuple[int, Mapping[str, Any], _RecordInterval | None, str]
+        ] = []
+        for index, record in enumerate(raw_records):
+            self._validate_history_record_vin(record, candidate)
+            search_qualification = self._history_search_qualification(
+                record,
+                candidate,
             )
-            vin = self._safe_identity_value(record.get("vin"))
-            listing_id = self._safe_identity_value(record.get("id"))
-            if self._contains_secret(vin) or self._contains_secret(listing_id):
-                raise MarketProviderResponseError(
-                    "MarketCheck response could not be safely normalized"
-                )
-            if vin is not None:
-                identity = ("vin", vin.casefold())
-            elif listing_id is not None:
-                identity = ("sourceListingId", listing_id)
-            else:
-                issue_rows.append(
-                    (
-                        index,
-                        HistoricalEvidenceIssue(
-                            status=UNRESOLVED,
-                            reason="MISSING_LISTING_IDENTITY",
-                        ),
-                    )
-                )
-                continue
-            groups.setdefault(identity, []).append((index, record))
-
-        resolved_rows: list[tuple[int, HistoricalEvidenceItem]] = []
-        for (identity_kind, identity_value), records in groups.items():
-            intervals: list[tuple[int, Mapping[str, Any], _RecordInterval, str]] = []
-            interval_error: str | None = None
-            for index, record in records:
-                interval, error = _record_interval(record)
-                if error is not None:
-                    interval_error = error
-                    break
-                assert interval is not None
-                relation = (
-                    "before"
-                    if interval.last < day_start
-                    else "after"
-                    if interval.first >= next_day
-                    else "overlap"
-                )
-                intervals.append((index, record, interval, relation))
-
-            vin = (
-                self._safe_identity_value(records[0][1].get("vin"))
-                if identity_kind == "vin"
-                else None
+            context_qualification = self._history_context_qualification(
+                record,
+                candidate,
             )
-            listing_id = (
-                identity_value if identity_kind == "sourceListingId" else None
-            )
-            first_index = records[0][0]
-            if interval_error is not None:
-                issue_rows.append(
-                    (
-                        first_index,
-                        HistoricalEvidenceIssue(
-                            status=UNRESOLVED,
-                            reason=interval_error,
-                            vin=vin,
-                            source_listing_id=listing_id,
-                        ),
-                    )
-                )
+            if _HISTORY_RECORD_IRRELEVANT in {
+                search_qualification,
+                context_qualification,
+            }:
                 continue
-
-            overlapping = [item for item in intervals if item[3] == "overlap"]
-            if not overlapping:
-                relations = {item[3] for item in intervals}
-                reason = (
-                    "RECORD_INTERVAL_BEFORE_EVIDENCE_DATE"
-                    if relations == {"before"}
-                    else "RECORD_INTERVAL_AFTER_EVIDENCE_DATE"
-                    if relations == {"after"}
-                    else "NO_RECORD_ACTIVE_ON_EVIDENCE_DATE"
+            first, first_error = _record_timestamp(record, "first_seen_at")
+            last, last_error = _record_timestamp(record, "last_seen_at")
+            if first is not None and last is not None and first > last:
+                return None, HistoricalEvidenceIssue(
+                    status=UNRESOLVED,
+                    reason="INVALID_RECORD_INTERVAL",
+                    vin=candidate.vin,
                 )
-                issue_rows.append(
-                    (
-                        first_index,
-                        HistoricalEvidenceIssue(
-                            status=UNRESOLVED,
-                            reason=reason,
-                            vin=vin,
-                            source_listing_id=listing_id,
-                        ),
-                    )
-                )
+            if last is not None and last < day_start:
+                if (
+                    search_qualification == _HISTORY_RECORD_MATCHED
+                    and context_qualification == _HISTORY_RECORD_MATCHED
+                ):
+                    intervals.append((index, record, None, "before"))
                 continue
-
-            distinct: list[tuple[int, Mapping[str, Any], _RecordInterval, str]] = []
-            for item in overlapping:
-                if not any(item[1] == existing[1] for existing in distinct):
-                    distinct.append(item)
-            if len(distinct) != 1:
-                issue_rows.append(
-                    (
-                        distinct[0][0],
-                        HistoricalEvidenceIssue(
-                            status=AMBIGUOUS,
-                            reason="MULTIPLE_SOURCE_RECORDS_ON_EVIDENCE_DATE",
-                            vin=vin,
-                            source_listing_id=listing_id,
-                        ),
-                    )
-                )
+            if first is not None and first >= next_day:
+                if (
+                    search_qualification == _HISTORY_RECORD_MATCHED
+                    and context_qualification == _HISTORY_RECORD_MATCHED
+                ):
+                    intervals.append((index, record, None, "after"))
                 continue
-
-            selected_index, raw_listing, interval, _ = distinct[0]
-            listing = self._normalize_listing(raw_listing, selected_index)
-            resolved_rows.append(
+            if _HISTORY_RECORD_UNVERIFIABLE in {
+                search_qualification,
+                context_qualification,
+            }:
+                return None, HistoricalEvidenceIssue(
+                    status=UNRESOLVED,
+                    reason="UNVERIFIABLE_RECORD_CONTEXT",
+                    vin=candidate.vin,
+                )
+            errors = {
+                error
+                for error in (first_error, last_error)
+                if error is not None
+            }
+            error = next(
                 (
-                    first_index,
-                    HistoricalEvidenceItem(
-                        listing=listing,
-                        temporal_evidence=TemporalEvidence(
-                            evidence_date=request.evidence_date,
-                            record_first_seen_at=_normalized_timestamp(interval.first),
-                            record_last_seen_at=_normalized_timestamp(interval.last),
-                            source_first_seen_at=(
-                                _normalized_timestamp(interval.source_first)
-                                if interval.source_first is not None
-                                else None
-                            ),
-                            source_last_seen_at=(
-                                _normalized_timestamp(interval.source_last)
-                                if interval.source_last is not None
-                                else None
-                            ),
-                        ),
-                    ),
+                    reason
+                    for reason in (
+                        "INCONSISTENT_RECORD_TIMESTAMPS",
+                        "MALFORMED_RECORD_TIMESTAMPS",
+                        "MISSING_RECORD_TIMESTAMPS",
+                    )
+                    if reason in errors
+                ),
+                None,
+            )
+            if error is not None:
+                return None, HistoricalEvidenceIssue(
+                    status=UNRESOLVED,
+                    reason=error,
+                    vin=candidate.vin,
                 )
+            interval, error = _record_interval(record)
+            if error is not None:
+                return None, HistoricalEvidenceIssue(
+                    status=UNRESOLVED,
+                    reason=error,
+                    vin=candidate.vin,
+                )
+            assert interval is not None
+            intervals.append((index, record, interval, "overlap"))
+
+        if not intervals:
+            return None, HistoricalEvidenceIssue(
+                status=UNRESOLVED,
+                reason="NO_RECORD_ACTIVE_ON_EVIDENCE_DATE",
+                vin=candidate.vin,
             )
 
-        resolved_rows.sort(key=lambda item: item[0])
-        issue_rows.sort(key=lambda item: item[0])
+        overlapping = [item for item in intervals if item[3] == "overlap"]
+        if not overlapping:
+            relations = {item[3] for item in intervals}
+            reason = (
+                "RECORD_INTERVAL_BEFORE_EVIDENCE_DATE"
+                if relations == {"before"}
+                else "RECORD_INTERVAL_AFTER_EVIDENCE_DATE"
+                if relations == {"after"}
+                else "NO_RECORD_ACTIVE_ON_EVIDENCE_DATE"
+            )
+            return None, HistoricalEvidenceIssue(
+                status=UNRESOLVED,
+                reason=reason,
+                vin=candidate.vin,
+            )
+
+        distinct: list[
+            tuple[int, Mapping[str, Any], _RecordInterval | None, str]
+        ] = []
+        for item in overlapping:
+            if not any(item[1] == existing[1] for existing in distinct):
+                distinct.append(item)
+        if len(distinct) != 1:
+            return None, HistoricalEvidenceIssue(
+                status=AMBIGUOUS,
+                reason="MULTIPLE_SOURCE_RECORDS_ON_EVIDENCE_DATE",
+                vin=candidate.vin,
+            )
+
+        selected_index, record, interval, _ = distinct[0]
+        assert interval is not None
+        listing_id = self._safe_identity_value(record.get("id"))
+        if listing_id is None:
+            return None, HistoricalEvidenceIssue(
+                status=UNRESOLVED,
+                reason="MISSING_LISTING_IDENTITY",
+                vin=candidate.vin,
+            )
+        if self._contains_secret(listing_id):
+            raise MarketProviderResponseError(
+                "MarketCheck response could not be safely normalized"
+            )
+        listing = self._normalize_vin_history_listing(
+            record,
+            selected_index,
+            candidate,
+        )
         return (
-            [item for _, item in resolved_rows[: request.result_limit]],
-            [item for _, item in issue_rows],
+            HistoricalEvidenceItem(
+                listing=listing,
+                temporal_evidence=TemporalEvidence(
+                    evidence_date=request.evidence_date,
+                    record_first_seen_at=_normalized_timestamp(interval.first),
+                    record_last_seen_at=_normalized_timestamp(interval.last),
+                    source_first_seen_at=(
+                        _normalized_timestamp(interval.source_first)
+                        if interval.source_first is not None
+                        else None
+                    ),
+                    source_last_seen_at=(
+                        _normalized_timestamp(interval.source_last)
+                        if interval.source_last is not None
+                        else None
+                    ),
+                ),
+            ),
+            None,
         )
 
     def _result(
@@ -938,10 +1312,33 @@ class MarketCheckHistoricalProvider(MarketCheckProvider):
             )
         return result
 
+    def _limit_resolved_evidence(
+        self,
+        request: HistoricalMarketSearchRequest,
+        evidence: list[HistoricalEvidenceItem],
+    ) -> list[HistoricalEvidenceItem]:
+        if len(evidence) <= request.result_limit:
+            return evidence
+        market_request = request.to_market_search_request()
+        market_result = MarketSearchResult(
+            provider=self.name,
+            request=market_request,
+            listings=tuple(item.listing for item in evidence),
+        )
+        ranking = rank_market_comparables(
+            comparable_target_from_search_request(market_request),
+            market_result,
+        )
+        items_by_listing = {id(item.listing): item for item in evidence}
+        return [
+            items_by_listing[id(candidate.listing)]
+            for candidate in ranking.candidates[: request.result_limit]
+        ]
+
     def search_historical(
         self, request: HistoricalMarketSearchRequest
     ) -> HistoricalMarketSearchResult:
-        """Search bounded past inventory and resolve unique dated records."""
+        """Discover all bounded candidates, then verify every candidate VIN."""
 
         coverage = marketcheck_historical_coverage(
             request.evidence_date,
@@ -954,65 +1351,44 @@ class MarketCheckHistoricalProvider(MarketCheckProvider):
                 "MarketCheck API key is required"
             )
 
-        page_rows = min(
-            MARKETCHECK_MAX_ROWS,
-            max(MARKETCHECK_HISTORICAL_MIN_ROWS, request.result_limit),
+        candidates, issue_rows, pagination_failure = (
+            self._discover_historical_candidates(request)
         )
-        raw_records: list[Any] = []
-        start = 0
-        known_num_found: int | None = None
-        pages = 0
-        last_page_size = 0
-        last_rows = page_rows
-        resolved: list[HistoricalEvidenceItem] = []
-        issues: list[HistoricalEvidenceIssue] = []
-
-        while pages < MARKETCHECK_HISTORICAL_MAX_PAGES:
-            rows = page_rows
-            if known_num_found is not None:
-                available = known_num_found - start
-                if available <= 0:
-                    break
-                rows = min(rows, available)
-            payload = self._request_page(
-                self._historical_params(request, start=start, rows=rows),
-                endpoint=MARKETCHECK_PAST_INVENTORY_URL,
-            )
-            page, page_num_found = self._listing_page(
-                payload, start=start, rows=rows
-            )
-            pages += 1
-            last_page_size = len(page)
-            last_rows = rows
-            if page_num_found is not None:
-                known_num_found = page_num_found
-            if not page:
-                break
-            raw_records.extend(page)
-            next_start = start + rows
-            if known_num_found is not None and next_start >= known_num_found:
-                break
-            if len(page) < rows:
-                break
-            start = next_start
-
-        consumed = len(raw_records)
-        more_records_possible = (
-            known_num_found is not None and consumed < known_num_found
-        ) or (known_num_found is None and last_page_size == last_rows)
-        resolved, issues = self._resolve_historical_records(raw_records, request)
-        if more_records_possible:
-            resolved = []
+        if pagination_failure is not None:
+            issues = [issue for _, issue in sorted(issue_rows)]
             issues.append(
                 HistoricalEvidenceIssue(
                     status=UNRESOLVED,
-                    reason=(
-                        "PAGINATION_SAFETY_LIMIT_REACHED"
-                        if pages >= MARKETCHECK_HISTORICAL_MAX_PAGES
-                        else "INCOMPLETE_PROVIDER_PAGINATION"
-                    ),
+                    reason=pagination_failure,
                 )
             )
+            return self._result(request, coverage, issues=issues)
+
+        resolved_rows: list[tuple[int, HistoricalEvidenceItem]] = []
+        for candidate in candidates:
+            records, pagination_issue = self._fetch_vin_history(
+                candidate,
+            )
+            if pagination_issue is not None:
+                issue_rows.append((candidate.response_index, pagination_issue))
+                continue
+            evidence, issue = self._resolve_vin_history(
+                candidate,
+                records,
+                request,
+            )
+            if evidence is not None:
+                resolved_rows.append((candidate.response_index, evidence))
+            if issue is not None:
+                issue_rows.append((candidate.response_index, issue))
+
+        resolved_rows.sort(key=lambda item: item[0])
+        issue_rows.sort(key=lambda item: item[0])
+        resolved = self._limit_resolved_evidence(
+            request,
+            [item for _, item in resolved_rows],
+        )
+        issues = [item for _, item in issue_rows]
         return self._result(request, coverage, resolved, issues)
 
 
@@ -1024,6 +1400,9 @@ __all__ = [
     "MARKETCHECK_HISTORY_WINDOW_DAYS",
     "MARKETCHECK_MAX_ROWS",
     "MARKETCHECK_PAST_INVENTORY_URL",
+    "MARKETCHECK_VIN_HISTORY_MAX_PAGES",
+    "MARKETCHECK_VIN_HISTORY_PAGE_SIZE",
+    "MARKETCHECK_VIN_HISTORY_URL",
     "MarketCheckHistoricalProvider",
     "MarketCheckProvider",
     "MarketCheckTransport",

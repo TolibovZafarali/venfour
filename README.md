@@ -71,7 +71,7 @@ phase does not compare listings with CCC values, calculate a Venfour vehicle
 value, characterize a listing as over- or underpriced, or conclude that a CCC
 valuation is high or low.
 
-## Phase 3C.5: date-of-loss market evidence
+## Phase 3C.6: date-of-loss market evidence
 
 Current inventory and date-of-loss evidence are separate concepts. The active
 MarketCheck command describes today's market; the historical command asks for
@@ -81,32 +81,53 @@ coverage is unavailable.
 
 MarketCheck's `/v2/search/car/recents` endpoint is limited to expired dealer
 inventory in a rolling 90-day provider window. Sold listings are only a subset
-of expired listings, and listings that remain active are absent, so the result
-is necessarily incomplete and is not a full reconstruction of the market on a
-past date. Venfour uses `active_inventory_date_range=YYYYMMDD-YYYYMMDD` to find
-candidate VINs for the exact date. Because that VIN-level filter does not prove
-that the returned record's price applied on that date, Venfour also verifies
-that the specific record's `first_seen_at`/`last_seen_at` interval overlaps the
-evidence day, following MarketCheck's documented listing lifecycle fields.
-Available source-tenure timestamps are retained and checked as corroborating
-provenance, but never replace the record interval or independently establish a
-date-specific price.
+of expired listings, and vehicles that remained continuously active and never
+entered the recents dataset are absent. Historical search is therefore not a
+complete reconstruction of the market on a past date.
 
-Historical requests send `nodedup=true` so lifecycle records can be evaluated
-locally. Repeated records do not become independent comparables. If multiple
-distinct records for one vehicle overlap the date, the vehicle is marked
-`AMBIGUOUS` and excluded from resolved evidence rather than selecting a price.
-Search pagination exhausts the bounded candidate set before prices are finalized
-so a conflicting lifecycle record on a later page cannot be missed. The scan is
-limited to 10 pages; if that safety bound leaves more records, provisional
-prices are withheld and an explicit unresolved issue reports incomplete
-coverage. The same conservative withholding applies if provider pagination ends
-prematurely while its reported result count says records remain.
+Venfour now uses a two-stage historical strategy:
+
+```text
+Past Inventory Search (/v2/search/car/recents)
+    = exact-date, geography, and vehicle-specification candidate VIN discovery
+
+VIN History (/v2/history/car/{vin})
+    = exact listing lifecycle and historical advertised-price verification
+```
+
+Candidate discovery keeps
+`active_inventory_date_range=YYYYMMDD-YYYYMMDD` fixed to the exact evidence
+date. It deliberately uses MarketCheck's default attribution and VIN
+deduplication, which returns the searchable listing for each physical vehicle,
+rather than expanding syndicated or duplicate source listings. Candidate
+pagination remains bounded and must be complete before any candidate set is
+treated as complete; if the safety bound is reached, provisional evidence is
+withheld.
+
+For every discovered VIN, Venfour retrieves VIN History and determines which
+specific listing record was active during the evidence calendar day. The
+record's documented `first_seen_at`/`last_seen_at` lifecycle interval, listing
+identity, mileage, seller context, and advertised price come from VIN History;
+the `/recents` row's price is not treated as date-specific proof. Available
+source-tenure timestamps remain corroborating provenance only and are never
+fabricated when VIN History cannot supply them. Incomplete VIN History
+pagination leaves the affected VIN unresolved rather than guessing.
+Likewise, a potentially active history row whose required used-dealer or
+seller context cannot be verified is reported as
+`UNVERIFIABLE_RECORD_CONTEXT`; it is never silently removed in order to make a
+sibling record resolvable.
+
+Repeated identical history rows do not become independent comparables. If more
+than one genuinely distinct lifecycle record could have been active at any time
+on the evidence date, the VIN remains `AMBIGUOUS`: Venfour knows the calendar
+date, not the exact loss time. It never chooses among those records by lowest,
+highest, average, earliest, latest, or otherwise preferred price.
 
 Resolved listings can be projected into the existing Phase 3C scorer without
 changing its provider-neutral, price-neutral rules. Historical market evidence
 still does not compare against CCC values or establish that a CCC valuation is
-erroneous.
+erroneous. Current-market search remains unchanged, and Phase 3D has not been
+implemented.
 
 As of 2026-08-10, the Elantra loss date is inside the rolling coverage window
 and requires `MARKETCHECK_API_KEY` for the live query:

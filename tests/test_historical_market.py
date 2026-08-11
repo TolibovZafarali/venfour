@@ -759,13 +759,29 @@ class HistoricalResultContractTests(unittest.TestCase):
             make_issue(
                 reason="MISSING_LISTING_IDENTITY",
                 vin="SHOULD-NOT-BE-PRESENT",
-                source_listing_id=None,
+                source_listing_id="SHOULD-NOT-BE-PRESENT",
             ),
             make_issue(vin=None, source_listing_id=None),
         )
         for issue in invalid_issues:
             with self.subTest(issue=issue), self.assertRaises(MarketContractError):
                 validate_historical_market_search_result(make_result(issues=(issue,)))
+
+    def test_missing_listing_identity_retains_known_candidate_vin(self) -> None:
+        issues = (
+            make_issue(
+                reason="MISSING_LISTING_IDENTITY",
+                vin=None,
+                source_listing_id=None,
+            ),
+            make_issue(
+                reason="MISSING_LISTING_IDENTITY",
+                vin="KNOWN-CANDIDATE-VIN",
+                source_listing_id=None,
+            ),
+        )
+
+        validate_historical_market_search_result(make_result(issues=issues))
 
     def test_unknown_fields_are_rejected_at_result_coverage_and_issue_levels(
         self,
@@ -814,6 +830,29 @@ class HistoricalResultContractTests(unittest.TestCase):
         with self.assertRaises(MarketContractError):
             validate_historical_market_search_result(
                 make_result(make_evidence(), issues=(pagination_issue,))
+            )
+
+    def test_vin_scoped_pagination_can_coexist_with_other_evidence(self) -> None:
+        pagination_issue = make_issue(
+            reason="PAGINATION_SAFETY_LIMIT_REACHED",
+            vin="PAGINATION-INCOMPLETE-VIN",
+            source_listing_id=None,
+        )
+        result = make_result(make_evidence(), issues=(pagination_issue,))
+
+        validate_historical_market_search_result(result)
+
+    def test_vin_scoped_pagination_cannot_resolve_the_same_vin(self) -> None:
+        evidence = make_evidence(vin="PAGINATION-INCOMPLETE-VIN")
+        pagination_issue = make_issue(
+            reason="PAGINATION_SAFETY_LIMIT_REACHED",
+            vin="pagination-incomplete-vin",
+            source_listing_id=None,
+        )
+
+        with self.assertRaises(MarketContractError):
+            validate_historical_market_search_result(
+                make_result(evidence, issues=(pagination_issue,))
             )
 
     def test_result_defensively_copies_collection_containers_and_order(self) -> None:
@@ -1088,6 +1127,21 @@ class HistoricalProjectionAndScorerTests(unittest.TestCase):
 
         with self.assertRaises(MarketContractError):
             historical_evidence_to_market_search_result(historical)
+
+    def test_vin_scoped_pagination_projects_other_resolved_evidence(self) -> None:
+        pagination_issue = make_issue(
+            reason="PAGINATION_SAFETY_LIMIT_REACHED",
+            vin="PAGINATION-INCOMPLETE-VIN",
+            source_listing_id=None,
+        )
+        historical = make_result(
+            make_evidence(),
+            issues=(pagination_issue,),
+        )
+
+        projected = historical_evidence_to_market_search_result(historical)
+
+        self.assertEqual(projected.listing_count, 1)
 
     def test_invalid_historical_result_cannot_be_projected(self) -> None:
         invalid = make_result(make_evidence(source="wrong-provider"))

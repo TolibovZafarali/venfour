@@ -508,15 +508,35 @@ def validate_historical_market_search_result(
     if data["ambiguousCount"] != ambiguous:
         details.append("$.ambiguousCount: does not match ambiguous issues")
     for index, issue in enumerate(data["issues"]):
-        missing_identity = issue["reason"] in {
+        has_identity = (
+            issue["vin"] is not None or issue["sourceListingId"] is not None
+        )
+        if (
+            issue["reason"] == "MISSING_LISTING_IDENTITY"
+            and issue["sourceListingId"] is not None
+        ):
+            details.append(
+                f"$.issues[{index}].sourceListingId: must be null when the "
+                "required listing identity is missing"
+            )
+        elif issue["reason"] not in {
             "MISSING_LISTING_IDENTITY",
             "PAGINATION_SAFETY_LIMIT_REACHED",
             "INCOMPLETE_PROVIDER_PAGINATION",
-        }
-        has_identity = issue["vin"] is not None or issue["sourceListingId"] is not None
-        if missing_identity == has_identity:
+        } and not has_identity:
+            details.append(f"$.issues[{index}]: an identity field is required")
+        if (
+            issue["reason"]
+            in {"PAGINATION_SAFETY_LIMIT_REACHED", "INCOMPLETE_PROVIDER_PAGINATION"}
+            and (
+                issue["vin"] is not None
+                and ("vin", issue["vin"].casefold()) in seen_identities
+                or issue["sourceListingId"] in seen_listing_ids
+            )
+        ):
             details.append(
-                f"$.issues[{index}]: identity fields are inconsistent with reason"
+                f"$.issues[{index}]: pagination-incomplete identity cannot also "
+                "appear as resolved evidence"
             )
         is_ambiguous_reason = (
             issue["reason"] == "MULTIPLE_SOURCE_RECORDS_ON_EVIDENCE_DATE"
@@ -535,10 +555,12 @@ def validate_historical_market_search_result(
     if any(
         issue["reason"]
         in {"PAGINATION_SAFETY_LIMIT_REACHED", "INCOMPLETE_PROVIDER_PAGINATION"}
+        and issue["vin"] is None
+        and issue["sourceListingId"] is None
         for issue in data["issues"]
     ) and data["evidence"]:
         details.append(
-            "$: incomplete pagination cannot contain resolved evidence"
+            "$: globally incomplete pagination cannot contain resolved evidence"
         )
     if details:
         raise MarketContractError(
@@ -645,6 +667,8 @@ def historical_evidence_to_market_search_result(
     if any(
         issue.reason
         in {"PAGINATION_SAFETY_LIMIT_REACHED", "INCOMPLETE_PROVIDER_PAGINATION"}
+        and issue.vin is None
+        and issue.source_listing_id is None
         for issue in result.issues
     ):
         raise MarketContractError(
