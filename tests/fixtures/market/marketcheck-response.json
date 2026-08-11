@@ -1,0 +1,72 @@
+{
+  "syntheticData": true,
+  "fixtureNotice": "Sanitized provider-shaped software test data; not live market evidence.",
+  "num_found": 3,
+  "listings": [
+    {
+      "id": "synthetic-mc-camry-se-001",
+      "vin": "SYNTHETIC-CAMRY-SE-001",
+      "heading": "PRE-OWNED 2025 TOYOTA CAMRY SE",
+      "price": 30564,
+      "miles": 36536,
+      "vdp_url": "https://dealer-one.invalid/vehicles/camry-se-001",
+      "source": "dealer-one.invalid",
+      "inventory_type": "used",
+      "dealer": {
+        "name": "Synthetic Toyota One",
+        "city": "St. Louis",
+        "state": "mo",
+        "zip": "63128",
+        "id": "ignored-provider-dealer-id"
+      },
+      "build": {
+        "year": 2025,
+        "make": "Toyota",
+        "model": "Camry",
+        "trim": "SE",
+        "version": "SE Hybrid",
+        "body_type": "Sedan"
+      },
+      "dist": 2.45,
+      "media": {
+        "photo_links": [
+          "https://images.invalid/synthetic-camry-se-001.jpg"
+        ]
+      }
+    },
+    {
+      "id": "synthetic-mc-camry-le-002",
+      "vin": "SYNTHETIC-CAMRY-LE-002",
+      "heading": "USED 2025 TOYOTA CAMRY LE",
+      "price": 28750.5,
+      "miles": 19420,
+      "vdp_url": "https://dealer-two.invalid/vehicles/camry-le-002",
+      "source": "dealer-two.invalid",
+      "inventory_type": "used",
+      "dealer": {
+        "name": "Synthetic Toyota Two",
+        "city": "Ballwin",
+        "state": "MO",
+        "zip": "63011"
+      },
+      "build": {
+        "year": 2025,
+        "make": "Toyota",
+        "model": "Camry",
+        "trim": "LE",
+        "body_type": "Sedan"
+      },
+      "dist": 15
+    },
+    {
+      "price": 27995,
+      "source": "dealer-three.invalid",
+      "inventory_type": "used",
+      "build": {
+        "year": 2025,
+        "make": "Toyota",
+        "model": "Camry"
+      }
+    }
+  ]
+}

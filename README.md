@@ -20,29 +20,55 @@ Install the Python dependencies:
 python3 -m pip install -r requirements.txt
 ```
 
-## Phase 3A: provider-neutral market discovery
+## Phase 3B: live MarketCheck inventory
 
-Phase 3A establishes the offline boundary for discovering external vehicle
-listings:
+Phase 3A established the provider-neutral boundary for discovering external
+vehicle listings:
 
 ```text
 MarketSearchRequest -> MarketProvider adapter -> canonical MarketSearchResult
 ```
 
-An adapter translates a provider-specific response into Venfour's common
-`MarketListing` contract. Discovery validates the request and normalized result
-but does not rank listings, compare them with CCC comparables, or calculate a
-valuation. A future live source only needs to implement the `MarketProvider`
-interface; downstream code remains provider-neutral.
+`MarketCheckProvider` is the first live adapter for that boundary. It searches
+MarketCheck's active used dealer inventory only when explicitly constructed or
+when `scripts/search_marketcheck.py` is run. The API key is supplied from the
+`MARKETCHECK_API_KEY` environment variable by the CLI; it is never placed in a
+`MarketSearchRequest` or returned result. Every request explicitly sends
+`append_api_key=false` so MarketCheck does not append the credential to response
+URLs.
 
-The current `FixtureMarketProvider` uses committed, explicitly synthetic Camry
-and Elantra records. It makes no network requests, requires no API key, costs
-$0, and must not be treated as verified current market data. No live
-vehicle-listing provider is integrated yet. Adapters trim surrounding
-whitespace, preserve numeric and null values, and never guess missing trim, VIN,
-mileage, price, or distance. Provider/source names use stable lowercase
-identifiers, and safe two-letter state abbreviations are uppercased without
-rewriting other location text.
+The adapter retains only the fields in Venfour's `MarketListing` contract. Raw
+MarketCheck payloads, media, finance data, provider-specific dealer IDs, and
+other provider metadata are neither returned nor saved. Missing optional fields
+remain null, malformed required fields fail normalization, provider order is
+preserved, and searches larger than MarketCheck's 50-row page limit are
+paginated only until Venfour's requested limit is satisfied.
+
+For a manual live Camry search, first make `MARKETCHECK_API_KEY` available in the
+shell environment, then run:
+
+```sh
+.venv/bin/python scripts/search_marketcheck.py \
+  --year 2025 \
+  --make Toyota \
+  --model Camry \
+  --trim SE \
+  --mileage 7192 \
+  --postal-code 63123 \
+  --radius 50 \
+  --limit 10
+```
+
+The command prints only canonical `MarketSearchResult` JSON and does not save
+the live response. Inventory, prices, listing identifiers, and counts change
+over time and should not be treated as deterministic fixtures.
+
+`FixtureMarketProvider` remains available for deterministic development. Its
+committed Camry and Elantra records are explicitly synthetic, make no network
+requests, require no API key, cost $0, and are not current market evidence.
+Normal tests use injected transports and fixtures, so they remain completely
+offline. Discovery still does not rank listings, compare them with CCC
+comparables, or calculate an alternative valuation; those are later phases.
 
 Run the complete offline test suite with:
 
