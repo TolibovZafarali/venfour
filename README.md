@@ -20,6 +20,168 @@ Install the Python dependencies:
 python3 -m pip install -r requirements.txt
 ```
 
+## Phase 3D: conservative valuation-discrepancy analysis
+
+Phase 3D is a provider-neutral, deterministic evidence-comparison layer. It
+asks whether CCC's vehicle valuation appears materially inconsistent with the
+strongest available independent market evidence; it does not create a separate
+vehicle-value formula.
+
+```text
+CCC report
+    ↓
+normalized CCC adjusted vehicle valuation + CCC-selected comparables
+
+independent external evidence
+    ↓
+existing Phase 3C eligibility and non-price ranking
+
+both evidence streams
+    ↓
+Phase 3D deterministic discrepancy analysis
+    ↓
+structured classification, evidence strength, findings, and limitations
+```
+
+The CCC amount compared with vehicle-market evidence is
+`valuation.adjustedVehicleValue`. It is the report's vehicle amount after the
+reported loss-vehicle condition adjustment. `valuation.total` remains
+informational because the existing CCC contract does not establish that it is
+only a vehicle-market amount or that it must equal `adjustedVehicleValue`.
+Missing adjusted vehicle value is not silently replaced with the report total.
+
+CCC-selected comparables retain two different observations: `listPrice`, the
+reported advertised price, and `adjustedValue`, CCC's stated adjusted comparable
+value. Phase 3D summarizes their counts, ranges, and medians separately. Where
+both values exist, it also reports the factual net effect
+`adjustedValue - listPrice` and preserves the disclosed `package`, `options`,
+`mileage`, and `condition` adjustment amounts. Missing adjustment components
+remain unavailable rather than becoming zero, and Phase 3D does not independently
+declare CCC's adjustment formula correct or incorrect.
+
+External evidence selection is fixed before any price is read. Phase 3D walks
+eligible candidates in the existing Phase 3C rank order, removes repeated
+vehicle identities without consulting price, and takes at most the first five
+independent candidates. VIN is the preferred identity; a stable provider listing
+identity is the fallback when VIN is unavailable. Candidates without a usable
+identity do not strengthen the independent-evidence count. The selected set is
+never searched or rearranged to maximize or minimize disagreement with CCC.
+
+Historical and current evidence remain separate. Sufficient resolved historical
+listings independently shown active on the evidence date are the primary basis.
+Current inventory is summarized separately and may provide secondary context; it
+does not override sufficient historical evidence or become loss-date evidence.
+When historical evidence is insufficient, supported current evidence may become
+the primary basis, with an explicit current-market limitation. An
+`OUT_OF_PROVIDER_RANGE` historical result means the provider could not cover the
+date; it does not mean that no historical comparable vehicles existed.
+
+For each finalized external comparison set, Phase 3D reports count, minimum,
+maximum, median, median absolute deviation (MAD), and a central half-range. For
+sets of at least three prices, the central half-range is one half of the span
+from the second-lowest to the second-highest price. It therefore ignores at most
+one extreme price on each side while still detecting a broad or bimodal central
+set. The primary comparisons are:
+
+```text
+external median - CCC adjusted vehicle value
+
+(external median - CCC adjusted vehicle value) * 10,000
+---------------------------------------------------------
+              CCC adjusted vehicle value
+```
+
+The second expression is the signed discrepancy in basis points. The result
+also states whether the CCC vehicle valuation is below, within, or above the
+observed external range; compares the CCC adjusted-comparable median with the
+CCC vehicle valuation; compares advertised and adjusted medians among CCC rows
+that contain both values; and, where both exist, compares the external median
+with the CCC
+adjusted-comparable median. Each quantity remains separately labeled rather than
+being collapsed into a proprietary value estimate.
+
+All new Phase 3D monetary calculations use integer cents. If an even-sized
+median, MAD, or central half-range falls between cents, the emitted monetary
+statistic uses round-half-up. Exact rational centers are retained while computing
+MAD and dispersion; emitted cents are not fed back into those calculations.
+`dispersionBasisPoints` is the larger of exact MAD and exact central half-range,
+divided by the exact median, rounded half-up and capped at 10,000 basis points.
+The selected price rows make both inputs reconstructible. Classification
+thresholds use exact cross-multiplication, so a rounded displayed statistic
+cannot move a case across a policy boundary.
+
+The default `ValuationDiscrepancyPolicy` is deliberately small and explicit:
+
+| Policy field | Default | Meaning |
+| --- | ---: | --- |
+| `maxComparisonSet` | 5 | Analyze at most the five strongest independently identified candidates |
+| `minimumIndependentCount` | 3 | Require three independent candidates for a directional classification |
+| `strongHistoricalMinimum` | 5 | Require five coherent historical candidates for strong evidence |
+| `potentialGapBasisPoints` | 500 | A median difference of 5% begins the potential-undervalue band |
+| `materialGapBasisPoints` | 1000 | A median difference of 10% can support the material-signal band |
+| `highDispersionBasisPoints` | 2000 | Robust dispersion divided by median at 20% or more is high dispersion |
+
+These are Venfour analysis-policy thresholds, not legal or industry standards.
+Every boundary is inclusive at its named threshold and is covered by deterministic
+boundary tests.
+
+Five is an odd, bounded set large enough for the median to resist one extreme
+price; three is the first count where one listing cannot determine that median by
+itself. The three count policy fields have a non-configurable floor of three, so
+no caller can create a strong or material signal from one or two listings. Strong
+evidence requires the full default set. The 5% and 10% bands are conservative
+screening cutoffs, with the stronger band additionally requiring strong loss-date
+evidence. The 20% robust-dispersion boundary uses the larger of relative MAD and
+the one-outlier-resistant central half-range, preventing either ordinary spread
+or a broad bimodal set from being presented with false precision. Callers may
+supply a different validated policy above the evidence floor, and every result
+records the policy it used.
+
+Classification proceeds conservatively. Unusable valuation inputs, a zero
+comparison denominator, or fewer than three independent selected comparables
+produce `INSUFFICIENT_EVIDENCE`. Sufficient but highly dispersed primary evidence
+produces `CONFLICTING_EVIDENCE`. A median at least 10% above the CCC vehicle
+valuation produces `MATERIAL_UNDERVALUE_SIGNAL` only when the evidence strength
+is `STRONG`; otherwise a difference of at least 5% produces
+`POTENTIAL_UNDERVALUE`. Remaining coherent cases produce
+`NO_MATERIAL_DISCREPANCY`, meaning that the policy found no material undervalue
+signal; a separate consistency finding appears only when the absolute median gap
+is below the potential threshold. A single low listing does not erase an
+otherwise coherent median signal, and a single high listing does not manufacture
+one.
+
+Evidence strength is separate from discrepancy direction. `LOW` represents
+insufficient or highly dispersed evidence. `MODERATE` represents sufficient
+current-only evidence or historical evidence that does not meet the stronger
+count and Phase 3C quality conditions. `STRONG` requires five coherent historical
+comparables and no selected `WEAK` Phase 3C candidate. Current-only evidence is
+never labeled `STRONG`.
+
+Structured findings identify objective conditions such as the external median
+being above CCC, CCC's position within the external range, high dispersion,
+current-only evidence, historical provider range limits, CCC adjustments reducing
+or increasing comparable values, and ambiguous or unresolved historical records
+being excluded. Structured limitations remain present even when the observed
+discrepancy is large.
+
+Phase 3D has the following intentional limitations:
+
+1. It is not an independent appraisal.
+2. It does not calculate a legally owed settlement amount.
+3. Advertised asking prices are market evidence, not completed transaction
+   prices.
+4. It invents no mileage, condition, options, equipment, geography, or other
+   dollar adjustments.
+5. Resolved loss-date historical evidence is temporally stronger than current
+   inventory.
+6. Current inventory is not treated as historical evidence.
+7. Ambiguous and unresolved listings are excluded from every price statistic.
+8. Its thresholds are Venfour analysis-policy thresholds, not legal standards.
+9. Its calculations and classifications are deterministic and use no language
+   model.
+10. Negotiation letters, insurer communications, legal arguments, and
+    report-generation prose remain a later phase.
+
 ## Phase 3C: deterministic comparable matching
 
 Phase 3C ranks already-discovered canonical `MarketListing` objects by factual
@@ -124,10 +286,9 @@ date, not the exact loss time. It never chooses among those records by lowest,
 highest, average, earliest, latest, or otherwise preferred price.
 
 Resolved listings can be projected into the existing Phase 3C scorer without
-changing its provider-neutral, price-neutral rules. Historical market evidence
-still does not compare against CCC values or establish that a CCC valuation is
-erroneous. Current-market search remains unchanged, and Phase 3D has not been
-implemented.
+changing its provider-neutral, price-neutral rules. Phase 3D consumes that ranked
+evidence only after retrieval and scoring are complete; the historical retrieval
+architecture and current-market search remain unchanged.
 
 As of 2026-08-10, the Elantra loss date is inside the rolling coverage window
 and requires `MARKETCHECK_API_KEY` for the live query:

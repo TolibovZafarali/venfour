@@ -1,0 +1,180 @@
+{
+  "syntheticData": true,
+  "notice": "Fictional software-test scenarios only; no vehicle, VIN, listing, mileage, or price is verified or current market evidence.",
+  "defaults": {
+    "cccVehicleValuationCents": 2000000,
+    "lossVehicleMileage": 50000,
+    "evidenceBasis": "LOSS_DATE_HISTORICAL"
+  },
+  "cases": [
+    {
+      "name": "clearly-consistent",
+      "purpose": "CCC falls comfortably within a coherent historical range.",
+      "historicalPriceCents": [1950000, 1990000, 2000000, 2010000, 2050000]
+    },
+    {
+      "name": "potential-undervalue",
+      "purpose": "The coherent historical median is above the potential threshold but below the material threshold.",
+      "historicalPriceCents": [2080000, 2100000, 2120000, 2130000, 2140000]
+    },
+    {
+      "name": "material-undervalue-signal",
+      "purpose": "Five coherent historical observations place the median above the material threshold.",
+      "historicalPriceCents": [2180000, 2200000, 2220000, 2240000, 2260000]
+    },
+    {
+      "name": "one-high-outlier",
+      "purpose": "One expensive observation must not manufacture a discrepancy when the median supports CCC.",
+      "historicalPriceCents": [1950000, 1990000, 2000000, 2020000, 9990000]
+    },
+    {
+      "name": "one-low-outlier",
+      "purpose": "One low observation must not erase an otherwise coherent higher median.",
+      "historicalPriceCents": [100000, 2180000, 2220000, 2240000, 2260000]
+    },
+    {
+      "name": "high-dispersion",
+      "purpose": "MAD divided by median is exactly the default 20 percent high-dispersion boundary.",
+      "historicalPriceCents": [1200000, 1600000, 2000000, 2400000, 2800000]
+    },
+    {
+      "name": "insufficient-count",
+      "purpose": "Two resolved independent observations are below the default minimum count.",
+      "historicalPriceCents": [2200000, 2250000]
+    },
+    {
+      "name": "ambiguous-records",
+      "purpose": "Ambiguous identities are diagnostic issues and have no price observations.",
+      "historicalPriceCents": [2180000, 2200000, 2220000, 2240000, 2260000],
+      "ambiguousIssues": [
+        {"vin": "SYNTHETIC-AMBIGUOUS-001"},
+        {"vin": "SYNTHETIC-AMBIGUOUS-002"}
+      ]
+    },
+    {
+      "name": "unresolved-records",
+      "purpose": "Unresolved identities are diagnostic issues and have no price observations.",
+      "historicalPriceCents": [2180000, 2200000, 2220000, 2240000, 2260000],
+      "unresolvedIssues": [
+        {"vin": "SYNTHETIC-UNRESOLVED-001"},
+        {"vin": "SYNTHETIC-UNRESOLVED-002"}
+      ]
+    },
+    {
+      "name": "historical-out-of-provider-range",
+      "purpose": "Provider coverage is unavailable and must not be described as an empty historical market.",
+      "historicalCoverageStatus": "OUT_OF_PROVIDER_RANGE",
+      "historicalPriceCents": []
+    },
+    {
+      "name": "current-only",
+      "purpose": "Current evidence remains explicitly current and cannot receive strong historical evidence strength.",
+      "evidenceBasis": "CURRENT_MARKET",
+      "currentPriceCents": [2180000, 2200000, 2220000, 2240000, 2260000]
+    },
+    {
+      "name": "historical-and-current",
+      "purpose": "Sufficient historical evidence drives the primary result while contradictory current inventory stays separate.",
+      "historicalPriceCents": [1960000, 1980000, 2000000, 2020000, 2040000],
+      "currentPriceCents": [2180000, 2200000, 2220000, 2240000, 2260000]
+    },
+    {
+      "name": "ccc-adjustments",
+      "purpose": "Advertised and CCC-adjusted comparable values remain distinct and the net effect is factual.",
+      "cccComparables": [
+        {
+          "number": 1,
+          "listPriceCents": 2000000,
+          "adjustedValueCents": 1800000,
+          "adjustmentsCents": {"package": 0, "options": 0, "mileage": -50000, "condition": -150000}
+        },
+        {
+          "number": 2,
+          "listPriceCents": 2100000,
+          "adjustedValueCents": 1900000,
+          "adjustmentsCents": {"package": 50000, "options": 0, "mileage": -100000, "condition": -150000}
+        },
+        {
+          "number": 3,
+          "listPriceCents": 2200000,
+          "adjustedValueCents": 2000000,
+          "adjustmentsCents": {"package": null, "options": null, "mileage": null, "condition": null}
+        }
+      ]
+    },
+    {
+      "name": "mileage-differences",
+      "purpose": "Mileage differences are reported as facts without any dollar-per-mile adjustment.",
+      "lossVehicleMileage": 50000,
+      "historicalCandidates": [
+        {"id": "synthetic-mileage-001", "rank": 1, "priceCents": 2200000, "mileage": 45000},
+        {"id": "synthetic-mileage-002", "rank": 2, "priceCents": 2210000, "mileage": 50000},
+        {"id": "synthetic-mileage-003", "rank": 3, "priceCents": 2220000, "mileage": 65000}
+      ]
+    },
+    {
+      "name": "price-order-independence",
+      "purpose": "Reordering non-tied candidate inputs leaves Phase 3C ranks and the discrepancy result unchanged.",
+      "candidates": [
+        {"id": "synthetic-order-001", "mileageDifference": 0, "distanceMiles": 10, "priceCents": 2200000},
+        {"id": "synthetic-order-002", "mileageDifference": 5000, "distanceMiles": 20, "priceCents": 2210000},
+        {"id": "synthetic-order-003", "mileageDifference": 10000, "distanceMiles": 30, "priceCents": 2220000}
+      ],
+      "inputOrders": [
+        ["synthetic-order-001", "synthetic-order-002", "synthetic-order-003"],
+        ["synthetic-order-003", "synthetic-order-001", "synthetic-order-002"]
+      ]
+    },
+    {
+      "name": "price-selection-independence",
+      "purpose": "Changing only prices cannot change which first five ranked identities are selected.",
+      "variants": [
+        {
+          "label": "baseline",
+          "rankedCandidates": [
+            {"id": "synthetic-selection-001", "rank": 1, "priceCents": 2000000},
+            {"id": "synthetic-selection-002", "rank": 2, "priceCents": 2010000},
+            {"id": "synthetic-selection-003", "rank": 3, "priceCents": 2020000},
+            {"id": "synthetic-selection-004", "rank": 4, "priceCents": 2030000},
+            {"id": "synthetic-selection-005", "rank": 5, "priceCents": 2040000},
+            {"id": "synthetic-selection-006", "rank": 6, "priceCents": 9990000}
+          ]
+        },
+        {
+          "label": "prices-changed",
+          "rankedCandidates": [
+            {"id": "synthetic-selection-001", "rank": 1, "priceCents": 9990000},
+            {"id": "synthetic-selection-002", "rank": 2, "priceCents": 100000},
+            {"id": "synthetic-selection-003", "rank": 3, "priceCents": 8000000},
+            {"id": "synthetic-selection-004", "rank": 4, "priceCents": 200000},
+            {"id": "synthetic-selection-005", "rank": 5, "priceCents": 7000000},
+            {"id": "synthetic-selection-006", "rank": 6, "priceCents": 300000}
+          ]
+        }
+      ]
+    },
+    {
+      "name": "threshold-boundaries",
+      "purpose": "Compact below, exact, and above stimuli for every default policy threshold.",
+      "minimumIndependentCounts": [2, 3, 4],
+      "strongEvidenceCounts": [4, 5, 6],
+      "potentialMedianCents": [2099999, 2100000, 2100001],
+      "materialMedianCents": [2199999, 2200000, 2200001],
+      "dispersionPriceSetsCents": [
+        [1200001, 1600001, 2000000, 2399999, 2799999],
+        [1200000, 1600000, 2000000, 2400000, 2800000],
+        [1199999, 1599999, 2000000, 2400001, 2800001]
+      ],
+      "comparisonSetCandidateCounts": [4, 5, 6]
+    },
+    {
+      "name": "currency-boundaries",
+      "purpose": "Cents, equality, signs, large values, and half-cent final rounding remain deterministic.",
+      "moneyInputs": [0, 1, 100, 100000000000],
+      "roundHalfUpDollarInputs": [1.004, 1.005, 1.006],
+      "roundHalfUpExpectedCents": [100, 101, 101],
+      "medianPairsCents": [[100, 101], [101, 102]],
+      "differencePairsCents": [[2000000, 2000000], [1999999, 2000000], [2000001, 2000000]]
+    }
+  ]
+}

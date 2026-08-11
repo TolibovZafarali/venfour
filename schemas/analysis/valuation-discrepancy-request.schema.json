@@ -1,0 +1,1048 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Venfour Valuation Discrepancy Request",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "lossVehicle",
+    "lossDate",
+    "cccVehicleValuation",
+    "cccComparables",
+    "historicalEvidence",
+    "currentEvidence",
+    "policy"
+  ],
+  "properties": {
+    "lossVehicle": {
+      "$ref": "#/$defs/target"
+    },
+    "lossDate": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1,
+      "pattern": "\\S",
+      "format": "date"
+    },
+    "cccVehicleValuation": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "minimum": 0,
+      "maximum": 90071992547409.91
+    },
+    "cccComparables": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/cccComparable"
+      }
+    },
+    "historicalEvidence": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "required": [
+        "result",
+        "ranking"
+      ],
+      "properties": {
+        "result": {
+          "$ref": "#/$defs/historicalSearchResult"
+        },
+        "ranking": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/rankingResult"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "currentEvidence": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "required": [
+        "ranking",
+        "observedDate"
+      ],
+      "properties": {
+        "ranking": {
+          "$ref": "#/$defs/rankingResult"
+        },
+        "observedDate": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date"
+        }
+      }
+    },
+    "policy": {
+      "$ref": "#/$defs/policy"
+    }
+  },
+  "$defs": {
+    "policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "maxComparisonSet",
+        "minimumIndependentCount",
+        "strongHistoricalMinimum",
+        "potentialGapBasisPoints",
+        "materialGapBasisPoints",
+        "highDispersionBasisPoints"
+      ],
+      "properties": {
+        "maxComparisonSet": {
+          "type": "integer",
+          "minimum": 3,
+          "default": 5
+        },
+        "minimumIndependentCount": {
+          "type": "integer",
+          "minimum": 3,
+          "default": 3
+        },
+        "strongHistoricalMinimum": {
+          "type": "integer",
+          "minimum": 3,
+          "default": 5
+        },
+        "potentialGapBasisPoints": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10000,
+          "default": 500
+        },
+        "materialGapBasisPoints": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10000,
+          "default": 1000
+        },
+        "highDispersionBasisPoints": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10000,
+          "default": 2000
+        }
+      }
+    },
+    "cccAdjustments": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "package",
+        "options",
+        "mileage",
+        "condition"
+      ],
+      "properties": {
+        "package": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": -90071992547409.91,
+          "maximum": 90071992547409.91
+        },
+        "options": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": -90071992547409.91,
+          "maximum": 90071992547409.91
+        },
+        "mileage": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": -90071992547409.91,
+          "maximum": 90071992547409.91
+        },
+        "condition": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": -90071992547409.91,
+          "maximum": 90071992547409.91
+        }
+      }
+    },
+    "cccComparable": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "number",
+        "year",
+        "make",
+        "model",
+        "trim",
+        "vin",
+        "dealer",
+        "location",
+        "distanceMiles",
+        "mileage",
+        "listPrice",
+        "adjustments",
+        "adjustedValue",
+        "contributionPercent"
+      ],
+      "properties": {
+        "number": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "year": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "make": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "model": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "trim": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "vin": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "dealer": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "location": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "distanceMiles": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "mileage": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "listPrice": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 90071992547409.91
+        },
+        "adjustments": {
+          "$ref": "#/$defs/cccAdjustments"
+        },
+        "adjustedValue": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 90071992547409.91
+        },
+        "contributionPercent": {
+          "type": [
+            "number",
+            "null"
+          ]
+        }
+      }
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "year",
+        "make",
+        "model",
+        "trim",
+        "mileage",
+        "postalCode"
+      ],
+      "properties": {
+        "year": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "make": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "model": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "trim": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "mileage": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "postalCode": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1,
+          "pattern": "\\S"
+        }
+      }
+    },
+    "listing": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source",
+        "year",
+        "make",
+        "model",
+        "price"
+      ],
+      "properties": {
+        "source": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[a-z0-9][a-z0-9._-]*$"
+        },
+        "sourceListingId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "listingUrl": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "year": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "make": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "model": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "trim": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "vin": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "mileage": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "price": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 90071992547409.91
+        },
+        "dealer": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "name": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "minLength": 1,
+              "pattern": "\\S"
+            },
+            "city": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "minLength": 1,
+              "pattern": "\\S"
+            },
+            "state": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "minLength": 1,
+              "pattern": "\\S"
+            },
+            "postalCode": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "minLength": 1,
+              "pattern": "\\S"
+            }
+          }
+        },
+        "distanceMiles": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        }
+      }
+    },
+    "candidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "listing",
+        "eligible",
+        "score",
+        "tier",
+        "rank",
+        "components",
+        "reasons"
+      ],
+      "properties": {
+        "listing": {
+          "$ref": "#/$defs/listing"
+        },
+        "eligible": {
+          "type": "boolean"
+        },
+        "score": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 100
+        },
+        "tier": {
+          "type": "string",
+          "enum": [
+            "STRONG",
+            "GOOD",
+            "WEAK",
+            "INELIGIBLE"
+          ]
+        },
+        "rank": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "components": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "year",
+            "trim",
+            "mileage",
+            "distance"
+          ],
+          "properties": {
+            "year": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "score",
+                "maxScore",
+                "difference"
+              ],
+              "properties": {
+                "score": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 20
+                },
+                "maxScore": {
+                  "type": "number",
+                  "const": 20
+                },
+                "difference": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              }
+            },
+            "trim": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "score",
+                "maxScore",
+                "match"
+              ],
+              "properties": {
+                "score": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 20
+                },
+                "maxScore": {
+                  "type": "number",
+                  "const": 20
+                },
+                "match": {
+                  "type": "string",
+                  "enum": [
+                    "EXACT",
+                    "DIFFERENT",
+                    "LISTING_UNAVAILABLE",
+                    "TARGET_UNAVAILABLE",
+                    "UNAVAILABLE"
+                  ]
+                }
+              }
+            },
+            "mileage": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "score",
+                "maxScore",
+                "differenceMiles"
+              ],
+              "properties": {
+                "score": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 50
+                },
+                "maxScore": {
+                  "type": "number",
+                  "const": 50
+                },
+                "differenceMiles": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ],
+                  "minimum": 0
+                }
+              }
+            },
+            "distance": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "score",
+                "maxScore",
+                "distanceMiles"
+              ],
+              "properties": {
+                "score": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 10
+                },
+                "maxScore": {
+                  "type": "number",
+                  "const": 10
+                },
+                "distanceMiles": {
+                  "type": [
+                    "number",
+                    "null"
+                  ],
+                  "minimum": 0
+                }
+              }
+            }
+          }
+        },
+        "reasons": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "enum": [
+              "EXACT_MAKE",
+              "MAKE_MISMATCH",
+              "EXACT_MODEL",
+              "MODEL_MISMATCH",
+              "EXACT_YEAR",
+              "YEAR_DIFFERENCE_ONE",
+              "YEAR_DIFFERENCE_MULTIPLE",
+              "EXACT_TRIM",
+              "DIFFERENT_TRIM",
+              "LISTING_TRIM_UNAVAILABLE",
+              "TARGET_TRIM_UNAVAILABLE",
+              "TRIM_UNAVAILABLE",
+              "MILEAGE_EXACT",
+              "MILEAGE_VERY_CLOSE",
+              "MILEAGE_CLOSE",
+              "MILEAGE_MODERATE",
+              "MILEAGE_FAR",
+              "LISTING_MILEAGE_UNAVAILABLE",
+              "TARGET_MILEAGE_UNAVAILABLE",
+              "MILEAGE_UNAVAILABLE",
+              "DISTANCE_CLOSE",
+              "DISTANCE_MODERATE",
+              "DISTANCE_FAR",
+              "DISTANCE_UNAVAILABLE",
+              "DISTANCE_ORIGIN_UNAVAILABLE",
+              "VIN_UNAVAILABLE"
+            ]
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "eligible": {
+                "const": true
+              }
+            },
+            "required": [
+              "eligible"
+            ]
+          },
+          "then": {
+            "properties": {
+              "score": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 100
+              },
+              "tier": {
+                "type": "string",
+                "enum": [
+                  "STRONG",
+                  "GOOD",
+                  "WEAK"
+                ]
+              },
+              "rank": {
+                "type": "integer",
+                "minimum": 1
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "score": {
+                "type": "null"
+              },
+              "tier": {
+                "const": "INELIGIBLE"
+              },
+              "rank": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "rankingResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scoringVersion",
+        "target",
+        "provider",
+        "totalListingCount",
+        "eligibleCount",
+        "ineligibleCount",
+        "tierCounts",
+        "candidates"
+      ],
+      "properties": {
+        "scoringVersion": {
+          "type": "string",
+          "const": "1"
+        },
+        "target": {
+          "$ref": "#/$defs/target"
+        },
+        "provider": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[a-z0-9][a-z0-9._-]*$"
+        },
+        "totalListingCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "eligibleCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "ineligibleCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "tierCounts": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "STRONG",
+            "GOOD",
+            "WEAK",
+            "INELIGIBLE"
+          ],
+          "properties": {
+            "STRONG": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "GOOD": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "WEAK": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "INELIGIBLE": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "candidates": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/candidate"
+          }
+        }
+      }
+    },
+    "historicalSearchRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "evidenceDate",
+        "year",
+        "make",
+        "model",
+        "postalCode"
+      ],
+      "properties": {
+        "evidenceDate": {
+          "type": "string",
+          "format": "date"
+        },
+        "year": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "make": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "model": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "trim": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "lossVehicleMileage": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "postalCode": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "radiusMiles": {
+          "type": "integer",
+          "minimum": 0,
+          "default": 50
+        },
+        "resultLimit": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 25
+        }
+      }
+    },
+    "historicalEvidenceItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "listing",
+        "temporalEvidence"
+      ],
+      "properties": {
+        "listing": {
+          "$ref": "#/$defs/listing"
+        },
+        "temporalEvidence": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status",
+            "basis",
+            "evidenceDate",
+            "recordFirstSeenAt",
+            "recordLastSeenAt",
+            "sourceFirstSeenAt",
+            "sourceLastSeenAt"
+          ],
+          "properties": {
+            "status": {
+              "const": "RESOLVED"
+            },
+            "basis": {
+              "const": "LISTING_RECORD_ACTIVE_ON_DATE"
+            },
+            "evidenceDate": {
+              "type": "string",
+              "format": "date"
+            },
+            "recordFirstSeenAt": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "recordLastSeenAt": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "sourceFirstSeenAt": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "format": "date-time"
+            },
+            "sourceLastSeenAt": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "format": "date-time"
+            }
+          }
+        }
+      }
+    },
+    "issue": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "reason",
+        "vin",
+        "sourceListingId"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "UNRESOLVED",
+            "AMBIGUOUS"
+          ]
+        },
+        "reason": {
+          "enum": [
+            "RECORD_INTERVAL_BEFORE_EVIDENCE_DATE",
+            "RECORD_INTERVAL_AFTER_EVIDENCE_DATE",
+            "MISSING_RECORD_TIMESTAMPS",
+            "MALFORMED_RECORD_TIMESTAMPS",
+            "INCONSISTENT_RECORD_TIMESTAMPS",
+            "INVALID_RECORD_INTERVAL",
+            "MALFORMED_SOURCE_TIMESTAMPS",
+            "INCONSISTENT_SOURCE_TIMESTAMPS",
+            "INVALID_SOURCE_INTERVAL",
+            "RECORD_OUTSIDE_SOURCE_INTERVAL",
+            "NO_RECORD_ACTIVE_ON_EVIDENCE_DATE",
+            "MISSING_LISTING_IDENTITY",
+            "UNVERIFIABLE_RECORD_CONTEXT",
+            "MULTIPLE_SOURCE_RECORDS_ON_EVIDENCE_DATE",
+            "PAGINATION_SAFETY_LIMIT_REACHED",
+            "INCOMPLETE_PROVIDER_PAGINATION"
+          ]
+        },
+        "vin": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "sourceListingId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1,
+          "pattern": "\\S"
+        }
+      }
+    },
+    "historicalSearchResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "provider",
+        "evidenceDate",
+        "asOfDate",
+        "coverage",
+        "request",
+        "evidence",
+        "listingCount",
+        "issues",
+        "unresolvedCount",
+        "ambiguousCount"
+      ],
+      "properties": {
+        "provider": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[a-z0-9][a-z0-9._-]*$"
+        },
+        "evidenceDate": {
+          "type": "string",
+          "format": "date"
+        },
+        "asOfDate": {
+          "type": "string",
+          "format": "date"
+        },
+        "coverage": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status",
+            "historyWindowDays"
+          ],
+          "properties": {
+            "status": {
+              "enum": [
+                "SUPPORTED",
+                "OUT_OF_PROVIDER_RANGE"
+              ]
+            },
+            "historyWindowDays": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        },
+        "request": {
+          "$ref": "#/$defs/historicalSearchRequest"
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/historicalEvidenceItem"
+          }
+        },
+        "listingCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "issues": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/issue"
+          }
+        },
+        "unresolvedCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "ambiguousCount": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    }
+  }
+}

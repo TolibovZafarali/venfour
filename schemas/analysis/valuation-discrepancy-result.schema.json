@@ -1,0 +1,1073 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Venfour Valuation Discrepancy Result",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "analysisVersion",
+    "classification",
+    "evidenceStrength",
+    "evidenceBasis",
+    "policy",
+    "cccVehicleValuationCents",
+    "cccComparableSummary",
+    "historicalExternalSummary",
+    "currentExternalSummary",
+    "primaryComparison",
+    "secondaryComparisons",
+    "findings",
+    "limitations"
+  ],
+  "properties": {
+    "analysisVersion": {
+      "type": "string",
+      "const": "1"
+    },
+    "classification": {
+      "enum": [
+        "INSUFFICIENT_EVIDENCE",
+        "NO_MATERIAL_DISCREPANCY",
+        "POTENTIAL_UNDERVALUE",
+        "MATERIAL_UNDERVALUE_SIGNAL",
+        "CONFLICTING_EVIDENCE"
+      ]
+    },
+    "evidenceStrength": {
+      "enum": [
+        "LOW",
+        "MODERATE",
+        "STRONG"
+      ]
+    },
+    "evidenceBasis": {
+      "enum": [
+        "NONE",
+        "LOSS_DATE_HISTORICAL",
+        "CURRENT_MARKET"
+      ]
+    },
+    "policy": {
+      "$ref": "#/$defs/policy"
+    },
+    "cccVehicleValuationCents": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "cccComparableSummary": {
+      "$ref": "#/$defs/cccComparableSummary"
+    },
+    "historicalExternalSummary": {
+      "oneOf": [
+        {
+          "allOf": [
+            {
+              "$ref": "#/$defs/externalEvidenceSummary"
+            },
+            {
+              "properties": {
+                "evidenceBasis": {
+                  "const": "LOSS_DATE_HISTORICAL"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "currentExternalSummary": {
+      "oneOf": [
+        {
+          "allOf": [
+            {
+              "$ref": "#/$defs/externalEvidenceSummary"
+            },
+            {
+              "properties": {
+                "evidenceBasis": {
+                  "const": "CURRENT_MARKET"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "primaryComparison": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/primaryComparison"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "secondaryComparisons": {
+      "$ref": "#/$defs/secondaryComparisons"
+    },
+    "findings": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/finding"
+      }
+    },
+    "limitations": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/limitation"
+      }
+    }
+  },
+  "$defs": {
+    "policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "maxComparisonSet",
+        "minimumIndependentCount",
+        "strongHistoricalMinimum",
+        "potentialGapBasisPoints",
+        "materialGapBasisPoints",
+        "highDispersionBasisPoints"
+      ],
+      "properties": {
+        "maxComparisonSet": {
+          "type": "integer",
+          "minimum": 3,
+          "default": 5
+        },
+        "minimumIndependentCount": {
+          "type": "integer",
+          "minimum": 3,
+          "default": 3
+        },
+        "strongHistoricalMinimum": {
+          "type": "integer",
+          "minimum": 3,
+          "default": 5
+        },
+        "potentialGapBasisPoints": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10000,
+          "default": 500
+        },
+        "materialGapBasisPoints": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10000,
+          "default": 1000
+        },
+        "highDispersionBasisPoints": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10000,
+          "default": 2000
+        }
+      }
+    },
+    "moneySummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "count",
+        "minimumCents",
+        "maximumCents",
+        "medianCents",
+        "rangeCents"
+      ],
+      "properties": {
+        "count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "minimumCents": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        },
+        "maximumCents": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        },
+        "medianCents": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        },
+        "rangeCents": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      }
+    },
+    "priceSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "count",
+        "minimumPriceCents",
+        "maximumPriceCents",
+        "medianPriceCents",
+        "rangeCents",
+        "medianAbsoluteDeviationCents",
+        "centralHalfRangeCents",
+        "dispersionBasisPoints"
+      ],
+      "properties": {
+        "count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "minimumPriceCents": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "maximumPriceCents": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "medianPriceCents": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "rangeCents": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "medianAbsoluteDeviationCents": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "centralHalfRangeCents": {
+          "description": "Half of the second-highest minus second-lowest selected price for sets of at least three, rounded half-up; otherwise zero or null for an empty set.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "dispersionBasisPoints": {
+          "description": "The larger of exact MAD and exact central half-range divided by exact median, rounded half-up and capped at 10000; null when the median is zero or unavailable.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 10000
+        }
+      }
+    },
+    "cccAdjustmentAmounts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "packageCents",
+        "optionsCents",
+        "mileageCents",
+        "conditionCents"
+      ],
+      "properties": {
+        "packageCents": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        },
+        "optionsCents": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        },
+        "mileageCents": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        },
+        "conditionCents": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        }
+      }
+    },
+    "cccComparableEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "index",
+        "comparableNumber",
+        "year",
+        "make",
+        "model",
+        "trim",
+        "vin",
+        "dealer",
+        "location",
+        "distanceMiles",
+        "mileage",
+        "listPriceCents",
+        "adjustedValueCents",
+        "netAdjustmentCents",
+        "adjustments",
+        "adjustmentDisclosure",
+        "contributionPercent"
+      ],
+      "properties": {
+        "index": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "comparableNumber": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "year": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "make": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "model": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "trim": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "vin": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "dealer": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "location": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "distanceMiles": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "mileage": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "listPriceCents": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "adjustedValueCents": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "netAdjustmentCents": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        },
+        "adjustments": {
+          "$ref": "#/$defs/cccAdjustmentAmounts"
+        },
+        "adjustmentDisclosure": {
+          "enum": [
+            "full",
+            "partial",
+            "none",
+            "unavailable"
+          ]
+        },
+        "contributionPercent": {
+          "type": [
+            "number",
+            "null"
+          ]
+        }
+      }
+    },
+    "cccComparableSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "totalCount",
+        "advertisedPriceMissingCount",
+        "adjustedValueMissingCount",
+        "pairedValueCount",
+        "pairedValueMissingCount",
+        "fullyDisclosedAdjustmentCount",
+        "partiallyDisclosedAdjustmentCount",
+        "undisclosedAdjustmentCount",
+        "unavailableAdjustmentCount",
+        "advertisedPrices",
+        "adjustedValues",
+        "netAdjustments",
+        "comparables"
+      ],
+      "properties": {
+        "totalCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "advertisedPriceMissingCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "adjustedValueMissingCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "pairedValueCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "pairedValueMissingCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "fullyDisclosedAdjustmentCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "partiallyDisclosedAdjustmentCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "undisclosedAdjustmentCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unavailableAdjustmentCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "advertisedPrices": {
+          "$ref": "#/$defs/priceSummary"
+        },
+        "adjustedValues": {
+          "$ref": "#/$defs/priceSummary"
+        },
+        "netAdjustments": {
+          "$ref": "#/$defs/moneySummary"
+        },
+        "comparables": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/cccComparableEvidence"
+          }
+        }
+      }
+    },
+    "selectedExternalEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source",
+        "sourceListingId",
+        "vin",
+        "year",
+        "make",
+        "model",
+        "trim",
+        "priceCents",
+        "mileage",
+        "lossVehicleMileage",
+        "mileageDifferenceFromLossVehicle",
+        "distanceMiles",
+        "rank",
+        "score",
+        "tier",
+        "temporalBasis",
+        "evidenceDate"
+      ],
+      "properties": {
+        "source": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[a-z0-9][a-z0-9._-]*$"
+        },
+        "sourceListingId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "vin": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "year": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "make": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "model": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "trim": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "priceCents": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "mileage": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "lossVehicleMileage": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "mileageDifferenceFromLossVehicle": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "distanceMiles": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "rank": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "score": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "tier": {
+          "enum": [
+            "STRONG",
+            "GOOD",
+            "WEAK"
+          ]
+        },
+        "temporalBasis": {
+          "enum": [
+            "CURRENT_MARKET",
+            "LISTING_RECORD_ACTIVE_ON_DATE"
+          ]
+        },
+        "evidenceDate": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "temporalBasis": {
+                "const": "LISTING_RECORD_ACTIVE_ON_DATE"
+              }
+            },
+            "required": [
+              "temporalBasis"
+            ]
+          },
+          "then": {
+            "properties": {
+              "evidenceDate": {
+                "type": "string",
+                "format": "date"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "externalEvidenceSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "evidenceBasis",
+        "evidenceDate",
+        "coverageStatus",
+        "resolvedCount",
+        "unresolvedCount",
+        "ambiguousCount",
+        "rankedCandidateCount",
+        "eligibleCandidateCount",
+        "ineligibleCount",
+        "identityMissingExcludedCount",
+        "duplicateIdentityExcludedCount",
+        "comparisonSetLimitExcludedCount",
+        "selectedCount",
+        "selectedWeakCount",
+        "prices",
+        "selectedEvidence"
+      ],
+      "properties": {
+        "evidenceBasis": {
+          "enum": [
+            "LOSS_DATE_HISTORICAL",
+            "CURRENT_MARKET"
+          ]
+        },
+        "evidenceDate": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date"
+        },
+        "coverageStatus": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "SUPPORTED",
+            "OUT_OF_PROVIDER_RANGE",
+            null
+          ]
+        },
+        "resolvedCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unresolvedCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "ambiguousCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "rankedCandidateCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "eligibleCandidateCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "ineligibleCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "identityMissingExcludedCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "duplicateIdentityExcludedCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "comparisonSetLimitExcludedCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "selectedCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "selectedWeakCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "prices": {
+          "$ref": "#/$defs/priceSummary"
+        },
+        "selectedEvidence": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/selectedExternalEvidence"
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "evidenceBasis": {
+                "const": "LOSS_DATE_HISTORICAL"
+              }
+            },
+            "required": [
+              "evidenceBasis"
+            ]
+          },
+          "then": {
+            "properties": {
+              "evidenceDate": {
+                "type": "string",
+                "format": "date"
+              },
+              "coverageStatus": {
+                "enum": [
+                  "SUPPORTED",
+                  "OUT_OF_PROVIDER_RANGE"
+                ]
+              },
+              "selectedEvidence": {
+                "items": {
+                  "properties": {
+                    "temporalBasis": {
+                      "const": "LISTING_RECORD_ACTIVE_ON_DATE"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "coverageStatus": {
+                "type": "null"
+              },
+              "unresolvedCount": {
+                "const": 0
+              },
+              "ambiguousCount": {
+                "const": 0
+              },
+              "selectedEvidence": {
+                "items": {
+                  "properties": {
+                    "temporalBasis": {
+                      "const": "CURRENT_MARKET"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "valueComparison": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "firstValueCents",
+        "secondValueCents",
+        "differenceCents",
+        "differenceBasisPoints"
+      ],
+      "properties": {
+        "firstValueCents": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "secondValueCents": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "differenceCents": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        },
+        "differenceBasisPoints": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": -10000
+        }
+      }
+    },
+    "primaryComparison": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "evidenceBasis",
+        "externalMedianPriceCents",
+        "cccVehicleValuationCents",
+        "differenceCents",
+        "differenceBasisPoints",
+        "cccPositionInExternalRange"
+      ],
+      "properties": {
+        "evidenceBasis": {
+          "enum": [
+            "LOSS_DATE_HISTORICAL",
+            "CURRENT_MARKET"
+          ]
+        },
+        "externalMedianPriceCents": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "cccVehicleValuationCents": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "differenceCents": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        },
+        "differenceBasisPoints": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": -10000
+        },
+        "cccPositionInExternalRange": {
+          "enum": [
+            "BELOW_OBSERVED_RANGE",
+            "WITHIN_OBSERVED_RANGE",
+            "ABOVE_OBSERVED_RANGE"
+          ]
+        }
+      }
+    },
+    "secondaryComparisons": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "cccAdjustedMedianVsVehicleValuation",
+        "cccAdvertisedMedianVsAdjustedMedian",
+        "externalMedianVsCccAdjustedMedian"
+      ],
+      "properties": {
+        "cccAdjustedMedianVsVehicleValuation": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/valueComparison"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "cccAdvertisedMedianVsAdjustedMedian": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/valueComparison"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "externalMedianVsCccAdjustedMedian": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/valueComparison"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "finding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "code",
+        "description"
+      ],
+      "properties": {
+        "code": {
+          "enum": [
+            "MISSING_CCC_VEHICLE_VALUATION",
+            "NONPOSITIVE_CCC_VEHICLE_VALUATION",
+            "INSUFFICIENT_RESOLVED_EXTERNAL_EVIDENCE",
+            "EXTERNAL_MEDIAN_ZERO",
+            "EXTERNAL_MEDIAN_ABOVE_CCC",
+            "EXTERNAL_MEDIAN_BELOW_CCC",
+            "EXTERNAL_MEDIAN_EQUALS_CCC",
+            "CCC_BELOW_EXTERNAL_RANGE",
+            "CCC_WITHIN_EXTERNAL_RANGE",
+            "CCC_ABOVE_EXTERNAL_RANGE",
+            "EXTERNAL_MARKET_HIGH_DISPERSION",
+            "CCC_AND_EXTERNAL_EVIDENCE_CONSISTENT",
+            "HISTORICAL_PRIMARY_EVIDENCE",
+            "CURRENT_PRIMARY_EVIDENCE",
+            "CURRENT_MARKET_ONLY",
+            "CURRENT_EVIDENCE_SECONDARY",
+            "HISTORICAL_CURRENT_SIGNALS_CONFLICT",
+            "HISTORICAL_EVIDENCE_OUT_OF_PROVIDER_RANGE",
+            "AMBIGUOUS_HISTORICAL_RECORDS_EXCLUDED",
+            "UNRESOLVED_HISTORICAL_RECORDS_EXCLUDED",
+            "IDENTITY_MISSING_EXTERNAL_RECORDS_EXCLUDED",
+            "DUPLICATE_EXTERNAL_IDENTITIES_EXCLUDED",
+            "EXTERNAL_COMPARISON_SET_BOUNDED",
+            "CCC_ADJUSTMENTS_REDUCE_COMPARABLE_VALUES",
+            "CCC_ADJUSTMENTS_INCREASE_COMPARABLE_VALUES",
+            "CCC_ADJUSTMENTS_NO_MEDIAN_CHANGE",
+            "POTENTIAL_GAP_THRESHOLD_MET",
+            "MATERIAL_GAP_THRESHOLD_MET"
+          ]
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        }
+      }
+    },
+    "limitation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "code",
+        "description"
+      ],
+      "properties": {
+        "code": {
+          "enum": [
+            "NOT_AN_INDEPENDENT_APPRAISAL",
+            "DOES_NOT_CALCULATE_LEGAL_SETTLEMENT",
+            "POLICY_THRESHOLDS_NOT_LEGAL_STANDARDS",
+            "NEGOTIATION_OUTPUT_NOT_INCLUDED",
+            "ADVERTISED_PRICES_NOT_TRANSACTIONS",
+            "NO_INDEPENDENT_MILEAGE_ADJUSTMENT",
+            "NO_INDEPENDENT_CONDITION_ADJUSTMENT",
+            "NO_INDEPENDENT_OPTIONS_ADJUSTMENT",
+            "PROVIDER_COVERAGE_LIMITED",
+            "CURRENT_LISTINGS_NOT_LOSS_DATE_EVIDENCE",
+            "HISTORICAL_DATE_LEVEL_ONLY",
+            "HISTORICAL_OUT_OF_RANGE_NOT_NO_MARKET",
+            "AMBIGUOUS_HISTORICAL_EVIDENCE_NOT_PRICED",
+            "UNRESOLVED_HISTORICAL_EVIDENCE_NOT_PRICED",
+            "BOUNDED_EXTERNAL_COMPARISON_SET"
+          ]
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        }
+      }
+    }
+  }
+}
