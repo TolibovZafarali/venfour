@@ -1,7 +1,99 @@
-# Venfour CCC report extraction and analysis
+<div align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/brand/venfour-logo-white.svg">
+    <source media="(prefers-color-scheme: light)" srcset="assets/brand/venfour-logo-black.svg">
+    <img src="assets/brand/venfour-logo-black.svg" alt="Venfour logo" width="128">
+  </picture>
+  <h1>Venfour</h1>
+  <p><strong>Independent vehicle-valuation guidance for total-loss claims.</strong></p>
+</div>
 
-Venfour currently extracts structured valuation data directly from original CCC
-PDFs. The primary path sends the PDF to GPT-5.6 Sol (`gpt-5.6-sol`) with
+Venfour is a consumer-facing auto-accident assistance platform. Its current
+product focus is helping people understand and evaluate total-loss vehicle
+valuations.
+
+Venfour acts as a self-service vehicle-valuation advisor: it reviews an
+insurer's valuation, independently researches market evidence, identifies
+meaningful discrepancies, and organizes clear evidence the vehicle owner can
+use when discussing the settlement with an insurance adjuster. The customer
+remains responsible for communicating with the insurer.
+
+The broader company direction is to build a consumer-side intelligence and
+assistance platform for navigating auto accidents and insurance claims with
+less confusion, better organization, stronger evidence, and better-informed
+decisions. That direction informs the product's terminology and architecture;
+it does not mean those broader capabilities are implemented in this repository.
+
+## Current repository scope
+
+This repository contains the Python backend through Phase 3F. Its implemented
+pipeline covers:
+
+- structured extraction and validation of CCC valuation reports;
+- normalized vehicle, valuation, and comparable data;
+- current and historical market-evidence retrieval through provider boundaries;
+- historical listing lifecycle verification;
+- provider-neutral comparable eligibility, scoring, and ranking;
+- deterministic valuation-discrepancy analysis;
+- immutable analysis-run persistence with replay and integrity validation;
+- deterministic presentation projection; and
+- a read-only JSON API for validated presentation data.
+
+```text
+Insurance valuation report
+        ↓
+structured report understanding
+        ↓
+canonical vehicle, valuation, and comparable data
+        ↓
+independent current and historical market evidence
+        ↓
+provider-neutral comparable scoring and ranking
+        ↓
+deterministic discrepancy analysis
+        ↓
+immutable auditable analysis run
+        ↓
+deterministic presentation model
+        ↓
+read-only JSON API
+```
+
+The repository does not currently contain the planned customer-facing web
+application. Phase 3F also does not provide authentication, user ownership,
+report-upload endpoints, analysis-creation endpoints, or production deployment
+configuration.
+
+## Evidence and engineering principles
+
+Venfour distinguishes evidence from conclusions. An advertised vehicle price is
+market evidence, not a guaranteed transaction price or proof that an insurer
+legally owes a specific additional amount. Analysis remains conservative and
+explicit about uncertainty; screening results are not legal entitlement, a
+guaranteed settlement, an independent appraisal, or proof of insurer wrongdoing.
+
+AI-assisted interpretation is used where document understanding requires it.
+Once a report has been converted to strict structured data, established rules
+for evidence eligibility, historical verification, comparable ranking,
+calculations, and classifications remain deterministic and reproducible.
+
+CCC and MarketCheck are current integrations rather than definitions of the
+product. Existing domain boundaries keep core analysis provider-neutral where
+the implementation already supports it.
+
+## Frontend direction
+
+Venfour is planned as a responsive web product using React, TypeScript, Vite,
+React Router, TanStack Query, and Tailwind CSS. Product pages will be designed
+and reviewed individually before implementation. A future frontend should
+consume the backend's structured presentation JSON rather than reproduce
+valuation calculations, evidence selection, comparable ranking, historical
+verification, or discrepancy classification.
+
+## CCC report extraction
+
+The current extraction path reads structured valuation data directly from
+original CCC PDFs. It sends the PDF to GPT-5.6 Sol (`gpt-5.6-sol`) with
 high-detail input, requests strict structured output, and then validates the
 result against the canonical CCC schema before writing it atomically.
 
