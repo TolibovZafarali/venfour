@@ -26,8 +26,8 @@ it does not mean those broader capabilities are implemented in this repository.
 
 ## Current repository scope
 
-This repository contains the Python backend through Phase 3F. Its implemented
-pipeline covers:
+This repository contains the Python backend through Phase 3F and the initial
+customer-frontend foundation. The implemented backend pipeline covers:
 
 - structured extraction and validation of CCC valuation reports;
 - normalized vehicle, valuation, and comparable data;
@@ -59,10 +59,12 @@ deterministic presentation model
 read-only JSON API
 ```
 
-The repository does not currently contain the planned customer-facing web
-application. Phase 3F also does not provide authentication, user ownership,
-report-upload endpoints, analysis-creation endpoints, or production deployment
-configuration.
+The customer-facing application currently provides only a production-oriented
+frontend foundation: application providers, routing, a minimal shell, a typed
+HTTP client, a backend health query, reusable UI setup, and test infrastructure.
+The valuation workflow and finished product pages have not been implemented.
+Phase 3F also does not provide authentication, user ownership, report-upload
+endpoints, analysis-creation endpoints, or production deployment configuration.
 
 ## Evidence and engineering principles
 
@@ -83,12 +85,12 @@ the implementation already supports it.
 
 ## Frontend direction
 
-Venfour is planned as a responsive web product using React, TypeScript, Vite,
-React Router, TanStack Query, and Tailwind CSS. Product pages will be designed
-and reviewed individually before implementation. A future frontend should
-consume the backend's structured presentation JSON rather than reproduce
-valuation calculations, evidence selection, comparable ranking, historical
-verification, or discrepancy classification.
+The initial responsive web application lives in `frontend/` and uses React,
+TypeScript, Vite, React Router, TanStack Query, Tailwind CSS, shadcn/ui, and Radix
+primitives. Product pages will be designed and reviewed individually before
+implementation. The frontend must consume the backend's structured presentation
+JSON rather than reproduce valuation calculations, evidence selection,
+comparable ranking, historical verification, or discrepancy classification.
 
 ## CCC report extraction
 
@@ -106,10 +108,68 @@ JSON.
 
 ## Setup
 
-Install the Python dependencies:
+Create a virtual environment and install the Python dependencies:
 
 ```sh
-python3 -m pip install -r requirements.txt
+python3 -m venv .venv
+.venv/bin/python -m pip install -r requirements.txt
+```
+
+For local backend and frontend development, install the development dependency
+set instead. It adds Uvicorn as a local ASGI runner without selecting a
+production deployment server:
+
+```sh
+.venv/bin/python -m pip install -r requirements-dev.txt
+```
+
+### Frontend development
+
+The frontend is a separate npm application so its toolchain and generated files
+remain isolated from the Python package. It requires Node.js `^22.13.0` or a
+current release starting with Node.js 24.
+
+```sh
+cd frontend
+npm install
+npm run dev
+```
+
+In a separate terminal, start the local Starlette API from the repository root:
+
+```sh
+.venv/bin/python -m uvicorn venfour.api:create_app \
+  --factory \
+  --host 127.0.0.1 \
+  --port 8000
+```
+
+Vite serves the application at `http://localhost:5173` and proxies `/api` and
+`/health` to `http://127.0.0.1:8000`. This avoids a cross-origin request because
+the Starlette API does not currently enable CORS. Uvicorn is included only in
+the local development requirements; production ASGI server and deployment
+selection remain deferred.
+
+To use a different backend address, copy the example environment file and edit
+the local copy:
+
+```sh
+cd frontend
+cp .env.example .env.local
+```
+
+`VENFOUR_API_PROXY_TARGET` controls the development proxy. Keep
+`VITE_API_BASE_URL` empty for the same-origin proxy; set it only when the target
+deployment intentionally serves the API elsewhere and has an appropriate CORS
+policy.
+
+Available frontend checks are:
+
+```sh
+npm run lint
+npm run typecheck
+npm test
+npm run build
 ```
 
 ## Phase 3F: read-only analysis presentation API

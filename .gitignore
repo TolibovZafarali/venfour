@@ -10,3 +10,11 @@ data/analysis-runs/
 *.pyc
 
 .DS_Store
+
+node_modules/
+dist/
+coverage/
+.vite/
+*.tsbuildinfo
+
+!frontend/.env.example

@@ -1,0 +1,66 @@
+import { isApiErrorResponse } from "@/lib/api/contracts";
+
+interface ApiClientOptions {
+  baseUrl: string;
+  fetchImplementation?: typeof fetch;
+}
+
+export class ApiError extends Error {
+  readonly status: number;
+  readonly code: string | null;
+
+  constructor(message: string, status: number, code: string | null = null) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+    this.code = code;
+  }
+}
+
+function buildRequestUrl(baseUrl: string, path: string) {
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+
+  if (baseUrl) {
+    return `${baseUrl}${normalizedPath}`;
+  }
+
+  const origin =
+    typeof window === "undefined" ? "http://localhost" : window.location.origin;
+  return new URL(normalizedPath, origin).toString();
+}
+
+export function createApiClient({
+  baseUrl,
+  fetchImplementation,
+}: ApiClientOptions) {
+  return {
+    async get<T>(path: string, signal?: AbortSignal): Promise<T> {
+      const executeRequest = fetchImplementation ?? globalThis.fetch;
+      const response = await executeRequest(buildRequestUrl(baseUrl, path), {
+        method: "GET",
+        headers: { Accept: "application/json" },
+        signal,
+      });
+
+      let payload: unknown;
+      try {
+        payload = await response.json();
+      } catch {
+        throw new ApiError("The API returned an invalid JSON response.", 502);
+      }
+
+      if (!response.ok) {
+        if (isApiErrorResponse(payload)) {
+          throw new ApiError(
+            payload.error.message,
+            response.status,
+            payload.error.code,
+          );
+        }
+        throw new ApiError("The API request failed.", response.status);
+      }
+
+      return payload as T;
+    },
+  };
+}
