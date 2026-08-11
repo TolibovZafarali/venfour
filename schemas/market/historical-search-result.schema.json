@@ -1,0 +1,299 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Venfour Historical Market Search Result",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "provider",
+    "evidenceDate",
+    "asOfDate",
+    "coverage",
+    "request",
+    "evidence",
+    "listingCount",
+    "issues",
+    "unresolvedCount",
+    "ambiguousCount"
+  ],
+  "properties": {
+    "provider": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[a-z0-9][a-z0-9._-]*$"
+    },
+    "evidenceDate": {
+      "type": "string",
+      "format": "date"
+    },
+    "asOfDate": {
+      "type": "string",
+      "format": "date"
+    },
+    "coverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "historyWindowDays"],
+      "properties": {
+        "status": {
+          "enum": ["SUPPORTED", "OUT_OF_PROVIDER_RANGE"]
+        },
+        "historyWindowDays": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "request": {
+      "$ref": "#/$defs/historicalSearchRequest"
+    },
+    "evidence": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/historicalEvidenceItem"
+      }
+    },
+    "listingCount": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "issues": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/issue"
+      }
+    },
+    "unresolvedCount": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "ambiguousCount": {
+      "type": "integer",
+      "minimum": 0
+    }
+  },
+  "$defs": {
+    "historicalSearchRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["evidenceDate", "year", "make", "model", "postalCode"],
+      "properties": {
+        "evidenceDate": {
+          "type": "string",
+          "format": "date"
+        },
+        "year": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "make": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "model": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "trim": {
+          "type": ["string", "null"],
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "lossVehicleMileage": {
+          "type": ["integer", "null"],
+          "minimum": 0
+        },
+        "postalCode": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "radiusMiles": {
+          "type": "integer",
+          "minimum": 0,
+          "default": 50
+        },
+        "resultLimit": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 25
+        }
+      }
+    },
+    "listing": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source", "year", "make", "model", "price"],
+      "properties": {
+        "source": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[a-z0-9][a-z0-9._-]*$"
+        },
+        "sourceListingId": {
+          "type": ["string", "null"],
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "listingUrl": {
+          "type": ["string", "null"],
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "year": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "make": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "model": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "trim": {
+          "type": ["string", "null"],
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "vin": {
+          "type": ["string", "null"],
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "mileage": {
+          "type": ["integer", "null"],
+          "minimum": 0
+        },
+        "price": {
+          "type": "number",
+          "minimum": 0
+        },
+        "dealer": {
+          "type": ["object", "null"],
+          "additionalProperties": false,
+          "properties": {
+            "name": {
+              "type": ["string", "null"],
+              "minLength": 1,
+              "pattern": "\\S"
+            },
+            "city": {
+              "type": ["string", "null"],
+              "minLength": 1,
+              "pattern": "\\S"
+            },
+            "state": {
+              "type": ["string", "null"],
+              "minLength": 1,
+              "pattern": "\\S"
+            },
+            "postalCode": {
+              "type": ["string", "null"],
+              "minLength": 1,
+              "pattern": "\\S"
+            }
+          }
+        },
+        "distanceMiles": {
+          "type": ["number", "null"],
+          "minimum": 0
+        }
+      }
+    },
+    "historicalEvidenceItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["listing", "temporalEvidence"],
+      "properties": {
+        "listing": {
+          "$ref": "#/$defs/listing"
+        },
+        "temporalEvidence": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status",
+            "basis",
+            "evidenceDate",
+            "recordFirstSeenAt",
+            "recordLastSeenAt",
+            "sourceFirstSeenAt",
+            "sourceLastSeenAt"
+          ],
+          "properties": {
+            "status": {
+              "const": "RESOLVED"
+            },
+            "basis": {
+              "const": "LISTING_RECORD_ACTIVE_ON_DATE"
+            },
+            "evidenceDate": {
+              "type": "string",
+              "format": "date"
+            },
+            "recordFirstSeenAt": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "recordLastSeenAt": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "sourceFirstSeenAt": {
+              "type": ["string", "null"],
+              "format": "date-time"
+            },
+            "sourceLastSeenAt": {
+              "type": ["string", "null"],
+              "format": "date-time"
+            }
+          }
+        }
+      }
+    },
+    "issue": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "reason", "vin", "sourceListingId"],
+      "properties": {
+        "status": {
+          "enum": ["UNRESOLVED", "AMBIGUOUS"]
+        },
+        "reason": {
+          "enum": [
+            "RECORD_INTERVAL_BEFORE_EVIDENCE_DATE",
+            "RECORD_INTERVAL_AFTER_EVIDENCE_DATE",
+            "MISSING_RECORD_TIMESTAMPS",
+            "MALFORMED_RECORD_TIMESTAMPS",
+            "INCONSISTENT_RECORD_TIMESTAMPS",
+            "INVALID_RECORD_INTERVAL",
+            "MALFORMED_SOURCE_TIMESTAMPS",
+            "INCONSISTENT_SOURCE_TIMESTAMPS",
+            "INVALID_SOURCE_INTERVAL",
+            "RECORD_OUTSIDE_SOURCE_INTERVAL",
+            "NO_RECORD_ACTIVE_ON_EVIDENCE_DATE",
+            "MISSING_LISTING_IDENTITY",
+            "MULTIPLE_SOURCE_RECORDS_ON_EVIDENCE_DATE",
+            "PAGINATION_SAFETY_LIMIT_REACHED",
+            "INCOMPLETE_PROVIDER_PAGINATION"
+          ]
+        },
+        "vin": {
+          "type": ["string", "null"],
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "sourceListingId": {
+          "type": ["string", "null"],
+          "minLength": 1,
+          "pattern": "\\S"
+        }
+      }
+    }
+  }
+}

@@ -71,6 +71,75 @@ phase does not compare listings with CCC values, calculate a Venfour vehicle
 value, characterize a listing as over- or underpriced, or conclude that a CCC
 valuation is high or low.
 
+## Phase 3C.5: date-of-loss market evidence
+
+Current inventory and date-of-loss evidence are separate concepts. The active
+MarketCheck command describes today's market; the historical command asks for
+one explicit `evidenceDate` and returns temporal provenance with each resolved
+canonical listing. Venfour never substitutes current listings when historical
+coverage is unavailable.
+
+MarketCheck's `/v2/search/car/recents` endpoint is limited to expired dealer
+inventory in a rolling 90-day provider window. Sold listings are only a subset
+of expired listings, and listings that remain active are absent, so the result
+is necessarily incomplete and is not a full reconstruction of the market on a
+past date. Venfour uses `active_inventory_date_range=YYYYMMDD-YYYYMMDD` to find
+candidate VINs for the exact date. Because that VIN-level filter does not prove
+that the returned record's price applied on that date, Venfour also verifies
+that the specific record's `first_seen_at`/`last_seen_at` interval overlaps the
+evidence day, following MarketCheck's documented listing lifecycle fields.
+Available source-tenure timestamps are retained and checked as corroborating
+provenance, but never replace the record interval or independently establish a
+date-specific price.
+
+Historical requests send `nodedup=true` so lifecycle records can be evaluated
+locally. Repeated records do not become independent comparables. If multiple
+distinct records for one vehicle overlap the date, the vehicle is marked
+`AMBIGUOUS` and excluded from resolved evidence rather than selecting a price.
+Search pagination exhausts the bounded candidate set before prices are finalized
+so a conflicting lifecycle record on a later page cannot be missed. The scan is
+limited to 10 pages; if that safety bound leaves more records, provisional
+prices are withheld and an explicit unresolved issue reports incomplete
+coverage. The same conservative withholding applies if provider pagination ends
+prematurely while its reported result count says records remain.
+
+Resolved listings can be projected into the existing Phase 3C scorer without
+changing its provider-neutral, price-neutral rules. Historical market evidence
+still does not compare against CCC values or establish that a CCC valuation is
+erroneous.
+
+As of 2026-08-10, the Elantra loss date is inside the rolling coverage window
+and requires `MARKETCHECK_API_KEY` for the live query:
+
+```sh
+.venv/bin/python scripts/search_marketcheck_historical.py \
+  --date 2026-05-19 \
+  --year 2024 \
+  --make Hyundai \
+  --model Elantra \
+  --trim SEL \
+  --mileage 46926 \
+  --postal-code 63026 \
+  --radius 50 \
+  --limit 10
+```
+
+The Camry loss date is outside the window. This command prints a canonical
+`OUT_OF_PROVIDER_RANGE` result without reading an API key or making a request:
+
+```sh
+.venv/bin/python scripts/search_marketcheck_historical.py \
+  --date 2025-08-14 \
+  --year 2025 \
+  --make Toyota \
+  --model Camry \
+  --trim SE \
+  --mileage 7192 \
+  --postal-code 63123 \
+  --radius 50 \
+  --limit 10
+```
+
 ## Phase 3B: live MarketCheck inventory
 
 Phase 3A established the provider-neutral boundary for discovering external
