@@ -27,7 +27,10 @@ from jsonschema.exceptions import SchemaError
 from referencing import Registry, Resource
 
 from venfour.adaptive_search import (
+    HISTORICAL_SEARCH_CEILING_REACHED,
+    MAX_SCOPE_REACHED,
     AdaptiveSearchContractError,
+    adaptive_search_policies_from_dict,
     adaptive_search_policy_from_dict,
     replay_current_adaptive_search,
     replay_historical_adaptive_search,
@@ -74,8 +77,8 @@ from venfour.market import (
 )
 
 
-ANALYSIS_RUN_SCHEMA_VERSION = "2"
-ANALYSIS_RUN_ANALYSIS_VERSION = "2"
+ANALYSIS_RUN_SCHEMA_VERSION = "3"
+ANALYSIS_RUN_ANALYSIS_VERSION = "3"
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 ANALYSIS_RUN_SCHEMA_PATH = (
@@ -310,17 +313,25 @@ def discrepancy_request_digest(request: Mapping[str, Any]) -> str:
 
 
 def search_diagnostics_digest(
-    policy: Mapping[str, Any], diagnostics: Mapping[str, Any]
+    policy: Mapping[str, Any],
+    diagnostics: Mapping[str, Any],
+    *,
+    policy_field: str = "searchPolicy",
 ) -> str:
-    """Bind the complete v2 search policy and attempt stream to one digest."""
+    """Bind the complete effective search policy and attempt stream."""
 
     if not isinstance(policy, Mapping) or not isinstance(diagnostics, Mapping):
         raise AnalysisRunContractError(
             "Search diagnostics digest input failed contract validation",
             ("$: expected canonical policy and diagnostics objects",),
         )
+    if policy_field not in {"searchPolicy", "searchPolicies"}:
+        raise AnalysisRunContractError(
+            "Search diagnostics digest input failed contract validation",
+            ("$.policyField: is not a supported canonical field",),
+        )
     payload = {
-        "searchPolicy": policy,
+        policy_field: policy,
         "searchDiagnostics": diagnostics,
     }
     return hashlib.sha256(canonical_json_bytes(payload)).hexdigest()
@@ -761,9 +772,10 @@ def _adaptive_semantic_validation_errors(
     data: Mapping[str, Any],
     base_request: ValuationDiscrepancyRequest,
 ) -> list[str]:
-    """Replay v2 search diagnostics against their persisted policy and outputs."""
+    """Replay adaptive diagnostics against their versioned effective policies."""
 
-    if data["analysisRunSchemaVersion"] != "2":
+    artifact_version = data["analysisRunSchemaVersion"]
+    if artifact_version not in {"2", "3"}:
         return []
 
     errors: list[str] = []
@@ -771,25 +783,48 @@ def _adaptive_semantic_validation_errors(
     stage_result = data["result"]
     diagnostics = stage_result["searchDiagnostics"]
 
+    if artifact_version == "2":
+        policy_field = "searchPolicy"
+        policy_data = request_snapshot[policy_field]
+        try:
+            shared_policy = adaptive_search_policy_from_dict(policy_data)
+        except AdaptiveSearchContractError as exc:
+            errors.extend(
+                _prefixed_details(
+                    "$.request.searchPolicy",
+                    exc.details or (str(exc),),
+                )
+            )
+            return errors
+        current_policy = historical_policy = shared_policy
+        historical_ceiling_reason = MAX_SCOPE_REACHED
+    else:
+        policy_field = "searchPolicies"
+        policy_data = request_snapshot[policy_field]
+        try:
+            policies = adaptive_search_policies_from_dict(policy_data)
+        except AdaptiveSearchContractError as exc:
+            errors.extend(
+                _prefixed_details(
+                    "$.request.searchPolicies",
+                    exc.details or (str(exc),),
+                )
+            )
+            return errors
+        current_policy = policies.current
+        historical_policy = policies.historical
+        historical_ceiling_reason = HISTORICAL_SEARCH_CEILING_REACHED
+
     expected_search_digest = search_diagnostics_digest(
-        request_snapshot["searchPolicy"], diagnostics
+        policy_data,
+        diagnostics,
+        policy_field=policy_field,
     )
     if data["searchDiagnosticsDigest"] != expected_search_digest:
         errors.append(
             "$.searchDiagnosticsDigest: does not match the canonical search "
             "policy and diagnostics JSON"
         )
-
-    try:
-        policy = adaptive_search_policy_from_dict(request_snapshot["searchPolicy"])
-    except AdaptiveSearchContractError as exc:
-        errors.extend(
-            _prefixed_details(
-                "$.request.searchPolicy",
-                exc.details or (str(exc),),
-            )
-        )
-        return errors
 
     current_request_data = request_snapshot["currentSearchRequest"]
     current_diagnostics = diagnostics["current"]
@@ -809,7 +844,7 @@ def _adaptive_semantic_validation_errors(
             current_replay = replay_current_adaptive_search(
                 _market_request_from_data(current_request_data),
                 current_diagnostics,
-                policy=policy,
+                policy=current_policy,
                 target=base_request.loss_vehicle,
             )
         except AdaptiveSearchContractError as exc:
@@ -849,8 +884,9 @@ def _adaptive_semantic_validation_errors(
             historical_replay = replay_historical_adaptive_search(
                 _historical_request_from_data(historical_request_data),
                 historical_diagnostics,
-                policy=policy,
+                policy=historical_policy,
                 target=base_request.loss_vehicle,
+                ceiling_stop_reason=historical_ceiling_reason,
             )
         except AdaptiveSearchContractError as exc:
             errors.extend(

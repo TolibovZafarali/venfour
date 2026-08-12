@@ -25,9 +25,11 @@ from tests.test_analysis_runs import (
 )
 from venfour.analysis_runs import AnalysisRunNotFoundError, FileAnalysisRunRepository
 from venfour.adaptive_search import (
-    DEFAULT_ADAPTIVE_SEARCH_POLICY,
+    DEFAULT_ADAPTIVE_SEARCH_POLICIES,
     DEFAULT_SEARCH_STAGES,
+    HISTORICAL_SEARCH_STAGES,
     AdaptiveSearchPolicy,
+    AdaptiveSearchPolicies,
     SearchStage,
 )
 from venfour.api import create_app
@@ -148,8 +150,8 @@ class AnalysisCreationTestCase(unittest.TestCase):
 class AnalysisCreationApplicationFlowTests(AnalysisCreationTestCase):
     def test_search_settings_default_to_adaptive_server_policy(self) -> None:
         self.assertIs(
-            AnalysisSearchSettings().search_policy,
-            DEFAULT_ADAPTIVE_SEARCH_POLICY,
+            AnalysisSearchSettings().search_policies,
+            DEFAULT_ADAPTIVE_SEARCH_POLICIES,
         )
 
     def test_uploaded_pdf_creates_persisted_run_and_retrievable_presentation(
@@ -157,10 +159,17 @@ class AnalysisCreationApplicationFlowTests(AnalysisCreationTestCase):
     ) -> None:
         extractor = RecordingExtractor(make_report())
         settings = AnalysisSearchSettings(
-            search_policy=AdaptiveSearchPolicy(
-                stages=(SearchStage(61, 17), SearchStage(123, 33)),
-                minimum_strong_matches=6,
-                max_unique_candidates=100,
+            search_policies=AdaptiveSearchPolicies(
+                current=AdaptiveSearchPolicy(
+                    stages=(SearchStage(61, 17), SearchStage(123, 33)),
+                    minimum_strong_matches=6,
+                    max_unique_candidates=100,
+                ),
+                historical=AdaptiveSearchPolicy(
+                    stages=(SearchStage(41, 13), SearchStage(88, 29)),
+                    minimum_strong_matches=6,
+                    max_unique_candidates=100,
+                ),
             )
         )
         service, current, historical, observed_dates = self.make_service(
@@ -200,7 +209,7 @@ class AnalysisCreationApplicationFlowTests(AnalysisCreationTestCase):
                 (request.radius_miles, request.result_limit)
                 for request in historical.requests
             ],
-            [(61, 17), (123, 33)],
+            [(41, 13), (88, 29)],
         )
         self.assertEqual(
             {request.evidence_date for request in historical.requests},
@@ -211,7 +220,7 @@ class AnalysisCreationApplicationFlowTests(AnalysisCreationTestCase):
             persisted_request["currentObservedDate"], CURRENT_OBSERVED_DATE
         )
         self.assertEqual(
-            persisted_request["searchPolicy"], settings.search_policy.to_dict()
+            persisted_request["searchPolicies"], settings.search_policies.to_dict()
         )
 
     def test_missing_report_loss_date_creates_current_market_only_run(self) -> None:
@@ -554,23 +563,27 @@ class AnalysisCreationLiveCompositionTests(AnalysisCreationTestCase):
             historical_arguments,
             [("fixture-market-key", observed_date)],
         )
-        expected_stages = [
+        expected_current_stages = [
             (stage.radius_miles, stage.result_limit)
             for stage in DEFAULT_SEARCH_STAGES
+        ]
+        expected_historical_stages = [
+            (stage.radius_miles, stage.result_limit)
+            for stage in HISTORICAL_SEARCH_STAGES
         ]
         self.assertEqual(
             [
                 (request.radius_miles, request.result_limit)
                 for request in current.requests
             ],
-            expected_stages,
+            expected_current_stages,
         )
         self.assertEqual(
             [
                 (request.radius_miles, request.result_limit)
                 for request in historical.requests
             ],
-            expected_stages,
+            expected_historical_stages,
         )
         self.assertEqual(self.repository.get(result.run_id).run_id, result.run_id)
 

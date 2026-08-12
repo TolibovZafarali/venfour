@@ -55,6 +55,7 @@ from venfour.market import (
 SUFFICIENT_STRONG_MATCHES = "SUFFICIENT_STRONG_MATCHES"
 MAX_UNIQUE_CANDIDATES = "MAX_UNIQUE_CANDIDATES"
 MAX_SCOPE_REACHED = "MAX_SCOPE_REACHED"
+HISTORICAL_SEARCH_CEILING_REACHED = "HISTORICAL_SEARCH_CEILING_REACHED"
 HISTORICAL_OUT_OF_PROVIDER_RANGE = "OUT_OF_PROVIDER_RANGE"
 CANDIDATE_VERIFICATION_LIMIT_REACHED = "CANDIDATE_VERIFICATION_LIMIT_REACHED"
 HISTORICAL_PROVIDER_INCOMPLETE = "HISTORICAL_PROVIDER_INCOMPLETE"
@@ -72,6 +73,7 @@ _CURRENT_STOP_REASONS = {
     MAX_SCOPE_REACHED,
 }
 _HISTORICAL_STOP_REASONS = _CURRENT_STOP_REASONS | {
+    HISTORICAL_SEARCH_CEILING_REACHED,
     HISTORICAL_OUT_OF_PROVIDER_RANGE,
     CANDIDATE_VERIFICATION_LIMIT_REACHED,
     HISTORICAL_PROVIDER_INCOMPLETE,
@@ -137,11 +139,19 @@ class SearchStage:
         }
 
 
-DEFAULT_SEARCH_STAGES = (
+CURRENT_SEARCH_STAGES = (
     SearchStage(50, 25),
     SearchStage(100, 50),
     SearchStage(200, 75),
     SearchStage(250, 100),
+)
+
+# Backward-compatible name for the original current-market stage sequence.
+DEFAULT_SEARCH_STAGES = CURRENT_SEARCH_STAGES
+
+HISTORICAL_SEARCH_STAGES = (
+    SearchStage(50, 25),
+    SearchStage(100, 50),
 )
 
 
@@ -149,7 +159,7 @@ DEFAULT_SEARCH_STAGES = (
 class AdaptiveSearchPolicy:
     """Server-owned limits and evidence sufficiency for adaptive discovery."""
 
-    stages: tuple[SearchStage, ...] = DEFAULT_SEARCH_STAGES
+    stages: tuple[SearchStage, ...] = CURRENT_SEARCH_STAGES
     minimum_strong_matches: int = 9
     max_unique_candidates: int = 100
 
@@ -216,6 +226,39 @@ class AdaptiveSearchPolicy:
 
 
 DEFAULT_ADAPTIVE_SEARCH_POLICY = AdaptiveSearchPolicy()
+DEFAULT_CURRENT_ADAPTIVE_SEARCH_POLICY = DEFAULT_ADAPTIVE_SEARCH_POLICY
+DEFAULT_HISTORICAL_ADAPTIVE_SEARCH_POLICY = AdaptiveSearchPolicy(
+    stages=HISTORICAL_SEARCH_STAGES
+)
+
+
+@dataclass(frozen=True)
+class AdaptiveSearchPolicies:
+    """Effective adaptive policy for each independently capable stream."""
+
+    current: AdaptiveSearchPolicy = DEFAULT_CURRENT_ADAPTIVE_SEARCH_POLICY
+    historical: AdaptiveSearchPolicy = DEFAULT_HISTORICAL_ADAPTIVE_SEARCH_POLICY
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.current, AdaptiveSearchPolicy):
+            raise AdaptiveSearchContractError(
+                "Adaptive search policies are invalid",
+                ("$.current: expected AdaptiveSearchPolicy",),
+            )
+        if not isinstance(self.historical, AdaptiveSearchPolicy):
+            raise AdaptiveSearchContractError(
+                "Adaptive search policies are invalid",
+                ("$.historical: expected AdaptiveSearchPolicy",),
+            )
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "current": self.current.to_dict(),
+            "historical": self.historical.to_dict(),
+        }
+
+
+DEFAULT_ADAPTIVE_SEARCH_POLICIES = AdaptiveSearchPolicies()
 
 
 @dataclass(frozen=True)
@@ -354,6 +397,27 @@ def adaptive_search_policy_from_dict(data: Mapping[str, Any]) -> AdaptiveSearchP
     return policy
 
 
+def adaptive_search_policies_from_dict(
+    data: Mapping[str, Any],
+) -> AdaptiveSearchPolicies:
+    """Parse the exact persisted stream-specific policy representation."""
+
+    if not isinstance(data, Mapping) or set(data) != {"current", "historical"}:
+        raise AdaptiveSearchContractError(
+            "Adaptive search policies are invalid",
+            ("$: must contain exactly current and historical",),
+        )
+    policies = AdaptiveSearchPolicies(
+        current=adaptive_search_policy_from_dict(data["current"]),
+        historical=adaptive_search_policy_from_dict(data["historical"]),
+    )
+    if policies.to_dict() != dict(data):
+        raise AdaptiveSearchContractError(
+            "Adaptive search policies are invalid", ("$: is not canonical",)
+        )
+    return policies
+
+
 def validate_adaptive_search_policy(
     policy: AdaptiveSearchPolicy | Mapping[str, Any],
 ) -> None:
@@ -361,6 +425,44 @@ def validate_adaptive_search_policy(
         adaptive_search_policy_from_dict(policy.to_dict())
     else:
         adaptive_search_policy_from_dict(policy)
+
+
+def adaptive_search_policy_for_provider(
+    policy: AdaptiveSearchPolicy,
+    provider: object,
+) -> AdaptiveSearchPolicy:
+    """Return the effective stages allowed by an adapter's declared radius."""
+
+    validate_adaptive_search_policy(policy)
+    try:
+        maximum_radius = getattr(provider, "maximum_search_radius_miles", None)
+    except Exception as exc:
+        raise AdaptiveSearchContractError(
+            "Adaptive provider capability is invalid",
+            ("$.maximumSearchRadiusMiles: could not be read",),
+        ) from exc
+    if maximum_radius is None:
+        return policy
+    if (
+        isinstance(maximum_radius, bool)
+        or not isinstance(maximum_radius, int)
+        or maximum_radius < 0
+    ):
+        raise AdaptiveSearchContractError(
+            "Adaptive provider capability is invalid",
+            ("$.maximumSearchRadiusMiles: expected a non-negative integer",),
+        )
+    supported_stages = tuple(
+        stage for stage in policy.stages if stage.radius_miles <= maximum_radius
+    )
+    if not supported_stages:
+        raise AdaptiveSearchContractError(
+            "Adaptive search policy exceeds provider capability",
+            ("$.stages: no stage is within the provider radius ceiling",),
+        )
+    if supported_stages == policy.stages:
+        return policy
+    return replace(policy, stages=supported_stages)
 
 
 def _is_sequence(value: Any) -> bool:
@@ -448,13 +550,15 @@ def _regular_stop_reason(
     stage_index: int,
     cumulative_unique_count: int,
     strong_match_count: int,
+    *,
+    final_stop_reason: str = MAX_SCOPE_REACHED,
 ) -> str | None:
     if strong_match_count >= policy.minimum_strong_matches:
         return SUFFICIENT_STRONG_MATCHES
     if cumulative_unique_count >= policy.max_unique_candidates:
         return MAX_UNIQUE_CANDIDATES
     if stage_index == len(policy.stages) - 1:
-        return MAX_SCOPE_REACHED
+        return final_stop_reason
     return None
 
 
@@ -591,7 +695,7 @@ def adaptive_discover_market_listings(
 ) -> AdaptiveCurrentSearchResult:
     """Search current inventory stage-by-stage until evidence is sufficient."""
 
-    validate_adaptive_search_policy(policy)
+    policy = adaptive_search_policy_for_provider(policy, provider)
     base_request = normalize_market_search_request(request)
     validate_market_search_request(base_request)
     comparable_target = _target_for_request(base_request, target)
@@ -834,13 +938,13 @@ class _HistoricalState:
 def adaptive_discover_historical_market_evidence(
     request: HistoricalMarketSearchRequest,
     provider: HistoricalMarketProvider,
-    policy: AdaptiveSearchPolicy = DEFAULT_ADAPTIVE_SEARCH_POLICY,
+    policy: AdaptiveSearchPolicy = DEFAULT_HISTORICAL_ADAPTIVE_SEARCH_POLICY,
     *,
     target: ComparableTarget | None = None,
 ) -> AdaptiveHistoricalSearchResult:
     """Search and temporally verify loss-date evidence across policy stages."""
 
-    validate_adaptive_search_policy(policy)
+    policy = adaptive_search_policy_for_provider(policy, provider)
     if not isinstance(request, HistoricalMarketSearchRequest):
         raise MarketContractError(
             "Historical market search request must be HistoricalMarketSearchRequest"
@@ -858,6 +962,7 @@ def adaptive_discover_historical_market_evidence(
             index,
             attempt.cumulative_unique_count,
             attempt.strong_match_count,
+            final_stop_reason=HISTORICAL_SEARCH_CEILING_REACHED,
         )
         if stop_reason is not None:
             return state.finish(stop_reason)
@@ -1139,12 +1244,20 @@ def replay_historical_adaptive_search(
     request: HistoricalMarketSearchRequest,
     diagnostics: AdaptiveSearchDiagnostics | Mapping[str, Any],
     *,
-    policy: AdaptiveSearchPolicy = DEFAULT_ADAPTIVE_SEARCH_POLICY,
+    policy: AdaptiveSearchPolicy = DEFAULT_HISTORICAL_ADAPTIVE_SEARCH_POLICY,
     target: ComparableTarget | None = None,
+    ceiling_stop_reason: str = HISTORICAL_SEARCH_CEILING_REACHED,
 ) -> AdaptiveHistoricalSearchResult:
     """Replay historical diagnostics and return the proven aggregate result."""
 
     validate_adaptive_search_policy(policy)
+    if ceiling_stop_reason not in {
+        MAX_SCOPE_REACHED,
+        HISTORICAL_SEARCH_CEILING_REACHED,
+    }:
+        raise AdaptiveSearchContractError(
+            "Adaptive historical replay ceiling reason is invalid"
+        )
     request.to_market_search_request()
     comparable_target = _target_for_request(request.to_market_search_request(), target)
     rows, stored_stop = _diagnostic_rows(diagnostics, _HISTORICAL_STOP_REASONS)
@@ -1174,6 +1287,7 @@ def replay_historical_adaptive_search(
             index,
             attempt.cumulative_unique_count,
             attempt.strong_match_count,
+            final_stop_reason=ceiling_stop_reason,
         )
         if actual_stop is not None and index != len(rows) - 1:
             raise AdaptiveSearchContractError(
@@ -1192,7 +1306,7 @@ def validate_historical_adaptive_search_diagnostics(
     request: HistoricalMarketSearchRequest,
     diagnostics: AdaptiveSearchDiagnostics | Mapping[str, Any],
     *,
-    policy: AdaptiveSearchPolicy = DEFAULT_ADAPTIVE_SEARCH_POLICY,
+    policy: AdaptiveSearchPolicy = DEFAULT_HISTORICAL_ADAPTIVE_SEARCH_POLICY,
     target: ComparableTarget | None = None,
 ) -> None:
     replay_historical_adaptive_search(
@@ -1213,9 +1327,16 @@ __all__ = [
     "AdaptiveSearchContractError",
     "AdaptiveSearchDiagnostics",
     "AdaptiveSearchPolicy",
+    "AdaptiveSearchPolicies",
     "CANDIDATE_VERIFICATION_LIMIT_REACHED",
+    "CURRENT_SEARCH_STAGES",
     "DEFAULT_ADAPTIVE_SEARCH_POLICY",
+    "DEFAULT_ADAPTIVE_SEARCH_POLICIES",
+    "DEFAULT_CURRENT_ADAPTIVE_SEARCH_POLICY",
+    "DEFAULT_HISTORICAL_ADAPTIVE_SEARCH_POLICY",
     "DEFAULT_SEARCH_STAGES",
+    "HISTORICAL_SEARCH_STAGES",
+    "HISTORICAL_SEARCH_CEILING_REACHED",
     "HISTORICAL_OUT_OF_PROVIDER_RANGE",
     "HISTORICAL_PROVIDER_INCOMPLETE",
     "IDENTITY_STRATEGY",
@@ -1233,6 +1354,8 @@ __all__ = [
     "adaptive_discover_historical_market_evidence",
     "adaptive_discover_market_listings",
     "adaptive_search_policy_from_dict",
+    "adaptive_search_policies_from_dict",
+    "adaptive_search_policy_for_provider",
     "replay_adaptive_current_search",
     "replay_adaptive_historical_search",
     "replay_current_adaptive_search",

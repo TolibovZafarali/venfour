@@ -147,6 +147,22 @@ In a separate terminal, start the local Starlette API from the repository root:
   --port 8000
 ```
 
+For local provider-failure diagnostics, opt in for that backend process only:
+
+```sh
+VENFOUR_PROVIDER_DIAGNOSTICS=1 \
+  .venv/bin/python -m uvicorn venfour.api:create_app \
+  --factory \
+  --host 127.0.0.1 \
+  --port 8000
+```
+
+The warning contains only the evidence stream, fixed retrieval stage, provider
+error class, endpoint category, HTTP status, and numeric pagination/search
+bounds that are available. It never logs credentials, authenticated URLs, VINs,
+response bodies, or raw provider parameters. Public API error payloads remain
+unchanged.
+
 Live analysis creation requires the configured extraction and MarketCheck
 credentials in the backend process environment. Once both servers are running,
 open `http://localhost:5173/`, choose an original CCC PDF smaller than 50 MiB,
@@ -353,14 +369,17 @@ date. Supported resolved evidence is projected into the unchanged Phase 3C
 ranker, while `OUT_OF_PROVIDER_RANGE`, ambiguous, and unresolved provenance is
 preserved exactly. Current inventory is retrieved only when explicitly
 configured and remains a separate temporal evidence stream. The orchestrator
-uses one explicit server-owned `AdaptiveSearchPolicy` for both streams. The
-default policy attempts `(50 miles, 25 results)`, `(100, 50)`, `(200, 75)`, and
-`(250, 100)` in order. After each response, it merges first-seen vehicles by VIN
-and then provider listing identity, reruns the unchanged Phase 3C ranker, and
-stops when it has nine independently identified `STRONG` matches, reaches 100
-unique candidate outcomes, or completes the 250-mile stage.
-The policy contract itself caps configuration at four stages, 250 miles, 100
-results per attempt, and 100 unique candidates.
+uses explicit server-owned policies for each stream and constrains them by the
+selected provider adapter's declared geographic capability. Current-market
+search attempts `(50 miles, 25 results)`, `(100, 50)`, `(200, 75)`, and
+`(250, 100)` in order. MarketCheck loss-date search attempts `(50, 25)` and
+`(100, 50)`, then ends normally at its 100-mile capability ceiling. After each
+response, adaptive search merges first-seen vehicles by VIN and then provider
+listing identity, reruns the unchanged Phase 3C ranker, and stops when it has
+nine independently identified `STRONG` matches, reaches 100 unique candidate
+outcomes, or completes the effective stream policy. The policy contract itself
+caps configuration at four stages, 250 miles, 100 results per attempt, and 100
+unique candidates.
 
 Adaptive search broadens only geography and candidate depth. It does not relax
 year, make, model, trim, loss date, eligibility, or scoring, and price amount is
@@ -372,12 +391,14 @@ higher or lower record. The MarketCheck adapter caches raw VIN-history outcomes
 across those stages and permits at most 100 unique VIN-history fetches per
 adaptive analysis, so overlapping radii do not repeat that expensive work.
 Out-of-range coverage, incomplete pagination, and the VIN-verification limit are
-explicit terminal outcomes. Phase 3D alone applies the established
+explicit terminal outcomes. Reaching the configured historical ceiling is
+persisted as `HISTORICAL_SEARCH_CEILING_REACHED` and retains all valid evidence
+gathered at 50 and 100 miles. Phase 3D alone applies the established
 historical/current precedence and classification rules.
 
 Completed runs are stored as strict, immutable JSON under
 `data/analysis-runs/<run-id>.json` by the default file repository. Each artifact
-retains the normalized CCC analysis inputs, explicit search policy, every
+retains the normalized CCC analysis inputs, explicit effective search policies, every
 attempted scope and canonical provider result, cumulative returned, resolved,
 unresolved, ambiguous, duplicate, eligible, and strong-match counts, the stop
 reason, final Phase 3C rankings, and the Phase 3D policy, request, and result.
@@ -392,13 +413,14 @@ Phase 3C scoring, and Phase 3D discrepancy versions identify the rules used. A
 run also records whether its effective loss date came from the CCC report or an
 explicit override, preserving that orchestration decision without retaining the
 entire raw report. The SHA-256 `requestDigest` covers the canonical normalized
-Phase 3D request. Version 2 runs also carry a `searchDiagnosticsDigest` over the
-canonical adaptive policy and complete attempt stream. Read validation verifies
-both digests, replays the adaptive merge and stopping decisions, and then replays
-Phase 3C and Phase 3D to bind the stored rankings and result to their stored
-inputs. Version 1 artifacts remain readable under their original schema and
-semantics. The digests detect accidental or isolated alteration; they are not
-digital signatures.
+Phase 3D request. Version 2 runs carry a `searchDiagnosticsDigest` over their
+canonical shared adaptive policy and complete attempt stream. Version 3 binds
+the stream-specific effective policies and complete attempt streams in the same
+way. Read validation verifies both digests, replays the adaptive merge and
+stopping decisions, and then replays Phase 3C and Phase 3D to bind the stored
+rankings and result to their stored inputs. Version 1 and version 2 artifacts
+remain readable under their original schemas and semantics. The digests detect
+accidental or isolated alteration; they are not digital signatures.
 
 Artifacts contain only canonical domain data and sanitized provider identity
 metadata. Provider objects, transports, raw responses, authorization headers,

@@ -20,7 +20,13 @@ from unittest.mock import patch
 
 from jsonschema import Draft202012Validator
 
-from venfour.adaptive_search import DEFAULT_SEARCH_STAGES
+from venfour.adaptive_search import (
+    DEFAULT_ADAPTIVE_SEARCH_POLICY,
+    DEFAULT_SEARCH_STAGES,
+    HISTORICAL_SEARCH_STAGES,
+    HISTORICAL_SEARCH_CEILING_REACHED,
+    AdaptiveSearchPolicies,
+)
 from venfour.analysis_runs import (
     ANALYSIS_RUN_SCHEMA_PATH,
     AnalysisRunAlreadyExistsError,
@@ -61,7 +67,9 @@ from venfour.historical_market import (
 from venfour.market import (
     MarketDealer,
     MarketListing,
+    MarketProviderDiagnostic,
     MarketProviderRateLimitError,
+    MarketProviderResponseError,
     MarketSearchRequest,
     MarketSearchResult,
 )
@@ -514,23 +522,27 @@ class AnalysisOrchestrationScenarioTests(TemporaryRepositoryTestCase):
             },
         )
         self.assertEqual(report_before, make_report())
-        expected_stages = [
+        expected_current_stages = [
             (stage.radius_miles, stage.result_limit)
             for stage in DEFAULT_SEARCH_STAGES
+        ]
+        expected_historical_stages = [
+            (stage.radius_miles, stage.result_limit)
+            for stage in HISTORICAL_SEARCH_STAGES
         ]
         self.assertEqual(
             [
                 (provider_request.radius_miles, provider_request.result_limit)
                 for provider_request in current_provider.requests
             ],
-            expected_stages,
+            expected_current_stages,
         )
         self.assertEqual(
             [
                 (provider_request.radius_miles, provider_request.result_limit)
                 for provider_request in historical_provider.requests
             ],
-            expected_stages,
+            expected_historical_stages,
         )
         self.assertEqual(
             current_provider.requests[0].to_dict(),
@@ -560,20 +572,24 @@ class AnalysisOrchestrationScenarioTests(TemporaryRepositoryTestCase):
             },
         )
         artifact_data = loaded.to_dict()
-        self.assertEqual(artifact_data["analysisRunSchemaVersion"], "2")
-        self.assertEqual(artifact_data["analysisVersion"], "2")
+        self.assertEqual(artifact_data["analysisRunSchemaVersion"], "3")
+        self.assertEqual(artifact_data["analysisVersion"], "3")
         self.assertEqual(len(artifact_data["searchDiagnosticsDigest"]), 64)
-        for stream in ("current", "historical"):
+        expected_diagnostics = {
+            "current": ("MAX_SCOPE_REACHED", 4),
+            "historical": (HISTORICAL_SEARCH_CEILING_REACHED, 2),
+        }
+        for stream, (stop_reason, attempt_count) in expected_diagnostics.items():
             diagnostics = artifact_data["result"]["searchDiagnostics"][stream]
-            self.assertEqual(diagnostics["stopReason"], "MAX_SCOPE_REACHED")
-            self.assertEqual(len(diagnostics["attempts"]), 4)
+            self.assertEqual(diagnostics["stopReason"], stop_reason)
+            self.assertEqual(len(diagnostics["attempts"]), attempt_count)
             self.assertEqual(
                 [attempt["strongMatchCount"] for attempt in diagnostics["attempts"]],
-                [5, 5, 5, 5],
+                [5] * attempt_count,
             )
             self.assertEqual(
                 [attempt["newUniqueCount"] for attempt in diagnostics["attempts"]],
-                [5, 0, 0, 0],
+                [5] + [0] * (attempt_count - 1),
             )
         self.assertEqual(list(repository.root.glob(".*.tmp")), [])
 
@@ -645,7 +661,7 @@ class AnalysisOrchestrationScenarioTests(TemporaryRepositoryTestCase):
         )
 
         loaded = repository.get(artifact.run_id)
-        self.assertEqual(len(historical.requests), len(DEFAULT_SEARCH_STAGES))
+        self.assertEqual(len(historical.requests), len(HISTORICAL_SEARCH_STAGES))
         self.assertEqual(
             loaded.result["discrepancyResult"]["classification"],
             INSUFFICIENT_EVIDENCE,
@@ -654,6 +670,69 @@ class AnalysisOrchestrationScenarioTests(TemporaryRepositoryTestCase):
             loaded.result["historicalMarketResult"]["listingCount"], 0
         )
         self.assertIsNone(loaded.result["historicalRanking"])
+        self.assertEqual(
+            loaded.result["searchDiagnostics"]["historical"]["stopReason"],
+            HISTORICAL_SEARCH_CEILING_REACHED,
+        )
+
+    def test_sparse_historical_evidence_at_ceiling_is_preserved(self) -> None:
+        repository, current, historical, artifact = self.run_saved(
+            current=False,
+            historical_prices=MATERIAL_PRICES,
+        )
+
+        loaded = repository.get(artifact.run_id)
+        self.assertIsNone(current)
+        self.assertEqual(
+            [
+                (request.radius_miles, request.result_limit)
+                for request in historical.requests
+            ],
+            [(50, 25), (100, 50)],
+        )
+        self.assertEqual(
+            loaded.result["searchDiagnostics"]["historical"]["stopReason"],
+            HISTORICAL_SEARCH_CEILING_REACHED,
+        )
+        self.assertEqual(
+            loaded.result["historicalMarketResult"]["listingCount"], 5
+        )
+        self.assertEqual(loaded.result["historicalRanking"]["eligibleCount"], 5)
+
+    def test_declared_provider_radius_caps_effective_persisted_policy(self) -> None:
+        repository = self.repository()
+        historical = RecordingHistoricalProvider(MATERIAL_PRICES)
+        historical.maximum_search_radius_miles = 100
+        request = replace(
+            make_run_request(current=False),
+            search_policies=AdaptiveSearchPolicies(
+                current=DEFAULT_ADAPTIVE_SEARCH_POLICY,
+                historical=DEFAULT_ADAPTIVE_SEARCH_POLICY,
+            ),
+        )
+
+        artifact = make_orchestrator(
+            repository,
+            current_provider=None,
+            historical_provider=historical,
+        ).run(request).artifact.to_dict()
+
+        self.assertEqual(
+            [request.radius_miles for request in historical.requests], [50, 100]
+        )
+        self.assertEqual(
+            [
+                stage["radiusMiles"]
+                for stage in artifact["request"]["searchPolicies"]["historical"][
+                    "stages"
+                ]
+            ],
+            [50, 100],
+        )
+        self.assertEqual(
+            artifact["result"]["searchDiagnostics"]["historical"]["stopReason"],
+            HISTORICAL_SEARCH_CEILING_REACHED,
+        )
 
     def test_ambiguous_and_unresolved_diagnostics_are_preserved_but_not_priced(self) -> None:
         issues = (
@@ -711,6 +790,79 @@ class AnalysisOrchestrationScenarioTests(TemporaryRepositoryTestCase):
         self.assertEqual(len(historical_provider.requests), 1)
         self.assertEqual(current_provider.requests, [])
         self.assertEqual(list(repository.root.glob("*.json")), [])
+
+    def test_local_provider_diagnostics_log_only_allowlisted_fields(self) -> None:
+        repository = self.repository()
+        secret = "synthetic-diagnostic-secret"
+        authenticated_url = (
+            f"https://provider.invalid/recents?api_key={secret}"
+        )
+        failure = MarketProviderResponseError(
+            f"provider body {secret} {authenticated_url}",
+            diagnostic=MarketProviderDiagnostic(
+                endpoint_category="recents",
+                http_status=422,
+                radius=100,
+                start=0,
+                rows=50,
+            ),
+        )
+        historical_provider = RecordingHistoricalProvider(failure=failure)
+        orchestrator = make_orchestrator(
+            repository,
+            current_provider=None,
+            historical_provider=historical_provider,
+        )
+
+        with (
+            patch.dict(
+                os.environ, {"VENFOUR_PROVIDER_DIAGNOSTICS": "1"}, clear=False
+            ),
+            self.assertLogs(
+                "venfour.provider_diagnostics", level="WARNING"
+            ) as logs,
+            self.assertRaises(AnalysisRetrievalError),
+        ):
+            orchestrator.run(make_run_request(current=False))
+
+        payload = json.loads(logs.records[0].getMessage())
+        self.assertEqual(
+            payload,
+            {
+                "endpointCategory": "recents",
+                "event": "market_provider_failure",
+                "httpStatus": 422,
+                "providerErrorClass": "MarketProviderResponseError",
+                "radius": 100,
+                "rows": 50,
+                "stage": "historical_candidate_discovery",
+                "start": 0,
+                "stream": "historical",
+            },
+        )
+        rendered = logs.records[0].getMessage()
+        self.assertNotIn(secret, rendered)
+        self.assertNotIn(authenticated_url, rendered)
+
+    def test_local_provider_diagnostics_are_disabled_by_default(self) -> None:
+        repository = self.repository()
+        historical_provider = RecordingHistoricalProvider(
+            failure=MarketProviderRateLimitError("synthetic failure")
+        )
+        orchestrator = make_orchestrator(
+            repository,
+            current_provider=None,
+            historical_provider=historical_provider,
+        )
+
+        with (
+            patch.dict(
+                os.environ, {"VENFOUR_PROVIDER_DIAGNOSTICS": "0"}, clear=False
+            ),
+            self.assertNoLogs("venfour.provider_diagnostics", level="WARNING"),
+            self.assertRaises(AnalysisRetrievalError),
+        ):
+            orchestrator.run(make_run_request(current=False))
 
     def test_later_current_expansion_failure_aborts_without_partial_save(self) -> None:
         repository = self.repository()
@@ -773,7 +925,9 @@ class AnalysisOrchestrationScenarioTests(TemporaryRepositoryTestCase):
         self.assertIsInstance(raised.exception.__cause__, AnalysisRunWriteError)
         self.assertEqual(len(repository.save_calls), 1)
         self.assertEqual(len(current_provider.requests), len(DEFAULT_SEARCH_STAGES))
-        self.assertEqual(len(historical_provider.requests), len(DEFAULT_SEARCH_STAGES))
+        self.assertEqual(
+            len(historical_provider.requests), len(HISTORICAL_SEARCH_STAGES)
+        )
 
     def test_invalid_metadata_factories_surface_as_execution_failures(self) -> None:
         def failing_run_id() -> str:

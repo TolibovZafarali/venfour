@@ -38,6 +38,7 @@ from venfour.market import (
     MarketDealer,
     MarketListing,
     MarketProviderAuthenticationError,
+    MarketProviderDiagnostic,
     MarketProviderError,
     MarketProviderRateLimitError,
     MarketProviderResponseError,
@@ -56,6 +57,8 @@ MARKETCHECK_PAST_INVENTORY_URL = (
 )
 MARKETCHECK_VIN_HISTORY_URL = "https://api.marketcheck.com/v2/history/car"
 MARKETCHECK_MAX_ROWS = 50
+MARKETCHECK_ACTIVE_MAX_RADIUS_MILES = 250
+MARKETCHECK_PAST_MAX_RADIUS_MILES = 100
 MARKETCHECK_HISTORY_WINDOW_DAYS = 90
 MARKETCHECK_HISTORICAL_MAX_PAGES = 10
 MARKETCHECK_HISTORICAL_MIN_ROWS = 10
@@ -145,6 +148,7 @@ class MarketCheckProvider:
     """
 
     name = "marketcheck"
+    maximum_search_radius_miles = MARKETCHECK_ACTIVE_MAX_RADIUS_MILES
 
     def __init__(
         self,
@@ -275,6 +279,66 @@ class MarketCheckProvider:
             f"MarketCheck rejected the search request (HTTP {status})"
         )
 
+    @staticmethod
+    def _endpoint_category(endpoint: str) -> str | None:
+        if endpoint == MARKETCHECK_ACTIVE_INVENTORY_URL:
+            return "active"
+        if endpoint == MARKETCHECK_PAST_INVENTORY_URL:
+            return "recents"
+        if endpoint.startswith(f"{MARKETCHECK_VIN_HISTORY_URL}/"):
+            return "history"
+        return None
+
+    @staticmethod
+    def _diagnostic_integer(
+        params: Mapping[str, QueryValue], name: str
+    ) -> int | None:
+        value = params.get(name)
+        if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+            return None
+        return value
+
+    def _provider_diagnostic(
+        self,
+        params: Mapping[str, QueryValue],
+        endpoint: str,
+        *,
+        http_status: int | None = None,
+    ) -> MarketProviderDiagnostic | None:
+        category = self._endpoint_category(endpoint)
+        if category is None:
+            return None
+        safe_status = (
+            http_status
+            if isinstance(http_status, int)
+            and not isinstance(http_status, bool)
+            and 100 <= http_status <= 599
+            else None
+        )
+        return MarketProviderDiagnostic(
+            endpoint_category=category,
+            http_status=safe_status,
+            radius=self._diagnostic_integer(params, "radius"),
+            start=self._diagnostic_integer(params, "start"),
+            rows=self._diagnostic_integer(params, "rows"),
+            page=self._diagnostic_integer(params, "page"),
+        )
+
+    def _annotate_provider_failure(
+        self,
+        failure: MarketProviderError,
+        params: Mapping[str, QueryValue],
+        endpoint: str,
+        *,
+        http_status: int | None = None,
+    ) -> MarketProviderError:
+        diagnostic = self._provider_diagnostic(
+            params, endpoint, http_status=http_status
+        )
+        if diagnostic is not None:
+            failure.with_diagnostic(diagnostic)
+        return failure
+
     def _request_json(
         self,
         params: Mapping[str, QueryValue],
@@ -283,6 +347,7 @@ class MarketCheckProvider:
         allow_history_page_exhaustion: bool = False,
     ) -> Any:
         failure: MarketProviderError | None = None
+        failure_status: int | None = None
         body: bytes | None = None
         try:
             body = self._transport.get(
@@ -300,6 +365,7 @@ class MarketCheckProvider:
             if allow_history_page_exhaustion and status == 422:
                 return _HISTORY_PAGE_EXHAUSTED
             failure = self._http_error(status)
+            failure_status = status
         except (URLError, TimeoutError, ConnectionError, OSError):
             failure = MarketProviderUnavailableError(
                 "MarketCheck is temporarily unavailable"
@@ -310,10 +376,16 @@ class MarketCheckProvider:
             )
 
         if failure is not None:
-            raise failure
+            raise self._annotate_provider_failure(
+                failure,
+                params,
+                endpoint,
+                http_status=failure_status,
+            )
         if not isinstance(body, bytes):
             raise MarketProviderResponseError(
-                "MarketCheck returned an unreadable response"
+                "MarketCheck returned an unreadable response",
+                diagnostic=self._provider_diagnostic(params, endpoint),
             )
 
         parse_failed = False
@@ -332,7 +404,8 @@ class MarketCheckProvider:
             parse_failed = True
         if parse_failed:
             raise MarketProviderResponseError(
-                "MarketCheck returned malformed JSON"
+                "MarketCheck returned malformed JSON",
+                diagnostic=self._provider_diagnostic(params, endpoint),
             )
         return payload
 
@@ -343,11 +416,15 @@ class MarketCheckProvider:
         endpoint: str = MARKETCHECK_ACTIVE_INVENTORY_URL,
     ) -> Mapping[str, Any]:
         payload = self._request_json(params, endpoint=endpoint)
-        return _mapping(
-            payload,
-            "$",
-            "MarketCheck response is malformed",
-        )
+        try:
+            return _mapping(
+                payload,
+                "$",
+                "MarketCheck response is malformed",
+            )
+        except MarketProviderError as exc:
+            self._annotate_provider_failure(exc, params, endpoint)
+            raise
 
     @staticmethod
     def _num_found(payload: Mapping[str, Any]) -> int | None:
@@ -495,21 +572,32 @@ class MarketCheckProvider:
                     break
                 rows = min(rows, available)
 
-            payload = self._request_page(
-                self._params(request, start=start, rows=rows)
-            )
-            raw_listings, page_num_found = self._listing_page(
-                payload, start=start, rows=rows
-            )
+            params = self._params(request, start=start, rows=rows)
+            try:
+                payload = self._request_page(params)
+                raw_listings, page_num_found = self._listing_page(
+                    payload, start=start, rows=rows
+                )
+            except MarketProviderError as exc:
+                self._annotate_provider_failure(
+                    exc, params, MARKETCHECK_ACTIVE_INVENTORY_URL
+                )
+                raise
             if page_num_found is not None:
                 known_num_found = page_num_found
             if not raw_listings:
                 break
 
-            for index, raw_listing in enumerate(raw_listings):
-                listings.append(
-                    self._normalize_listing(raw_listing, start + index)
+            try:
+                for index, raw_listing in enumerate(raw_listings):
+                    listings.append(
+                        self._normalize_listing(raw_listing, start + index)
+                    )
+            except MarketProviderError as exc:
+                self._annotate_provider_failure(
+                    exc, params, MARKETCHECK_ACTIVE_INVENTORY_URL
                 )
+                raise
 
             if len(listings) >= request.result_limit:
                 break
@@ -732,6 +820,8 @@ class MarketCheckHistoricalProvider(MarketCheckProvider):
     evidence for the requested calendar date.
     """
 
+    maximum_search_radius_miles = MARKETCHECK_PAST_MAX_RADIUS_MILES
+
     def __init__(
         self,
         api_key: str | None = None,
@@ -896,15 +986,22 @@ class MarketCheckHistoricalProvider(MarketCheckProvider):
                 if available <= 0:
                     break
                 rows = min(rows, available)
-            payload = self._request_page(
-                self._historical_params(request, start=start, rows=rows),
-                endpoint=MARKETCHECK_PAST_INVENTORY_URL,
-            )
-            page, page_num_found = self._listing_page(
-                payload,
-                start=start,
-                rows=rows,
-            )
+            params = self._historical_params(request, start=start, rows=rows)
+            try:
+                payload = self._request_page(
+                    params,
+                    endpoint=MARKETCHECK_PAST_INVENTORY_URL,
+                )
+                page, page_num_found = self._listing_page(
+                    payload,
+                    start=start,
+                    rows=rows,
+                )
+            except MarketProviderError as exc:
+                self._annotate_provider_failure(
+                    exc, params, MARKETCHECK_PAST_INVENTORY_URL
+                )
+                raise
             pages += 1
             last_page_size = len(page)
             last_rows = rows
@@ -916,20 +1013,26 @@ class MarketCheckHistoricalProvider(MarketCheckProvider):
                 return candidates, issues, "INCOMPLETE_PROVIDER_PAGINATION"
             if page_num_found is not None:
                 known_num_found = page_num_found
-            for offset, raw_candidate in enumerate(page):
-                response_index = start + offset
-                candidate, issue = self._candidate_from_record(
-                    raw_candidate,
-                    response_index,
+            try:
+                for offset, raw_candidate in enumerate(page):
+                    response_index = start + offset
+                    candidate, issue = self._candidate_from_record(
+                        raw_candidate,
+                        response_index,
+                    )
+                    if issue is not None:
+                        issues.append((response_index, issue))
+                        continue
+                    assert candidate is not None
+                    identity = candidate.vin.casefold()
+                    if identity not in seen_vins:
+                        seen_vins.add(identity)
+                        candidates.append(candidate)
+            except MarketProviderError as exc:
+                self._annotate_provider_failure(
+                    exc, params, MARKETCHECK_PAST_INVENTORY_URL
                 )
-                if issue is not None:
-                    issues.append((response_index, issue))
-                    continue
-                assert candidate is not None
-                identity = candidate.vin.casefold()
-                if identity not in seen_vins:
-                    seen_vins.add(identity)
-                    candidates.append(candidate)
+                raise
             consumed += len(page)
             if not page:
                 break
@@ -959,31 +1062,36 @@ class MarketCheckHistoricalProvider(MarketCheckProvider):
         page: int,
     ) -> list[Mapping[str, Any]] | object:
         endpoint = f"{MARKETCHECK_VIN_HISTORY_URL}/{quote(vin, safe='')}"
+        params = self._vin_history_params(page=page)
         payload = self._request_json(
-            self._vin_history_params(page=page),
+            params,
             endpoint=endpoint,
             allow_history_page_exhaustion=page > 1,
         )
         if payload is _HISTORY_PAGE_EXHAUSTED:
             return payload
-        if not isinstance(payload, list):
-            raise MarketProviderResponseError(
-                "MarketCheck VIN history response is malformed",
-                ("$: expected an array",),
-            )
-        if len(payload) > MARKETCHECK_VIN_HISTORY_PAGE_SIZE:
-            raise MarketProviderResponseError(
-                "MarketCheck VIN history response is malformed",
-                ("$: returned more than 50 records",),
-            )
-        return [
-            _mapping(
-                value,
-                f"$[{index}]",
-                "MarketCheck VIN history response is malformed",
-            )
-            for index, value in enumerate(payload)
-        ]
+        try:
+            if not isinstance(payload, list):
+                raise MarketProviderResponseError(
+                    "MarketCheck VIN history response is malformed",
+                    ("$: expected an array",),
+                )
+            if len(payload) > MARKETCHECK_VIN_HISTORY_PAGE_SIZE:
+                raise MarketProviderResponseError(
+                    "MarketCheck VIN history response is malformed",
+                    ("$: returned more than 50 records",),
+                )
+            return [
+                _mapping(
+                    value,
+                    f"$[{index}]",
+                    "MarketCheck VIN history response is malformed",
+                )
+                for index, value in enumerate(payload)
+            ]
+        except MarketProviderError as exc:
+            self._annotate_provider_failure(exc, params, endpoint)
+            raise
 
     def _fetch_vin_history(
         self,
@@ -1410,18 +1518,24 @@ class MarketCheckHistoricalProvider(MarketCheckProvider):
         resolved_rows: list[tuple[int, HistoricalEvidenceItem]] = []
         verification_limit_reached = False
         for candidate in candidates:
-            outcome = self._vin_history_outcome(candidate)
-            if outcome is None:
-                verification_limit_reached = True
-                continue
-            if outcome.issue is not None:
-                issue_rows.append((candidate.response_index, outcome.issue))
-                continue
-            evidence, issue = self._resolve_vin_history(
-                candidate,
-                list(outcome.records),
-                request,
-            )
+            try:
+                outcome = self._vin_history_outcome(candidate)
+                if outcome is None:
+                    verification_limit_reached = True
+                    continue
+                if outcome.issue is not None:
+                    issue_rows.append((candidate.response_index, outcome.issue))
+                    continue
+                evidence, issue = self._resolve_vin_history(
+                    candidate,
+                    list(outcome.records),
+                    request,
+                )
+            except MarketProviderError as exc:
+                exc.with_diagnostic(
+                    MarketProviderDiagnostic(endpoint_category="history")
+                )
+                raise
             if evidence is not None:
                 resolved_rows.append((candidate.response_index, evidence))
             if issue is not None:
@@ -1447,11 +1561,13 @@ class MarketCheckHistoricalProvider(MarketCheckProvider):
 __all__ = [
     "DEFAULT_TIMEOUT_SECONDS",
     "MARKETCHECK_ACTIVE_INVENTORY_URL",
+    "MARKETCHECK_ACTIVE_MAX_RADIUS_MILES",
     "MARKETCHECK_HISTORICAL_MAX_PAGES",
     "MARKETCHECK_HISTORICAL_MIN_ROWS",
     "MARKETCHECK_HISTORY_WINDOW_DAYS",
     "MARKETCHECK_MAX_ROWS",
     "MARKETCHECK_PAST_INVENTORY_URL",
+    "MARKETCHECK_PAST_MAX_RADIUS_MILES",
     "MARKETCHECK_VIN_HISTORY_MAX_PAGES",
     "MARKETCHECK_VIN_HISTORY_MAX_VERIFICATIONS",
     "MARKETCHECK_VIN_HISTORY_PAGE_SIZE",

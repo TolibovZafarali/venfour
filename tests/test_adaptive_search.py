@@ -8,15 +8,21 @@ from typing import Callable
 
 from venfour.adaptive_search import (
     CANDIDATE_VERIFICATION_LIMIT_REACHED,
+    DEFAULT_ADAPTIVE_SEARCH_POLICIES,
+    DEFAULT_ADAPTIVE_SEARCH_POLICY,
+    DEFAULT_HISTORICAL_ADAPTIVE_SEARCH_POLICY,
+    HISTORICAL_SEARCH_CEILING_REACHED,
     HISTORICAL_OUT_OF_PROVIDER_RANGE,
     MAX_SCOPE_REACHED,
     MAX_UNIQUE_CANDIDATES,
     SUFFICIENT_STRONG_MATCHES,
     AdaptiveSearchContractError,
     AdaptiveSearchPolicy,
+    AdaptiveSearchPolicies,
     SearchStage,
     adaptive_discover_historical_market_evidence,
     adaptive_discover_market_listings,
+    adaptive_search_policies_from_dict,
     adaptive_search_policy_from_dict,
     replay_current_adaptive_search,
     replay_historical_adaptive_search,
@@ -198,6 +204,19 @@ class AdaptivePolicyTests(unittest.TestCase):
             policy.to_dict()["identityStrategy"], "VIN_THEN_SOURCE_LISTING_ID"
         )
         self.assertIs(policy.to_dict()["priceIndependent"], True)
+        self.assertEqual(
+            [
+                (stage.radius_miles, stage.result_limit)
+                for stage in DEFAULT_HISTORICAL_ADAPTIVE_SEARCH_POLICY.stages
+            ],
+            [(50, 25), (100, 50)],
+        )
+        self.assertEqual(
+            adaptive_search_policies_from_dict(
+                DEFAULT_ADAPTIVE_SEARCH_POLICIES.to_dict()
+            ),
+            AdaptiveSearchPolicies(),
+        )
 
     def test_policy_requires_increasing_radius_and_nondecreasing_depth(self) -> None:
         cases = (
@@ -540,7 +559,10 @@ class AdaptiveHistoricalSearchTests(unittest.TestCase):
             historical_request(), provider, policy
         )
 
-        self.assertEqual(adaptive.diagnostics.stop_reason, MAX_SCOPE_REACHED)
+        self.assertEqual(
+            adaptive.diagnostics.stop_reason,
+            HISTORICAL_SEARCH_CEILING_REACHED,
+        )
         self.assertEqual(
             [
                 attempt.cumulative_unique_count
@@ -585,6 +607,65 @@ class AdaptiveHistoricalSearchTests(unittest.TestCase):
         self.assertEqual(
             [a.strong_match_count for a in low.diagnostics.attempts],
             [a.strong_match_count for a in high.diagnostics.attempts],
+        )
+
+    def test_sparse_evidence_stops_successfully_at_historical_ceiling(self) -> None:
+        rows = {
+            50: tuple(evidence(index) for index in range(1, 6)),
+            100: tuple(evidence(index) for index in range(6, 8)),
+        }
+        provider = HistoricalProvider(
+            lambda request: historical_result(
+                request, evidence_rows=rows.get(request.radius_miles, ())
+            )
+        )
+
+        adaptive = adaptive_discover_historical_market_evidence(
+            historical_request(), provider
+        )
+
+        self.assertEqual(
+            [
+                (request.radius_miles, request.result_limit)
+                for request in provider.requests
+            ],
+            [(50, 25), (100, 50)],
+        )
+        self.assertEqual(
+            adaptive.diagnostics.stop_reason,
+            HISTORICAL_SEARCH_CEILING_REACHED,
+        )
+        self.assertEqual(adaptive.result.evidence, rows[50] + rows[100])
+        self.assertEqual(adaptive.result.listing_count, 7)
+        self.assertEqual(
+            adaptive.ranking.eligible_count, 7  # type: ignore[union-attr]
+        )
+        replayed = replay_historical_adaptive_search(
+            historical_request(), adaptive.diagnostics.to_dict()
+        )
+        self.assertEqual(replayed.result, adaptive.result)
+        self.assertEqual(replayed.ranking, adaptive.ranking)
+
+    def test_provider_capability_blocks_wider_explicit_historical_policy(self) -> None:
+        provider = HistoricalProvider(lambda request: historical_result(request))
+        provider.maximum_search_radius_miles = 100
+
+        adaptive = adaptive_discover_historical_market_evidence(
+            historical_request(),
+            provider,
+            DEFAULT_ADAPTIVE_SEARCH_POLICY,
+        )
+
+        self.assertEqual(
+            [
+                (request.radius_miles, request.result_limit)
+                for request in provider.requests
+            ],
+            [(50, 25), (100, 50)],
+        )
+        self.assertEqual(
+            adaptive.diagnostics.stop_reason,
+            HISTORICAL_SEARCH_CEILING_REACHED,
         )
 
     def test_historical_later_stage_provider_failure_propagates(self) -> None:

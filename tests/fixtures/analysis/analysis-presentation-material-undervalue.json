@@ -966,8 +966,8 @@
   "provenance": {
     "runId": "00000000-0000-4000-8000-000000000001",
     "presentationVersion": "1",
-    "analysisRunSchemaVersion": "2",
-    "orchestrationAnalysisVersion": "2",
+    "analysisRunSchemaVersion": "3",
+    "orchestrationAnalysisVersion": "3",
     "discrepancyAnalysisVersion": "1",
     "comparableScoringVersion": "1",
     "createdAt": "2026-08-21T12:34:56.789000Z",
@@ -983,7 +983,7 @@
     },
     "requestDigest": {
       "algorithm": "SHA-256",
-      "value": "13d86d9926985f24b0db410fb57ccbaf39531e47209496f9098a151e27962088",
+      "value": "0e4431a77ea7bdc9daf1b6e6b05af52d0c29014fa453bcbc7c9461bfc7bdd8ac",
       "label": "Phase 3D request integrity digest",
       "description": "SHA-256 integrity check for the canonical Phase 3D request; this value is not a digital signature."
     }

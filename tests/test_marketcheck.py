@@ -28,6 +28,7 @@ from venfour.market import (
 )
 from venfour.marketcheck import (
     MARKETCHECK_ACTIVE_INVENTORY_URL,
+    MARKETCHECK_ACTIVE_MAX_RADIUS_MILES,
     MarketCheckProvider,
 )
 
@@ -142,6 +143,10 @@ class MarketCheckConstructionTests(unittest.TestCase):
 
         self.assertIsInstance(provider, MarketProvider)
         self.assertEqual(provider.name, "marketcheck")
+        self.assertEqual(
+            provider.maximum_search_radius_miles,
+            MARKETCHECK_ACTIVE_MAX_RADIUS_MILES,
+        )
 
     def test_missing_or_blank_api_key_is_rejected(self) -> None:
         for value in (None, "", "   ", 123):
@@ -660,6 +665,24 @@ class MarketCheckErrorMappingTests(unittest.TestCase):
                 MarketProviderResponseError
             ):
                 search_with([self.http_error(status)])
+
+    def test_http_failure_retains_only_allowlisted_active_request_context(self) -> None:
+        with self.assertRaises(MarketProviderResponseError) as raised:
+            search_with([self.http_error(422)])
+
+        self.assertEqual(
+            raised.exception.diagnostic.to_dict(),
+            {
+                "endpointCategory": "active",
+                "httpStatus": 422,
+                "radius": 50,
+                "start": 0,
+                "rows": 25,
+            },
+        )
+        rendered = json.dumps(raised.exception.diagnostic.to_dict())
+        self.assertNotIn(SYNTHETIC_KEY, rendered)
+        self.assertNotIn(MARKETCHECK_ACTIVE_INVENTORY_URL, rendered)
 
     def test_network_failures_map_without_retry(self) -> None:
         failures = (

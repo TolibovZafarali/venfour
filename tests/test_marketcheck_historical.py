@@ -41,6 +41,7 @@ from venfour.market import (
 from venfour.marketcheck import (
     MARKETCHECK_HISTORICAL_MAX_PAGES,
     MARKETCHECK_PAST_INVENTORY_URL,
+    MARKETCHECK_PAST_MAX_RADIUS_MILES,
     MARKETCHECK_VIN_HISTORY_MAX_PAGES,
     MARKETCHECK_VIN_HISTORY_MAX_VERIFICATIONS,
     MARKETCHECK_VIN_HISTORY_PAGE_SIZE,
@@ -276,6 +277,13 @@ def history_calls(transport: RecordingTransport) -> list[dict[str, Any]]:
 
 
 class MarketCheckHistoricalCoverageTests(unittest.TestCase):
+    def test_adapter_declares_the_recents_geographic_ceiling(self) -> None:
+        self.assertEqual(
+            MarketCheckHistoricalProvider.maximum_search_radius_miles,
+            MARKETCHECK_PAST_MAX_RADIUS_MILES,
+        )
+        self.assertEqual(MARKETCHECK_PAST_MAX_RADIUS_MILES, 100)
+
     def test_today_thirty_days_and_exactly_ninety_days_are_supported(self) -> None:
         for evidence_date in ("2026-08-10", "2026-07-11", "2026-05-12"):
             with self.subTest(evidence_date=evidence_date):
@@ -284,6 +292,14 @@ class MarketCheckHistoricalCoverageTests(unittest.TestCase):
                 )
                 self.assertEqual(coverage.status, SUPPORTED)
                 self.assertEqual(coverage.history_window_days, 90)
+
+    def test_elantra_loss_date_is_supported_on_august_eleven(self) -> None:
+        coverage = marketcheck_historical_coverage(
+            "2026-05-19", as_of_date="2026-08-11"
+        )
+
+        self.assertEqual(coverage.status, SUPPORTED)
+        self.assertEqual(coverage.history_window_days, 90)
 
     def test_date_older_than_ninety_days_is_out_of_provider_range(self) -> None:
         coverage = marketcheck_historical_coverage(
@@ -1854,6 +1870,45 @@ class MarketCheckHistoricalErrorAndSecurityTests(unittest.TestCase):
                         make_http_error(status, endpoint),
                     ]
                 )
+
+    def test_candidate_failure_has_allowlisted_recents_context(self) -> None:
+        with self.assertRaises(MarketProviderResponseError) as raised:
+            search_with([make_http_error(422, MARKETCHECK_PAST_INVENTORY_URL)])
+
+        self.assertEqual(
+            raised.exception.diagnostic.to_dict(),
+            {
+                "endpointCategory": "recents",
+                "httpStatus": 422,
+                "radius": 50,
+                "start": 0,
+                "rows": 25,
+            },
+        )
+
+    def test_history_failure_context_never_retains_vin_or_endpoint(self) -> None:
+        candidate = make_candidate()
+        endpoint = f"{MARKETCHECK_VIN_HISTORY_URL}/{candidate['vin']}"
+        with self.assertRaises(MarketProviderRateLimitError) as raised:
+            search_with(
+                [
+                    make_candidate_page([candidate], 1),
+                    make_http_error(429, endpoint),
+                ]
+            )
+
+        self.assertEqual(
+            raised.exception.diagnostic.to_dict(),
+            {
+                "endpointCategory": "history",
+                "httpStatus": 429,
+                "page": 1,
+            },
+        )
+        rendered = json.dumps(raised.exception.diagnostic.to_dict())
+        self.assertNotIn(candidate["vin"], rendered)
+        self.assertNotIn(endpoint, rendered)
+        self.assertNotIn(SYNTHETIC_KEY, rendered)
 
     def test_network_failure_is_sanitized_and_not_retried(self) -> None:
         authenticated_url = (

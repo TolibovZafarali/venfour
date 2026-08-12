@@ -8,6 +8,9 @@ matching, ranking, historical-resolution, or discrepancy business rules.
 from __future__ import annotations
 
 import copy
+import json
+import logging
+import os
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from datetime import date, datetime, timezone
@@ -15,11 +18,13 @@ from typing import Any
 from uuid import UUID, uuid4
 
 from venfour.adaptive_search import (
-    DEFAULT_ADAPTIVE_SEARCH_POLICY,
+    DEFAULT_ADAPTIVE_SEARCH_POLICIES,
     AdaptiveSearchContractError,
+    AdaptiveSearchPolicies,
     AdaptiveSearchPolicy,
     adaptive_discover_historical_market_evidence,
     adaptive_discover_market_listings,
+    adaptive_search_policy_for_provider,
 )
 from venfour.analysis_runs import (
     AnalysisRunArtifact,
@@ -51,7 +56,12 @@ from venfour.historical_market import (
 from venfour.market import (
     MarketContractError,
     MarketProvider,
+    MarketProviderAuthenticationError,
+    MarketProviderDiagnostic,
     MarketProviderError,
+    MarketProviderRateLimitError,
+    MarketProviderResponseError,
+    MarketProviderUnavailableError,
     MarketSearchRequest,
     normalize_market_search_request,
 )
@@ -59,6 +69,29 @@ from venfour.market import (
 
 RunIdFactory = Callable[[], UUID | str]
 Clock = Callable[[], datetime]
+
+_PROVIDER_DIAGNOSTICS_ENV = "VENFOUR_PROVIDER_DIAGNOSTICS"
+_PROVIDER_DIAGNOSTICS_LOGGER = logging.getLogger("venfour.provider_diagnostics")
+_PROVIDER_DIAGNOSTIC_STAGES = {
+    "active": "current_inventory_search",
+    "recents": "historical_candidate_discovery",
+    "history": "vin_history_verification",
+}
+_PROVIDER_ERROR_CLASSES = (
+    MarketProviderAuthenticationError,
+    MarketProviderRateLimitError,
+    MarketProviderUnavailableError,
+    MarketProviderResponseError,
+    MarketProviderError,
+)
+
+
+def _provider_error_class(failure: MarketProviderError) -> str:
+    return next(
+        error_type.__name__
+        for error_type in _PROVIDER_ERROR_CLASSES
+        if isinstance(failure, error_type)
+    )
 
 
 class AnalysisOrchestrationError(Exception):
@@ -76,10 +109,42 @@ class AnalysisInputError(AnalysisOrchestrationError):
 class AnalysisRetrievalError(AnalysisOrchestrationError):
     """A current or historical provider failed before analysis could complete."""
 
-    def __init__(self, stage: str, provider_error_type: str) -> None:
+    def __init__(
+        self,
+        stage: str,
+        provider_error_type: str,
+        diagnostic: MarketProviderDiagnostic | None = None,
+    ) -> None:
         super().__init__(f"{stage.capitalize()} market retrieval failed")
         self.stage = stage
         self.provider_error_type = provider_error_type
+        self.diagnostic = diagnostic
+
+
+def _emit_local_provider_diagnostic(
+    stream: str, failure: MarketProviderError
+) -> None:
+    """Log only fixed, allowlisted provider fields when explicitly enabled."""
+
+    if os.environ.get(_PROVIDER_DIAGNOSTICS_ENV) != "1":
+        return
+    diagnostic = failure.diagnostic
+    endpoint_category = (
+        diagnostic.endpoint_category if diagnostic is not None else None
+    )
+    payload: dict[str, Any] = {
+        "event": "market_provider_failure",
+        "stream": stream,
+        "stage": _PROVIDER_DIAGNOSTIC_STAGES.get(
+            endpoint_category, "provider_boundary"
+        ),
+        "providerErrorClass": _provider_error_class(failure),
+    }
+    if diagnostic is not None:
+        payload.update(diagnostic.to_dict())
+    _PROVIDER_DIAGNOSTICS_LOGGER.warning(
+        "%s", json.dumps(payload, sort_keys=True, separators=(",", ":"))
+    )
 
 
 class AnalysisExecutionError(AnalysisOrchestrationError):
@@ -150,8 +215,8 @@ class AnalysisRunRequest:
     loss_date_override: str | None = None
     current_search: CurrentMarketSearchConfiguration | None = None
     historical_search: HistoricalMarketSearchConfiguration | None = None
-    search_policy: AdaptiveSearchPolicy = field(
-        default_factory=lambda: DEFAULT_ADAPTIVE_SEARCH_POLICY
+    search_policies: AdaptiveSearchPolicies = field(
+        default_factory=lambda: DEFAULT_ADAPTIVE_SEARCH_POLICIES
     )
     discrepancy_policy: ValuationDiscrepancyPolicy = field(
         default_factory=ValuationDiscrepancyPolicy
@@ -198,8 +263,8 @@ class AnalysisRunRequest:
             )
         if not isinstance(self.discrepancy_policy, ValuationDiscrepancyPolicy):
             raise AnalysisInputError("Discrepancy policy is invalid")
-        if not isinstance(self.search_policy, AdaptiveSearchPolicy):
-            raise AnalysisInputError("Adaptive search policy is invalid")
+        if not isinstance(self.search_policies, AdaptiveSearchPolicies):
+            raise AnalysisInputError("Adaptive search policies are invalid")
 
 
 @dataclass(frozen=True)
@@ -386,6 +451,22 @@ class AnalysisOrchestrator:
             )
         )
 
+    @staticmethod
+    def _effective_policy_for_provider(
+        policy: AdaptiveSearchPolicy,
+        provider: object,
+        stream: str,
+    ) -> AdaptiveSearchPolicy:
+        """Constrain configured stages to an adapter's declared geography."""
+
+        try:
+            return adaptive_search_policy_for_provider(policy, provider)
+        except AdaptiveSearchContractError as exc:
+            raise AnalysisInputError(
+                f"{stream.capitalize()} provider capability is invalid",
+                tuple(exc.details),
+            ) from exc
+
     def run(self, request: AnalysisRunRequest) -> AnalysisRunResult:
         """Execute one complete run, returning only after its artifact is saved."""
 
@@ -406,14 +487,43 @@ class AnalysisOrchestrator:
                 tuple(getattr(exc, "details", ())),
             ) from exc
 
+        if (
+            request.historical_search is not None
+            and self._historical_provider is None
+        ):
+            raise AnalysisInputError(
+                "Historical search is configured without a historical provider"
+            )
+        if request.current_search is not None and self._current_provider is None:
+            raise AnalysisInputError(
+                "Current search is configured without a current provider"
+            )
+
+        current_policy = request.search_policies.current
+        historical_policy = request.search_policies.historical
+        if request.current_search is not None:
+            current_policy = self._effective_policy_for_provider(
+                current_policy, self._current_provider, "current"
+            )
+        if request.historical_search is not None:
+            historical_policy = self._effective_policy_for_provider(
+                historical_policy, self._historical_provider, "historical"
+            )
+        effective_search_policies = AdaptiveSearchPolicies(
+            current=current_policy,
+            historical=historical_policy,
+        )
+
         try:
             current_search_request = (
-                self._current_request(base_request, request.search_policy)
+                self._current_request(base_request, current_policy)
                 if request.current_search is not None
                 else None
             )
             historical_search_request = (
-                self._historical_request(base_request, request.search_policy)
+                self._historical_request(
+                    base_request, historical_policy
+                )
                 if request.historical_search is not None
                 else None
             )
@@ -422,14 +532,6 @@ class AnalysisOrchestrator:
                 "Market search configuration failed canonical validation",
                 tuple(getattr(exc, "details", ())),
             ) from exc
-        if historical_search_request is not None and self._historical_provider is None:
-            raise AnalysisInputError(
-                "Historical search is configured without a historical provider"
-            )
-        if current_search_request is not None and self._current_provider is None:
-            raise AnalysisInputError(
-                "Current search is configured without a current provider"
-            )
 
         historical_result = None
         historical_ranking = None
@@ -440,15 +542,16 @@ class AnalysisOrchestrator:
                 adaptive_historical = adaptive_discover_historical_market_evidence(
                     historical_search_request,
                     self._historical_provider,
-                    request.search_policy,
+                    historical_policy,
                     target=base_request.loss_vehicle,
                 )
                 historical_result = adaptive_historical.result
                 historical_ranking = adaptive_historical.ranking
                 historical_diagnostics = adaptive_historical.diagnostics
             except MarketProviderError as exc:
+                _emit_local_provider_diagnostic("historical", exc)
                 raise AnalysisRetrievalError(
-                    "historical", type(exc).__name__
+                    "historical", _provider_error_class(exc), exc.diagnostic
                 ) from exc
             except (
                 AdaptiveSearchContractError,
@@ -480,14 +583,17 @@ class AnalysisOrchestrator:
                 adaptive_current = adaptive_discover_market_listings(
                     current_search_request,
                     self._current_provider,
-                    request.search_policy,
+                    current_policy,
                     target=base_request.loss_vehicle,
                 )
                 current_result = adaptive_current.result
                 current_ranking = adaptive_current.ranking
                 current_diagnostics = adaptive_current.diagnostics
             except MarketProviderError as exc:
-                raise AnalysisRetrievalError("current", type(exc).__name__) from exc
+                _emit_local_provider_diagnostic("current", exc)
+                raise AnalysisRetrievalError(
+                    "current", _provider_error_class(exc), exc.diagnostic
+                ) from exc
             except (
                 AdaptiveSearchContractError,
                 MarketContractError,
@@ -546,7 +652,7 @@ class AnalysisOrchestrator:
             else None
         )
         discrepancy_request_data = discrepancy_request.to_dict()
-        search_policy_data = request.search_policy.to_dict()
+        search_policies_data = effective_search_policies.to_dict()
         search_diagnostics_data = {
             "current": (
                 current_diagnostics.to_dict()
@@ -564,7 +670,9 @@ class AnalysisOrchestrator:
             created_at=created_at,
             request_digest=discrepancy_request_digest(discrepancy_request_data),
             search_diagnostics_digest=search_diagnostics_digest(
-                search_policy_data, search_diagnostics_data
+                search_policies_data,
+                search_diagnostics_data,
+                policy_field="searchPolicies",
             ),
             providers={
                 "current": current_metadata,
@@ -597,7 +705,7 @@ class AnalysisOrchestrator:
                     if request.current_search is not None
                     else None
                 ),
-                "searchPolicy": search_policy_data,
+                "searchPolicies": search_policies_data,
             },
             result={
                 "currentMarketResult": (

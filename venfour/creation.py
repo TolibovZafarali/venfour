@@ -19,8 +19,8 @@ from scripts.extract_report_ai import (
     validate_input,
 )
 from venfour.adaptive_search import (
-    DEFAULT_ADAPTIVE_SEARCH_POLICY,
-    AdaptiveSearchPolicy,
+    DEFAULT_ADAPTIVE_SEARCH_POLICIES,
+    AdaptiveSearchPolicies,
 )
 from venfour.analysis_runs import AnalysisRunRepository
 from venfour.discrepancy import (
@@ -79,12 +79,12 @@ class AnalysisCreationExecutionError(AnalysisCreationError):
 
 @dataclass(frozen=True)
 class AnalysisSearchSettings:
-    """Server-owned adaptive-search policy for user-created analyses."""
+    """Server-owned, stream-specific policies for user-created analyses."""
 
-    search_policy: AdaptiveSearchPolicy = DEFAULT_ADAPTIVE_SEARCH_POLICY
+    search_policies: AdaptiveSearchPolicies = DEFAULT_ADAPTIVE_SEARCH_POLICIES
 
     def __post_init__(self) -> None:
-        if not isinstance(self.search_policy, AdaptiveSearchPolicy):
+        if not isinstance(self.search_policies, AdaptiveSearchPolicies):
             raise ValueError("Analysis search settings are invalid")
 
 
@@ -229,7 +229,7 @@ class AnalysisCreationService:
             postal_code=normalized_postal,
             current_search=current_search,
             historical_search=historical_search,
-            search_policy=settings.search_policy,
+            search_policies=settings.search_policies,
         )
 
         try:

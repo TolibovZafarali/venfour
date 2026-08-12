@@ -7,9 +7,15 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from venfour.adaptive_search import (
+    DEFAULT_ADAPTIVE_SEARCH_POLICY,
+    MAX_SCOPE_REACHED,
+    AdaptiveSearchPolicies,
+)
 from venfour.analysis_runs import (
     AnalysisRunContractError,
     FileAnalysisRunRepository,
+    search_diagnostics_digest,
     validate_analysis_run_artifact,
 )
 from venfour.orchestration import (
@@ -56,16 +62,46 @@ class AdaptiveAnalysisRunIntegrityTests(unittest.TestCase):
             context.exception.details,
         )
 
-    def test_v2_diagnostics_replay_and_v1_remains_readable(self) -> None:
+    def test_v3_diagnostics_replay_and_v1_v2_remain_readable(self) -> None:
         validate_analysis_run_artifact(self.artifact)
 
         v1_artifact = copy.deepcopy(self.artifact)
         v1_artifact["analysisRunSchemaVersion"] = "1"
         v1_artifact["analysisVersion"] = "1"
         del v1_artifact["searchDiagnosticsDigest"]
-        del v1_artifact["request"]["searchPolicy"]
+        del v1_artifact["request"]["searchPolicies"]
         del v1_artifact["result"]["searchDiagnostics"]
         validate_analysis_run_artifact(v1_artifact)
+
+        legacy_repository = FileAnalysisRunRepository(self.root / "legacy-v2-runs")
+        legacy_policy = DEFAULT_ADAPTIVE_SEARCH_POLICY
+        legacy_request = AnalysisRunRequest(
+            ccc_report=make_report(),
+            postal_code=POSTAL_CODE,
+            current_search=CurrentMarketSearchConfiguration(CURRENT_OBSERVED_DATE),
+            historical_search=HistoricalMarketSearchConfiguration(),
+            search_policies=AdaptiveSearchPolicies(
+                current=legacy_policy,
+                historical=legacy_policy,
+            ),
+        )
+        v2_artifact = make_orchestrator(
+            legacy_repository,
+            current_provider=RecordingCurrentProvider(),
+            historical_provider=RecordingHistoricalProvider(),
+        ).run(legacy_request).artifact.to_dict()
+        v2_artifact["analysisRunSchemaVersion"] = "2"
+        v2_artifact["analysisVersion"] = "2"
+        policies = v2_artifact["request"].pop("searchPolicies")
+        v2_artifact["request"]["searchPolicy"] = policies["current"]
+        v2_artifact["result"]["searchDiagnostics"]["historical"][
+            "stopReason"
+        ] = MAX_SCOPE_REACHED
+        v2_artifact["searchDiagnosticsDigest"] = search_diagnostics_digest(
+            v2_artifact["request"]["searchPolicy"],
+            v2_artifact["result"]["searchDiagnostics"],
+        )
+        validate_analysis_run_artifact(v2_artifact)
 
     def test_replay_rejects_count_stop_reason_and_policy_tampering(self) -> None:
         count_tamper = copy.deepcopy(self.artifact)
@@ -83,7 +119,9 @@ class AdaptiveAnalysisRunIntegrityTests(unittest.TestCase):
         )
 
         policy_tamper = copy.deepcopy(self.artifact)
-        policy_tamper["request"]["searchPolicy"]["minimumStrongMatches"] = 5
+        policy_tamper["request"]["searchPolicies"]["current"][
+            "minimumStrongMatches"
+        ] = 5
         self.assert_semantic_error_contains(policy_tamper, "continued after a stop")
 
     def test_configured_stream_requires_diagnostics(self) -> None:

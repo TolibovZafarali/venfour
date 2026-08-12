@@ -37,8 +37,72 @@ class MarketContractError(MarketDiscoveryError):
         self.details = details
 
 
+@dataclass(frozen=True)
+class MarketProviderDiagnostic:
+    """Non-persisted, allowlisted context for local provider diagnostics."""
+
+    endpoint_category: str
+    http_status: int | None = None
+    radius: int | None = None
+    start: int | None = None
+    rows: int | None = None
+    page: int | None = None
+
+    def __post_init__(self) -> None:
+        if self.endpoint_category not in {"active", "recents", "history"}:
+            raise ValueError("Provider diagnostic endpoint category is invalid")
+        for name in ("radius", "start", "rows", "page"):
+            value = getattr(self, name)
+            if value is not None and (
+                isinstance(value, bool) or not isinstance(value, int) or value < 0
+            ):
+                raise ValueError(f"Provider diagnostic {name} is invalid")
+        if self.http_status is not None and (
+            isinstance(self.http_status, bool)
+            or not isinstance(self.http_status, int)
+            or self.http_status < 100
+            or self.http_status > 599
+        ):
+            raise ValueError("Provider diagnostic HTTP status is invalid")
+
+    def to_dict(self) -> dict[str, Any]:
+        values = {
+            "endpointCategory": self.endpoint_category,
+            "httpStatus": self.http_status,
+            "radius": self.radius,
+            "start": self.start,
+            "rows": self.rows,
+            "page": self.page,
+        }
+        return {name: value for name, value in values.items() if value is not None}
+
+
 class MarketProviderError(MarketDiscoveryError):
     """A provider failed behind the provider-neutral boundary."""
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        diagnostic: MarketProviderDiagnostic | None = None,
+    ) -> None:
+        super().__init__(message)
+        if diagnostic is not None and not isinstance(
+            diagnostic, MarketProviderDiagnostic
+        ):
+            raise TypeError("diagnostic must be MarketProviderDiagnostic or None")
+        self.diagnostic = diagnostic
+
+    def with_diagnostic(
+        self, diagnostic: MarketProviderDiagnostic
+    ) -> MarketProviderError:
+        """Attach safe request context once without retaining raw provider data."""
+
+        if not isinstance(diagnostic, MarketProviderDiagnostic):
+            raise TypeError("diagnostic must be MarketProviderDiagnostic")
+        if self.diagnostic is None:
+            self.diagnostic = diagnostic
+        return self
 
 
 class MarketProviderUnavailableError(MarketProviderError):
@@ -56,8 +120,14 @@ class MarketProviderRateLimitError(MarketProviderError):
 class MarketProviderResponseError(MarketProviderError):
     """The provider could not produce a valid canonical result."""
 
-    def __init__(self, message: str, details: tuple[str, ...] = ()) -> None:
-        super().__init__(message)
+    def __init__(
+        self,
+        message: str,
+        details: tuple[str, ...] = (),
+        *,
+        diagnostic: MarketProviderDiagnostic | None = None,
+    ) -> None:
+        super().__init__(message, diagnostic=diagnostic)
         self.details = details
 
 
@@ -509,6 +579,7 @@ __all__ = [
     "MarketProvider",
     "MarketProviderAuthenticationError",
     "MarketProviderError",
+    "MarketProviderDiagnostic",
     "MarketProviderRateLimitError",
     "MarketProviderResponseError",
     "MarketProviderUnavailableError",
