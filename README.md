@@ -38,7 +38,7 @@ pipeline covers:
 - deterministic valuation-discrepancy analysis;
 - immutable analysis-run persistence with replay and integrity validation;
 - deterministic presentation projection; and
-- a read-only JSON API for validated presentation data.
+- a JSON API for synchronous analysis creation and validated presentation data.
 
 ```text
 Insurance valuation report
@@ -57,7 +57,7 @@ immutable auditable analysis run
         ↓
 deterministic presentation model
         ↓
-read-only JSON API
+JSON API
 ```
 
 The customer-facing application includes its first product experience at
@@ -65,7 +65,7 @@ The customer-facing application includes its first product experience at
 presentation contract. It presents the assessment, market-range comparison,
 loss-date comparables, current-market context, CCC comparables and adjustments,
 and important limitations. The frontend does not reproduce backend analysis or
-ranking logic. Upload, authentication, user ownership, analysis creation, and
+ranking logic. Authentication, user ownership, the frontend upload UI, and
 production deployment configuration remain outside the current scope.
 
 ## Evidence and engineering principles
@@ -200,21 +200,20 @@ npm run generate:contracts
 npm run check:contracts
 ```
 
-## Phase 3F: read-only analysis presentation API
+## Phase 3F: analysis creation and presentation API
 
-Phase 3F exposes the Phase 3E presentation contract through one lightweight,
-production-capable Starlette ASGI application. The repository previously had no
-HTTP framework; Starlette supplies the small routing, JSON-response, error, and
-application-factory boundary this phase needs without adding a second framework
-or a response-model layer. Selection and operation of a production ASGI server
-remain deployment work.
+Phase 3F exposes the Phase 3E presentation contract and a synchronous creation
+boundary through one lightweight, production-capable Starlette ASGI application.
+Starlette supplies the small routing, multipart, JSON-response, error, and
+application-factory boundary without adding a response-model layer. Selection
+and operation of a production ASGI server remain deployment work.
 
 ```text
 AnalysisRunArtifact
       ↓
 Phase 3E AnalysisPresentationService
       ↓
-Phase 3F read-only HTTP API
+Phase 3F HTTP API
       ↓
 Venfour analysis results page
 ```
@@ -224,6 +223,14 @@ Venfour analysis results page
 calls `AnalysisPresentationService.get(run_id)` only. It does not read analysis
 files or raw provider data, call MarketCheck or another provider, rerun an
 analysis stage, or recalculate presentation values.
+
+`POST /api/v1/analyses` accepts multipart form data containing one `report` PDF
+and one verified `postalCode`. It validates and copies the bounded upload to a
+server-generated temporary path, extracts canonical CCC data, invokes the
+existing analysis orchestrator with server-owned market-search settings, and
+returns `201` with `{"runId":"..."}` only after the immutable run is persisted.
+The temporary local PDF is removed before the response is returned. The
+frontend can then open `/analyses/{runId}`, which uses the existing GET endpoint.
 
 Run IDs must be canonical lowercase UUIDv4 strings and are rejected before a
 service or repository lookup when malformed. API errors are deterministic JSON:
@@ -240,10 +247,9 @@ versions carried in the presentation provenance. `GET /health` returns only
 analysis, or call a provider.
 
 No CORS policy is enabled by default, and Phase 3F adds no authentication or
-user-ownership model. It exposes no analysis creation, upload, or other mutation
-endpoint. OpenAPI generation is deferred because it is not native to the chosen
-minimal framework; the strict repository JSON Schemas remain the authoritative
-domain contracts.
+user-ownership model. Uploaded PDFs are not durably stored. OpenAPI generation
+is deferred because it is not native to the chosen minimal framework; the strict
+repository JSON Schemas remain the authoritative domain contracts.
 
 ## Phase 3E: deterministic analysis presentation projection
 
