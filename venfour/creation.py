@@ -18,6 +18,10 @@ from scripts.extract_report_ai import (
     validate_extraction,
     validate_input,
 )
+from venfour.adaptive_search import (
+    DEFAULT_ADAPTIVE_SEARCH_POLICY,
+    AdaptiveSearchPolicy,
+)
 from venfour.analysis_runs import AnalysisRunRepository
 from venfour.discrepancy import (
     DiscrepancyContractError,
@@ -75,26 +79,13 @@ class AnalysisCreationExecutionError(AnalysisCreationError):
 
 @dataclass(frozen=True)
 class AnalysisSearchSettings:
-    """Server-owned retrieval bounds for every user-created analysis."""
+    """Server-owned adaptive-search policy for user-created analyses."""
 
-    current_radius_miles: int = 50
-    current_result_limit: int = 25
-    historical_radius_miles: int = 50
-    historical_result_limit: int = 25
+    search_policy: AdaptiveSearchPolicy = DEFAULT_ADAPTIVE_SEARCH_POLICY
 
     def __post_init__(self) -> None:
-        try:
-            CurrentMarketSearchConfiguration(
-                observed_date="2000-01-01",
-                radius_miles=self.current_radius_miles,
-                result_limit=self.current_result_limit,
-            )
-            HistoricalMarketSearchConfiguration(
-                radius_miles=self.historical_radius_miles,
-                result_limit=self.historical_result_limit,
-            )
-        except AnalysisInputError as exc:
-            raise ValueError("Analysis search settings are invalid") from exc
+        if not isinstance(self.search_policy, AdaptiveSearchPolicy):
+            raise ValueError("Analysis search settings are invalid")
 
 
 def _utc_today() -> date:
@@ -227,14 +218,9 @@ class AnalysisCreationService:
         settings = self._search_settings
         current_search = CurrentMarketSearchConfiguration(
             observed_date=observed_date.isoformat(),
-            radius_miles=settings.current_radius_miles,
-            result_limit=settings.current_result_limit,
         )
         historical_search = (
-            HistoricalMarketSearchConfiguration(
-                radius_miles=settings.historical_radius_miles,
-                result_limit=settings.historical_result_limit,
-            )
+            HistoricalMarketSearchConfiguration()
             if base_request.loss_date is not None
             else None
         )
@@ -243,6 +229,7 @@ class AnalysisCreationService:
             postal_code=normalized_postal,
             current_search=current_search,
             historical_search=historical_search,
+            search_policy=settings.search_policy,
         )
 
         try:

@@ -531,7 +531,7 @@ class AnalysisPresentationIntegrationTests(TemporaryRepositoryTestCase):
                     listings=tuple(listings),
                 )
 
-        prices = tuple(1_900_000 + index * 10_000 for index in range(10))
+        prices = tuple(1_900_000 + index * 10_000 for index in range(14))
         repository = self.repository("selection-diagnostics")
         current = DiagnosticCurrentProvider(prices)
         artifact = make_orchestrator(
@@ -549,12 +549,11 @@ class AnalysisPresentationIntegrationTests(TemporaryRepositoryTestCase):
             [
                 ("INELIGIBLE_EXTERNAL_RECORDS_EXCLUDED", 1),
                 ("IDENTITY_MISSING_EXTERNAL_RECORDS_EXCLUDED", 1),
-                ("DUPLICATE_EXTERNAL_IDENTITIES_EXCLUDED", 1),
                 ("EXTERNAL_COMPARISON_SET_BOUNDED", 2),
             ],
         )
         self.assertTrue(all(item["pricesContributed"] is False for item in exclusions))
-        self.assertEqual(len(data["comparablesUsed"]["primary"]), 5)
+        self.assertEqual(len(data["comparablesUsed"]["primary"]), 9)
         for item in exclusions:
             self.assertNotIn("priceCents", item)
             self.assertNotIn("advertisedPrice", item)

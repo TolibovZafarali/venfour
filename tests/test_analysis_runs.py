@@ -20,6 +20,7 @@ from unittest.mock import patch
 
 from jsonschema import Draft202012Validator
 
+from venfour.adaptive_search import DEFAULT_SEARCH_STAGES
 from venfour.analysis_runs import (
     ANALYSIS_RUN_SCHEMA_PATH,
     AnalysisRunAlreadyExistsError,
@@ -232,10 +233,12 @@ class RecordingCurrentProvider:
         prices: tuple[int, ...] = CONSISTENT_PRICES,
         *,
         failure: Exception | None = None,
+        failure_at_radius: int | None = None,
         secret: str = "synthetic-unused-provider-secret",
     ) -> None:
         self.prices = prices
         self.failure = failure
+        self.failure_at_radius = failure_at_radius
         self.requests: list[MarketSearchRequest] = []
         # Deliberately unsafe adapter internals must never be serialized.
         self.api_key = secret
@@ -244,7 +247,10 @@ class RecordingCurrentProvider:
 
     def search(self, request: MarketSearchRequest) -> MarketSearchResult:
         self.requests.append(request)
-        if self.failure is not None:
+        if self.failure is not None and (
+            self.failure_at_radius is None
+            or request.radius_miles == self.failure_at_radius
+        ):
             raise self.failure
         return MarketSearchResult(
             provider=self.name,
@@ -368,14 +374,12 @@ def make_run_request(
         current_search=(
             CurrentMarketSearchConfiguration(
                 observed_date=CURRENT_OBSERVED_DATE,
-                radius_miles=50,
-                result_limit=25,
             )
             if current
             else None
         ),
         historical_search=(
-            HistoricalMarketSearchConfiguration(radius_miles=50, result_limit=25)
+            HistoricalMarketSearchConfiguration()
             if historical
             else None
         ),
@@ -510,8 +514,24 @@ class AnalysisOrchestrationScenarioTests(TemporaryRepositoryTestCase):
             },
         )
         self.assertEqual(report_before, make_report())
-        self.assertEqual(len(current_provider.requests), 1)
-        self.assertEqual(len(historical_provider.requests), 1)
+        expected_stages = [
+            (stage.radius_miles, stage.result_limit)
+            for stage in DEFAULT_SEARCH_STAGES
+        ]
+        self.assertEqual(
+            [
+                (provider_request.radius_miles, provider_request.result_limit)
+                for provider_request in current_provider.requests
+            ],
+            expected_stages,
+        )
+        self.assertEqual(
+            [
+                (provider_request.radius_miles, provider_request.result_limit)
+                for provider_request in historical_provider.requests
+            ],
+            expected_stages,
+        )
         self.assertEqual(
             current_provider.requests[0].to_dict(),
             {
@@ -539,6 +559,22 @@ class AnalysisOrchestrationScenarioTests(TemporaryRepositoryTestCase):
                 "resultLimit": 25,
             },
         )
+        artifact_data = loaded.to_dict()
+        self.assertEqual(artifact_data["analysisRunSchemaVersion"], "2")
+        self.assertEqual(artifact_data["analysisVersion"], "2")
+        self.assertEqual(len(artifact_data["searchDiagnosticsDigest"]), 64)
+        for stream in ("current", "historical"):
+            diagnostics = artifact_data["result"]["searchDiagnostics"][stream]
+            self.assertEqual(diagnostics["stopReason"], "MAX_SCOPE_REACHED")
+            self.assertEqual(len(diagnostics["attempts"]), 4)
+            self.assertEqual(
+                [attempt["strongMatchCount"] for attempt in diagnostics["attempts"]],
+                [5, 5, 5, 5],
+            )
+            self.assertEqual(
+                [attempt["newUniqueCount"] for attempt in diagnostics["attempts"]],
+                [5, 0, 0, 0],
+            )
         self.assertEqual(list(repository.root.glob(".*.tmp")), [])
 
     def test_historical_out_of_range_is_preserved_and_current_becomes_primary(self) -> None:
@@ -549,7 +585,7 @@ class AnalysisOrchestrationScenarioTests(TemporaryRepositoryTestCase):
         )
 
         loaded = repository.get(artifact.run_id)
-        self.assertEqual(len(current.requests), 1)
+        self.assertEqual(len(current.requests), len(DEFAULT_SEARCH_STAGES))
         self.assertEqual(len(historical.requests), 1)
         self.assertEqual(
             loaded.result["historicalMarketResult"]["coverage"]["status"],
@@ -609,7 +645,7 @@ class AnalysisOrchestrationScenarioTests(TemporaryRepositoryTestCase):
         )
 
         loaded = repository.get(artifact.run_id)
-        self.assertEqual(len(historical.requests), 1)
+        self.assertEqual(len(historical.requests), len(DEFAULT_SEARCH_STAGES))
         self.assertEqual(
             loaded.result["discrepancyResult"]["classification"],
             INSUFFICIENT_EVIDENCE,
@@ -676,6 +712,28 @@ class AnalysisOrchestrationScenarioTests(TemporaryRepositoryTestCase):
         self.assertEqual(current_provider.requests, [])
         self.assertEqual(list(repository.root.glob("*.json")), [])
 
+    def test_later_current_expansion_failure_aborts_without_partial_save(self) -> None:
+        repository = self.repository()
+        current_provider = RecordingCurrentProvider(
+            failure=MarketProviderRateLimitError("synthetic later-stage failure"),
+            failure_at_radius=100,
+        )
+        orchestrator = make_orchestrator(
+            repository,
+            current_provider=current_provider,
+            historical_provider=None,
+        )
+
+        with self.assertRaises(AnalysisRetrievalError) as raised:
+            orchestrator.run(make_run_request(historical=False))
+
+        self.assertEqual(raised.exception.stage, "current")
+        self.assertEqual(
+            [request.radius_miles for request in current_provider.requests],
+            [50, 100],
+        )
+        self.assertEqual(list(repository.root.glob("*.json")), [])
+
     def test_each_phase_3d_classification_is_persisted_and_loadable(self) -> None:
         cases = (
             ("no-material", CONSISTENT_PRICES, NO_MATERIAL_DISCREPANCY),
@@ -714,8 +772,8 @@ class AnalysisOrchestrationScenarioTests(TemporaryRepositoryTestCase):
         self.assertEqual(raised.exception.run_id, RUN_ID_1)
         self.assertIsInstance(raised.exception.__cause__, AnalysisRunWriteError)
         self.assertEqual(len(repository.save_calls), 1)
-        self.assertEqual(len(current_provider.requests), 1)
-        self.assertEqual(len(historical_provider.requests), 1)
+        self.assertEqual(len(current_provider.requests), len(DEFAULT_SEARCH_STAGES))
+        self.assertEqual(len(historical_provider.requests), len(DEFAULT_SEARCH_STAGES))
 
     def test_invalid_metadata_factories_surface_as_execution_failures(self) -> None:
         def failing_run_id() -> str:

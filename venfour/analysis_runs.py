@@ -26,6 +26,12 @@ from jsonschema import Draft202012Validator, FormatChecker
 from jsonschema.exceptions import SchemaError
 from referencing import Registry, Resource
 
+from venfour.adaptive_search import (
+    AdaptiveSearchContractError,
+    adaptive_search_policy_from_dict,
+    replay_current_adaptive_search,
+    replay_historical_adaptive_search,
+)
 from venfour.comparables import (
     COMPARABLE_SCORING_VERSION,
     ComparableContractError,
@@ -68,8 +74,8 @@ from venfour.market import (
 )
 
 
-ANALYSIS_RUN_SCHEMA_VERSION = "1"
-ANALYSIS_RUN_ANALYSIS_VERSION = "1"
+ANALYSIS_RUN_SCHEMA_VERSION = "2"
+ANALYSIS_RUN_ANALYSIS_VERSION = "2"
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 ANALYSIS_RUN_SCHEMA_PATH = (
@@ -208,6 +214,7 @@ class AnalysisRunArtifact:
     providers: Mapping[str, Any]
     request: Mapping[str, Any]
     result: Mapping[str, Any]
+    search_diagnostics_digest: str | None = None
     analysis_run_schema_version: str = ANALYSIS_RUN_SCHEMA_VERSION
     analysis_version: str = ANALYSIS_RUN_ANALYSIS_VERSION
     discrepancy_analysis_version: str = VALUATION_DISCREPANCY_ANALYSIS_VERSION
@@ -219,7 +226,7 @@ class AnalysisRunArtifact:
         object.__setattr__(self, "result", _freeze_json(self.result))
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        data = {
             "analysisRunSchemaVersion": self.analysis_run_schema_version,
             "runId": self.run_id,
             "createdAt": self.created_at,
@@ -231,6 +238,9 @@ class AnalysisRunArtifact:
             "request": _thaw_json(self.request),
             "result": _thaw_json(self.result),
         }
+        if self.search_diagnostics_digest is not None:
+            data["searchDiagnosticsDigest"] = self.search_diagnostics_digest
+        return data
 
     @classmethod
     def from_dict(cls, data: Mapping[str, Any]) -> AnalysisRunArtifact:
@@ -242,6 +252,7 @@ class AnalysisRunArtifact:
             providers=data["providers"],
             request=data["request"],
             result=data["result"],
+            search_diagnostics_digest=data.get("searchDiagnosticsDigest"),
             analysis_run_schema_version=data["analysisRunSchemaVersion"],
             analysis_version=data["analysisVersion"],
             discrepancy_analysis_version=data["discrepancyAnalysisVersion"],
@@ -296,6 +307,23 @@ def discrepancy_request_digest(request: Mapping[str, Any]) -> str:
             ("$: expected an object",),
         )
     return hashlib.sha256(canonical_json_bytes(request)).hexdigest()
+
+
+def search_diagnostics_digest(
+    policy: Mapping[str, Any], diagnostics: Mapping[str, Any]
+) -> str:
+    """Bind the complete v2 search policy and attempt stream to one digest."""
+
+    if not isinstance(policy, Mapping) or not isinstance(diagnostics, Mapping):
+        raise AnalysisRunContractError(
+            "Search diagnostics digest input failed contract validation",
+            ("$: expected canonical policy and diagnostics objects",),
+        )
+    payload = {
+        "searchPolicy": policy,
+        "searchDiagnostics": diagnostics,
+    }
+    return hashlib.sha256(canonical_json_bytes(payload)).hexdigest()
 
 
 def _read_schema_file(path: Path) -> dict[str, Any]:
@@ -430,7 +458,11 @@ def _validate_nested(
 ) -> None:
     try:
         validator(data)
-    except (MarketContractError, ComparableContractError, DiscrepancyContractError) as exc:
+    except (
+        MarketContractError,
+        ComparableContractError,
+        DiscrepancyContractError,
+    ) as exc:
         raise AnalysisRunContractError(
             "Analysis run contains an invalid nested contract",
             _prefixed_details(path, getattr(exc, "details", (str(exc),))),
@@ -725,6 +757,131 @@ def _security_errors(
     return sorted(set(errors))
 
 
+def _adaptive_semantic_validation_errors(
+    data: Mapping[str, Any],
+    base_request: ValuationDiscrepancyRequest,
+) -> list[str]:
+    """Replay v2 search diagnostics against their persisted policy and outputs."""
+
+    if data["analysisRunSchemaVersion"] != "2":
+        return []
+
+    errors: list[str] = []
+    request_snapshot = data["request"]
+    stage_result = data["result"]
+    diagnostics = stage_result["searchDiagnostics"]
+
+    expected_search_digest = search_diagnostics_digest(
+        request_snapshot["searchPolicy"], diagnostics
+    )
+    if data["searchDiagnosticsDigest"] != expected_search_digest:
+        errors.append(
+            "$.searchDiagnosticsDigest: does not match the canonical search "
+            "policy and diagnostics JSON"
+        )
+
+    try:
+        policy = adaptive_search_policy_from_dict(request_snapshot["searchPolicy"])
+    except AdaptiveSearchContractError as exc:
+        errors.extend(
+            _prefixed_details(
+                "$.request.searchPolicy",
+                exc.details or (str(exc),),
+            )
+        )
+        return errors
+
+    current_request_data = request_snapshot["currentSearchRequest"]
+    current_diagnostics = diagnostics["current"]
+    if current_request_data is None:
+        if current_diagnostics is not None:
+            errors.append(
+                "$.result.searchDiagnostics.current: must be null when current "
+                "retrieval is not configured"
+            )
+    elif current_diagnostics is None:
+        errors.append(
+            "$.result.searchDiagnostics.current: configured current retrieval "
+            "requires replay diagnostics"
+        )
+    else:
+        try:
+            current_replay = replay_current_adaptive_search(
+                _market_request_from_data(current_request_data),
+                current_diagnostics,
+                policy=policy,
+                target=base_request.loss_vehicle,
+            )
+        except AdaptiveSearchContractError as exc:
+            errors.extend(
+                _prefixed_details(
+                    "$.result.searchDiagnostics.current",
+                    exc.details or (str(exc),),
+                )
+            )
+        else:
+            if current_replay.result.to_dict() != stage_result["currentMarketResult"]:
+                errors.append(
+                    "$.result.currentMarketResult: does not match replay of the "
+                    "stored current search diagnostics"
+                )
+            if current_replay.ranking.to_dict() != stage_result["currentRanking"]:
+                errors.append(
+                    "$.result.currentRanking: does not match replay of the stored "
+                    "current search diagnostics"
+                )
+
+    historical_request_data = request_snapshot["historicalSearchRequest"]
+    historical_diagnostics = diagnostics["historical"]
+    if historical_request_data is None:
+        if historical_diagnostics is not None:
+            errors.append(
+                "$.result.searchDiagnostics.historical: must be null when "
+                "historical retrieval is not configured"
+            )
+    elif historical_diagnostics is None:
+        errors.append(
+            "$.result.searchDiagnostics.historical: configured historical "
+            "retrieval requires replay diagnostics"
+        )
+    else:
+        try:
+            historical_replay = replay_historical_adaptive_search(
+                _historical_request_from_data(historical_request_data),
+                historical_diagnostics,
+                policy=policy,
+                target=base_request.loss_vehicle,
+            )
+        except AdaptiveSearchContractError as exc:
+            errors.extend(
+                _prefixed_details(
+                    "$.result.searchDiagnostics.historical",
+                    exc.details or (str(exc),),
+                )
+            )
+        else:
+            if (
+                historical_replay.result.to_dict()
+                != stage_result["historicalMarketResult"]
+            ):
+                errors.append(
+                    "$.result.historicalMarketResult: does not match replay of the "
+                    "stored historical search diagnostics"
+                )
+            replayed_ranking = (
+                historical_replay.ranking.to_dict()
+                if historical_replay.ranking is not None
+                else None
+            )
+            if replayed_ranking != stage_result["historicalRanking"]:
+                errors.append(
+                    "$.result.historicalRanking: does not match replay of the "
+                    "stored historical search diagnostics"
+                )
+
+    return errors
+
+
 def _semantic_validation_errors(data: Mapping[str, Any]) -> list[str]:
     errors: list[str] = []
     request_snapshot = data["request"]
@@ -783,6 +940,7 @@ def _semantic_validation_errors(data: Mapping[str, Any]) -> list[str]:
             )
 
     base_request = _base_request_from_data(base_data)
+    errors.extend(_adaptive_semantic_validation_errors(data, base_request))
     current_search_data = request_snapshot["currentSearchRequest"]
     current_observed_date = request_snapshot["currentObservedDate"]
     current_result_data = stage_result["currentMarketResult"]
@@ -1093,7 +1251,13 @@ def validate_analysis_run_artifact(
 
     try:
         semantic_errors = _semantic_validation_errors(data)
-    except (KeyError, TypeError, ValueError, MarketContractError, ComparableContractError) as exc:
+    except (
+        KeyError,
+        TypeError,
+        ValueError,
+        MarketContractError,
+        ComparableContractError,
+    ) as exc:
         raise AnalysisRunContractError(
             "Analysis run failed semantic validation",
             (f"$: canonical stage reconstruction failed ({type(exc).__name__})",),
@@ -1308,6 +1472,7 @@ class FileAnalysisRunRepository:
             providers=data["providers"],
             request=data["request"],
             result=data["result"],
+            search_diagnostics_digest=data.get("searchDiagnosticsDigest"),
             analysis_run_schema_version=data["analysisRunSchemaVersion"],
             analysis_version=data["analysisVersion"],
             discrepancy_analysis_version=data["discrepancyAnalysisVersion"],
@@ -1333,5 +1498,6 @@ __all__ = [
     "ProviderMetadata",
     "canonical_json_bytes",
     "discrepancy_request_digest",
+    "search_diagnostics_digest",
     "validate_analysis_run_artifact",
 ]

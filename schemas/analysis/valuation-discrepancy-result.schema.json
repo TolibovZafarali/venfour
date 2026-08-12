@@ -146,7 +146,7 @@
         "maxComparisonSet": {
           "type": "integer",
           "minimum": 3,
-          "default": 5
+          "default": 9
         },
         "minimumIndependentCount": {
           "type": "integer",

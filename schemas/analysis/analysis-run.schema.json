@@ -2,23 +2,114 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://schemas.venfour.local/analysis/analysis-run.schema.json",
   "title": "Venfour Analysis Run",
-  "type": "object",
-  "additionalProperties": false,
-  "required": [
-    "analysisRunSchemaVersion",
-    "runId",
-    "createdAt",
-    "analysisVersion",
-    "discrepancyAnalysisVersion",
-    "comparableScoringVersion",
-    "requestDigest",
-    "providers",
-    "request",
-    "result"
+  "oneOf": [
+    {
+      "$ref": "#/$defs/analysisRunV1"
+    },
+    {
+      "$ref": "#/$defs/analysisRunV2"
+    }
   ],
-  "properties": {
-    "analysisRunSchemaVersion": {
-      "const": "1"
+  "$defs": {
+    "analysisRunV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "analysisRunSchemaVersion",
+        "runId",
+        "createdAt",
+        "analysisVersion",
+        "discrepancyAnalysisVersion",
+        "comparableScoringVersion",
+        "requestDigest",
+        "providers",
+        "request",
+        "result"
+      ],
+      "properties": {
+        "analysisRunSchemaVersion": {
+          "const": "1"
+        },
+        "runId": {
+          "$ref": "#/$defs/runId"
+        },
+        "createdAt": {
+          "$ref": "#/$defs/createdAt"
+        },
+        "analysisVersion": {
+          "const": "1"
+        },
+        "discrepancyAnalysisVersion": {
+          "const": "1"
+        },
+        "comparableScoringVersion": {
+          "const": "1"
+        },
+        "requestDigest": {
+          "$ref": "#/$defs/requestDigest"
+        },
+        "providers": {
+          "$ref": "#/$defs/providers"
+        },
+        "request": {
+          "$ref": "#/$defs/analysisRunRequestV1"
+        },
+        "result": {
+          "$ref": "#/$defs/analysisRunResultV1"
+        }
+      }
+    },
+    "analysisRunV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "analysisRunSchemaVersion",
+        "runId",
+        "createdAt",
+        "analysisVersion",
+        "discrepancyAnalysisVersion",
+        "comparableScoringVersion",
+        "requestDigest",
+        "searchDiagnosticsDigest",
+        "providers",
+        "request",
+        "result"
+      ],
+      "properties": {
+        "analysisRunSchemaVersion": {
+          "const": "2"
+        },
+        "runId": {
+          "$ref": "#/$defs/runId"
+        },
+        "createdAt": {
+          "$ref": "#/$defs/createdAt"
+        },
+        "analysisVersion": {
+          "const": "2"
+        },
+        "discrepancyAnalysisVersion": {
+          "const": "1"
+        },
+        "comparableScoringVersion": {
+          "const": "1"
+        },
+        "requestDigest": {
+          "$ref": "#/$defs/requestDigest"
+        },
+        "searchDiagnosticsDigest": {
+          "$ref": "#/$defs/requestDigest"
+        },
+        "providers": {
+          "$ref": "#/$defs/providers"
+        },
+        "request": {
+          "$ref": "#/$defs/analysisRunRequestV2"
+        },
+        "result": {
+          "$ref": "#/$defs/analysisRunResultV2"
+        }
+      }
     },
     "runId": {
       "type": "string",
@@ -30,30 +121,10 @@
       "format": "date-time",
       "pattern": "Z$"
     },
-    "analysisVersion": {
-      "const": "1"
-    },
-    "discrepancyAnalysisVersion": {
-      "const": "1"
-    },
-    "comparableScoringVersion": {
-      "const": "1"
-    },
     "requestDigest": {
       "type": "string",
       "pattern": "^[0-9a-f]{64}$"
     },
-    "providers": {
-      "$ref": "#/$defs/providers"
-    },
-    "request": {
-      "$ref": "#/$defs/analysisRunRequest"
-    },
-    "result": {
-      "$ref": "#/$defs/analysisRunResult"
-    }
-  },
-  "$defs": {
     "providerMetadata": {
       "type": "object",
       "additionalProperties": false,
@@ -103,7 +174,7 @@
         }
       }
     },
-    "analysisRunRequest": {
+    "analysisRunRequestV1": {
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -132,24 +203,10 @@
           "format": "date"
         },
         "currentSearchRequest": {
-          "oneOf": [
-            {
-              "$ref": "https://schemas.venfour.local/market/search-request.schema.json"
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "$ref": "#/$defs/nullableCurrentSearchRequest"
         },
         "historicalSearchRequest": {
-          "oneOf": [
-            {
-              "$ref": "https://schemas.venfour.local/market/historical-search-request.schema.json"
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "$ref": "#/$defs/nullableHistoricalSearchRequest"
         },
         "currentObservedDate": {
           "type": [
@@ -160,7 +217,132 @@
         }
       }
     },
-    "analysisRunResult": {
+    "analysisRunRequestV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "baseDiscrepancyRequest",
+        "lossDateSource",
+        "lossDateOverride",
+        "currentSearchRequest",
+        "historicalSearchRequest",
+        "currentObservedDate",
+        "searchPolicy"
+      ],
+      "properties": {
+        "baseDiscrepancyRequest": {
+          "$ref": "https://schemas.venfour.local/analysis/valuation-discrepancy-request.schema.json"
+        },
+        "lossDateSource": {
+          "enum": [
+            "CCC_REPORT",
+            "OVERRIDE"
+          ]
+        },
+        "lossDateOverride": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date"
+        },
+        "currentSearchRequest": {
+          "$ref": "#/$defs/nullableCurrentSearchRequest"
+        },
+        "historicalSearchRequest": {
+          "$ref": "#/$defs/nullableHistoricalSearchRequest"
+        },
+        "currentObservedDate": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date"
+        },
+        "searchPolicy": {
+          "$ref": "#/$defs/searchPolicy"
+        }
+      }
+    },
+    "nullableCurrentSearchRequest": {
+      "oneOf": [
+        {
+          "$ref": "https://schemas.venfour.local/market/search-request.schema.json"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "nullableHistoricalSearchRequest": {
+      "oneOf": [
+        {
+          "$ref": "https://schemas.venfour.local/market/historical-search-request.schema.json"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "searchPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "stages",
+        "minimumStrongMatches",
+        "maxUniqueCandidates",
+        "identityStrategy",
+        "priceIndependent"
+      ],
+      "properties": {
+        "stages": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 4,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/searchPolicyStage"
+          }
+        },
+        "minimumStrongMatches": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100
+        },
+        "maxUniqueCandidates": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100
+        },
+        "identityStrategy": {
+          "const": "VIN_THEN_SOURCE_LISTING_ID"
+        },
+        "priceIndependent": {
+          "const": true
+        }
+      }
+    },
+    "searchPolicyStage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "radiusMiles",
+        "resultLimit"
+      ],
+      "properties": {
+        "radiusMiles": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 250
+        },
+        "resultLimit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100
+        }
+      }
+    },
+    "analysisRunResultV1": {
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -173,44 +355,16 @@
       ],
       "properties": {
         "currentMarketResult": {
-          "oneOf": [
-            {
-              "$ref": "https://schemas.venfour.local/market/search-result.schema.json"
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "$ref": "#/$defs/nullableCurrentMarketResult"
         },
         "historicalMarketResult": {
-          "oneOf": [
-            {
-              "$ref": "https://schemas.venfour.local/market/historical-search-result.schema.json"
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "$ref": "#/$defs/nullableHistoricalMarketResult"
         },
         "currentRanking": {
-          "oneOf": [
-            {
-              "$ref": "https://schemas.venfour.local/comparables/ranking-result.schema.json"
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "$ref": "#/$defs/nullableRankingResult"
         },
         "historicalRanking": {
-          "oneOf": [
-            {
-              "$ref": "https://schemas.venfour.local/comparables/ranking-result.schema.json"
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "$ref": "#/$defs/nullableRankingResult"
         },
         "discrepancyRequest": {
           "$ref": "https://schemas.venfour.local/analysis/valuation-discrepancy-request.schema.json"
@@ -219,6 +373,266 @@
           "$ref": "https://schemas.venfour.local/analysis/valuation-discrepancy-result.schema.json"
         }
       }
+    },
+    "analysisRunResultV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "currentMarketResult",
+        "historicalMarketResult",
+        "currentRanking",
+        "historicalRanking",
+        "discrepancyRequest",
+        "discrepancyResult",
+        "searchDiagnostics"
+      ],
+      "properties": {
+        "currentMarketResult": {
+          "$ref": "#/$defs/nullableCurrentMarketResult"
+        },
+        "historicalMarketResult": {
+          "$ref": "#/$defs/nullableHistoricalMarketResult"
+        },
+        "currentRanking": {
+          "$ref": "#/$defs/nullableRankingResult"
+        },
+        "historicalRanking": {
+          "$ref": "#/$defs/nullableRankingResult"
+        },
+        "discrepancyRequest": {
+          "$ref": "https://schemas.venfour.local/analysis/valuation-discrepancy-request.schema.json"
+        },
+        "discrepancyResult": {
+          "$ref": "https://schemas.venfour.local/analysis/valuation-discrepancy-result.schema.json"
+        },
+        "searchDiagnostics": {
+          "$ref": "#/$defs/searchDiagnostics"
+        }
+      }
+    },
+    "nullableCurrentMarketResult": {
+      "oneOf": [
+        {
+          "$ref": "https://schemas.venfour.local/market/search-result.schema.json"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "nullableHistoricalMarketResult": {
+      "oneOf": [
+        {
+          "$ref": "https://schemas.venfour.local/market/historical-search-result.schema.json"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "nullableRankingResult": {
+      "oneOf": [
+        {
+          "$ref": "https://schemas.venfour.local/comparables/ranking-result.schema.json"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "searchDiagnostics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "current",
+        "historical"
+      ],
+      "properties": {
+        "current": {
+          "$ref": "#/$defs/nullableCurrentSearchDiagnostics"
+        },
+        "historical": {
+          "$ref": "#/$defs/nullableHistoricalSearchDiagnostics"
+        }
+      }
+    },
+    "nullableCurrentSearchDiagnostics": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/currentSearchDiagnostics"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "nullableHistoricalSearchDiagnostics": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/historicalSearchDiagnostics"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "currentSearchDiagnostics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "attempts",
+        "stopReason"
+      ],
+      "properties": {
+        "attempts": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/currentSearchAttempt"
+          }
+        },
+        "stopReason": {
+          "$ref": "#/$defs/searchStopReason"
+        }
+      }
+    },
+    "historicalSearchDiagnostics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "attempts",
+        "stopReason"
+      ],
+      "properties": {
+        "attempts": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/historicalSearchAttempt"
+          }
+        },
+        "stopReason": {
+          "$ref": "#/$defs/searchStopReason"
+        }
+      }
+    },
+    "currentSearchAttempt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "result",
+        "returnedCount",
+        "resolvedCount",
+        "unresolvedCount",
+        "ambiguousCount",
+        "newUniqueCount",
+        "duplicateCount",
+        "candidateLimitExcludedCount",
+        "cumulativeUniqueCount",
+        "eligibleCount",
+        "strongMatchCount"
+      ],
+      "properties": {
+        "result": {
+          "$ref": "https://schemas.venfour.local/market/search-result.schema.json"
+        },
+        "returnedCount": {
+          "$ref": "#/$defs/nonNegativeCount"
+        },
+        "resolvedCount": {
+          "$ref": "#/$defs/nonNegativeCount"
+        },
+        "unresolvedCount": {
+          "$ref": "#/$defs/nonNegativeCount"
+        },
+        "ambiguousCount": {
+          "$ref": "#/$defs/nonNegativeCount"
+        },
+        "newUniqueCount": {
+          "$ref": "#/$defs/nonNegativeCount"
+        },
+        "duplicateCount": {
+          "$ref": "#/$defs/nonNegativeCount"
+        },
+        "candidateLimitExcludedCount": {
+          "$ref": "#/$defs/nonNegativeCount"
+        },
+        "cumulativeUniqueCount": {
+          "$ref": "#/$defs/nonNegativeCount"
+        },
+        "eligibleCount": {
+          "$ref": "#/$defs/nonNegativeCount"
+        },
+        "strongMatchCount": {
+          "$ref": "#/$defs/nonNegativeCount"
+        }
+      }
+    },
+    "historicalSearchAttempt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "result",
+        "returnedCount",
+        "resolvedCount",
+        "unresolvedCount",
+        "ambiguousCount",
+        "newUniqueCount",
+        "duplicateCount",
+        "candidateLimitExcludedCount",
+        "cumulativeUniqueCount",
+        "eligibleCount",
+        "strongMatchCount"
+      ],
+      "properties": {
+        "result": {
+          "$ref": "https://schemas.venfour.local/market/historical-search-result.schema.json"
+        },
+        "returnedCount": {
+          "$ref": "#/$defs/nonNegativeCount"
+        },
+        "resolvedCount": {
+          "$ref": "#/$defs/nonNegativeCount"
+        },
+        "unresolvedCount": {
+          "$ref": "#/$defs/nonNegativeCount"
+        },
+        "ambiguousCount": {
+          "$ref": "#/$defs/nonNegativeCount"
+        },
+        "newUniqueCount": {
+          "$ref": "#/$defs/nonNegativeCount"
+        },
+        "duplicateCount": {
+          "$ref": "#/$defs/nonNegativeCount"
+        },
+        "candidateLimitExcludedCount": {
+          "$ref": "#/$defs/nonNegativeCount"
+        },
+        "cumulativeUniqueCount": {
+          "$ref": "#/$defs/nonNegativeCount"
+        },
+        "eligibleCount": {
+          "$ref": "#/$defs/nonNegativeCount"
+        },
+        "strongMatchCount": {
+          "$ref": "#/$defs/nonNegativeCount"
+        }
+      }
+    },
+    "nonNegativeCount": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "searchStopReason": {
+      "enum": [
+        "SUFFICIENT_STRONG_MATCHES",
+        "MAX_UNIQUE_CANDIDATES",
+        "MAX_SCOPE_REACHED",
+        "OUT_OF_PROVIDER_RANGE",
+        "CANDIDATE_VERIFICATION_LIMIT_REACHED",
+        "HISTORICAL_PROVIDER_INCOMPLETE"
+      ]
     }
   }
 }

@@ -353,18 +353,38 @@ date. Supported resolved evidence is projected into the unchanged Phase 3C
 ranker, while `OUT_OF_PROVIDER_RANGE`, ambiguous, and unresolved provenance is
 preserved exactly. Current inventory is retrieved only when explicitly
 configured and remains a separate temporal evidence stream. The orchestrator
-does not broaden trim, year, model, radius, or dates; retry with weaker
-eligibility; or search by price. Phase 3D alone applies the established
+uses one explicit server-owned `AdaptiveSearchPolicy` for both streams. The
+default policy attempts `(50 miles, 25 results)`, `(100, 50)`, `(200, 75)`, and
+`(250, 100)` in order. After each response, it merges first-seen vehicles by VIN
+and then provider listing identity, reruns the unchanged Phase 3C ranker, and
+stops when it has nine independently identified `STRONG` matches, reaches 100
+unique candidate outcomes, or completes the 250-mile stage.
+The policy contract itself caps configuration at four stages, 250 miles, 100
+results per attempt, and 100 unique candidates.
+
+Adaptive search broadens only geography and candidate depth. It does not relax
+year, make, model, trim, loss date, eligibility, or scoring, and price amount is
+not read by merge, ranking, or stop logic. Historical stages repeat candidate
+discovery at the exact loss date. If otherwise identical active historical
+records carry conflicting prices, the provider adapter treats the source
+evidence as ambiguous instead of choosing either price; it never favors the
+higher or lower record. The MarketCheck adapter caches raw VIN-history outcomes
+across those stages and permits at most 100 unique VIN-history fetches per
+adaptive analysis, so overlapping radii do not repeat that expensive work.
+Out-of-range coverage, incomplete pagination, and the VIN-verification limit are
+explicit terminal outcomes. Phase 3D alone applies the established
 historical/current precedence and classification rules.
 
 Completed runs are stored as strict, immutable JSON under
 `data/analysis-runs/<run-id>.json` by the default file repository. Each artifact
-retains the normalized CCC analysis inputs, exact search requests and normalized
-provider results, historical diagnostics, Phase 3C rankings, Phase 3D policy,
-request, and result. Files are validated before an atomic create-only save and
-are parsed, schema-validated, and semantically validated again on read. Corrupt,
-unknown, or internally inconsistent artifacts are rejected rather than repaired
-or silently migrated.
+retains the normalized CCC analysis inputs, explicit search policy, every
+attempted scope and canonical provider result, cumulative returned, resolved,
+unresolved, ambiguous, duplicate, eligible, and strong-match counts, the stop
+reason, final Phase 3C rankings, and the Phase 3D policy, request, and result.
+Files are validated before an atomic create-only save and are parsed,
+schema-validated, and semantically validated again on read. Corrupt, unknown,
+or internally inconsistent artifacts are rejected rather than repaired or
+silently migrated.
 
 Run metadata is separate from the deterministic calculation: `runId` is a
 UUIDv4, `createdAt` is a UTC timestamp, and explicit run-schema, orchestration,
@@ -372,10 +392,13 @@ Phase 3C scoring, and Phase 3D discrepancy versions identify the rules used. A
 run also records whether its effective loss date came from the CCC report or an
 explicit override, preserving that orchestration decision without retaining the
 entire raw report. The SHA-256 `requestDigest` covers the canonical normalized
-Phase 3D request. Read
-validation verifies the digest and replays Phase 3C and Phase 3D to bind the
-stored rankings and result to their stored inputs. The digest detects accidental
-or isolated alteration; it is not a digital signature.
+Phase 3D request. Version 2 runs also carry a `searchDiagnosticsDigest` over the
+canonical adaptive policy and complete attempt stream. Read validation verifies
+both digests, replays the adaptive merge and stopping decisions, and then replays
+Phase 3C and Phase 3D to bind the stored rankings and result to their stored
+inputs. Version 1 artifacts remain readable under their original schema and
+semantics. The digests detect accidental or isolated alteration; they are not
+digital signatures.
 
 Artifacts contain only canonical domain data and sanitized provider identity
 metadata. Provider objects, transports, raw responses, authorization headers,
@@ -438,7 +461,7 @@ declare CCC's adjustment formula correct or incorrect.
 
 External evidence selection is fixed before any price is read. Phase 3D walks
 eligible candidates in the existing Phase 3C rank order, removes repeated
-vehicle identities without consulting price, and takes at most the first five
+vehicle identities without consulting price, and takes at most the first nine
 independent candidates. VIN is the preferred identity; a stable provider listing
 identity is the fallback when VIN is unavailable. Candidates without a usable
 identity do not strengthen the independent-evidence count. The selected set is
@@ -491,7 +514,7 @@ The default `ValuationDiscrepancyPolicy` is deliberately small and explicit:
 
 | Policy field | Default | Meaning |
 | --- | ---: | --- |
-| `maxComparisonSet` | 5 | Analyze at most the five strongest independently identified candidates |
+| `maxComparisonSet` | 9 | Analyze at most the nine strongest independently identified candidates |
 | `minimumIndependentCount` | 3 | Require three independent candidates for a directional classification |
 | `strongHistoricalMinimum` | 5 | Require five coherent historical candidates for strong evidence |
 | `potentialGapBasisPoints` | 500 | A median difference of 5% begins the potential-undervalue band |
@@ -502,17 +525,17 @@ These are Venfour analysis-policy thresholds, not legal or industry standards.
 Every boundary is inclusive at its named threshold and is covered by deterministic
 boundary tests.
 
-Five is an odd, bounded set large enough for the median to resist one extreme
-price; three is the first count where one listing cannot determine that median by
-itself. The three count policy fields have a non-configurable floor of three, so
-no caller can create a strong or material signal from one or two listings. Strong
-evidence requires the full default set. The 5% and 10% bands are conservative
-screening cutoffs, with the stronger band additionally requiring strong loss-date
-evidence. The 20% robust-dispersion boundary uses the larger of relative MAD and
-the one-outlier-resistant central half-range, preventing either ordinary spread
-or a broad bimodal set from being presented with false precision. Callers may
-supply a different validated policy above the evidence floor, and every result
-records the policy it used.
+Nine is an odd, bounded set that can represent a broader strong-comparable pool
+while retaining a deterministic factual-similarity cutoff; three is the first
+count where one listing cannot determine the median by itself. The three count
+policy fields have a non-configurable floor of three, so no caller can create a
+strong or material signal from one or two listings. The 5% and 10% bands are
+conservative screening cutoffs, with the stronger band additionally requiring
+strong loss-date evidence. The 20% robust-dispersion boundary uses the larger of
+relative MAD and the one-outlier-resistant central half-range, preventing either
+ordinary spread or a broad bimodal set from being presented with false precision.
+Callers may supply a different validated policy above the evidence floor, and
+every result records the policy it used.
 
 Classification proceeds conservatively. Unusable valuation inputs, a zero
 comparison denominator, or fewer than three independent selected comparables

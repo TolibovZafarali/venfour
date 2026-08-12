@@ -24,6 +24,12 @@ from tests.test_analysis_runs import (
     make_report,
 )
 from venfour.analysis_runs import AnalysisRunNotFoundError, FileAnalysisRunRepository
+from venfour.adaptive_search import (
+    DEFAULT_ADAPTIVE_SEARCH_POLICY,
+    DEFAULT_SEARCH_STAGES,
+    AdaptiveSearchPolicy,
+    SearchStage,
+)
 from venfour.api import create_app
 from venfour.creation import (
     AnalysisCreationService,
@@ -140,15 +146,22 @@ class AnalysisCreationTestCase(unittest.TestCase):
 
 
 class AnalysisCreationApplicationFlowTests(AnalysisCreationTestCase):
+    def test_search_settings_default_to_adaptive_server_policy(self) -> None:
+        self.assertIs(
+            AnalysisSearchSettings().search_policy,
+            DEFAULT_ADAPTIVE_SEARCH_POLICY,
+        )
+
     def test_uploaded_pdf_creates_persisted_run_and_retrievable_presentation(
         self,
     ) -> None:
         extractor = RecordingExtractor(make_report())
         settings = AnalysisSearchSettings(
-            current_radius_miles=61,
-            current_result_limit=17,
-            historical_radius_miles=42,
-            historical_result_limit=13,
+            search_policy=AdaptiveSearchPolicy(
+                stages=(SearchStage(61, 17), SearchStage(123, 33)),
+                minimum_strong_matches=6,
+                max_unique_candidates=100,
+            )
         )
         service, current, historical, observed_dates = self.make_service(
             extractor,
@@ -175,16 +188,30 @@ class AnalysisCreationApplicationFlowTests(AnalysisCreationTestCase):
         self.assertEqual(
             observed_dates, [date.fromisoformat(CURRENT_OBSERVED_DATE)]
         )
-        self.assertEqual(len(current.requests), 1)
-        self.assertEqual(current.requests[0].radius_miles, 61)
-        self.assertEqual(current.requests[0].result_limit, 17)
-        self.assertEqual(len(historical.requests), 1)
-        self.assertEqual(historical.requests[0].radius_miles, 42)
-        self.assertEqual(historical.requests[0].result_limit, 13)
-        self.assertEqual(historical.requests[0].evidence_date, "2026-05-19")
         self.assertEqual(
-            self.repository.get(RUN_ID_1).request["currentObservedDate"],
-            CURRENT_OBSERVED_DATE,
+            [
+                (request.radius_miles, request.result_limit)
+                for request in current.requests
+            ],
+            [(61, 17), (123, 33)],
+        )
+        self.assertEqual(
+            [
+                (request.radius_miles, request.result_limit)
+                for request in historical.requests
+            ],
+            [(61, 17), (123, 33)],
+        )
+        self.assertEqual(
+            {request.evidence_date for request in historical.requests},
+            {"2026-05-19"},
+        )
+        persisted_request = self.repository.get(RUN_ID_1).to_dict()["request"]
+        self.assertEqual(
+            persisted_request["currentObservedDate"], CURRENT_OBSERVED_DATE
+        )
+        self.assertEqual(
+            persisted_request["searchPolicy"], settings.search_policy.to_dict()
         )
 
     def test_missing_report_loss_date_creates_current_market_only_run(self) -> None:
@@ -200,7 +227,16 @@ class AnalysisCreationApplicationFlowTests(AnalysisCreationTestCase):
             fetched = client.get(f"/api/v1/analyses/{RUN_ID_1}")
 
         self.assertEqual(created.status_code, 201)
-        self.assertEqual(len(current.requests), 1)
+        self.assertEqual(
+            [
+                (request.radius_miles, request.result_limit)
+                for request in current.requests
+            ],
+            [
+                (stage.radius_miles, stage.result_limit)
+                for stage in DEFAULT_SEARCH_STAGES
+            ],
+        )
         self.assertEqual(historical.requests, [])
         artifact = self.repository.get(RUN_ID_1).to_dict()
         self.assertIsNone(artifact["request"]["historicalSearchRequest"])
@@ -518,10 +554,24 @@ class AnalysisCreationLiveCompositionTests(AnalysisCreationTestCase):
             historical_arguments,
             [("fixture-market-key", observed_date)],
         )
-        self.assertEqual(current.requests[0].radius_miles, 50)
-        self.assertEqual(current.requests[0].result_limit, 25)
-        self.assertEqual(historical.requests[0].radius_miles, 50)
-        self.assertEqual(historical.requests[0].result_limit, 25)
+        expected_stages = [
+            (stage.radius_miles, stage.result_limit)
+            for stage in DEFAULT_SEARCH_STAGES
+        ]
+        self.assertEqual(
+            [
+                (request.radius_miles, request.result_limit)
+                for request in current.requests
+            ],
+            expected_stages,
+        )
+        self.assertEqual(
+            [
+                (request.radius_miles, request.result_limit)
+                for request in historical.requests
+            ],
+            expected_stages,
+        )
         self.assertEqual(self.repository.get(result.run_id).run_id, result.run_id)
 
 

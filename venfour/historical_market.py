@@ -523,8 +523,17 @@ def validate_historical_market_search_result(
             "MISSING_LISTING_IDENTITY",
             "PAGINATION_SAFETY_LIMIT_REACHED",
             "INCOMPLETE_PROVIDER_PAGINATION",
+            "CANDIDATE_VERIFICATION_LIMIT_REACHED",
         } and not has_identity:
             details.append(f"$.issues[{index}]: an identity field is required")
+        if (
+            issue["reason"] == "CANDIDATE_VERIFICATION_LIMIT_REACHED"
+            and has_identity
+        ):
+            details.append(
+                f"$.issues[{index}]: candidate verification limit must be a "
+                "global issue without an identity"
+            )
         if (
             issue["reason"]
             in {"PAGINATION_SAFETY_LIMIT_REACHED", "INCOMPLETE_PROVIDER_PAGINATION"}
@@ -545,6 +554,15 @@ def validate_historical_market_search_result(
             details.append(
                 f"$.issues[{index}]: ambiguous status and reason must agree"
             )
+
+    verification_limit_issue_count = sum(
+        issue["reason"] == "CANDIDATE_VERIFICATION_LIMIT_REACHED"
+        for issue in data["issues"]
+    )
+    if verification_limit_issue_count > 1:
+        details.append(
+            "$.issues: candidate verification limit may appear at most once"
+        )
 
     if data["coverage"]["status"] == OUT_OF_PROVIDER_RANGE and (
         data["evidence"] or data["issues"]

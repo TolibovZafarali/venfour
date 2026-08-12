@@ -108,7 +108,7 @@
         "maxComparisonSet": {
           "type": "integer",
           "minimum": 3,
-          "default": 5
+          "default": 9
         },
         "minimumIndependentCount": {
           "type": "integer",
@@ -945,7 +945,8 @@
             "UNVERIFIABLE_RECORD_CONTEXT",
             "MULTIPLE_SOURCE_RECORDS_ON_EVIDENCE_DATE",
             "PAGINATION_SAFETY_LIMIT_REACHED",
-            "INCOMPLETE_PROVIDER_PAGINATION"
+            "INCOMPLETE_PROVIDER_PAGINATION",
+            "CANDIDATE_VERIFICATION_LIMIT_REACHED"
           ]
         },
         "vin": {

@@ -61,6 +61,7 @@ MARKETCHECK_HISTORICAL_MAX_PAGES = 10
 MARKETCHECK_HISTORICAL_MIN_ROWS = 10
 MARKETCHECK_VIN_HISTORY_MAX_PAGES = 10
 MARKETCHECK_VIN_HISTORY_PAGE_SIZE = 50
+MARKETCHECK_VIN_HISTORY_MAX_VERIFICATIONS = 100
 DEFAULT_TIMEOUT_SECONDS = 15.0
 
 QueryValue = str | int
@@ -716,6 +717,12 @@ class _HistoricalCandidate:
     listing: MarketListing
 
 
+@dataclass(frozen=True)
+class _VinHistoryFetchOutcome:
+    records: tuple[Mapping[str, Any], ...]
+    issue: HistoricalEvidenceIssue | None = None
+
+
 class MarketCheckHistoricalProvider(MarketCheckProvider):
     """Discover dated candidate VINs and verify them with VIN History.
 
@@ -732,7 +739,17 @@ class MarketCheckHistoricalProvider(MarketCheckProvider):
         as_of_date: date | str | None = None,
         timeout: float = DEFAULT_TIMEOUT_SECONDS,
         transport: MarketCheckTransport | None = None,
+        max_vin_verifications: int = MARKETCHECK_VIN_HISTORY_MAX_VERIFICATIONS,
     ) -> None:
+        if (
+            isinstance(max_vin_verifications, bool)
+            or not isinstance(max_vin_verifications, int)
+            or max_vin_verifications < 0
+        ):
+            raise ValueError(
+                "MarketCheck maximum VIN verifications must be a non-negative "
+                "integer"
+            )
         super().__init__(
             api_key,
             timeout=timeout,
@@ -744,13 +761,21 @@ class MarketCheckHistoricalProvider(MarketCheckProvider):
             if as_of_date is None
             else _coerce_calendar_date(as_of_date, "As-of date")
         )
+        self._max_vin_verifications = max_vin_verifications
+        self._vin_history_cache: dict[str, _VinHistoryFetchOutcome] = {}
 
     def __repr__(self) -> str:
         return (
             "MarketCheckHistoricalProvider("
             f"as_of_date={self._as_of_date.isoformat()!r}, "
-            f"timeout={self._timeout!r})"
+            f"timeout={self._timeout!r}, "
+            f"max_vin_verifications={self._max_vin_verifications!r})"
         )
+
+    def begin_historical_search_session(self) -> None:
+        """Start one analysis-scoped VIN cache and verification budget."""
+
+        self._vin_history_cache.clear()
 
     def _historical_params(
         self,
@@ -984,6 +1009,24 @@ class MarketCheckHistoricalProvider(MarketCheckProvider):
             reason="PAGINATION_SAFETY_LIMIT_REACHED",
             vin=candidate.vin,
         )
+
+    def _vin_history_outcome(
+        self,
+        candidate: _HistoricalCandidate,
+    ) -> _VinHistoryFetchOutcome | None:
+        """Reuse one VIN fetch or decline a new fetch after the hard budget."""
+
+        identity = candidate.vin.casefold()
+        cached = self._vin_history_cache.get(identity)
+        if cached is not None:
+            return cached
+        if len(self._vin_history_cache) >= self._max_vin_verifications:
+            return None
+
+        records, issue = self._fetch_vin_history(candidate)
+        outcome = _VinHistoryFetchOutcome(tuple(records), issue)
+        self._vin_history_cache[identity] = outcome
+        return outcome
 
     def _validate_history_record_vin(
         self,
@@ -1365,16 +1408,18 @@ class MarketCheckHistoricalProvider(MarketCheckProvider):
             return self._result(request, coverage, issues=issues)
 
         resolved_rows: list[tuple[int, HistoricalEvidenceItem]] = []
+        verification_limit_reached = False
         for candidate in candidates:
-            records, pagination_issue = self._fetch_vin_history(
-                candidate,
-            )
-            if pagination_issue is not None:
-                issue_rows.append((candidate.response_index, pagination_issue))
+            outcome = self._vin_history_outcome(candidate)
+            if outcome is None:
+                verification_limit_reached = True
+                continue
+            if outcome.issue is not None:
+                issue_rows.append((candidate.response_index, outcome.issue))
                 continue
             evidence, issue = self._resolve_vin_history(
                 candidate,
-                records,
+                list(outcome.records),
                 request,
             )
             if evidence is not None:
@@ -1389,6 +1434,13 @@ class MarketCheckHistoricalProvider(MarketCheckProvider):
             [item for _, item in resolved_rows],
         )
         issues = [item for _, item in issue_rows]
+        if verification_limit_reached:
+            issues.append(
+                HistoricalEvidenceIssue(
+                    status=UNRESOLVED,
+                    reason="CANDIDATE_VERIFICATION_LIMIT_REACHED",
+                )
+            )
         return self._result(request, coverage, resolved, issues)
 
 
@@ -1401,6 +1453,7 @@ __all__ = [
     "MARKETCHECK_MAX_ROWS",
     "MARKETCHECK_PAST_INVENTORY_URL",
     "MARKETCHECK_VIN_HISTORY_MAX_PAGES",
+    "MARKETCHECK_VIN_HISTORY_MAX_VERIFICATIONS",
     "MARKETCHECK_VIN_HISTORY_PAGE_SIZE",
     "MARKETCHECK_VIN_HISTORY_URL",
     "MarketCheckHistoricalProvider",

@@ -649,7 +649,7 @@ class DiscrepancyScenarioTests(unittest.TestCase):
         )
 
     def test_shared_exclusion_reason_is_aggregated_across_temporal_streams(self) -> None:
-        prices = [2_000_000 + index for index in range(6)]
+        prices = [2_000_000 + index for index in range(10)]
         result = analyze_valuation_discrepancy(
             make_request(
                 historical=make_historical_input(prices),
@@ -919,7 +919,7 @@ class SelectionAndDeterminismTests(unittest.TestCase):
         ]
 
         self.assertEqual(baseline_ids, changed_ids)
-        self.assertEqual(baseline_ids, [f"synthetic-listing-{i:03d}" for i in range(1, 6)])
+        self.assertEqual(baseline_ids, [f"synthetic-listing-{i:03d}" for i in range(1, 7)])
 
     def test_duplicate_vin_and_missing_identity_are_excluded_by_rank_not_price(self) -> None:
         current = make_current_input(
@@ -996,7 +996,7 @@ class PolicyBoundaryTests(unittest.TestCase):
         self.assertEqual(
             policy.to_dict(),
             {
-                "maxComparisonSet": 5,
+                "maxComparisonSet": 9,
                 "minimumIndependentCount": 3,
                 "strongHistoricalMinimum": 5,
                 "potentialGapBasisPoints": 500,
@@ -1122,14 +1122,44 @@ class PolicyBoundaryTests(unittest.TestCase):
                 self.assertIn("CCC_BELOW_EXTERNAL_RANGE", codes)
 
     def test_comparison_set_limit_below_exact_and_above(self) -> None:
-        for count in (4, 5, 6):
+        for count in (8, 9, 10):
             with self.subTest(count=count):
                 result = analyze_prices([2_000_000 + index for index in range(count)])
                 summary = result.historical_external_summary
-                self.assertEqual(summary.selected_count, min(5, count))
+                self.assertEqual(summary.selected_count, min(9, count))
                 self.assertEqual(
-                    summary.comparison_set_limit_excluded_count, max(0, count - 5)
+                    summary.comparison_set_limit_excluded_count, max(0, count - 9)
                 )
+
+        capped = analyze_prices([2_000_000 + index for index in range(10)])
+        self.assertEqual(
+            [
+                row.source_listing_id
+                for row in capped.historical_external_summary.selected_evidence
+            ],
+            [f"synthetic-listing-{index:03d}" for index in range(1, 10)],
+        )
+
+    def test_nine_row_dispersion_keeps_the_documented_one_outlier_rule(self) -> None:
+        result = analyze_prices(
+            [1_000_000 + index * 100_000 for index in range(9)],
+            ccc_vehicle_valuation_cents=1_400_000,
+        )
+        prices = result.historical_external_summary.prices
+
+        self.assertEqual(prices.median_price_cents, 1_400_000)
+        self.assertEqual(prices.central_half_range_cents, 300_000)
+
+    def test_larger_set_does_not_hide_selected_weak_candidates(self) -> None:
+        result = analyze_prices(
+            [2_200_000] * 9,
+            weak_indices={8, 9},
+        )
+        summary = result.historical_external_summary
+
+        self.assertEqual(summary.selected_count, 9)
+        self.assertEqual(summary.selected_weak_count, 2)
+        self.assertEqual(result.evidence_strength, MODERATE)
 
     def test_invalid_policy_relationships_and_unknown_fields_are_rejected(self) -> None:
         invalid = (

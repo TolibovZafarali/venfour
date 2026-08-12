@@ -162,7 +162,7 @@ class DiscrepancyContractError(Exception):
 class ValuationDiscrepancyPolicy:
     """Named Venfour policy thresholds, not legal or industry standards."""
 
-    max_comparison_set: int = 5
+    max_comparison_set: int = 9
     minimum_independent_count: int = 3
     strong_historical_minimum: int = 5
     potential_gap_basis_points: int = 500

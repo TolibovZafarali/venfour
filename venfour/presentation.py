@@ -432,6 +432,10 @@ HISTORICAL_ISSUE_REASON_COPY = MappingProxyType(
             "Provider pagination incomplete",
             "The provider response did not establish complete pagination coverage.",
         ),
+        "CANDIDATE_VERIFICATION_LIMIT_REACHED": (
+            "Historical verification limit reached",
+            "Historical verification reached the bounded candidate limit for this analysis.",
+        ),
     }
 )
 

@@ -14,6 +14,13 @@ from datetime import date, datetime, timezone
 from typing import Any
 from uuid import UUID, uuid4
 
+from venfour.adaptive_search import (
+    DEFAULT_ADAPTIVE_SEARCH_POLICY,
+    AdaptiveSearchContractError,
+    AdaptiveSearchPolicy,
+    adaptive_discover_historical_market_evidence,
+    adaptive_discover_market_listings,
+)
 from venfour.analysis_runs import (
     AnalysisRunArtifact,
     AnalysisRunContractError,
@@ -21,9 +28,10 @@ from venfour.analysis_runs import (
     AnalysisRunValidationUnavailableError,
     ProviderMetadata,
     discrepancy_request_digest,
+    search_diagnostics_digest,
     validate_analysis_run_artifact,
 )
-from venfour.comparables import ComparableContractError, rank_market_comparables
+from venfour.comparables import ComparableContractError
 from venfour.discrepancy import (
     CurrentEvidenceInput,
     DiscrepancyContractError,
@@ -36,11 +44,8 @@ from venfour.discrepancy import (
     valuation_discrepancy_request_from_report,
 )
 from venfour.historical_market import (
-    SUPPORTED,
     HistoricalMarketProvider,
     HistoricalMarketSearchRequest,
-    discover_historical_market_evidence,
-    historical_evidence_to_market_search_result,
     normalize_historical_market_search_request,
 )
 from venfour.market import (
@@ -48,7 +53,6 @@ from venfour.market import (
     MarketProvider,
     MarketProviderError,
     MarketSearchRequest,
-    discover_market_listings,
     normalize_market_search_request,
 )
 
@@ -114,33 +118,11 @@ def _canonical_date(value: str, path: str) -> str:
     return normalized
 
 
-def _validate_search_bounds(radius_miles: Any, result_limit: Any, path: str) -> None:
-    details: list[str] = []
-    if (
-        not isinstance(radius_miles, int)
-        or isinstance(radius_miles, bool)
-        or radius_miles < 0
-    ):
-        details.append(f"{path}.radiusMiles: expected a non-negative integer")
-    if (
-        not isinstance(result_limit, int)
-        or isinstance(result_limit, bool)
-        or result_limit < 1
-    ):
-        details.append(f"{path}.resultLimit: expected a positive integer")
-    if details:
-        raise AnalysisInputError(
-            "Market search configuration failed contract validation", tuple(details)
-        )
-
-
 @dataclass(frozen=True)
 class CurrentMarketSearchConfiguration:
-    """Explicit current retrieval bounds and temporal observation provenance."""
+    """Current-market observation provenance for an adaptive search."""
 
     observed_date: str
-    radius_miles: int = 50
-    result_limit: int = 25
 
     def __post_init__(self) -> None:
         object.__setattr__(
@@ -148,31 +130,19 @@ class CurrentMarketSearchConfiguration:
             "observed_date",
             _canonical_date(self.observed_date, "$.currentSearch.observedDate"),
         )
-        _validate_search_bounds(
-            self.radius_miles, self.result_limit, "$.currentSearch"
-        )
 
 
 @dataclass(frozen=True)
 class HistoricalMarketSearchConfiguration:
-    """Explicit historical retrieval bounds for the normalized loss date."""
-
-    radius_miles: int = 50
-    result_limit: int = 25
-
-    def __post_init__(self) -> None:
-        _validate_search_bounds(
-            self.radius_miles, self.result_limit, "$.historicalSearch"
-        )
+    """Enable adaptive historical retrieval for the normalized loss date."""
 
 
 @dataclass(frozen=True)
 class AnalysisRunRequest:
     """One complete application-layer analysis attempt.
 
-    Presence of a search configuration is the explicit retrieval policy for
-    that temporal stream.  No retry, widening, substitution, or weakness-based
-    fallback is performed.
+    Presence of a search configuration enables that temporal stream. The
+    server-owned adaptive policy controls every bounded search attempt.
     """
 
     ccc_report: Mapping[str, Any]
@@ -180,6 +150,9 @@ class AnalysisRunRequest:
     loss_date_override: str | None = None
     current_search: CurrentMarketSearchConfiguration | None = None
     historical_search: HistoricalMarketSearchConfiguration | None = None
+    search_policy: AdaptiveSearchPolicy = field(
+        default_factory=lambda: DEFAULT_ADAPTIVE_SEARCH_POLICY
+    )
     discrepancy_policy: ValuationDiscrepancyPolicy = field(
         default_factory=ValuationDiscrepancyPolicy
     )
@@ -225,6 +198,8 @@ class AnalysisRunRequest:
             )
         if not isinstance(self.discrepancy_policy, ValuationDiscrepancyPolicy):
             raise AnalysisInputError("Discrepancy policy is invalid")
+        if not isinstance(self.search_policy, AdaptiveSearchPolicy):
+            raise AnalysisInputError("Adaptive search policy is invalid")
 
 
 @dataclass(frozen=True)
@@ -366,8 +341,9 @@ class AnalysisOrchestrator:
 
     @staticmethod
     def _current_request(
-        base: Any, config: CurrentMarketSearchConfiguration
+        base: Any, policy: AdaptiveSearchPolicy
     ) -> MarketSearchRequest:
+        first_stage = policy.stages[0]
         return normalize_market_search_request(
             MarketSearchRequest(
                 year=base.loss_vehicle.year,
@@ -376,14 +352,14 @@ class AnalysisOrchestrator:
                 trim=base.loss_vehicle.trim,
                 loss_vehicle_mileage=base.loss_vehicle.mileage,
                 postal_code=base.loss_vehicle.postal_code,
-                radius_miles=config.radius_miles,
-                result_limit=config.result_limit,
+                radius_miles=first_stage.radius_miles,
+                result_limit=first_stage.result_limit,
             )
         )
 
     @staticmethod
     def _historical_request(
-        base: Any, config: HistoricalMarketSearchConfiguration
+        base: Any, policy: AdaptiveSearchPolicy
     ) -> HistoricalMarketSearchRequest:
         if base.loss_date is None:
             raise AnalysisInputError(
@@ -395,6 +371,7 @@ class AnalysisOrchestrator:
                 "Historical retrieval requires a verified postal code",
                 ("$.postalCode: historical search is configured",),
             )
+        first_stage = policy.stages[0]
         return normalize_historical_market_search_request(
             HistoricalMarketSearchRequest(
                 evidence_date=base.loss_date,
@@ -404,8 +381,8 @@ class AnalysisOrchestrator:
                 trim=base.loss_vehicle.trim,
                 loss_vehicle_mileage=base.loss_vehicle.mileage,
                 postal_code=base.loss_vehicle.postal_code,
-                radius_miles=config.radius_miles,
-                result_limit=config.result_limit,
+                radius_miles=first_stage.radius_miles,
+                result_limit=first_stage.result_limit,
             )
         )
 
@@ -431,12 +408,12 @@ class AnalysisOrchestrator:
 
         try:
             current_search_request = (
-                self._current_request(base_request, request.current_search)
+                self._current_request(base_request, request.search_policy)
                 if request.current_search is not None
                 else None
             )
             historical_search_request = (
-                self._historical_request(base_request, request.historical_search)
+                self._historical_request(base_request, request.search_policy)
                 if request.historical_search is not None
                 else None
             )
@@ -457,30 +434,39 @@ class AnalysisOrchestrator:
         historical_result = None
         historical_ranking = None
         historical_input = None
+        historical_diagnostics = None
         if historical_search_request is not None:
             try:
-                historical_result = discover_historical_market_evidence(
-                    historical_search_request, self._historical_provider
+                adaptive_historical = adaptive_discover_historical_market_evidence(
+                    historical_search_request,
+                    self._historical_provider,
+                    request.search_policy,
+                    target=base_request.loss_vehicle,
                 )
+                historical_result = adaptive_historical.result
+                historical_ranking = adaptive_historical.ranking
+                historical_diagnostics = adaptive_historical.diagnostics
             except MarketProviderError as exc:
                 raise AnalysisRetrievalError(
                     "historical", type(exc).__name__
                 ) from exc
+            except (
+                AdaptiveSearchContractError,
+                MarketContractError,
+                ComparableContractError,
+            ) as exc:
+                raise AnalysisExecutionError(
+                    "Historical evidence search could not complete"
+                ) from exc
             try:
-                if (
-                    historical_result.coverage.status == SUPPORTED
-                    and historical_result.listing_count > 0
-                ):
-                    projected = historical_evidence_to_market_search_result(
-                        historical_result
-                    )
-                    historical_ranking = rank_market_comparables(
-                        base_request.loss_vehicle, projected
-                    )
                 historical_input = HistoricalEvidenceInput(
                     result=historical_result, ranking=historical_ranking
                 )
-            except (MarketContractError, ComparableContractError) as exc:
+            except (
+                AdaptiveSearchContractError,
+                MarketContractError,
+                ComparableContractError,
+            ) as exc:
                 raise AnalysisExecutionError(
                     "Historical evidence could not be ranked"
                 ) from exc
@@ -488,22 +474,34 @@ class AnalysisOrchestrator:
         current_result = None
         current_ranking = None
         current_input = None
+        current_diagnostics = None
         if current_search_request is not None:
             try:
-                current_result = discover_market_listings(
-                    current_search_request, self._current_provider
+                adaptive_current = adaptive_discover_market_listings(
+                    current_search_request,
+                    self._current_provider,
+                    request.search_policy,
+                    target=base_request.loss_vehicle,
                 )
+                current_result = adaptive_current.result
+                current_ranking = adaptive_current.ranking
+                current_diagnostics = adaptive_current.diagnostics
             except MarketProviderError as exc:
                 raise AnalysisRetrievalError("current", type(exc).__name__) from exc
+            except (
+                AdaptiveSearchContractError,
+                MarketContractError,
+                ComparableContractError,
+            ) as exc:
+                raise AnalysisExecutionError(
+                    "Current evidence search could not complete"
+                ) from exc
             try:
-                current_ranking = rank_market_comparables(
-                    base_request.loss_vehicle, current_result
-                )
                 current_input = CurrentEvidenceInput(
                     ranking=current_ranking,
                     observed_date=request.current_search.observed_date,
                 )
-            except ComparableContractError as exc:
+            except (AdaptiveSearchContractError, ComparableContractError) as exc:
                 raise AnalysisExecutionError(
                     "Current evidence could not be ranked"
                 ) from exc
@@ -548,10 +546,26 @@ class AnalysisOrchestrator:
             else None
         )
         discrepancy_request_data = discrepancy_request.to_dict()
+        search_policy_data = request.search_policy.to_dict()
+        search_diagnostics_data = {
+            "current": (
+                current_diagnostics.to_dict()
+                if current_diagnostics is not None
+                else None
+            ),
+            "historical": (
+                historical_diagnostics.to_dict()
+                if historical_diagnostics is not None
+                else None
+            ),
+        }
         artifact = AnalysisRunArtifact(
             run_id=run_id,
             created_at=created_at,
             request_digest=discrepancy_request_digest(discrepancy_request_data),
+            search_diagnostics_digest=search_diagnostics_digest(
+                search_policy_data, search_diagnostics_data
+            ),
             providers={
                 "current": current_metadata,
                 "historical": historical_metadata,
@@ -569,13 +583,13 @@ class AnalysisOrchestrator:
                     else None
                 ),
                 "currentSearchRequest": (
-                    current_search_request.to_dict()
-                    if current_search_request is not None
+                    current_result.request.to_dict()
+                    if current_result is not None
                     else None
                 ),
                 "historicalSearchRequest": (
-                    historical_search_request.to_dict()
-                    if historical_search_request is not None
+                    historical_result.request.to_dict()
+                    if historical_result is not None
                     else None
                 ),
                 "currentObservedDate": (
@@ -583,6 +597,7 @@ class AnalysisOrchestrator:
                     if request.current_search is not None
                     else None
                 ),
+                "searchPolicy": search_policy_data,
             },
             result={
                 "currentMarketResult": (
@@ -603,6 +618,7 @@ class AnalysisOrchestrator:
                 ),
                 "discrepancyRequest": discrepancy_request_data,
                 "discrepancyResult": discrepancy_result.to_dict(),
+                "searchDiagnostics": search_diagnostics_data,
             },
         )
         try:

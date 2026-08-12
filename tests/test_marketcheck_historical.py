@@ -13,6 +13,15 @@ from pathlib import Path
 from typing import Any
 from urllib.error import HTTPError, URLError
 
+from venfour.adaptive_search import (
+    AdaptiveSearchPolicy,
+    SearchStage,
+    adaptive_discover_historical_market_evidence,
+)
+from venfour.comparables import (
+    comparable_target_from_search_request,
+    rank_market_comparables,
+)
 from venfour.historical_market import (
     AMBIGUOUS,
     OUT_OF_PROVIDER_RANGE,
@@ -20,6 +29,7 @@ from venfour.historical_market import (
     UNRESOLVED,
     HistoricalMarketSearchRequest,
     discover_historical_market_evidence,
+    historical_evidence_to_market_search_result,
 )
 from venfour.market import (
     MarketContractError,
@@ -32,6 +42,7 @@ from venfour.marketcheck import (
     MARKETCHECK_HISTORICAL_MAX_PAGES,
     MARKETCHECK_PAST_INVENTORY_URL,
     MARKETCHECK_VIN_HISTORY_MAX_PAGES,
+    MARKETCHECK_VIN_HISTORY_MAX_VERIFICATIONS,
     MARKETCHECK_VIN_HISTORY_PAGE_SIZE,
     MARKETCHECK_VIN_HISTORY_URL,
     MarketCheckHistoricalProvider,
@@ -776,6 +787,159 @@ class MarketCheckHistoricalCandidateDiscoveryTests(unittest.TestCase):
         self.assertIsNone(result.issues[-1].vin)
 
 
+class MarketCheckHistoricalVerificationBudgetTests(unittest.TestCase):
+    def test_adaptive_search_resets_budget_between_analysis_sessions(self) -> None:
+        first_candidate = make_candidate(1)
+        second_candidate = make_candidate(2)
+        transport = RecordingTransport(
+            [
+                make_candidate_page([first_candidate], 1),
+                [make_history(1)],
+                make_candidate_page([second_candidate], 1),
+                [make_history(2)],
+            ]
+        )
+        provider = MarketCheckHistoricalProvider(
+            SYNTHETIC_KEY,
+            as_of_date=AS_OF_DATE,
+            transport=transport,
+            max_vin_verifications=1,
+        )
+        policy = AdaptiveSearchPolicy(
+            stages=(SearchStage(50, 1),),
+            minimum_strong_matches=1,
+            max_unique_candidates=1,
+        )
+
+        first = adaptive_discover_historical_market_evidence(
+            make_request(result_limit=1), provider, policy
+        )
+        second = adaptive_discover_historical_market_evidence(
+            make_request(result_limit=1), provider, policy
+        )
+
+        self.assertEqual(first.result.listing_count, 1)
+        self.assertEqual(second.result.listing_count, 1)
+        self.assertEqual(len(history_calls(transport)), 2)
+        self.assertEqual(transport.outcomes, [])
+
+    def test_cross_scope_cache_is_case_insensitive_and_price_independent(
+        self,
+    ) -> None:
+        first_candidate = make_candidate(
+            1,
+            vin="SYNTHETIC-SHARED-VIN",
+            price=1,
+        )
+        cached_candidate = make_candidate(
+            1,
+            vin="synthetic-shared-vin",
+            price=999_999,
+        )
+        uncached_candidate = make_candidate(2, price=24_567)
+        history = make_history(
+            1,
+            vin="Synthetic-Shared-Vin",
+            price=25_123,
+        )
+        transport = RecordingTransport(
+            [
+                make_candidate_page([first_candidate], 1),
+                [history],
+                make_candidate_page([uncached_candidate, cached_candidate], 2),
+            ]
+        )
+        provider = MarketCheckHistoricalProvider(
+            SYNTHETIC_KEY,
+            as_of_date=AS_OF_DATE,
+            transport=transport,
+            max_vin_verifications=1,
+        )
+
+        first_result = discover_historical_market_evidence(
+            make_request(radius_miles=50, result_limit=1),
+            provider,
+        )
+        expanded_result = discover_historical_market_evidence(
+            make_request(radius_miles=200, result_limit=2),
+            provider,
+        )
+
+        self.assertEqual(first_result.listing_count, 1)
+        self.assertEqual(expanded_result.listing_count, 1)
+        self.assertEqual(len(candidate_calls(transport)), 2)
+        self.assertEqual(len(history_calls(transport)), 1)
+        self.assertEqual(transport.outcomes, [])
+        self.assertEqual(
+            expanded_result.evidence[0].listing.vin,
+            cached_candidate["vin"],
+        )
+        self.assertEqual(expanded_result.evidence[0].listing.price, history["price"])
+        self.assertEqual(len(expanded_result.issues), 1)
+        issue = expanded_result.issues[0]
+        self.assertEqual(issue.status, UNRESOLVED)
+        self.assertEqual(issue.reason, "CANDIDATE_VERIFICATION_LIMIT_REACHED")
+        self.assertIsNone(issue.vin)
+        self.assertIsNone(issue.source_listing_id)
+
+        projected = historical_evidence_to_market_search_result(expanded_result)
+        ranking = rank_market_comparables(
+            comparable_target_from_search_request(projected.request),
+            projected,
+        )
+        self.assertEqual(projected.listing_count, 1)
+        self.assertEqual(ranking.total_listing_count, 1)
+        self.assertEqual(ranking.eligible_count, 1)
+
+    def test_default_budget_stops_after_one_hundred_unique_vins(self) -> None:
+        self.assertEqual(MARKETCHECK_VIN_HISTORY_MAX_VERIFICATIONS, 100)
+        candidates = [
+            make_candidate(index)
+            for index in range(1, MARKETCHECK_VIN_HISTORY_MAX_VERIFICATIONS + 2)
+        ]
+        candidate_pages = [
+            make_candidate_page(
+                candidates[:50],
+                MARKETCHECK_VIN_HISTORY_MAX_VERIFICATIONS + 1,
+            ),
+            make_candidate_page(
+                candidates[50:100],
+                MARKETCHECK_VIN_HISTORY_MAX_VERIFICATIONS + 1,
+            ),
+            make_candidate_page(
+                candidates[100:],
+                MARKETCHECK_VIN_HISTORY_MAX_VERIFICATIONS + 1,
+            ),
+        ]
+        histories = [
+            [make_history(index)]
+            for index in range(1, MARKETCHECK_VIN_HISTORY_MAX_VERIFICATIONS + 1)
+        ]
+
+        result, transport = search_with(
+            [*candidate_pages, *histories],
+            make_request(
+                result_limit=MARKETCHECK_VIN_HISTORY_MAX_VERIFICATIONS + 1
+            ),
+        )
+
+        self.assertEqual(
+            len(history_calls(transport)),
+            MARKETCHECK_VIN_HISTORY_MAX_VERIFICATIONS,
+        )
+        self.assertEqual(
+            result.listing_count,
+            MARKETCHECK_VIN_HISTORY_MAX_VERIFICATIONS,
+        )
+        self.assertEqual(transport.outcomes, [])
+        self.assertEqual(len(result.issues), 1)
+        issue = result.issues[0]
+        self.assertEqual(issue.status, UNRESOLVED)
+        self.assertEqual(issue.reason, "CANDIDATE_VERIFICATION_LIMIT_REACHED")
+        self.assertIsNone(issue.vin)
+        self.assertIsNone(issue.source_listing_id)
+
+
 class MarketCheckHistoricalLifecycleTests(unittest.TestCase):
     def run_one_history(
         self,
@@ -892,6 +1056,20 @@ class MarketCheckHistoricalLifecycleTests(unittest.TestCase):
 
         self.assertEqual(result.listing_count, 1)
         self.assertEqual(result.issues, ())
+
+    def test_price_only_conflict_is_ambiguous_not_directionally_selected(self) -> None:
+        low = make_history(price=1)
+        high = copy.deepcopy(low)
+        high["price"] = 999999
+
+        result = self.run_one_history([high, low])
+
+        self.assertEqual(result.evidence, ())
+        self.assertEqual(result.ambiguous_count, 1)
+        self.assertEqual(
+            result.issues[0].reason,
+            "MULTIPLE_SOURCE_RECORDS_ON_EVIDENCE_DATE",
+        )
 
     def test_malformed_timestamp_sibling_invalidates_vin_conservatively(self) -> None:
         valid = make_history()
