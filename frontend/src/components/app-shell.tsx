@@ -1,11 +1,6 @@
-import { NavLink, Outlet, useMatch } from "react-router";
+import { Link, Outlet, useMatch } from "react-router";
 
 import { cn } from "@/lib/utils";
-
-const navigation = [
-  { to: "/", label: "Home", end: true },
-  { to: "/workspace", label: "Workspace", end: false },
-] as const;
 
 export function AppShell() {
   const analysisRoute = useMatch("/analyses/:runId");
@@ -19,36 +14,18 @@ export function AppShell() {
             analysisRoute ? "max-w-[90rem] lg:px-10" : "max-w-6xl",
           )}
         >
-          <NavLink
+          <Link
             to="/"
             className="text-[1.05rem] font-semibold tracking-[-0.035em]"
             aria-label="Venfour home"
           >
             Venfour
-          </NavLink>
+          </Link>
           {analysisRoute ? (
             <span className="text-xs font-medium tracking-[0.12em] text-neutral-500 uppercase">
               Valuation review
             </span>
-          ) : (
-            <nav aria-label="Primary navigation" className="flex gap-1">
-              {navigation.map((item) => (
-                <NavLink
-                  key={item.to}
-                  to={item.to}
-                  end={item.end}
-                  className={({ isActive }) =>
-                    cn(
-                      "rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
-                      isActive && "bg-muted text-foreground",
-                    )
-                  }
-                >
-                  {item.label}
-                </NavLink>
-              ))}
-            </nav>
-          )}
+          ) : null}
         </div>
       </header>
       <main className="flex flex-1">

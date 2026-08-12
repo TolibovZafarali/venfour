@@ -33,34 +33,46 @@ export function createApiClient({
   baseUrl,
   fetchImplementation,
 }: ApiClientOptions) {
+  async function request<T>(path: string, init: RequestInit): Promise<T> {
+    const executeRequest = fetchImplementation ?? globalThis.fetch;
+    const response = await executeRequest(buildRequestUrl(baseUrl, path), init);
+
+    let payload: unknown;
+    try {
+      payload = await response.json();
+    } catch {
+      throw new ApiError("The API returned an invalid JSON response.", 502);
+    }
+
+    if (!response.ok) {
+      if (isApiErrorResponse(payload)) {
+        throw new ApiError(
+          payload.error.message,
+          response.status,
+          payload.error.code,
+        );
+      }
+      throw new ApiError("The API request failed.", response.status);
+    }
+
+    return payload as T;
+  }
+
   return {
     async get<T>(path: string, signal?: AbortSignal): Promise<T> {
-      const executeRequest = fetchImplementation ?? globalThis.fetch;
-      const response = await executeRequest(buildRequestUrl(baseUrl, path), {
+      return request<T>(path, {
         method: "GET",
         headers: { Accept: "application/json" },
         signal,
       });
+    },
 
-      let payload: unknown;
-      try {
-        payload = await response.json();
-      } catch {
-        throw new ApiError("The API returned an invalid JSON response.", 502);
-      }
-
-      if (!response.ok) {
-        if (isApiErrorResponse(payload)) {
-          throw new ApiError(
-            payload.error.message,
-            response.status,
-            payload.error.code,
-          );
-        }
-        throw new ApiError("The API request failed.", response.status);
-      }
-
-      return payload as T;
+    async postForm<T>(path: string, body: FormData): Promise<T> {
+      return request<T>(path, {
+        method: "POST",
+        headers: { Accept: "application/json" },
+        body,
+      });
     },
   };
 }

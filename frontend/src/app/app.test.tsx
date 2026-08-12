@@ -1,5 +1,4 @@
 import { screen } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import { describe, expect, test } from "vitest";
 
 import { renderTestApp } from "@/test/render";
@@ -10,22 +9,16 @@ describe("Venfour application", () => {
 
     expect(
       screen.getByRole("heading", {
-        name: "Understand the evidence behind your vehicle valuation.",
+        name: "Know how your vehicle valuation compares.",
       }),
     ).toBeInTheDocument();
   });
 
-  test("navigates to the workspace and loads health through MSW", async () => {
-    const user = userEvent.setup();
-    renderTestApp();
-
-    await user.click(screen.getByRole("link", { name: "Open workspace" }));
+  test("does not expose the placeholder workspace route", () => {
+    renderTestApp(["/workspace"]);
 
     expect(
-      screen.getByRole("heading", { name: "Your valuation workspace" }),
-    ).toBeInTheDocument();
-    expect(
-      await screen.findByText("Backend connection is available."),
+      screen.getByRole("heading", { name: "Page not found" }),
     ).toBeInTheDocument();
   });
 

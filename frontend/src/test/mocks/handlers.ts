@@ -1,6 +1,9 @@
 import { http, HttpResponse } from "msw";
 
-import type { HealthResponse } from "@/lib/api/contracts";
+import type {
+  CreateAnalysisResponse,
+  HealthResponse,
+} from "@/lib/api/contracts";
 import {
   materialUndervalueAnalysis,
   representativeRunId,
@@ -9,6 +12,12 @@ import {
 export const handlers = [
   http.get("*/health", () =>
     HttpResponse.json<HealthResponse>({ status: "ok" }),
+  ),
+  http.post("*/api/v1/analyses", () =>
+    HttpResponse.json<CreateAnalysisResponse>(
+      { runId: representativeRunId },
+      { status: 201 },
+    ),
   ),
   http.get("*/api/v1/analyses/:runId", ({ params }) => {
     if (params.runId === representativeRunId) {

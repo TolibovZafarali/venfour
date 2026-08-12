@@ -1,38 +1,64 @@
-import { Link } from "react-router";
-
-import { Button } from "@/components/ui/button";
+import { StartAnalysisForm } from "@/features/analyses/components/start-analysis-form";
 
 export function HomePage() {
   return (
-    <section className="mx-auto grid w-full max-w-6xl items-center gap-12 px-6 py-16 md:grid-cols-[minmax(0,1.2fr)_minmax(18rem,0.8fr)] md:py-24">
-      <div className="max-w-3xl">
-        <p className="mb-4 text-sm font-semibold tracking-wide text-muted-foreground uppercase">
-          Total-loss valuation guidance
-        </p>
-        <h1 className="text-4xl font-semibold tracking-tight text-balance sm:text-5xl">
-          Understand the evidence behind your vehicle valuation.
-        </h1>
-        <p className="mt-6 max-w-2xl text-lg leading-8 text-muted-foreground">
-          Venfour is building a clear, self-service way to review an insurer's
-          valuation and the independent market evidence that matters.
-        </p>
-        <div className="mt-8">
-          <Button asChild size="lg">
-            <Link to="/workspace">Open workspace</Link>
-          </Button>
+    <div className="relative flex w-full overflow-hidden bg-neutral-50/70">
+      <div
+        className="pointer-events-none absolute inset-x-0 top-0 h-80 bg-[radial-gradient(ellipse_at_top,rgba(255,255,255,1),rgba(250,250,250,0))]"
+        aria-hidden
+      />
+      <section className="relative mx-auto grid w-full max-w-6xl gap-10 px-5 py-12 sm:px-8 sm:py-16 lg:grid-cols-[minmax(0,1fr)_minmax(24rem,0.78fr)] lg:grid-rows-[auto_auto] lg:gap-x-20 lg:gap-y-10 lg:py-20">
+        <div className="max-w-2xl">
+          <p className="flex items-center gap-3 text-xs font-semibold tracking-[0.14em] text-neutral-500 uppercase">
+            <span className="h-px w-8 bg-neutral-400" aria-hidden />
+            Total-loss valuation review
+          </p>
+          <h1 className="mt-6 text-4xl leading-[1.05] font-semibold tracking-[-0.05em] text-balance text-neutral-950 sm:text-5xl lg:text-[3.75rem]">
+            Know how your vehicle valuation compares.
+          </h1>
+          <p className="mt-6 max-w-xl text-base leading-7 text-neutral-600 sm:text-lg sm:leading-8">
+            Upload your insurer’s CCC report. Venfour reviews how the value was
+            built and compares it with relevant market evidence.
+          </p>
         </div>
-      </div>
-      <aside className="rounded-2xl border bg-card p-6 text-card-foreground shadow-sm">
-        <p className="text-sm font-medium text-muted-foreground">
-          Frontend foundation
-        </p>
-        <h2 className="mt-2 text-xl font-semibold">Focused on the current product</h2>
-        <p className="mt-3 leading-7 text-muted-foreground">
-          This shell establishes navigation, data access, and reusable UI
-          foundations. The report-upload and valuation-review experience will
-          be designed in the next phase.
-        </p>
-      </aside>
-    </section>
+
+        <div className="w-full lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:self-center lg:justify-self-end">
+          <StartAnalysisForm />
+        </div>
+
+        <ol
+          className="grid gap-5 sm:grid-cols-3 sm:gap-6 lg:col-start-1 lg:row-start-2"
+          aria-label="How Venfour works"
+        >
+          <li className="border-t border-neutral-300 pt-4">
+            <span className="text-xs font-medium text-neutral-400">01</span>
+            <p className="mt-1 text-sm font-medium text-neutral-900">
+              Upload your report
+            </p>
+            <p className="mt-1 text-xs leading-5 text-neutral-500">
+              The original CCC valuation PDF
+            </p>
+          </li>
+          <li className="border-t border-neutral-300 pt-4">
+            <span className="text-xs font-medium text-neutral-400">02</span>
+            <p className="mt-1 text-sm font-medium text-neutral-900">
+              Add your ZIP code
+            </p>
+            <p className="mt-1 text-xs leading-5 text-neutral-500">
+              For relevant nearby vehicles
+            </p>
+          </li>
+          <li className="border-t border-neutral-300 pt-4">
+            <span className="text-xs font-medium text-neutral-400">03</span>
+            <p className="mt-1 text-sm font-medium text-neutral-900">
+              Review the evidence
+            </p>
+            <p className="mt-1 text-xs leading-5 text-neutral-500">
+              Clear findings and limitations
+            </p>
+          </li>
+        </ol>
+      </section>
+    </div>
   );
 }

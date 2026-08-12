@@ -60,13 +60,14 @@ deterministic presentation model
 JSON API
 ```
 
-The customer-facing application includes its first product experience at
-`/analyses/:runId`: a responsive evidence report over the validated Phase 3E
-presentation contract. It presents the assessment, market-range comparison,
-loss-date comparables, current-market context, CCC comparables and adjustments,
-and important limitations. The frontend does not reproduce backend analysis or
-ranking logic. Authentication, user ownership, the frontend upload UI, and
-production deployment configuration remain outside the current scope.
+The customer-facing application begins at `/` with a focused analysis-creation
+flow for one CCC valuation PDF and the vehicle ZIP code. A successful creation
+navigates to `/analyses/:runId`, which presents the assessment, market-range
+comparison, loss-date comparables, current-market context, CCC comparables and
+adjustments, and important limitations. The frontend does not reproduce backend
+analysis or ranking logic. Authentication, user ownership, accounts, durable
+uploaded-report storage, and production deployment configuration remain outside
+the current scope.
 
 ## Evidence and engineering principles
 
@@ -145,6 +146,13 @@ In a separate terminal, start the local Starlette API from the repository root:
   --host 127.0.0.1 \
   --port 8000
 ```
+
+Live analysis creation requires the configured extraction and MarketCheck
+credentials in the backend process environment. Once both servers are running,
+open `http://localhost:5173/`, choose an original CCC PDF smaller than 50 MiB,
+enter the vehicle ZIP code, and submit. The page remains in an indeterminate
+processing state until creation finishes, then opens the persisted analysis at
+`/analyses/{runId}`.
 
 Vite serves the application at `http://localhost:5173` and proxies `/api` and
 `/health` to `http://127.0.0.1:8000`. This avoids a cross-origin request because
