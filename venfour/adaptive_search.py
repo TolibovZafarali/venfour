@@ -55,6 +55,7 @@ from venfour.market import (
 SUFFICIENT_STRONG_MATCHES = "SUFFICIENT_STRONG_MATCHES"
 MAX_UNIQUE_CANDIDATES = "MAX_UNIQUE_CANDIDATES"
 MAX_SCOPE_REACHED = "MAX_SCOPE_REACHED"
+CURRENT_SEARCH_CEILING_REACHED = "CURRENT_SEARCH_CEILING_REACHED"
 HISTORICAL_SEARCH_CEILING_REACHED = "HISTORICAL_SEARCH_CEILING_REACHED"
 HISTORICAL_OUT_OF_PROVIDER_RANGE = "OUT_OF_PROVIDER_RANGE"
 CANDIDATE_VERIFICATION_LIMIT_REACHED = "CANDIDATE_VERIFICATION_LIMIT_REACHED"
@@ -67,12 +68,15 @@ MAX_RADIUS_MILES = 250
 MAX_RESULT_LIMIT = 100
 MAX_UNIQUE_CANDIDATE_LIMIT = 100
 
-_CURRENT_STOP_REASONS = {
+_COMMON_STOP_REASONS = {
     SUFFICIENT_STRONG_MATCHES,
     MAX_UNIQUE_CANDIDATES,
     MAX_SCOPE_REACHED,
 }
-_HISTORICAL_STOP_REASONS = _CURRENT_STOP_REASONS | {
+_CURRENT_STOP_REASONS = _COMMON_STOP_REASONS | {
+    CURRENT_SEARCH_CEILING_REACHED,
+}
+_HISTORICAL_STOP_REASONS = _COMMON_STOP_REASONS | {
     HISTORICAL_SEARCH_CEILING_REACHED,
     HISTORICAL_OUT_OF_PROVIDER_RANGE,
     CANDIDATE_VERIFICATION_LIMIT_REACHED,
@@ -695,7 +699,13 @@ def adaptive_discover_market_listings(
 ) -> AdaptiveCurrentSearchResult:
     """Search current inventory stage-by-stage until evidence is sufficient."""
 
-    policy = adaptive_search_policy_for_provider(policy, provider)
+    configured_policy = policy
+    policy = adaptive_search_policy_for_provider(configured_policy, provider)
+    final_stop_reason = (
+        CURRENT_SEARCH_CEILING_REACHED
+        if policy != configured_policy
+        else MAX_SCOPE_REACHED
+    )
     base_request = normalize_market_search_request(request)
     validate_market_search_request(base_request)
     comparable_target = _target_for_request(base_request, target)
@@ -710,6 +720,7 @@ def adaptive_discover_market_listings(
             index,
             attempt.cumulative_unique_count,
             attempt.strong_match_count,
+            final_stop_reason=final_stop_reason,
         )
         if stop_reason is not None:
             return state.finish(stop_reason)
@@ -1180,10 +1191,18 @@ def replay_current_adaptive_search(
     *,
     policy: AdaptiveSearchPolicy = DEFAULT_ADAPTIVE_SEARCH_POLICY,
     target: ComparableTarget | None = None,
+    ceiling_stop_reason: str = MAX_SCOPE_REACHED,
 ) -> AdaptiveCurrentSearchResult:
     """Replay current diagnostics and return the proven aggregate result."""
 
     validate_adaptive_search_policy(policy)
+    if ceiling_stop_reason not in {
+        MAX_SCOPE_REACHED,
+        CURRENT_SEARCH_CEILING_REACHED,
+    }:
+        raise AdaptiveSearchContractError(
+            "Adaptive current replay ceiling reason is invalid"
+        )
     base_request = normalize_market_search_request(request)
     validate_market_search_request(base_request)
     comparable_target = _target_for_request(base_request, target)
@@ -1214,6 +1233,7 @@ def replay_current_adaptive_search(
             index,
             attempt.cumulative_unique_count,
             attempt.strong_match_count,
+            final_stop_reason=ceiling_stop_reason,
         )
         if actual_stop is not None and index != len(rows) - 1:
             raise AdaptiveSearchContractError(
@@ -1234,9 +1254,14 @@ def validate_current_adaptive_search_diagnostics(
     *,
     policy: AdaptiveSearchPolicy = DEFAULT_ADAPTIVE_SEARCH_POLICY,
     target: ComparableTarget | None = None,
+    ceiling_stop_reason: str = MAX_SCOPE_REACHED,
 ) -> None:
     replay_current_adaptive_search(
-        request, diagnostics, policy=policy, target=target
+        request,
+        diagnostics,
+        policy=policy,
+        target=target,
+        ceiling_stop_reason=ceiling_stop_reason,
     )
 
 
@@ -1329,6 +1354,7 @@ __all__ = [
     "AdaptiveSearchPolicy",
     "AdaptiveSearchPolicies",
     "CANDIDATE_VERIFICATION_LIMIT_REACHED",
+    "CURRENT_SEARCH_CEILING_REACHED",
     "CURRENT_SEARCH_STAGES",
     "DEFAULT_ADAPTIVE_SEARCH_POLICY",
     "DEFAULT_ADAPTIVE_SEARCH_POLICIES",

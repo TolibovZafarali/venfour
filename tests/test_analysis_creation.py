@@ -40,6 +40,7 @@ from venfour.creation import (
 )
 from venfour.discrepancy import CURRENT_MARKET
 from venfour.market import MarketProviderRateLimitError
+from venfour.marketcheck import MARKETCHECK_ACTIVE_MAX_RADIUS_MILES
 from venfour.orchestration import AnalysisOrchestrator
 from venfour.presentation import validate_analysis_presentation
 
@@ -516,6 +517,7 @@ class AnalysisCreationLiveCompositionTests(AnalysisCreationTestCase):
     def test_live_factory_builds_providers_with_server_configuration(self) -> None:
         extractor = RecordingExtractor(make_report())
         current = RecordingCurrentProvider()
+        current.maximum_search_radius_miles = MARKETCHECK_ACTIVE_MAX_RADIUS_MILES
         historical = RecordingHistoricalProvider()
         current_keys: list[str | None] = []
         historical_arguments: list[tuple[str | None, date | None]] = []
@@ -566,6 +568,7 @@ class AnalysisCreationLiveCompositionTests(AnalysisCreationTestCase):
         expected_current_stages = [
             (stage.radius_miles, stage.result_limit)
             for stage in DEFAULT_SEARCH_STAGES
+            if stage.radius_miles <= MARKETCHECK_ACTIVE_MAX_RADIUS_MILES
         ]
         expected_historical_stages = [
             (stage.radius_miles, stage.result_limit)

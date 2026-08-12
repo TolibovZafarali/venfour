@@ -8,6 +8,7 @@ from typing import Callable
 
 from venfour.adaptive_search import (
     CANDIDATE_VERIFICATION_LIMIT_REACHED,
+    CURRENT_SEARCH_CEILING_REACHED,
     DEFAULT_ADAPTIVE_SEARCH_POLICIES,
     DEFAULT_ADAPTIVE_SEARCH_POLICY,
     DEFAULT_HISTORICAL_ADAPTIVE_SEARCH_POLICY,
@@ -24,6 +25,7 @@ from venfour.adaptive_search import (
     adaptive_discover_market_listings,
     adaptive_search_policies_from_dict,
     adaptive_search_policy_from_dict,
+    adaptive_search_policy_for_provider,
     replay_current_adaptive_search,
     replay_historical_adaptive_search,
 )
@@ -386,6 +388,73 @@ class AdaptiveCurrentSearchTests(unittest.TestCase):
         self.assertEqual(adaptive.diagnostics.stop_reason, MAX_SCOPE_REACHED)
         self.assertEqual(adaptive.result.request.radius_miles, 250)
         self.assertEqual(adaptive.result.request.result_limit, 100)
+
+    def test_provider_ceiling_retains_sparse_current_evidence_at_100(self) -> None:
+        provider = CurrentProvider(
+            {
+                50: (listing(1), listing(2)),
+                100: (listing(3), listing(4)),
+            }
+        )
+        provider.maximum_search_radius_miles = 100
+
+        adaptive = adaptive_discover_market_listings(current_request(), provider)
+
+        self.assertEqual(
+            [
+                (request.radius_miles, request.result_limit)
+                for request in provider.requests
+            ],
+            [(50, 25), (100, 50)],
+        )
+        self.assertEqual(
+            adaptive.diagnostics.stop_reason,
+            CURRENT_SEARCH_CEILING_REACHED,
+        )
+        self.assertEqual(
+            adaptive.result.listings,
+            (listing(1), listing(2), listing(3), listing(4)),
+        )
+        self.assertEqual(adaptive.ranking.eligible_count, 4)
+        effective_policy = adaptive_search_policy_for_provider(
+            DEFAULT_ADAPTIVE_SEARCH_POLICY, provider
+        )
+        replayed = replay_current_adaptive_search(
+            current_request(),
+            adaptive.diagnostics,
+            policy=effective_policy,
+            ceiling_stop_reason=CURRENT_SEARCH_CEILING_REACHED,
+        )
+        self.assertEqual(replayed.result, adaptive.result)
+        self.assertEqual(replayed.ranking, adaptive.ranking)
+
+    def test_configured_100_mile_policy_is_not_a_provider_ceiling(self) -> None:
+        policy = AdaptiveSearchPolicy(
+            stages=(SearchStage(50, 25), SearchStage(100, 50))
+        )
+        provider = CurrentProvider({})
+        provider.maximum_search_radius_miles = 100
+
+        adaptive = adaptive_discover_market_listings(
+            current_request(), provider, policy
+        )
+
+        self.assertEqual(adaptive.diagnostics.stop_reason, MAX_SCOPE_REACHED)
+
+    def test_larger_declared_capability_keeps_200_and_250_scopes(self) -> None:
+        provider = CurrentProvider({})
+        provider.maximum_search_radius_miles = 250
+
+        adaptive = adaptive_discover_market_listings(current_request(), provider)
+
+        self.assertEqual(
+            [
+                (request.radius_miles, request.result_limit)
+                for request in provider.requests
+            ],
+            [(50, 25), (100, 50), (200, 75), (250, 100)],
+        )
+        self.assertEqual(adaptive.diagnostics.stop_reason, MAX_SCOPE_REACHED)
 
     def test_price_metamorphism_cannot_change_expansion_or_stopping(self) -> None:
         policy = AdaptiveSearchPolicy(

@@ -17,6 +17,11 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import parse_qs, urlsplit
 
 from scripts import search_marketcheck
+from venfour.adaptive_search import (
+    CURRENT_SEARCH_CEILING_REACHED,
+    MAX_SCOPE_REACHED,
+    adaptive_discover_market_listings,
+)
 from venfour.market import (
     MarketProvider,
     MarketProviderAuthenticationError,
@@ -167,7 +172,55 @@ class MarketCheckConstructionTests(unittest.TestCase):
     def test_invalid_timeout_is_rejected(self) -> None:
         for value in (0, -1, float("nan"), float("inf"), True, "15"):
             with self.subTest(value=value), self.assertRaises(ValueError):
-                MarketCheckProvider(SYNTHETIC_KEY, timeout=value)  # type: ignore[arg-type]
+                MarketCheckProvider(
+                    SYNTHETIC_KEY, timeout=value  # type: ignore[arg-type]
+                )
+
+    def test_invalid_declared_maximum_radius_is_rejected(self) -> None:
+        for value in (-1, True, 100.0, "100"):
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                MarketCheckProvider(
+                    SYNTHETIC_KEY,
+                    maximum_search_radius_miles=value,  # type: ignore[arg-type]
+                )
+
+    def test_effective_subscription_ceiling_never_attempts_200(self) -> None:
+        transport = RecordingTransport(
+            [
+                {"num_found": 0, "listings": []},
+                {"num_found": 0, "listings": []},
+            ]
+        )
+        provider = MarketCheckProvider(SYNTHETIC_KEY, transport=transport)
+
+        adaptive = adaptive_discover_market_listings(make_request(), provider)
+
+        self.assertEqual(
+            [call["params"]["radius"] for call in transport.calls],
+            [50, 100],
+        )
+        self.assertEqual(
+            adaptive.diagnostics.stop_reason,
+            CURRENT_SEARCH_CEILING_REACHED,
+        )
+
+    def test_higher_capability_configuration_can_use_200_and_250(self) -> None:
+        transport = RecordingTransport(
+            [{"num_found": 0, "listings": []} for _ in range(4)]
+        )
+        provider = MarketCheckProvider(
+            SYNTHETIC_KEY,
+            transport=transport,
+            maximum_search_radius_miles=250,
+        )
+
+        adaptive = adaptive_discover_market_listings(make_request(), provider)
+
+        self.assertEqual(
+            [call["params"]["radius"] for call in transport.calls],
+            [50, 100, 200, 250],
+        )
+        self.assertEqual(adaptive.diagnostics.stop_reason, MAX_SCOPE_REACHED)
 
     def test_falsy_injected_transport_is_still_used(self) -> None:
         class FalsyTransport(RecordingTransport):

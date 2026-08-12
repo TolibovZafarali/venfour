@@ -966,8 +966,8 @@
   "provenance": {
     "runId": "00000000-0000-4000-8000-000000000001",
     "presentationVersion": "1",
-    "analysisRunSchemaVersion": "3",
-    "orchestrationAnalysisVersion": "3",
+    "analysisRunSchemaVersion": "4",
+    "orchestrationAnalysisVersion": "4",
     "discrepancyAnalysisVersion": "1",
     "comparableScoringVersion": "1",
     "createdAt": "2026-08-21T12:34:56.789000Z",

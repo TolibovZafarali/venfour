@@ -499,7 +499,8 @@ class AnalysisOrchestrator:
                 "Current search is configured without a current provider"
             )
 
-        current_policy = request.search_policies.current
+        configured_current_policy = request.search_policies.current
+        current_policy = configured_current_policy
         historical_policy = request.search_policies.historical
         if request.current_search is not None:
             current_policy = self._effective_policy_for_provider(
@@ -583,7 +584,7 @@ class AnalysisOrchestrator:
                 adaptive_current = adaptive_discover_market_listings(
                     current_search_request,
                     self._current_provider,
-                    current_policy,
+                    configured_current_policy,
                     target=base_request.loss_vehicle,
                 )
                 current_result = adaptive_current.result
@@ -652,6 +653,7 @@ class AnalysisOrchestrator:
             else None
         )
         discrepancy_request_data = discrepancy_request.to_dict()
+        configured_search_policies_data = request.search_policies.to_dict()
         search_policies_data = effective_search_policies.to_dict()
         search_diagnostics_data = {
             "current": (
@@ -673,6 +675,7 @@ class AnalysisOrchestrator:
                 search_policies_data,
                 search_diagnostics_data,
                 policy_field="searchPolicies",
+                configured_policy=configured_search_policies_data,
             ),
             providers={
                 "current": current_metadata,
@@ -705,6 +708,7 @@ class AnalysisOrchestrator:
                     if request.current_search is not None
                     else None
                 ),
+                "configuredSearchPolicies": configured_search_policies_data,
                 "searchPolicies": search_policies_data,
             },
             result={

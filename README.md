@@ -170,6 +170,27 @@ enter the vehicle ZIP code, and submit. The page remains in an indeterminate
 processing state until creation finishes, then opens the persisted analysis at
 `/analyses/{runId}`.
 
+For live market and orchestration debugging after a report has already been
+extracted, use the local canonical-analysis command. It revalidates canonical
+CCC JSON and runs the real MarketCheck retrieval, adaptive ranking, discrepancy
+analysis, audit validation, and immutable persistence path without reading a PDF
+or making another OpenAI request:
+
+```sh
+set -a
+source .env
+set +a
+VENFOUR_PROVIDER_DIAGNOSTICS=1 \
+  .venv/bin/python scripts/run_live_analysis.py \
+  data/extracted/benchmarks/elantra.json \
+  --postal-code 63123
+```
+
+Only `MARKETCHECK_API_KEY` is required by this command. New artifacts are saved
+under `data/analysis-runs/` by default. This is a local development tool; the
+public PDF `POST /api/v1/analyses` contract is unchanged and there is no API for
+submitting canonical analysis data.
+
 Vite serves the application at `http://localhost:5173` and proxies `/api` and
 `/health` to `http://127.0.0.1:8000`. This avoids a cross-origin request because
 the Starlette API does not currently enable CORS. Uvicorn is included only in
@@ -372,14 +393,19 @@ configured and remains a separate temporal evidence stream. The orchestrator
 uses explicit server-owned policies for each stream and constrains them by the
 selected provider adapter's declared geographic capability. Current-market
 search attempts `(50 miles, 25 results)`, `(100, 50)`, `(200, 75)`, and
-`(250, 100)` in order. MarketCheck loss-date search attempts `(50, 25)` and
-`(100, 50)`, then ends normally at its 100-mile capability ceiling. After each
-response, adaptive search merges first-seen vehicles by VIN and then provider
-listing identity, reruns the unchanged Phase 3C ranker, and stops when it has
-nine independently identified `STRONG` matches, reaches 100 unique candidate
-outcomes, or completes the effective stream policy. The policy contract itself
-caps configuration at four stages, 250 miles, 100 results per attempt, and 100
-unique candidates.
+`(250, 100)` in order when the selected provider supports them. This deployment's
+MarketCheck current-inventory capability limits its effective sequence to
+`(50, 25)` and `(100, 50)`; if evidence is still sparse there, the successful
+result is retained with `CURRENT_SEARCH_CEILING_REACHED` instead of attempting
+an unsupported wider radius. MarketCheck loss-date search likewise attempts
+`(50, 25)` and `(100, 50)`, then ends normally at its independently declared
+100-mile capability ceiling. After each response, adaptive search merges
+first-seen vehicles by VIN and then provider listing identity, reruns the
+unchanged Phase 3C ranker, and stops when it has nine independently identified
+`STRONG` matches, reaches 100 unique candidate outcomes, or completes the
+effective stream policy. The provider-neutral policy contract itself still caps
+configuration at four stages, 250 miles, 100 results per attempt, and 100 unique
+candidates.
 
 Adaptive search broadens only geography and candidate depth. It does not relax
 year, make, model, trim, loss date, eligibility, or scoring, and price amount is
@@ -398,14 +424,17 @@ historical/current precedence and classification rules.
 
 Completed runs are stored as strict, immutable JSON under
 `data/analysis-runs/<run-id>.json` by the default file repository. Each artifact
-retains the normalized CCC analysis inputs, explicit effective search policies, every
-attempted scope and canonical provider result, cumulative returned, resolved,
-unresolved, ambiguous, duplicate, eligible, and strong-match counts, the stop
-reason, final Phase 3C rankings, and the Phase 3D policy, request, and result.
+retains the normalized CCC analysis inputs, explicit configured and effective
+search policies, every attempted scope and canonical provider result, cumulative
+returned, resolved, unresolved, ambiguous, duplicate, eligible, and strong-match
+counts, the stop reason, final Phase 3C rankings, and the Phase 3D policy,
+request, and result. Version 4 binds both configured and effective policies into
+the search-diagnostics digest, so replay derives a capability-ceiling stop from
+the persisted policy difference rather than trusting the stored reason alone.
 Files are validated before an atomic create-only save and are parsed,
-schema-validated, and semantically validated again on read. Corrupt, unknown,
-or internally inconsistent artifacts are rejected rather than repaired or
-silently migrated.
+schema-validated, and semantically validated again on read. Versions 1 through
+3 remain readable. Corrupt, unknown, or internally inconsistent artifacts are
+rejected rather than repaired or silently migrated.
 
 Run metadata is separate from the deterministic calculation: `runId` is a
 UUIDv4, `createdAt` is a UTC timestamp, and explicit run-schema, orchestration,

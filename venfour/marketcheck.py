@@ -57,7 +57,7 @@ MARKETCHECK_PAST_INVENTORY_URL = (
 )
 MARKETCHECK_VIN_HISTORY_URL = "https://api.marketcheck.com/v2/history/car"
 MARKETCHECK_MAX_ROWS = 50
-MARKETCHECK_ACTIVE_MAX_RADIUS_MILES = 250
+MARKETCHECK_ACTIVE_MAX_RADIUS_MILES = 100
 MARKETCHECK_PAST_MAX_RADIUS_MILES = 100
 MARKETCHECK_HISTORY_WINDOW_DAYS = 90
 MARKETCHECK_HISTORICAL_MAX_PAGES = 10
@@ -156,6 +156,7 @@ class MarketCheckProvider:
         *,
         timeout: float = DEFAULT_TIMEOUT_SECONDS,
         transport: MarketCheckTransport | None = None,
+        maximum_search_radius_miles: int | None = None,
         _allow_missing_api_key: bool = False,
     ) -> None:
         missing_key = not isinstance(api_key, str) or not api_key.strip()
@@ -172,9 +173,23 @@ class MarketCheckProvider:
             or timeout <= 0
         ):
             raise ValueError("MarketCheck timeout must be a positive finite number")
+        declared_maximum_radius = (
+            type(self).maximum_search_radius_miles
+            if maximum_search_radius_miles is None
+            else maximum_search_radius_miles
+        )
+        if (
+            isinstance(declared_maximum_radius, bool)
+            or not isinstance(declared_maximum_radius, int)
+            or declared_maximum_radius < 0
+        ):
+            raise ValueError(
+                "MarketCheck maximum search radius must be a non-negative integer"
+            )
 
         self._api_key = None if missing_key else api_key.strip()
         self._timeout = float(timeout)
+        self.maximum_search_radius_miles = declared_maximum_radius
         self._transport = (
             transport if transport is not None else _UrllibMarketCheckTransport()
         )

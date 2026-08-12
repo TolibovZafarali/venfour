@@ -8,6 +8,7 @@ import unittest
 from pathlib import Path
 
 from venfour.adaptive_search import (
+    CURRENT_SEARCH_CEILING_REACHED,
     DEFAULT_ADAPTIVE_SEARCH_POLICY,
     MAX_SCOPE_REACHED,
     AdaptiveSearchPolicies,
@@ -62,13 +63,25 @@ class AdaptiveAnalysisRunIntegrityTests(unittest.TestCase):
             context.exception.details,
         )
 
-    def test_v3_diagnostics_replay_and_v1_v2_remain_readable(self) -> None:
+    def test_v4_diagnostics_replay_and_v1_v2_v3_remain_readable(self) -> None:
         validate_analysis_run_artifact(self.artifact)
+
+        v3_artifact = copy.deepcopy(self.artifact)
+        v3_artifact["analysisRunSchemaVersion"] = "3"
+        v3_artifact["analysisVersion"] = "3"
+        del v3_artifact["request"]["configuredSearchPolicies"]
+        v3_artifact["searchDiagnosticsDigest"] = search_diagnostics_digest(
+            v3_artifact["request"]["searchPolicies"],
+            v3_artifact["result"]["searchDiagnostics"],
+            policy_field="searchPolicies",
+        )
+        validate_analysis_run_artifact(v3_artifact)
 
         v1_artifact = copy.deepcopy(self.artifact)
         v1_artifact["analysisRunSchemaVersion"] = "1"
         v1_artifact["analysisVersion"] = "1"
         del v1_artifact["searchDiagnosticsDigest"]
+        del v1_artifact["request"]["configuredSearchPolicies"]
         del v1_artifact["request"]["searchPolicies"]
         del v1_artifact["result"]["searchDiagnostics"]
         validate_analysis_run_artifact(v1_artifact)
@@ -93,6 +106,7 @@ class AdaptiveAnalysisRunIntegrityTests(unittest.TestCase):
         v2_artifact["analysisRunSchemaVersion"] = "2"
         v2_artifact["analysisVersion"] = "2"
         policies = v2_artifact["request"].pop("searchPolicies")
+        del v2_artifact["request"]["configuredSearchPolicies"]
         v2_artifact["request"]["searchPolicy"] = policies["current"]
         v2_artifact["result"]["searchDiagnostics"]["historical"][
             "stopReason"
@@ -123,6 +137,40 @@ class AdaptiveAnalysisRunIntegrityTests(unittest.TestCase):
             "minimumStrongMatches"
         ] = 5
         self.assert_semantic_error_contains(policy_tamper, "continued after a stop")
+
+    def test_current_ceiling_reason_is_derived_from_bound_policy_provenance(
+        self,
+    ) -> None:
+        stop_tamper = copy.deepcopy(self.artifact)
+        stop_tamper["result"]["searchDiagnostics"]["current"]["stopReason"] = (
+            CURRENT_SEARCH_CEILING_REACHED
+        )
+        stop_tamper["searchDiagnosticsDigest"] = search_diagnostics_digest(
+            stop_tamper["request"]["searchPolicies"],
+            stop_tamper["result"]["searchDiagnostics"],
+            policy_field="searchPolicies",
+            configured_policy=stop_tamper["request"]["configuredSearchPolicies"],
+        )
+        self.assert_semantic_error_contains(
+            stop_tamper, "does not match deterministic replay"
+        )
+
+        configured_tamper = copy.deepcopy(self.artifact)
+        configured_tamper["request"]["configuredSearchPolicies"]["current"][
+            "minimumStrongMatches"
+        ] = 8
+        configured_tamper["searchDiagnosticsDigest"] = search_diagnostics_digest(
+            configured_tamper["request"]["searchPolicies"],
+            configured_tamper["result"]["searchDiagnostics"],
+            policy_field="searchPolicies",
+            configured_policy=configured_tamper["request"][
+                "configuredSearchPolicies"
+            ],
+        )
+        self.assert_semantic_error_contains(
+            configured_tamper,
+            "must be the configured policy constrained only by the provider radius",
+        )
 
     def test_configured_stream_requires_diagnostics(self) -> None:
         tampered = copy.deepcopy(self.artifact)

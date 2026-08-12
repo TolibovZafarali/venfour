@@ -11,6 +11,9 @@
     },
     {
       "$ref": "#/$defs/analysisRunV3"
+    },
+    {
+      "$ref": "#/$defs/analysisRunV4"
     }
   ],
   "$defs": {
@@ -163,6 +166,58 @@
         },
         "result": {
           "$ref": "#/$defs/analysisRunResultV3"
+        }
+      }
+    },
+    "analysisRunV4": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "analysisRunSchemaVersion",
+        "runId",
+        "createdAt",
+        "analysisVersion",
+        "discrepancyAnalysisVersion",
+        "comparableScoringVersion",
+        "requestDigest",
+        "searchDiagnosticsDigest",
+        "providers",
+        "request",
+        "result"
+      ],
+      "properties": {
+        "analysisRunSchemaVersion": {
+          "const": "4"
+        },
+        "runId": {
+          "$ref": "#/$defs/runId"
+        },
+        "createdAt": {
+          "$ref": "#/$defs/createdAt"
+        },
+        "analysisVersion": {
+          "const": "4"
+        },
+        "discrepancyAnalysisVersion": {
+          "const": "1"
+        },
+        "comparableScoringVersion": {
+          "const": "1"
+        },
+        "requestDigest": {
+          "$ref": "#/$defs/requestDigest"
+        },
+        "searchDiagnosticsDigest": {
+          "$ref": "#/$defs/requestDigest"
+        },
+        "providers": {
+          "$ref": "#/$defs/providers"
+        },
+        "request": {
+          "$ref": "#/$defs/analysisRunRequestV4"
+        },
+        "result": {
+          "$ref": "#/$defs/analysisRunResultV4"
         }
       }
     },
@@ -360,6 +415,57 @@
             "null"
           ],
           "format": "date"
+        },
+        "searchPolicies": {
+          "$ref": "#/$defs/searchPolicies"
+        }
+      }
+    },
+    "analysisRunRequestV4": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "baseDiscrepancyRequest",
+        "lossDateSource",
+        "lossDateOverride",
+        "currentSearchRequest",
+        "historicalSearchRequest",
+        "currentObservedDate",
+        "configuredSearchPolicies",
+        "searchPolicies"
+      ],
+      "properties": {
+        "baseDiscrepancyRequest": {
+          "$ref": "https://schemas.venfour.local/analysis/valuation-discrepancy-request.schema.json"
+        },
+        "lossDateSource": {
+          "enum": [
+            "CCC_REPORT",
+            "OVERRIDE"
+          ]
+        },
+        "lossDateOverride": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date"
+        },
+        "currentSearchRequest": {
+          "$ref": "#/$defs/nullableCurrentSearchRequest"
+        },
+        "historicalSearchRequest": {
+          "$ref": "#/$defs/nullableHistoricalSearchRequest"
+        },
+        "currentObservedDate": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date"
+        },
+        "configuredSearchPolicies": {
+          "$ref": "#/$defs/searchPolicies"
         },
         "searchPolicies": {
           "$ref": "#/$defs/searchPolicies"
@@ -564,6 +670,42 @@
         }
       }
     },
+    "analysisRunResultV4": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "currentMarketResult",
+        "historicalMarketResult",
+        "currentRanking",
+        "historicalRanking",
+        "discrepancyRequest",
+        "discrepancyResult",
+        "searchDiagnostics"
+      ],
+      "properties": {
+        "currentMarketResult": {
+          "$ref": "#/$defs/nullableCurrentMarketResult"
+        },
+        "historicalMarketResult": {
+          "$ref": "#/$defs/nullableHistoricalMarketResult"
+        },
+        "currentRanking": {
+          "$ref": "#/$defs/nullableRankingResult"
+        },
+        "historicalRanking": {
+          "$ref": "#/$defs/nullableRankingResult"
+        },
+        "discrepancyRequest": {
+          "$ref": "https://schemas.venfour.local/analysis/valuation-discrepancy-request.schema.json"
+        },
+        "discrepancyResult": {
+          "$ref": "https://schemas.venfour.local/analysis/valuation-discrepancy-result.schema.json"
+        },
+        "searchDiagnostics": {
+          "$ref": "#/$defs/searchDiagnosticsV4"
+        }
+      }
+    },
     "nullableCurrentMarketResult": {
       "oneOf": [
         {
@@ -626,10 +768,36 @@
         }
       }
     },
+    "searchDiagnosticsV4": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "current",
+        "historical"
+      ],
+      "properties": {
+        "current": {
+          "$ref": "#/$defs/nullableCurrentSearchDiagnosticsV4"
+        },
+        "historical": {
+          "$ref": "#/$defs/nullableHistoricalSearchDiagnosticsV3"
+        }
+      }
+    },
     "nullableCurrentSearchDiagnostics": {
       "oneOf": [
         {
           "$ref": "#/$defs/currentSearchDiagnostics"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "nullableCurrentSearchDiagnosticsV4": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/currentSearchDiagnosticsV4"
         },
         {
           "type": "null"
@@ -673,6 +841,26 @@
         },
         "stopReason": {
           "$ref": "#/$defs/searchStopReason"
+        }
+      }
+    },
+    "currentSearchDiagnosticsV4": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "attempts",
+        "stopReason"
+      ],
+      "properties": {
+        "attempts": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/currentSearchAttempt"
+          }
+        },
+        "stopReason": {
+          "$ref": "#/$defs/currentSearchStopReasonV4"
         }
       }
     },
@@ -842,6 +1030,14 @@
         "OUT_OF_PROVIDER_RANGE",
         "CANDIDATE_VERIFICATION_LIMIT_REACHED",
         "HISTORICAL_PROVIDER_INCOMPLETE"
+      ]
+    },
+    "currentSearchStopReasonV4": {
+      "enum": [
+        "SUFFICIENT_STRONG_MATCHES",
+        "MAX_UNIQUE_CANDIDATES",
+        "MAX_SCOPE_REACHED",
+        "CURRENT_SEARCH_CEILING_REACHED"
       ]
     }
   }

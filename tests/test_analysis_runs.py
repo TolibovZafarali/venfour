@@ -21,6 +21,7 @@ from unittest.mock import patch
 from jsonschema import Draft202012Validator
 
 from venfour.adaptive_search import (
+    CURRENT_SEARCH_CEILING_REACHED,
     DEFAULT_ADAPTIVE_SEARCH_POLICY,
     DEFAULT_SEARCH_STAGES,
     HISTORICAL_SEARCH_STAGES,
@@ -572,8 +573,8 @@ class AnalysisOrchestrationScenarioTests(TemporaryRepositoryTestCase):
             },
         )
         artifact_data = loaded.to_dict()
-        self.assertEqual(artifact_data["analysisRunSchemaVersion"], "3")
-        self.assertEqual(artifact_data["analysisVersion"], "3")
+        self.assertEqual(artifact_data["analysisRunSchemaVersion"], "4")
+        self.assertEqual(artifact_data["analysisVersion"], "4")
         self.assertEqual(len(artifact_data["searchDiagnosticsDigest"]), 64)
         expected_diagnostics = {
             "current": ("MAX_SCOPE_REACHED", 4),
@@ -733,6 +734,52 @@ class AnalysisOrchestrationScenarioTests(TemporaryRepositoryTestCase):
             artifact["result"]["searchDiagnostics"]["historical"]["stopReason"],
             HISTORICAL_SEARCH_CEILING_REACHED,
         )
+
+    def test_current_provider_ceiling_is_persisted_with_sparse_evidence(self) -> None:
+        repository = self.repository()
+        current = RecordingCurrentProvider(MATERIAL_PRICES)
+        current.maximum_search_radius_miles = 100
+
+        result = make_orchestrator(
+            repository,
+            current_provider=current,
+            historical_provider=None,
+        ).run(make_run_request(historical=False))
+        artifact = repository.get(result.run_id).to_dict()
+
+        self.assertEqual(
+            [
+                (request.radius_miles, request.result_limit)
+                for request in current.requests
+            ],
+            [(50, 25), (100, 50)],
+        )
+        self.assertEqual(
+            [
+                stage["radiusMiles"]
+                for stage in artifact["request"]["configuredSearchPolicies"][
+                    "current"
+                ]["stages"]
+            ],
+            [50, 100, 200, 250],
+        )
+        self.assertEqual(
+            [
+                stage["radiusMiles"]
+                for stage in artifact["request"]["searchPolicies"]["current"][
+                    "stages"
+                ]
+            ],
+            [50, 100],
+        )
+        self.assertEqual(
+            artifact["result"]["searchDiagnostics"]["current"]["stopReason"],
+            CURRENT_SEARCH_CEILING_REACHED,
+        )
+        self.assertEqual(
+            artifact["result"]["currentMarketResult"]["listingCount"], 5
+        )
+        self.assertEqual(artifact["result"]["currentRanking"]["eligibleCount"], 5)
 
     def test_ambiguous_and_unresolved_diagnostics_are_preserved_but_not_priced(self) -> None:
         issues = (

@@ -27,11 +27,13 @@ from jsonschema.exceptions import SchemaError
 from referencing import Registry, Resource
 
 from venfour.adaptive_search import (
+    CURRENT_SEARCH_CEILING_REACHED,
     HISTORICAL_SEARCH_CEILING_REACHED,
     MAX_SCOPE_REACHED,
     AdaptiveSearchContractError,
     adaptive_search_policies_from_dict,
     adaptive_search_policy_from_dict,
+    adaptive_search_policy_for_provider,
     replay_current_adaptive_search,
     replay_historical_adaptive_search,
 )
@@ -77,8 +79,8 @@ from venfour.market import (
 )
 
 
-ANALYSIS_RUN_SCHEMA_VERSION = "3"
-ANALYSIS_RUN_ANALYSIS_VERSION = "3"
+ANALYSIS_RUN_SCHEMA_VERSION = "4"
+ANALYSIS_RUN_ANALYSIS_VERSION = "4"
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 ANALYSIS_RUN_SCHEMA_PATH = (
@@ -120,6 +122,11 @@ _SENSITIVE_FIELD_NAMES = frozenset(
     }
 )
 _SECRET_ENVIRONMENT_NAMES = ("MARKETCHECK_API_KEY", "OPENAI_API_KEY")
+
+
+@dataclass(frozen=True)
+class _PersistedRadiusCapability:
+    maximum_search_radius_miles: int
 
 
 class AnalysisRunContractError(Exception):
@@ -317,8 +324,9 @@ def search_diagnostics_digest(
     diagnostics: Mapping[str, Any],
     *,
     policy_field: str = "searchPolicy",
+    configured_policy: Mapping[str, Any] | None = None,
 ) -> str:
-    """Bind the complete effective search policy and attempt stream."""
+    """Bind configured/effective policy provenance and the attempt stream."""
 
     if not isinstance(policy, Mapping) or not isinstance(diagnostics, Mapping):
         raise AnalysisRunContractError(
@@ -330,10 +338,22 @@ def search_diagnostics_digest(
             "Search diagnostics digest input failed contract validation",
             ("$.policyField: is not a supported canonical field",),
         )
+    if configured_policy is not None and policy_field != "searchPolicies":
+        raise AnalysisRunContractError(
+            "Search diagnostics digest input failed contract validation",
+            ("$.configuredPolicy: requires the searchPolicies field",),
+        )
     payload = {
         policy_field: policy,
         "searchDiagnostics": diagnostics,
     }
+    if configured_policy is not None:
+        if not isinstance(configured_policy, Mapping):
+            raise AnalysisRunContractError(
+                "Search diagnostics digest input failed contract validation",
+                ("$.configuredPolicy: expected a canonical policy object",),
+            )
+        payload["configuredSearchPolicies"] = configured_policy
     return hashlib.sha256(canonical_json_bytes(payload)).hexdigest()
 
 
@@ -775,7 +795,7 @@ def _adaptive_semantic_validation_errors(
     """Replay adaptive diagnostics against their versioned effective policies."""
 
     artifact_version = data["analysisRunSchemaVersion"]
-    if artifact_version not in {"2", "3"}:
+    if artifact_version not in {"2", "3", "4"}:
         return []
 
     errors: list[str] = []
@@ -797,6 +817,7 @@ def _adaptive_semantic_validation_errors(
             )
             return errors
         current_policy = historical_policy = shared_policy
+        configured_policies = None
         historical_ceiling_reason = MAX_SCOPE_REACHED
     else:
         policy_field = "searchPolicies"
@@ -813,17 +834,63 @@ def _adaptive_semantic_validation_errors(
             return errors
         current_policy = policies.current
         historical_policy = policies.historical
+        configured_policies = None
+        if artifact_version == "4":
+            try:
+                configured_policies = adaptive_search_policies_from_dict(
+                    request_snapshot["configuredSearchPolicies"]
+                )
+            except AdaptiveSearchContractError as exc:
+                errors.extend(
+                    _prefixed_details(
+                        "$.request.configuredSearchPolicies",
+                        exc.details or (str(exc),),
+                    )
+                )
+                return errors
+            for stream, configured_policy, effective_policy, request_field in (
+                (
+                    "current",
+                    configured_policies.current,
+                    current_policy,
+                    "currentSearchRequest",
+                ),
+                (
+                    "historical",
+                    configured_policies.historical,
+                    historical_policy,
+                    "historicalSearchRequest",
+                ),
+            ):
+                expected_effective = configured_policy
+                if request_snapshot[request_field] is not None:
+                    expected_effective = adaptive_search_policy_for_provider(
+                        configured_policy,
+                        _PersistedRadiusCapability(
+                            effective_policy.stages[-1].radius_miles
+                        ),
+                    )
+                if expected_effective != effective_policy:
+                    errors.append(
+                        f"$.request.searchPolicies.{stream}: must be the configured "
+                        "policy constrained only by the provider radius capability"
+                    )
         historical_ceiling_reason = HISTORICAL_SEARCH_CEILING_REACHED
 
     expected_search_digest = search_diagnostics_digest(
         policy_data,
         diagnostics,
         policy_field=policy_field,
+        configured_policy=(
+            request_snapshot["configuredSearchPolicies"]
+            if artifact_version == "4"
+            else None
+        ),
     )
     if data["searchDiagnosticsDigest"] != expected_search_digest:
         errors.append(
             "$.searchDiagnosticsDigest: does not match the canonical search "
-            "policy and diagnostics JSON"
+            "policy provenance and diagnostics JSON"
         )
 
     current_request_data = request_snapshot["currentSearchRequest"]
@@ -840,12 +907,20 @@ def _adaptive_semantic_validation_errors(
             "requires replay diagnostics"
         )
     else:
+        current_ceiling_reason = (
+            CURRENT_SEARCH_CEILING_REACHED
+            if artifact_version == "4"
+            and configured_policies is not None
+            and configured_policies.current != current_policy
+            else MAX_SCOPE_REACHED
+        )
         try:
             current_replay = replay_current_adaptive_search(
                 _market_request_from_data(current_request_data),
                 current_diagnostics,
                 policy=current_policy,
                 target=base_request.loss_vehicle,
+                ceiling_stop_reason=current_ceiling_reason,
             )
         except AdaptiveSearchContractError as exc:
             errors.extend(
