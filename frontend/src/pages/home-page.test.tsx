@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import { describe, expect, test, vi } from "vitest";
@@ -23,6 +23,101 @@ async function fillValidForm(
   await user.type(screen.getByLabelText("Vehicle ZIP code"), postalCode);
   return report;
 }
+
+describe("homepage structure", () => {
+  test("explains the service and presents three honest service paths", () => {
+    renderTestApp();
+
+    expect(
+      screen.getByRole("heading", {
+        level: 1,
+        name: "Know what your vehicle is worth after an accident.",
+      }),
+    ).toBeVisible();
+    expect(
+      screen.getByText(
+        /review an insurer.s valuation.*check your vehicle.s market value.*diminished value after a repair/i,
+      ),
+    ).toBeVisible();
+
+    const servicePaths = document.querySelector<HTMLElement>("#service-paths");
+    expect(servicePaths).toBeVisible();
+    if (!servicePaths) {
+      throw new Error("The service-paths section was not rendered.");
+    }
+
+    const paths = within(servicePaths);
+    for (const heading of [
+      "I have a valuation report",
+      "I don’t have a valuation report",
+      "My vehicle was repaired",
+    ]) {
+      expect(paths.getByRole("heading", { name: heading })).toBeVisible();
+    }
+
+    expect(
+      paths.getByRole("link", { name: "Review my valuation" }),
+    ).toHaveAttribute("href", "#report-review");
+    expect(
+      paths.getByRole("link", { name: "Ask about vehicle value" }),
+    ).toHaveAttribute("href", "/contact?topic=vehicle-value");
+    expect(
+      paths.getByRole("link", { name: "Ask about diminished value" }),
+    ).toHaveAttribute("href", "/contact?topic=diminished-value");
+  });
+
+  test("summarizes the method and links to the detailed methodology", () => {
+    renderTestApp();
+
+    const howItWorks = document.querySelector<HTMLElement>("#how-it-works");
+    expect(howItWorks).toBeVisible();
+    if (!howItWorks) {
+      throw new Error("The how-it-works section was not rendered.");
+    }
+
+    const process = within(howItWorks);
+    for (const heading of [
+      "Your information",
+      "Market evidence",
+      "Clear explanation",
+    ]) {
+      expect(process.getByRole("heading", { name: heading })).toBeVisible();
+    }
+
+    expect(
+      screen.getByRole("link", { name: "See our methodology" }),
+    ).toHaveAttribute("href", "/methodology");
+  });
+
+  test("keeps one working upload form in the lower report-review section", () => {
+    renderTestApp();
+
+    const servicePaths = document.querySelector<HTMLElement>("#service-paths");
+    const reportReview = document.querySelector<HTMLElement>("#report-review");
+    expect(servicePaths).toBeVisible();
+    expect(reportReview).toBeVisible();
+    if (!servicePaths || !reportReview) {
+      throw new Error("Homepage service and report-review sections are required.");
+    }
+
+    expect(
+      servicePaths.compareDocumentPosition(reportReview) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(reportReview).toHaveTextContent(/currently supported online/i);
+    expect(
+      within(reportReview).getByText("Original CCC valuation report (PDF)"),
+    ).toBeVisible();
+    expect(
+      within(reportReview).getByRole("form", {
+        name: "Start valuation analysis",
+      }),
+    ).toBeVisible();
+    expect(
+      screen.getAllByRole("form", { name: "Start valuation analysis" }),
+    ).toHaveLength(1);
+  });
+});
 
 describe("analysis creation", () => {
   test("submits exactly one PDF and one trimmed ZIP as multipart, then opens the returned analysis", async () => {

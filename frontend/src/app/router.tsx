@@ -27,7 +27,7 @@ export const appRoutes: RouteObject[] = [
         element: <HomePage />,
         handle: metadata(
           "Venfour",
-          "Independent review of CCC total-loss vehicle valuations and relevant market evidence.",
+          "Understand your vehicle’s value after an accident, review an insurer’s valuation, and explore current support options.",
         ),
       },
       {
@@ -67,7 +67,7 @@ export const appRoutes: RouteObject[] = [
         element: <ContactPage />,
         handle: metadata(
           "Contact | Venfour",
-          "Find the current support channel for questions about Venfour and its CCC valuation-review experience.",
+          "Contact Venfour about an insurer valuation review, a vehicle-value question, diminished value after a repair, or report processing.",
         ),
       },
       {

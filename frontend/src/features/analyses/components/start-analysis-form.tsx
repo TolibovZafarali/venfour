@@ -320,7 +320,7 @@ export function StartAnalysisForm() {
         {report ? `${report.name} selected.` : ""}
       </p>
       <form
-        className="overflow-hidden rounded-[1.75rem] border border-neutral-200 bg-white p-5 shadow-[0_24px_70px_-34px_rgba(0,0,0,0.3)] sm:p-7"
+        className="overflow-hidden rounded-xl border border-neutral-200 bg-white p-5 shadow-[0_18px_50px_-38px_rgba(0,0,0,0.35)] sm:p-7 lg:p-8"
         onSubmit={handleSubmit}
         aria-busy={mutation.isPending}
         aria-label="Start valuation analysis"
@@ -330,9 +330,9 @@ export function StartAnalysisForm() {
           <p className="text-xs font-semibold tracking-[0.14em] text-neutral-500 uppercase">
             Start your review
           </p>
-          <h2 className="mt-2 text-xl font-semibold tracking-[-0.025em] text-neutral-950 sm:text-2xl">
+          <h3 className="mt-2 text-xl font-semibold tracking-[-0.025em] text-neutral-950 sm:text-2xl">
             Upload your CCC report
-          </h2>
+          </h3>
           <p className="mt-2 text-sm leading-6 text-neutral-600">
             Add the valuation PDF from your insurer and the vehicle’s ZIP code.
           </p>
@@ -353,9 +353,9 @@ export function StartAnalysisForm() {
             </div>
             <div
               className={cn(
-                "flex min-h-40 items-center justify-center rounded-2xl border border-dashed px-5 py-6 text-center transition-colors focus-within:border-neutral-700 focus-within:ring-3 focus-within:ring-neutral-200",
+                "flex min-h-40 items-center justify-center rounded-lg border border-dashed px-5 py-6 text-center transition-colors focus-within:border-brand focus-within:ring-3 focus-within:ring-brand/15",
                 isDragging
-                  ? "border-neutral-950 bg-neutral-100"
+                  ? "border-brand bg-brand-soft"
                   : "border-neutral-300 bg-neutral-50/70",
                 errors.report && "border-destructive/60 bg-destructive/[0.025]",
               )}
@@ -400,8 +400,8 @@ export function StartAnalysisForm() {
               />
               {report ? (
                 <div className="flex w-full items-center gap-3 text-left">
-                  <span className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-neutral-200 bg-white shadow-sm">
-                    <FileText className="size-5 text-neutral-800" aria-hidden />
+                  <span className="flex size-11 shrink-0 items-center justify-center rounded-md border border-neutral-200 bg-white shadow-sm">
+                    <FileText className="size-5 text-brand" aria-hidden />
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm font-medium text-neutral-950">
@@ -413,13 +413,13 @@ export function StartAnalysisForm() {
                   </span>
                   <label
                     htmlFor={reportInputId}
-                    className="inline-flex min-h-11 cursor-pointer items-center rounded-lg px-2.5 text-xs font-medium text-neutral-700 transition-colors hover:bg-neutral-200/70 hover:text-neutral-950"
+                    className="inline-flex min-h-11 cursor-pointer items-center rounded-md px-2.5 text-xs font-medium text-neutral-700 transition-colors hover:bg-neutral-200/70 hover:text-brand"
                   >
                     Change
                   </label>
                   <button
                     type="button"
-                    className="inline-flex size-11 items-center justify-center rounded-lg text-neutral-500 transition-colors hover:bg-neutral-200/70 hover:text-neutral-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400 disabled:pointer-events-none disabled:opacity-50"
+                    className="inline-flex size-11 items-center justify-center rounded-md text-neutral-500 transition-colors hover:bg-neutral-200/70 hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand disabled:pointer-events-none disabled:opacity-50"
                     onClick={() => {
                       clearServerError();
                       setReport(null);
@@ -436,8 +436,8 @@ export function StartAnalysisForm() {
                 </div>
               ) : (
                 <div className="flex flex-col items-center">
-                  <span className="flex size-11 items-center justify-center rounded-full border border-neutral-200 bg-white shadow-sm">
-                    <Upload className="size-5 text-neutral-800" aria-hidden />
+                  <span className="flex size-11 items-center justify-center rounded-md border border-neutral-200 bg-white shadow-sm">
+                    <Upload className="size-5 text-brand" aria-hidden />
                   </span>
                   <p className="mt-4 text-sm font-medium text-neutral-950">
                     Drop your report here
@@ -450,7 +450,7 @@ export function StartAnalysisForm() {
                   </p>
                   <label
                     htmlFor={reportInputId}
-                    className="mt-4 inline-flex min-h-11 cursor-pointer items-center rounded-lg border border-neutral-300 bg-white px-3.5 text-xs font-medium text-neutral-900 shadow-sm transition-colors hover:bg-neutral-100"
+                    className="mt-4 inline-flex min-h-11 cursor-pointer items-center rounded-md border border-neutral-300 bg-white px-3.5 text-xs font-medium text-neutral-900 shadow-sm transition-colors hover:border-brand/40 hover:bg-brand-soft"
                   >
                     Choose PDF
                   </label>
@@ -488,7 +488,7 @@ export function StartAnalysisForm() {
               <input
                 ref={postalCodeRef}
                 id="analysis-postal-code"
-                className="h-12 w-full rounded-xl border border-neutral-300 bg-white pr-4 pl-10 text-base text-neutral-950 shadow-sm transition-colors placeholder:text-neutral-400 focus:border-neutral-600 focus:outline-none focus:ring-3 focus:ring-neutral-200 disabled:cursor-not-allowed disabled:bg-neutral-100 disabled:text-neutral-500 sm:text-sm"
+                className="h-12 w-full rounded-md border border-neutral-300 bg-white pr-4 pl-10 text-base text-neutral-950 shadow-sm transition-colors placeholder:text-neutral-400 focus:border-brand focus:outline-none focus:ring-3 focus:ring-brand/15 disabled:cursor-not-allowed disabled:bg-neutral-100 disabled:text-neutral-500 sm:text-sm"
                 name="postalCode"
                 value={postalCode}
                 onChange={(event) => {
@@ -532,7 +532,7 @@ export function StartAnalysisForm() {
 
           {customerError ? (
             <div
-              className="rounded-xl border border-neutral-300 bg-neutral-50 p-4"
+              className="rounded-lg border border-neutral-300 bg-neutral-50 p-4"
               role="alert"
             >
               <div className="flex gap-3">
@@ -549,7 +549,7 @@ export function StartAnalysisForm() {
                   </p>
                   <button
                     type="button"
-                    className="mt-3 inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-neutral-300 bg-white px-3 text-xs font-medium text-neutral-900 shadow-sm transition-colors hover:bg-neutral-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400 disabled:pointer-events-none disabled:opacity-50"
+                    className="mt-3 inline-flex min-h-11 items-center gap-1.5 rounded-md border border-neutral-300 bg-white px-3 text-xs font-medium text-neutral-900 shadow-sm transition-colors hover:border-brand/40 hover:bg-brand-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand disabled:pointer-events-none disabled:opacity-50"
                     onClick={validateAndSubmit}
                     disabled={mutation.isPending}
                   >
@@ -566,7 +566,7 @@ export function StartAnalysisForm() {
             market evidence. Learn more in our{" "}
             <Link
               to="/privacy"
-              className="font-medium text-neutral-800 underline decoration-neutral-300 underline-offset-3 transition-colors hover:text-neutral-950 hover:decoration-neutral-600 focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400"
+              className="font-medium text-brand underline decoration-brand/30 underline-offset-3 transition-colors hover:text-brand-strong hover:decoration-brand/60 focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
             >
               Privacy Policy
             </Link>
@@ -575,7 +575,7 @@ export function StartAnalysisForm() {
 
           <button
             type="submit"
-            className="group inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-neutral-950 px-5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-neutral-800 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-neutral-400/60 disabled:pointer-events-none disabled:opacity-50"
+            className="group inline-flex h-12 w-full items-center justify-center gap-2 rounded-md bg-brand px-5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-brand-strong focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-brand/35 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
             disabled={mutation.isPending}
           >
             Analyze my report
@@ -592,15 +592,15 @@ export function StartAnalysisForm() {
 
       {mutation.isPending ? (
         <div
-          className="absolute inset-0 z-10 flex items-center justify-center rounded-[1.75rem] bg-white/95 px-8 text-center backdrop-blur-[2px]"
+          className="absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-white/95 px-8 text-center backdrop-blur-[2px]"
           role="status"
           aria-label="Analysis in progress"
           aria-live="polite"
         >
           <div className="max-w-sm">
-            <span className="mx-auto flex size-14 items-center justify-center rounded-full border border-neutral-200 bg-neutral-50 shadow-sm">
+            <span className="mx-auto flex size-14 items-center justify-center rounded-lg border border-neutral-200 bg-brand-soft shadow-sm">
               <LoaderCircle
-                className="size-6 animate-spin text-neutral-900 motion-reduce:animate-none"
+                className="size-6 animate-spin text-brand motion-reduce:animate-none"
                 aria-hidden
               />
             </span>

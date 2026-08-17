@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createMemoryRouter, RouterProvider } from "react-router";
 import { describe, expect, test, vi } from "vitest";
@@ -12,7 +12,7 @@ describe("Venfour application", () => {
 
     expect(
       screen.getByRole("heading", {
-        name: "Know how your vehicle valuation compares.",
+        name: "Know what your vehicle is worth after an accident.",
       }),
     ).toBeInTheDocument();
     expect(document.title).toBe("Venfour");
@@ -26,11 +26,19 @@ describe("Venfour application", () => {
       name: "Primary navigation",
     });
     expect(
+      within(primaryNavigation).getByRole("link", { name: "How it works" }),
+    ).toHaveAttribute("href", "#how-it-works");
+    expect(
       within(primaryNavigation).getByRole("link", { name: "Methodology" }),
     ).toBeInTheDocument();
     expect(
       within(primaryNavigation).getByRole("link", { name: "Contact" }),
     ).toBeInTheDocument();
+    expect(
+      within(primaryNavigation).getByRole("link", {
+        name: "Start a valuation review",
+      }),
+    ).toHaveAttribute("href", "#report-review");
 
     const footerNavigation = screen.getByRole("navigation", {
       name: "Footer navigation",
@@ -50,6 +58,77 @@ describe("Venfour application", () => {
       }),
     ).toBeInTheDocument();
     expect(document.title).toBe("Methodology | Venfour");
+  });
+
+  test("opens and closes an accessible mobile navigation", async () => {
+    const user = userEvent.setup();
+    renderTestApp();
+
+    const openNavigation = screen.getByRole("button", {
+      name: "Open navigation",
+    });
+    expect(openNavigation).toHaveAttribute("aria-expanded", "false");
+    expect(openNavigation).toHaveAttribute(
+      "aria-controls",
+      "mobile-navigation",
+    );
+    expect(
+      screen.queryByRole("navigation", { name: "Mobile navigation" }),
+    ).not.toBeInTheDocument();
+
+    await user.click(openNavigation);
+
+    const mobileNavigation = screen.getByRole("navigation", {
+      name: "Mobile navigation",
+    });
+    const closeNavigation = screen.getByRole("button", {
+      name: "Close navigation",
+    });
+    expect(closeNavigation).toHaveAttribute("aria-expanded", "true");
+    expect(mobileNavigation).toHaveAttribute("id", "mobile-navigation");
+    expect(
+      within(mobileNavigation).getByRole("link", { name: "How it works" }),
+    ).toHaveAttribute("href", "#how-it-works");
+    expect(
+      within(mobileNavigation).getByRole("link", { name: "Methodology" }),
+    ).toHaveAttribute("href", "/methodology");
+    expect(
+      within(mobileNavigation).getByRole("link", { name: "Contact" }),
+    ).toHaveAttribute("href", "/contact");
+
+    await user.click(closeNavigation);
+
+    expect(
+      screen.queryByRole("navigation", { name: "Mobile navigation" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Open navigation" }),
+    ).toHaveAttribute("aria-expanded", "false");
+  });
+
+  test("honors a homepage section hash after cross-page navigation", async () => {
+    const originalScrollIntoView = HTMLElement.prototype.scrollIntoView;
+    const scrollIntoView = vi.fn();
+    Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
+      configurable: true,
+      value: scrollIntoView,
+    });
+
+    try {
+      renderTestApp(["/#report-review"]);
+
+      await waitFor(() => expect(scrollIntoView).toHaveBeenCalledOnce());
+      expect(scrollIntoView).toHaveBeenCalledWith({ block: "start" });
+    } finally {
+      if (originalScrollIntoView) {
+        Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
+          configurable: true,
+          value: originalScrollIntoView,
+        });
+      } else {
+        Reflect.deleteProperty(HTMLElement.prototype, "scrollIntoView");
+      }
+    }
   });
 
   test.each([
@@ -79,6 +158,29 @@ describe("Venfour application", () => {
     expect(
       screen.queryByRole("link", { name: /^Email / }),
     ).not.toBeInTheDocument();
+  });
+
+  test.each([
+    [
+      "/contact?topic=vehicle-value",
+      "Ask about your vehicle’s market value",
+      /self-service vehicle-details workflow is not available yet/i,
+    ],
+    [
+      "/contact?topic=diminished-value",
+      "Ask about diminished value after a repair",
+      /does not currently provide an automated diminished-value appraisal/i,
+    ],
+  ])("keeps the inquiry handoff at %s truthful", (path, heading, disclosure) => {
+    renderTestApp([path]);
+
+    expect(screen.getByRole("heading", { name: heading })).toBeVisible();
+    expect(screen.getByText(disclosure)).toBeVisible();
+    expect(
+      screen.getByText(
+        "Direct email support is not currently available through this site.",
+      ),
+    ).toBeVisible();
   });
 
   test("does not expose the placeholder workspace route", () => {

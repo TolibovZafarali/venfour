@@ -22,6 +22,9 @@
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
+  --color-brand: var(--brand);
+  --color-brand-strong: var(--brand-strong);
+  --color-brand-soft: var(--brand-soft);
   --color-evidence: var(--evidence);
   --color-report-canvas: var(--report-canvas);
   --color-border: var(--border);
@@ -50,6 +53,9 @@
   --accent: oklch(0.97 0 0);
   --accent-foreground: oklch(0.205 0 0);
   --destructive: oklch(0.577 0.245 27.325);
+  --brand: #1f4e5f;
+  --brand-strong: #173d4b;
+  --brand-soft: #f1f5f6;
   --evidence: oklch(0.205 0 0);
   --report-canvas: oklch(0.975 0 0);
   --border: oklch(0.922 0 0);
@@ -79,8 +85,8 @@
   }
 
   ::selection {
-    background: oklch(0.89 0 0);
-    color: oklch(0.145 0 0);
+    background: #dce8eb;
+    color: #173d4b;
   }
 
   @media (prefers-reduced-motion: reduce) {
