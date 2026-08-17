@@ -40,6 +40,7 @@ from venfour.orchestration import (
     CurrentMarketSearchConfiguration,
     HistoricalMarketSearchConfiguration,
 )
+from venfour.postal_codes import normalize_us_zip_code
 
 
 Extractor = Callable[[Path, dict[str, Any]], AIExtractionResult]
@@ -93,10 +94,12 @@ def _utc_today() -> date:
 
 
 def _normalized_postal_code(value: str) -> str:
-    normalized = value.strip() if isinstance(value, str) else value
-    if not isinstance(normalized, str) or not normalized:
-        raise AnalysisCreationInputError("A verified postal code is required")
-    return normalized
+    try:
+        return normalize_us_zip_code(value)
+    except (TypeError, ValueError) as exc:
+        raise AnalysisCreationInputError(
+            "A 5-digit US ZIP code or ZIP+4 is required"
+        ) from exc
 
 
 class AnalysisCreationService:

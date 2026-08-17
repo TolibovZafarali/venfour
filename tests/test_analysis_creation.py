@@ -34,6 +34,7 @@ from venfour.adaptive_search import (
 )
 from venfour.api import create_app
 from venfour.creation import (
+    AnalysisCreationInputError,
     AnalysisCreationService,
     AnalysisSearchSettings,
     create_live_analysis_creation_service,
@@ -149,6 +150,22 @@ class AnalysisCreationTestCase(unittest.TestCase):
 
 
 class AnalysisCreationApplicationFlowTests(AnalysisCreationTestCase):
+    def test_service_rejects_malformed_zip_before_report_processing(self) -> None:
+        extractor = RecordingExtractor(make_report())
+        service, current, historical, _ = self.make_service(extractor)
+        report_path = self.root / "report.pdf"
+        report_path.write_bytes(PDF_BYTES)
+
+        for postal_code in ("", "ABCDE", "6061", "60611 1234"):
+            with self.subTest(postal_code=postal_code), self.assertRaises(
+                AnalysisCreationInputError
+            ):
+                service.create(report_path, postal_code)
+
+        self.assertEqual(extractor.paths, [])
+        self.assertEqual(current.requests, [])
+        self.assertEqual(historical.requests, [])
+
     def test_search_settings_default_to_adaptive_server_policy(self) -> None:
         self.assertIs(
             AnalysisSearchSettings().search_policies,
@@ -282,7 +299,7 @@ class AnalysisCreationApiValidationTests(AnalysisCreationTestCase):
         self.assertEqual(response.json()["error"]["code"], code)
         self.assertEqual(set(response.json()["error"]), {"code", "message"})
 
-    def test_requires_multipart_report_and_verified_postal_code(self) -> None:
+    def test_requires_multipart_report_and_postal_code(self) -> None:
         with TestClient(self.app) as client:
             unsupported = client.post(
                 "/api/v1/analyses",
@@ -304,6 +321,39 @@ class AnalysisCreationApiValidationTests(AnalysisCreationTestCase):
         self.assert_error(missing_postal, 400, "POSTAL_CODE_REQUIRED")
         self.assert_error(blank_postal, 400, "POSTAL_CODE_REQUIRED")
         self.assertEqual(self.extractor.paths, [])
+
+    def test_rejects_malformed_us_zip_codes(self) -> None:
+        malformed_zip_codes = (
+            "6061",
+            "606111",
+            "60611 1234",
+            "60611-123",
+            "ABCDE",
+            "+60611",
+        )
+
+        with TestClient(self.app) as client:
+            responses = [
+                self.post_report(client, postal_code=postal_code)
+                for postal_code in malformed_zip_codes
+            ]
+
+        for response in responses:
+            self.assert_error(response, 400, "INVALID_POSTAL_CODE")
+        self.assertEqual(self.extractor.paths, [])
+
+    def test_accepts_and_trims_zip_plus_four(self) -> None:
+        with TestClient(self.app) as client:
+            response = self.post_report(client, postal_code=" 63026-1234 ")
+
+        self.assertEqual(response.status_code, 201)
+        artifact = self.repository.get(RUN_ID_1).to_dict()
+        self.assertEqual(
+            artifact["result"]["discrepancyRequest"]["lossVehicle"][
+                "postalCode"
+            ],
+            "63026-1234",
+        )
 
     def test_rejects_duplicate_and_client_controlled_extra_fields(self) -> None:
         duplicate_parts = [

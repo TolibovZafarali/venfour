@@ -2,12 +2,8 @@ import { StartAnalysisForm } from "@/features/analyses/components/start-analysis
 
 export function HomePage() {
   return (
-    <div className="relative flex w-full overflow-hidden bg-neutral-50/70">
-      <div
-        className="pointer-events-none absolute inset-x-0 top-0 h-80 bg-[radial-gradient(ellipse_at_top,rgba(255,255,255,1),rgba(250,250,250,0))]"
-        aria-hidden
-      />
-      <section className="relative mx-auto grid w-full max-w-6xl gap-10 px-5 py-12 sm:px-8 sm:py-16 lg:grid-cols-[minmax(0,1fr)_minmax(24rem,0.78fr)] lg:grid-rows-[auto_auto] lg:gap-x-20 lg:gap-y-10 lg:py-20">
+    <div className="flex w-full bg-neutral-50/70">
+      <section className="mx-auto grid w-full max-w-6xl gap-10 px-5 py-12 sm:px-8 sm:py-16 lg:grid-cols-[minmax(0,1fr)_minmax(24rem,0.78fr)] lg:grid-rows-[auto_auto] lg:gap-x-20 lg:gap-y-10 lg:py-20">
         <div className="max-w-2xl">
           <p className="flex items-center gap-3 text-xs font-semibold tracking-[0.14em] text-neutral-500 uppercase">
             <span className="h-px w-8 bg-neutral-400" aria-hidden />

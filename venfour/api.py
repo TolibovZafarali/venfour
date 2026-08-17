@@ -45,6 +45,7 @@ from venfour.presentation import (
     AnalysisPresentationContractError,
     AnalysisPresentationService,
 )
+from venfour.postal_codes import normalize_us_zip_code
 
 
 _ERROR_MESSAGES = {
@@ -57,7 +58,10 @@ _ERROR_MESSAGES = {
     "UNSUPPORTED_MEDIA_TYPE": "Content type must be multipart/form-data.",
     "INVALID_MULTIPART_REQUEST": "Analysis creation request is invalid.",
     "REPORT_REQUIRED": "A CCC PDF report is required.",
-    "POSTAL_CODE_REQUIRED": "A verified postalCode is required.",
+    "POSTAL_CODE_REQUIRED": "A postalCode is required.",
+    "INVALID_POSTAL_CODE": (
+        "postalCode must be a 5-digit US ZIP code or ZIP+4."
+    ),
     "INVALID_REPORT": "Uploaded report is invalid.",
     "REPORT_TOO_LARGE": "Uploaded report is too large.",
     "REPORT_EXTRACTION_FAILED": "Uploaded report could not be extracted.",
@@ -70,7 +74,6 @@ _ERROR_MESSAGES = {
 MAX_MULTIPART_OVERHEAD_BYTES = 1024 * 1024
 MAX_UPLOAD_BODY_BYTES = MAX_PDF_BYTES + MAX_MULTIPART_OVERHEAD_BYTES
 MAX_MULTIPART_FIELD_BYTES = 1024
-MAX_POSTAL_CODE_CHARACTERS = 128
 UPLOAD_COPY_CHUNK_BYTES = 1024 * 1024
 
 _ANALYSIS_UNAVAILABLE_ERRORS = (
@@ -95,6 +98,10 @@ class _ReportRequired(_InvalidMultipartRequest):
 
 
 class _PostalCodeRequired(_InvalidMultipartRequest):
+    pass
+
+
+class _InvalidPostalCode(_InvalidMultipartRequest):
     pass
 
 
@@ -177,8 +184,10 @@ def _multipart_values(form: Any) -> tuple[UploadFile, str]:
     normalized_postal = postal_code.strip()
     if not normalized_postal:
         raise _PostalCodeRequired
-    if len(normalized_postal) > MAX_POSTAL_CODE_CHARACTERS:
-        raise _InvalidMultipartRequest
+    try:
+        normalized_postal = normalize_us_zip_code(normalized_postal)
+    except (TypeError, ValueError):
+        raise _InvalidPostalCode
     if report.size is None or report.size <= 0:
         raise _InvalidUploadedReport
     if report.size >= MAX_PDF_BYTES:
@@ -248,6 +257,8 @@ async def _create_analysis(request: Request) -> JSONResponse:
                 return _error_response(400, "REPORT_REQUIRED")
             except _PostalCodeRequired:
                 return _error_response(400, "POSTAL_CODE_REQUIRED")
+            except _InvalidPostalCode:
+                return _error_response(400, "INVALID_POSTAL_CODE")
             except _InvalidMultipartRequest:
                 return _error_response(400, "INVALID_MULTIPART_REQUEST")
             except _InvalidUploadedReport:

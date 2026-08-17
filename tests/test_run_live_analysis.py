@@ -86,6 +86,22 @@ class LiveCanonicalAnalysisTests(unittest.TestCase):
 
         self.assertEqual(str(raised.exception), "MARKETCHECK_API_KEY is not set")
 
+    def test_rejects_malformed_zip_before_provider_configuration(self) -> None:
+        with patch.dict(os.environ, {}, clear=True), self.assertRaises(
+            LiveAnalysisError
+        ) as raised:
+            run_live_analysis(
+                self.canonical_path,
+                "ABCDE",
+                repository_root=self.root / "runs",
+                observed_date=date.fromisoformat(CURRENT_OBSERVED_DATE),
+            )
+
+        self.assertEqual(
+            str(raised.exception),
+            "A 5-digit US ZIP code or ZIP+4 is required",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

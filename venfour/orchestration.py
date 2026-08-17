@@ -433,7 +433,7 @@ class AnalysisOrchestrator:
             )
         if base.loss_vehicle.postal_code is None:
             raise AnalysisInputError(
-                "Historical retrieval requires a verified postal code",
+                "Historical retrieval requires a postal code",
                 ("$.postalCode: historical search is configured",),
             )
         first_stage = policy.stages[0]

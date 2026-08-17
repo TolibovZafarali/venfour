@@ -65,14 +65,27 @@
 
   html {
     @apply font-sans antialiased;
+    color-scheme: light;
   }
 
   body {
     @apply min-h-svh bg-background text-foreground;
     margin: 0;
+    text-rendering: optimizeLegibility;
   }
 
   #root {
     min-height: 100svh;
+  }
+
+  ::selection {
+    background: oklch(0.89 0 0);
+    color: oklch(0.145 0 0);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html:focus-within {
+      scroll-behavior: auto;
+    }
   }
 }

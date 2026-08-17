@@ -147,7 +147,9 @@ function cccAdjustmentIncreaseAnalysis(): AnalysisPresentation {
     analysis.cccValuation.supportingComparisons
       .cccAdvertisedMedianVsAdjustedMedian;
   if (!comparison) {
-    throw new Error("Representative fixture requires a CCC adjustment comparison.");
+    throw new Error(
+      "Representative fixture requires a CCC adjustment comparison.",
+    );
   }
 
   comparison.secondValue = { cents: 2_030_000, display: "$20,300.00" };
@@ -196,6 +198,27 @@ function conflictingAnalysis(): AnalysisPresentation {
       label: "Selected market prices vary widely",
       description:
         "The stored robust dispersion measure meets or exceeds the Phase 3D screening-policy threshold.",
+    },
+  ];
+
+  return analysis as AnalysisPresentation;
+}
+
+function currentOnlyConflictingAnalysis(): AnalysisPresentation {
+  const analysis: AnalysisPresentationBase = structuredClone(
+    currentMarketAnalysis(),
+  );
+  analysis.assessment = {
+    ...analysis.assessment,
+    classification: "CONFLICTING_EVIDENCE",
+    classificationLabel: "Conflicting evidence",
+    summary: "The selected current-market prices vary too widely.",
+  };
+  analysis.findings = [
+    {
+      code: "EXTERNAL_MARKET_HIGH_DISPERSION",
+      label: "Selected market prices vary widely",
+      description: "The selected current-market prices have high dispersion.",
     },
   ];
 
@@ -292,6 +315,38 @@ function nonpositiveCccAnalysis(): AnalysisPresentation {
   return analysis as AnalysisPresentation;
 }
 
+function analysisWithoutCccRows(): AnalysisPresentation {
+  const analysis: AnalysisPresentationBase = structuredClone(
+    materialUndervalueAnalysis,
+  );
+  analysis.cccComparables.rows = [];
+  analysis.cccComparables.summary.totalCount = 0;
+
+  return analysis as AnalysisPresentation;
+}
+
+function analysisWithMissingOptionalDetails(): AnalysisPresentation {
+  const analysis: AnalysisPresentationBase = structuredClone(
+    materialUndervalueAnalysis,
+  );
+  const firstComparable = analysis.comparablesUsed.primary[0];
+  const secondComparable = analysis.comparablesUsed.primary[1];
+  if (!firstComparable || !secondComparable) {
+    throw new Error("Representative fixture requires primary comparables.");
+  }
+
+  analysis.vehicle.mileage = null;
+  analysis.vehicle.lossDate = null;
+  analysis.vehicle.postalCode = null;
+  firstComparable.mileage = null;
+  firstComparable.mileageDifferenceFromLossVehicle = null;
+  firstComparable.dealer = null;
+  firstComparable.distanceMiles = null;
+  secondComparable.distanceMiles = null;
+
+  return analysis as AnalysisPresentation;
+}
+
 describe("analysis results page", () => {
   test("presents the material undervalue assessment and authoritative values", async () => {
     renderTestApp([analysisPath]);
@@ -316,9 +371,7 @@ describe("analysis results page", () => {
     expect(screen.getAllByText("$22,200").length).toBeGreaterThan(0);
     expect(screen.getAllByText("$2,200").length).toBeGreaterThan(0);
     expect(screen.getAllByText(/11% above CCC/).length).toBeGreaterThan(0);
-    expect(
-      screen.getAllByText("$21,800–$22,600").length,
-    ).toBeGreaterThan(0);
+    expect(screen.getAllByText("$21,800–$22,600").length).toBeGreaterThan(0);
     expect(
       screen.getByText(
         "CCC’s value is below the entire selected loss-date historical range.",
@@ -352,8 +405,18 @@ describe("analysis results page", () => {
       }),
     ).toBeInTheDocument();
 
-    expect(screen.queryByText("MATERIAL_UNDERVALUE_SIGNAL")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("MATERIAL_UNDERVALUE_SIGNAL"),
+    ).not.toBeInTheDocument();
     expect(screen.queryByText("BELOW_OBSERVED_RANGE")).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("region", { name: "What you can do next" }),
+    ).toHaveTextContent(
+      "The selected evidence shows a material signal worth reviewing carefully",
+    );
+    expect(
+      screen.getByRole("link", { name: "Analyze another report" }),
+    ).toHaveAttribute("href", "/");
   });
 
   test("renders the selected loss-date comparables as verified evidence", async () => {
@@ -369,9 +432,7 @@ describe("analysis results page", () => {
     });
     expect(within(comparables).getByText("01")).toBeInTheDocument();
     expect(within(comparables).getByText("05")).toBeInTheDocument();
-    expect(
-      screen.getAllByText("Verified active on loss date"),
-    ).toHaveLength(5);
+    expect(screen.getAllByText("Verified active on loss date")).toHaveLength(5);
     expect(screen.getAllByText("Strong match")).toHaveLength(5);
     expect(screen.getByText("$21,800")).toBeInTheDocument();
     expect(screen.getByText("$22,600")).toBeInTheDocument();
@@ -383,11 +444,11 @@ describe("analysis results page", () => {
 
     expect(
       await screen.findByRole("heading", {
-        name: "Current prices are context, not loss-date evidence",
+        name: "Current-market prices remain separate from loss-date evidence",
       }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("heading", { name: "Current market" }),
+      screen.getByRole("heading", { name: "Current-market evidence" }),
     ).toBeInTheDocument();
     expect(
       screen.getByText(
@@ -409,10 +470,12 @@ describe("analysis results page", () => {
         name: "Only loss-date market evidence is available",
       }),
     ).toBeInTheDocument();
-    expect(screen.getByText("No separate current-market set")).toBeInTheDocument();
+    expect(
+      screen.getByText("No separate current-market set"),
+    ).toBeInTheDocument();
     expect(
       screen.queryByRole("heading", {
-        name: "Current prices are context, not loss-date evidence",
+        name: "Current-market prices remain separate from loss-date evidence",
       }),
     ).not.toBeInTheDocument();
   });
@@ -427,26 +490,40 @@ describe("analysis results page", () => {
         name: "Current-market evidence is the primary available context",
       }),
     ).toBeInTheDocument();
-    expect(screen.getByText("Loss-date evidence unavailable")).toBeInTheDocument();
+    expect(
+      screen.getByText("Loss-date evidence unavailable"),
+    ).toBeInTheDocument();
     expect(
       screen.getByRole("heading", {
         name: "How Venfour reached this assessment",
       }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("region", { name: "Primary comparable vehicles" }),
+      screen.getByRole("region", {
+        name: "Current-market comparable vehicles",
+      }),
     ).toBeInTheDocument();
     expect(
       screen.queryByText("No separate current-market set"),
     ).not.toBeInTheDocument();
     expect(
-      screen.queryByRole("heading", { name: "Why Venfour flagged the valuation" }),
+      screen.queryByRole("heading", {
+        name: "Why Venfour flagged the valuation",
+      }),
     ).not.toBeInTheDocument();
-    expect(screen.getByText("Current-market price position")).toBeInTheDocument();
-    expect(screen.getByText("Selected current-market range")).toBeInTheDocument();
+    expect(
+      screen.getByText("Current-market price position"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Selected current-market range"),
+    ).toBeInTheDocument();
     expect(screen.getByText("Current-market median")).toBeInTheDocument();
-    expect(screen.queryByText("Loss-date price position")).not.toBeInTheDocument();
-    expect(screen.queryByText("Selected loss-date range")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("Loss-date price position"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("Selected loss-date range"),
+    ).not.toBeInTheDocument();
     expect(screen.queryByText("Loss-date median")).not.toBeInTheDocument();
   });
 
@@ -472,9 +549,7 @@ describe("analysis results page", () => {
     renderTestApp([analysisPath]);
 
     expect(
-      await screen.findByText(
-        /adjusted median was \$20,300, a \$200 increase/,
-      ),
+      await screen.findByText(/adjusted median was \$20,300, a \$200 increase/),
     ).toBeInTheDocument();
     expect(
       screen.queryByText(/adjusted median was \$20,300, a -\$200/),
@@ -497,7 +572,9 @@ describe("analysis results page", () => {
       }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("heading", { name: "Selected market prices vary widely" }),
+      screen.getByRole("heading", {
+        name: "Selected market prices vary widely",
+      }),
     ).toBeInTheDocument();
     expect(screen.queryByText(/Phase 3D/)).not.toBeInTheDocument();
     expect(
@@ -505,6 +582,25 @@ describe("analysis results page", () => {
         name: "How Venfour reached this assessment",
       }),
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole("region", { name: "What you can do next" }),
+    ).toHaveTextContent("loss-date and current-market evidence differ");
+  });
+
+  test("does not invent a timing conflict for current-only price dispersion", async () => {
+    useAnalysisResponse(currentOnlyConflictingAnalysis());
+
+    renderTestApp([analysisPath]);
+
+    const nextSteps = await screen.findByRole("region", {
+      name: "What you can do next",
+    });
+    expect(nextSteps).toHaveTextContent(
+      "review how widely their advertised prices vary",
+    );
+    expect(nextSteps).not.toHaveTextContent(
+      "loss-date and current-market evidence differ",
+    );
   });
 
   test("renders an insufficient-evidence assessment without evidence sections", async () => {
@@ -523,6 +619,58 @@ describe("analysis results page", () => {
       }),
     ).toBeInTheDocument();
     expect(screen.queryByText("Market timing")).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", {
+        name: "No external comparables were selected",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("region", { name: "What you can do next" }),
+    ).toHaveTextContent(
+      "That does not establish that the CCC valuation is correct or incorrect",
+    );
+  });
+
+  test("explains when CCC comparable rows are unavailable", async () => {
+    useAnalysisResponse(analysisWithoutCccRows());
+
+    renderTestApp([analysisPath]);
+
+    expect(
+      await screen.findByRole("heading", {
+        name: "No CCC comparable details were available",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "No CCC comparable rows were available to show how individual vehicles and adjustments contributed to the reported valuation.",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  test("labels missing optional report and listing details", async () => {
+    useAnalysisResponse(analysisWithMissingOptionalDetails());
+
+    renderTestApp([analysisPath]);
+
+    const comparables = await screen.findByRole("region", {
+      name: "Loss-date comparable vehicles",
+    });
+    expect(
+      within(comparables).getByText("Mileage not provided"),
+    ).toBeInTheDocument();
+    expect(
+      within(comparables).getByText("Dealer not provided"),
+    ).toBeInTheDocument();
+    expect(
+      within(comparables).getByText("Location and distance not available"),
+    ).toBeInTheDocument();
+    expect(
+      within(comparables).getByText(/Distance not available$/),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Search ZIP").parentElement).toHaveTextContent(
+      "Search ZIPNot available",
+    );
   });
 
   test("explains a nonpositive CCC value without showing an unavailable percent", async () => {
@@ -541,7 +689,9 @@ describe("analysis results page", () => {
       }),
     ).toBeInTheDocument();
     expect(screen.getByText("above CCC")).toBeInTheDocument();
-    expect(screen.queryByText(/Not available above CCC/)).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/Not available above CCC/),
+    ).not.toBeInTheDocument();
   });
 
   test("keeps meaningful cents while removing unnecessary precision", async () => {
@@ -578,7 +728,9 @@ describe("analysis results page", () => {
     expect(screen.getByText("SYNTHETICCCCVIN01")).toBeVisible();
 
     await user.click(
-      screen.getByText("Review the limits and coverage notes for this analysis"),
+      screen.getByText(
+        "Review the limits and coverage notes for this analysis",
+      ),
     );
     expect(
       screen.getByText(
@@ -600,7 +752,9 @@ describe("analysis results page", () => {
     expect(
       screen.getByRole("region", { name: "Loading analysis" }),
     ).toHaveAttribute("aria-busy", "true");
-    expect(screen.getByText("Loading your valuation analysis…")).toBeInTheDocument();
+    expect(
+      screen.getByText("Loading your valuation analysis…"),
+    ).toBeInTheDocument();
   });
 
   test("shows a specific not-found state for an unknown analysis", async () => {
@@ -629,6 +783,64 @@ describe("analysis results page", () => {
     expect(
       screen.queryByRole("button", { name: "Try again" }),
     ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Start a new analysis" }),
+    ).toHaveAttribute("href", "/");
+    expect(document.title).toBe("Analysis Not Found | Venfour");
+  });
+
+  test("rejects a malformed analysis URL without requesting it", async () => {
+    let requestCount = 0;
+    server.use(
+      http.get("*/api/v1/analyses/:runId", () => {
+        requestCount += 1;
+        return HttpResponse.json(materialUndervalueAnalysis);
+      }),
+    );
+
+    renderTestApp(["/analyses/not-a-valid-analysis-id"]);
+
+    expect(
+      await screen.findByRole("heading", {
+        name: "This analysis link isn’t valid.",
+      }),
+    ).toBeInTheDocument();
+    expect(requestCount).toBe(0);
+    expect(
+      screen.queryByRole("button", { name: "Try again" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Start a new analysis" }),
+    ).toHaveAttribute("href", "/");
+    expect(document.title).toBe("Invalid Analysis Link | Venfour");
+  });
+
+  test("treats a backend invalid-identifier response as permanent", async () => {
+    server.use(
+      http.get("*/api/v1/analyses/:runId", () =>
+        HttpResponse.json(
+          {
+            error: {
+              code: "INVALID_RUN_ID",
+              message: "Analysis run ID is invalid.",
+            },
+          },
+          { status: 400 },
+        ),
+      ),
+    );
+
+    renderTestApp([analysisPath]);
+
+    expect(
+      await screen.findByRole("heading", {
+        name: "This analysis link isn’t valid.",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Try again" }),
+    ).not.toBeInTheDocument();
+    expect(document.title).toBe("Invalid Analysis Link | Venfour");
   });
 
   test("shows a retryable state for an API failure", async () => {
@@ -657,5 +869,10 @@ describe("analysis results page", () => {
     expect(
       screen.getByRole("button", { name: "Try again" }),
     ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Return home" })).toHaveAttribute(
+      "href",
+      "/",
+    );
+    expect(document.title).toBe("Analysis Temporarily Unavailable | Venfour");
   });
 });

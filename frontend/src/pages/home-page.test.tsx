@@ -1,7 +1,7 @@
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
-import { describe, expect, test } from "vitest";
+import { describe, expect, test, vi } from "vitest";
 
 import { server } from "@/test/mocks/server";
 import { renderTestApp } from "@/test/render";
@@ -69,6 +69,33 @@ describe("analysis creation", () => {
     expect(entries[1]?.[1]).toBe("60611");
   });
 
+  test("accepts and preserves a trimmed ZIP+4", async () => {
+    const user = userEvent.setup();
+    let submittedPostalCode = "";
+
+    server.use(
+      http.post("*/api/v1/analyses", async ({ request }) => {
+        const formData = await request.formData();
+        submittedPostalCode = String(formData.get("postalCode"));
+        return HttpResponse.json(
+          { runId: representativeRunId },
+          { status: 201 },
+        );
+      }),
+    );
+
+    const { router } = renderTestApp();
+    await fillValidForm(user, createPdf(), " 60611-1234 ");
+    await user.click(screen.getByRole("button", { name: "Analyze my report" }));
+
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe(
+        `/analyses/${representativeRunId}`,
+      ),
+    );
+    expect(submittedPostalCode).toBe("60611-1234");
+  });
+
   test("accepts a PDF dropped onto the upload target", async () => {
     const user = userEvent.setup();
     const report = createPdf("dropped-report.pdf");
@@ -83,6 +110,21 @@ describe("analysis creation", () => {
     expect(
       screen.getByRole("button", { name: "Analyze my report" }),
     ).toBeEnabled();
+  });
+
+  test("accepts a PDF filename with a generic binary MIME type", async () => {
+    const user = userEvent.setup();
+    renderTestApp();
+    const report = new File([PDF_CONTENT], "browser-report.pdf", {
+      type: "application/octet-stream",
+    });
+
+    await user.upload(screen.getByLabelText("CCC valuation report"), report);
+
+    expect(screen.getByText("browser-report.pdf")).toBeVisible();
+    expect(
+      screen.queryByText("Choose a PDF version of your CCC valuation report."),
+    ).not.toBeInTheDocument();
   });
 
   test("validates required input, PDF type, size, and ZIP before submission", async () => {
@@ -145,6 +187,15 @@ describe("analysis creation", () => {
     expect(
       screen.getByText("Enter the ZIP code for the vehicle."),
     ).toBeVisible();
+
+    await user.clear(screen.getByLabelText("Vehicle ZIP code"));
+    await user.type(screen.getByLabelText("Vehicle ZIP code"), "6061A");
+    await user.click(screen.getByRole("button", { name: "Analyze my report" }));
+    expect(
+      screen.getByText(
+        "Enter a 5-digit ZIP code or ZIP+4, such as 60611 or 60611-1234.",
+      ),
+    ).toBeVisible();
     expect(requestCount).toBe(0);
   });
 
@@ -182,8 +233,13 @@ describe("analysis creation", () => {
       const processingStatus = await screen.findByRole("status", {
         name: "Analysis in progress",
       });
-      expect(processingStatus).toHaveTextContent("Analyzing your report");
-      expect(processingStatus).toHaveTextContent("retrieving market evidence");
+      expect(processingStatus).toHaveTextContent(
+        "Preparing your valuation review",
+      );
+      expect(processingStatus).toHaveTextContent("reading the CCC report");
+      expect(processingStatus).toHaveTextContent(
+        "reviewing relevant market evidence",
+      );
       expect(processingStatus).toHaveTextContent("This can take a few minutes");
       expect(submitButton).toBeDisabled();
       expect(screen.getByLabelText("CCC valuation report")).toBeDisabled();
@@ -205,6 +261,7 @@ describe("analysis creation", () => {
     ["REPORT_TOO_LARGE", 413, "Your report is too large"],
     ["REPORT_EXTRACTION_FAILED", 502, "We couldn’t read this report"],
     ["REPORT_NOT_ANALYZABLE", 422, "This report couldn’t be analyzed"],
+    ["INVALID_POSTAL_CODE", 400, "Check the ZIP code"],
     [
       "MARKET_PROVIDER_UNAVAILABLE",
       503,
@@ -215,7 +272,7 @@ describe("analysis creation", () => {
       503,
       "Analysis is temporarily unavailable",
     ],
-    ["ANALYSIS_CREATION_FAILED", 500, "We couldn’t create your review"],
+    ["ANALYSIS_CREATION_FAILED", 500, "Venfour couldn’t complete this review"],
   ])("maps %s to a customer-safe error", async (code, status, title) => {
     const user = userEvent.setup();
     server.use(
@@ -244,6 +301,41 @@ describe("analysis creation", () => {
     ).not.toBeInTheDocument();
     expect(screen.queryByText(code)).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Try again" })).toBeEnabled();
+  });
+
+  test("distinguishes an offline failure without clearing the form", async () => {
+    const user = userEvent.setup();
+    const onlineState = vi
+      .spyOn(window.navigator, "onLine", "get")
+      .mockReturnValue(false);
+
+    server.use(http.post("*/api/v1/analyses", () => HttpResponse.error()));
+    renderTestApp();
+    await fillValidForm(user, createPdf("offline-report.pdf"), "60611");
+
+    try {
+      await user.click(
+        screen.getByRole("button", { name: "Analyze my report" }),
+      );
+
+      expect(await screen.findByText("You appear to be offline")).toBeVisible();
+      expect(screen.getByText("offline-report.pdf")).toBeVisible();
+      expect(screen.getByLabelText("Vehicle ZIP code")).toHaveValue("60611");
+      expect(screen.getByRole("button", { name: "Try again" })).toBeEnabled();
+    } finally {
+      onlineState.mockRestore();
+    }
+  });
+
+  test("discloses third-party processing beside the submission action", () => {
+    renderTestApp();
+
+    expect(
+      screen.getByText(/uses third-party services to process your report/i),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("link", { name: "Privacy Policy" }),
+    ).toHaveAttribute("href", "/privacy");
   });
 
   test("retries with the same valid report and ZIP without asking for reselection", async () => {

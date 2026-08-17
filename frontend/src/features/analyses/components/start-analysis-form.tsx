@@ -16,13 +16,18 @@ import {
   useRef,
   useState,
 } from "react";
-import { useNavigate } from "react-router";
+import { Link, useNavigate } from "react-router";
 
 import { useCreateAnalysisMutation } from "@/features/analyses/mutations";
 import { ApiError } from "@/lib/api/client";
 import { cn } from "@/lib/utils";
 
 const MAX_REPORT_BYTES = 50 * 1024 * 1024;
+const US_ZIP_CODE_PATTERN = /^[0-9]{5}(?:-[0-9]{4})?$/;
+const GENERIC_BINARY_MIME_TYPES = new Set([
+  "application/octet-stream",
+  "binary/octet-stream",
+]);
 
 interface FormErrors {
   report?: string;
@@ -46,7 +51,10 @@ function validateReport(report: File) {
   const hasPdfName = report.name.toLowerCase().endsWith(".pdf");
   const normalizedType = report.type.toLowerCase();
   const hasPdfType = normalizedType === "application/pdf";
-  const hasConflictingType = Boolean(normalizedType) && !hasPdfType;
+  const hasConflictingType =
+    Boolean(normalizedType) &&
+    !hasPdfType &&
+    !GENERIC_BINARY_MIME_TYPES.has(normalizedType);
 
   if ((!hasPdfName && !hasPdfType) || hasConflictingType) {
     return "Choose a PDF version of your CCC valuation report.";
@@ -67,17 +75,36 @@ function formatFileSize(bytes: number) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MiB`;
 }
 
+function validatePostalCode(postalCode: string) {
+  const normalizedPostalCode = postalCode.trim();
+
+  if (!normalizedPostalCode) {
+    return "Enter the ZIP code for the vehicle.";
+  }
+
+  if (!US_ZIP_CODE_PATTERN.test(normalizedPostalCode)) {
+    return "Enter a 5-digit ZIP code or ZIP+4, such as 60611 or 60611-1234.";
+  }
+
+  return undefined;
+}
+
 function customerErrorFor(error: unknown): CustomerError {
   if (error instanceof ApiError) {
     switch (error.code) {
       case "REPORT_REQUIRED":
-      case "INVALID_MULTIPART_REQUEST":
       case "INVALID_REPORT":
-      case "UNSUPPORTED_MEDIA_TYPE":
         return {
           title: "Choose a valid CCC PDF",
           description:
             "We couldn’t use this file. Select the original PDF version of your CCC valuation report.",
+        };
+      case "INVALID_MULTIPART_REQUEST":
+      case "UNSUPPORTED_MEDIA_TYPE":
+        return {
+          title: "We couldn’t submit your report",
+          description:
+            "Your report and ZIP code are still selected. Refresh the page and try again.",
         };
       case "REPORT_TOO_LARGE":
         return {
@@ -88,7 +115,7 @@ function customerErrorFor(error: unknown): CustomerError {
         return {
           title: "We couldn’t read this report",
           description:
-            "Make sure this is the original CCC valuation PDF and try again.",
+            "Venfour couldn’t finish reading the PDF. Your selections are still here, so you can try again.",
         };
       case "REPORT_NOT_ANALYZABLE":
         return {
@@ -102,6 +129,12 @@ function customerErrorFor(error: unknown): CustomerError {
           description:
             "Add the ZIP code for the vehicle so we can search the relevant local market.",
         };
+      case "INVALID_POSTAL_CODE":
+        return {
+          title: "Check the ZIP code",
+          description:
+            "Enter a 5-digit US ZIP code or ZIP+4, such as 60611 or 60611-1234.",
+        };
       case "MARKET_PROVIDER_UNAVAILABLE":
         return {
           title: "Market search is temporarily unavailable",
@@ -114,13 +147,44 @@ function customerErrorFor(error: unknown): CustomerError {
           description:
             "Your report and ZIP code are still selected. Please try again in a few minutes.",
         };
+      case "ANALYSIS_CREATION_FAILED":
+      case "INTERNAL_ERROR":
+        return {
+          title: "Venfour couldn’t complete this review",
+          description:
+            "No analysis was created. Your report and ZIP code are still selected, so you can try again.",
+        };
     }
+
+    if (error.status >= 500) {
+      return {
+        title: "Venfour couldn’t complete this review",
+        description:
+          "The service encountered a temporary problem. Your selections are still here; please try again in a few minutes.",
+      };
+    }
+  }
+
+  if (error instanceof TypeError) {
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      return {
+        title: "You appear to be offline",
+        description:
+          "Reconnect to the internet, then try again. Your report and ZIP code are still selected.",
+      };
+    }
+
+    return {
+      title: "We couldn’t reach Venfour",
+      description:
+        "Check your internet connection and try again. Your report and ZIP code are still selected.",
+    };
   }
 
   return {
     title: "We couldn’t create your review",
     description:
-      "Your selections are still here. Check your connection and try again.",
+      "Your report and ZIP code are still selected. Please try again.",
   };
 }
 
@@ -219,9 +283,7 @@ export function StartAnalysisForm() {
       nextErrors.report = validateReport(report);
     }
 
-    if (!normalizedPostalCode) {
-      nextErrors.postalCode = "Enter the ZIP code for the vehicle.";
-    }
+    nextErrors.postalCode = validatePostalCode(normalizedPostalCode);
 
     setErrors(nextErrors);
 
@@ -351,13 +413,13 @@ export function StartAnalysisForm() {
                   </span>
                   <label
                     htmlFor={reportInputId}
-                    className="cursor-pointer rounded-lg px-2.5 py-2 text-xs font-medium text-neutral-700 transition-colors hover:bg-neutral-200/70 hover:text-neutral-950"
+                    className="inline-flex min-h-11 cursor-pointer items-center rounded-lg px-2.5 text-xs font-medium text-neutral-700 transition-colors hover:bg-neutral-200/70 hover:text-neutral-950"
                   >
                     Change
                   </label>
                   <button
                     type="button"
-                    className="rounded-lg p-2 text-neutral-500 transition-colors hover:bg-neutral-200/70 hover:text-neutral-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400 disabled:pointer-events-none disabled:opacity-50"
+                    className="inline-flex size-11 items-center justify-center rounded-lg text-neutral-500 transition-colors hover:bg-neutral-200/70 hover:text-neutral-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400 disabled:pointer-events-none disabled:opacity-50"
                     onClick={() => {
                       clearServerError();
                       setReport(null);
@@ -388,7 +450,7 @@ export function StartAnalysisForm() {
                   </p>
                   <label
                     htmlFor={reportInputId}
-                    className="mt-4 cursor-pointer rounded-lg border border-neutral-300 bg-white px-3.5 py-2 text-xs font-medium text-neutral-900 shadow-sm transition-colors hover:bg-neutral-100"
+                    className="mt-4 inline-flex min-h-11 cursor-pointer items-center rounded-lg border border-neutral-300 bg-white px-3.5 text-xs font-medium text-neutral-900 shadow-sm transition-colors hover:bg-neutral-100"
                   >
                     Choose PDF
                   </label>
@@ -439,8 +501,8 @@ export function StartAnalysisForm() {
                 }}
                 placeholder="e.g. 60611"
                 autoComplete="postal-code"
-                inputMode="numeric"
-                maxLength={128}
+                inputMode="text"
+                maxLength={16}
                 aria-describedby={
                   errors.postalCode
                     ? `${postalHelpId} ${postalErrorId}`
@@ -454,7 +516,8 @@ export function StartAnalysisForm() {
               id={postalHelpId}
               className="mt-2 text-xs leading-5 text-neutral-500"
             >
-              Used to find relevant comparable vehicles near you.
+              Enter a 5-digit ZIP or ZIP+4. This is used to find relevant
+              comparable vehicles near you.
             </p>
             {errors.postalCode ? (
               <p
@@ -486,7 +549,7 @@ export function StartAnalysisForm() {
                   </p>
                   <button
                     type="button"
-                    className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-neutral-300 bg-white px-3 py-2 text-xs font-medium text-neutral-900 shadow-sm transition-colors hover:bg-neutral-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400 disabled:pointer-events-none disabled:opacity-50"
+                    className="mt-3 inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-neutral-300 bg-white px-3 text-xs font-medium text-neutral-900 shadow-sm transition-colors hover:bg-neutral-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400 disabled:pointer-events-none disabled:opacity-50"
                     onClick={validateAndSubmit}
                     disabled={mutation.isPending}
                   >
@@ -498,6 +561,18 @@ export function StartAnalysisForm() {
             </div>
           ) : null}
 
+          <p className="text-xs leading-5 text-neutral-500">
+            Venfour uses third-party services to process your report and gather
+            market evidence. Learn more in our{" "}
+            <Link
+              to="/privacy"
+              className="font-medium text-neutral-800 underline decoration-neutral-300 underline-offset-3 transition-colors hover:text-neutral-950 hover:decoration-neutral-600 focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400"
+            >
+              Privacy Policy
+            </Link>
+            .
+          </p>
+
           <button
             type="submit"
             className="group inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-neutral-950 px-5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-neutral-800 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-neutral-400/60 disabled:pointer-events-none disabled:opacity-50"
@@ -505,13 +580,12 @@ export function StartAnalysisForm() {
           >
             Analyze my report
             <ArrowRight
-              className="size-4 transition-transform group-hover:translate-x-0.5"
+              className="size-4 transition-transform group-hover:translate-x-0.5 motion-reduce:transition-none"
               aria-hidden
             />
           </button>
           <p className="text-center text-xs leading-5 text-neutral-500">
-            Report analysis and market-evidence retrieval can take a few
-            minutes.
+            Preparing a review can take a few minutes.
           </p>
         </div>
       </form>
@@ -531,11 +605,11 @@ export function StartAnalysisForm() {
               />
             </span>
             <p className="mt-5 text-lg font-semibold tracking-[-0.02em] text-neutral-950">
-              Analyzing your report
+              Preparing your valuation review
             </p>
             <p className="mt-2 text-sm leading-6 text-neutral-600">
-              Venfour is reviewing the valuation and retrieving market evidence.
-              This can take a few minutes.
+              Venfour is reading the CCC report, reviewing relevant market
+              evidence, and preparing your results. This can take a few minutes.
             </p>
             <p className="mt-5 text-xs font-medium tracking-wide text-neutral-500 uppercase">
               Keep this page open

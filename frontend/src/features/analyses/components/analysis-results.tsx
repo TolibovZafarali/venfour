@@ -1,10 +1,8 @@
-import {
-  ChevronDown,
-  CircleDot,
-  Info,
-} from "lucide-react";
+import { ChevronDown, CircleDot, Info } from "lucide-react";
 import type { ReactNode } from "react";
+import { Link } from "react-router";
 
+import { Button } from "@/components/ui/button";
 import type {
   AnalysisPresentation,
   Assessment,
@@ -49,7 +47,9 @@ function assessmentHeading(analysis: AnalysisPresentation) {
     return assessmentHeadings[analysis.assessment.classification];
   }
 
-  const findingCodes = new Set(analysis.findings.map((finding) => finding.code));
+  const findingCodes = new Set(
+    analysis.findings.map((finding) => finding.code),
+  );
   if (findingCodes.has("MISSING_CCC_VEHICLE_VALUATION")) {
     return "A CCC vehicle value is needed before this valuation can be assessed";
   }
@@ -77,13 +77,15 @@ function displayPercentage(value: string | null) {
     return unavailable;
   }
 
-  return value
-    .replace(/(\.\d*?[1-9])0+%$/, "$1%")
-    .replace(/\.0+%$/, "%");
+  return value.replace(/(\.\d*?[1-9])0+%$/, "$1%").replace(/\.0+%$/, "%");
 }
 
 function displayPercentageMagnitude(value: string | null) {
   return displayPercentage(value).replace(/^-/, "");
+}
+
+function displayProviderName(value: string) {
+  return value.toLowerCase() === "marketcheck" ? "MarketCheck" : value;
 }
 
 function vehicleName({
@@ -109,7 +111,12 @@ interface SectionHeadingProps {
   description?: string;
 }
 
-function SectionHeading({ id, eyebrow, title, description }: SectionHeadingProps) {
+function SectionHeading({
+  id,
+  eyebrow,
+  title,
+  description,
+}: SectionHeadingProps) {
   return (
     <div className="max-w-2xl">
       {eyebrow ? (
@@ -142,7 +149,9 @@ interface MetricProps {
 function Metric({ label, value, detail, emphasis = false }: MetricProps) {
   return (
     <div className="border-t border-neutral-200 pt-4">
-      <dt className="text-xs leading-5 font-medium text-neutral-500">{label}</dt>
+      <dt className="text-xs leading-5 font-medium text-neutral-500">
+        {label}
+      </dt>
       <dd
         className={cn(
           "mt-1.5 font-semibold tracking-[-0.025em] text-neutral-950 tabular-nums",
@@ -244,9 +253,8 @@ function MarketRangeFigure({ analysis }: AnalysisResultsProps) {
       <div className="mt-8 rounded-xl border bg-background p-5">
         <p className="font-medium">{relationshipCopy}</p>
         <p className="mt-2 text-sm text-muted-foreground">
-          Every value shown on this comparison is {displayMoney(
-            analysis.cccValuation.adjustedVehicleValue,
-          )}.
+          Every value shown on this comparison is{" "}
+          {displayMoney(analysis.cccValuation.adjustedVehicleValue)}.
         </p>
       </div>
     );
@@ -381,10 +389,9 @@ function PrimaryAssessment({ analysis }: AnalysisResultsProps) {
   const undervalueAssessment =
     analysis.assessment.classification === "MATERIAL_UNDERVALUE_SIGNAL" ||
     analysis.assessment.classification === "POTENTIAL_UNDERVALUE";
-  const gapLabel =
-    undervalueAssessment
-      ? "Evidence gap"
-      : "Difference from primary median";
+  const gapLabel = undervalueAssessment
+    ? "Evidence gap"
+    : "Difference from primary median";
   const gapValue = comparison
     ? displayMoneyMagnitude(comparison.difference)
     : unavailable;
@@ -500,6 +507,82 @@ function PrimaryAssessment({ analysis }: AnalysisResultsProps) {
   );
 }
 
+function AssessmentReadingGuide({ analysis }: AnalysisResultsProps) {
+  const advertisedPriceLimitation = analysis.limitations.find(
+    (limitation) => limitation.code === "ADVERTISED_PRICES_NOT_TRANSACTIONS",
+  );
+  const settlementLimitation = analysis.limitations.find(
+    (limitation) => limitation.code === "DOES_NOT_CALCULATE_LEGAL_SETTLEMENT",
+  );
+  const currentMarketLimitation = analysis.limitations.find(
+    (limitation) =>
+      limitation.code === "CURRENT_LISTINGS_NOT_LOSS_DATE_EVIDENCE",
+  );
+  const noPrimaryEvidence = analysis.assessment.evidenceBasis === "NONE";
+  const timingOrConclusion = noPrimaryEvidence
+    ? {
+        title: "What an inconclusive result means",
+        description:
+          "Insufficient evidence does not establish that the CCC valuation is either accurate or inaccurate.",
+      }
+    : analysis.assessment.evidenceBasis === "CURRENT_MARKET"
+      ? {
+          title: currentMarketLimitation?.label ?? "Current-market timing",
+          description:
+            currentMarketLimitation?.description ??
+            "Current listings provide useful context, but they do not show exactly what was available on the loss date.",
+        }
+      : {
+          title: settlementLimitation?.label ?? "Evidence, not an amount owed",
+          description:
+            settlementLimitation?.description ??
+            "An observed valuation difference does not establish a settlement amount or money owed.",
+        };
+
+  return (
+    <aside
+      className="mt-6 border-y border-neutral-200 py-5 sm:mt-7 sm:py-6"
+      aria-labelledby="reading-guide-heading"
+    >
+      <h2 id="reading-guide-heading" className="sr-only">
+        How to read this assessment
+      </h2>
+      <div className="grid gap-5 sm:grid-cols-2 sm:gap-10">
+        <div className="flex gap-3">
+          <Info
+            className="mt-0.5 size-4 shrink-0 text-neutral-500"
+            aria-hidden="true"
+          />
+          <div>
+            <h3 className="text-sm font-semibold text-neutral-950">
+              {advertisedPriceLimitation?.label ??
+                "Advertised prices are not completed sales"}
+            </h3>
+            <p className="mt-1 text-sm leading-6 text-neutral-600">
+              {advertisedPriceLimitation?.description ??
+                "Market evidence reflects advertised prices, which may differ from final transaction prices."}
+            </p>
+          </div>
+        </div>
+        <div className="flex gap-3">
+          <Info
+            className="mt-0.5 size-4 shrink-0 text-neutral-500"
+            aria-hidden="true"
+          />
+          <div>
+            <h3 className="text-sm font-semibold text-neutral-950">
+              {timingOrConclusion.title}
+            </h3>
+            <p className="mt-1 text-sm leading-6 text-neutral-600">
+              {timingOrConclusion.description}
+            </p>
+          </div>
+        </div>
+      </div>
+    </aside>
+  );
+}
+
 interface Explanation {
   title: string;
   body: ReactNode;
@@ -547,32 +630,27 @@ function assessmentFindingExplanation(
     case "INSUFFICIENT_RESOLVED_EXTERNAL_EVIDENCE":
       return {
         title: "Reliable external evidence is insufficient",
-        body:
-          "Too few independently selected comparable vehicles were available to support a reliable market comparison.",
+        body: "Too few independently selected comparable vehicles were available to support a reliable market comparison.",
       };
     case "MISSING_CCC_VEHICLE_VALUATION":
       return {
         title: "The CCC vehicle value is missing",
-        body:
-          "A market difference cannot be calculated until the CCC report provides a vehicle valuation to compare.",
+        body: "A market difference cannot be calculated until the CCC report provides a vehicle valuation to compare.",
       };
     case "NONPOSITIVE_CCC_VEHICLE_VALUATION":
       return {
         title: "The CCC vehicle value cannot be compared",
-        body:
-          "The CCC vehicle value is zero or below zero, so a meaningful percentage comparison cannot be calculated.",
+        body: "The CCC vehicle value is zero or below zero, so a meaningful percentage comparison cannot be calculated.",
       };
     case "EXTERNAL_MEDIAN_ZERO":
       return {
         title: "The selected market median cannot be compared",
-        body:
-          "The selected external median is zero, so it cannot support a meaningful comparison with the CCC vehicle value.",
+        body: "The selected external median is zero, so it cannot support a meaningful comparison with the CCC vehicle value.",
       };
     case "CCC_AND_EXTERNAL_EVIDENCE_CONSISTENT":
       return {
         title: "CCC and the selected market evidence are broadly consistent",
-        body:
-          "The available primary comparison does not show a material discrepancy from CCC’s adjusted vehicle value.",
+        body: "The available primary comparison does not show a material discrepancy from CCC’s adjusted vehicle value.",
       };
     case "EXTERNAL_MEDIAN_EQUALS_CCC":
       return {
@@ -595,7 +673,9 @@ function buildExplanations(analysis: AnalysisPresentation): Explanation[] {
   const explanations: Explanation[] = [];
   const primary = analysis.primaryExternalEvidence;
   const comparison = analysis.cccValuation.comparisonToPrimaryEvidence;
-  const findingCodes = new Set(analysis.findings.map((finding) => finding.code));
+  const findingCodes = new Set(
+    analysis.findings.map((finding) => finding.code),
+  );
 
   for (const finding of analysis.findings) {
     if (
@@ -613,7 +693,9 @@ function buildExplanations(analysis: AnalysisPresentation): Explanation[] {
 
   if (primary && analysis.comparablesUsed.primary.length > 0) {
     const comparables = analysis.comparablesUsed.primary;
-    const allStrong = comparables.every((comparable) => comparable.tier === "STRONG");
+    const allStrong = comparables.every(
+      (comparable) => comparable.tier === "STRONG",
+    );
     const allVerifiedOnDate = comparables.every(
       (comparable) =>
         comparable.evidenceBasis === "LOSS_DATE_HISTORICAL" &&
@@ -668,9 +750,9 @@ function buildExplanations(analysis: AnalysisPresentation): Explanation[] {
         : "primary median";
     const relation = externalMedianAbove ? "above" : "below";
     explanations.push({
-      title: `The ${evidenceName} is ${
-        displayPercentageMagnitude(comparison.differencePercent.display)
-      } ${relation} CCC`,
+      title: `The ${evidenceName} is ${displayPercentageMagnitude(
+        comparison.differencePercent.display,
+      )} ${relation} CCC`,
       body: `The selected external median differs from CCC’s adjusted vehicle value by ${displayMoneyMagnitude(
         comparison.difference,
       )}.`,
@@ -704,7 +786,7 @@ function buildExplanations(analysis: AnalysisPresentation): Explanation[] {
         <>
           CCC’s paired advertised median was{" "}
           {displayMoney(cccAdjustmentComparison.firstValue)} and its adjusted
-          median was {displayMoney(cccAdjustmentComparison.secondValue)}, {" "}
+          median was {displayMoney(cccAdjustmentComparison.secondValue)},{" "}
           {adjustmentChange}. The external evidence gap is{" "}
           {displayMoneyMagnitude(comparison.difference)}; the direction of CCC’s
           adjustments alone does not establish that an adjustment was improper.
@@ -788,6 +870,16 @@ function ComparableCard({ comparable }: { comparable: ExternalComparable }) {
   const verifiedOnLossDate =
     comparable.evidenceBasis === "LOSS_DATE_HISTORICAL" &&
     comparable.lifecycleEvidence?.status === "RESOLVED";
+  const distance =
+    comparable.distanceMiles === null
+      ? "Distance not available"
+      : formatDistance(comparable.distanceMiles);
+  const dealerContext =
+    dealerLocation === unavailable
+      ? comparable.distanceMiles === null
+        ? "Location and distance not available"
+        : `Location not available · ${distance}`
+      : `${dealerLocation} · ${distance}`;
 
   return (
     <li className="bg-white px-5 py-4 sm:px-6 sm:py-5">
@@ -812,7 +904,9 @@ function ComparableCard({ comparable }: { comparable: ExternalComparable }) {
           </div>
         </div>
         <div>
-          <p className="text-xs text-neutral-500 xl:sr-only">Advertised price</p>
+          <p className="text-xs text-neutral-500 xl:sr-only">
+            Advertised price
+          </p>
           <p className="mt-1 text-xl font-semibold tracking-tight text-neutral-950 tabular-nums xl:mt-0">
             {displayMoney(comparable.advertisedPrice)}
           </p>
@@ -820,7 +914,9 @@ function ComparableCard({ comparable }: { comparable: ExternalComparable }) {
         <div>
           <p className="text-xs text-neutral-500 xl:sr-only">Mileage</p>
           <p className="mt-1 text-sm font-medium text-neutral-950 tabular-nums xl:mt-0">
-            {formatMileage(comparable.mileage)}
+            {comparable.mileage === null
+              ? "Mileage not provided"
+              : formatMileage(comparable.mileage)}
           </p>
           {comparable.mileageDifferenceFromLossVehicle !== null ? (
             <p className="mt-1 text-xs text-neutral-500">
@@ -833,10 +929,10 @@ function ComparableCard({ comparable }: { comparable: ExternalComparable }) {
         <div>
           <p className="text-xs text-neutral-500 xl:sr-only">Dealer</p>
           <p className="mt-1 text-sm font-medium text-neutral-950 xl:mt-0">
-            {comparable.dealer?.name ?? unavailable}
+            {comparable.dealer?.name ?? "Dealer not provided"}
           </p>
           <p className="mt-1 text-xs leading-5 text-neutral-500">
-            {dealerLocation} · {formatDistance(comparable.distanceMiles)}
+            {dealerContext}
           </p>
         </div>
         <div>
@@ -854,7 +950,7 @@ function ComparableCard({ comparable }: { comparable: ExternalComparable }) {
         >
           Technical evidence details
           <ChevronDown
-            className="size-4 transition-transform group-open:rotate-180"
+            className="size-4 transition-transform group-open:rotate-180 motion-reduce:transition-none"
             aria-hidden="true"
           />
         </summary>
@@ -864,7 +960,10 @@ function ComparableCard({ comparable }: { comparable: ExternalComparable }) {
             label="Listing ID"
             value={comparable.sourceListingId ?? unavailable}
           />
-          <DetailRow label="Evidence source" value={comparable.source} />
+          <DetailRow
+            label="Market data source"
+            value={displayProviderName(comparable.source)}
+          />
           {comparable.lifecycleEvidence ? (
             <>
               <DetailRow
@@ -903,8 +1002,21 @@ function PrimaryComparables({ analysis }: AnalysisResultsProps) {
   const comparables = analysis.comparablesUsed.primary;
   const historical =
     analysis.assessment.evidenceBasis === "LOSS_DATE_HISTORICAL";
+  const primary = analysis.primaryExternalEvidence;
   if (comparables.length === 0) {
-    return null;
+    return (
+      <section
+        className="mt-14 border-t border-neutral-200 pt-12 sm:mt-16 sm:pt-14"
+        aria-labelledby="comparables-heading"
+      >
+        <SectionHeading
+          id="comparables-heading"
+          eyebrow="External market evidence"
+          title="No external comparables were selected"
+          description="Venfour did not find enough eligible listings with the identifying information needed for a reliable comparison. This absence is reflected in the assessment rather than treated as evidence that the CCC valuation is correct."
+        />
+      </section>
+    );
   }
 
   return (
@@ -915,12 +1027,20 @@ function PrimaryComparables({ analysis }: AnalysisResultsProps) {
         title={
           historical
             ? "Loss-date comparable vehicles"
-            : "Primary comparable vehicles"
+            : "Current-market comparable vehicles"
         }
         description={
           historical
-            ? "These are the selected vehicles verified as active on the loss date. Their advertised prices form the primary historical evidence set."
-            : "These selected vehicles form the primary current-market evidence set because sufficient loss-date evidence was unavailable."
+            ? `These vehicles were verified as active on the loss date. Their advertised prices form the primary historical evidence set${
+                primary
+                  ? ` using market data from ${displayProviderName(primary.provider.name)}`
+                  : ""
+              }.`
+            : `These vehicles were advertised when the analysis was prepared. They form the primary current-market evidence set because sufficient loss-date evidence was unavailable${
+                primary
+                  ? `; market data was provided by ${displayProviderName(primary.provider.name)}`
+                  : ""
+              }.`
         }
       />
       <div
@@ -964,15 +1084,20 @@ function EvidenceContextCard({
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <p className="text-[0.7rem] font-semibold tracking-[0.13em] text-neutral-500 uppercase">
-            {primary ? "Primary available market" : "Context only"}
+            {primary ? "Primary evidence" : "Separate context"}
           </p>
           <h3 className="mt-2 text-lg font-semibold tracking-tight text-neutral-950">
-            {historical ? "Loss-date market" : "Current market"}
+            {historical
+              ? "Verified loss-date evidence"
+              : "Current-market evidence"}
           </h3>
         </div>
-        <span className="text-xs text-neutral-500">
-          {formatDate(evidence.evidenceDate)}
-        </span>
+        <p className="text-right text-xs leading-5 text-neutral-500">
+          <span className="block">
+            {displayProviderName(evidence.provider.name)}
+          </span>
+          <span className="block">{formatDate(evidence.evidenceDate)}</span>
+        </p>
       </div>
       <p className="mt-2 max-w-2xl text-sm leading-6 text-neutral-600">
         {historical
@@ -1012,8 +1137,7 @@ function MarketContext({ analysis }: AnalysisResultsProps) {
     return null;
   }
   const secondary = analysis.secondaryExternalEvidence;
-  const historicalPrimary =
-    primary.evidenceBasis === "LOSS_DATE_HISTORICAL";
+  const historicalPrimary = primary.evidenceBasis === "LOSS_DATE_HISTORICAL";
 
   return (
     <section
@@ -1027,7 +1151,7 @@ function MarketContext({ analysis }: AnalysisResultsProps) {
           title={
             historicalPrimary
               ? secondary
-                ? "Current prices are context, not loss-date evidence"
+                ? "Current-market prices remain separate from loss-date evidence"
                 : "Only loss-date market evidence is available"
               : "Current-market evidence is the primary available context"
           }
@@ -1165,13 +1289,16 @@ function CccComparableCard({ row }: { row: CccComparableRow }) {
         >
           Adjustment breakdown
           <ChevronDown
-            className="size-4 transition-transform group-open:rotate-180"
+            className="size-4 transition-transform group-open:rotate-180 motion-reduce:transition-none"
             aria-hidden="true"
           />
         </summary>
         <dl className="grid gap-3 rounded-lg bg-neutral-100 p-4 sm:grid-cols-2">
           {adjustments.map(([label, adjustment]) => (
-            <div key={label} className="flex items-center justify-between gap-4">
+            <div
+              key={label}
+              className="flex items-center justify-between gap-4"
+            >
               <dt className="text-muted-foreground">{label}</dt>
               <dd className="font-medium tabular-nums">
                 {displayMoney(adjustment)}
@@ -1191,7 +1318,24 @@ function CccComparableCard({ row }: { row: CccComparableRow }) {
 function CccComparables({ analysis }: AnalysisResultsProps) {
   const { summary, rows } = analysis.cccComparables;
   if (rows.length === 0) {
-    return null;
+    const reportedCount = summary.totalCount;
+    return (
+      <section
+        className="mt-16 border-t border-neutral-200 pt-12 sm:mt-20 sm:pt-14"
+        aria-labelledby="ccc-heading"
+      >
+        <SectionHeading
+          id="ccc-heading"
+          eyebrow="CCC report context"
+          title="No CCC comparable details were available"
+          description={
+            reportedCount > 0
+              ? `The report indicates ${formatWholeNumber(reportedCount)} CCC comparable vehicles, but complete row-level details were not available to present in this review.`
+              : "No CCC comparable rows were available to show how individual vehicles and adjustments contributed to the reported valuation."
+          }
+        />
+      </section>
+    );
   }
 
   return (
@@ -1239,14 +1383,12 @@ function ImportantLimitations({ analysis }: AnalysisResultsProps) {
       key: `exclusion-${item.code}-${item.evidenceBasis}-${index}`,
       description: item.description,
     })),
-    ...analysis.evidenceDiagnostics.historicalIssues.map(
-      (item, index) => ({
-        key: `historical-${item.status}-${item.reason}-${item.vin ?? "no-vin"}-${
-          item.sourceListingId ?? "no-listing"
-        }-${index}`,
-        description: item.description,
-      }),
-    ),
+    ...analysis.evidenceDiagnostics.historicalIssues.map((item, index) => ({
+      key: `historical-${item.status}-${item.reason}-${item.vin ?? "no-vin"}-${
+        item.sourceListingId ?? "no-listing"
+      }-${index}`,
+      description: item.description,
+    })),
   ];
 
   return (
@@ -1269,7 +1411,7 @@ function ImportantLimitations({ analysis }: AnalysisResultsProps) {
             Review the limits and coverage notes for this analysis
           </span>
           <ChevronDown
-            className="size-5 shrink-0 text-muted-foreground transition-transform group-open:rotate-180"
+            className="size-5 shrink-0 text-muted-foreground transition-transform group-open:rotate-180 motion-reduce:transition-none"
             aria-hidden="true"
           />
         </summary>
@@ -1289,7 +1431,9 @@ function ImportantLimitations({ analysis }: AnalysisResultsProps) {
                 <div>
                   <h3 className="text-sm font-semibold">{limitation.label}</h3>
                   <p className="mt-1 text-sm leading-6 text-neutral-600">
-                    {limitation.description}
+                    {limitation.code === "NEGOTIATION_OUTPUT_NOT_INCLUDED"
+                      ? "Venfour does not prepare a demand, negotiation script, or submission to an insurer. The general review steps below are informational."
+                      : limitation.description}
                   </p>
                 </div>
               </li>
@@ -1310,6 +1454,124 @@ function ImportantLimitations({ analysis }: AnalysisResultsProps) {
           ) : null}
         </div>
       </details>
+    </section>
+  );
+}
+
+interface NextStepContent {
+  introduction: string;
+  firstStep: string;
+}
+
+function nextStepContent(analysis: AnalysisPresentation): NextStepContent {
+  switch (analysis.assessment.classification) {
+    case "MATERIAL_UNDERVALUE_SIGNAL":
+      return {
+        introduction:
+          "The selected evidence shows a material signal worth reviewing carefully, but it does not determine what an insurer owes.",
+        firstStep:
+          "Check the closest loss-date comparables against your vehicle’s trim, mileage, equipment, and condition before relying on the price comparison.",
+      };
+    case "POTENTIAL_UNDERVALUE":
+      return {
+        introduction:
+          "The available evidence identifies a potential valuation gap worth a closer review, not a guaranteed settlement increase.",
+        firstStep:
+          "Review the selected comparables and note where their mileage, trim, timing, or other facts differ from your vehicle.",
+      };
+    case "NO_MATERIAL_DISCREPANCY":
+      return {
+        introduction:
+          "The available evidence does not show a material gap under this review, but you can still check the CCC report for factual errors or missing information.",
+        firstStep:
+          "Confirm that CCC recorded your vehicle, mileage, equipment, condition, and comparable vehicles accurately.",
+      };
+    case "CONFLICTING_EVIDENCE":
+      if (
+        analysis.primaryExternalEvidence &&
+        analysis.secondaryExternalEvidence &&
+        analysis.findings.some(
+          (finding) => finding.code === "HISTORICAL_CURRENT_SIGNALS_CONFLICT",
+        )
+      ) {
+        return {
+          introduction:
+            "The loss-date and current-market evidence point in different directions, so no single price signal should carry too much weight.",
+          firstStep:
+            "Focus on the closest comparable vehicles and the reasons the loss-date and current-market evidence differ.",
+        };
+      }
+      return {
+        introduction:
+          "The selected market evidence varies enough that no single price signal should carry too much weight.",
+        firstStep:
+          "Focus on the closest comparable vehicles and review how widely their advertised prices vary before relying on a central value.",
+      };
+    case "INSUFFICIENT_EVIDENCE":
+      return {
+        introduction:
+          "This review could not form a reliable external comparison. That does not establish that the CCC valuation is correct or incorrect.",
+        firstStep:
+          "Check the CCC report for accurate vehicle facts and retain any relevant market listings or documents you find independently.",
+      };
+  }
+}
+
+function NextSteps({ analysis }: AnalysisResultsProps) {
+  const content = nextStepContent(analysis);
+  const steps = [
+    {
+      title: "Review the evidence",
+      description: content.firstStep,
+    },
+    {
+      title: "Compare it with the CCC report",
+      description:
+        "Look for differences in vehicle details, comparable selection, and disclosed adjustments. Keep the original report and any supporting records together.",
+    },
+    {
+      title: "Decide what support you need",
+      description:
+        "You may choose to discuss relevant evidence with the insurer. If you need a formal appraisal or advice about your rights, consider a qualified professional.",
+    },
+  ];
+
+  return (
+    <section
+      className="mt-16 border-t border-neutral-200 pt-12 sm:mt-20 sm:pt-14"
+      aria-labelledby="next-steps-heading"
+    >
+      <div className="grid gap-9 lg:grid-cols-[minmax(14rem,0.55fr)_minmax(0,1.45fr)] lg:gap-14">
+        <SectionHeading
+          id="next-steps-heading"
+          eyebrow="After this review"
+          title="What you can do next"
+          description={content.introduction}
+        />
+        <div>
+          <ol className="border-y border-neutral-200">
+            {steps.map((step, index) => (
+              <li
+                key={step.title}
+                className="grid gap-2 border-b border-neutral-200 py-5 last:border-b-0 sm:grid-cols-[2rem_minmax(10rem,0.65fr)_minmax(0,1.35fr)] sm:gap-5 sm:py-6"
+              >
+                <span className="text-xs font-semibold tracking-[0.12em] text-neutral-400 tabular-nums">
+                  {String(index + 1).padStart(2, "0")}
+                </span>
+                <h3 className="font-semibold leading-6 text-neutral-950">
+                  {step.title}
+                </h3>
+                <p className="text-sm leading-6 text-neutral-600">
+                  {step.description}
+                </p>
+              </li>
+            ))}
+          </ol>
+          <Button asChild variant="outline" size="lg" className="mt-7">
+            <Link to="/">Analyze another report</Link>
+          </Button>
+        </div>
+      </div>
     </section>
   );
 }
@@ -1349,31 +1611,23 @@ export function AnalysisResults({ analysis }: AnalysisResultsProps) {
                 {formatDate(analysis.vehicle.lossDate)}
               </dd>
             </div>
-            {analysis.vehicle.postalCode ? (
-              <div>
-                <dt className="text-xs text-neutral-500">Loss ZIP</dt>
-                <dd className="mt-1 font-medium text-neutral-950 tabular-nums">
-                  {analysis.vehicle.postalCode}
-                </dd>
-              </div>
-            ) : null}
+            <div>
+              <dt className="text-xs text-neutral-500">Search ZIP</dt>
+              <dd className="mt-1 font-medium text-neutral-950 tabular-nums">
+                {analysis.vehicle.postalCode ?? unavailable}
+              </dd>
+            </div>
           </dl>
         </header>
 
         <PrimaryAssessment analysis={analysis} />
+        <AssessmentReadingGuide analysis={analysis} />
         <WhyFlagged analysis={analysis} />
         <PrimaryComparables analysis={analysis} />
         <MarketContext analysis={analysis} />
         <CccComparables analysis={analysis} />
         <ImportantLimitations analysis={analysis} />
-
-        <div className="mt-12 border-t border-neutral-200 pt-6 text-sm leading-6 text-neutral-500">
-          <p className="max-w-2xl">
-            This report keeps market evidence, CCC report data, and important
-            limitations together so you can review the valuation with clearer
-            context.
-          </p>
-        </div>
+        <NextSteps analysis={analysis} />
       </div>
     </article>
   );

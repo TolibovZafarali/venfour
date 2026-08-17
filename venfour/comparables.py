@@ -255,7 +255,7 @@ def comparable_target_from_report(
     """Build and validate a target from a canonical report's loss vehicle.
 
     The canonical report's free-form ``vehicle.location`` is intentionally not
-    parsed as a postal code. Callers may supply a separately verified postal
+    parsed as a postal code. Callers may supply a separately validated postal
     code; unavailable facts remain unavailable rather than being guessed.
     """
 

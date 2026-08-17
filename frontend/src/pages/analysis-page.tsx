@@ -1,6 +1,10 @@
 import { AlertCircle, FileQuestion, RotateCw } from "lucide-react";
-import { useParams } from "react-router";
+import { Link, useParams } from "react-router";
 
+import {
+  type PageMetadata,
+  useDocumentMetadata,
+} from "@/app/document-metadata";
 import { Button } from "@/components/ui/button";
 import { AnalysisResults } from "@/features/analyses/components/analysis-results";
 import { useAnalysisQuery } from "@/features/analyses/queries";
@@ -34,63 +38,127 @@ function AnalysisLoadingState() {
 }
 
 interface AnalysisErrorStateProps {
-  notFound: boolean;
+  kind: "invalid" | "not-found" | "temporary";
   onRetry: () => void;
 }
 
-function AnalysisErrorState({ notFound, onRetry }: AnalysisErrorStateProps) {
-  const Icon = notFound ? FileQuestion : AlertCircle;
+const analysisMetadata: Record<
+  "success" | AnalysisErrorStateProps["kind"],
+  PageMetadata
+> = {
+  success: {
+    title: "Vehicle Valuation Analysis | Venfour",
+    description:
+      "Review the CCC valuation, selected market evidence, findings, and limitations for this vehicle analysis.",
+  },
+  invalid: {
+    title: "Invalid Analysis Link | Venfour",
+    description: "This Venfour analysis link is not valid.",
+  },
+  "not-found": {
+    title: "Analysis Not Found | Venfour",
+    description: "The requested Venfour analysis could not be found.",
+  },
+  temporary: {
+    title: "Analysis Temporarily Unavailable | Venfour",
+    description: "Venfour could not retrieve this analysis right now.",
+  },
+};
+
+function AnalysisDocumentMetadata({
+  kind,
+}: {
+  kind: keyof typeof analysisMetadata;
+}) {
+  useDocumentMetadata(analysisMetadata[kind]);
+  return null;
+}
+
+function AnalysisErrorState({ kind, onRetry }: AnalysisErrorStateProps) {
+  const permanent = kind !== "temporary";
+  const invalid = kind === "invalid";
+  const Icon = permanent ? FileQuestion : AlertCircle;
+  const eyebrow = invalid
+    ? "Invalid analysis link"
+    : kind === "not-found"
+      ? "Analysis unavailable"
+      : "Unable to load analysis";
+  const heading = invalid
+    ? "This analysis link isn’t valid."
+    : kind === "not-found"
+      ? "We couldn’t find this analysis."
+      : "We couldn’t load your analysis.";
+  const description = invalid
+    ? "Analysis links include a complete identifier. Check the address you received, or start a new analysis."
+    : kind === "not-found"
+      ? "The analysis may no longer be available, or the link may be incorrect. Retrying will not restore a missing analysis."
+      : "A network or service interruption prevented Venfour from retrieving the analysis. The saved analysis has not been changed.";
 
   return (
-    <section
-      className="mx-auto flex w-full max-w-[90rem] items-center px-5 py-20 sm:px-8 sm:py-28 lg:px-10"
-      role="alert"
-    >
-      <div className="max-w-xl">
-        <div className="flex size-11 items-center justify-center rounded-full bg-muted text-muted-foreground">
-          <Icon className="size-5" aria-hidden="true" />
+    <>
+      <AnalysisDocumentMetadata kind={kind} />
+      <section
+        className="mx-auto flex w-full max-w-[90rem] items-center px-5 py-20 sm:px-8 sm:py-28 lg:px-10"
+        role="alert"
+      >
+        <div className="max-w-xl">
+          <div className="flex size-11 items-center justify-center rounded-full bg-muted text-muted-foreground">
+            <Icon className="size-5" aria-hidden="true" />
+          </div>
+          <p className="mt-6 text-sm font-semibold tracking-[0.12em] text-muted-foreground uppercase">
+            {eyebrow}
+          </p>
+          <h1 className="mt-3 text-3xl font-semibold tracking-tight text-balance sm:text-4xl">
+            {heading}
+          </h1>
+          <p className="mt-4 max-w-lg leading-7 text-muted-foreground">
+            {description}
+          </p>
+          <div className="mt-7 flex flex-wrap gap-3">
+            {kind === "temporary" ? (
+              <Button variant="outline" onClick={onRetry}>
+                <RotateCw className="size-4" aria-hidden="true" />
+                Try again
+              </Button>
+            ) : null}
+            <Button asChild variant={permanent ? "default" : "ghost"}>
+              <Link to="/">
+                {permanent ? "Start a new analysis" : "Return home"}
+              </Link>
+            </Button>
+          </div>
         </div>
-        <p className="mt-6 text-sm font-semibold tracking-[0.12em] text-muted-foreground uppercase">
-          {notFound ? "Analysis unavailable" : "Unable to load analysis"}
-        </p>
-        <h1 className="mt-3 text-3xl font-semibold tracking-tight text-balance sm:text-4xl">
-          {notFound
-            ? "We couldn’t find this analysis."
-            : "We couldn’t load your analysis."}
-        </h1>
-        <p className="mt-4 max-w-lg leading-7 text-muted-foreground">
-          {notFound
-            ? "The analysis may no longer be available, or the link may be incorrect."
-            : "A network or service error interrupted the request. Your analysis has not been changed."}
-        </p>
-        {!notFound ? (
-          <Button className="mt-7" variant="outline" onClick={onRetry}>
-            <RotateCw className="size-4" aria-hidden="true" />
-            Try again
-          </Button>
-        ) : null}
-      </div>
-    </section>
+      </section>
+    </>
   );
 }
 
-export function AnalysisPage() {
-  const { runId = "" } = useParams();
+const canonicalRunIdPattern =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+
+function ValidAnalysisPage({ runId }: { runId: string }) {
   const analysisQuery = useAnalysisQuery(runId);
 
   if (analysisQuery.isPending) {
-    return <AnalysisLoadingState />;
+    return (
+      <>
+        <AnalysisDocumentMetadata kind="success" />
+        <AnalysisLoadingState />
+      </>
+    );
   }
 
   if (analysisQuery.isError) {
+    const apiError =
+      analysisQuery.error instanceof ApiError ? analysisQuery.error : null;
+    const invalid =
+      apiError?.status === 400 || apiError?.code === "INVALID_RUN_ID";
     const notFound =
-      analysisQuery.error instanceof ApiError &&
-      (analysisQuery.error.status === 404 ||
-        analysisQuery.error.code === "ANALYSIS_NOT_FOUND");
+      apiError?.status === 404 || apiError?.code === "ANALYSIS_NOT_FOUND";
 
     return (
       <AnalysisErrorState
-        notFound={notFound}
+        kind={invalid ? "invalid" : notFound ? "not-found" : "temporary"}
         onRetry={() => void analysisQuery.refetch()}
       />
     );
@@ -98,10 +166,21 @@ export function AnalysisPage() {
 
   return (
     <>
+      <AnalysisDocumentMetadata kind="success" />
       <p className="sr-only" role="status">
         Valuation analysis loaded.
       </p>
       <AnalysisResults analysis={analysisQuery.data} />
     </>
   );
+}
+
+export function AnalysisPage() {
+  const { runId = "" } = useParams();
+
+  if (!canonicalRunIdPattern.test(runId)) {
+    return <AnalysisErrorState kind="invalid" onRetry={() => undefined} />;
+  }
+
+  return <ValidAnalysisPage runId={runId} />;
 }

@@ -44,6 +44,7 @@ from venfour.orchestration import (  # noqa: E402
     CurrentMarketSearchConfiguration,
     HistoricalMarketSearchConfiguration,
 )
+from venfour.postal_codes import normalize_us_zip_code  # noqa: E402
 
 
 class LiveAnalysisError(Exception):
@@ -62,7 +63,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--postal-code",
         required=True,
-        help="Verified vehicle postal code used as the market-search origin",
+        help="Vehicle ZIP code used as the market-search origin",
     )
     parser.add_argument(
         "--repository-root",
@@ -114,10 +115,12 @@ def load_canonical_json(path: Path | str) -> dict[str, Any]:
 
 
 def _normalized_postal_code(value: str) -> str:
-    normalized = value.strip() if isinstance(value, str) else value
-    if not isinstance(normalized, str) or not normalized:
-        raise LiveAnalysisError("A verified postal code is required")
-    return normalized
+    try:
+        return normalize_us_zip_code(value)
+    except (TypeError, ValueError) as exc:
+        raise LiveAnalysisError(
+            "A 5-digit US ZIP code or ZIP+4 is required"
+        ) from exc
 
 
 def run_live_analysis(
