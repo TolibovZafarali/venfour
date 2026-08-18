@@ -129,9 +129,11 @@ export function HomePage() {
             <h2
               id="services-title"
               data-anchor-heading
+              aria-label="Two appraisals. Two different situations."
               className={sectionHeadingClassName}
             >
-              Two appraisals. Two different situations.
+              <span className="block">Two appraisals.</span>
+              <span className="block">Two different situations.</span>
             </h2>
             <p className="mt-4 max-w-2xl text-base leading-7 text-copy sm:text-lg">
               Choose what happened to your vehicle. Each service answers a different question after an accident.

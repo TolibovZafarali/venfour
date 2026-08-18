@@ -37,7 +37,7 @@ describe("Venfour application", () => {
     ).toHaveAttribute("href", "#how-it-works");
     expect(
       within(primaryNavigation).getByRole("link", {
-        name: "Start Appraisal",
+        name: "Get Started",
       }),
     ).toHaveAttribute("href", "/total-loss-review");
 
@@ -60,6 +60,19 @@ describe("Venfour application", () => {
       .querySelector<HTMLImageElement>("img[data-brand-logo='venfour']");
     expect(headerLogo).toHaveAttribute("src", venfourMark);
     expect(footerLogo).toHaveAttribute("src", venfourMark);
+    expect(headerLogo).toHaveClass("size-7");
+    expect(footerLogo).toHaveClass("size-6");
+    expect(
+      within(screen.getByRole("banner")).getByText("VENFOUR"),
+    ).toBeVisible();
+    expect(
+      within(screen.getByRole("contentinfo")).getByText("VENFOUR"),
+    ).toBeVisible();
+    expect(
+      within(screen.getByRole("contentinfo")).getByText(
+        `© ${new Date().getFullYear()} VENFOUR. All rights reserved.`,
+      ),
+    ).toBeVisible();
 
     const renderedImageSources = Array.from(
       document.querySelectorAll<HTMLImageElement>("img[src]"),
@@ -93,7 +106,7 @@ describe("Venfour application", () => {
       throw new Error("Mobile navigation controls were not rendered.");
     }
     expect(
-      within(mobileControls).getByRole("link", { name: "Start Appraisal" }),
+      within(mobileControls).getByRole("link", { name: "Get Started" }),
     ).toHaveAttribute("href", "/total-loss-review");
     expect(
       screen.queryByRole("navigation", { name: "Mobile navigation" }),
@@ -190,7 +203,7 @@ describe("Venfour application", () => {
       within(primaryNavigation).getByRole("link", { name: "How It Works" }),
     ).toHaveAttribute("href", "/#how-it-works");
     expect(
-      within(primaryNavigation).getByRole("link", { name: "Start Appraisal" }),
+      within(primaryNavigation).getByRole("link", { name: "Get Started" }),
     ).toHaveAttribute("href", "/total-loss-review");
 
     const openNavigation = screen.getByRole("button", {
@@ -202,7 +215,7 @@ describe("Venfour application", () => {
       throw new Error("Mobile navigation controls were not rendered.");
     }
     expect(
-      within(mobileControls).getByRole("link", { name: "Start Appraisal" }),
+      within(mobileControls).getByRole("link", { name: "Get Started" }),
     ).toHaveAttribute("href", "/total-loss-review");
     expect(
       screen.getByRole("form", { name: "Start total-loss appraisal" }),

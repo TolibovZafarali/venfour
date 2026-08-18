@@ -30,7 +30,7 @@ export function ExampleAppraisalVisual() {
       className="overflow-hidden rounded-2xl border border-slate-300 bg-white shadow-[0_28px_70px_-42px_rgba(11,31,51,0.55)]"
       aria-labelledby="example-appraisal-title"
     >
-      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-200 px-5 py-4 sm:px-6">
+      <div className="border-b border-slate-200 px-5 py-4 sm:px-6">
         <div>
           <p
             id="example-appraisal-title"
@@ -42,9 +42,6 @@ export function ExampleAppraisalVisual() {
             {homepageExampleAppraisal.vehicle}
           </p>
         </div>
-        <span className="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 text-[0.6875rem] font-medium text-copy">
-          Anonymized example
-        </span>
       </div>
 
       <div className="p-5 sm:p-6">
@@ -130,8 +127,15 @@ export function ExampleAppraisalVisual() {
             {homepageExampleAppraisal.vehicles.map((vehicle) => (
               <li
                 key={`${vehicle.price}-${vehicle.mileage}`}
-                className="grid grid-cols-[1fr_auto] gap-x-3 gap-y-1 py-3"
+                className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 py-3"
               >
+                <span className="row-span-2 flex size-8 items-center justify-center rounded-md bg-brand-soft text-brand">
+                  <CarFront
+                    className="size-4"
+                    aria-hidden
+                    data-comparable-vehicle-icon
+                  />
+                </span>
                 <p className="truncate text-xs font-semibold text-ink sm:text-sm">
                   {vehicle.vehicle}
                 </p>
@@ -150,9 +154,6 @@ export function ExampleAppraisalVisual() {
         </div>
       </div>
 
-      <figcaption className="border-t border-slate-200 bg-slate-50 px-5 py-3 text-[0.6875rem] leading-5 text-copy sm:px-6">
-        Example only—every vehicle and claim is different.
-      </figcaption>
     </figure>
   );
 }
@@ -275,11 +276,17 @@ type ProcessIllustrationProps = {
   step: "upload" | "market" | "result";
 };
 
+const processIllustrationClassName =
+  "flex h-64 items-center justify-center border-b border-slate-200 bg-slate-100 p-6";
+
+const processCardClassName =
+  "h-44 w-full max-w-72 rounded-lg border bg-white p-4 shadow-[0_14px_36px_-28px_rgba(11,31,51,0.5)]";
+
 export function ProcessIllustration({ step }: ProcessIllustrationProps) {
   if (step === "upload") {
     return (
-      <figure className="flex min-h-48 items-center justify-center border-b border-slate-200 bg-slate-100 p-5">
-        <div className="w-full max-w-52 rounded-lg border border-slate-300 bg-white p-4 shadow-[0_14px_36px_-28px_rgba(11,31,51,0.5)]">
+      <figure className={processIllustrationClassName}>
+        <div className={`${processCardClassName} border-slate-300`}>
           <FileText className="size-5 text-brand" aria-hidden />
           <div className="mt-4 space-y-2" aria-hidden>
             <span className="block h-1.5 w-3/4 rounded bg-slate-200" />
@@ -302,8 +309,8 @@ export function ProcessIllustration({ step }: ProcessIllustrationProps) {
 
   if (step === "market") {
     return (
-      <figure className="flex min-h-48 items-center justify-center border-b border-slate-200 bg-slate-100 p-5">
-        <div className="w-full max-w-64 rounded-lg border border-slate-300 bg-white p-4 shadow-[0_14px_36px_-28px_rgba(11,31,51,0.5)]">
+      <figure className={processIllustrationClassName}>
+        <div className={`${processCardClassName} border-slate-300`}>
           <div className="flex items-center justify-between">
             <span className="text-[0.6875rem] font-semibold text-ink">
               Similar vehicles
@@ -313,13 +320,17 @@ export function ProcessIllustration({ step }: ProcessIllustrationProps) {
             </span>
           </div>
           <div className="mt-3 space-y-2">
-            {homepageExampleAppraisal.vehicles.map((vehicle, index) => (
+            {homepageExampleAppraisal.vehicles.map((vehicle) => (
               <div
                 key={`${vehicle.price}-${vehicle.distance}`}
                 className="grid grid-cols-[auto_1fr_auto] items-center gap-2 border-t border-slate-100 pt-2"
               >
-                <span className="flex size-6 items-center justify-center rounded bg-brand-soft text-[0.625rem] font-semibold text-brand">
-                  {index + 1}
+                <span className="flex size-6 items-center justify-center rounded bg-brand-soft text-brand">
+                  <CarFront
+                    className="size-3.5"
+                    aria-hidden
+                    data-comparable-vehicle-icon
+                  />
                 </span>
                 <span className="text-[0.625rem] text-copy">
                   {vehicle.distance}
@@ -339,8 +350,8 @@ export function ProcessIllustration({ step }: ProcessIllustrationProps) {
   }
 
   return (
-    <figure className="flex min-h-48 items-center justify-center border-b border-slate-200 bg-slate-100 p-5">
-      <div className="w-full max-w-64 rounded-lg border border-market/30 bg-white p-4 shadow-[0_14px_36px_-28px_rgba(11,31,51,0.5)]">
+    <figure className={processIllustrationClassName}>
+      <div className={`${processCardClassName} border-market/30`}>
         <div className="flex items-center justify-between gap-3">
           <span className="text-[0.6875rem] font-semibold text-ink">
             Appraisal result
@@ -546,8 +557,13 @@ export function AppraisalReportVisual() {
               {["$20.9k", "$21.2k", "$21.5k"].map((price) => (
                 <span
                   key={price}
-                  className="rounded bg-slate-100 px-2 py-2 text-center text-[0.6875rem] font-semibold text-ink"
+                  className="flex items-center justify-center gap-1.5 rounded bg-slate-100 px-2 py-2 text-center text-[0.6875rem] font-semibold text-ink"
                 >
+                  <CarFront
+                    className="size-3.5 text-brand"
+                    aria-hidden
+                    data-comparable-vehicle-icon
+                  />
                   {price}
                 </span>
               ))}

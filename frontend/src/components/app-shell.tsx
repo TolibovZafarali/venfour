@@ -132,17 +132,17 @@ export function AppShell() {
               <div className="flex min-w-0 items-center gap-3 sm:gap-4">
                 <Link
                   to="/"
-                  className="inline-flex min-h-11 items-center gap-2.5 rounded-sm text-[1.05rem] font-semibold tracking-[-0.035em] text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
+                  className="inline-flex min-h-11 items-center gap-2.5 rounded-sm font-brand text-[1.1rem] font-semibold tracking-[0.1em] text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
                   aria-label="Venfour home"
                 >
                   <img
                     src={venfourMark}
-                    className="size-6"
+                    className="size-7"
                     alt=""
                     aria-hidden
                     data-brand-logo="venfour"
                   />
-                  <span>Venfour</span>
+                  <span>VENFOUR</span>
                 </Link>
                 {analysisRoute ? (
                   <span className="hidden border-l border-line pl-4 text-[0.6875rem] font-semibold tracking-[0.12em] text-copy uppercase sm:block">
@@ -168,7 +168,7 @@ export function AppShell() {
                   href={primaryActionHref}
                   className="ml-1 inline-flex min-h-11 items-center rounded-lg bg-brand px-4 text-[0.8125rem] font-semibold text-white transition-colors hover:bg-brand-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 motion-reduce:transition-none"
                 >
-                  Start Appraisal
+                  Get Started
                 </a>
               </nav>
 
@@ -178,7 +178,7 @@ export function AppShell() {
                   className="inline-flex min-h-11 items-center rounded-lg bg-brand px-3 text-xs font-semibold text-white transition-colors hover:bg-brand-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 motion-reduce:transition-none"
                   onClick={() => setMobileNavigationOpen(false)}
                 >
-                  Start Appraisal
+                  Get Started
                 </a>
                 <button
                   ref={mobileNavigationButtonRef}
@@ -248,16 +248,16 @@ export function AppShell() {
             <div className="flex flex-col items-start gap-1 sm:flex-row sm:items-center sm:gap-5">
               <Link
                 to="/"
-                className="inline-flex min-h-11 items-center gap-2 rounded-sm text-sm font-semibold tracking-[-0.02em] text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
+                className="inline-flex min-h-11 items-center gap-2.5 rounded-sm font-brand text-sm font-semibold tracking-[0.1em] text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
               >
                 <img
                   src={venfourMark}
-                  className="size-5"
+                  className="size-6"
                   alt=""
                   aria-hidden
                   data-brand-logo="venfour"
                 />
-                <span>Venfour</span>
+                <span>VENFOUR</span>
               </Link>
               {supportEmail ? (
                 <a
@@ -288,7 +288,7 @@ export function AppShell() {
             </nav>
           </div>
           <p className="mt-4 border-t border-line pt-4 text-xs text-copy">
-            © {new Date().getFullYear()} Venfour.
+            © {new Date().getFullYear()} VENFOUR. All rights reserved.
           </p>
         </div>
       </footer>

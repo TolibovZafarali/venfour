@@ -62,7 +62,7 @@ describe("homepage structure", () => {
     const example = within(hero).getByRole("figure", {
       name: "Example total-loss appraisal",
     });
-    expect(within(example).getByText("Anonymized example")).toBeVisible();
+    expect(within(example).queryByText("Anonymized example")).not.toBeInTheDocument();
     expect(
       within(example).getAllByText("2024 Hyundai Elantra SEL"),
     ).toHaveLength(4);
@@ -75,10 +75,13 @@ describe("homepage structure", () => {
       "8",
     );
     expect(
-      within(example).getByText(
+      within(example).queryByText(
         "Example only—every vehicle and claim is different.",
       ),
-    ).toBeVisible();
+    ).not.toBeInTheDocument();
+    expect(
+      example.querySelectorAll("svg[data-comparable-vehicle-icon]"),
+    ).toHaveLength(3);
 
     expect(homepageExampleAppraisal).toMatchObject({
       vehicle: "2024 Hyundai Elantra SEL",
@@ -114,11 +117,14 @@ describe("homepage structure", () => {
     }
 
     expect(services.querySelectorAll("article")).toHaveLength(2);
-    expect(
-      within(services).getByRole("heading", {
+    const servicesHeading = within(services).getByRole("heading", {
         name: "Two appraisals. Two different situations.",
-      }),
-    ).toBeVisible();
+      });
+    expect(servicesHeading).toBeVisible();
+    expect(servicesHeading.children).toHaveLength(2);
+    for (const line of servicesHeading.children) {
+      expect(line).toHaveClass("block");
+    }
     expect(
       within(services).getByRole("heading", { name: "Your vehicle was totaled" }),
     ).toBeVisible();
@@ -155,6 +161,12 @@ describe("homepage structure", () => {
     const process = document.getElementById("how-it-works");
     expect(process).toBeVisible();
     expect(process?.querySelector("ol")?.children).toHaveLength(3);
+    const processVisuals = process?.querySelectorAll("figure") ?? [];
+    expect(processVisuals).toHaveLength(3);
+    for (const visual of processVisuals) {
+      expect(visual).toHaveClass("h-64");
+      expect(visual.firstElementChild).toHaveClass("h-44", "max-w-72");
+    }
     for (const step of [
       "Upload your insurance report",
       "Venfour checks the market",
