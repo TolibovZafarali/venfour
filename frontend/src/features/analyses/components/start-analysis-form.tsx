@@ -16,7 +16,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { Link, useNavigate } from "react-router";
+import { useNavigate } from "react-router";
 
 import { useCreateAnalysisMutation } from "@/features/analyses/mutations";
 import { ApiError } from "@/lib/api/client";
@@ -41,7 +41,7 @@ interface CustomerError {
 
 function validateReport(report: File) {
   if (report.size <= 0) {
-    return "This PDF is empty. Choose the original CCC valuation report.";
+    return "This PDF is empty. Choose the original insurance value report.";
   }
 
   if (report.size >= MAX_REPORT_BYTES) {
@@ -57,7 +57,7 @@ function validateReport(report: File) {
     !GENERIC_BINARY_MIME_TYPES.has(normalizedType);
 
   if ((!hasPdfName && !hasPdfType) || hasConflictingType) {
-    return "Choose a PDF version of your CCC valuation report.";
+    return "Choose a PDF version of your insurance value report.";
   }
 
   return undefined;
@@ -95,9 +95,9 @@ function customerErrorFor(error: unknown): CustomerError {
       case "REPORT_REQUIRED":
       case "INVALID_REPORT":
         return {
-          title: "Choose a valid CCC PDF",
+          title: "Choose a valid PDF",
           description:
-            "We couldn’t use this file. Select the original PDF version of your CCC valuation report.",
+            "We couldn’t use this file. Select the original PDF version of your insurance value report.",
         };
       case "INVALID_MULTIPART_REQUEST":
       case "UNSUPPORTED_MEDIA_TYPE":
@@ -246,7 +246,7 @@ export function StartAnalysisForm() {
       setReport(null);
       setErrors((current) => ({
         ...current,
-        report: "Choose one CCC valuation PDF at a time.",
+        report: "Choose one insurance value report PDF at a time.",
       }));
       return;
     }
@@ -278,7 +278,7 @@ export function StartAnalysisForm() {
     const normalizedPostalCode = postalCode.trim();
 
     if (!report) {
-      nextErrors.report = "Choose your CCC valuation report.";
+      nextErrors.report = "Choose your insurance value report.";
     } else {
       nextErrors.report = validateReport(report);
     }
@@ -323,15 +323,15 @@ export function StartAnalysisForm() {
         className="overflow-hidden rounded-xl border border-neutral-200 bg-white p-5 shadow-[0_18px_50px_-38px_rgba(0,0,0,0.35)] sm:p-7 lg:p-8"
         onSubmit={handleSubmit}
         aria-busy={mutation.isPending}
-        aria-label="Start valuation analysis"
+        aria-label="Start total-loss appraisal"
         noValidate
       >
         <div className="border-b border-neutral-100 pb-6">
           <p className="text-xs font-semibold tracking-[0.14em] text-neutral-500 uppercase">
-            Start your review
+            Start your appraisal
           </p>
           <h3 className="mt-2 text-xl font-semibold tracking-[-0.025em] text-neutral-950 sm:text-2xl">
-            Upload your CCC report
+            Upload your insurance report
           </h3>
           <p className="mt-2 text-sm leading-6 text-neutral-600">
             Add the valuation PDF from your insurer and the vehicle’s ZIP code.
@@ -345,7 +345,7 @@ export function StartAnalysisForm() {
                 htmlFor={reportInputId}
                 className="text-sm font-medium text-neutral-900"
               >
-                CCC valuation report
+                Insurance value report
               </label>
               <span className="text-xs text-neutral-500">
                 PDF · under 50 MiB
@@ -360,7 +360,7 @@ export function StartAnalysisForm() {
                 errors.report && "border-destructive/60 bg-destructive/[0.025]",
               )}
               role="group"
-              aria-label="CCC report upload"
+              aria-label="Insurance report upload"
               onDragEnter={(event) => {
                 event.preventDefault();
                 if (!mutation.isPending) {
@@ -459,7 +459,7 @@ export function StartAnalysisForm() {
             </div>
             {report && !errors.report ? (
               <p id={reportHelpId} className="sr-only">
-                Selected CCC valuation report PDF.
+                Selected insurance value report PDF.
               </p>
             ) : null}
             {errors.report ? (
@@ -517,7 +517,7 @@ export function StartAnalysisForm() {
               className="mt-2 text-xs leading-5 text-neutral-500"
             >
               Enter a 5-digit ZIP or ZIP+4. This is used to find relevant
-              comparable vehicles near you.
+              similar vehicles near you.
             </p>
             {errors.postalCode ? (
               <p
@@ -563,14 +563,8 @@ export function StartAnalysisForm() {
 
           <p className="text-xs leading-5 text-neutral-500">
             Venfour uses third-party services to process your report and gather
-            market evidence. Learn more in our{" "}
-            <Link
-              to="/privacy"
-              className="font-medium text-brand underline decoration-brand/30 underline-offset-3 transition-colors hover:text-brand-strong hover:decoration-brand/60 focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
-            >
-              Privacy Policy
-            </Link>
-            .
+            market information. Do not upload documents you are not authorized to
+            share.
           </p>
 
           <button
@@ -578,7 +572,7 @@ export function StartAnalysisForm() {
             className="group inline-flex h-12 w-full items-center justify-center gap-2 rounded-md bg-brand px-5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-brand-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
             disabled={mutation.isPending}
           >
-            Analyze my report
+            Start appraisal
             <ArrowRight
               className="size-4 transition-transform group-hover:translate-x-0.5 motion-reduce:transition-none"
               aria-hidden
@@ -605,10 +599,10 @@ export function StartAnalysisForm() {
               />
             </span>
             <p className="mt-5 text-lg font-semibold tracking-[-0.02em] text-neutral-950">
-              Preparing your valuation review
+              Preparing your total-loss appraisal
             </p>
             <p className="mt-2 text-sm leading-6 text-neutral-600">
-              Venfour is reading the CCC report, reviewing relevant market
+              Venfour is reading the insurance report, reviewing relevant market
               evidence, and preparing your results. This can take a few minutes.
             </p>
             <p className="mt-5 text-xs font-medium tracking-wide text-neutral-500 uppercase">

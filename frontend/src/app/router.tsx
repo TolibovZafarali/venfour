@@ -3,13 +3,9 @@ import { createBrowserRouter, type RouteObject } from "react-router";
 import type { PageMetadata } from "@/app/document-metadata";
 import { AppShell } from "@/components/app-shell";
 import { AnalysisPage } from "@/pages/analysis-page";
-import { ContactPage } from "@/pages/contact-page";
 import { HomePage } from "@/pages/home-page";
-import { MethodologyPage } from "@/pages/methodology-page";
 import { NotFoundPage } from "@/pages/not-found-page";
-import { PrivacyPage } from "@/pages/privacy-page";
 import { RouteErrorPage } from "@/pages/route-error-page";
-import { TermsPage } from "@/pages/terms-page";
 import { TotalLossReviewPage } from "@/pages/total-loss-review-page";
 
 const metadata = (title: string, description: string): PageMetadata => ({
@@ -27,16 +23,16 @@ export const appRoutes: RouteObject[] = [
         index: true,
         element: <HomePage />,
         handle: metadata(
-          "Check Your Car’s Value After an Accident | Venfour",
-          "Check an insurance report, your car’s market value, or value lost after repairs with Venfour.",
+          "Vehicle Appraisals After an Accident | Venfour",
+          "Start a total-loss appraisal online or learn how a diminished value appraisal documents value lost after repairs.",
         ),
       },
       {
         path: "total-loss-review",
         element: <TotalLossReviewPage />,
         handle: metadata(
-          "Total-Loss Valuation Review | Venfour",
-          "Choose your valuation report format and start Venfour’s supported CCC total-loss valuation review.",
+          "Start a Total-Loss Appraisal | Venfour",
+          "Upload the vehicle value report your insurance company sent you to start a total-loss appraisal.",
         ),
       },
       {
@@ -44,39 +40,7 @@ export const appRoutes: RouteObject[] = [
         element: <AnalysisPage />,
         handle: metadata(
           "Vehicle Valuation Analysis | Venfour",
-          "Review the CCC valuation, selected market evidence, findings, and limitations for this vehicle analysis.",
-        ),
-      },
-      {
-        path: "methodology",
-        element: <MethodologyPage />,
-        handle: metadata(
-          "Methodology | Venfour",
-          "Learn how Venfour structures a CCC report, evaluates vehicle-market evidence, and produces a conservative assessment.",
-        ),
-      },
-      {
-        path: "privacy",
-        element: <PrivacyPage />,
-        handle: metadata(
-          "Privacy | Venfour",
-          "Learn how the current Venfour service processes uploaded valuation reports and analysis-derived information.",
-        ),
-      },
-      {
-        path: "terms",
-        element: <TermsPage />,
-        handle: metadata(
-          "Terms of Use | Venfour",
-          "Read the terms and important limitations for using the Venfour vehicle-valuation review service.",
-        ),
-      },
-      {
-        path: "contact",
-        element: <ContactPage />,
-        handle: metadata(
-          "Contact | Venfour",
-          "Contact Venfour about an insurer valuation review, a vehicle-value question, diminished value after a repair, or report processing.",
+          "Review the insurance valuation, selected market evidence, findings, and limitations for this vehicle analysis.",
         ),
       },
       {

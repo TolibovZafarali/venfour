@@ -5,6 +5,7 @@ import { describe, expect, test, vi } from "vitest";
 
 import venfourMark from "../../../assets/brand/venfour-mark.svg";
 import { RouteErrorPage } from "@/pages/route-error-page";
+import { representativeRunId } from "@/test/fixtures/analysis-presentation";
 import { renderTestApp } from "@/test/render";
 
 describe("Venfour application", () => {
@@ -13,44 +14,43 @@ describe("Venfour application", () => {
 
     expect(
       screen.getByRole("heading", {
-        name: "Know what your car is worth.",
+        name: "Independent vehicle appraisals after an accident.",
       }),
     ).toBeInTheDocument();
-    expect(document.title).toBe(
-      "Check Your Car’s Value After an Accident | Venfour",
-    );
+    expect(document.title).toBe("Vehicle Appraisals After an Accident | Venfour");
   });
 
-  test("provides restrained primary and footer navigation", async () => {
-    const user = userEvent.setup();
+  test("provides homepage-focused primary and footer navigation", () => {
     renderTestApp();
 
     const primaryNavigation = screen.getByRole("navigation", {
       name: "Primary navigation",
     });
     expect(
-      within(primaryNavigation).getByRole("link", { name: "Services" }),
-    ).toHaveAttribute("href", "#services");
+      within(primaryNavigation).getByRole("link", { name: "Total Loss" }),
+    ).toHaveAttribute("href", "#total-loss");
     expect(
-      within(primaryNavigation).getByRole("link", { name: "Methodology" }),
-    ).toHaveAttribute("href", "/methodology");
+      within(primaryNavigation).getByRole("link", { name: "Diminished Value" }),
+    ).toHaveAttribute("href", "#diminished-value");
     expect(
-      within(primaryNavigation).getByRole("link", { name: "Contact" }),
-    ).toHaveAttribute("href", "/contact");
+      within(primaryNavigation).getByRole("link", { name: "How It Works" }),
+    ).toHaveAttribute("href", "#how-it-works");
     expect(
       within(primaryNavigation).getByRole("link", {
-        name: "Get started",
+        name: "Start Appraisal",
       }),
-    ).toHaveAttribute("href", "#services");
+    ).toHaveAttribute("href", "/total-loss-review");
 
     const footerNavigation = screen.getByRole("navigation", {
       name: "Footer navigation",
     });
-    for (const label of ["Methodology", "Privacy", "Terms", "Contact"]) {
-      expect(
-        within(footerNavigation).getByRole("link", { name: label }),
-      ).toBeInTheDocument();
-    }
+    expect(within(footerNavigation).getAllByRole("link")).toHaveLength(2);
+    expect(
+      within(footerNavigation).getByRole("link", { name: "Total Loss" }),
+    ).toHaveAttribute("href", "#total-loss");
+    expect(
+      within(footerNavigation).getByRole("link", { name: "Diminished Value" }),
+    ).toHaveAttribute("href", "#diminished-value");
 
     const headerLogo = screen
       .getByRole("banner")
@@ -68,15 +68,11 @@ describe("Venfour application", () => {
     expect(renderedImageSources).not.toContain("venfour-logo-black.svg");
     expect(renderedImageSources).not.toContain("venfour-logo-white.svg");
 
-    await user.click(
-      within(primaryNavigation).getByRole("link", { name: "Methodology" }),
-    );
-    expect(
-      await screen.findByRole("heading", {
-        name: "A structured review of report facts and market evidence",
-      }),
-    ).toBeInTheDocument();
-    expect(document.title).toBe("Methodology | Venfour");
+    for (const removed of ["Methodology", "Privacy", "Terms", "Contact"]) {
+      expect(
+        screen.queryByRole("link", { name: removed }),
+      ).not.toBeInTheDocument();
+    }
   });
 
   test("opens and dismisses an accessible mobile navigation", async () => {
@@ -97,8 +93,8 @@ describe("Venfour application", () => {
       throw new Error("Mobile navigation controls were not rendered.");
     }
     expect(
-      within(mobileControls).getByRole("link", { name: "Get started" }),
-    ).toHaveAttribute("href", "#services");
+      within(mobileControls).getByRole("link", { name: "Start Appraisal" }),
+    ).toHaveAttribute("href", "/total-loss-review");
     expect(
       screen.queryByRole("navigation", { name: "Mobile navigation" }),
     ).not.toBeInTheDocument();
@@ -114,15 +110,15 @@ describe("Venfour application", () => {
     expect(closeNavigation).toHaveAttribute("aria-expanded", "true");
     expect(mobileNavigation).toHaveAttribute("id", "mobile-navigation");
     expect(
-      within(mobileNavigation).getByRole("link", { name: "Services" }),
-    ).toHaveAttribute("href", "#services");
+      within(mobileNavigation).getByRole("link", { name: "Total Loss" }),
+    ).toHaveAttribute("href", "#total-loss");
     expect(
-      within(mobileNavigation).getByRole("link", { name: "Methodology" }),
-    ).toHaveAttribute("href", "/methodology");
+      within(mobileNavigation).getByRole("link", { name: "Diminished Value" }),
+    ).toHaveAttribute("href", "#diminished-value");
     expect(
-      within(mobileNavigation).getByRole("link", { name: "Contact" }),
-    ).toHaveAttribute("href", "/contact");
-    within(mobileNavigation).getByRole("link", { name: "Services" }).focus();
+      within(mobileNavigation).getByRole("link", { name: "How It Works" }),
+    ).toHaveAttribute("href", "#how-it-works");
+    within(mobileNavigation).getByRole("link", { name: "Total Loss" }).focus();
     await user.keyboard("{Escape}");
 
     expect(
@@ -134,7 +130,7 @@ describe("Venfour application", () => {
     expect(screen.getByRole("button", { name: "Open navigation" })).toHaveFocus();
   });
 
-  test("closes mobile navigation and focuses the services section", async () => {
+  test("closes mobile navigation and focuses the total-loss section", async () => {
     const user = userEvent.setup();
     const originalScrollIntoView = HTMLElement.prototype.scrollIntoView;
     const scrollIntoView = vi.fn();
@@ -152,19 +148,19 @@ describe("Venfour application", () => {
       const mobileNavigation = screen.getByRole("navigation", {
         name: "Mobile navigation",
       });
-      const servicesLink = within(mobileNavigation).getByRole("link", {
-        name: "Services",
+      const totalLossLink = within(mobileNavigation).getByRole("link", {
+        name: "Total Loss",
       });
-      await user.click(servicesLink);
+      await user.click(totalLossLink);
 
       expect(
         screen.queryByRole("navigation", { name: "Mobile navigation" }),
       ).not.toBeInTheDocument();
 
-      await router.navigate("/#services");
-      const services = document.getElementById("services");
-      expect(services).not.toBeNull();
-      await waitFor(() => expect(services).toHaveFocus());
+      await router.navigate("/#total-loss");
+      const totalLoss = document.getElementById("total-loss");
+      expect(totalLoss).not.toBeNull();
+      await waitFor(() => expect(totalLoss).toHaveFocus());
       expect(scrollIntoView).toHaveBeenCalledWith({ block: "start" });
     } finally {
       if (originalScrollIntoView) {
@@ -179,22 +175,22 @@ describe("Venfour application", () => {
   });
 
   test("uses the dedicated review entry point away from the homepage", () => {
-    renderTestApp(["/methodology"]);
+    renderTestApp(["/total-loss-review"]);
 
     const primaryNavigation = screen.getByRole("navigation", {
       name: "Primary navigation",
     });
     expect(
-      within(primaryNavigation).getByRole("link", { name: "Services" }),
-    ).toHaveAttribute("href", "/#services");
+      within(primaryNavigation).getByRole("link", { name: "Total Loss" }),
+    ).toHaveAttribute("href", "/#total-loss");
     expect(
-      within(primaryNavigation).getByRole("link", { name: "Methodology" }),
-    ).toHaveAttribute("href", "/methodology");
+      within(primaryNavigation).getByRole("link", { name: "Diminished Value" }),
+    ).toHaveAttribute("href", "/#diminished-value");
     expect(
-      within(primaryNavigation).getByRole("link", { name: "Contact" }),
-    ).toHaveAttribute("href", "/contact");
+      within(primaryNavigation).getByRole("link", { name: "How It Works" }),
+    ).toHaveAttribute("href", "/#how-it-works");
     expect(
-      within(primaryNavigation).getByRole("link", { name: "Get started" }),
+      within(primaryNavigation).getByRole("link", { name: "Start Appraisal" }),
     ).toHaveAttribute("href", "/total-loss-review");
 
     const openNavigation = screen.getByRole("button", {
@@ -206,11 +202,41 @@ describe("Venfour application", () => {
       throw new Error("Mobile navigation controls were not rendered.");
     }
     expect(
-      within(mobileControls).getByRole("link", { name: "Get started" }),
+      within(mobileControls).getByRole("link", { name: "Start Appraisal" }),
     ).toHaveAttribute("href", "/total-loss-review");
+    expect(
+      screen.getByRole("form", { name: "Start total-loss appraisal" }),
+    ).toBeVisible();
   });
 
-  test("honors a homepage section hash after cross-page navigation", async () => {
+  test("resets scroll when a home link navigates to the hashless homepage", async () => {
+    const user = userEvent.setup();
+    const scrollTo = vi.spyOn(window, "scrollTo").mockImplementation(() => {});
+
+    try {
+      const { router } = renderTestApp(["/total-loss-review"]);
+      expect(scrollTo).not.toHaveBeenCalled();
+
+      await user.click(screen.getByRole("link", { name: "Venfour home" }));
+
+      await waitFor(() => expect(router.state.location.pathname).toBe("/"));
+      expect(router.state.location.hash).toBe("");
+      expect(scrollTo).toHaveBeenCalledOnce();
+      expect(scrollTo).toHaveBeenCalledWith({
+        top: 0,
+        left: 0,
+        behavior: "auto",
+      });
+    } finally {
+      scrollTo.mockRestore();
+    }
+  });
+
+  test.each([
+    ["total-loss", "Your vehicle was totaled"],
+    ["diminished-value", "Repairs can fix the vehicle—not its history."],
+    ["how-it-works", "Start online in a few steps"],
+  ])("honors the homepage #%s anchor after cross-page navigation", async (id, heading) => {
     const originalScrollIntoView = HTMLElement.prototype.scrollIntoView;
     const scrollIntoView = vi.fn();
     Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
@@ -219,11 +245,12 @@ describe("Venfour application", () => {
     });
 
     try {
-      renderTestApp(["/#services"]);
+      renderTestApp([`/#${id}`]);
 
       await waitFor(() => expect(scrollIntoView).toHaveBeenCalledOnce());
       expect(scrollIntoView).toHaveBeenCalledWith({ block: "start" });
-      expect(document.getElementById("services")).toHaveFocus();
+      expect(document.getElementById(id)).toHaveFocus();
+      expect(screen.getByRole("heading", { name: heading })).toBeVisible();
     } finally {
       if (originalScrollIntoView) {
         Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
@@ -335,65 +362,37 @@ describe("Venfour application", () => {
   });
 
   test.each([
-    ["/privacy", "How Venfour handles your information", "Privacy | Venfour"],
-    ["/terms", "Terms for using Venfour", "Terms of Use | Venfour"],
-    [
-      "/total-loss-review",
-      "Review your total-loss valuation",
-      "Total-Loss Valuation Review | Venfour",
-    ],
-    [
-      "/methodology",
-      "A structured review of report facts and market evidence",
-      "Methodology | Venfour",
-    ],
-    ["/contact", "Questions about Venfour", "Contact | Venfour"],
-  ])("mounts the public route %s", (path, heading, title) => {
+    "/methodology",
+    "/privacy",
+    "/terms",
+    "/contact",
+    "/contact?topic=diminished-value",
+  ])("keeps the removed marketing route %s unmounted", (path) => {
     renderTestApp([path]);
 
-    expect(screen.getByRole("heading", { name: heading })).toBeInTheDocument();
-    expect(document.title).toBe(title);
+    expect(
+      screen.getByRole("heading", { name: "Page not found" }),
+    ).toBeInTheDocument();
+    expect(document.title).toBe("Page Not Found | Venfour");
   });
 
-  test("shows a truthful contact fallback when no support email is configured", () => {
-    renderTestApp(["/contact"]);
+  test("keeps the total-loss upload route operational", () => {
+    renderTestApp(["/total-loss-review"]);
 
     expect(
-      screen.getByText(
-        "Direct email support is not currently available through this site.",
-      ),
+      screen.getByRole("heading", { name: "Upload your insurance value report" }),
     ).toBeVisible();
     expect(
-      screen.queryByRole("link", { name: /^Email / }),
-    ).not.toBeInTheDocument();
+      screen.getByRole("form", { name: "Start total-loss appraisal" }),
+    ).toBeVisible();
+    expect(document.title).toBe("Start a Total-Loss Appraisal | Venfour");
   });
 
-  test.each([
-    [
-      "/contact?topic=vehicle-value",
-      "Ask about your vehicle’s market value",
-      /self-service vehicle-details workflow is not available yet/i,
-    ],
-    [
-      "/contact?topic=diminished-value",
-      "Ask about diminished value after a repair",
-      /does not currently provide an automated diminished-value appraisal/i,
-    ],
-    [
-      "/contact?topic=report-format",
-      "Ask about another valuation report",
-      /automated review currently supports original CCC valuation report PDFs/i,
-    ],
-  ])("keeps the inquiry handoff at %s truthful", (path, heading, disclosure) => {
-    renderTestApp([path]);
+  test("keeps saved analysis routes operational", async () => {
+    renderTestApp([`/analyses/${representativeRunId}`]);
 
-    expect(screen.getByRole("heading", { name: heading })).toBeVisible();
-    expect(screen.getByText(disclosure)).toBeVisible();
-    expect(
-      screen.getByText(
-        "Direct email support is not currently available through this site.",
-      ),
-    ).toBeVisible();
+    expect(await screen.findByText("Valuation analysis loaded.")).toBeVisible();
+    expect(document.title).toBe("Vehicle Valuation Analysis | Venfour");
   });
 
   test("does not expose the placeholder workspace route", () => {

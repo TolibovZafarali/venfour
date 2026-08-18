@@ -2,7 +2,6 @@ import { Menu, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import {
   Link,
-  NavLink,
   Outlet,
   useLocation,
   useMatch,
@@ -31,19 +30,26 @@ export function AppShell() {
   const [mobileNavigationOpen, setMobileNavigationOpen] = useState(false);
   const headerSentinelRef = useRef<HTMLSpanElement>(null);
   const mobileNavigationButtonRef = useRef<HTMLButtonElement>(null);
+  const previousLocationKeyRef = useRef(location.key);
   const metadata = [...matches]
     .reverse()
     .map((match) => match.handle)
     .find(isPageMetadata) ?? {
-    title: "Check Your Car’s Value After an Accident | Venfour",
+    title: "Vehicle Appraisals After an Accident | Venfour",
     description:
-      "Check an insurance report, your car’s market value, or value lost after repairs with Venfour.",
+      "Start a total-loss appraisal online or learn how a diminished value appraisal documents value lost after repairs.",
   };
 
   useDocumentMetadata(analysisRoute ? null : metadata);
 
   useEffect(() => {
+    const isNavigation = previousLocationKeyRef.current !== location.key;
+    previousLocationKeyRef.current = location.key;
+
     if (!location.hash) {
+      if (isNavigation && location.pathname === "/") {
+        window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+      }
       return;
     }
 
@@ -54,7 +60,7 @@ export function AppShell() {
 
     target.scrollIntoView?.({ block: "start" });
     target.focus({ preventScroll: true });
-  }, [location.hash, location.pathname]);
+  }, [location.hash, location.key, location.pathname]);
 
   useEffect(() => {
     const sentinel = headerSentinelRef.current;
@@ -71,8 +77,12 @@ export function AppShell() {
   }, []);
 
   const onHomePage = location.pathname === "/";
-  const servicesHref = onHomePage ? "#services" : "/#services";
-  const primaryActionHref = onHomePage ? "#services" : "/total-loss-review";
+  const totalLossHref = onHomePage ? "#total-loss" : "/#total-loss";
+  const diminishedValueHref = onHomePage
+    ? "#diminished-value"
+    : "/#diminished-value";
+  const howItWorksHref = onHomePage ? "#how-it-works" : "/#how-it-works";
+  const primaryActionHref = "/total-loss-review";
   const detachedHeaderMaxWidth = analysisRoute
     ? "max-w-[90rem]"
     : "max-w-7xl";
@@ -108,8 +118,8 @@ export function AppShell() {
             className={cn(
               "mx-auto w-full bg-white transition-[border-color,border-radius,box-shadow] duration-200 ease-out motion-reduce:transition-none",
               headerDetached
-                ? "rounded-xl border border-line shadow-[0_10px_30px_rgba(16,24,40,0.12)]"
-                : "border-b border-line",
+                ? "rounded-xl border border-line shadow-[0_10px_30px_rgba(11,31,51,0.10)]"
+                : "border-b border-line/80",
               headerDetached && detachedHeaderMaxWidth,
             )}
           >
@@ -145,30 +155,20 @@ export function AppShell() {
                 className="hidden shrink-0 items-center gap-1 lg:flex lg:gap-2"
                 aria-label="Primary navigation"
               >
-                <a href={servicesHref} className={primaryLinkClassName}>
-                  Services
+                <a href={totalLossHref} className={primaryLinkClassName}>
+                  Total Loss
                 </a>
-                <NavLink
-                  to="/methodology"
-                  className={({ isActive }) =>
-                    cn(primaryLinkClassName, isActive && "text-brand")
-                  }
-                >
-                  Methodology
-                </NavLink>
-                <NavLink
-                  to="/contact"
-                  className={({ isActive }) =>
-                    cn(primaryLinkClassName, isActive && "text-brand")
-                  }
-                >
-                  Contact
-                </NavLink>
+                <a href={diminishedValueHref} className={primaryLinkClassName}>
+                  Diminished Value
+                </a>
+                <a href={howItWorksHref} className={primaryLinkClassName}>
+                  How It Works
+                </a>
                 <a
                   href={primaryActionHref}
                   className="ml-1 inline-flex min-h-11 items-center rounded-lg bg-brand px-4 text-[0.8125rem] font-semibold text-white transition-colors hover:bg-brand-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 motion-reduce:transition-none"
                 >
-                  Get started
+                  Start Appraisal
                 </a>
               </nav>
 
@@ -178,7 +178,7 @@ export function AppShell() {
                   className="inline-flex min-h-11 items-center rounded-lg bg-brand px-3 text-xs font-semibold text-white transition-colors hover:bg-brand-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 motion-reduce:transition-none"
                   onClick={() => setMobileNavigationOpen(false)}
                 >
-                  Get started
+                  Start Appraisal
                 </a>
                 <button
                   ref={mobileNavigationButtonRef}
@@ -213,26 +213,26 @@ export function AppShell() {
               >
                 <div className="mx-auto flex w-full max-w-7xl flex-col py-2">
                   <a
-                    href={servicesHref}
+                    href={totalLossHref}
                     className={mobileLinkClassName}
                     onClick={() => setMobileNavigationOpen(false)}
                   >
-                    Services
+                    Total Loss
                   </a>
-                  <Link
-                    to="/methodology"
+                  <a
+                    href={diminishedValueHref}
                     className={mobileLinkClassName}
                     onClick={() => setMobileNavigationOpen(false)}
                   >
-                    Methodology
-                  </Link>
-                  <Link
-                    to="/contact"
+                    Diminished Value
+                  </a>
+                  <a
+                    href={howItWorksHref}
                     className={mobileLinkClassName}
                     onClick={() => setMobileNavigationOpen(false)}
                   >
-                    Contact
-                  </Link>
+                    How It Works
+                  </a>
                 </div>
               </nav>
             ) : null}
@@ -272,24 +272,17 @@ export function AppShell() {
             <nav aria-label="Footer navigation">
               <ul className="flex flex-wrap gap-x-5 gap-y-3">
                 <li>
-                  <Link to="/methodology" className={footerLinkClassName}>
-                    Methodology
-                  </Link>
+                  <a href={totalLossHref} className={footerLinkClassName}>
+                    Total Loss
+                  </a>
                 </li>
                 <li>
-                  <Link to="/privacy" className={footerLinkClassName}>
-                    Privacy
-                  </Link>
-                </li>
-                <li>
-                  <Link to="/terms" className={footerLinkClassName}>
-                    Terms
-                  </Link>
-                </li>
-                <li>
-                  <Link to="/contact" className={footerLinkClassName}>
-                    Contact
-                  </Link>
+                  <a
+                    href={diminishedValueHref}
+                    className={footerLinkClassName}
+                  >
+                    Diminished Value
+                  </a>
                 </li>
               </ul>
             </nav>

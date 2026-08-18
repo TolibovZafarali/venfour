@@ -30,8 +30,16 @@
   --color-ink: var(--ink);
   --color-copy: var(--copy);
   --color-surface: var(--surface);
+  --color-canvas: var(--canvas);
   --color-line: var(--line);
   --color-line-strong: var(--line-strong);
+  --color-market: var(--market);
+  --color-market-strong: var(--market-strong);
+  --color-market-soft: var(--market-soft);
+  --color-market-light: var(--market-light);
+  --color-amber: var(--amber);
+  --color-amber-strong: var(--amber-strong);
+  --color-amber-soft: var(--amber-soft);
   --color-evidence: var(--evidence);
   --color-report-canvas: var(--report-canvas);
   --color-border: var(--border);
@@ -46,34 +54,42 @@
 
 :root {
   --background: #ffffff;
-  --foreground: #101828;
+  --foreground: #0b1f33;
   --card: #ffffff;
-  --card-foreground: #101828;
+  --card-foreground: #0b1f33;
   --popover: #ffffff;
-  --popover-foreground: #101828;
-  --primary: #2457d6;
+  --popover-foreground: #0b1f33;
+  --primary: #155eef;
   --primary-foreground: #ffffff;
-  --secondary: #f3f6ff;
-  --secondary-foreground: #1d46b8;
-  --muted: #f2f4f7;
-  --muted-foreground: #5e6878;
-  --accent: #f3f6ff;
-  --accent-foreground: #1d46b8;
+  --secondary: #eef4ff;
+  --secondary-foreground: #004eeb;
+  --muted: #f1f4f7;
+  --muted-foreground: #506277;
+  --accent: #eef4ff;
+  --accent-foreground: #004eeb;
   --destructive: oklch(0.577 0.245 27.325);
-  --brand: #2457d6;
-  --brand-strong: #1d46b8;
-  --brand-soft: #f3f6ff;
-  --brand-subtle: #dde6ff;
-  --ink: #101828;
-  --copy: #5e6878;
-  --surface: #f7f8fa;
-  --line: #dde1e8;
-  --line-strong: #9aa5b5;
-  --evidence: #101828;
-  --report-canvas: #f7f8fa;
-  --border: #dde1e8;
-  --input: #8795a8;
-  --ring: #2457d6;
+  --brand: #155eef;
+  --brand-strong: #004eeb;
+  --brand-soft: #eef4ff;
+  --brand-subtle: #d9e5ff;
+  --ink: #0b1f33;
+  --copy: #506277;
+  --surface: #f5f7fa;
+  --canvas: #f3f6f9;
+  --line: #d9e1e8;
+  --line-strong: #92a1b2;
+  --market: #19816b;
+  --market-strong: #0e6655;
+  --market-soft: #eaf7f2;
+  --market-light: #65d5b4;
+  --amber: #d18a23;
+  --amber-strong: #8a4b08;
+  --amber-soft: #fff5e5;
+  --evidence: #0b1f33;
+  --report-canvas: #f5f7fa;
+  --border: #d9e1e8;
+  --input: #8291a3;
+  --ring: #155eef;
   --radius: 0.625rem;
 }
 
@@ -100,14 +116,25 @@
   }
 
   ::selection {
-    background: #dde6ff;
-    color: #1d46b8;
+    background: #d9e5ff;
+    color: #004eeb;
   }
 
   @media (prefers-reduced-motion: reduce) {
     html:focus-within {
       scroll-behavior: auto;
     }
+  }
+}
+
+@keyframes range-marker {
+  from {
+    opacity: 0;
+    transform: translateY(0.375rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 
