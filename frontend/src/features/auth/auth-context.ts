@@ -35,7 +35,11 @@ export interface AuthContextValue {
     email: string,
     options?: AuthActionOptions,
   ) => Promise<void>;
-  completeAuthCallback: (code: string) => Promise<Session>;
+  completeAuthCallback: (
+    code: string,
+    flowId?: string,
+  ) => Promise<Session>;
+  completeEmailAuthCallback: (tokenHash: string) => Promise<Session>;
   signOut: () => Promise<void>;
 }
 

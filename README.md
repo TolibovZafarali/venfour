@@ -243,9 +243,12 @@ In the Supabase Dashboard:
    `https://venfour.com`.
 2. Add `https://venfour.com/auth/callback` and
    `http://localhost:5173/auth/callback` to the allowed redirect URLs.
-3. Keep Email authentication and new-user signups enabled. Set the magic-link
-   expiry to 3600 seconds, confirm the email template links to
-   `{{ .ConfirmationURL }}`, and configure production SMTP before launch.
+3. Keep Email authentication and new-user signups enabled, set the magic-link
+   expiry to 3600 seconds, and configure production SMTP. In both the
+   **Confirm sign up** and **Magic link or OTP** templates, link the sign-in
+   action to
+   `{{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=email` so Venfour can
+   verify the one-time email token without relying on browser-local PKCE state.
 4. Add `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` to the frontend
    deployment environment. Do not expose a secret or service-role key.
 

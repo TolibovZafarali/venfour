@@ -16,7 +16,11 @@ export interface AuthService {
   onAuthStateChange: (listener: AuthStateChangeListener) => () => void;
   signInWithGoogle: (redirectTo: string) => Promise<void>;
   sendMagicLink: (email: string, redirectTo: string) => Promise<void>;
-  exchangeCodeForSession: (code: string) => Promise<Session>;
+  exchangeCodeForSession: (
+    code: string,
+    flowId?: string,
+  ) => Promise<Session>;
+  verifyEmailOtp: (tokenHash: string) => Promise<Session>;
   signOut: () => Promise<void>;
 }
 
@@ -60,8 +64,25 @@ export function createSupabaseAuthService(
       throwIfError(error);
     },
 
-    async exchangeCodeForSession(code) {
-      const { data, error } = await client.auth.exchangeCodeForSession(code);
+    async exchangeCodeForSession(code, flowId) {
+      const { data, error } = await client.auth.exchangeCodeForSession(
+        code,
+        flowId ? { flowId } : undefined,
+      );
+      throwIfError(error);
+
+      if (!data.session) {
+        throw new Error("Supabase did not return a session.");
+      }
+
+      return data.session;
+    },
+
+    async verifyEmailOtp(tokenHash) {
+      const { data, error } = await client.auth.verifyOtp({
+        token_hash: tokenHash,
+        type: "email",
+      });
       throwIfError(error);
 
       if (!data.session) {

@@ -45,6 +45,7 @@ function createService(overrides: Partial<AuthService> = {}) {
     sendMagicLink: vi.fn(async () => undefined),
     signInWithGoogle: vi.fn(async () => undefined),
     signOut: vi.fn(async () => undefined),
+    verifyEmailOtp: vi.fn(async () => sessionFor("email-user")),
     ...overrides,
   };
   return service;
@@ -334,7 +335,11 @@ describe("auth callback", () => {
         { path: "/auth/callback", element: <AuthCallbackPage /> },
         { path: "/destination", element: <h1>Destination</h1> },
       ],
-      { initialEntries: ["/auth/callback?code=secure-code"] },
+      {
+        initialEntries: [
+          "/auth/callback?code=secure-code&sb_flow_id=0123456789abcdef0123456789abcdef",
+        ],
+      },
     );
 
     render(
@@ -345,7 +350,10 @@ describe("auth callback", () => {
 
     expect(screen.getByRole("heading", { name: "Finishing your sign in" })).toBeVisible();
     expect(await screen.findByRole("heading", { name: "Destination" })).toBeVisible();
-    expect(service.exchangeCodeForSession).toHaveBeenCalledWith("secure-code");
+    expect(service.exchangeCodeForSession).toHaveBeenCalledWith(
+      "secure-code",
+      "0123456789abcdef0123456789abcdef",
+    );
     expect(router.state.location.search).toBe("?from=auth");
   });
 
@@ -371,7 +379,10 @@ describe("auth callback", () => {
     );
 
     expect(await screen.findByRole("heading", { name: "Destination" })).toBeVisible();
-    expect(exchangeCodeForSession).toHaveBeenCalledWith("new-account-code");
+    expect(exchangeCodeForSession).toHaveBeenCalledWith(
+      "new-account-code",
+      undefined,
+    );
   });
 
   test("renders callback errors and never exchanges a rejected callback", async () => {
@@ -398,6 +409,7 @@ describe("auth callback", () => {
       screen.getByRole("heading", { name: "We couldn’t sign you in" }),
     ).toBeVisible();
     expect(service.exchangeCodeForSession).not.toHaveBeenCalled();
+    expect(service.verifyEmailOtp).not.toHaveBeenCalled();
   });
 
   test("reports exchange failures once under Strict Mode", async () => {

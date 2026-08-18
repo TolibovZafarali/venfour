@@ -11,7 +11,11 @@ import {
 } from "@/features/auth/return-location";
 
 export function AuthCallbackPage() {
-  const { auth, completeAuthCallback } = useAuth();
+  const {
+    auth,
+    completeAuthCallback,
+    completeEmailAuthCallback,
+  } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const callback = useMemo(
@@ -20,17 +24,21 @@ export function AuthCallbackPage() {
   );
   const [completionError, setCompletionError] = useState<string | null>(null);
   const completionRef = useRef<{
-    code: string;
+    key: string;
     promise: Promise<Session>;
   } | null>(null);
   const navigationStartedRef = useRef(false);
 
   useEffect(() => {
-    if (callback.error || auth.status === "unavailable") {
+    if (
+      callback.kind === "error" ||
+      callback.kind === "invalid" ||
+      auth.status === "unavailable"
+    ) {
       return;
     }
 
-    if (!callback.code) {
+    if (callback.kind === "none") {
       if (auth.status === "signedIn" && !navigationStartedRef.current) {
         navigationStartedRef.current = true;
         void navigate(consumeAuthReturnLocation(), { replace: true });
@@ -38,10 +46,21 @@ export function AuthCallbackPage() {
       return;
     }
 
-    if (completionRef.current?.code !== callback.code) {
+    const completionKey =
+      callback.kind === "email"
+        ? `email:${callback.tokenHash}`
+        : `code:${callback.code}:${callback.flowId ?? ""}`;
+
+    if (completionRef.current?.key !== completionKey) {
       completionRef.current = {
-        code: callback.code,
-        promise: completeAuthCallback(callback.code),
+        key: completionKey,
+        promise:
+          callback.kind === "email"
+            ? completeEmailAuthCallback(callback.tokenHash)
+            : completeAuthCallback(
+                callback.code,
+                callback.flowId ?? undefined,
+              ),
       };
     }
 
@@ -62,13 +81,19 @@ export function AuthCallbackPage() {
     return () => {
       active = false;
     };
-  }, [auth.status, callback.code, callback.error, completeAuthCallback, navigate]);
+  }, [
+    auth.status,
+    callback,
+    completeAuthCallback,
+    completeEmailAuthCallback,
+    navigate,
+  ]);
 
   const error =
     completionError ??
-    (callback.error
+    (callback.kind === "error" || callback.kind === "invalid"
       ? "This sign-in link is invalid or has expired. Please request a new one."
-      : !callback.code && auth.status === "signedOut"
+      : callback.kind === "none" && auth.status === "signedOut"
         ? "This sign-in link is missing required information. Please request a new one."
         : auth.status === "unavailable"
           ? "Sign in is temporarily unavailable. Please try again later."

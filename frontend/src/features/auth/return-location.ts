@@ -71,24 +71,50 @@ export function consumeAuthReturnLocation() {
   return sanitizeReturnLocation(stored);
 }
 
-export interface AuthCallbackParameters {
-  code: string | null;
-  error: string | null;
-}
+export type AuthCallbackParameters =
+  | { kind: "code"; code: string; flowId: string | null }
+  | { kind: "email"; tokenHash: string }
+  | { kind: "error"; message: string }
+  | { kind: "invalid" }
+  | { kind: "none" };
 
 export function readAuthCallbackParameters(
   location: Pick<Location, "search" | "hash">,
 ): AuthCallbackParameters {
   const search = new URLSearchParams(location.search);
   const hash = new URLSearchParams(location.hash.replace(/^#/, ""));
+  const parameter = (name: string) => search.get(name) ?? hash.get(name);
   const errorDescription =
-    search.get("error_description") ??
-    hash.get("error_description") ??
-    search.get("error") ??
-    hash.get("error");
+    parameter("error_description") ?? parameter("error");
 
-  return {
-    code: search.get("code") ?? hash.get("code"),
-    error: errorDescription?.replace(/\+/g, " ") ?? null,
-  };
+  if (errorDescription) {
+    return {
+      kind: "error",
+      message: errorDescription.replace(/\+/g, " "),
+    };
+  }
+
+  const code = parameter("code");
+  const tokenHash = parameter("token_hash");
+  const tokenType = parameter("type");
+
+  if (tokenHash !== null) {
+    return tokenHash && tokenType === "email" && !code
+      ? { kind: "email", tokenHash }
+      : { kind: "invalid" };
+  }
+
+  if (code) {
+    return {
+      kind: "code",
+      code,
+      flowId: parameter("sb_flow_id") || null,
+    };
+  }
+
+  if (tokenType !== null) {
+    return { kind: "invalid" };
+  }
+
+  return { kind: "none" };
 }

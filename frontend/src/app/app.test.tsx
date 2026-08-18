@@ -619,6 +619,12 @@ function createTestAuthService(
     sendMagicLink: async () => {},
     signInWithGoogle: async () => {},
     signOut: async () => {},
+    verifyEmailOtp: async () => {
+      if (!session) {
+        throw new Error("No test session is available.");
+      }
+      return session;
+    },
     ...overrides,
   };
 }

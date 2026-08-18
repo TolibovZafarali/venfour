@@ -59,13 +59,33 @@ describe("auth return locations", () => {
 
   test("reads success and provider error callback parameters", () => {
     expect(
-      readAuthCallbackParameters({ search: "?code=secure-code", hash: "" }),
-    ).toEqual({ code: "secure-code", error: null });
+      readAuthCallbackParameters({
+        search:
+          "?code=secure-code&sb_flow_id=0123456789abcdef0123456789abcdef",
+        hash: "",
+      }),
+    ).toEqual({
+      kind: "code",
+      code: "secure-code",
+      flowId: "0123456789abcdef0123456789abcdef",
+    });
+    expect(
+      readAuthCallbackParameters({
+        search: "?token_hash=secure-token-hash&type=email",
+        hash: "",
+      }),
+    ).toEqual({ kind: "email", tokenHash: "secure-token-hash" });
     expect(
       readAuthCallbackParameters({
         search: "?error=access_denied&error_description=User+cancelled",
         hash: "",
       }),
-    ).toEqual({ code: null, error: "User cancelled" });
+    ).toEqual({ kind: "error", message: "User cancelled" });
+    expect(
+      readAuthCallbackParameters({
+        search: "?token_hash=secure-token-hash&type=recovery",
+        hash: "",
+      }),
+    ).toEqual({ kind: "invalid" });
   });
 });

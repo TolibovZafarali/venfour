@@ -154,8 +154,22 @@ export function AuthProvider({
   const completeAuthCallback = useCallback<
     AuthContextValue["completeAuthCallback"]
   >(
-    async (code) => {
-      const session = await requireService().exchangeCodeForSession(code);
+    async (code, flowId) => {
+      const session = await requireService().exchangeCodeForSession(
+        code,
+        flowId,
+      );
+      applySession(session);
+      return session;
+    },
+    [applySession, requireService],
+  );
+
+  const completeEmailAuthCallback = useCallback<
+    AuthContextValue["completeEmailAuthCallback"]
+  >(
+    async (tokenHash) => {
+      const session = await requireService().verifyEmailOtp(tokenHash);
       applySession(session);
       return session;
     },
@@ -171,6 +185,7 @@ export function AuthProvider({
     () => ({
       auth,
       completeAuthCallback,
+      completeEmailAuthCallback,
       sendMagicLink,
       signInWithGoogle,
       signOut,
@@ -178,6 +193,7 @@ export function AuthProvider({
     [
       auth,
       completeAuthCallback,
+      completeEmailAuthCallback,
       sendMagicLink,
       signInWithGoogle,
       signOut,
