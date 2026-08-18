@@ -15,13 +15,13 @@ import { cn } from "@/lib/utils";
 import venfourMark from "../../../assets/brand/venfour-mark.svg";
 
 const primaryLinkClassName =
-  "inline-flex min-h-11 items-center rounded-sm px-2 text-[0.8125rem] font-medium text-copy transition-colors hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 motion-reduce:transition-none";
+  "inline-flex min-h-11 items-center rounded-lg px-3 text-[0.8125rem] font-medium text-ink/70 transition-colors hover:bg-white/55 hover:text-ink focus-visible:bg-white/55 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 motion-reduce:transition-none";
 
 const footerLinkClassName =
   "inline-flex min-h-11 items-center rounded-sm text-sm text-copy transition-colors hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 motion-reduce:transition-none";
 
 const mobileLinkClassName =
-  "inline-flex min-h-12 items-center border-b border-line py-2 text-sm font-medium text-ink last:border-b-0 hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand";
+  "inline-flex min-h-12 items-center border-b border-ink/10 py-2 text-sm font-medium text-ink/75 transition-colors last:border-b-0 hover:bg-white/35 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand/60 motion-reduce:transition-none";
 
 export function AppShell() {
   const analysisRoute = useMatch("/analyses/:runId");
@@ -109,6 +109,12 @@ export function AppShell() {
   const detachedHeaderMaxWidth = analysisRoute
     ? "max-w-[90rem]"
     : "max-w-7xl";
+  const headerMotionClassName = headerDetached
+    ? "duration-[560ms] ease-[cubic-bezier(0.4,0,0.2,1)]"
+    : "duration-[360ms] ease-[cubic-bezier(0.4,0,0.2,1)]";
+  const glassMotionClassName = headerDetached
+    ? "duration-[640ms] ease-[cubic-bezier(0.4,0,0.2,1)]"
+    : "duration-[360ms] ease-[cubic-bezier(0.4,0,0.2,1)]";
 
   return (
     <div className="relative flex min-h-svh flex-col bg-background">
@@ -127,7 +133,8 @@ export function AppShell() {
         <header
           data-header-state={headerDetached ? "detached" : "integrated"}
           className={cn(
-            "absolute top-0 right-0 left-0 transition-[top,left,right] duration-200 ease-out motion-reduce:transition-none",
+            "absolute top-0 right-0 left-0 transition-[top,left,right] motion-reduce:transition-none",
+            headerMotionClassName,
             headerDetached && "top-3 right-3 left-3 sm:right-4 sm:left-4",
           )}
           onKeyDown={(event) => {
@@ -139,10 +146,11 @@ export function AppShell() {
         >
           <div
             className={cn(
-              "mx-auto w-full bg-white transition-[border-color,border-radius,box-shadow] duration-200 ease-out motion-reduce:transition-none",
+              "header-glass mx-auto w-full max-w-[100vw] overflow-hidden transition-[max-width,border-color,border-radius,box-shadow] motion-reduce:transition-none",
+              glassMotionClassName,
               headerDetached
-                ? "rounded-xl border border-line shadow-[0_10px_30px_rgba(11,31,51,0.10)]"
-                : "border-b border-line/80",
+                ? "rounded-2xl border border-white/75"
+                : "border-b border-line/60",
               headerDetached && detachedHeaderMaxWidth,
             )}
           >
@@ -155,7 +163,7 @@ export function AppShell() {
               <div className="flex min-w-0 items-center gap-3 sm:gap-4">
                 <Link
                   to="/"
-                  className="inline-flex min-h-11 items-center gap-2.5 rounded-sm font-brand text-[1.1rem] font-semibold tracking-[0.1em] text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
+                  className="inline-flex min-h-11 items-center gap-2.5 rounded-md font-brand text-[1.1rem] font-semibold tracking-[0.1em] text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
                   aria-label="Venfour home"
                 >
                   <img
@@ -168,7 +176,7 @@ export function AppShell() {
                   <span>VENFOUR</span>
                 </Link>
                 {analysisRoute ? (
-                  <span className="hidden border-l border-line pl-4 text-[0.6875rem] font-semibold tracking-[0.12em] text-copy uppercase sm:block">
+                  <span className="hidden border-l border-ink/10 pl-4 text-[0.6875rem] font-semibold tracking-[0.12em] text-copy/80 uppercase sm:block">
                     Valuation review
                   </span>
                 ) : null}
@@ -189,7 +197,7 @@ export function AppShell() {
                 </a>
                 <a
                   href={primaryActionHref}
-                  className="ml-1 inline-flex min-h-11 items-center rounded-lg bg-brand px-4 text-[0.8125rem] font-semibold text-white transition-colors hover:bg-brand-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 motion-reduce:transition-none"
+                  className="ml-1 inline-flex min-h-11 items-center rounded-lg border border-blue-300/20 bg-brand px-4 text-[0.8125rem] font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.2),0_8px_20px_-12px_rgba(21,94,239,0.95)] transition-colors hover:bg-[#2b6cf4] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 focus-visible:ring-offset-2 motion-reduce:transition-none"
                 >
                   Get Started
                 </a>
@@ -198,7 +206,7 @@ export function AppShell() {
               <div className="flex shrink-0 items-center gap-1.5 lg:hidden">
                 <a
                   href={primaryActionHref}
-                  className="inline-flex min-h-11 items-center rounded-lg bg-brand px-3 text-xs font-semibold text-white transition-colors hover:bg-brand-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 motion-reduce:transition-none"
+                  className="inline-flex min-h-11 items-center rounded-lg border border-blue-300/20 bg-brand px-3 text-xs font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.2),0_8px_20px_-12px_rgba(21,94,239,0.95)] transition-colors hover:bg-[#2b6cf4] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 focus-visible:ring-offset-2 motion-reduce:transition-none"
                   onClick={() => setMobileNavigationOpen(false)}
                 >
                   Get Started
@@ -206,7 +214,7 @@ export function AppShell() {
                 <button
                   ref={mobileNavigationButtonRef}
                   type="button"
-                  className="inline-flex size-11 items-center justify-center rounded-lg text-copy transition-colors hover:bg-surface hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 motion-reduce:transition-none"
+                  className="inline-flex size-11 items-center justify-center rounded-lg text-copy transition-colors hover:bg-white/60 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 motion-reduce:transition-none"
                   aria-expanded={mobileNavigationOpen}
                   aria-controls="mobile-navigation"
                   aria-label={
@@ -229,8 +237,8 @@ export function AppShell() {
               <nav
                 id="mobile-navigation"
                 className={cn(
-                  "border-t border-line bg-white px-5 lg:hidden",
-                  headerDetached && "rounded-b-xl",
+                  "border-t border-ink/10 bg-transparent px-5 lg:hidden",
+                  headerDetached && "rounded-b-2xl",
                 )}
                 aria-label="Mobile navigation"
               >
