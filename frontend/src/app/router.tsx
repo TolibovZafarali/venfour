@@ -27,8 +27,8 @@ export const appRoutes: RouteObject[] = [
         index: true,
         element: <HomePage />,
         handle: metadata(
-          "Vehicle Value After an Accident | Venfour",
-          "Review a total-loss valuation, check your vehicle’s market value, or request diminished-value help after an accident.",
+          "Check Your Car’s Value After an Accident | Venfour",
+          "Check an insurance report, your car’s market value, or value lost after repairs with Venfour.",
         ),
       },
       {

@@ -1,9 +1,5 @@
 <div align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="assets/brand/venfour-logo-white.svg">
-    <source media="(prefers-color-scheme: light)" srcset="assets/brand/venfour-logo-black.svg">
-    <img src="assets/brand/venfour-logo-black.svg" alt="Venfour logo" width="128">
-  </picture>
+  <img src="assets/brand/venfour-mark.svg" alt="Venfour logo" width="128">
   <h1>Venfour</h1>
   <p><strong>Independent vehicle-valuation guidance for total-loss claims.</strong></p>
 </div>

@@ -1,8 +1,10 @@
-import { fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
+import { MemoryRouter } from "react-router";
 import { describe, expect, test, vi } from "vitest";
 
+import { HomePage } from "@/pages/home-page";
 import { server } from "@/test/mocks/server";
 import { renderTestApp } from "@/test/render";
 import { representativeRunId } from "@/test/fixtures/analysis-presentation";
@@ -58,17 +60,17 @@ async function chooseCccReport(user: ReturnType<typeof userEvent.setup>) {
 }
 
 describe("homepage structure", () => {
-  test("explains the service, presents a real example, and has no entry form", () => {
+  test("presents the concise hero, local responsive photo, and no entry form", () => {
     renderTestApp();
 
     const heroHeading = screen.getByRole("heading", {
       level: 1,
-      name: "Understand your vehicle’s value after an accident.",
+      name: "Know what your car is worth.",
     });
     expect(heroHeading).toBeVisible();
     expect(
       screen.getByText(
-        "Review a total-loss valuation, check market value, or request diminished-value help.",
+        "After an accident, check an insurance report, your car’s market value, or value lost after repairs.",
       ),
     ).toBeVisible();
     const hero = heroHeading.closest("section");
@@ -76,32 +78,61 @@ describe("homepage structure", () => {
     if (!hero) {
       throw new Error("The homepage hero was not rendered.");
     }
-    expect(within(hero).getByRole("link", { name: "Get started" })).toHaveAttribute(
-      "href",
-      "#services",
+    const heroActions = within(hero).getAllByRole("link", {
+      name: "Get started",
+    });
+    expect(heroActions).toHaveLength(1);
+    expect(heroActions[0]).toHaveAttribute("href", "#services");
+
+    const heroPhoto = hero.querySelector<HTMLImageElement>(
+      "img[data-hero-photo]",
     );
-    expect(within(hero).getByRole("link", { name: "How it works" })).toHaveAttribute(
-      "href",
-      "#how-it-works",
-    );
+    expect(heroPhoto).toBeVisible();
+    expect(heroPhoto?.parentElement?.tagName).toBe("PICTURE");
+    expect(heroPhoto).toHaveAttribute("width", "1440");
+    expect(heroPhoto).toHaveAttribute("height", "1080");
+    expect(heroPhoto).toHaveAttribute("loading", "eager");
+    expect(heroPhoto).toHaveAttribute("fetchpriority", "high");
+    expect(heroPhoto).toHaveAttribute("sizes");
+    expect(heroPhoto).toHaveAttribute("srcset");
+
+    const picture = heroPhoto?.closest("picture");
+    expect(picture).not.toBeNull();
+    const sources = Array.from(picture?.querySelectorAll("source") ?? []);
     expect(
-      screen.getByRole("heading", { name: "Anonymized sample vehicle" }),
-    ).toBeVisible();
-    expect(screen.getByText("Example analysis")).toBeVisible();
-    expect(
-      screen.getByRole("figure", {
-        name: /insurer valuation \$20,000.*selected advertised-price range \$21,800 to \$22,600.*median advertised price \$22,200/i,
-      }),
-    ).toBeVisible();
+      [...new Set(sources.map((source) => source.type))].sort(),
+    ).toEqual(["image/avif", "image/jpeg", "image/webp"]);
+    for (const source of sources) {
+      expect(source).toHaveAttribute("sizes");
+      expect(source).toHaveAttribute("srcset");
+      expect(source.getAttribute("srcset")).not.toMatch(/https?:\/\//i);
+    }
+    expect(heroPhoto?.getAttribute("src")).not.toMatch(/https?:\/\//i);
+    expect(heroPhoto?.getAttribute("srcset")).not.toMatch(/https?:\/\//i);
 
     expect(document.querySelector('input[type="file"]')).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Vehicle ZIP code")).not.toBeInTheDocument();
     expect(
       screen.queryByRole("form", { name: "Start valuation analysis" }),
     ).not.toBeInTheDocument();
+    expect(screen.queryByText("Example analysis")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "Anonymized sample vehicle" }),
+    ).not.toBeInTheDocument();
+    expect(document.querySelector("#how-it-works")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "Built around market evidence" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "Start with your situation" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "What customers say" }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("figure")).not.toBeInTheDocument();
   });
 
-  test("presents all three service choices with honest destinations", () => {
+  test("presents all three service choices with exact plain-language routes", () => {
     renderTestApp();
 
     const servicePaths = document.querySelector<HTMLElement>("#services");
@@ -111,56 +142,91 @@ describe("homepage structure", () => {
     }
 
     const paths = within(servicePaths);
-    for (const heading of [
-      "Review a total-loss valuation",
-      "Check my vehicle’s value",
-      "Get diminished-value help",
-    ]) {
-      expect(paths.getByRole("heading", { name: heading })).toBeVisible();
-    }
+    const choices = [
+      {
+        title: "My car was totaled",
+        description: "Check the value in your insurance report.",
+        action: "Check my report",
+        href: "/total-loss-review",
+      },
+      {
+        title: "I need my car’s value",
+        description:
+          "No report? Request a value check using your vehicle details.",
+        action: "Request a value check",
+        href: "/contact?topic=vehicle-value",
+      },
+      {
+        title: "My car was repaired",
+        description: "See whether the accident lowered its resale value.",
+        action: "Get help after repairs",
+        href: "/contact?topic=diminished-value",
+      },
+    ] as const;
 
-    expect(
-      paths.getByRole("link", {
-        name: /Review a total-loss valuation.*Review my valuation/i,
-      }),
-    ).toHaveAttribute("href", "/total-loss-review");
-    expect(
-      paths.getByRole("link", {
-        name: /Check my vehicle.s value.*Request a value check/i,
-      }),
-    ).toHaveAttribute("href", "/contact?topic=vehicle-value");
-    expect(
-      paths.getByRole("link", {
-        name: /Get diminished-value help.*Request a review/i,
-      }),
-    ).toHaveAttribute("href", "/contact?topic=diminished-value");
+    for (const choice of choices) {
+      const heading = paths.getByRole("heading", { name: choice.title });
+      expect(heading).toBeVisible();
+      const link = heading.closest("a");
+      expect(link).toHaveAttribute("href", choice.href);
+      if (!link) {
+        throw new Error(`${choice.title} did not render inside a link.`);
+      }
+      expect(within(link).getByText(choice.description)).toBeVisible();
+      expect(within(link).getByText(choice.action)).toBeVisible();
+    }
   });
 
-  test("summarizes the method and links to the detailed methodology", () => {
+  test("keeps credibility compact and links to the detailed methodology", () => {
     renderTestApp();
 
-    const howItWorks = document.querySelector<HTMLElement>("#how-it-works");
-    expect(howItWorks).toBeVisible();
-    if (!howItWorks) {
-      throw new Error("The how-it-works section was not rendered.");
-    }
-
-    const process = within(howItWorks);
-    for (const heading of [
-      "Choose what you need",
-      "Provide the details",
-      "Review the evidence",
+    for (const item of [
+      "Similar vehicles",
+      "Local market",
+      "Clear explanation",
     ]) {
-      expect(process.getByRole("heading", { name: heading })).toBeVisible();
+      expect(screen.getByText(item)).toBeVisible();
     }
-
     expect(
-      screen.getByRole("heading", { name: "Built around market evidence" }),
-    ).toBeVisible();
-
-    expect(
-      screen.getByRole("link", { name: "See our methodology" }),
+      screen.getByRole("link", { name: "See how Venfour works" }),
     ).toHaveAttribute("href", "/methodology");
+  });
+
+  test("renders only explicitly supplied approved reviews and caps them at three", () => {
+    const reviews = [
+      { quote: "Approved review one.", attribution: "Test reviewer one" },
+      { quote: "Approved review two.", attribution: "Test reviewer two" },
+      { quote: "Approved review three.", attribution: "Test reviewer three" },
+      { quote: "Approved review four.", attribution: "Test reviewer four" },
+    ] as const;
+
+    const { rerender } = render(
+      <MemoryRouter>
+        <HomePage />
+      </MemoryRouter>,
+    );
+    expect(
+      screen.queryByRole("heading", { name: "What customers say" }),
+    ).not.toBeInTheDocument();
+
+    rerender(
+      <MemoryRouter>
+        <HomePage reviews={reviews} />
+      </MemoryRouter>,
+    );
+
+    const reviewsHeading = screen.getByRole("heading", {
+      name: "What customers say",
+    });
+    const reviewsSection = reviewsHeading.closest("section");
+    expect(reviewsSection).not.toBeNull();
+    expect(reviewsSection?.querySelectorAll("figure")).toHaveLength(3);
+    for (const review of reviews.slice(0, 3)) {
+      expect(screen.getByText(`“${review.quote}”`)).toBeVisible();
+      expect(screen.getByText(review.attribution)).toBeVisible();
+    }
+    expect(screen.queryByText("“Approved review four.”")).not.toBeInTheDocument();
+    expect(screen.queryByText("Test reviewer four")).not.toBeInTheDocument();
   });
 
   test("opens the dedicated review route from the report service", async () => {
@@ -169,7 +235,7 @@ describe("homepage structure", () => {
 
     await user.click(
       screen.getByRole("link", {
-        name: /Review a total-loss valuation.*Review my valuation/i,
+        name: /My car was totaled.*Check my report/i,
       }),
     );
 
