@@ -1,12 +1,13 @@
 import { ArrowRight, Check } from "lucide-react";
 import { Link } from "react-router";
 
+import heroRoadsideAssistanceAvif from "@/assets/hero-roadside-assistance.avif";
+import heroRoadsideAssistanceJpeg from "@/assets/hero-roadside-assistance.jpg";
 import { supportEmail } from "@/config/support";
 import {
   AnnotatedInsuranceReportVisual,
   AppraisalReportVisual,
   DiminishedValueExplainerVisual,
-  ExampleAppraisalVisual,
   ProcessIllustration,
   RepairedVehicleServiceVisual,
   TotalLossServiceVisual,
@@ -68,9 +69,42 @@ export function HomePage() {
 
   return (
     <div className="w-full overflow-clip bg-white text-ink">
-      <section className="border-b border-slate-200 bg-canvas">
-        <div className="mx-auto grid w-full max-w-[90rem] gap-10 px-5 py-12 sm:px-8 sm:py-16 lg:px-10 lg:py-20 xl:grid-cols-[minmax(0,1.05fr)_minmax(34rem,0.95fr)] xl:items-center xl:gap-12 xl:py-24">
-          <div className="max-w-2xl">
+      <section className="relative isolate overflow-hidden border-b border-slate-200 bg-canvas">
+        <div
+          className="pointer-events-none absolute inset-y-0 right-0 hidden w-[64%] max-w-[72rem] xl:block"
+          aria-hidden="true"
+        >
+          <picture className="block h-full w-full">
+            <source
+              srcSet={heroRoadsideAssistanceAvif}
+              type="image/avif"
+            />
+            <img
+              src={heroRoadsideAssistanceJpeg}
+              alt=""
+              width="2400"
+              height="1600"
+              fetchPriority="high"
+              decoding="async"
+              className="h-full w-full object-cover object-[68%_70%] brightness-90 saturate-90"
+              data-hero-photo
+            />
+          </picture>
+          <div
+            className="absolute inset-0"
+            style={{
+              background:
+                "linear-gradient(to right, var(--canvas) 0%, var(--canvas) 12%, rgb(243 246 249 / 0.72) 32%, rgb(243 246 249 / 0) 62%)",
+            }}
+            data-hero-photo-fade
+          />
+        </div>
+
+        <div
+          className="relative z-10 mx-auto flex min-h-[calc(100svh-4rem)] w-full max-w-[90rem] items-center px-5 py-12 sm:px-8 sm:py-16 lg:px-10 lg:py-20 xl:py-24"
+          data-hero-content
+        >
+          <div className="max-w-2xl xl:max-w-[42rem]">
             <h1
               aria-label="Your Vehicle’s Value, Made Clear."
               className="font-hero text-[2.875rem] leading-[0.98] font-semibold tracking-[-0.035em] text-ink sm:text-[3.25rem] lg:text-[4rem] xl:text-[4.75rem] 2xl:text-[5rem]"
@@ -98,10 +132,6 @@ export function HomePage() {
                 Request diminished value appraisal
               </a>
             </div>
-          </div>
-
-          <div className="relative xl:pl-6">
-            <ExampleAppraisalVisual />
           </div>
         </div>
       </section>
@@ -352,24 +382,6 @@ export function HomePage() {
         </div>
       </section>
 
-      <section className="bg-canvas" aria-labelledby="final-cta-title">
-        <div className="mx-auto flex w-full max-w-[84rem] flex-col justify-between gap-7 px-5 py-16 sm:px-8 sm:py-20 lg:flex-row lg:items-center lg:gap-12 lg:px-10 lg:py-24">
-          <h2
-            id="final-cta-title"
-            className="max-w-2xl text-[2.2rem] leading-[1.05] font-semibold tracking-[-0.045em] text-balance text-ink sm:text-[3.2rem]"
-          >
-            Choose the appraisal that fits your situation.
-          </h2>
-          <div className="flex shrink-0 flex-col gap-3 sm:flex-row">
-            <Link to="/total-loss-review" className={primaryActionClassName}>
-              Start total-loss appraisal
-            </Link>
-            <a href="#diminished-value" className={secondaryActionClassName}>
-              Request diminished value appraisal
-            </a>
-          </div>
-        </div>
-      </section>
     </div>
   );
 }

@@ -3,7 +3,6 @@ import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import { describe, expect, test, vi } from "vitest";
 
-import { homepageExampleAppraisal } from "@/pages/home-example";
 import { server } from "@/test/mocks/server";
 import { renderTestApp } from "@/test/render";
 import { representativeRunId } from "@/test/fixtures/analysis-presentation";
@@ -30,7 +29,7 @@ function renderReviewApp() {
 }
 
 describe("homepage structure", () => {
-  test("leads with both appraisal paths and a truthful product example", () => {
+  test("leads with both appraisal paths and a responsive hero photo", () => {
     renderTestApp();
 
     const heroHeading = screen.getByRole("heading", {
@@ -66,6 +65,9 @@ describe("homepage structure", () => {
     if (!hero) {
       throw new Error("The homepage hero was not rendered.");
     }
+    expect(hero.querySelector("[data-hero-content]")).toHaveClass(
+      "min-h-[calc(100svh-4rem)]",
+    );
     expect(
       within(hero).getByRole("link", { name: "Start total-loss appraisal" }),
     ).toHaveAttribute("href", "/total-loss-review");
@@ -83,50 +85,16 @@ describe("homepage structure", () => {
       expect(within(hero).queryByText(removedLabel)).not.toBeInTheDocument();
     }
 
-    const example = within(hero).getByRole("figure", {
-      name: "Example total-loss appraisal",
-    });
-    expect(within(example).queryByText("Anonymized example")).not.toBeInTheDocument();
     expect(
-      within(example).getAllByText("2024 Hyundai Elantra SEL"),
-    ).toHaveLength(4);
-    expect(within(example).getByText("Insurance report value")).toBeVisible();
-    expect(within(example).getByText("$19,046")).toBeVisible();
-    expect(within(example).getByText("$20,800–$21,600")).toBeVisible();
-    expect(within(example).getByText("Possible value difference")).toBeVisible();
-    expect(within(example).getByText("$1,754–$2,554")).toBeVisible();
-    expect(within(example).getByText("Vehicles reviewed").parentElement).toHaveTextContent(
-      "8",
-    );
-    expect(
-      within(example).queryByText(
-        "Example only—every vehicle and claim is different.",
-      ),
+      within(hero).queryByRole("figure", {
+        name: "Example total-loss appraisal",
+      }),
     ).not.toBeInTheDocument();
+    expect(hero.querySelector("[data-hero-photo]")).toHaveAttribute("alt", "");
     expect(
-      example.querySelectorAll("svg[data-comparable-vehicle-icon]"),
-    ).toHaveLength(3);
-
-    expect(homepageExampleAppraisal).toMatchObject({
-      vehicle: "2024 Hyundai Elantra SEL",
-      insuranceValue: 19_046,
-      marketMinimum: 20_800,
-      marketMaximum: 21_600,
-      reviewedCount: 8,
-    });
-    expect(
-      homepageExampleAppraisal.marketMinimum -
-        homepageExampleAppraisal.insuranceValue,
-    ).toBe(1_754);
-    expect(
-      homepageExampleAppraisal.marketMaximum -
-        homepageExampleAppraisal.insuranceValue,
-    ).toBe(2_554);
-
-    expect(hero.querySelector("[data-hero-photo]")).not.toBeInTheDocument();
-    expect(
-      hero.querySelector("[data-hero-content-veil]"),
-    ).not.toBeInTheDocument();
+      hero.querySelector('source[type="image/avif"]'),
+    ).toBeInTheDocument();
+    expect(hero.querySelector("[data-hero-photo-fade]")).toBeInTheDocument();
     expect(document.querySelector('input[type="file"]')).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Vehicle ZIP code")).not.toBeInTheDocument();
     expect(
@@ -180,10 +148,15 @@ describe("homepage structure", () => {
       "Repairs can fix the vehicle—not its history.",
       "A report that makes the numbers clear.",
       "Built for a careful second look.",
-      "Choose the appraisal that fits your situation.",
     ]) {
       expect(screen.getByRole("heading", { name: heading })).toBeVisible();
     }
+
+    expect(
+      screen.queryByRole("heading", {
+        name: "Choose the appraisal that fits your situation.",
+      }),
+    ).not.toBeInTheDocument();
 
     const process = document.getElementById("how-it-works");
     expect(process).toBeVisible();
