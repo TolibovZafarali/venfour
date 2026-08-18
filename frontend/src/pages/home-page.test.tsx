@@ -206,7 +206,7 @@ describe("homepage structure", () => {
     ).not.toBeInTheDocument();
     expect(screen.queryByText(/guaranteed increase/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/you are owed/i)).not.toBeInTheDocument();
-    for (const href of ["/methodology", "/privacy", "/terms", "/contact"]) {
+    for (const href of ["/methodology", "/terms", "/contact"]) {
       expect(document.querySelector(`a[href="${href}"]`)).not.toBeInTheDocument();
     }
   });
@@ -570,7 +570,7 @@ describe("dedicated total-loss review", () => {
     expect(
       screen.getByText(/Do not upload documents you are not authorized to share/i),
     ).toBeVisible();
-    expect(document.querySelector('a[href="/privacy"]')).not.toBeInTheDocument();
+    expect(document.querySelector('a[href="/privacy"]')).toBeInTheDocument();
   });
 
   test("retries with the same valid report and ZIP without asking for reselection", async () => {

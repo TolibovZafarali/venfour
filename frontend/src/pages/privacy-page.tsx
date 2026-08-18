@@ -1,5 +1,3 @@
-import { Link } from "react-router";
-
 import { supportEmail } from "@/config/support";
 import {
   PublicPage,
@@ -100,20 +98,19 @@ export function PrivacyPage() {
           {supportEmail ? (
             <>
               Questions about this notice or the handling of a report can be
-              raised through the current{" "}
-              <Link to="/contact" className={publicTextLinkClassName}>
-                contact page
-              </Link>
+              sent to{" "}
+              <a
+                href={`mailto:${supportEmail}`}
+                className={publicTextLinkClassName}
+              >
+                {supportEmail}
+              </a>
               .{" "}
             </>
           ) : (
             <>
               Venfour has not yet published a direct support address on this
-              site. The{" "}
-              <Link to="/contact" className={publicTextLinkClassName}>
-                contact page
-              </Link>{" "}
-              reflects the current support status.{" "}
+              site.{" "}
             </>
           )}
           Venfour may update this notice as the service and its data practices

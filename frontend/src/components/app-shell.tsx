@@ -11,6 +11,8 @@ import {
 
 import { isPageMetadata, useDocumentMetadata } from "@/app/document-metadata";
 import { supportEmail } from "@/config/support";
+import { CookieConsent } from "@/features/privacy/cookie-consent";
+import { useCookieConsent } from "@/features/privacy/cookie-consent-context";
 import { cn } from "@/lib/utils";
 import venfourMark from "../../../assets/brand/venfour-mark.svg";
 
@@ -28,6 +30,7 @@ export function AppShell() {
   const location = useLocation();
   const matches = useMatches();
   const navigate = useNavigate();
+  const { openPreferences } = useCookieConsent();
   const [headerDetached, setHeaderDetached] = useState(false);
   const [mobileNavigationOpen, setMobileNavigationOpen] = useState(false);
   const headerSentinelRef = useRef<HTMLSpanElement>(null);
@@ -315,6 +318,25 @@ export function AppShell() {
                     Diminished Value
                   </a>
                 </li>
+                <li>
+                  <Link to="/privacy" className={footerLinkClassName}>
+                    Privacy
+                  </Link>
+                </li>
+                <li>
+                  <Link to="/cookies" className={footerLinkClassName}>
+                    Cookie Policy
+                  </Link>
+                </li>
+                <li>
+                  <button
+                    type="button"
+                    className={footerLinkClassName}
+                    onClick={openPreferences}
+                  >
+                    Cookie preferences
+                  </button>
+                </li>
               </ul>
             </nav>
           </div>
@@ -323,6 +345,7 @@ export function AppShell() {
           </p>
         </div>
       </footer>
+      <CookieConsent />
     </div>
   );
 }

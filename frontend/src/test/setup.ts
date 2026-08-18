@@ -10,6 +10,7 @@ beforeAll(() => server.listen({ onUnhandledRequest: "error" }));
 afterEach(() => {
   cleanup();
   server.resetHandlers();
+  window.localStorage.clear();
 });
 
 afterAll(() => server.close());

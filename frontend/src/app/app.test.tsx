@@ -44,13 +44,24 @@ describe("Venfour application", () => {
     const footerNavigation = screen.getByRole("navigation", {
       name: "Footer navigation",
     });
-    expect(within(footerNavigation).getAllByRole("link")).toHaveLength(2);
+    expect(within(footerNavigation).getAllByRole("link")).toHaveLength(4);
     expect(
       within(footerNavigation).getByRole("link", { name: "Total Loss" }),
     ).toHaveAttribute("href", "#total-loss");
     expect(
       within(footerNavigation).getByRole("link", { name: "Diminished Value" }),
     ).toHaveAttribute("href", "#diminished-value");
+    expect(
+      within(footerNavigation).getByRole("link", { name: "Privacy" }),
+    ).toHaveAttribute("href", "/privacy");
+    expect(
+      within(footerNavigation).getByRole("link", { name: "Cookie Policy" }),
+    ).toHaveAttribute("href", "/cookies");
+    expect(
+      within(footerNavigation).getByRole("button", {
+        name: "Cookie preferences",
+      }),
+    ).toBeVisible();
 
     const headerLogo = screen
       .getByRole("banner")
@@ -81,7 +92,7 @@ describe("Venfour application", () => {
     expect(renderedImageSources).not.toContain("venfour-logo-black.svg");
     expect(renderedImageSources).not.toContain("venfour-logo-white.svg");
 
-    for (const removed of ["Methodology", "Privacy", "Terms", "Contact"]) {
+    for (const removed of ["Methodology", "Terms", "Contact"]) {
       expect(
         screen.queryByRole("link", { name: removed }),
       ).not.toBeInTheDocument();
@@ -393,7 +404,6 @@ describe("Venfour application", () => {
 
   test.each([
     "/methodology",
-    "/privacy",
     "/terms",
     "/contact",
     "/contact?topic=diminished-value",
@@ -404,6 +414,20 @@ describe("Venfour application", () => {
       screen.getByRole("heading", { name: "Page not found" }),
     ).toBeInTheDocument();
     expect(document.title).toBe("Page Not Found | Venfour");
+  });
+
+  test.each([
+    ["/privacy", "How Venfour handles your information", "Privacy Policy | Venfour"],
+    [
+      "/cookies",
+      "Cookies and browser storage at Venfour",
+      "Cookie Policy | Venfour",
+    ],
+  ])("renders the privacy route %s", (path, heading, title) => {
+    renderTestApp([path]);
+
+    expect(screen.getByRole("heading", { name: heading })).toBeVisible();
+    expect(document.title).toBe(title);
   });
 
   test("keeps the total-loss upload route operational", () => {
