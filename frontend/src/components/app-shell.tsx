@@ -6,6 +6,7 @@ import {
   useLocation,
   useMatch,
   useMatches,
+  useNavigate,
 } from "react-router";
 
 import { isPageMetadata, useDocumentMetadata } from "@/app/document-metadata";
@@ -26,11 +27,13 @@ export function AppShell() {
   const analysisRoute = useMatch("/analyses/:runId");
   const location = useLocation();
   const matches = useMatches();
+  const navigate = useNavigate();
   const [headerDetached, setHeaderDetached] = useState(false);
   const [mobileNavigationOpen, setMobileNavigationOpen] = useState(false);
   const headerSentinelRef = useRef<HTMLSpanElement>(null);
   const mobileNavigationButtonRef = useRef<HTMLButtonElement>(null);
   const previousLocationKeyRef = useRef(location.key);
+  const clearingSectionHashRef = useRef(false);
   const metadata = [...matches]
     .reverse()
     .map((match) => match.handle)
@@ -47,8 +50,17 @@ export function AppShell() {
     previousLocationKeyRef.current = location.key;
 
     if (!location.hash) {
+      if (clearingSectionHashRef.current) {
+        clearingSectionHashRef.current = false;
+        return;
+      }
+
       if (isNavigation && location.pathname === "/") {
-        window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+        const resetScrollTimeout = window.setTimeout(() => {
+          window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+        }, 100);
+
+        return () => window.clearTimeout(resetScrollTimeout);
       }
       return;
     }
@@ -60,7 +72,18 @@ export function AppShell() {
 
     target.scrollIntoView?.({ block: "start" });
     target.focus({ preventScroll: true });
-  }, [location.hash, location.key, location.pathname]);
+    clearingSectionHashRef.current = true;
+    void navigate(
+      { pathname: location.pathname, search: location.search },
+      { replace: true, preventScrollReset: true },
+    );
+  }, [
+    location.hash,
+    location.key,
+    location.pathname,
+    location.search,
+    navigate,
+  ]);
 
   useEffect(() => {
     const sentinel = headerSentinelRef.current;

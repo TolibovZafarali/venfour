@@ -234,12 +234,24 @@ describe("Venfour application", () => {
 
       await waitFor(() => expect(router.state.location.pathname).toBe("/"));
       expect(router.state.location.hash).toBe("");
-      expect(scrollTo).toHaveBeenCalledOnce();
+      await waitFor(() => expect(scrollTo).toHaveBeenCalledOnce());
       expect(scrollTo).toHaveBeenCalledWith({
         top: 0,
         left: 0,
         behavior: "auto",
       });
+    } finally {
+      scrollTo.mockRestore();
+    }
+  });
+
+  test("does not override native scroll restoration on a refreshed homepage", () => {
+    const scrollTo = vi.spyOn(window, "scrollTo").mockImplementation(() => {});
+
+    try {
+      renderTestApp();
+
+      expect(scrollTo).not.toHaveBeenCalled();
     } finally {
       scrollTo.mockRestore();
     }
@@ -256,15 +268,20 @@ describe("Venfour application", () => {
       configurable: true,
       value: scrollIntoView,
     });
+    const scrollTo = vi.spyOn(window, "scrollTo").mockImplementation(() => {});
 
     try {
-      renderTestApp([`/#${id}`]);
+      const { router } = renderTestApp([`/#${id}`]);
 
       await waitFor(() => expect(scrollIntoView).toHaveBeenCalledOnce());
       expect(scrollIntoView).toHaveBeenCalledWith({ block: "start" });
       expect(document.getElementById(id)).toHaveFocus();
       expect(screen.getByRole("heading", { name: heading })).toBeVisible();
+      await waitFor(() => expect(router.state.location.hash).toBe(""));
+      expect(router.state.location.pathname).toBe("/");
+      expect(scrollTo).not.toHaveBeenCalled();
     } finally {
+      scrollTo.mockRestore();
       if (originalScrollIntoView) {
         Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
           configurable: true,
