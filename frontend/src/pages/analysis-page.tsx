@@ -122,7 +122,7 @@ function AnalysisErrorState({ kind, onRetry }: AnalysisErrorStateProps) {
               </Button>
             ) : null}
             <Button asChild variant={permanent ? "default" : "ghost"}>
-              <Link to="/">
+              <Link to={permanent ? "/total-loss-review" : "/"}>
                 {permanent ? "Start a new analysis" : "Return home"}
               </Link>
             </Button>

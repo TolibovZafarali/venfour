@@ -1568,7 +1568,7 @@ function NextSteps({ analysis }: AnalysisResultsProps) {
             ))}
           </ol>
           <Button asChild variant="outline" size="lg" className="mt-7">
-            <Link to="/">Analyze another report</Link>
+            <Link to="/total-loss-review">Analyze another report</Link>
           </Button>
         </div>
       </div>

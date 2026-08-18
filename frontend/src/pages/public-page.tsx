@@ -76,4 +76,4 @@ export function PublicPageSection({
 }
 
 export const publicTextLinkClassName =
-  "font-medium text-neutral-950 underline decoration-neutral-300 underline-offset-4 transition-colors hover:decoration-neutral-700 focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-500 focus-visible:ring-offset-2";
+  "font-medium text-brand underline decoration-brand/35 underline-offset-4 transition-colors hover:text-brand-strong hover:decoration-brand focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 motion-reduce:transition-none";

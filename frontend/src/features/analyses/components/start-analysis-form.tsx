@@ -353,7 +353,7 @@ export function StartAnalysisForm() {
             </div>
             <div
               className={cn(
-                "flex min-h-40 items-center justify-center rounded-lg border border-dashed px-5 py-6 text-center transition-colors focus-within:border-brand focus-within:ring-3 focus-within:ring-brand/15",
+                "flex min-h-40 items-center justify-center rounded-lg border border-dashed px-5 py-6 text-center transition-colors focus-within:border-brand focus-within:ring-2 focus-within:ring-brand focus-within:ring-offset-2",
                 isDragging
                   ? "border-brand bg-brand-soft"
                   : "border-neutral-300 bg-neutral-50/70",
@@ -488,7 +488,7 @@ export function StartAnalysisForm() {
               <input
                 ref={postalCodeRef}
                 id="analysis-postal-code"
-                className="h-12 w-full rounded-md border border-neutral-300 bg-white pr-4 pl-10 text-base text-neutral-950 shadow-sm transition-colors placeholder:text-neutral-400 focus:border-brand focus:outline-none focus:ring-3 focus:ring-brand/15 disabled:cursor-not-allowed disabled:bg-neutral-100 disabled:text-neutral-500 sm:text-sm"
+                className="h-12 w-full rounded-md border border-neutral-300 bg-white pr-4 pl-10 text-base text-neutral-950 shadow-sm transition-colors placeholder:text-neutral-400 focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-1 disabled:cursor-not-allowed disabled:bg-neutral-100 disabled:text-neutral-500 sm:text-sm"
                 name="postalCode"
                 value={postalCode}
                 onChange={(event) => {
@@ -575,7 +575,7 @@ export function StartAnalysisForm() {
 
           <button
             type="submit"
-            className="group inline-flex h-12 w-full items-center justify-center gap-2 rounded-md bg-brand px-5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-brand-strong focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-brand/35 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
+            className="group inline-flex h-12 w-full items-center justify-center gap-2 rounded-md bg-brand px-5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-brand-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
             disabled={mutation.isPending}
           >
             Analyze my report

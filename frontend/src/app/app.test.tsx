@@ -12,10 +12,10 @@ describe("Venfour application", () => {
 
     expect(
       screen.getByRole("heading", {
-        name: "Know what your vehicle is worth after an accident.",
+        name: "Understand your vehicle’s value after an accident.",
       }),
     ).toBeInTheDocument();
-    expect(document.title).toBe("Venfour");
+    expect(document.title).toBe("Vehicle Value After an Accident | Venfour");
   });
 
   test("provides restrained primary and footer navigation", async () => {
@@ -25,6 +25,9 @@ describe("Venfour application", () => {
     const primaryNavigation = screen.getByRole("navigation", {
       name: "Primary navigation",
     });
+    expect(
+      within(primaryNavigation).getByRole("link", { name: "Services" }),
+    ).toHaveAttribute("href", "#services");
     expect(
       within(primaryNavigation).getByRole("link", { name: "How it works" }),
     ).toHaveAttribute("href", "#how-it-works");
@@ -36,9 +39,9 @@ describe("Venfour application", () => {
     ).toBeInTheDocument();
     expect(
       within(primaryNavigation).getByRole("link", {
-        name: "Start a valuation review",
+        name: "Get started",
       }),
-    ).toHaveAttribute("href", "#report-review");
+    ).toHaveAttribute("href", "#services");
 
     const footerNavigation = screen.getByRole("navigation", {
       name: "Footer navigation",
@@ -60,7 +63,7 @@ describe("Venfour application", () => {
     expect(document.title).toBe("Methodology | Venfour");
   });
 
-  test("opens and closes an accessible mobile navigation", async () => {
+  test("opens and dismisses an accessible mobile navigation", async () => {
     const user = userEvent.setup();
     renderTestApp();
 
@@ -72,6 +75,14 @@ describe("Venfour application", () => {
       "aria-controls",
       "mobile-navigation",
     );
+    const mobileControls = openNavigation.parentElement;
+    expect(mobileControls).not.toBeNull();
+    if (!mobileControls) {
+      throw new Error("Mobile navigation controls were not rendered.");
+    }
+    expect(
+      within(mobileControls).getByRole("link", { name: "Get started" }),
+    ).toHaveAttribute("href", "#services");
     expect(
       screen.queryByRole("navigation", { name: "Mobile navigation" }),
     ).not.toBeInTheDocument();
@@ -87,6 +98,9 @@ describe("Venfour application", () => {
     expect(closeNavigation).toHaveAttribute("aria-expanded", "true");
     expect(mobileNavigation).toHaveAttribute("id", "mobile-navigation");
     expect(
+      within(mobileNavigation).getByRole("link", { name: "Services" }),
+    ).toHaveAttribute("href", "#services");
+    expect(
       within(mobileNavigation).getByRole("link", { name: "How it works" }),
     ).toHaveAttribute("href", "#how-it-works");
     expect(
@@ -95,8 +109,8 @@ describe("Venfour application", () => {
     expect(
       within(mobileNavigation).getByRole("link", { name: "Contact" }),
     ).toHaveAttribute("href", "/contact");
-
-    await user.click(closeNavigation);
+    within(mobileNavigation).getByRole("link", { name: "Services" }).focus();
+    await user.keyboard("{Escape}");
 
     expect(
       screen.queryByRole("navigation", { name: "Mobile navigation" }),
@@ -104,6 +118,7 @@ describe("Venfour application", () => {
     expect(
       screen.getByRole("button", { name: "Open navigation" }),
     ).toHaveAttribute("aria-expanded", "false");
+    expect(screen.getByRole("button", { name: "Open navigation" })).toHaveFocus();
   });
 
   test("honors a homepage section hash after cross-page navigation", async () => {
@@ -115,7 +130,7 @@ describe("Venfour application", () => {
     });
 
     try {
-      renderTestApp(["/#report-review"]);
+      renderTestApp(["/#services"]);
 
       await waitFor(() => expect(scrollIntoView).toHaveBeenCalledOnce());
       expect(scrollIntoView).toHaveBeenCalledWith({ block: "start" });
@@ -134,6 +149,11 @@ describe("Venfour application", () => {
   test.each([
     ["/privacy", "How Venfour handles your information", "Privacy | Venfour"],
     ["/terms", "Terms for using Venfour", "Terms of Use | Venfour"],
+    [
+      "/total-loss-review",
+      "Review your total-loss valuation",
+      "Total-Loss Valuation Review | Venfour",
+    ],
     [
       "/methodology",
       "A structured review of report facts and market evidence",
@@ -170,6 +190,11 @@ describe("Venfour application", () => {
       "/contact?topic=diminished-value",
       "Ask about diminished value after a repair",
       /does not currently provide an automated diminished-value appraisal/i,
+    ],
+    [
+      "/contact?topic=report-format",
+      "Ask about another valuation report",
+      /automated review currently supports original CCC valuation report PDFs/i,
     ],
   ])("keeps the inquiry handoff at %s truthful", (path, heading, disclosure) => {
     renderTestApp([path]);

@@ -10,6 +10,7 @@ import { NotFoundPage } from "@/pages/not-found-page";
 import { PrivacyPage } from "@/pages/privacy-page";
 import { RouteErrorPage } from "@/pages/route-error-page";
 import { TermsPage } from "@/pages/terms-page";
+import { TotalLossReviewPage } from "@/pages/total-loss-review-page";
 
 const metadata = (title: string, description: string): PageMetadata => ({
   title,
@@ -26,8 +27,16 @@ export const appRoutes: RouteObject[] = [
         index: true,
         element: <HomePage />,
         handle: metadata(
-          "Venfour",
-          "Understand your vehicle’s value after an accident, review an insurer’s valuation, and explore current support options.",
+          "Vehicle Value After an Accident | Venfour",
+          "Review a total-loss valuation, check your vehicle’s market value, or request diminished-value help after an accident.",
+        ),
+      },
+      {
+        path: "total-loss-review",
+        element: <TotalLossReviewPage />,
+        handle: metadata(
+          "Total-Loss Valuation Review | Venfour",
+          "Choose your valuation report format and start Venfour’s supported CCC total-loss valuation review.",
         ),
       },
       {

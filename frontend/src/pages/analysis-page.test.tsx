@@ -416,7 +416,8 @@ describe("analysis results page", () => {
     );
     expect(
       screen.getByRole("link", { name: "Analyze another report" }),
-    ).toHaveAttribute("href", "/");
+    ).toHaveAttribute("href", "/total-loss-review");
+    expect(document.title).toBe("Vehicle Valuation Analysis | Venfour");
   });
 
   test("renders the selected loss-date comparables as verified evidence", async () => {
@@ -785,7 +786,7 @@ describe("analysis results page", () => {
     ).not.toBeInTheDocument();
     expect(
       screen.getByRole("link", { name: "Start a new analysis" }),
-    ).toHaveAttribute("href", "/");
+    ).toHaveAttribute("href", "/total-loss-review");
     expect(document.title).toBe("Analysis Not Found | Venfour");
   });
 
@@ -811,7 +812,7 @@ describe("analysis results page", () => {
     ).not.toBeInTheDocument();
     expect(
       screen.getByRole("link", { name: "Start a new analysis" }),
-    ).toHaveAttribute("href", "/");
+    ).toHaveAttribute("href", "/total-loss-review");
     expect(document.title).toBe("Invalid Analysis Link | Venfour");
   });
 

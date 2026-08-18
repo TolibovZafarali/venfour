@@ -10,6 +10,19 @@ import {
 
 function contactContentFor(topic: string | null) {
   switch (topic) {
+    case "report-format":
+      return {
+        eyebrow: "Report format inquiry",
+        title: "Ask about another valuation report",
+        introduction:
+          "The automated review currently supports original CCC valuation report PDFs. Use this page to ask about another format or an unfamiliar report.",
+        sectionTitle: "Request report help",
+        emailCopy:
+          "Email is the current inquiry channel. Include the report provider shown on the cover and a short description. Do not attach the report unless Venfour asks for it.",
+        emailSubject: "Valuation report format inquiry",
+        unavailableCopy:
+          "Venfour has not yet published a support address for report-format inquiries. Do not send a valuation report to an address that is not published by Venfour.",
+      };
     case "vehicle-value":
       return {
         eyebrow: "Vehicle value inquiry",

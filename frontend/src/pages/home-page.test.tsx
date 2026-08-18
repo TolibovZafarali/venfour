@@ -18,51 +18,121 @@ async function fillValidForm(
   report = createPdf(),
   postalCode = "60611",
 ) {
+  if (!screen.queryByRole("form", { name: "Start valuation analysis" })) {
+    await user.click(
+      screen.getByRole("button", {
+        name: /CCC valuation report.*Choose CCC report/i,
+      }),
+    );
+  }
+
   const input = screen.getByLabelText("CCC valuation report");
   await user.upload(input, report);
   await user.type(screen.getByLabelText("Vehicle ZIP code"), postalCode);
   return report;
 }
 
+function renderReviewApp() {
+  if (typeof HTMLElement.prototype.scrollIntoView !== "function") {
+    Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
+      configurable: true,
+      value: vi.fn(),
+    });
+  }
+
+  return renderTestApp(["/total-loss-review"]);
+}
+
+async function chooseCccReport(user: ReturnType<typeof userEvent.setup>) {
+  expect(
+    screen.queryByRole("form", { name: "Start valuation analysis" }),
+  ).not.toBeInTheDocument();
+  await user.click(
+    screen.getByRole("button", {
+      name: /CCC valuation report.*Choose CCC report/i,
+    }),
+  );
+  expect(
+    screen.getByRole("form", { name: "Start valuation analysis" }),
+  ).toBeVisible();
+}
+
 describe("homepage structure", () => {
-  test("explains the service and presents three honest service paths", () => {
+  test("explains the service, presents a real example, and has no entry form", () => {
     renderTestApp();
 
-    expect(
-      screen.getByRole("heading", {
-        level: 1,
-        name: "Know what your vehicle is worth after an accident.",
-      }),
-    ).toBeVisible();
+    const heroHeading = screen.getByRole("heading", {
+      level: 1,
+      name: "Understand your vehicle’s value after an accident.",
+    });
+    expect(heroHeading).toBeVisible();
     expect(
       screen.getByText(
-        /review an insurer.s valuation.*check your vehicle.s market value.*diminished value after a repair/i,
+        "Review a total-loss valuation, check market value, or request diminished-value help.",
       ),
     ).toBeVisible();
+    const hero = heroHeading.closest("section");
+    expect(hero).not.toBeNull();
+    if (!hero) {
+      throw new Error("The homepage hero was not rendered.");
+    }
+    expect(within(hero).getByRole("link", { name: "Get started" })).toHaveAttribute(
+      "href",
+      "#services",
+    );
+    expect(within(hero).getByRole("link", { name: "How it works" })).toHaveAttribute(
+      "href",
+      "#how-it-works",
+    );
+    expect(
+      screen.getByRole("heading", { name: "Anonymized sample vehicle" }),
+    ).toBeVisible();
+    expect(screen.getByText("Example analysis")).toBeVisible();
+    expect(
+      screen.getByRole("figure", {
+        name: /insurer valuation \$20,000.*selected advertised-price range \$21,800 to \$22,600.*median advertised price \$22,200/i,
+      }),
+    ).toBeVisible();
 
-    const servicePaths = document.querySelector<HTMLElement>("#service-paths");
+    expect(document.querySelector('input[type="file"]')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Vehicle ZIP code")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("form", { name: "Start valuation analysis" }),
+    ).not.toBeInTheDocument();
+  });
+
+  test("presents all three service choices with honest destinations", () => {
+    renderTestApp();
+
+    const servicePaths = document.querySelector<HTMLElement>("#services");
     expect(servicePaths).toBeVisible();
     if (!servicePaths) {
-      throw new Error("The service-paths section was not rendered.");
+      throw new Error("The services section was not rendered.");
     }
 
     const paths = within(servicePaths);
     for (const heading of [
-      "I have a valuation report",
-      "I don’t have a valuation report",
-      "My vehicle was repaired",
+      "Review a total-loss valuation",
+      "Check my vehicle’s value",
+      "Get diminished-value help",
     ]) {
       expect(paths.getByRole("heading", { name: heading })).toBeVisible();
     }
 
     expect(
-      paths.getByRole("link", { name: "Review my valuation" }),
-    ).toHaveAttribute("href", "#report-review");
+      paths.getByRole("link", {
+        name: /Review a total-loss valuation.*Review my valuation/i,
+      }),
+    ).toHaveAttribute("href", "/total-loss-review");
     expect(
-      paths.getByRole("link", { name: "Ask about vehicle value" }),
+      paths.getByRole("link", {
+        name: /Check my vehicle.s value.*Request a value check/i,
+      }),
     ).toHaveAttribute("href", "/contact?topic=vehicle-value");
     expect(
-      paths.getByRole("link", { name: "Ask about diminished value" }),
+      paths.getByRole("link", {
+        name: /Get diminished-value help.*Request a review/i,
+      }),
     ).toHaveAttribute("href", "/contact?topic=diminished-value");
   });
 
@@ -77,49 +147,85 @@ describe("homepage structure", () => {
 
     const process = within(howItWorks);
     for (const heading of [
-      "Your information",
-      "Market evidence",
-      "Clear explanation",
+      "Choose what you need",
+      "Provide the details",
+      "Review the evidence",
     ]) {
       expect(process.getByRole("heading", { name: heading })).toBeVisible();
     }
+
+    expect(
+      screen.getByRole("heading", { name: "Built around market evidence" }),
+    ).toBeVisible();
 
     expect(
       screen.getByRole("link", { name: "See our methodology" }),
     ).toHaveAttribute("href", "/methodology");
   });
 
-  test("keeps one working upload form in the lower report-review section", () => {
-    renderTestApp();
+  test("opens the dedicated review route from the report service", async () => {
+    const user = userEvent.setup();
+    const { router } = renderTestApp();
 
-    const servicePaths = document.querySelector<HTMLElement>("#service-paths");
-    const reportReview = document.querySelector<HTMLElement>("#report-review");
-    expect(servicePaths).toBeVisible();
-    expect(reportReview).toBeVisible();
-    if (!servicePaths || !reportReview) {
-      throw new Error("Homepage service and report-review sections are required.");
-    }
-
-    expect(
-      servicePaths.compareDocumentPosition(reportReview) &
-        Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
-    expect(reportReview).toHaveTextContent(/currently supported online/i);
-    expect(
-      within(reportReview).getByText("Original CCC valuation report (PDF)"),
-    ).toBeVisible();
-    expect(
-      within(reportReview).getByRole("form", {
-        name: "Start valuation analysis",
+    await user.click(
+      screen.getByRole("link", {
+        name: /Review a total-loss valuation.*Review my valuation/i,
       }),
+    );
+
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe("/total-loss-review"),
+    );
+    expect(
+      screen.getByRole("heading", { name: "Review your total-loss valuation" }),
     ).toBeVisible();
+  });
+});
+
+describe("dedicated total-loss review", () => {
+  test("requires a CCC choice before mounting the automated form", async () => {
+    const user = userEvent.setup();
+    renderReviewApp();
+
+    expect(
+      screen.getByRole("heading", { name: "Which report do you have?" }),
+    ).toBeVisible();
+    expect(document.title).toBe("Total-Loss Valuation Review | Venfour");
+    expect(document.querySelector('input[type="file"]')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Vehicle ZIP code")).not.toBeInTheDocument();
+
+    await chooseCccReport(user);
+
+    expect(screen.getByLabelText("CCC valuation report")).toBeVisible();
+    expect(screen.getByLabelText("Vehicle ZIP code")).toBeVisible();
     expect(
       screen.getAllByRole("form", { name: "Start valuation analysis" }),
     ).toHaveLength(1);
   });
-});
 
-describe("analysis creation", () => {
+  test("routes unsupported or uncertain reports to help without mounting the form", async () => {
+    const user = userEvent.setup();
+    const { router } = renderReviewApp();
+
+    await user.click(
+      screen.getByRole("link", {
+        name: /Another report or not sure.*Request help/i,
+      }),
+    );
+
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe("/contact");
+      expect(router.state.location.search).toBe("?topic=report-format");
+    });
+    expect(
+      screen.getByRole("heading", { name: "Ask about another valuation report" }),
+    ).toBeVisible();
+    expect(
+      screen.queryByRole("form", { name: "Start valuation analysis" }),
+    ).not.toBeInTheDocument();
+    expect(document.querySelector('input[type="file"]')).not.toBeInTheDocument();
+  });
+
   test("submits exactly one PDF and one trimmed ZIP as multipart, then opens the returned analysis", async () => {
     const user = userEvent.setup();
     let contentType = "";
@@ -138,7 +244,7 @@ describe("analysis creation", () => {
       }),
     );
 
-    const { router } = renderTestApp();
+    const { router } = renderReviewApp();
     const report = await fillValidForm(
       user,
       createPdf("my ccc report.pdf"),
@@ -179,7 +285,7 @@ describe("analysis creation", () => {
       }),
     );
 
-    const { router } = renderTestApp();
+    const { router } = renderReviewApp();
     await fillValidForm(user, createPdf(), " 60611-1234 ");
     await user.click(screen.getByRole("button", { name: "Analyze my report" }));
 
@@ -194,7 +300,8 @@ describe("analysis creation", () => {
   test("accepts a PDF dropped onto the upload target", async () => {
     const user = userEvent.setup();
     const report = createPdf("dropped-report.pdf");
-    renderTestApp();
+    renderReviewApp();
+    await chooseCccReport(user);
 
     fireEvent.drop(screen.getByRole("group", { name: "CCC report upload" }), {
       dataTransfer: { files: [report] },
@@ -209,7 +316,8 @@ describe("analysis creation", () => {
 
   test("accepts a PDF filename with a generic binary MIME type", async () => {
     const user = userEvent.setup();
-    renderTestApp();
+    renderReviewApp();
+    await chooseCccReport(user);
     const report = new File([PDF_CONTENT], "browser-report.pdf", {
       type: "application/octet-stream",
     });
@@ -234,7 +342,8 @@ describe("analysis creation", () => {
         );
       }),
     );
-    renderTestApp();
+    renderReviewApp();
+    await chooseCccReport(user);
 
     await user.click(screen.getByRole("button", { name: "Analyze my report" }));
     expect(screen.getByText("Choose your CCC valuation report.")).toBeVisible();
@@ -313,7 +422,7 @@ describe("analysis creation", () => {
       }),
     );
 
-    const { router } = renderTestApp();
+    const { router } = renderReviewApp();
     await fillValidForm(user);
     const submitButton = screen.getByRole("button", {
       name: "Analyze my report",
@@ -383,7 +492,7 @@ describe("analysis creation", () => {
         ),
       ),
     );
-    renderTestApp();
+    renderReviewApp();
     await fillValidForm(user);
 
     await user.click(screen.getByRole("button", { name: "Analyze my report" }));
@@ -405,7 +514,7 @@ describe("analysis creation", () => {
       .mockReturnValue(false);
 
     server.use(http.post("*/api/v1/analyses", () => HttpResponse.error()));
-    renderTestApp();
+    renderReviewApp();
     await fillValidForm(user, createPdf("offline-report.pdf"), "60611");
 
     try {
@@ -422,8 +531,10 @@ describe("analysis creation", () => {
     }
   });
 
-  test("discloses third-party processing beside the submission action", () => {
-    renderTestApp();
+  test("discloses third-party processing beside the submission action", async () => {
+    const user = userEvent.setup();
+    renderReviewApp();
+    await chooseCccReport(user);
 
     expect(
       screen.getByText(/uses third-party services to process your report/i),
@@ -465,7 +576,7 @@ describe("analysis creation", () => {
       }),
     );
 
-    const { router } = renderTestApp();
+    const { router } = renderReviewApp();
     await fillValidForm(user, createPdf("retained-report.pdf"), "60611");
     await user.click(screen.getByRole("button", { name: "Analyze my report" }));
 

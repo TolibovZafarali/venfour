@@ -1,5 +1,5 @@
 import { Menu, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Link,
   NavLink,
@@ -10,30 +10,32 @@ import {
 } from "react-router";
 
 import { isPageMetadata, useDocumentMetadata } from "@/app/document-metadata";
+import { supportEmail } from "@/config/support";
 import { cn } from "@/lib/utils";
 import venfourMark from "../../../assets/brand/venfour-logo-black.svg";
 
 const primaryLinkClassName =
-  "inline-flex min-h-11 items-center rounded-sm px-2 text-[0.8125rem] font-medium text-neutral-600 transition-colors hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2";
+  "inline-flex min-h-11 items-center rounded-sm px-2 text-[0.8125rem] font-medium text-copy transition-colors hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 motion-reduce:transition-none";
 
 const footerLinkClassName =
-  "inline-flex min-h-11 items-center rounded-sm text-sm text-neutral-600 transition-colors hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2";
+  "inline-flex min-h-11 items-center rounded-sm text-sm text-copy transition-colors hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 motion-reduce:transition-none";
 
 const mobileLinkClassName =
-  "inline-flex min-h-12 items-center border-b border-neutral-200 py-2 text-sm font-medium text-neutral-700 last:border-b-0 hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand";
+  "inline-flex min-h-12 items-center border-b border-line py-2 text-sm font-medium text-ink last:border-b-0 hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand";
 
 export function AppShell() {
   const analysisRoute = useMatch("/analyses/:runId");
   const location = useLocation();
   const matches = useMatches();
   const [mobileNavigationOpen, setMobileNavigationOpen] = useState(false);
+  const mobileNavigationButtonRef = useRef<HTMLButtonElement>(null);
   const metadata = [...matches]
     .reverse()
     .map((match) => match.handle)
     .find(isPageMetadata) ?? {
-    title: "Venfour",
+    title: "Vehicle Value After an Accident | Venfour",
     description:
-      "Understand your vehicle’s value after an accident, review an insurer’s valuation, and explore current support options.",
+      "Review a total-loss valuation, check your vehicle’s market value, or request diminished-value help after an accident.",
   };
 
   useDocumentMetadata(analysisRoute ? null : metadata);
@@ -46,12 +48,13 @@ export function AppShell() {
     const target = document.getElementById(location.hash.slice(1));
     if (typeof target?.scrollIntoView === "function") {
       target.scrollIntoView({ block: "start" });
+      target.focus({ preventScroll: true });
     }
   }, [location.hash, location.pathname]);
 
   const onHomePage = location.pathname === "/";
   const howItWorksHref = onHomePage ? "#how-it-works" : "/#how-it-works";
-  const startReviewHref = onHomePage ? "#report-review" : "/#report-review";
+  const servicesHref = onHomePage ? "#services" : "/#services";
 
   return (
     <div className="flex min-h-svh flex-col bg-background">
@@ -61,7 +64,15 @@ export function AppShell() {
       >
         Skip to content
       </a>
-      <header className="relative z-40 border-b border-neutral-200 bg-white">
+      <header
+        className="relative z-40 border-b border-line bg-white"
+        onKeyDown={(event) => {
+          if (mobileNavigationOpen && event.key === "Escape") {
+            setMobileNavigationOpen(false);
+            mobileNavigationButtonRef.current?.focus();
+          }
+        }}
+      >
         <div
           className={cn(
             "mx-auto flex min-h-16 w-full items-center justify-between gap-4 px-5 py-2.5 sm:px-8",
@@ -71,7 +82,7 @@ export function AppShell() {
           <div className="flex min-w-0 items-center gap-3 sm:gap-4">
             <Link
               to="/"
-              className="inline-flex min-h-11 items-center gap-2.5 rounded-sm text-[1.05rem] font-semibold tracking-[-0.035em] text-neutral-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
+              className="inline-flex min-h-11 items-center gap-2.5 rounded-sm text-[1.05rem] font-semibold tracking-[-0.035em] text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
               aria-label="Venfour home"
             >
               <img
@@ -83,16 +94,19 @@ export function AppShell() {
               <span>Venfour</span>
             </Link>
             {analysisRoute ? (
-              <span className="hidden border-l border-neutral-200 pl-4 text-[0.6875rem] font-semibold tracking-[0.12em] text-neutral-500 uppercase sm:block">
+              <span className="hidden border-l border-line pl-4 text-[0.6875rem] font-semibold tracking-[0.12em] text-copy uppercase sm:block">
                 Valuation review
               </span>
             ) : null}
           </div>
 
           <nav
-            className="hidden shrink-0 items-center gap-1 sm:flex sm:gap-2"
+            className="hidden shrink-0 items-center gap-1 lg:flex lg:gap-2"
             aria-label="Primary navigation"
           >
+            <a href={servicesHref} className={primaryLinkClassName}>
+              Services
+            </a>
             <a href={howItWorksHref} className={primaryLinkClassName}>
               How it works
             </a>
@@ -112,7 +126,6 @@ export function AppShell() {
               className={({ isActive }) =>
                 cn(
                   primaryLinkClassName,
-                  "hidden md:inline-flex",
                   isActive && "text-brand",
                 )
               }
@@ -120,24 +133,25 @@ export function AppShell() {
               Contact
             </NavLink>
             <a
-              href={startReviewHref}
-              className="ml-1 inline-flex min-h-11 items-center rounded-md bg-brand px-4 text-[0.8125rem] font-semibold text-white transition-colors hover:bg-brand-strong focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-brand/35 focus-visible:ring-offset-2"
+              href={servicesHref}
+              className="ml-1 inline-flex min-h-11 items-center rounded-lg bg-brand px-4 text-[0.8125rem] font-semibold text-white transition-colors hover:bg-brand-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 motion-reduce:transition-none"
             >
-              Start a valuation review
+              Get started
             </a>
           </nav>
 
-          <div className="flex shrink-0 items-center gap-1.5 sm:hidden">
+          <div className="flex shrink-0 items-center gap-1.5 lg:hidden">
             <a
-              href={startReviewHref}
-              className="inline-flex min-h-11 items-center rounded-md bg-brand px-3 text-xs font-semibold text-white transition-colors hover:bg-brand-strong focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-brand/35 focus-visible:ring-offset-2"
+              href={servicesHref}
+              className="inline-flex min-h-11 items-center rounded-lg bg-brand px-3 text-xs font-semibold text-white transition-colors hover:bg-brand-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 motion-reduce:transition-none"
               onClick={() => setMobileNavigationOpen(false)}
             >
-              Start review
+              Get started
             </a>
             <button
+              ref={mobileNavigationButtonRef}
               type="button"
-              className="inline-flex size-11 items-center justify-center rounded-md text-neutral-700 transition-colors hover:bg-neutral-100 hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
+              className="inline-flex size-11 items-center justify-center rounded-lg text-copy transition-colors hover:bg-surface hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 motion-reduce:transition-none"
               aria-expanded={mobileNavigationOpen}
               aria-controls="mobile-navigation"
               aria-label={
@@ -157,10 +171,17 @@ export function AppShell() {
         {mobileNavigationOpen ? (
           <nav
             id="mobile-navigation"
-            className="border-t border-neutral-200 bg-white px-5 sm:hidden"
+            className="border-t border-line bg-white px-5 lg:hidden"
             aria-label="Mobile navigation"
           >
             <div className="mx-auto flex w-full max-w-7xl flex-col py-2">
+              <a
+                href={servicesHref}
+                className={mobileLinkClassName}
+                onClick={() => setMobileNavigationOpen(false)}
+              >
+                Services
+              </a>
               <a
                 href={howItWorksHref}
                 className={mobileLinkClassName}
@@ -189,13 +210,13 @@ export function AppShell() {
       <main id="main-content" className="flex flex-1" tabIndex={-1}>
         <Outlet />
       </main>
-      <footer className="border-t border-neutral-200 bg-neutral-50/70">
+      <footer className="border-t border-line bg-surface">
         <div className="mx-auto w-full max-w-7xl px-5 py-8 sm:px-8 sm:py-9">
           <div className="flex flex-col gap-7 sm:flex-row sm:items-start sm:justify-between">
             <div className="max-w-sm">
               <Link
                 to="/"
-                className="inline-flex min-h-11 items-center gap-2 rounded-sm text-sm font-semibold tracking-[-0.02em] text-neutral-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
+                className="inline-flex min-h-11 items-center gap-2 rounded-sm text-sm font-semibold tracking-[-0.02em] text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
               >
                 <img
                   src={venfourMark}
@@ -205,9 +226,17 @@ export function AppShell() {
                 />
                 <span>Venfour</span>
               </Link>
-              <p className="mt-2 text-sm leading-6 text-neutral-600">
+              <p className="mt-2 text-sm leading-6 text-copy">
                 Independent vehicle-value guidance after an accident.
               </p>
+              {supportEmail ? (
+                <a
+                  href={`mailto:${supportEmail}`}
+                  className={`${footerLinkClassName} mt-1`}
+                >
+                  {supportEmail}
+                </a>
+              ) : null}
             </div>
 
             <nav aria-label="Footer navigation">
@@ -235,7 +264,7 @@ export function AppShell() {
               </ul>
             </nav>
           </div>
-          <p className="mt-7 border-t border-neutral-200 pt-5 text-xs text-neutral-500">
+          <p className="mt-7 border-t border-line pt-5 text-xs text-copy">
             © {new Date().getFullYear()} Venfour. Informational vehicle-market
             analysis; not legal advice, a formal appraisal, or a guaranteed
             settlement.

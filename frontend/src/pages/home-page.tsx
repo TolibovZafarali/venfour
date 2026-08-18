@@ -1,162 +1,128 @@
 import { ArrowRight } from "lucide-react";
 import { Link } from "react-router";
 
-import { StartAnalysisForm } from "@/features/analyses/components/start-analysis-form";
+import { ExampleAnalysisPreview } from "@/components/example-analysis-preview";
 
 const servicePaths = [
   {
     number: "01",
-    status: "Online report review",
-    title: "I have a valuation report",
+    title: "Review a total-loss valuation",
     description:
-      "Review your insurer’s vehicle valuation against relevant market evidence.",
+      "Compare your insurer’s valuation with relevant market evidence.",
     action: "Review my valuation",
-    href: "#report-review",
+    href: "/total-loss-review",
   },
   {
     number: "02",
-    status: "Contact inquiry",
-    title: "I don’t have a valuation report",
+    title: "Check my vehicle’s value",
     description:
-      "Use your vehicle details and comparable vehicles to understand its current market value.",
-    action: "Ask about vehicle value",
+      "No insurer report? Start with your VIN or vehicle details.",
+    action: "Request a value check",
     href: "/contact?topic=vehicle-value",
   },
   {
     number: "03",
-    status: "Contact inquiry",
-    title: "My vehicle was repaired",
+    title: "Get diminished-value help",
     description:
-      "Understand whether an accident may have reduced your vehicle’s resale value and what options to consider.",
-    action: "Ask about diminished value",
+      "Your repaired vehicle may be worth less after an accident.",
+    action: "Request a review",
     href: "/contact?topic=diminished-value",
   },
 ] as const;
 
 const processSteps = [
   {
-    number: "01",
-    title: "Your information",
-    description:
-      "Venfour reads the relevant vehicle and valuation details you provide.",
+    number: "1",
+    title: "Choose what you need",
+    description: "Select the service that matches your situation.",
   },
   {
-    number: "02",
-    title: "Market evidence",
-    description:
-      "Comparable vehicles are evaluated using relevant market data.",
+    number: "2",
+    title: "Provide the details",
+    description: "Upload a report or share your vehicle information.",
   },
   {
-    number: "03",
-    title: "Clear explanation",
-    description:
-      "The evidence is organized into an understandable valuation review.",
+    number: "3",
+    title: "Review the evidence",
+    description: "Receive clear information you can understand and use.",
   },
 ] as const;
 
-const actionClassName =
-  "group inline-flex min-h-11 items-center gap-2 rounded-sm text-sm font-semibold text-brand transition-colors hover:text-brand-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-4";
+const primaryActionClassName =
+  "inline-flex min-h-12 items-center justify-center rounded-lg bg-brand px-5 text-sm font-semibold text-white transition-colors hover:bg-brand-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 motion-reduce:transition-none";
 
 export function HomePage() {
   return (
-    <div className="w-full bg-white">
-      <section className="border-b border-brand/15 bg-brand-soft">
-        <div className="mx-auto grid w-full max-w-7xl gap-10 px-5 py-16 sm:px-8 sm:py-20 lg:grid-cols-[minmax(0,1.35fr)_minmax(22rem,0.65fr)] lg:items-end lg:gap-16 lg:py-24 xl:py-28">
-          <div className="min-w-0">
-            <p className="flex items-center gap-3 text-xs font-semibold tracking-[0.14em] text-brand uppercase">
-              <span className="h-px w-8 bg-brand/60" aria-hidden />
-              Vehicle valuation guidance
-            </p>
-            <h1 className="mt-6 max-w-[14ch] text-5xl leading-[1.02] font-semibold tracking-[-0.055em] text-balance text-neutral-950 sm:text-6xl lg:text-[4.25rem]">
-              Know what your vehicle is worth after an accident.
+    <div className="w-full bg-white text-ink">
+      <section className="border-b border-line bg-surface">
+        <div className="mx-auto grid w-full max-w-7xl gap-11 px-5 py-12 sm:px-8 sm:py-16 lg:grid-cols-[minmax(0,0.82fr)_minmax(31rem,1.18fr)] lg:items-center lg:gap-16 lg:py-20 xl:gap-20 xl:py-24">
+          <div className="max-w-xl">
+            <h1 className="max-w-[11ch] text-[2.625rem] leading-[1.04] font-semibold tracking-[-0.045em] text-balance text-ink sm:text-[3.5rem] lg:text-[3.75rem]">
+              Understand your vehicle’s value after an accident.
             </h1>
-          </div>
-
-          <div className="max-w-xl lg:border-l lg:border-brand/20 lg:py-2 lg:pl-9">
-            <p className="text-lg leading-8 text-neutral-700">
-              Review an insurer’s valuation, check your vehicle’s market value,
-              or get help understanding diminished value after a repair.
+            <p className="mt-5 max-w-lg text-base leading-7 text-copy sm:text-lg sm:leading-8">
+              Review a total-loss valuation, check market value, or request
+              diminished-value help.
             </p>
-            <div className="mt-8 flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:gap-6 lg:flex-col lg:items-start xl:flex-row xl:items-center">
-              <a
-                href="#service-paths"
-                className="inline-flex min-h-12 w-full shrink-0 items-center justify-center rounded-md bg-brand px-5 text-sm font-semibold whitespace-nowrap text-white transition-colors hover:bg-brand-strong focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-brand/35 focus-visible:ring-offset-2 sm:w-auto"
-              >
-                Choose what I need help with
+            <div className="mt-7 flex flex-wrap items-center gap-x-6 gap-y-3">
+              <a href="#services" className={primaryActionClassName}>
+                Get started
               </a>
               <a
                 href="#how-it-works"
-                className="inline-flex min-h-11 items-center rounded-sm text-sm font-semibold text-neutral-700 underline decoration-neutral-300 underline-offset-4 transition-colors hover:text-brand hover:decoration-brand/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-4"
+                className="inline-flex min-h-11 items-center rounded-sm text-sm font-semibold text-ink underline decoration-line-strong underline-offset-4 transition-colors hover:text-brand hover:decoration-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-4 motion-reduce:transition-none"
               >
                 How it works
               </a>
             </div>
           </div>
+
+          <ExampleAnalysisPreview />
         </div>
       </section>
 
       <section
-        id="service-paths"
-        className="scroll-mt-4 bg-white"
-        aria-labelledby="service-paths-title"
+        id="services"
+        className="section-anchor scroll-mt-20 bg-white"
+        aria-labelledby="services-title"
+        tabIndex={-1}
       >
-        <div className="mx-auto w-full max-w-7xl px-5 py-16 sm:px-8 sm:py-20 lg:py-24">
-          <header className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,0.42fr)] lg:items-end lg:gap-16">
-            <div>
-              <p className="text-xs font-semibold tracking-[0.14em] text-brand uppercase">
-                Start with your situation
-              </p>
-              <h2
-                id="service-paths-title"
-                className="mt-4 text-4xl leading-tight font-semibold tracking-[-0.04em] text-neutral-950 sm:text-5xl"
-              >
-                What do you need help with?
-              </h2>
-            </div>
-            <p className="max-w-md text-base leading-7 text-neutral-600">
-              Choose the path that best matches where you are now.
-            </p>
-          </header>
+        <div className="mx-auto w-full max-w-7xl px-5 py-14 sm:px-8 sm:py-18 lg:py-22">
+          <h2
+            id="services-title"
+            data-anchor-heading
+            className="text-3xl leading-tight font-semibold tracking-[-0.035em] text-ink sm:text-4xl"
+          >
+            How can Venfour help?
+          </h2>
 
-          <ol className="mt-12 border-b border-neutral-300 sm:mt-14">
+          <ol className="mt-8 grid border-y border-line lg:grid-cols-3 lg:divide-x lg:divide-line">
             {servicePaths.map((path) => (
               <li
                 key={path.number}
-                className="grid gap-5 border-t border-neutral-300 py-8 sm:grid-cols-[3.5rem_minmax(0,1fr)] sm:gap-6 sm:py-9 lg:grid-cols-[4rem_minmax(0,1fr)_minmax(13rem,0.32fr)] lg:items-center lg:gap-9"
+                className="border-b border-line last:border-b-0 lg:border-b-0"
               >
-                <span className="text-sm font-semibold tabular-nums text-brand">
-                  {path.number}
-                </span>
-                <div className="min-w-0">
-                  <p className="text-[0.6875rem] font-semibold tracking-[0.13em] text-neutral-500 uppercase">
-                    {path.status}
-                  </p>
-                  <h3 className="mt-2 text-2xl leading-tight font-semibold tracking-[-0.03em] text-neutral-950 sm:text-3xl">
+                <Link
+                  to={path.href}
+                  className="group flex h-full min-h-64 flex-col px-1 py-7 outline-none transition-colors hover:bg-surface focus-visible:bg-brand-soft focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-inset motion-reduce:transition-none sm:min-h-0 sm:px-5 lg:min-h-72 lg:px-7 lg:py-8"
+                >
+                  <span className="text-xs font-semibold tabular-nums text-brand">
+                    {path.number}
+                  </span>
+                  <h3 className="mt-7 max-w-[17rem] text-xl leading-snug font-semibold tracking-[-0.025em] text-ink sm:text-2xl">
                     {path.title}
                   </h3>
-                  <p className="mt-3 max-w-2xl text-[0.9375rem] leading-7 text-neutral-600 sm:text-base">
+                  <p className="mt-3 max-w-xs text-sm leading-6 text-copy sm:text-[0.9375rem]">
                     {path.description}
                   </p>
-                </div>
-                <div className="sm:col-start-2 lg:col-start-3 lg:justify-self-end">
-                  {path.href.startsWith("#") ? (
-                    <a href={path.href} className={actionClassName}>
-                      {path.action}
-                      <ArrowRight
-                        className="size-4 transition-transform group-hover:translate-x-0.5 motion-reduce:transition-none"
-                        aria-hidden
-                      />
-                    </a>
-                  ) : (
-                    <Link to={path.href} className={actionClassName}>
-                      {path.action}
-                      <ArrowRight
-                        className="size-4 transition-transform group-hover:translate-x-0.5 motion-reduce:transition-none"
-                        aria-hidden
-                      />
-                    </Link>
-                  )}
-                </div>
+                  <span className="mt-7 inline-flex min-h-11 items-center gap-2 self-start text-sm font-semibold text-brand group-hover:text-brand-strong lg:mt-auto lg:pt-8">
+                    {path.action}
+                    <ArrowRight
+                      className="size-4 transition-transform group-hover:translate-x-0.5 motion-reduce:transition-none"
+                      aria-hidden
+                    />
+                  </span>
+                </Link>
               </li>
             ))}
           </ol>
@@ -165,39 +131,32 @@ export function HomePage() {
 
       <section
         id="how-it-works"
-        className="scroll-mt-4 border-y border-brand/15 bg-brand-soft"
+        className="section-anchor scroll-mt-20 border-y border-line bg-surface"
         aria-labelledby="how-it-works-title"
+        tabIndex={-1}
       >
-        <div className="mx-auto w-full max-w-6xl px-5 py-16 sm:px-8 sm:py-20">
-          <div className="max-w-2xl">
-            <p className="text-xs font-semibold tracking-[0.14em] text-brand uppercase">
-              How Venfour works
-            </p>
-            <h2
-              id="how-it-works-title"
-              className="mt-4 text-3xl leading-tight font-semibold tracking-[-0.035em] text-neutral-950 sm:text-4xl"
-            >
-              From vehicle information to a clearer review.
-            </h2>
-          </div>
+        <div className="mx-auto w-full max-w-7xl px-5 py-14 sm:px-8 sm:py-18 lg:grid lg:grid-cols-[minmax(17rem,0.56fr)_minmax(0,1fr)] lg:gap-20 lg:py-20">
+          <h2
+            id="how-it-works-title"
+            data-anchor-heading
+            className="max-w-sm text-3xl leading-tight font-semibold tracking-[-0.035em] text-ink sm:text-4xl"
+          >
+            A simpler way to get clarity
+          </h2>
 
-          <ol className="mt-10 grid border-y border-brand/20 md:grid-cols-3">
-            {processSteps.map((step, index) => (
+          <ol className="mt-9 divide-y divide-line border-y border-line lg:mt-0">
+            {processSteps.map((step) => (
               <li
                 key={step.number}
-                className={`py-7 md:py-8 ${
-                  index === 0
-                    ? "md:pr-8"
-                    : "border-t border-brand/20 md:border-t-0 md:border-l md:px-8"
-                }`}
+                className="grid gap-2 py-5 sm:grid-cols-[2.5rem_minmax(0,0.72fr)_minmax(0,1fr)] sm:items-baseline sm:gap-5"
               >
-                <span className="text-xs font-semibold tabular-nums text-brand">
-                  {step.number}
+                <span className="text-xs font-semibold text-brand">
+                  {step.number.padStart(2, "0")}
                 </span>
-                <h3 className="mt-4 text-xl font-semibold tracking-[-0.02em] text-neutral-950">
+                <h3 className="text-base font-semibold tracking-[-0.015em] text-ink sm:text-lg">
                   {step.title}
                 </h3>
-                <p className="mt-2 text-sm leading-6 text-neutral-600">
+                <p className="text-sm leading-6 text-copy">
                   {step.description}
                 </p>
               </li>
@@ -206,26 +165,33 @@ export function HomePage() {
         </div>
       </section>
 
-      <section className="bg-white" aria-labelledby="methodology-title">
-        <div className="mx-auto grid w-full max-w-6xl gap-8 px-5 py-16 sm:px-8 sm:py-20 lg:grid-cols-[minmax(0,1fr)_minmax(22rem,0.72fr)] lg:items-start lg:gap-20 lg:py-24">
+      <section className="bg-white" aria-labelledby="evidence-title">
+        <div className="mx-auto grid w-full max-w-7xl gap-7 px-5 py-14 sm:px-8 sm:py-18 lg:grid-cols-[minmax(0,0.72fr)_minmax(24rem,0.58fr)] lg:items-center lg:gap-20 lg:py-20">
           <div>
-            <p className="text-xs font-semibold tracking-[0.14em] text-brand uppercase">
-              Evidence and methodology
-            </p>
             <h2
-              id="methodology-title"
-              className="mt-4 max-w-xl text-3xl leading-tight font-semibold tracking-[-0.04em] text-balance text-neutral-950 sm:text-4xl"
+              id="evidence-title"
+              className="text-3xl leading-tight font-semibold tracking-[-0.035em] text-ink sm:text-4xl"
             >
-              Built around market evidence, not an AI opinion.
+              Built around market evidence
             </h2>
-          </div>
-          <div className="lg:border-l lg:border-neutral-200 lg:pl-9">
-            <p className="text-base leading-7 text-neutral-600">
-              Documents may be read with model-assisted technology, but
-              Venfour’s valuation review uses structured vehicle information,
-              comparable-market evidence, and defined analysis rules.
+            <p className="mt-4 max-w-2xl text-base leading-7 text-copy">
+              Venfour organizes vehicle data, comparable listings, and clear
+              limitations—so you can understand how the result was reached.
             </p>
-            <Link to="/methodology" className={`${actionClassName} mt-6`}>
+          </div>
+          <div className="border-t border-line pt-6 lg:border-t-0 lg:border-l lg:py-2 lg:pl-9">
+            <ul
+              className="flex flex-wrap gap-x-5 gap-y-2 text-sm font-medium text-ink"
+              aria-label="Methodology principles"
+            >
+              <li>Market-based comparisons</li>
+              <li>Transparent limitations</li>
+              <li>Plain-language results</li>
+            </ul>
+            <Link
+              to="/methodology"
+              className="group mt-5 inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-brand transition-colors hover:text-brand-strong focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-4 motion-reduce:transition-none"
+            >
               See our methodology
               <ArrowRight
                 className="size-4 transition-transform group-hover:translate-x-0.5 motion-reduce:transition-none"
@@ -237,42 +203,19 @@ export function HomePage() {
       </section>
 
       <section
-        id="report-review"
-        className="scroll-mt-4 border-t border-neutral-200 bg-neutral-50"
-        aria-labelledby="report-review-title"
+        className="border-t border-line bg-surface"
+        aria-labelledby="final-action-title"
       >
-        <div className="mx-auto grid w-full max-w-7xl gap-10 px-5 py-16 sm:px-8 sm:py-20 lg:grid-cols-[minmax(18rem,0.72fr)_minmax(28rem,1fr)] lg:items-start lg:gap-20 lg:py-24">
-          <div className="max-w-xl lg:sticky lg:top-24">
-            <p className="text-xs font-semibold tracking-[0.14em] text-brand uppercase">
-              Report review
-            </p>
-            <h2
-              id="report-review-title"
-              className="mt-4 text-4xl leading-tight font-semibold tracking-[-0.04em] text-neutral-950 sm:text-5xl"
-            >
-              Review your insurer’s valuation.
-            </h2>
-            <p className="mt-5 text-base leading-7 text-neutral-600 sm:text-lg sm:leading-8">
-              Add the original valuation PDF and the vehicle’s ZIP code to
-              compare the report with relevant market evidence.
-            </p>
-            <div className="mt-8 border-y border-neutral-300 py-5">
-              <p className="text-[0.6875rem] font-semibold tracking-[0.13em] text-neutral-500 uppercase">
-                Currently supported online
-              </p>
-              <p className="mt-2 text-base font-semibold text-neutral-950">
-                Original CCC valuation report (PDF)
-              </p>
-            </div>
-            <p className="mt-4 text-sm leading-6 text-neutral-500">
-              Other insurer report formats are not yet supported by this
-              automated review.
-            </p>
-          </div>
-
-          <div className="mx-auto w-full max-w-[35rem] lg:mx-0 lg:justify-self-end">
-            <StartAnalysisForm />
-          </div>
+        <div className="mx-auto flex w-full max-w-7xl flex-col items-start justify-between gap-6 px-5 py-10 sm:flex-row sm:items-center sm:px-8 sm:py-12">
+          <h2
+            id="final-action-title"
+            className="text-2xl font-semibold tracking-[-0.03em] text-ink sm:text-3xl"
+          >
+            Start with your situation
+          </h2>
+          <a href="#services" className={primaryActionClassName}>
+            Get started
+          </a>
         </div>
       </section>
     </div>

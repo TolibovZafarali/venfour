@@ -98,7 +98,7 @@ export function MethodologyPage() {
           advice from a qualified appraiser or attorney when one is needed.
         </p>
         <Button asChild className="mt-2" size="lg">
-          <Link to="/#report-review">Start a valuation review</Link>
+          <Link to="/total-loss-review">Start a valuation review</Link>
         </Button>
       </PublicPageSection>
     </PublicPage>
