@@ -11,6 +11,11 @@ import {
 
 import { isPageMetadata, useDocumentMetadata } from "@/app/document-metadata";
 import { supportEmail } from "@/config/support";
+import {
+  AccountControl,
+  MobileAccountControl,
+  SignInDialogProvider,
+} from "@/features/auth";
 import { CookieConsent } from "@/features/privacy/cookie-consent";
 import { useCookieConsent } from "@/features/privacy/cookie-consent-context";
 import { cn } from "@/lib/utils";
@@ -26,6 +31,14 @@ const mobileLinkClassName =
   "inline-flex min-h-12 items-center border-b border-ink/10 py-2 text-sm font-medium text-ink/75 transition-colors last:border-b-0 hover:bg-white/35 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand/60 motion-reduce:transition-none";
 
 export function AppShell() {
+  return (
+    <SignInDialogProvider>
+      <AppShellContent />
+    </SignInDialogProvider>
+  );
+}
+
+function AppShellContent() {
   const analysisRoute = useMatch("/analyses/:runId");
   const location = useLocation();
   const matches = useMatches();
@@ -198,6 +211,7 @@ export function AppShell() {
                 <a href={howItWorksHref} className={primaryLinkClassName}>
                   How It Works
                 </a>
+                <AccountControl />
                 <a
                   href={primaryActionHref}
                   className="ml-1 inline-flex min-h-11 items-center rounded-lg border border-blue-300/20 bg-brand px-4 text-[0.8125rem] font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.2),0_8px_20px_-12px_rgba(21,94,239,0.95)] transition-colors hover:bg-[#2b6cf4] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 focus-visible:ring-offset-2 motion-reduce:transition-none"
@@ -267,6 +281,10 @@ export function AppShell() {
                   >
                     How It Works
                   </a>
+                  <MobileAccountControl
+                    className="border-t-0"
+                    onAction={() => setMobileNavigationOpen(false)}
+                  />
                 </div>
               </nav>
             ) : null}

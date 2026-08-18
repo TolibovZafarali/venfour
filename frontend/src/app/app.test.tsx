@@ -2,8 +2,11 @@ import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createMemoryRouter, RouterProvider } from "react-router";
 import { describe, expect, test, vi } from "vitest";
+import type { Session } from "@supabase/supabase-js";
 
 import venfourMark from "../../../assets/brand/venfour-mark.svg";
+import type { AuthService } from "@/features/auth";
+import { appraisalCaseQueryKeys } from "@/features/cases/queries";
 import { RouteErrorPage } from "@/pages/route-error-page";
 import { representativeRunId } from "@/test/fixtures/analysis-presentation";
 import { renderTestApp } from "@/test/render";
@@ -142,6 +145,9 @@ describe("Venfour application", () => {
     expect(
       within(mobileNavigation).getByRole("link", { name: "How It Works" }),
     ).toHaveAttribute("href", "#how-it-works");
+    expect(
+      within(mobileNavigation).getByRole("button", { name: "Sign In" }),
+    ).toBeVisible();
     within(mobileNavigation).getByRole("link", { name: "Total Loss" }).focus();
     await user.keyboard("{Escape}");
 
@@ -152,6 +158,84 @@ describe("Venfour application", () => {
       screen.getByRole("button", { name: "Open navigation" }),
     ).toHaveAttribute("aria-expanded", "false");
     expect(screen.getByRole("button", { name: "Open navigation" })).toHaveFocus();
+  });
+
+  test("keeps the account control stable while restoring a signed-out session", async () => {
+    let resolveSession: ((session: Session | null) => void) | undefined;
+    const authService = createTestAuthService(null, {
+      getSession: () =>
+        new Promise((resolve) => {
+          resolveSession = resolve;
+        }),
+    });
+
+    renderTestApp(["/"], { authService });
+
+    expect(screen.getByText("Checking sign-in status")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Sign In" }),
+    ).not.toBeInTheDocument();
+
+    await act(async () => resolveSession?.(null));
+
+    expect(
+      await screen.findByRole("button", { name: "Sign In" }),
+    ).toBeVisible();
+  });
+
+  test("shows signed-in identity, signs out, and clears customer case data", async () => {
+    const user = userEvent.setup();
+    const signOut = vi.fn(async () => {});
+    const session = createTestSession();
+    const { queryClient } = renderTestApp(["/"], {
+      authService: createTestAuthService(session, { signOut }),
+    });
+
+    const account = await screen.findByRole("button", {
+      name: "Account for ada@example.com",
+    });
+    expect(account).toHaveTextContent("Ada");
+
+    queryClient.setQueryData(
+      appraisalCaseQueryKeys.list(session.user.id),
+      ["private-case-sentinel"],
+    );
+
+    await user.click(account);
+    expect(screen.getByText("ada@example.com")).toBeVisible();
+    await user.click(screen.getByRole("menuitem", { name: "Sign Out" }));
+
+    await waitFor(() => expect(signOut).toHaveBeenCalledOnce());
+    expect(
+      await screen.findByRole("button", { name: "Sign In" }),
+    ).toBeVisible();
+    expect(
+      queryClient.getQueryData(appraisalCaseQueryKeys.list(session.user.id)),
+    ).toBeUndefined();
+  });
+
+  test("shows signed-in identity and sign out in mobile navigation", async () => {
+    const user = userEvent.setup();
+    renderTestApp(["/"], {
+      authService: createTestAuthService(createTestSession()),
+    });
+
+    await screen.findByRole("button", {
+      name: "Account for ada@example.com",
+    });
+    await user.click(
+      screen.getByRole("button", { name: "Open navigation" }),
+    );
+
+    const mobileNavigation = screen.getByRole("navigation", {
+      name: "Mobile navigation",
+    });
+    expect(
+      within(mobileNavigation).getByText("ada@example.com"),
+    ).toBeVisible();
+    expect(
+      within(mobileNavigation).getByRole("button", { name: "Sign Out" }),
+    ).toBeVisible();
   });
 
   test("closes mobile navigation and focuses the total-loss section", async () => {
@@ -500,4 +584,41 @@ describe("Venfour application", () => {
 
 function BrokenRoute(): never {
   throw new Error("private render detail");
+}
+
+function createTestSession(): Session {
+  return {
+    access_token: "test-access-token",
+    expires_in: 3600,
+    refresh_token: "test-refresh-token",
+    token_type: "bearer",
+    user: {
+      app_metadata: { provider: "email", providers: ["email"] },
+      aud: "authenticated",
+      created_at: "2026-08-18T14:00:00.000Z",
+      email: "ada@example.com",
+      id: "11111111-1111-4111-8111-111111111111",
+      user_metadata: { full_name: "Ada Lovelace" },
+    },
+  };
+}
+
+function createTestAuthService(
+  session: Session | null,
+  overrides: Partial<AuthService> = {},
+): AuthService {
+  return {
+    exchangeCodeForSession: async () => {
+      if (!session) {
+        throw new Error("No test session is available.");
+      }
+      return session;
+    },
+    getSession: async () => session,
+    onAuthStateChange: () => () => {},
+    sendMagicLink: async () => {},
+    signInWithGoogle: async () => {},
+    signOut: async () => {},
+    ...overrides,
+  };
 }

@@ -61,9 +61,13 @@ flow for one CCC valuation PDF and the vehicle ZIP code. A successful creation
 navigates to `/analyses/:runId`, which presents the assessment, market-range
 comparison, loss-date comparables, current-market context, CCC comparables and
 adjustments, and important limitations. The frontend does not reproduce backend
-analysis or ranking logic. Authentication, user ownership, accounts, durable
-uploaded-report storage, and production deployment configuration remain outside
-the current scope.
+analysis or ranking logic.
+
+Supabase provides the browser authentication, customer profile, appraisal-case,
+row-level security, and private case-file storage foundations for upcoming
+customer workflows. The current upload and `/analyses/:runId` routes remain
+separate from that foundation: they are not yet attached to an account or
+appraisal case, and the current PDF continues to use temporary backend storage.
 
 ## Evidence and engineering principles
 
@@ -206,6 +210,63 @@ cp .env.example .env.local
 deployment intentionally serves the API elsewhere and has an appropriate CORS
 policy.
 
+Authentication and appraisal-case persistence require public browser
+configuration from a Supabase project:
+
+```text
+VITE_SUPABASE_URL=https://<project-ref>.supabase.co
+VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
+```
+
+Never place a Supabase service-role key in a `VITE_*` variable. Apply the SQL in
+`supabase/migrations/` before using the case data layer. In Supabase Auth URL
+Configuration, use `https://venfour.com` as the production Site URL and allow
+`https://venfour.com/auth/callback` plus
+`http://localhost:5173/auth/callback`. Email magic links require Email Auth and
+production SMTP configuration. Google sign-in requires a Google Web OAuth
+client whose authorized redirect URI is the Supabase callback
+`https://<project-ref>.supabase.co/auth/v1/callback`; configure the client ID and
+secret in the Supabase Google provider settings.
+
+### Supabase project configuration
+
+Create or link the Supabase project, then apply the checked-in migration:
+
+```sh
+supabase link --project-ref <project-ref>
+supabase db push
+```
+
+In the Supabase Dashboard:
+
+1. Set Authentication > URL Configuration > Site URL to
+   `https://venfour.com`.
+2. Add `https://venfour.com/auth/callback` and
+   `http://localhost:5173/auth/callback` to the allowed redirect URLs.
+3. Keep Email authentication and new-user signups enabled. Set the magic-link
+   expiry to 3600 seconds, confirm the email template links to
+   `{{ .ConfirmationURL }}`, and configure production SMTP before launch.
+4. Add `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` to the frontend
+   deployment environment. Do not expose a secret or service-role key.
+
+For Google sign-in, create a Web OAuth client in Google Cloud and configure the
+Venfour OAuth consent screen. Add `https://venfour.com` and
+`http://localhost:5173` as authorized JavaScript origins. Add only
+`https://<project-ref>.supabase.co/auth/v1/callback` as the Google authorized
+redirect URI, then enable Google in Supabase and enter that client ID and
+secret. Google returns to Supabase first; Supabase then returns the browser to
+Venfour's `/auth/callback` route.
+
+When the Supabase CLI and Docker are available, validate the local database
+from the repository root with:
+
+```sh
+supabase start
+supabase db reset
+supabase db lint --local --fail-on error
+supabase test db
+```
+
 To create the deterministic representative material-undervalue analysis used by
 the frontend tests, run this once from the repository root:
 
@@ -287,10 +348,12 @@ versions carried in the presentation provenance. `GET /health` returns only
 `{"status":"ok"}` and does not access storage, enumerate files, execute
 analysis, or call a provider.
 
-No CORS policy is enabled by default, and Phase 3F adds no authentication or
-user-ownership model. Uploaded PDFs are not durably stored. OpenAPI generation
-is deferred because it is not native to the chosen minimal framework; the strict
-repository JSON Schemas remain the authoritative domain contracts.
+No CORS policy is enabled by default, and the Phase 3F Python API itself has no
+authentication or user-ownership model. The separate Supabase foundation does
+not change that API contract or make analysis URLs account-private. Uploaded
+PDFs are not durably stored. OpenAPI generation is deferred because it is not
+native to the chosen minimal framework; the strict repository JSON Schemas
+remain the authoritative domain contracts.
 
 ## Phase 3E: deterministic analysis presentation projection
 

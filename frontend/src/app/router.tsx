@@ -2,6 +2,7 @@ import { createBrowserRouter, type RouteObject } from "react-router";
 
 import type { PageMetadata } from "@/app/document-metadata";
 import { AppShell } from "@/components/app-shell";
+import { AuthCallbackPage } from "@/features/auth";
 import { AnalysisPage } from "@/pages/analysis-page";
 import { CookiePolicyPage } from "@/pages/cookie-policy-page";
 import { HomePage } from "@/pages/home-page";
@@ -43,6 +44,14 @@ export const appRoutes: RouteObject[] = [
         handle: metadata(
           "Vehicle Valuation Analysis | Venfour",
           "Review the insurance valuation, selected market evidence, findings, and limitations for this vehicle analysis.",
+        ),
+      },
+      {
+        path: "auth/callback",
+        element: <AuthCallbackPage />,
+        handle: metadata(
+          "Finish Signing In | Venfour",
+          "Finish securely signing in to Venfour.",
         ),
       },
       {

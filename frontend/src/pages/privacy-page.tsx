@@ -10,8 +10,8 @@ export function PrivacyPage() {
     <PublicPage
       eyebrow="Privacy"
       title="How Venfour handles your information"
-      introduction="This page describes the current Venfour service in practical terms: what is processed when you request a valuation review, which outside services are involved, and what controls are not yet available."
-      updated="Last updated August 17, 2026"
+      introduction="This page describes the current Venfour service in practical terms: what is processed when you use an account or request a valuation review, which outside services are involved, and what controls are not yet available."
+      updated="Last updated August 18, 2026"
     >
       <PublicPageSection title="Information you provide">
         <p>
@@ -23,9 +23,29 @@ export function PrivacyPage() {
           uploading it.
         </p>
         <p>
-          Venfour does not currently require a traditional user account. The
-          service creates a unique analysis link instead. Treat that link as
-          sensitive: anyone who obtains it may be able to view the analysis.
+          You may sign in with Google or a passwordless email link so Venfour
+          can restore your session and support saved appraisal cases. The
+          current report-upload flow still creates a separate unique analysis
+          link and does not yet attach that analysis to your account. Treat the
+          link as sensitive: anyone who obtains it may be able to view the
+          analysis.
+        </p>
+      </PublicPageSection>
+
+      <PublicPageSection title="Account and case information">
+        <p>
+          Venfour uses Supabase to authenticate customers and store limited
+          account, profile, and appraisal-case information. Depending on how
+          you sign in, Supabase may process your email address and basic Google
+          account information. Venfour stores only the application profile and
+          case metadata needed to support the service.
+        </p>
+        <p>
+          Customer case records are protected by database access policies
+          intended to restrict each signed-in customer to their own records.
+          Venfour has also prepared private document storage for future case
+          files, but the current report-upload flow does not place your PDF in
+          that storage.
         </p>
       </PublicPageSection>
 
@@ -72,20 +92,23 @@ export function PrivacyPage() {
         </p>
         <p>
           Venfour retains the analysis-derived record so the results link can
-          continue to work. The current service does not publish or enforce a
-          fixed automatic deletion schedule and does not yet provide
-          account-based or self-service deletion controls. If you are not
-          comfortable with that current limitation, do not upload a report.
+          continue to work. Account sessions may be retained in essential
+          browser storage so you stay signed in. The current service does not
+          publish or enforce a fixed automatic deletion schedule and does not
+          yet provide self-service account, case, or analysis deletion
+          controls. If you are not comfortable with that current limitation,
+          do not upload a report.
         </p>
       </PublicPageSection>
 
       <PublicPageSection title="Security and practical limits">
         <p>
           Venfour uses technical controls intended to limit upload size, avoid
-          storing the original PDF as part of the analysis record, and prevent
-          credentials from being included in that record. No internet service,
-          transmission method, or storage system can be guaranteed completely
-          secure.
+          storing the original PDF as part of the analysis record, prevent
+          credentials from being included in that record, and restrict account
+          data and future private case files by customer ownership. No internet
+          service, transmission method, or storage system can be guaranteed
+          completely secure.
         </p>
         <p>
           Do not upload documents unrelated to a vehicle valuation review. Do

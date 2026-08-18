@@ -14,7 +14,9 @@ export function CookiePolicyPage() {
       <PublicPageSection title="Current use">
         <p>
           Venfour uses essential browser storage to operate the site and
-          remember your privacy preference. Essential storage cannot be turned
+          remember your privacy preference. If you sign in, essential storage
+          also preserves your Supabase session and the safe in-app location to
+          return to after authentication. Essential storage cannot be turned
           off through the preference controls.
         </p>
         <p>
