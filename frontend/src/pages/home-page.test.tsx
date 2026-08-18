@@ -35,9 +35,27 @@ describe("homepage structure", () => {
 
     const heroHeading = screen.getByRole("heading", {
       level: 1,
-      name: "Independent vehicle appraisals after an accident.",
+      name: "Your Vehicle’s Value, Made Clear.",
     });
     expect(heroHeading).toBeVisible();
+    expect(heroHeading).toHaveClass(
+      "font-hero",
+      "font-semibold",
+      "leading-[0.98]",
+      "tracking-[-0.035em]",
+      "text-[2.875rem]",
+      "sm:text-[3.25rem]",
+      "xl:text-[4.75rem]",
+      "2xl:text-[5rem]",
+    );
+    expect(heroHeading.children).toHaveLength(2);
+    expect(heroHeading.children[0]).toHaveTextContent("Your Vehicle’s Value,");
+    expect(heroHeading.children[0]).toHaveClass(
+      "block",
+      "sm:whitespace-nowrap",
+    );
+    expect(heroHeading.children[1]).toHaveTextContent("Made Clear.");
+    expect(heroHeading.children[1]).toHaveClass("block");
     expect(
       screen.getByText(
         "Start a total-loss appraisal online or request a diminished value appraisal after repairs.",
@@ -56,8 +74,14 @@ describe("homepage structure", () => {
         name: "Request diminished value appraisal",
       }),
     ).toHaveAttribute("href", "#diminished-value");
-    expect(within(hero).getByText("Self-service online")).toBeVisible();
-    expect(within(hero).getByText("Personally handled")).toBeVisible();
+    for (const removedLabel of [
+      "Total loss",
+      "Self-service online",
+      "Diminished value",
+      "Personally handled",
+    ]) {
+      expect(within(hero).queryByText(removedLabel)).not.toBeInTheDocument();
+    }
 
     const example = within(hero).getByRole("figure", {
       name: "Example total-loss appraisal",
@@ -99,7 +123,10 @@ describe("homepage structure", () => {
         homepageExampleAppraisal.insuranceValue,
     ).toBe(2_554);
 
-    expect(document.querySelector("img[data-hero-photo]")).not.toBeInTheDocument();
+    expect(hero.querySelector("[data-hero-photo]")).not.toBeInTheDocument();
+    expect(
+      hero.querySelector("[data-hero-content-veil]"),
+    ).not.toBeInTheDocument();
     expect(document.querySelector('input[type="file"]')).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Vehicle ZIP code")).not.toBeInTheDocument();
     expect(
@@ -216,7 +243,7 @@ describe("homepage structure", () => {
     const { router } = renderTestApp();
     const hero = screen
       .getByRole("heading", {
-        name: "Independent vehicle appraisals after an accident.",
+        name: "Your Vehicle’s Value, Made Clear.",
       })
       .closest("section");
     if (!hero) {

@@ -14,7 +14,7 @@ describe("Venfour application", () => {
 
     expect(
       screen.getByRole("heading", {
-        name: "Independent vehicle appraisals after an accident.",
+        name: "Your Vehicle’s Value, Made Clear.",
       }),
     ).toBeInTheDocument();
     expect(document.title).toBe("Vehicle Appraisals After an Accident | Venfour");

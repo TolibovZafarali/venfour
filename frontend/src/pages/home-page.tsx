@@ -68,13 +68,19 @@ export function HomePage() {
 
   return (
     <div className="w-full overflow-clip bg-white text-ink">
-      <section className="relative border-b border-slate-200 bg-canvas">
-        <div className="mx-auto grid w-full max-w-[90rem] gap-10 px-5 py-12 sm:px-8 sm:py-16 lg:px-10 lg:py-20 xl:grid-cols-[minmax(0,0.9fr)_minmax(34rem,1.1fr)] xl:items-center xl:gap-16 xl:py-24">
+      <section className="border-b border-slate-200 bg-canvas">
+        <div className="mx-auto grid w-full max-w-[90rem] gap-10 px-5 py-12 sm:px-8 sm:py-16 lg:px-10 lg:py-20 xl:grid-cols-[minmax(0,1.05fr)_minmax(34rem,0.95fr)] xl:items-center xl:gap-12 xl:py-24">
           <div className="max-w-2xl">
-            <h1 className="max-w-[13ch] text-[2.8rem] leading-[0.98] font-semibold tracking-[-0.055em] text-balance text-ink sm:text-[4.15rem] lg:text-[4.1rem] xl:text-[4.5rem]">
-              Independent vehicle appraisals after an accident.
+            <h1
+              aria-label="Your Vehicle’s Value, Made Clear."
+              className="font-hero text-[2.875rem] leading-[0.98] font-semibold tracking-[-0.035em] text-ink sm:text-[3.25rem] lg:text-[4rem] xl:text-[4.75rem] 2xl:text-[5rem]"
+            >
+              <span className="block sm:whitespace-nowrap">
+                Your Vehicle’s Value,
+              </span>
+              <span className="block">Made Clear.</span>
             </h1>
-            <p className="mt-6 max-w-xl text-base leading-7 text-copy sm:text-lg sm:leading-8">
+            <p className="mt-6 max-w-xl text-base leading-7 text-ink/80 sm:text-lg sm:leading-8">
               Start a total-loss appraisal online or request a diminished value appraisal after repairs.
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
@@ -92,24 +98,6 @@ export function HomePage() {
                 Request diminished value appraisal
               </a>
             </div>
-            <dl className="mt-9 grid max-w-lg grid-cols-2 gap-5 border-t border-slate-300 pt-5">
-              <div>
-                <dt className="text-[0.6875rem] font-semibold tracking-[0.1em] text-copy uppercase">
-                  Total loss
-                </dt>
-                <dd className="mt-1 text-sm font-medium text-ink">
-                  Self-service online
-                </dd>
-              </div>
-              <div>
-                <dt className="text-[0.6875rem] font-semibold tracking-[0.1em] text-copy uppercase">
-                  Diminished value
-                </dt>
-                <dd className="mt-1 text-sm font-medium text-ink">
-                  Personally handled
-                </dd>
-              </div>
-            </dl>
           </div>
 
           <div className="relative xl:pl-6">
