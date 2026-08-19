@@ -1,5 +1,6 @@
 import { CheckCircle2, PencilLine } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { ReactNode } from "react";
 
 import {
   FlowCard,
@@ -49,6 +50,7 @@ import {
 } from "./validation";
 
 export interface DiminishedValueIntakeFlowProps {
+  readonly status?: ReactNode;
   readonly draft: DiminishedValueDraft;
   readonly onDraftChange: (draft: DiminishedValueDraft) => void;
   readonly selectedFiles: readonly File[];
@@ -87,6 +89,7 @@ const stepPositions: Record<DiminishedValueStep, number> = {
 };
 
 export function DiminishedValueIntakeFlow({
+  status,
   draft,
   onDraftChange,
   selectedFiles,
@@ -258,6 +261,7 @@ export function DiminishedValueIntakeFlow({
       case "start":
         return (
           <DiminishedValueStartStep
+            status={status}
             draft={draft}
             errors={errors}
             onChange={changeField}
@@ -268,6 +272,7 @@ export function DiminishedValueIntakeFlow({
       case "vehicle":
         return (
           <DiminishedValueVehicleStep
+            status={status}
             draft={draft}
             errors={errors}
             makeOptions={makeOptions}
@@ -289,6 +294,7 @@ export function DiminishedValueIntakeFlow({
       case "accident-repairs":
         return (
           <DiminishedValueRepairsStep
+            status={status}
             draft={draft}
             errors={errors}
             files={selectedFiles}
@@ -313,6 +319,7 @@ export function DiminishedValueIntakeFlow({
       case "consultation":
         return (
           <DiminishedValueConsultationStep
+            status={status}
             draft={draft}
             errors={errors}
             flowError={submissionError ?? flowError}
@@ -345,6 +352,7 @@ export function DiminishedValueIntakeFlow({
 }
 
 interface SharedStepProps {
+  readonly status?: ReactNode;
   readonly draft: DiminishedValueDraft;
   readonly errors: DiminishedValueFormErrors;
   readonly flowError: string | null;
@@ -356,6 +364,7 @@ interface StartStepProps extends SharedStepProps {
 }
 
 export function DiminishedValueStartStep({
+  status,
   draft,
   errors,
   flowError,
@@ -364,7 +373,7 @@ export function DiminishedValueStartStep({
 }: StartStepProps) {
   return (
     <FlowCard>
-      <DiminishedValueProgress current={1} />
+      <DiminishedValueProgress current={1} status={status} />
       <StepHeading
         title="Start with the accident details"
         description="A few basics help us understand where the claim stands before we gather vehicle and repair information."
@@ -430,6 +439,7 @@ interface VehicleStepProps extends SharedStepProps {
 }
 
 export function DiminishedValueVehicleStep({
+  status,
   draft,
   errors,
   makeOptions,
@@ -449,7 +459,7 @@ export function DiminishedValueVehicleStep({
 }: VehicleStepProps) {
   return (
     <FlowCard busy={vinLookupState === "loading"}>
-      <DiminishedValueProgress current={2} />
+      <DiminishedValueProgress current={2} status={status} />
       <StepHeading
         title="Tell us about the vehicle"
         description="Use the VIN for the quickest match, or choose the year, make, and model from guided lists."
@@ -542,6 +552,7 @@ interface RepairsStepProps extends SharedStepProps {
 }
 
 export function DiminishedValueRepairsStep({
+  status,
   draft,
   errors,
   files,
@@ -562,7 +573,7 @@ export function DiminishedValueRepairsStep({
 }: RepairsStepProps) {
   return (
     <FlowCard>
-      <DiminishedValueProgress current={3} />
+      <DiminishedValueProgress current={3} status={status} />
       <StepHeading
         title="Describe the accident and repairs"
         description="These facts help a reviewer understand the severity of the loss and the repair record."
@@ -689,6 +700,7 @@ interface ConsultationStepProps extends SharedStepProps {
 }
 
 export function DiminishedValueConsultationStep({
+  status,
   draft,
   errors,
   flowError,
@@ -699,7 +711,7 @@ export function DiminishedValueConsultationStep({
 }: ConsultationStepProps) {
   return (
     <FlowCard busy={busy}>
-      <DiminishedValueProgress current={4} />
+      <DiminishedValueProgress current={4} status={status} />
       <StepHeading
         title="Prepare your review request"
         description="Add contact details and general availability so your information is ready for a future consultation workflow."
@@ -837,8 +849,23 @@ function formatSubmissionTime(value: string) {
   }).format(submittedAt);
 }
 
-function DiminishedValueProgress({ current }: { readonly current: number }) {
-  return <IntakeProgress current={current} steps={progressSteps} />;
+function DiminishedValueProgress({
+  current,
+  status,
+}: {
+  readonly current: number;
+  readonly status?: ReactNode;
+}) {
+  return (
+    <>
+      <IntakeProgress current={current} steps={progressSteps} />
+      {status ? (
+        <div className="mt-4" aria-live="polite">
+          {status}
+        </div>
+      ) : null}
+    </>
+  );
 }
 
 function stepForDiminishedValueErrors(

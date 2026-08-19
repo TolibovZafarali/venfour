@@ -152,7 +152,7 @@ export function AppraisalStartLayout({
         <div
           id="appraisal-intake"
           className={cn(
-            "min-w-0 w-full max-w-3xl lg:block lg:justify-self-end",
+            "min-w-0 w-full max-w-3xl lg:block lg:justify-self-end lg:pt-5",
             mobileView === "overview" && "hidden",
           )}
           data-appraisal-start-flow

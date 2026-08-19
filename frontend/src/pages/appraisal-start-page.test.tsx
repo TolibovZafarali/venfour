@@ -116,6 +116,12 @@ describe("/start appraisal intake", () => {
         screen.getByRole("region", { name: exampleVehicle }),
       ).toBeVisible();
       expect(screen.getByLabelText(supportingLine)).toBeVisible();
+      expect(
+        document.querySelector("[data-appraisal-start-intro]"),
+      ).toHaveClass("lg:pt-5");
+      expect(
+        document.querySelector("[data-appraisal-start-flow]"),
+      ).toHaveClass("lg:pt-5");
     },
   );
 

@@ -983,9 +983,9 @@ export function DiminishedValueStartFlow({
   }
 
   return (
-    <div>
-      <div className="mb-4 min-h-6" aria-live="polite">
-        {flowError ? (
+    <DiminishedValueIntakeFlow
+      status={
+        flowError ? (
           <div
             className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm leading-6 text-red-800"
             role="alert"
@@ -1005,45 +1005,38 @@ export function DiminishedValueStartFlow({
           <p className="flex items-center gap-2 text-sm text-copy" role="status">
             <Cloud className="size-4" aria-hidden /> Saved securely
           </p>
-        ) : !userId && hasMeaningfulDiminishedValueDraft(envelope.intake) ? (
-          <p className="text-sm text-copy" role="status">
-            Your answers are saved in this browser until you sign in.
-          </p>
         ) : null}
-      </div>
-      <DiminishedValueIntakeFlow
-        draft={renderedDraft}
-        onDraftChange={handleDraftChange}
-        selectedFiles={pendingDocuments.map((document) => document.file)}
-        onSelectedFilesChange={handlePendingFilesChange}
-        onSubmit={handleSubmit}
-        submitting={submitting}
-        submissionError={submissionError}
-        submittedAt={serverDetails?.submittedAt ?? null}
-        submittedFileCount={documents.length}
-        storedDocuments={documents}
-        pendingDocumentStates={pendingDocuments.map((document) => ({
-          identity: fileIdentity(document.file),
-          state: document.state,
-          error: document.error,
-        }))}
-        documentsRequireAuthentication={!userId}
-        onDocumentAuthenticationRequired={() =>
-          prepareAuthentication("upload-documents")
-        }
-        onRetryDocumentUploads={retryDocumentUploads}
-        onRemoveStoredDocument={(document) =>
-          void removeStoredDocument(document)
-        }
-        removingDocumentId={removingDocumentId}
-        documentsDisabled={
-          submitting ||
-          removingDocumentId !== null ||
-          pendingDocuments.some((document) => document.state === "uploading")
-        }
-        vehicleLookupService={dependencies?.vehicleLookupService}
-      />
-    </div>
+      draft={renderedDraft}
+      onDraftChange={handleDraftChange}
+      selectedFiles={pendingDocuments.map((document) => document.file)}
+      onSelectedFilesChange={handlePendingFilesChange}
+      onSubmit={handleSubmit}
+      submitting={submitting}
+      submissionError={submissionError}
+      submittedAt={serverDetails?.submittedAt ?? null}
+      submittedFileCount={documents.length}
+      storedDocuments={documents}
+      pendingDocumentStates={pendingDocuments.map((document) => ({
+        identity: fileIdentity(document.file),
+        state: document.state,
+        error: document.error,
+      }))}
+      documentsRequireAuthentication={!userId}
+      onDocumentAuthenticationRequired={() =>
+        prepareAuthentication("upload-documents")
+      }
+      onRetryDocumentUploads={retryDocumentUploads}
+      onRemoveStoredDocument={(document) =>
+        void removeStoredDocument(document)
+      }
+      removingDocumentId={removingDocumentId}
+      documentsDisabled={
+        submitting ||
+        removingDocumentId !== null ||
+        pendingDocuments.some((document) => document.state === "uploading")
+      }
+      vehicleLookupService={dependencies?.vehicleLookupService}
+    />
   );
 }
 
