@@ -239,6 +239,7 @@ describe("total-loss data hooks", () => {
     expect(uploadReport).toHaveBeenCalledWith({
       caseId: CASE_ID,
       file,
+      replaceExisting: false,
       uploadId: UPLOAD_ID,
       userId: USER_ID,
     });
@@ -315,10 +316,13 @@ describe("total-loss data hooks", () => {
     const restoreReport = vi.fn(async () => undefined);
     const storeReportBackup = vi.fn(async () => undefined);
     const deleteReportBackup = vi.fn(async () => undefined);
-    const storageService = createStorageService({
-      uploadReport: async () => {
+    const uploadReport = vi.fn<TotalLossReportStorageService["uploadReport"]>(
+      async () => {
         throw new Error("storage unavailable");
       },
+    );
+    const storageService = createStorageService({
+      uploadReport,
       storeReportBackup,
       restoreReport,
       deleteReportBackup,
@@ -350,9 +354,17 @@ describe("total-loss data hooks", () => {
         preserveExistingReport: true,
       }),
     ).rejects.toThrow("storage unavailable");
+    expect(uploadReport).toHaveBeenCalledWith({
+      caseId: CASE_ID,
+      file: expect.any(File),
+      replaceExisting: true,
+      uploadId: UPLOAD_ID,
+      userId: USER_ID,
+    });
     expect(storeReportBackup).toHaveBeenCalledWith({
       backup: expect.any(Blob),
       caseId: CASE_ID,
+      replaceExisting: false,
       uploadId: UPLOAD_ID,
       userId: USER_ID,
     });
@@ -459,6 +471,11 @@ describe("total-loss data hooks", () => {
       recoveryRequired: true,
     };
     const calls: string[] = [];
+    const storeReportBackup = vi.fn<
+      TotalLossReportStorageService["storeReportBackup"]
+    >(async () => {
+      calls.push("store-backup");
+    });
     const detailsService = createDetailsService({
       acquireReportUploadLease: async () => {
         calls.push("acquire-recovery");
@@ -486,9 +503,7 @@ describe("total-loss data hooks", () => {
         calls.push("download-backup");
         return new Blob(["%PDF previous"], { type: "application/pdf" });
       },
-      storeReportBackup: async () => {
-        calls.push("store-backup");
-      },
+      storeReportBackup,
       restoreReport: async () => {
         calls.push("restore-canonical");
       },
@@ -538,6 +553,14 @@ describe("total-loss data hooks", () => {
     ]);
     expect(calls.indexOf("restore-canonical")).toBeLessThan(
       calls.indexOf("upload-new"),
+    );
+    expect(storeReportBackup).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({ replaceExisting: true }),
+    );
+    expect(storeReportBackup).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ replaceExisting: false }),
     );
     expect(calls).toContain("finalize");
     expect(calls.indexOf("delete-backup")).toBeGreaterThan(

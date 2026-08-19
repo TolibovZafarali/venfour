@@ -903,6 +903,7 @@ describe("/start?service=total-loss", () => {
     expect(harness.uploadReport).toHaveBeenLastCalledWith({
       caseId: CASE_ID,
       file: original,
+      replaceExisting: false,
       uploadId: REPORT_UPLOAD_ID,
       userId: USER_ID,
     });
@@ -923,6 +924,13 @@ describe("/start?service=total-loss", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "Replacement storage is temporarily unavailable.",
     );
+    expect(harness.uploadReport).toHaveBeenNthCalledWith(2, {
+      caseId: CASE_ID,
+      file: replacement,
+      replaceExisting: true,
+      uploadId: REPORT_UPLOAD_ID,
+      userId: USER_ID,
+    });
     expect(screen.getByText("insurer-valuation.pdf")).toBeVisible();
     expect(harness.finalizeReportUpload).toHaveBeenCalledOnce();
 

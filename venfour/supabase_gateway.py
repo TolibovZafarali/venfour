@@ -166,7 +166,7 @@ class CaseAnalysisGateway(Protocol):
     ) -> Mapping[str, Any] | str | None: ...
 
     def materialize_total_loss_report(
-        self, user_id: str, case_id: str
+        self, user_id: str, case_id: str, cache_nonce: str
     ) -> Any: ...
 
 
@@ -407,12 +407,13 @@ class SupabaseHttpGateway:
 
     @contextmanager
     def materialize_total_loss_report(
-        self, user_id: str, case_id: str
+        self, user_id: str, case_id: str, cache_nonce: str
     ) -> Iterator[Path]:
         object_path = self._storage_path(user_id, case_id)
+        nonce = _canonical_uuid(cache_nonce, "Storage cache nonce")
         url = (
             f"{self._configuration.url}/storage/v1/object/authenticated/"
-            f"{CASE_FILES_BUCKET}/{object_path}"
+            f"{CASE_FILES_BUCKET}/{object_path}?cacheNonce={quote(nonce, safe='')}"
         )
         try:
             with self._client.stream(

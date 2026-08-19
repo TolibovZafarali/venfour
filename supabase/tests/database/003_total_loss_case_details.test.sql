@@ -2,6 +2,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
+set local storage.allow_delete_query = 'true';
 
 select plan(154);
 

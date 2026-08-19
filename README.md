@@ -279,6 +279,18 @@ redirect URI, then enable Google in Supabase and enter that client ID and
 secret. Google returns to Supabase first; Supabase then returns the browser to
 Venfour's `/auth/callback` route.
 
+Use a separate Supabase project for staging or preview deployments. Set that
+project's Site URL to the staging origin, allow only the staging
+`/auth/callback` URL plus intentional local-development callbacks, and add the
+staging origin to the Google Web OAuth client's authorized JavaScript origins.
+Google's authorized redirect URI remains the staging Supabase project's
+`https://<project-ref>.supabase.co/auth/v1/callback`. Keep anonymous sign-ins
+disabled, email signups enabled, JWT and email-link expiry at 3600 seconds, and
+configure non-production SMTP plus the same token-hash email templates used in
+production. The staging backend must receive its own server-only Supabase
+credential and provider credentials; never expose them through `VITE_*`. Keep
+`VENFOUR_ENABLE_LEGACY_ANALYSIS_API` unset in staging and production.
+
 When the Supabase CLI and Docker are available, validate the local database
 from the repository root with:
 

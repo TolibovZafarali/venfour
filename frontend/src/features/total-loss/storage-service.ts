@@ -14,6 +14,7 @@ export interface UploadTotalLossReportInput {
   readonly caseId: string;
   readonly uploadId: string;
   readonly file: File;
+  readonly replaceExisting: boolean;
 }
 
 export type TotalLossReportStorageScope = Pick<
@@ -24,6 +25,7 @@ export type TotalLossReportStorageScope = Pick<
 export interface StoreTotalLossReportBackupInput
   extends TotalLossReportStorageScope {
   readonly backup: Blob;
+  readonly replaceExisting: boolean;
 }
 
 export interface TotalLossReportUpload {
@@ -35,12 +37,8 @@ export interface TotalLossReportStorageService {
   uploadReport(
     input: UploadTotalLossReportInput,
   ): Promise<TotalLossReportUpload>;
-  downloadReport(
-    input: Pick<UploadTotalLossReportInput, "userId" | "caseId">,
-  ): Promise<Blob>;
-  downloadReportBackup(
-    input: Pick<UploadTotalLossReportInput, "userId" | "caseId">,
-  ): Promise<Blob>;
+  downloadReport(input: TotalLossReportStorageScope): Promise<Blob>;
+  downloadReportBackup(input: TotalLossReportStorageScope): Promise<Blob>;
   storeReportBackup(input: StoreTotalLossReportBackupInput): Promise<void>;
   restoreReport(
     input: TotalLossReportStorageScope & {
@@ -95,18 +93,29 @@ export function createTotalLossReportStorageService(
 ): TotalLossReportStorageService {
   const bucket = client.storage.from(CASE_FILES_BUCKET);
 
-  const uploadPdfBlob = async (
+  const writePdfBlob = async (
     path: string,
     body: Blob,
     uploadId: string,
+    replaceExisting: boolean,
     failureMessage: string,
   ) => {
     assertUuid(uploadId, "Upload ID");
-    const { data, error } = await bucket.upload(path, body, {
+    const pdfBody = await body.arrayBuffer();
+    const options = {
+      cacheControl: "0",
       contentType: "application/pdf",
       metadata: { uploadId },
-      upsert: true,
-    });
+    };
+    let response = replaceExisting
+      ? await bucket.update(path, pdfBody, options)
+      : await bucket.upload(path, pdfBody, { ...options, upsert: false });
+
+    if (!replaceExisting && isDuplicateStorageObjectError(response.error)) {
+      response = await bucket.update(path, pdfBody, options);
+    }
+
+    const { data, error } = response;
     if (error) throw error;
     if (!data || data.path !== path) {
       throw new TotalLossReportUploadResponseError(failureMessage);
@@ -114,17 +123,24 @@ export function createTotalLossReportStorageService(
   };
 
   return {
-    async uploadReport({ userId, caseId, uploadId, file }) {
+    async uploadReport({
+      userId,
+      caseId,
+      uploadId,
+      file,
+      replaceExisting,
+    }) {
       const validation = validateTotalLossPdf(file);
       if (!validation.valid) {
         throw new TotalLossReportValidationError(validation.error);
       }
 
       const path = getTotalLossReportObjectPath(userId, caseId);
-      await uploadPdfBlob(
+      await writePdfBlob(
         path,
         file,
         uploadId,
+        replaceExisting,
         "Supabase did not confirm the expected private report path.",
       );
 
@@ -134,9 +150,12 @@ export function createTotalLossReportStorageService(
       };
     },
 
-    async downloadReport({ userId, caseId }) {
+    async downloadReport({ userId, caseId, uploadId }) {
+      assertUuid(uploadId, "Upload ID");
       const path = getTotalLossReportObjectPath(userId, caseId);
-      const { data, error } = await bucket.download(path);
+      const { data, error } = await bucket.download(path, {
+        cacheNonce: uploadId,
+      });
       if (error) throw error;
       if (!data) {
         throw new TotalLossReportUploadResponseError(
@@ -146,9 +165,12 @@ export function createTotalLossReportStorageService(
       return data;
     },
 
-    async downloadReportBackup({ userId, caseId }) {
+    async downloadReportBackup({ userId, caseId, uploadId }) {
+      assertUuid(uploadId, "Upload ID");
       const path = getTotalLossReportBackupObjectPath(userId, caseId);
-      const { data, error } = await bucket.download(path);
+      const { data, error } = await bucket.download(path, {
+        cacheNonce: uploadId,
+      });
       if (error) throw error;
       if (!data) {
         throw new TotalLossReportUploadResponseError(
@@ -158,21 +180,29 @@ export function createTotalLossReportStorageService(
       return data;
     },
 
-    async storeReportBackup({ userId, caseId, uploadId, backup }) {
-      await uploadPdfBlob(
+    async storeReportBackup({
+      userId,
+      caseId,
+      uploadId,
+      backup,
+      replaceExisting,
+    }) {
+      await writePdfBlob(
         getTotalLossReportBackupObjectPath(userId, caseId),
         backup,
         uploadId,
+        replaceExisting,
         "Supabase did not confirm the recoverable report backup.",
       );
     },
 
     async restoreReport({ userId, caseId, uploadId, backup }) {
       const path = getTotalLossReportObjectPath(userId, caseId);
-      await uploadPdfBlob(
+      await writePdfBlob(
         path,
         backup,
         uploadId,
+        true,
         "Supabase did not confirm restoration of the previous private report.",
       );
     },
@@ -189,4 +219,20 @@ export function createTotalLossReportStorageService(
       }
     },
   };
+}
+
+function isDuplicateStorageObjectError(error: unknown) {
+  if (!error || typeof error !== "object") return false;
+
+  const storageError = error as {
+    readonly code?: unknown;
+    readonly status?: unknown;
+    readonly statusCode?: unknown;
+  };
+  return (
+    storageError.status === 409 ||
+    storageError.statusCode === "409" ||
+    storageError.code === "Duplicate" ||
+    storageError.code === "ResourceAlreadyExists"
+  );
 }

@@ -7,6 +7,7 @@ import json
 import os
 import tempfile
 import unittest
+import unittest.mock
 from contextlib import contextmanager
 from pathlib import Path
 from types import SimpleNamespace
@@ -86,7 +87,7 @@ class FakeCaseGateway:
         self.claims: list[tuple[str, str, str]] = []
         self.completions: list[tuple[str, str, str, dict[str, Any]]] = []
         self.failures: list[tuple[str, str, str, bool]] = []
-        self.report_requests: list[tuple[str, str]] = []
+        self.report_requests: list[tuple[str, str, str]] = []
         self.artifacts: dict[tuple[str, str], dict[str, Any] | str] = {}
         self.report_error: Exception | None = None
         self.creation_owner = USER_ID
@@ -170,8 +171,10 @@ class FakeCaseGateway:
         return copy.deepcopy(self.artifacts.get((user_id, run_id)))
 
     @contextmanager
-    def materialize_total_loss_report(self, user_id: str, case_id: str):
-        self.report_requests.append((user_id, case_id))
+    def materialize_total_loss_report(
+        self, user_id: str, case_id: str, cache_nonce: str
+    ):
+        self.report_requests.append((user_id, case_id, cache_nonce))
         if self.report_error is not None:
             raise self.report_error
         with tempfile.TemporaryDirectory() as root:
@@ -237,7 +240,7 @@ class CaseAnalysisServiceTests(unittest.TestCase):
             [(CASE_ID, USER_ID, TOKEN_ID), (CASE_ID, USER_ID, TOKEN_ID)],
         )
         self.assertEqual(
-            gateway.report_requests, [(USER_ID, CASE_ID)]
+            gateway.report_requests, [(USER_ID, CASE_ID, JOB_ID)]
         )
         job_id, token, run_id, artifact = gateway.completions[0]
         self.assertEqual((job_id, token, run_id), (JOB_ID, TOKEN_ID, RUN_ID))

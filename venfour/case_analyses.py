@@ -569,8 +569,10 @@ class CaseAnalysisService:
                 raise AnalysisCreationExecutionError(
                     "Analysis creation service is invalid"
                 )
+            # Each report source reserves a new job ID, so it also provides a
+            # stable cache boundary for the mutable canonical Storage path.
             with self._gateway.materialize_total_loss_report(
-                user_id, case_id
+                user_id, case_id, job_id
             ) as report_path:
                 result = creation_service.create(
                     report_path, normalized_postal_code

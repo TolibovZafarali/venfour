@@ -238,6 +238,7 @@ export function useUploadTotalLossReportMutation({
                 resolvedStorageService.storeReportBackup({
                   ...scope,
                   backup,
+                  replaceExisting: true,
                 }),
               );
             }
@@ -411,6 +412,7 @@ export function useUploadTotalLossReportMutation({
             await resolvedStorageService.storeReportBackup({
               ...scope,
               backup,
+              replaceExisting: false,
             });
             operation.stage = "backup-stored";
             operation.hasBackup = true;
@@ -457,6 +459,7 @@ export function useUploadTotalLossReportMutation({
         upload = await resolvedStorageService.uploadReport({
           ...leaseScope(operation),
           file,
+          replaceExisting: hasExistingReport,
         });
       } catch (uploadError) {
         await rollbackAndCancel(operation);

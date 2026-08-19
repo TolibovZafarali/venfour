@@ -33,6 +33,49 @@ function createTestService() {
   return createTotalLossReportStorageService(client);
 }
 
+interface CapturedStorageWrite {
+  readonly body: string;
+  readonly cacheControl: string | null;
+  readonly metadata: string | null;
+  readonly method: string;
+  readonly type: string;
+  readonly upsert: string | null;
+}
+
+async function captureStorageWrite(
+  request: Request,
+): Promise<CapturedStorageWrite> {
+  const requestContentType = request.headers.get("content-type") ?? "";
+  if (!requestContentType.startsWith("multipart/form-data")) {
+    const encodedMetadata = request.headers.get("x-metadata");
+    return {
+      body: await request.text(),
+      cacheControl:
+        request.headers.get("cache-control")?.replace(/^max-age=/u, "") ??
+        null,
+      metadata: encodedMetadata ? atob(encodedMetadata) : null,
+      method: request.method,
+      type: requestContentType,
+      upsert: request.headers.get("x-upsert"),
+    };
+  }
+
+  const serializedBody = await request.clone().text();
+  const formData = await request.formData();
+  const body = formData.get("");
+  if (!body || typeof body === "string") {
+    throw new Error("Expected a multipart PDF body.");
+  }
+  return {
+    body: serializedBody,
+    cacheControl: formData.get("cacheControl")?.toString() ?? null,
+    metadata: formData.get("metadata")?.toString() ?? null,
+    method: request.method,
+    type: body.type,
+    upsert: request.headers.get("x-upsert"),
+  };
+}
+
 describe("total-loss report storage service", () => {
   it("builds one deterministic ownership-safe object path", () => {
     expect(getTotalLossReportObjectPath(USER_ID, CASE_ID)).toBe(OBJECT_PATH);
@@ -44,17 +87,13 @@ describe("total-loss report storage service", () => {
     );
   });
 
-  it("uploads a PDF privately with application/pdf and replacement enabled", async () => {
-    let requestMethod: string | undefined;
-    let requestBody: string | undefined;
-    let requestUpsert: string | null | undefined;
+  it("creates a private PDF without upsert and sets raw MIME, cache, and metadata headers", async () => {
+    let write: CapturedStorageWrite | undefined;
     server.use(
       http.post(
         `${SUPABASE_URL}/storage/v1/object/case-files/${OBJECT_PATH}`,
         async ({ request }) => {
-          requestMethod = request.method;
-          requestUpsert = request.headers.get("x-upsert");
-          requestBody = await request.text();
+          write = await captureStorageWrite(request);
           return HttpResponse.json({
             Id: "33333333-3333-4333-8333-333333333333",
             Key: `case-files/${OBJECT_PATH}`,
@@ -67,44 +106,124 @@ describe("total-loss report storage service", () => {
       caseId: CASE_ID,
       userId: USER_ID,
       uploadId: UPLOAD_ID,
+      replaceExisting: false,
       file: new File(["%PDF-1.7"], "  valuation   report.pdf  ", {
-        type: "application/pdf",
+        type: "",
       }),
     });
 
-    expect(requestMethod).toBe("POST");
-    expect(requestBody).toContain("Content-Type: application/pdf");
-    expect(requestBody).toContain(UPLOAD_ID);
-    expect(requestUpsert).toBe("true");
+    expect(write).toMatchObject({
+      body: "%PDF-1.7",
+      cacheControl: "0",
+      metadata: JSON.stringify({ uploadId: UPLOAD_ID }),
+      method: "POST",
+      type: "application/pdf",
+      upsert: "false",
+    });
     expect(result).toEqual({
       path: OBJECT_PATH,
       displayFilename: "valuation report.pdf",
     });
   });
 
+  it("replaces the canonical object with Storage update instead of upload upsert", async () => {
+    let write: CapturedStorageWrite | undefined;
+    server.use(
+      http.put(
+        `${SUPABASE_URL}/storage/v1/object/case-files/${OBJECT_PATH}`,
+        async ({ request }) => {
+          write = await captureStorageWrite(request);
+          return HttpResponse.json({
+            Id: "33333333-3333-4333-8333-333333333333",
+            Key: `case-files/${OBJECT_PATH}`,
+          });
+        },
+      ),
+    );
+
+    await createTestService().uploadReport({
+      caseId: CASE_ID,
+      userId: USER_ID,
+      uploadId: UPLOAD_ID,
+      replaceExisting: true,
+      file: new File(["%PDF-1.7 replacement"], "replacement.pdf", {
+        type: "application/pdf",
+      }),
+    });
+
+    expect(write).toMatchObject({
+      body: "%PDF-1.7 replacement",
+      cacheControl: "0",
+      metadata: JSON.stringify({ uploadId: UPLOAD_ID }),
+      method: "PUT",
+      type: "application/pdf",
+      upsert: null,
+    });
+  });
+
+  it("updates a leftover canonical object after a duplicate create response", async () => {
+    const methods: string[] = [];
+    server.use(
+      http.post(
+        `${SUPABASE_URL}/storage/v1/object/case-files/${OBJECT_PATH}`,
+        ({ request }) => {
+          methods.push(request.method);
+          return HttpResponse.json(
+            {
+              error: "Conflict",
+              message: "The resource already exists",
+              statusCode: "409",
+            },
+            { status: 409 },
+          );
+        },
+      ),
+      http.put(
+        `${SUPABASE_URL}/storage/v1/object/case-files/${OBJECT_PATH}`,
+        ({ request }) => {
+          methods.push(request.method);
+          return HttpResponse.json({
+            Id: "33333333-3333-4333-8333-333333333333",
+            Key: `case-files/${OBJECT_PATH}`,
+          });
+        },
+      ),
+    );
+
+    await createTestService().uploadReport({
+      caseId: CASE_ID,
+      userId: USER_ID,
+      uploadId: UPLOAD_ID,
+      replaceExisting: false,
+      file: new File(["%PDF-1.7"], "valuation.pdf", {
+        type: "application/pdf",
+      }),
+    });
+
+    expect(methods).toEqual(["POST", "PUT"]);
+  });
+
   it("stores one reusable backup and restores the canonical object with the lease token", async () => {
-    const uploadedBodies = new Map<string, string>();
-    const uploadedMetadata = new Map<string, string>();
-    let restoredBody: string | undefined;
-    let restoreUpsert: string | null | undefined;
+    let backupWrite: CapturedStorageWrite | undefined;
+    let canonicalDownloadNonce: string | null | undefined;
+    let backupDownloadNonce: string | null | undefined;
+    let restoreWrite: CapturedStorageWrite | undefined;
     server.use(
       http.get(
         `${SUPABASE_URL}/storage/v1/object/case-files/${OBJECT_PATH}`,
-        () =>
-          new HttpResponse("%PDF-1.7 previous", {
+        ({ request }) => {
+          canonicalDownloadNonce = new URL(request.url).searchParams.get(
+            "cacheNonce",
+          );
+          return new HttpResponse("%PDF-1.7 previous", {
             headers: { "content-type": "application/pdf" },
-          }),
+          });
+        },
       ),
       http.post(
         `${SUPABASE_URL}/storage/v1/object/case-files/${BACKUP_PATH}`,
         async ({ request }) => {
-          const body = await request.text();
-          uploadedBodies.set(BACKUP_PATH, body);
-          const encodedMetadata = request.headers.get("x-metadata");
-          uploadedMetadata.set(
-            BACKUP_PATH,
-            encodedMetadata ? atob(encodedMetadata) : body,
-          );
+          backupWrite = await captureStorageWrite(request);
           return HttpResponse.json({
             Id: "44444444-4444-4444-8444-444444444444",
             Key: `case-files/${BACKUP_PATH}`,
@@ -113,21 +232,19 @@ describe("total-loss report storage service", () => {
       ),
       http.get(
         `${SUPABASE_URL}/storage/v1/object/case-files/${BACKUP_PATH}`,
-        () =>
-          new HttpResponse("%PDF-1.7 previous", {
+        ({ request }) => {
+          backupDownloadNonce = new URL(request.url).searchParams.get(
+            "cacheNonce",
+          );
+          return new HttpResponse("%PDF-1.7 previous", {
             headers: { "content-type": "application/pdf" },
-          }),
+          });
+        },
       ),
-      http.post(
+      http.put(
         `${SUPABASE_URL}/storage/v1/object/case-files/${OBJECT_PATH}`,
         async ({ request }) => {
-          restoredBody = await request.text();
-          const encodedMetadata = request.headers.get("x-metadata");
-          uploadedMetadata.set(
-            OBJECT_PATH,
-            encodedMetadata ? atob(encodedMetadata) : restoredBody,
-          );
-          restoreUpsert = request.headers.get("x-upsert");
+          restoreWrite = await captureStorageWrite(request);
           return HttpResponse.json({
             Id: "33333333-3333-4333-8333-333333333333",
             Key: `case-files/${OBJECT_PATH}`,
@@ -140,16 +257,19 @@ describe("total-loss report storage service", () => {
     const backup = await service.downloadReport({
       caseId: CASE_ID,
       userId: USER_ID,
+      uploadId: UPLOAD_ID,
     });
     await service.storeReportBackup({
       caseId: CASE_ID,
       userId: USER_ID,
       uploadId: UPLOAD_ID,
       backup,
+      replaceExisting: false,
     });
     const durableBackup = await service.downloadReportBackup({
       caseId: CASE_ID,
       userId: USER_ID,
+      uploadId: UPLOAD_ID,
     });
     await service.restoreReport({
       caseId: CASE_ID,
@@ -159,11 +279,55 @@ describe("total-loss report storage service", () => {
     });
 
     expect(await backup.text()).toContain("%PDF-1.7 previous");
-    expect(uploadedBodies.get(BACKUP_PATH)).toContain("%PDF-1.7 previous");
-    expect(uploadedMetadata.get(BACKUP_PATH)).toContain(UPLOAD_ID);
-    expect(restoredBody).toContain("%PDF-1.7 previous");
-    expect(uploadedMetadata.get(OBJECT_PATH)).toContain(UPLOAD_ID);
-    expect(restoreUpsert).toBe("true");
+    expect(canonicalDownloadNonce).toBe(UPLOAD_ID);
+    expect(backupDownloadNonce).toBe(UPLOAD_ID);
+    expect(backupWrite).toMatchObject({
+      body: "%PDF-1.7 previous",
+      cacheControl: "0",
+      metadata: JSON.stringify({ uploadId: UPLOAD_ID }),
+      method: "POST",
+      type: "application/pdf",
+      upsert: "false",
+    });
+    expect(restoreWrite).toMatchObject({
+      body: "%PDF-1.7 previous",
+      cacheControl: "0",
+      metadata: JSON.stringify({ uploadId: UPLOAD_ID }),
+      method: "PUT",
+      type: "application/pdf",
+      upsert: null,
+    });
+  });
+
+  it("rebinds an existing recovery backup with Storage update", async () => {
+    let write: CapturedStorageWrite | undefined;
+    server.use(
+      http.put(
+        `${SUPABASE_URL}/storage/v1/object/case-files/${BACKUP_PATH}`,
+        async ({ request }) => {
+          write = await captureStorageWrite(request);
+          return HttpResponse.json({
+            Id: "44444444-4444-4444-8444-444444444444",
+            Key: `case-files/${BACKUP_PATH}`,
+          });
+        },
+      ),
+    );
+
+    await createTestService().storeReportBackup({
+      caseId: CASE_ID,
+      userId: USER_ID,
+      uploadId: UPLOAD_ID,
+      backup: new Blob(["%PDF previous"], { type: "application/pdf" }),
+      replaceExisting: true,
+    });
+
+    expect(write).toMatchObject({
+      body: "%PDF previous",
+      cacheControl: "0",
+      method: "PUT",
+      upsert: null,
+    });
   });
 
   it("deletes only the deterministic reusable backup path", async () => {
@@ -192,6 +356,7 @@ describe("total-loss report storage service", () => {
         caseId: CASE_ID,
         userId: USER_ID,
         uploadId: UPLOAD_ID,
+        replaceExisting: false,
         file: new File(["plain text"], "valuation.txt", {
           type: "text/plain",
         }),

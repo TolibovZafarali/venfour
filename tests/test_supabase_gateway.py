@@ -278,7 +278,9 @@ class SupabaseHttpGatewayTests(unittest.TestCase):
             return httpx.Response(200, content=PDF_BYTES)
 
         gateway, _ = self.gateway(handler)
-        with gateway.materialize_total_loss_report(USER_ID, CASE_ID) as path:
+        with gateway.materialize_total_loss_report(
+            USER_ID, CASE_ID, JOB_ID
+        ) as path:
             self.assertTrue(path.exists())
             self.assertEqual(path.name, "report.pdf")
             self.assertEqual(path.read_bytes(), PDF_BYTES)
@@ -294,6 +296,7 @@ class SupabaseHttpGatewayTests(unittest.TestCase):
                 f"{USER_ID}/{CASE_ID}/valuation-report.pdf"
             ),
         )
+        self.assertEqual(request.url.params["cacheNonce"], JOB_ID)
         self.assertEqual(request.headers["apikey"], "service-role-test-key")
 
     def test_report_download_maps_missing_invalid_and_oversized_bytes(self) -> None:
@@ -322,7 +325,9 @@ class SupabaseHttpGatewayTests(unittest.TestCase):
                     )
                 )
                 with limit, self.assertRaises(expected):
-                    with gateway.materialize_total_loss_report(USER_ID, CASE_ID):
+                    with gateway.materialize_total_loss_report(
+                        USER_ID, CASE_ID, JOB_ID
+                    ):
                         pass
 
     def test_report_size_limit_allows_the_exact_boundary(self) -> None:
@@ -332,7 +337,9 @@ class SupabaseHttpGatewayTests(unittest.TestCase):
         with patch(
             "venfour.supabase_gateway.MAX_PDF_BYTES", len(PDF_BYTES)
         ):
-            with gateway.materialize_total_loss_report(USER_ID, CASE_ID) as path:
+            with gateway.materialize_total_loss_report(
+                USER_ID, CASE_ID, JOB_ID
+            ) as path:
                 self.assertEqual(path.stat().st_size, len(PDF_BYTES))
 
 

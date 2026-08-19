@@ -654,6 +654,14 @@ select is(
 );
 
 reset role;
+
+create temporary table replacement_claim (
+  outcome text not null,
+  run_id uuid not null
+);
+
+grant insert, select on table pg_temp.replacement_claim to service_role;
+
 set local role service_role;
 
 select results_eq(
@@ -669,20 +677,22 @@ select results_eq(
   'claim reuses the completed current-source job and stable run ID'
 );
 
+insert into pg_temp.replacement_claim (outcome, run_id)
+select outcome::text, run_id
+from public.claim_total_loss_analysis(
+  '40000000-0000-4000-8000-000000000010',
+  '41111111-1111-4111-8111-111111111111',
+  'bbbbbbbb-2000-4000-8000-000000000020'
+);
+
 select results_eq(
   $$
-    select outcome::text, run_id
-    from public.claim_total_loss_analysis(
-      '40000000-0000-4000-8000-000000000010',
-      '41111111-1111-4111-8111-111111111111',
-      'bbbbbbbb-2000-4000-8000-000000000020'
-    )
+    select replacement.outcome, replacement.run_id = analysis_job.run_id
+    from pg_temp.replacement_claim as replacement
+    join public.total_loss_analysis_jobs as analysis_job
+      on analysis_job.case_id = '40000000-0000-4000-8000-000000000010'
   $$,
-  $$
-    select 'claimed'::text, analysis_job.run_id
-    from public.total_loss_analysis_jobs as analysis_job
-    where analysis_job.case_id = '40000000-0000-4000-8000-000000000010'
-  $$,
+  $$values ('claimed'::text, true)$$,
   'a second valid case can be claimed for replacement-source coverage'
 );
 
