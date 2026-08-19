@@ -1,11 +1,8 @@
-import {
-  AlertCircle,
-  CloudOff,
-  RefreshCw,
-} from "lucide-react";
+import { AlertCircle, CloudOff, RefreshCw } from "lucide-react";
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -69,9 +66,7 @@ import {
   validateTotalLossManualForm,
   validateTotalLossPdf,
 } from "@/features/total-loss/validation";
-import {
-  VehicleLookupError,
-} from "@/features/total-loss/vehicle-lookup-service";
+import { VehicleLookupError } from "@/features/total-loss/vehicle-lookup-service";
 
 const AUTOSAVE_DELAY_MS = 600;
 const UUID_PATTERN =
@@ -79,14 +74,18 @@ const UUID_PATTERN =
 const defaultVehicleLookupService = createNhtsaVpicVehicleLookupService();
 
 const unavailableCaseService: AppraisalCaseService = {
-  createAppraisalCase: () => Promise.reject(new Error("Case storage is unavailable.")),
+  createAppraisalCase: () =>
+    Promise.reject(new Error("Case storage is unavailable.")),
   createOrGetAppraisalCase: () =>
     Promise.reject(new Error("Case storage is unavailable.")),
-  listAppraisalCases: () => Promise.reject(new Error("Case storage is unavailable.")),
+  listAppraisalCases: () =>
+    Promise.reject(new Error("Case storage is unavailable.")),
   getRecentDraftAppraisalCase: () =>
     Promise.reject(new Error("Case storage is unavailable.")),
-  getAppraisalCase: () => Promise.reject(new Error("Case storage is unavailable.")),
-  touchAppraisalCase: () => Promise.reject(new Error("Case storage is unavailable.")),
+  getAppraisalCase: () =>
+    Promise.reject(new Error("Case storage is unavailable.")),
+  touchAppraisalCase: () =>
+    Promise.reject(new Error("Case storage is unavailable.")),
 };
 
 interface SaveSnapshot {
@@ -111,6 +110,9 @@ export function TotalLossStartPage() {
   const dependencies = useTotalLossDependencies();
   const [initialDraft] = useState(loadInitialDraft);
   const [draft, setDraft] = useState(initialDraft.draft);
+  const [stepTransitionDirection, setStepTransitionDirection] = useState<
+    "forward" | "backward"
+  >("forward");
   const draftRef = useRef(draft);
   const [vehicleEntryMethod, setVehicleEntryMethod] =
     useState<VehicleEntryMethod>(() =>
@@ -133,8 +135,9 @@ export function TotalLossStartPage() {
   >("idle");
   const [vinLookupMessage, setVinLookupMessage] = useState<string | null>(null);
   const [storageError, setStorageError] = useState(initialDraft.storageError);
-  const [manualErrors, setManualErrors] =
-    useState<TotalLossManualFormErrors>({});
+  const [manualErrors, setManualErrors] = useState<TotalLossManualFormErrors>(
+    {},
+  );
   const [flowError, setFlowError] = useState<string | null>(null);
   const [saveState, setSaveState] = useState<
     "idle" | "saving" | "saved" | "error"
@@ -151,11 +154,14 @@ export function TotalLossStartPage() {
     "idle" | "uploading" | "success" | "error"
   >("idle");
   const [uploadError, setUploadError] = useState<string | null>(null);
-  const [explicitCaseError, setExplicitCaseError] = useState<string | null>(null);
+  const [explicitCaseError, setExplicitCaseError] = useState<string | null>(
+    null,
+  );
 
   const userId = auth.status === "signedIn" ? auth.user.id : null;
   const identityRef = useRef({ generation: 0, userId });
-  const caseService = dependencies?.appraisalCaseService ?? unavailableCaseService;
+  const caseService =
+    dependencies?.appraisalCaseService ?? unavailableCaseService;
   const detailsService = dependencies?.totalLossDetailsService ?? null;
   const storageService = dependencies?.totalLossReportStorageService ?? null;
   const vehicleLookupService =
@@ -194,6 +200,13 @@ export function TotalLossStartPage() {
             : current.revision + 1,
         lastUpdatedAt: new Date().toISOString(),
       };
+      if (next.step !== current.step) {
+        setStepTransitionDirection(
+          intakeStepPosition(next.step) < intakeStepPosition(current.step)
+            ? "backward"
+            : "forward",
+        );
+      }
       draftRef.current = next;
       setDraft(next);
       const result = writeTotalLossDraft(next);
@@ -332,13 +345,7 @@ export function TotalLossStartPage() {
         caseCreationPromiseRef.current = null;
       }
     }
-  }, [
-    applyDraft,
-    clearStaleUserCache,
-    createOrGetCase,
-    dependencies,
-    userId,
-  ]);
+  }, [applyDraft, clearStaleUserCache, createOrGetCase, dependencies, userId]);
 
   const persistSnapshot = useCallback(
     async (snapshot: SaveSnapshot) => {
@@ -400,7 +407,9 @@ export function TotalLossStartPage() {
           setConflict(error.currentDetails);
           setConflictWithoutRow(error.currentDetails === null);
         } else {
-          setFlowError(errorMessage(error, "We couldn’t save your information."));
+          setFlowError(
+            errorMessage(error, "We couldn’t save your information."),
+          );
         }
         throw error;
       }
@@ -424,11 +433,13 @@ export function TotalLossStartPage() {
       };
       const loop = run();
       saveLoopRef.current = loop;
-      void loop.finally(() => {
-        if (saveLoopRef.current === loop) {
-          saveLoopRef.current = null;
-        }
-      }).catch(() => undefined);
+      void loop
+        .finally(() => {
+          if (saveLoopRef.current === loop) {
+            saveLoopRef.current = null;
+          }
+        })
+        .catch(() => undefined);
       return loop;
     },
     [persistSnapshot],
@@ -553,7 +564,8 @@ export function TotalLossStartPage() {
   }, [activeVehicleEntryMethod, draft.step, loadMakes, makesState]);
 
   useEffect(() => {
-    if (draft.step !== "vehicle" || activeVehicleEntryMethod !== "details") return;
+    if (draft.step !== "vehicle" || activeVehicleEntryMethod !== "details")
+      return;
     const year = Number(draft.manual.vehicleYear);
     const make = draft.manual.make.trim();
     if (!Number.isSafeInteger(year) || !make) {
@@ -669,7 +681,13 @@ export function TotalLossStartPage() {
       pendingAuthAction: null,
       dirty: value.mode !== null,
     }));
-  }, [applyDraft, confirmedCaseId, detailsQuery.data, detailsQuery.isSuccess, userId]);
+  }, [
+    applyDraft,
+    confirmedCaseId,
+    detailsQuery.data,
+    detailsQuery.isSuccess,
+    userId,
+  ]);
 
   useEffect(() => {
     if (
@@ -749,7 +767,14 @@ export function TotalLossStartPage() {
       if (error instanceof StaleIdentityOperationError) return;
       setFlowError(errorMessage(error, "We couldn’t prepare your appraisal."));
     });
-  }, [dependencies, draft.revision, ensureCase, explicitCaseId, recentCaseQuery.data?.id, userId]);
+  }, [
+    dependencies,
+    draft.revision,
+    ensureCase,
+    explicitCaseId,
+    recentCaseQuery.data?.id,
+    userId,
+  ]);
 
   useEffect(() => {
     const current = draftRef.current;
@@ -785,10 +810,9 @@ export function TotalLossStartPage() {
     void continueAfterAuth().catch((error: unknown) => {
       pendingAuthRef.current = null;
       if (error instanceof StaleIdentityOperationError) return;
-      applyDraft(
-        (value) => ({ ...value, pendingAuthAction: null }),
-        { bumpRevision: false },
-      );
+      applyDraft((value) => ({ ...value, pendingAuthAction: null }), {
+        bumpRevision: false,
+      });
       setFlowError(
         errorMessage(error, "We couldn’t continue after sign-in. Try again."),
       );
@@ -841,48 +865,49 @@ export function TotalLossStartPage() {
     userId,
   ]);
 
-  const candidate =
-    recentCandidateVisible(draft, recentCaseQuery.data?.id, explicitCaseId)
-      ? recentCaseQuery.data ?? null
-      : null;
+  const candidate = recentCandidateVisible(
+    draft,
+    recentCaseQuery.data?.id,
+    explicitCaseId,
+  )
+    ? (recentCaseQuery.data ?? null)
+    : null;
   const candidateDetails =
     candidate?.id === recentDetailsQuery.data?.caseId
-      ? recentDetailsQuery.data ?? null
+      ? (recentDetailsQuery.data ?? null)
       : null;
   const renderedStepKey: TotalLossDraft["step"] | "resume" = candidate
     ? "resume"
     : draft.step;
   const explicitCasePending = Boolean(
     explicitCaseId &&
-      !invalidExplicitCaseId &&
-      userId &&
-      dependencies &&
-      confirmedCaseId !== explicitCaseId &&
-      !explicitCaseError,
+    !invalidExplicitCaseId &&
+    userId &&
+    dependencies &&
+    confirmedCaseId !== explicitCaseId &&
+    !explicitCaseError,
   );
   const explicitCaseBlocked = Boolean(
     explicitCaseId && (invalidExplicitCaseId || explicitCaseError),
   );
   const readyStateVerified = Boolean(
     draft.step === "ready" &&
-      confirmedCaseId &&
-      detailsQuery.data?.caseId === confirmedCaseId &&
-      detailsQuery.data.intakeCompletedAt,
+    confirmedCaseId &&
+    detailsQuery.data?.caseId === confirmedCaseId &&
+    detailsQuery.data.intakeCompletedAt,
   );
   const readyStateLoadError = Boolean(
     draft.step === "ready" &&
-      !readyStateVerified &&
-      auth.status !== "loading" &&
-      (!userId || !confirmedCaseId || !detailsService || detailsQuery.isError),
+    !readyStateVerified &&
+    auth.status !== "loading" &&
+    (!userId || !confirmedCaseId || !detailsService || detailsQuery.isError),
   );
   const readyStateVerificationPending = Boolean(
-    draft.step === "ready" &&
-      !readyStateVerified &&
-      !readyStateLoadError,
+    draft.step === "ready" && !readyStateVerified && !readyStateLoadError,
   );
   const draftIdentityUnverified = Boolean(
     draft.ownerUserId &&
-      (auth.status === "loading" || draft.ownerUserId !== userId),
+    (auth.status === "loading" || draft.ownerUserId !== userId),
   );
   const busy =
     modeBusy ||
@@ -1099,7 +1124,9 @@ export function TotalLossStartPage() {
       await completeManualIntake();
     } catch (error) {
       if (error instanceof StaleIdentityOperationError) return;
-      setFlowError(errorMessage(error, "We couldn’t finish saving your intake."));
+      setFlowError(
+        errorMessage(error, "We couldn’t finish saving your intake."),
+      );
     }
   };
 
@@ -1177,7 +1204,9 @@ export function TotalLossStartPage() {
         setConflict(error.currentDetails);
         setConflictWithoutRow(error.currentDetails === null);
       }
-      setUploadError(errorMessage(error, "The report could not be saved. Try again."));
+      setUploadError(
+        errorMessage(error, "The report could not be saved. Try again."),
+      );
     }
   };
 
@@ -1197,7 +1226,9 @@ export function TotalLossStartPage() {
       );
     } catch (error) {
       if (error instanceof StaleIdentityOperationError) return;
-      setFlowError(errorMessage(error, "We couldn’t finish saving your intake."));
+      setFlowError(
+        errorMessage(error, "We couldn’t finish saving your intake."),
+      );
     }
   };
 
@@ -1233,7 +1264,9 @@ export function TotalLossStartPage() {
         reservedCaseId: candidate.id,
         ownerUserId: userId,
         mode: details?.intakeMode ?? null,
-        manual: details ? totalLossDetailsToManualForm(details) : current.manual,
+        manual: details
+          ? totalLossDetailsToManualForm(details)
+          : current.manual,
         step: details ? stepForDetails(details, "choice") : "choice",
         pendingAuthAction: null,
         dirty: false,
@@ -1246,7 +1279,9 @@ export function TotalLossStartPage() {
       ) {
         return;
       }
-      setFlowError(errorMessage(error, "We couldn’t open the saved appraisal."));
+      setFlowError(
+        errorMessage(error, "We couldn’t open the saved appraisal."),
+      );
     } finally {
       if (
         identityRef.current.generation === identityGeneration &&
@@ -1452,65 +1487,124 @@ export function TotalLossStartPage() {
           data-total-loss-flow
         >
           {storageError ? (
-          <Notice
-            icon={<CloudOff className="size-5" aria-hidden />}
-            title="Browser draft storage is unavailable"
-            message="Keep this page open. Venfour will not start navigation-based sign-in until your draft can be saved durably."
-          />
-        ) : null}
-        {explicitCaseId && !userId && auth.status !== "loading" ? (
-          <Notice
-            title="Sign in to continue this saved appraisal"
-            message="We need to confirm that the referenced total-loss draft belongs to your account."
-            actionLabel="Sign in"
-            onAction={() => openSignIn({ returnTo, intent: "continue-total-loss" })}
-          />
-        ) : null}
-        {invalidExplicitCaseId || explicitCaseError ? (
-          <Notice
-            title="Saved appraisal unavailable"
-            message={
-              invalidExplicitCaseId
-                ? "This saved-appraisal link is not valid."
-                : explicitCaseError ?? "The saved appraisal is unavailable."
-            }
-          />
-        ) : null}
-        {recentCaseQuery.isError && !hasMeaningfulLocalDraft(draft) ? (
-          <Notice
-            title="Saved appraisal lookup unavailable"
-            message="You can still start here. We’ll try the saved-appraisal lookup again later."
-          />
-        ) : null}
-        {conflict || conflictWithoutRow ? (
-          <ConflictNotice
-            hasServerVersion={Boolean(conflict)}
-            onUseSaved={handleUseSavedConflict}
-            onKeepLocal={handleKeepLocalConflict}
-          />
-        ) : null}
+            <Notice
+              icon={<CloudOff className="size-5" aria-hidden />}
+              title="Browser draft storage is unavailable"
+              message="Keep this page open. Venfour will not start navigation-based sign-in until your draft can be saved durably."
+            />
+          ) : null}
+          {explicitCaseId && !userId && auth.status !== "loading" ? (
+            <Notice
+              title="Sign in to continue this saved appraisal"
+              message="We need to confirm that the referenced total-loss draft belongs to your account."
+              actionLabel="Sign in"
+              onAction={() =>
+                openSignIn({ returnTo, intent: "continue-total-loss" })
+              }
+            />
+          ) : null}
+          {invalidExplicitCaseId || explicitCaseError ? (
+            <Notice
+              title="Saved appraisal unavailable"
+              message={
+                invalidExplicitCaseId
+                  ? "This saved-appraisal link is not valid."
+                  : (explicitCaseError ?? "The saved appraisal is unavailable.")
+              }
+            />
+          ) : null}
+          {recentCaseQuery.isError && !hasMeaningfulLocalDraft(draft) ? (
+            <Notice
+              title="Saved appraisal lookup unavailable"
+              message="You can still start here. We’ll try the saved-appraisal lookup again later."
+            />
+          ) : null}
+          {conflict || conflictWithoutRow ? (
+            <ConflictNotice
+              hasServerVersion={Boolean(conflict)}
+              onUseSaved={handleUseSavedConflict}
+              onKeepLocal={handleKeepLocalConflict}
+            />
+          ) : null}
 
-        {explicitCaseBlocked ? (
-          <UnavailableCaseCard />
-        ) : explicitCasePending ||
-          draftIdentityUnverified ||
-          readyStateVerificationPending ||
-        (detailsQuery.isLoading && confirmedCaseId && !draft.dirty) ? (
-          <LoadingCard />
-        ) : readyStateLoadError ? (
-          <SavedDetailsLoadErrorCard
-            onRetry={() => void detailsQuery.refetch()}
-          />
+          {explicitCaseBlocked ? (
+            <UnavailableCaseCard />
+          ) : explicitCasePending ||
+            draftIdentityUnverified ||
+            readyStateVerificationPending ||
+            (detailsQuery.isLoading && confirmedCaseId && !draft.dirty) ? (
+            <LoadingCard />
+          ) : readyStateLoadError ? (
+            <SavedDetailsLoadErrorCard
+              onRetry={() => void detailsQuery.refetch()}
+            />
           ) : (
-            <div
-              key={renderedStepKey}
-              className="intake-step-forward"
-              data-intake-transition="forward"
+            <IntakeStepTransition
+              transitionKey={renderedStepKey}
+              direction={stepTransitionDirection}
             >
               {renderStep()}
-            </div>
+            </IntakeStepTransition>
           )}
         </div>
+      </div>
+    </div>
+  );
+}
+
+function IntakeStepTransition({
+  children,
+  direction,
+  transitionKey,
+}: {
+  children: React.ReactNode;
+  direction: "forward" | "backward";
+  transitionKey: TotalLossDraft["step"] | "resume";
+}) {
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [measuredHeight, setMeasuredHeight] = useState<number | null>(null);
+
+  const measure = useCallback(() => {
+    const content = contentRef.current;
+    if (!content) return;
+    const nextHeight = content.scrollHeight;
+    if (nextHeight > 0) {
+      setMeasuredHeight((current) =>
+        current === nextHeight ? current : nextHeight,
+      );
+    }
+  }, []);
+
+  useLayoutEffect(() => {
+    const frame = window.requestAnimationFrame(measure);
+    return () => window.cancelAnimationFrame(frame);
+  }, [measure, transitionKey]);
+
+  useEffect(() => {
+    const content = contentRef.current;
+    if (!content || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(content);
+    return () => observer.disconnect();
+  }, [measure, transitionKey]);
+
+  return (
+    <div
+      className="transition-[height] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none"
+      style={measuredHeight === null ? undefined : { height: measuredHeight }}
+      data-intake-transition-shell
+    >
+      <div
+        ref={contentRef}
+        key={transitionKey}
+        className={
+          direction === "forward"
+            ? "intake-step-forward"
+            : "intake-step-backward"
+        }
+        data-intake-transition={direction}
+      >
+        {children}
       </div>
     </div>
   );
@@ -1567,10 +1661,10 @@ function hasMeaningfulManualDraft(draft: TotalLossDraft) {
 function hasMeaningfulLocalDraft(draft: TotalLossDraft) {
   return Boolean(
     draft.mode ||
-      draft.confirmedCaseId ||
-      draft.reservedCaseId ||
-      draft.pendingAuthAction ||
-      hasMeaningfulManualDraft(draft),
+    draft.confirmedCaseId ||
+    draft.reservedCaseId ||
+    draft.pendingAuthAction ||
+    hasMeaningfulManualDraft(draft),
   );
 }
 
@@ -1581,9 +1675,9 @@ function recentCandidateVisible(
 ) {
   return Boolean(
     candidateId &&
-      !explicitCaseId &&
-      !hasMeaningfulLocalDraft(draft) &&
-      draft.dismissedResumeCaseId !== candidateId,
+    !explicitCaseId &&
+    !hasMeaningfulLocalDraft(draft) &&
+    draft.dismissedResumeCaseId !== candidateId,
   );
 }
 
@@ -1620,7 +1714,10 @@ function focusFirstManualError(errors: TotalLossManualFormErrors) {
     (field) => errors[field as keyof TotalLossManualFormValues],
   ) as keyof TotalLossManualFormValues | undefined;
   if (!firstField) return;
-  window.setTimeout(() => document.getElementById(fieldIds[firstField])?.focus(), 0);
+  window.setTimeout(
+    () => document.getElementById(fieldIds[firstField])?.focus(),
+    0,
+  );
 }
 
 function firstManualErrorStep(
@@ -1673,6 +1770,22 @@ function vehicleEntryMethodForValues(
       : fallback;
 }
 
+function intakeStepPosition(step: TotalLossDraft["step"] | "resume") {
+  switch (step) {
+    case "vehicle":
+    case "report":
+      return 1;
+    case "claim":
+      return 2;
+    case "ready":
+      return 3;
+    case "resume":
+    case "choice":
+    default:
+      return 0;
+  }
+}
+
 function Notice({
   icon,
   title,
@@ -1687,7 +1800,10 @@ function Notice({
   onAction?: () => void;
 }) {
   return (
-    <div className="mb-5 flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-amber-950" role="status">
+    <div
+      className="mb-5 flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-amber-950"
+      role="status"
+    >
       <span className="mt-0.5 shrink-0">
         {icon ?? <AlertCircle className="size-5" aria-hidden />}
       </span>
@@ -1718,9 +1834,15 @@ function ConflictNotice({
   onKeepLocal: () => void;
 }) {
   return (
-    <div className="mb-5 rounded-xl border border-red-200 bg-red-50 p-4" role="alert">
+    <div
+      className="mb-5 rounded-xl border border-red-200 bg-red-50 p-4"
+      role="alert"
+    >
       <div className="flex items-start gap-3">
-        <AlertCircle className="mt-0.5 size-5 shrink-0 text-red-700" aria-hidden />
+        <AlertCircle
+          className="mt-0.5 size-5 shrink-0 text-red-700"
+          aria-hidden
+        />
         <div>
           <p className="text-sm font-semibold text-red-950">
             This appraisal changed in another session
@@ -1760,7 +1882,10 @@ function LoadingCard() {
       className="rounded-2xl border border-line bg-white p-8 text-center shadow-[0_22px_64px_-48px_rgba(11,31,51,0.42)]"
       aria-busy="true"
     >
-      <RefreshCw className="mx-auto size-6 animate-spin text-brand motion-reduce:animate-none" aria-hidden />
+      <RefreshCw
+        className="mx-auto size-6 animate-spin text-brand motion-reduce:animate-none"
+        aria-hidden
+      />
       <p className="mt-3 text-sm font-semibold text-ink" role="status">
         Loading your saved appraisal…
       </p>

@@ -1,15 +1,7 @@
-import {
-  CalendarDays,
-  ChevronLeft,
-  ChevronRight,
-} from "lucide-react";
+import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
 import { Popover } from "radix-ui";
 import { useMemo, useState } from "react";
-import type {
-  ChangeEventHandler,
-  ReactNode,
-  Ref,
-} from "react";
+import type { ChangeEventHandler, ReactNode, Ref } from "react";
 
 import { cn } from "@/lib/utils";
 
@@ -116,7 +108,11 @@ export function IntakeSelectField({
         />
       </div>
       {error ? (
-        <p id={errorId} className="mt-1.5 text-sm leading-5 text-red-700" role="alert">
+        <p
+          id={errorId}
+          className="mt-1.5 text-sm leading-5 text-red-700"
+          role="alert"
+        >
           {error}
         </p>
       ) : null}
@@ -280,7 +276,11 @@ export function IntakeDatePicker({
                 <ChevronRight className="size-4" aria-hidden />
               </button>
             </div>
-            <div className="mt-4 grid grid-cols-7 gap-1" role="grid" aria-label="Choose date of loss">
+            <div
+              className="mt-4 grid grid-cols-7 gap-1"
+              role="grid"
+              aria-label="Choose date of loss"
+            >
               {weekdayNames.map((weekday) => (
                 <span
                   key={weekday}
@@ -323,7 +323,11 @@ export function IntakeDatePicker({
         </Popover.Portal>
       </Popover.Root>
       {error ? (
-        <p id={errorId} className="mt-1.5 text-sm leading-5 text-red-700" role="alert">
+        <p
+          id={errorId}
+          className="mt-1.5 text-sm leading-5 text-red-700"
+          role="alert"
+        >
           {error}
         </p>
       ) : null}
@@ -358,9 +362,7 @@ export function IntakeTextField({
         <label htmlFor={id} className="text-sm font-semibold text-ink">
           {label}
         </label>
-        {optional ? (
-          <span className="text-xs text-copy">Optional</span>
-        ) : null}
+        {optional ? <span className="text-xs text-copy">Optional</span> : null}
       </div>
       {help ? (
         <p id={helpId} className="mt-1 text-xs leading-5 text-copy">
@@ -385,7 +387,11 @@ export function IntakeTextField({
         onBlur={onBlur}
       />
       {error ? (
-        <p id={errorId} className="mt-1.5 text-sm leading-5 text-red-700" role="alert">
+        <p
+          id={errorId}
+          className="mt-1.5 text-sm leading-5 text-red-700"
+          role="alert"
+        >
           {error}
         </p>
       ) : null}
@@ -421,36 +427,57 @@ interface IntakeProgressProps {
 
 export function IntakeProgress({ current, total, label }: IntakeProgressProps) {
   const resolvedTotal = total ?? 3;
+  const stepLabels =
+    resolvedTotal === 2 ? ["Start", "Report"] : ["Start", "Vehicle", "Claim"];
 
   return (
     <div aria-label="Appraisal progress">
-      <div className="flex items-center justify-between gap-4 text-xs font-semibold tracking-[0.08em] text-copy uppercase">
-        <span>{label}</span>
-        <span className="tabular-nums">
-          Step {current} of {resolvedTotal}
-        </span>
-      </div>
       <ol
-        className="mt-3 grid h-2 grid-flow-col auto-cols-fr gap-1 overflow-hidden rounded-full bg-line p-0.5"
-        aria-label={`Step ${current} of ${resolvedTotal}`}
+        className="grid grid-flow-col auto-cols-fr gap-2"
+        aria-label="Appraisal steps"
       >
         {Array.from({ length: resolvedTotal }, (_, index) => {
           const step = index + 1;
+          const romanStep = toRomanNumeral(step);
+          const completed = step < current;
+          const active = step === current;
           return (
             <li
               key={step}
               className={cn(
-                "rounded-full bg-white/70 transition-colors duration-300 motion-reduce:transition-none",
-                step <= current && "bg-brand",
+                "flex min-w-0 items-center justify-center gap-2 rounded-xl border px-2 py-2 text-copy transition-[background-color,border-color,box-shadow,color,transform] duration-300 motion-reduce:transition-none sm:px-3",
+                completed && "border-brand bg-brand text-white",
+                active &&
+                  "border-brand/30 bg-white text-brand shadow-[0_8px_24px_-18px_rgba(21,94,239,0.8)]",
+                step > current && "border-line bg-surface/75",
               )}
-              aria-current={step === current ? "step" : undefined}
-              aria-label={`Step ${step}${step < current ? ", completed" : step === current ? ", current" : ""}`}
-            />
+              aria-current={active ? "step" : undefined}
+              aria-label={`${stepLabels[index] ?? label}, step ${romanStep}${completed ? ", completed" : active ? ", current" : ""}`}
+            >
+              <span
+                className={cn(
+                  "inline-flex min-w-4 shrink-0 items-center justify-center text-xs font-bold tracking-[0.08em]",
+                  completed && "text-white",
+                  active && "text-brand",
+                  step > current && "text-copy",
+                )}
+                aria-hidden
+              >
+                {romanStep}
+              </span>
+              <span className="truncate text-xs font-semibold">
+                {stepLabels[index] ?? label}
+              </span>
+            </li>
           );
         })}
       </ol>
     </div>
   );
+}
+
+function toRomanNumeral(value: number) {
+  return ["I", "II", "III"][value - 1] ?? String(value);
 }
 
 function startOfLocalDay(date: Date) {
@@ -476,8 +503,9 @@ function daysForCalendarMonth(visibleMonth: Date) {
   const dayCount = new Date(year, month + 1, 0).getDate();
   return [
     ...Array<null>(firstWeekday).fill(null),
-    ...Array.from({ length: dayCount }, (_, index) =>
-      new Date(year, month, index + 1),
+    ...Array.from(
+      { length: dayCount },
+      (_, index) => new Date(year, month, index + 1),
     ),
   ];
 }
@@ -507,10 +535,10 @@ function toIsoDate(date: Date) {
 function sameLocalDate(left: Date | null, right: Date | null) {
   return Boolean(
     left &&
-      right &&
-      left.getFullYear() === right.getFullYear() &&
-      left.getMonth() === right.getMonth() &&
-      left.getDate() === right.getDate(),
+    right &&
+    left.getFullYear() === right.getFullYear() &&
+    left.getMonth() === right.getMonth() &&
+    left.getDate() === right.getDate(),
   );
 }
 

@@ -2,11 +2,13 @@ import {
   AlertCircle,
   ArrowLeft,
   ArrowRight,
+  CarFront,
   CheckCircle2,
   FileText,
   LoaderCircle,
   PenLine,
   RefreshCw,
+  ScanLine,
   ShieldCheck,
   Upload,
 } from "lucide-react";
@@ -68,7 +70,11 @@ export function ChoiceStep({
 }: ChoiceStepProps) {
   return (
     <FlowCard busy={busy}>
-      <IntakeProgress current={1} label="Choose how to start" />
+      <IntakeProgress
+        current={1}
+        total={selectedMode === "report" ? 2 : 3}
+        label="Start"
+      />
       <fieldset className="mt-7">
         <legend className="text-2xl font-semibold tracking-[-0.03em] text-ink sm:text-3xl">
           Do you have your insurance valuation report?
@@ -129,7 +135,10 @@ export function ChoiceStep({
           onClick={onContinue}
         >
           {busy ? (
-            <LoaderCircle className="size-4 animate-spin motion-reduce:animate-none" aria-hidden />
+            <LoaderCircle
+              className="size-4 animate-spin motion-reduce:animate-none"
+              aria-hidden
+            />
           ) : null}
           Continue
           {!busy ? <ArrowRight className="size-4" aria-hidden /> : null}
@@ -168,8 +177,7 @@ interface VehicleStepProps extends ManualStepProps {
 
 const vehicleYearOptions = Array.from(
   {
-    length:
-      getMaximumTotalLossVehicleYear() - MIN_TOTAL_LOSS_VEHICLE_YEAR + 1,
+    length: getMaximumTotalLossVehicleYear() - MIN_TOTAL_LOSS_VEHICLE_YEAR + 1,
   },
   (_, index) => String(getMaximumTotalLossVehicleYear() - index),
 );
@@ -207,28 +215,22 @@ export function VehicleStep({
           How would you like to identify your vehicle?
         </legend>
         <div
-          className="relative mt-3 grid grid-cols-2 gap-1 rounded-xl bg-surface p-1"
+          className="mt-3 grid grid-cols-2 gap-1.5 rounded-xl bg-surface p-1.5"
           data-vehicle-method-switch
         >
-          <span
-            className={cn(
-              "pointer-events-none absolute inset-y-1 left-1 w-[calc(50%-0.375rem)] rounded-lg bg-white shadow-sm transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
-              entryMethod === "details" &&
-                "translate-x-[calc(100%+0.25rem)]",
-            )}
-            aria-hidden
-          />
-          {([
-            ["vin", "Use my VIN"],
-            ["details", "Select vehicle details"],
-          ] as const).map(([method, label]) => (
+          {(
+            [
+              ["vin", "Use my VIN", ScanLine],
+              ["details", "Select vehicle details", CarFront],
+            ] as const
+          ).map(([method, label, Icon]) => (
             <label
               key={method}
               className={cn(
-                "relative z-10 flex min-h-11 cursor-pointer items-center justify-center rounded-lg px-2 text-center text-sm font-semibold transition-colors duration-300 focus-within:ring-2 focus-within:ring-brand focus-within:ring-offset-1 motion-reduce:transition-none sm:px-3",
+                "flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-lg border px-2 text-center text-sm font-semibold transition-[background-color,border-color,box-shadow,color,transform] duration-300 ease-out focus-within:ring-2 focus-within:ring-brand focus-within:ring-offset-1 active:scale-[0.99] motion-reduce:transition-none sm:px-3",
                 entryMethod === method
-                  ? "text-brand"
-                  : "text-copy hover:text-ink",
+                  ? "border-brand/25 bg-white text-brand shadow-[0_8px_22px_-18px_rgba(21,94,239,0.9)]"
+                  : "border-transparent text-copy hover:border-line hover:bg-white/60 hover:text-ink",
               )}
             >
               <input
@@ -240,145 +242,121 @@ export function VehicleStep({
                 disabled={fieldsDisabled || busy}
                 onChange={() => onEntryMethodChange(method)}
               />
+              <Icon className="size-4 shrink-0" aria-hidden />
               {label}
             </label>
           ))}
         </div>
       </fieldset>
 
-      <div className="mt-5">
-        <div
-          className={cn(
-            "grid transition-[grid-template-rows,opacity,transform] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
-            entryMethod === "vin"
-              ? "grid-rows-[1fr] translate-y-0 opacity-100"
-              : "pointer-events-none grid-rows-[0fr] -translate-y-1 opacity-0",
-          )}
-          data-vehicle-method-panel="vin"
-          data-active={entryMethod === "vin"}
-          aria-hidden={entryMethod !== "vin"}
-          inert={entryMethod !== "vin"}
-        >
-          <div className="min-h-0 overflow-hidden">
-            <div className="grid gap-5 sm:grid-cols-2">
-              <div className="sm:col-span-2">
-                <IntakeTextField
-                  id="total-loss-vin"
-                  label="VIN"
-                  value={values.vin}
-                  error={errors.vin}
-                  help="Enter the 17-character VIN. We’ll use NHTSA vehicle data to identify it."
-                  autoComplete="off"
-                  maxLength={17}
-                  disabled={
-                    fieldsDisabled ||
-                    vinLookupState === "loading" ||
-                    entryMethod !== "vin"
-                  }
-                  onChange={(event) =>
-                    onChange("vin", event.target.value.toUpperCase())
-                  }
-                  onBlur={() => onBlur("vin")}
-                />
-                {vinLookupState === "success" && vinLookupMessage ? (
-                  <div className="mt-3 flex items-center gap-2 rounded-lg bg-market-soft px-3 py-2 text-sm font-semibold text-market-strong" role="status">
-                    <CheckCircle2 className="size-4 shrink-0" aria-hidden />
-                    {vinLookupMessage}
-                  </div>
-                ) : values.vehicleYear && values.make && values.model ? (
-                  <div className="mt-3 flex items-center gap-2 rounded-lg bg-market-soft px-3 py-2 text-sm font-semibold text-market-strong" role="status">
-                    <CheckCircle2 className="size-4 shrink-0" aria-hidden />
-                    Vehicle: {values.vehicleYear} {values.make} {values.model}
-                    {values.trim ? ` ${values.trim}` : ""}
-                  </div>
-                ) : null}
-                {vinLookupState === "error" && vinLookupMessage ? (
-                  <p className="mt-2 text-sm leading-5 text-red-700" role="alert">
-                    {vinLookupMessage}
-                  </p>
-                ) : null}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div
-          className={cn(
-            "grid transition-[grid-template-rows,opacity,transform] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
-            entryMethod === "details"
-              ? "grid-rows-[1fr] translate-y-0 opacity-100"
-              : "pointer-events-none grid-rows-[0fr] translate-y-1 opacity-0",
-          )}
-          data-vehicle-method-panel="details"
-          data-active={entryMethod === "details"}
-          aria-hidden={entryMethod !== "details"}
-          inert={entryMethod !== "details"}
-        >
-          <div className="min-h-0 overflow-hidden">
-            <div className="grid gap-5 sm:grid-cols-2">
-              <IntakeSelectField
-                id="total-loss-year"
-                label="Year"
-                value={values.vehicleYear}
-                error={errors.vehicleYear}
-                placeholder="Select year"
-                options={withCurrentOption(vehicleYearOptions, values.vehicleYear)}
-                disabled={fieldsDisabled || entryMethod !== "details"}
-                onChange={(event) => onChange("vehicleYear", event.target.value)}
-                onBlur={() => onBlur("vehicleYear")}
+      <div
+        key={entryMethod}
+        className="vehicle-method-panel mt-5"
+        data-vehicle-method-panel={entryMethod}
+      >
+        {entryMethod === "vin" ? (
+          <div className="grid gap-5 sm:grid-cols-2">
+            <div className="sm:col-span-2">
+              <IntakeTextField
+                id="total-loss-vin"
+                label="VIN"
+                value={values.vin}
+                error={errors.vin}
+                help="Enter the 17-character VIN. We’ll use NHTSA vehicle data to identify it."
+                autoComplete="off"
+                maxLength={17}
+                disabled={fieldsDisabled || vinLookupState === "loading"}
+                onChange={(event) =>
+                  onChange("vin", event.target.value.toUpperCase())
+                }
+                onBlur={() => onBlur("vin")}
               />
-              <div>
-                <IntakeSelectField
-                  id="total-loss-make"
-                  label="Make"
-                  value={values.make}
-                  error={errors.make}
-                  placeholder="Select make"
-                  options={withCurrentOption(makeOptions, values.make)}
-                  loading={makesState === "loading"}
-                  disabled={
-                    fieldsDisabled ||
-                    entryMethod !== "details" ||
-                    makesState === "error"
-                  }
-                  onChange={(event) => onChange("make", event.target.value)}
-                  onBlur={() => onBlur("make")}
-                />
-                {makesState === "error" ? (
-                  <OptionLoadError label="makes" onRetry={onRetryMakes} />
-                ) : null}
-              </div>
-              <div className="sm:col-span-2">
-                <IntakeSelectField
-                  id="total-loss-model"
-                  label="Model"
-                  value={values.model}
-                  error={errors.model}
-                  help="Choose year and make first. We can confirm an exact trim later."
-                  placeholder={
-                    values.vehicleYear && values.make
-                      ? "Select model"
-                      : "Choose year and make first"
-                  }
-                  options={withCurrentOption(modelOptions, values.model)}
-                  loading={modelsState === "loading"}
-                  disabled={
-                    fieldsDisabled ||
-                    entryMethod !== "details" ||
-                    !values.vehicleYear ||
-                    !values.make ||
-                    modelsState === "error"
-                  }
-                  onChange={(event) => onChange("model", event.target.value)}
-                  onBlur={() => onBlur("model")}
-                />
-                {modelsState === "error" ? (
-                  <OptionLoadError label="models" onRetry={onRetryModels} />
-                ) : null}
-              </div>
+              {vinLookupState === "success" && vinLookupMessage ? (
+                <div
+                  className="mt-3 flex items-center gap-2 rounded-lg bg-market-soft px-3 py-2 text-sm font-semibold text-market-strong"
+                  role="status"
+                >
+                  <CheckCircle2 className="size-4 shrink-0" aria-hidden />
+                  {vinLookupMessage}
+                </div>
+              ) : values.vehicleYear && values.make && values.model ? (
+                <div
+                  className="mt-3 flex items-center gap-2 rounded-lg bg-market-soft px-3 py-2 text-sm font-semibold text-market-strong"
+                  role="status"
+                >
+                  <CheckCircle2 className="size-4 shrink-0" aria-hidden />
+                  Vehicle: {values.vehicleYear} {values.make} {values.model}
+                  {values.trim ? ` ${values.trim}` : ""}
+                </div>
+              ) : null}
+              {vinLookupState === "error" && vinLookupMessage ? (
+                <p className="mt-2 text-sm leading-5 text-red-700" role="alert">
+                  {vinLookupMessage}
+                </p>
+              ) : null}
             </div>
           </div>
-        </div>
+        ) : (
+          <div className="grid gap-5 sm:grid-cols-2">
+            <IntakeSelectField
+              id="total-loss-year"
+              label="Year"
+              value={values.vehicleYear}
+              error={errors.vehicleYear}
+              placeholder="Select year"
+              options={withCurrentOption(
+                vehicleYearOptions,
+                values.vehicleYear,
+              )}
+              disabled={fieldsDisabled}
+              onChange={(event) => onChange("vehicleYear", event.target.value)}
+              onBlur={() => onBlur("vehicleYear")}
+            />
+            <div>
+              <IntakeSelectField
+                id="total-loss-make"
+                label="Make"
+                value={values.make}
+                error={errors.make}
+                placeholder="Select make"
+                options={withCurrentOption(makeOptions, values.make)}
+                loading={makesState === "loading"}
+                disabled={fieldsDisabled || makesState === "error"}
+                onChange={(event) => onChange("make", event.target.value)}
+                onBlur={() => onBlur("make")}
+              />
+              {makesState === "error" ? (
+                <OptionLoadError label="makes" onRetry={onRetryMakes} />
+              ) : null}
+            </div>
+            <div className="sm:col-span-2">
+              <IntakeSelectField
+                id="total-loss-model"
+                label="Model"
+                value={values.model}
+                error={errors.model}
+                placeholder={
+                  values.vehicleYear && values.make
+                    ? "Select model"
+                    : "Choose year and make first"
+                }
+                options={withCurrentOption(modelOptions, values.model)}
+                loading={modelsState === "loading"}
+                disabled={
+                  fieldsDisabled ||
+                  !values.vehicleYear ||
+                  !values.make ||
+                  modelsState === "error"
+                }
+                onChange={(event) => onChange("model", event.target.value)}
+                onBlur={() => onBlur("model")}
+              />
+              {modelsState === "error" ? (
+                <OptionLoadError label="models" onRetry={onRetryModels} />
+              ) : null}
+            </div>
+          </div>
+        )}
 
         <div className="mt-5">
           <IntakeTextField
@@ -402,7 +380,9 @@ export function VehicleStep({
         onBack={onBack}
         onContinue={onContinue}
         busy={busy || vinLookupState === "loading"}
-        continueLabel={entryMethod === "vin" ? "Find vehicle & continue" : "Continue"}
+        continueLabel={
+          entryMethod === "vin" ? "Find vehicle & continue" : "Continue"
+        }
       />
     </FlowCard>
   );
@@ -427,7 +407,10 @@ export function ClaimStep({
         description="These details help Venfour understand the insurer’s vehicle value in context."
       />
       {values.vehicleYear && values.make && values.model ? (
-        <p className="mt-5 rounded-lg bg-market-soft px-3 py-2 text-sm font-semibold text-market-strong" role="status">
+        <p
+          className="mt-5 rounded-lg bg-market-soft px-3 py-2 text-sm font-semibold text-market-strong"
+          role="status"
+        >
           Vehicle: {values.vehicleYear} {values.make} {values.model}
           {values.trim ? ` ${values.trim}` : ""}
         </p>
@@ -569,7 +552,9 @@ export function ReportStep({
             disabled={authenticationLoading}
             onClick={onRequestAuthentication}
           >
-            {authenticationLoading ? "Checking sign-in…" : "Sign in to choose PDF"}
+            {authenticationLoading
+              ? "Checking sign-in…"
+              : "Sign in to choose PDF"}
           </button>
         </div>
       ) : !storageAvailable ? (
@@ -599,8 +584,14 @@ export function ReportStep({
           >
             {uploadPending ? (
               <>
-                <LoaderCircle className="mx-auto size-8 animate-spin text-brand motion-reduce:animate-none" aria-hidden />
-                <p className="mt-3 text-sm font-semibold text-ink" role="status">
+                <LoaderCircle
+                  className="mx-auto size-8 animate-spin text-brand motion-reduce:animate-none"
+                  aria-hidden
+                />
+                <p
+                  className="mt-3 text-sm font-semibold text-ink"
+                  role="status"
+                >
                   Uploading…
                 </p>
                 {selectedFilename ? (
@@ -608,11 +599,16 @@ export function ReportStep({
                     {selectedFilename}
                   </p>
                 ) : null}
-                <p className="mt-1 text-xs text-copy">Keep this page open until it is saved.</p>
+                <p className="mt-1 text-xs text-copy">
+                  Keep this page open until it is saved.
+                </p>
               </>
             ) : hasSavedReport ? (
               <>
-                <CheckCircle2 className="mx-auto size-8 text-market-strong" aria-hidden />
+                <CheckCircle2
+                  className="mx-auto size-8 text-market-strong"
+                  aria-hidden
+                />
                 <p className="mt-3 text-sm font-semibold text-ink">
                   Report saved securely
                 </p>
@@ -633,7 +629,9 @@ export function ReportStep({
                 <p className="mt-3 text-sm font-semibold text-ink">
                   {selectedFilename ?? "Choose your insurance report"}
                 </p>
-                <p className="mt-1 text-xs text-copy">PDF · 50 MiB or smaller</p>
+                <p className="mt-1 text-xs text-copy">
+                  PDF · 50 MiB or smaller
+                </p>
                 <button
                   type="button"
                   className={cn(primaryFlowButtonClassName, "mt-5")}
@@ -645,12 +643,22 @@ export function ReportStep({
             )}
           </div>
           {uploadError ? (
-            <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-4" role="alert">
+            <div
+              className="mt-4 rounded-xl border border-red-200 bg-red-50 p-4"
+              role="alert"
+            >
               <div className="flex items-start gap-3">
-                <AlertCircle className="mt-0.5 size-5 shrink-0 text-red-700" aria-hidden />
+                <AlertCircle
+                  className="mt-0.5 size-5 shrink-0 text-red-700"
+                  aria-hidden
+                />
                 <div>
-                  <p className="text-sm font-semibold text-red-950">We couldn’t save this report</p>
-                  <p className="mt-1 text-sm leading-6 text-red-800">{uploadError}</p>
+                  <p className="text-sm font-semibold text-red-950">
+                    We couldn’t save this report
+                  </p>
+                  <p className="mt-1 text-sm leading-6 text-red-800">
+                    {uploadError}
+                  </p>
                   {selectedFilename ? (
                     <button
                       type="button"
@@ -686,7 +694,10 @@ export function ReportStep({
           onClick={onContinue}
         >
           {completing ? (
-            <LoaderCircle className="size-4 animate-spin motion-reduce:animate-none" aria-hidden />
+            <LoaderCircle
+              className="size-4 animate-spin motion-reduce:animate-none"
+              aria-hidden
+            />
           ) : null}
           Continue to Free Value Check
         </button>
@@ -708,9 +719,12 @@ export function ReadyStep() {
         You’re ready for the free value check.
       </p>
       <div className="mx-auto mt-7 max-w-lg rounded-xl border border-line bg-surface p-5">
-        <p className="text-sm font-semibold text-ink">Free value check coming next</p>
+        <p className="text-sm font-semibold text-ink">
+          Free value check coming next
+        </p>
         <p className="mt-2 text-sm leading-6 text-copy">
-          Venfour has not run a market-value check yet. Your saved intake is ready for that next step when it becomes available.
+          Venfour has not run a market-value check yet. Your saved intake is
+          ready for that next step when it becomes available.
         </p>
       </div>
     </FlowCard>
@@ -736,7 +750,9 @@ export function ResumeStep({
 }: ResumeStepProps) {
   return (
     <FlowCard busy={busy}>
-      <p className="text-xs font-semibold tracking-[0.12em] text-brand uppercase">Saved appraisal</p>
+      <p className="text-xs font-semibold tracking-[0.12em] text-brand uppercase">
+        Saved appraisal
+      </p>
       <h2 className="mt-3 text-2xl font-semibold tracking-[-0.03em] text-ink sm:text-3xl">
         Continue your saved appraisal?
       </h2>
@@ -761,7 +777,10 @@ export function ResumeStep({
           onClick={onContinue}
         >
           {busy ? (
-            <LoaderCircle className="size-4 animate-spin motion-reduce:animate-none" aria-hidden />
+            <LoaderCircle
+              className="size-4 animate-spin motion-reduce:animate-none"
+              aria-hidden
+            />
           ) : null}
           Continue
         </button>
@@ -770,13 +789,21 @@ export function ResumeStep({
   );
 }
 
-function StepHeading({ title, description }: { title: string; description: string }) {
+function StepHeading({
+  title,
+  description,
+}: {
+  title: string;
+  description: string;
+}) {
   return (
     <div className="mt-7 border-b border-line pb-6">
       <h2 className="text-2xl font-semibold tracking-[-0.03em] text-ink sm:text-3xl">
         {title}
       </h2>
-      <p className="mt-2 max-w-2xl text-sm leading-6 text-copy">{description}</p>
+      <p className="mt-2 max-w-2xl text-sm leading-6 text-copy">
+        {description}
+      </p>
     </div>
   );
 }
@@ -810,7 +837,10 @@ function StepActions({
         onClick={onContinue}
       >
         {busy ? (
-          <LoaderCircle className="size-4 animate-spin motion-reduce:animate-none" aria-hidden />
+          <LoaderCircle
+            className="size-4 animate-spin motion-reduce:animate-none"
+            aria-hidden
+          />
         ) : null}
         {continueLabel}
         {!busy && continueLabel === "Continue" ? (
@@ -823,8 +853,14 @@ function StepActions({
 
 function InlineError({ message }: { message: string }) {
   return (
-    <div className="mt-5 flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4" role="alert">
-      <AlertCircle className="mt-0.5 size-5 shrink-0 text-red-700" aria-hidden />
+    <div
+      className="mt-5 flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4"
+      role="alert"
+    >
+      <AlertCircle
+        className="mt-0.5 size-5 shrink-0 text-red-700"
+        aria-hidden
+      />
       <p className="text-sm leading-6 text-red-900">{message}</p>
     </div>
   );
@@ -852,5 +888,7 @@ function OptionLoadError({
 }
 
 function withCurrentOption(options: readonly string[], current: string) {
-  return current && !options.includes(current) ? [current, ...options] : options;
+  return current && !options.includes(current)
+    ? [current, ...options]
+    : options;
 }

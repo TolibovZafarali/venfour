@@ -41,6 +41,7 @@ export function AppShell() {
 function AppShellContent() {
   const analysisRoute = useMatch("/analyses/:runId");
   const location = useLocation();
+  const startFlowRoute = location.pathname === "/total-loss/start";
   const matches = useMatches();
   const navigate = useNavigate();
   const { openPreferences } = useCookieConsent();
@@ -122,13 +123,12 @@ function AppShellContent() {
     : "/#diminished-value";
   const howItWorksHref = onHomePage ? "#how-it-works" : "/#how-it-works";
   const primaryActionHref = "/total-loss-review";
-  const detachedHeaderMaxWidth = analysisRoute
-    ? "max-w-[90rem]"
-    : "max-w-7xl";
-  const headerMotionClassName = headerDetached
+  const visibleHeaderDetached = headerDetached && !startFlowRoute;
+  const detachedHeaderMaxWidth = analysisRoute ? "max-w-[90rem]" : "max-w-7xl";
+  const headerMotionClassName = visibleHeaderDetached
     ? "duration-[560ms] ease-[cubic-bezier(0.4,0,0.2,1)]"
     : "duration-[360ms] ease-[cubic-bezier(0.4,0,0.2,1)]";
-  const glassMotionClassName = headerDetached
+  const glassMotionClassName = visibleHeaderDetached
     ? "duration-[640ms] ease-[cubic-bezier(0.4,0,0.2,1)]"
     : "duration-[360ms] ease-[cubic-bezier(0.4,0,0.2,1)]";
 
@@ -147,11 +147,12 @@ function AppShellContent() {
       </a>
       <div className="sticky top-0 z-40 h-16 shrink-0">
         <header
-          data-header-state={headerDetached ? "detached" : "integrated"}
+          data-header-state={visibleHeaderDetached ? "detached" : "integrated"}
           className={cn(
             "absolute top-0 right-0 left-0 transition-[top,left,right] motion-reduce:transition-none",
             headerMotionClassName,
-            headerDetached && "top-3 right-3 left-3 sm:right-4 sm:left-4",
+            visibleHeaderDetached &&
+              "top-3 right-3 left-3 sm:right-4 sm:left-4",
           )}
           onKeyDown={(event) => {
             if (mobileNavigationOpen && event.key === "Escape") {
@@ -164,10 +165,10 @@ function AppShellContent() {
             className={cn(
               "header-glass mx-auto w-full max-w-[100vw] overflow-hidden transition-[max-width,border-color,border-radius,box-shadow] motion-reduce:transition-none",
               glassMotionClassName,
-              headerDetached
+              visibleHeaderDetached
                 ? "rounded-2xl border border-white/75"
                 : "border-b border-line/60",
-              headerDetached && detachedHeaderMaxWidth,
+              visibleHeaderDetached && detachedHeaderMaxWidth,
             )}
           >
             <div
@@ -198,64 +199,73 @@ function AppShellContent() {
                 ) : null}
               </div>
 
-              <nav
-                className="hidden shrink-0 items-center gap-1 lg:flex lg:gap-2"
-                aria-label="Primary navigation"
-              >
-                <a href={totalLossHref} className={primaryLinkClassName}>
-                  Total Loss
-                </a>
-                <a href={diminishedValueHref} className={primaryLinkClassName}>
-                  Diminished Value
-                </a>
-                <a href={howItWorksHref} className={primaryLinkClassName}>
-                  How It Works
-                </a>
-                <AccountControl />
-                <a
-                  href={primaryActionHref}
-                  className="ml-1 inline-flex min-h-11 items-center rounded-lg border border-blue-300/20 bg-brand px-4 text-[0.8125rem] font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.2),0_8px_20px_-12px_rgba(21,94,239,0.95)] transition-colors hover:bg-[#2b6cf4] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 focus-visible:ring-offset-2 motion-reduce:transition-none"
-                >
-                  Get Started
-                </a>
-              </nav>
+              {startFlowRoute ? (
+                <AccountControl className="shrink-0" />
+              ) : (
+                <>
+                  <nav
+                    className="hidden shrink-0 items-center gap-1 lg:flex lg:gap-2"
+                    aria-label="Primary navigation"
+                  >
+                    <a href={totalLossHref} className={primaryLinkClassName}>
+                      Total Loss
+                    </a>
+                    <a
+                      href={diminishedValueHref}
+                      className={primaryLinkClassName}
+                    >
+                      Diminished Value
+                    </a>
+                    <a href={howItWorksHref} className={primaryLinkClassName}>
+                      How It Works
+                    </a>
+                    <AccountControl />
+                    <a
+                      href={primaryActionHref}
+                      className="ml-1 inline-flex min-h-11 items-center rounded-lg border border-blue-300/20 bg-brand px-4 text-[0.8125rem] font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.2),0_8px_20px_-12px_rgba(21,94,239,0.95)] transition-colors hover:bg-[#2b6cf4] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 focus-visible:ring-offset-2 motion-reduce:transition-none"
+                    >
+                      Get Started
+                    </a>
+                  </nav>
 
-              <div className="flex shrink-0 items-center gap-1.5 lg:hidden">
-                <a
-                  href={primaryActionHref}
-                  className="inline-flex min-h-11 items-center rounded-lg border border-blue-300/20 bg-brand px-3 text-xs font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.2),0_8px_20px_-12px_rgba(21,94,239,0.95)] transition-colors hover:bg-[#2b6cf4] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 focus-visible:ring-offset-2 motion-reduce:transition-none"
-                  onClick={() => setMobileNavigationOpen(false)}
-                >
-                  Get Started
-                </a>
-                <button
-                  ref={mobileNavigationButtonRef}
-                  type="button"
-                  className="inline-flex size-11 items-center justify-center rounded-lg text-copy transition-colors hover:bg-white/60 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 motion-reduce:transition-none"
-                  aria-expanded={mobileNavigationOpen}
-                  aria-controls="mobile-navigation"
-                  aria-label={
-                    mobileNavigationOpen
-                      ? "Close navigation"
-                      : "Open navigation"
-                  }
-                  onClick={() => setMobileNavigationOpen((open) => !open)}
-                >
-                  {mobileNavigationOpen ? (
-                    <X className="size-5" aria-hidden />
-                  ) : (
-                    <Menu className="size-5" aria-hidden />
-                  )}
-                </button>
-              </div>
+                  <div className="flex shrink-0 items-center gap-1.5 lg:hidden">
+                    <a
+                      href={primaryActionHref}
+                      className="inline-flex min-h-11 items-center rounded-lg border border-blue-300/20 bg-brand px-3 text-xs font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.2),0_8px_20px_-12px_rgba(21,94,239,0.95)] transition-colors hover:bg-[#2b6cf4] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 focus-visible:ring-offset-2 motion-reduce:transition-none"
+                      onClick={() => setMobileNavigationOpen(false)}
+                    >
+                      Get Started
+                    </a>
+                    <button
+                      ref={mobileNavigationButtonRef}
+                      type="button"
+                      className="inline-flex size-11 items-center justify-center rounded-lg text-copy transition-colors hover:bg-white/60 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 motion-reduce:transition-none"
+                      aria-expanded={mobileNavigationOpen}
+                      aria-controls="mobile-navigation"
+                      aria-label={
+                        mobileNavigationOpen
+                          ? "Close navigation"
+                          : "Open navigation"
+                      }
+                      onClick={() => setMobileNavigationOpen((open) => !open)}
+                    >
+                      {mobileNavigationOpen ? (
+                        <X className="size-5" aria-hidden />
+                      ) : (
+                        <Menu className="size-5" aria-hidden />
+                      )}
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
 
-            {mobileNavigationOpen ? (
+            {!startFlowRoute && mobileNavigationOpen ? (
               <nav
                 id="mobile-navigation"
                 className={cn(
                   "border-t border-ink/10 bg-transparent px-5 lg:hidden",
-                  headerDetached && "rounded-b-2xl",
+                  visibleHeaderDetached && "rounded-b-2xl",
                 )}
                 aria-label="Mobile navigation"
               >
@@ -294,75 +304,77 @@ function AppShellContent() {
       <main id="main-content" className="flex flex-1" tabIndex={-1}>
         <Outlet />
       </main>
-      <footer className="border-t border-line bg-surface">
-        <div className="mx-auto w-full max-w-7xl px-5 py-6 sm:px-8 sm:py-7">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex flex-col items-start gap-1 sm:flex-row sm:items-center sm:gap-5">
-              <Link
-                to="/"
-                className="inline-flex min-h-11 items-center gap-2.5 rounded-sm font-brand text-sm font-semibold tracking-[0.1em] text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
-              >
-                <img
-                  src={venfourMark}
-                  className="size-6"
-                  alt=""
-                  aria-hidden
-                  data-brand-logo="venfour"
-                />
-                <span>VENFOUR</span>
-              </Link>
-              {supportEmail ? (
-                <a
-                  href={`mailto:${supportEmail}`}
-                  className={footerLinkClassName}
+      {!startFlowRoute ? (
+        <footer className="border-t border-line bg-surface">
+          <div className="mx-auto w-full max-w-7xl px-5 py-6 sm:px-8 sm:py-7">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex flex-col items-start gap-1 sm:flex-row sm:items-center sm:gap-5">
+                <Link
+                  to="/"
+                  className="inline-flex min-h-11 items-center gap-2.5 rounded-sm font-brand text-sm font-semibold tracking-[0.1em] text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
                 >
-                  {supportEmail}
-                </a>
-              ) : null}
-            </div>
-
-            <nav aria-label="Footer navigation">
-              <ul className="flex flex-wrap gap-x-5 gap-y-3">
-                <li>
-                  <a href={totalLossHref} className={footerLinkClassName}>
-                    Total Loss
-                  </a>
-                </li>
-                <li>
+                  <img
+                    src={venfourMark}
+                    className="size-6"
+                    alt=""
+                    aria-hidden
+                    data-brand-logo="venfour"
+                  />
+                  <span>VENFOUR</span>
+                </Link>
+                {supportEmail ? (
                   <a
-                    href={diminishedValueHref}
+                    href={`mailto:${supportEmail}`}
                     className={footerLinkClassName}
                   >
-                    Diminished Value
+                    {supportEmail}
                   </a>
-                </li>
-                <li>
-                  <Link to="/privacy" className={footerLinkClassName}>
-                    Privacy
-                  </Link>
-                </li>
-                <li>
-                  <Link to="/cookies" className={footerLinkClassName}>
-                    Cookie Policy
-                  </Link>
-                </li>
-                <li>
-                  <button
-                    type="button"
-                    className={footerLinkClassName}
-                    onClick={openPreferences}
-                  >
-                    Cookie preferences
-                  </button>
-                </li>
-              </ul>
-            </nav>
+                ) : null}
+              </div>
+
+              <nav aria-label="Footer navigation">
+                <ul className="flex flex-wrap gap-x-5 gap-y-3">
+                  <li>
+                    <a href={totalLossHref} className={footerLinkClassName}>
+                      Total Loss
+                    </a>
+                  </li>
+                  <li>
+                    <a
+                      href={diminishedValueHref}
+                      className={footerLinkClassName}
+                    >
+                      Diminished Value
+                    </a>
+                  </li>
+                  <li>
+                    <Link to="/privacy" className={footerLinkClassName}>
+                      Privacy
+                    </Link>
+                  </li>
+                  <li>
+                    <Link to="/cookies" className={footerLinkClassName}>
+                      Cookie Policy
+                    </Link>
+                  </li>
+                  <li>
+                    <button
+                      type="button"
+                      className={footerLinkClassName}
+                      onClick={openPreferences}
+                    >
+                      Cookie preferences
+                    </button>
+                  </li>
+                </ul>
+              </nav>
+            </div>
+            <p className="mt-4 border-t border-line pt-4 text-xs text-copy">
+              © {new Date().getFullYear()} VENFOUR. All rights reserved.
+            </p>
           </div>
-          <p className="mt-4 border-t border-line pt-4 text-xs text-copy">
-            © {new Date().getFullYear()} VENFOUR. All rights reserved.
-          </p>
-        </div>
-      </footer>
+        </footer>
+      ) : null}
       <CookieConsent />
     </div>
   );
