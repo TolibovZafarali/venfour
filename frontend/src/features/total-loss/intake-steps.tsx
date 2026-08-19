@@ -356,6 +356,8 @@ interface ReportStepProps {
   authenticated: boolean;
   authenticationLoading: boolean;
   storageAvailable: boolean;
+  zipCode: string;
+  zipCodeError?: string;
   selectedFilename?: string | null;
   savedFilename?: string | null;
   uploadState: "idle" | "uploading" | "success" | "error";
@@ -364,6 +366,8 @@ interface ReportStepProps {
   completing?: boolean;
   onBack: () => void;
   onRequestAuthentication: () => void;
+  onZipCodeChange: (value: string) => void;
+  onZipCodeBlur: () => void;
   onFileSelected: (file: File) => void;
   onRetryUpload: () => void;
   onContinue: () => void;
@@ -373,6 +377,8 @@ export function ReportStep({
   authenticated,
   authenticationLoading,
   storageAvailable,
+  zipCode,
+  zipCodeError,
   selectedFilename,
   savedFilename,
   uploadState,
@@ -381,6 +387,8 @@ export function ReportStep({
   completing,
   onBack,
   onRequestAuthentication,
+  onZipCodeChange,
+  onZipCodeBlur,
   onFileSelected,
   onRetryUpload,
   onContinue,
@@ -404,6 +412,23 @@ export function ReportStep({
         title="Upload your valuation report"
         description="Use the PDF your insurance company relied on to determine your vehicle’s value."
       />
+
+      <div className="mt-7 max-w-sm">
+        <IntakeTextField
+          id="total-loss-zip"
+          label="ZIP code"
+          value={zipCode}
+          error={zipCodeError}
+          help="Venfour uses the vehicle’s local market when researching comparable vehicles."
+          inputMode="numeric"
+          autoComplete="postal-code"
+          maxLength={10}
+          placeholder="60611"
+          disabled={uploadPending || completing}
+          onChange={(event) => onZipCodeChange(event.target.value)}
+          onBlur={onZipCodeBlur}
+        />
+      </div>
 
       {!authenticated ? (
         <div className="mt-7 rounded-xl border border-brand/20 bg-brand-soft/55 p-5">
@@ -575,7 +600,59 @@ export function ReportStep({
   );
 }
 
-export function ReadyStep() {
+interface ReadyStepProps {
+  readonly mode?: TotalLossIntakeMode | null;
+  readonly busy?: boolean;
+  readonly onReplaceReport?: () => void;
+  readonly onStartValueCheck?: () => void;
+}
+
+export function ReadyStep({
+  busy,
+  mode,
+  onReplaceReport,
+  onStartValueCheck,
+}: ReadyStepProps = {}) {
+  if (mode === "report") {
+    return (
+      <FlowCard className="text-center" busy={busy}>
+        <span className="mx-auto flex size-12 items-center justify-center rounded-full bg-market-soft text-market-strong">
+          <CheckCircle2 className="size-7" aria-hidden />
+        </span>
+        <h2 className="mt-5 text-3xl font-semibold tracking-[-0.035em] text-ink">
+          Your report is ready
+        </h2>
+        <p className="mt-3 text-base leading-7 text-copy">
+          Start the free value check to review the insurer’s valuation against
+          relevant market evidence.
+        </p>
+        <div className="mt-7 flex flex-col-reverse gap-3 sm:flex-row sm:justify-center">
+          {onReplaceReport ? (
+            <button
+              type="button"
+              className={secondaryFlowButtonClassName}
+              disabled={busy}
+              onClick={onReplaceReport}
+            >
+              Replace report
+            </button>
+          ) : null}
+          {onStartValueCheck ? (
+            <button
+              type="button"
+              className={primaryFlowButtonClassName}
+              disabled={busy}
+              onClick={onStartValueCheck}
+            >
+              Start value check
+              <ArrowRight className="size-4" aria-hidden />
+            </button>
+          ) : null}
+        </div>
+      </FlowCard>
+    );
+  }
+
   return (
     <FlowCard className="text-center">
       <span className="mx-auto flex size-12 items-center justify-center rounded-full bg-market-soft text-market-strong">

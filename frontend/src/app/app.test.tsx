@@ -570,7 +570,7 @@ describe("Venfour application", () => {
     expect(document.title).toBe(title);
   });
 
-  test("describes current report storage without advertising the retired review flow", () => {
+  test("describes authenticated case-owned report processing", () => {
     renderTestApp(["/privacy"]);
 
     expect(
@@ -579,13 +579,13 @@ describe("Venfour application", () => {
       }),
     ).toBeVisible();
     expect(
-      screen.getByText(/does not currently process the report or create an analysis/i),
+      screen.getByText(/retrieves the report through a server-controlled path/i),
     ).toBeVisible();
     expect(
-      screen.getByText(/retired web upload screen is no longer available/i),
+      screen.getByText(/resulting validated analysis is linked to the appraisal case/i),
     ).toBeVisible();
     expect(
-      screen.getByText(/analysis is created through Venfour’s separate API/i),
+      screen.getByText(/results identifier or link by itself is not authorization/i),
     ).toBeVisible();
     expect(
       screen.queryByRole("heading", { name: "How legacy report processing works" }),
@@ -614,7 +614,9 @@ describe("Venfour application", () => {
   });
 
   test("keeps saved analysis routes operational", async () => {
-    renderTestApp([`/analyses/${representativeRunId}`]);
+    renderTestApp([`/analyses/${representativeRunId}`], {
+      authService: createTestAuthService(createTestSession()),
+    });
 
     expect(await screen.findByText("Valuation analysis loaded.")).toBeVisible();
     expect(document.title).toBe("Vehicle Valuation Analysis | Venfour");

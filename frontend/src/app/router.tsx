@@ -15,6 +15,7 @@ import { HomePage } from "@/pages/home-page";
 import { NotFoundPage } from "@/pages/not-found-page";
 import { PrivacyPage } from "@/pages/privacy-page";
 import { RouteErrorPage } from "@/pages/route-error-page";
+import { TotalLossAnalysisPage } from "@/pages/total-loss-analysis-page";
 
 const metadata = (title: string, description: string): PageMetadata => ({
   title,
@@ -65,6 +66,14 @@ export const appRoutes: RouteObject[] = [
         handle: metadata(
           "Vehicle Valuation Analysis | Venfour",
           "Review the insurance valuation, selected market evidence, findings, and limitations for this vehicle analysis.",
+        ),
+      },
+      {
+        path: "total-loss/cases/:caseId/analysis",
+        element: <TotalLossAnalysisPage />,
+        handle: metadata(
+          "Total-Loss Value Check | Venfour",
+          "Track your total-loss value check and open the completed vehicle valuation analysis.",
         ),
       },
       {

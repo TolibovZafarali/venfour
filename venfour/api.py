@@ -8,6 +8,7 @@ by :func:`create_app`; this module has no process-global service instance.
 
 from __future__ import annotations
 
+import os
 import tempfile
 from pathlib import Path
 from typing import Any, Awaitable, Callable
@@ -41,15 +42,37 @@ from venfour.creation import (
     AnalysisReportValidationError,
     create_live_analysis_creation_service,
 )
+from venfour.case_analyses import (
+    CaseAnalysisConflictError,
+    CaseAnalysisContractError,
+    CaseAnalysisInputError,
+    CaseAnalysisNotFoundError,
+    CaseAnalysisService,
+    CaseAnalysisUnavailableError,
+)
 from venfour.presentation import (
     AnalysisPresentationContractError,
     AnalysisPresentationService,
 )
 from venfour.postal_codes import normalize_us_zip_code
+from venfour.supabase_gateway import (
+    CaseAnalysisGateway,
+    SupabaseAuthenticationError,
+    SupabaseConfigurationError,
+    SupabaseContractError,
+    SupabaseHttpGateway,
+    SupabaseServerConfiguration,
+    SupabaseUnavailableError,
+)
 
 
 _ERROR_MESSAGES = {
+    "AUTHENTICATION_REQUIRED": "Authentication is required.",
+    "AUTHENTICATION_INVALID": "Authentication is invalid.",
+    "AUTHENTICATION_UNAVAILABLE": "Authentication is temporarily unavailable.",
+    "INVALID_CASE_ID": "Appraisal case ID is invalid.",
     "INVALID_RUN_ID": "Analysis run ID is invalid.",
+    "CASE_NOT_FOUND": "Appraisal case was not found.",
     "ANALYSIS_NOT_FOUND": "Analysis run was not found.",
     "ANALYSIS_UNAVAILABLE": "Analysis run is unavailable.",
     "INTERNAL_ERROR": "An internal server error occurred.",
@@ -69,7 +92,13 @@ _ERROR_MESSAGES = {
     "MARKET_PROVIDER_UNAVAILABLE": "Market evidence is temporarily unavailable.",
     "ANALYSIS_CREATION_UNAVAILABLE": "Analysis creation is unavailable.",
     "ANALYSIS_CREATION_FAILED": "Analysis could not be created.",
+    "INVALID_ANALYSIS_REQUEST": "Analysis request must not contain a body.",
+    "REPORT_INTAKE_REQUIRED": "Complete report intake before starting analysis.",
+    "REPORT_INTAKE_NOT_READY": "Report intake is not ready for analysis.",
+    "CASE_NOT_READY": "Appraisal case is not ready for analysis.",
 }
+
+LEGACY_API_ENVIRONMENT_NAME = "VENFOUR_ENABLE_LEGACY_ANALYSIS_API"
 
 MAX_MULTIPART_OVERHEAD_BYTES = 1024 * 1024
 MAX_UPLOAD_BODY_BYTES = MAX_PDF_BYTES + MAX_MULTIPART_OVERHEAD_BYTES
@@ -135,6 +164,11 @@ def _error_response(
     )
 
 
+def _private_response(response: JSONResponse) -> JSONResponse:
+    response.headers["Cache-Control"] = "private, no-store"
+    return response
+
+
 def _is_canonical_uuid4(value: str) -> bool:
     try:
         parsed = UUID(value)
@@ -190,7 +224,7 @@ def _multipart_values(form: Any) -> tuple[UploadFile, str]:
         raise _InvalidPostalCode
     if report.size is None or report.size <= 0:
         raise _InvalidUploadedReport
-    if report.size >= MAX_PDF_BYTES:
+    if report.size > MAX_PDF_BYTES:
         raise _UploadedReportTooLarge
     return report, normalized_postal
 
@@ -205,7 +239,7 @@ def _copy_uploaded_report(upload: UploadFile, destination: Path) -> None:
                 if not chunk:
                     break
                 copied_bytes += len(chunk)
-                if copied_bytes >= MAX_PDF_BYTES:
+                if copied_bytes > MAX_PDF_BYTES:
                     raise _UploadedReportTooLarge
                 output.write(chunk)
     except _UploadedReportTooLarge:
@@ -320,6 +354,150 @@ def _analysis_presentation(request: Request) -> JSONResponse:
         return _error_response(500, "INTERNAL_ERROR")
 
 
+def _bearer_token(request: Request) -> str:
+    authorization = request.headers.get("authorization")
+    if not isinstance(authorization, str):
+        raise SupabaseAuthenticationError("Authentication is required")
+    parts = authorization.split()
+    if (
+        len(parts) != 2
+        or parts[0].casefold() != "bearer"
+        or not parts[1].strip()
+    ):
+        raise SupabaseAuthenticationError("Authentication is required")
+    return parts[1]
+
+
+async def _owned_identity(request: Request) -> str | JSONResponse:
+    try:
+        token = _bearer_token(request)
+    except SupabaseAuthenticationError:
+        return _error_response(
+            401,
+            "AUTHENTICATION_REQUIRED",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    case_service = request.app.state.case_analysis_service
+    if case_service is None:
+        return _error_response(503, "ANALYSIS_CREATION_UNAVAILABLE")
+    try:
+        return await run_in_threadpool(case_service.authenticate, token)
+    except SupabaseAuthenticationError:
+        return _error_response(
+            401,
+            "AUTHENTICATION_INVALID",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    except (SupabaseUnavailableError, SupabaseContractError):
+        return _error_response(503, "AUTHENTICATION_UNAVAILABLE")
+    except Exception:
+        return _error_response(503, "AUTHENTICATION_UNAVAILABLE")
+
+
+def _case_analysis_error(error: Exception) -> JSONResponse:
+    if isinstance(error, CaseAnalysisInputError):
+        return _error_response(400, error.code)
+    if isinstance(error, CaseAnalysisNotFoundError):
+        return _error_response(404, "CASE_NOT_FOUND")
+    if isinstance(error, CaseAnalysisConflictError):
+        return _error_response(409, error.code)
+    if isinstance(error, CaseAnalysisUnavailableError):
+        return _error_response(503, "ANALYSIS_CREATION_UNAVAILABLE")
+    if isinstance(error, CaseAnalysisContractError):
+        return _error_response(500, "ANALYSIS_UNAVAILABLE")
+    return _error_response(500, "INTERNAL_ERROR")
+
+
+async def _case_analysis_status(request: Request) -> JSONResponse:
+    identity = await _owned_identity(request)
+    if isinstance(identity, JSONResponse):
+        return _private_response(identity)
+    case_id = request.path_params["case_id"]
+    try:
+        status = await run_in_threadpool(
+            request.app.state.case_analysis_service.status,
+            case_id,
+            identity,
+        )
+    except Exception as exc:
+        return _private_response(_case_analysis_error(exc))
+    return _private_response(JSONResponse(status.to_dict()))
+
+
+async def _case_analysis_submit(request: Request) -> JSONResponse:
+    identity = await _owned_identity(request)
+    if isinstance(identity, JSONResponse):
+        return _private_response(identity)
+
+    content_length = request.headers.get("content-length")
+    if content_length is not None:
+        try:
+            if int(content_length) != 0:
+                return _private_response(
+                    _error_response(400, "INVALID_ANALYSIS_REQUEST")
+                )
+        except ValueError:
+            return _private_response(
+                _error_response(400, "INVALID_ANALYSIS_REQUEST")
+            )
+    body_request = Request(
+        request.scope,
+        receive=_bounded_receive(request.receive, 1),
+    )
+    try:
+        if await body_request.body():
+            return _private_response(
+                _error_response(400, "INVALID_ANALYSIS_REQUEST")
+            )
+    except _RequestBodyTooLarge:
+        return _private_response(
+            _error_response(400, "INVALID_ANALYSIS_REQUEST")
+        )
+
+    case_id = request.path_params["case_id"]
+    try:
+        status = await run_in_threadpool(
+            request.app.state.case_analysis_service.submit,
+            case_id,
+            identity,
+        )
+    except Exception as exc:
+        return _private_response(_case_analysis_error(exc))
+    status_code = 202 if status.status == "processing" else 200
+    response = JSONResponse(status.to_dict(), status_code=status_code)
+    if status.status == "completed" and status.run_id is not None:
+        response.headers["Location"] = f"/api/v1/analyses/{status.run_id}"
+    return _private_response(response)
+
+
+async def _owned_analysis_presentation(request: Request) -> JSONResponse:
+    identity = await _owned_identity(request)
+    if isinstance(identity, JSONResponse):
+        return _private_response(identity)
+    run_id = request.path_params["run_id"]
+    try:
+        presentation = await run_in_threadpool(
+            request.app.state.case_analysis_service.get_presentation,
+            run_id,
+            identity,
+        )
+        return _private_response(JSONResponse(presentation))
+    except CaseAnalysisInputError as exc:
+        return _private_response(_error_response(400, exc.code))
+    except AnalysisRunNotFoundError:
+        return _private_response(_error_response(404, "ANALYSIS_NOT_FOUND"))
+    except _ANALYSIS_UNAVAILABLE_ERRORS:
+        return _private_response(_error_response(500, "ANALYSIS_UNAVAILABLE"))
+    except (CaseAnalysisUnavailableError, SupabaseUnavailableError):
+        return _private_response(
+            _error_response(503, "ANALYSIS_CREATION_UNAVAILABLE")
+        )
+    except (CaseAnalysisContractError, SupabaseContractError):
+        return _private_response(_error_response(500, "ANALYSIS_UNAVAILABLE"))
+    except Exception:
+        return _private_response(_error_response(500, "INTERNAL_ERROR"))
+
+
 def _health(_request: Request) -> JSONResponse:
     return JSONResponse({"status": "ok"})
 
@@ -348,13 +526,45 @@ def create_app(
     creation_service: Any | None = None,
     repository: AnalysisRunRepository | None = None,
     repository_root: Path | str | None = None,
+    case_analysis_service: Any | None = None,
+    supabase_gateway: CaseAnalysisGateway | None = None,
+    enable_legacy_api: bool | None = None,
 ) -> Starlette:
-    """Build the API with explicit creation and presentation dependencies.
+    """Build the owned case API and optional legacy upload API.
 
-    A caller may inject a presentation service, a repository, or an isolated
-    repository root.  These alternatives are mutually exclusive so the
-    selected dependency flow is unambiguous.
+    The default composition is Supabase-backed and authenticated.  Supplying
+    a legacy dependency is an explicit test/development opt-in for the old
+    unauthenticated upload and presentation routes.
     """
+
+    if case_analysis_service is not None and supabase_gateway is not None:
+        raise ValueError(
+            "case_analysis_service cannot be combined with supabase_gateway"
+        )
+
+    legacy_dependencies_provided = any(
+        value is not None
+        for value in (
+            presentation_service,
+            creation_service,
+            repository,
+            repository_root,
+        )
+    )
+    if enable_legacy_api is not None and not isinstance(enable_legacy_api, bool):
+        raise TypeError("enable_legacy_api must be a boolean or null")
+    legacy_enabled = (
+        enable_legacy_api
+        if enable_legacy_api is not None
+        else (
+            legacy_dependencies_provided
+            or os.environ.get(LEGACY_API_ENVIRONMENT_NAME) == "1"
+        )
+    )
+    if not legacy_enabled and legacy_dependencies_provided:
+        raise ValueError(
+            "legacy dependencies require enable_legacy_api=True"
+        )
 
     if presentation_service is not None and (
         repository is not None or repository_root is not None
@@ -367,37 +577,89 @@ def create_app(
 
     selected_repository = repository
     selected_service = presentation_service
-    if selected_service is None:
-        if selected_repository is None:
-            selected_repository = FileAnalysisRunRepository(
-                repository_root
-                if repository_root is not None
-                else DEFAULT_ANALYSIS_RUN_DIR
-            )
-        selected_service = AnalysisPresentationService(selected_repository)
-    elif not callable(getattr(selected_service, "get", None)):
-        raise TypeError("presentation_service must expose get(run_id)")
-
     selected_creation_service = creation_service
-    if selected_creation_service is None and selected_repository is not None:
-        selected_creation_service = create_live_analysis_creation_service(
-            selected_repository
+    if legacy_enabled:
+        if selected_service is None:
+            if selected_repository is None:
+                selected_repository = FileAnalysisRunRepository(
+                    repository_root
+                    if repository_root is not None
+                    else DEFAULT_ANALYSIS_RUN_DIR
+                )
+            selected_service = AnalysisPresentationService(selected_repository)
+        elif not callable(getattr(selected_service, "get", None)):
+            raise TypeError("presentation_service must expose get(run_id)")
+
+        if selected_creation_service is None and selected_repository is not None:
+            selected_creation_service = create_live_analysis_creation_service(
+                selected_repository
+            )
+        if selected_creation_service is not None and not callable(
+            getattr(selected_creation_service, "create", None)
+        ):
+            raise TypeError(
+                "creation_service must expose create(pdf_path, postal_code)"
+            )
+    else:
+        selected_repository = None
+        selected_service = None
+        selected_creation_service = None
+
+    selected_case_service = case_analysis_service
+    if selected_case_service is None:
+        selected_gateway = supabase_gateway
+        if selected_gateway is None:
+            try:
+                selected_gateway = SupabaseHttpGateway(
+                    SupabaseServerConfiguration.from_environment()
+                )
+            except SupabaseConfigurationError:
+                selected_gateway = None
+        elif not isinstance(selected_gateway, CaseAnalysisGateway):
+            raise TypeError("supabase_gateway must implement CaseAnalysisGateway")
+        if selected_gateway is not None:
+            selected_case_service = CaseAnalysisService(selected_gateway)
+    else:
+        required_methods = (
+            "authenticate",
+            "submit",
+            "status",
+            "get_presentation",
         )
-    if selected_creation_service is not None and not callable(
-        getattr(selected_creation_service, "create", None)
-    ):
-        raise TypeError("creation_service must expose create(pdf_path, postal_code)")
+        if any(
+            not callable(getattr(selected_case_service, method, None))
+            for method in required_methods
+        ):
+            raise TypeError(
+                "case_analysis_service must expose auth, case, and run methods"
+            )
+
+    routes = [
+        Route(
+            "/api/v1/appraisal-cases/{case_id}/analysis",
+            _case_analysis_submit,
+            methods=["POST"],
+        ),
+        Route(
+            "/api/v1/appraisal-cases/{case_id}/analysis",
+            _case_analysis_status,
+            methods=["GET"],
+        ),
+        Route(
+            "/api/v1/analyses/{run_id}",
+            _analysis_presentation if legacy_enabled else _owned_analysis_presentation,
+            methods=["GET"],
+        ),
+        Route("/health", _health, methods=["GET"]),
+    ]
+    if legacy_enabled:
+        routes.insert(
+            0,
+            Route("/api/v1/analyses", _create_analysis, methods=["POST"]),
+        )
 
     app = Starlette(
-        routes=[
-            Route("/api/v1/analyses", _create_analysis, methods=["POST"]),
-            Route(
-                "/api/v1/analyses/{run_id}",
-                _analysis_presentation,
-                methods=["GET"],
-            ),
-            Route("/health", _health, methods=["GET"]),
-        ],
+        routes=routes,
         exception_handlers={
             HTTPException: _http_exception_response,
             Exception: _internal_error_response,
@@ -406,6 +668,8 @@ def create_app(
     app.router.redirect_slashes = False
     app.state.presentation_service = selected_service
     app.state.creation_service = selected_creation_service
+    app.state.case_analysis_service = selected_case_service
+    app.state.legacy_api_enabled = legacy_enabled
     return app
 
 

@@ -25,4 +25,17 @@ export const handlers = [
       { status: 404 },
     );
   }),
+  http.get("*/api/v1/appraisal-cases/:caseId/analysis", () =>
+    HttpResponse.json({ status: "not_submitted" as const }),
+  ),
+  http.post("*/api/v1/appraisal-cases/:caseId/analysis", () =>
+    HttpResponse.json(
+      {
+        status: "processing" as const,
+        attemptCount: 1,
+        processingExpiresAt: null,
+      },
+      { status: 202 },
+    ),
+  ),
 ];

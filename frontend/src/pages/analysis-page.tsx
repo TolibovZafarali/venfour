@@ -1,11 +1,12 @@
 import { AlertCircle, FileQuestion, RotateCw } from "lucide-react";
-import { Link, useParams } from "react-router";
+import { Link, useLocation, useParams } from "react-router";
 
 import {
   type PageMetadata,
   useDocumentMetadata,
 } from "@/app/document-metadata";
 import { Button } from "@/components/ui/button";
+import { useAuth, useSignInDialog } from "@/features/auth";
 import { AnalysisResults } from "@/features/analyses/components/analysis-results";
 import { useAnalysisQuery } from "@/features/analyses/queries";
 import { ApiError } from "@/lib/api/client";
@@ -39,7 +40,7 @@ function AnalysisLoadingState() {
 
 interface AnalysisErrorStateProps {
   kind: "invalid" | "not-found" | "temporary";
-  onRetry: () => void;
+  onRetry?: () => void;
 }
 
 const analysisMetadata: Record<
@@ -115,7 +116,7 @@ function AnalysisErrorState({ kind, onRetry }: AnalysisErrorStateProps) {
             {description}
           </p>
           <div className="mt-7 flex flex-wrap gap-3">
-            {kind === "temporary" ? (
+            {kind === "temporary" && onRetry ? (
               <Button variant="outline" onClick={onRetry}>
                 <RotateCw className="size-4" aria-hidden="true" />
                 Try again
@@ -136,8 +137,16 @@ function AnalysisErrorState({ kind, onRetry }: AnalysisErrorStateProps) {
 const canonicalRunIdPattern =
   /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 
-function ValidAnalysisPage({ runId }: { runId: string }) {
-  const analysisQuery = useAnalysisQuery(runId);
+function ValidAnalysisPage({
+  accessToken,
+  runId,
+  userId,
+}: {
+  accessToken: string;
+  runId: string;
+  userId: string;
+}) {
+  const analysisQuery = useAnalysisQuery({ accessToken, runId, userId });
 
   if (analysisQuery.isPending) {
     return (
@@ -177,10 +186,58 @@ function ValidAnalysisPage({ runId }: { runId: string }) {
 
 export function AnalysisPage() {
   const { runId = "" } = useParams();
+  const location = useLocation();
+  const { auth } = useAuth();
+  const { openSignIn } = useSignInDialog();
 
   if (!canonicalRunIdPattern.test(runId)) {
-    return <AnalysisErrorState kind="invalid" onRetry={() => undefined} />;
+    return <AnalysisErrorState kind="invalid" />;
   }
 
-  return <ValidAnalysisPage runId={runId} />;
+  if (auth.status === "loading") {
+    return (
+      <>
+        <AnalysisDocumentMetadata kind="success" />
+        <AnalysisLoadingState />
+      </>
+    );
+  }
+
+  if (auth.status === "signedOut") {
+    const returnTo = `${location.pathname}${location.search}`;
+    return (
+      <>
+        <AnalysisDocumentMetadata kind="success" />
+        <section className="mx-auto flex min-h-[60vh] w-full max-w-[90rem] items-center px-5 py-20 sm:px-8 sm:py-28 lg:px-10">
+          <div className="max-w-xl">
+            <p className="text-sm font-semibold tracking-[0.12em] text-brand uppercase">
+              Secure analysis
+            </p>
+            <h1 className="mt-3 text-3xl font-semibold tracking-tight text-balance sm:text-4xl">
+              Sign in to view this analysis.
+            </h1>
+            <p className="mt-4 max-w-lg leading-7 text-muted-foreground">
+              Vehicle valuation analyses are private. Sign in with the account
+              that owns this appraisal to continue.
+            </p>
+            <Button className="mt-7" onClick={() => openSignIn({ returnTo })}>
+              Sign in
+            </Button>
+          </div>
+        </section>
+      </>
+    );
+  }
+
+  if (auth.status === "unavailable") {
+    return <AnalysisErrorState kind="temporary" />;
+  }
+
+  return (
+    <ValidAnalysisPage
+      accessToken={auth.session.access_token}
+      runId={runId}
+      userId={auth.user.id}
+    />
+  );
 }

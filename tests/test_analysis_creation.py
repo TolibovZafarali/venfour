@@ -13,7 +13,11 @@ from unittest.mock import patch
 
 from starlette.testclient import TestClient
 
-from scripts.extract_report_ai import AIExtractionResult, PrototypeError
+from scripts.extract_report_ai import (
+    AIExtractionResult,
+    PrototypeError,
+    validate_input,
+)
 from tests.test_analysis_runs import (
     CURRENT_OBSERVED_DATE,
     FIXED_CREATED_AT,
@@ -150,6 +154,22 @@ class AnalysisCreationTestCase(unittest.TestCase):
 
 
 class AnalysisCreationApplicationFlowTests(AnalysisCreationTestCase):
+    def test_source_pdf_validator_allows_the_exact_size_limit(self) -> None:
+        report_path = self.root / "report.pdf"
+        report_path.write_bytes(PDF_BYTES)
+
+        with patch(
+            "scripts.extract_report_ai.MAX_PDF_BYTES", len(PDF_BYTES)
+        ):
+            validate_input(report_path)
+
+        report_path.write_bytes(PDF_BYTES + b"x")
+        with (
+            patch("scripts.extract_report_ai.MAX_PDF_BYTES", len(PDF_BYTES)),
+            self.assertRaises(PrototypeError),
+        ):
+            validate_input(report_path)
+
     def test_service_rejects_malformed_zip_before_report_processing(self) -> None:
         extractor = RecordingExtractor(make_report())
         service, current, historical, _ = self.make_service(extractor)
@@ -396,19 +416,19 @@ class AnalysisCreationApiValidationTests(AnalysisCreationTestCase):
 
     def test_enforces_the_exact_report_file_size_boundary(self) -> None:
         with (
-            patch("venfour.api.MAX_PDF_BYTES", len(PDF_BYTES) + 1),
-            TestClient(self.app) as client,
-        ):
-            below_limit = self.post_report(client)
-
-        with (
             patch("venfour.api.MAX_PDF_BYTES", len(PDF_BYTES)),
             TestClient(self.app) as client,
         ):
             at_limit = self.post_report(client)
 
-        self.assertEqual(below_limit.status_code, 201)
-        self.assert_error(at_limit, 413, "REPORT_TOO_LARGE")
+        with (
+            patch("venfour.api.MAX_PDF_BYTES", len(PDF_BYTES) - 1),
+            TestClient(self.app) as client,
+        ):
+            above_limit = self.post_report(client)
+
+        self.assertEqual(at_limit.status_code, 201)
+        self.assert_error(above_limit, 413, "REPORT_TOO_LARGE")
         self.assertEqual(self.extractor.payloads, [PDF_BYTES])
 
     def test_actual_stream_limit_does_not_depend_on_content_length(self) -> None:

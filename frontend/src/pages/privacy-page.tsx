@@ -10,8 +10,8 @@ export function PrivacyPage() {
     <PublicPage
       eyebrow="Privacy"
       title="How Venfour handles your information"
-      introduction="This page describes the current Venfour service in practical terms: what is stored when you use an account or start an appraisal, how separate analysis records are handled, and what controls are not yet available."
-      updated="Last updated August 18, 2026"
+      introduction="This page describes the current Venfour service in practical terms: what is stored when you use an account or start an appraisal, how case-owned analysis records are handled, and what controls are not yet available."
+      updated="Last updated August 19, 2026"
     >
       <PublicPageSection title="Information you provide">
         <p>
@@ -26,12 +26,11 @@ export function PrivacyPage() {
         </p>
         <p>
           You may sign in with Google or a passwordless email link so Venfour
-          can restore your session and support saved appraisal cases. The
-          retired valuation-review flow created analyses with unique results
-          links that were not attached to an account. Previously created
-          analyses and analyses created through Venfour’s separate API may
-          remain available. Treat a saved results link as sensitive: anyone who
-          obtains it may be able to view the analysis.
+          can restore your session and support saved appraisal cases. A
+          total-loss analysis created from the current intake is linked to the
+          saved case and can be loaded only after Venfour verifies the signed-in
+          account owns it. A results identifier or link by itself is not
+          authorization to view an analysis.
         </p>
       </PublicPageSection>
 
@@ -53,25 +52,26 @@ export function PrivacyPage() {
           Customer case records are protected by database access policies
           intended to restrict each signed-in customer to their own records.
           The current total-loss intake stores an uploaded insurance report in
-          private case-file storage. That intake does not currently process the
-          report or create an analysis from it.
+          private case-file storage. When you start a value check, Venfour also
+          stores case-owned processing state and the resulting analysis record.
         </p>
       </PublicPageSection>
 
       <PublicPageSection title="Current report and analysis handling">
         <p>
           A report uploaded through the current authenticated total-loss intake
-          is kept in private case-file storage. Venfour does not currently
-          extract its contents, send it to a model provider, search external
-          market sources, or create an analysis from that upload.
+          is kept in private case-file storage. When you choose to start the
+          value check, Venfour verifies the signed-in case owner, retrieves the
+          report through a server-controlled path, validates the PDF, and uses a
+          temporary server copy while processing it.
         </p>
         <p>
-          The retired web upload screen is no longer available. When an
-          analysis is created through Venfour’s separate API, the submitted
-          report is structured with help from a third-party model provider and
-          then validated by Venfour. A market-data provider is used to obtain
-          market-listing and vehicle-history evidence. Those processing steps
-          are not part of the current appraisal intake.
+          The report is structured with help from a third-party model provider
+          and then validated by Venfour. A market-data provider is used to
+          obtain market-listing and vehicle-history evidence before Venfour
+          applies its deterministic analysis rules. The resulting validated
+          analysis is linked to the appraisal case. The retired public web
+          upload screen is not part of this customer path.
         </p>
       </PublicPageSection>
 
@@ -93,23 +93,23 @@ export function PrivacyPage() {
       <PublicPageSection title="Storage and retention">
         <p>
           The authenticated total-loss start flow keeps its report in private
-          case-file storage and does not analyze it yet. Before sign-in, manual
-          intake information may be kept in essential browser storage so the
-          same browser can restore the draft; PDF bytes are not stored there.
-          For reports submitted to the separate analysis API, the original PDF
-          is held temporarily, removal is attempted when processing finishes,
-          and removal of the uploaded copy is requested from the model provider.
+          case-file storage. Before sign-in, manual intake information may be
+          kept in essential browser storage so the same browser can restore the
+          draft; PDF bytes are not stored there. During a value check, the
+          server-generated temporary PDF copy is removed when processing ends,
+          and removal of the uploaded model-provider copy is requested after
+          extraction. The private case-file copy remains with the saved case.
         </p>
         <p>
-          Venfour retains the analysis-derived record so the results link can
-          continue to work. Saved appraisal-case information and private case
-          files are retained to support the current customer flow. Account
-          sessions and draft information may be retained in essential browser
-          storage. The current service does not publish or enforce a fixed
-          automatic deletion schedule and does not yet provide self-service
-          account, case, file, or retained-analysis deletion controls. If you
-          are not comfortable with that current limitation, do not upload a
-          report.
+          Venfour retains the case-owned analysis-derived record so the signed-in
+          customer can return to the result. Saved appraisal-case information
+          and private case files are retained to support the current customer
+          flow. Account sessions and draft information may be retained in
+          essential browser storage. The current service does not publish or
+          enforce a fixed automatic deletion schedule and does not yet provide
+          self-service account, case, file, or retained-analysis deletion
+          controls. If you are not comfortable with that current limitation, do
+          not upload a report.
         </p>
       </PublicPageSection>
 
@@ -117,13 +117,14 @@ export function PrivacyPage() {
         <p>
           Venfour uses technical controls intended to limit upload size and
           restrict account data and private case files by customer ownership.
-          Retained analysis records do not include the original PDF or service
-          credentials. No internet service, transmission method, or storage
-          system can be guaranteed completely secure.
+          The retained analysis artifact does not embed the original PDF or
+          service credentials; the original PDF remains separately in private
+          case-file storage. No internet service, transmission method, or
+          storage system can be guaranteed completely secure.
         </p>
         <p>
-          Do not upload documents unrelated to a vehicle valuation review. Do
-          not share an analysis link more broadly than necessary.
+          Do not upload documents unrelated to a vehicle valuation review. Keep
+          your sign-in methods and saved appraisal links private.
         </p>
       </PublicPageSection>
 

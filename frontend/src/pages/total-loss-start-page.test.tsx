@@ -870,7 +870,7 @@ describe("/start?service=total-loss", () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch");
     vi.spyOn(crypto, "randomUUID").mockReturnValue(CASE_ID);
 
-    const { container } = renderTestApp(["/start?service=total-loss"], {
+    const { container, router } = renderTestApp(["/start?service=total-loss"], {
       authService: auth.service,
       totalLossDependencies: harness.dependencies,
     });
@@ -974,19 +974,43 @@ describe("/start?service=total-loss", () => {
       screen.getByRole("button", { name: "Continue to Free Value Check" }),
     );
     expect(
-      await screen.findByRole("heading", { name: "Your information is saved" }),
+      await screen.findByText("ZIP code is required."),
     ).toBeVisible();
-    expect(screen.getByText("Free value check coming next")).toBeVisible();
+    expect(router.state.location.pathname).toBe("/start");
+
+    await user.type(screen.getByLabelText("ZIP code"), "606011234");
+    fireEvent.blur(screen.getByLabelText("ZIP code"));
+    expect(screen.getByLabelText("ZIP code")).toHaveValue("60601-1234");
+    await user.click(
+      screen.getByRole("button", { name: "Continue to Free Value Check" }),
+    );
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe(
+        `/total-loss/cases/${CASE_ID}/analysis`,
+      ),
+    );
+    expect(
+      await screen.findByRole("heading", {
+        name: "We’re reviewing your valuation report.",
+      }),
+    ).toBeVisible();
     expect(harness.saveDetails).toHaveBeenCalledWith(
       expect.objectContaining({
         caseId: CASE_ID,
         values: expect.objectContaining({
           intakeMode: "report",
           intakeCompletedAt: expect.any(String),
+          postalCode: "60601-1234",
         }),
       }),
     );
-    expect(fetchSpy).not.toHaveBeenCalled();
+    const authenticatedRequest = fetchSpy.mock.calls.find(([input]) =>
+      String(input).includes(`/api/v1/appraisal-cases/${CASE_ID}/analysis`),
+    );
+    expect(authenticatedRequest).toBeDefined();
+    expect(
+      new Headers(authenticatedRequest?.[1]?.headers).get("Authorization"),
+    ).toBe(`Bearer access-${USER_ID}`);
     for (const [input] of harness.saveDetails.mock.calls) {
       expect(input).not.toHaveProperty("status");
     }
@@ -1018,6 +1042,7 @@ describe("/start?service=total-loss", () => {
     });
 
     expect(await screen.findByText("saved-report.pdf")).toBeVisible();
+    await user.type(screen.getByLabelText("ZIP code"), "60611");
     harness.saveDetails.mockRejectedValueOnce(
       new Error("The completed intake could not be saved."),
     );
@@ -1029,7 +1054,7 @@ describe("/start?service=total-loss", () => {
       await screen.findByText("The completed intake could not be saved."),
     ).toBeVisible();
     expect(
-      screen.queryByRole("heading", { name: "Your information is saved" }),
+      screen.queryByRole("heading", { name: "Your report is ready" }),
     ).not.toBeInTheDocument();
   });
 
@@ -1111,12 +1136,17 @@ describe("/start?service=total-loss", () => {
     );
 
     expect(
-      await screen.findByRole("heading", { name: "Your information is saved" }),
+      await screen.findByRole("heading", { name: "Your report is ready" }),
     ).toBeVisible();
     expect(
-      screen.getByText("You’re ready for the free value check."),
+      screen.getByText(/Start the free value check/),
     ).toBeVisible();
-    expect(screen.getByText("Free value check coming next")).toBeVisible();
+    expect(
+      screen.getByRole("button", { name: "Start value check" }),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("button", { name: "Replace report" }),
+    ).toBeVisible();
     expect(harness.createOrGetAppraisalCase).not.toHaveBeenCalled();
     expect(harness.saveDetails).not.toHaveBeenCalled();
     expect(harness.uploadReport).not.toHaveBeenCalled();

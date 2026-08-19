@@ -158,9 +158,9 @@ def validate_input(input_path: Path) -> None:
 
     if b"%PDF-" not in header:
         raise PrototypeError(f"Input is not a PDF: {input_path}")
-    if size >= MAX_PDF_BYTES:
+    if size > MAX_PDF_BYTES:
         raise PrototypeError(
-            f"PDF is too large for one OpenAI request (must be under 50 MB): "
+            f"PDF is too large for one OpenAI request (must be 50 MB or smaller): "
             f"{input_path}"
         )
 

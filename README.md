@@ -34,7 +34,8 @@ pipeline covers:
 - deterministic valuation-discrepancy analysis;
 - immutable analysis-run persistence with replay and integrity validation;
 - deterministic presentation projection; and
-- a JSON API for synchronous analysis creation and validated presentation data.
+- an authenticated, case-owned JSON API for durable synchronous analysis
+  creation and validated presentation data.
 
 ```text
 Insurance valuation report
@@ -59,16 +60,15 @@ JSON API
 The customer-facing application includes a unified appraisal intake at
 `/start`, with a saved Total Loss workflow and a frontend-only Diminished Value
 consultation prototype. The Total Loss intake accepts either manual vehicle and
-claim information or a privately stored insurance valuation PDF, but it does
-not yet run an analysis. The frontend does not reproduce backend analysis or
-ranking logic. The standalone web analysis-creation screen has been retired;
-the separate JSON API continues to support synchronous analysis creation.
+claim information or a privately stored insurance valuation PDF. The frontend
+does not reproduce backend analysis or ranking logic. The standalone public
+analysis-upload screen has been retired; analysis creation now starts from an
+authenticated saved appraisal case.
 
 Supabase provides browser authentication, customer profiles, saved appraisal
-cases, row-level security, and private case-file storage for the new intake.
-Case IDs remain separate from Python analysis-run IDs. Existing
-`/analyses/:runId` results remain available and are not attached to a customer
-case.
+cases, row-level security, private case-file storage, durable analysis-job
+claims, and owned analysis-run artifacts. Case IDs remain separate from Python
+analysis-run IDs, with the database job record providing the durable link.
 
 ## Evidence and engineering principles
 
@@ -139,9 +139,25 @@ npm install
 npm run dev
 ```
 
+Copy the root example environment file and provide the backend-only runtime
+configuration before starting the API:
+
+```sh
+cp .env.example .env
+```
+
+The default authenticated path requires `SUPABASE_URL`,
+`SUPABASE_PUBLISHABLE_KEY`, and `SUPABASE_SERVICE_ROLE_KEY`. Live extraction and
+market research additionally require `OPENAI_API_KEY` and
+`MARKETCHECK_API_KEY`. The service-role key is a server secret: never expose it
+to the browser, a `VITE_*` variable, logs, or an API response.
+
 In a separate terminal, start the local Starlette API from the repository root:
 
 ```sh
+set -a
+source .env
+set +a
 .venv/bin/python -m uvicorn venfour.api:create_app \
   --factory \
   --host 127.0.0.1 \
@@ -151,6 +167,9 @@ In a separate terminal, start the local Starlette API from the repository root:
 For local provider-failure diagnostics, opt in for that backend process only:
 
 ```sh
+set -a
+source .env
+set +a
 VENFOUR_PROVIDER_DIAGNOSTICS=1 \
   .venv/bin/python -m uvicorn venfour.api:create_app \
   --factory \
@@ -164,12 +183,11 @@ bounds that are available. It never logs credentials, authenticated URLs, VINs,
 response bodies, or raw provider parameters. Public API error payloads remain
 unchanged.
 
-Live analysis creation requires the configured extraction and MarketCheck
-credentials in the backend process environment. Once both servers are running,
-open `http://localhost:5173/`, choose an original CCC PDF smaller than 50 MiB,
-enter the vehicle ZIP code, and submit. The page remains in an indeterminate
-processing state until creation finishes, then opens the persisted analysis at
-`/analyses/{runId}`.
+Once both servers are running, open `http://localhost:5173/`, complete the
+Total Loss intake, and submit an original CCC PDF of 50 MiB or smaller. The
+browser stores the report privately at the deterministic case object location;
+the authenticated API claims and runs the case analysis, then exposes the
+owned persisted result.
 
 For live market and orchestration debugging after a report has already been
 extracted, use the local canonical-analysis command. It revalidates canonical
@@ -188,9 +206,9 @@ VENFOUR_PROVIDER_DIAGNOSTICS=1 \
 ```
 
 Only `MARKETCHECK_API_KEY` is required by this command. New artifacts are saved
-under `data/analysis-runs/` by default. This is a local development tool; the
-public PDF `POST /api/v1/analyses` contract is unchanged and there is no API for
-submitting canonical analysis data.
+under `data/analysis-runs/` by default. This is a local development tool and is
+separate from the authenticated case-owned HTTP creation path. There is no API
+for submitting canonical analysis data.
 
 Vite serves the application at `http://localhost:5173` and proxies `/api` and
 `/health` to `http://127.0.0.1:8000`. This avoids a cross-origin request because
@@ -271,23 +289,26 @@ supabase db lint --local --fail-on error
 supabase test db
 ```
 
-To create the deterministic representative material-undervalue analysis used by
-the frontend tests, run this once from the repository root:
+For isolated filesystem-repository diagnostics, create the deterministic
+representative material-undervalue analysis used by the frontend tests:
 
 ```sh
 .venv/bin/python scripts/seed_representative_analysis.py
 ```
 
-Then start the API and frontend as shown above and open:
+Start only a local compatibility API with the legacy route explicitly enabled,
+then inspect its presentation response:
 
-```text
-http://localhost:5173/analyses/00000000-0000-4000-8000-000000000001
+```sh
+VENFOUR_ENABLE_LEGACY_ANALYSIS_API=1 \
+  .venv/bin/python -m uvicorn venfour.api:create_app --factory --port 8000
+curl http://127.0.0.1:8000/api/v1/analyses/00000000-0000-4000-8000-000000000001
 ```
 
 The seed command uses the existing offline orchestration fixtures to write a
 real validated analysis-run artifact under the ignored `data/analysis-runs/`
-directory. The normal frontend runtime still fetches the real
-`GET /api/v1/analyses/{runId}` endpoint.
+directory. It does not create a Supabase-owned case or run and therefore is not
+available through the default authenticated customer path.
 
 Available frontend checks are:
 
@@ -306,58 +327,71 @@ npm run generate:contracts
 npm run check:contracts
 ```
 
-## Phase 3F: analysis creation and presentation API
+## Phase 3F: owned analysis creation and presentation API
 
-Phase 3F exposes the Phase 3E presentation contract and a synchronous creation
-boundary through one lightweight, production-capable Starlette ASGI application.
-Starlette supplies the small routing, multipart, JSON-response, error, and
-application-factory boundary without adding a response-model layer. Selection
-and operation of a production ASGI server remain deployment work.
+The Starlette application now bridges authenticated appraisal cases to the
+existing deterministic Python pipeline. Supabase owns authentication, case
+ownership, job claiming, idempotency, private report storage, and durable
+artifact persistence; the established Python contracts remain authoritative
+for extraction, market evidence, analysis, audit validation, and presentation.
 
 ```text
-AnalysisRunArtifact
-      ↓
-Phase 3E AnalysisPresentationService
-      ↓
-Phase 3F HTTP API
-      ↓
-Venfour analysis results page
+Supabase browser access token
+        ↓
+Supabase Auth /user
+        ↓
+owned case + durable fenced job claim
+        ↓
+case-files/{userId}/{caseId}/valuation-report.pdf
+        ↓
+existing deterministic analysis pipeline
+        ↓
+owned validated AnalysisRunArtifact in Supabase
+        ↓
+deterministic AnalysisPresentation
 ```
 
-`GET /api/v1/analyses/{runId}` returns the validated
-`AnalysisPresentation` JSON object directly, without an API envelope. The API
-calls `AnalysisPresentationService.get(run_id)` only. It does not read analysis
-files or raw provider data, call MarketCheck or another provider, rerun an
-analysis stage, or recalculate presentation values.
+The default routes are:
 
-`POST /api/v1/analyses` accepts multipart form data containing one `report` PDF
-and one verified `postalCode`. It validates and copies the bounded upload to a
-server-generated temporary path, extracts canonical CCC data, invokes the
-existing analysis orchestrator with server-owned market-search settings, and
-returns `201` with `{"runId":"..."}` only after the immutable run is persisted.
-The temporary local PDF is removed before the response is returned. The
-frontend can then open `/analyses/{runId}`, which uses the existing GET endpoint.
+- `POST /api/v1/appraisal-cases/{caseId}/analysis` — authenticate and claim or
+  resume the case's analysis. The request has no body; owner IDs, storage paths,
+  report bytes, ZIP codes, and run IDs are never accepted from the client.
+- `GET /api/v1/appraisal-cases/{caseId}/analysis` — read the owned durable job
+  state without starting work.
+- `GET /api/v1/analyses/{runId}` — load an owned artifact through strict replay
+  and integrity validation, then return the deterministic presentation JSON.
 
-Run IDs must be canonical lowercase UUIDv4 strings and are rejected before a
-service or repository lookup when malformed. API errors are deterministic JSON:
-`INVALID_RUN_ID` uses 400, `ANALYSIS_NOT_FOUND` uses 404, and unavailable,
-corrupt, or internally invalid stored analyses use the neutral
-`ANALYSIS_UNAVAILABLE` code with 500. Error responses do not include exception
-details, storage paths, raw JSON, configuration, credentials, or other internal
-state.
+All three routes require `Authorization: Bearer <supabase-access-token>`. A
+non-owned case or run is returned as not found. Case submission derives the
+private object path exclusively from the authenticated user and path case ID,
+streams at most 50 MiB to server-generated temporary storage, validates the PDF
+bytes, and removes the temporary file when processing ends. Analysis executes
+synchronously after a durable claim; the database processing token fences
+completion and failure writes, and repeated submissions return the existing
+durable state instead of creating duplicate runs.
 
-The `/api/v1` prefix versions the HTTP contract only; it is independent of the
-analysis-run, discrepancy-analysis, comparable-scoring, and presentation schema
-versions carried in the presentation provenance. `GET /health` returns only
-`{"status":"ok"}` and does not access storage, enumerate files, execute
-analysis, or call a provider.
+The case status contract is discriminated by `status`:
 
-No CORS policy is enabled by default, and the Phase 3F Python API itself has no
-authentication or user-ownership model. The separate Supabase foundation does
-not change that API contract or make analysis URLs account-private. Uploaded
-PDFs are not durably stored. OpenAPI generation is deferred because it is not
-native to the chosen minimal framework; the strict repository JSON Schemas
-remain the authoritative domain contracts.
+```json
+{"status":"not_submitted"}
+{"status":"processing","attemptCount":1,"processingExpiresAt":"..."}
+{"status":"completed","attemptCount":1,"runId":"..."}
+{"status":"failed","attemptCount":1,"error":{"code":"...","message":"..."},"retryable":true}
+```
+
+The public legacy multipart `POST /api/v1/analyses` and public run lookup are
+disabled by default. They remain available only for isolated local compatibility
+and existing offline tests when explicitly enabled with
+`VENFOUR_ENABLE_LEGACY_ANALYSIS_API=1` or injected legacy dependencies. They are
+not the production customer path and must not be enabled in production.
+
+Case and run IDs must be canonical lowercase UUIDv4 strings. API errors are
+neutral JSON and do not include exception details, storage paths, raw artifacts,
+configuration, credentials, or provider response data. `GET /health` returns
+only `{"status":"ok"}` and does not authenticate, access storage, execute an
+analysis, or call a provider. No CORS policy is enabled by default. OpenAPI
+generation remains deferred; repository JSON Schemas and the checked service
+contracts are the authoritative domain boundaries.
 
 ## Phase 3E: deterministic analysis presentation projection
 

@@ -7,7 +7,7 @@ import {
   useState,
 } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { useLocation } from "react-router";
+import { useLocation, useNavigate } from "react-router";
 
 import { useAuth, useSignInDialog } from "@/features/auth";
 import { useCreateOrGetAppraisalCaseMutation } from "@/features/cases/mutations";
@@ -66,8 +66,10 @@ import {
 import {
   hasTotalLossManualFormErrors,
   normalizeTotalLossManualForm,
+  normalizeZipCode,
   validateTotalLossManualForm,
   validateTotalLossPdf,
+  validateZipCode,
 } from "@/features/total-loss/validation";
 
 const AUTOSAVE_DELAY_MS = 600;
@@ -112,6 +114,7 @@ export function TotalLossIntakeFlow({
   onBusyChange,
 }: TotalLossIntakeFlowProps) {
   const location = useLocation();
+  const navigate = useNavigate();
   const { auth } = useAuth();
   const { openSignIn } = useSignInDialog();
   const queryClient = useQueryClient();
@@ -1146,9 +1149,41 @@ export function TotalLossIntakeFlow({
 
   const handleReportContinue = async () => {
     setFlowError(null);
+    const normalizedZipCode = normalizeZipCode(
+      draftRef.current.manual.zipCode,
+    );
+    const zipCodeError = validateZipCode(normalizedZipCode);
+    setManualErrors((current) => ({
+      ...current,
+      zipCode: zipCodeError ?? undefined,
+    }));
+    applyDraft((current) => ({
+      ...current,
+      manual: { ...current.manual, zipCode: normalizedZipCode },
+      dirty: true,
+    }));
+    if (zipCodeError) {
+      setFlowError("Enter a valid ZIP code before starting the value check.");
+      focusFirstManualError({ zipCode: zipCodeError });
+      return;
+    }
+    if (!resolvedSavedFilename) {
+      setFlowError("Upload your insurance valuation report before continuing.");
+      return;
+    }
+
+    const identityGeneration = identityRef.current.generation;
+    const completionUserId = identityRef.current.userId;
+    setCompletionBusy(true);
     try {
-      await ensureCase();
+      const caseId = await ensureCase();
       await flushDraft({ force: true, completedAt: new Date().toISOString() });
+      if (
+        identityRef.current.generation !== identityGeneration ||
+        identityRef.current.userId !== completionUserId
+      ) {
+        throw new StaleIdentityOperationError();
+      }
       applyDraft(
         (current) => ({
           ...current,
@@ -1158,11 +1193,21 @@ export function TotalLossIntakeFlow({
         }),
         { bumpRevision: false },
       );
+      void navigate(`/total-loss/cases/${caseId}/analysis`, {
+        replace: true,
+      });
     } catch (error) {
       if (error instanceof StaleIdentityOperationError) return;
       setFlowError(
         errorMessage(error, "We couldn’t finish saving your intake."),
       );
+    } finally {
+      if (
+        identityRef.current.generation === identityGeneration &&
+        identityRef.current.userId === completionUserId
+      ) {
+        setCompletionBusy(false);
+      }
     }
   };
 
@@ -1342,12 +1387,14 @@ export function TotalLossIntakeFlow({
             authenticated={Boolean(userId)}
             authenticationLoading={auth.status === "loading"}
             storageAvailable={Boolean(storageService)}
+            zipCode={draft.manual.zipCode}
+            zipCodeError={manualErrors.zipCode}
             selectedFilename={selectedFilename}
             savedFilename={resolvedSavedFilename}
             uploadState={uploadState}
             uploadError={uploadError}
             error={flowError}
-            completing={saveState === "saving"}
+            completing={completionBusy || saveState === "saving"}
             onBack={() => {
               setFlowError(null);
               setUploadError(null);
@@ -1358,13 +1405,40 @@ export function TotalLossIntakeFlow({
               }));
             }}
             onRequestAuthentication={handleReportAuthentication}
+            onZipCodeChange={(value) => handleManualChange("zipCode", value)}
+            onZipCodeBlur={() => handleManualBlur("zipCode")}
             onFileSelected={uploadSelectedReport}
             onRetryUpload={handleRetryUpload}
             onContinue={() => void handleReportContinue()}
           />
         );
       case "ready":
-        return <ReadyStep />;
+        return (
+          <ReadyStep
+            mode={draft.mode}
+            busy={completionBusy}
+            onReplaceReport={
+              draft.mode === "report"
+                ? () => {
+                    setFlowError(null);
+                    applyDraft((current) => ({
+                      ...current,
+                      step: "report",
+                      pendingAuthAction: null,
+                    }));
+                  }
+                : undefined
+            }
+            onStartValueCheck={
+              draft.mode === "report" && confirmedCaseId
+                ? () =>
+                    void navigate(
+                      `/total-loss/cases/${confirmedCaseId}/analysis`,
+                    )
+                : undefined
+            }
+          />
+        );
       case "choice":
       default:
         return (

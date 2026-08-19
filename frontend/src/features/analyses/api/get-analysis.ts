@@ -4,9 +4,13 @@ import { createApiClient } from "@/lib/api/client";
 
 const apiClient = createApiClient({ baseUrl: environment.apiBaseUrl });
 
-export function getAnalysis(runId: string, signal?: AbortSignal) {
-  return apiClient.get<AnalysisPresentation>(
+export function getAnalysis(
+  runId: string,
+  accessToken: string,
+  signal?: AbortSignal,
+) {
+  return apiClient.getAuthenticated<AnalysisPresentation>(
     `/api/v1/analyses/${encodeURIComponent(runId)}`,
-    signal,
+    { accessToken, signal },
   );
 }

@@ -1,8 +1,10 @@
 import { delay, http, HttpResponse } from "msw";
 import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import type { Session } from "@supabase/supabase-js";
 import { describe, expect, test } from "vitest";
 
+import type { AuthService } from "@/features/auth";
 import type {
   AnalysisPresentation,
   AnalysisPresentationBase,
@@ -12,9 +14,42 @@ import {
   representativeRunId,
 } from "@/test/fixtures/analysis-presentation";
 import { server } from "@/test/mocks/server";
-import { renderTestApp } from "@/test/render";
+import { renderTestApp as renderBaseTestApp } from "@/test/render";
 
 const analysisPath = `/analyses/${representativeRunId}`;
+const analysisSession = {
+  access_token: "analysis-access-token",
+  expires_in: 3600,
+  refresh_token: "analysis-refresh-token",
+  token_type: "bearer",
+  user: {
+    app_metadata: {},
+    aud: "authenticated",
+    created_at: "2026-08-18T14:00:00.000Z",
+    email: "owner@example.com",
+    id: "11111111-1111-4111-8111-111111111111",
+    user_metadata: {},
+  },
+} as Session;
+const authenticatedAnalysisService: AuthService = {
+  exchangeCodeForSession: async () => analysisSession,
+  getSession: async () => analysisSession,
+  onAuthStateChange: () => () => undefined,
+  sendMagicLink: async () => undefined,
+  signInWithGoogle: async () => undefined,
+  signOut: async () => undefined,
+  verifyEmailOtp: async () => analysisSession,
+};
+const signedOutAnalysisService: AuthService = {
+  ...authenticatedAnalysisService,
+  getSession: async () => null,
+};
+
+function renderTestApp(initialEntries: string[]) {
+  return renderBaseTestApp(initialEntries, {
+    authService: authenticatedAnalysisService,
+  });
+}
 
 function useAnalysisResponse(analysis: AnalysisPresentation) {
   server.use(
@@ -348,6 +383,46 @@ function analysisWithMissingOptionalDetails(): AnalysisPresentation {
 }
 
 describe("analysis results page", () => {
+  test("requires sign-in before requesting a private result", async () => {
+    let requestCount = 0;
+    server.use(
+      http.get("*/api/v1/analyses/:runId", () => {
+        requestCount += 1;
+        return HttpResponse.json(materialUndervalueAnalysis);
+      }),
+    );
+
+    renderBaseTestApp([analysisPath], {
+      authService: signedOutAnalysisService,
+    });
+
+    expect(
+      await screen.findByRole("heading", {
+        name: "Sign in to view this analysis.",
+      }),
+    ).toBeVisible();
+    expect(requestCount).toBe(0);
+  });
+
+  test("sends the current session bearer token when loading a result", async () => {
+    let authorization: string | null = null;
+    server.use(
+      http.get("*/api/v1/analyses/:runId", ({ request }) => {
+        authorization = request.headers.get("Authorization");
+        return HttpResponse.json(materialUndervalueAnalysis);
+      }),
+    );
+
+    renderTestApp([analysisPath]);
+
+    expect(
+      await screen.findByRole("heading", {
+        name: "Strong evidence suggests your CCC valuation may be low",
+      }),
+    ).toBeVisible();
+    expect(authorization).toBe("Bearer analysis-access-token");
+  });
+
   test("presents the material undervalue assessment and authoritative values", async () => {
     renderTestApp([analysisPath]);
 

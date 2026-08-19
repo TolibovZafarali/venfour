@@ -9,6 +9,56 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      analysis_runs: {
+        Row: {
+          analysis_run_schema_version: string;
+          analysis_version: string;
+          artifact: Json;
+          case_id: string;
+          comparable_scoring_version: string;
+          created_at: string;
+          discrepancy_analysis_version: string;
+          id: string;
+          job_id: string;
+          request_digest: string;
+          search_diagnostics_digest: string | null;
+        };
+        Insert: {
+          analysis_run_schema_version: string;
+          analysis_version: string;
+          artifact: Json;
+          case_id: string;
+          comparable_scoring_version: string;
+          created_at?: string;
+          discrepancy_analysis_version: string;
+          id: string;
+          job_id: string;
+          request_digest: string;
+          search_diagnostics_digest?: string | null;
+        };
+        Update: {
+          analysis_run_schema_version?: string;
+          analysis_version?: string;
+          artifact?: Json;
+          case_id?: string;
+          comparable_scoring_version?: string;
+          created_at?: string;
+          discrepancy_analysis_version?: string;
+          id?: string;
+          job_id?: string;
+          request_digest?: string;
+          search_diagnostics_digest?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "analysis_runs_job_identity_fkey";
+            columns: ["id", "job_id", "case_id"];
+            isOneToOne: true;
+            referencedRelation: "total_loss_analysis_jobs";
+            referencedColumns: ["run_id", "id", "case_id"];
+          },
+        ];
+      };
       appraisal_cases: {
         Row: {
           created_at: string;
@@ -38,6 +88,65 @@ export type Database = {
           user_id?: string;
         };
         Relationships: [];
+      };
+      total_loss_analysis_jobs: {
+        Row: {
+          attempt_count: number;
+          case_id: string;
+          created_at: string;
+          failure_code: string | null;
+          finished_at: string | null;
+          id: string;
+          processing_expires_at: string | null;
+          processing_token: string;
+          retryable: boolean | null;
+          run_id: string;
+          source_details_updated_at: string;
+          source_report_upload_id: string;
+          status: Database["public"]["Enums"]["total_loss_analysis_status"];
+          updated_at: string;
+        };
+        Insert: {
+          attempt_count?: number;
+          case_id: string;
+          created_at?: string;
+          failure_code?: string | null;
+          finished_at?: string | null;
+          id?: string;
+          processing_expires_at?: string | null;
+          processing_token: string;
+          retryable?: boolean | null;
+          run_id?: string;
+          source_details_updated_at: string;
+          source_report_upload_id: string;
+          status?: Database["public"]["Enums"]["total_loss_analysis_status"];
+          updated_at?: string;
+        };
+        Update: {
+          attempt_count?: number;
+          case_id?: string;
+          created_at?: string;
+          failure_code?: string | null;
+          finished_at?: string | null;
+          id?: string;
+          processing_expires_at?: string | null;
+          processing_token?: string;
+          retryable?: boolean | null;
+          run_id?: string;
+          source_details_updated_at?: string;
+          source_report_upload_id?: string;
+          status?: Database["public"]["Enums"]["total_loss_analysis_status"];
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "total_loss_analysis_jobs_case_id_fkey";
+            columns: ["case_id"];
+            isOneToOne: false;
+            referencedRelation: "appraisal_cases";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       total_loss_case_details: {
         Row: {
@@ -183,12 +292,38 @@ export type Database = {
         };
         Returns: Database["public"]["CompositeTypes"]["total_loss_case_details_public"][];
       };
+      claim_total_loss_analysis: {
+        Args: {
+          case_id: string;
+          processing_token: string;
+          user_id: string;
+        };
+        Returns: Database["public"]["CompositeTypes"]["total_loss_analysis_result"][];
+      };
+      complete_total_loss_analysis: {
+        Args: {
+          artifact: Json;
+          job_id: string;
+          processing_token: string;
+          run_id: string;
+        };
+        Returns: boolean;
+      };
       complete_total_loss_report_upload_recovery: {
         Args: {
           case_id: string;
           upload_id: string;
         };
         Returns: Database["public"]["CompositeTypes"]["total_loss_report_upload_lease"][];
+      };
+      fail_total_loss_analysis: {
+        Args: {
+          failure_code: string;
+          job_id: string;
+          processing_token: string;
+          retryable: boolean;
+        };
+        Returns: boolean;
       };
       finalize_total_loss_report_upload: {
         Args: {
@@ -198,6 +333,20 @@ export type Database = {
           upload_id: string;
         };
         Returns: Database["public"]["CompositeTypes"]["total_loss_case_details_public"][];
+      };
+      get_owned_analysis_run: {
+        Args: {
+          run_id: string;
+          user_id: string;
+        };
+        Returns: Json;
+      };
+      get_total_loss_analysis_status: {
+        Args: {
+          case_id: string;
+          user_id: string;
+        };
+        Returns: Database["public"]["CompositeTypes"]["total_loss_analysis_result"][];
       };
       mark_total_loss_report_upload_ready: {
         Args: {
@@ -239,9 +388,34 @@ export type Database = {
         | "completed"
         | "closed";
       appraisal_service_type: "total_loss" | "diminished_value";
+      total_loss_analysis_outcome:
+        | "claimed"
+        | "not_submitted"
+        | "processing"
+        | "completed"
+        | "failed"
+        | "not_found"
+        | "report_intake_required"
+        | "intake_not_ready"
+        | "postal_code_required"
+        | "invalid_postal_code"
+        | "report_required"
+        | "case_not_ready";
+      total_loss_analysis_status: "processing" | "completed" | "failed";
       total_loss_intake_mode: "report" | "manual";
     };
     CompositeTypes: {
+      total_loss_analysis_result: {
+        attempt_count: number | null;
+        failure_code: string | null;
+        job_id: string | null;
+        outcome: Database["public"]["Enums"]["total_loss_analysis_outcome"];
+        postal_code: string | null;
+        processing_expires_at: string | null;
+        retryable: boolean | null;
+        run_id: string | null;
+        status: Database["public"]["Enums"]["total_loss_analysis_status"] | null;
+      };
       total_loss_case_details_public: {
         case_id: string;
         created_at: string;
@@ -389,6 +563,21 @@ export const Constants = {
         "closed",
       ],
       appraisal_service_type: ["total_loss", "diminished_value"],
+      total_loss_analysis_outcome: [
+        "claimed",
+        "not_submitted",
+        "processing",
+        "completed",
+        "failed",
+        "not_found",
+        "report_intake_required",
+        "intake_not_ready",
+        "postal_code_required",
+        "invalid_postal_code",
+        "report_required",
+        "case_not_ready",
+      ],
+      total_loss_analysis_status: ["processing", "completed", "failed"],
       total_loss_intake_mode: ["report", "manual"],
     },
   },

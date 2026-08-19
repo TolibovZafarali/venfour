@@ -39,6 +39,7 @@ from venfour.orchestration import (
     AnalysisRunResult,
     CurrentMarketSearchConfiguration,
     HistoricalMarketSearchConfiguration,
+    RunIdFactory,
 )
 from venfour.postal_codes import normalize_us_zip_code
 
@@ -272,6 +273,7 @@ def create_live_analysis_creation_service(
     *,
     search_settings: AnalysisSearchSettings | None = None,
     date_factory: DateFactory = _utc_today,
+    run_id_factory: RunIdFactory | None = None,
 ) -> AnalysisCreationService:
     """Build the default runtime composition without eager credential checks."""
 
@@ -304,6 +306,7 @@ def create_live_analysis_creation_service(
             repository,
             current_provider=current_provider,
             historical_provider=historical_provider,
+            run_id_factory=run_id_factory,
         )
 
     return AnalysisCreationService(
