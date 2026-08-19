@@ -190,6 +190,28 @@
   }
 }
 
+@keyframes example-analysis-copy-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 0.25rem, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes example-analysis-copy-out {
+  from {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    opacity: 0;
+    transform: translate3d(0, -0.2rem, 0);
+  }
+}
+
 @layer components {
   .intake-step-forward,
   .intake-step-backward {
@@ -214,6 +236,29 @@
     will-change: opacity, transform;
   }
 
+  .example-analysis-copy-incoming,
+  .example-analysis-copy-outgoing {
+    animation-duration: 360ms;
+    animation-fill-mode: both;
+    animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+    will-change: opacity, transform;
+  }
+
+  .example-analysis-copy-incoming {
+    animation-name: example-analysis-copy-in;
+  }
+
+  .example-analysis-copy-outgoing {
+    animation-name: example-analysis-copy-out;
+  }
+
+  .example-analysis-bar {
+    transition-duration: 360ms;
+    transition-property: width, background-color;
+    transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+    will-change: width;
+  }
+
   .intake-progress-segment {
     transition-duration: 360ms;
     transition-property: left, width, opacity, background-color, border-color,
@@ -226,10 +271,17 @@
     .intake-step-forward,
     .intake-step-backward,
     .vehicle-method-panel,
-    .intake-progress-segment {
+    .intake-progress-segment,
+    .example-analysis-copy-incoming,
+    .example-analysis-copy-outgoing,
+    .example-analysis-bar {
       animation: none;
       transition: none;
       will-change: auto;
+    }
+
+    .example-analysis-copy-outgoing {
+      display: none;
     }
   }
 

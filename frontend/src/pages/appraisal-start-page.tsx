@@ -13,10 +13,17 @@ import { useTotalLossDependencies } from "@/features/total-loss/dependencies";
 import { TotalLossIntakeFlow } from "@/pages/total-loss-start-page";
 
 const DEFAULT_SERVICE: AppraisalServiceSlug = "total-loss";
+type MobileStartView = "overview" | "intake";
 
 function serviceFromSearch(search: string): AppraisalServiceSlug {
   const service = new URLSearchParams(search).get("service");
   return service === "diminished-value" ? service : DEFAULT_SERVICE;
+}
+
+function mobileViewFromSearch(search: string): MobileStartView {
+  return new URLSearchParams(search).get("view") === "intake"
+    ? "intake"
+    : "overview";
 }
 
 export function AppraisalStartPage() {
@@ -24,6 +31,7 @@ export function AppraisalStartPage() {
   const navigate = useNavigate();
   const totalLossDependencies = useTotalLossDependencies();
   const service = serviceFromSearch(location.search);
+  const mobileView = mobileViewFromSearch(location.search);
   const [diminishedValueDraft, setDiminishedValueDraft] = useState(
     createEmptyDiminishedValueDraft,
   );
@@ -54,11 +62,26 @@ export function AppraisalStartPage() {
     );
   }, [location.pathname, location.search, navigate, service]);
 
+  useEffect(() => {
+    if (
+      typeof window.matchMedia !== "function" ||
+      !window.matchMedia("(max-width: 1023px)").matches
+    ) {
+      return;
+    }
+
+    const frame = window.requestAnimationFrame(() => {
+      window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [mobileView]);
+
   const handleServiceChange = (nextService: AppraisalServiceSlug) => {
     if (nextService === service) return;
 
     const params = new URLSearchParams(location.search);
     params.set("service", nextService);
+    params.delete("view");
     if (nextService === "diminished-value") {
       params.delete("caseId");
     }
@@ -72,12 +95,42 @@ export function AppraisalStartPage() {
     );
   };
 
+  const handleMobileContinue = () => {
+    if (mobileView === "intake") return;
+
+    const params = new URLSearchParams(location.search);
+    params.set("view", "intake");
+
+    void navigate({
+      pathname: location.pathname,
+      search: `?${params.toString()}`,
+    });
+  };
+
+  const handleMobileBack = () => {
+    if (mobileView === "overview") return;
+
+    const params = new URLSearchParams(location.search);
+    params.delete("view");
+
+    void navigate(
+      {
+        pathname: location.pathname,
+        search: `?${params.toString()}`,
+      },
+      { replace: true, preventScrollReset: true },
+    );
+  };
+
   const totalLossSelected = service === "total-loss";
 
   return (
     <AppraisalStartLayout
       service={service}
+      mobileView={mobileView}
       onServiceChange={handleServiceChange}
+      onMobileContinue={handleMobileContinue}
+      onMobileBack={handleMobileBack}
       serviceSwitchDisabled={totalLossSelected && totalLossBusy}
       eyebrow={
         totalLossSelected

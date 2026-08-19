@@ -1,5 +1,7 @@
+import { ArrowLeft, ArrowRight } from "lucide-react";
 import type { ReactNode } from "react";
 
+import { ExampleAnalysisPreview } from "@/features/intake/example-analysis-preview";
 import type { AppraisalServiceSlug } from "@/features/intake/types";
 import { cn } from "@/lib/utils";
 
@@ -70,7 +72,10 @@ export function ServiceSelector({
 
 export interface AppraisalStartLayoutProps {
   service: AppraisalServiceSlug;
+  mobileView: "overview" | "intake";
   onServiceChange: (service: AppraisalServiceSlug) => void;
+  onMobileContinue: () => void;
+  onMobileBack: () => void;
   serviceSwitchDisabled?: boolean;
   eyebrow: ReactNode;
   title: ReactNode;
@@ -81,7 +86,10 @@ export interface AppraisalStartLayoutProps {
 
 export function AppraisalStartLayout({
   service,
+  mobileView,
   onServiceChange,
+  onMobileContinue,
+  onMobileBack,
   serviceSwitchDisabled,
   eyebrow,
   title,
@@ -103,10 +111,14 @@ export function AppraisalStartLayout({
         data-appraisal-start-layout
         data-total-loss-layout
       >
-        <header
-          className="max-w-xl lg:sticky lg:top-28 lg:pt-5"
+        <div
+          className={cn(
+            "max-w-xl lg:sticky lg:top-28 lg:block lg:pt-5",
+            mobileView === "intake" && "hidden",
+          )}
           data-appraisal-start-intro
           data-total-loss-intro
+          data-mobile-stage-visible={mobileView === "overview"}
         >
           <ServiceSelector
             value={service}
@@ -122,13 +134,41 @@ export function AppraisalStartLayout({
           <p className="mt-3 text-base leading-7 text-copy">
             {description}
           </p>
-        </header>
+          <ExampleAnalysisPreview service={service} />
+          {mobileView === "overview" ? (
+            <button
+              type="button"
+              className="mt-6 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-brand px-5 text-sm font-semibold text-white transition-colors hover:bg-brand-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 motion-reduce:transition-none lg:hidden"
+              aria-controls="appraisal-intake"
+              data-mobile-intake-continue
+              onClick={onMobileContinue}
+            >
+              Continue
+              <ArrowRight className="size-4" aria-hidden />
+            </button>
+          ) : null}
+        </div>
 
         <div
-          className="min-w-0 w-full max-w-3xl lg:justify-self-end"
+          id="appraisal-intake"
+          className={cn(
+            "min-w-0 w-full max-w-3xl lg:block lg:justify-self-end",
+            mobileView === "overview" && "hidden",
+          )}
           data-appraisal-start-flow
           data-total-loss-flow
+          data-mobile-stage-visible={mobileView === "intake"}
         >
+          {mobileView === "intake" ? (
+            <button
+              type="button"
+              className="mb-4 inline-flex min-h-11 items-center gap-2 rounded-lg px-2 text-sm font-semibold text-copy transition-colors hover:bg-white/60 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand motion-reduce:transition-none lg:hidden"
+              onClick={onMobileBack}
+            >
+              <ArrowLeft className="size-4" aria-hidden />
+              Back to services
+            </button>
+          ) : null}
           {children}
         </div>
       </div>

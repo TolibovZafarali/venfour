@@ -1,4 +1,5 @@
 export * from "@/features/intake/appraisal-start-layout";
+export * from "@/features/intake/example-analysis-preview";
 export * from "@/features/intake/types";
 export * from "@/features/intake/use-vehicle-lookup-controller";
 export * from "@/features/intake/vehicle-identification-fields";

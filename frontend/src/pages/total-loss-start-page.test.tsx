@@ -1,4 +1,10 @@
-import { act, fireEvent, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -393,7 +399,17 @@ async function chooseMode(
   label: "I have my valuation report" | "I don’t have the report",
 ) {
   await user.click(screen.getByRole("radio", { name: new RegExp(label, "i") }));
-  await user.click(screen.getByRole("button", { name: "Continue" }));
+  await user.click(
+    withinIntakeFlow().getByRole("button", { name: "Continue" }),
+  );
+}
+
+function withinIntakeFlow() {
+  const flow = document.querySelector<HTMLElement>(
+    "[data-appraisal-start-flow]",
+  );
+  if (!flow) throw new Error("Appraisal intake flow was not rendered.");
+  return within(flow);
 }
 
 async function fillManualIntake(user: ReturnType<typeof userEvent.setup>) {
@@ -752,7 +768,9 @@ describe("/start?service=total-loss", () => {
     await waitFor(() => expect(screen.getByLabelText("Model")).toBeEnabled());
     await user.selectOptions(screen.getByLabelText("Model"), "Camry");
     await user.type(screen.getByLabelText("Mileage at date of loss"), "42000");
-    await user.click(screen.getByRole("button", { name: "Continue" }));
+    await user.click(
+      withinIntakeFlow().getByRole("button", { name: "Continue" }),
+    );
 
     expect(
       await screen.findByRole("heading", { name: "Add the claim details" }),
@@ -1088,7 +1106,9 @@ describe("/start?service=total-loss", () => {
     await screen.findByRole("heading", {
       name: "Continue your saved appraisal?",
     });
-    await user.click(screen.getByRole("button", { name: "Continue" }));
+    await user.click(
+      withinIntakeFlow().getByRole("button", { name: "Continue" }),
+    );
 
     expect(
       await screen.findByRole("heading", { name: "Your information is saved" }),

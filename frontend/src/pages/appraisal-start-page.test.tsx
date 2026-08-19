@@ -27,6 +27,14 @@ function expectSelectedService(selectedLabel: ServiceLabel) {
   expect(other.closest("label")).not.toHaveAttribute("aria-current");
 }
 
+function withinIntakeFlow() {
+  const flow = document.querySelector<HTMLElement>(
+    "[data-appraisal-start-flow]",
+  );
+  if (!flow) throw new Error("Appraisal intake flow was not rendered.");
+  return within(flow);
+}
+
 async function chooseAccidentDate(
   user: ReturnType<typeof userEvent.setup>,
 ) {
@@ -75,16 +83,27 @@ describe("/start appraisal intake", () => {
       "/start?service=total-loss",
       "Start your total-loss appraisal",
       "Total Loss",
+      "2024 Hyundai Elantra SEL",
+      "12 comparable vehicles · within 87 miles",
     ],
     [
       "diminished value",
       "/start?service=diminished-value",
       "Start your diminished-value appraisal",
       "Diminished Value",
+      "2025 Hyundai Tucson SEL",
+      "Accident history · repairs · mileage · local market",
     ],
   ] as const)(
     "renders the explicit %s deep link with native active-selector semantics",
-    (_scenario, initialEntry, heading, selectedLabel) => {
+    (
+      _scenario,
+      initialEntry,
+      heading,
+      selectedLabel,
+      exampleVehicle,
+      supportingLine,
+    ) => {
       const { router } = renderTestApp([initialEntry]);
 
       expect(router.state.location.search).toBe(
@@ -92,6 +111,10 @@ describe("/start appraisal intake", () => {
       );
       expect(screen.getByRole("heading", { name: heading })).toBeVisible();
       expectSelectedService(selectedLabel);
+      expect(
+        screen.getByRole("region", { name: exampleVehicle }),
+      ).toBeVisible();
+      expect(screen.getByLabelText(supportingLine)).toBeVisible();
     },
   );
 
@@ -132,6 +155,54 @@ describe("/start appraisal intake", () => {
     expectSelectedService("Diminished Value");
   });
 
+  it("navigates between the responsive overview and selected intake", async () => {
+    const user = userEvent.setup();
+    const { router } = renderTestApp([
+      "/start?service=diminished-value&campaign=spring",
+    ]);
+    const intro = document.querySelector<HTMLElement>(
+      "[data-appraisal-start-intro]",
+    );
+    const flow = document.querySelector<HTMLElement>(
+      "[data-appraisal-start-flow]",
+    );
+
+    expect(intro).toHaveAttribute("data-mobile-stage-visible", "true");
+    expect(flow).toHaveAttribute("data-mobile-stage-visible", "false");
+
+    await user.click(
+      within(intro!).getByRole("button", { name: "Continue" }),
+    );
+
+    await waitFor(() =>
+      expect(
+        new URLSearchParams(router.state.location.search).get("view"),
+      ).toBe("intake"),
+    );
+    let searchParams = new URLSearchParams(router.state.location.search);
+    expect(router.state.historyAction).toBe("PUSH");
+    expect(searchParams.get("service")).toBe("diminished-value");
+    expect(searchParams.get("campaign")).toBe("spring");
+    expect(intro).toHaveAttribute("data-mobile-stage-visible", "false");
+    expect(flow).toHaveAttribute("data-mobile-stage-visible", "true");
+
+    await user.click(
+      within(flow!).getByRole("button", { name: "Back to services" }),
+    );
+
+    await waitFor(() =>
+      expect(
+        new URLSearchParams(router.state.location.search).get("view"),
+      ).toBeNull(),
+    );
+    searchParams = new URLSearchParams(router.state.location.search);
+    expect(router.state.historyAction).toBe("REPLACE");
+    expect(searchParams.get("service")).toBe("diminished-value");
+    expect(searchParams.get("campaign")).toBe("spring");
+    expect(intro).toHaveAttribute("data-mobile-stage-visible", "true");
+    expect(flow).toHaveAttribute("data-mobile-stage-visible", "false");
+  });
+
   it("removes a total-loss caseId only for the pushed diminished-value entry", async () => {
     const user = userEvent.setup();
     const caseId = "22222222-2222-4222-8222-222222222222";
@@ -170,7 +241,7 @@ describe("/start appraisal intake", () => {
     const user = userEvent.setup();
     vi.spyOn(window, "scrollTo").mockImplementation(() => undefined);
     const { router } = renderTestApp([
-      "/start?service=diminished-value",
+      "/start?service=diminished-value&view=intake",
     ]);
 
     await user.selectOptions(
@@ -221,7 +292,7 @@ describe("/start appraisal intake", () => {
       },
     } as unknown as TotalLossDependencies;
 
-    renderTestApp(["/start?service=diminished-value"], {
+    renderTestApp(["/start?service=diminished-value&view=intake"], {
       totalLossDependencies,
     });
     await user.selectOptions(
@@ -233,7 +304,9 @@ describe("/start appraisal intake", () => {
       screen.getByLabelText("Repair status"),
       "complete",
     );
-    await user.click(screen.getByRole("button", { name: "Continue" }));
+    await user.click(
+      withinIntakeFlow().getByRole("button", { name: "Continue" }),
+    );
     await user.type(screen.getByLabelText("VIN"), "1HGCM82633A004352");
     await user.type(screen.getByLabelText("Mileage at the accident"), "48250");
     await user.click(
@@ -292,7 +365,7 @@ describe("/start appraisal intake", () => {
       },
     } as unknown as TotalLossDependencies;
 
-    renderTestApp(["/start?service=diminished-value"], {
+    renderTestApp(["/start?service=diminished-value&view=intake"], {
       totalLossDependencies,
     });
 
@@ -305,7 +378,9 @@ describe("/start appraisal intake", () => {
       screen.getByLabelText("Repair status"),
       "in-progress",
     );
-    await user.click(screen.getByRole("button", { name: "Continue" }));
+    await user.click(
+      withinIntakeFlow().getByRole("button", { name: "Continue" }),
+    );
 
     await user.type(screen.getByLabelText("VIN"), "1hgcm82633a004352");
     await user.type(screen.getByLabelText("Mileage at the accident"), "48250");
@@ -377,7 +452,9 @@ describe("/start appraisal intake", () => {
       ).getByRole("radio", { name: "Yes" }),
     ).toBeChecked();
 
-    await user.click(screen.getByRole("button", { name: "Continue" }));
+    await user.click(
+      withinIntakeFlow().getByRole("button", { name: "Continue" }),
+    );
     await user.type(screen.getByLabelText("Name"), "Ada Driver");
     await user.type(screen.getByLabelText("Email"), "ada@example.com");
     await user.type(screen.getByLabelText("Phone"), "3125550123");
