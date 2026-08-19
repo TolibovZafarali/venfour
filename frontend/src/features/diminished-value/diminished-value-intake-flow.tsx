@@ -134,7 +134,8 @@ export function DiminishedValueIntakeFlow({
     vehicleYear: draft.vehicleYear,
     make: draft.make,
     currentVin: normalizeDiminishedValueVin(draft.vin),
-    unknownVinErrorMessage: "Vehicle lookup is temporarily unavailable. Try again.",
+    unknownVinErrorMessage:
+      "Vehicle lookup is temporarily unavailable. Try again.",
   });
 
   useEffect(() => {
@@ -304,13 +305,11 @@ export function DiminishedValueIntakeFlow({
             storedDocuments={storedDocuments}
             pendingDocumentStates={pendingDocumentStates}
             documentsRequireAuthentication={documentsRequireAuthentication}
-            onDocumentAuthenticationRequired={
-              onDocumentAuthenticationRequired
-            }
+            onDocumentAuthenticationRequired={onDocumentAuthenticationRequired}
             onRetryDocumentUploads={onRetryDocumentUploads}
             onRemoveStoredDocument={onRemoveStoredDocument}
             removingDocumentId={removingDocumentId}
-            documentsDisabled={documentsDisabled}
+            documentsDisabled={documentsDisabled || submitting}
             onEditStart={() => goToStep("start", true)}
             onBack={() => goToStep("vehicle")}
             onContinue={validateAndContinueRepairs}
@@ -345,7 +344,18 @@ export function DiminishedValueIntakeFlow({
         direction={transitionDirection}
         transitionKey={draft.step}
       >
-        {renderedStep}
+        {draft.step === "complete" ? (
+          renderedStep
+        ) : (
+          <fieldset
+            className="m-0 min-w-0 border-0 p-0"
+            disabled={submitting}
+            aria-busy={submitting || undefined}
+            aria-label="Diminished value intake"
+          >
+            {renderedStep}
+          </fieldset>
+        )}
       </IntakeStepTransition>
     </div>
   );
@@ -638,9 +648,7 @@ export function DiminishedValueRepairsStep({
             optional
             autoComplete="organization"
             placeholder="Shop or facility name"
-            onChange={(event) =>
-              onChange("repairFacility", event.target.value)
-            }
+            onChange={(event) => onChange("repairFacility", event.target.value)}
           />
         </div>
         <IntakeRadioChoiceGroup
@@ -830,9 +838,8 @@ export function DiminishedValueCompleteStep({
         <div className="mx-auto mt-7 max-w-lg rounded-xl border border-line bg-surface p-5">
           <p className="text-sm font-semibold text-ink">Request received</p>
           <p className="mt-2 text-sm leading-6 text-copy">
-            Venfour has received this information for a future manual review.
-            No appraisal has been completed and no appointment has been
-            scheduled.
+            Venfour has received this information for a future manual review. No
+            appraisal has been completed and no appointment has been scheduled.
           </p>
         </div>
       </div>

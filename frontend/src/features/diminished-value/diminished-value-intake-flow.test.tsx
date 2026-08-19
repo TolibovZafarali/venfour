@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
@@ -24,7 +24,9 @@ describe("DiminishedValueIntakeFlow", () => {
 
     await user.click(screen.getByRole("button", { name: "Continue" }));
 
-    expect(screen.getByLabelText("State where the accident occurred")).toHaveFocus();
+    expect(
+      screen.getByLabelText("State where the accident occurred"),
+    ).toHaveFocus();
     expect(screen.getByText("State is required.")).toHaveAttribute(
       "role",
       "alert",
@@ -67,11 +69,7 @@ describe("DiminishedValueIntakeFlow", () => {
 
     expect(screen.getByText(/August 1, 2026 · IL/)).toBeInTheDocument();
     await chooseRadio(user, "Was another party at fault?", "Yes");
-    await chooseRadio(
-      user,
-      "Was there structural or frame damage?",
-      "No",
-    );
+    await chooseRadio(user, "Was there structural or frame damage?", "No");
     await chooseRadio(user, "Did any airbags deploy?", "Not sure");
     await user.type(
       screen.getByLabelText("At-fault party’s insurance company"),
@@ -86,20 +84,16 @@ describe("DiminishedValueIntakeFlow", () => {
       [new Uint8Array([0xff, 0xd8, 0xff, 0x00])],
       "damage.jpg",
       {
-      type: "image/jpeg",
-      lastModified: 20,
+        type: "image/jpeg",
+        lastModified: 20,
       },
     );
     await user.upload(screen.getByLabelText("Choose files"), [estimate, photo]);
     expect(await screen.findByText("estimate.pdf")).toBeInTheDocument();
     expect(await screen.findByText("damage.jpg")).toBeInTheDocument();
-    await user.click(
-      screen.getByRole("button", { name: "Remove damage.jpg" }),
-    );
+    await user.click(screen.getByRole("button", { name: "Remove damage.jpg" }));
     expect(screen.queryByText("damage.jpg")).not.toBeInTheDocument();
-    expect(
-      screen.getByText(/awaiting secure upload/),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/awaiting secure upload/)).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Continue" }));
     await user.type(screen.getByLabelText("Name"), "Jordan Lee");
@@ -220,7 +214,139 @@ describe("DiminishedValueIntakeFlow", () => {
     ).toBeInTheDocument();
     expect(screen.getByText(/Repairs are in progress/)).toBeInTheDocument();
   });
+
+  it("disables every consultation control until a deferred submission failure settles", async () => {
+    const user = userEvent.setup();
+    const submission = createDeferred<void>();
+    const onSubmitAttempt = vi.fn();
+    render(
+      <DeferredSubmissionHarness
+        submission={submission.promise}
+        onSubmitAttempt={onSubmitAttempt}
+      />,
+    );
+
+    const name = screen.getByLabelText("Name");
+    const email = screen.getByLabelText("Email");
+    const phone = screen.getByLabelText("Phone");
+    const availability = screen.getByLabelText("General availability");
+    const emailPreference = within(
+      screen.getByRole("group", { name: "Preferred contact method" }),
+    ).getByRole("radio", { name: /^Email/u });
+    const back = screen.getByRole("button", { name: "Back" });
+    const requestReview = screen.getByRole("button", {
+      name: "Request a review",
+    });
+
+    await user.click(requestReview);
+
+    expect(onSubmitAttempt).toHaveBeenCalledOnce();
+    expect(name).toBeDisabled();
+    expect(email).toBeDisabled();
+    expect(phone).toBeDisabled();
+    expect(availability).toBeDisabled();
+    expect(emailPreference).toBeDisabled();
+    expect(back).toBeDisabled();
+    expect(requestReview).toBeDisabled();
+
+    await user.type(name, " Changed");
+    await user.click(back);
+    await user.click(requestReview);
+    expect(name).toHaveValue("Jordan Lee");
+    expect(
+      screen.getByRole("heading", { name: "Prepare your review request" }),
+    ).toBeInTheDocument();
+    expect(onSubmitAttempt).toHaveBeenCalledOnce();
+
+    await act(async () => {
+      submission.reject(new Error("Submission unavailable"));
+      await submission.promise.catch(() => undefined);
+    });
+
+    expect(await screen.findByText("Submission unavailable")).toBeVisible();
+    expect(name).toBeEnabled();
+    expect(email).toBeEnabled();
+    expect(phone).toBeEnabled();
+    expect(availability).toBeEnabled();
+    expect(emailPreference).toBeEnabled();
+    expect(back).toBeEnabled();
+    expect(requestReview).toBeEnabled();
+
+    await user.type(name, " Updated");
+    expect(name).toHaveValue("Jordan Lee Updated");
+    await user.click(back);
+    expect(
+      screen.getByRole("heading", {
+        name: "Describe the accident and repairs",
+      }),
+    ).toBeInTheDocument();
+  });
 });
+
+function createDeferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+  return { promise, reject, resolve };
+}
+
+function DeferredSubmissionHarness({
+  submission,
+  onSubmitAttempt,
+}: {
+  readonly submission: Promise<void>;
+  readonly onSubmitAttempt: () => void;
+}) {
+  const [draft, setDraft] = useState<DiminishedValueDraft>({
+    ...createEmptyDiminishedValueDraft(),
+    step: "consultation",
+    accidentState: "IL",
+    accidentDate: "2026-08-01",
+    repairStatus: "complete",
+    vehicleEntryMethod: "details",
+    vehicleYear: "2024",
+    make: "Honda",
+    model: "Accord",
+    mileageAtAccident: "48,250",
+    otherPartyAtFault: "yes",
+    structuralDamage: "no",
+    airbagDeployment: "no",
+    fullName: "Jordan Lee",
+    email: "jordan@example.com",
+    phone: "312-555-0123",
+    preferredContactMethod: "email",
+    availability: "Weekdays after 4 p.m. Central Time",
+  });
+  const [submitting, setSubmitting] = useState(false);
+  const [submissionError, setSubmissionError] = useState<string | null>(null);
+  const [lookupService] = useState(vehicleService);
+
+  return (
+    <DiminishedValueIntakeFlow
+      draft={draft}
+      onDraftChange={setDraft}
+      selectedFiles={[]}
+      onSelectedFilesChange={() => undefined}
+      onSubmit={() => {
+        onSubmitAttempt();
+        setSubmissionError(null);
+        setSubmitting(true);
+        void submission.catch((error: unknown) => {
+          setSubmissionError(
+            error instanceof Error ? error.message : "Submission unavailable",
+          );
+          setSubmitting(false);
+        });
+      }}
+      submitting={submitting}
+      submissionError={submissionError}
+      vehicleLookupService={lookupService}
+    />
+  );
+}
 
 function FlowHarness({
   initialDraft,

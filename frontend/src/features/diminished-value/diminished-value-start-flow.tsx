@@ -1,11 +1,5 @@
 import { AlertCircle, Cloud, RefreshCw } from "lucide-react";
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
 
 import { useAuth, useSignInDialog } from "@/features/auth";
@@ -32,7 +26,10 @@ import {
 } from "./draft";
 import { fileIdentity } from "./local-document-files";
 import type { DiminishedValueStoredDocument } from "./storage-service";
-import type { DiminishedValueDraft } from "./types";
+import {
+  createEmptyDiminishedValueDraft,
+  type DiminishedValueDraft,
+} from "./types";
 
 const AUTOSAVE_DELAY_MS = 600;
 const UUID_PATTERN =
@@ -72,9 +69,9 @@ export function DiminishedValueStartFlow({
   const [caseState, setCaseState] = useState<
     "idle" | "loading" | "ready" | "error"
   >("idle");
-  const [caseStatus, setCaseStatus] = useState<
-    AppraisalCase["status"] | null
-  >(null);
+  const [caseStatus, setCaseStatus] = useState<AppraisalCase["status"] | null>(
+    null,
+  );
   const [serverDetails, setServerDetails] =
     useState<DiminishedValueCaseDetails | null>(null);
   const [documents, setDocuments] = useState<
@@ -83,12 +80,12 @@ export function DiminishedValueStartFlow({
   const [pendingDocuments, setPendingDocuments] = useState<
     readonly PendingDocument[]
   >([]);
-  const pendingDocumentsRef = useRef<readonly PendingDocument[]>(
-    pendingDocuments,
-  );
+  const pendingDocumentsRef =
+    useRef<readonly PendingDocument[]>(pendingDocuments);
   const [flowError, setFlowError] = useState<string | null>(null);
   const [submissionError, setSubmissionError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [submissionUncertain, setSubmissionUncertain] = useState(false);
   const [removingDocumentId, setRemovingDocumentId] = useState<string | null>(
     null,
   );
@@ -97,17 +94,28 @@ export function DiminishedValueStartFlow({
   const userIdRef = useRef(userId);
   userIdRef.current = userId;
   const identityRef = useRef({ generation: 0, userId });
+  const mountedRef = useRef(true);
   const explicitCaseId = useMemo(
     () => new URLSearchParams(location.search).get("caseId"),
     [location.search],
   );
+  const explicitCaseIdRef = useRef(explicitCaseId);
+  explicitCaseIdRef.current = explicitCaseId;
+  const previousExplicitCaseIdRef = useRef(explicitCaseId);
+  const caseTargetRef = useRef<string | null>(
+    explicitCaseId ?? envelope.confirmedCaseId,
+  );
+  if (previousExplicitCaseIdRef.current !== explicitCaseId) {
+    previousExplicitCaseIdRef.current = explicitCaseId;
+    caseTargetRef.current = explicitCaseId ?? envelope.confirmedCaseId;
+  }
   const invalidExplicitCaseId = Boolean(
     explicitCaseId && !UUID_PATTERN.test(explicitCaseId),
   );
   const returnTo = `${location.pathname}${location.search}`;
   const ownerDraftIdentityUnverified = Boolean(
     envelope.ownerUserId &&
-      (auth.status === "loading" || envelope.ownerUserId !== userId),
+    (auth.status === "loading" || envelope.ownerUserId !== userId),
   );
   const renderedDraft: DiminishedValueDraft = serverDetails?.submittedAt
     ? { ...envelope.intake, step: "complete" }
@@ -120,6 +128,9 @@ export function DiminishedValueStartFlow({
   const recentLookupRef = useRef<string | null>(null);
   const pendingAuthHandledRef = useRef<string | null>(null);
   const submissionAttemptCaseRef = useRef<string | null>(null);
+  const submissionOperationRef = useRef<symbol | null>(null);
+  const saveOperationRef = useRef<symbol | null>(null);
+  const removalOperationRef = useRef<symbol | null>(null);
 
   const applyEnvelope = useCallback(
     (
@@ -171,9 +182,27 @@ export function DiminishedValueStartFlow({
     if (!userId || !dependencies) {
       throw new Error("Sign in before securely saving this review request.");
     }
+    if (
+      !mountedRef.current ||
+      userIdRef.current !== userId ||
+      identityRef.current.userId !== userId
+    ) {
+      throw new StaleDiminishedValueIdentityError();
+    }
     const current = envelopeRef.current;
+    const activeExplicitCaseId = explicitCaseIdRef.current;
+    if (
+      activeExplicitCaseId &&
+      activeExplicitCaseId !== current.confirmedCaseId
+    ) {
+      throw new StaleDiminishedValueIdentityError();
+    }
     if (current.confirmedCaseId && current.ownerUserId === userId) {
+      caseTargetRef.current = current.confirmedCaseId;
       return current.confirmedCaseId;
+    }
+    if (activeExplicitCaseId) {
+      throw new StaleDiminishedValueIdentityError();
     }
     if (caseCreationRef.current) {
       return (await caseCreationRef.current).id;
@@ -184,6 +213,7 @@ export function DiminishedValueStartFlow({
     if (!reservedCaseId) {
       reservedCaseId = crypto.randomUUID();
     }
+    caseTargetRef.current = reservedCaseId;
     const reservationPersisted = applyEnvelope((value) => ({
       ...value,
       reservedCaseId,
@@ -204,8 +234,11 @@ export function DiminishedValueStartFlow({
       })
       .then((appraisalCase) => {
         if (
+          !mountedRef.current ||
           identityRef.current.generation !== generation ||
-          userIdRef.current !== userId
+          userIdRef.current !== userId ||
+          caseTargetRef.current !== reservedCaseId ||
+          explicitCaseIdRef.current !== null
         ) {
           throw new StaleDiminishedValueIdentityError();
         }
@@ -216,9 +249,22 @@ export function DiminishedValueStartFlow({
           ownerUserId: userId,
           lastUpdatedAt: new Date().toISOString(),
         }));
+        caseTargetRef.current = appraisalCase.id;
         setCaseStatus(appraisalCase.status);
         navigateToCase(appraisalCase.id);
         return appraisalCase;
+      })
+      .catch((error: unknown) => {
+        if (
+          !mountedRef.current ||
+          identityRef.current.generation !== generation ||
+          userIdRef.current !== userId ||
+          caseTargetRef.current !== reservedCaseId ||
+          explicitCaseIdRef.current !== null
+        ) {
+          throw new StaleDiminishedValueIdentityError();
+        }
+        throw error;
       });
 
     caseCreationRef.current = operation;
@@ -235,7 +281,33 @@ export function DiminishedValueStartFlow({
     async (caseId: string, replaceLocal: boolean) => {
       if (!userId || !dependencies) return;
       const loadKey = `${identityRef.current.generation}:${userId}:${caseId}`;
-      if (loadedCaseRef.current === loadKey) return;
+      if (loadedCaseRef.current === loadKey) {
+        caseTargetRef.current = caseId;
+        return;
+      }
+      const localCaseId =
+        envelopeRef.current.confirmedCaseId ??
+        envelopeRef.current.reservedCaseId ??
+        caseTargetRef.current;
+      const switchingCases = Boolean(localCaseId && localCaseId !== caseId);
+      if (switchingCases) {
+        caseCreationRef.current = null;
+        saveChainRef.current = null;
+        uploadLoopRef.current = null;
+        saveOperationRef.current = null;
+        submissionOperationRef.current = null;
+        removalOperationRef.current = null;
+        submissionAttemptCaseRef.current = null;
+        updatePendingDocuments(() => []);
+        setDocuments([]);
+        setServerDetails(null);
+        setSaveState("idle");
+        setSubmitting(false);
+        setSubmissionUncertain(false);
+        setSubmissionError(null);
+        setRemovingDocumentId(null);
+      }
+      caseTargetRef.current = caseId;
       loadedCaseRef.current = loadKey;
       setCaseState("loading");
       setFlowError(null);
@@ -275,27 +347,28 @@ export function DiminishedValueStartFlow({
 
         if (
           loadedCaseRef.current !== loadKey ||
-          userIdRef.current !== userId
+          userIdRef.current !== userId ||
+          caseTargetRef.current !== caseId ||
+          !mountedRef.current
         ) {
           return;
         }
 
         const current = envelopeRef.current;
-        if (
-          current.confirmedCaseId &&
-          current.confirmedCaseId !== caseId
-        ) {
-          submissionAttemptCaseRef.current = null;
-          updatePendingDocuments(() => []);
-          setDocuments([]);
-          setServerDetails(null);
-        }
+        const currentEnvelopeCaseId =
+          current.confirmedCaseId ?? current.reservedCaseId;
+        const replacingAuthoritativeCase =
+          replaceLocal && currentEnvelopeCaseId !== caseId;
         const preserveDirtyLocal = Boolean(
           details &&
-            !replaceLocal &&
-            current.dirty &&
-            current.confirmedCaseId === caseId,
+          !replaceLocal &&
+          current.dirty &&
+          current.confirmedCaseId === caseId,
         );
+        const replacementIntake =
+          replacingAuthoritativeCase && !details
+            ? createEmptyDiminishedValueDraft()
+            : null;
         const baseServerRevision = preserveDirtyLocal
           ? current.serverRevision
           : (details?.revision ?? null);
@@ -303,19 +376,18 @@ export function DiminishedValueStartFlow({
           (value) => ({
             ...value,
             intake:
-              details &&
-              !preserveDirtyLocal
+              details && !preserveDirtyLocal
                 ? editableDraftFromDetails(details)
-                : value.intake,
+                : (replacementIntake ?? value.intake),
             confirmedCaseId: caseId,
             reservedCaseId: caseId,
             ownerUserId: userId,
             pendingAuthAction:
-              appraisalCase.status === "submitted"
+              appraisalCase.status === "submitted" || replacingAuthoritativeCase
                 ? null
                 : value.pendingAuthAction,
             dirty:
-              details && !preserveDirtyLocal
+              (details && !preserveDirtyLocal) || replacementIntake
                 ? false
                 : value.dirty,
             serverRevision: baseServerRevision,
@@ -332,6 +404,14 @@ export function DiminishedValueStartFlow({
         }
         navigateToCase(caseId);
       } catch (error) {
+        if (
+          loadedCaseRef.current !== loadKey ||
+          userIdRef.current !== userId ||
+          caseTargetRef.current !== caseId ||
+          !mountedRef.current
+        ) {
+          return;
+        }
         loadedCaseRef.current = null;
         setCaseState("error");
         setFlowError(
@@ -357,6 +437,12 @@ export function DiminishedValueStartFlow({
         throw new Error("Sign in before securely saving this review request.");
       }
       const current = envelopeRef.current;
+      const queuedGeneration = identityRef.current.generation;
+      const queuedCaseId =
+        explicitCaseIdRef.current ??
+        current.confirmedCaseId ??
+        current.reservedCaseId ??
+        caseTargetRef.current;
       if (!force && !current.dirty) {
         if (saveChainRef.current) return saveChainRef.current;
         if (serverDetails) return serverDetails;
@@ -366,34 +452,72 @@ export function DiminishedValueStartFlow({
       }
 
       const run = async () => {
-        const snapshot = envelopeRef.current;
-        const caseId = await ensureCase();
-        const generation = identityRef.current.generation;
-        setSaveState("saving");
-        const details = await dependencies.diminishedValueDetailsService.saveDetails({
-          caseId,
-          userId,
-          expectedRevision: snapshot.serverRevision,
-          values: diminishedValueDraftToDetailsValues(snapshot.intake),
-        });
+        const liveCaseId =
+          explicitCaseIdRef.current ??
+          envelopeRef.current.confirmedCaseId ??
+          envelopeRef.current.reservedCaseId ??
+          caseTargetRef.current;
         if (
-          identityRef.current.generation !== generation ||
+          !mountedRef.current ||
+          identityRef.current.generation !== queuedGeneration ||
           userIdRef.current !== userId ||
-          envelopeRef.current.confirmedCaseId !== caseId
+          (queuedCaseId ? liveCaseId !== queuedCaseId : Boolean(liveCaseId))
         ) {
           throw new StaleDiminishedValueIdentityError();
         }
-        setServerDetails(details);
-        setSaveState("saved");
-        setFlowError(null);
-        applyEnvelope((value) => ({
-          ...value,
-          dirty:
-            value.revision === snapshot.revision ? false : value.dirty,
-          serverRevision: details.revision,
-          lastUpdatedAt: new Date().toISOString(),
-        }));
-        return details;
+        const snapshot = envelopeRef.current;
+        const caseId = await ensureCase();
+        const generation = identityRef.current.generation;
+        const saveOperation = Symbol("diminished-value-save");
+        saveOperationRef.current = saveOperation;
+        setSaveState("saving");
+        try {
+          const details =
+            await dependencies.diminishedValueDetailsService.saveDetails({
+              caseId,
+              userId,
+              expectedRevision: snapshot.serverRevision,
+              values: diminishedValueDraftToDetailsValues(snapshot.intake),
+            });
+          if (
+            !mountedRef.current ||
+            identityRef.current.generation !== generation ||
+            userIdRef.current !== userId ||
+            caseTargetRef.current !== caseId ||
+            envelopeRef.current.confirmedCaseId !== caseId
+          ) {
+            throw new StaleDiminishedValueIdentityError();
+          }
+          setServerDetails(details);
+          setSaveState("saved");
+          setFlowError(null);
+          applyEnvelope((value) => ({
+            ...value,
+            dirty: value.revision === snapshot.revision ? false : value.dirty,
+            serverRevision: details.revision,
+            lastUpdatedAt: new Date().toISOString(),
+          }));
+          if (saveOperationRef.current === saveOperation) {
+            saveOperationRef.current = null;
+          }
+          return details;
+        } catch (error) {
+          const stale =
+            !mountedRef.current ||
+            identityRef.current.generation !== generation ||
+            userIdRef.current !== userId ||
+            caseTargetRef.current !== caseId ||
+            envelopeRef.current.confirmedCaseId !== caseId ||
+            saveOperationRef.current !== saveOperation;
+          if (saveOperationRef.current === saveOperation) {
+            saveOperationRef.current = null;
+            if (mountedRef.current && stale) {
+              setSaveState("idle");
+            }
+          }
+          if (stale) throw new StaleDiminishedValueIdentityError();
+          throw error;
+        }
       };
 
       const operation = (saveChainRef.current ?? Promise.resolve(null))
@@ -416,24 +540,26 @@ export function DiminishedValueStartFlow({
       } finally {
         if (saveChainRef.current === operation) saveChainRef.current = null;
       }
-    }, [
-      applyEnvelope,
-      dependencies,
-      ensureCase,
-      serverDetails,
-      userId,
-    ],
+    },
+    [applyEnvelope, dependencies, ensureCase, serverDetails, userId],
   );
 
   const refreshDocuments = useCallback(
     async (caseId: string) => {
       if (!dependencies || !userId) return;
+      const generation = identityRef.current.generation;
       const stored =
         await dependencies.diminishedValueDocumentStorageService.listDocuments({
           caseId,
           userId,
         });
-      if (envelopeRef.current.confirmedCaseId === caseId) {
+      if (
+        mountedRef.current &&
+        identityRef.current.generation === generation &&
+        userIdRef.current === userId &&
+        caseTargetRef.current === caseId &&
+        envelopeRef.current.confirmedCaseId === caseId
+      ) {
         setDocuments(stored);
       }
     },
@@ -463,6 +589,14 @@ export function DiminishedValueStartFlow({
     const generation = identityRef.current.generation;
     const loop = (async () => {
       const caseId = await ensureCase();
+      if (
+        !mountedRef.current ||
+        identityRef.current.generation !== generation ||
+        userIdRef.current !== userId ||
+        caseTargetRef.current !== caseId
+      ) {
+        throw new StaleDiminishedValueIdentityError();
+      }
       while (true) {
         const queued = pendingDocumentsRef.current.filter(
           (document) => document.state === "queued",
@@ -506,7 +640,9 @@ export function DiminishedValueStartFlow({
               );
             if (
               identityRef.current.generation !== generation ||
-              userIdRef.current !== userId
+              userIdRef.current !== userId ||
+              caseTargetRef.current !== caseId ||
+              !mountedRef.current
             ) {
               throw new StaleDiminishedValueIdentityError();
             }
@@ -524,7 +660,9 @@ export function DiminishedValueStartFlow({
             if (
               error instanceof StaleDiminishedValueIdentityError ||
               identityRef.current.generation !== generation ||
-              userIdRef.current !== userId
+              userIdRef.current !== userId ||
+              caseTargetRef.current !== caseId ||
+              !mountedRef.current
             ) {
               throw new StaleDiminishedValueIdentityError();
             }
@@ -563,8 +701,7 @@ export function DiminishedValueStartFlow({
   const prepareAuthentication = useCallback(
     (pendingAction: DiminishedValuePendingAuthAction) => {
       const persisted = applyEnvelope((current) => {
-        const reservedCaseId =
-          current.reservedCaseId ?? crypto.randomUUID();
+        const reservedCaseId = current.reservedCaseId ?? crypto.randomUUID();
         const next = {
           ...current,
           reservedCaseId,
@@ -587,100 +724,159 @@ export function DiminishedValueStartFlow({
     [applyEnvelope, openSignIn, returnTo],
   );
 
-  const submitAuthenticated = useCallback(async () => {
-    if (!dependencies || !userId) return;
-    setSubmitting(true);
-    setSubmissionError(null);
-    const generation = identityRef.current.generation;
-    try {
-      const retryCaseId = submissionAttemptCaseRef.current;
-      let details: DiminishedValueCaseDetails | null = null;
-      if (retryCaseId) {
-        details = serverDetails;
-        if (!details || details.caseId !== retryCaseId) {
-          details =
-            await dependencies.diminishedValueDetailsService.getDetails({
-              caseId: retryCaseId,
-              userId,
-            });
+  const submitAuthenticated = useCallback(
+    async (expectedCaseId?: string) => {
+      if (!dependencies || !userId) return;
+      const operation = Symbol("diminished-value-submission");
+      submissionOperationRef.current = operation;
+      setSubmitting(true);
+      setSubmissionUncertain(false);
+      setSubmissionError(null);
+      const generation = identityRef.current.generation;
+      let operationCaseId =
+        expectedCaseId ??
+        submissionAttemptCaseRef.current ??
+        envelopeRef.current.confirmedCaseId ??
+        envelopeRef.current.reservedCaseId ??
+        caseTargetRef.current;
+      const assertCurrentSubmissionScope = () => {
+        const liveCaseId =
+          explicitCaseIdRef.current ??
+          envelopeRef.current.confirmedCaseId ??
+          envelopeRef.current.reservedCaseId ??
+          caseTargetRef.current;
+        if (
+          !mountedRef.current ||
+          submissionOperationRef.current !== operation ||
+          identityRef.current.generation !== generation ||
+          userIdRef.current !== userId ||
+          (operationCaseId !== null && liveCaseId !== operationCaseId)
+        ) {
+          throw new StaleDiminishedValueIdentityError();
         }
-      } else {
-        await processPendingDocuments();
-        if (pendingDocumentsRef.current.length !== 0) {
+      };
+      try {
+        assertCurrentSubmissionScope();
+        const retryCaseId = submissionAttemptCaseRef.current;
+        let details: DiminishedValueCaseDetails | null = null;
+        if (retryCaseId) {
+          details = serverDetails;
+          if (!details || details.caseId !== retryCaseId) {
+            details =
+              await dependencies.diminishedValueDetailsService.getDetails({
+                caseId: retryCaseId,
+                userId,
+              });
+          }
+        } else {
+          await processPendingDocuments();
+          assertCurrentSubmissionScope();
+          if (pendingDocumentsRef.current.length !== 0) {
+            throw new Error(
+              "Wait for every document to finish uploading, or retry or remove it, before submitting.",
+            );
+          }
+          details = await persistCurrentDraft(true);
+          assertCurrentSubmissionScope();
+          await processPendingDocuments();
+          assertCurrentSubmissionScope();
+          if (pendingDocumentsRef.current.length !== 0) {
+            throw new Error(
+              "Wait for every document to finish uploading, or retry or remove it, before submitting.",
+            );
+          }
+        }
+        assertCurrentSubmissionScope();
+        if (!details) {
+          throw new Error("The diminished-value intake could not be saved.");
+        }
+        if (operationCaseId !== null && details.caseId !== operationCaseId) {
+          throw new StaleDiminishedValueIdentityError();
+        }
+        operationCaseId = details.caseId;
+        submissionAttemptCaseRef.current = details.caseId;
+        const result =
+          await dependencies.diminishedValueDetailsService.submitCase({
+            caseId: details.caseId,
+            userId,
+          });
+        const submittedDetails =
+          await dependencies.diminishedValueDetailsService.getDetails({
+            caseId: details.caseId,
+            userId,
+          });
+        if (
+          !mountedRef.current ||
+          submissionOperationRef.current !== operation ||
+          identityRef.current.generation !== generation ||
+          userIdRef.current !== userId ||
+          caseTargetRef.current !== details.caseId ||
+          envelopeRef.current.confirmedCaseId !== details.caseId
+        ) {
+          throw new StaleDiminishedValueIdentityError();
+        }
+        if (
+          !submittedDetails?.submittedAt ||
+          submittedDetails.submittedAt !== result.submittedAt
+        ) {
           throw new Error(
-            "Wait for every document to finish uploading, or retry or remove it, before submitting.",
+            "Venfour could not verify the submitted review request.",
           );
         }
-        details = await persistCurrentDraft(true);
-        await processPendingDocuments();
-        if (pendingDocumentsRef.current.length !== 0) {
-          throw new Error(
-            "Wait for every document to finish uploading, or retry or remove it, before submitting.",
-          );
-        }
-      }
-      if (!details) {
-        throw new Error("The diminished-value intake could not be saved.");
-      }
-      submissionAttemptCaseRef.current = details.caseId;
-      const result =
-        await dependencies.diminishedValueDetailsService.submitCase({
-          caseId: details.caseId,
-          userId,
-        });
-      const submittedDetails =
-        await dependencies.diminishedValueDetailsService.getDetails({
-          caseId: details.caseId,
-          userId,
-        });
-      if (
-        identityRef.current.generation !== generation ||
-        userIdRef.current !== userId
-      ) {
-        throw new StaleDiminishedValueIdentityError();
-      }
-      if (
-        !submittedDetails?.submittedAt ||
-        submittedDetails.submittedAt !== result.submittedAt
-      ) {
-        throw new Error(
-          "Venfour could not verify the submitted review request.",
+        setServerDetails(submittedDetails);
+        setCaseStatus("submitted");
+        setSaveState("saved");
+        setSubmissionUncertain(false);
+        applyEnvelope(
+          (current) => ({
+            ...current,
+            pendingAuthAction: null,
+            dirty: false,
+            serverRevision: submittedDetails.revision,
+          }),
+          { persist: false },
         );
+        clearDiminishedValueDraftEnvelope();
+        void refreshDocuments(details.caseId).catch(() => undefined);
+      } catch (error) {
+        if (
+          error instanceof StaleDiminishedValueIdentityError ||
+          !mountedRef.current ||
+          submissionOperationRef.current !== operation ||
+          identityRef.current.generation !== generation ||
+          userIdRef.current !== userId ||
+          (operationCaseId !== null &&
+            caseTargetRef.current !== operationCaseId)
+        ) {
+          throw error;
+        }
+        setSubmissionError(
+          errorMessage(
+            error,
+            "Venfour could not confirm your review request. Try again.",
+          ),
+        );
+        if (submissionAttemptCaseRef.current) {
+          setSubmissionUncertain(true);
+        }
+        throw error;
+      } finally {
+        if (submissionOperationRef.current === operation) {
+          submissionOperationRef.current = null;
+          if (mountedRef.current) setSubmitting(false);
+        }
       }
-      setServerDetails(submittedDetails);
-      setCaseStatus("submitted");
-      setSaveState("saved");
-      applyEnvelope(
-        (current) => ({
-          ...current,
-          pendingAuthAction: null,
-          dirty: false,
-          serverRevision: submittedDetails.revision,
-        }),
-        { persist: false },
-      );
-      await refreshDocuments(details.caseId);
-      clearDiminishedValueDraftEnvelope();
-    } catch (error) {
-      setSubmissionError(
-        errorMessage(
-          error,
-          "Venfour could not confirm your review request. Try again.",
-        ),
-      );
-      throw error;
-    } finally {
-      setSubmitting(false);
-    }
-  }, [
-    applyEnvelope,
-    dependencies,
-    persistCurrentDraft,
-    processPendingDocuments,
-    refreshDocuments,
-    serverDetails,
-    userId,
-  ]);
+    },
+    [
+      applyEnvelope,
+      dependencies,
+      persistCurrentDraft,
+      processPendingDocuments,
+      refreshDocuments,
+      serverDetails,
+      userId,
+    ],
+  );
 
   const handleSubmit = useCallback(() => {
     if (!userId) {
@@ -696,7 +892,10 @@ export function DiminishedValueStartFlow({
       submissionAttemptCaseRef.current = null;
       applyEnvelope((current) => ({
         ...current,
-        intake: draft.step === "complete" ? { ...draft, step: "consultation" } : draft,
+        intake:
+          draft.step === "complete"
+            ? { ...draft, step: "consultation" }
+            : draft,
         dirty: true,
         revision: current.revision + 1,
         lastUpdatedAt: new Date().toISOString(),
@@ -713,10 +912,7 @@ export function DiminishedValueStartFlow({
           files.includes(pending.file),
         );
         const additions = files
-          .filter(
-            (file) =>
-              !retained.some((pending) => pending.file === file),
-          )
+          .filter((file) => !retained.some((pending) => pending.file === file))
           .map((file) => ({
             id: crypto.randomUUID(),
             file,
@@ -731,24 +927,56 @@ export function DiminishedValueStartFlow({
   const removeStoredDocument = useCallback(
     async (document: DiminishedValueStoredDocument) => {
       if (!dependencies || !userId || !envelope.confirmedCaseId) return;
+      const caseId = envelope.confirmedCaseId;
+      const generation = identityRef.current.generation;
+      const operation = Symbol("diminished-value-document-removal");
+      removalOperationRef.current = operation;
       setRemovingDocumentId(document.id);
       setFlowError(null);
       try {
         submissionAttemptCaseRef.current = null;
-        await dependencies.diminishedValueDocumentStorageService.removeDocument({
-          userId,
-          caseId: envelope.confirmedCaseId,
-          document,
-        });
+        await dependencies.diminishedValueDocumentStorageService.removeDocument(
+          {
+            userId,
+            caseId,
+            document,
+          },
+        );
+        if (
+          !mountedRef.current ||
+          removalOperationRef.current !== operation ||
+          identityRef.current.generation !== generation ||
+          userIdRef.current !== userId ||
+          caseTargetRef.current !== caseId ||
+          envelopeRef.current.confirmedCaseId !== caseId
+        ) {
+          throw new StaleDiminishedValueIdentityError();
+        }
         setDocuments((current) =>
           current.filter((candidate) => candidate.id !== document.id),
         );
       } catch (error) {
-        setFlowError(
-          errorMessage(error, "This document could not be removed. Try again."),
-        );
+        const stale =
+          error instanceof StaleDiminishedValueIdentityError ||
+          !mountedRef.current ||
+          removalOperationRef.current !== operation ||
+          identityRef.current.generation !== generation ||
+          userIdRef.current !== userId ||
+          caseTargetRef.current !== caseId ||
+          envelopeRef.current.confirmedCaseId !== caseId;
+        if (!stale) {
+          setFlowError(
+            errorMessage(
+              error,
+              "This document could not be removed. Try again.",
+            ),
+          );
+        }
       } finally {
-        setRemovingDocumentId(null);
+        if (removalOperationRef.current === operation) {
+          removalOperationRef.current = null;
+          if (mountedRef.current) setRemovingDocumentId(null);
+        }
       }
     },
     [dependencies, envelope.confirmedCaseId, userId],
@@ -765,6 +993,27 @@ export function DiminishedValueStartFlow({
   }, [updatePendingDocuments]);
 
   useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      identityRef.current = {
+        generation: identityRef.current.generation + 1,
+        userId: identityRef.current.userId,
+      };
+      caseCreationRef.current = null;
+      saveChainRef.current = null;
+      uploadLoopRef.current = null;
+      loadedCaseRef.current = null;
+      recentLookupRef.current = null;
+      pendingAuthHandledRef.current = null;
+      submissionAttemptCaseRef.current = null;
+      submissionOperationRef.current = null;
+      saveOperationRef.current = null;
+      removalOperationRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
     if (auth.status === "loading") return;
     const previousUserId = identityRef.current.userId;
     if (previousUserId !== userId) {
@@ -779,18 +1028,25 @@ export function DiminishedValueStartFlow({
       recentLookupRef.current = null;
       pendingAuthHandledRef.current = null;
       submissionAttemptCaseRef.current = null;
+      submissionOperationRef.current = null;
+      saveOperationRef.current = null;
+      removalOperationRef.current = null;
+      caseTargetRef.current = explicitCaseIdRef.current;
       setServerDetails(null);
       setDocuments([]);
       updatePendingDocuments(() => []);
       setCaseStatus(null);
       setCaseState("idle");
+      setSaveState("idle");
+      setFlowError(null);
+      setSubmitting(false);
+      setSubmissionUncertain(false);
+      setSubmissionError(null);
+      setRemovingDocumentId(null);
     }
 
     const current = envelopeRef.current;
-    if (
-      current.ownerUserId &&
-      (!userId || current.ownerUserId !== userId)
-    ) {
+    if (current.ownerUserId && (!userId || current.ownerUserId !== userId)) {
       const fresh = createEmptyDiminishedValueDraftEnvelope();
       envelopeRef.current = fresh;
       setEnvelope(fresh);
@@ -826,15 +1082,48 @@ export function DiminishedValueStartFlow({
     const recentKey = `${identityRef.current.generation}:${userId}`;
     if (recentLookupRef.current === recentKey) return;
     recentLookupRef.current = recentKey;
+    const recentGeneration = identityRef.current.generation;
+    const recentRevision = current.revision;
     void dependencies.appraisalCaseService
       .getRecentDraftAppraisalCase({
         userId,
         serviceType: "diminished_value",
       })
       .then((recentCase) => {
-        if (recentCase) return loadCase(recentCase.id, true);
+        const latest = envelopeRef.current;
+        if (
+          !recentCase ||
+          !mountedRef.current ||
+          recentLookupRef.current !== recentKey ||
+          identityRef.current.generation !== recentGeneration ||
+          userIdRef.current !== userId ||
+          explicitCaseIdRef.current !== null ||
+          latest.revision !== recentRevision ||
+          latest.confirmedCaseId !== null ||
+          latest.reservedCaseId !== null ||
+          latest.pendingAuthAction !== null ||
+          hasMeaningfulDiminishedValueDraft(latest.intake)
+        ) {
+          return;
+        }
+        return loadCase(recentCase.id, true);
       })
       .catch(() => {
+        const latest = envelopeRef.current;
+        if (
+          !mountedRef.current ||
+          recentLookupRef.current !== recentKey ||
+          identityRef.current.generation !== recentGeneration ||
+          userIdRef.current !== userId ||
+          explicitCaseIdRef.current !== null ||
+          latest.revision !== recentRevision ||
+          latest.confirmedCaseId !== null ||
+          latest.reservedCaseId !== null ||
+          latest.pendingAuthAction !== null ||
+          hasMeaningfulDiminishedValueDraft(latest.intake)
+        ) {
+          return;
+        }
         recentLookupRef.current = null;
         setFlowError("We couldn’t check for a saved diminished-value draft.");
       });
@@ -853,6 +1142,7 @@ export function DiminishedValueStartFlow({
       !dependencies ||
       !envelope.dirty ||
       !hasMeaningfulDiminishedValueDraft(envelope.intake) ||
+      caseState === "loading" ||
       caseStatus === "submitted" ||
       serverDetails?.submittedAt
     ) {
@@ -864,6 +1154,7 @@ export function DiminishedValueStartFlow({
     return () => window.clearTimeout(timer);
   }, [
     caseStatus,
+    caseState,
     dependencies,
     envelope.dirty,
     envelope.intake,
@@ -875,12 +1166,25 @@ export function DiminishedValueStartFlow({
 
   useEffect(() => {
     if (!userId || !dependencies || !envelope.pendingAuthAction) return;
+    const pendingCaseId = envelope.confirmedCaseId ?? envelope.reservedCaseId;
+    if (
+      !pendingCaseId ||
+      (explicitCaseIdRef.current && explicitCaseIdRef.current !== pendingCaseId)
+    ) {
+      pendingAuthHandledRef.current = null;
+      applyEnvelope((current) => ({
+        ...current,
+        pendingAuthAction: null,
+        lastUpdatedAt: new Date().toISOString(),
+      }));
+      return;
+    }
     const key = `${identityRef.current.generation}:${userId}:${envelope.pendingAuthAction}`;
     if (pendingAuthHandledRef.current === key) return;
     pendingAuthHandledRef.current = key;
 
     if (envelope.pendingAuthAction === "submit-review") {
-      void submitAuthenticated().catch(() => {
+      void submitAuthenticated(pendingCaseId).catch(() => {
         pendingAuthHandledRef.current = null;
       });
       return;
@@ -895,15 +1199,19 @@ export function DiminishedValueStartFlow({
       })
       .catch((error: unknown) => {
         pendingAuthHandledRef.current = null;
-        setFlowError(
-          errorMessage(error, "We couldn’t continue after sign-in."),
-        );
+        if (!(error instanceof StaleDiminishedValueIdentityError)) {
+          setFlowError(
+            errorMessage(error, "We couldn’t continue after sign-in."),
+          );
+        }
       });
   }, [
     applyEnvelope,
     dependencies,
     ensureCase,
+    envelope.confirmedCaseId,
     envelope.pendingAuthAction,
+    envelope.reservedCaseId,
     submitAuthenticated,
     userId,
   ]);
@@ -932,7 +1240,10 @@ export function DiminishedValueStartFlow({
     );
   }
 
-  if (ownerDraftIdentityUnverified) {
+  if (
+    ownerDraftIdentityUnverified ||
+    (explicitCaseId && auth.status === "loading")
+  ) {
     return (
       <FlowCard>
         <p className="text-sm leading-6 text-copy" role="status">
@@ -967,7 +1278,16 @@ export function DiminishedValueStartFlow({
     );
   }
 
-  if (caseState === "error" && explicitCaseId) {
+  const ownedConfirmedCaseId =
+    envelope.ownerUserId === userId ? envelope.confirmedCaseId : null;
+  const authoritativeCaseId =
+    explicitCaseId ??
+    ownedConfirmedCaseId ??
+    (caseState === "loading" || caseState === "error"
+      ? caseTargetRef.current
+      : null);
+
+  if (caseState === "error" && authoritativeCaseId) {
     return (
       <DiminishedValueGate
         message={
@@ -976,7 +1296,45 @@ export function DiminishedValueStartFlow({
         }
         onRetry={() => {
           loadedCaseRef.current = null;
-          void loadCase(explicitCaseId, true);
+          void loadCase(
+            authoritativeCaseId,
+            Boolean(explicitCaseId || !ownedConfirmedCaseId),
+          );
+        }}
+      />
+    );
+  }
+
+  const authoritativeHydrationPending = Boolean(
+    userId &&
+    (caseState === "loading" ||
+      (authoritativeCaseId &&
+        caseState !== "error" &&
+        (caseState !== "ready" ||
+          envelope.confirmedCaseId !== authoritativeCaseId))),
+  );
+  if (authoritativeHydrationPending) {
+    return (
+      <FlowCard>
+        <p className="text-sm leading-6 text-copy" role="status">
+          Loading your saved request…
+        </p>
+      </FlowCard>
+    );
+  }
+
+  if (submissionUncertain && submissionAttemptCaseRef.current) {
+    return (
+      <DiminishedValueGate
+        message={
+          submissionError
+            ? `${submissionError} Your answers are locked until Venfour verifies the request.`
+            : "Venfour could not verify the request yet. Your answers are locked until verification completes."
+        }
+        onRetry={() => {
+          void submitAuthenticated(
+            submissionAttemptCaseRef.current ?? undefined,
+          ).catch(() => undefined);
         }}
       />
     );
@@ -998,14 +1356,21 @@ export function DiminishedValueStartFlow({
             This browser could not save a local backup of your draft.
           </p>
         ) : saveState === "saving" ? (
-          <p className="flex items-center gap-2 text-sm text-copy" role="status">
+          <p
+            className="flex items-center gap-2 text-sm text-copy"
+            role="status"
+          >
             <Cloud className="size-4" aria-hidden /> Saving securely…
           </p>
         ) : saveState === "saved" && userId ? (
-          <p className="flex items-center gap-2 text-sm text-copy" role="status">
+          <p
+            className="flex items-center gap-2 text-sm text-copy"
+            role="status"
+          >
             <Cloud className="size-4" aria-hidden /> Saved securely
           </p>
-        ) : null}
+        ) : null
+      }
       draft={renderedDraft}
       onDraftChange={handleDraftChange}
       selectedFiles={pendingDocuments.map((document) => document.file)}
@@ -1026,9 +1391,7 @@ export function DiminishedValueStartFlow({
         prepareAuthentication("upload-documents")
       }
       onRetryDocumentUploads={retryDocumentUploads}
-      onRemoveStoredDocument={(document) =>
-        void removeStoredDocument(document)
-      }
+      onRemoveStoredDocument={(document) => void removeStoredDocument(document)}
       removingDocumentId={removingDocumentId}
       documentsDisabled={
         submitting ||
@@ -1050,7 +1413,10 @@ function DiminishedValueGate({
   return (
     <FlowCard>
       <div className="flex items-start gap-3" role="alert">
-        <AlertCircle className="mt-1 size-5 shrink-0 text-red-700" aria-hidden />
+        <AlertCircle
+          className="mt-1 size-5 shrink-0 text-red-700"
+          aria-hidden
+        />
         <p className="text-sm leading-6 text-red-800">{message}</p>
       </div>
       {onRetry ? (
@@ -1069,7 +1435,9 @@ function DiminishedValueGate({
 
 function editableDraftFromDetails(details: DiminishedValueCaseDetails) {
   const draft = diminishedValueDetailsToDraft(details);
-  return draft.step === "complete" ? { ...draft, step: "consultation" as const } : draft;
+  return draft.step === "complete"
+    ? { ...draft, step: "consultation" as const }
+    : draft;
 }
 
 function hasMeaningfulDiminishedValueDraft(draft: DiminishedValueDraft) {
@@ -1093,8 +1461,7 @@ function loadInitialState(): InitialState {
   const stored = readDiminishedValueDraftEnvelope();
   if (stored.ok) {
     return {
-      envelope:
-        stored.envelope ?? createEmptyDiminishedValueDraftEnvelope(),
+      envelope: stored.envelope ?? createEmptyDiminishedValueDraftEnvelope(),
       storageError: false,
     };
   }
