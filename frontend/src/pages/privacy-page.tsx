@@ -10,7 +10,7 @@ export function PrivacyPage() {
     <PublicPage
       eyebrow="Privacy"
       title="How Venfour handles your information"
-      introduction="This page describes the current Venfour service in practical terms: what is processed when you use an account or request a valuation review, which outside services are involved, and what controls are not yet available."
+      introduction="This page describes the current Venfour service in practical terms: what is stored when you use an account or start an appraisal, how separate analysis records are handled, and what controls are not yet available."
       updated="Last updated August 18, 2026"
     >
       <PublicPageSection title="Information you provide">
@@ -27,10 +27,11 @@ export function PrivacyPage() {
         <p>
           You may sign in with Google or a passwordless email link so Venfour
           can restore your session and support saved appraisal cases. The
-          separate legacy valuation-review upload still creates a unique
-          analysis link and does not attach that analysis to your account.
-          Treat the link as sensitive: anyone who obtains it may be able to
-          view the analysis.
+          retired valuation-review flow created analyses with unique results
+          links that were not attached to an account. Previously created
+          analyses and analyses created through Venfour’s separate API may
+          remain available. Treat a saved results link as sensitive: anyone who
+          obtains it may be able to view the analysis.
         </p>
       </PublicPageSection>
 
@@ -51,42 +52,41 @@ export function PrivacyPage() {
         <p>
           Customer case records are protected by database access policies
           intended to restrict each signed-in customer to their own records.
-          The authenticated total-loss start flow stores an uploaded insurance
-          report in private case-file storage. The separate legacy valuation
-          review flow still processes its PDF outside the saved customer case.
+          The current total-loss intake stores an uploaded insurance report in
+          private case-file storage. That intake does not currently process the
+          report or create an analysis from it.
         </p>
       </PublicPageSection>
 
-      <PublicPageSection title="How legacy report processing works">
+      <PublicPageSection title="Current report and analysis handling">
         <p>
-          The separate legacy valuation-review flow processes its uploaded
-          report to identify and structure the vehicle, valuation, comparable,
-          and adjustment information needed for the review. That document is
-          sent to OpenAI, a third-party model provider, to assist with reading
-          and structuring the report. Venfour then validates the resulting data
-          before using it in the analysis. A report saved through the new
-          authenticated total-loss start flow is not processed or analyzed yet.
+          A report uploaded through the current authenticated total-loss intake
+          is kept in private case-file storage. Venfour does not currently
+          extract its contents, send it to a model provider, search external
+          market sources, or create an analysis from that upload.
         </p>
         <p>
-          The current service uses MarketCheck to obtain market-listing and
-          vehicle-history evidence. Search criteria such as vehicle attributes,
-          ZIP code, relevant dates, and candidate vehicle identifiers may be
-          sent to that service as needed to perform the review.
+          The retired web upload screen is no longer available. When an
+          analysis is created through Venfour’s separate API, the submitted
+          report is structured with help from a third-party model provider and
+          then validated by Venfour. A market-data provider is used to obtain
+          market-listing and vehicle-history evidence. Those processing steps
+          are not part of the current appraisal intake.
         </p>
       </PublicPageSection>
 
-      <PublicPageSection title="Information created by an analysis">
+      <PublicPageSection title="Analysis records">
         <p>
-          Venfour creates analysis-derived records that can include the vehicle
-          and ZIP code used for the search, the CCC adjusted vehicle value and
-          comparable details, selected external listings, evidence dates,
-          calculations, findings, limitations, and technical information used to
-          make the result reproducible.
+          Analysis-derived records can include the vehicle and ZIP code used
+          for the search, the CCC adjusted vehicle value and comparable
+          details, selected external listings, evidence dates, calculations,
+          findings, limitations, and technical information used to make the
+          result reproducible.
         </p>
         <p>
-          Venfour uses this information to prepare and display the requested
-          review, check the integrity of a stored analysis, troubleshoot service
-          problems, and maintain the reliability of the product.
+          Venfour uses retained records to display saved results, check the
+          integrity of a stored analysis, troubleshoot service problems, and
+          maintain the reliability of the product.
         </p>
       </PublicPageSection>
 
@@ -96,30 +96,30 @@ export function PrivacyPage() {
           case-file storage and does not analyze it yet. Before sign-in, manual
           intake information may be kept in essential browser storage so the
           same browser can restore the draft; PDF bytes are not stored there.
-          The legacy valuation review instead uses a temporary local copy of the
-          uploaded PDF, attempts to remove it when processing finishes, and
-          requests removal of the uploaded copy from the model provider.
+          For reports submitted to the separate analysis API, the original PDF
+          is held temporarily, removal is attempted when processing finishes,
+          and removal of the uploaded copy is requested from the model provider.
         </p>
         <p>
           Venfour retains the analysis-derived record so the results link can
           continue to work. Saved appraisal-case information and private case
-          files are retained to support the customer flow. Account sessions and
-          draft information may be retained in essential browser storage. The
-          current service does not publish or enforce a fixed automatic
-          deletion schedule and does not yet provide self-service account,
-          case, file, or analysis deletion controls. If you are not comfortable
-          with that current limitation, do not upload a report.
+          files are retained to support the current customer flow. Account
+          sessions and draft information may be retained in essential browser
+          storage. The current service does not publish or enforce a fixed
+          automatic deletion schedule and does not yet provide self-service
+          account, case, file, or retained-analysis deletion controls. If you
+          are not comfortable with that current limitation, do not upload a
+          report.
         </p>
       </PublicPageSection>
 
       <PublicPageSection title="Security and practical limits">
         <p>
-          Venfour uses technical controls intended to limit upload size, avoid
-          storing the original PDF as part of the public analysis record,
-          prevent credentials from being included in that record, and restrict
-          account data and private case files by customer ownership. No internet
-          service, transmission method, or storage system can be guaranteed
-          completely secure.
+          Venfour uses technical controls intended to limit upload size and
+          restrict account data and private case files by customer ownership.
+          Retained analysis records do not include the original PDF or service
+          credentials. No internet service, transmission method, or storage
+          system can be guaranteed completely secure.
         </p>
         <p>
           Do not upload documents unrelated to a vehicle valuation review. Do

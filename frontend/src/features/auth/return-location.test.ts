@@ -26,13 +26,13 @@ describe("auth return locations", () => {
   });
 
   test("stores and consumes a validated return location exactly once", () => {
-    storeAuthReturnLocation("/total-loss-review?step=upload");
+    storeAuthReturnLocation("/start?service=total-loss&step=upload");
 
     expect(
       window.localStorage.getItem(AUTH_RETURN_LOCATION_STORAGE_KEY),
-    ).toBe("/total-loss-review?step=upload");
+    ).toBe("/start?service=total-loss&step=upload");
     expect(consumeAuthReturnLocation()).toBe(
-      "/total-loss-review?step=upload",
+      "/start?service=total-loss&step=upload",
     );
     expect(consumeAuthReturnLocation()).toBe("/");
   });

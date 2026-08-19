@@ -415,8 +415,8 @@ describe("analysis results page", () => {
       "The selected evidence shows a material signal worth reviewing carefully",
     );
     expect(
-      screen.getByRole("link", { name: "Analyze another report" }),
-    ).toHaveAttribute("href", "/total-loss-review");
+      screen.getByRole("link", { name: "Start another appraisal" }),
+    ).toHaveAttribute("href", "/start?service=total-loss");
     expect(document.title).toBe("Vehicle Valuation Analysis | Venfour");
   });
 
@@ -785,8 +785,8 @@ describe("analysis results page", () => {
       screen.queryByRole("button", { name: "Try again" }),
     ).not.toBeInTheDocument();
     expect(
-      screen.getByRole("link", { name: "Start a new analysis" }),
-    ).toHaveAttribute("href", "/total-loss-review");
+      screen.getByRole("link", { name: "Start a new appraisal" }),
+    ).toHaveAttribute("href", "/start?service=total-loss");
     expect(document.title).toBe("Analysis Not Found | Venfour");
   });
 
@@ -811,8 +811,8 @@ describe("analysis results page", () => {
       screen.queryByRole("button", { name: "Try again" }),
     ).not.toBeInTheDocument();
     expect(
-      screen.getByRole("link", { name: "Start a new analysis" }),
-    ).toHaveAttribute("href", "/total-loss-review");
+      screen.getByRole("link", { name: "Start a new appraisal" }),
+    ).toHaveAttribute("href", "/start?service=total-loss");
     expect(document.title).toBe("Invalid Analysis Link | Venfour");
   });
 

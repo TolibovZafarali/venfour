@@ -58,18 +58,17 @@ JSON API
 
 The customer-facing application includes a unified appraisal intake at
 `/start`, with a saved Total Loss workflow and a frontend-only Diminished Value
-consultation prototype, plus the existing analysis-creation flow at
-`/total-loss-review`. The Total Loss intake accepts either manual vehicle and
+consultation prototype. The Total Loss intake accepts either manual vehicle and
 claim information or a privately stored insurance valuation PDF, but it does
-not yet run an analysis. The legacy review continues to create a public
-`/analyses/:runId` result from one CCC PDF and vehicle ZIP code. The frontend
-does not reproduce backend analysis or ranking logic.
+not yet run an analysis. The frontend does not reproduce backend analysis or
+ranking logic. The standalone web analysis-creation screen has been retired;
+the separate JSON API continues to support synchronous analysis creation.
 
 Supabase provides browser authentication, customer profiles, saved appraisal
 cases, row-level security, and private case-file storage for the new intake.
-Case IDs remain separate from Python analysis-run IDs. The legacy upload and
-`/analyses/:runId` routes are not attached to a customer case, and their PDF
-continues to use temporary backend storage.
+Case IDs remain separate from Python analysis-run IDs. Existing
+`/analyses/:runId` results remain available and are not attached to a customer
+case.
 
 ## Evidence and engineering principles
 

@@ -2,10 +2,6 @@ export interface HealthResponse {
   status: "ok";
 }
 
-export interface CreateAnalysisResponse {
-  runId: string;
-}
-
 export interface ApiErrorResponse {
   error: {
     code: string;

@@ -89,7 +89,7 @@ function AnalysisErrorState({ kind, onRetry }: AnalysisErrorStateProps) {
       ? "We couldn’t find this analysis."
       : "We couldn’t load your analysis.";
   const description = invalid
-    ? "Analysis links include a complete identifier. Check the address you received, or start a new analysis."
+    ? "Analysis links include a complete identifier. Check the address you received, or start a new appraisal."
     : kind === "not-found"
       ? "The analysis may no longer be available, or the link may be incorrect. Retrying will not restore a missing analysis."
       : "A network or service interruption prevented Venfour from retrieving the analysis. The saved analysis has not been changed.";
@@ -122,8 +122,8 @@ function AnalysisErrorState({ kind, onRetry }: AnalysisErrorStateProps) {
               </Button>
             ) : null}
             <Button asChild variant={permanent ? "default" : "ghost"}>
-              <Link to={permanent ? "/total-loss-review" : "/"}>
-                {permanent ? "Start a new analysis" : "Return home"}
+              <Link to={permanent ? "/start?service=total-loss" : "/"}>
+                {permanent ? "Start a new appraisal" : "Return home"}
               </Link>
             </Button>
           </div>

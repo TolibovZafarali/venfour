@@ -124,7 +124,7 @@ function AppShellContent() {
     ? "#diminished-value"
     : "/#diminished-value";
   const howItWorksHref = onHomePage ? "#how-it-works" : "/#how-it-works";
-  const primaryActionHref = "/total-loss-review";
+  const primaryActionHref = "/start?service=total-loss";
   const visibleHeaderDetached = headerDetached && !startFlowRoute;
   const detachedHeaderMaxWidth = analysisRoute ? "max-w-[90rem]" : "max-w-7xl";
   const headerMotionClassName = visibleHeaderDetached

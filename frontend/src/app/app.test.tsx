@@ -73,7 +73,7 @@ describe("Venfour application", () => {
       within(primaryNavigation).getByRole("link", {
         name: "Get Started",
       }),
-    ).toHaveAttribute("href", "/total-loss-review");
+    ).toHaveAttribute("href", "/start?service=total-loss");
 
     const footerNavigation = screen.getByRole("navigation", {
       name: "Footer navigation",
@@ -152,7 +152,7 @@ describe("Venfour application", () => {
     }
     expect(
       within(mobileControls).getByRole("link", { name: "Get Started" }),
-    ).toHaveAttribute("href", "/total-loss-review");
+    ).toHaveAttribute("href", "/start?service=total-loss");
     expect(
       screen.queryByRole("navigation", { name: "Mobile navigation" }),
     ).not.toBeInTheDocument();
@@ -338,8 +338,8 @@ describe("Venfour application", () => {
     }
   });
 
-  test("uses the dedicated review entry point away from the homepage", () => {
-    renderTestApp(["/total-loss-review"]);
+  test("uses the unified total-loss entry point away from the homepage", () => {
+    renderTestApp(["/privacy"]);
 
     const primaryNavigation = screen.getByRole("navigation", {
       name: "Primary navigation",
@@ -355,7 +355,7 @@ describe("Venfour application", () => {
     ).toHaveAttribute("href", "/#how-it-works");
     expect(
       within(primaryNavigation).getByRole("link", { name: "Get Started" }),
-    ).toHaveAttribute("href", "/total-loss-review");
+    ).toHaveAttribute("href", "/start?service=total-loss");
 
     const openNavigation = screen.getByRole("button", {
       name: "Open navigation",
@@ -367,9 +367,9 @@ describe("Venfour application", () => {
     }
     expect(
       within(mobileControls).getByRole("link", { name: "Get Started" }),
-    ).toHaveAttribute("href", "/total-loss-review");
+    ).toHaveAttribute("href", "/start?service=total-loss");
     expect(
-      screen.getByRole("form", { name: "Start total-loss appraisal" }),
+      screen.getByRole("heading", { name: "How Venfour handles your information" }),
     ).toBeVisible();
   });
 
@@ -378,7 +378,7 @@ describe("Venfour application", () => {
     const scrollTo = vi.spyOn(window, "scrollTo").mockImplementation(() => {});
 
     try {
-      const { router } = renderTestApp(["/total-loss-review"]);
+      const { router } = renderTestApp(["/privacy"]);
       expect(scrollTo).not.toHaveBeenCalled();
 
       await user.click(screen.getByRole("link", { name: "Venfour home" }));
@@ -570,16 +570,47 @@ describe("Venfour application", () => {
     expect(document.title).toBe(title);
   });
 
-  test("keeps the total-loss upload route operational", () => {
-    renderTestApp(["/total-loss-review"]);
+  test("describes current report storage without advertising the retired review flow", () => {
+    renderTestApp(["/privacy"]);
 
     expect(
-      screen.getByRole("heading", { name: "Upload your insurance value report" }),
+      screen.getByRole("heading", {
+        name: "Current report and analysis handling",
+      }),
     ).toBeVisible();
     expect(
-      screen.getByRole("form", { name: "Start total-loss appraisal" }),
+      screen.getByText(/does not currently process the report or create an analysis/i),
     ).toBeVisible();
-    expect(document.title).toBe("Start a Total-Loss Appraisal | Venfour");
+    expect(
+      screen.getByText(/retired web upload screen is no longer available/i),
+    ).toBeVisible();
+    expect(
+      screen.getByText(/analysis is created through Venfour’s separate API/i),
+    ).toBeVisible();
+    expect(
+      screen.queryByRole("heading", { name: "How legacy report processing works" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/separate legacy valuation-review upload still creates/i),
+    ).not.toBeInTheDocument();
+  });
+
+  test("redirects the retired total-loss review URL to the unified intake", async () => {
+    const { router } = renderTestApp([
+      "/total-loss-review?campaign=renewal&service=diminished-value",
+    ]);
+
+    await waitFor(() => expect(router.state.location.pathname).toBe("/start"));
+    const searchParams = new URLSearchParams(router.state.location.search);
+    expect(searchParams.get("service")).toBe("total-loss");
+    expect(searchParams.get("campaign")).toBe("renewal");
+    expect(
+      screen.getByRole("heading", { name: "Start your total-loss appraisal" }),
+    ).toBeVisible();
+    expect(
+      screen.queryByRole("heading", { name: "Upload your insurance value report" }),
+    ).not.toBeInTheDocument();
+    expect(document.title).toBe("Start Your Vehicle Appraisal | Venfour");
   });
 
   test("keeps saved analysis routes operational", async () => {

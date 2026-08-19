@@ -15,14 +15,13 @@ import { HomePage } from "@/pages/home-page";
 import { NotFoundPage } from "@/pages/not-found-page";
 import { PrivacyPage } from "@/pages/privacy-page";
 import { RouteErrorPage } from "@/pages/route-error-page";
-import { TotalLossReviewPage } from "@/pages/total-loss-review-page";
 
 const metadata = (title: string, description: string): PageMetadata => ({
   title,
   description,
 });
 
-function redirectLegacyTotalLossStart({ request }: LoaderFunctionArgs) {
+function redirectToTotalLossStart({ request }: LoaderFunctionArgs) {
   const url = new URL(request.url);
 
   url.searchParams.set("service", "total-loss");
@@ -54,15 +53,11 @@ export const appRoutes: RouteObject[] = [
       },
       {
         path: "total-loss/start",
-        loader: redirectLegacyTotalLossStart,
+        loader: redirectToTotalLossStart,
       },
       {
         path: "total-loss-review",
-        element: <TotalLossReviewPage />,
-        handle: metadata(
-          "Start a Total-Loss Appraisal | Venfour",
-          "Upload the vehicle value report your insurance company sent you to start a total-loss appraisal.",
-        ),
+        loader: redirectToTotalLossStart,
       },
       {
         path: "analyses/:runId",
