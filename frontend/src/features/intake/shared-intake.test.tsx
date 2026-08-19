@@ -30,6 +30,46 @@ describe("shared appraisal intake controls", () => {
     expect(screen.queryByText("Accident and repairs")).not.toBeInTheDocument();
   });
 
+  test("keeps progress segments mounted while their layout morphs", () => {
+    const { container, rerender } = render(
+      <IntakeProgress current={1} total={2} label="Start" />,
+    );
+    const segments = container.querySelectorAll(
+      "[data-intake-progress-segment]",
+    );
+    const firstSegment = segments[0];
+    const thirdSegment = segments[2];
+    const twoStepWidth = (firstSegment as HTMLElement).style.width;
+
+    expect(segments).toHaveLength(3);
+    expect(thirdSegment).toHaveAttribute("aria-hidden", "true");
+    expect(thirdSegment).toHaveAttribute("data-visible", "false");
+    expect(thirdSegment).toHaveStyle({ left: "100%", width: "0px" });
+
+    rerender(<IntakeProgress current={1} total={3} label="Start" />);
+
+    const expandedSegments = container.querySelectorAll(
+      "[data-intake-progress-segment]",
+    );
+    expect(expandedSegments[0]).toBe(firstSegment);
+    expect(expandedSegments[2]).toBe(thirdSegment);
+    expect((expandedSegments[0] as HTMLElement).style.width).not.toBe(
+      twoStepWidth,
+    );
+    expect(expandedSegments[0]).toHaveClass("border-brand", "bg-brand");
+    expect(expandedSegments[2]).not.toHaveAttribute("aria-hidden");
+    expect(expandedSegments[2]).toHaveAttribute("data-visible", "true");
+
+    rerender(<IntakeProgress current={1} total={2} label="Start" />);
+
+    const collapsedSegments = container.querySelectorAll(
+      "[data-intake-progress-segment]",
+    );
+    expect(collapsedSegments[2]).toBe(thirdSegment);
+    expect(collapsedSegments[2]).toHaveAttribute("aria-hidden", "true");
+    expect(collapsedSegments[2]).toHaveStyle({ left: "100%", width: "0px" });
+  });
+
   test("uses keyboard-operable native service radios and reports changes", async () => {
     const user = userEvent.setup();
     const onChange = vi.fn();

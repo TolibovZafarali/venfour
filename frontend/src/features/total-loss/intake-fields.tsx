@@ -18,6 +18,7 @@ import {
 } from "react";
 import type {
   ChangeEventHandler,
+  CSSProperties,
   HTMLInputTypeAttribute,
   Key,
   ReactNode,
@@ -666,6 +667,7 @@ export function IntakeProgress({
   stepsAriaLabel = "Appraisal steps",
 }: IntakeProgressProps) {
   const resolvedTotal = steps?.length ?? total ?? 3;
+  const renderedTotal = Math.max(resolvedTotal, 3);
   const defaultLabels =
     resolvedTotal === 2 ? ["Start", "Report"] : ["Start", "Vehicle", "Claim"];
   const stepDescriptors = Array.from({ length: resolvedTotal }, (_, index) => {
@@ -683,32 +685,69 @@ export function IntakeProgress({
   return (
     <div aria-label={ariaLabel}>
       <ol
-        className="grid grid-flow-col auto-cols-fr gap-2"
+        className="relative h-[18px] overflow-hidden"
         aria-label={stepsAriaLabel}
       >
-        {Array.from({ length: resolvedTotal }, (_, index) => {
+        {Array.from({ length: renderedTotal }, (_, index) => {
           const step = index + 1;
-          const descriptor = stepDescriptors[index];
+          const descriptor = stepDescriptors[index] ?? { label };
+          const visible = step <= resolvedTotal;
           const completed = step < current;
           const active = step === current;
           return (
             <li
               key={step}
+              data-intake-progress-segment={step}
+              data-visible={visible}
               className={cn(
-                "flex min-w-0 items-center justify-center rounded-xl border px-2 py-2 transition-[background-color,border-color,box-shadow,transform] duration-300 motion-reduce:transition-none sm:px-3",
+                "intake-progress-segment absolute inset-y-0 min-w-0 rounded-xl border",
                 completed && "border-brand bg-brand",
                 active &&
                   "border-brand bg-brand shadow-[0_8px_24px_-18px_rgba(21,94,239,0.8)]",
                 step > current && "border-line bg-surface/75",
+                !visible && "pointer-events-none opacity-0",
               )}
-              aria-current={active ? "step" : undefined}
-              aria-label={`${descriptor.label}, step ${step}${completed ? ", completed" : active ? ", current" : ""}`}
+              style={intakeProgressSegmentStyle(index, resolvedTotal)}
+              aria-current={active && visible ? "step" : undefined}
+              aria-hidden={visible ? undefined : true}
+              aria-label={
+                visible
+                  ? `${descriptor.label}, step ${step}${completed ? ", completed" : active ? ", current" : ""}`
+                  : undefined
+              }
             />
           );
         })}
       </ol>
     </div>
   );
+}
+
+function intakeProgressSegmentStyle(
+  index: number,
+  total: number,
+): CSSProperties {
+  if (index >= total) {
+    return { left: "100%", width: "0px" };
+  }
+
+  const gap = 8;
+  const widthPercent = roundCssNumber(100 / total);
+  const widthGapShare = roundCssNumber((gap * (total - 1)) / total);
+  const leftPercent = roundCssNumber((100 * index) / total);
+  const leftGapShare = roundCssNumber((gap * index) / total);
+
+  return {
+    left:
+      index === 0
+        ? "0px"
+        : `calc(${leftPercent}% + ${leftGapShare}px)`,
+    width: `calc(${widthPercent}% - ${widthGapShare}px)`,
+  };
+}
+
+function roundCssNumber(value: number) {
+  return Number(value.toFixed(4));
 }
 
 export interface StepHeadingProps {

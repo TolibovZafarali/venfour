@@ -214,11 +214,21 @@
     will-change: opacity, transform;
   }
 
+  .intake-progress-segment {
+    transition-duration: 360ms;
+    transition-property: left, width, opacity, background-color, border-color,
+      box-shadow;
+    transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+    will-change: left, width, opacity;
+  }
+
   @media (prefers-reduced-motion: reduce) {
     .intake-step-forward,
     .intake-step-backward,
-    .vehicle-method-panel {
+    .vehicle-method-panel,
+    .intake-progress-segment {
       animation: none;
+      transition: none;
       will-change: auto;
     }
   }
