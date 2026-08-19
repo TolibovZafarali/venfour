@@ -33,6 +33,7 @@ select is(
   ),
   array[
     'draft',
+    'submitted',
     'checking',
     'check_complete',
     'payment_pending',
@@ -152,8 +153,14 @@ select is(
 
 select is(
   (select bucket.allowed_mime_types from storage.buckets as bucket where bucket.id = 'case-files'),
-  array['application/pdf']::text[],
-  'case-files storage bucket accepts PDFs only'
+  array[
+    'application/pdf',
+    'image/jpeg',
+    'image/png',
+    'image/heic',
+    'image/heif'
+  ]::text[],
+  'case-files storage bucket accepts supported private case documents'
 );
 
 select ok(

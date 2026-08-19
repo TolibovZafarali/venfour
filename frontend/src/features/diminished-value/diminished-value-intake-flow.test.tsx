@@ -31,7 +31,7 @@ describe("DiminishedValueIntakeFlow", () => {
     );
   });
 
-  it("completes the four-step manual path while retaining answers and local files", async () => {
+  it("submits the four-step manual path and renders only confirmed completion", async () => {
     const user = userEvent.setup();
     const service = vehicleService();
     render(
@@ -78,23 +78,27 @@ describe("DiminishedValueIntakeFlow", () => {
       "Example Mutual",
     );
 
-    const estimate = new File(["estimate"], "estimate.pdf", {
+    const estimate = new File(["%PDF-1.7\n"], "estimate.pdf", {
       type: "application/pdf",
       lastModified: 10,
     });
-    const photo = new File(["photo"], "damage.jpg", {
+    const photo = new File(
+      [new Uint8Array([0xff, 0xd8, 0xff, 0x00])],
+      "damage.jpg",
+      {
       type: "image/jpeg",
       lastModified: 20,
-    });
+      },
+    );
     await user.upload(screen.getByLabelText("Choose files"), [estimate, photo]);
-    expect(screen.getByText("estimate.pdf")).toBeInTheDocument();
-    expect(screen.getByText("damage.jpg")).toBeInTheDocument();
+    expect(await screen.findByText("estimate.pdf")).toBeInTheDocument();
+    expect(await screen.findByText("damage.jpg")).toBeInTheDocument();
     await user.click(
       screen.getByRole("button", { name: "Remove damage.jpg" }),
     );
     expect(screen.queryByText("damage.jpg")).not.toBeInTheDocument();
     expect(
-      screen.getByText(/They have not been uploaded or sent to Venfour/),
+      screen.getByText(/awaiting secure upload/),
     ).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Continue" }));
@@ -117,20 +121,18 @@ describe("DiminishedValueIntakeFlow", () => {
 
     await user.click(screen.getByRole("button", { name: "Request a review" }));
     const completionHeading = screen.getByRole("heading", {
-      name: "Your review request is prepared",
+      name: "Venfour received your review request",
     });
     expect(completionHeading).toBeInTheDocument();
     await waitFor(() => expect(completionHeading).toHaveFocus());
-    expect(screen.getByText("Nothing was sent")).toBeInTheDocument();
+    expect(screen.getByText("Request received")).toBeInTheDocument();
     expect(
-      screen.getByText(/no appointment or consultation has been confirmed/),
+      screen.getByText(/No appraisal has been completed/),
     ).toBeInTheDocument();
     expect(service.decodeVin).not.toHaveBeenCalled();
-
-    await user.click(
-      screen.getByRole("button", { name: "Edit contact details" }),
-    );
-    expect(screen.getByLabelText("Email")).toHaveValue("jordan@example.com");
+    expect(
+      screen.queryByRole("button", { name: "Edit contact details" }),
+    ).not.toBeInTheDocument();
   });
 
   it("offers retry and guided entry after an NHTSA VIN lookup failure", async () => {
@@ -229,12 +231,19 @@ function FlowHarness({
 }) {
   const [draft, setDraft] = useState(initialDraft);
   const [files, setFiles] = useState<File[]>([]);
+  const [submittedAt, setSubmittedAt] = useState<string | null>(null);
   return (
     <DiminishedValueIntakeFlow
       draft={draft}
       onDraftChange={setDraft}
       selectedFiles={files}
       onSelectedFilesChange={setFiles}
+      onSubmit={() => {
+        setSubmittedAt("2026-08-19T12:00:00.000Z");
+        setDraft((current) => ({ ...current, step: "complete" }));
+      }}
+      submittedAt={submittedAt}
+      submittedFileCount={files.length}
       vehicleLookupService={vehicleLookupService}
     />
   );

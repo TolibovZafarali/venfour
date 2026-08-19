@@ -3,7 +3,8 @@ import { createContext, useContext } from "react";
 export type SignInIntent =
   | "default"
   | "secure-report-upload"
-  | "continue-total-loss";
+  | "continue-total-loss"
+  | "continue-diminished-value";
 
 export interface OpenSignInOptions {
   returnTo?: string;

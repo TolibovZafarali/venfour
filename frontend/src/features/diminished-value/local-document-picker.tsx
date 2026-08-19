@@ -1,57 +1,140 @@
 import { FileText, Upload, X } from "lucide-react";
-import { useId, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import type { ChangeEvent, DragEvent } from "react";
 
 import { cn } from "@/lib/utils";
 
 import {
+  DIMINISHED_VALUE_DOCUMENT_ACCEPT,
   fileIdentity,
-  isAcceptedFile,
+  MAX_DIMINISHED_VALUE_DOCUMENT_COUNT,
   mergeUniqueFiles,
+  validateDiminishedValueDocument,
 } from "./local-document-files";
+import type { DiminishedValueStoredDocument } from "./storage-service";
+
+export interface DiminishedValuePendingDocumentState {
+  readonly identity: string;
+  readonly state: "queued" | "uploading" | "error";
+  readonly error?: string;
+}
 
 interface LocalDocumentPickerProps {
   readonly files: readonly File[];
   readonly onFilesChange: (files: File[]) => void;
+  readonly storedDocuments?: readonly DiminishedValueStoredDocument[];
+  readonly pendingStates?: readonly DiminishedValuePendingDocumentState[];
+  readonly onRetryUploads?: () => void;
+  readonly onRemoveStoredDocument?: (
+    document: DiminishedValueStoredDocument,
+  ) => void;
+  readonly removingDocumentId?: string | null;
+  readonly requiresAuthentication?: boolean;
+  readonly onAuthenticationRequired?: () => void;
+  readonly disabled?: boolean;
 }
 
-const ACCEPTED_FILE_TYPES =
-  ".pdf,.jpg,.jpeg,.png,.heic,.heif,application/pdf,image/jpeg,image/png,image/heic,image/heif";
 export function LocalDocumentPicker({
   files,
   onFilesChange,
+  storedDocuments = [],
+  pendingStates = [],
+  onRetryUploads,
+  onRemoveStoredDocument,
+  removingDocumentId = null,
+  requiresAuthentication = false,
+  onAuthenticationRequired,
+  disabled = false,
 }: LocalDocumentPickerProps) {
   const inputId = useId();
   const [dragging, setDragging] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [validating, setValidating] = useState(false);
+  const validationRunRef = useRef(0);
+  const latestSelectionRef = useRef({
+    files,
+    onFilesChange,
+    storedDocuments,
+  });
 
-  const addFiles = (candidates: readonly File[]) => {
-    const accepted = candidates.filter(isAcceptedFile);
-    const rejectedCount = candidates.length - accepted.length;
-    const merged = mergeUniqueFiles(files, accepted);
-    const duplicateCount = files.length + accepted.length - merged.length;
-    onFilesChange(merged);
+  useLayoutEffect(() => {
+    latestSelectionRef.current = { files, onFilesChange, storedDocuments };
+  }, [files, onFilesChange, storedDocuments]);
+
+  useEffect(
+    () => () => {
+      validationRunRef.current += 1;
+    },
+    [],
+  );
+
+  const addFiles = async (candidates: readonly File[]) => {
+    if (disabled) return;
+    if (requiresAuthentication) {
+      onAuthenticationRequired?.();
+      return;
+    }
+
+    const validationRun = validationRunRef.current + 1;
+    validationRunRef.current = validationRun;
+    setValidating(true);
+    const results = await Promise.all(
+      candidates.map(async (file) => ({
+        file,
+        validation: await validateDiminishedValueDocument(file),
+      })),
+    );
+    if (validationRun !== validationRunRef.current) return;
+
+    setValidating(false);
+    const {
+      files: currentFiles,
+      onFilesChange: updateFiles,
+      storedDocuments: currentStoredDocuments,
+    } = latestSelectionRef.current;
+    const accepted = results
+      .filter((result) => result.validation.valid)
+      .map((result) => result.file);
+    const rejected = results.filter((result) => !result.validation.valid);
+    const rejectedCount = rejected.length;
+    const availableSlots = Math.max(
+      0,
+      MAX_DIMINISHED_VALUE_DOCUMENT_COUNT - currentStoredDocuments.length,
+    );
+    const merged = mergeUniqueFiles(currentFiles, accepted).slice(
+      0,
+      availableSlots,
+    );
+    const duplicateCount =
+      currentFiles.length + accepted.length - merged.length;
+    updateFiles(merged);
 
     const updates = [
       rejectedCount > 0
-        ? `${rejectedCount} unsupported ${pluralize(rejectedCount, "file", "files")} not added.`
+        ? rejected[0]?.validation.valid === false
+          ? rejected[0].validation.error
+          : `${rejectedCount} unsupported ${pluralize(rejectedCount, "file", "files")} not added.`
         : null,
       duplicateCount > 0
         ? `${duplicateCount} duplicate ${pluralize(duplicateCount, "file", "files")} already selected.`
+        : null,
+      currentStoredDocuments.length + currentFiles.length + accepted.length >
+      MAX_DIMINISHED_VALUE_DOCUMENT_COUNT
+        ? `Attach up to ${MAX_DIMINISHED_VALUE_DOCUMENT_COUNT} supporting documents.`
         : null,
     ].filter(Boolean);
     setMessage(updates.join(" ") || null);
   };
 
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
-    addFiles(Array.from(event.target.files ?? []));
+    void addFiles(Array.from(event.target.files ?? []));
     event.target.value = "";
   };
 
   const handleDrop = (event: DragEvent<HTMLDivElement>) => {
     event.preventDefault();
     setDragging(false);
-    addFiles(Array.from(event.dataTransfer.files));
+    void addFiles(Array.from(event.dataTransfer.files));
   };
 
   return (
@@ -69,7 +152,8 @@ export function LocalDocumentPicker({
         className="peer sr-only"
         type="file"
         multiple
-        accept={ACCEPTED_FILE_TYPES}
+        accept={DIMINISHED_VALUE_DOCUMENT_ACCEPT}
+        disabled={disabled || requiresAuthentication || validating}
         onChange={handleFileChange}
       />
       <div
@@ -98,12 +182,27 @@ export function LocalDocumentPicker({
           Drop documents here or browse your device
         </p>
         <p className="mt-1 text-xs text-copy">PDF, JPEG, PNG, HEIC, or HEIF</p>
-        <label
-          htmlFor={inputId}
-          className="mt-4 inline-flex min-h-11 cursor-pointer items-center justify-center rounded-lg border border-line bg-white px-4 text-sm font-semibold text-ink transition-colors hover:border-brand/35 hover:bg-brand-soft focus-within:outline-none focus-within:ring-2 focus-within:ring-brand focus-within:ring-offset-2 motion-reduce:transition-none"
-        >
-          Choose files
-        </label>
+        {requiresAuthentication ? (
+          <button
+            type="button"
+            className="mt-4 inline-flex min-h-11 items-center justify-center rounded-lg border border-line bg-white px-4 text-sm font-semibold text-ink transition-colors hover:border-brand/35 hover:bg-brand-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 motion-reduce:transition-none"
+            onClick={onAuthenticationRequired}
+          >
+            Sign in to attach files
+          </button>
+        ) : (
+          <label
+            htmlFor={inputId}
+            className={cn(
+              "mt-4 inline-flex min-h-11 items-center justify-center rounded-lg border border-line bg-white px-4 text-sm font-semibold text-ink transition-colors focus-within:outline-none focus-within:ring-2 focus-within:ring-brand focus-within:ring-offset-2 motion-reduce:transition-none",
+              disabled || validating
+                ? "cursor-not-allowed opacity-60"
+                : "cursor-pointer hover:border-brand/35 hover:bg-brand-soft",
+            )}
+          >
+            {validating ? "Checking files…" : "Choose files"}
+          </label>
+        )}
       </div>
 
       {message ? (
@@ -112,10 +211,47 @@ export function LocalDocumentPicker({
         </p>
       ) : null}
 
+      {storedDocuments.length > 0 ? (
+        <ul className="mt-4 grid gap-2" aria-label="Attached documents">
+          {storedDocuments.map((document) => (
+            <li
+              key={document.id}
+              className="flex items-center gap-3 rounded-lg border border-market/25 bg-market-soft/20 px-3 py-3"
+            >
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-market-soft text-market-strong">
+                <FileText className="size-4" aria-hidden />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-semibold text-ink">
+                  {document.displayFilename}
+                </span>
+                <span className="block text-xs text-copy">
+                  Attached · {formatFileSize(document.size)}
+                </span>
+              </span>
+              {onRemoveStoredDocument ? (
+                <button
+                  type="button"
+                  disabled={disabled || removingDocumentId === document.id}
+                  className="flex size-10 shrink-0 items-center justify-center rounded-lg text-copy transition-colors hover:bg-red-50 hover:text-red-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand disabled:cursor-not-allowed disabled:opacity-60 motion-reduce:transition-none"
+                  aria-label={`Remove ${document.displayFilename}`}
+                  onClick={() => onRemoveStoredDocument(document)}
+                >
+                  <X className="size-4" aria-hidden />
+                </button>
+              ) : null}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+
       {files.length > 0 ? (
         <ul className="mt-4 grid gap-2" aria-label="Selected documents">
           {files.map((file) => {
             const key = fileIdentity(file);
+            const pending = pendingStates.find(
+              (candidate) => candidate.identity === key,
+            );
             return (
               <li
                 key={key}
@@ -129,11 +265,16 @@ export function LocalDocumentPicker({
                     {file.name}
                   </span>
                   <span className="block text-xs text-copy">
-                    {fileTypeLabel(file)} · {formatFileSize(file.size)}
+                    {pending?.state === "uploading"
+                      ? "Uploading securely…"
+                      : pending?.state === "error"
+                        ? pending.error ?? "Upload failed"
+                        : `${fileTypeLabel(file)} · ${formatFileSize(file.size)}`}
                   </span>
                 </span>
                 <button
                   type="button"
+                  disabled={disabled || pending?.state === "uploading"}
                   className="flex size-10 shrink-0 items-center justify-center rounded-lg text-copy transition-colors hover:bg-red-50 hover:text-red-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand motion-reduce:transition-none"
                   aria-label={`Remove ${file.name}`}
                   onClick={() =>
@@ -148,12 +289,26 @@ export function LocalDocumentPicker({
         </ul>
       ) : null}
 
+      {pendingStates.some((pending) => pending.state === "error") &&
+      onRetryUploads ? (
+        <button
+          type="button"
+          className="mt-3 text-sm font-semibold text-brand underline underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+          onClick={onRetryUploads}
+        >
+          Retry failed uploads
+        </button>
+      ) : null}
+
       <p
         className="mt-3 rounded-lg bg-brand-soft/45 px-3 py-2 text-xs leading-5 text-copy"
         role="status"
       >
-        Files remain only in this browser session. They have not been uploaded
-        or sent to Venfour.
+        {requiresAuthentication
+          ? "Sign in before choosing documents so they can be stored privately with your case."
+          : files.length > 0
+            ? "Selected documents are awaiting secure upload. Retry or remove any failed upload before submitting."
+            : "Attached documents are stored privately with your case. You can remove or replace them until you submit the request."}
       </p>
     </div>
   );

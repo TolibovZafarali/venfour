@@ -132,6 +132,25 @@ describe("total-loss details service", () => {
     expect(requestUrl?.searchParams.get("select")).toBe(DETAILS_COLUMNS);
   });
 
+  it.each([
+    "case_id",
+    "intake_mode",
+    "created_at",
+    "updated_at",
+  ] as const)("rejects total-loss details with a null %s", async (field) => {
+    server.use(
+      http.get(
+        `${SUPABASE_URL}/rest/v1/total_loss_case_details`,
+        () => HttpResponse.json({ ...detailsRow, [field]: null }),
+      ),
+    );
+
+    const { service } = createTestHarness();
+    await expect(
+      service.getDetails({ caseId: CASE_ID, userId: USER_ID }),
+    ).rejects.toThrow("Supabase returned incomplete total-loss details.");
+  });
+
   it("inserts only writable intake values and touches the parent afterward", async () => {
     let requestBody: unknown;
     server.use(
@@ -335,6 +354,77 @@ describe("total-loss details service", () => {
     });
   });
 
+  it("preserves a null expected revision when acquiring the first report lease", async () => {
+    let requestBody: unknown;
+    server.use(
+      http.post(
+        `${SUPABASE_URL}/rest/v1/rpc/acquire_total_loss_report_upload`,
+        async ({ request }) => {
+          requestBody = await request.json();
+          return HttpResponse.json(leaseRow);
+        },
+      ),
+    );
+
+    const { service } = createTestHarness();
+    await expect(
+      service.acquireReportUploadLease({
+        caseId: CASE_ID,
+        userId: USER_ID,
+        expectedUpdatedAt: null,
+        uploadId: UPLOAD_ID,
+      }),
+    ).resolves.toMatchObject({ uploadId: UPLOAD_ID });
+    expect(requestBody).toEqual({
+      case_id: CASE_ID,
+      expected_updated_at: null,
+      upload_id: UPLOAD_ID,
+    });
+  });
+
+  it.each(["upload_id", "expires_at", "details_updated_at"] as const)(
+    "rejects a report-upload lease with a null %s",
+    async (field) => {
+      server.use(
+        http.post(
+          `${SUPABASE_URL}/rest/v1/rpc/acquire_total_loss_report_upload`,
+          () => HttpResponse.json({ ...leaseRow, [field]: null }),
+        ),
+      );
+
+      const { service } = createTestHarness();
+      await expect(
+        service.acquireReportUploadLease({
+          caseId: CASE_ID,
+          userId: USER_ID,
+          expectedUpdatedAt: UPDATED_AT,
+          uploadId: UPLOAD_ID,
+        }),
+      ).rejects.toThrow(
+        "Supabase returned an incomplete report-upload lease.",
+      );
+    },
+  );
+
+  it("defaults a nullable recovery marker to false", async () => {
+    server.use(
+      http.post(
+        `${SUPABASE_URL}/rest/v1/rpc/acquire_total_loss_report_upload`,
+        () => HttpResponse.json({ ...leaseRow, recovery_required: null }),
+      ),
+    );
+
+    const { service } = createTestHarness();
+    await expect(
+      service.acquireReportUploadLease({
+        caseId: CASE_ID,
+        userId: USER_ID,
+        expectedUpdatedAt: UPDATED_AT,
+        uploadId: UPLOAD_ID,
+      }),
+    ).resolves.toMatchObject({ recoveryRequired: false });
+  });
+
   it("rejects an acquired lease returned for a different attempt token", async () => {
     server.use(
       http.post(
@@ -437,6 +527,26 @@ describe("total-loss details service", () => {
       report_uploaded_at: UPDATED_AT,
     });
     expect(touchAppraisalCase).not.toHaveBeenCalled();
+  });
+
+  it("rejects incomplete public details returned by a report-upload RPC", async () => {
+    server.use(
+      http.post(
+        `${SUPABASE_URL}/rest/v1/rpc/finalize_total_loss_report_upload`,
+        () => HttpResponse.json({ ...detailsRow, updated_at: null }),
+      ),
+    );
+
+    const { service } = createTestHarness();
+    await expect(
+      service.finalizeReportUpload({
+        caseId: CASE_ID,
+        userId: USER_ID,
+        uploadId: UPLOAD_ID,
+        originalFilename: "valuation.pdf",
+        uploadedAt: UPDATED_AT,
+      }),
+    ).rejects.toThrow("Supabase returned incomplete total-loss details.");
   });
 
   it("cancels only the case and upload token supplied to the RPC", async () => {

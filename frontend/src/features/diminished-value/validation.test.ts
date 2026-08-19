@@ -88,6 +88,19 @@ describe("diminished-value validation", () => {
         airbagDeployment: "yes",
       }),
     ).toEqual({});
+
+    expect(
+      validateDiminishedValueAccidentRepairs({
+        ...createEmptyDiminishedValueDraft(),
+        otherPartyAtFault: "not-sure",
+        repairCost: "12$34",
+        structuralDamage: "no",
+        airbagDeployment: "yes",
+      }),
+    ).toEqual({
+      repairCost:
+        "Enter a valid repair cost with no more than two decimal places.",
+    });
   });
 
   it("requires consultation contact and time-zone availability", () => {

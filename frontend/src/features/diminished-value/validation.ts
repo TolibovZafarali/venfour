@@ -12,6 +12,7 @@ const TIME_ZONE_PATTERN =
   /\b(?:eastern|central|mountain|pacific|alaska|hawaii(?:-aleutian)?|atlantic|arizona|ET|CT|MT|PT|AKT|HST|EST|EDT|CST|CDT|MST|MDT|PST|PDT|UTC|GMT)(?:\s+time)?\b|\bAmerica\/[A-Za-z_]+\b/iu;
 
 const MAX_INTEGER = 2_147_483_647;
+const MAX_REPAIR_COST = 9_999_999_999.99;
 const MIN_VEHICLE_YEAR = 1981;
 
 export function maximumDiminishedValueVehicleYear(referenceDate = new Date()) {
@@ -129,7 +130,20 @@ export function validateDiminishedValueAccidentRepairs(
     "airbagDeployment",
     required(draft.airbagDeployment, "Airbag deployment"),
   );
+  assign(errors, "repairCost", validateRepairCost(draft.repairCost));
   return errors;
+}
+
+export function validateDiminishedValueSubmission(
+  draft: DiminishedValueDraft,
+  referenceDate = new Date(),
+): DiminishedValueFormErrors {
+  return {
+    ...validateDiminishedValueStart(draft, referenceDate),
+    ...validateDiminishedValueVehicle(draft, referenceDate),
+    ...validateDiminishedValueAccidentRepairs(draft),
+    ...validateDiminishedValueConsultation(draft),
+  };
 }
 
 export function validateDiminishedValueConsultation(
@@ -205,6 +219,23 @@ function validateMileage(value: string, label: string, requiredValue: boolean) {
   return Number.isSafeInteger(numericValue) && numericValue <= MAX_INTEGER
     ? null
     : "Mileage is too large.";
+}
+
+function validateRepairCost(value: string) {
+  let normalized = value.trim();
+  if (normalized.startsWith("$")) {
+    normalized = normalized.slice(1).trim();
+  }
+  normalized = normalized.replaceAll(",", "");
+  if (!normalized) return null;
+  if (!/^\d+(?:\.\d{0,2})?$/u.test(normalized)) {
+    return "Enter a valid repair cost with no more than two decimal places.";
+  }
+
+  const amount = Number(normalized);
+  return Number.isFinite(amount) && amount >= 0 && amount <= MAX_REPAIR_COST
+    ? null
+    : "Repair cost is too large.";
 }
 
 function required(value: string, label: string) {

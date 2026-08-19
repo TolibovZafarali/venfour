@@ -16,6 +16,7 @@ import type {
   UpdateTotalLossDetailsInput,
 } from "@/features/total-loss/data-types";
 import type {
+  CompositeTypes,
   Database,
   Tables,
   TablesInsert,
@@ -25,7 +26,7 @@ import type {
 const TOTAL_LOSS_DETAILS_COLUMNS =
   "case_id,intake_mode,vin,vehicle_year,vehicle_make,vehicle_model,vehicle_trim,mileage_at_loss,postal_code,date_of_loss,insurer_name,insurer_vehicle_valuation,report_original_filename,report_uploaded_at,intake_completed_at,created_at,updated_at" as const;
 
-type TotalLossDetailsRow = Pick<
+type TotalLossDetailsTableRow = Pick<
   Tables<"total_loss_case_details">,
   | "case_id"
   | "intake_mode"
@@ -45,6 +46,9 @@ type TotalLossDetailsRow = Pick<
   | "created_at"
   | "updated_at"
 >;
+type TotalLossDetailsRow =
+  | TotalLossDetailsTableRow
+  | CompositeTypes<"total_loss_case_details_public">;
 type TotalLossDetailsInsert = TablesInsert<"total_loss_case_details">;
 type TotalLossDetailsUpdate = TablesUpdate<"total_loss_case_details">;
 
@@ -114,18 +118,26 @@ export class TotalLossReportUploadLeaseLostError extends Error {
   }
 }
 
-interface TotalLossReportUploadLeaseRow {
-  readonly upload_id: string;
-  readonly expires_at: string;
-  readonly details_updated_at: string;
-  readonly report_original_filename: string | null;
-  readonly report_uploaded_at: string | null;
-  readonly recovery_required?: boolean;
-}
+type TotalLossReportUploadLeaseRow =
+  CompositeTypes<"total_loss_report_upload_lease">;
 
 function mapReportUploadLease(
   row: TotalLossReportUploadLeaseRow,
 ): TotalLossReportUploadLease {
+  if (
+    typeof row.upload_id !== "string" ||
+    typeof row.expires_at !== "string" ||
+    typeof row.details_updated_at !== "string" ||
+    !isNullableString(row.report_original_filename) ||
+    !isNullableString(row.report_uploaded_at) ||
+    (row.recovery_required != null &&
+      typeof row.recovery_required !== "boolean")
+  ) {
+    throw new TotalLossDetailsResponseError(
+      "Supabase returned an incomplete report-upload lease.",
+    );
+  }
+
   return {
     uploadId: row.upload_id,
     expiresAt: row.expires_at,
@@ -137,6 +149,17 @@ function mapReportUploadLease(
 }
 
 function mapTotalLossDetails(row: TotalLossDetailsRow): TotalLossCaseDetails {
+  if (
+    typeof row.case_id !== "string" ||
+    (row.intake_mode !== "manual" && row.intake_mode !== "report") ||
+    typeof row.created_at !== "string" ||
+    typeof row.updated_at !== "string"
+  ) {
+    throw new TotalLossDetailsResponseError(
+      "Supabase returned incomplete total-loss details.",
+    );
+  }
+
   return {
     caseId: row.case_id,
     intakeMode: row.intake_mode,
@@ -156,6 +179,10 @@ function mapTotalLossDetails(row: TotalLossDetailsRow): TotalLossCaseDetails {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
+}
+
+function isNullableString(value: unknown): value is string | null {
+  return value === null || typeof value === "string";
 }
 
 function assertRequestedCase(
@@ -360,7 +387,10 @@ export function createTotalLossDetailsService(
       const { data, error } = await client
         .rpc("acquire_total_loss_report_upload", {
           case_id: caseId,
-          expected_updated_at: expectedUpdatedAt,
+          // The SQL function intentionally accepts NULL to compare against an
+          // absent details row, which generated RPC argument types cannot
+          // express.
+          expected_updated_at: expectedUpdatedAt as string,
           upload_id: uploadId,
         })
         .single();

@@ -1,15 +1,11 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
 
-import {
-  createEmptyDiminishedValueDraft,
-  DiminishedValueIntakeFlow,
-} from "@/features/diminished-value";
+import { DiminishedValueStartFlow } from "@/features/diminished-value";
 import {
   AppraisalStartLayout,
   type AppraisalServiceSlug,
 } from "@/features/intake";
-import { useTotalLossDependencies } from "@/features/total-loss/dependencies";
 import { TotalLossIntakeFlow } from "@/pages/total-loss-start-page";
 
 const DEFAULT_SERVICE: AppraisalServiceSlug = "total-loss";
@@ -29,29 +25,19 @@ function mobileViewFromSearch(search: string): MobileStartView {
 export function AppraisalStartPage() {
   const location = useLocation();
   const navigate = useNavigate();
-  const totalLossDependencies = useTotalLossDependencies();
   const service = serviceFromSearch(location.search);
   const mobileView = mobileViewFromSearch(location.search);
-  const [diminishedValueDraft, setDiminishedValueDraft] = useState(
-    createEmptyDiminishedValueDraft,
-  );
-  const [selectedFiles, setSelectedFiles] = useState<readonly File[]>([]);
   const [totalLossBusy, setTotalLossBusy] = useState(false);
+  const [diminishedValueBusy, setDiminishedValueBusy] = useState(false);
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const rawService = params.get("service");
-    const hasTotalLossCaseOnDiminishedValue =
-      service === "diminished-value" && params.has("caseId");
-
-    if (rawService === service && !hasTotalLossCaseOnDiminishedValue) {
+    if (rawService === service) {
       return;
     }
 
     params.set("service", service);
-    if (service === "diminished-value") {
-      params.delete("caseId");
-    }
 
     void navigate(
       {
@@ -82,9 +68,7 @@ export function AppraisalStartPage() {
     const params = new URLSearchParams(location.search);
     params.set("service", nextService);
     params.delete("view");
-    if (nextService === "diminished-value") {
-      params.delete("caseId");
-    }
+    params.delete("caseId");
 
     void navigate(
       {
@@ -131,7 +115,10 @@ export function AppraisalStartPage() {
       onServiceChange={handleServiceChange}
       onMobileContinue={handleMobileContinue}
       onMobileBack={handleMobileBack}
-      serviceSwitchDisabled={totalLossSelected && totalLossBusy}
+      serviceSwitchDisabled={
+        (totalLossSelected && totalLossBusy) ||
+        (!totalLossSelected && diminishedValueBusy)
+      }
       eyebrow={
         totalLossSelected
           ? "Total-loss appraisal"
@@ -151,13 +138,7 @@ export function AppraisalStartPage() {
       {totalLossSelected ? (
         <TotalLossIntakeFlow onBusyChange={setTotalLossBusy} />
       ) : (
-        <DiminishedValueIntakeFlow
-          draft={diminishedValueDraft}
-          onDraftChange={setDiminishedValueDraft}
-          selectedFiles={selectedFiles}
-          onSelectedFilesChange={setSelectedFiles}
-          vehicleLookupService={totalLossDependencies?.vehicleLookupService}
-        />
+        <DiminishedValueStartFlow onBusyChange={setDiminishedValueBusy} />
       )}
     </AppraisalStartLayout>
   );

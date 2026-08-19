@@ -37,6 +37,8 @@ const intentDescriptions: Record<SignInIntent, string> = {
     "Sign in so Venfour can securely store your insurance valuation report with your appraisal case.",
   "continue-total-loss":
     "Sign in to securely save your total-loss information and continue to the free value check.",
+  "continue-diminished-value":
+    "Sign in to securely save your diminished-value request and supporting documents.",
 };
 
 export function SignInDialog({

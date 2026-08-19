@@ -11,7 +11,6 @@ import {
   IntakeStepTransition,
   IntakeTextareaField,
   IntakeTextField,
-  secondaryFlowButtonClassName,
   StepActions,
   StepHeading,
   type VehicleLookupService,
@@ -20,9 +19,12 @@ import {
   useVehicleLookupController,
 } from "@/features/intake";
 import { createNhtsaVpicVehicleLookupService } from "@/features/total-loss/nhtsa-vpic-vehicle-lookup";
-import { cn } from "@/lib/utils";
 
-import { LocalDocumentPicker } from "./local-document-picker";
+import {
+  LocalDocumentPicker,
+  type DiminishedValuePendingDocumentState,
+} from "./local-document-picker";
+import type { DiminishedValueStoredDocument } from "./storage-service";
 import {
   diminishedValueDraftReducer,
   type DiminishedValueDraftAction,
@@ -41,16 +43,31 @@ import {
   maximumDiminishedValueVehicleYear,
   normalizeDiminishedValueVin,
   validateDiminishedValueAccidentRepairs,
-  validateDiminishedValueConsultation,
   validateDiminishedValueStart,
+  validateDiminishedValueSubmission,
   validateDiminishedValueVehicle,
 } from "./validation";
 
-interface DiminishedValueIntakeFlowProps {
+export interface DiminishedValueIntakeFlowProps {
   readonly draft: DiminishedValueDraft;
   readonly onDraftChange: (draft: DiminishedValueDraft) => void;
   readonly selectedFiles: readonly File[];
   readonly onSelectedFilesChange: (files: File[]) => void;
+  readonly onSubmit: () => void;
+  readonly submitting?: boolean;
+  readonly submissionError?: string | null;
+  readonly submittedAt?: string | null;
+  readonly submittedFileCount?: number;
+  readonly storedDocuments?: readonly DiminishedValueStoredDocument[];
+  readonly pendingDocumentStates?: readonly DiminishedValuePendingDocumentState[];
+  readonly documentsRequireAuthentication?: boolean;
+  readonly onDocumentAuthenticationRequired?: () => void;
+  readonly onRetryDocumentUploads?: () => void;
+  readonly onRemoveStoredDocument?: (
+    document: DiminishedValueStoredDocument,
+  ) => void;
+  readonly removingDocumentId?: string | null;
+  readonly documentsDisabled?: boolean;
   readonly vehicleLookupService?: VehicleLookupService;
 }
 
@@ -74,6 +91,19 @@ export function DiminishedValueIntakeFlow({
   onDraftChange,
   selectedFiles,
   onSelectedFilesChange,
+  onSubmit,
+  submitting = false,
+  submissionError = null,
+  submittedAt = null,
+  submittedFileCount = 0,
+  storedDocuments = [],
+  pendingDocumentStates = [],
+  documentsRequireAuthentication = false,
+  onDocumentAuthenticationRequired,
+  onRetryDocumentUploads,
+  onRemoveStoredDocument,
+  removingDocumentId = null,
+  documentsDisabled = false,
   vehicleLookupService = defaultVehicleLookupService,
 }: DiminishedValueIntakeFlowProps) {
   const [errors, setErrors] = useState<DiminishedValueFormErrors>({});
@@ -202,9 +232,25 @@ export function DiminishedValueIntakeFlow({
   };
 
   const prepareReviewRequest = () => {
-    const nextErrors = validateDiminishedValueConsultation(draft);
-    if (showValidationErrors(nextErrors, setErrors, setFlowError)) return;
-    goToStep("complete");
+    const nextErrors = validateDiminishedValueSubmission(draft);
+    if (hasDiminishedValueErrors(nextErrors)) {
+      const errorStep = stepForDiminishedValueErrors(nextErrors);
+      if (errorStep !== draft.step) {
+        setTransitionDirection(
+          stepPositions[errorStep] < stepPositions[draft.step]
+            ? "backward"
+            : "forward",
+        );
+        dispatch({ type: "step-changed", step: errorStep });
+      }
+      setErrors(nextErrors);
+      setFlowError("Review the highlighted fields before continuing.");
+      window.requestAnimationFrame(() => focusFirstError(nextErrors));
+      return;
+    }
+    setErrors({});
+    setFlowError(null);
+    onSubmit();
   };
 
   const renderedStep = (() => {
@@ -249,6 +295,16 @@ export function DiminishedValueIntakeFlow({
             flowError={flowError}
             onChange={changeField}
             onFilesChange={onSelectedFilesChange}
+            storedDocuments={storedDocuments}
+            pendingDocumentStates={pendingDocumentStates}
+            documentsRequireAuthentication={documentsRequireAuthentication}
+            onDocumentAuthenticationRequired={
+              onDocumentAuthenticationRequired
+            }
+            onRetryDocumentUploads={onRetryDocumentUploads}
+            onRemoveStoredDocument={onRemoveStoredDocument}
+            removingDocumentId={removingDocumentId}
+            documentsDisabled={documentsDisabled}
             onEditStart={() => goToStep("start", true)}
             onBack={() => goToStep("vehicle")}
             onContinue={validateAndContinueRepairs}
@@ -259,17 +315,18 @@ export function DiminishedValueIntakeFlow({
           <DiminishedValueConsultationStep
             draft={draft}
             errors={errors}
-            flowError={flowError}
+            flowError={submissionError ?? flowError}
             onChange={changeField}
             onBack={() => goToStep("accident-repairs")}
             onContinue={prepareReviewRequest}
+            busy={submitting}
           />
         );
       case "complete":
         return (
           <DiminishedValueCompleteStep
-            fileCount={selectedFiles.length}
-            onEdit={() => goToStep("consultation")}
+            fileCount={submittedFileCount}
+            submittedAt={submittedAt}
           />
         );
     }
@@ -469,6 +526,16 @@ export function DiminishedValueVehicleStep({
 interface RepairsStepProps extends SharedStepProps {
   readonly files: readonly File[];
   readonly onFilesChange: (files: File[]) => void;
+  readonly storedDocuments: readonly DiminishedValueStoredDocument[];
+  readonly pendingDocumentStates: readonly DiminishedValuePendingDocumentState[];
+  readonly documentsRequireAuthentication: boolean;
+  readonly onDocumentAuthenticationRequired?: () => void;
+  readonly onRetryDocumentUploads?: () => void;
+  readonly onRemoveStoredDocument?: (
+    document: DiminishedValueStoredDocument,
+  ) => void;
+  readonly removingDocumentId: string | null;
+  readonly documentsDisabled: boolean;
   readonly onEditStart: () => void;
   readonly onBack: () => void;
   readonly onContinue: () => void;
@@ -481,6 +548,14 @@ export function DiminishedValueRepairsStep({
   flowError,
   onChange,
   onFilesChange,
+  storedDocuments,
+  pendingDocumentStates,
+  documentsRequireAuthentication,
+  onDocumentAuthenticationRequired,
+  onRetryDocumentUploads,
+  onRemoveStoredDocument,
+  removingDocumentId,
+  documentsDisabled,
   onEditStart,
   onBack,
   onContinue,
@@ -584,7 +659,18 @@ export function DiminishedValueRepairsStep({
             onChange("majorRepairDetails", event.target.value)
           }
         />
-        <LocalDocumentPicker files={files} onFilesChange={onFilesChange} />
+        <LocalDocumentPicker
+          files={files}
+          onFilesChange={onFilesChange}
+          storedDocuments={storedDocuments}
+          pendingStates={pendingDocumentStates}
+          requiresAuthentication={documentsRequireAuthentication}
+          onAuthenticationRequired={onDocumentAuthenticationRequired}
+          onRetryUploads={onRetryDocumentUploads}
+          onRemoveStoredDocument={onRemoveStoredDocument}
+          removingDocumentId={removingDocumentId}
+          disabled={documentsDisabled}
+        />
       </div>
       {flowError ? <InlineError message={flowError} /> : null}
       <StepActions
@@ -599,6 +685,7 @@ export function DiminishedValueRepairsStep({
 interface ConsultationStepProps extends SharedStepProps {
   readonly onBack: () => void;
   readonly onContinue: () => void;
+  readonly busy: boolean;
 }
 
 export function DiminishedValueConsultationStep({
@@ -608,9 +695,10 @@ export function DiminishedValueConsultationStep({
   onChange,
   onBack,
   onContinue,
+  busy,
 }: ConsultationStepProps) {
   return (
-    <FlowCard>
+    <FlowCard busy={busy}>
       <DiminishedValueProgress current={4} />
       <StepHeading
         title="Prepare your review request"
@@ -689,6 +777,7 @@ export function DiminishedValueConsultationStep({
         onBack={onBack}
         onContinue={onContinue}
         continueLabel="Request a review"
+        busy={busy}
       />
     </FlowCard>
   );
@@ -696,11 +785,19 @@ export function DiminishedValueConsultationStep({
 
 export function DiminishedValueCompleteStep({
   fileCount,
-  onEdit,
+  submittedAt,
 }: {
   readonly fileCount: number;
-  readonly onEdit: () => void;
+  readonly submittedAt: string | null;
 }) {
+  if (!submittedAt) {
+    return (
+      <FlowCard>
+        <InlineError message="Venfour could not verify that this review request was submitted. Return to the previous step and try again." />
+      </FlowCard>
+    );
+  }
+
   return (
     <FlowCard className="text-center">
       <div role="status" aria-live="polite">
@@ -711,35 +808,65 @@ export function DiminishedValueCompleteStep({
           className="mt-5 text-3xl font-semibold tracking-[-0.035em] text-ink"
           tabIndex={-1}
         >
-          Your review request is prepared
+          Venfour received your review request
         </h2>
         <p className="mt-3 text-base leading-7 text-copy">
           {fileCount > 0
-            ? `Your answers and ${fileCount} selected ${fileCount === 1 ? "file are" : "files are"} ready for you to review in this browser session.`
-            : "Your answers are ready for you to review in this browser session."}
+            ? `Your answers and ${fileCount} supporting ${fileCount === 1 ? "document were" : "documents were"} securely submitted ${formatSubmissionTime(submittedAt)}.`
+            : `Your answers were securely submitted ${formatSubmissionTime(submittedAt)}.`}
         </p>
         <div className="mx-auto mt-7 max-w-lg rounded-xl border border-line bg-surface p-5">
-          <p className="text-sm font-semibold text-ink">Nothing was sent</p>
+          <p className="text-sm font-semibold text-ink">Request received</p>
           <p className="mt-2 text-sm leading-6 text-copy">
-            Venfour has not received this information, and no appointment or
-            consultation has been confirmed.
+            Venfour has received this information for a future manual review.
+            No appraisal has been completed and no appointment has been
+            scheduled.
           </p>
         </div>
       </div>
-      <button
-        type="button"
-        className={cn(secondaryFlowButtonClassName, "mt-7")}
-        onClick={onEdit}
-      >
-        <PencilLine className="size-4" aria-hidden />
-        Edit contact details
-      </button>
     </FlowCard>
   );
 }
 
+function formatSubmissionTime(value: string) {
+  const submittedAt = new Date(value);
+  if (Number.isNaN(submittedAt.getTime())) return "";
+  return new Intl.DateTimeFormat(undefined, {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(submittedAt);
+}
+
 function DiminishedValueProgress({ current }: { readonly current: number }) {
   return <IntakeProgress current={current} steps={progressSteps} />;
+}
+
+function stepForDiminishedValueErrors(
+  errors: DiminishedValueFormErrors,
+): Exclude<DiminishedValueStep, "complete"> {
+  if (errors.accidentState || errors.accidentDate || errors.repairStatus) {
+    return "start";
+  }
+  if (
+    errors.vin ||
+    errors.vehicleYear ||
+    errors.make ||
+    errors.model ||
+    errors.trim ||
+    errors.mileageAtAccident ||
+    errors.currentMileage
+  ) {
+    return "vehicle";
+  }
+  if (
+    errors.otherPartyAtFault ||
+    errors.repairCost ||
+    errors.structuralDamage ||
+    errors.airbagDeployment
+  ) {
+    return "accident-repairs";
+  }
+  return "consultation";
 }
 
 function showValidationErrors(
@@ -920,5 +1047,3 @@ const fieldControlIds: Record<DiminishedValueFormField, string> = {
   availability: "diminished-value-availability",
   notes: "diminished-value-notes",
 };
-
-export type { DiminishedValueIntakeFlowProps };

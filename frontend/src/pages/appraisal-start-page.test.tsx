@@ -2,7 +2,7 @@ import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import type { TotalLossDependencies } from "@/features/total-loss/dependencies";
+import type { DiminishedValueDependencies } from "@/features/diminished-value/dependencies";
 import { renderTestApp } from "@/test/render";
 
 type ServiceLabel = "Total Loss" | "Diminished Value";
@@ -48,6 +48,7 @@ async function chooseAccidentDate(
 
 afterEach(() => {
   vi.restoreAllMocks();
+  window.localStorage.clear();
 });
 
 describe("/start appraisal intake", () => {
@@ -237,7 +238,7 @@ describe("/start appraisal intake", () => {
     expect(searchParams.get("campaign")).toBe("renewal");
   });
 
-  it("clears the diminished-value draft after navigating away", async () => {
+  it("restores the local diminished-value draft after navigating away", async () => {
     const user = userEvent.setup();
     vi.spyOn(window, "scrollTo").mockImplementation(() => undefined);
     const { router } = renderTestApp([
@@ -271,7 +272,8 @@ describe("/start appraisal intake", () => {
     ).toBeVisible();
     expect(
       screen.getByLabelText("State where the accident occurred"),
-    ).toHaveValue("");
+    ).toHaveValue("IL");
+    expect(window.localStorage).toHaveLength(1);
   });
 
   it("ignores a VIN lookup that finishes after switching services", async () => {
@@ -284,16 +286,16 @@ describe("/start appraisal intake", () => {
       trim: string;
     }>();
     const decodeVin = vi.fn(() => lookup.promise);
-    const totalLossDependencies = {
+    const diminishedValueDependencies = {
       vehicleLookupService: {
         decodeVin,
         listMakes: vi.fn(async () => []),
         listModels: vi.fn(async () => []),
       },
-    } as unknown as TotalLossDependencies;
+    } as unknown as DiminishedValueDependencies;
 
     renderTestApp(["/start?service=diminished-value&view=intake"], {
-      totalLossDependencies,
+      diminishedValueDependencies,
     });
     await user.selectOptions(
       screen.getByLabelText("State where the accident occurred"),
@@ -347,7 +349,7 @@ describe("/start appraisal intake", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("retains the in-memory diminished-value draft and files across a service round-trip without sending them", async () => {
+  it("retains the local diminished-value draft across a service round-trip and requires auth before submission", async () => {
     const user = userEvent.setup();
     const fetchSpy = vi.spyOn(globalThis, "fetch");
     const decodeVin = vi.fn(async () => ({
@@ -357,16 +359,16 @@ describe("/start appraisal intake", () => {
       model: "Accord",
       trim: "EX",
     }));
-    const totalLossDependencies = {
+    const diminishedValueDependencies = {
       vehicleLookupService: {
         decodeVin,
         listMakes: vi.fn(async () => []),
         listModels: vi.fn(async () => []),
       },
-    } as unknown as TotalLossDependencies;
+    } as unknown as DiminishedValueDependencies;
 
     renderTestApp(["/start?service=diminished-value&view=intake"], {
-      totalLossDependencies,
+      diminishedValueDependencies,
     });
 
     await user.selectOptions(
@@ -417,12 +419,9 @@ describe("/start appraisal intake", () => {
       screen.getByLabelText("Major repair information"),
       "Front suspension and passenger-side body work.",
     );
-    const repairInvoice = new File(["repair invoice"], "repairs.pdf", {
-      type: "application/pdf",
-      lastModified: 1_725_000_000_000,
-    });
-    await user.upload(screen.getByLabelText("Choose files"), repairInvoice);
-    expect(screen.getByText("repairs.pdf")).toBeVisible();
+    expect(
+      screen.getByRole("button", { name: "Sign in to attach files" }),
+    ).toBeVisible();
 
     await user.click(screen.getByRole("radio", { name: "Total Loss" }));
     expect(
@@ -442,7 +441,6 @@ describe("/start appraisal intake", () => {
     expect(
       screen.getByText("January 2, 2020 · IL · Repairs are in progress"),
     ).toBeVisible();
-    expect(screen.getByText("repairs.pdf")).toBeVisible();
     expect(screen.getByLabelText("Major repair information")).toHaveValue(
       "Front suspension and passenger-side body work.",
     );
@@ -472,17 +470,14 @@ describe("/start appraisal intake", () => {
     );
 
     expect(
-      screen.getByRole("heading", {
-        name: "Your review request is prepared",
-      }),
+      screen.getByRole("heading", { name: "Sign in to Venfour" }),
     ).toBeVisible();
-    expect(screen.getByText("Nothing was sent")).toBeVisible();
     expect(
-      screen.getByText(
-        "Venfour has not received this information, and no appointment or consultation has been confirmed.",
-      ),
-    ).toBeVisible();
+      screen.queryByRole("heading", {
+        name: "Venfour received your review request",
+      }),
+    ).not.toBeInTheDocument();
     expect(fetchSpy).not.toHaveBeenCalled();
-    expect(window.localStorage).toHaveLength(0);
+    expect(window.localStorage).toHaveLength(1);
   });
 });
