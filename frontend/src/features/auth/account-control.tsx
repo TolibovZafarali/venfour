@@ -16,9 +16,13 @@ const focusRingClassName =
 
 interface AccountControlProps {
   className?: string;
+  signedOutHint?: string;
 }
 
-export function AccountControl({ className }: AccountControlProps) {
+export function AccountControl({
+  className,
+  signedOutHint,
+}: AccountControlProps) {
   const { auth, signOut } = useAuth();
   const { openSignIn } = useSignInDialog();
   const [signOutPending, setSignOutPending] = useState(false);
@@ -27,7 +31,11 @@ export function AccountControl({ className }: AccountControlProps) {
   if (auth.status === "loading") {
     return (
       <span
-        className={cn("inline-flex min-h-11 w-[5.25rem] items-center", className)}
+        className={cn(
+          "inline-flex min-h-11 w-[5.25rem] items-center",
+          signedOutHint && "sm:w-[13.5rem]",
+          className,
+        )}
         data-auth-state="loading"
       >
         <span className="sr-only">Checking sign-in status</span>
@@ -36,18 +44,29 @@ export function AccountControl({ className }: AccountControlProps) {
   }
 
   if (auth.status !== "signedIn") {
-    return (
+    const signInButton = (
       <button
         type="button"
         className={cn(
           "inline-flex min-h-11 items-center rounded-lg px-3 text-[0.8125rem] font-medium text-ink/70 transition-colors hover:bg-white/55 hover:text-ink motion-reduce:transition-none",
           focusRingClassName,
-          className,
+          !signedOutHint && className,
         )}
         onClick={() => openSignIn()}
       >
         Sign In
       </button>
+    );
+
+    if (!signedOutHint) return signInButton;
+
+    return (
+      <span className={cn("inline-flex items-center gap-2", className)}>
+        <span className="hidden whitespace-nowrap text-xs font-medium text-copy/80 sm:inline">
+          {signedOutHint}
+        </span>
+        {signInButton}
+      </span>
     );
   }
 

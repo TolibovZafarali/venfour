@@ -483,6 +483,10 @@ describe("/total-loss/start", () => {
     expect(
       screen.queryByRole("button", { name: "Open navigation" }),
     ).not.toBeInTheDocument();
+    const signInButton = await screen.findByRole("button", { name: "Sign In" });
+    expect(signInButton.previousElementSibling).toHaveTextContent(
+      "Already have an account?",
+    );
     expect(screen.queryByText("Progress")).not.toBeInTheDocument();
     expect(screen.queryByText("Step I of III")).not.toBeInTheDocument();
     const progress = screen.getByRole("list", { name: "Appraisal steps" });

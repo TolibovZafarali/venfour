@@ -200,7 +200,10 @@ function AppShellContent() {
               </div>
 
               {startFlowRoute ? (
-                <AccountControl className="shrink-0" />
+                <AccountControl
+                  className="shrink-0"
+                  signedOutHint="Already have an account?"
+                />
               ) : (
                 <>
                   <nav
