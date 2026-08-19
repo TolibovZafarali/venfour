@@ -7,6 +7,11 @@ import type { Session } from "@supabase/supabase-js";
 import venfourMark from "../../../assets/brand/venfour-mark.svg";
 import type { AuthService } from "@/features/auth";
 import { appraisalCaseQueryKeys } from "@/features/cases/queries";
+import {
+  createEmptyTotalLossDraft,
+  readTotalLossDraft,
+  writeTotalLossDraft,
+} from "@/features/total-loss/draft";
 import { RouteErrorPage } from "@/pages/route-error-page";
 import { representativeRunId } from "@/test/fixtures/analysis-presentation";
 import { renderTestApp } from "@/test/render";
@@ -200,6 +205,12 @@ describe("Venfour application", () => {
       appraisalCaseQueryKeys.list(session.user.id),
       ["private-case-sentinel"],
     );
+    expect(
+      writeTotalLossDraft({
+        ...createEmptyTotalLossDraft(),
+        ownerUserId: session.user.id,
+      }).ok,
+    ).toBe(true);
 
     await user.click(account);
     expect(screen.getByText("ada@example.com")).toBeVisible();
@@ -212,6 +223,25 @@ describe("Venfour application", () => {
     expect(
       queryClient.getQueryData(appraisalCaseQueryKeys.list(session.user.id)),
     ).toBeUndefined();
+    expect(readTotalLossDraft()).toEqual({ ok: true, draft: null });
+  });
+
+  test("clears a different owner's draft during initial session restoration", async () => {
+    expect(
+      writeTotalLossDraft({
+        ...createEmptyTotalLossDraft(),
+        ownerUserId: "22222222-2222-4222-8222-222222222222",
+      }).ok,
+    ).toBe(true);
+
+    renderTestApp(["/"], {
+      authService: createTestAuthService(createTestSession()),
+    });
+
+    await screen.findByRole("button", {
+      name: "Account for ada@example.com",
+    });
+    expect(readTotalLossDraft()).toEqual({ ok: true, draft: null });
   });
 
   test("shows signed-in identity and sign out in mobile navigation", async () => {

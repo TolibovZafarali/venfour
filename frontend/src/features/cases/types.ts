@@ -19,9 +19,19 @@ export interface CreateAppraisalCaseInput {
   readonly serviceType: AppraisalServiceType;
 }
 
+export interface CreateOrGetAppraisalCaseInput
+  extends CreateAppraisalCaseInput {
+  readonly caseId: string;
+}
+
 export interface GetAppraisalCaseInput {
   readonly userId: string;
   readonly caseId: string;
+}
+
+export interface GetRecentDraftAppraisalCaseInput {
+  readonly userId: string;
+  readonly serviceType: AppraisalServiceType;
 }
 
 export type TouchAppraisalCaseInput = GetAppraisalCaseInput;

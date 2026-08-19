@@ -11,7 +11,10 @@ export { createSupabaseAuthService } from "./auth-service";
 export type { AuthService, AuthStateChangeListener } from "./auth-service";
 export { SignInDialog } from "./sign-in-dialog";
 export { useSignInDialog } from "./sign-in-dialog-context";
-export type { OpenSignInOptions } from "./sign-in-dialog-context";
+export type {
+  OpenSignInOptions,
+  SignInIntent,
+} from "./sign-in-dialog-context";
 export { SignInDialogProvider } from "./sign-in-dialog-provider";
 export {
   AUTH_RETURN_LOCATION_STORAGE_KEY,

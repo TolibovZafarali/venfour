@@ -56,18 +56,19 @@ deterministic presentation model
 JSON API
 ```
 
-The customer-facing application begins at `/` with a focused analysis-creation
-flow for one CCC valuation PDF and the vehicle ZIP code. A successful creation
-navigates to `/analyses/:runId`, which presents the assessment, market-range
-comparison, loss-date comparables, current-market context, CCC comparables and
-adjustments, and important limitations. The frontend does not reproduce backend
-analysis or ranking logic.
+The customer-facing application includes a saved total-loss intake at
+`/total-loss/start` and the existing analysis-creation flow at
+`/total-loss-review`. The saved intake accepts either manual vehicle and claim
+information or a privately stored insurance valuation PDF, but it does not yet
+run an analysis. The legacy review continues to create a public
+`/analyses/:runId` result from one CCC PDF and vehicle ZIP code. The frontend
+does not reproduce backend analysis or ranking logic.
 
-Supabase provides the browser authentication, customer profile, appraisal-case,
-row-level security, and private case-file storage foundations for upcoming
-customer workflows. The current upload and `/analyses/:runId` routes remain
-separate from that foundation: they are not yet attached to an account or
-appraisal case, and the current PDF continues to use temporary backend storage.
+Supabase provides browser authentication, customer profiles, saved appraisal
+cases, row-level security, and private case-file storage for the new intake.
+Case IDs remain separate from Python analysis-run IDs. The legacy upload and
+`/analyses/:runId` routes are not attached to a customer case, and their PDF
+continues to use temporary backend storage.
 
 ## Evidence and engineering principles
 

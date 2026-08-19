@@ -119,7 +119,7 @@ export function HomePage() {
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
               <Link
-                to="/total-loss-review"
+                to="/total-loss/start"
                 className={`${primaryActionClassName} shrink-0`}
               >
                 Start total-loss appraisal
@@ -180,7 +180,7 @@ export function HomePage() {
                   We check the insurance value report and compare it with similar vehicles for sale.
                 </p>
                 <Link
-                  to="/total-loss-review"
+                  to="/total-loss/start"
                   className={`${primaryActionClassName} mt-7 self-start`}
                 >
                   Start total-loss appraisal
@@ -239,7 +239,7 @@ export function HomePage() {
               </p>
             </div>
             <Link
-              to="/total-loss-review"
+              to="/total-loss/start"
               className={`${secondaryActionClassName} shrink-0 self-start lg:self-auto`}
             >
               Upload your report

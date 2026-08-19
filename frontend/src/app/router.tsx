@@ -10,6 +10,7 @@ import { NotFoundPage } from "@/pages/not-found-page";
 import { PrivacyPage } from "@/pages/privacy-page";
 import { RouteErrorPage } from "@/pages/route-error-page";
 import { TotalLossReviewPage } from "@/pages/total-loss-review-page";
+import { TotalLossStartPage } from "@/pages/total-loss-start-page";
 
 const metadata = (title: string, description: string): PageMetadata => ({
   title,
@@ -28,6 +29,14 @@ export const appRoutes: RouteObject[] = [
         handle: metadata(
           "Vehicle Appraisals After an Accident | Venfour",
           "Start a total-loss appraisal online or learn how a diminished value appraisal documents value lost after repairs.",
+        ),
+      },
+      {
+        path: "total-loss/start",
+        element: <TotalLossStartPage />,
+        handle: metadata(
+          "Start Your Total-Loss Appraisal | Venfour",
+          "Provide your insurance valuation report or enter vehicle and claim information to begin a total-loss appraisal.",
         ),
       },
       {

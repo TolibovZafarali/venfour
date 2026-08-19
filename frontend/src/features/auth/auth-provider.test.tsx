@@ -158,10 +158,12 @@ describe("AuthProvider", () => {
   test("tracks auth changes, sign-out, and identity changes", async () => {
     const fake = createFakeAuthService(async () => sessionFor("first"));
     const onIdentityChange = vi.fn();
+    const onIdentityResolved = vi.fn();
     render(
       <AuthProvider
         service={fake.service}
         onIdentityChange={onIdentityChange}
+        onIdentityResolved={onIdentityResolved}
       >
         <AuthProbe />
       </AuthProvider>,
@@ -171,9 +173,11 @@ describe("AuthProvider", () => {
       expect(screen.getByTestId("user")).toHaveTextContent("first"),
     );
     expect(onIdentityChange).not.toHaveBeenCalled();
+    expect(onIdentityResolved).toHaveBeenLastCalledWith("first");
 
     act(() => fake.emit(sessionFor("second")));
     expect(onIdentityChange).toHaveBeenCalledWith("first", "second");
+    expect(onIdentityResolved).toHaveBeenLastCalledWith("second");
 
     screen.getByRole("button", { name: "Sign out" }).click();
     await waitFor(() =>
@@ -181,16 +185,23 @@ describe("AuthProvider", () => {
     );
     expect(fake.service.signOut).toHaveBeenCalledOnce();
     expect(onIdentityChange).toHaveBeenLastCalledWith("second", null);
+    expect(onIdentityResolved).toHaveBeenLastCalledWith(null);
   });
 
   test("exposes an explicit unavailable state without calling a service", () => {
+    const onIdentityResolved = vi.fn();
     render(
-      <AuthProvider service={null} unavailableReason="Missing public config">
+      <AuthProvider
+        service={null}
+        unavailableReason="Missing public config"
+        onIdentityResolved={onIdentityResolved}
+      >
         <AuthProbe />
       </AuthProvider>,
     );
 
     expect(screen.getByTestId("status")).toHaveTextContent("unavailable");
+    expect(onIdentityResolved).toHaveBeenCalledWith(null);
   });
 
   test("falls back to signed out when restoration fails", async () => {

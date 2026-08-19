@@ -5,11 +5,13 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   AppraisalCaseAuthenticationError,
+  useCreateOrGetAppraisalCaseMutation,
   useCreateAppraisalCaseMutation,
 } from "@/features/cases/mutations";
 import {
   appraisalCaseQueryKeys,
   useAppraisalCasesQuery,
+  useRecentDraftAppraisalCaseQuery,
 } from "@/features/cases/queries";
 import type { AppraisalCaseService } from "@/features/cases/service";
 import type { AppraisalCase } from "@/features/cases/types";
@@ -32,7 +34,9 @@ function createService(
 ): AppraisalCaseService {
   return {
     createAppraisalCase: async () => appraisalCase,
+    createOrGetAppraisalCase: async () => appraisalCase,
     listAppraisalCases: async () => [],
+    getRecentDraftAppraisalCase: async () => null,
     getAppraisalCase: async () => null,
     touchAppraisalCase: async () => null,
     ...overrides,
@@ -72,6 +76,15 @@ describe("appraisal case query hooks", () => {
       USER_ID,
       "detail",
       CASE_ID,
+    ]);
+    expect(
+      appraisalCaseQueryKeys.recentDraft(USER_ID, "total_loss"),
+    ).toEqual([
+      "appraisalCases",
+      "user",
+      USER_ID,
+      "recentDraft",
+      "total_loss",
     ]);
   });
 
@@ -125,6 +138,50 @@ describe("appraisal case query hooks", () => {
         appraisalCaseQueryKeys.detail(USER_ID, CASE_ID),
       ),
     ).toEqual(appraisalCase);
+  });
+
+  it("uses the browser-reserved ID for an idempotent create-or-get mutation", async () => {
+    const createOrGetAppraisalCase = vi.fn(async () => appraisalCase);
+    const service = createService({ createOrGetAppraisalCase });
+    const { wrapper } = createQueryHarness();
+    const { result } = renderHook(
+      () => useCreateOrGetAppraisalCaseMutation({ service, userId: USER_ID }),
+      { wrapper },
+    );
+
+    await act(async () => {
+      await result.current.mutateAsync({
+        caseId: CASE_ID,
+        serviceType: "total_loss",
+      });
+    });
+
+    expect(createOrGetAppraisalCase).toHaveBeenCalledWith({
+      caseId: CASE_ID,
+      serviceType: "total_loss",
+      userId: USER_ID,
+    });
+  });
+
+  it("fetches the recent draft for only the authenticated workflow", async () => {
+    const getRecentDraftAppraisalCase = vi.fn(async () => appraisalCase);
+    const service = createService({ getRecentDraftAppraisalCase });
+    const { wrapper } = createQueryHarness();
+    const { result } = renderHook(
+      () =>
+        useRecentDraftAppraisalCaseQuery({
+          service,
+          serviceType: "total_loss",
+          userId: USER_ID,
+        }),
+      { wrapper },
+    );
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(getRecentDraftAppraisalCase).toHaveBeenCalledWith({
+      serviceType: "total_loss",
+      userId: USER_ID,
+    });
   });
 
   it("rejects case mutations without an authenticated user", async () => {

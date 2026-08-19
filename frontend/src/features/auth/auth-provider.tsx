@@ -43,6 +43,7 @@ interface AuthProviderProps {
   children: ReactNode;
   service?: AuthService | null;
   unavailableReason?: string;
+  onIdentityResolved?: (userId: string | null) => void;
   onIdentityChange?: (
     previousUserId: string | null,
     nextUserId: string | null,
@@ -53,6 +54,7 @@ export function AuthProvider({
   children,
   service,
   unavailableReason = defaultUnavailableReason,
+  onIdentityResolved,
   onIdentityChange,
 }: AuthProviderProps) {
   const resolvedService = service === undefined ? defaultAuthService : service;
@@ -79,6 +81,12 @@ export function AuthProvider({
       setAuth(stateFromSession(session));
 
       if (
+        !identityInitializedRef.current ||
+        previousUserId !== nextUserId
+      ) {
+        onIdentityResolved?.(nextUserId);
+      }
+      if (
         identityInitializedRef.current &&
         previousUserId !== nextUserId
       ) {
@@ -86,11 +94,12 @@ export function AuthProvider({
       }
       identityInitializedRef.current = true;
     },
-    [onIdentityChange],
+    [onIdentityChange, onIdentityResolved],
   );
 
   useEffect(() => {
     if (!resolvedService) {
+      onIdentityResolved?.(null);
       return;
     }
 
@@ -126,7 +135,7 @@ export function AuthProvider({
       active = false;
       unsubscribe();
     };
-  }, [applySession, resolvedService]);
+  }, [applySession, onIdentityResolved, resolvedService]);
 
   const requireService = useCallback(() => {
     if (!resolvedService) {

@@ -60,6 +60,23 @@ function SignInLauncher() {
   );
 }
 
+function SecureReportSignInLauncher() {
+  const { openSignIn } = useSignInDialog();
+  return (
+    <button
+      type="button"
+      onClick={() =>
+        openSignIn({
+          intent: "secure-report-upload",
+          returnTo: "/total-loss/start",
+        })
+      }
+    >
+      Secure report sign in
+    </button>
+  );
+}
+
 function renderSignIn(service: AuthService | null = createService()) {
   return render(
     <MemoryRouter>
@@ -124,6 +141,29 @@ describe("sign-in dialog", () => {
 
     expect(service.signInWithGoogle).toHaveBeenCalledWith(
       `${window.location.origin}/auth/callback`,
+    );
+  });
+
+  test("supports intent-specific copy without changing the reusable dialog", async () => {
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter>
+        <AuthProvider service={createService()}>
+          <SignInDialogProvider>
+            <SecureReportSignInLauncher />
+          </SignInDialogProvider>
+        </AuthProvider>
+      </MemoryRouter>,
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: "Secure report sign in" }),
+    );
+
+    expect(
+      screen.getByRole("dialog", { name: "Sign in to Venfour" }),
+    ).toHaveTextContent(
+      "Sign in so Venfour can securely store your insurance valuation report",
     );
   });
 

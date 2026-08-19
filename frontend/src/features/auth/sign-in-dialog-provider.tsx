@@ -5,6 +5,7 @@ import { SignInDialog } from "@/features/auth/sign-in-dialog";
 import {
   SignInDialogContext,
   type OpenSignInOptions,
+  type SignInIntent,
   type SignInDialogContextValue,
 } from "@/features/auth/sign-in-dialog-context";
 
@@ -12,6 +13,7 @@ interface OpenDialogState {
   key: number;
   restoreFocusElement: HTMLElement | null;
   returnTo?: string;
+  intent: SignInIntent;
 }
 
 interface SignInDialogProviderProps {
@@ -33,6 +35,7 @@ export function SignInDialogProvider({
           ? document.activeElement
           : null,
       returnTo: options?.returnTo,
+      intent: options?.intent ?? "default",
     });
   }, []);
 
@@ -56,6 +59,7 @@ export function SignInDialogProvider({
           }}
           restoreFocusElement={dialog.restoreFocusElement}
           returnTo={dialog.returnTo}
+          intent={dialog.intent}
         />
       ) : null}
     </SignInDialogContext.Provider>

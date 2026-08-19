@@ -6,6 +6,7 @@ import { Dialog } from "radix-ui";
 
 import { getFriendlyAuthError } from "@/features/auth/auth-errors";
 import { useAuth } from "@/features/auth/auth-context";
+import type { SignInIntent } from "@/features/auth/sign-in-dialog-context";
 
 const focusRingClassName =
   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2";
@@ -26,13 +27,24 @@ interface SignInDialogProps {
   onOpenChange: (open: boolean) => void;
   restoreFocusElement?: HTMLElement | null;
   returnTo?: string;
+  intent?: SignInIntent;
 }
+
+const intentDescriptions: Record<SignInIntent, string> = {
+  default:
+    "Sign in to save your progress and return to your appraisal cases later.",
+  "secure-report-upload":
+    "Sign in so Venfour can securely store your insurance valuation report with your appraisal case.",
+  "continue-total-loss":
+    "Sign in to securely save your total-loss information and continue to the free value check.",
+};
 
 export function SignInDialog({
   open,
   onOpenChange,
   restoreFocusElement,
   returnTo,
+  intent = "default",
 }: SignInDialogProps) {
   const { auth, sendMagicLink, signInWithGoogle } = useAuth();
   const [email, setEmail] = useState("");
@@ -103,7 +115,7 @@ export function SignInDialog({
             <Dialog.Description className="mt-2 text-sm leading-6 text-copy">
               {emailSent
                 ? "Use the secure link we sent to finish signing in."
-                : "Sign in to save your progress and return to your appraisal cases later."}
+                : intentDescriptions[intent]}
             </Dialog.Description>
           </div>
 

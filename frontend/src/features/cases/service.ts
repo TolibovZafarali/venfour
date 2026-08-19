@@ -3,7 +3,9 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type {
   AppraisalCase,
   CreateAppraisalCaseInput,
+  CreateOrGetAppraisalCaseInput,
   GetAppraisalCaseInput,
+  GetRecentDraftAppraisalCaseInput,
   TouchAppraisalCaseInput,
 } from "@/features/cases/types";
 import type { Database, Tables } from "@/lib/supabase/database.types";
@@ -15,7 +17,13 @@ type AppraisalCaseRow = Tables<"appraisal_cases">;
 
 export interface AppraisalCaseService {
   createAppraisalCase(input: CreateAppraisalCaseInput): Promise<AppraisalCase>;
+  createOrGetAppraisalCase(
+    input: CreateOrGetAppraisalCaseInput,
+  ): Promise<AppraisalCase>;
   listAppraisalCases(userId: string): Promise<AppraisalCase[]>;
+  getRecentDraftAppraisalCase(
+    input: GetRecentDraftAppraisalCaseInput,
+  ): Promise<AppraisalCase | null>;
   getAppraisalCase(
     input: GetAppraisalCaseInput,
   ): Promise<AppraisalCase | null>;
@@ -58,6 +66,49 @@ function assertOwnedCase(
   }
 }
 
+function assertExpectedDraftCase(
+  appraisalCase: AppraisalCase,
+  input: CreateOrGetAppraisalCaseInput | GetRecentDraftAppraisalCaseInput,
+) {
+  assertOwnedCase(
+    appraisalCase,
+    input.userId,
+    "caseId" in input ? input.caseId : undefined,
+  );
+
+  if (
+    appraisalCase.serviceType !== input.serviceType ||
+    appraisalCase.status !== "draft"
+  ) {
+    throw new AppraisalCaseResponseError(
+      "Supabase returned an appraisal case outside the requested draft workflow.",
+    );
+  }
+}
+
+async function fetchOwnedCase(
+  client: SupabaseClient<Database>,
+  { userId, caseId }: GetAppraisalCaseInput,
+): Promise<AppraisalCase | null> {
+  const { data, error } = await client
+    .from("appraisal_cases")
+    .select(APPRAISAL_CASE_COLUMNS)
+    .eq("user_id", userId)
+    .eq("id", caseId)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+  if (!data) {
+    return null;
+  }
+
+  const appraisalCase = mapAppraisalCase(data);
+  assertOwnedCase(appraisalCase, userId, caseId);
+  return appraisalCase;
+}
+
 export function createAppraisalCaseService(
   client: SupabaseClient<Database>,
 ): AppraisalCaseService {
@@ -86,6 +137,49 @@ export function createAppraisalCaseService(
       return appraisalCase;
     },
 
+    async createOrGetAppraisalCase({ caseId, userId, serviceType }) {
+      const { data, error } = await client
+        .from("appraisal_cases")
+        .insert({
+          id: caseId,
+          user_id: userId,
+          service_type: serviceType,
+        })
+        .select(APPRAISAL_CASE_COLUMNS)
+        .single();
+
+      if (!error && data) {
+        const appraisalCase = mapAppraisalCase(data);
+        assertExpectedDraftCase(appraisalCase, {
+          caseId,
+          userId,
+          serviceType,
+        });
+        return appraisalCase;
+      }
+
+      // A stable browser-reserved ID makes retries idempotent. Fetching after
+      // any failed response covers both a primary-key conflict and a request
+      // whose insert committed before the connection was lost.
+      const existingCase = await fetchOwnedCase(client, { caseId, userId });
+      if (existingCase) {
+        assertExpectedDraftCase(existingCase, {
+          caseId,
+          userId,
+          serviceType,
+        });
+        return existingCase;
+      }
+
+      if (error) {
+        throw error;
+      }
+
+      throw new AppraisalCaseResponseError(
+        "Supabase did not return the created appraisal case.",
+      );
+    },
+
     async listAppraisalCases(userId) {
       const { data, error } = await client
         .from("appraisal_cases")
@@ -109,12 +203,15 @@ export function createAppraisalCaseService(
       });
     },
 
-    async getAppraisalCase({ userId, caseId }) {
+    async getRecentDraftAppraisalCase({ userId, serviceType }) {
       const { data, error } = await client
         .from("appraisal_cases")
         .select(APPRAISAL_CASE_COLUMNS)
         .eq("user_id", userId)
-        .eq("id", caseId)
+        .eq("service_type", serviceType)
+        .eq("status", "draft")
+        .order("last_activity_at", { ascending: false })
+        .limit(1)
         .maybeSingle();
 
       if (error) {
@@ -125,8 +222,12 @@ export function createAppraisalCaseService(
       }
 
       const appraisalCase = mapAppraisalCase(data);
-      assertOwnedCase(appraisalCase, userId, caseId);
+      assertExpectedDraftCase(appraisalCase, { userId, serviceType });
       return appraisalCase;
+    },
+
+    async getAppraisalCase({ userId, caseId }) {
+      return fetchOwnedCase(client, { userId, caseId });
     },
 
     async touchAppraisalCase({ userId, caseId }) {

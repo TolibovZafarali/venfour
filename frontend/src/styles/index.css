@@ -143,7 +143,51 @@
   }
 }
 
+@keyframes intake-step-forward {
+  from {
+    opacity: 0;
+    transform: translateX(1rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes intake-step-backward {
+  from {
+    opacity: 0;
+    transform: translateX(-1rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
 @layer components {
+  .intake-step-forward,
+  .intake-step-backward {
+    animation-duration: 280ms;
+    animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+    animation-fill-mode: both;
+  }
+
+  .intake-step-forward {
+    animation-name: intake-step-forward;
+  }
+
+  .intake-step-backward {
+    animation-name: intake-step-backward;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .intake-step-forward,
+    .intake-step-backward {
+      animation: none;
+    }
+  }
+
   .header-glass {
     background:
       radial-gradient(

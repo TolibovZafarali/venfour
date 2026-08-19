@@ -82,6 +82,84 @@ describe("appraisal case service", () => {
     expect(result).toEqual(expectedCase);
   });
 
+  it("creates a case with a stable browser-reserved ID and no status", async () => {
+    let requestBody: unknown;
+
+    server.use(
+      http.post(`${SUPABASE_URL}/rest/v1/appraisal_cases`, async ({ request }) => {
+        requestBody = await request.json();
+        return HttpResponse.json(caseRow);
+      }),
+    );
+
+    await expect(
+      createTestService().createOrGetAppraisalCase({
+        caseId: CASE_ID,
+        userId: USER_ID,
+        serviceType: "total_loss",
+      }),
+    ).resolves.toEqual(expectedCase);
+    expect(requestBody).toEqual({
+      id: CASE_ID,
+      service_type: "total_loss",
+      user_id: USER_ID,
+    });
+  });
+
+  it("recovers a duplicate or lost insert response by fetching the same owned draft", async () => {
+    server.use(
+      http.post(`${SUPABASE_URL}/rest/v1/appraisal_cases`, () =>
+        HttpResponse.json(
+          {
+            code: "23505",
+            details: null,
+            hint: null,
+            message: "duplicate key value violates unique constraint",
+          },
+          { status: 409 },
+        ),
+      ),
+      http.get(`${SUPABASE_URL}/rest/v1/appraisal_cases`, () =>
+        HttpResponse.json(caseRow),
+      ),
+    );
+
+    await expect(
+      createTestService().createOrGetAppraisalCase({
+        caseId: CASE_ID,
+        userId: USER_ID,
+        serviceType: "total_loss",
+      }),
+    ).resolves.toEqual(expectedCase);
+  });
+
+  it("rejects a recovered case outside the expected service or draft status", async () => {
+    server.use(
+      http.post(`${SUPABASE_URL}/rest/v1/appraisal_cases`, () =>
+        HttpResponse.json(
+          {
+            code: "23505",
+            details: null,
+            hint: null,
+            message: "duplicate key value violates unique constraint",
+          },
+          { status: 409 },
+        ),
+      ),
+      http.get(`${SUPABASE_URL}/rest/v1/appraisal_cases`, () =>
+        HttpResponse.json({ ...caseRow, status: "paid" }),
+      ),
+    );
+
+    await expect(
+      createTestService().createOrGetAppraisalCase({
+        caseId: CASE_ID,
+        userId: USER_ID,
+        serviceType: "total_loss",
+      }),
+    ).rejects.toBeInstanceOf(AppraisalCaseResponseError);
+  });
+
   it("scopes list requests to the active owner and orders recent activity first", async () => {
     let requestUrl: URL | undefined;
 
@@ -100,6 +178,34 @@ describe("appraisal case service", () => {
     );
     expect(requestUrl?.searchParams.get("select")).toBe(CASE_COLUMNS);
     expect(result).toEqual([expectedCase]);
+  });
+
+  it("server-filters and limits the most recent draft for a workflow", async () => {
+    let requestUrl: URL | undefined;
+
+    server.use(
+      http.get(`${SUPABASE_URL}/rest/v1/appraisal_cases`, ({ request }) => {
+        requestUrl = new URL(request.url);
+        return HttpResponse.json(caseRow);
+      }),
+    );
+
+    await expect(
+      createTestService().getRecentDraftAppraisalCase({
+        userId: USER_ID,
+        serviceType: "total_loss",
+      }),
+    ).resolves.toEqual(expectedCase);
+
+    expect(requestUrl?.searchParams.get("user_id")).toBe(`eq.${USER_ID}`);
+    expect(requestUrl?.searchParams.get("service_type")).toBe(
+      "eq.total_loss",
+    );
+    expect(requestUrl?.searchParams.get("status")).toBe("eq.draft");
+    expect(requestUrl?.searchParams.get("order")).toBe(
+      "last_activity_at.desc",
+    );
+    expect(requestUrl?.searchParams.get("limit")).toBe("1");
   });
 
   it("scopes detail requests to both owner and case ID", async () => {
@@ -214,7 +320,9 @@ describe("appraisal case service", () => {
     >();
     expectTypeOf<keyof AppraisalCaseService>().toEqualTypeOf<
       | "createAppraisalCase"
+      | "createOrGetAppraisalCase"
       | "listAppraisalCases"
+      | "getRecentDraftAppraisalCase"
       | "getAppraisalCase"
       | "touchAppraisalCase"
     >();

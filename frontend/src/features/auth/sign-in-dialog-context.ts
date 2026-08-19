@@ -1,7 +1,13 @@
 import { createContext, useContext } from "react";
 
+export type SignInIntent =
+  | "default"
+  | "secure-report-upload"
+  | "continue-total-loss";
+
 export interface OpenSignInOptions {
   returnTo?: string;
+  intent?: SignInIntent;
 }
 
 export interface SignInDialogContextValue {

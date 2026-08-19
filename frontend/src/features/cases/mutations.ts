@@ -13,6 +13,11 @@ export interface CreateAppraisalCaseMutationInput {
   readonly serviceType: AppraisalServiceType;
 }
 
+export interface CreateOrGetAppraisalCaseMutationInput
+  extends CreateAppraisalCaseMutationInput {
+  readonly caseId: string;
+}
+
 export interface TouchAppraisalCaseMutationInput {
   readonly caseId: string;
 }
@@ -56,6 +61,43 @@ export function useCreateAppraisalCaseMutation({
   });
 }
 
+export function useCreateOrGetAppraisalCaseMutation({
+  service,
+  userId,
+}: AppraisalCaseMutationOptions) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      caseId,
+      serviceType,
+    }: CreateOrGetAppraisalCaseMutationInput) =>
+      service.createOrGetAppraisalCase({
+        caseId,
+        serviceType,
+        userId: requireUserId(userId),
+      }),
+    onSuccess: async (appraisalCase) => {
+      queryClient.setQueryData(
+        appraisalCaseQueryKeys.detail(userId, appraisalCase.id),
+        appraisalCase,
+      );
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: appraisalCaseQueryKeys.list(userId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: appraisalCaseQueryKeys.recentDraft(
+            userId,
+            appraisalCase.serviceType,
+          ),
+        }),
+      ]);
+    },
+    retry: false,
+  });
+}
+
 export function useTouchAppraisalCaseMutation({
   service,
   userId,
@@ -82,6 +124,9 @@ export function useTouchAppraisalCaseMutation({
 
       await queryClient.invalidateQueries({
         queryKey: appraisalCaseQueryKeys.list(userId),
+      });
+      await queryClient.invalidateQueries({
+        queryKey: appraisalCaseQueryKeys.recentDrafts(userId),
       });
     },
     retry: false,

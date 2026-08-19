@@ -70,7 +70,7 @@ describe("homepage structure", () => {
     );
     expect(
       within(hero).getByRole("link", { name: "Start total-loss appraisal" }),
-    ).toHaveAttribute("href", "/total-loss-review");
+    ).toHaveAttribute("href", "/total-loss/start");
     expect(
       within(hero).getByRole("link", {
         name: "Request diminished value appraisal",
@@ -128,7 +128,7 @@ describe("homepage structure", () => {
     ).toBeVisible();
     expect(
       within(services).getByRole("link", { name: "Start total-loss appraisal" }),
-    ).toHaveAttribute("href", "/total-loss-review");
+    ).toHaveAttribute("href", "/total-loss/start");
     expect(
       within(services).getByRole("link", {
         name: "Request diminished value appraisal",
@@ -211,7 +211,7 @@ describe("homepage structure", () => {
     }
   });
 
-  test("opens the direct upload route from the hero action", async () => {
+  test("opens the total-loss start route from the hero action", async () => {
     const user = userEvent.setup();
     const { router } = renderTestApp();
     const hero = screen
@@ -228,13 +228,10 @@ describe("homepage structure", () => {
     );
 
     await waitFor(() =>
-      expect(router.state.location.pathname).toBe("/total-loss-review"),
+      expect(router.state.location.pathname).toBe("/total-loss/start"),
     );
     expect(
-      screen.getByRole("heading", { name: "Upload your insurance value report" }),
-    ).toBeVisible();
-    expect(
-      screen.getByRole("form", { name: "Start total-loss appraisal" }),
+      screen.getByRole("heading", { name: "Start your total-loss appraisal" }),
     ).toBeVisible();
   });
 });

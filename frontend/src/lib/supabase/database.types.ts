@@ -39,6 +39,95 @@ export type Database = {
         };
         Relationships: [];
       };
+      total_loss_case_details: {
+        Row: {
+          case_id: string;
+          created_at: string;
+          date_of_loss: string | null;
+          insurer_name: string | null;
+          insurer_vehicle_valuation: number | null;
+          intake_completed_at: string | null;
+          intake_mode: Database["public"]["Enums"]["total_loss_intake_mode"];
+          mileage_at_loss: number | null;
+          postal_code: string | null;
+          report_original_filename: string | null;
+          report_last_cancelled_upload_id: string | null;
+          report_last_upload_id: string | null;
+          report_upload_details_updated_at: string | null;
+          report_upload_expires_at: string | null;
+          report_upload_has_backup: boolean;
+          report_upload_id: string | null;
+          report_upload_phase: string | null;
+          report_uploaded_at: string | null;
+          updated_at: string;
+          vehicle_make: string | null;
+          vehicle_model: string | null;
+          vehicle_trim: string | null;
+          vehicle_year: number | null;
+          vin: string | null;
+        };
+        Insert: {
+          case_id: string;
+          created_at?: string;
+          date_of_loss?: string | null;
+          insurer_name?: string | null;
+          insurer_vehicle_valuation?: number | null;
+          intake_completed_at?: string | null;
+          intake_mode: Database["public"]["Enums"]["total_loss_intake_mode"];
+          mileage_at_loss?: number | null;
+          postal_code?: string | null;
+          report_original_filename?: string | null;
+          report_last_cancelled_upload_id?: string | null;
+          report_last_upload_id?: string | null;
+          report_upload_details_updated_at?: string | null;
+          report_upload_expires_at?: string | null;
+          report_upload_has_backup?: boolean;
+          report_upload_id?: string | null;
+          report_upload_phase?: string | null;
+          report_uploaded_at?: string | null;
+          updated_at?: string;
+          vehicle_make?: string | null;
+          vehicle_model?: string | null;
+          vehicle_trim?: string | null;
+          vehicle_year?: number | null;
+          vin?: string | null;
+        };
+        Update: {
+          case_id?: string;
+          created_at?: string;
+          date_of_loss?: string | null;
+          insurer_name?: string | null;
+          insurer_vehicle_valuation?: number | null;
+          intake_completed_at?: string | null;
+          intake_mode?: Database["public"]["Enums"]["total_loss_intake_mode"];
+          mileage_at_loss?: number | null;
+          postal_code?: string | null;
+          report_original_filename?: string | null;
+          report_last_cancelled_upload_id?: string | null;
+          report_last_upload_id?: string | null;
+          report_upload_details_updated_at?: string | null;
+          report_upload_expires_at?: string | null;
+          report_upload_has_backup?: boolean;
+          report_upload_id?: string | null;
+          report_upload_phase?: string | null;
+          report_uploaded_at?: string | null;
+          updated_at?: string;
+          vehicle_make?: string | null;
+          vehicle_model?: string | null;
+          vehicle_trim?: string | null;
+          vehicle_year?: number | null;
+          vin?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "total_loss_case_details_case_id_fkey";
+            columns: ["case_id"];
+            isOneToOne: true;
+            referencedRelation: "appraisal_cases";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       profiles: {
         Row: {
           created_at: string;
@@ -65,6 +154,66 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      acquire_total_loss_report_upload: {
+        Args: {
+          case_id: string;
+          expected_updated_at: string | null;
+          upload_id: string;
+        };
+        Returns: Database["public"]["CompositeTypes"]["total_loss_report_upload_lease"][];
+      };
+      authorize_total_loss_report_backup_delete: {
+        Args: {
+          object_name: string;
+          object_user_metadata: Json;
+        };
+        Returns: boolean;
+      };
+      authorize_total_loss_report_storage_write: {
+        Args: {
+          object_name: string;
+          object_user_metadata: Json;
+        };
+        Returns: boolean;
+      };
+      cancel_total_loss_report_upload: {
+        Args: {
+          case_id: string;
+          upload_id: string;
+        };
+        Returns: Database["public"]["CompositeTypes"]["total_loss_case_details_public"][];
+      };
+      complete_total_loss_report_upload_recovery: {
+        Args: {
+          case_id: string;
+          upload_id: string;
+        };
+        Returns: Database["public"]["CompositeTypes"]["total_loss_report_upload_lease"][];
+      };
+      finalize_total_loss_report_upload: {
+        Args: {
+          case_id: string;
+          report_original_filename: string;
+          report_uploaded_at: string;
+          upload_id: string;
+        };
+        Returns: Database["public"]["CompositeTypes"]["total_loss_case_details_public"][];
+      };
+      mark_total_loss_report_upload_ready: {
+        Args: {
+          case_id: string;
+          has_backup: boolean;
+          upload_id: string;
+        };
+        Returns: Database["public"]["CompositeTypes"]["total_loss_report_upload_lease"][];
+      };
+      renew_total_loss_report_upload: {
+        Args: {
+          case_id: string;
+          upload_id: string;
+        };
+        Returns: Database["public"]["CompositeTypes"]["total_loss_report_upload_lease"][];
+      };
       touch_appraisal_case: {
         Args: {
           case_id: string;
@@ -90,9 +239,36 @@ export type Database = {
         | "completed"
         | "closed";
       appraisal_service_type: "total_loss" | "diminished_value";
+      total_loss_intake_mode: "report" | "manual";
     };
     CompositeTypes: {
-      [_ in never]: never;
+      total_loss_case_details_public: {
+        case_id: string;
+        created_at: string;
+        date_of_loss: string | null;
+        insurer_name: string | null;
+        insurer_vehicle_valuation: number | null;
+        intake_completed_at: string | null;
+        intake_mode: Database["public"]["Enums"]["total_loss_intake_mode"];
+        mileage_at_loss: number | null;
+        postal_code: string | null;
+        report_original_filename: string | null;
+        report_uploaded_at: string | null;
+        updated_at: string;
+        vehicle_make: string | null;
+        vehicle_model: string | null;
+        vehicle_trim: string | null;
+        vehicle_year: number | null;
+        vin: string | null;
+      };
+      total_loss_report_upload_lease: {
+        details_updated_at: string;
+        expires_at: string;
+        recovery_required: boolean;
+        report_original_filename: string | null;
+        report_uploaded_at: string | null;
+        upload_id: string;
+      };
     };
   };
 };
@@ -213,6 +389,7 @@ export const Constants = {
         "closed",
       ],
       appraisal_service_type: ["total_loss", "diminished_value"],
+      total_loss_intake_mode: ["report", "manual"],
     },
   },
 } as const;
