@@ -170,12 +170,28 @@ export function SignInDialog({
                 disabled={pending}
                 onClick={() => void startGoogleSignIn()}
               >
-                <span
-                  className="inline-flex size-5 items-center justify-center rounded-full border border-line text-xs font-bold text-brand"
+                <svg
+                  className="size-5 shrink-0"
+                  viewBox="0 0 18 18"
                   aria-hidden
                 >
-                  G
-                </span>
+                  <path
+                    fill="#4285F4"
+                    d="M17.64 9.205c0-.638-.057-1.252-.164-1.841H9v3.482h4.844a4.14 4.14 0 0 1-1.797 2.716v2.258h2.909c1.702-1.567 2.684-3.874 2.684-6.615Z"
+                  />
+                  <path
+                    fill="#34A853"
+                    d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.909-2.258c-.806.54-1.835.859-3.047.859-2.344 0-4.329-1.586-5.037-3.717H.956v2.333A8.997 8.997 0 0 0 9 18Z"
+                  />
+                  <path
+                    fill="#FBBC05"
+                    d="M3.963 10.704A5.41 5.41 0 0 1 3.682 9c0-.592.102-1.167.281-1.704V4.963H.956A8.997 8.997 0 0 0 0 9c0 1.453.348 2.827.956 4.037l3.007-2.333Z"
+                  />
+                  <path
+                    fill="#EA4335"
+                    d="M9 3.579c1.321 0 2.508.455 3.442 1.346l2.582-2.581C13.464.892 11.426 0 9 0A8.997 8.997 0 0 0 .956 4.963l3.007 2.333C4.671 5.166 6.656 3.579 9 3.579Z"
+                  />
+                </svg>
                 {pendingAction === "google"
                   ? "Connecting to Google…"
                   : "Continue with Google"}

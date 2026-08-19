@@ -48,7 +48,8 @@ export function AccountControl({
       <button
         type="button"
         className={cn(
-          "inline-flex min-h-11 items-center rounded-lg px-3 text-[0.8125rem] font-medium text-ink/70 transition-colors hover:bg-white/55 hover:text-ink motion-reduce:transition-none",
+          "inline-flex min-h-11 items-center rounded-lg text-[0.8125rem] font-medium text-ink/70 transition-colors hover:bg-white/55 hover:text-ink motion-reduce:transition-none",
+          signedOutHint ? "pr-3 pl-1" : "px-3",
           focusRingClassName,
           !signedOutHint && className,
         )}
@@ -61,7 +62,7 @@ export function AccountControl({
     if (!signedOutHint) return signInButton;
 
     return (
-      <span className={cn("inline-flex items-center gap-2", className)}>
+      <span className={cn("inline-flex items-center", className)}>
         <span className="hidden whitespace-nowrap text-xs font-medium text-copy/80 sm:inline">
           {signedOutHint}
         </span>
