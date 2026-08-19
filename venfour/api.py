@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import os
 import tempfile
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any, Awaitable, Callable
 from uuid import UUID
@@ -502,6 +503,28 @@ def _health(_request: Request) -> JSONResponse:
     return JSONResponse({"status": "ok"})
 
 
+def _readiness(request: Request) -> JSONResponse:
+    ready = bool(
+        request.app.state.accepting_customer_requests
+        and request.app.state.customer_path_configured
+    )
+    return JSONResponse(
+        {"status": "ready" if ready else "not_ready"},
+        status_code=200 if ready else 503,
+        headers={"Cache-Control": "no-store"},
+    )
+
+
+def _runtime_secret_is_configured(name: str) -> bool:
+    value = os.environ.get(name)
+    if not isinstance(value, str):
+        return False
+    return bool(value) and not any(
+        character.isspace() or ord(character) < 32 or ord(character) == 127
+        for character in value
+    )
+
+
 async def _http_exception_response(
     _request: Request, exc: Exception
 ) -> JSONResponse:
@@ -606,13 +629,15 @@ def create_app(
         selected_creation_service = None
 
     selected_case_service = case_analysis_service
+    owned_supabase_gateway: SupabaseHttpGateway | None = None
     if selected_case_service is None:
         selected_gateway = supabase_gateway
         if selected_gateway is None:
             try:
-                selected_gateway = SupabaseHttpGateway(
+                owned_supabase_gateway = SupabaseHttpGateway(
                     SupabaseServerConfiguration.from_environment()
                 )
+                selected_gateway = owned_supabase_gateway
             except SupabaseConfigurationError:
                 selected_gateway = None
         elif not isinstance(selected_gateway, CaseAnalysisGateway):
@@ -634,6 +659,15 @@ def create_app(
                 "case_analysis_service must expose auth, case, and run methods"
             )
 
+    customer_path_configured = (
+        selected_case_service is not None and not legacy_enabled
+    )
+    if case_analysis_service is None:
+        customer_path_configured = customer_path_configured and all(
+            _runtime_secret_is_configured(name)
+            for name in ("OPENAI_API_KEY", "MARKETCHECK_API_KEY")
+        )
+
     routes = [
         Route(
             "/api/v1/appraisal-cases/{case_id}/analysis",
@@ -651,6 +685,7 @@ def create_app(
             methods=["GET"],
         ),
         Route("/health", _health, methods=["GET"]),
+        Route("/ready", _readiness, methods=["GET"]),
     ]
     if legacy_enabled:
         routes.insert(
@@ -658,18 +693,31 @@ def create_app(
             Route("/api/v1/analyses", _create_analysis, methods=["POST"]),
         )
 
+    @asynccontextmanager
+    async def lifespan(application: Starlette):
+        application.state.accepting_customer_requests = True
+        try:
+            yield
+        finally:
+            application.state.accepting_customer_requests = False
+            if owned_supabase_gateway is not None:
+                owned_supabase_gateway.close()
+
     app = Starlette(
         routes=routes,
         exception_handlers={
             HTTPException: _http_exception_response,
             Exception: _internal_error_response,
         },
+        lifespan=lifespan,
     )
     app.router.redirect_slashes = False
     app.state.presentation_service = selected_service
     app.state.creation_service = selected_creation_service
     app.state.case_analysis_service = selected_case_service
     app.state.legacy_api_enabled = legacy_enabled
+    app.state.customer_path_configured = customer_path_configured
+    app.state.accepting_customer_requests = False
     return app
 
 

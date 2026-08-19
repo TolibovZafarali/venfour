@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useRef } from "react";
 
 import {
   getCaseAnalysis,
@@ -21,11 +22,29 @@ interface CaseAnalysisQueryOptions {
   readonly userId: string | null;
 }
 
+interface ProcessingPollCycle {
+  readonly attemptCount: number;
+  readonly caseId: string;
+  readonly observedAt: number;
+  readonly userId: string | null;
+}
+
+export function caseAnalysisPollingInterval(
+  elapsedProcessingTime: number,
+): number {
+  if (elapsedProcessingTime < 60_000) return 1_500;
+  if (elapsedProcessingTime < 5 * 60_000) return 5_000;
+  if (elapsedProcessingTime < 15 * 60_000) return 15_000;
+  return 60_000;
+}
+
 export function useCaseAnalysisQuery({
   accessToken,
   caseId,
   userId,
 }: CaseAnalysisQueryOptions) {
+  const processingPollCycleRef = useRef<ProcessingPollCycle | null>(null);
+
   return useQuery({
     queryKey: caseAnalysisQueryKeys.detail(userId, caseId),
     queryFn: ({ signal }) => {
@@ -35,8 +54,34 @@ export function useCaseAnalysisQuery({
       return getCaseAnalysis(caseId, accessToken, signal);
     },
     enabled: Boolean(accessToken && userId),
-    refetchInterval: (query) =>
-      query.state.data?.status === "processing" ? 1_500 : false,
+    refetchInterval: (query) => {
+      const analysis = query.state.data;
+      if (analysis?.status !== "processing") {
+        processingPollCycleRef.current = null;
+        return false;
+      }
+
+      const currentTime = Date.now();
+      const currentCycle = processingPollCycleRef.current;
+      if (
+        !currentCycle ||
+        currentCycle.attemptCount !== analysis.attemptCount ||
+        currentCycle.caseId !== caseId ||
+        currentCycle.userId !== userId
+      ) {
+        processingPollCycleRef.current = {
+          attemptCount: analysis.attemptCount,
+          caseId,
+          observedAt: currentTime,
+          userId,
+        };
+        return caseAnalysisPollingInterval(0);
+      }
+
+      return caseAnalysisPollingInterval(
+        currentTime - currentCycle.observedAt,
+      );
+    },
     refetchOnWindowFocus: true,
     retry: (failureCount, error) => {
       if (error instanceof ApiError && error.status < 500) return false;

@@ -13,6 +13,7 @@ import tempfile
 from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass
+from ipaddress import ip_address
 from pathlib import Path
 from typing import Any, Protocol, runtime_checkable
 from urllib.parse import quote, urlsplit
@@ -68,13 +69,43 @@ def _canonical_uuid(value: Any, label: str) -> str:
     return value
 
 
+def _valid_hostname(value: str) -> bool:
+    try:
+        ip_address(value)
+        return True
+    except ValueError:
+        pass
+    try:
+        ascii_hostname = value.encode("idna").decode("ascii")
+    except UnicodeError:
+        return False
+    if not ascii_hostname or len(ascii_hostname) > 253:
+        return False
+    labels = ascii_hostname.split(".")
+    return all(
+        label
+        and len(label) <= 63
+        and label[0] != "-"
+        and label[-1] != "-"
+        and all(character.isalnum() or character == "-" for character in label)
+        for label in labels
+    )
+
+
 def _configured_origin(value: str) -> str:
-    normalized = value.strip().rstrip("/")
+    if not isinstance(value, str) or any(
+        character.isspace() or ord(character) < 32 or ord(character) == 127
+        for character in value
+    ):
+        raise SupabaseConfigurationError("SUPABASE_URL is invalid")
+    normalized = value.rstrip("/")
     try:
         parsed = urlsplit(normalized)
+        hostname = parsed.hostname
+        port = parsed.port
     except ValueError as exc:
         raise SupabaseConfigurationError("SUPABASE_URL is invalid") from exc
-    local_http = parsed.scheme == "http" and parsed.hostname in {
+    local_http = parsed.scheme == "http" and hostname in {
         "127.0.0.1",
         "localhost",
         "::1",
@@ -82,6 +113,9 @@ def _configured_origin(value: str) -> str:
     if (
         (parsed.scheme != "https" and not local_http)
         or not parsed.netloc
+        or hostname is None
+        or not _valid_hostname(hostname)
+        or (port is not None and not 1 <= port <= 65535)
         or parsed.username is not None
         or parsed.password is not None
         or parsed.query
@@ -89,6 +123,20 @@ def _configured_origin(value: str) -> str:
         or parsed.path not in {"", "/"}
     ):
         raise SupabaseConfigurationError("SUPABASE_URL is invalid")
+    return normalized
+
+
+def _configured_credential(value: str, label: str) -> str:
+    if not isinstance(value, str):
+        raise SupabaseConfigurationError(f"{label} is required")
+    if any(
+        character.isspace() or ord(character) < 32 or ord(character) == 127
+        for character in value
+    ):
+        raise SupabaseConfigurationError(f"{label} is invalid")
+    normalized = value.strip()
+    if not normalized:
+        raise SupabaseConfigurationError(f"{label} is required")
     return normalized
 
 
@@ -102,12 +150,16 @@ class SupabaseServerConfiguration:
     def __post_init__(self) -> None:
         object.__setattr__(self, "url", _configured_origin(self.url))
         for name in ("publishable_key", "service_role_key"):
-            value = getattr(self, name)
-            if not isinstance(value, str) or not value.strip():
-                raise SupabaseConfigurationError(
-                    f"{name.replace('_', ' ').upper()} is required"
-                )
-            object.__setattr__(self, name, value.strip())
+            label = name.replace("_", " ").upper()
+            object.__setattr__(
+                self,
+                name,
+                _configured_credential(getattr(self, name), label),
+            )
+        if self.publishable_key == self.service_role_key:
+            raise SupabaseConfigurationError(
+                "Supabase credentials must use distinct privilege levels"
+            )
         timeout = self.timeout_seconds
         if isinstance(timeout, bool) or not isinstance(timeout, (int, float)):
             raise SupabaseConfigurationError("Supabase timeout is invalid")
@@ -186,6 +238,11 @@ class SupabaseHttpGateway:
             timeout=configuration.timeout_seconds,
             follow_redirects=False,
         )
+
+    def close(self) -> None:
+        """Release the process-owned HTTP connection pool."""
+
+        self._client.close()
 
     def _user_headers(self, access_token: str) -> dict[str, str]:
         return {

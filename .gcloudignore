@@ -1,0 +1,13 @@
+**
+!.dockerignore
+!Dockerfile
+!requirements.txt
+!schemas/
+!schemas/**
+!scripts/
+!scripts/**
+!venfour/
+!venfour/**
+
+**/__pycache__/
+**/*.py[cod]

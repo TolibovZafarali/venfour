@@ -120,8 +120,8 @@ python3 -m venv .venv
 ```
 
 For local backend and frontend development, install the development dependency
-set instead. It adds Uvicorn as a local ASGI runner without selecting a
-production deployment server:
+set instead. Uvicorn is a runtime dependency and is also the ASGI server used by
+the production container:
 
 ```sh
 .venv/bin/python -m pip install -r requirements-dev.txt
@@ -212,9 +212,44 @@ for submitting canonical analysis data.
 
 Vite serves the application at `http://localhost:5173` and proxies `/api` and
 `/health` to `http://127.0.0.1:8000`. This avoids a cross-origin request because
-the Starlette API does not currently enable CORS. Uvicorn is included only in
-the local development requirements; production ASGI server and deployment
-selection remain deferred.
+the Starlette API does not currently enable CORS.
+
+### Cloud Run staging runtime
+
+The checked-in `Dockerfile` is the production container entry point. It starts
+one Uvicorn worker as PID 1, binds to `0.0.0.0`, honors Cloud Run's `PORT`, runs
+as a non-root user, and keeps the legacy analysis API disabled by default.
+Supabase remains the authoritative backend for authentication, private report
+storage, cases, jobs, and immutable analysis runs; Cloud Run supplies only the
+Python compute layer.
+
+The current staging compute service is `venfour-api-staging` in Google Cloud
+project `venfour-prod`, region `us-east4`:
+
+```text
+https://venfour-api-staging-640078527158.us-east4.run.app
+```
+
+It is configured with one vCPU, 512 MiB memory, concurrency 1, request-based
+CPU, a 900-second request timeout, zero minimum instances, and one maximum
+instance. The startup probe uses `/ready`; the liveness probe uses `/health`.
+The service has public network reachability because customer authentication is
+enforced by the application with Supabase bearer tokens. Customer case and
+analysis endpoints remain ownership checked and do not become anonymous.
+
+Backend credentials are mounted from five server-only Secret Manager secrets:
+
+```text
+venfour-supabase-url
+venfour-supabase-publishable-key
+venfour-supabase-service-role-key
+venfour-openai-api-key
+venfour-marketcheck-api-key
+```
+
+Do not place their values in tracked files, container build arguments, frontend
+configuration, logs, or documentation. `VENFOUR_ENABLE_LEGACY_ANALYSIS_API`
+must remain `0` in deployed environments.
 
 To use a different backend address, copy the example environment file and edit
 the local copy:
@@ -399,11 +434,16 @@ not the production customer path and must not be enabled in production.
 
 Case and run IDs must be canonical lowercase UUIDv4 strings. API errors are
 neutral JSON and do not include exception details, storage paths, raw artifacts,
-configuration, credentials, or provider response data. `GET /health` returns
-only `{"status":"ok"}` and does not authenticate, access storage, execute an
-analysis, or call a provider. No CORS policy is enabled by default. OpenAPI
-generation remains deferred; repository JSON Schemas and the checked service
-contracts are the authoritative domain boundaries.
+configuration, credentials, or provider response data. `GET /health` is the
+process-liveness endpoint: it returns only `{"status":"ok"}` and does not
+authenticate, access storage, execute an analysis, or call a provider.
+`GET /ready` is the bounded application-readiness endpoint. It returns
+`{"status":"ready"}` only after application startup when required Supabase,
+OpenAI, and MarketCheck configuration is structurally valid and the legacy API
+is disabled; otherwise it returns a secret-free 503 response. Readiness does
+not make provider or database requests. No CORS policy is enabled by default.
+OpenAPI generation remains deferred; repository JSON Schemas and the checked
+service contracts are the authoritative domain boundaries.
 
 ## Phase 3E: deterministic analysis presentation projection
 

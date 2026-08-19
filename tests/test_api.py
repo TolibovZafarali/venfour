@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any
 from unittest.mock import patch
 
+import httpx
 from starlette.testclient import TestClient
 
 from tests.test_analysis_runs import (
@@ -39,6 +40,10 @@ from venfour.discrepancy import (
 from venfour.presentation import (
     AnalysisPresentationService,
     validate_analysis_presentation,
+)
+from venfour.supabase_gateway import (
+    SupabaseHttpGateway,
+    SupabaseServerConfiguration,
 )
 
 
@@ -86,6 +91,14 @@ METHOD_NOT_ALLOWED_ERROR = {
     }
 }
 
+RUNTIME_ENVIRONMENT = {
+    "SUPABASE_URL": "https://runtime-test.supabase.co",
+    "SUPABASE_PUBLISHABLE_KEY": "publishable-runtime-test-key",
+    "SUPABASE_SERVICE_ROLE_KEY": "service-role-runtime-test-key",
+    "OPENAI_API_KEY": "openai-runtime-test-key",
+    "MARKETCHECK_API_KEY": "marketcheck-runtime-test-key",
+}
+
 
 class RecordingPresentationService:
     """Minimal injected service double that records every requested run ID."""
@@ -107,6 +120,171 @@ class RecordingPresentationService:
         if self.presentation is None:
             raise AssertionError("presentation service must not be called")
         return self.presentation
+
+
+class InjectedCaseAnalysisService:
+    """Complete injected customer-path dependency used only by probe tests."""
+
+    def authenticate(self, _token: str) -> str:
+        raise AssertionError("readiness must not authenticate")
+
+    def submit(self, _case_id: str, _user_id: str) -> None:
+        raise AssertionError("readiness must not submit an analysis")
+
+    def status(self, _case_id: str, _user_id: str) -> None:
+        raise AssertionError("readiness must not read analysis status")
+
+    def get_presentation(self, _run_id: str, _user_id: str) -> None:
+        raise AssertionError("readiness must not retrieve an analysis")
+
+
+class RuntimeProbeApiTests(unittest.TestCase):
+    @staticmethod
+    def probe(environment: dict[str, str]) -> tuple[Any, Any]:
+        with patch.dict(os.environ, environment, clear=True):
+            with TestClient(create_app(enable_legacy_api=False)) as client:
+                return client.get("/health"), client.get("/ready")
+
+    def test_liveness_is_process_only_when_runtime_configuration_is_missing(
+        self,
+    ) -> None:
+        health, readiness = self.probe({})
+
+        self.assertEqual(health.status_code, 200)
+        self.assertEqual(health.json(), {"status": "ok"})
+        self.assertEqual(readiness.status_code, 503)
+        self.assertEqual(readiness.json(), {"status": "not_ready"})
+        self.assertEqual(readiness.headers["cache-control"], "no-store")
+
+    def test_readiness_requires_every_customer_path_credential(self) -> None:
+        for missing_name in RUNTIME_ENVIRONMENT:
+            with self.subTest(missing=missing_name):
+                environment = dict(RUNTIME_ENVIRONMENT)
+                del environment[missing_name]
+
+                health, readiness = self.probe(environment)
+
+                self.assertEqual(health.status_code, 200)
+                self.assertEqual(readiness.status_code, 503)
+                self.assertEqual(
+                    readiness.json(), {"status": "not_ready"}
+                )
+
+    def test_readiness_rejects_malformed_runtime_configuration(self) -> None:
+        malformed_overrides = (
+            {"SUPABASE_URL": "http://runtime-test.supabase.co"},
+            {"SUPABASE_URL": "https://runtime-test.supabase.co/rest/v1"},
+            {"SUPABASE_URL": "https://user:secret@runtime-test.supabase.co"},
+            {"SUPABASE_URL": "https://:443"},
+            {"SUPABASE_URL": "https://runtime-test.supabase.co:notaport"},
+            {"SUPABASE_URL": "https://runtime test.supabase.co"},
+            {"SUPABASE_PUBLISHABLE_KEY": "publishable key"},
+            {"SUPABASE_PUBLISHABLE_KEY": " publishable-key"},
+            {"SUPABASE_SERVICE_ROLE_KEY": "service\nrole"},
+            {
+                "SUPABASE_SERVICE_ROLE_KEY": RUNTIME_ENVIRONMENT[
+                    "SUPABASE_PUBLISHABLE_KEY"
+                ]
+            },
+            {"OPENAI_API_KEY": "openai key"},
+            {"OPENAI_API_KEY": "openai-key\n"},
+            {"MARKETCHECK_API_KEY": "marketcheck\tkey"},
+            {"MARKETCHECK_API_KEY": " marketcheck-key"},
+        )
+        for overrides in malformed_overrides:
+            with self.subTest(names=tuple(overrides)):
+                environment = {**RUNTIME_ENVIRONMENT, **overrides}
+
+                _health, readiness = self.probe(environment)
+
+                self.assertEqual(readiness.status_code, 503)
+                self.assertEqual(
+                    readiness.json(), {"status": "not_ready"}
+                )
+                for secret in environment.values():
+                    self.assertNotIn(secret, readiness.text)
+
+    def test_valid_readiness_is_configuration_only_and_legacy_stays_disabled(
+        self,
+    ) -> None:
+        with patch.dict(os.environ, RUNTIME_ENVIRONMENT, clear=True):
+            app = create_app()
+        with patch.object(
+            SupabaseHttpGateway,
+            "authenticate",
+            side_effect=AssertionError("readiness must not call Supabase"),
+        ) as authenticate:
+            with TestClient(app) as client:
+                readiness = client.get("/ready")
+
+        self.assertEqual(readiness.status_code, 200)
+        self.assertEqual(readiness.json(), {"status": "ready"})
+        self.assertEqual(readiness.headers["cache-control"], "no-store")
+        self.assertFalse(app.state.legacy_api_enabled)
+        authenticate.assert_not_called()
+        for secret in RUNTIME_ENVIRONMENT.values():
+            self.assertNotIn(secret, readiness.text)
+
+    def test_injected_customer_service_is_ready_without_environment_secrets(
+        self,
+    ) -> None:
+        with patch.dict(os.environ, {}, clear=True):
+            app = create_app(
+                case_analysis_service=InjectedCaseAnalysisService(),
+                enable_legacy_api=False,
+            )
+        with TestClient(app) as client:
+            readiness = client.get("/ready")
+
+        self.assertEqual(readiness.status_code, 200)
+        self.assertEqual(readiness.json(), {"status": "ready"})
+
+    def test_readiness_tracks_lifespan_and_owned_http_client_is_closed(
+        self,
+    ) -> None:
+        closed: list[SupabaseHttpGateway] = []
+        original_close = SupabaseHttpGateway.close
+
+        def record_close(gateway: SupabaseHttpGateway) -> None:
+            closed.append(gateway)
+            original_close(gateway)
+
+        with patch.dict(os.environ, RUNTIME_ENVIRONMENT, clear=True):
+            with patch.object(SupabaseHttpGateway, "close", new=record_close):
+                app = create_app(enable_legacy_api=False)
+                self.assertFalse(app.state.accepting_customer_requests)
+                with TestClient(app) as client:
+                    self.assertTrue(app.state.accepting_customer_requests)
+                    self.assertEqual(client.get("/ready").status_code, 200)
+                self.assertFalse(app.state.accepting_customer_requests)
+
+        self.assertEqual(len(closed), 1)
+        self.assertTrue(closed[0]._client.is_closed)
+
+    def test_shutdown_does_not_close_an_injected_gateway_client(self) -> None:
+        client = httpx.Client(transport=httpx.MockTransport(lambda _request: None))
+        self.addCleanup(client.close)
+        gateway = SupabaseHttpGateway(
+            SupabaseServerConfiguration(
+                url=RUNTIME_ENVIRONMENT["SUPABASE_URL"],
+                publishable_key=RUNTIME_ENVIRONMENT[
+                    "SUPABASE_PUBLISHABLE_KEY"
+                ],
+                service_role_key=RUNTIME_ENVIRONMENT[
+                    "SUPABASE_SERVICE_ROLE_KEY"
+                ],
+            ),
+            client=client,
+        )
+        with patch.dict(os.environ, RUNTIME_ENVIRONMENT, clear=True):
+            app = create_app(
+                supabase_gateway=gateway,
+                enable_legacy_api=False,
+            )
+            with TestClient(app) as test_client:
+                self.assertEqual(test_client.get("/ready").status_code, 200)
+
+        self.assertFalse(client.is_closed)
 
 
 class AnalysisPresentationApiTests(TemporaryRepositoryTestCase):

@@ -10,6 +10,7 @@ import httpx
 
 from venfour.supabase_gateway import (
     SupabaseAuthenticationError,
+    SupabaseConfigurationError,
     SupabaseHttpGateway,
     SupabaseReportInvalidError,
     SupabaseReportNotFoundError,
@@ -35,6 +36,25 @@ def configuration() -> SupabaseServerConfiguration:
 
 
 class SupabaseHttpGatewayTests(unittest.TestCase):
+    def test_configuration_rejects_malformed_or_reused_credentials(self) -> None:
+        invalid_credentials = (
+            ("publishable key", "service-role-test-key"),
+            ("publishable-test-key ", "service-role-test-key"),
+            ("publishable-test-key", "service\nrole"),
+            ("same-key", "same-key"),
+        )
+        for publishable_key, service_role_key in invalid_credentials:
+            with self.subTest(
+                publishable_key=publishable_key,
+                service_role_key=service_role_key,
+            ):
+                with self.assertRaises(SupabaseConfigurationError):
+                    SupabaseServerConfiguration(
+                        url="https://project.supabase.co",
+                        publishable_key=publishable_key,
+                        service_role_key=service_role_key,
+                    )
+
     def gateway(
         self, handler: object
     ) -> tuple[SupabaseHttpGateway, httpx.Client]:
