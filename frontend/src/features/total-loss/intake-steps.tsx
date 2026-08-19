@@ -2,13 +2,11 @@ import {
   AlertCircle,
   ArrowLeft,
   ArrowRight,
-  CarFront,
   CheckCircle2,
   FileText,
   LoaderCircle,
   PenLine,
   RefreshCw,
-  ScanLine,
   ShieldCheck,
   Upload,
 } from "lucide-react";
@@ -19,11 +17,14 @@ import {
   FlowCard,
   IntakeProgress,
   IntakeDatePicker,
-  IntakeSelectField,
   IntakeTextField,
+  InlineError,
+  StepActions,
+  StepHeading,
   primaryFlowButtonClassName,
   secondaryFlowButtonClassName,
 } from "@/features/total-loss/intake-fields";
+import { VehicleIdentificationFields } from "@/features/intake";
 import type {
   TotalLossIntakeMode,
   TotalLossManualFormErrors,
@@ -210,171 +211,39 @@ export function VehicleStep({
         title="Tell us about your vehicle"
         description="Use your VIN for the quickest match, or choose your vehicle from the lists."
       />
-      <fieldset className="mt-6">
-        <legend className="text-sm font-semibold text-ink">
-          How would you like to identify your vehicle?
-        </legend>
-        <div
-          className="mt-3 grid grid-cols-2 gap-1.5 rounded-xl bg-surface p-1.5"
-          data-vehicle-method-switch
-        >
-          {(
-            [
-              ["vin", "Use my VIN", ScanLine],
-              ["details", "Select vehicle details", CarFront],
-            ] as const
-          ).map(([method, label, Icon]) => (
-            <label
-              key={method}
-              className={cn(
-                "flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-lg border px-2 text-center text-sm font-semibold transition-[background-color,border-color,box-shadow,color,transform] duration-300 ease-out focus-within:ring-2 focus-within:ring-brand focus-within:ring-offset-1 active:scale-[0.99] motion-reduce:transition-none sm:px-3",
-                entryMethod === method
-                  ? "border-brand/25 bg-white text-brand shadow-[0_8px_22px_-18px_rgba(21,94,239,0.9)]"
-                  : "border-transparent text-copy hover:border-line hover:bg-white/60 hover:text-ink",
-              )}
-            >
-              <input
-                className="sr-only"
-                type="radio"
-                name="vehicle-entry-method"
-                value={method}
-                checked={entryMethod === method}
-                disabled={fieldsDisabled || busy}
-                onChange={() => onEntryMethodChange(method)}
-              />
-              <Icon className="size-4 shrink-0" aria-hidden />
-              {label}
-            </label>
-          ))}
-        </div>
-      </fieldset>
-
-      <div
-        key={entryMethod}
-        className="vehicle-method-panel mt-5"
-        data-vehicle-method-panel={entryMethod}
-      >
-        {entryMethod === "vin" ? (
-          <div className="grid gap-5 sm:grid-cols-2">
-            <div className="sm:col-span-2">
-              <IntakeTextField
-                id="total-loss-vin"
-                label="VIN"
-                value={values.vin}
-                error={errors.vin}
-                help="Enter the 17-character VIN. We’ll use NHTSA vehicle data to identify it."
-                autoComplete="off"
-                maxLength={17}
-                disabled={fieldsDisabled || vinLookupState === "loading"}
-                onChange={(event) =>
-                  onChange("vin", event.target.value.toUpperCase())
-                }
-                onBlur={() => onBlur("vin")}
-              />
-              {vinLookupState === "success" && vinLookupMessage ? (
-                <div
-                  className="mt-3 flex items-center gap-2 rounded-lg bg-market-soft px-3 py-2 text-sm font-semibold text-market-strong"
-                  role="status"
-                >
-                  <CheckCircle2 className="size-4 shrink-0" aria-hidden />
-                  {vinLookupMessage}
-                </div>
-              ) : values.vehicleYear && values.make && values.model ? (
-                <div
-                  className="mt-3 flex items-center gap-2 rounded-lg bg-market-soft px-3 py-2 text-sm font-semibold text-market-strong"
-                  role="status"
-                >
-                  <CheckCircle2 className="size-4 shrink-0" aria-hidden />
-                  Vehicle: {values.vehicleYear} {values.make} {values.model}
-                  {values.trim ? ` ${values.trim}` : ""}
-                </div>
-              ) : null}
-              {vinLookupState === "error" && vinLookupMessage ? (
-                <p className="mt-2 text-sm leading-5 text-red-700" role="alert">
-                  {vinLookupMessage}
-                </p>
-              ) : null}
-            </div>
-          </div>
-        ) : (
-          <div className="grid gap-5 sm:grid-cols-2">
-            <IntakeSelectField
-              id="total-loss-year"
-              label="Year"
-              value={values.vehicleYear}
-              error={errors.vehicleYear}
-              placeholder="Select year"
-              options={withCurrentOption(
-                vehicleYearOptions,
-                values.vehicleYear,
-              )}
-              disabled={fieldsDisabled}
-              onChange={(event) => onChange("vehicleYear", event.target.value)}
-              onBlur={() => onBlur("vehicleYear")}
-            />
-            <div>
-              <IntakeSelectField
-                id="total-loss-make"
-                label="Make"
-                value={values.make}
-                error={errors.make}
-                placeholder="Select make"
-                options={withCurrentOption(makeOptions, values.make)}
-                loading={makesState === "loading"}
-                disabled={fieldsDisabled || makesState === "error"}
-                onChange={(event) => onChange("make", event.target.value)}
-                onBlur={() => onBlur("make")}
-              />
-              {makesState === "error" ? (
-                <OptionLoadError label="makes" onRetry={onRetryMakes} />
-              ) : null}
-            </div>
-            <div className="sm:col-span-2">
-              <IntakeSelectField
-                id="total-loss-model"
-                label="Model"
-                value={values.model}
-                error={errors.model}
-                placeholder={
-                  values.vehicleYear && values.make
-                    ? "Select model"
-                    : "Choose year and make first"
-                }
-                options={withCurrentOption(modelOptions, values.model)}
-                loading={modelsState === "loading"}
-                disabled={
-                  fieldsDisabled ||
-                  !values.vehicleYear ||
-                  !values.make ||
-                  modelsState === "error"
-                }
-                onChange={(event) => onChange("model", event.target.value)}
-                onBlur={() => onBlur("model")}
-              />
-              {modelsState === "error" ? (
-                <OptionLoadError label="models" onRetry={onRetryModels} />
-              ) : null}
-            </div>
-          </div>
-        )}
-
-        <div className="mt-5">
-          <IntakeTextField
-            id="total-loss-mileage"
-            label="Mileage at date of loss"
-            value={formatMileageInput(values.mileageAtLoss)}
-            error={errors.mileageAtLoss}
-            inputMode="numeric"
-            autoComplete="off"
-            placeholder="48,250"
-            disabled={fieldsDisabled}
-            onChange={(event) =>
-              onChange("mileageAtLoss", formatMileageInput(event.target.value))
-            }
-            onBlur={() => onBlur("mileageAtLoss")}
-          />
-        </div>
-      </div>
+      <VehicleIdentificationFields
+        idPrefix="total-loss"
+        entryMethod={entryMethod}
+        values={values}
+        errors={errors}
+        yearOptions={vehicleYearOptions}
+        makeOptions={makeOptions}
+        modelOptions={modelOptions}
+        makesState={makesState}
+        modelsState={modelsState}
+        vinLookupState={vinLookupState}
+        vinLookupMessage={vinLookupMessage}
+        fieldsDisabled={fieldsDisabled}
+        methodDisabled={fieldsDisabled || busy}
+        mileageFields={[
+          {
+            id: "total-loss-mileage",
+            label: "Mileage at date of loss",
+            value: formatMileageInput(values.mileageAtLoss),
+            error: errors.mileageAtLoss,
+            placeholder: "48,250",
+            disabled: fieldsDisabled,
+            onChange: (value) =>
+              onChange("mileageAtLoss", formatMileageInput(value)),
+            onBlur: () => onBlur("mileageAtLoss"),
+          },
+        ]}
+        onEntryMethodChange={onEntryMethodChange}
+        onChange={(field, value) => onChange(field, value)}
+        onBlur={(field) => onBlur(field)}
+        onRetryMakes={onRetryMakes}
+        onRetryModels={onRetryModels}
+      />
       {error ? <InlineError message={error} /> : null}
       <StepActions
         onBack={onBack}
@@ -787,108 +656,4 @@ export function ResumeStep({
       </div>
     </FlowCard>
   );
-}
-
-function StepHeading({
-  title,
-  description,
-}: {
-  title: string;
-  description: string;
-}) {
-  return (
-    <div className="mt-7 border-b border-line pb-6">
-      <h2 className="text-2xl font-semibold tracking-[-0.03em] text-ink sm:text-3xl">
-        {title}
-      </h2>
-      <p className="mt-2 max-w-2xl text-sm leading-6 text-copy">
-        {description}
-      </p>
-    </div>
-  );
-}
-
-function StepActions({
-  onBack,
-  onContinue,
-  busy,
-  continueLabel = "Continue",
-}: {
-  onBack: () => void;
-  onContinue: () => void;
-  busy?: boolean;
-  continueLabel?: string;
-}) {
-  return (
-    <div className="mt-8 flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
-      <button
-        type="button"
-        className={secondaryFlowButtonClassName}
-        disabled={busy}
-        onClick={onBack}
-      >
-        <ArrowLeft className="size-4" aria-hidden />
-        Back
-      </button>
-      <button
-        type="button"
-        className={primaryFlowButtonClassName}
-        disabled={busy}
-        onClick={onContinue}
-      >
-        {busy ? (
-          <LoaderCircle
-            className="size-4 animate-spin motion-reduce:animate-none"
-            aria-hidden
-          />
-        ) : null}
-        {continueLabel}
-        {!busy && continueLabel === "Continue" ? (
-          <ArrowRight className="size-4" aria-hidden />
-        ) : null}
-      </button>
-    </div>
-  );
-}
-
-function InlineError({ message }: { message: string }) {
-  return (
-    <div
-      className="mt-5 flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4"
-      role="alert"
-    >
-      <AlertCircle
-        className="mt-0.5 size-5 shrink-0 text-red-700"
-        aria-hidden
-      />
-      <p className="text-sm leading-6 text-red-900">{message}</p>
-    </div>
-  );
-}
-
-function OptionLoadError({
-  label,
-  onRetry,
-}: {
-  label: string;
-  onRetry: () => void;
-}) {
-  return (
-    <p className="mt-2 text-sm text-red-700" role="alert">
-      We couldn’t load {label}.{" "}
-      <button
-        type="button"
-        className="font-semibold underline underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
-        onClick={onRetry}
-      >
-        Try again
-      </button>
-    </p>
-  );
-}
-
-function withCurrentOption(options: readonly string[], current: string) {
-  return current && !options.includes(current)
-    ? [current, ...options]
-    : options;
 }

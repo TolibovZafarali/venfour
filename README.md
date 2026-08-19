@@ -56,11 +56,12 @@ deterministic presentation model
 JSON API
 ```
 
-The customer-facing application includes a saved total-loss intake at
-`/total-loss/start` and the existing analysis-creation flow at
-`/total-loss-review`. The saved intake accepts either manual vehicle and claim
-information or a privately stored insurance valuation PDF, but it does not yet
-run an analysis. The legacy review continues to create a public
+The customer-facing application includes a unified appraisal intake at
+`/start`, with a saved Total Loss workflow and a frontend-only Diminished Value
+consultation prototype, plus the existing analysis-creation flow at
+`/total-loss-review`. The Total Loss intake accepts either manual vehicle and
+claim information or a privately stored insurance valuation PDF, but it does
+not yet run an analysis. The legacy review continues to create a public
 `/analyses/:runId` result from one CCC PDF and vehicle ZIP code. The frontend
 does not reproduce backend analysis or ranking logic.
 

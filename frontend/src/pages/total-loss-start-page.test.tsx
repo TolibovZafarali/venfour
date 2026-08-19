@@ -7,6 +7,7 @@ import type {
   AuthService,
   AuthStateChangeListener,
 } from "@/features/auth/auth-service";
+import { AUTH_RETURN_LOCATION_STORAGE_KEY } from "@/features/auth/return-location";
 import type { AppraisalCaseService } from "@/features/cases/service";
 import { appraisalCaseQueryKeys } from "@/features/cases/queries";
 import type { AppraisalCase } from "@/features/cases/types";
@@ -444,12 +445,12 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe("/total-loss/start", () => {
+describe("/start?service=total-loss", () => {
   it("renders the accessible opening choice without creating or loading a case", async () => {
     const auth = createAuthHarness(null);
     const harness = createDependencyHarness();
 
-    renderTestApp(["/total-loss/start"], {
+    renderTestApp(["/start?service=total-loss"], {
       authService: auth.service,
       totalLossDependencies: harness.dependencies,
     });
@@ -492,15 +493,19 @@ describe("/total-loss/start", () => {
     const progress = screen.getByRole("list", { name: "Appraisal steps" });
     expect(progress.children).toHaveLength(3);
     expect(progress.children[0]).toHaveAttribute("aria-current", "step");
-    expect(progress.children[0]).toHaveClass("rounded-xl", "border");
-    expect(progress.children[0].firstElementChild).toHaveTextContent("I");
-    expect(progress.children[0].firstElementChild).not.toHaveClass(
-      "rounded-full",
+    expect(progress.children[0]).toHaveClass(
+      "rounded-xl",
       "border",
+      "border-brand",
+      "bg-brand",
     );
-    expect(progress).toHaveTextContent("Start");
-    expect(progress).toHaveTextContent("Vehicle");
-    expect(progress).toHaveTextContent("Claim");
+    expect(progress.children[0]).toBeEmptyDOMElement();
+    expect(progress).not.toHaveTextContent("Start");
+    expect(progress).not.toHaveTextContent("Vehicle");
+    expect(progress).not.toHaveTextContent("Claim");
+    expect(screen.getByLabelText("Start, step 1, current")).toBeVisible();
+    expect(screen.getByLabelText("Vehicle, step 2")).toBeVisible();
+    expect(screen.getByLabelText("Claim, step 3")).toBeVisible();
 
     await waitFor(() => expect(auth.service.getSession).toHaveBeenCalledOnce());
     expect(harness.createOrGetAppraisalCase).not.toHaveBeenCalled();
@@ -511,13 +516,34 @@ describe("/total-loss/start", () => {
     expect(harness.uploadReport).not.toHaveBeenCalled();
   });
 
+  it("keeps the canonical service and case in the authentication return URL", async () => {
+    const auth = createAuthHarness(null);
+    const user = userEvent.setup();
+
+    renderTestApp([`/start?service=total-loss&caseId=${CASE_ID}`], {
+      authService: auth.service,
+      totalLossDependencies: createDependencyHarness().dependencies,
+    });
+
+    await user.click(
+      await screen.findByRole("button", { name: /^Sign in$/u }),
+    );
+    await user.click(
+      screen.getByRole("button", { name: "Continue with Google" }),
+    );
+
+    expect(
+      window.localStorage.getItem(AUTH_RETURN_LOCATION_STORAGE_KEY),
+    ).toBe(`/start?service=total-loss&caseId=${CASE_ID}`);
+  });
+
   it("keeps a signed-out manual draft local, restores it, then migrates it after sign-in", async () => {
     const signedOutAuth = createAuthHarness(null);
     const harness = createDependencyHarness();
     const user = userEvent.setup();
     vi.spyOn(crypto, "randomUUID").mockReturnValue(CASE_ID);
 
-    const firstRender = renderTestApp(["/total-loss/start"], {
+    const firstRender = renderTestApp(["/start?service=total-loss"], {
       authService: signedOutAuth.service,
       totalLossDependencies: harness.dependencies,
     });
@@ -556,7 +582,7 @@ describe("/total-loss/start", () => {
 
     firstRender.unmount();
     const restoredAuth = createAuthHarness(sessionFor());
-    renderTestApp(["/total-loss/start"], {
+    renderTestApp(["/start?service=total-loss"], {
       authService: restoredAuth.service,
       totalLossDependencies: harness.dependencies,
     });
@@ -599,7 +625,7 @@ describe("/total-loss/start", () => {
     const user = userEvent.setup();
     vi.spyOn(crypto, "randomUUID").mockReturnValue(CASE_ID);
 
-    renderTestApp(["/total-loss/start"], {
+    renderTestApp(["/start?service=total-loss"], {
       authService: auth.service,
       strictMode: true,
       totalLossDependencies: harness.dependencies,
@@ -634,7 +660,7 @@ describe("/total-loss/start", () => {
     const harness = createDependencyHarness();
     const user = userEvent.setup();
 
-    renderTestApp(["/total-loss/start"], {
+    renderTestApp(["/start?service=total-loss"], {
       authService: auth.service,
       totalLossDependencies: harness.dependencies,
     });
@@ -661,7 +687,7 @@ describe("/total-loss/start", () => {
     const progress = screen.getByRole("list", { name: "Appraisal steps" });
     expect(progress.children).toHaveLength(3);
     expect(progress.children[0]).toHaveClass("border-brand", "bg-brand");
-    expect(progress.children[0].firstElementChild).toHaveTextContent("I");
+    expect(progress.children[0]).toBeEmptyDOMElement();
     expect(progress.children[0].querySelector("svg")).not.toBeInTheDocument();
     expect(
       document.querySelector("[data-intake-transition='forward']"),
@@ -695,7 +721,7 @@ describe("/total-loss/start", () => {
     const harness = createDependencyHarness();
     const user = userEvent.setup();
 
-    renderTestApp(["/total-loss/start"], {
+    renderTestApp(["/start?service=total-loss"], {
       authService: auth.service,
       totalLossDependencies: harness.dependencies,
     });
@@ -761,7 +787,7 @@ describe("/total-loss/start", () => {
       ),
     );
 
-    renderTestApp(["/total-loss/start"], {
+    renderTestApp(["/start?service=total-loss"], {
       authService: auth.service,
       totalLossDependencies: harness.dependencies,
     });
@@ -790,7 +816,7 @@ describe("/total-loss/start", () => {
     const harness = createDependencyHarness();
     const user = userEvent.setup();
 
-    const { container } = renderTestApp(["/total-loss/start"], {
+    const { container } = renderTestApp(["/start?service=total-loss"], {
       authService: auth.service,
       totalLossDependencies: harness.dependencies,
     });
@@ -826,7 +852,7 @@ describe("/total-loss/start", () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch");
     vi.spyOn(crypto, "randomUUID").mockReturnValue(CASE_ID);
 
-    const { container } = renderTestApp(["/total-loss/start"], {
+    const { container } = renderTestApp(["/start?service=total-loss"], {
       authService: auth.service,
       totalLossDependencies: harness.dependencies,
     });
@@ -968,7 +994,7 @@ describe("/total-loss/start", () => {
     const harness = createDependencyHarness({ details: [savedReport] });
     const user = userEvent.setup();
 
-    renderTestApp(["/total-loss/start"], {
+    renderTestApp(["/start?service=total-loss"], {
       authService: auth.service,
       totalLossDependencies: harness.dependencies,
     });
@@ -1008,7 +1034,7 @@ describe("/total-loss/start", () => {
     });
     const user = userEvent.setup();
 
-    renderTestApp(["/total-loss/start"], {
+    renderTestApp(["/start?service=total-loss"], {
       authService: auth.service,
       totalLossDependencies: harness.dependencies,
     });
@@ -1055,7 +1081,7 @@ describe("/total-loss/start", () => {
     const user = userEvent.setup();
     const fetchSpy = vi.spyOn(globalThis, "fetch");
 
-    renderTestApp(["/total-loss/start"], {
+    renderTestApp(["/start?service=total-loss"], {
       authService: auth.service,
       totalLossDependencies: harness.dependencies,
     });
@@ -1093,7 +1119,7 @@ describe("/total-loss/start", () => {
       recentCase: appraisalCase(CASE_ID),
     });
 
-    renderTestApp(["/total-loss/start"], {
+    renderTestApp(["/start?service=total-loss"], {
       authService: auth.service,
       totalLossDependencies: harness.dependencies,
     });
@@ -1129,7 +1155,7 @@ describe("/total-loss/start", () => {
       recentCase: explicitCase,
     });
 
-    renderTestApp([`/total-loss/start?caseId=${CASE_ID}`], {
+    renderTestApp([`/start?service=total-loss&caseId=${CASE_ID}`], {
       authService: auth.service,
       totalLossDependencies: harness.dependencies,
     });
@@ -1164,7 +1190,7 @@ describe("/total-loss/start", () => {
     const auth = createAuthHarness(null);
     auth.getSession.mockReturnValue(sessionRestoration.promise);
 
-    renderTestApp(["/total-loss/start"], {
+    renderTestApp(["/start?service=total-loss"], {
       authService: auth.service,
       totalLossDependencies: null,
     });
@@ -1207,7 +1233,7 @@ describe("/total-loss/start", () => {
     const ownership = createDeferred<AppraisalCase | null>();
     harness.caseService.getAppraisalCase = vi.fn(() => ownership.promise);
 
-    renderTestApp([`/total-loss/start?caseId=${RECENT_CASE_ID}`], {
+    renderTestApp([`/start?service=total-loss&caseId=${RECENT_CASE_ID}`], {
       authService: auth.service,
       totalLossDependencies: harness.dependencies,
     });
@@ -1267,7 +1293,7 @@ describe("/total-loss/start", () => {
       const auth = createAuthHarness(sessionFor());
       const harness = createDependencyHarness();
 
-      renderTestApp([`/total-loss/start?caseId=${targetCaseId}`], {
+      renderTestApp([`/start?service=total-loss&caseId=${targetCaseId}`], {
         authService: auth.service,
         totalLossDependencies: harness.dependencies,
       });
@@ -1322,7 +1348,7 @@ describe("/total-loss/start", () => {
       const auth = createAuthHarness(sessionFor());
       const harness = createDependencyHarness({ details: [savedDetails] });
 
-      const { queryClient } = renderTestApp(["/total-loss/start"], {
+      const { queryClient } = renderTestApp(["/start?service=total-loss"], {
         authService: auth.service,
         totalLossDependencies: harness.dependencies,
       });
@@ -1366,7 +1392,7 @@ describe("/total-loss/start", () => {
       const user = userEvent.setup();
       vi.spyOn(crypto, "randomUUID").mockReturnValue(CASE_ID);
 
-      const { queryClient } = renderTestApp(["/total-loss/start"], {
+      const { queryClient } = renderTestApp(["/start?service=total-loss"], {
         authService: auth.service,
         totalLossDependencies: harness.dependencies,
       });
@@ -1435,7 +1461,7 @@ describe("/total-loss/start", () => {
     const auth = createAuthHarness(null);
     const harness = createDependencyHarness();
 
-    renderTestApp(["/total-loss/start"], {
+    renderTestApp(["/start?service=total-loss"], {
       authService: auth.service,
       totalLossDependencies: harness.dependencies,
     });
@@ -1466,7 +1492,7 @@ describe("/total-loss/start", () => {
       recentCase: appraisalCase(CASE_ID),
     });
 
-    const firstRender = renderTestApp(["/total-loss/start"], {
+    const firstRender = renderTestApp(["/start?service=total-loss"], {
       authService: auth.service,
       totalLossDependencies: harness.dependencies,
     });
@@ -1480,7 +1506,7 @@ describe("/total-loss/start", () => {
     });
     firstRender.unmount();
 
-    renderTestApp(["/total-loss/start"], {
+    renderTestApp(["/start?service=total-loss"], {
       authService: auth.service,
       totalLossDependencies: harness.dependencies,
     });
@@ -1513,7 +1539,7 @@ describe("/total-loss/start", () => {
       recentCase: appraisalCase(CASE_ID),
     });
 
-    renderTestApp(["/total-loss/start"], {
+    renderTestApp(["/start?service=total-loss"], {
       authService: auth.service,
       totalLossDependencies: harness.dependencies,
     });
@@ -1549,7 +1575,7 @@ describe("/total-loss/start", () => {
     });
     const user = userEvent.setup();
 
-    renderTestApp([`/total-loss/start?caseId=${CASE_ID}`], {
+    renderTestApp([`/start?service=total-loss&caseId=${CASE_ID}`], {
       authService: auth.service,
       totalLossDependencies: harness.dependencies,
     });
@@ -1598,7 +1624,7 @@ describe("/total-loss/start", () => {
     const user = userEvent.setup();
     vi.spyOn(crypto, "randomUUID").mockReturnValue(CASE_ID);
 
-    renderTestApp(["/total-loss/start"], {
+    renderTestApp(["/start?service=total-loss"], {
       authService: auth.service,
       totalLossDependencies: harness.dependencies,
     });
@@ -1649,7 +1675,7 @@ describe("/total-loss/start", () => {
     const user = userEvent.setup();
     vi.spyOn(crypto, "randomUUID").mockReturnValue(CASE_ID);
 
-    renderTestApp(["/total-loss/start"], {
+    renderTestApp(["/start?service=total-loss"], {
       authService: auth.service,
       totalLossDependencies: harness.dependencies,
     });
@@ -1664,6 +1690,11 @@ describe("/total-loss/start", () => {
     await waitFor(() => expect(harness.saveDetails).toHaveBeenCalledTimes(2), {
       timeout: 2000,
     });
+    await waitFor(() =>
+      expect(
+        screen.getByRole("radio", { name: "Diminished Value" }),
+      ).toBeDisabled(),
+    );
 
     await user.selectOptions(screen.getByLabelText("Year"), "2020");
     await waitFor(() => expect(screen.getByLabelText("Make")).toBeEnabled());
@@ -1687,6 +1718,11 @@ describe("/total-loss/start", () => {
     });
 
     await waitFor(() => expect(harness.saveDetails).toHaveBeenCalledTimes(3));
+    await waitFor(() =>
+      expect(
+        screen.getByRole("radio", { name: "Diminished Value" }),
+      ).toBeEnabled(),
+    );
     expect(harness.saveDetails.mock.calls[2]?.[0]).toMatchObject({
       caseId: CASE_ID,
       expectedUpdatedAt: "2026-08-18T16:00:00.000Z",

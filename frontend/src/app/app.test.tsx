@@ -28,6 +28,32 @@ describe("Venfour application", () => {
     expect(document.title).toBe("Vehicle Appraisals After an Accident | Venfour");
   });
 
+  test("uses generic metadata and the compact shell for the appraisal intake", () => {
+    renderTestApp(["/start?service=total-loss"]);
+
+    expect(document.title).toBe("Start Your Vehicle Appraisal | Venfour");
+    expect(
+      screen.queryByRole("navigation", { name: "Primary navigation" }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("contentinfo")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: "Get Started" }),
+    ).not.toBeInTheDocument();
+  });
+
+  test("redirects the legacy total-loss start URL and preserves its query", async () => {
+    const { router } = renderTestApp([
+      "/total-loss/start?caseId=saved-case&campaign=renewal&service=diminished-value",
+    ]);
+
+    await waitFor(() => expect(router.state.location.pathname).toBe("/start"));
+    const searchParams = new URLSearchParams(router.state.location.search);
+    expect(searchParams.get("service")).toBe("total-loss");
+    expect(searchParams.get("caseId")).toBe("saved-case");
+    expect(searchParams.get("campaign")).toBe("renewal");
+    expect(document.title).toBe("Start Your Vehicle Appraisal | Venfour");
+  });
+
   test("provides homepage-focused primary and footer navigation", () => {
     renderTestApp();
 

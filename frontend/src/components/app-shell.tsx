@@ -41,7 +41,9 @@ export function AppShell() {
 function AppShellContent() {
   const analysisRoute = useMatch("/analyses/:runId");
   const location = useLocation();
-  const startFlowRoute = location.pathname === "/total-loss/start";
+  const startFlowRoute =
+    location.pathname === "/start" ||
+    location.pathname === "/total-loss/start";
   const matches = useMatches();
   const navigate = useNavigate();
   const { openPreferences } = useCookieConsent();

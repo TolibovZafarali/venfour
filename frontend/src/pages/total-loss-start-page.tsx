@@ -2,7 +2,6 @@ import { AlertCircle, CloudOff, RefreshCw } from "lucide-react";
 import {
   useCallback,
   useEffect,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -18,6 +17,10 @@ import {
 } from "@/features/cases/queries";
 import type { AppraisalCaseService } from "@/features/cases/service";
 import type { AppraisalCase } from "@/features/cases/types";
+import {
+  IntakeStepTransition,
+  useVehicleLookupController,
+} from "@/features/intake";
 import type {
   CreateTotalLossDetailsValues,
   TotalLossCaseDetails,
@@ -66,7 +69,6 @@ import {
   validateTotalLossManualForm,
   validateTotalLossPdf,
 } from "@/features/total-loss/validation";
-import { VehicleLookupError } from "@/features/total-loss/vehicle-lookup-service";
 
 const AUTOSAVE_DELAY_MS = 600;
 const UUID_PATTERN =
@@ -102,7 +104,13 @@ interface InitialDraftState {
   readonly storageError: boolean;
 }
 
-export function TotalLossStartPage() {
+interface TotalLossIntakeFlowProps {
+  onBusyChange?: (busy: boolean) => void;
+}
+
+export function TotalLossIntakeFlow({
+  onBusyChange,
+}: TotalLossIntakeFlowProps) {
   const location = useLocation();
   const { auth } = useAuth();
   const { openSignIn } = useSignInDialog();
@@ -122,18 +130,6 @@ export function TotalLossStartPage() {
     draft.manual,
     vehicleEntryMethod,
   );
-  const [makeOptions, setMakeOptions] = useState<readonly string[]>([]);
-  const [modelOptions, setModelOptions] = useState<readonly string[]>([]);
-  const [makesState, setMakesState] = useState<
-    "idle" | "loading" | "success" | "error"
-  >("idle");
-  const [modelsState, setModelsState] = useState<
-    "idle" | "loading" | "success" | "error"
-  >("idle");
-  const [vinLookupState, setVinLookupState] = useState<
-    "idle" | "loading" | "success" | "error"
-  >("idle");
-  const [vinLookupMessage, setVinLookupMessage] = useState<string | null>(null);
   const [storageError, setStorageError] = useState(initialDraft.storageError);
   const [manualErrors, setManualErrors] = useState<TotalLossManualFormErrors>(
     {},
@@ -166,6 +162,28 @@ export function TotalLossStartPage() {
   const storageService = dependencies?.totalLossReportStorageService ?? null;
   const vehicleLookupService =
     dependencies?.vehicleLookupService ?? defaultVehicleLookupService;
+  const {
+    makeOptions,
+    modelOptions,
+    makesState,
+    modelsState,
+    vinLookupState,
+    vinLookupMessage,
+    decodeVin,
+    hasDecodedVin,
+    resetVinLookup,
+    retryMakes,
+    retryModels,
+  } = useVehicleLookupController({
+    service: vehicleLookupService,
+    catalogEnabled:
+      draft.step === "vehicle" && activeVehicleEntryMethod === "details",
+    vehicleYear: draft.manual.vehicleYear,
+    make: draft.manual.make,
+    currentVin: normalizeTotalLossManualForm(draft.manual).vin,
+    unknownVinErrorMessage:
+      "We couldn’t identify that VIN right now. Try again or select your vehicle details.",
+  });
   const dataUserId = dependencies ? userId : null;
   const explicitCaseId = useMemo(
     () => new URLSearchParams(location.search).get("caseId"),
@@ -263,10 +281,6 @@ export function TotalLossStartPage() {
   const hydratedDetailsRef = useRef<string | null>(null);
   const pendingAuthRef = useRef<string | null>(null);
   const explicitCaseRef = useRef<string | null>(null);
-  const makesRequestRef = useRef(0);
-  const modelsRequestRef = useRef(0);
-  const decodedVinRef = useRef<string | null>(null);
-
   const ensureCase = useCallback(async () => {
     if (!userId || !dependencies) {
       throw new Error("Sign in before saving this appraisal.");
@@ -519,67 +533,6 @@ export function TotalLossStartPage() {
       setCompletionBusy(false);
     }
   }, [applyDraft, ensureCase, flushDraft]);
-
-  const loadMakes = useCallback(async () => {
-    const requestId = makesRequestRef.current + 1;
-    makesRequestRef.current = requestId;
-    setMakesState("loading");
-    try {
-      const options = await vehicleLookupService.listMakes();
-      if (makesRequestRef.current !== requestId) return;
-      setMakeOptions(options);
-      setMakesState("success");
-    } catch {
-      if (makesRequestRef.current !== requestId) return;
-      setMakesState("error");
-    }
-  }, [vehicleLookupService]);
-
-  const loadModels = useCallback(
-    async (year: number, make: string) => {
-      const requestId = modelsRequestRef.current + 1;
-      modelsRequestRef.current = requestId;
-      setModelsState("loading");
-      try {
-        const options = await vehicleLookupService.listModels({ year, make });
-        if (modelsRequestRef.current !== requestId) return;
-        setModelOptions(options);
-        setModelsState("success");
-      } catch {
-        if (modelsRequestRef.current !== requestId) return;
-        setModelsState("error");
-      }
-    },
-    [vehicleLookupService],
-  );
-
-  useEffect(() => {
-    if (
-      draft.step === "vehicle" &&
-      activeVehicleEntryMethod === "details" &&
-      makesState === "idle"
-    ) {
-      queueMicrotask(() => void loadMakes());
-    }
-  }, [activeVehicleEntryMethod, draft.step, loadMakes, makesState]);
-
-  useEffect(() => {
-    if (draft.step !== "vehicle" || activeVehicleEntryMethod !== "details")
-      return;
-    const year = Number(draft.manual.vehicleYear);
-    const make = draft.manual.make.trim();
-    if (!Number.isSafeInteger(year) || !make) {
-      modelsRequestRef.current += 1;
-      return;
-    }
-    queueMicrotask(() => void loadModels(year, make));
-  }, [
-    activeVehicleEntryMethod,
-    draft.manual.make,
-    draft.manual.vehicleYear,
-    draft.step,
-    loadModels,
-  ]);
 
   useEffect(() => {
     if (auth.status === "loading") return;
@@ -915,6 +868,12 @@ export function TotalLossStartPage() {
     resumeBusy ||
     saveState === "saving" ||
     uploadState === "uploading";
+  const serviceSwitchDisabled = busy || vinLookupState === "loading";
+
+  useEffect(() => {
+    onBusyChange?.(serviceSwitchDisabled);
+  }, [onBusyChange, serviceSwitchDisabled]);
+
   const handleModeContinue = async () => {
     if (!draft.mode) return;
     setModeBusy(true);
@@ -964,9 +923,7 @@ export function TotalLossStartPage() {
     setManualErrors((current) => ({ ...current, [field]: undefined }));
     setFlowError(null);
     if (field === "vin") {
-      decodedVinRef.current = null;
-      setVinLookupState("idle");
-      setVinLookupMessage(null);
+      resetVinLookup();
     }
     applyDraft((current) => {
       const manual = { ...current.manual, [field]: value };
@@ -994,9 +951,7 @@ export function TotalLossStartPage() {
       model: undefined,
       trim: undefined,
     }));
-    decodedVinRef.current = null;
-    setVinLookupState("idle");
-    setVinLookupMessage(null);
+    resetVinLookup();
     applyDraft((current) => ({
       ...current,
       manual:
@@ -1045,7 +1000,7 @@ export function TotalLossStartPage() {
     }
 
     if (
-      decodedVinRef.current === normalized.vin &&
+      hasDecodedVin(normalized.vin) &&
       normalized.vehicleYear &&
       normalized.make &&
       normalized.model
@@ -1054,43 +1009,22 @@ export function TotalLossStartPage() {
       return;
     }
 
-    setVinLookupState("loading");
-    setVinLookupMessage(null);
-    try {
-      const decoded = await vehicleLookupService.decodeVin(normalized.vin);
-      const currentVin = normalizeTotalLossManualForm(
-        draftRef.current.manual,
-      ).vin;
-      if (currentVin !== decoded.vin) return;
-      decodedVinRef.current = decoded.vin;
-      const summary = [
-        String(decoded.year),
-        decoded.make,
-        decoded.model,
-        decoded.trim,
-      ]
-        .filter(Boolean)
-        .join(" ");
-      setVinLookupState("success");
-      setVinLookupMessage(`Vehicle found: ${summary}`);
-      applyDraft((current) => ({
-        ...current,
-        manual: {
-          ...current.manual,
-          vin: decoded.vin,
-          vehicleYear: String(decoded.year),
-          make: decoded.make,
-          model: decoded.model,
-          trim: decoded.trim ?? "",
-          mileageAtLoss: normalized.mileageAtLoss,
-        },
-        step: "claim",
-        dirty: true,
-      }));
-    } catch (error) {
-      setVinLookupState("error");
-      setVinLookupMessage(vehicleLookupErrorMessage(error));
-    }
+    const decoded = await decodeVin(normalized.vin);
+    if (!decoded) return;
+    applyDraft((current) => ({
+      ...current,
+      manual: {
+        ...current.manual,
+        vin: decoded.vin,
+        vehicleYear: String(decoded.year),
+        make: decoded.make,
+        model: decoded.model,
+        trim: decoded.trim ?? "",
+        mileageAtLoss: normalized.mileageAtLoss,
+      },
+      step: "claim",
+      dirty: true,
+    }));
   };
 
   const handleManualContinue = async () => {
@@ -1366,14 +1300,8 @@ export function TotalLossStartPage() {
             fieldsDisabled={completionBusy}
             error={flowError}
             onEntryMethodChange={handleVehicleEntryMethodChange}
-            onRetryMakes={() => void loadMakes()}
-            onRetryModels={() => {
-              const year = Number(draftRef.current.manual.vehicleYear);
-              const make = draftRef.current.manual.make.trim();
-              if (Number.isSafeInteger(year) && make) {
-                void loadModels(year, make);
-              }
-            }}
+            onRetryMakes={retryMakes}
+            onRetryModels={retryModels}
             onChange={handleManualChange}
             onBlur={handleManualBlur}
             onBack={() => {
@@ -1461,32 +1389,8 @@ export function TotalLossStartPage() {
   };
 
   return (
-    <div className="w-full bg-[radial-gradient(circle_at_top_left,rgba(231,239,255,0.82),transparent_38%),linear-gradient(180deg,#fbfcff_0%,#f7f9fc_100%)]">
-      <div
-        className="mx-auto grid w-full max-w-7xl gap-7 px-5 py-5 sm:px-8 sm:py-8 lg:grid-cols-[minmax(0,0.78fr)_minmax(0,1.22fr)] lg:items-start lg:gap-14 lg:py-12 xl:gap-20"
-        data-total-loss-layout
-      >
-        <header
-          className="max-w-xl lg:sticky lg:top-28 lg:pt-5"
-          data-total-loss-intro
-        >
-          <p className="text-xs font-semibold tracking-[0.14em] text-brand uppercase">
-            Total-loss appraisal
-          </p>
-          <h1 className="mt-2 text-3xl font-semibold tracking-[-0.045em] text-ink sm:text-4xl">
-            Start your total-loss appraisal
-          </h1>
-          <p className="mt-3 text-base leading-7 text-copy">
-            First, we’ll gather the information needed to check whether your
-            insurer’s vehicle valuation appears fair.
-          </p>
-        </header>
-
-        <div
-          className="min-w-0 w-full max-w-3xl lg:justify-self-end"
-          data-total-loss-flow
-        >
-          {storageError ? (
+    <>
+      {storageError ? (
             <Notice
               icon={<CloudOff className="size-5" aria-hidden />}
               title="Browser draft storage is unavailable"
@@ -1546,67 +1450,7 @@ export function TotalLossStartPage() {
               {renderStep()}
             </IntakeStepTransition>
           )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function IntakeStepTransition({
-  children,
-  direction,
-  transitionKey,
-}: {
-  children: React.ReactNode;
-  direction: "forward" | "backward";
-  transitionKey: TotalLossDraft["step"] | "resume";
-}) {
-  const contentRef = useRef<HTMLDivElement>(null);
-  const [measuredHeight, setMeasuredHeight] = useState<number | null>(null);
-
-  const measure = useCallback(() => {
-    const content = contentRef.current;
-    if (!content) return;
-    const nextHeight = content.scrollHeight;
-    if (nextHeight > 0) {
-      setMeasuredHeight((current) =>
-        current === nextHeight ? current : nextHeight,
-      );
-    }
-  }, []);
-
-  useLayoutEffect(() => {
-    const frame = window.requestAnimationFrame(measure);
-    return () => window.cancelAnimationFrame(frame);
-  }, [measure, transitionKey]);
-
-  useEffect(() => {
-    const content = contentRef.current;
-    if (!content || typeof ResizeObserver === "undefined") return;
-    const observer = new ResizeObserver(measure);
-    observer.observe(content);
-    return () => observer.disconnect();
-  }, [measure, transitionKey]);
-
-  return (
-    <div
-      className="transition-[height] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none"
-      style={measuredHeight === null ? undefined : { height: measuredHeight }}
-      data-intake-transition-shell
-    >
-      <div
-        ref={contentRef}
-        key={transitionKey}
-        className={
-          direction === "forward"
-            ? "intake-step-forward"
-            : "intake-step-backward"
-        }
-        data-intake-transition={direction}
-      >
-        {children}
-      </div>
-    </div>
+    </>
   );
 }
 
@@ -1751,12 +1595,6 @@ function formatSavedDate(value: string) {
 
 function errorMessage(error: unknown, fallback: string) {
   return error instanceof Error && error.message ? error.message : fallback;
-}
-
-function vehicleLookupErrorMessage(error: unknown) {
-  return error instanceof VehicleLookupError
-    ? error.userMessage
-    : "We couldn’t identify that VIN right now. Try again or select your vehicle details.";
 }
 
 function vehicleEntryMethodForValues(

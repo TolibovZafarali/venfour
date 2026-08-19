@@ -3,7 +3,6 @@ import { Link } from "react-router";
 
 import heroRoadsideAssistanceAvif from "@/assets/hero-roadside-assistance.avif";
 import heroRoadsideAssistanceJpeg from "@/assets/hero-roadside-assistance.jpg";
-import { supportEmail } from "@/config/support";
 import {
   AnnotatedInsuranceReportVisual,
   AppraisalReportVisual,
@@ -63,10 +62,6 @@ const processSteps = [
 ] as const;
 
 export function HomePage() {
-  const diminishedValueMailto = supportEmail
-    ? `mailto:${supportEmail}?subject=${encodeURIComponent("Diminished value appraisal request")}`
-    : null;
-
   return (
     <div className="w-full overflow-clip bg-white text-ink">
       <section className="relative isolate overflow-hidden border-b border-slate-200 bg-canvas">
@@ -119,18 +114,18 @@ export function HomePage() {
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
               <Link
-                to="/total-loss/start"
+                to="/start?service=total-loss"
                 className={`${primaryActionClassName} shrink-0`}
               >
                 Start total-loss appraisal
                 <ArrowRight className="size-4" aria-hidden />
               </Link>
-              <a
-                href="#diminished-value"
+              <Link
+                to="/start?service=diminished-value"
                 className={`${secondaryActionClassName} shrink-0`}
               >
                 Request diminished value appraisal
-              </a>
+              </Link>
             </div>
           </div>
         </div>
@@ -180,7 +175,7 @@ export function HomePage() {
                   We check the insurance value report and compare it with similar vehicles for sale.
                 </p>
                 <Link
-                  to="/total-loss/start"
+                  to="/start?service=total-loss"
                   className={`${primaryActionClassName} mt-7 self-start`}
                 >
                   Start total-loss appraisal
@@ -206,12 +201,12 @@ export function HomePage() {
                 <p className="mt-4 max-w-md text-base leading-7 text-copy">
                   We document how the accident history may have lowered its resale value.
                 </p>
-                <a
-                  href="#diminished-value"
+                <Link
+                  to="/start?service=diminished-value"
                   className={`${secondaryActionClassName} mt-7 self-start`}
                 >
                   Request diminished value appraisal
-                </a>
+                </Link>
               </div>
             </article>
           </div>
@@ -239,7 +234,7 @@ export function HomePage() {
               </p>
             </div>
             <Link
-              to="/total-loss/start"
+              to="/start?service=total-loss"
               className={`${secondaryActionClassName} shrink-0 self-start lg:self-auto`}
             >
               Upload your report
@@ -312,22 +307,13 @@ export function HomePage() {
             <p className="mt-4 text-sm leading-6 text-copy">
               This service is handled personally. It is not an instant or automated appraisal.
             </p>
-            {diminishedValueMailto ? (
-              <a
-                href={diminishedValueMailto}
-                className={`${primaryActionClassName} mt-7 self-start`}
-              >
-                Request diminished value appraisal
-                <ArrowRight className="size-4" aria-hidden />
-              </a>
-            ) : (
-              <div
-                id="diminished-value-request"
-                className="mt-7 border-l-2 border-brand bg-white px-4 py-3 text-sm leading-6 text-copy"
-              >
-                Direct requests are temporarily unavailable on this site. No request will be submitted until a support email is configured.
-              </div>
-            )}
+            <Link
+              to="/start?service=diminished-value"
+              className={`${primaryActionClassName} mt-7 self-start`}
+            >
+              Request diminished value appraisal
+              <ArrowRight className="size-4" aria-hidden />
+            </Link>
           </div>
           <DiminishedValueExplainerVisual />
         </div>

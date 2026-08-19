@@ -70,12 +70,12 @@ describe("homepage structure", () => {
     );
     expect(
       within(hero).getByRole("link", { name: "Start total-loss appraisal" }),
-    ).toHaveAttribute("href", "/total-loss/start");
+    ).toHaveAttribute("href", "/start?service=total-loss");
     expect(
       within(hero).getByRole("link", {
         name: "Request diminished value appraisal",
       }),
-    ).toHaveAttribute("href", "#diminished-value");
+    ).toHaveAttribute("href", "/start?service=diminished-value");
     for (const removedLabel of [
       "Total loss",
       "Self-service online",
@@ -128,12 +128,12 @@ describe("homepage structure", () => {
     ).toBeVisible();
     expect(
       within(services).getByRole("link", { name: "Start total-loss appraisal" }),
-    ).toHaveAttribute("href", "/total-loss/start");
+    ).toHaveAttribute("href", "/start?service=total-loss");
     expect(
       within(services).getByRole("link", {
         name: "Request diminished value appraisal",
       }),
-    ).toHaveAttribute("href", "#diminished-value");
+    ).toHaveAttribute("href", "/start?service=diminished-value");
     expect(screen.queryByText("I need my car’s value")).not.toBeInTheDocument();
     expect(screen.queryByText("Request a value check")).not.toBeInTheDocument();
     expect(document.querySelector('a[href*="vehicle-value"]')).not.toBeInTheDocument();
@@ -174,6 +174,11 @@ describe("homepage structure", () => {
     ]) {
       expect(within(process as HTMLElement).getByRole("heading", { name: step })).toBeVisible();
     }
+    expect(
+      within(process as HTMLElement).getByRole("link", {
+        name: "Upload your report",
+      }),
+    ).toHaveAttribute("href", "/start?service=total-loss");
 
     expect(
       screen.getByText(
@@ -185,9 +190,14 @@ describe("homepage structure", () => {
         "This service is handled personally. It is not an instant or automated appraisal.",
       ),
     ).toBeVisible();
+    const diminishedValueSection = document.getElementById("diminished-value");
+    expect(diminishedValueSection).toBeVisible();
     expect(
-      screen.getByText(/Direct requests are temporarily unavailable on this site/i),
-    ).toBeVisible();
+      within(diminishedValueSection as HTMLElement).getByRole("link", {
+        name: "Request diminished value appraisal",
+      }),
+    ).toHaveAttribute("href", "/start?service=diminished-value");
+    expect(document.querySelector('a[href^="mailto:"]')).not.toBeInTheDocument();
     for (const proof of [
       "Similar vehicles reviewed",
       "Local market considered",
@@ -228,10 +238,38 @@ describe("homepage structure", () => {
     );
 
     await waitFor(() =>
-      expect(router.state.location.pathname).toBe("/total-loss/start"),
+      expect(router.state.location.pathname).toBe("/start"),
     );
+    expect(router.state.location.search).toBe("?service=total-loss");
     expect(
       screen.getByRole("heading", { name: "Start your total-loss appraisal" }),
+    ).toBeVisible();
+  });
+
+  test("opens the diminished-value start route from the hero action", async () => {
+    const user = userEvent.setup();
+    const { router } = renderTestApp();
+    const hero = screen
+      .getByRole("heading", {
+        name: "Your Vehicle’s Value, Made Clear.",
+      })
+      .closest("section");
+    if (!hero) {
+      throw new Error("The homepage hero was not rendered.");
+    }
+
+    await user.click(
+      within(hero).getByRole("link", {
+        name: "Request diminished value appraisal",
+      }),
+    );
+
+    await waitFor(() => expect(router.state.location.pathname).toBe("/start"));
+    expect(router.state.location.search).toBe("?service=diminished-value");
+    expect(
+      screen.getByRole("heading", {
+        name: "Start your diminished-value appraisal",
+      }),
     ).toBeVisible();
   });
 });
