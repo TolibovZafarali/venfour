@@ -12,31 +12,6 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.15";
   };
-  graphql_public: {
-    Tables: {
-      [_ in never]: never;
-    };
-    Views: {
-      [_ in never]: never;
-    };
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json;
-          operationName?: string;
-          query?: string;
-          variables?: Json;
-        };
-        Returns: Json;
-      };
-    };
-    Enums: {
-      [_ in never]: never;
-    };
-    CompositeTypes: {
-      [_ in never]: never;
-    };
-  };
   public: {
     Tables: {
       analysis_runs: {
@@ -247,6 +222,21 @@ export type Database = {
         };
         Relationships: [];
       };
+      staff_members: {
+        Row: {
+          granted_at: string;
+          user_id: string;
+        };
+        Insert: {
+          granted_at?: string;
+          user_id: string;
+        };
+        Update: {
+          granted_at?: string;
+          user_id?: string;
+        };
+        Relationships: [];
+      };
       total_loss_analysis_jobs: {
         Row: {
           attempt_count: number;
@@ -418,6 +408,10 @@ export type Database = {
         Args: { object_name: string };
         Returns: boolean;
       };
+      authorize_staff_diminished_value_document_read: {
+        Args: { object_name: string };
+        Returns: boolean;
+      };
       authorize_total_loss_report_backup_delete: {
         Args: { object_name: string; object_user_metadata: Json };
         Returns: boolean;
@@ -493,6 +487,44 @@ export type Database = {
         Args: { run_id: string; user_id: string };
         Returns: Json;
       };
+      get_submitted_diminished_value_case: {
+        Args: { requested_case_id: string };
+        Returns: {
+          accident_date: string;
+          accident_state: string;
+          airbag_deployment: string;
+          at_fault_insurer: string;
+          availability: string;
+          case_id: string;
+          created_at: string;
+          current_mileage: number;
+          draft_step: string;
+          email: string;
+          full_name: string;
+          major_repair_details: string;
+          mileage_at_accident: number;
+          notes: string;
+          other_party_at_fault: string;
+          owner_user_id: string;
+          phone: string;
+          preferred_contact_method: string;
+          repair_cost: number;
+          repair_facility: string;
+          repair_status: string;
+          revision: number;
+          service_type: Database["public"]["Enums"]["appraisal_service_type"];
+          status: Database["public"]["Enums"]["appraisal_case_status"];
+          structural_damage: string;
+          submitted_at: string;
+          updated_at: string;
+          vehicle_entry_method: string;
+          vehicle_make: string;
+          vehicle_model: string;
+          vehicle_trim: string;
+          vehicle_year: number;
+          vin: string;
+        }[];
+      };
       get_total_loss_analysis_status: {
         Args: { case_id: string; user_id: string };
         Returns: Database["public"]["CompositeTypes"]["total_loss_analysis_result"][];
@@ -502,6 +534,27 @@ export type Database = {
           isOneToOne: false;
           isSetofReturn: true;
         };
+      };
+      is_venfour_staff: { Args: never; Returns: boolean };
+      list_submitted_diminished_value_cases: {
+        Args: never;
+        Returns: {
+          accident_date: string;
+          at_fault_insurer: string;
+          case_id: string;
+          document_count: number;
+          email: string;
+          full_name: string;
+          owner_user_id: string;
+          phone: string;
+          preferred_contact_method: string;
+          service_type: Database["public"]["Enums"]["appraisal_service_type"];
+          status: Database["public"]["Enums"]["appraisal_case_status"];
+          submitted_at: string;
+          vehicle_make: string;
+          vehicle_model: string;
+          vehicle_year: number;
+        }[];
       };
       mark_total_loss_report_upload_ready: {
         Args: { case_id: string; has_backup: boolean; upload_id: string };
@@ -749,9 +802,6 @@ export type CompositeTypes<
     : never;
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {
       appraisal_case_status: [

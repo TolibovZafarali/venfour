@@ -4,7 +4,8 @@ export type SignInIntent =
   | "default"
   | "secure-report-upload"
   | "continue-total-loss"
-  | "continue-diminished-value";
+  | "continue-diminished-value"
+  | "staff-review";
 
 export interface OpenSignInOptions {
   returnTo?: string;

@@ -39,9 +39,20 @@ export interface DiminishedValueDocumentScope {
   readonly caseId: string;
 }
 
-export interface RemoveDiminishedValueDocumentInput
-  extends DiminishedValueDocumentScope {
+export interface RemoveDiminishedValueDocumentInput extends DiminishedValueDocumentScope {
   readonly document: DiminishedValueStoredDocument;
+}
+
+export interface DownloadDiminishedValueDocumentInput extends DiminishedValueDocumentScope {
+  readonly document: DiminishedValueStoredDocument;
+  readonly signal?: AbortSignal;
+}
+
+export interface DiminishedValueDocumentReadService {
+  listDocuments(
+    input: DiminishedValueDocumentScope,
+  ): Promise<DiminishedValueStoredDocument[]>;
+  downloadDocument(input: DownloadDiminishedValueDocumentInput): Promise<Blob>;
 }
 
 export interface DiminishedValueDocumentStorageService {
@@ -102,7 +113,7 @@ export function getDiminishedValueDocumentPath(
 
 export function createDiminishedValueDocumentStorageService(
   client: SupabaseClient<Database>,
-): DiminishedValueDocumentStorageService {
+): DiminishedValueDocumentStorageService & DiminishedValueDocumentReadService {
   const bucket = client.storage.from(CASE_FILES_BUCKET);
 
   const readStoredDocument = async (
@@ -117,7 +128,8 @@ export function createDiminishedValueDocumentStorageService(
     }
 
     const id = match[1].toLowerCase();
-    const extension = match[2].toLowerCase() as DiminishedValueDocumentExtension;
+    const extension =
+      match[2].toLowerCase() as DiminishedValueDocumentExtension;
     const path = getDiminishedValueDocumentPath(
       scope.userId,
       scope.caseId,
@@ -152,8 +164,7 @@ export function createDiminishedValueDocumentStorageService(
     return {
       id,
       path,
-      displayFilename:
-        originalName ?? `Supporting document.${extension}`,
+      displayFilename: originalName ?? `Supporting document.${extension}`,
       mimeType,
       extension,
       size: data.size as number,
@@ -184,6 +195,39 @@ export function createDiminishedValueDocumentStorageService(
       return Promise.all(
         objectNames.map((objectName) => readStoredDocument(scope, objectName)),
       );
+    },
+
+    async downloadDocument({ userId, caseId, document, signal }) {
+      const expectedPath = getDiminishedValueDocumentPath(
+        userId,
+        caseId,
+        document.id,
+        document.extension,
+      );
+      if (document.path !== expectedPath) {
+        throw new DiminishedValueDocumentValidationError(
+          "The document is outside the requested case scope.",
+        );
+      }
+
+      const { data, error } = await bucket.download(
+        expectedPath,
+        { cacheNonce: globalThis.crypto.randomUUID() },
+        { cache: "no-store", signal },
+      );
+      if (error) throw error;
+      if (!data) {
+        throw new DiminishedValueDocumentResponseError(
+          "Supabase did not return the requested private document.",
+        );
+      }
+      if (data.size !== document.size || data.type !== document.mimeType) {
+        throw new DiminishedValueDocumentResponseError(
+          "The downloaded document did not match its verified metadata.",
+        );
+      }
+
+      return data;
     },
 
     async uploadDocument({ userId, caseId, documentId, file }) {

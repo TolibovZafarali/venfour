@@ -7,8 +7,11 @@ import {
 
 import type { PageMetadata } from "@/app/document-metadata";
 import { AppShell } from "@/components/app-shell";
+import { AdminDiminishedValueAccessGate } from "@/features/admin/diminished-value/admin-access-gate";
 import { AuthCallbackPage } from "@/features/auth";
 import { AnalysisPage } from "@/pages/analysis-page";
+import { AdminDiminishedValueCasePage } from "@/pages/admin-diminished-value-case-page";
+import { AdminDiminishedValueQueuePage } from "@/pages/admin-diminished-value-queue-page";
 import { AppraisalStartPage } from "@/pages/appraisal-start-page";
 import { CookiePolicyPage } from "@/pages/cookie-policy-page";
 import { HomePage } from "@/pages/home-page";
@@ -75,6 +78,28 @@ export const appRoutes: RouteObject[] = [
           "Total-Loss Value Check | Venfour",
           "Track your total-loss value check and open the completed vehicle valuation analysis.",
         ),
+      },
+      {
+        path: "admin/diminished-value",
+        element: <AdminDiminishedValueAccessGate />,
+        children: [
+          {
+            index: true,
+            element: <AdminDiminishedValueQueuePage />,
+            handle: metadata(
+              "Submitted Diminished-Value Requests | Venfour",
+              "Review submitted diminished-value requests in the secure Venfour staff workspace.",
+            ),
+          },
+          {
+            path: ":caseId",
+            element: <AdminDiminishedValueCasePage />,
+            handle: metadata(
+              "Diminished-Value Request | Venfour",
+              "Review a submitted diminished-value request in the secure Venfour staff workspace.",
+            ),
+          },
+        ],
       },
       {
         path: "auth/callback",

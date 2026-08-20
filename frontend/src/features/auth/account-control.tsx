@@ -1,5 +1,6 @@
-import { CircleUserRound, LogOut } from "lucide-react";
+import { CircleUserRound, ClipboardList, LogOut } from "lucide-react";
 import { useState } from "react";
+import { Link } from "react-router";
 import { DropdownMenu } from "radix-ui";
 
 import { getFriendlyAuthError } from "@/features/auth/auth-errors";
@@ -16,12 +17,16 @@ const focusRingClassName =
 
 interface AccountControlProps {
   className?: string;
+  onStaffNavigationRequest?: () => void;
   signedOutHint?: string;
+  staffReviewHref?: string;
 }
 
 export function AccountControl({
   className,
+  onStaffNavigationRequest,
   signedOutHint,
+  staffReviewHref,
 }: AccountControlProps) {
   const { auth, signOut } = useAuth();
   const { openSignIn } = useSignInDialog();
@@ -87,7 +92,11 @@ export function AccountControl({
 
   return (
     <>
-      <DropdownMenu.Root>
+      <DropdownMenu.Root
+        onOpenChange={(open) => {
+          if (open) onStaffNavigationRequest?.();
+        }}
+      >
         <DropdownMenu.Trigger asChild>
           <button
             type="button"
@@ -114,6 +123,17 @@ export function AccountControl({
                 {identityLabel}
               </span>
             </DropdownMenu.Label>
+            {staffReviewHref ? (
+              <DropdownMenu.Item asChild>
+                <Link
+                  to={staffReviewHref}
+                  className="flex min-h-10 w-full items-center gap-2 rounded-lg px-2.5 text-sm font-medium text-ink outline-none transition-colors hover:bg-surface focus:bg-surface"
+                >
+                  <ClipboardList className="size-4" aria-hidden />
+                  Staff review
+                </Link>
+              </DropdownMenu.Item>
+            ) : null}
             <DropdownMenu.Separator className="my-1 h-px bg-line" />
             <DropdownMenu.Item
               asChild
@@ -147,11 +167,13 @@ export function AccountControl({
 interface MobileAccountControlProps {
   className?: string;
   onAction?: () => void;
+  staffReviewHref?: string;
 }
 
 export function MobileAccountControl({
   className,
   onAction,
+  staffReviewHref,
 }: MobileAccountControlProps) {
   const { auth, signOut } = useAuth();
   const { openSignIn } = useSignInDialog();
@@ -203,8 +225,19 @@ export function MobileAccountControl({
   return (
     <div className={cn("border-t border-ink/10 py-2", className)}>
       <p className="truncate px-1 text-xs text-copy">
-        Signed in as <span className="font-semibold text-ink">{identityLabel}</span>
+        Signed in as{" "}
+        <span className="font-semibold text-ink">{identityLabel}</span>
       </p>
+      {staffReviewHref ? (
+        <Link
+          to={staffReviewHref}
+          className="mt-1 inline-flex min-h-11 w-full items-center gap-2 rounded-lg px-1 text-sm font-medium text-ink/75 transition-colors hover:bg-white/35 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand/60"
+          onClick={onAction}
+        >
+          <ClipboardList className="size-4" aria-hidden />
+          Staff review
+        </Link>
+      ) : null}
       <button
         type="button"
         className="mt-1 inline-flex min-h-11 w-full items-center gap-2 rounded-lg px-1 text-sm font-medium text-ink/75 transition-colors hover:bg-white/35 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand/60 disabled:cursor-not-allowed disabled:opacity-60"

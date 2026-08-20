@@ -58,12 +58,15 @@ JSON API
 ```
 
 The customer-facing application includes a unified appraisal intake at
-`/start`, with a saved Total Loss workflow and a frontend-only Diminished Value
-consultation prototype. The Total Loss intake accepts either manual vehicle and
-claim information or a privately stored insurance valuation PDF. The frontend
-does not reproduce backend analysis or ranking logic. The standalone public
-analysis-upload screen has been retired; analysis creation now starts from an
-authenticated saved appraisal case.
+`/start`, with saved Total Loss and Diminished Value workflows. Diminished Value
+customers can save intake data and private supporting documents, then submit an
+immutable review request. A separate read-only staff surface exposes only
+submitted Diminished Value requests to database-authorized staff. The Total
+Loss intake accepts either manual vehicle and claim information or a privately
+stored insurance valuation PDF. The frontend does not reproduce backend
+analysis or ranking logic. The standalone public analysis-upload screen has
+been retired; analysis creation now starts from an authenticated saved
+appraisal case.
 
 Supabase provides browser authentication, customer profiles, saved appraisal
 cases, row-level security, private case-file storage, durable analysis-job
@@ -305,6 +308,40 @@ In the Supabase Dashboard:
    verify the one-time email token without relying on browser-local PKCE state.
 4. Add `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` to the frontend
    deployment environment. Do not expose a secret or service-role key.
+
+#### Staff access for Diminished Value review
+
+The internal `/admin/diminished-value` route is read-only and uses the same
+Supabase browser session as the customer application. Access is authorized by
+the database-backed `public.staff_members` table, not by an email domain,
+browser state, navigation visibility, or JWT metadata. Staff membership grants
+read access only to submitted Diminished Value cases, their submitted intake,
+and their exact private document namespace. It does not grant access to drafts,
+Total Loss cases, customer profiles, unrelated Storage objects, or any staff
+write operation.
+
+There is intentionally no browser-facing staff-management API. After the Auth
+user has been created, a trusted administrator can grant access from the
+Supabase SQL editor or another privileged administrative connection using the
+user's Auth UUID:
+
+```sql
+insert into public.staff_members (user_id)
+values ('<auth-user-uuid>'::uuid)
+on conflict (user_id) do nothing;
+```
+
+Revoke access with:
+
+```sql
+delete from public.staff_members
+where user_id = '<auth-user-uuid>'::uuid;
+```
+
+Revocation is checked against the table on each authorized database or Storage
+request, so it does not wait for the user's current access token to expire.
+Never expose the service-role key to the browser or use it to implement a staff
+management control in the frontend.
 
 For Google sign-in, create a Web OAuth client in Google Cloud and configure the
 Venfour OAuth consent screen. Add `https://venfour.com` and

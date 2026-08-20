@@ -1,5 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
-import { http, HttpResponse } from "msw";
+import { delay, http, HttpResponse } from "msw";
 import { describe, expect, it, vi } from "vitest";
 
 import type { Database } from "@/lib/supabase/database.types";
@@ -52,9 +52,9 @@ describe("diminished-value document storage service", () => {
     expect(() => getDiminishedValueDocumentPrefix("../other", CASE_ID)).toThrow(
       DiminishedValueDocumentValidationError,
     );
-    expect(() => getDiminishedValueDocumentPrefix(USER_ID, "not-a-case")).toThrow(
-      DiminishedValueDocumentValidationError,
-    );
+    expect(() =>
+      getDiminishedValueDocumentPrefix(USER_ID, "not-a-case"),
+    ).toThrow(DiminishedValueDocumentValidationError);
     expect(() =>
       getDiminishedValueDocumentPath(USER_ID, CASE_ID, "../document", "pdf"),
     ).toThrow(DiminishedValueDocumentValidationError);
@@ -77,11 +77,7 @@ describe("diminished-value document storage service", () => {
         userId: USER_ID,
         caseId: CASE_ID,
         documentId: DOCUMENT_ID,
-        file: binaryFile(
-          "mismatched.png",
-          "image/jpeg",
-          pngSignature(),
-        ),
+        file: binaryFile("mismatched.png", "image/jpeg", pngSignature()),
       }),
     ).rejects.toBeInstanceOf(DiminishedValueDocumentValidationError);
 
@@ -90,11 +86,7 @@ describe("diminished-value document storage service", () => {
         userId: USER_ID,
         caseId: CASE_ID,
         documentId: DOCUMENT_ID,
-        file: binaryFile(
-          "spoofed.pdf",
-          "application/pdf",
-          ascii("plain text"),
-        ),
+        file: binaryFile("spoofed.pdf", "application/pdf", ascii("plain text")),
       }),
     ).rejects.toBeInstanceOf(DiminishedValueDocumentValidationError);
 
@@ -211,6 +203,107 @@ describe("diminished-value document storage service", () => {
     ]);
   });
 
+  it("downloads the exact verified path with a fresh no-store request", async () => {
+    let cacheMode: RequestCache | undefined;
+    let cacheNonce: string | null = null;
+    const contents = ascii("%PDF-1.7\ncontent");
+    server.use(
+      http.get(
+        `${SUPABASE_URL}/storage/v1/object/case-files/${PDF_PATH}`,
+        ({ request }) => {
+          cacheMode = request.cache;
+          cacheNonce = new URL(request.url).searchParams.get("cacheNonce");
+          return new HttpResponse(contents, {
+            headers: { "content-type": "application/pdf" },
+          });
+        },
+      ),
+    );
+
+    const document = storedPdfDocument();
+    const blob = await createTestService().downloadDocument({
+      userId: USER_ID,
+      caseId: CASE_ID,
+      document,
+    });
+
+    expect(await blob.text()).toBe("%PDF-1.7\ncontent");
+    expect(blob.type).toBe(document.mimeType);
+    expect(blob.size).toBe(document.size);
+    expect(cacheMode).toBe("no-store");
+    expect(cacheNonce).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu,
+    );
+    expect(cacheNonce).not.toBe(document.id);
+  });
+
+  it("forwards cancellation to an in-flight authenticated download", async () => {
+    server.use(
+      http.get(
+        `${SUPABASE_URL}/storage/v1/object/case-files/${PDF_PATH}`,
+        async () => {
+          await delay(100);
+          return new HttpResponse(ascii("%PDF-1.7\ncontent"), {
+            headers: { "content-type": "application/pdf" },
+          });
+        },
+      ),
+    );
+    const controller = new AbortController();
+    const download = createTestService().downloadDocument({
+      userId: USER_ID,
+      caseId: CASE_ID,
+      document: storedPdfDocument(),
+      signal: controller.signal,
+    });
+
+    controller.abort();
+
+    await expect(download).rejects.toThrow();
+  });
+
+  it("rejects an out-of-scope document before attempting a download", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+
+    await expect(
+      createTestService().downloadDocument({
+        userId: USER_ID,
+        caseId: CASE_ID,
+        document: {
+          ...storedPdfDocument(),
+          path: `${USER_ID}/${SECOND_DOCUMENT_ID}/diminished-value/${DOCUMENT_ID}.pdf`,
+        },
+      }),
+    ).rejects.toBeInstanceOf(DiminishedValueDocumentValidationError);
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["size", ascii("%PDF-1.7\nother"), "application/pdf"],
+    ["content type", ascii("%PDF-1.7\ncontent"), "application/octet-stream"],
+  ] as const)(
+    "rejects downloaded bytes with divergent %s metadata",
+    async (_label, contents, contentType = "application/pdf") => {
+      server.use(
+        http.get(
+          `${SUPABASE_URL}/storage/v1/object/case-files/${PDF_PATH}`,
+          () =>
+            new HttpResponse(contents, {
+              headers: { "content-type": contentType },
+            }),
+        ),
+      );
+
+      await expect(
+        createTestService().downloadDocument({
+          userId: USER_ID,
+          caseId: CASE_ID,
+          document: storedPdfDocument(),
+        }),
+      ).rejects.toBeInstanceOf(DiminishedValueDocumentResponseError);
+    },
+  );
+
   it("recovers an idempotent duplicate upload only when durable info matches", async () => {
     const file = pdfFile("repair invoice.pdf");
     let uploadCount = 0;
@@ -322,16 +415,19 @@ describe("diminished-value document storage service", () => {
     ["zero size", { size: 0 }],
     ["fractional size", { size: 1.5 }],
     ["oversized object", { size: MAX_DIMINISHED_VALUE_DOCUMENT_BYTES + 1 }],
-  ] as const)("rejects unexpected stored-document %s", async (_label, override) => {
-    server.use(
-      listHandler([listObject(`${DOCUMENT_ID}.pdf`, STORAGE_OBJECT_ID)]),
-      infoHandler(PDF_PATH, override),
-    );
+  ] as const)(
+    "rejects unexpected stored-document %s",
+    async (_label, override) => {
+      server.use(
+        listHandler([listObject(`${DOCUMENT_ID}.pdf`, STORAGE_OBJECT_ID)]),
+        infoHandler(PDF_PATH, override),
+      );
 
-    await expect(
-      createTestService().listDocuments({ userId: USER_ID, caseId: CASE_ID }),
-    ).rejects.toBeInstanceOf(DiminishedValueDocumentResponseError);
-  });
+      await expect(
+        createTestService().listDocuments({ userId: USER_ID, caseId: CASE_ID }),
+      ).rejects.toBeInstanceOf(DiminishedValueDocumentResponseError);
+    },
+  );
 
   it("rejects an unexpected object name returned within the list scope", async () => {
     server.use(
@@ -384,9 +480,8 @@ describe("diminished-value document storage service", () => {
     [[{ name: PDF_PATH }, { name: `${PREFIX}/${SECOND_DOCUMENT_ID}.pdf` }]],
   ] as const)("rejects a mismatched removal response", async (response) => {
     server.use(
-      http.delete(
-        `${SUPABASE_URL}/storage/v1/object/case-files`,
-        () => HttpResponse.json(response),
+      http.delete(`${SUPABASE_URL}/storage/v1/object/case-files`, () =>
+        HttpResponse.json(response),
       ),
     );
 
@@ -423,16 +518,12 @@ async function captureStorageWrite(
 }
 
 function listHandler(objects: readonly Record<string, unknown>[]) {
-  return http.post(
-    `${SUPABASE_URL}/storage/v1/object/list/case-files`,
-    () => HttpResponse.json(objects),
+  return http.post(`${SUPABASE_URL}/storage/v1/object/list/case-files`, () =>
+    HttpResponse.json(objects),
   );
 }
 
-function infoHandler(
-  path: string,
-  overrides: Record<string, unknown> = {},
-) {
+function infoHandler(path: string, overrides: Record<string, unknown> = {}) {
   return http.get(
     `${SUPABASE_URL}/storage/v1/object/info/case-files/${path}`,
     () => HttpResponse.json(storageInfo(path, overrides)),

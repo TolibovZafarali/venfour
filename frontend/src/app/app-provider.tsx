@@ -4,6 +4,12 @@ import { useCallback } from "react";
 import { RouterProvider } from "react-router";
 import type { RouterProviderProps } from "react-router";
 
+import {
+  AdminDiminishedValueDependenciesProvider,
+  createAdminDiminishedValueDependencies,
+  type AdminDiminishedValueDependencies,
+} from "@/features/admin/diminished-value/dependencies";
+import { adminDiminishedValueQueryKeys } from "@/features/admin/diminished-value/queries";
 import { AuthProvider, type AuthService } from "@/features/auth";
 import { appraisalCaseQueryKeys } from "@/features/cases/queries";
 import {
@@ -35,8 +41,13 @@ const defaultDiminishedValueDependencies =
   supabaseClientState.status === "available"
     ? createDiminishedValueDependencies(supabaseClientState.client)
     : null;
+const defaultAdminDiminishedValueDependencies =
+  supabaseClientState.status === "available"
+    ? createAdminDiminishedValueDependencies(supabaseClientState.client)
+    : null;
 
 interface AppProviderProps {
+  adminDiminishedValueDependencies?: AdminDiminishedValueDependencies | null;
   authService?: AuthService | null;
   authUnavailableReason?: string;
   diminishedValueDependencies?: DiminishedValueDependencies | null;
@@ -46,6 +57,7 @@ interface AppProviderProps {
 }
 
 export function AppProvider({
+  adminDiminishedValueDependencies,
   authService,
   authUnavailableReason,
   diminishedValueDependencies,
@@ -61,9 +73,16 @@ export function AppProvider({
     diminishedValueDependencies === undefined
       ? defaultDiminishedValueDependencies
       : diminishedValueDependencies;
+  const resolvedAdminDiminishedValueDependencies =
+    adminDiminishedValueDependencies === undefined
+      ? defaultAdminDiminishedValueDependencies
+      : adminDiminishedValueDependencies;
   const handleIdentityResolved = useCallback(
     (nextUserId: string | null) => {
       queryClient.removeQueries({ queryKey: appraisalCaseQueryKeys.all });
+      queryClient.removeQueries({
+        queryKey: adminDiminishedValueQueryKeys.all,
+      });
 
       const storedDraft = readTotalLossDraft();
       if (
@@ -93,17 +112,21 @@ export function AppProvider({
         unavailableReason={authUnavailableReason}
         onIdentityResolved={handleIdentityResolved}
       >
-        <TotalLossDependenciesProvider
-          dependencies={resolvedTotalLossDependencies}
+        <AdminDiminishedValueDependenciesProvider
+          dependencies={resolvedAdminDiminishedValueDependencies}
         >
-          <DiminishedValueDependenciesProvider
-            dependencies={resolvedDiminishedValueDependencies}
+          <TotalLossDependenciesProvider
+            dependencies={resolvedTotalLossDependencies}
           >
-            <CookieConsentProvider>
-              <RouterProvider router={router} />
-            </CookieConsentProvider>
-          </DiminishedValueDependenciesProvider>
-        </TotalLossDependenciesProvider>
+            <DiminishedValueDependenciesProvider
+              dependencies={resolvedDiminishedValueDependencies}
+            >
+              <CookieConsentProvider>
+                <RouterProvider router={router} />
+              </CookieConsentProvider>
+            </DiminishedValueDependenciesProvider>
+          </TotalLossDependenciesProvider>
+        </AdminDiminishedValueDependenciesProvider>
       </AuthProvider>
     </QueryClientProvider>
   );

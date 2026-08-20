@@ -39,6 +39,8 @@ const intentDescriptions: Record<SignInIntent, string> = {
     "Sign in to securely save your total-loss information and continue to the free value check.",
   "continue-diminished-value":
     "Sign in to securely save your diminished-value request and supporting documents.",
+  "staff-review":
+    "Sign in with an authorized Venfour staff account to open the secure review workspace.",
 };
 
 export function SignInDialog({
@@ -146,7 +148,10 @@ export function SignInDialog({
                 aria-live="polite"
               >
                 <div className="flex items-start gap-3">
-                  <Mail className="mt-0.5 size-5 shrink-0 text-brand" aria-hidden />
+                  <Mail
+                    className="mt-0.5 size-5 shrink-0 text-brand"
+                    aria-hidden
+                  />
                   <p className="min-w-0 text-sm leading-6 text-ink">
                     We sent a sign-in link to{" "}
                     <span className="font-semibold break-all">{email}</span>.

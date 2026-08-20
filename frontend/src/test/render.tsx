@@ -5,11 +5,13 @@ import { createMemoryRouter } from "react-router";
 import { AppProvider } from "@/app/app-provider";
 import { createAppQueryClient } from "@/app/query-client";
 import { appRoutes } from "@/app/router";
+import type { AdminDiminishedValueDependencies } from "@/features/admin/diminished-value/dependencies";
 import type { AuthService } from "@/features/auth";
 import type { DiminishedValueDependencies } from "@/features/diminished-value/dependencies";
 import type { TotalLossDependencies } from "@/features/total-loss/dependencies";
 
 interface RenderTestAppOptions {
+  adminDiminishedValueDependencies?: AdminDiminishedValueDependencies | null;
   authService?: AuthService | null;
   authUnavailableReason?: string;
   diminishedValueDependencies?: DiminishedValueDependencies | null;
@@ -20,6 +22,7 @@ interface RenderTestAppOptions {
 export function renderTestApp(
   initialEntries = ["/"],
   {
+    adminDiminishedValueDependencies = null,
     authService,
     authUnavailableReason,
     diminishedValueDependencies,
@@ -32,6 +35,7 @@ export function renderTestApp(
 
   const app = (
     <AppProvider
+      adminDiminishedValueDependencies={adminDiminishedValueDependencies}
       authService={authService}
       authUnavailableReason={authUnavailableReason}
       diminishedValueDependencies={diminishedValueDependencies}

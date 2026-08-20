@@ -11,10 +11,13 @@ import {
 
 import { isPageMetadata, useDocumentMetadata } from "@/app/document-metadata";
 import { supportEmail } from "@/config/support";
+import { useAdminDiminishedValueDependencies } from "@/features/admin/diminished-value/dependencies";
+import { useStaffAccessQuery } from "@/features/admin/diminished-value/queries";
 import {
   AccountControl,
   MobileAccountControl,
   SignInDialogProvider,
+  useAuth,
 } from "@/features/auth";
 import { CookieConsent } from "@/features/privacy/cookie-consent";
 import { useCookieConsent } from "@/features/privacy/cookie-consent-context";
@@ -41,11 +44,22 @@ export function AppShell() {
 function AppShellContent() {
   const analysisRoute = useMatch("/analyses/:runId");
   const location = useLocation();
+  const adminRoute = location.pathname.startsWith("/admin/");
   const startFlowRoute =
-    location.pathname === "/start" ||
-    location.pathname === "/total-loss/start";
+    location.pathname === "/start" || location.pathname === "/total-loss/start";
   const matches = useMatches();
   const navigate = useNavigate();
+  const { auth } = useAuth();
+  const adminDependencies = useAdminDiminishedValueDependencies();
+  const signedInUserId = auth.status === "signedIn" ? auth.user.id : null;
+  const [staffNavigationRequestUserId, setStaffNavigationRequestUserId] =
+    useState<string | null>(null);
+  const staffAccessRequested =
+    adminRoute || staffNavigationRequestUserId === signedInUserId;
+  const staffAccessQuery = useStaffAccessQuery({
+    service: adminDependencies?.caseService ?? null,
+    userId: staffAccessRequested ? signedInUserId : null,
+  });
   const { openPreferences } = useCookieConsent();
   const [headerDetached, setHeaderDetached] = useState(false);
   const [mobileNavigationOpen, setMobileNavigationOpen] = useState(false);
@@ -125,8 +139,15 @@ function AppShellContent() {
     : "/#diminished-value";
   const howItWorksHref = onHomePage ? "#how-it-works" : "/#how-it-works";
   const primaryActionHref = "/start?service=total-loss";
+  const requestStaffNavigation = () => {
+    if (signedInUserId) setStaffNavigationRequestUserId(signedInUserId);
+  };
+  const staffReviewHref = staffAccessQuery.data
+    ? "/admin/diminished-value"
+    : undefined;
   const visibleHeaderDetached = headerDetached && !startFlowRoute;
-  const detachedHeaderMaxWidth = analysisRoute ? "max-w-[90rem]" : "max-w-7xl";
+  const detachedHeaderMaxWidth =
+    analysisRoute || adminRoute ? "max-w-[90rem]" : "max-w-7xl";
   const headerMotionClassName = visibleHeaderDetached
     ? "duration-[560ms] ease-[cubic-bezier(0.4,0,0.2,1)]"
     : "duration-[360ms] ease-[cubic-bezier(0.4,0,0.2,1)]";
@@ -176,7 +197,9 @@ function AppShellContent() {
             <div
               className={cn(
                 "mx-auto flex min-h-16 w-full items-center justify-between gap-4 px-5 py-2.5 sm:px-8",
-                analysisRoute ? "max-w-[90rem] lg:px-10" : "max-w-7xl",
+                analysisRoute || adminRoute
+                  ? "max-w-[90rem] lg:px-10"
+                  : "max-w-7xl",
               )}
             >
               <div className="flex min-w-0 items-center gap-3 sm:gap-4">
@@ -194,17 +217,21 @@ function AppShellContent() {
                   />
                   <span>VENFOUR</span>
                 </Link>
-                {analysisRoute ? (
+                {analysisRoute || adminRoute ? (
                   <span className="hidden border-l border-ink/10 pl-4 text-[0.6875rem] font-semibold tracking-[0.12em] text-copy/80 uppercase sm:block">
-                    Valuation review
+                    {adminRoute ? "Staff review" : "Valuation review"}
                   </span>
                 ) : null}
               </div>
 
-              {startFlowRoute ? (
+              {startFlowRoute || adminRoute ? (
                 <AccountControl
                   className="shrink-0"
-                  signedOutHint="Already have an account?"
+                  onStaffNavigationRequest={requestStaffNavigation}
+                  signedOutHint={
+                    startFlowRoute ? "Already have an account?" : undefined
+                  }
+                  staffReviewHref={staffReviewHref}
                 />
               ) : (
                 <>
@@ -224,7 +251,10 @@ function AppShellContent() {
                     <a href={howItWorksHref} className={primaryLinkClassName}>
                       How It Works
                     </a>
-                    <AccountControl />
+                    <AccountControl
+                      onStaffNavigationRequest={requestStaffNavigation}
+                      staffReviewHref={staffReviewHref}
+                    />
                     <a
                       href={primaryActionHref}
                       className="ml-1 inline-flex min-h-11 items-center rounded-lg border border-blue-300/20 bg-brand px-4 text-[0.8125rem] font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.2),0_8px_20px_-12px_rgba(21,94,239,0.95)] transition-colors hover:bg-[#2b6cf4] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 focus-visible:ring-offset-2 motion-reduce:transition-none"
@@ -252,7 +282,12 @@ function AppShellContent() {
                           ? "Close navigation"
                           : "Open navigation"
                       }
-                      onClick={() => setMobileNavigationOpen((open) => !open)}
+                      onClick={() =>
+                        setMobileNavigationOpen((open) => {
+                          if (!open) requestStaffNavigation();
+                          return !open;
+                        })
+                      }
                     >
                       {mobileNavigationOpen ? (
                         <X className="size-5" aria-hidden />
@@ -265,7 +300,7 @@ function AppShellContent() {
               )}
             </div>
 
-            {!startFlowRoute && mobileNavigationOpen ? (
+            {!startFlowRoute && !adminRoute && mobileNavigationOpen ? (
               <nav
                 id="mobile-navigation"
                 className={cn(
@@ -299,6 +334,7 @@ function AppShellContent() {
                   <MobileAccountControl
                     className="border-t-0"
                     onAction={() => setMobileNavigationOpen(false)}
+                    staffReviewHref={staffReviewHref}
                   />
                 </div>
               </nav>
@@ -309,7 +345,7 @@ function AppShellContent() {
       <main id="main-content" className="flex flex-1" tabIndex={-1}>
         <Outlet />
       </main>
-      {!startFlowRoute ? (
+      {!startFlowRoute && !adminRoute ? (
         <footer className="border-t border-line bg-surface">
           <div className="mx-auto w-full max-w-7xl px-5 py-6 sm:px-8 sm:py-7">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
