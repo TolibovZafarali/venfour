@@ -13,11 +13,14 @@ import { AnalysisPage } from "@/pages/analysis-page";
 import { AdminDiminishedValueCasePage } from "@/pages/admin-diminished-value-case-page";
 import { AdminDiminishedValueQueuePage } from "@/pages/admin-diminished-value-queue-page";
 import { AppraisalStartPage } from "@/pages/appraisal-start-page";
+import { ContactPage } from "@/pages/contact-page";
 import { CookiePolicyPage } from "@/pages/cookie-policy-page";
 import { HomePage } from "@/pages/home-page";
+import { MethodologyPage } from "@/pages/methodology-page";
 import { NotFoundPage } from "@/pages/not-found-page";
 import { PrivacyPage } from "@/pages/privacy-page";
 import { RouteErrorPage } from "@/pages/route-error-page";
+import { TermsPage } from "@/pages/terms-page";
 import { TotalLossAnalysisPage } from "@/pages/total-loss-analysis-page";
 
 const metadata = (title: string, description: string): PageMetadata => ({
@@ -43,16 +46,16 @@ export const appRoutes: RouteObject[] = [
         index: true,
         element: <HomePage />,
         handle: metadata(
-          "Vehicle Appraisals After an Accident | Venfour",
-          "Start a total-loss appraisal online or learn how a diminished value appraisal documents value lost after repairs.",
+          "Vehicle Valuation Reviews After an Accident | Venfour",
+          "Review an original CCC total-loss valuation report or submit repaired-vehicle details for future manual diminished-value review.",
         ),
       },
       {
         path: "start",
         element: <AppraisalStartPage />,
         handle: metadata(
-          "Start Your Vehicle Appraisal | Venfour",
-          "Start a total-loss or diminished value appraisal and provide the details Venfour needs to review your vehicle.",
+          "Start a Vehicle Valuation Review | Venfour",
+          "Start a supported CCC total-loss review or submit a diminished-value request for future manual review.",
         ),
       },
       {
@@ -110,11 +113,35 @@ export const appRoutes: RouteObject[] = [
         ),
       },
       {
+        path: "methodology",
+        element: <MethodologyPage />,
+        handle: metadata(
+          "Total-Loss Review Methodology | Venfour",
+          "Learn how Venfour reviews supported CCC report facts and market evidence using structured, conservative rules.",
+        ),
+      },
+      {
+        path: "terms",
+        element: <TermsPage />,
+        handle: metadata(
+          "Terms of Use | Venfour",
+          "Read the terms and current service limits for Venfour total-loss reviews and diminished-value review requests.",
+        ),
+      },
+      {
+        path: "contact",
+        element: <ContactPage />,
+        handle: metadata(
+          "Contact Venfour",
+          "Contact Venfour about a supported report, a saved request, or the current vehicle-valuation review services.",
+        ),
+      },
+      {
         path: "privacy",
         element: <PrivacyPage />,
         handle: metadata(
           "Privacy Policy | Venfour",
-          "Learn how Venfour handles information used for vehicle valuation reviews.",
+          "Learn how Venfour handles account, total-loss, diminished-value, document, and analysis information.",
         ),
       },
       {

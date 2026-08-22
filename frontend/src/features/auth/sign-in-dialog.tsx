@@ -32,9 +32,9 @@ interface SignInDialogProps {
 
 const intentDescriptions: Record<SignInIntent, string> = {
   default:
-    "Sign in to save your progress and return to your appraisal cases later.",
+    "Sign in to securely save your supported review or diminished-value request.",
   "secure-report-upload":
-    "Sign in so Venfour can securely store your insurance valuation report with your appraisal case.",
+    "Sign in so Venfour can securely store your original CCC valuation report with your total-loss case.",
   "continue-total-loss":
     "Sign in to securely save your total-loss information and continue to the free value check.",
   "continue-diminished-value":
@@ -267,10 +267,19 @@ export function SignInDialog({
               )}
 
               <p className="mt-5 border-t border-line pt-4 text-xs leading-5 text-copy">
-                By continuing, you acknowledge Venfour’s{" "}
+                By continuing, you agree to Venfour’s{" "}
+                <Link
+                  to="/terms"
+                  className={`rounded-sm font-medium text-ink underline decoration-ink/25 underline-offset-4 hover:text-brand ${focusRingClassName}`}
+                  onClick={() => onOpenChange(false)}
+                >
+                  Terms of Use
+                </Link>{" "}
+                and acknowledge the{" "}
                 <Link
                   to="/privacy"
                   className={`rounded-sm font-medium text-ink underline decoration-ink/25 underline-offset-4 hover:text-brand ${focusRingClassName}`}
+                  onClick={() => onOpenChange(false)}
                 >
                   Privacy Policy
                 </Link>{" "}
@@ -278,6 +287,7 @@ export function SignInDialog({
                 <Link
                   to="/cookies"
                   className={`rounded-sm font-medium text-ink underline decoration-ink/25 underline-offset-4 hover:text-brand ${focusRingClassName}`}
+                  onClick={() => onOpenChange(false)}
                 >
                   Cookie Policy
                 </Link>

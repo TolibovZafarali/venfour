@@ -10,34 +10,40 @@ export function PrivacyPage() {
     <PublicPage
       eyebrow="Privacy"
       title="How Venfour handles your information"
-      introduction="This page describes the current Venfour service in practical terms: what is stored when you use an account or start an appraisal, how case-owned analysis records are handled, and what controls are not yet available."
-      updated="Last updated August 19, 2026"
+      introduction="This page describes the current Venfour service in practical terms: what is stored when you use an account, start a supported total-loss review, or submit a diminished-value request, and what controls are not yet available."
+      updated="Last updated August 21, 2026"
     >
       <PublicPageSection title="Information you provide">
         <p>
-          To begin a total-loss appraisal, you can provide an insurance vehicle
-          valuation report or manually enter vehicle and claim details such as
-          the VIN, year, make, model, trim, mileage, ZIP code, date of loss,
-          insurance company, and insurer vehicle valuation. Reports can include
-          a vehicle identification number, claim or report references, loss and report
-          dates, valuation amounts, condition information, dealer information,
-          and comparable vehicle details. Please review your document before
-          uploading it.
+          To begin the currently supported total-loss review, you provide a ZIP
+          code and an original CCC valuation report PDF. The report can include
+          a vehicle identification number, vehicle and mileage information,
+          claim or report references, loss and report dates, valuation amounts,
+          condition information, dealer information, comparable vehicles, and
+          adjustment details. Please review your document before uploading it.
+        </p>
+        <p>
+          A diminished-value request can include the accident state and date,
+          repair status, VIN or selected year, make, and model, mileage,
+          responsibility and insurer information, repair cost and facility,
+          structural or airbag involvement, repair details, your name, email,
+          phone number, preferred contact method, availability, notes, and any
+          supporting PDF or image documents you choose to provide.
         </p>
         <p>
           You may sign in with Google or a passwordless email link so Venfour
-          can restore your session and support saved appraisal cases. A
-          total-loss analysis created from the current intake is linked to the
-          saved case and can be loaded only after Venfour verifies the signed-in
-          account owns it. A results identifier or link by itself is not
-          authorization to view an analysis.
+          can restore your session and support saved case records. A total-loss
+          analysis or diminished-value request created from the current intake
+          is linked to the saved case and can be loaded only after Venfour
+          verifies the signed-in account owns it. A case or results identifier
+          by itself is not authorization to view private information.
         </p>
       </PublicPageSection>
 
       <PublicPageSection title="Account and case information">
         <p>
           Venfour uses Supabase to authenticate customers and store limited
-          account, profile, and appraisal-case information. Depending on how
+          account, profile, and vehicle-review case information. Depending on how
           you sign in, Supabase may process your email address and basic Google
           account information. Venfour stores only the application profile and
           case metadata needed to support the service.
@@ -51,19 +57,22 @@ export function PrivacyPage() {
         <p>
           Customer case records are protected by database access policies
           intended to restrict each signed-in customer to their own records.
-          The current total-loss intake stores an uploaded insurance report in
-          private case-file storage. When you start a value check, Venfour also
-          stores case-owned processing state and the resulting analysis record.
+          Total-loss reports and diminished-value supporting documents are kept
+          in private case-file storage. When you start a total-loss value check,
+          Venfour also stores case-owned processing state and the resulting
+          analysis record. Authorized Venfour staff can access submitted
+          diminished-value requests and their supporting documents for manual
+          review.
         </p>
       </PublicPageSection>
 
-      <PublicPageSection title="Current report and analysis handling">
+      <PublicPageSection title="Total-loss report and analysis handling">
         <p>
-          A report uploaded through the current authenticated total-loss intake
-          is kept in private case-file storage. When you choose to start the
-          value check, Venfour verifies the signed-in case owner, retrieves the
-          report through a server-controlled path, validates the PDF, and uses a
-          temporary server copy while processing it.
+          An original CCC report uploaded through the authenticated total-loss
+          intake is kept in private case-file storage. When you choose to start
+          the value check, Venfour verifies the signed-in case owner, retrieves
+          the report through a server-controlled path, validates the PDF, and
+          uses a temporary server copy while processing it.
         </p>
         <p>
           The report is structured with help from a third-party model provider
@@ -72,6 +81,24 @@ export function PrivacyPage() {
           applies its deterministic analysis rules. The resulting validated
           analysis is linked to the appraisal case. The retired public web
           upload screen is not part of this customer path.
+        </p>
+      </PublicPageSection>
+
+      <PublicPageSection title="Diminished-value request handling">
+        <p>
+          Before submission, the same browser can keep a diminished-value draft
+          in essential browser storage. After sign-in, Venfour stores the saved
+          request with the customer-owned case and stores selected supporting
+          documents in private case-file storage. A submitted request becomes
+          read-only to the customer so the reviewed record is not silently
+          changed afterward.
+        </p>
+        <p>
+          Authorized Venfour staff can list and read submitted
+          diminished-value requests and download their submitted supporting
+          documents for manual review. Draft requests are not included in that
+          staff queue. The current form does not create an automated appraisal
+          or schedule an appointment.
         </p>
       </PublicPageSection>
 
@@ -92,24 +119,26 @@ export function PrivacyPage() {
 
       <PublicPageSection title="Storage and retention">
         <p>
-          The authenticated total-loss start flow keeps its report in private
-          case-file storage. Before sign-in, manual intake information may be
-          kept in essential browser storage so the same browser can restore the
-          draft; PDF bytes are not stored there. During a value check, the
-          server-generated temporary PDF copy is removed when processing ends,
-          and removal of the uploaded model-provider copy is requested after
-          extraction. The private case-file copy remains with the saved case.
+          Total-loss reports and diminished-value supporting documents remain
+          in private case-file storage with their saved cases. Before sign-in,
+          intake information may be kept in essential browser storage so the
+          same browser can restore a draft; document bytes are not stored there.
+          During a total-loss value check, the server-generated temporary PDF
+          copy is removed when processing ends, and removal of the uploaded
+          model-provider copy is requested after extraction. The private
+          case-file copy remains with the saved case.
         </p>
         <p>
-          Venfour retains the case-owned analysis-derived record so the signed-in
-          customer can return to the result. Saved appraisal-case information
-          and private case files are retained to support the current customer
-          flow. Account sessions and draft information may be retained in
-          essential browser storage. The current service does not publish or
-          enforce a fixed automatic deletion schedule and does not yet provide
-          self-service account, case, file, or retained-analysis deletion
-          controls. If you are not comfortable with that current limitation, do
-          not upload a report.
+          Venfour retains case-owned total-loss analysis records and submitted
+          diminished-value requests so the current service can display or
+          review them. Saved case information and private case files are
+          retained to support these flows. Account sessions and draft
+          information may be retained in essential browser storage. The current
+          service does not publish or enforce a fixed automatic deletion
+          schedule and does not yet provide self-service account, case, file,
+          request, or retained-analysis deletion controls. If you are not
+          comfortable with that current limitation, do not upload a report or
+          supporting document.
         </p>
       </PublicPageSection>
 
@@ -123,8 +152,8 @@ export function PrivacyPage() {
           storage system can be guaranteed completely secure.
         </p>
         <p>
-          Do not upload documents unrelated to a vehicle valuation review. Keep
-          your sign-in methods and saved appraisal links private.
+          Do not upload documents unrelated to a supported vehicle review. Keep
+          your sign-in methods and saved case links private.
         </p>
       </PublicPageSection>
 
@@ -132,7 +161,8 @@ export function PrivacyPage() {
         <p>
           {supportEmail ? (
             <>
-              Questions about this notice or the handling of a report can be
+              Questions about this notice or the handling of a report or
+              diminished-value request can be
               sent to{" "}
               <a
                 href={`mailto:${supportEmail}`}

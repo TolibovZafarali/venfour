@@ -18,6 +18,7 @@ coverage/
 *.tsbuildinfo
 
 !frontend/.env.example
+!frontend/.env.staging.example
 
 supabase/.temp/
 supabase/.branches/

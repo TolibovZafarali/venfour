@@ -41,6 +41,7 @@ from venfour.creation import (
     AnalysisCreationInputError,
     AnalysisCreationService,
     AnalysisSearchSettings,
+    AnalysisUnsupportedReportError,
     create_live_analysis_creation_service,
 )
 from venfour.discrepancy import CURRENT_MARKET
@@ -191,6 +192,26 @@ class AnalysisCreationApplicationFlowTests(AnalysisCreationTestCase):
             AnalysisSearchSettings().search_policies,
             DEFAULT_ADAPTIVE_SEARCH_POLICIES,
         )
+
+    def test_service_rejects_non_ccc_provider_before_market_research(self) -> None:
+        for provider in (
+            "Another valuation provider",
+            "NOT CCC",
+            "CCC competitor",
+        ):
+            with self.subTest(provider=provider):
+                report = make_report()
+                report["report"]["provider"] = provider
+                extractor = RecordingExtractor(report)
+                service, current, historical, _ = self.make_service(extractor)
+                report_path = self.root / "report.pdf"
+                report_path.write_bytes(PDF_BYTES)
+
+                with self.assertRaises(AnalysisUnsupportedReportError):
+                    service.create(report_path, POSTAL_CODE)
+
+                self.assertEqual(current.requests, [])
+                self.assertEqual(historical.requests, [])
 
     def test_uploaded_pdf_creates_persisted_run_and_retrievable_presentation(
         self,
@@ -507,6 +528,23 @@ class AnalysisCreationApiValidationTests(AnalysisCreationTestCase):
         self.assert_error(invalid, 422, "REPORT_NOT_ANALYZABLE")
         self.assert_error(failed, 502, "REPORT_EXTRACTION_FAILED")
         self.assertNotIn(secret, failed.text)
+
+    def test_unsupported_provider_returns_truthful_nonsecret_error(self) -> None:
+        report = make_report()
+        report["report"]["provider"] = "Another valuation provider"
+        extractor = RecordingExtractor(report)
+        service, _, _, _ = self.make_service(extractor)
+
+        with TestClient(
+            create_app(repository=self.repository, creation_service=service)
+        ) as client:
+            response = self.post_report(client)
+
+        self.assert_error(response, 422, "UNSUPPORTED_REPORT")
+        self.assertEqual(
+            response.json()["error"]["message"],
+            "This tester release supports original CCC valuation report PDFs only.",
+        )
 
     def test_provider_failure_saves_nothing_and_cleans_temporary_pdf(self) -> None:
         secret = "private-provider-detail"

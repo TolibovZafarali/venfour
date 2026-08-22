@@ -54,7 +54,7 @@ const exampleAnalysisByService: Record<
       },
     ],
     explanation:
-      "Venfour compares the insurer’s valuation with relevant market evidence.",
+      "A supported CCC review compares the insurer’s valuation with relevant market evidence. Actual results depend on the report and available evidence.",
   },
   "diminished-value": {
     vehicle: "2025 Hyundai Tucson SEL",
@@ -75,7 +75,7 @@ const exampleAnalysisByService: Record<
       { label: "Post-repair", value: 28_900, widthPercent: 85 },
     ],
     explanation:
-      "Venfour helps document how an accident can affect a repaired vehicle’s market value.",
+      "This example shows what a reviewer may examine. Submitting the current form does not create an automated appraisal.",
   },
 };
 

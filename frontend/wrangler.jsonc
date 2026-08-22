@@ -1,0 +1,55 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "venfour-frontend-boundary",
+  "main": "worker/index.ts",
+  "compatibility_date": "2026-08-21",
+  "workers_dev": false,
+  "preview_urls": false,
+  "build": {
+    "command": "npm run build:staging"
+  },
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "html_handling": "none",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": true
+  },
+  "observability": {
+    "enabled": false,
+    "logs": {
+      "enabled": false,
+      "invocation_logs": false,
+      "persist": false
+    },
+    "traces": {
+      "enabled": false,
+      "persist": false
+    }
+  },
+  "env": {
+    "staging": {
+      "name": "venfour-frontend-staging",
+      "workers_dev": false,
+      "preview_urls": false,
+      "routes": [
+        {
+          "pattern": "staging.venfour.com",
+          "custom_domain": true
+        }
+      ],
+      "vars": {
+        "API_ORIGIN": "https://venfour-api-staging-640078527158.us-east4.run.app",
+        "DEPLOYMENT_ENVIRONMENT": "staging",
+        "STAGING_HOSTNAME": "staging.venfour.com"
+      },
+      "assets": {
+        "directory": "./dist",
+        "binding": "ASSETS",
+        "html_handling": "none",
+        "not_found_handling": "single-page-application",
+        "run_worker_first": true
+      }
+    }
+  }
+}

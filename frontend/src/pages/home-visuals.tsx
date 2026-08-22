@@ -211,7 +211,7 @@ export function ProcessIllustration({ step }: ProcessIllustrationProps) {
       <div className={`${processCardClassName} border-market/30`}>
         <div className="flex items-center justify-between gap-3">
           <span className="text-[0.6875rem] font-semibold text-ink">
-            Appraisal result
+            Evidence review result
           </span>
           <Check className="size-4 text-market-strong" aria-hidden />
         </div>
@@ -229,7 +229,7 @@ export function ProcessIllustration({ step }: ProcessIllustrationProps) {
         </p>
       </div>
       <figcaption className="sr-only">
-        A clear appraisal result showing an example market range.
+        A clear on-screen evidence review showing an example market range.
       </figcaption>
     </figure>
   );
@@ -360,7 +360,9 @@ export function DiminishedValueExplainerVisual() {
         </div>
       </div>
       <figcaption className="mt-5 text-xs leading-5 text-copy">
-        A diminished value appraisal documents the value that may have been lost after repairs.
+        A manual reviewer may examine how accident history and repairs relate to
+        a possible change in resale value. This illustration is not an
+        automated appraisal.
       </figcaption>
     </figure>
   );
@@ -380,7 +382,7 @@ export function AppraisalReportVisual() {
         <div className="flex items-center justify-between gap-4 border-b border-slate-200 px-4 py-3 sm:px-5">
           <div className="flex items-center gap-2">
             <span className="size-2 rounded-full bg-market" aria-hidden />
-            <p className="text-xs font-semibold text-ink">Appraisal overview</p>
+            <p className="text-xs font-semibold text-ink">Analysis overview</p>
           </div>
           <span className="text-[0.625rem] text-copy">Example only</span>
         </div>
@@ -449,7 +451,7 @@ export function AppraisalReportVisual() {
         ))}
       </ol>
       <figcaption className="sr-only">
-        A synthetic Venfour appraisal overview with four areas: vehicle and insurance value, market range, similar vehicles, and a clear explanation with limitations.
+        A synthetic Venfour on-screen analysis with four areas: vehicle and insurance value, market range, similar vehicles, and a clear explanation with limitations.
       </figcaption>
     </figure>
   );

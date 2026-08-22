@@ -36,6 +36,7 @@ enabled = true
 site_url = "http://localhost:5173"
 additional_redirect_urls = [
   "http://localhost:5173/auth/callback",
+  "https://staging.venfour.com/auth/callback",
   "https://venfour.com/auth/callback",
 ]
 jwt_expiry = 3600

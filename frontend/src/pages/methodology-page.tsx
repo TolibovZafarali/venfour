@@ -5,9 +5,9 @@ import { PublicPage, PublicPageSection } from "@/pages/public-page";
 
 const methodologySteps = [
   {
-    title: "Read the CCC report",
+    title: "Read the original CCC report",
     description:
-      "Venfour uses model-assisted document reading to identify the facts in the uploaded report, including the loss vehicle, CCC value, listed comparables, and disclosed adjustments.",
+      "Venfour uses model-assisted document reading to identify facts in the uploaded original CCC valuation report PDF, including the loss vehicle, CCC value, listed comparables, and disclosed adjustments.",
   },
   {
     title: "Structure and check the report facts",
@@ -50,9 +50,19 @@ export function MethodologyPage() {
   return (
     <PublicPage
       eyebrow="Methodology"
-      title="A structured review of report facts and market evidence"
-      introduction="Venfour separates document reading from the evidence rules that produce the assessment. The goal is a reproducible, understandable review—not an automated opinion about what an insurer legally owes."
+      title="How the supported CCC total-loss review works"
+      introduction="Venfour separates document reading from the evidence rules that produce the total-loss assessment. The goal is a reproducible, understandable review—not an automated opinion about what an insurer legally owes."
     >
+      <PublicPageSection title="Current scope">
+        <p>
+          This methodology applies only to the automated total-loss path using
+          an original CCC valuation report PDF. Other report formats and
+          no-report total-loss review are not currently supported. The
+          diminished-value form submits information for future manual review
+          and does not use this automated methodology.
+        </p>
+      </PublicPageSection>
+
       <ol aria-label="How a Venfour analysis works">
         {methodologySteps.map((step, index) => (
           <li
@@ -98,7 +108,7 @@ export function MethodologyPage() {
           advice from a qualified appraiser or attorney when one is needed.
         </p>
         <Button asChild className="mt-2" size="lg">
-          <Link to="/start?service=total-loss">Start a valuation review</Link>
+          <Link to="/start?service=total-loss">Start a CCC report review</Link>
         </Button>
       </PublicPageSection>
     </PublicPage>

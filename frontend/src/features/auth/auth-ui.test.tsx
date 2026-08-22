@@ -163,8 +163,36 @@ describe("sign-in dialog", () => {
     expect(
       screen.getByRole("dialog", { name: "Sign in to Venfour" }),
     ).toHaveTextContent(
-      "Sign in so Venfour can securely store your insurance valuation report",
+      "Sign in so Venfour can securely store your original CCC valuation report",
     );
+    expect(
+      screen.getByRole("link", { name: "Terms of Use" }),
+    ).toHaveAttribute("href", "/terms");
+  });
+
+  test("links the current legal pages and closes before navigating", async () => {
+    const user = userEvent.setup();
+    renderSignIn(createService());
+
+    await user.click(screen.getByRole("button", { name: "Open sign in" }));
+
+    expect(screen.getByRole("link", { name: "Terms of Use" })).toHaveAttribute(
+      "href",
+      "/terms",
+    );
+    expect(screen.getByRole("link", { name: "Privacy Policy" })).toHaveAttribute(
+      "href",
+      "/privacy",
+    );
+    expect(screen.getByRole("link", { name: "Cookie Policy" })).toHaveAttribute(
+      "href",
+      "/cookies",
+    );
+
+    await user.click(screen.getByRole("link", { name: "Terms of Use" }));
+    expect(
+      screen.queryByRole("dialog", { name: "Sign in to Venfour" }),
+    ).not.toBeInTheDocument();
   });
 
   test("disables competing controls while an email link is pending", async () => {

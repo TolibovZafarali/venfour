@@ -67,6 +67,10 @@ class AnalysisReportValidationError(AnalysisCreationError):
     """Extracted report data cannot enter the current analysis pipeline."""
 
 
+class AnalysisUnsupportedReportError(AnalysisCreationError):
+    """The report provider is outside the supported automated workflow."""
+
+
 class AnalysisCreationProviderError(AnalysisCreationError):
     """A configured market-evidence provider failed during creation."""
 
@@ -101,6 +105,14 @@ def _normalized_postal_code(value: str) -> str:
         raise AnalysisCreationInputError(
             "A 5-digit US ZIP code or ZIP+4 is required"
         ) from exc
+
+
+def _is_supported_ccc_provider(value: Any) -> bool:
+    """Return whether extraction identified CCC as the printed report provider."""
+
+    if not isinstance(value, str):
+        return False
+    return value.strip().upper() in {"CCC", "CCC ONE"}
 
 
 class AnalysisCreationService:
@@ -191,6 +203,14 @@ class AnalysisCreationService:
             raise AnalysisCreationExecutionError(
                 "Canonical report validation could not complete"
             ) from exc
+
+        report = extraction.data.get("report")
+        provider = report.get("provider") if isinstance(report, dict) else None
+        if not _is_supported_ccc_provider(provider):
+            raise AnalysisUnsupportedReportError(
+                "The automated tester workflow supports CCC reports only"
+            )
+
         try:
             observed_date = self._date_factory()
         except Exception as exc:
@@ -326,6 +346,7 @@ __all__ = [
     "AnalysisCreationUnavailableError",
     "AnalysisExtractionError",
     "AnalysisReportValidationError",
+    "AnalysisUnsupportedReportError",
     "AnalysisSearchSettings",
     "create_live_analysis_creation_service",
 ]

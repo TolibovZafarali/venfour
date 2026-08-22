@@ -77,6 +77,7 @@ from .creation import (
     AnalysisExtractionError,
     AnalysisReportValidationError,
     AnalysisSearchSettings,
+    AnalysisUnsupportedReportError,
     create_live_analysis_creation_service,
 )
 from .discrepancy import (
@@ -141,6 +142,7 @@ __all__ = [
     "AnalysisPresentationService",
     "AnalysisRetrievalError",
     "AnalysisReportValidationError",
+    "AnalysisUnsupportedReportError",
     "AnalysisRunAlreadyExistsError",
     "AnalysisRunArtifact",
     "AnalysisRunContractError",

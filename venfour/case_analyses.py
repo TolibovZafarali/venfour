@@ -33,6 +33,7 @@ from venfour.creation import (
     AnalysisCreationUnavailableError,
     AnalysisExtractionError,
     AnalysisReportValidationError,
+    AnalysisUnsupportedReportError,
     create_live_analysis_creation_service,
 )
 from venfour.presentation import AnalysisPresentationService
@@ -68,6 +69,9 @@ FAILURE_MESSAGES = {
     "INVALID_REPORT": "The valuation report is invalid.",
     "REPORT_EXTRACTION_FAILED": "The valuation report could not be extracted.",
     "REPORT_NOT_ANALYZABLE": "The valuation report could not be analyzed.",
+    "UNSUPPORTED_REPORT": (
+        "This tester release supports original CCC valuation report PDFs only."
+    ),
     "MARKET_PROVIDER_UNAVAILABLE": "Market evidence is temporarily unavailable.",
     "ANALYSIS_CREATION_UNAVAILABLE": "Analysis creation is temporarily unavailable.",
     "ANALYSIS_CREATION_FAILED": "The analysis could not be created.",
@@ -479,6 +483,8 @@ class CaseAnalysisService:
             return "REPORT_EXTRACTION_FAILED", True
         if isinstance(error, AnalysisReportValidationError):
             return "REPORT_NOT_ANALYZABLE", False
+        if isinstance(error, AnalysisUnsupportedReportError):
+            return "UNSUPPORTED_REPORT", False
         if isinstance(error, AnalysisCreationProviderError):
             return "MARKET_PROVIDER_UNAVAILABLE", True
         if isinstance(error, AnalysisCreationUnavailableError):

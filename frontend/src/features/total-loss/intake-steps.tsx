@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { useId, useRef } from "react";
 import type { ChangeEvent } from "react";
+import { Link } from "react-router";
 
 import {
   FlowCard,
@@ -40,6 +41,7 @@ import { cn } from "@/lib/utils";
 
 interface ChoiceStepProps {
   selectedMode: TotalLossIntakeMode | null;
+  manualIntakeAvailable?: boolean;
   onSelect: (mode: TotalLossIntakeMode) => void;
   onContinue: () => void;
   busy?: boolean;
@@ -51,19 +53,21 @@ const choiceOptions = [
     mode: "report" as const,
     title: "I have my valuation report",
     description:
-      "Upload the PDF your insurance company used to determine your vehicle’s value.",
+      "Upload the original CCC valuation report PDF your insurance company used.",
     icon: FileText,
   },
   {
     mode: "manual" as const,
     title: "I don’t have the report",
-    description: "Find your vehicle by VIN or choose it from guided lists.",
+    description:
+      "No-report review is not available in this tester release. Use an original CCC report or contact Venfour about future manual-review availability.",
     icon: PenLine,
   },
 ] as const;
 
 export function ChoiceStep({
   selectedMode,
+  manualIntakeAvailable = false,
   onSelect,
   onContinue,
   busy,
@@ -83,6 +87,8 @@ export function ChoiceStep({
         <div className="mt-6 grid gap-4 sm:grid-cols-2">
           {choiceOptions.map((option) => {
             const selected = selectedMode === option.mode;
+            const unavailable =
+              option.mode === "manual" && !manualIntakeAvailable;
             const Icon = option.icon;
             return (
               <label
@@ -92,8 +98,10 @@ export function ChoiceStep({
                   selected
                     ? "border-brand bg-brand-soft/45 shadow-[inset_0_0_0_1px_var(--brand)]"
                     : "border-line",
-                  busy && "cursor-not-allowed opacity-65",
+                  (busy || unavailable) &&
+                    "cursor-not-allowed bg-surface/70 opacity-70 hover:border-line hover:bg-surface/70",
                 )}
+                aria-disabled={unavailable || undefined}
               >
                 <input
                   className="sr-only"
@@ -101,7 +109,7 @@ export function ChoiceStep({
                   name="total-loss-intake-mode"
                   value={option.mode}
                   checked={selected}
-                  disabled={busy}
+                  disabled={busy || unavailable}
                   onChange={() => onSelect(option.mode)}
                 />
                 <span className="flex size-11 items-center justify-center rounded-lg bg-brand-soft text-brand">
@@ -120,7 +128,11 @@ export function ChoiceStep({
                   )}
                   aria-hidden
                 >
-                  {selected ? "Selected" : "Select"}
+                  {unavailable
+                    ? "Not currently available"
+                    : selected
+                      ? "Selected"
+                      : "Select"}
                 </span>
               </label>
             );
@@ -144,6 +156,46 @@ export function ChoiceStep({
           Continue
           {!busy ? <ArrowRight className="size-4" aria-hidden /> : null}
         </button>
+      </div>
+    </FlowCard>
+  );
+}
+
+interface ManualIntakeUnavailableStepProps {
+  readonly onUseSupportedReport: () => void;
+}
+
+export function ManualIntakeUnavailableStep({
+  onUseSupportedReport,
+}: ManualIntakeUnavailableStepProps) {
+  return (
+    <FlowCard>
+      <p className="text-xs font-semibold tracking-[0.12em] text-brand uppercase">
+        Current tester release
+      </p>
+      <h2 className="mt-3 text-2xl font-semibold tracking-[-0.03em] text-ink sm:text-3xl">
+        No-report total-loss review is not available yet
+      </h2>
+      <p className="mt-3 text-base leading-7 text-copy">
+        Venfour can currently run its automated total-loss review only from an
+        original CCC valuation report PDF. Any no-report information you saved
+        has not been analyzed or submitted for manual review.
+      </p>
+      <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:items-center">
+        <button
+          type="button"
+          className={primaryFlowButtonClassName}
+          onClick={onUseSupportedReport}
+        >
+          Use an original CCC report
+          <ArrowRight className="size-4" aria-hidden />
+        </button>
+        <Link
+          to="/contact?topic=vehicle-value"
+          className={secondaryFlowButtonClassName}
+        >
+          Contact support
+        </Link>
       </div>
     </FlowCard>
   );
@@ -409,8 +461,8 @@ export function ReportStep({
     <FlowCard busy={uploadPending || completing}>
       <IntakeProgress current={2} total={2} label="Insurance report" />
       <StepHeading
-        title="Upload your valuation report"
-        description="Use the PDF your insurance company relied on to determine your vehicle’s value."
+        title="Upload your original CCC valuation report"
+        description="Automated review currently supports only the original CCC valuation report PDF your insurance company used. A review cannot be completed for other report formats in this tester release."
       />
 
       <div className="mt-7 max-w-sm">
@@ -521,7 +573,7 @@ export function ReportStep({
               <>
                 <Upload className="mx-auto size-8 text-brand" aria-hidden />
                 <p className="mt-3 text-sm font-semibold text-ink">
-                  {selectedFilename ?? "Choose your insurance report"}
+                  {selectedFilename ?? "Choose your original CCC report"}
                 </p>
                 <p className="mt-1 text-xs text-copy">
                   PDF · 50 MiB or smaller

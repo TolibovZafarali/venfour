@@ -32,7 +32,7 @@ const trustItems = [
   },
   {
     title: "Clear limitations shown",
-    detail: "The appraisal explains what the evidence can and cannot establish.",
+    detail: "The review explains what the evidence can and cannot establish.",
   },
   {
     title: "Consumer-friendly explanation",
@@ -43,8 +43,8 @@ const trustItems = [
 const processSteps = [
   {
     number: "01",
-    title: "Upload your insurance report",
-    description: "Use the vehicle value report your insurer sent you.",
+    title: "Upload your original CCC report",
+    description: "Use the original CCC valuation report PDF your insurer sent you.",
     visual: "upload" as const,
   },
   {
@@ -55,8 +55,8 @@ const processSteps = [
   },
   {
     number: "03",
-    title: "See the appraisal",
-    description: "Get a clear result you can understand and use.",
+    title: "See the evidence review",
+    description: "Read the comparison, supporting evidence, and limitations.",
     visual: "result" as const,
   },
 ] as const;
@@ -110,21 +110,22 @@ export function HomePage() {
               <span className="block">Made Clear.</span>
             </h1>
             <p className="mt-6 max-w-xl text-base leading-7 text-ink/80 sm:text-lg sm:leading-8">
-              Start a total-loss appraisal online or request a diminished value appraisal after repairs.
+              Review an original CCC total-loss valuation report online or
+              submit repaired-vehicle details for future manual review.
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
               <Link
                 to="/start?service=total-loss"
                 className={`${primaryActionClassName} shrink-0`}
               >
-                Start total-loss appraisal
+                Start CCC report review
                 <ArrowRight className="size-4" aria-hidden />
               </Link>
               <Link
                 to="/start?service=diminished-value"
                 className={`${secondaryActionClassName} shrink-0`}
               >
-                Request diminished value appraisal
+                Submit diminished-value request
               </Link>
             </div>
           </div>
@@ -142,10 +143,10 @@ export function HomePage() {
             <h2
               id="services-title"
               data-anchor-heading
-              aria-label="Two appraisals. Two different situations."
+              aria-label="Two services. Two different situations."
               className={sectionHeadingClassName}
             >
-              <span className="block">Two appraisals.</span>
+              <span className="block">Two services.</span>
               <span className="block">Two different situations.</span>
             </h2>
             <p className="mt-4 max-w-2xl text-base leading-7 text-copy sm:text-lg">
@@ -162,7 +163,7 @@ export function HomePage() {
             >
               <div className="flex flex-col justify-center p-6 sm:p-9 lg:p-12">
                 <p className="text-xs font-semibold tracking-[0.12em] text-brand uppercase">
-                  Total-Loss Appraisal
+                  CCC Total-Loss Review
                 </p>
                 <h3
                   id="total-loss-title"
@@ -172,13 +173,14 @@ export function HomePage() {
                   Your vehicle was totaled
                 </h3>
                 <p className="mt-4 max-w-md text-base leading-7 text-copy">
-                  We check the insurance value report and compare it with similar vehicles for sale.
+                  Upload the original CCC valuation report PDF so Venfour can
+                  compare its value with relevant market evidence.
                 </p>
                 <Link
                   to="/start?service=total-loss"
                   className={`${primaryActionClassName} mt-7 self-start`}
                 >
-                  Start total-loss appraisal
+                  Start CCC report review
                   <ArrowRight className="size-4" aria-hidden />
                 </Link>
               </div>
@@ -193,19 +195,21 @@ export function HomePage() {
               </div>
               <div className="flex flex-col justify-center p-6 sm:p-9 lg:order-2 lg:p-12">
                 <p className="text-xs font-semibold tracking-[0.12em] text-brand uppercase">
-                  Diminished Value Appraisal
+                  Diminished-Value Review Request
                 </p>
                 <h3 className="mt-3 text-3xl leading-tight font-semibold tracking-[-0.04em] text-ink sm:text-4xl">
                   Your vehicle was repaired
                 </h3>
                 <p className="mt-4 max-w-md text-base leading-7 text-copy">
-                  We document how the accident history may have lowered its resale value.
+                  Submit accident, repair, vehicle, and contact details for a
+                  future manual review. No instant or automated appraisal is
+                  created when you submit.
                 </p>
                 <Link
                   to="/start?service=diminished-value"
                   className={`${secondaryActionClassName} mt-7 self-start`}
                 >
-                  Request diminished value appraisal
+                  Submit diminished-value request
                 </Link>
               </div>
             </article>
@@ -230,14 +234,15 @@ export function HomePage() {
                 Start online in a few steps
               </h2>
               <p className="mt-4 max-w-2xl text-base leading-7 text-copy sm:text-lg">
-                The total-loss appraisal begins with the report already sent by your insurance company.
+                The automated total-loss review currently begins with an
+                original CCC valuation report PDF.
               </p>
             </div>
             <Link
               to="/start?service=total-loss"
               className={`${secondaryActionClassName} shrink-0 self-start lg:self-auto`}
             >
-              Upload your report
+              Upload your CCC report
               <ArrowRight className="size-4" aria-hidden />
             </Link>
           </div>
@@ -311,7 +316,7 @@ export function HomePage() {
               to="/start?service=diminished-value"
               className={`${primaryActionClassName} mt-7 self-start`}
             >
-              Request diminished value appraisal
+              Submit diminished-value request
               <ArrowRight className="size-4" aria-hidden />
             </Link>
           </div>
@@ -323,10 +328,11 @@ export function HomePage() {
         <div className="mx-auto w-full max-w-[84rem] px-5 py-16 sm:px-8 sm:py-20 lg:px-10 lg:py-28">
           <div className="max-w-3xl">
             <h2 id="deliverable-title" className={sectionHeadingClassName}>
-              A report that makes the numbers clear.
+              An analysis that makes the evidence clear.
             </h2>
             <p className="mt-4 max-w-2xl text-base leading-7 text-copy sm:text-lg">
-              See the insurance value, market range, similar vehicles, and important limits together in one organized appraisal.
+              See the insurer value, market range, similar vehicles, and
+              important limits together in one organized on-screen review.
             </p>
           </div>
           <div className="mt-10 lg:mt-14">

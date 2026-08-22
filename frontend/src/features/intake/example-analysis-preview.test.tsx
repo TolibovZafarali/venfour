@@ -64,7 +64,7 @@ describe("example analysis preview", () => {
     ).toBeVisible();
     expect(
       screen.getByLabelText(
-        "Venfour helps document how an accident can affect a repaired vehicle’s market value.",
+        "This example shows what a reviewer may examine. Submitting the current form does not create an automated appraisal.",
       ),
     ).toBeVisible();
 

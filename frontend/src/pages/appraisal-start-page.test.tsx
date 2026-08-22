@@ -71,7 +71,7 @@ describe("/start appraisal intake", () => {
       expect(searchParams.get("campaign")).toBe("spring");
       expect(
         screen.getByRole("heading", {
-          name: "Start your total-loss appraisal",
+          name: "Start your CCC report review",
         }),
       ).toBeVisible();
       expectSelectedService("Total Loss");
@@ -82,7 +82,7 @@ describe("/start appraisal intake", () => {
     [
       "total loss",
       "/start?service=total-loss",
-      "Start your total-loss appraisal",
+      "Start your CCC report review",
       "Total Loss",
       "2024 Hyundai Elantra SEL",
       "12 comparable vehicles · within 87 miles",
@@ -90,7 +90,7 @@ describe("/start appraisal intake", () => {
     [
       "diminished value",
       "/start?service=diminished-value",
-      "Start your diminished-value appraisal",
+      "Submit a diminished-value review request",
       "Diminished Value",
       "2025 Hyundai Tucson SEL",
       "Accident history · repairs · mileage · local market",
@@ -273,7 +273,7 @@ describe("/start appraisal intake", () => {
 
     expect(
       await screen.findByRole("heading", {
-        name: "Start your diminished-value appraisal",
+        name: "Submit a diminished-value review request",
       }),
     ).toBeVisible();
     expect(
@@ -325,7 +325,7 @@ describe("/start appraisal intake", () => {
     await user.click(screen.getByRole("radio", { name: "Total Loss" }));
     expect(
       await screen.findByRole("heading", {
-        name: "Start your total-loss appraisal",
+        name: "Start your CCC report review",
       }),
     ).toBeVisible();
     await act(async () => {
@@ -432,7 +432,7 @@ describe("/start appraisal intake", () => {
     await user.click(screen.getByRole("radio", { name: "Total Loss" }));
     expect(
       await screen.findByRole("heading", {
-        name: "Start your total-loss appraisal",
+        name: "Start your CCC report review",
       }),
     ).toBeVisible();
     await user.click(

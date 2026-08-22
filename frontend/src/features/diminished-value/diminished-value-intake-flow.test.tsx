@@ -121,7 +121,10 @@ describe("DiminishedValueIntakeFlow", () => {
     await waitFor(() => expect(completionHeading).toHaveFocus());
     expect(screen.getByText("Request received")).toBeInTheDocument();
     expect(
-      screen.getByText(/No appraisal has been completed/),
+      screen.getByText(/no appraisal has been completed/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/It is not an automated appraisal/i),
     ).toBeInTheDocument();
     expect(service.decodeVin).not.toHaveBeenCalled();
     expect(

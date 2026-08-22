@@ -1130,7 +1130,7 @@ describe("DiminishedValueStartFlow controller", () => {
       await router.navigate("/start?service=total-loss&view=intake");
     });
     expect(
-      screen.getByRole("heading", { name: "Start your total-loss appraisal" }),
+      screen.getByRole("heading", { name: "Start your CCC report review" }),
     ).toBeVisible();
 
     await act(async () => {

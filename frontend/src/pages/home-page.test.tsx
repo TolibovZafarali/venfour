@@ -5,7 +5,7 @@ import { describe, expect, test } from "vitest";
 import { renderTestApp } from "@/test/render";
 
 describe("homepage structure", () => {
-  test("leads with both appraisal paths and a responsive hero photo", () => {
+  test("leads with both truthful review paths and a responsive hero photo", () => {
     renderTestApp();
 
     const heroHeading = screen.getByRole("heading", {
@@ -33,7 +33,7 @@ describe("homepage structure", () => {
     expect(heroHeading.children[1]).toHaveClass("block");
     expect(
       screen.getByText(
-        "Start a total-loss appraisal online or request a diminished value appraisal after repairs.",
+        "Review an original CCC total-loss valuation report online or submit repaired-vehicle details for future manual review.",
       ),
     ).toBeVisible();
     const hero = heroHeading.closest("section");
@@ -45,11 +45,11 @@ describe("homepage structure", () => {
       "min-h-[calc(100svh-4rem)]",
     );
     expect(
-      within(hero).getByRole("link", { name: "Start total-loss appraisal" }),
+      within(hero).getByRole("link", { name: "Start CCC report review" }),
     ).toHaveAttribute("href", "/start?service=total-loss");
     expect(
       within(hero).getByRole("link", {
-        name: "Request diminished value appraisal",
+        name: "Submit diminished-value request",
       }),
     ).toHaveAttribute("href", "/start?service=diminished-value");
     for (const removedLabel of [
@@ -78,7 +78,7 @@ describe("homepage structure", () => {
     ).not.toBeInTheDocument();
   });
 
-  test("presents exactly two appraisal services and no general value service", () => {
+  test("presents exactly two truthful services and no general value service", () => {
     renderTestApp();
 
     const services = document.querySelector<HTMLElement>("#services");
@@ -89,7 +89,7 @@ describe("homepage structure", () => {
 
     expect(services.querySelectorAll("article")).toHaveLength(2);
     const servicesHeading = within(services).getByRole("heading", {
-      name: "Two appraisals. Two different situations.",
+      name: "Two services. Two different situations.",
     });
     expect(servicesHeading).toBeVisible();
     expect(servicesHeading.children).toHaveLength(2);
@@ -108,12 +108,12 @@ describe("homepage structure", () => {
     ).toBeVisible();
     expect(
       within(services).getByRole("link", {
-        name: "Start total-loss appraisal",
+        name: "Start CCC report review",
       }),
     ).toHaveAttribute("href", "/start?service=total-loss");
     expect(
       within(services).getByRole("link", {
-        name: "Request diminished value appraisal",
+        name: "Submit diminished-value request",
       }),
     ).toHaveAttribute("href", "/start?service=diminished-value");
     expect(screen.queryByText("I need my car’s value")).not.toBeInTheDocument();
@@ -130,7 +130,7 @@ describe("homepage structure", () => {
       "Start online in a few steps",
       "The insurance report may not tell the whole story.",
       "Repairs can fix the vehicle—not its history.",
-      "A report that makes the numbers clear.",
+      "An analysis that makes the evidence clear.",
       "Built for a careful second look.",
     ]) {
       expect(screen.getByRole("heading", { name: heading })).toBeVisible();
@@ -152,9 +152,9 @@ describe("homepage structure", () => {
       expect(visual.firstElementChild).toHaveClass("h-44", "max-w-72");
     }
     for (const step of [
-      "Upload your insurance report",
+      "Upload your original CCC report",
       "Venfour checks the market",
-      "See the appraisal",
+      "See the evidence review",
     ]) {
       expect(
         within(process as HTMLElement).getByRole("heading", { name: step }),
@@ -162,7 +162,7 @@ describe("homepage structure", () => {
     }
     expect(
       within(process as HTMLElement).getByRole("link", {
-        name: "Upload your report",
+        name: "Upload your CCC report",
       }),
     ).toHaveAttribute("href", "/start?service=total-loss");
 
@@ -180,7 +180,7 @@ describe("homepage structure", () => {
     expect(diminishedValueSection).toBeVisible();
     expect(
       within(diminishedValueSection as HTMLElement).getByRole("link", {
-        name: "Request diminished value appraisal",
+        name: "Submit diminished-value request",
       }),
     ).toHaveAttribute("href", "/start?service=diminished-value");
     expect(document.querySelector('a[href^="mailto:"]')).not.toBeInTheDocument();
@@ -194,7 +194,7 @@ describe("homepage structure", () => {
     }
   });
 
-  test("does not render reviews, unsupported promises, or removed-page links", () => {
+  test("avoids unsupported promises and links the current public policies", () => {
     renderTestApp();
 
     expect(
@@ -203,7 +203,7 @@ describe("homepage structure", () => {
     expect(screen.queryByText(/guaranteed increase/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/you are owed/i)).not.toBeInTheDocument();
     for (const href of ["/methodology", "/terms", "/contact"]) {
-      expect(document.querySelector(`a[href="${href}"]`)).not.toBeInTheDocument();
+      expect(document.querySelector(`a[href="${href}"]`)).toBeInTheDocument();
     }
   });
 
@@ -220,7 +220,7 @@ describe("homepage structure", () => {
     }
 
     await user.click(
-      within(hero).getByRole("link", { name: "Start total-loss appraisal" }),
+      within(hero).getByRole("link", { name: "Start CCC report review" }),
     );
 
     await waitFor(() =>
@@ -228,7 +228,7 @@ describe("homepage structure", () => {
     );
     expect(router.state.location.search).toBe("?service=total-loss");
     expect(
-      screen.getByRole("heading", { name: "Start your total-loss appraisal" }),
+      screen.getByRole("heading", { name: "Start your CCC report review" }),
     ).toBeVisible();
   });
 
@@ -246,7 +246,7 @@ describe("homepage structure", () => {
 
     await user.click(
       within(hero).getByRole("link", {
-        name: "Request diminished value appraisal",
+        name: "Submit diminished-value request",
       }),
     );
 
@@ -254,7 +254,7 @@ describe("homepage structure", () => {
     expect(router.state.location.search).toBe("?service=diminished-value");
     expect(
       screen.getByRole("heading", {
-        name: "Start your diminished-value appraisal",
+        name: "Submit a diminished-value review request",
       }),
     ).toBeVisible();
   });

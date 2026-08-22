@@ -121,18 +121,18 @@ export function AppraisalStartPage() {
       }
       eyebrow={
         totalLossSelected
-          ? "Total-loss appraisal"
-          : "Diminished value appraisal"
+          ? "CCC total-loss review"
+          : "Manual diminished-value review"
       }
       title={
         totalLossSelected
-          ? "Start your total-loss appraisal"
-          : "Start your diminished-value appraisal"
+          ? "Start your CCC report review"
+          : "Submit a diminished-value review request"
       }
       description={
         totalLossSelected
-          ? "First, we’ll gather the information needed to check whether your insurer’s vehicle valuation appears fair."
-          : "We’ll gather the accident, repair, and vehicle details needed to review how the accident may have affected your vehicle’s market value."
+          ? "Automated review currently requires the original CCC valuation report PDF your insurer used. No-report review is not available in this tester release."
+          : "We’ll securely gather accident, repair, vehicle, and contact details for a future manual review. Submission does not create an automated appraisal or schedule an appointment."
       }
     >
       {totalLossSelected ? (

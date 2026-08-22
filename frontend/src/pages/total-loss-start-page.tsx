@@ -9,6 +9,7 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { useLocation, useNavigate } from "react-router";
 
+import { totalLossManualIntakeAvailable } from "@/config/product-availability";
 import { useAuth, useSignInDialog } from "@/features/auth";
 import { useCreateOrGetAppraisalCaseMutation } from "@/features/cases/mutations";
 import {
@@ -43,6 +44,7 @@ import {
 import {
   ChoiceStep,
   ClaimStep,
+  ManualIntakeUnavailableStep,
   ReadyStep,
   ReportStep,
   ResumeStep,
@@ -708,6 +710,7 @@ export function TotalLossIntakeFlow({
       Boolean(explicitCaseId) ||
       current.confirmedCaseId ||
       !current.mode ||
+      (!totalLossManualIntakeAvailable && current.mode === "manual") ||
       recentCandidateVisible(current, recentCaseQuery.data?.id, explicitCaseId)
     ) {
       return;
@@ -740,6 +743,16 @@ export function TotalLossIntakeFlow({
       !current.pendingAuthAction ||
       Boolean(explicitCaseId && current.confirmedCaseId !== explicitCaseId)
     ) {
+      return;
+    }
+    if (
+      !totalLossManualIntakeAvailable &&
+      current.pendingAuthAction === "complete-manual"
+    ) {
+      applyDraft(
+        (value) => ({ ...value, pendingAuthAction: null }),
+        { bumpRevision: false },
+      );
       return;
     }
     const key = `${userId}:${current.pendingAuthAction}`;
@@ -790,6 +803,7 @@ export function TotalLossIntakeFlow({
       !userId ||
       !current.confirmedCaseId ||
       current.mode !== "manual" ||
+      !totalLossManualIntakeAvailable ||
       !current.dirty ||
       Boolean(explicitCaseId && current.confirmedCaseId !== explicitCaseId) ||
       conflict ||
@@ -1314,7 +1328,50 @@ export function TotalLossIntakeFlow({
     void flushDraft({ force: true }).catch(() => undefined);
   };
 
+  const handleUseSupportedReport = () => {
+    setFlowError(null);
+    setUploadError(null);
+    setSavedFilename(null);
+
+    if (candidate && userId) {
+      const next: TotalLossDraft = {
+        ...createEmptyTotalLossDraft(),
+        mode: "report",
+        step: "report",
+        ownerUserId: userId,
+        dismissedResumeCaseId: candidate.id,
+      };
+      draftRef.current = next;
+      setDraft(next);
+      setStorageError(!writeTotalLossDraft(next).ok);
+      serverUpdatedAtRef.current = null;
+      hydratedDetailsRef.current = null;
+      return;
+    }
+
+    applyDraft((current) => ({
+      ...current,
+      manual: createEmptyTotalLossManualForm(),
+      mode: "report",
+      step: "report",
+      pendingAuthAction: null,
+      dirty: Boolean(current.confirmedCaseId),
+    }));
+  };
+
   const renderStep = () => {
+    if (
+      !totalLossManualIntakeAvailable &&
+      candidate &&
+      candidateDetails?.intakeMode === "manual"
+    ) {
+      return (
+        <ManualIntakeUnavailableStep
+          onUseSupportedReport={handleUseSupportedReport}
+        />
+      );
+    }
+
     if (candidate) {
       return (
         <ResumeStep
@@ -1324,6 +1381,14 @@ export function TotalLossIntakeFlow({
           error={flowError}
           onContinue={() => void handleResume()}
           onStartNew={handleStartNew}
+        />
+      );
+    }
+
+    if (!totalLossManualIntakeAvailable && draft.mode === "manual") {
+      return (
+        <ManualIntakeUnavailableStep
+          onUseSupportedReport={handleUseSupportedReport}
         />
       );
     }
@@ -1444,6 +1509,7 @@ export function TotalLossIntakeFlow({
         return (
           <ChoiceStep
             selectedMode={draft.mode}
+            manualIntakeAvailable={totalLossManualIntakeAvailable}
             busy={modeBusy || createCaseMutation.isPending}
             error={flowError}
             onSelect={(mode: TotalLossIntakeMode) => {
@@ -1557,7 +1623,11 @@ function detailsValuesForDraft(
     };
   }
   return {
-    ...totalLossManualFormToDetailsValues(draft.manual),
+    ...totalLossManualFormToDetailsValues(
+      totalLossManualIntakeAvailable
+        ? draft.manual
+        : createEmptyTotalLossManualForm(),
+    ),
     intakeMode: "report",
     intakeCompletedAt: completedAt,
   };

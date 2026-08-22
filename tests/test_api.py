@@ -90,6 +90,14 @@ METHOD_NOT_ALLOWED_ERROR = {
         "message": "Method is not allowed.",
     }
 }
+STAGING_PROXY_REQUIRED_ERROR = {
+    "error": {
+        "code": "STAGING_PROXY_REQUIRED",
+        "message": "Staging API access is unavailable.",
+    }
+}
+
+STAGING_PROXY_SECRET = "staging-proxy-test-secret-value-1234567890"
 
 RUNTIME_ENVIRONMENT = {
     "SUPABASE_URL": "https://runtime-test.supabase.co",
@@ -238,6 +246,57 @@ class RuntimeProbeApiTests(unittest.TestCase):
 
         self.assertEqual(readiness.status_code, 200)
         self.assertEqual(readiness.json(), {"status": "ready"})
+
+    def test_staging_proxy_secret_guards_api_but_not_runtime_probes(self) -> None:
+        with patch.dict(os.environ, {}, clear=True):
+            app = create_app(
+                case_analysis_service=InjectedCaseAnalysisService(),
+                enable_legacy_api=False,
+                staging_proxy_secret=STAGING_PROXY_SECRET,
+            )
+        path = (
+            "/api/v1/appraisal-cases/"
+            "11111111-1111-4111-8111-111111111111/analysis"
+        )
+        with TestClient(app) as client:
+            for headers in (
+                {},
+                {"X-Venfour-Staging-Proxy": "wrong-secret-value"},
+            ):
+                with self.subTest(headers=tuple(headers)):
+                    denied = client.get(path, headers=headers)
+                    self.assertEqual(denied.status_code, 403)
+                    self.assertEqual(denied.json(), STAGING_PROXY_REQUIRED_ERROR)
+                    self.assertEqual(
+                        denied.headers["cache-control"], "private, no-store"
+                    )
+
+            allowed = client.get(
+                path,
+                headers={"X-Venfour-Staging-Proxy": STAGING_PROXY_SECRET},
+            )
+            health = client.get("/health")
+            readiness = client.get("/ready")
+
+        self.assertEqual(allowed.status_code, 401)
+        self.assertEqual(
+            allowed.json()["error"]["code"], "AUTHENTICATION_REQUIRED"
+        )
+        self.assertEqual(health.status_code, 200)
+        self.assertEqual(readiness.status_code, 200)
+        self.assertTrue(app.state.staging_proxy_required)
+
+    def test_staging_proxy_secret_rejects_unsafe_configuration(self) -> None:
+        for secret in ("", "too-short", "x" * 31, "x" * 513, "x" * 31 + "\n"):
+            with self.subTest(length=len(secret)):
+                with self.assertRaisesRegex(
+                    ValueError, "staging proxy secret configuration is invalid"
+                ):
+                    create_app(
+                        case_analysis_service=InjectedCaseAnalysisService(),
+                        enable_legacy_api=False,
+                        staging_proxy_secret=secret,
+                    )
 
     def test_readiness_tracks_lifespan_and_owned_http_client_is_closed(
         self,

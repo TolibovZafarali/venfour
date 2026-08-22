@@ -254,6 +254,67 @@ Do not place their values in tracked files, container build arguments, frontend
 configuration, logs, or documentation. `VENFOUR_ENABLE_LEGACY_ANALYSIS_API`
 must remain `0` in deployed environments.
 
+### Trusted-tester staging frontend
+
+The first tester release uses a Cloudflare Worker with Static Assets at the
+exact origin:
+
+```text
+https://staging.venfour.com
+```
+
+The Worker serves the Vite build with browser-history fallback, applies staging
+security and `noindex` headers, and forwards same-origin `/api/*` and `/health`
+requests to the existing `venfour-api-staging` Cloud Run service. Cloud Run
+remains the Python compute layer, and Supabase bearer authorization remains
+authoritative for customer and staff data. The Worker contains no provider or
+service-role credential; its only server secret is the staging proxy credential
+described below.
+
+Cloudflare Access is the public staging perimeter. Before publishing the custom
+hostname, create a self-hosted Access application for
+`staging.venfour.com/*` with an Allow policy limited to the explicit tester
+identities. Do not add a public bypass policy. This Access policy prevents
+untrusted visitors from using the staging hostname, but it is not the only
+abuse control: Cloud Run requires a server-only proxy credential on `/api/*`,
+and Supabase new-user signup remains disabled during trusted testing so only
+explicitly provisioned Auth users can write through RLS. These controls do not
+replace customer ownership or database-backed staff authorization.
+
+Generate one high-entropy value outside the repository. Store it in Cloudflare
+as the Worker secret `API_PROXY_SECRET` and mount the same value into Cloud Run
+as `VENFOUR_STAGING_PROXY_SECRET` from the server-only Secret Manager secret
+`venfour-staging-proxy-secret`. The Worker removes any browser-supplied copy of
+the header before injecting its value. Cloud Run rejects direct `/api/*` calls
+without it.
+
+The staging build requires these public browser variables:
+
+```text
+VITE_API_BASE_URL=
+VITE_STAGING_ORIGIN=https://staging.venfour.com
+VITE_SUPPORT_EMAIL=<monitored address approved for publication>
+VITE_SUPABASE_URL=https://<project-ref>.supabase.co
+VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
+```
+
+Keep `VITE_API_BASE_URL` empty so browser API calls stay on the protected
+staging origin. Copy `frontend/.env.staging.example` to the ignored
+`frontend/.env.staging.local` or provide the values through the deployment
+environment, then run:
+
+```sh
+cd frontend
+npm run test:worker
+npm run build:staging
+npm run worker:dry-run
+npx wrangler secret put API_PROXY_SECRET --env staging
+npm run deploy:staging
+```
+
+The checked-in Wrangler environment binds only `staging.venfour.com`; it does
+not publish the apex `venfour.com` or `www.venfour.com`.
+
 To use a different backend address, copy the example environment file and edit
 the local copy:
 
@@ -276,14 +337,24 @@ VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
 ```
 
 Never place a Supabase service-role key in a `VITE_*` variable. Apply the SQL in
-`supabase/migrations/` before using the case data layer. In Supabase Auth URL
-Configuration, use `https://venfour.com` as the production Site URL and allow
-`https://venfour.com/auth/callback` plus
-`http://localhost:5173/auth/callback`. Email magic links require Email Auth and
-production SMTP configuration. Google sign-in requires a Google Web OAuth
-client whose authorized redirect URI is the Supabase callback
+`supabase/migrations/` before using the case data layer. The first trusted-tester
+release reuses the Supabase project already used by the staging Cloud Run
+service. Its Auth Site URL remains `https://venfour.com`; do not replace that
+value with the staging origin. Its exact allowed redirect URLs are:
+
+```text
+https://venfour.com/auth/callback
+https://staging.venfour.com/auth/callback
+http://localhost:5173/auth/callback
+```
+
+Email magic links require Email Auth, working SMTP, and the token-hash template
+described below. Google sign-in requires a Google Web OAuth client whose
+authorized redirect URI is the Supabase callback
 `https://<project-ref>.supabase.co/auth/v1/callback`; configure the client ID and
-secret in the Supabase Google provider settings.
+secret in the Supabase Google provider settings. The Google redirect URI does
+not change when another Venfour frontend origin is added because Google returns
+to Supabase first.
 
 ### Supabase project configuration
 
@@ -298,10 +369,15 @@ In the Supabase Dashboard:
 
 1. Set Authentication > URL Configuration > Site URL to
    `https://venfour.com`.
-2. Add `https://venfour.com/auth/callback` and
-   `http://localhost:5173/auth/callback` to the allowed redirect URLs.
-3. Keep Email authentication and new-user signups enabled, set the magic-link
-   expiry to 3600 seconds, and configure production SMTP. In both the
+2. Add `https://venfour.com/auth/callback`,
+   `https://staging.venfour.com/auth/callback`, and
+   `http://localhost:5173/auth/callback` to the allowed redirect URLs. Keep the
+   production Site URL unchanged while the tester deployment shares this
+   project.
+3. Keep Email authentication enabled but disable new-user signup while this is
+   a trusted-tester release. Provision each approved tester explicitly before
+   they sign in. Keep the magic-link expiry at 3600 seconds and configure
+   working SMTP. In both the
    **Confirm sign up** and **Magic link or OTP** templates, link the sign-in
    action to
    `{{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=email` so Venfour can
@@ -344,24 +420,23 @@ Never expose the service-role key to the browser or use it to implement a staff
 management control in the frontend.
 
 For Google sign-in, create a Web OAuth client in Google Cloud and configure the
-Venfour OAuth consent screen. Add `https://venfour.com` and
-`http://localhost:5173` as authorized JavaScript origins. Add only
+Venfour OAuth consent screen. Add `https://venfour.com`,
+`https://staging.venfour.com`, and `http://localhost:5173` as authorized
+JavaScript origins. Add only
 `https://<project-ref>.supabase.co/auth/v1/callback` as the Google authorized
 redirect URI, then enable Google in Supabase and enter that client ID and
 secret. Google returns to Supabase first; Supabase then returns the browser to
 Venfour's `/auth/callback` route.
 
-Use a separate Supabase project for staging or preview deployments. Set that
-project's Site URL to the staging origin, allow only the staging
-`/auth/callback` URL plus intentional local-development callbacks, and add the
-staging origin to the Google Web OAuth client's authorized JavaScript origins.
-Google's authorized redirect URI remains the staging Supabase project's
-`https://<project-ref>.supabase.co/auth/v1/callback`. Keep anonymous sign-ins
-disabled, email signups enabled, JWT and email-link expiry at 3600 seconds, and
-configure non-production SMTP plus the same token-hash email templates used in
-production. The staging backend must receive its own server-only Supabase
-credential and provider credentials; never expose them through `VITE_*`. Keep
-`VENFOUR_ENABLE_LEGACY_ANALYSIS_API` unset in staging and production.
+The first tester release intentionally reuses the existing Supabase project and
+adds only the exact staging callback above; it does not create a second database
+environment. A later isolated preview or staging project should instead use its
+own Site URL, callback allowlist, SMTP, browser publishable key, and server-only
+Cloud Run credentials. Keep anonymous sign-ins disabled, keep public signup
+disabled while access is tester-only, keep JWT and email-link expiry at 3600
+seconds, and use the same token-hash email templates. Never expose service-role
+or provider credentials through `VITE_*`, and keep
+`VENFOUR_ENABLE_LEGACY_ANALYSIS_API` disabled in every deployment.
 
 When the Supabase CLI and Docker are available, validate the local database
 from the repository root with:

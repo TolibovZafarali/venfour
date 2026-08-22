@@ -11,6 +11,7 @@ from __future__ import annotations
 import os
 import tempfile
 from contextlib import asynccontextmanager
+from hmac import compare_digest
 from pathlib import Path
 from typing import Any, Awaitable, Callable
 from uuid import UUID
@@ -19,9 +20,11 @@ from starlette.applications import Starlette
 from starlette.concurrency import run_in_threadpool
 from starlette.datastructures import UploadFile
 from starlette.exceptions import HTTPException
+from starlette.middleware import Middleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 from starlette.routing import Route
+from starlette.types import ASGIApp, Receive, Scope, Send
 
 from scripts.extract_report_ai import MAX_PDF_BYTES
 from venfour.analysis_runs import (
@@ -41,6 +44,7 @@ from venfour.creation import (
     AnalysisCreationUnavailableError,
     AnalysisExtractionError,
     AnalysisReportValidationError,
+    AnalysisUnsupportedReportError,
     create_live_analysis_creation_service,
 )
 from venfour.case_analyses import (
@@ -90,6 +94,9 @@ _ERROR_MESSAGES = {
     "REPORT_TOO_LARGE": "Uploaded report is too large.",
     "REPORT_EXTRACTION_FAILED": "Uploaded report could not be extracted.",
     "REPORT_NOT_ANALYZABLE": "Uploaded report could not be analyzed.",
+    "UNSUPPORTED_REPORT": (
+        "This tester release supports original CCC valuation report PDFs only."
+    ),
     "MARKET_PROVIDER_UNAVAILABLE": "Market evidence is temporarily unavailable.",
     "ANALYSIS_CREATION_UNAVAILABLE": "Analysis creation is unavailable.",
     "ANALYSIS_CREATION_FAILED": "Analysis could not be created.",
@@ -97,9 +104,12 @@ _ERROR_MESSAGES = {
     "REPORT_INTAKE_REQUIRED": "Complete report intake before starting analysis.",
     "REPORT_INTAKE_NOT_READY": "Report intake is not ready for analysis.",
     "CASE_NOT_READY": "Appraisal case is not ready for analysis.",
+    "STAGING_PROXY_REQUIRED": "Staging API access is unavailable.",
 }
 
 LEGACY_API_ENVIRONMENT_NAME = "VENFOUR_ENABLE_LEGACY_ANALYSIS_API"
+STAGING_PROXY_SECRET_ENVIRONMENT_NAME = "VENFOUR_STAGING_PROXY_SECRET"
+STAGING_PROXY_HEADER_NAME = b"x-venfour-staging-proxy"
 
 MAX_MULTIPART_OVERHEAD_BYTES = 1024 * 1024
 MAX_UPLOAD_BODY_BYTES = MAX_PDF_BYTES + MAX_MULTIPART_OVERHEAD_BYTES
@@ -145,6 +155,54 @@ class _UploadedReportTooLarge(Exception):
 
 class _UploadInfrastructureError(Exception):
     pass
+
+
+class _StagingProxyGuardMiddleware:
+    """Require the server-only staging proxy credential on customer API routes."""
+
+    def __init__(self, app: ASGIApp, *, secret: str) -> None:
+        self._app = app
+        self._secret = secret.encode("ascii")
+
+    async def __call__(
+        self,
+        scope: Scope,
+        receive: Receive,
+        send: Send,
+    ) -> None:
+        if scope["type"] == "http" and scope.get("path", "").startswith(
+            "/api/"
+        ):
+            values = [
+                value
+                for name, value in scope.get("headers", ())
+                if name == STAGING_PROXY_HEADER_NAME
+            ]
+            if len(values) != 1 or not compare_digest(values[0], self._secret):
+                response = _private_response(
+                    _error_response(403, "STAGING_PROXY_REQUIRED")
+                )
+                await response(scope, receive, send)
+                return
+        await self._app(scope, receive, send)
+
+
+def _validated_staging_proxy_secret(value: str | None) -> str | None:
+    if value is None:
+        return None
+    if (
+        not isinstance(value, str)
+        or not (32 <= len(value) <= 512)
+        or any(
+            character.isspace()
+            or ord(character) < 32
+            or ord(character) == 127
+            or ord(character) > 126
+            for character in value
+        )
+    ):
+        raise ValueError("staging proxy secret configuration is invalid")
+    return value
 
 
 def _error_response(
@@ -319,6 +377,8 @@ async def _create_analysis(request: Request) -> JSONResponse:
                 return _error_response(502, "REPORT_EXTRACTION_FAILED")
             except AnalysisReportValidationError:
                 return _error_response(422, "REPORT_NOT_ANALYZABLE")
+            except AnalysisUnsupportedReportError:
+                return _error_response(422, "UNSUPPORTED_REPORT")
             except AnalysisCreationProviderError:
                 return _error_response(503, "MARKET_PROVIDER_UNAVAILABLE")
             except AnalysisCreationUnavailableError:
@@ -552,6 +612,7 @@ def create_app(
     case_analysis_service: Any | None = None,
     supabase_gateway: CaseAnalysisGateway | None = None,
     enable_legacy_api: bool | None = None,
+    staging_proxy_secret: str | None = None,
 ) -> Starlette:
     """Build the owned case API and optional legacy upload API.
 
@@ -559,6 +620,12 @@ def create_app(
     a legacy dependency is an explicit test/development opt-in for the old
     unauthenticated upload and presentation routes.
     """
+
+    selected_staging_proxy_secret = _validated_staging_proxy_secret(
+        staging_proxy_secret
+        if staging_proxy_secret is not None
+        else os.environ.get(STAGING_PROXY_SECRET_ENVIRONMENT_NAME)
+    )
 
     if case_analysis_service is not None and supabase_gateway is not None:
         raise ValueError(
@@ -703,6 +770,15 @@ def create_app(
             if owned_supabase_gateway is not None:
                 owned_supabase_gateway.close()
 
+    middleware = []
+    if selected_staging_proxy_secret is not None:
+        middleware.append(
+            Middleware(
+                _StagingProxyGuardMiddleware,
+                secret=selected_staging_proxy_secret,
+            )
+        )
+
     app = Starlette(
         routes=routes,
         exception_handlers={
@@ -710,6 +786,7 @@ def create_app(
             Exception: _internal_error_response,
         },
         lifespan=lifespan,
+        middleware=middleware,
     )
     app.router.redirect_slashes = False
     app.state.presentation_service = selected_service
@@ -718,6 +795,7 @@ def create_app(
     app.state.legacy_api_enabled = legacy_enabled
     app.state.customer_path_configured = customer_path_configured
     app.state.accepting_customer_requests = False
+    app.state.staging_proxy_required = selected_staging_proxy_secret is not None
     return app
 
 

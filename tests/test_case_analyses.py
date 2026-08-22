@@ -26,7 +26,10 @@ from venfour.case_analyses import (
     CaseAnalysisService,
     SupabaseAnalysisRunRepository,
 )
-from venfour.creation import AnalysisCreationProviderError
+from venfour.creation import (
+    AnalysisCreationProviderError,
+    AnalysisUnsupportedReportError,
+)
 from venfour.supabase_gateway import (
     SupabaseAuthenticationError,
     SupabaseReportInvalidError,
@@ -296,6 +299,37 @@ class CaseAnalysisServiceTests(unittest.TestCase):
                 },
                 "retryable": True,
             },
+        )
+
+    def test_unsupported_report_is_nonretryable_and_durably_recorded(self) -> None:
+        gateway = FakeCaseGateway()
+        service = self.make_service(
+            gateway,
+            PersistingCreationFactory(
+                AnalysisUnsupportedReportError("private provider detail")
+            ),
+        )
+
+        status = service.submit(CASE_ID, USER_ID)
+
+        self.assertEqual(
+            status.to_dict(),
+            {
+                "status": "failed",
+                "attemptCount": 1,
+                "error": {
+                    "code": "UNSUPPORTED_REPORT",
+                    "message": (
+                        "This tester release supports original CCC valuation "
+                        "report PDFs only."
+                    ),
+                },
+                "retryable": False,
+            },
+        )
+        self.assertEqual(
+            gateway.failures,
+            [(JOB_ID, TOKEN_ID, "UNSUPPORTED_REPORT", False)],
         )
 
     def test_prerequisite_outcomes_do_not_touch_storage_or_creation(self) -> None:

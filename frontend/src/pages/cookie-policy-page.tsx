@@ -9,18 +9,19 @@ export function CookiePolicyPage() {
       eyebrow="Cookie policy"
       title="Cookies and browser storage at Venfour"
       introduction="This page describes the site’s current use of cookies and similar browser storage."
-      updated="Last updated August 18, 2026"
+      updated="Last updated August 21, 2026"
     >
       <PublicPageSection title="Current use">
         <p>
           Venfour uses essential browser storage to operate the site and
           remember your privacy preference. If you sign in, essential storage
           also preserves your Supabase session and the safe in-app location to
-          return to after authentication. If you begin a total-loss appraisal,
-          essential storage also keeps the intake step and manually entered
-          information needed to restore that draft in the same browser. It does
-          not store an uploaded PDF. Essential storage cannot be turned off
-          through the preference controls.
+          return to after authentication. If you begin a total-loss review or
+          diminished-value request, essential storage also keeps the intake
+          step and entered information needed to restore that draft in the same
+          browser. It does not store an uploaded report or supporting-document
+          bytes. Essential storage cannot be turned off through the preference
+          controls.
         </p>
         <p>
           Venfour does not currently use optional analytics, advertising, or

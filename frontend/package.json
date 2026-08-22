@@ -9,13 +9,18 @@
   "scripts": {
     "dev": "vite",
     "build": "npm run check:contracts && tsc -b && vite build",
+    "build:staging": "npm run validate:staging-env && npm run check:contracts && tsc -b --pretty false && vite build --mode staging",
     "preview": "vite preview",
     "generate:contracts": "node scripts/analysis-contract.mjs",
     "check:contracts": "node scripts/analysis-contract.mjs --check",
+    "validate:staging-env": "node scripts/validate-staging-env.mjs",
     "typecheck": "npm run check:contracts && tsc -b --pretty false",
     "lint": "eslint .",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:worker": "vitest run worker/index.test.ts scripts/staging-environment.test.mjs",
+    "worker:dry-run": "wrangler deploy --env staging --dry-run",
+    "deploy:staging": "wrangler deploy --env staging"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.112.3",
@@ -30,6 +35,7 @@
     "tailwind-merge": "3.6.0"
   },
   "devDependencies": {
+    "@cloudflare/workers-types": "5.20260822.1",
     "@eslint/js": "10.0.1",
     "@tailwindcss/vite": "4.3.3",
     "@testing-library/dom": "10.4.1",
@@ -53,6 +59,7 @@
     "typescript": "6.0.3",
     "typescript-eslint": "8.67.0",
     "vite": "8.2.1",
-    "vitest": "4.1.10"
+    "vitest": "4.1.10",
+    "wrangler": "4.125.0"
   }
 }

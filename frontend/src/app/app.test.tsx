@@ -25,13 +25,19 @@ describe("Venfour application", () => {
         name: "Your Vehicle’s Value, Made Clear.",
       }),
     ).toBeInTheDocument();
-    expect(document.title).toBe("Vehicle Appraisals After an Accident | Venfour");
+    expect(document.title).toBe(
+      "Vehicle Valuation Reviews After an Accident | Venfour",
+    );
   });
 
-  test("uses generic metadata and the compact shell for the appraisal intake", () => {
+  test("uses generic metadata and the compact shell for the appraisal intake", async () => {
     renderTestApp(["/start?service=total-loss"]);
 
-    expect(document.title).toBe("Start Your Vehicle Appraisal | Venfour");
+    await waitFor(() =>
+      expect(document.title).toBe(
+        "Start a Vehicle Valuation Review | Venfour",
+      ),
+    );
     expect(
       screen.queryByRole("navigation", { name: "Primary navigation" }),
     ).not.toBeInTheDocument();
@@ -51,7 +57,11 @@ describe("Venfour application", () => {
     expect(searchParams.get("service")).toBe("total-loss");
     expect(searchParams.get("caseId")).toBe("saved-case");
     expect(searchParams.get("campaign")).toBe("renewal");
-    expect(document.title).toBe("Start Your Vehicle Appraisal | Venfour");
+    await waitFor(() =>
+      expect(document.title).toBe(
+        "Start a Vehicle Valuation Review | Venfour",
+      ),
+    );
   });
 
   test("provides homepage-focused primary and footer navigation", () => {
@@ -78,7 +88,7 @@ describe("Venfour application", () => {
     const footerNavigation = screen.getByRole("navigation", {
       name: "Footer navigation",
     });
-    expect(within(footerNavigation).getAllByRole("link")).toHaveLength(4);
+    expect(within(footerNavigation).getAllByRole("link")).toHaveLength(7);
     expect(
       within(footerNavigation).getByRole("link", { name: "Total Loss" }),
     ).toHaveAttribute("href", "#total-loss");
@@ -86,11 +96,20 @@ describe("Venfour application", () => {
       within(footerNavigation).getByRole("link", { name: "Diminished Value" }),
     ).toHaveAttribute("href", "#diminished-value");
     expect(
+      within(footerNavigation).getByRole("link", { name: "Methodology" }),
+    ).toHaveAttribute("href", "/methodology");
+    expect(
+      within(footerNavigation).getByRole("link", { name: "Terms" }),
+    ).toHaveAttribute("href", "/terms");
+    expect(
       within(footerNavigation).getByRole("link", { name: "Privacy" }),
     ).toHaveAttribute("href", "/privacy");
     expect(
       within(footerNavigation).getByRole("link", { name: "Cookie Policy" }),
     ).toHaveAttribute("href", "/cookies");
+    expect(
+      within(footerNavigation).getByRole("link", { name: "Contact" }),
+    ).toHaveAttribute("href", "/contact");
     expect(
       within(footerNavigation).getByRole("button", {
         name: "Cookie preferences",
@@ -126,11 +145,84 @@ describe("Venfour application", () => {
     expect(renderedImageSources).not.toContain("venfour-logo-black.svg");
     expect(renderedImageSources).not.toContain("venfour-logo-white.svg");
 
-    for (const removed of ["Methodology", "Terms", "Contact"]) {
-      expect(
-        screen.queryByRole("link", { name: removed }),
-      ).not.toBeInTheDocument();
-    }
+  });
+
+  test("keeps no-report total-loss intake unavailable before data entry", () => {
+    renderTestApp(["/start?service=total-loss"]);
+
+    const noReportOption = screen.getByRole("radio", {
+      name: /I don’t have the report/i,
+    });
+    expect(noReportOption).toBeDisabled();
+    expect(noReportOption.closest("label")).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
+    const unavailableNotices = screen.getAllByText(
+      /No-report review is not available in this tester release/i,
+    );
+    expect(unavailableNotices).toHaveLength(2);
+    for (const notice of unavailableNotices) expect(notice).toBeVisible();
+    expect(
+      screen.getByRole("radio", { name: /I have my valuation report/i }),
+    ).toBeEnabled();
+  });
+
+  test("intercepts an older saved no-report draft without exposing its fields", async () => {
+    const user = userEvent.setup();
+    expect(
+      writeTotalLossDraft({
+        ...createEmptyTotalLossDraft(),
+        mode: "manual",
+        step: "vehicle",
+        manual: {
+          ...createEmptyTotalLossDraft().manual,
+          vin: "1HGCM82633A004352",
+        },
+      }).ok,
+    ).toBe(true);
+
+    renderTestApp(["/start?service=total-loss"]);
+
+    expect(
+      screen.getByRole("heading", {
+        name: "No-report total-loss review is not available yet",
+      }),
+    ).toBeVisible();
+    expect(screen.queryByLabelText("VIN")).not.toBeInTheDocument();
+    const useReport = screen.getByRole("button", {
+      name: "Use an original CCC report",
+    });
+    expect(useReport).toBeVisible();
+    expect(screen.getByRole("link", { name: "Contact support" })).toHaveAttribute(
+      "href",
+      "/contact?topic=vehicle-value",
+    );
+
+    await user.click(useReport);
+    expect(
+      screen.getByRole("heading", {
+        name: "Upload your original CCC valuation report",
+      }),
+    ).toBeVisible();
+    expect(readTotalLossDraft()).toMatchObject({
+      ok: true,
+      draft: {
+        mode: "report",
+        manual: {
+          vin: "",
+          vehicleYear: "",
+          make: "",
+          model: "",
+          trim: "",
+          mileageAtLoss: "",
+          zipCode: "",
+          dateOfLoss: "",
+          insurerName: "",
+          insurerVehicleValuation: "",
+        },
+      },
+    });
   });
 
   test("opens and dismisses an accessible mobile navigation", async () => {
@@ -543,27 +635,25 @@ describe("Venfour application", () => {
   });
 
   test.each([
-    "/methodology",
-    "/terms",
-    "/contact",
-    "/contact?topic=diminished-value",
-  ])("keeps the removed marketing route %s unmounted", (path) => {
-    renderTestApp([path]);
-
-    expect(
-      screen.getByRole("heading", { name: "Page not found" }),
-    ).toBeInTheDocument();
-    expect(document.title).toBe("Page Not Found | Venfour");
-  });
-
-  test.each([
+    [
+      "/methodology",
+      "How the supported CCC total-loss review works",
+      "Total-Loss Review Methodology | Venfour",
+    ],
+    ["/terms", "Terms for using Venfour", "Terms of Use | Venfour"],
+    ["/contact", "Questions about Venfour", "Contact Venfour"],
+    [
+      "/contact?topic=diminished-value",
+      "Get help with a diminished-value request",
+      "Contact Venfour",
+    ],
     ["/privacy", "How Venfour handles your information", "Privacy Policy | Venfour"],
     [
       "/cookies",
       "Cookies and browser storage at Venfour",
       "Cookie Policy | Venfour",
     ],
-  ])("renders the privacy route %s", (path, heading, title) => {
+  ])("renders the public route %s", (path, heading, title) => {
     renderTestApp([path]);
 
     expect(screen.getByRole("heading", { name: heading })).toBeVisible();
@@ -575,7 +665,7 @@ describe("Venfour application", () => {
 
     expect(
       screen.getByRole("heading", {
-        name: "Current report and analysis handling",
+        name: "Total-loss report and analysis handling",
       }),
     ).toBeVisible();
     expect(
@@ -585,7 +675,10 @@ describe("Venfour application", () => {
       screen.getByText(/resulting validated analysis is linked to the appraisal case/i),
     ).toBeVisible();
     expect(
-      screen.getByText(/results identifier or link by itself is not authorization/i),
+      screen.getByText(/case or results identifier by itself is not authorization/i),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("heading", { name: "Diminished-value request handling" }),
     ).toBeVisible();
     expect(
       screen.queryByRole("heading", { name: "How legacy report processing works" }),
@@ -605,12 +698,16 @@ describe("Venfour application", () => {
     expect(searchParams.get("service")).toBe("total-loss");
     expect(searchParams.get("campaign")).toBe("renewal");
     expect(
-      screen.getByRole("heading", { name: "Start your total-loss appraisal" }),
+      screen.getByRole("heading", { name: "Start your CCC report review" }),
     ).toBeVisible();
     expect(
       screen.queryByRole("heading", { name: "Upload your insurance value report" }),
     ).not.toBeInTheDocument();
-    expect(document.title).toBe("Start Your Vehicle Appraisal | Venfour");
+    await waitFor(() =>
+      expect(document.title).toBe(
+        "Start a Vehicle Valuation Review | Venfour",
+      ),
+    );
   });
 
   test("keeps saved analysis routes operational", async () => {

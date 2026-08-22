@@ -71,10 +71,10 @@ function AppShellContent() {
     .reverse()
     .map((match) => match.handle)
     .find(isPageMetadata) ?? {
-    title: "Vehicle Appraisals After an Accident | Venfour",
-    description:
-      "Start a total-loss appraisal online or learn how a diminished value appraisal documents value lost after repairs.",
-  };
+      title: "Vehicle Valuation Reviews After an Accident | Venfour",
+      description:
+        "Review an original CCC total-loss valuation report or submit repaired-vehicle details for future manual diminished-value review.",
+    };
 
   useDocumentMetadata(analysisRoute ? null : metadata);
 
@@ -389,6 +389,16 @@ function AppShellContent() {
                     </a>
                   </li>
                   <li>
+                    <Link to="/methodology" className={footerLinkClassName}>
+                      Methodology
+                    </Link>
+                  </li>
+                  <li>
+                    <Link to="/terms" className={footerLinkClassName}>
+                      Terms
+                    </Link>
+                  </li>
+                  <li>
                     <Link to="/privacy" className={footerLinkClassName}>
                       Privacy
                     </Link>
@@ -396,6 +406,11 @@ function AppShellContent() {
                   <li>
                     <Link to="/cookies" className={footerLinkClassName}>
                       Cookie Policy
+                    </Link>
+                  </li>
+                  <li>
+                    <Link to="/contact" className={footerLinkClassName}>
+                      Contact
                     </Link>
                   </li>
                   <li>

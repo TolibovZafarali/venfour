@@ -40,6 +40,10 @@ import {
 } from "@/features/total-loss/vehicle-lookup-service";
 import { renderTestApp } from "@/test/render";
 
+vi.mock("@/config/product-availability", () => ({
+  totalLossManualIntakeAvailable: true,
+}));
+
 const USER_ID = "11111111-1111-4111-8111-111111111111";
 const CASE_ID = "22222222-2222-4222-8222-222222222222";
 const RECENT_CASE_ID = "33333333-3333-4333-8333-333333333333";
@@ -472,7 +476,7 @@ describe("/start?service=total-loss", () => {
     });
 
     const pageHeading = screen.getByRole("heading", {
-      name: "Start your total-loss appraisal",
+      name: "Start your CCC report review",
     });
     expect(pageHeading).toBeVisible();
     const layout = pageHeading.closest("[data-total-loss-layout]");
@@ -849,7 +853,7 @@ describe("/start?service=total-loss", () => {
     expect(
       screen.getByRole("dialog", { name: "Sign in to Venfour" }),
     ).toHaveTextContent(
-      "Sign in so Venfour can securely store your insurance valuation report with your appraisal case.",
+      "Sign in so Venfour can securely store your original CCC valuation report with your total-loss case.",
     );
     expect(harness.createOrGetAppraisalCase).not.toHaveBeenCalled();
     expect(harness.uploadReport).not.toHaveBeenCalled();

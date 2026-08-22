@@ -421,8 +421,9 @@ export function DiminishedValueStartStep({
               className="mt-3 rounded-lg bg-brand-soft/45 px-3 py-2 text-sm leading-6 text-copy"
               role="status"
             >
-              That’s okay. A review can begin while repairs are unfinished or
-              their status is still unclear.
+              You can still submit a request while repairs are unfinished or
+              their status is unclear. Submission does not mean a review has
+              begun.
             </p>
           ) : null}
         </div>
@@ -722,7 +723,7 @@ export function DiminishedValueConsultationStep({
       <DiminishedValueProgress current={4} status={status} />
       <StepHeading
         title="Prepare your review request"
-        description="Add contact details and general availability so your information is ready for a future consultation workflow."
+        description="Add contact details and general availability for an authorized Venfour reviewer. Submission does not schedule an appointment or complete an appraisal."
       />
       <div className="mt-6 grid gap-5 sm:grid-cols-2">
         <div className="sm:col-span-2">
@@ -838,8 +839,9 @@ export function DiminishedValueCompleteStep({
         <div className="mx-auto mt-7 max-w-lg rounded-xl border border-line bg-surface p-5">
           <p className="text-sm font-semibold text-ink">Request received</p>
           <p className="mt-2 text-sm leading-6 text-copy">
-            Venfour has received this information for a future manual review. No
-            appraisal has been completed and no appointment has been scheduled.
+            Venfour has securely received this information for future manual
+            review. It is not an automated appraisal, no appraisal has been
+            completed, and no appointment has been scheduled.
           </p>
         </div>
       </div>
