@@ -27,29 +27,26 @@ export function totalLossManualFormToDetailsValues(
   const valuationCents = parseCurrencyToCents(
     normalized.insurerVehicleValuation,
   );
-  const vehicleYear =
-    !normalized.vehicleYear
-      ? null
-      : validateVehicleYear(normalized.vehicleYear, referenceDate) === null
-        ? Number(normalized.vehicleYear)
-        : undefined;
+  const vehicleYear = !normalized.vehicleYear
+    ? null
+    : validateVehicleYear(normalized.vehicleYear, referenceDate) === null
+      ? Number(normalized.vehicleYear)
+      : undefined;
   const mileageAtLoss = !normalized.mileageAtLoss
     ? null
     : validateMileage(normalized.mileageAtLoss) === null
       ? Number(normalized.mileageAtLoss)
       : undefined;
-  const dateOfLoss =
-    !normalized.dateOfLoss
-      ? null
-      : validateDateOfLoss(normalized.dateOfLoss, referenceDate) === null
-        ? normalized.dateOfLoss
-        : undefined;
+  const dateOfLoss = !normalized.dateOfLoss
+    ? null
+    : validateDateOfLoss(normalized.dateOfLoss, referenceDate) === null
+      ? normalized.dateOfLoss
+      : undefined;
   const insurerVehicleValuation = !normalized.insurerVehicleValuation
     ? null
     : valuationCents !== null &&
-        validateInsurerVehicleValuation(
-          normalized.insurerVehicleValuation,
-        ) === null
+        validateInsurerVehicleValuation(normalized.insurerVehicleValuation) ===
+          null
       ? valuationCents / 100
       : undefined;
 
@@ -68,6 +65,22 @@ export function totalLossManualFormToDetailsValues(
   };
 }
 
+export function totalLossReportFormToDetailsValues(
+  values: TotalLossManualFormValues,
+  referenceDate = new Date(),
+): CreateTotalLossDetailsValues {
+  return {
+    ...totalLossManualFormToDetailsValues(
+      {
+        ...createEmptyTotalLossManualForm(),
+        zipCode: values.zipCode,
+      },
+      referenceDate,
+    ),
+    intakeMode: "report",
+  };
+}
+
 export function hasUnpersistedTotalLossManualValues(
   values: TotalLossManualFormValues,
   referenceDate = new Date(),
@@ -76,13 +89,11 @@ export function hasUnpersistedTotalLossManualValues(
   return Boolean(
     (normalized.vehicleYear &&
       validateVehicleYear(normalized.vehicleYear, referenceDate)) ||
-      (normalized.mileageAtLoss && validateMileage(normalized.mileageAtLoss)) ||
-      (normalized.dateOfLoss &&
-        validateDateOfLoss(normalized.dateOfLoss, referenceDate)) ||
-      (normalized.insurerVehicleValuation &&
-        validateInsurerVehicleValuation(
-          normalized.insurerVehicleValuation,
-        )),
+    (normalized.mileageAtLoss && validateMileage(normalized.mileageAtLoss)) ||
+    (normalized.dateOfLoss &&
+      validateDateOfLoss(normalized.dateOfLoss, referenceDate)) ||
+    (normalized.insurerVehicleValuation &&
+      validateInsurerVehicleValuation(normalized.insurerVehicleValuation)),
   );
 }
 

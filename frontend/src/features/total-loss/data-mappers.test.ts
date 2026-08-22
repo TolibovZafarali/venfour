@@ -4,6 +4,7 @@ import {
   hasUnpersistedTotalLossManualValues,
   totalLossDetailsToManualForm,
   totalLossManualFormToDetailsValues,
+  totalLossReportFormToDetailsValues,
 } from "@/features/total-loss/data-mappers";
 import type { TotalLossCaseDetails } from "@/features/total-loss/data-types";
 
@@ -39,6 +40,38 @@ describe("total-loss data mappers", () => {
       dateOfLoss: "2026-08-18",
       insurerName: "Example Insurance",
       insurerVehicleValuation: 20500.5,
+    });
+  });
+
+  it("maps report intake with only the shared normalized postal code", () => {
+    expect(
+      totalLossReportFormToDetailsValues(
+        {
+          vin: "1HGCM82633A004352",
+          vehicleYear: "2020",
+          make: "Honda",
+          model: "Accord",
+          trim: "EX-L",
+          mileageAtLoss: "48250",
+          zipCode: "606011234",
+          dateOfLoss: "2020-01-02",
+          insurerName: "Private Insurer",
+          insurerVehicleValuation: "18750.00",
+        },
+        REFERENCE_DATE,
+      ),
+    ).toEqual({
+      intakeMode: "report",
+      vin: null,
+      vehicleYear: null,
+      vehicleMake: null,
+      vehicleModel: null,
+      vehicleTrim: null,
+      mileageAtLoss: null,
+      postalCode: "60601-1234",
+      dateOfLoss: null,
+      insurerName: null,
+      insurerVehicleValuation: null,
     });
   });
 
@@ -91,12 +124,16 @@ describe("total-loss data mappers", () => {
       insurerVehicleValuation: "$20.",
     };
 
-    expect(totalLossManualFormToDetailsValues(form, REFERENCE_DATE)).toMatchObject({
+    expect(
+      totalLossManualFormToDetailsValues(form, REFERENCE_DATE),
+    ).toMatchObject({
       vehicleYear: undefined,
       mileageAtLoss: undefined,
       dateOfLoss: undefined,
       insurerVehicleValuation: undefined,
     });
-    expect(hasUnpersistedTotalLossManualValues(form, REFERENCE_DATE)).toBe(true);
+    expect(hasUnpersistedTotalLossManualValues(form, REFERENCE_DATE)).toBe(
+      true,
+    );
   });
 });

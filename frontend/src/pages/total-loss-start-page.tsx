@@ -1,11 +1,5 @@
 import { AlertCircle, CloudOff, RefreshCw } from "lucide-react";
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useLocation, useNavigate } from "react-router";
 
@@ -30,6 +24,7 @@ import {
   hasUnpersistedTotalLossManualValues,
   totalLossDetailsToManualForm,
   totalLossManualFormToDetailsValues,
+  totalLossReportFormToDetailsValues,
 } from "@/features/total-loss/data-mappers";
 import { useTotalLossDependencies } from "@/features/total-loss/dependencies";
 import {
@@ -600,7 +595,7 @@ export function TotalLossIntakeFlow({
       (current) => ({
         ...current,
         mode: details.intakeMode,
-        manual: totalLossDetailsToManualForm(details),
+        manual: manualValuesForDetails(details),
         step: stepForDetails(details, current.step),
         dirty: false,
         pendingAuthAction: null,
@@ -749,10 +744,9 @@ export function TotalLossIntakeFlow({
       !totalLossManualIntakeAvailable &&
       current.pendingAuthAction === "complete-manual"
     ) {
-      applyDraft(
-        (value) => ({ ...value, pendingAuthAction: null }),
-        { bumpRevision: false },
-      );
+      applyDraft((value) => ({ ...value, pendingAuthAction: null }), {
+        bumpRevision: false,
+      });
       return;
     }
     const key = `${userId}:${current.pendingAuthAction}`;
@@ -1163,9 +1157,7 @@ export function TotalLossIntakeFlow({
 
   const handleReportContinue = async () => {
     setFlowError(null);
-    const normalizedZipCode = normalizeZipCode(
-      draftRef.current.manual.zipCode,
-    );
+    const normalizedZipCode = normalizeZipCode(draftRef.current.manual.zipCode);
     const zipCodeError = validateZipCode(normalizedZipCode);
     setManualErrors((current) => ({
       ...current,
@@ -1257,9 +1249,7 @@ export function TotalLossIntakeFlow({
         reservedCaseId: candidate.id,
         ownerUserId: userId,
         mode: details?.intakeMode ?? null,
-        manual: details
-          ? totalLossDetailsToManualForm(details)
-          : current.manual,
+        manual: details ? manualValuesForDetails(details) : current.manual,
         step: details ? stepForDetails(details, "choice") : "choice",
         pendingAuthAction: null,
         dirty: false,
@@ -1310,7 +1300,7 @@ export function TotalLossIntakeFlow({
     applyDraft((current) => ({
       ...current,
       mode: conflict.intakeMode,
-      manual: totalLossDetailsToManualForm(conflict),
+      manual: manualValuesForDetails(conflict),
       step: stepForDetails(conflict, current.step),
       dirty: false,
     }));
@@ -1336,6 +1326,11 @@ export function TotalLossIntakeFlow({
     if (candidate && userId) {
       const next: TotalLossDraft = {
         ...createEmptyTotalLossDraft(),
+        manual: reportModeManualValues(
+          candidateDetails
+            ? totalLossDetailsToManualForm(candidateDetails)
+            : createEmptyTotalLossManualForm(),
+        ),
         mode: "report",
         step: "report",
         ownerUserId: userId,
@@ -1351,7 +1346,7 @@ export function TotalLossIntakeFlow({
 
     applyDraft((current) => ({
       ...current,
-      manual: createEmptyTotalLossManualForm(),
+      manual: reportModeManualValues(current.manual),
       mode: "report",
       step: "report",
       pendingAuthAction: null,
@@ -1516,6 +1511,10 @@ export function TotalLossIntakeFlow({
               setFlowError(null);
               applyDraft((current) => ({
                 ...current,
+                manual:
+                  mode === "report"
+                    ? reportModeManualValues(current.manual)
+                    : current.manual,
                 mode,
                 step: "choice",
                 pendingAuthAction: null,
@@ -1531,65 +1530,65 @@ export function TotalLossIntakeFlow({
   return (
     <>
       {storageError ? (
-            <Notice
-              icon={<CloudOff className="size-5" aria-hidden />}
-              title="Browser draft storage is unavailable"
-              message="Keep this page open. Venfour will not start navigation-based sign-in until your draft can be saved durably."
-            />
-          ) : null}
-          {explicitCaseId && !userId && auth.status !== "loading" ? (
-            <Notice
-              title="Sign in to continue this saved appraisal"
-              message="We need to confirm that the referenced total-loss draft belongs to your account."
-              actionLabel="Sign in"
-              onAction={() =>
-                openSignIn({ returnTo, intent: "continue-total-loss" })
-              }
-            />
-          ) : null}
-          {invalidExplicitCaseId || explicitCaseError ? (
-            <Notice
-              title="Saved appraisal unavailable"
-              message={
-                invalidExplicitCaseId
-                  ? "This saved-appraisal link is not valid."
-                  : (explicitCaseError ?? "The saved appraisal is unavailable.")
-              }
-            />
-          ) : null}
-          {recentCaseQuery.isError && !hasMeaningfulLocalDraft(draft) ? (
-            <Notice
-              title="Saved appraisal lookup unavailable"
-              message="You can still start here. We’ll try the saved-appraisal lookup again later."
-            />
-          ) : null}
-          {conflict || conflictWithoutRow ? (
-            <ConflictNotice
-              hasServerVersion={Boolean(conflict)}
-              onUseSaved={handleUseSavedConflict}
-              onKeepLocal={handleKeepLocalConflict}
-            />
-          ) : null}
+        <Notice
+          icon={<CloudOff className="size-5" aria-hidden />}
+          title="Browser draft storage is unavailable"
+          message="Keep this page open. Venfour will not start navigation-based sign-in until your draft can be saved durably."
+        />
+      ) : null}
+      {explicitCaseId && !userId && auth.status !== "loading" ? (
+        <Notice
+          title="Sign in to continue this saved appraisal"
+          message="We need to confirm that the referenced total-loss draft belongs to your account."
+          actionLabel="Sign in"
+          onAction={() =>
+            openSignIn({ returnTo, intent: "continue-total-loss" })
+          }
+        />
+      ) : null}
+      {invalidExplicitCaseId || explicitCaseError ? (
+        <Notice
+          title="Saved appraisal unavailable"
+          message={
+            invalidExplicitCaseId
+              ? "This saved-appraisal link is not valid."
+              : (explicitCaseError ?? "The saved appraisal is unavailable.")
+          }
+        />
+      ) : null}
+      {recentCaseQuery.isError && !hasMeaningfulLocalDraft(draft) ? (
+        <Notice
+          title="Saved appraisal lookup unavailable"
+          message="You can still start here. We’ll try the saved-appraisal lookup again later."
+        />
+      ) : null}
+      {conflict || conflictWithoutRow ? (
+        <ConflictNotice
+          hasServerVersion={Boolean(conflict)}
+          onUseSaved={handleUseSavedConflict}
+          onKeepLocal={handleKeepLocalConflict}
+        />
+      ) : null}
 
-          {explicitCaseBlocked ? (
-            <UnavailableCaseCard />
-          ) : explicitCasePending ||
-            draftIdentityUnverified ||
-            readyStateVerificationPending ||
-            (detailsQuery.isLoading && confirmedCaseId && !draft.dirty) ? (
-            <LoadingCard />
-          ) : readyStateLoadError ? (
-            <SavedDetailsLoadErrorCard
-              onRetry={() => void detailsQuery.refetch()}
-            />
-          ) : (
-            <IntakeStepTransition
-              transitionKey={renderedStepKey}
-              direction={stepTransitionDirection}
-            >
-              {renderStep()}
-            </IntakeStepTransition>
-          )}
+      {explicitCaseBlocked ? (
+        <UnavailableCaseCard />
+      ) : explicitCasePending ||
+        draftIdentityUnverified ||
+        readyStateVerificationPending ||
+        (detailsQuery.isLoading && confirmedCaseId && !draft.dirty) ? (
+        <LoadingCard />
+      ) : readyStateLoadError ? (
+        <SavedDetailsLoadErrorCard
+          onRetry={() => void detailsQuery.refetch()}
+        />
+      ) : (
+        <IntakeStepTransition
+          transitionKey={renderedStepKey}
+          direction={stepTransitionDirection}
+        >
+          {renderStep()}
+        </IntakeStepTransition>
+      )}
     </>
   );
 }
@@ -1604,8 +1603,19 @@ class StaleIdentityOperationError extends Error {
 function loadInitialDraft(): InitialDraftState {
   const stored = readTotalLossDraft();
   if (stored.ok) {
+    const draft = stored.draft ?? createEmptyTotalLossDraft();
+    if (stored.draft?.mode === "report") {
+      const sanitizedDraft = {
+        ...draft,
+        manual: reportModeManualValues(draft.manual),
+      };
+      return {
+        draft: sanitizedDraft,
+        storageError: !writeTotalLossDraft(sanitizedDraft).ok,
+      };
+    }
     return {
-      draft: stored.draft ?? createEmptyTotalLossDraft(),
+      draft,
       storageError: false,
     };
   }
@@ -1623,14 +1633,27 @@ function detailsValuesForDraft(
     };
   }
   return {
-    ...totalLossManualFormToDetailsValues(
-      totalLossManualIntakeAvailable
-        ? draft.manual
-        : createEmptyTotalLossManualForm(),
-    ),
-    intakeMode: "report",
+    ...totalLossReportFormToDetailsValues(draft.manual),
     intakeCompletedAt: completedAt,
   };
+}
+
+function reportModeManualValues(
+  values: TotalLossManualFormValues,
+): TotalLossManualFormValues {
+  return {
+    ...createEmptyTotalLossManualForm(),
+    zipCode: values.zipCode,
+  };
+}
+
+function manualValuesForDetails(
+  details: TotalLossCaseDetails,
+): TotalLossManualFormValues {
+  const values = totalLossDetailsToManualForm(details);
+  return details.intakeMode === "report"
+    ? reportModeManualValues(values)
+    : values;
 }
 
 function stepForDetails(

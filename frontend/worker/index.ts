@@ -1,9 +1,11 @@
 const API_RESPONSE_HEADERS = new Set([
+  // Representation metadata must stay with the unread upstream body. Framing
+  // metadata such as Content-Length is intentionally left to the runtime.
   "accept-ranges",
   "allow",
   "content-disposition",
+  "content-encoding",
   "content-language",
-  "content-length",
   "content-range",
   "content-type",
   "etag",
@@ -128,9 +130,7 @@ function runtimeConfiguration(env: Env): RuntimeConfiguration {
     stagingHostname.includes(":") ||
     !/^[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?$/u.test(stagingHostname)
   ) {
-    throw new RuntimeConfigurationError(
-      "The staging hostname is unavailable.",
-    );
+    throw new RuntimeConfigurationError("The staging hostname is unavailable.");
   }
 
   return {
@@ -156,9 +156,17 @@ function securityHeaders(headers: Headers) {
 function securedResponse(
   response: Response,
   cacheControl: string,
-  { noStore = false }: { readonly noStore?: boolean } = {},
+  {
+    encodedBody = false,
+    noStore = false,
+    responseHeaders = response.headers,
+  }: {
+    readonly encodedBody?: boolean;
+    readonly noStore?: boolean;
+    readonly responseHeaders?: Headers;
+  } = {},
 ) {
-  const headers = new Headers(response.headers);
+  const headers = new Headers(responseHeaders);
   headers.set("Cache-Control", cacheControl);
   headers.set("CDN-Cache-Control", cacheControl);
   if (noStore) {
@@ -166,11 +174,13 @@ function securedResponse(
     headers.set("Pragma", "no-cache");
   }
   securityHeaders(headers);
-  return new Response(response.body, {
+  const responseInit: ResponseInit = {
     headers,
     status: response.status,
     statusText: response.statusText,
-  });
+  };
+  if (encodedBody) responseInit.encodeBody = "manual";
+  return new Response(response.body, responseInit);
 }
 
 function noStoreResponse(response: Response) {
@@ -195,7 +205,8 @@ function isApiRequest(pathname: string) {
 function upstreamResponseHeaders(response: Response) {
   const headers = new Headers();
   for (const [name, value] of response.headers) {
-    if (API_RESPONSE_HEADERS.has(name.toLowerCase())) headers.append(name, value);
+    if (API_RESPONSE_HEADERS.has(name.toLowerCase()))
+      headers.append(name, value);
   }
   for (const cookie of response.headers.getSetCookie()) {
     headers.append("Set-Cookie", cookie);
@@ -217,10 +228,7 @@ async function proxyToApi(
   for (const name of PROXY_REQUEST_HEADERS_TO_REMOVE) {
     upstreamHeaders.delete(name);
   }
-  upstreamHeaders.set(
-    STAGING_PROXY_HEADER_NAME,
-    configuration.apiProxySecret,
-  );
+  upstreamHeaders.set(STAGING_PROXY_HEADER_NAME, configuration.apiProxySecret);
 
   const upstreamRequestInit: RequestInit & { duplex?: "half" } = {
     headers: upstreamHeaders,
@@ -250,13 +258,12 @@ async function proxyToApi(
     );
   }
 
-  return noStoreResponse(
-    new Response(upstreamResponse.body, {
-      headers: upstreamResponseHeaders(upstreamResponse),
-      status: upstreamResponse.status,
-      statusText: upstreamResponse.statusText,
-    }),
-  );
+  const responseHeaders = upstreamResponseHeaders(upstreamResponse);
+  return securedResponse(upstreamResponse, "private, no-store, max-age=0", {
+    encodedBody: responseHeaders.has("content-encoding"),
+    noStore: true,
+    responseHeaders,
+  });
 }
 
 function assetCacheControl(request: Request, response: Response) {

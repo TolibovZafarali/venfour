@@ -545,16 +545,14 @@ describe("/start?service=total-loss", () => {
       totalLossDependencies: createDependencyHarness().dependencies,
     });
 
-    await user.click(
-      await screen.findByRole("button", { name: /^Sign in$/u }),
-    );
+    await user.click(await screen.findByRole("button", { name: /^Sign in$/u }));
     await user.click(
       screen.getByRole("button", { name: "Continue with Google" }),
     );
 
-    expect(
-      window.localStorage.getItem(AUTH_RETURN_LOCATION_STORAGE_KEY),
-    ).toBe(`/start?service=total-loss&caseId=${CASE_ID}`);
+    expect(window.localStorage.getItem(AUTH_RETURN_LOCATION_STORAGE_KEY)).toBe(
+      `/start?service=total-loss&caseId=${CASE_ID}`,
+    );
   });
 
   it("keeps a signed-out manual draft local, restores it, then migrates it after sign-in", async () => {
@@ -867,7 +865,7 @@ describe("/start?service=total-loss", () => {
     });
   });
 
-  it("validates, uploads, retries replacement, and completes a private report intake", async () => {
+  it("preserves normalized ZIP through report persistence and analysis readiness", async () => {
     const auth = createAuthHarness(sessionFor());
     const harness = createDependencyHarness();
     const user = userEvent.setup();
@@ -985,9 +983,7 @@ describe("/start?service=total-loss", () => {
     await user.click(
       screen.getByRole("button", { name: "Continue to Free Value Check" }),
     );
-    expect(
-      await screen.findByText("ZIP code is required."),
-    ).toBeVisible();
+    expect(await screen.findByText("ZIP code is required.")).toBeVisible();
     expect(router.state.location.pathname).toBe("/start");
 
     await user.type(screen.getByLabelText("ZIP code"), "606011234");
@@ -1012,10 +1008,21 @@ describe("/start?service=total-loss", () => {
         values: expect.objectContaining({
           intakeMode: "report",
           intakeCompletedAt: expect.any(String),
+          vin: null,
+          vehicleYear: null,
+          vehicleMake: null,
+          vehicleModel: null,
+          mileageAtLoss: null,
           postalCode: "60601-1234",
         }),
       }),
     );
+    expect(harness.detailRows.get(CASE_ID)).toMatchObject({
+      intakeMode: "report",
+      vin: null,
+      postalCode: "60601-1234",
+      intakeCompletedAt: expect.any(String),
+    });
     const authenticatedRequest = fetchSpy.mock.calls.find(([input]) =>
       String(input).includes(`/api/v1/appraisal-cases/${CASE_ID}/analysis`),
     );
@@ -1150,9 +1157,7 @@ describe("/start?service=total-loss", () => {
     expect(
       await screen.findByRole("heading", { name: "Your report is ready" }),
     ).toBeVisible();
-    expect(
-      screen.getByText(/Start the free value check/),
-    ).toBeVisible();
+    expect(screen.getByText(/Start the free value check/)).toBeVisible();
     expect(
       screen.getByRole("button", { name: "Start value check" }),
     ).toBeVisible();
@@ -1576,7 +1581,7 @@ describe("/start?service=total-loss", () => {
     expect(screen.getByLabelText("Mileage at date of loss")).toHaveValue("12");
   });
 
-  it("restores saved report metadata without replacing dirty inactive manual values", async () => {
+  it("sanitizes stale manual fields from a stored report-mode draft", async () => {
     const baseDraft = createSensitiveManualDraft({
       mode: "report",
       step: "report",
@@ -1614,12 +1619,19 @@ describe("/start?service=total-loss", () => {
       ok: true,
       draft: {
         dirty: true,
-        manual: { vehicleYear: "20" },
+        manual: {
+          vin: "",
+          vehicleYear: "",
+          make: "",
+          model: "",
+          mileageAtLoss: "",
+          zipCode: "60611",
+        },
       },
     });
   });
 
-  it("preserves inactive manual and report data while switching modes", async () => {
+  it("clears stale manual vehicle data but retains ZIP when report mode becomes authoritative", async () => {
     const savedDetails = detailsFor(CASE_ID, {
       intakeMode: "report",
       vin: "1HGCM82633A004352",
@@ -1627,6 +1639,7 @@ describe("/start?service=total-loss", () => {
       vehicleMake: "Honda",
       vehicleModel: "Accord",
       mileageAtLoss: 48250,
+      postalCode: "60611",
       reportOriginalFilename: "saved-report.pdf",
       reportUploadedAt: CREATED_AT,
     });
@@ -1650,7 +1663,18 @@ describe("/start?service=total-loss", () => {
     await waitFor(() =>
       expect(readTotalLossDraft()).toMatchObject({
         ok: true,
-        draft: { step: "report", mode: "report" },
+        draft: {
+          step: "report",
+          mode: "report",
+          manual: {
+            vin: "",
+            vehicleYear: "",
+            make: "",
+            model: "",
+            mileageAtLoss: "",
+            zipCode: "60611",
+          },
+        },
       }),
     );
     expect(await screen.findByText("saved-report.pdf")).toBeVisible();
@@ -1662,11 +1686,15 @@ describe("/start?service=total-loss", () => {
         name: "Tell us about your vehicle",
       }),
     ).toBeVisible();
-    expect(screen.getByLabelText("VIN")).toHaveValue("1HGCM82633A004352");
-    expect(screen.getByText("Vehicle: 2020 Honda Accord")).toBeVisible();
+    expect(screen.getByLabelText("VIN")).toHaveValue("");
+    expect(
+      screen.queryByText("Vehicle: 2020 Honda Accord"),
+    ).not.toBeInTheDocument();
     expect(harness.detailRows.get(CASE_ID)).toMatchObject({
       intakeMode: "manual",
       intakeCompletedAt: null,
+      vin: null,
+      postalCode: "60611",
       reportOriginalFilename: "saved-report.pdf",
     });
 
@@ -1676,7 +1704,26 @@ describe("/start?service=total-loss", () => {
     expect(harness.detailRows.get(CASE_ID)).toMatchObject({
       intakeMode: "report",
       intakeCompletedAt: null,
-      vin: "1HGCM82633A004352",
+      vin: null,
+      vehicleYear: null,
+      vehicleMake: null,
+      vehicleModel: null,
+      mileageAtLoss: null,
+      postalCode: "60611",
+    });
+    expect(readTotalLossDraft()).toMatchObject({
+      ok: true,
+      draft: {
+        mode: "report",
+        manual: {
+          vin: "",
+          vehicleYear: "",
+          make: "",
+          model: "",
+          mileageAtLoss: "",
+          zipCode: "60611",
+        },
+      },
     });
   });
 
