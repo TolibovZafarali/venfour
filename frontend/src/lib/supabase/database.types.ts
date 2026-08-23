@@ -199,25 +199,53 @@ export type Database = {
             referencedRelation: "appraisal_cases";
             referencedColumns: ["id"];
           },
+          {
+            foreignKeyName: "diminished_value_case_details_case_id_fkey";
+            columns: ["case_id"];
+            isOneToOne: true;
+            referencedRelation: "total_loss_case_operations_internal";
+            referencedColumns: ["case_id"];
+          },
         ];
       };
       profiles: {
         Row: {
           created_at: string;
           display_name: string | null;
+          full_name_confirmed_at: string | null;
           id: string;
+          operational_follow_up_allowed: boolean | null;
+          operational_follow_up_updated_at: string | null;
+          privacy_notice_acknowledged_at: string | null;
+          privacy_notice_version: string | null;
+          service_terms_acknowledged_at: string | null;
+          service_terms_version: string | null;
           updated_at: string;
         };
         Insert: {
           created_at?: string;
           display_name?: string | null;
+          full_name_confirmed_at?: string | null;
           id: string;
+          operational_follow_up_allowed?: boolean | null;
+          operational_follow_up_updated_at?: string | null;
+          privacy_notice_acknowledged_at?: string | null;
+          privacy_notice_version?: string | null;
+          service_terms_acknowledged_at?: string | null;
+          service_terms_version?: string | null;
           updated_at?: string;
         };
         Update: {
           created_at?: string;
           display_name?: string | null;
+          full_name_confirmed_at?: string | null;
           id?: string;
+          operational_follow_up_allowed?: boolean | null;
+          operational_follow_up_updated_at?: string | null;
+          privacy_notice_acknowledged_at?: string | null;
+          privacy_notice_version?: string | null;
+          service_terms_acknowledged_at?: string | null;
+          service_terms_version?: string | null;
           updated_at?: string;
         };
         Relationships: [];
@@ -293,6 +321,13 @@ export type Database = {
             isOneToOne: false;
             referencedRelation: "appraisal_cases";
             referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "total_loss_analysis_jobs_case_id_fkey";
+            columns: ["case_id"];
+            isOneToOne: false;
+            referencedRelation: "total_loss_case_operations_internal";
+            referencedColumns: ["case_id"];
           },
         ];
       };
@@ -383,11 +418,81 @@ export type Database = {
             referencedRelation: "appraisal_cases";
             referencedColumns: ["id"];
           },
+          {
+            foreignKeyName: "total_loss_case_details_case_id_fkey";
+            columns: ["case_id"];
+            isOneToOne: true;
+            referencedRelation: "total_loss_case_operations_internal";
+            referencedColumns: ["case_id"];
+          },
         ];
       };
     };
     Views: {
-      [_ in never]: never;
+      total_loss_case_operations_internal: {
+        Row: {
+          analysis_attempt_count: number | null;
+          analysis_classification: string | null;
+          analysis_evidence_basis: string | null;
+          analysis_evidence_strength: string | null;
+          analysis_failure_code: string | null;
+          analysis_job_created_at: string | null;
+          analysis_job_finished_at: string | null;
+          analysis_job_id: string | null;
+          analysis_job_updated_at: string | null;
+          analysis_processing_expires_at: string | null;
+          analysis_retryable: boolean | null;
+          analysis_run_created_at: string | null;
+          analysis_run_id: string | null;
+          analysis_run_schema_version: string | null;
+          analysis_status:
+            | Database["public"]["Enums"]["total_loss_analysis_status"]
+            | null;
+          analysis_version: string | null;
+          canonical_report_available: boolean | null;
+          case_created_at: string | null;
+          case_id: string | null;
+          case_stage:
+            | Database["public"]["Enums"]["case_operation_stage"]
+            | null;
+          case_status:
+            | Database["public"]["Enums"]["appraisal_case_status"]
+            | null;
+          case_updated_at: string | null;
+          comparable_scoring_version: string | null;
+          customer_full_name: string | null;
+          date_of_loss: string | null;
+          details_created_at: string | null;
+          details_updated_at: string | null;
+          discrepancy_analysis_version: string | null;
+          insurer_name: string | null;
+          insurer_vehicle_valuation: number | null;
+          intake_completed_at: string | null;
+          intake_mode:
+            | Database["public"]["Enums"]["total_loss_intake_mode"]
+            | null;
+          last_activity_at: string | null;
+          mileage_at_loss: number | null;
+          operational_follow_up_allowed: boolean | null;
+          owner_user_id: string | null;
+          postal_code: string | null;
+          report_last_upload_id: string | null;
+          report_original_filename: string | null;
+          report_upload_expires_at: string | null;
+          report_upload_id: string | null;
+          report_uploaded_at: string | null;
+          service_type:
+            | Database["public"]["Enums"]["appraisal_service_type"]
+            | null;
+          vehicle_make: string | null;
+          vehicle_model: string | null;
+          vehicle_trim: string | null;
+          vehicle_year: number | null;
+          verified_email: string | null;
+          vin: string | null;
+        };
+        Relationships: [];
+      };
     };
     Functions: {
       acquire_total_loss_report_upload: {
@@ -459,6 +564,33 @@ export type Database = {
           isSetofReturn: true;
         };
       };
+      confirm_customer_profile: {
+        Args: {
+          full_name: string;
+          operational_follow_up_allowed: boolean;
+          privacy_notice_version: string;
+          service_terms_version: string;
+        };
+        Returns: {
+          created_at: string;
+          display_name: string | null;
+          full_name_confirmed_at: string | null;
+          id: string;
+          operational_follow_up_allowed: boolean | null;
+          operational_follow_up_updated_at: string | null;
+          privacy_notice_acknowledged_at: string | null;
+          privacy_notice_version: string | null;
+          service_terms_acknowledged_at: string | null;
+          service_terms_version: string | null;
+          updated_at: string;
+        };
+        SetofOptions: {
+          from: "*";
+          to: "profiles";
+          isOneToOne: true;
+          isSetofReturn: false;
+        };
+      };
       fail_total_loss_analysis: {
         Args: {
           failure_code: string;
@@ -481,6 +613,24 @@ export type Database = {
           to: "total_loss_case_details_public";
           isOneToOne: false;
           isSetofReturn: true;
+        };
+      };
+      get_or_create_total_loss_draft: {
+        Args: never;
+        Returns: {
+          created_at: string;
+          id: string;
+          last_activity_at: string;
+          service_type: Database["public"]["Enums"]["appraisal_service_type"];
+          status: Database["public"]["Enums"]["appraisal_case_status"];
+          updated_at: string;
+          user_id: string;
+        };
+        SetofOptions: {
+          from: "*";
+          to: "appraisal_cases";
+          isOneToOne: true;
+          isSetofReturn: false;
         };
       };
       get_owned_analysis_run: {
@@ -535,7 +685,28 @@ export type Database = {
           isSetofReturn: true;
         };
       };
+      has_current_customer_profile: { Args: never; Returns: boolean };
       is_venfour_staff: { Args: never; Returns: boolean };
+      list_owned_case_operations: {
+        Args: never;
+        Returns: {
+          analysis_attempt_count: number;
+          analysis_failure_code: string;
+          analysis_processing_expires_at: string;
+          analysis_retryable: boolean;
+          analysis_status: Database["public"]["Enums"]["total_loss_analysis_status"];
+          case_created_at: string;
+          case_id: string;
+          case_stage: Database["public"]["Enums"]["case_operation_stage"];
+          case_status: Database["public"]["Enums"]["appraisal_case_status"];
+          case_updated_at: string;
+          last_activity_at: string;
+          needs_attention: boolean;
+          owner_user_id: string;
+          report_uploaded_at: string;
+          service_type: Database["public"]["Enums"]["appraisal_service_type"];
+        }[];
+      };
       list_submitted_diminished_value_cases: {
         Args: never;
         Returns: {
@@ -575,6 +746,79 @@ export type Database = {
           isOneToOne: false;
           isSetofReturn: true;
         };
+      };
+      staff_get_total_loss_case_operation: {
+        Args: { requested_case_id: string };
+        Returns: {
+          analysis_attempt_count: number;
+          analysis_classification: string;
+          analysis_evidence_basis: string;
+          analysis_evidence_strength: string;
+          analysis_failure_code: string;
+          analysis_job_created_at: string;
+          analysis_job_finished_at: string;
+          analysis_job_id: string;
+          analysis_job_updated_at: string;
+          analysis_processing_expires_at: string;
+          analysis_retryable: boolean;
+          analysis_run_created_at: string;
+          analysis_run_id: string;
+          analysis_run_schema_version: string;
+          analysis_status: Database["public"]["Enums"]["total_loss_analysis_status"];
+          analysis_version: string;
+          case_created_at: string;
+          case_id: string;
+          case_stage: Database["public"]["Enums"]["case_operation_stage"];
+          case_status: Database["public"]["Enums"]["appraisal_case_status"];
+          case_updated_at: string;
+          comparable_scoring_version: string;
+          customer_full_name: string;
+          date_of_loss: string;
+          details_created_at: string;
+          details_updated_at: string;
+          discrepancy_analysis_version: string;
+          insurer_name: string;
+          insurer_vehicle_valuation: number;
+          intake_completed_at: string;
+          intake_mode: Database["public"]["Enums"]["total_loss_intake_mode"];
+          last_activity_at: string;
+          mileage_at_loss: number;
+          needs_attention: boolean;
+          operational_follow_up_allowed: boolean;
+          owner_user_id: string;
+          postal_code: string;
+          report_original_filename: string;
+          report_uploaded_at: string;
+          service_type: Database["public"]["Enums"]["appraisal_service_type"];
+          vehicle_make: string;
+          vehicle_model: string;
+          vehicle_trim: string;
+          vehicle_year: number;
+          verified_email: string;
+          vin: string;
+        }[];
+      };
+      staff_list_case_operations: {
+        Args: never;
+        Returns: {
+          analysis_attempt_count: number;
+          analysis_failure_code: string;
+          analysis_processing_expires_at: string;
+          analysis_retryable: boolean;
+          analysis_status: Database["public"]["Enums"]["total_loss_analysis_status"];
+          case_created_at: string;
+          case_id: string;
+          case_stage: Database["public"]["Enums"]["case_operation_stage"];
+          case_status: Database["public"]["Enums"]["appraisal_case_status"];
+          case_updated_at: string;
+          customer_full_name: string;
+          last_activity_at: string;
+          needs_attention: boolean;
+          owner_user_id: string;
+          report_uploaded_at: string;
+          service_type: Database["public"]["Enums"]["appraisal_service_type"];
+          verified_email: string;
+        }[];
       };
       submit_diminished_value_case: {
         Args: { case_id: string };
@@ -616,6 +860,18 @@ export type Database = {
         | "completed"
         | "closed";
       appraisal_service_type: "total_loss" | "diminished_value";
+      case_operation_stage:
+        | "intake_not_started"
+        | "intake_in_progress"
+        | "report_uploaded"
+        | "report_required"
+        | "ready_for_analysis"
+        | "analysis_processing"
+        | "analysis_failed"
+        | "analysis_complete"
+        | "submitted"
+        | "closed"
+        | "needs_attention";
       total_loss_analysis_outcome:
         | "claimed"
         | "not_submitted"
@@ -641,10 +897,12 @@ export type Database = {
       };
       total_loss_analysis_result: {
         outcome:
-          Database["public"]["Enums"]["total_loss_analysis_outcome"] | null;
+          | Database["public"]["Enums"]["total_loss_analysis_outcome"]
+          | null;
         job_id: string | null;
         status:
-          Database["public"]["Enums"]["total_loss_analysis_status"] | null;
+          | Database["public"]["Enums"]["total_loss_analysis_status"]
+          | null;
         attempt_count: number | null;
         run_id: string | null;
         postal_code: string | null;
@@ -655,7 +913,8 @@ export type Database = {
       total_loss_case_details_public: {
         case_id: string | null;
         intake_mode:
-          Database["public"]["Enums"]["total_loss_intake_mode"] | null;
+          | Database["public"]["Enums"]["total_loss_intake_mode"]
+          | null;
         vin: string | null;
         vehicle_year: number | null;
         vehicle_make: string | null;
@@ -695,12 +954,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends (DefaultSchemaTableNameOrOptions extends {
+  TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals;
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never) = never,
+    : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals;
 }
@@ -722,12 +981,13 @@ export type Tables<
 
 export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
-    keyof DefaultSchema["Tables"] | { schema: keyof DatabaseWithoutInternals },
-  TableName extends (DefaultSchemaTableNameOrOptions extends {
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals;
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never) = never,
+    : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals;
 }
@@ -746,12 +1006,13 @@ export type TablesInsert<
 
 export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
-    keyof DefaultSchema["Tables"] | { schema: keyof DatabaseWithoutInternals },
-  TableName extends (DefaultSchemaTableNameOrOptions extends {
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals;
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never) = never,
+    : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals;
 }
@@ -770,12 +1031,13 @@ export type TablesUpdate<
 
 export type Enums<
   DefaultSchemaEnumNameOrOptions extends
-    keyof DefaultSchema["Enums"] | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
+    | keyof DefaultSchema["Enums"]
+    | { schema: keyof DatabaseWithoutInternals },
+  EnumName extends DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals;
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never) = never,
+    : never = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals;
 }
@@ -788,11 +1050,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals;
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never) = never,
+    : never = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals;
 }
@@ -815,6 +1077,19 @@ export const Constants = {
         "closed",
       ],
       appraisal_service_type: ["total_loss", "diminished_value"],
+      case_operation_stage: [
+        "intake_not_started",
+        "intake_in_progress",
+        "report_uploaded",
+        "report_required",
+        "ready_for_analysis",
+        "analysis_processing",
+        "analysis_failed",
+        "analysis_complete",
+        "submitted",
+        "closed",
+        "needs_attention",
+      ],
       total_loss_analysis_outcome: [
         "claimed",
         "not_submitted",

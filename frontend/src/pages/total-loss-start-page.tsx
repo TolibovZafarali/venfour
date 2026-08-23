@@ -5,10 +5,13 @@ import { useLocation, useNavigate } from "react-router";
 
 import { totalLossManualIntakeAvailable } from "@/config/product-availability";
 import { useAuth, useSignInDialog } from "@/features/auth";
+import { CustomerProfileGate } from "@/features/customer-profile";
 import { useCreateOrGetAppraisalCaseMutation } from "@/features/cases/mutations";
 import {
   appraisalCaseQueryKeys,
+  useAppraisalCaseQuery,
   useRecentDraftAppraisalCaseQuery,
+  useTotalLossDraftQuery,
 } from "@/features/cases/queries";
 import type { AppraisalCaseService } from "@/features/cases/service";
 import type { AppraisalCase } from "@/features/cases/types";
@@ -83,6 +86,8 @@ const unavailableCaseService: AppraisalCaseService = {
     Promise.reject(new Error("Case storage is unavailable.")),
   getRecentDraftAppraisalCase: () =>
     Promise.reject(new Error("Case storage is unavailable.")),
+  getOrCreateTotalLossDraft: () =>
+    Promise.reject(new Error("Case storage is unavailable.")),
   getAppraisalCase: () =>
     Promise.reject(new Error("Case storage is unavailable.")),
   touchAppraisalCase: () =>
@@ -111,12 +116,143 @@ export function TotalLossIntakeFlow({
   onBusyChange,
 }: TotalLossIntakeFlowProps) {
   const location = useLocation();
+  const returnTo = `${location.pathname}${location.search}`;
+
+  return (
+    <CustomerProfileGate returnTo={returnTo}>
+      <TotalLossDraftBootstrapGate onBusyChange={onBusyChange} />
+    </CustomerProfileGate>
+  );
+}
+
+function TotalLossDraftBootstrapGate({
+  onBusyChange,
+}: TotalLossIntakeFlowProps) {
+  const { auth } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const dependencies = useTotalLossDependencies();
+  const userId = auth.status === "signedIn" ? auth.user.id : null;
+  const explicitCaseId = useMemo(
+    () => new URLSearchParams(location.search).get("caseId"),
+    [location.search],
+  );
+  const invalidExplicitCaseId = Boolean(
+    explicitCaseId && !UUID_PATTERN.test(explicitCaseId),
+  );
+  const caseService =
+    dependencies?.appraisalCaseService ?? unavailableCaseService;
+  const explicitCaseQuery = useAppraisalCaseQuery({
+    caseId: explicitCaseId ?? "",
+    service: caseService,
+    userId:
+      dependencies && explicitCaseId && !invalidExplicitCaseId ? userId : null,
+  });
+  const bootstrapQuery = useTotalLossDraftQuery({
+    service: caseService,
+    userId: dependencies ? userId : null,
+  });
+  const explicitAppraisalCase = explicitCaseQuery.data;
+  const canonicalAppraisalCase = bootstrapQuery.data;
+  const canonicalCaseId = canonicalAppraisalCase?.id ?? null;
+  const explicitCaseIsOwnedTotalLossDraft = Boolean(
+    auth.status === "signedIn" &&
+    explicitAppraisalCase &&
+    explicitAppraisalCase.userId === auth.user.id &&
+    explicitAppraisalCase.serviceType === "total_loss" &&
+    explicitAppraisalCase.status === "draft",
+  );
+  const canonicalizeExplicitCase = Boolean(
+    explicitCaseId &&
+    explicitCaseIsOwnedTotalLossDraft &&
+    canonicalCaseId &&
+    explicitCaseId !== canonicalCaseId,
+  );
+
+  useEffect(() => {
+    if (!canonicalizeExplicitCase || !canonicalCaseId) return;
+    const params = new URLSearchParams(location.search);
+    params.set("caseId", canonicalCaseId);
+    void navigate(
+      { pathname: location.pathname, search: `?${params.toString()}` },
+      { replace: true, preventScrollReset: true },
+    );
+  }, [
+    canonicalCaseId,
+    canonicalizeExplicitCase,
+    location.pathname,
+    location.search,
+    navigate,
+  ]);
+
+  if (auth.status !== "signedIn") {
+    return <LoadingCard />;
+  }
+  if (!dependencies) {
+    return (
+      <DraftBootstrapErrorCard message="Venfour could not connect to secure case storage." />
+    );
+  }
+  if (invalidExplicitCaseId) return <UnavailableCaseCard />;
+
+  if (
+    bootstrapQuery.isPending ||
+    (explicitCaseId && explicitCaseQuery.isPending) ||
+    canonicalizeExplicitCase
+  ) {
+    return <LoadingCard />;
+  }
+  if (bootstrapQuery.isError || (explicitCaseId && explicitCaseQuery.isError)) {
+    return (
+      <DraftBootstrapErrorCard
+        message="Your durable Total Loss draft could not be prepared. No report has been requested or uploaded."
+        onRetry={() => {
+          void bootstrapQuery.refetch();
+          if (explicitCaseId) void explicitCaseQuery.refetch();
+        }}
+      />
+    );
+  }
+
+  if (explicitCaseId && !explicitCaseIsOwnedTotalLossDraft) {
+    return <UnavailableCaseCard />;
+  }
+
+  const appraisalCase = canonicalAppraisalCase;
+  if (
+    !appraisalCase ||
+    appraisalCase.userId !== auth.user.id ||
+    appraisalCase.serviceType !== "total_loss" ||
+    appraisalCase.status !== "draft"
+  ) {
+    return <UnavailableCaseCard />;
+  }
+
+  return (
+    <TotalLossIntakeFlowContent
+      bootstrapCase={appraisalCase}
+      onBusyChange={onBusyChange}
+    />
+  );
+}
+
+interface TotalLossIntakeFlowContentProps extends TotalLossIntakeFlowProps {
+  readonly bootstrapCase: AppraisalCase;
+}
+
+function TotalLossIntakeFlowContent({
+  bootstrapCase,
+  onBusyChange,
+}: TotalLossIntakeFlowContentProps) {
+  const location = useLocation();
   const navigate = useNavigate();
   const { auth } = useAuth();
   const { openSignIn } = useSignInDialog();
   const queryClient = useQueryClient();
   const dependencies = useTotalLossDependencies();
-  const [initialDraft] = useState(loadInitialDraft);
+  const [initialDraft] = useState(() =>
+    loadInitialDraft(bootstrapCase, bootstrapCase.userId),
+  );
   const [draft, setDraft] = useState(initialDraft.draft);
   const [stepTransitionDirection, setStepTransitionDirection] = useState<
     "forward" | "backward"
@@ -643,15 +779,24 @@ export function TotalLossIntakeFlow({
   ]);
 
   useEffect(() => {
-    if (
-      !userId ||
-      !dependencies ||
-      !explicitCaseId ||
-      explicitCaseRef.current === `${userId}:${explicitCaseId}`
-    ) {
+    if (!userId || !dependencies || !explicitCaseId) {
       return;
     }
-    explicitCaseRef.current = `${userId}:${explicitCaseId}`;
+
+    const explicitCaseKey = `${userId}:${explicitCaseId}`;
+    if (explicitCaseRef.current === explicitCaseKey) return;
+
+    const current = draftRef.current;
+    if (
+      current.ownerUserId === userId &&
+      current.confirmedCaseId === explicitCaseId
+    ) {
+      explicitCaseRef.current = explicitCaseKey;
+      setExplicitCaseError(null);
+      return;
+    }
+
+    explicitCaseRef.current = explicitCaseKey;
     if (!UUID_PATTERN.test(explicitCaseId)) return;
 
     let active = true;
@@ -1600,11 +1745,25 @@ class StaleIdentityOperationError extends Error {
   }
 }
 
-function loadInitialDraft(): InitialDraftState {
+function loadInitialDraft(
+  bootstrapCase: AppraisalCase,
+  userId: string,
+): InitialDraftState {
   const stored = readTotalLossDraft();
   if (stored.ok) {
-    const draft = stored.draft ?? createEmptyTotalLossDraft();
-    if (stored.draft?.mode === "report") {
+    const storedDraft = stored.draft ?? createEmptyTotalLossDraft();
+    const belongsToBootstrapCase =
+      (!storedDraft.ownerUserId || storedDraft.ownerUserId === userId) &&
+      (!storedDraft.confirmedCaseId ||
+        storedDraft.confirmedCaseId === bootstrapCase.id);
+    const draft = {
+      ...(belongsToBootstrapCase ? storedDraft : createEmptyTotalLossDraft()),
+      confirmedCaseId: bootstrapCase.id,
+      reservedCaseId: bootstrapCase.id,
+      ownerUserId: userId,
+      dismissedResumeCaseId: null,
+    };
+    if (draft.mode === "report") {
       const sanitizedDraft = {
         ...draft,
         manual: reportModeManualValues(draft.manual),
@@ -1616,10 +1775,16 @@ function loadInitialDraft(): InitialDraftState {
     }
     return {
       draft,
-      storageError: false,
+      storageError: !writeTotalLossDraft(draft).ok,
     };
   }
-  return { draft: createEmptyTotalLossDraft(), storageError: true };
+  const draft = {
+    ...createEmptyTotalLossDraft(),
+    confirmedCaseId: bootstrapCase.id,
+    reservedCaseId: bootstrapCase.id,
+    ownerUserId: userId,
+  };
+  return { draft, storageError: !writeTotalLossDraft(draft).ok };
 }
 
 function detailsValuesForDraft(
@@ -1909,6 +2074,35 @@ function UnavailableCaseCard() {
         link.
       </p>
     </section>
+  );
+}
+
+function DraftBootstrapErrorCard({
+  message,
+  onRetry,
+}: {
+  readonly message: string;
+  readonly onRetry?: () => void;
+}) {
+  return (
+    <FlowCard className="text-center">
+      <AlertCircle className="mx-auto size-7 text-red-700" aria-hidden />
+      <h2 className="mt-4 text-2xl font-semibold tracking-[-0.03em] text-ink">
+        We couldn’t prepare your Total Loss draft
+      </h2>
+      <p className="mx-auto mt-3 max-w-lg text-sm leading-6 text-copy">
+        {message}
+      </p>
+      {onRetry ? (
+        <button
+          type="button"
+          className={`${primaryFlowButtonClassName} mt-6`}
+          onClick={onRetry}
+        >
+          Try again
+        </button>
+      ) : null}
+    </FlowCard>
   );
 }
 

@@ -4,6 +4,10 @@ export type AppraisalServiceType = Enums<"appraisal_service_type">;
 
 export type AppraisalCaseStatus = Enums<"appraisal_case_status">;
 
+export type CaseOperationStage = Enums<"case_operation_stage">;
+
+export type TotalLossAnalysisStatus = Enums<"total_loss_analysis_status">;
+
 export interface AppraisalCase {
   readonly id: string;
   readonly userId: string;
@@ -12,6 +16,14 @@ export interface AppraisalCase {
   readonly createdAt: string;
   readonly updatedAt: string;
   readonly lastActivityAt: string;
+  readonly caseStage?: CaseOperationStage;
+  readonly needsAttention?: boolean;
+  readonly reportUploadedAt?: string | null;
+  readonly analysisStatus?: TotalLossAnalysisStatus | null;
+  readonly analysisAttemptCount?: number | null;
+  readonly analysisRetryable?: boolean | null;
+  readonly analysisFailureCode?: string | null;
+  readonly analysisProcessingExpiresAt?: string | null;
 }
 
 export interface CreateAppraisalCaseInput {
@@ -19,8 +31,7 @@ export interface CreateAppraisalCaseInput {
   readonly serviceType: AppraisalServiceType;
 }
 
-export interface CreateOrGetAppraisalCaseInput
-  extends CreateAppraisalCaseInput {
+export interface CreateOrGetAppraisalCaseInput extends CreateAppraisalCaseInput {
   readonly caseId: string;
 }
 
@@ -32,6 +43,10 @@ export interface GetAppraisalCaseInput {
 export interface GetRecentDraftAppraisalCaseInput {
   readonly userId: string;
   readonly serviceType: AppraisalServiceType;
+}
+
+export interface GetOrCreateTotalLossDraftInput {
+  readonly userId: string;
 }
 
 export type TouchAppraisalCaseInput = GetAppraisalCaseInput;

@@ -135,7 +135,7 @@ describe("admin diminished-value review pages", () => {
     );
     expect(
       screen.getByRole("menuitem", { name: "Staff review" }),
-    ).toHaveAttribute("href", "/admin/diminished-value");
+    ).toHaveAttribute("href", "/admin/cases");
   });
 
   it("discovers staff navigation lazily after the signed-in account menu opens", async () => {
@@ -155,7 +155,7 @@ describe("admin diminished-value review pages", () => {
 
     expect(
       await screen.findByRole("menuitem", { name: "Staff review" }),
-    ).toHaveAttribute("href", "/admin/diminished-value");
+    ).toHaveAttribute("href", "/admin/cases");
     expect(dependencies.caseService.isStaff).toHaveBeenCalledOnce();
   });
 

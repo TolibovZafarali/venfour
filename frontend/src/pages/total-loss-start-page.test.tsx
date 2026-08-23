@@ -18,6 +18,10 @@ import type { AppraisalCaseService } from "@/features/cases/service";
 import { appraisalCaseQueryKeys } from "@/features/cases/queries";
 import type { AppraisalCase } from "@/features/cases/types";
 import type {
+  CustomerProfile,
+  CustomerProfileService,
+} from "@/features/customer-profile";
+import type {
   SaveTotalLossDetailsInput,
   TotalLossCaseDetails,
   TotalLossCaseDetailsValues,
@@ -38,7 +42,7 @@ import {
   VehicleLookupError,
   type VehicleLookupService,
 } from "@/features/total-loss/vehicle-lookup-service";
-import { renderTestApp } from "@/test/render";
+import { renderTestApp as renderBaseTestApp } from "@/test/render";
 
 vi.mock("@/config/product-availability", () => ({
   totalLossManualIntakeAvailable: true,
@@ -49,6 +53,7 @@ const CASE_ID = "22222222-2222-4222-8222-222222222222";
 const RECENT_CASE_ID = "33333333-3333-4333-8333-333333333333";
 const OTHER_USER_ID = "44444444-4444-4444-8444-444444444444";
 const REPORT_UPLOAD_ID = "55555555-5555-4555-8555-555555555555";
+const OTHER_CASE_ID = "66666666-6666-4666-8666-666666666666";
 const CREATED_AT = "2026-08-18T14:00:00.000Z";
 
 function createDeferred<T>() {
@@ -96,10 +101,44 @@ function sessionFor(id = USER_ID) {
       aud: "authenticated",
       created_at: CREATED_AT,
       email: "owner@example.com",
+      email_confirmed_at: CREATED_AT,
       id,
       user_metadata: {},
     },
   } as Session;
+}
+
+function confirmedProfile(userId = USER_ID): CustomerProfile {
+  return {
+    userId,
+    fullName: "Owner Driver",
+    fullNameConfirmedAt: CREATED_AT,
+    serviceTermsVersion: "2026-08-23",
+    serviceTermsAcknowledgedAt: CREATED_AT,
+    privacyNoticeVersion: "2026-08-23",
+    privacyNoticeAcknowledgedAt: CREATED_AT,
+    operationalFollowUpAllowed: false,
+    operationalFollowUpUpdatedAt: CREATED_AT,
+    createdAt: CREATED_AT,
+    updatedAt: CREATED_AT,
+  };
+}
+
+function createConfirmedProfileService(): CustomerProfileService {
+  return {
+    getProfile: vi.fn(async (userId) => confirmedProfile(userId)),
+    confirmProfile: vi.fn(async ({ userId }) => confirmedProfile(userId)),
+  };
+}
+
+function renderTestApp(
+  initialEntries: Parameters<typeof renderBaseTestApp>[0],
+  options: Parameters<typeof renderBaseTestApp>[1] = {},
+) {
+  return renderBaseTestApp(initialEntries, {
+    customerProfileService: createConfirmedProfileService(),
+    ...options,
+  });
 }
 
 function createAuthHarness(initialSession: Session | null) {
@@ -210,6 +249,22 @@ function createDependencyHarness({
     }
     return created;
   });
+  const getOrCreateTotalLossDraft = vi.fn<
+    AppraisalCaseService["getOrCreateTotalLossDraft"]
+  >(async ({ userId }) => {
+    const newest = [...cases.values()]
+      .filter((candidate) => candidate.userId === userId)
+      .sort((left, right) =>
+        right.lastActivityAt.localeCompare(left.lastActivityAt),
+      )[0];
+    if (newest) return newest;
+    const created = appraisalCase(
+      userId === USER_ID ? CASE_ID : OTHER_CASE_ID,
+      userId,
+    );
+    cases.set(created.id, created);
+    return created;
+  });
 
   const caseService: AppraisalCaseService = {
     createAppraisalCase: vi.fn(async ({ userId }) =>
@@ -218,6 +273,7 @@ function createDependencyHarness({
     createOrGetAppraisalCase,
     listAppraisalCases: vi.fn(async () => [...cases.values()]),
     getRecentDraftAppraisalCase: vi.fn(async () => recentCase),
+    getOrCreateTotalLossDraft,
     getAppraisalCase: vi.fn(async ({ caseId }) => cases.get(caseId) ?? null),
     touchAppraisalCase: vi.fn(async ({ caseId }) => cases.get(caseId) ?? null),
   };
@@ -380,6 +436,7 @@ function createDependencyHarness({
   return {
     caseService,
     createOrGetAppraisalCase,
+    getOrCreateTotalLossDraft,
     dependencies,
     detailRows,
     detailsService,
@@ -402,7 +459,9 @@ async function chooseMode(
   user: ReturnType<typeof userEvent.setup>,
   label: "I have my valuation report" | "I don’t have the report",
 ) {
-  await user.click(screen.getByRole("radio", { name: new RegExp(label, "i") }));
+  await user.click(
+    await screen.findByRole("radio", { name: new RegExp(label, "i") }),
+  );
   await user.click(
     withinIntakeFlow().getByRole("button", { name: "Continue" }),
   );
@@ -416,57 +475,12 @@ function withinIntakeFlow() {
   return within(flow);
 }
 
-async function fillManualIntake(user: ReturnType<typeof userEvent.setup>) {
-  await user.type(screen.getByLabelText("VIN"), "1hgcm82633a004352");
-  await user.type(screen.getByLabelText("Mileage at date of loss"), "48250");
-  expect(screen.getByLabelText("Mileage at date of loss")).toHaveValue(
-    "48,250",
-  );
-  await user.click(
-    screen.getByRole("button", { name: "Find vehicle & continue" }),
-  );
-
-  await user.type(screen.getByLabelText("ZIP code"), "60611");
-  await chooseLossDate(user, {
-    year: "2020",
-    month: "0",
-    day: "January 2, 2020",
-  });
-  await user.type(
-    screen.getByLabelText("Insurance company"),
-    "  Acme   Mutual  ",
-  );
-  await user.type(
-    screen.getByLabelText("Insurer’s vehicle valuation"),
-    "18750",
-  );
-  expect(screen.getByLabelText("Insurer’s vehicle valuation")).toHaveValue(
-    "$18,750",
-  );
-}
-
-async function chooseLossDate(
-  user: ReturnType<typeof userEvent.setup>,
-  selection: { year: string; month: string; day: string },
-) {
-  await user.click(screen.getByRole("button", { name: "Date of loss" }));
-  await user.selectOptions(
-    screen.getByLabelText("Calendar year"),
-    selection.year,
-  );
-  await user.selectOptions(
-    screen.getByLabelText("Calendar month"),
-    selection.month,
-  );
-  await user.click(screen.getByRole("gridcell", { name: selection.day }));
-}
-
 afterEach(() => {
   vi.restoreAllMocks();
 });
 
 describe("/start?service=total-loss", () => {
-  it("renders the accessible opening choice without creating or loading a case", async () => {
+  it("requires authentication before rendering any intake choice or creating a case", async () => {
     const auth = createAuthHarness(null);
     const harness = createDependencyHarness();
 
@@ -483,13 +497,17 @@ describe("/start?service=total-loss", () => {
     expect(layout).toHaveClass(
       "lg:grid-cols-[minmax(0,0.78fr)_minmax(0,1.22fr)]",
     );
-    expect(layout?.querySelector("[data-total-loss-flow]")).toBeInTheDocument();
     expect(
-      screen.getByRole("radio", { name: /I have my valuation report/i }),
+      await screen.findByRole("heading", {
+        name: "Sign in before starting your review",
+      }),
     ).toBeVisible();
     expect(
-      screen.getByRole("radio", { name: /I don’t have the report/i }),
-    ).toBeVisible();
+      screen.queryByRole("radio", { name: /I have my valuation report/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("radio", { name: /I don’t have the report/i }),
+    ).not.toBeInTheDocument();
     expect(
       screen.queryByRole("link", { name: "Back to total loss" }),
     ).not.toBeInTheDocument();
@@ -504,31 +522,18 @@ describe("/start?service=total-loss", () => {
     expect(
       screen.queryByRole("button", { name: "Open navigation" }),
     ).not.toBeInTheDocument();
-    const signInButton = await screen.findByRole("button", { name: "Sign In" });
-    expect(signInButton.previousElementSibling).toHaveTextContent(
-      "Already have an account?",
-    );
+    expect(
+      screen.getByRole("button", { name: "Sign in to continue" }),
+    ).toBeVisible();
     expect(screen.queryByText("Progress")).not.toBeInTheDocument();
     expect(screen.queryByText("Step I of III")).not.toBeInTheDocument();
-    const progress = screen.getByRole("list", { name: "Appraisal steps" });
-    expect(progress.children).toHaveLength(3);
-    expect(progress.children[0]).toHaveAttribute("aria-current", "step");
-    expect(progress.children[0]).toHaveClass(
-      "rounded-xl",
-      "border",
-      "border-brand",
-      "bg-brand",
-    );
-    expect(progress.children[0]).toBeEmptyDOMElement();
-    expect(progress).not.toHaveTextContent("Start");
-    expect(progress).not.toHaveTextContent("Vehicle");
-    expect(progress).not.toHaveTextContent("Claim");
-    expect(screen.getByLabelText("Start, step 1, current")).toBeVisible();
-    expect(screen.getByLabelText("Vehicle, step 2")).toBeVisible();
-    expect(screen.getByLabelText("Claim, step 3")).toBeVisible();
+    expect(
+      screen.queryByRole("list", { name: "Appraisal steps" }),
+    ).not.toBeInTheDocument();
 
     await waitFor(() => expect(auth.service.getSession).toHaveBeenCalledOnce());
     expect(harness.createOrGetAppraisalCase).not.toHaveBeenCalled();
+    expect(harness.getOrCreateTotalLossDraft).not.toHaveBeenCalled();
     expect(
       harness.caseService.getRecentDraftAppraisalCase,
     ).not.toHaveBeenCalled();
@@ -545,7 +550,9 @@ describe("/start?service=total-loss", () => {
       totalLossDependencies: createDependencyHarness().dependencies,
     });
 
-    await user.click(await screen.findByRole("button", { name: /^Sign in$/u }));
+    await user.click(
+      await screen.findByRole("button", { name: "Sign in to continue" }),
+    );
     await user.click(
       screen.getByRole("button", { name: "Continue with Google" }),
     );
@@ -555,93 +562,52 @@ describe("/start?service=total-loss", () => {
     );
   });
 
-  it("keeps a signed-out manual draft local, restores it, then migrates it after sign-in", async () => {
-    const signedOutAuth = createAuthHarness(null);
+  it("atomically prepares a durable server draft before mounting intake", async () => {
+    const auth = createAuthHarness(sessionFor());
     const harness = createDependencyHarness();
-    const user = userEvent.setup();
-    vi.spyOn(crypto, "randomUUID").mockReturnValue(CASE_ID);
+    const bootstrap = createDeferred<AppraisalCase>();
+    harness.getOrCreateTotalLossDraft.mockReturnValueOnce(bootstrap.promise);
 
-    const firstRender = renderTestApp(["/start?service=total-loss"], {
-      authService: signedOutAuth.service,
-      totalLossDependencies: harness.dependencies,
-    });
-    await chooseMode(user, "I don’t have the report");
-    await fillManualIntake(user);
-    expect(
-      screen.getByRole("button", { name: "Date of loss" }),
-    ).toHaveTextContent("January 2, 2020");
-    await user.click(
-      screen.getByRole("button", { name: "Continue to Free Value Check" }),
-    );
-
-    expect(
-      screen.getByRole("dialog", { name: "Sign in to Venfour" }),
-    ).toHaveTextContent(
-      "Sign in to securely save your total-loss information and continue to the free value check.",
-    );
-    expect(harness.createOrGetAppraisalCase).not.toHaveBeenCalled();
-    expect(harness.saveDetails).not.toHaveBeenCalled();
-    const storedBeforeAuth = readTotalLossDraft();
-    expect(storedBeforeAuth).toMatchObject({
-      ok: true,
-      draft: {
-        mode: "manual",
-        step: "claim",
-        pendingAuthAction: "complete-manual",
-        manual: {
-          vin: "1HGCM82633A004352",
-          mileageAtLoss: "48250",
-          dateOfLoss: "2020-01-02",
-          insurerName: "Acme Mutual",
-          insurerVehicleValuation: "18750.00",
-        },
-      },
-    });
-
-    firstRender.unmount();
-    const restoredAuth = createAuthHarness(sessionFor());
     renderTestApp(["/start?service=total-loss"], {
-      authService: restoredAuth.service,
+      authService: auth.service,
       totalLossDependencies: harness.dependencies,
     });
 
-    expect(
-      await screen.findByRole("heading", { name: "Your information is saved" }),
-    ).toBeVisible();
-    expect(
-      screen.getByText("You’re ready for the free value check."),
-    ).toBeVisible();
-    expect(harness.createOrGetAppraisalCase).toHaveBeenCalledOnce();
-    expect(harness.createOrGetAppraisalCase).toHaveBeenCalledWith({
-      caseId: CASE_ID,
-      serviceType: "total_loss",
-      userId: USER_ID,
-    });
-    expect(harness.saveDetails).toHaveBeenCalledWith(
-      expect.objectContaining({
-        caseId: CASE_ID,
+    await waitFor(() =>
+      expect(harness.getOrCreateTotalLossDraft).toHaveBeenCalledWith({
         userId: USER_ID,
-        values: expect.objectContaining({
-          intakeMode: "manual",
-          vin: "1HGCM82633A004352",
-          vehicleMake: "Honda",
-          insurerVehicleValuation: 18750,
-          intakeCompletedAt: expect.any(String),
-        }),
       }),
     );
-    const persistedCaseInput =
-      harness.createOrGetAppraisalCase.mock.calls[0]?.[0];
-    expect(persistedCaseInput).not.toHaveProperty("status");
+    expect(
+      screen.queryByRole("radio", { name: /I don’t have the report/i }),
+    ).not.toBeInTheDocument();
+    expect(harness.createOrGetAppraisalCase).not.toHaveBeenCalled();
+    expect(harness.saveDetails).not.toHaveBeenCalled();
+
+    await act(async () => {
+      bootstrap.resolve(appraisalCase(CASE_ID));
+      await bootstrap.promise;
+    });
+
+    expect(
+      await screen.findByRole("group", {
+        name: "Do you have your insurance valuation report?",
+      }),
+    ).toBeVisible();
+    expect(readTotalLossDraft()).toMatchObject({
+      ok: true,
+      draft: {
+        confirmedCaseId: CASE_ID,
+        reservedCaseId: CASE_ID,
+        ownerUserId: USER_ID,
+      },
+    });
   });
 
-  it("uses one stable reserved case ID under StrictMode when a lost create response is recovered", async () => {
+  it("uses one atomic server draft under StrictMode", async () => {
     const auth = createAuthHarness(sessionFor());
-    const harness = createDependencyHarness({
-      recoverLostCreateResponse: true,
-    });
+    const harness = createDependencyHarness();
     const user = userEvent.setup();
-    vi.spyOn(crypto, "randomUUID").mockReturnValue(CASE_ID);
 
     renderTestApp(["/start?service=total-loss"], {
       authService: auth.service,
@@ -651,15 +617,9 @@ describe("/start?service=total-loss", () => {
     await screen.findByRole("radio", { name: /I don’t have the report/i });
     await chooseMode(user, "I don’t have the report");
 
-    await waitFor(() =>
-      expect(harness.createOrGetAppraisalCase).toHaveBeenCalledOnce(),
-    );
-    expect(harness.lostInsertAttempts).toBe(1);
-    expect(harness.createOrGetAppraisalCase).toHaveBeenCalledWith({
-      caseId: CASE_ID,
-      serviceType: "total_loss",
-      userId: USER_ID,
-    });
+    expect(harness.getOrCreateTotalLossDraft).toHaveBeenCalledOnce();
+    expect(harness.createOrGetAppraisalCase).not.toHaveBeenCalled();
+    expect(harness.lostInsertAttempts).toBe(0);
     expect(readTotalLossDraft()).toMatchObject({
       ok: true,
       draft: {
@@ -674,7 +634,7 @@ describe("/start?service=total-loss", () => {
   });
 
   it("finds a vehicle by VIN before moving smoothly to claim details", async () => {
-    const auth = createAuthHarness(null);
+    const auth = createAuthHarness(sessionFor());
     const harness = createDependencyHarness();
     const user = userEvent.setup();
 
@@ -735,7 +695,7 @@ describe("/start?service=total-loss", () => {
   });
 
   it("uses dependent dropdowns when the user does not have a VIN", async () => {
-    const auth = createAuthHarness(null);
+    const auth = createAuthHarness(sessionFor());
     const harness = createDependencyHarness();
     const user = userEvent.setup();
 
@@ -797,7 +757,7 @@ describe("/start?service=total-loss", () => {
   });
 
   it("keeps VIN lookup failures in place and offers the guided fallback", async () => {
-    const auth = createAuthHarness(null);
+    const auth = createAuthHarness(sessionFor());
     const harness = createDependencyHarness();
     const user = userEvent.setup();
     harness.decodeVin.mockRejectedValueOnce(
@@ -840,29 +800,19 @@ describe("/start?service=total-loss", () => {
       authService: auth.service,
       totalLossDependencies: harness.dependencies,
     });
-    await chooseMode(user, "I have my valuation report");
-
     expect(
       container.querySelector('input[type="file"]'),
     ).not.toBeInTheDocument();
     await user.click(
-      screen.getByRole("button", { name: "Sign in to choose PDF" }),
+      await screen.findByRole("button", { name: "Sign in to continue" }),
     );
     expect(
       screen.getByRole("dialog", { name: "Sign in to Venfour" }),
-    ).toHaveTextContent(
-      "Sign in so Venfour can securely store your original CCC valuation report with your total-loss case.",
-    );
+    ).toBeVisible();
     expect(harness.createOrGetAppraisalCase).not.toHaveBeenCalled();
+    expect(harness.getOrCreateTotalLossDraft).not.toHaveBeenCalled();
     expect(harness.uploadReport).not.toHaveBeenCalled();
-    expect(readTotalLossDraft()).toMatchObject({
-      ok: true,
-      draft: {
-        mode: "report",
-        step: "report",
-        pendingAuthAction: "upload-report",
-      },
-    });
+    expect(readTotalLossDraft()).toMatchObject({ ok: true, draft: null });
   });
 
   it("preserves normalized ZIP through report persistence and analysis readiness", async () => {
@@ -1077,7 +1027,7 @@ describe("/start?service=total-loss", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("offers the newest saved draft and dismisses it without creating a replacement", async () => {
+  it("atomically resumes the newest saved draft without a browser resume fork", async () => {
     const recent = appraisalCase(
       RECENT_CASE_ID,
       USER_ID,
@@ -1094,8 +1044,6 @@ describe("/start?service=total-loss", () => {
       details: [recentDetails],
       recentCase: recent,
     });
-    const user = userEvent.setup();
-
     renderTestApp(["/start?service=total-loss"], {
       authService: auth.service,
       totalLossDependencies: harness.dependencies,
@@ -1103,26 +1051,36 @@ describe("/start?service=total-loss", () => {
 
     expect(
       await screen.findByRole("heading", {
-        name: "Continue your saved appraisal?",
+        name: "Tell us about your vehicle",
       }),
     ).toBeVisible();
-    expect(await screen.findByText("2021 Toyota Camry")).toBeVisible();
-    expect(screen.getByText(/Last saved Aug 17, 2026/)).toBeVisible();
-
-    await user.click(
-      screen.getByRole("button", { name: "Start a new appraisal" }),
+    await waitFor(() =>
+      expect(readTotalLossDraft()).toMatchObject({
+        ok: true,
+        draft: {
+          manual: {
+            vehicleYear: "2021",
+            make: "Toyota",
+            model: "Camry",
+          },
+        },
+      }),
     );
     expect(
-      screen.getByRole("group", {
-        name: "Do you have your insurance valuation report?",
+      screen.queryByRole("heading", {
+        name: "Continue your saved appraisal?",
       }),
-    ).toBeVisible();
+    ).not.toBeInTheDocument();
+    expect(harness.getOrCreateTotalLossDraft).toHaveBeenCalledWith({
+      userId: USER_ID,
+    });
     expect(harness.createOrGetAppraisalCase).not.toHaveBeenCalled();
     expect(readTotalLossDraft()).toMatchObject({
       ok: true,
       draft: {
-        dismissedResumeCaseId: RECENT_CASE_ID,
-        confirmedCaseId: null,
+        confirmedCaseId: RECENT_CASE_ID,
+        reservedCaseId: RECENT_CASE_ID,
+        ownerUserId: USER_ID,
       },
     });
   });
@@ -1140,20 +1098,12 @@ describe("/start?service=total-loss", () => {
       details: [recentDetails],
       recentCase: recent,
     });
-    const user = userEvent.setup();
     const fetchSpy = vi.spyOn(globalThis, "fetch");
 
     renderTestApp(["/start?service=total-loss"], {
       authService: auth.service,
       totalLossDependencies: harness.dependencies,
     });
-    await screen.findByRole("heading", {
-      name: "Continue your saved appraisal?",
-    });
-    await user.click(
-      withinIntakeFlow().getByRole("button", { name: "Continue" }),
-    );
-
     expect(
       await screen.findByRole("heading", { name: "Your report is ready" }),
     ).toBeVisible();
@@ -1249,6 +1199,49 @@ describe("/start?service=total-loss", () => {
     });
   });
 
+  it("preserves a same-owner local draft when its explicit case is validated", async () => {
+    const localDraft = createSensitiveManualDraft({
+      confirmedCaseId: CASE_ID,
+      reservedCaseId: CASE_ID,
+    });
+    expect(writeTotalLossDraft(localDraft)).toEqual({ ok: true });
+    const auth = createAuthHarness(sessionFor());
+    const harness = createDependencyHarness({
+      recentCase: appraisalCase(CASE_ID),
+    });
+
+    renderTestApp([`/start?service=total-loss&caseId=${CASE_ID}`], {
+      authService: auth.service,
+      totalLossDependencies: harness.dependencies,
+    });
+
+    expect(
+      await screen.findByRole("heading", {
+        name: "Tell us about your vehicle",
+      }),
+    ).toBeVisible();
+    expect(screen.getByLabelText("VIN")).toHaveValue("1HGCM82633A004352");
+    expect(screen.getByLabelText("Mileage at date of loss")).toHaveValue(
+      "48,250",
+    );
+    expect(readTotalLossDraft()).toMatchObject({
+      ok: true,
+      draft: {
+        confirmedCaseId: CASE_ID,
+        reservedCaseId: CASE_ID,
+        ownerUserId: USER_ID,
+        mode: "manual",
+        step: "vehicle",
+        manual: {
+          make: "Sensitive Make",
+          model: "Sensitive Model",
+          trim: "Private Trim",
+        },
+      },
+    });
+    expect(harness.caseService.getAppraisalCase).toHaveBeenCalledOnce();
+  });
+
   it("does not render owner-bound local fields while session restoration is pending", async () => {
     expect(writeTotalLossDraft(createSensitiveManualDraft())).toEqual({
       ok: true,
@@ -1256,14 +1249,15 @@ describe("/start?service=total-loss", () => {
     const sessionRestoration = createDeferred<Session | null>();
     const auth = createAuthHarness(null);
     auth.getSession.mockReturnValue(sessionRestoration.promise);
+    const harness = createDependencyHarness();
 
     renderTestApp(["/start?service=total-loss"], {
       authService: auth.service,
-      totalLossDependencies: null,
+      totalLossDependencies: harness.dependencies,
     });
     await waitFor(() => expect(auth.getSession).toHaveBeenCalledOnce());
 
-    expect(screen.getByText("Loading your saved appraisal…")).toBeVisible();
+    expect(screen.getByText("Checking your secure account…")).toBeVisible();
     expect(screen.queryByLabelText("VIN")).not.toBeInTheDocument();
     expect(
       screen.queryByDisplayValue("1HGCM82633A004352"),
@@ -1284,12 +1278,11 @@ describe("/start?service=total-loss", () => {
     ).toBeVisible();
   });
 
-  it("waits for explicit ownership before handling a pending auth action", async () => {
+  it("waits for explicit ownership before canonicalizing a stale draft link", async () => {
     expect(
       writeTotalLossDraft(
         createSensitiveManualDraft({
           ownerUserId: null,
-          pendingAuthAction: "complete-manual",
           reservedCaseId: CASE_ID,
           step: "claim",
         }),
@@ -1300,10 +1293,13 @@ describe("/start?service=total-loss", () => {
     const ownership = createDeferred<AppraisalCase | null>();
     harness.caseService.getAppraisalCase = vi.fn(() => ownership.promise);
 
-    renderTestApp([`/start?service=total-loss&caseId=${RECENT_CASE_ID}`], {
-      authService: auth.service,
-      totalLossDependencies: harness.dependencies,
-    });
+    const { router } = renderTestApp(
+      [`/start?service=total-loss&caseId=${RECENT_CASE_ID}`],
+      {
+        authService: auth.service,
+        totalLossDependencies: harness.dependencies,
+      },
+    );
     await waitFor(() =>
       expect(harness.caseService.getAppraisalCase).toHaveBeenCalledWith({
         caseId: RECENT_CASE_ID,
@@ -1323,27 +1319,20 @@ describe("/start?service=total-loss", () => {
       await ownership.promise;
     });
     expect(
-      await screen.findByRole("group", {
-        name: "Do you have your insurance valuation report?",
-      }),
+      await screen.findByRole("heading", { name: "Add the claim details" }),
     ).toBeVisible();
     expect(harness.createOrGetAppraisalCase).not.toHaveBeenCalled();
-    expect(harness.saveDetails).not.toHaveBeenCalled();
+    expect(router.state.location.search).toContain(`caseId=${CASE_ID}`);
     expect(harness.detailsService.getDetails).toHaveBeenCalledWith({
-      caseId: RECENT_CASE_ID,
+      caseId: CASE_ID,
       userId: USER_ID,
     });
     expect(readTotalLossDraft()).toMatchObject({
       ok: true,
       draft: {
-        confirmedCaseId: RECENT_CASE_ID,
-        reservedCaseId: RECENT_CASE_ID,
+        confirmedCaseId: CASE_ID,
+        reservedCaseId: CASE_ID,
         ownerUserId: USER_ID,
-        pendingAuthAction: null,
-        manual: {
-          vin: "",
-          insurerName: "",
-        },
       },
     });
   });
@@ -1374,7 +1363,6 @@ describe("/start?service=total-loss", () => {
           "This saved appraisal cannot be opened from this link.",
         ),
       ).toBeVisible();
-      expect(screen.getByText("Saved appraisal unavailable")).toBeVisible();
       expect(screen.queryByLabelText("VIN")).not.toBeInTheDocument();
       expect(
         screen.queryByDisplayValue("Private Insurer"),
@@ -1399,17 +1387,12 @@ describe("/start?service=total-loss", () => {
     const ownerCase = appraisalCase(RECENT_CASE_ID, USER_ID);
     const auth = createAuthHarness(sessionFor(OTHER_USER_ID));
     const harness = createDependencyHarness({ recentCase: ownerCase });
-    harness.caseService.getAppraisalCase = vi.fn(
-      async ({ caseId, userId }) =>
-        caseId === ownerCase.id && userId === ownerCase.userId
-          ? ownerCase
-          : null,
+    harness.caseService.getAppraisalCase = vi.fn(async ({ caseId, userId }) =>
+      caseId === ownerCase.id && userId === ownerCase.userId ? ownerCase : null,
     );
 
     renderTestApp(
-      [
-        `/start?service=total-loss&view=intake&caseId=${RECENT_CASE_ID}`,
-      ],
+      [`/start?service=total-loss&view=intake&caseId=${RECENT_CASE_ID}`],
       {
         authService: auth.service,
         totalLossDependencies: harness.dependencies,
@@ -1429,17 +1412,7 @@ describe("/start?service=total-loss", () => {
     expect(
       screen.queryByDisplayValue("Private Insurer"),
     ).not.toBeInTheDocument();
-    expect(readTotalLossDraft()).toMatchObject({
-      ok: true,
-      draft: {
-        confirmedCaseId: null,
-        ownerUserId: null,
-        manual: {
-          vin: "",
-          insurerName: "",
-        },
-      },
-    });
+    expect(readTotalLossDraft()).toEqual({ ok: true, draft: null });
     expect(harness.createOrGetAppraisalCase).not.toHaveBeenCalled();
     expect(harness.saveDetails).not.toHaveBeenCalled();
   });
@@ -1478,20 +1451,32 @@ describe("/start?service=total-loss", () => {
 
       act(() => auth.emit(nextSession));
 
-      expect(
-        await screen.findByRole("group", {
-          name: "Do you have your insurance valuation report?",
-        }),
-      ).toBeVisible();
+      if (nextSession) {
+        expect(
+          await screen.findByRole("group", {
+            name: "Do you have your insurance valuation report?",
+          }),
+        ).toBeVisible();
+      } else {
+        expect(
+          await screen.findByRole("heading", {
+            name: "Sign in before starting your review",
+          }),
+        ).toBeVisible();
+      }
       expect(screen.queryByText("private-report.pdf")).not.toBeInTheDocument();
-      expect(readTotalLossDraft()).toMatchObject({
-        ok: true,
-        draft: {
-          ownerUserId: null,
-          confirmedCaseId: null,
-          reservedCaseId: null,
-        },
-      });
+      if (nextSession) {
+        expect(readTotalLossDraft()).toMatchObject({
+          ok: true,
+          draft: {
+            ownerUserId: OTHER_USER_ID,
+            confirmedCaseId: OTHER_CASE_ID,
+            reservedCaseId: OTHER_CASE_ID,
+          },
+        });
+      } else {
+        expect(readTotalLossDraft()).toEqual({ ok: true, draft: null });
+      }
       expect(
         queryClient.getQueryData(totalLossQueryKeys.details(USER_ID, CASE_ID)),
       ).toBeUndefined();
@@ -1519,14 +1504,20 @@ describe("/start?service=total-loss", () => {
       await waitFor(() => expect(harness.saveDetails).toHaveBeenCalledOnce());
       expect(
         queryClient.getQueryData(
-          appraisalCaseQueryKeys.detail(USER_ID, CASE_ID),
+          appraisalCaseQueryKeys.totalLossDraft(USER_ID),
         ),
       ).toMatchObject({ id: CASE_ID, userId: USER_ID });
 
       act(() => auth.emit(nextSession));
-      await screen.findByRole("group", {
-        name: "Do you have your insurance valuation report?",
-      });
+      if (nextSession) {
+        await screen.findByRole("group", {
+          name: "Do you have your insurance valuation report?",
+        });
+      } else {
+        await screen.findByRole("heading", {
+          name: "Sign in before starting your review",
+        });
+      }
 
       const pendingInput = harness.saveDetails.mock.calls[0]?.[0];
       await act(async () => {
@@ -1553,10 +1544,15 @@ describe("/start?service=total-loss", () => {
           appraisalCaseQueryKeys.detail(USER_ID, CASE_ID),
         ),
       ).toBeUndefined();
+      expect(
+        queryClient.getQueryData(
+          appraisalCaseQueryKeys.totalLossDraft(USER_ID),
+        ),
+      ).toBeUndefined();
     },
   );
 
-  it("restores a local manual step without any authenticated persistence", async () => {
+  it("binds a pre-auth local manual step to the atomic server draft", async () => {
     const draft = {
       ...createEmptyTotalLossDraft(new Date(CREATED_AT)),
       mode: "manual" as const,
@@ -1577,7 +1573,7 @@ describe("/start?service=total-loss", () => {
       revision: 4,
     };
     expect(writeTotalLossDraft(draft)).toEqual({ ok: true });
-    const auth = createAuthHarness(null);
+    const auth = createAuthHarness(sessionFor());
     const harness = createDependencyHarness();
 
     renderTestApp(["/start?service=total-loss"], {
@@ -1585,10 +1581,22 @@ describe("/start?service=total-loss", () => {
       totalLossDependencies: harness.dependencies,
     });
 
-    expect(screen.getByLabelText("VIN")).toHaveValue("1HGCM82633A004352");
+    expect(await screen.findByLabelText("VIN")).toHaveValue(
+      "1HGCM82633A004352",
+    );
     expect(screen.getByText("Vehicle: 2020 Honda Accord EX-L")).toBeVisible();
     expect(harness.createOrGetAppraisalCase).not.toHaveBeenCalled();
-    expect(harness.saveDetails).not.toHaveBeenCalled();
+    expect(harness.getOrCreateTotalLossDraft).toHaveBeenCalledWith({
+      userId: USER_ID,
+    });
+    expect(readTotalLossDraft()).toMatchObject({
+      ok: true,
+      draft: {
+        confirmedCaseId: CASE_ID,
+        reservedCaseId: CASE_ID,
+        ownerUserId: USER_ID,
+      },
+    });
   });
 
   it("retains incomplete typed strings locally after authenticated autosave and reload", async () => {

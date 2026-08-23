@@ -12,6 +12,7 @@ import {
   appraisalCaseQueryKeys,
   useAppraisalCasesQuery,
   useRecentDraftAppraisalCaseQuery,
+  useTotalLossDraftQuery,
 } from "@/features/cases/queries";
 import type { AppraisalCaseService } from "@/features/cases/service";
 import type { AppraisalCase } from "@/features/cases/types";
@@ -35,6 +36,7 @@ function createService(
   return {
     createAppraisalCase: async () => appraisalCase,
     createOrGetAppraisalCase: async () => appraisalCase,
+    getOrCreateTotalLossDraft: async () => appraisalCase,
     listAppraisalCases: async () => [],
     getRecentDraftAppraisalCase: async () => null,
     getAppraisalCase: async () => null,
@@ -53,9 +55,7 @@ function createQueryHarness() {
 
   function Wrapper({ children }: PropsWithChildren) {
     return (
-      <QueryClientProvider client={queryClient}>
-        {children}
-      </QueryClientProvider>
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
     );
   }
 
@@ -77,14 +77,18 @@ describe("appraisal case query hooks", () => {
       "detail",
       CASE_ID,
     ]);
-    expect(
-      appraisalCaseQueryKeys.recentDraft(USER_ID, "total_loss"),
-    ).toEqual([
+    expect(appraisalCaseQueryKeys.recentDraft(USER_ID, "total_loss")).toEqual([
       "appraisalCases",
       "user",
       USER_ID,
       "recentDraft",
       "total_loss",
+    ]);
+    expect(appraisalCaseQueryKeys.totalLossDraft(USER_ID)).toEqual([
+      "appraisalCases",
+      "user",
+      USER_ID,
+      "totalLossDraft",
     ]);
   });
 
@@ -134,9 +138,7 @@ describe("appraisal case query hooks", () => {
       userId: USER_ID,
     });
     expect(
-      queryClient.getQueryData(
-        appraisalCaseQueryKeys.detail(USER_ID, CASE_ID),
-      ),
+      queryClient.getQueryData(appraisalCaseQueryKeys.detail(USER_ID, CASE_ID)),
     ).toEqual(appraisalCase);
   });
 
@@ -182,6 +184,20 @@ describe("appraisal case query hooks", () => {
       serviceType: "total_loss",
       userId: USER_ID,
     });
+  });
+
+  it("atomically prepares the authenticated user's Total Loss draft", async () => {
+    const getOrCreateTotalLossDraft = vi.fn(async () => appraisalCase);
+    const service = createService({ getOrCreateTotalLossDraft });
+    const { wrapper } = createQueryHarness();
+    const { result } = renderHook(
+      () => useTotalLossDraftQuery({ service, userId: USER_ID }),
+      { wrapper },
+    );
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(getOrCreateTotalLossDraft).toHaveBeenCalledWith({ userId: USER_ID });
+    expect(result.current.data).toEqual(appraisalCase);
   });
 
   it("rejects case mutations without an authenticated user", async () => {

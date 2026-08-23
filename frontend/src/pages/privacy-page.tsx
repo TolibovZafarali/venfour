@@ -10,8 +10,8 @@ export function PrivacyPage() {
     <PublicPage
       eyebrow="Privacy"
       title="How Venfour handles your information"
-      introduction="This page describes the current Venfour service in practical terms: what is stored when you use an account, start a supported total-loss review, or submit a diminished-value request, and what controls are not yet available."
-      updated="Last updated August 21, 2026"
+      introduction="This page describes the current Venfour service in practical terms: what is stored when you use an account, start a supported total-loss review, or have a previously saved diminished-value request, and what controls are not yet available."
+      updated="Last updated August 23, 2026"
     >
       <PublicPageSection title="Information you provide">
         <p>
@@ -23,30 +23,45 @@ export function PrivacyPage() {
           adjustment details. Please review your document before uploading it.
         </p>
         <p>
-          A diminished-value request can include the accident state and date,
-          repair status, VIN or selected year, make, and model, mileage,
+          Diminished-value customer intake is currently paused. A request saved
+          before that pause can include the accident state and date, repair
+          status, VIN or selected year, make, and model, mileage,
           responsibility and insurer information, repair cost and facility,
-          structural or airbag involvement, repair details, your name, email,
-          phone number, preferred contact method, availability, notes, and any
-          supporting PDF or image documents you choose to provide.
+          structural or airbag involvement, repair details, name, email, phone
+          number, preferred contact method, availability, notes, and submitted
+          supporting PDF or image documents.
         </p>
         <p>
           You may sign in with Google or a passwordless email link so Venfour
-          can restore your session and support saved case records. A total-loss
-          analysis or diminished-value request created from the current intake
-          is linked to the saved case and can be loaded only after Venfour
-          verifies the signed-in account owns it. A case or results identifier
-          by itself is not authorization to view private information.
+          can restore your session and support saved case records. Before the
+          remaining Total Loss intake opens, Venfour asks you to confirm your
+          full name, acknowledge the current Terms of Use and Privacy Policy,
+          and record an optional operational-follow-up preference. Venfour then
+          creates or recovers a durable Total Loss draft for your account. A
+          saved case can be loaded only after Venfour verifies that the signed-in
+          account owns it; a case or results identifier by itself is not
+          authorization to view private information.
         </p>
       </PublicPageSection>
 
       <PublicPageSection title="Account and case information">
         <p>
           Venfour uses Supabase to authenticate customers and store limited
-          account, profile, and vehicle-review case information. Depending on how
-          you sign in, Supabase may process your email address and basic Google
-          account information. Venfour stores only the application profile and
-          case metadata needed to support the service.
+          account, profile, and vehicle-review case information. Depending on
+          how you sign in, Supabase may process your email address and basic
+          Google account information. Your verified Supabase Auth email remains
+          the account email identity. The application profile stores your
+          confirmed full name, the versions and times of required
+          acknowledgements, and your separately recorded optional operational
+          follow-up preference.
+        </p>
+        <p>
+          If you allow optional operational follow-up, Venfour may contact you
+          about your case or service follow-up. That choice is separate from
+          service-critical communication needed to provide something you
+          request, and this notice does not treat it as SMS consent. Venfour
+          does not collect a phone number through the current Total Loss
+          profile flow.
         </p>
         <p>
           If you choose VIN lookup, Venfour sends the VIN to the National
@@ -60,9 +75,13 @@ export function PrivacyPage() {
           Total-loss reports and diminished-value supporting documents are kept
           in private case-file storage. When you start a total-loss value check,
           Venfour also stores case-owned processing state and the resulting
-          analysis record. Authorized Venfour staff can access submitted
-          diminished-value requests and their supporting documents for manual
-          review.
+          analysis record. Authorized Venfour staff can inspect bounded
+          customer identity, intake, report metadata, processing state,
+          failures, and completed-run summary information for Total Loss cases.
+          The operations workspace does not provide source-PDF viewing or
+          download. Authorized staff can also access submitted diminished-value
+          requests and their supporting documents for manual review; unrelated
+          diminished-value drafts are not included in that staff scope.
         </p>
       </PublicPageSection>
 
@@ -86,12 +105,11 @@ export function PrivacyPage() {
 
       <PublicPageSection title="Diminished-value request handling">
         <p>
-          Before submission, the same browser can keep a diminished-value draft
-          in essential browser storage. After sign-in, Venfour stores the saved
-          request with the customer-owned case and stores selected supporting
-          documents in private case-file storage. A submitted request becomes
-          read-only to the customer so the reviewed record is not silently
-          changed afterward.
+          New diminished-value customer intake is currently paused. Existing
+          drafts, submitted requests, and supporting documents have not been
+          deleted or changed solely because of that pause. A submitted request
+          remains read-only to the customer so the reviewed record is not
+          silently changed afterward.
         </p>
         <p>
           Authorized Venfour staff can list and read submitted
@@ -120,10 +138,12 @@ export function PrivacyPage() {
       <PublicPageSection title="Storage and retention">
         <p>
           Total-loss reports and diminished-value supporting documents remain
-          in private case-file storage with their saved cases. Before sign-in,
-          intake information may be kept in essential browser storage so the
-          same browser can restore a draft; document bytes are not stored there.
-          During a total-loss value check, the server-generated temporary PDF
+          in private case-file storage with their saved cases. Limited
+          in-progress intake state may be kept in essential browser storage for
+          recovery, but the authoritative Total Loss case belongs to the
+          authenticated account and is created or recovered before report
+          selection or upload; document bytes are not stored in browser draft
+          storage. During a total-loss value check, the server-generated temporary PDF
           copy is removed when processing ends, and removal of the uploaded
           model-provider copy is requested after extraction. The private
           case-file copy remains with the saved case.

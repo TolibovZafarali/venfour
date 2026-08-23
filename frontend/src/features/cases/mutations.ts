@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useRef } from "react";
 
 import { appraisalCaseQueryKeys } from "@/features/cases/queries";
 import type { AppraisalCaseService } from "@/features/cases/service";
@@ -13,8 +14,7 @@ export interface CreateAppraisalCaseMutationInput {
   readonly serviceType: AppraisalServiceType;
 }
 
-export interface CreateOrGetAppraisalCaseMutationInput
-  extends CreateAppraisalCaseMutationInput {
+export interface CreateOrGetAppraisalCaseMutationInput extends CreateAppraisalCaseMutationInput {
   readonly caseId: string;
 }
 
@@ -36,11 +36,23 @@ function requireUserId(userId: string | null): string {
   return userId;
 }
 
+function useActiveMutationUserId(userId: string | null) {
+  const activeUserIdRef = useRef<string | null>(userId);
+  useEffect(() => {
+    activeUserIdRef.current = userId;
+    return () => {
+      activeUserIdRef.current = null;
+    };
+  }, [userId]);
+  return activeUserIdRef;
+}
+
 export function useCreateAppraisalCaseMutation({
   service,
   userId,
 }: AppraisalCaseMutationOptions) {
   const queryClient = useQueryClient();
+  const activeUserIdRef = useActiveMutationUserId(userId);
 
   return useMutation({
     mutationFn: ({ serviceType }: CreateAppraisalCaseMutationInput) =>
@@ -49,6 +61,7 @@ export function useCreateAppraisalCaseMutation({
         userId: requireUserId(userId),
       }),
     onSuccess: async (appraisalCase) => {
+      if (activeUserIdRef.current !== userId) return;
       queryClient.setQueryData(
         appraisalCaseQueryKeys.detail(userId, appraisalCase.id),
         appraisalCase,
@@ -66,6 +79,7 @@ export function useCreateOrGetAppraisalCaseMutation({
   userId,
 }: AppraisalCaseMutationOptions) {
   const queryClient = useQueryClient();
+  const activeUserIdRef = useActiveMutationUserId(userId);
 
   return useMutation({
     mutationFn: ({
@@ -78,6 +92,7 @@ export function useCreateOrGetAppraisalCaseMutation({
         userId: requireUserId(userId),
       }),
     onSuccess: async (appraisalCase) => {
+      if (activeUserIdRef.current !== userId) return;
       queryClient.setQueryData(
         appraisalCaseQueryKeys.detail(userId, appraisalCase.id),
         appraisalCase,
@@ -103,6 +118,7 @@ export function useTouchAppraisalCaseMutation({
   userId,
 }: AppraisalCaseMutationOptions) {
   const queryClient = useQueryClient();
+  const activeUserIdRef = useActiveMutationUserId(userId);
 
   return useMutation({
     mutationFn: ({ caseId }: TouchAppraisalCaseMutationInput) =>
@@ -111,6 +127,7 @@ export function useTouchAppraisalCaseMutation({
         userId: requireUserId(userId),
       }),
     onSuccess: async (appraisalCase, { caseId }) => {
+      if (activeUserIdRef.current !== userId) return;
       if (appraisalCase) {
         queryClient.setQueryData(
           appraisalCaseQueryKeys.detail(userId, caseId),

@@ -17,6 +17,7 @@ import { server } from "@/test/mocks/server";
 const SUPABASE_URL = "https://case-test.supabase.co";
 const USER_ID = "11111111-1111-4111-8111-111111111111";
 const CASE_ID = "22222222-2222-4222-8222-222222222222";
+const OTHER_USER_ID = "33333333-3333-4333-8333-333333333333";
 const CASE_COLUMNS =
   "id,user_id,service_type,status,created_at,updated_at,last_activity_at";
 
@@ -38,6 +39,38 @@ const expectedCase: AppraisalCase = {
   createdAt: "2026-08-18T14:00:00.000Z",
   updatedAt: "2026-08-18T14:00:00.000Z",
   lastActivityAt: "2026-08-18T14:00:00.000Z",
+};
+
+const ownedCaseOperationRow = {
+    case_id: CASE_ID,
+    owner_user_id: USER_ID,
+    service_type: "total_loss",
+    case_status: "draft",
+    case_stage: "analysis_processing",
+    needs_attention: false,
+    case_created_at: "2026-08-18T14:00:00.000Z",
+    case_updated_at: "2026-08-18T15:00:00.000Z",
+    last_activity_at: "2026-08-18T15:00:00.000Z",
+    report_uploaded_at: "2026-08-18T14:30:00.000Z",
+    analysis_status: "processing",
+    analysis_attempt_count: 2,
+    analysis_retryable: null,
+    analysis_failure_code: null,
+    analysis_processing_expires_at: "2026-08-18T15:05:00.000Z",
+};
+
+const expectedOperationCase: AppraisalCase = {
+  ...expectedCase,
+  updatedAt: "2026-08-18T15:00:00.000Z",
+  lastActivityAt: "2026-08-18T15:00:00.000Z",
+  caseStage: "analysis_processing",
+  needsAttention: false,
+  reportUploadedAt: "2026-08-18T14:30:00.000Z",
+  analysisStatus: "processing",
+  analysisAttemptCount: 2,
+  analysisRetryable: null,
+  analysisFailureCode: null,
+  analysisProcessingExpiresAt: "2026-08-18T15:05:00.000Z",
 };
 
 function createTestService() {
@@ -62,11 +95,14 @@ describe("appraisal case service", () => {
     let requestUrl: URL | undefined;
 
     server.use(
-      http.post(`${SUPABASE_URL}/rest/v1/appraisal_cases`, async ({ request }) => {
-        requestUrl = new URL(request.url);
-        requestBody = await request.json();
-        return HttpResponse.json(caseRow);
-      }),
+      http.post(
+        `${SUPABASE_URL}/rest/v1/appraisal_cases`,
+        async ({ request }) => {
+          requestUrl = new URL(request.url);
+          requestBody = await request.json();
+          return HttpResponse.json(caseRow);
+        },
+      ),
     );
 
     const result = await createTestService().createAppraisalCase({
@@ -86,10 +122,13 @@ describe("appraisal case service", () => {
     let requestBody: unknown;
 
     server.use(
-      http.post(`${SUPABASE_URL}/rest/v1/appraisal_cases`, async ({ request }) => {
-        requestBody = await request.json();
-        return HttpResponse.json(caseRow);
-      }),
+      http.post(
+        `${SUPABASE_URL}/rest/v1/appraisal_cases`,
+        async ({ request }) => {
+          requestBody = await request.json();
+          return HttpResponse.json(caseRow);
+        },
+      ),
     );
 
     await expect(
@@ -160,24 +199,69 @@ describe("appraisal case service", () => {
     ).rejects.toBeInstanceOf(AppraisalCaseResponseError);
   });
 
-  it("scopes list requests to the active owner and orders recent activity first", async () => {
-    let requestUrl: URL | undefined;
+  it("uses the owned operations RPC and maps its computed case stage", async () => {
+    let requestBody: unknown;
 
     server.use(
-      http.get(`${SUPABASE_URL}/rest/v1/appraisal_cases`, ({ request }) => {
-        requestUrl = new URL(request.url);
-        return HttpResponse.json([caseRow]);
-      }),
+      http.post(
+        `${SUPABASE_URL}/rest/v1/rpc/list_owned_case_operations`,
+        async ({ request }) => {
+          requestBody = await request.json();
+          return HttpResponse.json([ownedCaseOperationRow]);
+        },
+      ),
     );
 
     const result = await createTestService().listAppraisalCases(USER_ID);
 
-    expect(requestUrl?.searchParams.get("user_id")).toBe(`eq.${USER_ID}`);
-    expect(requestUrl?.searchParams.get("order")).toBe(
-      "last_activity_at.desc",
+    expect(requestBody).toEqual({});
+    expect(result).toEqual([expectedOperationCase]);
+  });
+
+  it("rejects an owner-list row outside the active ownership scope", async () => {
+    server.use(
+      http.post(`${SUPABASE_URL}/rest/v1/rpc/list_owned_case_operations`, () =>
+        HttpResponse.json([
+          { ...ownedCaseOperationRow, owner_user_id: OTHER_USER_ID },
+        ]),
+      ),
     );
-    expect(requestUrl?.searchParams.get("select")).toBe(CASE_COLUMNS);
-    expect(result).toEqual([expectedCase]);
+
+    await expect(
+      createTestService().listAppraisalCases(USER_ID),
+    ).rejects.toBeInstanceOf(AppraisalCaseResponseError);
+  });
+
+  it("atomically gets or creates the active owner's Total Loss draft", async () => {
+    let requestBody: unknown;
+
+    server.use(
+      http.post(
+        `${SUPABASE_URL}/rest/v1/rpc/get_or_create_total_loss_draft`,
+        async ({ request }) => {
+          requestBody = await request.json();
+          return HttpResponse.json(caseRow);
+        },
+      ),
+    );
+
+    await expect(
+      createTestService().getOrCreateTotalLossDraft({ userId: USER_ID }),
+    ).resolves.toEqual(expectedCase);
+    expect(requestBody).toEqual({});
+  });
+
+  it("rejects an atomic Total Loss draft outside the expected workflow", async () => {
+    server.use(
+      http.post(
+        `${SUPABASE_URL}/rest/v1/rpc/get_or_create_total_loss_draft`,
+        () => HttpResponse.json({ ...caseRow, user_id: OTHER_USER_ID }),
+      ),
+    );
+
+    await expect(
+      createTestService().getOrCreateTotalLossDraft({ userId: USER_ID }),
+    ).rejects.toBeInstanceOf(AppraisalCaseResponseError);
   });
 
   it("server-filters and limits the most recent draft for a workflow", async () => {
@@ -198,13 +282,9 @@ describe("appraisal case service", () => {
     ).resolves.toEqual(expectedCase);
 
     expect(requestUrl?.searchParams.get("user_id")).toBe(`eq.${USER_ID}`);
-    expect(requestUrl?.searchParams.get("service_type")).toBe(
-      "eq.total_loss",
-    );
+    expect(requestUrl?.searchParams.get("service_type")).toBe("eq.total_loss");
     expect(requestUrl?.searchParams.get("status")).toBe("eq.draft");
-    expect(requestUrl?.searchParams.get("order")).toBe(
-      "last_activity_at.desc",
-    );
+    expect(requestUrl?.searchParams.get("order")).toBe("last_activity_at.desc");
     expect(requestUrl?.searchParams.get("limit")).toBe("1");
   });
 
@@ -275,13 +355,13 @@ describe("appraisal case service", () => {
 
   it("propagates Supabase errors", async () => {
     server.use(
-      http.get(`${SUPABASE_URL}/rest/v1/appraisal_cases`, () =>
+      http.post(`${SUPABASE_URL}/rest/v1/rpc/list_owned_case_operations`, () =>
         HttpResponse.json(
           {
             code: "42501",
             details: null,
             hint: null,
-            message: "permission denied for table appraisal_cases",
+            message: "permission denied for function",
           },
           { status: 403 },
         ),
@@ -292,7 +372,7 @@ describe("appraisal case service", () => {
       createTestService().listAppraisalCases(USER_ID),
     ).rejects.toMatchObject({
       code: "42501",
-      message: "permission denied for table appraisal_cases",
+      message: "permission denied for function",
     });
   });
 
@@ -321,6 +401,7 @@ describe("appraisal case service", () => {
     expectTypeOf<keyof AppraisalCaseService>().toEqualTypeOf<
       | "createAppraisalCase"
       | "createOrGetAppraisalCase"
+      | "getOrCreateTotalLossDraft"
       | "listAppraisalCases"
       | "getRecentDraftAppraisalCase"
       | "getAppraisalCase"

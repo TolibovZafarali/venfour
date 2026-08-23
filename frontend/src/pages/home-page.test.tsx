@@ -254,7 +254,7 @@ describe("homepage structure", () => {
     expect(router.state.location.search).toBe("?service=diminished-value");
     expect(
       screen.getByRole("heading", {
-        name: "Submit a diminished-value review request",
+        name: "Diminished Value is coming next",
       }),
     ).toBeVisible();
   });

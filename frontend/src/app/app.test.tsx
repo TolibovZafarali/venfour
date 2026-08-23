@@ -7,11 +7,13 @@ import type { Session } from "@supabase/supabase-js";
 import venfourMark from "../../../assets/brand/venfour-mark.svg";
 import type { AuthService } from "@/features/auth";
 import { appraisalCaseQueryKeys } from "@/features/cases/queries";
+import type { CustomerProfileService } from "@/features/customer-profile";
 import {
   createEmptyTotalLossDraft,
   readTotalLossDraft,
   writeTotalLossDraft,
 } from "@/features/total-loss/draft";
+import type { TotalLossDependencies } from "@/features/total-loss/dependencies";
 import { RouteErrorPage } from "@/pages/route-error-page";
 import { representativeRunId } from "@/test/fixtures/analysis-presentation";
 import { renderTestApp } from "@/test/render";
@@ -147,10 +149,10 @@ describe("Venfour application", () => {
 
   });
 
-  test("keeps no-report total-loss intake unavailable before data entry", () => {
-    renderTestApp(["/start?service=total-loss"]);
+  test("keeps no-report total-loss intake unavailable after secure setup", async () => {
+    renderSignedInTotalLossApp();
 
-    const noReportOption = screen.getByRole("radio", {
+    const noReportOption = await screen.findByRole("radio", {
       name: /I don’t have the report/i,
     });
     expect(noReportOption).toBeDisabled();
@@ -182,10 +184,10 @@ describe("Venfour application", () => {
       }).ok,
     ).toBe(true);
 
-    renderTestApp(["/start?service=total-loss"]);
+    renderSignedInTotalLossApp();
 
     expect(
-      screen.getByRole("heading", {
+      await screen.findByRole("heading", {
         name: "No-report total-loss review is not available yet",
       }),
     ).toBeVisible();
@@ -772,6 +774,58 @@ function BrokenRoute(): never {
   throw new Error("private render detail");
 }
 
+function renderSignedInTotalLossApp() {
+  const session = createTestSession();
+  const appraisalCase = {
+    id: "22222222-2222-4222-8222-222222222222",
+    userId: session.user.id,
+    serviceType: "total_loss" as const,
+    status: "draft" as const,
+    createdAt: "2026-08-23T12:00:00.000Z",
+    updatedAt: "2026-08-23T12:00:00.000Z",
+    lastActivityAt: "2026-08-23T12:00:00.000Z",
+  };
+  const appraisalCaseService = {
+    createAppraisalCase: async () => appraisalCase,
+    createOrGetAppraisalCase: async () => appraisalCase,
+    getAppraisalCase: async () => appraisalCase,
+    getOrCreateTotalLossDraft: async () => appraisalCase,
+    getRecentDraftAppraisalCase: async () => appraisalCase,
+    listAppraisalCases: async () => [appraisalCase],
+    touchAppraisalCase: async () => appraisalCase,
+  };
+  const customerProfileService: CustomerProfileService = {
+    getProfile: async () => ({
+      userId: session.user.id,
+      fullName: "Ada Lovelace",
+      fullNameConfirmedAt: "2026-08-23T12:00:00.000Z",
+      serviceTermsVersion: "2026-08-23",
+      serviceTermsAcknowledgedAt: "2026-08-23T12:00:00.000Z",
+      privacyNoticeVersion: "2026-08-23",
+      privacyNoticeAcknowledgedAt: "2026-08-23T12:00:00.000Z",
+      operationalFollowUpAllowed: false,
+      operationalFollowUpUpdatedAt: "2026-08-23T12:00:00.000Z",
+      createdAt: "2026-08-23T12:00:00.000Z",
+      updatedAt: "2026-08-23T12:00:00.000Z",
+    }),
+    confirmProfile: async () => {
+      throw new Error("The confirmed test profile should not be resubmitted.");
+    },
+  };
+  const totalLossDependencies = {
+    appraisalCaseService,
+    totalLossDetailsService: { getDetails: async () => null },
+    totalLossReportStorageService: {},
+    vehicleLookupService: {},
+  } as unknown as TotalLossDependencies;
+
+  return renderTestApp(["/start?service=total-loss"], {
+    authService: createTestAuthService(session),
+    customerProfileService,
+    totalLossDependencies,
+  });
+}
+
 function createTestSession(): Session {
   return {
     access_token: "test-access-token",
@@ -783,6 +837,7 @@ function createTestSession(): Session {
       aud: "authenticated",
       created_at: "2026-08-18T14:00:00.000Z",
       email: "ada@example.com",
+      email_confirmed_at: "2026-08-18T14:00:00.000Z",
       id: "11111111-1111-4111-8111-111111111111",
       user_metadata: { full_name: "Ada Lovelace" },
     },

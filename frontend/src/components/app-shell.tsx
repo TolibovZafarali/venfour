@@ -143,7 +143,7 @@ function AppShellContent() {
     if (signedInUserId) setStaffNavigationRequestUserId(signedInUserId);
   };
   const staffReviewHref = staffAccessQuery.data
-    ? "/admin/diminished-value"
+    ? "/admin/cases"
     : undefined;
   const visibleHeaderDetached = headerDetached && !startFlowRoute;
   const detachedHeaderMaxWidth =

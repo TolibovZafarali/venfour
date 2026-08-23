@@ -1,7 +1,11 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
 
-import { DiminishedValueStartFlow } from "@/features/diminished-value";
+import { diminishedValueIntakeAvailable } from "@/config/product-availability";
+import {
+  DiminishedValuePausedState,
+  DiminishedValueStartFlow,
+} from "@/features/diminished-value";
 import {
   AppraisalStartLayout,
   type AppraisalServiceSlug,
@@ -122,23 +126,31 @@ export function AppraisalStartPage() {
       eyebrow={
         totalLossSelected
           ? "CCC total-loss review"
-          : "Manual diminished-value review"
+          : diminishedValueIntakeAvailable
+            ? "Manual diminished-value review"
+            : "Diminished Value service"
       }
       title={
         totalLossSelected
           ? "Start your CCC report review"
-          : "Submit a diminished-value review request"
+          : diminishedValueIntakeAvailable
+            ? "Submit a diminished-value review request"
+            : "Diminished Value is coming next"
       }
       description={
         totalLossSelected
           ? "Automated review currently requires the original CCC valuation report PDF your insurer used. No-report review is not available in this tester release."
-          : "We’ll securely gather accident, repair, vehicle, and contact details for a future manual review. Submission does not create an automated appraisal or schedule an appointment."
+          : diminishedValueIntakeAvailable
+            ? "We’ll securely gather accident, repair, vehicle, and contact details for a future manual review. Submission does not create an automated appraisal or schedule an appointment."
+            : "Diminished Value remains part of Venfour. Customer intake will open after the Total Loss experience is complete."
       }
     >
       {totalLossSelected ? (
         <TotalLossIntakeFlow onBusyChange={setTotalLossBusy} />
-      ) : (
+      ) : diminishedValueIntakeAvailable ? (
         <DiminishedValueStartFlow onBusyChange={setDiminishedValueBusy} />
+      ) : (
+        <DiminishedValuePausedState />
       )}
     </AppraisalStartLayout>
   );

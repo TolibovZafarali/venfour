@@ -13,14 +13,10 @@ export const appraisalCaseQueryKeys = {
     [...appraisalCaseQueryKeys.user(userId), "detail", caseId] as const,
   recentDrafts: (userId: string | null) =>
     [...appraisalCaseQueryKeys.user(userId), "recentDraft"] as const,
-  recentDraft: (
-    userId: string | null,
-    serviceType: AppraisalServiceType,
-  ) =>
-    [
-      ...appraisalCaseQueryKeys.recentDrafts(userId),
-      serviceType,
-    ] as const,
+  recentDraft: (userId: string | null, serviceType: AppraisalServiceType) =>
+    [...appraisalCaseQueryKeys.recentDrafts(userId), serviceType] as const,
+  totalLossDraft: (userId: string | null) =>
+    [...appraisalCaseQueryKeys.user(userId), "totalLossDraft"] as const,
 };
 
 interface AppraisalCasesQueryOptions {
@@ -32,8 +28,7 @@ interface AppraisalCaseQueryOptions extends AppraisalCasesQueryOptions {
   readonly caseId: string;
 }
 
-interface RecentDraftAppraisalCaseQueryOptions
-  extends AppraisalCasesQueryOptions {
+interface RecentDraftAppraisalCaseQueryOptions extends AppraisalCasesQueryOptions {
   readonly serviceType: AppraisalServiceType;
 }
 
@@ -89,6 +84,25 @@ export function recentDraftAppraisalCaseQueryOptions({
   });
 }
 
+export function totalLossDraftQueryOptions({
+  service,
+  userId,
+}: AppraisalCasesQueryOptions) {
+  return queryOptions({
+    queryKey: appraisalCaseQueryKeys.totalLossDraft(userId),
+    queryFn: () => {
+      if (!userId) {
+        throw new Error(
+          "An authenticated user is required to prepare a Total Loss draft.",
+        );
+      }
+      return service.getOrCreateTotalLossDraft({ userId });
+    },
+    enabled: Boolean(userId),
+    staleTime: 10_000,
+  });
+}
+
 export function useAppraisalCasesQuery(options: AppraisalCasesQueryOptions) {
   return useQuery(appraisalCasesQueryOptions(options));
 }
@@ -101,4 +115,8 @@ export function useRecentDraftAppraisalCaseQuery(
   options: RecentDraftAppraisalCaseQueryOptions,
 ) {
   return useQuery(recentDraftAppraisalCaseQueryOptions(options));
+}
+
+export function useTotalLossDraftQuery(options: AppraisalCasesQueryOptions) {
+  return useQuery(totalLossDraftQueryOptions(options));
 }

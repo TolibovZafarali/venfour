@@ -5,6 +5,7 @@ import type {
   CreateAppraisalCaseInput,
   CreateOrGetAppraisalCaseInput,
   GetAppraisalCaseInput,
+  GetOrCreateTotalLossDraftInput,
   GetRecentDraftAppraisalCaseInput,
   TouchAppraisalCaseInput,
 } from "@/features/cases/types";
@@ -14,6 +15,8 @@ const APPRAISAL_CASE_COLUMNS =
   "id,user_id,service_type,status,created_at,updated_at,last_activity_at" as const;
 
 type AppraisalCaseRow = Tables<"appraisal_cases">;
+type OwnedCaseOperationRow =
+  Database["public"]["Functions"]["list_owned_case_operations"]["Returns"][number];
 
 export interface AppraisalCaseService {
   createAppraisalCase(input: CreateAppraisalCaseInput): Promise<AppraisalCase>;
@@ -24,9 +27,10 @@ export interface AppraisalCaseService {
   getRecentDraftAppraisalCase(
     input: GetRecentDraftAppraisalCaseInput,
   ): Promise<AppraisalCase | null>;
-  getAppraisalCase(
-    input: GetAppraisalCaseInput,
-  ): Promise<AppraisalCase | null>;
+  getOrCreateTotalLossDraft(
+    input: GetOrCreateTotalLossDraftInput,
+  ): Promise<AppraisalCase>;
+  getAppraisalCase(input: GetAppraisalCaseInput): Promise<AppraisalCase | null>;
   touchAppraisalCase(
     input: TouchAppraisalCaseInput,
   ): Promise<AppraisalCase | null>;
@@ -48,6 +52,26 @@ function mapAppraisalCase(row: AppraisalCaseRow): AppraisalCase {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     lastActivityAt: row.last_activity_at,
+  };
+}
+
+function mapOwnedCaseOperation(row: OwnedCaseOperationRow): AppraisalCase {
+  return {
+    id: row.case_id,
+    userId: row.owner_user_id,
+    serviceType: row.service_type,
+    status: row.case_status,
+    caseStage: row.case_stage,
+    needsAttention: row.needs_attention,
+    createdAt: row.case_created_at,
+    updatedAt: row.case_updated_at,
+    lastActivityAt: row.last_activity_at,
+    reportUploadedAt: row.report_uploaded_at,
+    analysisStatus: row.analysis_status,
+    analysisAttemptCount: row.analysis_attempt_count,
+    analysisRetryable: row.analysis_retryable,
+    analysisFailureCode: row.analysis_failure_code,
+    analysisProcessingExpiresAt: row.analysis_processing_expires_at,
   };
 }
 
@@ -181,11 +205,7 @@ export function createAppraisalCaseService(
     },
 
     async listAppraisalCases(userId) {
-      const { data, error } = await client
-        .from("appraisal_cases")
-        .select(APPRAISAL_CASE_COLUMNS)
-        .eq("user_id", userId)
-        .order("last_activity_at", { ascending: false });
+      const { data, error } = await client.rpc("list_owned_case_operations");
 
       if (error) {
         throw error;
@@ -197,7 +217,7 @@ export function createAppraisalCaseService(
       }
 
       return data.map((row) => {
-        const appraisalCase = mapAppraisalCase(row);
+        const appraisalCase = mapOwnedCaseOperation(row);
         assertOwnedCase(appraisalCase, userId);
         return appraisalCase;
       });
@@ -223,6 +243,31 @@ export function createAppraisalCaseService(
 
       const appraisalCase = mapAppraisalCase(data);
       assertExpectedDraftCase(appraisalCase, { userId, serviceType });
+      return appraisalCase;
+    },
+
+    async getOrCreateTotalLossDraft({ userId }) {
+      const { data, error } = await client.rpc(
+        "get_or_create_total_loss_draft",
+      );
+
+      if (error) throw error;
+      if (!data) {
+        throw new AppraisalCaseResponseError(
+          "Supabase did not return the Total Loss draft.",
+        );
+      }
+
+      const appraisalCase = mapAppraisalCase(data);
+      assertOwnedCase(appraisalCase, userId);
+      if (
+        appraisalCase.serviceType !== "total_loss" ||
+        appraisalCase.status !== "draft"
+      ) {
+        throw new AppraisalCaseResponseError(
+          "Supabase returned a case outside the requested Total Loss draft workflow.",
+        );
+      }
       return appraisalCase;
     },
 

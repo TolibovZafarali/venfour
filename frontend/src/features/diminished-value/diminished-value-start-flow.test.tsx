@@ -10,6 +10,7 @@ import type {
 import type { AppraisalCaseService } from "@/features/cases/service";
 import type { AppraisalCase } from "@/features/cases/types";
 import type { VehicleLookupService } from "@/features/intake";
+import type * as productAvailabilityModule from "@/config/product-availability";
 import { renderTestApp } from "@/test/render";
 
 import { diminishedValueDraftToDetailsValues } from "./data-mappers";
@@ -29,6 +30,13 @@ import {
   createEmptyDiminishedValueDraft,
   type DiminishedValueDraft,
 } from "./types";
+
+// Exercise the preserved intake controller directly while the production
+// customer entry point remains paused behind this availability flag.
+vi.mock("@/config/product-availability", async (importOriginal) => ({
+  ...(await importOriginal<typeof productAvailabilityModule>()),
+  diminishedValueIntakeAvailable: true,
+}));
 
 const USER_ID = "11111111-1111-4111-8111-111111111111";
 const CASE_ID = "22222222-2222-4222-8222-222222222222";
@@ -245,6 +253,7 @@ function createDependencyHarness(initialDetails: DiminishedValueCaseDetails) {
   const caseService: AppraisalCaseService = {
     createAppraisalCase: vi.fn(async () => appraisalCase(status)),
     createOrGetAppraisalCase,
+    getOrCreateTotalLossDraft: vi.fn(async () => appraisalCase(status)),
     listAppraisalCases: vi.fn(async () => [
       appraisalCase(status, details.caseId),
     ]),

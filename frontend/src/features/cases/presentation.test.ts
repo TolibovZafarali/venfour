@@ -8,6 +8,7 @@ const CASE_ID = "22222222-2222-4222-8222-222222222222";
 function appraisalCase(
   serviceType: string,
   status: string,
+  overrides: Partial<AppraisalCase> = {},
 ): AppraisalCase {
   return {
     id: CASE_ID,
@@ -17,6 +18,7 @@ function appraisalCase(
     createdAt: "2026-08-20T12:00:00.000Z",
     updatedAt: "2026-08-20T12:00:00.000Z",
     lastActivityAt: "2026-08-20T12:00:00.000Z",
+    ...overrides,
   } as AppraisalCase;
 }
 
@@ -76,14 +78,14 @@ describe("appraisal case presentation", () => {
     [
       "draft",
       "Draft",
-      "Continue request",
-      `/start?service=diminished-value&view=intake&caseId=${CASE_ID}`,
+      "View service update",
+      "/start?service=diminished-value",
     ],
     [
       "submitted",
       "Submitted",
-      "View submitted request",
-      `/start?service=diminished-value&view=intake&caseId=${CASE_ID}`,
+      "View service update",
+      "/start?service=diminished-value",
     ],
   ])(
     "maps the supported diminished-value %s state",
@@ -130,6 +132,94 @@ describe("appraisal case presentation", () => {
     },
   );
 
+  it.each([
+    ["intake_not_started", "Draft", "Continue review", "/start"],
+    ["intake_in_progress", "Intake in progress", "Continue review", "/start"],
+    ["report_uploaded", "Report uploaded", "Continue review", "/start"],
+    ["report_required", "Report needed", "Continue review", "/start"],
+    [
+      "ready_for_analysis",
+      "Ready for value check",
+      "Start value check",
+      "/analysis",
+    ],
+    [
+      "analysis_processing",
+      "Value check in progress",
+      "View progress",
+      "/analysis",
+    ],
+    [
+      "analysis_failed",
+      "Value check needs attention",
+      "Review value check",
+      "/analysis",
+    ],
+    ["analysis_complete", "Result ready", "View result", "/analysis"],
+  ] as const)(
+    "uses computed stage %s instead of the parent status placeholder",
+    (caseStage, statusLabel, actionLabel, destination) => {
+      const presentation = appraisalCasePresentation(
+        appraisalCase("total_loss", "payment_pending", {
+          caseStage,
+          needsAttention: caseStage === "analysis_failed",
+        }),
+      );
+
+      expect(presentation.statusLabel).toBe(statusLabel);
+      expect(presentation.action?.label).toBe(actionLabel);
+      expect(presentation.action?.href).toContain(destination);
+    },
+  );
+
+  it("routes draft upload attention back to intake recovery", () => {
+    expect(
+      appraisalCasePresentation(
+        appraisalCase("total_loss", "draft", {
+          caseStage: "needs_attention",
+          needsAttention: true,
+        }),
+      ),
+    ).toMatchObject({
+      action: {
+        href: `/start?service=total-loss&view=intake&caseId=${CASE_ID}`,
+        label: "Review intake",
+      },
+      statusLabel: "Needs attention",
+    });
+  });
+
+  it("routes expired processing attention back to analysis recovery", () => {
+    expect(
+      appraisalCasePresentation(
+        appraisalCase("total_loss", "checking", {
+          caseStage: "needs_attention",
+          needsAttention: true,
+          analysisStatus: "processing",
+        }),
+      ),
+    ).toMatchObject({
+      action: {
+        href: `/total-loss/cases/${CASE_ID}/analysis`,
+        label: "Review value check",
+      },
+      statusLabel: "Value check needs attention",
+    });
+  });
+
+  it("surfaces unknown stages safely", () => {
+    expect(
+      appraisalCasePresentation(
+        appraisalCase("total_loss", "completed", {
+          caseStage: "unexpected" as AppraisalCase["caseStage"],
+        }),
+      ),
+    ).toMatchObject({
+      action: { href: "/contact", label: "Contact support" },
+      statusLabel: "Status needs review",
+    });
+  });
+
   it("keeps an unexpected workflow visible on the safe support path", () => {
     expect(
       appraisalCasePresentation(
@@ -144,9 +234,7 @@ describe("appraisal case presentation", () => {
 
   it("does not treat a closed status as trusted when the workflow is unknown", () => {
     expect(
-      appraisalCasePresentation(
-        appraisalCase("unexpected_workflow", "closed"),
-      ),
+      appraisalCasePresentation(appraisalCase("unexpected_workflow", "closed")),
     ).toEqual({
       action: { href: "/contact", label: "Contact support" },
       serviceLabel: "Vehicle review",

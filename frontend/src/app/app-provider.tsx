@@ -1,9 +1,15 @@
 import { QueryClientProvider } from "@tanstack/react-query";
 import type { QueryClient } from "@tanstack/react-query";
-import { useCallback } from "react";
+import { useCallback, useRef } from "react";
 import { RouterProvider } from "react-router";
 import type { RouterProviderProps } from "react-router";
 
+import {
+  AdminCaseOperationsDependenciesProvider,
+  createAdminCaseOperationsDependencies,
+  type AdminCaseOperationsDependencies,
+} from "@/features/admin/case-operations/dependencies";
+import { adminCaseOperationsQueryKeys } from "@/features/admin/case-operations/queries";
 import {
   AdminDiminishedValueDependenciesProvider,
   createAdminDiminishedValueDependencies,
@@ -17,6 +23,12 @@ import {
   createAppraisalCaseService,
   type AppraisalCaseService,
 } from "@/features/cases/service";
+import {
+  createCustomerProfileService,
+  CustomerProfileServiceProvider,
+  type CustomerProfileService,
+} from "@/features/customer-profile";
+import { customerProfileQueryKeys } from "@/features/customer-profile/queries";
 import {
   clearDiminishedValueDraftEnvelope,
   readDiminishedValueDraftEnvelope,
@@ -50,16 +62,26 @@ const defaultAdminDiminishedValueDependencies =
   supabaseClientState.status === "available"
     ? createAdminDiminishedValueDependencies(supabaseClientState.client)
     : null;
+const defaultAdminCaseOperationsDependencies =
+  supabaseClientState.status === "available"
+    ? createAdminCaseOperationsDependencies(supabaseClientState.client)
+    : null;
 const defaultAppraisalCaseService =
   supabaseClientState.status === "available"
     ? createAppraisalCaseService(supabaseClientState.client)
     : null;
+const defaultCustomerProfileService =
+  supabaseClientState.status === "available"
+    ? createCustomerProfileService(supabaseClientState.client)
+    : null;
 
 interface AppProviderProps {
+  adminCaseOperationsDependencies?: AdminCaseOperationsDependencies | null;
   adminDiminishedValueDependencies?: AdminDiminishedValueDependencies | null;
   appraisalCaseService?: AppraisalCaseService | null;
   authService?: AuthService | null;
   authUnavailableReason?: string;
+  customerProfileService?: CustomerProfileService | null;
   diminishedValueDependencies?: DiminishedValueDependencies | null;
   queryClient: QueryClient;
   router: RouterProviderProps["router"];
@@ -67,10 +89,12 @@ interface AppProviderProps {
 }
 
 export function AppProvider({
+  adminCaseOperationsDependencies,
   adminDiminishedValueDependencies,
   appraisalCaseService,
   authService,
   authUnavailableReason,
+  customerProfileService,
   diminishedValueDependencies,
   queryClient,
   router,
@@ -88,13 +112,27 @@ export function AppProvider({
     adminDiminishedValueDependencies === undefined
       ? defaultAdminDiminishedValueDependencies
       : adminDiminishedValueDependencies;
+  const resolvedAdminCaseOperationsDependencies =
+    adminCaseOperationsDependencies === undefined
+      ? defaultAdminCaseOperationsDependencies
+      : adminCaseOperationsDependencies;
   const resolvedAppraisalCaseService =
     appraisalCaseService === undefined
       ? defaultAppraisalCaseService
       : appraisalCaseService;
+  const resolvedCustomerProfileService =
+    customerProfileService === undefined
+      ? defaultCustomerProfileService
+      : customerProfileService;
+  const resolvedUserIdRef = useRef<string | null>(null);
+  const identityInitializedRef = useRef(false);
   const handleIdentityResolved = useCallback(
     (nextUserId: string | null) => {
+      const previousUserId = resolvedUserIdRef.current;
+      resolvedUserIdRef.current = nextUserId;
       queryClient.removeQueries({ queryKey: appraisalCaseQueryKeys.all });
+      queryClient.removeQueries({ queryKey: customerProfileQueryKeys.all });
+      queryClient.removeQueries({ queryKey: adminCaseOperationsQueryKeys.all });
       queryClient.removeQueries({
         queryKey: adminDiminishedValueQueryKeys.all,
       });
@@ -116,6 +154,19 @@ export function AppProvider({
       ) {
         clearDiminishedValueDraftEnvelope();
       }
+
+      if (
+        identityInitializedRef.current &&
+        previousUserId &&
+        previousUserId !== nextUserId
+      ) {
+        queueMicrotask(() => {
+          queryClient.removeQueries({
+            queryKey: appraisalCaseQueryKeys.user(previousUserId),
+          });
+        });
+      }
+      identityInitializedRef.current = true;
     },
     [queryClient],
   );
@@ -127,23 +178,31 @@ export function AppProvider({
         unavailableReason={authUnavailableReason}
         onIdentityResolved={handleIdentityResolved}
       >
-        <AppraisalCaseServiceProvider service={resolvedAppraisalCaseService}>
-          <AdminDiminishedValueDependenciesProvider
-            dependencies={resolvedAdminDiminishedValueDependencies}
-          >
-            <TotalLossDependenciesProvider
-              dependencies={resolvedTotalLossDependencies}
+        <CustomerProfileServiceProvider
+          service={resolvedCustomerProfileService}
+        >
+          <AppraisalCaseServiceProvider service={resolvedAppraisalCaseService}>
+            <AdminCaseOperationsDependenciesProvider
+              dependencies={resolvedAdminCaseOperationsDependencies}
             >
-              <DiminishedValueDependenciesProvider
-                dependencies={resolvedDiminishedValueDependencies}
+              <AdminDiminishedValueDependenciesProvider
+                dependencies={resolvedAdminDiminishedValueDependencies}
               >
-                <CookieConsentProvider>
-                  <RouterProvider router={router} />
-                </CookieConsentProvider>
-              </DiminishedValueDependenciesProvider>
-            </TotalLossDependenciesProvider>
-          </AdminDiminishedValueDependenciesProvider>
-        </AppraisalCaseServiceProvider>
+                <TotalLossDependenciesProvider
+                  dependencies={resolvedTotalLossDependencies}
+                >
+                  <DiminishedValueDependenciesProvider
+                    dependencies={resolvedDiminishedValueDependencies}
+                  >
+                    <CookieConsentProvider>
+                      <RouterProvider router={router} />
+                    </CookieConsentProvider>
+                  </DiminishedValueDependenciesProvider>
+                </TotalLossDependenciesProvider>
+              </AdminDiminishedValueDependenciesProvider>
+            </AdminCaseOperationsDependenciesProvider>
+          </AppraisalCaseServiceProvider>
+        </CustomerProfileServiceProvider>
       </AuthProvider>
     </QueryClientProvider>
   );

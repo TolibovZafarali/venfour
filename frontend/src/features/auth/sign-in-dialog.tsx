@@ -267,7 +267,7 @@ export function SignInDialog({
               )}
 
               <p className="mt-5 border-t border-line pt-4 text-xs leading-5 text-copy">
-                By continuing, you agree to Venfour’s{" "}
+                Venfour will ask you to confirm its{" "}
                 <Link
                   to="/terms"
                   className={`rounded-sm font-medium text-ink underline decoration-ink/25 underline-offset-4 hover:text-brand ${focusRingClassName}`}
@@ -275,7 +275,7 @@ export function SignInDialog({
                 >
                   Terms of Use
                 </Link>{" "}
-                and acknowledge the{" "}
+                and acknowledge its{" "}
                 <Link
                   to="/privacy"
                   className={`rounded-sm font-medium text-ink underline decoration-ink/25 underline-offset-4 hover:text-brand ${focusRingClassName}`}
@@ -283,7 +283,7 @@ export function SignInDialog({
                 >
                   Privacy Policy
                 </Link>{" "}
-                and{" "}
+                after sign-in. You can also review the{" "}
                 <Link
                   to="/cookies"
                   className={`rounded-sm font-medium text-ink underline decoration-ink/25 underline-offset-4 hover:text-brand ${focusRingClassName}`}

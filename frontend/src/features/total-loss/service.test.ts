@@ -99,6 +99,7 @@ function createTestHarness() {
   const appraisalCaseService = {
     createAppraisalCase: async () => appraisalCase,
     createOrGetAppraisalCase: async () => appraisalCase,
+    getOrCreateTotalLossDraft: async () => appraisalCase,
     listAppraisalCases: async () => [],
     getRecentDraftAppraisalCase: async () => null,
     getAppraisalCase: async () => appraisalCase,

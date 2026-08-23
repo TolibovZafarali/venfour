@@ -1,10 +1,7 @@
 import { http, HttpResponse } from "msw";
 import { act, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import type {
-  AuthChangeEvent,
-  Session,
-} from "@supabase/supabase-js";
+import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
 import { describe, expect, it, vi } from "vitest";
 
 import type {
@@ -71,6 +68,7 @@ function appraisalCase({
   serviceType = "total_loss",
   status = "draft",
   userId = FIRST_USER_ID,
+  ...operation
 }: Partial<AppraisalCase> = {}): AppraisalCase {
   return {
     id,
@@ -80,16 +78,17 @@ function appraisalCase({
     createdAt: "2026-08-20T12:00:00.000Z",
     updatedAt: lastActivityAt,
     lastActivityAt,
+    ...operation,
   };
 }
 
 function createCaseService(
-  listAppraisalCases: AppraisalCaseService["listAppraisalCases"] = async () =>
-    [],
+  listAppraisalCases: AppraisalCaseService["listAppraisalCases"] = async () => [],
 ): AppraisalCaseService {
   return {
     createAppraisalCase: async () => appraisalCase(),
     createOrGetAppraisalCase: async () => appraisalCase(),
+    getOrCreateTotalLossDraft: async () => appraisalCase(),
     getAppraisalCase: async () => null,
     getRecentDraftAppraisalCase: async () => null,
     listAppraisalCases,
@@ -145,7 +144,9 @@ describe("customer appraisals page", () => {
     });
 
     await user.click(await screen.findByRole("button", { name: "Sign in" }));
-    await user.click(screen.getByRole("button", { name: "Continue with Google" }));
+    await user.click(
+      screen.getByRole("button", { name: "Continue with Google" }),
+    );
 
     expect(window.localStorage.getItem(AUTH_RETURN_LOCATION_STORAGE_KEY)).toBe(
       "/appraisals",
@@ -164,10 +165,9 @@ describe("customer appraisals page", () => {
         name: "Your appraisals are temporarily unavailable.",
       }),
     ).toBeVisible();
-    expect(screen.getByRole("link", { name: "Contact support" })).toHaveAttribute(
-      "href",
-      "/contact",
-    );
+    expect(
+      screen.getByRole("link", { name: "Contact support" }),
+    ).toHaveAttribute("href", "/contact");
   });
 
   it("shows an explicit auth-unavailable state without requesting owner data", async () => {
@@ -176,7 +176,8 @@ describe("customer appraisals page", () => {
     renderTestApp(["/appraisals"], {
       appraisalCaseService: createCaseService(listAppraisalCases),
       authService: null,
-      authUnavailableReason: "Secure sign-in is unavailable in this environment.",
+      authUnavailableReason:
+        "Secure sign-in is unavailable in this environment.",
     });
 
     expect(
@@ -258,7 +259,11 @@ describe("customer appraisals page", () => {
 
   it("preserves server order and renders supported, unsupported, closed, and unknown cases", async () => {
     const cases = [
-      appraisalCase({ id: FIRST_CASE_ID, status: "checking" }),
+      appraisalCase({
+        id: FIRST_CASE_ID,
+        status: "payment_pending",
+        caseStage: "analysis_processing",
+      }),
       appraisalCase({
         id: SECOND_CASE_ID,
         serviceType: "diminished_value",
@@ -267,6 +272,8 @@ describe("customer appraisals page", () => {
       appraisalCase({
         id: "55555555-5555-4555-8555-555555555555",
         status: "payment_pending",
+        caseStage: "needs_attention",
+        needsAttention: true,
       }),
       appraisalCase({
         id: "66666666-6666-4666-8666-666666666666",
@@ -305,21 +312,13 @@ describe("customer appraisals page", () => {
 
     expect(
       cardAt(0).getByRole("link", { name: "View progress" }),
-    ).toHaveAttribute(
-      "href",
-      `/total-loss/cases/${FIRST_CASE_ID}/analysis`,
-    );
+    ).toHaveAttribute("href", `/total-loss/cases/${FIRST_CASE_ID}/analysis`);
     expect(
       cardAt(1).getByRole("link", {
-        name: "View submitted request",
+        name: "View service update",
       }),
-    ).toHaveAttribute(
-      "href",
-      `/start?service=diminished-value&view=intake&caseId=${SECOND_CASE_ID}`,
-    );
-    expect(
-      cardAt(2).getByText("Status needs review"),
-    ).toBeVisible();
+    ).toHaveAttribute("href", "/start?service=diminished-value");
+    expect(cardAt(2).getByText("Needs attention")).toBeVisible();
     expect(
       cardAt(2).getByRole("link", {
         name: "Contact support",
@@ -359,9 +358,7 @@ describe("customer appraisals page", () => {
       authService: createAuthHarness(sessionFor()).service,
     });
 
-    await user.click(
-      await screen.findByRole("link", { name: "View result" }),
-    );
+    await user.click(await screen.findByRole("link", { name: "View result" }));
 
     expect(await screen.findByText("Valuation analysis loaded.")).toBeVisible();
     expect(router.state.location.pathname).toBe(
@@ -396,7 +393,7 @@ describe("customer appraisals page", () => {
     act(() => auth.emit("SIGNED_IN", sessionFor(SECOND_USER_ID)));
 
     expect(
-      await screen.findByRole("link", { name: "View submitted request" }),
+      await screen.findByRole("link", { name: "View service update" }),
     ).toBeVisible();
     expect(
       screen.queryByRole("link", { name: "View progress" }),

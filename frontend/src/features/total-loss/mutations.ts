@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 
 import { appraisalCaseQueryKeys } from "@/features/cases/queries";
 import type {
@@ -36,8 +36,7 @@ export type SaveTotalLossDetailsMutationInput =
       readonly values: TotalLossDetailsChanges;
     };
 
-interface UploadTotalLossReportMutationOptions
-  extends TotalLossMutationOptions {
+interface UploadTotalLossReportMutationOptions extends TotalLossMutationOptions {
   readonly storageService: TotalLossReportStorageService | null;
   readonly createUploadId?: () => string;
   readonly now?: () => Date;
@@ -52,7 +51,9 @@ export interface UploadTotalLossReportMutationInput {
 
 export interface UploadTotalLossReportMutationResult {
   readonly upload: TotalLossReportUpload;
-  readonly details: Awaited<ReturnType<TotalLossDetailsService["finalizeReportUpload"]>>;
+  readonly details: Awaited<
+    ReturnType<TotalLossDetailsService["finalizeReportUpload"]>
+  >;
 }
 
 export class TotalLossDataAuthenticationError extends Error {
@@ -111,6 +112,17 @@ function requireService<T>(service: T | null): T {
   return service;
 }
 
+function useActiveMutationUserId(userId: string | null) {
+  const activeUserIdRef = useRef<string | null>(userId);
+  useEffect(() => {
+    activeUserIdRef.current = userId;
+    return () => {
+      activeUserIdRef.current = null;
+    };
+  }, [userId]);
+  return activeUserIdRef;
+}
+
 async function refreshTotalLossCaseQueries(
   queryClient: ReturnType<typeof useQueryClient>,
   userId: string | null,
@@ -130,6 +142,7 @@ export function useSaveTotalLossDetailsMutation({
   userId,
 }: TotalLossMutationOptions) {
   const queryClient = useQueryClient();
+  const activeUserIdRef = useActiveMutationUserId(userId);
 
   return useMutation({
     mutationFn: (input: SaveTotalLossDetailsMutationInput) =>
@@ -138,6 +151,7 @@ export function useSaveTotalLossDetailsMutation({
         userId: requireUserId(userId),
       }),
     onSuccess: async (details) => {
+      if (activeUserIdRef.current !== userId) return;
       queryClient.setQueryData(
         totalLossQueryKeys.details(userId, details.caseId),
         details,
@@ -156,6 +170,7 @@ export function useUploadTotalLossReportMutation({
   now = () => new Date(),
 }: UploadTotalLossReportMutationOptions) {
   const queryClient = useQueryClient();
+  const activeUserIdRef = useActiveMutationUserId(userId);
   const pendingAcquireRef = useRef<PendingReportUploadAcquire | null>(null);
   const retainedUploadRef = useRef<RetainedReportUpload | null>(null);
 
@@ -170,7 +185,7 @@ export function useUploadTotalLossReportMutation({
       const resolvedStorageService = requireService(storageService);
       const resolvedDetailsService = requireService(detailsService);
 
-      const retryOnce = async <T,>(operation: () => Promise<T>) => {
+      const retryOnce = async <T>(operation: () => Promise<T>) => {
         try {
           return await operation();
         } catch {
@@ -189,9 +204,7 @@ export function useUploadTotalLossReportMutation({
       ) => {
         try {
           await retryOnce(() =>
-            resolvedStorageService.deleteReportBackup(
-              leaseScope(operation),
-            ),
+            resolvedStorageService.deleteReportBackup(leaseScope(operation)),
           );
         } catch {
           // The single reusable backup is overwritten by the next acquired
@@ -223,9 +236,7 @@ export function useUploadTotalLossReportMutation({
         return renewed;
       };
 
-      const recoverPreviousReport = async (
-        operation: RetainedReportUpload,
-      ) => {
+      const recoverPreviousReport = async (operation: RetainedReportUpload) => {
         try {
           const scope = leaseScope(operation);
           if (operation.stage !== "recovery-completing") {
@@ -279,9 +290,7 @@ export function useUploadTotalLossReportMutation({
         retainedUploadRef.current = operation;
         try {
           await retryOnce(() =>
-            resolvedDetailsService.cancelReportUpload(
-              leaseScope(operation),
-            ),
+            resolvedDetailsService.cancelReportUpload(leaseScope(operation)),
           );
         } catch (error) {
           if (
@@ -382,9 +391,7 @@ export function useUploadTotalLossReportMutation({
           caseId,
           userId: authenticatedUserId,
           lease,
-          stage: lease.recoveryRequired
-            ? "needs-recovery"
-            : "preparing",
+          stage: lease.recoveryRequired ? "needs-recovery" : "preparing",
           hasBackup: lease.recoveryRequired,
         };
         retainedUploadRef.current = operation;
@@ -401,7 +408,7 @@ export function useUploadTotalLossReportMutation({
         preserveExistingReport ||
         Boolean(
           operation.lease.reportOriginalFilename &&
-            operation.lease.reportUploadedAt,
+          operation.lease.reportUploadedAt,
         );
 
       if (operation.stage === "preparing") {
@@ -445,9 +452,7 @@ export function useUploadTotalLossReportMutation({
         } catch (readyError) {
           // An ambiguous mark-ready response is retained and retried with the
           // same unguessable token. A crash is healed by expiry acquisition.
-          operation.stage = operation.hasBackup
-            ? "backup-stored"
-            : "preparing";
+          operation.stage = operation.hasBackup ? "backup-stored" : "preparing";
           retainedUploadRef.current = operation;
           throw readyError;
         }
@@ -504,6 +509,7 @@ export function useUploadTotalLossReportMutation({
       }
     },
     onSuccess: async ({ details }) => {
+      if (activeUserIdRef.current !== userId) return;
       queryClient.setQueryData(
         totalLossQueryKeys.details(userId, details.caseId),
         details,
