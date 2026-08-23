@@ -216,6 +216,12 @@ filter must match `jsonPayload.event="case_analysis_failed"`. Counter metrics
 and `request_count` both use `ALIGN_SUM`, not a delta aligner. The latency metric
 is reported in milliseconds, so the threshold is `600000`.
 
+Use a 60-second retest window for the two count conditions. A single failure or
+5xx remains present in the five-minute aligned sum for longer than that retest,
+while the nonzero duration allows Monitoring to apply the missing-data setting.
+Treat missing data as non-violating for all three conditions so a one-off event
+does not leave an incident open after its time series becomes idle.
+
 Before creation, select and independently test an existing private notification
 channel in Cloud Monitoring. Put its full resource name in
 `MONITORING_CHANNEL`. The value is configuration, not a participant identifier,
@@ -300,7 +306,8 @@ jq -n --arg channel "$MONITORING_CHANNEL" '
         }],
         comparison: "COMPARISON_GT",
         thresholdValue: 0,
-        duration: "0s",
+        duration: "60s",
+        evaluationMissingData: "EVALUATION_MISSING_DATA_INACTIVE",
         trigger: {count: 1}
       }
     },
@@ -316,7 +323,8 @@ jq -n --arg channel "$MONITORING_CHANNEL" '
         }],
         comparison: "COMPARISON_GT",
         thresholdValue: 0,
-        duration: "0s",
+        duration: "60s",
+        evaluationMissingData: "EVALUATION_MISSING_DATA_INACTIVE",
         trigger: {count: 1}
       }
     },
@@ -333,6 +341,7 @@ jq -n --arg channel "$MONITORING_CHANNEL" '
         comparison: "COMPARISON_GT",
         thresholdValue: 600000,
         duration: "300s",
+        evaluationMissingData: "EVALUATION_MISSING_DATA_INACTIVE",
         trigger: {count: 1}
       }
     }
@@ -350,7 +359,9 @@ trap - EXIT
 List and describe the policy again. The strict setup gate is exactly one enabled
 match with combiner `OR`, exactly three conditions, and the tested channel
 attached. The first two conditions must show `ALIGN_SUM`; the latency condition
-must show `ALIGN_PERCENTILE_95`, threshold `600000`, and duration `300s`.
+must show `ALIGN_PERCENTILE_95`, threshold `600000`, and duration `300s`. The
+first two conditions must have duration `60s`, and all three conditions must
+treat missing data as `EVALUATION_MISSING_DATA_INACTIVE`.
 
 ## Canary preflight
 
