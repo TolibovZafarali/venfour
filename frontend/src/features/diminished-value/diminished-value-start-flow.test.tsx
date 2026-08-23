@@ -729,11 +729,14 @@ describe("DiminishedValueStartFlow controller", () => {
     );
   });
 
-  it("reloads an explicitly submitted case into read-only confirmed state", async () => {
-    const localDraft = completeDraft();
-    persistOwnerDraft(localDraft);
+  it("reopens an explicitly submitted case after local browser state is cleared", async () => {
+    window.localStorage.clear();
+    expect(readDiminishedValueDraftEnvelope()).toEqual({
+      ok: true,
+      envelope: null,
+    });
     const submittedDraft = {
-      ...localDraft,
+      ...completeDraft(),
       fullName: "Submitted Driver",
     };
     const harness = createDependencyHarness(

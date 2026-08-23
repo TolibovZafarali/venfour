@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 import copy
+import io
 import json
 import os
 import tempfile
 import unittest
 import unittest.mock
-from contextlib import contextmanager
+from contextlib import contextmanager, redirect_stdout
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -23,6 +24,7 @@ from venfour.analysis_runs import (
 from venfour.api import create_app
 from venfour.case_analyses import (
     CaseAnalysisConflictError,
+    CaseAnalysisContractError,
     CaseAnalysisService,
     SupabaseAnalysisRunRepository,
 )
@@ -91,6 +93,7 @@ class FakeCaseGateway:
         self.completions: list[tuple[str, str, str, dict[str, Any]]] = []
         self.failures: list[tuple[str, str, str, bool]] = []
         self.report_requests: list[tuple[str, str, str]] = []
+        self.materialized_report_path: str | None = None
         self.artifacts: dict[tuple[str, str], dict[str, Any] | str] = {}
         self.report_error: Exception | None = None
         self.creation_owner = USER_ID
@@ -183,6 +186,7 @@ class FakeCaseGateway:
         with tempfile.TemporaryDirectory() as root:
             path = Path(root) / "report.pdf"
             path.write_bytes(PDF_BYTES)
+            self.materialized_report_path = str(path)
             yield path
 
 
@@ -207,17 +211,338 @@ class PersistingCreationFactory:
         return Service()
 
 
+class SequenceClock:
+    def __init__(self, *values: float) -> None:
+        self.values = list(values)
+        self.calls = 0
+
+    def __call__(self) -> float:
+        self.calls += 1
+        if not self.values:
+            raise AssertionError("monotonic clock was called too many times")
+        return self.values.pop(0)
+
+
 class CaseAnalysisServiceTests(unittest.TestCase):
     def make_service(
         self,
         gateway: FakeCaseGateway,
         factory: PersistingCreationFactory | None = None,
+        *,
+        monotonic_clock: Any = None,
+        lifecycle_event_sink: Any = None,
     ) -> CaseAnalysisService:
         return CaseAnalysisService(
             gateway,
             creation_service_factory=factory or PersistingCreationFactory(),
             token_factory=lambda: TOKEN_ID,
+            monotonic_clock=(
+                monotonic_clock if monotonic_clock is not None else (lambda: 0.0)
+            ),
+            lifecycle_event_sink=(
+                lifecycle_event_sink
+                if lifecycle_event_sink is not None
+                else (lambda _line: None)
+            ),
         )
+
+    def test_claim_emits_exact_started_and_completed_lifecycle_events(self) -> None:
+        gateway = FakeCaseGateway()
+        clock = SequenceClock(100.0, 101.25)
+        event_lines: list[str] = []
+
+        def capture_after_durable_state(event_line: str) -> None:
+            self.assertNotIn("\n", event_line)
+            event = json.loads(event_line)
+            if event["event"] == "case_analysis_started":
+                self.assertEqual(gateway.status_row["status"], "processing")
+            else:
+                self.assertEqual(gateway.status_row["status"], "completed")
+                self.assertIn((USER_ID, RUN_ID), gateway.artifacts)
+            event_lines.append(event_line)
+
+        service = self.make_service(
+            gateway,
+            monotonic_clock=clock,
+            lifecycle_event_sink=capture_after_durable_state,
+        )
+
+        first = service.submit(CASE_ID, USER_ID)
+        second = service.submit(CASE_ID, USER_ID)
+        service.authenticate("valid-token")
+        service.status(CASE_ID, USER_ID)
+        service.get_presentation(RUN_ID, USER_ID)
+
+        self.assertEqual(first.status, "completed")
+        self.assertEqual(second.status, "completed")
+        self.assertEqual(clock.calls, 2)
+        self.assertEqual(
+            [json.loads(line) for line in event_lines],
+            [
+                {
+                    "severity": "INFO",
+                    "event": "case_analysis_started",
+                    "jobId": JOB_ID,
+                    "runId": RUN_ID,
+                    "attemptCount": 1,
+                },
+                {
+                    "severity": "INFO",
+                    "event": "case_analysis_completed",
+                    "jobId": JOB_ID,
+                    "runId": RUN_ID,
+                    "attemptCount": 1,
+                    "durationMs": 1250,
+                },
+            ],
+        )
+        artifact = gateway.artifacts[(USER_ID, RUN_ID)]
+        self.assertIsInstance(artifact, dict)
+        artifact_text = json.dumps(artifact)
+        lifecycle_text = "\n".join(event_lines)
+        self.assertIsNotNone(gateway.materialized_report_path)
+        for prohibited_value in (
+            "valid-token",
+            USER_ID,
+            CASE_ID,
+            TOKEN_ID,
+            POSTAL_CODE,
+            gateway.materialized_report_path,
+            Path(gateway.materialized_report_path or "").name,
+            PDF_BYTES.decode("utf-8"),
+            "SYNTHETICCCCVIN01",
+            "synthetic-current",
+            "https://listings.invalid/synthetic-current/1",
+        ):
+            if prohibited_value in {
+                "SYNTHETICCCCVIN01",
+                "synthetic-current",
+                "https://listings.invalid/synthetic-current/1",
+            }:
+                self.assertIn(prohibited_value, artifact_text)
+            self.assertNotIn(prohibited_value, lifecycle_text)
+
+    def test_claim_failure_event_is_exact_durable_and_privacy_safe(self) -> None:
+        credential = "provider-credential-secret"
+        provider_parameter = "provider-request-parameter"
+        response_body = "provider-response-body"
+        exception_text = (
+            f"private exception: credential={credential}; "
+            f"parameter={provider_parameter}; response={response_body}"
+        )
+        gateway = FakeCaseGateway()
+        clock = SequenceClock(10.0, 10.5)
+        event_lines: list[str] = []
+
+        def capture_after_durable_state(event_line: str) -> None:
+            event = json.loads(event_line)
+            if event["event"] == "case_analysis_failed":
+                self.assertEqual(gateway.status_row["status"], "failed")
+            event_lines.append(event_line)
+
+        status = self.make_service(
+            gateway,
+            PersistingCreationFactory(
+                AnalysisCreationProviderError(exception_text)
+            ),
+            monotonic_clock=clock,
+            lifecycle_event_sink=capture_after_durable_state,
+        ).submit(CASE_ID, USER_ID)
+
+        self.assertEqual(status.status, "failed")
+        self.assertEqual(
+            [json.loads(line) for line in event_lines],
+            [
+                {
+                    "severity": "INFO",
+                    "event": "case_analysis_started",
+                    "jobId": JOB_ID,
+                    "runId": RUN_ID,
+                    "attemptCount": 1,
+                },
+                {
+                    "severity": "ERROR",
+                    "event": "case_analysis_failed",
+                    "jobId": JOB_ID,
+                    "runId": RUN_ID,
+                    "attemptCount": 1,
+                    "durationMs": 500,
+                    "failureCode": "MARKET_PROVIDER_UNAVAILABLE",
+                    "retryable": True,
+                },
+            ],
+        )
+        serialized = "\n".join(event_lines)
+        for prohibited_value in (
+            exception_text,
+            credential,
+            provider_parameter,
+            response_body,
+            "valid-token",
+            USER_ID,
+            CASE_ID,
+            TOKEN_ID,
+            POSTAL_CODE,
+            "SYNTHETICCCCVIN01",
+            "report.pdf",
+            PDF_BYTES.decode("utf-8"),
+        ):
+            self.assertNotIn(prohibited_value, serialized)
+        prohibited_fields = {
+            "accessToken",
+            "caseId",
+            "credentials",
+            "exception",
+            "postalCode",
+            "processingToken",
+            "providerParameters",
+            "reportContent",
+            "reportName",
+            "reportPath",
+            "responseBody",
+            "userId",
+            "vin",
+            "zip",
+        }
+        for event in map(json.loads, event_lines):
+            self.assertTrue(prohibited_fields.isdisjoint(event))
+            self.assertTrue(
+                set(event)
+                <= {
+                    "severity",
+                    "event",
+                    "jobId",
+                    "runId",
+                    "attemptCount",
+                    "durationMs",
+                    "failureCode",
+                    "retryable",
+                }
+            )
+
+    def test_failure_racing_with_durable_completion_emits_completed(self) -> None:
+        class CompletionRaceGateway(FakeCaseGateway):
+            def fail_total_loss_analysis(
+                self,
+                job_id: str,
+                processing_token: str,
+                failure_code: str,
+                retryable: bool,
+            ) -> bool:
+                self.failures.append(
+                    (job_id, processing_token, failure_code, retryable)
+                )
+                self.status_row = {
+                    "outcome": "completed",
+                    "job_id": job_id,
+                    "status": "completed",
+                    "attempt_count": 1,
+                    "run_id": RUN_ID,
+                    "postal_code": POSTAL_CODE,
+                    "failure_code": None,
+                    "retryable": None,
+                    "processing_expires_at": None,
+                }
+                return False
+
+        gateway = CompletionRaceGateway()
+        clock = SequenceClock(20.0, 20.75)
+        event_lines: list[str] = []
+        status = self.make_service(
+            gateway,
+            PersistingCreationFactory(
+                AnalysisCreationProviderError("private provider detail")
+            ),
+            monotonic_clock=clock,
+            lifecycle_event_sink=event_lines.append,
+        ).submit(CASE_ID, USER_ID)
+
+        self.assertEqual(status.status, "completed")
+        self.assertEqual(
+            json.loads(event_lines[-1]),
+            {
+                "severity": "INFO",
+                "event": "case_analysis_completed",
+                "jobId": JOB_ID,
+                "runId": RUN_ID,
+                "attemptCount": 1,
+                "durationMs": 750,
+            },
+        )
+        self.assertNotIn("failureCode", json.loads(event_lines[-1]))
+        self.assertNotIn("retryable", json.loads(event_lines[-1]))
+
+    def test_reads_nonclaims_and_invalid_claim_ids_emit_no_events(self) -> None:
+        gateway = FakeCaseGateway()
+        event_lines: list[str] = []
+        clock = SequenceClock()
+        service = self.make_service(
+            gateway,
+            monotonic_clock=clock,
+            lifecycle_event_sink=event_lines.append,
+        )
+
+        service.status(CASE_ID, USER_ID)
+        gateway.status_row = {
+            "outcome": "completed",
+            "status": "completed",
+            "attempt_count": 1,
+            "run_id": RUN_ID,
+        }
+        self.assertEqual(service.submit(CASE_ID, USER_ID).status, "completed")
+
+        gateway.status_row = {
+            "outcome": "processing",
+            "status": "processing",
+            "attempt_count": 1,
+            "processing_expires_at": "2026-08-19T17:00:00+00:00",
+        }
+        gateway.claim_row = {
+            "outcome": "processing",
+            "status": "processing",
+            "attempt_count": 1,
+            "processing_expires_at": "2026-08-19T17:00:00+00:00",
+        }
+        self.assertEqual(service.submit(CASE_ID, USER_ID).status, "processing")
+
+        for invalid_field in ("job_id", "run_id"):
+            with self.subTest(invalid_field=invalid_field):
+                gateway.claim_row = {
+                    "outcome": "claimed",
+                    "job_id": JOB_ID,
+                    "run_id": RUN_ID,
+                    "attempt_count": 1,
+                }
+                gateway.claim_row[invalid_field] = f"invalid-{invalid_field}"
+                with self.assertRaises(CaseAnalysisContractError):
+                    service.submit(CASE_ID, USER_ID)
+
+        self.assertEqual(event_lines, [])
+        self.assertEqual(clock.calls, 0)
+
+    def test_default_sink_writes_complete_compact_json_lines(self) -> None:
+        gateway = FakeCaseGateway()
+        output = io.StringIO()
+        service = CaseAnalysisService(
+            gateway,
+            creation_service_factory=PersistingCreationFactory(),
+            token_factory=lambda: TOKEN_ID,
+            monotonic_clock=SequenceClock(30.0, 30.25),
+        )
+
+        with redirect_stdout(output):
+            status = service.submit(CASE_ID, USER_ID)
+
+        self.assertEqual(status.status, "completed")
+        self.assertTrue(output.getvalue().endswith("\n"))
+        lines = output.getvalue().splitlines()
+        self.assertEqual(len(lines), 2)
+        for line in lines:
+            event = json.loads(line)
+            self.assertEqual(
+                line,
+                json.dumps(event, sort_keys=True, separators=(",", ":")),
+            )
 
     def test_claim_executes_once_completes_and_is_naturally_idempotent(self) -> None:
         gateway = FakeCaseGateway()
@@ -380,6 +705,7 @@ class OwnedCaseAnalysisApiTests(unittest.TestCase):
             self.gateway,
             creation_service_factory=self.factory,
             token_factory=lambda: TOKEN_ID,
+            lifecycle_event_sink=lambda _line: None,
         )
         self.app = create_app(
             case_analysis_service=self.service,

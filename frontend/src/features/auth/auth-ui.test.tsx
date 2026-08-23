@@ -336,6 +336,9 @@ describe("account control", () => {
     expect(account).toHaveTextContent("Jordan");
     await user.click(account);
     expect(screen.getByText("owner@example.com")).toBeVisible();
+    expect(
+      screen.getByRole("menuitem", { name: "My appraisals" }),
+    ).toHaveAttribute("href", "/appraisals");
     await user.click(screen.getByRole("menuitem", { name: "Sign Out" }));
     await waitFor(() => expect(service.signOut).toHaveBeenCalledOnce());
   });
@@ -391,6 +394,31 @@ describe("account control", () => {
 
     await user.keyboard("{Escape}");
     await waitFor(() => expect(trigger).toHaveFocus());
+  });
+
+  test("links a signed-in mobile customer to their appraisals", async () => {
+    const user = userEvent.setup();
+    const onAction = vi.fn();
+    render(
+      <MemoryRouter>
+        <AuthProvider
+          service={createService({
+            getSession: vi.fn(async () => sessionFor("owner")),
+          })}
+        >
+          <SignInDialogProvider>
+            <MobileAccountControl onAction={onAction} />
+          </SignInDialogProvider>
+        </AuthProvider>
+      </MemoryRouter>,
+    );
+
+    const appraisals = await screen.findByRole("link", {
+      name: "My appraisals",
+    });
+    expect(appraisals).toHaveAttribute("href", "/appraisals");
+    await user.click(appraisals);
+    expect(onAction).toHaveBeenCalledOnce();
   });
 });
 

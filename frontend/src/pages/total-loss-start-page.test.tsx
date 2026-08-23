@@ -1392,6 +1392,58 @@ describe("/start?service=total-loss", () => {
     },
   );
 
+  it("denies a direct saved-case open under a different signed-in identity", async () => {
+    expect(writeTotalLossDraft(createSensitiveManualDraft())).toEqual({
+      ok: true,
+    });
+    const ownerCase = appraisalCase(RECENT_CASE_ID, USER_ID);
+    const auth = createAuthHarness(sessionFor(OTHER_USER_ID));
+    const harness = createDependencyHarness({ recentCase: ownerCase });
+    harness.caseService.getAppraisalCase = vi.fn(
+      async ({ caseId, userId }) =>
+        caseId === ownerCase.id && userId === ownerCase.userId
+          ? ownerCase
+          : null,
+    );
+
+    renderTestApp(
+      [
+        `/start?service=total-loss&view=intake&caseId=${RECENT_CASE_ID}`,
+      ],
+      {
+        authService: auth.service,
+        totalLossDependencies: harness.dependencies,
+      },
+    );
+
+    expect(
+      await screen.findByText(
+        "This saved appraisal cannot be opened from this link.",
+      ),
+    ).toBeVisible();
+    expect(harness.caseService.getAppraisalCase).toHaveBeenCalledWith({
+      caseId: RECENT_CASE_ID,
+      userId: OTHER_USER_ID,
+    });
+    expect(screen.queryByLabelText("VIN")).not.toBeInTheDocument();
+    expect(
+      screen.queryByDisplayValue("Private Insurer"),
+    ).not.toBeInTheDocument();
+    expect(readTotalLossDraft()).toMatchObject({
+      ok: true,
+      draft: {
+        confirmedCaseId: null,
+        ownerUserId: null,
+        manual: {
+          vin: "",
+          insurerName: "",
+        },
+      },
+    });
+    expect(harness.createOrGetAppraisalCase).not.toHaveBeenCalled();
+    expect(harness.saveDetails).not.toHaveBeenCalled();
+  });
+
   it.each([
     ["sign-out", null],
     ["an account change", sessionFor(OTHER_USER_ID)],

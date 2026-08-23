@@ -12,6 +12,7 @@ import { AuthCallbackPage } from "@/features/auth";
 import { AnalysisPage } from "@/pages/analysis-page";
 import { AdminDiminishedValueCasePage } from "@/pages/admin-diminished-value-case-page";
 import { AdminDiminishedValueQueuePage } from "@/pages/admin-diminished-value-queue-page";
+import { AppraisalsPage } from "@/pages/appraisals-page";
 import { AppraisalStartPage } from "@/pages/appraisal-start-page";
 import { ContactPage } from "@/pages/contact-page";
 import { CookiePolicyPage } from "@/pages/cookie-policy-page";
@@ -65,6 +66,14 @@ export const appRoutes: RouteObject[] = [
       {
         path: "total-loss-review",
         loader: redirectToTotalLossStart,
+      },
+      {
+        path: "appraisals",
+        element: <AppraisalsPage />,
+        handle: metadata(
+          "My Appraisals | Venfour",
+          "Continue saved vehicle-review requests, follow total-loss value checks, and reopen completed results.",
+        ),
       },
       {
         path: "analyses/:runId",

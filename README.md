@@ -315,6 +315,12 @@ npm run deploy:staging
 The checked-in Wrangler environment binds only `staging.venfour.com`; it does
 not publish the apex `venfour.com` or `www.venfour.com`.
 
+Closed-beta operation is governed by the
+[`docs/operations/closed-beta-runbook.md`](docs/operations/closed-beta-runbook.md)
+procedure and its empty scorecard template. Completed scorecards, participant
+documents, PII, direct identifiers, and copied provider data must remain outside
+the repository.
+
 To use a different backend address, copy the example environment file and edit
 the local copy:
 

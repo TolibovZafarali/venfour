@@ -1,0 +1,869 @@
+# Closed-beta operations runbook
+
+## Purpose and boundary
+
+This runbook controls Venfour's private staging closed beta at
+`https://staging.venfour.com`. It is an operator procedure, not a deployment
+authorization. It does not authorize production changes, public signup, a
+public Access bypass, broader product scope, or concurrent case processing.
+
+The closed beta exercises the original-CCC-report Total Loss path only. Run one
+participant case at a time. The next case may not start until the current case
+is terminal, the post-run checks pass, and the operator records a go decision.
+
+Use the empty [closed-beta scorecard template](./closed-beta-scorecard-template.md)
+for each run. Completed scorecards are private operational records. Never add a
+completed scorecard to this repository, a pull request, an issue, chat, email,
+or another shared engineering system.
+
+## Privacy rules
+
+The following rules apply before, during, and after every run:
+
+- Never copy a participant PDF, screenshot, extracted report, provider payload,
+  result artifact, or supporting document into the repository.
+- Never place PII or customer direct identifiers in a scorecard. This includes
+  names, email addresses, phone numbers, street addresses, user IDs, case IDs,
+  filenames, VINs, claim numbers, policy numbers, Access identities, and full
+  Storage object paths. A run's anonymous sample ID, analysis job ID, and
+  analysis run ID are explicitly allowed in the private scorecard because they
+  are needed to reconcile lifecycle evidence. They must not be published.
+- Use only a beta slot number in the scorecard. Keep the private identity-to-case
+  mapping in the approved restricted operational system used for consent and
+  deletion, separate from the scorecard.
+- Record only the fields allowed by the template: anonymous sample ID, job ID,
+  run ID, bounded coverage categories, timestamps, counts, durations, outcomes,
+  review results, release identifiers, and aggregate provider usage/cost. Do not
+  paste request URLs, logs, exception text, document content, or provider
+  responses.
+- Load credentials through an approved secret manager into the operator process.
+  Never put them in command arguments, tracked files, `.env` files, terminal
+  transcripts, or scorecards.
+- Do not enable persisted Worker request logs or traces. Auth callback URLs can
+  contain one-time values. The staging Worker intentionally keeps them disabled.
+- Add a repository fixture only when a specific test request requires it and
+  limit it to fields needed for that behavior. Fixture fields may be used when
+  their reuse is covered by explicit written consent, or when the fields were
+  de-identified and then visually verified against the source report. In both
+  cases omit PDFs, screenshots, PII, direct identifiers, and unnecessary
+  fields. Consent alone never permits a participant PDF in the repository.
+
+If a privacy rule is broken or might have been broken, stop the beta immediately
+and follow the stop procedure. Do not continue while investigating.
+
+## Roles and two-person checks
+
+One release operator runs the procedure. A second reviewer independently checks
+the following before the first canary and before each deletion:
+
+- release evidence matches the intended staging release;
+- consent is current and covers the planned use;
+- the active-processing count is zero before intake begins;
+- the Monitoring policy exists once, is enabled, and reaches a monitored
+  notification channel;
+- the deletion target was resolved in the restricted operational system; and
+- Storage is empty under the exact case prefix before the case row is deleted.
+
+The release operator and reviewer record only their internal operator aliases in
+the private scorecard. Do not record personal contact details.
+
+## Consent gate
+
+Do not provision or process a participant until all of these are true:
+
+1. The participant received and accepted the approved consent text.
+2. Consent identifies the staging nature of the service, supported report type,
+   provider processing, expected retention, withdrawal route, and product
+   limitations.
+3. The participant confirmed they are authorized to provide the report.
+4. The participant received the support and withdrawal contact.
+5. The consent version and UTC confirmation time are in the approved private
+   consent system.
+6. The operator rechecks that consent has not been withdrawn immediately before
+   upload.
+
+The repository template records only the tester slot, consent version, UTC
+confirmation time, and bounded gate results. It is not the consent record and
+must not contain a tester name or account identifier.
+
+## Release evidence
+
+Capture release evidence before every canary window. Record only the following
+values in the private scorecard:
+
+- repository commit SHA;
+- Cloud Run image digest;
+- Cloud Run revision name; and
+- active Worker version identifier.
+
+Use these read-only commands from the repository root. Do not copy the complete
+command output into a scorecard.
+
+```sh
+git rev-parse HEAD
+
+gcloud run services describe venfour-api-staging \
+  --project=venfour-prod \
+  --region=us-east4 \
+  --format='value(status.latestReadyRevisionName)'
+
+gcloud run revisions describe <REVISION_NAME> \
+  --project=venfour-prod \
+  --region=us-east4 \
+  --format='value(status.imageDigest)'
+
+cd frontend
+npx wrangler deployments status --env staging --json
+```
+
+From the Wrangler result, record only the version receiving 100% of staging
+traffic. Return to the repository root after the command.
+
+Stop if the values differ from the approved release, traffic is split, the
+revision is not ready, or the Worker result does not have one version at 100%.
+
+## One-time staging observability setup
+
+The repository has no established infrastructure-as-code or deployment-config
+directory. Keep the following as operator-managed staging configuration until a
+reviewed infrastructure pattern is introduced. Do not add generated policy
+files or environment exports to the repository.
+
+### Enable allowlisted provider diagnostics in staging
+
+`VENFOUR_PROVIDER_DIAGNOSTICS=1` enables only the bounded provider-failure event
+implemented in `venfour/orchestration.py`. It does not log credentials,
+authenticated URLs, VINs, response bodies, or raw provider parameters. The flag
+is non-secret, but changing it creates a new Cloud Run revision.
+
+The operator must run this change separately from repository work. First save
+the current revision name in the private rollout record:
+
+```sh
+staging_project=venfour-prod
+staging_region=us-east4
+staging_service=venfour-api-staging
+previous_revision="$(gcloud run services describe "$staging_service" \
+  --project="$staging_project" \
+  --region="$staging_region" \
+  --format='value(status.traffic[percent=100].revisionName)')"
+revision_suffix="beta-diag-$(date -u +%Y%m%d%H%M)"
+candidate_revision="${staging_service}-${revision_suffix}"
+
+gcloud run services update "$staging_service" \
+  --project="$staging_project" \
+  --region="$staging_region" \
+  --update-env-vars=VENFOUR_PROVIDER_DIAGNOSTICS=1 \
+  --revision-suffix="$revision_suffix" \
+  --tag=beta-diagnostics \
+  --no-traffic
+```
+
+Verify only the new flag, then use the tagged URL printed by the update command
+to check liveness and structural readiness. Do not print the revision's complete
+environment or secret bindings.
+
+```sh
+gcloud run revisions describe "$candidate_revision" \
+  --project="$staging_project" \
+  --region="$staging_region" \
+  --flatten='spec.containers[0].env' \
+  --filter='spec.containers[0].env.name=VENFOUR_PROVIDER_DIAGNOSTICS' \
+  --format='value(spec.containers[0].env.value)'
+
+curl --fail --silent --show-error <TAGGED_REVISION_URL>/health
+curl --fail --silent --show-error <TAGGED_REVISION_URL>/ready
+```
+
+Both responses must be successful and the filtered environment output must be
+exactly `1`. Then route staging traffic to the candidate:
+
+```sh
+gcloud run services update-traffic "$staging_service" \
+  --project="$staging_project" \
+  --region="$staging_region" \
+  --to-revisions="$candidate_revision=100"
+```
+
+If any verification fails, do not shift traffic. If a post-shift check fails,
+roll back immediately:
+
+```sh
+gcloud run services update-traffic "$staging_service" \
+  --project="$staging_project" \
+  --region="$staging_region" \
+  --to-revisions="$previous_revision=100"
+```
+
+At beta close, remove the flag with `--remove-env-vars` through the same
+no-traffic, tagged-revision, health-check, and traffic-shift sequence. Never use
+`--set-env-vars`; it can remove the service's other environment configuration.
+
+### Create the lifecycle counter and single Cloud Monitoring policy
+
+Use one policy named exactly `Venfour staging analysis health`, with combiner
+`OR` and three conditions:
+
+1. at least one `case_analysis_failed` lifecycle event in five minutes;
+2. at least one Cloud Run `5xx` response in five minutes; or
+3. Cloud Run p95 request latency greater than 600 seconds for five minutes.
+
+A log-match condition cannot be combined with metric-threshold conditions in
+one policy. First create one project log-based counter metric for the structured
+failure lifecycle event, then use that metric in the three-condition policy.
+Cloud Run parses the compact JSON lifecycle lines as `jsonPayload`; the metric
+filter must match `jsonPayload.event="case_analysis_failed"`. Counter metrics
+and `request_count` both use `ALIGN_SUM`, not a delta aligner. The latency metric
+is reported in milliseconds, so the threshold is `600000`.
+
+Before creation, select and independently test an existing private notification
+channel in Cloud Monitoring. Put its full resource name in
+`MONITORING_CHANNEL`. The value is configuration, not a participant identifier,
+but it still must not be committed.
+
+Create the counter only when there is no exact name match. Any duplicate or
+unexpected match is a stop condition:
+
+```sh
+staging_project=venfour-prod
+metric_name=venfour_staging_case_analysis_failed
+metric_matches="$(gcloud logging metrics list \
+  --project="$staging_project" \
+  --format='value(name)' | awk -v name="$metric_name" '$0 == name { count++ } END { print count + 0 }')"
+
+case "$metric_matches" in
+  0)
+    gcloud logging metrics create "$metric_name" \
+      --project="$staging_project" \
+      --description='Count staging case-analysis failure lifecycle events.' \
+      --log-filter='resource.type="cloud_run_revision" AND resource.labels.service_name="venfour-api-staging" AND resource.labels.location="us-east4" AND jsonPayload.event="case_analysis_failed"'
+    ;;
+  1)
+    echo 'Exact counter already exists; review it before continuing.' >&2
+    ;;
+  *)
+    echo 'Unexpected duplicate counter names; stop.' >&2
+    exit 1
+    ;;
+esac
+
+gcloud logging metrics describe "$metric_name" \
+  --project="$staging_project" \
+  --format='yaml(name,filter,metricDescriptor.metricKind,metricDescriptor.valueType)'
+```
+
+The reviewed output must show the exact filter above, metric kind `DELTA`, and
+value type `INT64`. If the counter already existed with a different definition,
+stop; do not replace it during a beta window.
+
+Check that the policy does not already exist:
+
+```sh
+alert_name='Venfour staging analysis health'
+
+gcloud monitoring policies list \
+  --project="$staging_project" \
+  --filter="display_name=\"$alert_name\"" \
+  --format='table(name,displayName,enabled)'
+```
+
+If any matching policy exists, stop and review it; do not create a duplicate.
+After the counter exists and the notification channel has been tested, create
+the one OR policy from a temporary file outside the repository:
+
+```sh
+: "${MONITORING_CHANNEL:?Set the full tested notification-channel resource name}"
+policy_file="$(mktemp)"
+trap 'rm -f "$policy_file"' EXIT
+
+jq -n --arg channel "$MONITORING_CHANNEL" '
+{
+  displayName: "Venfour staging analysis health",
+  combiner: "OR",
+  enabled: true,
+  notificationChannels: [$channel],
+  userLabels: {environment: "staging", service: "venfour-api-staging"},
+  documentation: {
+    mimeType: "text/markdown",
+    content: "Stop closed-beta intake and apply the closed-beta runbook before resuming."
+  },
+  conditions: [
+    {
+      displayName: "At least one staging analysis failure in five minutes",
+      conditionThreshold: {
+        filter: "resource.type=\"cloud_run_revision\" AND resource.label.\"service_name\"=\"venfour-api-staging\" AND resource.label.\"location\"=\"us-east4\" AND metric.type=\"logging.googleapis.com/user/venfour_staging_case_analysis_failed\"",
+        aggregations: [{
+          alignmentPeriod: "300s",
+          perSeriesAligner: "ALIGN_SUM",
+          crossSeriesReducer: "REDUCE_SUM",
+          groupByFields: ["resource.label.\"service_name\""]
+        }],
+        comparison: "COMPARISON_GT",
+        thresholdValue: 0,
+        duration: "0s",
+        trigger: {count: 1}
+      }
+    },
+    {
+      displayName: "At least one staging Cloud Run 5xx in five minutes",
+      conditionThreshold: {
+        filter: "resource.type=\"cloud_run_revision\" AND resource.label.\"service_name\"=\"venfour-api-staging\" AND resource.label.\"location\"=\"us-east4\" AND metric.type=\"run.googleapis.com/request_count\" AND metric.label.\"response_code_class\"=\"5xx\"",
+        aggregations: [{
+          alignmentPeriod: "300s",
+          perSeriesAligner: "ALIGN_SUM",
+          crossSeriesReducer: "REDUCE_SUM",
+          groupByFields: ["resource.label.\"service_name\""]
+        }],
+        comparison: "COMPARISON_GT",
+        thresholdValue: 0,
+        duration: "0s",
+        trigger: {count: 1}
+      }
+    },
+    {
+      displayName: "Staging p95 request latency above 600 seconds for five minutes",
+      conditionThreshold: {
+        filter: "resource.type=\"cloud_run_revision\" AND resource.label.\"service_name\"=\"venfour-api-staging\" AND resource.label.\"location\"=\"us-east4\" AND metric.type=\"run.googleapis.com/request_latencies\"",
+        aggregations: [{
+          alignmentPeriod: "300s",
+          perSeriesAligner: "ALIGN_PERCENTILE_95",
+          crossSeriesReducer: "REDUCE_MAX",
+          groupByFields: ["resource.label.\"service_name\""]
+        }],
+        comparison: "COMPARISON_GT",
+        thresholdValue: 600000,
+        duration: "300s",
+        trigger: {count: 1}
+      }
+    }
+  ]
+}' >"$policy_file"
+
+gcloud monitoring policies create \
+  --project="$staging_project" \
+  --policy-from-file="$policy_file"
+
+rm -f "$policy_file"
+trap - EXIT
+```
+
+List and describe the policy again. The strict setup gate is exactly one enabled
+match with combiner `OR`, exactly three conditions, and the tested channel
+attached. The first two conditions must show `ALIGN_SUM`; the latency condition
+must show `ALIGN_PERCENTILE_95`, threshold `600000`, and duration `300s`.
+
+## Canary preflight
+
+Complete all checks in order. A missing result is a failure.
+
+1. Confirm the approved release evidence.
+2. Confirm `Venfour staging analysis health` exists exactly once, is enabled,
+   has three conditions with combiner `OR`, and its notification channel was
+   tested.
+3. Confirm Cloudflare Access has no public bypass and contains only the approved
+   internal-canary operator at this stage. Do not provision cohort testers yet.
+4. Confirm public signup remains disabled and the internal-canary operator has
+   an explicitly provisioned application account.
+5. Confirm direct protected API access still fails without the server-only
+   staging proxy credential.
+6. Confirm `/health` and `/ready` succeed. Remember that `/ready` validates
+   configuration structure; it does not call Supabase or a provider.
+7. Confirm the participant's consent is current.
+8. Confirm the active-processing count is exactly zero with the private SQL
+   console:
+
+```sql
+select count(*) as active_processing_jobs
+from public.total_loss_analysis_jobs
+where status = 'processing'
+  and processing_expires_at > statement_timestamp();
+```
+
+Do not begin if the count is not zero. An expired processing row is not an
+active request, but it must be understood before the same case is resumed.
+
+Read-only network checks may use:
+
+```sh
+curl --head --max-time 20 https://staging.venfour.com/
+curl --fail --silent --show-error --max-time 20 \
+  https://venfour-api-staging-640078527158.us-east4.run.app/health
+curl --fail --silent --show-error --max-time 20 \
+  https://venfour-api-staging-640078527158.us-east4.run.app/ready
+curl --silent --show-error --max-time 20 \
+  https://venfour-api-staging-640078527158.us-east4.run.app/api/v1/appraisal-cases/00000000-0000-4000-8000-000000000001/analysis
+```
+
+The staging root should redirect an unauthenticated client to Access. Health
+and readiness should return `200`. The direct protected API check should return
+`403` with `STAGING_PROXY_REQUIRED`. Do not follow or save Access redirect URLs.
+
+### Staging smoke gates
+
+Complete every smoke gate before the internal canary. Record only statuses and
+counts:
+
+1. **Access redirect:** a signed-out request to `https://staging.venfour.com/`
+   redirects to Cloudflare Access. Do not follow or record the redirect URL.
+2. **Direct API denial:** the direct protected API request above returns `403`
+   with `STAGING_PROXY_REQUIRED`.
+3. **Proxied unauthenticated denial:** through an Access-approved browser that
+   is signed out of the application, request the same synthetic protected path
+   on `staging.venfour.com`; it returns `401` with
+   `AUTHENTICATION_REQUIRED`. Do not put Access tokens in a shell command.
+4. **Deep links:** after application sign-in, directly open and refresh
+   `/appraisals` and `/start?service=total-loss`. Both render the intended SPA
+   route, not an edge 404. After the internal canary completes, repeat this for
+   its analysis deep link.
+5. **No API caching:** inspect the proxied API response and confirm both
+   `Cache-Control` and `CDN-Cache-Control` are
+   `private, no-store, max-age=0`; no API response may be served as a cache hit.
+6. **Health policy delivery:** after creating the policy, inject one structured,
+   non-customer test event to validate the lifecycle counter and notification
+   path. Use the active revision recorded in release evidence:
+
+```sh
+active_revision=<APPROVED_ACTIVE_REVISION>
+
+gcloud logging write venfour-closed-beta-alert-test \
+  '{"event":"case_analysis_failed","alertTest":true}' \
+  --project=venfour-prod \
+  --payload-type=json \
+  --severity=ERROR \
+  --monitored-resource-type=cloud_run_revision \
+  --monitored-resource-labels="project_id=venfour-prod,location=us-east4,service_name=venfour-api-staging,revision_name=$active_revision,configuration_name=venfour-api-staging"
+```
+
+The exact counter must increment, the `Venfour staging analysis health` incident
+must open, and the tested channel must receive it. Record that this was a
+synthetic setup event, wait for the incident to close, and confirm there is no
+open incident before the canary. Do not trigger an application or provider
+failure to test delivery.
+
+## Serialized canary and cohort sequence
+
+The beta has two stages:
+
+1. one internal canary; then
+2. five named testers, each provisioned in Cloudflare Access and application
+   Auth with written consent, processing 10 to 20 original CCC reports in total.
+
+Keep tester names, account identities, case IDs, and the mapping to anonymous
+sample IDs in the approved restricted operational system. The scorecard uses
+anonymous sample IDs such as `TL-001`; job IDs and run IDs are allowed there for
+lifecycle reconciliation. Select the cohort deliberately across different
+carrier/template categories, vehicle categories, and source-quality categories.
+Do not claim category coverage that the 10 to 20 reports did not actually
+provide.
+
+### Internal canary
+
+1. Allocate an anonymous sample ID and open the private scorecard.
+2. Recheck written consent and the zero-active-processing gate.
+3. Sign in through Access and the application, then upload one authorized
+   original CCC PDF from the tester's own device. The operator must not receive
+   or retain a copy.
+4. Start analysis once. Confirm the active-processing count becomes exactly one
+   and wait for a durable terminal state.
+5. Reconcile one `case_analysis_started` event and one terminal lifecycle event
+   to the scorecard's allowed job ID and run ID. A successful canary must have
+   exactly one job and one immutable analysis artifact.
+6. Close the application, clear all `staging.venfour.com` browser site data and
+   local state, sign in again, and enter through `/appraisals`. Open the saved
+   result and its deep link. The same result must be recoverable without prior
+   browser state, and no second job or artifact may appear.
+7. Visually compare the result to the source report on the tester's device. Mark
+   every applicable material field verified: loss vehicle identity and
+   configuration, insurer valuation and totals, insurer comparables, mileage,
+   condition/options adjustments, and other adjustments that affect value.
+8. Review the result's conclusions and limitations separately. Facts must match
+   the evidence; conclusions must be conservative, explain uncertainty, avoid a
+   guaranteed recovery or legal entitlement, and make material evidence limits
+   visible.
+9. Complete monitoring, lifecycle, privacy, provider-usage, and cost checks.
+   Confirm the active-processing count returned to zero.
+10. Apply the strict sample and aggregate gates. Continue to tester provisioning
+    only after the reviewer records `GO`.
+
+For the internal canary, use the restricted SQL console to verify exactly one
+job and one artifact. Resolve `<RESTRICTED_CASE_ID>` outside the scorecard and do
+not copy it into command output retained with the scorecard:
+
+```sql
+select
+  analysis_job.id as job_id,
+  analysis_job.run_id,
+  analysis_job.status,
+  analysis_job.attempt_count,
+  count(analysis_run.id) as artifact_count
+from public.total_loss_analysis_jobs as analysis_job
+left join public.analysis_runs as analysis_run
+  on analysis_run.job_id = analysis_job.id
+ and analysis_run.case_id = analysis_job.case_id
+where analysis_job.case_id = '<RESTRICTED_CASE_ID>'::uuid
+group by
+  analysis_job.id,
+  analysis_job.run_id,
+  analysis_job.status,
+  analysis_job.attempt_count;
+```
+
+The successful canary result is one row, status `completed`, attempt count one,
+and `artifact_count = 1`. The returned job ID and run ID may be copied to the
+private scorecard; the case ID may not.
+
+### Five-tester cohort
+
+Only after the internal canary records `GO`, provision the five named testers in
+Cloudflare Access and application Auth. Confirm each tester's written consent in
+the restricted consent system while public signup remains disabled. Stop if the
+Access policy has a public bypass or any unapproved identity.
+
+For every one of the 10 to 20 reports, repeat the internal-canary sequence in
+strict serial order. Do not start the next upload until the current sample is
+terminal, recovered through `/appraisals` after local-state removal, reviewed,
+and given a per-sample go decision.
+
+Record for each sample: anonymous sample ID, allowed job ID and run ID,
+carrier/template category, vehicle category, source-quality category, start and
+end times, duration, attempt count, outcome or bounded failure code, controlled
+retry result if applicable, material-field verification, conclusion/limitations
+review, and provider usage/cost. Maintain cohort-wide aggregate provider usage
+and cost without participant or document identifiers.
+
+After a tester reviews at least one completed report, ask them to explain in
+their own words: the insurer's value, Venfour's main evidence-based observation,
+the limits on what the evidence proves, and how they would find the result again.
+Mark comprehension `PASS` only when all four are understood without corrective
+prompting. The cohort gate requires at least four of five testers to pass.
+
+Do not perform an automatic or unreviewed retry. If a sample reaches a retryable
+terminal failure, stop new intake, record the first-attempt failure and alert,
+review the bounded failure code, and permit at most one controlled retry after
+the stop condition is resolved. Record whether that retry recovered the same
+job/result. A retry never converts the first attempt into a first-attempt
+success.
+
+The Cloud Run service is currently configured for concurrency one and one
+maximum instance, but that infrastructure setting is not the serialization
+control. The operator gate is authoritative for the beta.
+
+## Monitoring checks
+
+Use Cloud Run request metadata without outputting request URLs. The following
+query shows only method, status, latency, and revision for the last hour:
+
+```sh
+gcloud logging read \
+  'resource.type="cloud_run_revision" AND resource.labels.service_name="venfour-api-staging" AND logName:"run.googleapis.com%2Frequests"' \
+  --project=venfour-prod \
+  --freshness=1h \
+  --limit=100 \
+  --format='table(timestamp,httpRequest.requestMethod,httpRequest.status,httpRequest.latency,resource.labels.revision_name)'
+```
+
+Count allowlisted provider-failure events without printing their payloads:
+
+```sh
+gcloud logging read \
+  'resource.type="cloud_run_revision" AND resource.labels.service_name="venfour-api-staging" AND textPayload:"\"event\":\"market_provider_failure\""' \
+  --project=venfour-prod \
+  --freshness=1h \
+  --limit=1000 \
+  --format='value(timestamp)' | wc -l
+```
+
+Reconcile the privacy-safe lifecycle events. Job IDs and run IDs may be shown
+only in the restricted operator session and private scorecard:
+
+```sh
+gcloud logging read \
+  'resource.type="cloud_run_revision" AND resource.labels.service_name="venfour-api-staging" AND (jsonPayload.event="case_analysis_started" OR jsonPayload.event="case_analysis_completed" OR jsonPayload.event="case_analysis_failed")' \
+  --project=venfour-prod \
+  --freshness=1h \
+  --limit=1000 \
+  --format='table(timestamp,jsonPayload.event,jsonPayload.jobId,jsonPayload.runId,jsonPayload.attemptCount,jsonPayload.durationMs,jsonPayload.failureCode,jsonPayload.retryable)'
+```
+
+Each claimed attempt has one `case_analysis_started` event and one durable
+terminal event with the same job ID, run ID, and attempt count. A completed
+sample's terminal `durationMs` supplies the scorecard duration. Missing,
+duplicate, mismatched, or out-of-order lifecycle evidence is a stop condition.
+
+Also check, without exporting participant data:
+
+- the setup alert-delivery test succeeded and the health policy has no open
+  incident at the sample decision time;
+- the canary has exactly one terminal job and no live processing lease;
+- no unexpected retry or duplicate run was created;
+- p95 lifecycle duration and Cloud Run request latency stay at or below 600
+  seconds for the aggregate decision;
+- per-sample and aggregate provider usage and cost reconcile to the 10 to 20
+  submitted reports; and
+- no log, alert, or scorecard contains PII, a direct identifier, a PDF, request
+  URL, filename, VIN, or provider response.
+
+## Strict go/no-go gate
+
+The per-sample decision is **go** only when consent and release evidence stayed
+current, exactly one case was in flight, the lifecycle and database records
+reconcile, active processing returned to zero, recovery and review checks pass,
+no stop condition remains, and the reviewer approves the result. A failure that
+is eligible for a controlled retry still records a first-attempt failure.
+
+The internal canary must pass every per-sample gate before tester intake. After
+10 to 20 tester reports, the cohort decision is **go** only when every exact
+aggregate gate below passes:
+
+- first-attempt success is at least 90%: completed-on-attempt-one samples divided
+  by all submitted cohort samples is `>= 0.90`, with no rounding up;
+- nearest-rank p95 first-attempt lifecycle duration is at most 600 seconds:
+  include every submitted cohort sample, sort durations ascending, and select
+  rank `ceil(0.95 * submitted_sample_count)`;
+- every completed result is recoverable through `/appraisals` after removal of
+  browser local state, with no additional job or artifact;
+- at least four of the five testers pass the four-part comprehension check;
+- authorization or ownership failures: zero;
+- privacy failures or unauthorized exposure of a PDF, direct identifier,
+  credential, request URL, or provider payload: zero;
+- data-loss events: zero;
+- duplicate jobs or artifacts: zero;
+- jobs stuck beyond their lease or the 900-second request limit: zero; and
+- silent material-field or conclusion errors: zero. A discrepancy discovered by
+  visual review is silent when the product neither reported a bounded failure
+  nor clearly disclosed the field/evidence limitation before human comparison.
+
+The health policy must have no open incident and every prior incident must be
+resolved and reviewed at the final decision. Aggregate provider usage and cost
+must reconcile to the cohort, even though they are not used to waive another
+gate.
+
+Anything else is **no-go**. Do not average away a zero-tolerance failure, waive a
+gate because a result appears plausible, or continue while a failure is being
+investigated.
+
+## Stop and revoke
+
+Stop intake immediately when any of these occurs:
+
+- consent is missing, ambiguous, expired, or withdrawn;
+- more than one live processing job exists;
+- a job is stuck beyond its lease or the Cloud Run request limit;
+- any `Venfour staging analysis health` incident opens during a real sample or
+  the monitoring channel is unavailable;
+- a provider authentication, rate-limit, availability, or contract error is
+  unexpected;
+- a result is missing after local-state removal, a duplicate job or artifact
+  appears, or lifecycle events do not reconcile;
+- visual review finds a silent material-field error or a misleading or
+  unsupported conclusion;
+- Access, proxy-secret, bearer-token, ownership, RLS, or staff isolation fails;
+- a secret, PDF, PII, direct identifier, request URL, filename, VIN, or provider
+  payload appears in an unauthorized location;
+- deployed release evidence changes during the window; or
+- spend or quota usage exceeds the approved one-case envelope.
+
+On stop:
+
+1. Do not start or retry another case.
+2. Restrict the Access Allow policy to the operator only; never add a bypass.
+3. Revoke the affected participant's Access eligibility and disable further
+   application sign-in through the approved administrative control.
+4. Preserve only release identifiers, UTC times, aggregate counts, and bounded
+   status codes in the private incident record.
+5. If a request is already executing, wait until it returns or its processing
+   lease expires before deleting its case. Do not delete a case while a trusted
+   backend request can still write to it.
+6. Complete the withdrawal/deletion procedure when required.
+7. Resume only after the cause is fixed, the release is revalidated, monitoring
+   is working, and both the release operator and reviewer approve a fresh
+   canary.
+
+## Retention, withdrawal, and privileged deletion
+
+Delete beta case data no later than 30 calendar days after the participant's
+beta case closes. If consent is withdrawn earlier, revoke access immediately,
+allow any already-running request to settle, and complete deletion in that same
+controlled operational session. An outage that prevents deletion keeps the beta
+stopped until deletion is verified.
+
+Storage must be deleted through the Storage API, never by deleting rows from
+`storage.objects`. The bucket is private and case objects live under the exact
+prefix `{userId}/{caseId}/`. Total Loss reserves `valuation-report.pdf` and
+`valuation-report-backup.pdf`; Diminished Value documents, when present, live
+under `{userId}/{caseId}/diminished-value/`.
+
+Run the following privileged procedure once per case from `frontend/`. Supply
+all four values through a secure operator process environment. Do not put the
+values in `.env`, shell history, a scorecard, or the repository. The script
+prints counts only. It removes every object through the Storage API, verifies
+the prefix is empty, deletes the exact owner/case row, and verifies all current
+cascade-owned rows are gone.
+
+```sh
+node --input-type=module <<'NODE'
+import { createClient } from "@supabase/supabase-js";
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
+const required = (name) => {
+  const value = process.env[name]?.trim();
+  if (!value) throw new Error(`${name} is required.`);
+  return value;
+};
+
+const supabaseUrl = required("VENFOUR_DELETE_SUPABASE_URL");
+const serviceRoleKey = required("VENFOUR_DELETE_SERVICE_ROLE_KEY");
+const userId = required("VENFOUR_DELETE_USER_ID").toLowerCase();
+const caseId = required("VENFOUR_DELETE_CASE_ID").toLowerCase();
+if (!UUID.test(userId) || !UUID.test(caseId)) {
+  throw new Error("Deletion identifiers must be canonical UUIDs.");
+}
+
+const supabase = createClient(supabaseUrl, serviceRoleKey, {
+  auth: { autoRefreshToken: false, persistSession: false },
+});
+const bucket = supabase.storage.from("case-files");
+const casePrefix = `${userId}/${caseId}`;
+
+async function listTree(prefix) {
+  const objects = [];
+  const pageSize = 100;
+  for (let offset = 0; ; offset += pageSize) {
+    const { data, error } = await bucket.list(prefix, {
+      limit: pageSize,
+      offset,
+      sortBy: { column: "name", order: "asc" },
+    });
+    if (error) throw error;
+    const entries = data ?? [];
+    for (const entry of entries) {
+      const child = `${prefix}/${entry.name}`;
+      if (entry.id === null) objects.push(...(await listTree(child)));
+      else objects.push(child);
+    }
+    if (entries.length < pageSize) break;
+  }
+  return objects;
+}
+
+const objectPaths = await listTree(casePrefix);
+if (objectPaths.length > 1000) {
+  throw new Error("More than 1000 objects require a separately reviewed batch deletion.");
+}
+if (objectPaths.length > 0) {
+  const { error } = await bucket.remove(objectPaths);
+  if (error) throw error;
+}
+const storageAfterObjectDelete = await listTree(casePrefix);
+if (storageAfterObjectDelete.length !== 0) {
+  throw new Error("Storage verification failed; the case row was not deleted.");
+}
+
+const { data: ownedCases, error: ownedCaseError } = await supabase
+  .from("appraisal_cases")
+  .select("id")
+  .eq("id", caseId)
+  .eq("user_id", userId);
+if (ownedCaseError) throw ownedCaseError;
+if ((ownedCases ?? []).length !== 1) {
+  throw new Error("The exact owned case was not resolved; database deletion stopped.");
+}
+
+const { data: deletedCases, error: deleteError } = await supabase
+  .from("appraisal_cases")
+  .delete()
+  .eq("id", caseId)
+  .eq("user_id", userId)
+  .select("id");
+if (deleteError) throw deleteError;
+if ((deletedCases ?? []).length !== 1) {
+  throw new Error("The exact owned case was not deleted.");
+}
+
+const checks = [
+  ["appraisal_cases", "id"],
+  ["total_loss_case_details", "case_id"],
+  ["diminished_value_case_details", "case_id"],
+  ["total_loss_analysis_jobs", "case_id"],
+  ["analysis_runs", "case_id"],
+];
+const remainingRows = {};
+for (const [table, column] of checks) {
+  const { count, error } = await supabase
+    .from(table)
+    .select("*", { count: "exact", head: true })
+    .eq(column, caseId);
+  if (error) throw error;
+  remainingRows[table] = count ?? 0;
+}
+const storageFinal = await listTree(casePrefix);
+if (storageFinal.length !== 0 || Object.values(remainingRows).some(Boolean)) {
+  throw new Error("Post-deletion verification failed.");
+}
+
+console.log(JSON.stringify({
+  deletedObjectCount: objectPaths.length,
+  deletedCaseCount: deletedCases.length,
+  remainingObjectCount: storageFinal.length,
+  remainingRows,
+}));
+NODE
+```
+
+Record only the returned counts and completion time in the private scorecard.
+Unset the four deletion environment variables immediately after the command.
+If the participant requested full account deletion, first repeat the case
+procedure for every owned case, verify there are no objects below the user's
+Storage root and no remaining `appraisal_cases`, then delete the Auth user with
+the approved Supabase administrative control. Verify the cascaded `profiles` and
+`staff_members` counts are zero. Do not delete the Auth user merely because one
+beta case reached its retention date.
+
+Deletion is complete only when all of these are true:
+
+- exact case-prefix object count is zero;
+- exact appraisal-case count is zero;
+- Total Loss detail, Diminished Value detail, analysis-job, and analysis-run
+  counts are all zero;
+- any requested account deletion is verified separately; and
+- the reviewer confirms the count-only evidence.
+
+## Beta close
+
+At close:
+
+1. Stop new intake and wait for the active-processing count to reach zero.
+2. Revoke all participant Access eligibility and disable their beta sign-in.
+3. Schedule or complete every outstanding deletion.
+4. Remove staging-only provider diagnostics through a reviewed new revision.
+5. Keep the single `Venfour staging analysis health` policy until all deletion
+   work and post-beta verification are complete.
+6. Store aggregate outcomes and completed private scorecards only in the
+   approved restricted operational system.
+7. Confirm the repository contains no completed scorecard, participant document,
+   PII, direct identifier, secret, or copied provider data.
+
+## Current implementation references
+
+- Staging runtime and perimeter: `README.md`, sections "Cloud Run staging
+  runtime" and "Trusted-tester staging frontend".
+- Provider diagnostic allowlist: `venfour/orchestration.py`.
+- Staging Worker boundary: `frontend/wrangler.jsonc` and
+  `frontend/worker/README.md`.
+- Private bucket and owner/case prefix: migration
+  `20260818000000_auth_and_appraisal_cases.sql`.
+- Total Loss reserved report paths and deletion rules: migration
+  `20260818000100_total_loss_case_details.sql`.
+- Analysis cascade ownership: migration
+  `20260819000000_total_loss_analysis_jobs.sql`.
+- Diminished Value document prefix and mutation rules: migration
+  `20260819000200_diminished_value_case_submission.sql` and frontend storage
+  service.
+
+External operator references:
+
+- [Cloud Run environment variables](https://cloud.google.com/run/docs/configuring/services/environment-variables)
+- [Cloud Run metrics](https://docs.cloud.google.com/monitoring/api/metrics_gcp_p_z)
+- [Cloud Monitoring policy format](https://docs.cloud.google.com/monitoring/alerts/policies-in-json)
+- [Supabase Storage object deletion](https://supabase.com/docs/guides/storage/management/delete-objects)
+- [Supabase Storage schema safety](https://supabase.com/docs/guides/storage/schema/design)

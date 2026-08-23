@@ -1,4 +1,9 @@
-import { CircleUserRound, ClipboardList, LogOut } from "lucide-react";
+import {
+  CircleUserRound,
+  ClipboardList,
+  FolderOpen,
+  LogOut,
+} from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router";
 import { DropdownMenu } from "radix-ui";
@@ -123,6 +128,15 @@ export function AccountControl({
                 {identityLabel}
               </span>
             </DropdownMenu.Label>
+            <DropdownMenu.Item asChild>
+              <Link
+                to="/appraisals"
+                className="flex min-h-10 w-full items-center gap-2 rounded-lg px-2.5 text-sm font-medium text-ink outline-none transition-colors hover:bg-surface focus:bg-surface"
+              >
+                <FolderOpen className="size-4" aria-hidden />
+                My appraisals
+              </Link>
+            </DropdownMenu.Item>
             {staffReviewHref ? (
               <DropdownMenu.Item asChild>
                 <Link
@@ -228,6 +242,14 @@ export function MobileAccountControl({
         Signed in as{" "}
         <span className="font-semibold text-ink">{identityLabel}</span>
       </p>
+      <Link
+        to="/appraisals"
+        className="mt-1 inline-flex min-h-11 w-full items-center gap-2 rounded-lg px-1 text-sm font-medium text-ink/75 transition-colors hover:bg-white/35 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand/60"
+        onClick={onAction}
+      >
+        <FolderOpen className="size-4" aria-hidden />
+        My appraisals
+      </Link>
       {staffReviewHref ? (
         <Link
           to={staffReviewHref}

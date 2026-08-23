@@ -9,6 +9,9 @@ cross the public HTTP boundary.
 from __future__ import annotations
 
 import json
+import math
+import sys
+import time
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import datetime
@@ -339,6 +342,15 @@ class CaseAnalysisStatus:
 
 CreationServiceFactory = Callable[[AnalysisRunRepository, str], Any]
 TokenFactory = Callable[[], UUID | str]
+MonotonicClock = Callable[[], float]
+LifecycleEventSink = Callable[[str], None]
+
+
+def _stdout_lifecycle_event_sink(event_line: str) -> None:
+    """Write one complete compact JSON event to standard output."""
+
+    sys.stdout.write(f"{event_line}\n")
+    sys.stdout.flush()
 
 
 def _live_creation_factory(
@@ -359,6 +371,8 @@ class CaseAnalysisService:
         *,
         creation_service_factory: CreationServiceFactory = _live_creation_factory,
         token_factory: TokenFactory = uuid4,
+        monotonic_clock: MonotonicClock = time.monotonic,
+        lifecycle_event_sink: LifecycleEventSink = _stdout_lifecycle_event_sink,
     ) -> None:
         if not isinstance(gateway, CaseAnalysisGateway):
             raise TypeError("gateway must implement CaseAnalysisGateway")
@@ -366,9 +380,100 @@ class CaseAnalysisService:
             raise TypeError("creation_service_factory must be callable")
         if not callable(token_factory):
             raise TypeError("token_factory must be callable")
+        if not callable(monotonic_clock):
+            raise TypeError("monotonic_clock must be callable")
+        if not callable(lifecycle_event_sink):
+            raise TypeError("lifecycle_event_sink must be callable")
         self._gateway = gateway
         self._creation_service_factory = creation_service_factory
         self._token_factory = token_factory
+        self._monotonic_clock = monotonic_clock
+        self._lifecycle_event_sink = lifecycle_event_sink
+
+    def _monotonic_time(self) -> float | None:
+        try:
+            value = self._monotonic_clock()
+            if isinstance(value, bool) or not isinstance(value, (int, float)):
+                return None
+            normalized = float(value)
+        except Exception:
+            return None
+        return normalized if math.isfinite(normalized) else None
+
+    def _emit_lifecycle_event(self, event: Mapping[str, Any]) -> None:
+        try:
+            event_line = json.dumps(
+                dict(event),
+                ensure_ascii=True,
+                allow_nan=False,
+                sort_keys=True,
+                separators=(",", ":"),
+            )
+            self._lifecycle_event_sink(event_line)
+        except Exception:
+            # Telemetry must never change a customer's durable analysis outcome.
+            return
+
+    def _duration_ms(self, started_at: float | None) -> int:
+        completed_at = self._monotonic_time()
+        if started_at is None or completed_at is None:
+            return 0
+        elapsed_seconds = completed_at - started_at
+        if not math.isfinite(elapsed_seconds) or elapsed_seconds <= 0:
+            return 0
+        elapsed_milliseconds = elapsed_seconds * 1000
+        return int(elapsed_milliseconds) if math.isfinite(elapsed_milliseconds) else 0
+
+    def _emit_claim_started(
+        self, *, job_id: str, run_id: str, attempt_count: int
+    ) -> float | None:
+        started_at = self._monotonic_time()
+        self._emit_lifecycle_event(
+            {
+                "severity": "INFO",
+                "event": "case_analysis_started",
+                "jobId": job_id,
+                "runId": run_id,
+                "attemptCount": attempt_count,
+            }
+        )
+        return started_at
+
+    def _emit_claim_terminal(
+        self,
+        status: CaseAnalysisStatus,
+        *,
+        job_id: str,
+        run_id: str,
+        attempt_count: int,
+        started_at: float | None,
+    ) -> None:
+        if status.status == "completed":
+            self._emit_lifecycle_event(
+                {
+                    "severity": "INFO",
+                    "event": "case_analysis_completed",
+                    "jobId": job_id,
+                    "runId": run_id,
+                    "attemptCount": attempt_count,
+                    "durationMs": self._duration_ms(started_at),
+                }
+            )
+            return
+        if status.status == "failed":
+            failure_code = status.failure_code or "ANALYSIS_CREATION_FAILED"
+            self._emit_lifecycle_event(
+                {
+                    "severity": "ERROR",
+                    "event": "case_analysis_failed",
+                    "jobId": job_id,
+                    "runId": run_id,
+                    "attemptCount": attempt_count,
+                    "durationMs": self._duration_ms(started_at),
+                    "failureCode": failure_code,
+                    "retryable": bool(status.retryable),
+                }
+            )
 
     def authenticate(self, access_token: str) -> str:
         return self._gateway.authenticate(access_token)
@@ -549,11 +654,16 @@ class CaseAnalysisService:
         job_id = self._claimed_field(row, "job_id", "Job ID")
         run_id = self._claimed_field(row, "run_id", "Run ID")
         attempt_count = self._attempt_count(row)
+        started_at = self._emit_claim_started(
+            job_id=job_id,
+            run_id=run_id,
+            attempt_count=attempt_count,
+        )
         postal_code = row.get("postal_code")
         try:
             normalized_postal_code = normalize_us_zip_code(postal_code)
         except (TypeError, ValueError):
-            return self._record_failure(
+            status = self._record_failure(
                 case_id=case_id,
                 user_id=user_id,
                 job_id=job_id,
@@ -562,6 +672,14 @@ class CaseAnalysisService:
                 retryable=True,
                 attempt_count=attempt_count,
             )
+            self._emit_claim_terminal(
+                status,
+                job_id=job_id,
+                run_id=run_id,
+                attempt_count=attempt_count,
+                started_at=started_at,
+            )
+            return status
 
         repository = SupabaseAnalysisRunRepository(
             self._gateway,
@@ -591,28 +709,45 @@ class CaseAnalysisService:
                 raise AnalysisCreationExecutionError(
                     "Analysis creation did not durably complete"
                 )
-            return CaseAnalysisStatus(
+            status = CaseAnalysisStatus(
                 status="completed",
                 attempt_count=attempt_count,
                 run_id=run_id,
             )
+            self._emit_claim_terminal(
+                status,
+                job_id=job_id,
+                run_id=run_id,
+                attempt_count=attempt_count,
+                started_at=started_at,
+            )
+            return status
         except Exception as exc:
             if repository.completed_run_id == run_id:
-                return CaseAnalysisStatus(
+                status = CaseAnalysisStatus(
                     status="completed",
                     attempt_count=attempt_count,
                     run_id=run_id,
                 )
-            failure_code, retryable = self._failure_for(exc)
-            return self._record_failure(
-                case_id=case_id,
-                user_id=user_id,
+            else:
+                failure_code, retryable = self._failure_for(exc)
+                status = self._record_failure(
+                    case_id=case_id,
+                    user_id=user_id,
+                    job_id=job_id,
+                    processing_token=processing_token,
+                    failure_code=failure_code,
+                    retryable=retryable,
+                    attempt_count=attempt_count,
+                )
+            self._emit_claim_terminal(
+                status,
                 job_id=job_id,
-                processing_token=processing_token,
-                failure_code=failure_code,
-                retryable=retryable,
+                run_id=run_id,
                 attempt_count=attempt_count,
+                started_at=started_at,
             )
+            return status
 
     def submit(self, case_id: str, user_id: str) -> CaseAnalysisStatus:
         canonical_case_id = _path_uuid(case_id, "INVALID_CASE_ID")

@@ -344,6 +344,9 @@ describe("total-loss case analysis page", () => {
       }),
     ).toBeVisible();
     expect(
+      screen.getByRole("link", { name: "Return to appraisals" }),
+    ).toHaveAttribute("href", "/appraisals");
+    expect(
       screen.getByText(/may not exist, or it may belong to a different account/),
     ).toBeVisible();
   });

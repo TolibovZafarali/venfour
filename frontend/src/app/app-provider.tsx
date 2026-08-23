@@ -11,7 +11,12 @@ import {
 } from "@/features/admin/diminished-value/dependencies";
 import { adminDiminishedValueQueryKeys } from "@/features/admin/diminished-value/queries";
 import { AuthProvider, type AuthService } from "@/features/auth";
+import { AppraisalCaseServiceProvider } from "@/features/cases/service-provider";
 import { appraisalCaseQueryKeys } from "@/features/cases/queries";
+import {
+  createAppraisalCaseService,
+  type AppraisalCaseService,
+} from "@/features/cases/service";
 import {
   clearDiminishedValueDraftEnvelope,
   readDiminishedValueDraftEnvelope,
@@ -45,9 +50,14 @@ const defaultAdminDiminishedValueDependencies =
   supabaseClientState.status === "available"
     ? createAdminDiminishedValueDependencies(supabaseClientState.client)
     : null;
+const defaultAppraisalCaseService =
+  supabaseClientState.status === "available"
+    ? createAppraisalCaseService(supabaseClientState.client)
+    : null;
 
 interface AppProviderProps {
   adminDiminishedValueDependencies?: AdminDiminishedValueDependencies | null;
+  appraisalCaseService?: AppraisalCaseService | null;
   authService?: AuthService | null;
   authUnavailableReason?: string;
   diminishedValueDependencies?: DiminishedValueDependencies | null;
@@ -58,6 +68,7 @@ interface AppProviderProps {
 
 export function AppProvider({
   adminDiminishedValueDependencies,
+  appraisalCaseService,
   authService,
   authUnavailableReason,
   diminishedValueDependencies,
@@ -77,6 +88,10 @@ export function AppProvider({
     adminDiminishedValueDependencies === undefined
       ? defaultAdminDiminishedValueDependencies
       : adminDiminishedValueDependencies;
+  const resolvedAppraisalCaseService =
+    appraisalCaseService === undefined
+      ? defaultAppraisalCaseService
+      : appraisalCaseService;
   const handleIdentityResolved = useCallback(
     (nextUserId: string | null) => {
       queryClient.removeQueries({ queryKey: appraisalCaseQueryKeys.all });
@@ -112,21 +127,23 @@ export function AppProvider({
         unavailableReason={authUnavailableReason}
         onIdentityResolved={handleIdentityResolved}
       >
-        <AdminDiminishedValueDependenciesProvider
-          dependencies={resolvedAdminDiminishedValueDependencies}
-        >
-          <TotalLossDependenciesProvider
-            dependencies={resolvedTotalLossDependencies}
+        <AppraisalCaseServiceProvider service={resolvedAppraisalCaseService}>
+          <AdminDiminishedValueDependenciesProvider
+            dependencies={resolvedAdminDiminishedValueDependencies}
           >
-            <DiminishedValueDependenciesProvider
-              dependencies={resolvedDiminishedValueDependencies}
+            <TotalLossDependenciesProvider
+              dependencies={resolvedTotalLossDependencies}
             >
-              <CookieConsentProvider>
-                <RouterProvider router={router} />
-              </CookieConsentProvider>
-            </DiminishedValueDependenciesProvider>
-          </TotalLossDependenciesProvider>
-        </AdminDiminishedValueDependenciesProvider>
+              <DiminishedValueDependenciesProvider
+                dependencies={resolvedDiminishedValueDependencies}
+              >
+                <CookieConsentProvider>
+                  <RouterProvider router={router} />
+                </CookieConsentProvider>
+              </DiminishedValueDependenciesProvider>
+            </TotalLossDependenciesProvider>
+          </AdminDiminishedValueDependenciesProvider>
+        </AppraisalCaseServiceProvider>
       </AuthProvider>
     </QueryClientProvider>
   );

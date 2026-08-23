@@ -201,7 +201,7 @@ function AuthenticatedTotalLossAnalysisPage({
           </Button>
         ) : null}
         <Button asChild variant="ghost">
-          <Link to="/start?service=total-loss">Return to appraisals</Link>
+          <Link to="/appraisals">Return to appraisals</Link>
         </Button>
       </StateCard>
     );
@@ -375,7 +375,7 @@ export function TotalLossAnalysisPage() {
         description="Check the complete link, or return to your total-loss appraisals."
       >
         <Button asChild>
-          <Link to="/start?service=total-loss">Return to appraisals</Link>
+          <Link to="/appraisals">Return to appraisals</Link>
         </Button>
       </StateCard>
     );
