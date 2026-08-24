@@ -5,7 +5,7 @@ import { describe, expect, test } from "vitest";
 import { renderTestApp } from "@/test/render";
 
 describe("homepage structure", () => {
-  test("leads with both truthful review paths and a responsive hero photo", () => {
+  test("leads with an available review and a truthful paused-service update", () => {
     renderTestApp();
 
     const heroHeading = screen.getByRole("heading", {
@@ -33,7 +33,7 @@ describe("homepage structure", () => {
     expect(heroHeading.children[1]).toHaveClass("block");
     expect(
       screen.getByText(
-        "Understand a total-loss vehicle valuation with or without an insurer report, or submit repaired-vehicle details for future manual review.",
+        "Understand a total-loss vehicle valuation with or without an insurer report. Diminished Value customer intake is currently paused.",
       ),
     ).toBeVisible();
     const hero = heroHeading.closest("section");
@@ -49,7 +49,7 @@ describe("homepage structure", () => {
     ).toHaveAttribute("href", "/start?service=total-loss");
     expect(
       within(hero).getByRole("link", {
-        name: "Submit diminished-value request",
+        name: "View Diminished Value update",
       }),
     ).toHaveAttribute("href", "/start?service=diminished-value");
     for (const removedLabel of [
@@ -113,7 +113,7 @@ describe("homepage structure", () => {
     ).toHaveAttribute("href", "/start?service=total-loss");
     expect(
       within(services).getByRole("link", {
-        name: "Submit diminished-value request",
+        name: "View service update",
       }),
     ).toHaveAttribute("href", "/start?service=diminished-value");
     expect(screen.queryByText("I need my car’s value")).not.toBeInTheDocument();
@@ -173,16 +173,19 @@ describe("homepage structure", () => {
     ).toBeVisible();
     expect(
       screen.getByText(
-        "This service is handled personally. It is not an instant or automated appraisal.",
+        "Venfour is completing the Total Loss experience before opening this service to customers.",
       ),
     ).toBeVisible();
     const diminishedValueSection = document.getElementById("diminished-value");
     expect(diminishedValueSection).toBeVisible();
     expect(
       within(diminishedValueSection as HTMLElement).getByRole("link", {
-        name: "Submit diminished-value request",
+        name: "View Diminished Value update",
       }),
     ).toHaveAttribute("href", "/start?service=diminished-value");
+    expect(
+      screen.queryByRole("link", { name: "Submit diminished-value request" }),
+    ).not.toBeInTheDocument();
     expect(document.querySelector('a[href^="mailto:"]')).not.toBeInTheDocument();
     for (const proof of [
       "Similar vehicles reviewed",
@@ -232,7 +235,7 @@ describe("homepage structure", () => {
     ).toBeVisible();
   });
 
-  test("opens the diminished-value start route from the hero action", async () => {
+  test("opens the paused diminished-value service update from the hero action", async () => {
     const user = userEvent.setup();
     const { router } = renderTestApp();
     const hero = screen
@@ -246,7 +249,7 @@ describe("homepage structure", () => {
 
     await user.click(
       within(hero).getByRole("link", {
-        name: "Submit diminished-value request",
+        name: "View Diminished Value update",
       }),
     );
 
@@ -254,7 +257,7 @@ describe("homepage structure", () => {
     expect(router.state.location.search).toBe("?service=diminished-value");
     expect(
       screen.getByRole("heading", {
-        name: "Diminished Value is coming next",
+        name: "Diminished Value intake is currently paused",
       }),
     ).toBeVisible();
   });

@@ -130,67 +130,78 @@ the production container:
 .venv/bin/python -m pip install -r requirements-dev.txt
 ```
 
-### Frontend development
+### Local MVP development
 
-The frontend is a separate npm application so its toolchain and generated files
-remain isolated from the Python package. It requires Node.js `^22.13.0` or a
-current release starting with Node.js 24.
+The primary development environment is an isolated local stack: Vite with hot
+module replacement, the local Starlette API, and the checked-in Supabase
+database/Auth/Storage configuration. It does not read or write records in the
+linked staging project. The Cloudflare Worker remains a deployment boundary and
+is not part of the Vite edit loop.
+
+Prerequisites are Node.js `^22.13.0` (or Node.js 24), the Python environment
+above, and a running Docker-compatible container runtime supported by the
+Supabase CLI. Install the frontend dependencies and create an ignored root
+environment file once:
 
 ```sh
 cd frontend
 npm install
-npm run dev
-```
-
-Copy the root example environment file and provide the backend-only runtime
-configuration before starting the API:
-
-```sh
+cd ..
 cp .env.example .env
 ```
 
-The default authenticated path requires `SUPABASE_URL`,
-`SUPABASE_PUBLISHABLE_KEY`, and `SUPABASE_SERVICE_ROLE_KEY`. Live extraction and
-market research additionally require `OPENAI_API_KEY` and
-`MARKETCHECK_API_KEY`. The service-role key is a server secret: never expose it
-to the browser, a `VITE_*` variable, logs, or an API response.
-
-In a separate terminal, start the local Starlette API from the repository root:
+Set `OPENAI_API_KEY` and `MARKETCHECK_API_KEY` in `.env`. The launcher obtains
+the local Supabase URL and keys directly from the local CLI; do not copy linked
+project keys into the browser configuration. Start the complete application
+from the repository root with one command:
 
 ```sh
-set -a
-source .env
-set +a
-.venv/bin/python -m uvicorn venfour.api:create_app \
-  --factory \
-  --host 127.0.0.1 \
-  --port 8000
+node scripts/dev-local.mjs
 ```
 
-For local provider-failure diagnostics, opt in for that backend process only:
+Open `http://localhost:5173`. Local Auth messages appear in the local email
+inbox at `http://127.0.0.1:54324`, where the one-time email link can be opened
+in the same browser. Vite and Uvicorn reload source changes. Press Control-C to
+stop those two application processes; the local Supabase containers remain
+available for the next run. Stop them explicitly when needed with:
 
 ```sh
-set -a
-source .env
-set +a
-VENFOUR_PROVIDER_DIAGNOSTICS=1 \
-  .venv/bin/python -m uvicorn venfour.api:create_app \
-  --factory \
-  --host 127.0.0.1 \
-  --port 8000
+frontend/node_modules/.bin/supabase stop
 ```
 
-The warning contains only the evidence stream, fixed retrieval stage, provider
-error class, endpoint category, HTTP status, and numeric pagination/search
-bounds that are available. It never logs credentials, authenticated URLs, VINs,
-response bodies, or raw provider parameters. Public API error payloads remain
-unchanged.
+The launcher injects Cloudflare's official always-pass Turnstile test site key
+into Vite and the matching test secret into local Supabase Auth. Those test
+credentials are deliberately local-only: a production frontend build rejects a
+test site key, and localhost must not be pointed at the linked project's real
+staging CAPTCHA secret. Anonymous Auth, email-link Auth, callback allowlists,
+RLS, and private Storage therefore run through their real local enforcement
+paths without weakening the shared project.
 
-Once both servers are running, open `http://localhost:5173/`, complete the
-Total Loss intake, and submit an original CCC PDF of 50 MiB or smaller. The
-browser stores the report privately at the deterministic case object location;
-the authenticated API claims and runs the case analysis, then exposes the
-owned persisted result.
+The local email templates send token-hash links directly to the case-claim
+callback. The allowlist permits the exact callback plus one dynamic UUID path
+segment; it does not permit arbitrary nested localhost redirects. Use only
+synthetic customer information while developing locally. Generate the three
+clearly labeled report fixtures used for the CCC, unknown-provider, and partial
+extraction walkthroughs with:
+
+```sh
+.venv/bin/python scripts/generate_local_report_fixtures.py
+```
+
+The PDFs are written to `output/pdf/` and ignored by Git.
+
+Once the stack is ready, complete the Total Loss intake and submit an original
+valuation PDF or supported image set of 50 MiB total or smaller. The browser
+stores the report privately at the deterministic case object location; the
+authenticated API claims and runs the case analysis, then exposes the owned
+persisted result.
+
+For local provider-failure diagnostics, stop the launcher and start the API
+manually with `VENFOUR_PROVIDER_DIAGNOSTICS=1`. The warning contains only the
+evidence stream, fixed retrieval stage, provider error class, endpoint category,
+HTTP status, and numeric pagination/search bounds that are available. It never
+logs credentials, authenticated URLs, VINs, response bodies, or raw provider
+parameters. Public API error payloads remain unchanged.
 
 For live market and orchestration debugging after a report has already been
 extracted, use the local canonical-analysis command. It revalidates canonical
@@ -371,8 +382,11 @@ Its exact allowed redirect URLs are:
 
 ```text
 https://venfour.com/auth/callback
+https://venfour.com/auth/callback/case-claim/*
 https://staging.venfour.com/auth/callback
+https://staging.venfour.com/auth/callback/case-claim/*
 http://localhost:5173/auth/callback
+http://localhost:5173/auth/callback/case-claim/*
 ```
 
 Email magic links require Email Auth, working SMTP, and the token-hash template
@@ -397,10 +411,14 @@ In the Supabase Dashboard:
 1. Set Authentication > URL Configuration > Site URL to
    `https://venfour.com`.
 2. Add `https://venfour.com/auth/callback`,
-   `https://staging.venfour.com/auth/callback`, and
-   `http://localhost:5173/auth/callback` to the allowed redirect URLs. Keep the
-   production Site URL unchanged while the tester deployment shares this
-   project.
+   `https://venfour.com/auth/callback/case-claim/*`,
+   `https://staging.venfour.com/auth/callback`,
+   `https://staging.venfour.com/auth/callback/case-claim/*`,
+   `http://localhost:5173/auth/callback`, and
+   `http://localhost:5173/auth/callback/case-claim/*` to the allowed redirect
+   URLs. Each `*` matches only the single case UUID segment; do not broaden it
+   to `**`. Keep the production Site URL unchanged while the tester deployment
+   shares this project.
 3. Keep Email authentication enabled, enable new-user signup, and enable
    anonymous sign-ins. Both creation paths are required: the browser first
    creates a hidden anonymous Auth user, and `signInWithOtp()` later creates the

@@ -605,7 +605,7 @@ describe("auth callback", () => {
     );
   });
 
-  test("keeps the verified session after a successful case claim", async () => {
+  test("keeps the verified session and routes a claimed case through appraisals", async () => {
     const guestSession = anonymousSessionFor("existing-guest");
     const permanentSession = sessionFor("claim-owner");
     const completeIdentityClaim = vi.fn<
@@ -624,11 +624,13 @@ describe("auth callback", () => {
       getSession: vi.fn(async () => guestSession),
       verifyEmailOtp: vi.fn(async () => permanentSession),
     });
-    storeAuthReturnLocation("/destination");
+    storeAuthReturnLocation(
+      "/start?service=total-loss&caseId=77777777-7777-4777-8777-777777777777",
+    );
     const router = createMemoryRouter(
       [
         { path: "/auth/callback/*", element: <AuthCallbackPage /> },
-        { path: "/destination", element: <h1>Destination</h1> },
+        { path: "/appraisals", element: <h1>My appraisals</h1> },
       ],
       {
         initialEntries: [
@@ -646,8 +648,9 @@ describe("auth callback", () => {
     );
 
     expect(
-      await screen.findByRole("heading", { name: "Destination" }),
+      await screen.findByRole("heading", { name: "My appraisals" }),
     ).toBeVisible();
+    expect(router.state.location.pathname).toBe("/appraisals");
     expect(service.verifyEmailOtp).toHaveBeenCalledWith("claim-token");
     expect(completeIdentityClaim).toHaveBeenCalledOnce();
     expect(completeIdentityClaim).toHaveBeenCalledWith(CASE_CLAIM_ID);

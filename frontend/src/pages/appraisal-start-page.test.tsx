@@ -139,7 +139,7 @@ describe("/start appraisal intake", () => {
     [
       "diminished value",
       "/start?service=diminished-value",
-      "Diminished Value is coming next",
+      "Diminished Value intake is currently paused",
       "Diminished Value",
       "2025 Hyundai Tucson SEL",
       "Accident history · repairs · mileage · local market",
@@ -220,7 +220,9 @@ describe("/start appraisal intake", () => {
     expect(intro).toHaveAttribute("data-mobile-stage-visible", "true");
     expect(flow).toHaveAttribute("data-mobile-stage-visible", "false");
 
-    await user.click(within(intro!).getByRole("button", { name: "Continue" }));
+    await user.click(
+      within(intro!).getByRole("button", { name: "View service update" }),
+    );
 
     await waitFor(() =>
       expect(
@@ -307,7 +309,7 @@ describe("/start appraisal intake", () => {
     expectSelectedService("Diminished Value");
     expect(
       screen.getByRole("heading", {
-        name: "Diminished Value is coming next",
+        name: "Diminished Value intake is currently paused",
       }),
     ).toBeVisible();
     expect(

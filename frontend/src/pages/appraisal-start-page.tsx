@@ -119,6 +119,11 @@ export function AppraisalStartPage() {
       onServiceChange={handleServiceChange}
       onMobileContinue={handleMobileContinue}
       onMobileBack={handleMobileBack}
+      mobileContinueLabel={
+        !totalLossSelected && !diminishedValueIntakeAvailable
+          ? "View service update"
+          : "Continue"
+      }
       serviceSwitchDisabled={
         (totalLossSelected && totalLossBusy) ||
         (!totalLossSelected && diminishedValueBusy)
@@ -128,21 +133,21 @@ export function AppraisalStartPage() {
           ? "Total Loss valuation"
           : diminishedValueIntakeAvailable
             ? "Manual diminished-value review"
-            : "Diminished Value service"
+            : "Diminished Value · Intake paused"
       }
       title={
         totalLossSelected
           ? "Start your Total Loss review"
           : diminishedValueIntakeAvailable
             ? "Submit a diminished-value review request"
-            : "Diminished Value is coming next"
+            : "Diminished Value intake is currently paused"
       }
       description={
         totalLossSelected
           ? "Upload your insurer’s valuation report from any provider, or continue without one. Venfour will gather the facts needed for independent market research and a truthful evidence review."
           : diminishedValueIntakeAvailable
             ? "We’ll securely gather accident, repair, vehicle, and contact details for a future manual review. Submission does not create an automated appraisal or schedule an appointment."
-            : "Diminished Value remains part of Venfour. Customer intake will open after the Total Loss experience is complete."
+            : "Diminished Value remains part of Venfour, but customer intake is not open. Venfour is completing the Total Loss experience first."
       }
     >
       {totalLossSelected ? (

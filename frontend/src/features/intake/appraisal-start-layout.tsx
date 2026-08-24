@@ -76,6 +76,7 @@ export interface AppraisalStartLayoutProps {
   onServiceChange: (service: AppraisalServiceSlug) => void;
   onMobileContinue: () => void;
   onMobileBack: () => void;
+  mobileContinueLabel?: ReactNode;
   serviceSwitchDisabled?: boolean;
   eyebrow: ReactNode;
   title: ReactNode;
@@ -90,6 +91,7 @@ export function AppraisalStartLayout({
   onServiceChange,
   onMobileContinue,
   onMobileBack,
+  mobileContinueLabel = "Continue",
   serviceSwitchDisabled,
   eyebrow,
   title,
@@ -143,7 +145,7 @@ export function AppraisalStartLayout({
               data-mobile-intake-continue
               onClick={onMobileContinue}
             >
-              Continue
+              {mobileContinueLabel}
               <ArrowRight className="size-4" aria-hidden />
             </button>
           ) : null}

@@ -88,7 +88,8 @@ export type TotalLossReportExtractionStatus =
   | "idle"
   | "processing"
   | "complete"
-  | "partial";
+  | "partial"
+  | "error";
 
 export const TOTAL_LOSS_DRAFT_VERSION = 2 as const;
 

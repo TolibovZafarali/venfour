@@ -33,7 +33,7 @@ describe("Venfour application", () => {
     );
   });
 
-  test("uses generic metadata and the compact shell for the appraisal intake", async () => {
+  test("uses focused metadata and the compact shell for the appraisal intake", async () => {
     renderTotalLossApp(
       ["/start?service=total-loss"],
       createTestAnonymousSession(),
@@ -41,9 +41,12 @@ describe("Venfour application", () => {
 
     await waitFor(() =>
       expect(document.title).toBe(
-        "Start a Vehicle Valuation Review | Venfour",
+        "Start a Total Loss Review | Venfour",
       ),
     );
+    expect(
+      screen.queryByText("Already have an account?"),
+    ).not.toBeInTheDocument();
     expect(
       screen.queryByRole("navigation", { name: "Primary navigation" }),
     ).not.toBeInTheDocument();
@@ -68,7 +71,7 @@ describe("Venfour application", () => {
     expect(searchParams.get("campaign")).toBe("renewal");
     await waitFor(() =>
       expect(document.title).toBe(
-        "Start a Vehicle Valuation Review | Venfour",
+        "Start a Total Loss Review | Venfour",
       ),
     );
   });
@@ -720,7 +723,7 @@ describe("Venfour application", () => {
     ).not.toBeInTheDocument();
     await waitFor(() =>
       expect(document.title).toBe(
-        "Start a Vehicle Valuation Review | Venfour",
+        "Start a Total Loss Review | Venfour",
       ),
     );
   });

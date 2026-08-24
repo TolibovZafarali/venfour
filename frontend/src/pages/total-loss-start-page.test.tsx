@@ -18,6 +18,7 @@ import type {
   TurnstileAction,
   TurnstileController,
 } from "@/features/auth/turnstile-controller";
+import { AUTH_RETURN_LOCATION_STORAGE_KEY } from "@/features/auth/return-location";
 import type { AppraisalCaseService } from "@/features/cases/service";
 import { appraisalCaseQueryKeys } from "@/features/cases/queries";
 import type { AppraisalCase } from "@/features/cases/types";
@@ -1228,6 +1229,9 @@ describe("/start?service=total-loss", () => {
     await waitFor(() =>
       expect(harness.saveContactAndBeginClaim).toHaveBeenCalledOnce(),
     );
+    expect(
+      window.localStorage.getItem(AUTH_RETURN_LOCATION_STORAGE_KEY),
+    ).toBe("/appraisals");
     await waitFor(() =>
       expect(readTotalLossDraft()).toMatchObject({
         ok: true,
@@ -1570,6 +1574,35 @@ describe("/start?service=total-loss", () => {
     });
   });
 
+  it.each(["checking", "completed"] as const)(
+    "resolves an explicitly referenced %s case without creating a blank draft",
+    async (status) => {
+      const explicitCase = { ...appraisalCase(CASE_ID), status };
+      const auth = createAuthHarness(sessionFor());
+      const harness = createDependencyHarness({ recentCase: explicitCase });
+
+      renderTestApp([`/start?service=total-loss&caseId=${CASE_ID}`], {
+        authService: auth.service,
+        totalLossDependencies: harness.dependencies,
+      });
+
+      expect(
+        await screen.findByText(
+          "This saved appraisal cannot be opened from this link.",
+        ),
+      ).toBeVisible();
+      expect(harness.caseService.getAppraisalCase).toHaveBeenCalledWith({
+        caseId: CASE_ID,
+        userId: USER_ID,
+      });
+      expect(
+        screen.getByRole("link", { name: "View my appraisals" }),
+      ).toHaveAttribute("href", "/appraisals");
+      expect(harness.getOrCreateTotalLossDraft).not.toHaveBeenCalled();
+      expect(harness.createOrGetAppraisalCase).not.toHaveBeenCalled();
+    },
+  );
+
   it("preserves a same-owner local draft when its explicit case is validated", async () => {
     const localDraft = createSensitiveManualDraft({
       confirmedCaseId: CASE_ID,
@@ -1649,7 +1682,7 @@ describe("/start?service=total-loss", () => {
     ).toBeVisible();
   });
 
-  it("waits for explicit ownership before canonicalizing a stale draft link", async () => {
+  it("waits for explicit ownership and resolves that case before preparing a draft", async () => {
     expect(
       writeTotalLossDraft(
         createSensitiveManualDraft({
@@ -1693,16 +1726,19 @@ describe("/start?service=total-loss", () => {
       await screen.findByRole("heading", { name: "Add the claim details" }),
     ).toBeVisible();
     expect(harness.createOrGetAppraisalCase).not.toHaveBeenCalled();
-    expect(router.state.location.search).toContain(`caseId=${CASE_ID}`);
+    expect(harness.getOrCreateTotalLossDraft).not.toHaveBeenCalled();
+    expect(router.state.location.search).toContain(
+      `caseId=${RECENT_CASE_ID}`,
+    );
     expect(harness.detailsService.getDetails).toHaveBeenCalledWith({
-      caseId: CASE_ID,
+      caseId: RECENT_CASE_ID,
       userId: USER_ID,
     });
     expect(readTotalLossDraft()).toMatchObject({
       ok: true,
       draft: {
-        confirmedCaseId: CASE_ID,
-        reservedCaseId: CASE_ID,
+        confirmedCaseId: RECENT_CASE_ID,
+        reservedCaseId: RECENT_CASE_ID,
         ownerUserId: USER_ID,
       },
     });
@@ -2147,6 +2183,95 @@ describe("/start?service=total-loss", () => {
           zipCode: "60611",
         },
       },
+    });
+  });
+
+  it("resumes a persisted extraction failure truthfully without claiming details were extracted", async () => {
+    const failedDetails = detailsFor(CASE_ID, {
+      intakeMode: "report",
+      vehicleYear: 2020,
+      vehicleMake: "Honda",
+      vehicleModel: "Accord",
+      reportOriginalFilename: "failed-extraction.pdf",
+      reportUploadedAt: CREATED_AT,
+      reportExtractionStatus: "failed",
+    });
+    const auth = createAuthHarness(sessionFor());
+    const harness = createDependencyHarness({
+      details: [failedDetails],
+      recentCase: appraisalCase(CASE_ID),
+    });
+    const user = userEvent.setup();
+
+    renderTestApp([`/start?service=total-loss&caseId=${CASE_ID}`], {
+      authService: auth.service,
+      totalLossDependencies: harness.dependencies,
+    });
+
+    expect(await screen.findByText("failed-extraction.pdf")).toBeVisible();
+    expect(screen.getByText("Your report is saved")).toBeVisible();
+    expect(
+      screen.queryByText("Report details extracted"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getAllByText(/Automatic extraction could not finish/i),
+    ).not.toHaveLength(0);
+    const continueButton = screen.getByRole("button", {
+      name: "Continue with manual details",
+    });
+    expect(continueButton).toBeEnabled();
+    expect(ingestReportMock).not.toHaveBeenCalled();
+    expect(readTotalLossDraft()).toMatchObject({
+      ok: true,
+      draft: { reportExtractionStatus: "error" },
+    });
+
+    await user.click(continueButton);
+    expect(
+      await screen.findByRole("heading", {
+        name: "Tell us about your vehicle",
+      }),
+    ).toBeVisible();
+    expect(screen.getByLabelText("Year")).toHaveValue("2020");
+  });
+
+  it("resumes a persisted pending extraction instead of presenting it as extracted", async () => {
+    const pendingIngestion = new Promise(() => undefined);
+    ingestReportMock.mockReturnValueOnce(pendingIngestion);
+    const pendingDetails = detailsFor(CASE_ID, {
+      intakeMode: "report",
+      reportOriginalFilename: "pending-extraction.pdf",
+      reportUploadedAt: CREATED_AT,
+      reportExtractionStatus: "pending",
+    });
+    const auth = createAuthHarness(sessionFor());
+    const harness = createDependencyHarness({
+      details: [pendingDetails],
+      recentCase: appraisalCase(CASE_ID),
+    });
+
+    renderTestApp([`/start?service=total-loss&caseId=${CASE_ID}`], {
+      authService: auth.service,
+      totalLossDependencies: harness.dependencies,
+    });
+
+    expect(
+      await screen.findByText(
+        "Reading the report and preparing details for your review…",
+      ),
+    ).toBeVisible();
+    await waitFor(() =>
+      expect(ingestReportMock).toHaveBeenCalledWith(
+        CASE_ID,
+        `access-${USER_ID}`,
+      ),
+    );
+    expect(
+      screen.queryByText("Report details extracted"),
+    ).not.toBeInTheDocument();
+    expect(readTotalLossDraft()).toMatchObject({
+      ok: true,
+      draft: { reportExtractionStatus: "processing" },
     });
   });
 

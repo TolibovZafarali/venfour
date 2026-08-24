@@ -32,6 +32,7 @@ import type {
   TotalLossContactFormValues,
   TotalLossManualFormErrors,
   TotalLossManualFormValues,
+  TotalLossReportExtractionStatus,
 } from "@/features/total-loss/types";
 import {
   formatCurrencyInput,
@@ -405,7 +406,7 @@ interface ReportStepProps {
   selectedFilename?: string | null;
   savedFilename?: string | null;
   uploadState: "idle" | "uploading" | "success" | "error";
-  extractionState: "idle" | "processing" | "complete" | "partial" | "error";
+  extractionState: TotalLossReportExtractionStatus;
   reportProvider?: string | null;
   extractionWarnings?: readonly string[];
   uploadError?: string | null;
@@ -523,7 +524,7 @@ export function ReportStep({
                   {selectedFilename ?? "Choose your valuation report"}
                 </p>
                 <p className="mt-1 text-xs text-copy">
-                  PDF, JPG/JPEG, or PNG · 50 MiB per file. Select image pages in order.
+                  PDF, JPG/JPEG, or PNG · 50 MiB total. Select image pages in order.
                 </p>
                 <button
                   type="button"
@@ -786,7 +787,7 @@ export function ReviewStep({
           <p className="font-semibold text-ink">{values.insurerName}</p>
           <p>Date of loss: {values.dateOfLoss}</p>
           <p>Market ZIP: {values.zipCode}</p>
-          <p>{valuation ? `Stated vehicle value: ${valuation}` : "No insurer offer supplied"}</p>
+          <p>{valuation ? `Stated vehicle value: ${valuation}` : "No insurer vehicle value supplied"}</p>
         </ReviewPanel>
         <ReviewPanel title="Evidence available">
           {mode === "report" ? (
@@ -833,16 +834,16 @@ function ReviewPanel({
   readonly title: string;
 }) {
   return (
-    <section className="rounded-xl border border-line bg-white p-5">
-      <div className="flex items-center justify-between gap-3">
-        <h3 className="text-sm font-semibold text-ink">{title}</h3>
+    <section className="min-w-0 overflow-hidden rounded-xl border border-line bg-white p-5">
+      <div className="flex min-w-0 items-center justify-between gap-3">
+        <h3 className="min-w-0 text-sm font-semibold text-ink">{title}</h3>
         {onEdit ? (
           <button type="button" className="text-sm font-semibold text-brand hover:text-brand-strong" onClick={onEdit}>
             Edit
           </button>
         ) : null}
       </div>
-      <div className="mt-3 space-y-1 text-sm leading-6 text-copy">{children}</div>
+      <div className="mt-3 min-w-0 space-y-1 text-sm leading-6 break-words text-copy [overflow-wrap:anywhere]">{children}</div>
     </section>
   );
 }
