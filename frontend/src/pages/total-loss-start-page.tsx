@@ -389,9 +389,6 @@ function TotalLossIntakeFlowContent({
   const [contactErrors, setContactErrors] =
     useState<TotalLossContactFormErrors>({});
   const [flowError, setFlowError] = useState<string | null>(null);
-  const [saveState, setSaveState] = useState<
-    "idle" | "saving" | "saved" | "error"
-  >("idle");
   const [conflict, setConflict] = useState<TotalLossCaseDetails | null>(null);
   const [conflictWithoutRow, setConflictWithoutRow] = useState(false);
   const [modeBusy, setModeBusy] = useState(false);
@@ -632,7 +629,6 @@ function TotalLossIntakeFlowContent({
         throw new StaleIdentityOperationError();
       }
       const expectedUpdatedAt = serverUpdatedAtRef.current;
-      setSaveState("saving");
       try {
         const details =
           expectedUpdatedAt === null
@@ -659,7 +655,6 @@ function TotalLossIntakeFlowContent({
         setConflict(null);
         setConflictWithoutRow(false);
         setFlowError(null);
-        setSaveState("saved");
 
         if (draftRef.current.revision === snapshot.revision) {
           applyDraft(
@@ -679,7 +674,6 @@ function TotalLossIntakeFlowContent({
           clearStaleUserCache(snapshot.userId);
           throw new StaleIdentityOperationError();
         }
-        setSaveState("error");
         if (error instanceof TotalLossDetailsConflictError) {
           setConflict(error.currentDetails);
           setConflictWithoutRow(error.currentDetails === null);
@@ -778,7 +772,6 @@ function TotalLossIntakeFlowContent({
       setUploadError(null);
       setConflict(null);
       setConflictWithoutRow(false);
-      setSaveState("idle");
       setExplicitCaseError(null);
     }
     const current = draftRef.current;
@@ -1067,7 +1060,6 @@ function TotalLossIntakeFlowContent({
     modeBusy ||
     completionBusy ||
     resumeBusy ||
-    saveState === "saving" ||
     uploadState === "uploading";
   const serviceSwitchDisabled = busy || vinLookupState === "loading";
 
@@ -1722,14 +1714,12 @@ function TotalLossIntakeFlowContent({
     }));
     setConflict(null);
     setConflictWithoutRow(false);
-    setSaveState("saved");
   };
 
   const handleKeepLocalConflict = () => {
     serverUpdatedAtRef.current = conflict?.updatedAt ?? null;
     setConflict(null);
     setConflictWithoutRow(false);
-    setSaveState("idle");
     applyDraft((current) => ({ ...current, dirty: true }));
     void flushDraft({ force: true }).catch(() => undefined);
   };
@@ -1813,7 +1803,7 @@ function TotalLossIntakeFlowContent({
             extractionWarnings={draft.reportExtractionWarnings}
             uploadError={uploadError}
             error={flowError}
-            completing={completionBusy || saveState === "saving"}
+            completing={completionBusy}
             onBack={() => {
               setFlowError(null);
               setUploadError(null);

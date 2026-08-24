@@ -7,6 +7,7 @@ import {
   IntakeProgress,
   IntakeRadioChoiceGroup,
   ServiceSelector,
+  VehicleIdentificationFields,
 } from "@/features/intake";
 
 describe("shared appraisal intake controls", () => {
@@ -94,6 +95,51 @@ describe("shared appraisal intake controls", () => {
     diminishedValue.focus();
     await user.keyboard(" ");
     expect(onChange).toHaveBeenCalledWith("diminished-value");
+  });
+
+  test("keeps the vehicle method panel mounted when its fields change", () => {
+    const sharedProps = {
+      idPrefix: "vehicle",
+      values: {
+        vin: "",
+        vehicleYear: "",
+        make: "",
+        model: "",
+        trim: "",
+      },
+      errors: {},
+      yearOptions: ["2026"],
+      makeOptions: [],
+      modelOptions: [],
+      makesState: "idle" as const,
+      modelsState: "idle" as const,
+      vinLookupState: "idle" as const,
+      onEntryMethodChange: vi.fn(),
+      onChange: vi.fn(),
+      onRetryMakes: vi.fn(),
+      onRetryModels: vi.fn(),
+    };
+    const { container, rerender } = render(
+      <VehicleIdentificationFields {...sharedProps} entryMethod="vin" />,
+    );
+    const methodSwitch = container.querySelector(
+      "[data-vehicle-method-switch]",
+    );
+    const methodPanel = container.querySelector(
+      '[data-vehicle-method-panel="vin"]',
+    );
+    expect(methodSwitch).toHaveAttribute("data-stable-selection-group");
+
+    rerender(
+      <VehicleIdentificationFields {...sharedProps} entryMethod="details" />,
+    );
+
+    expect(container.querySelector("[data-vehicle-method-switch]")).toBe(
+      methodSwitch,
+    );
+    expect(
+      container.querySelector('[data-vehicle-method-panel="details"]'),
+    ).toBe(methodPanel);
   });
 
   test("supports a service-specific calendar label", async () => {

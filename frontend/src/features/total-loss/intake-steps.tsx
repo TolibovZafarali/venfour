@@ -86,7 +86,10 @@ export function ChoiceStep({
         <legend className="text-2xl font-semibold tracking-[-0.03em] text-ink sm:text-3xl">
           Do you have your insurance valuation report?
         </legend>
-        <div className="mt-6 grid gap-4 sm:grid-cols-2">
+        <div
+          className="mt-6 grid gap-4 sm:grid-cols-2"
+          data-stable-selection-group
+        >
           {choiceOptions.map((option) => {
             const selected = selectedMode === option.mode;
             const Icon = option.icon;

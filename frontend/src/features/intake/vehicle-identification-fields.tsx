@@ -103,6 +103,7 @@ export function VehicleIdentificationFields({
         </legend>
         <div
           className="mt-3 grid grid-cols-2 gap-1.5 rounded-xl bg-surface p-1.5"
+          data-stable-selection-group
           data-vehicle-method-switch
         >
           {(
@@ -138,7 +139,6 @@ export function VehicleIdentificationFields({
       </fieldset>
 
       <div
-        key={entryMethod}
         className="vehicle-method-panel mt-5"
         data-vehicle-method-panel={entryMethod}
       >

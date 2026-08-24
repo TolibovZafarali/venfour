@@ -2,6 +2,7 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  ChoiceStep,
   ReportStep,
   ReviewStep,
 } from "@/features/total-loss/intake-steps";
@@ -34,6 +35,50 @@ const contactValues: TotalLossContactFormValues = {
 };
 
 describe("total-loss intake step presentation", () => {
+  it("keeps report choices and progress mounted while the selection changes", () => {
+    const onSelect = vi.fn();
+    const onContinue = vi.fn();
+    const { rerender } = render(
+      <ChoiceStep
+        selectedMode="report"
+        onSelect={onSelect}
+        onContinue={onContinue}
+      />,
+    );
+    const reportChoice = screen
+      .getByRole("radio", { name: /I have my valuation report/i })
+      .closest("label");
+    const noReportChoice = screen
+      .getByRole("radio", { name: /I don’t have the report/i })
+      .closest("label");
+    const progress = screen.getByRole("list", { name: "Appraisal steps" });
+    expect(reportChoice?.parentElement).toHaveAttribute(
+      "data-stable-selection-group",
+    );
+
+    rerender(
+      <ChoiceStep
+        selectedMode="manual"
+        onSelect={onSelect}
+        onContinue={onContinue}
+      />,
+    );
+
+    expect(
+      screen
+        .getByRole("radio", { name: /I have my valuation report/i })
+        .closest("label"),
+    ).toBe(reportChoice);
+    expect(
+      screen
+        .getByRole("radio", { name: /I don’t have the report/i })
+        .closest("label"),
+    ).toBe(noReportChoice);
+    expect(screen.getByRole("list", { name: "Appraisal steps" })).toBe(
+      progress,
+    );
+  });
+
   it("describes the shared report upload limit as a total", () => {
     render(
       <ReportStep

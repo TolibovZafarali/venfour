@@ -2437,6 +2437,71 @@ describe("/start?service=total-loss", () => {
     expect(harness.saveDetails).toHaveBeenCalledTimes(2);
   });
 
+  it("keeps the visible page stable while a report choice autosaves", async () => {
+    const auth = createAuthHarness(sessionFor());
+    const harness = createDependencyHarness();
+    const user = userEvent.setup();
+    vi.spyOn(crypto, "randomUUID").mockReturnValue(CASE_ID);
+
+    renderTestApp(["/start?service=total-loss"], {
+      authService: auth.service,
+      totalLossDependencies: harness.dependencies,
+    });
+    await chooseMode(user, "I don’t have the report");
+    await waitFor(() => expect(harness.saveDetails).toHaveBeenCalledOnce());
+    await user.click(screen.getByRole("button", { name: "Back" }));
+
+    const intro = document.querySelector("[data-appraisal-start-intro]");
+    const flow = document.querySelector("[data-appraisal-start-flow]");
+    const transition = document.querySelector("[data-intake-transition]");
+    const progress = screen.getByRole("list", { name: "Appraisal steps" });
+    const reportChoice = screen
+      .getByRole("radio", { name: /I have my valuation report/i })
+      .closest("label");
+    const noReportChoice = screen
+      .getByRole("radio", { name: /I don’t have the report/i })
+      .closest("label");
+    const pendingSave = createDeferred<TotalLossCaseDetails>();
+    harness.saveDetails.mockImplementationOnce(() => pendingSave.promise);
+
+    await user.click(
+      screen.getByRole("radio", { name: /I have my valuation report/i }),
+    );
+    await waitFor(() => expect(harness.saveDetails).toHaveBeenCalledTimes(2), {
+      timeout: 2000,
+    });
+
+    expect(
+      screen.getByRole("radio", { name: "Diminished Value" }),
+    ).toBeEnabled();
+    expect(document.querySelector("[data-appraisal-start-intro]")).toBe(intro);
+    expect(document.querySelector("[data-appraisal-start-flow]")).toBe(flow);
+    expect(document.querySelector("[data-intake-transition]")).toBe(transition);
+    expect(screen.getByRole("list", { name: "Appraisal steps" })).toBe(
+      progress,
+    );
+    expect(
+      screen
+        .getByRole("radio", { name: /I have my valuation report/i })
+        .closest("label"),
+    ).toBe(reportChoice);
+    expect(
+      screen
+        .getByRole("radio", { name: /I don’t have the report/i })
+        .closest("label"),
+    ).toBe(noReportChoice);
+
+    const pendingInput = harness.saveDetails.mock.calls[1]?.[0];
+    await act(async () => {
+      pendingSave.resolve({
+        ...detailsFor(CASE_ID),
+        ...pendingInput.values,
+        updatedAt: "2026-08-18T16:00:00.000Z",
+      });
+      await pendingSave.promise;
+    });
+  });
+
   it("serializes autosaves and coalesces edits made while an older snapshot is saving", async () => {
     const auth = createAuthHarness(sessionFor());
     const harness = createDependencyHarness();
@@ -2452,6 +2517,16 @@ describe("/start?service=total-loss", () => {
 
     const pendingSave = createDeferred<TotalLossCaseDetails>();
     harness.saveDetails.mockImplementationOnce(() => pendingSave.promise);
+    const methodSwitch = document.querySelector(
+      "[data-vehicle-method-switch]",
+    );
+    const methodPanel = document.querySelector(
+      '[data-vehicle-method-panel="vin"]',
+    );
+    const progress = screen.getByRole("list", { name: "Appraisal steps" });
+    const heading = screen.getByRole("heading", {
+      name: "Tell us about your vehicle",
+    });
     await user.click(
       screen.getByRole("radio", { name: "Select vehicle details" }),
     );
@@ -2461,8 +2536,24 @@ describe("/start?service=total-loss", () => {
     await waitFor(() =>
       expect(
         screen.getByRole("radio", { name: "Diminished Value" }),
-      ).toBeDisabled(),
+      ).toBeEnabled(),
     );
+    expect(screen.getByRole("radio", { name: "Use my VIN" })).toBeEnabled();
+    expect(
+      screen.getByRole("radio", { name: "Select vehicle details" }),
+    ).toBeEnabled();
+    expect(document.querySelector("[data-vehicle-method-switch]")).toBe(
+      methodSwitch,
+    );
+    expect(
+      document.querySelector('[data-vehicle-method-panel="details"]'),
+    ).toBe(methodPanel);
+    expect(screen.getByRole("list", { name: "Appraisal steps" })).toBe(
+      progress,
+    );
+    expect(
+      screen.getByRole("heading", { name: "Tell us about your vehicle" }),
+    ).toBe(heading);
 
     await user.selectOptions(screen.getByLabelText("Year"), "2020");
     await waitFor(() => expect(screen.getByLabelText("Make")).toBeEnabled());
@@ -2486,11 +2577,6 @@ describe("/start?service=total-loss", () => {
     });
 
     await waitFor(() => expect(harness.saveDetails).toHaveBeenCalledTimes(3));
-    await waitFor(() =>
-      expect(
-        screen.getByRole("radio", { name: "Diminished Value" }),
-      ).toBeEnabled(),
-    );
     expect(harness.saveDetails.mock.calls[2]?.[0]).toMatchObject({
       caseId: CASE_ID,
       expectedUpdatedAt: "2026-08-18T16:00:00.000Z",

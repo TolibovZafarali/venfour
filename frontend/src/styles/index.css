@@ -330,6 +330,10 @@
     filter: brightness(0.97);
   }
 
+  [data-stable-selection-group] > label:focus-within {
+    filter: none;
+  }
+
   .peer[type="file"]:focus-visible ~ * {
     --tw-ring-color: transparent !important;
     --tw-ring-offset-shadow: 0 0 #0000 !important;
