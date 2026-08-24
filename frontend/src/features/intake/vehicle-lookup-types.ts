@@ -11,11 +11,18 @@ export interface ListVehicleModelsInput {
   readonly make: string;
 }
 
+export interface ListVehicleTrimsInput extends ListVehicleModelsInput {
+  readonly model: string;
+}
+
 export interface VehicleLookupService {
   decodeVin(vin: string): Promise<DecodedVehicle>;
   listMakes(): Promise<readonly string[]>;
   listModels(
     input: ListVehicleModelsInput,
+  ): Promise<readonly string[]>;
+  listTrims(
+    input: ListVehicleTrimsInput,
   ): Promise<readonly string[]>;
 }
 

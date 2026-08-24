@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createContext, useContext } from "react";
 
+import { environment } from "@/config/env";
 import {
   createAppraisalCaseService,
   type AppraisalCaseService,
@@ -45,7 +46,9 @@ export function createTotalLossDependencies(
     totalLossReportStorageService:
       createTotalLossReportStorageService(client),
     totalLossIdentityService: createTotalLossIdentityService(client),
-    vehicleLookupService: createNhtsaVpicVehicleLookupService(),
+    vehicleLookupService: createNhtsaVpicVehicleLookupService({
+      apiBaseUrl: environment.apiBaseUrl,
+    }),
   };
 }
 

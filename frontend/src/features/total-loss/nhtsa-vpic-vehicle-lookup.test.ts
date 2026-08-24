@@ -236,6 +236,55 @@ describe("NHTSA vPIC vehicle catalog", () => {
     expect(fetchImplementation).toHaveBeenCalledOnce();
   });
 
+  it("loads, normalizes, and caches trims through the Venfour API", async () => {
+    const fetchImplementation = vi.fn<typeof fetch>().mockResolvedValue(
+      jsonResponse({
+        trims: [" XLE ", "LE", "xle", "SE Nightshade"],
+      }),
+    );
+    const service = createNhtsaVpicVehicleLookupService({
+      apiBaseUrl: "https://api.example.test/",
+      fetchImplementation,
+    });
+
+    const first = await service.listTrims({
+      year: 2020,
+      make: " Toyota ",
+      model: " Camry ",
+    });
+    const second = await service.listTrims({
+      year: 2020,
+      make: "toyota",
+      model: "camry",
+    });
+
+    expect(first).toEqual(["LE", "SE Nightshade", "XLE"]);
+    expect(second).toBe(first);
+    expect(fetchImplementation).toHaveBeenCalledWith(
+      "https://api.example.test/api/v1/vehicle-trims?year=2020&make=Toyota&model=Camry",
+      {
+        method: "GET",
+        headers: { Accept: "application/json" },
+      },
+    );
+    expect(fetchImplementation).toHaveBeenCalledOnce();
+  });
+
+  it("rejects an incomplete trim lookup without making a request", async () => {
+    const fetchImplementation = vi.fn<typeof fetch>();
+    const service = createNhtsaVpicVehicleLookupService({
+      fetchImplementation,
+    });
+
+    await expect(
+      service.listTrims({ year: 2024, make: "Honda", model: " " }),
+    ).rejects.toMatchObject({
+      code: "invalid-input",
+      userMessage: "Choose a valid vehicle year, make, and model.",
+    });
+    expect(fetchImplementation).not.toHaveBeenCalled();
+  });
+
   it("does not cache a failed catalog request", async () => {
     let requestCount = 0;
     const fetchImplementation = vi.fn<typeof fetch>(async () => {

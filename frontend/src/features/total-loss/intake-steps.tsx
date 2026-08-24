@@ -177,13 +177,16 @@ interface VehicleStepProps extends ManualStepProps {
   entryMethod: VehicleEntryMethod;
   makeOptions: readonly string[];
   modelOptions: readonly string[];
+  trimOptions: readonly string[];
   makesState: "idle" | "loading" | "success" | "error";
   modelsState: "idle" | "loading" | "success" | "error";
+  trimsState: "idle" | "loading" | "success" | "error";
   vinLookupState: "idle" | "loading" | "success" | "error";
   vinLookupMessage?: string | null;
   onEntryMethodChange: (method: VehicleEntryMethod) => void;
   onRetryMakes: () => void;
   onRetryModels: () => void;
+  onRetryTrims: () => void;
 }
 
 const vehicleYearOptions = Array.from(
@@ -199,13 +202,16 @@ export function VehicleStep({
   entryMethod,
   makeOptions,
   modelOptions,
+  trimOptions,
   makesState,
   modelsState,
+  trimsState,
   vinLookupState,
   vinLookupMessage,
   onEntryMethodChange,
   onRetryMakes,
   onRetryModels,
+  onRetryTrims,
   onChange,
   onBlur,
   onBack,
@@ -229,8 +235,10 @@ export function VehicleStep({
         yearOptions={vehicleYearOptions}
         makeOptions={makeOptions}
         modelOptions={modelOptions}
+        trimOptions={trimOptions}
         makesState={makesState}
         modelsState={modelsState}
+        trimsState={trimsState}
         vinLookupState={vinLookupState}
         vinLookupMessage={vinLookupMessage}
         trimRequired
@@ -254,12 +262,17 @@ export function VehicleStep({
         onBlur={(field) => onBlur(field)}
         onRetryMakes={onRetryMakes}
         onRetryModels={onRetryModels}
+        onRetryTrims={onRetryTrims}
       />
       {error ? <InlineError message={error} /> : null}
       <StepActions
         onBack={onBack}
         onContinue={onContinue}
-        busy={busy || vinLookupState === "loading"}
+        busy={
+          busy ||
+          vinLookupState === "loading" ||
+          trimsState === "loading"
+        }
         continueLabel={
           entryMethod === "vin" &&
           (!values.vehicleYear || !values.make || !values.model)

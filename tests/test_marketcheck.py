@@ -34,8 +34,10 @@ from venfour.market import (
 from venfour.marketcheck import (
     MARKETCHECK_ACTIVE_INVENTORY_URL,
     MARKETCHECK_ACTIVE_MAX_RADIUS_MILES,
+    MARKETCHECK_CAR_TERMS_URL,
     MarketCheckProvider,
 )
+from venfour.vehicle_catalog import VehicleTrimCatalogRequest
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -330,6 +332,57 @@ class MarketCheckRequestMappingTests(unittest.TestCase):
         self.assertEqual(opener.timeouts, [7.5])
         self.assertEqual(query["api_key"], [injected_key])
         self.assertEqual(query["append_api_key"], ["false"])
+
+
+class MarketCheckTrimCatalogTests(unittest.TestCase):
+    def test_maps_exact_vehicle_and_normalizes_cached_trim_terms(self) -> None:
+        transport = RecordingTransport(
+            [{"trim": [" XLE ", "LE", "xle", "SE Nightshade"]}]
+        )
+        provider = MarketCheckProvider(SYNTHETIC_KEY, transport=transport)
+
+        first = provider.list_trims(
+            VehicleTrimCatalogRequest(2020, "Toyota", "Camry")
+        )
+        second = provider.list_trims(
+            VehicleTrimCatalogRequest(2020, "toyota", "camry")
+        )
+
+        self.assertEqual(first, ("LE", "SE Nightshade", "XLE"))
+        self.assertIs(second, first)
+        self.assertEqual(len(transport.calls), 1)
+        self.assertEqual(transport.calls[0]["endpoint"], MARKETCHECK_CAR_TERMS_URL)
+        self.assertEqual(
+            transport.calls[0]["params"],
+            {
+                "api_key": SYNTHETIC_KEY,
+                "append_api_key": "false",
+                "field": "trim|0|1000",
+                "year": 2020,
+                "make": "Toyota",
+                "model": "Camry",
+            },
+        )
+
+    def test_rejects_malformed_or_secret_bearing_terms(self) -> None:
+        for payload in (
+            {},
+            {"terms": "XLE"},
+            {"terms": ["XLE"], "trim": ["XLE"]},
+            {"terms": ["XLE", 10]},
+            {"terms": [" "]},
+            {"terms": [SYNTHETIC_KEY]},
+        ):
+            with self.subTest(payload=payload):
+                provider = MarketCheckProvider(
+                    SYNTHETIC_KEY,
+                    transport=RecordingTransport([payload]),
+                )
+                with self.assertRaises(MarketProviderResponseError) as raised:
+                    provider.list_trims(
+                        VehicleTrimCatalogRequest(2020, "Toyota", "Camry")
+                    )
+                self.assertNotIn(SYNTHETIC_KEY, str(raised.exception))
 
 
 class MarketCheckNormalizationTests(unittest.TestCase):

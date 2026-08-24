@@ -1,6 +1,7 @@
 import {
   type DecodedVehicle,
   type ListVehicleModelsInput,
+  type ListVehicleTrimsInput,
   VehicleLookupError,
   type VehicleLookupService,
 } from "@/features/total-loss/vehicle-lookup-service";
@@ -69,13 +70,17 @@ const catalogCollator = new Intl.Collator("en-US", {
 
 interface NhtsaVpicVehicleLookupOptions {
   readonly fetchImplementation?: typeof fetch;
+  readonly apiBaseUrl?: string;
 }
 
 export function createNhtsaVpicVehicleLookupService({
   fetchImplementation = globalThis.fetch,
+  apiBaseUrl = "",
 }: NhtsaVpicVehicleLookupOptions = {}): VehicleLookupService {
   let makesRequest: Promise<readonly string[]> | null = null;
   const modelRequests = new Map<string, Promise<readonly string[]>>();
+  const trimRequests = new Map<string, Promise<readonly string[]>>();
+  const normalizedApiBaseUrl = apiBaseUrl.trim().replace(/\/+$/u, "");
 
   const requestJson = async (url: string): Promise<unknown> => {
     let response: Response;
@@ -158,6 +163,35 @@ export function createNhtsaVpicVehicleLookupService({
           throw error;
         });
       modelRequests.set(cacheKey, request);
+      return request;
+    },
+
+    async listTrims(input) {
+      const normalized = normalizeTrimsInput(input);
+      const cacheKey = [
+        normalized.year,
+        normalized.make.toLocaleUpperCase("en-US"),
+        normalized.model.toLocaleUpperCase("en-US"),
+      ].join(":");
+      const cached = trimRequests.get(cacheKey);
+      if (cached) {
+        return cached;
+      }
+
+      const query = new URLSearchParams({
+        year: String(normalized.year),
+        make: normalized.make,
+        model: normalized.model,
+      });
+      const request = requestJson(
+        vehicleTrimCatalogUrl(normalizedApiBaseUrl, query),
+      )
+        .then(trimCatalogOptions)
+        .catch((error: unknown) => {
+          trimRequests.delete(cacheKey);
+          throw error;
+        });
+      trimRequests.set(cacheKey, request);
       return request;
     },
   };
@@ -270,6 +304,48 @@ function normalizeModelsInput(
     );
   }
   return { year: input.year, make };
+}
+
+function normalizeTrimsInput(
+  input: ListVehicleTrimsInput,
+): ListVehicleTrimsInput {
+  const base = normalizeModelsInput(input);
+  const model = normalizeText(input.model);
+  if (!model) {
+    throw new VehicleLookupError(
+      "invalid-input",
+      "Choose a valid vehicle year, make, and model.",
+    );
+  }
+  return { ...base, model };
+}
+
+function vehicleTrimCatalogUrl(
+  apiBaseUrl: string,
+  query: URLSearchParams,
+) {
+  const path = `/api/v1/vehicle-trims?${query.toString()}`;
+  if (apiBaseUrl) return `${apiBaseUrl}${path}`;
+  const origin =
+    typeof window === "undefined" ? "http://localhost" : window.location.origin;
+  return new URL(path, origin).toString();
+}
+
+function trimCatalogOptions(payload: unknown) {
+  if (!isRecord(payload) || !Array.isArray(payload.trims)) {
+    throw invalidResponseError();
+  }
+  const trims = payload.trims.map((value) => {
+    if (typeof value !== "string") {
+      throw invalidResponseError();
+    }
+    const normalized = normalizeText(value);
+    if (!normalized) {
+      throw invalidResponseError();
+    }
+    return normalized;
+  });
+  return uniqueCatalogOptions(trims);
 }
 
 function responseResults(payload: unknown): readonly unknown[] {

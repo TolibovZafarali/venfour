@@ -47,6 +47,7 @@ from venfour.market import (
     MarketSearchResult,
     validate_market_listing,
 )
+from venfour.vehicle_catalog import VehicleTrimCatalogRequest
 
 
 MARKETCHECK_ACTIVE_INVENTORY_URL = (
@@ -56,7 +57,9 @@ MARKETCHECK_PAST_INVENTORY_URL = (
     "https://api.marketcheck.com/v2/search/car/recents"
 )
 MARKETCHECK_VIN_HISTORY_URL = "https://api.marketcheck.com/v2/history/car"
+MARKETCHECK_CAR_TERMS_URL = "https://api.marketcheck.com/v2/specs/car/terms"
 MARKETCHECK_MAX_ROWS = 50
+MARKETCHECK_MAX_TAXONOMY_TERMS = 1000
 MARKETCHECK_ACTIVE_MAX_RADIUS_MILES = 100
 MARKETCHECK_PAST_MAX_RADIUS_MILES = 100
 MARKETCHECK_HISTORY_WINDOW_DAYS = 90
@@ -193,6 +196,7 @@ class MarketCheckProvider:
         self._transport = (
             transport if transport is not None else _UrllibMarketCheckTransport()
         )
+        self._trim_catalog_cache: dict[str, tuple[str, ...]] = {}
         if self._api_key is None:
             self._secret_variants = ()
         else:
@@ -570,6 +574,75 @@ class MarketCheckProvider:
                 "MarketCheck response could not be safely normalized"
             )
         return listing
+
+    def list_trims(
+        self, request: VehicleTrimCatalogRequest
+    ) -> tuple[str, ...]:
+        """Return complete trim taxonomy for one exact year, make, and model."""
+
+        if not isinstance(request, VehicleTrimCatalogRequest):
+            raise TypeError("request must be VehicleTrimCatalogRequest")
+        cache_key = "\0".join(
+            (
+                str(request.year),
+                request.make.casefold(),
+                request.model.casefold(),
+            )
+        )
+        cached = self._trim_catalog_cache.get(cache_key)
+        if cached is not None:
+            return cached
+        if self._api_key is None:
+            raise MarketProviderAuthenticationError(
+                "MarketCheck API key is required"
+            )
+
+        params: dict[str, QueryValue] = {
+            "api_key": self._api_key,
+            "append_api_key": "false",
+            "field": f"trim|0|{MARKETCHECK_MAX_TAXONOMY_TERMS}",
+            "year": request.year,
+            "make": request.make,
+            "model": request.model,
+        }
+        payload = self._request_page(params, endpoint=MARKETCHECK_CAR_TERMS_URL)
+        term_fields = [name for name in ("terms", "trim") if name in payload]
+        raw_terms = payload.get(term_fields[0]) if len(term_fields) == 1 else None
+        if (
+            not isinstance(raw_terms, list)
+            or len(raw_terms) > MARKETCHECK_MAX_TAXONOMY_TERMS
+        ):
+            raise MarketProviderResponseError(
+                "MarketCheck trim taxonomy is malformed"
+            )
+
+        unique_terms: dict[str, str] = {}
+        for index, value in enumerate(raw_terms):
+            if not isinstance(value, str):
+                raise MarketProviderResponseError(
+                    "MarketCheck trim taxonomy is malformed",
+                    (f"$.terms[{index}]: expected a string",),
+                )
+            term = " ".join(value.split())
+            if not term:
+                raise MarketProviderResponseError(
+                    "MarketCheck trim taxonomy is malformed",
+                    (f"$.terms[{index}]: expected a non-blank string",),
+                )
+            unique_terms.setdefault(term.casefold(), term)
+
+        trims = tuple(
+            sorted(
+                unique_terms.values(),
+                key=lambda value: (value.casefold(), value),
+            )
+        )
+        if self._contains_secret(trims):
+            raise MarketProviderResponseError(
+                "MarketCheck trim taxonomy could not be safely normalized"
+            )
+        self._trim_catalog_cache[cache_key] = trims
+        return trims
 
     def search(self, request: MarketSearchRequest) -> MarketSearchResult:
         """Search active used inventory, preserving MarketCheck result order."""
@@ -1577,10 +1650,12 @@ __all__ = [
     "DEFAULT_TIMEOUT_SECONDS",
     "MARKETCHECK_ACTIVE_INVENTORY_URL",
     "MARKETCHECK_ACTIVE_MAX_RADIUS_MILES",
+    "MARKETCHECK_CAR_TERMS_URL",
     "MARKETCHECK_HISTORICAL_MAX_PAGES",
     "MARKETCHECK_HISTORICAL_MIN_ROWS",
     "MARKETCHECK_HISTORY_WINDOW_DAYS",
     "MARKETCHECK_MAX_ROWS",
+    "MARKETCHECK_MAX_TAXONOMY_TERMS",
     "MARKETCHECK_PAST_INVENTORY_URL",
     "MARKETCHECK_PAST_MAX_RADIUS_MILES",
     "MARKETCHECK_VIN_HISTORY_MAX_PAGES",

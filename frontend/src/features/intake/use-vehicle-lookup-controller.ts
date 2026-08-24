@@ -10,8 +10,10 @@ import type { VehicleLookupState } from "@/features/intake/vehicle-identificatio
 export interface UseVehicleLookupControllerOptions {
   readonly service: VehicleLookupService;
   readonly catalogEnabled: boolean;
+  readonly trimCatalogEnabled?: boolean;
   readonly vehicleYear: string;
   readonly make: string;
+  readonly model?: string;
   readonly currentVin: string;
   readonly unknownVinErrorMessage: string;
 }
@@ -19,8 +21,10 @@ export interface UseVehicleLookupControllerOptions {
 export interface VehicleLookupController {
   readonly makeOptions: readonly string[];
   readonly modelOptions: readonly string[];
+  readonly trimOptions: readonly string[];
   readonly makesState: VehicleLookupState;
   readonly modelsState: VehicleLookupState;
+  readonly trimsState: VehicleLookupState;
   readonly vinLookupState: VehicleLookupState;
   readonly vinLookupMessage: string | null;
   readonly decodeVin: (vin: string) => Promise<DecodedVehicle | null>;
@@ -29,18 +33,32 @@ export interface VehicleLookupController {
   readonly resetModelLookup: () => void;
   readonly retryMakes: () => void;
   readonly retryModels: () => void;
+  readonly retryTrims: () => void;
+}
+
+interface TrimCatalogSnapshot {
+  readonly key: string | null;
+  readonly options: readonly string[];
+  readonly state: VehicleLookupState;
 }
 
 export function useVehicleLookupController({
   service,
   catalogEnabled,
+  trimCatalogEnabled = false,
   vehicleYear,
   make,
+  model = "",
   currentVin,
   unknownVinErrorMessage,
 }: UseVehicleLookupControllerOptions): VehicleLookupController {
   const [makeOptions, setMakeOptions] = useState<readonly string[]>([]);
   const [modelOptions, setModelOptions] = useState<readonly string[]>([]);
+  const [trimCatalog, setTrimCatalog] = useState<TrimCatalogSnapshot>({
+    key: null,
+    options: [],
+    state: "idle",
+  });
   const [makesState, setMakesState] = useState<VehicleLookupState>("idle");
   const [modelsState, setModelsState] = useState<VehicleLookupState>("idle");
   const [vinLookupState, setVinLookupState] =
@@ -48,10 +66,11 @@ export function useVehicleLookupController({
   const [vinLookupMessage, setVinLookupMessage] = useState<string | null>(null);
   const makesRequestRef = useRef(0);
   const modelsRequestRef = useRef(0);
+  const trimsRequestRef = useRef(0);
   const vinRequestRef = useRef(0);
   const currentVinRef = useRef(currentVin);
   const decodedVinRef = useRef<string | null>(null);
-  const catalogInputRef = useRef({ vehicleYear, make });
+  const catalogInputRef = useRef({ vehicleYear, make, model });
 
   useEffect(() => {
     if (currentVinRef.current === currentVin) return;
@@ -71,13 +90,14 @@ export function useVehicleLookupController({
   }, [currentVin]);
 
   useEffect(() => {
-    catalogInputRef.current = { vehicleYear, make };
-  }, [make, vehicleYear]);
+    catalogInputRef.current = { vehicleYear, make, model };
+  }, [make, model, vehicleYear]);
 
   useEffect(
     () => () => {
       makesRequestRef.current += 1;
       modelsRequestRef.current += 1;
+      trimsRequestRef.current += 1;
       vinRequestRef.current += 1;
     },
     [],
@@ -117,6 +137,31 @@ export function useVehicleLookupController({
     [service],
   );
 
+  const loadTrims = useCallback(
+    async (
+      year: number,
+      requestedMake: string,
+      requestedModel: string,
+      key: string,
+    ) => {
+      const requestId = ++trimsRequestRef.current;
+      setTrimCatalog({ key, options: [], state: "loading" });
+      try {
+        const options = await service.listTrims({
+          year,
+          make: requestedMake,
+          model: requestedModel,
+        });
+        if (requestId !== trimsRequestRef.current) return;
+        setTrimCatalog({ key, options, state: "success" });
+      } catch {
+        if (requestId !== trimsRequestRef.current) return;
+        setTrimCatalog({ key, options: [], state: "error" });
+      }
+    },
+    [service],
+  );
+
   useEffect(() => {
     if (catalogEnabled && makesState === "idle") {
       queueMicrotask(() => void loadMakes());
@@ -133,6 +178,20 @@ export function useVehicleLookupController({
     }
     queueMicrotask(() => void loadModels(year, normalizedMake));
   }, [catalogEnabled, loadModels, make, vehicleYear]);
+
+  useEffect(() => {
+    const input = trimCatalogInput(vehicleYear, make, model);
+    if (!trimCatalogEnabled || !input) {
+      trimsRequestRef.current += 1;
+      queueMicrotask(() =>
+        setTrimCatalog({ key: null, options: [], state: "idle" }),
+      );
+      return;
+    }
+    queueMicrotask(() =>
+      void loadTrims(input.year, input.make, input.model, input.key),
+    );
+  }, [loadTrims, make, model, trimCatalogEnabled, vehicleYear]);
 
   const resetVinLookup = useCallback(() => {
     vinRequestRef.current += 1;
@@ -204,11 +263,37 @@ export function useVehicleLookupController({
     }
   }, [loadModels]);
 
+  const retryTrims = useCallback(() => {
+    const input = trimCatalogInput(
+      catalogInputRef.current.vehicleYear,
+      catalogInputRef.current.make,
+      catalogInputRef.current.model,
+    );
+    if (trimCatalogEnabled && input) {
+      void loadTrims(input.year, input.make, input.model, input.key);
+    }
+  }, [loadTrims, trimCatalogEnabled]);
+
+  const activeTrimKey = trimCatalogEnabled
+    ? trimCatalogInput(vehicleYear, make, model)?.key ?? null
+    : null;
+  const trimOptions =
+    activeTrimKey && trimCatalog.key === activeTrimKey
+      ? trimCatalog.options
+      : [];
+  const trimsState: VehicleLookupState = !activeTrimKey
+    ? "idle"
+    : trimCatalog.key === activeTrimKey
+      ? trimCatalog.state
+      : "loading";
+
   return {
     makeOptions,
     modelOptions,
+    trimOptions,
     makesState,
     modelsState,
+    trimsState,
     vinLookupState,
     vinLookupMessage,
     decodeVin,
@@ -217,5 +302,33 @@ export function useVehicleLookupController({
     resetModelLookup,
     retryMakes,
     retryModels,
+    retryTrims,
   };
+}
+
+function trimCatalogInput(
+  vehicleYear: string,
+  make: string,
+  model: string,
+) {
+  const year = Number(vehicleYear);
+  const normalizedMake = make.trim();
+  const normalizedModel = model.trim();
+  if (
+    !Number.isSafeInteger(year) ||
+    !normalizedMake ||
+    !normalizedModel
+  ) {
+    return null;
+  }
+  return {
+    year,
+    make: normalizedMake,
+    model: normalizedModel,
+    key: [
+      year,
+      normalizedMake.toLocaleUpperCase("en-US"),
+      normalizedModel.toLocaleUpperCase("en-US"),
+    ].join(":"),
+  } as const;
 }

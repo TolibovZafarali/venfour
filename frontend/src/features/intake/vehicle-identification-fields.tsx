@@ -54,8 +54,10 @@ export interface VehicleIdentificationFieldsProps {
   yearOptions: readonly string[];
   makeOptions: readonly string[];
   modelOptions: readonly string[];
+  trimOptions?: readonly string[];
   makesState: VehicleLookupState;
   modelsState: VehicleLookupState;
+  trimsState?: VehicleLookupState;
   vinLookupState: VehicleLookupState;
   vinLookupMessage?: string | null;
   fieldsDisabled?: boolean;
@@ -68,6 +70,7 @@ export interface VehicleIdentificationFieldsProps {
   onBlur?: (field: VehicleIdentificationField) => void;
   onRetryMakes: () => void;
   onRetryModels: () => void;
+  onRetryTrims?: () => void;
 }
 
 export function VehicleIdentificationFields({
@@ -79,8 +82,10 @@ export function VehicleIdentificationFields({
   yearOptions,
   makeOptions,
   modelOptions,
+  trimOptions = [],
   makesState,
   modelsState,
+  trimsState = "idle",
   vinLookupState,
   vinLookupMessage,
   fieldsDisabled,
@@ -94,6 +99,7 @@ export function VehicleIdentificationFields({
   onBlur,
   onRetryMakes,
   onRetryModels,
+  onRetryTrims = () => undefined,
 }: VehicleIdentificationFieldsProps) {
   return (
     <>
@@ -207,15 +213,16 @@ export function VehicleIdentificationFields({
                     onChange={(event) => onChange("model", event.target.value)}
                     onBlur={() => onBlur?.("model")}
                   />
-                  <IntakeTextField
+                  <VehicleTrimSelect
                     id={`${idPrefix}-trim`}
-                    label="Trim"
-                    value={values.trim ?? ""}
+                    values={values}
                     error={errors.trim}
-                    placeholder="EX-L, Limited, XLE…"
+                    options={trimOptions}
+                    state={trimsState}
                     disabled={fieldsDisabled}
-                    onChange={(event) => onChange("trim", event.target.value)}
+                    onChange={(value) => onChange("trim", value)}
                     onBlur={() => onBlur?.("trim")}
+                    onRetry={onRetryTrims}
                   />
                 </div>
               </div>
@@ -280,19 +287,18 @@ export function VehicleIdentificationFields({
               ) : null}
             </div>
             {trimRequired ? (
-              <div className="sm:col-span-2">
-                <IntakeTextField
-                  id={`${idPrefix}-trim`}
-                  label="Trim"
-                  value={values.trim ?? ""}
-                  error={errors.trim}
-                  help="Use the exact trim or style shown on the vehicle, report, or VIN result."
-                  placeholder="EX-L, Limited, XLE…"
-                  disabled={fieldsDisabled}
-                  onChange={(event) => onChange("trim", event.target.value)}
-                  onBlur={() => onBlur?.("trim")}
-                />
-              </div>
+              <VehicleTrimSelect
+                className="sm:col-span-2"
+                id={`${idPrefix}-trim`}
+                values={values}
+                error={errors.trim}
+                options={trimOptions}
+                state={trimsState}
+                disabled={fieldsDisabled}
+                onChange={(value) => onChange("trim", value)}
+                onBlur={() => onBlur?.("trim")}
+                onRetry={onRetryTrims}
+              />
             ) : null}
           </div>
         )}
@@ -325,6 +331,64 @@ export function VehicleIdentificationFields({
         ) : null}
       </div>
     </>
+  );
+}
+
+function VehicleTrimSelect({
+  className,
+  id,
+  values,
+  error,
+  options,
+  state,
+  disabled,
+  onChange,
+  onBlur,
+  onRetry,
+}: {
+  className?: string;
+  id: string;
+  values: VehicleIdentificationValues;
+  error?: string;
+  options: readonly string[];
+  state: VehicleLookupState;
+  disabled?: boolean;
+  onChange: (value: string) => void;
+  onBlur: () => void;
+  onRetry: () => void;
+}) {
+  const vehicleKnown = Boolean(
+    values.vehicleYear && values.make && values.model,
+  );
+  return (
+    <div className={className}>
+      <IntakeSelectField
+        id={id}
+        label="Trim"
+        value={values.trim ?? ""}
+        error={error}
+        help="Select the exact trim or style for this vehicle."
+        placeholder={
+          vehicleKnown
+            ? "Select trim"
+            : "Choose year, make, and model first"
+        }
+        options={withCurrentOption(options, values.trim ?? "")}
+        loading={state === "loading"}
+        disabled={disabled || !vehicleKnown || state === "error"}
+        onChange={(event) => onChange(event.target.value)}
+        onBlur={onBlur}
+      />
+      {state === "error" ? (
+        <OptionLoadError label="trims" onRetry={onRetry} />
+      ) : null}
+      {state === "success" && options.length === 0 && !values.trim ? (
+        <p className="mt-2 text-sm text-copy" role="status">
+          No trim options were found for this vehicle. Check the year, make,
+          and model or use the VIN option.
+        </p>
+      ) : null}
+    </div>
   );
 }
 

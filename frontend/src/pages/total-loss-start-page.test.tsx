@@ -486,10 +486,17 @@ function createDependencyHarness({
     async ({ make }) =>
       make === "Toyota" ? ["Camry", "Corolla"] : ["Accord", "Civic"],
   );
+  const listTrims = vi.fn<VehicleLookupService["listTrims"]>(
+    async ({ make, model }) =>
+      make === "Toyota" && model === "Camry"
+        ? ["LE", "SE", "XLE"]
+        : ["EX", "EX-L", "EX-V6"],
+  );
   const vehicleLookupService: VehicleLookupService = {
     decodeVin,
     listMakes,
     listModels,
+    listTrims,
   };
   const getContact = vi.fn<TotalLossIdentityService["getContact"]>(
     async () => null,
@@ -546,6 +553,7 @@ function createDependencyHarness({
     vehicleLookupService,
     listMakes,
     listModels,
+    listTrims,
     getContact,
     saveContactAndBeginClaim,
     confirmIntake,
@@ -1084,11 +1092,16 @@ describe("/start?service=total-loss", () => {
     await user.selectOptions(screen.getByLabelText("Make"), "Honda");
     await waitFor(() => expect(screen.getByLabelText("Model")).toBeEnabled());
     await user.selectOptions(screen.getByLabelText("Model"), "Accord");
+    await waitFor(() => expect(screen.getByLabelText("Trim")).toBeEnabled());
+    await user.selectOptions(screen.getByLabelText("Trim"), "EX");
     await user.selectOptions(screen.getByLabelText("Make"), "Toyota");
     expect(screen.getByLabelText("Model")).toHaveValue("");
+    expect(screen.getByLabelText("Trim")).toHaveValue("");
+    expect(screen.getByLabelText("Trim")).toBeDisabled();
     await waitFor(() => expect(screen.getByLabelText("Model")).toBeEnabled());
     await user.selectOptions(screen.getByLabelText("Model"), "Camry");
-    await user.type(screen.getByLabelText("Trim"), "XLE");
+    await waitFor(() => expect(screen.getByLabelText("Trim")).toBeEnabled());
+    await user.selectOptions(screen.getByLabelText("Trim"), "XLE");
     await user.type(screen.getByLabelText("Mileage at date of loss"), "42000");
     await user.click(
       withinIntakeFlow().getByRole("button", {
@@ -1103,6 +1116,11 @@ describe("/start?service=total-loss", () => {
     expect(harness.listModels).toHaveBeenLastCalledWith({
       year: 2020,
       make: "Toyota",
+    });
+    expect(harness.listTrims).toHaveBeenLastCalledWith({
+      year: 2020,
+      make: "Toyota",
+      model: "Camry",
     });
     expect(readTotalLossDraft()).toMatchObject({
       ok: true,
@@ -1307,11 +1325,12 @@ describe("/start?service=total-loss", () => {
     expect(screen.getByLabelText("Year")).toHaveValue("2020");
     expect(screen.getByLabelText("Make")).toHaveValue("Honda");
     expect(screen.getByLabelText("Model")).toHaveValue("Accord");
+    await waitFor(() => expect(screen.getByLabelText("Trim")).toBeEnabled());
     await user.click(
       screen.getByRole("button", { name: "Confirm vehicle & continue" }),
     );
     expect(await screen.findByText("Trim is required.")).toBeVisible();
-    await user.type(screen.getByLabelText("Trim"), "EX-L");
+    await user.selectOptions(screen.getByLabelText("Trim"), "EX-L");
     await user.click(
       screen.getByRole("button", { name: "Confirm vehicle & continue" }),
     );

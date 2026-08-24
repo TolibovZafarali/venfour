@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Link, useLocation, useNavigate } from "react-router";
 
+import { environment } from "@/config/env";
 import {
   isPermanentAuthState,
   useAuth,
@@ -103,7 +104,9 @@ const REPORT_EXTRACTION_FAILURE_WARNING =
   "Automatic extraction could not finish. Complete the vehicle and claim details manually.";
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const defaultVehicleLookupService = createNhtsaVpicVehicleLookupService();
+const defaultVehicleLookupService = createNhtsaVpicVehicleLookupService({
+  apiBaseUrl: environment.apiBaseUrl,
+});
 
 const unavailableCaseService: AppraisalCaseService = {
   createAppraisalCase: () =>
@@ -422,20 +425,25 @@ function TotalLossIntakeFlowContent({
   const {
     makeOptions,
     modelOptions,
+    trimOptions,
     makesState,
     modelsState,
+    trimsState,
     vinLookupState,
     vinLookupMessage,
     decodeVin,
     resetVinLookup,
     retryMakes,
     retryModels,
+    retryTrims,
   } = useVehicleLookupController({
     service: vehicleLookupService,
     catalogEnabled:
       draft.step === "vehicle" && activeVehicleEntryMethod === "details",
+    trimCatalogEnabled: draft.step === "vehicle",
     vehicleYear: draft.manual.vehicleYear,
     make: draft.manual.make,
+    model: draft.manual.model,
     currentVin: normalizeTotalLossManualForm(draft.manual).vin,
     unknownVinErrorMessage:
       "We couldn’t identify that VIN right now. Try again or select your vehicle details.",
@@ -1128,6 +1136,8 @@ function TotalLossIntakeFlowContent({
       } else if (field === "vehicleYear" || field === "make") {
         manual.model = "";
         manual.trim = "";
+      } else if (field === "model") {
+        manual.trim = "";
       }
       return { ...current, manual, dirty: true };
     });
@@ -1747,8 +1757,10 @@ function TotalLossIntakeFlowContent({
             entryMethod={activeVehicleEntryMethod}
             makeOptions={makeOptions}
             modelOptions={modelOptions}
+            trimOptions={trimOptions}
             makesState={makesState}
             modelsState={modelsState}
+            trimsState={trimsState}
             vinLookupState={vinLookupState}
             vinLookupMessage={vinLookupMessage}
             busy={busy}
@@ -1757,6 +1769,7 @@ function TotalLossIntakeFlowContent({
             onEntryMethodChange={handleVehicleEntryMethodChange}
             onRetryMakes={retryMakes}
             onRetryModels={retryModels}
+            onRetryTrims={retryTrims}
             onChange={handleManualChange}
             onBlur={handleManualBlur}
             onBack={() => {

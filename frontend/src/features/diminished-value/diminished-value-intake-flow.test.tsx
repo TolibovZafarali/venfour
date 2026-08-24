@@ -389,6 +389,7 @@ function vehicleService(): VehicleLookupService {
     })),
     listMakes: vi.fn(async () => ["Honda"]),
     listModels: vi.fn(async () => ["Accord"]),
+    listTrims: vi.fn(async () => ["EX"]),
   };
 }
 

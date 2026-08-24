@@ -56,6 +56,7 @@ from venfour.case_analyses import (
     CaseAnalysisService,
     CaseAnalysisUnavailableError,
 )
+from venfour.marketcheck import MarketCheckProvider
 from venfour.presentation import (
     AnalysisPresentationContractError,
     AnalysisPresentationService,
@@ -70,6 +71,7 @@ from venfour.supabase_gateway import (
     SupabaseServerConfiguration,
     SupabaseUnavailableError,
 )
+from venfour.vehicle_catalog import VehicleTrimCatalogRequest
 
 
 _ERROR_MESSAGES = {
@@ -106,6 +108,12 @@ _ERROR_MESSAGES = {
     "REPORT_INTAKE_REQUIRED": "Complete report intake before starting analysis.",
     "REPORT_INTAKE_NOT_READY": "Report intake is not ready for analysis.",
     "CASE_NOT_READY": "Appraisal case is not ready for analysis.",
+    "INVALID_VEHICLE_TRIM_REQUEST": (
+        "Choose a valid vehicle year, make, and model."
+    ),
+    "VEHICLE_TRIM_LOOKUP_UNAVAILABLE": (
+        "Vehicle trims are temporarily unavailable. Try again."
+    ),
     "STAGING_PROXY_REQUIRED": "Staging API access is unavailable.",
 }
 
@@ -626,6 +634,53 @@ async def _owned_analysis_presentation(request: Request) -> JSONResponse:
         return _private_response(_error_response(500, "INTERNAL_ERROR"))
 
 
+def _vehicle_trim_request(request: Request) -> VehicleTrimCatalogRequest:
+    items = list(request.query_params.multi_items())
+    expected_names = {"year", "make", "model"}
+    if (
+        len(items) != len(expected_names)
+        or {name for name, _value in items} != expected_names
+    ):
+        raise ValueError("vehicle trim query parameters are invalid")
+    values = dict(items)
+    year_value = values["year"]
+    if len(year_value) != 4 or not year_value.isascii() or not year_value.isdigit():
+        raise ValueError("vehicle trim year is invalid")
+    return VehicleTrimCatalogRequest(
+        year=int(year_value),
+        make=values["make"],
+        model=values["model"],
+    )
+
+
+async def _vehicle_trims(request: Request) -> JSONResponse:
+    try:
+        catalog_request = _vehicle_trim_request(request)
+    except (TypeError, ValueError):
+        return _private_response(
+            _error_response(400, "INVALID_VEHICLE_TRIM_REQUEST")
+        )
+
+    service = request.app.state.vehicle_trim_catalog_service
+    if service is None:
+        return _private_response(
+            _error_response(503, "VEHICLE_TRIM_LOOKUP_UNAVAILABLE")
+        )
+    try:
+        trims = await run_in_threadpool(service.list_trims, catalog_request)
+        if (
+            not isinstance(trims, tuple)
+            or len(trims) > 1000
+            or any(not isinstance(trim, str) or not trim for trim in trims)
+        ):
+            raise TypeError("vehicle trim catalog response is invalid")
+        return _private_response(JSONResponse({"trims": list(trims)}))
+    except Exception:
+        return _private_response(
+            _error_response(503, "VEHICLE_TRIM_LOOKUP_UNAVAILABLE")
+        )
+
+
 def _health(_request: Request) -> JSONResponse:
     return JSONResponse({"status": "ok"})
 
@@ -677,6 +732,7 @@ def create_app(
     repository: AnalysisRunRepository | None = None,
     repository_root: Path | str | None = None,
     case_analysis_service: Any | None = None,
+    vehicle_trim_catalog_service: Any | None = None,
     supabase_gateway: CaseAnalysisGateway | None = None,
     enable_legacy_api: bool | None = None,
     staging_proxy_secret: str | None = None,
@@ -693,6 +749,20 @@ def create_app(
         if staging_proxy_secret is not None
         else os.environ.get(STAGING_PROXY_SECRET_ENVIRONMENT_NAME)
     )
+
+    selected_vehicle_trim_catalog_service = vehicle_trim_catalog_service
+    if selected_vehicle_trim_catalog_service is None and _runtime_secret_is_configured(
+        "MARKETCHECK_API_KEY"
+    ):
+        selected_vehicle_trim_catalog_service = MarketCheckProvider(
+            os.environ.get("MARKETCHECK_API_KEY")
+        )
+    if selected_vehicle_trim_catalog_service is not None and not callable(
+        getattr(selected_vehicle_trim_catalog_service, "list_trims", None)
+    ):
+        raise TypeError(
+            "vehicle_trim_catalog_service must expose list_trims(request)"
+        )
 
     if case_analysis_service is not None and supabase_gateway is not None:
         raise ValueError(
@@ -803,6 +873,7 @@ def create_app(
         )
 
     routes = [
+        Route("/api/v1/vehicle-trims", _vehicle_trims, methods=["GET"]),
         Route(
             "/api/v1/appraisal-cases/{case_id}/report-ingestion",
             _case_report_ingestion,
@@ -864,6 +935,9 @@ def create_app(
     app.state.presentation_service = selected_service
     app.state.creation_service = selected_creation_service
     app.state.case_analysis_service = selected_case_service
+    app.state.vehicle_trim_catalog_service = (
+        selected_vehicle_trim_catalog_service
+    )
     app.state.legacy_api_enabled = legacy_enabled
     app.state.customer_path_configured = customer_path_configured
     app.state.accepting_customer_requests = False
