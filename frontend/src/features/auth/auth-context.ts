@@ -34,9 +34,13 @@ export interface AuthActionOptions {
   callbackParameters?: Readonly<Record<string, string>>;
 }
 
+export interface GuestSessionOptions {
+  signal?: AbortSignal;
+}
+
 export interface AuthContextValue {
   auth: AuthState;
-  ensureGuestSession: () => Promise<Session>;
+  ensureGuestSession: (options?: GuestSessionOptions) => Promise<Session>;
   restoreSession: (session: Session) => Promise<Session>;
   signInWithGoogle: (options?: AuthActionOptions) => Promise<void>;
   sendMagicLink: (

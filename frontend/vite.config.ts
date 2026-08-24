@@ -2,10 +2,27 @@ import path from "node:path";
 
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
-import { defineConfig, loadEnv } from "vite";
+import {
+  type ConfigEnv,
+  defineConfig,
+  loadEnv,
+  type UserConfig,
+} from "vite";
 
-export default defineConfig(({ mode }) => {
-  const environment = loadEnv(mode, import.meta.dirname, "VENFOUR_");
+import { assertProductionTurnstileSiteKey } from "./scripts/turnstile-site-key.mjs";
+
+export function createViteConfiguration(
+  { command, mode }: ConfigEnv,
+  environmentDirectory = import.meta.dirname,
+): UserConfig {
+  const environment = loadEnv(mode, environmentDirectory, "VENFOUR_");
+  const publicEnvironment = loadEnv(mode, environmentDirectory, "VITE_");
+  if (command === "build") {
+    assertProductionTurnstileSiteKey(
+      publicEnvironment.VITE_TURNSTILE_SITE_KEY,
+    );
+  }
+
   const apiProxyTarget =
     environment.VENFOUR_API_PROXY_TARGET || "http://127.0.0.1:8000";
 
@@ -29,4 +46,8 @@ export default defineConfig(({ mode }) => {
       },
     },
   };
-});
+}
+
+export default defineConfig((configEnvironment) =>
+  createViteConfiguration(configEnvironment)
+);

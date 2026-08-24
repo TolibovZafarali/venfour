@@ -18,6 +18,7 @@ from venfour.report_ingestion import (
     ReportDocumentInvalidError,
     ReportIngestionService,
     detect_report_provider,
+    read_normalized_report_schema,
     validate_canonical_pdf,
     validate_normalized_report,
 )
@@ -185,6 +186,35 @@ class ReportIngestionRoutingTests(unittest.TestCase):
         self.assertFalse(result.partial)
         self.assertEqual(result.confidence, "HIGH")
         self.assertTrue(any("generic extraction" in item for item in result.warnings))
+
+    def test_generic_provider_identification_reroutes_ccc_to_specialized_adapter(
+        self,
+    ) -> None:
+        path = self.root / "unidentified.pdf"
+        write_pdf(path, "valuation document with unreadable provider text")
+        ccc = RecordingExtractor(make_report())
+        generic_data = generic_report()
+        generic_data["report"].update({"provider": "CCC", "providerId": "CCC"})
+        generic = RecordingExtractor(generic_data)
+
+        result = ReportIngestionService(
+            ccc_extractor=ccc,
+            generic_extractor=generic,
+        ).ingest(path)
+
+        self.assertEqual(result.adapter, CCC_ADAPTER)
+        self.assertEqual(result.provider, "CCC")
+        self.assertEqual(result.provider_id, "CCC")
+        self.assertEqual(len(generic.calls), 1)
+        self.assertEqual(len(ccc.calls), 1)
+
+    def test_normalized_api_schema_declares_schema_version_type(self) -> None:
+        schema = read_normalized_report_schema()
+
+        self.assertEqual(
+            schema["properties"]["schemaVersion"],
+            {"type": "string", "const": "1"},
+        )
 
     def test_incomplete_generic_extraction_returns_manual_confirmation_fields(self) -> None:
         path = self.root / "partial.pdf"

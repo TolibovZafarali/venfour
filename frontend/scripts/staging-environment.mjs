@@ -1,4 +1,11 @@
+import {
+  isOfficialTurnstileTestSiteKey,
+  isTurnstileSiteKey,
+} from "./turnstile-site-key.mjs";
+
 export const EXPECTED_STAGING_ORIGIN = "https://staging.venfour.com";
+export const EXPECTED_STAGING_SUPABASE_ORIGIN =
+  "https://bjvsgaqitehtwasugvla.supabase.co";
 
 const PRODUCTION_HOSTNAMES = new Set(["venfour.com", "www.venfour.com"]);
 const REQUIRED_NAMES = [
@@ -6,6 +13,7 @@ const REQUIRED_NAMES = [
   "VITE_SUPPORT_EMAIL",
   "VITE_SUPABASE_URL",
   "VITE_SUPABASE_PUBLISHABLE_KEY",
+  "VITE_TURNSTILE_SITE_KEY",
 ];
 
 export class StagingEnvironmentValidationError extends Error {
@@ -112,6 +120,10 @@ export function validateStagingEnvironment(environment) {
   const supabaseOrigin = httpsOrigin(environment.VITE_SUPABASE_URL);
   if (!supabaseOrigin) {
     issues.push("VITE_SUPABASE_URL must be an HTTPS origin without a path.");
+  } else if (supabaseOrigin.origin !== EXPECTED_STAGING_SUPABASE_ORIGIN) {
+    issues.push(
+      `VITE_SUPABASE_URL must be ${EXPECTED_STAGING_SUPABASE_ORIGIN} for this deployment.`,
+    );
   }
   if (!isPublishableSupabaseKey(environment.VITE_SUPABASE_PUBLISHABLE_KEY)) {
     issues.push(
@@ -121,6 +133,15 @@ export function validateStagingEnvironment(environment) {
   if (!isEmail(environment.VITE_SUPPORT_EMAIL)) {
     issues.push("VITE_SUPPORT_EMAIL must be a valid email address.");
   }
+  if (!isTurnstileSiteKey(environment.VITE_TURNSTILE_SITE_KEY)) {
+    issues.push("VITE_TURNSTILE_SITE_KEY must be a valid public site key.");
+  } else if (
+    isOfficialTurnstileTestSiteKey(environment.VITE_TURNSTILE_SITE_KEY)
+  ) {
+    issues.push(
+      "VITE_TURNSTILE_SITE_KEY must not use an official Turnstile test key in staging.",
+    );
+  }
 
   if (issues.length > 0) throw new StagingEnvironmentValidationError(issues);
   return Object.freeze({
@@ -128,5 +149,6 @@ export function validateStagingEnvironment(environment) {
     stagingOrigin: stagingOrigin.origin,
     supabaseUrl: supabaseOrigin.origin,
     supportEmail: environment.VITE_SUPPORT_EMAIL,
+    turnstileSiteKey: environment.VITE_TURNSTILE_SITE_KEY,
   });
 }

@@ -112,8 +112,8 @@ export function HomePage() {
             </h1>
             <p className="mt-6 max-w-xl text-base leading-7 text-ink/80 sm:text-lg sm:leading-8">
               Understand a total-loss vehicle valuation with or without an
-              insurer report, or submit repaired-vehicle details for future
-              manual review.
+              insurer report. Diminished Value customer intake is currently
+              paused.
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
               <Link
@@ -127,7 +127,7 @@ export function HomePage() {
                 to="/start?service=diminished-value"
                 className={`${secondaryActionClassName} shrink-0`}
               >
-                Submit diminished-value request
+                View Diminished Value update
               </Link>
             </div>
           </div>
@@ -198,21 +198,21 @@ export function HomePage() {
               </div>
               <div className="flex flex-col justify-center p-6 sm:p-9 lg:order-2 lg:p-12">
                 <p className="text-xs font-semibold tracking-[0.12em] text-brand uppercase">
-                  Diminished-Value Review Request
+                  Diminished Value · Intake paused
                 </p>
                 <h3 className="mt-3 text-3xl leading-tight font-semibold tracking-[-0.04em] text-ink sm:text-4xl">
                   Your vehicle was repaired
                 </h3>
                 <p className="mt-4 max-w-md text-base leading-7 text-copy">
-                  Submit accident, repair, vehicle, and contact details for a
-                  future manual review. No instant or automated appraisal is
-                  created when you submit.
+                  Customer intake is currently paused while Venfour focuses on
+                  the Total Loss experience. The service remains part of
+                  Venfour’s planned customer experience.
                 </p>
                 <Link
                   to="/start?service=diminished-value"
                   className={`${secondaryActionClassName} mt-7 self-start`}
                 >
-                  Submit diminished-value request
+                  View service update
                 </Link>
               </div>
             </article>
@@ -300,7 +300,7 @@ export function HomePage() {
         <div className="mx-auto grid w-full max-w-[84rem] gap-10 px-5 py-16 sm:px-8 sm:py-20 lg:grid-cols-[minmax(0,0.72fr)_minmax(34rem,1.28fr)] lg:items-center lg:gap-14 lg:px-10 lg:py-28">
           <div className="max-w-xl">
             <p className="text-xs font-semibold tracking-[0.12em] text-brand uppercase">
-              Diminished value — value lost after repairs
+              Diminished value — customer intake paused
             </p>
             <h2
               id="diminished-value-title"
@@ -313,13 +313,14 @@ export function HomePage() {
               A repaired vehicle may sell for less because buyers can see that it was in an accident.
             </p>
             <p className="mt-4 text-sm leading-6 text-copy">
-              This service is handled personally. It is not an instant or automated appraisal.
+              Venfour is completing the Total Loss experience before opening
+              this service to customers.
             </p>
             <Link
               to="/start?service=diminished-value"
               className={`${primaryActionClassName} mt-7 self-start`}
             >
-              Submit diminished-value request
+              View Diminished Value update
               <ArrowRight className="size-4" aria-hidden />
             </Link>
           </div>

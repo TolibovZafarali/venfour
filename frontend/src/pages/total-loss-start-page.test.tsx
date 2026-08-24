@@ -14,6 +14,11 @@ import type {
   AuthService,
   AuthStateChangeListener,
 } from "@/features/auth/auth-service";
+import type {
+  TurnstileAction,
+  TurnstileController,
+} from "@/features/auth/turnstile-controller";
+import { AUTH_RETURN_LOCATION_STORAGE_KEY } from "@/features/auth/return-location";
 import type { AppraisalCaseService } from "@/features/cases/service";
 import { appraisalCaseQueryKeys } from "@/features/cases/queries";
 import type { AppraisalCase } from "@/features/cases/types";
@@ -64,6 +69,7 @@ const OTHER_USER_ID = "44444444-4444-4444-8444-444444444444";
 const GUEST_USER_ID = "77777777-7777-4777-8777-777777777777";
 const REPORT_UPLOAD_ID = "55555555-5555-4555-8555-555555555555";
 const OTHER_CASE_ID = "66666666-6666-4666-8666-666666666666";
+const NEW_CASE_INTENT_ID = "99999999-9999-4999-8999-999999999999";
 const CREATED_AT = "2026-08-18T14:00:00.000Z";
 
 function createDeferred<T>() {
@@ -609,13 +615,14 @@ describe("/start?service=total-loss", () => {
     expect(pageHeading).toBeVisible();
     const layout = pageHeading.closest("[data-total-loss-layout]");
     expect(layout).toHaveClass(
-      "lg:grid-cols-[minmax(0,0.78fr)_minmax(0,1.22fr)]",
+      "lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]",
     );
-    expect(
+    const reportChoice =
       await screen.findByRole("group", {
         name: "Do you have your insurance valuation report?",
-      }),
-    ).toBeVisible();
+      });
+    expect(reportChoice).toBeVisible();
+    expect(reportChoice.closest("[data-flow-card]")).toBeInTheDocument();
     expect(
       screen.getByRole("radio", { name: /I have my valuation report/i }),
     ).toBeEnabled();
@@ -651,6 +658,132 @@ describe("/start?service=total-loss", () => {
         ownerUserId: GUEST_USER_ID,
       },
     });
+  });
+
+  it.each([
+    {
+      error: new Error("CAPTCHA provider returned private diagnostic data"),
+      expected: "We couldn’t complete the security check. Please try again.",
+    },
+    {
+      error: new Error("Failed to fetch internal guest-auth endpoint"),
+      expected:
+        "We couldn’t reach the sign-in service. Check your connection and try again.",
+    },
+    {
+      error: Object.assign(new Error("private upstream throttle detail"), {
+        status: 429,
+      }),
+      expected:
+        "Too many sign-in attempts. Please wait a few minutes and try again.",
+    },
+  ])(
+    "bounds a guest bootstrap failure as: $expected",
+    async ({ error, expected }) => {
+      const auth = createAuthHarness(null);
+      const signInAnonymously = vi
+        .fn()
+        .mockRejectedValueOnce(error)
+        .mockResolvedValueOnce(anonymousSessionFor());
+      auth.service.signInAnonymously = signInAnonymously;
+      const user = userEvent.setup();
+
+      renderTestApp(["/start?service=total-loss"], {
+        authService: auth.service,
+        totalLossDependencies: createDependencyHarness().dependencies,
+      });
+
+      expect(await screen.findByText(expected)).toBeVisible();
+      expect(screen.queryByText(error.message)).not.toBeInTheDocument();
+
+      await user.click(screen.getByRole("button", { name: "Try again" }));
+      expect(
+        await screen.findByRole("group", {
+          name: "Do you have your insurance valuation report?",
+        }),
+      ).toBeVisible();
+      expect(signInAnonymously).toHaveBeenCalledTimes(2);
+    },
+  );
+
+  it("applies the same bounded guest-auth mapping when a retry fails", async () => {
+    const auth = createAuthHarness(null);
+    const retryError = Object.assign(
+      new Error("private retry throttle diagnostic"),
+      { status: 429 },
+    );
+    const signInAnonymously = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("private initial auth diagnostic"))
+      .mockRejectedValueOnce(retryError);
+    auth.service.signInAnonymously = signInAnonymously;
+    const user = userEvent.setup();
+
+    renderTestApp(["/start?service=total-loss"], {
+      authService: auth.service,
+      totalLossDependencies: createDependencyHarness().dependencies,
+    });
+
+    expect(
+      await screen.findByText(
+        "Venfour could not prepare secure guest storage. Try again.",
+      ),
+    ).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Try again" }));
+
+    expect(
+      await screen.findByText(
+        "Too many sign-in attempts. Please wait a few minutes and try again.",
+      ),
+    ).toBeVisible();
+    expect(screen.queryByText(retryError.message)).not.toBeInTheDocument();
+    expect(signInAnonymously).toHaveBeenCalledTimes(2);
+  });
+
+  it("cancels guest authentication when SPA navigation leaves Total Loss", async () => {
+    const auth = createAuthHarness(null);
+    const challengeStarted = createDeferred<void>();
+    let challengeSignal: AbortSignal | undefined;
+    const turnstileController: TurnstileController = {
+      async runWithToken<T>(
+        _action: TurnstileAction,
+        _operation: (captchaToken: string) => Promise<T>,
+        signal?: AbortSignal,
+      ): Promise<T> {
+        challengeSignal = signal;
+        challengeStarted.resolve();
+        return await new Promise<T>((_resolve, reject) => {
+          if (!signal) {
+            reject(new Error("The security check requires cancellation."));
+            return;
+          }
+          const interrupt = () =>
+            reject(
+              new Error(
+                "The security check was interrupted. Please try again.",
+              ),
+            );
+          if (signal.aborted) {
+            interrupt();
+            return;
+          }
+          signal.addEventListener("abort", interrupt, { once: true });
+        });
+      },
+    };
+
+    const { router } = renderTestApp(["/start?service=total-loss"], {
+      authService: auth.service,
+      authTurnstileController: turnstileController,
+      totalLossDependencies: createDependencyHarness().dependencies,
+    });
+
+    await challengeStarted.promise;
+    expect(challengeSignal?.aborted).toBe(false);
+    await act(async () => router.navigate("/"));
+
+    await waitFor(() => expect(challengeSignal?.aborted).toBe(true));
+    expect(auth.service.signInAnonymously).not.toHaveBeenCalled();
   });
 
   it("stores no guest access or refresh token in the browser intake draft", async () => {
@@ -710,6 +843,115 @@ describe("/start?service=total-loss", () => {
         confirmedCaseId: CASE_ID,
         reservedCaseId: CASE_ID,
         ownerUserId: USER_ID,
+      },
+    });
+  });
+
+  it("starts another appraisal with one URL intent across reloads", async () => {
+    const auth = createAuthHarness(sessionFor());
+    const harness = createDependencyHarness({
+      recentCase: appraisalCase(OTHER_CASE_ID),
+    });
+    const newCasePath =
+      `/start?service=total-loss&newCaseId=${NEW_CASE_INTENT_ID}`;
+    writeTotalLossDraft(
+      createSensitiveManualDraft({
+        confirmedCaseId: CASE_ID,
+        reservedCaseId: CASE_ID,
+        step: "ready",
+      }),
+    );
+
+    const firstRender = renderTestApp([newCasePath], {
+      authService: auth.service,
+      totalLossDependencies: harness.dependencies,
+    });
+
+    expect(
+      await screen.findByRole("group", {
+        name: "Do you have your insurance valuation report?",
+      }),
+    ).toBeVisible();
+    expect(harness.getOrCreateTotalLossDraft).toHaveBeenCalledWith({
+      userId: USER_ID,
+    });
+    expect(harness.createOrGetAppraisalCase).not.toHaveBeenCalled();
+    expect(readTotalLossDraft()).toMatchObject({
+      ok: true,
+      draft: {
+        confirmedCaseId: OTHER_CASE_ID,
+        reservedCaseId: OTHER_CASE_ID,
+        ownerUserId: USER_ID,
+        mode: null,
+        manual: {
+          make: "",
+          model: "",
+          vin: "",
+        },
+      },
+    });
+
+    firstRender.unmount();
+    renderTestApp([newCasePath], {
+      authService: auth.service,
+      totalLossDependencies: harness.dependencies,
+    });
+
+    expect(
+      await screen.findByRole("group", {
+        name: "Do you have your insurance valuation report?",
+      }),
+    ).toBeVisible();
+    expect(harness.getOrCreateTotalLossDraft).toHaveBeenCalledTimes(2);
+    expect(harness.getOrCreateTotalLossDraft).toHaveBeenLastCalledWith({
+      userId: USER_ID,
+    });
+    expect(harness.createOrGetAppraisalCase).not.toHaveBeenCalled();
+  });
+
+  it("retries a new-case bootstrap with the same URL reservation", async () => {
+    const auth = createAuthHarness(sessionFor());
+    const harness = createDependencyHarness({
+      recentCase: appraisalCase(OTHER_CASE_ID),
+    });
+    const user = userEvent.setup();
+    harness.getOrCreateTotalLossDraft.mockRejectedValueOnce(
+      new Error("temporary create failure"),
+    );
+
+    const { router } = renderTestApp(
+      [`/start?service=total-loss&newCaseId=${NEW_CASE_INTENT_ID}`],
+      {
+        authService: auth.service,
+        totalLossDependencies: harness.dependencies,
+      },
+    );
+
+    expect(
+      await screen.findByText(
+        "Your durable Total Loss draft could not be prepared. No report has been requested or uploaded.",
+      ),
+    ).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Try again" }));
+
+    expect(
+      await screen.findByRole("group", {
+        name: "Do you have your insurance valuation report?",
+      }),
+    ).toBeVisible();
+    expect(harness.getOrCreateTotalLossDraft).toHaveBeenCalledTimes(2);
+    for (const [input] of harness.getOrCreateTotalLossDraft.mock.calls) {
+      expect(input).toEqual({ userId: USER_ID });
+    }
+    expect(harness.createOrGetAppraisalCase).not.toHaveBeenCalled();
+    expect(
+      new URLSearchParams(router.state.location.search).get("newCaseId"),
+    ).toBe(NEW_CASE_INTENT_ID);
+    expect(readTotalLossDraft()).toMatchObject({
+      ok: true,
+      draft: {
+        confirmedCaseId: OTHER_CASE_ID,
+        reservedCaseId: OTHER_CASE_ID,
       },
     });
   });
@@ -1098,6 +1340,9 @@ describe("/start?service=total-loss", () => {
     await waitFor(() =>
       expect(harness.saveContactAndBeginClaim).toHaveBeenCalledOnce(),
     );
+    expect(
+      window.localStorage.getItem(AUTH_RETURN_LOCATION_STORAGE_KEY),
+    ).toBe("/appraisals");
     await waitFor(() =>
       expect(readTotalLossDraft()).toMatchObject({
         ok: true,
@@ -1108,6 +1353,7 @@ describe("/start?service=total-loss", () => {
       await screen.findByRole("heading", { name: "Review your details" }),
     ).toBeVisible();
     expect(screen.getByText(/Valuation report review/)).toBeVisible();
+    const ingestionCallsBeforeConfirmation = ingestReportMock.mock.calls.length;
     await user.click(screen.getByRole("button", { name: "Start analysis" }));
     await waitFor(() =>
       expect(router.state.location.pathname).toBe(
@@ -1139,6 +1385,12 @@ describe("/start?service=total-loss", () => {
       userId: USER_ID,
       expectedUpdatedAt: expect.any(String),
     });
+    expect(ingestReportMock).toHaveBeenCalledTimes(
+      ingestionCallsBeforeConfirmation + 1,
+    );
+    expect(ingestReportMock.mock.invocationCallOrder.at(-1)).toBeLessThan(
+      harness.confirmIntake.mock.invocationCallOrder[0],
+    );
     for (const [input] of harness.saveDetails.mock.calls) {
       expect(input.values).not.toHaveProperty("intakeCompletedAt");
     }
@@ -1207,6 +1459,58 @@ describe("/start?service=total-loss", () => {
       screen.queryByRole("heading", { name: "Review your details" }),
     ).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Start analysis" })).not.toBeInTheDocument();
+  });
+
+  it("bounds a late access-email security error after preserving the intake", async () => {
+    expect(
+      writeTotalLossDraft(
+        createSensitiveManualDraft({
+          step: "claim",
+          confirmedCaseId: CASE_ID,
+          reservedCaseId: CASE_ID,
+        }),
+      ).ok,
+    ).toBe(true);
+    const auth = createAuthHarness(anonymousSessionFor(USER_ID));
+    const privateDiagnostic =
+      "CAPTCHA provider returned private diagnostic data";
+    auth.service.sendMagicLink = vi
+      .fn()
+      .mockRejectedValueOnce(new Error(privateDiagnostic));
+    const harness = createDependencyHarness();
+    const user = userEvent.setup();
+
+    renderTestApp(["/start?service=total-loss"], {
+      authService: auth.service,
+      totalLossDependencies: harness.dependencies,
+    });
+
+    expect(
+      await screen.findByRole("heading", { name: "Add the claim details" }),
+    ).toBeVisible();
+    await user.click(withinIntakeFlow().getByRole("button", { name: "Continue" }));
+    expect(
+      await screen.findByRole("heading", {
+        name: "Where should we send and save your results?",
+      }),
+    ).toBeVisible();
+    await user.type(screen.getByLabelText("Full name"), "Guest Customer");
+    await user.type(screen.getByLabelText("Email address"), "guest@example.com");
+    await user.click(screen.getByRole("checkbox", { name: /Terms of Use/i }));
+    await user.click(screen.getByRole("checkbox", { name: /Privacy Policy/i }));
+    await user.click(
+      screen.getByRole("button", { name: "Continue to review" }),
+    );
+
+    expect(
+      await screen.findByText(
+        "Your intake is saved. We couldn’t complete the security check. Please try again. You can still analyze in this browser.",
+      ),
+    ).toBeVisible();
+    expect(screen.queryByText(privateDiagnostic)).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Review your details" }),
+    ).toBeVisible();
   });
 
   it("atomically resumes the newest saved draft without a browser resume fork", async () => {
@@ -1381,6 +1685,35 @@ describe("/start?service=total-loss", () => {
     });
   });
 
+  it.each(["checking", "completed"] as const)(
+    "resolves an explicitly referenced %s case without creating a blank draft",
+    async (status) => {
+      const explicitCase = { ...appraisalCase(CASE_ID), status };
+      const auth = createAuthHarness(sessionFor());
+      const harness = createDependencyHarness({ recentCase: explicitCase });
+
+      renderTestApp([`/start?service=total-loss&caseId=${CASE_ID}`], {
+        authService: auth.service,
+        totalLossDependencies: harness.dependencies,
+      });
+
+      expect(
+        await screen.findByText(
+          "This saved appraisal cannot be opened from this link.",
+        ),
+      ).toBeVisible();
+      expect(harness.caseService.getAppraisalCase).toHaveBeenCalledWith({
+        caseId: CASE_ID,
+        userId: USER_ID,
+      });
+      expect(
+        screen.getByRole("link", { name: "View my appraisals" }),
+      ).toHaveAttribute("href", "/appraisals");
+      expect(harness.getOrCreateTotalLossDraft).not.toHaveBeenCalled();
+      expect(harness.createOrGetAppraisalCase).not.toHaveBeenCalled();
+    },
+  );
+
   it("preserves a same-owner local draft when its explicit case is validated", async () => {
     const localDraft = createSensitiveManualDraft({
       confirmedCaseId: CASE_ID,
@@ -1460,7 +1793,7 @@ describe("/start?service=total-loss", () => {
     ).toBeVisible();
   });
 
-  it("waits for explicit ownership before canonicalizing a stale draft link", async () => {
+  it("waits for explicit ownership and resolves that case before preparing a draft", async () => {
     expect(
       writeTotalLossDraft(
         createSensitiveManualDraft({
@@ -1504,16 +1837,19 @@ describe("/start?service=total-loss", () => {
       await screen.findByRole("heading", { name: "Add the claim details" }),
     ).toBeVisible();
     expect(harness.createOrGetAppraisalCase).not.toHaveBeenCalled();
-    expect(router.state.location.search).toContain(`caseId=${CASE_ID}`);
+    expect(harness.getOrCreateTotalLossDraft).not.toHaveBeenCalled();
+    expect(router.state.location.search).toContain(
+      `caseId=${RECENT_CASE_ID}`,
+    );
     expect(harness.detailsService.getDetails).toHaveBeenCalledWith({
-      caseId: CASE_ID,
+      caseId: RECENT_CASE_ID,
       userId: USER_ID,
     });
     expect(readTotalLossDraft()).toMatchObject({
       ok: true,
       draft: {
-        confirmedCaseId: CASE_ID,
-        reservedCaseId: CASE_ID,
+        confirmedCaseId: RECENT_CASE_ID,
+        reservedCaseId: RECENT_CASE_ID,
         ownerUserId: USER_ID,
       },
     });
@@ -1958,6 +2294,95 @@ describe("/start?service=total-loss", () => {
           zipCode: "60611",
         },
       },
+    });
+  });
+
+  it("resumes a persisted extraction failure truthfully without claiming details were extracted", async () => {
+    const failedDetails = detailsFor(CASE_ID, {
+      intakeMode: "report",
+      vehicleYear: 2020,
+      vehicleMake: "Honda",
+      vehicleModel: "Accord",
+      reportOriginalFilename: "failed-extraction.pdf",
+      reportUploadedAt: CREATED_AT,
+      reportExtractionStatus: "failed",
+    });
+    const auth = createAuthHarness(sessionFor());
+    const harness = createDependencyHarness({
+      details: [failedDetails],
+      recentCase: appraisalCase(CASE_ID),
+    });
+    const user = userEvent.setup();
+
+    renderTestApp([`/start?service=total-loss&caseId=${CASE_ID}`], {
+      authService: auth.service,
+      totalLossDependencies: harness.dependencies,
+    });
+
+    expect(await screen.findByText("failed-extraction.pdf")).toBeVisible();
+    expect(screen.getByText("Your report is saved")).toBeVisible();
+    expect(
+      screen.queryByText("Report details extracted"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getAllByText(/Automatic extraction could not finish/i),
+    ).not.toHaveLength(0);
+    const continueButton = screen.getByRole("button", {
+      name: "Continue with manual details",
+    });
+    expect(continueButton).toBeEnabled();
+    expect(ingestReportMock).not.toHaveBeenCalled();
+    expect(readTotalLossDraft()).toMatchObject({
+      ok: true,
+      draft: { reportExtractionStatus: "error" },
+    });
+
+    await user.click(continueButton);
+    expect(
+      await screen.findByRole("heading", {
+        name: "Tell us about your vehicle",
+      }),
+    ).toBeVisible();
+    expect(screen.getByLabelText("Year")).toHaveValue("2020");
+  });
+
+  it("resumes a persisted pending extraction instead of presenting it as extracted", async () => {
+    const pendingIngestion = new Promise(() => undefined);
+    ingestReportMock.mockReturnValueOnce(pendingIngestion);
+    const pendingDetails = detailsFor(CASE_ID, {
+      intakeMode: "report",
+      reportOriginalFilename: "pending-extraction.pdf",
+      reportUploadedAt: CREATED_AT,
+      reportExtractionStatus: "pending",
+    });
+    const auth = createAuthHarness(sessionFor());
+    const harness = createDependencyHarness({
+      details: [pendingDetails],
+      recentCase: appraisalCase(CASE_ID),
+    });
+
+    renderTestApp([`/start?service=total-loss&caseId=${CASE_ID}`], {
+      authService: auth.service,
+      totalLossDependencies: harness.dependencies,
+    });
+
+    expect(
+      await screen.findByText(
+        "Reading the report and preparing details for your review…",
+      ),
+    ).toBeVisible();
+    await waitFor(() =>
+      expect(ingestReportMock).toHaveBeenCalledWith(
+        CASE_ID,
+        `access-${USER_ID}`,
+      ),
+    );
+    expect(
+      screen.queryByText("Report details extracted"),
+    ).not.toBeInTheDocument();
+    expect(readTotalLossDraft()).toMatchObject({
+      ok: true,
+      draft: { reportExtractionStatus: "processing" },
     });
   });
 

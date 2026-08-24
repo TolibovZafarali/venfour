@@ -139,7 +139,7 @@ describe("/start appraisal intake", () => {
     [
       "diminished value",
       "/start?service=diminished-value",
-      "Diminished Value is coming next",
+      "Diminished Value intake is currently paused",
       "Diminished Value",
       "2025 Hyundai Tucson SEL",
       "Accident history · repairs · mileage · local market",
@@ -166,11 +166,20 @@ describe("/start appraisal intake", () => {
       ).toBeVisible();
       expect(screen.getByLabelText(supportingLine)).toBeVisible();
       expect(
+        document.querySelector("[data-appraisal-start-page]"),
+      ).toHaveClass("appraisal-start-gradient");
+      expect(
         document.querySelector("[data-appraisal-start-intro]"),
-      ).toHaveClass("lg:pt-5");
-      expect(document.querySelector("[data-appraisal-start-flow]")).toHaveClass(
-        "lg:pt-5",
-      );
+      ).toHaveClass("appraisal-start-intro-panel");
+      expect(
+        document.querySelector("[data-appraisal-start-flow]"),
+      ).toHaveClass("appraisal-start-flow-panel");
+      expect(
+        document.querySelector('[data-appraisal-section-content="intro"]'),
+      ).toHaveClass("lg:py-12");
+      expect(
+        document.querySelector('[data-appraisal-section-content="flow"]'),
+      ).toHaveClass("lg:py-12");
     },
   );
 
@@ -205,6 +214,24 @@ describe("/start appraisal intake", () => {
     expectSelectedService("Diminished Value");
   });
 
+  it("drops a new-case reservation when switching to another service", async () => {
+    const user = userEvent.setup();
+    const { router } = renderTestApp([
+      `/start?service=total-loss&newCaseId=${TOTAL_LOSS_CASE_ID}`,
+    ]);
+
+    await user.click(screen.getByRole("radio", { name: "Diminished Value" }));
+
+    await waitFor(() =>
+      expect(
+        new URLSearchParams(router.state.location.search).get("service"),
+      ).toBe("diminished-value"),
+    );
+    expect(
+      new URLSearchParams(router.state.location.search).has("newCaseId"),
+    ).toBe(false);
+  });
+
   it("navigates between the responsive overview and selected intake", async () => {
     const user = userEvent.setup();
     const { router } = renderTestApp([
@@ -220,7 +247,9 @@ describe("/start appraisal intake", () => {
     expect(intro).toHaveAttribute("data-mobile-stage-visible", "true");
     expect(flow).toHaveAttribute("data-mobile-stage-visible", "false");
 
-    await user.click(within(intro!).getByRole("button", { name: "Continue" }));
+    await user.click(
+      within(intro!).getByRole("button", { name: "View service update" }),
+    );
 
     await waitFor(() =>
       expect(
@@ -307,7 +336,7 @@ describe("/start appraisal intake", () => {
     expectSelectedService("Diminished Value");
     expect(
       screen.getByRole("heading", {
-        name: "Diminished Value is coming next",
+        name: "Diminished Value intake is currently paused",
       }),
     ).toBeVisible();
     expect(

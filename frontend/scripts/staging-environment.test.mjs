@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   EXPECTED_STAGING_ORIGIN,
+  EXPECTED_STAGING_SUPABASE_ORIGIN,
   StagingEnvironmentValidationError,
   validateStagingEnvironment,
 } from "./staging-environment.mjs";
@@ -12,7 +13,8 @@ const VALID_ENVIRONMENT = Object.freeze({
   VITE_SUPPORT_EMAIL: "support@example.test",
   VITE_SUPABASE_PUBLISHABLE_KEY:
     "sb_publishable_abcdefghijklmnopqrstuvwxyz0123456789",
-  VITE_SUPABASE_URL: "https://example.supabase.co",
+  VITE_SUPABASE_URL: EXPECTED_STAGING_SUPABASE_ORIGIN,
+  VITE_TURNSTILE_SITE_KEY: "0x4AAAAAAA0000000000000000000000",
 });
 
 function validate(overrides = {}) {
@@ -45,8 +47,9 @@ describe("validateStagingEnvironment", () => {
     expect(validate()).toEqual({
       apiBaseUrl: "",
       stagingOrigin: EXPECTED_STAGING_ORIGIN,
-      supabaseUrl: "https://example.supabase.co",
+      supabaseUrl: EXPECTED_STAGING_SUPABASE_ORIGIN,
       supportEmail: "support@example.test",
+      turnstileSiteKey: "0x4AAAAAAA0000000000000000000000",
     });
   });
 
@@ -55,6 +58,7 @@ describe("validateStagingEnvironment", () => {
     "VITE_SUPPORT_EMAIL",
     "VITE_SUPABASE_URL",
     "VITE_SUPABASE_PUBLISHABLE_KEY",
+    "VITE_TURNSTILE_SITE_KEY",
   ])("rejects a missing %s", (name) => {
     expect(issuesFor({ [name]: "" }).some((issue) => issue.includes(name))).toBe(
       true,
@@ -79,6 +83,16 @@ describe("validateStagingEnvironment", () => {
         issue.startsWith("VITE_SUPABASE_URL"),
       ),
     ).toBe(true);
+  });
+
+  it("rejects another valid Supabase HTTPS project origin", () => {
+    expect(
+      issuesFor({
+        VITE_SUPABASE_URL: "https://another-project.supabase.co",
+      }),
+    ).toContain(
+      `VITE_SUPABASE_URL must be ${EXPECTED_STAGING_SUPABASE_ORIGIN} for this deployment.`,
+    );
   });
 
   it.each([
@@ -113,5 +127,31 @@ describe("validateStagingEnvironment", () => {
     expect(
       issuesFor({ VITE_SUPPORT_EMAIL: "support-at-example.test" }),
     ).toContain("VITE_SUPPORT_EMAIL must be a valid email address.");
+  });
+
+  it.each([
+    "1x00000000000000000000AA",
+    "2x00000000000000000000AB",
+    "1x00000000000000000000BB",
+    "2x00000000000000000000BB",
+    "3x00000000000000000000FF",
+  ])("rejects an official Turnstile test key in staging: %s", (siteKey) => {
+    expect(issuesFor({ VITE_TURNSTILE_SITE_KEY: siteKey })).toContain(
+      "VITE_TURNSTILE_SITE_KEY must not use an official Turnstile test key in staging.",
+    );
+  });
+
+  it("rejects a malformed Turnstile site key", () => {
+    expect(issuesFor({ VITE_TURNSTILE_SITE_KEY: "not a site key" })).toContain(
+      "VITE_TURNSTILE_SITE_KEY must be a valid public site key.",
+    );
+  });
+
+  it("rejects a secret-shaped value that is too long to be a site key", () => {
+    expect(
+      issuesFor({
+        VITE_TURNSTILE_SITE_KEY: "1x0000000000000000000000000000000AA",
+      }),
+    ).toContain("VITE_TURNSTILE_SITE_KEY must be a valid public site key.");
   });
 });

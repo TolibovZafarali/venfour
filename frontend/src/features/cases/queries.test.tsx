@@ -12,6 +12,7 @@ import {
   appraisalCaseQueryKeys,
   useAppraisalCasesQuery,
   useRecentDraftAppraisalCaseQuery,
+  useReservedTotalLossDraftQuery,
   useTotalLossDraftQuery,
 } from "@/features/cases/queries";
 import type { AppraisalCaseService } from "@/features/cases/service";
@@ -89,6 +90,15 @@ describe("appraisal case query hooks", () => {
       "user",
       USER_ID,
       "totalLossDraft",
+    ]);
+    expect(
+      appraisalCaseQueryKeys.reservedTotalLossDraft(USER_ID, CASE_ID),
+    ).toEqual([
+      "appraisalCases",
+      "user",
+      USER_ID,
+      "reservedTotalLossDraft",
+      CASE_ID,
     ]);
   });
 
@@ -197,6 +207,30 @@ describe("appraisal case query hooks", () => {
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(getOrCreateTotalLossDraft).toHaveBeenCalledWith({ userId: USER_ID });
+    expect(result.current.data).toEqual(appraisalCase);
+  });
+
+  it("idempotently prepares the Total Loss draft reserved by the URL", async () => {
+    const createOrGetAppraisalCase = vi.fn(async () => appraisalCase);
+    const getOrCreateTotalLossDraft = vi.fn(async () => appraisalCase);
+    const service = createService({
+      createOrGetAppraisalCase,
+      getOrCreateTotalLossDraft,
+    });
+    const { wrapper } = createQueryHarness();
+    const { result } = renderHook(
+      () =>
+        useReservedTotalLossDraftQuery({
+          intentId: CASE_ID,
+          service,
+          userId: USER_ID,
+        }),
+      { wrapper },
+    );
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(getOrCreateTotalLossDraft).toHaveBeenCalledWith({ userId: USER_ID });
+    expect(createOrGetAppraisalCase).not.toHaveBeenCalled();
     expect(result.current.data).toEqual(appraisalCase);
   });
 

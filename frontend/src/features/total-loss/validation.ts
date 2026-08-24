@@ -8,9 +8,9 @@ import type {
 export const MIN_TOTAL_LOSS_VEHICLE_YEAR = 1981;
 export const MAX_TOTAL_LOSS_PDF_BYTES = 50 * 1024 * 1024;
 export const MAX_TOTAL_LOSS_PDF_MIB = 50;
+export const MAX_TOTAL_LOSS_MILEAGE = 10_000_000;
 export const MAX_INSURER_VALUATION_CENTS = 999_999_999_999;
 
-const MAX_POSTGRES_INTEGER = 2_147_483_647;
 const VIN_PATTERN = /^[A-HJ-NPR-Z0-9]{17}$/;
 const ZIP_CODE_PATTERN = /^\d{5}(?:-\d{4})?$/;
 const ISO_DATE_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
@@ -219,9 +219,9 @@ export function validateMileage(value: string): string | null {
   }
 
   const mileage = Number(normalized);
-  return Number.isSafeInteger(mileage) && mileage <= MAX_POSTGRES_INTEGER
+  return Number.isSafeInteger(mileage) && mileage <= MAX_TOTAL_LOSS_MILEAGE
     ? null
-    : "Mileage is too large.";
+    : "Mileage must be 10,000,000 or less.";
 }
 
 export function validateZipCode(value: string): string | null {

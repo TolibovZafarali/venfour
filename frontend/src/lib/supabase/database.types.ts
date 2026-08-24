@@ -12,6 +12,31 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.15"
   }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
       analysis_runs: {
@@ -63,6 +88,181 @@ export type Database = {
             referencedColumns: ["run_id", "id", "case_id"]
           },
         ]
+      }
+      anonymous_guest_cleanup_candidates: {
+        Row: {
+          attempt_count: number
+          auth_deleted_at: string | null
+          case_ids: string[]
+          completed_at: string | null
+          delete_after: string
+          eligibility_checked_at: string
+          first_marked_at: string
+          last_error_code: string | null
+          last_run_id: string | null
+          lease_expires_at: string | null
+          lease_token: string | null
+          retry_after: string | null
+          snapshot_at: string | null
+          state: string
+          storage_deleted_at: string | null
+          storage_deletion_started_at: string | null
+          storage_object_paths: string[]
+          storage_prefixes: string[]
+          user_id: string
+        }
+        Insert: {
+          attempt_count?: number
+          auth_deleted_at?: string | null
+          case_ids?: string[]
+          completed_at?: string | null
+          delete_after: string
+          eligibility_checked_at: string
+          first_marked_at: string
+          last_error_code?: string | null
+          last_run_id?: string | null
+          lease_expires_at?: string | null
+          lease_token?: string | null
+          retry_after?: string | null
+          snapshot_at?: string | null
+          state: string
+          storage_deleted_at?: string | null
+          storage_deletion_started_at?: string | null
+          storage_object_paths?: string[]
+          storage_prefixes?: string[]
+          user_id: string
+        }
+        Update: {
+          attempt_count?: number
+          auth_deleted_at?: string | null
+          case_ids?: string[]
+          completed_at?: string | null
+          delete_after?: string
+          eligibility_checked_at?: string
+          first_marked_at?: string
+          last_error_code?: string | null
+          last_run_id?: string | null
+          lease_expires_at?: string | null
+          lease_token?: string | null
+          retry_after?: string | null
+          snapshot_at?: string | null
+          state?: string
+          storage_deleted_at?: string | null
+          storage_deletion_started_at?: string | null
+          storage_object_paths?: string[]
+          storage_prefixes?: string[]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "anonymous_guest_cleanup_candidates_last_run_id_fkey"
+            columns: ["last_run_id"]
+            isOneToOne: false
+            referencedRelation: "anonymous_guest_cleanup_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      anonymous_guest_cleanup_events: {
+        Row: {
+          created_at: string
+          details: Json
+          event_type: string
+          id: number
+          run_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          details?: Json
+          event_type: string
+          id?: never
+          run_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          details?: Json
+          event_type?: string
+          id?: never
+          run_id?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "anonymous_guest_cleanup_events_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "anonymous_guest_cleanup_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      anonymous_guest_cleanup_runs: {
+        Row: {
+          blocked_count: number
+          cancelled_count: number
+          claimed_count: number
+          completed_at: string | null
+          completed_count: number
+          dry_run: boolean
+          eligible_count: number
+          id: string
+          marked_count: number
+          requested_batch_size: number
+          retry_count: number
+          started_at: string
+          status: string
+        }
+        Insert: {
+          blocked_count?: number
+          cancelled_count?: number
+          claimed_count?: number
+          completed_at?: string | null
+          completed_count?: number
+          dry_run: boolean
+          eligible_count?: number
+          id?: string
+          marked_count?: number
+          requested_batch_size: number
+          retry_count?: number
+          started_at?: string
+          status?: string
+        }
+        Update: {
+          blocked_count?: number
+          cancelled_count?: number
+          claimed_count?: number
+          completed_at?: string | null
+          completed_count?: number
+          dry_run?: boolean
+          eligible_count?: number
+          id?: string
+          marked_count?: number
+          requested_batch_size?: number
+          retry_count?: number
+          started_at?: string
+          status?: string
+        }
+        Relationships: []
+      }
+      anonymous_guest_cleanup_scheduler_config: {
+        Row: {
+          configured_at: string
+          project_origin: string
+          singleton: boolean
+        }
+        Insert: {
+          configured_at?: string
+          project_origin: string
+          singleton?: boolean
+        }
+        Update: {
+          configured_at?: string
+          project_origin?: string
+          singleton?: boolean
+        }
+        Relationships: []
       }
       appraisal_cases: {
         Row: {
@@ -730,6 +930,14 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      anonymous_guest_cleanup_user_frozen: {
+        Args: { candidate_user_id: string }
+        Returns: boolean
+      }
+      assert_anonymous_guest_cleanup_user_mutable: {
+        Args: { candidate_user_id: string }
+        Returns: undefined
+      }
       authorize_diminished_value_document_mutation: {
         Args: { object_name: string }
         Returns: boolean
@@ -750,6 +958,25 @@ export type Database = {
         Args: { object_name: string }
         Returns: boolean
       }
+      begin_abandoned_anonymous_guest_cleanup_run: {
+        Args: { batch_size?: number; requested_dry_run?: boolean }
+        Returns: {
+          cancelled_count: number
+          dry_run: boolean
+          eligible_count: number
+          marked_count: number
+          run_id: string
+          run_status: string
+        }[]
+      }
+      block_abandoned_anonymous_guest_cleanup_candidate: {
+        Args: {
+          candidate_lease_token: string
+          candidate_user_id: string
+          error_code: string
+        }
+        Returns: boolean
+      }
       build_total_loss_analysis_input_snapshot: {
         Args: {
           details: Database["public"]["Tables"]["total_loss_case_details"]["Row"]
@@ -766,6 +993,16 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      claim_abandoned_anonymous_guest_cleanup_candidate: {
+        Args: { cleanup_run_id: string; requested_lease_token: string }
+        Returns: {
+          case_ids: string[]
+          cleanup_action: string
+          storage_object_paths: string[]
+          storage_prefixes: string[]
+          user_id: string
+        }[]
+      }
       claim_total_loss_analysis: {
         Args: { case_id: string; processing_token: string; user_id: string }
         Returns: Database["public"]["CompositeTypes"]["total_loss_analysis_result"][]
@@ -775,6 +1012,10 @@ export type Database = {
           isOneToOne: false
           isSetofReturn: true
         }
+      }
+      complete_abandoned_anonymous_guest_cleanup_candidate: {
+        Args: { candidate_lease_token: string; candidate_user_id: string }
+        Returns: boolean
       }
       complete_total_loss_analysis: {
         Args: {
@@ -866,6 +1107,20 @@ export type Database = {
           isOneToOne: false
           isSetofReturn: true
         }
+      }
+      finish_abandoned_anonymous_guest_cleanup_run: {
+        Args: { cleanup_run_id: string; failed?: boolean }
+        Returns: {
+          blocked_count: number
+          cancelled_count: number
+          claimed_count: number
+          completed_count: number
+          eligible_count: number
+          marked_count: number
+          retry_count: number
+          run_id: string
+          run_status: string
+        }[]
       }
       get_or_create_total_loss_draft: {
         Args: never
@@ -963,6 +1218,12 @@ export type Database = {
         }
       }
       has_current_customer_profile: { Args: never; Returns: boolean }
+      invoke_abandoned_anonymous_guest_cleanup: { Args: never; Returns: number }
+      is_abandoned_anonymous_guest_eligible: {
+        Args: { candidate_user_id: string; observed_at?: string }
+        Returns: boolean
+      }
+      is_current_auth_user_cleanup_frozen: { Args: never; Returns: boolean }
       is_venfour_staff: { Args: never; Returns: boolean }
       list_owned_case_operations: {
         Args: never
@@ -1004,6 +1265,10 @@ export type Database = {
           vehicle_year: number
         }[]
       }
+      mark_abandoned_anonymous_guest_storage_deleted: {
+        Args: { candidate_lease_token: string; candidate_user_id: string }
+        Returns: boolean
+      }
       mark_total_loss_report_upload_ready: {
         Args: { case_id: string; has_backup: boolean; upload_id: string }
         Returns: Database["public"]["CompositeTypes"]["total_loss_report_upload_lease"][]
@@ -1042,6 +1307,14 @@ export type Database = {
           isOneToOne: false
           isSetofReturn: true
         }
+      }
+      retry_abandoned_anonymous_guest_cleanup_candidate: {
+        Args: {
+          candidate_lease_token: string
+          candidate_user_id: string
+          error_code: string
+        }
+        Returns: boolean
       }
       save_total_loss_contact_and_begin_claim: {
         Args: {
@@ -1153,6 +1426,10 @@ export type Database = {
           service_type: Database["public"]["Enums"]["appraisal_service_type"]
           verified_email: string
         }[]
+      }
+      start_abandoned_anonymous_guest_storage_deletion: {
+        Args: { candidate_lease_token: string; candidate_user_id: string }
+        Returns: boolean
       }
       submit_diminished_value_case: {
         Args: { case_id: string }
@@ -1473,6 +1750,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       appraisal_case_status: [

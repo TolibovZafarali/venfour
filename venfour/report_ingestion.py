@@ -800,6 +800,18 @@ class ReportIngestionService:
                     )
                 normalized = copy.deepcopy(extracted.data)
                 validate_normalized_report(normalized)
+                extracted_report = _mapping(normalized.get("report"))
+                if extracted_report.get("providerId") == "CCC":
+                    ccc_schema = read_canonical_schema()
+                    extracted = self._ccc_extractor(document.path, ccc_schema)
+                    if not isinstance(extracted, AIExtractionResult):
+                        raise ReportExtractionError(
+                            "Report adapter returned an invalid result"
+                        )
+                    validate_extraction(extracted.data, ccc_schema)
+                    normalized = normalize_ccc_report(extracted.data)
+                    detected_id, detected_name = "CCC", "CCC"
+                    adapter = CCC_ADAPTER
         except ReportIngestionError:
             raise
         except (

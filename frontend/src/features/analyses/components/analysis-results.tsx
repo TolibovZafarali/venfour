@@ -24,6 +24,7 @@ import {
   joinPresent,
   unavailable,
 } from "@/features/analyses/format";
+import { useNewTotalLossAppraisalHref } from "@/features/total-loss/new-appraisal";
 import { cn } from "@/lib/utils";
 
 interface AnalysisResultsProps {
@@ -193,7 +194,11 @@ function AnalysisScopeDisclosure({ analysis }: AnalysisResultsProps) {
     ? analysis.insurerValuation.source === "CUSTOMER_ENTERED"
       ? "The insurer value you entered was compared with the selected market median."
       : `The value extracted from the ${reportLabel} was compared with the selected market median.`
-    : "No usable insurer value was available, so no valuation-gap calculation was performed.";
+    : !scope.insurerValuationAvailable
+      ? "No usable insurer value was available, so no valuation-gap calculation was performed."
+      : !scope.marketEvidenceAvailable
+        ? "The insurer value was available, but too few qualifying external comparables were selected to calculate a reliable valuation gap."
+        : "The insurer value was available, but the evidence did not support a reliable valuation-gap calculation.";
   const reportCoverage = !scope.reportExtractionAvailable
     ? "The uploaded report could not be extracted reliably; report-specific values, comparables, and adjustments are not presented."
     : scope.partialExtraction || analysis.reportReview?.partial
@@ -483,14 +488,22 @@ function PrimaryAssessment({ analysis }: AnalysisResultsProps) {
   const undervalueAssessment =
     analysis.assessment.classification === "MATERIAL_UNDERVALUE_SIGNAL" ||
     analysis.assessment.classification === "POTENTIAL_UNDERVALUE";
+  const marketOnly =
+    !comparison &&
+    analysis.analysisScope.marketEvidenceAvailable &&
+    !analysis.analysisScope.insurerValuationAvailable;
   const gapLabel = comparison
     ? undervalueAssessment
       ? "Evidence gap"
       : "Difference from primary median"
-    : "Comparison scope";
+    : marketOnly
+      ? "Comparison scope"
+      : "Comparison result";
   const gapValue = comparison
     ? displayMoneyMagnitude(comparison.difference)
-    : "Market only";
+    : marketOnly
+      ? "Market only"
+      : "Not calculated";
   const gapPercent = comparison?.differencePercent.display
     ? displayPercentageMagnitude(comparison.differencePercent.display)
     : null;
@@ -559,14 +572,20 @@ function PrimaryAssessment({ analysis }: AnalysisResultsProps) {
                 ? undervalueAssessment
                   ? "This is the difference between the selected market median and the available insurer value."
                   : "This comparison describes the available evidence; it is not a settlement calculation."
-                : "No usable insurer value was available, so this analysis presents market evidence without calculating a valuation gap."}
+                : !analysis.analysisScope.insurerValuationAvailable
+                  ? "No usable insurer value was available, so this analysis presents market evidence without calculating a valuation gap."
+                  : !analysis.analysisScope.marketEvidenceAvailable
+                    ? "The insurer value was available, but there were too few qualifying external comparables to calculate a reliable valuation gap."
+                    : "The available evidence did not support a reliable valuation-gap calculation."}
             </p>
             <div className="mt-5 flex gap-3 border-t border-neutral-300 pt-5 text-sm leading-6 text-neutral-600">
               <Info className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
               <p>
                 {comparison
                   ? "Evidence of a valuation gap is not money owed or a guaranteed settlement increase."
-                  : "Market evidence alone is not an appraisal or a settlement calculation."}
+                  : marketOnly
+                    ? "Market evidence alone is not an appraisal or a settlement calculation."
+                    : "Insufficient market evidence does not establish that the insurer value is accurate or inaccurate."}
               </p>
             </div>
           </div>
@@ -1685,6 +1704,7 @@ function nextStepContent(analysis: AnalysisPresentation): NextStepContent {
 }
 
 function NextSteps({ analysis }: AnalysisResultsProps) {
+  const newAppraisalHref = useNewTotalLossAppraisalHref();
   const content = nextStepContent(analysis);
   const manual = analysis.analysisScope.inputMode === "MANUAL";
   const steps = [
@@ -1742,7 +1762,7 @@ function NextSteps({ analysis }: AnalysisResultsProps) {
             ))}
           </ol>
           <Button asChild variant="outline" size="lg" className="mt-7">
-            <Link to="/start?service=total-loss">Start another appraisal</Link>
+            <Link to={newAppraisalHref}>Start another appraisal</Link>
           </Button>
         </div>
       </div>

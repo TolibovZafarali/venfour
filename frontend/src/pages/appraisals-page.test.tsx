@@ -11,6 +11,7 @@ import type {
 import { AUTH_RETURN_LOCATION_STORAGE_KEY } from "@/features/auth/return-location";
 import type { AppraisalCaseService } from "@/features/cases/service";
 import type { AppraisalCase } from "@/features/cases/types";
+import { isNewTotalLossAppraisalIntentId } from "@/features/total-loss/new-appraisal";
 import { representativeRunId } from "@/test/fixtures/analysis-presentation";
 import { server } from "@/test/mocks/server";
 import { renderTestApp } from "@/test/render";
@@ -226,9 +227,19 @@ describe("customer appraisals page", () => {
     expect(
       await screen.findByRole("heading", { name: "No appraisals yet" }),
     ).toBeVisible();
+    const newAppraisalHref = screen
+      .getByRole("link", { name: "Start another appraisal" })
+      .getAttribute("href");
+    expect(newAppraisalHref).not.toBeNull();
+    const newAppraisalUrl = new URL(newAppraisalHref ?? "", "http://localhost");
+    expect(newAppraisalUrl.pathname).toBe("/start");
+    expect(newAppraisalUrl.searchParams.get("service")).toBe("total-loss");
     expect(
-      screen.getByRole("link", { name: "Start another appraisal" }),
-    ).toHaveAttribute("href", "/start?service=total-loss");
+      isNewTotalLossAppraisalIntentId(
+        newAppraisalUrl.searchParams.get("newCaseId") ?? "",
+      ),
+    ).toBe(true);
+    expect(newAppraisalUrl.searchParams.has("caseId")).toBe(false);
     expect(document.title).toBe("My Appraisals | Venfour");
   });
 

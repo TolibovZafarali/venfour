@@ -75,7 +75,7 @@ function AppShellContent() {
     .find(isPageMetadata) ?? {
       title: "Vehicle Valuation Reviews After an Accident | Venfour",
       description:
-        "Review a total-loss valuation with or without an insurer report, or submit repaired-vehicle details for future manual diminished-value review.",
+        "Review a total-loss valuation with or without an insurer report. Diminished Value customer intake is currently paused.",
     };
 
   useDocumentMetadata(analysisRoute ? null : metadata);
@@ -230,9 +230,6 @@ function AppShellContent() {
                 <AccountControl
                   className="shrink-0"
                   onStaffNavigationRequest={requestStaffNavigation}
-                  signedOutHint={
-                    startFlowRoute ? "Already have an account?" : undefined
-                  }
                   staffReviewHref={staffReviewHref}
                 />
               ) : (

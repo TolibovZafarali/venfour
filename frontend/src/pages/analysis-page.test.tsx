@@ -13,6 +13,7 @@ import {
   materialUndervalueAnalysis,
   representativeRunId,
 } from "@/test/fixtures/analysis-presentation";
+import { isNewTotalLossAppraisalIntentId } from "@/features/total-loss/new-appraisal";
 import { server } from "@/test/mocks/server";
 import { renderTestApp as renderBaseTestApp } from "@/test/render";
 
@@ -269,6 +270,13 @@ function insufficientEvidenceAnalysis(): AnalysisPresentation {
   const analysis: AnalysisPresentationBase = structuredClone(
     materialUndervalueAnalysis,
   );
+  analysis.analysisScope = {
+    ...analysis.analysisScope,
+    marketEvidenceAvailable: false,
+    insurerValuationAvailable: true,
+    insurerValuationComparisonPerformed: false,
+    offerComparisonPerformed: false,
+  };
   analysis.assessment = {
     ...analysis.assessment,
     classification: "INSUFFICIENT_EVIDENCE",
@@ -624,9 +632,19 @@ describe("analysis results page", () => {
     ).toHaveTextContent(
       "The selected evidence shows a material signal worth reviewing carefully",
     );
+    const newAppraisalHref = screen
+      .getByRole("link", { name: "Start another appraisal" })
+      .getAttribute("href");
+    expect(newAppraisalHref).not.toBeNull();
+    const newAppraisalUrl = new URL(newAppraisalHref ?? "", "http://localhost");
+    expect(newAppraisalUrl.pathname).toBe("/start");
+    expect(newAppraisalUrl.searchParams.get("service")).toBe("total-loss");
     expect(
-      screen.getByRole("link", { name: "Start another appraisal" }),
-    ).toHaveAttribute("href", "/start?service=total-loss");
+      isNewTotalLossAppraisalIntentId(
+        newAppraisalUrl.searchParams.get("newCaseId") ?? "",
+      ),
+    ).toBe(true);
+    expect(newAppraisalUrl.searchParams.has("caseId")).toBe(false);
     expect(document.title).toBe("Vehicle Valuation Analysis | Venfour");
   });
 
@@ -837,6 +855,17 @@ describe("analysis results page", () => {
         name: "No external comparables were selected",
       }),
     ).toBeInTheDocument();
+    expect(screen.getAllByText("$20,000").length).toBeGreaterThan(0);
+    expect(
+      screen.getByText(
+        "The insurer value was available, but too few qualifying external comparables were selected to calculate a reliable valuation gap.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Not calculated")).toBeInTheDocument();
+    expect(
+      screen.queryByText(/No usable insurer value was available/),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText("Market only")).not.toBeInTheDocument();
     expect(
       screen.getByRole("region", { name: "What you can do next" }),
     ).toHaveTextContent(

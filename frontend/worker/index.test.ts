@@ -86,6 +86,12 @@ describe("staging Worker boundary", () => {
     expect(html.headers.get("content-security-policy")).toContain(
       "frame-ancestors 'none'",
     );
+    expect(html.headers.get("content-security-policy")).toContain(
+      "frame-src 'self' https://challenges.cloudflare.com",
+    );
+    expect(html.headers.get("content-security-policy")).toContain(
+      "script-src 'self' https://challenges.cloudflare.com",
+    );
     expect(assets).toHaveBeenCalledWith(
       expect.objectContaining({
         url: `${STAGING_ORIGIN}/analysis/example?from=staging`,

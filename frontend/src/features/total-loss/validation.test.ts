@@ -6,11 +6,13 @@ import {
   formatCurrencyValue,
   formatMileageInput,
   getMaximumTotalLossVehicleYear,
+  MAX_TOTAL_LOSS_MILEAGE,
   MAX_TOTAL_LOSS_PDF_BYTES,
   normalizeTotalLossManualForm,
   parseCurrencyToCents,
   sanitizeDisplayFilename,
   validateDateOfLoss,
+  validateMileage,
   validateTotalLossManualForm,
   validateTotalLossPdf,
   validateVin,
@@ -150,6 +152,13 @@ describe("total-loss manual validation", () => {
       /valid date/,
     );
     expect(validateDateOfLoss("2026-08-18", REFERENCE_DATE)).toBeNull();
+  });
+
+  it("matches the analysis pipeline mileage ceiling", () => {
+    expect(validateMileage(String(MAX_TOTAL_LOSS_MILEAGE))).toBeNull();
+    expect(validateMileage(String(MAX_TOTAL_LOSS_MILEAGE + 1))).toBe(
+      "Mileage must be 10,000,000 or less.",
+    );
   });
 });
 

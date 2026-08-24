@@ -108,10 +108,17 @@ describe("Supabase auth service", () => {
       if (!service.signInAnonymously) {
         throw new Error("Anonymous auth support was not configured.");
       }
-      const session = await service.signInAnonymously();
+      const session = await service.signInAnonymously(
+        "anonymous-turnstile-token",
+      );
 
       expect(signupRequestBody).toEqual(
-        expect.objectContaining({ data: {} }),
+        expect.objectContaining({
+          data: {},
+          gotrue_meta_security: {
+            captcha_token: "anonymous-turnstile-token",
+          },
+        }),
       );
       expect(session.user.id).toBe(ANONYMOUS_USER_ID);
       expect(session.user.is_anonymous).toBe(true);
@@ -160,7 +167,11 @@ describe("Supabase auth service", () => {
     const callbackUrl = `${window.location.origin}/auth/callback`;
 
     try {
-      await service.sendMagicLink("owner@example.com", callbackUrl);
+      await service.sendMagicLink(
+        "owner@example.com",
+        callbackUrl,
+        "magic-link-turnstile-token",
+      );
 
       expect(otpRedirectTo).toBe(callbackUrl);
       expect(otpRequestBody).toEqual(
@@ -169,6 +180,9 @@ describe("Supabase auth service", () => {
           code_challenge_method: "s256",
           create_user: true,
           email: "owner@example.com",
+          gotrue_meta_security: {
+            captcha_token: "magic-link-turnstile-token",
+          },
         }),
       );
 

@@ -165,6 +165,7 @@ describe("sign-in dialog", () => {
     expect(service.sendMagicLink).toHaveBeenCalledWith(
       "owner@example.com",
       `${window.location.origin}/auth/callback`,
+      expect.stringMatching(/^turnstile-test-magic-link-/u),
     );
     expect(screen.getByText("owner@example.com")).toBeVisible();
   });
@@ -494,7 +495,7 @@ describe("auth callback", () => {
     storeAuthReturnLocation("/destination?from=auth");
     const router = createMemoryRouter(
       [
-        { path: "/auth/callback", element: <AuthCallbackPage /> },
+        { path: "/auth/callback/*", element: <AuthCallbackPage /> },
         { path: "/destination", element: <h1>Destination</h1> },
       ],
       {
@@ -529,7 +530,7 @@ describe("auth callback", () => {
     storeAuthReturnLocation("/destination");
     const router = createMemoryRouter(
       [
-        { path: "/auth/callback", element: <AuthCallbackPage /> },
+        { path: "/auth/callback/*", element: <AuthCallbackPage /> },
         { path: "/destination", element: <h1>Destination</h1> },
       ],
       { initialEntries: ["/auth/callback?code=new-account-code"] },
@@ -573,12 +574,12 @@ describe("auth callback", () => {
     storeAuthReturnLocation("/destination");
     const router = createMemoryRouter(
       [
-        { path: "/auth/callback", element: <AuthCallbackPage /> },
+        { path: "/auth/callback/*", element: <AuthCallbackPage /> },
         { path: "/destination", element: <h1>Destination</h1> },
       ],
       {
         initialEntries: [
-          `/auth/callback?token_hash=claim-token&type=email&case_claim=${CASE_CLAIM_ID}`,
+          `/auth/callback/case-claim/${CASE_CLAIM_ID}?token_hash=claim-token&type=email`,
         ],
       },
     );
@@ -599,10 +600,12 @@ describe("auth callback", () => {
     expect(completeIdentityClaim).toHaveBeenCalledWith(CASE_CLAIM_ID);
     expect(service.restoreSession).toHaveBeenCalledOnce();
     expect(service.restoreSession).toHaveBeenCalledWith(guestSession);
-    expect(router.state.location.pathname).toBe("/auth/callback");
+    expect(router.state.location.pathname).toBe(
+      `/auth/callback/case-claim/${CASE_CLAIM_ID}`,
+    );
   });
 
-  test("keeps the verified session after a successful case claim", async () => {
+  test("keeps the verified session and routes a claimed case through appraisals", async () => {
     const guestSession = anonymousSessionFor("existing-guest");
     const permanentSession = sessionFor("claim-owner");
     const completeIdentityClaim = vi.fn<
@@ -621,15 +624,17 @@ describe("auth callback", () => {
       getSession: vi.fn(async () => guestSession),
       verifyEmailOtp: vi.fn(async () => permanentSession),
     });
-    storeAuthReturnLocation("/destination");
+    storeAuthReturnLocation(
+      "/start?service=total-loss&caseId=77777777-7777-4777-8777-777777777777",
+    );
     const router = createMemoryRouter(
       [
-        { path: "/auth/callback", element: <AuthCallbackPage /> },
-        { path: "/destination", element: <h1>Destination</h1> },
+        { path: "/auth/callback/*", element: <AuthCallbackPage /> },
+        { path: "/appraisals", element: <h1>My appraisals</h1> },
       ],
       {
         initialEntries: [
-          `/auth/callback?token_hash=claim-token&type=email&case_claim=${CASE_CLAIM_ID}`,
+          `/auth/callback/case-claim/${CASE_CLAIM_ID}?token_hash=claim-token&type=email`,
         ],
       },
     );
@@ -643,8 +648,9 @@ describe("auth callback", () => {
     );
 
     expect(
-      await screen.findByRole("heading", { name: "Destination" }),
+      await screen.findByRole("heading", { name: "My appraisals" }),
     ).toBeVisible();
+    expect(router.state.location.pathname).toBe("/appraisals");
     expect(service.verifyEmailOtp).toHaveBeenCalledWith("claim-token");
     expect(completeIdentityClaim).toHaveBeenCalledOnce();
     expect(completeIdentityClaim).toHaveBeenCalledWith(CASE_CLAIM_ID);

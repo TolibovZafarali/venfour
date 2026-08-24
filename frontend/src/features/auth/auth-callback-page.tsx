@@ -80,7 +80,9 @@ export function AuthCallbackPage() {
           .then(() => {
             if (navigationStartedRef.current) return;
             navigationStartedRef.current = true;
-            void navigate(consumeAuthReturnLocation(), { replace: true });
+            void navigate(completedAuthReturnLocation(caseClaim), {
+              replace: true,
+            });
           })
           .catch((error: unknown) => {
             setCompletionError(getFriendlyAuthError(error, "callback"));
@@ -143,7 +145,9 @@ export function AuthCallbackPage() {
       .then(() => {
         if (!active || navigationStartedRef.current) return;
         navigationStartedRef.current = true;
-        void navigate(consumeAuthReturnLocation(), { replace: true });
+        void navigate(completedAuthReturnLocation(caseClaim), {
+          replace: true,
+        });
       })
       .catch((error: unknown) => {
         if (active) {
@@ -217,6 +221,13 @@ export function AuthCallbackPage() {
       </div>
     </section>
   );
+}
+
+function completedAuthReturnLocation(
+  caseClaim: ReturnType<typeof readCaseClaimCallbackParameter>,
+) {
+  const storedReturnLocation = consumeAuthReturnLocation();
+  return caseClaim.kind === "claim" ? "/appraisals" : storedReturnLocation;
 }
 
 async function completeCaseClaim(

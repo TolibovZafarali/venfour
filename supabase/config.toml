@@ -23,7 +23,7 @@ enabled = true
 port = 54323
 api_url = "http://127.0.0.1"
 
-[inbucket]
+[local_smtp]
 enabled = true
 port = 54324
 
@@ -36,15 +36,46 @@ enabled = true
 site_url = "http://localhost:5173"
 additional_redirect_urls = [
   "http://localhost:5173/auth/callback",
+  "http://localhost:5173/auth/callback/case-claim/*",
+  "http://127.0.0.1:5173/auth/callback",
+  "http://127.0.0.1:5173/auth/callback/case-claim/*",
   "https://staging.venfour.com/auth/callback",
+  "https://staging.venfour.com/auth/callback/case-claim/*",
   "https://venfour.com/auth/callback",
+  "https://venfour.com/auth/callback/case-claim/*",
 ]
 jwt_expiry = 3600
 enable_signup = true
-enable_anonymous_sign_ins = false
+enable_anonymous_sign_ins = true
+
+[auth.rate_limit]
+email_sent = 30
+sms_sent = 30
+anonymous_users = 30
+token_refresh = 150
+sign_in_sign_ups = 30
+token_verifications = 30
+web3 = 30
+
+[auth.captcha]
+enabled = true
+provider = "turnstile"
+secret = "env(SUPABASE_AUTH_CAPTCHA_SECRET)"
 
 [auth.email]
 enable_signup = true
 double_confirm_changes = true
-enable_confirmations = false
+enable_confirmations = true
+max_frequency = "60s"
 otp_expiry = 3600
+
+[auth.email.template.confirmation]
+subject = "Continue your Venfour appraisal"
+content_path = "./supabase/templates/confirmation.html"
+
+[auth.email.template.magic_link]
+subject = "Continue your Venfour appraisal"
+content_path = "./supabase/templates/magic-link.html"
+
+[functions.cleanup-abandoned-anonymous-guests]
+verify_jwt = false

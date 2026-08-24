@@ -2,6 +2,7 @@ data/raw/
 data/extracted/
 data/analyzed/
 data/analysis-runs/
+output/pdf/venfour-local-*.pdf
 .env
 .env.*
 !.env.example

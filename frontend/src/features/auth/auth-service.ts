@@ -15,9 +15,13 @@ export interface AuthService {
   getSession: () => Promise<Session | null>;
   onAuthStateChange: (listener: AuthStateChangeListener) => () => void;
   restoreSession?: (session: Session) => Promise<Session>;
-  signInAnonymously?: () => Promise<Session>;
+  signInAnonymously?: (captchaToken: string) => Promise<Session>;
   signInWithGoogle: (redirectTo: string) => Promise<void>;
-  sendMagicLink: (email: string, redirectTo: string) => Promise<void>;
+  sendMagicLink: (
+    email: string,
+    redirectTo: string,
+    captchaToken: string,
+  ) => Promise<void>;
   exchangeCodeForSession: (
     code: string,
     flowId?: string,
@@ -61,8 +65,10 @@ export function createSupabaseAuthService(
       return data.session;
     },
 
-    async signInAnonymously() {
-      const { data, error } = await client.auth.signInAnonymously();
+    async signInAnonymously(captchaToken) {
+      const { data, error } = await client.auth.signInAnonymously({
+        options: { captchaToken },
+      });
       throwIfError(error);
 
       if (!data.session) {
@@ -80,10 +86,11 @@ export function createSupabaseAuthService(
       throwIfError(error);
     },
 
-    async sendMagicLink(email, redirectTo) {
+    async sendMagicLink(email, redirectTo, captchaToken) {
       const { error } = await client.auth.signInWithOtp({
         email,
         options: {
+          captchaToken,
           emailRedirectTo: redirectTo,
           shouldCreateUser: true,
         },

@@ -17,6 +17,12 @@ export const appraisalCaseQueryKeys = {
     [...appraisalCaseQueryKeys.recentDrafts(userId), serviceType] as const,
   totalLossDraft: (userId: string | null) =>
     [...appraisalCaseQueryKeys.user(userId), "totalLossDraft"] as const,
+  reservedTotalLossDraft: (userId: string | null, intentId: string) =>
+    [
+      ...appraisalCaseQueryKeys.user(userId),
+      "reservedTotalLossDraft",
+      intentId,
+    ] as const,
 };
 
 interface AppraisalCasesQueryOptions {
@@ -30,6 +36,10 @@ interface AppraisalCaseQueryOptions extends AppraisalCasesQueryOptions {
 
 interface RecentDraftAppraisalCaseQueryOptions extends AppraisalCasesQueryOptions {
   readonly serviceType: AppraisalServiceType;
+}
+
+interface ReservedTotalLossDraftQueryOptions extends AppraisalCasesQueryOptions {
+  readonly intentId: string;
 }
 
 export function appraisalCasesQueryOptions({
@@ -103,6 +113,26 @@ export function totalLossDraftQueryOptions({
   });
 }
 
+export function reservedTotalLossDraftQueryOptions({
+  intentId,
+  service,
+  userId,
+}: ReservedTotalLossDraftQueryOptions) {
+  return queryOptions({
+    queryKey: appraisalCaseQueryKeys.reservedTotalLossDraft(userId, intentId),
+    queryFn: () => {
+      if (!userId) {
+        throw new Error(
+          "An authenticated user is required to prepare a reserved Total Loss draft.",
+        );
+      }
+      return service.getOrCreateTotalLossDraft({ userId });
+    },
+    enabled: Boolean(userId && intentId),
+    staleTime: 10_000,
+  });
+}
+
 export function useAppraisalCasesQuery(options: AppraisalCasesQueryOptions) {
   return useQuery(appraisalCasesQueryOptions(options));
 }
@@ -119,4 +149,10 @@ export function useRecentDraftAppraisalCaseQuery(
 
 export function useTotalLossDraftQuery(options: AppraisalCasesQueryOptions) {
   return useQuery(totalLossDraftQueryOptions(options));
+}
+
+export function useReservedTotalLossDraftQuery(
+  options: ReservedTotalLossDraftQueryOptions,
+) {
+  return useQuery(reservedTotalLossDraftQueryOptions(options));
 }

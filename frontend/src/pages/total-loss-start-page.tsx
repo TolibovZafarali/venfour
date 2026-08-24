@@ -1,12 +1,13 @@
 import { AlertCircle, CloudOff, RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { useLocation, useNavigate } from "react-router";
+import { Link, useLocation, useNavigate } from "react-router";
 
 import {
   isPermanentAuthState,
   useAuth,
 } from "@/features/auth";
+import { getFriendlyAuthError } from "@/features/auth/auth-errors";
 import { getUserFullName } from "@/features/auth/user-display";
 import {
   CURRENT_PRIVACY_NOTICE_VERSION,
@@ -21,6 +22,7 @@ import {
   appraisalCaseQueryKeys,
   useAppraisalCaseQuery,
   useRecentDraftAppraisalCaseQuery,
+  useReservedTotalLossDraftQuery,
   useTotalLossDraftQuery,
 } from "@/features/cases/queries";
 import type { AppraisalCaseService } from "@/features/cases/service";
@@ -77,6 +79,7 @@ import {
   type TotalLossIntakeMode,
   type TotalLossManualFormErrors,
   type TotalLossManualFormValues,
+  type TotalLossReportExtractionStatus,
 } from "@/features/total-loss/types";
 import {
   hasTotalLossManualFormErrors,
@@ -90,8 +93,14 @@ import {
   normalizeTotalLossReportFiles,
   TotalLossReportNormalizationError,
 } from "@/features/total-loss/report-normalization";
+import {
+  isNewTotalLossAppraisalIntentId,
+  NEW_TOTAL_LOSS_CASE_QUERY_PARAMETER,
+} from "@/features/total-loss/new-appraisal";
 
 const AUTOSAVE_DELAY_MS = 600;
+const REPORT_EXTRACTION_FAILURE_WARNING =
+  "Automatic extraction could not finish. Complete the vehicle and claim details manually.";
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const defaultVehicleLookupService = createNhtsaVpicVehicleLookupService();
@@ -142,18 +151,29 @@ function TotalLossDraftBootstrapGate({
 }: TotalLossIntakeFlowProps) {
   const { auth, ensureGuestSession } = useAuth();
   const location = useLocation();
-  const navigate = useNavigate();
   const dependencies = useTotalLossDependencies();
   const [guestBootstrapError, setGuestBootstrapError] = useState<string | null>(
     null,
   );
+  const guestBootstrapAbortRef = useRef<AbortController | null>(null);
   const userId = auth.status === "signedIn" ? auth.user.id : null;
   const explicitCaseId = useMemo(
     () => new URLSearchParams(location.search).get("caseId"),
     [location.search],
   );
+  const newCaseId = useMemo(
+    () =>
+      new URLSearchParams(location.search).get(
+        NEW_TOTAL_LOSS_CASE_QUERY_PARAMETER,
+      ),
+    [location.search],
+  );
+  const conflictingCaseIntents = Boolean(explicitCaseId && newCaseId);
   const invalidExplicitCaseId = Boolean(
     explicitCaseId && !UUID_PATTERN.test(explicitCaseId),
+  );
+  const invalidNewCaseId = Boolean(
+    newCaseId && !isNewTotalLossAppraisalIntentId(newCaseId),
   );
   const caseService =
     dependencies?.appraisalCaseService ?? unavailableCaseService;
@@ -161,15 +181,32 @@ function TotalLossDraftBootstrapGate({
     caseId: explicitCaseId ?? "",
     service: caseService,
     userId:
-      dependencies && explicitCaseId && !invalidExplicitCaseId ? userId : null,
+      dependencies &&
+      explicitCaseId &&
+      !newCaseId &&
+      !invalidExplicitCaseId
+        ? userId
+        : null,
+  });
+  const reservedCaseQuery = useReservedTotalLossDraftQuery({
+    intentId: newCaseId ?? "",
+    service: caseService,
+    userId:
+      dependencies &&
+      newCaseId &&
+      !explicitCaseId &&
+      !invalidNewCaseId
+        ? userId
+        : null,
   });
   const bootstrapQuery = useTotalLossDraftQuery({
     service: caseService,
-    userId: dependencies ? userId : null,
+    userId:
+      dependencies && !explicitCaseId && !newCaseId ? userId : null,
   });
   const explicitAppraisalCase = explicitCaseQuery.data;
+  const reservedAppraisalCase = reservedCaseQuery.data;
   const canonicalAppraisalCase = bootstrapQuery.data;
-  const canonicalCaseId = canonicalAppraisalCase?.id ?? null;
   const explicitCaseIsOwnedTotalLossDraft = Boolean(
     auth.status === "signedIn" &&
     explicitAppraisalCase &&
@@ -177,46 +214,44 @@ function TotalLossDraftBootstrapGate({
     explicitAppraisalCase.serviceType === "total_loss" &&
     explicitAppraisalCase.status === "draft",
   );
-  const canonicalizeExplicitCase = Boolean(
-    explicitCaseId &&
-    explicitCaseIsOwnedTotalLossDraft &&
-    canonicalCaseId &&
-    explicitCaseId !== canonicalCaseId,
+  const reservedCaseIsOwnedTotalLossDraft = Boolean(
+    auth.status === "signedIn" &&
+    reservedAppraisalCase &&
+    reservedAppraisalCase.userId === auth.user.id &&
+    reservedAppraisalCase.serviceType === "total_loss" &&
+    reservedAppraisalCase.status === "draft",
   );
+
+  const startGuestBootstrap = useCallback(() => {
+    guestBootstrapAbortRef.current?.abort();
+    const controller = new AbortController();
+    guestBootstrapAbortRef.current = controller;
+    const promise = ensureGuestSession({ signal: controller.signal }).finally(
+      () => {
+        if (guestBootstrapAbortRef.current === controller) {
+          guestBootstrapAbortRef.current = null;
+        }
+      },
+    );
+    return { controller, promise };
+  }, [ensureGuestSession]);
 
   useEffect(() => {
     if (auth.status !== "signedOut") return;
     let active = true;
-    void ensureGuestSession().catch((error: unknown) => {
-      if (active) {
+    const { controller, promise } = startGuestBootstrap();
+    void promise.catch((error: unknown) => {
+      if (active && !controller.signal.aborted) {
         setGuestBootstrapError(
-          errorMessage(
-            error,
-            "Venfour could not prepare secure guest storage. Try again.",
-          ),
+          getFriendlyAuthError(error, "guest"),
         );
       }
     });
     return () => {
       active = false;
+      guestBootstrapAbortRef.current?.abort();
     };
-  }, [auth.status, ensureGuestSession]);
-
-  useEffect(() => {
-    if (!canonicalizeExplicitCase || !canonicalCaseId) return;
-    const params = new URLSearchParams(location.search);
-    params.set("caseId", canonicalCaseId);
-    void navigate(
-      { pathname: location.pathname, search: `?${params.toString()}` },
-      { replace: true, preventScrollReset: true },
-    );
-  }, [
-    canonicalCaseId,
-    canonicalizeExplicitCase,
-    location.pathname,
-    location.search,
-    navigate,
-  ]);
+  }, [auth.status, startGuestBootstrap]);
 
   if (guestBootstrapError) {
     return (
@@ -224,11 +259,14 @@ function TotalLossDraftBootstrapGate({
         message={guestBootstrapError}
         onRetry={() => {
           setGuestBootstrapError(null);
-          void ensureGuestSession().catch((error: unknown) =>
-            setGuestBootstrapError(
-              errorMessage(error, "Secure guest storage is unavailable."),
-            ),
-          );
+          const { controller, promise } = startGuestBootstrap();
+          void promise.catch((error: unknown) => {
+            if (!controller.signal.aborted) {
+              setGuestBootstrapError(
+                getFriendlyAuthError(error, "guest"),
+              );
+            }
+          });
         }}
       />
     );
@@ -246,22 +284,37 @@ function TotalLossDraftBootstrapGate({
       <DraftBootstrapErrorCard message="Venfour could not connect to secure case storage." />
     );
   }
-  if (invalidExplicitCaseId) return <UnavailableCaseCard />;
+  if (
+    invalidExplicitCaseId ||
+    invalidNewCaseId ||
+    conflictingCaseIntents
+  ) {
+    return <UnavailableCaseCard />;
+  }
 
   if (
-    bootstrapQuery.isPending ||
+    (!explicitCaseId && !newCaseId && bootstrapQuery.isPending) ||
     (explicitCaseId && explicitCaseQuery.isPending) ||
-    canonicalizeExplicitCase
+    (newCaseId && reservedCaseQuery.isPending)
   ) {
     return <LoadingCard />;
   }
-  if (bootstrapQuery.isError || (explicitCaseId && explicitCaseQuery.isError)) {
+  if (
+    (!explicitCaseId && !newCaseId && bootstrapQuery.isError) ||
+    (explicitCaseId && explicitCaseQuery.isError) ||
+    (newCaseId && reservedCaseQuery.isError)
+  ) {
     return (
       <DraftBootstrapErrorCard
         message="Your durable Total Loss draft could not be prepared. No report has been requested or uploaded."
         onRetry={() => {
-          void bootstrapQuery.refetch();
-          if (explicitCaseId) void explicitCaseQuery.refetch();
+          if (explicitCaseId) {
+            void explicitCaseQuery.refetch();
+          } else if (newCaseId) {
+            void reservedCaseQuery.refetch();
+          } else {
+            void bootstrapQuery.refetch();
+          }
         }}
       />
     );
@@ -270,8 +323,15 @@ function TotalLossDraftBootstrapGate({
   if (explicitCaseId && !explicitCaseIsOwnedTotalLossDraft) {
     return <UnavailableCaseCard />;
   }
+  if (newCaseId && !reservedCaseIsOwnedTotalLossDraft) {
+    return <UnavailableCaseCard />;
+  }
 
-  const appraisalCase = canonicalAppraisalCase;
+  const appraisalCase = explicitCaseId
+    ? explicitAppraisalCase
+    : newCaseId
+      ? reservedAppraisalCase
+      : canonicalAppraisalCase;
   if (
     !appraisalCase ||
     appraisalCase.userId !== auth.user.id ||
@@ -283,7 +343,9 @@ function TotalLossDraftBootstrapGate({
 
   return (
     <TotalLossIntakeFlowContent
+      key={appraisalCase.id}
       bootstrapCase={appraisalCase}
+      startNewCase={Boolean(newCaseId)}
       onBusyChange={onBusyChange}
     />
   );
@@ -291,11 +353,13 @@ function TotalLossDraftBootstrapGate({
 
 interface TotalLossIntakeFlowContentProps extends TotalLossIntakeFlowProps {
   readonly bootstrapCase: AppraisalCase;
+  readonly startNewCase: boolean;
 }
 
 function TotalLossIntakeFlowContent({
   bootstrapCase,
   onBusyChange,
+  startNewCase,
 }: TotalLossIntakeFlowContentProps) {
   const location = useLocation();
   const navigate = useNavigate();
@@ -303,7 +367,7 @@ function TotalLossIntakeFlowContent({
   const queryClient = useQueryClient();
   const dependencies = useTotalLossDependencies();
   const [initialDraft] = useState(() =>
-    loadInitialDraft(bootstrapCase, bootstrapCase.userId),
+    loadInitialDraft(bootstrapCase, bootstrapCase.userId, startNewCase),
   );
   const [draft, setDraft] = useState(initialDraft.draft);
   const [stepTransitionDirection, setStepTransitionDirection] = useState<
@@ -341,9 +405,10 @@ function TotalLossIntakeFlowContent({
   >("idle");
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [accessLinkError, setAccessLinkError] = useState<string | null>(null);
-  const [extractionState, setExtractionState] = useState<
-    "idle" | "processing" | "complete" | "partial" | "error"
-  >(initialDraft.draft.reportExtractionStatus);
+  const [extractionState, setExtractionState] =
+    useState<TotalLossReportExtractionStatus>(
+      initialDraft.draft.reportExtractionStatus,
+    );
   const [explicitCaseError, setExplicitCaseError] = useState<string | null>(
     null,
   );
@@ -435,7 +500,7 @@ function TotalLossIntakeFlowContent({
   const recentCaseQuery = useRecentDraftAppraisalCaseQuery({
     service: caseService,
     serviceType: "total_loss",
-    userId: dataUserId,
+    userId: startNewCase ? null : dataUserId,
   });
   const confirmedCaseId =
     userId && draft.ownerUserId === userId ? draft.confirmedCaseId : null;
@@ -473,6 +538,11 @@ function TotalLossIntakeFlowContent({
   const autosaveTimerRef = useRef<number | null>(null);
   const hydratedDetailsRef = useRef<string | null>(null);
   const explicitCaseRef = useRef<string | null>(null);
+  const pendingExtractionResumeKeyRef = useRef<string | null>(null);
+  const reportIngestionPromiseRef = useRef<{
+    caseId: string;
+    promise: Promise<TotalLossReportIngestion>;
+  } | null>(null);
   const ensureCase = useCallback(async () => {
     if (!userId || !dependencies) {
       throw new Error("Sign in before saving this appraisal.");
@@ -585,6 +655,7 @@ function TotalLossIntakeFlowContent({
           throw new StaleIdentityOperationError();
         }
         serverUpdatedAtRef.current = details.updatedAt;
+        hydratedDetailsRef.current = `${details.caseId}:${details.updatedAt}`;
         setConflict(null);
         setConflictWithoutRow(false);
         setFlowError(null);
@@ -759,23 +830,19 @@ function TotalLossIntakeFlowContent({
     hydratedDetailsRef.current = hydrationKey;
     serverUpdatedAtRef.current = details.updatedAt;
     setSavedFilename(details.reportOriginalFilename);
-    if (details.intakeMode === "report" && details.reportOriginalFilename) {
-      setExtractionState((current) =>
-        current === "idle" ? "partial" : current,
-      );
-    }
+    const hydratedExtractionState = extractionStateForDetails(details);
+    setExtractionState(hydratedExtractionState);
     applyDraft(
       (current) => ({
         ...current,
         mode: details.intakeMode,
         manual: manualValuesForDetails(details),
         reportProvider: details.reportProvider ?? current.reportProvider,
-        reportExtractionStatus:
-          details.intakeMode === "report" &&
-          details.reportOriginalFilename &&
-          current.reportExtractionStatus === "idle"
-            ? "partial"
-            : current.reportExtractionStatus,
+        reportExtractionStatus: hydratedExtractionState,
+        reportExtractionWarnings: extractionWarningsForDetails(
+          details,
+          current,
+        ),
         step: stepForDetails(details, current.step),
         dirty: false,
         pendingAuthAction: null,
@@ -1262,7 +1329,7 @@ function TotalLossIntakeFlowContent({
       if (accessClaimId) {
         try {
           await sendMagicLink(normalized.email, {
-            returnTo: `/start?service=total-loss&caseId=${caseId}`,
+            returnTo: "/appraisals",
             callbackParameters: { case_claim: accessClaimId },
           });
           const sentAt = new Date().toISOString();
@@ -1272,10 +1339,7 @@ function TotalLossIntakeFlowContent({
           }));
         } catch (error) {
           setAccessLinkError(
-            errorMessage(
-              error,
-              "Your intake is saved, but the secure access email could not be sent. You can still analyze in this browser.",
-            ),
+            `Your intake is saved. ${getFriendlyAuthError(error, "email")} You can still analyze in this browser.`,
           );
         }
       }
@@ -1298,6 +1362,14 @@ function TotalLossIntakeFlowContent({
     try {
       const caseId = await ensureCase();
       await flushDraft({ force: true });
+      if (draftRef.current.mode === "report" && auth.status === "signedIn") {
+        try {
+          await ingestTotalLossReport(caseId, auth.session.access_token);
+        } catch {
+          // Confirmation can still use the complete customer-confirmed facts
+          // when refreshing the current report extraction is unavailable.
+        }
+      }
       if (
         !detailsService?.confirmIntake ||
         !userId ||
@@ -1333,50 +1405,86 @@ function TotalLossIntakeFlowContent({
     }
   };
 
-  const runReportIngestion = async (caseId: string) => {
-    if (auth.status !== "signedIn") {
-      throw new Error("Secure guest storage is not ready.");
+  const runReportIngestion = useCallback(
+    (caseId: string) => {
+      if (reportIngestionPromiseRef.current?.caseId === caseId) {
+        return reportIngestionPromiseRef.current.promise;
+      }
+
+      const operation = (async () => {
+        if (auth.status !== "signedIn") {
+          throw new Error("Secure guest storage is not ready.");
+        }
+        setExtractionState("processing");
+        applyDraft((current) => ({
+          ...current,
+          reportExtractionStatus: "processing",
+          reportExtractionWarnings: [],
+          reportProvider: null,
+        }));
+        try {
+          const ingestion = await ingestTotalLossReport(
+            caseId,
+            auth.session.access_token,
+          );
+          const nextManual = manualValuesForReportIngestion(
+            ingestion,
+            draftRef.current.manual,
+          );
+          setExtractionState(ingestion.status);
+          applyDraft((current) => ({
+            ...current,
+            manual: nextManual,
+            mode: "report",
+            reportProvider: ingestion.provider,
+            reportExtractionStatus: ingestion.status,
+            reportExtractionWarnings: [...ingestion.warnings],
+            dirty: true,
+          }));
+          await flushDraft({ force: true });
+          return ingestion;
+        } catch (error) {
+          setExtractionState("error");
+          applyDraft((current) => ({
+            ...current,
+            reportExtractionStatus: "error",
+            reportExtractionWarnings: [REPORT_EXTRACTION_FAILURE_WARNING],
+          }));
+          throw error;
+        }
+      })();
+
+      reportIngestionPromiseRef.current = { caseId, promise: operation };
+      void operation
+        .finally(() => {
+          if (reportIngestionPromiseRef.current?.promise === operation) {
+            reportIngestionPromiseRef.current = null;
+          }
+        })
+        .catch(() => undefined);
+      return operation;
+    },
+    [applyDraft, auth, flushDraft],
+  );
+
+  useEffect(() => {
+    const details = detailsQuery.data;
+    if (
+      auth.status !== "signedIn" ||
+      !details ||
+      details.intakeMode !== "report" ||
+      !details.reportOriginalFilename ||
+      details.reportExtractionStatus !== "pending" ||
+      extractionState !== "processing"
+    ) {
+      return;
     }
-    setExtractionState("processing");
-    applyDraft((current) => ({
-      ...current,
-      reportExtractionStatus: "processing",
-      reportExtractionWarnings: [],
-      reportProvider: null,
-    }));
-    try {
-      const ingestion = await ingestTotalLossReport(
-        caseId,
-        auth.session.access_token,
-      );
-      const nextManual = manualValuesForReportIngestion(
-        ingestion,
-        draftRef.current.manual,
-      );
-      setExtractionState(ingestion.status);
-      applyDraft((current) => ({
-        ...current,
-        manual: nextManual,
-        mode: "report",
-        reportProvider: ingestion.provider,
-        reportExtractionStatus: ingestion.status,
-        reportExtractionWarnings: [...ingestion.warnings],
-        dirty: true,
-      }));
-      await flushDraft({ force: true });
-      return ingestion;
-    } catch (error) {
-      setExtractionState("error");
-      applyDraft((current) => ({
-        ...current,
-        reportExtractionStatus: "partial",
-        reportExtractionWarnings: [
-          "Automatic extraction could not finish. Complete the vehicle and claim details manually.",
-        ],
-      }));
-      throw error;
-    }
-  };
+
+    const resumeKey = `${details.caseId}:${details.updatedAt}`;
+    if (pendingExtractionResumeKeyRef.current === resumeKey) return;
+    pendingExtractionResumeKeyRef.current = resumeKey;
+    void runReportIngestion(details.caseId).catch(() => undefined);
+  }, [auth.status, detailsQuery.data, extractionState, runReportIngestion]);
 
   const uploadSelectedReport = async (files: readonly File[]) => {
     setRetryFiles(files);
@@ -1408,6 +1516,7 @@ function TotalLossIntakeFlowContent({
         throw new StaleIdentityOperationError();
       }
       serverUpdatedAtRef.current = result.details.updatedAt;
+      hydratedDetailsRef.current = `${result.details.caseId}:${result.details.updatedAt}`;
       setSavedFilename(result.details.reportOriginalFilename);
       setUploadState("success");
       applyDraft(
@@ -1472,7 +1581,7 @@ function TotalLossIntakeFlowContent({
         setExtractionState("error");
         applyDraft((current) => ({
           ...current,
-          reportExtractionStatus: "partial",
+          reportExtractionStatus: "error",
           reportExtractionWarnings: [
             errorMessage(
               error,
@@ -1518,11 +1627,10 @@ function TotalLossIntakeFlowContent({
         ? `${details.caseId}:${details.updatedAt}`
         : null;
       setSavedFilename(details?.reportOriginalFilename ?? null);
-      setExtractionState(
-        details?.intakeMode === "report" && details.reportOriginalFilename
-          ? "partial"
-          : "idle",
-      );
+      const resumedExtractionState = details
+        ? extractionStateForDetails(details)
+        : "idle";
+      setExtractionState(resumedExtractionState);
       applyDraft((current) => ({
         ...current,
         confirmedCaseId: candidate.id,
@@ -1541,10 +1649,10 @@ function TotalLossIntakeFlowContent({
             }
           : current.contact,
         reportProvider: details?.reportProvider ?? null,
-        reportExtractionStatus:
-          details?.intakeMode === "report" && details.reportOriginalFilename
-            ? "partial"
-            : current.reportExtractionStatus,
+        reportExtractionStatus: resumedExtractionState,
+        reportExtractionWarnings: details
+          ? extractionWarningsForDetails(details, current)
+          : [],
         step: details
           ? details.intakeCompletedAt
             ? "ready"
@@ -1595,13 +1703,20 @@ function TotalLossIntakeFlowContent({
 
   const handleUseSavedConflict = () => {
     if (!conflict) return;
+    const savedExtractionState = extractionStateForDetails(conflict);
     serverUpdatedAtRef.current = conflict.updatedAt;
     hydratedDetailsRef.current = `${conflict.caseId}:${conflict.updatedAt}`;
     setSavedFilename(conflict.reportOriginalFilename);
+    setExtractionState(savedExtractionState);
     applyDraft((current) => ({
       ...current,
       mode: conflict.intakeMode,
       manual: manualValuesForDetails(conflict),
+      reportExtractionStatus: savedExtractionState,
+      reportExtractionWarnings: extractionWarningsForDetails(
+        conflict,
+        current,
+      ),
       step: stepForDetails(conflict, current.step),
       dirty: false,
     }));
@@ -1880,14 +1995,20 @@ class StaleIdentityOperationError extends Error {
 function loadInitialDraft(
   bootstrapCase: AppraisalCase,
   userId: string,
+  startNewCase: boolean,
 ): InitialDraftState {
   const stored = readTotalLossDraft();
   if (stored.ok) {
     const storedDraft = stored.draft ?? createEmptyTotalLossDraft();
+    const storedCaseMatchesBootstrap =
+      storedDraft.confirmedCaseId === bootstrapCase.id ||
+      (!storedDraft.confirmedCaseId &&
+        storedDraft.reservedCaseId === bootstrapCase.id);
     const belongsToBootstrapCase =
       (!storedDraft.ownerUserId || storedDraft.ownerUserId === userId) &&
-      (!storedDraft.confirmedCaseId ||
-        storedDraft.confirmedCaseId === bootstrapCase.id);
+      (startNewCase
+        ? storedCaseMatchesBootstrap
+        : !storedDraft.confirmedCaseId || storedCaseMatchesBootstrap);
     const draft = {
       ...(belongsToBootstrapCase ? storedDraft : createEmptyTotalLossDraft()),
       confirmedCaseId: bootstrapCase.id,
@@ -1953,6 +2074,45 @@ function manualValuesForDetails(
   details: TotalLossCaseDetails,
 ): TotalLossManualFormValues {
   return totalLossDetailsToManualForm(details);
+}
+
+function extractionStateForDetails(
+  details: TotalLossCaseDetails,
+): TotalLossReportExtractionStatus {
+  if (details.intakeMode !== "report" || !details.reportOriginalFilename) {
+    return "idle";
+  }
+
+  switch (details.reportExtractionStatus) {
+    case "pending":
+      return "processing";
+    case "needs_confirmation":
+      return "partial";
+    case "confirmed":
+      return "complete";
+    case "failed":
+      return "error";
+    case "not_requested":
+    case null:
+    case undefined:
+      return "idle";
+  }
+}
+
+function extractionWarningsForDetails(
+  details: TotalLossCaseDetails,
+  current: TotalLossDraft,
+) {
+  const state = extractionStateForDetails(details);
+  if (state === "error") return [REPORT_EXTRACTION_FAILURE_WARNING];
+  if (
+    state === "partial" &&
+    current.confirmedCaseId === details.caseId &&
+    current.reportExtractionStatus === "partial"
+  ) {
+    return current.reportExtractionWarnings;
+  }
+  return [];
 }
 
 function stepForDetails(
@@ -2182,10 +2342,7 @@ function ConflictNotice({
 
 function LoadingCard() {
   return (
-    <section
-      className="rounded-2xl border border-line bg-white p-8 text-center shadow-[0_22px_64px_-48px_rgba(11,31,51,0.42)]"
-      aria-busy="true"
-    >
+    <FlowCard className="text-center" busy>
       <RefreshCw
         className="mx-auto size-6 animate-spin text-brand motion-reduce:animate-none"
         aria-hidden
@@ -2193,21 +2350,26 @@ function LoadingCard() {
       <p className="mt-3 text-sm font-semibold text-ink" role="status">
         Loading your saved appraisal…
       </p>
-    </section>
+    </FlowCard>
   );
 }
 
 function UnavailableCaseCard() {
   return (
-    <section className="rounded-2xl border border-line bg-white p-8 text-center shadow-[0_22px_64px_-48px_rgba(11,31,51,0.42)]">
+    <FlowCard className="text-center">
       <p className="text-sm font-semibold text-ink">
         This saved appraisal cannot be opened from this link.
       </p>
       <p className="mt-2 text-sm leading-6 text-copy">
-        Return to total loss to start again or use a different saved-appraisal
-        link.
+        Open your appraisals to continue from the case’s current stage.
       </p>
-    </section>
+      <Link
+        className={`${primaryFlowButtonClassName} mt-6`}
+        to="/appraisals"
+      >
+        View my appraisals
+      </Link>
+    </FlowCard>
   );
 }
 

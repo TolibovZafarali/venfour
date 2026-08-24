@@ -1,4 +1,4 @@
-type AuthOperation = "callback" | "email" | "google" | "signout";
+type AuthOperation = "callback" | "email" | "google" | "guest" | "signout";
 
 interface ErrorDetails {
   code?: string;
@@ -54,6 +54,14 @@ export function getFriendlyAuthError(
     return "We couldn’t reach the sign-in service. Check your connection and try again.";
   }
 
+  if (
+    searchable.includes("security check") ||
+    searchable.includes("turnstile") ||
+    searchable.includes("captcha")
+  ) {
+    return "We couldn’t complete the security check. Please try again.";
+  }
+
   switch (operation) {
     case "callback":
       return "This sign-in link is invalid or has expired. Please request a new one.";
@@ -61,6 +69,8 @@ export function getFriendlyAuthError(
       return "We couldn’t send the sign-in link. Check the address and try again.";
     case "google":
       return "We couldn’t start Google sign-in. Please try again.";
+    case "guest":
+      return "Venfour could not prepare secure guest storage. Try again.";
     case "signout":
       return "We couldn’t sign you out. Please try again.";
   }

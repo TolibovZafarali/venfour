@@ -639,6 +639,7 @@ export function FlowCard({ children, className, busy }: FlowCardProps) {
         className,
       )}
       aria-busy={busy || undefined}
+      data-flow-card
     >
       {children}
     </section>

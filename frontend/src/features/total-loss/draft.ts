@@ -123,6 +123,7 @@ const REPORT_EXTRACTION_STATUSES = [
   "processing",
   "complete",
   "partial",
+  "error",
 ] as const;
 
 const UUID_PATTERN =

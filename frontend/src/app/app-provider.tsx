@@ -16,7 +16,11 @@ import {
   type AdminDiminishedValueDependencies,
 } from "@/features/admin/diminished-value/dependencies";
 import { adminDiminishedValueQueryKeys } from "@/features/admin/diminished-value/queries";
-import { AuthProvider, type AuthService } from "@/features/auth";
+import {
+  AuthProvider,
+  type AuthService,
+  type TurnstileController,
+} from "@/features/auth";
 import { AppraisalCaseServiceProvider } from "@/features/cases/service-provider";
 import { appraisalCaseQueryKeys } from "@/features/cases/queries";
 import {
@@ -81,6 +85,7 @@ interface AppProviderProps {
   appraisalCaseService?: AppraisalCaseService | null;
   authService?: AuthService | null;
   authUnavailableReason?: string;
+  authTurnstileController?: TurnstileController;
   customerProfileService?: CustomerProfileService | null;
   diminishedValueDependencies?: DiminishedValueDependencies | null;
   queryClient: QueryClient;
@@ -94,6 +99,7 @@ export function AppProvider({
   appraisalCaseService,
   authService,
   authUnavailableReason,
+  authTurnstileController,
   customerProfileService,
   diminishedValueDependencies,
   queryClient,
@@ -177,6 +183,7 @@ export function AppProvider({
         service={authService}
         unavailableReason={authUnavailableReason}
         onIdentityResolved={handleIdentityResolved}
+        turnstileController={authTurnstileController}
       >
         <CustomerProfileServiceProvider
           service={resolvedCustomerProfileService}

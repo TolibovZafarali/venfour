@@ -51,15 +51,15 @@ export const appRoutes: RouteObject[] = [
         element: <HomePage />,
         handle: metadata(
           "Vehicle Valuation Reviews After an Accident | Venfour",
-          "Review a total-loss valuation with or without an insurer report, or submit repaired-vehicle details for future manual diminished-value review.",
+          "Review a total-loss valuation with or without an insurer report. Diminished Value customer intake is currently paused.",
         ),
       },
       {
         path: "start",
         element: <AppraisalStartPage />,
         handle: metadata(
-          "Start a Vehicle Valuation Review | Venfour",
-          "Start a Total Loss market valuation with or without an insurer report, or submit a diminished-value request for future manual review.",
+          "Start a Total Loss Review | Venfour",
+          "Start a Total Loss market valuation with or without an insurer report, or view the current Diminished Value service update.",
         ),
       },
       {
@@ -139,7 +139,7 @@ export const appRoutes: RouteObject[] = [
         ],
       },
       {
-        path: "auth/callback",
+        path: "auth/callback/*",
         element: <AuthCallbackPage />,
         handle: metadata(
           "Finish Signing In | Venfour",

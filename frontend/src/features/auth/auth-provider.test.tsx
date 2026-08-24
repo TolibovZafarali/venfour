@@ -8,6 +8,10 @@ import type {
   AuthService,
   AuthStateChangeListener,
 } from "@/features/auth/auth-service";
+import type {
+  TurnstileAction,
+  TurnstileController,
+} from "@/features/auth/turnstile-controller";
 
 function createDeferred<T>() {
   let resolve!: (value: T) => void;
@@ -80,12 +84,39 @@ function createFakeAuthService(
   };
 }
 
+function createTurnstileHarness(tokens: string[]) {
+  const runWithToken = vi.fn<
+    (
+      action: TurnstileAction,
+      operation: (captchaToken: string) => Promise<unknown>,
+      signal?: AbortSignal,
+    ) => void
+  >();
+  const controller: TurnstileController = {
+    async runWithToken<T>(
+      action: TurnstileAction,
+      operation: (captchaToken: string) => Promise<T>,
+      signal?: AbortSignal,
+    ) {
+      runWithToken(action, operation, signal);
+      const token = tokens.shift();
+      if (!token) throw new Error("No test Turnstile token available.");
+      return operation(token);
+    },
+  };
+  return {
+    controller,
+    runWithToken,
+  };
+}
+
 function AuthProbe() {
   const {
     auth,
     completeAuthCallback,
     ensureGuestSession,
     restoreSession,
+    sendMagicLink,
     signOut,
   } = useAuth();
   return (
@@ -105,6 +136,17 @@ function AuthProbe() {
         onClick={() => void completeAuthCallback("callback-code")}
       >
         Complete callback
+      </button>
+      <button
+        type="button"
+        onClick={() =>
+          void Promise.all([
+            sendMagicLink("first@example.com"),
+            sendMagicLink("second@example.com"),
+          ])
+        }
+      >
+        Send magic links twice
       </button>
       <button
         type="button"
@@ -178,8 +220,12 @@ describe("AuthProvider", () => {
 
   test("shares one anonymous sign-in across concurrent guest requests", async () => {
     const fake = createFakeAuthService();
+    const turnstile = createTurnstileHarness(["guest-captcha-token"]);
     render(
-      <AuthProvider service={fake.service}>
+      <AuthProvider
+        service={fake.service}
+        turnstileController={turnstile.controller}
+      >
         <AuthProbe />
       </AuthProvider>,
     );
@@ -196,6 +242,90 @@ describe("AuthProvider", () => {
       expect(screen.getByTestId("identity")).toHaveTextContent("anonymous"),
     );
     expect(screen.getByTestId("user")).toHaveTextContent("anonymous-user");
+    expect(turnstile.runWithToken).toHaveBeenCalledOnce();
+    expect(turnstile.runWithToken).toHaveBeenCalledWith(
+      "anonymous-auth",
+      expect.any(Function),
+      undefined,
+    );
+    expect(fake.service.signInAnonymously).toHaveBeenCalledWith(
+      "guest-captcha-token",
+    );
+  });
+
+  test("does not start anonymous signup when a session arrives during the challenge", async () => {
+    const fake = createFakeAuthService();
+    const token = createDeferred<string>();
+    const runWithTokenCall = vi.fn();
+    const controller: TurnstileController = {
+      async runWithToken<T>(
+        action: TurnstileAction,
+        operation: (captchaToken: string) => Promise<T>,
+        signal?: AbortSignal,
+      ): Promise<T> {
+        runWithTokenCall(action, operation, signal);
+        return operation(await token.promise);
+      },
+    };
+    render(
+      <AuthProvider
+        service={fake.service}
+        turnstileController={controller}
+      >
+        <AuthProbe />
+      </AuthProvider>,
+    );
+
+    await waitFor(() =>
+      expect(screen.getByTestId("status")).toHaveTextContent("signedOut"),
+    );
+    screen.getByRole("button", { name: "Ensure guest twice" }).click();
+    await waitFor(() => expect(runWithTokenCall).toHaveBeenCalledOnce());
+
+    act(() => fake.emit(sessionFor("challenge-account")));
+    await act(async () => token.resolve("late-challenge-token"));
+
+    expect(fake.service.signInAnonymously).not.toHaveBeenCalled();
+    expect(screen.getByTestId("identity")).toHaveTextContent("permanent");
+    expect(screen.getByTestId("user")).toHaveTextContent("challenge-account");
+  });
+
+  test("uses a fresh security token for every magic-link request", async () => {
+    const fake = createFakeAuthService();
+    const turnstile = createTurnstileHarness([
+      "magic-captcha-token-1",
+      "magic-captcha-token-2",
+    ]);
+    render(
+      <AuthProvider
+        service={fake.service}
+        turnstileController={turnstile.controller}
+      >
+        <AuthProbe />
+      </AuthProvider>,
+    );
+
+    await waitFor(() =>
+      expect(screen.getByTestId("status")).toHaveTextContent("signedOut"),
+    );
+    screen.getByRole("button", { name: "Send magic links twice" }).click();
+
+    await waitFor(() =>
+      expect(fake.service.sendMagicLink).toHaveBeenCalledTimes(2),
+    );
+    expect(fake.service.sendMagicLink).toHaveBeenNthCalledWith(
+      1,
+      "first@example.com",
+      `${window.location.origin}/auth/callback`,
+      "magic-captcha-token-1",
+    );
+    expect(fake.service.sendMagicLink).toHaveBeenNthCalledWith(
+      2,
+      "second@example.com",
+      `${window.location.origin}/auth/callback`,
+      "magic-captcha-token-2",
+    );
+    expect(turnstile.runWithToken).toHaveBeenCalledTimes(2);
   });
 
   test("reuses a permanent session instead of replacing it with a guest", async () => {

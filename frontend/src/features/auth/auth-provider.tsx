@@ -13,6 +13,7 @@ import {
   isAnonymousUser,
   type AuthContextValue,
   type AuthState,
+  type GuestSessionOptions,
 } from "@/features/auth/auth-context";
 import {
   createSupabaseAuthService,
@@ -22,6 +23,10 @@ import {
   getAuthCallbackUrl,
   storeAuthReturnLocation,
 } from "@/features/auth/return-location";
+import {
+  defaultTurnstileController,
+  type TurnstileController,
+} from "@/features/auth/turnstile-controller";
 import { supabaseClientState } from "@/lib/supabase/client";
 
 const defaultAuthService =
@@ -54,6 +59,12 @@ interface AuthProviderProps {
     previousUserId: string | null,
     nextUserId: string | null,
   ) => void;
+  turnstileController?: TurnstileController;
+}
+
+interface GuestSessionRequest {
+  promise: Promise<Session>;
+  signal?: AbortSignal;
 }
 
 export function AuthProvider({
@@ -62,6 +73,7 @@ export function AuthProvider({
   unavailableReason = defaultUnavailableReason,
   onIdentityResolved,
   onIdentityChange,
+  turnstileController = defaultTurnstileController,
 }: AuthProviderProps) {
   const resolvedService = service === undefined ? defaultAuthService : service;
   const [auth, setAuth] = useState<AuthState>(() =>
@@ -76,7 +88,7 @@ export function AuthProvider({
   );
   const currentUserIdRef = useRef<string | null>(null);
   const currentSessionRef = useRef<Session | null>(null);
-  const guestSessionRequestRef = useRef<Promise<Session> | null>(null);
+  const guestSessionRequestRef = useRef<GuestSessionRequest | null>(null);
   const identityInitializedRef = useRef(false);
   const sessionUpdateVersionRef = useRef(0);
 
@@ -155,14 +167,28 @@ export function AuthProvider({
 
   const ensureGuestSession = useCallback<
     AuthContextValue["ensureGuestSession"]
-  >(() => {
+  >(function ensureGuestSession(
+    options?: GuestSessionOptions,
+  ): Promise<Session> {
     const existingSession = currentSessionRef.current;
     if (existingSession) {
       return Promise.resolve(existingSession);
     }
 
-    if (guestSessionRequestRef.current) {
-      return guestSessionRequestRef.current;
+    if (options?.signal?.aborted) {
+      return Promise.reject(
+        new Error("The security check was interrupted. Please try again."),
+      );
+    }
+
+    const pendingRequest = guestSessionRequestRef.current;
+    if (pendingRequest) {
+      if (pendingRequest.signal?.aborted && !options?.signal?.aborted) {
+        return pendingRequest.promise.catch(() =>
+          ensureGuestSession(options),
+        );
+      }
+      return pendingRequest.promise;
     }
 
     const guestSessionRequest = (async () => {
@@ -183,7 +209,17 @@ export function AuthProvider({
         throw new Error("Anonymous sign-in is unavailable.");
       }
 
-      const anonymousSession = await authService.signInAnonymously();
+      const signInAnonymously = authService.signInAnonymously;
+      const anonymousSession = await turnstileController.runWithToken(
+        "anonymous-auth",
+        (captchaToken) => {
+          const sessionBeforeSignup = currentSessionRef.current;
+          return sessionBeforeSignup
+            ? Promise.resolve(sessionBeforeSignup)
+            : signInAnonymously(captchaToken);
+        },
+        options?.signal,
+      );
       const activeSession = currentSessionRef.current;
 
       if (activeSession) {
@@ -194,14 +230,15 @@ export function AuthProvider({
       return anonymousSession;
     })();
     const trackedRequest = guestSessionRequest.finally(() => {
-      if (guestSessionRequestRef.current === trackedRequest) {
+      if (guestSessionRequestRef.current?.promise === trackedRequest) {
         guestSessionRequestRef.current = null;
       }
     });
 
-    guestSessionRequestRef.current = trackedRequest;
+    const requestRecord = { promise: trackedRequest, signal: options?.signal };
+    guestSessionRequestRef.current = requestRecord;
     return trackedRequest;
-  }, [applySession, requireService]);
+  }, [applySession, requireService, turnstileController]);
 
   const restoreSession = useCallback<AuthContextValue["restoreSession"]>(
     async (session) => {
@@ -236,12 +273,15 @@ export function AuthProvider({
   const sendMagicLink = useCallback<AuthContextValue["sendMagicLink"]>(
     async (email, options) => {
       storeAuthReturnLocation(options?.returnTo);
-      await requireService().sendMagicLink(
-        email,
-        getAuthCallbackUrl(options?.callbackParameters),
+      const authService = requireService();
+      const redirectTo = getAuthCallbackUrl(options?.callbackParameters);
+      await turnstileController.runWithToken(
+        "magic-link",
+        (captchaToken) =>
+          authService.sendMagicLink(email, redirectTo, captchaToken),
       );
     },
-    [requireService],
+    [requireService, turnstileController],
   );
 
   const completeAuthCallback = useCallback<
