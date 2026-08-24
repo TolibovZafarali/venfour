@@ -3,7 +3,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
 
-select plan(74);
+select plan(76);
 
 select ok(
   to_regclass('public.total_loss_case_contacts') is not null
@@ -121,6 +121,22 @@ select ok(
   'browser clients cannot author the intake completion timestamp'
 );
 
+select ok(
+  has_column_privilege(
+    'authenticated',
+    'public.total_loss_case_details',
+    'report_storage_owner_id',
+    'INSERT'
+  )
+    and not has_column_privilege(
+      'authenticated',
+      'public.total_loss_case_details',
+      'report_storage_owner_id',
+      'UPDATE'
+    ),
+  'browser clients can supply the trigger-validated storage owner only during insert'
+);
+
 insert into auth.users (
   id,
   email,
@@ -230,6 +246,24 @@ select is(
   'one guest cannot read another guest case'
 );
 
+select throws_ok(
+  $$
+    insert into public.total_loss_case_details (
+      case_id,
+      intake_mode,
+      report_storage_owner_id
+    )
+    select
+      case_id,
+      'manual',
+      '92222222-2222-4222-8222-222222222222'
+    from guest_first_state
+  $$,
+  '42501',
+  'The report storage namespace is server-owned.',
+  'the trigger rejects a browser-supplied storage owner outside the owned parent'
+);
+
 select lives_ok(
   $$
     insert into public.total_loss_case_details (
@@ -246,7 +280,8 @@ select lives_ok(
       insurer_name,
       insurer_vehicle_valuation,
       vehicle_condition,
-      vehicle_options_packages
+      vehicle_options_packages,
+      report_storage_owner_id
     )
     select
       case_id,
@@ -262,7 +297,8 @@ select lives_ok(
       'Example Mutual',
       null,
       'Good overall condition with ordinary wear',
-      'No additional material options or packages'
+      'No additional material options or packages',
+      '91111111-1111-4111-8111-111111111111'
     from guest_first_state
   $$,
   'the guest can save a complete manual input without a report or insurer offer'

@@ -7,7 +7,7 @@ import { createAppQueryClient } from "@/app/query-client";
 import { appRoutes } from "@/app/router";
 import type { AdminCaseOperationsDependencies } from "@/features/admin/case-operations/dependencies";
 import type { AdminDiminishedValueDependencies } from "@/features/admin/diminished-value/dependencies";
-import type { AuthService } from "@/features/auth";
+import type { AuthService, TurnstileController } from "@/features/auth";
 import type { AppraisalCaseService } from "@/features/cases/service";
 import type { CustomerProfileService } from "@/features/customer-profile";
 import type { DiminishedValueDependencies } from "@/features/diminished-value/dependencies";
@@ -19,6 +19,7 @@ interface RenderTestAppOptions {
   appraisalCaseService?: AppraisalCaseService | null;
   authService?: AuthService | null;
   authUnavailableReason?: string;
+  authTurnstileController?: TurnstileController;
   customerProfileService?: CustomerProfileService | null;
   diminishedValueDependencies?: DiminishedValueDependencies | null;
   strictMode?: boolean;
@@ -33,6 +34,7 @@ export function renderTestApp(
     appraisalCaseService = null,
     authService,
     authUnavailableReason,
+    authTurnstileController,
     customerProfileService,
     diminishedValueDependencies,
     strictMode = false,
@@ -49,6 +51,7 @@ export function renderTestApp(
       appraisalCaseService={appraisalCaseService}
       authService={authService}
       authUnavailableReason={authUnavailableReason}
+      authTurnstileController={authTurnstileController}
       customerProfileService={customerProfileService}
       diminishedValueDependencies={diminishedValueDependencies}
       queryClient={queryClient}

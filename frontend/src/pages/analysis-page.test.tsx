@@ -269,6 +269,13 @@ function insufficientEvidenceAnalysis(): AnalysisPresentation {
   const analysis: AnalysisPresentationBase = structuredClone(
     materialUndervalueAnalysis,
   );
+  analysis.analysisScope = {
+    ...analysis.analysisScope,
+    marketEvidenceAvailable: false,
+    insurerValuationAvailable: true,
+    insurerValuationComparisonPerformed: false,
+    offerComparisonPerformed: false,
+  };
   analysis.assessment = {
     ...analysis.assessment,
     classification: "INSUFFICIENT_EVIDENCE",
@@ -837,6 +844,17 @@ describe("analysis results page", () => {
         name: "No external comparables were selected",
       }),
     ).toBeInTheDocument();
+    expect(screen.getAllByText("$20,000").length).toBeGreaterThan(0);
+    expect(
+      screen.getByText(
+        "The insurer value was available, but too few qualifying external comparables were selected to calculate a reliable valuation gap.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Not calculated")).toBeInTheDocument();
+    expect(
+      screen.queryByText(/No usable insurer value was available/),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText("Market only")).not.toBeInTheDocument();
     expect(
       screen.getByRole("region", { name: "What you can do next" }),
     ).toHaveTextContent(

@@ -7,6 +7,7 @@ import {
   isPermanentAuthState,
   useAuth,
 } from "@/features/auth";
+import { getFriendlyAuthError } from "@/features/auth/auth-errors";
 import { getUserFullName } from "@/features/auth/user-display";
 import {
   CURRENT_PRIVACY_NOTICE_VERSION,
@@ -147,6 +148,7 @@ function TotalLossDraftBootstrapGate({
   const [guestBootstrapError, setGuestBootstrapError] = useState<string | null>(
     null,
   );
+  const guestBootstrapAbortRef = useRef<AbortController | null>(null);
   const userId = auth.status === "signedIn" ? auth.user.id : null;
   const explicitCaseId = useMemo(
     () => new URLSearchParams(location.search).get("caseId"),
@@ -184,23 +186,36 @@ function TotalLossDraftBootstrapGate({
     explicitCaseId !== canonicalCaseId,
   );
 
+  const startGuestBootstrap = useCallback(() => {
+    guestBootstrapAbortRef.current?.abort();
+    const controller = new AbortController();
+    guestBootstrapAbortRef.current = controller;
+    const promise = ensureGuestSession({ signal: controller.signal }).finally(
+      () => {
+        if (guestBootstrapAbortRef.current === controller) {
+          guestBootstrapAbortRef.current = null;
+        }
+      },
+    );
+    return { controller, promise };
+  }, [ensureGuestSession]);
+
   useEffect(() => {
     if (auth.status !== "signedOut") return;
     let active = true;
-    void ensureGuestSession().catch((error: unknown) => {
-      if (active) {
+    const { controller, promise } = startGuestBootstrap();
+    void promise.catch((error: unknown) => {
+      if (active && !controller.signal.aborted) {
         setGuestBootstrapError(
-          errorMessage(
-            error,
-            "Venfour could not prepare secure guest storage. Try again.",
-          ),
+          getFriendlyAuthError(error, "guest"),
         );
       }
     });
     return () => {
       active = false;
+      guestBootstrapAbortRef.current?.abort();
     };
-  }, [auth.status, ensureGuestSession]);
+  }, [auth.status, startGuestBootstrap]);
 
   useEffect(() => {
     if (!canonicalizeExplicitCase || !canonicalCaseId) return;
@@ -224,11 +239,14 @@ function TotalLossDraftBootstrapGate({
         message={guestBootstrapError}
         onRetry={() => {
           setGuestBootstrapError(null);
-          void ensureGuestSession().catch((error: unknown) =>
-            setGuestBootstrapError(
-              errorMessage(error, "Secure guest storage is unavailable."),
-            ),
-          );
+          const { controller, promise } = startGuestBootstrap();
+          void promise.catch((error: unknown) => {
+            if (!controller.signal.aborted) {
+              setGuestBootstrapError(
+                getFriendlyAuthError(error, "guest"),
+              );
+            }
+          });
         }}
       />
     );
@@ -1272,10 +1290,7 @@ function TotalLossIntakeFlowContent({
           }));
         } catch (error) {
           setAccessLinkError(
-            errorMessage(
-              error,
-              "Your intake is saved, but the secure access email could not be sent. You can still analyze in this browser.",
-            ),
+            `Your intake is saved. ${getFriendlyAuthError(error, "email")} You can still analyze in this browser.`,
           );
         }
       }
@@ -1298,6 +1313,14 @@ function TotalLossIntakeFlowContent({
     try {
       const caseId = await ensureCase();
       await flushDraft({ force: true });
+      if (draftRef.current.mode === "report" && auth.status === "signedIn") {
+        try {
+          await ingestTotalLossReport(caseId, auth.session.access_token);
+        } catch {
+          // Confirmation can still use the complete customer-confirmed facts
+          // when refreshing the current report extraction is unavailable.
+        }
+      }
       if (
         !detailsService?.confirmIntake ||
         !userId ||

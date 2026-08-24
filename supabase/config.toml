@@ -48,3 +48,6 @@ enable_signup = true
 double_confirm_changes = true
 enable_confirmations = false
 otp_expiry = 3600
+
+[functions.cleanup-abandoned-anonymous-guests]
+verify_jwt = false

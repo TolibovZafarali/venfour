@@ -14,6 +14,10 @@ import type {
   AuthService,
   AuthStateChangeListener,
 } from "@/features/auth/auth-service";
+import type {
+  TurnstileAction,
+  TurnstileController,
+} from "@/features/auth/turnstile-controller";
 import type { AppraisalCaseService } from "@/features/cases/service";
 import { appraisalCaseQueryKeys } from "@/features/cases/queries";
 import type { AppraisalCase } from "@/features/cases/types";
@@ -653,6 +657,132 @@ describe("/start?service=total-loss", () => {
     });
   });
 
+  it.each([
+    {
+      error: new Error("CAPTCHA provider returned private diagnostic data"),
+      expected: "We couldn’t complete the security check. Please try again.",
+    },
+    {
+      error: new Error("Failed to fetch internal guest-auth endpoint"),
+      expected:
+        "We couldn’t reach the sign-in service. Check your connection and try again.",
+    },
+    {
+      error: Object.assign(new Error("private upstream throttle detail"), {
+        status: 429,
+      }),
+      expected:
+        "Too many sign-in attempts. Please wait a few minutes and try again.",
+    },
+  ])(
+    "bounds a guest bootstrap failure as: $expected",
+    async ({ error, expected }) => {
+      const auth = createAuthHarness(null);
+      const signInAnonymously = vi
+        .fn()
+        .mockRejectedValueOnce(error)
+        .mockResolvedValueOnce(anonymousSessionFor());
+      auth.service.signInAnonymously = signInAnonymously;
+      const user = userEvent.setup();
+
+      renderTestApp(["/start?service=total-loss"], {
+        authService: auth.service,
+        totalLossDependencies: createDependencyHarness().dependencies,
+      });
+
+      expect(await screen.findByText(expected)).toBeVisible();
+      expect(screen.queryByText(error.message)).not.toBeInTheDocument();
+
+      await user.click(screen.getByRole("button", { name: "Try again" }));
+      expect(
+        await screen.findByRole("group", {
+          name: "Do you have your insurance valuation report?",
+        }),
+      ).toBeVisible();
+      expect(signInAnonymously).toHaveBeenCalledTimes(2);
+    },
+  );
+
+  it("applies the same bounded guest-auth mapping when a retry fails", async () => {
+    const auth = createAuthHarness(null);
+    const retryError = Object.assign(
+      new Error("private retry throttle diagnostic"),
+      { status: 429 },
+    );
+    const signInAnonymously = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("private initial auth diagnostic"))
+      .mockRejectedValueOnce(retryError);
+    auth.service.signInAnonymously = signInAnonymously;
+    const user = userEvent.setup();
+
+    renderTestApp(["/start?service=total-loss"], {
+      authService: auth.service,
+      totalLossDependencies: createDependencyHarness().dependencies,
+    });
+
+    expect(
+      await screen.findByText(
+        "Venfour could not prepare secure guest storage. Try again.",
+      ),
+    ).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Try again" }));
+
+    expect(
+      await screen.findByText(
+        "Too many sign-in attempts. Please wait a few minutes and try again.",
+      ),
+    ).toBeVisible();
+    expect(screen.queryByText(retryError.message)).not.toBeInTheDocument();
+    expect(signInAnonymously).toHaveBeenCalledTimes(2);
+  });
+
+  it("cancels guest authentication when SPA navigation leaves Total Loss", async () => {
+    const auth = createAuthHarness(null);
+    const challengeStarted = createDeferred<void>();
+    let challengeSignal: AbortSignal | undefined;
+    const turnstileController: TurnstileController = {
+      async runWithToken<T>(
+        _action: TurnstileAction,
+        _operation: (captchaToken: string) => Promise<T>,
+        signal?: AbortSignal,
+      ): Promise<T> {
+        challengeSignal = signal;
+        challengeStarted.resolve();
+        return await new Promise<T>((_resolve, reject) => {
+          if (!signal) {
+            reject(new Error("The security check requires cancellation."));
+            return;
+          }
+          const interrupt = () =>
+            reject(
+              new Error(
+                "The security check was interrupted. Please try again.",
+              ),
+            );
+          if (signal.aborted) {
+            interrupt();
+            return;
+          }
+          signal.addEventListener("abort", interrupt, { once: true });
+        });
+      },
+    };
+
+    const { router } = renderTestApp(["/start?service=total-loss"], {
+      authService: auth.service,
+      authTurnstileController: turnstileController,
+      totalLossDependencies: createDependencyHarness().dependencies,
+    });
+
+    await challengeStarted.promise;
+    expect(challengeSignal?.aborted).toBe(false);
+    await act(async () => router.navigate("/"));
+
+    await waitFor(() => expect(challengeSignal?.aborted).toBe(true));
+    expect(auth.service.signInAnonymously).not.toHaveBeenCalled();
+  });
+
   it("stores no guest access or refresh token in the browser intake draft", async () => {
     const auth = createAuthHarness(null);
 
@@ -1108,6 +1238,7 @@ describe("/start?service=total-loss", () => {
       await screen.findByRole("heading", { name: "Review your details" }),
     ).toBeVisible();
     expect(screen.getByText(/Valuation report review/)).toBeVisible();
+    const ingestionCallsBeforeConfirmation = ingestReportMock.mock.calls.length;
     await user.click(screen.getByRole("button", { name: "Start analysis" }));
     await waitFor(() =>
       expect(router.state.location.pathname).toBe(
@@ -1139,6 +1270,12 @@ describe("/start?service=total-loss", () => {
       userId: USER_ID,
       expectedUpdatedAt: expect.any(String),
     });
+    expect(ingestReportMock).toHaveBeenCalledTimes(
+      ingestionCallsBeforeConfirmation + 1,
+    );
+    expect(ingestReportMock.mock.invocationCallOrder.at(-1)).toBeLessThan(
+      harness.confirmIntake.mock.invocationCallOrder[0],
+    );
     for (const [input] of harness.saveDetails.mock.calls) {
       expect(input.values).not.toHaveProperty("intakeCompletedAt");
     }
@@ -1207,6 +1344,58 @@ describe("/start?service=total-loss", () => {
       screen.queryByRole("heading", { name: "Review your details" }),
     ).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Start analysis" })).not.toBeInTheDocument();
+  });
+
+  it("bounds a late access-email security error after preserving the intake", async () => {
+    expect(
+      writeTotalLossDraft(
+        createSensitiveManualDraft({
+          step: "claim",
+          confirmedCaseId: CASE_ID,
+          reservedCaseId: CASE_ID,
+        }),
+      ).ok,
+    ).toBe(true);
+    const auth = createAuthHarness(anonymousSessionFor(USER_ID));
+    const privateDiagnostic =
+      "CAPTCHA provider returned private diagnostic data";
+    auth.service.sendMagicLink = vi
+      .fn()
+      .mockRejectedValueOnce(new Error(privateDiagnostic));
+    const harness = createDependencyHarness();
+    const user = userEvent.setup();
+
+    renderTestApp(["/start?service=total-loss"], {
+      authService: auth.service,
+      totalLossDependencies: harness.dependencies,
+    });
+
+    expect(
+      await screen.findByRole("heading", { name: "Add the claim details" }),
+    ).toBeVisible();
+    await user.click(withinIntakeFlow().getByRole("button", { name: "Continue" }));
+    expect(
+      await screen.findByRole("heading", {
+        name: "Where should we send and save your results?",
+      }),
+    ).toBeVisible();
+    await user.type(screen.getByLabelText("Full name"), "Guest Customer");
+    await user.type(screen.getByLabelText("Email address"), "guest@example.com");
+    await user.click(screen.getByRole("checkbox", { name: /Terms of Use/i }));
+    await user.click(screen.getByRole("checkbox", { name: /Privacy Policy/i }));
+    await user.click(
+      screen.getByRole("button", { name: "Continue to review" }),
+    );
+
+    expect(
+      await screen.findByText(
+        "Your intake is saved. We couldn’t complete the security check. Please try again. You can still analyze in this browser.",
+      ),
+    ).toBeVisible();
+    expect(screen.queryByText(privateDiagnostic)).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Review your details" }),
+    ).toBeVisible();
   });
 
   it("atomically resumes the newest saved draft without a browser resume fork", async () => {

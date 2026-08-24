@@ -15,7 +15,7 @@
     "supplementalInformation"
   ],
   "properties": {
-    "schemaVersion": { "const": "1" },
+    "schemaVersion": { "type": "string", "const": "1" },
     "report": {
       "type": "object",
       "additionalProperties": false,

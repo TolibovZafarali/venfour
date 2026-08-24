@@ -139,7 +139,7 @@ export const appRoutes: RouteObject[] = [
         ],
       },
       {
-        path: "auth/callback",
+        path: "auth/callback/*",
         element: <AuthCallbackPage />,
         handle: metadata(
           "Finish Signing In | Venfour",

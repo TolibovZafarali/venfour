@@ -2,6 +2,10 @@ export const AUTH_RETURN_LOCATION_STORAGE_KEY =
   "venfour.auth.return-location";
 
 const DEFAULT_RETURN_LOCATION = "/";
+const AUTH_CALLBACK_PATH = "/auth/callback";
+const CASE_CLAIM_CALLBACK_PREFIX = `${AUTH_CALLBACK_PATH}/case-claim/`;
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
 
 function browserOrigin() {
   return typeof window === "undefined" ? "http://localhost" : window.location.origin;
@@ -23,7 +27,11 @@ export function sanitizeReturnLocation(
   try {
     const url = new URL(candidate, origin);
 
-    if (url.origin !== origin || url.pathname === "/auth/callback") {
+    if (
+      url.origin !== origin ||
+      url.pathname === AUTH_CALLBACK_PATH ||
+      url.pathname.startsWith(`${AUTH_CALLBACK_PATH}/`)
+    ) {
       return DEFAULT_RETURN_LOCATION;
     }
 
@@ -46,8 +54,17 @@ export function getCurrentReturnLocation() {
 export function getAuthCallbackUrl(
   parameters: Readonly<Record<string, string>> = {},
 ) {
-  const url = new URL("/auth/callback", browserOrigin());
+  const caseClaimId = parameters.case_claim;
+  if (caseClaimId !== undefined && !UUID_PATTERN.test(caseClaimId)) {
+    throw new Error("Invalid case claim callback parameter.");
+  }
+
+  const callbackPath = caseClaimId
+    ? `${CASE_CLAIM_CALLBACK_PREFIX}${caseClaimId.toLowerCase()}`
+    : AUTH_CALLBACK_PATH;
+  const url = new URL(callbackPath, browserOrigin());
   for (const [key, value] of Object.entries(parameters)) {
+    if (key === "case_claim") continue;
     if (/^[a-z][a-z0-9_]{0,49}$/u.test(key) && value.length <= 500) {
       url.searchParams.set(key, value);
     }
@@ -91,18 +108,32 @@ export type CaseClaimCallbackParameter =
   | { kind: "invalid" }
   | { kind: "none" };
 
-const UUID_PATTERN =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
-
 export function readCaseClaimCallbackParameter(
-  location: Pick<Location, "search" | "hash">,
+  location: Pick<Location, "pathname" | "search" | "hash">,
 ): CaseClaimCallbackParameter {
   const search = new URLSearchParams(location.search);
   const hash = new URLSearchParams(location.hash.replace(/^#/, ""));
-  const values = [
+  const values: string[] = [
     ...search.getAll("case_claim"),
     ...hash.getAll("case_claim"),
   ];
+
+  if (location.pathname.startsWith(CASE_CLAIM_CALLBACK_PREFIX)) {
+    const encodedClaimId = location.pathname.slice(
+      CASE_CLAIM_CALLBACK_PREFIX.length,
+    );
+    if (!encodedClaimId || encodedClaimId.includes("/")) {
+      return { kind: "invalid" };
+    }
+    try {
+      values.unshift(decodeURIComponent(encodedClaimId));
+    } catch {
+      return { kind: "invalid" };
+    }
+  } else if (location.pathname.startsWith(`${AUTH_CALLBACK_PATH}/`)) {
+    return { kind: "invalid" };
+  }
+
   if (values.length === 0) return { kind: "none" };
   if (values.length !== 1 || !UUID_PATTERN.test(values[0])) {
     return { kind: "invalid" };

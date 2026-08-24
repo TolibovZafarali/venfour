@@ -12,11 +12,21 @@ export type {
   AuthContextValue,
   AuthIdentityKind,
   AuthState,
+  GuestSessionOptions,
   SignedInAuthState,
 } from "./auth-context";
 export { AuthProvider } from "./auth-provider";
 export { createSupabaseAuthService } from "./auth-service";
 export type { AuthService, AuthStateChangeListener } from "./auth-service";
+export {
+  createTurnstileController,
+  defaultTurnstileController,
+} from "./turnstile-controller";
+export type {
+  TurnstileAction,
+  TurnstileApi,
+  TurnstileController,
+} from "./turnstile-controller";
 export { SignInDialog } from "./sign-in-dialog";
 export { useSignInDialog } from "./sign-in-dialog-context";
 export type {

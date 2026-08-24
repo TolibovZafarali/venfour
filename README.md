@@ -277,9 +277,12 @@ hostname, create a self-hosted Access application for
 identities. Do not add a public bypass policy. This Access policy prevents
 untrusted visitors from using the staging hostname, but it is not the only
 abuse control: Cloud Run requires a server-only proxy credential on `/api/*`,
-and Supabase new-user signup remains disabled during trusted testing so only
-explicitly provisioned Auth users can write through RLS. These controls do not
-replace customer ownership or database-backed staff authorization.
+Supabase Auth requires a valid Turnstile token before it creates an anonymous
+guest or sends an email magic link, and database policies continue to enforce
+customer ownership and database-backed staff authorization. Guest-first Total
+Loss intentionally enables anonymous sign-in and email user creation for the
+protected staging flow; it does not add a visible sign-up step or make the site
+public.
 
 Generate one high-entropy value outside the repository. Store it in Cloudflare
 as the Worker secret `API_PROXY_SECRET` and mount the same value into Cloud Run
@@ -296,6 +299,7 @@ VITE_STAGING_ORIGIN=https://staging.venfour.com
 VITE_SUPPORT_EMAIL=<monitored address approved for publication>
 VITE_SUPABASE_URL=https://<project-ref>.supabase.co
 VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
+VITE_TURNSTILE_SITE_KEY=<public staging widget site key>
 ```
 
 Keep `VITE_API_BASE_URL` empty so browser API calls stay on the protected
@@ -311,6 +315,21 @@ npm run worker:dry-run
 npx wrangler secret put API_PROXY_SECRET --env staging
 npm run deploy:staging
 ```
+
+`VITE_TURNSTILE_SITE_KEY` is public by design. The staging value must belong to
+a Cloudflare managed widget restricted to the exact hostname
+`staging.venfour.com`; the staging validator rejects Cloudflare's official test
+keys. Unit tests use a mocked Turnstile controller. Local development uses
+Cloudflare's official invisible always-pass test site key only with a local or
+test Supabase Auth configuration that uses the corresponding test secret. That
+test key cannot validate against the shared linked project after the project is
+configured with the real staging widget secret. Never weaken staging by adding
+`localhost` to its managed widget hostname allowlist.
+The corresponding widget secret belongs only in the linked Supabase project's
+Auth CAPTCHA configuration. Never place it in a `VITE_*` value, Worker variable,
+Cloud Run variable, tracked or ignored environment file, shell argument, log,
+scorecard, or documentation. CAPTCHA response tokens are short-lived request
+credentials and must not be logged, persisted, or reused.
 
 The checked-in Wrangler environment binds only `staging.venfour.com`; it does
 not publish the apex `venfour.com` or `www.venfour.com`.
@@ -343,10 +362,12 @@ VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
 ```
 
 Never place a Supabase service-role key in a `VITE_*` variable. Apply the SQL in
-`supabase/migrations/` before using the case data layer. The first trusted-tester
-release reuses the Supabase project already used by the staging Cloud Run
-service. Its Auth Site URL remains `https://venfour.com`; do not replace that
-value with the staging origin. Its exact allowed redirect URLs are:
+`supabase/migrations/` before using the case data layer. The guest-first
+trusted-tester release reuses the Supabase project already used by the staging
+Cloud Run service. Auth, CAPTCHA, signup, SMTP, redirect, and rate-limit settings
+are project-wide; they are not scoped by the browser hostname. Its Auth Site URL
+remains `https://venfour.com`; do not replace that value with the staging origin.
+Its exact allowed redirect URLs are:
 
 ```text
 https://venfour.com/auth/callback
@@ -380,16 +401,171 @@ In the Supabase Dashboard:
    `http://localhost:5173/auth/callback` to the allowed redirect URLs. Keep the
    production Site URL unchanged while the tester deployment shares this
    project.
-3. Keep Email authentication enabled but disable new-user signup while this is
-   a trusted-tester release. Provision each approved tester explicitly before
-   they sign in. Keep the magic-link expiry at 3600 seconds and configure
-   working SMTP. In both the
+3. Keep Email authentication enabled, enable new-user signup, and enable
+   anonymous sign-ins. Both creation paths are required: the browser first
+   creates a hidden anonymous Auth user, and `signInWithOtp()` later creates the
+   permanent user whose verified email can claim the guest case. Cloudflare
+   Access and Turnstile restrict this staging release; there is no visible
+   application sign-up page.
+4. Configure working custom SMTP, require email confirmation, and keep the
+   magic-link expiry at 3600 seconds. In both the
    **Confirm sign up** and **Magic link or OTP** templates, link the sign-in
    action to
    `{{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=email` so Venfour can
    verify the one-time email token without relying on browser-local PKCE state.
-4. Add `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` to the frontend
+5. Under **Authentication > Bot and Abuse Protection**, select Cloudflare
+   Turnstile, store the widget secret, and enable CAPTCHA only after the real
+   staging widget and CAPTCHA-aware frontend are ready. The frontend executes an
+   interaction-only managed challenge immediately before anonymous sign-in and
+   executes a separate fresh challenge immediately before sending the late
+   magic link. Supabase, not the browser or Venfour backend, validates both
+   tokens.
+6. Add `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`, and
+   `VITE_TURNSTILE_SITE_KEY` to the frontend
    deployment environment. Do not expose a secret or service-role key.
+
+Keep these project-level Auth rate boundaries unless a separately reviewed
+staging change is justified:
+
+- anonymous sign-ins: 30 per hour per IP;
+- email sends: 30 per hour project-wide with custom SMTP;
+- OTP and magic-link requests to `/auth/v1/otp`: 30 per hour project-wide,
+  combined across users, with at least 60 seconds between requests for the same
+  user;
+- verification requests: 30 per five minutes per IP;
+- refresh-token requests: 150 per five minutes per IP;
+- SMS sends: 30 per hour; and
+- Web3 requests: 30 per hour per IP.
+
+Treat `429` as an abuse boundary, not a retry loop. The frontend may offer a
+bounded user-initiated retry after the displayed cooldown; client throttling is
+not a security control. The database still limits a guest to the locked,
+idempotent Total-Loss draft resolver, Storage writes require exact upload-token
+fences, and analysis work uses per-case leases and token fencing. Those controls
+bound repeated work after Auth succeeds but do not replace the project-level
+anonymous-IP limit.
+
+### Guest-first Auth rollout and rollback
+
+Use this order for the shared staging project:
+
+1. Create the managed Turnstile widget for exactly `staging.venfour.com` and
+   configure the real public site key in the staging build without enabling
+   Supabase CAPTCHA yet.
+2. Deploy and validate the CAPTCHA-aware staging frontend. It must obtain a
+   fresh token before `signInAnonymously()`, obtain a different fresh token
+   before `signInWithOtp()`, and keep the existing single-flight guest-session
+   behavior.
+3. Store the Turnstile secret in Supabase, select provider `turnstile`, then
+   enable CAPTCHA, anonymous sign-ins, and new-user signup through narrowly
+   targeted Dashboard controls or a targeted Auth Management API update. Do not
+   use `supabase config push`: local development Auth settings are not the live
+   staging configuration and a broad push can overwrite Site URL, callbacks,
+   confirmation behavior, SMTP, or other project-wide fields.
+4. Prove that missing or invalid CAPTCHA tokens fail, both valid token paths
+   succeed, existing Google and verified-email callbacks still work, and a
+   verified permanent user atomically claims the guest case.
+
+The Dashboard controls are the safest way to enter the Turnstile secret without
+placing it in an operator command. If the Management API is used for the
+non-secret toggles, send a `PATCH` to `/v1/projects/{ref}/config/auth` containing
+only `external_anonymous_users_enabled: true`, `disable_signup: false`,
+`security_captcha_provider: "turnstile"`, and
+`security_captcha_enabled: true` as each rollout stage becomes ready. Do not
+round-trip a full `GET` response as the patch body and do not place
+`security_captcha_secret` in a shell argument or transcript. Read back only the
+four sanitized fields.
+
+Unit tests exercise a mocked controller and do not prove Cloudflare or Supabase
+Siteverify behavior. A browser running the official invisible test site key must
+target local/test Supabase Auth configured with the matching test secret. It is
+not a localhost path into the linked shared project once that project holds the
+real staging widget secret, and the staging widget must remain scoped only to
+`staging.venfour.com`.
+
+For rollback, first stop new intake and restrict Cloudflare Access to the
+operator. Disable anonymous sign-ins and new-user signup before disabling
+CAPTCHA, so no unprotected account-creation window opens. Confirm the Auth
+baseline, then route staging back to a prior CAPTCHA-unaware Worker only after
+CAPTCHA is disabled; otherwise its `/signup` and `/otp` requests fail closed.
+The equivalent targeted non-secret patches set
+`external_anonymous_users_enabled: false` and `disable_signup: true` first, then
+set `security_captcha_enabled: false` in a separate update.
+Wait for any active analysis lease to settle before case cleanup. Leaving the
+secret stored while CAPTCHA is disabled is safer than copying it into an
+operator command for emergency deletion; rotate or remove it later through a
+controlled secret-management action.
+
+### Abandoned anonymous guest cleanup
+
+Supabase does not currently provide automatic anonymous-user cleanup. Its
+[anonymous sign-in guidance](https://supabase.com/docs/guides/auth/auth-anonymous)
+shows a simple age-based Auth deletion example, but Venfour must not use that
+query: it does not account for case activity, identity claims, analysis state,
+or Storage deletion. Migration
+`20260824000000_abandoned_anonymous_guest_cleanup.sql` and Edge Function
+`cleanup-abandoned-anonymous-guests` implement the narrower Venfour contract.
+
+The function accepts `POST` only. Its gateway JWT check is disabled because it
+is invoked by `pg_net`, so every request must instead include
+`X-Venfour-Cleanup-Secret` matching the Edge secret
+`VENFOUR_ANONYMOUS_CLEANUP_SCHEDULE_SECRET`. The handler compares digests and
+never logs the secret. The request body is
+`{ "dryRun": false, "batchSize": 25 }`; both fields are optional, and the
+batch size is clamped to 1 through 100. The response contains only `runId`,
+`status`, `dryRun`, `eligibleCount`, `markedCount`, `cancelledCount`,
+`claimedCount`, `completedCount`, `retryCount`, and `blockedCount`. A dry run
+writes only an audit run/event and eligibility count; it does not create queue
+candidates or mutate Storage or Auth.
+
+The daily job is named
+`venfour-abandoned-anonymous-guest-cleanup-daily` and runs at
+`17 3 * * *` UTC. `pg_cron` calls the `pg_net` dispatcher, which reads the exact
+Edge URL and schedule secret from Vault entries
+`venfour_cleanup_edge_function_url` and
+`venfour_cleanup_schedule_secret`. The Vault secret and Edge secret must
+correspond, but operators verify only their existence and wiring. Never print,
+select, export, or paste decrypted values. This follows Supabase's
+[scheduled Edge Function](https://supabase.com/docs/guides/functions/schedule-functions)
+and [Edge secret](https://supabase.com/docs/guides/functions/secrets) patterns.
+
+Eligibility is deliberately stricter than account age. The user must still be
+an anonymous Auth user and Auth, profile, case, detail, and contact activity must
+all be at least 30 days old. Permanent or identity-linked users, staff, any
+non-draft or Diminished Value case, recent data, a completed intake, an
+unexpired report-upload lease, claimed or actively claimable cases, every
+analysis job or run, Storage-owner mismatches, and transferred cases whose
+immutable report namespace still belongs to the guest are excluded.
+A real run marks at most one bounded batch with a fresh 24-hour grace period and
+claims at most one due batch. Before hard-deleting Auth, it rechecks eligibility,
+allows only the canonical and backup report paths, and blocks on every
+unexpected entry anywhere under the candidate user's Storage root. It deletes
+the approved objects through the Storage API and verifies the prefix is empty
+before Auth deletion. Durable leases,
+`storage_retry` and `storage_deleted` states, and private run/candidate/event
+state support safe interruption and retry; operator evidence remains
+count-only. Any nonzero retry or blocked count requires operator review; never
+broaden the allowed paths to force progress.
+
+The migration creates the active schedule immediately. Apply it only in a
+controlled window, configure the Edge secret and both Vault entries at once,
+then confirm migration parity, the deployed Edge function and its
+`POST`/custom-secret behavior, exactly one cron row with the reviewed name and
+cadence, and a count-only dry run with no candidate, Storage, or Auth mutation.
+The dispatcher fails closed while required configuration is absent, but an
+active misconfigured job must not be left waiting for its first cadence. If
+readiness cannot be completed in that window, stop new runs with:
+
+```sql
+select cron.unschedule('venfour-abandoned-anonymous-guest-cleanup-daily');
+```
+
+Unschedule first, then let or safely reconcile any `executing`,
+`storage_retry`, `storage_deleted`, or partially processed `blocked` candidate.
+Do not remove the Edge function or migration objects while a cleanup-frozen
+guest or partial Storage/Auth operation exists. Schema rollback is a separate,
+manual, reviewed operation only after those states are clear and audit evidence
+has been retained.
 
 #### Staff access for Diminished Value review
 
@@ -434,13 +610,17 @@ redirect URI, then enable Google in Supabase and enter that client ID and
 secret. Google returns to Supabase first; Supabase then returns the browser to
 Venfour's `/auth/callback` route.
 
-The first tester release intentionally reuses the existing Supabase project and
-adds only the exact staging callback above; it does not create a second database
-environment. A later isolated preview or staging project should instead use its
-own Site URL, callback allowlist, SMTP, browser publishable key, and server-only
-Cloud Run credentials. Keep anonymous sign-ins disabled, keep public signup
-disabled while access is tester-only, keep JWT and email-link expiry at 3600
-seconds, and use the same token-hash email templates. Never expose service-role
+This tester release intentionally reuses the existing Supabase project and adds
+only the exact staging callback above; it does not create a second database
+environment. The checked-in Worker publishes neither `venfour.com` nor
+`www.venfour.com`, but that routing fact does not isolate Supabase Auth. Before a
+future production frontend uses this project, it must support Turnstile tokens
+for every CAPTCHA-protected Auth request, including email OTP initiation, or the
+production release must use a separate project. A later isolated preview or
+staging project should use its own Site URL, callback allowlist, SMTP, Turnstile
+widget and secret, browser publishable key, and server-only Cloud Run
+credentials. Keep JWT and email-link expiry at 3600 seconds and use the same
+token-hash email templates. Never expose service-role, Turnstile, SMTP, OAuth,
 or provider credentials through `VITE_*`, and keep
 `VENFOUR_ENABLE_LEGACY_ANALYSIS_API` disabled in every deployment.
 
