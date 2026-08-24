@@ -1,6 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { http, HttpResponse } from "msw";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { AppraisalCaseService } from "@/features/cases/service";
 import type { AppraisalCase } from "@/features/cases/types";
@@ -22,7 +22,7 @@ const CREATED_AT = "2026-08-18T14:00:00.000Z";
 const UPDATED_AT = "2026-08-18T15:00:00.000Z";
 const UPLOAD_ID = "33333333-3333-4333-8333-333333333333";
 const DETAILS_COLUMNS =
-  "case_id,intake_mode,vin,vehicle_year,vehicle_make,vehicle_model,vehicle_trim,mileage_at_loss,postal_code,date_of_loss,insurer_name,insurer_vehicle_valuation,report_original_filename,report_uploaded_at,intake_completed_at,created_at,updated_at";
+  "case_id,intake_mode,vin,vehicle_year,vehicle_make,vehicle_model,vehicle_trim,mileage_at_loss,postal_code,date_of_loss,insurer_name,insurer_vehicle_valuation,vehicle_condition,vehicle_options_packages,report_provider_name,report_extraction_status,report_extraction_confidence,report_extracted_at,report_facts_confirmed_at,analysis_input_revision,analysis_input_id,report_storage_owner_id,report_original_filename,report_uploaded_at,intake_completed_at,created_at,updated_at";
 
 const detailsRow = {
   case_id: CASE_ID,
@@ -37,6 +37,16 @@ const detailsRow = {
   date_of_loss: "2026-08-18",
   insurer_name: "Example Insurance",
   insurer_vehicle_valuation: 20500.5,
+  vehicle_condition: "Good",
+  vehicle_options_packages: "Technology package",
+  report_provider_name: null,
+  report_extraction_status: "not_requested",
+  report_extraction_confidence: null,
+  report_extracted_at: null,
+  report_facts_confirmed_at: null,
+  analysis_input_revision: 1,
+  analysis_input_id: "44444444-4444-4444-8444-444444444444",
+  report_storage_owner_id: USER_ID,
   report_original_filename: null,
   report_uploaded_at: null,
   intake_completed_at: null,
@@ -53,6 +63,25 @@ const leaseRow = {
   recovery_required: false,
 };
 
+beforeEach(() => {
+  server.use(
+    http.post(
+      `${SUPABASE_URL}/rest/v1/rpc/get_owned_total_loss_report_storage_locator`,
+      () =>
+        HttpResponse.json([
+          {
+            case_id: CASE_ID,
+            bucket_id: "case-files",
+            storage_owner_id: USER_ID,
+            canonical_object_path: `${USER_ID}/${CASE_ID}/valuation-report.pdf`,
+            backup_object_path: `${USER_ID}/${CASE_ID}/valuation-report-backup.pdf`,
+            finalized_upload_id: null,
+          },
+        ]),
+    ),
+  );
+});
+
 const expectedDetails: TotalLossCaseDetails = {
   caseId: CASE_ID,
   intakeMode: "manual",
@@ -66,6 +95,16 @@ const expectedDetails: TotalLossCaseDetails = {
   dateOfLoss: "2026-08-18",
   insurerName: "Example Insurance",
   insurerVehicleValuation: 20500.5,
+  vehicleCondition: "Good",
+  optionsPackages: "Technology package",
+  reportProvider: null,
+  reportExtractionStatus: "not_requested",
+  reportExtractionConfidence: null,
+  reportExtractedAt: null,
+  reportFactsConfirmedAt: null,
+  analysisInputRevision: 1,
+  analysisInputId: "44444444-4444-4444-8444-444444444444",
+  reportStorageOwnerId: USER_ID,
   reportOriginalFilename: null,
   reportUploadedAt: null,
   intakeCompletedAt: null,
@@ -172,12 +211,17 @@ describe("total-loss details service", () => {
         intakeMode: "manual",
         vin: "1HGCM82633A004352",
         vehicleYear: 2023,
+        vehicleCondition: "Good",
+        optionsPackages: "Technology package",
       },
     });
 
     expect(requestBody).toEqual({
       case_id: CASE_ID,
       intake_mode: "manual",
+      report_storage_owner_id: USER_ID,
+      vehicle_condition: "Good",
+      vehicle_options_packages: "Technology package",
       vehicle_year: 2023,
       vin: "1HGCM82633A004352",
     });
@@ -311,7 +355,8 @@ describe("total-loss details service", () => {
           dateOfLoss: "2026-08-18",
           insurerName: "Example Insurance",
           insurerVehicleValuation: 20500.5,
-          intakeCompletedAt: null,
+          vehicleCondition: "Good",
+          optionsPackages: "Technology package",
         },
       }),
     ).resolves.toEqual(expectedDetails);
@@ -346,6 +391,7 @@ describe("total-loss details service", () => {
       reportOriginalFilename: null,
       reportUploadedAt: null,
       recoveryRequired: false,
+      storageOwnerUserId: USER_ID,
     });
 
     expect(requestBody).toEqual({

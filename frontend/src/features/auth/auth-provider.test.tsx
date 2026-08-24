@@ -19,18 +19,25 @@ function createDeferred<T>() {
   return { promise, reject, resolve };
 }
 
-function sessionFor(id: string, email = `${id}@example.com`) {
+function sessionFor(
+  id: string,
+  email = `${id}@example.com`,
+  identity: "anonymous" | "permanent" = "permanent",
+) {
   return {
     access_token: `access-${id}`,
     expires_in: 3600,
     refresh_token: `refresh-${id}`,
     token_type: "bearer",
     user: {
-      app_metadata: {},
+      app_metadata: {
+        provider: identity === "anonymous" ? "anonymous" : "email",
+      },
       aud: "authenticated",
       created_at: "2026-08-18T00:00:00Z",
       email,
       id,
+      is_anonymous: identity === "anonymous",
       user_metadata: {},
     },
   } as Session;
@@ -54,7 +61,11 @@ function createFakeAuthService(
       listener = nextListener;
       return unsubscribe;
     }),
+    restoreSession: vi.fn(async (session) => session),
     sendMagicLink: vi.fn(async () => undefined),
+    signInAnonymously: vi.fn(async () =>
+      sessionFor("anonymous-user", "", "anonymous"),
+    ),
     signInWithGoogle: vi.fn(async () => undefined),
     signOut: vi.fn(async () => undefined),
     verifyEmailOtp: vi.fn(async () => sessionFor("email-user")),
@@ -70,12 +81,21 @@ function createFakeAuthService(
 }
 
 function AuthProbe() {
-  const { auth, completeAuthCallback, signOut } = useAuth();
+  const {
+    auth,
+    completeAuthCallback,
+    ensureGuestSession,
+    restoreSession,
+    signOut,
+  } = useAuth();
   return (
     <div>
       <output data-testid="status">{auth.status}</output>
       <output data-testid="user">
         {auth.status === "signedIn" ? auth.user.id : "none"}
+      </output>
+      <output data-testid="identity">
+        {auth.status === "signedIn" ? auth.identity : "none"}
       </output>
       <button type="button" onClick={() => void signOut()}>
         Sign out
@@ -85,6 +105,24 @@ function AuthProbe() {
         onClick={() => void completeAuthCallback("callback-code")}
       >
         Complete callback
+      </button>
+      <button
+        type="button"
+        onClick={() =>
+          void Promise.all([ensureGuestSession(), ensureGuestSession()])
+        }
+      >
+        Ensure guest twice
+      </button>
+      <button
+        type="button"
+        onClick={() =>
+          void restoreSession(
+            sessionFor("recovery-guest", "", "anonymous"),
+          )
+        }
+      >
+        Restore guest
       </button>
     </div>
   );
@@ -119,6 +157,109 @@ describe("AuthProvider", () => {
     await waitFor(() =>
       expect(screen.getByTestId("user")).toHaveTextContent("restored"),
     );
+  });
+
+  test("classifies anonymous sessions without treating them as signed out", async () => {
+    const anonymousSession = sessionFor("restored-guest", "", "anonymous");
+    delete anonymousSession.user.is_anonymous;
+    const fake = createFakeAuthService(async () => anonymousSession);
+    render(
+      <AuthProvider service={fake.service}>
+        <AuthProbe />
+      </AuthProvider>,
+    );
+
+    await waitFor(() =>
+      expect(screen.getByTestId("user")).toHaveTextContent("restored-guest"),
+    );
+    expect(screen.getByTestId("status")).toHaveTextContent("signedIn");
+    expect(screen.getByTestId("identity")).toHaveTextContent("anonymous");
+  });
+
+  test("shares one anonymous sign-in across concurrent guest requests", async () => {
+    const fake = createFakeAuthService();
+    render(
+      <AuthProvider service={fake.service}>
+        <AuthProbe />
+      </AuthProvider>,
+    );
+
+    await waitFor(() =>
+      expect(screen.getByTestId("status")).toHaveTextContent("signedOut"),
+    );
+    screen.getByRole("button", { name: "Ensure guest twice" }).click();
+
+    await waitFor(() =>
+      expect(fake.service.signInAnonymously).toHaveBeenCalledOnce(),
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId("identity")).toHaveTextContent("anonymous"),
+    );
+    expect(screen.getByTestId("user")).toHaveTextContent("anonymous-user");
+  });
+
+  test("reuses a permanent session instead of replacing it with a guest", async () => {
+    const fake = createFakeAuthService(async () => sessionFor("account-user"));
+    render(
+      <AuthProvider service={fake.service}>
+        <AuthProbe />
+      </AuthProvider>,
+    );
+
+    await waitFor(() =>
+      expect(screen.getByTestId("identity")).toHaveTextContent("permanent"),
+    );
+    screen.getByRole("button", { name: "Ensure guest twice" }).click();
+
+    expect(fake.service.signInAnonymously).not.toHaveBeenCalled();
+    expect(screen.getByTestId("user")).toHaveTextContent("account-user");
+  });
+
+  test("restores an anonymous session through the auth service", async () => {
+    const fake = createFakeAuthService(async () => sessionFor("account-user"));
+    render(
+      <AuthProvider service={fake.service}>
+        <AuthProbe />
+      </AuthProvider>,
+    );
+
+    await waitFor(() =>
+      expect(screen.getByTestId("user")).toHaveTextContent("account-user"),
+    );
+    screen.getByRole("button", { name: "Restore guest" }).click();
+
+    await waitFor(() =>
+      expect(screen.getByTestId("user")).toHaveTextContent("recovery-guest"),
+    );
+    expect(screen.getByTestId("identity")).toHaveTextContent("anonymous");
+    expect(fake.service.restoreSession).toHaveBeenCalledOnce();
+  });
+
+  test("does not overwrite a permanent auth event with a stale guest response", async () => {
+    const guestCreation = createDeferred<Session>();
+    const fake = createFakeAuthService();
+    fake.service.signInAnonymously = vi.fn(() => guestCreation.promise);
+    render(
+      <AuthProvider service={fake.service}>
+        <AuthProbe />
+      </AuthProvider>,
+    );
+
+    await waitFor(() =>
+      expect(screen.getByTestId("status")).toHaveTextContent("signedOut"),
+    );
+    screen.getByRole("button", { name: "Ensure guest twice" }).click();
+    await waitFor(() =>
+      expect(fake.service.signInAnonymously).toHaveBeenCalledOnce(),
+    );
+
+    act(() => fake.emit(sessionFor("shared-user")));
+    await act(async () =>
+      guestCreation.resolve(sessionFor("shared-user", "", "anonymous")),
+    );
+
+    expect(screen.getByTestId("identity")).toHaveTextContent("permanent");
+    expect(screen.getByTestId("user")).toHaveTextContent("shared-user");
   });
 
   test("does not let stale restoration override a newer auth event", async () => {

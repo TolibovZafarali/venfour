@@ -262,13 +262,13 @@ function AuthenticatedTotalLossAnalysisPage({
               : "We couldn’t start your value check."
             : needsResume
               ? "This value check needs to resume."
-              : "We’re reviewing your valuation report."
+              : "We’re preparing your market valuation."
         }
         description={
           errorMessage ??
           (needsResume
             ? "The previous processing attempt did not finish. Venfour can safely resume this saved appraisal without creating a second analysis."
-            : "Venfour is reading the insurer’s valuation and comparing it with relevant market evidence. You can safely leave this page and return later.")
+            : "Venfour is reviewing the confirmed vehicle and claim facts and comparing them with relevant market evidence. You can safely leave this page and return later.")
         }
       >
         {errorMessage && replaceReportRequired ? (
@@ -325,7 +325,7 @@ function AuthenticatedTotalLossAnalysisPage({
             <Link
               to={`/start?service=total-loss&caseId=${encodeURIComponent(caseId)}`}
             >
-              Replace report
+              Review intake
             </Link>
           </Button>
         )}
@@ -386,8 +386,8 @@ export function TotalLossAnalysisPage() {
       <StateCard
         kind="loading"
         eyebrow="Secure appraisal"
-        heading="Checking your sign-in…"
-        description="Venfour is confirming your account before loading this appraisal."
+        heading="Checking secure access…"
+        description="Venfour is confirming this browser can open the private appraisal."
       />
     );
   }

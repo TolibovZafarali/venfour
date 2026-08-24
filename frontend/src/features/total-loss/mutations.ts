@@ -197,6 +197,7 @@ export function useUploadTotalLossReportMutation({
         caseId: operation.caseId,
         uploadId: operation.lease.uploadId,
         userId: operation.userId,
+        storageOwnerUserId: operation.lease.storageOwnerUserId,
       });
 
       const deleteBackupBestEffort = async (
@@ -228,7 +229,11 @@ export function useUploadTotalLossReportMutation({
           }
           throw error;
         }
-        operation.lease = renewed;
+        operation.lease = {
+          ...renewed,
+          storageOwnerUserId:
+            renewed.storageOwnerUserId ?? operation.lease.storageOwnerUserId,
+        };
         if (renewed.recoveryRequired) {
           operation.stage = "needs-recovery";
           operation.hasBackup = true;
@@ -442,12 +447,18 @@ export function useUploadTotalLossReportMutation({
         operation.stage === "backup-stored"
       ) {
         try {
-          operation.lease = await retryOnce(() =>
+          const readyLease = await retryOnce(() =>
             resolvedDetailsService.markReportUploadReady({
               ...leaseScope(operation),
               hasBackup: operation.hasBackup,
             }),
           );
+          operation.lease = {
+            ...readyLease,
+            storageOwnerUserId:
+              readyLease.storageOwnerUserId ??
+              operation.lease.storageOwnerUserId,
+          };
           operation.stage = "ready";
         } catch (readyError) {
           // An ambiguous mark-ready response is retained and retried with the

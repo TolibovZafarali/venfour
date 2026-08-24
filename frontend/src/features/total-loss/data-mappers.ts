@@ -62,6 +62,8 @@ export function totalLossManualFormToDetailsValues(
     dateOfLoss,
     insurerName: nullable(normalized.insurerName),
     insurerVehicleValuation,
+    vehicleCondition: nullable(normalized.vehicleCondition),
+    optionsPackages: nullable(normalized.optionsPackages),
   };
 }
 
@@ -70,13 +72,7 @@ export function totalLossReportFormToDetailsValues(
   referenceDate = new Date(),
 ): CreateTotalLossDetailsValues {
   return {
-    ...totalLossManualFormToDetailsValues(
-      {
-        ...createEmptyTotalLossManualForm(),
-        zipCode: values.zipCode,
-      },
-      referenceDate,
-    ),
+    ...totalLossManualFormToDetailsValues(values, referenceDate),
     intakeMode: "report",
   };
 }
@@ -117,5 +113,7 @@ export function totalLossDetailsToManualForm(
       details.insurerVehicleValuation === null
         ? ""
         : details.insurerVehicleValuation.toFixed(2),
+    vehicleCondition: details.vehicleCondition ?? "",
+    optionsPackages: details.optionsPackages ?? "",
   };
 }

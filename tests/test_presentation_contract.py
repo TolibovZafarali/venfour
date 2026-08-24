@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import unittest
+from copy import deepcopy
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
@@ -265,6 +266,41 @@ class PresentationSchemaContractTests(unittest.TestCase):
             with self.subTest(value=invalid):
                 with self.assertRaises(AnalysisPresentationContractError):
                     validate_analysis_presentation(invalid)  # type: ignore[arg-type]
+
+    def test_manual_scope_cannot_claim_report_valuation_or_review(self) -> None:
+        presentation = json.loads(
+            (
+                Path(__file__).parent
+                / "fixtures"
+                / "analysis"
+                / "analysis-presentation-material-undervalue.json"
+            ).read_text(encoding="utf-8")
+        )
+        manual = deepcopy(presentation)
+        manual["analysisScope"].update(
+            {
+                "inputMode": "MANUAL",
+                "reportAvailable": False,
+                "reportExtractionAvailable": False,
+                "reportReviewPerformed": False,
+                "reportProvider": None,
+                "reportAdapter": None,
+                "partialExtraction": False,
+                "reportComparablesAvailable": False,
+                "reportAdjustmentsAvailable": False,
+            }
+        )
+
+        validator = Draft202012Validator(self.schema)
+        with self.subTest(contradiction="report source"):
+            manual["reportReview"] = None
+            manual["insurerValuation"]["source"] = "REPORT"
+            self.assertTrue(list(validator.iter_errors(manual)))
+
+        with self.subTest(contradiction="report review"):
+            manual["insurerValuation"]["source"] = "CUSTOMER_ENTERED"
+            manual["reportReview"] = presentation["reportReview"]
+            self.assertTrue(list(validator.iter_errors(manual)))
 
 
 if __name__ == "__main__":

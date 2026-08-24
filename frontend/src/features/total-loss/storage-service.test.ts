@@ -13,6 +13,7 @@ import { server } from "@/test/mocks/server";
 
 const SUPABASE_URL = "https://total-loss-storage-test.supabase.co";
 const USER_ID = "11111111-1111-4111-8111-111111111111";
+const CLAIMED_OWNER_ID = "44444444-4444-4444-8444-444444444444";
 const CASE_ID = "22222222-2222-4222-8222-222222222222";
 const UPLOAD_ID = "33333333-3333-4333-8333-333333333333";
 const OBJECT_PATH = `${USER_ID}/${CASE_ID}/valuation-report.pdf`;
@@ -159,6 +160,31 @@ describe("total-loss report storage service", () => {
       type: "application/pdf",
       upsert: null,
     });
+  });
+
+  it("keeps a claimed case in its immutable guest storage namespace", async () => {
+    let requested = false;
+    server.use(
+      http.get(
+        `${SUPABASE_URL}/storage/v1/object/case-files/${OBJECT_PATH}`,
+        () => {
+          requested = true;
+          return new HttpResponse("%PDF-1.7 guest report", {
+            headers: { "content-type": "application/pdf" },
+          });
+        },
+      ),
+    );
+
+    const report = await createTestService().downloadReport({
+      caseId: CASE_ID,
+      userId: CLAIMED_OWNER_ID,
+      storageOwnerUserId: USER_ID,
+      uploadId: UPLOAD_ID,
+    });
+
+    expect(requested).toBe(true);
+    expect(await report.text()).toContain("guest report");
   });
 
   it("updates a leftover canonical object after a duplicate create response", async () => {

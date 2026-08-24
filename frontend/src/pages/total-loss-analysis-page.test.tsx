@@ -74,7 +74,7 @@ describe("total-loss case analysis page", () => {
 
     expect(
       await screen.findByRole("heading", {
-        name: "We’re reviewing your valuation report.",
+        name: "We’re preparing your market valuation.",
       }),
     ).toBeVisible();
     await waitFor(() => expect(postCount).toBe(1));
@@ -116,7 +116,7 @@ describe("total-loss case analysis page", () => {
 
     expect(
       await screen.findByRole("heading", {
-        name: "We’re reviewing your valuation report.",
+        name: "We’re preparing your market valuation.",
       }),
     ).toBeVisible();
     await waitFor(
@@ -174,7 +174,7 @@ describe("total-loss case analysis page", () => {
     await waitFor(() => expect(postCount).toBe(1));
     expect(
       await screen.findByRole("heading", {
-        name: "We’re reviewing your valuation report.",
+        name: "We’re preparing your market valuation.",
       }),
     ).toBeVisible();
   });
@@ -200,7 +200,7 @@ describe("total-loss case analysis page", () => {
       await vi.waitFor(() =>
         expect(
           screen.getByRole("heading", {
-            name: "We’re reviewing your valuation report.",
+            name: "We’re preparing your market valuation.",
           }),
         ).toBeVisible(),
       );
@@ -270,7 +270,7 @@ describe("total-loss case analysis page", () => {
     expect(postCount).toBe(1);
   });
 
-  it("offers report replacement for a nonretryable failure", async () => {
+  it("offers intake review for a nonretryable failure", async () => {
     server.use(
       http.get("*/api/v1/appraisal-cases/:caseId/analysis", () =>
         HttpResponse.json({
@@ -290,7 +290,7 @@ describe("total-loss case analysis page", () => {
     });
 
     expect(
-      await screen.findByRole("link", { name: "Replace report" }),
+      await screen.findByRole("link", { name: "Review intake" }),
     ).toHaveAttribute(
       "href",
       `/start?service=total-loss&caseId=${CASE_ID}`,
@@ -389,7 +389,7 @@ describe("total-loss case analysis page", () => {
     expect(postCount).toBe(1);
     expect(
       screen.getByRole("heading", {
-        name: "We’re reviewing your valuation report.",
+        name: "We’re preparing your market valuation.",
       }),
     ).toBeVisible();
     expect(

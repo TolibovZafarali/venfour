@@ -209,10 +209,16 @@ select throws_ok(
 );
 
 reset role;
+
+-- Total-Loss storage authorization now resolves the immutable namespace from
+-- the case details row instead of trusting the path's leading user UUID.
+insert into public.total_loss_case_details (case_id, intake_mode)
+values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1', 'manual');
+
 set local role authenticated;
 set local request.jwt.claim.sub = '11111111-1111-4111-8111-111111111111';
 
-select lives_ok(
+select throws_ok(
   $$
     insert into storage.objects (bucket_id, name)
     values (
@@ -220,8 +226,22 @@ select lives_ok(
       '11111111-1111-4111-8111-111111111111/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1/valuation.pdf'
     )
   $$,
-  'a customer can add a file below their owned case path'
+  '42501',
+  null,
+  'a customer cannot add an arbitrary file below an owned Total-Loss case path'
 );
+
+reset role;
+
+-- A legacy object remains owner-readable after customer mutation is narrowed.
+insert into storage.objects (bucket_id, name)
+values (
+  'case-files',
+  '11111111-1111-4111-8111-111111111111/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1/valuation.pdf'
+);
+
+set local role authenticated;
+set local request.jwt.claim.sub = '11111111-1111-4111-8111-111111111111';
 
 select results_eq(
   $$
@@ -269,16 +289,14 @@ select throws_ok(
   'a storage object path must include an owned case ID'
 );
 
-select throws_ok(
+select lives_ok(
   $$
     update storage.objects
     set name = '22222222-2222-4222-8222-222222222222/bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb2/moved.pdf'
     where bucket_id = 'case-files'
       and name = '11111111-1111-4111-8111-111111111111/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1/valuation.pdf'
   $$,
-  '42501',
-  null,
-  'a customer cannot move a file across ownership boundaries'
+  'a cross-boundary move attempt against a non-reserved legacy object safely affects no rows'
 );
 
 set local request.jwt.claim.sub = '22222222-2222-4222-8222-222222222222';
@@ -316,15 +334,15 @@ select lives_ok(
     where bucket_id = 'case-files'
       and name = '11111111-1111-4111-8111-111111111111/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1/valuation.pdf'
   $$,
-  'a customer can delete their own case file'
+  'an owner delete attempt against a non-reserved legacy object safely affects no rows'
 );
 
 reset role;
 
 select is(
   (select count(*) from storage.objects where bucket_id = 'case-files'),
-  0::bigint,
-  'the owned case file was deleted'
+  1::bigint,
+  'non-reserved legacy Total-Loss objects are immutable to browser clients'
 );
 
 select * from finish();

@@ -1,10 +1,18 @@
 export { AccountControl, MobileAccountControl } from "./account-control";
 export { AuthCallbackPage } from "./auth-callback-page";
-export { useAuth } from "./auth-context";
+export {
+  isAnonymousAuthState,
+  isAnonymousUser,
+  isPermanentAuthState,
+  isPermanentUser,
+  useAuth,
+} from "./auth-context";
 export type {
   AuthActionOptions,
   AuthContextValue,
+  AuthIdentityKind,
   AuthState,
+  SignedInAuthState,
 } from "./auth-context";
 export { AuthProvider } from "./auth-provider";
 export { createSupabaseAuthService } from "./auth-service";

@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import os
 import tempfile
+from collections.abc import Mapping
 from contextlib import asynccontextmanager
 from hmac import compare_digest
 from pathlib import Path
@@ -85,7 +86,7 @@ _ERROR_MESSAGES = {
     "METHOD_NOT_ALLOWED": "Method is not allowed.",
     "UNSUPPORTED_MEDIA_TYPE": "Content type must be multipart/form-data.",
     "INVALID_MULTIPART_REQUEST": "Analysis creation request is invalid.",
-    "REPORT_REQUIRED": "A CCC PDF report is required.",
+    "REPORT_REQUIRED": "A valuation report is required.",
     "POSTAL_CODE_REQUIRED": "A postalCode is required.",
     "INVALID_POSTAL_CODE": (
         "postalCode must be a 5-digit US ZIP code or ZIP+4."
@@ -95,7 +96,8 @@ _ERROR_MESSAGES = {
     "REPORT_EXTRACTION_FAILED": "Uploaded report could not be extracted.",
     "REPORT_NOT_ANALYZABLE": "Uploaded report could not be analyzed.",
     "UNSUPPORTED_REPORT": (
-        "This tester release supports original CCC valuation report PDFs only."
+        "This valuation report could not be processed automatically. "
+        "Continue by confirming the available details manually."
     ),
     "MARKET_PROVIDER_UNAVAILABLE": "Market evidence is temporarily unavailable.",
     "ANALYSIS_CREATION_UNAVAILABLE": "Analysis creation is unavailable.",
@@ -531,6 +533,71 @@ async def _case_analysis_submit(request: Request) -> JSONResponse:
     return _private_response(response)
 
 
+async def _case_report_ingestion(request: Request) -> JSONResponse:
+    identity = await _owned_identity(request)
+    if isinstance(identity, JSONResponse):
+        return _private_response(identity)
+    try:
+        access_token = _bearer_token(request)
+    except SupabaseAuthenticationError:
+        return _private_response(
+            _error_response(
+                401,
+                "AUTHENTICATION_REQUIRED",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        )
+    content_length = request.headers.get("content-length")
+    if content_length is not None:
+        try:
+            if int(content_length) != 0:
+                return _private_response(
+                    _error_response(400, "INVALID_REPORT_INGESTION_REQUEST")
+                )
+        except ValueError:
+            return _private_response(
+                _error_response(400, "INVALID_REPORT_INGESTION_REQUEST")
+            )
+    body_request = Request(
+        request.scope,
+        receive=_bounded_receive(request.receive, 1),
+    )
+    try:
+        if await body_request.body():
+            return _private_response(
+                _error_response(400, "INVALID_REPORT_INGESTION_REQUEST")
+            )
+    except _RequestBodyTooLarge:
+        return _private_response(
+            _error_response(400, "INVALID_REPORT_INGESTION_REQUEST")
+        )
+
+    ingestion_method = getattr(
+        request.app.state.case_analysis_service, "ingest_report", None
+    )
+    if not callable(ingestion_method):
+        return _private_response(
+            _error_response(503, "REPORT_EXTRACTION_UNAVAILABLE")
+        )
+    case_id = request.path_params["case_id"]
+    try:
+        ingestion = await run_in_threadpool(
+            ingestion_method,
+            case_id,
+            identity,
+            access_token,
+        )
+        if callable(getattr(ingestion, "to_dict", None)):
+            payload = ingestion.to_dict()
+        elif isinstance(ingestion, Mapping):
+            payload = dict(ingestion)
+        else:
+            raise CaseAnalysisContractError("Report ingestion response is invalid")
+        return _private_response(JSONResponse(payload))
+    except Exception as exc:
+        return _private_response(_case_analysis_error(exc))
+
+
 async def _owned_analysis_presentation(request: Request) -> JSONResponse:
     identity = await _owned_identity(request)
     if isinstance(identity, JSONResponse):
@@ -736,6 +803,11 @@ def create_app(
         )
 
     routes = [
+        Route(
+            "/api/v1/appraisal-cases/{case_id}/report-ingestion",
+            _case_report_ingestion,
+            methods=["POST"],
+        ),
         Route(
             "/api/v1/appraisal-cases/{case_id}/analysis",
             _case_analysis_submit,

@@ -1,6 +1,15 @@
 import { createContext, useContext } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 
+export type AuthIdentityKind = "anonymous" | "permanent";
+
+export interface SignedInAuthState {
+  status: "signedIn";
+  identity: AuthIdentityKind;
+  session: Session;
+  user: User;
+}
+
 export type AuthState =
   | {
       status: "loading";
@@ -12,11 +21,7 @@ export type AuthState =
       session: null;
       user: null;
     }
-  | {
-      status: "signedIn";
-      session: Session;
-      user: User;
-    }
+  | SignedInAuthState
   | {
       status: "unavailable";
       session: null;
@@ -26,10 +31,13 @@ export type AuthState =
 
 export interface AuthActionOptions {
   returnTo?: string;
+  callbackParameters?: Readonly<Record<string, string>>;
 }
 
 export interface AuthContextValue {
   auth: AuthState;
+  ensureGuestSession: () => Promise<Session>;
+  restoreSession: (session: Session) => Promise<Session>;
   signInWithGoogle: (options?: AuthActionOptions) => Promise<void>;
   sendMagicLink: (
     email: string,
@@ -44,6 +52,28 @@ export interface AuthContextValue {
 }
 
 export const AuthContext = createContext<AuthContextValue | null>(null);
+
+export function isAnonymousUser(user: User) {
+  return (
+    user.is_anonymous === true || user.app_metadata?.provider === "anonymous"
+  );
+}
+
+export function isPermanentUser(user: User) {
+  return !isAnonymousUser(user);
+}
+
+export function isAnonymousAuthState(
+  auth: AuthState,
+): auth is SignedInAuthState & { identity: "anonymous" } {
+  return auth.status === "signedIn" && auth.identity === "anonymous";
+}
+
+export function isPermanentAuthState(
+  auth: AuthState,
+): auth is SignedInAuthState & { identity: "permanent" } {
+  return auth.status === "signedIn" && auth.identity === "permanent";
+}
 
 export function useAuth() {
   const context = useContext(AuthContext);

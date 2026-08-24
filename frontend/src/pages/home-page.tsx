@@ -43,8 +43,9 @@ const trustItems = [
 const processSteps = [
   {
     number: "01",
-    title: "Upload your original CCC report",
-    description: "Use the original CCC valuation report PDF your insurer sent you.",
+    title: "Add your valuation details",
+    description:
+      "Upload your insurer’s valuation report from any provider, or enter the details yourself.",
     visual: "upload" as const,
   },
   {
@@ -110,15 +111,16 @@ export function HomePage() {
               <span className="block">Made Clear.</span>
             </h1>
             <p className="mt-6 max-w-xl text-base leading-7 text-ink/80 sm:text-lg sm:leading-8">
-              Review an original CCC total-loss valuation report online or
-              submit repaired-vehicle details for future manual review.
+              Understand a total-loss vehicle valuation with or without an
+              insurer report, or submit repaired-vehicle details for future
+              manual review.
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
               <Link
                 to="/start?service=total-loss"
                 className={`${primaryActionClassName} shrink-0`}
               >
-                Start CCC report review
+                Start Total Loss review
                 <ArrowRight className="size-4" aria-hidden />
               </Link>
               <Link
@@ -163,7 +165,7 @@ export function HomePage() {
             >
               <div className="flex flex-col justify-center p-6 sm:p-9 lg:p-12">
                 <p className="text-xs font-semibold tracking-[0.12em] text-brand uppercase">
-                  CCC Total-Loss Review
+                  Total Loss Valuation Review
                 </p>
                 <h3
                   id="total-loss-title"
@@ -173,14 +175,15 @@ export function HomePage() {
                   Your vehicle was totaled
                 </h3>
                 <p className="mt-4 max-w-md text-base leading-7 text-copy">
-                  Upload the original CCC valuation report PDF so Venfour can
-                  compare its value with relevant market evidence.
+                  Upload your insurer’s valuation report from any provider, or
+                  enter the vehicle and claim details yourself. Venfour will
+                  compare the available valuation with relevant market evidence.
                 </p>
                 <Link
                   to="/start?service=total-loss"
                   className={`${primaryActionClassName} mt-7 self-start`}
                 >
-                  Start CCC report review
+                  Start Total Loss review
                   <ArrowRight className="size-4" aria-hidden />
                 </Link>
               </div>
@@ -234,15 +237,15 @@ export function HomePage() {
                 Start online in a few steps
               </h2>
               <p className="mt-4 max-w-2xl text-base leading-7 text-copy sm:text-lg">
-                The automated total-loss review currently begins with an
-                original CCC valuation report PDF.
+                Start with an insurer valuation report or enter the details
+                yourself. No visible account setup is required first.
               </p>
             </div>
             <Link
               to="/start?service=total-loss"
               className={`${secondaryActionClassName} shrink-0 self-start lg:self-auto`}
             >
-              Upload your CCC report
+              Start Total Loss review
               <ArrowRight className="size-4" aria-hidden />
             </Link>
           </div>

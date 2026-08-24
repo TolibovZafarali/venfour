@@ -34,7 +34,7 @@ from venfour.discrepancy import (
 )
 
 
-ANALYSIS_PRESENTATION_VERSION = "1"
+ANALYSIS_PRESENTATION_VERSION = "2"
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 ANALYSIS_PRESENTATION_SCHEMA_PATH = (
@@ -59,21 +59,26 @@ CLASSIFICATION_SUMMARIES = MappingProxyType(
         ),
         "NO_MATERIAL_DISCREPANCY": (
             "The strongest available external evidence did not produce a material "
-            "discrepancy signal relative to the CCC adjusted vehicle value."
+            "discrepancy signal relative to the insurer valuation or stated offer."
         ),
         "POTENTIAL_UNDERVALUE": (
             "The strongest available external evidence produced a potential "
-            "undervaluation signal relative to the CCC adjusted vehicle value."
+            "undervaluation signal relative to the insurer valuation or stated offer."
         ),
         "MATERIAL_UNDERVALUE_SIGNAL": (
             "The strongest available external evidence produced a material "
-            "undervaluation signal relative to the CCC adjusted vehicle value."
+            "undervaluation signal relative to the insurer valuation or stated offer."
         ),
         "CONFLICTING_EVIDENCE": (
             "The strongest available external evidence produced conflicting market "
-            "signals relative to the CCC adjusted vehicle value."
+            "signals relative to the insurer valuation or stated offer."
         ),
     }
+)
+
+NO_OFFER_MARKET_SUMMARY = (
+    "Independent market evidence is available below. No insurer valuation or "
+    "stated offer was supplied, so Venfour did not calculate a discrepancy conclusion."
 )
 
 EVIDENCE_STRENGTH_LABELS = MappingProxyType(
@@ -90,21 +95,21 @@ EVIDENCE_BASIS_LABELS = MappingProxyType(
 
 FINDING_LABELS = MappingProxyType(
     {
-        "MISSING_CCC_VEHICLE_VALUATION": "CCC vehicle valuation unavailable",
-        "NONPOSITIVE_CCC_VEHICLE_VALUATION": "CCC vehicle valuation is not positive",
+        "MISSING_CCC_VEHICLE_VALUATION": "Insurer valuation or offer unavailable",
+        "NONPOSITIVE_CCC_VEHICLE_VALUATION": "Insurer valuation is not positive",
         "INSUFFICIENT_RESOLVED_EXTERNAL_EVIDENCE": (
             "Insufficient resolved external evidence"
         ),
         "EXTERNAL_MEDIAN_ZERO": "External median is zero",
-        "EXTERNAL_MEDIAN_ABOVE_CCC": "External median is above CCC",
-        "EXTERNAL_MEDIAN_BELOW_CCC": "External median is below CCC",
-        "EXTERNAL_MEDIAN_EQUALS_CCC": "External median equals CCC",
-        "CCC_BELOW_EXTERNAL_RANGE": "CCC value is below the external range",
-        "CCC_WITHIN_EXTERNAL_RANGE": "CCC value is within the external range",
-        "CCC_ABOVE_EXTERNAL_RANGE": "CCC value is above the external range",
+        "EXTERNAL_MEDIAN_ABOVE_CCC": "External median is above the insurer valuation",
+        "EXTERNAL_MEDIAN_BELOW_CCC": "External median is below the insurer valuation",
+        "EXTERNAL_MEDIAN_EQUALS_CCC": "External median equals the insurer valuation",
+        "CCC_BELOW_EXTERNAL_RANGE": "Insurer valuation is below the external range",
+        "CCC_WITHIN_EXTERNAL_RANGE": "Insurer valuation is within the external range",
+        "CCC_ABOVE_EXTERNAL_RANGE": "Insurer valuation is above the external range",
         "EXTERNAL_MARKET_HIGH_DISPERSION": "External prices have high dispersion",
         "CCC_AND_EXTERNAL_EVIDENCE_CONSISTENT": (
-            "CCC and external evidence are consistent"
+            "Insurer valuation and external evidence are consistent"
         ),
         "HISTORICAL_PRIMARY_EVIDENCE": "Historical evidence is primary",
         "CURRENT_PRIMARY_EVIDENCE": "Current evidence is primary",
@@ -132,13 +137,13 @@ FINDING_LABELS = MappingProxyType(
             "External comparison set was bounded"
         ),
         "CCC_ADJUSTMENTS_REDUCE_COMPARABLE_VALUES": (
-            "CCC adjustments reduce the paired median"
+            "Report adjustments reduce the paired median"
         ),
         "CCC_ADJUSTMENTS_INCREASE_COMPARABLE_VALUES": (
-            "CCC adjustments increase the paired median"
+            "Report adjustments increase the paired median"
         ),
         "CCC_ADJUSTMENTS_NO_MEDIAN_CHANGE": (
-            "CCC adjustments do not change the paired median"
+            "Report adjustments do not change the paired median"
         ),
         "POTENTIAL_GAP_THRESHOLD_MET": "Potential gap threshold was met",
         "MATERIAL_GAP_THRESHOLD_MET": "Material gap threshold was met",
@@ -148,11 +153,12 @@ FINDING_LABELS = MappingProxyType(
 FINDING_DESCRIPTIONS = MappingProxyType(
     {
         "MISSING_CCC_VEHICLE_VALUATION": (
-            "The CCC adjusted vehicle value is unavailable, so no external-market "
-            "discrepancy comparison was calculated."
+            "No insurer valuation or stated offer is available, so no external-market "
+            "discrepancy comparison was calculated; independent market evidence may "
+            "still be shown."
         ),
         "NONPOSITIVE_CCC_VEHICLE_VALUATION": (
-            "The CCC adjusted vehicle value is zero, so a percentage discrepancy "
+            "The insurer valuation or stated offer is zero, so a percentage discrepancy "
             "classification is unavailable."
         ),
         "INSUFFICIENT_RESOLVED_EXTERNAL_EVIDENCE": (
@@ -164,27 +170,27 @@ FINDING_DESCRIPTIONS = MappingProxyType(
             "for discrepancy classification."
         ),
         "EXTERNAL_MEDIAN_ABOVE_CCC": (
-            "The selected external advertised-price median is above the CCC adjusted "
-            "vehicle value."
+            "The selected external advertised-price median is above the insurer "
+            "valuation or stated offer."
         ),
         "EXTERNAL_MEDIAN_BELOW_CCC": (
-            "The selected external advertised-price median is below the CCC adjusted "
-            "vehicle value."
+            "The selected external advertised-price median is below the insurer "
+            "valuation or stated offer."
         ),
         "EXTERNAL_MEDIAN_EQUALS_CCC": (
-            "The selected external advertised-price median equals the CCC adjusted "
-            "vehicle value."
+            "The selected external advertised-price median equals the insurer "
+            "valuation or stated offer."
         ),
         "CCC_BELOW_EXTERNAL_RANGE": (
-            "The CCC adjusted vehicle value is below the selected external "
+            "The insurer valuation or stated offer is below the selected external "
             "advertised-price range."
         ),
         "CCC_WITHIN_EXTERNAL_RANGE": (
-            "The CCC adjusted vehicle value is within the selected external "
+            "The insurer valuation or stated offer is within the selected external "
             "advertised-price range."
         ),
         "CCC_ABOVE_EXTERNAL_RANGE": (
-            "The CCC adjusted vehicle value is above the selected external "
+            "The insurer valuation or stated offer is above the selected external "
             "advertised-price range."
         ),
         "EXTERNAL_MARKET_HIGH_DISPERSION": (
@@ -212,8 +218,8 @@ FINDING_DESCRIPTIONS = MappingProxyType(
             "loss-date historical price set."
         ),
         "HISTORICAL_CURRENT_SIGNALS_CONFLICT": (
-            "Historical and current price medians fall on opposite sides of the CCC "
-            "adjusted vehicle value; historical evidence remains primary."
+            "Historical and current price medians fall on opposite sides of the "
+            "insurer valuation or stated offer; historical evidence remains primary."
         ),
         "HISTORICAL_EVIDENCE_OUT_OF_PROVIDER_RANGE": (
             "The requested loss date is outside the provider's historical coverage "
@@ -237,15 +243,15 @@ FINDING_DESCRIPTIONS = MappingProxyType(
             "limit were excluded."
         ),
         "CCC_ADJUSTMENTS_REDUCE_COMPARABLE_VALUES": (
-            "For paired CCC rows, the adjusted-value median is below the advertised-"
+            "For paired insurer-report rows, the adjusted-value median is below the advertised-"
             "price median; this describes direction only."
         ),
         "CCC_ADJUSTMENTS_INCREASE_COMPARABLE_VALUES": (
-            "For paired CCC rows, the adjusted-value median is above the advertised-"
+            "For paired insurer-report rows, the adjusted-value median is above the advertised-"
             "price median; this describes direction only."
         ),
         "CCC_ADJUSTMENTS_NO_MEDIAN_CHANGE": (
-            "For paired CCC rows, the advertised-price and adjusted-value medians are "
+            "For paired insurer-report rows, the advertised-price and adjusted-value medians are "
             "equal; individual row adjustments may still differ."
         ),
         "POTENTIAL_GAP_THRESHOLD_MET": (
@@ -317,8 +323,7 @@ LIMITATION_DESCRIPTIONS = MappingProxyType(
             "Negotiation, demand, and action guidance are not included."
         ),
         "ADVERTISED_PRICES_NOT_TRANSACTIONS": (
-            "External and CCC listing prices are advertised prices, not verified "
-            "completed-sale prices."
+            "Advertised listing prices are not verified completed-sale prices."
         ),
         "NO_INDEPENDENT_MILEAGE_ADJUSTMENT": (
             "Mileage differences are reported without an independent dollar-per-mile "
@@ -526,19 +531,19 @@ EXCLUSION_COPY = MappingProxyType(
 SUPPORTING_COMPARISON_COPY = MappingProxyType(
     {
         "cccAdjustedMedianVsVehicleValuation": (
-            "CCC adjusted comparable median versus CCC vehicle valuation",
-            "CCC adjusted comparable median",
-            "CCC adjusted vehicle value",
+            "Insurer-report adjusted comparable median versus insurer valuation",
+            "Insurer-report adjusted comparable median",
+            "Insurer valuation or stated offer",
         ),
         "cccAdvertisedMedianVsAdjustedMedian": (
-            "CCC advertised median versus CCC adjusted comparable median",
-            "CCC advertised-price median for paired rows",
-            "CCC adjusted-value median for paired rows",
+            "Insurer-report advertised median versus adjusted comparable median",
+            "Insurer-report advertised-price median for paired rows",
+            "Insurer-report adjusted-value median for paired rows",
         ),
         "externalMedianVsCccAdjustedMedian": (
-            "Primary external median versus CCC adjusted comparable median",
+            "Primary external median versus insurer-report adjusted comparable median",
             "Primary external advertised-price median",
-            "CCC adjusted comparable median",
+            "Insurer-report adjusted comparable median",
         ),
     }
 )
@@ -572,13 +577,13 @@ _EVIDENCE_SECTION_LABELS = MappingProxyType(
     }
 )
 
-_CCC_VALUE_LABEL = "CCC adjusted vehicle value"
+_CCC_VALUE_LABEL = "Insurer valuation or stated offer"
 _CCC_VALUE_EXPLANATION = (
-    "This is the CCC vehicle-market value used by Phase 3D when available; "
-    "settlement totals are not substituted."
+    "This is the insurer valuation or customer-stated offer used for comparison "
+    "when available; taxes, fees, and settlement totals are not silently substituted."
 )
 _PRIMARY_COMPARISON_COPY = (
-    "Primary external median versus CCC adjusted vehicle value",
+    "Primary external median versus insurer valuation or stated offer",
     "Primary external advertised-price median",
     _CCC_VALUE_LABEL,
 )
@@ -676,6 +681,9 @@ class AnalysisPresentation:
     analysis_created_at: str
     assessment: Mapping[str, Any]
     vehicle: Mapping[str, Any]
+    analysis_scope: Mapping[str, Any]
+    insurer_valuation: Mapping[str, Any]
+    report_review: Mapping[str, Any] | None
     ccc_valuation: Mapping[str, Any]
     ccc_comparables: Mapping[str, Any]
     primary_external_evidence: Mapping[str, Any] | None
@@ -691,6 +699,8 @@ class AnalysisPresentation:
         for field_name in (
             "assessment",
             "vehicle",
+            "analysis_scope",
+            "insurer_valuation",
             "ccc_valuation",
             "ccc_comparables",
             "comparables_used",
@@ -698,7 +708,11 @@ class AnalysisPresentation:
             "provenance",
         ):
             object.__setattr__(self, field_name, _freeze_json(getattr(self, field_name)))
-        for field_name in ("primary_external_evidence", "secondary_external_evidence"):
+        for field_name in (
+            "report_review",
+            "primary_external_evidence",
+            "secondary_external_evidence",
+        ):
             value = getattr(self, field_name)
             object.__setattr__(
                 self, field_name, _freeze_json(value) if value is not None else None
@@ -715,6 +729,9 @@ class AnalysisPresentation:
             "analysisCreatedAt": self.analysis_created_at,
             "assessment": _thaw_json(self.assessment),
             "vehicle": _thaw_json(self.vehicle),
+            "analysisScope": _thaw_json(self.analysis_scope),
+            "insurerValuation": _thaw_json(self.insurer_valuation),
+            "reportReview": _thaw_json(self.report_review),
             "cccValuation": _thaw_json(self.ccc_valuation),
             "cccComparables": _thaw_json(self.ccc_comparables),
             "primaryExternalEvidence": _thaw_json(self.primary_external_evidence),
@@ -734,6 +751,9 @@ class AnalysisPresentation:
             analysis_created_at=data["analysisCreatedAt"],
             assessment=data["assessment"],
             vehicle=data["vehicle"],
+            analysis_scope=data["analysisScope"],
+            insurer_valuation=data["insurerValuation"],
+            report_review=data["reportReview"],
             ccc_valuation=data["cccValuation"],
             ccc_comparables=data["cccComparables"],
             primary_external_evidence=data["primaryExternalEvidence"],
@@ -896,7 +916,15 @@ def _semantic_presentation_errors(data: Mapping[str, Any]) -> list[str]:
     basis = assessment["evidenceBasis"]
     if assessment["classificationLabel"] != CLASSIFICATION_LABELS[classification]:
         errors.append("$.assessment.classificationLabel: does not match classification")
-    if assessment["summary"] != CLASSIFICATION_SUMMARIES[classification]:
+    context_for_summary = {
+        "inputMode": data["analysisScope"]["inputMode"],
+        "insurerValuationAvailable": data["analysisScope"][
+            "insurerValuationAvailable"
+        ],
+    }
+    if assessment["summary"] != _assessment_summary(
+        classification, basis, context_for_summary
+    ):
         errors.append("$.assessment.summary: does not match classification template")
     if assessment["evidenceStrengthLabel"] != EVIDENCE_STRENGTH_LABELS[strength]:
         errors.append("$.assessment.evidenceStrengthLabel: does not match evidence strength")
@@ -1022,6 +1050,82 @@ def _semantic_presentation_errors(data: Mapping[str, Any]) -> list[str]:
         errors.append("$.cccValuation.valueLabel: does not match value code")
     if ccc_valuation["explanation"] != _CCC_VALUE_EXPLANATION:
         errors.append("$.cccValuation.explanation: does not match value code")
+
+    scope = data["analysisScope"]
+    insurer_valuation = data["insurerValuation"]
+    report_review = data["reportReview"]
+    insurer_value_available = insurer_valuation["value"]["cents"] is not None
+    if scope["insurerValuationAvailable"] != insurer_value_available:
+        errors.append(
+            "$.analysisScope.insurerValuationAvailable: does not match insurer value"
+        )
+    if insurer_valuation["value"] != ccc_valuation["adjustedVehicleValue"]:
+        errors.append("$.insurerValuation.value: does not match stored insurer value")
+    if insurer_valuation["valueLabel"] != _CCC_VALUE_LABEL:
+        errors.append("$.insurerValuation.valueLabel: does not match value code")
+    if insurer_valuation["explanation"] != _CCC_VALUE_EXPLANATION:
+        errors.append("$.insurerValuation.explanation: does not match value code")
+    if (insurer_valuation["source"] == "NONE") != (not insurer_value_available):
+        errors.append("$.insurerValuation.source: does not match value availability")
+    if scope["inputMode"] == "MANUAL" and insurer_value_available and (
+        insurer_valuation["source"] != "CUSTOMER_ENTERED"
+    ):
+        errors.append("$.insurerValuation.source: manual value must be customer entered")
+    if scope["offerComparisonPerformed"] and (
+        insurer_valuation["source"] != "CUSTOMER_ENTERED"
+    ):
+        errors.append(
+            "$.analysisScope.offerComparisonPerformed: requires a customer-entered value"
+        )
+    insurer_comparison = insurer_valuation["comparisonToPrimaryEvidence"]
+    ccc_comparison = ccc_valuation["comparisonToPrimaryEvidence"]
+    if scope["insurerValuationComparisonPerformed"] != (
+        insurer_comparison is not None
+    ):
+        errors.append(
+            "$.analysisScope.insurerValuationComparisonPerformed: "
+            "does not match comparison availability"
+        )
+    if (insurer_comparison is None) != (ccc_comparison is None):
+        errors.append(
+            "$.insurerValuation.comparisonToPrimaryEvidence: "
+            "does not match stored comparison availability"
+        )
+    elif insurer_comparison is not None and ccc_comparison is not None:
+        expected_comparison = {
+            "evidenceBasis": ccc_comparison["evidenceBasis"],
+            "marketMedian": ccc_comparison["firstValue"],
+            "insurerValue": ccc_comparison["secondValue"],
+            "difference": ccc_comparison["difference"],
+            "differencePercent": ccc_comparison["differencePercent"],
+        }
+        if insurer_comparison != expected_comparison:
+            errors.append(
+                "$.insurerValuation.comparisonToPrimaryEvidence: "
+                "does not match stored comparison"
+            )
+    if scope["marketEvidenceAvailable"] != (basis != NO_PRIMARY_EVIDENCE):
+        errors.append(
+            "$.analysisScope.marketEvidenceAvailable: does not match evidence basis"
+        )
+    if scope["reportReviewPerformed"] != (report_review is not None):
+        errors.append(
+            "$.analysisScope.reportReviewPerformed: does not match report review"
+        )
+    if scope["reportExtractionAvailable"] != scope["reportReviewPerformed"]:
+        errors.append(
+            "$.analysisScope.reportExtractionAvailable: does not match report review"
+        )
+    if report_review is not None:
+        expected_review = {
+            "provider": scope["reportProvider"],
+            "adapter": scope["reportAdapter"],
+            "partial": scope["partialExtraction"],
+            "comparablesAvailable": scope["reportComparablesAvailable"],
+            "adjustmentsAvailable": scope["reportAdjustmentsAvailable"],
+        }
+        if report_review != expected_review:
+            errors.append("$.reportReview: does not match analysis scope")
 
     primary = data["primaryExternalEvidence"]
     secondary = data["secondaryExternalEvidence"]
@@ -1864,6 +1968,133 @@ def _provenance(artifact_data: Mapping[str, Any]) -> dict[str, Any]:
     }
 
 
+def _artifact_evidence_context(
+    artifact_data: Mapping[str, Any],
+    result: Mapping[str, Any],
+) -> dict[str, Any]:
+    context = artifact_data.get("evidenceContext")
+    if isinstance(context, Mapping):
+        return dict(context)
+    return {
+        "inputMode": "REPORT",
+        "reportAvailable": True,
+        "reportExtractionAvailable": True,
+        "reportProvider": "CCC",
+        "reportAdapter": "CCC",
+        "partialExtraction": False,
+        "offerAvailable": False,
+        "insurerValuationAvailable": result["cccVehicleValuationCents"] is not None,
+        "reportComparablesAvailable": result["cccComparableSummary"][
+            "totalCount"
+        ]
+        > 0,
+        "reportAdjustmentsAvailable": result["cccComparableSummary"][
+            "pairedValueCount"
+        ]
+        > 0,
+        "conditionInformationAvailable": False,
+        "optionsInformationAvailable": False,
+        "conditionAndOptionsDollarAdjusted": False,
+    }
+
+
+def _assessment_summary(
+    classification: str,
+    basis: str,
+    context: Mapping[str, Any],
+) -> str:
+    if (
+        context["inputMode"] == "MANUAL"
+        and not context["insurerValuationAvailable"]
+        and basis != NO_PRIMARY_EVIDENCE
+    ):
+        return NO_OFFER_MARKET_SUMMARY
+    return CLASSIFICATION_SUMMARIES[classification]
+
+
+def _analysis_scope(
+    artifact_data: Mapping[str, Any],
+    result: Mapping[str, Any],
+    context: Mapping[str, Any],
+) -> dict[str, Any]:
+    comparison_performed = result["primaryComparison"] is not None
+    market_performed = any(
+        artifact_data["request"].get(field) is not None
+        for field in ("currentSearchRequest", "historicalSearchRequest")
+    )
+    return {
+        "inputMode": context["inputMode"],
+        "marketEvidencePerformed": market_performed,
+        "marketEvidenceAvailable": result["evidenceBasis"] != NO_PRIMARY_EVIDENCE,
+        "insurerValuationAvailable": context["insurerValuationAvailable"],
+        "insurerValuationComparisonPerformed": comparison_performed,
+        "offerComparisonPerformed": bool(context["offerAvailable"])
+        and comparison_performed,
+        "reportAvailable": bool(context["reportAvailable"]),
+        "reportExtractionAvailable": bool(
+            context["reportExtractionAvailable"]
+        ),
+        "reportReviewPerformed": bool(context["reportExtractionAvailable"]),
+        "reportProvider": context["reportProvider"],
+        "reportAdapter": context["reportAdapter"],
+        "partialExtraction": context["partialExtraction"],
+        "reportComparablesAvailable": context["reportComparablesAvailable"],
+        "reportAdjustmentsAvailable": context["reportAdjustmentsAvailable"],
+        "conditionInformationCollected": context["conditionInformationAvailable"],
+        "optionsInformationCollected": context["optionsInformationAvailable"],
+        "conditionAndOptionsDollarAdjusted": False,
+        "methodologyDisclosure": (
+            "Condition and options were collected as vehicle context, but the "
+            "current deterministic market-evidence method does not apply invented "
+            "dollar adjustments for them."
+        ),
+    }
+
+
+def _insurer_valuation(
+    result: Mapping[str, Any], context: Mapping[str, Any]
+) -> dict[str, Any]:
+    value = result["cccVehicleValuationCents"]
+    comparison = result["primaryComparison"]
+    source = "NONE"
+    if value is not None:
+        if context["inputMode"] == "MANUAL" or context["offerAvailable"]:
+            source = "CUSTOMER_ENTERED"
+        else:
+            source = "REPORT"
+    return {
+        "source": source,
+        "valueLabel": _CCC_VALUE_LABEL,
+        "value": _money(value),
+        "explanation": _CCC_VALUE_EXPLANATION,
+        "comparisonToPrimaryEvidence": (
+            {
+                "evidenceBasis": comparison["evidenceBasis"],
+                "marketMedian": _money(comparison["externalMedianPriceCents"]),
+                "insurerValue": _money(comparison["cccVehicleValuationCents"]),
+                "difference": _money(comparison["differenceCents"]),
+                "differencePercent": _percentage(
+                    comparison["differenceBasisPoints"]
+                ),
+            }
+            if comparison is not None
+            else None
+        ),
+    }
+
+
+def _report_review(context: Mapping[str, Any]) -> dict[str, Any] | None:
+    if not context["reportExtractionAvailable"]:
+        return None
+    return {
+        "provider": context["reportProvider"],
+        "adapter": context["reportAdapter"],
+        "partial": context["partialExtraction"],
+        "comparablesAvailable": context["reportComparablesAvailable"],
+        "adjustmentsAvailable": context["reportAdjustmentsAvailable"],
+    }
+
+
 class AnalysisPresentationProjector:
     """Side-effect-free projection of one already-validated audit artifact."""
 
@@ -1906,6 +2137,10 @@ class AnalysisPresentationProjector:
             vehicle = request["lossVehicle"]
             ccc_summary = result["cccComparableSummary"]
             supporting = result["secondaryComparisons"]
+            evidence_context = _artifact_evidence_context(artifact_data, result)
+            analysis_scope = _analysis_scope(
+                artifact_data, result, evidence_context
+            )
 
             exclusions: list[dict[str, Any]] = []
             for summary in (historical, current):
@@ -1927,7 +2162,9 @@ class AnalysisPresentationProjector:
                     ],
                     "evidenceBasis": basis,
                     "evidenceBasisLabel": EVIDENCE_BASIS_LABELS[basis],
-                    "summary": CLASSIFICATION_SUMMARIES[result["classification"]],
+                    "summary": _assessment_summary(
+                        result["classification"], basis, evidence_context
+                    ),
                 },
                 "vehicle": {
                     "year": vehicle["year"],
@@ -1938,8 +2175,13 @@ class AnalysisPresentationProjector:
                     "lossDate": request["lossDate"],
                     "postalCode": vehicle["postalCode"],
                 },
+                "analysisScope": analysis_scope,
+                "insurerValuation": _insurer_valuation(
+                    result, evidence_context
+                ),
+                "reportReview": _report_review(evidence_context),
                 "cccValuation": {
-                    "valueCode": "CCC_ADJUSTED_VEHICLE_VALUE",
+                    "valueCode": "INSURER_VALUATION_OR_OFFER",
                     "valueLabel": _CCC_VALUE_LABEL,
                     "adjustedVehicleValue": _money(
                         result["cccVehicleValuationCents"]

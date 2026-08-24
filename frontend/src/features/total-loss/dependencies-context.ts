@@ -15,12 +15,17 @@ import {
 } from "@/features/total-loss/storage-service";
 import { createNhtsaVpicVehicleLookupService } from "@/features/total-loss/nhtsa-vpic-vehicle-lookup";
 import type { VehicleLookupService } from "@/features/total-loss/vehicle-lookup-service";
+import {
+  createTotalLossIdentityService,
+  type TotalLossIdentityService,
+} from "@/features/total-loss/identity-service";
 import type { Database } from "@/lib/supabase/database.types";
 
 export interface TotalLossDependencies {
   readonly appraisalCaseService: AppraisalCaseService;
   readonly totalLossDetailsService: TotalLossDetailsService;
   readonly totalLossReportStorageService: TotalLossReportStorageService;
+  readonly totalLossIdentityService?: TotalLossIdentityService;
   readonly vehicleLookupService: VehicleLookupService;
 }
 
@@ -39,6 +44,7 @@ export function createTotalLossDependencies(
     ),
     totalLossReportStorageService:
       createTotalLossReportStorageService(client),
+    totalLossIdentityService: createTotalLossIdentityService(client),
     vehicleLookupService: createNhtsaVpicVehicleLookupService(),
   };
 }

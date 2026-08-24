@@ -130,7 +130,19 @@ select is(
     'report_last_cancelled_upload_id',
     'intake_completed_at',
     'created_at',
-    'updated_at'
+    'updated_at',
+    'report_storage_owner_id',
+    'vehicle_condition',
+    'vehicle_options_packages',
+    'report_provider_name',
+    'report_extraction_status',
+    'report_extraction_confidence',
+    'report_extracted_at',
+    'report_extraction_source_upload_id',
+    'report_extraction_input_revision',
+    'analysis_input_revision',
+    'analysis_input_id',
+    'report_facts_confirmed_at'
   ]::text[],
   'the details table contains the public intake fields and internal upload coordination fields'
 );
@@ -166,6 +178,18 @@ select is(
     'uuid',
     'timestamptz',
     'timestamptz',
+    'timestamptz',
+    'uuid',
+    'text',
+    'text',
+    'text',
+    'text',
+    'numeric',
+    'timestamptz',
+    'uuid',
+    'int8',
+    'int8',
+    'uuid',
     'timestamptz'
   ]::text[],
   'all details and lease columns use the intended PostgreSQL types'
@@ -385,7 +409,8 @@ select ok(
       'date_of_loss',
       'insurer_name',
       'insurer_vehicle_valuation',
-      'intake_completed_at'
+      'vehicle_condition',
+      'vehicle_options_packages'
     ]) as insert_column(column_name)
   ),
   'authenticated clients may insert only customer-entered intake fields'
@@ -410,7 +435,11 @@ select ok(
       'report_upload_phase',
       'report_upload_has_backup',
       'report_last_upload_id',
-      'report_last_cancelled_upload_id'
+      'report_last_cancelled_upload_id',
+      'intake_completed_at',
+      'report_facts_confirmed_at',
+      'analysis_input_revision',
+      'analysis_input_id'
     ]) as report_column(column_name)
   ),
   'authenticated clients cannot directly insert report metadata or internal lease state'
@@ -454,7 +483,8 @@ select ok(
       'date_of_loss',
       'insurer_name',
       'insurer_vehicle_valuation',
-      'intake_completed_at'
+      'vehicle_condition',
+      'vehicle_options_packages'
     ]) as update_column(column_name)
   ),
   'authenticated clients may update customer-entered intake fields'
@@ -479,7 +509,11 @@ select ok(
       'report_upload_phase',
       'report_upload_has_backup',
       'report_last_upload_id',
-      'report_last_cancelled_upload_id'
+      'report_last_cancelled_upload_id',
+      'intake_completed_at',
+      'report_facts_confirmed_at',
+      'analysis_input_revision',
+      'analysis_input_id'
     ]) as report_column(column_name)
   ),
   'authenticated clients cannot directly update report metadata or internal lease state'
@@ -846,13 +880,6 @@ values
     '2000-01-01 00:00:00+00'
   ),
   (
-    '3ccccccc-cccc-4ccc-8ccc-ccccccccccc3',
-    'manual',
-    'Wrong service',
-    '2000-01-01 00:00:00+00',
-    '2000-01-01 00:00:00+00'
-  ),
-  (
     '3ddddddd-dddd-4ddd-8ddd-ddddddddddd4',
     'report',
     'Not draft',
@@ -996,7 +1023,7 @@ select throws_ok(
   'cancel rejects a NULL upload attempt identifier'
 );
 
-select lives_ok(
+select throws_ok(
   $$
     insert into public.appraisal_cases (id, user_id, service_type)
     values (
@@ -1005,8 +1032,22 @@ select lives_ok(
       'total_loss'
     )
   $$,
-  'a customer can create their own draft with a reserved stable ID'
+  '42501',
+  null,
+  'a customer cannot bypass the locked total-loss draft RPC with a direct insert'
 );
+
+reset role;
+
+insert into public.appraisal_cases (id, user_id, service_type)
+values (
+  '34444444-4444-4444-8444-444444444444',
+  '31111111-1111-4111-8111-111111111111',
+  'total_loss'
+);
+
+set local role authenticated;
+set local request.jwt.claim.sub = '31111111-1111-4111-8111-111111111111';
 
 select results_eq(
   $$
@@ -1020,7 +1061,7 @@ select results_eq(
       'draft'::text
     )
   $$,
-  'an explicitly identified browser case receives draft status'
+  'the privileged fixture used by details tests receives draft status'
 );
 
 select throws_ok(
@@ -1032,9 +1073,9 @@ select throws_ok(
       'total_loss'
     )
   $$,
-  '23505',
+  '42501',
   null,
-  'a retry with the same reserved ID reports the existing primary key'
+  'a direct retry remains denied at the customer authorization boundary'
 );
 
 select results_eq(
@@ -1044,7 +1085,7 @@ select results_eq(
     where id = '34444444-4444-4444-8444-444444444444'
   $$,
   $$values (1::bigint)$$,
-  'a repeated stable-ID insert cannot create a duplicate case'
+  'a denied direct retry cannot duplicate the privileged fixture'
 );
 
 select throws_ok(
@@ -1190,8 +1231,7 @@ select lives_ok(
       vin = '1HGCM82633A004352',
       vehicle_make = 'Honda Motor',
       mileage_at_loss = 120000,
-      insurer_vehicle_valuation = 12450.25,
-      intake_completed_at = '2026-08-18 12:00:00+00'
+      insurer_vehicle_valuation = 12450.25
     where case_id = '3aaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1'
   $$,
   'a customer can update mutable intake fields on their own details'
@@ -1214,12 +1254,9 @@ select results_eq(
     where case_id = '3aaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1'
   $$,
   $$
-    values (
-      12450.25::numeric(12,2),
-      '2026-08-18 12:00:00+00'::timestamptz
-    )
+    values (12450.25::numeric(12,2), null::timestamptz)
   $$,
-  'valuation precision and the intake completion marker are persisted'
+  'valuation precision persists while the browser cannot author the intake completion marker'
 );
 
 select throws_ok(
@@ -1291,8 +1328,8 @@ select throws_ok(
     insert into public.total_loss_case_details (case_id, intake_mode)
     values ('32cccccc-cccc-4ccc-8ccc-ccccccccccc3', 'manual')
   $$,
-  '42501',
-  null,
+  '23503',
+  'A Total-Loss parent case is required.',
   'a customer cannot attach total-loss details to a diminished-value case'
 );
 

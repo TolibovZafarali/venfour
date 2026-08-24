@@ -34,7 +34,7 @@ const intentDescriptions: Record<SignInIntent, string> = {
   default:
     "Sign in to securely save your supported review or diminished-value request.",
   "secure-report-upload":
-    "Sign in so Venfour can securely store your original CCC valuation report with your total-loss case.",
+    "Sign in to open a saved Total Loss case and its private valuation report.",
   "continue-total-loss":
     "Sign in to securely save your total-loss information and continue to the free value check.",
   "continue-diminished-value":

@@ -66,7 +66,13 @@ class AdaptiveAnalysisRunIntegrityTests(unittest.TestCase):
     def test_v4_diagnostics_replay_and_v1_v2_v3_remain_readable(self) -> None:
         validate_analysis_run_artifact(self.artifact)
 
-        v3_artifact = copy.deepcopy(self.artifact)
+        v4_artifact = copy.deepcopy(self.artifact)
+        v4_artifact["analysisRunSchemaVersion"] = "4"
+        v4_artifact["analysisVersion"] = "4"
+        del v4_artifact["evidenceContext"]
+        validate_analysis_run_artifact(v4_artifact)
+
+        v3_artifact = copy.deepcopy(v4_artifact)
         v3_artifact["analysisRunSchemaVersion"] = "3"
         v3_artifact["analysisVersion"] = "3"
         del v3_artifact["request"]["configuredSearchPolicies"]
@@ -77,7 +83,7 @@ class AdaptiveAnalysisRunIntegrityTests(unittest.TestCase):
         )
         validate_analysis_run_artifact(v3_artifact)
 
-        v1_artifact = copy.deepcopy(self.artifact)
+        v1_artifact = copy.deepcopy(v4_artifact)
         v1_artifact["analysisRunSchemaVersion"] = "1"
         v1_artifact["analysisVersion"] = "1"
         del v1_artifact["searchDiagnosticsDigest"]
@@ -105,6 +111,7 @@ class AdaptiveAnalysisRunIntegrityTests(unittest.TestCase):
         ).run(legacy_request).artifact.to_dict()
         v2_artifact["analysisRunSchemaVersion"] = "2"
         v2_artifact["analysisVersion"] = "2"
+        del v2_artifact["evidenceContext"]
         policies = v2_artifact["request"].pop("searchPolicies")
         del v2_artifact["request"]["configuredSearchPolicies"]
         v2_artifact["request"]["searchPolicy"] = policies["current"]

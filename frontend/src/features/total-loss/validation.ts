@@ -1,4 +1,6 @@
 import type {
+  TotalLossContactFormErrors,
+  TotalLossContactFormValues,
   TotalLossManualFormErrors,
   TotalLossManualFormValues,
 } from "@/features/total-loss/types";
@@ -15,6 +17,14 @@ const ISO_DATE_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
 const INTEGER_PATTERN = /^\d+$/;
 const CURRENCY_PATTERN = /^\d+(?:\.(\d{1,2}))?$/;
 const GROUPED_NUMBER_PATTERN = /^\d{1,3}(?:,\d{3})+(?:\.\d{1,2})?$/;
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/u;
+
+const REPORT_FILE_TYPES = {
+  pdf: ["application/pdf"],
+  jpg: ["image/jpeg"],
+  jpeg: ["image/jpeg"],
+  png: ["image/png"],
+} as const;
 
 const usdFormatter = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -162,6 +172,8 @@ export function normalizeTotalLossManualForm(
       valuationCents === null
         ? values.insurerVehicleValuation.trim()
         : currencyCentsToDecimal(valuationCents),
+    vehicleCondition: normalizeWhitespace(values.vehicleCondition),
+    optionsPackages: normalizeWhitespace(values.optionsPackages),
   };
 }
 
@@ -252,7 +264,7 @@ export function validateInsurerVehicleValuation(
   value: string,
 ): string | null {
   if (!value.trim()) {
-    return "Insurer's vehicle valuation is required.";
+    return null;
   }
 
   const cents = parseCurrencyToCents(value);
@@ -279,16 +291,14 @@ export function validateTotalLossManualForm(
     }
   };
 
-  if (normalizeVin(values.vin)) {
-    assignError("vin", validateVin(values.vin));
-  } else {
-    assignError(
-      "vehicleYear",
-      validateVehicleYear(values.vehicleYear, referenceDate),
-    );
-    assignError("make", requiredTextError(values.make, "Make"));
-    assignError("model", requiredTextError(values.model, "Model"));
-  }
+  if (normalizeVin(values.vin)) assignError("vin", validateVin(values.vin));
+  assignError(
+    "vehicleYear",
+    validateVehicleYear(values.vehicleYear, referenceDate),
+  );
+  assignError("make", requiredTextError(values.make, "Make"));
+  assignError("model", requiredTextError(values.model, "Model"));
+  assignError("trim", requiredTextError(values.trim, "Trim"));
   assignError("mileageAtLoss", validateMileage(values.mileageAtLoss));
   assignError("zipCode", validateZipCode(values.zipCode));
   assignError(
@@ -302,6 +312,14 @@ export function validateTotalLossManualForm(
   assignError(
     "insurerVehicleValuation",
     validateInsurerVehicleValuation(values.insurerVehicleValuation),
+  );
+  assignError(
+    "vehicleCondition",
+    requiredTextError(values.vehicleCondition, "Vehicle condition"),
+  );
+  assignError(
+    "optionsPackages",
+    requiredTextError(values.optionsPackages, "Options and packages response"),
   );
 
   return errors;
@@ -322,15 +340,14 @@ export function sanitizeDisplayFilename(filename: string) {
     .replace(/\s+/gu, " ");
 
   if (!sanitized || sanitized === "." || sanitized === "..") {
-    return "valuation-report.pdf";
+    return "valuation-report";
   }
 
   if (sanitized.length <= 255) {
     return sanitized;
   }
 
-  const hasPdfExtension = /\.pdf$/iu.test(sanitized);
-  const extension = hasPdfExtension ? ".pdf" : "";
+  const extension = /\.(?:pdf|jpe?g|png)$/iu.exec(sanitized)?.[0] ?? "";
   return `${sanitized.slice(0, 255 - extension.length).trimEnd()}${extension}`;
 }
 
@@ -374,6 +391,89 @@ export function validateTotalLossPdf(
     valid: true,
     displayFilename: sanitizeDisplayFilename(trimmedName),
   };
+}
+
+export function validateTotalLossReport(
+  file: TotalLossPdfCandidate,
+): TotalLossPdfValidationResult {
+  if (!Number.isSafeInteger(file.size) || file.size <= 0) {
+    return { valid: false, error: "Choose a nonempty valuation report." };
+  }
+  if (file.size > MAX_TOTAL_LOSS_PDF_BYTES) {
+    return {
+      valid: false,
+      error: `Each report file must be ${MAX_TOTAL_LOSS_PDF_MIB} MiB or smaller.`,
+    };
+  }
+
+  const trimmedName = file.name.trim();
+  if (
+    !trimmedName ||
+    trimmedName.length > 255 ||
+    trimmedName.includes("/") ||
+    trimmedName.includes("\\") ||
+    [...trimmedName].some(isUnsafeDisplayCharacter) ||
+    trimmedName === "." ||
+    trimmedName === ".."
+  ) {
+    return { valid: false, error: "Choose a report with a safe filename." };
+  }
+
+  const extension = /\.([a-z0-9]+)$/iu.exec(trimmedName)?.[1]?.toLowerCase();
+  if (!extension || !(extension in REPORT_FILE_TYPES)) {
+    return {
+      valid: false,
+      error: "Choose a PDF, JPG/JPEG, or PNG valuation report.",
+    };
+  }
+  const allowedMimeTypes = REPORT_FILE_TYPES[
+    extension as keyof typeof REPORT_FILE_TYPES
+  ] as readonly string[];
+  const mimeType = file.type.trim().toLowerCase();
+  if (mimeType && !allowedMimeTypes.includes(mimeType)) {
+    return {
+      valid: false,
+      error: "The file type does not match its filename.",
+    };
+  }
+
+  return {
+    valid: true,
+    displayFilename: sanitizeDisplayFilename(trimmedName),
+  };
+}
+
+export function normalizeTotalLossContactForm(
+  values: TotalLossContactFormValues,
+): TotalLossContactFormValues {
+  return {
+    ...values,
+    fullName: normalizeWhitespace(values.fullName),
+    email: values.email.trim().toLowerCase(),
+  };
+}
+
+export function validateTotalLossContactForm(
+  values: TotalLossContactFormValues,
+): TotalLossContactFormErrors {
+  const normalized = normalizeTotalLossContactForm(values);
+  const errors: TotalLossContactFormErrors = {};
+  if (!normalized.fullName || normalized.fullName.length > 200) {
+    errors.fullName = normalized.fullName
+      ? "Full name must be 200 characters or fewer."
+      : "Enter your full name.";
+  }
+  if (
+    !normalized.email ||
+    normalized.email.length > 320 ||
+    !EMAIL_PATTERN.test(normalized.email)
+  ) {
+    errors.email = "Enter a valid email address.";
+  }
+  if (!normalized.termsAccepted || !normalized.privacyAccepted) {
+    errors.legal = "Accept the Terms of Use and acknowledge the Privacy Policy.";
+  }
+  return errors;
 }
 
 function requiredTextError(value: string, label: string) {

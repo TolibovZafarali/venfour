@@ -114,12 +114,44 @@ export function AdminTotalLossCasePage() {
       <div className="mt-7 grid gap-6">
         <DetailSection title="Customer">
           <DetailField
-            label="Confirmed full name"
-            value={appraisalCase.customerFullName}
+            label="Entered contact name"
+            value={
+              appraisalCase.contactFullName ?? appraisalCase.customerFullName
+            }
+          />
+          <DetailField
+            label="Entered contact email"
+            value={appraisalCase.contactEmail}
           />
           <DetailField
             label="Verified email"
             value={appraisalCase.verifiedEmail}
+          />
+          <DetailField
+            label="Contact email state"
+            value={
+              appraisalCase.contactEmailVerified
+                ? "Verified"
+                : appraisalCase.contactEmail
+                  ? "Entered — not verified"
+                  : null
+            }
+          />
+          <DetailField
+            label="Access state"
+            value={
+              appraisalCase.ownerIsAnonymous
+                ? "Guest session — access unclaimed"
+                : appraisalCase.identityClaimedAt
+                  ? "Access claimed"
+                  : "Account owner"
+            }
+          />
+          <DetailField
+            label="Access claimed"
+            value={formatCaseOperationDateTime(
+              appraisalCase.identityClaimedAt,
+            )}
           />
           <DetailField
             label="Operational follow-up"
@@ -171,7 +203,7 @@ export function AdminTotalLossCasePage() {
             label="Intake method"
             value={
               appraisalCase.intakeMode === "report"
-                ? "CCC report"
+                ? "Valuation report"
                 : appraisalCase.intakeMode === "manual"
                   ? "Vehicle details"
                   : null
@@ -208,6 +240,23 @@ export function AdminTotalLossCasePage() {
             value={formatCaseOperationCurrency(
               appraisalCase.insurerVehicleValuation,
             )}
+          />
+          <DetailField
+            label="Vehicle condition"
+            value={appraisalCase.vehicleCondition}
+          />
+          <DetailField
+            label="Options and packages"
+            value={appraisalCase.vehicleOptionsPackages}
+          />
+          <DetailField
+            label="Confirmed input revision"
+            value={appraisalCase.analysisInputRevision?.toString() ?? null}
+          />
+          <DetailField
+            label="Confirmed input identifier"
+            value={appraisalCase.analysisInputId}
+            mono
           />
           <DetailField
             label="Intake completed"
@@ -329,7 +378,7 @@ function ReportSection({
         </span>
         <div>
           <h2 className="text-xl font-semibold tracking-[-0.025em] text-ink">
-            CCC report
+            Valuation report
           </h2>
           <p className="mt-1 text-sm leading-6 text-copy">
             Report metadata only. The private source PDF is not available from
@@ -345,6 +394,43 @@ function ReportSection({
         <DetailField
           label="Uploaded"
           value={formatCaseOperationDateTime(appraisalCase.reportUploadedAt)}
+        />
+        <DetailField
+          label="Detected provider"
+          value={appraisalCase.reportProviderName}
+        />
+        <DetailField
+          label="Extraction status"
+          value={appraisalCase.reportExtractionStatus}
+        />
+        <DetailField
+          label="Extraction confidence"
+          value={
+            appraisalCase.reportExtractionConfidence === null
+              ? null
+              : `${Math.round(appraisalCase.reportExtractionConfidence * 100)}%`
+          }
+        />
+        <DetailField
+          label="Extracted"
+          value={formatCaseOperationDateTime(appraisalCase.reportExtractedAt)}
+        />
+        <DetailField
+          label="Customer facts confirmed"
+          value={formatCaseOperationDateTime(
+            appraisalCase.reportFactsConfirmedAt,
+          )}
+        />
+        <DetailField
+          label="Storage namespace"
+          value={appraisalCase.reportStorageOwnerId}
+          mono
+        />
+        <DetailField
+          label="Private object path"
+          value={appraisalCase.reportStorageObjectPath}
+          mono
+          wide
         />
       </dl>
     </section>

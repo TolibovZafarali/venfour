@@ -13,9 +13,9 @@ function contactContentFor(topic: string | null) {
     case "report-format":
       return {
         eyebrow: "Report format inquiry",
-        title: "Ask about another valuation report",
+        title: "Get help with a valuation report",
         introduction:
-          "The automated review currently supports original CCC valuation report PDFs. Use this page to ask about another format or an unfamiliar report.",
+          "Venfour accepts insurer valuation reports from different providers as PDF, JPG/JPEG, or PNG files. Use this page if a valid report cannot be read or uploaded.",
         sectionTitle: "Request report help",
         emailCopy:
           "Email is the current inquiry channel. Include the report provider shown on the cover and a short description. Do not attach the report unless Venfour asks for it.",
@@ -25,14 +25,14 @@ function contactContentFor(topic: string | null) {
       };
     case "vehicle-value":
       return {
-        eyebrow: "No-report total-loss inquiry",
-        title: "Ask about a total-loss review without a CCC report",
+        eyebrow: "Total Loss intake support",
+        title: "Start without a valuation report",
         introduction:
-          "No-report total-loss review is not available in the current tester release. Use this page to ask about future manual-review availability rather than entering an unfinished intake.",
-        sectionTitle: "Ask about current availability",
+          "A valuation report is optional. The Total Loss intake can gather the vehicle and claim details needed for an independent market review.",
+        sectionTitle: "Get help with manual intake",
         emailCopy:
-          "Email is the current inquiry channel. Briefly say that you do not have the original CCC valuation report. Do not include claim details or attach sensitive documents unless Venfour asks for them.",
-        emailSubject: "No-report total-loss review inquiry",
+          "Email is the current support channel. Describe the step where you need help. Do not include claim details or attach sensitive documents unless Venfour asks for them.",
+        emailSubject: "Total Loss manual intake support",
         unavailableCopy:
           "Venfour has not yet published a support address for vehicle-value inquiries. Do not send vehicle information or documents to an address that is not published by Venfour.",
       };
@@ -54,7 +54,7 @@ function contactContentFor(topic: string | null) {
         eyebrow: "Contact",
         title: "Questions about Venfour",
         introduction:
-          "Use this page for help with a supported CCC total-loss review, a diminished-value request, or Venfour’s handling of your information.",
+          "Use this page for help with a Total Loss review, a diminished-value request, or Venfour’s handling of your information.",
         sectionTitle: "Contact support",
         emailCopy:
           "Email is the current support channel. Describe what you were trying to do and what happened. Avoid sending another copy of your valuation report or additional sensitive documents unless they are specifically needed.",
@@ -99,12 +99,13 @@ export function ContactPage() {
 
       <PublicPageSection title="Current service entry points">
         <p>
-          If you have the original CCC valuation report PDF, start the{" "}
+          Start a Total Loss review with or without an insurer valuation report
+          through the{" "}
           <Link
             to="/start?service=total-loss"
             className={publicTextLinkClassName}
           >
-            supported total-loss review
+            Total Loss intake
           </Link>
           . If your vehicle was repaired after an accident, you can submit a{" "}
           <Link

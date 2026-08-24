@@ -289,6 +289,9 @@ values
     'diminished_value'
   );
 
+insert into public.total_loss_case_details (case_id, intake_mode)
+values ('5ccccccc-cccc-4ccc-8ccc-ccccccccccc3', 'manual');
+
 insert into public.diminished_value_case_details (
   case_id,
   draft_step,
@@ -919,7 +922,7 @@ select lives_ok(
   'a removed draft document can be replaced by a new UUID object'
 );
 
-select lives_ok(
+select throws_ok(
   $$
     insert into storage.objects (bucket_id, name)
     values (
@@ -927,7 +930,9 @@ select lives_ok(
       '51111111-1111-4111-8111-111111111111/5ccccccc-cccc-4ccc-8ccc-ccccccccccc3/supporting.pdf'
     )
   $$,
-  'integrated policies preserve existing generic total-loss file insertion'
+  '42501',
+  null,
+  'integrated policies reject arbitrary Total-Loss objects while preserving Diminished Value documents'
 );
 
 select lives_ok(

@@ -27,6 +27,7 @@ export interface VehicleIdentificationErrors {
   readonly vehicleYear?: string;
   readonly make?: string;
   readonly model?: string;
+  readonly trim?: string;
 }
 
 export type VehicleIdentificationField = keyof VehicleIdentificationValues;
@@ -61,6 +62,7 @@ export interface VehicleIdentificationFieldsProps {
   methodDisabled?: boolean;
   mileageFields?: readonly VehicleMileageField[];
   vinHelp?: string;
+  trimRequired?: boolean;
   onEntryMethodChange: (method: VehicleEntryMethod) => void;
   onChange: (field: VehicleIdentificationField, value: string) => void;
   onBlur?: (field: VehicleIdentificationField) => void;
@@ -86,6 +88,7 @@ export function VehicleIdentificationFields({
   mileageFields = [],
   vinHelp =
     "Enter the 17-character VIN. We’ll use NHTSA vehicle data to identify it.",
+  trimRequired = false,
   onEntryMethodChange,
   onChange,
   onBlur,
@@ -167,6 +170,56 @@ export function VehicleIdentificationFields({
                 {vinLookupMessage}
               </p>
             ) : null}
+            {trimRequired && values.vehicleYear && values.make && values.model ? (
+              <div className="mt-5 rounded-xl border border-line bg-surface/55 p-4">
+                <p className="text-sm font-semibold text-ink">
+                  Confirm or correct the decoded vehicle
+                </p>
+                <p className="mt-1 text-xs leading-5 text-copy">
+                  VIN data can identify more than one style. Confirm the exact trim before continuing.
+                </p>
+                <div className="mt-4 grid gap-5 sm:grid-cols-2">
+                  <IntakeTextField
+                    id={`${idPrefix}-year`}
+                    label="Year"
+                    value={values.vehicleYear}
+                    error={errors.vehicleYear}
+                    inputMode="numeric"
+                    disabled={fieldsDisabled}
+                    onChange={(event) => onChange("vehicleYear", event.target.value)}
+                    onBlur={() => onBlur?.("vehicleYear")}
+                  />
+                  <IntakeTextField
+                    id={`${idPrefix}-make`}
+                    label="Make"
+                    value={values.make}
+                    error={errors.make}
+                    disabled={fieldsDisabled}
+                    onChange={(event) => onChange("make", event.target.value)}
+                    onBlur={() => onBlur?.("make")}
+                  />
+                  <IntakeTextField
+                    id={`${idPrefix}-model`}
+                    label="Model"
+                    value={values.model}
+                    error={errors.model}
+                    disabled={fieldsDisabled}
+                    onChange={(event) => onChange("model", event.target.value)}
+                    onBlur={() => onBlur?.("model")}
+                  />
+                  <IntakeTextField
+                    id={`${idPrefix}-trim`}
+                    label="Trim"
+                    value={values.trim ?? ""}
+                    error={errors.trim}
+                    placeholder="EX-L, Limited, XLE…"
+                    disabled={fieldsDisabled}
+                    onChange={(event) => onChange("trim", event.target.value)}
+                    onBlur={() => onBlur?.("trim")}
+                  />
+                </div>
+              </div>
+            ) : null}
           </div>
         ) : (
           <div className="grid gap-5 sm:grid-cols-2">
@@ -226,6 +279,21 @@ export function VehicleIdentificationFields({
                 <OptionLoadError label="models" onRetry={onRetryModels} />
               ) : null}
             </div>
+            {trimRequired ? (
+              <div className="sm:col-span-2">
+                <IntakeTextField
+                  id={`${idPrefix}-trim`}
+                  label="Trim"
+                  value={values.trim ?? ""}
+                  error={errors.trim}
+                  help="Use the exact trim or style shown on the vehicle, report, or VIN result."
+                  placeholder="EX-L, Limited, XLE…"
+                  disabled={fieldsDisabled}
+                  onChange={(event) => onChange("trim", event.target.value)}
+                  onBlur={() => onBlur?.("trim")}
+                />
+              </div>
+            ) : null}
           </div>
         )}
 

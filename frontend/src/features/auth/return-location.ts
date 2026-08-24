@@ -43,8 +43,16 @@ export function getCurrentReturnLocation() {
   );
 }
 
-export function getAuthCallbackUrl() {
-  return new URL("/auth/callback", browserOrigin()).toString();
+export function getAuthCallbackUrl(
+  parameters: Readonly<Record<string, string>> = {},
+) {
+  const url = new URL("/auth/callback", browserOrigin());
+  for (const [key, value] of Object.entries(parameters)) {
+    if (/^[a-z][a-z0-9_]{0,49}$/u.test(key) && value.length <= 500) {
+      url.searchParams.set(key, value);
+    }
+  }
+  return url.toString();
 }
 
 export function storeAuthReturnLocation(returnTo?: string) {
@@ -77,6 +85,30 @@ export type AuthCallbackParameters =
   | { kind: "error"; message: string }
   | { kind: "invalid" }
   | { kind: "none" };
+
+export type CaseClaimCallbackParameter =
+  | { kind: "claim"; claimId: string }
+  | { kind: "invalid" }
+  | { kind: "none" };
+
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
+
+export function readCaseClaimCallbackParameter(
+  location: Pick<Location, "search" | "hash">,
+): CaseClaimCallbackParameter {
+  const search = new URLSearchParams(location.search);
+  const hash = new URLSearchParams(location.hash.replace(/^#/, ""));
+  const values = [
+    ...search.getAll("case_claim"),
+    ...hash.getAll("case_claim"),
+  ];
+  if (values.length === 0) return { kind: "none" };
+  if (values.length !== 1 || !UUID_PATTERN.test(values[0])) {
+    return { kind: "invalid" };
+  }
+  return { kind: "claim", claimId: values[0] };
+}
 
 export function readAuthCallbackParameters(
   location: Pick<Location, "search" | "hash">,

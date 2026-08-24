@@ -83,6 +83,18 @@ function CaseCard({ item }: { readonly item: StaffCaseOperationListItem }) {
     item.serviceType === "total_loss"
       ? `/admin/cases/${encodeURIComponent(item.caseId)}`
       : `/admin/diminished-value/${encodeURIComponent(item.caseId)}`;
+  const customerName = item.contactFullName || item.customerFullName;
+  const customerEmail = item.verifiedEmail || item.contactEmail;
+  const customerEmailState = item.verifiedEmail
+    ? "Verified email"
+    : item.contactEmail
+      ? "Entered email — not verified"
+      : "Email unavailable";
+  const accessState = item.ownerIsAnonymous
+    ? "Guest session — access unclaimed"
+    : item.identityClaimedAt
+      ? "Access claimed"
+      : "Account owner";
 
   return (
     <li className="rounded-2xl border border-line bg-white p-5 shadow-sm sm:p-6">
@@ -103,10 +115,13 @@ function CaseCard({ item }: { readonly item: StaffCaseOperationListItem }) {
         <div>
           <CardLabel>Customer</CardLabel>
           <p className="mt-1 font-semibold text-ink">
-            {item.customerFullName || "Name not confirmed"}
+            {customerName || "Name not entered"}
           </p>
           <p className="mt-1 text-sm break-all text-copy">
-            {item.verifiedEmail || "Verified email unavailable"}
+            {customerEmail || "Email unavailable"}
+          </p>
+          <p className="mt-1 text-xs text-copy">
+            {customerEmailState} · {accessState}
           </p>
         </div>
 

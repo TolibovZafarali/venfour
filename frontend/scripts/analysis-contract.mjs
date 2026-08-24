@@ -14,7 +14,7 @@ const outputPath = path.resolve(
   "src/features/analyses/analysis-presentation.generated.ts",
 );
 const supportedConditionalSchemaDigest =
-  "96bf468755d3ca945091e92f7aefb223f1ae28a8d5bd800c918838fcd7d85afa";
+  "3e8a502280a41196fcf8924d533d0853c5a4bb1e0b9d019384bac879ed32ff16";
 
 function collectConditionalConstraints(value, currentPath = "$", result = []) {
   if (Array.isArray(value)) {
@@ -211,18 +211,110 @@ type SchemaExclusion =
       code: Exclude<Exclusion["code"], HistoricalExclusionCode>;
     });
 
-type AnalysisPresentationCommon = Omit<
+type AnalysisScopeWithoutReport = Omit<
+  AnalysisScope,
+  | "inputMode"
+  | "reportAvailable"
+  | "reportExtractionAvailable"
+  | "reportReviewPerformed"
+  | "reportProvider"
+  | "reportAdapter"
+  | "partialExtraction"
+  | "reportComparablesAvailable"
+  | "reportAdjustmentsAvailable"
+> & {
+  inputMode: "MANUAL";
+  reportAvailable: false;
+  reportExtractionAvailable: false;
+  reportReviewPerformed: false;
+  reportProvider: null;
+  reportAdapter: null;
+  partialExtraction: false;
+  reportComparablesAvailable: false;
+  reportAdjustmentsAvailable: false;
+};
+
+type AnalysisScopeWithUnextractedReport = Omit<
+  AnalysisScope,
+  | "inputMode"
+  | "reportAvailable"
+  | "reportExtractionAvailable"
+  | "reportReviewPerformed"
+  | "reportAdapter"
+  | "partialExtraction"
+  | "reportComparablesAvailable"
+  | "reportAdjustmentsAvailable"
+> & {
+  inputMode: "REPORT";
+  reportAvailable: true;
+  reportExtractionAvailable: false;
+  reportReviewPerformed: false;
+  reportAdapter: null;
+  partialExtraction: false;
+  reportComparablesAvailable: false;
+  reportAdjustmentsAvailable: false;
+};
+
+type AnalysisScopeWithReportReview = Omit<
+  AnalysisScope,
+  | "inputMode"
+  | "reportAvailable"
+  | "reportExtractionAvailable"
+  | "reportReviewPerformed"
+  | "reportAdapter"
+> & {
+  inputMode: "REPORT";
+  reportAvailable: true;
+  reportExtractionAvailable: true;
+  reportReviewPerformed: true;
+  reportAdapter: Exclude<AnalysisScope["reportAdapter"], null>;
+};
+
+type OfferComparisonScope =
+  | {
+      offerComparisonPerformed: true;
+      insurerValuationAvailable: true;
+      insurerValuationComparisonPerformed: true;
+    }
+  | { offerComparisonPerformed: false };
+
+type RefinedInputEvidence =
+  | {
+      analysisScope: AnalysisScopeWithoutReport & OfferComparisonScope;
+      insurerValuation: Omit<InsurerValuation, "source"> & {
+        source: "CUSTOMER_ENTERED" | "NONE";
+      };
+      reportReview: null;
+    }
+  | {
+      analysisScope: AnalysisScopeWithUnextractedReport & OfferComparisonScope;
+      insurerValuation: InsurerValuation;
+      reportReview: null;
+    }
+  | {
+      analysisScope: AnalysisScopeWithReportReview & OfferComparisonScope;
+      insurerValuation: InsurerValuation;
+      reportReview: ReportReview;
+    };
+
+type AnalysisPresentationCommonBase = Omit<
   AnalysisPresentationBase,
   | "assessment"
   | "primaryExternalEvidence"
   | "secondaryExternalEvidence"
   | "comparablesUsed"
+  | "analysisScope"
+  | "insurerValuation"
+  | "reportReview"
   | "evidenceDiagnostics"
 > & {
   evidenceDiagnostics: Omit<EvidenceDiagnostics, "exclusions"> & {
     exclusions: SchemaExclusion[];
   };
 };
+
+type AnalysisPresentationCommon = AnalysisPresentationCommonBase &
+  RefinedInputEvidence;
 
 type AnalysisPresentationWithoutPrimaryEvidence =
   AnalysisPresentationCommon & {
@@ -231,6 +323,12 @@ type AnalysisPresentationWithoutPrimaryEvidence =
     secondaryExternalEvidence: null;
     comparablesUsed: { primary: []; secondary: [] };
     cccValuation: Omit<CccValuation, "comparisonToPrimaryEvidence"> & {
+      comparisonToPrimaryEvidence: null;
+    };
+    insurerValuation: Omit<
+      InsurerValuation,
+      "comparisonToPrimaryEvidence"
+    > & {
       comparisonToPrimaryEvidence: null;
     };
   };

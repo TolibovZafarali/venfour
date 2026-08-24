@@ -70,6 +70,9 @@ EXPECTED_TOP_LEVEL_SECTIONS = {
     "analysisCreatedAt",
     "assessment",
     "vehicle",
+    "analysisScope",
+    "insurerValuation",
+    "reportReview",
     "cccValuation",
     "cccComparables",
     "primaryExternalEvidence",
@@ -217,6 +220,27 @@ class AnalysisPresentationIntegrationTests(TemporaryRepositoryTestCase):
                     **options,
                 )
                 self.assertEqual(data["assessment"]["evidenceStrength"], expected)
+
+    def test_no_primary_evidence_rejects_an_insurer_comparison(self) -> None:
+        _, _, _, _, insufficient = self.presentation_from_saved_run(
+            child="no-primary-insurer-comparison",
+            run_id="00000000-0000-4000-8000-000000000079",
+            current=False,
+            historical=False,
+        )
+        _, _, _, _, with_evidence = self.presentation_from_saved_run(
+            child="primary-insurer-comparison",
+            run_id="00000000-0000-4000-8000-000000000080",
+            current=False,
+            historical=True,
+            historical_prices=MATERIAL_PRICES,
+        )
+        insufficient["insurerValuation"]["comparisonToPrimaryEvidence"] = (
+            with_evidence["insurerValuation"]["comparisonToPrimaryEvidence"]
+        )
+
+        with self.assertRaises(AnalysisPresentationContractError):
+            validate_analysis_presentation(insufficient)
 
     def test_historical_primary_and_current_secondary_remain_separate(self) -> None:
         _, _, _, artifact, data = self.presentation_from_saved_run(
@@ -587,7 +611,7 @@ class AnalysisPresentationIntegrationTests(TemporaryRepositoryTestCase):
         provenance = data["provenance"]
 
         self.assertEqual(provenance["runId"], artifact.run_id)
-        self.assertEqual(provenance["presentationVersion"], "1")
+        self.assertEqual(provenance["presentationVersion"], "2")
         self.assertEqual(provenance["createdAt"], artifact.created_at)
         self.assertEqual(
             provenance["analysisRunSchemaVersion"],

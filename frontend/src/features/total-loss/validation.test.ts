@@ -30,6 +30,8 @@ const validManualForm: TotalLossManualFormValues = {
   dateOfLoss: "2026-08-18",
   insurerName: "Example Insurance",
   insurerVehicleValuation: "$20,500.50",
+  vehicleCondition: "Good",
+  optionsPackages: "Technology package",
 };
 
 describe("total-loss manual validation", () => {
@@ -53,7 +55,7 @@ describe("total-loss manual validation", () => {
     });
   });
 
-  it("accepts a VIN path without duplicate vehicle selections", () => {
+  it("requires confirmation of year, make, model, and trim even with a VIN", () => {
     expect(
       validateTotalLossManualForm(
         {
@@ -65,13 +67,18 @@ describe("total-loss manual validation", () => {
         },
         REFERENCE_DATE,
       ),
-    ).toEqual({});
+    ).toMatchObject({
+      vehicleYear: expect.any(String),
+      make: expect.any(String),
+      model: expect.any(String),
+      trim: expect.any(String),
+    });
   });
 
   it("accepts guided vehicle selections when VIN is unavailable", () => {
     expect(
       validateTotalLossManualForm(
-        { ...validManualForm, vin: "", trim: "" },
+        { ...validManualForm, vin: "" },
         REFERENCE_DATE,
       ),
     ).toEqual({});
@@ -90,6 +97,8 @@ describe("total-loss manual validation", () => {
         dateOfLoss: "",
         insurerName: "",
         insurerVehicleValuation: "",
+        vehicleCondition: "",
+        optionsPackages: "",
       },
       REFERENCE_DATE,
     );
@@ -98,13 +107,15 @@ describe("total-loss manual validation", () => {
       "vehicleYear",
       "make",
       "model",
+      "trim",
       "mileageAtLoss",
       "zipCode",
       "dateOfLoss",
       "insurerName",
-      "insurerVehicleValuation",
+      "vehicleCondition",
+      "optionsPackages",
     ]);
-    expect(errors).not.toHaveProperty("trim");
+    expect(errors).not.toHaveProperty("insurerVehicleValuation");
   });
 
   it("enforces VIN characters without applying a checksum", () => {

@@ -3,7 +3,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
 
-select plan(63);
+select plan(64);
 
 select is(
   (
@@ -57,7 +57,16 @@ select is(
     'postal_code',
     'failure_code',
     'retryable',
-    'processing_expires_at'
+    'processing_expires_at',
+    'intake_mode',
+    'source_report_upload_id',
+    'analysis_input_revision',
+    'analysis_input_id',
+    'input_snapshot',
+    'storage_bucket',
+    'storage_owner_id',
+    'storage_object_path',
+    'report_extraction_available'
   ]::text[],
   'claim and status expose exactly the contracted row keys'
 );
@@ -79,7 +88,7 @@ select has_index(
   'public',
   'total_loss_analysis_jobs',
   'total_loss_analysis_jobs_case_source_key',
-  'case and finalized report upload form the natural idempotency key'
+  'case, finalized report upload, and input revision form the report idempotency key'
 );
 
 select has_index(
@@ -229,6 +238,29 @@ values
   ('40000000-0000-4000-8000-000000000007', 'report', '60601', 'paid.pdf', '2026-08-19 01:00:00+00', 'aaaaaaaa-2000-4000-8000-000000000007', '2026-08-19 01:01:00+00', '2026-08-19 01:01:00+00', '2026-08-19 01:01:00+00'),
   ('40000000-0000-4000-8000-000000000010', 'report', '60601-1234', 'replacement.pdf', '2026-08-19 01:00:00+00', 'aaaaaaaa-2000-4000-8000-000000000010', '2026-08-19 01:01:00+00', '2026-08-19 01:01:00+00', '2026-08-19 01:01:00+00');
 
+insert into public.total_loss_case_contacts (
+  case_id,
+  full_name,
+  email,
+  service_terms_version,
+  service_terms_acknowledged_at,
+  privacy_notice_version,
+  privacy_notice_acknowledged_at,
+  operational_follow_up_allowed,
+  operational_follow_up_updated_at
+)
+values (
+  '40000000-0000-4000-8000-000000000010',
+  'Analysis Owner',
+  'analysis-owner@example.test',
+  '2026-08-23',
+  '2026-08-19 01:01:00+00',
+  '2026-08-23',
+  '2026-08-19 01:01:00+00',
+  false,
+  '2026-08-19 01:01:00+00'
+);
+
 insert into storage.objects (bucket_id, name, user_metadata)
 values
   ('case-files', '41111111-1111-4111-8111-111111111111/4aaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1/valuation-report.pdf', '{"uploadId":"aaaaaaaa-2000-4000-8000-000000000001"}'::jsonb),
@@ -245,8 +277,8 @@ select is(
 
 select is(
   (select outcome::text from public.claim_total_loss_analysis('4bbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb2', '41111111-1111-4111-8111-111111111111', 'bbbbbbbb-2000-4000-8000-000000000002')),
-  'report_intake_required',
-  'claim rejects manual intake for the report analysis pipeline'
+  'intake_not_ready',
+  'claim recognizes manual intake and requires its complete provider-neutral input set'
 );
 
 select is(
@@ -710,7 +742,17 @@ select is(
 reset role;
 
 update public.total_loss_case_details
-set report_last_upload_id = 'aaaaaaaa-2000-4000-8000-000000000011'
+set
+  report_last_upload_id = 'aaaaaaaa-2000-4000-8000-000000000011',
+  vehicle_year = 2020,
+  vehicle_make = 'Honda',
+  vehicle_model = 'Accord',
+  vehicle_trim = 'EX',
+  mileage_at_loss = 42000,
+  date_of_loss = '2026-08-18',
+  insurer_name = 'Example Insurance',
+  vehicle_condition = 'Good',
+  vehicle_options_packages = 'No additional options reported'
 where case_id = '40000000-0000-4000-8000-000000000010';
 
 update storage.objects
@@ -718,6 +760,25 @@ set user_metadata = '{"uploadId":"aaaaaaaa-2000-4000-8000-000000000011"}'::jsonb
 where bucket_id = 'case-files'
   and name = '41111111-1111-4111-8111-111111111111/40000000-0000-4000-8000-000000000010/valuation-report.pdf';
 
+set local role authenticated;
+set local request.jwt.claim.sub = '41111111-1111-4111-8111-111111111111';
+
+select lives_ok(
+  $$
+    select *
+    from public.confirm_total_loss_intake(
+      '40000000-0000-4000-8000-000000000010',
+      (
+        select updated_at
+        from public.total_loss_case_details
+        where case_id = '40000000-0000-4000-8000-000000000010'
+      )
+    )
+  $$,
+  'the owner can reconfirm complete facts after finalizing a replacement report'
+);
+
+reset role;
 set local role service_role;
 
 select is(

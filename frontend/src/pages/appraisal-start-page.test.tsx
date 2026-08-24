@@ -1,9 +1,85 @@
 import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type { Session } from "@supabase/supabase-js";
 
+import type { AuthService } from "@/features/auth";
 import type { DiminishedValueDependencies } from "@/features/diminished-value/dependencies";
-import { renderTestApp } from "@/test/render";
+import type { TotalLossDependencies } from "@/features/total-loss/dependencies";
+import { renderTestApp as renderBaseTestApp } from "@/test/render";
+
+const TOTAL_LOSS_CASE_ID = "22222222-2222-4222-8222-222222222222";
+const ANONYMOUS_USER_ID = "11111111-1111-4111-8111-111111111111";
+
+function anonymousSession(): Session {
+  return {
+    access_token: "guest-access-token",
+    expires_in: 3600,
+    refresh_token: "guest-refresh-token",
+    token_type: "bearer",
+    user: {
+      app_metadata: { provider: "anonymous", providers: [] },
+      aud: "authenticated",
+      created_at: "2026-08-23T12:00:00.000Z",
+      id: ANONYMOUS_USER_ID,
+      is_anonymous: true,
+      user_metadata: {},
+    },
+  } as Session;
+}
+
+function createGuestAuthService(): AuthService {
+  const session = anonymousSession();
+  return {
+    exchangeCodeForSession: vi.fn(async () => session),
+    getSession: vi.fn(async () => session),
+    onAuthStateChange: vi.fn(() => () => undefined),
+    signInAnonymously: vi.fn(async () => session),
+    sendMagicLink: vi.fn(async () => undefined),
+    signInWithGoogle: vi.fn(async () => undefined),
+    signOut: vi.fn(async () => undefined),
+    verifyEmailOtp: vi.fn(async () => session),
+  };
+}
+
+function createTotalLossDependencies(): TotalLossDependencies {
+  const appraisalCase = {
+    id: TOTAL_LOSS_CASE_ID,
+    userId: ANONYMOUS_USER_ID,
+    serviceType: "total_loss" as const,
+    status: "draft" as const,
+    createdAt: "2026-08-23T12:00:00.000Z",
+    updatedAt: "2026-08-23T12:00:00.000Z",
+    lastActivityAt: "2026-08-23T12:00:00.000Z",
+  };
+  const appraisalCaseService = {
+    createAppraisalCase: vi.fn(async () => appraisalCase),
+    createOrGetAppraisalCase: vi.fn(async () => appraisalCase),
+    getAppraisalCase: vi.fn(async () => appraisalCase),
+    getOrCreateTotalLossDraft: vi.fn(async () => appraisalCase),
+    getRecentDraftAppraisalCase: vi.fn(async () => null),
+    listAppraisalCases: vi.fn(async () => [appraisalCase]),
+    touchAppraisalCase: vi.fn(async () => appraisalCase),
+  };
+  return {
+    appraisalCaseService,
+    totalLossDetailsService: { getDetails: vi.fn(async () => null) },
+    totalLossIdentityService: { getContact: vi.fn(async () => null) },
+    totalLossReportStorageService: {},
+    vehicleLookupService: {},
+  } as unknown as TotalLossDependencies;
+}
+
+function renderTestApp(
+  initialEntries: Parameters<typeof renderBaseTestApp>[0],
+  options: Parameters<typeof renderBaseTestApp>[1] = {},
+) {
+  return renderBaseTestApp(initialEntries, {
+    authService: createGuestAuthService(),
+    totalLossDependencies: createTotalLossDependencies(),
+    ...options,
+  });
+}
 
 type ServiceLabel = "Total Loss" | "Diminished Value";
 
@@ -44,7 +120,7 @@ describe("/start appraisal intake", () => {
       expect(searchParams.get("campaign")).toBe("spring");
       expect(
         screen.getByRole("heading", {
-          name: "Start your CCC report review",
+          name: "Start your Total Loss review",
         }),
       ).toBeVisible();
       expectSelectedService("Total Loss");
@@ -55,7 +131,7 @@ describe("/start appraisal intake", () => {
     [
       "total loss",
       "/start?service=total-loss",
-      "Start your CCC report review",
+      "Start your Total Loss review",
       "Total Loss",
       "2024 Hyundai Elantra SEL",
       "12 comparable vehicles · within 87 miles",
@@ -177,7 +253,7 @@ describe("/start appraisal intake", () => {
 
   it("removes a total-loss caseId only for the pushed diminished-value entry", async () => {
     const user = userEvent.setup();
-    const caseId = "22222222-2222-4222-8222-222222222222";
+    const caseId = TOTAL_LOSS_CASE_ID;
     const { router } = renderTestApp([
       `/start?service=total-loss&caseId=${caseId}&campaign=renewal`,
     ]);
@@ -220,7 +296,7 @@ describe("/start appraisal intake", () => {
         },
       },
     );
-    const caseId = "22222222-2222-4222-8222-222222222222";
+    const caseId = TOTAL_LOSS_CASE_ID;
     const { router } = renderTestApp(
       [
         `/start?service=diminished-value&view=intake&caseId=${caseId}&campaign=spring`,
@@ -259,7 +335,7 @@ describe("/start appraisal intake", () => {
 
   it("cannot bypass the pause through a caseId after switching services", async () => {
     const user = userEvent.setup();
-    const caseId = "22222222-2222-4222-8222-222222222222";
+    const caseId = TOTAL_LOSS_CASE_ID;
     const { router } = renderTestApp([
       `/start?service=diminished-value&view=intake&caseId=${caseId}`,
     ]);
@@ -274,10 +350,15 @@ describe("/start appraisal intake", () => {
       new URLSearchParams(router.state.location.search).get("caseId"),
     ).toBeNull();
     expect(
-      await screen.findByRole("heading", {
-        name: "Sign in before starting your review",
+      await screen.findByRole("group", {
+        name: "Do you have your insurance valuation report?",
       }),
     ).toBeVisible();
+    expect(
+      screen.queryByRole("heading", {
+        name: "Sign in before starting your review",
+      }),
+    ).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("radio", { name: "Diminished Value" }));
     expect(

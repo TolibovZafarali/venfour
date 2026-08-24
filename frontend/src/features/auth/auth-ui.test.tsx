@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { StrictMode } from "react";
 import type { Session } from "@supabase/supabase-js";
@@ -19,6 +19,23 @@ import {
 } from "@/features/auth";
 import type { AuthService } from "@/features/auth/auth-service";
 import { storeAuthReturnLocation } from "@/features/auth/return-location";
+import {
+  TotalLossDependenciesProvider,
+  type TotalLossDependencies,
+} from "@/features/total-loss/dependencies";
+import type { TotalLossIdentityService } from "@/features/total-loss/identity-service";
+
+const CASE_CLAIM_ID = "88888888-8888-4888-8888-888888888888";
+
+function createDeferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+  return { promise, reject, resolve };
+}
 
 function sessionFor(id: string, name?: string) {
   return {
@@ -37,11 +54,19 @@ function sessionFor(id: string, name?: string) {
   } as Session;
 }
 
+function anonymousSessionFor(id: string) {
+  const session = sessionFor(id);
+  session.user.app_metadata = { provider: "anonymous", providers: [] };
+  session.user.is_anonymous = true;
+  return session;
+}
+
 function createService(overrides: Partial<AuthService> = {}) {
   const service: AuthService = {
     exchangeCodeForSession: vi.fn(async () => sessionFor("callback-user")),
     getSession: vi.fn(async () => null),
     onAuthStateChange: vi.fn(() => () => undefined),
+    restoreSession: vi.fn(async (session) => session),
     sendMagicLink: vi.fn(async () => undefined),
     signInWithGoogle: vi.fn(async () => undefined),
     signOut: vi.fn(async () => undefined),
@@ -49,6 +74,21 @@ function createService(overrides: Partial<AuthService> = {}) {
     ...overrides,
   };
   return service;
+}
+
+function callbackDependencies(
+  completeIdentityClaim: TotalLossIdentityService["completeIdentityClaim"],
+) {
+  const identityService = {
+    completeIdentityClaim,
+    getContact: vi.fn(async () => null),
+    saveContactAndBeginClaim: vi.fn(async () => {
+      throw new Error("Unexpected contact save.");
+    }),
+  } satisfies TotalLossIdentityService;
+  return {
+    totalLossIdentityService: identityService,
+  } as unknown as TotalLossDependencies;
 }
 
 function SignInLauncher() {
@@ -163,7 +203,7 @@ describe("sign-in dialog", () => {
     expect(
       screen.getByRole("dialog", { name: "Sign in to Venfour" }),
     ).toHaveTextContent(
-      "Sign in so Venfour can securely store your original CCC valuation report",
+      "Sign in to open a saved Total Loss case and its private valuation report.",
     );
     expect(
       screen.getByRole("link", { name: "Terms of Use" }),
@@ -343,6 +383,32 @@ describe("account control", () => {
     await waitFor(() => expect(service.signOut).toHaveBeenCalledOnce());
   });
 
+  test("keeps an authenticated anonymous session visually signed out", async () => {
+    const service = createService({
+      getSession: vi.fn(async () => anonymousSessionFor("guest")),
+    });
+    render(
+      <MemoryRouter>
+        <AuthProvider service={service}>
+          <SignInDialogProvider>
+            <AccountControl />
+            <MobileAccountControl />
+          </SignInDialogProvider>
+        </AuthProvider>
+      </MemoryRouter>,
+    );
+
+    expect(
+      await screen.findAllByRole("button", { name: "Sign In" }),
+    ).toHaveLength(2);
+    expect(
+      screen.queryByRole("button", { name: /Account for/ }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: "My appraisals" }),
+    ).not.toBeInTheDocument();
+  });
+
   test("keeps desktop sign-out errors visible inside the account menu", async () => {
     const user = userEvent.setup();
     const service = createService({
@@ -453,11 +519,12 @@ describe("auth callback", () => {
     expect(router.state.location.search).toBe("?from=auth");
   });
 
-  test("exchanges a callback code even when an older session is restored", async () => {
+  test("waits for restoration before exchanging a callback code", async () => {
+    const restoration = createDeferred<Session | null>();
     const exchangeCodeForSession = vi.fn(async () => sessionFor("new-user"));
     const service = createService({
       exchangeCodeForSession,
-      getSession: vi.fn(async () => sessionFor("existing-user")),
+      getSession: vi.fn(() => restoration.promise),
     });
     storeAuthReturnLocation("/destination");
     const router = createMemoryRouter(
@@ -474,11 +541,171 @@ describe("auth callback", () => {
       </AuthProvider>,
     );
 
+    await waitFor(() => expect(service.getSession).toHaveBeenCalledOnce());
+    expect(exchangeCodeForSession).not.toHaveBeenCalled();
+
+    await act(async () => {
+      restoration.resolve(anonymousSessionFor("existing-guest"));
+      await restoration.promise;
+    });
+
     expect(await screen.findByRole("heading", { name: "Destination" })).toBeVisible();
+    expect(exchangeCodeForSession).toHaveBeenCalledOnce();
     expect(exchangeCodeForSession).toHaveBeenCalledWith(
       "new-account-code",
       undefined,
     );
+  });
+
+  test("restores a captured guest when verified case claiming fails", async () => {
+    const guestSession = anonymousSessionFor("existing-guest");
+    const permanentSession = sessionFor("claim-owner");
+    const completeIdentityClaim = vi.fn<
+      TotalLossIdentityService["completeIdentityClaim"]
+    >(async () => {
+      throw new Error("The case claim is unavailable.");
+    });
+    const dependencies = callbackDependencies(completeIdentityClaim);
+    const service = createService({
+      getSession: vi.fn(async () => guestSession),
+      verifyEmailOtp: vi.fn(async () => permanentSession),
+    });
+    storeAuthReturnLocation("/destination");
+    const router = createMemoryRouter(
+      [
+        { path: "/auth/callback", element: <AuthCallbackPage /> },
+        { path: "/destination", element: <h1>Destination</h1> },
+      ],
+      {
+        initialEntries: [
+          `/auth/callback?token_hash=claim-token&type=email&case_claim=${CASE_CLAIM_ID}`,
+        ],
+      },
+    );
+
+    render(
+      <TotalLossDependenciesProvider dependencies={dependencies}>
+        <AuthProvider service={service}>
+          <RouterProvider router={router} />
+        </AuthProvider>
+      </TotalLossDependenciesProvider>,
+    );
+
+    expect(
+      await screen.findByRole("heading", { name: "We couldn’t sign you in" }),
+    ).toBeVisible();
+    expect(service.verifyEmailOtp).toHaveBeenCalledWith("claim-token");
+    expect(completeIdentityClaim).toHaveBeenCalledOnce();
+    expect(completeIdentityClaim).toHaveBeenCalledWith(CASE_CLAIM_ID);
+    expect(service.restoreSession).toHaveBeenCalledOnce();
+    expect(service.restoreSession).toHaveBeenCalledWith(guestSession);
+    expect(router.state.location.pathname).toBe("/auth/callback");
+  });
+
+  test("keeps the verified session after a successful case claim", async () => {
+    const guestSession = anonymousSessionFor("existing-guest");
+    const permanentSession = sessionFor("claim-owner");
+    const completeIdentityClaim = vi.fn<
+      TotalLossIdentityService["completeIdentityClaim"]
+    >(async () => ({
+      outcome: "claimed",
+      caseId: "77777777-7777-4777-8777-777777777777",
+      ownerUserId: permanentSession.user.id,
+      contactEmail: permanentSession.user.email ?? "claim-owner@example.com",
+      emailVerifiedAt: "2026-08-23T20:00:00.000Z",
+      claimedAt: "2026-08-23T20:00:00.000Z",
+      ownershipTransferred: true,
+    }));
+    const dependencies = callbackDependencies(completeIdentityClaim);
+    const service = createService({
+      getSession: vi.fn(async () => guestSession),
+      verifyEmailOtp: vi.fn(async () => permanentSession),
+    });
+    storeAuthReturnLocation("/destination");
+    const router = createMemoryRouter(
+      [
+        { path: "/auth/callback", element: <AuthCallbackPage /> },
+        { path: "/destination", element: <h1>Destination</h1> },
+      ],
+      {
+        initialEntries: [
+          `/auth/callback?token_hash=claim-token&type=email&case_claim=${CASE_CLAIM_ID}`,
+        ],
+      },
+    );
+
+    render(
+      <TotalLossDependenciesProvider dependencies={dependencies}>
+        <AuthProvider service={service}>
+          <RouterProvider router={router} />
+        </AuthProvider>
+      </TotalLossDependenciesProvider>,
+    );
+
+    expect(
+      await screen.findByRole("heading", { name: "Destination" }),
+    ).toBeVisible();
+    expect(service.verifyEmailOtp).toHaveBeenCalledWith("claim-token");
+    expect(completeIdentityClaim).toHaveBeenCalledOnce();
+    expect(completeIdentityClaim).toHaveBeenCalledWith(CASE_CLAIM_ID);
+    expect(service.restoreSession).not.toHaveBeenCalled();
+  });
+
+  test("does not complete sign-in from an anonymous session without callback credentials", async () => {
+    const service = createService({
+      getSession: vi.fn(async () => anonymousSessionFor("existing-guest")),
+    });
+    storeAuthReturnLocation("/destination");
+    const router = createMemoryRouter(
+      [
+        { path: "/auth/callback", element: <AuthCallbackPage /> },
+        { path: "/destination", element: <h1>Destination</h1> },
+      ],
+      { initialEntries: ["/auth/callback"] },
+    );
+
+    render(
+      <AuthProvider service={service}>
+        <RouterProvider router={router} />
+      </AuthProvider>,
+    );
+
+    expect(
+      await screen.findByRole("heading", { name: "We couldn’t sign you in" }),
+    ).toBeVisible();
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "missing required information",
+    );
+    expect(router.state.location.pathname).toBe("/auth/callback");
+    expect(service.exchangeCodeForSession).not.toHaveBeenCalled();
+    expect(service.verifyEmailOtp).not.toHaveBeenCalled();
+  });
+
+  test("rejects a callback result that is still anonymous", async () => {
+    const service = createService({
+      exchangeCodeForSession: vi.fn(async () =>
+        anonymousSessionFor("callback-guest"),
+      ),
+    });
+    storeAuthReturnLocation("/destination");
+    const router = createMemoryRouter(
+      [
+        { path: "/auth/callback", element: <AuthCallbackPage /> },
+        { path: "/destination", element: <h1>Destination</h1> },
+      ],
+      { initialEntries: ["/auth/callback?code=anonymous-code"] },
+    );
+
+    render(
+      <AuthProvider service={service}>
+        <RouterProvider router={router} />
+      </AuthProvider>,
+    );
+
+    expect(
+      await screen.findByRole("heading", { name: "We couldn’t sign you in" }),
+    ).toBeVisible();
+    expect(router.state.location.pathname).toBe("/auth/callback");
   });
 
   test("renders callback errors and never exchanges a rejected callback", async () => {

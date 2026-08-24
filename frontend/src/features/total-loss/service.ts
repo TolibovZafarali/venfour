@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { AppraisalCaseService } from "@/features/cases/service";
 import type {
   AcquireTotalLossReportUploadLeaseInput,
+  ConfirmTotalLossIntakeInput,
   CreateTotalLossDetailsInput,
   CreateTotalLossDetailsValues,
   FinalizeTotalLossReportUploadInput,
@@ -24,9 +25,11 @@ import type {
 } from "@/lib/supabase/database.types";
 
 const TOTAL_LOSS_DETAILS_COLUMNS =
-  "case_id,intake_mode,vin,vehicle_year,vehicle_make,vehicle_model,vehicle_trim,mileage_at_loss,postal_code,date_of_loss,insurer_name,insurer_vehicle_valuation,report_original_filename,report_uploaded_at,intake_completed_at,created_at,updated_at" as const;
+  "case_id,intake_mode,vin,vehicle_year,vehicle_make,vehicle_model,vehicle_trim,mileage_at_loss,postal_code,date_of_loss,insurer_name,insurer_vehicle_valuation,vehicle_condition,vehicle_options_packages,report_provider_name,report_extraction_status,report_extraction_confidence,report_extracted_at,report_facts_confirmed_at,analysis_input_revision,analysis_input_id,report_storage_owner_id,report_original_filename,report_uploaded_at,intake_completed_at,created_at,updated_at" as const;
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-type TotalLossDetailsTableRow = Pick<
+type TotalLossLegacyDetailsTableRow = Pick<
   Tables<"total_loss_case_details">,
   | "case_id"
   | "intake_mode"
@@ -46,9 +49,23 @@ type TotalLossDetailsTableRow = Pick<
   | "created_at"
   | "updated_at"
 >;
-type TotalLossDetailsRow =
-  | TotalLossDetailsTableRow
-  | CompositeTypes<"total_loss_case_details_public">;
+interface TotalLossAdditionalDetailsRow {
+  readonly vehicle_condition?: string | null;
+  readonly vehicle_options_packages?: string | null;
+  readonly report_provider_name?: string | null;
+  readonly report_extraction_status?: string | null;
+  readonly report_extraction_confidence?: number | null;
+  readonly report_extracted_at?: string | null;
+  readonly report_facts_confirmed_at?: string | null;
+  readonly analysis_input_revision?: number | null;
+  readonly analysis_input_id?: string | null;
+  readonly report_storage_owner_id?: string | null;
+}
+type TotalLossDetailsRow = (
+  | TotalLossLegacyDetailsTableRow
+  | CompositeTypes<"total_loss_case_details_public">
+) &
+  TotalLossAdditionalDetailsRow;
 type TotalLossDetailsInsert = TablesInsert<"total_loss_case_details">;
 type TotalLossDetailsUpdate = TablesUpdate<"total_loss_case_details">;
 
@@ -61,6 +78,9 @@ export interface TotalLossDetailsService {
     input: UpdateTotalLossDetailsInput,
   ): Promise<TotalLossCaseDetails>;
   saveDetails(input: SaveTotalLossDetailsInput): Promise<TotalLossCaseDetails>;
+  confirmIntake?(
+    input: ConfirmTotalLossIntakeInput,
+  ): Promise<TotalLossCaseDetails>;
   acquireReportUploadLease(
     input: AcquireTotalLossReportUploadLeaseInput,
   ): Promise<TotalLossReportUploadLease>;
@@ -173,6 +193,26 @@ function mapTotalLossDetails(row: TotalLossDetailsRow): TotalLossCaseDetails {
     dateOfLoss: row.date_of_loss,
     insurerName: row.insurer_name,
     insurerVehicleValuation: row.insurer_vehicle_valuation,
+    vehicleCondition: optionalNullableString(row.vehicle_condition),
+    optionsPackages: optionalNullableString(row.vehicle_options_packages),
+    reportProvider: optionalNullableString(row.report_provider_name),
+    reportExtractionStatus: optionalExtractionStatus(
+      row.report_extraction_status,
+    ),
+    reportExtractionConfidence: optionalConfidence(
+      row.report_extraction_confidence,
+    ),
+    reportExtractedAt: optionalNullableString(row.report_extracted_at),
+    reportFactsConfirmedAt: optionalNullableString(
+      row.report_facts_confirmed_at,
+    ),
+    analysisInputRevision: optionalPositiveInteger(
+      row.analysis_input_revision,
+    ),
+    analysisInputId: optionalNullableUuid(row.analysis_input_id),
+    reportStorageOwnerId: optionalNullableUuid(
+      row.report_storage_owner_id,
+    ),
     reportOriginalFilename: row.report_original_filename,
     reportUploadedAt: row.report_uploaded_at,
     intakeCompletedAt: row.intake_completed_at,
@@ -183,6 +223,60 @@ function mapTotalLossDetails(row: TotalLossDetailsRow): TotalLossCaseDetails {
 
 function isNullableString(value: unknown): value is string | null {
   return value === null || typeof value === "string";
+}
+
+function optionalNullableString(value: unknown) {
+  if (value === undefined || value === null || typeof value === "string") {
+    return value;
+  }
+  throw new TotalLossDetailsResponseError(
+    "Supabase returned an invalid Total-Loss text field.",
+  );
+}
+
+function optionalExtractionStatus(value: unknown) {
+  if (value === undefined || value === null) return value;
+  if (
+    value === "not_requested" ||
+    value === "pending" ||
+    value === "needs_confirmation" ||
+    value === "confirmed" ||
+    value === "failed"
+  ) {
+    return value;
+  }
+  throw new TotalLossDetailsResponseError(
+    "Supabase returned an invalid report-extraction status.",
+  );
+}
+
+function optionalConfidence(value: unknown) {
+  if (value === undefined || value === null) return value;
+  if (typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 1) {
+    return value;
+  }
+  throw new TotalLossDetailsResponseError(
+    "Supabase returned an invalid report-extraction confidence.",
+  );
+}
+
+function optionalPositiveInteger(value: unknown) {
+  if (value === undefined || value === null) return value;
+  if (typeof value === "number" && Number.isSafeInteger(value) && value >= 1) {
+    return value;
+  }
+  throw new TotalLossDetailsResponseError(
+    "Supabase returned an invalid analysis-input revision.",
+  );
+}
+
+function optionalNullableUuid(value: unknown) {
+  const candidate = optionalNullableString(value);
+  if (candidate === undefined || candidate === null) return candidate;
+  if (UUID_PATTERN.test(candidate)) return candidate;
+  throw new TotalLossDetailsResponseError(
+    "Supabase returned an invalid Total-Loss identifier.",
+  );
 }
 
 function assertRequestedCase(
@@ -213,8 +307,12 @@ function assignWritableValues(
   if (values.insurerVehicleValuation !== undefined) {
     target.insurer_vehicle_valuation = values.insurerVehicleValuation;
   }
-  if (values.intakeCompletedAt !== undefined) {
-    target.intake_completed_at = values.intakeCompletedAt;
+  const providerNeutralTarget = target as Record<string, unknown>;
+  if (values.vehicleCondition !== undefined) {
+    providerNeutralTarget.vehicle_condition = values.vehicleCondition;
+  }
+  if (values.optionsPackages !== undefined) {
+    providerNeutralTarget.vehicle_options_packages = values.optionsPackages;
   }
 }
 
@@ -235,9 +333,20 @@ function matchesWritableValues(
     details.insurerName === (values.insurerName ?? null) &&
     details.insurerVehicleValuation ===
       (values.insurerVehicleValuation ?? null) &&
-    details.intakeCompletedAt === (values.intakeCompletedAt ?? null)
+    details.vehicleCondition === (values.vehicleCondition ?? null) &&
+    details.optionsPackages === (values.optionsPackages ?? null)
   );
 }
+
+type UntypedRpcClient = {
+  rpc: (
+    name: string,
+    parameters: Record<string, unknown>,
+  ) => Promise<{
+    data: unknown;
+    error: ({ readonly code?: string } & Error) | null;
+  }>;
+};
 
 async function fetchDetails(
   client: SupabaseClient<Database>,
@@ -252,7 +361,7 @@ async function fetchDetails(
   if (error) throw error;
   if (!data) return null;
 
-  const details = mapTotalLossDetails(data);
+  const details = mapTotalLossDetails(data as unknown as TotalLossDetailsRow);
   assertRequestedCase(details, caseId);
   return details;
 }
@@ -261,6 +370,7 @@ export function createTotalLossDetailsService(
   client: SupabaseClient<Database>,
   appraisalCaseService: AppraisalCaseService,
 ): TotalLossDetailsService {
+  const untypedRpcClient = client as unknown as UntypedRpcClient;
   const touchCase = async ({ caseId, userId }: TotalLossDetailsScope) => {
     const touchedCase = await appraisalCaseService.touchAppraisalCase({
       caseId,
@@ -299,6 +409,48 @@ export function createTotalLossDetailsService(
     return mapReportUploadLease(row);
   };
 
+  const storageOwnerCache = new Map<string, string>();
+  const attachStorageOwner = async (
+    caseId: string,
+    lease: TotalLossReportUploadLease,
+  ): Promise<TotalLossReportUploadLease> => {
+    let storageOwnerUserId = storageOwnerCache.get(caseId);
+    if (!storageOwnerUserId) {
+      const { data, error } = await untypedRpcClient.rpc(
+        "get_owned_total_loss_report_storage_locator",
+        { case_id: caseId },
+      );
+      if (error) throw error;
+      const row = Array.isArray(data) ? data[0] : data;
+      if (!row || typeof row !== "object") {
+        throw new TotalLossDetailsResponseError(
+          "Supabase did not return the owned private report location.",
+        );
+      }
+      const locator = row as Record<string, unknown>;
+      storageOwnerUserId =
+        typeof locator.storage_owner_id === "string"
+          ? locator.storage_owner_id
+          : undefined;
+      const canonicalPath = `${storageOwnerUserId}/${caseId}/valuation-report.pdf`;
+      const backupPath = `${storageOwnerUserId}/${caseId}/valuation-report-backup.pdf`;
+      if (
+        locator.case_id !== caseId ||
+        locator.bucket_id !== "case-files" ||
+        !storageOwnerUserId ||
+        !UUID_PATTERN.test(storageOwnerUserId) ||
+        locator.canonical_object_path !== canonicalPath ||
+        locator.backup_object_path !== backupPath
+      ) {
+        throw new TotalLossDetailsResponseError(
+          "Supabase returned an invalid private report location.",
+        );
+      }
+      storageOwnerCache.set(caseId, storageOwnerUserId);
+    }
+    return { ...lease, storageOwnerUserId };
+  };
+
   const service: TotalLossDetailsService = {
     async getDetails({ caseId }) {
       return fetchDetails(client, caseId);
@@ -308,6 +460,7 @@ export function createTotalLossDetailsService(
       const insert: TotalLossDetailsInsert = {
         case_id: caseId,
         intake_mode: values.intakeMode,
+        report_storage_owner_id: userId,
       };
       assignWritableValues(insert, values);
 
@@ -336,7 +489,7 @@ export function createTotalLossDetailsService(
         );
       }
 
-      const details = mapTotalLossDetails(data);
+      const details = mapTotalLossDetails(data as unknown as TotalLossDetailsRow);
       assertRequestedCase(details, caseId);
       await touchCase({ caseId, userId });
       return details;
@@ -361,7 +514,7 @@ export function createTotalLossDetailsService(
         );
       }
 
-      const details = mapTotalLossDetails(data);
+      const details = mapTotalLossDetails(data as unknown as TotalLossDetailsRow);
       assertRequestedCase(details, caseId);
       await touchCase({ caseId, userId });
       return details;
@@ -381,6 +534,42 @@ export function createTotalLossDetailsService(
         expectedUpdatedAt: input.expectedUpdatedAt,
         changes: input.values,
       });
+    },
+
+    async confirmIntake({ caseId, expectedUpdatedAt }) {
+      const { data, error } = await untypedRpcClient.rpc(
+        "confirm_total_loss_intake",
+        {
+          case_id: caseId,
+          expected_details_updated_at: expectedUpdatedAt,
+        },
+      );
+      if (error) {
+        const currentDetails = await fetchDetails(client, caseId);
+        if (currentDetails?.intakeCompletedAt) return currentDetails;
+        if (error.code === "40001") {
+          throw new TotalLossDetailsConflictError(currentDetails);
+        }
+        throw error;
+      }
+
+      const row = Array.isArray(data) ? data[0] : data;
+      if (
+        !row ||
+        typeof row !== "object" ||
+        (row as { readonly case_id?: unknown }).case_id !== caseId
+      ) {
+        throw new TotalLossDetailsResponseError(
+          "Supabase did not confirm the requested Total-Loss intake.",
+        );
+      }
+      const details = await fetchDetails(client, caseId);
+      if (!details?.intakeCompletedAt) {
+        throw new TotalLossDetailsResponseError(
+          "Supabase did not return the confirmed Total-Loss intake.",
+        );
+      }
+      return details;
     },
 
     async acquireReportUploadLease({ caseId, expectedUpdatedAt, uploadId }) {
@@ -404,7 +593,7 @@ export function createTotalLossDetailsService(
           "Supabase returned a report-upload lease outside the requested token scope.",
         );
       }
-      return lease;
+      return attachStorageOwner(caseId, lease);
     },
 
     async renewReportUploadLease({ caseId, uploadId }) {
@@ -415,9 +604,12 @@ export function createTotalLossDetailsService(
         })
         .single();
       if (error) await throwReportUploadRpcError(error, caseId);
-      return requireLease(
-        data,
-        "Supabase did not return the renewed report-upload lease.",
+      return attachStorageOwner(
+        caseId,
+        requireLease(
+          data,
+          "Supabase did not return the renewed report-upload lease.",
+        ),
       );
     },
 
@@ -430,9 +622,12 @@ export function createTotalLossDetailsService(
         })
         .single();
       if (error) await throwReportUploadRpcError(error, caseId);
-      return requireLease(
-        data,
-        "Supabase did not confirm that the report upload is ready.",
+      return attachStorageOwner(
+        caseId,
+        requireLease(
+          data,
+          "Supabase did not confirm that the report upload is ready.",
+        ),
       );
     },
 
@@ -444,9 +639,12 @@ export function createTotalLossDetailsService(
         })
         .single();
       if (error) await throwReportUploadRpcError(error, caseId);
-      return requireLease(
-        data,
-        "Supabase did not confirm recovery of the previous report.",
+      return attachStorageOwner(
+        caseId,
+        requireLease(
+          data,
+          "Supabase did not confirm recovery of the previous report.",
+        ),
       );
     },
 
@@ -470,7 +668,7 @@ export function createTotalLossDetailsService(
           "Supabase did not return the finalized total-loss details.",
         );
       }
-      const details = mapTotalLossDetails(data);
+      const details = mapTotalLossDetails(data as unknown as TotalLossDetailsRow);
       assertRequestedCase(details, caseId);
       return details;
     },
@@ -488,7 +686,7 @@ export function createTotalLossDetailsService(
           "Supabase did not return the total-loss details after upload cancellation.",
         );
       }
-      const details = mapTotalLossDetails(data);
+      const details = mapTotalLossDetails(data as unknown as TotalLossDetailsRow);
       assertRequestedCase(details, caseId);
       return details;
     },

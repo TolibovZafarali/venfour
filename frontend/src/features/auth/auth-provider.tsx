@@ -10,6 +10,7 @@ import type { Session } from "@supabase/supabase-js";
 
 import {
   AuthContext,
+  isAnonymousUser,
   type AuthContextValue,
   type AuthState,
 } from "@/features/auth/auth-context";
@@ -35,7 +36,12 @@ const defaultUnavailableReason =
 
 function stateFromSession(session: Session | null): AuthState {
   return session
-    ? { status: "signedIn", session, user: session.user }
+    ? {
+        status: "signedIn",
+        identity: isAnonymousUser(session.user) ? "anonymous" : "permanent",
+        session,
+        user: session.user,
+      }
     : { status: "signedOut", session: null, user: null };
 }
 
@@ -69,6 +75,8 @@ export function AuthProvider({
         },
   );
   const currentUserIdRef = useRef<string | null>(null);
+  const currentSessionRef = useRef<Session | null>(null);
+  const guestSessionRequestRef = useRef<Promise<Session> | null>(null);
   const identityInitializedRef = useRef(false);
   const sessionUpdateVersionRef = useRef(0);
 
@@ -78,6 +86,7 @@ export function AuthProvider({
       const nextUserId = session?.user.id ?? null;
       const previousUserId = currentUserIdRef.current;
       currentUserIdRef.current = nextUserId;
+      currentSessionRef.current = session;
       setAuth(stateFromSession(session));
 
       if (
@@ -144,6 +153,78 @@ export function AuthProvider({
     return resolvedService;
   }, [resolvedService, unavailableReason]);
 
+  const ensureGuestSession = useCallback<
+    AuthContextValue["ensureGuestSession"]
+  >(() => {
+    const existingSession = currentSessionRef.current;
+    if (existingSession) {
+      return Promise.resolve(existingSession);
+    }
+
+    if (guestSessionRequestRef.current) {
+      return guestSessionRequestRef.current;
+    }
+
+    const guestSessionRequest = (async () => {
+      const authService = requireService();
+      const restoredSession = await authService.getSession();
+      const sessionAfterRestoration = currentSessionRef.current;
+
+      if (sessionAfterRestoration) {
+        return sessionAfterRestoration;
+      }
+
+      if (restoredSession) {
+        applySession(restoredSession);
+        return restoredSession;
+      }
+
+      if (!authService.signInAnonymously) {
+        throw new Error("Anonymous sign-in is unavailable.");
+      }
+
+      const anonymousSession = await authService.signInAnonymously();
+      const activeSession = currentSessionRef.current;
+
+      if (activeSession) {
+        return activeSession;
+      }
+
+      applySession(anonymousSession);
+      return anonymousSession;
+    })();
+    const trackedRequest = guestSessionRequest.finally(() => {
+      if (guestSessionRequestRef.current === trackedRequest) {
+        guestSessionRequestRef.current = null;
+      }
+    });
+
+    guestSessionRequestRef.current = trackedRequest;
+    return trackedRequest;
+  }, [applySession, requireService]);
+
+  const restoreSession = useCallback<AuthContextValue["restoreSession"]>(
+    async (session) => {
+      if (!isAnonymousUser(session.user)) {
+        throw new Error("Only an anonymous session can be restored here.");
+      }
+      const authService = requireService();
+      if (!authService.restoreSession) {
+        throw new Error("Session restoration is unavailable.");
+      }
+      const restoredSession = await authService.restoreSession(session);
+      if (
+        restoredSession.user.id !== session.user.id ||
+        !isAnonymousUser(restoredSession.user)
+      ) {
+        throw new Error("Supabase did not restore the anonymous session.");
+      }
+      applySession(restoredSession);
+      return restoredSession;
+    },
+    [applySession, requireService],
+  );
+
   const signInWithGoogle = useCallback<AuthContextValue["signInWithGoogle"]>(
     async (options) => {
       storeAuthReturnLocation(options?.returnTo);
@@ -155,7 +236,10 @@ export function AuthProvider({
   const sendMagicLink = useCallback<AuthContextValue["sendMagicLink"]>(
     async (email, options) => {
       storeAuthReturnLocation(options?.returnTo);
-      await requireService().sendMagicLink(email, getAuthCallbackUrl());
+      await requireService().sendMagicLink(
+        email,
+        getAuthCallbackUrl(options?.callbackParameters),
+      );
     },
     [requireService],
   );
@@ -195,6 +279,8 @@ export function AuthProvider({
       auth,
       completeAuthCallback,
       completeEmailAuthCallback,
+      ensureGuestSession,
+      restoreSession,
       sendMagicLink,
       signInWithGoogle,
       signOut,
@@ -203,6 +289,8 @@ export function AuthProvider({
       auth,
       completeAuthCallback,
       completeEmailAuthCallback,
+      ensureGuestSession,
+      restoreSession,
       sendMagicLink,
       signInWithGoogle,
       signOut,

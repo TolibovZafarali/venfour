@@ -72,6 +72,19 @@ function sessionFor(id = USER_ID) {
   } as Session;
 }
 
+function anonymousSessionFor(id = USER_ID) {
+  const session = sessionFor(id);
+  return {
+    ...session,
+    user: {
+      ...session.user,
+      app_metadata: { provider: "anonymous", providers: [] },
+      email: undefined,
+      is_anonymous: true,
+    },
+  } as Session;
+}
+
 function createAuthHarness(getSession: () => Promise<Session | null>) {
   let listener: AuthStateChangeListener | null = null;
   const service: AuthService = {
@@ -479,6 +492,34 @@ describe("DiminishedValueStartFlow controller", () => {
       ok: true,
       envelope: null,
     });
+  });
+
+  it("requires permanent authentication when a hidden anonymous session exists", async () => {
+    const draft = completeDraft();
+    persistAnonymousDraft(draft);
+    const harness = createDependencyHarness(detailsFor(draft));
+    const auth = createAuthHarness(async () => anonymousSessionFor());
+    const user = userEvent.setup();
+
+    renderTestApp(["/start?service=diminished-value&view=intake"], {
+      authService: auth.service,
+      diminishedValueDependencies: harness.dependencies,
+    });
+
+    expect(
+      await screen.findByRole("heading", {
+        name: "Prepare your review request",
+      }),
+    ).toBeVisible();
+    expect(harness.createOrGetAppraisalCase).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole("button", { name: "Request a review" }));
+
+    expect(
+      screen.getByRole("heading", { name: "Sign in to Venfour" }),
+    ).toBeVisible();
+    expect(harness.createOrGetAppraisalCase).not.toHaveBeenCalled();
+    expect(harness.submitCase).not.toHaveBeenCalled();
   });
 
   it("does not submit a reserved case after authentication on a different explicit case", async () => {
@@ -1142,7 +1183,7 @@ describe("DiminishedValueStartFlow controller", () => {
       await router.navigate("/start?service=total-loss&view=intake");
     });
     expect(
-      screen.getByRole("heading", { name: "Start your CCC report review" }),
+      screen.getByRole("heading", { name: "Start your Total Loss review" }),
     ).toBeVisible();
 
     await act(async () => {

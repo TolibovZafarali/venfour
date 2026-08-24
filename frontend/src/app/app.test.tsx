@@ -5,6 +5,7 @@ import { describe, expect, test, vi } from "vitest";
 import type { Session } from "@supabase/supabase-js";
 
 import venfourMark from "../../../assets/brand/venfour-mark.svg";
+import type { AdminDiminishedValueDependencies } from "@/features/admin/diminished-value/dependencies";
 import type { AuthService } from "@/features/auth";
 import { appraisalCaseQueryKeys } from "@/features/cases/queries";
 import type { CustomerProfileService } from "@/features/customer-profile";
@@ -33,7 +34,10 @@ describe("Venfour application", () => {
   });
 
   test("uses generic metadata and the compact shell for the appraisal intake", async () => {
-    renderTestApp(["/start?service=total-loss"]);
+    renderTotalLossApp(
+      ["/start?service=total-loss"],
+      createTestAnonymousSession(),
+    );
 
     await waitFor(() =>
       expect(document.title).toBe(
@@ -50,9 +54,12 @@ describe("Venfour application", () => {
   });
 
   test("redirects the legacy total-loss start URL and preserves its query", async () => {
-    const { router } = renderTestApp([
-      "/total-loss/start?caseId=saved-case&campaign=renewal&service=diminished-value",
-    ]);
+    const { router } = renderTotalLossApp(
+      [
+        "/total-loss/start?caseId=saved-case&campaign=renewal&service=diminished-value",
+      ],
+      createTestAnonymousSession(),
+    );
 
     await waitFor(() => expect(router.state.location.pathname).toBe("/start"));
     const searchParams = new URLSearchParams(router.state.location.search);
@@ -149,29 +156,22 @@ describe("Venfour application", () => {
 
   });
 
-  test("keeps no-report total-loss intake unavailable after secure setup", async () => {
-    renderSignedInTotalLossApp();
+  test("offers report and no-report intake after secure setup", async () => {
+    renderTotalLossApp();
 
     const noReportOption = await screen.findByRole("radio", {
       name: /I don’t have the report/i,
     });
-    expect(noReportOption).toBeDisabled();
-    expect(noReportOption.closest("label")).toHaveAttribute(
-      "aria-disabled",
-      "true",
-    );
-    const unavailableNotices = screen.getAllByText(
-      /No-report review is not available in this tester release/i,
-    );
-    expect(unavailableNotices).toHaveLength(2);
-    for (const notice of unavailableNotices) expect(notice).toBeVisible();
+    expect(noReportOption).toBeEnabled();
     expect(
       screen.getByRole("radio", { name: /I have my valuation report/i }),
     ).toBeEnabled();
+    expect(
+      screen.queryByText(/not available in this tester release/i),
+    ).not.toBeInTheDocument();
   });
 
-  test("intercepts an older saved no-report draft without exposing its fields", async () => {
-    const user = userEvent.setup();
+  test("resumes a saved no-report draft as an active manual intake", async () => {
     expect(
       writeTotalLossDraft({
         ...createEmptyTotalLossDraft(),
@@ -184,44 +184,25 @@ describe("Venfour application", () => {
       }).ok,
     ).toBe(true);
 
-    renderSignedInTotalLossApp();
+    renderTotalLossApp();
 
     expect(
       await screen.findByRole("heading", {
-        name: "No-report total-loss review is not available yet",
+        name: "Tell us about your vehicle",
       }),
     ).toBeVisible();
-    expect(screen.queryByLabelText("VIN")).not.toBeInTheDocument();
-    const useReport = screen.getByRole("button", {
-      name: "Use an original CCC report",
-    });
-    expect(useReport).toBeVisible();
-    expect(screen.getByRole("link", { name: "Contact support" })).toHaveAttribute(
-      "href",
-      "/contact?topic=vehicle-value",
+    expect(screen.getByLabelText("VIN")).toHaveValue(
+      "1HGCM82633A004352",
     );
-
-    await user.click(useReport);
     expect(
-      screen.getByRole("heading", {
-        name: "Upload your original CCC valuation report",
-      }),
-    ).toBeVisible();
+      screen.queryByText(/original CCC report/i),
+    ).not.toBeInTheDocument();
     expect(readTotalLossDraft()).toMatchObject({
       ok: true,
       draft: {
-        mode: "report",
+        mode: "manual",
         manual: {
-          vin: "",
-          vehicleYear: "",
-          make: "",
-          model: "",
-          trim: "",
-          mileageAtLoss: "",
-          zipCode: "",
-          dateOfLoss: "",
-          insurerName: "",
-          insurerVehicleValuation: "",
+          vin: "1HGCM82633A004352",
         },
       },
     });
@@ -344,6 +325,37 @@ describe("Venfour application", () => {
       queryClient.getQueryData(appraisalCaseQueryKeys.list(session.user.id)),
     ).toBeUndefined();
     expect(readTotalLossDraft()).toEqual({ ok: true, draft: null });
+  });
+
+  test("keeps an anonymous session signed out in the shell and skips staff access", async () => {
+    const user = userEvent.setup();
+    const isStaff = vi.fn(async () => true);
+    const adminDiminishedValueDependencies = {
+      caseService: { isStaff },
+      documentService: {},
+    } as unknown as AdminDiminishedValueDependencies;
+
+    renderTestApp(["/"], {
+      adminDiminishedValueDependencies,
+      authService: createTestAuthService(createTestAnonymousSession()),
+    });
+
+    expect(
+      await screen.findByRole("button", { name: "Sign In" }),
+    ).toBeVisible();
+    expect(
+      screen.queryByRole("button", { name: /Account for/ }),
+    ).not.toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole("button", { name: "Open navigation" }),
+    );
+    expect(
+      within(
+        screen.getByRole("navigation", { name: "Mobile navigation" }),
+      ).getByRole("button", { name: "Sign In" }),
+    ).toBeVisible();
+    expect(isStaff).not.toHaveBeenCalled();
   });
 
   test("clears a different owner's draft during initial session restoration", async () => {
@@ -639,7 +651,7 @@ describe("Venfour application", () => {
   test.each([
     [
       "/methodology",
-      "How the supported CCC total-loss review works",
+      "How the Total Loss review works",
       "Total-Loss Review Methodology | Venfour",
     ],
     ["/terms", "Terms for using Venfour", "Terms of Use | Venfour"],
@@ -691,16 +703,17 @@ describe("Venfour application", () => {
   });
 
   test("redirects the retired total-loss review URL to the unified intake", async () => {
-    const { router } = renderTestApp([
-      "/total-loss-review?campaign=renewal&service=diminished-value",
-    ]);
+    const { router } = renderTotalLossApp(
+      ["/total-loss-review?campaign=renewal&service=diminished-value"],
+      createTestAnonymousSession(),
+    );
 
     await waitFor(() => expect(router.state.location.pathname).toBe("/start"));
     const searchParams = new URLSearchParams(router.state.location.search);
     expect(searchParams.get("service")).toBe("total-loss");
     expect(searchParams.get("campaign")).toBe("renewal");
     expect(
-      screen.getByRole("heading", { name: "Start your CCC report review" }),
+      screen.getByRole("heading", { name: "Start your Total Loss review" }),
     ).toBeVisible();
     expect(
       screen.queryByRole("heading", { name: "Upload your insurance value report" }),
@@ -774,8 +787,10 @@ function BrokenRoute(): never {
   throw new Error("private render detail");
 }
 
-function renderSignedInTotalLossApp() {
-  const session = createTestSession();
+function renderTotalLossApp(
+  initialEntries = ["/start?service=total-loss"],
+  session = createTestSession(),
+) {
   const appraisalCase = {
     id: "22222222-2222-4222-8222-222222222222",
     userId: session.user.id,
@@ -819,7 +834,7 @@ function renderSignedInTotalLossApp() {
     vehicleLookupService: {},
   } as unknown as TotalLossDependencies;
 
-  return renderTestApp(["/start?service=total-loss"], {
+  return renderTestApp(initialEntries, {
     authService: createTestAuthService(session),
     customerProfileService,
     totalLossDependencies,
@@ -844,6 +859,16 @@ function createTestSession(): Session {
   };
 }
 
+function createTestAnonymousSession(): Session {
+  const session = createTestSession();
+  session.user.app_metadata = { provider: "anonymous", providers: [] };
+  session.user.email = undefined;
+  session.user.id = "33333333-3333-4333-8333-333333333333";
+  session.user.is_anonymous = true;
+  session.user.user_metadata = {};
+  return session;
+}
+
 function createTestAuthService(
   session: Session | null,
   overrides: Partial<AuthService> = {},
@@ -858,6 +883,7 @@ function createTestAuthService(
     getSession: async () => session,
     onAuthStateChange: () => () => {},
     sendMagicLink: async () => {},
+    signInAnonymously: async () => session ?? createTestAnonymousSession(),
     signInWithGoogle: async () => {},
     signOut: async () => {},
     verifyEmailOtp: async () => {

@@ -1,0 +1,292 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.venfour.local/normalized-valuation-report.schema.json",
+  "title": "Venfour Normalized Valuation Report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "report",
+    "vehicle",
+    "valuation",
+    "condition",
+    "comparables",
+    "valuationNotes",
+    "supplementalInformation"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "1" },
+    "report": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "provider",
+        "providerId",
+        "insurer",
+        "reportReferenceNumber",
+        "claimReferenceNumber",
+        "lossDate",
+        "reportDate",
+        "effectiveDate"
+      ],
+      "properties": {
+        "provider": { "$ref": "#/$defs/nullableProviderText" },
+        "providerId": {
+          "type": ["string", "null"],
+          "enum": ["CCC", "MITCHELL", "AUDATEX", "INSURER", "OTHER", null]
+        },
+        "insurer": { "$ref": "#/$defs/nullableText" },
+        "reportReferenceNumber": { "$ref": "#/$defs/nullableText" },
+        "claimReferenceNumber": { "$ref": "#/$defs/nullableText" },
+        "lossDate": { "$ref": "#/$defs/nullableDate" },
+        "reportDate": { "$ref": "#/$defs/nullableDate" },
+        "effectiveDate": { "$ref": "#/$defs/nullableDate" }
+      }
+    },
+    "vehicle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "year",
+        "make",
+        "model",
+        "trim",
+        "vin",
+        "mileage",
+        "location",
+        "bodyStyle",
+        "engine",
+        "transmission",
+        "fuelType",
+        "equipment"
+      ],
+      "properties": {
+        "year": {
+          "type": ["integer", "null"],
+          "minimum": 1886,
+          "maximum": 2200
+        },
+        "make": { "$ref": "#/$defs/nullableText" },
+        "model": { "$ref": "#/$defs/nullableText" },
+        "trim": { "$ref": "#/$defs/nullableText" },
+        "vin": {
+          "type": ["string", "null"],
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "mileage": {
+          "type": ["integer", "null"],
+          "minimum": 0,
+          "maximum": 10000000
+        },
+        "location": { "$ref": "#/$defs/nullableText" },
+        "bodyStyle": { "$ref": "#/$defs/nullableText" },
+        "engine": { "$ref": "#/$defs/nullableText" },
+        "transmission": { "$ref": "#/$defs/nullableText" },
+        "fuelType": { "$ref": "#/$defs/nullableText" },
+        "equipment": {
+          "type": "array",
+          "maxItems": 500,
+          "items": { "$ref": "#/$defs/text" }
+        }
+      }
+    },
+    "valuation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "baseVehicleValue",
+        "conditionAdjustment",
+        "adjustedVehicleValue",
+        "insurerOffer",
+        "taxes",
+        "fees",
+        "priorDamageAdjustment",
+        "otherAdjustments",
+        "total"
+      ],
+      "properties": {
+        "baseVehicleValue": { "$ref": "#/$defs/nullableMoney" },
+        "conditionAdjustment": { "$ref": "#/$defs/nullableMoney" },
+        "adjustedVehicleValue": { "$ref": "#/$defs/nullableMoney" },
+        "insurerOffer": { "$ref": "#/$defs/nullableMoney" },
+        "taxes": {
+          "type": "array",
+          "maxItems": 100,
+          "items": { "$ref": "#/$defs/namedAmount" }
+        },
+        "fees": {
+          "type": "array",
+          "maxItems": 100,
+          "items": { "$ref": "#/$defs/namedAmount" }
+        },
+        "priorDamageAdjustment": { "$ref": "#/$defs/nullableMoney" },
+        "otherAdjustments": {
+          "type": "array",
+          "maxItems": 200,
+          "items": { "$ref": "#/$defs/namedAmount" }
+        },
+        "total": { "$ref": "#/$defs/nullableMoney" }
+      }
+    },
+    "condition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["preLossCondition", "totalAdjustment", "items"],
+      "properties": {
+        "preLossCondition": { "$ref": "#/$defs/nullableText" },
+        "totalAdjustment": { "$ref": "#/$defs/nullableMoney" },
+        "items": {
+          "type": "array",
+          "maxItems": 500,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["category", "component", "rating", "notes", "valueImpact"],
+            "properties": {
+              "category": { "$ref": "#/$defs/nullableText" },
+              "component": { "$ref": "#/$defs/nullableText" },
+              "rating": { "$ref": "#/$defs/nullableText" },
+              "notes": { "$ref": "#/$defs/nullableText" },
+              "valueImpact": { "$ref": "#/$defs/nullableMoney" }
+            }
+          }
+        }
+      }
+    },
+    "comparables": {
+      "type": "array",
+      "maxItems": 500,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "number",
+          "year",
+          "make",
+          "model",
+          "trim",
+          "vin",
+          "dealer",
+          "location",
+          "distanceMiles",
+          "mileage",
+          "listPrice",
+          "adjustments",
+          "adjustedValue",
+          "contributionPercent"
+        ],
+        "properties": {
+          "number": { "type": ["integer", "null"], "minimum": 1 },
+          "year": {
+            "type": ["integer", "null"],
+            "minimum": 1886,
+            "maximum": 2200
+          },
+          "make": { "$ref": "#/$defs/nullableText" },
+          "model": { "$ref": "#/$defs/nullableText" },
+          "trim": { "$ref": "#/$defs/nullableText" },
+          "vin": { "$ref": "#/$defs/nullableText" },
+          "dealer": { "$ref": "#/$defs/nullableText" },
+          "location": { "$ref": "#/$defs/nullableText" },
+          "distanceMiles": { "type": ["number", "null"], "minimum": 0 },
+          "mileage": {
+            "type": ["integer", "null"],
+            "minimum": 0,
+            "maximum": 10000000
+          },
+          "listPrice": { "$ref": "#/$defs/nullableMoney" },
+          "adjustments": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "package",
+              "options",
+              "mileage",
+              "condition",
+              "priorDamage",
+              "other"
+            ],
+            "properties": {
+              "package": { "$ref": "#/$defs/nullableMoney" },
+              "options": { "$ref": "#/$defs/nullableMoney" },
+              "mileage": { "$ref": "#/$defs/nullableMoney" },
+              "condition": { "$ref": "#/$defs/nullableMoney" },
+              "priorDamage": { "$ref": "#/$defs/nullableMoney" },
+              "other": { "$ref": "#/$defs/nullableMoney" }
+            }
+          },
+          "adjustedValue": { "$ref": "#/$defs/nullableMoney" },
+          "contributionPercent": {
+            "type": ["number", "null"],
+            "minimum": 0,
+            "maximum": 100
+          }
+        }
+      }
+    },
+    "valuationNotes": {
+      "type": "array",
+      "maxItems": 500,
+      "items": { "$ref": "#/$defs/text" }
+    },
+    "supplementalInformation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["historyChecks", "historyEvents", "recalls"],
+      "properties": {
+        "historyChecks": {
+          "type": "array",
+          "maxItems": 500,
+          "items": { "$ref": "#/$defs/text" }
+        },
+        "historyEvents": {
+          "type": "array",
+          "maxItems": 500,
+          "items": { "$ref": "#/$defs/text" }
+        },
+        "recalls": {
+          "type": "array",
+          "maxItems": 500,
+          "items": { "$ref": "#/$defs/text" }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "text": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4000
+    },
+    "nullableText": {
+      "type": ["string", "null"],
+      "minLength": 1,
+      "maxLength": 4000
+    },
+    "nullableProviderText": {
+      "type": ["string", "null"],
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "nullableDate": {
+      "type": ["string", "null"],
+      "format": "date"
+    },
+    "nullableMoney": {
+      "type": ["number", "null"],
+      "minimum": -90071992547409.91,
+      "maximum": 90071992547409.91
+    },
+    "namedAmount": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "description", "amount"],
+      "properties": {
+        "name": { "$ref": "#/$defs/nullableText" },
+        "description": { "$ref": "#/$defs/nullableText" },
+        "amount": { "$ref": "#/$defs/nullableMoney" }
+      }
+    }
+  }
+}

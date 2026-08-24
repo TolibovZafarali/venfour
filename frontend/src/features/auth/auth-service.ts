@@ -14,6 +14,8 @@ export type AuthStateChangeListener = (
 export interface AuthService {
   getSession: () => Promise<Session | null>;
   onAuthStateChange: (listener: AuthStateChangeListener) => () => void;
+  restoreSession?: (session: Session) => Promise<Session>;
+  signInAnonymously?: () => Promise<Session>;
   signInWithGoogle: (redirectTo: string) => Promise<void>;
   sendMagicLink: (email: string, redirectTo: string) => Promise<void>;
   exchangeCodeForSession: (
@@ -43,6 +45,31 @@ export function createSupabaseAuthService(
     onAuthStateChange(listener) {
       const { data } = client.auth.onAuthStateChange(listener);
       return () => data.subscription.unsubscribe();
+    },
+
+    async restoreSession(session) {
+      const { data, error } = await client.auth.setSession({
+        access_token: session.access_token,
+        refresh_token: session.refresh_token,
+      });
+      throwIfError(error);
+
+      if (!data.session) {
+        throw new Error("Supabase did not restore the session.");
+      }
+
+      return data.session;
+    },
+
+    async signInAnonymously() {
+      const { data, error } = await client.auth.signInAnonymously();
+      throwIfError(error);
+
+      if (!data.session) {
+        throw new Error("Supabase did not return an anonymous session.");
+      }
+
+      return data.session;
     },
 
     async signInWithGoogle(redirectTo) {

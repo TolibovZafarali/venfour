@@ -1,5 +1,5 @@
 {
-  "presentationVersion": "1",
+  "presentationVersion": "2",
   "runId": "00000000-0000-4000-8000-000000000001",
   "analysisCreatedAt": "2026-08-21T12:34:56.789000Z",
   "assessment": {
@@ -9,7 +9,7 @@
     "evidenceStrengthLabel": "Strong",
     "evidenceBasis": "LOSS_DATE_HISTORICAL",
     "evidenceBasisLabel": "Historical market evidence from the loss date",
-    "summary": "The strongest available external evidence produced a material undervaluation signal relative to the CCC adjusted vehicle value."
+    "summary": "The strongest available external evidence produced a material undervaluation signal relative to the insurer valuation or stated offer."
   },
   "vehicle": {
     "year": 2024,
@@ -20,19 +20,74 @@
     "lossDate": "2026-05-19",
     "postalCode": "63026"
   },
+  "analysisScope": {
+    "inputMode": "REPORT",
+    "marketEvidencePerformed": true,
+    "marketEvidenceAvailable": true,
+    "insurerValuationAvailable": true,
+    "insurerValuationComparisonPerformed": true,
+    "offerComparisonPerformed": false,
+    "reportAvailable": true,
+    "reportExtractionAvailable": true,
+    "reportReviewPerformed": true,
+    "reportProvider": "CCC",
+    "reportAdapter": "CCC",
+    "partialExtraction": false,
+    "reportComparablesAvailable": true,
+    "reportAdjustmentsAvailable": true,
+    "conditionInformationCollected": false,
+    "optionsInformationCollected": false,
+    "conditionAndOptionsDollarAdjusted": false,
+    "methodologyDisclosure": "Condition and options were collected as vehicle context, but the current deterministic market-evidence method does not apply invented dollar adjustments for them."
+  },
+  "insurerValuation": {
+    "source": "REPORT",
+    "valueLabel": "Insurer valuation or stated offer",
+    "value": {
+      "cents": 2000000,
+      "display": "$20,000.00"
+    },
+    "explanation": "This is the insurer valuation or customer-stated offer used for comparison when available; taxes, fees, and settlement totals are not silently substituted.",
+    "comparisonToPrimaryEvidence": {
+      "evidenceBasis": "LOSS_DATE_HISTORICAL",
+      "marketMedian": {
+        "cents": 2220000,
+        "display": "$22,200.00"
+      },
+      "insurerValue": {
+        "cents": 2000000,
+        "display": "$20,000.00"
+      },
+      "difference": {
+        "cents": 220000,
+        "display": "$2,200.00"
+      },
+      "differencePercent": {
+        "basisPoints": 1100,
+        "display": "11.00%"
+      }
+    }
+  },
+  "reportReview": {
+    "provider": "CCC",
+    "adapter": "CCC",
+    "partial": false,
+    "comparablesAvailable": true,
+    "adjustmentsAvailable": true
+  },
   "cccValuation": {
-    "valueCode": "CCC_ADJUSTED_VEHICLE_VALUE",
-    "valueLabel": "CCC adjusted vehicle value",
+    "valueCode": "INSURER_VALUATION_OR_OFFER",
+    "valueLabel": "Insurer valuation or stated offer",
     "adjustedVehicleValue": {
       "cents": 2000000,
       "display": "$20,000.00"
     },
-    "explanation": "This is the CCC vehicle-market value used by Phase 3D when available; settlement totals are not substituted.",
+    "explanation": "This is the insurer valuation or customer-stated offer used for comparison when available; taxes, fees, and settlement totals are not silently substituted.",
     "comparisonToPrimaryEvidence": {
-      "label": "Primary external median versus CCC adjusted vehicle value",
+      "label": "Primary external median versus insurer valuation or stated offer",
       "evidenceBasis": "LOSS_DATE_HISTORICAL",
       "firstValueLabel": "Primary external advertised-price median",
-      "secondValueLabel": "CCC adjusted vehicle value",
+      "secondValueLabel": "Insurer valuation or stated offer",
       "firstValue": {
         "cents": 2220000,
         "display": "$22,200.00"
@@ -54,9 +109,9 @@
     },
     "supportingComparisons": {
       "cccAdjustedMedianVsVehicleValuation": {
-        "label": "CCC adjusted comparable median versus CCC vehicle valuation",
-        "firstValueLabel": "CCC adjusted comparable median",
-        "secondValueLabel": "CCC adjusted vehicle value",
+        "label": "Insurer-report adjusted comparable median versus insurer valuation",
+        "firstValueLabel": "Insurer-report adjusted comparable median",
+        "secondValueLabel": "Insurer valuation or stated offer",
         "firstValue": {
           "cents": 2000000,
           "display": "$20,000.00"
@@ -75,9 +130,9 @@
         }
       },
       "cccAdvertisedMedianVsAdjustedMedian": {
-        "label": "CCC advertised median versus CCC adjusted comparable median",
-        "firstValueLabel": "CCC advertised-price median for paired rows",
-        "secondValueLabel": "CCC adjusted-value median for paired rows",
+        "label": "Insurer-report advertised median versus adjusted comparable median",
+        "firstValueLabel": "Insurer-report advertised-price median for paired rows",
+        "secondValueLabel": "Insurer-report adjusted-value median for paired rows",
         "firstValue": {
           "cents": 2010000,
           "display": "$20,100.00"
@@ -96,9 +151,9 @@
         }
       },
       "externalMedianVsCccAdjustedMedian": {
-        "label": "Primary external median versus CCC adjusted comparable median",
+        "label": "Primary external median versus insurer-report adjusted comparable median",
         "firstValueLabel": "Primary external advertised-price median",
-        "secondValueLabel": "CCC adjusted comparable median",
+        "secondValueLabel": "Insurer-report adjusted comparable median",
         "firstValue": {
           "cents": 2220000,
           "display": "$22,200.00"
@@ -212,8 +267,8 @@
       },
       "adjustmentDirection": {
         "code": "CCC_ADJUSTMENTS_REDUCE_COMPARABLE_VALUES",
-        "label": "CCC adjustments reduce the paired median",
-        "description": "For paired CCC rows, the adjusted-value median is below the advertised-price median; this describes direction only."
+        "label": "Report adjustments reduce the paired median",
+        "description": "For paired insurer-report rows, the adjusted-value median is below the advertised-price median; this describes direction only."
       }
     },
     "rows": [
@@ -882,18 +937,18 @@
     },
     {
       "code": "EXTERNAL_MEDIAN_ABOVE_CCC",
-      "label": "External median is above CCC",
-      "description": "The selected external advertised-price median is above the CCC adjusted vehicle value."
+      "label": "External median is above the insurer valuation",
+      "description": "The selected external advertised-price median is above the insurer valuation or stated offer."
     },
     {
       "code": "CCC_BELOW_EXTERNAL_RANGE",
-      "label": "CCC value is below the external range",
-      "description": "The CCC adjusted vehicle value is below the selected external advertised-price range."
+      "label": "Insurer valuation is below the external range",
+      "description": "The insurer valuation or stated offer is below the selected external advertised-price range."
     },
     {
       "code": "CCC_ADJUSTMENTS_REDUCE_COMPARABLE_VALUES",
-      "label": "CCC adjustments reduce the paired median",
-      "description": "For paired CCC rows, the adjusted-value median is below the advertised-price median; this describes direction only."
+      "label": "Report adjustments reduce the paired median",
+      "description": "For paired insurer-report rows, the adjusted-value median is below the advertised-price median; this describes direction only."
     },
     {
       "code": "MATERIAL_GAP_THRESHOLD_MET",
@@ -925,7 +980,7 @@
     {
       "code": "ADVERTISED_PRICES_NOT_TRANSACTIONS",
       "label": "Advertised prices are not completed transactions",
-      "description": "External and CCC listing prices are advertised prices, not verified completed-sale prices."
+      "description": "Advertised listing prices are not verified completed-sale prices."
     },
     {
       "code": "NO_INDEPENDENT_MILEAGE_ADJUSTMENT",
@@ -965,9 +1020,9 @@
   ],
   "provenance": {
     "runId": "00000000-0000-4000-8000-000000000001",
-    "presentationVersion": "1",
-    "analysisRunSchemaVersion": "4",
-    "orchestrationAnalysisVersion": "4",
+    "presentationVersion": "2",
+    "analysisRunSchemaVersion": "5",
+    "orchestrationAnalysisVersion": "5",
     "discrepancyAnalysisVersion": "1",
     "comparableScoringVersion": "1",
     "createdAt": "2026-08-21T12:34:56.789000Z",

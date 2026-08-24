@@ -32,11 +32,13 @@ from venfour.creation import (
     AnalysisCreationProviderError,
     AnalysisUnsupportedReportError,
 )
+from venfour.report_ingestion import ReportIngestionResult
 from venfour.supabase_gateway import (
     SupabaseAuthenticationError,
     SupabaseReportInvalidError,
     SupabaseReportNotFoundError,
 )
+from venfour.valuation_inputs import empty_normalized_report
 
 
 USER_ID = "10000000-0000-4000-8000-000000000001"
@@ -45,6 +47,7 @@ CASE_ID = "20000000-0000-4000-8000-000000000002"
 JOB_ID = "30000000-0000-4000-8000-000000000003"
 TOKEN_ID = "40000000-0000-4000-8000-000000000004"
 RUN_ID = "50000000-0000-4000-8000-000000000005"
+REPORT_UPLOAD_ID = "60000000-0000-4000-8000-000000000006"
 POSTAL_CODE = "60611"
 PDF_BYTES = b"%PDF-1.7\nsynthetic report\n%%EOF\n"
 SOURCE_ARTIFACT = (
@@ -59,6 +62,79 @@ def valid_artifact(run_id: str = RUN_ID) -> AnalysisRunArtifact:
     payload = json.loads(SOURCE_ARTIFACT.read_text(encoding="utf-8"))
     payload["runId"] = run_id
     return AnalysisRunArtifact.from_dict(payload)
+
+
+def ingestion_result(*, partial: bool = False) -> ReportIngestionResult:
+    normalized = empty_normalized_report()
+    normalized["report"].update(
+        {
+            "provider": "Acme Valuations",
+            "providerId": "OTHER",
+            "insurer": "Example Insurance",
+            "lossDate": "2026-05-19",
+        }
+    )
+    normalized["vehicle"].update(
+        {
+            "year": 2020,
+            "make": "Toyota",
+            "model": "Camry",
+            "trim": None if partial else "SE",
+            "vin": "4T1G11AK0LU000001",
+            "mileage": 51_000,
+            "equipment": ["Convenience package"],
+        }
+    )
+    normalized["condition"]["preLossCondition"] = "Good"
+    normalized["valuation"]["adjustedVehicleValue"] = 18_500
+    missing = ("vehicle.trim",) if partial else ()
+    return ReportIngestionResult(
+        normalized_report=normalized,
+        adapter="GENERIC",
+        provider="Acme Valuations",
+        provider_id="OTHER",
+        confidence="MEDIUM" if partial else "HIGH",
+        partial=partial,
+        warnings=("Confirm extracted facts.",),
+        missing_required_fields=missing,
+        document_sha256="a" * 64,
+        model="fixture-model",
+    )
+
+
+def confirmed_snapshot(intake_mode: str) -> dict[str, Any]:
+    return {
+        "case_id": CASE_ID,
+        "analysis_input_id": "70000000-0000-4000-8000-000000000007",
+        "analysis_input_revision": 2,
+        "intake_mode": intake_mode,
+        "vin": "4T1G11AK0LU000001",
+        "vehicle_year": 2020,
+        "vehicle_make": "Toyota",
+        "vehicle_model": "Camry",
+        "vehicle_trim": "SE",
+        "mileage_at_loss": 51_000,
+        "postal_code": POSTAL_CODE,
+        "date_of_loss": "2026-05-19",
+        "insurer_name": "Example Insurance",
+        "insurer_vehicle_valuation": 17_750,
+        "vehicle_condition": "Good",
+        "vehicle_options_packages": [],
+        "report_provider_name": (
+            "Acme Valuations" if intake_mode == "report" else None
+        ),
+        "intake_completed_at": "2026-08-23T12:00:00+00:00",
+    }
+
+
+class FixedReportIngestionService:
+    def __init__(self, result: ReportIngestionResult) -> None:
+        self.result = result
+        self.calls: list[Path] = []
+
+    def ingest(self, path: Path) -> ReportIngestionResult:
+        self.calls.append(path)
+        return self.result
 
 
 class FakeCaseGateway:
@@ -99,6 +175,21 @@ class FakeCaseGateway:
         self.creation_owner = USER_ID
         self.complete_result = True
         self.fail_result = True
+        self.extraction_rows: dict[tuple[str, str, int], dict[str, Any]] = {}
+        self.extraction_requests: list[tuple[str, str, int]] = []
+        self.persisted_extractions: list[tuple[Any, ...]] = []
+        self.locator = {
+            "case_id": CASE_ID,
+            "bucket_id": "case-files",
+            "storage_owner_id": USER_ID,
+            "canonical_object_path": (
+                f"{USER_ID}/{CASE_ID}/valuation-report.pdf"
+            ),
+            "backup_object_path": (
+                f"{USER_ID}/{CASE_ID}/valuation-report-backup.pdf"
+            ),
+            "finalized_upload_id": REPORT_UPLOAD_ID,
+        }
 
     def authenticate(self, access_token: str) -> str:
         try:
@@ -176,6 +267,76 @@ class FakeCaseGateway:
     ) -> dict[str, Any] | str | None:
         return copy.deepcopy(self.artifacts.get((user_id, run_id)))
 
+    def get_owned_total_loss_report_storage_locator(
+        self, case_id: str, access_token: str
+    ) -> dict[str, Any]:
+        if case_id != CASE_ID or access_token != "valid-token":
+            return {}
+        return copy.deepcopy(self.locator)
+
+    def get_total_loss_report_extraction(
+        self, case_id: str, report_upload_id: str, analysis_input_revision: int
+    ) -> dict[str, Any] | None:
+        self.extraction_requests.append(
+            (case_id, report_upload_id, analysis_input_revision)
+        )
+        return copy.deepcopy(
+            self.extraction_rows.get(
+                (case_id, report_upload_id, analysis_input_revision)
+            )
+        )
+
+    def persist_total_loss_report_extraction(
+        self,
+        case_id: str,
+        report_upload_id: str,
+        analysis_input_revision: int,
+        provider_name: str | None,
+        extraction_status: str,
+        confidence: float,
+        extraction_schema_version: str,
+        normalized_report: dict[str, Any],
+    ) -> dict[str, Any]:
+        self.persisted_extractions.append(
+            (
+                case_id,
+                report_upload_id,
+                analysis_input_revision,
+                provider_name,
+                extraction_status,
+                confidence,
+                extraction_schema_version,
+                copy.deepcopy(normalized_report),
+            )
+        )
+        row = {
+            "case_id": case_id,
+            "report_upload_id": report_upload_id,
+            "analysis_input_revision": analysis_input_revision,
+            "provider_name": provider_name,
+            "extraction_status": extraction_status,
+            "confidence": confidence,
+            "extraction_schema_version": extraction_schema_version,
+            "normalized_report": copy.deepcopy(normalized_report),
+        }
+        self.extraction_rows[(case_id, report_upload_id, analysis_input_revision)] = row
+        return copy.deepcopy(row)
+
+    @contextmanager
+    def materialize_total_loss_report_from_locator(
+        self,
+        case_id: str,
+        storage_locator: dict[str, Any],
+        cache_nonce: str,
+    ):
+        self.report_requests.append((USER_ID, case_id, cache_nonce))
+        if storage_locator != self.locator:
+            raise AssertionError("unexpected storage locator")
+        with tempfile.TemporaryDirectory() as root:
+            path = Path(root) / "report.pdf"
+            path.write_bytes(PDF_BYTES)
+            yield path
+
     @contextmanager
     def materialize_total_loss_report(
         self, user_id: str, case_id: str, cache_nonce: str
@@ -211,6 +372,26 @@ class PersistingCreationFactory:
         return Service()
 
 
+class ConfirmedCreationFactory:
+    def __init__(self) -> None:
+        self.calls: list[tuple[dict[str, Any], dict[str, Any]]] = []
+
+    def __call__(self, repository: Any, run_id: str) -> Any:
+        calls = self.calls
+
+        class Service:
+            def create_from_confirmed_input(
+                self,
+                input_snapshot: dict[str, Any],
+                **options: Any,
+            ) -> Any:
+                calls.append((copy.deepcopy(input_snapshot), copy.deepcopy(options)))
+                repository.save(valid_artifact(run_id))
+                return SimpleNamespace(run_id=run_id)
+
+        return Service()
+
+
 class SequenceClock:
     def __init__(self, *values: float) -> None:
         self.values = list(values)
@@ -227,7 +408,7 @@ class CaseAnalysisServiceTests(unittest.TestCase):
     def make_service(
         self,
         gateway: FakeCaseGateway,
-        factory: PersistingCreationFactory | None = None,
+        factory: Any = None,
         *,
         monotonic_clock: Any = None,
         lifecycle_event_sink: Any = None,
@@ -244,6 +425,109 @@ class CaseAnalysisServiceTests(unittest.TestCase):
                 if lifecycle_event_sink is not None
                 else (lambda _line: None)
             ),
+        )
+
+    def test_confirmed_manual_claim_never_materializes_or_claims_report_evidence(self) -> None:
+        gateway = FakeCaseGateway()
+        snapshot = confirmed_snapshot("manual")
+        gateway.claim_row.update(
+            {
+                "intake_mode": "manual",
+                "source_report_upload_id": None,
+                "analysis_input_id": snapshot["analysis_input_id"],
+                "analysis_input_revision": 2,
+                "input_snapshot": snapshot,
+                "storage_bucket": None,
+                "storage_owner_id": None,
+                "storage_object_path": None,
+                "report_extraction_available": False,
+            }
+        )
+        factory = ConfirmedCreationFactory()
+        service = self.make_service(gateway, factory)
+
+        status = service.submit(CASE_ID, USER_ID)
+
+        self.assertEqual(status.status, "completed")
+        self.assertEqual(len(factory.calls), 1)
+        self.assertEqual(factory.calls[0][0]["intake_mode"], "manual")
+        self.assertEqual(factory.calls[0][1], {})
+        self.assertEqual(gateway.report_requests, [])
+        self.assertEqual(gateway.extraction_requests, [])
+
+    def test_confirmed_report_claim_uses_only_fenced_confirmed_cache(self) -> None:
+        gateway = FakeCaseGateway()
+        snapshot = confirmed_snapshot("report")
+        gateway.claim_row.update(
+            {
+                "intake_mode": "report",
+                "source_report_upload_id": REPORT_UPLOAD_ID,
+                "analysis_input_id": snapshot["analysis_input_id"],
+                "analysis_input_revision": 2,
+                "input_snapshot": snapshot,
+                "storage_bucket": "case-files",
+                "storage_owner_id": USER_ID,
+                "storage_object_path": (
+                    f"{USER_ID}/{CASE_ID}/valuation-report.pdf"
+                ),
+                "report_extraction_available": True,
+            }
+        )
+        extraction = ingestion_result(partial=True)
+        gateway.extraction_rows[(CASE_ID, REPORT_UPLOAD_ID, 2)] = {
+            "case_id": CASE_ID,
+            "report_upload_id": REPORT_UPLOAD_ID,
+            "analysis_input_revision": 2,
+            "extraction_status": "confirmed",
+            "normalized_report": extraction.to_dict(),
+        }
+        factory = ConfirmedCreationFactory()
+        service = self.make_service(gateway, factory)
+
+        status = service.submit(CASE_ID, USER_ID)
+
+        self.assertEqual(status.status, "completed")
+        self.assertEqual(gateway.report_requests, [])
+        self.assertEqual(
+            gateway.extraction_requests,
+            [(CASE_ID, REPORT_UPLOAD_ID, 2)],
+        )
+        options = factory.calls[0][1]
+        self.assertEqual(options["report_adapter"], "GENERIC")
+        self.assertTrue(options["partial_extraction"])
+        self.assertEqual(
+            options["normalized_report"]["report"]["provider"],
+            "Acme Valuations",
+        )
+
+    def test_confirmed_report_claim_falls_back_when_extraction_is_unavailable(self) -> None:
+        gateway = FakeCaseGateway()
+        snapshot = confirmed_snapshot("report")
+        gateway.claim_row.update(
+            {
+                "intake_mode": "report",
+                "source_report_upload_id": REPORT_UPLOAD_ID,
+                "analysis_input_id": snapshot["analysis_input_id"],
+                "analysis_input_revision": 2,
+                "input_snapshot": snapshot,
+                "storage_bucket": "case-files",
+                "storage_owner_id": USER_ID,
+                "storage_object_path": (
+                    f"{USER_ID}/{CASE_ID}/valuation-report.pdf"
+                ),
+                "report_extraction_available": False,
+            }
+        )
+        factory = ConfirmedCreationFactory()
+        service = self.make_service(gateway, factory)
+
+        status = service.submit(CASE_ID, USER_ID)
+
+        self.assertEqual(status.status, "completed")
+        self.assertEqual(gateway.report_requests, [])
+        self.assertEqual(gateway.extraction_requests, [])
+        self.assertEqual(
+            factory.calls[0][1], {"report_extraction_available": False}
         )
 
     def test_claim_emits_exact_started_and_completed_lifecycle_events(self) -> None:
@@ -644,10 +928,7 @@ class CaseAnalysisServiceTests(unittest.TestCase):
                 "attemptCount": 1,
                 "error": {
                     "code": "UNSUPPORTED_REPORT",
-                    "message": (
-                        "This tester release supports original CCC valuation "
-                        "report PDFs only."
-                    ),
+                    "message": "The valuation report could not be processed.",
                 },
                 "retryable": False,
             },
@@ -738,6 +1019,71 @@ class OwnedCaseAnalysisApiTests(unittest.TestCase):
             self.assertEqual(
                 response.headers["cache-control"], "private, no-store"
             )
+
+    def test_owned_report_ingestion_normalizes_equipment_and_returns_allowlisted_facts(self) -> None:
+        snapshot = confirmed_snapshot("report")
+        self.gateway.status_row.update(
+            {
+                "analysis_input_revision": 2,
+                "analysis_input_id": snapshot["analysis_input_id"],
+                "input_snapshot": snapshot,
+            }
+        )
+        ingestion_service = FixedReportIngestionService(
+            ingestion_result(partial=True)
+        )
+        service = CaseAnalysisService(
+            self.gateway,
+            creation_service_factory=self.factory,
+            report_ingestion_service=ingestion_service,
+            token_factory=lambda: TOKEN_ID,
+            lifecycle_event_sink=lambda _line: None,
+        )
+        app = create_app(case_analysis_service=service, enable_legacy_api=False)
+
+        with TestClient(app) as client:
+            first = client.post(
+                f"/api/v1/appraisal-cases/{CASE_ID}/report-ingestion",
+                headers=self.authorization(),
+            )
+            second = client.post(
+                f"/api/v1/appraisal-cases/{CASE_ID}/report-ingestion",
+                headers=self.authorization(),
+            )
+
+        self.assertEqual(first.status_code, 200)
+        self.assertEqual(second.json(), first.json())
+        self.assertEqual(
+            first.json(),
+            {
+                "status": "partial",
+                "provider": "Acme Valuations",
+                "adapter": "generic",
+                "confidence": "medium",
+                "warnings": ["Confirm extracted facts."],
+                "missingFields": ["trim"],
+                "facts": {
+                    "vin": "4T1G11AK0LU000001",
+                    "vehicleYear": 2020,
+                    "make": "Toyota",
+                    "model": "Camry",
+                    "trim": "SE",
+                    "mileageAtLoss": 51_000,
+                    "zipCode": POSTAL_CODE,
+                    "dateOfLoss": "2026-05-19",
+                    "insurerName": "Example Insurance",
+                    "insurerVehicleValuation": 18_500,
+                    "vehicleCondition": "Good",
+                    "optionsPackages": "Convenience package",
+                },
+            },
+        )
+        self.assertIsInstance(first.json()["facts"]["optionsPackages"], str)
+        self.assertEqual(len(ingestion_service.calls), 1)
+        self.assertEqual(len(self.gateway.persisted_extractions), 1)
+        self.assertNotIn("object_path", first.text)
+        self.assertNotIn("storage", first.text.casefold())
+        self.assertEqual(first.headers["cache-control"], "private, no-store")
 
     def test_status_and_submit_use_only_authenticated_case_identifiers(self) -> None:
         with TestClient(self.app) as client:

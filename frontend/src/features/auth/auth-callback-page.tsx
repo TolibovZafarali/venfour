@@ -4,73 +4,146 @@ import type { Session } from "@supabase/supabase-js";
 import { Link, useLocation, useNavigate } from "react-router";
 
 import { getFriendlyAuthError } from "@/features/auth/auth-errors";
-import { useAuth } from "@/features/auth/auth-context";
+import {
+  isAnonymousAuthState,
+  isPermanentAuthState,
+  isPermanentUser,
+  useAuth,
+} from "@/features/auth/auth-context";
 import {
   consumeAuthReturnLocation,
   readAuthCallbackParameters,
+  readCaseClaimCallbackParameter,
 } from "@/features/auth/return-location";
+import { useTotalLossDependencies } from "@/features/total-loss/dependencies";
 
 export function AuthCallbackPage() {
   const {
     auth,
     completeAuthCallback,
     completeEmailAuthCallback,
+    restoreSession,
   } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
+  const totalLossDependencies = useTotalLossDependencies();
   const callback = useMemo(
     () => readAuthCallbackParameters(location),
     [location],
   );
   const [completionError, setCompletionError] = useState<string | null>(null);
+  const caseClaim = useMemo(
+    () => readCaseClaimCallbackParameter(location),
+    [location],
+  );
   const completionRef = useRef<{
     key: string;
     promise: Promise<Session>;
   } | null>(null);
   const navigationStartedRef = useRef(false);
+  const claimCompletionRef = useRef<{
+    key: string;
+    promise: Promise<void>;
+  } | null>(null);
 
   useEffect(() => {
     if (
       callback.kind === "error" ||
       callback.kind === "invalid" ||
+      caseClaim.kind === "invalid" ||
+      auth.status === "loading" ||
       auth.status === "unavailable"
     ) {
       return;
     }
 
     if (callback.kind === "none") {
-      if (auth.status === "signedIn" && !navigationStartedRef.current) {
-        navigationStartedRef.current = true;
-        void navigate(consumeAuthReturnLocation(), { replace: true });
+      if (isPermanentAuthState(auth) && !navigationStartedRef.current) {
+        const claimKey =
+          caseClaim.kind === "claim"
+            ? `${caseClaim.claimId}:${auth.user.id}`
+            : `none:${auth.user.id}`;
+        if (claimCompletionRef.current?.key !== claimKey) {
+          claimCompletionRef.current = {
+            key: claimKey,
+            promise:
+              caseClaim.kind === "claim"
+                ? completeCaseClaim(
+                    totalLossDependencies?.totalLossIdentityService,
+                    caseClaim.claimId,
+                    auth.user.id,
+                  )
+                : Promise.resolve(),
+          };
+        }
+        void claimCompletionRef.current.promise
+          .then(() => {
+            if (navigationStartedRef.current) return;
+            navigationStartedRef.current = true;
+            void navigate(consumeAuthReturnLocation(), { replace: true });
+          })
+          .catch((error: unknown) => {
+            setCompletionError(getFriendlyAuthError(error, "callback"));
+          });
       }
       return;
     }
 
-    const completionKey =
+    const callbackKey =
       callback.kind === "email"
         ? `email:${callback.tokenHash}`
         : `code:${callback.code}:${callback.flowId ?? ""}`;
+    const caseClaimKey =
+      caseClaim.kind === "claim" ? caseClaim.claimId : "none";
+    const completionKey = `${callbackKey}:case-claim:${caseClaimKey}`;
 
     if (completionRef.current?.key !== completionKey) {
+      const recoverySession = isAnonymousAuthState(auth) ? auth.session : null;
+      const verification =
+        callback.kind === "email"
+          ? completeEmailAuthCallback(callback.tokenHash)
+          : completeAuthCallback(
+              callback.code,
+              callback.flowId ?? undefined,
+            );
       completionRef.current = {
         key: completionKey,
-        promise:
-          callback.kind === "email"
-            ? completeEmailAuthCallback(callback.tokenHash)
-            : completeAuthCallback(
-                callback.code,
-                callback.flowId ?? undefined,
-              ),
+        promise: verification.then(async (session) => {
+          if (!isPermanentUser(session.user)) {
+            throw new Error(
+              "The sign-in callback did not return a permanent account.",
+            );
+          }
+          if (caseClaim.kind === "claim") {
+            try {
+              await completeCaseClaim(
+                totalLossDependencies?.totalLossIdentityService,
+                caseClaim.claimId,
+                session.user.id,
+              );
+            } catch (claimError: unknown) {
+              if (recoverySession) {
+                try {
+                  await restoreSession(recoverySession);
+                } catch {
+                  // Preserve the original claim error when guest recovery is
+                  // no longer possible (for example, after token expiry).
+                }
+              }
+              throw claimError;
+            }
+          }
+          return session;
+        }),
       };
     }
 
     let active = true;
     void completionRef.current.promise
       .then(() => {
-        if (active && !navigationStartedRef.current) {
-          navigationStartedRef.current = true;
-          void navigate(consumeAuthReturnLocation(), { replace: true });
-        }
+        if (!active || navigationStartedRef.current) return;
+        navigationStartedRef.current = true;
+        void navigate(consumeAuthReturnLocation(), { replace: true });
       })
       .catch((error: unknown) => {
         if (active) {
@@ -82,18 +155,24 @@ export function AuthCallbackPage() {
       active = false;
     };
   }, [
-    auth.status,
+    auth,
+    caseClaim,
     callback,
     completeAuthCallback,
     completeEmailAuthCallback,
     navigate,
+    restoreSession,
+    totalLossDependencies?.totalLossIdentityService,
   ]);
 
   const error =
     completionError ??
-    (callback.kind === "error" || callback.kind === "invalid"
+    (callback.kind === "error" ||
+    callback.kind === "invalid" ||
+    caseClaim.kind === "invalid"
       ? "This sign-in link is invalid or has expired. Please request a new one."
-      : callback.kind === "none" && auth.status === "signedOut"
+      : callback.kind === "none" &&
+          (auth.status === "signedOut" || isAnonymousAuthState(auth))
         ? "This sign-in link is missing required information. Please request a new one."
         : auth.status === "unavailable"
           ? "Sign in is temporarily unavailable. Please try again later."
@@ -138,4 +217,22 @@ export function AuthCallbackPage() {
       </div>
     </section>
   );
+}
+
+async function completeCaseClaim(
+  identityService:
+    | NonNullable<
+        ReturnType<typeof useTotalLossDependencies>
+      >["totalLossIdentityService"]
+    | undefined,
+  claimId: string,
+  expectedUserId: string,
+) {
+  if (!identityService) {
+    throw new Error("Secure case access is temporarily unavailable.");
+  }
+  const result = await identityService.completeIdentityClaim(claimId);
+  if (!result || result.ownerUserId !== expectedUserId) {
+    throw new Error("The secure case-access link could not be completed.");
+  }
 }

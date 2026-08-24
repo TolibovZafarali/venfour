@@ -33,7 +33,7 @@ describe("homepage structure", () => {
     expect(heroHeading.children[1]).toHaveClass("block");
     expect(
       screen.getByText(
-        "Review an original CCC total-loss valuation report online or submit repaired-vehicle details for future manual review.",
+        "Understand a total-loss vehicle valuation with or without an insurer report, or submit repaired-vehicle details for future manual review.",
       ),
     ).toBeVisible();
     const hero = heroHeading.closest("section");
@@ -45,7 +45,7 @@ describe("homepage structure", () => {
       "min-h-[calc(100svh-4rem)]",
     );
     expect(
-      within(hero).getByRole("link", { name: "Start CCC report review" }),
+      within(hero).getByRole("link", { name: "Start Total Loss review" }),
     ).toHaveAttribute("href", "/start?service=total-loss");
     expect(
       within(hero).getByRole("link", {
@@ -108,7 +108,7 @@ describe("homepage structure", () => {
     ).toBeVisible();
     expect(
       within(services).getByRole("link", {
-        name: "Start CCC report review",
+        name: "Start Total Loss review",
       }),
     ).toHaveAttribute("href", "/start?service=total-loss");
     expect(
@@ -152,7 +152,7 @@ describe("homepage structure", () => {
       expect(visual.firstElementChild).toHaveClass("h-44", "max-w-72");
     }
     for (const step of [
-      "Upload your original CCC report",
+      "Add your valuation details",
       "Venfour checks the market",
       "See the evidence review",
     ]) {
@@ -162,7 +162,7 @@ describe("homepage structure", () => {
     }
     expect(
       within(process as HTMLElement).getByRole("link", {
-        name: "Upload your CCC report",
+        name: "Start Total Loss review",
       }),
     ).toHaveAttribute("href", "/start?service=total-loss");
 
@@ -220,7 +220,7 @@ describe("homepage structure", () => {
     }
 
     await user.click(
-      within(hero).getByRole("link", { name: "Start CCC report review" }),
+      within(hero).getByRole("link", { name: "Start Total Loss review" }),
     );
 
     await waitFor(() =>
@@ -228,7 +228,7 @@ describe("homepage structure", () => {
     );
     expect(router.state.location.search).toBe("?service=total-loss");
     expect(
-      screen.getByRole("heading", { name: "Start your CCC report review" }),
+      screen.getByRole("heading", { name: "Start your Total Loss review" }),
     ).toBeVisible();
   });
 

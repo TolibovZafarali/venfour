@@ -215,6 +215,7 @@ class AnalysisRunRequest:
     loss_date_override: str | None = None
     current_search: CurrentMarketSearchConfiguration | None = None
     historical_search: HistoricalMarketSearchConfiguration | None = None
+    evidence_context: Mapping[str, Any] | None = None
     search_policies: AdaptiveSearchPolicies = field(
         default_factory=lambda: DEFAULT_ADAPTIVE_SEARCH_POLICIES
     )
@@ -229,6 +230,17 @@ class AnalysisRunRequest:
                 ("$.cccReport: expected an object",),
             )
         object.__setattr__(self, "ccc_report", copy.deepcopy(dict(self.ccc_report)))
+        if self.evidence_context is not None:
+            if not isinstance(self.evidence_context, Mapping):
+                raise AnalysisInputError(
+                    "Analysis evidence context failed contract validation",
+                    ("$.evidenceContext: expected an object or null",),
+                )
+            object.__setattr__(
+                self,
+                "evidence_context",
+                copy.deepcopy(dict(self.evidence_context)),
+            )
         normalized_postal = (
             self.postal_code.strip()
             if isinstance(self.postal_code, str)
@@ -732,6 +744,7 @@ class AnalysisOrchestrator:
                 "discrepancyResult": discrepancy_result.to_dict(),
                 "searchDiagnostics": search_diagnostics_data,
             },
+            evidence_context=request.evidence_context,
         )
         try:
             validate_analysis_run_artifact(artifact)

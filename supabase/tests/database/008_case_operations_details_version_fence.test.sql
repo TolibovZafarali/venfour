@@ -8,10 +8,10 @@ select plan(8);
 select is(
   regexp_count(
     pg_get_viewdef('public.total_loss_case_operations_internal'::regclass),
-    'analysis_job.source_details_updated_at = details.updated_at'
+    'analysis_job.source_analysis_input_revision = details.analysis_input_revision'
   ),
-  3,
-  'completed, processing, and failed operation stages require the exact current details version'
+  1,
+  'the operations join fences every stage to the exact current server-owned input revision'
 );
 
 select ok(
@@ -129,7 +129,9 @@ insert into public.total_loss_case_details (
   report_original_filename,
   report_uploaded_at,
   report_last_upload_id,
-  updated_at
+  updated_at,
+  analysis_input_revision,
+  analysis_input_id
 )
 values
   (
@@ -140,7 +142,9 @@ values
     'stale-processing.pdf',
     '2026-08-23 07:01:00+00',
     '8b000000-0000-4000-8000-000000000001',
-    '2026-08-23 07:11:00+00'
+    '2026-08-23 07:11:00+00',
+    2,
+    '8e000000-0000-4000-8000-000000000001'
   ),
   (
     '8a000000-0000-4000-8000-000000000002',
@@ -150,7 +154,9 @@ values
     'stale-failed.pdf',
     '2026-08-23 07:02:00+00',
     '8b000000-0000-4000-8000-000000000002',
-    '2026-08-23 07:12:00+00'
+    '2026-08-23 07:12:00+00',
+    2,
+    '8e000000-0000-4000-8000-000000000002'
   ),
   (
     '8a000000-0000-4000-8000-000000000003',
@@ -160,7 +166,9 @@ values
     'stale-completed.pdf',
     '2026-08-23 07:03:00+00',
     '8b000000-0000-4000-8000-000000000003',
-    '2026-08-23 07:13:00+00'
+    '2026-08-23 07:13:00+00',
+    2,
+    '8e000000-0000-4000-8000-000000000003'
   ),
   (
     '8a000000-0000-4000-8000-000000000004',
@@ -170,7 +178,9 @@ values
     'fresh-completed.pdf',
     '2026-08-23 07:04:00+00',
     '8b000000-0000-4000-8000-000000000004',
-    '2026-08-23 07:14:00+00'
+    '2026-08-23 07:14:00+00',
+    2,
+    '8e000000-0000-4000-8000-000000000004'
   );
 
 insert into storage.objects (bucket_id, name, user_metadata)
@@ -204,6 +214,8 @@ insert into public.total_loss_analysis_jobs (
   case_id,
   source_report_upload_id,
   source_details_updated_at,
+  source_analysis_input_revision,
+  source_analysis_input_id,
   status,
   attempt_count,
   processing_token,
@@ -219,6 +231,8 @@ values
     '8a000000-0000-4000-8000-000000000001',
     '8b000000-0000-4000-8000-000000000001',
     '2026-08-23 07:01:00+00',
+    1,
+    '8e100000-0000-4000-8000-000000000001',
     'processing',
     1,
     '8f000000-0000-4000-8000-000000000001',
@@ -233,6 +247,8 @@ values
     '8a000000-0000-4000-8000-000000000002',
     '8b000000-0000-4000-8000-000000000002',
     '2026-08-23 07:02:00+00',
+    1,
+    '8e100000-0000-4000-8000-000000000002',
     'failed',
     2,
     '8f000000-0000-4000-8000-000000000002',
@@ -247,6 +263,8 @@ values
     '8a000000-0000-4000-8000-000000000003',
     '8b000000-0000-4000-8000-000000000003',
     '2026-08-23 07:03:00+00',
+    1,
+    '8e100000-0000-4000-8000-000000000003',
     'completed',
     1,
     '8f000000-0000-4000-8000-000000000003',
@@ -261,6 +279,8 @@ values
     '8a000000-0000-4000-8000-000000000004',
     '8b000000-0000-4000-8000-000000000004',
     '2026-08-23 07:14:00+00',
+    2,
+    '8e000000-0000-4000-8000-000000000004',
     'completed',
     1,
     '8f000000-0000-4000-8000-000000000004',
@@ -328,19 +348,19 @@ select results_eq(
         '8a000000-0000-4000-8000-000000000001'::uuid,
         'needs_attention'::text,
         true,
-        'processing'::text
+        null::text
       ),
       (
         '8a000000-0000-4000-8000-000000000002'::uuid,
-        'needs_attention'::text,
-        true,
-        'failed'::text
+        'ready_for_analysis'::text,
+        false,
+        null::text
       ),
       (
         '8a000000-0000-4000-8000-000000000003'::uuid,
         'needs_attention'::text,
         true,
-        'completed'::text
+        null::text
       ),
       (
         '8a000000-0000-4000-8000-000000000004'::uuid,
@@ -349,7 +369,7 @@ select results_eq(
         'completed'::text
       )
   $$,
-  'owner stages reject processing, failed, and completed jobs over stale details while preserving a fresh completion'
+  'owner stages ignore stale input-fenced jobs while preserving a fresh completion'
 );
 
 reset role;
@@ -380,8 +400,8 @@ select results_eq(
       ),
       (
         '8a000000-0000-4000-8000-000000000002'::uuid,
-        'needs_attention'::text,
-        true
+        'ready_for_analysis'::text,
+        false
       ),
       (
         '8a000000-0000-4000-8000-000000000003'::uuid,
@@ -394,7 +414,7 @@ select results_eq(
         false
       )
   $$,
-  'staff list uses the same details-version-fenced stage projection'
+  'staff list uses the same current-input-fenced stage projection'
 );
 
 select results_eq(
@@ -412,11 +432,11 @@ select results_eq(
     values (
       'needs_attention'::text,
       true,
-      'completed'::text,
-      '8d000000-0000-4000-8000-000000000003'::uuid
+      null::text,
+      null::uuid
     )
   $$,
-  'staff detail retains bounded stale job/run evidence but never labels it complete'
+  'staff detail omits stale job and run history from the current-input projection'
 );
 
 select results_eq(

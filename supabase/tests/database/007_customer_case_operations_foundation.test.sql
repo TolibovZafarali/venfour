@@ -225,13 +225,16 @@ select ok(
     select policy.cmd = 'INSERT'
       and policy.roles = array['authenticated']::name[]
       and policy.with_check like '%auth.uid()%user_id%'
-      and policy.with_check not like '%service_type%'
+      and policy.with_check like '%service_type%'
+      and policy.with_check not like '%total_loss%'
+      and policy.with_check like '%diminished_value%'
+      and policy.with_check like '%current_auth_user_is_anonymous%'
     from pg_policies as policy
     where policy.schemaname = 'public'
       and policy.tablename = 'appraisal_cases'
       and policy.policyname = 'Customers can create their own cases'
   ),
-  'the legacy owned direct-insert policy remains rollout-compatible for both services'
+  'direct inserts are permanent-user Diminished Value only while Total-Loss creation stays RPC-bound'
 );
 
 select ok(
@@ -450,7 +453,7 @@ select is(
   'repeated resolution does not create duplicate drafts'
 );
 
-select lives_ok(
+select throws_ok(
   $$
     insert into public.appraisal_cases (
       id,
@@ -463,19 +466,15 @@ select lives_ok(
       'total_loss'
     )
   $$,
-  'the legacy owned Total-Loss direct-insert policy remains available during the staged rollout'
+  '42501',
+  null,
+  'even a permanent owner cannot bypass the locked Total-Loss draft resolver with a direct insert'
 );
-
--- Management API preflights may execute this entire file as one command, so
--- statement_timestamp() cannot establish insertion order between the drafts.
-update public.appraisal_cases
-set last_activity_at = '2099-01-01 00:00:00+00'
-where id = '79000000-0000-4000-8000-000000000001';
 
 select is(
   (select (public.get_or_create_total_loss_draft()).id),
-  '79000000-0000-4000-8000-000000000001'::uuid,
-  'the resolver deterministically selects the newest preexisting duplicate draft'
+  (select case_id from first_total_loss_draft),
+  'the resolver remains the only customer path to the same recoverable draft'
 );
 
 select results_eq(
@@ -486,12 +485,12 @@ select results_eq(
       or case_id = '79000000-0000-4000-8000-000000000001'
   $$,
   $$
-    values (
-      '79000000-0000-4000-8000-000000000001'::uuid,
+    select
+      case_id,
       '71111111-1111-4111-8111-111111111111'::uuid
-    )
+    from first_total_loss_draft
   $$,
-  'the owner read model exposes only the same newest recoverable duplicate and states its owner explicitly'
+  'the owner read model exposes only the RPC-created recoverable draft and states its owner explicitly'
 );
 
 select is(
@@ -502,8 +501,8 @@ select is(
       and service_type = 'total_loss'
       and status = 'draft'
   ),
-  2::bigint,
-  'duplicate canonicalization is non-destructive'
+  1::bigint,
+  'direct-insert denial and resolver reuse prevent duplicate customer drafts'
 );
 
 select lives_ok(
@@ -524,14 +523,16 @@ select lives_ok(
 
 set local request.jwt.claim.sub = '72222222-2222-4222-8222-222222222222';
 
-select throws_ok(
+select lives_ok(
   $$select public.get_or_create_total_loss_draft()$$,
-  '42501',
-  'A current confirmed customer profile is required to prepare a total-loss draft.',
-  'draft creation is blocked until the authenticated customer confirms the required profile facts'
+  'authenticated anonymous/profileless identities can resolve a securely owned Total-Loss draft'
 );
 
 reset role;
+
+delete from public.appraisal_cases
+where user_id = '72222222-2222-4222-8222-222222222222'
+  and service_type = 'total_loss';
 
 -- Replace the resolver-created case with deterministic operation fixtures.
 delete from public.appraisal_cases
@@ -715,9 +716,9 @@ select results_eq(
       ('7a000000-0000-4000-8000-000000000002'::uuid, 'intake_in_progress'::text, false),
       ('7a000000-0000-4000-8000-000000000003'::uuid, 'report_uploaded'::text, false),
       ('7a000000-0000-4000-8000-000000000004'::uuid, 'ready_for_analysis'::text, false),
-      ('7a000000-0000-4000-8000-000000000005'::uuid, 'report_required'::text, false)
+      ('7a000000-0000-4000-8000-000000000005'::uuid, 'needs_attention'::text, true)
   $$,
-  'pre-analysis facts map deterministically without using placeholder payment states'
+  'pre-analysis facts and incomplete confirmed manual intake map deterministically'
 );
 
 select results_eq(

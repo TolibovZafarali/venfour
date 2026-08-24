@@ -25,6 +25,8 @@ describe("total-loss data mappers", () => {
           dateOfLoss: "2026-08-18",
           insurerName: " Example  Insurance ",
           insurerVehicleValuation: "$20,500.50",
+          vehicleCondition: " Good ",
+          optionsPackages: " Technology package ",
         },
         REFERENCE_DATE,
       ),
@@ -40,10 +42,12 @@ describe("total-loss data mappers", () => {
       dateOfLoss: "2026-08-18",
       insurerName: "Example Insurance",
       insurerVehicleValuation: 20500.5,
+      vehicleCondition: "Good",
+      optionsPackages: "Technology package",
     });
   });
 
-  it("maps report intake with only the shared normalized postal code", () => {
+  it("maps confirmed report facts into the shared provider-neutral fields", () => {
     expect(
       totalLossReportFormToDetailsValues(
         {
@@ -57,21 +61,25 @@ describe("total-loss data mappers", () => {
           dateOfLoss: "2020-01-02",
           insurerName: "Private Insurer",
           insurerVehicleValuation: "18750.00",
+          vehicleCondition: "Good",
+          optionsPackages: "None known",
         },
         REFERENCE_DATE,
       ),
     ).toEqual({
       intakeMode: "report",
-      vin: null,
-      vehicleYear: null,
-      vehicleMake: null,
-      vehicleModel: null,
-      vehicleTrim: null,
-      mileageAtLoss: null,
+      vin: "1HGCM82633A004352",
+      vehicleYear: 2020,
+      vehicleMake: "Honda",
+      vehicleModel: "Accord",
+      vehicleTrim: "EX-L",
+      mileageAtLoss: 48250,
       postalCode: "60601-1234",
-      dateOfLoss: null,
-      insurerName: null,
-      insurerVehicleValuation: null,
+      dateOfLoss: "2020-01-02",
+      insurerName: "Private Insurer",
+      insurerVehicleValuation: 18750,
+      vehicleCondition: "Good",
+      optionsPackages: "None known",
     });
   });
 
@@ -89,6 +97,8 @@ describe("total-loss data mappers", () => {
       dateOfLoss: "2026-08-18",
       insurerName: "Example Insurance",
       insurerVehicleValuation: 20500.5,
+      vehicleCondition: "Good",
+      optionsPackages: "Technology package",
       reportOriginalFilename: null,
       reportUploadedAt: null,
       intakeCompletedAt: null,
@@ -107,6 +117,8 @@ describe("total-loss data mappers", () => {
       dateOfLoss: "2026-08-18",
       insurerName: "Example Insurance",
       insurerVehicleValuation: "20500.50",
+      vehicleCondition: "Good",
+      optionsPackages: "Technology package",
     });
   });
 
@@ -122,6 +134,8 @@ describe("total-loss data mappers", () => {
       dateOfLoss: "2026-08",
       insurerName: "",
       insurerVehicleValuation: "$20.",
+      vehicleCondition: "",
+      optionsPackages: "",
     };
 
     expect(

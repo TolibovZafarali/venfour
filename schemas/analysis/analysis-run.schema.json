@@ -14,6 +14,9 @@
     },
     {
       "$ref": "#/$defs/analysisRunV4"
+    },
+    {
+      "$ref": "#/$defs/analysisRunV5"
     }
   ],
   "$defs": {
@@ -283,6 +286,185 @@
           "$ref": "#/$defs/nullableProviderMetadata"
         }
       }
+    },
+    "analysisRunV5": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "analysisRunSchemaVersion",
+        "runId",
+        "createdAt",
+        "analysisVersion",
+        "discrepancyAnalysisVersion",
+        "comparableScoringVersion",
+        "requestDigest",
+        "searchDiagnosticsDigest",
+        "providers",
+        "request",
+        "result",
+        "evidenceContext"
+      ],
+      "properties": {
+        "analysisRunSchemaVersion": {
+          "const": "5"
+        },
+        "runId": {
+          "$ref": "#/$defs/runId"
+        },
+        "createdAt": {
+          "$ref": "#/$defs/createdAt"
+        },
+        "analysisVersion": {
+          "const": "5"
+        },
+        "discrepancyAnalysisVersion": {
+          "const": "1"
+        },
+        "comparableScoringVersion": {
+          "const": "1"
+        },
+        "requestDigest": {
+          "$ref": "#/$defs/requestDigest"
+        },
+        "searchDiagnosticsDigest": {
+          "$ref": "#/$defs/requestDigest"
+        },
+        "providers": {
+          "$ref": "#/$defs/providers"
+        },
+        "request": {
+          "$ref": "#/$defs/analysisRunRequestV4"
+        },
+        "result": {
+          "$ref": "#/$defs/analysisRunResultV4"
+        },
+        "evidenceContext": {
+          "$ref": "#/$defs/evidenceContext"
+        }
+      }
+    },
+    "evidenceContext": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "inputMode",
+        "reportAvailable",
+        "reportExtractionAvailable",
+        "reportProvider",
+        "reportAdapter",
+        "partialExtraction",
+        "offerAvailable",
+        "insurerValuationAvailable",
+        "reportComparablesAvailable",
+        "reportAdjustmentsAvailable",
+        "conditionInformationAvailable",
+        "optionsInformationAvailable",
+        "conditionAndOptionsDollarAdjusted"
+      ],
+      "properties": {
+        "inputMode": {
+          "enum": ["REPORT", "MANUAL"]
+        },
+        "reportAvailable": {
+          "type": "boolean"
+        },
+        "reportExtractionAvailable": {
+          "type": "boolean"
+        },
+        "reportProvider": {
+          "type": ["string", "null"],
+          "minLength": 1,
+          "maxLength": 500
+        },
+        "reportAdapter": {
+          "type": ["string", "null"],
+          "enum": ["CCC", "GENERIC", null]
+        },
+        "partialExtraction": {
+          "type": "boolean"
+        },
+        "offerAvailable": {
+          "type": "boolean"
+        },
+        "insurerValuationAvailable": {
+          "type": "boolean"
+        },
+        "reportComparablesAvailable": {
+          "type": "boolean"
+        },
+        "reportAdjustmentsAvailable": {
+          "type": "boolean"
+        },
+        "conditionInformationAvailable": {
+          "type": "boolean"
+        },
+        "optionsInformationAvailable": {
+          "type": "boolean"
+        },
+        "conditionAndOptionsDollarAdjusted": {
+          "const": false
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "inputMode": { "const": "MANUAL" }
+            }
+          },
+          "then": {
+            "properties": {
+              "reportAvailable": { "const": false },
+              "reportExtractionAvailable": { "const": false },
+              "reportProvider": { "type": "null" },
+              "reportAdapter": { "type": "null" },
+              "partialExtraction": { "const": false },
+              "reportComparablesAvailable": { "const": false },
+              "reportAdjustmentsAvailable": { "const": false }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "inputMode": { "const": "REPORT" }
+            }
+          },
+          "then": {
+            "properties": {
+              "reportAvailable": { "const": true }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "reportExtractionAvailable": { "const": false }
+            }
+          },
+          "then": {
+            "properties": {
+              "reportAdapter": { "type": "null" },
+              "partialExtraction": { "const": false },
+              "reportComparablesAvailable": { "const": false },
+              "reportAdjustmentsAvailable": { "const": false }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "reportExtractionAvailable": { "const": true }
+            }
+          },
+          "then": {
+            "properties": {
+              "reportAvailable": { "const": true },
+              "reportAdapter": { "type": "string" }
+            }
+          }
+        }
+      ]
     },
     "analysisRunRequestV1": {
       "type": "object",

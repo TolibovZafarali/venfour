@@ -68,6 +68,7 @@ from .comparables import (
     rank_market_comparables,
 )
 from .creation import (
+    AnalysisConfirmedInputError,
     AnalysisCreationError,
     AnalysisCreationExecutionError,
     AnalysisCreationInputError,
@@ -124,6 +125,7 @@ __all__ = [
     "AdaptiveSearchDiagnostics",
     "AdaptiveSearchPolicy",
     "AdaptiveSearchPolicies",
+    "AnalysisConfirmedInputError",
     "AnalysisExecutionError",
     "AnalysisCreationError",
     "AnalysisCreationExecutionError",

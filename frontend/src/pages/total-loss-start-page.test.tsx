@@ -6,14 +6,14 @@ import {
   within,
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { PDFDocument } from "pdf-lib";
 import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type {
   AuthService,
   AuthStateChangeListener,
 } from "@/features/auth/auth-service";
-import { AUTH_RETURN_LOCATION_STORAGE_KEY } from "@/features/auth/return-location";
 import type { AppraisalCaseService } from "@/features/cases/service";
 import { appraisalCaseQueryKeys } from "@/features/cases/queries";
 import type { AppraisalCase } from "@/features/cases/types";
@@ -34,6 +34,7 @@ import {
   writeTotalLossDraft,
 } from "@/features/total-loss/draft";
 import type { TotalLossDetailsService } from "@/features/total-loss/service";
+import type { TotalLossIdentityService } from "@/features/total-loss/identity-service";
 import { TotalLossDetailsConflictError } from "@/features/total-loss/service";
 import { totalLossQueryKeys } from "@/features/total-loss/queries";
 import type { TotalLossReportStorageService } from "@/features/total-loss/storage-service";
@@ -44,6 +45,14 @@ import {
 } from "@/features/total-loss/vehicle-lookup-service";
 import { renderTestApp as renderBaseTestApp } from "@/test/render";
 
+const { ingestReportMock } = vi.hoisted(() => ({
+  ingestReportMock: vi.fn(),
+}));
+
+vi.mock("@/features/analyses/api/report-ingestion", () => ({
+  ingestTotalLossReport: ingestReportMock,
+}));
+
 vi.mock("@/config/product-availability", () => ({
   totalLossManualIntakeAvailable: true,
 }));
@@ -52,6 +61,7 @@ const USER_ID = "11111111-1111-4111-8111-111111111111";
 const CASE_ID = "22222222-2222-4222-8222-222222222222";
 const RECENT_CASE_ID = "33333333-3333-4333-8333-333333333333";
 const OTHER_USER_ID = "44444444-4444-4444-8444-444444444444";
+const GUEST_USER_ID = "77777777-7777-4777-8777-777777777777";
 const REPORT_UPLOAD_ID = "55555555-5555-4555-8555-555555555555";
 const OTHER_CASE_ID = "66666666-6666-4666-8666-666666666666";
 const CREATED_AT = "2026-08-18T14:00:00.000Z";
@@ -62,6 +72,15 @@ function createDeferred<T>() {
     resolve = resolvePromise;
   });
   return { promise, resolve };
+}
+
+async function createPdfFile(name: string) {
+  const document = await PDFDocument.create();
+  document.addPage([612, 792]);
+  const bytes = await document.save();
+  const buffer = new ArrayBuffer(bytes.byteLength);
+  new Uint8Array(buffer).set(bytes);
+  return new File([buffer], name, { type: "application/pdf" });
 }
 
 function createSensitiveManualDraft(
@@ -82,6 +101,8 @@ function createSensitiveManualDraft(
       dateOfLoss: "2020-01-02",
       insurerName: "Private Insurer",
       insurerVehicleValuation: "18750.00",
+      vehicleCondition: "Good",
+      optionsPackages: "None known",
     },
     ownerUserId: USER_ID,
     dirty: true,
@@ -106,6 +127,16 @@ function sessionFor(id = USER_ID) {
       user_metadata: {},
     },
   } as Session;
+}
+
+function anonymousSessionFor(id = GUEST_USER_ID) {
+  const session = sessionFor(id);
+  session.user.app_metadata = { provider: "anonymous", providers: [] };
+  session.user.email = undefined;
+  session.user.email_confirmed_at = undefined;
+  session.user.is_anonymous = true;
+  session.user.user_metadata = {};
+  return session;
 }
 
 function confirmedProfile(userId = USER_ID): CustomerProfile {
@@ -141,15 +172,23 @@ function renderTestApp(
   });
 }
 
-function createAuthHarness(initialSession: Session | null) {
+function createAuthHarness(
+  initialSession: Session | null,
+  guestSession = anonymousSessionFor(),
+) {
   let listener: AuthStateChangeListener | null = null;
-  const getSession = vi.fn(async () => initialSession);
+  let currentSession = initialSession;
+  const getSession = vi.fn(async () => currentSession);
   const service: AuthService = {
     exchangeCodeForSession: vi.fn(async () => sessionFor()),
     getSession,
     onAuthStateChange: vi.fn((nextListener) => {
       listener = nextListener;
       return () => undefined;
+    }),
+    signInAnonymously: vi.fn(async () => {
+      currentSession = guestSession;
+      return guestSession;
     }),
     sendMagicLink: vi.fn(async () => undefined),
     signInWithGoogle: vi.fn(async () => undefined),
@@ -162,6 +201,7 @@ function createAuthHarness(initialSession: Session | null) {
       session: Session | null,
       event: AuthChangeEvent = session ? "SIGNED_IN" : "SIGNED_OUT",
     ) {
+      currentSession = session;
       listener?.(event, session);
     },
     getSession,
@@ -197,6 +237,8 @@ const emptyDetailsValues: TotalLossCaseDetailsValues = {
   dateOfLoss: null,
   insurerName: null,
   insurerVehicleValuation: null,
+  vehicleCondition: null,
+  optionsPackages: null,
   reportOriginalFilename: null,
   reportUploadedAt: null,
   intakeCompletedAt: null,
@@ -349,6 +391,22 @@ function createDependencyHarness({
     async ({ caseId }) =>
       detailRows.get(caseId) ?? detailsFor(caseId, { intakeMode: "report" }),
   );
+  const confirmIntake = vi.fn<
+    NonNullable<TotalLossDetailsService["confirmIntake"]>
+  >(async ({ caseId, expectedUpdatedAt }) => {
+    const current = detailRows.get(caseId);
+    if (!current || current.updatedAt !== expectedUpdatedAt) {
+      throw new TotalLossDetailsConflictError(current ?? null);
+    }
+    updateSequence += 1;
+    const next: TotalLossCaseDetails = {
+      ...current,
+      intakeCompletedAt: CREATED_AT,
+      updatedAt: `2026-08-18T18:${String(updateSequence).padStart(2, "0")}:00.000Z`,
+    };
+    detailRows.set(caseId, next);
+    return next;
+  });
 
   const detailsService: TotalLossDetailsService = {
     getDetails: vi.fn(async ({ caseId }) => detailRows.get(caseId) ?? null),
@@ -369,6 +427,7 @@ function createDependencyHarness({
       return next;
     }),
     saveDetails,
+    confirmIntake,
     acquireReportUploadLease,
     renewReportUploadLease,
     markReportUploadReady,
@@ -426,10 +485,39 @@ function createDependencyHarness({
     listMakes,
     listModels,
   };
+  const getContact = vi.fn<TotalLossIdentityService["getContact"]>(
+    async () => null,
+  );
+  const saveContactAndBeginClaim = vi.fn<
+    TotalLossIdentityService["saveContactAndBeginClaim"]
+  >(async (input) => ({
+    claimId: "88888888-8888-4888-8888-888888888888",
+    expiresAt: "2026-08-24T14:00:00.000Z",
+    contact: {
+      caseId: input.caseId,
+      fullName: input.fullName,
+      email: input.email,
+      emailVerifiedAt: null,
+      serviceTermsVersion: input.serviceTermsVersion,
+      serviceTermsAcknowledgedAt: CREATED_AT,
+      privacyNoticeVersion: input.privacyNoticeVersion,
+      privacyNoticeAcknowledgedAt: CREATED_AT,
+      operationalFollowUpAllowed: input.operationalFollowUpAllowed,
+      operationalFollowUpUpdatedAt: CREATED_AT,
+      createdAt: CREATED_AT,
+      updatedAt: CREATED_AT,
+    },
+  }));
+  const identityService: TotalLossIdentityService = {
+    getContact,
+    saveContactAndBeginClaim,
+    completeIdentityClaim: vi.fn(async () => undefined),
+  };
   const dependencies: TotalLossDependencies = {
     appraisalCaseService: caseService,
     totalLossDetailsService: detailsService,
     totalLossReportStorageService: storageService,
+    totalLossIdentityService: identityService,
     vehicleLookupService,
   };
 
@@ -452,6 +540,9 @@ function createDependencyHarness({
     vehicleLookupService,
     listMakes,
     listModels,
+    getContact,
+    saveContactAndBeginClaim,
+    confirmIntake,
   };
 }
 
@@ -479,8 +570,33 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+beforeEach(() => {
+  ingestReportMock.mockReset().mockResolvedValue({
+    status: "partial",
+    provider: null,
+    adapter: "generic",
+    confidence: "low",
+    warnings: ["The report provider could not be identified."],
+    missingFields: ["trim"],
+    facts: {
+      vin: null,
+      vehicleYear: 2020,
+      make: "Honda",
+      model: "Accord",
+      trim: null,
+      mileageAtLoss: 48250,
+      zipCode: "60611",
+      dateOfLoss: "2026-08-18",
+      insurerName: "Example Insurance",
+      insurerVehicleValuation: 18750,
+      vehicleCondition: "Good",
+      optionsPackages: "None known",
+    },
+  });
+});
+
 describe("/start?service=total-loss", () => {
-  it("requires authentication before rendering any intake choice or creating a case", async () => {
+  it("starts signed-out visitors with a hidden anonymous session and durable guest draft", async () => {
     const auth = createAuthHarness(null);
     const harness = createDependencyHarness();
 
@@ -489,29 +605,24 @@ describe("/start?service=total-loss", () => {
       totalLossDependencies: harness.dependencies,
     });
 
-    const pageHeading = screen.getByRole("heading", {
-      name: "Start your CCC report review",
-    });
+    const pageHeading = screen.getByRole("heading", { level: 1 });
     expect(pageHeading).toBeVisible();
     const layout = pageHeading.closest("[data-total-loss-layout]");
     expect(layout).toHaveClass(
       "lg:grid-cols-[minmax(0,0.78fr)_minmax(0,1.22fr)]",
     );
     expect(
-      await screen.findByRole("heading", {
-        name: "Sign in before starting your review",
+      await screen.findByRole("group", {
+        name: "Do you have your insurance valuation report?",
       }),
     ).toBeVisible();
     expect(
-      screen.queryByRole("radio", { name: /I have my valuation report/i }),
-    ).not.toBeInTheDocument();
+      screen.getByRole("radio", { name: /I have my valuation report/i }),
+    ).toBeEnabled();
     expect(
-      screen.queryByRole("radio", { name: /I don’t have the report/i }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole("link", { name: "Back to total loss" }),
-    ).not.toBeInTheDocument();
-    expect(screen.queryByText("Saved on this device")).not.toBeInTheDocument();
+      screen.getByRole("radio", { name: /I don’t have the report/i }),
+    ).toBeEnabled();
+    expect(screen.queryByText(/Sign in before starting/i)).not.toBeInTheDocument();
     expect(screen.queryByRole("contentinfo")).not.toBeInTheDocument();
     expect(
       screen.queryByRole("navigation", { name: "Primary navigation" }),
@@ -522,44 +633,43 @@ describe("/start?service=total-loss", () => {
     expect(
       screen.queryByRole("button", { name: "Open navigation" }),
     ).not.toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "Sign in to continue" }),
-    ).toBeVisible();
-    expect(screen.queryByText("Progress")).not.toBeInTheDocument();
-    expect(screen.queryByText("Step I of III")).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole("list", { name: "Appraisal steps" }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("dialog", { name: /Sign in/i })).not.toBeInTheDocument();
 
-    await waitFor(() => expect(auth.service.getSession).toHaveBeenCalledOnce());
+    await waitFor(() =>
+      expect(auth.service.signInAnonymously).toHaveBeenCalledOnce(),
+    );
     expect(harness.createOrGetAppraisalCase).not.toHaveBeenCalled();
-    expect(harness.getOrCreateTotalLossDraft).not.toHaveBeenCalled();
-    expect(
-      harness.caseService.getRecentDraftAppraisalCase,
-    ).not.toHaveBeenCalled();
-    expect(harness.detailsService.getDetails).not.toHaveBeenCalled();
+    expect(harness.getOrCreateTotalLossDraft).toHaveBeenCalledWith({
+      userId: GUEST_USER_ID,
+    });
     expect(harness.uploadReport).not.toHaveBeenCalled();
+    expect(readTotalLossDraft()).toMatchObject({
+      ok: true,
+      draft: {
+        confirmedCaseId: OTHER_CASE_ID,
+        reservedCaseId: OTHER_CASE_ID,
+        ownerUserId: GUEST_USER_ID,
+      },
+    });
   });
 
-  it("keeps the canonical service and case in the authentication return URL", async () => {
+  it("stores no guest access or refresh token in the browser intake draft", async () => {
     const auth = createAuthHarness(null);
-    const user = userEvent.setup();
 
-    renderTestApp([`/start?service=total-loss&caseId=${CASE_ID}`], {
+    renderTestApp(["/start?service=total-loss"], {
       authService: auth.service,
       totalLossDependencies: createDependencyHarness().dependencies,
     });
 
-    await user.click(
-      await screen.findByRole("button", { name: "Sign in to continue" }),
+    await screen.findByRole("group", {
+      name: "Do you have your insurance valuation report?",
+    });
+    const serialized = window.localStorage.getItem(
+      "venfour.totalLossDraft.v1",
     );
-    await user.click(
-      screen.getByRole("button", { name: "Continue with Google" }),
-    );
-
-    expect(window.localStorage.getItem(AUTH_RETURN_LOCATION_STORAGE_KEY)).toBe(
-      `/start?service=total-loss&caseId=${CASE_ID}`,
-    );
+    expect(serialized).toContain(GUEST_USER_ID);
+    expect(serialized).not.toContain(`access-${GUEST_USER_ID}`);
+    expect(serialized).not.toContain(`refresh-${GUEST_USER_ID}`);
   });
 
   it("atomically prepares a durable server draft before mounting intake", async () => {
@@ -653,8 +763,17 @@ describe("/start?service=total-loss", () => {
     expect(screen.getByLabelText("Mileage at date of loss")).toHaveValue(
       "50,000",
     );
+    await user.click(screen.getByRole("button", { name: "Find vehicle" }));
+
+    expect(
+      await screen.findByText("Confirm or correct the decoded vehicle"),
+    ).toBeVisible();
+    expect(screen.getByLabelText("Trim")).toHaveValue("EX-V6");
+    expect(
+      screen.queryByRole("heading", { name: "Add the claim details" }),
+    ).not.toBeInTheDocument();
     await user.click(
-      screen.getByRole("button", { name: "Find vehicle & continue" }),
+      screen.getByRole("button", { name: "Confirm vehicle & continue" }),
     );
 
     expect(
@@ -663,10 +782,7 @@ describe("/start?service=total-loss", () => {
     expect(screen.getByText("Vehicle: 2003 Honda Accord EX-V6")).toBeVisible();
     expect(harness.decodeVin).toHaveBeenCalledWith("1HGCM82633A004352");
     const progress = screen.getByRole("list", { name: "Appraisal steps" });
-    expect(progress.children).toHaveLength(3);
-    expect(progress.children[0]).toHaveClass("border-brand", "bg-brand");
-    expect(progress.children[0]).toBeEmptyDOMElement();
-    expect(progress.children[0].querySelector("svg")).not.toBeInTheDocument();
+    expect(progress.children).toHaveLength(6);
     expect(
       document.querySelector("[data-intake-transition='forward']"),
     ).toBeInTheDocument();
@@ -679,6 +795,7 @@ describe("/start?service=total-loss", () => {
           vehicleYear: "2003",
           make: "Honda",
           model: "Accord",
+          trim: "EX-V6",
           mileageAtLoss: "50000",
         },
       },
@@ -729,9 +846,12 @@ describe("/start?service=total-loss", () => {
     expect(screen.getByLabelText("Model")).toHaveValue("");
     await waitFor(() => expect(screen.getByLabelText("Model")).toBeEnabled());
     await user.selectOptions(screen.getByLabelText("Model"), "Camry");
+    await user.type(screen.getByLabelText("Trim"), "XLE");
     await user.type(screen.getByLabelText("Mileage at date of loss"), "42000");
     await user.click(
-      withinIntakeFlow().getByRole("button", { name: "Continue" }),
+      withinIntakeFlow().getByRole("button", {
+        name: "Confirm vehicle & continue",
+      }),
     );
 
     expect(
@@ -750,6 +870,7 @@ describe("/start?service=total-loss", () => {
           vehicleYear: "2020",
           make: "Toyota",
           model: "Camry",
+          trim: "XLE",
           mileageAtLoss: "42000",
         },
       },
@@ -774,9 +895,7 @@ describe("/start?service=total-loss", () => {
     await chooseMode(user, "I don’t have the report");
     await user.type(screen.getByLabelText("VIN"), "1hgcm82633a004352");
     await user.type(screen.getByLabelText("Mileage at date of loss"), "50000");
-    await user.click(
-      screen.getByRole("button", { name: "Find vehicle & continue" }),
-    );
+    await user.click(screen.getByRole("button", { name: "Find vehicle" }));
 
     expect(
       await screen.findByText(
@@ -791,7 +910,7 @@ describe("/start?service=total-loss", () => {
     ).toBeEnabled();
   });
 
-  it("does not mount an operative report input before authentication", async () => {
+  it("does not mount a report input until the guest chooses the report path", async () => {
     const auth = createAuthHarness(null);
     const harness = createDependencyHarness();
     const user = userEvent.setup();
@@ -803,20 +922,24 @@ describe("/start?service=total-loss", () => {
     expect(
       container.querySelector('input[type="file"]'),
     ).not.toBeInTheDocument();
-    await user.click(
-      await screen.findByRole("button", { name: "Sign in to continue" }),
-    );
+    await chooseMode(user, "I have my valuation report");
     expect(
-      screen.getByRole("dialog", { name: "Sign in to Venfour" }),
-    ).toBeVisible();
+      container.querySelector('input[type="file"]'),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("dialog", { name: /Sign in/i })).not.toBeInTheDocument();
     expect(harness.createOrGetAppraisalCase).not.toHaveBeenCalled();
-    expect(harness.getOrCreateTotalLossDraft).not.toHaveBeenCalled();
+    expect(harness.getOrCreateTotalLossDraft).toHaveBeenCalledWith({
+      userId: GUEST_USER_ID,
+    });
     expect(harness.uploadReport).not.toHaveBeenCalled();
-    expect(readTotalLossDraft()).toMatchObject({ ok: true, draft: null });
+    expect(readTotalLossDraft()).toMatchObject({
+      ok: true,
+      draft: { mode: "report", ownerUserId: GUEST_USER_ID },
+    });
   });
 
-  it("preserves normalized ZIP through report persistence and analysis readiness", async () => {
-    const auth = createAuthHarness(sessionFor());
+  it("uses the generic extraction fallback, preserves corrections, and starts a report-backed analysis", async () => {
+    const auth = createAuthHarness(null, anonymousSessionFor(USER_ID));
     const harness = createDependencyHarness();
     const user = userEvent.setup();
     const fetchSpy = vi.spyOn(globalThis, "fetch");
@@ -842,13 +965,11 @@ describe("/start?service=total-loss", () => {
       },
     });
     expect(await screen.findByRole("alert")).toHaveTextContent(
-      "The report filename must end in .pdf.",
+      "Choose a PDF, JPG/JPEG, or PNG valuation report.",
     );
     expect(harness.uploadReport).not.toHaveBeenCalled();
 
-    const original = new File(["%PDF-1.7"], "insurer-valuation.pdf", {
-      type: "application/pdf",
-    });
+    const original = await createPdfFile("insurer-valuation.pdf");
     fireEvent.change(fileInput, { target: { files: [original] } });
     expect(await screen.findByText("Report saved securely")).toBeVisible();
     expect(screen.getByText("insurer-valuation.pdf")).toBeVisible();
@@ -869,9 +990,7 @@ describe("/start?service=total-loss", () => {
     harness.uploadReport.mockRejectedValueOnce(
       new Error("Replacement storage is temporarily unavailable."),
     );
-    const replacement = new File(["%PDF-1.7 replacement"], "replacement.pdf", {
-      type: "application/pdf",
-    });
+    const replacement = await createPdfFile("replacement.pdf");
     fireEvent.change(fileInput, { target: { files: [replacement] } });
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "Replacement storage is temporarily unavailable.",
@@ -900,10 +1019,8 @@ describe("/start?service=total-loss", () => {
       .mockRejectedValueOnce(
         new Error("The uploaded report metadata could not be saved."),
       );
-    const metadataFailureReplacement = new File(
-      ["%PDF-1.7 latest replacement"],
+    const metadataFailureReplacement = await createPdfFile(
       "latest-replacement.pdf",
-      { type: "application/pdf" },
     );
     fireEvent.change(fileInput, {
       target: { files: [metadataFailureReplacement] },
@@ -930,18 +1047,68 @@ describe("/start?service=total-loss", () => {
     expect(harness.finalizeReportUpload).toHaveBeenCalledTimes(5);
     expect(harness.downloadReport).toHaveBeenCalledTimes(4);
 
-    await user.click(
-      screen.getByRole("button", { name: "Continue to Free Value Check" }),
+    expect(screen.getByText("Report details extracted")).toBeVisible();
+    expect(
+      screen.getByText("The report provider could not be identified."),
+    ).toBeVisible();
+    expect(ingestReportMock).toHaveBeenLastCalledWith(
+      CASE_ID,
+      `access-${USER_ID}`,
     );
-    expect(await screen.findByText("ZIP code is required.")).toBeVisible();
-    expect(router.state.location.pathname).toBe("/start");
+    await user.click(
+      screen.getByRole("button", { name: "Review extracted details" }),
+    );
 
+    expect(
+      await screen.findByRole("heading", { name: "Tell us about your vehicle" }),
+    ).toBeVisible();
+    expect(screen.getByLabelText("Year")).toHaveValue("2020");
+    expect(screen.getByLabelText("Make")).toHaveValue("Honda");
+    expect(screen.getByLabelText("Model")).toHaveValue("Accord");
+    await user.click(
+      screen.getByRole("button", { name: "Confirm vehicle & continue" }),
+    );
+    expect(await screen.findByText("Trim is required.")).toBeVisible();
+    await user.type(screen.getByLabelText("Trim"), "EX-L");
+    await user.click(
+      screen.getByRole("button", { name: "Confirm vehicle & continue" }),
+    );
+
+    expect(
+      await screen.findByRole("heading", { name: "Add the claim details" }),
+    ).toBeVisible();
+    await user.clear(screen.getByLabelText("ZIP code"));
     await user.type(screen.getByLabelText("ZIP code"), "606011234");
     fireEvent.blur(screen.getByLabelText("ZIP code"));
     expect(screen.getByLabelText("ZIP code")).toHaveValue("60601-1234");
+    await user.click(withinIntakeFlow().getByRole("button", { name: "Continue" }));
+
+    expect(
+      await screen.findByRole("heading", {
+        name: "Where should we send and save your results?",
+      }),
+    ).toBeVisible();
+    await user.type(screen.getByLabelText("Full name"), "Guest Customer");
+    await user.type(screen.getByLabelText("Email address"), "guest@example.com");
+    await user.click(screen.getByRole("checkbox", { name: /Terms of Use/i }));
+    await user.click(screen.getByRole("checkbox", { name: /Privacy Policy/i }));
     await user.click(
-      screen.getByRole("button", { name: "Continue to Free Value Check" }),
+      screen.getByRole("button", { name: "Continue to review" }),
     );
+    await waitFor(() =>
+      expect(harness.saveContactAndBeginClaim).toHaveBeenCalledOnce(),
+    );
+    await waitFor(() =>
+      expect(readTotalLossDraft()).toMatchObject({
+        ok: true,
+        draft: { step: "review" },
+      }),
+    );
+    expect(
+      await screen.findByRole("heading", { name: "Review your details" }),
+    ).toBeVisible();
+    expect(screen.getByText(/Valuation report review/)).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Start analysis" }));
     await waitFor(() =>
       expect(router.state.location.pathname).toBe(
         `/total-loss/cases/${CASE_ID}/analysis`,
@@ -949,7 +1116,7 @@ describe("/start?service=total-loss", () => {
     );
     expect(
       await screen.findByRole("heading", {
-        name: "We’re reviewing your valuation report.",
+        name: "We’re preparing your market valuation.",
       }),
     ).toBeVisible();
     expect(harness.saveDetails).toHaveBeenCalledWith(
@@ -957,19 +1124,28 @@ describe("/start?service=total-loss", () => {
         caseId: CASE_ID,
         values: expect.objectContaining({
           intakeMode: "report",
-          intakeCompletedAt: expect.any(String),
           vin: null,
-          vehicleYear: null,
-          vehicleMake: null,
-          vehicleModel: null,
-          mileageAtLoss: null,
+          vehicleYear: 2020,
+          vehicleMake: "Honda",
+          vehicleModel: "Accord",
+          vehicleTrim: "EX-L",
+          mileageAtLoss: 48250,
           postalCode: "60601-1234",
         }),
       }),
     );
+    expect(harness.confirmIntake).toHaveBeenCalledWith({
+      caseId: CASE_ID,
+      userId: USER_ID,
+      expectedUpdatedAt: expect.any(String),
+    });
+    for (const [input] of harness.saveDetails.mock.calls) {
+      expect(input.values).not.toHaveProperty("intakeCompletedAt");
+    }
     expect(harness.detailRows.get(CASE_ID)).toMatchObject({
       intakeMode: "report",
       vin: null,
+      vehicleTrim: "EX-L",
       postalCode: "60601-1234",
       intakeCompletedAt: expect.any(String),
     });
@@ -985,24 +1161,21 @@ describe("/start?service=total-loss", () => {
     }
   });
 
-  it("shows a report completion save failure without claiming the intake is ready", async () => {
-    const savedReport = detailsFor(CASE_ID, {
-      intakeMode: "report",
-      reportOriginalFilename: "saved-report.pdf",
-      reportUploadedAt: CREATED_AT,
-    });
+  it("shows a late contact-save failure without claiming the analysis can start", async () => {
     expect(
-      writeTotalLossDraft({
-        ...createEmptyTotalLossDraft(new Date(CREATED_AT)),
-        mode: "report",
-        step: "report",
-        confirmedCaseId: CASE_ID,
-        reservedCaseId: CASE_ID,
-        ownerUserId: USER_ID,
-      }).ok,
+      writeTotalLossDraft(
+        createSensitiveManualDraft({
+          step: "claim",
+          confirmedCaseId: CASE_ID,
+          reservedCaseId: CASE_ID,
+        }),
+      ).ok,
     ).toBe(true);
-    const auth = createAuthHarness(sessionFor());
-    const harness = createDependencyHarness({ details: [savedReport] });
+    const auth = createAuthHarness(anonymousSessionFor(USER_ID));
+    const harness = createDependencyHarness();
+    harness.saveContactAndBeginClaim.mockRejectedValueOnce(
+      new Error("The contact details could not be saved."),
+    );
     const user = userEvent.setup();
 
     renderTestApp(["/start?service=total-loss"], {
@@ -1010,21 +1183,30 @@ describe("/start?service=total-loss", () => {
       totalLossDependencies: harness.dependencies,
     });
 
-    expect(await screen.findByText("saved-report.pdf")).toBeVisible();
-    await user.type(screen.getByLabelText("ZIP code"), "60611");
-    harness.saveDetails.mockRejectedValueOnce(
-      new Error("The completed intake could not be saved."),
-    );
+    expect(
+      await screen.findByRole("heading", { name: "Add the claim details" }),
+    ).toBeVisible();
+    await user.click(withinIntakeFlow().getByRole("button", { name: "Continue" }));
+    expect(
+      await screen.findByRole("heading", {
+        name: "Where should we send and save your results?",
+      }),
+    ).toBeVisible();
+    await user.type(screen.getByLabelText("Full name"), "Guest Customer");
+    await user.type(screen.getByLabelText("Email address"), "guest@example.com");
+    await user.click(screen.getByRole("checkbox", { name: /Terms of Use/i }));
+    await user.click(screen.getByRole("checkbox", { name: /Privacy Policy/i }));
     await user.click(
-      screen.getByRole("button", { name: "Continue to Free Value Check" }),
+      screen.getByRole("button", { name: "Continue to review" }),
     );
 
     expect(
-      await screen.findByText("The completed intake could not be saved."),
+      await screen.findByText("The contact details could not be saved."),
     ).toBeVisible();
     expect(
-      screen.queryByRole("heading", { name: "Your report is ready" }),
+      screen.queryByRole("heading", { name: "Review your details" }),
     ).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Start analysis" })).not.toBeInTheDocument();
   });
 
   it("atomically resumes the newest saved draft without a browser resume fork", async () => {
@@ -1105,11 +1287,11 @@ describe("/start?service=total-loss", () => {
       totalLossDependencies: harness.dependencies,
     });
     expect(
-      await screen.findByRole("heading", { name: "Your report is ready" }),
+      await screen.findByRole("heading", { name: "Your information is ready" }),
     ).toBeVisible();
-    expect(screen.getByText(/Start the free value check/)).toBeVisible();
+    expect(screen.getByText(/Start the analysis when you’re ready/)).toBeVisible();
     expect(
-      screen.getByRole("button", { name: "Start value check" }),
+      screen.getByRole("button", { name: "Start analysis" }),
     ).toBeVisible();
     expect(
       screen.getByRole("button", { name: "Replace report" }),
@@ -1257,7 +1439,7 @@ describe("/start?service=total-loss", () => {
     });
     await waitFor(() => expect(auth.getSession).toHaveBeenCalledOnce());
 
-    expect(screen.getByText("Checking your secure account…")).toBeVisible();
+    expect(screen.getByText("Loading your saved appraisal…")).toBeVisible();
     expect(screen.queryByLabelText("VIN")).not.toBeInTheDocument();
     expect(
       screen.queryByDisplayValue("1HGCM82633A004352"),
@@ -1451,32 +1633,20 @@ describe("/start?service=total-loss", () => {
 
       act(() => auth.emit(nextSession));
 
-      if (nextSession) {
-        expect(
-          await screen.findByRole("group", {
-            name: "Do you have your insurance valuation report?",
-          }),
-        ).toBeVisible();
-      } else {
-        expect(
-          await screen.findByRole("heading", {
-            name: "Sign in before starting your review",
-          }),
-        ).toBeVisible();
-      }
+      expect(
+        await screen.findByRole("group", {
+          name: "Do you have your insurance valuation report?",
+        }),
+      ).toBeInTheDocument();
       expect(screen.queryByText("private-report.pdf")).not.toBeInTheDocument();
-      if (nextSession) {
-        expect(readTotalLossDraft()).toMatchObject({
-          ok: true,
-          draft: {
-            ownerUserId: OTHER_USER_ID,
-            confirmedCaseId: OTHER_CASE_ID,
-            reservedCaseId: OTHER_CASE_ID,
-          },
-        });
-      } else {
-        expect(readTotalLossDraft()).toEqual({ ok: true, draft: null });
-      }
+      expect(readTotalLossDraft()).toMatchObject({
+        ok: true,
+        draft: {
+          ownerUserId: nextSession ? OTHER_USER_ID : GUEST_USER_ID,
+          confirmedCaseId: OTHER_CASE_ID,
+          reservedCaseId: OTHER_CASE_ID,
+        },
+      });
       expect(
         queryClient.getQueryData(totalLossQueryKeys.details(USER_ID, CASE_ID)),
       ).toBeUndefined();
@@ -1509,15 +1679,9 @@ describe("/start?service=total-loss", () => {
       ).toMatchObject({ id: CASE_ID, userId: USER_ID });
 
       act(() => auth.emit(nextSession));
-      if (nextSession) {
-        await screen.findByRole("group", {
-          name: "Do you have your insurance valuation report?",
-        });
-      } else {
-        await screen.findByRole("heading", {
-          name: "Sign in before starting your review",
-        });
-      }
+      await screen.findByRole("group", {
+        name: "Do you have your insurance valuation report?",
+      });
 
       const pendingInput = harness.saveDetails.mock.calls[0]?.[0];
       await act(async () => {
@@ -1531,10 +1695,12 @@ describe("/start?service=total-loss", () => {
       await waitFor(() => expect(queryClient.isMutating()).toBe(0));
       await waitFor(() =>
         expect(
-          queryClient.getQueriesData({
-            queryKey: appraisalCaseQueryKeys.user(USER_ID),
-          }),
-        ).toEqual([]),
+          queryClient
+            .getQueriesData({
+              queryKey: appraisalCaseQueryKeys.user(USER_ID),
+            })
+            .every(([, data]) => data === undefined),
+        ).toBe(true),
       );
       expect(
         queryClient.getQueryData(totalLossQueryKeys.details(USER_ID, CASE_ID)),
@@ -1568,6 +1734,8 @@ describe("/start?service=total-loss", () => {
         dateOfLoss: "",
         insurerName: "",
         insurerVehicleValuation: "",
+        vehicleCondition: "",
+        optionsPackages: "",
       },
       dirty: true,
       revision: 4,
@@ -1641,7 +1809,7 @@ describe("/start?service=total-loss", () => {
     expect(screen.getByLabelText("Mileage at date of loss")).toHaveValue("12");
   });
 
-  it("sanitizes stale manual fields from a stored report-mode draft", async () => {
+  it("preserves report-extracted fields locally until the customer can correct them", async () => {
     const baseDraft = createSensitiveManualDraft({
       mode: "report",
       step: "report",
@@ -1673,31 +1841,33 @@ describe("/start?service=total-loss", () => {
 
     expect(await screen.findByText("saved-report.pdf")).toBeVisible();
     expect(
-      screen.getByRole("button", { name: "Continue to Free Value Check" }),
-    ).toBeEnabled();
+      screen.getByRole("button", { name: "Review extracted details" }),
+    ).toBeDisabled();
     expect(readTotalLossDraft()).toMatchObject({
       ok: true,
       draft: {
         dirty: true,
         manual: {
-          vin: "",
-          vehicleYear: "",
-          make: "",
-          model: "",
-          mileageAtLoss: "",
+          vin: "1HGCM82633A004352",
+          vehicleYear: "20",
+          make: "Sensitive Make",
+          model: "Sensitive Model",
+          trim: "Private Trim",
+          mileageAtLoss: "48250",
           zipCode: "60611",
         },
       },
     });
   });
 
-  it("clears stale manual vehicle data but retains ZIP when report mode becomes authoritative", async () => {
+  it("preserves confirmed vehicle facts when switching between report and no-report paths", async () => {
     const savedDetails = detailsFor(CASE_ID, {
       intakeMode: "report",
       vin: "1HGCM82633A004352",
       vehicleYear: 2020,
       vehicleMake: "Honda",
       vehicleModel: "Accord",
+      vehicleTrim: "EX-L",
       mileageAtLoss: 48250,
       postalCode: "60611",
       reportOriginalFilename: "saved-report.pdf",
@@ -1727,11 +1897,12 @@ describe("/start?service=total-loss", () => {
           step: "report",
           mode: "report",
           manual: {
-            vin: "",
-            vehicleYear: "",
-            make: "",
-            model: "",
-            mileageAtLoss: "",
+            vin: "1HGCM82633A004352",
+            vehicleYear: "2020",
+            make: "Honda",
+            model: "Accord",
+            trim: "EX-L",
+            mileageAtLoss: "48250",
             zipCode: "60611",
           },
         },
@@ -1746,14 +1917,15 @@ describe("/start?service=total-loss", () => {
         name: "Tell us about your vehicle",
       }),
     ).toBeVisible();
-    expect(screen.getByLabelText("VIN")).toHaveValue("");
+    expect(screen.getByLabelText("VIN")).toHaveValue("1HGCM82633A004352");
     expect(
-      screen.queryByText("Vehicle: 2020 Honda Accord"),
-    ).not.toBeInTheDocument();
+      screen.getByText("Vehicle: 2020 Honda Accord EX-L"),
+    ).toBeVisible();
     expect(harness.detailRows.get(CASE_ID)).toMatchObject({
       intakeMode: "manual",
       intakeCompletedAt: null,
-      vin: null,
+      vin: "1HGCM82633A004352",
+      vehicleTrim: "EX-L",
       postalCode: "60611",
       reportOriginalFilename: "saved-report.pdf",
     });
@@ -1764,11 +1936,12 @@ describe("/start?service=total-loss", () => {
     expect(harness.detailRows.get(CASE_ID)).toMatchObject({
       intakeMode: "report",
       intakeCompletedAt: null,
-      vin: null,
-      vehicleYear: null,
-      vehicleMake: null,
-      vehicleModel: null,
-      mileageAtLoss: null,
+      vin: "1HGCM82633A004352",
+      vehicleYear: 2020,
+      vehicleMake: "Honda",
+      vehicleModel: "Accord",
+      vehicleTrim: "EX-L",
+      mileageAtLoss: 48250,
       postalCode: "60611",
     });
     expect(readTotalLossDraft()).toMatchObject({
@@ -1776,11 +1949,12 @@ describe("/start?service=total-loss", () => {
       draft: {
         mode: "report",
         manual: {
-          vin: "",
-          vehicleYear: "",
-          make: "",
-          model: "",
-          mileageAtLoss: "",
+          vin: "1HGCM82633A004352",
+          vehicleYear: "2020",
+          make: "Honda",
+          model: "Accord",
+          trim: "EX-L",
+          mileageAtLoss: "48250",
           zipCode: "60611",
         },
       },

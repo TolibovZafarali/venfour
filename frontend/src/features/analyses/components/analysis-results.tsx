@@ -32,14 +32,14 @@ interface AnalysisResultsProps {
 
 const assessmentHeadings: Record<Assessment["classification"], string> = {
   MATERIAL_UNDERVALUE_SIGNAL:
-    "Strong evidence suggests your CCC valuation may be low",
+    "Strong evidence suggests the insurer valuation may be low",
   POTENTIAL_UNDERVALUE:
-    "Market evidence suggests your CCC valuation may be low",
+    "Market evidence suggests the insurer valuation may be low",
   NO_MATERIAL_DISCREPANCY:
     "The available market evidence does not show a material gap",
   CONFLICTING_EVIDENCE: "The available market evidence is mixed",
   INSUFFICIENT_EVIDENCE:
-    "There isn’t enough reliable evidence to assess the CCC valuation",
+    "There isn’t enough reliable evidence for a valuation comparison",
 };
 
 function assessmentHeading(analysis: AnalysisPresentation) {
@@ -51,10 +51,10 @@ function assessmentHeading(analysis: AnalysisPresentation) {
     analysis.findings.map((finding) => finding.code),
   );
   if (findingCodes.has("MISSING_CCC_VEHICLE_VALUATION")) {
-    return "A CCC vehicle value is needed before this valuation can be assessed";
+    return "An insurer vehicle value is needed for a direct comparison";
   }
   if (findingCodes.has("NONPOSITIVE_CCC_VEHICLE_VALUATION")) {
-    return "The CCC vehicle value cannot support a market comparison";
+    return "The insurer vehicle value cannot support a market comparison";
   }
   if (findingCodes.has("EXTERNAL_MEDIAN_ZERO")) {
     return "The selected market median cannot support a comparison";
@@ -88,6 +88,23 @@ function displayProviderName(value: string) {
   return value.toLowerCase() === "marketcheck" ? "MarketCheck" : value;
 }
 
+function reportProviderName(analysis: AnalysisPresentation) {
+  return (
+    analysis.reportReview?.provider ??
+    analysis.analysisScope.reportProvider ??
+    null
+  );
+}
+
+function insurerValueReference(analysis: AnalysisPresentation) {
+  if (analysis.insurerValuation.source === "CUSTOMER_ENTERED") {
+    return "the insurer value you entered";
+  }
+
+  const provider = reportProviderName(analysis);
+  return provider ? `the ${provider} report value` : "the insurer report value";
+}
+
 function vehicleName({
   year,
   make,
@@ -101,7 +118,7 @@ function cccVehicleName(row: CccComparableRow) {
   const name = [row.year, row.make, row.model, row.trim]
     .filter(Boolean)
     .join(" ");
-  return name || `CCC comparable ${row.comparableNumber ?? row.index + 1}`;
+  return name || `Report comparable ${row.comparableNumber ?? row.index + 1}`;
 }
 
 interface SectionHeadingProps {
@@ -167,10 +184,68 @@ function Metric({ label, value, detail, emphasis = false }: MetricProps) {
   );
 }
 
+function AnalysisScopeDisclosure({ analysis }: AnalysisResultsProps) {
+  const scope = analysis.analysisScope;
+  const manual = scope.inputMode === "MANUAL";
+  const provider = reportProviderName(analysis);
+  const reportLabel = provider ? `${provider} report` : "insurer report";
+  const insurerComparison = scope.insurerValuationComparisonPerformed
+    ? analysis.insurerValuation.source === "CUSTOMER_ENTERED"
+      ? "The insurer value you entered was compared with the selected market median."
+      : `The value extracted from the ${reportLabel} was compared with the selected market median.`
+    : "No usable insurer value was available, so no valuation-gap calculation was performed.";
+  const reportCoverage = !scope.reportExtractionAvailable
+    ? "The uploaded report could not be extracted reliably; report-specific values, comparables, and adjustments are not presented."
+    : scope.partialExtraction || analysis.reportReview?.partial
+      ? `The ${reportLabel} was only partially extracted. Available facts were reviewed, and unavailable report details are identified below.`
+      : `The ${reportLabel} was extracted and reviewed for the report facts available to Venfour.`;
+
+  return (
+    <section
+      className="mt-6 rounded-xl border border-neutral-200 bg-neutral-100 px-5 py-5 sm:px-6"
+      aria-labelledby="analysis-scope-heading"
+    >
+      <div className="grid gap-5 lg:grid-cols-[minmax(14rem,0.6fr)_minmax(0,1.4fr)] lg:gap-10">
+        <div>
+          <p className="text-[0.7rem] font-semibold tracking-[0.14em] text-neutral-500 uppercase">
+            Analysis scope
+          </p>
+          <h2
+            id="analysis-scope-heading"
+            className="mt-2 text-lg font-semibold tracking-tight text-neutral-950"
+          >
+            {manual
+              ? "Market review from confirmed vehicle details"
+              : `${provider ?? "Insurer"} report and market review`}
+          </h2>
+        </div>
+        <div className="space-y-3 text-sm leading-6 text-neutral-600">
+          <p>
+            {manual
+              ? "No valuation report was analyzed. Venfour searched for independent market evidence using the vehicle and claim facts confirmed during intake."
+              : reportCoverage}
+          </p>
+          <p>{insurerComparison}</p>
+          <p>{scope.methodologyDisclosure}</p>
+          {(scope.conditionInformationCollected ||
+            scope.optionsInformationCollected) &&
+          !scope.conditionAndOptionsDollarAdjusted ? (
+            <p>
+              Condition and equipment information provided context for the
+              review; Venfour did not apply a separate dollar adjustment for
+              those facts.
+            </p>
+          ) : null}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function assessmentSummary(analysis: AnalysisPresentation) {
   const primary = analysis.primaryExternalEvidence;
-  const comparison = analysis.cccValuation.comparisonToPrimaryEvidence;
-  if (!primary || !comparison) {
+  const comparison = analysis.insurerValuation.comparisonToPrimaryEvidence;
+  if (!primary) {
     return analysis.assessment.summary;
   }
 
@@ -178,6 +253,12 @@ function assessmentSummary(analysis: AnalysisPresentation) {
     primary.evidenceBasis === "LOSS_DATE_HISTORICAL"
       ? "loss-date market evidence"
       : "current-market evidence";
+  if (!comparison) {
+    return `The strongest available ${evidenceName} had a median advertised price of ${displayMoney(
+      primary.prices.medianPrice,
+    )}. No usable insurer vehicle value was available, so Venfour did not calculate a valuation gap.`;
+  }
+
   const difference = comparison.difference.display;
   const percentage = comparison.differencePercent.display;
   const differenceCents = comparison.difference.cents;
@@ -192,30 +273,30 @@ function assessmentSummary(analysis: AnalysisPresentation) {
       primary.prices.medianPrice,
     )}. That is ${displayMoneyMagnitude(comparison.difference)} (${displayPercentageMagnitude(
       percentage,
-    )}) ${relationship} CCC’s ${displayMoney(
-      analysis.cccValuation.adjustedVehicleValue,
-    )} adjusted vehicle value.`;
+    )}) ${relationship} ${insurerValueReference(analysis)} of ${displayMoney(
+      analysis.insurerValuation.value,
+    )}.`;
   }
 
   return `The strongest available ${evidenceName} had a median advertised price of ${displayMoney(
     primary.prices.medianPrice,
-  )}, ${relationship} CCC’s ${displayMoney(
-    analysis.cccValuation.adjustedVehicleValue,
-  )} adjusted vehicle value.`;
+  )}, ${relationship} ${insurerValueReference(analysis)} of ${displayMoney(
+    analysis.insurerValuation.value,
+  )}.`;
 }
 
 function MarketRangeFigure({ analysis }: AnalysisResultsProps) {
   const primary = analysis.primaryExternalEvidence;
-  const comparison = analysis.cccValuation.comparisonToPrimaryEvidence;
+  const comparison = analysis.insurerValuation.comparisonToPrimaryEvidence;
   if (!primary || !comparison) {
     return null;
   }
 
-  const cccValue = analysis.cccValuation.adjustedVehicleValue.cents;
+  const insurerValue = analysis.insurerValuation.value.cents;
   const minimum = primary.prices.minimumPrice.cents;
   const median = primary.prices.medianPrice.cents;
   const maximum = primary.prices.maximumPrice.cents;
-  const numericValues = [cccValue, minimum, median, maximum];
+  const numericValues = [insurerValue, minimum, median, maximum];
   const hasCompleteScale = numericValues.every(
     (value): value is number => typeof value === "number",
   );
@@ -227,24 +308,35 @@ function MarketRangeFigure({ analysis }: AnalysisResultsProps) {
     primary.evidenceBasis === "LOSS_DATE_HISTORICAL"
       ? "Loss-date"
       : "Current-market";
+  const insurerPositionInRange =
+    typeof insurerValue === "number" &&
+    typeof minimum === "number" &&
+    insurerValue < minimum
+      ? "BELOW_OBSERVED_RANGE"
+      : typeof insurerValue === "number" &&
+          typeof maximum === "number" &&
+          insurerValue > maximum
+        ? "ABOVE_OBSERVED_RANGE"
+        : "WITHIN_OBSERVED_RANGE";
   const relationshipCopy = {
-    BELOW_OBSERVED_RANGE: `CCC’s value is below the entire ${evidenceLabel}.`,
-    WITHIN_OBSERVED_RANGE: `CCC’s value falls within the ${evidenceLabel}.`,
-    ABOVE_OBSERVED_RANGE: `CCC’s value is above the entire ${evidenceLabel}.`,
-  }[comparison.cccPositionInExternalRange];
+    BELOW_OBSERVED_RANGE: `The insurer value is below the entire ${evidenceLabel}.`,
+    WITHIN_OBSERVED_RANGE: `The insurer value falls within the ${evidenceLabel}.`,
+    ABOVE_OBSERVED_RANGE: `The insurer value is above the entire ${evidenceLabel}.`,
+  }[insurerPositionInRange];
 
   if (!hasCompleteScale) {
     return (
       <div className="mt-8 rounded-xl border bg-background p-5">
-        <p className="font-medium">{relationshipCopy}</p>
+        <p className="font-medium">A complete price position is unavailable.</p>
         <p className="mt-2 text-sm text-muted-foreground">
-          A complete plotted range is unavailable for this analysis.
+          One or more values needed to plot the insurer value against the
+          selected market range were unavailable.
         </p>
       </div>
     );
   }
 
-  const [cccNumeric, minimumNumeric, medianNumeric, maximumNumeric] =
+  const [insurerNumeric, minimumNumeric, medianNumeric, maximumNumeric] =
     numericValues;
   const domainMinimum = Math.min(...numericValues);
   const domainMaximum = Math.max(...numericValues);
@@ -254,7 +346,7 @@ function MarketRangeFigure({ analysis }: AnalysisResultsProps) {
         <p className="font-medium">{relationshipCopy}</p>
         <p className="mt-2 text-sm text-muted-foreground">
           Every value shown on this comparison is{" "}
-          {displayMoney(analysis.cccValuation.adjustedVehicleValue)}.
+          {displayMoney(analysis.insurerValuation.value)}.
         </p>
       </div>
     );
@@ -273,14 +365,14 @@ function MarketRangeFigure({ analysis }: AnalysisResultsProps) {
     ((value - scaleMinimum) / scaleSpan) * 100;
   const rangeStart = position(minimumNumeric);
   const rangeEnd = position(maximumNumeric);
-  const cccPosition = position(cccNumeric);
+  const insurerPosition = position(insurerNumeric);
   const medianPosition = position(medianNumeric);
 
   return (
     <figure
       className="mt-8 overflow-hidden rounded-2xl bg-neutral-950 px-5 py-6 text-white sm:px-7 sm:py-7 lg:px-9 lg:py-8"
-      aria-label={`CCC adjusted value ${displayMoney(
-        analysis.cccValuation.adjustedVehicleValue,
+      aria-label={`Insurer value ${displayMoney(
+        analysis.insurerValuation.value,
       )}; ${evidenceLabel} ${displayMoney(
         primary.prices.minimumPrice,
       )} to ${displayMoney(
@@ -296,7 +388,7 @@ function MarketRangeFigure({ analysis }: AnalysisResultsProps) {
             {relationshipCopy}
           </h3>
           <p className="mt-2 text-sm leading-6 text-neutral-400">
-            CCC’s value, the selected external range, and its median share one
+            The insurer value, selected external range, and median share one
             consistent dollar scale.
           </p>
         </div>
@@ -317,19 +409,19 @@ function MarketRangeFigure({ analysis }: AnalysisResultsProps) {
         />
         <div
           className="absolute top-0 h-14 w-0.5 bg-white"
-          style={{ left: `${cccPosition}%` }}
+          style={{ left: `${insurerPosition}%` }}
         >
           <span
             className={cn(
               "absolute -top-6 whitespace-nowrap text-xs font-semibold text-white",
-              cccPosition > 70
+              insurerPosition > 70
                 ? "right-0"
-                : cccPosition < 30
+                : insurerPosition < 30
                   ? "left-0"
                   : "left-1/2 -translate-x-1/2",
             )}
           >
-            CCC
+            Insurer
           </span>
         </div>
         <div
@@ -356,9 +448,11 @@ function MarketRangeFigure({ analysis }: AnalysisResultsProps) {
 
       <div className="grid border-t border-white/10 text-sm sm:grid-cols-3 sm:divide-x sm:divide-white/10">
         <div className="py-4 sm:pr-5">
-          <p className="text-xs text-neutral-400">CCC valuation</p>
+          <p className="text-xs text-neutral-400">
+            {analysis.insurerValuation.valueLabel}
+          </p>
           <p className="mt-1 text-lg font-semibold tracking-tight tabular-nums">
-            {displayMoney(analysis.cccValuation.adjustedVehicleValue)}
+            {displayMoney(analysis.insurerValuation.value)}
           </p>
         </div>
         <div className="border-t border-white/10 py-4 sm:border-t-0 sm:px-5">
@@ -385,27 +479,29 @@ function MarketRangeFigure({ analysis }: AnalysisResultsProps) {
 
 function PrimaryAssessment({ analysis }: AnalysisResultsProps) {
   const primary = analysis.primaryExternalEvidence;
-  const comparison = analysis.cccValuation.comparisonToPrimaryEvidence;
+  const comparison = analysis.insurerValuation.comparisonToPrimaryEvidence;
   const undervalueAssessment =
     analysis.assessment.classification === "MATERIAL_UNDERVALUE_SIGNAL" ||
     analysis.assessment.classification === "POTENTIAL_UNDERVALUE";
-  const gapLabel = undervalueAssessment
-    ? "Evidence gap"
-    : "Difference from primary median";
+  const gapLabel = comparison
+    ? undervalueAssessment
+      ? "Evidence gap"
+      : "Difference from primary median"
+    : "Comparison scope";
   const gapValue = comparison
     ? displayMoneyMagnitude(comparison.difference)
-    : unavailable;
+    : "Market only";
   const gapPercent = comparison?.differencePercent.display
     ? displayPercentageMagnitude(comparison.differencePercent.display)
     : null;
   const differenceCents = comparison?.difference.cents;
   const gapRelationship =
     typeof differenceCents === "number" && differenceCents > 0
-      ? "above CCC"
+      ? "above the insurer value"
       : typeof differenceCents === "number" && differenceCents < 0
-        ? "below CCC"
+        ? "below the insurer value"
         : typeof differenceCents === "number"
-          ? "matches CCC"
+          ? "matches the insurer value"
           : "comparison unavailable";
 
   return (
@@ -459,15 +555,18 @@ function PrimaryAssessment({ analysis }: AnalysisResultsProps) {
               ) : null}
             </div>
             <p className="mt-4 text-sm leading-6 text-neutral-600">
-              {undervalueAssessment
-                ? "This is the difference between the selected market median and CCC’s adjusted value."
-                : "This comparison describes the available evidence; it is not a settlement calculation."}
+              {comparison
+                ? undervalueAssessment
+                  ? "This is the difference between the selected market median and the available insurer value."
+                  : "This comparison describes the available evidence; it is not a settlement calculation."
+                : "No usable insurer value was available, so this analysis presents market evidence without calculating a valuation gap."}
             </p>
             <div className="mt-5 flex gap-3 border-t border-neutral-300 pt-5 text-sm leading-6 text-neutral-600">
               <Info className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
               <p>
-                Evidence of a valuation gap is not money owed or a guaranteed
-                settlement increase.
+                {comparison
+                  ? "Evidence of a valuation gap is not money owed or a guaranteed settlement increase."
+                  : "Market evidence alone is not an appraisal or a settlement calculation."}
               </p>
             </div>
           </div>
@@ -475,8 +574,8 @@ function PrimaryAssessment({ analysis }: AnalysisResultsProps) {
 
         <dl className="mt-9 grid grid-cols-2 gap-x-5 gap-y-5 [&>div:last-child]:col-span-2 sm:grid-cols-3 sm:gap-x-10 sm:[&>div:last-child]:col-span-1 xl:mt-11">
           <Metric
-            label="CCC adjusted vehicle value"
-            value={displayMoney(analysis.cccValuation.adjustedVehicleValue)}
+            label={analysis.insurerValuation.valueLabel}
+            value={displayMoney(analysis.insurerValuation.value)}
           />
           <Metric
             label={
@@ -523,7 +622,7 @@ function AssessmentReadingGuide({ analysis }: AnalysisResultsProps) {
     ? {
         title: "What an inconclusive result means",
         description:
-          "Insufficient evidence does not establish that the CCC valuation is either accurate or inaccurate.",
+          "Insufficient evidence does not establish that the insurer valuation is either accurate or inaccurate.",
       }
     : analysis.assessment.evidenceBasis === "CURRENT_MARKET"
       ? {
@@ -634,34 +733,34 @@ function assessmentFindingExplanation(
       };
     case "MISSING_CCC_VEHICLE_VALUATION":
       return {
-        title: "The CCC vehicle value is missing",
-        body: "A market difference cannot be calculated until the CCC report provides a vehicle valuation to compare.",
+        title: "The insurer vehicle value is missing",
+        body: "A market difference cannot be calculated without a usable insurer vehicle valuation.",
       };
     case "NONPOSITIVE_CCC_VEHICLE_VALUATION":
       return {
-        title: "The CCC vehicle value cannot be compared",
-        body: "The CCC vehicle value is zero or below zero, so a meaningful percentage comparison cannot be calculated.",
+        title: "The insurer vehicle value cannot be compared",
+        body: "The available insurer vehicle value is zero or below zero, so a meaningful percentage comparison cannot be calculated.",
       };
     case "EXTERNAL_MEDIAN_ZERO":
       return {
         title: "The selected market median cannot be compared",
-        body: "The selected external median is zero, so it cannot support a meaningful comparison with the CCC vehicle value.",
+        body: "The selected external median is zero, so it cannot support a meaningful comparison with the insurer vehicle value.",
       };
     case "CCC_AND_EXTERNAL_EVIDENCE_CONSISTENT":
       return {
-        title: "CCC and the selected market evidence are broadly consistent",
-        body: "The available primary comparison does not show a material discrepancy from CCC’s adjusted vehicle value.",
+        title: "The insurer value and selected market evidence are broadly consistent",
+        body: "The available primary comparison does not show a material discrepancy from the insurer vehicle value.",
       };
     case "EXTERNAL_MEDIAN_EQUALS_CCC":
       return {
-        title: "The selected market median matches CCC",
+        title: "The selected market median matches the insurer value",
         body: primary ? (
           <>
-            The selected primary median and CCC’s adjusted vehicle value are
+            The selected primary median and insurer vehicle value are
             both {displayMoney(primary.prices.medianPrice)}.
           </>
         ) : (
-          "The selected external median matches CCC’s adjusted vehicle value."
+          "The selected external median matches the insurer vehicle value."
         ),
       };
     default:
@@ -672,7 +771,7 @@ function assessmentFindingExplanation(
 function buildExplanations(analysis: AnalysisPresentation): Explanation[] {
   const explanations: Explanation[] = [];
   const primary = analysis.primaryExternalEvidence;
-  const comparison = analysis.cccValuation.comparisonToPrimaryEvidence;
+  const comparison = analysis.insurerValuation.comparisonToPrimaryEvidence;
   const findingCodes = new Set(
     analysis.findings.map((finding) => finding.code),
   );
@@ -727,10 +826,10 @@ function buildExplanations(analysis: AnalysisPresentation): Explanation[] {
         ? "historical"
         : "current-market";
     explanations.push({
-      title: `CCC falls below the selected ${rangeName} range`,
-      body: `CCC’s ${displayMoney(
-        analysis.cccValuation.adjustedVehicleValue,
-      )} adjusted value is below the lowest selected ${
+      title: `The insurer value falls below the selected ${rangeName} range`,
+      body: `The insurer value of ${displayMoney(
+        analysis.insurerValuation.value,
+      )} is below the lowest selected ${
         primary.evidenceBasis === "LOSS_DATE_HISTORICAL"
           ? "loss-date"
           : "current-market"
@@ -752,8 +851,8 @@ function buildExplanations(analysis: AnalysisPresentation): Explanation[] {
     explanations.push({
       title: `The ${evidenceName} is ${displayPercentageMagnitude(
         comparison.differencePercent.display,
-      )} ${relation} CCC`,
-      body: `The selected external median differs from CCC’s adjusted vehicle value by ${displayMoneyMagnitude(
+      )} ${relation} the insurer value`,
+      body: `The selected external median differs from the insurer vehicle value by ${displayMoneyMagnitude(
         comparison.difference,
       )}.`,
     });
@@ -763,6 +862,8 @@ function buildExplanations(analysis: AnalysisPresentation): Explanation[] {
     analysis.cccValuation.supportingComparisons
       .cccAdvertisedMedianVsAdjustedMedian;
   if (
+    analysis.analysisScope.inputMode === "REPORT" &&
+    analysis.reportReview?.adjustmentsAvailable &&
     cccAdjustmentComparison &&
     comparison &&
     (findingCodes.has("CCC_ADJUSTMENTS_REDUCE_COMPARABLE_VALUES") ||
@@ -781,15 +882,16 @@ function buildExplanations(analysis: AnalysisPresentation): Explanation[] {
             : `a ${displayMoneyMagnitude(cccAdjustmentComparison.difference)} difference`;
 
     explanations.push({
-      title: "CCC’s comparable adjustments provide additional context",
+      title: "The report’s comparable adjustments provide additional context",
       body: (
         <>
-          CCC’s paired advertised median was{" "}
+          The report’s paired advertised median was{" "}
           {displayMoney(cccAdjustmentComparison.firstValue)} and its adjusted
           median was {displayMoney(cccAdjustmentComparison.secondValue)},{" "}
           {adjustmentChange}. The external evidence gap is{" "}
-          {displayMoneyMagnitude(comparison.difference)}; the direction of CCC’s
-          adjustments alone does not establish that an adjustment was improper.
+          {displayMoneyMagnitude(comparison.difference)}; the direction of the
+          report’s adjustments alone does not establish that an adjustment was
+          improper.
         </>
       ),
     });
@@ -1013,7 +1115,7 @@ function PrimaryComparables({ analysis }: AnalysisResultsProps) {
           id="comparables-heading"
           eyebrow="External market evidence"
           title="No external comparables were selected"
-          description="Venfour did not find enough eligible listings with the identifying information needed for a reliable comparison. This absence is reflected in the assessment rather than treated as evidence that the CCC valuation is correct."
+          description="Venfour did not find enough eligible listings with the identifying information needed for a reliable comparison. This absence is reflected in the assessment rather than treated as evidence that the insurer valuation is correct."
         />
       </section>
     );
@@ -1212,7 +1314,13 @@ function MarketContext({ analysis }: AnalysisResultsProps) {
   );
 }
 
-function CccComparableCard({ row }: { row: CccComparableRow }) {
+function CccComparableCard({
+  row,
+  showAdjustments,
+}: {
+  row: CccComparableRow;
+  showAdjustments: boolean;
+}) {
   const adjustments = [
     ["Package", row.adjustments.package],
     ["Options", row.adjustments.options],
@@ -1225,7 +1333,7 @@ function CccComparableCard({ row }: { row: CccComparableRow }) {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-[0.7rem] font-semibold tracking-[0.13em] text-neutral-500 uppercase">
-            CCC comparable {row.comparableNumber ?? row.index + 1}
+            Report comparable {row.comparableNumber ?? row.index + 1}
           </p>
           <h3 className="mt-2 font-semibold tracking-tight text-neutral-950">
             {cccVehicleName(row)}
@@ -1235,12 +1343,19 @@ function CccComparableCard({ row }: { row: CccComparableRow }) {
             {row.location ? ` · ${row.location}` : ""}
           </p>
         </div>
-        <span className="text-xs font-medium text-neutral-500">
-          {row.adjustmentDisclosureLabel}
-        </span>
+        {showAdjustments ? (
+          <span className="text-xs font-medium text-neutral-500">
+            {row.adjustmentDisclosureLabel}
+          </span>
+        ) : null}
       </div>
 
-      <div className="mt-5 grid grid-cols-3 divide-x divide-neutral-200 border-y border-neutral-200 py-4">
+      <div
+        className={cn(
+          "mt-5 grid divide-x divide-neutral-200 border-y border-neutral-200 py-4",
+          showAdjustments ? "grid-cols-3" : "grid-cols-1",
+        )}
+      >
         <div className="pr-3">
           <p className="text-[0.68rem] leading-4 text-neutral-500">
             Advertised
@@ -1249,22 +1364,26 @@ function CccComparableCard({ row }: { row: CccComparableRow }) {
             {displayMoney(row.advertisedPrice)}
           </p>
         </div>
-        <div className="px-3">
-          <p className="text-[0.68rem] leading-4 text-neutral-500">
-            Net adjustment
-          </p>
-          <p className="mt-1 text-sm font-semibold text-neutral-950 tabular-nums sm:text-base">
-            {displayMoney(row.netAdjustment)}
-          </p>
-        </div>
-        <div className="pl-3">
-          <p className="text-[0.68rem] leading-4 text-neutral-500">
-            CCC adjusted
-          </p>
-          <p className="mt-1 text-sm font-semibold text-neutral-950 tabular-nums sm:text-base">
-            {displayMoney(row.cccAdjustedComparableValue)}
-          </p>
-        </div>
+        {showAdjustments ? (
+          <>
+            <div className="px-3">
+              <p className="text-[0.68rem] leading-4 text-neutral-500">
+                Net adjustment
+              </p>
+              <p className="mt-1 text-sm font-semibold text-neutral-950 tabular-nums sm:text-base">
+                {displayMoney(row.netAdjustment)}
+              </p>
+            </div>
+            <div className="pl-3">
+              <p className="text-[0.68rem] leading-4 text-neutral-500">
+                Report adjusted
+              </p>
+              <p className="mt-1 text-sm font-semibold text-neutral-950 tabular-nums sm:text-base">
+                {displayMoney(row.cccAdjustedComparableValue)}
+              </p>
+            </div>
+          </>
+        ) : null}
       </div>
 
       <dl className="mt-4 grid grid-cols-2 gap-4 text-sm">
@@ -1285,26 +1404,28 @@ function CccComparableCard({ row }: { row: CccComparableRow }) {
       <details className="group mt-4 border-t border-neutral-200 text-sm">
         <summary
           className="flex min-h-11 cursor-pointer list-none items-center gap-2 rounded-sm font-medium text-neutral-500 transition-colors hover:text-neutral-950 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950"
-          aria-label={`Adjustment breakdown for CCC comparable ${row.comparableNumber ?? row.index + 1}: ${cccVehicleName(row)}`}
+          aria-label={`Report details for comparable ${row.comparableNumber ?? row.index + 1}: ${cccVehicleName(row)}`}
         >
-          Adjustment breakdown
+          {showAdjustments ? "Adjustment breakdown" : "Report details"}
           <ChevronDown
             className="size-4 transition-transform group-open:rotate-180 motion-reduce:transition-none"
             aria-hidden="true"
           />
         </summary>
         <dl className="grid gap-3 rounded-lg bg-neutral-100 p-4 sm:grid-cols-2">
-          {adjustments.map(([label, adjustment]) => (
-            <div
-              key={label}
-              className="flex items-center justify-between gap-4"
-            >
-              <dt className="text-muted-foreground">{label}</dt>
-              <dd className="font-medium tabular-nums">
-                {displayMoney(adjustment)}
-              </dd>
-            </div>
-          ))}
+          {showAdjustments
+            ? adjustments.map(([label, adjustment]) => (
+                <div
+                  key={label}
+                  className="flex items-center justify-between gap-4"
+                >
+                  <dt className="text-muted-foreground">{label}</dt>
+                  <dd className="font-medium tabular-nums">
+                    {displayMoney(adjustment)}
+                  </dd>
+                </div>
+              ))
+            : null}
           <div className="flex items-center justify-between gap-4 sm:col-span-2 sm:border-t sm:pt-3">
             <dt className="text-muted-foreground">VIN</dt>
             <dd className="font-medium break-all">{row.vin ?? unavailable}</dd>
@@ -1316,22 +1437,51 @@ function CccComparableCard({ row }: { row: CccComparableRow }) {
 }
 
 function CccComparables({ analysis }: AnalysisResultsProps) {
+  if (analysis.analysisScope.inputMode !== "REPORT") {
+    return null;
+  }
+
+  const reportReview = analysis.reportReview;
+  const provider = reportProviderName(analysis);
+  const reportLabel = provider ? `${provider} report` : "insurer report";
+  if (!reportReview) {
+    return (
+      <section
+        className="mt-16 border-t border-neutral-200 pt-12 sm:mt-20 sm:pt-14"
+        aria-labelledby="report-heading"
+      >
+        <SectionHeading
+          id="report-heading"
+          eyebrow="Report context"
+          title="Report-specific details were unavailable"
+          description="A valuation report was provided, but its report-specific comparable vehicles and adjustments could not be extracted reliably. The market review uses the vehicle facts confirmed during intake instead."
+        />
+      </section>
+    );
+  }
+
   const { summary, rows } = analysis.cccComparables;
-  if (rows.length === 0) {
+  const comparablesAvailable =
+    analysis.analysisScope.reportComparablesAvailable &&
+    reportReview.comparablesAvailable;
+  const adjustmentsAvailable =
+    analysis.analysisScope.reportAdjustmentsAvailable &&
+    reportReview.adjustmentsAvailable;
+  if (!comparablesAvailable || rows.length === 0) {
     const reportedCount = summary.totalCount;
     return (
       <section
         className="mt-16 border-t border-neutral-200 pt-12 sm:mt-20 sm:pt-14"
-        aria-labelledby="ccc-heading"
+        aria-labelledby="report-heading"
       >
         <SectionHeading
-          id="ccc-heading"
-          eyebrow="CCC report context"
-          title="No CCC comparable details were available"
+          id="report-heading"
+          eyebrow={`${reportLabel} context`}
+          title="Report comparable details were unavailable"
           description={
-            reportedCount > 0
-              ? `The report indicates ${formatWholeNumber(reportedCount)} CCC comparable vehicles, but complete row-level details were not available to present in this review.`
-              : "No CCC comparable rows were available to show how individual vehicles and adjustments contributed to the reported valuation."
+            comparablesAvailable && reportedCount > 0
+              ? `The ${reportLabel} indicates ${formatWholeNumber(reportedCount)} comparable vehicles, but complete row-level details were not available to present in this review.`
+              : `The ${reportLabel} did not provide report-comparable details that Venfour could present reliably. This does not affect the separate external market search.`
           }
         />
       </section>
@@ -1341,36 +1491,48 @@ function CccComparables({ analysis }: AnalysisResultsProps) {
   return (
     <section
       className="mt-16 rounded-2xl border border-neutral-200 bg-neutral-100 p-5 sm:mt-20 sm:p-8 lg:p-10"
-      aria-labelledby="ccc-heading"
+      aria-labelledby="report-heading"
     >
       <SectionHeading
-        id="ccc-heading"
-        eyebrow="CCC report context"
-        title="What CCC used in its valuation"
-        description={`The CCC report includes ${formatWholeNumber(
+        id="report-heading"
+        eyebrow={`${reportLabel} context`}
+        title={`What the ${reportLabel} used in its valuation`}
+        description={`The ${reportLabel} includes ${formatWholeNumber(
           summary.totalCount,
-        )} comparable vehicles. The values below show the report’s advertised prices and disclosed adjustments without judging whether any individual adjustment was appropriate.`}
+        )} comparable vehicles. The values below show the report’s advertised prices${
+          adjustmentsAvailable
+            ? " and disclosed adjustments without judging whether any individual adjustment was appropriate"
+            : "; report adjustment details were not available for this review"
+        }.`}
       />
 
       <dl className="mt-7 grid gap-x-10 gap-y-5 sm:grid-cols-3">
         <Metric
-          label="CCC advertised comparable median"
+          label="Report advertised comparable median"
           value={displayMoney(summary.advertisedPrices.medianPrice)}
         />
-        <Metric
-          label="CCC adjusted comparable median"
-          value={displayMoney(summary.adjustedValues.medianPrice)}
-        />
-        <Metric
-          label="Median net adjustment"
-          value={displayMoney(summary.netAdjustments.median)}
-          detail={summary.adjustmentDirection?.label}
-        />
+        {adjustmentsAvailable ? (
+          <>
+            <Metric
+              label="Report adjusted comparable median"
+              value={displayMoney(summary.adjustedValues.medianPrice)}
+            />
+            <Metric
+              label="Median net adjustment"
+              value={displayMoney(summary.netAdjustments.median)}
+              detail={summary.adjustmentDirection?.label}
+            />
+          </>
+        ) : null}
       </dl>
 
       <ol className="mt-6 grid gap-3 xl:grid-cols-3">
         {rows.map((row) => (
-          <CccComparableCard key={row.index} row={row} />
+          <CccComparableCard
+            key={row.index}
+            row={row}
+            showAdjustments={adjustmentsAvailable}
+          />
         ))}
       </ol>
     </section>
@@ -1464,6 +1626,7 @@ interface NextStepContent {
 }
 
 function nextStepContent(analysis: AnalysisPresentation): NextStepContent {
+  const manual = analysis.analysisScope.inputMode === "MANUAL";
   switch (analysis.assessment.classification) {
     case "MATERIAL_UNDERVALUE_SIGNAL":
       return {
@@ -1481,10 +1644,12 @@ function nextStepContent(analysis: AnalysisPresentation): NextStepContent {
       };
     case "NO_MATERIAL_DISCREPANCY":
       return {
-        introduction:
-          "The available evidence does not show a material gap under this review, but you can still check the CCC report for factual errors or missing information.",
-        firstStep:
-          "Confirm that CCC recorded your vehicle, mileage, equipment, condition, and comparable vehicles accurately.",
+        introduction: manual
+          ? "The available evidence does not show a material gap under this review. The conclusion is limited to the facts you confirmed and the market evidence Venfour found."
+          : "The available evidence does not show a material gap under this review, but you can still check the insurer report for factual errors or missing information.",
+        firstStep: manual
+          ? "Recheck the vehicle, mileage, trim, equipment, condition, location, and loss-date facts used for the market search."
+          : "Confirm that the insurer report recorded your vehicle, mileage, equipment, condition, and comparable vehicles accurately.",
       };
     case "CONFLICTING_EVIDENCE":
       if (
@@ -1509,26 +1674,35 @@ function nextStepContent(analysis: AnalysisPresentation): NextStepContent {
       };
     case "INSUFFICIENT_EVIDENCE":
       return {
-        introduction:
-          "This review could not form a reliable external comparison. That does not establish that the CCC valuation is correct or incorrect.",
-        firstStep:
-          "Check the CCC report for accurate vehicle facts and retain any relevant market listings or documents you find independently.",
+        introduction: manual
+          ? "This review could not form a reliable external comparison. It does not establish a market value or whether a future insurer valuation would be accurate."
+          : "This review could not form a reliable external comparison. That does not establish that the insurer valuation is correct or incorrect.",
+        firstStep: manual
+          ? "Recheck the confirmed vehicle facts and retain any relevant market listings or documents you find independently."
+          : "Check the insurer report for accurate vehicle facts and retain any relevant market listings or documents you find independently.",
       };
   }
 }
 
 function NextSteps({ analysis }: AnalysisResultsProps) {
   const content = nextStepContent(analysis);
+  const manual = analysis.analysisScope.inputMode === "MANUAL";
   const steps = [
     {
       title: "Review the evidence",
       description: content.firstStep,
     },
-    {
-      title: "Compare it with the CCC report",
-      description:
-        "Look for differences in vehicle details, comparable selection, and disclosed adjustments. Keep the original report and any supporting records together.",
-    },
+    manual
+      ? {
+          title: "Confirm the inputs",
+          description:
+            "If a vehicle fact changes, run a new review with the corrected details. This analysis did not inspect an insurer report or report adjustments.",
+        }
+      : {
+          title: "Compare it with the insurer report",
+          description:
+            "Look for differences in vehicle details, comparable selection, and any disclosed adjustments. Keep the original report and supporting records together.",
+        },
     {
       title: "Decide what support you need",
       description:
@@ -1620,6 +1794,7 @@ export function AnalysisResults({ analysis }: AnalysisResultsProps) {
           </dl>
         </header>
 
+        <AnalysisScopeDisclosure analysis={analysis} />
         <PrimaryAssessment analysis={analysis} />
         <AssessmentReadingGuide analysis={analysis} />
         <WhyFlagged analysis={analysis} />

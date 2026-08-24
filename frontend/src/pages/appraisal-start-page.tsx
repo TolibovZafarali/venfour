@@ -125,21 +125,21 @@ export function AppraisalStartPage() {
       }
       eyebrow={
         totalLossSelected
-          ? "CCC total-loss review"
+          ? "Total Loss valuation"
           : diminishedValueIntakeAvailable
             ? "Manual diminished-value review"
             : "Diminished Value service"
       }
       title={
         totalLossSelected
-          ? "Start your CCC report review"
+          ? "Start your Total Loss review"
           : diminishedValueIntakeAvailable
             ? "Submit a diminished-value review request"
             : "Diminished Value is coming next"
       }
       description={
         totalLossSelected
-          ? "Automated review currently requires the original CCC valuation report PDF your insurer used. No-report review is not available in this tester release."
+          ? "Upload your insurer’s valuation report from any provider, or continue without one. Venfour will gather the facts needed for independent market research and a truthful evidence review."
           : diminishedValueIntakeAvailable
             ? "We’ll securely gather accident, repair, vehicle, and contact details for a future manual review. Submission does not create an automated appraisal or schedule an appointment."
             : "Diminished Value remains part of Venfour. Customer intake will open after the Total Loss experience is complete."

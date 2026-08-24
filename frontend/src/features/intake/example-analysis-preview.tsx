@@ -54,7 +54,7 @@ const exampleAnalysisByService: Record<
       },
     ],
     explanation:
-      "A supported CCC review compares the insurer’s valuation with relevant market evidence. Actual results depend on the report and available evidence.",
+      "A Total Loss review compares the insurer’s stated valuation with relevant market evidence when that value is available. Report-specific findings depend on the evidence supplied.",
   },
   "diminished-value": {
     vehicle: "2025 Hyundai Tucson SEL",

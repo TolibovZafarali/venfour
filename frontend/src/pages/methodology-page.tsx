@@ -5,9 +5,9 @@ import { PublicPage, PublicPageSection } from "@/pages/public-page";
 
 const methodologySteps = [
   {
-    title: "Read the original CCC report",
+    title: "Gather the available valuation facts",
     description:
-      "Venfour uses model-assisted document reading to identify facts in the uploaded original CCC valuation report PDF, including the loss vehicle, CCC value, listed comparables, and disclosed adjustments.",
+      "When a report is uploaded, Venfour uses provider detection, a known-format adapter when available, and a generic extraction fallback to identify supported facts. Without a report, the customer confirms the vehicle and claim facts directly.",
   },
   {
     title: "Structure and check the report facts",
@@ -35,9 +35,9 @@ const methodologySteps = [
       "If reliable loss-date evidence is not sufficient, current advertised listings can provide market context. Current inventory is identified clearly and is not presented as though it existed on the loss date.",
   },
   {
-    title: "Compare selected evidence with CCC",
+    title: "Compare the evidence with the available insurer value",
     description:
-      "Venfour compares the selected external advertised-price evidence with the CCC adjusted vehicle value and summarizes the observed range and central value.",
+      "When an insurer valuation or stated offer is available, Venfour compares it with selected external advertised-price evidence and summarizes the observed range and central value. Without one, the market evidence stands on its own.",
   },
   {
     title: "Classify the result conservatively",
@@ -50,16 +50,18 @@ export function MethodologyPage() {
   return (
     <PublicPage
       eyebrow="Methodology"
-      title="How the supported CCC total-loss review works"
+      title="How the Total Loss review works"
       introduction="Venfour separates document reading from the evidence rules that produce the total-loss assessment. The goal is a reproducible, understandable review—not an automated opinion about what an insurer legally owes."
     >
       <PublicPageSection title="Current scope">
         <p>
-          This methodology applies only to the automated total-loss path using
-          an original CCC valuation report PDF. Other report formats and
-          no-report total-loss review are not currently supported. The
-          diminished-value form submits information for future manual review
-          and does not use this automated methodology.
+          This methodology supports insurer valuation reports from different
+          providers and a no-report path. A report can add report-specific
+          comparable and adjustment evidence; without one, Venfour performs an
+          independent market review and compares it with a customer-entered
+          insurer value only when supplied. The diminished-value form submits
+          information for future manual review and does not use this automated
+          methodology.
         </p>
       </PublicPageSection>
 
@@ -102,13 +104,13 @@ export function MethodologyPage() {
 
       <PublicPageSection title="What the assessment is for">
         <p>
-          Venfour is designed to help a vehicle owner understand a CCC valuation
-          and discuss relevant evidence more knowledgeably. It does not
+          Venfour is designed to help a vehicle owner understand an insurer’s
+          valuation and discuss relevant evidence more knowledgeably. It does not
           guarantee a settlement change, determine legal rights, or replace
           advice from a qualified appraiser or attorney when one is needed.
         </p>
         <Button asChild className="mt-2" size="lg">
-          <Link to="/start?service=total-loss">Start a CCC report review</Link>
+          <Link to="/start?service=total-loss">Start a Total Loss review</Link>
         </Button>
       </PublicPageSection>
     </PublicPage>

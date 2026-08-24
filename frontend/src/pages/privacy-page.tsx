@@ -15,11 +15,11 @@ export function PrivacyPage() {
     >
       <PublicPageSection title="Information you provide">
         <p>
-          To begin the currently supported total-loss review, you provide a ZIP
-          code and an original CCC valuation report PDF. The report can include
-          a vehicle identification number, vehicle and mileage information,
-          claim or report references, loss and report dates, valuation amounts,
-          condition information, dealer information, comparable vehicles, and
+          For a total-loss review, you provide vehicle, mileage, location,
+          condition, options, insurer, and loss information. You may also upload
+          an insurer valuation report as a PDF or as ordered JPG/JPEG or PNG
+          scan pages. A report can include claim or report references, dates,
+          valuation amounts, dealer information, comparable vehicles, and
           adjustment details. Please review your document before uploading it.
         </p>
         <p>
@@ -32,15 +32,15 @@ export function PrivacyPage() {
           supporting PDF or image documents.
         </p>
         <p>
-          You may sign in with Google or a passwordless email link so Venfour
-          can restore your session and support saved case records. Before the
-          remaining Total Loss intake opens, Venfour asks you to confirm your
-          full name, acknowledge the current Terms of Use and Privacy Policy,
-          and record an optional operational-follow-up preference. Venfour then
-          creates or recovers a durable Total Loss draft for your account. A
-          saved case can be loaded only after Venfour verifies that the signed-in
-          account owns it; a case or results identifier by itself is not
-          authorization to view private information.
+          Venfour can create a hidden anonymous Supabase Auth session when you
+          begin Total Loss intake so a private draft and upload have an isolated
+          database owner without showing account setup first. Near the end,
+          Venfour asks for your full name and email, the current Terms and
+          Privacy acknowledgements, and a separate optional follow-up choice.
+          The entered email is not treated as verified until you use the secure
+          access link. After verification, the case is transferred to the
+          matching authenticated account. A case or results identifier by
+          itself is not authorization to view private information.
         </p>
       </PublicPageSection>
 
@@ -87,15 +87,17 @@ export function PrivacyPage() {
 
       <PublicPageSection title="Total-loss report and analysis handling">
         <p>
-          An original CCC report uploaded through the authenticated total-loss
-          intake is kept in private case-file storage. When you choose to start
-          the value check, Venfour verifies the signed-in case owner, retrieves
-          the report through a server-controlled path, validates the PDF, and
-          uses a temporary server copy while processing it.
+          A valuation report uploaded through the secure total-loss intake is
+          normalized to an internal PDF and kept in private case-file storage.
+          Venfour verifies the current case owner, retrieves the report through
+          a server-controlled path, validates the PDF, and uses a temporary
+          server copy while processing it.
         </p>
         <p>
-          The report is structured with help from a third-party model provider
-          and then validated by Venfour. A market-data provider is used to
+          Provider detection and a known-provider or generic extraction path
+          structure the report with help from a third-party model provider;
+          Venfour then validates the normalized result and asks the customer to
+          confirm or correct analysis-critical facts. A market-data provider is used to
           obtain market-listing and vehicle-history evidence before Venfour
           applies its deterministic analysis rules. The resulting validated
           analysis is linked to the appraisal case. The retired public web
@@ -123,8 +125,9 @@ export function PrivacyPage() {
       <PublicPageSection title="Analysis records">
         <p>
           Analysis-derived records can include the vehicle and ZIP code used
-          for the search, the CCC adjusted vehicle value and comparable
-          details, selected external listings, evidence dates, calculations,
+          for the search, an available insurer valuation or stated offer,
+          report comparable details when supplied, selected external listings,
+          evidence dates, calculations,
           findings, limitations, and technical information used to make the
           result reproducible.
         </p>
@@ -140,9 +143,11 @@ export function PrivacyPage() {
           Total-loss reports and diminished-value supporting documents remain
           in private case-file storage with their saved cases. Limited
           in-progress intake state may be kept in essential browser storage for
-          recovery, but the authoritative Total Loss case belongs to the
-          authenticated account and is created or recovered before report
-          selection or upload; document bytes are not stored in browser draft
+          recovery, but the authoritative Total Loss case belongs first to the
+          isolated anonymous or permanent authenticated identity and is created
+          or recovered before report selection or upload. A verified claim can
+          transfer case ownership without moving or exposing the private file;
+          document bytes are not stored in browser draft
           storage. During a total-loss value check, the server-generated temporary PDF
           copy is removed when processing ends, and removal of the uploaded
           model-provider copy is requested after extraction. The private

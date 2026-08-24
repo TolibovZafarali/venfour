@@ -1,14 +1,24 @@
-import { screen } from "@testing-library/react";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { MemoryRouter } from "react-router";
 import type { Session } from "@supabase/supabase-js";
 import { describe, expect, it, vi } from "vitest";
 
-import type { AuthService } from "@/features/auth";
+import {
+  AuthProvider,
+  SignInDialogProvider,
+  type AuthService,
+} from "@/features/auth";
 import type {
   CustomerProfile,
   CustomerProfileService,
 } from "@/features/customer-profile";
-import { renderTestApp } from "@/test/render";
+import {
+  CustomerProfileGate,
+  CustomerProfileServiceProvider,
+} from "@/features/customer-profile";
+import { createAppQueryClient } from "@/app/query-client";
 
 const USER_ID = "11111111-1111-4111-8111-111111111111";
 const NOW = "2026-08-23T12:00:00.000Z";
@@ -68,6 +78,25 @@ function customerProfile(
   };
 }
 
+function renderGate(session: Session, service: CustomerProfileService) {
+  const queryClient = createAppQueryClient({ retry: false });
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider service={authService(session)}>
+        <CustomerProfileServiceProvider service={service}>
+          <MemoryRouter>
+            <SignInDialogProvider>
+              <CustomerProfileGate returnTo="/start?service=total-loss">
+                <h2>Profile complete</h2>
+              </CustomerProfileGate>
+            </SignInDialogProvider>
+          </MemoryRouter>
+        </CustomerProfileServiceProvider>
+      </AuthProvider>
+    </QueryClientProvider>,
+  );
+}
+
 describe("customer profile gate", () => {
   it("shows verified Auth email read-only and persists a corrected suggestion with separate preferences", async () => {
     const user = userEvent.setup();
@@ -84,10 +113,7 @@ describe("customer profile gate", () => {
       confirmProfile,
     };
 
-    renderTestApp(["/start?service=total-loss"], {
-      authService: authService(sessionFor()),
-      customerProfileService: service,
-    });
+    renderGate(sessionFor(), service);
 
     const fullName = await screen.findByLabelText("Full name");
     expect(fullName).toHaveValue("OAuth Suggested Name");
@@ -110,9 +136,7 @@ describe("customer profile gate", () => {
     });
     expect(confirmProfile.mock.calls[0]?.[0]).not.toHaveProperty("email");
     expect(
-      await screen.findByRole("heading", {
-        name: "We couldn’t prepare your Total Loss draft",
-      }),
+      await screen.findByRole("heading", { name: "Profile complete" }),
     ).toBeVisible();
   });
 
@@ -122,17 +146,13 @@ describe("customer profile gate", () => {
       confirmProfile: vi.fn(async () => customerProfile()),
     };
 
-    renderTestApp(["/start?service=total-loss"], {
-      authService: authService(
-        sessionFor({ suggestedName: "Different OAuth Name" }),
-      ),
-      customerProfileService: service,
-    });
+    renderGate(
+      sessionFor({ suggestedName: "Different OAuth Name" }),
+      service,
+    );
 
     expect(
-      await screen.findByRole("heading", {
-        name: "We couldn’t prepare your Total Loss draft",
-      }),
+      await screen.findByRole("heading", { name: "Profile complete" }),
     ).toBeVisible();
     expect(screen.queryByLabelText("Full name")).not.toBeInTheDocument();
     expect(screen.queryByText("Different OAuth Name")).not.toBeInTheDocument();
@@ -154,10 +174,7 @@ describe("customer profile gate", () => {
       confirmProfile,
     };
 
-    renderTestApp(["/start?service=total-loss"], {
-      authService: authService(sessionFor()),
-      customerProfileService: service,
-    });
+    renderGate(sessionFor(), service);
 
     expect(
       await screen.findByRole("checkbox", {
@@ -184,10 +201,7 @@ describe("customer profile gate", () => {
     };
     const user = userEvent.setup();
 
-    renderTestApp(["/start?service=total-loss"], {
-      authService: authService(sessionFor({ confirmedEmail: false })),
-      customerProfileService: service,
-    });
+    renderGate(sessionFor({ confirmedEmail: false }), service);
 
     expect(await screen.findByLabelText("Verified email")).toHaveValue(
       "Email unavailable",

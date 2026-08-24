@@ -2,7 +2,11 @@ import { AlertCircle, Cloud, RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
 
-import { useAuth, useSignInDialog } from "@/features/auth";
+import {
+  isPermanentAuthState,
+  useAuth,
+  useSignInDialog,
+} from "@/features/auth";
 import type { AppraisalCase } from "@/features/cases/types";
 import {
   FlowCard,
@@ -90,7 +94,7 @@ export function DiminishedValueStartFlow({
     null,
   );
 
-  const userId = auth.status === "signedIn" ? auth.user.id : null;
+  const userId = isPermanentAuthState(auth) ? auth.user.id : null;
   const userIdRef = useRef(userId);
   userIdRef.current = userId;
   const identityRef = useRef({ generation: 0, userId });

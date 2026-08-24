@@ -11,16 +11,19 @@ const UUID_PATTERN =
 
 export interface UploadTotalLossReportInput {
   readonly userId: string;
+  readonly storageOwnerUserId?: string;
   readonly caseId: string;
   readonly uploadId: string;
   readonly file: File;
   readonly replaceExisting: boolean;
 }
 
-export type TotalLossReportStorageScope = Pick<
-  UploadTotalLossReportInput,
-  "userId" | "caseId" | "uploadId"
->;
+export interface TotalLossReportStorageScope {
+  readonly userId: string;
+  readonly storageOwnerUserId?: string;
+  readonly caseId: string;
+  readonly uploadId: string;
+}
 
 export interface StoreTotalLossReportBackupInput
   extends TotalLossReportStorageScope {
@@ -125,6 +128,7 @@ export function createTotalLossReportStorageService(
   return {
     async uploadReport({
       userId,
+      storageOwnerUserId,
       caseId,
       uploadId,
       file,
@@ -135,7 +139,10 @@ export function createTotalLossReportStorageService(
         throw new TotalLossReportValidationError(validation.error);
       }
 
-      const path = getTotalLossReportObjectPath(userId, caseId);
+      const path = getTotalLossReportObjectPath(
+        storageOwnerUserId ?? userId,
+        caseId,
+      );
       await writePdfBlob(
         path,
         file,
@@ -150,9 +157,12 @@ export function createTotalLossReportStorageService(
       };
     },
 
-    async downloadReport({ userId, caseId, uploadId }) {
+    async downloadReport({ userId, storageOwnerUserId, caseId, uploadId }) {
       assertUuid(uploadId, "Upload ID");
-      const path = getTotalLossReportObjectPath(userId, caseId);
+      const path = getTotalLossReportObjectPath(
+        storageOwnerUserId ?? userId,
+        caseId,
+      );
       const { data, error } = await bucket.download(path, {
         cacheNonce: uploadId,
       });
@@ -165,9 +175,17 @@ export function createTotalLossReportStorageService(
       return data;
     },
 
-    async downloadReportBackup({ userId, caseId, uploadId }) {
+    async downloadReportBackup({
+      userId,
+      storageOwnerUserId,
+      caseId,
+      uploadId,
+    }) {
       assertUuid(uploadId, "Upload ID");
-      const path = getTotalLossReportBackupObjectPath(userId, caseId);
+      const path = getTotalLossReportBackupObjectPath(
+        storageOwnerUserId ?? userId,
+        caseId,
+      );
       const { data, error } = await bucket.download(path, {
         cacheNonce: uploadId,
       });
@@ -182,13 +200,17 @@ export function createTotalLossReportStorageService(
 
     async storeReportBackup({
       userId,
+      storageOwnerUserId,
       caseId,
       uploadId,
       backup,
       replaceExisting,
     }) {
       await writePdfBlob(
-        getTotalLossReportBackupObjectPath(userId, caseId),
+        getTotalLossReportBackupObjectPath(
+          storageOwnerUserId ?? userId,
+          caseId,
+        ),
         backup,
         uploadId,
         replaceExisting,
@@ -196,8 +218,17 @@ export function createTotalLossReportStorageService(
       );
     },
 
-    async restoreReport({ userId, caseId, uploadId, backup }) {
-      const path = getTotalLossReportObjectPath(userId, caseId);
+    async restoreReport({
+      userId,
+      storageOwnerUserId,
+      caseId,
+      uploadId,
+      backup,
+    }) {
+      const path = getTotalLossReportObjectPath(
+        storageOwnerUserId ?? userId,
+        caseId,
+      );
       await writePdfBlob(
         path,
         backup,
@@ -207,9 +238,17 @@ export function createTotalLossReportStorageService(
       );
     },
 
-    async deleteReportBackup({ userId, caseId, uploadId }) {
+    async deleteReportBackup({
+      userId,
+      storageOwnerUserId,
+      caseId,
+      uploadId,
+    }) {
       assertUuid(uploadId, "Upload ID");
-      const path = getTotalLossReportBackupObjectPath(userId, caseId);
+      const path = getTotalLossReportBackupObjectPath(
+        storageOwnerUserId ?? userId,
+        caseId,
+      );
       const { data, error } = await bucket.remove([path]);
       if (error) throw error;
       if (!data?.some((object) => object.name === path)) {

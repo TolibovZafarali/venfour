@@ -1,4 +1,5 @@
 import {
+  createEmptyTotalLossContactForm,
   createEmptyTotalLossManualForm,
   TOTAL_LOSS_DRAFT_VERSION,
   TOTAL_LOSS_INTAKE_MODES,
@@ -49,6 +50,13 @@ const DRAFT_KEYS = [
   "mode",
   "step",
   "manual",
+  "contact",
+  "reportProvider",
+  "reportExtractionStatus",
+  "reportExtractionWarnings",
+  "identityClaimId",
+  "identityClaimExpiresAt",
+  "accessLinkSentAt",
   "confirmedCaseId",
   "reservedCaseId",
   "ownerUserId",
@@ -70,6 +78,51 @@ const MANUAL_FORM_KEYS = [
   "dateOfLoss",
   "insurerName",
   "insurerVehicleValuation",
+  "vehicleCondition",
+  "optionsPackages",
+] as const;
+
+const CONTACT_FORM_KEYS = [
+  "fullName",
+  "email",
+  "termsAccepted",
+  "privacyAccepted",
+  "operationalFollowUpAllowed",
+] as const;
+
+const LEGACY_DRAFT_KEYS = [
+  "version",
+  "mode",
+  "step",
+  "manual",
+  "confirmedCaseId",
+  "reservedCaseId",
+  "ownerUserId",
+  "pendingAuthAction",
+  "dirty",
+  "revision",
+  "dismissedResumeCaseId",
+  "lastUpdatedAt",
+] as const;
+
+const LEGACY_MANUAL_FORM_KEYS = [
+  "vin",
+  "vehicleYear",
+  "make",
+  "model",
+  "trim",
+  "mileageAtLoss",
+  "zipCode",
+  "dateOfLoss",
+  "insurerName",
+  "insurerVehicleValuation",
+] as const;
+
+const REPORT_EXTRACTION_STATUSES = [
+  "idle",
+  "processing",
+  "complete",
+  "partial",
 ] as const;
 
 const UUID_PATTERN =
@@ -83,6 +136,13 @@ export function createEmptyTotalLossDraft(
     mode: null,
     step: "choice",
     manual: createEmptyTotalLossManualForm(),
+    contact: createEmptyTotalLossContactForm(),
+    reportProvider: null,
+    reportExtractionStatus: "idle",
+    reportExtractionWarnings: [],
+    identityClaimId: null,
+    identityClaimExpiresAt: null,
+    accessLinkSentAt: null,
     confirmedCaseId: null,
     reservedCaseId: null,
     ownerUserId: null,
@@ -210,15 +270,28 @@ function corruptResult(
 
 function toTotalLossDraft(value: unknown): TotalLossDraft | null {
   try {
-    if (!isRecord(value) || !hasExactKeys(value, DRAFT_KEYS)) {
+    if (!isRecord(value)) {
       return null;
     }
+
+    if (value.version === 1) {
+      return migrateLegacyDraft(value);
+    }
+
+    if (!hasExactKeys(value, DRAFT_KEYS)) return null;
 
     if (
       value.version !== TOTAL_LOSS_DRAFT_VERSION ||
       !isNullableMember(value.mode, TOTAL_LOSS_INTAKE_MODES) ||
       !isMember(value.step, TOTAL_LOSS_INTAKE_STEPS) ||
       !isManualFormValues(value.manual) ||
+      !isContactFormValues(value.contact) ||
+      !isNullableBoundedString(value.reportProvider, 120) ||
+      !isMember(value.reportExtractionStatus, REPORT_EXTRACTION_STATUSES) ||
+      !isBoundedStringArray(value.reportExtractionWarnings, 20, 500) ||
+      !isNullableUuid(value.identityClaimId) ||
+      !isNullableIsoTimestamp(value.identityClaimExpiresAt) ||
+      !isNullableIsoTimestamp(value.accessLinkSentAt) ||
       !isNullableUuid(value.confirmedCaseId) ||
       !isNullableUuid(value.reservedCaseId) ||
       !isNullableUuid(value.ownerUserId) ||
@@ -241,6 +314,13 @@ function toTotalLossDraft(value: unknown): TotalLossDraft | null {
       mode: value.mode,
       step: value.step,
       manual: copyManualForm(value.manual),
+      contact: { ...value.contact },
+      reportProvider: value.reportProvider,
+      reportExtractionStatus: value.reportExtractionStatus,
+      reportExtractionWarnings: [...value.reportExtractionWarnings],
+      identityClaimId: value.identityClaimId,
+      identityClaimExpiresAt: value.identityClaimExpiresAt,
+      accessLinkSentAt: value.accessLinkSentAt,
       confirmedCaseId: value.confirmedCaseId,
       reservedCaseId: value.reservedCaseId,
       ownerUserId: value.ownerUserId,
@@ -263,6 +343,20 @@ function isManualFormValues(value: unknown): value is TotalLossManualFormValues 
   );
 }
 
+function isContactFormValues(
+  value: unknown,
+): value is TotalLossDraft["contact"] {
+  return (
+    isRecord(value) &&
+    hasExactKeys(value, CONTACT_FORM_KEYS) &&
+    typeof value.fullName === "string" &&
+    typeof value.email === "string" &&
+    typeof value.termsAccepted === "boolean" &&
+    typeof value.privacyAccepted === "boolean" &&
+    typeof value.operationalFollowUpAllowed === "boolean"
+  );
+}
+
 function copyManualForm(
   value: TotalLossManualFormValues,
 ): TotalLossManualFormValues {
@@ -277,7 +371,67 @@ function copyManualForm(
     dateOfLoss: value.dateOfLoss,
     insurerName: value.insurerName,
     insurerVehicleValuation: value.insurerVehicleValuation,
+    vehicleCondition: value.vehicleCondition,
+    optionsPackages: value.optionsPackages,
   };
+}
+
+function migrateLegacyDraft(value: Record<string, unknown>): TotalLossDraft | null {
+  if (
+    !hasExactKeys(value, LEGACY_DRAFT_KEYS) ||
+    !isNullableMember(value.mode, TOTAL_LOSS_INTAKE_MODES) ||
+    !isLegacyStep(value.step) ||
+    !isLegacyManualFormValues(value.manual) ||
+    !isNullableUuid(value.confirmedCaseId) ||
+    !isNullableUuid(value.reservedCaseId) ||
+    !isNullableUuid(value.ownerUserId) ||
+    !isNullableMember(value.pendingAuthAction, TOTAL_LOSS_PENDING_AUTH_ACTIONS) ||
+    typeof value.dirty !== "boolean" ||
+    typeof value.revision !== "number" ||
+    !Number.isSafeInteger(value.revision) ||
+    value.revision < 0 ||
+    !isNullableUuid(value.dismissedResumeCaseId) ||
+    !isCanonicalIsoTimestamp(value.lastUpdatedAt)
+  ) {
+    return null;
+  }
+
+  return {
+    ...createEmptyTotalLossDraft(new Date(value.lastUpdatedAt)),
+    mode: value.mode,
+    step: value.step === "ready" ? "review" : value.step,
+    manual: {
+      ...createEmptyTotalLossManualForm(),
+      ...value.manual,
+    },
+    confirmedCaseId: value.confirmedCaseId,
+    reservedCaseId: value.reservedCaseId,
+    ownerUserId: value.ownerUserId,
+    pendingAuthAction: null,
+    dirty: value.dirty,
+    revision: value.revision,
+    dismissedResumeCaseId: value.dismissedResumeCaseId,
+  };
+}
+
+function isLegacyManualFormValues(
+  value: unknown,
+): value is Record<(typeof LEGACY_MANUAL_FORM_KEYS)[number], string> {
+  return (
+    isRecord(value) &&
+    hasExactKeys(value, LEGACY_MANUAL_FORM_KEYS) &&
+    LEGACY_MANUAL_FORM_KEYS.every((key) => typeof value[key] === "string")
+  );
+}
+
+function isLegacyStep(value: unknown): value is "choice" | "vehicle" | "claim" | "report" | "ready" {
+  return (
+    value === "choice" ||
+    value === "vehicle" ||
+    value === "claim" ||
+    value === "report" ||
+    value === "ready"
+  );
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -311,6 +465,34 @@ function isNullableMember<const T extends readonly string[]>(
 
 function isNullableUuid(value: unknown): value is string | null {
   return value === null || (typeof value === "string" && UUID_PATTERN.test(value));
+}
+
+function isNullableBoundedString(
+  value: unknown,
+  maximumLength: number,
+): value is string | null {
+  return (
+    value === null ||
+    (typeof value === "string" && value.length <= maximumLength)
+  );
+}
+
+function isBoundedStringArray(
+  value: unknown,
+  maximumItems: number,
+  maximumItemLength: number,
+): value is string[] {
+  return (
+    Array.isArray(value) &&
+    value.length <= maximumItems &&
+    value.every(
+      (item) => typeof item === "string" && item.length <= maximumItemLength,
+    )
+  );
+}
+
+function isNullableIsoTimestamp(value: unknown): value is string | null {
+  return value === null || isCanonicalIsoTimestamp(value);
 }
 
 function isCanonicalIsoTimestamp(value: unknown): value is string {

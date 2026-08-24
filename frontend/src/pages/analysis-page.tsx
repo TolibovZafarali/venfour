@@ -50,7 +50,7 @@ const analysisMetadata: Record<
   success: {
     title: "Vehicle Valuation Analysis | Venfour",
     description:
-      "Review the CCC valuation, selected market evidence, findings, and limitations for this vehicle analysis.",
+      "Review the insurer valuation or stated offer, selected market evidence, findings, and limitations for this vehicle analysis.",
   },
   invalid: {
     title: "Invalid Analysis Link | Venfour",

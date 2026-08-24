@@ -20,11 +20,13 @@ export function TermsPage() {
           described on this page.
         </p>
         <p>
-          The automated total-loss service currently accepts an original CCC
-          valuation report PDF. It organizes information from the report,
+          The automated total-loss service accepts supported insurer valuation
+          reports from different providers or customer-confirmed vehicle and
+          claim details without a report. It organizes available report facts,
           reviews relevant market evidence, and explains how that evidence
-          compares with the CCC adjusted vehicle value. Other report formats
-          and no-report total-loss review are not currently supported.
+          compares with an insurer valuation or stated offer when one is
+          available. A no-report result does not claim to review report-specific
+          comparables or adjustments.
         </p>
         <p>
           Diminished Value remains part of Venfour, but new customer intake is
@@ -87,7 +89,7 @@ export function TermsPage() {
         <p>
           The service may change as supported report formats, evidence sources,
           and product capabilities develop. Venfour does not promise
-          uninterrupted access, that every CCC report can be analyzed, when
+          uninterrupted access, that every valuation report can be analyzed, when
           diminished-value intake will reopen, or that every previously
           submitted diminished-value request will proceed to a completed
           appraisal.

@@ -54,6 +54,10 @@ describe("admin case-operations pages", () => {
       analysisRetryable: null,
       analysisFailureCode: null,
       analysisProcessingExpiresAt: null,
+      contactFullName: null,
+      contactEmail: null,
+      contactEmailVerified: false,
+      identityClaimedAt: null,
     });
     const dependencies = createAdminDependencies({
       cases: [totalLoss, diminishedValue],
@@ -101,14 +105,14 @@ describe("admin case-operations pages", () => {
       "Customer",
       "Case",
       "Total-loss intake",
-      "CCC report",
+      "Valuation report",
       "Analysis activity",
       "Completed run summary",
     ]) {
       expect(screen.getByRole("heading", { name: heading })).toBeVisible();
     }
     expect(screen.getAllByText("Ada Lovelace").length).toBeGreaterThan(0);
-    expect(screen.getByText("ada@example.com")).toBeVisible();
+    expect(screen.getAllByText("ada@example.com").length).toBeGreaterThan(0);
     expect(screen.getByText("valuation.pdf")).toBeVisible();
     expect(screen.getByText("Provider Timeout")).toBeVisible();
     expect(screen.getByText("Material Undervalue Signal")).toBeVisible();
@@ -261,6 +265,11 @@ function listItem(
     ownerUserId: OWNER_USER_ID,
     customerFullName: "Ada Lovelace",
     verifiedEmail: "ada@example.com",
+    ownerIsAnonymous: false,
+    contactFullName: "Ada Lovelace",
+    contactEmail: "ada@example.com",
+    contactEmailVerified: true,
+    identityClaimedAt: "2026-08-20T14:05:00.000Z",
     serviceType: "total_loss",
     caseStatus: "draft",
     caseStage: "analysis_failed",
@@ -294,10 +303,21 @@ function totalLossCase(): StaffTotalLossCaseOperation {
     dateOfLoss: "2026-07-04",
     insurerName: "Example Mutual",
     insurerVehicleValuation: 21450.5,
+    vehicleCondition: "Good",
+    vehicleOptionsPackages: "Technology package",
+    reportProviderName: "Example valuation provider",
+    reportExtractionStatus: "confirmed",
+    reportExtractionConfidence: 0.91,
+    reportExtractedAt: "2026-08-20T13:55:00.000Z",
+    reportFactsConfirmedAt: "2026-08-20T14:00:00.000Z",
+    analysisInputRevision: 4,
+    analysisInputId: "77777777-7777-4777-8777-777777777777",
     intakeCompletedAt: "2026-08-20T14:00:00.000Z",
     detailsCreatedAt: "2026-08-20T13:10:00.000Z",
     detailsUpdatedAt: "2026-08-20T14:30:00.000Z",
     reportOriginalFilename: "valuation.pdf",
+    reportStorageOwnerId: OWNER_USER_ID,
+    reportStorageObjectPath: `${OWNER_USER_ID}/${CASE_ID}/valuation-report.pdf`,
     analysisJobId: JOB_ID,
     analysisJobCreatedAt: "2026-08-20T14:31:00.000Z",
     analysisJobUpdatedAt: "2026-08-20T14:35:00.000Z",

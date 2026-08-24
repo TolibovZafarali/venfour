@@ -75,7 +75,7 @@ function currentMarketAnalysis(): AnalysisPresentation {
     evidenceBasis: "CURRENT_MARKET",
     evidenceBasisLabel: "Current market evidence",
     summary:
-      "The available current-market evidence does not show a material discrepancy from the CCC value.",
+      "The available current-market evidence does not show a material discrepancy from the insurer value.",
   };
   analysis.primaryExternalEvidence = {
     ...currentEvidence,
@@ -101,6 +101,13 @@ function currentMarketAnalysis(): AnalysisPresentation {
     cccPositionInExternalRange: "WITHIN_OBSERVED_RANGE",
     cccPositionLabel: "Within the observed external range",
   };
+  analysis.insurerValuation.comparisonToPrimaryEvidence = {
+    evidenceBasis: "CURRENT_MARKET",
+    marketMedian: currentEvidence.prices.medianPrice,
+    insurerValue: analysis.insurerValuation.value,
+    difference: { cents: 0, display: "$0.00" },
+    differencePercent: { basisPoints: 0, display: "0.00%" },
+  };
   analysis.findings = [
     {
       code: "CURRENT_PRIMARY_EVIDENCE",
@@ -116,27 +123,27 @@ function currentMarketAnalysis(): AnalysisPresentation {
     },
     {
       code: "EXTERNAL_MEDIAN_EQUALS_CCC",
-      label: "External median equals CCC",
+      label: "External median equals insurer value",
       description:
-        "The selected external advertised-price median equals the CCC adjusted vehicle value.",
+        "The selected external advertised-price median equals the insurer vehicle value.",
     },
     {
       code: "CCC_AND_EXTERNAL_EVIDENCE_CONSISTENT",
-      label: "CCC and external evidence are consistent",
+      label: "Insurer and external evidence are consistent",
       description:
-        "The selected current evidence is consistent with the CCC adjusted vehicle value.",
+        "The selected current evidence is consistent with the insurer vehicle value.",
     },
   ];
 
   return analysis as AnalysisPresentation;
 }
 
-function belowCccAnalysis(): AnalysisPresentation {
+function belowInsurerAnalysis(): AnalysisPresentation {
   const analysis: AnalysisPresentationBase = structuredClone(
     materialUndervalueAnalysis,
   );
   const primary = analysis.primaryExternalEvidence;
-  const comparison = analysis.cccValuation.comparisonToPrimaryEvidence;
+  const comparison = analysis.insurerValuation.comparisonToPrimaryEvidence;
   if (!primary || !comparison) {
     throw new Error("Representative fixture requires primary evidence.");
   }
@@ -146,35 +153,33 @@ function belowCccAnalysis(): AnalysisPresentation {
     classification: "NO_MATERIAL_DISCREPANCY",
     classificationLabel: "No material discrepancy",
     summary:
-      "The selected external evidence is below the CCC adjusted vehicle value.",
+      "The selected external evidence is below the insurer vehicle value.",
   };
   primary.prices.minimumPrice = { cents: 1_800_000, display: "$18,000.00" };
   primary.prices.maximumPrice = { cents: 1_950_000, display: "$19,500.00" };
   primary.prices.medianPrice = { cents: 1_880_000, display: "$18,800.00" };
-  comparison.firstValue = primary.prices.medianPrice;
+  comparison.marketMedian = primary.prices.medianPrice;
   comparison.difference = { cents: -120_000, display: "-$1,200.00" };
   comparison.differencePercent = { basisPoints: -600, display: "-6.00%" };
-  comparison.cccPositionInExternalRange = "ABOVE_OBSERVED_RANGE";
-  comparison.cccPositionLabel = "Above the observed external range";
   analysis.findings = [
     {
       code: "EXTERNAL_MEDIAN_BELOW_CCC",
-      label: "External median is below CCC",
+      label: "External median is below insurer value",
       description:
-        "The selected external advertised-price median is below the CCC adjusted vehicle value.",
+        "The selected external advertised-price median is below the insurer vehicle value.",
     },
     {
       code: "CCC_ABOVE_EXTERNAL_RANGE",
-      label: "CCC value is above the external range",
+      label: "Insurer value is above the external range",
       description:
-        "The CCC adjusted vehicle value is above the selected external advertised-price range.",
+        "The insurer vehicle value is above the selected external advertised-price range.",
     },
   ];
 
   return analysis as AnalysisPresentation;
 }
 
-function cccAdjustmentIncreaseAnalysis(): AnalysisPresentation {
+function reportAdjustmentIncreaseAnalysis(): AnalysisPresentation {
   const analysis: AnalysisPresentationBase = structuredClone(
     materialUndervalueAnalysis,
   );
@@ -183,7 +188,7 @@ function cccAdjustmentIncreaseAnalysis(): AnalysisPresentation {
       .cccAdvertisedMedianVsAdjustedMedian;
   if (!comparison) {
     throw new Error(
-      "Representative fixture requires a CCC adjustment comparison.",
+      "Representative fixture requires a report adjustment comparison.",
     );
   }
 
@@ -192,17 +197,17 @@ function cccAdjustmentIncreaseAnalysis(): AnalysisPresentation {
   comparison.differencePercent = { basisPoints: -99, display: "-0.99%" };
   analysis.cccComparables.summary.adjustmentDirection = {
     code: "CCC_ADJUSTMENTS_INCREASE_COMPARABLE_VALUES",
-    label: "CCC adjustments increase the paired median",
+    label: "Report adjustments increase the paired median",
     description:
-      "For paired CCC rows, the adjusted-value median is above the advertised-price median; this describes direction only.",
+      "For paired report rows, the adjusted-value median is above the advertised-price median; this describes direction only.",
   };
   analysis.findings = analysis.findings.map((finding) =>
     finding.code === "CCC_ADJUSTMENTS_REDUCE_COMPARABLE_VALUES"
       ? {
           code: "CCC_ADJUSTMENTS_INCREASE_COMPARABLE_VALUES",
-          label: "CCC adjustments increase the paired median",
+          label: "Report adjustments increase the paired median",
           description:
-            "For paired CCC rows, the adjusted-value median is above the advertised-price median; this describes direction only.",
+            "For paired report rows, the adjusted-value median is above the advertised-price median; this describes direction only.",
         }
       : finding,
   );
@@ -273,12 +278,13 @@ function insufficientEvidenceAnalysis(): AnalysisPresentation {
     evidenceBasis: "NONE",
     evidenceBasisLabel: "No primary external evidence",
     summary:
-      "There were not enough reliable external comparables to assess the CCC valuation.",
+      "There were not enough reliable external comparables to assess the insurer valuation.",
   };
   analysis.primaryExternalEvidence = null;
   analysis.secondaryExternalEvidence = null;
   analysis.comparablesUsed = { primary: [], secondary: [] };
   analysis.cccValuation.comparisonToPrimaryEvidence = null;
+  analysis.insurerValuation.comparisonToPrimaryEvidence = null;
   analysis.findings = [
     {
       code: "INSUFFICIENT_RESOLVED_EXTERNAL_EVIDENCE",
@@ -318,11 +324,11 @@ function historicalWithoutCurrentContextAnalysis(): AnalysisPresentation {
   return analysis as AnalysisPresentation;
 }
 
-function nonpositiveCccAnalysis(): AnalysisPresentation {
+function nonpositiveInsurerAnalysis(): AnalysisPresentation {
   const analysis: AnalysisPresentationBase = structuredClone(
     materialUndervalueAnalysis,
   );
-  const comparison = analysis.cccValuation.comparisonToPrimaryEvidence;
+  const comparison = analysis.insurerValuation.comparisonToPrimaryEvidence;
   if (!comparison) {
     throw new Error("Representative fixture requires a primary comparison.");
   }
@@ -332,30 +338,153 @@ function nonpositiveCccAnalysis(): AnalysisPresentation {
     classification: "INSUFFICIENT_EVIDENCE",
     classificationLabel: "Insufficient evidence",
     summary:
-      "The CCC vehicle value is not positive, so a meaningful percentage comparison cannot be calculated.",
+      "The insurer vehicle value is not positive, so a meaningful percentage comparison cannot be calculated.",
   };
   analysis.cccValuation.adjustedVehicleValue = { cents: 0, display: "$0.00" };
-  comparison.secondValue = { cents: 0, display: "$0.00" };
+  analysis.insurerValuation.value = { cents: 0, display: "$0.00" };
+  comparison.insurerValue = { cents: 0, display: "$0.00" };
   comparison.difference = { cents: 2_220_000, display: "$22,200.00" };
   comparison.differencePercent = { basisPoints: null, display: null };
   analysis.findings = [
     {
       code: "NONPOSITIVE_CCC_VEHICLE_VALUATION",
-      label: "CCC vehicle value is not positive",
+      label: "Insurer vehicle value is not positive",
       description:
-        "A positive CCC vehicle value is required for a meaningful percentage comparison.",
+        "A positive insurer vehicle value is required for a meaningful percentage comparison.",
     },
   ];
 
   return analysis as AnalysisPresentation;
 }
 
-function analysisWithoutCccRows(): AnalysisPresentation {
+function analysisWithoutReportRows(): AnalysisPresentation {
   const analysis: AnalysisPresentationBase = structuredClone(
     materialUndervalueAnalysis,
   );
   analysis.cccComparables.rows = [];
   analysis.cccComparables.summary.totalCount = 0;
+
+  return analysis as AnalysisPresentation;
+}
+
+function manualAnalysis({
+  insurerValue = true,
+}: {
+  insurerValue?: boolean;
+} = {}): AnalysisPresentation {
+  const analysis: AnalysisPresentationBase = structuredClone(
+    materialUndervalueAnalysis,
+  );
+  analysis.analysisScope = {
+    ...analysis.analysisScope,
+    inputMode: "MANUAL",
+    insurerValuationAvailable: insurerValue,
+    insurerValuationComparisonPerformed: insurerValue,
+    offerComparisonPerformed: insurerValue,
+    reportAvailable: false,
+    reportExtractionAvailable: false,
+    reportReviewPerformed: false,
+    reportProvider: null,
+    reportAdapter: null,
+    partialExtraction: false,
+    reportComparablesAvailable: false,
+    reportAdjustmentsAvailable: false,
+    conditionInformationCollected: true,
+    optionsInformationCollected: true,
+  };
+  analysis.reportReview = null;
+
+  if (insurerValue) {
+    analysis.insurerValuation = {
+      ...analysis.insurerValuation,
+      source: "CUSTOMER_ENTERED",
+      valueLabel: "Insurer value you entered",
+    };
+  } else {
+    analysis.insurerValuation = {
+      source: "NONE",
+      valueLabel: "Insurer value not provided",
+      value: { cents: null, display: null },
+      explanation:
+        "No insurer valuation or stated offer was available for comparison.",
+      comparisonToPrimaryEvidence: null,
+    };
+    analysis.cccValuation.comparisonToPrimaryEvidence = null;
+    analysis.assessment = {
+      ...analysis.assessment,
+      classification: "INSUFFICIENT_EVIDENCE",
+      classificationLabel: "Insufficient evidence for direct comparison",
+      summary:
+        "Market evidence is available, but no insurer value was provided for a direct valuation comparison.",
+    };
+    analysis.findings = [];
+  }
+
+  return analysis as AnalysisPresentation;
+}
+
+function unextractedReportAnalysis(): AnalysisPresentation {
+  const analysis: AnalysisPresentationBase = structuredClone(
+    materialUndervalueAnalysis,
+  );
+  analysis.analysisScope = {
+    ...analysis.analysisScope,
+    inputMode: "REPORT",
+    reportAvailable: true,
+    reportExtractionAvailable: false,
+    reportReviewPerformed: false,
+    reportProvider: null,
+    reportAdapter: null,
+    partialExtraction: false,
+    reportComparablesAvailable: false,
+    reportAdjustmentsAvailable: false,
+    offerComparisonPerformed: true,
+  };
+  analysis.insurerValuation = {
+    ...analysis.insurerValuation,
+    source: "CUSTOMER_ENTERED",
+    valueLabel: "Insurer value you entered",
+  };
+  analysis.reportReview = null;
+
+  return analysis as AnalysisPresentation;
+}
+
+function partialGenericReportAnalysis(): AnalysisPresentation {
+  const analysis: AnalysisPresentationBase = structuredClone(
+    materialUndervalueAnalysis,
+  );
+  analysis.analysisScope = {
+    ...analysis.analysisScope,
+    reportProvider: "Mitchell",
+    reportAdapter: "GENERIC",
+    partialExtraction: true,
+    reportComparablesAvailable: false,
+    reportAdjustmentsAvailable: false,
+  };
+  analysis.reportReview = {
+    provider: "Mitchell",
+    adapter: "GENERIC",
+    partial: true,
+    comparablesAvailable: false,
+    adjustmentsAvailable: false,
+  };
+
+  return analysis as AnalysisPresentation;
+}
+
+function reportWithoutAdjustmentsAnalysis(): AnalysisPresentation {
+  const analysis: AnalysisPresentationBase = structuredClone(
+    materialUndervalueAnalysis,
+  );
+  analysis.analysisScope = {
+    ...analysis.analysisScope,
+    reportAdjustmentsAvailable: false,
+  };
+  analysis.reportReview = {
+    ...analysis.reportReview!,
+    adjustmentsAvailable: false,
+  };
 
   return analysis as AnalysisPresentation;
 }
@@ -417,7 +546,7 @@ describe("analysis results page", () => {
 
     expect(
       await screen.findByRole("heading", {
-        name: "Strong evidence suggests your CCC valuation may be low",
+        name: "Strong evidence suggests the insurer valuation may be low",
       }),
     ).toBeVisible();
     expect(authorization).toBe("Bearer analysis-access-token");
@@ -428,7 +557,7 @@ describe("analysis results page", () => {
 
     expect(
       await screen.findByRole("heading", {
-        name: "Strong evidence suggests your CCC valuation may be low",
+        name: "Strong evidence suggests the insurer valuation may be low",
       }),
     ).toBeInTheDocument();
     expect(
@@ -445,15 +574,19 @@ describe("analysis results page", () => {
     expect(screen.getAllByText("$20,000").length).toBeGreaterThan(0);
     expect(screen.getAllByText("$22,200").length).toBeGreaterThan(0);
     expect(screen.getAllByText("$2,200").length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/11% above CCC/).length).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText(/11% above the insurer value/).length,
+    ).toBeGreaterThan(0);
     expect(screen.getAllByText("$21,800–$22,600").length).toBeGreaterThan(0);
     expect(
       screen.getByText(
-        "CCC’s value is below the entire selected loss-date historical range.",
+        "The insurer value is below the entire selected loss-date historical range.",
       ),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("heading", { name: "What CCC used in its valuation" }),
+      screen.getByRole("heading", {
+        name: "What the CCC report used in its valuation",
+      }),
     ).toBeInTheDocument();
     expect(screen.getAllByText("$20,100").length).toBeGreaterThan(0);
     expect(screen.getByText("Important limitations")).toBeInTheDocument();
@@ -467,16 +600,18 @@ describe("analysis results page", () => {
       screen.getByRole("region", { name: "Loss-date comparable vehicles" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("region", { name: "What CCC used in its valuation" }),
+      screen.getByRole("region", {
+        name: "What the CCC report used in its valuation",
+      }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("region", {
-        name: "Strong evidence suggests your CCC valuation may be low",
+        name: "Strong evidence suggests the insurer valuation may be low",
       }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("figure", {
-        name: /CCC adjusted value \$20,000; selected loss-date historical range \$21,800 to \$22,600; median \$22,200/,
+        name: /Insurer value \$20,000; selected loss-date historical range \$21,800 to \$22,600; median \$22,200/,
       }),
     ).toBeInTheDocument();
 
@@ -604,23 +739,25 @@ describe("analysis results page", () => {
   });
 
   test("uses unsigned magnitudes when prose supplies the direction", async () => {
-    useAnalysisResponse(belowCccAnalysis());
+    useAnalysisResponse(belowInsurerAnalysis());
 
     renderTestApp([analysisPath]);
 
     expect(
-      await screen.findByText(/That is \$1,200 \(6%\) below CCC/),
+      await screen.findByText(
+        /That is \$1,200 \(6%\) below the CCC report value/,
+      ),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("heading", {
-        name: "The loss-date median is 6% below CCC",
+        name: "The loss-date median is 6% below the insurer value",
       }),
     ).toBeInTheDocument();
     expect(screen.queryByText(/-\$1,200.*below/)).not.toBeInTheDocument();
   });
 
-  test("describes a CCC adjustment increase with the correct direction", async () => {
-    useAnalysisResponse(cccAdjustmentIncreaseAnalysis());
+  test("describes a report adjustment increase with the correct direction", async () => {
+    useAnalysisResponse(reportAdjustmentIncreaseAnalysis());
 
     renderTestApp([analysisPath]);
 
@@ -686,7 +823,7 @@ describe("analysis results page", () => {
 
     expect(
       await screen.findByRole("heading", {
-        name: "There isn’t enough reliable evidence to assess the CCC valuation",
+        name: "There isn’t enough reliable evidence for a valuation comparison",
       }),
     ).toBeInTheDocument();
     expect(
@@ -703,25 +840,148 @@ describe("analysis results page", () => {
     expect(
       screen.getByRole("region", { name: "What you can do next" }),
     ).toHaveTextContent(
-      "That does not establish that the CCC valuation is correct or incorrect",
+      "That does not establish that the insurer valuation is correct or incorrect",
     );
   });
 
-  test("explains when CCC comparable rows are unavailable", async () => {
-    useAnalysisResponse(analysisWithoutCccRows());
+  test("explains when report comparable rows are unavailable", async () => {
+    useAnalysisResponse(analysisWithoutReportRows());
 
     renderTestApp([analysisPath]);
 
     expect(
       await screen.findByRole("heading", {
-        name: "No CCC comparable details were available",
+        name: "Report comparable details were unavailable",
       }),
     ).toBeInTheDocument();
     expect(
       screen.getByText(
-        "No CCC comparable rows were available to show how individual vehicles and adjustments contributed to the reported valuation.",
+        "The CCC report did not provide report-comparable details that Venfour could present reliably. This does not affect the separate external market search.",
       ),
     ).toBeInTheDocument();
+  });
+
+  test("discloses manual scope and omits every report-review section", async () => {
+    useAnalysisResponse(manualAnalysis());
+
+    renderTestApp([analysisPath]);
+
+    const scope = await screen.findByRole("region", {
+      name: "Market review from confirmed vehicle details",
+    });
+    expect(scope).toHaveTextContent("No valuation report was analyzed");
+    expect(scope).toHaveTextContent(
+      "The insurer value you entered was compared with the selected market median",
+    );
+    expect(scope).toHaveTextContent(
+      "Venfour did not apply a separate dollar adjustment",
+    );
+    expect(
+      screen.queryByRole("region", {
+        name: /report used in its valuation/i,
+      }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", {
+        name: /report comparable details were unavailable/i,
+      }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("region", { name: "What you can do next" }),
+    ).toHaveTextContent(
+      "This analysis did not inspect an insurer report or report adjustments",
+    );
+  });
+
+  test("presents market evidence without inventing a gap when no insurer value was provided", async () => {
+    useAnalysisResponse(manualAnalysis({ insurerValue: false }));
+
+    renderTestApp([analysisPath]);
+
+    expect(
+      await screen.findByRole("heading", {
+        name: "There isn’t enough reliable evidence for a valuation comparison",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /No usable insurer vehicle value was available, so Venfour did not calculate a valuation gap/,
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Market only")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("figure", { name: /Insurer value/ }),
+    ).not.toBeInTheDocument();
+  });
+
+  test("names a detected provider while identifying partial report coverage", async () => {
+    useAnalysisResponse(partialGenericReportAnalysis());
+
+    renderTestApp([analysisPath]);
+
+    const scope = await screen.findByRole("region", {
+      name: "Mitchell report and market review",
+    });
+    expect(scope).toHaveTextContent(
+      "The Mitchell report was only partially extracted",
+    );
+    expect(
+      screen.getByRole("heading", {
+        name: "Report comparable details were unavailable",
+      }),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/The Mitchell report did not provide/)).toBeVisible();
+    expect(
+      screen.queryByText("Report adjusted comparable median"),
+    ).not.toBeInTheDocument();
+  });
+
+  test("shows report comparables without inventing unavailable adjustments", async () => {
+    useAnalysisResponse(reportWithoutAdjustmentsAnalysis());
+
+    renderTestApp([analysisPath]);
+
+    const reportEvidence = await screen.findByRole("region", {
+      name: "What the CCC report used in its valuation",
+    });
+    expect(reportEvidence).toHaveTextContent(
+      "report adjustment details were not available for this review",
+    );
+    expect(
+      within(reportEvidence).getByText("Report advertised comparable median"),
+    ).toBeInTheDocument();
+    expect(
+      within(reportEvidence).queryByText("Report adjusted comparable median"),
+    ).not.toBeInTheDocument();
+    expect(
+      within(reportEvidence).queryByText("Net adjustment"),
+    ).not.toBeInTheDocument();
+    expect(
+      within(reportEvidence).getAllByText("Report details").length,
+    ).toBeGreaterThan(0);
+  });
+
+  test("separates an uploaded but unextracted report from the market review", async () => {
+    useAnalysisResponse(unextractedReportAnalysis());
+
+    renderTestApp([analysisPath]);
+
+    const scope = await screen.findByRole("region", {
+      name: "Insurer report and market review",
+    });
+    expect(scope).toHaveTextContent(
+      "The uploaded report could not be extracted reliably",
+    );
+    expect(
+      screen.getByRole("heading", {
+        name: "Report-specific details were unavailable",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", {
+        name: /used in its valuation/i,
+      }),
+    ).not.toBeInTheDocument();
   });
 
   test("labels missing optional report and listing details", async () => {
@@ -749,24 +1009,24 @@ describe("analysis results page", () => {
     );
   });
 
-  test("explains a nonpositive CCC value without showing an unavailable percent", async () => {
-    useAnalysisResponse(nonpositiveCccAnalysis());
+  test("explains a nonpositive insurer value without showing an unavailable percent", async () => {
+    useAnalysisResponse(nonpositiveInsurerAnalysis());
 
     renderTestApp([analysisPath]);
 
     expect(
       await screen.findByRole("heading", {
-        name: "The CCC vehicle value cannot support a market comparison",
+        name: "The insurer vehicle value cannot support a market comparison",
       }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("heading", {
-        name: "The CCC vehicle value cannot be compared",
+        name: "The insurer vehicle value cannot be compared",
       }),
     ).toBeInTheDocument();
-    expect(screen.getByText("above CCC")).toBeInTheDocument();
+    expect(screen.getByText("above the insurer value")).toBeInTheDocument();
     expect(
-      screen.queryByText(/Not available above CCC/),
+      screen.queryByText(/Not available above the insurer value/),
     ).not.toBeInTheDocument();
   });
 
@@ -779,7 +1039,7 @@ describe("analysis results page", () => {
     expect(screen.queryByText("$22,200.00")).not.toBeInTheDocument();
   });
 
-  test("reveals technical evidence, CCC adjustments, and limitations", async () => {
+  test("reveals technical evidence, report adjustments, and limitations", async () => {
     const user = userEvent.setup();
     renderTestApp([analysisPath]);
 
@@ -793,12 +1053,12 @@ describe("analysis results page", () => {
     );
     expect(screen.getByText("SYNTHETICVIN00001")).toBeVisible();
 
-    const cccEvidence = screen.getByRole("region", {
-      name: "What CCC used in its valuation",
+    const reportEvidence = screen.getByRole("region", {
+      name: "What the CCC report used in its valuation",
     });
     await user.click(
-      within(cccEvidence).getByLabelText(
-        "Adjustment breakdown for CCC comparable 1: 2024 Synthetic Sedan SEL",
+      within(reportEvidence).getByLabelText(
+        "Report details for comparable 1: 2024 Synthetic Sedan SEL",
       ),
     );
     expect(screen.getByText("SYNTHETICCCCVIN01")).toBeVisible();

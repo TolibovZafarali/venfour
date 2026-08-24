@@ -7,17 +7,17 @@ import {
   LoaderCircle,
   PenLine,
   RefreshCw,
-  ShieldCheck,
   Upload,
 } from "lucide-react";
 import { useId, useRef } from "react";
-import type { ChangeEvent } from "react";
+import type { ChangeEvent, ReactNode } from "react";
 import { Link } from "react-router";
 
 import {
   FlowCard,
   IntakeProgress,
   IntakeDatePicker,
+  IntakeSelectField,
   IntakeTextField,
   InlineError,
   StepActions,
@@ -28,11 +28,14 @@ import {
 import { VehicleIdentificationFields } from "@/features/intake";
 import type {
   TotalLossIntakeMode,
+  TotalLossContactFormErrors,
+  TotalLossContactFormValues,
   TotalLossManualFormErrors,
   TotalLossManualFormValues,
 } from "@/features/total-loss/types";
 import {
   formatCurrencyInput,
+  formatCurrencyValue,
   formatMileageInput,
   getMaximumTotalLossVehicleYear,
   MIN_TOTAL_LOSS_VEHICLE_YEAR,
@@ -41,7 +44,6 @@ import { cn } from "@/lib/utils";
 
 interface ChoiceStepProps {
   selectedMode: TotalLossIntakeMode | null;
-  manualIntakeAvailable?: boolean;
   onSelect: (mode: TotalLossIntakeMode) => void;
   onContinue: () => void;
   busy?: boolean;
@@ -53,21 +55,20 @@ const choiceOptions = [
     mode: "report" as const,
     title: "I have my valuation report",
     description:
-      "Upload the original CCC valuation report PDF your insurance company used.",
+      "Upload the valuation report your insurance company used, regardless of provider.",
     icon: FileText,
   },
   {
     mode: "manual" as const,
     title: "I don’t have the report",
     description:
-      "No-report review is not available in this tester release. Use an original CCC report or contact Venfour about future manual-review availability.",
+      "Enter the vehicle and claim details needed for an independent market review.",
     icon: PenLine,
   },
 ] as const;
 
 export function ChoiceStep({
   selectedMode,
-  manualIntakeAvailable = false,
   onSelect,
   onContinue,
   busy,
@@ -77,7 +78,7 @@ export function ChoiceStep({
     <FlowCard busy={busy}>
       <IntakeProgress
         current={1}
-        total={selectedMode === "report" ? 2 : 3}
+        total={6}
         label="Start"
       />
       <fieldset className="mt-7">
@@ -87,8 +88,6 @@ export function ChoiceStep({
         <div className="mt-6 grid gap-4 sm:grid-cols-2">
           {choiceOptions.map((option) => {
             const selected = selectedMode === option.mode;
-            const unavailable =
-              option.mode === "manual" && !manualIntakeAvailable;
             const Icon = option.icon;
             return (
               <label
@@ -98,10 +97,9 @@ export function ChoiceStep({
                   selected
                     ? "border-brand bg-brand-soft/45 shadow-[inset_0_0_0_1px_var(--brand)]"
                     : "border-line",
-                  (busy || unavailable) &&
+                  busy &&
                     "cursor-not-allowed bg-surface/70 opacity-70 hover:border-line hover:bg-surface/70",
                 )}
-                aria-disabled={unavailable || undefined}
               >
                 <input
                   className="sr-only"
@@ -109,7 +107,7 @@ export function ChoiceStep({
                   name="total-loss-intake-mode"
                   value={option.mode}
                   checked={selected}
-                  disabled={busy || unavailable}
+                  disabled={busy}
                   onChange={() => onSelect(option.mode)}
                 />
                 <span className="flex size-11 items-center justify-center rounded-lg bg-brand-soft text-brand">
@@ -128,11 +126,7 @@ export function ChoiceStep({
                   )}
                   aria-hidden
                 >
-                  {unavailable
-                    ? "Not currently available"
-                    : selected
-                      ? "Selected"
-                      : "Select"}
+                  {selected ? "Selected" : "Select"}
                 </span>
               </label>
             );
@@ -156,46 +150,6 @@ export function ChoiceStep({
           Continue
           {!busy ? <ArrowRight className="size-4" aria-hidden /> : null}
         </button>
-      </div>
-    </FlowCard>
-  );
-}
-
-interface ManualIntakeUnavailableStepProps {
-  readonly onUseSupportedReport: () => void;
-}
-
-export function ManualIntakeUnavailableStep({
-  onUseSupportedReport,
-}: ManualIntakeUnavailableStepProps) {
-  return (
-    <FlowCard>
-      <p className="text-xs font-semibold tracking-[0.12em] text-brand uppercase">
-        Current tester release
-      </p>
-      <h2 className="mt-3 text-2xl font-semibold tracking-[-0.03em] text-ink sm:text-3xl">
-        No-report total-loss review is not available yet
-      </h2>
-      <p className="mt-3 text-base leading-7 text-copy">
-        Venfour can currently run its automated total-loss review only from an
-        original CCC valuation report PDF. Any no-report information you saved
-        has not been analyzed or submitted for manual review.
-      </p>
-      <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:items-center">
-        <button
-          type="button"
-          className={primaryFlowButtonClassName}
-          onClick={onUseSupportedReport}
-        >
-          Use an original CCC report
-          <ArrowRight className="size-4" aria-hidden />
-        </button>
-        <Link
-          to="/contact?topic=vehicle-value"
-          className={secondaryFlowButtonClassName}
-        >
-          Contact support
-        </Link>
       </div>
     </FlowCard>
   );
@@ -258,7 +212,7 @@ export function VehicleStep({
 }: VehicleStepProps) {
   return (
     <FlowCard busy={busy}>
-      <IntakeProgress current={2} total={3} label="Vehicle" />
+      <IntakeProgress current={3} total={6} label="Vehicle" />
       <StepHeading
         title="Tell us about your vehicle"
         description="Use your VIN for the quickest match, or choose your vehicle from the lists."
@@ -275,6 +229,7 @@ export function VehicleStep({
         modelsState={modelsState}
         vinLookupState={vinLookupState}
         vinLookupMessage={vinLookupMessage}
+        trimRequired
         fieldsDisabled={fieldsDisabled}
         methodDisabled={fieldsDisabled || busy}
         mileageFields={[
@@ -302,7 +257,10 @@ export function VehicleStep({
         onContinue={onContinue}
         busy={busy || vinLookupState === "loading"}
         continueLabel={
-          entryMethod === "vin" ? "Find vehicle & continue" : "Continue"
+          entryMethod === "vin" &&
+          (!values.vehicleYear || !values.make || !values.model)
+            ? "Find vehicle"
+            : "Confirm vehicle & continue"
         }
       />
     </FlowCard>
@@ -322,7 +280,7 @@ export function ClaimStep({
 }: ManualStepProps) {
   return (
     <FlowCard busy={busy}>
-      <IntakeProgress current={3} total={3} label="Claim" />
+      <IntakeProgress current={4} total={6} label="Claim" />
       <StepHeading
         title="Add the claim details"
         description="These details help Venfour understand the insurer’s vehicle value in context."
@@ -378,7 +336,8 @@ export function ClaimStep({
             label="Insurer’s vehicle valuation"
             value={formatCurrencyInput(values.insurerVehicleValuation)}
             error={errors.insurerVehicleValuation}
-            help="The value the insurer assigned to your vehicle before deductible, loan payoff, or other settlement adjustments."
+            help="The value the insurer assigned to your vehicle before deductible, loan payoff, or other settlement adjustments. Leave this blank if you have not received one."
+            optional
             inputMode="decimal"
             autoComplete="off"
             placeholder="$18,750.00"
@@ -392,56 +351,85 @@ export function ClaimStep({
             onBlur={() => onBlur("insurerVehicleValuation")}
           />
         </div>
+        <div>
+          <IntakeSelectField
+            id="total-loss-condition"
+            label="Pre-loss condition"
+            value={values.vehicleCondition}
+            error={errors.vehicleCondition}
+            placeholder="Choose the closest description"
+            options={[
+              "Excellent",
+              "Good",
+              "Average",
+              "Fair",
+              "Poor",
+              "Not sure",
+            ]}
+            disabled={fieldsDisabled}
+            onChange={(event) =>
+              onChange("vehicleCondition", event.target.value)
+            }
+            onBlur={() => onBlur("vehicleCondition")}
+          />
+        </div>
+        <div>
+          <IntakeTextField
+            id="total-loss-options"
+            label="Important options or packages"
+            value={values.optionsPackages}
+            error={errors.optionsPackages}
+            help="List value-relevant equipment, or enter “None” if there is nothing notable."
+            placeholder="Premium package, AWD, panoramic roof—or None"
+            disabled={fieldsDisabled}
+            onChange={(event) =>
+              onChange("optionsPackages", event.target.value)
+            }
+            onBlur={() => onBlur("optionsPackages")}
+          />
+        </div>
       </div>
       {error ? <InlineError message={error} /> : null}
       <StepActions
         onBack={onBack}
         onContinue={onContinue}
         busy={busy}
-        continueLabel="Continue to Free Value Check"
+        continueLabel="Continue"
       />
     </FlowCard>
   );
 }
 
 interface ReportStepProps {
-  authenticated: boolean;
-  authenticationLoading: boolean;
   storageAvailable: boolean;
-  zipCode: string;
-  zipCodeError?: string;
   selectedFilename?: string | null;
   savedFilename?: string | null;
   uploadState: "idle" | "uploading" | "success" | "error";
+  extractionState: "idle" | "processing" | "complete" | "partial" | "error";
+  reportProvider?: string | null;
+  extractionWarnings?: readonly string[];
   uploadError?: string | null;
   error?: string | null;
   completing?: boolean;
   onBack: () => void;
-  onRequestAuthentication: () => void;
-  onZipCodeChange: (value: string) => void;
-  onZipCodeBlur: () => void;
-  onFileSelected: (file: File) => void;
+  onFilesSelected: (files: readonly File[]) => void;
   onRetryUpload: () => void;
   onContinue: () => void;
 }
 
 export function ReportStep({
-  authenticated,
-  authenticationLoading,
   storageAvailable,
-  zipCode,
-  zipCodeError,
   selectedFilename,
   savedFilename,
   uploadState,
+  extractionState,
+  reportProvider,
+  extractionWarnings = [],
   uploadError,
   error,
   completing,
   onBack,
-  onRequestAuthentication,
-  onZipCodeChange,
-  onZipCodeBlur,
-  onFileSelected,
+  onFilesSelected,
   onRetryUpload,
   onContinue,
 }: ReportStepProps) {
@@ -449,61 +437,25 @@ export function ReportStep({
   const inputRef = useRef<HTMLInputElement>(null);
   const uploadPending = uploadState === "uploading";
   const hasSavedReport = Boolean(savedFilename);
+  const extractionReady =
+    extractionState === "complete" ||
+    extractionState === "partial" ||
+    extractionState === "error";
 
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      onFileSelected(file);
-    }
+    const files = Array.from(event.target.files ?? []);
+    if (files.length > 0) onFilesSelected(files);
   };
 
   return (
-    <FlowCard busy={uploadPending || completing}>
-      <IntakeProgress current={2} total={2} label="Insurance report" />
+    <FlowCard busy={uploadPending || completing || extractionState === "processing"}>
+      <IntakeProgress current={2} total={6} label="Valuation report" />
       <StepHeading
-        title="Upload your original CCC valuation report"
-        description="Automated review currently supports only the original CCC valuation report PDF your insurance company used. A review cannot be completed for other report formats in this tester release."
+        title="Upload your valuation report"
+        description="Venfour accepts insurer valuation reports from any provider. We’ll extract what we can, then ask you to confirm every important fact."
       />
 
-      <div className="mt-7 max-w-sm">
-        <IntakeTextField
-          id="total-loss-zip"
-          label="ZIP code"
-          value={zipCode}
-          error={zipCodeError}
-          help="Venfour uses the vehicle’s local market when researching comparable vehicles."
-          inputMode="numeric"
-          autoComplete="postal-code"
-          maxLength={10}
-          placeholder="60611"
-          disabled={uploadPending || completing}
-          onChange={(event) => onZipCodeChange(event.target.value)}
-          onBlur={onZipCodeBlur}
-        />
-      </div>
-
-      {!authenticated ? (
-        <div className="mt-7 rounded-xl border border-brand/20 bg-brand-soft/55 p-5">
-          <ShieldCheck className="size-6 text-brand" aria-hidden />
-          <h3 className="mt-3 text-base font-semibold text-ink">
-            Sign in before choosing your report
-          </h3>
-          <p className="mt-2 text-sm leading-6 text-copy">
-            Signing in is required so Venfour can securely store the insurance
-            document with your appraisal case.
-          </p>
-          <button
-            type="button"
-            className={cn(primaryFlowButtonClassName, "mt-5")}
-            disabled={authenticationLoading}
-            onClick={onRequestAuthentication}
-          >
-            {authenticationLoading
-              ? "Checking sign-in…"
-              : "Sign in to choose PDF"}
-          </button>
-        </div>
-      ) : !storageAvailable ? (
+      {!storageAvailable ? (
         <InlineError message="Secure report storage is temporarily unavailable. Your selections are still saved on this device." />
       ) : (
         <div className="mt-7">
@@ -512,8 +464,9 @@ export function ReportStep({
             id={inputId}
             className="hidden"
             type="file"
+            multiple
             tabIndex={-1}
-            accept=".pdf,application/pdf"
+            accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
             disabled={uploadPending || completing}
             onClick={(event) => {
               event.currentTarget.value = "";
@@ -534,11 +487,8 @@ export function ReportStep({
                   className="mx-auto size-8 animate-spin text-brand motion-reduce:animate-none"
                   aria-hidden
                 />
-                <p
-                  className="mt-3 text-sm font-semibold text-ink"
-                  role="status"
-                >
-                  Uploading…
+                <p className="mt-3 text-sm font-semibold text-ink" role="status">
+                  Preparing and saving your report…
                 </p>
                 {selectedFilename ? (
                   <p className="mx-auto mt-1 max-w-sm truncate text-xs text-copy">
@@ -551,10 +501,7 @@ export function ReportStep({
               </>
             ) : hasSavedReport ? (
               <>
-                <CheckCircle2
-                  className="mx-auto size-8 text-market-strong"
-                  aria-hidden
-                />
+                <CheckCircle2 className="mx-auto size-8 text-market-strong" aria-hidden />
                 <p className="mt-3 text-sm font-semibold text-ink">
                   Report saved securely
                 </p>
@@ -573,38 +520,30 @@ export function ReportStep({
               <>
                 <Upload className="mx-auto size-8 text-brand" aria-hidden />
                 <p className="mt-3 text-sm font-semibold text-ink">
-                  {selectedFilename ?? "Choose your original CCC report"}
+                  {selectedFilename ?? "Choose your valuation report"}
                 </p>
                 <p className="mt-1 text-xs text-copy">
-                  PDF · 50 MiB or smaller
+                  PDF, JPG/JPEG, or PNG · 50 MiB per file. Select image pages in order.
                 </p>
                 <button
                   type="button"
                   className={cn(primaryFlowButtonClassName, "mt-5")}
                   onClick={() => inputRef.current?.click()}
                 >
-                  Choose PDF
+                  Choose report
                 </button>
               </>
             )}
           </div>
           {uploadError ? (
-            <div
-              className="mt-4 rounded-xl border border-red-200 bg-red-50 p-4"
-              role="alert"
-            >
+            <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-4" role="alert">
               <div className="flex items-start gap-3">
-                <AlertCircle
-                  className="mt-0.5 size-5 shrink-0 text-red-700"
-                  aria-hidden
-                />
+                <AlertCircle className="mt-0.5 size-5 shrink-0 text-red-700" aria-hidden />
                 <div>
                   <p className="text-sm font-semibold text-red-950">
-                    We couldn’t save this report
+                    We couldn’t use this report
                   </p>
-                  <p className="mt-1 text-sm leading-6 text-red-800">
-                    {uploadError}
-                  </p>
+                  <p className="mt-1 text-sm leading-6 text-red-800">{uploadError}</p>
                   {selectedFilename ? (
                     <button
                       type="button"
@@ -617,6 +556,36 @@ export function ReportStep({
                   ) : null}
                 </div>
               </div>
+            </div>
+          ) : null}
+          {hasSavedReport && extractionState === "processing" ? (
+            <p className="mt-4 text-sm font-semibold text-copy" role="status">
+              Reading the report and preparing details for your review…
+            </p>
+          ) : null}
+          {hasSavedReport && extractionReady ? (
+            <div className="mt-4 rounded-xl border border-market/25 bg-market-soft p-4">
+              <p className="text-sm font-semibold text-market-strong">
+                {extractionState === "error"
+                  ? "Your report is saved"
+                  : reportProvider
+                    ? `${reportProvider} report details extracted`
+                    : "Report details extracted"}
+              </p>
+              <p className="mt-1 text-sm leading-6 text-copy">
+                {extractionState === "error"
+                  ? "Automatic extraction could not finish. Continue to enter the needed details manually; your report will remain available for review."
+                  : extractionState === "partial"
+                  ? "Some details still need your help. The report is saved, and you can complete the missing fields next."
+                  : "Review and correct the extracted vehicle and claim details next."}
+              </p>
+              {extractionWarnings.length > 0 ? (
+                <ul className="mt-2 list-disc space-y-1 pl-5 text-xs leading-5 text-copy">
+                  {extractionWarnings.map((warning) => (
+                    <li key={warning}>{warning}</li>
+                  ))}
+                </ul>
+              ) : null}
             </div>
           ) : null}
         </div>
@@ -636,19 +605,283 @@ export function ReportStep({
         <button
           type="button"
           className={primaryFlowButtonClassName}
-          disabled={!hasSavedReport || uploadPending || completing}
+          disabled={!hasSavedReport || !extractionReady || uploadPending || completing}
           onClick={onContinue}
         >
-          {completing ? (
-            <LoaderCircle
-              className="size-4 animate-spin motion-reduce:animate-none"
-              aria-hidden
-            />
-          ) : null}
-          Continue to Free Value Check
+          {extractionState === "error"
+            ? "Continue with manual details"
+            : "Review extracted details"}
+          <ArrowRight className="size-4" aria-hidden />
         </button>
       </div>
     </FlowCard>
+  );
+}
+
+interface ContactStepProps {
+  readonly values: TotalLossContactFormValues;
+  readonly errors: TotalLossContactFormErrors;
+  readonly emailLocked?: boolean;
+  readonly busy?: boolean;
+  readonly error?: string | null;
+  readonly accessLinkSent?: boolean;
+  readonly onChange: <K extends keyof TotalLossContactFormValues>(
+    field: K,
+    value: TotalLossContactFormValues[K],
+  ) => void;
+  readonly onBack: () => void;
+  readonly onContinue: () => void;
+}
+
+export function ContactStep({
+  values,
+  errors,
+  emailLocked = false,
+  busy,
+  error,
+  accessLinkSent,
+  onChange,
+  onBack,
+  onContinue,
+}: ContactStepProps) {
+  return (
+    <FlowCard busy={busy}>
+      <IntakeProgress current={5} total={6} label="Contact" />
+      <StepHeading
+        title="Where should we send and save your results?"
+        description="You can continue in this browser now. We’ll also send a secure access link so you can return later."
+      />
+      <div className="mt-7 grid gap-5 sm:grid-cols-2">
+        <IntakeTextField
+          id="total-loss-contact-name"
+          label="Full name"
+          value={values.fullName}
+          error={errors.fullName}
+          autoComplete="name"
+          maxLength={200}
+          disabled={busy}
+          onChange={(event) => onChange("fullName", event.target.value)}
+        />
+        <IntakeTextField
+          id="total-loss-contact-email"
+          label={emailLocked ? "Verified account email" : "Email address"}
+          value={values.email}
+          error={errors.email}
+          type="email"
+          inputMode="email"
+          autoComplete="email"
+          maxLength={320}
+          disabled={busy || emailLocked}
+          help={
+            emailLocked
+              ? "This case will remain with your signed-in account."
+              : "This address is not verified until you use the secure link we send."
+          }
+          onChange={(event) => onChange("email", event.target.value)}
+        />
+      </div>
+
+      <div className="mt-6 space-y-3">
+        <Acknowledgement
+          checked={values.termsAccepted}
+          disabled={Boolean(busy)}
+          onChange={(checked) => onChange("termsAccepted", checked)}
+        >
+          I agree to Venfour’s <PolicyLink to="/terms">Terms of Use</PolicyLink>.
+        </Acknowledgement>
+        <Acknowledgement
+          checked={values.privacyAccepted}
+          disabled={Boolean(busy)}
+          onChange={(checked) => onChange("privacyAccepted", checked)}
+        >
+          I acknowledge Venfour’s <PolicyLink to="/privacy">Privacy Policy</PolicyLink>.
+        </Acknowledgement>
+        <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-line bg-surface/55 p-4">
+          <input
+            type="checkbox"
+            className="mt-1 size-4 shrink-0 accent-brand"
+            checked={values.operationalFollowUpAllowed}
+            disabled={busy}
+            onChange={(event) =>
+              onChange("operationalFollowUpAllowed", event.target.checked)
+            }
+          />
+          <span>
+            <span className="block text-sm font-semibold text-ink">
+              Optional case follow-up
+            </span>
+            <span className="mt-1 block text-xs leading-5 text-copy">
+              Venfour may contact me about this case or related service follow-up. This is optional and separate from essential messages I request.
+            </span>
+          </span>
+        </label>
+      </div>
+
+      {errors.legal ? <InlineError message={errors.legal} /> : null}
+      {accessLinkSent ? (
+        <p className="mt-4 text-sm font-semibold text-market-strong" role="status">
+          Secure access link sent. You do not need to open it to continue here.
+        </p>
+      ) : null}
+      {error ? <InlineError message={error} /> : null}
+      <StepActions
+        onBack={onBack}
+        onContinue={onContinue}
+        busy={busy}
+        continueLabel="Continue to review"
+      />
+    </FlowCard>
+  );
+}
+
+interface ReviewStepProps {
+  readonly mode: TotalLossIntakeMode;
+  readonly values: TotalLossManualFormValues;
+  readonly contact: TotalLossContactFormValues;
+  readonly reportFilename?: string | null;
+  readonly reportProvider?: string | null;
+  readonly busy?: boolean;
+  readonly error?: string | null;
+  readonly onBack: () => void;
+  readonly onEditVehicle: () => void;
+  readonly onEditClaim: () => void;
+  readonly onStartAnalysis: () => void;
+}
+
+export function ReviewStep({
+  mode,
+  values,
+  contact,
+  reportFilename,
+  reportProvider,
+  busy,
+  error,
+  onBack,
+  onEditVehicle,
+  onEditClaim,
+  onStartAnalysis,
+}: ReviewStepProps) {
+  const vehicle = [values.vehicleYear, values.make, values.model, values.trim]
+    .filter(Boolean)
+    .join(" ");
+  const valuation = values.insurerVehicleValuation
+    ? formatCurrencyValue(values.insurerVehicleValuation)
+    : null;
+
+  return (
+    <FlowCard busy={busy}>
+      <IntakeProgress current={6} total={6} label="Review" />
+      <StepHeading
+        title="Review your details"
+        description="Confirm the information Venfour will use before the analysis begins."
+      />
+      <div className="mt-7 grid gap-4 lg:grid-cols-2">
+        <ReviewPanel title="Vehicle" onEdit={onEditVehicle}>
+          <p className="font-semibold text-ink">{vehicle}</p>
+          <p>{values.mileageAtLoss} miles · {values.vehicleCondition} condition</p>
+          {values.vin ? <p>VIN {values.vin}</p> : null}
+          <p>Options/packages: {values.optionsPackages}</p>
+        </ReviewPanel>
+        <ReviewPanel title="Claim" onEdit={onEditClaim}>
+          <p className="font-semibold text-ink">{values.insurerName}</p>
+          <p>Date of loss: {values.dateOfLoss}</p>
+          <p>Market ZIP: {values.zipCode}</p>
+          <p>{valuation ? `Stated vehicle value: ${valuation}` : "No insurer offer supplied"}</p>
+        </ReviewPanel>
+        <ReviewPanel title="Evidence available">
+          {mode === "report" ? (
+            <>
+              <p className="font-semibold text-ink">Valuation report review + independent market research</p>
+              <p>{reportProvider ?? "Provider not identified"} · {reportFilename}</p>
+            </>
+          ) : (
+            <>
+              <p className="font-semibold text-ink">Independent market research</p>
+              <p>There is no report to review. Venfour will compare market evidence with the stated offer only if one was supplied.</p>
+            </>
+          )}
+        </ReviewPanel>
+        <ReviewPanel title="Results access">
+          <p className="font-semibold text-ink">{contact.fullName}</p>
+          <p>{contact.email}</p>
+          <p>{contact.operationalFollowUpAllowed ? "Optional follow-up allowed" : "No optional follow-up"}</p>
+        </ReviewPanel>
+      </div>
+      <div className="mt-5 rounded-xl border border-line bg-surface/60 p-4 text-sm leading-6 text-copy">
+        {mode === "report"
+          ? "Venfour will independently research the market and review only the report facts, comparables, and adjustments that were actually available."
+          : "Venfour will independently research the market. It will not claim to review report comparables or adjustments that were never supplied."}
+      </div>
+      {error ? <InlineError message={error} /> : null}
+      <StepActions
+        onBack={onBack}
+        onContinue={onStartAnalysis}
+        busy={busy}
+        continueLabel="Start analysis"
+      />
+    </FlowCard>
+  );
+}
+
+function ReviewPanel({
+  children,
+  onEdit,
+  title,
+}: {
+  readonly children: ReactNode;
+  readonly onEdit?: () => void;
+  readonly title: string;
+}) {
+  return (
+    <section className="rounded-xl border border-line bg-white p-5">
+      <div className="flex items-center justify-between gap-3">
+        <h3 className="text-sm font-semibold text-ink">{title}</h3>
+        {onEdit ? (
+          <button type="button" className="text-sm font-semibold text-brand hover:text-brand-strong" onClick={onEdit}>
+            Edit
+          </button>
+        ) : null}
+      </div>
+      <div className="mt-3 space-y-1 text-sm leading-6 text-copy">{children}</div>
+    </section>
+  );
+}
+
+function Acknowledgement({
+  checked,
+  children,
+  disabled,
+  onChange,
+}: {
+  readonly checked: boolean;
+  readonly children: ReactNode;
+  readonly disabled: boolean;
+  readonly onChange: (checked: boolean) => void;
+}) {
+  return (
+    <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-line p-4">
+      <input
+        type="checkbox"
+        className="mt-1 size-4 shrink-0 accent-brand"
+        checked={checked}
+        disabled={disabled}
+        onChange={(event) => onChange(event.target.checked)}
+      />
+      <span className="text-sm leading-6 text-copy">{children}</span>
+    </label>
+  );
+}
+
+function PolicyLink({ children, to }: { readonly children: ReactNode; readonly to: string }) {
+  return (
+    <Link
+      className="rounded-sm font-semibold text-ink underline decoration-ink/25 underline-offset-4 hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+      target="_blank"
+      rel="noreferrer"
+      to={to}
+    >
+      {children}
+    </Link>
   );
 }
 
@@ -665,65 +898,29 @@ export function ReadyStep({
   onReplaceReport,
   onStartValueCheck,
 }: ReadyStepProps = {}) {
-  if (mode === "report") {
-    return (
-      <FlowCard className="text-center" busy={busy}>
-        <span className="mx-auto flex size-12 items-center justify-center rounded-full bg-market-soft text-market-strong">
-          <CheckCircle2 className="size-7" aria-hidden />
-        </span>
-        <h2 className="mt-5 text-3xl font-semibold tracking-[-0.035em] text-ink">
-          Your report is ready
-        </h2>
-        <p className="mt-3 text-base leading-7 text-copy">
-          Start the free value check to review the insurer’s valuation against
-          relevant market evidence.
-        </p>
-        <div className="mt-7 flex flex-col-reverse gap-3 sm:flex-row sm:justify-center">
-          {onReplaceReport ? (
-            <button
-              type="button"
-              className={secondaryFlowButtonClassName}
-              disabled={busy}
-              onClick={onReplaceReport}
-            >
-              Replace report
-            </button>
-          ) : null}
-          {onStartValueCheck ? (
-            <button
-              type="button"
-              className={primaryFlowButtonClassName}
-              disabled={busy}
-              onClick={onStartValueCheck}
-            >
-              Start value check
-              <ArrowRight className="size-4" aria-hidden />
-            </button>
-          ) : null}
-        </div>
-      </FlowCard>
-    );
-  }
-
   return (
-    <FlowCard className="text-center">
+    <FlowCard className="text-center" busy={busy}>
       <span className="mx-auto flex size-12 items-center justify-center rounded-full bg-market-soft text-market-strong">
         <CheckCircle2 className="size-7" aria-hidden />
       </span>
       <h2 className="mt-5 text-3xl font-semibold tracking-[-0.035em] text-ink">
-        Your information is saved
+        Your information is ready
       </h2>
       <p className="mt-3 text-base leading-7 text-copy">
-        You’re ready for the free value check.
+        Start the analysis when you’re ready.
       </p>
-      <div className="mx-auto mt-7 max-w-lg rounded-xl border border-line bg-surface p-5">
-        <p className="text-sm font-semibold text-ink">
-          Free value check coming next
-        </p>
-        <p className="mt-2 text-sm leading-6 text-copy">
-          Venfour has not run a market-value check yet. Your saved intake is
-          ready for that next step when it becomes available.
-        </p>
+      <div className="mt-7 flex flex-col-reverse gap-3 sm:flex-row sm:justify-center">
+        {mode === "report" && onReplaceReport ? (
+          <button type="button" className={secondaryFlowButtonClassName} disabled={busy} onClick={onReplaceReport}>
+            Replace report
+          </button>
+        ) : null}
+        {onStartValueCheck ? (
+          <button type="button" className={primaryFlowButtonClassName} disabled={busy} onClick={onStartValueCheck}>
+            Start analysis
+            <ArrowRight className="size-4" aria-hidden />
+          </button>
+        ) : null}
       </div>
     </FlowCard>
   );

@@ -1,19 +1,22 @@
 import { render, screen } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import { StrictMode } from "react";
+import type { Session, SupabaseClient } from "@supabase/supabase-js";
 import { createMemoryRouter, RouterProvider } from "react-router";
-import { describe, expect, test } from "vitest";
+import { describe, expect, test, vi } from "vitest";
 
 import { AuthCallbackPage } from "@/features/auth/auth-callback-page";
 import { AuthProvider } from "@/features/auth/auth-provider";
 import { createSupabaseAuthService } from "@/features/auth/auth-service";
 import { storeAuthReturnLocation } from "@/features/auth/return-location";
 import { createSupabaseClientState } from "@/lib/supabase/client";
+import type { Database } from "@/lib/supabase/database.types";
 import { server } from "@/test/mocks/server";
 
 const SUPABASE_URL = "https://auth-integration.supabase.co";
 const SUPABASE_STORAGE_KEY = "sb-auth-integration-auth-token";
 const USER_ID = "11111111-1111-4111-8111-111111111111";
+const ANONYMOUS_USER_ID = "22222222-2222-4222-8222-222222222222";
 
 const authResponse = {
   access_token: "test-access-token",
@@ -38,7 +41,92 @@ const authResponse = {
   },
 };
 
+const anonymousAuthResponse = {
+  access_token: "anonymous-access-token",
+  expires_in: 3600,
+  refresh_token: "anonymous-refresh-token",
+  token_type: "bearer",
+  user: {
+    app_metadata: { provider: "anonymous", providers: [] },
+    aud: "authenticated",
+    created_at: "2026-08-23T18:00:00.000Z",
+    id: ANONYMOUS_USER_ID,
+    identities: [],
+    is_anonymous: true,
+    last_sign_in_at: "2026-08-23T18:00:00.000Z",
+    phone: "",
+    role: "authenticated",
+    updated_at: "2026-08-23T18:00:00.000Z",
+    user_metadata: {},
+  },
+};
+
 describe("Supabase auth service", () => {
+  test("restores a captured session through Supabase setSession", async () => {
+    const session = anonymousAuthResponse as Session;
+    const setSession = vi.fn(async () => ({
+      data: { session, user: session.user },
+      error: null,
+    }));
+    const client = {
+      auth: { setSession },
+    } as unknown as SupabaseClient<Database>;
+    const service = createSupabaseAuthService(client);
+
+    if (!service.restoreSession) {
+      throw new Error("Session restoration was not configured.");
+    }
+    await expect(service.restoreSession(session)).resolves.toBe(session);
+    expect(setSession).toHaveBeenCalledWith({
+      access_token: "anonymous-access-token",
+      refresh_token: "anonymous-refresh-token",
+    });
+  });
+
+  test("creates and persists an anonymous authenticated session", async () => {
+    let signupRequestBody: unknown;
+    server.use(
+      http.post(`${SUPABASE_URL}/auth/v1/signup`, async ({ request }) => {
+        signupRequestBody = await request.json();
+        return HttpResponse.json(anonymousAuthResponse);
+      }),
+    );
+
+    const clientState = createSupabaseClientState({
+      url: SUPABASE_URL,
+      publishableKey: "sb_publishable_auth_integration_test",
+    });
+    expect(clientState.status).toBe("available");
+    if (clientState.status !== "available") {
+      throw new Error(clientState.reason);
+    }
+
+    const { client } = clientState;
+    const service = createSupabaseAuthService(client);
+
+    try {
+      if (!service.signInAnonymously) {
+        throw new Error("Anonymous auth support was not configured.");
+      }
+      const session = await service.signInAnonymously();
+
+      expect(signupRequestBody).toEqual(
+        expect.objectContaining({ data: {} }),
+      );
+      expect(session.user.id).toBe(ANONYMOUS_USER_ID);
+      expect(session.user.is_anonymous).toBe(true);
+      expect(
+        JSON.parse(
+          window.localStorage.getItem(SUPABASE_STORAGE_KEY) ?? "null",
+        ),
+      ).toEqual(
+        expect.objectContaining({ access_token: "anonymous-access-token" }),
+      );
+    } finally {
+      await client.auth.stopAutoRefresh();
+    }
+  });
+
   test("handles a token-hash email callback without a PKCE verifier and persists the session", async () => {
     let otpRequestBody: unknown;
     let otpRedirectTo: string | null = null;

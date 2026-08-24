@@ -15,6 +15,7 @@ import { useAdminDiminishedValueDependencies } from "@/features/admin/diminished
 import { useStaffAccessQuery } from "@/features/admin/diminished-value/queries";
 import {
   AccountControl,
+  isPermanentAuthState,
   MobileAccountControl,
   SignInDialogProvider,
   useAuth,
@@ -51,14 +52,15 @@ function AppShellContent() {
   const navigate = useNavigate();
   const { auth } = useAuth();
   const adminDependencies = useAdminDiminishedValueDependencies();
-  const signedInUserId = auth.status === "signedIn" ? auth.user.id : null;
+  const permanentUserId = isPermanentAuthState(auth) ? auth.user.id : null;
   const [staffNavigationRequestUserId, setStaffNavigationRequestUserId] =
     useState<string | null>(null);
   const staffAccessRequested =
-    adminRoute || staffNavigationRequestUserId === signedInUserId;
+    Boolean(permanentUserId) &&
+    (adminRoute || staffNavigationRequestUserId === permanentUserId);
   const staffAccessQuery = useStaffAccessQuery({
     service: adminDependencies?.caseService ?? null,
-    userId: staffAccessRequested ? signedInUserId : null,
+    userId: staffAccessRequested ? permanentUserId : null,
   });
   const { openPreferences } = useCookieConsent();
   const [headerDetached, setHeaderDetached] = useState(false);
@@ -73,7 +75,7 @@ function AppShellContent() {
     .find(isPageMetadata) ?? {
       title: "Vehicle Valuation Reviews After an Accident | Venfour",
       description:
-        "Review an original CCC total-loss valuation report or submit repaired-vehicle details for future manual diminished-value review.",
+        "Review a total-loss valuation with or without an insurer report, or submit repaired-vehicle details for future manual diminished-value review.",
     };
 
   useDocumentMetadata(analysisRoute ? null : metadata);
@@ -140,7 +142,7 @@ function AppShellContent() {
   const howItWorksHref = onHomePage ? "#how-it-works" : "/#how-it-works";
   const primaryActionHref = "/start?service=total-loss";
   const requestStaffNavigation = () => {
-    if (signedInUserId) setStaffNavigationRequestUserId(signedInUserId);
+    if (permanentUserId) setStaffNavigationRequestUserId(permanentUserId);
   };
   const staffReviewHref = staffAccessQuery.data
     ? "/admin/cases"

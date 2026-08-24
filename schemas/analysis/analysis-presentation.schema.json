@@ -10,6 +10,9 @@
     "analysisCreatedAt",
     "assessment",
     "vehicle",
+    "analysisScope",
+    "insurerValuation",
+    "reportReview",
     "cccValuation",
     "cccComparables",
     "primaryExternalEvidence",
@@ -22,7 +25,7 @@
   ],
   "properties": {
     "presentationVersion": {
-      "const": "1"
+      "const": "2"
     },
     "runId": {
       "$ref": "#/$defs/runId"
@@ -35,6 +38,15 @@
     },
     "vehicle": {
       "$ref": "#/$defs/vehicle"
+    },
+    "analysisScope": {
+      "$ref": "#/$defs/analysisScope"
+    },
+    "insurerValuation": {
+      "$ref": "#/$defs/insurerValuation"
+    },
+    "reportReview": {
+      "$ref": "#/$defs/nullableReportReview"
     },
     "cccValuation": {
       "$ref": "#/$defs/cccValuation"
@@ -77,6 +89,75 @@
     {
       "if": {
         "properties": {
+          "analysisScope": {
+            "properties": {
+              "inputMode": {
+                "const": "MANUAL"
+              }
+            },
+            "required": [
+              "inputMode"
+            ]
+          }
+        },
+        "required": [
+          "analysisScope"
+        ]
+      },
+      "then": {
+        "properties": {
+          "insurerValuation": {
+            "properties": {
+              "source": {
+                "enum": [
+                  "CUSTOMER_ENTERED",
+                  "NONE"
+                ]
+              }
+            }
+          },
+          "reportReview": {
+            "type": "null"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "analysisScope": {
+            "properties": {
+              "reportReviewPerformed": {
+                "const": false
+              }
+            },
+            "required": [
+              "reportReviewPerformed"
+            ]
+          }
+        },
+        "required": [
+          "analysisScope"
+        ]
+      },
+      "then": {
+        "properties": {
+          "reportReview": {
+            "type": "null"
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "reportReview": {
+            "$ref": "#/$defs/reportReview"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
           "assessment": {
             "properties": {
               "evidenceBasis": {
@@ -105,6 +186,13 @@
             }
           },
           "cccValuation": {
+            "properties": {
+              "comparisonToPrimaryEvidence": {
+                "type": "null"
+              }
+            }
+          },
+          "insurerValuation": {
             "properties": {
               "comparisonToPrimaryEvidence": {
                 "type": "null"
@@ -424,6 +512,193 @@
         }
       ]
     },
+    "analysisScope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "inputMode",
+        "marketEvidencePerformed",
+        "marketEvidenceAvailable",
+        "insurerValuationAvailable",
+        "insurerValuationComparisonPerformed",
+        "offerComparisonPerformed",
+        "reportAvailable",
+        "reportExtractionAvailable",
+        "reportReviewPerformed",
+        "reportProvider",
+        "reportAdapter",
+        "partialExtraction",
+        "reportComparablesAvailable",
+        "reportAdjustmentsAvailable",
+        "conditionInformationCollected",
+        "optionsInformationCollected",
+        "conditionAndOptionsDollarAdjusted",
+        "methodologyDisclosure"
+      ],
+      "properties": {
+        "inputMode": { "enum": ["REPORT", "MANUAL"] },
+        "marketEvidencePerformed": { "type": "boolean" },
+        "marketEvidenceAvailable": { "type": "boolean" },
+        "insurerValuationAvailable": { "type": "boolean" },
+        "insurerValuationComparisonPerformed": { "type": "boolean" },
+        "offerComparisonPerformed": { "type": "boolean" },
+        "reportAvailable": { "type": "boolean" },
+        "reportExtractionAvailable": { "type": "boolean" },
+        "reportReviewPerformed": { "type": "boolean" },
+        "reportProvider": { "$ref": "#/$defs/nullableNonBlankString" },
+        "reportAdapter": {
+          "type": ["string", "null"],
+          "enum": ["CCC", "GENERIC", null]
+        },
+        "partialExtraction": { "type": "boolean" },
+        "reportComparablesAvailable": { "type": "boolean" },
+        "reportAdjustmentsAvailable": { "type": "boolean" },
+        "conditionInformationCollected": { "type": "boolean" },
+        "optionsInformationCollected": { "type": "boolean" },
+        "conditionAndOptionsDollarAdjusted": { "const": false },
+        "methodologyDisclosure": { "$ref": "#/$defs/nonBlankString" }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "inputMode": { "const": "MANUAL" } }
+          },
+          "then": {
+            "properties": {
+              "reportReviewPerformed": { "const": false },
+              "reportAvailable": { "const": false },
+              "reportExtractionAvailable": { "const": false },
+              "reportProvider": { "type": "null" },
+              "reportAdapter": { "type": "null" },
+              "partialExtraction": { "const": false },
+              "reportComparablesAvailable": { "const": false },
+              "reportAdjustmentsAvailable": { "const": false }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": { "inputMode": { "const": "REPORT" } }
+          },
+          "then": {
+            "properties": {
+              "reportAvailable": { "const": true }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": { "offerComparisonPerformed": { "const": true } }
+          },
+          "then": {
+            "properties": {
+              "insurerValuationAvailable": { "const": true },
+              "insurerValuationComparisonPerformed": { "const": true }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "reportExtractionAvailable": { "const": false }
+            }
+          },
+          "then": {
+            "properties": {
+              "reportReviewPerformed": { "const": false },
+              "reportAdapter": { "type": "null" },
+              "partialExtraction": { "const": false },
+              "reportComparablesAvailable": { "const": false },
+              "reportAdjustmentsAvailable": { "const": false }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "reportExtractionAvailable": { "const": true }
+            }
+          },
+          "then": {
+            "properties": {
+              "reportAvailable": { "const": true },
+              "reportReviewPerformed": { "const": true },
+              "reportAdapter": { "type": "string" }
+            }
+          }
+        }
+      ]
+    },
+    "insurerValueComparison": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "evidenceBasis",
+        "marketMedian",
+        "insurerValue",
+        "difference",
+        "differencePercent"
+      ],
+      "properties": {
+        "evidenceBasis": {
+          "enum": ["LOSS_DATE_HISTORICAL", "CURRENT_MARKET"]
+        },
+        "marketMedian": { "$ref": "#/$defs/nonnegativeMoney" },
+        "insurerValue": { "$ref": "#/$defs/nonnegativeMoney" },
+        "difference": { "$ref": "#/$defs/money" },
+        "differencePercent": { "$ref": "#/$defs/basisPointValue" }
+      }
+    },
+    "nullableInsurerValueComparison": {
+      "oneOf": [
+        { "$ref": "#/$defs/insurerValueComparison" },
+        { "type": "null" }
+      ]
+    },
+    "insurerValuation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source",
+        "valueLabel",
+        "value",
+        "explanation",
+        "comparisonToPrimaryEvidence"
+      ],
+      "properties": {
+        "source": { "enum": ["REPORT", "CUSTOMER_ENTERED", "NONE"] },
+        "valueLabel": { "$ref": "#/$defs/nonBlankString" },
+        "value": { "$ref": "#/$defs/nonnegativeMoney" },
+        "explanation": { "$ref": "#/$defs/nonBlankString" },
+        "comparisonToPrimaryEvidence": {
+          "$ref": "#/$defs/nullableInsurerValueComparison"
+        }
+      }
+    },
+    "reportReview": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "provider",
+        "adapter",
+        "partial",
+        "comparablesAvailable",
+        "adjustmentsAvailable"
+      ],
+      "properties": {
+        "provider": { "$ref": "#/$defs/nullableNonBlankString" },
+        "adapter": { "enum": ["CCC", "GENERIC"] },
+        "partial": { "type": "boolean" },
+        "comparablesAvailable": { "type": "boolean" },
+        "adjustmentsAvailable": { "type": "boolean" }
+      }
+    },
+    "nullableReportReview": {
+      "oneOf": [
+        { "$ref": "#/$defs/reportReview" },
+        { "type": "null" }
+      ]
+    },
     "dispersionValue": {
       "allOf": [
         {
@@ -682,7 +957,10 @@
       ],
       "properties": {
         "valueCode": {
-          "const": "CCC_ADJUSTED_VEHICLE_VALUE"
+          "enum": [
+            "CCC_ADJUSTED_VEHICLE_VALUE",
+            "INSURER_VALUATION_OR_OFFER"
+          ]
         },
         "valueLabel": {
           "$ref": "#/$defs/nonBlankString"
@@ -1953,7 +2231,7 @@
           "$ref": "#/$defs/runId"
         },
         "presentationVersion": {
-          "const": "1"
+          "const": "2"
         },
         "analysisRunSchemaVersion": {
           "$ref": "#/$defs/nonBlankString"

@@ -41,7 +41,6 @@ from venfour.creation import (
     AnalysisCreationInputError,
     AnalysisCreationService,
     AnalysisSearchSettings,
-    AnalysisUnsupportedReportError,
     create_live_analysis_creation_service,
 )
 from venfour.discrepancy import CURRENT_MARKET
@@ -193,25 +192,23 @@ class AnalysisCreationApplicationFlowTests(AnalysisCreationTestCase):
             DEFAULT_ADAPTIVE_SEARCH_POLICIES,
         )
 
-    def test_service_rejects_non_ccc_provider_before_market_research(self) -> None:
-        for provider in (
-            "Another valuation provider",
-            "NOT CCC",
-            "CCC competitor",
-        ):
-            with self.subTest(provider=provider):
-                report = make_report()
-                report["report"]["provider"] = provider
-                extractor = RecordingExtractor(report)
-                service, current, historical, _ = self.make_service(extractor)
-                report_path = self.root / "report.pdf"
-                report_path.write_bytes(PDF_BYTES)
+    def test_non_ccc_provider_is_not_an_analysis_gate(self) -> None:
+        report = make_report()
+        report["report"]["provider"] = "Another valuation provider"
+        extractor = RecordingExtractor(report)
+        service, current, historical, _ = self.make_service(extractor)
+        report_path = self.root / "report.pdf"
+        report_path.write_bytes(PDF_BYTES)
 
-                with self.assertRaises(AnalysisUnsupportedReportError):
-                    service.create(report_path, POSTAL_CODE)
+        result = service.create(report_path, POSTAL_CODE)
 
-                self.assertEqual(current.requests, [])
-                self.assertEqual(historical.requests, [])
+        self.assertEqual(result.run_id, RUN_ID_1)
+        self.assertTrue(current.requests)
+        self.assertTrue(historical.requests)
+        self.assertEqual(
+            result.artifact.to_dict()["evidenceContext"]["reportAdapter"],
+            "GENERIC",
+        )
 
     def test_uploaded_pdf_creates_persisted_run_and_retrievable_presentation(
         self,
@@ -359,6 +356,10 @@ class AnalysisCreationApiValidationTests(AnalysisCreationTestCase):
 
         self.assert_error(unsupported, 415, "UNSUPPORTED_MEDIA_TYPE")
         self.assert_error(missing_report, 400, "REPORT_REQUIRED")
+        self.assertEqual(
+            missing_report.json()["error"]["message"],
+            "A valuation report is required.",
+        )
         self.assert_error(missing_postal, 400, "POSTAL_CODE_REQUIRED")
         self.assert_error(blank_postal, 400, "POSTAL_CODE_REQUIRED")
         self.assertEqual(self.extractor.paths, [])
@@ -529,7 +530,7 @@ class AnalysisCreationApiValidationTests(AnalysisCreationTestCase):
         self.assert_error(failed, 502, "REPORT_EXTRACTION_FAILED")
         self.assertNotIn(secret, failed.text)
 
-    def test_unsupported_provider_returns_truthful_nonsecret_error(self) -> None:
+    def test_non_ccc_provider_returns_a_normal_created_result(self) -> None:
         report = make_report()
         report["report"]["provider"] = "Another valuation provider"
         extractor = RecordingExtractor(report)
@@ -540,11 +541,8 @@ class AnalysisCreationApiValidationTests(AnalysisCreationTestCase):
         ) as client:
             response = self.post_report(client)
 
-        self.assert_error(response, 422, "UNSUPPORTED_REPORT")
-        self.assertEqual(
-            response.json()["error"]["message"],
-            "This tester release supports original CCC valuation report PDFs only.",
-        )
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.json(), {"runId": RUN_ID_1})
 
     def test_provider_failure_saves_nothing_and_cleans_temporary_pdf(self) -> None:
         secret = "private-provider-detail"
@@ -660,6 +658,7 @@ class AnalysisCreationLiveCompositionTests(AnalysisCreationTestCase):
                 clear=False,
             ),
             patch.object(service, "_extractor", extractor),
+            patch.object(service, "_ingestion_service", None),
             patch("venfour.creation.MarketCheckProvider", side_effect=current_factory),
             patch(
                 "venfour.creation.MarketCheckHistoricalProvider",

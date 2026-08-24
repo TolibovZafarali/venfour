@@ -30,6 +30,7 @@ from venfour.analysis_runs import (
     canonical_json_bytes,
 )
 from venfour.creation import (
+    AnalysisConfirmedInputError,
     AnalysisCreationExecutionError,
     AnalysisCreationInputError,
     AnalysisCreationProviderError,
@@ -41,8 +42,18 @@ from venfour.creation import (
 )
 from venfour.presentation import AnalysisPresentationService
 from venfour.postal_codes import normalize_us_zip_code
+from venfour.report_ingestion import (
+    NormalizedReportContractError,
+    ReportDocumentInvalidError,
+    ReportExtractionError as NeutralReportExtractionError,
+    ReportIngestionResult,
+    ReportIngestionService,
+    validate_normalized_report,
+)
 from venfour.supabase_gateway import (
     CaseAnalysisGateway,
+    ReportIngestionGateway,
+    SupabaseContractError,
     SupabaseGatewayError,
     SupabaseReportInvalidError,
     SupabaseReportNotFoundError,
@@ -66,14 +77,16 @@ CASE_ANALYSIS_OUTCOMES = frozenset(
         "case_not_ready",
     }
 )
+MAX_PUBLIC_OPTIONS_PACKAGES_CHARACTERS = 4_000
 
 FAILURE_MESSAGES = {
     "REPORT_UNAVAILABLE": "The valuation report is temporarily unavailable.",
     "INVALID_REPORT": "The valuation report is invalid.",
     "REPORT_EXTRACTION_FAILED": "The valuation report could not be extracted.",
     "REPORT_NOT_ANALYZABLE": "The valuation report could not be analyzed.",
-    "UNSUPPORTED_REPORT": (
-        "This tester release supports original CCC valuation report PDFs only."
+    "UNSUPPORTED_REPORT": "The valuation report could not be processed.",
+    "ANALYSIS_INPUT_INVALID": (
+        "Confirmed vehicle and claim information is incomplete."
     ),
     "MARKET_PROVIDER_UNAVAILABLE": "Market evidence is temporarily unavailable.",
     "ANALYSIS_CREATION_UNAVAILABLE": "Analysis creation is temporarily unavailable.",
@@ -139,6 +152,31 @@ def _path_uuid(value: Any, code: str) -> str:
         return _canonical_uuid(value, code, version_four=True)
     except CaseAnalysisContractError as exc:
         raise CaseAnalysisInputError(code) from exc
+
+
+def _public_options_packages(value: Any) -> tuple[str | None, bool]:
+    """Project extracted equipment to the bounded text field used by intake."""
+
+    if isinstance(value, str):
+        raw_items = (value,)
+    elif isinstance(value, (list, tuple)) and all(
+        isinstance(item, str) for item in value
+    ):
+        raw_items = tuple(value)
+    else:
+        return None, False
+
+    items = tuple(
+        normalized
+        for item in raw_items
+        if (normalized := " ".join(item.split()))
+    )
+    if not items:
+        return None, False
+    joined = ", ".join(items)
+    if len(joined) > MAX_PUBLIC_OPTIONS_PACKAGES_CHARACTERS:
+        return None, True
+    return joined, False
 
 
 def _strict_json_object(value: str) -> Mapping[str, Any]:
@@ -340,6 +378,30 @@ class CaseAnalysisStatus:
         raise CaseAnalysisContractError("Analysis status is invalid")
 
 
+@dataclass(frozen=True)
+class CaseReportIngestion:
+    """Allowlisted customer-facing projection of a private cached extraction."""
+
+    status: str
+    provider: str | None
+    adapter: str
+    confidence: str
+    warnings: tuple[str, ...]
+    missing_fields: tuple[str, ...]
+    facts: Mapping[str, Any]
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "status": self.status,
+            "provider": self.provider,
+            "adapter": self.adapter,
+            "confidence": self.confidence,
+            "warnings": list(self.warnings),
+            "missingFields": list(self.missing_fields),
+            "facts": dict(self.facts),
+        }
+
+
 CreationServiceFactory = Callable[[AnalysisRunRepository, str], Any]
 TokenFactory = Callable[[], UUID | str]
 MonotonicClock = Callable[[], float]
@@ -373,6 +435,7 @@ class CaseAnalysisService:
         token_factory: TokenFactory = uuid4,
         monotonic_clock: MonotonicClock = time.monotonic,
         lifecycle_event_sink: LifecycleEventSink = _stdout_lifecycle_event_sink,
+        report_ingestion_service: ReportIngestionService | None = None,
     ) -> None:
         if not isinstance(gateway, CaseAnalysisGateway):
             raise TypeError("gateway must implement CaseAnalysisGateway")
@@ -384,11 +447,19 @@ class CaseAnalysisService:
             raise TypeError("monotonic_clock must be callable")
         if not callable(lifecycle_event_sink):
             raise TypeError("lifecycle_event_sink must be callable")
+        selected_ingestion_service = (
+            report_ingestion_service
+            if report_ingestion_service is not None
+            else ReportIngestionService()
+        )
+        if not callable(getattr(selected_ingestion_service, "ingest", None)):
+            raise TypeError("report_ingestion_service must expose ingest(pdf_path)")
         self._gateway = gateway
         self._creation_service_factory = creation_service_factory
         self._token_factory = token_factory
         self._monotonic_clock = monotonic_clock
         self._lifecycle_event_sink = lifecycle_event_sink
+        self._report_ingestion_service = selected_ingestion_service
 
     def _monotonic_time(self) -> float | None:
         try:
@@ -582,6 +653,8 @@ class CaseAnalysisService:
             return "INVALID_REPORT", False
         if isinstance(error, SupabaseUnavailableError):
             return "REPORT_UNAVAILABLE", True
+        if isinstance(error, AnalysisConfirmedInputError):
+            return "ANALYSIS_INPUT_INVALID", False
         if isinstance(error, AnalysisCreationInputError):
             return "INVALID_REPORT", False
         if isinstance(error, AnalysisExtractionError):
@@ -595,6 +668,206 @@ class CaseAnalysisService:
         if isinstance(error, AnalysisCreationUnavailableError):
             return "ANALYSIS_CREATION_UNAVAILABLE", True
         return "ANALYSIS_CREATION_FAILED", True
+
+    @staticmethod
+    def _input_revision(value: Any) -> int:
+        if isinstance(value, bool) or not isinstance(value, int) or value < 1:
+            raise CaseAnalysisContractError("Analysis input revision is invalid")
+        return value
+
+    @staticmethod
+    def _cache_result(row: Mapping[str, Any]) -> ReportIngestionResult:
+        if not isinstance(row, Mapping):
+            raise CaseAnalysisContractError("Report extraction cache is invalid")
+        cached = row.get("normalized_report")
+        if not isinstance(cached, Mapping):
+            raise CaseAnalysisContractError("Report extraction cache is invalid")
+        try:
+            return ReportIngestionResult.from_dict(cached)
+        except (NormalizedReportContractError, TypeError, ValueError) as exc:
+            raise CaseAnalysisContractError(
+                "Report extraction cache is invalid"
+            ) from exc
+
+    @staticmethod
+    def _public_ingestion(
+        ingestion: ReportIngestionResult,
+        input_snapshot: Mapping[str, Any] | None,
+    ) -> CaseReportIngestion:
+        normalized = ingestion.normalized_report
+        report = normalized["report"]
+        vehicle = normalized["vehicle"]
+        valuation = normalized["valuation"]
+        condition = normalized["condition"]
+        snapshot = input_snapshot if isinstance(input_snapshot, Mapping) else {}
+
+        def preferred(extracted: Any, *snapshot_keys: str) -> Any:
+            if extracted is not None and extracted != []:
+                return extracted
+            for key in snapshot_keys:
+                value = snapshot.get(key)
+                if value is not None:
+                    return value
+            return extracted
+
+        field_names = {
+            "report.lossDate": "dateOfLoss",
+            "report.insurer": "insurerName",
+            "vehicle.year": "vehicleYear",
+            "vehicle.make": "make",
+            "vehicle.model": "model",
+            "vehicle.trim": "trim",
+            "vehicle.mileage": "mileageAtLoss",
+            "condition.preLossCondition": "vehicleCondition",
+            "vehicle.equipment": "optionsPackages",
+        }
+        missing = [
+            field_names.get(field, field)
+            for field in ingestion.missing_required_fields
+        ]
+        raw_options_packages = preferred(
+            list(vehicle["equipment"]),
+            "vehicle_options_packages",
+            "vehicleOptionsPackages",
+        )
+        options_packages, options_packages_too_long = (
+            _public_options_packages(raw_options_packages)
+        )
+        if options_packages is None and "optionsPackages" not in missing:
+            missing.append("optionsPackages")
+        warnings = list(ingestion.warnings)
+        if options_packages_too_long:
+            warnings.append(
+                "Confirm vehicle options and packages manually because the extracted list was too long."
+            )
+        postal_code = preferred(
+            None, "postal_code", "postalCode", "zip_code", "zipCode"
+        )
+        if postal_code is None and "zipCode" not in missing:
+            missing.append("zipCode")
+        facts = {
+            "vin": preferred(vehicle["vin"], "vin"),
+            "vehicleYear": preferred(
+                vehicle["year"], "vehicle_year", "vehicleYear"
+            ),
+            "make": preferred(vehicle["make"], "vehicle_make", "vehicleMake"),
+            "model": preferred(vehicle["model"], "vehicle_model", "vehicleModel"),
+            "trim": preferred(vehicle["trim"], "vehicle_trim", "vehicleTrim"),
+            "mileageAtLoss": preferred(
+                vehicle["mileage"], "mileage_at_loss", "mileageAtLoss"
+            ),
+            "zipCode": postal_code,
+            "dateOfLoss": preferred(
+                report["lossDate"], "date_of_loss", "dateOfLoss"
+            ),
+            "insurerName": preferred(
+                report["insurer"], "insurer_name", "insurerName"
+            ),
+            "insurerVehicleValuation": preferred(
+                (
+                    valuation["insurerOffer"]
+                    if valuation["insurerOffer"] is not None
+                    else valuation["adjustedVehicleValue"]
+                ),
+                "insurer_vehicle_valuation",
+                "insurerVehicleValuation",
+            ),
+            "vehicleCondition": preferred(
+                condition["preLossCondition"],
+                "vehicle_condition",
+                "vehicleCondition",
+            ),
+            "optionsPackages": options_packages,
+        }
+        return CaseReportIngestion(
+            status="partial" if missing else "complete",
+            provider=ingestion.provider,
+            adapter=ingestion.adapter.casefold(),
+            confidence=ingestion.confidence.casefold(),
+            warnings=tuple(warnings),
+            missing_fields=tuple(dict.fromkeys(missing)),
+            facts=facts,
+        )
+
+    def ingest_report(
+        self,
+        case_id: str,
+        user_id: str,
+        access_token: str,
+    ) -> CaseReportIngestion:
+        """Extract the current owned private report with a revision-fenced cache."""
+
+        canonical_case_id = _path_uuid(case_id, "INVALID_CASE_ID")
+        canonical_user_id = _canonical_uuid(user_id, "User ID")
+        if not isinstance(access_token, str) or not access_token.strip():
+            raise CaseAnalysisInputError("AUTHENTICATION_REQUIRED")
+        if not isinstance(self._gateway, ReportIngestionGateway):
+            raise CaseAnalysisUnavailableError(
+                "Report ingestion persistence is unavailable"
+            )
+        try:
+            status_row = self._gateway.get_total_loss_analysis_status(
+                canonical_case_id, canonical_user_id
+            )
+            if not isinstance(status_row, Mapping):
+                raise SupabaseContractError("Analysis status response is invalid")
+            if status_row.get("outcome") == "not_found":
+                raise CaseAnalysisNotFoundError("Case was not found")
+            revision = self._input_revision(
+                status_row.get("analysis_input_revision")
+            )
+            locator = self._gateway.get_owned_total_loss_report_storage_locator(
+                canonical_case_id, access_token
+            )
+            upload_id = _canonical_uuid(
+                locator.get("finalized_upload_id"),
+                "Report upload ID",
+                version_four=True,
+            )
+            cached_row = self._gateway.get_total_loss_report_extraction(
+                canonical_case_id, upload_id, revision
+            )
+            if cached_row is not None:
+                ingestion = self._cache_result(cached_row)
+            else:
+                with self._gateway.materialize_total_loss_report_from_locator(
+                    canonical_case_id, locator, upload_id
+                ) as report_path:
+                    ingestion = self._report_ingestion_service.ingest(report_path)
+                persisted = self._gateway.persist_total_loss_report_extraction(
+                    canonical_case_id,
+                    upload_id,
+                    revision,
+                    ingestion.provider,
+                    "needs_confirmation",
+                    {"LOW": 0.3, "MEDIUM": 0.65, "HIGH": 1.0}[
+                        ingestion.confidence
+                    ],
+                    "1",
+                    ingestion.to_dict(include_usage=False),
+                )
+                if not isinstance(persisted, Mapping):
+                    raise SupabaseContractError(
+                        "Report extraction persistence response is invalid"
+                    )
+            return self._public_ingestion(
+                ingestion,
+                status_row.get("input_snapshot"),
+            )
+        except CaseAnalysisError:
+            raise
+        except SupabaseReportNotFoundError as exc:
+            raise CaseAnalysisConflictError("REPORT_REQUIRED") from exc
+        except (SupabaseReportInvalidError, ReportDocumentInvalidError) as exc:
+            raise CaseAnalysisConflictError("INVALID_REPORT") from exc
+        except (NeutralReportExtractionError, NormalizedReportContractError) as exc:
+            raise CaseAnalysisUnavailableError(
+                "Report extraction failed"
+            ) from exc
+        except SupabaseGatewayError as exc:
+            raise CaseAnalysisUnavailableError(
+                "Report ingestion is unavailable"
+            ) from exc
 
     def _record_failure(
         self,
@@ -659,27 +932,31 @@ class CaseAnalysisService:
             run_id=run_id,
             attempt_count=attempt_count,
         )
-        postal_code = row.get("postal_code")
-        try:
-            normalized_postal_code = normalize_us_zip_code(postal_code)
-        except (TypeError, ValueError):
-            status = self._record_failure(
-                case_id=case_id,
-                user_id=user_id,
-                job_id=job_id,
-                processing_token=processing_token,
-                failure_code="ANALYSIS_CREATION_FAILED",
-                retryable=True,
-                attempt_count=attempt_count,
-            )
-            self._emit_claim_terminal(
-                status,
-                job_id=job_id,
-                run_id=run_id,
-                attempt_count=attempt_count,
-                started_at=started_at,
-            )
-            return status
+        input_snapshot = row.get("input_snapshot")
+        uses_confirmed_snapshot = isinstance(input_snapshot, Mapping)
+        normalized_postal_code: str | None = None
+        if not uses_confirmed_snapshot:
+            postal_code = row.get("postal_code")
+            try:
+                normalized_postal_code = normalize_us_zip_code(postal_code)
+            except (TypeError, ValueError):
+                status = self._record_failure(
+                    case_id=case_id,
+                    user_id=user_id,
+                    job_id=job_id,
+                    processing_token=processing_token,
+                    failure_code="ANALYSIS_CREATION_FAILED",
+                    retryable=True,
+                    attempt_count=attempt_count,
+                )
+                self._emit_claim_terminal(
+                    status,
+                    job_id=job_id,
+                    run_id=run_id,
+                    attempt_count=attempt_count,
+                    started_at=started_at,
+                )
+                return status
 
         repository = SupabaseAnalysisRunRepository(
             self._gateway,
@@ -689,18 +966,85 @@ class CaseAnalysisService:
         )
         try:
             creation_service = self._creation_service_factory(repository, run_id)
-            if not callable(getattr(creation_service, "create", None)):
-                raise AnalysisCreationExecutionError(
-                    "Analysis creation service is invalid"
+            if uses_confirmed_snapshot:
+                create_confirmed = getattr(
+                    creation_service, "create_from_confirmed_input", None
                 )
-            # Each report source reserves a new job ID, so it also provides a
-            # stable cache boundary for the mutable canonical Storage path.
-            with self._gateway.materialize_total_loss_report(
-                user_id, case_id, job_id
-            ) as report_path:
-                result = creation_service.create(
-                    report_path, normalized_postal_code
+                if not callable(create_confirmed):
+                    raise AnalysisCreationExecutionError(
+                        "Confirmed-input analysis creation is unavailable"
+                    )
+                intake_mode = input_snapshot.get("intake_mode")
+                if not isinstance(intake_mode, str):
+                    intake_mode = row.get("intake_mode")
+                normalized_mode = (
+                    intake_mode.strip().casefold()
+                    if isinstance(intake_mode, str)
+                    else None
                 )
+                if normalized_mode == "manual":
+                    result = create_confirmed(input_snapshot)
+                elif normalized_mode == "report":
+                    ingestion: ReportIngestionResult | None = None
+                    if (
+                        row.get("report_extraction_available") is True
+                        and isinstance(self._gateway, ReportIngestionGateway)
+                    ):
+                        try:
+                            upload_id = _canonical_uuid(
+                                row.get("source_report_upload_id"),
+                                "Report upload ID",
+                                version_four=True,
+                            )
+                            revision = self._input_revision(
+                                row.get("analysis_input_revision")
+                            )
+                            cached_row = (
+                                self._gateway.get_total_loss_report_extraction(
+                                    case_id, upload_id, revision
+                                )
+                            )
+                            if (
+                                cached_row is not None
+                                and cached_row.get("extraction_status")
+                                == "confirmed"
+                            ):
+                                ingestion = self._cache_result(cached_row)
+                        except (CaseAnalysisContractError, SupabaseGatewayError):
+                            # The immutable confirmed snapshot is sufficient for
+                            # market analysis even when report extraction cannot
+                            # safely be reused. Presentation scope records that no
+                            # report review was performed.
+                            ingestion = None
+                    options: dict[str, Any] = {
+                        "report_extraction_available": ingestion is not None,
+                    }
+                    if ingestion is not None:
+                        options.update(
+                            {
+                                "normalized_report": ingestion.to_dict()[
+                                    "normalizedReport"
+                                ],
+                                "report_adapter": ingestion.adapter,
+                                "partial_extraction": ingestion.partial,
+                            }
+                        )
+                    result = create_confirmed(input_snapshot, **options)
+                else:
+                    raise AnalysisConfirmedInputError("Intake mode is invalid")
+            else:
+                if not callable(getattr(creation_service, "create", None)):
+                    raise AnalysisCreationExecutionError(
+                        "Analysis creation service is invalid"
+                    )
+                # Legacy report-only claims retain their original materialization
+                # contract so deployed jobs and existing test doubles remain valid.
+                with self._gateway.materialize_total_loss_report(
+                    user_id, case_id, job_id
+                ) as report_path:
+                    result = creation_service.create(
+                        report_path, normalized_postal_code
+                    )
             if getattr(result, "run_id", None) != run_id:
                 raise AnalysisCreationExecutionError(
                     "Analysis creation returned an unexpected run ID"
@@ -807,6 +1151,7 @@ __all__ = [
     "CaseAnalysisNotFoundError",
     "CaseAnalysisService",
     "CaseAnalysisStatus",
+    "CaseReportIngestion",
     "CaseAnalysisUnavailableError",
     "FAILURE_MESSAGES",
     "SupabaseAnalysisRunRepository",

@@ -51,7 +51,7 @@ export const appRoutes: RouteObject[] = [
         element: <HomePage />,
         handle: metadata(
           "Vehicle Valuation Reviews After an Accident | Venfour",
-          "Review an original CCC total-loss valuation report or submit repaired-vehicle details for future manual diminished-value review.",
+          "Review a total-loss valuation with or without an insurer report, or submit repaired-vehicle details for future manual diminished-value review.",
         ),
       },
       {
@@ -59,7 +59,7 @@ export const appRoutes: RouteObject[] = [
         element: <AppraisalStartPage />,
         handle: metadata(
           "Start a Vehicle Valuation Review | Venfour",
-          "Start a supported CCC total-loss review or submit a diminished-value request for future manual review.",
+          "Start a Total Loss market valuation with or without an insurer report, or submit a diminished-value request for future manual review.",
         ),
       },
       {
@@ -151,7 +151,7 @@ export const appRoutes: RouteObject[] = [
         element: <MethodologyPage />,
         handle: metadata(
           "Total-Loss Review Methodology | Venfour",
-          "Learn how Venfour reviews supported CCC report facts and market evidence using structured, conservative rules.",
+          "Learn how Venfour reviews available report facts and market evidence using structured, conservative rules.",
         ),
       },
       {

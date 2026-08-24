@@ -33,7 +33,7 @@ class MemoryStorage implements TotalLossDraftStorage {
 describe("total-loss browser draft", () => {
   it("creates the expected versioned empty shape", () => {
     expect(createEmptyTotalLossDraft(NOW)).toEqual({
-      version: 1,
+      version: 2,
       mode: null,
       step: "choice",
       manual: {
@@ -47,7 +47,22 @@ describe("total-loss browser draft", () => {
         dateOfLoss: "",
         insurerName: "",
         insurerVehicleValuation: "",
+        vehicleCondition: "",
+        optionsPackages: "",
       },
+      contact: {
+        fullName: "",
+        email: "",
+        termsAccepted: false,
+        privacyAccepted: false,
+        operationalFollowUpAllowed: false,
+      },
+      reportProvider: null,
+      reportExtractionStatus: "idle",
+      reportExtractionWarnings: [],
+      identityClaimId: null,
+      identityClaimExpiresAt: null,
+      accessLinkSentAt: null,
       confirmedCaseId: null,
       reservedCaseId: null,
       ownerUserId: null,
@@ -83,16 +98,69 @@ describe("total-loss browser draft", () => {
     expect(readTotalLossDraft(storage)).toEqual({ ok: true, draft });
   });
 
-  it("removes corrupt and outdated values", () => {
+  it("migrates a version-one draft without inventing contact or report facts", () => {
+    const storage = new MemoryStorage();
+    const legacy = {
+      version: 1,
+      mode: "manual",
+      step: "claim",
+      manual: {
+        vin: "1HGCM82633A004352",
+        vehicleYear: "2020",
+        make: "Honda",
+        model: "Accord",
+        trim: "EX-L",
+        mileageAtLoss: "48250",
+        zipCode: "60611",
+        dateOfLoss: "2026-08-18",
+        insurerName: "Example Insurance",
+        insurerVehicleValuation: "18750",
+      },
+      confirmedCaseId: CASE_ID,
+      reservedCaseId: CASE_ID,
+      ownerUserId: USER_ID,
+      pendingAuthAction: null,
+      dirty: true,
+      revision: 4,
+      dismissedResumeCaseId: null,
+      lastUpdatedAt: NOW.toISOString(),
+    };
+    storage.values.set(
+      TOTAL_LOSS_DRAFT_STORAGE_KEY,
+      JSON.stringify(legacy),
+    );
+
+    expect(readTotalLossDraft(storage)).toMatchObject({
+      ok: true,
+      draft: {
+        version: 2,
+        step: "claim",
+        manual: {
+          vin: "1HGCM82633A004352",
+          vehicleCondition: "",
+          optionsPackages: "",
+        },
+        contact: {
+          fullName: "",
+          email: "",
+        },
+        reportProvider: null,
+        reportExtractionStatus: "idle",
+        reportExtractionWarnings: [],
+        identityClaimId: null,
+      },
+    });
+  });
+
+  it("removes corrupt and unsupported-version values", () => {
     const storage = new MemoryStorage();
     storage.values.set(
       TOTAL_LOSS_DRAFT_STORAGE_KEY,
-      JSON.stringify({ ...createEmptyTotalLossDraft(NOW), version: 2 }),
+      JSON.stringify({ ...createEmptyTotalLossDraft(NOW), version: 3 }),
     );
 
-    expect(readTotalLossDraft(storage)).toEqual({
+    expect(readTotalLossDraft(storage)).toMatchObject({
       ok: false,
-      draft: null,
       reason: "corrupt",
       removedCorruptValue: true,
     });

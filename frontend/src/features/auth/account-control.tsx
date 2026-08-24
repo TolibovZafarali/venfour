@@ -9,7 +9,10 @@ import { Link } from "react-router";
 import { DropdownMenu } from "radix-ui";
 
 import { getFriendlyAuthError } from "@/features/auth/auth-errors";
-import { useAuth } from "@/features/auth/auth-context";
+import {
+  isPermanentAuthState,
+  useAuth,
+} from "@/features/auth/auth-context";
 import { useSignInDialog } from "@/features/auth/sign-in-dialog-context";
 import {
   getUserAccountLabel,
@@ -53,7 +56,7 @@ export function AccountControl({
     );
   }
 
-  if (auth.status !== "signedIn") {
+  if (!isPermanentAuthState(auth)) {
     const signInButton = (
       <button
         type="button"
@@ -205,7 +208,7 @@ export function MobileAccountControl({
     );
   }
 
-  if (auth.status !== "signedIn") {
+  if (!isPermanentAuthState(auth)) {
     return (
       <button
         type="button"
