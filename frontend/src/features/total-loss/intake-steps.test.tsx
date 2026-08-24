@@ -52,6 +52,12 @@ describe("total-loss intake step presentation", () => {
       .getByRole("radio", { name: /I don’t have the report/i })
       .closest("label");
     const progress = screen.getByRole("list", { name: "Appraisal steps" });
+    const reportSegments = progress.querySelectorAll(
+      "[data-intake-progress-segment]",
+    );
+    const sixthSegment = reportSegments[5];
+    expect(reportSegments).toHaveLength(6);
+    expect(sixthSegment).toHaveAttribute("data-visible", "true");
     expect(reportChoice?.parentElement).toHaveAttribute(
       "data-stable-selection-group",
     );
@@ -77,6 +83,46 @@ describe("total-loss intake step presentation", () => {
     expect(screen.getByRole("list", { name: "Appraisal steps" })).toBe(
       progress,
     );
+    const manualSegments = progress.querySelectorAll(
+      "[data-intake-progress-segment]",
+    );
+    expect(manualSegments).toHaveLength(6);
+    expect(manualSegments[5]).toBe(sixthSegment);
+    expect(manualSegments[5]).toHaveAttribute("data-visible", "false");
+    expect(manualSegments[5]).toHaveAttribute("aria-hidden", "true");
+    expect(manualSegments[5]).toHaveStyle({ left: "100%", width: "0px" });
+    expect(screen.getByLabelText("Start, step 1, current")).toBeVisible();
+  });
+
+  it("renumbers the no-report review as the fifth sequential step", () => {
+    const { rerender } = render(
+      <ReviewStep
+        mode="manual"
+        values={manualValues}
+        contact={contactValues}
+        onBack={vi.fn()}
+        onEditVehicle={vi.fn()}
+        onEditClaim={vi.fn()}
+        onStartAnalysis={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByLabelText("Review, step 5, current")).toBeVisible();
+    expect(screen.queryByLabelText("Review, step 6, current")).not.toBeInTheDocument();
+
+    rerender(
+      <ReviewStep
+        mode="report"
+        values={manualValues}
+        contact={contactValues}
+        onBack={vi.fn()}
+        onEditVehicle={vi.fn()}
+        onEditClaim={vi.fn()}
+        onStartAnalysis={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByLabelText("Review, step 6, current")).toBeVisible();
   });
 
   it("describes the shared report upload limit as a total", () => {

@@ -68,6 +68,47 @@ const choiceOptions = [
   },
 ] as const;
 
+type TotalLossProgressStep =
+  | "choice"
+  | "report"
+  | "vehicle"
+  | "claim"
+  | "contact"
+  | "review";
+
+const reportProgressSteps = [
+  { step: "choice", label: "Start" },
+  { step: "report", label: "Valuation report" },
+  { step: "vehicle", label: "Vehicle" },
+  { step: "claim", label: "Claim" },
+  { step: "contact", label: "Contact" },
+  { step: "review", label: "Review" },
+] as const;
+
+const manualProgressSteps = reportProgressSteps.filter(
+  ({ step }) => step !== "report",
+);
+
+function TotalLossProgress({
+  mode,
+  step,
+}: {
+  readonly mode: TotalLossIntakeMode | null;
+  readonly step: TotalLossProgressStep;
+}) {
+  const progressSteps =
+    mode === "manual" ? manualProgressSteps : reportProgressSteps;
+  const current = progressSteps.findIndex((item) => item.step === step) + 1;
+
+  return (
+    <IntakeProgress
+      current={current}
+      steps={progressSteps}
+      maxTotal={reportProgressSteps.length}
+    />
+  );
+}
+
 export function ChoiceStep({
   selectedMode,
   onSelect,
@@ -77,11 +118,7 @@ export function ChoiceStep({
 }: ChoiceStepProps) {
   return (
     <FlowCard busy={busy}>
-      <IntakeProgress
-        current={1}
-        total={6}
-        label="Start"
-      />
+      <TotalLossProgress mode={selectedMode} step="choice" />
       <fieldset className="mt-7">
         <legend className="text-2xl font-semibold tracking-[-0.03em] text-ink sm:text-3xl">
           Do you have your insurance valuation report?
@@ -174,6 +211,7 @@ interface ManualStepProps {
 export type VehicleEntryMethod = "vin" | "details";
 
 interface VehicleStepProps extends ManualStepProps {
+  mode: TotalLossIntakeMode;
   entryMethod: VehicleEntryMethod;
   makeOptions: readonly string[];
   modelOptions: readonly string[];
@@ -197,6 +235,7 @@ const vehicleYearOptions = Array.from(
 );
 
 export function VehicleStep({
+  mode,
   values,
   errors,
   entryMethod,
@@ -222,7 +261,7 @@ export function VehicleStep({
 }: VehicleStepProps) {
   return (
     <FlowCard busy={busy}>
-      <IntakeProgress current={3} total={6} label="Vehicle" />
+      <TotalLossProgress mode={mode} step="vehicle" />
       <StepHeading
         title="Tell us about your vehicle"
         description="Use your VIN for the quickest match, or choose your vehicle from the lists."
@@ -284,7 +323,12 @@ export function VehicleStep({
   );
 }
 
+interface ClaimStepProps extends ManualStepProps {
+  mode: TotalLossIntakeMode;
+}
+
 export function ClaimStep({
+  mode,
   values,
   errors,
   onChange,
@@ -294,10 +338,10 @@ export function ClaimStep({
   busy,
   fieldsDisabled,
   error,
-}: ManualStepProps) {
+}: ClaimStepProps) {
   return (
     <FlowCard busy={busy}>
-      <IntakeProgress current={4} total={6} label="Claim" />
+      <TotalLossProgress mode={mode} step="claim" />
       <StepHeading
         title="Add the claim details"
         description="These details help Venfour understand the insurer’s vehicle value in context."
@@ -466,7 +510,7 @@ export function ReportStep({
 
   return (
     <FlowCard busy={uploadPending || completing || extractionState === "processing"}>
-      <IntakeProgress current={2} total={6} label="Valuation report" />
+      <TotalLossProgress mode="report" step="report" />
       <StepHeading
         title="Upload your valuation report"
         description="Venfour accepts insurer valuation reports from any provider. We’ll extract what we can, then ask you to confirm every important fact."
@@ -636,6 +680,7 @@ export function ReportStep({
 }
 
 interface ContactStepProps {
+  readonly mode: TotalLossIntakeMode;
   readonly values: TotalLossContactFormValues;
   readonly errors: TotalLossContactFormErrors;
   readonly emailLocked?: boolean;
@@ -651,6 +696,7 @@ interface ContactStepProps {
 }
 
 export function ContactStep({
+  mode,
   values,
   errors,
   emailLocked = false,
@@ -663,7 +709,7 @@ export function ContactStep({
 }: ContactStepProps) {
   return (
     <FlowCard busy={busy}>
-      <IntakeProgress current={5} total={6} label="Contact" />
+      <TotalLossProgress mode={mode} step="contact" />
       <StepHeading
         title="Where should we send and save your results?"
         description="You can continue in this browser now. We’ll also send a secure access link so you can return later."
@@ -787,7 +833,7 @@ export function ReviewStep({
 
   return (
     <FlowCard busy={busy}>
-      <IntakeProgress current={6} total={6} label="Review" />
+      <TotalLossProgress mode={mode} step="review" />
       <StepHeading
         title="Review your details"
         description="Confirm the information Venfour will use before the analysis begins."

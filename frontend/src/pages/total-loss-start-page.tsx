@@ -1752,6 +1752,7 @@ function TotalLossIntakeFlowContent({
       case "vehicle":
         return (
           <VehicleStep
+            mode={draft.mode ?? "manual"}
             values={draft.manual}
             errors={manualErrors}
             entryMethod={activeVehicleEntryMethod}
@@ -1786,6 +1787,7 @@ function TotalLossIntakeFlowContent({
       case "claim":
         return (
           <ClaimStep
+            mode={draft.mode ?? "manual"}
             values={draft.manual}
             errors={manualErrors}
             busy={busy}
@@ -1834,6 +1836,7 @@ function TotalLossIntakeFlowContent({
       case "contact":
         return (
           <ContactStep
+            mode={draft.mode ?? "manual"}
             values={draft.contact}
             errors={contactErrors}
             emailLocked={Boolean(

@@ -653,6 +653,7 @@ export interface IntakeProgressStep {
 export interface IntakeProgressProps {
   current: number;
   total?: number;
+  maxTotal?: number;
   label?: string;
   steps?: readonly (string | IntakeProgressStep)[];
   ariaLabel?: string;
@@ -662,13 +663,14 @@ export interface IntakeProgressProps {
 export function IntakeProgress({
   current,
   total,
+  maxTotal,
   label = "Step",
   steps,
   ariaLabel = "Appraisal progress",
   stepsAriaLabel = "Appraisal steps",
 }: IntakeProgressProps) {
   const resolvedTotal = steps?.length ?? total ?? 3;
-  const renderedTotal = Math.max(resolvedTotal, 3);
+  const renderedTotal = Math.max(resolvedTotal, maxTotal ?? 3);
   const defaultLabels =
     resolvedTotal === 2 ? ["Start", "Report"] : ["Start", "Vehicle", "Claim"];
   const stepDescriptors = Array.from({ length: resolvedTotal }, (_, index) => {
