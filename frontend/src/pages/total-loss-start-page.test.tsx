@@ -69,6 +69,7 @@ const OTHER_USER_ID = "44444444-4444-4444-8444-444444444444";
 const GUEST_USER_ID = "77777777-7777-4777-8777-777777777777";
 const REPORT_UPLOAD_ID = "55555555-5555-4555-8555-555555555555";
 const OTHER_CASE_ID = "66666666-6666-4666-8666-666666666666";
+const NEW_CASE_INTENT_ID = "99999999-9999-4999-8999-999999999999";
 const CREATED_AT = "2026-08-18T14:00:00.000Z";
 
 function createDeferred<T>() {
@@ -614,13 +615,14 @@ describe("/start?service=total-loss", () => {
     expect(pageHeading).toBeVisible();
     const layout = pageHeading.closest("[data-total-loss-layout]");
     expect(layout).toHaveClass(
-      "lg:grid-cols-[minmax(0,0.78fr)_minmax(0,1.22fr)]",
+      "lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]",
     );
-    expect(
+    const reportChoice =
       await screen.findByRole("group", {
         name: "Do you have your insurance valuation report?",
-      }),
-    ).toBeVisible();
+      });
+    expect(reportChoice).toBeVisible();
+    expect(reportChoice.closest("[data-flow-card]")).toBeInTheDocument();
     expect(
       screen.getByRole("radio", { name: /I have my valuation report/i }),
     ).toBeEnabled();
@@ -841,6 +843,115 @@ describe("/start?service=total-loss", () => {
         confirmedCaseId: CASE_ID,
         reservedCaseId: CASE_ID,
         ownerUserId: USER_ID,
+      },
+    });
+  });
+
+  it("starts another appraisal with one URL intent across reloads", async () => {
+    const auth = createAuthHarness(sessionFor());
+    const harness = createDependencyHarness({
+      recentCase: appraisalCase(OTHER_CASE_ID),
+    });
+    const newCasePath =
+      `/start?service=total-loss&newCaseId=${NEW_CASE_INTENT_ID}`;
+    writeTotalLossDraft(
+      createSensitiveManualDraft({
+        confirmedCaseId: CASE_ID,
+        reservedCaseId: CASE_ID,
+        step: "ready",
+      }),
+    );
+
+    const firstRender = renderTestApp([newCasePath], {
+      authService: auth.service,
+      totalLossDependencies: harness.dependencies,
+    });
+
+    expect(
+      await screen.findByRole("group", {
+        name: "Do you have your insurance valuation report?",
+      }),
+    ).toBeVisible();
+    expect(harness.getOrCreateTotalLossDraft).toHaveBeenCalledWith({
+      userId: USER_ID,
+    });
+    expect(harness.createOrGetAppraisalCase).not.toHaveBeenCalled();
+    expect(readTotalLossDraft()).toMatchObject({
+      ok: true,
+      draft: {
+        confirmedCaseId: OTHER_CASE_ID,
+        reservedCaseId: OTHER_CASE_ID,
+        ownerUserId: USER_ID,
+        mode: null,
+        manual: {
+          make: "",
+          model: "",
+          vin: "",
+        },
+      },
+    });
+
+    firstRender.unmount();
+    renderTestApp([newCasePath], {
+      authService: auth.service,
+      totalLossDependencies: harness.dependencies,
+    });
+
+    expect(
+      await screen.findByRole("group", {
+        name: "Do you have your insurance valuation report?",
+      }),
+    ).toBeVisible();
+    expect(harness.getOrCreateTotalLossDraft).toHaveBeenCalledTimes(2);
+    expect(harness.getOrCreateTotalLossDraft).toHaveBeenLastCalledWith({
+      userId: USER_ID,
+    });
+    expect(harness.createOrGetAppraisalCase).not.toHaveBeenCalled();
+  });
+
+  it("retries a new-case bootstrap with the same URL reservation", async () => {
+    const auth = createAuthHarness(sessionFor());
+    const harness = createDependencyHarness({
+      recentCase: appraisalCase(OTHER_CASE_ID),
+    });
+    const user = userEvent.setup();
+    harness.getOrCreateTotalLossDraft.mockRejectedValueOnce(
+      new Error("temporary create failure"),
+    );
+
+    const { router } = renderTestApp(
+      [`/start?service=total-loss&newCaseId=${NEW_CASE_INTENT_ID}`],
+      {
+        authService: auth.service,
+        totalLossDependencies: harness.dependencies,
+      },
+    );
+
+    expect(
+      await screen.findByText(
+        "Your durable Total Loss draft could not be prepared. No report has been requested or uploaded.",
+      ),
+    ).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Try again" }));
+
+    expect(
+      await screen.findByRole("group", {
+        name: "Do you have your insurance valuation report?",
+      }),
+    ).toBeVisible();
+    expect(harness.getOrCreateTotalLossDraft).toHaveBeenCalledTimes(2);
+    for (const [input] of harness.getOrCreateTotalLossDraft.mock.calls) {
+      expect(input).toEqual({ userId: USER_ID });
+    }
+    expect(harness.createOrGetAppraisalCase).not.toHaveBeenCalled();
+    expect(
+      new URLSearchParams(router.state.location.search).get("newCaseId"),
+    ).toBe(NEW_CASE_INTENT_ID);
+    expect(readTotalLossDraft()).toMatchObject({
+      ok: true,
+      draft: {
+        confirmedCaseId: OTHER_CASE_ID,
+        reservedCaseId: OTHER_CASE_ID,
       },
     });
   });

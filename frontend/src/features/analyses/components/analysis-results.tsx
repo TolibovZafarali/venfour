@@ -24,6 +24,7 @@ import {
   joinPresent,
   unavailable,
 } from "@/features/analyses/format";
+import { useNewTotalLossAppraisalHref } from "@/features/total-loss/new-appraisal";
 import { cn } from "@/lib/utils";
 
 interface AnalysisResultsProps {
@@ -1703,6 +1704,7 @@ function nextStepContent(analysis: AnalysisPresentation): NextStepContent {
 }
 
 function NextSteps({ analysis }: AnalysisResultsProps) {
+  const newAppraisalHref = useNewTotalLossAppraisalHref();
   const content = nextStepContent(analysis);
   const manual = analysis.analysisScope.inputMode === "MANUAL";
   const steps = [
@@ -1760,7 +1762,7 @@ function NextSteps({ analysis }: AnalysisResultsProps) {
             ))}
           </ol>
           <Button asChild variant="outline" size="lg" className="mt-7">
-            <Link to="/start?service=total-loss">Start another appraisal</Link>
+            <Link to={newAppraisalHref}>Start another appraisal</Link>
           </Button>
         </div>
       </div>

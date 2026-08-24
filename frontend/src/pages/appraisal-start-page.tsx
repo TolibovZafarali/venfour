@@ -10,6 +10,7 @@ import {
   AppraisalStartLayout,
   type AppraisalServiceSlug,
 } from "@/features/intake";
+import { NEW_TOTAL_LOSS_CASE_QUERY_PARAMETER } from "@/features/total-loss/new-appraisal";
 import { TotalLossIntakeFlow } from "@/pages/total-loss-start-page";
 
 const DEFAULT_SERVICE: AppraisalServiceSlug = "total-loss";
@@ -73,6 +74,7 @@ export function AppraisalStartPage() {
     params.set("service", nextService);
     params.delete("view");
     params.delete("caseId");
+    params.delete(NEW_TOTAL_LOSS_CASE_QUERY_PARAMETER);
 
     void navigate(
       {

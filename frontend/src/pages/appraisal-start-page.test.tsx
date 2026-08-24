@@ -166,11 +166,11 @@ describe("/start appraisal intake", () => {
       ).toBeVisible();
       expect(screen.getByLabelText(supportingLine)).toBeVisible();
       expect(
-        document.querySelector("[data-appraisal-start-intro]"),
-      ).toHaveClass("lg:pt-5");
-      expect(document.querySelector("[data-appraisal-start-flow]")).toHaveClass(
-        "lg:pt-5",
-      );
+        document.querySelector('[data-appraisal-section-content="intro"]'),
+      ).toHaveClass("lg:py-12");
+      expect(
+        document.querySelector('[data-appraisal-section-content="flow"]'),
+      ).toHaveClass("lg:py-12");
     },
   );
 
@@ -203,6 +203,24 @@ describe("/start appraisal intake", () => {
     );
     expect(router.state.historyAction).toBe("POP");
     expectSelectedService("Diminished Value");
+  });
+
+  it("drops a new-case reservation when switching to another service", async () => {
+    const user = userEvent.setup();
+    const { router } = renderTestApp([
+      `/start?service=total-loss&newCaseId=${TOTAL_LOSS_CASE_ID}`,
+    ]);
+
+    await user.click(screen.getByRole("radio", { name: "Diminished Value" }));
+
+    await waitFor(() =>
+      expect(
+        new URLSearchParams(router.state.location.search).get("service"),
+      ).toBe("diminished-value"),
+    );
+    expect(
+      new URLSearchParams(router.state.location.search).has("newCaseId"),
+    ).toBe(false);
   });
 
   it("navigates between the responsive overview and selected intake", async () => {

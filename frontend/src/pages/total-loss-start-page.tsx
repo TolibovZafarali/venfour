@@ -22,6 +22,7 @@ import {
   appraisalCaseQueryKeys,
   useAppraisalCaseQuery,
   useRecentDraftAppraisalCaseQuery,
+  useReservedTotalLossDraftQuery,
   useTotalLossDraftQuery,
 } from "@/features/cases/queries";
 import type { AppraisalCaseService } from "@/features/cases/service";
@@ -92,6 +93,10 @@ import {
   normalizeTotalLossReportFiles,
   TotalLossReportNormalizationError,
 } from "@/features/total-loss/report-normalization";
+import {
+  isNewTotalLossAppraisalIntentId,
+  NEW_TOTAL_LOSS_CASE_QUERY_PARAMETER,
+} from "@/features/total-loss/new-appraisal";
 
 const AUTOSAVE_DELAY_MS = 600;
 const REPORT_EXTRACTION_FAILURE_WARNING =
@@ -156,8 +161,19 @@ function TotalLossDraftBootstrapGate({
     () => new URLSearchParams(location.search).get("caseId"),
     [location.search],
   );
+  const newCaseId = useMemo(
+    () =>
+      new URLSearchParams(location.search).get(
+        NEW_TOTAL_LOSS_CASE_QUERY_PARAMETER,
+      ),
+    [location.search],
+  );
+  const conflictingCaseIntents = Boolean(explicitCaseId && newCaseId);
   const invalidExplicitCaseId = Boolean(
     explicitCaseId && !UUID_PATTERN.test(explicitCaseId),
+  );
+  const invalidNewCaseId = Boolean(
+    newCaseId && !isNewTotalLossAppraisalIntentId(newCaseId),
   );
   const caseService =
     dependencies?.appraisalCaseService ?? unavailableCaseService;
@@ -165,13 +181,31 @@ function TotalLossDraftBootstrapGate({
     caseId: explicitCaseId ?? "",
     service: caseService,
     userId:
-      dependencies && explicitCaseId && !invalidExplicitCaseId ? userId : null,
+      dependencies &&
+      explicitCaseId &&
+      !newCaseId &&
+      !invalidExplicitCaseId
+        ? userId
+        : null,
+  });
+  const reservedCaseQuery = useReservedTotalLossDraftQuery({
+    intentId: newCaseId ?? "",
+    service: caseService,
+    userId:
+      dependencies &&
+      newCaseId &&
+      !explicitCaseId &&
+      !invalidNewCaseId
+        ? userId
+        : null,
   });
   const bootstrapQuery = useTotalLossDraftQuery({
     service: caseService,
-    userId: dependencies && !explicitCaseId ? userId : null,
+    userId:
+      dependencies && !explicitCaseId && !newCaseId ? userId : null,
   });
   const explicitAppraisalCase = explicitCaseQuery.data;
+  const reservedAppraisalCase = reservedCaseQuery.data;
   const canonicalAppraisalCase = bootstrapQuery.data;
   const explicitCaseIsOwnedTotalLossDraft = Boolean(
     auth.status === "signedIn" &&
@@ -179,6 +213,13 @@ function TotalLossDraftBootstrapGate({
     explicitAppraisalCase.userId === auth.user.id &&
     explicitAppraisalCase.serviceType === "total_loss" &&
     explicitAppraisalCase.status === "draft",
+  );
+  const reservedCaseIsOwnedTotalLossDraft = Boolean(
+    auth.status === "signedIn" &&
+    reservedAppraisalCase &&
+    reservedAppraisalCase.userId === auth.user.id &&
+    reservedAppraisalCase.serviceType === "total_loss" &&
+    reservedAppraisalCase.status === "draft",
   );
 
   const startGuestBootstrap = useCallback(() => {
@@ -243,17 +284,25 @@ function TotalLossDraftBootstrapGate({
       <DraftBootstrapErrorCard message="Venfour could not connect to secure case storage." />
     );
   }
-  if (invalidExplicitCaseId) return <UnavailableCaseCard />;
+  if (
+    invalidExplicitCaseId ||
+    invalidNewCaseId ||
+    conflictingCaseIntents
+  ) {
+    return <UnavailableCaseCard />;
+  }
 
   if (
-    (!explicitCaseId && bootstrapQuery.isPending) ||
-    (explicitCaseId && explicitCaseQuery.isPending)
+    (!explicitCaseId && !newCaseId && bootstrapQuery.isPending) ||
+    (explicitCaseId && explicitCaseQuery.isPending) ||
+    (newCaseId && reservedCaseQuery.isPending)
   ) {
     return <LoadingCard />;
   }
   if (
-    (!explicitCaseId && bootstrapQuery.isError) ||
-    (explicitCaseId && explicitCaseQuery.isError)
+    (!explicitCaseId && !newCaseId && bootstrapQuery.isError) ||
+    (explicitCaseId && explicitCaseQuery.isError) ||
+    (newCaseId && reservedCaseQuery.isError)
   ) {
     return (
       <DraftBootstrapErrorCard
@@ -261,6 +310,8 @@ function TotalLossDraftBootstrapGate({
         onRetry={() => {
           if (explicitCaseId) {
             void explicitCaseQuery.refetch();
+          } else if (newCaseId) {
+            void reservedCaseQuery.refetch();
           } else {
             void bootstrapQuery.refetch();
           }
@@ -272,10 +323,15 @@ function TotalLossDraftBootstrapGate({
   if (explicitCaseId && !explicitCaseIsOwnedTotalLossDraft) {
     return <UnavailableCaseCard />;
   }
+  if (newCaseId && !reservedCaseIsOwnedTotalLossDraft) {
+    return <UnavailableCaseCard />;
+  }
 
   const appraisalCase = explicitCaseId
     ? explicitAppraisalCase
-    : canonicalAppraisalCase;
+    : newCaseId
+      ? reservedAppraisalCase
+      : canonicalAppraisalCase;
   if (
     !appraisalCase ||
     appraisalCase.userId !== auth.user.id ||
@@ -287,7 +343,9 @@ function TotalLossDraftBootstrapGate({
 
   return (
     <TotalLossIntakeFlowContent
+      key={appraisalCase.id}
       bootstrapCase={appraisalCase}
+      startNewCase={Boolean(newCaseId)}
       onBusyChange={onBusyChange}
     />
   );
@@ -295,11 +353,13 @@ function TotalLossDraftBootstrapGate({
 
 interface TotalLossIntakeFlowContentProps extends TotalLossIntakeFlowProps {
   readonly bootstrapCase: AppraisalCase;
+  readonly startNewCase: boolean;
 }
 
 function TotalLossIntakeFlowContent({
   bootstrapCase,
   onBusyChange,
+  startNewCase,
 }: TotalLossIntakeFlowContentProps) {
   const location = useLocation();
   const navigate = useNavigate();
@@ -307,7 +367,7 @@ function TotalLossIntakeFlowContent({
   const queryClient = useQueryClient();
   const dependencies = useTotalLossDependencies();
   const [initialDraft] = useState(() =>
-    loadInitialDraft(bootstrapCase, bootstrapCase.userId),
+    loadInitialDraft(bootstrapCase, bootstrapCase.userId, startNewCase),
   );
   const [draft, setDraft] = useState(initialDraft.draft);
   const [stepTransitionDirection, setStepTransitionDirection] = useState<
@@ -440,7 +500,7 @@ function TotalLossIntakeFlowContent({
   const recentCaseQuery = useRecentDraftAppraisalCaseQuery({
     service: caseService,
     serviceType: "total_loss",
-    userId: dataUserId,
+    userId: startNewCase ? null : dataUserId,
   });
   const confirmedCaseId =
     userId && draft.ownerUserId === userId ? draft.confirmedCaseId : null;
@@ -1935,14 +1995,20 @@ class StaleIdentityOperationError extends Error {
 function loadInitialDraft(
   bootstrapCase: AppraisalCase,
   userId: string,
+  startNewCase: boolean,
 ): InitialDraftState {
   const stored = readTotalLossDraft();
   if (stored.ok) {
     const storedDraft = stored.draft ?? createEmptyTotalLossDraft();
+    const storedCaseMatchesBootstrap =
+      storedDraft.confirmedCaseId === bootstrapCase.id ||
+      (!storedDraft.confirmedCaseId &&
+        storedDraft.reservedCaseId === bootstrapCase.id);
     const belongsToBootstrapCase =
       (!storedDraft.ownerUserId || storedDraft.ownerUserId === userId) &&
-      (!storedDraft.confirmedCaseId ||
-        storedDraft.confirmedCaseId === bootstrapCase.id);
+      (startNewCase
+        ? storedCaseMatchesBootstrap
+        : !storedDraft.confirmedCaseId || storedCaseMatchesBootstrap);
     const draft = {
       ...(belongsToBootstrapCase ? storedDraft : createEmptyTotalLossDraft()),
       confirmedCaseId: bootstrapCase.id,
@@ -2276,10 +2342,7 @@ function ConflictNotice({
 
 function LoadingCard() {
   return (
-    <section
-      className="rounded-2xl border border-line bg-white p-8 text-center shadow-[0_22px_64px_-48px_rgba(11,31,51,0.42)]"
-      aria-busy="true"
-    >
+    <FlowCard className="text-center" busy>
       <RefreshCw
         className="mx-auto size-6 animate-spin text-brand motion-reduce:animate-none"
         aria-hidden
@@ -2287,13 +2350,13 @@ function LoadingCard() {
       <p className="mt-3 text-sm font-semibold text-ink" role="status">
         Loading your saved appraisal…
       </p>
-    </section>
+    </FlowCard>
   );
 }
 
 function UnavailableCaseCard() {
   return (
-    <section className="rounded-2xl border border-line bg-white p-8 text-center shadow-[0_22px_64px_-48px_rgba(11,31,51,0.42)]">
+    <FlowCard className="text-center">
       <p className="text-sm font-semibold text-ink">
         This saved appraisal cannot be opened from this link.
       </p>
@@ -2306,7 +2369,7 @@ function UnavailableCaseCard() {
       >
         View my appraisals
       </Link>
-    </section>
+    </FlowCard>
   );
 }
 

@@ -15,6 +15,7 @@ import { appraisalCasePresentation } from "@/features/cases/presentation";
 import { useAppraisalCasesQuery } from "@/features/cases/queries";
 import { useAppraisalCaseService } from "@/features/cases/service-context";
 import type { AppraisalCase } from "@/features/cases/types";
+import { useNewTotalLossAppraisalHref } from "@/features/total-loss/new-appraisal";
 
 const appraisalsPath = "/appraisals";
 
@@ -74,6 +75,8 @@ function MessageCard({
 }
 
 function AppraisalsHeader() {
+  const newAppraisalHref = useNewTotalLossAppraisalHref();
+
   return (
     <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
       <div className="max-w-2xl">
@@ -89,7 +92,7 @@ function AppraisalsHeader() {
         </p>
       </div>
       <Button asChild className="shrink-0 self-start sm:self-auto">
-        <Link to="/start?service=total-loss">
+        <Link to={newAppraisalHref}>
           Start another appraisal
           <ArrowRight className="size-4" aria-hidden />
         </Link>

@@ -213,6 +213,14 @@
 }
 
 @layer components {
+  [data-appraisal-start-page] [data-flow-card] {
+    border-width: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+  }
+
   .intake-step-forward,
   .intake-step-backward {
     animation-duration: 360ms;
