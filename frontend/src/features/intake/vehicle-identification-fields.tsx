@@ -204,26 +204,28 @@ export function VehicleIdentificationFields({
                     onChange={(event) => onChange("make", event.target.value)}
                     onBlur={() => onBlur?.("make")}
                   />
-                  <IntakeTextField
-                    id={`${idPrefix}-model`}
-                    label="Model"
-                    value={values.model}
-                    error={errors.model}
-                    disabled={fieldsDisabled}
-                    onChange={(event) => onChange("model", event.target.value)}
-                    onBlur={() => onBlur?.("model")}
-                  />
-                  <VehicleTrimSelect
-                    id={`${idPrefix}-trim`}
-                    values={values}
-                    error={errors.trim}
-                    options={trimOptions}
-                    state={trimsState}
-                    disabled={fieldsDisabled}
-                    onChange={(value) => onChange("trim", value)}
-                    onBlur={() => onBlur?.("trim")}
-                    onRetry={onRetryTrims}
-                  />
+                  <div className="grid grid-cols-2 gap-5 sm:col-span-2">
+                    <IntakeTextField
+                      id={`${idPrefix}-model`}
+                      label="Model"
+                      value={values.model}
+                      error={errors.model}
+                      disabled={fieldsDisabled}
+                      onChange={(event) => onChange("model", event.target.value)}
+                      onBlur={() => onBlur?.("model")}
+                    />
+                    <VehicleTrimSelect
+                      id={`${idPrefix}-trim`}
+                      values={values}
+                      error={errors.trim}
+                      options={trimOptions}
+                      state={trimsState}
+                      disabled={fieldsDisabled}
+                      onChange={(value) => onChange("trim", value)}
+                      onBlur={() => onBlur?.("trim")}
+                      onRetry={onRetryTrims}
+                    />
+                  </div>
                 </div>
               </div>
             ) : null}
@@ -260,46 +262,52 @@ export function VehicleIdentificationFields({
                 <OptionLoadError label="makes" onRetry={onRetryMakes} />
               ) : null}
             </div>
-            <div className="sm:col-span-2">
-              <IntakeSelectField
-                id={`${idPrefix}-model`}
-                label="Model"
-                value={values.model}
-                error={errors.model}
-                placeholder={
-                  values.vehicleYear && values.make
-                    ? "Select model"
-                    : "Choose year and make first"
-                }
-                options={withCurrentOption(modelOptions, values.model)}
-                loading={modelsState === "loading"}
-                disabled={
-                  fieldsDisabled ||
-                  !values.vehicleYear ||
-                  !values.make ||
-                  modelsState === "error"
-                }
-                onChange={(event) => onChange("model", event.target.value)}
-                onBlur={() => onBlur?.("model")}
-              />
-              {modelsState === "error" ? (
-                <OptionLoadError label="models" onRetry={onRetryModels} />
+            <div
+              className={cn(
+                "grid gap-5 sm:col-span-2",
+                trimRequired ? "grid-cols-2" : "grid-cols-1",
+              )}
+            >
+              <div>
+                <IntakeSelectField
+                  id={`${idPrefix}-model`}
+                  label="Model"
+                  value={values.model}
+                  error={errors.model}
+                  placeholder={
+                    values.vehicleYear && values.make
+                      ? "Select model"
+                      : "Choose year and make first"
+                  }
+                  options={withCurrentOption(modelOptions, values.model)}
+                  loading={modelsState === "loading"}
+                  disabled={
+                    fieldsDisabled ||
+                    !values.vehicleYear ||
+                    !values.make ||
+                    modelsState === "error"
+                  }
+                  onChange={(event) => onChange("model", event.target.value)}
+                  onBlur={() => onBlur?.("model")}
+                />
+                {modelsState === "error" ? (
+                  <OptionLoadError label="models" onRetry={onRetryModels} />
+                ) : null}
+              </div>
+              {trimRequired ? (
+                <VehicleTrimSelect
+                  id={`${idPrefix}-trim`}
+                  values={values}
+                  error={errors.trim}
+                  options={trimOptions}
+                  state={trimsState}
+                  disabled={fieldsDisabled}
+                  onChange={(value) => onChange("trim", value)}
+                  onBlur={() => onBlur?.("trim")}
+                  onRetry={onRetryTrims}
+                />
               ) : null}
             </div>
-            {trimRequired ? (
-              <VehicleTrimSelect
-                className="sm:col-span-2"
-                id={`${idPrefix}-trim`}
-                values={values}
-                error={errors.trim}
-                options={trimOptions}
-                state={trimsState}
-                disabled={fieldsDisabled}
-                onChange={(value) => onChange("trim", value)}
-                onBlur={() => onBlur?.("trim")}
-                onRetry={onRetryTrims}
-              />
-            ) : null}
           </div>
         )}
 
@@ -367,7 +375,6 @@ function VehicleTrimSelect({
         label="Trim"
         value={values.trim ?? ""}
         error={error}
-        help="Select the exact trim or style for this vehicle."
         placeholder={
           vehicleKnown
             ? "Select trim"

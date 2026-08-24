@@ -142,6 +142,47 @@ describe("shared appraisal intake controls", () => {
     ).toBe(methodPanel);
   });
 
+  test("groups model and trim together without extra trim helper copy", () => {
+    render(
+      <VehicleIdentificationFields
+        idPrefix="vehicle"
+        entryMethod="details"
+        values={{
+          vin: "",
+          vehicleYear: "2026",
+          make: "Honda",
+          model: "Accord",
+          trim: "EX-L",
+        }}
+        yearOptions={["2026"]}
+        makeOptions={["Honda"]}
+        modelOptions={["Accord"]}
+        trimOptions={["EX-L"]}
+        makesState="success"
+        modelsState="success"
+        trimsState="success"
+        vinLookupState="idle"
+        trimRequired
+        onEntryMethodChange={vi.fn()}
+        onChange={vi.fn()}
+        onRetryMakes={vi.fn()}
+        onRetryModels={vi.fn()}
+      />,
+    );
+
+    const modelColumn = screen.getByLabelText("Model").parentElement
+      ?.parentElement?.parentElement;
+    const trimColumn = screen.getByLabelText("Trim").parentElement
+      ?.parentElement?.parentElement;
+
+    expect(modelColumn?.parentElement).toBe(trimColumn?.parentElement);
+    expect(modelColumn).not.toHaveClass("sm:col-span-2");
+    expect(trimColumn).not.toHaveClass("sm:col-span-2");
+    expect(
+      screen.queryByText("Select the exact trim or style for this vehicle."),
+    ).not.toBeInTheDocument();
+  });
+
   test("supports a service-specific calendar label", async () => {
     const user = userEvent.setup();
     render(
