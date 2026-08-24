@@ -115,7 +115,7 @@ export function AppraisalStartLayout({
       >
         <section
           className={cn(
-            "min-w-0 bg-[linear-gradient(155deg,rgba(255,255,255,0.22),rgba(239,245,253,0.08))] lg:block lg:border-r lg:border-white/80",
+            "appraisal-start-intro-panel min-w-0 lg:block",
             mobileView === "intake" && "hidden",
           )}
           data-appraisal-start-intro
@@ -159,7 +159,7 @@ export function AppraisalStartLayout({
         <section
           id="appraisal-intake"
           className={cn(
-            "min-w-0 bg-[linear-gradient(145deg,rgba(255,255,255,0.62),rgba(255,255,255,0.34))] lg:block lg:backdrop-blur-[3px]",
+            "appraisal-start-flow-panel min-w-0 lg:block lg:backdrop-blur-[3px]",
             mobileView === "overview" && "hidden",
           )}
           data-appraisal-start-flow

@@ -169,6 +169,12 @@ describe("/start appraisal intake", () => {
         document.querySelector("[data-appraisal-start-page]"),
       ).toHaveClass("appraisal-start-gradient");
       expect(
+        document.querySelector("[data-appraisal-start-intro]"),
+      ).toHaveClass("appraisal-start-intro-panel");
+      expect(
+        document.querySelector("[data-appraisal-start-flow]"),
+      ).toHaveClass("appraisal-start-flow-panel");
+      expect(
         document.querySelector('[data-appraisal-section-content="intro"]'),
       ).toHaveClass("lg:py-12");
       expect(
