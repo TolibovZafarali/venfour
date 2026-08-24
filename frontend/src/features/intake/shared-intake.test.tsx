@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, test, vi } from "vitest";
 
@@ -180,6 +180,55 @@ describe("shared appraisal intake controls", () => {
     expect(trimColumn).not.toHaveClass("sm:col-span-2");
     expect(
       screen.queryByText("Select the exact trim or style for this vehicle."),
+    ).not.toBeInTheDocument();
+  });
+
+  test("locks VIN-decoded vehicle details while keeping trim editable", () => {
+    render(
+      <VehicleIdentificationFields
+        idPrefix="vehicle"
+        entryMethod="vin"
+        values={{
+          vin: "1HGCM82633A004352",
+          vehicleYear: "2003",
+          make: "Honda",
+          model: "Accord",
+          trim: "EX-V6",
+        }}
+        yearOptions={["2003"]}
+        makeOptions={["Honda"]}
+        modelOptions={["Accord"]}
+        trimOptions={["EX-V6", "LX"]}
+        makesState="success"
+        modelsState="success"
+        trimsState="success"
+        vinLookupState="success"
+        vinLookupMessage="Vehicle found: 2003 Honda Accord EX-V6"
+        trimRequired
+        onEntryMethodChange={vi.fn()}
+        onChange={vi.fn()}
+        onRetryMakes={vi.fn()}
+        onRetryModels={vi.fn()}
+      />,
+    );
+
+    const confirmedVehicle = screen.getByRole("region", {
+      name: "Confirmed vehicle details",
+    });
+    expect(within(confirmedVehicle).getByText("2003")).toBeVisible();
+    expect(within(confirmedVehicle).getByText("Honda")).toBeVisible();
+    expect(within(confirmedVehicle).getByText("Accord")).toBeVisible();
+    expect(
+      within(confirmedVehicle).getByRole("combobox", { name: "Trim" }),
+    ).toHaveValue("EX-V6");
+    expect(
+      within(confirmedVehicle).queryByRole("textbox", { name: "Year" }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(confirmedVehicle).queryByRole("textbox", { name: "Make" }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(confirmedVehicle).queryByRole("textbox", { name: "Model" }),
     ).not.toBeInTheDocument();
   });
 

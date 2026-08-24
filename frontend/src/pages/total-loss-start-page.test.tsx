@@ -1015,9 +1015,21 @@ describe("/start?service=total-loss", () => {
     );
     await user.click(screen.getByRole("button", { name: "Find vehicle" }));
 
+    const confirmedVehicle = await screen.findByRole("region", {
+      name: "Confirmed vehicle details",
+    });
+    expect(within(confirmedVehicle).getByText("2003")).toBeVisible();
+    expect(within(confirmedVehicle).getByText("Honda")).toBeVisible();
+    expect(within(confirmedVehicle).getByText("Accord")).toBeVisible();
     expect(
-      await screen.findByText("Confirm or correct the decoded vehicle"),
-    ).toBeVisible();
+      within(confirmedVehicle).queryByRole("textbox", { name: "Year" }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(confirmedVehicle).queryByRole("textbox", { name: "Make" }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(confirmedVehicle).queryByRole("textbox", { name: "Model" }),
+    ).not.toBeInTheDocument();
     expect(screen.getByLabelText("Trim")).toHaveValue("EX-V6");
     expect(
       screen.queryByRole("heading", { name: "Add the claim details" }),
@@ -2107,7 +2119,7 @@ describe("/start?service=total-loss", () => {
     expect(await screen.findByLabelText("VIN")).toHaveValue(
       "1HGCM82633A004352",
     );
-    expect(screen.getByText("Vehicle: 2020 Honda Accord EX-L")).toBeVisible();
+    expect(screen.getByText("Vehicle: 2020 Honda Accord")).toBeVisible();
     expect(harness.createOrGetAppraisalCase).not.toHaveBeenCalled();
     expect(harness.getOrCreateTotalLossDraft).toHaveBeenCalledWith({
       userId: USER_ID,
@@ -2274,7 +2286,7 @@ describe("/start?service=total-loss", () => {
     ).toBeVisible();
     expect(screen.getByLabelText("VIN")).toHaveValue("1HGCM82633A004352");
     expect(
-      screen.getByText("Vehicle: 2020 Honda Accord EX-L"),
+      screen.getByText("Vehicle: 2020 Honda Accord"),
     ).toBeVisible();
     expect(harness.detailRows.get(CASE_ID)).toMatchObject({
       intakeMode: "manual",

@@ -164,11 +164,16 @@ export function VehicleIdentificationFields({
               }
               onBlur={() => onBlur?.("vin")}
             />
-            {vinLookupState === "success" && vinLookupMessage ? (
-              <VehicleLookupSuccess message={vinLookupMessage} />
+            {vinLookupState === "success" &&
+            values.vehicleYear &&
+            values.make &&
+            values.model ? (
+              <VehicleLookupSuccess
+                message={`Vehicle found: ${vehicleIdentitySummary(values)}`}
+              />
             ) : values.vehicleYear && values.make && values.model ? (
               <VehicleLookupSuccess
-                message={`Vehicle: ${vehicleSummary(values)}`}
+                message={`Vehicle: ${vehicleIdentitySummary(values)}`}
               />
             ) : null}
             {vinLookupState === "error" && vinLookupMessage ? (
@@ -177,57 +182,57 @@ export function VehicleIdentificationFields({
               </p>
             ) : null}
             {trimRequired && values.vehicleYear && values.make && values.model ? (
-              <div className="mt-5 rounded-xl border border-line bg-surface/55 p-4">
-                <p className="text-sm font-semibold text-ink">
-                  Confirm or correct the decoded vehicle
-                </p>
-                <p className="mt-1 text-xs leading-5 text-copy">
-                  VIN data can identify more than one style. Confirm the exact trim before continuing.
-                </p>
-                <div className="mt-4 grid gap-5 sm:grid-cols-2">
-                  <IntakeTextField
-                    id={`${idPrefix}-year`}
-                    label="Year"
-                    value={values.vehicleYear}
-                    error={errors.vehicleYear}
-                    inputMode="numeric"
-                    disabled={fieldsDisabled}
-                    onChange={(event) => onChange("vehicleYear", event.target.value)}
-                    onBlur={() => onBlur?.("vehicleYear")}
-                  />
-                  <IntakeTextField
-                    id={`${idPrefix}-make`}
-                    label="Make"
-                    value={values.make}
-                    error={errors.make}
-                    disabled={fieldsDisabled}
-                    onChange={(event) => onChange("make", event.target.value)}
-                    onBlur={() => onBlur?.("make")}
-                  />
-                  <div className="grid grid-cols-2 gap-5 sm:col-span-2">
-                    <IntakeTextField
-                      id={`${idPrefix}-model`}
-                      label="Model"
-                      value={values.model}
-                      error={errors.model}
-                      disabled={fieldsDisabled}
-                      onChange={(event) => onChange("model", event.target.value)}
-                      onBlur={() => onBlur?.("model")}
-                    />
-                    <VehicleTrimSelect
-                      id={`${idPrefix}-trim`}
-                      values={values}
-                      error={errors.trim}
-                      options={trimOptions}
-                      state={trimsState}
-                      disabled={fieldsDisabled}
-                      onChange={(value) => onChange("trim", value)}
-                      onBlur={() => onBlur?.("trim")}
-                      onRetry={onRetryTrims}
-                    />
+              <section
+                className="mt-5 rounded-xl border border-line bg-surface/55 p-4 sm:p-5"
+                aria-labelledby={`${idPrefix}-confirmed-vehicle-heading`}
+              >
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <h3
+                      id={`${idPrefix}-confirmed-vehicle-heading`}
+                      className="text-sm font-semibold text-ink"
+                    >
+                      Confirmed vehicle details
+                    </h3>
+                    <p className="mt-1 max-w-xl text-xs leading-5 text-copy">
+                      NHTSA identified the year, make, and model from this VIN.
+                      Choose the exact trim to continue.
+                    </p>
                   </div>
+                  <span className="inline-flex min-h-7 items-center rounded-full border border-market/20 bg-market-soft px-2.5 text-xs font-semibold text-market-strong">
+                    VIN confirmed
+                  </span>
                 </div>
-              </div>
+                <dl className="mt-4 grid grid-cols-3 divide-x divide-line overflow-hidden rounded-lg border border-line bg-white shadow-sm">
+                  {[
+                    ["Year", values.vehicleYear],
+                    ["Make", values.make],
+                    ["Model", values.model],
+                  ].map(([label, value]) => (
+                    <div key={label} className="min-w-0 px-3 py-3 sm:px-4">
+                      <dt className="text-[0.6875rem] font-semibold uppercase tracking-[0.08em] text-copy">
+                        {label}
+                      </dt>
+                      <dd className="mt-1 break-words text-sm font-semibold text-ink">
+                        {value}
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
+                <div className="mt-5 border-t border-line pt-5">
+                  <VehicleTrimSelect
+                    id={`${idPrefix}-trim`}
+                    values={values}
+                    error={errors.trim}
+                    options={trimOptions}
+                    state={trimsState}
+                    disabled={fieldsDisabled}
+                    onChange={(value) => onChange("trim", value)}
+                    onBlur={() => onBlur?.("trim")}
+                    onRetry={onRetryTrims}
+                  />
+                </div>
+              </section>
             ) : null}
           </div>
         ) : (
@@ -433,8 +438,8 @@ function OptionLoadError({
   );
 }
 
-function vehicleSummary(values: VehicleIdentificationValues) {
-  return [values.vehicleYear, values.make, values.model, values.trim]
+function vehicleIdentitySummary(values: VehicleIdentificationValues) {
+  return [values.vehicleYear, values.make, values.model]
     .filter(Boolean)
     .join(" ");
 }
