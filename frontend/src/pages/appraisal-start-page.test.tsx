@@ -166,6 +166,9 @@ describe("/start appraisal intake", () => {
       ).toBeVisible();
       expect(screen.getByLabelText(supportingLine)).toBeVisible();
       expect(
+        document.querySelector("[data-appraisal-start-page]"),
+      ).toHaveClass("appraisal-start-gradient");
+      expect(
         document.querySelector('[data-appraisal-section-content="intro"]'),
       ).toHaveClass("lg:py-12");
       expect(

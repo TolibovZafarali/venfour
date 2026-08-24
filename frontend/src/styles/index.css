@@ -213,6 +213,33 @@
 }
 
 @layer components {
+  .appraisal-start-gradient {
+    background:
+      radial-gradient(
+        ellipse 86% 72% at -10% -12%,
+        rgb(199 218 255 / 0.96) 0%,
+        rgb(218 231 255 / 0.48) 42%,
+        transparent 70%
+      ),
+      radial-gradient(
+        ellipse 72% 64% at 110% -4%,
+        rgb(204 220 244 / 0.82) 0%,
+        rgb(231 238 249 / 0.36) 48%,
+        transparent 72%
+      ),
+      radial-gradient(
+        ellipse 64% 58% at 74% 112%,
+        rgb(195 226 217 / 0.45) 0%,
+        transparent 70%
+      ),
+      radial-gradient(
+        ellipse 42% 48% at 51% 46%,
+        rgb(255 255 255 / 0.72) 0%,
+        transparent 74%
+      ),
+      linear-gradient(128deg, #f4f8ff 0%, #fbfcfe 46%, #edf3f7 100%);
+  }
+
   [data-appraisal-start-page] [data-flow-card] {
     border-width: 0 !important;
     border-radius: 0 !important;
