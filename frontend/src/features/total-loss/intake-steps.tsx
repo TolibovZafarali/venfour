@@ -94,9 +94,9 @@ export function ChoiceStep({
               <label
                 key={option.mode}
                 className={cn(
-                  "relative flex min-h-44 cursor-pointer flex-col rounded-xl border bg-white p-5 transition-colors focus-within:ring-2 focus-within:ring-brand focus-within:ring-offset-2 hover:border-brand/45 hover:bg-brand-soft/35 motion-reduce:transition-none",
+                  "relative flex min-h-44 cursor-pointer flex-col rounded-xl border bg-white p-5 transition-colors focus-within:ring-2 focus-within:ring-brand focus-within:ring-offset-2 hover:bg-brand-soft/35 motion-reduce:transition-none",
                   selected
-                    ? "border-brand bg-brand-soft/45 shadow-[inset_0_0_0_1px_var(--brand)]"
+                    ? "border-line bg-brand-soft/55"
                     : "border-line",
                   busy &&
                     "cursor-not-allowed bg-surface/70 opacity-70 hover:border-line hover:bg-surface/70",

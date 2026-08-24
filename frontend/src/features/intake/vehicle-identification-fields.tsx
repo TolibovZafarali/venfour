@@ -116,7 +116,7 @@ export function VehicleIdentificationFields({
               className={cn(
                 "flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-lg border px-2 text-center text-sm font-semibold transition-[background-color,border-color,box-shadow,color,transform] duration-300 ease-out focus-within:ring-2 focus-within:ring-brand focus-within:ring-offset-1 active:scale-[0.99] motion-reduce:transition-none sm:px-3",
                 entryMethod === method
-                  ? "border-brand/25 bg-white text-brand shadow-[0_8px_22px_-18px_rgba(21,94,239,0.9)]"
+                  ? "border-transparent bg-white text-brand shadow-[0_8px_22px_-18px_rgba(21,94,239,0.9)]"
                   : "border-transparent text-copy hover:border-line hover:bg-white/60 hover:text-ink",
                 methodDisabled && "cursor-not-allowed opacity-65",
               )}

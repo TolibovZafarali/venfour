@@ -83,7 +83,7 @@ describe("shared appraisal intake controls", () => {
     const totalLoss = screen.getByRole("radio", { name: "Total Loss" });
     expect(totalLoss).toBeChecked();
     expect(totalLoss.closest("label")).toHaveClass(
-      "border-brand",
+      "border-transparent",
       "bg-brand",
       "text-white",
     );
@@ -135,5 +135,28 @@ describe("shared appraisal intake controls", () => {
       expect(option).toHaveAttribute("aria-invalid", "true");
       expect(option).toHaveAccessibleDescription("Choose an answer.");
     }
+  });
+
+  test("uses a soft fill and neutral border for selected choices", () => {
+    render(
+      <IntakeRadioChoiceGroup
+        id="ownership"
+        legend="Do you own the vehicle?"
+        value="yes"
+        options={[
+          { value: "yes", label: "Yes" },
+          { value: "no", label: "No" },
+        ]}
+        onChange={vi.fn()}
+      />,
+    );
+
+    const selectedLabel = screen
+      .getByRole("radio", { name: "Yes" })
+      .closest("label");
+    expect(selectedLabel).toHaveClass("border-line", "bg-brand-soft/55");
+    expect(selectedLabel).not.toHaveClass(
+      "shadow-[inset_0_0_0_1px_var(--brand)]",
+    );
   });
 });

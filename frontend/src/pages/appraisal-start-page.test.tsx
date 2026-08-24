@@ -91,6 +91,8 @@ function expectSelectedService(selectedLabel: ServiceLabel) {
 
   expect(selected).toBeChecked();
   expect(selected.closest("label")).toHaveAttribute("aria-current", "true");
+  expect(selected.closest("label")).toHaveClass("border-transparent");
+  expect(selected.closest("label")).not.toHaveClass("focus-within:ring-2");
   expect(other).not.toBeChecked();
   expect(other.closest("label")).not.toHaveAttribute("aria-current");
 }

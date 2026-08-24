@@ -580,9 +580,9 @@ export function IntakeRadioChoiceGroup({
               key={option.value}
               htmlFor={optionId}
               className={cn(
-                "relative flex min-h-12 cursor-pointer flex-col justify-center rounded-xl border bg-white px-4 py-3 transition-colors focus-within:ring-2 focus-within:ring-brand focus-within:ring-offset-2 hover:border-brand/45 hover:bg-brand-soft/35 motion-reduce:transition-none",
+                "relative flex min-h-12 cursor-pointer flex-col justify-center rounded-xl border bg-white px-4 py-3 transition-colors focus-within:ring-2 focus-within:ring-brand focus-within:ring-offset-2 hover:bg-brand-soft/35 motion-reduce:transition-none",
                 selected
-                  ? "border-brand bg-brand-soft/45 shadow-[inset_0_0_0_1px_var(--brand)]"
+                  ? "border-line bg-brand-soft/55"
                   : "border-line",
                 disabled && "cursor-not-allowed opacity-65",
               )}
