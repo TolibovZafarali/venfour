@@ -42,10 +42,10 @@ export function ServiceSelector({
               key={option.value}
               htmlFor={inputId}
               className={cn(
-                "flex min-h-12 cursor-pointer items-center justify-center rounded-lg border px-3 text-center text-sm font-semibold transition-[background-color,border-color,box-shadow,color,transform] duration-300 ease-out focus-within:ring-2 focus-within:ring-brand focus-within:ring-offset-1 active:scale-[0.99] motion-reduce:transition-none",
+                "flex min-h-12 cursor-pointer items-center justify-center rounded-lg border border-transparent px-3 text-center text-sm font-semibold transition-[background-color,box-shadow,color,filter,transform] duration-300 ease-out active:scale-[0.99] motion-reduce:transition-none",
                 selected
-                  ? "border-brand bg-brand text-white shadow-[0_8px_22px_-18px_rgba(21,94,239,0.9)] hover:bg-brand-strong"
-                  : "border-transparent text-copy hover:border-line hover:bg-white/60 hover:text-ink",
+                  ? "bg-brand text-white shadow-[0_8px_22px_-18px_rgba(21,94,239,0.9)] hover:bg-brand-strong"
+                  : "text-copy hover:bg-white/60 hover:text-ink",
                 disabled && "cursor-not-allowed opacity-65",
               )}
               aria-current={selected ? "true" : undefined}

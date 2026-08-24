@@ -278,6 +278,66 @@
     }
   }
 
+  :where(
+      button,
+      a[href],
+      summary,
+      [role="button"],
+      [role="menuitem"],
+      [role="option"],
+      [role="switch"],
+      [role="tab"],
+      input[type="button"],
+      input[type="checkbox"],
+      input[type="file"],
+      input[type="radio"],
+      input[type="reset"],
+      input[type="submit"]
+    ):is(:focus, :focus-visible),
+  :where(
+      label:has(input[type="checkbox"]),
+      label:has(input[type="file"]),
+      label:has(input[type="radio"])
+    ):focus-within {
+    --tw-ring-color: transparent !important;
+    --tw-ring-offset-shadow: 0 0 #0000 !important;
+    --tw-ring-offset-width: 0px !important;
+    --tw-ring-shadow: 0 0 #0000 !important;
+    outline: none !important;
+  }
+
+  :where(
+      button,
+      a[href],
+      summary,
+      [role="button"],
+      [role="menuitem"],
+      [role="option"],
+      [role="switch"],
+      [role="tab"],
+      input[type="button"],
+      input[type="checkbox"],
+      input[type="file"],
+      input[type="radio"],
+      input[type="reset"],
+      input[type="submit"]
+    ):focus-visible,
+  :where(
+      label:has(input[type="checkbox"]),
+      label:has(input[type="file"]),
+      label:has(input[type="radio"])
+    ):focus-within {
+    filter: brightness(0.97);
+  }
+
+  .peer[type="file"]:focus-visible ~ * {
+    --tw-ring-color: transparent !important;
+    --tw-ring-offset-shadow: 0 0 #0000 !important;
+    --tw-ring-offset-width: 0px !important;
+    --tw-ring-shadow: 0 0 #0000 !important;
+    outline: none !important;
+  }
+
   [data-appraisal-start-page] [data-flow-card] {
     border-width: 0 !important;
     border-radius: 0 !important;
