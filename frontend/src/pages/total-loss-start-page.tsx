@@ -1363,32 +1363,19 @@ function TotalLossIntakeFlowContent({
   const handleContactContinue = async () => {
     const normalized = normalizeTotalLossContactForm(draftRef.current.contact);
     const errors = validateTotalLossContactForm(normalized);
-    const reportZipCode = normalizeZipCode(draftRef.current.manual.zipCode);
-    const reportZipCodeError =
-      draftRef.current.mode === "report"
-        ? validateZipCode(reportZipCode)
-        : null;
     setContactErrors(errors);
-    setManualErrors((current) => ({
-      ...current,
-      zipCode: reportZipCodeError ?? undefined,
-    }));
-    if (Object.keys(errors).length > 0 || reportZipCodeError) {
-      setFlowError(
-        "Check the highlighted contact, ZIP, and acknowledgement fields.",
-      );
+    if (Object.keys(errors).length > 0) {
+      setFlowError("Check the highlighted contact and acknowledgement fields.");
       window.setTimeout(() => {
-        const target = reportZipCodeError
-          ? "total-loss-contact-market-zip"
-          : errors.firstName
-            ? "total-loss-contact-first-name"
-            : errors.lastName
-              ? "total-loss-contact-last-name"
-              : errors.email
-                ? "total-loss-contact-email"
-                : errors.phoneNumber
-                  ? "total-loss-contact-phone"
-                  : null;
+        const target = errors.firstName
+          ? "total-loss-contact-first-name"
+          : errors.lastName
+            ? "total-loss-contact-last-name"
+            : errors.email
+              ? "total-loss-contact-email"
+              : errors.phoneNumber
+                ? "total-loss-contact-phone"
+                : null;
         if (target) document.getElementById(target)?.focus();
       }, 0);
       return;
@@ -1402,13 +1389,6 @@ function TotalLossIntakeFlowContent({
     setFlowError(null);
     setAccessLinkError(null);
     try {
-      if (draftRef.current.mode === "report") {
-        applyDraft((current) => ({
-          ...current,
-          manual: { ...current.manual, zipCode: reportZipCode },
-          dirty: true,
-        }));
-      }
       const caseId = await ensureCase();
       await flushDraft({ force: true });
       const claim = await identityService.saveContactAndBeginClaim({
@@ -1589,15 +1569,19 @@ function TotalLossIntakeFlowContent({
       setReportRecoveryRequired(false);
       setUploadState("success");
       applyDraft(
-        (current) => ({
-          ...current,
-          mode: "report",
-          step: "contact",
-          reportProvider: null,
-          reportExtractionStatus: "idle",
-          reportExtractionWarnings: [],
-          dirty: true,
-        }),
+        (current) => {
+          const reportZipCode = normalizeZipCode(current.manual.zipCode);
+          return {
+            ...current,
+            mode: "report",
+            manual: { ...current.manual, zipCode: reportZipCode },
+            step: validateZipCode(reportZipCode) ? "report" : "contact",
+            reportProvider: null,
+            reportExtractionStatus: "idle",
+            reportExtractionWarnings: [],
+            dirty: true,
+          };
+        },
         { bumpRevision: false },
       );
       setRetryFiles([]);
@@ -1700,7 +1684,26 @@ function TotalLossIntakeFlowContent({
       setFlowError("Upload your insurance valuation report before continuing.");
       return;
     }
-    applyDraft((current) => ({ ...current, step: "contact", dirty: true }));
+    const reportZipCode = normalizeZipCode(draftRef.current.manual.zipCode);
+    const reportZipCodeError = validateZipCode(reportZipCode);
+    setManualErrors((current) => ({
+      ...current,
+      zipCode: reportZipCodeError ?? undefined,
+    }));
+    if (reportZipCodeError) {
+      setFlowError("Enter a valid market ZIP code before continuing.");
+      window.setTimeout(
+        () => document.getElementById("total-loss-report-market-zip")?.focus(),
+        0,
+      );
+      return;
+    }
+    applyDraft((current) => ({
+      ...current,
+      manual: { ...current.manual, zipCode: reportZipCode },
+      step: "contact",
+      dirty: true,
+    }));
   };
 
   const handleRetryUpload = () => {
@@ -1770,8 +1773,9 @@ function TotalLossIntakeFlowContent({
             : details.intakeCompletedAt
               ? "ready"
               : contact
-                ? details.intakeMode === "report" && !details.postalCode
-                  ? "contact"
+                ? details.intakeMode === "report" &&
+                  validateZipCode(details.postalCode ?? "")
+                  ? "report"
                   : "review"
                 : stepForDetails(details, "choice")
           : "choice",
@@ -1925,6 +1929,8 @@ function TotalLossIntakeFlowContent({
         return (
           <ReportUploadStep
             storageAvailable={Boolean(storageService)}
+            marketZipCode={draft.manual.zipCode}
+            marketZipCodeError={manualErrors.zipCode}
             selectedFilename={selectedFilename}
             savedFilename={
               persistedReportRecoveryRequired ? null : resolvedSavedFilename
@@ -1953,6 +1959,10 @@ function TotalLossIntakeFlowContent({
                 pendingAuthAction: null,
               }));
             }}
+            onMarketZipCodeChange={(value) =>
+              handleManualChange("zipCode", value)
+            }
+            onMarketZipCodeBlur={() => handleManualBlur("zipCode")}
             onFilesSelected={uploadSelectedReport}
             onRetryUpload={handleRetryUpload}
             onContinue={() => void handleReportContinue()}
@@ -1964,8 +1974,6 @@ function TotalLossIntakeFlowContent({
             mode={draft.mode ?? "manual"}
             values={draft.contact}
             errors={contactErrors}
-            marketZipCode={draft.manual.zipCode}
-            marketZipCodeError={manualErrors.zipCode}
             emailLocked={Boolean(
               isPermanentAuthState(auth) &&
                 auth.user.email &&
@@ -1975,9 +1983,6 @@ function TotalLossIntakeFlowContent({
             error={flowError}
             accessLinkSent={Boolean(draft.accessLinkSentAt)}
             onChange={handleContactChange}
-            onMarketZipCodeChange={(value) =>
-              handleManualChange("zipCode", value)
-            }
             onBack={() => {
               setFlowError(null);
               applyDraft((current) => ({
@@ -2138,13 +2143,13 @@ function loadInitialDraft(
       (startNewCase
         ? storedCaseMatchesBootstrap
         : !storedDraft.confirmedCaseId || storedCaseMatchesBootstrap);
-    const draft = {
+    const draft = routeInvalidReportZipToUpload({
       ...(belongsToBootstrapCase ? storedDraft : createEmptyTotalLossDraft()),
       confirmedCaseId: bootstrapCase.id,
       reservedCaseId: bootstrapCase.id,
       ownerUserId: userId,
       dismissedResumeCaseId: null,
-    };
+    });
     return {
       draft,
       storageError: !writeTotalLossDraft(draft).ok,
@@ -2157,6 +2162,17 @@ function loadInitialDraft(
     ownerUserId: userId,
   };
   return { draft, storageError: !writeTotalLossDraft(draft).ok };
+}
+
+function routeInvalidReportZipToUpload(draft: TotalLossDraft): TotalLossDraft {
+  if (
+    draft.mode === "report" &&
+    (draft.step === "contact" || draft.step === "review") &&
+    validateZipCode(draft.manual.zipCode)
+  ) {
+    return { ...draft, step: "report" };
+  }
+  return draft;
 }
 
 function detailsValuesForDraft(
@@ -2219,12 +2235,15 @@ function stepForDetails(
 ): TotalLossDraft["step"] {
   if (details.reportUploadRecoveryRequired) return "report";
   if (details.intakeCompletedAt) return "ready";
+  if (
+    details.intakeMode === "report" &&
+    (!details.reportOriginalFilename ||
+      validateZipCode(details.postalCode ?? ""))
+  ) {
+    return "report";
+  }
   const serverMinimumStep =
-    details.intakeMode === "report"
-      ? details.reportOriginalFilename
-        ? "contact"
-        : "report"
-      : "vehicle";
+    details.intakeMode === "report" ? "contact" : "vehicle";
   return intakeStepPosition(currentStep) >= intakeStepPosition(serverMinimumStep)
     ? currentStep
     : serverMinimumStep;

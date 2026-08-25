@@ -152,17 +152,19 @@ describe("total-loss intake step presentation", () => {
     expect(screen.getByLabelText("Start, step 1, current")).toBeVisible();
   });
 
-  it("asks report customers for the market ZIP on the final intake step", () => {
-    render(
+  it("asks report customers for the market ZIP on the upload step", () => {
+    const { rerender } = render(
       <MemoryRouter>
-        <ContactStep
-          mode="report"
-          values={contactValues}
-          errors={{}}
+        <ReportUploadStep
+          storageAvailable
           marketZipCode="60601"
+          marketZipCodeError="Check this ZIP code."
+          uploadState="idle"
           onMarketZipCodeChange={vi.fn()}
-          onChange={vi.fn()}
+          onMarketZipCodeBlur={vi.fn()}
           onBack={vi.fn()}
+          onFilesSelected={vi.fn()}
+          onRetryUpload={vi.fn()}
           onContinue={vi.fn()}
         />
       </MemoryRouter>,
@@ -170,6 +172,23 @@ describe("total-loss intake step presentation", () => {
 
     expect(screen.getByLabelText("Market ZIP code")).toHaveValue("60601");
     expect(screen.getByText("Used to find comparable vehicles near you.")).toBeVisible();
+    expect(screen.getByText("Check this ZIP code.")).toBeVisible();
+    expect(screen.getByLabelText("Valuation report, step 2, current")).toBeVisible();
+
+    rerender(
+      <MemoryRouter>
+        <ContactStep
+          mode="report"
+          values={contactValues}
+          errors={{}}
+          onChange={vi.fn()}
+          onBack={vi.fn()}
+          onContinue={vi.fn()}
+        />
+      </MemoryRouter>,
+    );
+
+    expect(screen.queryByLabelText("Market ZIP code")).not.toBeInTheDocument();
     expect(screen.getByLabelText("Contact, step 3, current")).toBeVisible();
     expect(screen.queryByText(/review your details/i)).not.toBeInTheDocument();
   });
@@ -281,7 +300,10 @@ describe("total-loss intake step presentation", () => {
     render(
       <ReportUploadStep
         storageAvailable
+        marketZipCode=""
         uploadState="idle"
+        onMarketZipCodeChange={vi.fn()}
+        onMarketZipCodeBlur={vi.fn()}
         onBack={vi.fn()}
         onFilesSelected={vi.fn()}
         onRetryUpload={vi.fn()}
@@ -291,7 +313,7 @@ describe("total-loss intake step presentation", () => {
 
     expect(
       screen.getByText(
-        "We’ll securely attach the report to your private appraisal. Venfour won’t read or analyze it until after your contact details are saved.",
+        "Add your market ZIP and securely attach the report to your private appraisal. Venfour won’t read or analyze it until after your contact details are saved.",
       ),
     ).toBeVisible();
     expect(
@@ -308,8 +330,11 @@ describe("total-loss intake step presentation", () => {
     render(
       <ReportUploadStep
         storageAvailable
+        marketZipCode="60611"
         selectedFilename="insurer-valuation.pdf"
         uploadState="uploading"
+        onMarketZipCodeChange={vi.fn()}
+        onMarketZipCodeBlur={vi.fn()}
         onBack={vi.fn()}
         onFilesSelected={vi.fn()}
         onRetryUpload={vi.fn()}
@@ -335,8 +360,11 @@ describe("total-loss intake step presentation", () => {
     render(
       <ReportUploadStep
         storageAvailable
+        marketZipCode="60611"
         savedFilename="insurer-valuation.pdf"
         uploadState="success"
+        onMarketZipCodeChange={vi.fn()}
+        onMarketZipCodeBlur={vi.fn()}
         onBack={vi.fn()}
         onFilesSelected={vi.fn()}
         onRetryUpload={vi.fn()}
@@ -365,9 +393,12 @@ describe("total-loss intake step presentation", () => {
     render(
       <ReportUploadStep
         storageAvailable
+        marketZipCode="60611"
         selectedFilename="insurer-valuation.pdf"
         uploadState="error"
         uploadError="The report could not be saved."
+        onMarketZipCodeChange={vi.fn()}
+        onMarketZipCodeBlur={vi.fn()}
         onBack={vi.fn()}
         onFilesSelected={vi.fn()}
         onRetryUpload={onRetryUpload}

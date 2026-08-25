@@ -444,6 +444,8 @@ export function ClaimStep({
 
 interface ReportUploadStepProps {
   readonly storageAvailable: boolean;
+  readonly marketZipCode: string;
+  readonly marketZipCodeError?: string;
   readonly selectedFilename?: string | null;
   readonly savedFilename?: string | null;
   readonly uploadState: "idle" | "queued" | "uploading" | "success" | "error";
@@ -453,6 +455,8 @@ interface ReportUploadStepProps {
   readonly hideBack?: boolean;
   readonly onRetryStorage?: () => void;
   readonly onBack: () => void;
+  readonly onMarketZipCodeChange: (value: string) => void;
+  readonly onMarketZipCodeBlur: () => void;
   readonly onFilesSelected: (files: readonly File[]) => void;
   readonly onRetryUpload: () => void;
   readonly onContinue: () => void;
@@ -460,6 +464,8 @@ interface ReportUploadStepProps {
 
 export function ReportUploadStep({
   storageAvailable,
+  marketZipCode,
+  marketZipCodeError,
   selectedFilename,
   savedFilename,
   uploadState,
@@ -469,6 +475,8 @@ export function ReportUploadStep({
   hideBack,
   onRetryStorage,
   onBack,
+  onMarketZipCodeChange,
+  onMarketZipCodeBlur,
   onFilesSelected,
   onRetryUpload,
   onContinue,
@@ -535,8 +543,26 @@ export function ReportUploadStep({
       <TotalLossProgress mode="report" step="report" />
       <StepHeading
         title="Upload your valuation report"
-        description="We’ll securely attach the report to your private appraisal. Venfour won’t read or analyze it until after your contact details are saved."
+        description="Add your market ZIP and securely attach the report to your private appraisal. Venfour won’t read or analyze it until after your contact details are saved."
       />
+
+      <div className="mt-6 max-w-sm">
+        <IntakeTextField
+          id="total-loss-report-market-zip"
+          label="Market ZIP code"
+          value={marketZipCode}
+          error={marketZipCodeError}
+          inputMode="numeric"
+          autoComplete="postal-code"
+          maxLength={10}
+          placeholder="60611"
+          disabled={disabled}
+          help="Used to find comparable vehicles near you."
+          helpAfterInput
+          onChange={(event) => onMarketZipCodeChange(event.target.value)}
+          onBlur={onMarketZipCodeBlur}
+        />
+      </div>
 
       <input
         ref={inputRef}
@@ -657,8 +683,6 @@ interface ContactStepProps {
   readonly mode: TotalLossIntakeMode;
   readonly values: TotalLossContactFormValues;
   readonly errors: TotalLossContactFormErrors;
-  readonly marketZipCode?: string;
-  readonly marketZipCodeError?: string;
   readonly emailLocked?: boolean;
   readonly busy?: boolean;
   readonly error?: string | null;
@@ -667,7 +691,6 @@ interface ContactStepProps {
     field: K,
     value: TotalLossContactFormValues[K],
   ) => void;
-  readonly onMarketZipCodeChange?: (value: string) => void;
   readonly onBack: () => void;
   readonly onContinue: () => void;
 }
@@ -676,14 +699,11 @@ export function ContactStep({
   mode,
   values,
   errors,
-  marketZipCode = "",
-  marketZipCodeError,
   emailLocked = false,
   busy,
   error,
   accessLinkSent,
   onChange,
-  onMarketZipCodeChange,
   onBack,
   onContinue,
 }: ContactStepProps) {
@@ -692,28 +712,9 @@ export function ContactStep({
       <TotalLossProgress mode={mode} step="contact" />
       <StepHeading
         title="Contact details"
-        description={
-          mode === "report"
-            ? "Add your market ZIP and tell us where to save your private result."
-            : "Tell us where to save your private result."
-        }
+        description="Tell us where to save your private result."
       />
       <div className="mt-6 grid gap-x-5 gap-y-4 sm:grid-cols-2">
-        {mode === "report" && onMarketZipCodeChange ? (
-          <IntakeTextField
-            id="total-loss-contact-market-zip"
-            label="Market ZIP code"
-            value={marketZipCode}
-            error={marketZipCodeError}
-            inputMode="numeric"
-            autoComplete="postal-code"
-            maxLength={10}
-            disabled={busy}
-            help="Used to find comparable vehicles near you."
-            helpAfterInput
-            onChange={(event) => onMarketZipCodeChange(event.target.value)}
-          />
-        ) : null}
         <IntakeTextField
           id="total-loss-contact-first-name"
           label="First name"

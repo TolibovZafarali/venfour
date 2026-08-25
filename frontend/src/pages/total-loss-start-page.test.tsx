@@ -1232,10 +1232,12 @@ describe("/start?service=total-loss", () => {
     expect(
       container.querySelector('input[type="file"]'),
     ).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Market ZIP code")).not.toBeInTheDocument();
     await chooseMode(user, "I have my valuation report");
     expect(
       container.querySelector('input[type="file"]'),
     ).toBeInTheDocument();
+    expect(screen.getByLabelText("Market ZIP code")).toBeVisible();
     expect(screen.queryByRole("dialog", { name: /Sign in/i })).not.toBeInTheDocument();
     expect(harness.createOrGetAppraisalCase).not.toHaveBeenCalled();
     expect(harness.getOrCreateTotalLossDraft).toHaveBeenCalledWith({
@@ -1248,7 +1250,7 @@ describe("/start?service=total-loss", () => {
     });
   });
 
-  it("uploads a report without reading it and goes directly to analysis through contact", async () => {
+  it("collects report ZIP during upload and goes directly to analysis through contact", async () => {
     const auth = createAuthHarness(null, anonymousSessionFor(USER_ID));
     const harness = createDependencyHarness();
     const user = userEvent.setup();
@@ -1283,9 +1285,24 @@ describe("/start?service=total-loss", () => {
     fireEvent.change(fileInput, { target: { files: [report] } });
 
     expect(
+      await screen.findByRole("button", { name: "Continue to contact" }),
+    ).toBeEnabled();
+    await user.click(screen.getByRole("button", { name: "Continue to contact" }));
+    expect(await screen.findByText("ZIP code is required.")).toBeVisible();
+    await waitFor(() =>
+      expect(screen.getByLabelText("Market ZIP code")).toHaveFocus(),
+    );
+    expect(
+      screen.queryByRole("heading", { name: "Contact details" }),
+    ).not.toBeInTheDocument();
+
+    await user.type(screen.getByLabelText("Market ZIP code"), "606011234");
+    await user.click(screen.getByRole("button", { name: "Continue to contact" }));
+
+    expect(
       await screen.findByRole("heading", { name: "Contact details" }),
     ).toBeVisible();
-    expect(screen.getByLabelText("Market ZIP code")).toBeVisible();
+    expect(screen.queryByLabelText("Market ZIP code")).not.toBeInTheDocument();
     expect(harness.uploadReport).toHaveBeenCalledWith({
       caseId: CASE_ID,
       file: report,
@@ -1312,16 +1329,6 @@ describe("/start?service=total-loss", () => {
     await user.type(screen.getByLabelText("Email address"), "guest@example.com");
     await user.click(screen.getByRole("checkbox", { name: /Terms of Use/i }));
     await user.click(screen.getByRole("checkbox", { name: /Privacy Policy/i }));
-    await user.click(
-      screen.getByRole("button", { name: "Review & analyze" }),
-    );
-
-    expect(await screen.findByText("ZIP code is required.")).toBeVisible();
-    expect(screen.getByLabelText("Market ZIP code")).toHaveFocus();
-    expect(harness.saveContactAndBeginClaim).not.toHaveBeenCalled();
-    expect(harness.confirmIntake).not.toHaveBeenCalled();
-
-    await user.type(screen.getByLabelText("Market ZIP code"), "606011234");
     await user.click(
       screen.getByRole("button", { name: "Review & analyze" }),
     );
@@ -1896,6 +1903,7 @@ describe("/start?service=total-loss", () => {
       expect(writeTotalLossDraft(localDraft)).toEqual({ ok: true });
       const savedDetails = detailsFor(CASE_ID, {
         intakeMode: "report",
+        postalCode: "60611",
         reportOriginalFilename: "private-report.pdf",
         reportUploadedAt: CREATED_AT,
       });
@@ -2094,6 +2102,52 @@ describe("/start?service=total-loss", () => {
     });
   });
 
+  it("routes a dirty legacy report draft with no ZIP back to upload", async () => {
+    const legacyDraft = createSensitiveManualDraft({
+      mode: "report",
+      step: "contact",
+      confirmedCaseId: CASE_ID,
+      reservedCaseId: CASE_ID,
+    });
+    expect(
+      writeTotalLossDraft({
+        ...legacyDraft,
+        manual: { ...legacyDraft.manual, zipCode: "" },
+      }).ok,
+    ).toBe(true);
+    const auth = createAuthHarness(sessionFor());
+    const harness = createDependencyHarness({
+      details: [
+        detailsFor(CASE_ID, {
+          intakeMode: "report",
+          reportOriginalFilename: "legacy-report.pdf",
+          reportUploadedAt: CREATED_AT,
+        }),
+      ],
+      recentCase: appraisalCase(CASE_ID),
+    });
+
+    renderTestApp(["/start?service=total-loss"], {
+      authService: auth.service,
+      totalLossDependencies: harness.dependencies,
+    });
+
+    expect(
+      await screen.findByRole("heading", {
+        name: "Upload your valuation report",
+      }),
+    ).toBeVisible();
+    expect(screen.getByLabelText("Market ZIP code")).toHaveValue("");
+    expect(screen.getByText("legacy-report.pdf")).toBeVisible();
+    expect(
+      screen.queryByRole("heading", { name: "Contact details" }),
+    ).not.toBeInTheDocument();
+    expect(readTotalLossDraft()).toMatchObject({
+      ok: true,
+      draft: { dirty: true, step: "report" },
+    });
+  });
+
   it("preserves report-extracted fields locally until the customer can correct them", async () => {
     const baseDraft = createSensitiveManualDraft({
       mode: "report",
@@ -2172,7 +2226,7 @@ describe("/start?service=total-loss", () => {
     expect(
       await screen.findByRole("heading", { name: "Contact details" }),
     ).toBeVisible();
-    expect(screen.getByLabelText("Market ZIP code")).toHaveValue("60611");
+    expect(screen.queryByLabelText("Market ZIP code")).not.toBeInTheDocument();
     expect(
       screen.queryByRole("heading", { name: "Tell us about your vehicle" }),
     ).not.toBeInTheDocument();
@@ -2203,9 +2257,15 @@ describe("/start?service=total-loss", () => {
       });
 
       expect(
-        await screen.findByRole("heading", { name: "Contact details" }),
+        await screen.findByRole("heading", {
+          name: "Upload your valuation report",
+        }),
       ).toBeVisible();
       expect(screen.getByLabelText("Market ZIP code")).toHaveValue("");
+      expect(screen.getByText(`${reportExtractionStatus}-report.pdf`)).toBeVisible();
+      expect(
+        screen.queryByRole("heading", { name: "Contact details" }),
+      ).not.toBeInTheDocument();
       expect(screen.queryByText(/reading your report/i)).not.toBeInTheDocument();
       expect(screen.queryByText(/extracted details/i)).not.toBeInTheDocument();
       expect(
@@ -2220,6 +2280,7 @@ describe("/start?service=total-loss", () => {
     const pendingLease = createDeferred<TotalLossReportUploadLease>();
     const readyDetails = detailsFor(CASE_ID, {
       intakeMode: "report",
+      postalCode: "60611",
       reportOriginalFilename: "ready-report.pdf",
       reportUploadedAt: CREATED_AT,
     });
