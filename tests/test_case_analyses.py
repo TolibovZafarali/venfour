@@ -329,9 +329,21 @@ class FakeCaseGateway:
         storage_locator: dict[str, Any],
         cache_nonce: str,
     ):
-        self.report_requests.append((USER_ID, case_id, cache_nonce))
-        if storage_locator != self.locator:
+        owner_id = storage_locator.get("storage_owner_id")
+        bucket = storage_locator.get(
+            "storage_bucket", storage_locator.get("bucket_id")
+        )
+        object_path = storage_locator.get(
+            "storage_object_path",
+            storage_locator.get("canonical_object_path"),
+        )
+        if (
+            bucket != "case-files"
+            or object_path
+            != f"{owner_id}/{case_id}/valuation-report.pdf"
+        ):
             raise AssertionError("unexpected storage locator")
+        self.report_requests.append((owner_id, case_id, cache_nonce))
         with tempfile.TemporaryDirectory() as root:
             path = Path(root) / "report.pdf"
             path.write_bytes(PDF_BYTES)
@@ -500,9 +512,25 @@ class CaseAnalysisServiceTests(unittest.TestCase):
             "Acme Valuations",
         )
 
-    def test_confirmed_report_claim_falls_back_when_extraction_is_unavailable(self) -> None:
+    def test_confirmed_report_claim_processes_fenced_report_when_cache_is_unavailable(self) -> None:
         gateway = FakeCaseGateway()
         snapshot = confirmed_snapshot("report")
+        snapshot.update(
+            {
+                "vin": None,
+                "vehicle_year": None,
+                "vehicle_make": None,
+                "vehicle_model": None,
+                "vehicle_trim": None,
+                "mileage_at_loss": None,
+                "date_of_loss": None,
+                "insurer_name": None,
+                "insurer_vehicle_valuation": None,
+                "vehicle_condition": None,
+                "vehicle_options_packages": None,
+                "report_provider_name": None,
+            }
+        )
         gateway.claim_row.update(
             {
                 "intake_mode": "report",
@@ -518,16 +546,79 @@ class CaseAnalysisServiceTests(unittest.TestCase):
                 "report_extraction_available": False,
             }
         )
-        factory = ConfirmedCreationFactory()
+        factory = PersistingCreationFactory()
         service = self.make_service(gateway, factory)
 
         status = service.submit(CASE_ID, USER_ID)
 
         self.assertEqual(status.status, "completed")
-        self.assertEqual(gateway.report_requests, [])
-        self.assertEqual(gateway.extraction_requests, [])
         self.assertEqual(
-            factory.calls[0][1], {"report_extraction_available": False}
+            gateway.report_requests,
+            [(USER_ID, CASE_ID, JOB_ID)],
+        )
+        self.assertEqual(gateway.extraction_requests, [])
+        self.assertEqual(len(factory.calls), 1)
+
+    def test_confirmed_report_claim_materializes_when_advertised_cache_is_missing(self) -> None:
+        gateway = FakeCaseGateway()
+        snapshot = confirmed_snapshot("report")
+        gateway.claim_row.update(
+            {
+                "intake_mode": "report",
+                "source_report_upload_id": REPORT_UPLOAD_ID,
+                "analysis_input_id": snapshot["analysis_input_id"],
+                "analysis_input_revision": 2,
+                "input_snapshot": snapshot,
+                "storage_bucket": "case-files",
+                "storage_owner_id": USER_ID,
+                "storage_object_path": (
+                    f"{USER_ID}/{CASE_ID}/valuation-report.pdf"
+                ),
+                "report_extraction_available": True,
+            }
+        )
+        factory = PersistingCreationFactory()
+        service = self.make_service(gateway, factory)
+
+        status = service.submit(CASE_ID, USER_ID)
+
+        self.assertEqual(status.status, "completed")
+        self.assertEqual(
+            gateway.extraction_requests,
+            [(CASE_ID, REPORT_UPLOAD_ID, 2)],
+        )
+        self.assertEqual(
+            gateway.report_requests,
+            [(USER_ID, CASE_ID, JOB_ID)],
+        )
+
+    def test_confirmed_report_claim_preserves_transferred_storage_namespace(self) -> None:
+        gateway = FakeCaseGateway()
+        snapshot = confirmed_snapshot("report")
+        gateway.claim_row.update(
+            {
+                "intake_mode": "report",
+                "source_report_upload_id": REPORT_UPLOAD_ID,
+                "analysis_input_id": snapshot["analysis_input_id"],
+                "analysis_input_revision": 2,
+                "input_snapshot": snapshot,
+                "storage_bucket": "case-files",
+                "storage_owner_id": OTHER_USER_ID,
+                "storage_object_path": (
+                    f"{OTHER_USER_ID}/{CASE_ID}/valuation-report.pdf"
+                ),
+                "report_extraction_available": False,
+            }
+        )
+        factory = PersistingCreationFactory()
+        service = self.make_service(gateway, factory)
+
+        status = service.submit(CASE_ID, USER_ID)
+
+        self.assertEqual(status.status, "completed")
+        self.assertEqual(
+            gateway.report_requests,
+            [(OTHER_USER_ID, CASE_ID, JOB_ID)],
         )
 
     def test_claim_emits_exact_started_and_completed_lifecycle_events(self) -> None:

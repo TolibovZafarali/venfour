@@ -1,9 +1,7 @@
 import {
-  AlertCircle,
   ArrowLeft,
   ArrowRight,
   CheckCircle2,
-  Clock3,
   FileText,
   LoaderCircle,
   PenLine,
@@ -34,11 +32,9 @@ import type {
   TotalLossContactFormValues,
   TotalLossManualFormErrors,
   TotalLossManualFormValues,
-  TotalLossReportExtractionStatus,
 } from "@/features/total-loss/types";
 import {
   formatCurrencyInput,
-  formatCurrencyValue,
   formatMileageInput,
   getMaximumTotalLossVehicleYear,
   MIN_TOTAL_LOSS_VEHICLE_YEAR,
@@ -75,21 +71,20 @@ type TotalLossProgressStep =
   | "report"
   | "vehicle"
   | "claim"
-  | "contact"
-  | "review";
+  | "contact";
 
 const reportProgressSteps = [
   { step: "choice", label: "Start" },
   { step: "report", label: "Valuation report" },
+  { step: "contact", label: "Contact" },
+] as const;
+
+const manualProgressSteps = [
+  { step: "choice", label: "Start" },
   { step: "vehicle", label: "Vehicle" },
   { step: "claim", label: "Claim" },
   { step: "contact", label: "Contact" },
-  { step: "review", label: "Review" },
 ] as const;
-
-const manualProgressSteps = reportProgressSteps.filter(
-  ({ step }) => step !== "report",
-);
 
 function TotalLossProgress({
   mode,
@@ -106,7 +101,7 @@ function TotalLossProgress({
     <IntakeProgress
       current={current}
       steps={progressSteps}
-      maxTotal={reportProgressSteps.length}
+      maxTotal={manualProgressSteps.length}
     />
   );
 }
@@ -447,687 +442,212 @@ export function ClaimStep({
   );
 }
 
-interface ReportStepProps {
-  storageAvailable: boolean;
-  selectedFilename?: string | null;
-  savedFilename?: string | null;
-  uploadState: "idle" | "queued" | "uploading" | "success" | "error";
-  extractionState: TotalLossReportExtractionStatus;
-  reportProvider?: string | null;
-  extractionWarnings?: readonly string[];
-  uploadError?: string | null;
-  error?: string | null;
-  completing?: boolean;
-  hideBack?: boolean;
-  onRetryStorage?: () => void;
-  onBack: () => void;
-  onFilesSelected: (files: readonly File[]) => void;
-  onRetryUpload: () => void;
-  onContinue: () => void;
+interface ReportUploadStepProps {
+  readonly storageAvailable: boolean;
+  readonly selectedFilename?: string | null;
+  readonly savedFilename?: string | null;
+  readonly uploadState: "idle" | "queued" | "uploading" | "success" | "error";
+  readonly uploadError?: string | null;
+  readonly error?: string | null;
+  readonly busy?: boolean;
+  readonly hideBack?: boolean;
+  readonly onRetryStorage?: () => void;
+  readonly onBack: () => void;
+  readonly onFilesSelected: (files: readonly File[]) => void;
+  readonly onRetryUpload: () => void;
+  readonly onContinue: () => void;
 }
 
-type ReportProcessingStepStatus =
-  "complete" | "active" | "waiting" | "pending" | "attention";
-
-const reportProcessingSteps = [
-  {
-    label: "Uploading",
-    description: "Saving the report to your private case",
-  },
-  {
-    label: "Reading report",
-    description: "Understanding the document and its format",
-  },
-  {
-    label: "Extracting vehicle and valuation details",
-    description: "Finding the facts you’ll review next",
-  },
-  {
-    label: "Ready for review",
-    description: "Your next step becomes available",
-  },
-] as const;
-
-function reportProcessingStatuses({
-  extractionState,
-  hasSavedReport,
-  uploadQueued,
-  uploadPending,
-}: {
-  readonly extractionState: TotalLossReportExtractionStatus;
-  readonly hasSavedReport: boolean;
-  readonly uploadQueued: boolean;
-  readonly uploadPending: boolean;
-}): readonly ReportProcessingStepStatus[] {
-  if (uploadQueued) {
-    return ["waiting", "pending", "pending", "pending"];
-  }
-  if (uploadPending) {
-    return ["active", "pending", "pending", "pending"];
-  }
-  if (!hasSavedReport) {
-    return ["pending", "pending", "pending", "pending"];
-  }
-  if (extractionState === "processing") {
-    // Report ingestion is one server operation. Keep both truthful subphases
-    // active together instead of simulating progress the backend cannot expose.
-    return ["complete", "active", "active", "pending"];
-  }
-  if (extractionState === "complete" || extractionState === "partial") {
-    return ["complete", "complete", "complete", "complete"];
-  }
-  if (extractionState === "error") {
-    // The ingestion API does not expose which internal phase failed. Mark the
-    // first unknown phase for attention instead of claiming the report was read.
-    return ["complete", "attention", "pending", "pending"];
-  }
-  return ["complete", "pending", "pending", "pending"];
-}
-
-function ReportProcessingProgress({
-  extractionState,
-  hasSavedReport,
-  uploadQueued,
-  uploadPending,
-}: {
-  readonly extractionState: TotalLossReportExtractionStatus;
-  readonly hasSavedReport: boolean;
-  readonly uploadQueued: boolean;
-  readonly uploadPending: boolean;
-}) {
-  const statuses = reportProcessingStatuses({
-    extractionState,
-    hasSavedReport,
-    uploadQueued,
-    uploadPending,
-  });
-  const activeStep = statuses.lastIndexOf("active");
-  const currentStep =
-    activeStep >= 0
-      ? activeStep
-      : Math.max(statuses.indexOf("waiting"), statuses.indexOf("attention"));
-
-  return (
-    <ol className="mt-7 space-y-1" aria-label="Report processing progress">
-      {reportProcessingSteps.map((step, index) => {
-        const status = statuses[index] ?? "pending";
-        const complete = status === "complete";
-        const active = status === "active";
-        const waiting = status === "waiting";
-        const attention = status === "attention";
-        return (
-          <li
-            key={step.label}
-            className={cn(
-              "relative grid min-w-0 grid-cols-[2.25rem_minmax(0,1fr)] gap-3 rounded-xl px-2.5 py-3",
-              (active || waiting) && "bg-brand-soft/65",
-              attention && "bg-amber-soft/70",
-            )}
-            aria-current={index === currentStep ? "step" : undefined}
-            data-report-processing-status={status}
-            data-report-processing-step={index + 1}
-          >
-            {index < reportProcessingSteps.length - 1 ? (
-              <span
-                className={cn(
-                  "absolute top-10 bottom-[-0.75rem] left-[1.625rem] w-px",
-                  complete ? "bg-market/35" : "bg-line",
-                )}
-                aria-hidden
-              />
-            ) : null}
-            <span
-              className={cn(
-                "relative z-10 flex size-8 items-center justify-center rounded-full border bg-white text-xs font-semibold",
-                complete &&
-                  "border-market/25 bg-market-soft text-market-strong",
-                active && "border-brand/25 bg-white text-brand",
-                waiting && "border-brand/25 bg-white text-brand",
-                attention && "border-amber/30 bg-white text-amber-strong",
-                status === "pending" && "border-line text-copy/70",
-              )}
-              aria-hidden
-            >
-              {complete ? (
-                <CheckCircle2 className="size-4" />
-              ) : active ? (
-                <LoaderCircle className="size-4 animate-spin motion-reduce:animate-none" />
-              ) : waiting ? (
-                <Clock3 className="size-4" />
-              ) : attention ? (
-                <AlertCircle className="size-4" />
-              ) : (
-                index + 1
-              )}
-            </span>
-            <span className="min-w-0 pt-0.5">
-              <span
-                className={cn(
-                  "block text-sm font-semibold",
-                  complete && "text-market-strong",
-                  active && "text-brand-strong",
-                  waiting && "text-brand-strong",
-                  attention && "text-amber-strong",
-                  status === "pending" && "text-copy",
-                )}
-              >
-                {step.label}
-              </span>
-              <span className="mt-0.5 block text-xs leading-5 text-copy">
-                {uploadQueued && index === 0
-                  ? "Waiting for the current report read to finish"
-                  : step.description}
-                <span className="sr-only">
-                  {complete
-                    ? ", complete"
-                    : active
-                      ? ", in progress"
-                      : waiting
-                        ? ", waiting to start"
-                      : attention
-                        ? ", needs attention"
-                        : ", not started"}
-                </span>
-              </span>
-            </span>
-          </li>
-        );
-      })}
-    </ol>
-  );
-}
-
-function ReportDocumentStatusVisual({
-  extractionState,
-  uploadQueued,
-  uploadPending,
-}: {
-  readonly extractionState: TotalLossReportExtractionStatus;
-  readonly uploadQueued: boolean;
-  readonly uploadPending: boolean;
-}) {
-  const uploadActive = uploadQueued || uploadPending;
-  const processing = !uploadActive && extractionState === "processing";
-  const ready =
-    !uploadActive &&
-    (extractionState === "complete" || extractionState === "partial");
-  const failed = !uploadActive && extractionState === "error";
-
-  return (
-    <div
-      className={cn(
-        "relative flex size-28 shrink-0 items-center justify-center overflow-hidden rounded-2xl border sm:size-32",
-        ready
-          ? "border-market/20 bg-market-soft/75"
-          : failed
-            ? "border-amber/25 bg-amber-soft/70"
-            : "border-brand/15 bg-brand-soft/75",
-      )}
-      aria-hidden
-    >
-      <span className="absolute -top-10 -right-10 size-24 rounded-full bg-white/60 blur-2xl" />
-      <span className="absolute -bottom-12 -left-10 size-28 rounded-full bg-brand-subtle/60 blur-2xl" />
-      <span className="relative flex h-[5.5rem] w-[4.25rem] flex-col overflow-hidden rounded-lg border border-line bg-white p-2.5 shadow-[0_18px_38px_-24px_rgba(11,31,51,0.55)] sm:h-24 sm:w-[4.75rem]">
-        <span className="flex items-center justify-between">
-          <FileText className="size-4 text-brand" />
-          <span className="text-[0.45rem] font-bold tracking-[0.12em] text-copy uppercase">
-            Report
-          </span>
-        </span>
-        <span className="mt-2 h-1.5 w-4/5 rounded-full bg-line" />
-        <span className="mt-1.5 h-1.5 w-full rounded-full bg-surface" />
-        <span className="mt-1.5 h-1.5 w-2/3 rounded-full bg-surface" />
-        <span className="mt-auto grid grid-cols-2 gap-1">
-          <span className="h-3 rounded-sm bg-brand-soft" />
-          <span className="h-3 rounded-sm bg-market-soft" />
-        </span>
-        {processing ? (
-          <span className="report-scan-line absolute inset-x-1.5 top-1/2 h-px bg-brand shadow-[0_0_12px_2px_rgba(21,94,239,0.32)]" />
-        ) : null}
-        {uploadPending ? (
-          <span className="absolute inset-x-2 bottom-1.5 h-1 overflow-hidden rounded-full bg-brand-soft">
-            <span className="report-upload-sweep block h-full w-1/2 rounded-full bg-brand" />
-          </span>
-        ) : null}
-      </span>
-      {ready ? (
-        <span className="absolute right-3 bottom-3 flex size-8 items-center justify-center rounded-full border-2 border-white bg-market text-white shadow-sm">
-          <CheckCircle2 className="size-4" />
-        </span>
-      ) : failed ? (
-        <span className="absolute right-3 bottom-3 flex size-8 items-center justify-center rounded-full border-2 border-white bg-amber text-white shadow-sm">
-          <AlertCircle className="size-4" />
-        </span>
-      ) : null}
-    </div>
-  );
-}
-
-export function ReportStep({
+export function ReportUploadStep({
   storageAvailable,
   selectedFilename,
   savedFilename,
   uploadState,
-  extractionState,
-  reportProvider,
-  extractionWarnings = [],
   uploadError,
   error,
-  completing,
+  busy,
   hideBack,
   onRetryStorage,
   onBack,
   onFilesSelected,
   onRetryUpload,
   onContinue,
-}: ReportStepProps) {
+}: ReportUploadStepProps) {
   const inputId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
-  const uploadQueued = uploadState === "queued";
-  const uploadInProgress = uploadState === "uploading";
-  const uploadPending = uploadQueued || uploadInProgress;
-  const hasSavedReport = Boolean(savedFilename);
-  const reviewReady =
-    !uploadPending &&
-    (extractionState === "complete" || extractionState === "partial");
-  const manualFallbackReady =
-    !uploadPending && hasSavedReport && extractionState === "error";
-  const processing = !uploadPending && extractionState === "processing";
-  const showProcessingWorkspace = uploadPending || hasSavedReport;
-  const retryAvailable = uploadState === "error" && Boolean(selectedFilename);
+  const uploadPending =
+    uploadState === "queued" || uploadState === "uploading";
+  const retryAvailable =
+    uploadState === "error" && Boolean(selectedFilename);
   const displayedFilename = uploadPending
     ? (selectedFilename ?? savedFilename)
     : (savedFilename ?? selectedFilename);
-  const replaceTemporarilyUnavailable = uploadPending || Boolean(completing);
+  const hasSavedReport = Boolean(savedFilename);
+  const disabled = uploadPending || Boolean(busy);
 
-  const statePresentation = uploadQueued
-    ? {
-        eyebrow: "Replacement selected",
-        title: "We’ll replace your report next",
-        description:
-          "Venfour is finishing the current read before securely uploading your replacement. This keeps details from the two reports from being mixed.",
-        reassurance:
-          "You don’t need to do anything. Keep this page open and the replacement will upload automatically when the current read finishes.",
-        tone: "brand" as const,
-      }
-    : uploadInProgress
-    ? {
-        eyebrow: hasSavedReport ? "Replacing securely" : "Secure upload",
-        title: hasSavedReport
-          ? "Uploading your replacement report"
-          : "Uploading your report securely",
-        description:
-          "Venfour is saving this file to your private case. Keep this page open for just a moment.",
-        reassurance:
-          "Nothing else is needed right now. Reading begins automatically after the upload is confirmed.",
-        tone: "brand" as const,
-      }
-    : reviewReady
-      ? {
-          eyebrow: "Ready for review",
-          title: "Your details are ready to review",
-          description:
-            extractionState === "partial"
-              ? `Venfour extracted the available vehicle and valuation details${reportProvider ? ` from this ${reportProvider} report` : ""}. Review them next and fill in anything the report did not clearly show.`
-              : `Venfour extracted the vehicle and valuation details${reportProvider ? ` from this ${reportProvider} report` : ""}. Review them next and correct anything that doesn’t look right.`,
-          reassurance:
-            "The appraisal analysis has not started yet. You’ll confirm these report facts first.",
-          tone: "market" as const,
-        }
-      : manualFallbackReady
-        ? {
-            eyebrow: "Report saved",
-            title: "Your report is safely uploaded",
-            description:
-              "Automatic extraction could not finish, but your file is secure. You can continue by entering the needed details manually.",
-            reassurance:
-              "You won’t need to upload the report again. It will remain attached to this appraisal.",
-            tone: "amber" as const,
-          }
-        : processing
-          ? {
-              eyebrow: "Upload complete",
-              title: "Venfour is reading your report",
-              description:
-                "Your report uploaded successfully. Venfour is now reading it and extracting the vehicle and valuation details for you.",
-              reassurance:
-                "You don’t need to do anything while we work. We’ll make the review button available when your details are ready.",
-              tone: "brand" as const,
-            }
-          : {
-              eyebrow: "Upload complete",
-              title: "Your report was uploaded successfully",
-              description:
-                "Your report is securely attached to this appraisal. Venfour is preparing the next review step.",
-              reassurance:
-                "You don’t need to upload it again. Keep this page open while the saved state refreshes.",
-              tone: "brand" as const,
-            };
-
-  const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
+  const handleFiles = (event: ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files ?? []);
+    event.target.value = "";
     if (files.length > 0) onFilesSelected(files);
   };
 
-  return (
-    <FlowCard busy={completing}>
-      <TotalLossProgress mode="report" step="report" />
-      <StepHeading
-        title={
-          showProcessingWorkspace
-            ? "Your valuation report"
-            : "Upload your valuation report"
-        }
-        description={
-          showProcessingWorkspace
-            ? "Follow the secure upload and extraction status below. Venfour will make the next step available as soon as the details are ready."
-            : "Add the report your insurance company used, regardless of provider. Venfour will confirm the upload, read the report, and ask you to review every important fact."
-        }
-      />
-
-      {!storageAvailable ? (
-        <div className="mt-7">
-          <InlineError message="Secure report storage is temporarily unavailable. Your selections are still saved on this device." />
-          <div className="mt-4 flex flex-col gap-3 sm:flex-row">
-            {onRetryStorage ? (
-              <button
-                type="button"
-                className={cn(
-                  primaryFlowButtonClassName,
-                  "report-action-focus w-full sm:w-auto",
-                )}
-                onClick={onRetryStorage}
-              >
-                <RefreshCw className="size-4" aria-hidden />
-                Retry secure storage
-              </button>
-            ) : null}
-            <Link
-              to="/"
-              className={cn(
-                secondaryFlowButtonClassName,
-                "report-action-focus w-full sm:w-auto",
-              )}
-            >
+  if (!storageAvailable) {
+    return (
+      <FlowCard>
+        <TotalLossProgress mode="report" step="report" />
+        <StepHeading
+          title="Upload your valuation report"
+          description="Secure report storage is temporarily unavailable. Your file has not been requested or uploaded."
+        />
+        <InlineError message="Report upload is unavailable in this browser right now." />
+        <div className="mt-7 flex flex-col-reverse gap-3 sm:flex-row sm:justify-between">
+          {hideBack ? (
+            <Link className={secondaryFlowButtonClassName} to="/">
               Return home
             </Link>
-          </div>
-        </div>
-      ) : (
-        <div className="mt-7">
-          <input
-            ref={inputRef}
-            id={inputId}
-            className="hidden"
-            type="file"
-            multiple
-            tabIndex={-1}
-            accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
-            disabled={uploadPending || completing}
-            onClick={(event) => {
-              event.currentTarget.value = "";
-            }}
-            onChange={handleFileChange}
-          />
-          {!showProcessingWorkspace ? (
-            <div
-              className={cn(
-                "flex flex-col gap-5 border-y py-7 sm:flex-row sm:items-center sm:justify-between",
-                uploadState === "error" ? "border-red-200" : "border-line",
-              )}
-            >
-              <div className="flex min-w-0 items-start gap-4">
-                <span className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-brand-soft text-brand">
-                  <Upload className="size-6" aria-hidden />
-                </span>
-                <div className="min-w-0">
-                  <h3 className="break-words text-base font-semibold text-ink [overflow-wrap:anywhere]">
-                    {selectedFilename ?? "Choose your valuation report"}
-                  </h3>
-                  <p className="mt-1 text-sm leading-6 text-copy">
-                    PDF, JPG/JPEG, or PNG · 50 MiB total. Select image pages in
-                    order.
-                  </p>
-                  <p className="mt-2 flex items-center gap-1.5 text-xs font-medium text-market-strong">
-                    <ShieldCheck className="size-4" aria-hidden />
-                    Private, case-owned report storage
-                  </p>
-                </div>
-              </div>
-              {!retryAvailable ? (
-                <button
-                  type="button"
-                  className={cn(
-                    primaryFlowButtonClassName,
-                    "report-action-focus w-full shrink-0 sm:w-auto",
-                  )}
-                  onClick={() => inputRef.current?.click()}
-                >
-                  Choose report
-                </button>
-              ) : null}
-            </div>
           ) : (
-            <div data-report-processing-workspace>
-              <div className="flex min-w-0 flex-col gap-3 border-y border-line py-4 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex min-w-0 items-center gap-3">
-                  <span
-                    className={cn(
-                      "flex size-10 shrink-0 items-center justify-center rounded-xl",
-                      uploadPending
-                        ? "bg-brand-soft text-brand"
-                        : "bg-market-soft text-market-strong",
-                    )}
-                  >
-                    {uploadInProgress ? (
-                      <LoaderCircle
-                        className="size-5 animate-spin motion-reduce:animate-none"
-                        aria-hidden
-                      />
-                    ) : uploadQueued ? (
-                      <RefreshCw className="size-5" aria-hidden />
-                    ) : (
-                      <CheckCircle2 className="size-5" aria-hidden />
-                    )}
-                  </span>
-                  <div className="min-w-0">
-                    <p className="text-xs font-semibold tracking-[0.11em] text-copy uppercase">
-                      {uploadQueued
-                        ? "Replacement queued"
-                        : uploadInProgress
-                          ? "Uploading securely"
-                          : "Report uploaded successfully"}
-                    </p>
-                    <p
-                      className="mt-0.5 truncate text-sm font-semibold text-ink"
-                      title={displayedFilename ?? undefined}
-                    >
-                      {displayedFilename ?? "Valuation report"}
-                    </p>
-                  </div>
-                </div>
-                {hasSavedReport && !retryAvailable ? (
-                  <div className="shrink-0 sm:text-right">
-                    <button
-                      type="button"
-                      className="report-action-focus inline-flex min-h-11 items-center justify-center gap-2 rounded-lg px-3 text-sm font-semibold text-copy transition-colors hover:bg-surface hover:text-ink focus-visible:bg-surface focus-visible:text-ink focus-visible:underline disabled:cursor-not-allowed disabled:opacity-45 motion-reduce:transition-none"
-                      disabled={replaceTemporarilyUnavailable}
-                      onClick={() => inputRef.current?.click()}
-                    >
-                      <RefreshCw className="size-4" aria-hidden />
-                      Replace report
-                    </button>
-                  </div>
-                ) : null}
-              </div>
-
-              <div className="mt-7 flex flex-col gap-5 sm:flex-row sm:items-start sm:gap-6">
-                <ReportDocumentStatusVisual
-                  extractionState={extractionState}
-                  uploadQueued={uploadQueued}
-                  uploadPending={uploadInProgress}
-                />
-                <div
-                  className="min-w-0 flex-1"
-                  role="status"
-                  aria-live="polite"
-                  aria-atomic="true"
-                >
-                  <p
-                    className={cn(
-                      "text-xs font-semibold tracking-[0.13em] uppercase",
-                      statePresentation.tone === "market"
-                        ? "text-market-strong"
-                        : statePresentation.tone === "amber"
-                          ? "text-amber-strong"
-                          : "text-brand",
-                    )}
-                  >
-                    {statePresentation.eyebrow}
-                  </p>
-                  <h3 className="mt-2 text-2xl font-semibold tracking-[-0.03em] text-ink sm:text-3xl">
-                    {statePresentation.title}
-                  </h3>
-                  <p className="mt-2 max-w-2xl text-sm leading-6 text-copy">
-                    {statePresentation.description}
-                  </p>
-                  <div
-                    className={cn(
-                      "mt-4 flex items-start gap-3 rounded-xl px-3.5 py-3",
-                      statePresentation.tone === "market"
-                        ? "bg-market-soft/75"
-                        : statePresentation.tone === "amber"
-                          ? "bg-amber-soft"
-                          : "bg-brand-soft/75",
-                    )}
-                  >
-                    <ShieldCheck
-                      className={cn(
-                        "mt-0.5 size-4 shrink-0",
-                        statePresentation.tone === "market"
-                          ? "text-market-strong"
-                          : statePresentation.tone === "amber"
-                            ? "text-amber-strong"
-                            : "text-brand",
-                      )}
-                      aria-hidden
-                    />
-                    <p className="text-xs leading-5 text-copy">
-                      {statePresentation.reassurance}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <ReportProcessingProgress
-                extractionState={extractionState}
-                hasSavedReport={hasSavedReport}
-                uploadQueued={uploadQueued}
-                uploadPending={uploadInProgress}
-              />
-
-              {reviewReady && extractionWarnings.length > 0 ? (
-                <div className="mt-5 border-t border-line pt-5">
-                  <p className="text-xs font-semibold tracking-[0.1em] text-copy uppercase">
-                    Items to confirm
-                  </p>
-                  <ul className="mt-2 list-disc space-y-1 pl-5 text-xs leading-5 text-copy">
-                    {extractionWarnings.map((warning) => (
-                      <li key={warning}>{warning}</li>
-                    ))}
-                  </ul>
-                </div>
-              ) : null}
-            </div>
-          )}
-          {uploadError ? (
-            <div
-              className="mt-4 rounded-xl border border-red-200 bg-red-50 p-4"
-              role="alert"
+            <button
+              type="button"
+              className={secondaryFlowButtonClassName}
+              onClick={onBack}
             >
-              <div className="flex items-start gap-3">
-                <AlertCircle
-                  className="mt-0.5 size-5 shrink-0 text-red-700"
-                  aria-hidden
-                />
-                <div>
-                  <p className="text-sm font-semibold text-red-950">
-                    {hasSavedReport
-                      ? "Replacement wasn’t uploaded"
-                      : "We couldn’t use this report"}
-                  </p>
-                  <p className="mt-1 text-sm leading-6 text-red-800">
-                    {uploadError}
-                  </p>
-                  {hasSavedReport ? (
-                    <p className="mt-1 text-sm leading-6 text-red-800">
-                      Your current report is still saved.
-                    </p>
-                  ) : null}
-                  {selectedFilename ? (
-                    <div className="mt-4 flex flex-col gap-3 sm:flex-row">
-                      <button
-                        type="button"
-                        className={cn(
-                          primaryFlowButtonClassName,
-                          "report-action-focus w-full sm:w-auto",
-                        )}
-                        onClick={onRetryUpload}
-                      >
-                        <RefreshCw className="size-4" aria-hidden />
-                        Try again
-                      </button>
-                      <button
-                        type="button"
-                        className={cn(
-                          secondaryFlowButtonClassName,
-                          "report-action-focus w-full sm:w-auto",
-                        )}
-                        onClick={() => inputRef.current?.click()}
-                      >
-                        Choose another report
-                      </button>
-                    </div>
-                  ) : null}
-                </div>
-              </div>
-            </div>
+              <ArrowLeft className="size-4" aria-hidden />
+              Back
+            </button>
+          )}
+          {onRetryStorage ? (
+            <button
+              type="button"
+              className={primaryFlowButtonClassName}
+              onClick={onRetryStorage}
+            >
+              <RefreshCw className="size-4" aria-hidden />
+              Retry secure storage
+            </button>
           ) : null}
         </div>
-      )}
+      </FlowCard>
+    );
+  }
 
+  return (
+    <FlowCard busy={disabled}>
+      <TotalLossProgress mode="report" step="report" />
+      <StepHeading
+        title="Upload your valuation report"
+        description="We’ll securely attach the report to your private appraisal. Venfour won’t read or analyze it until after your contact details are saved."
+      />
+
+      <input
+        ref={inputRef}
+        id={inputId}
+        className="sr-only"
+        type="file"
+        accept="application/pdf,image/jpeg,image/png,.pdf,.jpg,.jpeg,.png"
+        multiple
+        disabled={disabled}
+        onChange={handleFiles}
+      />
+
+      <div className="mt-7 overflow-hidden rounded-2xl border border-line bg-white">
+        <div className="flex min-w-0 flex-col gap-5 p-5 sm:flex-row sm:items-center sm:p-6">
+          <span
+            className={cn(
+              "flex size-14 shrink-0 items-center justify-center rounded-2xl",
+              hasSavedReport
+                ? "bg-market-soft text-market-strong"
+                : "bg-brand-soft text-brand",
+            )}
+            aria-hidden
+          >
+            {uploadPending ? (
+              <LoaderCircle className="size-6 animate-spin motion-reduce:animate-none" />
+            ) : hasSavedReport ? (
+              <CheckCircle2 className="size-6" />
+            ) : (
+              <FileText className="size-6" />
+            )}
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="text-base font-semibold text-ink">
+              {uploadPending
+                ? uploadState === "queued"
+                  ? "Waiting to upload securely"
+                  : "Uploading securely"
+                : hasSavedReport
+                  ? "Report securely attached"
+                  : "Choose your valuation report"}
+            </p>
+            <p className="mt-1 text-sm leading-6 text-copy">
+              {uploadPending
+                ? "Keep this page open while Venfour finishes saving the file."
+                : hasSavedReport
+                  ? "Next, add your contact details. The report will be reviewed during analysis."
+                  : "Add one PDF, or select JPG/PNG pages together. Venfour combines image pages into one private PDF before upload."}
+            </p>
+            {displayedFilename ? (
+              <p className="mt-2 truncate text-sm font-semibold text-ink" title={displayedFilename}>
+                {displayedFilename}
+              </p>
+            ) : null}
+          </div>
+          <button
+            type="button"
+            className={secondaryFlowButtonClassName}
+            disabled={disabled}
+            onClick={() => inputRef.current?.click()}
+          >
+            <Upload className="size-4" aria-hidden />
+            {hasSavedReport ? "Replace report" : "Choose report"}
+          </button>
+        </div>
+        <div className="flex items-center gap-2 border-t border-line bg-surface/55 px-5 py-3 text-xs leading-5 text-copy sm:px-6">
+          <ShieldCheck className="size-4 shrink-0 text-brand" aria-hidden />
+          Private, owner-only storage · PDF, JPG, or PNG · 50 MiB total
+        </div>
+      </div>
+
+      {uploadError ? <InlineError message={uploadError} /> : null}
       {error ? <InlineError message={error} /> : null}
-      <div className="mt-8 flex min-h-12 flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
+
+      <div className="mt-7 flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
         {!hideBack ? (
           <button
             type="button"
-            className={cn(
-              secondaryFlowButtonClassName,
-              "report-action-focus",
-            )}
-            disabled={uploadPending || completing}
+            className={secondaryFlowButtonClassName}
+            disabled={disabled}
             onClick={onBack}
           >
             <ArrowLeft className="size-4" aria-hidden />
             Back
           </button>
-        ) : null}
-        {reviewReady || manualFallbackReady ? (
-          <button
-            type="button"
-            className={cn(
-              primaryFlowButtonClassName,
-              "report-action-focus w-full sm:w-auto",
-            )}
-            disabled={!hasSavedReport || uploadPending || completing}
-            onClick={onContinue}
-          >
-            {manualFallbackReady
-              ? "Continue with manual details"
-              : "Review extracted details"}
-            <ArrowRight className="size-4" aria-hidden />
-          </button>
-        ) : null}
+        ) : (
+          <span />
+        )}
+        <div className="flex flex-col gap-3 sm:flex-row">
+          {retryAvailable ? (
+            <button
+              type="button"
+              className={secondaryFlowButtonClassName}
+              disabled={disabled}
+              onClick={onRetryUpload}
+            >
+              <RefreshCw className="size-4" aria-hidden />
+              Try upload again
+            </button>
+          ) : null}
+          {hasSavedReport && !uploadPending ? (
+            <button
+              type="button"
+              className={primaryFlowButtonClassName}
+              disabled={disabled}
+              onClick={onContinue}
+            >
+              Continue to contact
+              <ArrowRight className="size-4" aria-hidden />
+            </button>
+          ) : null}
+        </div>
       </div>
     </FlowCard>
   );
@@ -1137,6 +657,8 @@ interface ContactStepProps {
   readonly mode: TotalLossIntakeMode;
   readonly values: TotalLossContactFormValues;
   readonly errors: TotalLossContactFormErrors;
+  readonly marketZipCode?: string;
+  readonly marketZipCodeError?: string;
   readonly emailLocked?: boolean;
   readonly busy?: boolean;
   readonly error?: string | null;
@@ -1145,6 +667,7 @@ interface ContactStepProps {
     field: K,
     value: TotalLossContactFormValues[K],
   ) => void;
+  readonly onMarketZipCodeChange?: (value: string) => void;
   readonly onBack: () => void;
   readonly onContinue: () => void;
 }
@@ -1153,19 +676,44 @@ export function ContactStep({
   mode,
   values,
   errors,
+  marketZipCode = "",
+  marketZipCodeError,
   emailLocked = false,
   busy,
   error,
   accessLinkSent,
   onChange,
+  onMarketZipCodeChange,
   onBack,
   onContinue,
 }: ContactStepProps) {
   return (
     <FlowCard busy={busy}>
       <TotalLossProgress mode={mode} step="contact" />
-      <StepHeading title="Your contact details" />
+      <StepHeading
+        title="Contact details"
+        description={
+          mode === "report"
+            ? "Add your market ZIP and tell us where to save your private result."
+            : "Tell us where to save your private result."
+        }
+      />
       <div className="mt-6 grid gap-x-5 gap-y-4 sm:grid-cols-2">
+        {mode === "report" && onMarketZipCodeChange ? (
+          <IntakeTextField
+            id="total-loss-contact-market-zip"
+            label="Market ZIP code"
+            value={marketZipCode}
+            error={marketZipCodeError}
+            inputMode="numeric"
+            autoComplete="postal-code"
+            maxLength={10}
+            disabled={busy}
+            help="Used to find comparable vehicles near you."
+            helpAfterInput
+            onChange={(event) => onMarketZipCodeChange(event.target.value)}
+          />
+        ) : null}
         <IntakeTextField
           id="total-loss-contact-first-name"
           label="First name"
@@ -1275,124 +823,9 @@ export function ContactStep({
         onBack={onBack}
         onContinue={onContinue}
         busy={busy}
-        continueLabel="Continue to review"
+        continueLabel="Review & analyze"
       />
     </FlowCard>
-  );
-}
-
-interface ReviewStepProps {
-  readonly mode: TotalLossIntakeMode;
-  readonly values: TotalLossManualFormValues;
-  readonly contact: TotalLossContactFormValues;
-  readonly reportFilename?: string | null;
-  readonly reportProvider?: string | null;
-  readonly busy?: boolean;
-  readonly error?: string | null;
-  readonly onBack: () => void;
-  readonly onEditVehicle: () => void;
-  readonly onEditClaim: () => void;
-  readonly onStartAnalysis: () => void;
-}
-
-export function ReviewStep({
-  mode,
-  values,
-  contact,
-  reportFilename,
-  reportProvider,
-  busy,
-  error,
-  onBack,
-  onEditVehicle,
-  onEditClaim,
-  onStartAnalysis,
-}: ReviewStepProps) {
-  const vehicle = [values.vehicleYear, values.make, values.model, values.trim]
-    .filter(Boolean)
-    .join(" ");
-  const valuation = values.insurerVehicleValuation
-    ? formatCurrencyValue(values.insurerVehicleValuation)
-    : null;
-
-  return (
-    <FlowCard busy={busy}>
-      <TotalLossProgress mode={mode} step="review" />
-      <StepHeading
-        title="Review your details"
-        description="Confirm the information Venfour will use before the analysis begins."
-      />
-      <div className="mt-7 grid gap-4 lg:grid-cols-2">
-        <ReviewPanel title="Vehicle" onEdit={onEditVehicle}>
-          <p className="font-semibold text-ink">{vehicle}</p>
-          <p>{values.mileageAtLoss} miles</p>
-          {values.vin ? <p>VIN {values.vin}</p> : null}
-        </ReviewPanel>
-        <ReviewPanel title="Claim" onEdit={onEditClaim}>
-          <p className="font-semibold text-ink">{values.insurerName}</p>
-          <p>Date of loss: {values.dateOfLoss}</p>
-          <p>Market ZIP: {values.zipCode}</p>
-          <p>{valuation ? `Stated vehicle value: ${valuation}` : "No insurer vehicle value supplied"}</p>
-        </ReviewPanel>
-        <ReviewPanel title="Evidence available">
-          {mode === "report" ? (
-            <>
-              <p className="font-semibold text-ink">Valuation report review + independent market research</p>
-              <p>{reportProvider ?? "Provider not identified"} · {reportFilename}</p>
-            </>
-          ) : (
-            <>
-              <p className="font-semibold text-ink">Independent market research</p>
-              <p>There is no report to review. Venfour will compare market evidence with the stated offer only if one was supplied.</p>
-            </>
-          )}
-        </ReviewPanel>
-        <ReviewPanel title="Results access">
-          <p className="font-semibold text-ink">
-            {contact.firstName} {contact.lastName}
-          </p>
-          <p>{contact.email}</p>
-          {contact.phoneNumber ? <p>{contact.phoneNumber}</p> : null}
-          <p>{contact.operationalFollowUpAllowed ? "Optional follow-up allowed" : "No optional follow-up"}</p>
-        </ReviewPanel>
-      </div>
-      <div className="mt-5 rounded-xl border border-line bg-surface/60 p-4 text-sm leading-6 text-copy">
-        {mode === "report"
-          ? "Venfour will independently research the market and review only the report facts, comparables, and adjustments that were actually available."
-          : "Venfour will independently research the market. It will not claim to review report comparables or adjustments that were never supplied."}
-      </div>
-      {error ? <InlineError message={error} /> : null}
-      <StepActions
-        onBack={onBack}
-        onContinue={onStartAnalysis}
-        busy={busy}
-        continueLabel="Start analysis"
-      />
-    </FlowCard>
-  );
-}
-
-function ReviewPanel({
-  children,
-  onEdit,
-  title,
-}: {
-  readonly children: ReactNode;
-  readonly onEdit?: () => void;
-  readonly title: string;
-}) {
-  return (
-    <section className="min-w-0 overflow-hidden rounded-xl border border-line bg-white p-5">
-      <div className="flex min-w-0 items-center justify-between gap-3">
-        <h3 className="min-w-0 text-sm font-semibold text-ink">{title}</h3>
-        {onEdit ? (
-          <button type="button" className="text-sm font-semibold text-brand hover:text-brand-strong" onClick={onEdit}>
-            Edit
-          </button>
-        ) : null}
-      </div>
-      <div className="mt-3 min-w-0 space-y-1 text-sm leading-6 break-words text-copy [overflow-wrap:anywhere]">{children}</div>
-    </section>
   );
 }
 
@@ -1431,47 +864,6 @@ function PolicyLink({ children, to }: { readonly children: ReactNode; readonly t
     >
       {children}
     </Link>
-  );
-}
-
-interface ReadyStepProps {
-  readonly mode?: TotalLossIntakeMode | null;
-  readonly busy?: boolean;
-  readonly onReplaceReport?: () => void;
-  readonly onStartValueCheck?: () => void;
-}
-
-export function ReadyStep({
-  busy,
-  mode,
-  onReplaceReport,
-  onStartValueCheck,
-}: ReadyStepProps = {}) {
-  return (
-    <FlowCard className="text-center" busy={busy}>
-      <span className="mx-auto flex size-12 items-center justify-center rounded-full bg-market-soft text-market-strong">
-        <CheckCircle2 className="size-7" aria-hidden />
-      </span>
-      <h2 className="mt-5 text-3xl font-semibold tracking-[-0.035em] text-ink">
-        Your information is ready
-      </h2>
-      <p className="mt-3 text-base leading-7 text-copy">
-        Start the analysis when you’re ready.
-      </p>
-      <div className="mt-7 flex flex-col-reverse gap-3 sm:flex-row sm:justify-center">
-        {mode === "report" && onReplaceReport ? (
-          <button type="button" className={secondaryFlowButtonClassName} disabled={busy} onClick={onReplaceReport}>
-            Replace report
-          </button>
-        ) : null}
-        {onStartValueCheck ? (
-          <button type="button" className={primaryFlowButtonClassName} disabled={busy} onClick={onStartValueCheck}>
-            Start analysis
-            <ArrowRight className="size-4" aria-hidden />
-          </button>
-        ) : null}
-      </div>
-    </FlowCard>
   );
 }
 

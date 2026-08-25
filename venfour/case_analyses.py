@@ -970,13 +970,6 @@ class CaseAnalysisService:
         try:
             creation_service = self._creation_service_factory(repository, run_id)
             if uses_confirmed_snapshot:
-                create_confirmed = getattr(
-                    creation_service, "create_from_confirmed_input", None
-                )
-                if not callable(create_confirmed):
-                    raise AnalysisCreationExecutionError(
-                        "Confirmed-input analysis creation is unavailable"
-                    )
                 intake_mode = input_snapshot.get("intake_mode")
                 if not isinstance(intake_mode, str):
                     intake_mode = row.get("intake_mode")
@@ -986,6 +979,13 @@ class CaseAnalysisService:
                     else None
                 )
                 if normalized_mode == "manual":
+                    create_confirmed = getattr(
+                        creation_service, "create_from_confirmed_input", None
+                    )
+                    if not callable(create_confirmed):
+                        raise AnalysisCreationExecutionError(
+                            "Confirmed-input analysis creation is unavailable"
+                        )
                     result = create_confirmed(input_snapshot)
                 elif normalized_mode == "report":
                     ingestion: ReportIngestionResult | None = None
@@ -1014,25 +1014,57 @@ class CaseAnalysisService:
                             ):
                                 ingestion = self._cache_result(cached_row)
                         except (CaseAnalysisContractError, SupabaseGatewayError):
-                            # The immutable confirmed snapshot is sufficient for
-                            # market analysis even when report extraction cannot
-                            # safely be reused. Presentation scope records that no
-                            # report review was performed.
+                            # A missing or stale cache falls back to the fenced
+                            # report. Unconfirmed extraction data is never reused.
                             ingestion = None
-                    options: dict[str, Any] = {
-                        "report_extraction_available": ingestion is not None,
-                    }
                     if ingestion is not None:
-                        options.update(
-                            {
-                                "normalized_report": ingestion.to_dict()[
-                                    "normalizedReport"
-                                ],
-                                "report_adapter": ingestion.adapter,
-                                "partial_extraction": ingestion.partial,
-                            }
+                        create_confirmed = getattr(
+                            creation_service,
+                            "create_from_confirmed_input",
+                            None,
                         )
-                    result = create_confirmed(input_snapshot, **options)
+                        if not callable(create_confirmed):
+                            raise AnalysisCreationExecutionError(
+                                "Confirmed-input analysis creation is unavailable"
+                            )
+                        result = create_confirmed(
+                            input_snapshot,
+                            report_extraction_available=True,
+                            normalized_report=ingestion.to_dict()[
+                                "normalizedReport"
+                            ],
+                            report_adapter=ingestion.adapter,
+                            partial_extraction=ingestion.partial,
+                        )
+                    else:
+                        create_report = getattr(creation_service, "create", None)
+                        if not callable(create_report):
+                            raise AnalysisCreationExecutionError(
+                                "Report analysis creation is unavailable"
+                            )
+                        try:
+                            normalized_postal_code = normalize_us_zip_code(
+                                input_snapshot.get("postal_code")
+                            )
+                        except (TypeError, ValueError) as exc:
+                            raise AnalysisConfirmedInputError(
+                                "Confirmed report postal code is invalid"
+                            ) from exc
+                        materialize_report = getattr(
+                            self._gateway,
+                            "materialize_total_loss_report_from_locator",
+                            None,
+                        )
+                        if not callable(materialize_report):
+                            raise AnalysisCreationExecutionError(
+                                "Fenced report materialization is unavailable"
+                            )
+                        with materialize_report(
+                            case_id, row, job_id
+                        ) as report_path:
+                            result = create_report(
+                                report_path, normalized_postal_code
+                            )
                 else:
                     raise AnalysisConfirmedInputError("Intake mode is invalid")
             else:

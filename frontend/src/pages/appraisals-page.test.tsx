@@ -371,9 +371,13 @@ describe("customer appraisals page", () => {
 
     await user.click(await screen.findByRole("link", { name: "View result" }));
 
-    expect(await screen.findByText("Valuation analysis loaded.")).toBeVisible();
+    expect(
+      await screen.findByRole("heading", {
+        name: "Strong evidence suggests the insurer’s valuation may be too low.",
+      }),
+    ).toBeVisible();
     expect(router.state.location.pathname).toBe(
-      `/analyses/${representativeRunId}`,
+      `/total-loss/cases/${FIRST_CASE_ID}/analysis`,
     );
     expect(window.localStorage.length).toBe(0);
   });

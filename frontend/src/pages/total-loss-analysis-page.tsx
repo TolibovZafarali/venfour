@@ -6,12 +6,7 @@ import {
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import {
-  Link,
-  useLocation,
-  useNavigate,
-  useParams,
-} from "react-router";
+import { Link, useLocation, useParams } from "react-router";
 
 import { Button } from "@/components/ui/button";
 import { useAuth, useSignInDialog } from "@/features/auth";
@@ -19,6 +14,11 @@ import {
   useCaseAnalysisQuery,
   useSubmitCaseAnalysisMutation,
 } from "@/features/analyses/case-analysis-queries";
+import {
+  TotalLossAnalysisProgress,
+  TotalLossAnalysisResult,
+} from "@/features/analyses/components/total-loss-analysis-experience";
+import { useAnalysisQuery } from "@/features/analyses/queries";
 import { ApiError } from "@/lib/api/client";
 
 const canonicalUuid4Pattern =
@@ -94,6 +94,80 @@ function StateCard({
   );
 }
 
+function AnalysisExperienceFrame({ children }: { readonly children: ReactNode }) {
+  return (
+    <div className="relative isolate flex min-h-[calc(100svh-4rem)] w-full items-center overflow-hidden bg-canvas px-5 py-10 sm:px-8 sm:py-14 lg:px-10 lg:py-16">
+      <span
+        className="pointer-events-none absolute -top-40 -left-44 size-[32rem] rounded-full bg-brand-subtle/65 blur-3xl"
+        aria-hidden
+      />
+      <span
+        className="pointer-events-none absolute -right-48 -bottom-52 size-[36rem] rounded-full bg-market-soft/80 blur-3xl"
+        aria-hidden
+      />
+      <div className="relative mx-auto w-full max-w-6xl">{children}</div>
+    </div>
+  );
+}
+
+function CompletedTotalLossAnalysis({
+  accessToken,
+  runId,
+  userId,
+}: {
+  readonly accessToken: string;
+  readonly runId: string;
+  readonly userId: string;
+}) {
+  const resultQuery = useAnalysisQuery({ accessToken, runId, userId });
+
+  if (resultQuery.isPending) {
+    return (
+      <AnalysisExperienceFrame>
+        <TotalLossAnalysisProgress />
+      </AnalysisExperienceFrame>
+    );
+  }
+
+  if (resultQuery.isError) {
+    const unavailable =
+      resultQuery.error instanceof ApiError && resultQuery.error.status === 404;
+
+    return (
+      <StateCard
+        kind="error"
+        eyebrow={unavailable ? "Analysis unavailable" : "Unable to load result"}
+        heading={
+          unavailable
+            ? "We couldn’t find the completed analysis."
+            : "We couldn’t load your completed result."
+        }
+        description={
+          unavailable
+            ? "The appraisal completed, but its saved analysis is not available from this account."
+            : "A temporary connection problem prevented Venfour from opening the saved result."
+        }
+      >
+        {!unavailable ? (
+          <Button variant="outline" onClick={() => void resultQuery.refetch()}>
+            <RefreshCw className="size-4" aria-hidden />
+            Try again
+          </Button>
+        ) : null}
+        <Button asChild variant="ghost">
+          <Link to="/appraisals">Return to appraisals</Link>
+        </Button>
+      </StateCard>
+    );
+  }
+
+  return (
+    <AnalysisExperienceFrame>
+      <TotalLossAnalysisResult analysis={resultQuery.data} />
+    </AnalysisExperienceFrame>
+  );
+}
+
 function AuthenticatedTotalLossAnalysisPage({
   accessToken,
   caseId,
@@ -103,7 +177,6 @@ function AuthenticatedTotalLossAnalysisPage({
   readonly caseId: string;
   readonly userId: string;
 }) {
-  const navigate = useNavigate();
   const autoSubmittedCaseRef = useRef<string | null>(null);
   const analysisQuery = useCaseAnalysisQuery({ accessToken, caseId, userId });
   const submitMutation = useSubmitCaseAnalysisMutation({
@@ -143,20 +216,11 @@ function AuthenticatedTotalLossAnalysisPage({
     submitMutation.mutate({});
   }, [analysis?.status, caseId, submitMutation]);
 
-  useEffect(() => {
-    if (analysis?.status !== "completed") return;
-    if (!canonicalUuid4Pattern.test(analysis.runId)) return;
-    void navigate(`/analyses/${analysis.runId}`, { replace: true });
-  }, [analysis, navigate]);
-
   if (analysisQuery.isPending) {
     return (
-      <StateCard
-        kind="loading"
-        eyebrow="Preparing value check"
-        heading="Loading your appraisal…"
-        description="Venfour is securely opening this total-loss appraisal."
-      />
+      <AnalysisExperienceFrame>
+        <TotalLossAnalysisProgress />
+      </AnalysisExperienceFrame>
     );
   }
 
@@ -209,12 +273,9 @@ function AuthenticatedTotalLossAnalysisPage({
 
   if (!analysis) {
     return (
-      <StateCard
-        kind="loading"
-        eyebrow="Preparing value check"
-        heading="Loading your appraisal…"
-        description="Venfour is securely opening this total-loss appraisal."
-      />
+      <AnalysisExperienceFrame>
+        <TotalLossAnalysisProgress />
+      </AnalysisExperienceFrame>
     );
   }
 
@@ -243,32 +304,34 @@ function AuthenticatedTotalLossAnalysisPage({
           replaceReportErrorCodes.has(submissionError.code),
       );
 
+    if (!errorMessage && !needsResume) {
+      return (
+        <AnalysisExperienceFrame>
+          <TotalLossAnalysisProgress />
+        </AnalysisExperienceFrame>
+      );
+    }
+
     return (
       <StateCard
-        kind={errorMessage || needsResume ? "error" : "loading"}
+        kind="error"
         eyebrow={
           errorMessage
             ? needsResume
               ? "Value check not resumed"
               : "Value check not started"
-            : needsResume
-              ? "Value check paused"
-              : "Value check in progress"
+            : "Value check paused"
         }
         heading={
           errorMessage
             ? needsResume
               ? "We couldn’t resume your value check."
               : "We couldn’t start your value check."
-            : needsResume
-              ? "This value check needs to resume."
-              : "We’re preparing your market valuation."
+            : "This value check needs to resume."
         }
         description={
           errorMessage ??
-          (needsResume
-            ? "The previous processing attempt did not finish. Venfour can safely resume this saved appraisal without creating a second analysis."
-            : "Venfour is reviewing the confirmed vehicle and claim facts and comparing them with relevant market evidence. You can safely leave this page and return later.")
+          "The previous processing attempt did not finish. Venfour can safely resume this saved appraisal without creating a second analysis."
         }
       >
         {errorMessage && replaceReportRequired ? (
@@ -350,11 +413,10 @@ function AuthenticatedTotalLossAnalysisPage({
   }
 
   return (
-    <StateCard
-      kind="loading"
-      eyebrow="Value check complete"
-      heading="Opening your analysis…"
-      description="Your total-loss analysis is ready."
+    <CompletedTotalLossAnalysis
+      accessToken={accessToken}
+      runId={analysis.runId}
+      userId={userId}
     />
   );
 }

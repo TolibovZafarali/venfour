@@ -12,6 +12,9 @@ import { renderTestApp } from "@/test/render";
 const USER_ID = "11111111-1111-4111-8111-111111111111";
 const CASE_ID = "22222222-2222-4222-8222-222222222222";
 const casePath = `/total-loss/cases/${CASE_ID}/analysis`;
+const progressHeading = "We’re reviewing and analyzing your claim.";
+const materialResultHeading =
+  "Strong evidence suggests the insurer’s valuation may be too low.";
 
 function sessionFor(id = USER_ID) {
   return {
@@ -74,14 +77,14 @@ describe("total-loss case analysis page", () => {
 
     expect(
       await screen.findByRole("heading", {
-        name: "We’re preparing your market valuation.",
+        name: progressHeading,
       }),
     ).toBeVisible();
     await waitFor(() => expect(postCount).toBe(1));
     expect(authorization).toBe(`Bearer access-${USER_ID}`);
   });
 
-  it("polls a processing case without duplicate submission and opens the completed result", async () => {
+  it("polls without duplicate submission and renders the result on the same route", async () => {
     let getCount = 0;
     let postCount = 0;
     server.use(
@@ -116,16 +119,17 @@ describe("total-loss case analysis page", () => {
 
     expect(
       await screen.findByRole("heading", {
-        name: "We’re preparing your market valuation.",
+        name: progressHeading,
       }),
     ).toBeVisible();
-    await waitFor(
-      () =>
-        expect(router.state.location.pathname).toBe(
-          `/analyses/${representativeRunId}`,
-        ),
-      { timeout: 4_000 },
-    );
+    expect(
+      await screen.findByRole(
+        "heading",
+        { name: materialResultHeading },
+        { timeout: 4_000 },
+      ),
+    ).toBeVisible();
+    expect(router.state.location.pathname).toBe(casePath);
     expect(getCount).toBeGreaterThanOrEqual(2);
     expect(postCount).toBe(0);
   });
@@ -174,7 +178,7 @@ describe("total-loss case analysis page", () => {
     await waitFor(() => expect(postCount).toBe(1));
     expect(
       await screen.findByRole("heading", {
-        name: "We’re preparing your market valuation.",
+        name: progressHeading,
       }),
     ).toBeVisible();
   });
@@ -200,7 +204,7 @@ describe("total-loss case analysis page", () => {
       await vi.waitFor(() =>
         expect(
           screen.getByRole("heading", {
-            name: "We’re preparing your market valuation.",
+            name: progressHeading,
           }),
         ).toBeVisible(),
       );
@@ -262,11 +266,10 @@ describe("total-loss case analysis page", () => {
       screen.getByRole("button", { name: "Retry value check" }),
     );
 
-    await waitFor(() =>
-      expect(router.state.location.pathname).toBe(
-        `/analyses/${representativeRunId}`,
-      ),
-    );
+    expect(
+      await screen.findByRole("heading", { name: materialResultHeading }),
+    ).toBeVisible();
+    expect(router.state.location.pathname).toBe(casePath);
     expect(postCount).toBe(1);
   });
 
@@ -389,7 +392,7 @@ describe("total-loss case analysis page", () => {
     expect(postCount).toBe(1);
     expect(
       screen.getByRole("heading", {
-        name: "We’re preparing your market valuation.",
+        name: progressHeading,
       }),
     ).toBeVisible();
     expect(

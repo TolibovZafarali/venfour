@@ -3,7 +3,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
 
-select plan(77);
+select plan(78);
 
 select ok(
   to_regclass('public.total_loss_case_contacts') is not null
@@ -443,6 +443,30 @@ select is(
 );
 
 set local request.jwt.claim.sub = '91111111-1111-4111-8111-111111111111';
+
+update public.total_loss_case_details
+set vehicle_trim = null
+where case_id = (select case_id from guest_first_state);
+
+select throws_ok(
+  $$
+    select public.confirm_total_loss_intake(
+      (select case_id from guest_first_state),
+      (
+        select updated_at
+        from public.total_loss_case_details
+        where case_id = (select case_id from guest_first_state)
+      )
+    )
+  $$,
+  '22023',
+  'Complete every required vehicle and claim fact before confirmation.',
+  'manual confirmation still rejects a missing required vehicle fact'
+);
+
+update public.total_loss_case_details
+set vehicle_trim = 'EX-L'
+where case_id = (select case_id from guest_first_state);
 
 select throws_ok(
   $$
@@ -951,16 +975,7 @@ reset role;
 insert into public.total_loss_case_details (
   case_id,
   intake_mode,
-  vehicle_year,
-  vehicle_make,
-  vehicle_model,
-  vehicle_trim,
-  mileage_at_loss,
   postal_code,
-  date_of_loss,
-  insurer_name,
-  vehicle_condition,
-  vehicle_options_packages,
   report_original_filename,
   report_uploaded_at,
   report_last_upload_id
@@ -968,16 +983,7 @@ insert into public.total_loss_case_details (
 values (
   '9a222222-2222-4222-8222-222222222223',
   'report',
-  2019,
-  'Mazda',
-  'CX-5',
-  'Touring',
-  61000,
   '60604',
-  '2026-08-17',
-  'Fallback Insurer',
-  'Good condition with documented wear',
-  'No material options or packages',
   'unparsed-report.pdf',
   statement_timestamp(),
   '90000000-0000-4000-8000-000000000009'
@@ -1030,8 +1036,8 @@ select results_eq(
       )
     )
   $$,
-  $$values (true, true)$$,
-  'an anonymous owner can confirm complete report facts when no extraction cache is available'
+  $$values (true, false)$$,
+  'an anonymous owner can confirm a finalized report and market ZIP without pre-reading report facts'
 );
 
 reset role;
@@ -1047,7 +1053,7 @@ select results_eq(
     )
   $$,
   $$values ('claimed'::text, false)$$,
-  'report analysis remains runnable from confirmed snapshot facts when extraction is absent'
+  'report analysis remains runnable from the finalized private report when extraction is deferred'
 );
 
 reset role;
@@ -1202,8 +1208,8 @@ select results_eq(
       using (case_id)
     where confirmation.label = 'failed-extraction'
   $$,
-  $$values (true, true, 'failed'::text, true)$$,
-  'complete manually confirmed report facts can finalize intake while the exact extraction remains failed'
+  $$values (true, false, 'failed'::text, false)$$,
+  'report intake completion does not customer-confirm or refence a failed extraction cache'
 );
 
 set local role service_role;
@@ -1222,7 +1228,7 @@ select results_eq(
     )
   $$,
   $$values ('claimed'::text, false, 'SE'::text, true)$$,
-  'report analysis falls back to the confirmed snapshot when extraction failed while preserving report availability'
+  'report analysis preserves finalized report availability when an unconfirmed extraction failed'
 );
 
 reset role;
@@ -1383,9 +1389,9 @@ where case_id = '9a444444-4444-4444-8444-444444444444';
 set local role authenticated;
 set local request.jwt.claim.sub = '94444444-4444-4444-8444-444444444444';
 
-select throws_ok(
+select lives_ok(
   $$
-    select public.confirm_total_loss_intake(
+    select * from public.confirm_total_loss_intake(
       '9a444444-4444-4444-8444-444444444444',
       (
         select updated_at
@@ -1394,14 +1400,14 @@ select throws_ok(
       )
     )
   $$,
-  '55000',
-  'The current report extraction metadata is inconsistent.',
-  'confirmation rejects a mismatched cache instead of silently treating it as unavailable'
+  'report confirmation ignores a mismatched unconfirmed cache and defers to the finalized report'
 );
 
 reset role;
 update public.total_loss_report_extractions as extraction
-set analysis_input_id = details.analysis_input_id
+set
+  analysis_input_revision = details.analysis_input_revision,
+  analysis_input_id = details.analysis_input_id
 from public.total_loss_case_details as details
 where extraction.case_id = details.case_id
   and extraction.case_id = '9a444444-4444-4444-8444-444444444444';
@@ -1446,8 +1452,8 @@ select results_eq(
       using (case_id)
     where confirmation.label = 'confirmed-extraction'
   $$,
-  $$values (true, true, 'confirmed'::text, true)$$,
-  'report confirmation database-stamps intake and atomically promotes the exact current extraction across the rotated input fence'
+  $$values (true, false, 'needs_confirmation'::text, false)$$,
+  'report confirmation leaves unreviewed extraction metadata unconfirmed and does not re-fence it as customer-approved'
 );
 
 set local role service_role;
@@ -1465,8 +1471,8 @@ select results_eq(
       )
     )
   $$,
-  $$values ('confirmed'::text, 'generic'::text)$$,
-  'the trusted cache is retrievable only at the post-confirmation revision and is now usable for analysis'
+  $$values ('needs_confirmation'::text, 'generic'::text)$$,
+  'the unreviewed cache remains retrievable to trusted services but is not promoted for analysis reuse'
 );
 
 select results_eq(
@@ -1489,10 +1495,10 @@ select results_eq(
       'report'::text,
       '94444444-4444-4444-8444-444444444444'::uuid,
       '94444444-4444-4444-8444-444444444444/9a444444-4444-4444-8444-444444444444/valuation-report.pdf'::text,
-      true
+      false
     )
   $$,
-  'report analysis retains finalized-object requirements and returns the immutable locator plus extraction availability'
+  'report analysis retains the immutable locator while unreviewed extraction data remains unavailable'
 );
 
 select results_eq(

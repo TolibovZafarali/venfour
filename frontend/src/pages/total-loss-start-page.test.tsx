@@ -14,12 +14,10 @@ import type {
   AuthService,
   AuthStateChangeListener,
 } from "@/features/auth/auth-service";
-import type { TotalLossReportIngestion } from "@/features/analyses/api/report-ingestion";
 import type {
   TurnstileAction,
   TurnstileController,
 } from "@/features/auth/turnstile-controller";
-import { AUTH_RETURN_LOCATION_STORAGE_KEY } from "@/features/auth/return-location";
 import type { AppraisalCaseService } from "@/features/cases/service";
 import { appraisalCaseQueryKeys } from "@/features/cases/queries";
 import type { AppraisalCase } from "@/features/cases/types";
@@ -39,7 +37,6 @@ import {
   readTotalLossDraft,
   writeTotalLossDraft,
 } from "@/features/total-loss/draft";
-import { TotalLossReportRestoreError } from "@/features/total-loss/mutations";
 import type { TotalLossDetailsService } from "@/features/total-loss/service";
 import type { TotalLossIdentityService } from "@/features/total-loss/identity-service";
 import { TotalLossDetailsConflictError } from "@/features/total-loss/service";
@@ -91,33 +88,6 @@ async function createPdfFile(name: string) {
   const buffer = new ArrayBuffer(bytes.byteLength);
   new Uint8Array(buffer).set(bytes);
   return new File([buffer], name, { type: "application/pdf" });
-}
-
-function partialReportIngestion(
-  provider = "CCC",
-): TotalLossReportIngestion {
-  return {
-    status: "partial",
-    provider,
-    adapter: provider === "CCC" ? "ccc" : "generic",
-    confidence: "high",
-    warnings: ["Confirm the vehicle trim."],
-    missingFields: ["trim"],
-    facts: {
-      vin: "1HGCM82633A004352",
-      vehicleYear: 2020,
-      make: "Honda",
-      model: "Accord",
-      trim: null,
-      mileageAtLoss: 48250,
-      zipCode: "60611",
-      dateOfLoss: "2026-08-18",
-      insurerName: "Example Insurance",
-      insurerVehicleValuation: 18750,
-      vehicleCondition: "Good",
-      optionsPackages: "None known",
-    },
-  };
 }
 
 function createSensitiveManualDraft(
@@ -1113,7 +1083,7 @@ describe("/start?service=total-loss", () => {
     expect(screen.getByText("Vehicle: 2003 Honda Accord EX-V6")).toBeVisible();
     expect(harness.decodeVin).toHaveBeenCalledWith("1HGCM82633A004352");
     const progress = screen.getByRole("list", { name: "Appraisal steps" });
-    expect(progress.children).toHaveLength(6);
+    expect(progress.children).toHaveLength(4);
     expect(
       document.querySelector("[data-intake-transition='forward']"),
     ).toBeInTheDocument();
@@ -1278,11 +1248,10 @@ describe("/start?service=total-loss", () => {
     });
   });
 
-  it("uses the generic extraction fallback, preserves corrections, and starts a report-backed analysis", async () => {
+  it("uploads a report without reading it and goes directly to analysis through contact", async () => {
     const auth = createAuthHarness(null, anonymousSessionFor(USER_ID));
     const harness = createDependencyHarness();
     const user = userEvent.setup();
-    const fetchSpy = vi.spyOn(globalThis, "fetch");
     vi.spyOn(crypto, "randomUUID").mockReturnValue(CASE_ID);
 
     const { container, router } = renderTestApp(["/start?service=total-loss"], {
@@ -1308,217 +1277,84 @@ describe("/start?service=total-loss", () => {
       "Choose a PDF, JPG/JPEG, or PNG valuation report.",
     );
     expect(harness.uploadReport).not.toHaveBeenCalled();
-    expect(
-      screen.queryByRole("button", { name: "Review extracted details" }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: "Continue with manual details" }),
-    ).not.toBeInTheDocument();
+    expect(ingestReportMock).not.toHaveBeenCalled();
 
-    const original = await createPdfFile("insurer-valuation.pdf");
-    fireEvent.change(fileInput, { target: { files: [original] } });
-    expect(await screen.findByText("Report uploaded successfully")).toBeVisible();
-    expect(screen.getByText("insurer-valuation.pdf")).toBeVisible();
-    expect(harness.uploadReport).toHaveBeenLastCalledWith({
+    const report = await createPdfFile("insurer-valuation.pdf");
+    fireEvent.change(fileInput, { target: { files: [report] } });
+
+    expect(
+      await screen.findByRole("heading", { name: "Contact details" }),
+    ).toBeVisible();
+    expect(screen.getByLabelText("Market ZIP code")).toBeVisible();
+    expect(harness.uploadReport).toHaveBeenCalledWith({
       caseId: CASE_ID,
-      file: original,
+      file: report,
       replaceExisting: false,
       uploadId: REPORT_UPLOAD_ID,
       userId: USER_ID,
     });
-    await expect(
-      harness.uploadReport.mock.results.at(-1)?.value,
-    ).resolves.toMatchObject({
-      path: `${USER_ID}/${CASE_ID}/valuation-report.pdf`,
-    });
     expect(harness.finalizeReportUpload).toHaveBeenCalledOnce();
-
-    harness.uploadReport.mockRejectedValueOnce(
-      new Error("Replacement storage is temporarily unavailable."),
-    );
-    const replacement = await createPdfFile("replacement.pdf");
-    fireEvent.change(fileInput, { target: { files: [replacement] } });
-    expect(await screen.findByRole("alert")).toHaveTextContent(
-      "Replacement storage is temporarily unavailable.",
-    );
-    expect(harness.uploadReport).toHaveBeenNthCalledWith(2, {
-      caseId: CASE_ID,
-      file: replacement,
-      replaceExisting: true,
-      uploadId: REPORT_UPLOAD_ID,
-      userId: USER_ID,
-    });
-    expect(screen.getByText("insurer-valuation.pdf")).toBeVisible();
-    expect(harness.finalizeReportUpload).toHaveBeenCalledOnce();
-
-    await user.click(screen.getByRole("button", { name: "Try again" }));
-    await waitFor(() =>
-      expect(screen.getByText("replacement.pdf")).toBeVisible(),
-    );
-    expect(harness.uploadReport).toHaveBeenCalledTimes(3);
-    expect(harness.finalizeReportUpload).toHaveBeenCalledTimes(2);
-
-    harness.finalizeReportUpload
-      .mockRejectedValueOnce(
-        new Error("The uploaded report metadata could not be saved."),
-      )
-      .mockRejectedValueOnce(
-        new Error("The uploaded report metadata could not be saved."),
-      );
-    const metadataFailureReplacement = await createPdfFile(
-      "latest-replacement.pdf",
-    );
-    fireEvent.change(fileInput, {
-      target: { files: [metadataFailureReplacement] },
-    });
-    expect(await screen.findByRole("alert")).toHaveTextContent(
-      "The uploaded report metadata could not be saved.",
-    );
-    expect(screen.getByText("replacement.pdf")).toBeVisible();
-    expect(harness.uploadReport).toHaveBeenCalledTimes(4);
-    expect(harness.finalizeReportUpload).toHaveBeenCalledTimes(4);
-    expect(harness.restoreReport).toHaveBeenCalledTimes(2);
-    expect(harness.restoreReport).toHaveBeenLastCalledWith({
-      backup: expect.any(Blob),
-      caseId: CASE_ID,
-      uploadId: REPORT_UPLOAD_ID,
-      userId: USER_ID,
-    });
-
-    await user.click(screen.getByRole("button", { name: "Try again" }));
-    await waitFor(() =>
-      expect(screen.getByText("latest-replacement.pdf")).toBeVisible(),
-    );
-    expect(harness.uploadReport).toHaveBeenCalledTimes(5);
-    expect(harness.finalizeReportUpload).toHaveBeenCalledTimes(5);
-    expect(harness.downloadReport).toHaveBeenCalledTimes(4);
-
-    expect(screen.getByText("Your details are ready to review")).toBeVisible();
+    expect(ingestReportMock).not.toHaveBeenCalled();
     expect(
-      screen.getByText("The report provider could not be identified."),
-    ).toBeVisible();
-    expect(ingestReportMock).toHaveBeenLastCalledWith(
-      CASE_ID,
-      `access-${USER_ID}`,
-      expect.any(AbortSignal),
-    );
-    await user.click(
-      screen.getByRole("button", { name: "Review extracted details" }),
-    );
-
+      screen.queryByRole("heading", { name: "Tell us about your vehicle" }),
+    ).not.toBeInTheDocument();
     expect(
-      await screen.findByRole("heading", { name: "Tell us about your vehicle" }),
-    ).toBeVisible();
-    expect(screen.getByLabelText("Year")).toHaveValue("2020");
-    expect(screen.getByLabelText("Make")).toHaveValue("Honda");
-    expect(screen.getByLabelText("Model")).toHaveValue("Accord");
-    await waitFor(() => expect(screen.getByLabelText("Trim")).toBeEnabled());
-    await user.click(
-      screen.getByRole("button", { name: "Confirm vehicle & continue" }),
-    );
-    expect(await screen.findByText("Trim is required.")).toBeVisible();
-    await user.selectOptions(screen.getByLabelText("Trim"), "EX-L");
-    await user.click(
-      screen.getByRole("button", { name: "Confirm vehicle & continue" }),
-    );
-
+      screen.queryByRole("heading", { name: "Add the claim details" }),
+    ).not.toBeInTheDocument();
     expect(
-      await screen.findByRole("heading", { name: "Add the claim details" }),
-    ).toBeVisible();
-    await user.clear(screen.getByLabelText("ZIP code"));
-    await user.type(screen.getByLabelText("ZIP code"), "606011234");
-    fireEvent.blur(screen.getByLabelText("ZIP code"));
-    expect(screen.getByLabelText("ZIP code")).toHaveValue("60601-1234");
-    await user.click(withinIntakeFlow().getByRole("button", { name: "Continue" }));
+      screen.queryByRole("heading", { name: "Review your details" }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText(/reading your report/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/extracted details/i)).not.toBeInTheDocument();
 
-    expect(
-      await screen.findByRole("heading", {
-        name: "Your contact details",
-      }),
-    ).toBeVisible();
     await user.type(screen.getByLabelText("First name"), "Guest");
     await user.type(screen.getByLabelText("Last name"), "Customer");
     await user.type(screen.getByLabelText("Email address"), "guest@example.com");
     await user.click(screen.getByRole("checkbox", { name: /Terms of Use/i }));
     await user.click(screen.getByRole("checkbox", { name: /Privacy Policy/i }));
     await user.click(
-      screen.getByRole("button", { name: "Continue to review" }),
+      screen.getByRole("button", { name: "Review & analyze" }),
     );
-    await waitFor(() =>
-      expect(harness.saveContactAndBeginClaim).toHaveBeenCalledOnce(),
+
+    expect(await screen.findByText("ZIP code is required.")).toBeVisible();
+    expect(screen.getByLabelText("Market ZIP code")).toHaveFocus();
+    expect(harness.saveContactAndBeginClaim).not.toHaveBeenCalled();
+    expect(harness.confirmIntake).not.toHaveBeenCalled();
+
+    await user.type(screen.getByLabelText("Market ZIP code"), "606011234");
+    await user.click(
+      screen.getByRole("button", { name: "Review & analyze" }),
     );
-    expect(
-      window.localStorage.getItem(AUTH_RETURN_LOCATION_STORAGE_KEY),
-    ).toBe("/appraisals");
-    await waitFor(() =>
-      expect(readTotalLossDraft()).toMatchObject({
-        ok: true,
-        draft: { step: "review" },
-      }),
-    );
-    expect(
-      await screen.findByRole("heading", { name: "Review your details" }),
-    ).toBeVisible();
-    expect(screen.getByText(/Valuation report review/)).toBeVisible();
-    const ingestionCallsBeforeConfirmation = ingestReportMock.mock.calls.length;
-    await user.click(screen.getByRole("button", { name: "Start analysis" }));
+
     await waitFor(() =>
       expect(router.state.location.pathname).toBe(
         `/total-loss/cases/${CASE_ID}/analysis`,
       ),
     );
-    expect(
-      await screen.findByRole("heading", {
-        name: "We’re preparing your market valuation.",
-      }),
-    ).toBeVisible();
-    expect(harness.saveDetails).toHaveBeenCalledWith(
-      expect.objectContaining({
-        caseId: CASE_ID,
-        values: expect.objectContaining({
-          intakeMode: "report",
-          vin: null,
-          vehicleYear: 2020,
-          vehicleMake: "Honda",
-          vehicleModel: "Accord",
-          vehicleTrim: "EX-L",
-          mileageAtLoss: 48250,
-          postalCode: "60601-1234",
-        }),
-      }),
-    );
+    expect(harness.saveContactAndBeginClaim).toHaveBeenCalledOnce();
     expect(harness.confirmIntake).toHaveBeenCalledWith({
       caseId: CASE_ID,
       userId: USER_ID,
       expectedUpdatedAt: expect.any(String),
     });
-    expect(ingestReportMock).toHaveBeenCalledTimes(
-      ingestionCallsBeforeConfirmation + 1,
+    expect(harness.saveDetails).toHaveBeenCalledWith(
+      expect.objectContaining({
+        caseId: CASE_ID,
+        values: expect.objectContaining({
+          intakeMode: "report",
+          postalCode: "60601-1234",
+          vehicleYear: null,
+          vehicleMake: null,
+          vehicleModel: null,
+        }),
+      }),
     );
-    expect(ingestReportMock.mock.invocationCallOrder.at(-1)).toBeLessThan(
-      harness.confirmIntake.mock.invocationCallOrder[0],
-    );
-    for (const [input] of harness.saveDetails.mock.calls) {
-      expect(input.values).not.toHaveProperty("intakeCompletedAt");
-    }
-    expect(harness.detailRows.get(CASE_ID)).toMatchObject({
-      intakeMode: "report",
-      vin: null,
-      vehicleTrim: "EX-L",
-      postalCode: "60601-1234",
-      intakeCompletedAt: expect.any(String),
-    });
-    const authenticatedRequest = fetchSpy.mock.calls.find(([input]) =>
-      String(input).includes(`/api/v1/appraisal-cases/${CASE_ID}/analysis`),
-    );
-    expect(authenticatedRequest).toBeDefined();
+    expect(ingestReportMock).not.toHaveBeenCalled();
     expect(
-      new Headers(authenticatedRequest?.[1]?.headers).get("Authorization"),
-    ).toBe(`Bearer access-${USER_ID}`);
-    for (const [input] of harness.saveDetails.mock.calls) {
-      expect(input).not.toHaveProperty("status");
-    }
+      screen.queryByRole("heading", { name: "Review your details" }),
+    ).not.toBeInTheDocument();
   });
+
 
   it("shows a late contact-save failure without claiming the analysis can start", async () => {
     expect(
@@ -1548,7 +1384,7 @@ describe("/start?service=total-loss", () => {
     await user.click(withinIntakeFlow().getByRole("button", { name: "Continue" }));
     expect(
       await screen.findByRole("heading", {
-        name: "Your contact details",
+        name: "Contact details",
       }),
     ).toBeVisible();
     await user.type(screen.getByLabelText("First name"), "Guest");
@@ -1557,7 +1393,7 @@ describe("/start?service=total-loss", () => {
     await user.click(screen.getByRole("checkbox", { name: /Terms of Use/i }));
     await user.click(screen.getByRole("checkbox", { name: /Privacy Policy/i }));
     await user.click(
-      screen.getByRole("button", { name: "Continue to review" }),
+      screen.getByRole("button", { name: "Review & analyze" }),
     );
 
     expect(
@@ -1588,7 +1424,7 @@ describe("/start?service=total-loss", () => {
     const harness = createDependencyHarness();
     const user = userEvent.setup();
 
-    renderTestApp(["/start?service=total-loss"], {
+    const { router } = renderTestApp(["/start?service=total-loss"], {
       authService: auth.service,
       totalLossDependencies: harness.dependencies,
     });
@@ -1599,7 +1435,7 @@ describe("/start?service=total-loss", () => {
     await user.click(withinIntakeFlow().getByRole("button", { name: "Continue" }));
     expect(
       await screen.findByRole("heading", {
-        name: "Your contact details",
+        name: "Contact details",
       }),
     ).toBeVisible();
     await user.type(screen.getByLabelText("First name"), "Guest");
@@ -1608,18 +1444,20 @@ describe("/start?service=total-loss", () => {
     await user.click(screen.getByRole("checkbox", { name: /Terms of Use/i }));
     await user.click(screen.getByRole("checkbox", { name: /Privacy Policy/i }));
     await user.click(
-      screen.getByRole("button", { name: "Continue to review" }),
+      screen.getByRole("button", { name: "Review & analyze" }),
     );
 
-    expect(
-      await screen.findByText(
-        "Your intake is saved. We couldn’t complete the security check. Please try again. You can still analyze in this browser.",
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe(
+        `/total-loss/cases/${CASE_ID}/analysis`,
       ),
-    ).toBeVisible();
+    );
+    expect(auth.service.sendMagicLink).toHaveBeenCalledOnce();
+    expect(harness.confirmIntake).toHaveBeenCalledOnce();
     expect(screen.queryByText(privateDiagnostic)).not.toBeInTheDocument();
     expect(
-      screen.getByRole("heading", { name: "Review your details" }),
-    ).toBeVisible();
+      screen.queryByRole("heading", { name: "Review your details" }),
+    ).not.toBeInTheDocument();
   });
 
   it("atomically resumes the newest saved draft without a browser resume fork", async () => {
@@ -1680,7 +1518,7 @@ describe("/start?service=total-loss", () => {
     });
   });
 
-  it("resumes a completed owned case directly into the ready state", async () => {
+  it("resumes a completed owned case directly into its analysis experience", async () => {
     const recent = appraisalCase(RECENT_CASE_ID);
     const recentDetails = detailsFor(RECENT_CASE_ID, {
       intakeMode: "report",
@@ -1693,26 +1531,25 @@ describe("/start?service=total-loss", () => {
       details: [recentDetails],
       recentCase: recent,
     });
-    const fetchSpy = vi.spyOn(globalThis, "fetch");
-
-    renderTestApp(["/start?service=total-loss"], {
+    const { router } = renderTestApp(["/start?service=total-loss"], {
       authService: auth.service,
       totalLossDependencies: harness.dependencies,
     });
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe(
+        `/total-loss/cases/${RECENT_CASE_ID}/analysis`,
+      ),
+    );
     expect(
-      await screen.findByRole("heading", { name: "Your information is ready" }),
+      await screen.findByRole("heading", {
+        name: "We’re reviewing and analyzing your claim.",
+      }),
     ).toBeVisible();
-    expect(screen.getByText(/Start the analysis when you’re ready/)).toBeVisible();
-    expect(
-      screen.getByRole("button", { name: "Start analysis" }),
-    ).toBeVisible();
-    expect(
-      screen.getByRole("button", { name: "Replace report" }),
-    ).toBeVisible();
+    expect(screen.queryByText("Your information is ready")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Start analysis" })).not.toBeInTheDocument();
     expect(harness.createOrGetAppraisalCase).not.toHaveBeenCalled();
     expect(harness.saveDetails).not.toHaveBeenCalled();
     expect(harness.uploadReport).not.toHaveBeenCalled();
-    expect(fetchSpy).not.toHaveBeenCalled();
   });
 
   it("does not trust a local ready step when no completed server details exist", async () => {
@@ -2069,7 +1906,9 @@ describe("/start?service=total-loss", () => {
         authService: auth.service,
         totalLossDependencies: harness.dependencies,
       });
-      expect(await screen.findByText("private-report.pdf")).toBeVisible();
+      expect(
+        await screen.findByRole("heading", { name: "Contact details" }),
+      ).toBeVisible();
       expect(
         queryClient.getQueryData(totalLossQueryKeys.details(USER_ID, CASE_ID)),
       ).toMatchObject({ caseId: CASE_ID });
@@ -2306,7 +2145,7 @@ describe("/start?service=total-loss", () => {
     });
   });
 
-  it("preserves confirmed vehicle facts when switching between report and no-report paths", async () => {
+  it("resumes a saved report at contact without re-reading legacy facts", async () => {
     const savedDetails = detailsFor(CASE_ID, {
       intakeMode: "report",
       vin: "1HGCM82633A004352",
@@ -2324,372 +2163,65 @@ describe("/start?service=total-loss", () => {
       details: [savedDetails],
       recentCase: appraisalCase(CASE_ID),
     });
-    const user = userEvent.setup();
-
-    renderTestApp([`/start?service=total-loss&caseId=${CASE_ID}`], {
-      authService: auth.service,
-      totalLossDependencies: harness.dependencies,
-    });
-    await waitFor(() =>
-      expect(harness.detailsService.getDetails).toHaveBeenCalledWith({
-        caseId: CASE_ID,
-        userId: USER_ID,
-      }),
-    );
-    await waitFor(() =>
-      expect(readTotalLossDraft()).toMatchObject({
-        ok: true,
-        draft: {
-          step: "report",
-          mode: "report",
-          manual: {
-            vin: "1HGCM82633A004352",
-            vehicleYear: "2020",
-            make: "Honda",
-            model: "Accord",
-            trim: "EX-L",
-            mileageAtLoss: "48250",
-            zipCode: "60611",
-          },
-        },
-      }),
-    );
-    expect(await screen.findByText("saved-report.pdf")).toBeVisible();
-    await user.click(screen.getByRole("button", { name: "Back" }));
-    await chooseMode(user, "I don’t have the report");
-
-    expect(
-      await screen.findByRole("heading", {
-        name: "Tell us about your vehicle",
-      }),
-    ).toBeVisible();
-    expect(screen.getByLabelText("VIN")).toHaveValue("1HGCM82633A004352");
-    expect(
-      screen.getByText("Vehicle: 2020 Honda Accord"),
-    ).toBeVisible();
-    expect(harness.detailRows.get(CASE_ID)).toMatchObject({
-      intakeMode: "manual",
-      intakeCompletedAt: null,
-      vin: "1HGCM82633A004352",
-      vehicleTrim: "EX-L",
-      postalCode: "60611",
-      reportOriginalFilename: "saved-report.pdf",
-    });
-
-    await user.click(screen.getByRole("button", { name: "Back" }));
-    await chooseMode(user, "I have my valuation report");
-    expect(await screen.findByText("saved-report.pdf")).toBeVisible();
-    expect(harness.detailRows.get(CASE_ID)).toMatchObject({
-      intakeMode: "report",
-      intakeCompletedAt: null,
-      vin: "1HGCM82633A004352",
-      vehicleYear: 2020,
-      vehicleMake: "Honda",
-      vehicleModel: "Accord",
-      vehicleTrim: "EX-L",
-      mileageAtLoss: 48250,
-      postalCode: "60611",
-    });
-    expect(readTotalLossDraft()).toMatchObject({
-      ok: true,
-      draft: {
-        mode: "report",
-        manual: {
-          vin: "1HGCM82633A004352",
-          vehicleYear: "2020",
-          make: "Honda",
-          model: "Accord",
-          trim: "EX-L",
-          mileageAtLoss: "48250",
-          zipCode: "60611",
-        },
-      },
-    });
-  });
-
-  it("resumes a persisted extraction failure truthfully without claiming details were extracted", async () => {
-    const failedDetails = detailsFor(CASE_ID, {
-      intakeMode: "report",
-      vehicleYear: 2020,
-      vehicleMake: "Honda",
-      vehicleModel: "Accord",
-      reportOriginalFilename: "failed-extraction.pdf",
-      reportUploadedAt: CREATED_AT,
-      reportExtractionStatus: "failed",
-    });
-    const auth = createAuthHarness(sessionFor());
-    const harness = createDependencyHarness({
-      details: [failedDetails],
-      recentCase: appraisalCase(CASE_ID),
-    });
-    const user = userEvent.setup();
 
     renderTestApp([`/start?service=total-loss&caseId=${CASE_ID}`], {
       authService: auth.service,
       totalLossDependencies: harness.dependencies,
     });
 
-    expect(await screen.findByText("failed-extraction.pdf")).toBeVisible();
-    expect(screen.getByText("Your report is safely uploaded")).toBeVisible();
     expect(
-      screen.queryByText("Your details are ready to review"),
+      await screen.findByRole("heading", { name: "Contact details" }),
+    ).toBeVisible();
+    expect(screen.getByLabelText("Market ZIP code")).toHaveValue("60611");
+    expect(
+      screen.queryByRole("heading", { name: "Tell us about your vehicle" }),
     ).not.toBeInTheDocument();
-    expect(
-      screen.getAllByText(/Automatic extraction could not finish/i),
-    ).not.toHaveLength(0);
-    const continueButton = screen.getByRole("button", {
-      name: "Continue with manual details",
-    });
-    expect(continueButton).toBeEnabled();
+    expect(screen.queryByText(/reading your report/i)).not.toBeInTheDocument();
     expect(ingestReportMock).not.toHaveBeenCalled();
-    expect(readTotalLossDraft()).toMatchObject({
-      ok: true,
-      draft: { reportExtractionStatus: "error" },
-    });
-
-    await user.click(continueButton);
-    expect(
-      await screen.findByRole("heading", {
-        name: "Tell us about your vehicle",
-      }),
-    ).toBeVisible();
-    expect(screen.getByLabelText("Year")).toHaveValue("2020");
+    expect(harness.detailRows.get(CASE_ID)).toEqual(savedDetails);
   });
 
-  it("resumes a persisted pending extraction instead of presenting it as extracted", async () => {
-    const pendingIngestion = createDeferred<unknown>();
-    ingestReportMock.mockReturnValueOnce(pendingIngestion.promise);
-    const pendingDetails = detailsFor(CASE_ID, {
-      intakeMode: "report",
-      reportOriginalFilename: "pending-extraction.pdf",
-      reportUploadedAt: CREATED_AT,
-      reportExtractionStatus: "pending",
-    });
-    const auth = createAuthHarness(sessionFor());
-    const harness = createDependencyHarness({
-      details: [pendingDetails],
-      recentCase: appraisalCase(CASE_ID),
-    });
 
-    renderTestApp([`/start?service=total-loss&caseId=${CASE_ID}`], {
-      authService: auth.service,
-      totalLossDependencies: harness.dependencies,
-    });
-
-    expect(
-      await screen.findByText("Venfour is reading your report"),
-    ).toBeVisible();
-    expect(screen.getByText("Report uploaded successfully")).toBeVisible();
-    expect(
-      screen.getByText(/You don’t need to do anything while we work/i),
-    ).toBeVisible();
-    await waitFor(() =>
-      expect(ingestReportMock).toHaveBeenCalledWith(
-        CASE_ID,
-        `access-${USER_ID}`,
-        expect.any(AbortSignal),
-      ),
-    );
-    expect(
-      screen.queryByText("Your details are ready to review"),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: "Review extracted details" }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "Replace report" }),
-    ).toBeEnabled();
-    expect(readTotalLossDraft()).toMatchObject({
-      ok: true,
-      draft: { reportExtractionStatus: "processing" },
-    });
-
-    await act(async () => {
-      pendingIngestion.resolve({
-        status: "partial",
-        provider: "CCC",
-        adapter: "ccc",
-        confidence: "high",
-        warnings: ["Confirm the vehicle trim."],
-        missingFields: ["trim"],
-        facts: {
-          vin: "1HGCM82633A004352",
-          vehicleYear: 2020,
-          make: "Honda",
-          model: "Accord",
-          trim: null,
-          mileageAtLoss: 48250,
-          zipCode: "60611",
-          dateOfLoss: "2026-08-18",
-          insurerName: "Example Insurance",
-          insurerVehicleValuation: 18750,
-          vehicleCondition: "Good",
-          optionsPackages: "None known",
-        },
+  it.each(["failed", "pending"] as const)(
+    "defers a saved report with legacy %s extraction state until final analysis",
+    async (reportExtractionStatus) => {
+      const savedDetails = detailsFor(CASE_ID, {
+        intakeMode: "report",
+        reportOriginalFilename: `${reportExtractionStatus}-report.pdf`,
+        reportUploadedAt: CREATED_AT,
+        reportExtractionStatus,
       });
-      await pendingIngestion.promise;
-    });
+      const auth = createAuthHarness(sessionFor());
+      const harness = createDependencyHarness({
+        details: [savedDetails],
+        recentCase: appraisalCase(CASE_ID),
+      });
 
-    expect(
-      await screen.findByText("Your details are ready to review"),
-    ).toBeVisible();
-    expect(
-      screen.getByRole("button", { name: "Review extracted details" }),
-    ).toBeEnabled();
-    expect(
-      screen.getByRole("button", { name: "Replace report" }),
-    ).toBeEnabled();
-  });
+      renderTestApp([`/start?service=total-loss&caseId=${CASE_ID}`], {
+        authService: auth.service,
+        totalLossDependencies: harness.dependencies,
+      });
 
-  it("does not apply a late report extraction after the user switches to manual intake", async () => {
-    const pendingIngestion = createDeferred<TotalLossReportIngestion>();
-    ingestReportMock.mockReturnValueOnce(pendingIngestion.promise);
-    const pendingDetails = detailsFor(CASE_ID, {
-      intakeMode: "report",
-      reportOriginalFilename: "pending-extraction.pdf",
-      reportUploadedAt: CREATED_AT,
-      reportExtractionStatus: "pending",
-    });
-    const auth = createAuthHarness(sessionFor());
-    const harness = createDependencyHarness({
-      details: [pendingDetails],
-      recentCase: appraisalCase(CASE_ID),
-    });
-    const user = userEvent.setup();
+      expect(
+        await screen.findByRole("heading", { name: "Contact details" }),
+      ).toBeVisible();
+      expect(screen.getByLabelText("Market ZIP code")).toHaveValue("");
+      expect(screen.queryByText(/reading your report/i)).not.toBeInTheDocument();
+      expect(screen.queryByText(/extracted details/i)).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole("heading", { name: "Review your details" }),
+      ).not.toBeInTheDocument();
+      expect(ingestReportMock).not.toHaveBeenCalled();
+    },
+  );
 
-    renderTestApp([`/start?service=total-loss&caseId=${CASE_ID}`], {
-      authService: auth.service,
-      totalLossDependencies: harness.dependencies,
-    });
 
-    expect(
-      await screen.findByText("Venfour is reading your report"),
-    ).toBeVisible();
-    await user.click(screen.getByRole("button", { name: "Back" }));
-    await user.click(
-      screen.getByRole("radio", { name: /I don’t have the report/i }),
-    );
-
-    await act(async () => {
-      pendingIngestion.resolve(partialReportIngestion());
-      await pendingIngestion.promise;
-    });
-
-    expect(readTotalLossDraft()).toMatchObject({
-      ok: true,
-      draft: {
-        mode: "manual",
-        manual: {
-          vehicleYear: "",
-          make: "",
-          model: "",
-        },
-      },
-    });
-
-    await user.click(
-      withinIntakeFlow().getByRole("button", { name: "Continue" }),
-    );
-    expect(
-      await screen.findByRole("heading", { name: "Tell us about your vehicle" }),
-    ).toBeVisible();
-    expect(screen.getByLabelText("VIN")).toHaveValue("");
-  });
-
-  it("does not turn a saved upload into an upload error when late extraction fails after a manual switch", async () => {
-    const pendingIngestion = createDeferred<TotalLossReportIngestion>();
-    const retryIngestion = createDeferred<TotalLossReportIngestion>();
-    ingestReportMock
-      .mockReturnValueOnce(pendingIngestion.promise)
-      .mockReturnValueOnce(retryIngestion.promise);
-    const auth = createAuthHarness(sessionFor());
-    const harness = createDependencyHarness();
-    const user = userEvent.setup();
-
-    const { container, queryClient } = renderTestApp(
-      ["/start?service=total-loss"],
-      {
-      authService: auth.service,
-      totalLossDependencies: harness.dependencies,
-      },
-    );
-
-    await chooseMode(user, "I have my valuation report");
-    const report = await createPdfFile("late-failure.pdf");
-    const fileInput = container.querySelector<HTMLInputElement>(
-      'input[type="file"]',
-    );
-    expect(fileInput).toBeInTheDocument();
-    fireEvent.change(fileInput as HTMLInputElement, {
-      target: { files: [report] },
-    });
-
-    expect(
-      await screen.findByText("Venfour is reading your report"),
-    ).toBeVisible();
-    await user.click(screen.getByRole("button", { name: "Back" }));
-    await user.click(
-      screen.getByRole("radio", { name: /I don’t have the report/i }),
-    );
-
-    await act(async () => {
-      pendingIngestion.reject(new Error("Report reader timed out."));
-      await expect(pendingIngestion.promise).rejects.toThrow(
-        "Report reader timed out.",
-      );
-    });
-
-    expect(readTotalLossDraft()).toMatchObject({
-      ok: true,
-      draft: {
-        mode: "manual",
-        reportExtractionStatus: "processing",
-      },
-    });
-    expect(
-      screen.queryByText(/report could not be read or saved/i),
-    ).not.toBeInTheDocument();
-
-    const finalizedDetails = harness.detailRows.get(CASE_ID);
-    expect(finalizedDetails).toBeDefined();
-    const pendingDetails = {
-      ...(finalizedDetails as TotalLossCaseDetails),
-      reportExtractionStatus: "pending" as const,
-    };
-    harness.detailRows.set(CASE_ID, pendingDetails);
-    queryClient.setQueryData(
-      totalLossQueryKeys.details(USER_ID, CASE_ID),
-      pendingDetails,
-    );
-
-    await user.click(
-      screen.getByRole("radio", { name: /I have my valuation report/i }),
-    );
-    await user.click(
-      withinIntakeFlow().getByRole("button", { name: "Continue" }),
-    );
-    expect(
-      await screen.findByText("Venfour is reading your report"),
-    ).toBeVisible();
-    expect(screen.queryByText("Your report is safely uploaded")).not.toBeInTheDocument();
-    await waitFor(() => expect(ingestReportMock).toHaveBeenCalledTimes(2));
-
-    await act(async () => {
-      retryIngestion.resolve(partialReportIngestion());
-      await retryIngestion.promise;
-    });
-    expect(
-      await screen.findByRole("button", { name: "Review extracted details" }),
-    ).toBeEnabled();
-  });
-
-  it("keeps Review gated after SPA navigation while lease acquisition is pending", async () => {
+  it("keeps contact gated while a replacement upload lease is pending", async () => {
     const pendingLease = createDeferred<TotalLossReportUploadLease>();
     const readyDetails = detailsFor(CASE_ID, {
       intakeMode: "report",
       reportOriginalFilename: "ready-report.pdf",
       reportUploadedAt: CREATED_AT,
-      reportExtractionStatus: "needs_confirmation",
     });
     const auth = createAuthHarness(sessionFor());
     const harness = createDependencyHarness({
@@ -2697,8 +2229,9 @@ describe("/start?service=total-loss", () => {
       recentCase: appraisalCase(CASE_ID),
     });
     harness.acquireReportUploadLease.mockReturnValueOnce(pendingLease.promise);
+    const user = userEvent.setup();
 
-    const { container, queryClient, router } = renderTestApp(
+    const { container } = renderTestApp(
       [`/start?service=total-loss&caseId=${CASE_ID}`],
       {
         authService: auth.service,
@@ -2707,8 +2240,15 @@ describe("/start?service=total-loss", () => {
     );
 
     expect(
-      await screen.findByRole("button", { name: "Review extracted details" }),
-    ).toBeEnabled();
+      await screen.findByRole("heading", { name: "Contact details" }),
+    ).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Back" }));
+    expect(
+      await screen.findByRole("heading", {
+        name: "Upload your valuation report",
+      }),
+    ).toBeVisible();
+
     const replacement = await createPdfFile("pending-replacement.pdf");
     const fileInput = container.querySelector<HTMLInputElement>(
       'input[type="file"]',
@@ -2721,31 +2261,14 @@ describe("/start?service=total-loss", () => {
     await waitFor(() =>
       expect(harness.acquireReportUploadLease).toHaveBeenCalledOnce(),
     );
+    expect(screen.getByText("Uploading securely")).toBeVisible();
+    expect(screen.getByText("pending-replacement.pdf")).toBeVisible();
     expect(
-      queryClient.getQueryData(
-        totalLossQueryKeys.details(USER_ID, CASE_ID),
-      ),
-    ).toMatchObject({ reportUploadRecoveryRequired: false });
-
-    await act(async () => router.navigate("/"));
-    await act(async () =>
-      router.navigate(`/start?service=total-loss&caseId=${CASE_ID}`),
-    );
-
-    expect(
-      await screen.findByText("Uploading your replacement report"),
-    ).toBeVisible();
-    expect(
-      screen.queryByRole("button", { name: "Review extracted details" }),
+      screen.queryByRole("heading", { name: "Contact details" }),
     ).not.toBeInTheDocument();
-    expect(harness.reclaimReportUploadLease).not.toHaveBeenCalled();
-
-    await act(async () => {
-      await new Promise((resolve) => window.setTimeout(resolve, 1_100));
-    });
-    expect(
-      screen.queryByRole("button", { name: "Review extracted details" }),
-    ).not.toBeInTheDocument();
+    expect(harness.uploadReport).not.toHaveBeenCalled();
+    expect(harness.finalizeReportUpload).not.toHaveBeenCalled();
+    expect(ingestReportMock).not.toHaveBeenCalled();
 
     await act(async () => {
       pendingLease.resolve({
@@ -2760,360 +2283,13 @@ describe("/start?service=total-loss", () => {
     });
 
     expect(
-      await screen.findByRole("button", {
-        name: "Review extracted details",
-      }, { timeout: 3_000 }),
-    ).toBeEnabled();
-    expect(
-      screen.queryByText(
-        "Venfour could not confirm the saved report after an interrupted replacement. Choose the report again so we can securely continue.",
-      ),
-    ).not.toBeInTheDocument();
-    expect(
-      queryClient.getQueryData(
-        totalLossQueryKeys.details(USER_ID, CASE_ID),
-      ),
-    ).toMatchObject({ reportUploadRecoveryRequired: false });
+      await screen.findByRole("heading", { name: "Contact details" }),
+    ).toBeVisible();
+    expect(harness.uploadReport).toHaveBeenCalledOnce();
+    expect(harness.finalizeReportUpload).toHaveBeenCalledOnce();
+    expect(ingestReportMock).not.toHaveBeenCalled();
   });
 
-  it("queues a replacement behind deferred ingestion and starts a fresh extraction for it", async () => {
-    const firstIngestion = createDeferred<TotalLossReportIngestion>();
-    const replacementIngestion = createDeferred<TotalLossReportIngestion>();
-    ingestReportMock
-      .mockReturnValueOnce(firstIngestion.promise)
-      .mockReturnValueOnce(replacementIngestion.promise);
-    const pendingDetails = detailsFor(CASE_ID, {
-      intakeMode: "report",
-      reportOriginalFilename: "original-report.pdf",
-      reportUploadedAt: CREATED_AT,
-      reportExtractionStatus: "pending",
-    });
-    const auth = createAuthHarness(sessionFor());
-    const harness = createDependencyHarness({
-      details: [pendingDetails],
-      recentCase: appraisalCase(CASE_ID),
-    });
-    const user = userEvent.setup();
-
-    const { container } = renderTestApp(
-      [`/start?service=total-loss&caseId=${CASE_ID}`],
-      {
-        authService: auth.service,
-        totalLossDependencies: harness.dependencies,
-      },
-    );
-
-    expect(
-      await screen.findByText("Venfour is reading your report"),
-    ).toBeVisible();
-    await waitFor(() => expect(ingestReportMock).toHaveBeenCalledTimes(1));
-    const replaceReport = screen.getByRole("button", {
-      name: "Replace report",
-    });
-    expect(replaceReport).toBeEnabled();
-    await user.click(replaceReport);
-
-    const replacement = await createPdfFile("queued-replacement.pdf");
-    const fileInput = container.querySelector<HTMLInputElement>(
-      'input[type="file"]',
-    );
-    expect(fileInput).toBeInTheDocument();
-    fireEvent.change(fileInput as HTMLInputElement, {
-      target: { files: [replacement] },
-    });
-
-    expect(
-      await screen.findByText("We’ll replace your report next"),
-    ).toBeVisible();
-    expect(screen.getByText("Replacement queued")).toBeVisible();
-    expect(screen.getByText("queued-replacement.pdf")).toBeVisible();
-    expect(
-      screen.getByRole("radio", { name: "Diminished Value" }),
-    ).toBeDisabled();
-    expect(harness.uploadReport).not.toHaveBeenCalled();
-    expect(ingestReportMock).toHaveBeenCalledTimes(1);
-
-    await act(async () => {
-      firstIngestion.resolve(partialReportIngestion());
-      await firstIngestion.promise;
-    });
-
-    await waitFor(() =>
-      expect(harness.uploadReport).toHaveBeenCalledWith({
-        caseId: CASE_ID,
-        file: replacement,
-        replaceExisting: true,
-        uploadId: REPORT_UPLOAD_ID,
-        userId: USER_ID,
-      }),
-    );
-    await waitFor(() => expect(ingestReportMock).toHaveBeenCalledTimes(2));
-    expect(ingestReportMock).toHaveBeenNthCalledWith(
-      2,
-      CASE_ID,
-      `access-${USER_ID}`,
-      expect.any(AbortSignal),
-    );
-    expect(harness.uploadReport.mock.invocationCallOrder[0]).toBeLessThan(
-      ingestReportMock.mock.invocationCallOrder[1] ?? Number.POSITIVE_INFINITY,
-    );
-    expect(
-      screen.queryByRole("button", { name: "Review extracted details" }),
-    ).not.toBeInTheDocument();
-
-    await act(async () => {
-      replacementIngestion.resolve(partialReportIngestion());
-      await replacementIngestion.promise;
-    });
-    expect(
-      await screen.findByRole("button", { name: "Review extracted details" }),
-    ).toBeEnabled();
-    expect(screen.getByText("queued-replacement.pdf")).toBeVisible();
-  });
-
-  it("abandons a queued replacement when the signed-in account changes", async () => {
-    const pendingIngestion = createDeferred<TotalLossReportIngestion>();
-    ingestReportMock.mockReturnValueOnce(pendingIngestion.promise);
-    const pendingDetails = detailsFor(CASE_ID, {
-      intakeMode: "report",
-      reportOriginalFilename: "original-report.pdf",
-      reportUploadedAt: CREATED_AT,
-      reportExtractionStatus: "pending",
-    });
-    const auth = createAuthHarness(sessionFor());
-    const harness = createDependencyHarness({
-      details: [pendingDetails],
-      recentCase: appraisalCase(CASE_ID),
-    });
-
-    const { container } = renderTestApp(
-      [`/start?service=total-loss&caseId=${CASE_ID}`],
-      {
-        authService: auth.service,
-        totalLossDependencies: harness.dependencies,
-      },
-    );
-
-    expect(
-      await screen.findByText("Venfour is reading your report"),
-    ).toBeVisible();
-    await waitFor(() => expect(ingestReportMock).toHaveBeenCalledTimes(1));
-    const replacement = await createPdfFile("queued-replacement.pdf");
-    const fileInput = container.querySelector<HTMLInputElement>(
-      'input[type="file"]',
-    );
-    expect(fileInput).toBeInTheDocument();
-    fireEvent.change(fileInput as HTMLInputElement, {
-      target: { files: [replacement] },
-    });
-    expect(
-      await screen.findByText("We’ll replace your report next"),
-    ).toBeVisible();
-
-    act(() => auth.emit(sessionFor(OTHER_USER_ID)));
-    await screen.findByText(
-      "This saved appraisal cannot be opened from this link.",
-    );
-
-    await act(async () => {
-      pendingIngestion.resolve(partialReportIngestion());
-      await pendingIngestion.promise;
-    });
-
-    expect(harness.uploadReport).not.toHaveBeenCalled();
-    expect(readTotalLossDraft()).toMatchObject({
-      ok: true,
-      draft: null,
-    });
-  });
-
-  it("keeps a failed replacement gated across navigation and reclaims it immediately", async () => {
-    const readyDetails = detailsFor(CASE_ID, {
-      intakeMode: "report",
-      vehicleYear: 2020,
-      vehicleMake: "Honda",
-      vehicleModel: "Accord",
-      reportOriginalFilename: "prior-ready-report.pdf",
-      reportUploadedAt: CREATED_AT,
-      reportExtractionStatus: "needs_confirmation",
-    });
-    const auth = createAuthHarness(sessionFor());
-    const harness = createDependencyHarness({
-      details: [readyDetails],
-      recentCase: appraisalCase(CASE_ID),
-    });
-    const leaseEvents: string[] = [];
-    const attemptedUploadIds: string[] = [];
-    let activeUploadId: string | null = null;
-    let recoveryRequired = false;
-    let recoveryInProgress = false;
-    let uploadAttempts = 0;
-    let restoreAttempts = 0;
-    const leaseFor = (
-      uploadId: string,
-      requiresRecovery: boolean,
-    ): TotalLossReportUploadLease => ({
-      uploadId,
-      expiresAt: "2026-08-18T16:00:00.000Z",
-      detailsUpdatedAt: readyDetails.updatedAt,
-      reportOriginalFilename: readyDetails.reportOriginalFilename,
-      reportUploadedAt: readyDetails.reportUploadedAt,
-      recoveryRequired: requiresRecovery,
-    });
-    harness.acquireReportUploadLease.mockImplementation(async (input) => {
-      activeUploadId = input.uploadId;
-      attemptedUploadIds.push(input.uploadId);
-      leaseEvents.push(`acquire:${input.uploadId}`);
-      return leaseFor(input.uploadId, false);
-    });
-    harness.reclaimReportUploadLease.mockImplementation(async (input) => {
-      expect(recoveryRequired).toBe(true);
-      expect(input.uploadId).not.toBe(activeUploadId);
-      activeUploadId = input.uploadId;
-      attemptedUploadIds.push(input.uploadId);
-      recoveryInProgress = true;
-      leaseEvents.push(`reclaim:${input.uploadId}`);
-      return leaseFor(input.uploadId, true);
-    });
-    vi.mocked(
-      harness.detailsService.renewReportUploadLease,
-    ).mockImplementation(async (input) => {
-      expect(input.uploadId).toBe(activeUploadId);
-      return leaseFor(input.uploadId, recoveryInProgress);
-    });
-    vi.mocked(
-      harness.detailsService.markReportUploadReady,
-    ).mockImplementation(async (input) => {
-      expect(input.uploadId).toBe(activeUploadId);
-      recoveryRequired = input.hasBackup;
-      recoveryInProgress = false;
-      return leaseFor(input.uploadId, false);
-    });
-    vi.mocked(
-      harness.detailsService.completeReportUploadRecovery,
-    ).mockImplementation(async (input) => {
-      expect(input.uploadId).toBe(activeUploadId);
-      leaseEvents.push(`recovery-complete:${input.uploadId}`);
-      recoveryRequired = false;
-      recoveryInProgress = false;
-      return leaseFor(input.uploadId, false);
-    });
-    harness.uploadReport.mockImplementation(async (input) => {
-      uploadAttempts += 1;
-      leaseEvents.push(`upload:${input.uploadId}`);
-      if (uploadAttempts === 1) {
-        throw new Error("Replacement storage write failed.");
-      }
-      return {
-        path: `${input.userId}/${input.caseId}/valuation-report.pdf`,
-        displayFilename: input.file.name,
-      };
-    });
-    harness.restoreReport.mockImplementation(async (input) => {
-      restoreAttempts += 1;
-      leaseEvents.push(`restore:${input.uploadId}`);
-      if (restoreAttempts <= 2) {
-        throw new Error("Previous report restore failed.");
-      }
-    });
-
-    const { container, queryClient, router } = renderTestApp(
-      [`/start?service=total-loss&caseId=${CASE_ID}`],
-      {
-        authService: auth.service,
-        totalLossDependencies: harness.dependencies,
-      },
-    );
-
-    expect(
-      await screen.findByRole("button", { name: "Review extracted details" }),
-    ).toBeEnabled();
-    const replacement = await createPdfFile("unrecoverable-replacement.pdf");
-    const fileInput = container.querySelector<HTMLInputElement>(
-      'input[type="file"]',
-    );
-    expect(fileInput).toBeInTheDocument();
-    fireEvent.change(fileInput as HTMLInputElement, {
-      target: { files: [replacement] },
-    });
-
-    expect(await screen.findByRole("alert")).toHaveTextContent(
-      new TotalLossReportRestoreError().message,
-    );
-    expect(harness.restoreReport).toHaveBeenCalledTimes(2);
-    expect(
-      screen.queryByRole("button", { name: "Review extracted details" }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: "Continue with manual details" }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: "Replace report" }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByText("Your details are ready to review"),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByText("Your report is safely uploaded"),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByText("Your current report is still saved."),
-    ).not.toBeInTheDocument();
-    expect(screen.queryByText("prior-ready-report.pdf")).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Back" })).not.toBeInTheDocument();
-    expect(
-      queryClient.getQueryData(
-        totalLossQueryKeys.details(USER_ID, CASE_ID),
-      ),
-    ).toMatchObject({ reportUploadRecoveryRequired: true });
-
-    await act(async () => router.navigate("/"));
-    await act(async () =>
-      router.navigate(`/start?service=total-loss&caseId=${CASE_ID}`),
-    );
-
-    expect(
-      await screen.findByText(
-        "Venfour could not confirm the saved report after an interrupted replacement. Choose the report again so we can securely continue.",
-      ),
-    ).toBeVisible();
-    expect(
-      screen.queryByRole("button", { name: "Review extracted details" }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: "Back" }),
-    ).not.toBeInTheDocument();
-
-    const recoveredReplacement = await createPdfFile(
-      "recovered-replacement.pdf",
-    );
-    const recoveryInput = container.querySelector<HTMLInputElement>(
-      'input[type="file"]',
-    );
-    expect(recoveryInput).toBeInTheDocument();
-    fireEvent.change(recoveryInput as HTMLInputElement, {
-      target: { files: [recoveredReplacement] },
-    });
-
-    expect(
-      await screen.findByRole("button", { name: "Review extracted details" }),
-    ).toBeEnabled();
-    expect(screen.getByText("recovered-replacement.pdf")).toBeVisible();
-    expect(harness.acquireReportUploadLease).toHaveBeenCalledTimes(1);
-    expect(harness.reclaimReportUploadLease).toHaveBeenCalledTimes(1);
-    expect(attemptedUploadIds).toHaveLength(2);
-    expect(attemptedUploadIds[1]).not.toBe(attemptedUploadIds[0]);
-    const reclaimedUploadId = attemptedUploadIds[1] as string;
-    expect(
-      leaseEvents.indexOf(`recovery-complete:${reclaimedUploadId}`),
-    ).toBeLessThan(leaseEvents.indexOf(`upload:${reclaimedUploadId}`));
-    expect(restoreAttempts).toBe(3);
-    expect(
-      screen.queryByText(
-        "Venfour could not confirm the saved report after an interrupted replacement. Choose the report again so we can securely continue.",
-      ),
-    ).not.toBeInTheDocument();
-  });
 
   it("keeps an interrupted replacement recovery-gated after remount", async () => {
     let staleReviewCommitted = false;
