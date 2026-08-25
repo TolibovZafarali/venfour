@@ -546,24 +546,6 @@ export function ReportUploadStep({
         description="Add your market ZIP and securely attach the report to your private appraisal. Venfour won’t read or analyze it until after your contact details are saved."
       />
 
-      <div className="mt-6 max-w-sm">
-        <IntakeTextField
-          id="total-loss-report-market-zip"
-          label="Market ZIP code"
-          value={marketZipCode}
-          error={marketZipCodeError}
-          inputMode="numeric"
-          autoComplete="postal-code"
-          maxLength={10}
-          placeholder="60611"
-          disabled={disabled}
-          help="Used to find comparable vehicles near you."
-          helpAfterInput
-          onChange={(event) => onMarketZipCodeChange(event.target.value)}
-          onBlur={onMarketZipCodeBlur}
-        />
-      </div>
-
       <input
         ref={inputRef}
         id={inputId}
@@ -631,6 +613,24 @@ export function ReportUploadStep({
           <ShieldCheck className="size-4 shrink-0 text-brand" aria-hidden />
           Private, owner-only storage · PDF, JPG, or PNG · 50 MiB total
         </div>
+      </div>
+
+      <div className="mt-6 w-full">
+        <IntakeTextField
+          id="total-loss-report-market-zip"
+          label="Market ZIP code"
+          value={marketZipCode}
+          error={marketZipCodeError}
+          inputMode="numeric"
+          autoComplete="postal-code"
+          maxLength={10}
+          placeholder="60611"
+          disabled={disabled}
+          help="Used to find comparable vehicles near you."
+          helpAfterInput
+          onChange={(event) => onMarketZipCodeChange(event.target.value)}
+          onBlur={onMarketZipCodeBlur}
+        />
       </div>
 
       {uploadError ? <InlineError message={uploadError} /> : null}

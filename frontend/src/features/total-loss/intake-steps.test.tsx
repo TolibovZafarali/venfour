@@ -152,7 +152,7 @@ describe("total-loss intake step presentation", () => {
     expect(screen.getByLabelText("Start, step 1, current")).toBeVisible();
   });
 
-  it("asks report customers for the market ZIP on the upload step", () => {
+  it("asks report customers for the full-width market ZIP below the upload section", () => {
     const { rerender } = render(
       <MemoryRouter>
         <ReportUploadStep
@@ -170,7 +170,20 @@ describe("total-loss intake step presentation", () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByLabelText("Market ZIP code")).toHaveValue("60601");
+    const marketZipCodeInput = screen.getByLabelText("Market ZIP code");
+    const marketZipCodeContainer = marketZipCodeInput.closest(".mt-6");
+    const uploadStorageNote = screen.getByText(
+      "Private, owner-only storage · PDF, JPG, or PNG · 50 MiB total",
+    );
+    const uploadSection = uploadStorageNote.parentElement;
+
+    expect(marketZipCodeInput).toHaveValue("60601");
+    expect(marketZipCodeInput).toHaveClass("w-full");
+    expect(marketZipCodeContainer).toHaveClass("w-full");
+    expect(uploadSection).toBeTruthy();
+    expect(
+      uploadSection?.compareDocumentPosition(marketZipCodeInput) ?? 0,
+    ).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
     expect(screen.getByText("Used to find comparable vehicles near you.")).toBeVisible();
     expect(screen.getByText("Check this ZIP code.")).toBeVisible();
     expect(screen.getByLabelText("Valuation report, step 2, current")).toBeVisible();
