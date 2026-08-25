@@ -141,7 +141,7 @@ describe("total-loss intake step presentation", () => {
       },
     );
     const user = userEvent.setup();
-    render(
+    const { container } = render(
       <ClaimStep
         mode="manual"
         values={manualValues}
@@ -156,6 +156,17 @@ describe("total-loss intake step presentation", () => {
     expect(screen.getByLabelText("Mileage at time of loss")).toBeVisible();
     expect(screen.getByLabelText("ZIP code")).toBeVisible();
     expect(screen.getByRole("button", { name: "Date of loss" })).toBeVisible();
+    const mileageLabel = container.querySelector(
+      'label[for="total-loss-mileage"]',
+    );
+    const zipLabel = container.querySelector('label[for="total-loss-zip"]');
+    const dateLabel = container.querySelector('label[for="total-loss-date"]');
+    expect(dateLabel?.parentElement?.className).toBe(
+      mileageLabel?.parentElement?.className,
+    );
+    expect(dateLabel?.parentElement?.className).toBe(
+      zipLabel?.parentElement?.className,
+    );
     expect(screen.queryByLabelText("Pre-loss condition")).not.toBeInTheDocument();
     expect(screen.queryByLabelText(/options or packages/i)).not.toBeInTheDocument();
     expect(

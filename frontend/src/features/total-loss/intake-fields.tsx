@@ -216,9 +216,11 @@ export function IntakeDatePicker({
 
   return (
     <div>
-      <label htmlFor={id} className="text-sm font-semibold text-ink">
-        {label}
-      </label>
+      <div className="flex justify-between gap-3 items-baseline">
+        <label htmlFor={id} className="text-sm font-semibold text-ink">
+          {label}
+        </label>
+      </div>
       <Popover.Root open={open} onOpenChange={handleOpenChange}>
         <Popover.Trigger asChild>
           <button
