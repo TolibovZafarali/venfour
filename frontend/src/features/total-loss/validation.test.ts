@@ -9,17 +9,32 @@ import {
   MAX_TOTAL_LOSS_MILEAGE,
   MAX_TOTAL_LOSS_PDF_BYTES,
   normalizeTotalLossManualForm,
+  normalizeTotalLossContactForm,
   parseCurrencyToCents,
   sanitizeDisplayFilename,
   validateDateOfLoss,
   validateMileage,
   validateTotalLossManualForm,
+  validateTotalLossContactForm,
   validateTotalLossPdf,
   validateVin,
 } from "@/features/total-loss/validation";
-import type { TotalLossManualFormValues } from "@/features/total-loss/types";
+import type {
+  TotalLossContactFormValues,
+  TotalLossManualFormValues,
+} from "@/features/total-loss/types";
 
 const REFERENCE_DATE = new Date(2026, 7, 18, 12);
+
+const validContactForm: TotalLossContactFormValues = {
+  firstName: "Ada",
+  lastName: "Lovelace",
+  email: "ada@example.test",
+  phoneNumber: "(312) 555-0182",
+  termsAccepted: true,
+  privacyAccepted: true,
+  operationalFollowUpAllowed: false,
+};
 
 const validManualForm: TotalLossManualFormValues = {
   vin: "1HGCM82633A004352",
@@ -168,6 +183,57 @@ describe("total-loss manual validation", () => {
     expect(validateMileage(String(MAX_TOTAL_LOSS_MILEAGE + 1))).toBe(
       "Mileage must be 10,000,000 or less.",
     );
+  });
+});
+
+describe("total-loss contact validation", () => {
+  it("normalizes split names, email, and optional phone", () => {
+    expect(
+      normalizeTotalLossContactForm({
+        ...validContactForm,
+        firstName: "  Ada  ",
+        lastName: "  Byron   Lovelace ",
+        email: " ADA@EXAMPLE.TEST ",
+        phoneNumber: "  (312)   555-0182 ",
+      }),
+    ).toMatchObject({
+      firstName: "Ada",
+      lastName: "Byron Lovelace",
+      email: "ada@example.test",
+      phoneNumber: "(312) 555-0182",
+    });
+  });
+
+  it("requires first name, last name, email, and legal acknowledgement but not phone", () => {
+    expect(
+      validateTotalLossContactForm({
+        ...validContactForm,
+        firstName: "",
+        lastName: "",
+        email: "",
+        phoneNumber: "",
+        termsAccepted: false,
+        privacyAccepted: false,
+      }),
+    ).toEqual({
+      firstName: "Enter your first name.",
+      lastName: "Enter your last name.",
+      email: "Enter a valid email address.",
+      legal: "Accept the Terms of Use and acknowledge the Privacy Policy.",
+    });
+    expect(validateTotalLossContactForm(validContactForm)).toEqual({});
+  });
+
+  it("matches the persisted combined-name limit", () => {
+    expect(
+      validateTotalLossContactForm({
+        ...validContactForm,
+        firstName: "A".repeat(100),
+        lastName: "B".repeat(100),
+      }),
+    ).toMatchObject({
+      lastName: "First and last name must be 200 characters or fewer combined.",
+    });
   });
 });
 

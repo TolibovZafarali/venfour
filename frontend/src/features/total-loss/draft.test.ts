@@ -33,7 +33,7 @@ class MemoryStorage implements TotalLossDraftStorage {
 describe("total-loss browser draft", () => {
   it("creates the expected versioned empty shape", () => {
     expect(createEmptyTotalLossDraft(NOW)).toEqual({
-      version: 4,
+      version: 5,
       mode: null,
       step: "choice",
       manual: {
@@ -51,8 +51,10 @@ describe("total-loss browser draft", () => {
         optionsPackages: "",
       },
       contact: {
-        fullName: "",
+        firstName: "",
+        lastName: "",
         email: "",
+        phoneNumber: "",
         termsAccepted: false,
         privacyAccepted: false,
         operationalFollowUpAllowed: false,
@@ -133,7 +135,7 @@ describe("total-loss browser draft", () => {
     expect(readTotalLossDraft(storage)).toMatchObject({
       ok: true,
       draft: {
-        version: 4,
+        version: 5,
         step: "claim",
         manual: {
           vin: "1HGCM82633A004352",
@@ -141,8 +143,10 @@ describe("total-loss browser draft", () => {
           optionsPackages: "",
         },
         contact: {
-          fullName: "",
+          firstName: "",
+          lastName: "",
           email: "",
+          phoneNumber: "",
         },
         reportProvider: null,
         reportExtractionStatus: "idle",
@@ -152,14 +156,21 @@ describe("total-loss browser draft", () => {
     });
   });
 
-  it("migrates version-two and version-three drafts without losing claim progress", () => {
-    for (const legacyVersion of [2, 3] as const) {
+  it("migrates version-two through version-four drafts without losing progress", () => {
+    for (const legacyVersion of [2, 3, 4] as const) {
       const storage = new MemoryStorage();
       const current = createEmptyTotalLossDraft(NOW);
       const legacy = {
         ...current,
         version: legacyVersion,
         step: "claim",
+        contact: {
+          fullName: "Grace Brewster Murray Hopper",
+          email: "grace@example.test",
+          termsAccepted: true,
+          privacyAccepted: true,
+          operationalFollowUpAllowed: false,
+        },
         manual:
           legacyVersion === 3
             ? {
@@ -177,9 +188,15 @@ describe("total-loss browser draft", () => {
       expect(readTotalLossDraft(storage)).toMatchObject({
         ok: true,
         draft: {
-          version: 4,
+          version: 5,
           step: "claim",
           manual: current.manual,
+          contact: {
+            firstName: "Grace",
+            lastName: "Brewster Murray Hopper",
+            email: "grace@example.test",
+            phoneNumber: "",
+          },
         },
       });
     }
@@ -189,7 +206,7 @@ describe("total-loss browser draft", () => {
     const storage = new MemoryStorage();
     storage.values.set(
       TOTAL_LOSS_DRAFT_STORAGE_KEY,
-      JSON.stringify({ ...createEmptyTotalLossDraft(NOW), version: 5 }),
+      JSON.stringify({ ...createEmptyTotalLossDraft(NOW), version: 6 }),
     );
 
     expect(readTotalLossDraft(storage)).toMatchObject({

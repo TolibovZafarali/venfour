@@ -6,6 +6,7 @@ import type {
   TotalLossContact,
   TotalLossIdentityClaim,
 } from "@/features/total-loss/data-types";
+import { splitTotalLossContactName } from "@/features/total-loss/types";
 import type { Database } from "@/lib/supabase/database.types";
 
 type RpcClient = {
@@ -53,11 +54,13 @@ export function createTotalLossIdentityService(
 
     async saveContactAndBeginClaim(input) {
       const { data, error } = await rpcClient.rpc(
-        "save_total_loss_contact_and_begin_claim",
+        "save_total_loss_contact_details_and_begin_claim",
         {
           case_id: input.caseId,
-          full_name: input.fullName,
+          first_name: input.firstName,
+          last_name: input.lastName,
           email: input.email,
+          phone_number: input.phoneNumber,
           service_terms_version: input.serviceTermsVersion,
           privacy_notice_version: input.privacyNoticeVersion,
           operational_follow_up_allowed: input.operationalFollowUpAllowed,
@@ -122,10 +125,15 @@ function mapContact(value: unknown): TotalLossContact {
       "Supabase returned incomplete case-contact details.",
     );
   }
+  const fullName = requiredString(value.full_name);
+  const fallbackName = splitTotalLossContactName(fullName);
   const contact: TotalLossContact = {
     caseId: requiredString(value.case_id),
-    fullName: requiredString(value.full_name),
+    firstName: nullableString(value.first_name) ?? fallbackName.firstName,
+    lastName: nullableString(value.last_name) ?? fallbackName.lastName,
+    fullName,
     email: requiredString(value.email),
+    phoneNumber: nullableString(value.phone_number),
     emailVerifiedAt: nullableString(value.email_verified_at),
     serviceTermsVersion: requiredString(value.service_terms_version),
     serviceTermsAcknowledgedAt: requiredString(

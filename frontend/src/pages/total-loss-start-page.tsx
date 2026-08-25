@@ -75,6 +75,7 @@ import { TotalLossDetailsConflictError } from "@/features/total-loss/service";
 import { createNhtsaVpicVehicleLookupService } from "@/features/total-loss/nhtsa-vpic-vehicle-lookup";
 import {
   createEmptyTotalLossManualForm,
+  splitTotalLossContactName,
   type TotalLossContactFormErrors,
   type TotalLossDraft,
   type TotalLossIntakeMode,
@@ -808,15 +809,24 @@ function TotalLossIntakeFlowContent({
   useEffect(() => {
     if (!isPermanentAuthState(auth) || !auth.user.email) return;
     const current = draftRef.current;
-    if (current.contact.email && current.contact.fullName) return;
+    if (
+      current.contact.email &&
+      current.contact.firstName &&
+      current.contact.lastName
+    ) {
+      return;
+    }
+    const accountName = splitTotalLossContactName(
+      getUserFullName(auth.user) || "",
+    );
     applyDraft(
       (value) => ({
         ...value,
         contact: {
           ...value.contact,
           email: value.contact.email || auth.user.email || "",
-          fullName:
-            value.contact.fullName || getUserFullName(auth.user) || "",
+          firstName: value.contact.firstName || accountName.firstName,
+          lastName: value.contact.lastName || accountName.lastName,
         },
       }),
       { bumpRevision: false },
@@ -1271,11 +1281,15 @@ function TotalLossIntakeFlowContent({
     if (Object.keys(errors).length > 0) {
       setFlowError("Review the highlighted contact and acknowledgement fields.");
       window.setTimeout(() => {
-        const target = errors.fullName
-          ? "total-loss-contact-name"
-          : errors.email
-            ? "total-loss-contact-email"
-            : null;
+        const target = errors.firstName
+          ? "total-loss-contact-first-name"
+          : errors.lastName
+            ? "total-loss-contact-last-name"
+            : errors.email
+              ? "total-loss-contact-email"
+              : errors.phoneNumber
+                ? "total-loss-contact-phone"
+                : null;
         if (target) document.getElementById(target)?.focus();
       }, 0);
       return;
@@ -1294,8 +1308,10 @@ function TotalLossIntakeFlowContent({
       const claim = await identityService.saveContactAndBeginClaim({
         caseId,
         userId,
-        fullName: normalized.fullName,
+        firstName: normalized.firstName,
+        lastName: normalized.lastName,
         email: normalized.email,
+        phoneNumber: normalized.phoneNumber || null,
         serviceTermsVersion: CURRENT_SERVICE_TERMS_VERSION,
         privacyNoticeVersion: CURRENT_PRIVACY_NOTICE_VERSION,
         operationalFollowUpAllowed: normalized.operationalFollowUpAllowed,
@@ -1640,8 +1656,10 @@ function TotalLossIntakeFlowContent({
         manual: details ? manualValuesForDetails(details) : current.manual,
         contact: contact
           ? {
-              fullName: contact.fullName,
+              firstName: contact.firstName,
+              lastName: contact.lastName,
               email: contact.email,
+              phoneNumber: contact.phoneNumber ?? "",
               termsAccepted: true,
               privacyAccepted: true,
               operationalFollowUpAllowed:

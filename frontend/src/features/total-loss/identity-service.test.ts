@@ -11,8 +11,11 @@ const CREATED_AT = "2026-08-24T16:00:00.000Z";
 
 const contactRow = {
   case_id: CASE_ID,
+  first_name: "Local",
+  last_name: "Customer",
   full_name: "Local Customer",
   email: "local-customer@example.test",
+  phone_number: "312-555-0182",
   email_verified_at: null,
   service_terms_version: "2026-08-23",
   service_terms_acknowledged_at: CREATED_AT,
@@ -27,8 +30,10 @@ const contactRow = {
 const saveInput = {
   caseId: CASE_ID,
   userId: USER_ID,
-  fullName: "Local Customer",
+  firstName: "Local",
+  lastName: "Customer",
   email: "local-customer@example.test",
+  phoneNumber: "312-555-0182",
   serviceTermsVersion: "2026-08-23",
   privacyNoticeVersion: "2026-08-23",
   operationalFollowUpAllowed: false,
@@ -60,6 +65,31 @@ describe("total-loss identity service", () => {
       expiresAt: "2026-08-24T16:49:11.104Z",
       contact: { caseId: CASE_ID },
     });
+  });
+
+  it("sends split contact details through the contact-details RPC", async () => {
+    const rpc = vi.fn(async () => ({
+      data: [
+        {
+          ...contactRow,
+          claim_id: CLAIM_ID,
+          claim_expires_at: "2026-08-24T16:49:11+00:00",
+        },
+      ],
+      error: null,
+    }));
+    const service = createTotalLossIdentityService({ rpc } as unknown as SupabaseClient<Database>);
+
+    await service.saveContactAndBeginClaim(saveInput);
+
+    expect(rpc).toHaveBeenCalledWith(
+      "save_total_loss_contact_details_and_begin_claim",
+      expect.objectContaining({
+        first_name: "Local",
+        last_name: "Customer",
+        phone_number: "312-555-0182",
+      }),
+    );
   });
 
   it.each([

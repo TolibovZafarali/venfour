@@ -104,8 +104,11 @@ export interface TotalLossReportUploadLease {
 
 export interface TotalLossContact {
   readonly caseId: string;
+  readonly firstName: string;
+  readonly lastName: string;
   readonly fullName: string;
   readonly email: string;
+  readonly phoneNumber: string | null;
   readonly emailVerifiedAt: string | null;
   readonly serviceTermsVersion: string;
   readonly serviceTermsAcknowledgedAt: string;
@@ -118,8 +121,10 @@ export interface TotalLossContact {
 }
 
 export interface SaveTotalLossContactInput extends TotalLossDetailsScope {
-  readonly fullName: string;
+  readonly firstName: string;
+  readonly lastName: string;
   readonly email: string;
+  readonly phoneNumber: string | null;
   readonly serviceTermsVersion: string;
   readonly privacyNoticeVersion: string;
   readonly operationalFollowUpAllowed: boolean;

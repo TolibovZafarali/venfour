@@ -3,7 +3,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
 
-select plan(76);
+select plan(77);
 
 select ok(
   to_regclass('public.total_loss_case_contacts') is not null
@@ -23,6 +23,9 @@ select ok(
   to_regprocedure(
     'public.save_total_loss_contact_and_begin_claim(uuid,text,text,text,text,boolean)'
   ) is not null
+    and to_regprocedure(
+      'public.save_total_loss_contact_details_and_begin_claim(uuid,text,text,text,text,text,text,boolean)'
+    ) is not null
     and to_regprocedure('public.complete_total_loss_case_claim(uuid)') is not null
     and to_regprocedure(
       'public.confirm_total_loss_intake(uuid,timestamp with time zone)'
@@ -52,6 +55,11 @@ select ok(
     and has_function_privilege(
       'authenticated',
       'public.complete_total_loss_case_claim(uuid)',
+      'EXECUTE'
+    )
+    and has_function_privilege(
+      'authenticated',
+      'public.save_total_loss_contact_details_and_begin_claim(uuid,text,text,text,text,text,text,boolean)',
       'EXECUTE'
     )
     and has_function_privilege(
@@ -346,10 +354,60 @@ select results_eq(
 
 select results_eq(
   $$
-    select full_name, email, email_verified_at is null
+    select
+      first_name,
+      last_name,
+      full_name,
+      email,
+      phone_number,
+      operational_follow_up_allowed,
+      claim_id is not null
+    from public.save_total_loss_contact_details_and_begin_claim(
+      (select case_id from guest_first_state),
+      ' Guest ',
+      ' Customer ',
+      ' Claim-Owner@Example.Test ',
+      ' (312)  555-0182 ',
+      '2026-08-23',
+      '2026-08-23',
+      false
+    )
+  $$,
+  $$
+    values (
+      'Guest'::text,
+      'Customer'::text,
+      'Guest Customer'::text,
+      'claim-owner@example.test'::text,
+      '(312) 555-0182'::text,
+      false,
+      true
+    )
+  $$,
+  'split contact save normalizes required names and optional phone without changing follow-up consent'
+);
+
+select results_eq(
+  $$
+    select
+      first_name,
+      last_name,
+      full_name,
+      email,
+      phone_number,
+      email_verified_at is null
     from public.total_loss_case_contacts
   $$,
-  $$values ('Guest Customer'::text, 'claim-owner@example.test'::text, true)$$,
+  $$
+    values (
+      'Guest'::text,
+      'Customer'::text,
+      'Guest Customer'::text,
+      'claim-owner@example.test'::text,
+      '(312) 555-0182'::text,
+      true
+    )
+  $$,
   'the guest can resume only their case-scoped contact projection'
 );
 

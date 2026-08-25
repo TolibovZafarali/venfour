@@ -508,8 +508,11 @@ function createDependencyHarness({
     expiresAt: "2026-08-24T14:00:00.000Z",
     contact: {
       caseId: input.caseId,
-      fullName: input.fullName,
+      firstName: input.firstName,
+      lastName: input.lastName,
+      fullName: `${input.firstName} ${input.lastName}`,
       email: input.email,
+      phoneNumber: input.phoneNumber,
       emailVerifiedAt: null,
       serviceTermsVersion: input.serviceTermsVersion,
       serviceTermsAcknowledgedAt: CREATED_AT,
@@ -1360,7 +1363,8 @@ describe("/start?service=total-loss", () => {
         name: "Where should we send and save your results?",
       }),
     ).toBeVisible();
-    await user.type(screen.getByLabelText("Full name"), "Guest Customer");
+    await user.type(screen.getByLabelText("First name"), "Guest");
+    await user.type(screen.getByLabelText("Last name"), "Customer");
     await user.type(screen.getByLabelText("Email address"), "guest@example.com");
     await user.click(screen.getByRole("checkbox", { name: /Terms of Use/i }));
     await user.click(screen.getByRole("checkbox", { name: /Privacy Policy/i }));
@@ -1474,7 +1478,8 @@ describe("/start?service=total-loss", () => {
         name: "Where should we send and save your results?",
       }),
     ).toBeVisible();
-    await user.type(screen.getByLabelText("Full name"), "Guest Customer");
+    await user.type(screen.getByLabelText("First name"), "Guest");
+    await user.type(screen.getByLabelText("Last name"), "Customer");
     await user.type(screen.getByLabelText("Email address"), "guest@example.com");
     await user.click(screen.getByRole("checkbox", { name: /Terms of Use/i }));
     await user.click(screen.getByRole("checkbox", { name: /Privacy Policy/i }));
@@ -1524,7 +1529,8 @@ describe("/start?service=total-loss", () => {
         name: "Where should we send and save your results?",
       }),
     ).toBeVisible();
-    await user.type(screen.getByLabelText("Full name"), "Guest Customer");
+    await user.type(screen.getByLabelText("First name"), "Guest");
+    await user.type(screen.getByLabelText("Last name"), "Customer");
     await user.type(screen.getByLabelText("Email address"), "guest@example.com");
     await user.click(screen.getByRole("checkbox", { name: /Terms of Use/i }));
     await user.click(screen.getByRole("checkbox", { name: /Privacy Policy/i }));

@@ -1,10 +1,12 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { MemoryRouter } from "react-router";
 
 import {
   ChoiceStep,
   ClaimStep,
+  ContactStep,
   ReportStep,
   ReviewStep,
 } from "@/features/total-loss/intake-steps";
@@ -29,8 +31,10 @@ const manualValues: TotalLossManualFormValues = {
 };
 
 const contactValues: TotalLossContactFormValues = {
-  fullName: "Example Customer",
+  firstName: "Example",
+  lastName: "Customer",
   email: "a-very-long-local-testing-address@example.test",
+  phoneNumber: "(312) 555-0182",
   termsAccepted: true,
   privacyAccepted: true,
   operationalFollowUpAllowed: false,
@@ -41,6 +45,44 @@ afterEach(() => {
 });
 
 describe("total-loss intake step presentation", () => {
+  it("presents required contact details separately from optional phone and consent", () => {
+    render(
+      <MemoryRouter>
+        <ContactStep
+          mode="manual"
+          values={contactValues}
+          errors={{}}
+          onChange={vi.fn()}
+          onBack={vi.fn()}
+          onContinue={vi.fn()}
+        />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByRole("heading", { name: "Contact details" })).toBeVisible();
+    expect(screen.getByLabelText("First name")).toHaveAttribute(
+      "autocomplete",
+      "given-name",
+    );
+    expect(screen.getByLabelText("Last name")).toHaveAttribute(
+      "autocomplete",
+      "family-name",
+    );
+    expect(screen.getByLabelText("Email address")).toHaveAttribute(
+      "type",
+      "email",
+    );
+    expect(screen.getByLabelText("Phone number")).toHaveAttribute("type", "tel");
+    expect(screen.getAllByText("Optional")).toHaveLength(2);
+    expect(
+      screen.getByRole("heading", { name: "Consent and preferences" }),
+    ).toBeVisible();
+    expect(screen.getByRole("checkbox", { name: /Terms of Use/i })).toBeVisible();
+    expect(screen.getByRole("checkbox", { name: /Privacy Policy/i })).toBeVisible();
+    expect(screen.getByRole("checkbox", { name: /Case follow-up/i })).toBeVisible();
+    expect(screen.queryByLabelText("Full name")).not.toBeInTheDocument();
+  });
+
   it("keeps report choices and progress mounted while the selection changes", () => {
     const onSelect = vi.fn();
     const onContinue = vi.fn();

@@ -61,20 +61,24 @@ export function createEmptyTotalLossManualForm(): TotalLossManualFormValues {
 }
 
 export interface TotalLossContactFormValues {
-  readonly fullName: string;
+  readonly firstName: string;
+  readonly lastName: string;
   readonly email: string;
+  readonly phoneNumber: string;
   readonly termsAccepted: boolean;
   readonly privacyAccepted: boolean;
   readonly operationalFollowUpAllowed: boolean;
 }
 
 export type TotalLossContactFormErrors = Partial<
-  Record<"fullName" | "email" | "legal", string>
+  Record<"firstName" | "lastName" | "email" | "phoneNumber" | "legal", string>
 >;
 
 export const TOTAL_LOSS_CONTACT_FORM_DEFAULTS = {
-  fullName: "",
+  firstName: "",
+  lastName: "",
   email: "",
+  phoneNumber: "",
   termsAccepted: false,
   privacyAccepted: false,
   operationalFollowUpAllowed: false,
@@ -84,6 +88,18 @@ export function createEmptyTotalLossContactForm(): TotalLossContactFormValues {
   return { ...TOTAL_LOSS_CONTACT_FORM_DEFAULTS };
 }
 
+export function splitTotalLossContactName(fullName: string) {
+  const normalized = fullName.trim().replace(/\s+/gu, " ");
+  const separatorIndex = normalized.indexOf(" ");
+  if (separatorIndex < 0) {
+    return { firstName: normalized, lastName: "" };
+  }
+  return {
+    firstName: normalized.slice(0, separatorIndex),
+    lastName: normalized.slice(separatorIndex + 1),
+  };
+}
+
 export type TotalLossReportExtractionStatus =
   | "idle"
   | "processing"
@@ -91,7 +107,7 @@ export type TotalLossReportExtractionStatus =
   | "partial"
   | "error";
 
-export const TOTAL_LOSS_DRAFT_VERSION = 4 as const;
+export const TOTAL_LOSS_DRAFT_VERSION = 5 as const;
 
 export interface TotalLossDraft {
   readonly version: typeof TOTAL_LOSS_DRAFT_VERSION;

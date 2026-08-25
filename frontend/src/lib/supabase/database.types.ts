@@ -546,9 +546,12 @@ export type Database = {
           created_at: string
           email: string
           email_verified_at: string | null
+          first_name: string | null
           full_name: string
+          last_name: string | null
           operational_follow_up_allowed: boolean
           operational_follow_up_updated_at: string
+          phone_number: string | null
           privacy_notice_acknowledged_at: string
           privacy_notice_version: string
           service_terms_acknowledged_at: string
@@ -560,9 +563,12 @@ export type Database = {
           created_at?: string
           email: string
           email_verified_at?: string | null
+          first_name?: string | null
           full_name: string
+          last_name?: string | null
           operational_follow_up_allowed: boolean
           operational_follow_up_updated_at: string
+          phone_number?: string | null
           privacy_notice_acknowledged_at: string
           privacy_notice_version: string
           service_terms_acknowledged_at: string
@@ -574,9 +580,12 @@ export type Database = {
           created_at?: string
           email?: string
           email_verified_at?: string | null
+          first_name?: string | null
           full_name?: string
+          last_name?: string | null
           operational_follow_up_allowed?: boolean
           operational_follow_up_updated_at?: string
+          phone_number?: string | null
           privacy_notice_acknowledged_at?: string
           privacy_notice_version?: string
           service_terms_acknowledged_at?: string
@@ -1339,6 +1348,25 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      save_total_loss_contact_details_and_begin_claim: {
+        Args: {
+          case_id: string
+          email: string
+          first_name: string
+          last_name: string
+          operational_follow_up_allowed: boolean
+          phone_number: string | null
+          privacy_notice_version: string
+          service_terms_version: string
+        }
+        Returns: Database["public"]["CompositeTypes"]["total_loss_contact_details_claim_begin_result"][]
+        SetofOptions: {
+          from: "*"
+          to: "total_loss_contact_details_claim_begin_result"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       staff_get_total_loss_case_operation: {
         Args: { requested_case_id: string }
         Returns: {
@@ -1566,6 +1594,25 @@ export type Database = {
         email_verified_at: string | null
         claimed_at: string | null
         ownership_transferred: boolean | null
+      }
+      total_loss_contact_details_claim_begin_result: {
+        case_id: string | null
+        first_name: string | null
+        last_name: string | null
+        full_name: string | null
+        email: string | null
+        phone_number: string | null
+        email_verified_at: string | null
+        service_terms_version: string | null
+        service_terms_acknowledged_at: string | null
+        privacy_notice_version: string | null
+        privacy_notice_acknowledged_at: string | null
+        operational_follow_up_allowed: boolean | null
+        operational_follow_up_updated_at: string | null
+        created_at: string | null
+        updated_at: string | null
+        claim_id: string | null
+        claim_expires_at: string | null
       }
       total_loss_case_details_public: {
         case_id: string | null

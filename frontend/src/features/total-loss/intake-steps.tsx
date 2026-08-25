@@ -698,71 +698,124 @@ export function ContactStep({
         title="Where should we send and save your results?"
         description="You can continue in this browser now. We’ll also send a secure access link so you can return later."
       />
-      <div className="mt-7 grid gap-5 sm:grid-cols-2">
-        <IntakeTextField
-          id="total-loss-contact-name"
-          label="Full name"
-          value={values.fullName}
-          error={errors.fullName}
-          autoComplete="name"
-          maxLength={200}
-          disabled={busy}
-          onChange={(event) => onChange("fullName", event.target.value)}
-        />
-        <IntakeTextField
-          id="total-loss-contact-email"
-          label={emailLocked ? "Verified account email" : "Email address"}
-          value={values.email}
-          error={errors.email}
-          type="email"
-          inputMode="email"
-          autoComplete="email"
-          maxLength={320}
-          disabled={busy || emailLocked}
-          help={
-            emailLocked
-              ? "This case will remain with your signed-in account."
-              : "This address is not verified until you use the secure link we send."
-          }
-          onChange={(event) => onChange("email", event.target.value)}
-        />
-      </div>
-
-      <div className="mt-6 space-y-3">
-        <Acknowledgement
-          checked={values.termsAccepted}
-          disabled={Boolean(busy)}
-          onChange={(checked) => onChange("termsAccepted", checked)}
-        >
-          I agree to Venfour’s <PolicyLink to="/terms">Terms of Use</PolicyLink>.
-        </Acknowledgement>
-        <Acknowledgement
-          checked={values.privacyAccepted}
-          disabled={Boolean(busy)}
-          onChange={(checked) => onChange("privacyAccepted", checked)}
-        >
-          I acknowledge Venfour’s <PolicyLink to="/privacy">Privacy Policy</PolicyLink>.
-        </Acknowledgement>
-        <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-line bg-surface/55 p-4">
-          <input
-            type="checkbox"
-            className="mt-1 size-4 shrink-0 accent-brand"
-            checked={values.operationalFollowUpAllowed}
-            disabled={busy}
-            onChange={(event) =>
-              onChange("operationalFollowUpAllowed", event.target.checked)
-            }
-          />
-          <span>
-            <span className="block text-sm font-semibold text-ink">
-              Optional case follow-up
-            </span>
-            <span className="mt-1 block text-xs leading-5 text-copy">
-              Venfour may contact me about this case or related service follow-up. This is optional and separate from essential messages I request.
-            </span>
+      <section className="mt-7" aria-labelledby="contact-details-heading">
+        <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between sm:gap-5">
+          <div>
+            <h3 id="contact-details-heading" className="text-base font-semibold text-ink">
+              Contact details
+            </h3>
+            <p className="mt-1 text-sm leading-6 text-copy">
+              Required fields help us keep your appraisal with the right person.
+            </p>
+          </div>
+          <span className="text-xs font-medium text-copy">
+            Required unless marked optional
           </span>
-        </label>
-      </div>
+        </div>
+        <div className="mt-5 grid gap-x-5 gap-y-4 sm:grid-cols-2">
+          <IntakeTextField
+            id="total-loss-contact-first-name"
+            label="First name"
+            value={values.firstName}
+            error={errors.firstName}
+            autoComplete="given-name"
+            maxLength={100}
+            disabled={busy}
+            onChange={(event) => onChange("firstName", event.target.value)}
+          />
+          <IntakeTextField
+            id="total-loss-contact-last-name"
+            label="Last name"
+            value={values.lastName}
+            error={errors.lastName}
+            autoComplete="family-name"
+            maxLength={100}
+            disabled={busy}
+            onChange={(event) => onChange("lastName", event.target.value)}
+          />
+        </div>
+        <div className="mt-4 grid gap-x-5 gap-y-4 sm:grid-cols-[minmax(0,1.2fr)_minmax(13rem,0.8fr)]">
+          <IntakeTextField
+            id="total-loss-contact-email"
+            label={emailLocked ? "Verified account email" : "Email address"}
+            value={values.email}
+            error={errors.email}
+            type="email"
+            inputMode="email"
+            autoComplete="email"
+            maxLength={320}
+            disabled={busy || emailLocked}
+            help={
+              emailLocked
+                ? "This case will remain with your signed-in account."
+                : "This address is not verified until you use the secure link we send."
+            }
+            onChange={(event) => onChange("email", event.target.value)}
+          />
+          <IntakeTextField
+            id="total-loss-contact-phone"
+            label="Phone number"
+            value={values.phoneNumber}
+            error={errors.phoneNumber}
+            optional
+            type="tel"
+            inputMode="tel"
+            autoComplete="tel"
+            maxLength={50}
+            disabled={busy}
+            onChange={(event) => onChange("phoneNumber", event.target.value)}
+          />
+        </div>
+      </section>
+
+      <section className="mt-7 border-t border-line pt-6" aria-labelledby="consent-heading">
+        <div>
+          <h3 id="consent-heading" className="text-base font-semibold text-ink">
+            Consent and preferences
+          </h3>
+          <p className="mt-1 text-sm leading-6 text-copy">
+            Review the required acknowledgements and choose whether you want optional follow-up.
+          </p>
+        </div>
+        <div className="mt-4 divide-y divide-line overflow-hidden rounded-xl border border-line bg-white">
+          <Acknowledgement
+            checked={values.termsAccepted}
+            disabled={Boolean(busy)}
+            onChange={(checked) => onChange("termsAccepted", checked)}
+          >
+            I agree to Venfour’s <PolicyLink to="/terms">Terms of Use</PolicyLink>.
+          </Acknowledgement>
+          <Acknowledgement
+            checked={values.privacyAccepted}
+            disabled={Boolean(busy)}
+            onChange={(checked) => onChange("privacyAccepted", checked)}
+          >
+            I acknowledge Venfour’s <PolicyLink to="/privacy">Privacy Policy</PolicyLink>.
+          </Acknowledgement>
+          <label className="flex cursor-pointer items-start gap-3 bg-surface/45 px-4 py-3.5 transition-colors hover:bg-surface/70 focus-within:bg-surface/70 motion-reduce:transition-none">
+            <input
+              type="checkbox"
+              className="mt-1 size-4 shrink-0 accent-brand"
+              checked={values.operationalFollowUpAllowed}
+              disabled={busy}
+              onChange={(event) =>
+                onChange("operationalFollowUpAllowed", event.target.checked)
+              }
+            />
+            <span className="min-w-0">
+              <span className="flex flex-wrap items-center gap-2 text-sm font-semibold text-ink">
+                Case follow-up
+                <span className="rounded-full bg-white px-2 py-0.5 text-[0.6875rem] font-medium text-copy ring-1 ring-inset ring-line">
+                  Optional
+                </span>
+              </span>
+              <span className="mt-1 block text-xs leading-5 text-copy">
+                Venfour may contact me about this case or related service follow-up. This is optional and separate from essential messages I request.
+              </span>
+            </span>
+          </label>
+        </div>
+      </section>
 
       {errors.legal ? <InlineError message={errors.legal} /> : null}
       {accessLinkSent ? (
@@ -848,8 +901,11 @@ export function ReviewStep({
           )}
         </ReviewPanel>
         <ReviewPanel title="Results access">
-          <p className="font-semibold text-ink">{contact.fullName}</p>
+          <p className="font-semibold text-ink">
+            {contact.firstName} {contact.lastName}
+          </p>
           <p>{contact.email}</p>
+          {contact.phoneNumber ? <p>{contact.phoneNumber}</p> : null}
           <p>{contact.operationalFollowUpAllowed ? "Optional follow-up allowed" : "No optional follow-up"}</p>
         </ReviewPanel>
       </div>
@@ -905,7 +961,7 @@ function Acknowledgement({
   readonly onChange: (checked: boolean) => void;
 }) {
   return (
-    <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-line p-4">
+    <label className="flex cursor-pointer items-start gap-3 px-4 py-3.5 transition-colors hover:bg-surface/45 focus-within:bg-surface/45 motion-reduce:transition-none">
       <input
         type="checkbox"
         className="mt-1 size-4 shrink-0 accent-brand"

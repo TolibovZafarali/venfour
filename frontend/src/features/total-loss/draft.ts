@@ -5,6 +5,7 @@ import {
   TOTAL_LOSS_INTAKE_MODES,
   TOTAL_LOSS_INTAKE_STEPS,
   TOTAL_LOSS_PENDING_AUTH_ACTIONS,
+  splitTotalLossContactName,
   type TotalLossDraft,
   type TotalLossManualFormValues,
 } from "@/features/total-loss/types";
@@ -100,6 +101,16 @@ const VERSION_THREE_MANUAL_FORM_KEYS = [
 ] as const;
 
 const CONTACT_FORM_KEYS = [
+  "firstName",
+  "lastName",
+  "email",
+  "phoneNumber",
+  "termsAccepted",
+  "privacyAccepted",
+  "operationalFollowUpAllowed",
+] as const;
+
+const LEGACY_CONTACT_FORM_KEYS = [
   "fullName",
   "email",
   "termsAccepted",
@@ -304,6 +315,10 @@ function toTotalLossDraft(value: unknown): TotalLossDraft | null {
       return migrateVersionThreeDraft(value);
     }
 
+    if (value.version === 4) {
+      return migrateVersionFourDraft(value);
+    }
+
     if (!hasExactKeys(value, DRAFT_KEYS)) return null;
 
     if (
@@ -375,8 +390,10 @@ function isContactFormValues(
   return (
     isRecord(value) &&
     hasExactKeys(value, CONTACT_FORM_KEYS) &&
-    typeof value.fullName === "string" &&
+    typeof value.firstName === "string" &&
+    typeof value.lastName === "string" &&
     typeof value.email === "string" &&
+    typeof value.phoneNumber === "string" &&
     typeof value.termsAccepted === "boolean" &&
     typeof value.privacyAccepted === "boolean" &&
     typeof value.operationalFollowUpAllowed === "boolean"
@@ -405,13 +422,18 @@ function copyManualForm(
 function migrateVersionTwoDraft(
   value: Record<string, unknown>,
 ): TotalLossDraft | null {
-  if (!hasExactKeys(value, DRAFT_KEYS) || !isManualFormValues(value.manual)) {
+  if (
+    !hasExactKeys(value, DRAFT_KEYS) ||
+    !isManualFormValues(value.manual) ||
+    !isLegacyContactFormValues(value.contact)
+  ) {
     return null;
   }
 
   return toTotalLossDraft({
     ...value,
     version: TOTAL_LOSS_DRAFT_VERSION,
+    contact: migrateLegacyContactForm(value.contact),
   });
 }
 
@@ -420,7 +442,8 @@ function migrateVersionThreeDraft(
 ): TotalLossDraft | null {
   if (
     !hasExactKeys(value, DRAFT_KEYS) ||
-    !isVersionThreeManualFormValues(value.manual)
+    !isVersionThreeManualFormValues(value.manual) ||
+    !isLegacyContactFormValues(value.contact)
   ) {
     return null;
   }
@@ -429,6 +452,7 @@ function migrateVersionThreeDraft(
   return toTotalLossDraft({
     ...value,
     version: TOTAL_LOSS_DRAFT_VERSION,
+    contact: migrateLegacyContactForm(value.contact),
     manual: {
       vin: manual.vin,
       vehicleYear: manual.vehicleYear,
@@ -444,6 +468,55 @@ function migrateVersionThreeDraft(
       optionsPackages: manual.optionsPackages,
     },
   });
+}
+
+function migrateVersionFourDraft(
+  value: Record<string, unknown>,
+): TotalLossDraft | null {
+  if (
+    !hasExactKeys(value, DRAFT_KEYS) ||
+    !isManualFormValues(value.manual) ||
+    !isLegacyContactFormValues(value.contact)
+  ) {
+    return null;
+  }
+
+  return toTotalLossDraft({
+    ...value,
+    version: TOTAL_LOSS_DRAFT_VERSION,
+    contact: migrateLegacyContactForm(value.contact),
+  });
+}
+
+function isLegacyContactFormValues(
+  value: unknown,
+): value is Record<(typeof LEGACY_CONTACT_FORM_KEYS)[number], string | boolean> {
+  return (
+    isRecord(value) &&
+    hasExactKeys(value, LEGACY_CONTACT_FORM_KEYS) &&
+    typeof value.fullName === "string" &&
+    typeof value.email === "string" &&
+    typeof value.termsAccepted === "boolean" &&
+    typeof value.privacyAccepted === "boolean" &&
+    typeof value.operationalFollowUpAllowed === "boolean"
+  );
+}
+
+function migrateLegacyContactForm(
+  value: Record<(typeof LEGACY_CONTACT_FORM_KEYS)[number], string | boolean>,
+) {
+  const { firstName, lastName } = splitTotalLossContactName(
+    value.fullName as string,
+  );
+  return {
+    firstName,
+    lastName,
+    email: value.email as string,
+    phoneNumber: "",
+    termsAccepted: value.termsAccepted as boolean,
+    privacyAccepted: value.privacyAccepted as boolean,
+    operationalFollowUpAllowed: value.operationalFollowUpAllowed as boolean,
+  };
 }
 
 function isVersionThreeManualFormValues(

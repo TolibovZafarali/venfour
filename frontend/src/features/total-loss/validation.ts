@@ -439,8 +439,10 @@ export function normalizeTotalLossContactForm(
 ): TotalLossContactFormValues {
   return {
     ...values,
-    fullName: normalizeWhitespace(values.fullName),
+    firstName: normalizeWhitespace(values.firstName),
+    lastName: normalizeWhitespace(values.lastName),
     email: values.email.trim().toLowerCase(),
+    phoneNumber: normalizeWhitespace(values.phoneNumber),
   };
 }
 
@@ -449,10 +451,22 @@ export function validateTotalLossContactForm(
 ): TotalLossContactFormErrors {
   const normalized = normalizeTotalLossContactForm(values);
   const errors: TotalLossContactFormErrors = {};
-  if (!normalized.fullName || normalized.fullName.length > 200) {
-    errors.fullName = normalized.fullName
-      ? "Full name must be 200 characters or fewer."
-      : "Enter your full name.";
+  if (!normalized.firstName || normalized.firstName.length > 100) {
+    errors.firstName = normalized.firstName
+      ? "First name must be 100 characters or fewer."
+      : "Enter your first name.";
+  }
+  if (!normalized.lastName || normalized.lastName.length > 100) {
+    errors.lastName = normalized.lastName
+      ? "Last name must be 100 characters or fewer."
+      : "Enter your last name.";
+  }
+  if (
+    !errors.firstName &&
+    !errors.lastName &&
+    `${normalized.firstName} ${normalized.lastName}`.length > 200
+  ) {
+    errors.lastName = "First and last name must be 200 characters or fewer combined.";
   }
   if (
     !normalized.email ||
@@ -460,6 +474,12 @@ export function validateTotalLossContactForm(
     !EMAIL_PATTERN.test(normalized.email)
   ) {
     errors.email = "Enter a valid email address.";
+  }
+  if (
+    normalized.phoneNumber.length > 50 ||
+    [...normalized.phoneNumber].some(isUnsafeDisplayCharacter)
+  ) {
+    errors.phoneNumber = "Enter a valid phone number with 50 characters or fewer.";
   }
   if (!normalized.termsAccepted || !normalized.privacyAccepted) {
     errors.legal = "Accept the Terms of Use and acknowledge the Privacy Policy.";
