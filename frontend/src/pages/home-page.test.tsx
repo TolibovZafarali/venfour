@@ -5,10 +5,10 @@ import { describe, expect, test } from "vitest";
 import { renderTestApp } from "@/test/render";
 
 describe("homepage structure", () => {
-  test("leads with an available review and a truthful paused-service update", () => {
+  test("leads with an available review and a truthful paused-service update", async () => {
     renderTestApp();
 
-    const heroHeading = screen.getByRole("heading", {
+    const heroHeading = await screen.findByRole("heading", {
       level: 1,
       name: "Your Vehicle’s Value, Made Clear.",
     });
@@ -78,9 +78,12 @@ describe("homepage structure", () => {
     ).not.toBeInTheDocument();
   });
 
-  test("presents exactly two truthful services and no general value service", () => {
+  test("presents exactly two truthful services and no general value service", async () => {
     renderTestApp();
 
+    await screen.findByRole("heading", {
+      name: "Two services. Two different situations.",
+    });
     const services = document.querySelector<HTMLElement>("#services");
     expect(services).toBeVisible();
     if (!services) {
@@ -123,9 +126,10 @@ describe("homepage structure", () => {
     ).not.toBeInTheDocument();
   });
 
-  test("renders the process, educational explanations, deliverable, and trust proof", () => {
+  test("renders the process, educational explanations, deliverable, and trust proof", async () => {
     renderTestApp();
 
+    await screen.findByRole("heading", { name: "Start online in a few steps" });
     for (const heading of [
       "Start online in a few steps",
       "The insurance report may not tell the whole story.",
@@ -197,9 +201,12 @@ describe("homepage structure", () => {
     }
   });
 
-  test("avoids unsupported promises and links the current public policies", () => {
+  test("avoids unsupported promises and links the current public policies", async () => {
     renderTestApp();
 
+    await screen.findByRole("heading", {
+      name: "Your Vehicle’s Value, Made Clear.",
+    });
     expect(
       screen.queryByRole("heading", { name: "What customers say" }),
     ).not.toBeInTheDocument();
@@ -213,11 +220,11 @@ describe("homepage structure", () => {
   test("opens the total-loss start route from the hero action", async () => {
     const user = userEvent.setup();
     const { router } = renderTestApp();
-    const hero = screen
-      .getByRole("heading", {
+    const hero = (
+      await screen.findByRole("heading", {
         name: "Your Vehicle’s Value, Made Clear.",
       })
-      .closest("section");
+    ).closest("section");
     if (!hero) {
       throw new Error("The homepage hero was not rendered.");
     }
@@ -238,11 +245,11 @@ describe("homepage structure", () => {
   test("opens the paused diminished-value service update from the hero action", async () => {
     const user = userEvent.setup();
     const { router } = renderTestApp();
-    const hero = screen
-      .getByRole("heading", {
+    const hero = (
+      await screen.findByRole("heading", {
         name: "Your Vehicle’s Value, Made Clear.",
       })
-      .closest("section");
+    ).closest("section");
     if (!hero) {
       throw new Error("The homepage hero was not rendered.");
     }

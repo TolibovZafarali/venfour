@@ -3,6 +3,7 @@ import { Link } from "react-router";
 
 import heroRoadsideAssistanceAvif from "@/assets/hero-roadside-assistance.avif";
 import heroRoadsideAssistanceJpeg from "@/assets/hero-roadside-assistance.jpg";
+import { isPermanentAuthState, useAuth } from "@/features/auth";
 import {
   AnnotatedInsuranceReportVisual,
   AppraisalReportVisual,
@@ -11,6 +12,7 @@ import {
   RepairedVehicleServiceVisual,
   TotalLossServiceVisual,
 } from "@/pages/home-visuals";
+import { SignedInHomePage } from "@/pages/signed-in-home-page";
 
 const primaryActionClassName =
   "inline-flex min-h-12 items-center justify-center gap-2 rounded-lg bg-brand px-5 text-sm font-semibold whitespace-nowrap text-white transition-colors hover:bg-brand-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 motion-reduce:transition-none";
@@ -62,7 +64,7 @@ const processSteps = [
   },
 ] as const;
 
-export function HomePage() {
+export function PublicHomePage() {
   return (
     <div className="w-full overflow-clip bg-white text-ink">
       <section className="relative isolate overflow-hidden border-b border-slate-200 bg-canvas">
@@ -380,4 +382,41 @@ export function HomePage() {
 
     </div>
   );
+}
+
+function HomePageLoading() {
+  return (
+    <section
+      className="w-full bg-canvas"
+      aria-label="Loading home"
+      aria-live="polite"
+      aria-busy="true"
+    >
+      <span className="sr-only">Loading your home…</span>
+      <div className="mx-auto w-full max-w-7xl px-5 py-12 sm:px-8 sm:py-16 lg:px-10 lg:py-20">
+        <div
+          className="h-32 max-w-2xl animate-pulse rounded-2xl bg-white motion-reduce:animate-none"
+          aria-hidden
+        />
+        <div
+          className="mt-8 h-72 animate-pulse rounded-2xl border border-line bg-white motion-reduce:animate-none"
+          aria-hidden
+        />
+      </div>
+    </section>
+  );
+}
+
+export function HomePage() {
+  const { auth } = useAuth();
+
+  if (auth.status === "loading") {
+    return <HomePageLoading />;
+  }
+
+  if (isPermanentAuthState(auth)) {
+    return <SignedInHomePage userId={auth.user.id} />;
+  }
+
+  return <PublicHomePage />;
 }

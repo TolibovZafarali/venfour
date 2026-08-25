@@ -21,7 +21,7 @@ import { renderTestApp } from "@/test/render";
 
 describe("Venfour application", () => {
   test("renders the root route", () => {
-    renderTestApp();
+    renderTestApp(["/"], { authService: null });
 
     expect(
       screen.getByRole("heading", {
@@ -77,7 +77,7 @@ describe("Venfour application", () => {
   });
 
   test("provides homepage-focused primary and footer navigation", () => {
-    renderTestApp();
+    renderTestApp(["/"], { authService: null });
 
     const primaryNavigation = screen.getByRole("navigation", {
       name: "Primary navigation",
@@ -159,6 +159,81 @@ describe("Venfour application", () => {
 
   });
 
+  test("uses account-oriented primary and footer navigation on a permanent signed-in homepage", async () => {
+    renderTestApp(["/"], {
+      authService: createTestAuthService(createTestSession()),
+    });
+
+    const primaryNavigation = await screen.findByRole("navigation", {
+      name: "Primary navigation",
+    });
+    expect(
+      within(primaryNavigation).getByRole("link", { name: "My appraisals" }),
+    ).toHaveAttribute("href", "/appraisals");
+    expect(
+      within(primaryNavigation).getByRole("link", { name: "Methodology" }),
+    ).toHaveAttribute("href", "/methodology");
+    expect(
+      within(primaryNavigation).getByRole("link", { name: "Contact" }),
+    ).toHaveAttribute("href", "/contact");
+    expect(
+      within(primaryNavigation).getByRole("button", {
+        name: "Account for ada@example.com",
+      }),
+    ).toBeVisible();
+    expect(
+      within(primaryNavigation).queryByRole("link", { name: "Total Loss" }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(primaryNavigation).queryByRole("link", {
+        name: "Diminished Value",
+      }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(primaryNavigation).queryByRole("link", { name: "How It Works" }),
+    ).not.toBeInTheDocument();
+    const shellHeader = primaryNavigation.closest("header");
+    expect(shellHeader).not.toBeNull();
+    if (!shellHeader) {
+      throw new Error("The primary navigation was not inside the app shell header.");
+    }
+    expect(
+      within(shellHeader).queryByRole("link", {
+        name: "Get Started",
+      }),
+    ).not.toBeInTheDocument();
+
+    const footerNavigation = screen.getByRole("navigation", {
+      name: "Footer navigation",
+    });
+    expect(
+      within(footerNavigation).getByRole("link", { name: "My appraisals" }),
+    ).toHaveAttribute("href", "/appraisals");
+    expect(
+      within(footerNavigation).getByRole("link", { name: "Methodology" }),
+    ).toHaveAttribute("href", "/methodology");
+    expect(
+      within(footerNavigation).getByRole("link", { name: "Terms" }),
+    ).toHaveAttribute("href", "/terms");
+    expect(
+      within(footerNavigation).getByRole("link", { name: "Privacy" }),
+    ).toHaveAttribute("href", "/privacy");
+    expect(
+      within(footerNavigation).getByRole("link", { name: "Cookie Policy" }),
+    ).toHaveAttribute("href", "/cookies");
+    expect(
+      within(footerNavigation).getByRole("link", { name: "Contact" }),
+    ).toHaveAttribute("href", "/contact");
+    expect(
+      within(footerNavigation).queryByRole("link", { name: "Total Loss" }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(footerNavigation).queryByRole("link", {
+        name: "Diminished Value",
+      }),
+    ).not.toBeInTheDocument();
+  });
+
   test("offers report and no-report intake after secure setup", async () => {
     renderTotalLossApp();
 
@@ -213,7 +288,7 @@ describe("Venfour application", () => {
 
   test("opens and dismisses an accessible mobile navigation", async () => {
     const user = userEvent.setup();
-    renderTestApp();
+    renderTestApp(["/"], { authService: null });
 
     const openNavigation = screen.getByRole("button", {
       name: "Open navigation",
@@ -269,6 +344,60 @@ describe("Venfour application", () => {
     expect(screen.getByRole("button", { name: "Open navigation" })).toHaveFocus();
   });
 
+  test("uses account-oriented mobile navigation on a permanent signed-in homepage", async () => {
+    const user = userEvent.setup();
+    renderTestApp(["/"], {
+      authService: createTestAuthService(createTestSession()),
+    });
+
+    await screen.findByRole("button", {
+      name: "Account for ada@example.com",
+    });
+    const openNavigation = screen.getByRole("button", {
+      name: "Open navigation",
+    });
+    const mobileControls = openNavigation.parentElement;
+    expect(mobileControls).not.toBeNull();
+    if (!mobileControls) {
+      throw new Error("Mobile navigation controls were not rendered.");
+    }
+    expect(
+      within(mobileControls).queryByRole("link", { name: "Get Started" }),
+    ).not.toBeInTheDocument();
+
+    await user.click(openNavigation);
+
+    const mobileNavigation = screen.getByRole("navigation", {
+      name: "Mobile navigation",
+    });
+    expect(
+      within(mobileNavigation).getByRole("link", { name: "My appraisals" }),
+    ).toHaveAttribute("href", "/appraisals");
+    expect(
+      within(mobileNavigation).getByRole("link", { name: "Methodology" }),
+    ).toHaveAttribute("href", "/methodology");
+    expect(
+      within(mobileNavigation).getByRole("link", { name: "Contact" }),
+    ).toHaveAttribute("href", "/contact");
+    expect(
+      within(mobileNavigation).getByText("ada@example.com"),
+    ).toBeVisible();
+    expect(
+      within(mobileNavigation).getByRole("button", { name: "Sign Out" }),
+    ).toBeVisible();
+    expect(
+      within(mobileNavigation).queryByRole("link", { name: "Total Loss" }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(mobileNavigation).queryByRole("link", {
+        name: "Diminished Value",
+      }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(mobileNavigation).queryByRole("link", { name: "How It Works" }),
+    ).not.toBeInTheDocument();
+  });
+
   test("keeps the account control stable while restoring a signed-out session", async () => {
     let resolveSession: ((session: Session | null) => void) | undefined;
     const authService = createTestAuthService(null, {
@@ -282,6 +411,22 @@ describe("Venfour application", () => {
 
     expect(screen.getByText("Checking sign-in status")).toBeInTheDocument();
     expect(
+      within(screen.getByRole("banner")).queryByRole("navigation", {
+        name: "Primary navigation",
+      }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(screen.getByRole("banner")).queryByRole("link", {
+        name: "Get Started",
+      }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Open navigation" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("navigation", { name: "Footer navigation" }),
+    ).not.toBeInTheDocument();
+    expect(
       screen.queryByRole("button", { name: "Sign In" }),
     ).not.toBeInTheDocument();
 
@@ -289,6 +434,12 @@ describe("Venfour application", () => {
 
     expect(
       await screen.findByRole("button", { name: "Sign In" }),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("navigation", { name: "Primary navigation" }),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("navigation", { name: "Footer navigation" }),
     ).toBeVisible();
   });
 
@@ -349,6 +500,15 @@ describe("Venfour application", () => {
     expect(
       screen.queryByRole("button", { name: /Account for/ }),
     ).not.toBeInTheDocument();
+    const primaryNavigation = screen.getByRole("navigation", {
+      name: "Primary navigation",
+    });
+    expect(
+      within(primaryNavigation).getByRole("link", { name: "Total Loss" }),
+    ).toHaveAttribute("href", "#total-loss");
+    expect(
+      within(primaryNavigation).getByRole("link", { name: "Get Started" }),
+    ).toHaveAttribute("href", "/start?service=total-loss");
 
     await user.click(
       screen.getByRole("button", { name: "Open navigation" }),
@@ -413,7 +573,7 @@ describe("Venfour application", () => {
     });
 
     try {
-      const { router } = renderTestApp();
+      const { router } = renderTestApp(["/"], { authService: null });
       await user.click(
         screen.getByRole("button", { name: "Open navigation" }),
       );
@@ -482,6 +642,33 @@ describe("Venfour application", () => {
     ).toBeVisible();
   });
 
+  test("keeps public navigation on non-home routes for permanent users", async () => {
+    renderTestApp(["/privacy"], {
+      authService: createTestAuthService(createTestSession()),
+    });
+
+    await screen.findByRole("button", {
+      name: "Account for ada@example.com",
+    });
+    const primaryNavigation = screen.getByRole("navigation", {
+      name: "Primary navigation",
+    });
+    expect(
+      within(primaryNavigation).getByRole("link", { name: "Total Loss" }),
+    ).toHaveAttribute("href", "/#total-loss");
+    expect(
+      within(primaryNavigation).getByRole("link", {
+        name: "Diminished Value",
+      }),
+    ).toHaveAttribute("href", "/#diminished-value");
+    expect(
+      within(primaryNavigation).getByRole("link", { name: "How It Works" }),
+    ).toHaveAttribute("href", "/#how-it-works");
+    expect(
+      within(primaryNavigation).getByRole("link", { name: "Get Started" }),
+    ).toHaveAttribute("href", "/start?service=total-loss");
+  });
+
   test("resets scroll when a home link navigates to the hashless homepage", async () => {
     const user = userEvent.setup();
     const scrollTo = vi.spyOn(window, "scrollTo").mockImplementation(() => {});
@@ -531,7 +718,7 @@ describe("Venfour application", () => {
     const scrollTo = vi.spyOn(window, "scrollTo").mockImplementation(() => {});
 
     try {
-      const { router } = renderTestApp([`/#${id}`]);
+      const { router } = renderTestApp([`/#${id}`], { authService: null });
 
       await waitFor(() => expect(scrollIntoView).toHaveBeenCalledOnce());
       expect(scrollIntoView).toHaveBeenCalledWith({ block: "start" });

@@ -135,6 +135,8 @@ function AppShellContent() {
   }, []);
 
   const onHomePage = location.pathname === "/";
+  const resolvingHomeAudience = onHomePage && auth.status === "loading";
+  const permanentHome = onHomePage && isPermanentAuthState(auth);
   const totalLossHref = onHomePage ? "#total-loss" : "/#total-loss";
   const diminishedValueHref = onHomePage
     ? "#diminished-value"
@@ -232,44 +234,91 @@ function AppShellContent() {
                   onStaffNavigationRequest={requestStaffNavigation}
                   staffReviewHref={staffReviewHref}
                 />
+              ) : resolvingHomeAudience ? (
+                <div
+                  className="flex min-h-11 shrink-0 items-center gap-2"
+                  data-home-navigation-state="loading"
+                  aria-live="polite"
+                >
+                  <span className="sr-only">Checking sign-in status</span>
+                  <span
+                    className="hidden h-2.5 w-20 animate-pulse rounded-full bg-ink/10 lg:block motion-reduce:animate-none"
+                    aria-hidden
+                  />
+                  <span
+                    className="h-9 w-11 animate-pulse rounded-lg bg-ink/10 lg:hidden motion-reduce:animate-none"
+                    aria-hidden
+                  />
+                </div>
               ) : (
                 <>
                   <nav
                     className="hidden shrink-0 items-center gap-1 lg:flex lg:gap-2"
                     aria-label="Primary navigation"
                   >
-                    <a href={totalLossHref} className={primaryLinkClassName}>
-                      Total Loss
-                    </a>
-                    <a
-                      href={diminishedValueHref}
-                      className={primaryLinkClassName}
-                    >
-                      Diminished Value
-                    </a>
-                    <a href={howItWorksHref} className={primaryLinkClassName}>
-                      How It Works
-                    </a>
-                    <AccountControl
-                      onStaffNavigationRequest={requestStaffNavigation}
-                      staffReviewHref={staffReviewHref}
-                    />
-                    <a
-                      href={primaryActionHref}
-                      className="ml-1 inline-flex min-h-11 items-center rounded-lg border border-blue-300/20 bg-brand px-4 text-[0.8125rem] font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.2),0_8px_20px_-12px_rgba(21,94,239,0.95)] transition-colors hover:bg-[#2b6cf4] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 focus-visible:ring-offset-2 motion-reduce:transition-none"
-                    >
-                      Get Started
-                    </a>
+                    {permanentHome ? (
+                      <>
+                        <Link
+                          to="/appraisals"
+                          className={primaryLinkClassName}
+                        >
+                          My appraisals
+                        </Link>
+                        <Link
+                          to="/methodology"
+                          className={primaryLinkClassName}
+                        >
+                          Methodology
+                        </Link>
+                        <Link to="/contact" className={primaryLinkClassName}>
+                          Contact
+                        </Link>
+                        <AccountControl
+                          onStaffNavigationRequest={requestStaffNavigation}
+                          staffReviewHref={staffReviewHref}
+                        />
+                      </>
+                    ) : (
+                      <>
+                        <a href={totalLossHref} className={primaryLinkClassName}>
+                          Total Loss
+                        </a>
+                        <a
+                          href={diminishedValueHref}
+                          className={primaryLinkClassName}
+                        >
+                          Diminished Value
+                        </a>
+                        <a
+                          href={howItWorksHref}
+                          className={primaryLinkClassName}
+                        >
+                          How It Works
+                        </a>
+                        <AccountControl
+                          onStaffNavigationRequest={requestStaffNavigation}
+                          staffReviewHref={staffReviewHref}
+                        />
+                        <a
+                          href={primaryActionHref}
+                          className="ml-1 inline-flex min-h-11 items-center rounded-lg border border-blue-300/20 bg-brand px-4 text-[0.8125rem] font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.2),0_8px_20px_-12px_rgba(21,94,239,0.95)] transition-colors hover:bg-[#2b6cf4] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 focus-visible:ring-offset-2 motion-reduce:transition-none"
+                        >
+                          Get Started
+                        </a>
+                      </>
+                    )}
                   </nav>
 
                   <div className="flex shrink-0 items-center gap-1.5 lg:hidden">
-                    <a
-                      href={primaryActionHref}
-                      className="inline-flex min-h-11 items-center rounded-lg border border-blue-300/20 bg-brand px-3 text-xs font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.2),0_8px_20px_-12px_rgba(21,94,239,0.95)] transition-colors hover:bg-[#2b6cf4] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 focus-visible:ring-offset-2 motion-reduce:transition-none"
-                      onClick={() => setMobileNavigationOpen(false)}
-                    >
-                      Get Started
-                    </a>
+                    {!permanentHome ? (
+                      <a
+                        href={primaryActionHref}
+                        className="inline-flex min-h-11 items-center rounded-lg border border-blue-300/20 bg-brand px-3 text-xs font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.2),0_8px_20px_-12px_rgba(21,94,239,0.95)] transition-colors hover:bg-[#2b6cf4] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 focus-visible:ring-offset-2 motion-reduce:transition-none"
+                        onClick={() => setMobileNavigationOpen(false)}
+                      >
+                        Get Started
+                      </a>
+                    ) : null}
                     <button
                       ref={mobileNavigationButtonRef}
                       type="button"
@@ -299,7 +348,10 @@ function AppShellContent() {
               )}
             </div>
 
-            {!startFlowRoute && !adminRoute && mobileNavigationOpen ? (
+            {!startFlowRoute &&
+            !adminRoute &&
+            !resolvingHomeAudience &&
+            mobileNavigationOpen ? (
               <nav
                 id="mobile-navigation"
                 className={cn(
@@ -309,32 +361,58 @@ function AppShellContent() {
                 aria-label="Mobile navigation"
               >
                 <div className="mx-auto flex w-full max-w-7xl flex-col py-2">
-                  <a
-                    href={totalLossHref}
-                    className={mobileLinkClassName}
-                    onClick={() => setMobileNavigationOpen(false)}
-                  >
-                    Total Loss
-                  </a>
-                  <a
-                    href={diminishedValueHref}
-                    className={mobileLinkClassName}
-                    onClick={() => setMobileNavigationOpen(false)}
-                  >
-                    Diminished Value
-                  </a>
-                  <a
-                    href={howItWorksHref}
-                    className={mobileLinkClassName}
-                    onClick={() => setMobileNavigationOpen(false)}
-                  >
-                    How It Works
-                  </a>
-                  <MobileAccountControl
-                    className="border-t-0"
-                    onAction={() => setMobileNavigationOpen(false)}
-                    staffReviewHref={staffReviewHref}
-                  />
+                  {permanentHome ? (
+                    <>
+                      <MobileAccountControl
+                        className="border-t-0"
+                        onAction={() => setMobileNavigationOpen(false)}
+                        staffReviewHref={staffReviewHref}
+                      />
+                      <Link
+                        to="/methodology"
+                        className={mobileLinkClassName}
+                        onClick={() => setMobileNavigationOpen(false)}
+                      >
+                        Methodology
+                      </Link>
+                      <Link
+                        to="/contact"
+                        className={mobileLinkClassName}
+                        onClick={() => setMobileNavigationOpen(false)}
+                      >
+                        Contact
+                      </Link>
+                    </>
+                  ) : (
+                    <>
+                      <a
+                        href={totalLossHref}
+                        className={mobileLinkClassName}
+                        onClick={() => setMobileNavigationOpen(false)}
+                      >
+                        Total Loss
+                      </a>
+                      <a
+                        href={diminishedValueHref}
+                        className={mobileLinkClassName}
+                        onClick={() => setMobileNavigationOpen(false)}
+                      >
+                        Diminished Value
+                      </a>
+                      <a
+                        href={howItWorksHref}
+                        className={mobileLinkClassName}
+                        onClick={() => setMobileNavigationOpen(false)}
+                      >
+                        How It Works
+                      </a>
+                      <MobileAccountControl
+                        className="border-t-0"
+                        onAction={() => setMobileNavigationOpen(false)}
+                        staffReviewHref={staffReviewHref}
+                      />
+                    </>
+                  )}
                 </div>
               </nav>
             ) : null}
@@ -372,57 +450,81 @@ function AppShellContent() {
                 ) : null}
               </div>
 
-              <nav aria-label="Footer navigation">
-                <ul className="flex flex-wrap gap-x-5 gap-y-3">
-                  <li>
-                    <a href={totalLossHref} className={footerLinkClassName}>
-                      Total Loss
-                    </a>
-                  </li>
-                  <li>
-                    <a
-                      href={diminishedValueHref}
-                      className={footerLinkClassName}
-                    >
-                      Diminished Value
-                    </a>
-                  </li>
-                  <li>
-                    <Link to="/methodology" className={footerLinkClassName}>
-                      Methodology
-                    </Link>
-                  </li>
-                  <li>
-                    <Link to="/terms" className={footerLinkClassName}>
-                      Terms
-                    </Link>
-                  </li>
-                  <li>
-                    <Link to="/privacy" className={footerLinkClassName}>
-                      Privacy
-                    </Link>
-                  </li>
-                  <li>
-                    <Link to="/cookies" className={footerLinkClassName}>
-                      Cookie Policy
-                    </Link>
-                  </li>
-                  <li>
-                    <Link to="/contact" className={footerLinkClassName}>
-                      Contact
-                    </Link>
-                  </li>
-                  <li>
-                    <button
-                      type="button"
-                      className={footerLinkClassName}
-                      onClick={openPreferences}
-                    >
-                      Cookie preferences
-                    </button>
-                  </li>
-                </ul>
-              </nav>
+              {!resolvingHomeAudience ? (
+                <nav aria-label="Footer navigation">
+                  <ul className="flex flex-wrap gap-x-5 gap-y-3">
+                    {permanentHome ? (
+                      <li>
+                        <Link to="/appraisals" className={footerLinkClassName}>
+                          My appraisals
+                        </Link>
+                      </li>
+                    ) : (
+                      <>
+                        <li>
+                          <a
+                            href={totalLossHref}
+                            className={footerLinkClassName}
+                          >
+                            Total Loss
+                          </a>
+                        </li>
+                        <li>
+                          <a
+                            href={diminishedValueHref}
+                            className={footerLinkClassName}
+                          >
+                            Diminished Value
+                          </a>
+                        </li>
+                      </>
+                    )}
+                    <li>
+                      <Link to="/methodology" className={footerLinkClassName}>
+                        Methodology
+                      </Link>
+                    </li>
+                    <li>
+                      <Link to="/terms" className={footerLinkClassName}>
+                        Terms
+                      </Link>
+                    </li>
+                    <li>
+                      <Link to="/privacy" className={footerLinkClassName}>
+                        Privacy
+                      </Link>
+                    </li>
+                    <li>
+                      <Link to="/cookies" className={footerLinkClassName}>
+                        Cookie Policy
+                      </Link>
+                    </li>
+                    <li>
+                      <Link to="/contact" className={footerLinkClassName}>
+                        Contact
+                      </Link>
+                    </li>
+                    <li>
+                      <button
+                        type="button"
+                        className={footerLinkClassName}
+                        onClick={openPreferences}
+                      >
+                        Cookie preferences
+                      </button>
+                    </li>
+                  </ul>
+                </nav>
+              ) : (
+                <div
+                  className="flex min-h-11 items-center gap-2"
+                  data-footer-navigation-state="loading"
+                  aria-hidden
+                >
+                  <span className="h-2.5 w-20 animate-pulse rounded-full bg-ink/10 motion-reduce:animate-none" />
+                  <span className="h-2.5 w-14 animate-pulse rounded-full bg-ink/10 motion-reduce:animate-none" />
+                </div>
+              )}
             </div>
             <p className="mt-4 border-t border-line pt-4 text-xs text-copy">
               © {new Date().getFullYear()} VENFOUR. All rights reserved.
