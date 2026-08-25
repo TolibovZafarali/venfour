@@ -13,6 +13,7 @@ import { useId, useRef } from "react";
 import type { ChangeEvent, ReactNode } from "react";
 import { Link } from "react-router";
 
+import { InsuranceCompanyField } from "@/features/total-loss/insurance-company-field";
 import {
   FlowCard,
   IntakeProgress,
@@ -404,15 +405,12 @@ export function ClaimStep({
           Add the insurer details separately from the vehicle appraisal facts.
         </p>
         <div className="mt-5 grid items-start gap-5 sm:grid-cols-2">
-          <IntakeTextField
+          <InsuranceCompanyField
             id="total-loss-insurer"
-            label="Insurance company"
             value={values.insurerName}
             error={errors.insurerName}
-            autoComplete="organization"
-            placeholder="Insurance company name"
             disabled={fieldsDisabled}
-            onChange={(event) => onChange("insurerName", event.target.value)}
+            onChange={(value) => onChange("insurerName", value)}
             onBlur={() => onBlur("insurerName")}
           />
           <IntakeTextField

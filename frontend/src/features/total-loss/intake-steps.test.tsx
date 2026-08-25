@@ -208,7 +208,7 @@ describe("total-loss intake step presentation", () => {
     render(
       <ClaimStep
         mode="manual"
-        values={manualValues}
+        values={{ ...manualValues, insurerName: "Progressive" }}
         errors={{}}
         onChange={vi.fn()}
         onBlur={vi.fn()}
