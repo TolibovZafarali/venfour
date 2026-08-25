@@ -1,5 +1,6 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import userEvent from "@testing-library/user-event";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   ChoiceStep,
@@ -34,6 +35,10 @@ const contactValues: TotalLossContactFormValues = {
   privacyAccepted: true,
   operationalFollowUpAllowed: false,
 };
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 describe("total-loss intake step presentation", () => {
   it("keeps report choices and progress mounted while the selection changes", () => {
@@ -126,7 +131,16 @@ describe("total-loss intake step presentation", () => {
     expect(screen.getByLabelText("Review, step 6, current")).toBeVisible();
   });
 
-  it("asks only for the necessary claim and insurance facts", () => {
+  it("asks only for the necessary claim and insurance facts", async () => {
+    vi.stubGlobal(
+      "ResizeObserver",
+      class ResizeObserver {
+        observe() {}
+        unobserve() {}
+        disconnect() {}
+      },
+    );
+    const user = userEvent.setup();
     render(
       <ClaimStep
         mode="manual"
@@ -152,6 +166,61 @@ describe("total-loss intake step presentation", () => {
     expect(screen.getByRole("heading", { name: "Insurance information" })).toBeVisible();
     expect(screen.getByLabelText("Insurance company")).toBeVisible();
     expect(screen.getByLabelText("Insurer’s vehicle valuation")).toBeVisible();
+    expect(
+      screen.queryByText(
+        "The value assigned to the vehicle before deductible, loan payoff, or other settlement adjustments.",
+      ),
+    ).not.toBeInTheDocument();
+
+    const valuationTooltip = screen.getByRole("button", {
+      name: "More information about Insurer’s vehicle valuation",
+    });
+    await user.hover(valuationTooltip);
+
+    expect(
+      await screen.findByRole("tooltip"),
+    ).toHaveTextContent(
+      "The value assigned to the vehicle before deductible, loan payoff, or other settlement adjustments.",
+    );
+  });
+
+  it("shows the valuation explanation when the help icon receives keyboard focus", async () => {
+    vi.stubGlobal(
+      "ResizeObserver",
+      class ResizeObserver {
+        observe() {}
+        unobserve() {}
+        disconnect() {}
+      },
+    );
+    const user = userEvent.setup();
+    render(
+      <ClaimStep
+        mode="manual"
+        values={manualValues}
+        errors={{}}
+        onChange={vi.fn()}
+        onBlur={vi.fn()}
+        onBack={vi.fn()}
+        onContinue={vi.fn()}
+      />,
+    );
+
+    await user.tab();
+    await user.tab();
+    await user.tab();
+    await user.tab();
+    await user.tab();
+
+    expect(
+      screen.getByRole("button", {
+        name: "More information about Insurer’s vehicle valuation",
+      }),
+    ).toHaveFocus();
+
+    expect(await screen.findByRole("tooltip")).toHaveTextContent(
+      "The value assigned to the vehicle before deductible, loan payoff, or other settlement adjustments.",
+    );
   });
 
   it("describes the shared report upload limit as a total", () => {

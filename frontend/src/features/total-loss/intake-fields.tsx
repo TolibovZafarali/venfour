@@ -5,9 +5,10 @@ import {
   CalendarDays,
   ChevronLeft,
   ChevronRight,
+  CircleHelp,
   LoaderCircle,
 } from "lucide-react";
-import { Popover } from "radix-ui";
+import { Popover, Tooltip } from "radix-ui";
 import {
   useCallback,
   useEffect,
@@ -37,6 +38,7 @@ export interface IntakeTextFieldProps {
   onChange: ChangeEventHandler<HTMLInputElement>;
   error?: string;
   help?: string;
+  labelTooltip?: string;
   optional?: boolean;
   type?: HTMLInputTypeAttribute;
   inputMode?:
@@ -374,6 +376,7 @@ export function IntakeTextField({
   onChange,
   error,
   help,
+  labelTooltip,
   optional = false,
   type = "text",
   inputMode = "text",
@@ -390,10 +393,46 @@ export function IntakeTextField({
 
   return (
     <div>
-      <div className="flex items-baseline justify-between gap-3">
-        <label htmlFor={id} className="text-sm font-semibold text-ink">
-          {label}
-        </label>
+      <div
+        className={cn(
+          "flex justify-between gap-3",
+          labelTooltip ? "min-h-5 items-center" : "items-baseline",
+        )}
+      >
+        {labelTooltip ? (
+          <div className="flex min-w-0 items-center gap-1.5">
+            <label htmlFor={id} className="text-sm font-semibold text-ink">
+              {label}
+            </label>
+            <Tooltip.Provider delayDuration={200}>
+              <Tooltip.Root>
+                <Tooltip.Trigger asChild>
+                  <button
+                    type="button"
+                    className="flex size-5 shrink-0 items-center justify-center rounded-full text-copy transition-colors hover:bg-brand-soft hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-1 motion-reduce:transition-none"
+                    aria-label={`More information about ${label}`}
+                  >
+                    <CircleHelp className="size-3.5" aria-hidden />
+                  </button>
+                </Tooltip.Trigger>
+                <Tooltip.Portal>
+                  <Tooltip.Content
+                    side="top"
+                    sideOffset={6}
+                    className="z-50 max-w-72 rounded-lg bg-ink px-3 py-2 text-xs leading-5 text-white shadow-lg data-[state=delayed-open]:animate-in data-[state=delayed-open]:fade-in-0 data-[state=delayed-open]:zoom-in-95 motion-reduce:animate-none"
+                  >
+                    {labelTooltip}
+                    <Tooltip.Arrow className="fill-ink" />
+                  </Tooltip.Content>
+                </Tooltip.Portal>
+              </Tooltip.Root>
+            </Tooltip.Provider>
+          </div>
+        ) : (
+          <label htmlFor={id} className="text-sm font-semibold text-ink">
+            {label}
+          </label>
+        )}
         {optional ? <span className="text-xs text-copy">Optional</span> : null}
       </div>
       {help ? (

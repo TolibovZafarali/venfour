@@ -351,7 +351,7 @@ export function ClaimStep({
         <p className="mt-1 text-sm leading-6 text-copy">
           Add the facts that most directly affect the vehicle appraisal.
         </p>
-        <div className="mt-5 grid gap-5 sm:grid-cols-3">
+        <div className="mt-5 grid items-start gap-5 sm:grid-cols-3">
           <IntakeTextField
             id="total-loss-mileage"
             label="Mileage at time of loss"
@@ -403,7 +403,7 @@ export function ClaimStep({
         <p className="mt-1 text-sm leading-6 text-copy">
           Add the insurer details separately from the vehicle appraisal facts.
         </p>
-        <div className="mt-5 grid gap-5 sm:grid-cols-2">
+        <div className="mt-5 grid items-start gap-5 sm:grid-cols-2">
           <IntakeTextField
             id="total-loss-insurer"
             label="Insurance company"
@@ -420,7 +420,7 @@ export function ClaimStep({
             label="Insurer’s vehicle valuation"
             value={formatCurrencyInput(values.insurerVehicleValuation)}
             error={errors.insurerVehicleValuation}
-            help="The value assigned to the vehicle before deductible, loan payoff, or other settlement adjustments."
+            labelTooltip="The value assigned to the vehicle before deductible, loan payoff, or other settlement adjustments."
             optional
             inputMode="decimal"
             autoComplete="off"
