@@ -38,6 +38,7 @@ export interface IntakeTextFieldProps {
   onChange: ChangeEventHandler<HTMLInputElement>;
   error?: string;
   help?: string;
+  helpAfterInput?: boolean;
   labelTooltip?: string;
   optional?: boolean;
   type?: HTMLInputTypeAttribute;
@@ -378,6 +379,7 @@ export function IntakeTextField({
   onChange,
   error,
   help,
+  helpAfterInput = false,
   labelTooltip,
   optional = false,
   type = "text",
@@ -437,7 +439,7 @@ export function IntakeTextField({
         )}
         {optional ? <span className="text-xs text-copy">Optional</span> : null}
       </div>
-      {help ? (
+      {help && !helpAfterInput ? (
         <p id={helpId} className="mt-1 text-xs leading-5 text-copy">
           {help}
         </p>
@@ -459,6 +461,11 @@ export function IntakeTextField({
         onChange={onChange}
         onBlur={onBlur}
       />
+      {help && helpAfterInput ? (
+        <p id={helpId} className="mt-1.5 text-xs leading-5 text-copy">
+          {help}
+        </p>
+      ) : null}
       {error ? (
         <p
           id={errorId}
@@ -796,7 +803,7 @@ function roundCssNumber(value: number) {
 
 export interface StepHeadingProps {
   title: ReactNode;
-  description: ReactNode;
+  description?: ReactNode;
   className?: string;
 }
 
@@ -813,9 +820,11 @@ export function StepHeading({
       >
         {title}
       </h2>
-      <p className="mt-2 max-w-2xl text-sm leading-6 text-copy">
-        {description}
-      </p>
+      {description ? (
+        <p className="mt-2 max-w-2xl text-sm leading-6 text-copy">
+          {description}
+        </p>
+      ) : null}
     </div>
   );
 }

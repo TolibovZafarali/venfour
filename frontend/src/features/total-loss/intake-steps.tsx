@@ -694,79 +694,56 @@ export function ContactStep({
   return (
     <FlowCard busy={busy}>
       <TotalLossProgress mode={mode} step="contact" />
-      <StepHeading
-        title="Where should we send and save your results?"
-        description="You can continue in this browser now. We’ll also send a secure access link so you can return later."
-      />
-      <section className="mt-7" aria-labelledby="contact-details-heading">
-        <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between sm:gap-5">
-          <div>
-            <h3 id="contact-details-heading" className="text-base font-semibold text-ink">
-              Contact details
-            </h3>
-            <p className="mt-1 text-sm leading-6 text-copy">
-              Required fields help us keep your appraisal with the right person.
-            </p>
-          </div>
-          <span className="text-xs font-medium text-copy">
-            Required unless marked optional
-          </span>
-        </div>
-        <div className="mt-5 grid gap-x-5 gap-y-4 sm:grid-cols-2">
-          <IntakeTextField
-            id="total-loss-contact-first-name"
-            label="First name"
-            value={values.firstName}
-            error={errors.firstName}
-            autoComplete="given-name"
-            maxLength={100}
-            disabled={busy}
-            onChange={(event) => onChange("firstName", event.target.value)}
-          />
-          <IntakeTextField
-            id="total-loss-contact-last-name"
-            label="Last name"
-            value={values.lastName}
-            error={errors.lastName}
-            autoComplete="family-name"
-            maxLength={100}
-            disabled={busy}
-            onChange={(event) => onChange("lastName", event.target.value)}
-          />
-        </div>
-        <div className="mt-4 grid gap-x-5 gap-y-4 sm:grid-cols-[minmax(0,1.2fr)_minmax(13rem,0.8fr)]">
-          <IntakeTextField
-            id="total-loss-contact-email"
-            label={emailLocked ? "Verified account email" : "Email address"}
-            value={values.email}
-            error={errors.email}
-            type="email"
-            inputMode="email"
-            autoComplete="email"
-            maxLength={320}
-            disabled={busy || emailLocked}
-            help={
-              emailLocked
-                ? "This case will remain with your signed-in account."
-                : "This address is not verified until you use the secure link we send."
-            }
-            onChange={(event) => onChange("email", event.target.value)}
-          />
-          <IntakeTextField
-            id="total-loss-contact-phone"
-            label="Phone number"
-            value={values.phoneNumber}
-            error={errors.phoneNumber}
-            optional
-            type="tel"
-            inputMode="tel"
-            autoComplete="tel"
-            maxLength={50}
-            disabled={busy}
-            onChange={(event) => onChange("phoneNumber", event.target.value)}
-          />
-        </div>
-      </section>
+      <StepHeading title="Your contact details" />
+      <div className="mt-6 grid gap-x-5 gap-y-4 sm:grid-cols-2">
+        <IntakeTextField
+          id="total-loss-contact-first-name"
+          label="First name"
+          value={values.firstName}
+          error={errors.firstName}
+          autoComplete="given-name"
+          maxLength={100}
+          disabled={busy}
+          onChange={(event) => onChange("firstName", event.target.value)}
+        />
+        <IntakeTextField
+          id="total-loss-contact-last-name"
+          label="Last name"
+          value={values.lastName}
+          error={errors.lastName}
+          autoComplete="family-name"
+          maxLength={100}
+          disabled={busy}
+          onChange={(event) => onChange("lastName", event.target.value)}
+        />
+        <IntakeTextField
+          id="total-loss-contact-email"
+          label="Email address"
+          value={values.email}
+          error={errors.email}
+          type="email"
+          inputMode="email"
+          autoComplete="email"
+          maxLength={320}
+          disabled={busy || emailLocked}
+          help="Used to save your appraisal."
+          helpAfterInput
+          onChange={(event) => onChange("email", event.target.value)}
+        />
+        <IntakeTextField
+          id="total-loss-contact-phone"
+          label="Phone number"
+          value={values.phoneNumber}
+          error={errors.phoneNumber}
+          optional
+          type="tel"
+          inputMode="tel"
+          autoComplete="tel"
+          maxLength={50}
+          disabled={busy}
+          onChange={(event) => onChange("phoneNumber", event.target.value)}
+        />
+      </div>
 
       <section className="mt-7 border-t border-line pt-6" aria-labelledby="consent-heading">
         <div>

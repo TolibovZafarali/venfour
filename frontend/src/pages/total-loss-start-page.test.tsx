@@ -1360,7 +1360,7 @@ describe("/start?service=total-loss", () => {
 
     expect(
       await screen.findByRole("heading", {
-        name: "Where should we send and save your results?",
+        name: "Your contact details",
       }),
     ).toBeVisible();
     await user.type(screen.getByLabelText("First name"), "Guest");
@@ -1475,7 +1475,7 @@ describe("/start?service=total-loss", () => {
     await user.click(withinIntakeFlow().getByRole("button", { name: "Continue" }));
     expect(
       await screen.findByRole("heading", {
-        name: "Where should we send and save your results?",
+        name: "Your contact details",
       }),
     ).toBeVisible();
     await user.type(screen.getByLabelText("First name"), "Guest");
@@ -1526,7 +1526,7 @@ describe("/start?service=total-loss", () => {
     await user.click(withinIntakeFlow().getByRole("button", { name: "Continue" }));
     expect(
       await screen.findByRole("heading", {
-        name: "Where should we send and save your results?",
+        name: "Your contact details",
       }),
     ).toBeVisible();
     await user.type(screen.getByLabelText("First name"), "Guest");

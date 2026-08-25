@@ -45,7 +45,7 @@ afterEach(() => {
 });
 
 describe("total-loss intake step presentation", () => {
-  it("presents required contact details separately from optional phone and consent", () => {
+  it("keeps the simplified contact fields aligned separately from consent", () => {
     render(
       <MemoryRouter>
         <ContactStep
@@ -59,20 +59,30 @@ describe("total-loss intake step presentation", () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByRole("heading", { name: "Contact details" })).toBeVisible();
-    expect(screen.getByLabelText("First name")).toHaveAttribute(
+    expect(screen.getByRole("heading", { name: "Your contact details" })).toBeVisible();
+    const firstName = screen.getByLabelText("First name");
+    const lastName = screen.getByLabelText("Last name");
+    const email = screen.getByLabelText("Email address");
+    const phone = screen.getByLabelText("Phone number");
+    const fieldGrid = firstName.parentElement?.parentElement;
+    expect(firstName).toHaveAttribute(
       "autocomplete",
       "given-name",
     );
-    expect(screen.getByLabelText("Last name")).toHaveAttribute(
+    expect(lastName).toHaveAttribute(
       "autocomplete",
       "family-name",
     );
-    expect(screen.getByLabelText("Email address")).toHaveAttribute(
-      "type",
-      "email",
-    );
-    expect(screen.getByLabelText("Phone number")).toHaveAttribute("type", "tel");
+    expect(email).toHaveAttribute("type", "email");
+    expect(phone).toHaveAttribute("type", "tel");
+    expect(lastName.parentElement?.parentElement).toBe(fieldGrid);
+    expect(email.parentElement?.parentElement).toBe(fieldGrid);
+    expect(phone.parentElement?.parentElement).toBe(fieldGrid);
+    expect(fieldGrid).toHaveClass("sm:grid-cols-2");
+    expect(screen.getByText("Used to save your appraisal.")).toBeVisible();
+    expect(screen.queryByText(/continue in this browser now/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Required fields help us/i)).not.toBeInTheDocument();
+    expect(screen.queryByText("Required unless marked optional")).not.toBeInTheDocument();
     expect(screen.getAllByText("Optional")).toHaveLength(2);
     expect(
       screen.getByRole("heading", { name: "Consent and preferences" }),
@@ -81,6 +91,7 @@ describe("total-loss intake step presentation", () => {
     expect(screen.getByRole("checkbox", { name: /Privacy Policy/i })).toBeVisible();
     expect(screen.getByRole("checkbox", { name: /Case follow-up/i })).toBeVisible();
     expect(screen.queryByLabelText("Full name")).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Contact details" })).not.toBeInTheDocument();
   });
 
   it("keeps report choices and progress mounted while the selection changes", () => {
