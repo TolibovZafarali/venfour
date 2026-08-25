@@ -41,17 +41,13 @@ class ConfirmedValuationInputTests(unittest.TestCase):
             )
         self.assertEqual(raised.exception.field, "vehicle_trim")
 
-    def test_manual_input_requires_an_explicit_condition(self) -> None:
-        with self.assertRaises(ValuationInputError):
-            ConfirmedValuationInput.from_snapshot(snapshot(vehicle_condition=None))
+    def test_manual_input_keeps_condition_and_options_optional(self) -> None:
+        confirmed = ConfirmedValuationInput.from_snapshot(
+            snapshot(vehicle_condition=None, vehicle_options_packages=None)
+        )
 
-    def test_manual_input_keeps_major_options_optional(self) -> None:
-        for value in (None, "Not provided"):
-            with self.subTest(value=value):
-                confirmed = ConfirmedValuationInput.from_snapshot(
-                    snapshot(vehicle_options_packages=value)
-                )
-                self.assertEqual(confirmed.equipment, ())
+        self.assertIsNone(confirmed.condition_summary)
+        self.assertEqual(confirmed.equipment, ())
 
     def test_manual_projection_has_no_report_comparables_or_adjustments(self) -> None:
         confirmed = ConfirmedValuationInput.from_snapshot(snapshot())

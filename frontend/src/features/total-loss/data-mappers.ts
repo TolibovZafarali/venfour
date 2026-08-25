@@ -62,12 +62,8 @@ export function totalLossManualFormToDetailsValues(
     dateOfLoss,
     insurerName: nullable(normalized.insurerName),
     insurerVehicleValuation,
-    priorTitleStatus: nullable(normalized.priorTitleStatus),
     vehicleCondition: nullable(normalized.vehicleCondition),
-    existingDamageDescription: nullable(
-      normalized.existingDamageDescription,
-    ),
-    optionsPackages: normalized.optionsPackages || "Not provided",
+    optionsPackages: nullable(normalized.optionsPackages),
   };
 }
 
@@ -117,12 +113,7 @@ export function totalLossDetailsToManualForm(
       details.insurerVehicleValuation === null
         ? ""
         : details.insurerVehicleValuation.toFixed(2),
-    priorTitleStatus: details.priorTitleStatus ?? "",
     vehicleCondition: details.vehicleCondition ?? "",
-    existingDamageDescription: details.existingDamageDescription ?? "",
-    optionsPackages:
-      details.optionsPackages === "Not provided"
-        ? ""
-        : (details.optionsPackages ?? ""),
+    optionsPackages: details.optionsPackages ?? "",
   };
 }

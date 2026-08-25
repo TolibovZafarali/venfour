@@ -174,8 +174,6 @@ def _public_options_packages(value: Any) -> tuple[str | None, bool]:
     if not items:
         return None, False
     joined = ", ".join(items)
-    if joined == "Not provided":
-        return None, False
     if len(joined) > MAX_PUBLIC_OPTIONS_PACKAGES_CHARACTERS:
         return None, True
     return joined, False
@@ -723,9 +721,14 @@ class CaseAnalysisService:
             "condition.preLossCondition": "vehicleCondition",
             "vehicle.equipment": "optionsPackages",
         }
+        nonblocking_fields = {
+            "condition.preLossCondition",
+            "vehicle.equipment",
+        }
         missing = [
             field_names.get(field, field)
             for field in ingestion.missing_required_fields
+            if field not in nonblocking_fields
         ]
         raw_options_packages = preferred(
             list(vehicle["equipment"]),

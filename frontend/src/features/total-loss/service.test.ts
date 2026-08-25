@@ -22,7 +22,7 @@ const CREATED_AT = "2026-08-18T14:00:00.000Z";
 const UPDATED_AT = "2026-08-18T15:00:00.000Z";
 const UPLOAD_ID = "33333333-3333-4333-8333-333333333333";
 const DETAILS_COLUMNS =
-  "case_id,intake_mode,vin,vehicle_year,vehicle_make,vehicle_model,vehicle_trim,mileage_at_loss,postal_code,date_of_loss,insurer_name,insurer_vehicle_valuation,prior_title_status,vehicle_condition,existing_damage_description,vehicle_options_packages,report_provider_name,report_extraction_status,report_extraction_confidence,report_extracted_at,report_facts_confirmed_at,analysis_input_revision,analysis_input_id,report_storage_owner_id,report_original_filename,report_uploaded_at,intake_completed_at,created_at,updated_at";
+  "case_id,intake_mode,vin,vehicle_year,vehicle_make,vehicle_model,vehicle_trim,mileage_at_loss,postal_code,date_of_loss,insurer_name,insurer_vehicle_valuation,vehicle_condition,vehicle_options_packages,report_provider_name,report_extraction_status,report_extraction_confidence,report_extracted_at,report_facts_confirmed_at,analysis_input_revision,analysis_input_id,report_storage_owner_id,report_original_filename,report_uploaded_at,intake_completed_at,created_at,updated_at";
 
 const detailsRow = {
   case_id: CASE_ID,
@@ -37,9 +37,7 @@ const detailsRow = {
   date_of_loss: "2026-08-18",
   insurer_name: "Example Insurance",
   insurer_vehicle_valuation: 20500.5,
-  prior_title_status: "No",
-  vehicle_condition: "No significant damage or mechanical issues",
-  existing_damage_description: null,
+  vehicle_condition: "Good",
   vehicle_options_packages: "Technology package",
   report_provider_name: null,
   report_extraction_status: "not_requested",
@@ -97,9 +95,7 @@ const expectedDetails: TotalLossCaseDetails = {
   dateOfLoss: "2026-08-18",
   insurerName: "Example Insurance",
   insurerVehicleValuation: 20500.5,
-  priorTitleStatus: "No",
-  vehicleCondition: "No significant damage or mechanical issues",
-  existingDamageDescription: null,
+  vehicleCondition: "Good",
   optionsPackages: "Technology package",
   reportProvider: null,
   reportExtractionStatus: "not_requested",
@@ -215,9 +211,7 @@ describe("total-loss details service", () => {
         intakeMode: "manual",
         vin: "1HGCM82633A004352",
         vehicleYear: 2023,
-        priorTitleStatus: "No",
-        vehicleCondition: "No significant damage or mechanical issues",
-        existingDamageDescription: null,
+        vehicleCondition: "Good",
         optionsPackages: "Technology package",
       },
     });
@@ -226,9 +220,7 @@ describe("total-loss details service", () => {
       case_id: CASE_ID,
       intake_mode: "manual",
       report_storage_owner_id: USER_ID,
-      existing_damage_description: null,
-      prior_title_status: "No",
-      vehicle_condition: "No significant damage or mechanical issues",
+      vehicle_condition: "Good",
       vehicle_options_packages: "Technology package",
       vehicle_year: 2023,
       vin: "1HGCM82633A004352",
@@ -363,9 +355,7 @@ describe("total-loss details service", () => {
           dateOfLoss: "2026-08-18",
           insurerName: "Example Insurance",
           insurerVehicleValuation: 20500.5,
-          priorTitleStatus: "No",
-          vehicleCondition: "No significant damage or mechanical issues",
-          existingDamageDescription: null,
+          vehicleCondition: "Good",
           optionsPackages: "Technology package",
         },
       }),

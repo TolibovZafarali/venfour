@@ -172,11 +172,7 @@ export function normalizeTotalLossManualForm(
       valuationCents === null
         ? values.insurerVehicleValuation.trim()
         : currencyCentsToDecimal(valuationCents),
-    priorTitleStatus: normalizeWhitespace(values.priorTitleStatus),
     vehicleCondition: normalizeWhitespace(values.vehicleCondition),
-    existingDamageDescription: normalizeWhitespace(
-      values.existingDamageDescription,
-    ),
     optionsPackages: normalizeWhitespace(values.optionsPackages),
   };
 }
@@ -317,35 +313,6 @@ export function validateTotalLossManualForm(
     "insurerVehicleValuation",
     validateInsurerVehicleValuation(values.insurerVehicleValuation),
   );
-  assignError(
-    "priorTitleStatus",
-    ["No", "Yes", "Not sure"].includes(values.priorTitleStatus)
-      ? null
-      : "Choose whether the vehicle had a prior branded, rebuilt, or salvage title.",
-  );
-  assignError(
-    "vehicleCondition",
-    [
-      "No significant damage or mechanical issues",
-      "Some existing cosmetic damage",
-      "Significant damage or mechanical issues",
-    ].includes(values.vehicleCondition)
-      ? null
-      : "Choose the vehicle’s pre-loss condition.",
-  );
-  if (
-    values.vehicleCondition === "Some existing cosmetic damage" ||
-    values.vehicleCondition === "Significant damage or mechanical issues"
-  ) {
-    assignError(
-      "existingDamageDescription",
-      requiredTextError(
-        values.existingDamageDescription,
-        "Damage or issue description",
-      ),
-    );
-  }
-
   return errors;
 }
 

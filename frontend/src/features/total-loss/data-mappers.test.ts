@@ -25,9 +25,7 @@ describe("total-loss data mappers", () => {
           dateOfLoss: "2026-08-18",
           insurerName: " Example  Insurance ",
           insurerVehicleValuation: "$20,500.50",
-          priorTitleStatus: " No ",
-          vehicleCondition: " No significant damage or mechanical issues ",
-          existingDamageDescription: " ",
+          vehicleCondition: " Good ",
           optionsPackages: " Technology package ",
         },
         REFERENCE_DATE,
@@ -44,9 +42,7 @@ describe("total-loss data mappers", () => {
       dateOfLoss: "2026-08-18",
       insurerName: "Example Insurance",
       insurerVehicleValuation: 20500.5,
-      priorTitleStatus: "No",
-      vehicleCondition: "No significant damage or mechanical issues",
-      existingDamageDescription: null,
+      vehicleCondition: "Good",
       optionsPackages: "Technology package",
     });
   });
@@ -65,9 +61,7 @@ describe("total-loss data mappers", () => {
           dateOfLoss: "2020-01-02",
           insurerName: "Private Insurer",
           insurerVehicleValuation: "18750.00",
-          priorTitleStatus: "No",
-          vehicleCondition: "No significant damage or mechanical issues",
-          existingDamageDescription: "",
+          vehicleCondition: "Good",
           optionsPackages: "None known",
         },
         REFERENCE_DATE,
@@ -84,9 +78,7 @@ describe("total-loss data mappers", () => {
       dateOfLoss: "2020-01-02",
       insurerName: "Private Insurer",
       insurerVehicleValuation: 18750,
-      priorTitleStatus: "No",
-      vehicleCondition: "No significant damage or mechanical issues",
-      existingDamageDescription: null,
+      vehicleCondition: "Good",
       optionsPackages: "None known",
     });
   });
@@ -105,9 +97,7 @@ describe("total-loss data mappers", () => {
       dateOfLoss: "2026-08-18",
       insurerName: "Example Insurance",
       insurerVehicleValuation: 20500.5,
-      priorTitleStatus: "No",
-      vehicleCondition: "No significant damage or mechanical issues",
-      existingDamageDescription: null,
+      vehicleCondition: "Good",
       optionsPackages: "Technology package",
       reportOriginalFilename: null,
       reportUploadedAt: null,
@@ -127,14 +117,12 @@ describe("total-loss data mappers", () => {
       dateOfLoss: "2026-08-18",
       insurerName: "Example Insurance",
       insurerVehicleValuation: "20500.50",
-      priorTitleStatus: "No",
-      vehicleCondition: "No significant damage or mechanical issues",
-      existingDamageDescription: "",
+      vehicleCondition: "Good",
       optionsPackages: "Technology package",
     });
   });
 
-  it("keeps an omitted major-options response blank in the browser form", () => {
+  it("keeps removed condition and options fields nullable", () => {
     const emptyOptions = totalLossManualFormToDetailsValues(
       {
         vin: "",
@@ -147,15 +135,16 @@ describe("total-loss data mappers", () => {
         dateOfLoss: "2026-08-18",
         insurerName: "Example Insurance",
         insurerVehicleValuation: "",
-        priorTitleStatus: "No",
-        vehicleCondition: "No significant damage or mechanical issues",
-        existingDamageDescription: "",
+        vehicleCondition: "",
         optionsPackages: "",
       },
       REFERENCE_DATE,
     );
 
-    expect(emptyOptions.optionsPackages).toBe("Not provided");
+    expect(emptyOptions).toMatchObject({
+      vehicleCondition: null,
+      optionsPackages: null,
+    });
     expect(
       totalLossDetailsToManualForm({
         caseId: "22222222-2222-4222-8222-222222222222",
@@ -170,9 +159,7 @@ describe("total-loss data mappers", () => {
         dateOfLoss: "2026-08-18",
         insurerName: "Example Insurance",
         insurerVehicleValuation: null,
-        priorTitleStatus: "No",
-        vehicleCondition: "No significant damage or mechanical issues",
-        existingDamageDescription: null,
+        vehicleCondition: null,
         optionsPackages: emptyOptions.optionsPackages ?? null,
         reportOriginalFilename: null,
         reportUploadedAt: null,
@@ -195,9 +182,7 @@ describe("total-loss data mappers", () => {
       dateOfLoss: "2026-08",
       insurerName: "",
       insurerVehicleValuation: "$20.",
-      priorTitleStatus: "",
       vehicleCondition: "",
-      existingDamageDescription: "",
       optionsPackages: "",
     };
 

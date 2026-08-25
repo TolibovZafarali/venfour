@@ -2184,9 +2184,7 @@ const fieldIds: Record<keyof TotalLossManualFormValues, string> = {
   dateOfLoss: "total-loss-date",
   insurerName: "total-loss-insurer",
   insurerVehicleValuation: "total-loss-valuation",
-  priorTitleStatus: "total-loss-prior-title",
   vehicleCondition: "total-loss-condition",
-  existingDamageDescription: "total-loss-existing-damage",
   optionsPackages: "total-loss-options",
 };
 

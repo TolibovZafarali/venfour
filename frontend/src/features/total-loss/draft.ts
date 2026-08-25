@@ -78,13 +78,11 @@ const MANUAL_FORM_KEYS = [
   "dateOfLoss",
   "insurerName",
   "insurerVehicleValuation",
-  "priorTitleStatus",
   "vehicleCondition",
-  "existingDamageDescription",
   "optionsPackages",
 ] as const;
 
-const VERSION_TWO_MANUAL_FORM_KEYS = [
+const VERSION_THREE_MANUAL_FORM_KEYS = [
   "vin",
   "vehicleYear",
   "make",
@@ -95,7 +93,9 @@ const VERSION_TWO_MANUAL_FORM_KEYS = [
   "dateOfLoss",
   "insurerName",
   "insurerVehicleValuation",
+  "priorTitleStatus",
   "vehicleCondition",
+  "existingDamageDescription",
   "optionsPackages",
 ] as const;
 
@@ -300,6 +300,10 @@ function toTotalLossDraft(value: unknown): TotalLossDraft | null {
       return migrateVersionTwoDraft(value);
     }
 
+    if (value.version === 3) {
+      return migrateVersionThreeDraft(value);
+    }
+
     if (!hasExactKeys(value, DRAFT_KEYS)) return null;
 
     if (
@@ -393,9 +397,7 @@ function copyManualForm(
     dateOfLoss: value.dateOfLoss,
     insurerName: value.insurerName,
     insurerVehicleValuation: value.insurerVehicleValuation,
-    priorTitleStatus: value.priorTitleStatus,
     vehicleCondition: value.vehicleCondition,
-    existingDamageDescription: value.existingDamageDescription,
     optionsPackages: value.optionsPackages,
   };
 }
@@ -403,26 +405,57 @@ function copyManualForm(
 function migrateVersionTwoDraft(
   value: Record<string, unknown>,
 ): TotalLossDraft | null {
-  const manual = value.manual;
-  if (
-    !isRecord(manual) ||
-    !hasExactKeys(manual, VERSION_TWO_MANUAL_FORM_KEYS) ||
-    !VERSION_TWO_MANUAL_FORM_KEYS.every(
-      (key) => typeof manual[key] === "string",
-    )
-  ) {
+  if (!hasExactKeys(value, DRAFT_KEYS) || !isManualFormValues(value.manual)) {
     return null;
   }
 
   return toTotalLossDraft({
     ...value,
     version: TOTAL_LOSS_DRAFT_VERSION,
+  });
+}
+
+function migrateVersionThreeDraft(
+  value: Record<string, unknown>,
+): TotalLossDraft | null {
+  if (
+    !hasExactKeys(value, DRAFT_KEYS) ||
+    !isVersionThreeManualFormValues(value.manual)
+  ) {
+    return null;
+  }
+
+  const manual = value.manual;
+  return toTotalLossDraft({
+    ...value,
+    version: TOTAL_LOSS_DRAFT_VERSION,
     manual: {
-      ...manual,
-      priorTitleStatus: "",
-      existingDamageDescription: "",
+      vin: manual.vin,
+      vehicleYear: manual.vehicleYear,
+      make: manual.make,
+      model: manual.model,
+      trim: manual.trim,
+      mileageAtLoss: manual.mileageAtLoss,
+      zipCode: manual.zipCode,
+      dateOfLoss: manual.dateOfLoss,
+      insurerName: manual.insurerName,
+      insurerVehicleValuation: manual.insurerVehicleValuation,
+      vehicleCondition: manual.vehicleCondition,
+      optionsPackages: manual.optionsPackages,
     },
   });
+}
+
+function isVersionThreeManualFormValues(
+  value: unknown,
+): value is Record<(typeof VERSION_THREE_MANUAL_FORM_KEYS)[number], string> {
+  return (
+    isRecord(value) &&
+    hasExactKeys(value, VERSION_THREE_MANUAL_FORM_KEYS) &&
+    VERSION_THREE_MANUAL_FORM_KEYS.every(
+      (key) => typeof value[key] === "string",
+    )
+  );
 }
 
 function migrateLegacyDraft(value: Record<string, unknown>): TotalLossDraft | null {

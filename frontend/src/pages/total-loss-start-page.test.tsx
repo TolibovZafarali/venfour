@@ -107,9 +107,7 @@ function createSensitiveManualDraft(
       dateOfLoss: "2020-01-02",
       insurerName: "Private Insurer",
       insurerVehicleValuation: "18750.00",
-      priorTitleStatus: "No",
-      vehicleCondition: "No significant damage or mechanical issues",
-      existingDamageDescription: "",
+      vehicleCondition: "Good",
       optionsPackages: "None known",
     },
     ownerUserId: USER_ID,
@@ -1351,13 +1349,6 @@ describe("/start?service=total-loss", () => {
     expect(
       await screen.findByRole("heading", { name: "Add the claim details" }),
     ).toBeVisible();
-    await user.click(screen.getByRole("radio", {
-      name: "No",
-    }));
-    await user.selectOptions(
-      screen.getByLabelText("Pre-loss condition"),
-      "No significant damage or mechanical issues",
-    );
     await user.clear(screen.getByLabelText("ZIP code"));
     await user.type(screen.getByLabelText("ZIP code"), "606011234");
     fireEvent.blur(screen.getByLabelText("ZIP code"));
@@ -2107,9 +2098,7 @@ describe("/start?service=total-loss", () => {
         dateOfLoss: "",
         insurerName: "",
         insurerVehicleValuation: "",
-        priorTitleStatus: "",
         vehicleCondition: "",
-        existingDamageDescription: "",
         optionsPackages: "",
       },
       dirty: true,

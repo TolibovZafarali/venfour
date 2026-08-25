@@ -32,9 +32,7 @@ const validManualForm: TotalLossManualFormValues = {
   dateOfLoss: "2026-08-18",
   insurerName: "Example Insurance",
   insurerVehicleValuation: "$20,500.50",
-  priorTitleStatus: "No",
-  vehicleCondition: "No significant damage or mechanical issues",
-  existingDamageDescription: "",
+  vehicleCondition: "Good",
   optionsPackages: "Technology package",
 };
 
@@ -101,9 +99,7 @@ describe("total-loss manual validation", () => {
         dateOfLoss: "",
         insurerName: "",
         insurerVehicleValuation: "",
-        priorTitleStatus: "",
         vehicleCondition: "",
-        existingDamageDescription: "",
         optionsPackages: "",
       },
       REFERENCE_DATE,
@@ -118,52 +114,16 @@ describe("total-loss manual validation", () => {
       "zipCode",
       "dateOfLoss",
       "insurerName",
-      "priorTitleStatus",
-      "vehicleCondition",
     ]);
     expect(errors).not.toHaveProperty("insurerVehicleValuation");
+    expect(errors).not.toHaveProperty("vehicleCondition");
     expect(errors).not.toHaveProperty("optionsPackages");
   });
 
-  it("keeps major options optional", () => {
+  it("does not require the removed condition or options fields", () => {
     expect(
       validateTotalLossManualForm(
-        { ...validManualForm, optionsPackages: "" },
-        REFERENCE_DATE,
-      ),
-    ).toEqual({});
-  });
-
-  it("requires a brief description only when existing damage is selected", () => {
-    expect(
-      validateTotalLossManualForm(
-        {
-          ...validManualForm,
-          vehicleCondition: "Some existing cosmetic damage",
-          existingDamageDescription: "",
-        },
-        REFERENCE_DATE,
-      ),
-    ).toMatchObject({ existingDamageDescription: expect.any(String) });
-
-    expect(
-      validateTotalLossManualForm(
-        {
-          ...validManualForm,
-          vehicleCondition: "Some existing cosmetic damage",
-          existingDamageDescription: "Scrape on rear bumper",
-        },
-        REFERENCE_DATE,
-      ),
-    ).toEqual({});
-
-    expect(
-      validateTotalLossManualForm(
-        {
-          ...validManualForm,
-          vehicleCondition: "No significant damage or mechanical issues",
-          existingDamageDescription: "",
-        },
+        { ...validManualForm, vehicleCondition: "", optionsPackages: "" },
         REFERENCE_DATE,
       ),
     ).toEqual({});

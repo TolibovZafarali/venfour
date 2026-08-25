@@ -166,10 +166,6 @@ class ConfirmedValuationInput:
             snapshot, "vehicle_options_packages", "vehicleOptionsPackages"
         )
         condition = _condition_summary(condition_value)
-        if condition is None:
-            raise ValuationInputError(
-                "vehicle_condition", "Vehicle condition confirmation is required"
-            )
         return cls(
             intake_mode=mode.upper(),
             vin=_optional_text(_first(snapshot, "vin"), "vin"),
@@ -210,11 +206,7 @@ class ConfirmedValuationInput:
                 "insurer_vehicle_valuation",
             ),
             condition_summary=condition,
-            equipment=(
-                ()
-                if options_value is None or options_value == "Not provided"
-                else _equipment(options_value)
-            ),
+            equipment=() if options_value is None else _equipment(options_value),
             report_provider=_optional_text(
                 _first(snapshot, "report_provider_name", "reportProviderName"),
                 "report_provider_name",
