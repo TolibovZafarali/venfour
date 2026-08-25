@@ -5,6 +5,7 @@ import {
   formatCurrencyInput,
   formatCurrencyValue,
   formatMileageInput,
+  formatUsPhoneNumberInput,
   getMaximumTotalLossVehicleYear,
   MAX_TOTAL_LOSS_MILEAGE,
   MAX_TOTAL_LOSS_PDF_BYTES,
@@ -222,6 +223,32 @@ describe("total-loss contact validation", () => {
       legal: "Accept the Terms of Use and acknowledge the Privacy Policy.",
     });
     expect(validateTotalLossContactForm(validContactForm)).toEqual({});
+  });
+
+  it("formats U.S. phone numbers progressively and keeps the field optional", () => {
+    expect(formatUsPhoneNumberInput("5")).toBe("(5");
+    expect(formatUsPhoneNumberInput("555123")).toBe("(555) 123");
+    expect(formatUsPhoneNumberInput("5551234567")).toBe("(555) 123-4567");
+    expect(formatUsPhoneNumberInput("+1 (555) 123-4567")).toBe(
+      "(555) 123-4567",
+    );
+    expect(
+      normalizeTotalLossContactForm({
+        ...validContactForm,
+        phoneNumber: "555-123-4567",
+      }).phoneNumber,
+    ).toBe("(555) 123-4567");
+    expect(
+      validateTotalLossContactForm({ ...validContactForm, phoneNumber: "" }),
+    ).toEqual({});
+    expect(
+      validateTotalLossContactForm({
+        ...validContactForm,
+        phoneNumber: "(555) 12",
+      }),
+    ).toMatchObject({
+      phoneNumber: "Enter a 10-digit U.S. phone number.",
+    });
   });
 
   it("matches the persisted combined-name limit", () => {

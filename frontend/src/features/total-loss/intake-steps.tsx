@@ -9,8 +9,8 @@ import {
   ShieldCheck,
   Upload,
 } from "lucide-react";
-import { useId, useRef } from "react";
-import type { ChangeEvent, ReactNode } from "react";
+import { useId, useLayoutEffect, useRef } from "react";
+import type { ChangeEvent, KeyboardEvent, ReactNode } from "react";
 import { Link } from "react-router";
 
 import { InsuranceCompanyField } from "@/features/total-loss/insurance-company-field";
@@ -36,6 +36,8 @@ import type {
 import {
   formatCurrencyInput,
   formatMileageInput,
+  formatUsPhoneNumberInput,
+  getUsPhoneNumberDigits,
   getMaximumTotalLossVehicleYear,
   MIN_TOTAL_LOSS_VEHICLE_YEAR,
 } from "@/features/total-loss/validation";
@@ -707,6 +709,69 @@ export function ContactStep({
   onBack,
   onContinue,
 }: ContactStepProps) {
+  const phoneInputRef = useRef<HTMLInputElement>(null);
+  const pendingPhoneCaretRef = useRef<number | null>(null);
+  const displayedPhoneNumber = formatUsPhoneNumberInput(values.phoneNumber);
+
+  useLayoutEffect(() => {
+    const caret = pendingPhoneCaretRef.current;
+    const input = phoneInputRef.current;
+    if (caret === null || !input || document.activeElement !== input) return;
+    input.setSelectionRange(caret, caret);
+    pendingPhoneCaretRef.current = null;
+  });
+
+  const updatePhoneNumber = (digits: string, digitOffset: number, atEnd = false) => {
+    const formatted = formatUsPhoneNumberInput(digits);
+    pendingPhoneCaretRef.current = atEnd
+      ? formatted.length
+      : phoneCaretPosition(formatted, digitOffset);
+    onChange("phoneNumber", formatted);
+  };
+
+  const handlePhoneChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const rawValue = event.currentTarget.value;
+    const selectionStart = event.currentTarget.selectionStart ?? rawValue.length;
+    const digits = getUsPhoneNumberDigits(rawValue).slice(0, 10);
+    const digitOffset = Math.min(
+      getUsPhoneNumberDigits(rawValue.slice(0, selectionStart)).length,
+      digits.length,
+    );
+    updatePhoneNumber(digits, digitOffset, selectionStart === rawValue.length);
+  };
+
+  const handlePhoneKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key !== "Backspace" && event.key !== "Delete") return;
+
+    const input = event.currentTarget;
+    const selectionStart = input.selectionStart;
+    const selectionEnd = input.selectionEnd;
+    if (
+      selectionStart === null ||
+      selectionEnd === null ||
+      selectionStart !== selectionEnd
+    ) {
+      return;
+    }
+
+    const adjacentCharacter =
+      event.key === "Backspace"
+        ? input.value[selectionStart - 1]
+        : input.value[selectionStart];
+    if (!adjacentCharacter || /\d/u.test(adjacentCharacter)) return;
+
+    const digits = getUsPhoneNumberDigits(input.value).slice(0, 10);
+    const digitOffset = getUsPhoneNumberDigits(
+      input.value.slice(0, selectionStart),
+    ).length;
+    const removeIndex = event.key === "Backspace" ? digitOffset - 1 : digitOffset;
+    if (removeIndex < 0 || removeIndex >= digits.length) return;
+
+    event.preventDefault();
+    const nextDigits = `${digits.slice(0, removeIndex)}${digits.slice(removeIndex + 1)}`;
+    updatePhoneNumber(nextDigits, removeIndex);
+  };
+
   return (
     <FlowCard busy={busy}>
       <TotalLossProgress mode={mode} step="contact" />
@@ -752,15 +817,17 @@ export function ContactStep({
         <IntakeTextField
           id="total-loss-contact-phone"
           label="Phone number"
-          value={values.phoneNumber}
+          value={displayedPhoneNumber}
           error={errors.phoneNumber}
           optional
           type="tel"
           inputMode="tel"
           autoComplete="tel"
-          maxLength={50}
+          placeholder="(555) 123-4567"
           disabled={busy}
-          onChange={(event) => onChange("phoneNumber", event.target.value)}
+          inputRef={phoneInputRef}
+          onChange={handlePhoneChange}
+          onKeyDown={handlePhoneKeyDown}
         />
       </div>
 
@@ -828,6 +895,18 @@ export function ContactStep({
       />
     </FlowCard>
   );
+}
+
+function phoneCaretPosition(formattedValue: string, digitOffset: number) {
+  if (digitOffset <= 0) return formattedValue ? 1 : 0;
+
+  let digitsSeen = 0;
+  for (let index = 0; index < formattedValue.length; index += 1) {
+    if (!/\d/u.test(formattedValue[index])) continue;
+    digitsSeen += 1;
+    if (digitsSeen === digitOffset) return index + 1;
+  }
+  return formattedValue.length;
 }
 
 function Acknowledgement({

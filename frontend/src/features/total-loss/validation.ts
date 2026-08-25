@@ -74,6 +74,23 @@ export function formatMileageInput(value: string) {
   return digits.replace(/\B(?=(\d{3})+(?!\d))/gu, ",");
 }
 
+export function getUsPhoneNumberDigits(value: string) {
+  const digits = value.replace(/\D/gu, "");
+  return digits.length === 11 && digits.startsWith("1")
+    ? digits.slice(1)
+    : digits;
+}
+
+export function formatUsPhoneNumberInput(value: string) {
+  const digits = getUsPhoneNumberDigits(value).slice(0, 10);
+  if (!digits) return "";
+  if (digits.length <= 3) return `(${digits}`;
+  if (digits.length <= 6) {
+    return `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
+  }
+  return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+}
+
 export function normalizeCurrencyInput(value: string) {
   let trimmed = value.trim();
   if (trimmed.startsWith("$")) {
@@ -437,12 +454,17 @@ export function validateTotalLossReport(
 export function normalizeTotalLossContactForm(
   values: TotalLossContactFormValues,
 ): TotalLossContactFormValues {
+  const phoneNumber = normalizeWhitespace(values.phoneNumber);
+  const phoneDigits = getUsPhoneNumberDigits(phoneNumber);
   return {
     ...values,
     firstName: normalizeWhitespace(values.firstName),
     lastName: normalizeWhitespace(values.lastName),
     email: values.email.trim().toLowerCase(),
-    phoneNumber: normalizeWhitespace(values.phoneNumber),
+    phoneNumber:
+      phoneDigits.length === 10
+        ? formatUsPhoneNumberInput(phoneDigits)
+        : phoneNumber,
   };
 }
 
@@ -476,10 +498,12 @@ export function validateTotalLossContactForm(
     errors.email = "Enter a valid email address.";
   }
   if (
+    (normalized.phoneNumber &&
+      getUsPhoneNumberDigits(normalized.phoneNumber).length !== 10) ||
     normalized.phoneNumber.length > 50 ||
     [...normalized.phoneNumber].some(isUnsafeDisplayCharacter)
   ) {
-    errors.phoneNumber = "Enter a valid phone number with 50 characters or fewer.";
+    errors.phoneNumber = "Enter a 10-digit U.S. phone number.";
   }
   if (!normalized.termsAccepted || !normalized.privacyAccepted) {
     errors.legal = "Accept the Terms of Use and acknowledge the Privacy Policy.";

@@ -22,6 +22,7 @@ import type {
   CSSProperties,
   HTMLInputTypeAttribute,
   Key,
+  KeyboardEventHandler,
   ReactNode,
   Ref,
 } from "react";
@@ -56,6 +57,7 @@ export interface IntakeTextFieldProps {
   maxLength?: number;
   disabled?: boolean;
   inputRef?: Ref<HTMLInputElement>;
+  onKeyDown?: KeyboardEventHandler<HTMLInputElement>;
   onBlur?: () => void;
 }
 
@@ -389,6 +391,7 @@ export function IntakeTextField({
   maxLength,
   disabled,
   inputRef,
+  onKeyDown,
   onBlur,
 }: IntakeTextFieldProps) {
   const helpId = help ? `${id}-help` : undefined;
@@ -459,6 +462,7 @@ export function IntakeTextField({
         aria-describedby={describedBy}
         className={totalLossInputClassName}
         onChange={onChange}
+        onKeyDown={onKeyDown}
         onBlur={onBlur}
       />
       {help && helpAfterInput ? (

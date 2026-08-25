@@ -1,5 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter } from "react-router";
 
@@ -92,6 +93,48 @@ describe("total-loss intake step presentation", () => {
     expect(screen.queryByLabelText("Full name")).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Your contact details" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Review & analyze" })).toBeVisible();
+  });
+
+  it("formats phone digits while typing and keeps mid-number deletion natural", async () => {
+    const user = userEvent.setup();
+
+    function ControlledContactStep() {
+      const [values, setValues] = useState({
+        ...contactValues,
+        phoneNumber: "",
+      });
+      return (
+        <MemoryRouter>
+          <ContactStep
+            mode="manual"
+            values={values}
+            errors={{}}
+            onChange={(field, value) =>
+              setValues((current) => ({ ...current, [field]: value }))
+            }
+            onBack={vi.fn()}
+            onContinue={vi.fn()}
+          />
+        </MemoryRouter>
+      );
+    }
+
+    render(<ControlledContactStep />);
+    const phone = screen.getByLabelText("Phone number") as HTMLInputElement;
+
+    await user.type(phone, "5551234567");
+    expect(phone).toHaveValue("(555) 123-4567");
+
+    phone.setSelectionRange(6, 6);
+    await user.keyboard("{Backspace}");
+    expect(phone).toHaveValue("(551) 234-567");
+    expect(phone.selectionStart).toBe(3);
+
+    await user.keyboard("9");
+    expect(phone).toHaveValue("(559) 123-4567");
+
+    await user.clear(phone);
+    expect(phone).toHaveValue("");
   });
 
   it("keeps report choices and progress mounted while the selection changes", () => {
