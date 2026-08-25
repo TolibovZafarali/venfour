@@ -47,7 +47,12 @@ from venfour.market import (
     MarketSearchResult,
     validate_market_listing,
 )
-from venfour.vehicle_catalog import VehicleTrimCatalogRequest
+from venfour.vehicle_catalog import (
+    MAX_VEHICLE_CATALOG_TEXT_LENGTH,
+    VehicleTrimCatalogRequest,
+    VehicleTrimOption,
+    normalize_vehicle_trim_options,
+)
 
 
 MARKETCHECK_ACTIVE_INVENTORY_URL = (
@@ -196,7 +201,7 @@ class MarketCheckProvider:
         self._transport = (
             transport if transport is not None else _UrllibMarketCheckTransport()
         )
-        self._trim_catalog_cache: dict[str, tuple[str, ...]] = {}
+        self._trim_catalog_cache: dict[str, tuple[VehicleTrimOption, ...]] = {}
         if self._api_key is None:
             self._secret_variants = ()
         else:
@@ -273,7 +278,15 @@ class MarketCheckProvider:
             "start": start,
             "rows": rows,
         }
-        if request.trim is not None:
+        if request.configuration is not None:
+            if request.configuration.source != self.name:
+                raise MarketContractError(
+                    "Vehicle configuration source is incompatible with MarketCheck"
+                )
+            params[request.configuration.field] = ",".join(
+                request.configuration.values
+            )
+        elif request.trim is not None:
             params["trim"] = request.trim
         if request.postal_code is not None:
             params["zip"] = request.postal_code
@@ -505,6 +518,7 @@ class MarketCheckProvider:
         response_index: int,
         *,
         path_prefix: str = "$.listings",
+        canonical_trim: str | None = None,
     ) -> MarketListing:
         path = f"{path_prefix}[{response_index}]"
         record = _mapping(
@@ -546,7 +560,7 @@ class MarketCheckProvider:
             year=build.get("year"),
             make=build.get("make"),
             model=build.get("model"),
-            trim=build.get("trim"),
+            trim=canonical_trim if canonical_trim is not None else build.get("trim"),
             vin=record.get("vin"),
             mileage=record.get("miles"),
             price=record.get("price"),
@@ -577,7 +591,7 @@ class MarketCheckProvider:
 
     def list_trims(
         self, request: VehicleTrimCatalogRequest
-    ) -> tuple[str, ...]:
+    ) -> tuple[VehicleTrimOption, ...]:
         """Return complete trim taxonomy for one exact year, make, and model."""
 
         if not isinstance(request, VehicleTrimCatalogRequest):
@@ -600,49 +614,108 @@ class MarketCheckProvider:
         params: dict[str, QueryValue] = {
             "api_key": self._api_key,
             "append_api_key": "false",
-            "field": f"trim|0|{MARKETCHECK_MAX_TAXONOMY_TERMS}",
+            "field": (
+                f"trim|0|{MARKETCHECK_MAX_TAXONOMY_TERMS},"
+                f"version|0|{MARKETCHECK_MAX_TAXONOMY_TERMS}"
+            ),
             "year": request.year,
             "make": request.make,
             "model": request.model,
         }
         payload = self._request_page(params, endpoint=MARKETCHECK_CAR_TERMS_URL)
-        term_fields = [name for name in ("terms", "trim") if name in payload]
-        raw_terms = payload.get(term_fields[0]) if len(term_fields) == 1 else None
+        raw_trims = payload.get("trim")
         if (
-            not isinstance(raw_terms, list)
-            or len(raw_terms) > MARKETCHECK_MAX_TAXONOMY_TERMS
+            not isinstance(raw_trims, list)
+            or len(raw_trims) > MARKETCHECK_MAX_TAXONOMY_TERMS
         ):
             raise MarketProviderResponseError(
                 "MarketCheck trim taxonomy is malformed"
             )
 
-        unique_terms: dict[str, str] = {}
-        for index, value in enumerate(raw_terms):
+        trim_terms: list[str] = []
+        for index, value in enumerate(raw_trims):
             if not isinstance(value, str):
                 raise MarketProviderResponseError(
                     "MarketCheck trim taxonomy is malformed",
-                    (f"$.terms[{index}]: expected a string",),
+                    (f"$.trim[{index}]: expected a string",),
                 )
             term = " ".join(value.split())
-            if not term:
+            if (
+                not term
+                or len(term) > MAX_VEHICLE_CATALOG_TEXT_LENGTH
+                or any(
+                    ord(character) < 32 or ord(character) == 127
+                    for character in value
+                )
+            ):
                 raise MarketProviderResponseError(
                     "MarketCheck trim taxonomy is malformed",
-                    (f"$.terms[{index}]: expected a non-blank string",),
+                    (f"$.trim[{index}]: expected a bounded non-blank string",),
                 )
-            unique_terms.setdefault(term.casefold(), term)
-
-        trims = tuple(
-            sorted(
-                unique_terms.values(),
-                key=lambda value: (value.casefold(), value),
-            )
-        )
-        if self._contains_secret(trims):
+            trim_terms.append(term)
+        if self._contains_secret(trim_terms):
             raise MarketProviderResponseError(
                 "MarketCheck trim taxonomy could not be safely normalized"
             )
-        self._trim_catalog_cache[cache_key] = trims
-        return trims
+
+        version_terms: list[str] | None = None
+        raw_versions = payload.get("version")
+        if (
+            isinstance(raw_versions, list)
+            and raw_versions
+            and len(raw_versions) <= MARKETCHECK_MAX_TAXONOMY_TERMS
+        ):
+            candidate_versions: list[str] = []
+            for value in raw_versions:
+                if not isinstance(value, str):
+                    candidate_versions = []
+                    break
+                term = " ".join(value.split())
+                if (
+                    not term
+                    or len(term) > MAX_VEHICLE_CATALOG_TEXT_LENGTH
+                    or any(
+                        ord(character) < 32 or ord(character) == 127
+                        for character in value
+                    )
+                ):
+                    candidate_versions = []
+                    break
+                candidate_versions.append(term)
+            if candidate_versions and not self._contains_secret(candidate_versions):
+                version_terms = candidate_versions
+
+        options: tuple[VehicleTrimOption, ...] | None = None
+        if version_terms is not None:
+            try:
+                options = normalize_vehicle_trim_options(
+                    version_terms,
+                    source="marketcheck",
+                    query_field="version",
+                )
+            except (TypeError, ValueError):
+                options = None
+        if options is None:
+            try:
+                options = normalize_vehicle_trim_options(
+                    trim_terms,
+                    source="marketcheck",
+                    query_field="trim",
+                )
+            except (TypeError, ValueError) as exc:
+                raise MarketProviderResponseError(
+                    "MarketCheck trim taxonomy is malformed"
+                ) from exc
+        if options is None:
+            raise MarketProviderResponseError(
+                "MarketCheck trim taxonomy is malformed"
+            )
+        if self._contains_secret(tuple(option.to_dict() for option in options)):
+            raise MarketProviderResponseError(
+                "MarketCheck trim taxonomy could not be safely normalized"
+            )
+        self._trim_catalog_cache[cache_key] = options
+        return options
 
     def search(self, request: MarketSearchRequest) -> MarketSearchResult:
         """Search active used inventory, preserving MarketCheck result order."""
@@ -679,7 +752,15 @@ class MarketCheckProvider:
             try:
                 for index, raw_listing in enumerate(raw_listings):
                     listings.append(
-                        self._normalize_listing(raw_listing, start + index)
+                        self._normalize_listing(
+                            raw_listing,
+                            start + index,
+                            canonical_trim=(
+                                request.trim
+                                if request.configuration is not None
+                                else None
+                            ),
+                        )
                     )
             except MarketProviderError as exc:
                 self._annotate_provider_failure(
@@ -981,7 +1062,15 @@ class MarketCheckHistoricalProvider(MarketCheckProvider):
             "start": start,
             "rows": rows,
         }
-        if request.trim is not None:
+        if request.configuration is not None:
+            if request.configuration.source != self.name:
+                raise MarketContractError(
+                    "Vehicle configuration source is incompatible with MarketCheck"
+                )
+            params[request.configuration.field] = ",".join(
+                request.configuration.values
+            )
+        elif request.trim is not None:
             params["trim"] = request.trim
         return params
 
@@ -1014,6 +1103,8 @@ class MarketCheckHistoricalProvider(MarketCheckProvider):
         self,
         value: Any,
         response_index: int,
+        *,
+        canonical_trim: str | None = None,
     ) -> tuple[_HistoricalCandidate | None, HistoricalEvidenceIssue | None]:
         path = f"$.listings[{response_index}]"
         record = _mapping(
@@ -1031,7 +1122,11 @@ class MarketCheckHistoricalProvider(MarketCheckProvider):
             raise MarketProviderResponseError(
                 "MarketCheck response could not be safely normalized"
             )
-        listing = self._normalize_listing(record, response_index)
+        listing = self._normalize_listing(
+            record,
+            response_index,
+            canonical_trim=canonical_trim,
+        )
         if listing.vin is None:
             raise MarketProviderResponseError(
                 "MarketCheck response could not be safely normalized"
@@ -1107,6 +1202,11 @@ class MarketCheckHistoricalProvider(MarketCheckProvider):
                     candidate, issue = self._candidate_from_record(
                         raw_candidate,
                         response_index,
+                        canonical_trim=(
+                            request.trim
+                            if request.configuration is not None
+                            else None
+                        ),
                     )
                     if issue is not None:
                         issues.append((response_index, issue))

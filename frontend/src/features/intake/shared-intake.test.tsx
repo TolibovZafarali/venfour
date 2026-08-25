@@ -9,6 +9,7 @@ import {
   IntakeStepTransition,
   ServiceSelector,
   VehicleIdentificationFields,
+  type VehicleTrimOption,
 } from "@/features/intake";
 
 describe("shared appraisal intake controls", () => {
@@ -224,7 +225,7 @@ describe("shared appraisal intake controls", () => {
         yearOptions={["2026"]}
         makeOptions={["Honda"]}
         modelOptions={["Accord"]}
-        trimOptions={["EX-L"]}
+        trimOptions={[trimOption("ex-l", "EX-L")]}
         makesState="success"
         modelsState="success"
         trimsState="success"
@@ -265,7 +266,10 @@ describe("shared appraisal intake controls", () => {
         yearOptions={["2003"]}
         makeOptions={["Honda"]}
         modelOptions={["Accord"]}
-        trimOptions={["EX-V6", "LX"]}
+        trimOptions={[
+          trimOption("ex-v6", "EX-V6"),
+          trimOption("lx", "LX"),
+        ]}
         makesState="success"
         modelsState="success"
         trimsState="success"
@@ -287,7 +291,7 @@ describe("shared appraisal intake controls", () => {
     expect(within(confirmedVehicle).getByText("Accord")).toBeVisible();
     expect(
       within(confirmedVehicle).getByRole("combobox", { name: "Trim" }),
-    ).toHaveValue("EX-V6");
+    ).toHaveValue("ex-v6");
     expect(
       within(confirmedVehicle).queryByRole("textbox", { name: "Year" }),
     ).not.toBeInTheDocument();
@@ -297,6 +301,137 @@ describe("shared appraisal intake controls", () => {
     expect(
       within(confirmedVehicle).queryByRole("textbox", { name: "Model" }),
     ).not.toBeInTheDocument();
+  });
+
+  test("shows configuration labels and reports the selected full trim option", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    const onTrimSelectionChange = vi.fn();
+    const longRangeAwd = trimOption(
+      "model-3-long-range-awd",
+      "Long Range — AWD",
+      {
+        trim: "Long Range AWD",
+        queryField: "version",
+        queryValues: ["Long Range", "Long Range Battery"],
+      },
+    );
+    render(
+      <VehicleIdentificationFields
+        idPrefix="vehicle"
+        entryMethod="details"
+        values={{
+          vin: "",
+          vehicleYear: "2019",
+          make: "Tesla",
+          model: "Model 3",
+          trim: "",
+        }}
+        yearOptions={["2019"]}
+        makeOptions={["Tesla"]}
+        modelOptions={["Model 3"]}
+        trimOptions={[
+          trimOption("model-3-long-range-rwd", "Long Range — RWD"),
+          longRangeAwd,
+        ]}
+        makesState="success"
+        modelsState="success"
+        trimsState="success"
+        vinLookupState="idle"
+        trimRequired
+        onEntryMethodChange={vi.fn()}
+        onChange={onChange}
+        onTrimSelectionChange={onTrimSelectionChange}
+        onRetryMakes={vi.fn()}
+        onRetryModels={vi.fn()}
+      />,
+    );
+
+    const select = screen.getByRole("combobox", { name: "Trim" });
+    expect(
+      screen.getByRole("option", { name: "Long Range — RWD" }),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("option", { name: "Long Range — AWD" }),
+    ).toBeVisible();
+
+    await user.selectOptions(select, longRangeAwd.id);
+
+    expect(onTrimSelectionChange).toHaveBeenCalledWith(longRangeAwd);
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  test("falls back to the canonical trim and preserves ambiguous legacy values", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    const sharedProps = {
+      idPrefix: "vehicle",
+      entryMethod: "details" as const,
+      yearOptions: ["2019"],
+      makeOptions: ["Tesla"],
+      modelOptions: ["Model 3"],
+      makesState: "success" as const,
+      modelsState: "success" as const,
+      trimsState: "success" as const,
+      vinLookupState: "idle" as const,
+      trimRequired: true,
+      onEntryMethodChange: vi.fn(),
+      onChange,
+      onRetryMakes: vi.fn(),
+      onRetryModels: vi.fn(),
+    };
+    const longRangeRwd = trimOption(
+      "model-3-long-range-rwd",
+      "Long Range",
+      { trim: "Long Range RWD" },
+    );
+    const longRangeAwd = trimOption(
+      "model-3-long-range-awd",
+      "Long Range — AWD",
+      { trim: "Long Range", queryValues: ["Long Range Battery"] },
+    );
+    const { rerender } = render(
+      <VehicleIdentificationFields
+        {...sharedProps}
+        values={{
+          vin: "",
+          vehicleYear: "2019",
+          make: "Tesla",
+          model: "Model 3",
+          trim: "Long Range",
+        }}
+        trimOptions={[longRangeRwd, longRangeAwd]}
+      />,
+    );
+
+    const select = screen.getByRole("combobox", { name: "Trim" });
+    expect(select).toHaveValue("__legacy-current-trim__");
+    expect(
+      screen.getByRole("option", { name: "Current selection: Long Range" }),
+    ).toBeVisible();
+    expect(screen.getAllByRole("option", { name: "Long Range" })).toHaveLength(
+      1,
+    );
+
+    await user.selectOptions(select, longRangeAwd.id);
+    expect(onChange).toHaveBeenCalledWith("trim", "Long Range");
+
+    rerender(
+      <VehicleIdentificationFields
+        {...sharedProps}
+        values={{
+          vin: "",
+          vehicleYear: "2019",
+          make: "Tesla",
+          model: "Model 3",
+          trim: "Legacy Performance",
+        }}
+        trimOptions={[longRangeRwd, longRangeAwd]}
+      />,
+    );
+    expect(
+      screen.getByRole("option", { name: "Legacy Performance" }),
+    ).toBeVisible();
   });
 
   test("supports a service-specific calendar label", async () => {
@@ -363,3 +498,19 @@ describe("shared appraisal intake controls", () => {
     );
   });
 });
+
+function trimOption(
+  id: string,
+  label: string,
+  overrides: Partial<Omit<VehicleTrimOption, "id" | "label">> = {},
+): VehicleTrimOption {
+  return {
+    source: "marketcheck",
+    id,
+    label,
+    trim: label,
+    queryField: "trim",
+    queryValues: [label],
+    ...overrides,
+  };
+}

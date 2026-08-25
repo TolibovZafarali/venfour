@@ -71,7 +71,11 @@ from venfour.supabase_gateway import (
     SupabaseServerConfiguration,
     SupabaseUnavailableError,
 )
-from venfour.vehicle_catalog import VehicleTrimCatalogRequest
+from venfour.vehicle_catalog import (
+    MAX_VEHICLE_TRIM_OPTIONS,
+    VehicleTrimCatalogRequest,
+    VehicleTrimOption,
+)
 
 
 _ERROR_MESSAGES = {
@@ -670,11 +674,13 @@ async def _vehicle_trims(request: Request) -> JSONResponse:
         trims = await run_in_threadpool(service.list_trims, catalog_request)
         if (
             not isinstance(trims, tuple)
-            or len(trims) > 1000
-            or any(not isinstance(trim, str) or not trim for trim in trims)
+            or len(trims) > MAX_VEHICLE_TRIM_OPTIONS
+            or any(not isinstance(trim, VehicleTrimOption) for trim in trims)
         ):
             raise TypeError("vehicle trim catalog response is invalid")
-        return _private_response(JSONResponse({"trims": list(trims)}))
+        return _private_response(
+            JSONResponse({"trims": [trim.to_dict() for trim in trims]})
+        )
     except Exception:
         return _private_response(
             _error_response(503, "VEHICLE_TRIM_LOOKUP_UNAVAILABLE")

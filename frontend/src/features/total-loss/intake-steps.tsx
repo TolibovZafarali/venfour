@@ -26,6 +26,7 @@ import {
   secondaryFlowButtonClassName,
 } from "@/features/total-loss/intake-fields";
 import { VehicleIdentificationFields } from "@/features/intake";
+import type { VehicleTrimOption } from "@/features/intake";
 import type {
   TotalLossIntakeMode,
   TotalLossContactFormErrors,
@@ -214,7 +215,7 @@ interface VehicleStepProps extends ManualStepProps {
   entryMethod: VehicleEntryMethod;
   makeOptions: readonly string[];
   modelOptions: readonly string[];
-  trimOptions: readonly string[];
+  trimOptions: readonly VehicleTrimOption[];
   makesState: "idle" | "loading" | "success" | "error";
   modelsState: "idle" | "loading" | "success" | "error";
   trimsState: "idle" | "loading" | "success" | "error";

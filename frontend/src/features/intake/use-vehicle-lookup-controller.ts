@@ -4,6 +4,7 @@ import {
   type DecodedVehicle,
   VehicleLookupError,
   type VehicleLookupService,
+  type VehicleTrimOption,
 } from "@/features/intake/vehicle-lookup-types";
 import type { VehicleLookupState } from "@/features/intake/vehicle-identification-fields";
 
@@ -21,7 +22,7 @@ export interface UseVehicleLookupControllerOptions {
 export interface VehicleLookupController {
   readonly makeOptions: readonly string[];
   readonly modelOptions: readonly string[];
-  readonly trimOptions: readonly string[];
+  readonly trimOptions: readonly VehicleTrimOption[];
   readonly makesState: VehicleLookupState;
   readonly modelsState: VehicleLookupState;
   readonly trimsState: VehicleLookupState;
@@ -38,7 +39,7 @@ export interface VehicleLookupController {
 
 interface TrimCatalogSnapshot {
   readonly key: string | null;
-  readonly options: readonly string[];
+  readonly options: readonly VehicleTrimOption[];
   readonly state: VehicleLookupState;
 }
 

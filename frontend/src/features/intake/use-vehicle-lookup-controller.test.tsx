@@ -6,6 +6,7 @@ import {
   VehicleLookupError,
   type DecodedVehicle,
   type VehicleLookupService,
+  type VehicleTrimOption,
 } from "@/features/intake";
 
 describe("useVehicleLookupController", () => {
@@ -83,8 +84,8 @@ describe("useVehicleLookupController", () => {
   });
 
   it("loads trims only for the current year, make, and model", async () => {
-    const accord = deferred<readonly string[]>();
-    const civic = deferred<readonly string[]>();
+    const accord = deferred<readonly VehicleTrimOption[]>();
+    const civic = deferred<readonly VehicleTrimOption[]>();
     const service = vehicleService();
     vi.mocked(service.listTrims)
       .mockReturnValueOnce(accord.promise)
@@ -121,12 +122,16 @@ describe("useVehicleLookupController", () => {
     await waitFor(() => expect(service.listTrims).toHaveBeenCalledTimes(2));
     expect(result.current.trimOptions).toEqual([]);
 
-    await act(async () => accord.resolve(["EX", "EX-L"]));
+    await act(async () => accord.resolve([trimOption("ex", "EX")]));
     expect(result.current.trimOptions).toEqual([]);
 
-    await act(async () => civic.resolve(["Sport", "Touring"]));
+    const civicOptions = [
+      trimOption("sport", "Sport"),
+      trimOption("touring", "Touring"),
+    ];
+    await act(async () => civic.resolve(civicOptions));
     await waitFor(() => expect(result.current.trimsState).toBe("success"));
-    expect(result.current.trimOptions).toEqual(["Sport", "Touring"]);
+    expect(result.current.trimOptions).toBe(civicOptions);
   });
 
   it("ignores a VIN response after the current VIN changes", async () => {
@@ -189,7 +194,18 @@ function vehicleService(): VehicleLookupService {
     })),
     listMakes: vi.fn(async () => ["Honda", "Toyota"]),
     listModels: vi.fn(async () => ["Accord", "Civic"]),
-    listTrims: vi.fn(async () => ["EX", "EX-L"]),
+    listTrims: vi.fn(async () => [trimOption("ex", "EX")]),
+  };
+}
+
+function trimOption(id: string, label: string): VehicleTrimOption {
+  return {
+    source: "marketcheck",
+    id,
+    label,
+    trim: label,
+    queryField: "trim",
+    queryValues: [label],
   };
 }
 

@@ -669,17 +669,22 @@ describe("Venfour application", () => {
     ).toHaveAttribute("href", "/start?service=total-loss");
   });
 
-  test("resets scroll when a home link navigates to the hashless homepage", async () => {
+  test("resets scroll when internal navigation opens a different page", async () => {
     const user = userEvent.setup();
     const scrollTo = vi.spyOn(window, "scrollTo").mockImplementation(() => {});
 
     try {
-      const { router } = renderTestApp(["/privacy"]);
+      const { router } = renderTestApp(["/terms"]);
       expect(scrollTo).not.toHaveBeenCalled();
 
-      await user.click(screen.getByRole("link", { name: "Venfour home" }));
+      const footerNavigation = screen.getByRole("navigation", {
+        name: "Footer navigation",
+      });
+      await user.click(
+        within(footerNavigation).getByRole("link", { name: "Privacy" }),
+      );
 
-      await waitFor(() => expect(router.state.location.pathname).toBe("/"));
+      await waitFor(() => expect(router.state.location.pathname).toBe("/privacy"));
       expect(router.state.location.hash).toBe("");
       await waitFor(() => expect(scrollTo).toHaveBeenCalledOnce());
       expect(scrollTo).toHaveBeenCalledWith({
@@ -692,7 +697,7 @@ describe("Venfour application", () => {
     }
   });
 
-  test("does not override native scroll restoration on a refreshed homepage", () => {
+  test("does not override native scroll restoration on an initial page load", () => {
     const scrollTo = vi.spyOn(window, "scrollTo").mockImplementation(() => {});
 
     try {
@@ -729,6 +734,50 @@ describe("Venfour application", () => {
       expect(scrollTo).not.toHaveBeenCalled();
     } finally {
       scrollTo.mockRestore();
+      if (originalScrollIntoView) {
+        Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
+          configurable: true,
+          value: originalScrollIntoView,
+        });
+      } else {
+        Reflect.deleteProperty(HTMLElement.prototype, "scrollIntoView");
+      }
+    }
+  });
+
+  test("honors a homepage anchor after asynchronous home content loads", async () => {
+    const originalScrollIntoView = HTMLElement.prototype.scrollIntoView;
+    const scrollIntoView = vi.fn();
+    Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
+      configurable: true,
+      value: scrollIntoView,
+    });
+    let resolveSession: ((session: Session | null) => void) | undefined;
+    const getSession = vi.fn(
+      () =>
+        new Promise<Session | null>((resolve) => {
+          resolveSession = resolve;
+        }),
+    );
+
+    try {
+      const { router } = renderTestApp(["/#total-loss"], {
+        authService: createTestAuthService(null, { getSession }),
+      });
+
+      expect(document.getElementById("total-loss")).not.toBeInTheDocument();
+      expect(scrollIntoView).not.toHaveBeenCalled();
+      if (!resolveSession) {
+        throw new Error("The test auth session was not requested.");
+      }
+
+      await act(async () => resolveSession?.(null));
+
+      await waitFor(() => expect(scrollIntoView).toHaveBeenCalledOnce());
+      expect(document.getElementById("total-loss")).toHaveFocus();
+      await waitFor(() => expect(router.state.location.hash).toBe(""));
+      expect(router.state.location.pathname).toBe("/");
+    } finally {
       if (originalScrollIntoView) {
         Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
           configurable: true,

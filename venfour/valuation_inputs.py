@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from datetime import date, datetime
 from typing import Any
 
+from venfour.market import VehicleConfigurationIdentity
 from venfour.postal_codes import normalize_us_zip_code
 from venfour.report_ingestion import validate_normalized_report
 
@@ -43,6 +44,30 @@ def _optional_text(value: Any, field: str) -> str | None:
     if value is None:
         return None
     return _required_text(value, field)
+
+
+def _vehicle_configuration(value: Any) -> VehicleConfigurationIdentity | None:
+    if value is None:
+        return None
+    if not isinstance(value, Mapping):
+        raise ValuationInputError(
+            "vehicle_configuration", "Vehicle configuration is invalid"
+        )
+    raw_values = value.get("values")
+    if not isinstance(raw_values, (list, tuple)):
+        raise ValuationInputError(
+            "vehicle_configuration", "Vehicle configuration is invalid"
+        )
+    try:
+        return VehicleConfigurationIdentity(
+            source=value.get("source"),
+            field=value.get("field"),
+            values=tuple(raw_values),
+        )
+    except (TypeError, ValueError) as exc:
+        raise ValuationInputError(
+            "vehicle_configuration", "Vehicle configuration is invalid"
+        ) from exc
 
 
 def _required_integer(
@@ -134,6 +159,7 @@ class ConfirmedValuationInput:
     postal_code: str
     loss_date: str
     insurer: str
+    vehicle_configuration: VehicleConfigurationIdentity | None = None
     vin: str | None = None
     insurer_offer: float | int | None = None
     condition_summary: str | None = None
@@ -183,6 +209,13 @@ class ConfirmedValuationInput:
             ),
             trim=_required_text(
                 _first(snapshot, "vehicle_trim", "vehicleTrim"), "vehicle_trim"
+            ),
+            vehicle_configuration=_vehicle_configuration(
+                _first(
+                    snapshot,
+                    "vehicle_configuration",
+                    "vehicleConfiguration",
+                )
             ),
             mileage=_required_integer(
                 _first(snapshot, "mileage_at_loss", "mileageAtLoss"),

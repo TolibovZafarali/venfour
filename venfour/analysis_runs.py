@@ -74,6 +74,7 @@ from venfour.market import (
     MarketListing,
     MarketSearchRequest,
     MarketSearchResult,
+    VehicleConfigurationIdentity,
     validate_market_search_request,
     validate_market_search_result,
 )
@@ -540,6 +541,7 @@ def _market_request_from_data(data: Mapping[str, Any]) -> MarketSearchRequest:
         make=data["make"],
         model=data["model"],
         trim=data["trim"],
+        configuration=_configuration_from_data(data.get("configuration")),
         loss_vehicle_mileage=data["lossVehicleMileage"],
         postal_code=data["postalCode"],
         radius_miles=data["radiusMiles"],
@@ -555,6 +557,18 @@ def _dealer_from_data(data: Mapping[str, Any] | None) -> MarketDealer | None:
         city=data["city"],
         state=data["state"],
         postal_code=data["postalCode"],
+    )
+
+
+def _configuration_from_data(
+    data: Mapping[str, Any] | None,
+) -> VehicleConfigurationIdentity | None:
+    if data is None:
+        return None
+    return VehicleConfigurationIdentity(
+        source=data["source"],
+        field=data["field"],
+        values=tuple(data["values"]),
     )
 
 
@@ -592,6 +606,7 @@ def _historical_request_from_data(
         make=data["make"],
         model=data["model"],
         trim=data["trim"],
+        configuration=_configuration_from_data(data.get("configuration")),
         loss_vehicle_mileage=data["lossVehicleMileage"],
         postal_code=data["postalCode"],
         radius_miles=data["radiusMiles"],

@@ -236,10 +236,32 @@ describe("NHTSA vPIC vehicle catalog", () => {
     expect(fetchImplementation).toHaveBeenCalledOnce();
   });
 
-  it("loads, normalizes, and caches trims through the Venfour API", async () => {
+  it("loads, exact-deduplicates, naturally sorts, and caches trim options", async () => {
     const fetchImplementation = vi.fn<typeof fetch>().mockResolvedValue(
       jsonResponse({
-        trims: [" XLE ", "LE", "xle", "SE Nightshade"],
+        trims: [
+          trimOption({
+            id: "long-range-awd-10",
+            label: "Long Range — AWD 10",
+            trim: "Long Range AWD 10",
+            queryField: "version",
+            queryValues: ["Model 3 Long Range AWD 10"],
+          }),
+          trimOption({
+            id: "long-range-awd-2",
+            label: "Long Range — AWD 2",
+            trim: "Long Range AWD 2",
+            queryField: "version",
+            queryValues: [
+              "Long Range Battery AWD",
+              "Long Range AWD",
+              "Long Range Battery AWD",
+            ],
+          }),
+          trimOption(),
+          trimOption(),
+          trimOption({ id: "alternate-xle-id" }),
+        ],
       }),
     );
     const service = createNhtsaVpicVehicleLookupService({
@@ -258,8 +280,36 @@ describe("NHTSA vPIC vehicle catalog", () => {
       model: "camry",
     });
 
-    expect(first).toEqual(["LE", "SE Nightshade", "XLE"]);
+    expect(first).toEqual([
+      {
+        source: "marketcheck",
+        id: "long-range-awd-2",
+        label: "Long Range — AWD 2",
+        trim: "Long Range AWD 2",
+        queryField: "version",
+        queryValues: ["Long Range AWD", "Long Range Battery AWD"],
+      },
+      {
+        source: "marketcheck",
+        id: "long-range-awd-10",
+        label: "Long Range — AWD 10",
+        trim: "Long Range AWD 10",
+        queryField: "version",
+        queryValues: ["Model 3 Long Range AWD 10"],
+      },
+      {
+        source: "marketcheck",
+        id: "alternate-xle-id",
+        label: "XLE",
+        trim: "XLE",
+        queryField: "trim",
+        queryValues: ["XLE"],
+      },
+    ]);
     expect(second).toBe(first);
+    expect(Object.isFrozen(first)).toBe(true);
+    expect(Object.isFrozen(first[0])).toBe(true);
+    expect(Object.isFrozen(first[0]?.queryValues)).toBe(true);
     expect(fetchImplementation).toHaveBeenCalledWith(
       "https://api.example.test/api/v1/vehicle-trims?year=2020&make=Toyota&model=Camry",
       {
@@ -268,6 +318,60 @@ describe("NHTSA vPIC vehicle catalog", () => {
       },
     );
     expect(fetchImplementation).toHaveBeenCalledOnce();
+  });
+
+  it.each([
+    ["a legacy string option", { trims: ["XLE"] }],
+    [
+      "an unknown envelope field",
+      { trims: [trimOption()], source: "marketcheck" },
+    ],
+    [
+      "an unknown option field",
+      { trims: [{ ...trimOption(), provider: "marketcheck" }] },
+    ],
+    [
+      "an invalid provider source",
+      { trims: [trimOption({ source: "Market Check" })] },
+    ],
+    [
+      "an unsupported query field",
+      { trims: [trimOption({ queryField: "drivetrain" })] },
+    ],
+    ["an empty query list", { trims: [trimOption({ queryValues: [] })] }],
+    ["noncanonical label whitespace", { trims: [trimOption({ label: " XLE" })] }],
+    [
+      "one ID for conflicting configurations",
+      {
+        trims: [
+          trimOption(),
+          trimOption({ label: "XLE Hybrid", trim: "XLE Hybrid" }),
+        ],
+      },
+    ],
+    [
+      "one display label for conflicting configurations",
+      {
+        trims: [
+          trimOption(),
+          trimOption({
+            id: "xle-hybrid",
+            trim: "XLE Hybrid",
+            queryValues: ["XLE Hybrid"],
+          }),
+        ],
+      },
+    ],
+  ])("rejects %s in the trim catalog", async (_label, payload) => {
+    const service = createNhtsaVpicVehicleLookupService({
+      fetchImplementation: vi
+        .fn<typeof fetch>()
+        .mockResolvedValue(jsonResponse(payload)),
+    });
+
+    await expect(
+      service.listTrims({ year: 2020, make: "Toyota", model: "Camry" }),
+    ).rejects.toMatchObject({ code: "invalid-response" });
   });
 
   it("rejects an incomplete trim lookup without making a request", async () => {
@@ -349,4 +453,25 @@ async function captureVehicleLookupError(operation: () => Promise<unknown>) {
     return error as VehicleLookupError;
   }
   throw new Error("Expected vehicle lookup to reject.");
+}
+
+function trimOption(
+  overrides: Partial<{
+    source: string;
+    id: string;
+    label: string;
+    trim: string;
+    queryField: string;
+    queryValues: readonly string[];
+  }> = {},
+) {
+  return {
+    source: "marketcheck",
+    id: "xle",
+    label: "XLE",
+    trim: "XLE",
+    queryField: "trim",
+    queryValues: ["XLE"],
+    ...overrides,
+  };
 }

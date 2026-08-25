@@ -9,6 +9,7 @@ import {
   IntakeSelectField,
   IntakeTextField,
 } from "@/features/total-loss/intake-fields";
+import type { VehicleTrimOption } from "@/features/intake/vehicle-lookup-types";
 import { cn } from "@/lib/utils";
 
 export type VehicleEntryMethod = "vin" | "details";
@@ -54,7 +55,7 @@ export interface VehicleIdentificationFieldsProps {
   yearOptions: readonly string[];
   makeOptions: readonly string[];
   modelOptions: readonly string[];
-  trimOptions?: readonly string[];
+  trimOptions?: readonly VehicleTrimOption[];
   makesState: VehicleLookupState;
   modelsState: VehicleLookupState;
   trimsState?: VehicleLookupState;
@@ -71,6 +72,7 @@ export interface VehicleIdentificationFieldsProps {
   onRetryMakes: () => void;
   onRetryModels: () => void;
   onRetryTrims?: () => void;
+  onTrimSelectionChange?: (option: VehicleTrimOption) => void;
 }
 
 export function VehicleIdentificationFields({
@@ -100,6 +102,7 @@ export function VehicleIdentificationFields({
   onRetryMakes,
   onRetryModels,
   onRetryTrims = () => undefined,
+  onTrimSelectionChange,
 }: VehicleIdentificationFieldsProps) {
   return (
     <>
@@ -230,6 +233,7 @@ export function VehicleIdentificationFields({
                     onChange={(value) => onChange("trim", value)}
                     onBlur={() => onBlur?.("trim")}
                     onRetry={onRetryTrims}
+                    onTrimSelectionChange={onTrimSelectionChange}
                   />
                 </div>
               </section>
@@ -310,6 +314,7 @@ export function VehicleIdentificationFields({
                   onChange={(value) => onChange("trim", value)}
                   onBlur={() => onBlur?.("trim")}
                   onRetry={onRetryTrims}
+                  onTrimSelectionChange={onTrimSelectionChange}
                 />
               ) : null}
             </div>
@@ -358,37 +363,70 @@ function VehicleTrimSelect({
   onChange,
   onBlur,
   onRetry,
+  onTrimSelectionChange,
 }: {
   className?: string;
   id: string;
   values: VehicleIdentificationValues;
   error?: string;
-  options: readonly string[];
+  options: readonly VehicleTrimOption[];
   state: VehicleLookupState;
   disabled?: boolean;
   onChange: (value: string) => void;
   onBlur: () => void;
   onRetry: () => void;
+  onTrimSelectionChange?: (option: VehicleTrimOption) => void;
 }) {
   const vehicleKnown = Boolean(
     values.vehicleYear && values.make && values.model,
   );
+  const currentTrim = values.trim ?? "";
+  const selectedOption = uniquelyMatchingTrimOption(options, currentTrim);
+  const legacyValue =
+    currentTrim && !selectedOption
+      ? availableLegacyTrimValue(options)
+      : null;
+  const selectOptions = [
+    ...(legacyValue
+      ? [
+          {
+            value: legacyValue,
+            label: legacyTrimLabel(options, currentTrim),
+          },
+        ]
+      : []),
+    ...options.map((option) => ({ value: option.id, label: option.label })),
+  ];
   return (
     <div className={className}>
       <IntakeSelectField
         id={id}
         label="Trim"
-        value={values.trim ?? ""}
+        value={selectedOption?.id ?? legacyValue ?? ""}
         error={error}
         placeholder={
           vehicleKnown
             ? "Select trim"
             : "Choose year, make, and model first"
         }
-        options={withCurrentOption(options, values.trim ?? "")}
+        options={selectOptions}
         loading={state === "loading"}
         disabled={disabled || !vehicleKnown || state === "error"}
-        onChange={(event) => onChange(event.target.value)}
+        onChange={(event) => {
+          if (!event.target.value) {
+            onChange("");
+            return;
+          }
+          const option = options.find(
+            (candidate) => candidate.id === event.target.value,
+          );
+          if (!option) return;
+          if (onTrimSelectionChange) {
+            onTrimSelectionChange(option);
+          } else {
+            onChange(option.trim);
+          }
+        }}
         onBlur={onBlur}
       />
       {state === "error" ? (
@@ -402,6 +440,41 @@ function VehicleTrimSelect({
       ) : null}
     </div>
   );
+}
+
+function uniquelyMatchingTrimOption(
+  options: readonly VehicleTrimOption[],
+  current: string,
+) {
+  if (!current) return null;
+  const currentKey = legacyTrimKey(current);
+  const matches = options.filter((option) =>
+    [option.label, option.trim, ...option.queryValues].some(
+      (value) => legacyTrimKey(value) === currentKey,
+    ),
+  );
+  return matches.length === 1 ? matches[0] : null;
+}
+
+function legacyTrimLabel(
+  options: readonly VehicleTrimOption[],
+  current: string,
+) {
+  const currentKey = legacyTrimKey(current);
+  return options.some((option) => legacyTrimKey(option.label) === currentKey)
+    ? `Current selection: ${current}`
+    : current;
+}
+
+function availableLegacyTrimValue(options: readonly VehicleTrimOption[]) {
+  let value = "__legacy-current-trim__";
+  const ids = new Set(options.map((option) => option.id));
+  while (ids.has(value)) value = `_${value}`;
+  return value;
+}
+
+function legacyTrimKey(value: string) {
+  return value.trim().replace(/\s+/gu, " ").toLocaleUpperCase("en-US");
 }
 
 function VehicleLookupSuccess({ message }: { message: string }) {

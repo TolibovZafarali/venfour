@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import math
+import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from functools import lru_cache
@@ -23,6 +24,11 @@ MARKET_SCHEMA_DIR = REPO_ROOT / "schemas" / "market"
 SEARCH_REQUEST_SCHEMA_PATH = MARKET_SCHEMA_DIR / "search-request.schema.json"
 LISTING_SCHEMA_PATH = MARKET_SCHEMA_DIR / "listing.schema.json"
 SEARCH_RESULT_SCHEMA_PATH = MARKET_SCHEMA_DIR / "search-result.schema.json"
+
+_CONFIGURATION_SOURCE_PATTERN = re.compile(r"^[a-z0-9][a-z0-9._-]{0,49}$")
+_CONFIGURATION_FIELDS = frozenset({"trim", "version"})
+_MAX_CONFIGURATION_VALUES = 20
+_MAX_CONFIGURATION_VALUE_LENGTH = 200
 
 
 class MarketDiscoveryError(Exception):
@@ -155,6 +161,64 @@ def _normalize_state(value: Any) -> Any:
 
 
 @dataclass(frozen=True)
+class VehicleConfigurationIdentity:
+    """Bounded provider identity retained separately from customer-facing trim.
+
+    ``source`` identifies the catalog/provider namespace. ``field`` and
+    ``values`` are opaque provider lookup terms; core domain code never derives
+    vehicle meaning from them. Adapters may use the identity only when the
+    source matches their own namespace.
+    """
+
+    source: str
+    field: str
+    values: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        source = _trim_required(self.source)
+        field = _trim_required(self.field).casefold()
+        if not isinstance(source, str) or not _CONFIGURATION_SOURCE_PATTERN.fullmatch(
+            source
+        ):
+            raise ValueError("Vehicle configuration source is invalid")
+        if field not in _CONFIGURATION_FIELDS:
+            raise ValueError("Vehicle configuration field is invalid")
+        if not isinstance(self.values, (tuple, list)):
+            raise TypeError("Vehicle configuration values must be a sequence")
+
+        normalized_values: list[str] = []
+        seen: set[str] = set()
+        for value in self.values:
+            if not isinstance(value, str):
+                raise TypeError("Vehicle configuration values must be strings")
+            normalized = " ".join(value.split())
+            key = normalized.casefold()
+            if (
+                not normalized
+                or len(normalized) > _MAX_CONFIGURATION_VALUE_LENGTH
+                or "," in normalized
+                or any(ord(character) < 32 or ord(character) == 127 for character in normalized)
+                or key in seen
+            ):
+                raise ValueError("Vehicle configuration value is invalid")
+            seen.add(key)
+            normalized_values.append(normalized)
+        if not normalized_values or len(normalized_values) > _MAX_CONFIGURATION_VALUES:
+            raise ValueError("Vehicle configuration values are invalid")
+
+        object.__setattr__(self, "source", source)
+        object.__setattr__(self, "field", field)
+        object.__setattr__(self, "values", tuple(normalized_values))
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "source": self.source,
+            "field": self.field,
+            "values": list(self.values),
+        }
+
+
+@dataclass(frozen=True)
 class MarketSearchRequest:
     """The vehicle and search bounds Venfour wants a provider to search for.
 
@@ -167,6 +231,7 @@ class MarketSearchRequest:
     make: str
     model: str
     trim: str | None = None
+    configuration: VehicleConfigurationIdentity | None = None
     loss_vehicle_mileage: int | None = None
     postal_code: str | None = None
     radius_miles: int = 50
@@ -176,12 +241,18 @@ class MarketSearchRequest:
         object.__setattr__(self, "make", _trim_required(self.make))
         object.__setattr__(self, "model", _trim_required(self.model))
         object.__setattr__(self, "trim", _trim_optional(self.trim))
+        if self.configuration is not None and not isinstance(
+            self.configuration, VehicleConfigurationIdentity
+        ):
+            raise TypeError(
+                "configuration must be VehicleConfigurationIdentity or None"
+            )
         object.__setattr__(self, "postal_code", _trim_optional(self.postal_code))
 
     def to_dict(self) -> dict[str, Any]:
         """Return the canonical camelCase JSON representation."""
 
-        return {
+        data = {
             "year": self.year,
             "make": self.make,
             "model": self.model,
@@ -191,6 +262,9 @@ class MarketSearchRequest:
             "radiusMiles": self.radius_miles,
             "resultLimit": self.result_limit,
         }
+        if self.configuration is not None:
+            data["configuration"] = self.configuration.to_dict()
+        return data
 
 
 @dataclass(frozen=True)
@@ -320,6 +394,7 @@ def normalize_market_search_request(
         make=request.make,
         model=request.model,
         trim=request.trim,
+        configuration=request.configuration,
         loss_vehicle_mileage=request.loss_vehicle_mileage,
         postal_code=request.postal_code,
         radius_miles=request.radius_miles,
@@ -585,6 +660,7 @@ __all__ = [
     "MarketProviderUnavailableError",
     "MarketSearchRequest",
     "MarketSearchResult",
+    "VehicleConfigurationIdentity",
     "discover_market_listings",
     "normalize_market_search_request",
     "validate_market_listing",

@@ -63,6 +63,7 @@ from venfour.market import (
     MarketProviderResponseError,
     MarketProviderUnavailableError,
     MarketSearchRequest,
+    VehicleConfigurationIdentity,
     normalize_market_search_request,
 )
 
@@ -216,6 +217,7 @@ class AnalysisRunRequest:
     current_search: CurrentMarketSearchConfiguration | None = None
     historical_search: HistoricalMarketSearchConfiguration | None = None
     evidence_context: Mapping[str, Any] | None = None
+    vehicle_configuration: VehicleConfigurationIdentity | None = None
     search_policies: AdaptiveSearchPolicies = field(
         default_factory=lambda: DEFAULT_ADAPTIVE_SEARCH_POLICIES
     )
@@ -273,6 +275,10 @@ class AnalysisRunRequest:
             raise AnalysisInputError(
                 "Historical market search configuration is invalid"
             )
+        if self.vehicle_configuration is not None and not isinstance(
+            self.vehicle_configuration, VehicleConfigurationIdentity
+        ):
+            raise AnalysisInputError("Vehicle configuration identity is invalid")
         if not isinstance(self.discrepancy_policy, ValuationDiscrepancyPolicy):
             raise AnalysisInputError("Discrepancy policy is invalid")
         if not isinstance(self.search_policies, AdaptiveSearchPolicies):
@@ -418,7 +424,9 @@ class AnalysisOrchestrator:
 
     @staticmethod
     def _current_request(
-        base: Any, policy: AdaptiveSearchPolicy
+        base: Any,
+        policy: AdaptiveSearchPolicy,
+        configuration: VehicleConfigurationIdentity | None = None,
     ) -> MarketSearchRequest:
         first_stage = policy.stages[0]
         return normalize_market_search_request(
@@ -427,6 +435,7 @@ class AnalysisOrchestrator:
                 make=base.loss_vehicle.make,
                 model=base.loss_vehicle.model,
                 trim=base.loss_vehicle.trim,
+                configuration=configuration,
                 loss_vehicle_mileage=base.loss_vehicle.mileage,
                 postal_code=base.loss_vehicle.postal_code,
                 radius_miles=first_stage.radius_miles,
@@ -436,7 +445,9 @@ class AnalysisOrchestrator:
 
     @staticmethod
     def _historical_request(
-        base: Any, policy: AdaptiveSearchPolicy
+        base: Any,
+        policy: AdaptiveSearchPolicy,
+        configuration: VehicleConfigurationIdentity | None = None,
     ) -> HistoricalMarketSearchRequest:
         if base.loss_date is None:
             raise AnalysisInputError(
@@ -456,6 +467,7 @@ class AnalysisOrchestrator:
                 make=base.loss_vehicle.make,
                 model=base.loss_vehicle.model,
                 trim=base.loss_vehicle.trim,
+                configuration=configuration,
                 loss_vehicle_mileage=base.loss_vehicle.mileage,
                 postal_code=base.loss_vehicle.postal_code,
                 radius_miles=first_stage.radius_miles,
@@ -529,13 +541,19 @@ class AnalysisOrchestrator:
 
         try:
             current_search_request = (
-                self._current_request(base_request, current_policy)
+                self._current_request(
+                    base_request,
+                    current_policy,
+                    request.vehicle_configuration,
+                )
                 if request.current_search is not None
                 else None
             )
             historical_search_request = (
                 self._historical_request(
-                    base_request, historical_policy
+                    base_request,
+                    historical_policy,
+                    request.vehicle_configuration,
                 )
                 if request.historical_search is not None
                 else None

@@ -67,7 +67,7 @@ function AppShellContent() {
   const [mobileNavigationOpen, setMobileNavigationOpen] = useState(false);
   const headerSentinelRef = useRef<HTMLSpanElement>(null);
   const mobileNavigationButtonRef = useRef<HTMLButtonElement>(null);
-  const previousLocationKeyRef = useRef(location.key);
+  const previousPathnameRef = useRef(location.pathname);
   const clearingSectionHashRef = useRef(false);
   const metadata = [...matches]
     .reverse()
@@ -81,8 +81,8 @@ function AppShellContent() {
   useDocumentMetadata(analysisRoute ? null : metadata);
 
   useEffect(() => {
-    const isNavigation = previousLocationKeyRef.current !== location.key;
-    previousLocationKeyRef.current = location.key;
+    const isPageNavigation = previousPathnameRef.current !== location.pathname;
+    previousPathnameRef.current = location.pathname;
 
     if (!location.hash) {
       if (clearingSectionHashRef.current) {
@@ -90,9 +90,17 @@ function AppShellContent() {
         return;
       }
 
-      if (isNavigation && location.pathname === "/") {
-        const resetScrollTimeout = window.setTimeout(() => {
+      if (isPageNavigation) {
+        const resetScroll = () => {
           window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+        };
+
+        resetScroll();
+
+        const resetScrollTimeout = window.setTimeout(() => {
+          if (window.scrollX !== 0 || window.scrollY !== 0) {
+            resetScroll();
+          }
         }, 100);
 
         return () => window.clearTimeout(resetScrollTimeout);
@@ -113,8 +121,8 @@ function AppShellContent() {
       { replace: true, preventScrollReset: true },
     );
   }, [
+    auth.status,
     location.hash,
-    location.key,
     location.pathname,
     location.search,
     navigate,

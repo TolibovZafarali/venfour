@@ -25,6 +25,7 @@ from venfour.market import (
     MarketProviderResponseError,
     MarketSearchRequest,
     MarketSearchResult,
+    VehicleConfigurationIdentity,
     normalize_market_search_request,
     validate_market_listing,
     validate_market_search_request,
@@ -73,6 +74,7 @@ class HistoricalMarketSearchRequest:
     model: str
     postal_code: str
     trim: str | None = None
+    configuration: VehicleConfigurationIdentity | None = None
     loss_vehicle_mileage: int | None = None
     radius_miles: int = 50
     result_limit: int = 25
@@ -83,9 +85,15 @@ class HistoricalMarketSearchRequest:
         object.__setattr__(self, "model", _trim_required(self.model))
         object.__setattr__(self, "postal_code", _trim_required(self.postal_code))
         object.__setattr__(self, "trim", _trim_optional(self.trim))
+        if self.configuration is not None and not isinstance(
+            self.configuration, VehicleConfigurationIdentity
+        ):
+            raise TypeError(
+                "configuration must be VehicleConfigurationIdentity or None"
+            )
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        data = {
             "evidenceDate": self.evidence_date,
             "year": self.year,
             "make": self.make,
@@ -96,6 +104,9 @@ class HistoricalMarketSearchRequest:
             "radiusMiles": self.radius_miles,
             "resultLimit": self.result_limit,
         }
+        if self.configuration is not None:
+            data["configuration"] = self.configuration.to_dict()
+        return data
 
     def to_market_search_request(self) -> MarketSearchRequest:
         """Project vehicle/search fields into the unchanged Phase 3A request."""
@@ -105,6 +116,7 @@ class HistoricalMarketSearchRequest:
             make=self.make,
             model=self.model,
             trim=self.trim,
+            configuration=self.configuration,
             loss_vehicle_mileage=self.loss_vehicle_mileage,
             postal_code=self.postal_code,
             radius_miles=self.radius_miles,
@@ -601,6 +613,7 @@ def normalize_historical_market_search_request(
         model=request.model,
         postal_code=request.postal_code,
         trim=request.trim,
+        configuration=request.configuration,
         loss_vehicle_mileage=request.loss_vehicle_mileage,
         radius_miles=request.radius_miles,
         result_limit=request.result_limit,

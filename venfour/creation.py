@@ -27,7 +27,7 @@ from venfour.discrepancy import (
     DiscrepancyContractError,
     valuation_discrepancy_request_from_report,
 )
-from venfour.market import MarketProviderError
+from venfour.market import MarketProviderError, VehicleConfigurationIdentity
 from venfour.marketcheck import MarketCheckHistoricalProvider, MarketCheckProvider
 from venfour.orchestration import (
     AnalysisExecutionError,
@@ -250,6 +250,7 @@ class AnalysisCreationService:
         *,
         loss_date_override: str | None = None,
         selected_evidence_context: Mapping[str, Any] | None = None,
+        vehicle_configuration: VehicleConfigurationIdentity | None = None,
     ) -> AnalysisRunResult:
         normalized_postal = _normalized_postal_code(postal_code)
         self._require_availability()
@@ -290,6 +291,7 @@ class AnalysisCreationService:
                 if selected_evidence_context is not None
                 else self._legacy_evidence_context(report_data)
             ),
+            vehicle_configuration=vehicle_configuration,
             search_policies=self._search_settings.search_policies,
         )
         try:
@@ -438,6 +440,7 @@ class AnalysisCreationService:
             confirmed.postal_code,
             loss_date_override=confirmed.loss_date,
             selected_evidence_context=context,
+            vehicle_configuration=confirmed.vehicle_configuration,
         )
 
 

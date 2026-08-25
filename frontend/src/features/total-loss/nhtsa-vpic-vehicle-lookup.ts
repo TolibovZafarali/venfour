@@ -4,6 +4,7 @@ import {
   type ListVehicleTrimsInput,
   VehicleLookupError,
   type VehicleLookupService,
+  type VehicleTrimOption,
 } from "@/features/total-loss/vehicle-lookup-service";
 
 const NHTSA_VPIC_VEHICLES_URL =
@@ -11,6 +12,19 @@ const NHTSA_VPIC_VEHICLES_URL =
 const VIN_PATTERN = /^[A-HJ-NPR-Z0-9]{17}$/;
 const MIN_CATALOG_YEAR = 1886;
 const MAX_CATALOG_YEAR = 9_999;
+const MAX_TRIM_OPTIONS = 1_000;
+const MAX_TRIM_QUERY_VALUES = 1_000;
+const MAX_TRIM_TEXT_LENGTH = 100;
+const PROVIDER_ID_PATTERN = /^[a-z0-9][a-z0-9._-]{0,49}$/;
+const TRIM_OPTION_ID_PATTERN = /^[a-z0-9][a-z0-9._-]{0,99}$/;
+const TRIM_OPTION_FIELDS = [
+  "source",
+  "id",
+  "label",
+  "trim",
+  "queryField",
+  "queryValues",
+] as const;
 const CONSUMER_VEHICLE_TYPES = ["car", "truck", "multipurpose"] as const;
 const COMMON_US_PASSENGER_VEHICLE_MAKES = [
   "Acura",
@@ -79,7 +93,10 @@ export function createNhtsaVpicVehicleLookupService({
 }: NhtsaVpicVehicleLookupOptions = {}): VehicleLookupService {
   let makesRequest: Promise<readonly string[]> | null = null;
   const modelRequests = new Map<string, Promise<readonly string[]>>();
-  const trimRequests = new Map<string, Promise<readonly string[]>>();
+  const trimRequests = new Map<
+    string,
+    Promise<readonly VehicleTrimOption[]>
+  >();
   const normalizedApiBaseUrl = apiBaseUrl.trim().replace(/\/+$/u, "");
 
   const requestJson = async (url: string): Promise<unknown> => {
@@ -332,20 +349,152 @@ function vehicleTrimCatalogUrl(
 }
 
 function trimCatalogOptions(payload: unknown) {
-  if (!isRecord(payload) || !Array.isArray(payload.trims)) {
+  if (
+    !isRecord(payload) ||
+    !hasExactFields(payload, ["trims"]) ||
+    !Array.isArray(payload.trims) ||
+    payload.trims.length > MAX_TRIM_OPTIONS
+  ) {
     throw invalidResponseError();
   }
-  const trims = payload.trims.map((value) => {
-    if (typeof value !== "string") {
+
+  let queryValueCount = 0;
+  const parsed = payload.trims.map((value) => {
+    if (!isRecord(value) || !hasExactFields(value, TRIM_OPTION_FIELDS)) {
       throw invalidResponseError();
     }
-    const normalized = normalizeText(value);
-    if (!normalized) {
+    const source = trimOptionSource(value.source);
+    const id = trimOptionId(value.id);
+    const label = trimOptionText(value.label);
+    const trim = trimOptionText(value.trim);
+    if (value.queryField !== "trim" && value.queryField !== "version") {
       throw invalidResponseError();
     }
-    return normalized;
+    if (
+      !Array.isArray(value.queryValues) ||
+      value.queryValues.length === 0 ||
+      value.queryValues.length > MAX_TRIM_QUERY_VALUES
+    ) {
+      throw invalidResponseError();
+    }
+    queryValueCount += value.queryValues.length;
+    if (queryValueCount > MAX_TRIM_QUERY_VALUES) {
+      throw invalidResponseError();
+    }
+    const queryValues = Object.freeze(
+      [...new Set(value.queryValues.map(trimOptionText))].sort((left, right) =>
+        catalogCollator.compare(left, right),
+      ),
+    );
+    return Object.freeze({
+      source,
+      id,
+      label,
+      trim,
+      queryField: value.queryField,
+      queryValues,
+    }) satisfies VehicleTrimOption;
   });
-  return uniqueCatalogOptions(trims);
+
+  parsed.sort(
+    (left, right) =>
+      catalogCollator.compare(left.label, right.label) ||
+      catalogCollator.compare(left.id, right.id),
+  );
+  const options: VehicleTrimOption[] = [];
+  const optionsById = new Map<string, VehicleTrimOption>();
+  const optionsByLabel = new Map<string, VehicleTrimOption>();
+  for (const option of parsed) {
+    const duplicateId = optionsById.get(option.id);
+    if (duplicateId) {
+      if (!sameTrimOption(duplicateId, option, true)) {
+        throw invalidResponseError();
+      }
+      continue;
+    }
+    const duplicateLabel = optionsByLabel.get(option.label);
+    if (duplicateLabel) {
+      if (!sameTrimOption(duplicateLabel, option, false)) {
+        throw invalidResponseError();
+      }
+      continue;
+    }
+    optionsById.set(option.id, option);
+    optionsByLabel.set(option.label, option);
+    options.push(option);
+  }
+  return Object.freeze(options);
+}
+
+function trimOptionId(value: unknown) {
+  if (
+    typeof value !== "string" ||
+    !TRIM_OPTION_ID_PATTERN.test(value)
+  ) {
+    throw invalidResponseError();
+  }
+  return value;
+}
+
+function trimOptionSource(value: unknown) {
+  if (typeof value !== "string" || !PROVIDER_ID_PATTERN.test(value)) {
+    throw invalidResponseError();
+  }
+  return value;
+}
+
+function trimOptionText(value: unknown) {
+  if (
+    typeof value !== "string" ||
+    !value ||
+    value.length > MAX_TRIM_TEXT_LENGTH ||
+    normalizeText(value) !== value ||
+    hasUnsupportedCatalogCharacter(value)
+  ) {
+    throw invalidResponseError();
+  }
+  return value;
+}
+
+function hasUnsupportedCatalogCharacter(value: string) {
+  return Array.from(value).some(
+    (character) =>
+      character.codePointAt(0)! <= 31 ||
+      character.codePointAt(0) === 127 ||
+      character.codePointAt(0) === 0x061c ||
+      character.codePointAt(0) === 0x200e ||
+      character.codePointAt(0) === 0x200f ||
+      (character.codePointAt(0)! >= 0x202a &&
+        character.codePointAt(0)! <= 0x202e) ||
+      (character.codePointAt(0)! >= 0x2066 &&
+        character.codePointAt(0)! <= 0x2069),
+  );
+}
+
+function sameTrimOption(
+  left: VehicleTrimOption,
+  right: VehicleTrimOption,
+  compareLabel: boolean,
+) {
+  return (
+    (!compareLabel || left.label === right.label) &&
+    left.source === right.source &&
+    left.trim === right.trim &&
+    left.queryField === right.queryField &&
+    left.queryValues.length === right.queryValues.length &&
+    left.queryValues.every((value, index) => value === right.queryValues[index])
+  );
+}
+
+function hasExactFields(
+  value: Record<string, unknown>,
+  expectedFields: readonly string[],
+) {
+  const fields = Object.keys(value);
+  return (
+    fields.length === expectedFields.length &&
+    expectedFields.every((field) => Object.hasOwn(value, field))
+  );
 }
 
 function responseResults(payload: unknown): readonly unknown[] {
