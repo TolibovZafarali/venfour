@@ -22,7 +22,7 @@ const CREATED_AT = "2026-08-18T14:00:00.000Z";
 const UPDATED_AT = "2026-08-18T15:00:00.000Z";
 const UPLOAD_ID = "33333333-3333-4333-8333-333333333333";
 const DETAILS_COLUMNS =
-  "case_id,intake_mode,vin,vehicle_year,vehicle_make,vehicle_model,vehicle_trim,mileage_at_loss,postal_code,date_of_loss,insurer_name,insurer_vehicle_valuation,vehicle_condition,vehicle_options_packages,report_provider_name,report_extraction_status,report_extraction_confidence,report_extracted_at,report_facts_confirmed_at,analysis_input_revision,analysis_input_id,report_storage_owner_id,report_original_filename,report_uploaded_at,intake_completed_at,created_at,updated_at";
+  "case_id,intake_mode,vin,vehicle_year,vehicle_make,vehicle_model,vehicle_trim,mileage_at_loss,postal_code,date_of_loss,insurer_name,insurer_vehicle_valuation,vehicle_condition,vehicle_options_packages,report_provider_name,report_extraction_status,report_extraction_confidence,report_extracted_at,report_facts_confirmed_at,analysis_input_revision,analysis_input_id,report_storage_owner_id,report_upload_recovery_required,report_original_filename,report_uploaded_at,intake_completed_at,created_at,updated_at";
 
 const detailsRow = {
   case_id: CASE_ID,
@@ -47,6 +47,7 @@ const detailsRow = {
   analysis_input_revision: 1,
   analysis_input_id: "44444444-4444-4444-8444-444444444444",
   report_storage_owner_id: USER_ID,
+  report_upload_recovery_required: false,
   report_original_filename: null,
   report_uploaded_at: null,
   intake_completed_at: null,
@@ -105,6 +106,7 @@ const expectedDetails: TotalLossCaseDetails = {
   analysisInputRevision: 1,
   analysisInputId: "44444444-4444-4444-8444-444444444444",
   reportStorageOwnerId: USER_ID,
+  reportUploadRecoveryRequired: false,
   reportOriginalFilename: null,
   reportUploadedAt: null,
   intakeCompletedAt: null,
@@ -171,6 +173,48 @@ describe("total-loss details service", () => {
     expect(requestUrl?.searchParams.get("case_id")).toBe(`eq.${CASE_ID}`);
     expect(requestUrl?.searchParams.get("select")).toBe(DETAILS_COLUMNS);
   });
+
+  it("maps the owner-visible report recovery gate", async () => {
+    server.use(
+      http.get(
+        `${SUPABASE_URL}/rest/v1/total_loss_case_details`,
+        () =>
+          HttpResponse.json({
+            ...detailsRow,
+            report_upload_recovery_required: true,
+          }),
+      ),
+    );
+
+    const { service } = createTestHarness();
+    await expect(
+      service.getDetails({ caseId: CASE_ID, userId: USER_ID }),
+    ).resolves.toMatchObject({ reportUploadRecoveryRequired: true });
+  });
+
+  it.each([null, "true", 1])(
+    "rejects an invalid report recovery gate value of %j",
+    async (reportUploadRecoveryRequired) => {
+      server.use(
+        http.get(
+          `${SUPABASE_URL}/rest/v1/total_loss_case_details`,
+          () =>
+            HttpResponse.json({
+              ...detailsRow,
+              report_upload_recovery_required:
+                reportUploadRecoveryRequired,
+            }),
+        ),
+      );
+
+      const { service } = createTestHarness();
+      await expect(
+        service.getDetails({ caseId: CASE_ID, userId: USER_ID }),
+      ).rejects.toThrow(
+        "Supabase returned an invalid Total-Loss boolean field.",
+      );
+    },
+  );
 
   it.each([
     "case_id",
@@ -427,6 +471,68 @@ describe("total-loss details service", () => {
       expected_updated_at: null,
       upload_id: UPLOAD_ID,
     });
+  });
+
+  it("reclaims an interrupted report lease with a fresh scoped token", async () => {
+    let requestBody: unknown;
+    server.use(
+      http.post(
+        `${SUPABASE_URL}/rest/v1/rpc/reclaim_total_loss_report_upload`,
+        async ({ request }) => {
+          requestBody = await request.json();
+          return HttpResponse.json({
+            ...leaseRow,
+            recovery_required: true,
+          });
+        },
+      ),
+    );
+
+    const { service } = createTestHarness();
+    await expect(
+      service.reclaimReportUploadLease({
+        caseId: CASE_ID,
+        userId: USER_ID,
+        expectedUpdatedAt: UPDATED_AT,
+        uploadId: UPLOAD_ID,
+      }),
+    ).resolves.toEqual({
+      uploadId: UPLOAD_ID,
+      expiresAt: "2026-08-18T15:30:00.000Z",
+      detailsUpdatedAt: UPDATED_AT,
+      reportOriginalFilename: null,
+      reportUploadedAt: null,
+      recoveryRequired: true,
+      storageOwnerUserId: USER_ID,
+    });
+    expect(requestBody).toEqual({
+      case_id: CASE_ID,
+      expected_updated_at: UPDATED_AT,
+      upload_id: UPLOAD_ID,
+    });
+  });
+
+  it("rejects a reclaimed lease returned for a different attempt token", async () => {
+    server.use(
+      http.post(
+        `${SUPABASE_URL}/rest/v1/rpc/reclaim_total_loss_report_upload`,
+        () =>
+          HttpResponse.json({
+            ...leaseRow,
+            upload_id: "44444444-4444-4444-8444-444444444444",
+          }),
+      ),
+    );
+
+    const { service } = createTestHarness();
+    await expect(
+      service.reclaimReportUploadLease({
+        caseId: CASE_ID,
+        userId: USER_ID,
+        expectedUpdatedAt: UPDATED_AT,
+        uploadId: UPLOAD_ID,
+      }),
+    ).rejects.toBeInstanceOf(TotalLossDetailsResponseError);
   });
 
   it.each(["upload_id", "expires_at", "details_updated_at"] as const)(

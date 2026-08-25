@@ -1,6 +1,6 @@
 import { AlertCircle, CloudOff, RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useIsMutating, useQueryClient } from "@tanstack/react-query";
 import { Link, useLocation, useNavigate } from "react-router";
 
 import { environment } from "@/config/env";
@@ -64,6 +64,9 @@ import {
   type VehicleEntryMethod,
 } from "@/features/total-loss/intake-steps";
 import {
+  totalLossReportUploadMutationKey,
+  TotalLossReportRestoreError,
+  type UploadTotalLossReportMutationInput,
   useSaveTotalLossDetailsMutation,
   useUploadTotalLossReportMutation,
 } from "@/features/total-loss/mutations";
@@ -101,8 +104,13 @@ import {
 } from "@/features/total-loss/new-appraisal";
 
 const AUTOSAVE_DELAY_MS = 600;
+const REPORT_INGESTION_TIMEOUT_MS = 90_000;
 const REPORT_EXTRACTION_FAILURE_WARNING =
   "Automatic extraction could not finish. Complete the vehicle and claim details manually.";
+const REPORT_UPLOAD_RECOVERY_REQUIRED_MESSAGE =
+  "Venfour could not confirm the saved report after an interrupted replacement. Choose the report again so we can securely continue.";
+const REPORT_UPLOAD_RECOVERY_RETRY_MESSAGE =
+  "Venfour could not confirm the saved report after an interrupted replacement. Try the selected report again so we can securely continue.";
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const defaultVehicleLookupService = createNhtsaVpicVehicleLookupService({
@@ -402,19 +410,23 @@ function TotalLossIntakeFlowContent({
   const [selectedFilename, setSelectedFilename] = useState<string | null>(null);
   const [savedFilename, setSavedFilename] = useState<string | null>(null);
   const [uploadState, setUploadState] = useState<
-    "idle" | "uploading" | "success" | "error"
+    "idle" | "queued" | "uploading" | "success" | "error"
   >("idle");
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [reportRecoveryRequired, setReportRecoveryRequired] = useState(false);
   const [accessLinkError, setAccessLinkError] = useState<string | null>(null);
   const [extractionState, setExtractionState] =
     useState<TotalLossReportExtractionStatus>(
       initialDraft.draft.reportExtractionStatus,
     );
+  const [reportIngestionSettledRevision, setReportIngestionSettledRevision] =
+    useState(0);
   const [explicitCaseError, setExplicitCaseError] = useState<string | null>(
     null,
   );
 
   const userId = auth.status === "signedIn" ? auth.user.id : null;
+  const mountedRef = useRef(false);
   const identityRef = useRef({ generation: 0, userId });
   const caseService =
     dependencies?.appraisalCaseService ?? unavailableCaseService;
@@ -498,6 +510,13 @@ function TotalLossIntakeFlowContent({
     [],
   );
 
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
   const createCaseMutation = useCreateOrGetAppraisalCaseMutation({
     service: caseService,
     userId,
@@ -515,11 +534,35 @@ function TotalLossIntakeFlowContent({
     userId: dataUserId,
     caseId: confirmedCaseId,
   });
+  const reportUploadMutationPending =
+    useIsMutating({
+      mutationKey: totalLossReportUploadMutationKey(userId),
+      predicate: (mutation) => {
+        const variables = mutation.state.variables as
+          | UploadTotalLossReportMutationInput
+          | undefined;
+        return Boolean(
+          confirmedCaseId && variables?.caseId === confirmedCaseId,
+        );
+      },
+    }) > 0;
   const resolvedSavedFilename =
     savedFilename ??
     (detailsQuery.data?.caseId === confirmedCaseId
       ? detailsQuery.data.reportOriginalFilename
       : null);
+  const persistedReportRecoveryRequired =
+    reportRecoveryRequired ||
+    Boolean(
+      detailsQuery.data?.caseId === confirmedCaseId &&
+        detailsQuery.data.reportUploadRecoveryRequired,
+    );
+  const resolvedReportRecoveryRequired =
+    persistedReportRecoveryRequired || reportUploadMutationPending;
+  const reportStepUploadState =
+    reportUploadMutationPending && uploadState === "idle"
+      ? "uploading"
+      : uploadState;
   const recentDetailsQuery = useTotalLossDetailsQuery({
     service: detailsService,
     userId: dataUserId,
@@ -772,6 +815,7 @@ function TotalLossIntakeFlowContent({
       caseCreationPromiseRef.current = null;
       pendingSaveRef.current = null;
       saveLoopRef.current = null;
+      reportIngestionPromiseRef.current = null;
       explicitCaseRef.current = null;
       setRetryFiles([]);
       setSelectedFilename(null);
@@ -779,6 +823,7 @@ function TotalLossIntakeFlowContent({
       setUploadState("idle");
       setExtractionState("idle");
       setUploadError(null);
+      setReportRecoveryRequired(false);
       setConflict(null);
       setConflictWithoutRow(false);
       setExplicitCaseError(null);
@@ -863,6 +908,44 @@ function TotalLossIntakeFlowContent({
   }, [applyDraft, detailsQuery.data]);
 
   useEffect(() => {
+    const details = detailsQuery.data;
+    if (
+      !details ||
+      uploadState === "uploading" ||
+      uploadState === "queued" ||
+      reportUploadMutationPending
+    ) {
+      return;
+    }
+    setReportRecoveryRequired(details.reportUploadRecoveryRequired);
+    if (!details.reportUploadRecoveryRequired) return;
+    setSavedFilename(details.reportOriginalFilename);
+    setExtractionState("idle");
+    if (
+      draftRef.current.mode === "report" &&
+      draftRef.current.step === "report" &&
+      draftRef.current.reportExtractionStatus === "idle"
+    ) {
+      return;
+    }
+    applyDraft(
+      (current) => ({
+        ...current,
+        mode: "report",
+        step: "report",
+        reportExtractionStatus: "idle",
+        pendingAuthAction: null,
+      }),
+      { bumpRevision: false },
+    );
+  }, [
+    applyDraft,
+    detailsQuery.data,
+    reportUploadMutationPending,
+    uploadState,
+  ]);
+
+  useEffect(() => {
     const current = draftRef.current;
     if (
       !userId ||
@@ -878,6 +961,7 @@ function TotalLossIntakeFlowContent({
     serverUpdatedAtRef.current = null;
     hydratedDetailsRef.current = null;
     setSavedFilename(null);
+    setReportRecoveryRequired(false);
     setFlowError(
       "We couldn’t confirm that this intake was completed. Review and save it again.",
     );
@@ -940,6 +1024,7 @@ function TotalLossIntakeFlowContent({
         serverUpdatedAtRef.current = null;
         hydratedDetailsRef.current = null;
         setSavedFilename(null);
+        setReportRecoveryRequired(false);
         applyDraft((current) => ({
           ...current,
           confirmedCaseId: appraisalCase.id,
@@ -1041,9 +1126,12 @@ function TotalLossIntakeFlowContent({
     candidate?.id === recentDetailsQuery.data?.caseId
       ? (recentDetailsQuery.data ?? null)
       : null;
+  const effectiveDraftStep = resolvedReportRecoveryRequired
+    ? "report"
+    : draft.step;
   const renderedStepKey: TotalLossDraft["step"] | "resume" = candidate
     ? "resume"
-    : draft.step;
+    : effectiveDraftStep;
   const explicitCasePending = Boolean(
     explicitCaseId &&
     !invalidExplicitCaseId &&
@@ -1078,6 +1166,8 @@ function TotalLossIntakeFlowContent({
     modeBusy ||
     completionBusy ||
     resumeBusy ||
+    reportUploadMutationPending ||
+    uploadState === "queued" ||
     uploadState === "uploading";
   const serviceSwitchDisabled = busy || vinLookupState === "loading";
 
@@ -1431,6 +1521,12 @@ function TotalLossIntakeFlowContent({
         if (auth.status !== "signedIn") {
           throw new Error("Secure guest storage is not ready.");
         }
+        const ingestionIdentityGeneration = identityRef.current.generation;
+        const ingestionUserId = identityRef.current.userId;
+        const ingestionIsCurrent = () =>
+          mountedRef.current &&
+          identityRef.current.generation === ingestionIdentityGeneration &&
+          identityRef.current.userId === ingestionUserId;
         setExtractionState("processing");
         applyDraft((current) => ({
           ...current,
@@ -1439,10 +1535,27 @@ function TotalLossIntakeFlowContent({
           reportProvider: null,
         }));
         try {
-          const ingestion = await ingestTotalLossReport(
-            caseId,
-            auth.session.access_token,
+          const controller = new AbortController();
+          const timeoutId = window.setTimeout(
+            () => controller.abort(),
+            REPORT_INGESTION_TIMEOUT_MS,
           );
+          let ingestion: TotalLossReportIngestion;
+          try {
+            ingestion = await ingestTotalLossReport(
+              caseId,
+              auth.session.access_token,
+              controller.signal,
+            );
+          } finally {
+            window.clearTimeout(timeoutId);
+          }
+          if (!ingestionIsCurrent()) {
+            throw new StaleIdentityOperationError();
+          }
+          if (draftRef.current.mode !== "report") {
+            throw new StaleReportIngestionOperationError();
+          }
           const nextManual = manualValuesForReportIngestion(
             ingestion,
             draftRef.current.manual,
@@ -1458,8 +1571,23 @@ function TotalLossIntakeFlowContent({
             dirty: true,
           }));
           await flushDraft({ force: true });
+          if (!ingestionIsCurrent()) {
+            throw new StaleIdentityOperationError();
+          }
           return ingestion;
         } catch (error) {
+          if (
+            error instanceof StaleIdentityOperationError ||
+            !ingestionIsCurrent()
+          ) {
+            throw new StaleIdentityOperationError();
+          }
+          if (
+            error instanceof StaleReportIngestionOperationError ||
+            draftRef.current.mode !== "report"
+          ) {
+            throw new StaleReportIngestionOperationError();
+          }
           setExtractionState("error");
           applyDraft((current) => ({
             ...current,
@@ -1475,6 +1603,10 @@ function TotalLossIntakeFlowContent({
         .finally(() => {
           if (reportIngestionPromiseRef.current?.promise === operation) {
             reportIngestionPromiseRef.current = null;
+            pendingExtractionResumeKeyRef.current = null;
+            if (mountedRef.current) {
+              setReportIngestionSettledRevision((current) => current + 1);
+            }
           }
         })
         .catch(() => undefined);
@@ -1487,9 +1619,11 @@ function TotalLossIntakeFlowContent({
     const details = detailsQuery.data;
     if (
       auth.status !== "signedIn" ||
+      draft.mode !== "report" ||
       !details ||
       details.intakeMode !== "report" ||
       !details.reportOriginalFilename ||
+      resolvedReportRecoveryRequired ||
       details.reportExtractionStatus !== "pending" ||
       extractionState !== "processing"
     ) {
@@ -1500,33 +1634,81 @@ function TotalLossIntakeFlowContent({
     if (pendingExtractionResumeKeyRef.current === resumeKey) return;
     pendingExtractionResumeKeyRef.current = resumeKey;
     void runReportIngestion(details.caseId).catch(() => undefined);
-  }, [auth.status, detailsQuery.data, extractionState, runReportIngestion]);
+  }, [
+    auth.status,
+    detailsQuery.data,
+    draft.mode,
+    extractionState,
+    reportIngestionSettledRevision,
+    resolvedReportRecoveryRequired,
+    runReportIngestion,
+  ]);
 
   const uploadSelectedReport = async (files: readonly File[]) => {
+    const recoveryWasAlreadyRequired = resolvedReportRecoveryRequired;
+    const ingestionToFinish = reportIngestionPromiseRef.current;
+    const queueBehindCurrentIngestion = Boolean(
+      resolvedSavedFilename && ingestionToFinish,
+    );
+    let previousSavedExtractionState = resolvedSavedFilename
+      ? extractionState
+      : null;
     setRetryFiles(files);
     setSelectedFilename(
       files.length === 1 ? files[0]?.name ?? null : `${files.length} image pages`,
     );
-    setUploadState("uploading");
+    setUploadState(queueBehindCurrentIngestion ? "queued" : "uploading");
     setExtractionState("idle");
     setUploadError(null);
     setFlowError(null);
     const identityGeneration = identityRef.current.generation;
     const uploadUserId = identityRef.current.userId;
+    let uploadCaseId: string | null = null;
+    let uploadLeaseMayBeActive = recoveryWasAlreadyRequired;
+    const uploadIsCurrent = () =>
+      mountedRef.current &&
+      identityRef.current.generation === identityGeneration &&
+      identityRef.current.userId === uploadUserId;
     try {
       const normalized = await normalizeTotalLossReportFiles(files);
+      if (!uploadIsCurrent()) throw new StaleIdentityOperationError();
       setSelectedFilename(normalized.displayFilename);
       const caseId = await ensureCase();
+      uploadCaseId = caseId;
+      if (!uploadIsCurrent()) throw new StaleIdentityOperationError();
+      const existingIngestion =
+        ingestionToFinish?.caseId === caseId ? ingestionToFinish : null;
+      if (existingIngestion) {
+        try {
+          await existingIngestion.promise;
+        } catch {
+          // The replacement can still proceed after the prior extraction fails.
+        }
+        if (
+          reportIngestionPromiseRef.current?.promise ===
+          existingIngestion.promise
+        ) {
+          reportIngestionPromiseRef.current = null;
+        }
+        if (resolvedSavedFilename) {
+          previousSavedExtractionState =
+            draftRef.current.reportExtractionStatus;
+        }
+      }
+      if (!uploadIsCurrent()) throw new StaleIdentityOperationError();
+      setUploadState("uploading");
       await flushDraft({ force: true });
+      if (!uploadIsCurrent()) throw new StaleIdentityOperationError();
+      uploadLeaseMayBeActive = true;
       const result = await uploadReport({
         caseId,
         expectedUpdatedAt: serverUpdatedAtRef.current,
         file: normalized.file,
         preserveExistingReport: Boolean(resolvedSavedFilename),
+        recoverInterruptedUpload: recoveryWasAlreadyRequired,
       });
       if (
-        identityRef.current.generation !== identityGeneration ||
-        identityRef.current.userId !== uploadUserId
+        !uploadIsCurrent()
       ) {
         if (uploadUserId) clearStaleUserCache(uploadUserId);
         throw new StaleIdentityOperationError();
@@ -1534,6 +1716,7 @@ function TotalLossIntakeFlowContent({
       serverUpdatedAtRef.current = result.details.updatedAt;
       hydratedDetailsRef.current = `${result.details.caseId}:${result.details.updatedAt}`;
       setSavedFilename(result.details.reportOriginalFilename);
+      setReportRecoveryRequired(false);
       setUploadState("success");
       applyDraft(
         (current) => ({
@@ -1548,22 +1731,92 @@ function TotalLossIntakeFlowContent({
       );
       try {
         await runReportIngestion(caseId);
-      } catch {
-        setExtractionState("error");
+      } catch (error) {
+        if (error instanceof StaleReportIngestionOperationError) {
+          // The report remains saved, but the user chose a different intake
+          // path before this extraction completed.
+        } else if (
+          error instanceof StaleIdentityOperationError ||
+          !uploadIsCurrent()
+        ) {
+          throw error;
+        } else {
+          setExtractionState("error");
+        }
       }
       setRetryFiles([]);
       setSelectedFilename(null);
     } catch (error) {
       if (
         error instanceof StaleIdentityOperationError ||
-        identityRef.current.generation !== identityGeneration ||
-        identityRef.current.userId !== uploadUserId
+        !uploadIsCurrent()
       ) {
         if (uploadUserId) clearStaleUserCache(uploadUserId);
         return;
       }
       setUploadState("error");
-      setExtractionState("error");
+      const restoreFailed = error instanceof TotalLossReportRestoreError;
+      let reconciledDetails =
+        error instanceof TotalLossDetailsConflictError
+          ? error.currentDetails
+          : null;
+      let detailsReconciled = error instanceof TotalLossDetailsConflictError;
+
+      if (
+        !restoreFailed &&
+        uploadUserId &&
+        uploadCaseId &&
+        detailsService
+      ) {
+        try {
+          reconciledDetails = await detailsService.getDetails({
+            caseId: uploadCaseId,
+            userId: uploadUserId,
+          });
+          detailsReconciled = true;
+        } catch {
+          // Keep the pessimistic recovery gate when current server state cannot
+          // be confirmed after a failed upload attempt.
+        }
+        if (!uploadIsCurrent()) {
+          clearStaleUserCache(uploadUserId);
+          return;
+        }
+      }
+
+      const recoveryRequired = restoreFailed
+        ? true
+        : detailsReconciled
+          ? Boolean(reconciledDetails?.reportUploadRecoveryRequired)
+          : recoveryWasAlreadyRequired || uploadLeaseMayBeActive;
+
+      if (detailsReconciled && uploadUserId && uploadCaseId) {
+        queryClient.setQueryData<TotalLossCaseDetails | null>(
+          totalLossQueryKeys.details(uploadUserId, uploadCaseId),
+          reconciledDetails,
+        );
+        setSavedFilename(reconciledDetails?.reportOriginalFilename ?? null);
+        if (reconciledDetails) {
+          serverUpdatedAtRef.current = reconciledDetails.updatedAt;
+        }
+      } else if (recoveryRequired && uploadUserId && uploadCaseId) {
+        queryClient.setQueryData<TotalLossCaseDetails | null>(
+          totalLossQueryKeys.details(uploadUserId, uploadCaseId),
+          (current) =>
+            current?.caseId === uploadCaseId
+              ? { ...current, reportUploadRecoveryRequired: true }
+              : current,
+        );
+      }
+      const latestSavedExtractionState = reconciledDetails
+        ? extractionStateForDetails(reconciledDetails)
+        : resolvedSavedFilename
+          ? draftRef.current.reportExtractionStatus
+          : previousSavedExtractionState;
+      setReportRecoveryRequired(recoveryRequired);
+      setExtractionState(
+        recoveryRequired ? "idle" : (latestSavedExtractionState ?? "error"),
+      );
       if (error instanceof TotalLossDetailsConflictError) {
         setConflict(error.currentDetails);
         setConflictWithoutRow(error.currentDetails === null);
@@ -1581,6 +1834,12 @@ function TotalLossIntakeFlowContent({
 
   const handleReportContinue = async () => {
     setFlowError(null);
+    if (resolvedReportRecoveryRequired) {
+      setFlowError(
+        "Retry the report upload so Venfour can confirm the saved file before continuing.",
+      );
+      return;
+    }
     if (!resolvedSavedFilename) {
       setFlowError("Upload your insurance valuation report before continuing.");
       return;
@@ -1643,6 +1902,9 @@ function TotalLossIntakeFlowContent({
         ? `${details.caseId}:${details.updatedAt}`
         : null;
       setSavedFilename(details?.reportOriginalFilename ?? null);
+      setReportRecoveryRequired(
+        details?.reportUploadRecoveryRequired ?? false,
+      );
       const resumedExtractionState = details
         ? extractionStateForDetails(details)
         : "idle";
@@ -1672,11 +1934,13 @@ function TotalLossIntakeFlowContent({
           ? extractionWarningsForDetails(details, current)
           : [],
         step: details
-          ? details.intakeCompletedAt
-            ? "ready"
-            : contact
-              ? "review"
-              : stepForDetails(details, "choice")
+          ? details.reportUploadRecoveryRequired
+            ? "report"
+            : details.intakeCompletedAt
+              ? "ready"
+              : contact
+                ? "review"
+                : stepForDetails(details, "choice")
           : "choice",
         pendingAuthAction: null,
         dirty: false,
@@ -1716,6 +1980,7 @@ function TotalLossIntakeFlowContent({
     serverUpdatedAtRef.current = null;
     hydratedDetailsRef.current = null;
     setSavedFilename(null);
+    setReportRecoveryRequired(false);
     setFlowError(null);
   };
 
@@ -1725,6 +1990,7 @@ function TotalLossIntakeFlowContent({
     serverUpdatedAtRef.current = conflict.updatedAt;
     hydratedDetailsRef.current = `${conflict.caseId}:${conflict.updatedAt}`;
     setSavedFilename(conflict.reportOriginalFilename);
+    setReportRecoveryRequired(conflict.reportUploadRecoveryRequired);
     setExtractionState(savedExtractionState);
     applyDraft((current) => ({
       ...current,
@@ -1764,7 +2030,7 @@ function TotalLossIntakeFlowContent({
       );
     }
 
-    switch (draft.step) {
+    switch (effectiveDraftStep) {
       case "vehicle":
         return (
           <VehicleStep
@@ -1827,14 +2093,27 @@ function TotalLossIntakeFlowContent({
           <ReportStep
             storageAvailable={Boolean(storageService)}
             selectedFilename={selectedFilename}
-            savedFilename={resolvedSavedFilename}
-            uploadState={uploadState}
+            savedFilename={
+              persistedReportRecoveryRequired ? null : resolvedSavedFilename
+            }
+            uploadState={reportStepUploadState}
             extractionState={extractionState}
             reportProvider={draft.reportProvider}
             extractionWarnings={draft.reportExtractionWarnings}
-            uploadError={uploadError}
+            uploadError={
+              uploadError ??
+              (resolvedReportRecoveryRequired &&
+              reportStepUploadState !== "queued" &&
+              reportStepUploadState !== "uploading"
+                ? selectedFilename
+                  ? REPORT_UPLOAD_RECOVERY_RETRY_MESSAGE
+                  : REPORT_UPLOAD_RECOVERY_REQUIRED_MESSAGE
+                : null)
+            }
             error={flowError}
             completing={completionBusy}
+            hideBack={resolvedReportRecoveryRequired}
+            onRetryStorage={() => void navigate(0)}
             onBack={() => {
               setFlowError(null);
               setUploadError(null);
@@ -1989,7 +2268,12 @@ function TotalLossIntakeFlowContent({
       ) : explicitCasePending ||
         draftIdentityUnverified ||
         readyStateVerificationPending ||
-        (detailsQuery.isLoading && confirmedCaseId && !draft.dirty) ? (
+        (detailsQuery.isLoading &&
+          confirmedCaseId &&
+          (!draft.dirty ||
+            (draft.mode === "report" &&
+              intakeStepPosition(draft.step) >
+                intakeStepPosition("report")))) ? (
         <LoadingCard />
       ) : readyStateLoadError ? (
         <SavedDetailsLoadErrorCard
@@ -2011,6 +2295,13 @@ class StaleIdentityOperationError extends Error {
   constructor() {
     super("The signed-in account changed while this operation was running.");
     this.name = "StaleIdentityOperationError";
+  }
+}
+
+class StaleReportIngestionOperationError extends Error {
+  constructor() {
+    super("The intake mode changed while report extraction was running.");
+    this.name = "StaleReportIngestionOperationError";
   }
 }
 
@@ -2141,6 +2432,7 @@ function stepForDetails(
   details: TotalLossCaseDetails,
   currentStep: TotalLossDraft["step"],
 ): TotalLossDraft["step"] {
+  if (details.reportUploadRecoveryRequired) return "report";
   if (details.intakeCompletedAt) return "ready";
   const serverMinimumStep =
     details.intakeMode === "report" ? "report" : "vehicle";

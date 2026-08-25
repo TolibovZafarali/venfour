@@ -4,7 +4,7 @@ create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
 set local storage.allow_delete_query = 'true';
 
-select plan(154);
+select plan(166);
 
 select ok(
   to_regtype('public.total_loss_intake_mode') is not null,
@@ -144,7 +144,8 @@ select is(
     'analysis_input_id',
     'report_facts_confirmed_at',
     'prior_title_status',
-    'existing_damage_description'
+    'existing_damage_description',
+    'report_upload_recovery_required'
   ]::text[],
   'the details table contains the public intake fields and internal upload coordination fields'
 );
@@ -194,9 +195,22 @@ select is(
     'uuid',
     'timestamptz',
     'text',
-    'text'
+    'text',
+    'bool'
   ]::text[],
   'all details and lease columns use the intended PostgreSQL types'
+);
+
+select is(
+  (
+    select column_info.is_generated || '|' || column_info.generation_expression
+    from information_schema.columns as column_info
+    where column_info.table_schema = 'public'
+      and column_info.table_name = 'total_loss_case_details'
+      and column_info.column_name = 'report_upload_recovery_required'
+  ),
+  'ALWAYS|(report_upload_id IS NOT NULL)',
+  'the owner-visible recovery gate is generated only from private in-flight upload state'
 );
 
 select is(
@@ -363,6 +377,7 @@ select ok(
       'vehicle_options_packages',
       'report_original_filename',
       'report_uploaded_at',
+      'report_upload_recovery_required',
       'intake_completed_at',
       'created_at',
       'updated_at'
@@ -444,6 +459,7 @@ select ok(
       'report_upload_details_updated_at',
       'report_upload_phase',
       'report_upload_has_backup',
+      'report_upload_recovery_required',
       'report_last_upload_id',
       'report_last_cancelled_upload_id',
       'intake_completed_at',
@@ -520,6 +536,7 @@ select ok(
       'report_upload_details_updated_at',
       'report_upload_phase',
       'report_upload_has_backup',
+      'report_upload_recovery_required',
       'report_last_upload_id',
       'report_last_cancelled_upload_id',
       'intake_completed_at',
@@ -582,6 +599,9 @@ select ok(
     'public.acquire_total_loss_report_upload(uuid,timestamp with time zone,uuid)'
   ) is not null
     and to_regprocedure(
+      'public.reclaim_total_loss_report_upload(uuid,timestamp with time zone,uuid)'
+    ) is not null
+    and to_regprocedure(
       'public.renew_total_loss_report_upload(uuid,uuid)'
     ) is not null
     and to_regprocedure(
@@ -611,6 +631,7 @@ select ok(
     from pg_proc as procedure
     where procedure.oid in (
       'public.acquire_total_loss_report_upload(uuid,timestamptz,uuid)'::regprocedure,
+      'public.reclaim_total_loss_report_upload(uuid,timestamptz,uuid)'::regprocedure,
       'public.renew_total_loss_report_upload(uuid,uuid)'::regprocedure,
       'public.mark_total_loss_report_upload_ready(uuid,uuid,boolean)'::regprocedure,
       'public.complete_total_loss_report_upload_recovery(uuid,uuid)'::regprocedure,
@@ -647,6 +668,7 @@ select ok(
     ) as function_acl
     where procedure.oid in (
       'public.acquire_total_loss_report_upload(uuid,timestamptz,uuid)'::regprocedure,
+      'public.reclaim_total_loss_report_upload(uuid,timestamptz,uuid)'::regprocedure,
       'public.renew_total_loss_report_upload(uuid,uuid)'::regprocedure,
       'public.mark_total_loss_report_upload_ready(uuid,uuid,boolean)'::regprocedure,
       'public.complete_total_loss_report_upload_recovery(uuid,uuid)'::regprocedure,
@@ -667,6 +689,11 @@ select ok(
     'public.acquire_total_loss_report_upload(uuid,timestamptz,uuid)',
     'EXECUTE'
   )
+    and not has_function_privilege(
+      'anon',
+      'public.reclaim_total_loss_report_upload(uuid,timestamptz,uuid)',
+      'EXECUTE'
+    )
     and not has_function_privilege(
       'anon',
       'public.renew_total_loss_report_upload(uuid,uuid)',
@@ -713,6 +740,11 @@ select ok(
   )
     and has_function_privilege(
       'authenticated',
+      'public.reclaim_total_loss_report_upload(uuid,timestamptz,uuid)',
+      'EXECUTE'
+    )
+    and has_function_privilege(
+      'authenticated',
       'public.renew_total_loss_report_upload(uuid,uuid)',
       'EXECUTE'
     )
@@ -755,6 +787,11 @@ select ok(
     'public.acquire_total_loss_report_upload(uuid,timestamptz,uuid)',
     'EXECUTE'
   )
+    and has_function_privilege(
+      'service_role',
+      'public.reclaim_total_loss_report_upload(uuid,timestamptz,uuid)',
+      'EXECUTE'
+    )
     and has_function_privilege(
       'service_role',
       'public.renew_total_loss_report_upload(uuid,uuid)',
@@ -1187,6 +1224,7 @@ select lives_ok(
       insurer_vehicle_valuation,
       report_original_filename,
       report_uploaded_at,
+      report_upload_recovery_required,
       intake_completed_at,
       created_at,
       updated_at
@@ -1398,6 +1436,38 @@ select throws_ok(
   '42501',
   null,
   'a customer cannot acquire an upload lease for another account case'
+);
+
+select throws_ok(
+  $$
+    select *
+    from public.reclaim_total_loss_report_upload(
+      '3bbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb2',
+      '2000-01-01 00:00:00+00',
+      'aaaaaaaa-1000-4000-8000-000000000019'
+    )
+  $$,
+  '42501',
+  null,
+  'a customer cannot reclaim another account report upload'
+);
+
+select throws_ok(
+  $$
+    select *
+    from public.reclaim_total_loss_report_upload(
+      '3eeeeeee-eeee-4eee-8eee-eeeeeeeeeee5',
+      (
+        select updated_at
+        from public.total_loss_case_details
+        where case_id = '3eeeeeee-eeee-4eee-8eee-eeeeeeeeeee5'
+      ),
+      'aaaaaaaa-1000-4000-8000-000000000020'
+    )
+  $$,
+  '55000',
+  null,
+  'an owner cannot use recovery reclaim when no upload lease is active'
 );
 
 select throws_ok(
@@ -1870,6 +1940,7 @@ select ok(
   (
     select details.report_upload_phase = 'ready'
       and not details.report_upload_has_backup
+      and details.report_upload_recovery_required
       and details.report_upload_id = token.upload_id
       and details.updated_at = token.details_updated_at
     from public.total_loss_case_details as details
@@ -2343,6 +2414,16 @@ select lives_ok(
 );
 
 select is(
+  (
+    select report_upload_recovery_required
+    from public.total_loss_case_details
+    where case_id = '3eeeeeee-eeee-4eee-8eee-eeeeeeeeeee5'
+  ),
+  true,
+  'the owner can read the recovery gate without access to private lease state'
+);
+
+select is(
   public.authorize_total_loss_report_storage_write(
     '31111111-1111-4111-8111-111111111111/3eeeeeee-eeee-4eee-8eee-eeeeeeeeeee5/valuation-report.pdf',
     (
@@ -2373,13 +2454,149 @@ select lives_ok(
 
 select lives_ok(
   $$
+    insert into pg_temp.report_upload_tokens (
+      label,
+      upload_id,
+      details_updated_at
+    )
+    select
+      'replacement-recovery',
+      lease.upload_id,
+      lease.details_updated_at
+    from public.reclaim_total_loss_report_upload(
+      '3eeeeeee-eeee-4eee-8eee-eeeeeeeeeee5',
+      (
+        select updated_at
+        from public.total_loss_case_details
+        where case_id = '3eeeeeee-eeee-4eee-8eee-eeeeeeeeeee5'
+      ),
+      'aaaaaaaa-1000-4000-8000-000000000008'
+    ) as lease
+  $$,
+  'an owner can immediately take over an unexpired recoverable replacement'
+);
+
+select is(
+  (
+    select lease.recovery_required
+    from public.reclaim_total_loss_report_upload(
+      '3eeeeeee-eeee-4eee-8eee-eeeeeeeeeee5',
+      (
+        select updated_at
+        from public.total_loss_case_details
+        where case_id = '3eeeeeee-eeee-4eee-8eee-eeeeeeeeeee5'
+      ),
+      'aaaaaaaa-1000-4000-8000-000000000008'
+    ) as lease
+  ),
+  true,
+  'the takeover token resumes the interrupted replacement in recovery mode'
+);
+
+select throws_ok(
+  $$
+    select *
+    from public.renew_total_loss_report_upload(
+      '3eeeeeee-eeee-4eee-8eee-eeeeeeeeeee5',
+      (
+        select upload_id
+        from pg_temp.report_upload_tokens
+        where label = 'replacement'
+      )
+    )
+  $$,
+  '55000',
+  null,
+  'the interrupted replacement token loses the lease after recovery takeover'
+);
+
+select lives_ok(
+  $$
+    update storage.objects
+    set user_metadata = (
+      select jsonb_build_object('uploadId', token.upload_id::text)
+      from pg_temp.report_upload_tokens as token
+      where token.label = 'replacement-recovery'
+    )
+    where bucket_id = 'case-files'
+      and name = '31111111-1111-4111-8111-111111111111/3eeeeeee-eeee-4eee-8eee-eeeeeeeeeee5/valuation-report-backup.pdf'
+  $$,
+  'the recovery takeover token can re-fence the retained backup object'
+);
+
+select lives_ok(
+  $$
+    update storage.objects
+    set user_metadata = (
+      select jsonb_build_object('uploadId', token.upload_id::text)
+      from pg_temp.report_upload_tokens as token
+      where token.label = 'replacement-recovery'
+    )
+    where bucket_id = 'case-files'
+      and name = '31111111-1111-4111-8111-111111111111/3eeeeeee-eeee-4eee-8eee-eeeeeeeeeee5/valuation-report.pdf'
+  $$,
+  'the recovery takeover token can restore and re-fence the canonical report'
+);
+
+select lives_ok(
+  $$
+    select *
+    from public.complete_total_loss_report_upload_recovery(
+      '3eeeeeee-eeee-4eee-8eee-eeeeeeeeeee5',
+      (
+        select upload_id
+        from pg_temp.report_upload_tokens
+        where label = 'replacement-recovery'
+      )
+    )
+  $$,
+  'the takeover token can complete recovery without waiting for lease expiry'
+);
+
+reset role;
+
+select ok(
+  (
+    select details.report_upload_id = token.upload_id
+      and details.report_upload_phase = 'preparing'
+      and not details.report_upload_has_backup
+      and details.report_upload_recovery_required
+    from public.total_loss_case_details as details
+    join pg_temp.report_upload_tokens as token
+      on token.label = 'replacement-recovery'
+    where details.case_id = '3eeeeeee-eeee-4eee-8eee-eeeeeeeeeee5'
+  ),
+  'completed takeover recovery preserves the new lease for immediate retry'
+);
+
+set local role authenticated;
+set local request.jwt.claim.sub = '31111111-1111-4111-8111-111111111111';
+
+select lives_ok(
+  $$
+    select *
+    from public.mark_total_loss_report_upload_ready(
+      '3eeeeeee-eeee-4eee-8eee-eeeeeeeeeee5',
+      (
+        select upload_id
+        from pg_temp.report_upload_tokens
+        where label = 'replacement-recovery'
+      ),
+      true
+    )
+  $$,
+  'the recovered lease can immediately begin the replacement again'
+);
+
+select lives_ok(
+  $$
     select *
     from public.finalize_total_loss_report_upload(
       '3eeeeeee-eeee-4eee-8eee-eeeeeeeeeee5',
       (
         select upload_id
         from pg_temp.report_upload_tokens
-        where label = 'replacement'
+        where label = 'replacement-recovery'
       ),
       'replacement.pdf',
       '2026-08-18 13:30:00+00'
@@ -2396,7 +2613,7 @@ select lives_ok(
       (
         select upload_id
         from pg_temp.report_upload_tokens
-        where label = 'replacement'
+        where label = 'replacement-recovery'
       ),
       'ignored-retry.pdf',
       '2026-08-18 13:31:00+00'
@@ -2415,9 +2632,10 @@ select ok(
       and details.report_upload_id is null
       and details.report_upload_details_updated_at is null
       and not details.report_upload_has_backup
+      and not details.report_upload_recovery_required
     from public.total_loss_case_details as details
     join pg_temp.report_upload_tokens as token
-      on token.label = 'replacement'
+      on token.label = 'replacement-recovery'
     where details.case_id = '3eeeeeee-eeee-4eee-8eee-eeeeeeeeeee5'
   ),
   'replacement finalization commits only the first metadata and releases the lease'
@@ -2466,7 +2684,7 @@ update storage.objects
 set user_metadata = (
   select jsonb_build_object('uploadId', token.upload_id::text)
   from pg_temp.report_upload_tokens as token
-  where token.label = 'replacement'
+  where token.label = 'replacement-recovery'
 )
 where bucket_id = 'case-files'
   and name = '31111111-1111-4111-8111-111111111111/3eeeeeee-eeee-4eee-8eee-eeeeeeeeeee5/valuation-report-backup.pdf';

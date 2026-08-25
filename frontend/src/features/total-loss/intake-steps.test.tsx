@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter } from "react-router";
@@ -43,6 +43,38 @@ const contactValues: TotalLossContactFormValues = {
 afterEach(() => {
   vi.unstubAllGlobals();
 });
+
+const reportProcessingLabels = [
+  "Uploading",
+  "Reading report",
+  "Extracting vehicle and valuation details",
+  "Ready for review",
+] as const;
+
+function expectReportProcessingStatuses(expected: readonly string[]) {
+  const progress = screen.getByRole("list", {
+    name: "Report processing progress",
+  });
+  const stages = Array.from(
+    progress.querySelectorAll<HTMLElement>("[data-report-processing-status]"),
+  );
+
+  expect(stages).toHaveLength(4);
+  expect(expected).toHaveLength(4);
+  stages.forEach((stage, index) => {
+    expect(
+      within(stage).getByText(reportProcessingLabels[index]),
+    ).toBeVisible();
+    expect(stage).toHaveAttribute(
+      "data-report-processing-status",
+      expected[index],
+    );
+    expect(stage).toHaveAttribute(
+      "data-report-processing-step",
+      String(index + 1),
+    );
+  });
+}
 
 describe("total-loss intake step presentation", () => {
   it("keeps the simplified contact fields aligned separately from consent", () => {
@@ -306,6 +338,277 @@ describe("total-loss intake step presentation", () => {
       ),
     ).toBeVisible();
     expect(screen.queryByText(/50 MiB per file/u)).not.toBeInTheDocument();
+  });
+
+  it("offers explicit recovery actions when secure report storage is unavailable", async () => {
+    const user = userEvent.setup();
+    const onRetryStorage = vi.fn();
+    render(
+      <MemoryRouter>
+        <ReportStep
+          storageAvailable={false}
+          uploadState="idle"
+          extractionState="idle"
+          hideBack
+          onRetryStorage={onRetryStorage}
+          onBack={vi.fn()}
+          onFilesSelected={vi.fn()}
+          onRetryUpload={vi.fn()}
+          onContinue={vi.fn()}
+        />
+      </MemoryRouter>,
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: "Retry secure storage" }),
+    );
+    expect(onRetryStorage).toHaveBeenCalledOnce();
+    expect(screen.getByRole("link", { name: "Return home" })).toHaveAttribute(
+      "href",
+      "/",
+    );
+  });
+
+  it("presents upload as the first of exactly four report-processing stages", () => {
+    render(
+      <ReportStep
+        storageAvailable
+        selectedFilename="insurer-valuation.pdf"
+        uploadState="uploading"
+        extractionState="idle"
+        onBack={vi.fn()}
+        onFilesSelected={vi.fn()}
+        onRetryUpload={vi.fn()}
+        onContinue={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("Uploading your report securely")).toBeVisible();
+    expect(screen.getByText("Uploading securely")).toBeVisible();
+    expect(screen.getByText("insurer-valuation.pdf")).toBeVisible();
+    expect(
+      screen.getByText(
+        "Nothing else is needed right now. Reading begins automatically after the upload is confirmed.",
+      ),
+    ).toBeVisible();
+    expectReportProcessingStatuses(["active", "pending", "pending", "pending"]);
+    expect(
+      screen.queryByRole("button", { name: "Review extracted details" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("confirms the upload and keeps replacement secondary while report extraction is processing", () => {
+    render(
+      <ReportStep
+        storageAvailable
+        savedFilename="insurer-valuation.pdf"
+        uploadState="success"
+        extractionState="processing"
+        onBack={vi.fn()}
+        onFilesSelected={vi.fn()}
+        onRetryUpload={vi.fn()}
+        onContinue={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("Report uploaded successfully")).toBeVisible();
+    expect(screen.getByText("Venfour is reading your report")).toBeVisible();
+    expect(
+      screen.getByText(
+        "You don’t need to do anything while we work. We’ll make the review button available when your details are ready.",
+      ),
+    ).toBeVisible();
+    expectReportProcessingStatuses(["complete", "active", "active", "pending"]);
+
+    const replaceReport = screen.getByRole("button", {
+      name: "Replace report",
+    });
+    expect(replaceReport).toBeVisible();
+    expect(replaceReport).toBeEnabled();
+    expect(
+      screen.queryByRole("button", { name: "Review extracted details" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("truthfully presents a replacement queued behind the current read", () => {
+    render(
+      <ReportStep
+        storageAvailable
+        selectedFilename="replacement.pdf"
+        savedFilename="insurer-valuation.pdf"
+        uploadState="queued"
+        extractionState="processing"
+        onBack={vi.fn()}
+        onFilesSelected={vi.fn()}
+        onRetryUpload={vi.fn()}
+        onContinue={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("Replacement selected")).toBeVisible();
+    expect(screen.getByText("We’ll replace your report next")).toBeVisible();
+    expect(
+      screen.getByText(
+        "You don’t need to do anything. Keep this page open and the replacement will upload automatically when the current read finishes.",
+      ),
+    ).toBeVisible();
+    expectReportProcessingStatuses(["waiting", "pending", "pending", "pending"]);
+    expect(
+      screen.getByText("Waiting for the current report read to finish"),
+    ).toBeVisible();
+    expect(
+      screen.queryByRole("button", { name: "Review extracted details" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByText("We’ll replace your report next").closest("[data-flow-card]"),
+    ).not.toHaveAttribute("aria-busy");
+  });
+
+  it("does not leak stale ready details while a replacement is uploading", () => {
+    render(
+      <ReportStep
+        storageAvailable
+        selectedFilename="replacement.pdf"
+        savedFilename="insurer-valuation.pdf"
+        uploadState="uploading"
+        extractionState="partial"
+        extractionWarnings={["Old report warning"]}
+        onBack={vi.fn()}
+        onFilesSelected={vi.fn()}
+        onRetryUpload={vi.fn()}
+        onContinue={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("Uploading your replacement report")).toBeVisible();
+    expect(screen.queryByText("Your details are ready to review")).not.toBeInTheDocument();
+    expect(screen.queryByText("Items to confirm")).not.toBeInTheDocument();
+    expect(screen.queryByText("Old report warning")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Review extracted details" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it.each(["partial", "complete"] as const)(
+    "makes review available only after %s extraction reaches readiness",
+    (extractionState) => {
+      render(
+        <ReportStep
+          storageAvailable
+          savedFilename="insurer-valuation.pdf"
+          uploadState="success"
+          extractionState={extractionState}
+          reportProvider="CCC"
+          extractionWarnings={
+            extractionState === "partial"
+              ? ["Confirm the trim before continuing."]
+              : []
+          }
+          onBack={vi.fn()}
+          onFilesSelected={vi.fn()}
+          onRetryUpload={vi.fn()}
+          onContinue={vi.fn()}
+        />,
+      );
+
+      expect(
+        screen.getByText("Your details are ready to review"),
+      ).toBeVisible();
+      expectReportProcessingStatuses([
+        "complete",
+        "complete",
+        "complete",
+        "complete",
+      ]);
+      expect(
+        screen.getByRole("button", { name: "Review extracted details" }),
+      ).toBeEnabled();
+      expect(
+        screen.getByRole("button", { name: "Replace report" }),
+      ).toBeEnabled();
+
+      if (extractionState === "partial") {
+        expect(screen.getByText("Items to confirm")).toBeVisible();
+        expect(
+          screen.getByText("Confirm the trim before continuing."),
+        ).toBeVisible();
+      }
+    },
+  );
+
+  it("keeps the uploaded report and offers a truthful manual fallback after extraction fails", () => {
+    render(
+      <ReportStep
+        storageAvailable
+        savedFilename="insurer-valuation.pdf"
+        uploadState="success"
+        extractionState="error"
+        onBack={vi.fn()}
+        onFilesSelected={vi.fn()}
+        onRetryUpload={vi.fn()}
+        onContinue={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("Your report is safely uploaded")).toBeVisible();
+    expect(
+      screen.getByText(
+        "You won’t need to upload the report again. It will remain attached to this appraisal.",
+      ),
+    ).toBeVisible();
+    expectReportProcessingStatuses([
+      "complete",
+      "attention",
+      "pending",
+      "pending",
+    ]);
+    expect(
+      screen.queryByRole("button", { name: "Review extracted details" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Continue with manual details" }),
+    ).toBeEnabled();
+    expect(
+      screen.getByRole("button", { name: "Replace report" }),
+    ).toBeEnabled();
+  });
+
+  it("does not offer a manual fallback when the report itself was not saved", () => {
+    render(
+      <ReportStep
+        storageAvailable
+        selectedFilename="insurer-valuation.pdf"
+        uploadState="error"
+        extractionState="error"
+        uploadError="The report could not be saved."
+        onBack={vi.fn()}
+        onFilesSelected={vi.fn()}
+        onRetryUpload={vi.fn()}
+        onContinue={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "The report could not be saved.",
+    );
+    expect(
+      screen.queryByRole("button", { name: "Continue with manual details" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Review extracted details" }),
+    ).not.toBeInTheDocument();
+    const errorActions = within(screen.getByRole("alert")).getAllByRole(
+      "button",
+    );
+    expect(errorActions.map((action) => action.textContent)).toEqual([
+      "Try again",
+      "Choose another report",
+    ]);
+    expect(errorActions[0]).toHaveClass("bg-brand", "report-action-focus");
+    expect(errorActions[1]).toHaveClass("border-line", "report-action-focus");
+    expect(
+      screen.queryByRole("button", { name: "Choose report" }),
+    ).not.toBeInTheDocument();
   });
 
   it("uses vehicle-value language and keeps review cards overflow-safe", () => {

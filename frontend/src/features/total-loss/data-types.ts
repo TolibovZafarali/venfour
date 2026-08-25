@@ -28,6 +28,7 @@ export interface TotalLossCaseDetailsValues {
   readonly analysisInputRevision?: number | null;
   readonly analysisInputId?: string | null;
   readonly reportStorageOwnerId?: string | null;
+  readonly reportUploadRecoveryRequired: boolean;
   readonly reportOriginalFilename: string | null;
   readonly reportUploadedAt: string | null;
   readonly intakeCompletedAt: string | null;
@@ -51,6 +52,7 @@ type TotalLossDirectlyWritableValues = Omit<
   | "analysisInputRevision"
   | "analysisInputId"
   | "reportStorageOwnerId"
+  | "reportUploadRecoveryRequired"
   | "intakeCompletedAt"
 >;
 

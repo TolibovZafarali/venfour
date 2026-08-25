@@ -33,6 +33,8 @@ export function totalLossDetailsQueryOptions({
       return service.getDetails({ caseId, userId });
     },
     enabled: Boolean(service && userId && caseId),
+    refetchInterval: (query) =>
+      query.state.data?.reportUploadRecoveryRequired ? 1_000 : false,
   });
 }
 

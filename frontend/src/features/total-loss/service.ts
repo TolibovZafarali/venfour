@@ -25,7 +25,7 @@ import type {
 } from "@/lib/supabase/database.types";
 
 const TOTAL_LOSS_DETAILS_COLUMNS =
-  "case_id,intake_mode,vin,vehicle_year,vehicle_make,vehicle_model,vehicle_trim,mileage_at_loss,postal_code,date_of_loss,insurer_name,insurer_vehicle_valuation,vehicle_condition,vehicle_options_packages,report_provider_name,report_extraction_status,report_extraction_confidence,report_extracted_at,report_facts_confirmed_at,analysis_input_revision,analysis_input_id,report_storage_owner_id,report_original_filename,report_uploaded_at,intake_completed_at,created_at,updated_at" as const;
+  "case_id,intake_mode,vin,vehicle_year,vehicle_make,vehicle_model,vehicle_trim,mileage_at_loss,postal_code,date_of_loss,insurer_name,insurer_vehicle_valuation,vehicle_condition,vehicle_options_packages,report_provider_name,report_extraction_status,report_extraction_confidence,report_extracted_at,report_facts_confirmed_at,analysis_input_revision,analysis_input_id,report_storage_owner_id,report_upload_recovery_required,report_original_filename,report_uploaded_at,intake_completed_at,created_at,updated_at" as const;
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -60,6 +60,7 @@ interface TotalLossAdditionalDetailsRow {
   readonly analysis_input_revision?: number | null;
   readonly analysis_input_id?: string | null;
   readonly report_storage_owner_id?: string | null;
+  readonly report_upload_recovery_required?: boolean;
 }
 type TotalLossDetailsRow = (
   | TotalLossLegacyDetailsTableRow
@@ -82,6 +83,9 @@ export interface TotalLossDetailsService {
     input: ConfirmTotalLossIntakeInput,
   ): Promise<TotalLossCaseDetails>;
   acquireReportUploadLease(
+    input: AcquireTotalLossReportUploadLeaseInput,
+  ): Promise<TotalLossReportUploadLease>;
+  reclaimReportUploadLease(
     input: AcquireTotalLossReportUploadLeaseInput,
   ): Promise<TotalLossReportUploadLease>;
   renewReportUploadLease(
@@ -213,6 +217,8 @@ function mapTotalLossDetails(row: TotalLossDetailsRow): TotalLossCaseDetails {
     reportStorageOwnerId: optionalNullableUuid(
       row.report_storage_owner_id,
     ),
+    reportUploadRecoveryRequired:
+      optionalBoolean(row.report_upload_recovery_required) ?? false,
     reportOriginalFilename: row.report_original_filename,
     reportUploadedAt: row.report_uploaded_at,
     intakeCompletedAt: row.intake_completed_at,
@@ -231,6 +237,13 @@ function optionalNullableString(value: unknown) {
   }
   throw new TotalLossDetailsResponseError(
     "Supabase returned an invalid Total-Loss text field.",
+  );
+}
+
+function optionalBoolean(value: unknown) {
+  if (value === undefined || typeof value === "boolean") return value;
+  throw new TotalLossDetailsResponseError(
+    "Supabase returned an invalid Total-Loss boolean field.",
   );
 }
 
@@ -591,6 +604,29 @@ export function createTotalLossDetailsService(
       if (lease.uploadId !== uploadId) {
         throw new TotalLossDetailsResponseError(
           "Supabase returned a report-upload lease outside the requested token scope.",
+        );
+      }
+      return attachStorageOwner(caseId, lease);
+    },
+
+    async reclaimReportUploadLease({ caseId, expectedUpdatedAt, uploadId }) {
+      const { data, error } = await untypedRpcClient.rpc(
+        "reclaim_total_loss_report_upload",
+        {
+          case_id: caseId,
+          expected_updated_at: expectedUpdatedAt,
+          upload_id: uploadId,
+        },
+      );
+      if (error) await throwReportUploadRpcError(error, caseId);
+      const row = Array.isArray(data) ? data[0] : data;
+      const lease = requireLease(
+        row as TotalLossReportUploadLeaseRow | null,
+        "Supabase did not return the reclaimed report-upload lease.",
+      );
+      if (lease.uploadId !== uploadId) {
+        throw new TotalLossDetailsResponseError(
+          "Supabase returned a reclaimed report-upload lease outside the requested token scope.",
         );
       }
       return attachStorageOwner(caseId, lease);

@@ -47,6 +47,7 @@ export interface UploadTotalLossReportMutationInput {
   readonly expectedUpdatedAt: string | null;
   readonly file: File;
   readonly preserveExistingReport?: boolean;
+  readonly recoverInterruptedUpload?: boolean;
 }
 
 export interface UploadTotalLossReportMutationResult {
@@ -55,6 +56,9 @@ export interface UploadTotalLossReportMutationResult {
     ReturnType<TotalLossDetailsService["finalizeReportUpload"]>
   >;
 }
+
+export const totalLossReportUploadMutationKey = (userId: string | null) =>
+  [...totalLossQueryKeys.user(userId), "uploadReport"] as const;
 
 export class TotalLossDataAuthenticationError extends Error {
   constructor() {
@@ -175,11 +179,13 @@ export function useUploadTotalLossReportMutation({
   const retainedUploadRef = useRef<RetainedReportUpload | null>(null);
 
   return useMutation({
+    mutationKey: totalLossReportUploadMutationKey(userId),
     mutationFn: async ({
       caseId,
       expectedUpdatedAt,
       file,
       preserveExistingReport = false,
+      recoverInterruptedUpload = false,
     }: UploadTotalLossReportMutationInput): Promise<UploadTotalLossReportMutationResult> => {
       const authenticatedUserId = requireUserId(userId);
       const resolvedStorageService = requireService(storageService);
@@ -189,6 +195,21 @@ export function useUploadTotalLossReportMutation({
         try {
           return await operation();
         } catch {
+          return operation();
+        }
+      };
+
+      const retryLeaseRpcOnce = async <T>(operation: () => Promise<T>) => {
+        try {
+          return await operation();
+        } catch (error) {
+          if (
+            error instanceof TotalLossDetailsConflictError ||
+            error instanceof TotalLossReportUploadBusyError ||
+            error instanceof TotalLossReportUploadLeaseLostError
+          ) {
+            throw error;
+          }
           return operation();
         }
       };
@@ -378,9 +399,37 @@ export function useUploadTotalLossReportMutation({
         pendingAcquireRef.current = acquire;
         let lease: TotalLossReportUploadLease;
         try {
-          lease = await retryOnce(() =>
-            resolvedDetailsService.acquireReportUploadLease(acquire),
-          );
+          if (!recoverInterruptedUpload) {
+            lease = await retryLeaseRpcOnce(() =>
+              resolvedDetailsService.acquireReportUploadLease(acquire),
+            );
+          } else {
+            try {
+              lease = await retryLeaseRpcOnce(() =>
+                resolvedDetailsService.reclaimReportUploadLease(acquire),
+              );
+            } catch (error) {
+              if (!(error instanceof TotalLossReportUploadLeaseLostError)) {
+                throw error;
+              }
+              const currentDetails = await resolvedDetailsService.getDetails({
+                caseId,
+                userId: authenticatedUserId,
+              });
+              if (
+                !currentDetails ||
+                currentDetails.reportUploadRecoveryRequired
+              ) {
+                throw error;
+              }
+              if (currentDetails.updatedAt !== expectedUpdatedAt) {
+                throw new TotalLossDetailsConflictError(currentDetails);
+              }
+              lease = await retryLeaseRpcOnce(() =>
+                resolvedDetailsService.acquireReportUploadLease(acquire),
+              );
+            }
+          }
         } catch (error) {
           if (
             error instanceof TotalLossDetailsConflictError ||

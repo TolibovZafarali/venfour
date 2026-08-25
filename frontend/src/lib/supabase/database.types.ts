@@ -639,6 +639,7 @@ export type Database = {
           report_upload_has_backup: boolean
           report_upload_id: string | null
           report_upload_phase: string | null
+          report_upload_recovery_required: boolean
           report_uploaded_at: string | null
           updated_at: string
           existing_damage_description: string | null
@@ -679,6 +680,7 @@ export type Database = {
           report_upload_has_backup?: boolean
           report_upload_id?: string | null
           report_upload_phase?: string | null
+          report_upload_recovery_required?: never
           report_uploaded_at?: string | null
           updated_at?: string
           existing_damage_description?: string | null
@@ -719,6 +721,7 @@ export type Database = {
           report_upload_has_backup?: boolean
           report_upload_id?: string | null
           report_upload_phase?: string | null
+          report_upload_recovery_required?: never
           report_uploaded_at?: string | null
           updated_at?: string
           existing_damage_description?: string | null
@@ -1309,6 +1312,20 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "total_loss_report_extraction_result"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      reclaim_total_loss_report_upload: {
+        Args: {
+          case_id: string
+          expected_updated_at: string
+          upload_id: string
+        }
+        Returns: Database["public"]["CompositeTypes"]["total_loss_report_upload_lease"][]
+        SetofOptions: {
+          from: "*"
+          to: "total_loss_report_upload_lease"
           isOneToOne: false
           isSetofReturn: true
         }

@@ -16,6 +16,7 @@ import {
 import {
   TotalLossDetailsConflictError,
   type TotalLossDetailsService,
+  TotalLossReportUploadBusyError,
   TotalLossReportUploadLeaseLostError,
 } from "@/features/total-loss/service";
 import type { TotalLossReportStorageService } from "@/features/total-loss/storage-service";
@@ -47,6 +48,7 @@ const details: TotalLossCaseDetails = {
   dateOfLoss: null,
   insurerName: null,
   insurerVehicleValuation: null,
+  reportUploadRecoveryRequired: false,
   reportOriginalFilename: null,
   reportUploadedAt: null,
   intakeCompletedAt: null,
@@ -63,6 +65,7 @@ function createDetailsService(
     updateDetails: async () => details,
     saveDetails: async () => details,
     acquireReportUploadLease: async () => lease,
+    reclaimReportUploadLease: async () => lease,
     renewReportUploadLease: async () => lease,
     markReportUploadReady: async () => lease,
     completeReportUploadRecovery: async () => lease,
@@ -526,6 +529,7 @@ describe("total-loss data hooks", () => {
     const { result } = renderHook(
       () =>
         useUploadTotalLossReportMutation({
+          createUploadId: () => UPLOAD_ID,
           detailsService,
           storageService,
           userId: USER_ID,
@@ -566,6 +570,190 @@ describe("total-loss data hooks", () => {
     expect(calls.indexOf("delete-backup")).toBeGreaterThan(
       calls.indexOf("finalize"),
     );
+  });
+
+  it("uses the explicit reclaim path for an interrupted upload after remount", async () => {
+    const recoveryLease = {
+      ...lease,
+      reportOriginalFilename: "previous.pdf",
+      reportUploadedAt: UPDATED_AT,
+      recoveryRequired: true,
+    };
+    const calls: string[] = [];
+    const acquireReportUploadLease = vi.fn(async () => lease);
+    const reclaimReportUploadLease = vi.fn(async () => {
+      calls.push("reclaim");
+      return recoveryLease;
+    });
+    const detailsService = createDetailsService({
+      acquireReportUploadLease,
+      reclaimReportUploadLease,
+      renewReportUploadLease: async () => {
+        calls.push("renew");
+        return recoveryLease;
+      },
+      completeReportUploadRecovery: async () => {
+        calls.push("recovery-complete");
+        return lease;
+      },
+      markReportUploadReady: async () => {
+        calls.push("ready");
+        return lease;
+      },
+      finalizeReportUpload: async () => {
+        calls.push("finalize");
+        return details;
+      },
+    });
+    const storageService = createStorageService({
+      downloadReportBackup: async () => {
+        calls.push("download-backup");
+        return new Blob(["%PDF previous"], { type: "application/pdf" });
+      },
+      storeReportBackup: async () => {
+        calls.push("store-backup");
+      },
+      restoreReport: async () => {
+        calls.push("restore");
+      },
+      downloadReport: async () => {
+        calls.push("download-canonical");
+        return new Blob(["%PDF previous"], { type: "application/pdf" });
+      },
+      uploadReport: async ({ userId, caseId, file }) => {
+        calls.push("upload-new");
+        return {
+          path: `${userId}/${caseId}/valuation-report.pdf`,
+          displayFilename: file.name,
+        };
+      },
+    });
+    const { wrapper } = createHarness();
+    const { result } = renderHook(
+      () =>
+        useUploadTotalLossReportMutation({
+          createUploadId: () => UPLOAD_ID,
+          detailsService,
+          storageService,
+          userId: USER_ID,
+        }),
+      { wrapper },
+    );
+
+    await result.current.mutateAsync({
+      caseId: CASE_ID,
+      expectedUpdatedAt: UPDATED_AT,
+      file: new File(["%PDF new"], "new.pdf", {
+        type: "application/pdf",
+      }),
+      preserveExistingReport: true,
+      recoverInterruptedUpload: true,
+    });
+
+    expect(reclaimReportUploadLease).toHaveBeenCalledWith({
+      caseId: CASE_ID,
+      expectedUpdatedAt: UPDATED_AT,
+      uploadId: UPLOAD_ID,
+      userId: USER_ID,
+    });
+    expect(acquireReportUploadLease).not.toHaveBeenCalled();
+    expect(calls.indexOf("recovery-complete")).toBeLessThan(
+      calls.indexOf("upload-new"),
+    );
+  });
+
+  it("falls back to ordinary acquire when another tab already cleared recovery", async () => {
+    const getDetails = vi.fn(async () => ({
+      ...details,
+      reportUploadRecoveryRequired: false,
+    }));
+    const acquireReportUploadLease = vi.fn(async () => lease);
+    const reclaimReportUploadLease = vi.fn(async () => {
+      throw new TotalLossReportUploadLeaseLostError();
+    });
+    const detailsService = createDetailsService({
+      getDetails,
+      acquireReportUploadLease,
+      reclaimReportUploadLease,
+    });
+    const { wrapper } = createHarness();
+    const { result } = renderHook(
+      () =>
+        useUploadTotalLossReportMutation({
+          createUploadId: () => UPLOAD_ID,
+          detailsService,
+          storageService: createStorageService(),
+          userId: USER_ID,
+        }),
+      { wrapper },
+    );
+
+    await expect(
+      result.current.mutateAsync({
+        caseId: CASE_ID,
+        expectedUpdatedAt: UPDATED_AT,
+        file: new File(["%PDF new"], "new.pdf", {
+          type: "application/pdf",
+        }),
+        recoverInterruptedUpload: true,
+      }),
+    ).resolves.toBeDefined();
+
+    expect(reclaimReportUploadLease).toHaveBeenCalledOnce();
+    expect(getDetails).toHaveBeenCalledWith({
+      caseId: CASE_ID,
+      userId: USER_ID,
+    });
+    expect(acquireReportUploadLease).toHaveBeenCalledWith({
+      caseId: CASE_ID,
+      expectedUpdatedAt: UPDATED_AT,
+      uploadId: UPLOAD_ID,
+      userId: USER_ID,
+    });
+  });
+
+  it("does not reclaim a new lease after the ordinary fallback loses a race", async () => {
+    const getDetails = vi.fn(async () => ({
+      ...details,
+      reportUploadRecoveryRequired: false,
+    }));
+    const acquireReportUploadLease = vi.fn(async () => {
+      throw new TotalLossReportUploadBusyError();
+    });
+    const reclaimReportUploadLease = vi.fn(async () => {
+      throw new TotalLossReportUploadLeaseLostError();
+    });
+    const detailsService = createDetailsService({
+      getDetails,
+      acquireReportUploadLease,
+      reclaimReportUploadLease,
+    });
+    const { wrapper } = createHarness();
+    const { result } = renderHook(
+      () =>
+        useUploadTotalLossReportMutation({
+          createUploadId: () => UPLOAD_ID,
+          detailsService,
+          storageService: createStorageService(),
+          userId: USER_ID,
+        }),
+      { wrapper },
+    );
+
+    await expect(
+      result.current.mutateAsync({
+        caseId: CASE_ID,
+        expectedUpdatedAt: UPDATED_AT,
+        file: new File(["%PDF new"], "new.pdf", {
+          type: "application/pdf",
+        }),
+        recoverInterruptedUpload: true,
+      }),
+    ).rejects.toBeInstanceOf(TotalLossReportUploadBusyError);
+
+    expect(reclaimReportUploadLease).toHaveBeenCalledOnce();
+    expect(getDetails).toHaveBeenCalledOnce();
+    expect(acquireReportUploadLease).toHaveBeenCalledOnce();
   });
 
   it("drops a replaced retained token and reacquires crash recovery in the same retry", async () => {

@@ -14,6 +14,7 @@ import type {
   AuthService,
   AuthStateChangeListener,
 } from "@/features/auth/auth-service";
+import type { TotalLossReportIngestion } from "@/features/analyses/api/report-ingestion";
 import type {
   TurnstileAction,
   TurnstileController,
@@ -38,6 +39,7 @@ import {
   readTotalLossDraft,
   writeTotalLossDraft,
 } from "@/features/total-loss/draft";
+import { TotalLossReportRestoreError } from "@/features/total-loss/mutations";
 import type { TotalLossDetailsService } from "@/features/total-loss/service";
 import type { TotalLossIdentityService } from "@/features/total-loss/identity-service";
 import { TotalLossDetailsConflictError } from "@/features/total-loss/service";
@@ -74,10 +76,12 @@ const CREATED_AT = "2026-08-18T14:00:00.000Z";
 
 function createDeferred<T>() {
   let resolve!: (value: T) => void;
-  const promise = new Promise<T>((resolvePromise) => {
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
     resolve = resolvePromise;
+    reject = rejectPromise;
   });
-  return { promise, resolve };
+  return { promise, reject, resolve };
 }
 
 async function createPdfFile(name: string) {
@@ -87,6 +91,33 @@ async function createPdfFile(name: string) {
   const buffer = new ArrayBuffer(bytes.byteLength);
   new Uint8Array(buffer).set(bytes);
   return new File([buffer], name, { type: "application/pdf" });
+}
+
+function partialReportIngestion(
+  provider = "CCC",
+): TotalLossReportIngestion {
+  return {
+    status: "partial",
+    provider,
+    adapter: provider === "CCC" ? "ccc" : "generic",
+    confidence: "high",
+    warnings: ["Confirm the vehicle trim."],
+    missingFields: ["trim"],
+    facts: {
+      vin: "1HGCM82633A004352",
+      vehicleYear: 2020,
+      make: "Honda",
+      model: "Accord",
+      trim: null,
+      mileageAtLoss: 48250,
+      zipCode: "60611",
+      dateOfLoss: "2026-08-18",
+      insurerName: "Example Insurance",
+      insurerVehicleValuation: 18750,
+      vehicleCondition: "Good",
+      optionsPackages: "None known",
+    },
+  };
 }
 
 function createSensitiveManualDraft(
@@ -245,6 +276,7 @@ const emptyDetailsValues: TotalLossCaseDetailsValues = {
   insurerVehicleValuation: null,
   vehicleCondition: null,
   optionsPackages: null,
+  reportUploadRecoveryRequired: false,
   reportOriginalFilename: null,
   reportUploadedAt: null,
   intakeCompletedAt: null,
@@ -359,6 +391,7 @@ function createDependencyHarness({
     const next: TotalLossCaseDetails = {
       ...current,
       intakeMode: "report",
+      reportUploadRecoveryRequired: false,
       reportOriginalFilename: input.originalFilename,
       reportUploadedAt: input.uploadedAt,
       updatedAt: `2026-08-18T15:${String(updateSequence).padStart(2, "0")}:00.000Z`,
@@ -381,7 +414,31 @@ function createDependencyHarness({
 
   const acquireReportUploadLease = vi.fn<
     TotalLossDetailsService["acquireReportUploadLease"]
-  >(async ({ caseId }) => reportLeaseFor(caseId));
+  >(async ({ caseId }) => {
+    const current = detailRows.get(caseId);
+    if (current) {
+      detailRows.set(caseId, {
+        ...current,
+        reportUploadRecoveryRequired: true,
+      });
+    }
+    return reportLeaseFor(caseId);
+  });
+  const reclaimReportUploadLease = vi.fn<
+    TotalLossDetailsService["reclaimReportUploadLease"]
+  >(async ({ caseId }) => {
+    const current = detailRows.get(caseId);
+    if (current) {
+      detailRows.set(caseId, {
+        ...current,
+        reportUploadRecoveryRequired: true,
+      });
+    }
+    return {
+      ...reportLeaseFor(caseId),
+      recoveryRequired: true,
+    };
+  });
   const renewReportUploadLease = vi.fn<
     TotalLossDetailsService["renewReportUploadLease"]
   >(async ({ caseId }) => reportLeaseFor(caseId));
@@ -393,10 +450,16 @@ function createDependencyHarness({
   >(async ({ caseId }) => reportLeaseFor(caseId));
   const cancelReportUpload = vi.fn<
     TotalLossDetailsService["cancelReportUpload"]
-  >(
-    async ({ caseId }) =>
-      detailRows.get(caseId) ?? detailsFor(caseId, { intakeMode: "report" }),
-  );
+  >(async ({ caseId }) => {
+    const current =
+      detailRows.get(caseId) ?? detailsFor(caseId, { intakeMode: "report" });
+    const next = {
+      ...current,
+      reportUploadRecoveryRequired: false,
+    };
+    detailRows.set(caseId, next);
+    return next;
+  });
   const confirmIntake = vi.fn<
     NonNullable<TotalLossDetailsService["confirmIntake"]>
   >(async ({ caseId, expectedUpdatedAt }) => {
@@ -435,6 +498,7 @@ function createDependencyHarness({
     saveDetails,
     confirmIntake,
     acquireReportUploadLease,
+    reclaimReportUploadLease,
     renewReportUploadLease,
     markReportUploadReady,
     completeReportUploadRecovery,
@@ -544,6 +608,8 @@ function createDependencyHarness({
     dependencies,
     detailRows,
     detailsService,
+    acquireReportUploadLease,
+    reclaimReportUploadLease,
     downloadReport,
     decodeVin,
     get lostInsertAttempts() {
@@ -1242,10 +1308,16 @@ describe("/start?service=total-loss", () => {
       "Choose a PDF, JPG/JPEG, or PNG valuation report.",
     );
     expect(harness.uploadReport).not.toHaveBeenCalled();
+    expect(
+      screen.queryByRole("button", { name: "Review extracted details" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Continue with manual details" }),
+    ).not.toBeInTheDocument();
 
     const original = await createPdfFile("insurer-valuation.pdf");
     fireEvent.change(fileInput, { target: { files: [original] } });
-    expect(await screen.findByText("Report saved securely")).toBeVisible();
+    expect(await screen.findByText("Report uploaded successfully")).toBeVisible();
     expect(screen.getByText("insurer-valuation.pdf")).toBeVisible();
     expect(harness.uploadReport).toHaveBeenLastCalledWith({
       caseId: CASE_ID,
@@ -1321,13 +1393,14 @@ describe("/start?service=total-loss", () => {
     expect(harness.finalizeReportUpload).toHaveBeenCalledTimes(5);
     expect(harness.downloadReport).toHaveBeenCalledTimes(4);
 
-    expect(screen.getByText("Report details extracted")).toBeVisible();
+    expect(screen.getByText("Your details are ready to review")).toBeVisible();
     expect(
       screen.getByText("The report provider could not be identified."),
     ).toBeVisible();
     expect(ingestReportMock).toHaveBeenLastCalledWith(
       CASE_ID,
       `access-${USER_ID}`,
+      expect.any(AbortSignal),
     );
     await user.click(
       screen.getByRole("button", { name: "Review extracted details" }),
@@ -2214,8 +2287,8 @@ describe("/start?service=total-loss", () => {
 
     expect(await screen.findByText("saved-report.pdf")).toBeVisible();
     expect(
-      screen.getByRole("button", { name: "Review extracted details" }),
-    ).toBeDisabled();
+      screen.queryByRole("button", { name: "Review extracted details" }),
+    ).not.toBeInTheDocument();
     expect(readTotalLossDraft()).toMatchObject({
       ok: true,
       draft: {
@@ -2357,9 +2430,9 @@ describe("/start?service=total-loss", () => {
     });
 
     expect(await screen.findByText("failed-extraction.pdf")).toBeVisible();
-    expect(screen.getByText("Your report is saved")).toBeVisible();
+    expect(screen.getByText("Your report is safely uploaded")).toBeVisible();
     expect(
-      screen.queryByText("Report details extracted"),
+      screen.queryByText("Your details are ready to review"),
     ).not.toBeInTheDocument();
     expect(
       screen.getAllByText(/Automatic extraction could not finish/i),
@@ -2384,8 +2457,8 @@ describe("/start?service=total-loss", () => {
   });
 
   it("resumes a persisted pending extraction instead of presenting it as extracted", async () => {
-    const pendingIngestion = new Promise(() => undefined);
-    ingestReportMock.mockReturnValueOnce(pendingIngestion);
+    const pendingIngestion = createDeferred<unknown>();
+    ingestReportMock.mockReturnValueOnce(pendingIngestion.promise);
     const pendingDetails = detailsFor(CASE_ID, {
       intakeMode: "report",
       reportOriginalFilename: "pending-extraction.pdf",
@@ -2404,23 +2477,712 @@ describe("/start?service=total-loss", () => {
     });
 
     expect(
-      await screen.findByText(
-        "Reading the report and preparing details for your review…",
-      ),
+      await screen.findByText("Venfour is reading your report"),
+    ).toBeVisible();
+    expect(screen.getByText("Report uploaded successfully")).toBeVisible();
+    expect(
+      screen.getByText(/You don’t need to do anything while we work/i),
     ).toBeVisible();
     await waitFor(() =>
       expect(ingestReportMock).toHaveBeenCalledWith(
         CASE_ID,
         `access-${USER_ID}`,
+        expect.any(AbortSignal),
       ),
     );
     expect(
-      screen.queryByText("Report details extracted"),
+      screen.queryByText("Your details are ready to review"),
     ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Review extracted details" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Replace report" }),
+    ).toBeEnabled();
     expect(readTotalLossDraft()).toMatchObject({
       ok: true,
       draft: { reportExtractionStatus: "processing" },
     });
+
+    await act(async () => {
+      pendingIngestion.resolve({
+        status: "partial",
+        provider: "CCC",
+        adapter: "ccc",
+        confidence: "high",
+        warnings: ["Confirm the vehicle trim."],
+        missingFields: ["trim"],
+        facts: {
+          vin: "1HGCM82633A004352",
+          vehicleYear: 2020,
+          make: "Honda",
+          model: "Accord",
+          trim: null,
+          mileageAtLoss: 48250,
+          zipCode: "60611",
+          dateOfLoss: "2026-08-18",
+          insurerName: "Example Insurance",
+          insurerVehicleValuation: 18750,
+          vehicleCondition: "Good",
+          optionsPackages: "None known",
+        },
+      });
+      await pendingIngestion.promise;
+    });
+
+    expect(
+      await screen.findByText("Your details are ready to review"),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("button", { name: "Review extracted details" }),
+    ).toBeEnabled();
+    expect(
+      screen.getByRole("button", { name: "Replace report" }),
+    ).toBeEnabled();
+  });
+
+  it("does not apply a late report extraction after the user switches to manual intake", async () => {
+    const pendingIngestion = createDeferred<TotalLossReportIngestion>();
+    ingestReportMock.mockReturnValueOnce(pendingIngestion.promise);
+    const pendingDetails = detailsFor(CASE_ID, {
+      intakeMode: "report",
+      reportOriginalFilename: "pending-extraction.pdf",
+      reportUploadedAt: CREATED_AT,
+      reportExtractionStatus: "pending",
+    });
+    const auth = createAuthHarness(sessionFor());
+    const harness = createDependencyHarness({
+      details: [pendingDetails],
+      recentCase: appraisalCase(CASE_ID),
+    });
+    const user = userEvent.setup();
+
+    renderTestApp([`/start?service=total-loss&caseId=${CASE_ID}`], {
+      authService: auth.service,
+      totalLossDependencies: harness.dependencies,
+    });
+
+    expect(
+      await screen.findByText("Venfour is reading your report"),
+    ).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Back" }));
+    await user.click(
+      screen.getByRole("radio", { name: /I don’t have the report/i }),
+    );
+
+    await act(async () => {
+      pendingIngestion.resolve(partialReportIngestion());
+      await pendingIngestion.promise;
+    });
+
+    expect(readTotalLossDraft()).toMatchObject({
+      ok: true,
+      draft: {
+        mode: "manual",
+        manual: {
+          vehicleYear: "",
+          make: "",
+          model: "",
+        },
+      },
+    });
+
+    await user.click(
+      withinIntakeFlow().getByRole("button", { name: "Continue" }),
+    );
+    expect(
+      await screen.findByRole("heading", { name: "Tell us about your vehicle" }),
+    ).toBeVisible();
+    expect(screen.getByLabelText("VIN")).toHaveValue("");
+  });
+
+  it("does not turn a saved upload into an upload error when late extraction fails after a manual switch", async () => {
+    const pendingIngestion = createDeferred<TotalLossReportIngestion>();
+    const retryIngestion = createDeferred<TotalLossReportIngestion>();
+    ingestReportMock
+      .mockReturnValueOnce(pendingIngestion.promise)
+      .mockReturnValueOnce(retryIngestion.promise);
+    const auth = createAuthHarness(sessionFor());
+    const harness = createDependencyHarness();
+    const user = userEvent.setup();
+
+    const { container, queryClient } = renderTestApp(
+      ["/start?service=total-loss"],
+      {
+      authService: auth.service,
+      totalLossDependencies: harness.dependencies,
+      },
+    );
+
+    await chooseMode(user, "I have my valuation report");
+    const report = await createPdfFile("late-failure.pdf");
+    const fileInput = container.querySelector<HTMLInputElement>(
+      'input[type="file"]',
+    );
+    expect(fileInput).toBeInTheDocument();
+    fireEvent.change(fileInput as HTMLInputElement, {
+      target: { files: [report] },
+    });
+
+    expect(
+      await screen.findByText("Venfour is reading your report"),
+    ).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Back" }));
+    await user.click(
+      screen.getByRole("radio", { name: /I don’t have the report/i }),
+    );
+
+    await act(async () => {
+      pendingIngestion.reject(new Error("Report reader timed out."));
+      await expect(pendingIngestion.promise).rejects.toThrow(
+        "Report reader timed out.",
+      );
+    });
+
+    expect(readTotalLossDraft()).toMatchObject({
+      ok: true,
+      draft: {
+        mode: "manual",
+        reportExtractionStatus: "processing",
+      },
+    });
+    expect(
+      screen.queryByText(/report could not be read or saved/i),
+    ).not.toBeInTheDocument();
+
+    const finalizedDetails = harness.detailRows.get(CASE_ID);
+    expect(finalizedDetails).toBeDefined();
+    const pendingDetails = {
+      ...(finalizedDetails as TotalLossCaseDetails),
+      reportExtractionStatus: "pending" as const,
+    };
+    harness.detailRows.set(CASE_ID, pendingDetails);
+    queryClient.setQueryData(
+      totalLossQueryKeys.details(USER_ID, CASE_ID),
+      pendingDetails,
+    );
+
+    await user.click(
+      screen.getByRole("radio", { name: /I have my valuation report/i }),
+    );
+    await user.click(
+      withinIntakeFlow().getByRole("button", { name: "Continue" }),
+    );
+    expect(
+      await screen.findByText("Venfour is reading your report"),
+    ).toBeVisible();
+    expect(screen.queryByText("Your report is safely uploaded")).not.toBeInTheDocument();
+    await waitFor(() => expect(ingestReportMock).toHaveBeenCalledTimes(2));
+
+    await act(async () => {
+      retryIngestion.resolve(partialReportIngestion());
+      await retryIngestion.promise;
+    });
+    expect(
+      await screen.findByRole("button", { name: "Review extracted details" }),
+    ).toBeEnabled();
+  });
+
+  it("keeps Review gated after SPA navigation while lease acquisition is pending", async () => {
+    const pendingLease = createDeferred<TotalLossReportUploadLease>();
+    const readyDetails = detailsFor(CASE_ID, {
+      intakeMode: "report",
+      reportOriginalFilename: "ready-report.pdf",
+      reportUploadedAt: CREATED_AT,
+      reportExtractionStatus: "needs_confirmation",
+    });
+    const auth = createAuthHarness(sessionFor());
+    const harness = createDependencyHarness({
+      details: [readyDetails],
+      recentCase: appraisalCase(CASE_ID),
+    });
+    harness.acquireReportUploadLease.mockReturnValueOnce(pendingLease.promise);
+
+    const { container, queryClient, router } = renderTestApp(
+      [`/start?service=total-loss&caseId=${CASE_ID}`],
+      {
+        authService: auth.service,
+        totalLossDependencies: harness.dependencies,
+      },
+    );
+
+    expect(
+      await screen.findByRole("button", { name: "Review extracted details" }),
+    ).toBeEnabled();
+    const replacement = await createPdfFile("pending-replacement.pdf");
+    const fileInput = container.querySelector<HTMLInputElement>(
+      'input[type="file"]',
+    );
+    expect(fileInput).toBeInTheDocument();
+    fireEvent.change(fileInput as HTMLInputElement, {
+      target: { files: [replacement] },
+    });
+
+    await waitFor(() =>
+      expect(harness.acquireReportUploadLease).toHaveBeenCalledOnce(),
+    );
+    expect(
+      queryClient.getQueryData(
+        totalLossQueryKeys.details(USER_ID, CASE_ID),
+      ),
+    ).toMatchObject({ reportUploadRecoveryRequired: false });
+
+    await act(async () => router.navigate("/"));
+    await act(async () =>
+      router.navigate(`/start?service=total-loss&caseId=${CASE_ID}`),
+    );
+
+    expect(
+      await screen.findByText("Uploading your replacement report"),
+    ).toBeVisible();
+    expect(
+      screen.queryByRole("button", { name: "Review extracted details" }),
+    ).not.toBeInTheDocument();
+    expect(harness.reclaimReportUploadLease).not.toHaveBeenCalled();
+
+    await act(async () => {
+      await new Promise((resolve) => window.setTimeout(resolve, 1_100));
+    });
+    expect(
+      screen.queryByRole("button", { name: "Review extracted details" }),
+    ).not.toBeInTheDocument();
+
+    await act(async () => {
+      pendingLease.resolve({
+        uploadId: REPORT_UPLOAD_ID,
+        expiresAt: "2026-08-18T16:00:00.000Z",
+        detailsUpdatedAt: readyDetails.updatedAt,
+        reportOriginalFilename: readyDetails.reportOriginalFilename,
+        reportUploadedAt: readyDetails.reportUploadedAt,
+        recoveryRequired: false,
+      });
+      await pendingLease.promise;
+    });
+
+    expect(
+      await screen.findByRole("button", {
+        name: "Review extracted details",
+      }, { timeout: 3_000 }),
+    ).toBeEnabled();
+    expect(
+      screen.queryByText(
+        "Venfour could not confirm the saved report after an interrupted replacement. Choose the report again so we can securely continue.",
+      ),
+    ).not.toBeInTheDocument();
+    expect(
+      queryClient.getQueryData(
+        totalLossQueryKeys.details(USER_ID, CASE_ID),
+      ),
+    ).toMatchObject({ reportUploadRecoveryRequired: false });
+  });
+
+  it("queues a replacement behind deferred ingestion and starts a fresh extraction for it", async () => {
+    const firstIngestion = createDeferred<TotalLossReportIngestion>();
+    const replacementIngestion = createDeferred<TotalLossReportIngestion>();
+    ingestReportMock
+      .mockReturnValueOnce(firstIngestion.promise)
+      .mockReturnValueOnce(replacementIngestion.promise);
+    const pendingDetails = detailsFor(CASE_ID, {
+      intakeMode: "report",
+      reportOriginalFilename: "original-report.pdf",
+      reportUploadedAt: CREATED_AT,
+      reportExtractionStatus: "pending",
+    });
+    const auth = createAuthHarness(sessionFor());
+    const harness = createDependencyHarness({
+      details: [pendingDetails],
+      recentCase: appraisalCase(CASE_ID),
+    });
+    const user = userEvent.setup();
+
+    const { container } = renderTestApp(
+      [`/start?service=total-loss&caseId=${CASE_ID}`],
+      {
+        authService: auth.service,
+        totalLossDependencies: harness.dependencies,
+      },
+    );
+
+    expect(
+      await screen.findByText("Venfour is reading your report"),
+    ).toBeVisible();
+    await waitFor(() => expect(ingestReportMock).toHaveBeenCalledTimes(1));
+    const replaceReport = screen.getByRole("button", {
+      name: "Replace report",
+    });
+    expect(replaceReport).toBeEnabled();
+    await user.click(replaceReport);
+
+    const replacement = await createPdfFile("queued-replacement.pdf");
+    const fileInput = container.querySelector<HTMLInputElement>(
+      'input[type="file"]',
+    );
+    expect(fileInput).toBeInTheDocument();
+    fireEvent.change(fileInput as HTMLInputElement, {
+      target: { files: [replacement] },
+    });
+
+    expect(
+      await screen.findByText("We’ll replace your report next"),
+    ).toBeVisible();
+    expect(screen.getByText("Replacement queued")).toBeVisible();
+    expect(screen.getByText("queued-replacement.pdf")).toBeVisible();
+    expect(
+      screen.getByRole("radio", { name: "Diminished Value" }),
+    ).toBeDisabled();
+    expect(harness.uploadReport).not.toHaveBeenCalled();
+    expect(ingestReportMock).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      firstIngestion.resolve(partialReportIngestion());
+      await firstIngestion.promise;
+    });
+
+    await waitFor(() =>
+      expect(harness.uploadReport).toHaveBeenCalledWith({
+        caseId: CASE_ID,
+        file: replacement,
+        replaceExisting: true,
+        uploadId: REPORT_UPLOAD_ID,
+        userId: USER_ID,
+      }),
+    );
+    await waitFor(() => expect(ingestReportMock).toHaveBeenCalledTimes(2));
+    expect(ingestReportMock).toHaveBeenNthCalledWith(
+      2,
+      CASE_ID,
+      `access-${USER_ID}`,
+      expect.any(AbortSignal),
+    );
+    expect(harness.uploadReport.mock.invocationCallOrder[0]).toBeLessThan(
+      ingestReportMock.mock.invocationCallOrder[1] ?? Number.POSITIVE_INFINITY,
+    );
+    expect(
+      screen.queryByRole("button", { name: "Review extracted details" }),
+    ).not.toBeInTheDocument();
+
+    await act(async () => {
+      replacementIngestion.resolve(partialReportIngestion());
+      await replacementIngestion.promise;
+    });
+    expect(
+      await screen.findByRole("button", { name: "Review extracted details" }),
+    ).toBeEnabled();
+    expect(screen.getByText("queued-replacement.pdf")).toBeVisible();
+  });
+
+  it("abandons a queued replacement when the signed-in account changes", async () => {
+    const pendingIngestion = createDeferred<TotalLossReportIngestion>();
+    ingestReportMock.mockReturnValueOnce(pendingIngestion.promise);
+    const pendingDetails = detailsFor(CASE_ID, {
+      intakeMode: "report",
+      reportOriginalFilename: "original-report.pdf",
+      reportUploadedAt: CREATED_AT,
+      reportExtractionStatus: "pending",
+    });
+    const auth = createAuthHarness(sessionFor());
+    const harness = createDependencyHarness({
+      details: [pendingDetails],
+      recentCase: appraisalCase(CASE_ID),
+    });
+
+    const { container } = renderTestApp(
+      [`/start?service=total-loss&caseId=${CASE_ID}`],
+      {
+        authService: auth.service,
+        totalLossDependencies: harness.dependencies,
+      },
+    );
+
+    expect(
+      await screen.findByText("Venfour is reading your report"),
+    ).toBeVisible();
+    await waitFor(() => expect(ingestReportMock).toHaveBeenCalledTimes(1));
+    const replacement = await createPdfFile("queued-replacement.pdf");
+    const fileInput = container.querySelector<HTMLInputElement>(
+      'input[type="file"]',
+    );
+    expect(fileInput).toBeInTheDocument();
+    fireEvent.change(fileInput as HTMLInputElement, {
+      target: { files: [replacement] },
+    });
+    expect(
+      await screen.findByText("We’ll replace your report next"),
+    ).toBeVisible();
+
+    act(() => auth.emit(sessionFor(OTHER_USER_ID)));
+    await screen.findByText(
+      "This saved appraisal cannot be opened from this link.",
+    );
+
+    await act(async () => {
+      pendingIngestion.resolve(partialReportIngestion());
+      await pendingIngestion.promise;
+    });
+
+    expect(harness.uploadReport).not.toHaveBeenCalled();
+    expect(readTotalLossDraft()).toMatchObject({
+      ok: true,
+      draft: null,
+    });
+  });
+
+  it("keeps a failed replacement gated across navigation and reclaims it immediately", async () => {
+    const readyDetails = detailsFor(CASE_ID, {
+      intakeMode: "report",
+      vehicleYear: 2020,
+      vehicleMake: "Honda",
+      vehicleModel: "Accord",
+      reportOriginalFilename: "prior-ready-report.pdf",
+      reportUploadedAt: CREATED_AT,
+      reportExtractionStatus: "needs_confirmation",
+    });
+    const auth = createAuthHarness(sessionFor());
+    const harness = createDependencyHarness({
+      details: [readyDetails],
+      recentCase: appraisalCase(CASE_ID),
+    });
+    const leaseEvents: string[] = [];
+    const attemptedUploadIds: string[] = [];
+    let activeUploadId: string | null = null;
+    let recoveryRequired = false;
+    let recoveryInProgress = false;
+    let uploadAttempts = 0;
+    let restoreAttempts = 0;
+    const leaseFor = (
+      uploadId: string,
+      requiresRecovery: boolean,
+    ): TotalLossReportUploadLease => ({
+      uploadId,
+      expiresAt: "2026-08-18T16:00:00.000Z",
+      detailsUpdatedAt: readyDetails.updatedAt,
+      reportOriginalFilename: readyDetails.reportOriginalFilename,
+      reportUploadedAt: readyDetails.reportUploadedAt,
+      recoveryRequired: requiresRecovery,
+    });
+    harness.acquireReportUploadLease.mockImplementation(async (input) => {
+      activeUploadId = input.uploadId;
+      attemptedUploadIds.push(input.uploadId);
+      leaseEvents.push(`acquire:${input.uploadId}`);
+      return leaseFor(input.uploadId, false);
+    });
+    harness.reclaimReportUploadLease.mockImplementation(async (input) => {
+      expect(recoveryRequired).toBe(true);
+      expect(input.uploadId).not.toBe(activeUploadId);
+      activeUploadId = input.uploadId;
+      attemptedUploadIds.push(input.uploadId);
+      recoveryInProgress = true;
+      leaseEvents.push(`reclaim:${input.uploadId}`);
+      return leaseFor(input.uploadId, true);
+    });
+    vi.mocked(
+      harness.detailsService.renewReportUploadLease,
+    ).mockImplementation(async (input) => {
+      expect(input.uploadId).toBe(activeUploadId);
+      return leaseFor(input.uploadId, recoveryInProgress);
+    });
+    vi.mocked(
+      harness.detailsService.markReportUploadReady,
+    ).mockImplementation(async (input) => {
+      expect(input.uploadId).toBe(activeUploadId);
+      recoveryRequired = input.hasBackup;
+      recoveryInProgress = false;
+      return leaseFor(input.uploadId, false);
+    });
+    vi.mocked(
+      harness.detailsService.completeReportUploadRecovery,
+    ).mockImplementation(async (input) => {
+      expect(input.uploadId).toBe(activeUploadId);
+      leaseEvents.push(`recovery-complete:${input.uploadId}`);
+      recoveryRequired = false;
+      recoveryInProgress = false;
+      return leaseFor(input.uploadId, false);
+    });
+    harness.uploadReport.mockImplementation(async (input) => {
+      uploadAttempts += 1;
+      leaseEvents.push(`upload:${input.uploadId}`);
+      if (uploadAttempts === 1) {
+        throw new Error("Replacement storage write failed.");
+      }
+      return {
+        path: `${input.userId}/${input.caseId}/valuation-report.pdf`,
+        displayFilename: input.file.name,
+      };
+    });
+    harness.restoreReport.mockImplementation(async (input) => {
+      restoreAttempts += 1;
+      leaseEvents.push(`restore:${input.uploadId}`);
+      if (restoreAttempts <= 2) {
+        throw new Error("Previous report restore failed.");
+      }
+    });
+
+    const { container, queryClient, router } = renderTestApp(
+      [`/start?service=total-loss&caseId=${CASE_ID}`],
+      {
+        authService: auth.service,
+        totalLossDependencies: harness.dependencies,
+      },
+    );
+
+    expect(
+      await screen.findByRole("button", { name: "Review extracted details" }),
+    ).toBeEnabled();
+    const replacement = await createPdfFile("unrecoverable-replacement.pdf");
+    const fileInput = container.querySelector<HTMLInputElement>(
+      'input[type="file"]',
+    );
+    expect(fileInput).toBeInTheDocument();
+    fireEvent.change(fileInput as HTMLInputElement, {
+      target: { files: [replacement] },
+    });
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      new TotalLossReportRestoreError().message,
+    );
+    expect(harness.restoreReport).toHaveBeenCalledTimes(2);
+    expect(
+      screen.queryByRole("button", { name: "Review extracted details" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Continue with manual details" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Replace report" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("Your details are ready to review"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("Your report is safely uploaded"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("Your current report is still saved."),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText("prior-ready-report.pdf")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Back" })).not.toBeInTheDocument();
+    expect(
+      queryClient.getQueryData(
+        totalLossQueryKeys.details(USER_ID, CASE_ID),
+      ),
+    ).toMatchObject({ reportUploadRecoveryRequired: true });
+
+    await act(async () => router.navigate("/"));
+    await act(async () =>
+      router.navigate(`/start?service=total-loss&caseId=${CASE_ID}`),
+    );
+
+    expect(
+      await screen.findByText(
+        "Venfour could not confirm the saved report after an interrupted replacement. Choose the report again so we can securely continue.",
+      ),
+    ).toBeVisible();
+    expect(
+      screen.queryByRole("button", { name: "Review extracted details" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Back" }),
+    ).not.toBeInTheDocument();
+
+    const recoveredReplacement = await createPdfFile(
+      "recovered-replacement.pdf",
+    );
+    const recoveryInput = container.querySelector<HTMLInputElement>(
+      'input[type="file"]',
+    );
+    expect(recoveryInput).toBeInTheDocument();
+    fireEvent.change(recoveryInput as HTMLInputElement, {
+      target: { files: [recoveredReplacement] },
+    });
+
+    expect(
+      await screen.findByRole("button", { name: "Review extracted details" }),
+    ).toBeEnabled();
+    expect(screen.getByText("recovered-replacement.pdf")).toBeVisible();
+    expect(harness.acquireReportUploadLease).toHaveBeenCalledTimes(1);
+    expect(harness.reclaimReportUploadLease).toHaveBeenCalledTimes(1);
+    expect(attemptedUploadIds).toHaveLength(2);
+    expect(attemptedUploadIds[1]).not.toBe(attemptedUploadIds[0]);
+    const reclaimedUploadId = attemptedUploadIds[1] as string;
+    expect(
+      leaseEvents.indexOf(`recovery-complete:${reclaimedUploadId}`),
+    ).toBeLessThan(leaseEvents.indexOf(`upload:${reclaimedUploadId}`));
+    expect(restoreAttempts).toBe(3);
+    expect(
+      screen.queryByText(
+        "Venfour could not confirm the saved report after an interrupted replacement. Choose the report again so we can securely continue.",
+      ),
+    ).not.toBeInTheDocument();
+  });
+
+  it("keeps an interrupted replacement recovery-gated after remount", async () => {
+    let staleReviewCommitted = false;
+    const reviewObserver = new MutationObserver((records) => {
+      for (const record of records) {
+        for (const node of record.addedNodes) {
+          if (node.textContent?.includes("Review your details")) {
+            staleReviewCommitted = true;
+          }
+        }
+      }
+    });
+    reviewObserver.observe(document.body, { childList: true, subtree: true });
+    expect(
+      writeTotalLossDraft({
+        ...createEmptyTotalLossDraft(new Date(CREATED_AT)),
+        mode: "report",
+        step: "review",
+        confirmedCaseId: CASE_ID,
+        reservedCaseId: CASE_ID,
+        ownerUserId: USER_ID,
+        reportExtractionStatus: "partial",
+      }),
+    ).toEqual({ ok: true });
+    const recoveryDetails = detailsFor(CASE_ID, {
+      intakeMode: "report",
+      vehicleYear: 2020,
+      vehicleMake: "Honda",
+      vehicleModel: "Accord",
+      reportUploadRecoveryRequired: true,
+      reportOriginalFilename: "stale-ready-report.pdf",
+      reportUploadedAt: CREATED_AT,
+      reportExtractionStatus: "needs_confirmation",
+    });
+    const auth = createAuthHarness(sessionFor());
+    const harness = createDependencyHarness({
+      details: [recoveryDetails],
+      recentCase: appraisalCase(CASE_ID),
+    });
+
+    renderTestApp([`/start?service=total-loss&caseId=${CASE_ID}`], {
+      authService: auth.service,
+      totalLossDependencies: harness.dependencies,
+    });
+
+    expect(
+      await screen.findByText(
+        "Venfour could not confirm the saved report after an interrupted replacement. Choose the report again so we can securely continue.",
+      ),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("heading", { name: "Upload your valuation report" }),
+    ).toBeVisible();
+    expect(screen.getByRole("button", { name: "Choose report" })).toBeEnabled();
+    expect(screen.queryByText("stale-ready-report.pdf")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Review extracted details" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Continue with manual details" }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Back" })).not.toBeInTheDocument();
+    expect(ingestReportMock).not.toHaveBeenCalled();
+    expect(readTotalLossDraft()).toMatchObject({
+      ok: true,
+      draft: { step: "report", reportExtractionStatus: "idle" },
+    });
+    reviewObserver.disconnect();
+    expect(staleReviewCommitted).toBe(false);
   });
 
   it("retains a dirty browser draft and offers a choice on an optimistic save conflict", async () => {
