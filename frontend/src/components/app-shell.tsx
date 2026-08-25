@@ -454,7 +454,9 @@ function AppShellContent() {
               <div className="flex flex-col items-start gap-1 sm:flex-row sm:items-center sm:gap-5">
                 <Link
                   to="/"
-                  className="inline-flex min-h-11 items-center gap-2.5 rounded-sm font-brand text-sm font-semibold tracking-[0.1em] text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
+                  className="notranslate inline-flex min-h-11 select-none items-center gap-2 rounded-sm text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
+                  aria-label="Venfour home"
+                  translate="no"
                 >
                   <img
                     src={venfourMark}
@@ -463,7 +465,12 @@ function AppShellContent() {
                     aria-hidden
                     data-brand-logo="venfour"
                   />
-                  <span>VENFOUR</span>
+                  <span
+                    className="font-brand text-[1.125rem] leading-none font-semibold tracking-[-0.035em] antialiased [font-kerning:normal] [text-rendering:geometricPrecision]"
+                    data-brand-wordmark="venfour"
+                  >
+                    Venfour
+                  </span>
                 </Link>
                 {supportEmail ? (
                   <a
@@ -551,8 +558,15 @@ function AppShellContent() {
                 </div>
               )}
             </div>
-            <p className="mt-4 border-t border-line pt-4 text-xs text-copy">
-              © {new Date().getFullYear()} VENFOUR. All rights reserved.
+            <p
+              className="mt-4 border-t border-line pt-4 text-xs text-copy"
+              data-footer-legal
+            >
+              © {new Date().getFullYear()}{" "}
+              <span className="notranslate" translate="no">
+                Venfour, LLC
+              </span>
+              . All rights reserved.
             </p>
           </div>
         </footer>

@@ -157,14 +157,28 @@ describe("Venfour application", () => {
     );
     expect(headerWordmark).toBeVisible();
     expect(within(screen.getByRole("banner")).queryByText("VENFOUR")).toBeNull();
-    expect(
-      within(screen.getByRole("contentinfo")).getByText("VENFOUR"),
-    ).toBeVisible();
-    expect(
-      within(screen.getByRole("contentinfo")).getByText(
-        `© ${new Date().getFullYear()} VENFOUR. All rights reserved.`,
-      ),
-    ).toBeVisible();
+    const footer = screen.getByRole("contentinfo");
+    const footerBrandLink = within(footer).getByRole("link", {
+      name: "Venfour home",
+    });
+    const footerWordmark = within(footerBrandLink).getByText("Venfour");
+    expect(footerBrandLink).toHaveAttribute("translate", "no");
+    expect(footerBrandLink).toHaveClass("notranslate", "select-none");
+    expect(footerWordmark).toHaveAttribute(
+      "data-brand-wordmark",
+      "venfour",
+    );
+    expect(footerWordmark).toHaveClass(
+      "font-brand",
+      "text-[1.125rem]",
+      "font-semibold",
+      "tracking-[-0.035em]",
+    );
+    expect(footerWordmark).toBeVisible();
+    expect(within(footer).queryByText("VENFOUR")).toBeNull();
+    expect(footer.querySelector("[data-footer-legal]")).toHaveTextContent(
+      `© ${new Date().getFullYear()} Venfour, LLC. All rights reserved.`,
+    );
 
     const renderedImageSources = Array.from(
       document.querySelectorAll<HTMLImageElement>("img[src]"),
