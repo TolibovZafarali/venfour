@@ -23,6 +23,7 @@ import {
 import { CookieConsent } from "@/features/privacy/cookie-consent";
 import { useCookieConsent } from "@/features/privacy/cookie-consent-context";
 import { cn } from "@/lib/utils";
+import { appRouteGradientClassName } from "@/pages/page-gradients";
 import venfourMark from "../../../assets/brand/venfour-mark.svg";
 
 const primaryLinkClassName =
@@ -217,8 +218,9 @@ function AppShellContent() {
               <div className="flex min-w-0 items-center gap-3 sm:gap-4">
                 <Link
                   to="/"
-                  className="inline-flex min-h-11 items-center gap-2.5 rounded-md font-brand text-[1.1rem] font-semibold tracking-[0.1em] text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
+                  className="notranslate inline-flex min-h-11 select-none items-center gap-[0.5625rem] rounded-md text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
                   aria-label="Venfour home"
+                  translate="no"
                 >
                   <img
                     src={venfourMark}
@@ -227,7 +229,12 @@ function AppShellContent() {
                     aria-hidden
                     data-brand-logo="venfour"
                   />
-                  <span>VENFOUR</span>
+                  <span
+                    className="font-brand text-[1.25rem] leading-none font-semibold tracking-[-0.035em] antialiased [font-kerning:normal] [text-rendering:geometricPrecision]"
+                    data-brand-wordmark="venfour"
+                  >
+                    Venfour
+                  </span>
                 </Link>
                 {analysisRoute || adminRoute ? (
                   <span className="hidden border-l border-ink/10 pl-4 text-[0.6875rem] font-semibold tracking-[0.12em] text-copy/80 uppercase sm:block">
@@ -430,11 +437,18 @@ function AppShellContent() {
           </div>
         </header>
       </div>
-      <main id="main-content" className="flex flex-1" tabIndex={-1}>
+      <main
+        id="main-content"
+        className={cn(
+          "flex flex-1",
+          appRouteGradientClassName(location.pathname),
+        )}
+        tabIndex={-1}
+      >
         <Outlet />
       </main>
       {!startFlowRoute && !adminRoute ? (
-        <footer className="border-t border-line bg-surface">
+        <footer className="site-footer-gradient border-t border-line bg-surface">
           <div className="mx-auto w-full max-w-7xl px-5 py-6 sm:px-8 sm:py-7">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex flex-col items-start gap-1 sm:flex-row sm:items-center sm:gap-5">

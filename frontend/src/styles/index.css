@@ -259,6 +259,407 @@
 }
 
 @layer components {
+  .home-hero-gradient {
+    background-image:
+      radial-gradient(
+        ellipse 76% 64% at -8% -10%,
+        rgb(205 222 255 / 0.72) 0%,
+        rgb(222 233 252 / 0.34) 46%,
+        transparent 72%
+      ),
+      radial-gradient(
+        ellipse 58% 52% at 82% 106%,
+        rgb(210 234 227 / 0.4) 0%,
+        transparent 70%
+      ),
+      linear-gradient(132deg, #f8faff 0%, #f3f6f9 48%, #f1f6f7 100%);
+  }
+
+  .home-services-gradient {
+    background-image:
+      radial-gradient(
+        ellipse 62% 42% at 2% 2%,
+        rgb(226 236 255 / 0.68) 0%,
+        transparent 68%
+      ),
+      radial-gradient(
+        ellipse 56% 46% at 98% 94%,
+        rgb(218 240 233 / 0.48) 0%,
+        transparent 70%
+      ),
+      linear-gradient(180deg, #ffffff 0%, #fbfcff 48%, #ffffff 100%);
+  }
+
+  .home-process-gradient {
+    background-image:
+      radial-gradient(
+        ellipse 58% 52% at 92% 4%,
+        rgb(211 226 252 / 0.52) 0%,
+        transparent 70%
+      ),
+      radial-gradient(
+        ellipse 54% 48% at 4% 96%,
+        rgb(211 235 228 / 0.42) 0%,
+        transparent 72%
+      ),
+      linear-gradient(138deg, #f2f5f9 0%, #f8fafc 52%, #f1f6f4 100%);
+  }
+
+  .home-report-gradient {
+    background-image:
+      radial-gradient(
+        ellipse 52% 58% at -4% 28%,
+        rgb(255 235 202 / 0.38) 0%,
+        transparent 68%
+      ),
+      radial-gradient(
+        ellipse 54% 50% at 98% 82%,
+        rgb(221 232 254 / 0.4) 0%,
+        transparent 70%
+      ),
+      linear-gradient(145deg, #fffdf9 0%, #ffffff 44%, #f9fbff 100%);
+  }
+
+  .home-diminished-gradient {
+    background-image:
+      radial-gradient(
+        ellipse 58% 58% at 2% 4%,
+        rgb(213 228 253 / 0.48) 0%,
+        transparent 70%
+      ),
+      radial-gradient(
+        ellipse 58% 56% at 98% 94%,
+        rgb(205 232 224 / 0.46) 0%,
+        transparent 72%
+      ),
+      linear-gradient(140deg, #f1f5fa 0%, #f6f9f9 52%, #eef4f5 100%);
+  }
+
+  .home-deliverable-gradient {
+    background-image:
+      radial-gradient(
+        ellipse 50% 44% at 6% 8%,
+        rgb(216 239 232 / 0.44) 0%,
+        transparent 70%
+      ),
+      radial-gradient(
+        ellipse 62% 54% at 94% 96%,
+        rgb(218 230 253 / 0.48) 0%,
+        transparent 72%
+      ),
+      linear-gradient(150deg, #fbfefd 0%, #ffffff 46%, #f8faff 100%);
+  }
+
+  .home-trust-gradient {
+    background-image:
+      radial-gradient(
+        ellipse 54% 110% at 4% -24%,
+        rgb(43 108 244 / 0.2) 0%,
+        transparent 68%
+      ),
+      radial-gradient(
+        ellipse 56% 120% at 96% 124%,
+        rgb(25 129 107 / 0.2) 0%,
+        transparent 70%
+      ),
+      linear-gradient(135deg, #0b1f33 0%, #102a43 52%, #0a2031 100%);
+  }
+
+  .public-page-gradient,
+  .page-gradient-account-home,
+  .page-gradient-appraisals,
+  .page-gradient-analysis,
+  .page-gradient-analysis-report,
+  .page-gradient-case-operations,
+  .page-gradient-dv-operations,
+  .page-gradient-auth,
+  .page-gradient-not-found,
+  .page-gradient-route-error,
+  .site-footer-gradient {
+    background-repeat: no-repeat;
+    background-size: cover;
+  }
+
+  .page-gradient-methodology {
+    background-image:
+      radial-gradient(
+        ellipse 72% 30% at -8% -2%,
+        rgb(214 228 255 / 0.62) 0%,
+        transparent 72%
+      ),
+      radial-gradient(
+        ellipse 62% 28% at 106% 48%,
+        rgb(210 236 228 / 0.42) 0%,
+        transparent 72%
+      ),
+      radial-gradient(
+        ellipse 58% 24% at -4% 94%,
+        rgb(255 237 207 / 0.3) 0%,
+        transparent 70%
+      ),
+      linear-gradient(155deg, #f8faff 0%, #ffffff 42%, #f7fbf9 72%, #fbfcff 100%);
+  }
+
+  .page-gradient-terms {
+    background-image:
+      radial-gradient(
+        ellipse 66% 28% at 104% -2%,
+        rgb(218 228 242 / 0.62) 0%,
+        transparent 72%
+      ),
+      radial-gradient(
+        ellipse 58% 24% at -5% 42%,
+        rgb(255 235 201 / 0.34) 0%,
+        transparent 70%
+      ),
+      radial-gradient(
+        ellipse 62% 26% at 104% 94%,
+        rgb(216 230 255 / 0.44) 0%,
+        transparent 72%
+      ),
+      linear-gradient(145deg, #f7f9fc 0%, #fffdfa 44%, #ffffff 68%, #f8faff 100%);
+  }
+
+  .page-gradient-privacy {
+    background-image:
+      radial-gradient(
+        ellipse 70% 28% at -8% -2%,
+        rgb(209 237 228 / 0.54) 0%,
+        transparent 72%
+      ),
+      radial-gradient(
+        ellipse 60% 26% at 105% 52%,
+        rgb(211 227 255 / 0.46) 0%,
+        transparent 72%
+      ),
+      radial-gradient(
+        ellipse 58% 22% at -4% 94%,
+        rgb(225 233 242 / 0.52) 0%,
+        transparent 70%
+      ),
+      linear-gradient(150deg, #f7fcfa 0%, #ffffff 40%, #f8faff 72%, #fafbfd 100%);
+  }
+
+  .page-gradient-cookies {
+    background-image:
+      radial-gradient(
+        ellipse 68% 38% at -6% -4%,
+        rgb(255 232 194 / 0.48) 0%,
+        transparent 72%
+      ),
+      radial-gradient(
+        ellipse 58% 34% at 104% 54%,
+        rgb(214 229 255 / 0.48) 0%,
+        transparent 70%
+      ),
+      radial-gradient(
+        ellipse 56% 30% at 4% 104%,
+        rgb(211 237 229 / 0.4) 0%,
+        transparent 72%
+      ),
+      linear-gradient(145deg, #fffaf2 0%, #ffffff 42%, #f8faff 70%, #f8fcfa 100%);
+  }
+
+  .page-gradient-contact {
+    background-image:
+      radial-gradient(
+        ellipse 64% 32% at 102% -4%,
+        rgb(210 226 255 / 0.58) 0%,
+        transparent 72%
+      ),
+      radial-gradient(
+        ellipse 56% 28% at -4% 58%,
+        rgb(255 236 204 / 0.32) 0%,
+        transparent 70%
+      ),
+      radial-gradient(
+        ellipse 58% 26% at 102% 102%,
+        rgb(209 236 227 / 0.44) 0%,
+        transparent 72%
+      ),
+      linear-gradient(150deg, #f8faff 0%, #ffffff 44%, #fffcf8 70%, #f8fcfa 100%);
+  }
+
+  .page-gradient-account-home {
+    background-image:
+      radial-gradient(
+        ellipse 68% 58% at -8% -10%,
+        rgb(205 223 255 / 0.62) 0%,
+        transparent 72%
+      ),
+      radial-gradient(
+        ellipse 62% 56% at 104% 94%,
+        rgb(204 234 225 / 0.5) 0%,
+        transparent 72%
+      ),
+      radial-gradient(
+        ellipse 44% 40% at 52% 50%,
+        rgb(255 241 218 / 0.2) 0%,
+        transparent 72%
+      ),
+      linear-gradient(140deg, #f1f6fd 0%, #f8fafc 50%, #f1f8f5 100%);
+  }
+
+  .page-gradient-appraisals {
+    background-image:
+      radial-gradient(
+        ellipse 58% 54% at -4% 4%,
+        rgb(207 235 226 / 0.48) 0%,
+        transparent 70%
+      ),
+      radial-gradient(
+        ellipse 66% 58% at 104% -8%,
+        rgb(209 225 255 / 0.58) 0%,
+        transparent 72%
+      ),
+      radial-gradient(
+        ellipse 52% 46% at 58% 108%,
+        rgb(255 238 209 / 0.22) 0%,
+        transparent 72%
+      ),
+      linear-gradient(145deg, #f2f8f6 0%, #f8fafc 52%, #f2f6fc 100%);
+  }
+
+  .page-gradient-analysis {
+    background-image:
+      radial-gradient(
+        ellipse 70% 64% at -10% -12%,
+        rgb(202 221 255 / 0.64) 0%,
+        transparent 72%
+      ),
+      radial-gradient(
+        ellipse 66% 60% at 108% 106%,
+        rgb(201 234 224 / 0.5) 0%,
+        transparent 72%
+      ),
+      radial-gradient(
+        ellipse 44% 40% at 66% 34%,
+        rgb(255 255 255 / 0.68) 0%,
+        transparent 74%
+      ),
+      linear-gradient(138deg, #f0f5fd 0%, #f8fafc 48%, #eef7f4 100%);
+  }
+
+  .page-gradient-analysis-report {
+    background-image:
+      radial-gradient(
+        ellipse 68% 24% at -8% -2%,
+        rgb(213 228 255 / 0.5) 0%,
+        transparent 72%
+      ),
+      radial-gradient(
+        ellipse 58% 22% at 104% 48%,
+        rgb(209 236 228 / 0.36) 0%,
+        transparent 72%
+      ),
+      radial-gradient(
+        ellipse 62% 22% at -6% 96%,
+        rgb(225 233 244 / 0.46) 0%,
+        transparent 72%
+      ),
+      linear-gradient(150deg, #f3f7fb 0%, #f8fafc 44%, #f4f9f7 72%, #f5f7fa 100%);
+  }
+
+  .page-gradient-case-operations {
+    background-image:
+      radial-gradient(
+        ellipse 62% 54% at -6% -8%,
+        rgb(214 227 249 / 0.52) 0%,
+        transparent 72%
+      ),
+      radial-gradient(
+        ellipse 54% 48% at 104% 44%,
+        rgb(255 236 204 / 0.24) 0%,
+        transparent 72%
+      ),
+      radial-gradient(
+        ellipse 58% 50% at 12% 108%,
+        rgb(211 235 228 / 0.36) 0%,
+        transparent 72%
+      ),
+      linear-gradient(145deg, #f2f6fb 0%, #f8fafc 54%, #f3f8f6 100%);
+  }
+
+  .page-gradient-dv-operations {
+    background-image:
+      radial-gradient(
+        ellipse 60% 52% at 104% -8%,
+        rgb(210 226 255 / 0.52) 0%,
+        transparent 72%
+      ),
+      radial-gradient(
+        ellipse 58% 50% at -6% 46%,
+        rgb(211 237 229 / 0.4) 0%,
+        transparent 72%
+      ),
+      radial-gradient(
+        ellipse 54% 44% at 92% 108%,
+        rgb(255 235 200 / 0.24) 0%,
+        transparent 72%
+      ),
+      linear-gradient(140deg, #f3f7fc 0%, #f7faf9 52%, #f7f8fb 100%);
+  }
+
+  .page-gradient-auth {
+    background-image:
+      radial-gradient(
+        ellipse 64% 76% at -8% -12%,
+        rgb(205 224 255 / 0.66) 0%,
+        transparent 72%
+      ),
+      radial-gradient(
+        ellipse 62% 72% at 108% 110%,
+        rgb(204 235 226 / 0.52) 0%,
+        transparent 72%
+      ),
+      linear-gradient(140deg, #f1f6fe 0%, #fbfcfe 48%, #eff8f5 100%);
+  }
+
+  .page-gradient-not-found {
+    background-image:
+      radial-gradient(
+        ellipse 72% 82% at -12% -18%,
+        rgb(209 226 255 / 0.62) 0%,
+        transparent 72%
+      ),
+      radial-gradient(
+        ellipse 66% 76% at 110% 112%,
+        rgb(207 237 228 / 0.48) 0%,
+        transparent 72%
+      ),
+      linear-gradient(145deg, #f3f7fd 0%, #ffffff 50%, #f1f8f5 100%);
+  }
+
+  .page-gradient-route-error {
+    background-image:
+      radial-gradient(
+        ellipse 68% 76% at -10% -16%,
+        rgb(255 234 199 / 0.48) 0%,
+        transparent 72%
+      ),
+      radial-gradient(
+        ellipse 66% 72% at 108% 108%,
+        rgb(210 227 255 / 0.52) 0%,
+        transparent 72%
+      ),
+      linear-gradient(140deg, #fffaf2 0%, #ffffff 50%, #f3f7fd 100%);
+  }
+
+  .site-footer-gradient {
+    background-image:
+      radial-gradient(
+        ellipse 40% 120% at 4% 128%,
+        rgb(215 228 253 / 0.34) 0%,
+        transparent 72%
+      ),
+      radial-gradient(
+        ellipse 38% 120% at 96% -28%,
+        rgb(211 236 228 / 0.3) 0%,
+        transparent 72%
+      ),
+      linear-gradient(135deg, #f3f6f9 0%, #f7f9fb 50%, #f2f7f5 100%);
+  }
+
   .appraisal-start-gradient {
     background:
       radial-gradient(

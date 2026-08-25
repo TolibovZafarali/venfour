@@ -1,6 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { AppraisalCaseService } from "@/features/cases/service";
+import {
+  sameVehicleConfiguration,
+  vehicleConfigurationIdentity,
+} from "@/features/intake/vehicle-lookup-types";
 import type {
   AcquireTotalLossReportUploadLeaseInput,
   ConfirmTotalLossIntakeInput,
@@ -25,7 +29,7 @@ import type {
 } from "@/lib/supabase/database.types";
 
 const TOTAL_LOSS_DETAILS_COLUMNS =
-  "case_id,intake_mode,vin,vehicle_year,vehicle_make,vehicle_model,vehicle_trim,mileage_at_loss,postal_code,date_of_loss,insurer_name,insurer_vehicle_valuation,vehicle_condition,vehicle_options_packages,report_provider_name,report_extraction_status,report_extraction_confidence,report_extracted_at,report_facts_confirmed_at,analysis_input_revision,analysis_input_id,report_storage_owner_id,report_upload_recovery_required,report_original_filename,report_uploaded_at,intake_completed_at,created_at,updated_at" as const;
+  "case_id,intake_mode,vin,vehicle_year,vehicle_make,vehicle_model,vehicle_trim,vehicle_configuration,mileage_at_loss,postal_code,date_of_loss,insurer_name,insurer_vehicle_valuation,vehicle_condition,vehicle_options_packages,report_provider_name,report_extraction_status,report_extraction_confidence,report_extracted_at,report_facts_confirmed_at,analysis_input_revision,analysis_input_id,report_storage_owner_id,report_upload_recovery_required,report_original_filename,report_uploaded_at,intake_completed_at,created_at,updated_at" as const;
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -50,6 +54,7 @@ type TotalLossLegacyDetailsTableRow = Pick<
   | "updated_at"
 >;
 interface TotalLossAdditionalDetailsRow {
+  readonly vehicle_configuration?: unknown;
   readonly vehicle_condition?: string | null;
   readonly vehicle_options_packages?: string | null;
   readonly report_provider_name?: string | null;
@@ -192,6 +197,9 @@ function mapTotalLossDetails(row: TotalLossDetailsRow): TotalLossCaseDetails {
     vehicleMake: row.vehicle_make,
     vehicleModel: row.vehicle_model,
     vehicleTrim: row.vehicle_trim,
+    vehicleConfiguration: optionalVehicleConfiguration(
+      row.vehicle_configuration,
+    ),
     mileageAtLoss: row.mileage_at_loss,
     postalCode: row.postal_code,
     dateOfLoss: row.date_of_loss,
@@ -244,6 +252,15 @@ function optionalBoolean(value: unknown) {
   if (value === undefined || typeof value === "boolean") return value;
   throw new TotalLossDetailsResponseError(
     "Supabase returned an invalid Total-Loss boolean field.",
+  );
+}
+
+function optionalVehicleConfiguration(value: unknown) {
+  if (value === undefined || value === null) return value;
+  const configuration = vehicleConfigurationIdentity(value);
+  if (configuration) return configuration;
+  throw new TotalLossDetailsResponseError(
+    "Supabase returned an invalid vehicle configuration.",
   );
 }
 
@@ -313,6 +330,10 @@ function assignWritableValues(
   if (values.vehicleMake !== undefined) target.vehicle_make = values.vehicleMake;
   if (values.vehicleModel !== undefined) target.vehicle_model = values.vehicleModel;
   if (values.vehicleTrim !== undefined) target.vehicle_trim = values.vehicleTrim;
+  if (values.vehicleConfiguration !== undefined) {
+    (target as Record<string, unknown>).vehicle_configuration =
+      values.vehicleConfiguration;
+  }
   if (values.mileageAtLoss !== undefined) target.mileage_at_loss = values.mileageAtLoss;
   if (values.postalCode !== undefined) target.postal_code = values.postalCode;
   if (values.dateOfLoss !== undefined) target.date_of_loss = values.dateOfLoss;
@@ -340,6 +361,10 @@ function matchesWritableValues(
     details.vehicleMake === (values.vehicleMake ?? null) &&
     details.vehicleModel === (values.vehicleModel ?? null) &&
     details.vehicleTrim === (values.vehicleTrim ?? null) &&
+    sameVehicleConfiguration(
+      details.vehicleConfiguration ?? null,
+      values.vehicleConfiguration ?? null,
+    ) &&
     details.mileageAtLoss === (values.mileageAtLoss ?? null) &&
     details.postalCode === (values.postalCode ?? null) &&
     details.dateOfLoss === (values.dateOfLoss ?? null) &&

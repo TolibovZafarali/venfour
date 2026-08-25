@@ -434,6 +434,56 @@ describe("shared appraisal intake controls", () => {
     ).toBeVisible();
   });
 
+  test("requires a stale provider identity to be explicitly reselected", async () => {
+    const user = userEvent.setup();
+    const onTrimSelectionChange = vi.fn();
+    const longRange = trimOption("model-3-long-range", "Long Range", {
+      queryField: "version",
+      queryValues: ["Long Range", "Long Range Battery"],
+    });
+    render(
+      <VehicleIdentificationFields
+        idPrefix="vehicle"
+        entryMethod="details"
+        values={{
+          vin: "",
+          vehicleYear: "2019",
+          make: "Tesla",
+          model: "Model 3",
+          trim: "Long Range",
+        }}
+        vehicleConfiguration={{
+          source: "marketcheck",
+          field: "version",
+          values: ["Retired Long Range Alias"],
+        }}
+        yearOptions={["2019"]}
+        makeOptions={["Tesla"]}
+        modelOptions={["Model 3"]}
+        trimOptions={[longRange]}
+        makesState="success"
+        modelsState="success"
+        trimsState="success"
+        vinLookupState="idle"
+        trimRequired
+        onEntryMethodChange={vi.fn()}
+        onChange={vi.fn()}
+        onTrimSelectionChange={onTrimSelectionChange}
+        onRetryMakes={vi.fn()}
+        onRetryModels={vi.fn()}
+      />,
+    );
+
+    const select = screen.getByRole("combobox", { name: "Trim" });
+    expect(select).toHaveValue("__legacy-current-trim__");
+    expect(
+      screen.getByRole("option", { name: "Current selection: Long Range" }),
+    ).toBeVisible();
+
+    await user.selectOptions(select, longRange.id);
+    expect(onTrimSelectionChange).toHaveBeenCalledWith(longRange);
+  });
+
   test("supports a service-specific calendar label", async () => {
     const user = userEvent.setup();
     render(

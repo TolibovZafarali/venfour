@@ -9,7 +9,11 @@ import {
   IntakeSelectField,
   IntakeTextField,
 } from "@/features/total-loss/intake-fields";
-import type { VehicleTrimOption } from "@/features/intake/vehicle-lookup-types";
+import {
+  uniquelyMatchingVehicleTrimOption,
+  type VehicleConfigurationIdentity,
+  type VehicleTrimOption,
+} from "@/features/intake/vehicle-lookup-types";
 import { cn } from "@/lib/utils";
 
 export type VehicleEntryMethod = "vin" | "details";
@@ -56,6 +60,7 @@ export interface VehicleIdentificationFieldsProps {
   makeOptions: readonly string[];
   modelOptions: readonly string[];
   trimOptions?: readonly VehicleTrimOption[];
+  vehicleConfiguration?: VehicleConfigurationIdentity | null;
   makesState: VehicleLookupState;
   modelsState: VehicleLookupState;
   trimsState?: VehicleLookupState;
@@ -85,6 +90,7 @@ export function VehicleIdentificationFields({
   makeOptions,
   modelOptions,
   trimOptions = [],
+  vehicleConfiguration = null,
   makesState,
   modelsState,
   trimsState = "idle",
@@ -228,6 +234,7 @@ export function VehicleIdentificationFields({
                     values={values}
                     error={errors.trim}
                     options={trimOptions}
+                    configuration={vehicleConfiguration}
                     state={trimsState}
                     disabled={fieldsDisabled}
                     onChange={(value) => onChange("trim", value)}
@@ -274,7 +281,9 @@ export function VehicleIdentificationFields({
             <div
               className={cn(
                 "grid gap-5 sm:col-span-2",
-                trimRequired ? "grid-cols-2" : "grid-cols-1",
+                trimRequired
+                  ? "grid-cols-1 sm:grid-cols-2"
+                  : "grid-cols-1",
               )}
             >
               <div>
@@ -309,6 +318,7 @@ export function VehicleIdentificationFields({
                   values={values}
                   error={errors.trim}
                   options={trimOptions}
+                  configuration={vehicleConfiguration}
                   state={trimsState}
                   disabled={fieldsDisabled}
                   onChange={(value) => onChange("trim", value)}
@@ -358,6 +368,7 @@ function VehicleTrimSelect({
   values,
   error,
   options,
+  configuration,
   state,
   disabled,
   onChange,
@@ -370,6 +381,7 @@ function VehicleTrimSelect({
   values: VehicleIdentificationValues;
   error?: string;
   options: readonly VehicleTrimOption[];
+  configuration: VehicleConfigurationIdentity | null;
   state: VehicleLookupState;
   disabled?: boolean;
   onChange: (value: string) => void;
@@ -381,7 +393,11 @@ function VehicleTrimSelect({
     values.vehicleYear && values.make && values.model,
   );
   const currentTrim = values.trim ?? "";
-  const selectedOption = uniquelyMatchingTrimOption(options, currentTrim);
+  const selectedOption = uniquelyMatchingVehicleTrimOption(
+    options,
+    currentTrim,
+    configuration,
+  );
   const legacyValue =
     currentTrim && !selectedOption
       ? availableLegacyTrimValue(options)
@@ -432,28 +448,22 @@ function VehicleTrimSelect({
       {state === "error" ? (
         <OptionLoadError label="trims" onRetry={onRetry} />
       ) : null}
-      {state === "success" && options.length === 0 && !values.trim ? (
+      {state === "success" && options.length === 0 ? (
         <p className="mt-2 text-sm text-copy" role="status">
-          No trim options were found for this vehicle. Check the year, make,
-          and model or use the VIN option.
+          No exact trim options were found for this vehicle. Check the year,
+          make, and model, or{" "}
+          <button
+            type="button"
+            className="font-semibold underline underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+            onClick={onRetry}
+          >
+            try again
+          </button>
+          .
         </p>
       ) : null}
     </div>
   );
-}
-
-function uniquelyMatchingTrimOption(
-  options: readonly VehicleTrimOption[],
-  current: string,
-) {
-  if (!current) return null;
-  const currentKey = legacyTrimKey(current);
-  const matches = options.filter((option) =>
-    [option.label, option.trim, ...option.queryValues].some(
-      (value) => legacyTrimKey(value) === currentKey,
-    ),
-  );
-  return matches.length === 1 ? matches[0] : null;
 }
 
 function legacyTrimLabel(

@@ -17,6 +17,9 @@
     },
     {
       "$ref": "#/$defs/analysisRunV5"
+    },
+    {
+      "$ref": "#/$defs/analysisRunV6"
     }
   ],
   "$defs": {
@@ -307,6 +310,62 @@
       "properties": {
         "analysisRunSchemaVersion": {
           "const": "5"
+        },
+        "runId": {
+          "$ref": "#/$defs/runId"
+        },
+        "createdAt": {
+          "$ref": "#/$defs/createdAt"
+        },
+        "analysisVersion": {
+          "const": "5"
+        },
+        "discrepancyAnalysisVersion": {
+          "const": "1"
+        },
+        "comparableScoringVersion": {
+          "const": "1"
+        },
+        "requestDigest": {
+          "$ref": "#/$defs/requestDigest"
+        },
+        "searchDiagnosticsDigest": {
+          "$ref": "#/$defs/requestDigest"
+        },
+        "providers": {
+          "$ref": "#/$defs/providers"
+        },
+        "request": {
+          "$ref": "#/$defs/analysisRunRequestV4"
+        },
+        "result": {
+          "$ref": "#/$defs/analysisRunResultV4"
+        },
+        "evidenceContext": {
+          "$ref": "#/$defs/evidenceContext"
+        }
+      }
+    },
+    "analysisRunV6": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "analysisRunSchemaVersion",
+        "runId",
+        "createdAt",
+        "analysisVersion",
+        "discrepancyAnalysisVersion",
+        "comparableScoringVersion",
+        "requestDigest",
+        "searchDiagnosticsDigest",
+        "providers",
+        "request",
+        "result",
+        "evidenceContext"
+      ],
+      "properties": {
+        "analysisRunSchemaVersion": {
+          "const": "6"
         },
         "runId": {
           "$ref": "#/$defs/runId"

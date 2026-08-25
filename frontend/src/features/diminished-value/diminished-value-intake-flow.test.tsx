@@ -4,7 +4,10 @@ import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { VehicleLookupError } from "@/features/total-loss/vehicle-lookup-service";
-import type { VehicleLookupService } from "@/features/total-loss/vehicle-lookup-service";
+import type {
+  VehicleLookupService,
+  VehicleTrimOption,
+} from "@/features/total-loss/vehicle-lookup-service";
 
 import { DiminishedValueIntakeFlow } from "./diminished-value-intake-flow";
 import {
@@ -63,6 +66,11 @@ describe("DiminishedValueIntakeFlow", () => {
     await user.selectOptions(screen.getByLabelText("Make"), "Honda");
     await screen.findByRole("option", { name: "Accord" });
     await user.selectOptions(screen.getByLabelText("Model"), "Accord");
+    await screen.findByRole("option", { name: "EX" });
+    await user.selectOptions(
+      screen.getByLabelText("Trim"),
+      "marketcheck-trim-ex",
+    );
     await user.type(screen.getByLabelText("Mileage at the accident"), "48250");
     await user.type(screen.getByLabelText("Current mileage"), "49100");
     await user.click(screen.getByRole("button", { name: "Continue" }));
@@ -130,7 +138,7 @@ describe("DiminishedValueIntakeFlow", () => {
     expect(
       screen.queryByRole("button", { name: "Edit contact details" }),
     ).not.toBeInTheDocument();
-  });
+  }, 10_000);
 
   it("offers retry and guided entry after an NHTSA VIN lookup failure", async () => {
     const user = userEvent.setup();
@@ -162,7 +170,7 @@ describe("DiminishedValueIntakeFlow", () => {
     );
 
     await user.click(
-      screen.getByRole("button", { name: "Find vehicle & continue" }),
+      screen.getByRole("button", { name: "Find vehicle" }),
     );
     expect(
       await screen.findByText(
@@ -174,8 +182,17 @@ describe("DiminishedValueIntakeFlow", () => {
     ).toBeInTheDocument();
 
     await user.click(
-      screen.getByRole("button", { name: "Find vehicle & continue" }),
+      screen.getByRole("button", { name: "Find vehicle" }),
     );
+    expect(
+      await screen.findByText("Vehicle found: 2003 HONDA Accord"),
+    ).toBeInTheDocument();
+    await screen.findByRole("option", { name: "EX" });
+    await user.selectOptions(
+      screen.getByLabelText("Trim"),
+      "marketcheck-trim-ex",
+    );
+    await user.click(screen.getByRole("button", { name: "Continue" }));
     await waitFor(() =>
       expect(
         screen.getByRole("heading", {
@@ -184,6 +201,142 @@ describe("DiminishedValueIntakeFlow", () => {
       ).toBeInTheDocument(),
     );
     expect(service.decodeVin).toHaveBeenCalledTimes(2);
+  });
+
+  it("canonicalizes a hydrated configuration even when its saved trim is empty", async () => {
+    const user = userEvent.setup();
+    const onDraftChange = vi.fn();
+    render(
+      <FlowHarness
+        initialDraft={{
+          ...createEmptyDiminishedValueDraft(),
+          step: "vehicle",
+          vehicleEntryMethod: "details",
+          vehicleYear: "2024",
+          make: "Honda",
+          model: "Accord",
+          trim: "",
+          vehicleConfiguration: {
+            source: "marketcheck",
+            field: "trim",
+            values: ["EX"],
+          },
+          mileageAtAccident: "48250",
+        }}
+        vehicleLookupService={vehicleService()}
+        onDraftChange={onDraftChange}
+      />,
+    );
+
+    await screen.findByRole("option", { name: "EX" });
+    expect(screen.getByLabelText("Trim")).toHaveValue("marketcheck-trim-ex");
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+
+    expect(
+      await screen.findByRole("heading", {
+        name: "Describe the accident and repairs",
+      }),
+    ).toBeInTheDocument();
+    expect(onDraftChange).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        step: "accident-repairs",
+        trim: "EX",
+        vehicleConfiguration: {
+          source: "marketcheck",
+          field: "trim",
+          values: ["EX"],
+        },
+      }),
+    );
+  });
+
+  it.each(["error", "empty"] as const)(
+    "keeps a VIN-provided raw trim usable when the trim catalog is %s",
+    async (catalogResult) => {
+      const user = userEvent.setup();
+      const onDraftChange = vi.fn();
+      const service = vehicleService();
+      if (catalogResult === "error") {
+        vi.mocked(service.listTrims).mockRejectedValueOnce(
+          new Error("catalog unavailable"),
+        );
+      } else {
+        vi.mocked(service.listTrims).mockResolvedValueOnce([]);
+      }
+      render(
+        <FlowHarness
+          initialDraft={{
+            ...createEmptyDiminishedValueDraft(),
+            step: "vehicle",
+            vin: "1HGCM82633A004352",
+            vehicleYear: "2003",
+            make: "HONDA",
+            model: "Accord",
+            trim: "EX",
+            vehicleConfiguration: {
+              source: "marketcheck",
+              field: "trim",
+              values: ["Retired EX alias"],
+            },
+            mileageAtAccident: "48250",
+          }}
+          vehicleLookupService={service}
+          onDraftChange={onDraftChange}
+        />,
+      );
+
+      await screen.findByText(
+        catalogResult === "error"
+          ? /We couldn’t load trims/u
+          : /No exact trim options were found/u,
+      );
+      await user.click(screen.getByRole("button", { name: "Continue" }));
+
+      expect(
+        await screen.findByRole("heading", {
+          name: "Describe the accident and repairs",
+        }),
+      ).toBeInTheDocument();
+      expect(onDraftChange).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          step: "accident-repairs",
+          trim: "EX",
+          vehicleConfiguration: null,
+        }),
+      );
+    },
+  );
+
+  it("still requires a trim when an empty catalog has no raw fallback", async () => {
+    const user = userEvent.setup();
+    const service = vehicleService();
+    vi.mocked(service.listTrims).mockResolvedValueOnce([]);
+    render(
+      <FlowHarness
+        initialDraft={{
+          ...createEmptyDiminishedValueDraft(),
+          step: "vehicle",
+          vin: "1HGCM82633A004352",
+          vehicleYear: "2003",
+          make: "HONDA",
+          model: "Accord",
+          trim: "",
+          mileageAtAccident: "48250",
+        }}
+        vehicleLookupService={service}
+      />,
+    );
+
+    await screen.findByText(/No exact trim options were found/u);
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+
+    expect(screen.getByText("Trim is required.")).toHaveAttribute(
+      "role",
+      "alert",
+    );
+    expect(
+      screen.getByRole("heading", { name: "Tell us about the vehicle" }),
+    ).toBeInTheDocument();
   });
 
   it("returns directly to repairs after editing the accident summary", async () => {
@@ -321,6 +474,7 @@ function DeferredSubmissionHarness({
     vehicleYear: "2024",
     make: "Honda",
     model: "Accord",
+    trim: "EX-L",
     mileageAtAccident: "48,250",
     otherPartyAtFault: "yes",
     structuralDamage: "no",
@@ -362,9 +516,11 @@ function DeferredSubmissionHarness({
 function FlowHarness({
   initialDraft,
   vehicleLookupService,
+  onDraftChange,
 }: {
   readonly initialDraft: DiminishedValueDraft;
   readonly vehicleLookupService: VehicleLookupService;
+  readonly onDraftChange?: (draft: DiminishedValueDraft) => void;
 }) {
   const [draft, setDraft] = useState(initialDraft);
   const [files, setFiles] = useState<File[]>([]);
@@ -372,7 +528,10 @@ function FlowHarness({
   return (
     <DiminishedValueIntakeFlow
       draft={draft}
-      onDraftChange={setDraft}
+      onDraftChange={(nextDraft) => {
+        setDraft(nextDraft);
+        onDraftChange?.(nextDraft);
+      }}
       selectedFiles={files}
       onSelectedFilesChange={setFiles}
       onSubmit={() => {
@@ -397,7 +556,18 @@ function vehicleService(): VehicleLookupService {
     })),
     listMakes: vi.fn(async () => ["Honda"]),
     listModels: vi.fn(async () => ["Accord"]),
-    listTrims: vi.fn(async () => ["EX"]),
+    listTrims: vi.fn(async () => [vehicleTrimOption("EX")]),
+  };
+}
+
+function vehicleTrimOption(trim: string): VehicleTrimOption {
+  return {
+    source: "marketcheck",
+    id: `marketcheck-trim-${trim.toLowerCase()}`,
+    label: trim,
+    trim,
+    queryField: "trim",
+    queryValues: [trim],
   };
 }
 

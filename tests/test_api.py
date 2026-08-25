@@ -373,6 +373,10 @@ class AnalysisPresentationApiTests(TemporaryRepositoryTestCase):
             current_prices=CONSISTENT_PRICES,
         )
         expected = json.loads(FIXTURE_PATH.read_text(encoding="utf-8"))
+        self.assertEqual(expected["provenance"]["analysisRunSchemaVersion"], "5")
+        expected["provenance"]["analysisRunSchemaVersion"] = (
+            artifact.analysis_run_schema_version
+        )
         validate_analysis_presentation(expected)
         self.assertEqual(expected["runId"], artifact.run_id)
         self.assertEqual(

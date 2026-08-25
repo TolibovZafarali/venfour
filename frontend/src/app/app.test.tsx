@@ -138,9 +138,25 @@ describe("Venfour application", () => {
     expect(footerLogo).toHaveAttribute("src", venfourMark);
     expect(headerLogo).toHaveClass("size-7");
     expect(footerLogo).toHaveClass("size-6");
-    expect(
-      within(screen.getByRole("banner")).getByText("VENFOUR"),
-    ).toBeVisible();
+    const headerBrandLink = within(screen.getByRole("banner")).getByRole(
+      "link",
+      { name: "Venfour home" },
+    );
+    const headerWordmark = within(headerBrandLink).getByText("Venfour");
+    expect(headerBrandLink).toHaveAttribute("translate", "no");
+    expect(headerBrandLink).toHaveClass("notranslate", "select-none");
+    expect(headerWordmark).toHaveAttribute(
+      "data-brand-wordmark",
+      "venfour",
+    );
+    expect(headerWordmark).toHaveClass(
+      "font-brand",
+      "text-[1.25rem]",
+      "font-semibold",
+      "tracking-[-0.035em]",
+    );
+    expect(headerWordmark).toBeVisible();
+    expect(within(screen.getByRole("banner")).queryByText("VENFOUR")).toBeNull();
     expect(
       within(screen.getByRole("contentinfo")).getByText("VENFOUR"),
     ).toBeVisible();

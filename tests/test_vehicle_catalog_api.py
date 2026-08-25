@@ -9,13 +9,26 @@ from unittest.mock import patch
 from starlette.testclient import TestClient
 
 from venfour.api import create_app
-from venfour.vehicle_catalog import VehicleTrimCatalogRequest
+from venfour.vehicle_catalog import VehicleTrimCatalogRequest, VehicleTrimOption
+
+
+DEFAULT_TRIM_OPTIONS = tuple(
+    VehicleTrimOption(
+        source="marketcheck",
+        id=f"marketcheck-trim-{label.casefold()}",
+        label=label,
+        trim=label,
+        query_field="trim",
+        query_values=(label,),
+    )
+    for label in ("LE", "SE", "XLE")
+)
 
 
 class RecordingVehicleTrimCatalog:
     def __init__(
         self,
-        trims: tuple[str, ...] = ("LE", "SE", "XLE"),
+        trims: tuple[VehicleTrimOption, ...] = DEFAULT_TRIM_OPTIONS,
         error: Exception | None = None,
     ) -> None:
         self.trims = trims
@@ -24,7 +37,7 @@ class RecordingVehicleTrimCatalog:
 
     def list_trims(
         self, request: VehicleTrimCatalogRequest
-    ) -> tuple[str, ...]:
+    ) -> tuple[VehicleTrimOption, ...]:
         self.requests.append(request)
         if self.error is not None:
             raise self.error
@@ -50,7 +63,21 @@ class VehicleTrimCatalogApiTests(unittest.TestCase):
             )
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json(), {"trims": ["LE", "SE", "XLE"]})
+        self.assertEqual(
+            response.json(),
+            {"trims": [option.to_dict() for option in DEFAULT_TRIM_OPTIONS]},
+        )
+        self.assertEqual(
+            response.json()["trims"][0],
+            {
+                "source": "marketcheck",
+                "id": "marketcheck-trim-le",
+                "label": "LE",
+                "trim": "LE",
+                "queryField": "trim",
+                "queryValues": ["LE"],
+            },
+        )
         self.assertEqual(response.headers["cache-control"], "private, no-store")
         self.assertEqual(
             service.requests,
@@ -107,6 +134,25 @@ class VehicleTrimCatalogApiTests(unittest.TestCase):
                 "VEHICLE_TRIM_LOOKUP_UNAVAILABLE",
             )
             self.assertNotIn(private_detail, response.text)
+
+    def test_rejects_an_invalid_catalog_response(self) -> None:
+        service = RecordingVehicleTrimCatalog()
+        service.trims = ("XLE",)  # type: ignore[assignment]
+        app = create_app(
+            enable_legacy_api=False,
+            vehicle_trim_catalog_service=service,
+        )
+
+        with TestClient(app) as client:
+            response = client.get(
+                "/api/v1/vehicle-trims?year=2020&make=Toyota&model=Camry"
+            )
+
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(
+            response.json()["error"]["code"],
+            "VEHICLE_TRIM_LOOKUP_UNAVAILABLE",
+        )
 
     def test_rejects_an_invalid_injected_catalog_dependency(self) -> None:
         with self.assertRaisesRegex(TypeError, "must expose list_trims"):

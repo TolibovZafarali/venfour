@@ -123,6 +123,11 @@ describe("staff diminished-value case service", () => {
       vehicleYear: 2022,
       vehicleMake: "Honda",
       vehicleModel: "Accord",
+      vehicleConfiguration: {
+        source: "marketcheck",
+        field: "trim",
+        values: ["EX-L"],
+      },
       submittedAt: "2026-08-19T15:00:00.000Z",
       revision: 4,
     });
@@ -164,6 +169,28 @@ describe("staff diminished-value case service", () => {
       http.post(
         `${SUPABASE_URL}/rest/v1/rpc/get_submitted_diminished_value_case`,
         () => HttpResponse.json([detailRow({ case_id: SECOND_CASE_ID })]),
+      ),
+    );
+
+    await expect(
+      createTestService().getSubmittedCase(CASE_ID),
+    ).rejects.toBeInstanceOf(StaffDiminishedValueResponseError);
+  });
+
+  it("rejects an invalid persisted vehicle configuration", async () => {
+    server.use(
+      http.post(
+        `${SUPABASE_URL}/rest/v1/rpc/get_submitted_diminished_value_case`,
+        () =>
+          HttpResponse.json([
+            detailRow({
+              vehicle_configuration: {
+                source: "marketcheck",
+                field: "engine",
+                values: ["2.0L"],
+              },
+            }),
+          ]),
       ),
     );
 
@@ -218,6 +245,11 @@ function detailRow(overrides: Record<string, unknown> = {}) {
     vehicle_make: "Honda",
     vehicle_model: "Accord",
     vehicle_trim: "EX-L",
+    vehicle_configuration: {
+      source: "marketcheck",
+      field: "trim",
+      values: ["EX-L"],
+    },
     mileage_at_accident: 48250,
     current_mileage: 49100,
     other_party_at_fault: "yes",

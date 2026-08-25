@@ -117,7 +117,7 @@ function AuthenticatedAppraisalsPage({
   );
 
   return (
-    <section className="w-full bg-canvas">
+    <section className="w-full bg-transparent">
       <div className="mx-auto w-full max-w-7xl px-5 py-12 sm:px-8 sm:py-16 lg:px-10 lg:py-20">
         <AppraisalsHeader />
 

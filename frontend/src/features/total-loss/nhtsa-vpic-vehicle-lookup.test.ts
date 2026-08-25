@@ -339,6 +339,19 @@ describe("NHTSA vPIC vehicle catalog", () => {
       { trims: [trimOption({ queryField: "drivetrain" })] },
     ],
     ["an empty query list", { trims: [trimOption({ queryValues: [] })] }],
+    [
+      "too many aliases for one configuration",
+      {
+        trims: [
+          trimOption({
+            queryValues: Array.from(
+              { length: 21 },
+              (_, index) => `XLE alias ${index + 1}`,
+            ),
+          }),
+        ],
+      },
+    ],
     ["noncanonical label whitespace", { trims: [trimOption({ label: " XLE" })] }],
     [
       "one ID for conflicting configurations",

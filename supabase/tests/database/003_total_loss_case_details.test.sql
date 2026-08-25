@@ -145,7 +145,8 @@ select is(
     'report_facts_confirmed_at',
     'prior_title_status',
     'existing_damage_description',
-    'report_upload_recovery_required'
+    'report_upload_recovery_required',
+    'vehicle_configuration'
   ]::text[],
   'the details table contains the public intake fields and internal upload coordination fields'
 );
@@ -196,7 +197,8 @@ select is(
     'timestamptz',
     'text',
     'text',
-    'bool'
+    'bool',
+    'jsonb'
   ]::text[],
   'all details and lease columns use the intended PostgreSQL types'
 );

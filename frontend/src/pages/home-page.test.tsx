@@ -201,6 +201,37 @@ describe("homepage structure", () => {
     }
   });
 
+  test("gives every public homepage section a distinct gradient treatment", async () => {
+    renderTestApp();
+
+    const sectionGradients = [
+      ["Your Vehicle’s Value, Made Clear.", "home-hero-gradient"],
+      ["Two services. Two different situations.", "home-services-gradient"],
+      ["Start online in a few steps", "home-process-gradient"],
+      [
+        "The insurance report may not tell the whole story.",
+        "home-report-gradient",
+      ],
+      [
+        "Repairs can fix the vehicle—not its history.",
+        "home-diminished-gradient",
+      ],
+      [
+        "An analysis that makes the evidence clear.",
+        "home-deliverable-gradient",
+      ],
+      ["Built for a careful second look.", "home-trust-gradient"],
+    ] as const;
+
+    for (const [heading, gradientClassName] of sectionGradients) {
+      const section = (
+        await screen.findByRole("heading", { name: heading })
+      ).closest("section");
+      expect(section).not.toBeNull();
+      expect(section).toHaveClass(gradientClassName);
+    }
+  });
+
   test("avoids unsupported promises and links the current public policies", async () => {
     renderTestApp();
 

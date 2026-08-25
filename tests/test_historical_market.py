@@ -231,6 +231,11 @@ class HistoricalSchemaContractTests(unittest.TestCase):
         )
         request_schema.pop("$schema")
         request_schema.pop("title")
+        definitions = request_schema.pop("$defs")
+        self.assertEqual(
+            result_schema["$defs"]["vehicleConfiguration"],
+            definitions["vehicleConfiguration"],
+        )
         self.assertEqual(
             result_schema["$defs"]["historicalSearchRequest"], request_schema
         )
@@ -270,6 +275,26 @@ class HistoricalSchemaContractTests(unittest.TestCase):
 
 
 class HistoricalRequestContractTests(unittest.TestCase):
+    def test_configuration_field_keeps_existing_positional_arguments_stable(
+        self,
+    ) -> None:
+        request = HistoricalMarketSearchRequest(
+            EVIDENCE_DATE,
+            2024,
+            "Hyundai",
+            "Elantra",
+            "63026",
+            "SEL",
+            46_926,
+            75,
+            12,
+        )
+
+        self.assertEqual(request.loss_vehicle_mileage, 46_926)
+        self.assertEqual(request.radius_miles, 75)
+        self.assertEqual(request.result_limit, 12)
+        self.assertIsNone(request.configuration)
+
     def test_full_request_normalizes_and_serializes_canonical_fields(self) -> None:
         request = HistoricalMarketSearchRequest(
             evidence_date=" 2026-05-19 ",

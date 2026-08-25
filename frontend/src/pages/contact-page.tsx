@@ -74,6 +74,7 @@ export function ContactPage() {
       eyebrow={content.eyebrow}
       title={content.title}
       introduction={content.introduction}
+      tone="contact"
     >
       <PublicPageSection title={content.sectionTitle}>
         {supportEmail ? (

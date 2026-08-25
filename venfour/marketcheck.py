@@ -45,12 +45,15 @@ from venfour.market import (
     MarketProviderUnavailableError,
     MarketSearchRequest,
     MarketSearchResult,
+    VehicleConfigurationIdentity,
     validate_market_listing,
 )
 from venfour.vehicle_catalog import (
     MAX_VEHICLE_CATALOG_TEXT_LENGTH,
     VehicleTrimCatalogRequest,
     VehicleTrimOption,
+    VehicleTrimQueryValuesLimitError,
+    normalize_vehicle_trim_catalog,
     normalize_vehicle_trim_options,
 )
 
@@ -80,6 +83,43 @@ _HISTORY_PAGE_EXHAUSTED = object()
 _HISTORY_RECORD_MATCHED = "MATCHED"
 _HISTORY_RECORD_IRRELEVANT = "IRRELEVANT"
 _HISTORY_RECORD_UNVERIFIABLE = "UNVERIFIABLE"
+
+
+def _has_unsupported_provider_text_character(value: str) -> bool:
+    return any(
+        ord(character) < 32
+        or ord(character) == 127
+        or ord(character) == 0x061C
+        or ord(character) in (0x200E, 0x200F)
+        or 0x202A <= ord(character) <= 0x202E
+        or 0x2066 <= ord(character) <= 0x2069
+        for character in value
+    )
+
+
+def _battery_electric_only(raw_values: Any) -> bool:
+    if (
+        not isinstance(raw_values, list)
+        or not raw_values
+        or len(raw_values) > MARKETCHECK_MAX_TAXONOMY_TERMS
+    ):
+        return False
+    values: list[str] = []
+    for value in raw_values:
+        if not isinstance(value, str):
+            return False
+        normalized = " ".join(value.split())
+        if (
+            not normalized
+            or len(normalized) > MAX_VEHICLE_CATALOG_TEXT_LENGTH
+            or _has_unsupported_provider_text_character(value)
+        ):
+            return False
+        values.append(normalized.casefold())
+    return all(
+        value in {"battery electric", "bev", "electric"}
+        for value in values
+    )
 
 
 class MarketCheckTransport(Protocol):
@@ -519,6 +559,7 @@ class MarketCheckProvider:
         *,
         path_prefix: str = "$.listings",
         canonical_trim: str | None = None,
+        configuration: VehicleConfigurationIdentity | None = None,
     ) -> MarketListing:
         path = f"{path_prefix}[{response_index}]"
         record = _mapping(
@@ -553,6 +594,17 @@ class MarketCheckProvider:
                 postal_code=raw_dealer.get("zip"),
             )
 
+        verified_canonical_trim: str | None = None
+        if canonical_trim is not None and configuration is not None:
+            returned_value = build.get(configuration.field)
+            if isinstance(returned_value, str):
+                returned_key = " ".join(returned_value.split()).casefold()
+                if returned_key in {
+                    " ".join(value.split()).casefold()
+                    for value in configuration.values
+                }:
+                    verified_canonical_trim = canonical_trim
+
         listing = MarketListing(
             source=self.name,
             source_listing_id=record.get("id"),
@@ -560,7 +612,11 @@ class MarketCheckProvider:
             year=build.get("year"),
             make=build.get("make"),
             model=build.get("model"),
-            trim=canonical_trim if canonical_trim is not None else build.get("trim"),
+            trim=(
+                verified_canonical_trim
+                if verified_canonical_trim is not None
+                else build.get("trim")
+            ),
             vin=record.get("vin"),
             mileage=record.get("miles"),
             price=record.get("price"),
@@ -616,7 +672,8 @@ class MarketCheckProvider:
             "append_api_key": "false",
             "field": (
                 f"trim|0|{MARKETCHECK_MAX_TAXONOMY_TERMS},"
-                f"version|0|{MARKETCHECK_MAX_TAXONOMY_TERMS}"
+                f"version|0|{MARKETCHECK_MAX_TAXONOMY_TERMS},"
+                f"fuel_type|0|{MARKETCHECK_MAX_TAXONOMY_TERMS}"
             ),
             "year": request.year,
             "make": request.make,
@@ -643,10 +700,8 @@ class MarketCheckProvider:
             if (
                 not term
                 or len(term) > MAX_VEHICLE_CATALOG_TEXT_LENGTH
-                or any(
-                    ord(character) < 32 or ord(character) == 127
-                    for character in value
-                )
+                or "," in term
+                or _has_unsupported_provider_text_character(value)
             ):
                 raise MarketProviderResponseError(
                     "MarketCheck trim taxonomy is malformed",
@@ -674,10 +729,7 @@ class MarketCheckProvider:
                 if (
                     not term
                     or len(term) > MAX_VEHICLE_CATALOG_TEXT_LENGTH
-                    or any(
-                        ord(character) < 32 or ord(character) == 127
-                        for character in value
-                    )
+                    or _has_unsupported_provider_text_character(value)
                 ):
                     candidate_versions = []
                     break
@@ -688,11 +740,24 @@ class MarketCheckProvider:
         options: tuple[VehicleTrimOption, ...] | None = None
         if version_terms is not None:
             try:
-                options = normalize_vehicle_trim_options(
+                options = normalize_vehicle_trim_catalog(
+                    trim_terms,
                     version_terms,
                     source="marketcheck",
-                    query_field="version",
+                    battery_electric_only=_battery_electric_only(
+                        payload.get("fuel_type")
+                    ),
+                    redundant_prefixes=(
+                        f"{request.year} {request.make} {request.model}",
+                        f"{request.make} {request.model}",
+                        f"{request.year} {request.model}",
+                        request.model,
+                    ),
                 )
+            except VehicleTrimQueryValuesLimitError as exc:
+                raise MarketProviderResponseError(
+                    "MarketCheck trim taxonomy is malformed"
+                ) from exc
             except (TypeError, ValueError):
                 options = None
         if options is None:
@@ -760,6 +825,7 @@ class MarketCheckProvider:
                                 if request.configuration is not None
                                 else None
                             ),
+                            configuration=request.configuration,
                         )
                     )
             except MarketProviderError as exc:
@@ -1105,6 +1171,7 @@ class MarketCheckHistoricalProvider(MarketCheckProvider):
         response_index: int,
         *,
         canonical_trim: str | None = None,
+        configuration: VehicleConfigurationIdentity | None = None,
     ) -> tuple[_HistoricalCandidate | None, HistoricalEvidenceIssue | None]:
         path = f"$.listings[{response_index}]"
         record = _mapping(
@@ -1126,6 +1193,7 @@ class MarketCheckHistoricalProvider(MarketCheckProvider):
             record,
             response_index,
             canonical_trim=canonical_trim,
+            configuration=configuration,
         )
         if listing.vin is None:
             raise MarketProviderResponseError(
@@ -1207,6 +1275,7 @@ class MarketCheckHistoricalProvider(MarketCheckProvider):
                             if request.configuration is not None
                             else None
                         ),
+                        configuration=request.configuration,
                     )
                     if issue is not None:
                         issues.append((response_index, issue))

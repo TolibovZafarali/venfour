@@ -9,6 +9,7 @@ import {
   type TotalLossDraft,
   type TotalLossManualFormValues,
 } from "@/features/total-loss/types";
+import { vehicleConfigurationIdentity } from "@/features/intake/vehicle-lookup-types";
 
 export { TOTAL_LOSS_DRAFT_VERSION } from "@/features/total-loss/types";
 
@@ -51,6 +52,7 @@ const DRAFT_KEYS = [
   "mode",
   "step",
   "manual",
+  "vehicleConfiguration",
   "contact",
   "reportProvider",
   "reportExtractionStatus",
@@ -67,6 +69,10 @@ const DRAFT_KEYS = [
   "dismissedResumeCaseId",
   "lastUpdatedAt",
 ] as const;
+
+const VERSION_FIVE_DRAFT_KEYS = DRAFT_KEYS.filter(
+  (key) => key !== "vehicleConfiguration",
+);
 
 const MANUAL_FORM_KEYS = [
   "vin",
@@ -165,6 +171,7 @@ export function createEmptyTotalLossDraft(
     mode: null,
     step: "choice",
     manual: createEmptyTotalLossManualForm(),
+    vehicleConfiguration: null,
     contact: createEmptyTotalLossContactForm(),
     reportProvider: null,
     reportExtractionStatus: "idle",
@@ -319,6 +326,10 @@ function toTotalLossDraft(value: unknown): TotalLossDraft | null {
       return migrateVersionFourDraft(value);
     }
 
+    if (value.version === 5) {
+      return migrateVersionFiveDraft(value);
+    }
+
     if (!hasExactKeys(value, DRAFT_KEYS)) return null;
 
     if (
@@ -326,6 +337,7 @@ function toTotalLossDraft(value: unknown): TotalLossDraft | null {
       !isNullableMember(value.mode, TOTAL_LOSS_INTAKE_MODES) ||
       !isMember(value.step, TOTAL_LOSS_INTAKE_STEPS) ||
       !isManualFormValues(value.manual) ||
+      !isNullableVehicleConfiguration(value.vehicleConfiguration) ||
       !isContactFormValues(value.contact) ||
       !isNullableBoundedString(value.reportProvider, 120) ||
       !isMember(value.reportExtractionStatus, REPORT_EXTRACTION_STATUSES) ||
@@ -355,6 +367,10 @@ function toTotalLossDraft(value: unknown): TotalLossDraft | null {
       mode: value.mode,
       step: value.step,
       manual: copyManualForm(value.manual),
+      vehicleConfiguration:
+        value.vehicleConfiguration === null
+          ? null
+          : vehicleConfigurationIdentity(value.vehicleConfiguration),
       contact: { ...value.contact },
       reportProvider: value.reportProvider,
       reportExtractionStatus: value.reportExtractionStatus,
@@ -423,7 +439,7 @@ function migrateVersionTwoDraft(
   value: Record<string, unknown>,
 ): TotalLossDraft | null {
   if (
-    !hasExactKeys(value, DRAFT_KEYS) ||
+    !hasExactKeys(value, VERSION_FIVE_DRAFT_KEYS) ||
     !isManualFormValues(value.manual) ||
     !isLegacyContactFormValues(value.contact)
   ) {
@@ -433,6 +449,7 @@ function migrateVersionTwoDraft(
   return toTotalLossDraft({
     ...value,
     version: TOTAL_LOSS_DRAFT_VERSION,
+    vehicleConfiguration: null,
     contact: migrateLegacyContactForm(value.contact),
   });
 }
@@ -441,7 +458,7 @@ function migrateVersionThreeDraft(
   value: Record<string, unknown>,
 ): TotalLossDraft | null {
   if (
-    !hasExactKeys(value, DRAFT_KEYS) ||
+    !hasExactKeys(value, VERSION_FIVE_DRAFT_KEYS) ||
     !isVersionThreeManualFormValues(value.manual) ||
     !isLegacyContactFormValues(value.contact)
   ) {
@@ -452,6 +469,7 @@ function migrateVersionThreeDraft(
   return toTotalLossDraft({
     ...value,
     version: TOTAL_LOSS_DRAFT_VERSION,
+    vehicleConfiguration: null,
     contact: migrateLegacyContactForm(value.contact),
     manual: {
       vin: manual.vin,
@@ -474,7 +492,7 @@ function migrateVersionFourDraft(
   value: Record<string, unknown>,
 ): TotalLossDraft | null {
   if (
-    !hasExactKeys(value, DRAFT_KEYS) ||
+    !hasExactKeys(value, VERSION_FIVE_DRAFT_KEYS) ||
     !isManualFormValues(value.manual) ||
     !isLegacyContactFormValues(value.contact)
   ) {
@@ -484,8 +502,24 @@ function migrateVersionFourDraft(
   return toTotalLossDraft({
     ...value,
     version: TOTAL_LOSS_DRAFT_VERSION,
+    vehicleConfiguration: null,
     contact: migrateLegacyContactForm(value.contact),
   });
+}
+
+function migrateVersionFiveDraft(
+  value: Record<string, unknown>,
+): TotalLossDraft | null {
+  if (!hasExactKeys(value, VERSION_FIVE_DRAFT_KEYS)) return null;
+  return toTotalLossDraft({
+    ...value,
+    version: TOTAL_LOSS_DRAFT_VERSION,
+    vehicleConfiguration: null,
+  });
+}
+
+function isNullableVehicleConfiguration(value: unknown) {
+  return value === null || vehicleConfigurationIdentity(value) !== null;
 }
 
 function isLegacyContactFormValues(

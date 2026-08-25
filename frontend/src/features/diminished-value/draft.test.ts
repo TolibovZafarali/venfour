@@ -33,7 +33,7 @@ class MemoryStorage implements DiminishedValueDraftStorage {
 describe("diminished-value browser draft envelope", () => {
   it("creates the exact versioned empty envelope", () => {
     expect(createEmptyDiminishedValueDraftEnvelope(NOW)).toEqual({
-      version: 1,
+      version: 2,
       intake: {
         step: "start",
         returnAfterStartEdit: false,
@@ -46,6 +46,7 @@ describe("diminished-value browser draft envelope", () => {
         make: "",
         model: "",
         trim: "",
+        vehicleConfiguration: null,
         mileageAtAccident: "",
         currentMileage: "",
         otherPartyAtFault: "",
@@ -88,6 +89,12 @@ describe("diminished-value browser draft envelope", () => {
         vehicleYear: "2024",
         make: "Honda",
         model: "Accord",
+        trim: "EX-L",
+        vehicleConfiguration: {
+          source: "marketcheck",
+          field: "version" as const,
+          values: ["Accord EX-L CVT FWD"],
+        },
         mileageAtAccident: "48,250",
         otherPartyAtFault: "yes" as const,
         structuralDamage: "no" as const,
@@ -161,7 +168,7 @@ describe("diminished-value browser draft envelope", () => {
 
   it("removes corrupt, outdated, and unexpected schemas", () => {
     const invalidValues = [
-      { ...createEmptyDiminishedValueDraftEnvelope(NOW), version: 2 },
+      { ...createEmptyDiminishedValueDraftEnvelope(NOW), version: 3 },
       {
         ...createEmptyDiminishedValueDraftEnvelope(NOW),
         accessToken: "secret",

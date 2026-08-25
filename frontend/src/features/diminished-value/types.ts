@@ -46,6 +46,7 @@ export interface DiminishedValueDraft {
   readonly make: string;
   readonly model: string;
   readonly trim: string;
+  readonly vehicleConfiguration: VehicleConfigurationIdentity | null;
   readonly mileageAtAccident: string;
   readonly currentMileage: string;
   readonly otherPartyAtFault: DiminishedValueAnswer | "";
@@ -65,7 +66,10 @@ export interface DiminishedValueDraft {
 
 export type DiminishedValueFormField = Exclude<
   keyof DiminishedValueDraft,
-  "step" | "returnAfterStartEdit" | "vehicleEntryMethod"
+  | "step"
+  | "returnAfterStartEdit"
+  | "vehicleEntryMethod"
+  | "vehicleConfiguration"
 >;
 
 export type DiminishedValueFormErrors = Partial<
@@ -84,6 +88,7 @@ export const DIMINISHED_VALUE_DRAFT_DEFAULTS = {
   make: "",
   model: "",
   trim: "",
+  vehicleConfiguration: null,
   mileageAtAccident: "",
   currentMileage: "",
   otherPartyAtFault: "",
@@ -104,3 +109,4 @@ export const DIMINISHED_VALUE_DRAFT_DEFAULTS = {
 export function createEmptyDiminishedValueDraft(): DiminishedValueDraft {
   return { ...DIMINISHED_VALUE_DRAFT_DEFAULTS };
 }
+import type { VehicleConfigurationIdentity } from "@/features/intake/vehicle-lookup-types";

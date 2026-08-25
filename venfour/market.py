@@ -148,6 +148,18 @@ def _trim_optional(value: Any) -> Any:
     return normalized or None
 
 
+def _has_unsupported_configuration_character(value: str) -> bool:
+    return any(
+        ord(character) < 32
+        or ord(character) == 127
+        or ord(character) == 0x061C
+        or ord(character) in (0x200E, 0x200F)
+        or 0x202A <= ord(character) <= 0x202E
+        or 0x2066 <= ord(character) <= 0x2069
+        for character in value
+    )
+
+
 def _normalize_state(value: Any) -> Any:
     normalized = _trim_optional(value)
     if (
@@ -176,11 +188,14 @@ class VehicleConfigurationIdentity:
 
     def __post_init__(self) -> None:
         source = _trim_required(self.source)
-        field = _trim_required(self.field).casefold()
+        field_value = _trim_required(self.field)
         if not isinstance(source, str) or not _CONFIGURATION_SOURCE_PATTERN.fullmatch(
             source
         ):
             raise ValueError("Vehicle configuration source is invalid")
+        if not isinstance(field_value, str):
+            raise TypeError("Vehicle configuration field must be a string")
+        field = field_value.casefold()
         if field not in _CONFIGURATION_FIELDS:
             raise ValueError("Vehicle configuration field is invalid")
         if not isinstance(self.values, (tuple, list)):
@@ -191,13 +206,14 @@ class VehicleConfigurationIdentity:
         for value in self.values:
             if not isinstance(value, str):
                 raise TypeError("Vehicle configuration values must be strings")
+            if _has_unsupported_configuration_character(value):
+                raise ValueError("Vehicle configuration value is invalid")
             normalized = " ".join(value.split())
             key = normalized.casefold()
             if (
                 not normalized
                 or len(normalized) > _MAX_CONFIGURATION_VALUE_LENGTH
                 or "," in normalized
-                or any(ord(character) < 32 or ord(character) == 127 for character in normalized)
                 or key in seen
             ):
                 raise ValueError("Vehicle configuration value is invalid")
@@ -231,11 +247,11 @@ class MarketSearchRequest:
     make: str
     model: str
     trim: str | None = None
-    configuration: VehicleConfigurationIdentity | None = None
     loss_vehicle_mileage: int | None = None
     postal_code: str | None = None
     radius_miles: int = 50
     result_limit: int = 25
+    configuration: VehicleConfigurationIdentity | None = None
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "make", _trim_required(self.make))
@@ -247,6 +263,8 @@ class MarketSearchRequest:
             raise TypeError(
                 "configuration must be VehicleConfigurationIdentity or None"
             )
+        if self.configuration is not None and self.trim is None:
+            raise ValueError("configuration requires a canonical trim")
         object.__setattr__(self, "postal_code", _trim_optional(self.postal_code))
 
     def to_dict(self) -> dict[str, Any]:

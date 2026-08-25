@@ -321,6 +321,7 @@ export type Database = {
           submitted_at: string | null
           updated_at: string
           vehicle_entry_method: string
+          vehicle_configuration: Json | null
           vehicle_make: string | null
           vehicle_model: string | null
           vehicle_trim: string | null
@@ -353,6 +354,7 @@ export type Database = {
           submitted_at?: string | null
           updated_at?: string
           vehicle_entry_method?: string
+          vehicle_configuration?: Json | null
           vehicle_make?: string | null
           vehicle_model?: string | null
           vehicle_trim?: string | null
@@ -385,6 +387,7 @@ export type Database = {
           submitted_at?: string | null
           updated_at?: string
           vehicle_entry_method?: string
+          vehicle_configuration?: Json | null
           vehicle_make?: string | null
           vehicle_model?: string | null
           vehicle_trim?: string | null
@@ -643,6 +646,7 @@ export type Database = {
           report_uploaded_at: string | null
           updated_at: string
           existing_damage_description: string | null
+          vehicle_configuration: Json | null
           vehicle_condition: string | null
           vehicle_make: string | null
           vehicle_model: string | null
@@ -684,6 +688,7 @@ export type Database = {
           report_uploaded_at?: string | null
           updated_at?: string
           existing_damage_description?: string | null
+          vehicle_configuration?: Json | null
           vehicle_condition?: string | null
           vehicle_make?: string | null
           vehicle_model?: string | null
@@ -725,6 +730,7 @@ export type Database = {
           report_uploaded_at?: string | null
           updated_at?: string
           existing_damage_description?: string | null
+          vehicle_configuration?: Json | null
           vehicle_condition?: string | null
           vehicle_make?: string | null
           vehicle_model?: string | null
@@ -1204,6 +1210,7 @@ export type Database = {
           submitted_at: string
           updated_at: string
           vehicle_entry_method: string
+          vehicle_configuration: Json
           vehicle_make: string
           vehicle_model: string
           vehicle_trim: string

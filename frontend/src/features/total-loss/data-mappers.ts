@@ -2,6 +2,7 @@ import type {
   CreateTotalLossDetailsValues,
   TotalLossCaseDetails,
 } from "@/features/total-loss/data-types";
+import type { VehicleConfigurationIdentity } from "@/features/intake/vehicle-lookup-types";
 import {
   createEmptyTotalLossManualForm,
   type TotalLossManualFormValues,
@@ -22,6 +23,7 @@ function nullable(value: string) {
 export function totalLossManualFormToDetailsValues(
   values: TotalLossManualFormValues,
   referenceDate = new Date(),
+  vehicleConfiguration: VehicleConfigurationIdentity | null = null,
 ): CreateTotalLossDetailsValues {
   const normalized = normalizeTotalLossManualForm(values);
   const valuationCents = parseCurrencyToCents(
@@ -57,6 +59,7 @@ export function totalLossManualFormToDetailsValues(
     vehicleMake: nullable(normalized.make),
     vehicleModel: nullable(normalized.model),
     vehicleTrim: nullable(normalized.trim),
+    vehicleConfiguration,
     mileageAtLoss,
     postalCode: nullable(normalized.zipCode),
     dateOfLoss,
@@ -70,9 +73,14 @@ export function totalLossManualFormToDetailsValues(
 export function totalLossReportFormToDetailsValues(
   values: TotalLossManualFormValues,
   referenceDate = new Date(),
+  vehicleConfiguration: VehicleConfigurationIdentity | null = null,
 ): CreateTotalLossDetailsValues {
   return {
-    ...totalLossManualFormToDetailsValues(values, referenceDate),
+    ...totalLossManualFormToDetailsValues(
+      values,
+      referenceDate,
+      vehicleConfiguration,
+    ),
     intakeMode: "report",
   };
 }

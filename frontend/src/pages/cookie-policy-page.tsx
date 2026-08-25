@@ -10,6 +10,7 @@ export function CookiePolicyPage() {
       title="Cookies and browser storage at Venfour"
       introduction="This page describes the site’s current use of cookies and similar browser storage."
       updated="Last updated August 21, 2026"
+      tone="cookies"
     >
       <PublicPageSection title="Current use">
         <p>

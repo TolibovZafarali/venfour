@@ -12,6 +12,7 @@ export function PrivacyPage() {
       title="How Venfour handles your information"
       introduction="This page describes the current Venfour service in practical terms: what is stored when you use an account, start a supported total-loss review, or have a previously saved diminished-value request, and what controls are not yet available."
       updated="Last updated August 23, 2026"
+      tone="privacy"
     >
       <PublicPageSection title="Information you provide">
         <p>

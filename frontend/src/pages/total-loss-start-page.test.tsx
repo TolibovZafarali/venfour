@@ -46,6 +46,7 @@ import type { TotalLossDraft } from "@/features/total-loss/types";
 import {
   VehicleLookupError,
   type VehicleLookupService,
+  type VehicleTrimOption,
 } from "@/features/total-loss/vehicle-lookup-service";
 import { renderTestApp as renderBaseTestApp } from "@/test/render";
 
@@ -361,6 +362,7 @@ function createDependencyHarness({
     const next: TotalLossCaseDetails = {
       ...current,
       intakeMode: "report",
+      vehicleConfiguration: null,
       reportUploadRecoveryRequired: false,
       reportOriginalFilename: input.originalFilename,
       reportUploadedAt: input.uploadedAt,
@@ -523,8 +525,8 @@ function createDependencyHarness({
   const listTrims = vi.fn<VehicleLookupService["listTrims"]>(
     async ({ make, model }) =>
       make === "Toyota" && model === "Camry"
-        ? ["LE", "SE", "XLE"]
-        : ["EX", "EX-L", "EX-V6"],
+        ? ["LE", "SE", "XLE"].map(vehicleTrimOption)
+        : ["EX", "EX-L", "EX-V6"].map(vehicleTrimOption),
   );
   const vehicleLookupService: VehicleLookupService = {
     decodeVin,
@@ -596,6 +598,17 @@ function createDependencyHarness({
     getContact,
     saveContactAndBeginClaim,
     confirmIntake,
+  };
+}
+
+function vehicleTrimOption(trim: string): VehicleTrimOption {
+  return {
+    source: "marketcheck",
+    id: `marketcheck-trim-${trim.toLowerCase()}`,
+    label: trim,
+    trim,
+    queryField: "trim",
+    queryValues: [trim],
   };
 }
 
@@ -1073,7 +1086,9 @@ describe("/start?service=total-loss", () => {
     expect(
       within(confirmedVehicle).queryByRole("textbox", { name: "Model" }),
     ).not.toBeInTheDocument();
-    expect(screen.getByLabelText("Trim")).toHaveValue("EX-V6");
+    expect(screen.getByLabelText("Trim")).toHaveValue(
+      "marketcheck-trim-ex-v6",
+    );
     expect(
       screen.queryByRole("heading", { name: "Add the claim details" }),
     ).not.toBeInTheDocument();
@@ -1119,6 +1134,109 @@ describe("/start?service=total-loss", () => {
       document.querySelector("[data-intake-transition='backward']"),
     ).toBeInTheDocument();
   });
+
+  it.each(["", "Retired EX-L label"])(
+    "canonicalizes a hydrated provider identity with saved trim %j",
+    async (savedTrim) => {
+      const localDraft: TotalLossDraft = {
+        ...createEmptyTotalLossDraft(new Date(CREATED_AT)),
+        mode: "manual",
+        step: "vehicle",
+        manual: {
+          ...createEmptyTotalLossDraft(new Date(CREATED_AT)).manual,
+          vehicleYear: "2020",
+          make: "Honda",
+          model: "Accord",
+          trim: savedTrim,
+        },
+        vehicleConfiguration: {
+          source: "marketcheck",
+          field: "trim",
+          values: ["EX-L"],
+        },
+        dirty: true,
+        revision: 4,
+      };
+      expect(writeTotalLossDraft(localDraft)).toEqual({ ok: true });
+      const auth = createAuthHarness(sessionFor());
+      const harness = createDependencyHarness();
+      const user = userEvent.setup();
+
+      renderTestApp(["/start?service=total-loss"], {
+        authService: auth.service,
+        totalLossDependencies: harness.dependencies,
+      });
+
+      await screen.findByRole("option", { name: "EX-L" });
+      expect(screen.getByLabelText("Trim")).toHaveValue(
+        "marketcheck-trim-ex-l",
+      );
+      await user.click(
+        screen.getByRole("button", { name: "Confirm vehicle & continue" }),
+      );
+
+      expect(
+        await screen.findByRole("heading", { name: "Add the claim details" }),
+      ).toBeVisible();
+      expect(screen.getByText("Vehicle: 2020 Honda Accord EX-L")).toBeVisible();
+      expect(readTotalLossDraft()).toMatchObject({
+        ok: true,
+        draft: {
+          step: "claim",
+          manual: { trim: "EX-L" },
+          vehicleConfiguration: {
+            source: "marketcheck",
+            field: "trim",
+            values: ["EX-L"],
+          },
+        },
+      });
+    },
+  );
+
+  it.each(["error", "empty"] as const)(
+    "keeps a VIN-provided raw trim usable when the trim catalog is %s",
+    async (catalogResult) => {
+      const auth = createAuthHarness(sessionFor());
+      const harness = createDependencyHarness();
+      const user = userEvent.setup();
+      if (catalogResult === "error") {
+        harness.listTrims.mockRejectedValueOnce(
+          new Error("catalog unavailable"),
+        );
+      } else {
+        harness.listTrims.mockResolvedValueOnce([]);
+      }
+
+      renderTestApp(["/start?service=total-loss"], {
+        authService: auth.service,
+        totalLossDependencies: harness.dependencies,
+      });
+      await chooseMode(user, "I don’t have the report");
+      await user.type(screen.getByLabelText("VIN"), "1hgcm82633a004352");
+      await user.click(screen.getByRole("button", { name: "Find vehicle" }));
+      await screen.findByText(
+        catalogResult === "error"
+          ? /We couldn’t load trims/u
+          : /No exact trim options were found/u,
+      );
+      await user.click(
+        screen.getByRole("button", { name: "Confirm vehicle & continue" }),
+      );
+
+      expect(
+        await screen.findByRole("heading", { name: "Add the claim details" }),
+      ).toBeVisible();
+      expect(readTotalLossDraft()).toMatchObject({
+        ok: true,
+        draft: {
+          step: "claim",
+          manual: { trim: "EX-V6" },
+          vehicleConfiguration: null,
+        },
+      });
+    },
+  );
 
   it("uses dependent dropdowns when the user does not have a VIN", async () => {
     const auth = createAuthHarness(sessionFor());
@@ -1191,6 +1309,11 @@ describe("/start?service=total-loss", () => {
           model: "Camry",
           trim: "XLE",
           mileageAtLoss: "42,000",
+        },
+        vehicleConfiguration: {
+          source: "marketcheck",
+          field: "trim",
+          values: ["XLE"],
         },
       },
     });
@@ -2634,6 +2757,11 @@ describe("/start?service=total-loss", () => {
         vehicleMake: "Honda",
         vehicleModel: "Accord",
         vehicleTrim: "EX-L",
+        vehicleConfiguration: {
+          source: "marketcheck",
+          field: "trim",
+          values: ["EX-L"],
+        },
       },
     });
   });

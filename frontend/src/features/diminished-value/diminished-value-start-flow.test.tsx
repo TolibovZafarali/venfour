@@ -9,7 +9,10 @@ import type {
 } from "@/features/auth/auth-service";
 import type { AppraisalCaseService } from "@/features/cases/service";
 import type { AppraisalCase } from "@/features/cases/types";
-import type { VehicleLookupService } from "@/features/intake";
+import type {
+  VehicleLookupService,
+  VehicleTrimOption,
+} from "@/features/intake";
 import type * as productAvailabilityModule from "@/config/product-availability";
 import { renderTestApp } from "@/test/render";
 
@@ -368,7 +371,7 @@ function createDependencyHarness(initialDetails: DiminishedValueCaseDetails) {
     })),
     listMakes: vi.fn(async () => ["Honda"]),
     listModels: vi.fn(async () => ["Accord"]),
-    listTrims: vi.fn(async () => ["EX-L"]),
+    listTrims: vi.fn(async () => [vehicleTrimOption("EX-L")]),
   };
 
   const dependencies: DiminishedValueDependencies = {
@@ -391,6 +394,17 @@ function createDependencyHarness(initialDetails: DiminishedValueCaseDetails) {
     saveDetails,
     submitCase,
     uploadDocument,
+  };
+}
+
+function vehicleTrimOption(trim: string): VehicleTrimOption {
+  return {
+    source: "marketcheck",
+    id: `marketcheck-trim-${trim.toLowerCase()}`,
+    label: trim,
+    trim,
+    queryField: "trim",
+    queryValues: [trim],
   };
 }
 

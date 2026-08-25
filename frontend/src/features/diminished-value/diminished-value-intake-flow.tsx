@@ -16,7 +16,9 @@ import {
   StepHeading,
   type VehicleLookupService,
   type VehicleLookupState,
+  type VehicleTrimOption,
   VehicleIdentificationFields,
+  uniquelyMatchingVehicleTrimOption,
   useVehicleLookupController,
 } from "@/features/intake";
 import { createNhtsaVpicVehicleLookupService } from "@/features/total-loss/nhtsa-vpic-vehicle-lookup";
@@ -119,8 +121,10 @@ export function DiminishedValueIntakeFlow({
   const {
     makeOptions,
     modelOptions,
+    trimOptions,
     makesState,
     modelsState,
+    trimsState,
     vinLookupState,
     vinLookupMessage,
     decodeVin,
@@ -128,11 +132,14 @@ export function DiminishedValueIntakeFlow({
     resetModelLookup,
     retryMakes,
     retryModels,
+    retryTrims,
   } = useVehicleLookupController({
     service: vehicleLookupService,
     catalogEnabled: draft.vehicleEntryMethod === "details",
+    trimCatalogEnabled: draft.step === "vehicle",
     vehicleYear: draft.vehicleYear,
     make: draft.make,
+    model: draft.model,
     currentVin: normalizeDiminishedValueVin(draft.vin),
     unknownVinErrorMessage:
       "Vehicle lookup is temporarily unavailable. Try again.",
@@ -170,7 +177,15 @@ export function DiminishedValueIntakeFlow({
 
   const changeField = useCallback(
     (field: DiminishedValueFormField, value: string) => {
-      setErrors((current) => withoutError(current, field));
+      const dependentFields: DiminishedValueFormField[] =
+        field === "vin"
+          ? ["vin", "vehicleYear", "make", "model", "trim"]
+          : field === "vehicleYear" || field === "make"
+            ? [field, "model", "trim"]
+            : field === "model"
+              ? [field, "trim"]
+              : [field];
+      setErrors((current) => withoutErrors(current, dependentFields));
       setFlowError(null);
       if (field === "vin") {
         resetVinLookup();
@@ -186,13 +201,28 @@ export function DiminishedValueIntakeFlow({
   const changeVehicleMethod = useCallback(
     (method: DiminishedValueVehicleEntryMethod) => {
       setErrors((current) =>
-        withoutErrors(current, ["vin", "vehicleYear", "make", "model"]),
+        withoutErrors(current, [
+          "vin",
+          "vehicleYear",
+          "make",
+          "model",
+          "trim",
+        ]),
       );
       setFlowError(null);
       resetVinLookup();
       dispatch({ type: "vehicle-method-changed", method });
     },
     [dispatch, resetVinLookup],
+  );
+
+  const selectTrim = useCallback(
+    (option: VehicleTrimOption) => {
+      setErrors((current) => withoutError(current, "trim"));
+      setFlowError(null);
+      dispatch({ type: "trim-selected", option });
+    },
+    [dispatch],
   );
 
   const validateAndContinueStart = () => {
@@ -205,24 +235,47 @@ export function DiminishedValueIntakeFlow({
   };
 
   const validateAndContinueVehicle = async () => {
-    const nextErrors = validateDiminishedValueVehicle(draft);
+    const vehicleResolved = Boolean(
+      draft.vehicleYear.trim() && draft.make.trim() && draft.model.trim(),
+    );
+    if (vehicleResolved && trimsState === "loading") {
+      setFlowError("Wait while we load the exact trim options.");
+      return;
+    }
+    const selectedTrim = uniquelyMatchingVehicleTrimOption(
+      trimOptions,
+      draft.trim,
+      draft.vehicleConfiguration,
+    );
+    const configuredDraft = selectedTrim
+      ? diminishedValueDraftReducer(draft, {
+          type: "trim-selected",
+          option: selectedTrim,
+        })
+      : { ...draft, vehicleConfiguration: null };
+    const nextErrors = validateDiminishedValueVehicle(configuredDraft);
+    if (vehicleResolved && trimOptions.length > 0 && !selectedTrim) {
+      nextErrors.trim = "Choose the exact vehicle configuration from the list.";
+    }
     if (showValidationErrors(nextErrors, setErrors, setFlowError)) return;
 
-    if (draft.vehicleEntryMethod === "details") {
-      goToStep("accident-repairs");
+    if (draft.vehicleEntryMethod === "vin" && !vehicleResolved) {
+      setFlowError(null);
+      const vehicle = await decodeVin(normalizeDiminishedValueVin(draft.vin));
+      if (!vehicle) return;
+      onDraftChange(
+        diminishedValueDraftReducer(draft, {
+          type: "vehicle-decoded",
+          vehicle,
+        }),
+      );
+      setFlowError(null);
       return;
     }
 
-    setFlowError(null);
-    const vehicle = await decodeVin(normalizeDiminishedValueVin(draft.vin));
-    if (!vehicle) return;
-    const decodedDraft = diminishedValueDraftReducer(draft, {
-      type: "vehicle-decoded",
-      vehicle,
-    });
     setTransitionDirection("forward");
     onDraftChange(
-      diminishedValueDraftReducer(decodedDraft, {
+      diminishedValueDraftReducer(configuredDraft, {
         type: "step-changed",
         step: "accident-repairs",
       }),
@@ -278,8 +331,10 @@ export function DiminishedValueIntakeFlow({
             errors={errors}
             makeOptions={makeOptions}
             modelOptions={modelOptions}
+            trimOptions={trimOptions}
             makesState={makesState}
             modelsState={modelsState}
+            trimsState={trimsState}
             vinLookupState={vinLookupState}
             vinLookupMessage={vinLookupMessage}
             flowError={flowError}
@@ -287,6 +342,8 @@ export function DiminishedValueIntakeFlow({
             onMethodChange={changeVehicleMethod}
             onRetryMakes={retryMakes}
             onRetryModels={retryModels}
+            onRetryTrims={retryTrims}
+            onTrimSelectionChange={selectTrim}
             onUseDetails={() => changeVehicleMethod("details")}
             onBack={() => goToStep("start", false)}
             onContinue={() => void validateAndContinueVehicle()}
@@ -437,13 +494,17 @@ export function DiminishedValueStartStep({
 interface VehicleStepProps extends SharedStepProps {
   readonly makeOptions: readonly string[];
   readonly modelOptions: readonly string[];
+  readonly trimOptions: readonly VehicleTrimOption[];
   readonly makesState: VehicleLookupState;
   readonly modelsState: VehicleLookupState;
+  readonly trimsState: VehicleLookupState;
   readonly vinLookupState: VehicleLookupState;
   readonly vinLookupMessage: string | null;
   readonly onMethodChange: (method: DiminishedValueVehicleEntryMethod) => void;
   readonly onRetryMakes: () => void;
   readonly onRetryModels: () => void;
+  readonly onRetryTrims: () => void;
+  readonly onTrimSelectionChange: (option: VehicleTrimOption) => void;
   readonly onUseDetails: () => void;
   readonly onBack: () => void;
   readonly onContinue: () => void;
@@ -455,8 +516,10 @@ export function DiminishedValueVehicleStep({
   errors,
   makeOptions,
   modelOptions,
+  trimOptions,
   makesState,
   modelsState,
+  trimsState,
   vinLookupState,
   vinLookupMessage,
   flowError,
@@ -464,6 +527,8 @@ export function DiminishedValueVehicleStep({
   onMethodChange,
   onRetryMakes,
   onRetryModels,
+  onRetryTrims,
+  onTrimSelectionChange,
   onUseDetails,
   onBack,
   onContinue,
@@ -483,10 +548,14 @@ export function DiminishedValueVehicleStep({
         yearOptions={vehicleYearOptions}
         makeOptions={makeOptions}
         modelOptions={modelOptions}
+        trimOptions={trimOptions}
+        vehicleConfiguration={draft.vehicleConfiguration}
         makesState={makesState}
         modelsState={modelsState}
+        trimsState={trimsState}
         vinLookupState={vinLookupState}
         vinLookupMessage={vinLookupMessage}
+        trimRequired
         fieldsDisabled={vinLookupState === "loading"}
         methodDisabled={vinLookupState === "loading"}
         mileageFields={[
@@ -517,6 +586,8 @@ export function DiminishedValueVehicleStep({
         onChange={onChange}
         onRetryMakes={onRetryMakes}
         onRetryModels={onRetryModels}
+        onRetryTrims={onRetryTrims}
+        onTrimSelectionChange={onTrimSelectionChange}
       />
       {draft.vehicleEntryMethod === "vin" &&
       vinLookupState === "error" &&
@@ -533,10 +604,11 @@ export function DiminishedValueVehicleStep({
       <StepActions
         onBack={onBack}
         onContinue={onContinue}
-        busy={vinLookupState === "loading"}
+        busy={vinLookupState === "loading" || trimsState === "loading"}
         continueLabel={
-          draft.vehicleEntryMethod === "vin"
-            ? "Find vehicle & continue"
+          draft.vehicleEntryMethod === "vin" &&
+          (!draft.vehicleYear || !draft.make || !draft.model)
+            ? "Find vehicle"
             : "Continue"
         }
       />
@@ -1066,7 +1138,7 @@ const fieldControlIds: Record<DiminishedValueFormField, string> = {
   vehicleYear: "diminished-value-year",
   make: "diminished-value-make",
   model: "diminished-value-model",
-  trim: "diminished-value-model",
+  trim: "diminished-value-trim",
   mileageAtAccident: "diminished-value-mileage-at-accident",
   currentMileage: "diminished-value-current-mileage",
   otherPartyAtFault: "diminished-value-other-party-at-fault",

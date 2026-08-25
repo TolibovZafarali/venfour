@@ -1,3 +1,4 @@
+import type { VehicleConfigurationIdentity } from "@/features/intake/vehicle-lookup-types";
 import type { TotalLossIntakeMode } from "@/features/total-loss/types";
 
 export interface TotalLossCaseDetailsValues {
@@ -7,6 +8,7 @@ export interface TotalLossCaseDetailsValues {
   readonly vehicleMake: string | null;
   readonly vehicleModel: string | null;
   readonly vehicleTrim: string | null;
+  readonly vehicleConfiguration?: VehicleConfigurationIdentity | null;
   readonly mileageAtLoss: number | null;
   readonly postalCode: string | null;
   readonly dateOfLoss: string | null;

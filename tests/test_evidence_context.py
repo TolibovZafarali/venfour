@@ -50,6 +50,50 @@ def customer_copy(value: object) -> list[str]:
 
 
 class EvidenceContextPresentationTests(AnalysisCreationTestCase):
+    def test_confirmed_vehicle_configuration_reaches_both_market_streams(
+        self,
+    ) -> None:
+        service, current, historical, _ = self.make_service(
+            RecordingExtractor(make_report())
+        )
+        input_snapshot = confirmed_snapshot(mode="manual", offer=None)
+        input_snapshot["vehicle_trim"] = "SEL"
+        input_snapshot["vehicle_configuration"] = {
+            "source": "marketcheck",
+            "field": "version",
+            "values": [
+                "Elantra SEL IVT FWD",
+                "SEL IVT Front Wheel Drive",
+            ],
+        }
+
+        result = service.create_from_confirmed_input(input_snapshot)
+
+        self.assertTrue(current.requests)
+        self.assertTrue(historical.requests)
+        for request in (*current.requests, *historical.requests):
+            self.assertEqual(request.trim, "SEL")
+            self.assertIsNotNone(request.configuration)
+            assert request.configuration is not None
+            self.assertEqual(request.configuration.source, "marketcheck")
+            self.assertEqual(request.configuration.field, "version")
+            self.assertEqual(
+                request.configuration.values,
+                (
+                    "Elantra SEL IVT FWD",
+                    "SEL IVT Front Wheel Drive",
+                ),
+            )
+
+        artifact = result.artifact.to_dict()
+        self.assertEqual(artifact["analysisRunSchemaVersion"], "6")
+        self.assertEqual(artifact["analysisVersion"], "5")
+        for field in ("currentSearchRequest", "historicalSearchRequest"):
+            self.assertEqual(
+                artifact["request"][field]["configuration"],
+                input_snapshot["vehicle_configuration"],
+            )
+
     def test_manual_without_offer_keeps_market_evidence_without_report_claims(self) -> None:
         service, _, _, _ = self.make_service(RecordingExtractor(make_report()))
 
@@ -60,7 +104,8 @@ class EvidenceContextPresentationTests(AnalysisCreationTestCase):
             result.run_id
         ).to_dict()
 
-        self.assertEqual(result.artifact.to_dict()["analysisRunSchemaVersion"], "5")
+        self.assertEqual(result.artifact.to_dict()["analysisRunSchemaVersion"], "6")
+        self.assertEqual(result.artifact.to_dict()["analysisVersion"], "5")
         self.assertEqual(
             result.artifact.to_dict()["evidenceContext"]["inputMode"], "MANUAL"
         )

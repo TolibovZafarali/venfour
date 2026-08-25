@@ -32,6 +32,7 @@ from venfour.market import (
     MarketProviderResponseError,
     MarketSearchRequest,
     MarketSearchResult,
+    VehicleConfigurationIdentity,
     discover_market_listings,
     validate_market_listing,
     validate_market_search_request,
@@ -110,6 +111,71 @@ class RaisingNameProvider:
 
 
 class MarketSchemaContractTests(unittest.TestCase):
+    def test_configuration_identity_serializes_separately_from_trim(self) -> None:
+        configuration = VehicleConfigurationIdentity(
+            source="marketcheck",
+            field="version",
+            values=("Long Range", "Long Range Battery"),
+        )
+        request = make_request(
+            trim="Long Range",
+            configuration=configuration,
+        )
+
+        self.assertEqual(
+            request.to_dict()["configuration"],
+            {
+                "source": "marketcheck",
+                "field": "version",
+                "values": ["Long Range", "Long Range Battery"],
+            },
+        )
+        validate_market_search_request(request)
+
+    def test_configuration_identity_rejects_unsafe_or_ambiguous_values(
+        self,
+    ) -> None:
+        invalid_values = (
+            (),
+            ("Long Range", "long range"),
+            ("Long,Range",),
+            ("Long\nRange",),
+            ("Long\u202eRange",),
+            tuple(f"Alias {index}" for index in range(21)),
+        )
+        for values in invalid_values:
+            with self.subTest(values=values), self.assertRaises(
+                (TypeError, ValueError)
+            ):
+                VehicleConfigurationIdentity(
+                    source="marketcheck",
+                    field="version",
+                    values=values,
+                )
+
+        with self.assertRaises((TypeError, ValueError)):
+            VehicleConfigurationIdentity(
+                source="marketcheck",
+                field=None,  # type: ignore[arg-type]
+                values=("Long Range",),
+            )
+
+    def test_configuration_requires_a_canonical_trim(self) -> None:
+        configuration = VehicleConfigurationIdentity(
+            source="marketcheck",
+            field="version",
+            values=("Long Range Battery",),
+        )
+
+        with self.assertRaises(ValueError):
+            make_request(trim=None, configuration=configuration)
+
+        payload = make_request().to_dict()
+        payload["trim"] = None
+        payload["configuration"] = configuration.to_dict()
+        with self.assertRaises(MarketContractError):
+            validate_market_search_request(payload)
+
     def test_all_market_schemas_are_valid_draft_2020_12(self) -> None:
         for path in (
             SEARCH_REQUEST_SCHEMA_PATH,
@@ -133,6 +199,12 @@ class MarketSchemaContractTests(unittest.TestCase):
                 standalone = json.loads(path.read_text(encoding="utf-8"))
                 standalone.pop("$schema")
                 standalone.pop("title")
+                definitions = standalone.pop("$defs", {})
+                if definitions:
+                    self.assertEqual(
+                        result_schema["$defs"]["vehicleConfiguration"],
+                        definitions["vehicleConfiguration"],
+                    )
                 self.assertEqual(result_schema["$defs"][name], standalone)
 
     def test_valid_search_request(self) -> None:
@@ -656,6 +728,26 @@ class MarketIdentityTests(unittest.TestCase):
 
 
 class MarketNormalizationTests(unittest.TestCase):
+    def test_configuration_field_keeps_existing_positional_arguments_stable(
+        self,
+    ) -> None:
+        request = MarketSearchRequest(
+            2025,
+            "Toyota",
+            "Camry",
+            "SE",
+            7_192,
+            "63123",
+            75,
+            12,
+        )
+
+        self.assertEqual(request.loss_vehicle_mileage, 7_192)
+        self.assertEqual(request.postal_code, "63123")
+        self.assertEqual(request.radius_miles, 75)
+        self.assertEqual(request.result_limit, 12)
+        self.assertIsNone(request.configuration)
+
     def test_surrounding_whitespace_and_safe_state_are_normalized(self) -> None:
         request = MarketSearchRequest(2025, " Toyota ", " Camry ", " SE ")
         listing = make_listing(

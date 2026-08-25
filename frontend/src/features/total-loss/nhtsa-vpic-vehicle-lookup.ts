@@ -13,7 +13,8 @@ const VIN_PATTERN = /^[A-HJ-NPR-Z0-9]{17}$/;
 const MIN_CATALOG_YEAR = 1886;
 const MAX_CATALOG_YEAR = 9_999;
 const MAX_TRIM_OPTIONS = 1_000;
-const MAX_TRIM_QUERY_VALUES = 1_000;
+const MAX_TRIM_QUERY_VALUES_PER_OPTION = 20;
+const MAX_TRIM_QUERY_VALUES_TOTAL = 1_000;
 const MAX_TRIM_TEXT_LENGTH = 100;
 const PROVIDER_ID_PATTERN = /^[a-z0-9][a-z0-9._-]{0,49}$/;
 const TRIM_OPTION_ID_PATTERN = /^[a-z0-9][a-z0-9._-]{0,99}$/;
@@ -373,12 +374,12 @@ function trimCatalogOptions(payload: unknown) {
     if (
       !Array.isArray(value.queryValues) ||
       value.queryValues.length === 0 ||
-      value.queryValues.length > MAX_TRIM_QUERY_VALUES
+      value.queryValues.length > MAX_TRIM_QUERY_VALUES_PER_OPTION
     ) {
       throw invalidResponseError();
     }
     queryValueCount += value.queryValues.length;
-    if (queryValueCount > MAX_TRIM_QUERY_VALUES) {
+    if (queryValueCount > MAX_TRIM_QUERY_VALUES_TOTAL) {
       throw invalidResponseError();
     }
     const queryValues = Object.freeze(
@@ -427,10 +428,7 @@ function trimCatalogOptions(payload: unknown) {
 }
 
 function trimOptionId(value: unknown) {
-  if (
-    typeof value !== "string" ||
-    !TRIM_OPTION_ID_PATTERN.test(value)
-  ) {
+  if (typeof value !== "string" || !TRIM_OPTION_ID_PATTERN.test(value)) {
     throw invalidResponseError();
   }
   return value;
@@ -457,18 +455,18 @@ function trimOptionText(value: unknown) {
 }
 
 function hasUnsupportedCatalogCharacter(value: string) {
-  return Array.from(value).some(
-    (character) =>
-      character.codePointAt(0)! <= 31 ||
-      character.codePointAt(0) === 127 ||
-      character.codePointAt(0) === 0x061c ||
-      character.codePointAt(0) === 0x200e ||
-      character.codePointAt(0) === 0x200f ||
-      (character.codePointAt(0)! >= 0x202a &&
-        character.codePointAt(0)! <= 0x202e) ||
-      (character.codePointAt(0)! >= 0x2066 &&
-        character.codePointAt(0)! <= 0x2069),
-  );
+  return Array.from(value).some((character) => {
+    const codePoint = character.codePointAt(0)!;
+    return (
+      codePoint <= 31 ||
+      codePoint === 127 ||
+      codePoint === 0x061c ||
+      codePoint === 0x200e ||
+      codePoint === 0x200f ||
+      (codePoint >= 0x202a && codePoint <= 0x202e) ||
+      (codePoint >= 0x2066 && codePoint <= 0x2069)
+    );
+  });
 }
 
 function sameTrimOption(

@@ -23,12 +23,14 @@ from venfour.adaptive_search import (
     adaptive_discover_market_listings,
 )
 from venfour.market import (
+    MarketContractError,
     MarketProvider,
     MarketProviderAuthenticationError,
     MarketProviderRateLimitError,
     MarketProviderResponseError,
     MarketProviderUnavailableError,
     MarketSearchRequest,
+    VehicleConfigurationIdentity,
     discover_market_listings,
 )
 from venfour.marketcheck import (
@@ -335,20 +337,55 @@ class MarketCheckRequestMappingTests(unittest.TestCase):
 
 
 class MarketCheckTrimCatalogTests(unittest.TestCase):
-    def test_maps_exact_vehicle_and_normalizes_cached_trim_terms(self) -> None:
+    def test_maps_exact_vehicle_to_cached_version_configuration_options(
+        self,
+    ) -> None:
         transport = RecordingTransport(
-            [{"trim": [" XLE ", "LE", "xle", "SE Nightshade"]}]
+            [
+                {
+                    "trim": [
+                        "Long Range",
+                        "Long Range Battery",
+                        "Performance",
+                    ],
+                    "version": [
+                        "Long Range Battery",
+                        "Long Range",
+                        "Long Range AWD Dual Motor",
+                        "Dual Motor All-Wheel Drive Long Range",
+                        "Performance AWD Dual Motor",
+                    ],
+                    "fuel_type": ["Electric"],
+                }
+            ]
         )
         provider = MarketCheckProvider(SYNTHETIC_KEY, transport=transport)
 
         first = provider.list_trims(
-            VehicleTrimCatalogRequest(2020, "Toyota", "Camry")
+            VehicleTrimCatalogRequest(2019, "Tesla", "Model 3")
         )
         second = provider.list_trims(
-            VehicleTrimCatalogRequest(2020, "toyota", "camry")
+            VehicleTrimCatalogRequest(2019, "tesla", "model 3")
         )
 
-        self.assertEqual(first, ("LE", "SE Nightshade", "XLE"))
+        self.assertEqual(
+            [option.label for option in first],
+            [
+                "Long Range",
+                "Long Range Dual Motor AWD",
+                "Performance (configuration not specified)",
+                "Performance Dual Motor AWD",
+            ],
+        )
+        self.assertEqual(
+            first[0].query_values,
+            ("Long Range", "Long Range Battery"),
+        )
+        self.assertEqual(first[0].source, "marketcheck")
+        self.assertEqual(first[0].query_field, "version")
+        self.assertEqual(first[1].query_field, "version")
+        self.assertEqual(first[2].query_field, "trim")
+        self.assertEqual(first[3].query_field, "version")
         self.assertIs(second, first)
         self.assertEqual(len(transport.calls), 1)
         self.assertEqual(transport.calls[0]["endpoint"], MARKETCHECK_CAR_TERMS_URL)
@@ -357,21 +394,118 @@ class MarketCheckTrimCatalogTests(unittest.TestCase):
             {
                 "api_key": SYNTHETIC_KEY,
                 "append_api_key": "false",
-                "field": "trim|0|1000",
-                "year": 2020,
-                "make": "Toyota",
-                "model": "Camry",
+                "field": "trim|0|1000,version|0|1000,fuel_type|0|1000",
+                "year": 2019,
+                "make": "Tesla",
+                "model": "Model 3",
             },
         )
 
-    def test_rejects_malformed_or_secret_bearing_terms(self) -> None:
+    def test_falls_back_conservatively_when_optional_versions_are_malformed(
+        self,
+    ) -> None:
+        malformed_versions = (
+            None,
+            "XLE AWD",
+            ["XLE AWD", 10],
+            [" "],
+            ["XLE, AWD"],
+            [SYNTHETIC_KEY],
+        )
+        for versions in malformed_versions:
+            with self.subTest(versions=versions):
+                payload: dict[str, Any] = {
+                    "trim": [
+                        " XLE ",
+                        "xle",
+                        "XLE All Wheel Drive",
+                        "XLE AWD",
+                    ]
+                }
+                if versions is not None:
+                    payload["version"] = versions
+                transport = RecordingTransport([payload])
+                provider = MarketCheckProvider(
+                    SYNTHETIC_KEY,
+                    transport=transport,
+                )
+
+                options = provider.list_trims(
+                    VehicleTrimCatalogRequest(2020, "Toyota", "Camry")
+                )
+
+                self.assertEqual(
+                    [option.label for option in options],
+                    ["XLE", "XLE AWD"],
+                )
+                self.assertTrue(
+                    all(option.query_field == "trim" for option in options)
+                )
+                self.assertEqual(len(transport.calls), 1)
+
+    def test_retains_trims_not_covered_by_a_partial_version_facet(self) -> None:
+        provider = MarketCheckProvider(
+            SYNTHETIC_KEY,
+            transport=RecordingTransport(
+                [
+                    {
+                        "trim": ["LE", "XLE"],
+                        "version": ["LE FWD"],
+                    }
+                ]
+            ),
+        )
+
+        options = provider.list_trims(
+            VehicleTrimCatalogRequest(2024, "Toyota", "Camry")
+        )
+
+        self.assertEqual(
+            [(option.label, option.query_field) for option in options],
+            [
+                ("LE (configuration not specified)", "trim"),
+                ("LE FWD", "version"),
+                ("XLE", "trim"),
+            ],
+        )
+
+    def test_does_not_treat_battery_as_redundant_for_a_mixed_powertrain(
+        self,
+    ) -> None:
+        provider = MarketCheckProvider(
+            SYNTHETIC_KEY,
+            transport=RecordingTransport(
+                [
+                    {
+                        "trim": ["Long Range", "Long Range Battery"],
+                        "version": ["Long Range", "Long Range Battery"],
+                        "fuel_type": ["Electric / Unleaded"],
+                    }
+                ]
+            ),
+        )
+
+        options = provider.list_trims(
+            VehicleTrimCatalogRequest(2024, "Example", "PHEV")
+        )
+
+        self.assertEqual(
+            [option.label for option in options],
+            ["Long Range", "Long Range Battery"],
+        )
+        self.assertTrue(
+            all(option.query_field == "version" for option in options)
+        )
+
+    def test_rejects_malformed_or_secret_bearing_required_trims(self) -> None:
         for payload in (
             {},
             {"terms": "XLE"},
-            {"terms": ["XLE"], "trim": ["XLE"]},
-            {"terms": ["XLE", 10]},
-            {"terms": [" "]},
-            {"terms": [SYNTHETIC_KEY]},
+            {"trim": "XLE", "version": ["XLE AWD"]},
+            {"trim": ["XLE", 10], "version": ["XLE AWD"]},
+            {"trim": [" "], "version": ["XLE AWD"]},
+            {"trim": ["XLE, AWD"], "version": ["XLE AWD"]},
+            {"trim": [SYNTHETIC_KEY], "version": ["XLE AWD"]},
         ):
             with self.subTest(payload=payload):
                 provider = MarketCheckProvider(
@@ -384,8 +518,150 @@ class MarketCheckTrimCatalogTests(unittest.TestCase):
                     )
                 self.assertNotIn(SYNTHETIC_KEY, str(raised.exception))
 
+    def test_rejects_a_configuration_with_too_many_raw_version_aliases(
+        self,
+    ) -> None:
+        separators = (
+            "-",
+            "/",
+            ".",
+            ":",
+            ";",
+            "|",
+            "~",
+            "!",
+            "?",
+            "@",
+            "#",
+            "$",
+            "%",
+            "^",
+            "&",
+            "*",
+            "_",
+            "'",
+            '"',
+            "(",
+            "[",
+        )
+        provider = MarketCheckProvider(
+            SYNTHETIC_KEY,
+            transport=RecordingTransport(
+                [
+                    {
+                        "trim": ["Long Range"],
+                        "version": [
+                            f"Long{separator}Range Dual Motor AWD"
+                            for separator in separators
+                        ],
+                    }
+                ]
+            ),
+        )
+
+        with self.assertRaises(MarketProviderResponseError):
+            provider.list_trims(
+                VehicleTrimCatalogRequest(2019, "Tesla", "Model 3")
+            )
+
 
 class MarketCheckNormalizationTests(unittest.TestCase):
+    def test_configuration_queries_raw_versions_and_keeps_canonical_trim(
+        self,
+    ) -> None:
+        request = make_request(
+            trim="Long Range Dual Motor AWD",
+            configuration=VehicleConfigurationIdentity(
+                source="marketcheck",
+                field="version",
+                values=(
+                    "Dual Motor All-Whel Drive Long Range",
+                    "Long Range AWD Dual Motor",
+                ),
+            ),
+            result_limit=1,
+        )
+        result, transport = search_with(
+            [
+                {
+                    "num_found": 1,
+                    "listings": [
+                        make_raw_listing(
+                            build={
+                                "year": 2025,
+                                "make": "Toyota",
+                                "model": "Camry",
+                                "trim": "Long Range Battery",
+                                "version": "Dual Motor All-Whel Drive Long Range",
+                            }
+                        )
+                    ],
+                }
+            ],
+            request,
+        )
+
+        self.assertEqual(
+            transport.calls[0]["params"]["version"],
+            "Dual Motor All-Whel Drive Long Range,Long Range AWD Dual Motor",
+        )
+        self.assertNotIn("trim", transport.calls[0]["params"])
+        self.assertEqual(
+            result.listings[0].trim,
+            "Long Range Dual Motor AWD",
+        )
+        self.assertEqual(result.request.configuration, request.configuration)
+
+    def test_configuration_does_not_relabel_an_unmatched_provider_result(
+        self,
+    ) -> None:
+        request = make_request(
+            trim="Long Range Dual Motor AWD",
+            configuration=VehicleConfigurationIdentity(
+                source="marketcheck",
+                field="version",
+                values=("Long Range AWD Dual Motor",),
+            ),
+            result_limit=1,
+        )
+        result, _ = search_with(
+            [
+                {
+                    "num_found": 1,
+                    "listings": [
+                        make_raw_listing(
+                            build={
+                                "year": 2025,
+                                "make": "Toyota",
+                                "model": "Camry",
+                                "trim": "Long Range Battery",
+                                "version": "Long Range RWD",
+                            }
+                        )
+                    ],
+                }
+            ],
+            request,
+        )
+
+        self.assertEqual(result.listings[0].trim, "Long Range Battery")
+
+    def test_rejects_configuration_from_another_provider(self) -> None:
+        request = make_request(
+            configuration=VehicleConfigurationIdentity(
+                source="other-provider",
+                field="version",
+                values=("SE FWD",),
+            )
+        )
+        transport = RecordingTransport([])
+        provider = MarketCheckProvider(SYNTHETIC_KEY, transport=transport)
+
+        with self.assertRaises(MarketContractError):
+            provider.search(request)
+
+        self.assertEqual(transport.calls, [])
+
     def test_sanitized_fixture_normalizes_all_canonical_fields(self) -> None:
         payload = json.loads(FIXTURE_PATH.read_text(encoding="utf-8"))
 

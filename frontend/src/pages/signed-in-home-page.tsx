@@ -216,7 +216,7 @@ function SignedInHomeContent({
     !selection.hasActiveTotalLossDraft;
 
   return (
-    <section className="w-full bg-canvas">
+    <section className="page-gradient-account-home w-full bg-canvas">
       <div className="mx-auto w-full max-w-7xl px-5 py-12 sm:px-8 sm:py-16 lg:px-10 lg:py-20">
         <SignedInHomeHeader
           newAppraisalHref={
@@ -265,7 +265,7 @@ export function SignedInHomePage({ userId }: SignedInHomePageProps) {
 
   if (!service) {
     return (
-      <section className="w-full bg-canvas">
+      <section className="page-gradient-account-home w-full bg-canvas">
         <div className="mx-auto w-full max-w-7xl px-5 py-12 sm:px-8 sm:py-16 lg:px-10 lg:py-20">
           <SignedInHomeHeader />
           <AppraisalCasesErrorState

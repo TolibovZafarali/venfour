@@ -13,6 +13,7 @@ from typing import Any, Protocol, runtime_checkable
 MIN_VEHICLE_CATALOG_YEAR = 1981
 MAX_VEHICLE_CATALOG_TEXT_LENGTH = 100
 MAX_VEHICLE_TRIM_OPTIONS = 1000
+MAX_VEHICLE_TRIM_QUERY_VALUES = 20
 VEHICLE_TRIM_QUERY_FIELDS = frozenset(("trim", "version"))
 
 _TOKEN_RE = re.compile(r"[^\W_]+(?:\.[0-9]+)?", re.UNICODE)
@@ -69,6 +70,8 @@ _QUALIFIER_ALIASES = {
     ("2", "motor"): "motor:dual",
     ("all", "wheel", "drive"): "drivetrain:awd",
     ("all", "wheel", "drv"): "drivetrain:awd",
+    ("all", "whel", "drive"): "drivetrain:awd",
+    ("all", "whl", "drive"): "drivetrain:awd",
     ("awd",): "drivetrain:awd",
     ("front", "wheel", "drive"): "drivetrain:fwd",
     ("fwd",): "drivetrain:fwd",
@@ -90,6 +93,22 @@ _ALIASES_BY_LENGTH = tuple(
 )
 
 
+def _has_unsupported_text_character(value: str) -> bool:
+    return any(
+        ord(character) < 32
+        or ord(character) == 127
+        or ord(character) == 0x061C
+        or ord(character) in (0x200E, 0x200F)
+        or 0x202A <= ord(character) <= 0x202E
+        or 0x2066 <= ord(character) <= 0x2069
+        for character in value
+    )
+
+
+class VehicleTrimQueryValuesLimitError(ValueError):
+    """One configuration has more provider aliases than can be persisted."""
+
+
 def maximum_vehicle_catalog_year() -> int:
     return datetime.now(timezone.utc).year + 1
 
@@ -97,7 +116,7 @@ def maximum_vehicle_catalog_year() -> int:
 def _normalized_text(value: str, label: str) -> str:
     if not isinstance(value, str):
         raise TypeError(f"{label} must be a string")
-    if any(ord(character) < 32 or ord(character) == 127 for character in value):
+    if _has_unsupported_text_character(value):
         raise ValueError(f"{label} contains unsupported characters")
     normalized = " ".join(unicodedata.normalize("NFKC", value).split())
     if (
@@ -157,18 +176,31 @@ class _ParsedConfiguration:
     signature: tuple[tuple[str, ...], tuple[str, ...]]
     label: str
     preference: tuple[Any, ...]
+    battery_alias_signature: tuple[
+        tuple[str, ...], tuple[str, ...]
+    ] | None = None
 
 
 def _parse_configuration(
     raw_value: str,
     *,
     query_field: str,
+    redundant_prefixes: tuple[tuple[str, ...], ...] = (),
 ) -> _ParsedConfiguration:
     raw = _normalized_text(raw_value, "vehicle trim query value")
     display_tokens = _TOKEN_RE.findall(raw.replace("+", " plus "))
     folded_tokens = tuple(token.casefold() for token in display_tokens)
     if not folded_tokens:
         raise ValueError("vehicle trim query value is invalid")
+
+    for prefix in redundant_prefixes:
+        if (
+            len(folded_tokens) > len(prefix)
+            and folded_tokens[: len(prefix)] == prefix
+        ):
+            display_tokens = display_tokens[len(prefix) :]
+            folded_tokens = folded_tokens[len(prefix) :]
+            break
 
     qualifiers: set[str] = set()
     unknown_tokens: list[str] = []
@@ -194,22 +226,26 @@ def _parse_configuration(
             alias_penalty += 1
         index += len(alias)
 
-    # A provider version such as "Long Range Battery" uses Battery as legacy
-    # wording for the already-identified range.  This exception is deliberately
-    # unavailable to raw trim fallback, where Battery may be the only material
-    # distinction the provider exposes.
+    # Battery is only eligible to collapse later when this exact catalog also
+    # exposes the otherwise-identical non-Battery configuration.  A lexical
+    # rule alone cannot prove that Battery is redundant for every vehicle.
     range_present = any(name.startswith("range:") for name in qualifiers)
-    has_capacity = any(
-        token == "kwh" or token.isdigit() for token in unknown_tokens
+    capacity_number = re.compile(r"[0-9]+(?:\.[0-9]+)?")
+    has_capacity = "kwh" in folded_tokens or any(
+        token == "battery"
+        and any(
+            0 <= neighbor < len(folded_tokens)
+            and capacity_number.fullmatch(folded_tokens[neighbor]) is not None
+            for neighbor in (position - 1, position + 1)
+        )
+        for position, token in enumerate(folded_tokens)
     )
-    redundant_battery = (
+    battery_alias_candidate = (
         query_field == "version"
         and "battery" in qualifiers
         and range_present
         and not has_capacity
     )
-    if redundant_battery:
-        qualifiers.remove("battery")
 
     ordered_qualifiers = tuple(
         sorted(qualifiers, key=lambda name: (_QUALIFIER_ORDER[name], name))
@@ -225,8 +261,15 @@ def _parse_configuration(
         tuple(unknown_tokens),
         ordered_qualifiers,
     )
+    battery_alias_signature = (
+        (
+            tuple(unknown_tokens),
+            tuple(name for name in ordered_qualifiers if name != "battery"),
+        )
+        if battery_alias_candidate
+        else None
+    )
     preference = (
-        1 if redundant_battery else 0,
         alias_penalty,
         len(folded_tokens),
         len(raw),
@@ -238,6 +281,7 @@ def _parse_configuration(
         signature=signature,
         label=label,
         preference=preference,
+        battery_alias_signature=battery_alias_signature,
     )
 
 
@@ -285,9 +329,12 @@ class VehicleTrimOption:
         if (
             not isinstance(self.query_values, tuple)
             or not self.query_values
-            or len(self.query_values) > MAX_VEHICLE_TRIM_OPTIONS
         ):
             raise ValueError("vehicle trim query values are invalid")
+        if len(self.query_values) > MAX_VEHICLE_TRIM_QUERY_VALUES:
+            raise VehicleTrimQueryValuesLimitError(
+                "vehicle trim option has too many provider query values"
+            )
 
         unique_values: dict[str, str] = {}
         for value in self.query_values:
@@ -322,8 +369,15 @@ def normalize_vehicle_trim_options(
     *,
     source: str,
     query_field: str,
+    redundant_prefixes: tuple[str, ...] = (),
+    allow_redundant_battery_aliases: bool = False,
 ) -> tuple[VehicleTrimOption, ...]:
-    """Collapse only values with the same material configuration signature."""
+    """Collapse only values with the same material configuration signature.
+
+    ``redundant_prefixes`` may contain the exact year/make/model context of the
+    catalog request.  A matching leading prefix is omitted from the display
+    signature but retained untouched in ``query_values`` for provider calls.
+    """
 
     if not isinstance(source, str) or not _PROVIDER_ID_RE.fullmatch(source):
         raise ValueError("vehicle trim option source is invalid")
@@ -337,18 +391,72 @@ def normalize_vehicle_trim_options(
         or len(raw_values) > MAX_VEHICLE_TRIM_OPTIONS
     ):
         raise ValueError("vehicle trim query values are invalid")
+    if not isinstance(allow_redundant_battery_aliases, bool):
+        raise TypeError("battery alias policy must be a boolean")
+    if not isinstance(redundant_prefixes, tuple):
+        raise TypeError("redundant vehicle trim prefixes must be a tuple")
+    normalized_prefixes: set[tuple[str, ...]] = set()
+    for value in redundant_prefixes:
+        normalized = _normalized_text(value, "vehicle trim prefix")
+        tokens = tuple(
+            token.casefold()
+            for token in _TOKEN_RE.findall(normalized.replace("+", " plus "))
+        )
+        if tokens:
+            normalized_prefixes.add(tokens)
+    ordered_prefixes = tuple(
+        sorted(normalized_prefixes, key=lambda value: (-len(value), value))
+    )
 
-    grouped: dict[
-        tuple[tuple[str, ...], tuple[str, ...]], list[_ParsedConfiguration]
-    ] = {}
+    parsed_values: list[_ParsedConfiguration] = []
     for value in raw_values:
-        parsed = _parse_configuration(value, query_field=query_field)
-        grouped.setdefault(parsed.signature, []).append(parsed)
+        parsed_values.append(
+            _parse_configuration(
+                value,
+                query_field=query_field,
+                redundant_prefixes=ordered_prefixes,
+            )
+        )
+
+    available_signatures = {parsed.signature for parsed in parsed_values}
+    grouped: dict[
+        tuple[tuple[str, ...], tuple[str, ...]],
+        list[tuple[_ParsedConfiguration, bool]],
+    ] = {}
+    for parsed in parsed_values:
+        collapsed_battery_alias = (
+            allow_redundant_battery_aliases
+            and parsed.battery_alias_signature is not None
+            and parsed.battery_alias_signature in available_signatures
+        )
+        signature = (
+            parsed.battery_alias_signature
+            if collapsed_battery_alias
+            else parsed.signature
+        )
+        assert signature is not None
+        grouped.setdefault(signature, []).append(
+            (parsed, collapsed_battery_alias)
+        )
 
     options: list[VehicleTrimOption] = []
     for signature, configurations in grouped.items():
-        preferred = min(configurations, key=lambda item: item.preference)
-        values = tuple(configuration.raw for configuration in configurations)
+        if len({item.raw.casefold() for item, _ in configurations}) > (
+            MAX_VEHICLE_TRIM_QUERY_VALUES
+        ):
+            raise VehicleTrimQueryValuesLimitError(
+                "vehicle trim option has too many provider query values"
+            )
+        preferred, _ = min(
+            configurations,
+            key=lambda item: (
+                1 if item[1] else 0,
+                *item[0].preference,
+            ),
+        )
+        values = tuple(
+            configuration.raw for configuration, _ in configurations
+        )
         options.append(
             VehicleTrimOption(
                 source=source,
@@ -369,6 +477,119 @@ def normalize_vehicle_trim_options(
             ),
         )
     )
+
+
+def normalize_vehicle_trim_catalog(
+    raw_trims: list[str] | tuple[str, ...],
+    raw_versions: list[str] | tuple[str, ...],
+    *,
+    source: str,
+    redundant_prefixes: tuple[str, ...] = (),
+    battery_electric_only: bool = False,
+) -> tuple[VehicleTrimOption, ...]:
+    """Prefer detailed versions without losing trim-only configurations.
+
+    Version facets can describe drivetrain, powertrain, cab, battery, and other
+    material configuration details, but some provider records expose only a
+    trim. Exact cross-field matches keep the more precise version identity;
+    every non-exact trim remains available, with related generic fallbacks
+    labelled as configuration-unspecified instead of being silently hidden.
+    """
+
+    if not isinstance(battery_electric_only, bool):
+        raise TypeError("battery-electric catalog policy must be a boolean")
+
+    trim_options = normalize_vehicle_trim_options(
+        raw_trims,
+        source=source,
+        query_field="trim",
+        redundant_prefixes=redundant_prefixes,
+    )
+    version_options = normalize_vehicle_trim_options(
+        raw_versions,
+        source=source,
+        query_field="version",
+        redundant_prefixes=redundant_prefixes,
+        allow_redundant_battery_aliases=battery_electric_only,
+    )
+
+    retained_trim_options = tuple(
+        _clarify_trim_fallback(option, version_options)
+        for option in trim_options
+        if _matching_version_option_index(option, version_options) is None
+    )
+    combined = (*version_options, *retained_trim_options)
+    if len(combined) > MAX_VEHICLE_TRIM_OPTIONS:
+        raise ValueError("vehicle trim catalog has too many options")
+    return tuple(
+        sorted(
+            combined,
+            key=lambda option: (
+                _natural_sort_key(option.label),
+                option.label,
+                option.id,
+            ),
+        )
+    )
+
+
+def _matching_version_option_index(
+    trim_option: VehicleTrimOption,
+    version_options: tuple[VehicleTrimOption, ...],
+) -> int | None:
+    trim_raw_keys = {value.casefold() for value in trim_option.query_values}
+    trim_signature = _parse_configuration(
+        trim_option.label,
+        query_field="trim",
+    ).signature
+    matches: list[int] = []
+    for index, version_option in enumerate(version_options):
+        if trim_raw_keys.intersection(
+            value.casefold() for value in version_option.query_values
+        ):
+            matches.append(index)
+            continue
+        version_signature = _parse_configuration(
+            version_option.label,
+            query_field="version",
+        ).signature
+        if version_signature == trim_signature:
+            matches.append(index)
+    return matches[0] if len(matches) == 1 else None
+
+
+def _clarify_trim_fallback(
+    trim_option: VehicleTrimOption,
+    version_options: tuple[VehicleTrimOption, ...],
+) -> VehicleTrimOption:
+    trim_signature = _parse_configuration(
+        trim_option.label,
+        query_field="trim",
+    ).signature
+    trim_unknown, trim_qualifiers = trim_signature
+    for option in version_options:
+        version_unknown, version_qualifiers = _parse_configuration(
+            option.label,
+            query_field="version",
+        ).signature
+        if (
+            version_unknown == trim_unknown
+            and set(trim_qualifiers).issubset(version_qualifiers)
+        ):
+            clarified_label = (
+                f"{trim_option.label} (configuration not specified)"
+            )
+            if len(clarified_label) > MAX_VEHICLE_CATALOG_TEXT_LENGTH:
+                return trim_option
+            return VehicleTrimOption(
+                source=trim_option.source,
+                id=trim_option.id,
+                label=clarified_label,
+                trim=trim_option.trim,
+                query_field=trim_option.query_field,
+                query_values=trim_option.query_values,
+            )
+    return trim_option
 
 
 @dataclass(frozen=True)
@@ -402,11 +623,14 @@ class VehicleTrimCatalogProvider(Protocol):
 __all__ = [
     "MAX_VEHICLE_CATALOG_TEXT_LENGTH",
     "MAX_VEHICLE_TRIM_OPTIONS",
+    "MAX_VEHICLE_TRIM_QUERY_VALUES",
     "MIN_VEHICLE_CATALOG_YEAR",
     "VEHICLE_TRIM_QUERY_FIELDS",
     "VehicleTrimCatalogProvider",
     "VehicleTrimCatalogRequest",
     "VehicleTrimOption",
+    "VehicleTrimQueryValuesLimitError",
     "maximum_vehicle_catalog_year",
+    "normalize_vehicle_trim_catalog",
     "normalize_vehicle_trim_options",
 ]

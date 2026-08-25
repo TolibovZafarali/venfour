@@ -98,6 +98,13 @@ export function validateDiminishedValueVehicle(
     assign(errors, "model", required(draft.model, "Model"));
   }
 
+  if (
+    draft.vehicleEntryMethod === "details" ||
+    (draft.vehicleYear.trim() && draft.make.trim() && draft.model.trim())
+  ) {
+    assign(errors, "trim", required(draft.trim, "Trim"));
+  }
+
   assign(
     errors,
     "mileageAtAccident",

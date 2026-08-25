@@ -3,7 +3,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
 
-select plan(27);
+select plan(37);
 
 select has_function(
   'public',
@@ -113,6 +113,34 @@ select ok(
       and constraint_info.contype = 'c'
   ),
   'diminished-value details enforce the reusable vehicle-configuration validator'
+);
+
+select ok(
+  (
+    select count(*) = 2
+      and bool_and(constraint_info.convalidated)
+    from pg_constraint as constraint_info
+    where constraint_info.conrelid in (
+      'public.total_loss_case_details'::regclass,
+      'public.diminished_value_case_details'::regclass
+    )
+      and constraint_info.conname in (
+        'total_loss_case_details_vehicle_configuration_identity_complete',
+        'diminished_value_case_details_vehicle_config_identity_complete'
+      )
+      and constraint_info.contype = 'c'
+  ),
+  'both detail tables require a complete vehicle identity behind provider configuration'
+);
+
+select ok(
+  (
+    select 'vehicle_configuration' = any(procedure.proargnames)
+    from pg_proc as procedure
+    where procedure.oid =
+      'public.get_submitted_diminished_value_case(uuid)'::regprocedure
+  ),
+  'the staff diminished-value detail projection retains provider vehicle identity'
 );
 
 select ok(
@@ -540,6 +568,164 @@ select is(
     "values": ["Long Range", "Long Range Battery"]
   }'::jsonb,
   'the analysis snapshot retains the exact provider identity rather than the display label'
+);
+
+update public.total_loss_case_details
+set vehicle_trim = 'Long Range'
+where case_id = '7aaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1';
+
+select is(
+  (
+    select details.vehicle_configuration
+    from public.total_loss_case_details as details
+    where details.case_id = '7aaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1'
+  ),
+  '{
+    "source": "marketcheck",
+    "field": "trim",
+    "values": ["Long Range", "Long Range Battery"]
+  }'::jsonb,
+  'a total-loss canonical trim-label refresh preserves the exact provider identity'
+);
+
+update public.total_loss_case_details
+set vehicle_model = 'Model Y'
+where case_id = '7aaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1';
+
+select is(
+  (
+    select details.vehicle_configuration
+    from public.total_loss_case_details as details
+    where details.case_id = '7aaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1'
+  ),
+  null::jsonb,
+  'changing the total-loss year, make, or model clears stale provider identity'
+);
+
+update public.total_loss_case_details
+set
+  vehicle_model = 'Model 3',
+  vehicle_trim = 'Long Range AWD',
+  vehicle_configuration = '{
+    "source": "marketcheck",
+    "field": "trim",
+    "values": ["Long Range", "Long Range Battery"]
+  }'::jsonb
+where case_id = '7aaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1';
+
+update public.diminished_value_case_details
+set vehicle_trim = 'XDrive 40i'
+where case_id = '7bbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb2';
+
+select is(
+  (
+    select details.vehicle_configuration
+    from public.diminished_value_case_details as details
+    where details.case_id = '7bbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb2'
+  ),
+  '{
+    "source": "marketcheck",
+    "field": "version",
+    "values": ["xDrive40i"]
+  }'::jsonb,
+  'a diminished-value canonical trim-label refresh preserves the exact provider identity'
+);
+
+update public.diminished_value_case_details
+set vehicle_model = 'X6'
+where case_id = '7bbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb2';
+
+select is(
+  (
+    select details.vehicle_configuration
+    from public.diminished_value_case_details as details
+    where details.case_id = '7bbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb2'
+  ),
+  null::jsonb,
+  'changing the diminished-value year, make, or model clears stale provider identity'
+);
+
+update public.diminished_value_case_details
+set
+  vehicle_model = 'X5',
+  vehicle_trim = 'xDrive40i',
+  vehicle_configuration = '{
+    "source": "marketcheck",
+    "field": "version",
+    "values": ["xDrive40i"]
+  }'::jsonb
+where case_id = '7bbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb2';
+
+update public.total_loss_case_details
+set report_last_upload_id = '7ddddddd-dddd-4ddd-8ddd-ddddddddddd4'
+where case_id = '7aaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1';
+
+select is(
+  (
+    select details.vehicle_configuration
+    from public.total_loss_case_details as details
+    where details.case_id = '7aaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1'
+  ),
+  null::jsonb,
+  'adopting a different report upload clears the provider identity from the prior vehicle'
+);
+
+update public.total_loss_case_details
+set
+  intake_mode = 'manual',
+  vehicle_configuration = '{
+    "source": "marketcheck",
+    "field": "trim",
+    "values": ["Long Range", "Long Range Battery"]
+  }'::jsonb
+where case_id = '7aaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1';
+
+update public.total_loss_case_details
+set intake_mode = 'report'
+where case_id = '7aaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1';
+
+select is(
+  (
+    select details.vehicle_configuration
+    from public.total_loss_case_details as details
+    where details.case_id = '7aaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1'
+  ),
+  null::jsonb,
+  'adopting report intake clears provider identity from the manual vehicle selection'
+);
+
+select throws_ok(
+  $$
+    update public.total_loss_case_details
+    set
+      vehicle_make = null,
+      vehicle_configuration = '{
+        "source": "marketcheck",
+        "field": "trim",
+        "values": ["Performance"]
+      }'::jsonb
+    where case_id = '7aaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1'
+  $$,
+  '23514',
+  null,
+  'total-loss provider identity cannot exist behind incomplete vehicle fields'
+);
+
+select throws_ok(
+  $$
+    update public.diminished_value_case_details
+    set
+      vehicle_make = null,
+      vehicle_configuration = '{
+        "source": "marketcheck",
+        "field": "version",
+        "values": ["xDrive40i", "XDrive 40i"]
+      }'::jsonb
+    where case_id = '7bbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb2'
+  $$,
+  '23514',
+  null,
+  'diminished-value provider identity cannot exist behind incomplete vehicle fields'
 );
 
 select throws_ok(

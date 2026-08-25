@@ -1,3 +1,5 @@
+import type { VehicleConfigurationIdentity } from "@/features/intake/vehicle-lookup-types";
+
 export const TOTAL_LOSS_INTAKE_MODES = ["report", "manual"] as const;
 
 export type TotalLossIntakeMode = (typeof TOTAL_LOSS_INTAKE_MODES)[number];
@@ -107,13 +109,14 @@ export type TotalLossReportExtractionStatus =
   | "partial"
   | "error";
 
-export const TOTAL_LOSS_DRAFT_VERSION = 5 as const;
+export const TOTAL_LOSS_DRAFT_VERSION = 6 as const;
 
 export interface TotalLossDraft {
   readonly version: typeof TOTAL_LOSS_DRAFT_VERSION;
   readonly mode: TotalLossIntakeMode | null;
   readonly step: TotalLossIntakeStep;
   readonly manual: TotalLossManualFormValues;
+  readonly vehicleConfiguration: VehicleConfigurationIdentity | null;
   readonly contact: TotalLossContactFormValues;
   readonly reportProvider: string | null;
   readonly reportExtractionStatus: TotalLossReportExtractionStatus;

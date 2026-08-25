@@ -32,6 +32,7 @@ export function diminishedValueDraftToDetailsValues(
     vehicleMake: singleLineOrNull(draft.make),
     vehicleModel: singleLineOrNull(draft.model),
     vehicleTrim: singleLineOrNull(draft.trim),
+    vehicleConfiguration: draft.vehicleConfiguration,
     mileageAtAccident: parseOptionalInteger(
       draft.mileageAtAccident,
       POSTGRES_INTEGER_MAX,
@@ -73,6 +74,7 @@ export function diminishedValueDetailsToDraft(
     make: details.vehicleMake ?? "",
     model: details.vehicleModel ?? "",
     trim: details.vehicleTrim ?? "",
+    vehicleConfiguration: details.vehicleConfiguration ?? null,
     mileageAtAccident: formatOptionalMileage(details.mileageAtAccident),
     currentMileage: formatOptionalMileage(details.currentMileage),
     otherPartyAtFault: details.otherPartyAtFault ?? "",

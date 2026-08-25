@@ -24,7 +24,7 @@ const CREATED_AT = "2026-08-19T14:00:00.000Z";
 const UPDATED_AT = "2026-08-19T15:00:00.000Z";
 const SUBMITTED_AT = "2026-08-19T16:00:00.000Z";
 const DETAILS_COLUMNS =
-  "case_id,draft_step,accident_state,accident_date,repair_status,vehicle_entry_method,vin,vehicle_year,vehicle_make,vehicle_model,vehicle_trim,mileage_at_accident,current_mileage,other_party_at_fault,at_fault_insurer,repair_cost,repair_facility,structural_damage,airbag_deployment,major_repair_details,full_name,email,phone,preferred_contact_method,availability,notes,submitted_at,revision,created_at,updated_at";
+  "case_id,draft_step,accident_state,accident_date,repair_status,vehicle_entry_method,vin,vehicle_year,vehicle_make,vehicle_model,vehicle_trim,vehicle_configuration,mileage_at_accident,current_mileage,other_party_at_fault,at_fault_insurer,repair_cost,repair_facility,structural_damage,airbag_deployment,major_repair_details,full_name,email,phone,preferred_contact_method,availability,notes,submitted_at,revision,created_at,updated_at";
 
 const detailsRow = {
   case_id: CASE_ID,
@@ -38,6 +38,11 @@ const detailsRow = {
   vehicle_make: "Honda",
   vehicle_model: "Accord",
   vehicle_trim: "EX-L",
+  vehicle_configuration: {
+    source: "marketcheck",
+    field: "version",
+    values: ["EX-L CVT FWD"],
+  },
   mileage_at_accident: 31250,
   current_mileage: 31900,
   other_party_at_fault: "yes",
@@ -70,6 +75,11 @@ const createValues = {
   vehicleMake: "Honda",
   vehicleModel: "Accord",
   vehicleTrim: "EX-L",
+  vehicleConfiguration: {
+    source: "marketcheck",
+    field: "version",
+    values: ["EX-L CVT FWD"],
+  },
   mileageAtAccident: 31250,
   currentMileage: 31900,
   otherPartyAtFault: "yes",
@@ -99,6 +109,11 @@ const expectedDetails: DiminishedValueCaseDetails = {
   vehicleMake: "Honda",
   vehicleModel: "Accord",
   vehicleTrim: "EX-L",
+  vehicleConfiguration: {
+    source: "marketcheck",
+    field: "version",
+    values: ["EX-L CVT FWD"],
+  },
   mileageAtAccident: 31250,
   currentMileage: 31900,
   otherPartyAtFault: "yes",
@@ -244,6 +259,11 @@ describe("diminished-value details service", () => {
       vehicle_make: "Honda",
       vehicle_model: "Accord",
       vehicle_trim: "EX-L",
+      vehicle_configuration: {
+        source: "marketcheck",
+        field: "version",
+        values: ["EX-L CVT FWD"],
+      },
       mileage_at_accident: 31250,
       current_mileage: 31900,
       other_party_at_fault: "yes",

@@ -74,10 +74,10 @@ class HistoricalMarketSearchRequest:
     model: str
     postal_code: str
     trim: str | None = None
-    configuration: VehicleConfigurationIdentity | None = None
     loss_vehicle_mileage: int | None = None
     radius_miles: int = 50
     result_limit: int = 25
+    configuration: VehicleConfigurationIdentity | None = None
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "evidence_date", _trim_required(self.evidence_date))
@@ -91,6 +91,8 @@ class HistoricalMarketSearchRequest:
             raise TypeError(
                 "configuration must be VehicleConfigurationIdentity or None"
             )
+        if self.configuration is not None and self.trim is None:
+            raise ValueError("configuration requires a canonical trim")
 
     def to_dict(self) -> dict[str, Any]:
         data = {

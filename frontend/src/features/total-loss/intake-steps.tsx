@@ -26,7 +26,10 @@ import {
   secondaryFlowButtonClassName,
 } from "@/features/total-loss/intake-fields";
 import { VehicleIdentificationFields } from "@/features/intake";
-import type { VehicleTrimOption } from "@/features/intake";
+import type {
+  VehicleConfigurationIdentity,
+  VehicleTrimOption,
+} from "@/features/intake";
 import type {
   TotalLossIntakeMode,
   TotalLossContactFormErrors,
@@ -213,6 +216,7 @@ export type VehicleEntryMethod = "vin" | "details";
 interface VehicleStepProps extends ManualStepProps {
   mode: TotalLossIntakeMode;
   entryMethod: VehicleEntryMethod;
+  vehicleConfiguration: VehicleConfigurationIdentity | null;
   makeOptions: readonly string[];
   modelOptions: readonly string[];
   trimOptions: readonly VehicleTrimOption[];
@@ -225,6 +229,7 @@ interface VehicleStepProps extends ManualStepProps {
   onRetryMakes: () => void;
   onRetryModels: () => void;
   onRetryTrims: () => void;
+  onTrimSelectionChange: (option: VehicleTrimOption) => void;
 }
 
 const vehicleYearOptions = Array.from(
@@ -239,6 +244,7 @@ export function VehicleStep({
   values,
   errors,
   entryMethod,
+  vehicleConfiguration,
   makeOptions,
   modelOptions,
   trimOptions,
@@ -251,6 +257,7 @@ export function VehicleStep({
   onRetryMakes,
   onRetryModels,
   onRetryTrims,
+  onTrimSelectionChange,
   onChange,
   onBlur,
   onBack,
@@ -275,6 +282,7 @@ export function VehicleStep({
         makeOptions={makeOptions}
         modelOptions={modelOptions}
         trimOptions={trimOptions}
+        vehicleConfiguration={vehicleConfiguration}
         makesState={makesState}
         modelsState={modelsState}
         trimsState={trimsState}
@@ -289,6 +297,7 @@ export function VehicleStep({
         onRetryMakes={onRetryMakes}
         onRetryModels={onRetryModels}
         onRetryTrims={onRetryTrims}
+        onTrimSelectionChange={onTrimSelectionChange}
       />
       {error ? <InlineError message={error} /> : null}
       <StepActions

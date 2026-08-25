@@ -61,6 +61,7 @@ describe("diminished-value validation", () => {
           vehicleYear: "2024",
           make: "Honda",
           model: "Accord",
+          trim: "EX-L",
           currentMileage: "49,100",
         },
         referenceDate,

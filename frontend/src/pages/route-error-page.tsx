@@ -15,7 +15,7 @@ export function RouteErrorPage() {
   });
 
   return (
-    <div className="flex min-h-svh flex-col bg-white">
+    <div className="page-gradient-route-error flex min-h-svh flex-col bg-white">
       <header className="border-b border-neutral-200">
         <div className="mx-auto flex min-h-16 w-full max-w-6xl items-center px-5 py-3 sm:px-8">
           <Link
@@ -52,7 +52,7 @@ export function RouteErrorPage() {
         </section>
       </main>
 
-      <footer className="border-t border-neutral-200 bg-neutral-50/70">
+      <footer className="site-footer-gradient border-t border-neutral-200 bg-neutral-50/70">
         <div className="mx-auto w-full max-w-6xl px-5 py-6 text-sm text-neutral-600 sm:px-8">
           Independent vehicle-valuation guidance for total-loss claims.
         </div>

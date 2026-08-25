@@ -1781,7 +1781,7 @@ export function AnalysisResults({ analysis }: AnalysisResultsProps) {
     .join(" ");
 
   return (
-    <article className="w-full bg-report-canvas">
+    <article className="page-gradient-analysis-report w-full bg-report-canvas">
       <div className="mx-auto w-full max-w-[90rem] px-5 py-8 sm:px-8 sm:py-10 lg:px-10 lg:py-12">
         <header className="grid gap-6 border-b border-neutral-200 pb-7 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
           <div>

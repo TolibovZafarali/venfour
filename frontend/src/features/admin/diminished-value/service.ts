@@ -4,6 +4,10 @@ import type {
   DiminishedValueCaseDetails,
   DiminishedValueDraftStep,
 } from "@/features/diminished-value/data-types";
+import {
+  vehicleConfigurationIdentity,
+  type VehicleConfigurationIdentity,
+} from "@/features/intake/vehicle-lookup-types";
 import type { Database } from "@/lib/supabase/database.types";
 
 import type {
@@ -162,6 +166,10 @@ function mapDetails(row: Record<string, unknown>): DiminishedValueCaseDetails {
     vehicleMake: nullableString(row, "vehicle_make"),
     vehicleModel: nullableString(row, "vehicle_model"),
     vehicleTrim: nullableString(row, "vehicle_trim"),
+    vehicleConfiguration: nullableVehicleConfiguration(
+      row,
+      "vehicle_configuration",
+    ),
     mileageAtAccident: nullableInteger(row, "mileage_at_accident"),
     currentMileage: nullableInteger(row, "current_mileage"),
     otherPartyAtFault: answer(row.other_party_at_fault),
@@ -262,6 +270,21 @@ function nullableNumber(row: Record<string, unknown>, key: string) {
     );
   }
   return value;
+}
+
+function nullableVehicleConfiguration(
+  row: Record<string, unknown>,
+  key: string,
+): VehicleConfigurationIdentity | null {
+  const value = row[key];
+  if (value === null) return null;
+  const configuration = vehicleConfigurationIdentity(value);
+  if (!configuration) {
+    throw new StaffDiminishedValueResponseError(
+      `Supabase returned an invalid ${key} value.`,
+    );
+  }
+  return configuration;
 }
 
 function draftStep(value: unknown): DiminishedValueDraftStep {

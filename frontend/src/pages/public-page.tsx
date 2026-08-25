@@ -1,6 +1,10 @@
 import type { ReactNode } from "react";
 
 import { cn } from "@/lib/utils";
+import {
+  publicPageGradientClassNames,
+  type PublicPageTone,
+} from "@/pages/page-gradients";
 
 interface PublicPageProps {
   eyebrow: string;
@@ -9,6 +13,7 @@ interface PublicPageProps {
   updated?: string;
   children: ReactNode;
   className?: string;
+  tone: PublicPageTone;
 }
 
 export function PublicPage({
@@ -18,9 +23,16 @@ export function PublicPage({
   updated,
   children,
   className,
+  tone,
 }: PublicPageProps) {
   return (
-    <section className="w-full bg-white">
+    <section
+      className={cn(
+        "public-page-gradient w-full bg-white",
+        publicPageGradientClassNames[tone],
+      )}
+      data-public-page-tone={tone}
+    >
       <div className="mx-auto w-full max-w-6xl px-5 py-12 sm:px-8 sm:py-16 lg:py-20">
         <header className="max-w-3xl">
           <p className="flex items-center gap-3 text-xs font-semibold tracking-[0.14em] text-neutral-500 uppercase">

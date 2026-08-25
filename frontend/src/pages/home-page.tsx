@@ -67,7 +67,7 @@ const processSteps = [
 export function PublicHomePage() {
   return (
     <div className="w-full overflow-clip bg-white text-ink">
-      <section className="relative isolate overflow-hidden border-b border-slate-200 bg-canvas">
+      <section className="home-hero-gradient relative isolate overflow-hidden border-b border-slate-200 bg-canvas">
         <div
           className="pointer-events-none absolute inset-y-0 right-0 hidden w-[64%] max-w-[72rem] xl:block"
           aria-hidden="true"
@@ -138,7 +138,7 @@ export function PublicHomePage() {
 
       <section
         id="services"
-        className="section-anchor scroll-mt-24 bg-white"
+        className="home-services-gradient section-anchor scroll-mt-24 bg-white"
         aria-labelledby="services-title"
         tabIndex={-1}
       >
@@ -224,7 +224,7 @@ export function PublicHomePage() {
 
       <section
         id="how-it-works"
-        className="section-anchor scroll-mt-24 border-y border-slate-200 bg-canvas"
+        className="home-process-gradient section-anchor scroll-mt-24 border-y border-slate-200 bg-canvas"
         aria-labelledby="process-title"
         tabIndex={-1}
       >
@@ -276,7 +276,10 @@ export function PublicHomePage() {
         </div>
       </section>
 
-      <section className="bg-white" aria-labelledby="report-gaps-title">
+      <section
+        className="home-report-gradient bg-white"
+        aria-labelledby="report-gaps-title"
+      >
         <div className="mx-auto grid w-full max-w-[84rem] gap-9 px-5 py-16 sm:px-8 sm:py-20 lg:grid-cols-[minmax(16rem,0.58fr)_minmax(34rem,1.42fr)] lg:items-center lg:gap-14 lg:px-10 lg:py-28">
           <div className="max-w-xl">
             <h2 id="report-gaps-title" className={sectionHeadingClassName}>
@@ -295,7 +298,7 @@ export function PublicHomePage() {
 
       <section
         id="diminished-value"
-        className="section-anchor scroll-mt-24 border-y border-slate-300 bg-slate-100"
+        className="home-diminished-gradient section-anchor scroll-mt-24 border-y border-slate-300 bg-slate-100"
         aria-labelledby="diminished-value-title"
         tabIndex={-1}
       >
@@ -330,7 +333,10 @@ export function PublicHomePage() {
         </div>
       </section>
 
-      <section className="bg-white" aria-labelledby="deliverable-title">
+      <section
+        className="home-deliverable-gradient bg-white"
+        aria-labelledby="deliverable-title"
+      >
         <div className="mx-auto w-full max-w-[84rem] px-5 py-16 sm:px-8 sm:py-20 lg:px-10 lg:py-28">
           <div className="max-w-3xl">
             <h2 id="deliverable-title" className={sectionHeadingClassName}>
@@ -347,7 +353,10 @@ export function PublicHomePage() {
         </div>
       </section>
 
-      <section className="border-y border-slate-300 bg-ink text-white" aria-labelledby="trust-title">
+      <section
+        className="home-trust-gradient border-y border-slate-300 bg-ink text-white"
+        aria-labelledby="trust-title"
+      >
         <div className="mx-auto w-full max-w-[84rem] px-5 py-14 sm:px-8 sm:py-16 lg:px-10 lg:py-20">
           <div className="grid gap-8 lg:grid-cols-[minmax(15rem,0.55fr)_minmax(0,1.45fr)] lg:items-start lg:gap-14">
             <div>
@@ -387,7 +396,7 @@ export function PublicHomePage() {
 function HomePageLoading() {
   return (
     <section
-      className="w-full bg-canvas"
+      className="page-gradient-account-home w-full bg-canvas"
       aria-label="Loading home"
       aria-live="polite"
       aria-busy="true"

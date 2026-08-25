@@ -27,7 +27,10 @@ import type { AppraisalCaseService } from "@/features/cases/service";
 import type { AppraisalCase } from "@/features/cases/types";
 import {
   IntakeStepTransition,
+  uniquelyMatchingVehicleTrimOption,
   useVehicleLookupController,
+  vehicleConfigurationFromTrimOption,
+  type VehicleTrimOption,
 } from "@/features/intake";
 import type {
   CreateTotalLossDetailsValues,
@@ -882,6 +885,7 @@ function TotalLossIntakeFlowContent({
         ...current,
         mode: details.intakeMode,
         manual: manualValuesForDetails(details),
+        vehicleConfiguration: details.vehicleConfiguration ?? null,
         reportProvider: details.reportProvider ?? current.reportProvider,
         reportExtractionStatus: hydratedExtractionState,
         reportExtractionWarnings: extractionWarningsForDetails(
@@ -1021,6 +1025,7 @@ function TotalLossIntakeFlowContent({
           ownerUserId: userId,
           mode: null,
           manual: createEmptyTotalLossManualForm(),
+          vehicleConfiguration: null,
           step: "choice",
           pendingAuthAction: null,
           dirty: false,
@@ -1217,13 +1222,33 @@ function TotalLossIntakeFlowContent({
     field: keyof TotalLossManualFormValues,
     value: string,
   ) => {
-    setManualErrors((current) => ({ ...current, [field]: undefined }));
+    setManualErrors((current) => {
+      const next = { ...current, [field]: undefined };
+      if (field === "vin") {
+        next.vehicleYear = undefined;
+        next.make = undefined;
+        next.model = undefined;
+        next.trim = undefined;
+      } else if (field === "vehicleYear" || field === "make") {
+        next.model = undefined;
+        next.trim = undefined;
+      } else if (field === "model") {
+        next.trim = undefined;
+      }
+      return next;
+    });
     setFlowError(null);
     if (field === "vin") {
       resetVinLookup();
     }
     applyDraft((current) => {
       const manual = { ...current.manual, [field]: value };
+      const changesVehicleIdentity =
+        field === "vin" ||
+        field === "vehicleYear" ||
+        field === "make" ||
+        field === "model" ||
+        field === "trim";
       if (field === "vin") {
         manual.vehicleYear = "";
         manual.make = "";
@@ -1235,8 +1260,26 @@ function TotalLossIntakeFlowContent({
       } else if (field === "model") {
         manual.trim = "";
       }
-      return { ...current, manual, dirty: true };
+      return {
+        ...current,
+        manual,
+        vehicleConfiguration: changesVehicleIdentity
+          ? null
+          : current.vehicleConfiguration,
+        dirty: true,
+      };
     });
+  };
+
+  const handleTrimSelectionChange = (option: VehicleTrimOption) => {
+    setManualErrors((current) => ({ ...current, trim: undefined }));
+    setFlowError(null);
+    applyDraft((current) => ({
+      ...current,
+      manual: { ...current.manual, trim: option.trim },
+      vehicleConfiguration: vehicleConfigurationFromTrimOption(option),
+      dirty: true,
+    }));
   };
 
   const handleVehicleEntryMethodChange = (method: VehicleEntryMethod) => {
@@ -1253,6 +1296,7 @@ function TotalLossIntakeFlowContent({
     resetVinLookup();
     applyDraft((current) => ({
       ...current,
+      vehicleConfiguration: null,
       manual:
         method === "details"
           ? { ...current.manual, vin: "" }
@@ -1304,16 +1348,33 @@ function TotalLossIntakeFlowContent({
           trim: decoded.trim ?? "",
           mileageAtLoss: normalized.mileageAtLoss,
         },
+        vehicleConfiguration: null,
         step: "vehicle",
         dirty: true,
       }));
-      setFlowError(
-        "Review the confirmed vehicle and choose the exact trim before continuing.",
-      );
+      setFlowError(null);
       return;
     }
 
-    const errors = vehicleErrors(validateTotalLossManualForm(normalized));
+    const vehicleResolved = Boolean(
+      normalized.vehicleYear && normalized.make && normalized.model,
+    );
+    if (vehicleResolved && trimsState === "loading") {
+      setFlowError("Wait while we load the exact trim options.");
+      return;
+    }
+    const selectedTrimOption = uniquelyMatchingVehicleTrimOption(
+      trimOptions,
+      normalized.trim,
+      draftRef.current.vehicleConfiguration,
+    );
+    const configuredManual = selectedTrimOption
+      ? { ...normalized, trim: selectedTrimOption.trim }
+      : normalized;
+    const errors = vehicleErrors(validateTotalLossManualForm(configuredManual));
+    if (vehicleResolved && trimOptions.length > 0 && !selectedTrimOption) {
+      errors.trim = "Choose the exact vehicle configuration from the list.";
+    }
     setManualErrors((current) => ({ ...current, ...errors }));
     if (hasTotalLossManualFormErrors(errors)) {
       setFlowError("Review the highlighted vehicle fields before continuing.");
@@ -1323,7 +1384,10 @@ function TotalLossIntakeFlowContent({
     setFlowError(null);
     applyDraft((current) => ({
       ...current,
-      manual: normalized,
+      manual: configuredManual,
+      vehicleConfiguration: selectedTrimOption
+        ? vehicleConfigurationFromTrimOption(selectedTrimOption)
+        : null,
       step: "claim",
       dirty: true,
     }));
@@ -1575,6 +1639,7 @@ function TotalLossIntakeFlowContent({
             ...current,
             mode: "report",
             manual: { ...current.manual, zipCode: reportZipCode },
+            vehicleConfiguration: null,
             step: validateZipCode(reportZipCode) ? "report" : "contact",
             reportProvider: null,
             reportExtractionStatus: "idle",
@@ -1750,6 +1815,7 @@ function TotalLossIntakeFlowContent({
         ownerUserId: userId,
         mode: details?.intakeMode ?? null,
         manual: details ? manualValuesForDetails(details) : current.manual,
+        vehicleConfiguration: details?.vehicleConfiguration ?? null,
         contact: contact
           ? {
               firstName: contact.firstName,
@@ -1833,6 +1899,7 @@ function TotalLossIntakeFlowContent({
       ...current,
       mode: conflict.intakeMode,
       manual: manualValuesForDetails(conflict),
+      vehicleConfiguration: conflict.vehicleConfiguration ?? null,
       reportExtractionStatus: savedExtractionState,
       reportExtractionWarnings: extractionWarningsForDetails(
         conflict,
@@ -1873,6 +1940,7 @@ function TotalLossIntakeFlowContent({
           <VehicleStep
             mode={draft.mode ?? "manual"}
             values={draft.manual}
+            vehicleConfiguration={draft.vehicleConfiguration}
             errors={manualErrors}
             entryMethod={activeVehicleEntryMethod}
             makeOptions={makeOptions}
@@ -1891,6 +1959,7 @@ function TotalLossIntakeFlowContent({
             onRetryModels={retryModels}
             onRetryTrims={retryTrims}
             onChange={handleManualChange}
+            onTrimSelectionChange={handleTrimSelectionChange}
             onBlur={handleManualBlur}
             onBack={() => {
               setFlowError(null);
@@ -2040,6 +2109,8 @@ function TotalLossIntakeFlowContent({
               applyDraft((current) => ({
                 ...current,
                 manual: current.manual,
+                vehicleConfiguration:
+                  mode === "report" ? null : current.vehicleConfiguration,
                 mode,
                 step: "choice",
                 pendingAuthAction: null,
@@ -2179,9 +2250,17 @@ function detailsValuesForDraft(
   draft: TotalLossDraft,
 ): CreateTotalLossDetailsValues {
   if (draft.mode === "manual") {
-    return totalLossManualFormToDetailsValues(draft.manual);
+    return totalLossManualFormToDetailsValues(
+      draft.manual,
+      new Date(),
+      draft.vehicleConfiguration,
+    );
   }
-  return totalLossReportFormToDetailsValues(draft.manual);
+  return totalLossReportFormToDetailsValues(
+    draft.manual,
+    new Date(),
+    draft.vehicleConfiguration,
+  );
 }
 
 function manualValuesForDetails(

@@ -37,6 +37,7 @@ from venfour.market import (
     MarketProviderRateLimitError,
     MarketProviderResponseError,
     MarketProviderUnavailableError,
+    VehicleConfigurationIdentity,
 )
 from venfour.marketcheck import (
     MARKETCHECK_HISTORICAL_MAX_PAGES,
@@ -360,6 +361,83 @@ class MarketCheckHistoricalCoverageTests(unittest.TestCase):
 
 
 class MarketCheckHistoricalRequestMappingTests(unittest.TestCase):
+    def test_configuration_queries_raw_versions_and_keeps_canonical_trim(
+        self,
+    ) -> None:
+        request = make_request(
+            trim="SEL FWD",
+            configuration=VehicleConfigurationIdentity(
+                source="marketcheck",
+                field="version",
+                values=("Elantra SEL IVT FWD", "SEL IVT Front Wheel Drive"),
+            ),
+            result_limit=1,
+        )
+        result, transport = search_with(
+            [
+                make_candidate_page(
+                    [
+                        make_candidate(
+                            build={
+                                "year": 2024,
+                                "make": "Hyundai",
+                                "model": "Elantra",
+                                "trim": "SEL",
+                                "version": "Elantra SEL IVT FWD",
+                            }
+                        )
+                    ],
+                    1,
+                ),
+                [make_history()],
+            ],
+            request,
+        )
+
+        params = candidate_calls(transport)[0]["params"]
+        self.assertEqual(
+            params["version"],
+            "Elantra SEL IVT FWD,SEL IVT Front Wheel Drive",
+        )
+        self.assertNotIn("trim", params)
+        self.assertEqual(result.evidence[0].listing.trim, "SEL FWD")
+        self.assertEqual(result.request.configuration, request.configuration)
+
+    def test_unmatched_historical_configuration_keeps_the_returned_trim(
+        self,
+    ) -> None:
+        request = make_request(
+            trim="SEL FWD",
+            configuration=VehicleConfigurationIdentity(
+                source="marketcheck",
+                field="version",
+                values=("Elantra SEL IVT FWD",),
+            ),
+            result_limit=1,
+        )
+        result, _ = search_with(
+            [
+                make_candidate_page(
+                    [
+                        make_candidate(
+                            build={
+                                "year": 2024,
+                                "make": "Hyundai",
+                                "model": "Elantra",
+                                "trim": "SEL Hybrid",
+                                "version": "Elantra SEL Hybrid FWD",
+                            }
+                        )
+                    ],
+                    1,
+                ),
+                [make_history()],
+            ],
+            request,
+        )
+
+        self.assertEqual(result.evidence[0].listing.trim, "SEL Hybrid")
+
     def test_full_request_maps_exactly_to_deduplicated_recents_search(self) -> None:
         result, transport = search_with(
             [make_candidate_page([], 0)],

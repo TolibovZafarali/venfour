@@ -14,6 +14,7 @@ from venfour.adaptive_search import (
     AdaptiveSearchPolicies,
 )
 from venfour.analysis_runs import (
+    AnalysisRunArtifact,
     AnalysisRunContractError,
     FileAnalysisRunRepository,
     search_diagnostics_digest,
@@ -63,10 +64,18 @@ class AdaptiveAnalysisRunIntegrityTests(unittest.TestCase):
             context.exception.details,
         )
 
-    def test_v4_diagnostics_replay_and_v1_v2_v3_remain_readable(self) -> None:
+    def test_v5_and_earlier_artifacts_remain_readable(self) -> None:
         validate_analysis_run_artifact(self.artifact)
 
-        v4_artifact = copy.deepcopy(self.artifact)
+        v5_artifact = copy.deepcopy(self.artifact)
+        v5_artifact["analysisRunSchemaVersion"] = "5"
+        validate_analysis_run_artifact(v5_artifact)
+        self.assertEqual(
+            AnalysisRunArtifact.from_dict(v5_artifact).analysis_run_schema_version,
+            "5",
+        )
+
+        v4_artifact = copy.deepcopy(v5_artifact)
         v4_artifact["analysisRunSchemaVersion"] = "4"
         v4_artifact["analysisVersion"] = "4"
         del v4_artifact["evidenceContext"]

@@ -34,6 +34,48 @@ def snapshot(**overrides: object) -> dict:
 
 
 class ConfirmedValuationInputTests(unittest.TestCase):
+    def test_preserves_provider_configuration_separately_from_display_trim(
+        self,
+    ) -> None:
+        confirmed = ConfirmedValuationInput.from_snapshot(
+            snapshot(
+                vehicle_trim="Long Range Dual Motor AWD",
+                vehicle_configuration={
+                    "source": "marketcheck",
+                    "field": "version",
+                    "values": [
+                        "Dual Motor All-Whel Drive Long Range",
+                        "Long Range AWD Dual Motor",
+                    ],
+                },
+            )
+        )
+
+        self.assertEqual(confirmed.trim, "Long Range Dual Motor AWD")
+        self.assertIsNotNone(confirmed.vehicle_configuration)
+        assert confirmed.vehicle_configuration is not None
+        self.assertEqual(
+            confirmed.vehicle_configuration.values,
+            (
+                "Dual Motor All-Whel Drive Long Range",
+                "Long Range AWD Dual Motor",
+            ),
+        )
+
+    def test_rejects_malformed_provider_configuration(self) -> None:
+        for configuration in (
+            {"source": "marketcheck", "field": "version", "values": []},
+            {"source": "marketcheck", "field": "trim", "values": ["SE,LE"]},
+            {"source": "other", "field": "engine", "values": ["2.0L"]},
+        ):
+            with self.subTest(configuration=configuration), self.assertRaises(
+                ValuationInputError
+            ) as raised:
+                ConfirmedValuationInput.from_snapshot(
+                    snapshot(vehicle_configuration=configuration)
+                )
+            self.assertEqual(raised.exception.field, "vehicle_configuration")
+
     def test_manual_input_requires_trim_even_when_vin_is_present(self) -> None:
         with self.assertRaises(ValuationInputError) as raised:
             ConfirmedValuationInput.from_snapshot(

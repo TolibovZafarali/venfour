@@ -1,3 +1,4 @@
+import type { VehicleConfigurationIdentity } from "@/features/intake/vehicle-lookup-types";
 import type {
   DiminishedValueAnswer,
   DiminishedValueContactMethod,
@@ -22,6 +23,7 @@ export interface DiminishedValueCaseDetailsValues {
   readonly vehicleMake: string | null;
   readonly vehicleModel: string | null;
   readonly vehicleTrim: string | null;
+  readonly vehicleConfiguration?: VehicleConfigurationIdentity | null;
   readonly mileageAtAccident: number | null;
   readonly currentMileage: number | null;
   readonly otherPartyAtFault: DiminishedValueAnswer | null;

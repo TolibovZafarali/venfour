@@ -1,3 +1,7 @@
+import {
+  vehicleConfigurationFromTrimOption,
+  type VehicleTrimOption,
+} from "@/features/intake/vehicle-lookup-types";
 import type { DecodedVehicle } from "@/features/total-loss/vehicle-lookup-service";
 
 import type {
@@ -22,6 +26,10 @@ export type DiminishedValueDraftAction =
       readonly vehicle: DecodedVehicle;
     }
   | {
+      readonly type: "trim-selected";
+      readonly option: VehicleTrimOption;
+    }
+  | {
       readonly type: "step-changed";
       readonly step: DiminishedValueStep;
       readonly returnAfterStartEdit?: boolean;
@@ -41,10 +49,23 @@ export function diminishedValueDraftReducer(
           make: "",
           model: "",
           trim: "",
+          vehicleConfiguration: null,
         } as DiminishedValueDraft;
       }
       if (action.field === "vehicleYear" || action.field === "make") {
-        return { ...next, model: "", trim: "" } as DiminishedValueDraft;
+        return {
+          ...next,
+          model: "",
+          trim: "",
+          vehicleConfiguration: null,
+        } as DiminishedValueDraft;
+      }
+      if (action.field === "model" || action.field === "trim") {
+        return {
+          ...next,
+          trim: action.field === "model" ? "" : next.trim,
+          vehicleConfiguration: null,
+        } as DiminishedValueDraft;
       }
       return next as DiminishedValueDraft;
     }
@@ -56,6 +77,7 @@ export function diminishedValueDraftReducer(
             vehicleEntryMethod: action.method,
             vin: "",
             trim: "",
+            vehicleConfiguration: null,
           }
         : {
             ...draft,
@@ -64,6 +86,7 @@ export function diminishedValueDraftReducer(
             make: "",
             model: "",
             trim: "",
+            vehicleConfiguration: null,
           };
 
     case "vehicle-decoded":
@@ -74,6 +97,14 @@ export function diminishedValueDraftReducer(
         make: action.vehicle.make,
         model: action.vehicle.model,
         trim: action.vehicle.trim ?? "",
+        vehicleConfiguration: null,
+      };
+
+    case "trim-selected":
+      return {
+        ...draft,
+        trim: action.option.trim,
+        vehicleConfiguration: vehicleConfigurationFromTrimOption(action.option),
       };
 
     case "step-changed":

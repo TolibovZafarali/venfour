@@ -5,8 +5,9 @@ import {
   DIMINISHED_VALUE_REPAIR_STATUSES,
   type DiminishedValueDraft,
 } from "./types";
+import { vehicleConfigurationIdentity } from "@/features/intake/vehicle-lookup-types";
 
-export const DIMINISHED_VALUE_DRAFT_VERSION = 1 as const;
+export const DIMINISHED_VALUE_DRAFT_VERSION = 2 as const;
 export const DIMINISHED_VALUE_DRAFT_STORAGE_KEY =
   "venfour.diminishedValueDraft.v1";
 
@@ -90,6 +91,7 @@ const INTAKE_KEYS = [
   "make",
   "model",
   "trim",
+  "vehicleConfiguration",
   "mileageAtAccident",
   "currentMileage",
   "otherPartyAtFault",
@@ -106,6 +108,10 @@ const INTAKE_KEYS = [
   "availability",
   "notes",
 ] as const satisfies readonly (keyof DiminishedValueDraft)[];
+
+const VERSION_ONE_INTAKE_KEYS = INTAKE_KEYS.filter(
+  (key) => key !== "vehicleConfiguration",
+);
 
 const EDITABLE_DIMINISHED_VALUE_STEPS = [
   "start",
@@ -286,9 +292,14 @@ function toDiminishedValueDraftEnvelope(
       return null;
     }
 
-    const intake = toEditableDiminishedValueDraft(value.intake);
+    const legacyVersion = value.version === 1;
+    const intake = toEditableDiminishedValueDraft(
+      value.intake,
+      legacyVersion,
+    );
     if (
-      value.version !== DIMINISHED_VALUE_DRAFT_VERSION ||
+      (value.version !== 1 &&
+        value.version !== DIMINISHED_VALUE_DRAFT_VERSION) ||
       !intake ||
       !isNullableUuid(value.confirmedCaseId) ||
       !isNullableUuid(value.reservedCaseId) ||
@@ -328,16 +339,30 @@ function toDiminishedValueDraftEnvelope(
 
 function toEditableDiminishedValueDraft(
   value: unknown,
+  legacyVersion = false,
 ): DiminishedValueDraft | null {
-  if (!isRecord(value) || !hasExactKeys(value, INTAKE_KEYS)) {
+  if (!isRecord(value)) {
     return null;
   }
+  const legacy = legacyVersion && hasExactKeys(value, VERSION_ONE_INTAKE_KEYS);
+  if (
+    (legacyVersion && !legacy) ||
+    (!legacyVersion && !hasExactKeys(value, INTAKE_KEYS))
+  ) {
+    return null;
+  }
+  const configuration = legacy
+    ? null
+    : value.vehicleConfiguration === null
+      ? null
+      : vehicleConfigurationIdentity(value.vehicleConfiguration);
 
   if (
     !isMember(value.step, EDITABLE_DIMINISHED_VALUE_STEPS) ||
     typeof value.returnAfterStartEdit !== "boolean" ||
     !isStringMemberOrEmpty(value.repairStatus, DIMINISHED_VALUE_REPAIR_STATUSES) ||
     !isMember(value.vehicleEntryMethod, ["vin", "details"] as const) ||
+    (!legacy && value.vehicleConfiguration !== null && !configuration) ||
     !isStringMemberOrEmpty(
       value.otherPartyAtFault,
       DIMINISHED_VALUE_ANSWER_OPTIONS,
@@ -371,6 +396,7 @@ function toEditableDiminishedValueDraft(
     make: value.make,
     model: value.model,
     trim: value.trim,
+    vehicleConfiguration: configuration,
     mileageAtAccident: value.mileageAtAccident,
     currentMileage: value.currentMileage,
     otherPartyAtFault: value.otherPartyAtFault,

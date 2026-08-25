@@ -80,7 +80,7 @@ from venfour.market import (
 )
 
 
-ANALYSIS_RUN_SCHEMA_VERSION = "5"
+ANALYSIS_RUN_SCHEMA_VERSION = "6"
 ANALYSIS_RUN_ANALYSIS_VERSION = "5"
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -237,7 +237,10 @@ class AnalysisRunArtifact:
         object.__setattr__(self, "request", _freeze_json(self.request))
         object.__setattr__(self, "result", _freeze_json(self.result))
         selected_context = self.evidence_context
-        if selected_context is None and self.analysis_run_schema_version == "5":
+        if selected_context is None and self.analysis_run_schema_version in {
+            "5",
+            "6",
+        }:
             base_request = self.request.get("baseDiscrepancyRequest", {})
             valuation = (
                 base_request.get("cccVehicleValuation")
@@ -844,7 +847,7 @@ def _adaptive_semantic_validation_errors(
     """Replay adaptive diagnostics against their versioned effective policies."""
 
     artifact_version = data["analysisRunSchemaVersion"]
-    if artifact_version not in {"2", "3", "4", "5"}:
+    if artifact_version not in {"2", "3", "4", "5", "6"}:
         return []
 
     errors: list[str] = []
@@ -884,7 +887,7 @@ def _adaptive_semantic_validation_errors(
         current_policy = policies.current
         historical_policy = policies.historical
         configured_policies = None
-        if artifact_version in {"4", "5"}:
+        if artifact_version in {"4", "5", "6"}:
             try:
                 configured_policies = adaptive_search_policies_from_dict(
                     request_snapshot["configuredSearchPolicies"]
@@ -932,7 +935,7 @@ def _adaptive_semantic_validation_errors(
         policy_field=policy_field,
         configured_policy=(
             request_snapshot["configuredSearchPolicies"]
-            if artifact_version in {"4", "5"}
+            if artifact_version in {"4", "5", "6"}
             else None
         ),
     )
@@ -958,7 +961,7 @@ def _adaptive_semantic_validation_errors(
     else:
         current_ceiling_reason = (
             CURRENT_SEARCH_CEILING_REACHED
-            if artifact_version in {"4", "5"}
+            if artifact_version in {"4", "5", "6"}
             and configured_policies is not None
             and configured_policies.current != current_policy
             else MAX_SCOPE_REACHED

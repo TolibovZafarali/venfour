@@ -22,7 +22,7 @@ const CREATED_AT = "2026-08-18T14:00:00.000Z";
 const UPDATED_AT = "2026-08-18T15:00:00.000Z";
 const UPLOAD_ID = "33333333-3333-4333-8333-333333333333";
 const DETAILS_COLUMNS =
-  "case_id,intake_mode,vin,vehicle_year,vehicle_make,vehicle_model,vehicle_trim,mileage_at_loss,postal_code,date_of_loss,insurer_name,insurer_vehicle_valuation,vehicle_condition,vehicle_options_packages,report_provider_name,report_extraction_status,report_extraction_confidence,report_extracted_at,report_facts_confirmed_at,analysis_input_revision,analysis_input_id,report_storage_owner_id,report_upload_recovery_required,report_original_filename,report_uploaded_at,intake_completed_at,created_at,updated_at";
+  "case_id,intake_mode,vin,vehicle_year,vehicle_make,vehicle_model,vehicle_trim,vehicle_configuration,mileage_at_loss,postal_code,date_of_loss,insurer_name,insurer_vehicle_valuation,vehicle_condition,vehicle_options_packages,report_provider_name,report_extraction_status,report_extraction_confidence,report_extracted_at,report_facts_confirmed_at,analysis_input_revision,analysis_input_id,report_storage_owner_id,report_upload_recovery_required,report_original_filename,report_uploaded_at,intake_completed_at,created_at,updated_at";
 
 const detailsRow = {
   case_id: CASE_ID,
@@ -32,6 +32,11 @@ const detailsRow = {
   vehicle_make: "Honda",
   vehicle_model: "Accord",
   vehicle_trim: null,
+  vehicle_configuration: {
+    source: "marketcheck",
+    field: "version",
+    values: ["Accord EX-L CVT FWD"],
+  },
   mileage_at_loss: 31250,
   postal_code: "60601",
   date_of_loss: "2026-08-18",
@@ -91,6 +96,11 @@ const expectedDetails: TotalLossCaseDetails = {
   vehicleMake: "Honda",
   vehicleModel: "Accord",
   vehicleTrim: null,
+  vehicleConfiguration: {
+    source: "marketcheck",
+    field: "version",
+    values: ["Accord EX-L CVT FWD"],
+  },
   mileageAtLoss: 31250,
   postalCode: "60601",
   dateOfLoss: "2026-08-18",
@@ -394,6 +404,11 @@ describe("total-loss details service", () => {
           vehicleMake: "Honda",
           vehicleModel: "Accord",
           vehicleTrim: null,
+          vehicleConfiguration: {
+            source: "marketcheck",
+            field: "version",
+            values: ["Accord EX-L CVT FWD"],
+          },
           mileageAtLoss: 31250,
           postalCode: "60601",
           dateOfLoss: "2026-08-18",

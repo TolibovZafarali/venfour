@@ -1,6 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { AppraisalCaseService } from "@/features/cases/service";
+import {
+  sameVehicleConfiguration,
+  vehicleConfigurationIdentity,
+} from "@/features/intake/vehicle-lookup-types";
 import type {
   CreateDiminishedValueDetailsInput,
   CreateDiminishedValueDetailsValues,
@@ -13,10 +17,10 @@ import type {
   SubmitDiminishedValueCaseInput,
   UpdateDiminishedValueDetailsInput,
 } from "@/features/diminished-value/data-types";
-import type { Database } from "@/lib/supabase/database.types";
+import type { Database, Json } from "@/lib/supabase/database.types";
 
 const DIMINISHED_VALUE_DETAILS_COLUMNS =
-  "case_id,draft_step,accident_state,accident_date,repair_status,vehicle_entry_method,vin,vehicle_year,vehicle_make,vehicle_model,vehicle_trim,mileage_at_accident,current_mileage,other_party_at_fault,at_fault_insurer,repair_cost,repair_facility,structural_damage,airbag_deployment,major_repair_details,full_name,email,phone,preferred_contact_method,availability,notes,submitted_at,revision,created_at,updated_at" as const;
+  "case_id,draft_step,accident_state,accident_date,repair_status,vehicle_entry_method,vin,vehicle_year,vehicle_make,vehicle_model,vehicle_trim,vehicle_configuration,mileage_at_accident,current_mileage,other_party_at_fault,at_fault_insurer,repair_cost,repair_facility,structural_damage,airbag_deployment,major_repair_details,full_name,email,phone,preferred_contact_method,availability,notes,submitted_at,revision,created_at,updated_at" as const;
 
 interface DiminishedValueDetailsRow {
   readonly case_id: string;
@@ -30,6 +34,7 @@ interface DiminishedValueDetailsRow {
   readonly vehicle_make: string | null;
   readonly vehicle_model: string | null;
   readonly vehicle_trim: string | null;
+  readonly vehicle_configuration?: unknown;
   readonly mileage_at_accident: number | null;
   readonly current_mileage: number | null;
   readonly other_party_at_fault: string | null;
@@ -63,6 +68,7 @@ interface DiminishedValueDetailsInsert {
   vehicle_make?: string | null;
   vehicle_model?: string | null;
   vehicle_trim?: string | null;
+  vehicle_configuration?: Json | null;
   mileage_at_accident?: number | null;
   current_mileage?: number | null;
   other_party_at_fault?: DiminishedValueCaseDetails["otherPartyAtFault"];
@@ -220,6 +226,9 @@ function mapDiminishedValueDetails(
     vehicleMake: row.vehicle_make,
     vehicleModel: row.vehicle_model,
     vehicleTrim: row.vehicle_trim,
+    vehicleConfiguration: optionalVehicleConfiguration(
+      row.vehicle_configuration,
+    ),
     mileageAtAccident: row.mileage_at_accident,
     currentMileage: row.current_mileage,
     otherPartyAtFault: mapAnswer(row.other_party_at_fault),
@@ -242,6 +251,15 @@ function mapDiminishedValueDetails(
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
+}
+
+function optionalVehicleConfiguration(value: unknown) {
+  if (value === undefined || value === null) return value;
+  const configuration = vehicleConfigurationIdentity(value);
+  if (configuration) return configuration;
+  throw new DiminishedValueDetailsResponseError(
+    "Supabase returned an invalid vehicle configuration.",
+  );
 }
 
 function assertRequestedCase(
@@ -273,6 +291,15 @@ function assignWritableValues(
   if (values.vehicleMake !== undefined) target.vehicle_make = values.vehicleMake;
   if (values.vehicleModel !== undefined) target.vehicle_model = values.vehicleModel;
   if (values.vehicleTrim !== undefined) target.vehicle_trim = values.vehicleTrim;
+  if (values.vehicleConfiguration !== undefined) {
+    target.vehicle_configuration = values.vehicleConfiguration
+      ? {
+          source: values.vehicleConfiguration.source,
+          field: values.vehicleConfiguration.field,
+          values: [...values.vehicleConfiguration.values],
+        }
+      : null;
+  }
   if (values.mileageAtAccident !== undefined) {
     target.mileage_at_accident = values.mileageAtAccident;
   }
@@ -323,6 +350,10 @@ function matchesWritableValues(
     details.vehicleMake === (values.vehicleMake ?? null) &&
     details.vehicleModel === (values.vehicleModel ?? null) &&
     details.vehicleTrim === (values.vehicleTrim ?? null) &&
+    sameVehicleConfiguration(
+      details.vehicleConfiguration ?? null,
+      values.vehicleConfiguration ?? null,
+    ) &&
     details.mileageAtAccident === (values.mileageAtAccident ?? null) &&
     details.currentMileage === (values.currentMileage ?? null) &&
     details.otherPartyAtFault === (values.otherPartyAtFault ?? null) &&

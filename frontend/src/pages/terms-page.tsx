@@ -13,6 +13,7 @@ export function TermsPage() {
       title="Terms for using Venfour"
       introduction="These terms describe Venfour’s current supported total-loss review and the present availability of its diminished-value service, including the important limits on what either service means."
       updated="Last updated August 23, 2026"
+      tone="terms"
     >
       <PublicPageSection title="The service">
         <p>

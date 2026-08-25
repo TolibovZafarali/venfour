@@ -50,6 +50,18 @@
       "default": 25
     }
   },
+  "allOf": [
+    {
+      "if": {
+        "required": ["configuration"],
+        "properties": { "configuration": { "type": "object" } }
+      },
+      "then": {
+        "required": ["trim"],
+        "properties": { "trim": { "type": "string" } }
+      }
+    }
+  ],
   "$defs": {
     "vehicleConfiguration": {
       "type": "object",
@@ -72,7 +84,7 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 200,
-            "pattern": "^[^,\\u0000-\\u001F\\u007F]+$"
+            "pattern": "^[^,\\u0000-\\u001F\\u007F\\u061C\\u200E\\u200F\\u202A-\\u202E\\u2066-\\u2069]+$"
           }
         }
       }

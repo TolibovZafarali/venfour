@@ -7,17 +7,25 @@ import unittest
 from venfour.vehicle_catalog import (
     MAX_VEHICLE_CATALOG_TEXT_LENGTH,
     VehicleTrimOption,
+    VehicleTrimQueryValuesLimitError,
+    normalize_vehicle_trim_catalog,
     normalize_vehicle_trim_options,
 )
 
 
 def normalized_options(
-    values: list[str], *, query_field: str = "version"
+    values: list[str],
+    *,
+    query_field: str = "version",
+    redundant_prefixes: tuple[str, ...] = (),
+    allow_redundant_battery_aliases: bool = False,
 ) -> tuple[VehicleTrimOption, ...]:
     return normalize_vehicle_trim_options(
         values,
         source="marketcheck",
         query_field=query_field,
+        redundant_prefixes=redundant_prefixes,
+        allow_redundant_battery_aliases=allow_redundant_battery_aliases,
     )
 
 
@@ -32,10 +40,12 @@ class VehicleTrimNormalizationTests(unittest.TestCase):
                 "Long Range Rear Wheel Drive",
                 "Long Range AWD Dual Motor",
                 "Dual Motor All-Wheel Drive Long Range",
+                "Dual Motor All-Whel Drive Long Range",
                 "Performance AWD Dual Motor",
                 "Perfomance Dual Motor All Wheel Drive",
                 "Standard Range Plus",
-            ]
+            ],
+            allow_redundant_battery_aliases=True,
         )
 
         self.assertEqual(
@@ -57,6 +67,7 @@ class VehicleTrimNormalizationTests(unittest.TestCase):
             by_label["Long Range Dual Motor AWD"].query_values,
             (
                 "Dual Motor All-Wheel Drive Long Range",
+                "Dual Motor All-Whel Drive Long Range",
                 "Long Range AWD Dual Motor",
             ),
         )
@@ -106,6 +117,131 @@ class VehicleTrimNormalizationTests(unittest.TestCase):
             ("XLE All Wheel Drive", "XLE AWD"),
         )
         self.assertEqual(by_label["Long Range Battery"].query_field, "trim")
+
+    def test_version_battery_only_collapses_with_catalog_evidence(self) -> None:
+        battery_only = normalized_options(
+            ["Long Range Battery"],
+            allow_redundant_battery_aliases=True,
+        )
+        without_electric_context = normalized_options(
+            ["Long Range Battery", "Long Range"]
+        )
+        with_evidence = normalized_options(
+            ["Long Range Battery", "Long Range"],
+            allow_redundant_battery_aliases=True,
+        )
+
+        self.assertEqual(
+            [option.label for option in battery_only],
+            ["Long Range Battery"],
+        )
+        self.assertEqual(
+            [option.label for option in without_electric_context],
+            ["Long Range", "Long Range Battery"],
+        )
+        self.assertEqual(
+            [option.label for option in with_evidence],
+            ["Long Range"],
+        )
+        self.assertEqual(
+            with_evidence[0].query_values,
+            ("Long Range", "Long Range Battery"),
+        )
+
+    def test_partial_version_facets_retain_uncovered_trim_options(self) -> None:
+        options = normalize_vehicle_trim_catalog(
+            ["LE", "XLE", "Performance", "Long Range Battery"],
+            [
+                "LE FWD",
+                "Performance Dual Motor AWD",
+                "Long Range",
+                "Long Range Battery",
+            ],
+            source="marketcheck",
+            battery_electric_only=True,
+        )
+
+        self.assertEqual(
+            [option.label for option in options],
+            [
+                "LE (configuration not specified)",
+                "LE FWD",
+                "Long Range",
+                "Performance (configuration not specified)",
+                "Performance Dual Motor AWD",
+                "XLE",
+            ],
+        )
+        by_label = {option.label: option for option in options}
+        self.assertEqual(by_label["LE FWD"].query_field, "version")
+        self.assertEqual(by_label["XLE"].query_field, "trim")
+        self.assertEqual(
+            by_label["Long Range"].query_values,
+            ("Long Range", "Long Range Battery"),
+        )
+
+    def test_parent_like_trim_is_not_hidden_by_a_longer_version_name(self) -> None:
+        options = normalize_vehicle_trim_catalog(
+            ["Sport", "Sport Touring"],
+            ["Sport Touring AWD"],
+            source="marketcheck",
+        )
+
+        self.assertEqual(
+            [(option.label, option.query_field) for option in options],
+            [
+                ("Sport", "trim"),
+                ("Sport Touring (configuration not specified)", "trim"),
+                ("Sport Touring AWD", "version"),
+            ],
+        )
+
+    def test_exact_vehicle_context_prefixes_are_display_only(self) -> None:
+        options = normalized_options(
+            [
+                "2024 Hyundai Elantra SEL IVT Front Wheel Drive",
+                "Elantra SEL IVT FWD",
+                "SEL IVT AWD",
+            ],
+            redundant_prefixes=(
+                "2024 Hyundai Elantra",
+                "Hyundai Elantra",
+                "Elantra",
+            ),
+        )
+
+        self.assertEqual(
+            [option.label for option in options],
+            ["SEL IVT AWD", "SEL IVT FWD"],
+        )
+        self.assertEqual(
+            options[1].query_values,
+            (
+                "Elantra SEL IVT FWD",
+                "2024 Hyundai Elantra SEL IVT Front Wheel Drive",
+            ),
+        )
+
+    def test_numeric_model_prefix_does_not_hide_battery_capacity(self) -> None:
+        options = normalized_options(
+            [
+                "Model 3 Long Range Battery",
+                "Model 3 Long Range",
+                "Model 3 Long Range 75 kWh Battery",
+                "Model 3 Long Range 82 kWh Battery",
+            ],
+            redundant_prefixes=("Model 3",),
+            allow_redundant_battery_aliases=True,
+        )
+
+        self.assertEqual(
+            [option.label for option in options],
+            ["Long Range", "75 kWh Long Range Battery", "82 kWh Long Range Battery"],
+        )
+        self.assertEqual(
+            options[0].query_values,
+            ("Model 3 Long Range", "Model 3 Long Range Battery"),
+        )
 
     def test_preserves_material_cross_manufacturer_configurations(self) -> None:
         cases = {
@@ -186,7 +322,10 @@ class VehicleTrimNormalizationTests(unittest.TestCase):
         )
 
     def test_option_serializes_clean_label_and_raw_identity_separately(self) -> None:
-        option = normalized_options(["Long Range Battery", "Long Range"])[0]
+        option = normalized_options(
+            ["Long Range Battery", "Long Range"],
+            allow_redundant_battery_aliases=True,
+        )[0]
 
         self.assertEqual(
             option.to_dict(),
@@ -214,12 +353,47 @@ class VehicleTrimNormalizationTests(unittest.TestCase):
             "",
             "   ",
             "XLE, AWD",
+            "XLE\u2066 AWD",
             "X" * (MAX_VEHICLE_CATALOG_TEXT_LENGTH + 1),
             "XLE\nAWD",
         ):
             with self.subTest(value=value):
                 with self.assertRaises((TypeError, ValueError)):
                     normalized_options([value])
+
+    def test_rejects_more_raw_aliases_than_downstream_identity_can_retain(
+        self,
+    ) -> None:
+        separators = (
+            "-",
+            "/",
+            ".",
+            ":",
+            ";",
+            "|",
+            "~",
+            "!",
+            "?",
+            "@",
+            "#",
+            "$",
+            "%",
+            "^",
+            "&",
+            "*",
+            "_",
+            "'",
+            '"',
+            "(",
+            "[",
+        )
+        aliases = [
+            f"Long{separator}Range Dual Motor AWD"
+            for separator in separators
+        ]
+
+        with self.assertRaises(VehicleTrimQueryValuesLimitError):
+            normalized_options(aliases)
 
 
 if __name__ == "__main__":

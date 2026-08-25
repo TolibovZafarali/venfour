@@ -52,6 +52,7 @@ export function MethodologyPage() {
       eyebrow="Methodology"
       title="How the Total Loss review works"
       introduction="Venfour separates document reading from the evidence rules that produce the total-loss assessment. The goal is a reproducible, understandable review—not an automated opinion about what an insurer legally owes."
+      tone="methodology"
     >
       <PublicPageSection title="Current scope">
         <p>

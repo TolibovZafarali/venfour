@@ -33,7 +33,7 @@ class MemoryStorage implements TotalLossDraftStorage {
 describe("total-loss browser draft", () => {
   it("creates the expected versioned empty shape", () => {
     expect(createEmptyTotalLossDraft(NOW)).toEqual({
-      version: 5,
+      version: 6,
       mode: null,
       step: "choice",
       manual: {
@@ -50,6 +50,7 @@ describe("total-loss browser draft", () => {
         vehicleCondition: "",
         optionsPackages: "",
       },
+      vehicleConfiguration: null,
       contact: {
         firstName: "",
         lastName: "",
@@ -85,6 +86,11 @@ describe("total-loss browser draft", () => {
       manual: {
         ...createEmptyTotalLossDraft(NOW).manual,
         vin: "1HGCM82633A004352",
+      },
+      vehicleConfiguration: {
+        source: "marketcheck",
+        field: "version" as const,
+        values: ["Accord EX-L CVT FWD"],
       },
       confirmedCaseId: CASE_ID,
       reservedCaseId: CASE_ID,
@@ -135,7 +141,7 @@ describe("total-loss browser draft", () => {
     expect(readTotalLossDraft(storage)).toMatchObject({
       ok: true,
       draft: {
-        version: 5,
+        version: 6,
         step: "claim",
         manual: {
           vin: "1HGCM82633A004352",
@@ -160,8 +166,10 @@ describe("total-loss browser draft", () => {
     for (const legacyVersion of [2, 3, 4] as const) {
       const storage = new MemoryStorage();
       const current = createEmptyTotalLossDraft(NOW);
+      const legacyCurrent = { ...current } as Record<string, unknown>;
+      delete legacyCurrent.vehicleConfiguration;
       const legacy = {
-        ...current,
+        ...legacyCurrent,
         version: legacyVersion,
         step: "claim",
         contact: {
@@ -188,7 +196,7 @@ describe("total-loss browser draft", () => {
       expect(readTotalLossDraft(storage)).toMatchObject({
         ok: true,
         draft: {
-          version: 5,
+          version: 6,
           step: "claim",
           manual: current.manual,
           contact: {
@@ -206,7 +214,7 @@ describe("total-loss browser draft", () => {
     const storage = new MemoryStorage();
     storage.values.set(
       TOTAL_LOSS_DRAFT_STORAGE_KEY,
-      JSON.stringify({ ...createEmptyTotalLossDraft(NOW), version: 6 }),
+      JSON.stringify({ ...createEmptyTotalLossDraft(NOW), version: 7 }),
     );
 
     expect(readTotalLossDraft(storage)).toMatchObject({
