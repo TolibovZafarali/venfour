@@ -77,5 +77,11 @@ content_path = "./supabase/templates/confirmation.html"
 subject = "Continue your Venfour appraisal"
 content_path = "./supabase/templates/magic-link.html"
 
+[auth.external.google]
+enabled = true
+client_id = "env(SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID)"
+secret = "env(SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_SECRET)"
+skip_nonce_check = false
+
 [functions.cleanup-abandoned-anonymous-guests]
 verify_jwt = false

@@ -128,6 +128,16 @@ if (!nonempty(process.env.OPENAI_API_KEY)) {
 if (!nonempty(process.env.MARKETCHECK_API_KEY)) {
   fail("MARKETCHECK_API_KEY is missing from the ignored root .env file.");
 }
+if (!nonempty(process.env.SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID)) {
+  fail(
+    "SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID is missing from the ignored root .env file.",
+  );
+}
+if (!nonempty(process.env.SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_SECRET)) {
+  fail(
+    "SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_SECRET is missing from the ignored root .env file.",
+  );
+}
 if (nonempty(process.env.VENFOUR_STAGING_PROXY_SECRET)) {
   fail("VENFOUR_STAGING_PROXY_SECRET must not be present in local development.");
 }
@@ -181,6 +191,7 @@ for (const secretName of [
   "API_PROXY_SECRET",
   "MARKETCHECK_API_KEY",
   "OPENAI_API_KEY",
+  "SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_SECRET",
   "SUPABASE_PUBLISHABLE_KEY",
   "SUPABASE_SERVICE_ROLE_KEY",
   "SUPABASE_URL",
