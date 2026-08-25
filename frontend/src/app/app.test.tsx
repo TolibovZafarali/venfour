@@ -44,9 +44,9 @@ describe("Venfour application", () => {
         "Start a Total Loss Review | Venfour",
       ),
     );
-    expect(
-      screen.queryByText("Already have an account?"),
-    ).not.toBeInTheDocument();
+    const accountHint = screen.getByText("Already have an account?");
+    const signInButton = screen.getByRole("button", { name: "Sign In" });
+    expect(signInButton.previousElementSibling).toBe(accountHint);
     expect(
       screen.queryByRole("navigation", { name: "Primary navigation" }),
     ).not.toBeInTheDocument();

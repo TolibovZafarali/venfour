@@ -232,6 +232,9 @@ function AppShellContent() {
                 <AccountControl
                   className="shrink-0"
                   onStaffNavigationRequest={requestStaffNavigation}
+                  signedOutHint={
+                    startFlowRoute ? "Already have an account?" : undefined
+                  }
                   staffReviewHref={staffReviewHref}
                 />
               ) : resolvingHomeAudience ? (

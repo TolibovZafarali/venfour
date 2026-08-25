@@ -687,6 +687,14 @@ describe("/start?service=total-loss", () => {
     expect(
       screen.queryByRole("button", { name: "Open navigation" }),
     ).not.toBeInTheDocument();
+    const signInButton = await screen.findByRole("button", { name: "Sign In" });
+    expect(signInButton.previousElementSibling).toHaveTextContent(
+      "Already have an account?",
+    );
+    expect(signInButton.previousElementSibling).toHaveClass(
+      "text-xs",
+      "text-copy/80",
+    );
     expect(screen.queryByRole("dialog", { name: /Sign in/i })).not.toBeInTheDocument();
 
     await waitFor(() =>
