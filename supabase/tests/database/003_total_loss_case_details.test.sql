@@ -142,7 +142,9 @@ select is(
     'report_extraction_input_revision',
     'analysis_input_revision',
     'analysis_input_id',
-    'report_facts_confirmed_at'
+    'report_facts_confirmed_at',
+    'prior_title_status',
+    'existing_damage_description'
   ]::text[],
   'the details table contains the public intake fields and internal upload coordination fields'
 );
@@ -190,7 +192,9 @@ select is(
     'int8',
     'int8',
     'uuid',
-    'timestamptz'
+    'timestamptz',
+    'text',
+    'text'
   ]::text[],
   'all details and lease columns use the intended PostgreSQL types'
 );
@@ -353,6 +357,10 @@ select ok(
       'date_of_loss',
       'insurer_name',
       'insurer_vehicle_valuation',
+      'prior_title_status',
+      'vehicle_condition',
+      'existing_damage_description',
+      'vehicle_options_packages',
       'report_original_filename',
       'report_uploaded_at',
       'intake_completed_at',
@@ -409,7 +417,9 @@ select ok(
       'date_of_loss',
       'insurer_name',
       'insurer_vehicle_valuation',
+      'prior_title_status',
       'vehicle_condition',
+      'existing_damage_description',
       'vehicle_options_packages'
     ]) as insert_column(column_name)
   ),
@@ -483,7 +493,9 @@ select ok(
       'date_of_loss',
       'insurer_name',
       'insurer_vehicle_valuation',
+      'prior_title_status',
       'vehicle_condition',
+      'existing_damage_description',
       'vehicle_options_packages'
     ]) as update_column(column_name)
   ),

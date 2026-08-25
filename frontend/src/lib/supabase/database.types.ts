@@ -613,6 +613,7 @@ export type Database = {
           intake_mode: Database["public"]["Enums"]["total_loss_intake_mode"]
           mileage_at_loss: number | null
           postal_code: string | null
+          prior_title_status: string | null
           report_extracted_at: string | null
           report_extraction_confidence: number | null
           report_extraction_input_revision: number | null
@@ -631,6 +632,7 @@ export type Database = {
           report_upload_phase: string | null
           report_uploaded_at: string | null
           updated_at: string
+          existing_damage_description: string | null
           vehicle_condition: string | null
           vehicle_make: string | null
           vehicle_model: string | null
@@ -651,6 +653,7 @@ export type Database = {
           intake_mode: Database["public"]["Enums"]["total_loss_intake_mode"]
           mileage_at_loss?: number | null
           postal_code?: string | null
+          prior_title_status?: string | null
           report_extracted_at?: string | null
           report_extraction_confidence?: number | null
           report_extraction_input_revision?: number | null
@@ -669,6 +672,7 @@ export type Database = {
           report_upload_phase?: string | null
           report_uploaded_at?: string | null
           updated_at?: string
+          existing_damage_description?: string | null
           vehicle_condition?: string | null
           vehicle_make?: string | null
           vehicle_model?: string | null
@@ -689,6 +693,7 @@ export type Database = {
           intake_mode?: Database["public"]["Enums"]["total_loss_intake_mode"]
           mileage_at_loss?: number | null
           postal_code?: string | null
+          prior_title_status?: string | null
           report_extracted_at?: string | null
           report_extraction_confidence?: number | null
           report_extraction_input_revision?: number | null
@@ -707,6 +712,7 @@ export type Database = {
           report_upload_phase?: string | null
           report_uploaded_at?: string | null
           updated_at?: string
+          existing_damage_description?: string | null
           vehicle_condition?: string | null
           vehicle_make?: string | null
           vehicle_model?: string | null

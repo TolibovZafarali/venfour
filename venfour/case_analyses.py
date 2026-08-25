@@ -174,6 +174,8 @@ def _public_options_packages(value: Any) -> tuple[str | None, bool]:
     if not items:
         return None, False
     joined = ", ".join(items)
+    if joined == "Not provided":
+        return None, False
     if len(joined) > MAX_PUBLIC_OPTIONS_PACKAGES_CHARACTERS:
         return None, True
     return joined, False
@@ -733,8 +735,6 @@ class CaseAnalysisService:
         options_packages, options_packages_too_long = (
             _public_options_packages(raw_options_packages)
         )
-        if options_packages is None and "optionsPackages" not in missing:
-            missing.append("optionsPackages")
         warnings = list(ingestion.warnings)
         if options_packages_too_long:
             warnings.append(

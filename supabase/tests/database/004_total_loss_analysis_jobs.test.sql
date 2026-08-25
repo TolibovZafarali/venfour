@@ -751,7 +751,9 @@ set
   mileage_at_loss = 42000,
   date_of_loss = '2026-08-18',
   insurer_name = 'Example Insurance',
-  vehicle_condition = 'Good',
+  prior_title_status = 'No',
+  vehicle_condition = 'No significant damage or mechanical issues',
+  existing_damage_description = null,
   vehicle_options_packages = 'No additional options reported'
 where case_id = '40000000-0000-4000-8000-000000000010';
 

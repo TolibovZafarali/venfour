@@ -172,7 +172,11 @@ export function normalizeTotalLossManualForm(
       valuationCents === null
         ? values.insurerVehicleValuation.trim()
         : currencyCentsToDecimal(valuationCents),
+    priorTitleStatus: normalizeWhitespace(values.priorTitleStatus),
     vehicleCondition: normalizeWhitespace(values.vehicleCondition),
+    existingDamageDescription: normalizeWhitespace(
+      values.existingDamageDescription,
+    ),
     optionsPackages: normalizeWhitespace(values.optionsPackages),
   };
 }
@@ -211,7 +215,7 @@ export function validateVehicleYear(
 export function validateMileage(value: string): string | null {
   const normalized = normalizeMileageInput(value);
   if (!normalized) {
-    return "Mileage at date of loss is required.";
+    return "Mileage at time of loss is required.";
   }
 
   if (!INTEGER_PATTERN.test(normalized)) {
@@ -314,13 +318,33 @@ export function validateTotalLossManualForm(
     validateInsurerVehicleValuation(values.insurerVehicleValuation),
   );
   assignError(
-    "vehicleCondition",
-    requiredTextError(values.vehicleCondition, "Vehicle condition"),
+    "priorTitleStatus",
+    ["No", "Yes", "Not sure"].includes(values.priorTitleStatus)
+      ? null
+      : "Choose whether the vehicle had a prior branded, rebuilt, or salvage title.",
   );
   assignError(
-    "optionsPackages",
-    requiredTextError(values.optionsPackages, "Options and packages response"),
+    "vehicleCondition",
+    [
+      "No significant damage or mechanical issues",
+      "Some existing cosmetic damage",
+      "Significant damage or mechanical issues",
+    ].includes(values.vehicleCondition)
+      ? null
+      : "Choose the vehicle’s pre-loss condition.",
   );
+  if (
+    values.vehicleCondition === "Some existing cosmetic damage" ||
+    values.vehicleCondition === "Significant damage or mechanical issues"
+  ) {
+    assignError(
+      "existingDamageDescription",
+      requiredTextError(
+        values.existingDamageDescription,
+        "Damage or issue description",
+      ),
+    );
+  }
 
   return errors;
 }

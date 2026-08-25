@@ -1212,9 +1212,7 @@ function TotalLossIntakeFlowContent({
         dirty: true,
       }));
       setFlowError(
-        decoded.trim
-          ? "Confirm the decoded year, make, model, and trim before continuing."
-          : "Choose or enter the exact trim before continuing.",
+        "Review the confirmed vehicle and choose the exact trim before continuing.",
       );
       return;
     }
@@ -2167,7 +2165,6 @@ function vehicleErrors(errors: TotalLossManualFormErrors) {
     "make",
     "model",
     "trim",
-    "mileageAtLoss",
   ];
   return Object.fromEntries(
     vehicleFields.flatMap((field) =>
@@ -2187,7 +2184,9 @@ const fieldIds: Record<keyof TotalLossManualFormValues, string> = {
   dateOfLoss: "total-loss-date",
   insurerName: "total-loss-insurer",
   insurerVehicleValuation: "total-loss-valuation",
+  priorTitleStatus: "total-loss-prior-title",
   vehicleCondition: "total-loss-condition",
+  existingDamageDescription: "total-loss-existing-damage",
   optionsPackages: "total-loss-options",
 };
 

@@ -33,7 +33,9 @@ export interface TotalLossManualFormValues {
   readonly dateOfLoss: string;
   readonly insurerName: string;
   readonly insurerVehicleValuation: string;
+  readonly priorTitleStatus: string;
   readonly vehicleCondition: string;
+  readonly existingDamageDescription: string;
   readonly optionsPackages: string;
 }
 
@@ -52,7 +54,9 @@ export const TOTAL_LOSS_MANUAL_FORM_DEFAULTS = {
   dateOfLoss: "",
   insurerName: "",
   insurerVehicleValuation: "",
+  priorTitleStatus: "",
   vehicleCondition: "",
+  existingDamageDescription: "",
   optionsPackages: "",
 } as const satisfies TotalLossManualFormValues;
 
@@ -91,7 +95,7 @@ export type TotalLossReportExtractionStatus =
   | "partial"
   | "error";
 
-export const TOTAL_LOSS_DRAFT_VERSION = 2 as const;
+export const TOTAL_LOSS_DRAFT_VERSION = 3 as const;
 
 export interface TotalLossDraft {
   readonly version: typeof TOTAL_LOSS_DRAFT_VERSION;

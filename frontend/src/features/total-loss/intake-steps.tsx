@@ -17,6 +17,7 @@ import {
   FlowCard,
   IntakeProgress,
   IntakeDatePicker,
+  IntakeRadioChoiceGroup,
   IntakeSelectField,
   IntakeTextField,
   InlineError,
@@ -283,19 +284,6 @@ export function VehicleStep({
         trimRequired
         fieldsDisabled={fieldsDisabled}
         methodDisabled={fieldsDisabled || busy}
-        mileageFields={[
-          {
-            id: "total-loss-mileage",
-            label: "Mileage at date of loss",
-            value: formatMileageInput(values.mileageAtLoss),
-            error: errors.mileageAtLoss,
-            placeholder: "48,250",
-            disabled: fieldsDisabled,
-            onChange: (value) =>
-              onChange("mileageAtLoss", formatMileageInput(value)),
-            onBlur: () => onBlur("mileageAtLoss"),
-          },
-        ]}
         onEntryMethodChange={onEntryMethodChange}
         onChange={(field, value) => onChange(field, value)}
         onBlur={(field) => onBlur(field)}
@@ -339,6 +327,11 @@ export function ClaimStep({
   fieldsDisabled,
   error,
 }: ClaimStepProps) {
+  const hasReportedDamage =
+    values.vehicleCondition === "Some existing cosmetic damage" ||
+    values.vehicleCondition ===
+      "Significant damage or mechanical issues";
+
   return (
     <FlowCard busy={busy}>
       <TotalLossProgress mode={mode} step="claim" />
@@ -355,30 +348,145 @@ export function ClaimStep({
           {values.trim ? ` ${values.trim}` : ""}
         </p>
       ) : null}
-      <div className="mt-5 grid gap-5 sm:grid-cols-2">
-        <IntakeTextField
-          id="total-loss-zip"
-          label="ZIP code"
-          value={values.zipCode}
-          error={errors.zipCode}
-          inputMode="numeric"
-          autoComplete="postal-code"
-          maxLength={10}
-          placeholder="60611"
-          disabled={fieldsDisabled}
-          onChange={(event) => onChange("zipCode", event.target.value)}
-          onBlur={() => onBlur("zipCode")}
-        />
-        <IntakeDatePicker
-          id="total-loss-date"
-          label="Date of loss"
-          value={values.dateOfLoss}
-          error={errors.dateOfLoss}
-          disabled={fieldsDisabled}
-          onChange={(value) => onChange("dateOfLoss", value)}
-          onBlur={() => onBlur("dateOfLoss")}
-        />
-        <div className="sm:col-span-2">
+      <section className="mt-6" aria-labelledby="vehicle-loss-details-heading">
+        <h3
+          id="vehicle-loss-details-heading"
+          className="text-base font-semibold text-ink"
+        >
+          Vehicle and loss information
+        </h3>
+        <p className="mt-1 text-sm leading-6 text-copy">
+          Add the facts that most directly affect the vehicle appraisal.
+        </p>
+        <div className="mt-5 grid gap-5 sm:grid-cols-2">
+          <IntakeTextField
+            id="total-loss-mileage"
+            label="Mileage at time of loss"
+            value={formatMileageInput(values.mileageAtLoss)}
+            error={errors.mileageAtLoss}
+            inputMode="numeric"
+            autoComplete="off"
+            placeholder="48,250"
+            disabled={fieldsDisabled}
+            onChange={(event) =>
+              onChange("mileageAtLoss", formatMileageInput(event.target.value))
+            }
+            onBlur={() => onBlur("mileageAtLoss")}
+          />
+          <div className="sm:col-span-2">
+            <IntakeRadioChoiceGroup
+              id="total-loss-prior-title"
+              legend="Prior branded/rebuilt/salvage title?"
+              value={values.priorTitleStatus}
+              error={errors.priorTitleStatus}
+              options={[
+                { value: "No", label: "No" },
+                { value: "Yes", label: "Yes" },
+                { value: "Not sure", label: "Not sure" },
+              ]}
+              columns={3}
+              disabled={fieldsDisabled}
+              onChange={(value) => onChange("priorTitleStatus", value)}
+              onBlur={() => onBlur("priorTitleStatus")}
+            />
+          </div>
+          <IntakeTextField
+            id="total-loss-zip"
+            label="ZIP code"
+            value={values.zipCode}
+            error={errors.zipCode}
+            inputMode="numeric"
+            autoComplete="postal-code"
+            maxLength={10}
+            placeholder="60611"
+            disabled={fieldsDisabled}
+            onChange={(event) => onChange("zipCode", event.target.value)}
+            onBlur={() => onBlur("zipCode")}
+          />
+          <IntakeDatePicker
+            id="total-loss-date"
+            label="Date of loss"
+            value={values.dateOfLoss}
+            error={errors.dateOfLoss}
+            disabled={fieldsDisabled}
+            onChange={(value) => onChange("dateOfLoss", value)}
+            onBlur={() => onBlur("dateOfLoss")}
+          />
+          <div className="sm:col-span-2">
+            <IntakeSelectField
+              id="total-loss-condition"
+              label="Pre-loss condition"
+              value={values.vehicleCondition}
+              error={errors.vehicleCondition}
+              placeholder="Choose the closest description"
+              options={[
+                "No significant damage or mechanical issues",
+                "Some existing cosmetic damage",
+                "Significant damage or mechanical issues",
+              ]}
+              disabled={fieldsDisabled}
+              onChange={(event) => {
+                const condition = event.target.value;
+                onChange("vehicleCondition", condition);
+                if (
+                  condition !== "Some existing cosmetic damage" &&
+                  condition !== "Significant damage or mechanical issues"
+                ) {
+                  onChange("existingDamageDescription", "");
+                }
+              }}
+              onBlur={() => onBlur("vehicleCondition")}
+            />
+          </div>
+          {hasReportedDamage ? (
+            <div className="vehicle-method-panel sm:col-span-2">
+              <IntakeTextField
+                id="total-loss-existing-damage"
+                label="Briefly describe the existing damage or mechanical issues"
+                value={values.existingDamageDescription}
+                error={errors.existingDamageDescription}
+                maxLength={2000}
+                placeholder="For example: dented rear door or transmission slipping"
+                disabled={fieldsDisabled}
+                onChange={(event) =>
+                  onChange("existingDamageDescription", event.target.value)
+                }
+                onBlur={() => onBlur("existingDamageDescription")}
+              />
+            </div>
+          ) : null}
+          <div className="sm:col-span-2">
+            <IntakeTextField
+              id="total-loss-options"
+              label="Major options or packages"
+              value={values.optionsPackages}
+              error={errors.optionsPackages}
+              help="List only major value-relevant equipment, if any."
+              optional
+              placeholder="AWD, premium package, panoramic roof"
+              disabled={fieldsDisabled}
+              onChange={(event) =>
+                onChange("optionsPackages", event.target.value)
+              }
+              onBlur={() => onBlur("optionsPackages")}
+            />
+          </div>
+        </div>
+      </section>
+      <section
+        className="mt-8 rounded-xl border border-line bg-surface/55 p-4 sm:p-5"
+        aria-labelledby="insurance-information-heading"
+      >
+        <h3
+          id="insurance-information-heading"
+          className="text-base font-semibold text-ink"
+        >
+          Insurance information
+        </h3>
+        <p className="mt-1 text-sm leading-6 text-copy">
+          Add the insurer details separately from the vehicle appraisal facts.
+        </p>
+        <div className="mt-5 grid gap-5 sm:grid-cols-2">
           <IntakeTextField
             id="total-loss-insurer"
             label="Insurance company"
@@ -390,14 +498,12 @@ export function ClaimStep({
             onChange={(event) => onChange("insurerName", event.target.value)}
             onBlur={() => onBlur("insurerName")}
           />
-        </div>
-        <div className="sm:col-span-2">
           <IntakeTextField
             id="total-loss-valuation"
             label="Insurer’s vehicle valuation"
             value={formatCurrencyInput(values.insurerVehicleValuation)}
             error={errors.insurerVehicleValuation}
-            help="The value the insurer assigned to your vehicle before deductible, loan payoff, or other settlement adjustments. Leave this blank if you have not received one."
+            help="The value assigned to the vehicle before deductible, loan payoff, or other settlement adjustments."
             optional
             inputMode="decimal"
             autoComplete="off"
@@ -412,44 +518,7 @@ export function ClaimStep({
             onBlur={() => onBlur("insurerVehicleValuation")}
           />
         </div>
-        <div>
-          <IntakeSelectField
-            id="total-loss-condition"
-            label="Pre-loss condition"
-            value={values.vehicleCondition}
-            error={errors.vehicleCondition}
-            placeholder="Choose the closest description"
-            options={[
-              "Excellent",
-              "Good",
-              "Average",
-              "Fair",
-              "Poor",
-              "Not sure",
-            ]}
-            disabled={fieldsDisabled}
-            onChange={(event) =>
-              onChange("vehicleCondition", event.target.value)
-            }
-            onBlur={() => onBlur("vehicleCondition")}
-          />
-        </div>
-        <div>
-          <IntakeTextField
-            id="total-loss-options"
-            label="Important options or packages"
-            value={values.optionsPackages}
-            error={errors.optionsPackages}
-            help="List value-relevant equipment, or enter “None” if there is nothing notable."
-            placeholder="Premium package, AWD, panoramic roof—or None"
-            disabled={fieldsDisabled}
-            onChange={(event) =>
-              onChange("optionsPackages", event.target.value)
-            }
-            onBlur={() => onBlur("optionsPackages")}
-          />
-        </div>
-      </div>
+      </section>
       {error ? <InlineError message={error} /> : null}
       <StepActions
         onBack={onBack}
@@ -841,9 +910,11 @@ export function ReviewStep({
       <div className="mt-7 grid gap-4 lg:grid-cols-2">
         <ReviewPanel title="Vehicle" onEdit={onEditVehicle}>
           <p className="font-semibold text-ink">{vehicle}</p>
-          <p>{values.mileageAtLoss} miles · {values.vehicleCondition} condition</p>
+          <p>{values.mileageAtLoss} miles · {values.vehicleCondition}</p>
           {values.vin ? <p>VIN {values.vin}</p> : null}
-          <p>Options/packages: {values.optionsPackages}</p>
+          {values.optionsPackages ? (
+            <p>Major options/packages: {values.optionsPackages}</p>
+          ) : null}
         </ReviewPanel>
         <ReviewPanel title="Claim" onEdit={onEditClaim}>
           <p className="font-semibold text-ink">{values.insurerName}</p>

@@ -33,7 +33,7 @@ class MemoryStorage implements TotalLossDraftStorage {
 describe("total-loss browser draft", () => {
   it("creates the expected versioned empty shape", () => {
     expect(createEmptyTotalLossDraft(NOW)).toEqual({
-      version: 2,
+      version: 3,
       mode: null,
       step: "choice",
       manual: {
@@ -47,7 +47,9 @@ describe("total-loss browser draft", () => {
         dateOfLoss: "",
         insurerName: "",
         insurerVehicleValuation: "",
+        priorTitleStatus: "",
         vehicleCondition: "",
+        existingDamageDescription: "",
         optionsPackages: "",
       },
       contact: {
@@ -133,11 +135,13 @@ describe("total-loss browser draft", () => {
     expect(readTotalLossDraft(storage)).toMatchObject({
       ok: true,
       draft: {
-        version: 2,
+        version: 3,
         step: "claim",
         manual: {
           vin: "1HGCM82633A004352",
+          priorTitleStatus: "",
           vehicleCondition: "",
+          existingDamageDescription: "",
           optionsPackages: "",
         },
         contact: {
@@ -152,11 +156,50 @@ describe("total-loss browser draft", () => {
     });
   });
 
+  it("migrates a version-two draft with empty values for the new claim facts", () => {
+    const storage = new MemoryStorage();
+    const current = createEmptyTotalLossDraft(NOW);
+    const legacy = {
+      ...current,
+      version: 2,
+      manual: {
+        vin: "",
+        vehicleYear: "2020",
+        make: "Honda",
+        model: "Accord",
+        trim: "EX-L",
+        mileageAtLoss: "48250",
+        zipCode: "60611",
+        dateOfLoss: "2026-08-18",
+        insurerName: "Example Insurance",
+        insurerVehicleValuation: "18750",
+        vehicleCondition: "Good",
+        optionsPackages: "Technology package",
+      },
+    };
+    storage.values.set(
+      TOTAL_LOSS_DRAFT_STORAGE_KEY,
+      JSON.stringify(legacy),
+    );
+
+    expect(readTotalLossDraft(storage)).toMatchObject({
+      ok: true,
+      draft: {
+        version: 3,
+        manual: {
+          vehicleYear: "2020",
+          priorTitleStatus: "",
+          existingDamageDescription: "",
+        },
+      },
+    });
+  });
+
   it("removes corrupt and unsupported-version values", () => {
     const storage = new MemoryStorage();
     storage.values.set(
       TOTAL_LOSS_DRAFT_STORAGE_KEY,
-      JSON.stringify({ ...createEmptyTotalLossDraft(NOW), version: 3 }),
+      JSON.stringify({ ...createEmptyTotalLossDraft(NOW), version: 4 }),
     );
 
     expect(readTotalLossDraft(storage)).toMatchObject({

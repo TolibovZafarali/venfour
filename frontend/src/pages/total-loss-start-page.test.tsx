@@ -107,7 +107,9 @@ function createSensitiveManualDraft(
       dateOfLoss: "2020-01-02",
       insurerName: "Private Insurer",
       insurerVehicleValuation: "18750.00",
-      vehicleCondition: "Good",
+      priorTitleStatus: "No",
+      vehicleCondition: "No significant damage or mechanical issues",
+      existingDamageDescription: "",
       optionsPackages: "None known",
     },
     ownerUserId: USER_ID,
@@ -1009,10 +1011,6 @@ describe("/start?service=total-loss", () => {
     });
     expect(vehicleHeading.closest("section")).not.toHaveClass("sm:h-[40rem]");
     await user.type(screen.getByLabelText("VIN"), "1hgcm82633a004352");
-    await user.type(screen.getByLabelText("Mileage at date of loss"), "50000");
-    expect(screen.getByLabelText("Mileage at date of loss")).toHaveValue(
-      "50,000",
-    );
     await user.click(screen.getByRole("button", { name: "Find vehicle" }));
 
     const confirmedVehicle = await screen.findByRole("region", {
@@ -1041,6 +1039,10 @@ describe("/start?service=total-loss", () => {
     expect(
       await screen.findByRole("heading", { name: "Add the claim details" }),
     ).toBeVisible();
+    await user.type(screen.getByLabelText("Mileage at time of loss"), "50000");
+    expect(screen.getByLabelText("Mileage at time of loss")).toHaveValue(
+      "50,000",
+    );
     expect(screen.getByText("Vehicle: 2003 Honda Accord EX-V6")).toBeVisible();
     expect(harness.decodeVin).toHaveBeenCalledWith("1HGCM82633A004352");
     const progress = screen.getByRole("list", { name: "Appraisal steps" });
@@ -1058,7 +1060,7 @@ describe("/start?service=total-loss", () => {
           make: "Honda",
           model: "Accord",
           trim: "EX-V6",
-          mileageAtLoss: "50000",
+          mileageAtLoss: "50,000",
         },
       },
     });
@@ -1114,7 +1116,6 @@ describe("/start?service=total-loss", () => {
     await user.selectOptions(screen.getByLabelText("Model"), "Camry");
     await waitFor(() => expect(screen.getByLabelText("Trim")).toBeEnabled());
     await user.selectOptions(screen.getByLabelText("Trim"), "XLE");
-    await user.type(screen.getByLabelText("Mileage at date of loss"), "42000");
     await user.click(
       withinIntakeFlow().getByRole("button", {
         name: "Confirm vehicle & continue",
@@ -1124,6 +1125,7 @@ describe("/start?service=total-loss", () => {
     expect(
       await screen.findByRole("heading", { name: "Add the claim details" }),
     ).toBeVisible();
+    await user.type(screen.getByLabelText("Mileage at time of loss"), "42000");
     expect(harness.decodeVin).not.toHaveBeenCalled();
     expect(harness.listModels).toHaveBeenLastCalledWith({
       year: 2020,
@@ -1143,7 +1145,7 @@ describe("/start?service=total-loss", () => {
           make: "Toyota",
           model: "Camry",
           trim: "XLE",
-          mileageAtLoss: "42000",
+          mileageAtLoss: "42,000",
         },
       },
     });
@@ -1166,7 +1168,6 @@ describe("/start?service=total-loss", () => {
     });
     await chooseMode(user, "I don’t have the report");
     await user.type(screen.getByLabelText("VIN"), "1hgcm82633a004352");
-    await user.type(screen.getByLabelText("Mileage at date of loss"), "50000");
     await user.click(screen.getByRole("button", { name: "Find vehicle" }));
 
     expect(
@@ -1350,6 +1351,13 @@ describe("/start?service=total-loss", () => {
     expect(
       await screen.findByRole("heading", { name: "Add the claim details" }),
     ).toBeVisible();
+    await user.click(screen.getByRole("radio", {
+      name: "No",
+    }));
+    await user.selectOptions(
+      screen.getByLabelText("Pre-loss condition"),
+      "No significant damage or mechanical issues",
+    );
     await user.clear(screen.getByLabelText("ZIP code"));
     await user.type(screen.getByLabelText("ZIP code"), "606011234");
     fireEvent.blur(screen.getByLabelText("ZIP code"));
@@ -1767,9 +1775,6 @@ describe("/start?service=total-loss", () => {
       }),
     ).toBeVisible();
     expect(screen.getByLabelText("VIN")).toHaveValue("1HGCM82633A004352");
-    expect(screen.getByLabelText("Mileage at date of loss")).toHaveValue(
-      "48,250",
-    );
     expect(readTotalLossDraft()).toMatchObject({
       ok: true,
       draft: {
@@ -1782,6 +1787,7 @@ describe("/start?service=total-loss", () => {
           make: "Sensitive Make",
           model: "Sensitive Model",
           trim: "Private Trim",
+          mileageAtLoss: "48250",
         },
       },
     });
@@ -2101,7 +2107,9 @@ describe("/start?service=total-loss", () => {
         dateOfLoss: "",
         insurerName: "",
         insurerVehicleValuation: "",
+        priorTitleStatus: "",
         vehicleCondition: "",
+        existingDamageDescription: "",
         optionsPackages: "",
       },
       dirty: true,
@@ -2173,7 +2181,10 @@ describe("/start?service=total-loss", () => {
       totalLossDependencies: harness.dependencies,
     });
     expect(await screen.findByLabelText("Year")).toHaveValue("20");
-    expect(screen.getByLabelText("Mileage at date of loss")).toHaveValue("12");
+    expect(readTotalLossDraft()).toMatchObject({
+      ok: true,
+      draft: { manual: { mileageAtLoss: "12," } },
+    });
   });
 
   it("preserves report-extracted fields locally until the customer can correct them", async () => {
@@ -2591,7 +2602,8 @@ describe("/start?service=total-loss", () => {
     await user.selectOptions(screen.getByLabelText("Make"), "Honda");
     await waitFor(() => expect(screen.getByLabelText("Model")).toBeEnabled());
     await user.selectOptions(screen.getByLabelText("Model"), "Accord");
-    await user.type(screen.getByLabelText("Mileage at date of loss"), "48250");
+    await waitFor(() => expect(screen.getByLabelText("Trim")).toBeEnabled());
+    await user.selectOptions(screen.getByLabelText("Trim"), "EX-L");
     await new Promise<void>((resolve) => {
       window.setTimeout(resolve, 700);
     });
@@ -2616,7 +2628,7 @@ describe("/start?service=total-loss", () => {
         vehicleYear: 2020,
         vehicleMake: "Honda",
         vehicleModel: "Accord",
-        mileageAtLoss: 48250,
+        vehicleTrim: "EX-L",
       },
     });
   });

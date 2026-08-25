@@ -12,7 +12,9 @@ export interface TotalLossCaseDetailsValues {
   readonly dateOfLoss: string | null;
   readonly insurerName: string | null;
   readonly insurerVehicleValuation: number | null;
+  readonly priorTitleStatus?: string | null;
   readonly vehicleCondition?: string | null;
+  readonly existingDamageDescription?: string | null;
   readonly optionsPackages?: string | null;
   readonly reportProvider?: string | null;
   readonly reportExtractionStatus?:

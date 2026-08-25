@@ -3,7 +3,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
 
-select plan(76);
+select plan(78);
 
 select ok(
   to_regclass('public.total_loss_case_contacts') is not null
@@ -279,7 +279,9 @@ select lives_ok(
       date_of_loss,
       insurer_name,
       insurer_vehicle_valuation,
+      prior_title_status,
       vehicle_condition,
+      existing_damage_description,
       vehicle_options_packages,
       report_storage_owner_id
     )
@@ -296,7 +298,9 @@ select lives_ok(
       '2026-08-20',
       'Example Mutual',
       null,
-      'Good overall condition with ordinary wear',
+      'No',
+      'No significant damage or mechanical issues',
+      null,
       'No additional material options or packages',
       '91111111-1111-4111-8111-111111111111'
     from guest_first_state
@@ -389,6 +393,53 @@ select is(
 );
 
 set local request.jwt.claim.sub = '91111111-1111-4111-8111-111111111111';
+
+update public.total_loss_case_details
+set prior_title_status = null
+where case_id = (select case_id from guest_first_state);
+
+select throws_ok(
+  $$
+    select public.confirm_total_loss_intake(
+      (select case_id from guest_first_state),
+      (
+        select updated_at
+        from public.total_loss_case_details
+        where case_id = (select case_id from guest_first_state)
+      )
+    )
+  $$,
+  '22023',
+  'Complete the required vehicle history and pre-loss condition facts before confirmation.',
+  'confirmation requires an explicit prior-title answer'
+);
+
+update public.total_loss_case_details
+set
+  prior_title_status = 'No',
+  vehicle_condition = 'Some existing cosmetic damage',
+  existing_damage_description = null
+where case_id = (select case_id from guest_first_state);
+
+select throws_ok(
+  $$
+    select public.confirm_total_loss_intake(
+      (select case_id from guest_first_state),
+      (
+        select updated_at
+        from public.total_loss_case_details
+        where case_id = (select case_id from guest_first_state)
+      )
+    )
+  $$,
+  '22023',
+  'Complete the required vehicle history and pre-loss condition facts before confirmation.',
+  'confirmation requires a description when the selected condition reports damage'
+);
+
+update public.total_loss_case_details
+set existing_damage_description = 'Scuffed rear bumper'
+where case_id = (select case_id from guest_first_state);
 
 select throws_ok(
   $$
@@ -744,7 +795,9 @@ insert into public.total_loss_case_details (
   postal_code,
   date_of_loss,
   insurer_name,
+  prior_title_status,
   vehicle_condition,
+  existing_damage_description,
   vehicle_options_packages
 )
 values (
@@ -758,7 +811,9 @@ values (
   '60602',
   '2026-08-19',
   'Guest Insurer',
-  'Average condition',
+  'No',
+  'No significant damage or mechanical issues',
+  null,
   'No material options'
 );
 
@@ -905,7 +960,9 @@ insert into public.total_loss_case_details (
   postal_code,
   date_of_loss,
   insurer_name,
+  prior_title_status,
   vehicle_condition,
+  existing_damage_description,
   vehicle_options_packages,
   report_original_filename,
   report_uploaded_at,
@@ -922,7 +979,9 @@ values (
   '60604',
   '2026-08-17',
   'Fallback Insurer',
-  'Good condition with documented wear',
+  'No',
+  'No significant damage or mechanical issues',
+  null,
   'No material options or packages',
   'unparsed-report.pdf',
   statement_timestamp(),
@@ -1197,7 +1256,9 @@ insert into public.total_loss_case_details (
   postal_code,
   date_of_loss,
   insurer_name,
+  prior_title_status,
   vehicle_condition,
+  existing_damage_description,
   vehicle_options_packages,
   report_original_filename,
   report_uploaded_at,
@@ -1214,7 +1275,9 @@ values (
   '60603',
   '2026-08-18',
   'Report Insurer',
-  'Good condition',
+  'No',
+  'No significant damage or mechanical issues',
+  null,
   'Technology package',
   'valuation.pdf',
   statement_timestamp(),

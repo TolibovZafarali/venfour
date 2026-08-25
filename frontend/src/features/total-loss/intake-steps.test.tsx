@@ -1,8 +1,10 @@
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
 import {
   ChoiceStep,
+  ClaimStep,
   ReportStep,
   ReviewStep,
 } from "@/features/total-loss/intake-steps";
@@ -22,7 +24,9 @@ const manualValues: TotalLossManualFormValues = {
   dateOfLoss: "2026-08-18",
   insurerName: "Example Insurance",
   insurerVehicleValuation: "",
-  vehicleCondition: "Good",
+  priorTitleStatus: "No",
+  vehicleCondition: "No significant damage or mechanical issues",
+  existingDamageDescription: "",
   optionsPackages: "Technology package",
 };
 
@@ -123,6 +127,73 @@ describe("total-loss intake step presentation", () => {
     );
 
     expect(screen.getByLabelText("Review, step 6, current")).toBeVisible();
+  });
+
+  it("prioritizes appraisal facts and reveals a damage description when needed", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    const commonProps = {
+      mode: "manual" as const,
+      errors: {},
+      onChange,
+      onBlur: vi.fn(),
+      onBack: vi.fn(),
+      onContinue: vi.fn(),
+    };
+    const { rerender } = render(
+      <ClaimStep {...commonProps} values={manualValues} />,
+    );
+
+    expect(screen.getByLabelText("Mileage at time of loss")).toBeVisible();
+    expect(
+      screen.getByRole("group", {
+        name: "Prior branded/rebuilt/salvage title?",
+      }),
+    ).toBeVisible();
+    expect(screen.getAllByRole("radio", { name: /^(No|Yes|Not sure)$/ })).toHaveLength(3);
+    expect(screen.getByLabelText("Pre-loss condition")).toHaveTextContent(
+      "No significant damage or mechanical issues",
+    );
+    expect(screen.getByLabelText("Pre-loss condition")).toHaveTextContent(
+      "Some existing cosmetic damage",
+    );
+    expect(screen.getByLabelText("Pre-loss condition")).toHaveTextContent(
+      "Significant damage or mechanical issues",
+    );
+    expect(
+      screen.getByLabelText("Major options or packages").parentElement,
+    ).toHaveTextContent("Optional");
+    expect(screen.queryByText("Important options or packages")).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Insurance information" })).toBeVisible();
+    expect(
+      screen.queryByLabelText(
+        "Briefly describe the existing damage or mechanical issues",
+      ),
+    ).not.toBeInTheDocument();
+
+    await user.selectOptions(
+      screen.getByLabelText("Pre-loss condition"),
+      "Some existing cosmetic damage",
+    );
+    expect(onChange).toHaveBeenCalledWith(
+      "vehicleCondition",
+      "Some existing cosmetic damage",
+    );
+
+    rerender(
+      <ClaimStep
+        {...commonProps}
+        values={{
+          ...manualValues,
+          vehicleCondition: "Some existing cosmetic damage",
+        }}
+      />,
+    );
+    expect(
+      screen.getByLabelText(
+        "Briefly describe the existing damage or mechanical issues",
+      ),
+    ).toBeVisible();
   });
 
   it("describes the shared report upload limit as a total", () => {

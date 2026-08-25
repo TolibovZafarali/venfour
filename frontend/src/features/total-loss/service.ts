@@ -25,7 +25,7 @@ import type {
 } from "@/lib/supabase/database.types";
 
 const TOTAL_LOSS_DETAILS_COLUMNS =
-  "case_id,intake_mode,vin,vehicle_year,vehicle_make,vehicle_model,vehicle_trim,mileage_at_loss,postal_code,date_of_loss,insurer_name,insurer_vehicle_valuation,vehicle_condition,vehicle_options_packages,report_provider_name,report_extraction_status,report_extraction_confidence,report_extracted_at,report_facts_confirmed_at,analysis_input_revision,analysis_input_id,report_storage_owner_id,report_original_filename,report_uploaded_at,intake_completed_at,created_at,updated_at" as const;
+  "case_id,intake_mode,vin,vehicle_year,vehicle_make,vehicle_model,vehicle_trim,mileage_at_loss,postal_code,date_of_loss,insurer_name,insurer_vehicle_valuation,prior_title_status,vehicle_condition,existing_damage_description,vehicle_options_packages,report_provider_name,report_extraction_status,report_extraction_confidence,report_extracted_at,report_facts_confirmed_at,analysis_input_revision,analysis_input_id,report_storage_owner_id,report_original_filename,report_uploaded_at,intake_completed_at,created_at,updated_at" as const;
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -50,7 +50,9 @@ type TotalLossLegacyDetailsTableRow = Pick<
   | "updated_at"
 >;
 interface TotalLossAdditionalDetailsRow {
+  readonly prior_title_status?: string | null;
   readonly vehicle_condition?: string | null;
+  readonly existing_damage_description?: string | null;
   readonly vehicle_options_packages?: string | null;
   readonly report_provider_name?: string | null;
   readonly report_extraction_status?: string | null;
@@ -193,7 +195,11 @@ function mapTotalLossDetails(row: TotalLossDetailsRow): TotalLossCaseDetails {
     dateOfLoss: row.date_of_loss,
     insurerName: row.insurer_name,
     insurerVehicleValuation: row.insurer_vehicle_valuation,
+    priorTitleStatus: optionalNullableString(row.prior_title_status),
     vehicleCondition: optionalNullableString(row.vehicle_condition),
+    existingDamageDescription: optionalNullableString(
+      row.existing_damage_description,
+    ),
     optionsPackages: optionalNullableString(row.vehicle_options_packages),
     reportProvider: optionalNullableString(row.report_provider_name),
     reportExtractionStatus: optionalExtractionStatus(
@@ -308,8 +314,15 @@ function assignWritableValues(
     target.insurer_vehicle_valuation = values.insurerVehicleValuation;
   }
   const providerNeutralTarget = target as Record<string, unknown>;
+  if (values.priorTitleStatus !== undefined) {
+    providerNeutralTarget.prior_title_status = values.priorTitleStatus;
+  }
   if (values.vehicleCondition !== undefined) {
     providerNeutralTarget.vehicle_condition = values.vehicleCondition;
+  }
+  if (values.existingDamageDescription !== undefined) {
+    providerNeutralTarget.existing_damage_description =
+      values.existingDamageDescription;
   }
   if (values.optionsPackages !== undefined) {
     providerNeutralTarget.vehicle_options_packages = values.optionsPackages;
@@ -333,7 +346,10 @@ function matchesWritableValues(
     details.insurerName === (values.insurerName ?? null) &&
     details.insurerVehicleValuation ===
       (values.insurerVehicleValuation ?? null) &&
+    details.priorTitleStatus === (values.priorTitleStatus ?? null) &&
     details.vehicleCondition === (values.vehicleCondition ?? null) &&
+    details.existingDamageDescription ===
+      (values.existingDamageDescription ?? null) &&
     details.optionsPackages === (values.optionsPackages ?? null)
   );
 }
