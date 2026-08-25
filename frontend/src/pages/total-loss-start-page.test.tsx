@@ -1310,7 +1310,9 @@ describe("/start?service=total-loss", () => {
     expect(
       await screen.findByRole("heading", { name: "Contact details" }),
     ).toBeVisible();
-    expect(screen.queryByLabelText("Market ZIP code")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("textbox", { name: "Market ZIP code" }),
+    ).not.toBeInTheDocument();
     expect(harness.uploadReport).toHaveBeenCalledWith({
       caseId: CASE_ID,
       file: report,
@@ -1557,6 +1559,7 @@ describe("/start?service=total-loss", () => {
     );
     expect(
       await screen.findByRole("heading", {
+        level: 1,
         name: "We’re reviewing and analyzing your claim.",
       }),
     ).toBeVisible();

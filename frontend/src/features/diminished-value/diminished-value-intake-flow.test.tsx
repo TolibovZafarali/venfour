@@ -215,7 +215,15 @@ describe("DiminishedValueIntakeFlow", () => {
         name: "Describe the accident and repairs",
       }),
     ).toBeInTheDocument();
-    expect(screen.getByText(/Repairs are in progress/)).toBeInTheDocument();
+    const currentStep = document.querySelector<HTMLElement>(
+      "[data-intake-transition-layer='incoming']",
+    );
+    if (!currentStep) {
+      throw new Error("The current intake step was not rendered.");
+    }
+    expect(
+      within(currentStep).getByText(/Repairs are in progress/),
+    ).toBeInTheDocument();
   });
 
   it("disables every consultation control until a deferred submission failure settles", async () => {

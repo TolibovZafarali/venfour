@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, test, vi } from "vitest";
 
@@ -6,6 +6,7 @@ import {
   IntakeDatePicker,
   IntakeProgress,
   IntakeRadioChoiceGroup,
+  IntakeStepTransition,
   ServiceSelector,
   VehicleIdentificationFields,
 } from "@/features/intake";
@@ -69,6 +70,72 @@ describe("shared appraisal intake controls", () => {
     expect(collapsedSegments[2]).toBe(thirdSegment);
     expect(collapsedSegments[2]).toHaveAttribute("aria-hidden", "true");
     expect(collapsedSegments[2]).toHaveStyle({ left: "100%", width: "0px" });
+  });
+
+  test("crossfades directional steps without a blank frame", () => {
+    vi.useFakeTimers();
+    const { container, rerender, unmount } = render(
+      <IntakeStepTransition direction="forward" transitionKey="start">
+        <div>
+          <IntakeProgress current={1} total={3} />
+          <p>Start step</p>
+        </div>
+      </IntakeStepTransition>,
+    );
+
+    try {
+      expect(
+        container.querySelector("[data-intake-transition-layer='outgoing']"),
+      ).not.toBeInTheDocument();
+
+      rerender(
+        <IntakeStepTransition direction="forward" transitionKey="vehicle">
+          <div>
+            <IntakeProgress current={2} total={3} />
+            <p>Vehicle step</p>
+          </div>
+        </IntakeStepTransition>,
+      );
+
+      const forwardOutgoing = container.querySelector(
+        "[data-intake-transition-layer='outgoing']",
+      );
+      const forwardIncoming = container.querySelector(
+        "[data-intake-transition-layer='incoming']",
+      );
+      expect(forwardOutgoing).toHaveTextContent("Start step");
+      expect(forwardOutgoing).toHaveClass("intake-step-forward-exit");
+      expect(forwardOutgoing).toHaveAttribute("aria-hidden", "true");
+      expect(forwardOutgoing).toHaveAttribute("inert");
+      expect(forwardIncoming).toHaveTextContent("Vehicle step");
+      expect(forwardIncoming).toHaveClass("intake-step-forward-enter");
+      expect(
+        container.querySelectorAll("[aria-label='Appraisal steps']"),
+      ).toHaveLength(2);
+
+      act(() => vi.advanceTimersByTime(400));
+      expect(screen.queryByText("Start step")).not.toBeInTheDocument();
+
+      rerender(
+        <IntakeStepTransition direction="backward" transitionKey="start">
+          <div>
+            <IntakeProgress current={1} total={3} />
+            <p>Start step</p>
+          </div>
+        </IntakeStepTransition>,
+      );
+
+      expect(
+        container.querySelector("[data-intake-transition-layer='outgoing']"),
+      ).toHaveClass("intake-step-backward-exit");
+      expect(
+        container.querySelector("[data-intake-transition-layer='incoming']"),
+      ).toHaveClass("intake-step-backward-enter");
+    } finally {
+      unmount();
+      vi.runOnlyPendingTimers();
+      vi.useRealTimers();
+    }
   });
 
   test("uses keyboard-operable native service radios and reports changes", async () => {

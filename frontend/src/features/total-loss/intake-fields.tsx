@@ -908,13 +908,36 @@ export interface IntakeStepTransitionProps {
   transitionKey: Key;
 }
 
+interface IntakeStepSnapshot {
+  children: ReactNode;
+  direction: "forward" | "backward";
+  transitionKey: Key;
+}
+
+const intakeStepTransitionCleanupMs = 400;
+
 export function IntakeStepTransition({
   children,
   direction,
   transitionKey,
 }: IntakeStepTransitionProps) {
   const contentRef = useRef<HTMLDivElement>(null);
+  const latestStepRef = useRef<Omit<IntakeStepSnapshot, "direction">>({
+    children,
+    transitionKey,
+  });
+  const [outgoingStep, setOutgoingStep] =
+    useState<IntakeStepSnapshot | null>(null);
   const [measuredHeight, setMeasuredHeight] = useState<number | null>(null);
+  const visibleOutgoingStep =
+    outgoingStep?.transitionKey === transitionKey ? null : outgoingStep;
+  const transitionActive = visibleOutgoingStep !== null;
+
+  const clearOutgoingStep = useCallback((completedKey: Key) => {
+    setOutgoingStep((current) =>
+      current?.transitionKey === completedKey ? null : current,
+    );
+  }, []);
 
   const measure = useCallback(() => {
     const content = contentRef.current;
@@ -926,6 +949,16 @@ export function IntakeStepTransition({
       );
     }
   }, []);
+
+  useLayoutEffect(() => {
+    const previous = latestStepRef.current;
+    if (previous.transitionKey === transitionKey) return;
+    setOutgoingStep({ ...previous, direction });
+  }, [direction, transitionKey]);
+
+  useLayoutEffect(() => {
+    latestStepRef.current = { children, transitionKey };
+  }, [children, transitionKey]);
 
   useLayoutEffect(() => {
     const frame = window.requestAnimationFrame(measure);
@@ -940,23 +973,58 @@ export function IntakeStepTransition({
     return () => observer.disconnect();
   }, [measure, transitionKey]);
 
+  useEffect(() => {
+    if (!outgoingStep) return;
+    const timeout = window.setTimeout(
+      () => clearOutgoingStep(outgoingStep.transitionKey),
+      intakeStepTransitionCleanupMs,
+    );
+    return () => window.clearTimeout(timeout);
+  }, [clearOutgoingStep, outgoingStep]);
+
   return (
     <div
-      className="transition-[height] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none"
+      className="intake-step-transition-shell"
       style={measuredHeight === null ? undefined : { height: measuredHeight }}
       data-intake-transition-shell
     >
-      <div
-        ref={contentRef}
-        key={transitionKey}
-        className={
-          direction === "forward"
-            ? "intake-step-forward"
-            : "intake-step-backward"
-        }
-        data-intake-transition={direction}
-      >
-        {children}
+      <div className="grid min-w-0">
+        <div
+          ref={contentRef}
+          key={transitionKey}
+          className={cn(
+            "intake-step-transition-layer intake-step-incoming col-start-1 row-start-1 min-w-0",
+            transitionActive &&
+              (direction === "forward"
+                ? "intake-step-forward-enter"
+                : "intake-step-backward-enter"),
+          )}
+          data-intake-transition-layer="incoming"
+          data-intake-transition={direction}
+        >
+          {children}
+        </div>
+        {visibleOutgoingStep ? (
+          <div
+            key={visibleOutgoingStep.transitionKey}
+            className={cn(
+              "intake-step-transition-layer intake-step-outgoing col-start-1 row-start-1 min-w-0",
+              visibleOutgoingStep.direction === "forward"
+                ? "intake-step-forward-exit"
+                : "intake-step-backward-exit",
+            )}
+            data-intake-transition-layer="outgoing"
+            data-intake-transition-exit={visibleOutgoingStep.direction}
+            aria-hidden="true"
+            inert
+            onAnimationEnd={(event) => {
+              if (event.currentTarget !== event.target) return;
+              clearOutgoingStep(visibleOutgoingStep.transitionKey);
+            }}
+          >
+            {visibleOutgoingStep.children}
+          </div>
+        ) : null}
       </div>
     </div>
   );
