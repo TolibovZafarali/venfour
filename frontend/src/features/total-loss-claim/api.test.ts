@@ -21,6 +21,7 @@ describe("total-loss claim API", () => {
         return HttpResponse.json({
           state: "secure_required",
           caseId: CASE_ID,
+          commerce: null,
           contactEmail: "owner@example.com",
           workflow: {
             phase: "review",
@@ -34,6 +35,7 @@ describe("total-loss claim API", () => {
     await expect(getTotalLossClaim(CASE_ID, "access-token")).resolves.toEqual({
       state: "secure_required",
       caseId: CASE_ID,
+      commerce: null,
       contactEmail: "owner@example.com",
       workflow: {
         phase: "review",
@@ -44,12 +46,101 @@ describe("total-loss claim API", () => {
     expect(authorization).toBe("Bearer access-token");
   });
 
+  it("maps only the customer-safe secured commerce projection", async () => {
+    server.use(
+      http.get("*/api/v1/appraisal-cases/:caseId/claim", () =>
+        HttpResponse.json({
+          state: "secured",
+          caseId: CASE_ID,
+          commerce: {
+            checkoutAvailable: false,
+            orderStatus: "paid",
+            paymentStatus: "succeeded",
+            entitlementStatus: "active",
+            nextTask: "purchase_complete",
+          },
+          contactEmail: "owner@example.com",
+          workflow: {
+            phase: "review",
+            currentTask: "purchase_complete",
+            revision: 3,
+          },
+        }),
+      ),
+    );
+
+    await expect(getTotalLossClaim(CASE_ID, "access-token")).resolves.toEqual({
+      state: "secured",
+      caseId: CASE_ID,
+      commerce: {
+        checkoutAvailable: false,
+        orderStatus: "paid",
+        paymentStatus: "succeeded",
+        entitlementStatus: "active",
+        nextTask: "purchase_complete",
+      },
+      contactEmail: "owner@example.com",
+      workflow: {
+        phase: "review",
+        currentTask: "purchase_complete",
+        revision: 3,
+      },
+    });
+  });
+
+  it("rejects unsupported commerce statuses and commerce disclosure before permanent ownership", async () => {
+    server.use(
+      http.get("*/api/v1/appraisal-cases/:caseId/claim", () =>
+        HttpResponse.json({
+          state: "secured",
+          caseId: CASE_ID,
+          commerce: {
+            checkoutAvailable: false,
+            orderStatus: "paid",
+            paymentStatus: "requires_action",
+            entitlementStatus: "active",
+            nextTask: "purchase_complete",
+          },
+          contactEmail: null,
+          workflow: null,
+        }),
+      ),
+    );
+
+    await expect(getTotalLossClaim(CASE_ID, "access-token")).rejects.toThrow(
+      /invalid payment status/u,
+    );
+
+    server.use(
+      http.get("*/api/v1/appraisal-cases/:caseId/claim", () =>
+        HttpResponse.json({
+          state: "account_switch_required",
+          caseId: CASE_ID,
+          commerce: {
+            checkoutAvailable: false,
+            orderStatus: "paid",
+            paymentStatus: "succeeded",
+            entitlementStatus: "active",
+            nextTask: "purchase_complete",
+          },
+          contactEmail: null,
+          workflow: null,
+        }),
+      ),
+    );
+
+    await expect(getTotalLossClaim(CASE_ID, "access-token")).rejects.toThrow(
+      /invalid commerce state/u,
+    );
+  });
+
   it("rejects case identity drift and contact disclosure in mismatch state", async () => {
     server.use(
       http.get("*/api/v1/appraisal-cases/:caseId/claim", () =>
         HttpResponse.json({
           state: "account_switch_required",
           caseId: OTHER_CASE_ID,
+          commerce: null,
           contactEmail: "must-not-be-returned@example.com",
           workflow: null,
         }),

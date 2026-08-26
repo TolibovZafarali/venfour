@@ -1,7 +1,11 @@
 import { environment } from "@/config/env";
 import type {
   TotalLossClaimAccessLink,
+  TotalLossClaimCommerceProjection,
+  TotalLossClaimEntitlementStatus,
+  TotalLossClaimOrderStatus,
   TotalLossClaimPhase,
+  TotalLossClaimPaymentStatus,
   TotalLossClaimRecoveryAccepted,
   TotalLossClaimRecoveryRequest,
   TotalLossClaimResolver,
@@ -20,6 +24,27 @@ const CLAIM_PHASES = new Set<TotalLossClaimPhase>([
   "resolution",
   "review",
 ]);
+const CLAIM_ORDER_STATUSES = new Set<TotalLossClaimOrderStatus>([
+  "pending",
+  "paid",
+  "partially_refunded",
+  "refunded",
+  "disputed",
+  "void",
+]);
+const CLAIM_PAYMENT_STATUSES = new Set<TotalLossClaimPaymentStatus>([
+  "pending",
+  "succeeded",
+  "refunded",
+  "disputed",
+]);
+const CLAIM_ENTITLEMENT_STATUSES = new Set<TotalLossClaimEntitlementStatus>([
+  "active",
+  "refunded_access_retained",
+  "suspended",
+  "revoked",
+]);
+const SAFE_TASK_PATTERN = /^[a-z][a-z0-9_]{0,63}$/u;
 
 export class TotalLossClaimContractError extends Error {
   constructor(message: string) {
@@ -64,7 +89,7 @@ function mapWorkflow(value: unknown): TotalLossClaimWorkflowProjection | null {
   const currentTask = requiredString(value.currentTask, "workflow task");
   if (
     !CLAIM_PHASES.has(phase as TotalLossClaimPhase) ||
-    !/^[a-z][a-z0-9_]{0,63}$/u.test(currentTask) ||
+    !SAFE_TASK_PATTERN.test(currentTask) ||
     !Number.isSafeInteger(value.revision) ||
     Number(value.revision) < 1
   ) {
@@ -79,6 +104,67 @@ function mapWorkflow(value: unknown): TotalLossClaimWorkflowProjection | null {
   };
 }
 
+function nullableStatus<T extends string>(
+  value: unknown,
+  field: string,
+  allowed: ReadonlySet<T>,
+): T | null {
+  if (value === null) return null;
+  if (typeof value === "string" && allowed.has(value as T)) {
+    return value as T;
+  }
+  throw new TotalLossClaimContractError(
+    `The claim service returned an invalid ${field}.`,
+  );
+}
+
+function mapCommerce(
+  value: unknown,
+  accessState: unknown,
+): TotalLossClaimCommerceProjection | null {
+  // Keep the dormant Milestone 2 route safe during a future rolling source
+  // deployment. An older resolver simply projects commerce as unavailable.
+  if (value === undefined || value === null) return null;
+  if (accessState !== "secured" || !isRecord(value)) {
+    throw new TotalLossClaimContractError(
+      "The claim service returned invalid commerce state.",
+    );
+  }
+  if (typeof value.checkoutAvailable !== "boolean") {
+    throw new TotalLossClaimContractError(
+      "The claim service returned invalid checkout availability.",
+    );
+  }
+  const nextTask =
+    value.nextTask === null
+      ? null
+      : requiredString(value.nextTask, "next task");
+  if (nextTask !== null && !SAFE_TASK_PATTERN.test(nextTask)) {
+    throw new TotalLossClaimContractError(
+      "The claim service returned an invalid next task.",
+    );
+  }
+  return {
+    checkoutAvailable: value.checkoutAvailable,
+    entitlementStatus: nullableStatus(
+      value.entitlementStatus,
+      "entitlement status",
+      CLAIM_ENTITLEMENT_STATUSES,
+    ),
+    nextTask,
+    orderStatus: nullableStatus(
+      value.orderStatus,
+      "order status",
+      CLAIM_ORDER_STATUSES,
+    ),
+    paymentStatus: nullableStatus(
+      value.paymentStatus,
+      "payment status",
+      CLAIM_PAYMENT_STATUSES,
+    ),
+  };
+}
+
 function mapResolver(value: unknown): TotalLossClaimResolver {
   if (!isRecord(value)) {
     throw new TotalLossClaimContractError(
@@ -86,11 +172,13 @@ function mapResolver(value: unknown): TotalLossClaimResolver {
     );
   }
   const caseId = requiredString(value.caseId, "case ID", UUID_PATTERN);
+  const commerce = mapCommerce(value.commerce, value.state);
   const workflow = mapWorkflow(value.workflow);
 
   if (value.state === "secure_required") {
     return {
       caseId,
+      commerce,
       contactEmail: requiredString(value.contactEmail, "contact email"),
       state: "secure_required",
       workflow,
@@ -99,6 +187,7 @@ function mapResolver(value: unknown): TotalLossClaimResolver {
   if (value.state === "secured") {
     return {
       caseId,
+      commerce,
       contactEmail:
         value.contactEmail === null
           ? null
@@ -115,6 +204,7 @@ function mapResolver(value: unknown): TotalLossClaimResolver {
     }
     return {
       caseId,
+      commerce,
       contactEmail: null,
       state: "account_switch_required",
       workflow,

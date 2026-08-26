@@ -33,6 +33,7 @@ const PROXY_REQUEST_HEADERS_TO_REMOVE = [
 ] as const;
 
 const STAGING_PROXY_HEADER_NAME = "X-Venfour-Staging-Proxy";
+const STRIPE_WEBHOOK_PATH = "/webhooks/stripe";
 
 const CONTENT_SECURITY_POLICY = [
   "default-src 'self'",
@@ -203,6 +204,16 @@ function isApiRequest(pathname: string) {
   return pathname === "/api" || pathname.startsWith("/api/");
 }
 
+function stripeWebhookMethodNotAllowedResponse() {
+  const response = jsonResponse(
+    405,
+    "METHOD_NOT_ALLOWED",
+    "This webhook endpoint requires POST.",
+  );
+  response.headers.set("Allow", "POST");
+  return response;
+}
+
 function upstreamResponseHeaders(response: Response) {
   const headers = new Headers();
   for (const [name, value] of response.headers) {
@@ -315,6 +326,12 @@ export async function handleRequest(
     );
   }
 
+  if (url.pathname === STRIPE_WEBHOOK_PATH) {
+    if (request.method !== "POST") {
+      return stripeWebhookMethodNotAllowedResponse();
+    }
+    return proxyToApi(request, configuration, dependencies);
+  }
   if (isApiRequest(url.pathname) || url.pathname === "/health") {
     return proxyToApi(request, configuration, dependencies);
   }

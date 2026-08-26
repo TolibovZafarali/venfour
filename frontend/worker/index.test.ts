@@ -215,6 +215,91 @@ describe("staging Worker boundary", () => {
     );
   });
 
+  it("proxies only the exact Stripe webhook POST with its raw body and signature", async () => {
+    const rawBody = new Uint8Array([
+      123, 34, 105, 100, 34, 58, 34, 101, 118, 116, 95, 49, 34, 44, 34, 120,
+      34, 58, 34, 92, 117, 48, 48, 101, 57, 34, 125, 10,
+    ]);
+    const signature = "t=1787750400,v1=0123456789abcdef";
+    let capturedRequest: Request | undefined;
+    const upstreamFetch = vi.fn(async (request: Request) => {
+      capturedRequest = request;
+      return Response.json({ received: true });
+    });
+
+    const response = await handleRequest(
+      new Request(`${STAGING_ORIGIN}/webhooks/stripe?source=stripe`, {
+        body: rawBody,
+        headers: {
+          "Content-Type": "application/json",
+          "Stripe-Signature": signature,
+          "X-Venfour-Staging-Proxy": "attacker-controlled-value",
+        },
+        method: "POST",
+      }),
+      createEnv(),
+      dependencies(upstreamFetch as unknown as typeof fetch),
+    );
+
+    expect(response.status).toBe(200);
+    expect(capturedRequest?.url).toBe(
+      `${API_ORIGIN}/webhooks/stripe?source=stripe`,
+    );
+    expect(capturedRequest?.method).toBe("POST");
+    expect(capturedRequest?.headers.get("stripe-signature")).toBe(signature);
+    expect(capturedRequest?.headers.get("content-type")).toBe(
+      "application/json",
+    );
+    expect(capturedRequest?.headers.get("content-length")).toBeNull();
+    expect(capturedRequest?.headers.get("x-venfour-staging-proxy")).toBe(
+      API_PROXY_SECRET,
+    );
+    expect(
+      Array.from(new Uint8Array(await capturedRequest!.arrayBuffer())),
+    ).toEqual(Array.from(rawBody));
+    expect(response.headers.get("cache-control")).toBe(
+      "private, no-store, max-age=0",
+    );
+  });
+
+  it("fails closed before assets for a non-POST exact Stripe webhook path", async () => {
+    const assets = vi.fn(async () => new Response("asset"));
+    const upstreamFetch = vi.fn(async () => new Response("upstream"));
+
+    const response = await handleRequest(
+      new Request(`${STAGING_ORIGIN}/webhooks/stripe`),
+      createEnv(assets),
+      dependencies(upstreamFetch as unknown as typeof fetch),
+    );
+
+    expect(response.status).toBe(405);
+    expect(response.headers.get("allow")).toBe("POST");
+    expect(response.headers.get("cache-control")).toBe(
+      "private, no-store, max-age=0",
+    );
+    expect(assets).not.toHaveBeenCalled();
+    expect(upstreamFetch).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["POST", "/webhooks/stripe/"],
+    ["POST", "/webhooks/stripe-events"],
+    ["POST", "/webhooks/other"],
+  ])("does not proxy the non-matching webhook route %s %s", async (method, path) => {
+    const assets = vi.fn(async () => new Response("asset"));
+    const upstreamFetch = vi.fn(async () => new Response("upstream"));
+
+    const response = await handleRequest(
+      new Request(`${STAGING_ORIGIN}${path}`, { method }),
+      createEnv(assets),
+      dependencies(upstreamFetch as unknown as typeof fetch),
+    );
+
+    expect(await response.text()).toBe("asset");
+    expect(assets).toHaveBeenCalledOnce();
+    expect(upstreamFetch).not.toHaveBeenCalled();
+  });
+
   it.each(COMPRESSED_RESPONSE_FIXTURES)(
     "preserves an unread $encoding representation without stale transport length",
     async ({ body, encoding }) => {

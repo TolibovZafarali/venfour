@@ -70,6 +70,20 @@ from venfour.case_claim_access import (
     CloudflareTurnstileVerifier,
     TurnstileRejectedError,
 )
+from venfour.commerce import (
+    MAX_STRIPE_WEBHOOK_BODY_BYTES,
+    CommerceConflictError,
+    CommerceDatabaseGateway,
+    CommerceError,
+    CommerceInputError,
+    CommerceNotFoundError,
+    CommerceProviderError,
+    CommerceUnavailableError,
+    CommerceWebhookSignatureError,
+    StripeCommerceConfiguration,
+    StripeSdkGateway,
+    TotalLossCommerceService,
+)
 from venfour.openai_vehicle_catalog import OpenAIVehicleTrimCatalog
 from venfour.presentation import (
     AnalysisPresentationContractError,
@@ -139,6 +153,11 @@ _ERROR_MESSAGES = {
     ),
     "CLAIM_ACCESS_UNAVAILABLE": "Secure claim access is temporarily unavailable.",
     "SECURITY_CHECK_FAILED": "Security check failed. Please try again.",
+    "INVALID_COMMERCE_REQUEST": "Commerce request is invalid.",
+    "COMMERCE_CONFLICT": "Checkout is unavailable for this case state.",
+    "COMMERCE_UNAVAILABLE": "Commerce is temporarily unavailable.",
+    "INVALID_STRIPE_WEBHOOK": "Stripe webhook verification failed.",
+    "STRIPE_WEBHOOK_TOO_LARGE": "Stripe webhook payload is too large.",
 }
 
 LEGACY_API_ENVIRONMENT_NAME = "VENFOUR_ENABLE_LEGACY_ANALYSIS_API"
@@ -155,6 +174,7 @@ MAX_UPLOAD_BODY_BYTES = MAX_PDF_BYTES + MAX_MULTIPART_OVERHEAD_BYTES
 MAX_MULTIPART_FIELD_BYTES = 1024
 UPLOAD_COPY_CHUNK_BYTES = 1024 * 1024
 MAX_CLAIM_RECOVERY_BODY_BYTES = 8 * 1024
+MAX_COMMERCE_REQUEST_BODY_BYTES = 8 * 1024
 
 _ANALYSIS_UNAVAILABLE_ERRORS = (
     InvalidAnalysisRunArtifactError,
@@ -210,8 +230,9 @@ class _StagingProxyGuardMiddleware:
         receive: Receive,
         send: Send,
     ) -> None:
-        if scope["type"] == "http" and scope.get("path", "").startswith(
-            "/api/"
+        path = scope.get("path", "")
+        if scope["type"] == "http" and (
+            path.startswith("/api/") or path == "/webhooks/stripe"
         ):
             values = [
                 value
@@ -693,6 +714,205 @@ async def _claim_access_recovery(request: Request) -> JSONResponse:
     )
 
 
+def _commerce_error(error: Exception) -> JSONResponse:
+    if isinstance(error, SupabaseAuthenticationError):
+        return _error_response(
+            401,
+            "AUTHENTICATION_INVALID",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    if isinstance(error, CommerceNotFoundError):
+        return _error_response(404, "CASE_NOT_FOUND")
+    if isinstance(error, CommerceInputError):
+        return _error_response(400, "INVALID_COMMERCE_REQUEST")
+    if isinstance(error, CommerceConflictError):
+        return _error_response(409, "COMMERCE_CONFLICT")
+    if isinstance(
+        error,
+        (
+            CommerceUnavailableError,
+            SupabaseUnavailableError,
+            SupabaseContractError,
+        ),
+    ):
+        return _error_response(503, "COMMERCE_UNAVAILABLE")
+    if isinstance(error, CommerceError):
+        return _error_response(503, "COMMERCE_UNAVAILABLE")
+    return _error_response(500, "INTERNAL_ERROR")
+
+
+async def _strict_json_object(
+    request: Request,
+    *,
+    expected_keys: set[str],
+    maximum_bytes: int,
+) -> Mapping[str, Any]:
+    content_type = request.headers.get("content-type", "")
+    if content_type.partition(";")[0].strip().casefold() != "application/json":
+        raise CommerceInputError("Commerce request is invalid")
+    content_length = request.headers.get("content-length")
+    if content_length is not None:
+        try:
+            if not 0 < int(content_length) <= maximum_bytes:
+                raise CommerceInputError("Commerce request is invalid")
+        except ValueError as exc:
+            raise CommerceInputError("Commerce request is invalid") from exc
+    bounded = Request(
+        request.scope,
+        receive=_bounded_receive(request.receive, maximum_bytes),
+    )
+    try:
+        raw_body = await bounded.body()
+    except _RequestBodyTooLarge as exc:
+        raise CommerceInputError("Commerce request is invalid") from exc
+    try:
+        payload = json.loads(raw_body)
+    except (TypeError, ValueError, json.JSONDecodeError) as exc:
+        raise CommerceInputError("Commerce request is invalid") from exc
+    if not isinstance(payload, Mapping) or set(payload) != expected_keys:
+        raise CommerceInputError("Commerce request is invalid")
+    return payload
+
+
+async def _checkout_sessions(request: Request) -> JSONResponse:
+    case_id = request.path_params["case_id"]
+    if not _is_canonical_uuid4(case_id):
+        return _private_response(_error_response(400, "INVALID_CASE_ID"))
+    service = request.app.state.commerce_service
+    if service is None:
+        return _private_response(_error_response(503, "COMMERCE_UNAVAILABLE"))
+    try:
+        token = _bearer_token(request)
+    except SupabaseAuthenticationError:
+        return _private_response(
+            _error_response(
+                401,
+                "AUTHENTICATION_REQUIRED",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        )
+    try:
+        payload = await _strict_json_object(
+            request,
+            expected_keys={"clientRequestId"},
+            maximum_bytes=MAX_COMMERCE_REQUEST_BODY_BYTES,
+        )
+        client_request_id = payload.get("clientRequestId")
+        if not isinstance(client_request_id, str):
+            raise CommerceInputError("Commerce request is invalid")
+        projection = await run_in_threadpool(
+            service.create_checkout,
+            case_id,
+            token,
+            client_request_id,
+        )
+        return _private_response(JSONResponse(projection.to_dict()))
+    except Exception as exc:
+        return _private_response(_commerce_error(exc))
+
+
+async def _checkout_reconciliation(request: Request) -> JSONResponse:
+    case_id = request.path_params["case_id"]
+    if not _is_canonical_uuid4(case_id):
+        return _private_response(_error_response(400, "INVALID_CASE_ID"))
+    service = request.app.state.commerce_service
+    if service is None:
+        return _private_response(_error_response(503, "COMMERCE_UNAVAILABLE"))
+    try:
+        token = _bearer_token(request)
+    except SupabaseAuthenticationError:
+        return _private_response(
+            _error_response(
+                401,
+                "AUTHENTICATION_REQUIRED",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        )
+    try:
+        payload = await _strict_json_object(
+            request,
+            expected_keys={"checkoutSessionId"},
+            maximum_bytes=MAX_COMMERCE_REQUEST_BODY_BYTES,
+        )
+        checkout_session_id = payload.get("checkoutSessionId")
+        if not isinstance(checkout_session_id, str):
+            raise CommerceInputError("Commerce request is invalid")
+        projection = await run_in_threadpool(
+            service.reconcile_checkout,
+            case_id,
+            token,
+            checkout_session_id,
+        )
+        return _private_response(JSONResponse(projection.to_dict()))
+    except Exception as exc:
+        return _private_response(_commerce_error(exc))
+
+
+def _stripe_signature_header(request: Request) -> str:
+    values = [
+        value
+        for name, value in request.scope.get("headers", ())
+        if name.lower() == b"stripe-signature"
+    ]
+    if len(values) != 1:
+        raise CommerceWebhookSignatureError("Stripe signature is invalid")
+    try:
+        signature = values[0].decode("ascii")
+    except UnicodeDecodeError as exc:
+        raise CommerceWebhookSignatureError(
+            "Stripe signature is invalid"
+        ) from exc
+    if (
+        not signature
+        or signature != signature.strip()
+        or len(signature) > 4096
+        or any(ord(character) < 32 or ord(character) == 127 for character in signature)
+    ):
+        raise CommerceWebhookSignatureError("Stripe signature is invalid")
+    return signature
+
+
+async def _stripe_webhook(request: Request) -> JSONResponse:
+    service = request.app.state.commerce_service
+    if service is None:
+        return _private_response(_error_response(503, "COMMERCE_UNAVAILABLE"))
+    try:
+        content_length = request.headers.get("content-length")
+        if content_length is not None:
+            try:
+                if not 0 < int(content_length) <= MAX_STRIPE_WEBHOOK_BODY_BYTES:
+                    return _private_response(
+                        _error_response(413, "STRIPE_WEBHOOK_TOO_LARGE")
+                    )
+            except ValueError:
+                return _private_response(
+                    _error_response(400, "INVALID_STRIPE_WEBHOOK")
+                )
+        signature = _stripe_signature_header(request)
+        bounded = Request(
+            request.scope,
+            receive=_bounded_receive(
+                request.receive, MAX_STRIPE_WEBHOOK_BODY_BYTES
+            ),
+        )
+        try:
+            payload = await bounded.body()
+        except _RequestBodyTooLarge:
+            return _private_response(
+                _error_response(413, "STRIPE_WEBHOOK_TOO_LARGE")
+            )
+        if not payload:
+            raise CommerceWebhookSignatureError("Stripe signature is invalid")
+        await run_in_threadpool(service.handle_webhook, payload, signature)
+        return _private_response(JSONResponse({"status": "accepted"}))
+    except CommerceWebhookSignatureError:
+        return _private_response(_error_response(400, "INVALID_STRIPE_WEBHOOK"))
+    except CommerceProviderError:
+        return _private_response(_error_response(503, "COMMERCE_UNAVAILABLE"))
+    except Exception as exc:
+        return _private_response(_commerce_error(exc))
+
+
 def _case_analysis_error(error: Exception) -> JSONResponse:
     if isinstance(error, CaseAnalysisInputError):
         return _error_response(400, error.code)
@@ -963,6 +1183,7 @@ def create_app(
     repository_root: Path | str | None = None,
     case_analysis_service: Any | None = None,
     case_claim_access_service: Any | None = None,
+    commerce_service: Any | None = None,
     vehicle_trim_catalog_service: Any | None = None,
     supabase_gateway: CaseAnalysisGateway | None = None,
     enable_legacy_api: bool | None = None,
@@ -1135,6 +1356,38 @@ def create_app(
                 "case_claim_access_service must expose auth and claim-access methods"
             )
 
+    selected_commerce_service = commerce_service
+    if selected_commerce_service is None and isinstance(
+        selected_gateway, CommerceDatabaseGateway
+    ):
+        try:
+            commerce_configuration = StripeCommerceConfiguration.from_environment(
+                os.environ
+            )
+        except (TypeError, ValueError):
+            commerce_configuration = None
+        if commerce_configuration is not None:
+            selected_commerce_service = TotalLossCommerceService(
+                selected_gateway,
+                StripeSdkGateway(commerce_configuration),
+                commerce_configuration,
+            )
+    elif selected_commerce_service is not None:
+        required_commerce_methods = (
+            "authenticate",
+            "create_checkout",
+            "reconcile_checkout",
+            "handle_webhook",
+            "refund",
+        )
+        if any(
+            not callable(getattr(selected_commerce_service, method, None))
+            for method in required_commerce_methods
+        ):
+            raise TypeError(
+                "commerce_service must expose checkout and webhook methods"
+            )
+
     selected_vehicle_trim_catalog_service = vehicle_trim_catalog_service
     trim_cache_methods = (
         "claim_vehicle_trim_cache",
@@ -1177,6 +1430,16 @@ def create_app(
     routes = [
         Route("/api/v1/vehicle-trims", _vehicle_trims, methods=["GET"]),
         Route(
+            "/api/v1/appraisal-cases/{case_id}/checkout-sessions",
+            _checkout_sessions,
+            methods=["POST"],
+        ),
+        Route(
+            "/api/v1/appraisal-cases/{case_id}/checkout-reconciliation",
+            _checkout_reconciliation,
+            methods=["POST"],
+        ),
+        Route(
             "/api/v1/appraisal-cases/{case_id}/claim/access-recovery",
             _claim_access_recovery,
             methods=["POST"],
@@ -1213,6 +1476,7 @@ def create_app(
         ),
         Route("/health", _health, methods=["GET"]),
         Route("/ready", _readiness, methods=["GET"]),
+        Route("/webhooks/stripe", _stripe_webhook, methods=["POST"]),
     ]
     if legacy_enabled:
         routes.insert(
@@ -1255,6 +1519,7 @@ def create_app(
     app.state.creation_service = selected_creation_service
     app.state.case_analysis_service = selected_case_service
     app.state.case_claim_access_service = selected_case_claim_access_service
+    app.state.commerce_service = selected_commerce_service
     app.state.vehicle_trim_catalog_service = (
         selected_vehicle_trim_catalog_service
     )

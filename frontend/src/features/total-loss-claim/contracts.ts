@@ -15,8 +15,37 @@ export interface TotalLossClaimWorkflowProjection {
   readonly revision: number;
 }
 
+export type TotalLossClaimOrderStatus =
+  | "disputed"
+  | "paid"
+  | "partially_refunded"
+  | "pending"
+  | "refunded"
+  | "void";
+
+export type TotalLossClaimPaymentStatus =
+  | "disputed"
+  | "pending"
+  | "refunded"
+  | "succeeded";
+
+export type TotalLossClaimEntitlementStatus =
+  | "active"
+  | "refunded_access_retained"
+  | "revoked"
+  | "suspended";
+
+export interface TotalLossClaimCommerceProjection {
+  readonly checkoutAvailable: boolean;
+  readonly entitlementStatus: TotalLossClaimEntitlementStatus | null;
+  readonly nextTask: string | null;
+  readonly orderStatus: TotalLossClaimOrderStatus | null;
+  readonly paymentStatus: TotalLossClaimPaymentStatus | null;
+}
+
 interface TotalLossClaimResolverBase {
   readonly caseId: string;
+  readonly commerce: TotalLossClaimCommerceProjection | null;
   readonly workflow: TotalLossClaimWorkflowProjection | null;
 }
 

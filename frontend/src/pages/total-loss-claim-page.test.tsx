@@ -86,6 +86,7 @@ function secureRequiredResponse() {
   return {
     state: "secure_required",
     caseId: CASE_ID,
+    commerce: null,
     contactEmail: CONTACT_EMAIL,
     workflow: null,
   };
@@ -229,6 +230,13 @@ describe("total-loss claim page", () => {
         HttpResponse.json({
           state: "secured",
           caseId: CASE_ID,
+          commerce: {
+            checkoutAvailable: true,
+            orderStatus: null,
+            paymentStatus: null,
+            entitlementStatus: null,
+            nextTask: "secure_claim",
+          },
           contactEmail: CONTACT_EMAIL,
           workflow: {
             phase: "review",
@@ -265,6 +273,7 @@ describe("total-loss claim page", () => {
         HttpResponse.json({
           state: "account_switch_required",
           caseId: CASE_ID,
+          commerce: null,
           contactEmail: null,
           workflow: null,
         }),

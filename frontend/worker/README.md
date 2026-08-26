@@ -2,9 +2,13 @@
 
 The staging frontend is a Cloudflare Worker with Static Assets at the exact
 custom hostname `staging.venfour.com`. It serves the Vite SPA and proxies only
-`/api/*` and `/health` to the current staging Cloud Run API. API responses are
-never cached. Static HTML is not stored, fingerprinted Vite assets are cached
-immutably, and every response carries staging security and `noindex` headers.
+`/api/*`, `/health`, and the exact `POST /webhooks/stripe` route to the current
+staging Cloud Run API. Proxied responses are never cached. The Stripe route
+streams the request body without parsing or re-encoding it, preserves the
+`Stripe-Signature` header, and receives the same Worker-to-Cloud Run proxy
+credential as other upstream requests. Static HTML is not stored, fingerprinted
+Vite assets are cached immutably, and every response carries staging security
+and `noindex` headers.
 
 Persisted Worker invocation logs and traces stay disabled because authentication
 callbacks can carry one-time codes or token hashes in the request URL.
@@ -31,6 +35,13 @@ The staging Vite build requires the public values documented in
 validation, or provide the same variables through the build environment. These
 values are embedded in browser assets and must never contain a Supabase
 service-role key or an OpenAI, MarketCheck, Cloudflare, or Google Cloud secret.
+
+The tracked Worker route does not change the existing Cloudflare Access policy.
+Before Stripe can deliver webhooks, a later deployment must configure the
+narrowest possible Access exception for only the `/webhooks/stripe` path; the
+Worker itself forwards only `POST` on that exact path and returns `405` for
+other methods instead of serving SPA content. Do not create a broad `/api` or
+hostname-wide bypass.
 
 Useful local checks:
 

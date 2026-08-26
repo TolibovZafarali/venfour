@@ -4,4 +4,5 @@ jsonschema>=4.26,<5
 openai>=2.53,<3
 python-multipart>=0.0.18,<1
 starlette>=1.6,<2
+stripe>=15.5,<16
 uvicorn>=0.52,<1

@@ -350,11 +350,30 @@ class ClaimWorkflowProjection:
 
 
 @dataclass(frozen=True)
+class ClaimCommerceProjection:
+    checkout_available: bool
+    order_status: str | None
+    payment_status: str | None
+    entitlement_status: str | None
+    next_task: str | None
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "checkoutAvailable": self.checkout_available,
+            "orderStatus": self.order_status,
+            "paymentStatus": self.payment_status,
+            "entitlementStatus": self.entitlement_status,
+            "nextTask": self.next_task,
+        }
+
+
+@dataclass(frozen=True)
 class ClaimResumeState:
     state: str
     case_id: str
     contact_email: str | None
     workflow: ClaimWorkflowProjection | None
+    commerce: ClaimCommerceProjection | None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -362,6 +381,7 @@ class ClaimResumeState:
             "caseId": self.case_id,
             "contactEmail": self.contact_email,
             "workflow": self.workflow.to_dict() if self.workflow else None,
+            "commerce": self.commerce.to_dict() if self.commerce else None,
         }
 
 
@@ -389,6 +409,21 @@ class CaseClaimAccessService:
     _states = {"secure_required", "secured", "account_switch_required"}
     _database_states = _states | {"account_mismatch"}
     _phases = {"review", "initial_request", "negotiation", "resolution"}
+    _order_statuses = {
+        "pending",
+        "paid",
+        "partially_refunded",
+        "refunded",
+        "disputed",
+        "void",
+    }
+    _payment_statuses = {"pending", "succeeded", "refunded", "disputed"}
+    _entitlement_statuses = {
+        "active",
+        "refunded_access_retained",
+        "suspended",
+        "revoked",
+    }
 
     def __init__(
         self,
@@ -526,11 +561,65 @@ class CaseClaimAccessService:
             contact_email = normalize_recovery_email(contact_email)
         if state == "account_switch_required":
             contact_email = None
+        commerce = cls._commerce(row, state)
         return ClaimResumeState(
             state=state,
             case_id=case_id,
             contact_email=contact_email,
             workflow=cls._workflow(row),
+            commerce=commerce,
+        )
+
+    @classmethod
+    def _commerce(
+        cls, row: Mapping[str, Any], state: str
+    ) -> ClaimCommerceProjection | None:
+        checkout_available = row.get("checkout_available")
+        order_status = row.get("commerce_order_status")
+        payment_status = row.get("payment_status")
+        entitlement_status = row.get("entitlement_status")
+        next_task = row.get("next_task")
+        if state != "secured":
+            if (
+                (checkout_available is not None and checkout_available is not False)
+                or order_status is not None
+                or payment_status is not None
+                or entitlement_status is not None
+                or next_task is not None
+            ):
+                raise SupabaseContractError(
+                    "Claim commerce response is invalid"
+                )
+            return None
+        if (
+            not isinstance(checkout_available, bool)
+            or (
+                order_status is not None
+                and order_status not in cls._order_statuses
+            )
+            or (
+                payment_status is not None
+                and payment_status not in cls._payment_statuses
+            )
+            or (
+                entitlement_status is not None
+                and entitlement_status not in cls._entitlement_statuses
+            )
+            or (
+                next_task is not None
+                and (
+                    not isinstance(next_task, str)
+                    or SAFE_TASK_PATTERN.fullmatch(next_task) is None
+                )
+            )
+        ):
+            raise SupabaseContractError("Claim commerce response is invalid")
+        return ClaimCommerceProjection(
+            checkout_available=checkout_available,
+            order_status=order_status,
+            payment_status=payment_status,
+            entitlement_status=entitlement_status,
+            next_task=next_task,
         )
 
     @classmethod
@@ -577,6 +666,7 @@ __all__ = [
     "CaseClaimAccessUnavailableError",
     "CaseClaimRecoveryConfiguration",
     "ClaimAccessLink",
+    "ClaimCommerceProjection",
     "ClaimResumeState",
     "CloudflareTurnstileVerifier",
     "TurnstileRejectedError",

@@ -7,31 +7,6 @@ export type Json =
   | Json[]
 
 export type Database = {
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
-  }
   public: {
     Tables: {
       analysis_runs: {
@@ -381,6 +356,7 @@ export type Database = {
       checkout_attempts: {
         Row: {
           amount_minor_units: number
+          attempt_generation: number
           case_id: string
           client_request_id: string
           created_at: string
@@ -394,11 +370,14 @@ export type Database = {
           id: string
           order_id: string
           payment_provider: string
+          provider_livemode: boolean | null
+          request_chain_id: string
           status: string
           updated_at: string
         }
         Insert: {
           amount_minor_units: number
+          attempt_generation?: number
           case_id: string
           client_request_id: string
           created_at?: string
@@ -412,11 +391,14 @@ export type Database = {
           id?: string
           order_id: string
           payment_provider: string
+          provider_livemode?: boolean | null
+          request_chain_id: string
           status?: string
           updated_at?: string
         }
         Update: {
           amount_minor_units?: number
+          attempt_generation?: number
           case_id?: string
           client_request_id?: string
           created_at?: string
@@ -430,6 +412,8 @@ export type Database = {
           id?: string
           order_id?: string
           payment_provider?: string
+          provider_livemode?: boolean | null
+          request_chain_id?: string
           status?: string
           updated_at?: string
         }
@@ -462,6 +446,151 @@ export type Database = {
           },
         ]
       }
+      commerce_disputes: {
+        Row: {
+          amount_minor_units: number
+          case_id: string
+          closed_at: string | null
+          created_at: string
+          currency: string
+          external_dispute_id: string
+          funds_reinstated_external_event_id: string | null
+          funds_reinstated_occurred_at: string | null
+          funds_reinstated_transaction_id: string | null
+          funds_withdrawn_external_event_id: string | null
+          funds_withdrawn_occurred_at: string | null
+          funds_withdrawn_transaction_id: string | null
+          id: string
+          latest_external_event_id: string
+          opened_at: string | null
+          order_id: string
+          payment_provider: string
+          payment_transaction_id: string
+          prior_entitlement_reason_code: string | null
+          prior_entitlement_status:
+            | Database["public"]["Enums"]["case_entitlement_status"]
+            | null
+          prior_order_status: Database["public"]["Enums"]["commerce_order_status"]
+          provider_livemode: boolean
+          provider_occurred_at: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          amount_minor_units: number
+          case_id: string
+          closed_at?: string | null
+          created_at?: string
+          currency: string
+          external_dispute_id: string
+          funds_reinstated_external_event_id?: string | null
+          funds_reinstated_occurred_at?: string | null
+          funds_reinstated_transaction_id?: string | null
+          funds_withdrawn_external_event_id?: string | null
+          funds_withdrawn_occurred_at?: string | null
+          funds_withdrawn_transaction_id?: string | null
+          id?: string
+          latest_external_event_id: string
+          opened_at?: string | null
+          order_id: string
+          payment_provider?: string
+          payment_transaction_id: string
+          prior_entitlement_reason_code?: string | null
+          prior_entitlement_status?:
+            | Database["public"]["Enums"]["case_entitlement_status"]
+            | null
+          prior_order_status: Database["public"]["Enums"]["commerce_order_status"]
+          provider_livemode: boolean
+          provider_occurred_at: string
+          status: string
+          updated_at?: string
+        }
+        Update: {
+          amount_minor_units?: number
+          case_id?: string
+          closed_at?: string | null
+          created_at?: string
+          currency?: string
+          external_dispute_id?: string
+          funds_reinstated_external_event_id?: string | null
+          funds_reinstated_occurred_at?: string | null
+          funds_reinstated_transaction_id?: string | null
+          funds_withdrawn_external_event_id?: string | null
+          funds_withdrawn_occurred_at?: string | null
+          funds_withdrawn_transaction_id?: string | null
+          id?: string
+          latest_external_event_id?: string
+          opened_at?: string | null
+          order_id?: string
+          payment_provider?: string
+          payment_transaction_id?: string
+          prior_entitlement_reason_code?: string | null
+          prior_entitlement_status?:
+            | Database["public"]["Enums"]["case_entitlement_status"]
+            | null
+          prior_order_status?: Database["public"]["Enums"]["commerce_order_status"]
+          provider_livemode?: boolean
+          provider_occurred_at?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "commerce_disputes_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "appraisal_cases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "commerce_disputes_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "total_loss_case_operations_internal"
+            referencedColumns: ["case_id"]
+          },
+          {
+            foreignKeyName: "commerce_disputes_funds_reinstated_transaction_id_fkey"
+            columns: ["funds_reinstated_transaction_id"]
+            isOneToOne: false
+            referencedRelation: "payment_transactions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "commerce_disputes_funds_withdrawn_transaction_id_fkey"
+            columns: ["funds_withdrawn_transaction_id"]
+            isOneToOne: false
+            referencedRelation: "payment_transactions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "commerce_disputes_order_currency_fkey"
+            columns: ["order_id", "case_id", "currency"]
+            isOneToOne: false
+            referencedRelation: "commerce_orders"
+            referencedColumns: ["id", "case_id", "currency"]
+          },
+          {
+            foreignKeyName: "commerce_disputes_payment_identity_fkey"
+            columns: [
+              "payment_transaction_id",
+              "case_id",
+              "order_id",
+              "payment_provider",
+              "currency",
+            ]
+            isOneToOne: false
+            referencedRelation: "payment_transactions"
+            referencedColumns: [
+              "id",
+              "case_id",
+              "order_id",
+              "payment_provider",
+              "currency",
+            ]
+          },
+        ]
+      }
       commerce_orders: {
         Row: {
           amount_minor_units: number
@@ -475,6 +604,8 @@ export type Database = {
           preliminary_snapshot_id: string
           product_identifier: string
           product_version: string
+          provider_livemode: boolean | null
+          purchaser_email: string | null
           purchaser_user_id: string
           refund_policy_version: string
           refunded_at: string | null
@@ -494,6 +625,8 @@ export type Database = {
           preliminary_snapshot_id: string
           product_identifier: string
           product_version: string
+          provider_livemode?: boolean | null
+          purchaser_email?: string | null
           purchaser_user_id: string
           refund_policy_version: string
           refunded_at?: string | null
@@ -513,6 +646,8 @@ export type Database = {
           preliminary_snapshot_id?: string
           product_identifier?: string
           product_version?: string
+          provider_livemode?: boolean | null
+          purchaser_email?: string | null
           purchaser_user_id?: string
           refund_policy_version?: string
           refunded_at?: string | null
@@ -541,6 +676,144 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "total_loss_preliminary_snapshots"
             referencedColumns: ["id", "case_id"]
+          },
+        ]
+      }
+      commerce_refund_requests: {
+        Row: {
+          access_policy: string
+          amount_minor_units: number
+          case_id: string
+          client_request_id: string
+          created_at: string
+          currency: string
+          external_balance_transaction_id: string | null
+          external_failure_balance_transaction_id: string | null
+          external_refund_id: string | null
+          failure_code: string | null
+          finished_at: string | null
+          id: string
+          order_id: string
+          payment_provider: string
+          payment_transaction_id: string
+          provider_livemode: boolean
+          provider_occurred_at: string | null
+          provider_status: string | null
+          reason_code: string
+          refund_reversal_transaction_id: string | null
+          refund_transaction_id: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          access_policy: string
+          amount_minor_units: number
+          case_id: string
+          client_request_id: string
+          created_at?: string
+          currency: string
+          external_balance_transaction_id?: string | null
+          external_failure_balance_transaction_id?: string | null
+          external_refund_id?: string | null
+          failure_code?: string | null
+          finished_at?: string | null
+          id?: string
+          order_id: string
+          payment_provider?: string
+          payment_transaction_id: string
+          provider_livemode: boolean
+          provider_occurred_at?: string | null
+          provider_status?: string | null
+          reason_code: string
+          refund_reversal_transaction_id?: string | null
+          refund_transaction_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          access_policy?: string
+          amount_minor_units?: number
+          case_id?: string
+          client_request_id?: string
+          created_at?: string
+          currency?: string
+          external_balance_transaction_id?: string | null
+          external_failure_balance_transaction_id?: string | null
+          external_refund_id?: string | null
+          failure_code?: string | null
+          finished_at?: string | null
+          id?: string
+          order_id?: string
+          payment_provider?: string
+          payment_transaction_id?: string
+          provider_livemode?: boolean
+          provider_occurred_at?: string | null
+          provider_status?: string | null
+          reason_code?: string
+          refund_reversal_transaction_id?: string | null
+          refund_transaction_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "commerce_refund_requests_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "appraisal_cases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "commerce_refund_requests_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "total_loss_case_operations_internal"
+            referencedColumns: ["case_id"]
+          },
+          {
+            foreignKeyName: "commerce_refund_requests_order_amount_fkey"
+            columns: ["order_id", "case_id", "amount_minor_units", "currency"]
+            isOneToOne: false
+            referencedRelation: "commerce_orders"
+            referencedColumns: [
+              "id",
+              "case_id",
+              "amount_minor_units",
+              "currency",
+            ]
+          },
+          {
+            foreignKeyName: "commerce_refund_requests_payment_identity_fkey"
+            columns: [
+              "payment_transaction_id",
+              "case_id",
+              "order_id",
+              "payment_provider",
+              "currency",
+            ]
+            isOneToOne: false
+            referencedRelation: "payment_transactions"
+            referencedColumns: [
+              "id",
+              "case_id",
+              "order_id",
+              "payment_provider",
+              "currency",
+            ]
+          },
+          {
+            foreignKeyName: "commerce_refund_requests_refund_reversal_transaction_id_fkey"
+            columns: ["refund_reversal_transaction_id"]
+            isOneToOne: false
+            referencedRelation: "payment_transactions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "commerce_refund_requests_refund_transaction_id_fkey"
+            columns: ["refund_transaction_id"]
+            isOneToOne: false
+            referencedRelation: "payment_transactions"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -822,6 +1095,91 @@ export type Database = {
         }
         Relationships: []
       }
+      stripe_webhook_events: {
+        Row: {
+          api_version: string | null
+          attempt_count: number
+          case_id: string | null
+          event_type: string
+          external_event_id: string
+          failure_code: string | null
+          id: string
+          livemode: boolean
+          order_id: string | null
+          payload_sha256: string
+          payload_size: number
+          processed_at: string | null
+          processing_started_at: string | null
+          processing_token: string | null
+          provider_created_at: string
+          received_at: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          api_version?: string | null
+          attempt_count?: number
+          case_id?: string | null
+          event_type: string
+          external_event_id: string
+          failure_code?: string | null
+          id?: string
+          livemode: boolean
+          order_id?: string | null
+          payload_sha256: string
+          payload_size: number
+          processed_at?: string | null
+          processing_started_at?: string | null
+          processing_token?: string | null
+          provider_created_at: string
+          received_at?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          api_version?: string | null
+          attempt_count?: number
+          case_id?: string | null
+          event_type?: string
+          external_event_id?: string
+          failure_code?: string | null
+          id?: string
+          livemode?: boolean
+          order_id?: string | null
+          payload_sha256?: string
+          payload_size?: number
+          processed_at?: string | null
+          processing_started_at?: string | null
+          processing_token?: string | null
+          provider_created_at?: string
+          received_at?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stripe_webhook_events_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "appraisal_cases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stripe_webhook_events_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "total_loss_case_operations_internal"
+            referencedColumns: ["case_id"]
+          },
+          {
+            foreignKeyName: "stripe_webhook_events_order_case_fkey"
+            columns: ["order_id", "case_id"]
+            isOneToOne: false
+            referencedRelation: "commerce_orders"
+            referencedColumns: ["id", "case_id"]
+          },
+        ]
+      }
       total_loss_ai_review_runs: {
         Row: {
           case_id: string
@@ -994,6 +1352,30 @@ export type Database = {
             referencedColumns: ["case_id"]
           },
         ]
+      }
+      total_loss_case_access_recovery_rate_limits: {
+        Row: {
+          attempt_count: number
+          fingerprint: string
+          scope: string
+          updated_at: string
+          window_started_at: string
+        }
+        Insert: {
+          attempt_count: number
+          fingerprint: string
+          scope: string
+          updated_at?: string
+          window_started_at: string
+        }
+        Update: {
+          attempt_count?: number
+          fingerprint?: string
+          scope?: string
+          updated_at?: string
+          window_started_at?: string
+        }
+        Relationships: []
       }
       total_loss_case_contacts: {
         Row: {
@@ -1216,6 +1598,7 @@ export type Database = {
           created_at: string
           expires_at: string
           id: string
+          purpose: Database["public"]["Enums"]["total_loss_case_identity_claim_purpose"]
           requested_email: string
           revoked_at: string | null
           source_user_id: string
@@ -1227,6 +1610,7 @@ export type Database = {
           created_at?: string
           expires_at: string
           id?: string
+          purpose?: Database["public"]["Enums"]["total_loss_case_identity_claim_purpose"]
           requested_email: string
           revoked_at?: string | null
           source_user_id: string
@@ -1238,6 +1622,7 @@ export type Database = {
           created_at?: string
           expires_at?: string
           id?: string
+          purpose?: Database["public"]["Enums"]["total_loss_case_identity_claim_purpose"]
           requested_email?: string
           revoked_at?: string | null
           source_user_id?: string
@@ -2922,6 +3307,23 @@ export type Database = {
         Args: { candidate_user_id: string }
         Returns: undefined
       }
+      attach_total_loss_checkout_session: {
+        Args: {
+          requested_checkout_attempt_id: string
+          requested_expires_at: string
+          requested_external_checkout_session_id: string
+          requested_external_customer_id: string
+          requested_external_payment_intent_id: string
+          requested_provider_livemode: boolean
+        }
+        Returns: Database["public"]["CompositeTypes"]["total_loss_checkout_reservation_result"][]
+        SetofOptions: {
+          from: "*"
+          to: "total_loss_checkout_reservation_result"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       authorize_diminished_value_document_mutation: {
         Args: { object_name: string }
         Returns: boolean
@@ -2929,6 +3331,30 @@ export type Database = {
       authorize_staff_diminished_value_document_read: {
         Args: { object_name: string }
         Returns: boolean
+      }
+      authorize_total_loss_checkout_preflight: {
+        Args: { requested_case_id: string; requested_purchaser_user_id: string }
+        Returns: Database["public"]["CompositeTypes"]["total_loss_checkout_preflight_result"][]
+        SetofOptions: {
+          from: "*"
+          to: "total_loss_checkout_preflight_result"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      authorize_total_loss_checkout_reconciliation: {
+        Args: {
+          requested_case_id: string
+          requested_external_checkout_session_id: string
+          requested_purchaser_user_id: string
+        }
+        Returns: Database["public"]["CompositeTypes"]["total_loss_stripe_context_result"][]
+        SetofOptions: {
+          from: "*"
+          to: "total_loss_stripe_context_result"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       authorize_total_loss_report_backup_delete: {
         Args: { object_name: string; object_user_metadata: Json }
@@ -2987,6 +3413,25 @@ export type Database = {
           user_id: string
         }[]
       }
+      claim_stripe_webhook_event: {
+        Args: {
+          requested_api_version: string
+          requested_event_type: string
+          requested_external_event_id: string
+          requested_livemode: boolean
+          requested_payload_sha256: string
+          requested_payload_size: number
+          requested_processing_token: string
+          requested_provider_created_at: string
+        }
+        Returns: Database["public"]["CompositeTypes"]["stripe_webhook_claim_result"][]
+        SetofOptions: {
+          from: "*"
+          to: "stripe_webhook_claim_result"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       claim_total_loss_analysis: {
         Args: { case_id: string; processing_token: string; user_id: string }
         Returns: Database["public"]["CompositeTypes"]["total_loss_analysis_result"][]
@@ -3030,6 +3475,26 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "total_loss_case_claim_result"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      complete_total_loss_case_claim_internal: {
+        Args: { claim_id: string }
+        Returns: Database["public"]["CompositeTypes"]["total_loss_case_claim_completion_context_result"][]
+        SetofOptions: {
+          from: "*"
+          to: "total_loss_case_claim_completion_context_result"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      complete_total_loss_case_claim_with_context: {
+        Args: { claim_id: string }
+        Returns: Database["public"]["CompositeTypes"]["total_loss_case_claim_completion_context_result"][]
+        SetofOptions: {
+          from: "*"
+          to: "total_loss_case_claim_completion_context_result"
           isOneToOne: false
           isSetofReturn: true
         }
@@ -3090,7 +3555,33 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      consume_total_loss_recovery_rate_limit_internal: {
+        Args: {
+          requested_fingerprint: string
+          requested_limit: number
+          requested_scope: string
+          requested_window: string
+        }
+        Returns: boolean
+      }
       current_auth_user_is_anonymous: { Args: never; Returns: boolean }
+      expire_total_loss_checkout_attempt_from_webhook: {
+        Args: {
+          requested_checkout_attempt_id: string
+          requested_expires_at: string
+          requested_external_checkout_session_id: string
+          requested_external_event_id: string
+          requested_order_id: string
+          requested_webhook_processing_token: string
+        }
+        Returns: Database["public"]["CompositeTypes"]["total_loss_checkout_reconciliation_result"][]
+        SetofOptions: {
+          from: "*"
+          to: "total_loss_checkout_reconciliation_result"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       fail_total_loss_analysis: {
         Args: {
           failure_code: string
@@ -3099,6 +3590,40 @@ export type Database = {
           retryable: boolean
         }
         Returns: boolean
+      }
+      fail_total_loss_checkout_attempt_from_webhook: {
+        Args: {
+          requested_checkout_attempt_id: string
+          requested_external_checkout_session_id: string
+          requested_external_event_id: string
+          requested_failure_code: string
+          requested_order_id: string
+          requested_webhook_processing_token: string
+        }
+        Returns: Database["public"]["CompositeTypes"]["total_loss_checkout_reconciliation_result"][]
+        SetofOptions: {
+          from: "*"
+          to: "total_loss_checkout_reconciliation_result"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      finalize_stripe_webhook_event: {
+        Args: {
+          requested_case_id: string
+          requested_failure_code: string
+          requested_order_id: string
+          requested_outcome: string
+          requested_processing_token: string
+          requested_webhook_event_id: string
+        }
+        Returns: Database["public"]["CompositeTypes"]["stripe_webhook_finalize_result"][]
+        SetofOptions: {
+          from: "*"
+          to: "stripe_webhook_finalize_result"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       finalize_total_loss_report_upload: {
         Args: {
@@ -3128,6 +3653,30 @@ export type Database = {
           run_id: string
           run_status: string
         }[]
+      }
+      fulfill_total_loss_checkout_payment: {
+        Args: {
+          requested_amount_minor_units: number
+          requested_case_id: string
+          requested_checkout_attempt_id: string
+          requested_currency: string
+          requested_external_checkout_session_id: string
+          requested_external_event_id: string
+          requested_external_payment_intent_id: string
+          requested_external_price_identifier: string
+          requested_order_id: string
+          requested_provider_livemode: boolean
+          requested_provider_occurred_at: string
+          requested_quantity: number
+          requested_webhook_processing_token: string
+        }
+        Returns: Database["public"]["CompositeTypes"]["total_loss_checkout_fulfillment_result"][]
+        SetofOptions: {
+          from: "*"
+          to: "total_loss_checkout_fulfillment_result"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       get_or_create_total_loss_draft: {
         Args: never
@@ -3310,6 +3859,28 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      prepare_total_loss_case_access_recovery: {
+        Args: {
+          email: string
+          requested_case_id: string
+          requester_fingerprint: string
+          target_fingerprint: string
+        }
+        Returns: Database["public"]["CompositeTypes"]["total_loss_case_access_recovery_result"][]
+        SetofOptions: {
+          from: "*"
+          to: "total_loss_case_access_recovery_result"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      project_total_loss_order_coverage_internal: {
+        Args: { requested_order_id: string; requested_recorded_at: string }
+        Returns: {
+          entitlement_status: string
+          order_status: string
+        }[]
+      }
       reclaim_total_loss_report_upload: {
         Args: {
           case_id: string
@@ -3324,6 +3895,95 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      reconcile_total_loss_checkout_attempt: {
+        Args: {
+          requested_amount_minor_units: number
+          requested_case_id: string
+          requested_currency: string
+          requested_expires_at: string
+          requested_external_checkout_session_id: string
+          requested_external_payment_intent_id: string
+          requested_external_price_identifier: string
+          requested_payment_status: string
+          requested_provider_livemode: boolean
+          requested_purchaser_user_id: string
+          requested_quantity: number
+          requested_session_status: string
+        }
+        Returns: Database["public"]["CompositeTypes"]["total_loss_checkout_reconciliation_result"][]
+        SetofOptions: {
+          from: "*"
+          to: "total_loss_checkout_reconciliation_result"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      record_total_loss_dispute: {
+        Args: {
+          requested_amount_minor_units: number
+          requested_case_id: string
+          requested_currency: string
+          requested_dispute_status: string
+          requested_event_type: string
+          requested_external_dispute_id: string
+          requested_external_event_id: string
+          requested_order_id: string
+          requested_payment_transaction_id: string
+          requested_provider_occurred_at: string
+        }
+        Returns: Database["public"]["CompositeTypes"]["total_loss_dispute_result"][]
+        SetofOptions: {
+          from: "*"
+          to: "total_loss_dispute_result"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      record_total_loss_refund_result: {
+        Args: {
+          requested_external_balance_transaction_id: string
+          requested_external_event_id: string
+          requested_external_failure_balance_transaction_id: string
+          requested_external_refund_id: string
+          requested_failure_code: string
+          requested_provider_occurred_at: string
+          requested_provider_status: string
+          requested_refund_request_id: string
+        }
+        Returns: Database["public"]["CompositeTypes"]["total_loss_refund_result"][]
+        SetofOptions: {
+          from: "*"
+          to: "total_loss_refund_result"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      recover_total_loss_checkout_attempt: {
+        Args: {
+          requested_amount_minor_units: number
+          requested_case_id: string
+          requested_checkout_attempt_id: string
+          requested_currency: string
+          requested_expires_at: string
+          requested_external_checkout_session_id: string
+          requested_external_customer_id: string
+          requested_external_payment_intent_id: string
+          requested_external_price_identifier: string
+          requested_order_id: string
+          requested_payment_status: string
+          requested_provider_livemode: boolean
+          requested_purchaser_user_id: string
+          requested_quantity: number
+          requested_session_status: string
+        }
+        Returns: Database["public"]["CompositeTypes"]["total_loss_checkout_reconciliation_result"][]
+        SetofOptions: {
+          from: "*"
+          to: "total_loss_checkout_reconciliation_result"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       release_vehicle_trim_cache: {
         Args: {
           requested_generation_token: string
@@ -3331,12 +3991,104 @@ export type Database = {
         }
         Returns: boolean
       }
+      renew_total_loss_case_claim: {
+        Args: { requested_case_id: string }
+        Returns: Database["public"]["CompositeTypes"]["total_loss_case_claim_renewal_result"][]
+        SetofOptions: {
+          from: "*"
+          to: "total_loss_case_claim_renewal_result"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       renew_total_loss_report_upload: {
         Args: { case_id: string; upload_id: string }
         Returns: Database["public"]["CompositeTypes"]["total_loss_report_upload_lease"][]
         SetofOptions: {
           from: "*"
           to: "total_loss_report_upload_lease"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      reserve_total_loss_checkout: {
+        Args: {
+          configured_amount_minor_units: number
+          configured_currency: string
+          configured_external_price_identifier: string
+          configured_product_identifier: string
+          configured_product_version: string
+          configured_provider_livemode: boolean
+          configured_refund_policy_version: string
+          configured_terms_version: string
+          requested_case_id: string
+          requested_client_request_id: string
+          requested_purchaser_user_id: string
+        }
+        Returns: Database["public"]["CompositeTypes"]["total_loss_checkout_reservation_result"][]
+        SetofOptions: {
+          from: "*"
+          to: "total_loss_checkout_reservation_result"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      reserve_total_loss_refund: {
+        Args: {
+          requested_access_policy: string
+          requested_case_id: string
+          requested_client_request_id: string
+          requested_order_id: string
+          requested_payment_transaction_id: string
+          requested_reason_code: string
+        }
+        Returns: Database["public"]["CompositeTypes"]["total_loss_refund_reservation_result"][]
+        SetofOptions: {
+          from: "*"
+          to: "total_loss_refund_reservation_result"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      resolve_total_loss_case_claim: {
+        Args: { requested_case_id: string }
+        Returns: Database["public"]["CompositeTypes"]["total_loss_case_claim_resume_result"][]
+        SetofOptions: {
+          from: "*"
+          to: "total_loss_case_claim_resume_result"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      resolve_total_loss_checkout_context: {
+        Args: {
+          requested_checkout_attempt_id: string
+          requested_order_id: string
+        }
+        Returns: Database["public"]["CompositeTypes"]["total_loss_stripe_context_result"][]
+        SetofOptions: {
+          from: "*"
+          to: "total_loss_stripe_context_result"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      resolve_total_loss_checkout_context_by_session_id: {
+        Args: { requested_external_checkout_session_id: string }
+        Returns: Database["public"]["CompositeTypes"]["total_loss_stripe_context_result"][]
+        SetofOptions: {
+          from: "*"
+          to: "total_loss_stripe_context_result"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      resolve_total_loss_payment_context: {
+        Args: { requested_external_payment_intent_id: string }
+        Returns: Database["public"]["CompositeTypes"]["total_loss_stripe_context_result"][]
+        SetofOptions: {
+          from: "*"
+          to: "total_loss_stripe_context_result"
           isOneToOne: false
           isSetofReturn: true
         }
@@ -3493,10 +4245,18 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      total_loss_case_identity_transfer_allowed_internal: {
+        Args: { requested_case_id: string }
+        Returns: boolean
+      }
       total_loss_manual_input_is_complete: {
         Args: {
           details: Database["public"]["Tables"]["total_loss_case_details"]["Row"]
         }
+        Returns: boolean
+      }
+      total_loss_post_continue_case_is_eligible_internal: {
+        Args: { requested_case_id: string }
         Returns: boolean
       }
       touch_appraisal_case: {
@@ -3571,6 +4331,7 @@ export type Database = {
         | "report_required"
         | "case_not_ready"
       total_loss_analysis_status: "processing" | "completed" | "failed"
+      total_loss_case_identity_claim_purpose: "intake" | "post_continue"
       total_loss_claim_phase:
         | "review"
         | "initial_request"
@@ -3590,6 +4351,18 @@ export type Database = {
         status: Database["public"]["Enums"]["appraisal_case_status"] | null
         submitted_at: string | null
         revision: number | null
+      }
+      stripe_webhook_claim_result: {
+        state: string | null
+        webhook_event_id: string | null
+        processing_token: string | null
+        status: string | null
+        attempt_count: number | null
+      }
+      stripe_webhook_finalize_result: {
+        webhook_event_id: string | null
+        status: string | null
+        attempt_count: number | null
       }
       total_loss_analysis_result: {
         outcome:
@@ -3615,6 +4388,12 @@ export type Database = {
         storage_object_path: string | null
         report_extraction_available: boolean | null
       }
+      total_loss_case_access_recovery_result: {
+        send_allowed: boolean | null
+        claim_id: string | null
+        claim_expires_at: string | null
+        requested_email: string | null
+      }
       total_loss_case_claim_begin_result: {
         case_id: string | null
         full_name: string | null
@@ -3631,6 +4410,25 @@ export type Database = {
         claim_id: string | null
         claim_expires_at: string | null
       }
+      total_loss_case_claim_completion_context_result: {
+        outcome: string | null
+        case_id: string | null
+        owner_user_id: string | null
+        contact_email: string | null
+        email_verified_at: string | null
+        claimed_at: string | null
+        ownership_transferred: boolean | null
+        claim_purpose:
+          | Database["public"]["Enums"]["total_loss_case_identity_claim_purpose"]
+          | null
+      }
+      total_loss_case_claim_renewal_result: {
+        state: string | null
+        case_id: string | null
+        contact_email: string | null
+        claim_id: string | null
+        claim_expires_at: string | null
+      }
       total_loss_case_claim_result: {
         outcome: string | null
         case_id: string | null
@@ -3639,6 +4437,19 @@ export type Database = {
         email_verified_at: string | null
         claimed_at: string | null
         ownership_transferred: boolean | null
+      }
+      total_loss_case_claim_resume_result: {
+        state: string | null
+        case_id: string | null
+        contact_email: string | null
+        workflow_phase: string | null
+        workflow_current_task: string | null
+        workflow_revision: number | null
+        checkout_available: boolean | null
+        commerce_order_status: string | null
+        payment_status: string | null
+        entitlement_status: string | null
+        next_task: string | null
       }
       total_loss_case_details_public: {
         case_id: string | null
@@ -3661,6 +4472,54 @@ export type Database = {
         created_at: string | null
         updated_at: string | null
       }
+      total_loss_checkout_fulfillment_result: {
+        outcome: string | null
+        case_id: string | null
+        order_id: string | null
+        order_status: string | null
+        checkout_attempt_id: string | null
+        payment_transaction_id: string | null
+        entitlement_id: string | null
+        entitlement_status: string | null
+      }
+      total_loss_checkout_preflight_result: {
+        case_id: string | null
+        purchaser_user_id: string | null
+        purchaser_email: string | null
+        preliminary_snapshot_id: string | null
+        workflow_revision: number | null
+        checkout_available: boolean | null
+        has_pending_order: boolean | null
+      }
+      total_loss_checkout_reconciliation_result: {
+        outcome: string | null
+        case_id: string | null
+        order_id: string | null
+        checkout_attempt_id: string | null
+        order_status: string | null
+        attempt_status: string | null
+        entitlement_status: string | null
+      }
+      total_loss_checkout_reservation_result: {
+        state: string | null
+        case_id: string | null
+        order_id: string | null
+        order_status: string | null
+        purchaser_user_id: string | null
+        checkout_attempt_id: string | null
+        client_request_id: string | null
+        attempt_generation: number | null
+        attempt_status: string | null
+        external_checkout_session_id: string | null
+        external_payment_intent_id: string | null
+        amount_minor_units: number | null
+        currency: string | null
+        external_price_identifier: string | null
+        provider_livemode: boolean | null
+        expires_at: string | null
+        purchaser_email: string | null
+        entitlement_status: string | null
+      }
       total_loss_contact_details_claim_begin_result: {
         case_id: string | null
         first_name: string | null
@@ -3679,6 +4538,16 @@ export type Database = {
         updated_at: string | null
         claim_id: string | null
         claim_expires_at: string | null
+      }
+      total_loss_dispute_result: {
+        outcome: string | null
+        case_id: string | null
+        order_id: string | null
+        dispute_id: string | null
+        dispute_status: string | null
+        financial_transaction_id: string | null
+        order_status: string | null
+        entitlement_status: string | null
       }
       total_loss_intake_confirmation_result: {
         case_id: string | null
@@ -3706,6 +4575,37 @@ export type Database = {
         analysis_input_id: string | null
         updated_at: string | null
       }
+      total_loss_refund_reservation_result: {
+        state: string | null
+        case_id: string | null
+        order_id: string | null
+        payment_transaction_id: string | null
+        refund_request_id: string | null
+        refund_status: string | null
+        provider_status: string | null
+        external_refund_id: string | null
+        external_payment_intent_id: string | null
+        amount_minor_units: number | null
+        currency: string | null
+        provider_livemode: boolean | null
+        access_policy: string | null
+        refund_transaction_id: string | null
+        refund_reversal_transaction_id: string | null
+        order_status: string | null
+        entitlement_status: string | null
+      }
+      total_loss_refund_result: {
+        outcome: string | null
+        case_id: string | null
+        order_id: string | null
+        refund_request_id: string | null
+        refund_status: string | null
+        provider_status: string | null
+        refund_transaction_id: string | null
+        refund_reversal_transaction_id: string | null
+        order_status: string | null
+        entitlement_status: string | null
+      }
       total_loss_report_extraction_result: {
         case_id: string | null
         report_upload_id: string | null
@@ -3725,6 +4625,27 @@ export type Database = {
         report_original_filename: string | null
         report_uploaded_at: string | null
         recovery_required: boolean | null
+      }
+      total_loss_stripe_context_result: {
+        case_id: string | null
+        order_id: string | null
+        checkout_attempt_id: string | null
+        payment_transaction_id: string | null
+        purchaser_user_id: string | null
+        purchaser_email: string | null
+        preliminary_snapshot_id: string | null
+        product_identifier: string | null
+        product_version: string | null
+        external_price_identifier: string | null
+        amount_minor_units: number | null
+        currency: string | null
+        provider_livemode: boolean | null
+        external_checkout_session_id: string | null
+        external_payment_intent_id: string | null
+        checkout_attempt_status: string | null
+        order_status: string | null
+        entitlement_id: string | null
+        entitlement_status: string | null
       }
     }
   }
@@ -3848,9 +4769,6 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {
       appraisal_case_status: [
@@ -3906,6 +4824,7 @@ export const Constants = {
         "case_not_ready",
       ],
       total_loss_analysis_status: ["processing", "completed", "failed"],
+      total_loss_case_identity_claim_purpose: ["intake", "post_continue"],
       total_loss_claim_phase: [
         "review",
         "initial_request",

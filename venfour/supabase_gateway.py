@@ -16,6 +16,7 @@ import unicodedata
 from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from ipaddress import ip_address
 from pathlib import Path
 from typing import Any, Protocol, runtime_checkable
@@ -36,6 +37,18 @@ EXTRACTION_SCHEMA_VERSION_PATTERN = re.compile(r"[0-9]{1,16}")
 MAX_VEHICLE_TRIM_CACHE_KEY_CHARACTERS = 512
 MAX_VEHICLE_TRIM_CACHE_ITEMS = 50
 MAX_VEHICLE_TRIM_CACHE_TEXT_CHARACTERS = 100
+MAX_COMMERCE_PROVIDER_IDENTIFIER_CHARACTERS = 255
+COMMERCE_CODE_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}")
+COMMERCE_PRODUCT_PATTERN = re.compile(r"[a-z][a-z0-9_-]{0,63}")
+STRIPE_DISPUTE_EVENT_TYPES = frozenset(
+    {
+        "charge.dispute.created",
+        "charge.dispute.updated",
+        "charge.dispute.closed",
+        "charge.dispute.funds_withdrawn",
+        "charge.dispute.funds_reinstated",
+    }
+)
 
 
 class SupabaseGatewayError(Exception):
@@ -87,6 +100,59 @@ def _canonical_cache_text(value: Any, label: str, maximum: int) -> str:
     if not normalized or normalized != value or len(normalized) > maximum:
         raise SupabaseContractError(f"{label} is invalid")
     return normalized
+
+
+def _canonical_commerce_identifier(
+    value: Any, prefix: str, label: str
+) -> str:
+    if (
+        not isinstance(value, str)
+        or not value.startswith(prefix)
+        or not 4 <= len(value) <= MAX_COMMERCE_PROVIDER_IDENTIFIER_CHARACTERS
+        or re.fullmatch(r"[A-Za-z0-9_]+", value) is None
+    ):
+        raise SupabaseContractError(f"{label} is invalid")
+    return value
+
+
+def _canonical_stripe_dispute_identifier(value: Any) -> str:
+    if (
+        not isinstance(value, str)
+        or not value.startswith(("du_", "dp_"))
+        or not 4 <= len(value) <= MAX_COMMERCE_PROVIDER_IDENTIFIER_CHARACTERS
+        or re.fullmatch(r"[A-Za-z0-9_]+", value) is None
+    ):
+        raise SupabaseContractError("Stripe Dispute ID is invalid")
+    return value
+
+
+def _canonical_commerce_code(
+    value: Any, pattern: re.Pattern[str], label: str
+) -> str:
+    if not isinstance(value, str) or pattern.fullmatch(value) is None:
+        raise SupabaseContractError(f"{label} is invalid")
+    return value
+
+
+def _canonical_minor_units(value: Any, label: str) -> int:
+    if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+        raise SupabaseContractError(f"{label} is invalid")
+    return value
+
+
+def _canonical_currency(value: Any, label: str) -> str:
+    if not isinstance(value, str) or re.fullmatch(r"[A-Z]{3}", value) is None:
+        raise SupabaseContractError(f"{label} is invalid")
+    return value
+
+
+def _provider_timestamp(value: Any, label: str) -> str:
+    if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+        raise SupabaseContractError(f"{label} is invalid")
+    try:
+        return datetime.fromtimestamp(value, tz=UTC).isoformat()
+    except (OverflowError, OSError, ValueError) as exc:
+        raise SupabaseContractError(f"{label} is invalid") from exc
 
 
 def _valid_hostname(value: str) -> bool:
@@ -540,6 +606,743 @@ class SupabaseHttpGateway:
             ) from exc
         if response.status_code < 200 or response.status_code >= 300:
             raise SupabaseUnavailableError("Case access email is unavailable")
+
+    def reserve_total_loss_checkout(
+        self,
+        case_id: str,
+        purchaser_user_id: str,
+        client_request_id: str,
+        configuration: Any,
+        price: Any,
+    ) -> Mapping[str, Any] | None:
+        payload = self._rpc(
+            "reserve_total_loss_checkout",
+            {
+                "requested_case_id": _canonical_uuid(case_id, "Case ID"),
+                "requested_purchaser_user_id": _canonical_uuid(
+                    purchaser_user_id, "Purchaser user ID"
+                ),
+                "requested_client_request_id": _canonical_uuid(
+                    client_request_id, "Client request ID"
+                ),
+                "configured_product_identifier": _canonical_commerce_code(
+                    getattr(configuration, "product_identifier", None),
+                    COMMERCE_PRODUCT_PATTERN,
+                    "Product identifier",
+                ),
+                "configured_product_version": _canonical_commerce_code(
+                    getattr(configuration, "product_version", None),
+                    COMMERCE_CODE_PATTERN,
+                    "Product version",
+                ),
+                "configured_external_price_identifier": (
+                    _canonical_commerce_identifier(
+                        getattr(price, "id", None),
+                        "price_",
+                        "Stripe Price ID",
+                    )
+                ),
+                "configured_amount_minor_units": _canonical_minor_units(
+                    getattr(price, "unit_amount", None), "Checkout amount"
+                ),
+                "configured_currency": _canonical_currency(
+                    getattr(price, "currency", None), "Checkout currency"
+                ),
+                "configured_terms_version": _canonical_commerce_code(
+                    getattr(configuration, "terms_version", None),
+                    COMMERCE_CODE_PATTERN,
+                    "Terms version",
+                ),
+                "configured_refund_policy_version": _canonical_commerce_code(
+                    getattr(configuration, "refund_policy_version", None),
+                    COMMERCE_CODE_PATTERN,
+                    "Refund policy version",
+                ),
+                "configured_provider_livemode": self._canonical_boolean(
+                    getattr(price, "livemode", None), "Stripe provider mode"
+                ),
+            },
+            retry_ambiguous_claim=True,
+        )
+        return self._optional_rpc_row(payload, "Checkout reservation")
+
+    def authorize_total_loss_checkout_preflight(
+        self, case_id: str, purchaser_user_id: str
+    ) -> Mapping[str, Any] | None:
+        payload = self._rpc(
+            "authorize_total_loss_checkout_preflight",
+            {
+                "requested_case_id": _canonical_uuid(case_id, "Case ID"),
+                "requested_purchaser_user_id": _canonical_uuid(
+                    purchaser_user_id, "Purchaser user ID"
+                ),
+            },
+        )
+        return self._optional_rpc_row(payload, "Checkout preflight")
+
+    def attach_total_loss_checkout_session(
+        self, attempt_id: str, session: Any
+    ) -> Mapping[str, Any] | None:
+        payload = self._rpc(
+            "attach_total_loss_checkout_session",
+            {
+                "requested_checkout_attempt_id": _canonical_uuid(
+                    attempt_id, "Checkout attempt ID"
+                ),
+                "requested_external_checkout_session_id": (
+                    _canonical_commerce_identifier(
+                        getattr(session, "id", None),
+                        "cs_",
+                        "Stripe Checkout Session ID",
+                    )
+                ),
+                "requested_external_payment_intent_id": (
+                    _canonical_commerce_identifier(
+                        session.payment_intent_id,
+                        "pi_",
+                        "Stripe PaymentIntent ID",
+                    )
+                    if getattr(session, "payment_intent_id", None) is not None
+                    else None
+                ),
+                "requested_external_customer_id": (
+                    _canonical_commerce_identifier(
+                        session.customer_id,
+                        "cus_",
+                        "Stripe Customer ID",
+                    )
+                    if getattr(session, "customer_id", None) is not None
+                    else None
+                ),
+                "requested_expires_at": _provider_timestamp(
+                    getattr(session, "expires_at", None),
+                    "Stripe Checkout expiry",
+                ),
+                "requested_provider_livemode": self._canonical_boolean(
+                    getattr(session, "livemode", None), "Stripe provider mode"
+                ),
+            },
+            retry_ambiguous_claim=True,
+        )
+        return self._optional_rpc_row(payload, "Checkout attachment")
+
+    def recover_total_loss_checkout_attempt(
+        self, context: Any, session: Any
+    ) -> Mapping[str, Any]:
+        payload = self._rpc(
+            "recover_total_loss_checkout_attempt",
+            {
+                "requested_case_id": _canonical_uuid(context.case_id, "Case ID"),
+                "requested_order_id": _canonical_uuid(context.order_id, "Order ID"),
+                "requested_checkout_attempt_id": _canonical_uuid(
+                    context.checkout_attempt_id, "Checkout attempt ID"
+                ),
+                "requested_purchaser_user_id": _canonical_uuid(
+                    context.purchaser_user_id, "Purchaser user ID"
+                ),
+                "requested_external_checkout_session_id": (
+                    _canonical_commerce_identifier(
+                        session.id, "cs_", "Stripe Checkout Session ID"
+                    )
+                ),
+                "requested_external_payment_intent_id": (
+                    _canonical_commerce_identifier(
+                        session.payment_intent_id,
+                        "pi_",
+                        "Stripe PaymentIntent ID",
+                    )
+                    if getattr(session, "payment_intent_id", None) is not None
+                    else None
+                ),
+                "requested_external_customer_id": (
+                    _canonical_commerce_identifier(
+                        session.customer_id, "cus_", "Stripe Customer ID"
+                    )
+                    if getattr(session, "customer_id", None) is not None
+                    else None
+                ),
+                "requested_session_status": self._canonical_choice(
+                    getattr(session, "status", None),
+                    {"complete", "expired"},
+                    "Stripe Checkout status",
+                ),
+                "requested_payment_status": self._canonical_choice(
+                    getattr(session, "payment_status", None),
+                    {"unpaid", "paid", "no_payment_required"},
+                    "Stripe payment status",
+                ),
+                "requested_expires_at": _provider_timestamp(
+                    getattr(session, "expires_at", None),
+                    "Stripe Checkout expiry",
+                ),
+                "requested_provider_livemode": self._canonical_boolean(
+                    getattr(session, "livemode", None), "Stripe provider mode"
+                ),
+                "requested_external_price_identifier": (
+                    _canonical_commerce_identifier(
+                        getattr(session, "line_item_price_id", None),
+                        "price_",
+                        "Stripe Price ID",
+                    )
+                ),
+                "requested_quantity": self._canonical_positive_integer(
+                    getattr(session, "line_item_quantity", None),
+                    "Stripe quantity",
+                ),
+                "requested_amount_minor_units": _canonical_minor_units(
+                    getattr(session, "amount_total", None), "Checkout amount"
+                ),
+                "requested_currency": _canonical_currency(
+                    getattr(session, "currency", None), "Checkout currency"
+                ),
+            },
+            retry_ambiguous_claim=True,
+        )
+        return self._single_rpc_row(payload, "Checkout recovery")
+
+    def authorize_total_loss_checkout_reconciliation(
+        self, case_id: str, purchaser_user_id: str, session_id: str
+    ) -> Mapping[str, Any] | None:
+        payload = self._rpc(
+            "authorize_total_loss_checkout_reconciliation",
+            {
+                "requested_case_id": _canonical_uuid(case_id, "Case ID"),
+                "requested_purchaser_user_id": _canonical_uuid(
+                    purchaser_user_id, "Purchaser user ID"
+                ),
+                "requested_external_checkout_session_id": (
+                    _canonical_commerce_identifier(
+                        session_id, "cs_", "Stripe Checkout Session ID"
+                    )
+                ),
+            },
+        )
+        return self._optional_rpc_row(payload, "Checkout authorization")
+
+    def resolve_total_loss_checkout_context(
+        self, order_id: str, checkout_attempt_id: str
+    ) -> Mapping[str, Any] | None:
+        payload = self._rpc(
+            "resolve_total_loss_checkout_context",
+            {
+                "requested_order_id": _canonical_uuid(order_id, "Order ID"),
+                "requested_checkout_attempt_id": _canonical_uuid(
+                    checkout_attempt_id, "Checkout attempt ID"
+                ),
+            },
+        )
+        return self._optional_rpc_row(payload, "Checkout context")
+
+    def resolve_total_loss_checkout_context_by_session_id(
+        self, external_checkout_session_id: str
+    ) -> Mapping[str, Any] | None:
+        payload = self._rpc(
+            "resolve_total_loss_checkout_context_by_session_id",
+            {
+                "requested_external_checkout_session_id": (
+                    _canonical_commerce_identifier(
+                        external_checkout_session_id,
+                        "cs_",
+                        "Stripe Checkout Session ID",
+                    )
+                )
+            },
+        )
+        return self._optional_rpc_row(payload, "Checkout context")
+
+    def resolve_total_loss_payment_context(
+        self, payment_intent_id: str
+    ) -> Mapping[str, Any] | None:
+        payload = self._rpc(
+            "resolve_total_loss_payment_context",
+            {
+                "requested_external_payment_intent_id": (
+                    _canonical_commerce_identifier(
+                        payment_intent_id,
+                        "pi_",
+                        "Stripe PaymentIntent ID",
+                    )
+                )
+            },
+        )
+        return self._optional_rpc_row(payload, "Payment context")
+
+    def reconcile_total_loss_checkout_attempt(
+        self,
+        case_id: str,
+        purchaser_user_id: str,
+        session: Any,
+    ) -> Mapping[str, Any] | None:
+        payload = self._rpc(
+            "reconcile_total_loss_checkout_attempt",
+            {
+                "requested_case_id": _canonical_uuid(case_id, "Case ID"),
+                "requested_purchaser_user_id": _canonical_uuid(
+                    purchaser_user_id, "Purchaser user ID"
+                ),
+                "requested_external_checkout_session_id": (
+                    _canonical_commerce_identifier(
+                        getattr(session, "id", None),
+                        "cs_",
+                        "Stripe Checkout Session ID",
+                    )
+                ),
+                "requested_session_status": self._canonical_choice(
+                    getattr(session, "status", None),
+                    {"open", "complete", "expired"},
+                    "Stripe Checkout status",
+                ),
+                "requested_payment_status": self._canonical_choice(
+                    getattr(session, "payment_status", None),
+                    {"unpaid", "paid", "no_payment_required"},
+                    "Stripe payment status",
+                ),
+                "requested_external_payment_intent_id": (
+                    _canonical_commerce_identifier(
+                        session.payment_intent_id,
+                        "pi_",
+                        "Stripe PaymentIntent ID",
+                    )
+                    if getattr(session, "payment_intent_id", None) is not None
+                    else None
+                ),
+                "requested_expires_at": _provider_timestamp(
+                    getattr(session, "expires_at", None),
+                    "Stripe Checkout expiry",
+                ),
+                "requested_provider_livemode": self._canonical_boolean(
+                    getattr(session, "livemode", None), "Stripe provider mode"
+                ),
+                "requested_external_price_identifier": (
+                    _canonical_commerce_identifier(
+                        getattr(session, "line_item_price_id", None),
+                        "price_",
+                        "Stripe Price ID",
+                    )
+                ),
+                "requested_quantity": self._canonical_positive_integer(
+                    getattr(session, "line_item_quantity", None),
+                    "Stripe quantity",
+                ),
+                "requested_amount_minor_units": _canonical_minor_units(
+                    getattr(session, "amount_total", None), "Checkout amount"
+                ),
+                "requested_currency": _canonical_currency(
+                    getattr(session, "currency", None), "Checkout currency"
+                ),
+            },
+            retry_ambiguous_claim=True,
+        )
+        return self._optional_rpc_row(payload, "Checkout reconciliation")
+
+    def fail_total_loss_checkout_attempt_from_webhook(
+        self,
+        order_id: str,
+        checkout_attempt_id: str,
+        external_checkout_session_id: str,
+        external_event_id: str,
+        webhook_processing_token: str,
+        failure_code: str,
+    ) -> Mapping[str, Any]:
+        payload = self._rpc(
+            "fail_total_loss_checkout_attempt_from_webhook",
+            {
+                "requested_order_id": _canonical_uuid(order_id, "Order ID"),
+                "requested_checkout_attempt_id": _canonical_uuid(
+                    checkout_attempt_id, "Checkout attempt ID"
+                ),
+                "requested_external_checkout_session_id": (
+                    _canonical_commerce_identifier(
+                        external_checkout_session_id,
+                        "cs_",
+                        "Stripe Checkout Session ID",
+                    )
+                ),
+                "requested_external_event_id": _canonical_commerce_identifier(
+                    external_event_id, "evt_", "Stripe event ID"
+                ),
+                "requested_webhook_processing_token": _canonical_uuid(
+                    webhook_processing_token, "Webhook processing token"
+                ),
+                "requested_failure_code": _canonical_commerce_code(
+                    failure_code,
+                    re.compile(r"[A-Z][A-Z0-9_]{0,63}"),
+                    "Checkout failure code",
+                ),
+            },
+            retry_ambiguous_claim=True,
+        )
+        return self._single_rpc_row(payload, "Checkout webhook failure")
+
+    def expire_total_loss_checkout_attempt_from_webhook(
+        self,
+        order_id: str,
+        checkout_attempt_id: str,
+        external_checkout_session_id: str,
+        external_event_id: str,
+        webhook_processing_token: str,
+        expires_at: int,
+    ) -> Mapping[str, Any]:
+        payload = self._rpc(
+            "expire_total_loss_checkout_attempt_from_webhook",
+            {
+                "requested_order_id": _canonical_uuid(order_id, "Order ID"),
+                "requested_checkout_attempt_id": _canonical_uuid(
+                    checkout_attempt_id, "Checkout attempt ID"
+                ),
+                "requested_external_checkout_session_id": (
+                    _canonical_commerce_identifier(
+                        external_checkout_session_id,
+                        "cs_",
+                        "Stripe Checkout Session ID",
+                    )
+                ),
+                "requested_external_event_id": _canonical_commerce_identifier(
+                    external_event_id, "evt_", "Stripe event ID"
+                ),
+                "requested_webhook_processing_token": _canonical_uuid(
+                    webhook_processing_token, "Webhook processing token"
+                ),
+                "requested_expires_at": _provider_timestamp(
+                    expires_at, "Stripe Checkout expiry"
+                ),
+            },
+            retry_ambiguous_claim=True,
+        )
+        return self._single_rpc_row(payload, "Checkout webhook expiration")
+
+    def claim_stripe_webhook_event(
+        self,
+        event: Any,
+        payload_sha256: str,
+        payload_size: int,
+        processing_token: str,
+    ) -> Mapping[str, Any]:
+        if not isinstance(payload_sha256, str) or re.fullmatch(
+            r"[0-9a-f]{64}", payload_sha256
+        ) is None:
+            raise SupabaseContractError("Webhook digest is invalid")
+        if (
+            isinstance(payload_size, bool)
+            or not isinstance(payload_size, int)
+            or not 0 < payload_size <= 256 * 1024
+        ):
+            raise SupabaseContractError("Webhook payload size is invalid")
+        event_type = getattr(event, "type", None)
+        api_version = getattr(event, "api_version", None)
+        if (
+            not isinstance(event_type, str)
+            or not event_type
+            or len(event_type) > 128
+            or any(ord(character) < 32 or ord(character) == 127 for character in event_type)
+            or (
+                api_version is not None
+                and (
+                    not isinstance(api_version, str)
+                    or not api_version
+                    or len(api_version) > 64
+                )
+            )
+        ):
+            raise SupabaseContractError("Webhook event contract is invalid")
+        payload = self._rpc(
+            "claim_stripe_webhook_event",
+            {
+                "requested_external_event_id": _canonical_commerce_identifier(
+                    getattr(event, "id", None), "evt_", "Stripe event ID"
+                ),
+                "requested_event_type": event_type,
+                "requested_livemode": self._canonical_boolean(
+                    getattr(event, "livemode", None), "Stripe event mode"
+                ),
+                "requested_api_version": api_version,
+                "requested_payload_sha256": payload_sha256,
+                "requested_payload_size": payload_size,
+                "requested_provider_created_at": _provider_timestamp(
+                    getattr(event, "created", None), "Stripe event timestamp"
+                ),
+                "requested_processing_token": _canonical_uuid(
+                    processing_token, "Webhook processing token"
+                ),
+            },
+            retry_ambiguous_claim=True,
+        )
+        return self._single_rpc_row(payload, "Webhook event claim")
+
+    def finalize_stripe_webhook_event(
+        self,
+        webhook_event_id: str,
+        processing_token: str,
+        outcome: str,
+        case_id: str | None,
+        order_id: str | None,
+        failure_code: str | None,
+    ) -> Mapping[str, Any]:
+        if failure_code is not None:
+            failure_code = _canonical_commerce_code(
+                failure_code, re.compile(r"[A-Z][A-Z0-9_]{0,63}"), "Failure code"
+            )
+        payload = self._rpc(
+            "finalize_stripe_webhook_event",
+            {
+                "requested_webhook_event_id": _canonical_uuid(
+                    webhook_event_id, "Webhook event ID"
+                ),
+                "requested_processing_token": _canonical_uuid(
+                    processing_token, "Webhook processing token"
+                ),
+                "requested_outcome": self._canonical_choice(
+                    outcome,
+                    {"processed", "ignored", "failed"},
+                    "Webhook outcome",
+                ),
+                "requested_case_id": (
+                    _canonical_uuid(case_id, "Case ID")
+                    if case_id is not None
+                    else None
+                ),
+                "requested_order_id": (
+                    _canonical_uuid(order_id, "Order ID")
+                    if order_id is not None
+                    else None
+                ),
+                "requested_failure_code": failure_code,
+            },
+            retry_ambiguous_claim=True,
+        )
+        return self._single_rpc_row(payload, "Webhook event finalization")
+
+    def fulfill_total_loss_checkout_payment(
+        self,
+        context: Any,
+        session: Any,
+        payment_intent: Any,
+        external_event_id: str,
+        webhook_processing_token: str,
+        provider_occurred_at: int,
+    ) -> Mapping[str, Any]:
+        payload = self._rpc(
+            "fulfill_total_loss_checkout_payment",
+            {
+                "requested_case_id": _canonical_uuid(context.case_id, "Case ID"),
+                "requested_order_id": _canonical_uuid(context.order_id, "Order ID"),
+                "requested_checkout_attempt_id": _canonical_uuid(
+                    context.checkout_attempt_id, "Checkout attempt ID"
+                ),
+                "requested_external_checkout_session_id": (
+                    _canonical_commerce_identifier(
+                        session.id, "cs_", "Stripe Checkout Session ID"
+                    )
+                ),
+                "requested_external_payment_intent_id": (
+                    _canonical_commerce_identifier(
+                        payment_intent.id, "pi_", "Stripe PaymentIntent ID"
+                    )
+                ),
+                "requested_external_event_id": _canonical_commerce_identifier(
+                    external_event_id, "evt_", "Stripe event ID"
+                ),
+                "requested_webhook_processing_token": _canonical_uuid(
+                    webhook_processing_token, "Webhook processing token"
+                ),
+                "requested_external_price_identifier": (
+                    _canonical_commerce_identifier(
+                        session.line_item_price_id, "price_", "Stripe Price ID"
+                    )
+                ),
+                "requested_quantity": self._canonical_positive_integer(
+                    session.line_item_quantity, "Stripe quantity"
+                ),
+                "requested_amount_minor_units": _canonical_minor_units(
+                    payment_intent.amount_received, "Payment amount"
+                ),
+                "requested_currency": _canonical_currency(
+                    payment_intent.currency, "Payment currency"
+                ),
+                "requested_provider_livemode": self._canonical_boolean(
+                    payment_intent.livemode, "Stripe provider mode"
+                ),
+                "requested_provider_occurred_at": _provider_timestamp(
+                    provider_occurred_at, "Stripe payment timestamp"
+                ),
+            },
+            retry_ambiguous_claim=True,
+        )
+        return self._single_rpc_row(payload, "Payment fulfillment")
+
+    def reserve_total_loss_refund(
+        self,
+        case_id: str,
+        order_id: str,
+        payment_transaction_id: str,
+        client_request_id: str,
+        reason_code: str,
+        access_policy: str,
+    ) -> Mapping[str, Any] | None:
+        payload = self._rpc(
+            "reserve_total_loss_refund",
+            {
+                "requested_case_id": _canonical_uuid(case_id, "Case ID"),
+                "requested_order_id": _canonical_uuid(order_id, "Order ID"),
+                "requested_payment_transaction_id": _canonical_uuid(
+                    payment_transaction_id, "Payment transaction ID"
+                ),
+                "requested_client_request_id": _canonical_uuid(
+                    client_request_id, "Client request ID"
+                ),
+                "requested_reason_code": _canonical_commerce_code(
+                    reason_code,
+                    re.compile(r"[A-Z][A-Z0-9_]{0,63}"),
+                    "Refund reason",
+                ),
+                "requested_access_policy": self._canonical_choice(
+                    access_policy,
+                    {"retain", "revoke"},
+                    "Refund access policy",
+                ),
+            },
+            retry_ambiguous_claim=True,
+        )
+        return self._optional_rpc_row(payload, "Refund reservation")
+
+    def record_total_loss_refund_result(
+        self,
+        refund_request_id: str,
+        refund: Any,
+        external_event_id: str | None,
+        failure_code: str | None,
+        provider_occurred_at: int,
+    ) -> Mapping[str, Any]:
+        if failure_code is not None:
+            failure_code = _canonical_commerce_code(
+                failure_code,
+                re.compile(r"[A-Z][A-Z0-9_]{0,63}"),
+                "Refund failure code",
+            )
+        payload = self._rpc(
+            "record_total_loss_refund_result",
+            {
+                "requested_refund_request_id": _canonical_uuid(
+                    refund_request_id, "Refund request ID"
+                ),
+                "requested_external_refund_id": _canonical_commerce_identifier(
+                    refund.id, "re_", "Stripe Refund ID"
+                ),
+                "requested_external_event_id": (
+                    _canonical_commerce_identifier(
+                        external_event_id, "evt_", "Stripe event ID"
+                    )
+                    if external_event_id is not None
+                    else None
+                ),
+                "requested_external_balance_transaction_id": (
+                    _canonical_commerce_identifier(
+                        refund.balance_transaction_id,
+                        "txn_",
+                        "Stripe refund BalanceTransaction ID",
+                    )
+                    if getattr(refund, "balance_transaction_id", None)
+                    is not None
+                    else None
+                ),
+                "requested_external_failure_balance_transaction_id": (
+                    _canonical_commerce_identifier(
+                        refund.failure_balance_transaction_id,
+                        "txn_",
+                        "Stripe refund failure BalanceTransaction ID",
+                    )
+                    if getattr(
+                        refund,
+                        "failure_balance_transaction_id",
+                        None,
+                    )
+                    is not None
+                    else None
+                ),
+                "requested_provider_status": self._canonical_choice(
+                    refund.status,
+                    {
+                        "pending",
+                        "requires_action",
+                        "succeeded",
+                        "failed",
+                        "canceled",
+                    },
+                    "Stripe Refund status",
+                ),
+                "requested_provider_occurred_at": _provider_timestamp(
+                    provider_occurred_at, "Stripe refund timestamp"
+                ),
+                "requested_failure_code": failure_code,
+            },
+            retry_ambiguous_claim=True,
+        )
+        return self._single_rpc_row(payload, "Refund result")
+
+    def record_total_loss_dispute(
+        self,
+        context: Any,
+        dispute: Any,
+        external_event_id: str,
+        event_type: str,
+        dispute_status: str,
+        provider_occurred_at: int,
+    ) -> Mapping[str, Any]:
+        payload = self._rpc(
+            "record_total_loss_dispute",
+            {
+                "requested_case_id": _canonical_uuid(context.case_id, "Case ID"),
+                "requested_order_id": _canonical_uuid(context.order_id, "Order ID"),
+                "requested_payment_transaction_id": _canonical_uuid(
+                    context.payment_transaction_id, "Payment transaction ID"
+                ),
+                "requested_external_dispute_id": _canonical_stripe_dispute_identifier(
+                    dispute.id
+                ),
+                "requested_external_event_id": _canonical_commerce_identifier(
+                    external_event_id, "evt_", "Stripe event ID"
+                ),
+                "requested_event_type": self._canonical_choice(
+                    event_type,
+                    STRIPE_DISPUTE_EVENT_TYPES,
+                    "Stripe dispute event type",
+                ),
+                "requested_dispute_status": self._canonical_choice(
+                    dispute_status,
+                    {"active", "won", "lost"},
+                    "Stripe dispute status",
+                ),
+                "requested_amount_minor_units": _canonical_minor_units(
+                    dispute.amount, "Dispute amount"
+                ),
+                "requested_currency": _canonical_currency(
+                    dispute.currency, "Dispute currency"
+                ),
+                "requested_provider_occurred_at": _provider_timestamp(
+                    provider_occurred_at, "Stripe dispute timestamp"
+                ),
+            },
+            retry_ambiguous_claim=True,
+        )
+        return self._single_rpc_row(payload, "Dispute result")
+
+    @staticmethod
+    def _canonical_boolean(value: Any, label: str) -> bool:
+        if not isinstance(value, bool):
+            raise SupabaseContractError(f"{label} is invalid")
+        return value
+
+    @staticmethod
+    def _canonical_positive_integer(value: Any, label: str) -> int:
+        if isinstance(value, bool) or not isinstance(value, int) or value < 1:
+            raise SupabaseContractError(f"{label} is invalid")
+        return value
+
+    @staticmethod
+    def _canonical_choice(value: Any, choices: set[str], label: str) -> str:
+        if not isinstance(value, str) or value not in choices:
+            raise SupabaseContractError(f"{label} is invalid")
+        return value
 
     def get_total_loss_analysis_status(
         self, case_id: str, user_id: str

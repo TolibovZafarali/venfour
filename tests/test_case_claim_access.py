@@ -50,6 +50,7 @@ def resume_row(
     *,
     contact_email: str | None = EMAIL,
 ) -> dict[str, Any]:
+    secured = state == "secured"
     return {
         "state": state,
         "case_id": CASE_ID,
@@ -57,6 +58,11 @@ def resume_row(
         "workflow_phase": "review",
         "workflow_current_task": "secure_claim",
         "workflow_revision": 1,
+        "checkout_available": secured,
+        "commerce_order_status": None,
+        "payment_status": None,
+        "entitlement_status": None,
+        "next_task": "checkout" if secured else None,
     }
 
 
@@ -449,6 +455,18 @@ class CaseClaimAccessServiceTests(unittest.TestCase):
                         "revision": 1,
                     },
                 )
+                self.assertEqual(
+                    result["commerce"],
+                    {
+                        "checkoutAvailable": True,
+                        "orderStatus": None,
+                        "paymentStatus": None,
+                        "entitlementStatus": None,
+                        "nextTask": "checkout",
+                    }
+                    if state == "secured"
+                    else None,
+                )
         self.assertEqual(
             gateway.resolve_calls,
             [(CASE_ID, ACCESS_TOKEN)] * len(expected),
@@ -470,6 +488,12 @@ class CaseClaimAccessServiceTests(unittest.TestCase):
             {**resume_row(), "workflow_current_task": "Unsafe Task"},
             {**resume_row(), "workflow_revision": True},
             {**resume_row(), "workflow_revision": 0},
+            {**resume_row("secured"), "checkout_available": None},
+            {**resume_row("secured"), "commerce_order_status": "invalid"},
+            {**resume_row("secured"), "payment_status": "paid"},
+            {**resume_row("secured"), "entitlement_status": "invalid"},
+            {**resume_row("secured"), "next_task": "Unsafe Task"},
+            {**resume_row(), "commerce_order_status": "pending"},
         )
         for row in invalid_rows:
             with self.subTest(row=row):
@@ -684,6 +708,7 @@ class CaseClaimAccessApiTests(unittest.TestCase):
                     "currentTask": "secure_claim",
                     "revision": 1,
                 },
+                "commerce": None,
             },
         )
         self.assertEqual(gateway.authenticated_tokens, [ACCESS_TOKEN])
