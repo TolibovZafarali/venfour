@@ -69,6 +69,7 @@ class AdaptiveAnalysisRunIntegrityTests(unittest.TestCase):
 
         v5_artifact = copy.deepcopy(self.artifact)
         v5_artifact["analysisRunSchemaVersion"] = "5"
+        v5_artifact["analysisVersion"] = "5"
         validate_analysis_run_artifact(v5_artifact)
         self.assertEqual(
             AnalysisRunArtifact.from_dict(v5_artifact).analysis_run_schema_version,

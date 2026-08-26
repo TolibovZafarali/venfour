@@ -176,6 +176,7 @@ const backendEnvironment = {
   SUPABASE_SERVICE_ROLE_KEY: credentials.serviceRoleKey,
   SUPABASE_URL: credentials.apiUrl,
   VENFOUR_ENABLE_LEGACY_ANALYSIS_API: "0",
+  VENFOUR_PROVIDER_DIAGNOSTICS: "1",
 };
 delete backendEnvironment.VENFOUR_STAGING_PROXY_SECRET;
 
@@ -196,6 +197,7 @@ for (const secretName of [
   "SUPABASE_SERVICE_ROLE_KEY",
   "SUPABASE_URL",
   "VENFOUR_STAGING_PROXY_SECRET",
+  "VENFOUR_PROVIDER_DIAGNOSTICS",
 ]) {
   delete frontendEnvironment[secretName];
 }

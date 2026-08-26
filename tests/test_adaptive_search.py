@@ -8,6 +8,7 @@ from typing import Callable
 
 from venfour.adaptive_search import (
     CANDIDATE_VERIFICATION_LIMIT_REACHED,
+    CURRENT_PROVIDER_PARTIAL_RESULTS,
     CURRENT_SEARCH_CEILING_REACHED,
     DEFAULT_ADAPTIVE_SEARCH_POLICIES,
     DEFAULT_ADAPTIVE_SEARCH_POLICY,
@@ -497,15 +498,26 @@ class AdaptiveCurrentSearchTests(unittest.TestCase):
             ],
         )
 
-    def test_later_provider_failure_propagates(self) -> None:
+    def test_later_provider_failure_preserves_usable_partial_results(self) -> None:
         provider = CurrentProvider(
             {50: (listing(1),)}, fail_at_radius=100
         )
 
-        with self.assertRaises(MarketProviderUnavailableError):
-            adaptive_discover_market_listings(current_request(), provider)
+        result = adaptive_discover_market_listings(current_request(), provider)
 
         self.assertEqual([r.radius_miles for r in provider.requests], [50, 100])
+        self.assertEqual(
+            result.diagnostics.stop_reason, CURRENT_PROVIDER_PARTIAL_RESULTS
+        )
+        self.assertEqual(result.result.listing_count, 1)
+        self.assertIsInstance(
+            result.provider_failure, MarketProviderUnavailableError
+        )
+        replayed = replay_current_adaptive_search(
+            current_request(), result.diagnostics
+        )
+        self.assertEqual(replayed.result, result.result)
+        self.assertEqual(replayed.ranking, result.ranking)
 
     def test_full_attempt_stream_replays_and_detects_count_tampering(self) -> None:
         policy = AdaptiveSearchPolicy(

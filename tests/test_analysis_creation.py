@@ -39,12 +39,13 @@ from venfour.adaptive_search import (
 from venfour.api import create_app
 from venfour.creation import (
     AnalysisCreationInputError,
+    AnalysisCreationProviderError,
     AnalysisCreationService,
     AnalysisSearchSettings,
     create_live_analysis_creation_service,
 )
 from venfour.discrepancy import CURRENT_MARKET
-from venfour.market import MarketProviderRateLimitError
+from venfour.market import MarketProviderDiagnostic, MarketProviderRateLimitError
 from venfour.marketcheck import MARKETCHECK_ACTIVE_MAX_RADIUS_MILES
 from venfour.orchestration import AnalysisOrchestrator
 from venfour.presentation import validate_analysis_presentation
@@ -185,6 +186,40 @@ class AnalysisCreationApplicationFlowTests(AnalysisCreationTestCase):
         self.assertEqual(extractor.paths, [])
         self.assertEqual(current.requests, [])
         self.assertEqual(historical.requests, [])
+
+    def test_provider_failure_preserves_only_safe_classification_metadata(
+        self,
+    ) -> None:
+        diagnostic = MarketProviderDiagnostic(
+            endpoint_category="active",
+            http_status=429,
+            radius=50,
+            start=0,
+            rows=25,
+        )
+        current = RecordingCurrentProvider(
+            failure=MarketProviderRateLimitError(
+                "private provider detail", diagnostic=diagnostic
+            )
+        )
+        extractor = RecordingExtractor(make_report())
+        service, current, _, _ = self.make_service(
+            extractor,
+            current_provider=current,
+        )
+        report_path = self.root / "report.pdf"
+        report_path.write_bytes(PDF_BYTES)
+
+        with self.assertRaises(AnalysisCreationProviderError) as raised:
+            service.create(report_path, POSTAL_CODE)
+
+        self.assertEqual(raised.exception.stream, "current")
+        self.assertEqual(
+            raised.exception.provider_error_type,
+            "MarketProviderRateLimitError",
+        )
+        self.assertEqual(raised.exception.diagnostic, diagnostic)
+        self.assertEqual(len(current.requests), 1)
 
     def test_search_settings_default_to_adaptive_server_policy(self) -> None:
         self.assertIs(

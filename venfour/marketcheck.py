@@ -7,6 +7,7 @@ import math
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta, timezone
+from time import sleep
 from typing import Any, Protocol
 from urllib.error import HTTPError, URLError
 from urllib.parse import parse_qsl, quote, quote_plus, urlencode, urlsplit
@@ -77,6 +78,8 @@ MARKETCHECK_VIN_HISTORY_MAX_PAGES = 10
 MARKETCHECK_VIN_HISTORY_PAGE_SIZE = 50
 MARKETCHECK_VIN_HISTORY_MAX_VERIFICATIONS = 100
 DEFAULT_TIMEOUT_SECONDS = 15.0
+MARKETCHECK_TRANSIENT_RETRY_DELAY_SECONDS = 0.25
+MARKETCHECK_MAX_REQUEST_ATTEMPTS = 2
 
 QueryValue = str | int
 _HISTORY_PAGE_EXHAUSTED = object()
@@ -418,42 +421,55 @@ class MarketCheckProvider:
         endpoint: str = MARKETCHECK_ACTIVE_INVENTORY_URL,
         allow_history_page_exhaustion: bool = False,
     ) -> Any:
-        failure: MarketProviderError | None = None
-        failure_status: int | None = None
         body: bytes | None = None
-        try:
-            body = self._transport.get(
-                endpoint,
-                params,
-                {"Accept": "application/json"},
-                self._timeout,
-            )
-        except HTTPError as exc:
-            status = exc.code
+        for attempt in range(MARKETCHECK_MAX_REQUEST_ATTEMPTS):
+            failure: MarketProviderError | None = None
+            failure_status: int | None = None
+            transient = False
             try:
-                exc.close()
+                body = self._transport.get(
+                    endpoint,
+                    params,
+                    {"Accept": "application/json"},
+                    self._timeout,
+                )
+            except HTTPError as exc:
+                status = exc.code
+                try:
+                    exc.close()
+                except Exception:
+                    pass
+                if allow_history_page_exhaustion and status == 422:
+                    return _HISTORY_PAGE_EXHAUSTED
+                failure = self._http_error(status)
+                failure_status = status
+                transient = isinstance(
+                    failure,
+                    (MarketProviderRateLimitError, MarketProviderUnavailableError),
+                )
+            except (URLError, TimeoutError, ConnectionError, OSError):
+                failure = MarketProviderUnavailableError(
+                    "MarketCheck is temporarily unavailable"
+                )
+                transient = True
             except Exception:
-                pass
-            if allow_history_page_exhaustion and status == 422:
-                return _HISTORY_PAGE_EXHAUSTED
-            failure = self._http_error(status)
-            failure_status = status
-        except (URLError, TimeoutError, ConnectionError, OSError):
-            failure = MarketProviderUnavailableError(
-                "MarketCheck is temporarily unavailable"
-            )
-        except Exception:
-            failure = MarketProviderUnavailableError(
-                "MarketCheck is temporarily unavailable"
-            )
+                failure = MarketProviderUnavailableError(
+                    "MarketCheck is temporarily unavailable"
+                )
 
-        if failure is not None:
-            raise self._annotate_provider_failure(
+            if failure is None:
+                break
+            annotated = self._annotate_provider_failure(
                 failure,
                 params,
                 endpoint,
                 http_status=failure_status,
             )
+            if transient and attempt + 1 < MARKETCHECK_MAX_REQUEST_ATTEMPTS:
+                sleep(MARKETCHECK_TRANSIENT_RETRY_DELAY_SECONDS)
+                continue
+            raise annotated
+
         if not isinstance(body, bytes):
             raise MarketProviderResponseError(
                 "MarketCheck returned an unreadable response",
@@ -1823,10 +1839,12 @@ __all__ = [
     "MARKETCHECK_HISTORICAL_MAX_PAGES",
     "MARKETCHECK_HISTORICAL_MIN_ROWS",
     "MARKETCHECK_HISTORY_WINDOW_DAYS",
+    "MARKETCHECK_MAX_REQUEST_ATTEMPTS",
     "MARKETCHECK_MAX_ROWS",
     "MARKETCHECK_MAX_TAXONOMY_TERMS",
     "MARKETCHECK_PAST_INVENTORY_URL",
     "MARKETCHECK_PAST_MAX_RADIUS_MILES",
+    "MARKETCHECK_TRANSIENT_RETRY_DELAY_SECONDS",
     "MARKETCHECK_VIN_HISTORY_MAX_PAGES",
     "MARKETCHECK_VIN_HISTORY_MAX_VERIFICATIONS",
     "MARKETCHECK_VIN_HISTORY_PAGE_SIZE",

@@ -37,6 +37,7 @@ from venfour.marketcheck import (
     MARKETCHECK_ACTIVE_INVENTORY_URL,
     MARKETCHECK_ACTIVE_MAX_RADIUS_MILES,
     MARKETCHECK_CAR_TERMS_URL,
+    MARKETCHECK_TRANSIENT_RETRY_DELAY_SECONDS,
     MarketCheckProvider,
 )
 from venfour.vehicle_catalog import VehicleTrimCatalogRequest
@@ -1031,15 +1032,36 @@ class MarketCheckErrorMappingTests(unittest.TestCase):
                 search_with([self.http_error(status)])
 
     def test_rate_limit_status_maps_to_neutral_error(self) -> None:
-        with self.assertRaises(MarketProviderRateLimitError):
-            search_with([self.http_error(429)])
+        transport = RecordingTransport(
+            [self.http_error(429), self.http_error(429)]
+        )
+        provider = MarketCheckProvider(SYNTHETIC_KEY, transport=transport)
+
+        with (
+            patch("venfour.marketcheck.sleep") as pause,
+            self.assertRaises(MarketProviderRateLimitError),
+        ):
+            discover_market_listings(make_request(), provider)
+
+        self.assertEqual(len(transport.calls), 2)
+        pause.assert_called_once_with(MARKETCHECK_TRANSIENT_RETRY_DELAY_SECONDS)
 
     def test_unavailable_statuses_map_to_neutral_error(self) -> None:
         for status in (408, 500, 502, 503):
-            with self.subTest(status=status), self.assertRaises(
-                MarketProviderUnavailableError
+            transport = RecordingTransport(
+                [self.http_error(status), self.http_error(status)]
+            )
+            provider = MarketCheckProvider(SYNTHETIC_KEY, transport=transport)
+            with (
+                self.subTest(status=status),
+                patch("venfour.marketcheck.sleep") as pause,
+                self.assertRaises(MarketProviderUnavailableError),
             ):
-                search_with([self.http_error(status)])
+                discover_market_listings(make_request(), provider)
+            self.assertEqual(len(transport.calls), 2)
+            pause.assert_called_once_with(
+                MARKETCHECK_TRANSIENT_RETRY_DELAY_SECONDS
+            )
 
     def test_other_http_failures_map_to_response_error(self) -> None:
         for status in (302, 400, 404, 422):
@@ -1066,30 +1088,63 @@ class MarketCheckErrorMappingTests(unittest.TestCase):
         self.assertNotIn(SYNTHETIC_KEY, rendered)
         self.assertNotIn(MARKETCHECK_ACTIVE_INVENTORY_URL, rendered)
 
-    def test_network_failures_map_without_retry(self) -> None:
+    def test_transient_network_failures_retry_once(self) -> None:
         failures = (
             TimeoutError("timed out"),
             ConnectionRefusedError("refused"),
             URLError("DNS failure"),
-            RuntimeError("unexpected transport failure"),
         )
         for failure in failures:
-            transport = RecordingTransport([failure])
+            transport = RecordingTransport([failure, type(failure)(*failure.args)])
             provider = MarketCheckProvider(SYNTHETIC_KEY, transport=transport)
-            with self.subTest(failure=failure), self.assertRaises(
-                MarketProviderUnavailableError
+            with (
+                self.subTest(failure=failure),
+                patch("venfour.marketcheck.sleep") as pause,
+                self.assertRaises(MarketProviderUnavailableError),
             ):
                 discover_market_listings(make_request(), provider)
-            self.assertEqual(len(transport.calls), 1)
+            self.assertEqual(len(transport.calls), 2)
+            pause.assert_called_once_with(
+                MARKETCHECK_TRANSIENT_RETRY_DELAY_SECONDS
+            )
+
+    def test_transient_failure_can_recover_on_the_bounded_retry(self) -> None:
+        transport = RecordingTransport(
+            [self.http_error(503), make_page(0, 1, 1)]
+        )
+        provider = MarketCheckProvider(SYNTHETIC_KEY, transport=transport)
+
+        with patch("venfour.marketcheck.sleep") as pause:
+            result = discover_market_listings(make_request(), provider)
+
+        self.assertEqual(result.listing_count, 1)
+        self.assertEqual(len(transport.calls), 2)
+        pause.assert_called_once_with(MARKETCHECK_TRANSIENT_RETRY_DELAY_SECONDS)
+
+    def test_unexpected_transport_failures_are_not_retried(self) -> None:
+        transport = RecordingTransport([RuntimeError("unexpected failure")])
+        provider = MarketCheckProvider(SYNTHETIC_KEY, transport=transport)
+
+        with (
+            patch("venfour.marketcheck.sleep") as pause,
+            self.assertRaises(MarketProviderUnavailableError),
+        ):
+            discover_market_listings(make_request(), provider)
+
+        self.assertEqual(len(transport.calls), 1)
+        pause.assert_not_called()
 
     def test_transport_error_does_not_retain_authenticated_url_or_key(self) -> None:
         authenticated_url = (
             f"{MARKETCHECK_ACTIVE_INVENTORY_URL}?api_key={SYNTHETIC_KEY}"
         )
-        failure = URLError(f"failed to open {authenticated_url}")
+        failure_message = f"failed to open {authenticated_url}"
 
-        with self.assertRaises(MarketProviderUnavailableError) as raised:
-            search_with([failure])
+        with (
+            patch("venfour.marketcheck.sleep"),
+            self.assertRaises(MarketProviderUnavailableError) as raised,
+        ):
+            search_with([URLError(failure_message), URLError(failure_message)])
 
         error = raised.exception
         rendered = "".join(traceback.format_exception(error))
@@ -1217,13 +1272,20 @@ class MarketCheckPaginationTests(unittest.TestCase):
 
     def test_later_page_failure_does_not_return_partial_result(self) -> None:
         transport = RecordingTransport(
-            [make_page(0, 50, 75), self.http_error(500)]
+            [
+                make_page(0, 50, 75),
+                self.http_error(500),
+                self.http_error(500),
+            ]
         )
         provider = MarketCheckProvider(SYNTHETIC_KEY, transport=transport)
 
-        with self.assertRaises(MarketProviderUnavailableError):
+        with (
+            patch("venfour.marketcheck.sleep"),
+            self.assertRaises(MarketProviderUnavailableError),
+        ):
             discover_market_listings(make_request(result_limit=75), provider)
-        self.assertEqual(len(transport.calls), 2)
+        self.assertEqual(len(transport.calls), 3)
 
     @staticmethod
     def http_error(status: int) -> HTTPError:

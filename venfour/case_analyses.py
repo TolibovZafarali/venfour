@@ -40,6 +40,7 @@ from venfour.creation import (
     AnalysisUnsupportedReportError,
     create_live_analysis_creation_service,
 )
+from venfour.market import MarketProviderDiagnostic
 from venfour.presentation import AnalysisPresentationService
 from venfour.postal_codes import normalize_us_zip_code
 from venfour.report_ingestion import (
@@ -78,6 +79,14 @@ CASE_ANALYSIS_OUTCOMES = frozenset(
     }
 )
 MAX_PUBLIC_OPTIONS_PACKAGES_CHARACTERS = 4_000
+_NON_RETRYABLE_PROVIDER_ERRORS = frozenset(
+    {"MarketProviderAuthenticationError", "MarketProviderResponseError"}
+)
+_PROVIDER_LIFECYCLE_STAGES = {
+    "active": "current_inventory_search",
+    "recents": "historical_candidate_discovery",
+    "history": "vin_history_verification",
+}
 
 FAILURE_MESSAGES = {
     "REPORT_UNAVAILABLE": "The valuation report is temporarily unavailable.",
@@ -518,6 +527,7 @@ class CaseAnalysisService:
         run_id: str,
         attempt_count: int,
         started_at: float | None,
+        failure: Exception | None = None,
     ) -> None:
         if status.status == "completed":
             self._emit_lifecycle_event(
@@ -533,18 +543,37 @@ class CaseAnalysisService:
             return
         if status.status == "failed":
             failure_code = status.failure_code or "ANALYSIS_CREATION_FAILED"
-            self._emit_lifecycle_event(
-                {
-                    "severity": "ERROR",
-                    "event": "case_analysis_failed",
-                    "jobId": job_id,
-                    "runId": run_id,
-                    "attemptCount": attempt_count,
-                    "durationMs": self._duration_ms(started_at),
-                    "failureCode": failure_code,
-                    "retryable": bool(status.retryable),
-                }
+            event: dict[str, Any] = {
+                "severity": "ERROR",
+                "event": "case_analysis_failed",
+                "jobId": job_id,
+                "runId": run_id,
+                "attemptCount": attempt_count,
+                "durationMs": self._duration_ms(started_at),
+                "failureCode": failure_code,
+                "retryable": bool(status.retryable),
+            }
+            event.update(self._provider_failure_lifecycle_fields(failure))
+            self._emit_lifecycle_event(event)
+
+    @staticmethod
+    def _provider_failure_lifecycle_fields(
+        failure: Exception | None,
+    ) -> dict[str, Any]:
+        if not isinstance(failure, AnalysisCreationProviderError):
+            return {}
+        fields: dict[str, Any] = {}
+        if failure.stream in {"current", "historical"}:
+            fields["providerStream"] = failure.stream
+        if failure.provider_error_type in AnalysisCreationProviderError._ERROR_TYPES:
+            fields["providerErrorClass"] = failure.provider_error_type
+        diagnostic = failure.diagnostic
+        if isinstance(diagnostic, MarketProviderDiagnostic):
+            fields["providerStage"] = _PROVIDER_LIFECYCLE_STAGES.get(
+                diagnostic.endpoint_category, "provider_boundary"
             )
+            fields.update(diagnostic.to_dict())
+        return fields
 
     def authenticate(self, access_token: str) -> str:
         return self._gateway.authenticate(access_token)
@@ -664,7 +693,10 @@ class CaseAnalysisService:
         if isinstance(error, AnalysisUnsupportedReportError):
             return "UNSUPPORTED_REPORT", False
         if isinstance(error, AnalysisCreationProviderError):
-            return "MARKET_PROVIDER_UNAVAILABLE", True
+            return (
+                "MARKET_PROVIDER_UNAVAILABLE",
+                error.provider_error_type not in _NON_RETRYABLE_PROVIDER_ERRORS,
+            )
         if isinstance(error, AnalysisCreationUnavailableError):
             return "ANALYSIS_CREATION_UNAVAILABLE", True
         return "ANALYSIS_CREATION_FAILED", True
@@ -1125,6 +1157,7 @@ class CaseAnalysisService:
                 run_id=run_id,
                 attempt_count=attempt_count,
                 started_at=started_at,
+                failure=exc,
             )
             return status
 

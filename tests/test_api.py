@@ -374,8 +374,14 @@ class AnalysisPresentationApiTests(TemporaryRepositoryTestCase):
         )
         expected = json.loads(FIXTURE_PATH.read_text(encoding="utf-8"))
         self.assertEqual(expected["provenance"]["analysisRunSchemaVersion"], "5")
+        self.assertEqual(
+            expected["provenance"]["orchestrationAnalysisVersion"], "5"
+        )
         expected["provenance"]["analysisRunSchemaVersion"] = (
             artifact.analysis_run_schema_version
+        )
+        expected["provenance"]["orchestrationAnalysisVersion"] = (
+            artifact.analysis_version
         )
         validate_analysis_presentation(expected)
         self.assertEqual(expected["runId"], artifact.run_id)

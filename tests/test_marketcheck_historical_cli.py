@@ -458,7 +458,10 @@ class MarketCheckHistoricalCliTests(unittest.TestCase):
             SYNTHETIC_KEY,
             as_of_date=AS_OF_DATE,
             transport=RecordingTransport(
-                [URLError(f"could not open {authenticated_url}")]
+                [
+                    URLError(f"could not open {authenticated_url}"),
+                    URLError(f"could not open {authenticated_url}"),
+                ]
             ),
         )
         stdout = io.StringIO()
@@ -476,6 +479,8 @@ class MarketCheckHistoricalCliTests(unittest.TestCase):
             search_marketcheck_historical,
             "MarketCheckHistoricalProvider",
             return_value=provider,
+        ), patch(
+            "venfour.marketcheck.sleep"
         ), redirect_stdout(stdout), redirect_stderr(stderr):
             status = search_marketcheck_historical.main(self.ELANTRA_ARGS)
 

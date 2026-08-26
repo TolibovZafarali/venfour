@@ -11,6 +11,7 @@ from collections.abc import Mapping
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+from unittest.mock import patch
 from urllib.error import HTTPError, URLError
 
 from venfour.adaptive_search import (
@@ -1924,8 +1925,22 @@ class MarketCheckHistoricalErrorAndSecurityTests(unittest.TestCase):
             422: MarketProviderResponseError,
         }
         for status, expected in cases.items():
-            with self.subTest(status=status), self.assertRaises(expected):
-                search_with([make_http_error(status, MARKETCHECK_PAST_INVENTORY_URL)])
+            outcomes = [
+                make_http_error(status, MARKETCHECK_PAST_INVENTORY_URL)
+            ]
+            if expected in {
+                MarketProviderRateLimitError,
+                MarketProviderUnavailableError,
+            }:
+                outcomes.append(
+                    make_http_error(status, MARKETCHECK_PAST_INVENTORY_URL)
+                )
+            with (
+                self.subTest(status=status),
+                patch("venfour.marketcheck.sleep"),
+                self.assertRaises(expected),
+            ):
+                search_with(outcomes)
 
     def test_history_http_statuses_reuse_provider_neutral_error_mapping(self) -> None:
         cases = {
@@ -1941,11 +1956,21 @@ class MarketCheckHistoricalErrorAndSecurityTests(unittest.TestCase):
         candidate = make_candidate()
         endpoint = f"{MARKETCHECK_VIN_HISTORY_URL}/{candidate['vin']}"
         for status, expected in cases.items():
-            with self.subTest(status=status), self.assertRaises(expected):
+            history_outcomes = [make_http_error(status, endpoint)]
+            if expected in {
+                MarketProviderRateLimitError,
+                MarketProviderUnavailableError,
+            }:
+                history_outcomes.append(make_http_error(status, endpoint))
+            with (
+                self.subTest(status=status),
+                patch("venfour.marketcheck.sleep"),
+                self.assertRaises(expected),
+            ):
                 search_with(
                     [
                         make_candidate_page([candidate], 1),
-                        make_http_error(status, endpoint),
+                        *history_outcomes,
                     ]
                 )
 
@@ -1967,10 +1992,14 @@ class MarketCheckHistoricalErrorAndSecurityTests(unittest.TestCase):
     def test_history_failure_context_never_retains_vin_or_endpoint(self) -> None:
         candidate = make_candidate()
         endpoint = f"{MARKETCHECK_VIN_HISTORY_URL}/{candidate['vin']}"
-        with self.assertRaises(MarketProviderRateLimitError) as raised:
+        with (
+            patch("venfour.marketcheck.sleep"),
+            self.assertRaises(MarketProviderRateLimitError) as raised,
+        ):
             search_with(
                 [
                     make_candidate_page([candidate], 1),
+                    make_http_error(429, endpoint),
                     make_http_error(429, endpoint),
                 ]
             )
@@ -1988,21 +2017,27 @@ class MarketCheckHistoricalErrorAndSecurityTests(unittest.TestCase):
         self.assertNotIn(endpoint, rendered)
         self.assertNotIn(SYNTHETIC_KEY, rendered)
 
-    def test_network_failure_is_sanitized_and_not_retried(self) -> None:
+    def test_network_failure_is_sanitized_and_retried_once(self) -> None:
         authenticated_url = (
             f"{MARKETCHECK_PAST_INVENTORY_URL}?api_key={SYNTHETIC_KEY}"
         )
-        transport = RecordingTransport([URLError(f"could not open {authenticated_url}")])
+        failure_message = f"could not open {authenticated_url}"
+        transport = RecordingTransport(
+            [URLError(failure_message), URLError(failure_message)]
+        )
         provider = MarketCheckHistoricalProvider(
             SYNTHETIC_KEY,
             as_of_date=AS_OF_DATE,
             transport=transport,
         )
 
-        with self.assertRaises(MarketProviderUnavailableError) as raised:
+        with (
+            patch("venfour.marketcheck.sleep"),
+            self.assertRaises(MarketProviderUnavailableError) as raised,
+        ):
             discover_historical_market_evidence(make_request(), provider)
 
-        self.assertEqual(len(transport.calls), 1)
+        self.assertEqual(len(transport.calls), 2)
         rendered = "".join(traceback.format_exception(raised.exception))
         self.assertNotIn(SYNTHETIC_KEY, rendered)
         self.assertNotIn(authenticated_url, rendered)

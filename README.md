@@ -196,12 +196,12 @@ stores the report privately at the deterministic case object location; the
 authenticated API claims and runs the case analysis, then exposes the owned
 persisted result.
 
-For local provider-failure diagnostics, stop the launcher and start the API
-manually with `VENFOUR_PROVIDER_DIAGNOSTICS=1`. The warning contains only the
-evidence stream, fixed retrieval stage, provider error class, endpoint category,
-HTTP status, and numeric pagination/search bounds that are available. It never
-logs credentials, authenticated URLs, VINs, response bodies, or raw provider
-parameters. Public API error payloads remain unchanged.
+The local launcher enables provider-failure diagnostics for the backend. The
+warning contains only the evidence stream, fixed retrieval stage, provider error
+class, endpoint category, HTTP status, and numeric pagination/search bounds that
+are available. It never logs credentials, authenticated URLs, VINs, response
+bodies, or raw provider parameters. Public API error payloads remain unchanged,
+and the diagnostic flag is explicitly removed from the frontend environment.
 
 For live market and orchestration debugging after a report has already been
 extracted, use the local canonical-analysis command. It revalidates canonical

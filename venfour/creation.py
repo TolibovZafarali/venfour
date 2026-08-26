@@ -27,7 +27,11 @@ from venfour.discrepancy import (
     DiscrepancyContractError,
     valuation_discrepancy_request_from_report,
 )
-from venfour.market import MarketProviderError, VehicleConfigurationIdentity
+from venfour.market import (
+    MarketProviderDiagnostic,
+    MarketProviderError,
+    VehicleConfigurationIdentity,
+)
 from venfour.marketcheck import MarketCheckHistoricalProvider, MarketCheckProvider
 from venfour.orchestration import (
     AnalysisExecutionError,
@@ -90,6 +94,41 @@ class AnalysisUnsupportedReportError(AnalysisCreationError):
 
 class AnalysisCreationProviderError(AnalysisCreationError):
     """A configured market-evidence provider failed during creation."""
+
+    _STREAMS = frozenset({"current", "historical"})
+    _ERROR_TYPES = frozenset(
+        {
+            "MarketProviderAuthenticationError",
+            "MarketProviderRateLimitError",
+            "MarketProviderUnavailableError",
+            "MarketProviderResponseError",
+            "MarketProviderError",
+        }
+    )
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        stream: str | None = None,
+        provider_error_type: str | None = None,
+        diagnostic: MarketProviderDiagnostic | None = None,
+    ) -> None:
+        super().__init__(message)
+        if stream is not None and stream not in self._STREAMS:
+            raise ValueError("Provider stream is invalid")
+        if (
+            provider_error_type is not None
+            and provider_error_type not in self._ERROR_TYPES
+        ):
+            raise ValueError("Provider error type is invalid")
+        if diagnostic is not None and not isinstance(
+            diagnostic, MarketProviderDiagnostic
+        ):
+            raise TypeError("diagnostic must be MarketProviderDiagnostic or None")
+        self.stream = stream
+        self.provider_error_type = provider_error_type
+        self.diagnostic = diagnostic
 
 
 class AnalysisCreationUnavailableError(AnalysisCreationError):
@@ -314,7 +353,10 @@ class AnalysisCreationService:
             ) from exc
         except AnalysisRetrievalError as exc:
             raise AnalysisCreationProviderError(
-                "Market evidence retrieval failed"
+                "Market evidence retrieval failed",
+                stream=exc.stage,
+                provider_error_type=exc.provider_error_type,
+                diagnostic=exc.diagnostic,
             ) from exc
         except (AnalysisExecutionError, AnalysisPersistenceError) as exc:
             raise AnalysisCreationExecutionError("Analysis creation failed") from exc

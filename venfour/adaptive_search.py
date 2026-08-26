@@ -57,6 +57,7 @@ SUFFICIENT_STRONG_MATCHES = "SUFFICIENT_STRONG_MATCHES"
 MAX_UNIQUE_CANDIDATES = "MAX_UNIQUE_CANDIDATES"
 MAX_SCOPE_REACHED = "MAX_SCOPE_REACHED"
 CURRENT_SEARCH_CEILING_REACHED = "CURRENT_SEARCH_CEILING_REACHED"
+CURRENT_PROVIDER_PARTIAL_RESULTS = "CURRENT_PROVIDER_PARTIAL_RESULTS"
 HISTORICAL_SEARCH_CEILING_REACHED = "HISTORICAL_SEARCH_CEILING_REACHED"
 HISTORICAL_OUT_OF_PROVIDER_RANGE = "OUT_OF_PROVIDER_RANGE"
 CANDIDATE_VERIFICATION_LIMIT_REACHED = "CANDIDATE_VERIFICATION_LIMIT_REACHED"
@@ -76,6 +77,7 @@ _COMMON_STOP_REASONS = {
 }
 _CURRENT_STOP_REASONS = _COMMON_STOP_REASONS | {
     CURRENT_SEARCH_CEILING_REACHED,
+    CURRENT_PROVIDER_PARTIAL_RESULTS,
 }
 _HISTORICAL_STOP_REASONS = _COMMON_STOP_REASONS | {
     HISTORICAL_SEARCH_CEILING_REACHED,
@@ -322,6 +324,7 @@ class AdaptiveCurrentSearchResult:
     result: MarketSearchResult
     ranking: ComparableRankingResult
     diagnostics: AdaptiveSearchDiagnostics
+    provider_failure: MarketProviderError | None = None
 
     @property
     def market_result(self) -> MarketSearchResult:
@@ -665,7 +668,12 @@ class _CurrentState:
         self.last_stage = stage
         return attempt
 
-    def finish(self, stop_reason: str) -> AdaptiveCurrentSearchResult:
+    def finish(
+        self,
+        stop_reason: str,
+        *,
+        provider_failure: MarketProviderError | None = None,
+    ) -> AdaptiveCurrentSearchResult:
         if self.provider is None or self.ranking is None or self.last_stage is None:
             raise AssertionError("a current adaptive search must contain an attempt")
         aggregate_limit = max(
@@ -688,6 +696,7 @@ class _CurrentState:
             result=aggregate,
             ranking=ranking,
             diagnostics=AdaptiveSearchDiagnostics(tuple(self.attempts), stop_reason),
+            provider_failure=provider_failure,
         )
 
 
@@ -712,9 +721,21 @@ def adaptive_discover_market_listings(
     comparable_target = _target_for_request(base_request, target)
     state = _CurrentState(base_request, comparable_target, policy)
     for index, stage in enumerate(policy.stages):
-        result = discover_market_listings(
-            _request_for_stage(base_request, stage), provider
-        )
+        try:
+            result = discover_market_listings(
+                _request_for_stage(base_request, stage), provider
+            )
+        except MarketProviderError as exc:
+            if (
+                state.ranking is None
+                or state.ranking.eligible_count < 1
+                or not state.attempts
+            ):
+                raise
+            return state.finish(
+                CURRENT_PROVIDER_PARTIAL_RESULTS,
+                provider_failure=exc,
+            )
         attempt = state.consume(result, stage)
         stop_reason = _regular_stop_reason(
             policy,
@@ -1255,6 +1276,20 @@ def replay_current_adaptive_search(
                 "Adaptive current search diagnostics do not replay",
                 (f"$.attempts[{index + 1}]: search continued after a stop",),
             )
+    if actual_stop is None and stored_stop == CURRENT_PROVIDER_PARTIAL_RESULTS:
+        if (
+            len(rows) >= len(policy.stages)
+            or state.ranking is None
+            or state.ranking.eligible_count < 1
+        ):
+            raise AdaptiveSearchContractError(
+                "Adaptive current search diagnostics do not replay",
+                (
+                    "$.stopReason: partial results require usable evidence "
+                    "and an unattempted policy stage",
+                ),
+            )
+        actual_stop = CURRENT_PROVIDER_PARTIAL_RESULTS
     if actual_stop is None or actual_stop != stored_stop:
         raise AdaptiveSearchContractError(
             "Adaptive current search diagnostics do not replay",
@@ -1369,6 +1404,7 @@ __all__ = [
     "AdaptiveSearchPolicy",
     "AdaptiveSearchPolicies",
     "CANDIDATE_VERIFICATION_LIMIT_REACHED",
+    "CURRENT_PROVIDER_PARTIAL_RESULTS",
     "CURRENT_SEARCH_CEILING_REACHED",
     "CURRENT_SEARCH_STAGES",
     "DEFAULT_ADAPTIVE_SEARCH_POLICY",

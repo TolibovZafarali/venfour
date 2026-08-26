@@ -303,6 +303,36 @@ describe("total-loss case analysis page", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("returns to appraisals for a nonretryable provider failure", async () => {
+    server.use(
+      http.get("*/api/v1/appraisal-cases/:caseId/analysis", () =>
+        HttpResponse.json({
+          status: "failed",
+          attemptCount: 1,
+          error: {
+            code: "MARKET_PROVIDER_UNAVAILABLE",
+            message: "Market evidence is temporarily unavailable.",
+          },
+          retryable: false,
+        }),
+      ),
+    );
+
+    renderTestApp([casePath], {
+      authService: authService(sessionFor()),
+    });
+
+    expect(
+      await screen.findByRole("link", { name: "Return to appraisals" }),
+    ).toHaveAttribute("href", "/appraisals");
+    expect(
+      screen.queryByRole("button", { name: "Retry value check" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: "Review intake" }),
+    ).not.toBeInTheDocument();
+  });
+
   it("does not request a private case while signed out", async () => {
     let requestCount = 0;
     server.use(

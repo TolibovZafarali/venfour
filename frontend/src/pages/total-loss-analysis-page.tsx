@@ -383,6 +383,10 @@ function AuthenticatedTotalLossAnalysisPage({
             )}
             Retry value check
           </Button>
+        ) : analysis.error.code === "MARKET_PROVIDER_UNAVAILABLE" ? (
+          <Button variant="outline" asChild>
+            <Link to="/appraisals">Return to appraisals</Link>
+          </Button>
         ) : (
           <Button asChild>
             <Link

@@ -81,7 +81,7 @@ from venfour.market import (
 
 
 ANALYSIS_RUN_SCHEMA_VERSION = "6"
-ANALYSIS_RUN_ANALYSIS_VERSION = "5"
+ANALYSIS_RUN_ANALYSIS_VERSION = "6"
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 ANALYSIS_RUN_SCHEMA_PATH = (

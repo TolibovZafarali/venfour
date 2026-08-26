@@ -374,7 +374,10 @@
           "$ref": "#/$defs/createdAt"
         },
         "analysisVersion": {
-          "const": "5"
+          "enum": [
+            "5",
+            "6"
+          ]
         },
         "discrepancyAnalysisVersion": {
           "const": "1"
@@ -1278,7 +1281,8 @@
         "SUFFICIENT_STRONG_MATCHES",
         "MAX_UNIQUE_CANDIDATES",
         "MAX_SCOPE_REACHED",
-        "CURRENT_SEARCH_CEILING_REACHED"
+        "CURRENT_SEARCH_CEILING_REACHED",
+        "CURRENT_PROVIDER_PARTIAL_RESULTS"
       ]
     }
   }

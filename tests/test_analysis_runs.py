@@ -21,6 +21,7 @@ from unittest.mock import patch
 from jsonschema import Draft202012Validator
 
 from venfour.adaptive_search import (
+    CURRENT_PROVIDER_PARTIAL_RESULTS,
     CURRENT_SEARCH_CEILING_REACHED,
     DEFAULT_ADAPTIVE_SEARCH_POLICY,
     DEFAULT_SEARCH_STAGES,
@@ -574,7 +575,7 @@ class AnalysisOrchestrationScenarioTests(TemporaryRepositoryTestCase):
         )
         artifact_data = loaded.to_dict()
         self.assertEqual(artifact_data["analysisRunSchemaVersion"], "6")
-        self.assertEqual(artifact_data["analysisVersion"], "5")
+        self.assertEqual(artifact_data["analysisVersion"], "6")
         self.assertEqual(artifact_data["evidenceContext"]["inputMode"], "REPORT")
         self.assertEqual(len(artifact_data["searchDiagnosticsDigest"]), 64)
         expected_diagnostics = {
@@ -912,11 +913,76 @@ class AnalysisOrchestrationScenarioTests(TemporaryRepositoryTestCase):
         ):
             orchestrator.run(make_run_request(current=False))
 
-    def test_later_current_expansion_failure_aborts_without_partial_save(self) -> None:
+    def test_later_current_expansion_failure_saves_replayable_partial_results(
+        self,
+    ) -> None:
+        repository = self.repository()
+        failure = MarketProviderRateLimitError(
+            "synthetic later-stage failure",
+            diagnostic=MarketProviderDiagnostic(
+                endpoint_category="active",
+                http_status=429,
+                radius=100,
+                start=0,
+                rows=50,
+            ),
+        )
+        current_provider = RecordingCurrentProvider(
+            failure=failure,
+            failure_at_radius=100,
+        )
+        orchestrator = make_orchestrator(
+            repository,
+            current_provider=current_provider,
+            historical_provider=None,
+        )
+
+        with (
+            patch.dict(
+                os.environ, {"VENFOUR_PROVIDER_DIAGNOSTICS": "1"}, clear=False
+            ),
+            self.assertLogs(
+                "venfour.provider_diagnostics", level="WARNING"
+            ) as logs,
+        ):
+            result = orchestrator.run(make_run_request(historical=False))
+
+        self.assertEqual(
+            [request.radius_miles for request in current_provider.requests],
+            [50, 100],
+        )
+        artifact = repository.get(result.run_id).to_dict()
+        self.assertEqual(
+            artifact["result"]["searchDiagnostics"]["current"]["stopReason"],
+            CURRENT_PROVIDER_PARTIAL_RESULTS,
+        )
+        self.assertEqual(
+            artifact["result"]["currentMarketResult"]["listingCount"], 5
+        )
+        self.assertEqual(artifact["result"]["currentRanking"]["eligibleCount"], 5)
+        validate_analysis_run_artifact(artifact)
+        self.assertEqual(
+            json.loads(logs.records[0].getMessage()),
+            {
+                "endpointCategory": "active",
+                "event": "market_provider_failure",
+                "httpStatus": 429,
+                "providerErrorClass": "MarketProviderRateLimitError",
+                "radius": 100,
+                "rows": 50,
+                "stage": "current_inventory_search",
+                "start": 0,
+                "stream": "current",
+            },
+        )
+
+    def test_first_current_stage_failure_still_aborts_without_partial_save(
+        self,
+    ) -> None:
         repository = self.repository()
         current_provider = RecordingCurrentProvider(
-            failure=MarketProviderRateLimitError("synthetic later-stage failure"),
-            failure_at_radius=100,
+            failure=MarketProviderRateLimitError("synthetic first-stage failure"),
+            failure_at_radius=50,
         )
         orchestrator = make_orchestrator(
             repository,
@@ -929,8 +995,7 @@ class AnalysisOrchestrationScenarioTests(TemporaryRepositoryTestCase):
 
         self.assertEqual(raised.exception.stage, "current")
         self.assertEqual(
-            [request.radius_miles for request in current_provider.requests],
-            [50, 100],
+            [request.radius_miles for request in current_provider.requests], [50]
         )
         self.assertEqual(list(repository.root.glob("*.json")), [])
 

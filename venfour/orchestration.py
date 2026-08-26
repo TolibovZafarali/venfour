@@ -617,6 +617,10 @@ class AnalysisOrchestrator:
                     configured_current_policy,
                     target=base_request.loss_vehicle,
                 )
+                if adaptive_current.provider_failure is not None:
+                    _emit_local_provider_diagnostic(
+                        "current", adaptive_current.provider_failure
+                    )
                 current_result = adaptive_current.result
                 current_ranking = adaptive_current.ranking
                 current_diagnostics = adaptive_current.diagnostics

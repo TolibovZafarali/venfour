@@ -32,6 +32,7 @@ from venfour.creation import (
     AnalysisCreationProviderError,
     AnalysisUnsupportedReportError,
 )
+from venfour.market import MarketProviderDiagnostic
 from venfour.report_ingestion import ReportIngestionResult
 from venfour.supabase_gateway import (
     SupabaseAuthenticationError,
@@ -718,7 +719,18 @@ class CaseAnalysisServiceTests(unittest.TestCase):
         status = self.make_service(
             gateway,
             PersistingCreationFactory(
-                AnalysisCreationProviderError(exception_text)
+                AnalysisCreationProviderError(
+                    exception_text,
+                    stream="current",
+                    provider_error_type="MarketProviderResponseError",
+                    diagnostic=MarketProviderDiagnostic(
+                        endpoint_category="active",
+                        http_status=422,
+                        radius=100,
+                        start=0,
+                        rows=50,
+                    ),
+                )
             ),
             monotonic_clock=clock,
             lifecycle_event_sink=capture_after_durable_state,
@@ -743,7 +755,15 @@ class CaseAnalysisServiceTests(unittest.TestCase):
                     "attemptCount": 1,
                     "durationMs": 500,
                     "failureCode": "MARKET_PROVIDER_UNAVAILABLE",
-                    "retryable": True,
+                    "retryable": False,
+                    "providerStream": "current",
+                    "providerErrorClass": "MarketProviderResponseError",
+                    "providerStage": "current_inventory_search",
+                    "endpointCategory": "active",
+                    "httpStatus": 422,
+                    "radius": 100,
+                    "start": 0,
+                    "rows": 50,
                 },
             ],
         )
@@ -792,6 +812,15 @@ class CaseAnalysisServiceTests(unittest.TestCase):
                     "durationMs",
                     "failureCode",
                     "retryable",
+                    "providerStream",
+                    "providerErrorClass",
+                    "providerStage",
+                    "endpointCategory",
+                    "httpStatus",
+                    "radius",
+                    "start",
+                    "rows",
+                    "page",
                 }
             )
 
@@ -1000,6 +1029,45 @@ class CaseAnalysisServiceTests(unittest.TestCase):
                 "retryable": True,
             },
         )
+
+    def test_provider_failure_retryability_uses_the_provider_error_class(
+        self,
+    ) -> None:
+        cases = (
+            ("MarketProviderAuthenticationError", False),
+            ("MarketProviderResponseError", False),
+            ("MarketProviderRateLimitError", True),
+            ("MarketProviderUnavailableError", True),
+        )
+        for provider_error_type, expected_retryable in cases:
+            with self.subTest(provider_error_type=provider_error_type):
+                gateway = FakeCaseGateway()
+                service = self.make_service(
+                    gateway,
+                    PersistingCreationFactory(
+                        AnalysisCreationProviderError(
+                            "private provider detail",
+                            stream="current",
+                            provider_error_type=provider_error_type,
+                        )
+                    ),
+                )
+
+                status = service.submit(CASE_ID, USER_ID)
+
+                self.assertEqual(status.status, "failed")
+                self.assertEqual(status.retryable, expected_retryable)
+                self.assertEqual(
+                    gateway.failures,
+                    [
+                        (
+                            JOB_ID,
+                            TOKEN_ID,
+                            "MARKET_PROVIDER_UNAVAILABLE",
+                            expected_retryable,
+                        )
+                    ],
+                )
 
     def test_unsupported_report_is_nonretryable_and_durably_recorded(self) -> None:
         gateway = FakeCaseGateway()
