@@ -187,11 +187,7 @@ describe("DiminishedValueIntakeFlow", () => {
     expect(
       await screen.findByText("Vehicle found: 2003 HONDA Accord"),
     ).toBeInTheDocument();
-    await screen.findByRole("option", { name: "EX" });
-    await user.selectOptions(
-      screen.getByLabelText("Trim"),
-      "marketcheck-trim-ex",
-    );
+    expect(service.listTrims).not.toHaveBeenCalled();
     await user.click(screen.getByRole("button", { name: "Continue" }));
     await waitFor(() =>
       expect(
@@ -250,19 +246,12 @@ describe("DiminishedValueIntakeFlow", () => {
     );
   });
 
-  it.each(["error", "empty"] as const)(
-    "keeps a VIN-provided raw trim usable when the trim catalog is %s",
-    async (catalogResult) => {
+  it(
+    "keeps a VIN-provided raw trim usable without a generated lookup",
+    async () => {
       const user = userEvent.setup();
       const onDraftChange = vi.fn();
       const service = vehicleService();
-      if (catalogResult === "error") {
-        vi.mocked(service.listTrims).mockRejectedValueOnce(
-          new Error("catalog unavailable"),
-        );
-      } else {
-        vi.mocked(service.listTrims).mockResolvedValueOnce([]);
-      }
       render(
         <FlowHarness
           initialDraft={{
@@ -285,11 +274,10 @@ describe("DiminishedValueIntakeFlow", () => {
         />,
       );
 
-      await screen.findByText(
-        catalogResult === "error"
-          ? /We couldn’t load trims/u
-          : /No exact trim options were found/u,
+      expect(screen.getByLabelText("Trim")).toHaveValue(
+        "__legacy-current-trim__",
       );
+      expect(service.listTrims).not.toHaveBeenCalled();
       await user.click(screen.getByRole("button", { name: "Continue" }));
 
       expect(
@@ -330,12 +318,22 @@ describe("DiminishedValueIntakeFlow", () => {
     await screen.findByText(/No exact trim options were found/u);
     await user.click(screen.getByRole("button", { name: "Continue" }));
 
-    expect(screen.getByText("Trim is required.")).toHaveAttribute(
-      "role",
-      "alert",
-    );
+    expect(
+      screen.getByText("Choose the exact vehicle configuration from the list."),
+    ).toHaveAttribute("role", "alert");
     expect(
       screen.getByRole("heading", { name: "Tell us about the vehicle" }),
+    ).toBeInTheDocument();
+
+    await user.selectOptions(
+      screen.getByLabelText("Trim"),
+      "venfour-trim-other-not-sure",
+    );
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+    expect(
+      await screen.findByRole("heading", {
+        name: "Describe the accident and repairs",
+      }),
     ).toBeInTheDocument();
   });
 

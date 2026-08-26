@@ -31,7 +31,22 @@ describe("vehicle configuration identity", () => {
         "Long Range AWD Dual Motor",
       ],
     });
+    if (!configuration) throw new Error("expected MarketCheck configuration");
     expect(configuration.values).not.toBe(longRangeAwd.queryValues);
+  });
+
+  it("keeps generated display trims out of MarketCheck query identity", () => {
+    expect(
+      vehicleConfigurationFromTrimOption({
+        ...longRangeAwd,
+        source: "openai",
+        id: "openai-trim-long-range",
+        label: "Long Range",
+        trim: "Long Range",
+        queryField: "trim",
+        queryValues: ["Long Range"],
+      }),
+    ).toBeNull();
   });
 
   it("accepts only the bounded canonical persistence shape", () => {

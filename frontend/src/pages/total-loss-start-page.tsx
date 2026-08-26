@@ -450,7 +450,12 @@ function TotalLossIntakeFlowContent({
     service: vehicleLookupService,
     catalogEnabled:
       draft.step === "vehicle" && activeVehicleEntryMethod === "details",
-    trimCatalogEnabled: draft.step === "vehicle",
+    trimCatalogEnabled:
+      draft.step === "vehicle" &&
+      !(
+        activeVehicleEntryMethod === "vin" &&
+        Boolean(draft.manual.trim.trim())
+      ),
     vehicleYear: draft.manual.vehicleYear,
     make: draft.manual.make,
     model: draft.manual.model,
@@ -1372,7 +1377,12 @@ function TotalLossIntakeFlowContent({
       ? { ...normalized, trim: selectedTrimOption.trim }
       : normalized;
     const errors = vehicleErrors(validateTotalLossManualForm(configuredManual));
-    if (vehicleResolved && trimOptions.length > 0 && !selectedTrimOption) {
+    if (
+      vehicleResolved &&
+      trimsState !== "idle" &&
+      trimOptions.length > 0 &&
+      !selectedTrimOption
+    ) {
       errors.trim = "Choose the exact vehicle configuration from the list.";
     }
     setManualErrors((current) => ({ ...current, ...errors }));

@@ -56,7 +56,7 @@ from venfour.case_analyses import (
     CaseAnalysisService,
     CaseAnalysisUnavailableError,
 )
-from venfour.marketcheck import MarketCheckProvider
+from venfour.openai_vehicle_catalog import OpenAIVehicleTrimCatalog
 from venfour.presentation import (
     AnalysisPresentationContractError,
     AnalysisPresentationService,
@@ -756,20 +756,6 @@ def create_app(
         else os.environ.get(STAGING_PROXY_SECRET_ENVIRONMENT_NAME)
     )
 
-    selected_vehicle_trim_catalog_service = vehicle_trim_catalog_service
-    if selected_vehicle_trim_catalog_service is None and _runtime_secret_is_configured(
-        "MARKETCHECK_API_KEY"
-    ):
-        selected_vehicle_trim_catalog_service = MarketCheckProvider(
-            os.environ.get("MARKETCHECK_API_KEY")
-        )
-    if selected_vehicle_trim_catalog_service is not None and not callable(
-        getattr(selected_vehicle_trim_catalog_service, "list_trims", None)
-    ):
-        raise TypeError(
-            "vehicle_trim_catalog_service must expose list_trims(request)"
-        )
-
     if case_analysis_service is not None and supabase_gateway is not None:
         raise ValueError(
             "case_analysis_service cannot be combined with supabase_gateway"
@@ -840,6 +826,7 @@ def create_app(
 
     selected_case_service = case_analysis_service
     owned_supabase_gateway: SupabaseHttpGateway | None = None
+    selected_gateway: CaseAnalysisGateway | None = None
     if selected_case_service is None:
         selected_gateway = supabase_gateway
         if selected_gateway is None:
@@ -868,6 +855,32 @@ def create_app(
             raise TypeError(
                 "case_analysis_service must expose auth, case, and run methods"
             )
+
+    selected_vehicle_trim_catalog_service = vehicle_trim_catalog_service
+    trim_cache_methods = (
+        "claim_vehicle_trim_cache",
+        "complete_vehicle_trim_cache",
+        "release_vehicle_trim_cache",
+    )
+    if (
+        selected_vehicle_trim_catalog_service is None
+        and selected_gateway is not None
+        and all(
+            callable(getattr(selected_gateway, method, None))
+            for method in trim_cache_methods
+        )
+        and _runtime_secret_is_configured("OPENAI_API_KEY")
+    ):
+        selected_vehicle_trim_catalog_service = OpenAIVehicleTrimCatalog(
+            selected_gateway,  # type: ignore[arg-type]
+            api_key=os.environ.get("OPENAI_API_KEY"),
+        )
+    if selected_vehicle_trim_catalog_service is not None and not callable(
+        getattr(selected_vehicle_trim_catalog_service, "list_trims", None)
+    ):
+        raise TypeError(
+            "vehicle_trim_catalog_service must expose list_trims(request)"
+        )
 
     customer_path_configured = (
         selected_case_service is not None and not legacy_enabled

@@ -5,6 +5,7 @@ import {
   VehicleLookupError,
   type VehicleLookupService,
   type VehicleTrimOption,
+  withOtherVehicleTrimOption,
 } from "@/features/intake/vehicle-lookup-types";
 import type { VehicleLookupState } from "@/features/intake/vehicle-identification-fields";
 
@@ -275,14 +276,18 @@ export function useVehicleLookupController({
     }
   }, [loadTrims, trimCatalogEnabled]);
 
+  const currentTrimInput = trimCatalogInput(vehicleYear, make, model);
   const activeTrimKey = trimCatalogEnabled
-    ? trimCatalogInput(vehicleYear, make, model)?.key ?? null
+    ? currentTrimInput?.key ?? null
     : null;
-  const trimOptions =
+  const catalogTrimOptions =
     activeTrimKey && trimCatalog.key === activeTrimKey
       ? trimCatalog.options
       : [];
-  const trimsState: VehicleLookupState = !activeTrimKey
+  const trimOptions = currentTrimInput
+    ? withOtherVehicleTrimOption(catalogTrimOptions)
+    : [];
+  const trimsState: VehicleLookupState = !trimCatalogEnabled || !activeTrimKey
     ? "idle"
     : trimCatalog.key === activeTrimKey
       ? trimCatalog.state

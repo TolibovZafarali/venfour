@@ -12,6 +12,7 @@ import math
 import os
 import re
 import tempfile
+import unicodedata
 from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -32,6 +33,9 @@ DOWNLOAD_CHUNK_BYTES = 1024 * 1024
 MAX_EXTRACTION_CACHE_BYTES = 1024 * 1024
 MAX_EXTRACTION_PROVIDER_CHARACTERS = 200
 EXTRACTION_SCHEMA_VERSION_PATTERN = re.compile(r"[0-9]{1,16}")
+MAX_VEHICLE_TRIM_CACHE_KEY_CHARACTERS = 512
+MAX_VEHICLE_TRIM_CACHE_ITEMS = 50
+MAX_VEHICLE_TRIM_CACHE_TEXT_CHARACTERS = 100
 
 
 class SupabaseGatewayError(Exception):
@@ -72,6 +76,17 @@ def _canonical_uuid(value: Any, label: str) -> str:
     if str(parsed) != value:
         raise SupabaseContractError(f"{label} is invalid")
     return value
+
+
+def _canonical_cache_text(value: Any, label: str, maximum: int) -> str:
+    if not isinstance(value, str) or any(
+        ord(character) < 32 or ord(character) == 127 for character in value
+    ):
+        raise SupabaseContractError(f"{label} is invalid")
+    normalized = " ".join(unicodedata.normalize("NFKC", value).split())
+    if not normalized or normalized != value or len(normalized) > maximum:
+        raise SupabaseContractError(f"{label} is invalid")
+    return normalized
 
 
 def _valid_hostname(value: str) -> bool:
@@ -438,6 +453,115 @@ class SupabaseHttpGateway:
             },
         )
         return self._single_rpc_row(payload, "Analysis status")
+
+    def claim_vehicle_trim_cache(
+        self,
+        lookup_key: str,
+        vehicle_year: int,
+        vehicle_make: str,
+        vehicle_model: str,
+        generation_token: str,
+    ) -> Mapping[str, Any]:
+        if (
+            isinstance(vehicle_year, bool)
+            or not isinstance(vehicle_year, int)
+            or not 1981 <= vehicle_year <= 9999
+        ):
+            raise SupabaseContractError("Vehicle year is invalid")
+        payload = self._rpc(
+            "claim_vehicle_trim_cache",
+            {
+                "requested_lookup_key": _canonical_cache_text(
+                    lookup_key,
+                    "Vehicle trim lookup key",
+                    MAX_VEHICLE_TRIM_CACHE_KEY_CHARACTERS,
+                ),
+                "requested_vehicle_year": vehicle_year,
+                "requested_vehicle_make": _canonical_cache_text(
+                    vehicle_make,
+                    "Vehicle make",
+                    MAX_VEHICLE_TRIM_CACHE_TEXT_CHARACTERS,
+                ),
+                "requested_vehicle_model": _canonical_cache_text(
+                    vehicle_model,
+                    "Vehicle model",
+                    MAX_VEHICLE_TRIM_CACHE_TEXT_CHARACTERS,
+                ),
+                "requested_generation_token": _canonical_uuid(
+                    generation_token,
+                    "Vehicle trim generation token",
+                ),
+            },
+            retry_ambiguous_claim=True,
+        )
+        return self._single_rpc_row(payload, "Vehicle trim cache claim")
+
+    def complete_vehicle_trim_cache(
+        self,
+        lookup_key: str,
+        generation_token: str,
+        model_identifier: str,
+        trims: list[str],
+    ) -> bool:
+        if (
+            not isinstance(trims, list)
+            or len(trims) > MAX_VEHICLE_TRIM_CACHE_ITEMS
+        ):
+            raise SupabaseContractError("Vehicle trim cache items are invalid")
+        canonical_trims = [
+            _canonical_cache_text(
+                value,
+                "Vehicle trim cache item",
+                MAX_VEHICLE_TRIM_CACHE_TEXT_CHARACTERS,
+            )
+            for value in trims
+        ]
+        if len({value.casefold() for value in canonical_trims}) != len(
+            canonical_trims
+        ):
+            raise SupabaseContractError("Vehicle trim cache items are invalid")
+        payload = self._rpc(
+            "complete_vehicle_trim_cache",
+            {
+                "requested_lookup_key": _canonical_cache_text(
+                    lookup_key,
+                    "Vehicle trim lookup key",
+                    MAX_VEHICLE_TRIM_CACHE_KEY_CHARACTERS,
+                ),
+                "requested_generation_token": _canonical_uuid(
+                    generation_token,
+                    "Vehicle trim generation token",
+                ),
+                "requested_model_identifier": _canonical_cache_text(
+                    model_identifier,
+                    "Vehicle trim model identifier",
+                    MAX_VEHICLE_TRIM_CACHE_TEXT_CHARACTERS,
+                ),
+                "requested_trims": canonical_trims,
+            },
+        )
+        return self._rpc_boolean(payload, "Vehicle trim cache completion")
+
+    def release_vehicle_trim_cache(
+        self,
+        lookup_key: str,
+        generation_token: str,
+    ) -> bool:
+        payload = self._rpc(
+            "release_vehicle_trim_cache",
+            {
+                "requested_lookup_key": _canonical_cache_text(
+                    lookup_key,
+                    "Vehicle trim lookup key",
+                    MAX_VEHICLE_TRIM_CACHE_KEY_CHARACTERS,
+                ),
+                "requested_generation_token": _canonical_uuid(
+                    generation_token,
+                    "Vehicle trim generation token",
+                ),
+            },
+        )
+        return self._rpc_boolean(payload, "Vehicle trim cache release")
 
     def get_owned_total_loss_report_storage_locator(
         self, case_id: str, access_token: str

@@ -2,6 +2,7 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  OTHER_VEHICLE_TRIM_OPTION,
   useVehicleLookupController,
   VehicleLookupError,
   type DecodedVehicle,
@@ -120,10 +121,14 @@ describe("useVehicleLookupController", () => {
 
     rerender({ model: "Civic" });
     await waitFor(() => expect(service.listTrims).toHaveBeenCalledTimes(2));
-    expect(result.current.trimOptions).toEqual([]);
+    expect(result.current.trimOptions).toEqual([
+      OTHER_VEHICLE_TRIM_OPTION,
+    ]);
 
     await act(async () => accord.resolve([trimOption("ex", "EX")]));
-    expect(result.current.trimOptions).toEqual([]);
+    expect(result.current.trimOptions).toEqual([
+      OTHER_VEHICLE_TRIM_OPTION,
+    ]);
 
     const civicOptions = [
       trimOption("sport", "Sport"),
@@ -131,7 +136,34 @@ describe("useVehicleLookupController", () => {
     ];
     await act(async () => civic.resolve(civicOptions));
     await waitFor(() => expect(result.current.trimsState).toBe("success"));
-    expect(result.current.trimOptions).toBe(civicOptions);
+    expect(result.current.trimOptions).toEqual([
+      ...civicOptions,
+      OTHER_VEHICLE_TRIM_OPTION,
+    ]);
+  });
+
+  it("keeps the fallback selectable after a trim lookup failure", async () => {
+    const service = vehicleService();
+    vi.mocked(service.listTrims).mockRejectedValueOnce(
+      new Error("synthetic lookup failure"),
+    );
+    const { result } = renderHook(() =>
+      useVehicleLookupController({
+        service,
+        catalogEnabled: false,
+        trimCatalogEnabled: true,
+        vehicleYear: "2024",
+        make: "Honda",
+        model: "Accord",
+        currentVin: "",
+        unknownVinErrorMessage: "Lookup unavailable.",
+      }),
+    );
+
+    await waitFor(() => expect(result.current.trimsState).toBe("error"));
+    expect(result.current.trimOptions).toEqual([
+      OTHER_VEHICLE_TRIM_OPTION,
+    ]);
   });
 
   it("ignores a VIN response after the current VIN changes", async () => {

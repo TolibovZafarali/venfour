@@ -27,6 +27,7 @@ JOB_ID = "30000000-0000-4000-8000-000000000003"
 TOKEN_ID = "40000000-0000-4000-8000-000000000004"
 RUN_ID = "50000000-0000-4000-8000-000000000005"
 REPORT_UPLOAD_ID = "60000000-0000-4000-8000-000000000006"
+TRIM_TOKEN_ID = "70000000-0000-4000-8000-000000000007"
 PDF_BYTES = b"%PDF-1.7\nsynthetic private report\n%%EOF\n"
 
 
@@ -357,6 +358,79 @@ class SupabaseHttpGatewayTests(unittest.TestCase):
             self.assertEqual(
                 json.loads(request.content), expected_bodies[name]
             )
+            self.assertEqual(request.headers["apikey"], "service-role-test-key")
+            self.assertEqual(
+                request.headers["authorization"],
+                "Bearer service-role-test-key",
+            )
+
+    def test_vehicle_trim_cache_uses_only_the_bounded_service_role_rpcs(self) -> None:
+        requests: list[httpx.Request] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            requests.append(request)
+            name = request.url.path.rsplit("/", 1)[-1]
+            responses = {
+                "claim_vehicle_trim_cache": [
+                    {
+                        "outcome": "ready",
+                        "trims": ["LE", "XLE"],
+                        "model_identifier": "gpt-5.6-luna",
+                    }
+                ],
+                "complete_vehicle_trim_cache": True,
+                "release_vehicle_trim_cache": True,
+            }
+            return httpx.Response(200, json=responses[name])
+
+        gateway, _ = self.gateway(handler)
+        key = "2020|toyota|camry"
+
+        self.assertEqual(
+            gateway.claim_vehicle_trim_cache(
+                key,
+                2020,
+                "Toyota",
+                "Camry",
+                TRIM_TOKEN_ID,
+            )["outcome"],
+            "ready",
+        )
+        self.assertTrue(
+            gateway.complete_vehicle_trim_cache(
+                key,
+                TRIM_TOKEN_ID,
+                "gpt-5.6-luna",
+                ["LE", "XLE"],
+            )
+        )
+        self.assertTrue(
+            gateway.release_vehicle_trim_cache(key, TRIM_TOKEN_ID)
+        )
+
+        self.assertEqual(len(requests), 3)
+        expected_bodies = {
+            "claim_vehicle_trim_cache": {
+                "requested_lookup_key": key,
+                "requested_vehicle_year": 2020,
+                "requested_vehicle_make": "Toyota",
+                "requested_vehicle_model": "Camry",
+                "requested_generation_token": TRIM_TOKEN_ID,
+            },
+            "complete_vehicle_trim_cache": {
+                "requested_lookup_key": key,
+                "requested_generation_token": TRIM_TOKEN_ID,
+                "requested_model_identifier": "gpt-5.6-luna",
+                "requested_trims": ["LE", "XLE"],
+            },
+            "release_vehicle_trim_cache": {
+                "requested_lookup_key": key,
+                "requested_generation_token": TRIM_TOKEN_ID,
+            },
+        }
+        for request in requests:
+            name = request.url.path.rsplit("/", 1)[-1]
+            self.assertEqual(json.loads(request.content), expected_bodies[name])
             self.assertEqual(request.headers["apikey"], "service-role-test-key")
             self.assertEqual(
                 request.headers["authorization"],

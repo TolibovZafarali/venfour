@@ -83,6 +83,24 @@ class ConfirmedValuationInputTests(unittest.TestCase):
             )
         self.assertEqual(raised.exception.field, "vehicle_trim")
 
+    def test_other_trim_remains_valid_input_but_is_not_a_market_filter(self) -> None:
+        confirmed = ConfirmedValuationInput.from_snapshot(
+            snapshot(
+                vehicle_trim="Other / Not sure",
+                vehicle_configuration={
+                    "source": "marketcheck",
+                    "field": "trim",
+                    "values": ["Other / Not sure"],
+                },
+            )
+        )
+
+        normalized = confirmed_normalized_report(confirmed)
+
+        self.assertEqual(confirmed.trim, "Other / Not sure")
+        self.assertIsNone(confirmed.vehicle_configuration)
+        self.assertIsNone(normalized["vehicle"]["trim"])
+
     def test_manual_input_keeps_condition_and_options_optional(self) -> None:
         confirmed = ConfirmedValuationInput.from_snapshot(
             snapshot(vehicle_condition=None, vehicle_options_packages=None)

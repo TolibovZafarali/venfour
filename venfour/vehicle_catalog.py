@@ -14,6 +14,7 @@ MIN_VEHICLE_CATALOG_YEAR = 1981
 MAX_VEHICLE_CATALOG_TEXT_LENGTH = 100
 MAX_VEHICLE_TRIM_OPTIONS = 1000
 MAX_VEHICLE_TRIM_QUERY_VALUES = 20
+OTHER_VEHICLE_TRIM_LABEL = "Other / Not sure"
 VEHICLE_TRIM_QUERY_FIELDS = frozenset(("trim", "version"))
 
 _TOKEN_RE = re.compile(r"[^\W_]+(?:\.[0-9]+)?", re.UNICODE)
@@ -479,6 +480,45 @@ def normalize_vehicle_trim_options(
     )
 
 
+def normalize_generated_vehicle_trim_options(
+    raw_values: list[str] | tuple[str, ...],
+    *,
+    source: str,
+) -> tuple[VehicleTrimOption, ...]:
+    """Validate and conservatively normalize generated customer trim labels.
+
+    Generated names have no provider query identity.  The configuration parser
+    is still useful for exact synonyms, spelling variants, and a redundant
+    ``Battery`` suffix when the otherwise-identical range name is present.  The
+    returned options intentionally keep only their canonical display text.
+    """
+
+    normalized = normalize_vehicle_trim_options(
+        raw_values,
+        source=source,
+        query_field="version",
+        allow_redundant_battery_aliases=True,
+    )
+    return tuple(
+        VehicleTrimOption(
+            source=source,
+            id=_option_id(
+                source,
+                "trim",
+                _parse_configuration(
+                    option.label,
+                    query_field="trim",
+                ).signature,
+            ),
+            label=option.label,
+            trim=option.label,
+            query_field="trim",
+            query_values=(option.label,),
+        )
+        for option in normalized
+    )
+
+
 def normalize_vehicle_trim_catalog(
     raw_trims: list[str] | tuple[str, ...],
     raw_versions: list[str] | tuple[str, ...],
@@ -625,12 +665,14 @@ __all__ = [
     "MAX_VEHICLE_TRIM_OPTIONS",
     "MAX_VEHICLE_TRIM_QUERY_VALUES",
     "MIN_VEHICLE_CATALOG_YEAR",
+    "OTHER_VEHICLE_TRIM_LABEL",
     "VEHICLE_TRIM_QUERY_FIELDS",
     "VehicleTrimCatalogProvider",
     "VehicleTrimCatalogRequest",
     "VehicleTrimOption",
     "VehicleTrimQueryValuesLimitError",
     "maximum_vehicle_catalog_year",
+    "normalize_generated_vehicle_trim_options",
     "normalize_vehicle_trim_catalog",
     "normalize_vehicle_trim_options",
 ]

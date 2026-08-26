@@ -1087,8 +1087,9 @@ describe("/start?service=total-loss", () => {
       within(confirmedVehicle).queryByRole("textbox", { name: "Model" }),
     ).not.toBeInTheDocument();
     expect(screen.getByLabelText("Trim")).toHaveValue(
-      "marketcheck-trim-ex-v6",
+      "__legacy-current-trim__",
     );
+    expect(harness.listTrims).not.toHaveBeenCalled();
     expect(
       screen.queryByRole("heading", { name: "Add the claim details" }),
     ).not.toBeInTheDocument();
@@ -1194,19 +1195,12 @@ describe("/start?service=total-loss", () => {
     },
   );
 
-  it.each(["error", "empty"] as const)(
-    "keeps a VIN-provided raw trim usable when the trim catalog is %s",
-    async (catalogResult) => {
+  it(
+    "keeps a VIN-provided trim usable without requesting generated trims",
+    async () => {
       const auth = createAuthHarness(sessionFor());
       const harness = createDependencyHarness();
       const user = userEvent.setup();
-      if (catalogResult === "error") {
-        harness.listTrims.mockRejectedValueOnce(
-          new Error("catalog unavailable"),
-        );
-      } else {
-        harness.listTrims.mockResolvedValueOnce([]);
-      }
 
       renderTestApp(["/start?service=total-loss"], {
         authService: auth.service,
@@ -1215,11 +1209,8 @@ describe("/start?service=total-loss", () => {
       await chooseMode(user, "I don’t have the report");
       await user.type(screen.getByLabelText("VIN"), "1hgcm82633a004352");
       await user.click(screen.getByRole("button", { name: "Find vehicle" }));
-      await screen.findByText(
-        catalogResult === "error"
-          ? /We couldn’t load trims/u
-          : /No exact trim options were found/u,
-      );
+      await screen.findByRole("region", { name: "Confirmed vehicle details" });
+      expect(harness.listTrims).not.toHaveBeenCalled();
       await user.click(
         screen.getByRole("button", { name: "Confirm vehicle & continue" }),
       );
@@ -1237,6 +1228,59 @@ describe("/start?service=total-loss", () => {
       });
     },
   );
+
+  it("loads generated trims when VIN decoding does not identify one", async () => {
+    const auth = createAuthHarness(sessionFor());
+    const harness = createDependencyHarness();
+    const user = userEvent.setup();
+    harness.decodeVin.mockResolvedValueOnce({
+      vin: "1HGCM82633A004352",
+      year: 2003,
+      make: "Honda",
+      model: "Accord",
+      trim: null,
+    });
+    harness.listTrims.mockResolvedValueOnce([
+      {
+        source: "openai",
+        id: "openai-trim-ex",
+        label: "EX",
+        trim: "EX",
+        queryField: "trim",
+        queryValues: ["EX"],
+      },
+    ]);
+
+    renderTestApp(["/start?service=total-loss"], {
+      authService: auth.service,
+      totalLossDependencies: harness.dependencies,
+    });
+    await chooseMode(user, "I don’t have the report");
+    await user.type(screen.getByLabelText("VIN"), "1hgcm82633a004352");
+    await user.click(screen.getByRole("button", { name: "Find vehicle" }));
+
+    await screen.findByRole("option", { name: "EX" });
+    expect(harness.listTrims).toHaveBeenCalledWith({
+      year: 2003,
+      make: "Honda",
+      model: "Accord",
+    });
+    await user.selectOptions(screen.getByLabelText("Trim"), "openai-trim-ex");
+    await user.click(
+      screen.getByRole("button", { name: "Confirm vehicle & continue" }),
+    );
+
+    expect(
+      await screen.findByRole("heading", { name: "Add the claim details" }),
+    ).toBeVisible();
+    expect(readTotalLossDraft()).toMatchObject({
+      ok: true,
+      draft: {
+        manual: { trim: "EX" },
+        vehicleConfiguration: null,
+      },
+    });
+  });
 
   it("uses dependent dropdowns when the user does not have a VIN", async () => {
     const auth = createAuthHarness(sessionFor());

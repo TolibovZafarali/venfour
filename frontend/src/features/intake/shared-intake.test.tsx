@@ -7,6 +7,7 @@ import {
   IntakeProgress,
   IntakeRadioChoiceGroup,
   IntakeStepTransition,
+  OTHER_VEHICLE_TRIM_OPTION,
   ServiceSelector,
   VehicleIdentificationFields,
   type VehicleTrimOption,
@@ -482,6 +483,46 @@ describe("shared appraisal intake controls", () => {
 
     await user.selectOptions(select, longRange.id);
     expect(onTrimSelectionChange).toHaveBeenCalledWith(longRange);
+  });
+
+  test("keeps Other / Not sure enabled when exact trims fail to load", async () => {
+    const user = userEvent.setup();
+    const onTrimSelectionChange = vi.fn();
+    render(
+      <VehicleIdentificationFields
+        idPrefix="vehicle"
+        entryMethod="details"
+        values={{
+          vin: "",
+          vehicleYear: "2024",
+          make: "Honda",
+          model: "Accord",
+          trim: "",
+        }}
+        yearOptions={["2024"]}
+        makeOptions={["Honda"]}
+        modelOptions={["Accord"]}
+        trimOptions={[OTHER_VEHICLE_TRIM_OPTION]}
+        makesState="success"
+        modelsState="success"
+        trimsState="error"
+        vinLookupState="idle"
+        trimRequired
+        onEntryMethodChange={vi.fn()}
+        onChange={vi.fn()}
+        onTrimSelectionChange={onTrimSelectionChange}
+        onRetryMakes={vi.fn()}
+        onRetryModels={vi.fn()}
+      />,
+    );
+
+    const select = screen.getByRole("combobox", { name: "Trim" });
+    expect(select).toBeEnabled();
+    expect(screen.getByText(/Choose Other \/ Not sure/u)).toBeVisible();
+    await user.selectOptions(select, OTHER_VEHICLE_TRIM_OPTION.id);
+    expect(onTrimSelectionChange).toHaveBeenCalledWith(
+      OTHER_VEHICLE_TRIM_OPTION,
+    );
   });
 
   test("supports a service-specific calendar label", async () => {

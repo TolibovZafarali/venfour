@@ -6,9 +6,14 @@ import os
 import unittest
 from unittest.mock import patch
 
+import httpx
 from starlette.testclient import TestClient
 
 from venfour.api import create_app
+from venfour.supabase_gateway import (
+    SupabaseHttpGateway,
+    SupabaseServerConfiguration,
+)
 from venfour.vehicle_catalog import VehicleTrimCatalogRequest, VehicleTrimOption
 
 
@@ -45,6 +50,49 @@ class RecordingVehicleTrimCatalog:
 
 
 class VehicleTrimCatalogApiTests(unittest.TestCase):
+    def test_default_catalog_uses_openai_with_supabase_not_marketcheck(self) -> None:
+        service = RecordingVehicleTrimCatalog()
+        http_client = httpx.Client(
+            transport=httpx.MockTransport(
+                lambda _request: self.fail("trim lookup must use the injected service")
+            )
+        )
+        self.addCleanup(http_client.close)
+        gateway = SupabaseHttpGateway(
+            SupabaseServerConfiguration(
+                url="https://project.supabase.co",
+                publishable_key="publishable-test-key",
+                service_role_key="service-role-test-key",
+            ),
+            client=http_client,
+        )
+        with patch.dict(
+            os.environ,
+            {
+                "OPENAI_API_KEY": "openai-trim-test-key",
+                "MARKETCHECK_API_KEY": "marketcheck-appraisal-only-key",
+            },
+            clear=True,
+        ), patch(
+            "venfour.api.OpenAIVehicleTrimCatalog",
+            return_value=service,
+        ) as catalog_class:
+            app = create_app(
+                enable_legacy_api=False,
+                supabase_gateway=gateway,
+            )
+
+        catalog_class.assert_called_once_with(
+            gateway,
+            api_key="openai-trim-test-key",
+        )
+        with TestClient(app) as client:
+            response = client.get(
+                "/api/v1/vehicle-trims?year=2020&make=Toyota&model=Camry"
+            )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(service.requests), 1)
+
     def test_returns_exact_vehicle_trims_without_authentication(self) -> None:
         service = RecordingVehicleTrimCatalog()
         app = create_app(

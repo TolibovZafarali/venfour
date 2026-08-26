@@ -10,6 +10,7 @@ import {
   IntakeTextField,
 } from "@/features/total-loss/intake-fields";
 import {
+  OTHER_VEHICLE_TRIM_OPTION,
   uniquelyMatchingVehicleTrimOption,
   type VehicleConfigurationIdentity,
   type VehicleTrimOption,
@@ -413,6 +414,9 @@ function VehicleTrimSelect({
       : []),
     ...options.map((option) => ({ value: option.id, label: option.label })),
   ];
+  const hasExactOptions = options.some(
+    (option) => option.id !== OTHER_VEHICLE_TRIM_OPTION.id,
+  );
   return (
     <div className={className}>
       <IntakeSelectField
@@ -427,7 +431,7 @@ function VehicleTrimSelect({
         }
         options={selectOptions}
         loading={state === "loading"}
-        disabled={disabled || !vehicleKnown || state === "error"}
+        disabled={disabled || !vehicleKnown}
         onChange={(event) => {
           if (!event.target.value) {
             onChange("");
@@ -446,12 +450,22 @@ function VehicleTrimSelect({
         onBlur={onBlur}
       />
       {state === "error" ? (
-        <OptionLoadError label="trims" onRetry={onRetry} />
-      ) : null}
-      {state === "success" && options.length === 0 ? (
         <p className="mt-2 text-sm text-copy" role="status">
-          No exact trim options were found for this vehicle. Check the year,
-          make, and model, or{" "}
+          We couldn’t load exact trim options. Choose Other / Not sure, or{" "}
+          <button
+            type="button"
+            className="font-semibold underline underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+            onClick={onRetry}
+          >
+            try again
+          </button>
+          .
+        </p>
+      ) : null}
+      {state === "success" && !hasExactOptions ? (
+        <p className="mt-2 text-sm text-copy" role="status">
+          No exact trim options were found for this vehicle. Choose Other / Not
+          sure, check the year, make, and model, or{" "}
           <button
             type="button"
             className="font-semibold underline underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"

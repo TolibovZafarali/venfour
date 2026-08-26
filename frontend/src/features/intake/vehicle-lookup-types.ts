@@ -32,9 +32,33 @@ export interface VehicleTrimOption {
   readonly queryValues: readonly string[];
 }
 
+export const OTHER_VEHICLE_TRIM_OPTION: VehicleTrimOption = Object.freeze({
+  source: "venfour",
+  id: "venfour-trim-other-not-sure",
+  label: "Other / Not sure",
+  trim: "Other / Not sure",
+  queryField: "trim",
+  queryValues: Object.freeze(["Other / Not sure"]),
+});
+
+export function withOtherVehicleTrimOption(
+  options: readonly VehicleTrimOption[],
+): readonly VehicleTrimOption[] {
+  const fallbackKey = trimKey(OTHER_VEHICLE_TRIM_OPTION.label);
+  return [
+    ...options.filter(
+      (option) =>
+        option.id !== OTHER_VEHICLE_TRIM_OPTION.id &&
+        trimKey(option.label) !== fallbackKey,
+    ),
+    OTHER_VEHICLE_TRIM_OPTION,
+  ];
+}
+
 export function vehicleConfigurationFromTrimOption(
   option: VehicleTrimOption,
-): VehicleConfigurationIdentity {
+): VehicleConfigurationIdentity | null {
+  if (option.source !== "marketcheck") return null;
   return {
     source: option.source,
     field: option.queryField,

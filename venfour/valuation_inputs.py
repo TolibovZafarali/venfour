@@ -10,6 +10,7 @@ from datetime import date, datetime
 from typing import Any
 
 from venfour.market import VehicleConfigurationIdentity
+from venfour.vehicle_catalog import OTHER_VEHICLE_TRIM_LABEL
 from venfour.postal_codes import normalize_us_zip_code
 from venfour.report_ingestion import validate_normalized_report
 
@@ -192,6 +193,18 @@ class ConfirmedValuationInput:
             snapshot, "vehicle_options_packages", "vehicleOptionsPackages"
         )
         condition = _condition_summary(condition_value)
+        trim = _required_text(
+            _first(snapshot, "vehicle_trim", "vehicleTrim"), "vehicle_trim"
+        )
+        vehicle_configuration = _vehicle_configuration(
+            _first(
+                snapshot,
+                "vehicle_configuration",
+                "vehicleConfiguration",
+            )
+        )
+        if trim.casefold() == OTHER_VEHICLE_TRIM_LABEL.casefold():
+            vehicle_configuration = None
         return cls(
             intake_mode=mode.upper(),
             vin=_optional_text(_first(snapshot, "vin"), "vin"),
@@ -207,16 +220,8 @@ class ConfirmedValuationInput:
             model=_required_text(
                 _first(snapshot, "vehicle_model", "vehicleModel"), "vehicle_model"
             ),
-            trim=_required_text(
-                _first(snapshot, "vehicle_trim", "vehicleTrim"), "vehicle_trim"
-            ),
-            vehicle_configuration=_vehicle_configuration(
-                _first(
-                    snapshot,
-                    "vehicle_configuration",
-                    "vehicleConfiguration",
-                )
-            ),
+            trim=trim,
+            vehicle_configuration=vehicle_configuration,
             mileage=_required_integer(
                 _first(snapshot, "mileage_at_loss", "mileageAtLoss"),
                 "mileage_at_loss",
@@ -327,7 +332,12 @@ def confirmed_normalized_report(
             "year": confirmed.year,
             "make": confirmed.make,
             "model": confirmed.model,
-            "trim": confirmed.trim,
+            "trim": (
+                None
+                if confirmed.trim.casefold()
+                == OTHER_VEHICLE_TRIM_LABEL.casefold()
+                else confirmed.trim
+            ),
             "vin": confirmed.vin,
             "mileage": confirmed.mileage,
             "equipment": list(confirmed.equipment),

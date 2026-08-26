@@ -136,7 +136,9 @@ export function DiminishedValueIntakeFlow({
   } = useVehicleLookupController({
     service: vehicleLookupService,
     catalogEnabled: draft.vehicleEntryMethod === "details",
-    trimCatalogEnabled: draft.step === "vehicle",
+    trimCatalogEnabled:
+      draft.step === "vehicle" &&
+      !(draft.vehicleEntryMethod === "vin" && Boolean(draft.trim.trim())),
     vehicleYear: draft.vehicleYear,
     make: draft.make,
     model: draft.model,
@@ -254,7 +256,12 @@ export function DiminishedValueIntakeFlow({
         })
       : { ...draft, vehicleConfiguration: null };
     const nextErrors = validateDiminishedValueVehicle(configuredDraft);
-    if (vehicleResolved && trimOptions.length > 0 && !selectedTrim) {
+    if (
+      vehicleResolved &&
+      trimsState !== "idle" &&
+      trimOptions.length > 0 &&
+      !selectedTrim
+    ) {
       nextErrors.trim = "Choose the exact vehicle configuration from the list.";
     }
     if (showValidationErrors(nextErrors, setErrors, setFlowError)) return;
