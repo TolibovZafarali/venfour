@@ -8,11 +8,13 @@ by :func:`create_app`; this module has no process-global service instance.
 
 from __future__ import annotations
 
+import json
 import os
 import tempfile
 from collections.abc import Mapping
 from contextlib import asynccontextmanager
 from hmac import compare_digest
+from ipaddress import ip_address
 from pathlib import Path
 from typing import Any, Awaitable, Callable
 from uuid import UUID
@@ -55,6 +57,18 @@ from venfour.case_analyses import (
     CaseAnalysisNotFoundError,
     CaseAnalysisService,
     CaseAnalysisUnavailableError,
+)
+from venfour.case_claim_access import (
+    CaseClaimAccessConflictError,
+    CaseClaimAccessError,
+    CaseClaimAccessGateway,
+    CaseClaimAccessInputError,
+    CaseClaimAccessNotFoundError,
+    CaseClaimAccessService,
+    CaseClaimAccessUnavailableError,
+    CaseClaimRecoveryConfiguration,
+    CloudflareTurnstileVerifier,
+    TurnstileRejectedError,
 )
 from venfour.openai_vehicle_catalog import OpenAIVehicleTrimCatalog
 from venfour.presentation import (
@@ -119,16 +133,28 @@ _ERROR_MESSAGES = {
         "Vehicle trims are temporarily unavailable. Try again."
     ),
     "STAGING_PROXY_REQUIRED": "Staging API access is unavailable.",
+    "INVALID_CLAIM_ACCESS_REQUEST": "Claim access request is invalid.",
+    "CLAIM_ACCESS_CONFLICT": (
+        "This claim cannot be secured from the current account state."
+    ),
+    "CLAIM_ACCESS_UNAVAILABLE": "Secure claim access is temporarily unavailable.",
+    "SECURITY_CHECK_FAILED": "Security check failed. Please try again.",
 }
 
 LEGACY_API_ENVIRONMENT_NAME = "VENFOUR_ENABLE_LEGACY_ANALYSIS_API"
 STAGING_PROXY_SECRET_ENVIRONMENT_NAME = "VENFOUR_STAGING_PROXY_SECRET"
 STAGING_PROXY_HEADER_NAME = b"x-venfour-staging-proxy"
+PUBLIC_APP_ORIGIN_ENVIRONMENT_NAME = "VENFOUR_PUBLIC_APP_ORIGIN"
+TURNSTILE_SECRET_ENVIRONMENT_NAME = "VENFOUR_TURNSTILE_SECRET"
+RECOVERY_RATE_SECRET_ENVIRONMENT_NAME = (
+    "VENFOUR_CLAIM_RECOVERY_RATE_LIMIT_SECRET"
+)
 
 MAX_MULTIPART_OVERHEAD_BYTES = 1024 * 1024
 MAX_UPLOAD_BODY_BYTES = MAX_PDF_BYTES + MAX_MULTIPART_OVERHEAD_BYTES
 MAX_MULTIPART_FIELD_BYTES = 1024
 UPLOAD_COPY_CHUNK_BYTES = 1024 * 1024
+MAX_CLAIM_RECOVERY_BODY_BYTES = 8 * 1024
 
 _ANALYSIS_UNAVAILABLE_ERRORS = (
     InvalidAnalysisRunArtifactError,
@@ -469,6 +495,204 @@ async def _owned_identity(request: Request) -> str | JSONResponse:
         return _error_response(503, "AUTHENTICATION_UNAVAILABLE")
 
 
+async def _claim_access_identity(request: Request) -> str | JSONResponse:
+    try:
+        token = _bearer_token(request)
+    except SupabaseAuthenticationError:
+        return _error_response(
+            401,
+            "AUTHENTICATION_REQUIRED",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    service = request.app.state.case_claim_access_service
+    if service is None:
+        return _error_response(503, "CLAIM_ACCESS_UNAVAILABLE")
+    try:
+        return await run_in_threadpool(service.authenticate, token)
+    except SupabaseAuthenticationError:
+        return _error_response(
+            401,
+            "AUTHENTICATION_INVALID",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    except (SupabaseUnavailableError, SupabaseContractError):
+        return _error_response(503, "AUTHENTICATION_UNAVAILABLE")
+    except Exception:
+        return _error_response(503, "AUTHENTICATION_UNAVAILABLE")
+
+
+def _claim_access_error(error: Exception) -> JSONResponse:
+    if isinstance(error, (CaseClaimAccessNotFoundError,)):
+        return _error_response(404, "CASE_NOT_FOUND")
+    if isinstance(error, CaseClaimAccessConflictError):
+        return _error_response(409, "CLAIM_ACCESS_CONFLICT")
+    if isinstance(error, (TurnstileRejectedError, CaseClaimAccessInputError)):
+        return _error_response(400, "INVALID_CLAIM_ACCESS_REQUEST")
+    if isinstance(
+        error,
+        (
+            CaseClaimAccessUnavailableError,
+            SupabaseUnavailableError,
+        ),
+    ):
+        return _error_response(503, "CLAIM_ACCESS_UNAVAILABLE")
+    if isinstance(error, SupabaseAuthenticationError):
+        return _error_response(
+            401,
+            "AUTHENTICATION_INVALID",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    if isinstance(error, SupabaseContractError):
+        return _error_response(503, "CLAIM_ACCESS_UNAVAILABLE")
+    if isinstance(error, CaseClaimAccessError):
+        return _error_response(503, "CLAIM_ACCESS_UNAVAILABLE")
+    return _error_response(500, "INTERNAL_ERROR")
+
+
+async def _require_empty_request_body(request: Request) -> bool:
+    content_length = request.headers.get("content-length")
+    if content_length is not None:
+        try:
+            if int(content_length) != 0:
+                return False
+        except ValueError:
+            return False
+    bounded = Request(request.scope, receive=_bounded_receive(request.receive, 1))
+    try:
+        return not bool(await bounded.body())
+    except _RequestBodyTooLarge:
+        return False
+
+
+async def _claim_resume(request: Request) -> JSONResponse:
+    if not _is_canonical_uuid4(request.path_params["case_id"]):
+        return _private_response(_error_response(400, "INVALID_CASE_ID"))
+    identity = await _claim_access_identity(request)
+    if isinstance(identity, JSONResponse):
+        return _private_response(identity)
+    try:
+        access_token = _bearer_token(request)
+        result = await run_in_threadpool(
+            request.app.state.case_claim_access_service.resolve,
+            request.path_params["case_id"],
+            access_token,
+        )
+        return _private_response(JSONResponse(result.to_dict()))
+    except Exception as exc:
+        return _private_response(_claim_access_error(exc))
+
+
+async def _claim_access_link(request: Request) -> JSONResponse:
+    if not _is_canonical_uuid4(request.path_params["case_id"]):
+        return _private_response(_error_response(400, "INVALID_CASE_ID"))
+    identity = await _claim_access_identity(request)
+    if isinstance(identity, JSONResponse):
+        return _private_response(identity)
+    if not await _require_empty_request_body(request):
+        return _private_response(
+            _error_response(400, "INVALID_CLAIM_ACCESS_REQUEST")
+        )
+    try:
+        access_token = _bearer_token(request)
+        result = await run_in_threadpool(
+            request.app.state.case_claim_access_service.access_link,
+            request.path_params["case_id"],
+            access_token,
+        )
+        return _private_response(JSONResponse(result.to_dict()))
+    except Exception as exc:
+        return _private_response(_claim_access_error(exc))
+
+
+async def _claim_recovery_payload(request: Request) -> tuple[str, str]:
+    content_type = request.headers.get("content-type", "")
+    if content_type.partition(";")[0].strip().casefold() != "application/json":
+        raise CaseClaimAccessInputError("Recovery request is invalid")
+    content_length = request.headers.get("content-length")
+    if content_length is not None:
+        try:
+            if not 0 < int(content_length) <= MAX_CLAIM_RECOVERY_BODY_BYTES:
+                raise CaseClaimAccessInputError("Recovery request is invalid")
+        except ValueError as exc:
+            raise CaseClaimAccessInputError(
+                "Recovery request is invalid"
+            ) from exc
+    bounded = Request(
+        request.scope,
+        receive=_bounded_receive(request.receive, MAX_CLAIM_RECOVERY_BODY_BYTES),
+    )
+    try:
+        raw_body = await bounded.body()
+    except _RequestBodyTooLarge as exc:
+        raise CaseClaimAccessInputError("Recovery request is invalid") from exc
+    try:
+        payload = json.loads(raw_body)
+    except (TypeError, ValueError, json.JSONDecodeError) as exc:
+        raise CaseClaimAccessInputError("Recovery request is invalid") from exc
+    if not isinstance(payload, Mapping) or set(payload) != {
+        "email",
+        "turnstileToken",
+    }:
+        raise CaseClaimAccessInputError("Recovery request is invalid")
+    email = payload.get("email")
+    token = payload.get("turnstileToken")
+    if not isinstance(email, str) or not isinstance(token, str):
+        raise CaseClaimAccessInputError("Recovery request is invalid")
+    return email, token
+
+
+def _claim_recovery_requester_identity(request: Request) -> str:
+    if request.app.state.staging_proxy_required is not True:
+        return request.client.host if request.client is not None else "unknown"
+
+    values: list[bytes] = []
+    for name, value in request.scope.get("headers", ()):
+        if name.lower() == b"cf-connecting-ip":
+            values.append(value)
+    if len(values) != 1:
+        raise CaseClaimAccessUnavailableError(
+            "Recovery requester identity is unavailable"
+        )
+    try:
+        value = values[0].decode("ascii")
+        if not value or value != value.strip() or "%" in value:
+            raise ValueError("client IP is invalid")
+        return str(ip_address(value))
+    except (UnicodeDecodeError, ValueError) as exc:
+        raise CaseClaimAccessUnavailableError(
+            "Recovery requester identity is unavailable"
+        ) from exc
+
+
+async def _claim_access_recovery(request: Request) -> JSONResponse:
+    if not _is_canonical_uuid4(request.path_params["case_id"]):
+        return _private_response(_error_response(400, "INVALID_CASE_ID"))
+    service = request.app.state.case_claim_access_service
+    if service is None:
+        return _private_response(
+            _error_response(503, "CLAIM_ACCESS_UNAVAILABLE")
+        )
+    try:
+        email, turnstile_token = await _claim_recovery_payload(request)
+        requester_identity = _claim_recovery_requester_identity(request)
+        await run_in_threadpool(
+            service.recover,
+            request.path_params["case_id"],
+            email,
+            turnstile_token,
+            requester_identity,
+        )
+    except TurnstileRejectedError:
+        return _private_response(_error_response(400, "SECURITY_CHECK_FAILED"))
+    except CaseClaimAccessInputError as exc:
+        return _private_response(_claim_access_error(exc))
+    except Exception as exc:
+        return _private_response(_claim_access_error(exc))
+    return _private_response(
+        JSONResponse({"status": "accepted"}, status_code=202)
+    )
+
+
 def _case_analysis_error(error: Exception) -> JSONResponse:
     if isinstance(error, CaseAnalysisInputError):
         return _error_response(400, error.code)
@@ -738,6 +962,7 @@ def create_app(
     repository: AnalysisRunRepository | None = None,
     repository_root: Path | str | None = None,
     case_analysis_service: Any | None = None,
+    case_claim_access_service: Any | None = None,
     vehicle_trim_catalog_service: Any | None = None,
     supabase_gateway: CaseAnalysisGateway | None = None,
     enable_legacy_api: bool | None = None,
@@ -856,6 +1081,60 @@ def create_app(
                 "case_analysis_service must expose auth, case, and run methods"
             )
 
+    selected_case_claim_access_service = case_claim_access_service
+    owned_case_claim_access_service: CaseClaimAccessService | None = None
+    claim_recovery_configured = selected_case_claim_access_service is not None
+    if selected_case_claim_access_service is None and isinstance(
+        selected_gateway, CaseClaimAccessGateway
+    ):
+        public_app_origin = os.environ.get(PUBLIC_APP_ORIGIN_ENVIRONMENT_NAME)
+        turnstile_secret = os.environ.get(TURNSTILE_SECRET_ENVIRONMENT_NAME)
+        rate_limit_secret = os.environ.get(
+            RECOVERY_RATE_SECRET_ENVIRONMENT_NAME
+        )
+        recovery_configuration = None
+        turnstile_verifier = None
+        if public_app_origin and turnstile_secret and rate_limit_secret:
+            try:
+                recovery_configuration = CaseClaimRecoveryConfiguration(
+                    public_app_origin=public_app_origin,
+                    rate_limit_secret=rate_limit_secret,
+                    turnstile_secret=turnstile_secret,
+                )
+                turnstile_verifier = CloudflareTurnstileVerifier(
+                    recovery_configuration.turnstile_secret,
+                    expected_hostname=(
+                        recovery_configuration.turnstile_hostname
+                    ),
+                    allow_test_response=(
+                        recovery_configuration.allows_turnstile_test_response
+                    ),
+                )
+            except (TypeError, ValueError):
+                recovery_configuration = None
+                turnstile_verifier = None
+        claim_recovery_configured = recovery_configuration is not None
+        owned_case_claim_access_service = CaseClaimAccessService(
+            selected_gateway,
+            recovery_configuration=recovery_configuration,
+            turnstile_verifier=turnstile_verifier,
+        )
+        selected_case_claim_access_service = owned_case_claim_access_service
+    elif selected_case_claim_access_service is not None:
+        required_claim_methods = (
+            "authenticate",
+            "resolve",
+            "access_link",
+            "recover",
+        )
+        if any(
+            not callable(getattr(selected_case_claim_access_service, method, None))
+            for method in required_claim_methods
+        ):
+            raise TypeError(
+                "case_claim_access_service must expose auth and claim-access methods"
+            )
+
     selected_vehicle_trim_catalog_service = vehicle_trim_catalog_service
     trim_cache_methods = (
         "claim_vehicle_trim_cache",
@@ -886,13 +1165,32 @@ def create_app(
         selected_case_service is not None and not legacy_enabled
     )
     if case_analysis_service is None:
-        customer_path_configured = customer_path_configured and all(
-            _runtime_secret_is_configured(name)
-            for name in ("OPENAI_API_KEY", "MARKETCHECK_API_KEY")
+        customer_path_configured = (
+            customer_path_configured
+            and claim_recovery_configured
+            and all(
+                _runtime_secret_is_configured(name)
+                for name in ("OPENAI_API_KEY", "MARKETCHECK_API_KEY")
+            )
         )
 
     routes = [
         Route("/api/v1/vehicle-trims", _vehicle_trims, methods=["GET"]),
+        Route(
+            "/api/v1/appraisal-cases/{case_id}/claim/access-recovery",
+            _claim_access_recovery,
+            methods=["POST"],
+        ),
+        Route(
+            "/api/v1/appraisal-cases/{case_id}/claim/access-link",
+            _claim_access_link,
+            methods=["POST"],
+        ),
+        Route(
+            "/api/v1/appraisal-cases/{case_id}/claim",
+            _claim_resume,
+            methods=["GET"],
+        ),
         Route(
             "/api/v1/appraisal-cases/{case_id}/report-ingestion",
             _case_report_ingestion,
@@ -931,6 +1229,8 @@ def create_app(
             application.state.accepting_customer_requests = False
             if owned_supabase_gateway is not None:
                 owned_supabase_gateway.close()
+            if owned_case_claim_access_service is not None:
+                owned_case_claim_access_service.close()
 
     middleware = []
     if selected_staging_proxy_secret is not None:
@@ -954,6 +1254,7 @@ def create_app(
     app.state.presentation_service = selected_service
     app.state.creation_service = selected_creation_service
     app.state.case_analysis_service = selected_case_service
+    app.state.case_claim_access_service = selected_case_claim_access_service
     app.state.vehicle_trim_catalog_service = (
         selected_vehicle_trim_catalog_service
     )

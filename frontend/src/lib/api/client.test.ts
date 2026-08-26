@@ -53,6 +53,37 @@ describe("API client authentication", () => {
     expect(init?.signal).toBe(controller.signal);
   });
 
+  it("posts public JSON without authorization and preserves its abort signal", async () => {
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(jsonResponse({ status: "accepted" }, 202));
+    const client = createApiClient({
+      baseUrl: "https://api.example.test",
+      fetchImplementation,
+    });
+    const controller = new AbortController();
+
+    await client.postJson(
+      "/recovery",
+      { email: "owner@example.com", turnstileToken: "turnstile-token" },
+      { signal: controller.signal },
+    );
+
+    const init = fetchImplementation.mock.calls[0]?.[1];
+    const headers = new Headers(init?.headers);
+    expect(init?.method).toBe("POST");
+    expect(headers.get("Accept")).toBe("application/json");
+    expect(headers.get("Content-Type")).toBe("application/json");
+    expect(headers.has("Authorization")).toBe(false);
+    expect(init?.signal).toBe(controller.signal);
+    expect(init?.body).toBe(
+      JSON.stringify({
+        email: "owner@example.com",
+        turnstileToken: "turnstile-token",
+      }),
+    );
+  });
+
   it("rejects a blank token before issuing a request", async () => {
     const fetchImplementation = vi.fn<typeof fetch>();
     const client = createApiClient({

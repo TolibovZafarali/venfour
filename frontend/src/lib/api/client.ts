@@ -10,6 +10,10 @@ interface AuthenticatedRequestOptions {
   readonly signal?: AbortSignal;
 }
 
+interface JsonRequestOptions {
+  readonly signal?: AbortSignal;
+}
+
 export class ApiError extends Error {
   readonly status: number;
   readonly code: string | null;
@@ -101,6 +105,22 @@ export function createApiClient({
       return request<T>(path, {
         method: "POST",
         headers: authenticatedHeaders(accessToken),
+        signal,
+      });
+    },
+
+    async postJson<T>(
+      path: string,
+      body: unknown,
+      { signal }: JsonRequestOptions = {},
+    ): Promise<T> {
+      return request<T>(path, {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
         signal,
       });
     },

@@ -105,6 +105,11 @@ RUNTIME_ENVIRONMENT = {
     "SUPABASE_SERVICE_ROLE_KEY": "service-role-runtime-test-key",
     "OPENAI_API_KEY": "openai-runtime-test-key",
     "MARKETCHECK_API_KEY": "marketcheck-runtime-test-key",
+    "VENFOUR_PUBLIC_APP_ORIGIN": "https://runtime.venfour.example",
+    "VENFOUR_TURNSTILE_SECRET": "turnstile-runtime-test-secret",
+    "VENFOUR_CLAIM_RECOVERY_RATE_LIMIT_SECRET": (
+        "claim-recovery-rate-runtime-test-secret"
+    ),
 }
 
 
@@ -198,6 +203,18 @@ class RuntimeProbeApiTests(unittest.TestCase):
             {"OPENAI_API_KEY": "openai-key\n"},
             {"MARKETCHECK_API_KEY": "marketcheck\tkey"},
             {"MARKETCHECK_API_KEY": " marketcheck-key"},
+            {"VENFOUR_PUBLIC_APP_ORIGIN": "http://runtime.venfour.example"},
+            {
+                "VENFOUR_PUBLIC_APP_ORIGIN": (
+                    "https://runtime.venfour.example/path"
+                )
+            },
+            {"VENFOUR_TURNSTILE_SECRET": "turnstile secret"},
+            {
+                "VENFOUR_CLAIM_RECOVERY_RATE_LIMIT_SECRET": (
+                    RUNTIME_ENVIRONMENT["VENFOUR_TURNSTILE_SECRET"]
+                )
+            },
         )
         for overrides in malformed_overrides:
             with self.subTest(names=tuple(overrides)):

@@ -140,6 +140,8 @@ export interface TotalLossIdentityClaim {
   readonly contact: TotalLossContact;
 }
 
+export type TotalLossIdentityClaimPurpose = "intake" | "post_continue";
+
 export interface CompleteTotalLossIdentityClaimResult {
   readonly outcome: "claimed" | "already_claimed";
   readonly caseId: string;
@@ -148,6 +150,7 @@ export interface CompleteTotalLossIdentityClaimResult {
   readonly emailVerifiedAt: string;
   readonly claimedAt: string;
   readonly ownershipTransferred: boolean;
+  readonly claimPurpose: TotalLossIdentityClaimPurpose;
 }
 
 export interface ConfirmTotalLossIntakeInput extends TotalLossDetailsScope {

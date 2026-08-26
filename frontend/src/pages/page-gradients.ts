@@ -46,7 +46,8 @@ export function appRouteGradientClassName(pathname: string) {
   if (
     normalizedPathname.startsWith("/analyses/") ||
     (normalizedPathname.startsWith("/total-loss/cases/") &&
-      normalizedPathname.endsWith("/analysis"))
+      (normalizedPathname.endsWith("/analysis") ||
+        normalizedPathname.endsWith("/claim")))
   ) {
     return "page-gradient-analysis";
   }

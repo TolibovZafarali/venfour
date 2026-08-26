@@ -705,7 +705,7 @@ insert into public.total_loss_claim_workflows (
 )
 values
   ('da111111-1111-4111-8111-111111111111', 'df111111-1111-4111-8111-111111111111', 'review', 'review_result'),
-  ('da333333-3333-4333-8333-333333333333', 'df333333-3333-4333-8333-333333333333', 'review', 'review_result');
+  ('da333333-3333-4333-8333-333333333333', 'df333333-3333-4333-8333-333333333333', 'review', 'secure_claim');
 
 insert into public.commerce_orders (
   id, case_id, purchaser_user_id, preliminary_snapshot_id,

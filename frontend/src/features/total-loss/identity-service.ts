@@ -86,7 +86,7 @@ export function createTotalLossIdentityService(
 
     async completeIdentityClaim(claimId) {
       const { data, error } = await rpcClient.rpc(
-        "complete_total_loss_case_claim",
+        "complete_total_loss_case_claim_with_context",
         { claim_id: claimId },
       );
       if (error) throw error;
@@ -104,9 +104,19 @@ export function createTotalLossIdentityService(
         emailVerifiedAt: requiredString(row.email_verified_at),
         claimedAt: requiredString(row.claimed_at),
         ownershipTransferred: requiredBoolean(row.ownership_transferred),
+        claimPurpose: requiredClaimPurpose(row.claim_purpose),
       };
     },
   };
+}
+
+function requiredClaimPurpose(value: unknown) {
+  if (value !== "intake" && value !== "post_continue") {
+    throw new TotalLossIdentityResponseError(
+      "Supabase returned an invalid case-access claim purpose.",
+    );
+  }
+  return value;
 }
 
 function firstRow(data: unknown): Record<string, unknown> {

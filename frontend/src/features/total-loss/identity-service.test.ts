@@ -108,4 +108,60 @@ describe("total-loss identity service", () => {
       message: expect.stringContaining("invalid case-access claim expiration"),
     });
   });
+
+  it("maps the trusted completed claim purpose used by the auth callback", async () => {
+    const rpc = vi.fn(async () => ({
+      data: [
+        {
+          outcome: "claimed",
+          case_id: CASE_ID,
+          owner_user_id: USER_ID,
+          contact_email: contactRow.email,
+          email_verified_at: CREATED_AT,
+          claimed_at: CREATED_AT,
+          ownership_transferred: true,
+          claim_purpose: "post_continue",
+        },
+      ],
+      error: null,
+    }));
+    const service = createTotalLossIdentityService({
+      rpc,
+    } as unknown as SupabaseClient<Database>);
+
+    await expect(service.completeIdentityClaim(CLAIM_ID)).resolves.toMatchObject({
+      caseId: CASE_ID,
+      claimPurpose: "post_continue",
+      ownerUserId: USER_ID,
+    });
+    expect(rpc).toHaveBeenCalledWith("complete_total_loss_case_claim_with_context", {
+      claim_id: CLAIM_ID,
+    });
+  });
+
+  it("rejects an untrusted completed claim purpose", async () => {
+    const rpc = vi.fn(async () => ({
+      data: [
+        {
+          outcome: "claimed",
+          case_id: CASE_ID,
+          owner_user_id: USER_ID,
+          contact_email: contactRow.email,
+          email_verified_at: CREATED_AT,
+          claimed_at: CREATED_AT,
+          ownership_transferred: true,
+          claim_purpose: "client_redirect",
+        },
+      ],
+      error: null,
+    }));
+    const service = createTotalLossIdentityService({
+      rpc,
+    } as unknown as SupabaseClient<Database>);
+
+    await expect(service.completeIdentityClaim(CLAIM_ID)).rejects.toMatchObject({
+      name: "TotalLossIdentityResponseError",
+      message: expect.stringContaining("claim purpose"),
+    });
+  });
 });

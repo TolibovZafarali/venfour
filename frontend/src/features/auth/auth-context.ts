@@ -1,6 +1,8 @@
 import { createContext, useContext } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 
+import type { TurnstileController } from "@/features/auth/turnstile-controller";
+
 export type AuthIdentityKind = "anonymous" | "permanent";
 
 export interface SignedInAuthState {
@@ -42,6 +44,7 @@ export interface AuthContextValue {
   auth: AuthState;
   ensureGuestSession: (options?: GuestSessionOptions) => Promise<Session>;
   restoreSession: (session: Session) => Promise<Session>;
+  runTurnstileChallenge: TurnstileController["runWithToken"];
   signInWithGoogle: (options?: AuthActionOptions) => Promise<void>;
   sendMagicLink: (
     email: string,

@@ -355,6 +355,14 @@ class SupabaseHttpGateway:
             return dict(payload)
         raise SupabaseContractError(f"{label} response is invalid")
 
+    @staticmethod
+    def _optional_rpc_row(
+        payload: Any, label: str
+    ) -> Mapping[str, Any] | None:
+        if payload is None or payload == []:
+            return None
+        return SupabaseHttpGateway._single_rpc_row(payload, label)
+
     def _rpc(
         self,
         name: str,
@@ -441,6 +449,97 @@ class SupabaseHttpGateway:
             retry_ambiguous_claim=True,
         )
         return self._single_rpc_row(payload, "Analysis claim")
+
+    def resolve_total_loss_case_claim(
+        self, case_id: str, access_token: str
+    ) -> Mapping[str, Any] | None:
+        canonical_case_id = _canonical_uuid(case_id, "Case ID")
+        payload = self._user_rpc(
+            "resolve_total_loss_case_claim",
+            {"requested_case_id": canonical_case_id},
+            access_token,
+        )
+        return self._optional_rpc_row(payload, "Case claim resolver")
+
+    def renew_total_loss_case_claim(
+        self, case_id: str, access_token: str
+    ) -> Mapping[str, Any] | None:
+        canonical_case_id = _canonical_uuid(case_id, "Case ID")
+        payload = self._user_rpc(
+            "renew_total_loss_case_claim",
+            {"requested_case_id": canonical_case_id},
+            access_token,
+        )
+        return self._optional_rpc_row(payload, "Case claim renewal")
+
+    def prepare_total_loss_case_access_recovery(
+        self,
+        case_id: str,
+        email: str,
+        requester_fingerprint: str,
+        target_fingerprint: str,
+    ) -> Mapping[str, Any]:
+        canonical_case_id = _canonical_uuid(case_id, "Case ID")
+        if (
+            not isinstance(email, str)
+            or not 3 <= len(email) <= 320
+            or email != email.strip().lower()
+        ):
+            raise SupabaseContractError("Recovery email is invalid")
+        for value, label in (
+            (requester_fingerprint, "Requester fingerprint"),
+            (target_fingerprint, "Target fingerprint"),
+        ):
+            if (
+                not isinstance(value, str)
+                or re.fullmatch(r"[0-9a-f]{64}", value) is None
+            ):
+                raise SupabaseContractError(f"{label} is invalid")
+        payload = self._rpc(
+            "prepare_total_loss_case_access_recovery",
+            {
+                "requested_case_id": canonical_case_id,
+                "email": email,
+                "requester_fingerprint": requester_fingerprint,
+                "target_fingerprint": target_fingerprint,
+            },
+        )
+        return self._single_rpc_row(payload, "Case access recovery")
+
+    def send_total_loss_case_magic_link(
+        self,
+        email: str,
+        claim_id: str,
+        public_app_origin: str,
+    ) -> None:
+        canonical_claim_id = _canonical_uuid(claim_id, "Claim ID")
+        if (
+            not isinstance(email, str)
+            or not 3 <= len(email) <= 320
+            or email != email.strip().lower()
+        ):
+            raise SupabaseContractError("Recovery email is invalid")
+        try:
+            canonical_public_app_origin = _configured_origin(public_app_origin)
+        except SupabaseConfigurationError as exc:
+            raise SupabaseContractError("Public app origin is invalid") from exc
+        callback = (
+            f"{canonical_public_app_origin}/auth/callback/case-claim/"
+            f"{canonical_claim_id}"
+        )
+        try:
+            response = self._client.post(
+                f"{self._configuration.url}/auth/v1/otp",
+                params={"redirect_to": callback},
+                headers=self._admin_headers(json_body=True),
+                json={"email": email, "create_user": True},
+            )
+        except httpx.HTTPError as exc:
+            raise SupabaseUnavailableError(
+                "Case access email is unavailable"
+            ) from exc
+        if response.status_code < 200 or response.status_code >= 300:
+            raise SupabaseUnavailableError("Case access email is unavailable")
 
     def get_total_loss_analysis_status(
         self, case_id: str, user_id: str

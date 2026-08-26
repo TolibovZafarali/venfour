@@ -7,7 +7,10 @@ const SCRIPT_LOAD_TIMEOUT_MS = 15_000;
 const CHALLENGE_TIMEOUT_MS = 120_000;
 const MAX_RETRIABLE_ERRORS = 3;
 
-export type TurnstileAction = "anonymous-auth" | "magic-link";
+export type TurnstileAction =
+  | "anonymous-auth"
+  | "claim-recovery"
+  | "magic-link";
 
 export interface TurnstileController {
   runWithToken<T>(

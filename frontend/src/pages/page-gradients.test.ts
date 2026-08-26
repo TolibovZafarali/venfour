@@ -24,6 +24,10 @@ describe("page gradient routing", () => {
       "/total-loss/cases/case-id/analysis",
       "page-gradient-analysis",
     ],
+    [
+      "/total-loss/cases/case-id/claim",
+      "page-gradient-analysis",
+    ],
     ["/admin/cases", "page-gradient-case-operations"],
     ["/admin/cases/case-id", "page-gradient-case-operations"],
     ["/admin/diminished-value", "page-gradient-dv-operations"],

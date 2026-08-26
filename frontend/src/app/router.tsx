@@ -26,6 +26,7 @@ import { PrivacyPage } from "@/pages/privacy-page";
 import { RouteErrorPage } from "@/pages/route-error-page";
 import { TermsPage } from "@/pages/terms-page";
 import { TotalLossAnalysisPage } from "@/pages/total-loss-analysis-page";
+import { TotalLossClaimPage } from "@/pages/total-loss-claim-page";
 
 const metadata = (title: string, description: string): PageMetadata => ({
   title,
@@ -92,6 +93,14 @@ export const appRoutes: RouteObject[] = [
         handle: metadata(
           "Total-Loss Value Check | Venfour",
           "Track your total-loss value check and open the completed vehicle valuation analysis.",
+        ),
+      },
+      {
+        path: "total-loss/cases/:caseId/claim",
+        element: <TotalLossClaimPage />,
+        handle: metadata(
+          "Secure Your Total-Loss Claim | Venfour",
+          "Secure or recover access to a saved Venfour total-loss claim.",
         ),
       },
       {

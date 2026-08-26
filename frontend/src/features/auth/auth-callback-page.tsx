@@ -16,6 +16,12 @@ import {
   readCaseClaimCallbackParameter,
 } from "@/features/auth/return-location";
 import { useTotalLossDependencies } from "@/features/total-loss/dependencies";
+import type { CompleteTotalLossIdentityClaimResult } from "@/features/total-loss/data-types";
+
+interface CompletedAuthCallback {
+  readonly claim: CompleteTotalLossIdentityClaimResult | null;
+  readonly session: Session;
+}
 
 export function AuthCallbackPage() {
   const {
@@ -38,12 +44,12 @@ export function AuthCallbackPage() {
   );
   const completionRef = useRef<{
     key: string;
-    promise: Promise<Session>;
+    promise: Promise<CompletedAuthCallback>;
   } | null>(null);
   const navigationStartedRef = useRef(false);
   const claimCompletionRef = useRef<{
     key: string;
-    promise: Promise<void>;
+    promise: Promise<CompleteTotalLossIdentityClaimResult | null>;
   } | null>(null);
 
   useEffect(() => {
@@ -73,14 +79,14 @@ export function AuthCallbackPage() {
                     caseClaim.claimId,
                     auth.user.id,
                   )
-                : Promise.resolve(),
+                : Promise.resolve(null),
           };
         }
         void claimCompletionRef.current.promise
-          .then(() => {
+          .then((completedClaim) => {
             if (navigationStartedRef.current) return;
             navigationStartedRef.current = true;
-            void navigate(completedAuthReturnLocation(caseClaim), {
+            void navigate(completedAuthReturnLocation(caseClaim, completedClaim), {
               replace: true,
             });
           })
@@ -116,9 +122,10 @@ export function AuthCallbackPage() {
               "The sign-in callback did not return a permanent account.",
             );
           }
+          let completedClaim: CompleteTotalLossIdentityClaimResult | null = null;
           if (caseClaim.kind === "claim") {
             try {
-              await completeCaseClaim(
+              completedClaim = await completeCaseClaim(
                 totalLossDependencies?.totalLossIdentityService,
                 caseClaim.claimId,
                 session.user.id,
@@ -135,17 +142,17 @@ export function AuthCallbackPage() {
               throw claimError;
             }
           }
-          return session;
+          return { claim: completedClaim, session };
         }),
       };
     }
 
     let active = true;
     void completionRef.current.promise
-      .then(() => {
+      .then(({ claim: completedClaim }) => {
         if (!active || navigationStartedRef.current) return;
         navigationStartedRef.current = true;
-        void navigate(completedAuthReturnLocation(caseClaim), {
+        void navigate(completedAuthReturnLocation(caseClaim, completedClaim), {
           replace: true,
         });
       })
@@ -225,9 +232,16 @@ export function AuthCallbackPage() {
 
 function completedAuthReturnLocation(
   caseClaim: ReturnType<typeof readCaseClaimCallbackParameter>,
+  completedClaim: CompleteTotalLossIdentityClaimResult | null,
 ) {
   const storedReturnLocation = consumeAuthReturnLocation();
-  return caseClaim.kind === "claim" ? "/appraisals" : storedReturnLocation;
+  if (caseClaim.kind !== "claim") return storedReturnLocation;
+  if (!completedClaim) {
+    throw new Error("The secure case-access link could not be completed.");
+  }
+  return completedClaim.claimPurpose === "post_continue"
+    ? `/total-loss/cases/${encodeURIComponent(completedClaim.caseId)}/claim`
+    : "/appraisals";
 }
 
 async function completeCaseClaim(
@@ -246,4 +260,5 @@ async function completeCaseClaim(
   if (!result || result.ownerUserId !== expectedUserId) {
     throw new Error("The secure case-access link could not be completed.");
   }
+  return result;
 }

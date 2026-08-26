@@ -28,6 +28,7 @@ TOKEN_ID = "40000000-0000-4000-8000-000000000004"
 RUN_ID = "50000000-0000-4000-8000-000000000005"
 REPORT_UPLOAD_ID = "60000000-0000-4000-8000-000000000006"
 TRIM_TOKEN_ID = "70000000-0000-4000-8000-000000000007"
+CLAIM_ID = "80000000-0000-4000-8000-000000000008"
 PDF_BYTES = b"%PDF-1.7\nsynthetic private report\n%%EOF\n"
 
 
@@ -272,6 +273,218 @@ class SupabaseHttpGatewayTests(unittest.TestCase):
                 )
                 with self.assertRaises(expected):
                     gateway.authenticate("bad-token")
+
+    def test_case_claim_rpcs_use_exact_names_arguments_and_privilege_boundaries(
+        self,
+    ) -> None:
+        requests: list[httpx.Request] = []
+        resume = {
+            "state": "secure_required",
+            "case_id": CASE_ID,
+            "contact_email": "owner@example.com",
+            "workflow_phase": "review",
+            "workflow_current_task": "secure_claim",
+            "workflow_revision": 1,
+        }
+        renewal = {
+            "state": "secure_required",
+            "case_id": CASE_ID,
+            "contact_email": "owner@example.com",
+            "claim_id": CLAIM_ID,
+            "claim_expires_at": "2026-08-26T18:30:00+00:00",
+        }
+        recovery = {
+            "send_allowed": True,
+            "claim_id": CLAIM_ID,
+            "claim_expires_at": "2026-08-26T18:30:00+00:00",
+            "requested_email": "owner@example.com",
+        }
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            requests.append(request)
+            name = request.url.path.rsplit("/", 1)[-1]
+            return httpx.Response(
+                200,
+                json={
+                    "resolve_total_loss_case_claim": [resume],
+                    "renew_total_loss_case_claim": [renewal],
+                    "prepare_total_loss_case_access_recovery": [recovery],
+                }[name],
+            )
+
+        gateway, _ = self.gateway(handler)
+
+        self.assertEqual(
+            gateway.resolve_total_loss_case_claim(CASE_ID, "browser-token"),
+            resume,
+        )
+        self.assertEqual(
+            gateway.renew_total_loss_case_claim(CASE_ID, "browser-token"),
+            renewal,
+        )
+        self.assertEqual(
+            gateway.prepare_total_loss_case_access_recovery(
+                CASE_ID,
+                "owner@example.com",
+                "a" * 64,
+                "b" * 64,
+            ),
+            recovery,
+        )
+
+        expected_bodies = {
+            "resolve_total_loss_case_claim": {
+                "requested_case_id": CASE_ID,
+            },
+            "renew_total_loss_case_claim": {
+                "requested_case_id": CASE_ID,
+            },
+            "prepare_total_loss_case_access_recovery": {
+                "requested_case_id": CASE_ID,
+                "email": "owner@example.com",
+                "requester_fingerprint": "a" * 64,
+                "target_fingerprint": "b" * 64,
+            },
+        }
+        for request in requests:
+            name = request.url.path.rsplit("/", 1)[-1]
+            self.assertEqual(json.loads(request.content), expected_bodies[name])
+            self.assertEqual(request.method, "POST")
+            if name == "prepare_total_loss_case_access_recovery":
+                expected_key = "service-role-test-key"
+                expected_bearer = "Bearer service-role-test-key"
+            else:
+                expected_key = "publishable-test-key"
+                expected_bearer = "Bearer browser-token"
+            self.assertEqual(request.headers["apikey"], expected_key)
+            self.assertEqual(request.headers["authorization"], expected_bearer)
+
+    def test_case_claim_user_rpcs_preserve_hidden_rows_and_auth_failures(
+        self,
+    ) -> None:
+        for payload in (None, []):
+            with self.subTest(payload=payload):
+                gateway, _ = self.gateway(
+                    lambda _request, value=payload: (
+                        httpx.Response(200, content=b"null")
+                        if value is None
+                        else httpx.Response(200, json=value)
+                    )
+                )
+                self.assertIsNone(
+                    gateway.resolve_total_loss_case_claim(
+                        CASE_ID, "browser-token"
+                    )
+                )
+
+        for response, expected in (
+            (
+                httpx.Response(401, json={"message": "invalid"}),
+                SupabaseAuthenticationError,
+            ),
+            (
+                httpx.Response(403, json={"message": "forbidden"}),
+                SupabaseAuthenticationError,
+            ),
+            (
+                httpx.Response(503, json={"message": "unavailable"}),
+                SupabaseUnavailableError,
+            ),
+            (httpx.Response(200, json=[{}, {}]), SupabaseContractError),
+        ):
+            with self.subTest(status=response.status_code, expected=expected):
+                gateway, _ = self.gateway(lambda _request, r=response: r)
+                with self.assertRaises(expected):
+                    gateway.renew_total_loss_case_claim(
+                        CASE_ID, "browser-token"
+                    )
+
+    def test_magic_link_uses_service_role_otp_with_only_the_server_callback(
+        self,
+    ) -> None:
+        requests: list[httpx.Request] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            requests.append(request)
+            return httpx.Response(200, json={})
+
+        gateway, _ = self.gateway(handler)
+        gateway.send_total_loss_case_magic_link(
+            "owner@example.com",
+            CLAIM_ID,
+            "https://app.venfour.example/",
+        )
+
+        self.assertEqual(len(requests), 1)
+        request = requests[0]
+        self.assertEqual(
+            str(request.url.copy_with(query=None)),
+            "https://project.supabase.co/auth/v1/otp",
+        )
+        self.assertEqual(
+            request.url.params["redirect_to"],
+            (
+                "https://app.venfour.example/auth/callback/case-claim/"
+                f"{CLAIM_ID}"
+            ),
+        )
+        self.assertEqual(
+            json.loads(request.content),
+            {"email": "owner@example.com", "create_user": True},
+        )
+        self.assertEqual(request.headers["apikey"], "service-role-test-key")
+        self.assertEqual(
+            request.headers["authorization"], "Bearer service-role-test-key"
+        )
+
+    def test_magic_link_rejects_untrusted_inputs_and_maps_delivery_failures(
+        self,
+    ) -> None:
+        requests: list[httpx.Request] = []
+        gateway, _ = self.gateway(
+            lambda request: (
+                requests.append(request)
+                or httpx.Response(200, json={})
+            )
+        )
+        invalid_values = (
+            ("Owner@Example.com", CLAIM_ID, "https://app.venfour.example"),
+            ("owner@example.com", "not-a-uuid", "https://app.venfour.example"),
+            ("owner@example.com", CLAIM_ID, "http://app.venfour.example"),
+            ("owner@example.com", CLAIM_ID, "https://evil.example/path"),
+            ("owner@example.com", CLAIM_ID, "https://user:pass@evil.example"),
+        )
+        for email, claim_id, origin in invalid_values:
+            with self.subTest(email=email, claim_id=claim_id, origin=origin):
+                with self.assertRaises(SupabaseContractError):
+                    gateway.send_total_loss_case_magic_link(
+                        email, claim_id, origin
+                    )
+        self.assertEqual(requests, [])
+
+        for response in (
+            httpx.Response(429, json={"message": "rate limited"}),
+            httpx.Response(302, headers={"location": "https://evil.invalid"}),
+        ):
+            with self.subTest(status=response.status_code):
+                gateway, _ = self.gateway(lambda _request, r=response: r)
+                with self.assertRaises(SupabaseUnavailableError):
+                    gateway.send_total_loss_case_magic_link(
+                        "owner@example.com",
+                        CLAIM_ID,
+                        "https://app.venfour.example",
+                    )
+
+        def timeout(request: httpx.Request) -> httpx.Response:
+            raise httpx.ReadTimeout("synthetic timeout", request=request)
+
+        gateway, _ = self.gateway(timeout)
+        with self.assertRaises(SupabaseUnavailableError):
+            gateway.send_total_loss_case_magic_link(
+                "owner@example.com",
+                CLAIM_ID,
+                "https://app.venfour.example",
+            )
 
     def test_rpc_names_arguments_and_service_role_headers_are_exact(self) -> None:
         requests: list[httpx.Request] = []

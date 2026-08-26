@@ -18,6 +18,8 @@ const supabaseExecutable = join(
 const localEnvironmentFile = join(repositoryRoot, ".env");
 const turnstileTestSiteKey = "1x00000000000000000000BB";
 const turnstileTestSecret = "1x0000000000000000000000000000000AA";
+const claimRecoveryRateLimitTestSecret =
+  "local-claim-recovery-rate-limit-secret-not-for-production";
 
 function fail(message) {
   console.error(`\nLocal development could not start: ${message}`);
@@ -176,7 +178,11 @@ const backendEnvironment = {
   SUPABASE_SERVICE_ROLE_KEY: credentials.serviceRoleKey,
   SUPABASE_URL: credentials.apiUrl,
   VENFOUR_ENABLE_LEGACY_ANALYSIS_API: "0",
+  VENFOUR_CLAIM_RECOVERY_RATE_LIMIT_SECRET:
+    claimRecoveryRateLimitTestSecret,
   VENFOUR_PROVIDER_DIAGNOSTICS: "1",
+  VENFOUR_PUBLIC_APP_ORIGIN: "http://localhost:5173",
+  VENFOUR_TURNSTILE_SECRET: turnstileTestSecret,
 };
 delete backendEnvironment.VENFOUR_STAGING_PROXY_SECRET;
 
@@ -193,11 +199,15 @@ for (const secretName of [
   "MARKETCHECK_API_KEY",
   "OPENAI_API_KEY",
   "SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_SECRET",
+  "SUPABASE_AUTH_CAPTCHA_SECRET",
   "SUPABASE_PUBLISHABLE_KEY",
   "SUPABASE_SERVICE_ROLE_KEY",
   "SUPABASE_URL",
   "VENFOUR_STAGING_PROXY_SECRET",
   "VENFOUR_PROVIDER_DIAGNOSTICS",
+  "VENFOUR_CLAIM_RECOVERY_RATE_LIMIT_SECRET",
+  "VENFOUR_PUBLIC_APP_ORIGIN",
+  "VENFOUR_TURNSTILE_SECRET",
 ]) {
   delete frontendEnvironment[secretName];
 }

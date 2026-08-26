@@ -262,6 +262,14 @@ export function AuthProvider({
     [applySession, requireService],
   );
 
+  const runTurnstileChallenge = useCallback<
+    AuthContextValue["runTurnstileChallenge"]
+  >(
+    (action, operation, signal) =>
+      turnstileController.runWithToken(action, operation, signal),
+    [turnstileController],
+  );
+
   const signInWithGoogle = useCallback<AuthContextValue["signInWithGoogle"]>(
     async (options) => {
       storeAuthReturnLocation(options?.returnTo);
@@ -321,6 +329,7 @@ export function AuthProvider({
       completeEmailAuthCallback,
       ensureGuestSession,
       restoreSession,
+      runTurnstileChallenge,
       sendMagicLink,
       signInWithGoogle,
       signOut,
@@ -331,6 +340,7 @@ export function AuthProvider({
       completeEmailAuthCallback,
       ensureGuestSession,
       restoreSession,
+      runTurnstileChallenge,
       sendMagicLink,
       signInWithGoogle,
       signOut,

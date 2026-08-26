@@ -585,11 +585,13 @@ describe("auth callback", () => {
     );
 
     render(
-      <TotalLossDependenciesProvider dependencies={dependencies}>
-        <AuthProvider service={service}>
-          <RouterProvider router={router} />
-        </AuthProvider>
-      </TotalLossDependenciesProvider>,
+      <StrictMode>
+        <TotalLossDependenciesProvider dependencies={dependencies}>
+          <AuthProvider service={service}>
+            <RouterProvider router={router} />
+          </AuthProvider>
+        </TotalLossDependenciesProvider>
+      </StrictMode>,
     );
 
     expect(
@@ -618,6 +620,7 @@ describe("auth callback", () => {
       emailVerifiedAt: "2026-08-23T20:00:00.000Z",
       claimedAt: "2026-08-23T20:00:00.000Z",
       ownershipTransferred: true,
+      claimPurpose: "intake",
     }));
     const dependencies = callbackDependencies(completeIdentityClaim);
     const service = createService({
@@ -640,11 +643,13 @@ describe("auth callback", () => {
     );
 
     render(
-      <TotalLossDependenciesProvider dependencies={dependencies}>
-        <AuthProvider service={service}>
-          <RouterProvider router={router} />
-        </AuthProvider>
-      </TotalLossDependenciesProvider>,
+      <StrictMode>
+        <TotalLossDependenciesProvider dependencies={dependencies}>
+          <AuthProvider service={service}>
+            <RouterProvider router={router} />
+          </AuthProvider>
+        </TotalLossDependenciesProvider>
+      </StrictMode>,
     );
 
     expect(
@@ -655,6 +660,117 @@ describe("auth callback", () => {
     expect(completeIdentityClaim).toHaveBeenCalledOnce();
     expect(completeIdentityClaim).toHaveBeenCalledWith(CASE_CLAIM_ID);
     expect(service.restoreSession).not.toHaveBeenCalled();
+  });
+
+  test("routes a completed post-Continue claim to its trusted claim route", async () => {
+    const guestSession = anonymousSessionFor("existing-guest");
+    const permanentSession = sessionFor("claim-owner");
+    const trustedCaseId = "77777777-7777-4777-8777-777777777777";
+    const completeIdentityClaim = vi.fn<
+      TotalLossIdentityService["completeIdentityClaim"]
+    >(async () => ({
+      outcome: "claimed",
+      caseId: trustedCaseId,
+      ownerUserId: permanentSession.user.id,
+      contactEmail: permanentSession.user.email ?? "claim-owner@example.com",
+      emailVerifiedAt: "2026-08-23T20:00:00.000Z",
+      claimedAt: "2026-08-23T20:00:00.000Z",
+      ownershipTransferred: true,
+      claimPurpose: "post_continue",
+    }));
+    const dependencies = callbackDependencies(completeIdentityClaim);
+    const service = createService({
+      getSession: vi.fn(async () => guestSession),
+      verifyEmailOtp: vi.fn(async () => permanentSession),
+    });
+    storeAuthReturnLocation("https://attacker.example/redirect");
+    const router = createMemoryRouter(
+      [
+        { path: "/auth/callback/*", element: <AuthCallbackPage /> },
+        {
+          path: "/total-loss/cases/:caseId/claim",
+          element: <h1>Claim access</h1>,
+        },
+      ],
+      {
+        initialEntries: [
+          `/auth/callback/case-claim/${CASE_CLAIM_ID}?token_hash=claim-token&type=email`,
+        ],
+      },
+    );
+
+    render(
+      <StrictMode>
+        <TotalLossDependenciesProvider dependencies={dependencies}>
+          <AuthProvider service={service}>
+            <RouterProvider router={router} />
+          </AuthProvider>
+        </TotalLossDependenciesProvider>
+      </StrictMode>,
+    );
+
+    expect(
+      await screen.findByRole("heading", { name: "Claim access" }),
+    ).toBeVisible();
+    expect(router.state.location.pathname).toBe(
+      `/total-loss/cases/${trustedCaseId}/claim`,
+    );
+    expect(service.verifyEmailOtp).toHaveBeenCalledWith("claim-token");
+    expect(completeIdentityClaim).toHaveBeenCalledWith(CASE_CLAIM_ID);
+    expect(service.restoreSession).not.toHaveBeenCalled();
+  });
+
+  test("resumes an already verified post-Continue claim without callback credentials", async () => {
+    const permanentSession = sessionFor("claim-owner");
+    const trustedCaseId = "77777777-7777-4777-8777-777777777777";
+    const completeIdentityClaim = vi.fn<
+      TotalLossIdentityService["completeIdentityClaim"]
+    >(async () => ({
+      outcome: "already_claimed",
+      caseId: trustedCaseId,
+      ownerUserId: permanentSession.user.id,
+      contactEmail: permanentSession.user.email ?? "claim-owner@example.com",
+      emailVerifiedAt: "2026-08-23T20:00:00.000Z",
+      claimedAt: "2026-08-23T20:00:00.000Z",
+      ownershipTransferred: false,
+      claimPurpose: "post_continue",
+    }));
+    const dependencies = callbackDependencies(completeIdentityClaim);
+    const service = createService({
+      getSession: vi.fn(async () => permanentSession),
+    });
+    const router = createMemoryRouter(
+      [
+        { path: "/auth/callback/*", element: <AuthCallbackPage /> },
+        {
+          path: "/total-loss/cases/:caseId/claim",
+          element: <h1>Claim access</h1>,
+        },
+      ],
+      {
+        initialEntries: [`/auth/callback/case-claim/${CASE_CLAIM_ID}`],
+      },
+    );
+
+    render(
+      <StrictMode>
+        <TotalLossDependenciesProvider dependencies={dependencies}>
+          <AuthProvider service={service}>
+            <RouterProvider router={router} />
+          </AuthProvider>
+        </TotalLossDependenciesProvider>
+      </StrictMode>,
+    );
+
+    expect(
+      await screen.findByRole("heading", { name: "Claim access" }),
+    ).toBeVisible();
+    expect(router.state.location.pathname).toBe(
+      `/total-loss/cases/${trustedCaseId}/claim`,
+    );
+    expect(completeIdentityClaim).toHaveBeenCalledOnce();
+    expect(service.exchangeCodeForSession).not.toHaveBeenCalled();
+    expect(service.verifyEmailOtp).not.toHaveBeenCalled();
   });
 
   test("does not complete sign-in from an anonymous session without callback credentials", async () => {
