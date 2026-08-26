@@ -230,7 +230,12 @@ select results_eq(
       to_jsonb(policy.roles)
     ) as policy_tuple
     from pg_policies as policy
-    where policy.policyname like 'Staff can %'
+    where (policy.schemaname, policy.tablename) in (
+      ('public', 'appraisal_cases'),
+      ('public', 'diminished_value_case_details'),
+      ('storage', 'objects')
+    )
+      and policy.policyname like 'Staff can %'
     order by policy.schemaname, policy.tablename, policy.policyname
   $$,
   $$

@@ -7,11 +7,6 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "14.15"
-  }
   graphql_public: {
     Tables: {
       [_ in never]: never
@@ -294,6 +289,261 @@ export type Database = {
         }
         Relationships: []
       }
+      case_entitlements: {
+        Row: {
+          case_id: string
+          created_at: string
+          granted_at: string
+          id: string
+          order_id: string
+          preliminary_snapshot_id: string
+          product_identifier: string
+          product_version: string
+          reason_code: string | null
+          revoked_at: string | null
+          status: Database["public"]["Enums"]["case_entitlement_status"]
+          status_changed_at: string
+          updated_at: string
+        }
+        Insert: {
+          case_id: string
+          created_at?: string
+          granted_at?: string
+          id?: string
+          order_id: string
+          preliminary_snapshot_id: string
+          product_identifier: string
+          product_version: string
+          reason_code?: string | null
+          revoked_at?: string | null
+          status?: Database["public"]["Enums"]["case_entitlement_status"]
+          status_changed_at?: string
+          updated_at?: string
+        }
+        Update: {
+          case_id?: string
+          created_at?: string
+          granted_at?: string
+          id?: string
+          order_id?: string
+          preliminary_snapshot_id?: string
+          product_identifier?: string
+          product_version?: string
+          reason_code?: string | null
+          revoked_at?: string | null
+          status?: Database["public"]["Enums"]["case_entitlement_status"]
+          status_changed_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "case_entitlements_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "appraisal_cases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "case_entitlements_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "total_loss_case_operations_internal"
+            referencedColumns: ["case_id"]
+          },
+          {
+            foreignKeyName: "case_entitlements_order_identity_fkey"
+            columns: [
+              "order_id",
+              "case_id",
+              "preliminary_snapshot_id",
+              "product_identifier",
+              "product_version",
+            ]
+            isOneToOne: false
+            referencedRelation: "commerce_orders"
+            referencedColumns: [
+              "id",
+              "case_id",
+              "preliminary_snapshot_id",
+              "product_identifier",
+              "product_version",
+            ]
+          },
+          {
+            foreignKeyName: "case_entitlements_snapshot_case_fkey"
+            columns: ["preliminary_snapshot_id", "case_id"]
+            isOneToOne: false
+            referencedRelation: "total_loss_preliminary_snapshots"
+            referencedColumns: ["id", "case_id"]
+          },
+        ]
+      }
+      checkout_attempts: {
+        Row: {
+          amount_minor_units: number
+          case_id: string
+          client_request_id: string
+          created_at: string
+          currency: string
+          expires_at: string | null
+          external_checkout_session_id: string | null
+          external_customer_id: string | null
+          external_payment_intent_id: string | null
+          failure_code: string | null
+          finished_at: string | null
+          id: string
+          order_id: string
+          payment_provider: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          amount_minor_units: number
+          case_id: string
+          client_request_id: string
+          created_at?: string
+          currency: string
+          expires_at?: string | null
+          external_checkout_session_id?: string | null
+          external_customer_id?: string | null
+          external_payment_intent_id?: string | null
+          failure_code?: string | null
+          finished_at?: string | null
+          id?: string
+          order_id: string
+          payment_provider: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          amount_minor_units?: number
+          case_id?: string
+          client_request_id?: string
+          created_at?: string
+          currency?: string
+          expires_at?: string | null
+          external_checkout_session_id?: string | null
+          external_customer_id?: string | null
+          external_payment_intent_id?: string | null
+          failure_code?: string | null
+          finished_at?: string | null
+          id?: string
+          order_id?: string
+          payment_provider?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "checkout_attempts_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "appraisal_cases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "checkout_attempts_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "total_loss_case_operations_internal"
+            referencedColumns: ["case_id"]
+          },
+          {
+            foreignKeyName: "checkout_attempts_order_amount_fkey"
+            columns: ["order_id", "case_id", "amount_minor_units", "currency"]
+            isOneToOne: false
+            referencedRelation: "commerce_orders"
+            referencedColumns: [
+              "id",
+              "case_id",
+              "amount_minor_units",
+              "currency",
+            ]
+          },
+        ]
+      }
+      commerce_orders: {
+        Row: {
+          amount_minor_units: number
+          case_id: string
+          created_at: string
+          currency: string
+          external_price_identifier: string | null
+          id: string
+          paid_at: string | null
+          payment_provider: string | null
+          preliminary_snapshot_id: string
+          product_identifier: string
+          product_version: string
+          purchaser_user_id: string
+          refund_policy_version: string
+          refunded_at: string | null
+          status: Database["public"]["Enums"]["commerce_order_status"]
+          terms_version: string
+          updated_at: string
+        }
+        Insert: {
+          amount_minor_units: number
+          case_id: string
+          created_at?: string
+          currency: string
+          external_price_identifier?: string | null
+          id?: string
+          paid_at?: string | null
+          payment_provider?: string | null
+          preliminary_snapshot_id: string
+          product_identifier: string
+          product_version: string
+          purchaser_user_id: string
+          refund_policy_version: string
+          refunded_at?: string | null
+          status?: Database["public"]["Enums"]["commerce_order_status"]
+          terms_version: string
+          updated_at?: string
+        }
+        Update: {
+          amount_minor_units?: number
+          case_id?: string
+          created_at?: string
+          currency?: string
+          external_price_identifier?: string | null
+          id?: string
+          paid_at?: string | null
+          payment_provider?: string | null
+          preliminary_snapshot_id?: string
+          product_identifier?: string
+          product_version?: string
+          purchaser_user_id?: string
+          refund_policy_version?: string
+          refunded_at?: string | null
+          status?: Database["public"]["Enums"]["commerce_order_status"]
+          terms_version?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "commerce_orders_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "appraisal_cases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "commerce_orders_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "total_loss_case_operations_internal"
+            referencedColumns: ["case_id"]
+          },
+          {
+            foreignKeyName: "commerce_orders_snapshot_case_fkey"
+            columns: ["preliminary_snapshot_id", "case_id"]
+            isOneToOne: false
+            referencedRelation: "total_loss_preliminary_snapshots"
+            referencedColumns: ["id", "case_id"]
+          },
+        ]
+      }
       diminished_value_case_details: {
         Row: {
           accident_date: string | null
@@ -320,8 +570,8 @@ export type Database = {
           structural_damage: string | null
           submitted_at: string | null
           updated_at: string
-          vehicle_entry_method: string
           vehicle_configuration: Json | null
+          vehicle_entry_method: string
           vehicle_make: string | null
           vehicle_model: string | null
           vehicle_trim: string | null
@@ -353,8 +603,8 @@ export type Database = {
           structural_damage?: string | null
           submitted_at?: string | null
           updated_at?: string
-          vehicle_entry_method?: string
           vehicle_configuration?: Json | null
+          vehicle_entry_method?: string
           vehicle_make?: string | null
           vehicle_model?: string | null
           vehicle_trim?: string | null
@@ -386,8 +636,8 @@ export type Database = {
           structural_damage?: string | null
           submitted_at?: string | null
           updated_at?: string
-          vehicle_entry_method?: string
           vehicle_configuration?: Json | null
+          vehicle_entry_method?: string
           vehicle_make?: string | null
           vehicle_model?: string | null
           vehicle_trim?: string | null
@@ -408,6 +658,110 @@ export type Database = {
             isOneToOne: true
             referencedRelation: "total_loss_case_operations_internal"
             referencedColumns: ["case_id"]
+          },
+        ]
+      }
+      payment_transactions: {
+        Row: {
+          amount_minor_units: number
+          case_id: string
+          checkout_attempt_id: string | null
+          currency: string
+          external_event_id: string | null
+          external_object_id: string
+          id: string
+          metadata: Json
+          order_id: string
+          payment_provider: string
+          provider_occurred_at: string
+          recorded_at: string
+          related_transaction_id: string | null
+          transaction_kind: string
+        }
+        Insert: {
+          amount_minor_units: number
+          case_id: string
+          checkout_attempt_id?: string | null
+          currency: string
+          external_event_id?: string | null
+          external_object_id: string
+          id?: string
+          metadata?: Json
+          order_id: string
+          payment_provider: string
+          provider_occurred_at: string
+          recorded_at?: string
+          related_transaction_id?: string | null
+          transaction_kind: string
+        }
+        Update: {
+          amount_minor_units?: number
+          case_id?: string
+          checkout_attempt_id?: string | null
+          currency?: string
+          external_event_id?: string | null
+          external_object_id?: string
+          id?: string
+          metadata?: Json
+          order_id?: string
+          payment_provider?: string
+          provider_occurred_at?: string
+          recorded_at?: string
+          related_transaction_id?: string | null
+          transaction_kind?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_transactions_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "appraisal_cases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_transactions_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "total_loss_case_operations_internal"
+            referencedColumns: ["case_id"]
+          },
+          {
+            foreignKeyName: "payment_transactions_checkout_identity_fkey"
+            columns: [
+              "checkout_attempt_id",
+              "case_id",
+              "order_id",
+              "payment_provider",
+            ]
+            isOneToOne: false
+            referencedRelation: "checkout_attempts"
+            referencedColumns: ["id", "case_id", "order_id", "payment_provider"]
+          },
+          {
+            foreignKeyName: "payment_transactions_order_currency_fkey"
+            columns: ["order_id", "case_id", "currency"]
+            isOneToOne: false
+            referencedRelation: "commerce_orders"
+            referencedColumns: ["id", "case_id", "currency"]
+          },
+          {
+            foreignKeyName: "payment_transactions_related_case_fkey"
+            columns: [
+              "related_transaction_id",
+              "case_id",
+              "order_id",
+              "payment_provider",
+              "currency",
+            ]
+            isOneToOne: false
+            referencedRelation: "payment_transactions"
+            referencedColumns: [
+              "id",
+              "case_id",
+              "order_id",
+              "payment_provider",
+              "currency",
+            ]
           },
         ]
       }
@@ -467,6 +821,104 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      total_loss_ai_review_runs: {
+        Row: {
+          case_id: string
+          completed_at: string | null
+          confidence: string | null
+          created_at: string
+          failure_code: string | null
+          final_assessment_id: string
+          id: string
+          input_digest: string
+          model_identifier: string
+          output_digest: string | null
+          prompt_version: string
+          provider_identifier: string
+          recommendation: string | null
+          report_version_id: string | null
+          review_result: Json | null
+          schema_version: string
+          started_at: string | null
+          status: string
+          updated_at: string
+          usage_metadata: Json | null
+        }
+        Insert: {
+          case_id: string
+          completed_at?: string | null
+          confidence?: string | null
+          created_at?: string
+          failure_code?: string | null
+          final_assessment_id: string
+          id?: string
+          input_digest: string
+          model_identifier: string
+          output_digest?: string | null
+          prompt_version: string
+          provider_identifier: string
+          recommendation?: string | null
+          report_version_id?: string | null
+          review_result?: Json | null
+          schema_version: string
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+          usage_metadata?: Json | null
+        }
+        Update: {
+          case_id?: string
+          completed_at?: string | null
+          confidence?: string | null
+          created_at?: string
+          failure_code?: string | null
+          final_assessment_id?: string
+          id?: string
+          input_digest?: string
+          model_identifier?: string
+          output_digest?: string | null
+          prompt_version?: string
+          provider_identifier?: string
+          recommendation?: string | null
+          report_version_id?: string | null
+          review_result?: Json | null
+          schema_version?: string
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+          usage_metadata?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "total_loss_ai_review_runs_assessment_case_fkey"
+            columns: ["final_assessment_id", "case_id"]
+            isOneToOne: false
+            referencedRelation: "total_loss_final_assessments"
+            referencedColumns: ["id", "case_id"]
+          },
+          {
+            foreignKeyName: "total_loss_ai_review_runs_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "appraisal_cases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "total_loss_ai_review_runs_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "total_loss_case_operations_internal"
+            referencedColumns: ["case_id"]
+          },
+          {
+            foreignKeyName: "total_loss_ai_review_runs_report_assessment_fkey"
+            columns: ["report_version_id", "case_id", "final_assessment_id"]
+            isOneToOne: false
+            referencedRelation: "total_loss_report_versions"
+            referencedColumns: ["id", "case_id", "final_assessment_id"]
+          },
+        ]
       }
       total_loss_analysis_jobs: {
         Row: {
@@ -619,6 +1071,7 @@ export type Database = {
           case_id: string
           created_at: string
           date_of_loss: string | null
+          existing_damage_description: string | null
           insurer_name: string | null
           insurer_vehicle_valuation: number | null
           intake_completed_at: string | null
@@ -645,9 +1098,8 @@ export type Database = {
           report_upload_recovery_required: boolean
           report_uploaded_at: string | null
           updated_at: string
-          existing_damage_description: string | null
-          vehicle_configuration: Json | null
           vehicle_condition: string | null
+          vehicle_configuration: Json | null
           vehicle_make: string | null
           vehicle_model: string | null
           vehicle_options_packages: string | null
@@ -661,6 +1113,7 @@ export type Database = {
           case_id: string
           created_at?: string
           date_of_loss?: string | null
+          existing_damage_description?: string | null
           insurer_name?: string | null
           insurer_vehicle_valuation?: number | null
           intake_completed_at?: string | null
@@ -684,12 +1137,11 @@ export type Database = {
           report_upload_has_backup?: boolean
           report_upload_id?: string | null
           report_upload_phase?: string | null
-          report_upload_recovery_required?: never
+          report_upload_recovery_required?: boolean
           report_uploaded_at?: string | null
           updated_at?: string
-          existing_damage_description?: string | null
-          vehicle_configuration?: Json | null
           vehicle_condition?: string | null
+          vehicle_configuration?: Json | null
           vehicle_make?: string | null
           vehicle_model?: string | null
           vehicle_options_packages?: string | null
@@ -703,6 +1155,7 @@ export type Database = {
           case_id?: string
           created_at?: string
           date_of_loss?: string | null
+          existing_damage_description?: string | null
           insurer_name?: string | null
           insurer_vehicle_valuation?: number | null
           intake_completed_at?: string | null
@@ -726,12 +1179,11 @@ export type Database = {
           report_upload_has_backup?: boolean
           report_upload_id?: string | null
           report_upload_phase?: string | null
-          report_upload_recovery_required?: never
+          report_upload_recovery_required?: boolean
           report_uploaded_at?: string | null
           updated_at?: string
-          existing_damage_description?: string | null
-          vehicle_configuration?: Json | null
           vehicle_condition?: string | null
+          vehicle_configuration?: Json | null
           vehicle_make?: string | null
           vehicle_model?: string | null
           vehicle_options_packages?: string | null
@@ -807,6 +1259,1275 @@ export type Database = {
           },
         ]
       }
+      total_loss_claim_documents: {
+        Row: {
+          byte_size: number | null
+          case_id: string
+          content_digest: string | null
+          created_at: string
+          created_by_user_id: string | null
+          document_kind: string
+          failure_code: string | null
+          id: string
+          media_type: string | null
+          original_filename: string | null
+          sealed_at: string | null
+          status: string
+          storage_bucket_id: string | null
+          storage_object_name: string | null
+          updated_at: string
+        }
+        Insert: {
+          byte_size?: number | null
+          case_id: string
+          content_digest?: string | null
+          created_at?: string
+          created_by_user_id?: string | null
+          document_kind: string
+          failure_code?: string | null
+          id?: string
+          media_type?: string | null
+          original_filename?: string | null
+          sealed_at?: string | null
+          status?: string
+          storage_bucket_id?: string | null
+          storage_object_name?: string | null
+          updated_at?: string
+        }
+        Update: {
+          byte_size?: number | null
+          case_id?: string
+          content_digest?: string | null
+          created_at?: string
+          created_by_user_id?: string | null
+          document_kind?: string
+          failure_code?: string | null
+          id?: string
+          media_type?: string | null
+          original_filename?: string | null
+          sealed_at?: string | null
+          status?: string
+          storage_bucket_id?: string | null
+          storage_object_name?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "total_loss_claim_documents_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "appraisal_cases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "total_loss_claim_documents_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "total_loss_case_operations_internal"
+            referencedColumns: ["case_id"]
+          },
+        ]
+      }
+      total_loss_claim_workflows: {
+        Row: {
+          case_id: string
+          created_at: string
+          current_negotiation_round_id: string | null
+          current_offer_id: string | null
+          current_package_job_id: string | null
+          current_recommendation_id: string | null
+          current_report_version_id: string | null
+          current_task: string
+          phase: Database["public"]["Enums"]["total_loss_claim_phase"]
+          preliminary_snapshot_id: string
+          resolution_code: string | null
+          resolved_at: string | null
+          revision: number
+          updated_at: string
+        }
+        Insert: {
+          case_id: string
+          created_at?: string
+          current_negotiation_round_id?: string | null
+          current_offer_id?: string | null
+          current_package_job_id?: string | null
+          current_recommendation_id?: string | null
+          current_report_version_id?: string | null
+          current_task: string
+          phase?: Database["public"]["Enums"]["total_loss_claim_phase"]
+          preliminary_snapshot_id: string
+          resolution_code?: string | null
+          resolved_at?: string | null
+          revision?: number
+          updated_at?: string
+        }
+        Update: {
+          case_id?: string
+          created_at?: string
+          current_negotiation_round_id?: string | null
+          current_offer_id?: string | null
+          current_package_job_id?: string | null
+          current_recommendation_id?: string | null
+          current_report_version_id?: string | null
+          current_task?: string
+          phase?: Database["public"]["Enums"]["total_loss_claim_phase"]
+          preliminary_snapshot_id?: string
+          resolution_code?: string | null
+          resolved_at?: string | null
+          revision?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "total_loss_claim_workflows_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: true
+            referencedRelation: "appraisal_cases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "total_loss_claim_workflows_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: true
+            referencedRelation: "total_loss_case_operations_internal"
+            referencedColumns: ["case_id"]
+          },
+          {
+            foreignKeyName: "total_loss_claim_workflows_current_offer_fkey"
+            columns: ["current_offer_id", "case_id"]
+            isOneToOne: false
+            referencedRelation: "total_loss_offers"
+            referencedColumns: ["id", "case_id"]
+          },
+          {
+            foreignKeyName: "total_loss_claim_workflows_current_package_fkey"
+            columns: ["current_package_job_id", "case_id"]
+            isOneToOne: false
+            referencedRelation: "total_loss_package_jobs"
+            referencedColumns: ["id", "case_id"]
+          },
+          {
+            foreignKeyName: "total_loss_claim_workflows_current_recommendation_fkey"
+            columns: ["current_recommendation_id", "case_id"]
+            isOneToOne: false
+            referencedRelation: "total_loss_recommendations"
+            referencedColumns: ["id", "case_id"]
+          },
+          {
+            foreignKeyName: "total_loss_claim_workflows_current_report_fkey"
+            columns: ["current_report_version_id", "case_id"]
+            isOneToOne: false
+            referencedRelation: "total_loss_report_versions"
+            referencedColumns: ["id", "case_id"]
+          },
+          {
+            foreignKeyName: "total_loss_claim_workflows_current_round_fkey"
+            columns: ["current_negotiation_round_id", "case_id"]
+            isOneToOne: false
+            referencedRelation: "total_loss_negotiation_rounds"
+            referencedColumns: ["id", "case_id"]
+          },
+          {
+            foreignKeyName: "total_loss_claim_workflows_snapshot_case_fkey"
+            columns: ["preliminary_snapshot_id", "case_id"]
+            isOneToOne: false
+            referencedRelation: "total_loss_preliminary_snapshots"
+            referencedColumns: ["id", "case_id"]
+          },
+        ]
+      }
+      total_loss_communication_documents: {
+        Row: {
+          case_id: string
+          communication_id: string
+          created_at: string
+          display_order: number
+          document_id: string
+        }
+        Insert: {
+          case_id: string
+          communication_id: string
+          created_at?: string
+          display_order?: number
+          document_id: string
+        }
+        Update: {
+          case_id?: string
+          communication_id?: string
+          created_at?: string
+          display_order?: number
+          document_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "total_loss_communication_documents_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "appraisal_cases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "total_loss_communication_documents_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "total_loss_case_operations_internal"
+            referencedColumns: ["case_id"]
+          },
+          {
+            foreignKeyName: "total_loss_communication_documents_communication_case_fkey"
+            columns: ["communication_id", "case_id"]
+            isOneToOne: false
+            referencedRelation: "total_loss_communications"
+            referencedColumns: ["id", "case_id"]
+          },
+          {
+            foreignKeyName: "total_loss_communication_documents_document_case_fkey"
+            columns: ["document_id", "case_id"]
+            isOneToOne: false
+            referencedRelation: "total_loss_claim_documents"
+            referencedColumns: ["id", "case_id"]
+          },
+        ]
+      }
+      total_loss_communications: {
+        Row: {
+          case_id: string
+          channel: Database["public"]["Enums"]["total_loss_communication_channel"]
+          communication_type: string
+          confirmed_at: string | null
+          created_at: string
+          direction: Database["public"]["Enums"]["total_loss_communication_direction"]
+          id: string
+          message_version_id: string | null
+          negotiation_round_id: string | null
+          occurred_at: string | null
+          original_content: string | null
+          recipient: string | null
+          recorded_by_user_id: string | null
+          sender: string | null
+          status: string
+          subject: string | null
+          supersedes_communication_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          case_id: string
+          channel: Database["public"]["Enums"]["total_loss_communication_channel"]
+          communication_type: string
+          confirmed_at?: string | null
+          created_at?: string
+          direction: Database["public"]["Enums"]["total_loss_communication_direction"]
+          id?: string
+          message_version_id?: string | null
+          negotiation_round_id?: string | null
+          occurred_at?: string | null
+          original_content?: string | null
+          recipient?: string | null
+          recorded_by_user_id?: string | null
+          sender?: string | null
+          status?: string
+          subject?: string | null
+          supersedes_communication_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          case_id?: string
+          channel?: Database["public"]["Enums"]["total_loss_communication_channel"]
+          communication_type?: string
+          confirmed_at?: string | null
+          created_at?: string
+          direction?: Database["public"]["Enums"]["total_loss_communication_direction"]
+          id?: string
+          message_version_id?: string | null
+          negotiation_round_id?: string | null
+          occurred_at?: string | null
+          original_content?: string | null
+          recipient?: string | null
+          recorded_by_user_id?: string | null
+          sender?: string | null
+          status?: string
+          subject?: string | null
+          supersedes_communication_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "total_loss_communications_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "total_loss_claim_workflows"
+            referencedColumns: ["case_id"]
+          },
+          {
+            foreignKeyName: "total_loss_communications_message_case_fkey"
+            columns: ["message_version_id", "case_id"]
+            isOneToOne: false
+            referencedRelation: "total_loss_message_versions"
+            referencedColumns: ["id", "case_id"]
+          },
+          {
+            foreignKeyName: "total_loss_communications_round_case_fkey"
+            columns: ["negotiation_round_id", "case_id"]
+            isOneToOne: false
+            referencedRelation: "total_loss_negotiation_rounds"
+            referencedColumns: ["id", "case_id"]
+          },
+          {
+            foreignKeyName: "total_loss_communications_supersedes_case_fkey"
+            columns: ["supersedes_communication_id", "case_id"]
+            isOneToOne: false
+            referencedRelation: "total_loss_communications"
+            referencedColumns: ["id", "case_id"]
+          },
+        ]
+      }
+      total_loss_education_progress: {
+        Row: {
+          case_id: string
+          completed_at: string | null
+          created_at: string
+          report_version_id: string
+          skipped_at: string | null
+          step_identifier: string
+          updated_at: string
+          viewed_at: string | null
+        }
+        Insert: {
+          case_id: string
+          completed_at?: string | null
+          created_at?: string
+          report_version_id: string
+          skipped_at?: string | null
+          step_identifier: string
+          updated_at?: string
+          viewed_at?: string | null
+        }
+        Update: {
+          case_id?: string
+          completed_at?: string | null
+          created_at?: string
+          report_version_id?: string
+          skipped_at?: string | null
+          step_identifier?: string
+          updated_at?: string
+          viewed_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "total_loss_education_progress_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "appraisal_cases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "total_loss_education_progress_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "total_loss_case_operations_internal"
+            referencedColumns: ["case_id"]
+          },
+          {
+            foreignKeyName: "total_loss_education_progress_report_case_fkey"
+            columns: ["report_version_id", "case_id"]
+            isOneToOne: false
+            referencedRelation: "total_loss_report_versions"
+            referencedColumns: ["id", "case_id"]
+          },
+        ]
+      }
+      total_loss_fact_assertions: {
+        Row: {
+          case_id: string
+          confidence: number | null
+          confirmed_at: string | null
+          confirmed_by_user_id: string | null
+          created_at: string
+          extraction_method: string
+          fact_type: string
+          fact_value: Json
+          id: string
+          source_assessment_id: string | null
+          source_communication_id: string | null
+          source_document_id: string | null
+          source_locator: Json
+          status: string
+          supersedes_fact_assertion_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          case_id: string
+          confidence?: number | null
+          confirmed_at?: string | null
+          confirmed_by_user_id?: string | null
+          created_at?: string
+          extraction_method: string
+          fact_type: string
+          fact_value: Json
+          id?: string
+          source_assessment_id?: string | null
+          source_communication_id?: string | null
+          source_document_id?: string | null
+          source_locator?: Json
+          status?: string
+          supersedes_fact_assertion_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          case_id?: string
+          confidence?: number | null
+          confirmed_at?: string | null
+          confirmed_by_user_id?: string | null
+          created_at?: string
+          extraction_method?: string
+          fact_type?: string
+          fact_value?: Json
+          id?: string
+          source_assessment_id?: string | null
+          source_communication_id?: string | null
+          source_document_id?: string | null
+          source_locator?: Json
+          status?: string
+          supersedes_fact_assertion_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "total_loss_fact_assertions_assessment_case_fkey"
+            columns: ["source_assessment_id", "case_id"]
+            isOneToOne: false
+            referencedRelation: "total_loss_final_assessments"
+            referencedColumns: ["id", "case_id"]
+          },
+          {
+            foreignKeyName: "total_loss_fact_assertions_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "appraisal_cases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "total_loss_fact_assertions_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "total_loss_case_operations_internal"
+            referencedColumns: ["case_id"]
+          },
+          {
+            foreignKeyName: "total_loss_fact_assertions_communication_case_fkey"
+            columns: ["source_communication_id", "case_id"]
+            isOneToOne: false
+            referencedRelation: "total_loss_communications"
+            referencedColumns: ["id", "case_id"]
+          },
+          {
+            foreignKeyName: "total_loss_fact_assertions_document_case_fkey"
+            columns: ["source_document_id", "case_id"]
+            isOneToOne: false
+            referencedRelation: "total_loss_claim_documents"
+            referencedColumns: ["id", "case_id"]
+          },
+          {
+            foreignKeyName: "total_loss_fact_assertions_supersedes_fkey"
+            columns: ["supersedes_fact_assertion_id", "case_id", "fact_type"]
+            isOneToOne: false
+            referencedRelation: "total_loss_fact_assertions"
+            referencedColumns: ["id", "case_id", "fact_type"]
+          },
+        ]
+      }
+      total_loss_final_assessments: {
+        Row: {
+          assessment: Json
+          assessment_digest: string
+          case_id: string
+          conclusion_code: string
+          created_at: string
+          currency: string
+          findings: Json
+          id: string
+          limitations: Json
+          methodology_version: string
+          package_job_id: string
+          preliminary_snapshot_id: string
+          preliminary_to_final_comparison: Json
+          reason_codes: Json
+          schema_version: string
+          supersedes_assessment_id: string | null
+          supported_range_high_minor_units: number | null
+          supported_range_low_minor_units: number | null
+          supported_range_median_minor_units: number | null
+          version_number: number
+        }
+        Insert: {
+          assessment: Json
+          assessment_digest: string
+          case_id: string
+          conclusion_code: string
+          created_at?: string
+          currency: string
+          findings: Json
+          id?: string
+          limitations: Json
+          methodology_version: string
+          package_job_id: string
+          preliminary_snapshot_id: string
+          preliminary_to_final_comparison: Json
+          reason_codes: Json
+          schema_version: string
+          supersedes_assessment_id?: string | null
+          supported_range_high_minor_units?: number | null
+          supported_range_low_minor_units?: number | null
+          supported_range_median_minor_units?: number | null
+          version_number: number
+        }
+        Update: {
+          assessment?: Json
+          assessment_digest?: string
+          case_id?: string
+          conclusion_code?: string
+          created_at?: string
+          currency?: string
+          findings?: Json
+          id?: string
+          limitations?: Json
+          methodology_version?: string
+          package_job_id?: string
+          preliminary_snapshot_id?: string
+          preliminary_to_final_comparison?: Json
+          reason_codes?: Json
+          schema_version?: string
+          supersedes_assessment_id?: string | null
+          supported_range_high_minor_units?: number | null
+          supported_range_low_minor_units?: number | null
+          supported_range_median_minor_units?: number | null
+          version_number?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "total_loss_final_assessments_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "appraisal_cases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "total_loss_final_assessments_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "total_loss_case_operations_internal"
+            referencedColumns: ["case_id"]
+          },
+          {
+            foreignKeyName: "total_loss_final_assessments_job_identity_fkey"
+            columns: ["package_job_id", "case_id", "preliminary_snapshot_id"]
+            isOneToOne: false
+            referencedRelation: "total_loss_package_jobs"
+            referencedColumns: ["id", "case_id", "preliminary_snapshot_id"]
+          },
+          {
+            foreignKeyName: "total_loss_final_assessments_snapshot_case_fkey"
+            columns: ["preliminary_snapshot_id", "case_id"]
+            isOneToOne: false
+            referencedRelation: "total_loss_preliminary_snapshots"
+            referencedColumns: ["id", "case_id"]
+          },
+          {
+            foreignKeyName: "total_loss_final_assessments_supersedes_fkey"
+            columns: [
+              "supersedes_assessment_id",
+              "case_id",
+              "preliminary_snapshot_id",
+            ]
+            isOneToOne: false
+            referencedRelation: "total_loss_final_assessments"
+            referencedColumns: ["id", "case_id", "preliminary_snapshot_id"]
+          },
+        ]
+      }
+      total_loss_message_drafts: {
+        Row: {
+          body: string
+          case_id: string
+          created_at: string
+          id: string
+          negotiation_round_id: string | null
+          purpose: string
+          recipient: string | null
+          report_version_id: string | null
+          revision: number
+          subject: string
+          updated_at: string
+        }
+        Insert: {
+          body?: string
+          case_id: string
+          created_at?: string
+          id?: string
+          negotiation_round_id?: string | null
+          purpose: string
+          recipient?: string | null
+          report_version_id?: string | null
+          revision?: number
+          subject?: string
+          updated_at?: string
+        }
+        Update: {
+          body?: string
+          case_id?: string
+          created_at?: string
+          id?: string
+          negotiation_round_id?: string | null
+          purpose?: string
+          recipient?: string | null
+          report_version_id?: string | null
+          revision?: number
+          subject?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "total_loss_message_drafts_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "total_loss_claim_workflows"
+            referencedColumns: ["case_id"]
+          },
+          {
+            foreignKeyName: "total_loss_message_drafts_report_case_fkey"
+            columns: ["report_version_id", "case_id"]
+            isOneToOne: false
+            referencedRelation: "total_loss_report_versions"
+            referencedColumns: ["id", "case_id"]
+          },
+          {
+            foreignKeyName: "total_loss_message_drafts_round_case_fkey"
+            columns: ["negotiation_round_id", "case_id"]
+            isOneToOne: false
+            referencedRelation: "total_loss_negotiation_rounds"
+            referencedColumns: ["id", "case_id"]
+          },
+        ]
+      }
+      total_loss_message_versions: {
+        Row: {
+          body: string
+          case_id: string
+          created_at: string
+          id: string
+          message_digest: string
+          message_draft_id: string
+          message_state: string
+          negotiation_round_id: string | null
+          purpose: string
+          recipient: string
+          report_version_id: string | null
+          sent_at: string | null
+          subject: string
+          supersedes_message_version_id: string | null
+          version_number: number
+        }
+        Insert: {
+          body: string
+          case_id: string
+          created_at?: string
+          id?: string
+          message_digest: string
+          message_draft_id: string
+          message_state: string
+          negotiation_round_id?: string | null
+          purpose: string
+          recipient: string
+          report_version_id?: string | null
+          sent_at?: string | null
+          subject: string
+          supersedes_message_version_id?: string | null
+          version_number: number
+        }
+        Update: {
+          body?: string
+          case_id?: string
+          created_at?: string
+          id?: string
+          message_digest?: string
+          message_draft_id?: string
+          message_state?: string
+          negotiation_round_id?: string | null
+          purpose?: string
+          recipient?: string
+          report_version_id?: string | null
+          sent_at?: string | null
+          subject?: string
+          supersedes_message_version_id?: string | null
+          version_number?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "total_loss_message_versions_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "appraisal_cases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "total_loss_message_versions_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "total_loss_case_operations_internal"
+            referencedColumns: ["case_id"]
+          },
+          {
+            foreignKeyName: "total_loss_message_versions_draft_case_fkey"
+            columns: ["message_draft_id", "case_id"]
+            isOneToOne: false
+            referencedRelation: "total_loss_message_drafts"
+            referencedColumns: ["id", "case_id"]
+          },
+          {
+            foreignKeyName: "total_loss_message_versions_report_case_fkey"
+            columns: ["report_version_id", "case_id"]
+            isOneToOne: false
+            referencedRelation: "total_loss_report_versions"
+            referencedColumns: ["id", "case_id"]
+          },
+          {
+            foreignKeyName: "total_loss_message_versions_round_case_fkey"
+            columns: ["negotiation_round_id", "case_id"]
+            isOneToOne: false
+            referencedRelation: "total_loss_negotiation_rounds"
+            referencedColumns: ["id", "case_id"]
+          },
+          {
+            foreignKeyName: "total_loss_message_versions_supersedes_fkey"
+            columns: [
+              "supersedes_message_version_id",
+              "case_id",
+              "message_draft_id",
+            ]
+            isOneToOne: false
+            referencedRelation: "total_loss_message_versions"
+            referencedColumns: ["id", "case_id", "message_draft_id"]
+          },
+        ]
+      }
+      total_loss_negotiation_rounds: {
+        Row: {
+          case_id: string
+          closed_at: string | null
+          created_at: string
+          id: string
+          opened_at: string
+          originating_communication_id: string | null
+          revision: number
+          round_number: number
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          case_id: string
+          closed_at?: string | null
+          created_at?: string
+          id?: string
+          opened_at?: string
+          originating_communication_id?: string | null
+          revision?: number
+          round_number: number
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          case_id?: string
+          closed_at?: string | null
+          created_at?: string
+          id?: string
+          opened_at?: string
+          originating_communication_id?: string | null
+          revision?: number
+          round_number?: number
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "total_loss_negotiation_rounds_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "total_loss_claim_workflows"
+            referencedColumns: ["case_id"]
+          },
+          {
+            foreignKeyName: "total_loss_negotiation_rounds_origin_case_fkey"
+            columns: ["originating_communication_id", "case_id"]
+            isOneToOne: false
+            referencedRelation: "total_loss_communications"
+            referencedColumns: ["id", "case_id"]
+          },
+        ]
+      }
+      total_loss_offers: {
+        Row: {
+          amount_minor_units: number
+          case_id: string
+          created_at: string
+          currency: string
+          decided_at: string | null
+          decision_recorded_by_user_id: string | null
+          id: string
+          negotiation_round_id: string
+          offer_kind: string
+          received_at: string
+          source_communication_id: string
+          source_fact_assertion_id: string | null
+          status: string
+          supersedes_offer_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          amount_minor_units: number
+          case_id: string
+          created_at?: string
+          currency: string
+          decided_at?: string | null
+          decision_recorded_by_user_id?: string | null
+          id?: string
+          negotiation_round_id: string
+          offer_kind: string
+          received_at: string
+          source_communication_id: string
+          source_fact_assertion_id?: string | null
+          status?: string
+          supersedes_offer_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          amount_minor_units?: number
+          case_id?: string
+          created_at?: string
+          currency?: string
+          decided_at?: string | null
+          decision_recorded_by_user_id?: string | null
+          id?: string
+          negotiation_round_id?: string
+          offer_kind?: string
+          received_at?: string
+          source_communication_id?: string
+          source_fact_assertion_id?: string | null
+          status?: string
+          supersedes_offer_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "total_loss_offers_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "appraisal_cases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "total_loss_offers_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "total_loss_case_operations_internal"
+            referencedColumns: ["case_id"]
+          },
+          {
+            foreignKeyName: "total_loss_offers_communication_case_fkey"
+            columns: ["source_communication_id", "case_id"]
+            isOneToOne: false
+            referencedRelation: "total_loss_communications"
+            referencedColumns: ["id", "case_id"]
+          },
+          {
+            foreignKeyName: "total_loss_offers_fact_case_fkey"
+            columns: ["source_fact_assertion_id", "case_id"]
+            isOneToOne: false
+            referencedRelation: "total_loss_fact_assertions"
+            referencedColumns: ["id", "case_id"]
+          },
+          {
+            foreignKeyName: "total_loss_offers_round_case_fkey"
+            columns: ["negotiation_round_id", "case_id"]
+            isOneToOne: false
+            referencedRelation: "total_loss_negotiation_rounds"
+            referencedColumns: ["id", "case_id"]
+          },
+          {
+            foreignKeyName: "total_loss_offers_supersedes_case_fkey"
+            columns: ["supersedes_offer_id", "case_id"]
+            isOneToOne: false
+            referencedRelation: "total_loss_offers"
+            referencedColumns: ["id", "case_id"]
+          },
+        ]
+      }
+      total_loss_package_jobs: {
+        Row: {
+          attempt_count: number
+          case_id: string
+          created_at: string
+          entitlement_id: string
+          failure_code: string | null
+          finished_at: string | null
+          id: string
+          preliminary_snapshot_id: string
+          processing_expires_at: string | null
+          processing_token: string | null
+          retryable: boolean | null
+          started_at: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          attempt_count?: number
+          case_id: string
+          created_at?: string
+          entitlement_id: string
+          failure_code?: string | null
+          finished_at?: string | null
+          id?: string
+          preliminary_snapshot_id: string
+          processing_expires_at?: string | null
+          processing_token?: string | null
+          retryable?: boolean | null
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          attempt_count?: number
+          case_id?: string
+          created_at?: string
+          entitlement_id?: string
+          failure_code?: string | null
+          finished_at?: string | null
+          id?: string
+          preliminary_snapshot_id?: string
+          processing_expires_at?: string | null
+          processing_token?: string | null
+          retryable?: boolean | null
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "total_loss_package_jobs_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "appraisal_cases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "total_loss_package_jobs_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "total_loss_case_operations_internal"
+            referencedColumns: ["case_id"]
+          },
+          {
+            foreignKeyName: "total_loss_package_jobs_entitlement_identity_fkey"
+            columns: ["entitlement_id", "case_id", "preliminary_snapshot_id"]
+            isOneToOne: false
+            referencedRelation: "case_entitlements"
+            referencedColumns: ["id", "case_id", "preliminary_snapshot_id"]
+          },
+          {
+            foreignKeyName: "total_loss_package_jobs_snapshot_case_fkey"
+            columns: ["preliminary_snapshot_id", "case_id"]
+            isOneToOne: false
+            referencedRelation: "total_loss_preliminary_snapshots"
+            referencedColumns: ["id", "case_id"]
+          },
+        ]
+      }
+      total_loss_preliminary_snapshots: {
+        Row: {
+          analysis_job_id: string
+          analysis_run_id: string
+          analysis_run_schema_version: string
+          analysis_version: string
+          case_id: string
+          comparable_scoring_version: string
+          created_at: string
+          currency: string
+          discrepancy_analysis_version: string
+          id: string
+          insurer_valuation_minor_units: number | null
+          owner_user_id_at_snapshot: string
+          preliminary_classification: string
+          presentation_schema_version: string
+          snapshot: Json
+          snapshot_digest: string
+          snapshot_schema_version: string
+          source_analysis_input_id: string | null
+          source_analysis_input_revision: number
+          source_intake_mode: Database["public"]["Enums"]["total_loss_intake_mode"]
+          source_references: Json
+          source_report_upload_id: string | null
+          supported_range_high_minor_units: number | null
+          supported_range_low_minor_units: number | null
+          supported_range_median_minor_units: number | null
+        }
+        Insert: {
+          analysis_job_id: string
+          analysis_run_id: string
+          analysis_run_schema_version: string
+          analysis_version: string
+          case_id: string
+          comparable_scoring_version: string
+          created_at?: string
+          currency: string
+          discrepancy_analysis_version: string
+          id?: string
+          insurer_valuation_minor_units?: number | null
+          owner_user_id_at_snapshot: string
+          preliminary_classification: string
+          presentation_schema_version: string
+          snapshot: Json
+          snapshot_digest: string
+          snapshot_schema_version: string
+          source_analysis_input_id?: string | null
+          source_analysis_input_revision: number
+          source_intake_mode: Database["public"]["Enums"]["total_loss_intake_mode"]
+          source_references: Json
+          source_report_upload_id?: string | null
+          supported_range_high_minor_units?: number | null
+          supported_range_low_minor_units?: number | null
+          supported_range_median_minor_units?: number | null
+        }
+        Update: {
+          analysis_job_id?: string
+          analysis_run_id?: string
+          analysis_run_schema_version?: string
+          analysis_version?: string
+          case_id?: string
+          comparable_scoring_version?: string
+          created_at?: string
+          currency?: string
+          discrepancy_analysis_version?: string
+          id?: string
+          insurer_valuation_minor_units?: number | null
+          owner_user_id_at_snapshot?: string
+          preliminary_classification?: string
+          presentation_schema_version?: string
+          snapshot?: Json
+          snapshot_digest?: string
+          snapshot_schema_version?: string
+          source_analysis_input_id?: string | null
+          source_analysis_input_revision?: number
+          source_intake_mode?: Database["public"]["Enums"]["total_loss_intake_mode"]
+          source_references?: Json
+          source_report_upload_id?: string | null
+          supported_range_high_minor_units?: number | null
+          supported_range_low_minor_units?: number | null
+          supported_range_median_minor_units?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "total_loss_preliminary_snapshots_analysis_run_id_fkey"
+            columns: ["analysis_run_id"]
+            isOneToOne: false
+            referencedRelation: "analysis_runs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "total_loss_preliminary_snapshots_analysis_run_id_fkey"
+            columns: ["analysis_run_id"]
+            isOneToOne: false
+            referencedRelation: "total_loss_case_operations_internal"
+            referencedColumns: ["analysis_run_id"]
+          },
+          {
+            foreignKeyName: "total_loss_preliminary_snapshots_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "appraisal_cases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "total_loss_preliminary_snapshots_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "total_loss_case_operations_internal"
+            referencedColumns: ["case_id"]
+          },
+          {
+            foreignKeyName: "total_loss_preliminary_snapshots_run_identity_fkey"
+            columns: ["analysis_run_id", "analysis_job_id", "case_id"]
+            isOneToOne: false
+            referencedRelation: "total_loss_analysis_jobs"
+            referencedColumns: ["run_id", "id", "case_id"]
+          },
+        ]
+      }
+      total_loss_recommendations: {
+        Row: {
+          case_id: string
+          created_at: string
+          created_by_user_id: string | null
+          evidence_references: Json
+          generation_method: string
+          id: string
+          model_identifier: string | null
+          negotiation_round_id: string
+          provider_identifier: string | null
+          published_at: string | null
+          recommendation: Json
+          recommendation_digest: string
+          recommendation_type: string
+          status: string
+          supersedes_recommendation_id: string | null
+          updated_at: string
+          version_number: number
+        }
+        Insert: {
+          case_id: string
+          created_at?: string
+          created_by_user_id?: string | null
+          evidence_references: Json
+          generation_method: string
+          id?: string
+          model_identifier?: string | null
+          negotiation_round_id: string
+          provider_identifier?: string | null
+          published_at?: string | null
+          recommendation: Json
+          recommendation_digest: string
+          recommendation_type: string
+          status?: string
+          supersedes_recommendation_id?: string | null
+          updated_at?: string
+          version_number: number
+        }
+        Update: {
+          case_id?: string
+          created_at?: string
+          created_by_user_id?: string | null
+          evidence_references?: Json
+          generation_method?: string
+          id?: string
+          model_identifier?: string | null
+          negotiation_round_id?: string
+          provider_identifier?: string | null
+          published_at?: string | null
+          recommendation?: Json
+          recommendation_digest?: string
+          recommendation_type?: string
+          status?: string
+          supersedes_recommendation_id?: string | null
+          updated_at?: string
+          version_number?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "total_loss_recommendations_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "appraisal_cases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "total_loss_recommendations_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "total_loss_case_operations_internal"
+            referencedColumns: ["case_id"]
+          },
+          {
+            foreignKeyName: "total_loss_recommendations_round_case_fkey"
+            columns: ["negotiation_round_id", "case_id"]
+            isOneToOne: false
+            referencedRelation: "total_loss_negotiation_rounds"
+            referencedColumns: ["id", "case_id"]
+          },
+          {
+            foreignKeyName: "total_loss_recommendations_supersedes_fkey"
+            columns: [
+              "supersedes_recommendation_id",
+              "case_id",
+              "negotiation_round_id",
+            ]
+            isOneToOne: false
+            referencedRelation: "total_loss_recommendations"
+            referencedColumns: ["id", "case_id", "negotiation_round_id"]
+          },
+        ]
+      }
+      total_loss_release_reviews: {
+        Row: {
+          ai_review_run_id: string
+          assigned_staff_user_id: string | null
+          case_id: string
+          created_at: string
+          decision: string | null
+          due_at: string | null
+          id: string
+          rationale: string | null
+          resolved_at: string | null
+          resolved_by_user_id: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          ai_review_run_id: string
+          assigned_staff_user_id?: string | null
+          case_id: string
+          created_at?: string
+          decision?: string | null
+          due_at?: string | null
+          id?: string
+          rationale?: string | null
+          resolved_at?: string | null
+          resolved_by_user_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          ai_review_run_id?: string
+          assigned_staff_user_id?: string | null
+          case_id?: string
+          created_at?: string
+          decision?: string | null
+          due_at?: string | null
+          id?: string
+          rationale?: string | null
+          resolved_at?: string | null
+          resolved_by_user_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "total_loss_release_reviews_ai_case_fkey"
+            columns: ["ai_review_run_id", "case_id"]
+            isOneToOne: false
+            referencedRelation: "total_loss_ai_review_runs"
+            referencedColumns: ["id", "case_id"]
+          },
+          {
+            foreignKeyName: "total_loss_release_reviews_assigned_staff_user_id_fkey"
+            columns: ["assigned_staff_user_id"]
+            isOneToOne: false
+            referencedRelation: "staff_members"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "total_loss_release_reviews_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "appraisal_cases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "total_loss_release_reviews_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "total_loss_case_operations_internal"
+            referencedColumns: ["case_id"]
+          },
+        ]
+      }
       total_loss_report_extractions: {
         Row: {
           analysis_input_id: string
@@ -856,6 +2577,245 @@ export type Database = {
             referencedColumns: ["case_id"]
           },
         ]
+      }
+      total_loss_report_series: {
+        Row: {
+          case_id: string
+          created_at: string
+          id: string
+          product_identifier: string
+          report_kind: string
+        }
+        Insert: {
+          case_id: string
+          created_at?: string
+          id?: string
+          product_identifier: string
+          report_kind: string
+        }
+        Update: {
+          case_id?: string
+          created_at?: string
+          id?: string
+          product_identifier?: string
+          report_kind?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "total_loss_report_series_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "total_loss_claim_workflows"
+            referencedColumns: ["case_id"]
+          },
+        ]
+      }
+      total_loss_report_versions: {
+        Row: {
+          case_id: string
+          created_at: string
+          document_id: string | null
+          final_assessment_id: string
+          id: string
+          preliminary_snapshot_id: string
+          published_at: string | null
+          renderer_version: string
+          report: Json
+          report_digest: string
+          report_series_id: string
+          schema_version: string
+          status: string
+          supersedes_report_version_id: string | null
+          template_version: string
+          updated_at: string
+          version_number: number
+        }
+        Insert: {
+          case_id: string
+          created_at?: string
+          document_id?: string | null
+          final_assessment_id: string
+          id?: string
+          preliminary_snapshot_id: string
+          published_at?: string | null
+          renderer_version: string
+          report: Json
+          report_digest: string
+          report_series_id: string
+          schema_version: string
+          status?: string
+          supersedes_report_version_id?: string | null
+          template_version: string
+          updated_at?: string
+          version_number: number
+        }
+        Update: {
+          case_id?: string
+          created_at?: string
+          document_id?: string | null
+          final_assessment_id?: string
+          id?: string
+          preliminary_snapshot_id?: string
+          published_at?: string | null
+          renderer_version?: string
+          report?: Json
+          report_digest?: string
+          report_series_id?: string
+          schema_version?: string
+          status?: string
+          supersedes_report_version_id?: string | null
+          template_version?: string
+          updated_at?: string
+          version_number?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "total_loss_report_versions_assessment_case_fkey"
+            columns: [
+              "final_assessment_id",
+              "case_id",
+              "preliminary_snapshot_id",
+            ]
+            isOneToOne: false
+            referencedRelation: "total_loss_final_assessments"
+            referencedColumns: ["id", "case_id", "preliminary_snapshot_id"]
+          },
+          {
+            foreignKeyName: "total_loss_report_versions_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "appraisal_cases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "total_loss_report_versions_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "total_loss_case_operations_internal"
+            referencedColumns: ["case_id"]
+          },
+          {
+            foreignKeyName: "total_loss_report_versions_document_case_fkey"
+            columns: ["document_id", "case_id"]
+            isOneToOne: false
+            referencedRelation: "total_loss_claim_documents"
+            referencedColumns: ["id", "case_id"]
+          },
+          {
+            foreignKeyName: "total_loss_report_versions_series_case_fkey"
+            columns: ["report_series_id", "case_id"]
+            isOneToOne: false
+            referencedRelation: "total_loss_report_series"
+            referencedColumns: ["id", "case_id"]
+          },
+          {
+            foreignKeyName: "total_loss_report_versions_snapshot_case_fkey"
+            columns: ["preliminary_snapshot_id", "case_id"]
+            isOneToOne: false
+            referencedRelation: "total_loss_preliminary_snapshots"
+            referencedColumns: ["id", "case_id"]
+          },
+          {
+            foreignKeyName: "total_loss_report_versions_supersedes_fkey"
+            columns: [
+              "supersedes_report_version_id",
+              "case_id",
+              "report_series_id",
+            ]
+            isOneToOne: false
+            referencedRelation: "total_loss_report_versions"
+            referencedColumns: ["id", "case_id", "report_series_id"]
+          },
+        ]
+      }
+      total_loss_workflow_events: {
+        Row: {
+          actor_type: string
+          actor_user_id: string | null
+          associated_entity_id: string | null
+          associated_entity_type: string | null
+          case_id: string
+          client_request_id: string | null
+          created_at: string
+          details: Json
+          event_type: string
+          id: string
+        }
+        Insert: {
+          actor_type: string
+          actor_user_id?: string | null
+          associated_entity_id?: string | null
+          associated_entity_type?: string | null
+          case_id: string
+          client_request_id?: string | null
+          created_at?: string
+          details?: Json
+          event_type: string
+          id?: string
+        }
+        Update: {
+          actor_type?: string
+          actor_user_id?: string | null
+          associated_entity_id?: string | null
+          associated_entity_type?: string | null
+          case_id?: string
+          client_request_id?: string | null
+          created_at?: string
+          details?: Json
+          event_type?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "total_loss_workflow_events_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "total_loss_claim_workflows"
+            referencedColumns: ["case_id"]
+          },
+        ]
+      }
+      vehicle_trim_cache: {
+        Row: {
+          created_at: string
+          generation_expires_at: string | null
+          generation_token: string
+          lookup_key: string
+          model_identifier: string | null
+          status: string
+          trims: Json | null
+          updated_at: string
+          vehicle_make: string
+          vehicle_model: string
+          vehicle_year: number
+        }
+        Insert: {
+          created_at?: string
+          generation_expires_at?: string | null
+          generation_token: string
+          lookup_key: string
+          model_identifier?: string | null
+          status?: string
+          trims?: Json | null
+          updated_at?: string
+          vehicle_make: string
+          vehicle_model: string
+          vehicle_year: number
+        }
+        Update: {
+          created_at?: string
+          generation_expires_at?: string | null
+          generation_token?: string
+          lookup_key?: string
+          model_identifier?: string | null
+          status?: string
+          trims?: Json | null
+          updated_at?: string
+          vehicle_make?: string
+          vehicle_model?: string
+          vehicle_year?: number
+        }
+        Relationships: []
       }
     }
     Views: {
@@ -1037,6 +2997,20 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      claim_vehicle_trim_cache: {
+        Args: {
+          requested_generation_token: string
+          requested_lookup_key: string
+          requested_vehicle_make: string
+          requested_vehicle_model: string
+          requested_vehicle_year: number
+        }
+        Returns: {
+          model_identifier: string
+          outcome: string
+          trims: Json
+        }[]
+      }
       complete_abandoned_anonymous_guest_cleanup_candidate: {
         Args: { candidate_lease_token: string; candidate_user_id: string }
         Returns: boolean
@@ -1069,6 +3043,15 @@ export type Database = {
           isOneToOne: false
           isSetofReturn: true
         }
+      }
+      complete_vehicle_trim_cache: {
+        Args: {
+          requested_generation_token: string
+          requested_lookup_key: string
+          requested_model_identifier: string
+          requested_trims: Json
+        }
+        Returns: boolean
       }
       confirm_customer_profile: {
         Args: {
@@ -1209,8 +3192,8 @@ export type Database = {
           structural_damage: string
           submitted_at: string
           updated_at: string
-          vehicle_entry_method: string
           vehicle_configuration: Json
+          vehicle_entry_method: string
           vehicle_make: string
           vehicle_model: string
           vehicle_trim: string
@@ -1249,6 +3232,10 @@ export type Database = {
         Returns: boolean
       }
       is_current_auth_user_cleanup_frozen: { Args: never; Returns: boolean }
+      is_permanent_total_loss_case_owner: {
+        Args: { requested_case_id: string }
+        Returns: boolean
+      }
       is_venfour_staff: { Args: never; Returns: boolean }
       list_owned_case_operations: {
         Args: never
@@ -1337,6 +3324,13 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      release_vehicle_trim_cache: {
+        Args: {
+          requested_generation_token: string
+          requested_lookup_key: string
+        }
+        Returns: boolean
+      }
       renew_total_loss_report_upload: {
         Args: { case_id: string; upload_id: string }
         Returns: Database["public"]["CompositeTypes"]["total_loss_report_upload_lease"][]
@@ -1379,7 +3373,7 @@ export type Database = {
           first_name: string
           last_name: string
           operational_follow_up_allowed: boolean
-          phone_number: string | null
+          phone_number: string
           privacy_notice_version: string
           service_terms_version: string
         }
@@ -1523,6 +3517,10 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      vehicle_configuration_is_valid: {
+        Args: { configuration: Json }
+        Returns: boolean
+      }
     }
     Enums: {
       appraisal_case_status:
@@ -1535,6 +3533,11 @@ export type Database = {
         | "completed"
         | "closed"
       appraisal_service_type: "total_loss" | "diminished_value"
+      case_entitlement_status:
+        | "active"
+        | "refunded_access_retained"
+        | "suspended"
+        | "revoked"
       case_operation_stage:
         | "intake_not_started"
         | "intake_in_progress"
@@ -1547,6 +3550,13 @@ export type Database = {
         | "submitted"
         | "closed"
         | "needs_attention"
+      commerce_order_status:
+        | "pending"
+        | "paid"
+        | "partially_refunded"
+        | "refunded"
+        | "disputed"
+        | "void"
       total_loss_analysis_outcome:
         | "claimed"
         | "not_submitted"
@@ -1561,6 +3571,17 @@ export type Database = {
         | "report_required"
         | "case_not_ready"
       total_loss_analysis_status: "processing" | "completed" | "failed"
+      total_loss_claim_phase:
+        | "review"
+        | "initial_request"
+        | "negotiation"
+        | "resolution"
+      total_loss_communication_channel:
+        | "email"
+        | "uploaded_document"
+        | "pasted_message"
+        | "phone"
+      total_loss_communication_direction: "inbound" | "outbound"
       total_loss_intake_mode: "report" | "manual"
     }
     CompositeTypes: {
@@ -1619,25 +3640,6 @@ export type Database = {
         claimed_at: string | null
         ownership_transferred: boolean | null
       }
-      total_loss_contact_details_claim_begin_result: {
-        case_id: string | null
-        first_name: string | null
-        last_name: string | null
-        full_name: string | null
-        email: string | null
-        phone_number: string | null
-        email_verified_at: string | null
-        service_terms_version: string | null
-        service_terms_acknowledged_at: string | null
-        privacy_notice_version: string | null
-        privacy_notice_acknowledged_at: string | null
-        operational_follow_up_allowed: boolean | null
-        operational_follow_up_updated_at: string | null
-        created_at: string | null
-        updated_at: string | null
-        claim_id: string | null
-        claim_expires_at: string | null
-      }
       total_loss_case_details_public: {
         case_id: string | null
         intake_mode:
@@ -1658,6 +3660,25 @@ export type Database = {
         intake_completed_at: string | null
         created_at: string | null
         updated_at: string | null
+      }
+      total_loss_contact_details_claim_begin_result: {
+        case_id: string | null
+        first_name: string | null
+        last_name: string | null
+        full_name: string | null
+        email: string | null
+        phone_number: string | null
+        email_verified_at: string | null
+        service_terms_version: string | null
+        service_terms_acknowledged_at: string | null
+        privacy_notice_version: string | null
+        privacy_notice_acknowledged_at: string | null
+        operational_follow_up_allowed: boolean | null
+        operational_follow_up_updated_at: string | null
+        created_at: string | null
+        updated_at: string | null
+        claim_id: string | null
+        claim_expires_at: string | null
       }
       total_loss_intake_confirmation_result: {
         case_id: string | null
@@ -1843,6 +3864,12 @@ export const Constants = {
         "closed",
       ],
       appraisal_service_type: ["total_loss", "diminished_value"],
+      case_entitlement_status: [
+        "active",
+        "refunded_access_retained",
+        "suspended",
+        "revoked",
+      ],
       case_operation_stage: [
         "intake_not_started",
         "intake_in_progress",
@@ -1855,6 +3882,14 @@ export const Constants = {
         "submitted",
         "closed",
         "needs_attention",
+      ],
+      commerce_order_status: [
+        "pending",
+        "paid",
+        "partially_refunded",
+        "refunded",
+        "disputed",
+        "void",
       ],
       total_loss_analysis_outcome: [
         "claimed",
@@ -1871,6 +3906,19 @@ export const Constants = {
         "case_not_ready",
       ],
       total_loss_analysis_status: ["processing", "completed", "failed"],
+      total_loss_claim_phase: [
+        "review",
+        "initial_request",
+        "negotiation",
+        "resolution",
+      ],
+      total_loss_communication_channel: [
+        "email",
+        "uploaded_document",
+        "pasted_message",
+        "phone",
+      ],
+      total_loss_communication_direction: ["inbound", "outbound"],
       total_loss_intake_mode: ["report", "manual"],
     },
   },
