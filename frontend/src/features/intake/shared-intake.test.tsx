@@ -211,6 +211,102 @@ describe("shared appraisal intake controls", () => {
     ).toBe(methodPanel);
   });
 
+  test("makes VIN length and lookup states clear without changing the field contract", () => {
+    const sharedProps = {
+      idPrefix: "vehicle",
+      entryMethod: "vin" as const,
+      values: {
+        vin: "1HGCM8",
+        vehicleYear: "",
+        make: "",
+        model: "",
+        trim: "",
+      },
+      errors: {},
+      yearOptions: ["2026"],
+      makeOptions: [],
+      modelOptions: [],
+      makesState: "idle" as const,
+      modelsState: "idle" as const,
+      vinLookupState: "idle" as const,
+      onEntryMethodChange: vi.fn(),
+      onChange: vi.fn(),
+      onRetryMakes: vi.fn(),
+      onRetryModels: vi.fn(),
+    };
+    const { container, rerender } = render(
+      <VehicleIdentificationFields {...sharedProps} />,
+    );
+
+    const vinInput = screen.getByLabelText("VIN");
+    expect(screen.getByText("Enter your 17-character VIN")).toBeVisible();
+    expect(vinInput).toHaveAttribute("maxlength", "17");
+    expect(vinInput).toHaveAttribute("placeholder", "1HGCM82633A004352");
+    expect(container.querySelector("[data-vin-character-count]")).toHaveTextContent(
+      "6/17",
+    );
+    expect(container.querySelector("[data-vin-entry-state]")).toHaveAttribute(
+      "data-vin-entry-state",
+      "idle",
+    );
+
+    rerender(
+      <VehicleIdentificationFields
+        {...sharedProps}
+        values={{ ...sharedProps.values, vin: "1HGCM82633A004352" }}
+        vinLookupState="loading"
+      />,
+    );
+    expect(screen.getByLabelText("VIN")).toBeDisabled();
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Checking your VIN…Matching the year, make, and model.",
+    );
+    expect(container.querySelector("[data-vin-entry-state]")).toHaveAttribute(
+      "data-vin-entry-state",
+      "loading",
+    );
+
+    rerender(
+      <VehicleIdentificationFields
+        {...sharedProps}
+        values={{
+          vin: "1HGCM82633A004352",
+          vehicleYear: "2003",
+          make: "Honda",
+          model: "Accord",
+          trim: "EX-V6",
+        }}
+        vinLookupState="success"
+      />,
+    );
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "VIN confirmedVehicle found: 2003 Honda Accord",
+    );
+    expect(container.querySelector("[data-vin-entry-state]")).toHaveAttribute(
+      "data-vin-entry-state",
+      "success",
+    );
+
+    rerender(
+      <VehicleIdentificationFields
+        {...sharedProps}
+        vinLookupState="error"
+        vinLookupMessage="We couldn’t identify a vehicle with that VIN."
+      />,
+    );
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "We couldn’t match this VINWe couldn’t identify a vehicle with that VIN.",
+    );
+    expect(screen.getByLabelText("VIN")).toHaveAttribute(
+      "aria-invalid",
+      "true",
+    );
+    expect(container.querySelector("[data-vin-entry-state]")).toHaveAttribute(
+      "data-vin-entry-state",
+      "error",
+    );
+  });
+
   test("groups model and trim together without extra trim helper copy", () => {
     render(
       <VehicleIdentificationFields

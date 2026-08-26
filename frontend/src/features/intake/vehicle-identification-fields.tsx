@@ -1,6 +1,8 @@
 import {
+  AlertCircle,
   CarFront,
   CheckCircle2,
+  LoaderCircle,
   RefreshCw,
   ScanLine,
 } from "lucide-react";
@@ -101,7 +103,7 @@ export function VehicleIdentificationFields({
   methodDisabled = fieldsDisabled,
   mileageFields = [],
   vinHelp =
-    "Enter the 17-character VIN. We’ll use NHTSA vehicle data to identify it.",
+    "VINs are exactly 17 characters and never include I, O, or Q. We’ll use NHTSA vehicle data to identify yours.",
   trimRequired = false,
   onEntryMethodChange,
   onChange,
@@ -160,37 +162,22 @@ export function VehicleIdentificationFields({
       >
         {entryMethod === "vin" ? (
           <div>
-            <IntakeTextField
+            <VinEntryField
               id={`${idPrefix}-vin`}
-              label="VIN"
               value={values.vin}
               error={errors.vin}
               help={vinHelp}
-              autoComplete="off"
-              maxLength={17}
-              disabled={fieldsDisabled || vinLookupState === "loading"}
-              onChange={(event) =>
-                onChange("vin", event.target.value.toUpperCase())
+              lookupState={vinLookupState}
+              lookupMessage={vinLookupMessage}
+              vehicleIdentity={
+                values.vehicleYear && values.make && values.model
+                  ? vehicleIdentitySummary(values)
+                  : null
               }
+              disabled={fieldsDisabled || vinLookupState === "loading"}
+              onChange={(value) => onChange("vin", value.toUpperCase())}
               onBlur={() => onBlur?.("vin")}
             />
-            {vinLookupState === "success" &&
-            values.vehicleYear &&
-            values.make &&
-            values.model ? (
-              <VehicleLookupSuccess
-                message={`Vehicle found: ${vehicleIdentitySummary(values)}`}
-              />
-            ) : values.vehicleYear && values.make && values.model ? (
-              <VehicleLookupSuccess
-                message={`Vehicle: ${vehicleIdentitySummary(values)}`}
-              />
-            ) : null}
-            {vinLookupState === "error" && vinLookupMessage ? (
-              <p className="mt-2 text-sm leading-5 text-red-700" role="alert">
-                {vinLookupMessage}
-              </p>
-            ) : null}
             {trimRequired && values.vehicleYear && values.make && values.model ? (
               <section
                 className="mt-5 rounded-xl border border-line bg-surface/55 p-4 sm:p-5"
@@ -363,6 +350,197 @@ export function VehicleIdentificationFields({
   );
 }
 
+function VinEntryField({
+  id,
+  value,
+  error,
+  help,
+  lookupState,
+  lookupMessage,
+  vehicleIdentity,
+  disabled,
+  onChange,
+  onBlur,
+}: {
+  id: string;
+  value: string;
+  error?: string;
+  help: string;
+  lookupState: VehicleLookupState;
+  lookupMessage?: string | null;
+  vehicleIdentity: string | null;
+  disabled?: boolean;
+  onChange: (value: string) => void;
+  onBlur: () => void;
+}) {
+  const characterCount = Array.from(value).length;
+  const lookupError = lookupState === "error" ? lookupMessage : null;
+  const errorMessage = lookupError ?? error;
+  const confirmed = Boolean(vehicleIdentity);
+  const visualState = errorMessage
+    ? "error"
+    : lookupState === "loading"
+      ? "loading"
+      : confirmed
+        ? "success"
+        : "idle";
+  const helpId = `${id}-help`;
+  const statusId =
+    visualState === "idle" ? undefined : `${id}-${visualState}-status`;
+  const describedBy = [helpId, statusId].filter(Boolean).join(" ");
+
+  return (
+    <div data-vin-entry-state={visualState}>
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <label
+            htmlFor={id}
+            className="text-base font-semibold tracking-[-0.01em] text-ink"
+          >
+            Enter your 17-character VIN
+          </label>
+          <p id={helpId} className="mt-1 max-w-xl text-xs leading-5 text-copy">
+            {help}
+          </p>
+        </div>
+        <span
+          className={cn(
+            "mt-0.5 inline-flex min-h-7 shrink-0 items-center rounded-full border px-2.5 font-mono text-xs font-semibold tabular-nums transition-colors motion-reduce:transition-none",
+            visualState === "error"
+              ? "border-red-200 bg-red-50 text-red-700"
+              : visualState === "success"
+                ? "border-market/25 bg-market-soft text-market-strong"
+                : characterCount === 17 || visualState === "loading"
+                  ? "border-brand/20 bg-brand-soft text-brand"
+                  : "border-line bg-surface text-copy",
+          )}
+          aria-live="polite"
+          data-vin-character-count
+        >
+          <span aria-hidden>
+            {characterCount}<span className="px-0.5 opacity-50">/</span>17
+          </span>
+          <span className="sr-only">
+            {characterCount} of 17 characters entered
+          </span>
+        </span>
+      </div>
+
+      <div className="relative mt-3">
+        <ScanLine
+          className={cn(
+            "pointer-events-none absolute left-4 top-1/2 size-5 -translate-y-1/2 transition-colors motion-reduce:transition-none",
+            visualState === "error"
+              ? "text-red-600"
+              : visualState === "success"
+                ? "text-market-strong"
+                : "text-brand",
+          )}
+          aria-hidden
+        />
+        <input
+          id={id}
+          name={id}
+          type="text"
+          inputMode="text"
+          autoComplete="off"
+          autoCapitalize="characters"
+          spellCheck={false}
+          value={value}
+          maxLength={17}
+          placeholder="1HGCM82633A004352"
+          disabled={disabled}
+          aria-label="VIN"
+          aria-invalid={errorMessage ? true : undefined}
+          aria-describedby={describedBy}
+          className={cn(
+            "min-h-14 w-full rounded-xl border bg-white py-3 pl-12 pr-4 font-mono text-base font-semibold uppercase tracking-[0.09em] text-ink shadow-[0_12px_30px_-24px_rgba(11,31,51,0.5)] transition-[border-color,box-shadow,background-color] placeholder:font-normal placeholder:tracking-[0.04em] placeholder:text-copy/40 hover:border-line-strong focus-visible:border-brand focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand/10 disabled:cursor-wait motion-reduce:transition-none sm:text-lg sm:tracking-[0.12em]",
+            visualState === "loading" &&
+              "border-brand/45 bg-brand-soft/25 pr-12",
+            visualState === "success" &&
+              "border-market/45 bg-market-soft/25",
+            visualState === "error" &&
+              "border-red-400 bg-red-50/35 focus-visible:border-red-500 focus-visible:ring-red-500/10",
+          )}
+          onChange={(event) => onChange(event.target.value)}
+          onBlur={onBlur}
+        />
+        {lookupState === "loading" ? (
+          <LoaderCircle
+            className="pointer-events-none absolute right-4 top-1/2 size-5 -translate-y-1/2 animate-spin text-brand motion-reduce:animate-none"
+            aria-hidden
+          />
+        ) : visualState === "success" ? (
+          <CheckCircle2
+            className="pointer-events-none absolute right-4 top-1/2 size-5 -translate-y-1/2 text-market-strong"
+            aria-hidden
+          />
+        ) : null}
+      </div>
+
+      {visualState === "loading" ? (
+        <div
+          id={statusId}
+          className="mt-3 flex items-start gap-3 rounded-lg border border-brand/15 bg-brand-soft/55 px-3.5 py-3"
+          role="status"
+          aria-live="polite"
+        >
+          <LoaderCircle
+            className="mt-0.5 size-4 shrink-0 animate-spin text-brand motion-reduce:animate-none"
+            aria-hidden
+          />
+          <div>
+            <p className="text-sm font-semibold text-ink">Checking your VIN…</p>
+            <p className="mt-0.5 text-xs leading-5 text-copy">
+              Matching the year, make, and model.
+            </p>
+          </div>
+        </div>
+      ) : visualState === "success" && vehicleIdentity ? (
+        <div
+          id={statusId}
+          className="mt-3 flex items-start gap-3 rounded-lg border border-market/20 bg-market-soft px-3.5 py-3"
+          role="status"
+          aria-live="polite"
+        >
+          <CheckCircle2
+            className="mt-0.5 size-4 shrink-0 text-market-strong"
+            aria-hidden
+          />
+          <div>
+            <p className="text-sm font-semibold text-market-strong">
+              VIN confirmed
+            </p>
+            <p className="mt-0.5 text-sm leading-5 text-ink">
+              {lookupState === "success" ? "Vehicle found:" : "Vehicle:"}{" "}
+              {vehicleIdentity}
+            </p>
+          </div>
+        </div>
+      ) : visualState === "error" && errorMessage ? (
+        <div
+          id={statusId}
+          className="mt-3 flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 px-3.5 py-3"
+          role="alert"
+        >
+          <AlertCircle
+            className="mt-0.5 size-4 shrink-0 text-red-700"
+            aria-hidden
+          />
+          <div>
+            <p className="text-sm font-semibold text-red-800">
+              {lookupError ? "We couldn’t match this VIN" : "Check your VIN"}
+            </p>
+            <p className="mt-0.5 text-sm leading-5 text-red-700">
+              {errorMessage}
+            </p>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function VehicleTrimSelect({
   className,
   id,
@@ -499,18 +677,6 @@ function availableLegacyTrimValue(options: readonly VehicleTrimOption[]) {
 
 function legacyTrimKey(value: string) {
   return value.trim().replace(/\s+/gu, " ").toLocaleUpperCase("en-US");
-}
-
-function VehicleLookupSuccess({ message }: { message: string }) {
-  return (
-    <div
-      className="mt-3 flex items-center gap-2 rounded-lg bg-market-soft px-3 py-2 text-sm font-semibold text-market-strong"
-      role="status"
-    >
-      <CheckCircle2 className="size-4 shrink-0" aria-hidden />
-      {message}
-    </div>
-  );
 }
 
 function OptionLoadError({
