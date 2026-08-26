@@ -2,10 +2,12 @@ import {
   AlertCircle,
   CarFront,
   CheckCircle2,
+  CircleHelp,
   LoaderCircle,
   RefreshCw,
   ScanLine,
 } from "lucide-react";
+import { useState } from "react";
 
 import {
   IntakeSelectField,
@@ -72,7 +74,6 @@ export interface VehicleIdentificationFieldsProps {
   fieldsDisabled?: boolean;
   methodDisabled?: boolean;
   mileageFields?: readonly VehicleMileageField[];
-  vinHelp?: string;
   trimRequired?: boolean;
   onEntryMethodChange: (method: VehicleEntryMethod) => void;
   onChange: (field: VehicleIdentificationField, value: string) => void;
@@ -102,8 +103,6 @@ export function VehicleIdentificationFields({
   fieldsDisabled,
   methodDisabled = fieldsDisabled,
   mileageFields = [],
-  vinHelp =
-    "VINs are exactly 17 characters and never include I, O, or Q. We’ll use NHTSA vehicle data to identify yours.",
   trimRequired = false,
   onEntryMethodChange,
   onChange,
@@ -166,7 +165,6 @@ export function VehicleIdentificationFields({
               id={`${idPrefix}-vin`}
               value={values.vin}
               error={errors.vin}
-              help={vinHelp}
               lookupState={vinLookupState}
               lookupMessage={vinLookupMessage}
               vehicleIdentity={
@@ -183,23 +181,15 @@ export function VehicleIdentificationFields({
                 className="mt-5 rounded-xl border border-line bg-surface/55 p-4 sm:p-5"
                 aria-labelledby={`${idPrefix}-confirmed-vehicle-heading`}
               >
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <h3
-                      id={`${idPrefix}-confirmed-vehicle-heading`}
-                      className="text-sm font-semibold text-ink"
-                    >
-                      Confirmed vehicle details
-                    </h3>
-                    <p className="mt-1 max-w-xl text-xs leading-5 text-copy">
-                      NHTSA identified the year, make, and model from this VIN.
-                      Choose the exact trim to continue.
-                    </p>
-                  </div>
-                  <span className="inline-flex min-h-7 items-center rounded-full border border-market/20 bg-market-soft px-2.5 text-xs font-semibold text-market-strong">
-                    VIN confirmed
-                  </span>
-                </div>
+                <h3
+                  id={`${idPrefix}-confirmed-vehicle-heading`}
+                  className="text-sm font-semibold text-ink"
+                >
+                  Confirmed vehicle details
+                </h3>
+                <p className="mt-1 max-w-xl text-xs leading-5 text-copy">
+                  Choose the exact trim to continue.
+                </p>
                 <dl className="mt-4 grid grid-cols-3 divide-x divide-line overflow-hidden rounded-lg border border-line bg-white shadow-sm">
                   {[
                     ["Year", values.vehicleYear],
@@ -354,7 +344,6 @@ function VinEntryField({
   id,
   value,
   error,
-  help,
   lookupState,
   lookupMessage,
   vehicleIdentity,
@@ -365,7 +354,6 @@ function VinEntryField({
   id: string;
   value: string;
   error?: string;
-  help: string;
   lookupState: VehicleLookupState;
   lookupMessage?: string | null;
   vehicleIdentity: string | null;
@@ -373,6 +361,7 @@ function VinEntryField({
   onChange: (value: string) => void;
   onBlur: () => void;
 }) {
+  const [helpOpen, setHelpOpen] = useState(false);
   const characterCount = Array.from(value).length;
   const lookupError = lookupState === "error" ? lookupMessage : null;
   const errorMessage = lookupError ?? error;
@@ -384,41 +373,72 @@ function VinEntryField({
       : confirmed
         ? "success"
         : "idle";
-  const helpId = `${id}-help`;
   const statusId =
     visualState === "idle" ? undefined : `${id}-${visualState}-status`;
-  const describedBy = [helpId, statusId].filter(Boolean).join(" ");
 
   return (
     <div data-vin-entry-state={visualState}>
-      <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0">
+      <div className="flex items-baseline justify-between gap-4">
+        <div className="flex min-w-0 items-center gap-1.5">
           <label
             htmlFor={id}
             className="text-base font-semibold tracking-[-0.01em] text-ink"
           >
-            Enter your 17-character VIN
+            Enter your VIN
           </label>
-          <p id={helpId} className="mt-1 max-w-xl text-xs leading-5 text-copy">
-            {help}
-          </p>
+          <span
+            className="relative flex size-5 shrink-0 items-center justify-center"
+            onMouseEnter={() => setHelpOpen(true)}
+            onMouseLeave={() => setHelpOpen(false)}
+          >
+            <button
+              type="button"
+              className="flex size-5 items-center justify-center rounded-full text-copy transition-colors hover:bg-brand-soft hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-1 motion-reduce:transition-none"
+              aria-label="VIN requirements"
+              aria-expanded={helpOpen}
+              aria-describedby={helpOpen ? `${id}-requirements-tooltip` : undefined}
+              onFocus={() => setHelpOpen(true)}
+              onBlur={() => setHelpOpen(false)}
+              onClick={() => setHelpOpen(true)}
+              onKeyDown={(event) => {
+                if (event.key === "Escape") setHelpOpen(false);
+              }}
+            >
+              <CircleHelp className="size-3.5" aria-hidden />
+            </button>
+            {helpOpen ? (
+              <span
+                id={`${id}-requirements-tooltip`}
+                role="tooltip"
+                className="absolute top-full left-0 z-50 mt-2 w-60 max-w-[calc(100vw-2rem)] rounded-lg bg-ink px-3 py-2 text-xs leading-5 text-white shadow-lg animate-in fade-in-0 zoom-in-95 motion-reduce:animate-none"
+              >
+                A VIN has 17 characters and does not contain I, O, or Q.
+                <span
+                  className="absolute -top-1 left-2 size-2 rotate-45 bg-ink"
+                  aria-hidden
+                />
+              </span>
+            ) : null}
+          </span>
         </div>
         <span
           className={cn(
-            "mt-0.5 inline-flex min-h-7 shrink-0 items-center rounded-full border px-2.5 font-mono text-xs font-semibold tabular-nums transition-colors motion-reduce:transition-none",
+            "shrink-0 font-mono text-xs font-semibold tabular-nums transition-colors motion-reduce:transition-none",
             visualState === "error"
-              ? "border-red-200 bg-red-50 text-red-700"
+              ? "text-red-700"
               : visualState === "success"
-                ? "border-market/25 bg-market-soft text-market-strong"
+                ? "text-market-strong"
                 : characterCount === 17 || visualState === "loading"
-                  ? "border-brand/20 bg-brand-soft text-brand"
-                  : "border-line bg-surface text-copy",
+                  ? "text-brand"
+                  : "text-copy",
           )}
           aria-live="polite"
           data-vin-character-count
         >
           <span aria-hidden>
-            {characterCount}<span className="px-0.5 opacity-50">/</span>17
+            {characterCount}{" "}
+            <span className="opacity-50">/</span>{" "}
+            17
           </span>
           <span className="sr-only">
             {characterCount} of 17 characters entered
@@ -426,7 +446,7 @@ function VinEntryField({
         </span>
       </div>
 
-      <div className="relative mt-3">
+      <div className="relative mt-2.5">
         <ScanLine
           className={cn(
             "pointer-events-none absolute left-4 top-1/2 size-5 -translate-y-1/2 transition-colors motion-reduce:transition-none",
@@ -452,7 +472,7 @@ function VinEntryField({
           disabled={disabled}
           aria-label="VIN"
           aria-invalid={errorMessage ? true : undefined}
-          aria-describedby={describedBy}
+          aria-describedby={statusId}
           className={cn(
             "min-h-14 w-full rounded-xl border bg-white py-3 pl-12 pr-4 font-mono text-base font-semibold uppercase tracking-[0.09em] text-ink shadow-[0_12px_30px_-24px_rgba(11,31,51,0.5)] transition-[border-color,box-shadow,background-color] placeholder:font-normal placeholder:tracking-[0.04em] placeholder:text-copy/40 hover:border-line-strong focus-visible:border-brand focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand/10 disabled:cursor-wait motion-reduce:transition-none sm:text-lg sm:tracking-[0.12em]",
             visualState === "loading" &&
@@ -479,63 +499,40 @@ function VinEntryField({
       </div>
 
       {visualState === "loading" ? (
-        <div
+        <p
           id={statusId}
-          className="mt-3 flex items-start gap-3 rounded-lg border border-brand/15 bg-brand-soft/55 px-3.5 py-3"
+          className="sr-only"
           role="status"
           aria-live="polite"
         >
-          <LoaderCircle
-            className="mt-0.5 size-4 shrink-0 animate-spin text-brand motion-reduce:animate-none"
-            aria-hidden
-          />
-          <div>
-            <p className="text-sm font-semibold text-ink">Checking your VIN…</p>
-            <p className="mt-0.5 text-xs leading-5 text-copy">
-              Matching the year, make, and model.
-            </p>
-          </div>
-        </div>
+          Checking VIN
+        </p>
       ) : visualState === "success" && vehicleIdentity ? (
-        <div
+        <p
           id={statusId}
-          className="mt-3 flex items-start gap-3 rounded-lg border border-market/20 bg-market-soft px-3.5 py-3"
+          className="mt-2.5 flex items-center gap-2 text-sm font-semibold text-market-strong"
           role="status"
           aria-live="polite"
         >
           <CheckCircle2
-            className="mt-0.5 size-4 shrink-0 text-market-strong"
+            className="size-4 shrink-0"
             aria-hidden
           />
-          <div>
-            <p className="text-sm font-semibold text-market-strong">
-              VIN confirmed
-            </p>
-            <p className="mt-0.5 text-sm leading-5 text-ink">
-              {lookupState === "success" ? "Vehicle found:" : "Vehicle:"}{" "}
-              {vehicleIdentity}
-            </p>
-          </div>
-        </div>
+          {lookupState === "success" ? "Vehicle found:" : "Vehicle:"}{" "}
+          {vehicleIdentity}
+        </p>
       ) : visualState === "error" && errorMessage ? (
-        <div
+        <p
           id={statusId}
-          className="mt-3 flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 px-3.5 py-3"
+          className="mt-2.5 flex items-start gap-2 text-sm leading-5 text-red-700"
           role="alert"
         >
           <AlertCircle
-            className="mt-0.5 size-4 shrink-0 text-red-700"
+            className="mt-0.5 size-4 shrink-0"
             aria-hidden
           />
-          <div>
-            <p className="text-sm font-semibold text-red-800">
-              {lookupError ? "We couldn’t match this VIN" : "Check your VIN"}
-            </p>
-            <p className="mt-0.5 text-sm leading-5 text-red-700">
-              {errorMessage}
-            </p>
-          </div>
-        </div>
+          {errorMessage}
+        </p>
       ) : null}
     </div>
   );

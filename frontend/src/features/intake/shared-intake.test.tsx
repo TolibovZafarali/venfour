@@ -211,7 +211,7 @@ describe("shared appraisal intake controls", () => {
     ).toBe(methodPanel);
   });
 
-  test("makes VIN length and lookup states clear without changing the field contract", () => {
+  test("keeps VIN guidance behind a compact help control", () => {
     const sharedProps = {
       idPrefix: "vehicle",
       entryMethod: "vin" as const,
@@ -239,11 +239,20 @@ describe("shared appraisal intake controls", () => {
     );
 
     const vinInput = screen.getByLabelText("VIN");
-    expect(screen.getByText("Enter your 17-character VIN")).toBeVisible();
+    expect(screen.getByText("Enter your VIN")).toBeVisible();
+    expect(screen.queryByText(/VINs are exactly 17 characters/)).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "VIN requirements" }),
+    ).toBeVisible();
+    expect(
+      screen.queryByText(
+        "A VIN has 17 characters and does not contain I, O, or Q.",
+      ),
+    ).not.toBeInTheDocument();
     expect(vinInput).toHaveAttribute("maxlength", "17");
     expect(vinInput).toHaveAttribute("placeholder", "1HGCM82633A004352");
     expect(container.querySelector("[data-vin-character-count]")).toHaveTextContent(
-      "6/17",
+      "6 / 17",
     );
     expect(container.querySelector("[data-vin-entry-state]")).toHaveAttribute(
       "data-vin-entry-state",
@@ -258,9 +267,7 @@ describe("shared appraisal intake controls", () => {
       />,
     );
     expect(screen.getByLabelText("VIN")).toBeDisabled();
-    expect(screen.getByRole("status")).toHaveTextContent(
-      "Checking your VIN…Matching the year, make, and model.",
-    );
+    expect(screen.getByRole("status")).toHaveTextContent("Checking VIN");
     expect(container.querySelector("[data-vin-entry-state]")).toHaveAttribute(
       "data-vin-entry-state",
       "loading",
@@ -280,7 +287,7 @@ describe("shared appraisal intake controls", () => {
       />,
     );
     expect(screen.getByRole("status")).toHaveTextContent(
-      "VIN confirmedVehicle found: 2003 Honda Accord",
+      "Vehicle found: 2003 Honda Accord",
     );
     expect(container.querySelector("[data-vin-entry-state]")).toHaveAttribute(
       "data-vin-entry-state",
@@ -295,7 +302,7 @@ describe("shared appraisal intake controls", () => {
       />,
     );
     expect(screen.getByRole("alert")).toHaveTextContent(
-      "We couldn’t match this VINWe couldn’t identify a vehicle with that VIN.",
+      "We couldn’t identify a vehicle with that VIN.",
     );
     expect(screen.getByLabelText("VIN")).toHaveAttribute(
       "aria-invalid",
