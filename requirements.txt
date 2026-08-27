@@ -1,4 +1,6 @@
 PyMuPDF>=1.26,<2
+google-auth[requests]>=2,<3
+google-cloud-tasks>=2,<3
 httpx>=0.28,<1
 jsonschema>=4.26,<5
 openai>=2.53,<3

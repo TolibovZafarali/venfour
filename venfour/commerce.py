@@ -103,6 +103,13 @@ class CommerceDuplicatePaymentError(CommerceConflictError):
     """A second successful payment requires operational remediation."""
 
 
+@runtime_checkable
+class EntitlementFulfillmentHook(Protocol):
+    """Internal continuation invoked only after verified entitlement grant."""
+
+    def ensure_for_entitlement(self, entitlement_id: str) -> Any: ...
+
+
 def _canonical_uuid(value: Any, label: str) -> str:
     if not isinstance(value, str):
         raise SupabaseContractError(f"{label} is invalid")
@@ -1326,6 +1333,7 @@ class TotalLossCommerceService:
         database: CommerceDatabaseGateway,
         provider: StripeProviderGateway,
         configuration: StripeCommerceConfiguration,
+        entitlement_fulfillment_hook: EntitlementFulfillmentHook | None = None,
     ) -> None:
         if not isinstance(database, CommerceDatabaseGateway):
             raise TypeError("database must implement CommerceDatabaseGateway")
@@ -1333,9 +1341,20 @@ class TotalLossCommerceService:
             raise TypeError("provider must implement StripeProviderGateway")
         if not isinstance(configuration, StripeCommerceConfiguration):
             raise TypeError("configuration must be StripeCommerceConfiguration")
+        if (
+            entitlement_fulfillment_hook is not None
+            and not isinstance(
+                entitlement_fulfillment_hook, EntitlementFulfillmentHook
+            )
+        ):
+            raise TypeError(
+                "entitlement_fulfillment_hook must expose "
+                "ensure_for_entitlement(entitlement_id)"
+            )
         self._database = database
         self._provider = provider
         self._configuration = configuration
+        self._entitlement_fulfillment_hook = entitlement_fulfillment_hook
 
     def authenticate(self, access_token: str) -> str:
         return self._database.authenticate(access_token)
@@ -1898,6 +1917,17 @@ class TotalLossCommerceService:
             )
         if outcome not in {"fulfilled", "already_fulfilled"}:
             raise SupabaseContractError("Payment fulfillment response is invalid")
+        entitlement_id = _canonical_uuid(
+            result.get("entitlement_id"), "Entitlement ID"
+        )
+        if self._entitlement_fulfillment_hook is not None:
+            # This hook runs before the signed Stripe event is finalized. A
+            # database failure therefore remains retryable through webhook
+            # redelivery, while the coordinator treats queue-dispatch failure
+            # as non-fatal after its durable work item has committed.
+            self._entitlement_fulfillment_hook.ensure_for_entitlement(
+                entitlement_id
+            )
         return context.case_id, context.order_id
 
     def _handle_refund_event(
@@ -2798,6 +2828,7 @@ __all__ = [
     "CommerceWebhookSignatureError",
     "CheckoutContext",
     "CheckoutProjection",
+    "EntitlementFulfillmentHook",
     "PaymentContext",
     "RefundProjection",
     "StripeCharge",

@@ -1,0 +1,244 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.venfour.local/package/final-valuation-assessment-v1.schema.json",
+  "title": "Venfour Final Valuation Assessment V1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "methodologyVersion",
+    "lineage",
+    "sourceSnapshotDigest",
+    "analysisArtifactDigest",
+    "subjectVehicle",
+    "insurerValuationReviewed",
+    "insurerComparables",
+    "externalEvidence",
+    "calculations",
+    "supportedRange",
+    "preliminaryClassification",
+    "finalClassification",
+    "evidenceStrength",
+    "evidenceBasis",
+    "continuationStatus",
+    "findings",
+    "limitations",
+    "assumptions",
+    "validationIssues",
+    "preliminaryToFinalComparison",
+    "assessmentDigest"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "1" },
+    "methodologyVersion": { "const": "1" },
+    "lineage": { "$ref": "#/$defs/lineage" },
+    "sourceSnapshotDigest": { "$ref": "#/$defs/digest" },
+    "analysisArtifactDigest": { "$ref": "#/$defs/digest" },
+    "subjectVehicle": { "$ref": "#/$defs/subjectVehicle" },
+    "insurerValuationReviewed": { "$ref": "#/$defs/insurerValuation" },
+    "insurerComparables": { "$ref": "#/$defs/insurerComparables" },
+    "externalEvidence": { "$ref": "#/$defs/externalEvidence" },
+    "calculations": { "$ref": "#/$defs/calculations" },
+    "supportedRange": {
+      "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/supportedRange" }]
+    },
+    "preliminaryClassification": { "$ref": "#/$defs/nonEmptyString" },
+    "finalClassification": { "$ref": "#/$defs/nonEmptyString" },
+    "evidenceStrength": { "$ref": "#/$defs/nonEmptyString" },
+    "evidenceBasis": { "$ref": "#/$defs/nonEmptyString" },
+    "continuationStatus": {
+      "enum": ["SUPPORTS_CONTINUATION", "DOES_NOT_SUPPORT_CONTINUATION", "NEW_EVIDENCE_REQUIRED", "REVIEW_REQUIRED"]
+    },
+    "findings": { "type": "array", "items": { "$ref": "#/$defs/message" } },
+    "limitations": { "type": "array", "items": { "$ref": "#/$defs/message" } },
+    "assumptions": { "type": "array", "items": { "$ref": "#/$defs/issue" } },
+    "validationIssues": { "type": "array", "items": { "$ref": "#/$defs/issue" } },
+    "preliminaryToFinalComparison": { "$ref": "#/$defs/comparison" },
+    "assessmentDigest": { "$ref": "#/$defs/digest" }
+  },
+  "$defs": {
+    "uuid": { "type": "string", "format": "uuid" },
+    "digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "nonEmptyString": { "type": "string", "minLength": 1 },
+    "evidenceIds": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^ev_[0-9a-f]{64}$" }
+    },
+    "moneyRange": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["lowMinorUnits", "medianMinorUnits", "highMinorUnits", "currency"],
+      "properties": {
+        "lowMinorUnits": { "type": ["integer", "null"] },
+        "medianMinorUnits": { "type": ["integer", "null"] },
+        "highMinorUnits": { "type": ["integer", "null"] },
+        "currency": { "const": "USD" }
+      }
+    },
+    "lineage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["caseId", "packageJobId", "entitlementId", "preliminarySnapshotId", "sourceSnapshotId", "analysisRunId"],
+      "properties": {
+        "caseId": { "$ref": "#/$defs/uuid" },
+        "packageJobId": { "$ref": "#/$defs/uuid" },
+        "entitlementId": { "$ref": "#/$defs/uuid" },
+        "preliminarySnapshotId": { "$ref": "#/$defs/uuid" },
+        "sourceSnapshotId": { "$ref": "#/$defs/uuid" },
+        "analysisRunId": { "$ref": "#/$defs/uuid" }
+      }
+    },
+    "subjectVehicle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["year", "make", "model", "trim", "vehicleConfiguration", "vin", "mileage", "postalCode", "lossDate", "evidenceIds"],
+      "properties": {
+        "year": { "type": "integer" },
+        "make": { "$ref": "#/$defs/nonEmptyString" },
+        "model": { "$ref": "#/$defs/nonEmptyString" },
+        "trim": { "$ref": "#/$defs/nonEmptyString" },
+        "vehicleConfiguration": { "type": ["object", "null"] },
+        "vin": { "type": ["string", "null"] },
+        "mileage": { "type": "integer", "minimum": 0 },
+        "postalCode": { "$ref": "#/$defs/nonEmptyString" },
+        "lossDate": { "type": "string", "format": "date" },
+        "evidenceIds": { "$ref": "#/$defs/evidenceIds" }
+      }
+    },
+    "insurerValuation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source", "valueMinorUnits", "currency", "evidenceIds"],
+      "properties": {
+        "source": { "$ref": "#/$defs/nonEmptyString" },
+        "valueMinorUnits": { "type": ["integer", "null"] },
+        "currency": { "const": "USD" },
+        "evidenceIds": { "$ref": "#/$defs/evidenceIds" }
+      }
+    },
+    "evidencedFacts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["facts", "evidenceIds"],
+      "properties": {
+        "facts": { "type": "object" },
+        "evidenceIds": { "$ref": "#/$defs/evidenceIds" }
+      }
+    },
+    "insurerComparables": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["methodologyTreatment", "weightingStatus", "summary", "rows"],
+      "properties": {
+        "methodologyTreatment": { "const": "DESCRIPTIVE_ONLY" },
+        "weightingStatus": { "const": "NOT_DETERMINED_BY_V1" },
+        "summary": { "type": "object" },
+        "rows": { "type": "array", "items": { "$ref": "#/$defs/evidencedFacts" } }
+      }
+    },
+    "externalEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["primary", "secondary", "selectedComparables"],
+      "properties": {
+        "primary": { "type": ["object", "null"] },
+        "secondary": { "type": ["object", "null"] },
+        "selectedComparables": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["primary", "secondary"],
+          "properties": {
+            "primary": { "type": "array", "items": { "$ref": "#/$defs/evidencedFacts" } },
+            "secondary": { "type": "array", "items": { "$ref": "#/$defs/evidencedFacts" } }
+          }
+        }
+      }
+    },
+    "calculations": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["primaryComparison", "secondaryComparisons", "insurerComparableSummary"],
+      "properties": {
+        "primaryComparison": { "type": ["object", "null"] },
+        "secondaryComparisons": { "type": "object" },
+        "insurerComparableSummary": { "type": "object" }
+      }
+    },
+    "supportedRange": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["semantics", "evidenceBasis", "lowMinorUnits", "medianMinorUnits", "highMinorUnits", "currency", "evidenceIds"],
+      "properties": {
+        "semantics": { "const": "SELECTED_ADVERTISED_PRICE_RANGE" },
+        "evidenceBasis": { "$ref": "#/$defs/nonEmptyString" },
+        "lowMinorUnits": { "type": "integer" },
+        "medianMinorUnits": { "type": "integer" },
+        "highMinorUnits": { "type": "integer" },
+        "currency": { "const": "USD" },
+        "evidenceIds": { "$ref": "#/$defs/evidenceIds" }
+      }
+    },
+    "message": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "label", "description", "evidenceIds"],
+      "properties": {
+        "code": { "$ref": "#/$defs/nonEmptyString" },
+        "label": { "$ref": "#/$defs/nonEmptyString" },
+        "description": { "$ref": "#/$defs/nonEmptyString" },
+        "evidenceIds": { "$ref": "#/$defs/evidenceIds" }
+      }
+    },
+    "issue": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "description", "evidenceIds"],
+      "properties": {
+        "code": { "$ref": "#/$defs/nonEmptyString" },
+        "description": { "$ref": "#/$defs/nonEmptyString" },
+        "evidenceIds": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^ev_[0-9a-f]{64}$" } }
+      }
+    },
+    "comparisonValues": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["classification", "supportedRange"],
+      "properties": {
+        "classification": { "$ref": "#/$defs/nonEmptyString" },
+        "supportedRange": { "$ref": "#/$defs/moneyRange" }
+      }
+    },
+    "rangeDeltas": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["lowMinorUnits", "medianMinorUnits", "highMinorUnits"],
+      "properties": {
+        "lowMinorUnits": { "type": ["integer", "null"] },
+        "medianMinorUnits": { "type": ["integer", "null"] },
+        "highMinorUnits": { "type": ["integer", "null"] }
+      }
+    },
+    "comparison": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["preliminary", "final", "absoluteChangesMinorUnits", "percentageChangesBasisPoints", "classificationChanged", "rangeAvailabilityChanged", "materialChange", "reasonCodes"],
+      "properties": {
+        "preliminary": { "$ref": "#/$defs/comparisonValues" },
+        "final": { "$ref": "#/$defs/comparisonValues" },
+        "absoluteChangesMinorUnits": { "$ref": "#/$defs/rangeDeltas" },
+        "percentageChangesBasisPoints": { "$ref": "#/$defs/rangeDeltas" },
+        "classificationChanged": { "type": "boolean" },
+        "rangeAvailabilityChanged": { "type": "boolean" },
+        "materialChange": { "type": "boolean" },
+        "reasonCodes": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1,
+          "items": { "enum": ["UNCHANGED_EVIDENCE", "SOURCE_LINEAGE_CONFLICT"] }
+        }
+      }
+    }
+  }
+}

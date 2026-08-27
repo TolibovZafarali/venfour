@@ -45,6 +45,7 @@ from venfour.supabase_gateway import (
     SupabaseContractError,
     SupabaseHttpGateway,
     SupabaseServerConfiguration,
+    SupabaseUnavailableError,
 )
 
 
@@ -559,6 +560,7 @@ class RecordingDatabase:
 def service(
     database: RecordingDatabase | None = None,
     provider: RecordingProvider | None = None,
+    entitlement_fulfillment_hook: Any | None = None,
 ) -> tuple[TotalLossCommerceService, RecordingDatabase, RecordingProvider]:
     selected_database = database or RecordingDatabase()
     selected_provider = provider or RecordingProvider()
@@ -567,6 +569,7 @@ def service(
             selected_database,
             selected_provider,
             configuration(),
+            entitlement_fulfillment_hook,
         ),
         selected_database,
         selected_provider,
@@ -1109,6 +1112,71 @@ class CommerceWebhookTests(unittest.TestCase):
         claim_args = next(value for name, value in database.calls if name == "claim_stripe_webhook_event")
         self.assertEqual(claim_args[1], hashlib.sha256(b"signed-raw").hexdigest())
         self.assertEqual(claim_args[2], len(b"signed-raw"))
+
+    def test_verified_entitlement_is_enqueued_before_event_finalization(
+        self,
+    ) -> None:
+        class RecordingHook:
+            def __init__(self, database: RecordingDatabase) -> None:
+                self.database = database
+                self.entitlement_ids: list[str] = []
+
+            def ensure_for_entitlement(self, entitlement_id: str) -> None:
+                self.entitlement_ids.append(entitlement_id)
+                self.database.calls.append(
+                    ("ensure_for_entitlement", (entitlement_id,))
+                )
+
+        provider = RecordingProvider()
+        provider.session = checkout_session(
+            status="complete",
+            payment_status="paid",
+            url=None,
+            payment_intent_id=INTENT_ID,
+        )
+        database = RecordingDatabase()
+        hook = RecordingHook(database)
+        commerce, database, _ = service(database, provider, hook)
+
+        self.assertEqual(commerce.handle_webhook(b"signed-raw", "valid"), "processed")
+
+        self.assertEqual(hook.entitlement_ids, [ENTITLEMENT_ID])
+        names = [name for name, _ in database.calls]
+        self.assertLess(
+            names.index("fulfill_total_loss_checkout_payment"),
+            names.index("ensure_for_entitlement"),
+        )
+        self.assertLess(
+            names.index("ensure_for_entitlement"),
+            names.index("finalize_stripe_webhook_event"),
+        )
+
+    def test_package_enqueue_failure_keeps_webhook_retryable(self) -> None:
+        class FailingHook:
+            def ensure_for_entitlement(self, _entitlement_id: str) -> None:
+                raise SupabaseUnavailableError("package enqueue unavailable")
+
+        provider = RecordingProvider()
+        provider.session = checkout_session(
+            status="complete",
+            payment_status="paid",
+            url=None,
+            payment_intent_id=INTENT_ID,
+        )
+        commerce, database, _ = service(
+            provider=provider,
+            entitlement_fulfillment_hook=FailingHook(),
+        )
+
+        with self.assertRaises(SupabaseUnavailableError):
+            commerce.handle_webhook(b"signed-raw", "valid")
+
+        finalization = [
+            values
+            for name, values in database.calls
+            if name == "finalize_stripe_webhook_event"
+        ][-1]
+        self.assertEqual(finalization[2], "failed")
 
     def test_webhook_uses_the_order_frozen_email_after_auth_email_changes(
         self,

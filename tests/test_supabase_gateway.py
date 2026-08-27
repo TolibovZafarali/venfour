@@ -29,6 +29,12 @@ RUN_ID = "50000000-0000-4000-8000-000000000005"
 REPORT_UPLOAD_ID = "60000000-0000-4000-8000-000000000006"
 TRIM_TOKEN_ID = "70000000-0000-4000-8000-000000000007"
 CLAIM_ID = "80000000-0000-4000-8000-000000000008"
+ENTITLEMENT_ID = "90000000-0000-4000-8000-000000000009"
+PACKAGE_JOB_ID = "a0000000-0000-4000-8000-00000000000a"
+WORK_ITEM_ID = "b0000000-0000-4000-8000-00000000000b"
+SOURCE_SNAPSHOT_ID = "c0000000-0000-4000-8000-00000000000c"
+FINAL_ASSESSMENT_ID = "d0000000-0000-4000-8000-00000000000d"
+DISPATCH_TOKEN_ID = "e0000000-0000-4000-8000-00000000000e"
 PDF_BYTES = b"%PDF-1.7\nsynthetic private report\n%%EOF\n"
 
 
@@ -571,6 +577,203 @@ class SupabaseHttpGatewayTests(unittest.TestCase):
             self.assertEqual(
                 json.loads(request.content), expected_bodies[name]
             )
+            self.assertEqual(request.headers["apikey"], "service-role-test-key")
+            self.assertEqual(
+                request.headers["authorization"],
+                "Bearer service-role-test-key",
+            )
+
+    def test_package_processing_rpcs_preserve_exact_fenced_contracts(self) -> None:
+        requests: list[httpx.Request] = []
+        digest = "a" * 64
+        source = {
+            "schemaVersion": "1",
+            "createdAt": "2026-08-26T12:30:00Z",
+            "lineage": {"sourceSnapshotId": SOURCE_SNAPSHOT_ID},
+            "sourceDocument": None,
+            "extraction": None,
+            "analysis": {"artifactDigest": digest},
+            "evidenceCutoff": {"currentObservedDate": "2026-08-26"},
+            "snapshotDigest": digest,
+        }
+        assessment = {
+            "schemaVersion": "1",
+            "methodologyVersion": "1",
+            "finalClassification": "MATERIAL_UNDERVALUE_SIGNAL",
+            "continuationStatus": "SUPPORTS_CONTINUATION",
+            "insurerValuationReviewed": {"currency": "USD"},
+            "supportedRange": {
+                "currency": "USD",
+                "lowMinorUnits": 2_000_000,
+                "medianMinorUnits": 2_100_000,
+                "highMinorUnits": 2_200_000,
+            },
+            "findings": [],
+            "limitations": [],
+            "preliminaryToFinalComparison": {
+                "reasonCodes": ["UNCHANGED_EVIDENCE"]
+            },
+            "assessmentDigest": digest,
+        }
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            requests.append(request)
+            name = request.url.path.rsplit("/", 1)[-1]
+            responses = {
+                "enqueue_total_loss_package_job": [
+                    {"outcome": "created", "work_item_id": WORK_ITEM_ID}
+                ],
+                "reserve_due_workflow_work_items": [
+                    {"work_item_id": WORK_ITEM_ID}
+                ],
+                "mark_workflow_work_item_dispatched": True,
+                "release_workflow_work_item_dispatch": True,
+                "claim_total_loss_package_work_item": [
+                    {"outcome": "claimed", "work_item_id": WORK_ITEM_ID}
+                ],
+                "resolve_total_loss_package_source_context": [
+                    {"work_item_id": WORK_ITEM_ID}
+                ],
+                "seal_total_loss_source_snapshot": [
+                    {
+                        "outcome": "created",
+                        "source_snapshot_id": SOURCE_SNAPSHOT_ID,
+                    }
+                ],
+                "persist_total_loss_final_assessment": [
+                    {
+                        "outcome": "created",
+                        "final_assessment_id": FINAL_ASSESSMENT_ID,
+                    }
+                ],
+                "complete_total_loss_package_work_item": True,
+                "fail_total_loss_package_work_item": True,
+            }
+            return httpx.Response(200, json=responses[name])
+
+        gateway, _ = self.gateway(handler)
+        gateway.enqueue_total_loss_package_job(ENTITLEMENT_ID)
+        gateway.reserve_due_workflow_work_items(DISPATCH_TOKEN_ID, 25)
+        self.assertTrue(
+            gateway.mark_workflow_work_item_dispatched(
+                WORK_ITEM_ID, DISPATCH_TOKEN_ID
+            )
+        )
+        self.assertTrue(
+            gateway.release_workflow_work_item_dispatch(
+                WORK_ITEM_ID,
+                DISPATCH_TOKEN_ID,
+                "TASK_DISPATCH_UNAVAILABLE",
+                30,
+            )
+        )
+        gateway.claim_total_loss_package_work_item(WORK_ITEM_ID, TOKEN_ID)
+        gateway.resolve_total_loss_package_source_context(WORK_ITEM_ID, TOKEN_ID)
+        gateway.seal_total_loss_source_snapshot(WORK_ITEM_ID, TOKEN_ID, source)
+        gateway.persist_total_loss_final_assessment(
+            WORK_ITEM_ID,
+            TOKEN_ID,
+            SOURCE_SNAPSHOT_ID,
+            assessment,
+        )
+        self.assertTrue(
+            gateway.complete_total_loss_package_work_item(
+                WORK_ITEM_ID,
+                TOKEN_ID,
+                FINAL_ASSESSMENT_ID,
+                "assessment_ready",
+            )
+        )
+        self.assertTrue(
+            gateway.fail_total_loss_package_work_item(
+                WORK_ITEM_ID,
+                TOKEN_ID,
+                "SOURCE_LINEAGE_CONFLICT",
+                "terminal",
+                0,
+            )
+        )
+
+        expected_bodies = {
+            "enqueue_total_loss_package_job": {
+                "requested_entitlement_id": ENTITLEMENT_ID,
+            },
+            "reserve_due_workflow_work_items": {
+                "requested_dispatch_token": DISPATCH_TOKEN_ID,
+                "requested_limit": 25,
+            },
+            "mark_workflow_work_item_dispatched": {
+                "requested_work_item_id": WORK_ITEM_ID,
+                "requested_dispatch_token": DISPATCH_TOKEN_ID,
+            },
+            "release_workflow_work_item_dispatch": {
+                "requested_work_item_id": WORK_ITEM_ID,
+                "requested_dispatch_token": DISPATCH_TOKEN_ID,
+                "requested_error_code": "TASK_DISPATCH_UNAVAILABLE",
+                "requested_delay_seconds": 30,
+            },
+            "claim_total_loss_package_work_item": {
+                "requested_work_item_id": WORK_ITEM_ID,
+                "requested_processing_token": TOKEN_ID,
+            },
+            "resolve_total_loss_package_source_context": {
+                "requested_work_item_id": WORK_ITEM_ID,
+                "requested_processing_token": TOKEN_ID,
+            },
+            "seal_total_loss_source_snapshot": {
+                "requested_work_item_id": WORK_ITEM_ID,
+                "requested_processing_token": TOKEN_ID,
+                "requested_source_snapshot_id": SOURCE_SNAPSHOT_ID,
+                "requested_source_document_media_type": None,
+                "requested_source_document_byte_size": None,
+                "requested_source_document_sha256": None,
+                "requested_analysis_artifact_digest": digest,
+                "requested_normalized_extraction_digest": None,
+                "requested_evidence_cutoff": "2026-08-26",
+                "requested_snapshot_created_at": "2026-08-26T12:30:00Z",
+                "requested_snapshot_schema_version": "1",
+                "requested_source_snapshot": source,
+                "requested_snapshot_digest": digest,
+            },
+            "persist_total_loss_final_assessment": {
+                "requested_work_item_id": WORK_ITEM_ID,
+                "requested_processing_token": TOKEN_ID,
+                "requested_source_snapshot_id": SOURCE_SNAPSHOT_ID,
+                "requested_conclusion_code": "MATERIAL_UNDERVALUE_SIGNAL",
+                "requested_currency": "USD",
+                "requested_range_low_minor_units": 2_000_000,
+                "requested_range_median_minor_units": 2_100_000,
+                "requested_range_high_minor_units": 2_200_000,
+                "requested_findings": [],
+                "requested_limitations": [],
+                "requested_reason_codes": ["UNCHANGED_EVIDENCE"],
+                "requested_preliminary_to_final_comparison": {
+                    "reasonCodes": ["UNCHANGED_EVIDENCE"]
+                },
+                "requested_assessment": assessment,
+                "requested_methodology_version": "1",
+                "requested_schema_version": "1",
+                "requested_assessment_digest": digest,
+            },
+            "complete_total_loss_package_work_item": {
+                "requested_work_item_id": WORK_ITEM_ID,
+                "requested_processing_token": TOKEN_ID,
+                "requested_final_assessment_id": FINAL_ASSESSMENT_ID,
+                "requested_package_status": "assessment_ready",
+                "requested_reason_code": None,
+            },
+            "fail_total_loss_package_work_item": {
+                "requested_work_item_id": WORK_ITEM_ID,
+                "requested_processing_token": TOKEN_ID,
+                "requested_failure_code": "SOURCE_LINEAGE_CONFLICT",
+                "requested_failure_kind": "terminal",
+                "requested_retry_delay_seconds": None,
+            },
+        }
+        self.assertEqual(len(requests), len(expected_bodies))
+        for request in requests:
+            name = request.url.path.rsplit("/", 1)[-1]
+            self.assertEqual(json.loads(request.content), expected_bodies[name])
             self.assertEqual(request.headers["apikey"], "service-role-test-key")
             self.assertEqual(
                 request.headers["authorization"],

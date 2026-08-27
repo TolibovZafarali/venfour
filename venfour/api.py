@@ -85,6 +85,24 @@ from venfour.commerce import (
     TotalLossCommerceService,
 )
 from venfour.openai_vehicle_catalog import OpenAIVehicleTrimCatalog
+from venfour.package_processing import (
+    CloudTasksConfiguration,
+    CloudTasksWorkItemDispatcher,
+    GoogleOidcInternalCallerVerifier,
+    InternalCallerAuthenticationError,
+    InternalCallerVerifier,
+    InternalOidcConfiguration,
+    PackageExecutionResult,
+    PackageProcessingContractError,
+    PackageProcessingDatabaseGateway,
+    PackageProcessingInputError,
+    PackageProcessingUnavailableError,
+    PackageRetryLaterError,
+    PackageStaleFenceError,
+    PackageWorkBusyError,
+    TotalLossPackageCoordinator,
+    TotalLossPackageProcessor,
+)
 from venfour.presentation import (
     AnalysisPresentationContractError,
     AnalysisPresentationService,
@@ -158,6 +176,15 @@ _ERROR_MESSAGES = {
     "COMMERCE_UNAVAILABLE": "Commerce is temporarily unavailable.",
     "INVALID_STRIPE_WEBHOOK": "Stripe webhook verification failed.",
     "STRIPE_WEBHOOK_TOO_LARGE": "Stripe webhook payload is too large.",
+    "INVALID_WORK_ITEM_ID": "Work item ID is invalid.",
+    "INVALID_INTERNAL_WORK_REQUEST": "Internal work request is invalid.",
+    "INTERNAL_AUTHENTICATION_REQUIRED": (
+        "Internal caller authentication is required."
+    ),
+    "PACKAGE_PROCESSING_UNAVAILABLE": (
+        "Package processing is temporarily unavailable."
+    ),
+    "PACKAGE_PROCESSING_FAILED": "Package processing failed safely.",
 }
 
 LEGACY_API_ENVIRONMENT_NAME = "VENFOUR_ENABLE_LEGACY_ANALYSIS_API"
@@ -1157,6 +1184,102 @@ def _runtime_secret_is_configured(name: str) -> bool:
     )
 
 
+def _internal_bearer_token(request: Request) -> str:
+    values = [
+        value
+        for name, value in request.scope.get("headers", ())
+        if name.lower() == b"authorization"
+    ]
+    if len(values) != 1:
+        raise InternalCallerAuthenticationError(
+            "Internal caller authentication is invalid"
+        )
+    try:
+        authorization = values[0].decode("ascii")
+    except UnicodeDecodeError as exc:
+        raise InternalCallerAuthenticationError(
+            "Internal caller authentication is invalid"
+        ) from exc
+    parts = authorization.split()
+    if (
+        len(parts) != 2
+        or parts[0].casefold() != "bearer"
+        or not parts[1]
+    ):
+        raise InternalCallerAuthenticationError(
+            "Internal caller authentication is invalid"
+        )
+    return parts[1]
+
+
+async def _internal_work_item_execute(request: Request) -> JSONResponse:
+    work_item_id = request.path_params["work_item_id"]
+    if not _is_canonical_uuid4(work_item_id):
+        return _private_response(_error_response(400, "INVALID_WORK_ITEM_ID"))
+    if not await _require_empty_request_body(request):
+        return _private_response(
+            _error_response(400, "INVALID_INTERNAL_WORK_REQUEST")
+        )
+
+    processor = request.app.state.package_processor
+    verifier = request.app.state.internal_caller_verifier
+    if processor is None or verifier is None:
+        return _private_response(
+            _error_response(503, "PACKAGE_PROCESSING_UNAVAILABLE")
+        )
+    try:
+        token = _internal_bearer_token(request)
+        await run_in_threadpool(verifier.verify, token)
+    except InternalCallerAuthenticationError:
+        return _private_response(
+            _error_response(
+                401,
+                "INTERNAL_AUTHENTICATION_REQUIRED",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        )
+
+    try:
+        result = await run_in_threadpool(processor.execute, work_item_id)
+        if not isinstance(result, PackageExecutionResult):
+            raise PackageProcessingContractError(
+                "Package processor returned an invalid result"
+            )
+        return _private_response(
+            JSONResponse(
+                {
+                    "state": result.state,
+                    "workItemId": result.work_item_id,
+                    "packageJobId": result.package_job_id,
+                    "packageStatus": result.package_status,
+                    "attemptCount": result.attempt_count,
+                    "sourceSnapshotId": result.source_snapshot_id,
+                    "finalAssessmentId": result.final_assessment_id,
+                }
+            )
+        )
+    except PackageProcessingInputError:
+        return _private_response(_error_response(400, "INVALID_WORK_ITEM_ID"))
+    except (
+        PackageWorkBusyError,
+        PackageRetryLaterError,
+        PackageStaleFenceError,
+        PackageProcessingUnavailableError,
+        SupabaseUnavailableError,
+    ):
+        return _private_response(
+            _error_response(
+                503,
+                "PACKAGE_PROCESSING_UNAVAILABLE",
+                headers={"Retry-After": "60"},
+            )
+        )
+    except PackageProcessingContractError:
+        return _private_response(_error_response(500, "PACKAGE_PROCESSING_FAILED"))
+    except Exception:
+        return _private_response(_error_response(500, "PACKAGE_PROCESSING_FAILED"))
+
+
 async def _http_exception_response(
     _request: Request, exc: Exception
 ) -> JSONResponse:
@@ -1184,6 +1307,9 @@ def create_app(
     case_analysis_service: Any | None = None,
     case_claim_access_service: Any | None = None,
     commerce_service: Any | None = None,
+    package_coordinator: Any | None = None,
+    package_processor: Any | None = None,
+    internal_caller_verifier: Any | None = None,
     vehicle_trim_catalog_service: Any | None = None,
     supabase_gateway: CaseAnalysisGateway | None = None,
     enable_legacy_api: bool | None = None,
@@ -1356,6 +1482,66 @@ def create_app(
                 "case_claim_access_service must expose auth and claim-access methods"
             )
 
+    selected_package_coordinator = package_coordinator
+    selected_package_processor = package_processor
+    selected_internal_caller_verifier = internal_caller_verifier
+    owned_package_dispatcher: CloudTasksWorkItemDispatcher | None = None
+
+    if selected_package_coordinator is None and isinstance(
+        selected_gateway, PackageProcessingDatabaseGateway
+    ):
+        package_dispatcher = None
+        try:
+            cloud_tasks_configuration = CloudTasksConfiguration.from_environment(
+                os.environ
+            )
+        except (TypeError, ValueError):
+            cloud_tasks_configuration = None
+        if cloud_tasks_configuration is not None:
+            try:
+                owned_package_dispatcher = CloudTasksWorkItemDispatcher(
+                    cloud_tasks_configuration
+                )
+                package_dispatcher = owned_package_dispatcher
+            except PackageProcessingUnavailableError:
+                owned_package_dispatcher = None
+        selected_package_coordinator = TotalLossPackageCoordinator(
+            selected_gateway,
+            package_dispatcher,
+        )
+    elif selected_package_coordinator is not None and any(
+        not callable(getattr(selected_package_coordinator, method, None))
+        for method in ("ensure_for_entitlement", "reconcile_due")
+    ):
+        raise TypeError(
+            "package_coordinator must expose entitlement and reconciliation methods"
+        )
+
+    if selected_package_processor is None and isinstance(
+        selected_gateway, PackageProcessingDatabaseGateway
+    ):
+        selected_package_processor = TotalLossPackageProcessor(selected_gateway)
+    elif selected_package_processor is not None and not callable(
+        getattr(selected_package_processor, "execute", None)
+    ):
+        raise TypeError("package_processor must expose execute(work_item_id)")
+
+    if selected_internal_caller_verifier is None:
+        try:
+            internal_oidc_configuration = InternalOidcConfiguration.from_environment(
+                os.environ
+            )
+        except (TypeError, ValueError):
+            internal_oidc_configuration = None
+        if internal_oidc_configuration is not None:
+            selected_internal_caller_verifier = (
+                GoogleOidcInternalCallerVerifier(internal_oidc_configuration)
+            )
+    elif not isinstance(selected_internal_caller_verifier, InternalCallerVerifier):
+        raise TypeError(
+            "internal_caller_verifier must expose verify(token)"
+        )
+
     selected_commerce_service = commerce_service
     if selected_commerce_service is None and isinstance(
         selected_gateway, CommerceDatabaseGateway
@@ -1371,6 +1557,7 @@ def create_app(
                 selected_gateway,
                 StripeSdkGateway(commerce_configuration),
                 commerce_configuration,
+                selected_package_coordinator,
             )
     elif selected_commerce_service is not None:
         required_commerce_methods = (
@@ -1478,6 +1665,17 @@ def create_app(
         Route("/ready", _readiness, methods=["GET"]),
         Route("/webhooks/stripe", _stripe_webhook, methods=["POST"]),
     ]
+    if (
+        selected_package_processor is not None
+        and selected_internal_caller_verifier is not None
+    ):
+        routes.append(
+            Route(
+                "/internal/v1/work-items/{work_item_id}/execute",
+                _internal_work_item_execute,
+                methods=["POST"],
+            )
+        )
     if legacy_enabled:
         routes.insert(
             0,
@@ -1495,6 +1693,8 @@ def create_app(
                 owned_supabase_gateway.close()
             if owned_case_claim_access_service is not None:
                 owned_case_claim_access_service.close()
+            if owned_package_dispatcher is not None:
+                owned_package_dispatcher.close()
 
     middleware = []
     if selected_staging_proxy_secret is not None:
@@ -1520,6 +1720,9 @@ def create_app(
     app.state.case_analysis_service = selected_case_service
     app.state.case_claim_access_service = selected_case_claim_access_service
     app.state.commerce_service = selected_commerce_service
+    app.state.package_coordinator = selected_package_coordinator
+    app.state.package_processor = selected_package_processor
+    app.state.internal_caller_verifier = selected_internal_caller_verifier
     app.state.vehicle_trim_catalog_service = (
         selected_vehicle_trim_catalog_service
     )

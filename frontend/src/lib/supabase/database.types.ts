@@ -2138,6 +2138,7 @@ export type Database = {
           preliminary_to_final_comparison: Json
           reason_codes: Json
           schema_version: string
+          source_snapshot_id: string | null
           supersedes_assessment_id: string | null
           supported_range_high_minor_units: number | null
           supported_range_low_minor_units: number | null
@@ -2160,6 +2161,7 @@ export type Database = {
           preliminary_to_final_comparison: Json
           reason_codes: Json
           schema_version: string
+          source_snapshot_id?: string | null
           supersedes_assessment_id?: string | null
           supported_range_high_minor_units?: number | null
           supported_range_low_minor_units?: number | null
@@ -2182,6 +2184,7 @@ export type Database = {
           preliminary_to_final_comparison?: Json
           reason_codes?: Json
           schema_version?: string
+          source_snapshot_id?: string | null
           supersedes_assessment_id?: string | null
           supported_range_high_minor_units?: number | null
           supported_range_low_minor_units?: number | null
@@ -2216,6 +2219,23 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "total_loss_preliminary_snapshots"
             referencedColumns: ["id", "case_id"]
+          },
+          {
+            foreignKeyName: "total_loss_final_assessments_source_identity_fkey"
+            columns: [
+              "source_snapshot_id",
+              "package_job_id",
+              "case_id",
+              "preliminary_snapshot_id",
+            ]
+            isOneToOne: false
+            referencedRelation: "total_loss_source_snapshots"
+            referencedColumns: [
+              "id",
+              "package_job_id",
+              "case_id",
+              "preliminary_snapshot_id",
+            ]
           },
           {
             foreignKeyName: "total_loss_final_assessments_supersedes_fkey"
@@ -3113,6 +3133,196 @@ export type Database = {
           },
         ]
       }
+      total_loss_source_snapshots: {
+        Row: {
+          analysis_artifact_digest: string
+          analysis_job_id: string
+          analysis_run_id: string
+          analysis_run_schema_version: string
+          analysis_version: string
+          case_id: string
+          comparable_scoring_version: string
+          created_at: string
+          discrepancy_analysis_version: string
+          entitlement_id: string
+          evidence_cutoff: string
+          extraction_available: boolean
+          extraction_model_identifier: string | null
+          extraction_provider_name: string | null
+          extraction_schema_version: string | null
+          id: string
+          normalized_extraction_digest: string | null
+          owner_user_id_at_creation: string
+          package_job_id: string
+          preliminary_snapshot_digest: string
+          preliminary_snapshot_id: string
+          preliminary_snapshot_schema_version: string
+          presentation_schema_version: string
+          request_digest: string
+          search_diagnostics_digest: string | null
+          snapshot_created_at: string
+          snapshot_digest: string
+          snapshot_schema_version: string
+          source_analysis_input_id: string | null
+          source_analysis_input_revision: number
+          source_document_bucket_id: string | null
+          source_document_byte_size: number | null
+          source_document_media_type: string | null
+          source_document_object_name: string | null
+          source_document_sha256: string | null
+          source_intake_mode: Database["public"]["Enums"]["total_loss_intake_mode"]
+          source_report_upload_id: string | null
+          source_snapshot: Json
+        }
+        Insert: {
+          analysis_artifact_digest: string
+          analysis_job_id: string
+          analysis_run_id: string
+          analysis_run_schema_version: string
+          analysis_version: string
+          case_id: string
+          comparable_scoring_version: string
+          created_at?: string
+          discrepancy_analysis_version: string
+          entitlement_id: string
+          evidence_cutoff: string
+          extraction_available: boolean
+          extraction_model_identifier?: string | null
+          extraction_provider_name?: string | null
+          extraction_schema_version?: string | null
+          id?: string
+          normalized_extraction_digest?: string | null
+          owner_user_id_at_creation: string
+          package_job_id: string
+          preliminary_snapshot_digest: string
+          preliminary_snapshot_id: string
+          preliminary_snapshot_schema_version: string
+          presentation_schema_version: string
+          request_digest: string
+          search_diagnostics_digest?: string | null
+          snapshot_created_at: string
+          snapshot_digest: string
+          snapshot_schema_version: string
+          source_analysis_input_id?: string | null
+          source_analysis_input_revision: number
+          source_document_bucket_id?: string | null
+          source_document_byte_size?: number | null
+          source_document_media_type?: string | null
+          source_document_object_name?: string | null
+          source_document_sha256?: string | null
+          source_intake_mode: Database["public"]["Enums"]["total_loss_intake_mode"]
+          source_report_upload_id?: string | null
+          source_snapshot: Json
+        }
+        Update: {
+          analysis_artifact_digest?: string
+          analysis_job_id?: string
+          analysis_run_id?: string
+          analysis_run_schema_version?: string
+          analysis_version?: string
+          case_id?: string
+          comparable_scoring_version?: string
+          created_at?: string
+          discrepancy_analysis_version?: string
+          entitlement_id?: string
+          evidence_cutoff?: string
+          extraction_available?: boolean
+          extraction_model_identifier?: string | null
+          extraction_provider_name?: string | null
+          extraction_schema_version?: string | null
+          id?: string
+          normalized_extraction_digest?: string | null
+          owner_user_id_at_creation?: string
+          package_job_id?: string
+          preliminary_snapshot_digest?: string
+          preliminary_snapshot_id?: string
+          preliminary_snapshot_schema_version?: string
+          presentation_schema_version?: string
+          request_digest?: string
+          search_diagnostics_digest?: string | null
+          snapshot_created_at?: string
+          snapshot_digest?: string
+          snapshot_schema_version?: string
+          source_analysis_input_id?: string | null
+          source_analysis_input_revision?: number
+          source_document_bucket_id?: string | null
+          source_document_byte_size?: number | null
+          source_document_media_type?: string | null
+          source_document_object_name?: string | null
+          source_document_sha256?: string | null
+          source_intake_mode?: Database["public"]["Enums"]["total_loss_intake_mode"]
+          source_report_upload_id?: string | null
+          source_snapshot?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "total_loss_source_snapshots_analysis_run_id_fkey"
+            columns: ["analysis_run_id"]
+            isOneToOne: false
+            referencedRelation: "analysis_runs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "total_loss_source_snapshots_analysis_run_id_fkey"
+            columns: ["analysis_run_id"]
+            isOneToOne: false
+            referencedRelation: "total_loss_case_operations_internal"
+            referencedColumns: ["analysis_run_id"]
+          },
+          {
+            foreignKeyName: "total_loss_source_snapshots_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "appraisal_cases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "total_loss_source_snapshots_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "total_loss_case_operations_internal"
+            referencedColumns: ["case_id"]
+          },
+          {
+            foreignKeyName: "total_loss_source_snapshots_entitlement_identity_fkey"
+            columns: ["entitlement_id", "case_id", "preliminary_snapshot_id"]
+            isOneToOne: false
+            referencedRelation: "case_entitlements"
+            referencedColumns: ["id", "case_id", "preliminary_snapshot_id"]
+          },
+          {
+            foreignKeyName: "total_loss_source_snapshots_package_identity_fkey"
+            columns: [
+              "package_job_id",
+              "case_id",
+              "preliminary_snapshot_id",
+              "entitlement_id",
+            ]
+            isOneToOne: false
+            referencedRelation: "total_loss_package_jobs"
+            referencedColumns: [
+              "id",
+              "case_id",
+              "preliminary_snapshot_id",
+              "entitlement_id",
+            ]
+          },
+          {
+            foreignKeyName: "total_loss_source_snapshots_preliminary_case_fkey"
+            columns: ["preliminary_snapshot_id", "case_id"]
+            isOneToOne: false
+            referencedRelation: "total_loss_preliminary_snapshots"
+            referencedColumns: ["id", "case_id"]
+          },
+          {
+            foreignKeyName: "total_loss_source_snapshots_run_identity_fkey"
+            columns: ["analysis_run_id", "analysis_job_id", "case_id"]
+            isOneToOne: false
+            referencedRelation: "total_loss_analysis_jobs"
+            referencedColumns: ["run_id", "id", "case_id"]
+          },
+        ]
+      }
       total_loss_workflow_events: {
         Row: {
           actor_type: string
@@ -3201,6 +3411,97 @@ export type Database = {
           vehicle_year?: number
         }
         Relationships: []
+      }
+      workflow_work_items: {
+        Row: {
+          attempt_count: number
+          case_id: string
+          completed_at: string | null
+          created_at: string
+          dispatch_attempt_count: number
+          dispatch_expires_at: string | null
+          dispatch_token: string | null
+          failed_at: string | null
+          id: string
+          last_dispatched_at: string | null
+          last_error_code: string | null
+          next_attempt_at: string
+          package_job_id: string
+          processing_expires_at: string | null
+          processing_token: string | null
+          retryable: boolean | null
+          status: string
+          updated_at: string
+          work_type: string
+          work_version: string
+        }
+        Insert: {
+          attempt_count?: number
+          case_id: string
+          completed_at?: string | null
+          created_at?: string
+          dispatch_attempt_count?: number
+          dispatch_expires_at?: string | null
+          dispatch_token?: string | null
+          failed_at?: string | null
+          id?: string
+          last_dispatched_at?: string | null
+          last_error_code?: string | null
+          next_attempt_at?: string
+          package_job_id: string
+          processing_expires_at?: string | null
+          processing_token?: string | null
+          retryable?: boolean | null
+          status?: string
+          updated_at?: string
+          work_type: string
+          work_version: string
+        }
+        Update: {
+          attempt_count?: number
+          case_id?: string
+          completed_at?: string | null
+          created_at?: string
+          dispatch_attempt_count?: number
+          dispatch_expires_at?: string | null
+          dispatch_token?: string | null
+          failed_at?: string | null
+          id?: string
+          last_dispatched_at?: string | null
+          last_error_code?: string | null
+          next_attempt_at?: string
+          package_job_id?: string
+          processing_expires_at?: string | null
+          processing_token?: string | null
+          retryable?: boolean | null
+          status?: string
+          updated_at?: string
+          work_type?: string
+          work_version?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workflow_work_items_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "appraisal_cases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workflow_work_items_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "total_loss_case_operations_internal"
+            referencedColumns: ["case_id"]
+          },
+          {
+            foreignKeyName: "workflow_work_items_package_case_fkey"
+            columns: ["package_job_id", "case_id"]
+            isOneToOne: false
+            referencedRelation: "total_loss_package_jobs"
+            referencedColumns: ["id", "case_id"]
+          },
+        ]
       }
     }
     Views: {
@@ -3442,6 +3743,25 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      claim_total_loss_package_work_item: {
+        Args: {
+          requested_processing_token: string
+          requested_work_item_id: string
+        }
+        Returns: {
+          attempt_count: number
+          case_id: string
+          final_assessment_id: string
+          outcome: string
+          package_job_id: string
+          package_status: string
+          processing_expires_at: string
+          processing_token: string
+          source_snapshot_id: string
+          work_item_id: string
+          work_item_status: string
+        }[]
+      }
       claim_vehicle_trim_cache: {
         Args: {
           requested_generation_token: string
@@ -3498,6 +3818,16 @@ export type Database = {
           isOneToOne: false
           isSetofReturn: true
         }
+      }
+      complete_total_loss_package_work_item: {
+        Args: {
+          requested_final_assessment_id: string
+          requested_package_status: string
+          requested_processing_token: string
+          requested_reason_code: string
+          requested_work_item_id: string
+        }
+        Returns: boolean
       }
       complete_total_loss_report_upload_recovery: {
         Args: { case_id: string; upload_id: string }
@@ -3565,6 +3895,19 @@ export type Database = {
         Returns: boolean
       }
       current_auth_user_is_anonymous: { Args: never; Returns: boolean }
+      enqueue_total_loss_package_job: {
+        Args: { requested_entitlement_id: string }
+        Returns: {
+          case_id: string
+          entitlement_id: string
+          outcome: string
+          package_job_id: string
+          package_status: string
+          work_item_id: string
+          work_item_status: string
+          workflow_revision: number
+        }[]
+      }
       expire_total_loss_checkout_attempt_from_webhook: {
         Args: {
           requested_checkout_attempt_id: string
@@ -3607,6 +3950,16 @@ export type Database = {
           isOneToOne: false
           isSetofReturn: true
         }
+      }
+      fail_total_loss_package_work_item: {
+        Args: {
+          requested_failure_code: string
+          requested_failure_kind: string
+          requested_processing_token: string
+          requested_retry_delay_seconds: number
+          requested_work_item_id: string
+        }
+        Returns: boolean
       }
       finalize_stripe_webhook_event: {
         Args: {
@@ -3840,6 +4193,38 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      mark_workflow_work_item_dispatched: {
+        Args: {
+          requested_dispatch_token: string
+          requested_work_item_id: string
+        }
+        Returns: boolean
+      }
+      persist_total_loss_final_assessment: {
+        Args: {
+          requested_assessment: Json
+          requested_assessment_digest: string
+          requested_conclusion_code: string
+          requested_currency: string
+          requested_findings: Json
+          requested_limitations: Json
+          requested_methodology_version: string
+          requested_preliminary_to_final_comparison: Json
+          requested_processing_token: string
+          requested_range_high_minor_units: number
+          requested_range_low_minor_units: number
+          requested_range_median_minor_units: number
+          requested_reason_codes: Json
+          requested_schema_version: string
+          requested_source_snapshot_id: string
+          requested_work_item_id: string
+        }
+        Returns: {
+          assessment_digest: string
+          final_assessment_id: string
+          outcome: string
+        }[]
+      }
       persist_total_loss_report_extraction: {
         Args: {
           analysis_input_revision: number
@@ -3918,6 +4303,16 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      reconcile_total_loss_package_work_items: {
+        Args: { requested_dispatch_token: string; requested_limit: number }
+        Returns: {
+          dispatch_attempt_count: number
+          package_job_id: string
+          work_item_id: string
+          work_type: string
+          work_version: string
+        }[]
+      }
       record_total_loss_dispute: {
         Args: {
           requested_amount_minor_units: number
@@ -3991,6 +4386,15 @@ export type Database = {
         }
         Returns: boolean
       }
+      release_workflow_work_item_dispatch: {
+        Args: {
+          requested_delay_seconds: number
+          requested_dispatch_token: string
+          requested_error_code: string
+          requested_work_item_id: string
+        }
+        Returns: boolean
+      }
       renew_total_loss_case_claim: {
         Args: { requested_case_id: string }
         Returns: Database["public"]["CompositeTypes"]["total_loss_case_claim_renewal_result"][]
@@ -4010,6 +4414,16 @@ export type Database = {
           isOneToOne: false
           isSetofReturn: true
         }
+      }
+      reserve_due_workflow_work_items: {
+        Args: { requested_dispatch_token: string; requested_limit: number }
+        Returns: {
+          dispatch_attempt_count: number
+          package_job_id: string
+          work_item_id: string
+          work_type: string
+          work_version: string
+        }[]
       }
       reserve_total_loss_checkout: {
         Args: {
@@ -4083,6 +4497,63 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      resolve_total_loss_package_source_context: {
+        Args: {
+          requested_processing_token: string
+          requested_work_item_id: string
+        }
+        Returns: {
+          analysis_artifact: Json
+          analysis_job_id: string
+          analysis_run_created_at: string
+          analysis_run_id: string
+          analysis_run_schema_version: string
+          analysis_version: string
+          case_id: string
+          comparable_scoring_version: string
+          confirmed_facts: Json
+          discrepancy_analysis_version: string
+          entitlement_id: string
+          existing_source_snapshot: Json
+          existing_source_snapshot_digest: string
+          existing_source_snapshot_id: string
+          extraction_extracted_at: string
+          extraction_provider_name: string
+          extraction_schema_version: string
+          lineage_current: boolean
+          normalized_extraction: Json
+          owner_user_id: string
+          package_job_id: string
+          preliminary_classification: string
+          preliminary_currency: string
+          preliminary_range_high_minor_units: number
+          preliminary_range_low_minor_units: number
+          preliminary_range_median_minor_units: number
+          preliminary_snapshot: Json
+          preliminary_snapshot_digest: string
+          preliminary_snapshot_id: string
+          preliminary_snapshot_schema_version: string
+          preliminary_source_references: Json
+          presentation_schema_version: string
+          product_identifier: string
+          product_version: string
+          request_digest: string
+          search_diagnostics_digest: string
+          source_analysis_input_id: string
+          source_analysis_input_revision: number
+          source_intake_mode: Database["public"]["Enums"]["total_loss_intake_mode"]
+          source_report_original_filename: string
+          source_report_upload_id: string
+          source_report_uploaded_at: string
+          storage_bucket_id: string
+          storage_byte_size: number
+          storage_media_type: string
+          storage_object_exists: boolean
+          storage_object_name: string
+          storage_owner_id: string
+          work_item_id: string
+        }[]
+      }
       resolve_total_loss_payment_context: {
         Args: { requested_external_payment_intent_id: string }
         Returns: Database["public"]["CompositeTypes"]["total_loss_stripe_context_result"][]
@@ -4136,6 +4607,29 @@ export type Database = {
           isOneToOne: false
           isSetofReturn: true
         }
+      }
+      seal_total_loss_source_snapshot: {
+        Args: {
+          requested_analysis_artifact_digest: string
+          requested_evidence_cutoff: string
+          requested_normalized_extraction_digest: string
+          requested_processing_token: string
+          requested_snapshot_created_at: string
+          requested_snapshot_digest: string
+          requested_snapshot_schema_version: string
+          requested_source_document_byte_size: number
+          requested_source_document_media_type: string
+          requested_source_document_sha256: string
+          requested_source_snapshot: Json
+          requested_source_snapshot_id: string
+          requested_work_item_id: string
+        }
+        Returns: {
+          outcome: string
+          package_status: string
+          source_snapshot_digest: string
+          source_snapshot_id: string
+        }[]
       }
       staff_get_total_loss_case_operation: {
         Args: { requested_case_id: string }

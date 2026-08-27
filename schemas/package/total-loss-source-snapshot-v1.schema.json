@@ -1,0 +1,410 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.venfour.local/package/total-loss-source-snapshot-v1.schema.json",
+  "title": "Venfour Total-Loss Package Source Snapshot V1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "lineage",
+    "createdAt",
+    "input",
+    "sourceDocument",
+    "extraction",
+    "analysis",
+    "preliminary",
+    "evidenceCutoff",
+    "evidenceManifest",
+    "validationManifest",
+    "snapshotDigest"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "1" },
+    "lineage": { "$ref": "#/$defs/lineage" },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "Z$"
+    },
+    "input": { "$ref": "#/$defs/input" },
+    "sourceDocument": {
+      "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/sourceDocument" }]
+    },
+    "extraction": {
+      "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/extraction" }]
+    },
+    "analysis": { "$ref": "#/$defs/analysis" },
+    "preliminary": { "$ref": "#/$defs/preliminary" },
+    "evidenceCutoff": { "$ref": "#/$defs/evidenceCutoff" },
+    "evidenceManifest": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/evidenceReference" }
+    },
+    "validationManifest": { "$ref": "#/$defs/validationManifest" },
+    "snapshotDigest": { "$ref": "#/$defs/digest" }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "input": {
+            "properties": { "intakeMode": { "const": "MANUAL" } },
+            "required": ["intakeMode"]
+          }
+        },
+        "required": ["input"]
+      },
+      "then": {
+        "properties": {
+          "sourceDocument": { "type": "null" },
+          "extraction": { "type": "null" }
+        }
+      },
+      "else": {
+        "properties": {
+          "sourceDocument": { "$ref": "#/$defs/sourceDocument" },
+          "extraction": { "$ref": "#/$defs/extraction" }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "uuid": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "nonEmptyString": {
+      "type": "string",
+      "minLength": 1
+    },
+    "nullableString": {
+      "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/nonEmptyString" }]
+    },
+    "date": {
+      "type": "string",
+      "format": "date"
+    },
+    "nullableDate": {
+      "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/date" }]
+    },
+    "dateTime": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "nullableDateTime": {
+      "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/dateTime" }]
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "nullableDigest": {
+      "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/digest" }]
+    },
+    "moneyRange": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["lowMinorUnits", "medianMinorUnits", "highMinorUnits", "currency"],
+      "properties": {
+        "lowMinorUnits": { "type": ["integer", "null"] },
+        "medianMinorUnits": { "type": ["integer", "null"] },
+        "highMinorUnits": { "type": ["integer", "null"] },
+        "currency": { "const": "USD" }
+      }
+    },
+    "lineage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "caseId",
+        "packageJobId",
+        "entitlementId",
+        "preliminarySnapshotId",
+        "sourceSnapshotId",
+        "analysisJobId",
+        "analysisRunId",
+        "ownerUserIdAtCreation",
+        "productIdentifier",
+        "productVersion"
+      ],
+      "properties": {
+        "caseId": { "$ref": "#/$defs/uuid" },
+        "packageJobId": { "$ref": "#/$defs/uuid" },
+        "entitlementId": { "$ref": "#/$defs/uuid" },
+        "preliminarySnapshotId": { "$ref": "#/$defs/uuid" },
+        "sourceSnapshotId": { "$ref": "#/$defs/uuid" },
+        "analysisJobId": { "$ref": "#/$defs/uuid" },
+        "analysisRunId": { "$ref": "#/$defs/uuid" },
+        "ownerUserIdAtCreation": { "$ref": "#/$defs/uuid" },
+        "productIdentifier": { "$ref": "#/$defs/nonEmptyString" },
+        "productVersion": { "$ref": "#/$defs/nonEmptyString" }
+      }
+    },
+    "vehicleConfiguration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source", "field", "values"],
+      "properties": {
+        "source": { "$ref": "#/$defs/nonEmptyString" },
+        "field": { "$ref": "#/$defs/nonEmptyString" },
+        "values": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/nonEmptyString" }
+        }
+      }
+    },
+    "confirmedFacts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "vin",
+        "year",
+        "make",
+        "model",
+        "trim",
+        "vehicleConfiguration",
+        "mileage",
+        "postalCode",
+        "lossDate",
+        "insurerName",
+        "insurerVehicleValuationMinorUnits",
+        "priorTitleStatus",
+        "condition",
+        "existingDamageDescription",
+        "optionsPackages",
+        "intakeCompletedAt"
+      ],
+      "properties": {
+        "vin": { "type": ["string", "null"], "maxLength": 64 },
+        "year": { "type": "integer", "minimum": 1886, "maximum": 2200 },
+        "make": { "$ref": "#/$defs/nonEmptyString" },
+        "model": { "$ref": "#/$defs/nonEmptyString" },
+        "trim": { "$ref": "#/$defs/nonEmptyString" },
+        "vehicleConfiguration": {
+          "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/vehicleConfiguration" }]
+        },
+        "mileage": { "type": "integer", "minimum": 0 },
+        "postalCode": { "$ref": "#/$defs/nonEmptyString" },
+        "lossDate": { "$ref": "#/$defs/date" },
+        "insurerName": { "$ref": "#/$defs/nonEmptyString" },
+        "insurerVehicleValuationMinorUnits": { "type": ["integer", "null"] },
+        "priorTitleStatus": { "$ref": "#/$defs/nullableString" },
+        "condition": { "$ref": "#/$defs/nullableString" },
+        "existingDamageDescription": { "$ref": "#/$defs/nullableString" },
+        "optionsPackages": { "$ref": "#/$defs/nullableString" },
+        "intakeCompletedAt": { "$ref": "#/$defs/nullableDateTime" }
+      }
+    },
+    "input": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "intakeMode",
+        "analysisInputRevision",
+        "analysisInputId",
+        "reportUploadId",
+        "confirmedFacts",
+        "inputDigest"
+      ],
+      "properties": {
+        "intakeMode": { "enum": ["REPORT", "MANUAL"] },
+        "analysisInputRevision": { "type": "integer", "minimum": 1 },
+        "analysisInputId": { "$ref": "#/$defs/uuid" },
+        "reportUploadId": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/uuid" }] },
+        "confirmedFacts": { "$ref": "#/$defs/confirmedFacts" },
+        "inputDigest": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "sourceDocument": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "bucket",
+        "storageOwnerId",
+        "objectPath",
+        "uploadId",
+        "originalFilename",
+        "uploadedAt",
+        "detectedMediaType",
+        "declaredMimeType",
+        "byteSize",
+        "pageCount",
+        "sha256"
+      ],
+      "properties": {
+        "bucket": { "const": "case-files" },
+        "storageOwnerId": { "$ref": "#/$defs/uuid" },
+        "objectPath": { "$ref": "#/$defs/nonEmptyString" },
+        "uploadId": { "$ref": "#/$defs/uuid" },
+        "originalFilename": { "$ref": "#/$defs/nullableString" },
+        "uploadedAt": { "$ref": "#/$defs/nullableDateTime" },
+        "detectedMediaType": { "const": "application/pdf" },
+        "declaredMimeType": { "$ref": "#/$defs/nullableString" },
+        "byteSize": { "type": "integer", "minimum": 1 },
+        "pageCount": { "type": "integer", "minimum": 1 },
+        "sha256": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "extraction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "rowSchemaVersion",
+        "wrapperSchemaVersion",
+        "adapter",
+        "provider",
+        "providerId",
+        "confidence",
+        "partial",
+        "warnings",
+        "missingRequiredFields",
+        "model",
+        "extractedAt",
+        "normalizedReport",
+        "normalizedReportDigest",
+        "documentSha256"
+      ],
+      "properties": {
+        "rowSchemaVersion": { "$ref": "#/$defs/nonEmptyString" },
+        "wrapperSchemaVersion": { "const": "1" },
+        "adapter": { "enum": ["CCC", "GENERIC"] },
+        "provider": { "$ref": "#/$defs/nullableString" },
+        "providerId": { "enum": [null, "CCC", "MITCHELL", "AUDATEX", "INSURER", "OTHER"] },
+        "confidence": { "enum": ["LOW", "MEDIUM", "HIGH"] },
+        "partial": { "type": "boolean" },
+        "warnings": { "type": "array", "items": { "$ref": "#/$defs/nonEmptyString" } },
+        "missingRequiredFields": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/nonEmptyString" } },
+        "model": { "$ref": "#/$defs/nullableString" },
+        "extractedAt": { "$ref": "#/$defs/dateTime" },
+        "normalizedReport": { "type": "object" },
+        "normalizedReportDigest": { "$ref": "#/$defs/digest" },
+        "documentSha256": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "analysis": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "artifact",
+        "artifactDigest",
+        "requestDigest",
+        "searchDiagnosticsDigest",
+        "analysisRunSchemaVersion",
+        "analysisVersion",
+        "discrepancyAnalysisVersion",
+        "comparableScoringVersion",
+        "createdAt",
+        "providers"
+      ],
+      "properties": {
+        "artifact": { "type": "object" },
+        "artifactDigest": { "$ref": "#/$defs/digest" },
+        "requestDigest": { "$ref": "#/$defs/digest" },
+        "searchDiagnosticsDigest": { "$ref": "#/$defs/nullableDigest" },
+        "analysisRunSchemaVersion": { "$ref": "#/$defs/nonEmptyString" },
+        "analysisVersion": { "$ref": "#/$defs/nonEmptyString" },
+        "discrepancyAnalysisVersion": { "$ref": "#/$defs/nonEmptyString" },
+        "comparableScoringVersion": { "$ref": "#/$defs/nonEmptyString" },
+        "createdAt": { "$ref": "#/$defs/dateTime" },
+        "providers": { "type": "object" }
+      }
+    },
+    "preliminary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "snapshot",
+        "snapshotSchemaVersion",
+        "presentation",
+        "presentationDigest",
+        "snapshotDigest",
+        "presentationSchemaVersion",
+        "classification",
+        "insurerValueMinorUnits",
+        "supportedRange"
+      ],
+      "properties": {
+        "snapshot": { "type": "object" },
+        "snapshotSchemaVersion": { "$ref": "#/$defs/nonEmptyString" },
+        "presentation": { "type": "object" },
+        "presentationDigest": { "$ref": "#/$defs/digest" },
+        "snapshotDigest": { "$ref": "#/$defs/digest" },
+        "presentationSchemaVersion": { "$ref": "#/$defs/nonEmptyString" },
+        "classification": { "$ref": "#/$defs/nonEmptyString" },
+        "insurerValueMinorUnits": { "type": ["integer", "null"] },
+        "supportedRange": { "$ref": "#/$defs/moneyRange" }
+      }
+    },
+    "evidenceCutoff": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "lossDate",
+        "currentObservedDate",
+        "historicalEvidenceDate",
+        "historicalProviderAsOfDate",
+        "analysisCreatedAt"
+      ],
+      "properties": {
+        "lossDate": { "$ref": "#/$defs/date" },
+        "currentObservedDate": { "$ref": "#/$defs/nullableDate" },
+        "historicalEvidenceDate": { "$ref": "#/$defs/nullableDate" },
+        "historicalProviderAsOfDate": { "$ref": "#/$defs/nullableDate" },
+        "analysisCreatedAt": { "$ref": "#/$defs/dateTime" }
+      }
+    },
+    "evidenceReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "evidenceId",
+        "sourceKind",
+        "artifact",
+        "jsonPointer",
+        "sourceIdentity",
+        "locationPrecision",
+        "pageNumber"
+      ],
+      "properties": {
+        "evidenceId": { "type": "string", "pattern": "^ev_[0-9a-f]{64}$" },
+        "sourceKind": { "enum": ["CUSTOMER_CONFIRMED_INPUT", "INSURER_COMPARABLE", "EXTERNAL_PROVIDER_RECORD", "ANALYSIS_CALCULATION"] },
+        "artifact": { "enum": ["CONFIRMED_INPUT", "ANALYSIS_RUN"] },
+        "jsonPointer": { "type": "string", "pattern": "^/" },
+        "sourceIdentity": { "$ref": "#/$defs/nonEmptyString" },
+        "locationPrecision": { "enum": ["JSON_POINTER", "DOCUMENT_ONLY"] },
+        "pageNumber": { "type": "null" }
+      }
+    },
+    "validationCheck": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "status", "evidenceIds"],
+      "properties": {
+        "code": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]{0,63}$" },
+        "status": { "enum": ["PASS", "WARNING", "REVIEW"] },
+        "evidenceIds": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^ev_[0-9a-f]{64}$" }
+        }
+      }
+    },
+    "validationManifest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["validatorVersion", "checks", "limitations"],
+      "properties": {
+        "validatorVersion": { "const": "1" },
+        "checks": { "type": "array", "items": { "$ref": "#/$defs/validationCheck" } },
+        "limitations": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]{0,63}$" }
+        }
+      }
+    }
+  }
+}

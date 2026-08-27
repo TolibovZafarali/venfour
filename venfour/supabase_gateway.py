@@ -1326,6 +1326,395 @@ class SupabaseHttpGateway:
         )
         return self._single_rpc_row(payload, "Dispute result")
 
+    def enqueue_total_loss_package_job(
+        self, entitlement_id: str
+    ) -> Mapping[str, Any]:
+        payload = self._rpc(
+            "enqueue_total_loss_package_job",
+            {
+                "requested_entitlement_id": _canonical_uuid(
+                    entitlement_id, "Entitlement ID"
+                )
+            },
+            retry_ambiguous_claim=True,
+        )
+        return self._single_rpc_row(payload, "Package enqueue")
+
+    def reserve_due_workflow_work_items(
+        self, dispatch_token: str, limit: int
+    ) -> list[Mapping[str, Any]]:
+        if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= 100:
+            raise SupabaseContractError("Dispatch limit is invalid")
+        payload = self._rpc(
+            "reserve_due_workflow_work_items",
+            {
+                "requested_dispatch_token": _canonical_uuid(
+                    dispatch_token, "Dispatch token"
+                ),
+                "requested_limit": limit,
+            },
+            retry_ambiguous_claim=True,
+        )
+        if not isinstance(payload, list) or any(
+            not isinstance(row, Mapping) for row in payload
+        ):
+            raise SupabaseContractError(
+                "Work-item dispatch reservation response is invalid"
+            )
+        return payload
+
+    def mark_workflow_work_item_dispatched(
+        self, work_item_id: str, dispatch_token: str
+    ) -> bool:
+        payload = self._rpc(
+            "mark_workflow_work_item_dispatched",
+            {
+                "requested_work_item_id": _canonical_uuid(
+                    work_item_id, "Work item ID"
+                ),
+                "requested_dispatch_token": _canonical_uuid(
+                    dispatch_token, "Dispatch token"
+                ),
+            },
+        )
+        return self._rpc_boolean(payload, "Work-item dispatch completion")
+
+    def release_workflow_work_item_dispatch(
+        self,
+        work_item_id: str,
+        dispatch_token: str,
+        error_code: str,
+        delay_seconds: int,
+    ) -> bool:
+        if (
+            isinstance(delay_seconds, bool)
+            or not isinstance(delay_seconds, int)
+            or not 1 <= delay_seconds <= 86400
+        ):
+            raise SupabaseContractError("Dispatch retry delay is invalid")
+        payload = self._rpc(
+            "release_workflow_work_item_dispatch",
+            {
+                "requested_work_item_id": _canonical_uuid(
+                    work_item_id, "Work item ID"
+                ),
+                "requested_dispatch_token": _canonical_uuid(
+                    dispatch_token, "Dispatch token"
+                ),
+                "requested_error_code": _canonical_commerce_code(
+                    error_code,
+                    re.compile(r"[A-Z][A-Z0-9_]{0,63}"),
+                    "Dispatch error code",
+                ),
+                "requested_delay_seconds": delay_seconds,
+            },
+        )
+        return self._rpc_boolean(payload, "Work-item dispatch release")
+
+    def claim_total_loss_package_work_item(
+        self, work_item_id: str, processing_token: str
+    ) -> Mapping[str, Any]:
+        payload = self._rpc(
+            "claim_total_loss_package_work_item",
+            {
+                "requested_work_item_id": _canonical_uuid(
+                    work_item_id, "Work item ID"
+                ),
+                "requested_processing_token": _canonical_uuid(
+                    processing_token, "Processing token"
+                ),
+            },
+            retry_ambiguous_claim=True,
+        )
+        return self._single_rpc_row(payload, "Package work claim")
+
+    def resolve_total_loss_package_source_context(
+        self, work_item_id: str, processing_token: str
+    ) -> Mapping[str, Any]:
+        payload = self._rpc(
+            "resolve_total_loss_package_source_context",
+            {
+                "requested_work_item_id": _canonical_uuid(
+                    work_item_id, "Work item ID"
+                ),
+                "requested_processing_token": _canonical_uuid(
+                    processing_token, "Processing token"
+                ),
+            },
+        )
+        return self._single_rpc_row(payload, "Package source context")
+
+    @staticmethod
+    def _package_digest(value: Any, label: str) -> str:
+        if not isinstance(value, str) or re.fullmatch(r"[0-9a-f]{64}", value) is None:
+            raise SupabaseContractError(f"{label} is invalid")
+        return value
+
+    @staticmethod
+    def _package_mapping(value: Any, label: str) -> Mapping[str, Any]:
+        if not isinstance(value, Mapping):
+            raise SupabaseContractError(f"{label} is invalid")
+        return value
+
+    @staticmethod
+    def _package_timestamp(value: Any, label: str) -> str:
+        if not isinstance(value, str) or not value.endswith("Z"):
+            raise SupabaseContractError(f"{label} is invalid")
+        try:
+            parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except ValueError as exc:
+            raise SupabaseContractError(f"{label} is invalid") from exc
+        if parsed.tzinfo is None or parsed.utcoffset() != UTC.utcoffset(parsed):
+            raise SupabaseContractError(f"{label} is invalid")
+        return value
+
+    def seal_total_loss_source_snapshot(
+        self,
+        work_item_id: str,
+        processing_token: str,
+        snapshot: Mapping[str, Any],
+    ) -> Mapping[str, Any]:
+        source = self._package_mapping(snapshot, "Source snapshot")
+        lineage = self._package_mapping(source.get("lineage"), "Source lineage")
+        analysis = self._package_mapping(source.get("analysis"), "Source analysis")
+        cutoff = self._package_mapping(
+            source.get("evidenceCutoff"), "Evidence cutoff"
+        )
+        document = source.get("sourceDocument")
+        extraction = source.get("extraction")
+        if document is not None:
+            document = self._package_mapping(document, "Source document")
+        if extraction is not None:
+            extraction = self._package_mapping(extraction, "Source extraction")
+        byte_size = document.get("byteSize") if document is not None else None
+        if byte_size is not None and (
+            isinstance(byte_size, bool)
+            or not isinstance(byte_size, int)
+            or byte_size < 1
+        ):
+            raise SupabaseContractError("Source document byte size is invalid")
+        current_observed_date = cutoff.get("currentObservedDate")
+        if not isinstance(current_observed_date, str):
+            raise SupabaseContractError("Evidence cutoff is invalid")
+        payload = self._rpc(
+            "seal_total_loss_source_snapshot",
+            {
+                "requested_work_item_id": _canonical_uuid(
+                    work_item_id, "Work item ID"
+                ),
+                "requested_processing_token": _canonical_uuid(
+                    processing_token, "Processing token"
+                ),
+                "requested_source_snapshot_id": _canonical_uuid(
+                    lineage.get("sourceSnapshotId"), "Source snapshot ID"
+                ),
+                "requested_source_document_media_type": (
+                    document.get("detectedMediaType") if document is not None else None
+                ),
+                "requested_source_document_byte_size": byte_size,
+                "requested_source_document_sha256": (
+                    self._package_digest(document.get("sha256"), "Document digest")
+                    if document is not None
+                    else None
+                ),
+                "requested_analysis_artifact_digest": self._package_digest(
+                    analysis.get("artifactDigest"), "Analysis artifact digest"
+                ),
+                "requested_normalized_extraction_digest": (
+                    self._package_digest(
+                        extraction.get("normalizedReportDigest"),
+                        "Normalized extraction digest",
+                    )
+                    if extraction is not None
+                    else None
+                ),
+                "requested_evidence_cutoff": current_observed_date,
+                "requested_snapshot_created_at": self._package_timestamp(
+                    source.get("createdAt"), "Source snapshot creation timestamp"
+                ),
+                "requested_snapshot_schema_version": _canonical_commerce_code(
+                    source.get("schemaVersion"),
+                    COMMERCE_CODE_PATTERN,
+                    "Source snapshot schema version",
+                ),
+                "requested_source_snapshot": dict(source),
+                "requested_snapshot_digest": self._package_digest(
+                    source.get("snapshotDigest"), "Source snapshot digest"
+                ),
+            },
+        )
+        return self._single_rpc_row(payload, "Source snapshot persistence")
+
+    def persist_total_loss_final_assessment(
+        self,
+        work_item_id: str,
+        processing_token: str,
+        source_snapshot_id: str,
+        assessment: Mapping[str, Any],
+    ) -> Mapping[str, Any]:
+        value = self._package_mapping(assessment, "Final assessment")
+        supported_range = value.get("supportedRange")
+        if supported_range is not None:
+            supported_range = self._package_mapping(
+                supported_range, "Supported range"
+            )
+        insurer_value = self._package_mapping(
+            value.get("insurerValuationReviewed"), "Insurer valuation"
+        )
+        currency = (
+            supported_range.get("currency")
+            if supported_range is not None
+            else insurer_value.get("currency")
+        )
+        comparison = self._package_mapping(
+            value.get("preliminaryToFinalComparison"),
+            "Preliminary-to-final comparison",
+        )
+        reason_codes = comparison.get("reasonCodes")
+        findings = value.get("findings")
+        limitations = value.get("limitations")
+        if not isinstance(reason_codes, list):
+            raise SupabaseContractError("Assessment reason codes are invalid")
+        if not isinstance(findings, list) or not isinstance(limitations, list):
+            raise SupabaseContractError("Assessment findings are invalid")
+        payload = self._rpc(
+            "persist_total_loss_final_assessment",
+            {
+                "requested_work_item_id": _canonical_uuid(
+                    work_item_id, "Work item ID"
+                ),
+                "requested_processing_token": _canonical_uuid(
+                    processing_token, "Processing token"
+                ),
+                "requested_source_snapshot_id": _canonical_uuid(
+                    source_snapshot_id, "Source snapshot ID"
+                ),
+                "requested_conclusion_code": _canonical_commerce_code(
+                    value.get("finalClassification"),
+                    re.compile(r"[A-Z][A-Z0-9_]{0,63}"),
+                    "Assessment conclusion",
+                ),
+                "requested_currency": _canonical_currency(
+                    currency, "Assessment currency"
+                ),
+                "requested_range_low_minor_units": (
+                    supported_range.get("lowMinorUnits")
+                    if supported_range is not None
+                    else None
+                ),
+                "requested_range_median_minor_units": (
+                    supported_range.get("medianMinorUnits")
+                    if supported_range is not None
+                    else None
+                ),
+                "requested_range_high_minor_units": (
+                    supported_range.get("highMinorUnits")
+                    if supported_range is not None
+                    else None
+                ),
+                "requested_findings": findings,
+                "requested_limitations": limitations,
+                "requested_reason_codes": reason_codes,
+                "requested_preliminary_to_final_comparison": dict(comparison),
+                "requested_assessment": dict(value),
+                "requested_methodology_version": _canonical_commerce_code(
+                    value.get("methodologyVersion"),
+                    COMMERCE_CODE_PATTERN,
+                    "Assessment methodology version",
+                ),
+                "requested_schema_version": _canonical_commerce_code(
+                    value.get("schemaVersion"),
+                    COMMERCE_CODE_PATTERN,
+                    "Assessment schema version",
+                ),
+                "requested_assessment_digest": self._package_digest(
+                    value.get("assessmentDigest"), "Assessment digest"
+                ),
+            },
+        )
+        return self._single_rpc_row(payload, "Final assessment persistence")
+
+    def complete_total_loss_package_work_item(
+        self,
+        work_item_id: str,
+        processing_token: str,
+        final_assessment_id: str,
+        package_status: str,
+        reason_code: str | None = None,
+    ) -> bool:
+        selected_status = self._canonical_choice(
+            package_status,
+            {"assessment_ready", "review_required", "new_evidence_required"},
+            "Package status",
+        )
+        if reason_code is not None:
+            reason_code = _canonical_commerce_code(
+                reason_code,
+                re.compile(r"[A-Z][A-Z0-9_]{0,63}"),
+                "Package reason code",
+            )
+        payload = self._rpc(
+            "complete_total_loss_package_work_item",
+            {
+                "requested_work_item_id": _canonical_uuid(
+                    work_item_id, "Work item ID"
+                ),
+                "requested_processing_token": _canonical_uuid(
+                    processing_token, "Processing token"
+                ),
+                "requested_final_assessment_id": _canonical_uuid(
+                    final_assessment_id, "Final assessment ID"
+                ),
+                "requested_package_status": selected_status,
+                "requested_reason_code": reason_code,
+            },
+        )
+        return self._rpc_boolean(payload, "Package work completion")
+
+    def fail_total_loss_package_work_item(
+        self,
+        work_item_id: str,
+        processing_token: str,
+        failure_code: str,
+        failure_kind: str,
+        retry_delay_seconds: int,
+    ) -> bool:
+        selected_kind = self._canonical_choice(
+            failure_kind,
+            {"retryable", "review_required", "terminal"},
+            "Package failure kind",
+        )
+        delay: int | None
+        if selected_kind == "retryable":
+            if (
+                isinstance(retry_delay_seconds, bool)
+                or not isinstance(retry_delay_seconds, int)
+                or not 1 <= retry_delay_seconds <= 86400
+            ):
+                raise SupabaseContractError("Package retry delay is invalid")
+            delay = retry_delay_seconds
+        else:
+            delay = None
+        payload = self._rpc(
+            "fail_total_loss_package_work_item",
+            {
+                "requested_work_item_id": _canonical_uuid(
+                    work_item_id, "Work item ID"
+                ),
+                "requested_processing_token": _canonical_uuid(
+                    processing_token, "Processing token"
+                ),
+                "requested_failure_code": _canonical_commerce_code(
+                    failure_code,
+                    re.compile(r"[A-Z][A-Z0-9_]{0,63}"),
+                    "Package failure code",
+                ),
+                "requested_failure_kind": selected_kind,
+                "requested_retry_delay_seconds": delay,
+            },
+        )
+        return self._rpc_boolean(payload, "Package work failure")
+
     @staticmethod
     def _canonical_boolean(value: Any, label: str) -> bool:
         if not isinstance(value, bool):
