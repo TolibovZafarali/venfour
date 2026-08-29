@@ -802,7 +802,9 @@ function mapCommerce(
   let amountMinorUnits: number | null = null;
   let currency: string | null = null;
   let formatted: string | null = null;
-  if (includesPrice) {
+  const emptyPrice = value.amountMinorUnits === null && value.currency === null &&
+    (value.formatted === null || value.formatted === undefined);
+  if (includesPrice && !emptyPrice) {
     if (
       value.amountMinorUnits !== null &&
       (!Number.isSafeInteger(value.amountMinorUnits) ||
@@ -1207,6 +1209,16 @@ function ensureCaseId(caseId: string) {
   if (!UUID_PATTERN.test(caseId)) {
     throw new TotalLossClaimContractError("A valid case ID is required.");
   }
+}
+
+export async function initializeTotalLossClaim(caseId: string, accessToken: string) {
+  if (!environment.localPostContinueEnabled) {
+    throw new Error("Local continuation is unavailable.");
+  }
+  return mapResolver(await apiClient.postAuthenticated<unknown>(
+    `/api/v1/appraisal-cases/${encodeURIComponent(caseId)}/post-continue`,
+    { accessToken },
+  ));
 }
 
 export async function getTotalLossClaim(

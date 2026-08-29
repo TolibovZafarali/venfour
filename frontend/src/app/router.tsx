@@ -7,6 +7,7 @@ import {
 
 import type { PageMetadata } from "@/app/document-metadata";
 import { AppShell } from "@/components/app-shell";
+import { environment } from "@/config/env";
 import { AdminCaseOperationsAccessGate } from "@/features/admin/case-operations/admin-access-gate";
 import { AdminDiminishedValueAccessGate } from "@/features/admin/diminished-value/admin-access-gate";
 import { AuthCallbackPage } from "@/features/auth";
@@ -49,6 +50,10 @@ export const appRoutes: RouteObject[] = [
     element: <AppShell />,
     errorElement: <RouteErrorPage />,
     children: [
+      ...(import.meta.env.DEV && environment.localPostContinueEnabled ? [{
+        path: "_local/claims",
+        lazy: async () => ({ Component: (await import("@/pages/local-claim-testing-page")).LocalClaimTestingPage }),
+      }] : []),
       {
         index: true,
         element: <HomePage />,

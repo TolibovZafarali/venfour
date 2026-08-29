@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import {
   getTotalLossCheckoutQuote,
   getTotalLossClaim,
+  initializeTotalLossClaim,
   renewTotalLossClaimAccessLink,
   requestTotalLossClaimRecovery,
 } from "@/features/total-loss-claim/api";
@@ -14,6 +15,27 @@ const OTHER_CASE_ID = "55555555-5555-4555-8555-555555555555";
 const CLAIM_ID = "44444444-4444-4444-8444-444444444444";
 
 describe("total-loss claim API", () => {
+  it("does not issue an initialization request when the flag is off", async () => {
+    let requests = 0;
+    server.use(http.post("*/api/v1/appraisal-cases/:caseId/post-continue", () => {
+      requests += 1;
+      return HttpResponse.json({});
+    }));
+    await expect(initializeTotalLossClaim(CASE_ID, "owner-token")).rejects.toThrow("unavailable");
+    expect(requests).toBe(0);
+  });
+  it("accepts the authoritative empty price before the first order exists", async () => {
+    server.use(http.get("*/api/v1/appraisal-cases/:caseId/claim", () => HttpResponse.json({
+      caseId: CASE_ID, state: "secured", contactEmail: "owner@example.test",
+      workflow: { phase: "review", currentTask: "secure_claim", revision: 1 },
+      commerce: { checkoutAvailable: true, orderStatus: null, paymentStatus: null,
+        entitlementStatus: null, nextTask: "checkout", amountMinorUnits: null, currency: null },
+    })));
+    expect((await getTotalLossClaim(CASE_ID, "owner-token")).commerce).toMatchObject({
+      checkoutAvailable: true, amountMinorUnits: null, currency: null,
+    });
+  });
+
   it("loads an authenticated read-only checkout quote without creating a session", async () => {
     let authorization: string | null = null;
     let checkoutCreationCalls = 0;

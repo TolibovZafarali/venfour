@@ -20,6 +20,8 @@ import {
 } from "@/features/analyses/components/total-loss-analysis-experience";
 import { useAnalysisQuery } from "@/features/analyses/queries";
 import { ApiError } from "@/lib/api/client";
+import { environment } from "@/config/env";
+import { LocalContinueAction } from "@/features/total-loss-claim/components/local-continue-action";
 
 const canonicalUuid4Pattern =
   /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
@@ -120,6 +122,7 @@ function CompletedTotalLossAnalysis({
   readonly userId: string;
 }) {
   const resultQuery = useAnalysisQuery({ accessToken, runId, userId });
+  const { caseId } = useParams();
 
   if (resultQuery.isPending) {
     return (
@@ -163,7 +166,11 @@ function CompletedTotalLossAnalysis({
 
   return (
     <AnalysisExperienceFrame>
-      <TotalLossAnalysisResult analysis={resultQuery.data} />
+      <TotalLossAnalysisResult analysis={resultQuery.data} continueAction={
+        import.meta.env.DEV && environment.localPostContinueEnabled && caseId
+          ? <LocalContinueAction accessToken={accessToken} caseId={caseId} userId={userId} />
+          : undefined
+      } />
     </AnalysisExperienceFrame>
   );
 }

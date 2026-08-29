@@ -9,6 +9,7 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { useId } from "react";
+import type { ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
 import type {
@@ -227,11 +228,13 @@ const resultPresentationByClassification: Record<
 export interface TotalLossAnalysisResultProps {
   readonly analysis: AnalysisPresentation;
   readonly className?: string;
+  readonly continueAction?: ReactNode;
 }
 
 export function TotalLossAnalysisResult({
   analysis,
   className,
+  continueAction,
 }: TotalLossAnalysisResultProps) {
   const headingId = useId();
   const primaryEvidence = analysis.primaryExternalEvidence;
@@ -385,7 +388,7 @@ export function TotalLossAnalysisResult({
           </p>
         </section>
 
-        {presentation.showContinue ? (
+        {presentation.showContinue ? continueAction ?? (
           <Button
             type="button"
             size="lg"

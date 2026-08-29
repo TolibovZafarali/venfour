@@ -112,6 +112,7 @@ async function waitForUrl(url, timeoutMs) {
 if (existsSync(localEnvironmentFile)) {
   process.loadEnvFile(localEnvironmentFile);
 }
+const localClaimTesting = process.env.VENFOUR_LOCAL_POST_CONTINUE === "1";
 
 if (!executableExists(pythonExecutable)) {
   fail("create .venv and install requirements-dev.txt first.");
@@ -124,10 +125,10 @@ if (!commandAvailable("docker", ["info"])) {
     "a Docker-compatible container runtime is required for the isolated local Supabase stack. Start Docker Desktop, OrbStack, Rancher Desktop, or Podman, then retry.",
   );
 }
-if (!nonempty(process.env.OPENAI_API_KEY)) {
+if (!localClaimTesting && !nonempty(process.env.OPENAI_API_KEY)) {
   fail("OPENAI_API_KEY is missing from the ignored root .env file.");
 }
-if (!nonempty(process.env.MARKETCHECK_API_KEY)) {
+if (!localClaimTesting && !nonempty(process.env.MARKETCHECK_API_KEY)) {
   fail("MARKETCHECK_API_KEY is missing from the ignored root .env file.");
 }
 if (!nonempty(process.env.SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID)) {
@@ -187,6 +188,13 @@ const backendEnvironment = {
   VENFOUR_TURNSTILE_SECRET: turnstileTestSecret,
 };
 delete backendEnvironment.VENFOUR_STAGING_PROXY_SECRET;
+if (localClaimTesting) {
+  for (const name of Object.keys(backendEnvironment)) {
+    if (name.startsWith("OPENAI_") || name === "MARKETCHECK_API_KEY") {
+      delete backendEnvironment[name];
+    }
+  }
+}
 
 const frontendEnvironment = {
   ...process.env,
@@ -195,6 +203,7 @@ const frontendEnvironment = {
   VITE_SUPABASE_URL: credentials.apiUrl,
   VITE_TURNSTILE_SITE_KEY: turnstileTestSiteKey,
   VENFOUR_API_PROXY_TARGET: "http://127.0.0.1:8000",
+  VITE_ENABLE_POST_CONTINUE_FLOW: localClaimTesting ? "true" : "false",
 };
 for (const secretName of [
   "API_PROXY_SECRET",
@@ -250,7 +259,7 @@ const backend = spawn(
   [
     "-m",
     "uvicorn",
-    "venfour.api:create_app",
+    localClaimTesting ? "scripts.local_claim_flow:create_app" : "venfour.api:create_app",
     "--factory",
     "--host",
     "127.0.0.1",
@@ -259,6 +268,7 @@ const backend = spawn(
     "--reload",
     "--reload-dir",
     "venfour",
+    ...(localClaimTesting ? ["--reload-dir", "scripts"] : []),
   ],
   {
     cwd: repositoryRoot,
@@ -290,10 +300,13 @@ for (const child of children) {
 
 try {
   await Promise.all([
-    waitForUrl("http://127.0.0.1:8000/ready", 45_000),
+    waitForUrl(localClaimTesting ? "http://127.0.0.1:8000/health" : "http://127.0.0.1:8000/ready", 45_000),
     waitForUrl("http://127.0.0.1:5173/", 45_000),
   ]);
   console.log("\nVenfour is ready: http://localhost:5173");
+  if (localClaimTesting) {
+    console.log("Local claim testing: http://localhost:5173/_local/claims (external providers disabled)");
+  }
   console.log(`Local email inbox: ${credentials.emailInboxUrl}`);
   console.log("Press Ctrl+C to stop Vite and Uvicorn.");
 } catch (error) {

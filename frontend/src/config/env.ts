@@ -16,6 +16,11 @@ function turnstileSiteKey(value: string | undefined) {
 }
 
 export const environment = {
+  localPostContinueEnabled:
+    import.meta.env.DEV &&
+    import.meta.env.VITE_ENABLE_POST_CONTINUE_FLOW === "true" &&
+    typeof window !== "undefined" &&
+    ["localhost", "127.0.0.1", "[::1]"].includes(window.location.hostname),
   apiBaseUrl: normalizeBaseUrl(import.meta.env.VITE_API_BASE_URL),
   supabaseUrl: normalizeBaseUrl(import.meta.env.VITE_SUPABASE_URL),
   supabasePublishableKey: normalizeValue(

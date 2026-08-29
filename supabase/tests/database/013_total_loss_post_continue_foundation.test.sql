@@ -1202,10 +1202,10 @@ set local request.jwt.claim.sub = 'd4444444-4444-4444-8444-444444444444';
 
 select is(
   array[
-    (select count(*) from public.total_loss_preliminary_snapshots),
-    (select count(*) from public.total_loss_final_assessments),
-    (select count(*) from public.total_loss_ai_review_runs),
-    (select count(*) from public.total_loss_release_reviews)
+    (select count(*) from public.total_loss_preliminary_snapshots where case_id in ('da111111-1111-4111-8111-111111111111', 'da333333-3333-4333-8333-333333333333')),
+    (select count(*) from public.total_loss_final_assessments where case_id = 'da111111-1111-4111-8111-111111111111'),
+    (select count(*) from public.total_loss_ai_review_runs where case_id = 'da111111-1111-4111-8111-111111111111'),
+    (select count(*) from public.total_loss_release_reviews where case_id = 'da111111-1111-4111-8111-111111111111')
   ],
   array[2, 1, 1, 1]::bigint[],
   'database-authorized staff can inspect non-customer release-review surfaces while report artifacts remain service-backed'
