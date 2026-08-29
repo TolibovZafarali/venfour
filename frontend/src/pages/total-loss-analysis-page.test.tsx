@@ -14,7 +14,7 @@ const CASE_ID = "22222222-2222-4222-8222-222222222222";
 const casePath = `/total-loss/cases/${CASE_ID}/analysis`;
 const progressHeading = "We’re reviewing and analyzing your claim.";
 const materialResultHeading =
-  "Strong evidence suggests the insurer’s valuation may be too low.";
+  "Your insurer may be undervaluing your vehicle.";
 
 function sessionFor(id = USER_ID) {
   return {

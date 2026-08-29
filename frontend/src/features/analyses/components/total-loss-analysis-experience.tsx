@@ -166,15 +166,12 @@ export function TotalLossAnalysisProgress({
   );
 }
 
-type ResultTone = "amber" | "market" | "neutral";
-
 interface ResultPresentation {
-  readonly eyebrow: string;
   readonly heading: string;
+  readonly summary: string;
   readonly worthwhileHeading: string;
   readonly worthwhileSummary: string;
   readonly showContinue: boolean;
-  readonly tone: ResultTone;
 }
 
 const resultPresentationByClassification: Record<
@@ -182,52 +179,48 @@ const resultPresentationByClassification: Record<
   ResultPresentation
 > = {
   MATERIAL_UNDERVALUE_SIGNAL: {
-    eyebrow: "Potentially too low",
-    heading:
-      "Strong evidence suggests the insurer’s valuation may be too low.",
-    worthwhileHeading: "Continuing appears worthwhile.",
+    heading: "Your insurer may be undervaluing your vehicle.",
+    summary:
+      "We found market evidence suggesting your vehicle could be worth more.",
+    worthwhileHeading: "This looks worth pursuing.",
     worthwhileSummary:
-      "The selected evidence shows a material valuation signal worth examining more closely. It does not guarantee a settlement increase or determine what the insurer owes.",
+      "There appears to be enough of a difference to take a closer look.",
     showContinue: true,
-    tone: "amber",
   },
   POTENTIAL_UNDERVALUE: {
-    eyebrow: "Potentially too low",
-    heading: "The insurer’s valuation may be too low.",
-    worthwhileHeading: "A closer review appears worthwhile.",
+    heading: "Your insurer may be undervaluing your vehicle.",
+    summary:
+      "We found market evidence suggesting your vehicle could be worth more.",
+    worthwhileHeading: "This looks worth pursuing.",
     worthwhileSummary:
-      "The available evidence identifies a potential valuation gap worth reviewing, while leaving room for differences in vehicle facts and market evidence.",
+      "The difference may be worth a closer look, though some uncertainty remains.",
     showContinue: true,
-    tone: "amber",
   },
   NO_MATERIAL_DISCREPANCY: {
-    eyebrow: "Appears fair",
-    heading:
-      "The insurer’s valuation appears fair based on the available evidence.",
-    worthwhileHeading: "Pursuing this further may not be worthwhile.",
+    heading: "Your insurer’s valuation appears fair.",
+    summary: "The market evidence we found doesn’t show a meaningful gap.",
+    worthwhileHeading: "There may be little to pursue here.",
     worthwhileSummary:
-      "The available evidence does not show a material valuation gap. You can still check the insurer’s report for factual errors or missing information.",
+      "You can still check your insurer’s report for mistakes or missing details.",
     showContinue: false,
-    tone: "market",
   },
   CONFLICTING_EVIDENCE: {
-    eyebrow: "Evidence is mixed",
-    heading: "The available evidence points in different directions.",
-    worthwhileHeading: "It’s too soon to decide whether to continue.",
+    heading: "The picture isn’t clear yet.",
+    summary:
+      "The market evidence is mixed, so we can’t tell whether your insurer’s valuation is too low.",
+    worthwhileHeading: "It’s too soon to say.",
     worthwhileSummary:
-      "No single price signal is reliable enough to determine whether the insurer’s valuation appears fair or too low.",
+      "A closer look at the differences is needed before deciding what to do next.",
     showContinue: false,
-    tone: "neutral",
   },
   INSUFFICIENT_EVIDENCE: {
-    eyebrow: "More evidence needed",
-    heading:
-      "There isn’t enough reliable evidence to assess the insurer’s valuation.",
-    worthwhileHeading: "Venfour can’t yet determine whether to continue.",
+    heading: "We need more information to be sure.",
+    summary:
+      "We couldn’t find enough reliable market evidence to assess your insurer’s valuation.",
+    worthwhileHeading: "A clearer picture comes first.",
     worthwhileSummary:
-      "The available information does not support a reliable fairness comparison. That does not establish that the insurer’s valuation is correct or incorrect.",
+      "This doesn’t mean your insurer’s valuation is right or wrong.",
     showContinue: false,
-    tone: "neutral",
   },
 };
 
@@ -241,14 +234,38 @@ export function TotalLossAnalysisResult({
   className,
 }: TotalLossAnalysisResultProps) {
   const headingId = useId();
-  const presentation =
-    resultPresentationByClassification[analysis.assessment.classification];
   const primaryEvidence = analysis.primaryExternalEvidence;
   const priceSummary = primaryEvidence?.prices;
   const minimum = displayMoney(priceSummary?.minimumPrice);
   const maximum = displayMoney(priceSummary?.maximumPrice);
   const median = displayMoney(priceSummary?.medianPrice);
   const rangeAvailable = Boolean(minimum && maximum && median);
+  const insurerValue = analysis.insurerValuation.value;
+  const insurerValueAvailable =
+    analysis.analysisScope.insurerValuationAvailable &&
+    analysis.insurerValuation.source !== "NONE" &&
+    insurerValue.cents !== null;
+  const insurerLabel =
+    analysis.insurerValuation.source === "CUSTOMER_ENTERED"
+      ? "Insurer’s offer"
+      : "Insurer’s valuation";
+  const presentation: ResultPresentation = insurerValueAvailable
+    ? resultPresentationByClassification[analysis.assessment.classification]
+    : {
+        heading: rangeAvailable
+          ? "Here’s what we found for your vehicle."
+          : "We need more information to be sure.",
+        summary: rangeAvailable
+          ? "We found market prices for similar vehicles. An insurer’s offer is needed to see how it compares."
+          : "We couldn’t find enough reliable market evidence to estimate a range.",
+        worthwhileHeading: rangeAvailable
+          ? "Your insurer’s offer completes the picture."
+          : "A clearer picture comes first.",
+        worthwhileSummary: rangeAvailable
+          ? "Without it, we can’t yet tell whether there’s a difference worth pursuing."
+          : "We can’t yet tell whether there’s a difference worth pursuing.",
+        showContinue: false,
+      };
   const vehicle = [
     analysis.vehicle.year,
     analysis.vehicle.make,
@@ -261,7 +278,7 @@ export function TotalLossAnalysisResult({
   return (
     <section
       className={cn(
-        "relative overflow-hidden rounded-[1.75rem] border border-line/80 bg-white shadow-[0_32px_90px_-56px_rgba(11,31,51,0.55)]",
+        "relative mx-auto max-w-4xl overflow-hidden rounded-[1.75rem] border border-line/70 bg-white shadow-[0_24px_80px_-48px_rgba(11,31,51,0.25)]",
         className,
       )}
       aria-labelledby={headingId}
@@ -273,154 +290,194 @@ export function TotalLossAnalysisResult({
       </p>
 
       <span
-        className={cn(
-          "pointer-events-none absolute -top-28 -right-24 size-80 rounded-full blur-3xl",
-          presentation.tone === "market"
-            ? "bg-market-soft/90"
-            : presentation.tone === "amber"
-              ? "bg-amber-soft/90"
-              : "bg-surface",
-        )}
+        className="pointer-events-none absolute inset-x-0 top-0 h-64 bg-linear-to-b from-brand-soft/50 to-transparent"
         aria-hidden
       />
 
-      <div className="relative p-6 sm:p-8 lg:p-10 xl:p-12">
-        <div className="flex flex-col gap-8 lg:flex-row lg:items-start lg:justify-between">
-          <div className="max-w-3xl">
-            <span
-              className={cn(
-                "inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold tracking-[0.08em] uppercase",
-                toneClasses[presentation.tone].badge,
-              )}
-            >
-              <CheckCircle2 className="size-4" aria-hidden />
-              {presentation.eyebrow}
-            </span>
-            <h1
-              id={headingId}
-              className="mt-5 text-3xl leading-[1.08] font-semibold tracking-[-0.045em] text-balance text-ink sm:text-4xl xl:text-[3rem]"
-            >
-              {presentation.heading}
-            </h1>
-            <p className="mt-5 max-w-2xl text-base leading-7 text-copy">
-              {analysis.assessment.summary}
-            </p>
-          </div>
-
-          <div className="flex shrink-0 items-center gap-3 rounded-xl border border-line/80 bg-surface/70 px-4 py-3 lg:max-w-64">
-            <CarFront className="size-5 shrink-0 text-brand" aria-hidden />
-            <div className="min-w-0">
-              <p className="text-xs font-medium text-copy">Vehicle reviewed</p>
-              <p className="mt-0.5 text-sm font-semibold text-ink">{vehicle}</p>
-            </div>
-          </div>
+      <div className="relative px-4 py-7 text-center sm:px-10 sm:py-10 lg:px-16">
+        <div className="mx-auto flex max-w-xl items-center justify-center gap-2.5 text-copy">
+          <CarFront className="size-5 shrink-0 text-brand" aria-hidden />
+          <p className="text-sm font-medium text-pretty [overflow-wrap:anywhere]">
+            <span className="sr-only">Vehicle reviewed: </span>
+            {vehicle}
+          </p>
         </div>
 
-        <div className="mt-9 grid gap-5 lg:grid-cols-[minmax(0,1.15fr)_minmax(19rem,0.85fr)] lg:gap-6">
-          <section
-            className="overflow-hidden rounded-2xl bg-ink p-6 text-white sm:p-7 lg:p-8"
-            aria-labelledby={`${headingId}-range`}
-          >
-            <p className="text-xs font-semibold tracking-[0.13em] text-white/60 uppercase">
-              Evidence-supported market range
-            </p>
-            <h2
-              id={`${headingId}-range`}
-              className="mt-3 text-3xl font-semibold tracking-[-0.04em] tabular-nums sm:text-4xl"
-            >
-              {rangeAvailable ? `${minimum} – ${maximum}` : "Unavailable"}
-            </h2>
-            <p className="mt-3 max-w-xl text-sm leading-6 text-white/65">
-              {rangeAvailable
-                ? primaryEvidence?.evidenceBasis === "LOSS_DATE_HISTORICAL"
-                  ? "Selected advertised-price evidence verified around the date of loss."
-                  : "Selected advertised-price evidence from the current market."
-                : "The available evidence did not support a reliable market range."}
-            </p>
+        <h1
+          id={headingId}
+          className="mx-auto mt-5 max-w-2xl text-[1.9rem] leading-[1.13] font-semibold tracking-[-0.045em] text-balance text-ink sm:text-[2.6rem] lg:text-[2.8rem]"
+        >
+          {presentation.heading}
+        </h1>
+        <p className="mx-auto mt-3 max-w-lg text-[0.9375rem] leading-6 text-pretty text-copy sm:text-base sm:leading-7">
+          {presentation.summary}
+        </p>
 
-            <dl className="mt-7 grid gap-4 border-t border-white/15 pt-5 sm:grid-cols-2">
-              <div>
-                <dt className="text-xs text-white/55">Evidence median</dt>
-                <dd className="mt-1 text-xl font-semibold tracking-[-0.025em] tabular-nums">
-                  {rangeAvailable ? median : "Unavailable"}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-xs text-white/55">Evidence strength</dt>
-                <dd className="mt-1 text-xl font-semibold tracking-[-0.025em]">
-                  {analysis.assessment.evidenceStrengthLabel}
-                </dd>
-              </div>
-            </dl>
-          </section>
-
-          <section
-            className={cn(
-              "flex flex-col rounded-2xl border p-6 sm:p-7",
-              toneClasses[presentation.tone].panel,
-            )}
-            aria-labelledby={`${headingId}-worthwhile`}
+        <section
+          className={cn(
+            "mx-auto mt-7 max-w-xl rounded-2xl border px-3 py-5 sm:mt-8 sm:px-8 sm:py-6",
+            presentation.showContinue
+              ? "border-market/15 bg-linear-to-br from-market-soft/80 via-market-soft/45 to-brand-soft/50"
+              : "border-line/70 bg-linear-to-br from-surface to-brand-soft/35",
+          )}
+          aria-labelledby={`${headingId}-range`}
+        >
+          <h2
+            id={`${headingId}-range`}
+            className="text-sm font-medium text-copy"
           >
-            <p className="text-xs font-semibold tracking-[0.13em] text-copy uppercase">
-              Is it worth pursuing?
+            Estimated market range
+          </h2>
+          {rangeAvailable ? (
+            <p className="mt-2 flex flex-wrap items-baseline justify-center gap-x-2 text-[clamp(1.35rem,7vw,2.75rem)] leading-tight font-semibold tracking-[-0.05em] text-ink tabular-nums sm:gap-x-3">
+              <span>{minimum}</span>
+              <span className="font-normal text-copy">–</span>
+              <span>{maximum}</span>
             </p>
+          ) : (
+            <p className="mt-2 text-2xl font-semibold tracking-[-0.03em] text-ink">
+              Not enough information yet
+            </p>
+          )}
+          <p className="mt-2 text-xs leading-5 text-copy">
+            {rangeAvailable
+              ? primaryEvidence?.evidenceBasis === "LOSS_DATE_HISTORICAL"
+                ? "Based on advertised prices around your date of loss."
+                : "Based on current advertised prices."
+              : "We can’t show a reliable range from the information available."}
+          </p>
+
+          {rangeAvailable && insurerValueAvailable && priceSummary ? (
+            <MarketRangeComparison
+              minimum={priceSummary.minimumPrice}
+              maximum={priceSummary.maximumPrice}
+              insurerValue={insurerValue}
+              insurerLabel={insurerLabel}
+              optimistic={presentation.showContinue}
+            />
+          ) : insurerValueAvailable ? (
+            <p className="mt-4 border-t border-line/70 pt-4 text-sm text-copy">
+              {insurerLabel}{" "}
+              <strong className="ml-2 font-semibold text-ink tabular-nums">
+                {displayMoney(insurerValue)}
+              </strong>
+            </p>
+          ) : null}
+        </section>
+
+        <section
+          className="mx-auto mt-7 max-w-lg sm:mt-8"
+          aria-labelledby={`${headingId}-worthwhile`}
+        >
+          <div className="flex items-center justify-center gap-2">
+            {presentation.showContinue ? (
+              <CheckCircle2 className="size-5 shrink-0 text-market" aria-hidden />
+            ) : null}
             <h2
               id={`${headingId}-worthwhile`}
-              className="mt-3 text-2xl font-semibold tracking-[-0.03em] text-ink"
+              className="text-lg font-semibold tracking-[-0.025em] text-ink sm:text-xl"
             >
               {presentation.worthwhileHeading}
             </h2>
-            <p className="mt-3 text-sm leading-6 text-copy">
-              {presentation.worthwhileSummary}
-            </p>
-
-            {presentation.showContinue ? (
-              <Button
-                type="button"
-                size="lg"
-                className="mt-7 w-full bg-brand text-white hover:bg-brand-strong sm:w-auto"
-                data-future-next-step
-              >
-                Continue
-                <ArrowRight className="size-4" aria-hidden />
-              </Button>
-            ) : null}
-          </section>
-        </div>
-
-        <div className="mt-6 flex items-start gap-3 rounded-xl border border-line/80 bg-surface/60 px-4 py-3.5">
-          <ShieldCheck
-            className="mt-0.5 size-4 shrink-0 text-copy"
-            aria-hidden
-          />
-          <p className="text-xs leading-5 text-copy">
-            Advertised prices are evidence, not guaranteed transaction prices.
-            This result is not a settlement calculation or a statement of money
-            owed.
+          </div>
+          <p className="mt-2 text-sm leading-6 text-pretty text-copy">
+            {presentation.worthwhileSummary}
           </p>
-        </div>
+        </section>
+
+        {presentation.showContinue ? (
+          <Button
+            type="button"
+            size="lg"
+            className="report-action-focus mt-6 min-h-13 w-full gap-3 rounded-xl bg-brand px-7 text-base font-semibold text-white shadow-[0_8px_20px_-10px_rgba(21,94,239,0.55)] hover:bg-brand-strong sm:w-auto sm:min-w-72"
+            data-future-next-step
+          >
+            Continue my review
+            <ArrowRight className="size-5" aria-hidden />
+          </Button>
+        ) : null}
+
+        <p className="mx-auto mt-5 max-w-lg text-xs leading-5 text-copy">
+          Advertised prices aren’t guaranteed sale prices or settlement amounts.
+          This review does not determine what your insurer owes.
+        </p>
       </div>
     </section>
   );
 }
 
-const toneClasses: Record<
-  ResultTone,
-  { readonly badge: string; readonly panel: string }
-> = {
-  market: {
-    badge: "bg-market-soft text-market-strong",
-    panel: "border-market/20 bg-market-soft/55",
-  },
-  amber: {
-    badge: "bg-amber-soft text-amber-strong",
-    panel: "border-amber/25 bg-amber-soft/55",
-  },
-  neutral: {
-    badge: "bg-surface text-ink",
-    panel: "border-line bg-surface/55",
-  },
-};
+function MarketRangeComparison({
+  insurerLabel,
+  insurerValue,
+  minimum,
+  maximum,
+  optimistic,
+}: {
+  readonly insurerLabel: string;
+  readonly insurerValue: NonnegativeMoney;
+  readonly minimum: NonnegativeMoney;
+  readonly maximum: NonnegativeMoney;
+  readonly optimistic: boolean;
+}) {
+  if (
+    insurerValue.cents === null ||
+    minimum.cents === null ||
+    maximum.cents === null
+  ) {
+    return null;
+  }
+
+  // Scale the supplied prices for display only; the verdict remains backend-owned.
+  const lower = Math.min(insurerValue.cents, minimum.cents);
+  const upper = Math.max(insurerValue.cents, maximum.cents);
+  const position = (cents: number) =>
+    upper === lower ? 50 : 8 + ((cents - lower) / (upper - lower)) * 84;
+  const rangeStart = position(minimum.cents);
+  const rangeEnd = position(maximum.cents);
+
+  return (
+    <figure
+      className="mt-5"
+      aria-label={`${insurerLabel}: ${displayMoney(insurerValue)}. Estimated market range: ${displayMoney(minimum)} to ${displayMoney(maximum)}.`}
+    >
+      <div className="relative h-6" aria-hidden>
+        <div className="absolute inset-x-0 top-2 h-2 rounded-full bg-line/70" />
+        <div
+          className={cn(
+            "absolute top-1 h-4 min-w-1 -translate-x-0.5 rounded-full",
+            optimistic ? "bg-market" : "bg-copy",
+          )}
+          style={{ left: `${rangeStart}%`, width: `${rangeEnd - rangeStart}%` }}
+        />
+        <span
+          className="absolute top-0.5 h-5 w-1.5 -translate-x-1/2 rounded-full bg-ink ring-2 ring-white"
+          style={{ left: `${position(insurerValue.cents)}%` }}
+        />
+      </div>
+      <figcaption className="mt-3 flex flex-wrap items-start justify-between gap-3 text-left text-xs leading-5 text-copy">
+        <div>
+          <div className="flex items-center gap-2">
+            <span className="h-3 w-1 shrink-0 rounded-full bg-ink" aria-hidden />
+            <span>{insurerLabel}</span>
+          </div>
+          <p className="mt-0.5 pl-3 text-base font-semibold text-ink tabular-nums">
+            {displayMoney(insurerValue)}
+          </p>
+        </div>
+        <div className="flex items-start justify-end gap-2">
+          <span
+            className={cn(
+              "mt-1.5 h-2 w-5 shrink-0 rounded-full",
+              optimistic ? "bg-market" : "bg-copy",
+            )}
+            aria-hidden
+          />
+          <span>Estimated market range</span>
+        </div>
+      </figcaption>
+    </figure>
+  );
+}
 
 function displayMoney(value?: Money | NonnegativeMoney) {
   return value?.display?.replace(/\.00$/u, "") ?? null;

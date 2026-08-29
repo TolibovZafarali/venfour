@@ -373,7 +373,7 @@ describe("customer appraisals page", () => {
 
     expect(
       await screen.findByRole("heading", {
-        name: "Strong evidence suggests the insurer’s valuation may be too low.",
+        name: "Your insurer may be undervaluing your vehicle.",
       }),
     ).toBeVisible();
     expect(router.state.location.pathname).toBe(

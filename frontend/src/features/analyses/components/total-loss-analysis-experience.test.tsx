@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 
 import type {
   AnalysisPresentation,
+  AnalysisPresentationBase,
   Assessment,
 } from "@/features/analyses/analysis-presentation.generated";
 import {
@@ -56,35 +57,32 @@ describe("total-loss analysis experience", () => {
   it.each([
     {
       classification: "MATERIAL_UNDERVALUE_SIGNAL" as const,
-      heading:
-        "Strong evidence suggests the insurer’s valuation may be too low.",
-      worthwhile: "Continuing appears worthwhile.",
+      heading: "Your insurer may be undervaluing your vehicle.",
+      worthwhile: "This looks worth pursuing.",
       continueVisible: true,
     },
     {
       classification: "POTENTIAL_UNDERVALUE" as const,
-      heading: "The insurer’s valuation may be too low.",
-      worthwhile: "A closer review appears worthwhile.",
+      heading: "Your insurer may be undervaluing your vehicle.",
+      worthwhile: "This looks worth pursuing.",
       continueVisible: true,
     },
     {
       classification: "NO_MATERIAL_DISCREPANCY" as const,
-      heading:
-        "The insurer’s valuation appears fair based on the available evidence.",
-      worthwhile: "Pursuing this further may not be worthwhile.",
+      heading: "Your insurer’s valuation appears fair.",
+      worthwhile: "There may be little to pursue here.",
       continueVisible: false,
     },
     {
       classification: "CONFLICTING_EVIDENCE" as const,
-      heading: "The available evidence points in different directions.",
-      worthwhile: "It’s too soon to decide whether to continue.",
+      heading: "The picture isn’t clear yet.",
+      worthwhile: "It’s too soon to say.",
       continueVisible: false,
     },
     {
       classification: "INSUFFICIENT_EVIDENCE" as const,
-      heading:
-        "There isn’t enough reliable evidence to assess the insurer’s valuation.",
-      worthwhile: "Venfour can’t yet determine whether to continue.",
+      heading: "We need more information to be sure.",
+      worthwhile: "A clearer picture comes first.",
       continueVisible: false,
     },
   ])(
@@ -93,31 +91,48 @@ describe("total-loss analysis experience", () => {
       render(<TotalLossAnalysisResult analysis={analysisFor(classification)} />);
 
       expect(screen.getByRole("heading", { name: heading })).toBeVisible();
-      expect(
-        screen.getByRole("heading", { name: worthwhile }),
-      ).toBeVisible();
+      expect(screen.getByRole("heading", { name: worthwhile })).toBeVisible();
       if (continueVisible) {
-        expect(screen.getByRole("button", { name: "Continue" })).toHaveAttribute(
-          "type",
-          "button",
-        );
+        expect(
+          screen.getByRole("button", { name: "Continue my review" }),
+        ).toHaveAttribute("type", "button");
       } else {
         expect(
-          screen.queryByRole("button", { name: "Continue" }),
+          screen.queryByRole("button", { name: "Continue my review" }),
         ).not.toBeInTheDocument();
       }
     },
   );
 
-  it("shows the evidence-supported range and leaves Continue inert", async () => {
+  it("shows the saved range and insurer valuation without technical detail or changing the action", async () => {
     const user = userEvent.setup();
-    render(<TotalLossAnalysisResult analysis={materialUndervalueAnalysis} />);
+    const analysis = structuredClone(materialUndervalueAnalysis);
+    render(<TotalLossAnalysisResult analysis={analysis} />);
 
-    expect(screen.getByText("$21,800 – $22,600")).toBeVisible();
-    expect(screen.getByText("$22,200")).toBeVisible();
-    const continueButton = screen.getByRole("button", { name: "Continue" });
+    expect(
+      screen.getByRole("region", { name: "Estimated market range" }),
+    ).toHaveTextContent("$21,800–$22,600");
+    expect(
+      screen.getByRole("figure", {
+        name: "Insurer’s valuation: $20,000. Estimated market range: $21,800 to $22,600.",
+      }),
+    ).toBeVisible();
+    expect(screen.queryByText("$22,200")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(
+        /Evidence median|Evidence strength|Evidence-supported market range/u,
+      ),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText(analysis.assessment.summary)).not.toBeInTheDocument();
+    expect(
+      screen.getByText(/does not determine what your insurer owes/u),
+    ).toBeVisible();
+    const continueButton = screen.getByRole("button", {
+      name: "Continue my review",
+    });
     await user.click(continueButton);
     expect(continueButton).toBeVisible();
+    expect(analysis).toEqual(materialUndervalueAnalysis);
   });
 
   it("uses a truthful unavailable state when no primary range exists", () => {
@@ -128,11 +143,112 @@ describe("total-loss analysis experience", () => {
 
     render(<TotalLossAnalysisResult analysis={analysis} />);
 
-    expect(screen.getAllByText("Unavailable")).toHaveLength(2);
+    expect(screen.getByText("Not enough information yet")).toBeVisible();
+    expect(screen.queryByRole("figure")).not.toBeInTheDocument();
+    expect(screen.getByText("$20,000")).toBeVisible();
     expect(
       screen.getByText(
-        "The available evidence did not support a reliable market range.",
+        "We can’t show a reliable range from the information available.",
       ),
     ).toBeVisible();
   });
+
+  it.each([true, false])(
+    "does not claim undervaluation without an insurer value (range available: %s)",
+    (rangeAvailable) => {
+      const analysis: AnalysisPresentationBase = structuredClone(
+        analysisFor("INSUFFICIENT_EVIDENCE"),
+      );
+      analysis.analysisScope.insurerValuationAvailable = false;
+      analysis.insurerValuation = {
+        ...analysis.insurerValuation,
+        source: "NONE",
+        value: { cents: null, display: null },
+        comparisonToPrimaryEvidence: null,
+      };
+      if (!rangeAvailable) analysis.primaryExternalEvidence = null;
+
+      render(
+        <TotalLossAnalysisResult analysis={analysis as AnalysisPresentation} />,
+      );
+
+      expect(
+        screen.getByRole("heading", {
+          name: rangeAvailable
+            ? "Here’s what we found for your vehicle."
+            : "We need more information to be sure.",
+        }),
+      ).toBeVisible();
+      expect(screen.queryByRole("figure")).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: "Continue my review" }),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByText(
+          /valuation is right or wrong|assess your insurer’s valuation/u,
+        ),
+      ).not.toBeInTheDocument();
+    },
+  );
+
+  it("distinguishes a customer-entered offer from an insurer report valuation", () => {
+    const analysis: AnalysisPresentationBase = structuredClone(
+      materialUndervalueAnalysis,
+    );
+    analysis.insurerValuation.source = "CUSTOMER_ENTERED";
+    analysis.primaryExternalEvidence!.evidenceBasis = "CURRENT_MARKET";
+
+    render(<TotalLossAnalysisResult analysis={analysis as AnalysisPresentation} />);
+
+    expect(
+      screen.getByRole("figure", { name: /^Insurer’s offer: \$20,000/u }),
+    ).toBeVisible();
+    expect(screen.getByText("Based on current advertised prices.")).toBeVisible();
+    expect(screen.queryByText("Insurer’s valuation")).not.toBeInTheDocument();
+  });
+
+  it.each([
+    { offer: 0, minimum: 21800, maximum: 22600, position: "below" },
+    { offer: 22200, minimum: 21800, maximum: 22600, position: "within" },
+    { offer: 25000, minimum: 21800, maximum: 22600, position: "above" },
+    { offer: 22200, minimum: 22200, maximum: 22200, position: "equal" },
+  ])(
+    "plots an offer $position the range without changing the backend verdict",
+    ({ offer, minimum, maximum, position }) => {
+      const analysis: AnalysisPresentationBase = structuredClone(
+        analysisFor("NO_MATERIAL_DISCREPANCY"),
+      );
+      const money = (dollars: number) => ({
+        cents: dollars * 100,
+        display: `$${dollars.toLocaleString("en-US")}.00`,
+      });
+      analysis.insurerValuation.value = money(offer);
+      analysis.primaryExternalEvidence!.prices.minimumPrice = money(minimum);
+      analysis.primaryExternalEvidence!.prices.maximumPrice = money(maximum);
+
+      render(
+        <TotalLossAnalysisResult analysis={analysis as AnalysisPresentation} />,
+      );
+
+      const figure = screen.getByRole("figure");
+      const band = figure.querySelector<HTMLDivElement>("div[style]")!;
+      const marker = figure.querySelector<HTMLSpanElement>("span[style]")!;
+      const markerPosition = parseFloat(marker.style.left);
+      const rangeStart = parseFloat(band.style.left);
+      const rangeEnd = rangeStart + parseFloat(band.style.width);
+      if (position === "below") expect(markerPosition).toBeLessThan(rangeStart);
+      if (position === "within") {
+        expect(markerPosition).toBeGreaterThan(rangeStart);
+        expect(markerPosition).toBeLessThan(rangeEnd);
+      }
+      if (position === "above") expect(markerPosition).toBeGreaterThan(rangeEnd);
+      if (position === "equal") expect(markerPosition).toBe(rangeStart);
+      expect(Number.isFinite(markerPosition)).toBe(true);
+      expect(
+        screen.getByRole("heading", {
+          name: "Your insurer’s valuation appears fair.",
+        }),
+      ).toBeVisible();
+    },
+  );
 });
