@@ -3,7 +3,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
 
-select plan(56);
+select plan(61);
 
 select ok(
   to_regclass('public.total_loss_report_versions') is not null
@@ -169,7 +169,14 @@ begin
     discrepancy_analysis_version, comparable_scoring_version
   ) values (
     requested_analysis_run_id, requested_analysis_job_id, requested_case_id,
-    jsonb_build_object('runId', requested_analysis_run_id::text), repeat('1', 64),
+    jsonb_build_object(
+      'runId', requested_analysis_run_id::text,
+      'result', jsonb_build_object(
+        'discrepancyResult', jsonb_build_object(
+          'classification', 'MATERIAL_UNDERVALUE_SIGNAL'
+        )
+      )
+    ), repeat('1', 64),
     '4', '4', '1', '1'
   );
 
@@ -1479,6 +1486,34 @@ select throws_ok(
 grant select on m5_validation_failure to authenticated;
 
 set local role authenticated;
+select set_config('request.jwt.claim.sub', 'a1000000-0000-4000-8000-000000000001', true);
+select set_config('request.jwt.claim.role', 'authenticated', true);
+
+select is(
+  (
+    select count(*)
+    from public.get_total_loss_release_review(
+      (select release_review_id from m5_validation_failure)
+    )
+  ),
+  0::bigint,
+  'an authenticated nonstaff owner cannot read a release-review packet'
+);
+
+select throws_ok(
+  $$
+    select * from public.decide_total_loss_release_review(
+      (select release_review_id from m5_validation_failure),
+      statement_timestamp(),
+      'revision_requested',
+      'An owner cannot authorize a replacement report.'
+    )
+  $$,
+  '42501',
+  'Staff release decision is not authorized or invalid.',
+  'an authenticated nonstaff owner cannot decide a release review'
+);
+
 select set_config('request.jwt.claim.sub', 'a1000000-0000-4000-8000-000000000002', true);
 select set_config('request.jwt.claim.role', 'authenticated', true);
 
@@ -1575,6 +1610,17 @@ grant select on m5_generation_failure_packet, m5_revision_decision,
 
 reset role;
 
+select throws_ok(
+  $$
+    update public.total_loss_report_versions
+    set failure_code = 'MUTATION_NOT_ALLOWED'
+    where id = (select report_version_id from m5_revision_decision)
+  $$,
+  '55000',
+  'Terminal total_loss_report_versions records are immutable.',
+  'the original failed report remains immutable after its replacement is reserved'
+);
+
 select ok(
   (
     select replacement.case_id = original.case_id
@@ -1665,6 +1711,337 @@ select ok(
   ),
   'claiming revision work reuses the exact report, document, version, and canonical path reserved by the staff decision'
 );
+
+reset role;
+
+insert into storage.objects (
+  id, bucket_id, name, metadata, user_metadata
+)
+select
+  'd6000000-0000-4000-8000-000000000004', storage_bucket_id,
+  storage_object_name,
+  jsonb_build_object('mimetype', 'application/pdf', 'size', 321),
+  jsonb_build_object('sha256', repeat('8', 64))
+from m5_revision_claim;
+
+set local role service_role;
+
+create temporary table m5_revision_pdf_manifest on commit drop as
+with unsigned_manifest as (
+  select jsonb_build_object(
+    'schemaVersion', '1', 'status', 'PASS',
+    'reportVersionId', claim.report_version_id::text,
+    'reportDigest', repeat('7', 64), 'rendererVersion', '1',
+    'templateVersion', '1', 'filename', claim.original_filename,
+    'mediaType', 'application/pdf', 'pdfSha256', repeat('8', 64),
+    'byteSize', 321
+  ) as manifest
+  from m5_revision_claim as claim
+), signed_manifest as (
+  select manifest || jsonb_build_object(
+    'manifestDigest', public.total_loss_canonical_jsonb_digest(manifest)
+  ) as manifest
+  from unsigned_manifest
+)
+select manifest as validation_manifest,
+  public.total_loss_canonical_jsonb_digest(manifest) as full_manifest_digest
+from signed_manifest;
+
+create temporary table m5_revision_generated on commit drop as
+select completion.*
+from m5_revision_claim as claim
+cross join lateral public.complete_total_loss_report_generation(
+  claim.work_item_id,
+  'd5000000-0000-4000-8000-000000000004',
+  jsonb_build_object(
+    'schemaVersion', '1',
+    'identity', jsonb_build_object(
+      'caseId', claim.case_id::text,
+      'reportSeriesId', claim.report_series_id::text,
+      'reportVersionId', claim.report_version_id::text,
+      'finalAssessmentId', 'ab000000-0000-4000-8000-000000000004',
+      'versionNumber', claim.report_version_number,
+      'generatedAt', to_char(
+        claim.generated_at at time zone 'UTC',
+        'YYYY-MM-DD"T"HH24:MI:SS.US"Z"'
+      ),
+      'suggestedFilename', 'Venfour_Valuation_Evidence_A20000000000_v2.pdf'
+    ),
+    'lineage', jsonb_build_object(
+      'sourceSnapshotId', 'aa000000-0000-4000-8000-000000000004',
+      'finalAssessmentId', 'ab000000-0000-4000-8000-000000000004',
+      'sourceSnapshotDigest', repeat('4', 64),
+      'finalAssessmentDigest', repeat('6', 64)
+    ),
+    'reportDigest', repeat('7', 64)
+  ),
+  repeat('7', 64), '1', '1', '1', '1',
+  (select validation_manifest from m5_revision_pdf_manifest),
+  321, repeat('8', 64)
+) as completion;
+
+create temporary table m5_revision_document_before_release on commit drop as
+select to_jsonb(document) as document
+from m5_revision_claim as claim
+join public.total_loss_report_versions as report
+  on report.id = claim.report_version_id
+join public.total_loss_claim_documents as document
+  on document.id = report.document_id;
+
+create temporary table m5_revision_review_claim on commit drop as
+select claim.*
+from m5_revision_generated as generated
+cross join lateral public.claim_total_loss_report_review_work_item(
+  generated.review_work_item_id,
+  'd7000000-0000-4000-8000-000000000004'
+) as claim;
+
+create temporary table m5_revision_ai_begin on commit drop as
+select begun.*
+from m5_revision_review_claim as claim
+cross join lateral public.begin_total_loss_ai_review(
+  claim.work_item_id,
+  'd7000000-0000-4000-8000-000000000004',
+  'openai', 'gpt-test-approved', '1', '1', repeat('9', 64)
+) as begun;
+
+create temporary table m5_revision_ai_complete on commit drop as
+select completed.*
+from m5_revision_ai_begin as begun
+cross join m5_revision_review_claim as claim
+cross join lateral public.complete_total_loss_ai_review(
+  claim.work_item_id,
+  'd7000000-0000-4000-8000-000000000004',
+  begun.ai_review_run_id, 'completed', 'gpt-test-approved', 'PASS', 'HIGH',
+  jsonb_build_object(
+    'schemaVersion', '1',
+    'reviewedTarget', jsonb_build_object(
+      'caseId', claim.case_id::text,
+      'sourceSnapshotId', claim.source_snapshot_id::text,
+      'finalAssessmentId', claim.final_assessment_id::text,
+      'reportVersionId', claim.report_version_id::text
+    ),
+    'reviewedDigests', jsonb_build_object(
+      'inputDigest', repeat('9', 64),
+      'sourceSnapshotDigest', repeat('4', 64),
+      'finalAssessmentDigest', repeat('6', 64),
+      'reportDigest', repeat('7', 64),
+      'pdfDigest', repeat('8', 64),
+      'deterministicValidationDigest', repeat('d', 64),
+      'pdfValidationDigest', (
+        select full_manifest_digest from m5_revision_pdf_manifest
+      )
+    ),
+    'recommendation', 'PASS', 'confidence', 'HIGH',
+    'mandatoryChecks', jsonb_build_array(
+      jsonb_build_object('checkId','LINEAGE','status','PASS'),
+      jsonb_build_object('checkId','SUBJECT_VEHICLE','status','PASS'),
+      jsonb_build_object('checkId','INSURER_VALUATION','status','PASS'),
+      jsonb_build_object('checkId','INSURER_COMPARABLES','status','PASS'),
+      jsonb_build_object('checkId','EXTERNAL_COMPARABLES','status','PASS'),
+      jsonb_build_object('checkId','CALCULATIONS','status','PASS'),
+      jsonb_build_object('checkId','METHODOLOGY_BOUNDARIES','status','PASS'),
+      jsonb_build_object('checkId','EVIDENCE_ATTRIBUTION','status','PASS'),
+      jsonb_build_object('checkId','LIMITATIONS','status','PASS'),
+      jsonb_build_object('checkId','PDF_CONSISTENCY','status','PASS'),
+      jsonb_build_object('checkId','OVERALL_CONCLUSION','status','PASS')
+    ),
+    'findings', jsonb_build_array(),
+    'unsupportedConclusions', jsonb_build_array(),
+    'conflicts', jsonb_build_array(),
+    'missingEvidence', jsonb_build_array(),
+    'sourceReferenceValidation', jsonb_build_object(
+      'status', 'PASS', 'unknownIds', jsonb_build_array()
+    ),
+    'untrustedInstructionDetected', false,
+    'untrustedInstructionFollowed', false
+  ),
+  repeat('f', 64), jsonb_build_object('inputTokens', 100), null,
+  jsonb_build_object(
+    'schemaVersion', '1',
+    'disposition', 'AUTO_RELEASE_SUPPORTABLE',
+    'caseId', claim.case_id::text,
+    'packageJobId', claim.package_job_id::text,
+    'workItemId', claim.work_item_id::text,
+    'reportVersionId', claim.report_version_id::text,
+    'sourceSnapshotId', claim.source_snapshot_id::text,
+    'finalAssessmentId', claim.final_assessment_id::text,
+    'aiReviewRunId', begun.ai_review_run_id::text,
+    'sourceSnapshotDigest', repeat('4', 64),
+    'finalAssessmentDigest', repeat('6', 64),
+    'reportDigest', repeat('7', 64),
+    'pdfDigest', repeat('8', 64),
+    'inputDigest', repeat('9', 64),
+    'outputDigest', repeat('f', 64),
+    'deterministicValidationDigest', repeat('d', 64),
+    'pdfValidationDigest', (
+      select full_manifest_digest from m5_revision_pdf_manifest
+    ),
+    'configuredModelIdentifier', 'gpt-test-approved',
+    'returnedModelIdentifier', 'gpt-test-approved',
+    'promptVersion', '1', 'reviewSchemaVersion', '1',
+    'releaseGateEnabled', true,
+    'approvalConfigurationComplete', true,
+    'approvedModelIdentifier', 'gpt-test-approved',
+    'approvedPromptVersion', '1', 'approvedSchemaVersion', '1',
+    'approvedEvalSuiteDigest', repeat('a', 64),
+    'providerEvaluationPassed', true,
+    'providerEvaluationModelIdentifier', 'gpt-test-approved',
+    'providerEvaluationPromptVersion', '1',
+    'providerEvaluationSchemaVersion', '1',
+    'providerEvaluationSuiteDigest', repeat('a', 64),
+    'sourceValidationPassed', true,
+    'reportJsonSchemaPassed', true,
+    'deterministicReportValidationPassed', true,
+    'pdfValidationPassed', true,
+    'aiSchemaValidationPassed', true,
+    'packageIsCurrent', true,
+    'reportIsCurrent', true,
+    'reviewIsCurrent', true,
+    'humanDecisionRecorded', false,
+    'reasonCodes', jsonb_build_array('ALL_RELEASE_CHECKS_PASSED')
+  ),
+  public.total_loss_canonical_jsonb_digest(
+    jsonb_build_object(
+      'schemaVersion', '1',
+      'disposition', 'AUTO_RELEASE_SUPPORTABLE',
+      'caseId', claim.case_id::text,
+      'packageJobId', claim.package_job_id::text,
+      'workItemId', claim.work_item_id::text,
+      'reportVersionId', claim.report_version_id::text,
+      'sourceSnapshotId', claim.source_snapshot_id::text,
+      'finalAssessmentId', claim.final_assessment_id::text,
+      'aiReviewRunId', begun.ai_review_run_id::text,
+      'sourceSnapshotDigest', repeat('4', 64),
+      'finalAssessmentDigest', repeat('6', 64),
+      'reportDigest', repeat('7', 64),
+      'pdfDigest', repeat('8', 64),
+      'inputDigest', repeat('9', 64),
+      'outputDigest', repeat('f', 64),
+      'deterministicValidationDigest', repeat('d', 64),
+      'pdfValidationDigest', (
+        select full_manifest_digest from m5_revision_pdf_manifest
+      ),
+      'configuredModelIdentifier', 'gpt-test-approved',
+      'returnedModelIdentifier', 'gpt-test-approved',
+      'promptVersion', '1', 'reviewSchemaVersion', '1',
+      'releaseGateEnabled', true,
+      'approvalConfigurationComplete', true,
+      'approvedModelIdentifier', 'gpt-test-approved',
+      'approvedPromptVersion', '1', 'approvedSchemaVersion', '1',
+      'approvedEvalSuiteDigest', repeat('a', 64),
+      'providerEvaluationPassed', true,
+      'providerEvaluationModelIdentifier', 'gpt-test-approved',
+      'providerEvaluationPromptVersion', '1',
+      'providerEvaluationSchemaVersion', '1',
+      'providerEvaluationSuiteDigest', repeat('a', 64),
+      'sourceValidationPassed', true,
+      'reportJsonSchemaPassed', true,
+      'deterministicReportValidationPassed', true,
+      'pdfValidationPassed', true,
+      'aiSchemaValidationPassed', true,
+      'packageIsCurrent', true,
+      'reportIsCurrent', true,
+      'reviewIsCurrent', true,
+      'humanDecisionRecorded', false,
+      'reasonCodes', jsonb_build_array('ALL_RELEASE_CHECKS_PASSED')
+    )
+  )
+) as completed;
+
+create temporary table m5_revision_release on commit drop as
+select released.*
+from m5_revision_review_claim as claim
+cross join m5_revision_ai_begin as begun
+cross join lateral public.resolve_total_loss_report_release(
+  claim.work_item_id,
+  'd7000000-0000-4000-8000-000000000004',
+  begun.ai_review_run_id
+) as released;
+
+select ok(
+  (
+    select release.outcome = 'completed'
+      and release.disposition = 'AUTO_RELEASE_SUPPORTABLE'
+      and release.report_status = 'published'
+      and release.package_status = 'ready'
+      and release.workflow_task = 'report_ready'
+      and release.order_id is null
+      and release.payment_transaction_id is null
+      and release.refund_client_request_id is null
+      and release.refund_request_id is null
+      and report.status = 'published'
+      and report.published_at is not null
+      and report_series.current_report_version_id = report.id
+      and report_series.current_published_report_version_id = report.id
+      and package_job.status = 'ready'
+      and package_job.finished_at is not null
+      and (select status from public.workflow_work_items
+           where id = release.work_item_id) = 'completed'
+      and workflow.phase = 'review'
+      and workflow.current_task = 'report_ready'
+      and workflow.current_report_version_id = report.id
+      and (select status from public.commerce_orders
+           where case_id = report.case_id) = 'paid'
+      and (select status from public.case_entitlements
+           where case_id = report.case_id) = 'active'
+      and document.status = 'ready'
+      and document.sealed_at is not null
+      and document.storage_bucket_id = 'case-deliverables'
+      and document.original_filename = 'valuation-evidence-package.pdf'
+      and document.content_digest = repeat('8', 64)
+      and document.byte_size = 321
+      and document.storage_object_name =
+        'cases/' || report.case_id::text || '/reports/' ||
+        report.report_series_id::text || '/versions/' || report.id::text ||
+        '/valuation-evidence-package.pdf'
+      and to_jsonb(document) = (
+        select before_release.document
+        from m5_revision_document_before_release as before_release
+      )
+      and not exists (
+        select 1 from public.commerce_refund_requests as refund
+        where refund.case_id = report.case_id
+      )
+      and not exists (
+        select 1 from public.commerce_disputes as dispute
+        where dispute.case_id = report.case_id
+      )
+    from m5_revision_release as release
+    join public.total_loss_report_versions as report
+      on report.id = release.report_version_id
+    join public.total_loss_report_series as report_series
+      on report_series.id = report.report_series_id
+    join public.total_loss_claim_documents as document
+      on document.id = report.document_id
+    join public.total_loss_package_jobs as package_job
+      on package_job.id = release.package_job_id
+    join public.total_loss_claim_workflows as workflow
+      on workflow.case_id = release.case_id
+  ),
+  'PASS/HIGH supportable release publishes the exact sealed PDF, advances to report-ready, and creates no refund or dispute'
+);
+
+reset role;
+set local role authenticated;
+select set_config('request.jwt.claim.sub', 'a1000000-0000-4000-8000-000000000001', true);
+select set_config('request.jwt.claim.role', 'authenticated', true);
+
+select ok(
+  (
+    select state = 'secured'
+      and workflow_current_task = 'report_ready'
+      and next_task = 'report_ready'
+      and entitlement_status = 'active'
+    from public.resolve_total_loss_case_claim(
+      'a2000000-0000-4000-8000-000000000004'
+    )
+  ),
+  'the supportable publication projects the dormant future education boundary to the owner'
+);
+
+reset role;
+set local role service_role;
 
 create temporary table m5_retry_enqueue on commit drop as
 select * from public.enqueue_total_loss_report_generation(

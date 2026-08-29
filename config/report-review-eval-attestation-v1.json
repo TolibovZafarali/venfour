@@ -1,0 +1,14 @@
+{
+  "schemaVersion": "1",
+  "providerIdentifier": "openai",
+  "providerBacked": true,
+  "returnedModelIdentifier": "gpt-5.6-sol",
+  "promptVersion": "1",
+  "reviewSchemaVersion": "1",
+  "evalSuiteDigest": "f06b5fe5460a95d61f9e2f5ff6d36b46e79133c53c5ba137fe4dc2e2d1dc298c",
+  "passedCaseCount": 20,
+  "totalCaseCount": 20,
+  "allPassed": true,
+  "evaluatedAt": "2026-08-27T03:38:51.726245Z",
+  "artifactDigest": "b16f53be48de1be4a98ad892a9c9c5801a50a45f3de32e2c60ba97abafa69a41"
+}

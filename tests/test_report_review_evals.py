@@ -29,6 +29,7 @@ from venfour.report_review import (
     ReportReviewTimeoutError,
 )
 from venfour.report_review_evals import (
+    REPORT_REVIEW_EVAL_ATTESTATION_PATH,
     REPORT_REVIEW_EVAL_SCENARIO_IDS,
     ReportReviewEvalAttestationV1,
     ReportReviewEvalError,
@@ -45,6 +46,10 @@ from venfour.report_review_evals import (
 
 EXPECTED_SUITE_DIGEST = (
     "f06b5fe5460a95d61f9e2f5ff6d36b46e79133c53c5ba137fe4dc2e2d1dc298c"
+)
+RELEASE_QUALIFIED_MODEL = "gpt-5.6-sol"
+PRESERVED_ATTESTATION_DIGEST = (
+    "b16f53be48de1be4a98ad892a9c9c5801a50a45f3de32e2c60ba97abafa69a41"
 )
 
 
@@ -390,6 +395,82 @@ class ReportReviewEvalSuiteTests(_review_fixture.ReportReviewFixture):
             validate_report_review_eval_attestation(
                 payload, expected_eval_suite_digest="f" * 64
             )
+
+    def test_checked_in_attestation_qualifies_exact_release_reviewer(self) -> None:
+        attestation = load_report_review_eval_attestation(
+            expected_model_identifier=RELEASE_QUALIFIED_MODEL,
+        )
+
+        self.assertIsNotNone(attestation)
+        self.assertEqual(attestation.returned_model_identifier, RELEASE_QUALIFIED_MODEL)
+        self.assertEqual(attestation.prompt_version, REPORT_REVIEW_PROMPT_VERSION)
+        self.assertEqual(
+            attestation.review_schema_version, REPORT_REVIEW_SCHEMA_VERSION
+        )
+        self.assertEqual(attestation.eval_suite_digest, EXPECTED_SUITE_DIGEST)
+        self.assertEqual(attestation.passed_case_count, 20)
+        self.assertEqual(attestation.total_case_count, 20)
+        self.assertTrue(attestation.all_passed)
+        self.assertTrue(attestation.provider_backed)
+        self.assertEqual(attestation.artifact_digest, PRESERVED_ATTESTATION_DIGEST)
+
+    def test_checked_in_attestation_fails_closed_for_release_identity_drift(
+        self,
+    ) -> None:
+        mismatches = (
+            {"expected_model_identifier": "gpt-other-model"},
+            {
+                "expected_model_identifier": RELEASE_QUALIFIED_MODEL,
+                "expected_eval_suite_digest": "f" * 64,
+            },
+            {
+                "expected_model_identifier": RELEASE_QUALIFIED_MODEL,
+                "expected_prompt_version": "2",
+            },
+            {
+                "expected_model_identifier": RELEASE_QUALIFIED_MODEL,
+                "expected_review_schema_version": "2",
+            },
+        )
+
+        for mismatch in mismatches:
+            with self.subTest(mismatch=mismatch):
+                with self.assertRaises(ReportReviewEvalError):
+                    load_report_review_eval_attestation(**mismatch)
+
+    def test_attestation_loader_fails_closed_for_tampering_and_incomplete_runs(
+        self,
+    ) -> None:
+        persisted = json.loads(
+            REPORT_REVIEW_EVAL_ATTESTATION_PATH.read_text(encoding="utf-8")
+        )
+        incomplete = build_report_review_eval_attestation_v1(
+            returned_model_identifier=RELEASE_QUALIFIED_MODEL,
+            prompt_version=REPORT_REVIEW_PROMPT_VERSION,
+            review_schema_version=REPORT_REVIEW_SCHEMA_VERSION,
+            eval_suite_digest=EXPECTED_SUITE_DIGEST,
+            passed_case_count=19,
+            total_case_count=20,
+            evaluated_at="2026-08-27T03:38:51.726245Z",
+        ).to_dict()
+        cases = {
+            "malformed": "{not-json",
+            "artifact-tampered": json.dumps(
+                {**persisted, "artifactDigest": "f" * 64}
+            ),
+            "failed-suite": json.dumps(incomplete),
+        }
+
+        with tempfile.TemporaryDirectory() as temporary:
+            for name, contents in cases.items():
+                with self.subTest(case=name):
+                    path = Path(temporary) / f"{name}.json"
+                    path.write_text(contents, encoding="utf-8")
+                    with self.assertRaises(ReportReviewEvalError):
+                        load_report_review_eval_attestation(
+                            expected_model_identifier=RELEASE_QUALIFIED_MODEL,
+                            path=path,
+                        )
 
     def test_optional_checked_in_attestation_loader_is_strict_and_fail_closed(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
