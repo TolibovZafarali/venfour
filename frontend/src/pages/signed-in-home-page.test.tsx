@@ -163,7 +163,11 @@ describe("signed-in homepage", () => {
         }),
       ).toBeVisible();
       expect(screen.queryByText("Welcome back.")).not.toBeInTheDocument();
-      expect(listAppraisalCases).not.toHaveBeenCalled();
+      if (session?.user.is_anonymous) {
+        await waitFor(() => expect(listAppraisalCases).toHaveBeenCalledWith(session.user.id));
+      } else {
+        expect(listAppraisalCases).not.toHaveBeenCalled();
+      }
     },
   );
 

@@ -20,6 +20,7 @@ import {
   SignInDialogProvider,
   useAuth,
 } from "@/features/auth";
+import { useGuestAnalysisReturn } from "@/features/cases/guest-analysis-return";
 import { CookieConsent } from "@/features/privacy/cookie-consent";
 import { useCookieConsent } from "@/features/privacy/cookie-consent-context";
 import { cn } from "@/lib/utils";
@@ -46,7 +47,10 @@ export function AppShell() {
 function AppShellContent() {
   const analysisRoute = useMatch("/analyses/:runId");
   const totalLossCaseRoute = useMatch("/total-loss/cases/:caseId/*");
-  const productFlowRoute = Boolean(analysisRoute || totalLossCaseRoute);
+  const previewReturnRoute = useMatch("/auth/callback/preview/:caseId/:claimId");
+  const previewReadyRoute = useMatch("/auth/callback/preview-ready/:caseId/:claimId");
+  const findReviewRoute = useMatch("/find-review");
+  const productFlowRoute = Boolean(analysisRoute || totalLossCaseRoute || previewReturnRoute || previewReadyRoute || findReviewRoute);
   const location = useLocation();
   const adminRoute = location.pathname.startsWith("/admin/");
   const startFlowRoute =
@@ -146,6 +150,7 @@ function AppShellContent() {
   }, []);
 
   const onHomePage = location.pathname === "/";
+  const guestReturn = useGuestAnalysisReturn(onHomePage);
   const resolvingHomeAudience = onHomePage && auth.status === "loading";
   const permanentHome = onHomePage && isPermanentAuthState(auth);
   const totalLossHref = onHomePage ? "#total-loss" : "/#total-loss";
@@ -153,7 +158,7 @@ function AppShellContent() {
     ? "#diminished-value"
     : "/#diminished-value";
   const howItWorksHref = onHomePage ? "#how-it-works" : "/#how-it-works";
-  const primaryActionHref = "/start?service=total-loss";
+  const primaryActionHref = guestReturn.action?.href ?? "/start?service=total-loss";
   const requestStaffNavigation = () => {
     if (permanentUserId) setStaffNavigationRequestUserId(permanentUserId);
   };
@@ -320,25 +325,36 @@ function AppShellContent() {
                           onStaffNavigationRequest={requestStaffNavigation}
                           staffReviewHref={staffReviewHref}
                         />
-                        <a
-                          href={primaryActionHref}
+                        {guestReturn.pending ? (
+                          <span className="ml-1 inline-flex min-h-11 w-40 items-center justify-center rounded-lg bg-brand/10" role="status">
+                            <span className="sr-only">Checking your saved review…</span>
+                            <span className="h-2 w-20 animate-pulse rounded-full bg-brand/20 motion-reduce:animate-none" aria-hidden />
+                          </span>
+                        ) : <Link
+                          to={primaryActionHref}
                           className="ml-1 inline-flex min-h-11 items-center rounded-lg border border-blue-300/20 bg-brand px-4 text-[0.8125rem] font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.2),0_8px_20px_-12px_rgba(21,94,239,0.95)] transition-colors hover:bg-[#2b6cf4] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 focus-visible:ring-offset-2 motion-reduce:transition-none"
                         >
-                          Get Started
-                        </a>
+                          {guestReturn.action?.label ?? "Get Started"}
+                        </Link>}
                       </>
                     )}
                   </nav>
 
                   <div className="flex shrink-0 items-center gap-1.5 lg:hidden">
                     {!permanentHome ? (
-                      <a
-                        href={primaryActionHref}
-                        className="inline-flex min-h-11 items-center rounded-lg border border-blue-300/20 bg-brand px-3 text-xs font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.2),0_8px_20px_-12px_rgba(21,94,239,0.95)] transition-colors hover:bg-[#2b6cf4] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 focus-visible:ring-offset-2 motion-reduce:transition-none"
+                      guestReturn.pending ? (
+                        <span className="inline-flex min-h-11 w-24 items-center justify-center rounded-lg bg-brand/10" role="status">
+                          <span className="sr-only">Checking your saved review…</span>
+                          <span className="h-2 w-12 animate-pulse rounded-full bg-brand/20 motion-reduce:animate-none" aria-hidden />
+                        </span>
+                      ) : <Link
+                        to={primaryActionHref}
+                        aria-label={guestReturn.action?.label}
+                        className="inline-flex min-h-11 max-w-30 items-center justify-center rounded-lg border border-blue-300/20 bg-brand px-2 text-center text-[0.6875rem] font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.2),0_8px_20px_-12px_rgba(21,94,239,0.95)] transition-colors hover:bg-[#2b6cf4] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 focus-visible:ring-offset-2 sm:px-3 sm:text-xs motion-reduce:transition-none"
                         onClick={() => setMobileNavigationOpen(false)}
                       >
-                        Get Started
-                      </a>
+                        {guestReturn.action?.compactLabel ?? "Get Started"}
+                      </Link>
                     ) : null}
                     <button
                       ref={mobileNavigationButtonRef}

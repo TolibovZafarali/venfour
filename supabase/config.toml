@@ -37,12 +37,20 @@ site_url = "http://localhost:5173"
 additional_redirect_urls = [
   "http://localhost:5173/auth/callback",
   "http://localhost:5173/auth/callback/case-claim/*",
+  "http://localhost:5173/auth/callback/preview/*/*",
+  "http://localhost:5173/auth/callback/preview-ready/*/*",
   "http://127.0.0.1:5173/auth/callback",
   "http://127.0.0.1:5173/auth/callback/case-claim/*",
+  "http://127.0.0.1:5173/auth/callback/preview/*/*",
+  "http://127.0.0.1:5173/auth/callback/preview-ready/*/*",
   "https://staging.venfour.com/auth/callback",
   "https://staging.venfour.com/auth/callback/case-claim/*",
+  "https://staging.venfour.com/auth/callback/preview/*/*",
+  "https://staging.venfour.com/auth/callback/preview-ready/*/*",
   "https://venfour.com/auth/callback",
   "https://venfour.com/auth/callback/case-claim/*",
+  "https://venfour.com/auth/callback/preview/*/*",
+  "https://venfour.com/auth/callback/preview-ready/*/*",
 ]
 jwt_expiry = 3600
 enable_signup = true
@@ -70,11 +78,11 @@ max_frequency = "60s"
 otp_expiry = 3600
 
 [auth.email.template.confirmation]
-subject = "Continue your Venfour appraisal"
+subject = '{{ $p := print .SiteURL "/auth/callback/preview-ready/" }}{{ if and (ge (len .RedirectTo) (len $p)) (eq (slice .RedirectTo 0 (len $p)) $p) }}Your Venfour valuation preview is ready{{ else }}Continue your Venfour appraisal{{ end }}'
 content_path = "./supabase/templates/confirmation.html"
 
 [auth.email.template.magic_link]
-subject = "Continue your Venfour appraisal"
+subject = '{{ $p := print .SiteURL "/auth/callback/preview-ready/" }}{{ if and (ge (len .RedirectTo) (len $p)) (eq (slice .RedirectTo 0 (len $p)) $p) }}Your Venfour valuation preview is ready{{ else }}Continue your Venfour appraisal{{ end }}'
 content_path = "./supabase/templates/magic-link.html"
 
 [auth.external.google]

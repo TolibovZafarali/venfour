@@ -182,6 +182,8 @@ const backendEnvironment = {
     claimRecoveryRateLimitTestSecret,
   VENFOUR_PROVIDER_DIAGNOSTICS: "1",
   VENFOUR_PUBLIC_APP_ORIGIN: "http://localhost:5173",
+  VENFOUR_PREVIEW_EMAIL_DISPATCH_SECRET:
+    "local-preview-email-dispatch-secret-not-for-production",
   VENFOUR_TURNSTILE_SECRET: turnstileTestSecret,
 };
 delete backendEnvironment.VENFOUR_STAGING_PROXY_SECRET;
@@ -209,6 +211,7 @@ for (const secretName of [
   "VENFOUR_PROVIDER_DIAGNOSTICS",
   "VENFOUR_CLAIM_RECOVERY_RATE_LIMIT_SECRET",
   "VENFOUR_PUBLIC_APP_ORIGIN",
+  "VENFOUR_PREVIEW_EMAIL_DISPATCH_SECRET",
   "VENFOUR_TURNSTILE_SECRET",
   "VENFOUR_TOTAL_LOSS_STRIPE_PRICE_ID",
   "VENFOUR_TOTAL_LOSS_PRODUCT_IDENTIFIER",

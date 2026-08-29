@@ -444,6 +444,7 @@ class SupabaseHttpGateway:
         arguments: Mapping[str, Any],
         *,
         retry_ambiguous_claim: bool = False,
+        allow_no_content: bool = False,
     ) -> Any:
         maximum_attempts = 2 if retry_ambiguous_claim else 1
         response: httpx.Response | None = None
@@ -476,6 +477,8 @@ class SupabaseHttpGateway:
             ) from last_error
         if response.status_code < 200 or response.status_code >= 300:
             raise SupabaseUnavailableError("Supabase RPC is unavailable")
+        if allow_no_content and response.status_code == 204:
+            return None
         try:
             return response.json()
         except (ValueError, json.JSONDecodeError) as exc:
@@ -920,6 +923,70 @@ class SupabaseHttpGateway:
             ) from exc
         if response.status_code < 200 or response.status_code >= 300:
             raise SupabaseUnavailableError("Case access email is unavailable")
+
+    def request_total_loss_preview_recovery(
+        self, case_id: str | None, email: str,
+        requester_fingerprint: str, target_fingerprint: str,
+    ) -> None:
+        if not isinstance(email, str) or not 3 <= len(email) <= 320:
+            raise SupabaseContractError("Recovery email is invalid")
+        if any(re.fullmatch(r"[0-9a-f]{64}", value) is None for value in (
+            requester_fingerprint, target_fingerprint,
+        )):
+            raise SupabaseContractError("Recovery fingerprints are invalid")
+        self._rpc("request_total_loss_preview_recovery", {
+            "requested_case_id": _canonical_uuid(case_id, "Case ID") if case_id else None,
+            "email": email,
+            "requester_fingerprint": requester_fingerprint,
+            "target_fingerprint": target_fingerprint,
+        }, allow_no_content=True)
+
+    def reserve_total_loss_preview_email(
+        self, lease_token: str, case_id: str | None,
+    ) -> Mapping[str, Any] | None:
+        payload = self._rpc("reserve_total_loss_preview_email", {
+            "requested_lease_token": _canonical_uuid(lease_token, "Lease token"),
+            "requested_case_id": _canonical_uuid(case_id, "Case ID") if case_id else None,
+        })
+        return self._optional_rpc_row(payload, "Preview email reservation")
+
+    def finish_total_loss_preview_email(
+        self, email_id: str, lease_token: str, delivered: bool,
+    ) -> bool:
+        if not isinstance(delivered, bool):
+            raise SupabaseContractError("Email delivery result is invalid")
+        return self._rpc_boolean(self._rpc("finish_total_loss_preview_email", {
+            "requested_email_id": _canonical_uuid(email_id, "Email ID"),
+            "requested_lease_token": _canonical_uuid(lease_token, "Lease token"),
+            "delivered": delivered,
+        }), "Preview email acknowledgement")
+
+    def send_total_loss_preview_magic_link(
+        self, email: str, case_id: str, claim_id: str,
+        public_app_origin: str, kind: str,
+    ) -> None:
+        canonical_case_id = _canonical_uuid(case_id, "Case ID")
+        canonical_claim_id = _canonical_uuid(claim_id, "Claim ID")
+        if kind not in {"ready", "recovery"} or (
+            not isinstance(email, str) or not 3 <= len(email) <= 320
+            or email != email.strip().lower()
+        ):
+            raise SupabaseContractError("Preview email is invalid")
+        origin = _configured_origin(public_app_origin)
+        route = "preview-ready" if kind == "ready" else "preview"
+        callback = f"{origin}/auth/callback/{route}/{canonical_case_id}/{canonical_claim_id}"
+        try:
+            response = self._client.post(
+                f"{self._configuration.url}/auth/v1/otp",
+                params={"redirect_to": callback},
+                headers=self._admin_headers(json_body=True),
+                json={"email": email, "create_user": True},
+                timeout=10.0,
+            )
+        except httpx.HTTPError as exc:
+            raise SupabaseUnavailableError("Preview email is unavailable") from exc
+        if response.status_code < 200 or response.status_code >= 300:
+            raise SupabaseUnavailableError("Preview email is unavailable")
 
     def reserve_total_loss_checkout(
         self,

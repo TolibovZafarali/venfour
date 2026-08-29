@@ -20,6 +20,7 @@ from typing import Any, Awaitable, Callable
 from uuid import UUID
 
 from starlette.applications import Starlette
+from starlette.background import BackgroundTask
 from starlette.concurrency import run_in_threadpool
 from starlette.datastructures import UploadFile
 from starlette.exceptions import HTTPException
@@ -70,6 +71,7 @@ from venfour.case_claim_access import (
     CloudflareTurnstileVerifier,
     TurnstileRejectedError,
 )
+from venfour.preview_access import PreviewAccessGateway, PreviewAccessService
 from venfour.commerce import (
     MAX_STRIPE_WEBHOOK_BODY_BYTES,
     CommerceConflictError,
@@ -247,6 +249,7 @@ TURNSTILE_SECRET_ENVIRONMENT_NAME = "VENFOUR_TURNSTILE_SECRET"
 RECOVERY_RATE_SECRET_ENVIRONMENT_NAME = (
     "VENFOUR_CLAIM_RECOVERY_RATE_LIMIT_SECRET"
 )
+PREVIEW_DISPATCH_SECRET_ENVIRONMENT_NAME = "VENFOUR_PREVIEW_EMAIL_DISPATCH_SECRET"
 
 MAX_MULTIPART_OVERHEAD_BYTES = 1024 * 1024
 MAX_UPLOAD_BODY_BYTES = MAX_PDF_BYTES + MAX_MULTIPART_OVERHEAD_BYTES
@@ -793,6 +796,56 @@ async def _claim_access_recovery(request: Request) -> JSONResponse:
     return _private_response(
         JSONResponse({"status": "accepted"}, status_code=202)
     )
+
+
+def _deliver_preview_emails(service: PreviewAccessService, case_id: str | None) -> None:
+    try:
+        service.dispatch(case_id)
+    except Exception:
+        # The database queue remains available to the independent scheduler.
+        pass
+
+
+async def _preview_access_recovery(request: Request) -> JSONResponse:
+    case_id = request.path_params.get("case_id")
+    if case_id is not None and not _is_canonical_uuid4(case_id):
+        return _private_response(_error_response(400, "INVALID_CASE_ID"))
+    service = request.app.state.preview_access_service
+    if service is None:
+        return _private_response(_error_response(503, "CLAIM_ACCESS_UNAVAILABLE"))
+    try:
+        email, token = await _claim_recovery_payload(request)
+        requester = _claim_recovery_requester_identity(request)
+        await run_in_threadpool(service.recover, case_id, email, token, requester)
+    except TurnstileRejectedError:
+        return _private_response(_error_response(400, "SECURITY_CHECK_FAILED"))
+    except Exception as exc:
+        return _private_response(_claim_access_error(exc))
+    # The public response is sent before delivery, so match state is not exposed
+    # through either the response payload or synchronous mail-send timing.
+    return _private_response(JSONResponse(
+        {"status": "accepted"}, status_code=202,
+        background=BackgroundTask(_deliver_preview_emails, service, case_id),
+    ))
+
+
+async def _preview_email_dispatch(request: Request) -> JSONResponse:
+    secret = request.app.state.preview_email_dispatch_secret
+    values = [value for name, value in request.scope.get("headers", ())
+              if name.lower() == b"x-venfour-preview-dispatch"]
+    if not secret or len(values) != 1 or not compare_digest(values[0], secret.encode("ascii")):
+        return _private_response(_error_response(401, "INTERNAL_AUTHENTICATION_REQUIRED"))
+    bounded = Request(request.scope, receive=_bounded_receive(request.receive, 2))
+    try:
+        if await bounded.body() not in (b"", b"{}"):
+            return _private_response(_error_response(400, "INVALID_INTERNAL_WORK_REQUEST"))
+    except _RequestBodyTooLarge:
+        return _private_response(_error_response(400, "INVALID_INTERNAL_WORK_REQUEST"))
+    service = request.app.state.preview_access_service
+    if service is None:
+        return _private_response(_error_response(503, "CLAIM_ACCESS_UNAVAILABLE"))
+    result = await run_in_threadpool(service.dispatch)
+    return _private_response(JSONResponse(result))
 
 
 def _commerce_error(error: Exception) -> JSONResponse:
@@ -1356,6 +1409,12 @@ async def _case_analysis_submit(request: Request) -> JSONResponse:
     response = JSONResponse(status.to_dict(), status_code=status_code)
     if status.status == "completed" and status.run_id is not None:
         response.headers["Location"] = f"/api/v1/analyses/{status.run_id}"
+        if request.app.state.preview_access_service is not None:
+            # Persistence has already succeeded. Email delivery never changes
+            # the analysis outcome, and the durable queue retains any retry.
+            response.background = BackgroundTask(
+                _deliver_preview_emails, request.app.state.preview_access_service, case_id,
+            )
     return _private_response(response)
 
 
@@ -1786,6 +1845,7 @@ def create_app(
     repository_root: Path | str | None = None,
     case_analysis_service: Any | None = None,
     case_claim_access_service: Any | None = None,
+    preview_access_service: Any | None = None,
     customer_delivery_service: Any | None = None,
     commerce_service: Any | None = None,
     package_coordinator: Any | None = None,
@@ -1911,6 +1971,8 @@ def create_app(
             )
 
     selected_case_claim_access_service = case_claim_access_service
+    recovery_configuration = None
+    turnstile_verifier = None
     owned_case_claim_access_service: CaseClaimAccessService | None = None
     claim_recovery_configured = selected_case_claim_access_service is not None
     if selected_case_claim_access_service is None and isinstance(
@@ -1963,6 +2025,25 @@ def create_app(
             raise TypeError(
                 "case_claim_access_service must expose auth and claim-access methods"
             )
+
+    selected_preview_access_service = preview_access_service
+    if (
+        selected_preview_access_service is None
+        and recovery_configuration is not None
+        and turnstile_verifier is not None
+        and isinstance(selected_gateway, PreviewAccessGateway)
+    ):
+        selected_preview_access_service = PreviewAccessService(
+            selected_gateway,
+            configuration=recovery_configuration,
+            turnstile_verifier=turnstile_verifier,
+        )
+    try:
+        preview_dispatch_secret = _validated_staging_proxy_secret(
+            os.environ.get(PREVIEW_DISPATCH_SECRET_ENVIRONMENT_NAME)
+        )
+    except ValueError as exc:
+        raise ValueError("preview email dispatch secret configuration is invalid") from exc
 
     selected_customer_delivery_service = customer_delivery_service
     if selected_customer_delivery_service is None and isinstance(
@@ -2341,6 +2422,13 @@ def create_app(
             Route("/api/v1/analyses", _create_analysis, methods=["POST"]),
         )
 
+    routes.extend([
+        Route("/api/v1/preview-access/recovery", _preview_access_recovery, methods=["POST"]),
+        Route("/api/v1/appraisal-cases/{case_id}/preview-access/recovery",
+              _preview_access_recovery, methods=["POST"]),
+        Route("/internal/v1/preview-emails/dispatch", _preview_email_dispatch, methods=["POST"]),
+    ])
+
     @asynccontextmanager
     async def lifespan(application: Starlette):
         application.state.accepting_customer_requests = True
@@ -2378,6 +2466,8 @@ def create_app(
     app.state.creation_service = selected_creation_service
     app.state.case_analysis_service = selected_case_service
     app.state.case_claim_access_service = selected_case_claim_access_service
+    app.state.preview_access_service = selected_preview_access_service
+    app.state.preview_email_dispatch_secret = preview_dispatch_secret
     app.state.customer_delivery_service = selected_customer_delivery_service
     app.state.commerce_service = selected_commerce_service
     app.state.package_coordinator = selected_package_coordinator

@@ -23,6 +23,7 @@ import { HomePage } from "@/pages/home-page";
 import { MethodologyPage } from "@/pages/methodology-page";
 import { NotFoundPage } from "@/pages/not-found-page";
 import { PrivacyPage } from "@/pages/privacy-page";
+import { FindReviewPage, PreviewReturnPage } from "@/pages/preview-return-page";
 import { RouteErrorPage } from "@/pages/route-error-page";
 import { TermsPage } from "@/pages/terms-page";
 import { TotalLossAnalysisPage } from "@/pages/total-loss-analysis-page";
@@ -79,6 +80,26 @@ export const appRoutes: RouteObject[] = [
           "My Appraisals | Venfour",
           "Continue saved vehicle-review requests, follow total-loss value checks, and reopen completed results.",
         ),
+      },
+      {
+        path: "find-review",
+        element: <FindReviewPage />,
+        handle: metadata("Find Your Review | Venfour", "Recover secure access to your saved vehicle review."),
+      },
+      {
+        path: "total-loss/cases/:caseId/return",
+        element: <PreviewReturnPage />,
+        handle: metadata("Return to Your Review | Venfour", "Return securely to your saved valuation preview."),
+      },
+      {
+        path: "auth/callback/preview/:caseId/:claimId",
+        element: <PreviewReturnPage />,
+        handle: metadata("Return to Your Review | Venfour", "Verify your email to return to your saved review."),
+      },
+      {
+        path: "auth/callback/preview-ready/:caseId/:claimId",
+        element: <PreviewReturnPage />,
+        handle: metadata("Your Preview Is Ready | Venfour", "Return securely to your completed valuation preview."),
       },
       {
         path: "analyses/:runId",

@@ -340,7 +340,11 @@ select lives_ok(
 reset role;
 
 select is(
-  (select count(*) from storage.objects where bucket_id = 'case-files'),
+  (
+    select count(*) from storage.objects
+    where bucket_id = 'case-files'
+      and name = '11111111-1111-4111-8111-111111111111/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1/valuation.pdf'
+  ),
   1::bigint,
   'non-reserved legacy Total-Loss objects are immutable to browser clients'
 );

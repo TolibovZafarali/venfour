@@ -1367,6 +1367,7 @@ export type Database = {
           source_details_updated_at: string
           source_intake_mode: Database["public"]["Enums"]["total_loss_intake_mode"]
           source_report_upload_id: string | null
+          started_as_guest: boolean
           status: Database["public"]["Enums"]["total_loss_analysis_status"]
           updated_at: string
         }
@@ -1386,6 +1387,7 @@ export type Database = {
           source_details_updated_at: string
           source_intake_mode?: Database["public"]["Enums"]["total_loss_intake_mode"]
           source_report_upload_id?: string | null
+          started_as_guest?: boolean
           status?: Database["public"]["Enums"]["total_loss_analysis_status"]
           updated_at?: string
         }
@@ -1405,6 +1407,7 @@ export type Database = {
           source_details_updated_at?: string
           source_intake_mode?: Database["public"]["Enums"]["total_loss_intake_mode"]
           source_report_upload_id?: string | null
+          started_as_guest?: boolean
           status?: Database["public"]["Enums"]["total_loss_analysis_status"]
           updated_at?: string
         }
@@ -2850,6 +2853,83 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "total_loss_analysis_jobs"
             referencedColumns: ["run_id", "id", "case_id"]
+          },
+        ]
+      }
+      total_loss_preview_emails: {
+        Row: {
+          attempt_count: number
+          case_id: string
+          created_at: string
+          id: string
+          kind: string
+          last_error_code: string | null
+          lease_expires_at: string | null
+          lease_token: string | null
+          next_attempt_at: string
+          recipient_email: string
+          run_id: string | null
+          sent_at: string | null
+          status: string
+        }
+        Insert: {
+          attempt_count?: number
+          case_id: string
+          created_at?: string
+          id?: string
+          kind: string
+          last_error_code?: string | null
+          lease_expires_at?: string | null
+          lease_token?: string | null
+          next_attempt_at?: string
+          recipient_email: string
+          run_id?: string | null
+          sent_at?: string | null
+          status?: string
+        }
+        Update: {
+          attempt_count?: number
+          case_id?: string
+          created_at?: string
+          id?: string
+          kind?: string
+          last_error_code?: string | null
+          lease_expires_at?: string | null
+          lease_token?: string | null
+          next_attempt_at?: string
+          recipient_email?: string
+          run_id?: string | null
+          sent_at?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "total_loss_preview_emails_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "appraisal_cases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "total_loss_preview_emails_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "total_loss_case_operations_internal"
+            referencedColumns: ["case_id"]
+          },
+          {
+            foreignKeyName: "total_loss_preview_emails_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "analysis_runs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "total_loss_preview_emails_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "total_loss_case_operations_internal"
+            referencedColumns: ["analysis_run_id"]
           },
         ]
       }
@@ -4369,6 +4449,7 @@ export type Database = {
           workflow_task: string
         }[]
       }
+      dispatch_total_loss_preview_emails: { Args: never; Returns: number }
       enqueue_total_loss_package_job: {
         Args: { requested_entitlement_id: string }
         Returns: {
@@ -4514,6 +4595,14 @@ export type Database = {
           run_id: string
           run_status: string
         }[]
+      }
+      finish_total_loss_preview_email: {
+        Args: {
+          delivered: boolean
+          requested_email_id: string
+          requested_lease_token: string
+        }
+        Returns: boolean
       }
       fulfill_total_loss_checkout_payment: {
         Args: {
@@ -5035,6 +5124,15 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      request_total_loss_preview_recovery: {
+        Args: {
+          email: string
+          requested_case_id: string
+          requester_fingerprint: string
+          target_fingerprint: string
+        }
+        Returns: undefined
+      }
       reserve_due_workflow_work_items: {
         Args: { requested_dispatch_token: string; requested_limit: number }
         Returns: {
@@ -5066,6 +5164,16 @@ export type Database = {
           isOneToOne: false
           isSetofReturn: true
         }
+      }
+      reserve_total_loss_preview_email: {
+        Args: { requested_case_id?: string; requested_lease_token: string }
+        Returns: {
+          case_id: string
+          claim_id: string
+          email_id: string
+          kind: string
+          recipient_email: string
+        }[]
       }
       reserve_total_loss_refund: {
         Args: {
@@ -5586,6 +5694,10 @@ export type Database = {
       }
       total_loss_post_continue_case_is_eligible_internal: {
         Args: { requested_case_id: string }
+        Returns: boolean
+      }
+      total_loss_preview_access_allowed_internal: {
+        Args: { email: string; requested_case_id: string }
         Returns: boolean
       }
       touch_appraisal_case: {

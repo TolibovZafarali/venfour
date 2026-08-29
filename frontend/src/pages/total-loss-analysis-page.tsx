@@ -255,6 +255,11 @@ function AuthenticatedTotalLossAnalysisPage({
               : "A temporary connection problem prevented Venfour from checking the current status."
         }
       >
+        {unavailable || authenticationFailed ? (
+          <Button asChild variant="outline">
+            <Link to={`/total-loss/cases/${caseId}/return`}>Email me a return link</Link>
+          </Button>
+        ) : null}
         {!unavailable && !authenticationFailed ? (
           <Button
             variant="outline"
@@ -468,6 +473,9 @@ export function TotalLossAnalysisPage() {
         <Button onClick={() => openSignIn({ returnTo })}>
           <ShieldCheck className="size-4" aria-hidden />
           Sign in
+        </Button>
+        <Button asChild variant="outline">
+          <Link to={`/total-loss/cases/${caseId}/return`}>Email me a return link</Link>
         </Button>
       </StateCard>
     );

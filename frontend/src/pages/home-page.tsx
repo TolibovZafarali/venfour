@@ -4,6 +4,7 @@ import { Link } from "react-router";
 import heroRoadsideAssistanceAvif from "@/assets/hero-roadside-assistance.avif";
 import heroRoadsideAssistanceJpeg from "@/assets/hero-roadside-assistance.jpg";
 import { isPermanentAuthState, useAuth } from "@/features/auth";
+import { useGuestAnalysisReturn } from "@/features/cases/guest-analysis-return";
 import {
   AnnotatedInsuranceReportVisual,
   AppraisalReportVisual,
@@ -65,6 +66,7 @@ const processSteps = [
 ] as const;
 
 export function PublicHomePage() {
+  const guestReturn = useGuestAnalysisReturn();
   return (
     <div className="w-full overflow-clip bg-white text-ink">
       <section className="home-hero-gradient relative isolate overflow-hidden border-b border-slate-200 bg-canvas">
@@ -118,13 +120,17 @@ export function PublicHomePage() {
               paused.
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-              <Link
-                to="/start?service=total-loss"
+              {guestReturn.pending ? (
+                <span className={`${primaryActionClassName} pointer-events-none min-w-52 shrink-0 opacity-60`} role="status">
+                  Checking your saved review…
+                </span>
+              ) : <Link
+                to={guestReturn.action?.href ?? "/start?service=total-loss"}
                 className={`${primaryActionClassName} shrink-0`}
               >
-                Start Total Loss review
+                {guestReturn.action?.label ?? "Start Total Loss review"}
                 <ArrowRight className="size-4" aria-hidden />
-              </Link>
+              </Link>}
               <Link
                 to="/start?service=diminished-value"
                 className={`${secondaryActionClassName} shrink-0`}
@@ -132,6 +138,14 @@ export function PublicHomePage() {
                 View Diminished Value update
               </Link>
             </div>
+            <p className="mt-5 min-h-11 text-sm text-copy">
+              {!guestReturn.pending && !guestReturn.action ? <>
+                Already started?{" "}
+                <Link to="/find-review" className="inline-flex min-h-11 items-center rounded-sm font-semibold text-brand underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand">
+                  Find my review
+                </Link>
+              </> : null}
+            </p>
           </div>
         </div>
       </section>
