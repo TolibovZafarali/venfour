@@ -45,6 +45,8 @@ export function AppShell() {
 
 function AppShellContent() {
   const analysisRoute = useMatch("/analyses/:runId");
+  const totalLossCaseRoute = useMatch("/total-loss/cases/:caseId/*");
+  const productFlowRoute = Boolean(analysisRoute || totalLossCaseRoute);
   const location = useLocation();
   const adminRoute = location.pathname.startsWith("/admin/");
   const startFlowRoute =
@@ -158,7 +160,8 @@ function AppShellContent() {
   const staffReviewHref = staffAccessQuery.data
     ? "/admin/cases"
     : undefined;
-  const visibleHeaderDetached = headerDetached && !startFlowRoute;
+  const visibleHeaderDetached =
+    headerDetached && !startFlowRoute && !productFlowRoute;
   const detachedHeaderMaxWidth =
     analysisRoute || adminRoute ? "max-w-[90rem]" : "max-w-7xl";
   const headerMotionClassName = visibleHeaderDetached
@@ -236,14 +239,14 @@ function AppShellContent() {
                     Venfour
                   </span>
                 </Link>
-                {analysisRoute || adminRoute ? (
+                {adminRoute ? (
                   <span className="hidden border-l border-ink/10 pl-4 text-[0.6875rem] font-semibold tracking-[0.12em] text-copy/80 uppercase sm:block">
-                    {adminRoute ? "Staff review" : "Valuation review"}
+                    Staff review
                   </span>
                 ) : null}
               </div>
 
-              {startFlowRoute || adminRoute ? (
+              {productFlowRoute ? null : startFlowRoute || adminRoute ? (
                 <AccountControl
                   className="shrink-0"
                   onStaffNavigationRequest={requestStaffNavigation}
@@ -368,6 +371,7 @@ function AppShellContent() {
 
             {!startFlowRoute &&
             !adminRoute &&
+            !productFlowRoute &&
             !resolvingHomeAudience &&
             mobileNavigationOpen ? (
               <nav
@@ -447,7 +451,27 @@ function AppShellContent() {
       >
         <Outlet />
       </main>
-      {!startFlowRoute && !adminRoute ? (
+      {productFlowRoute ? (
+        <footer className="bg-canvas px-5 py-2 sm:px-8">
+          <nav
+            aria-label="Legal"
+            className="mx-auto flex w-full items-center justify-center gap-5 text-xs text-copy"
+          >
+            <Link
+              to="/terms"
+              className="report-action-focus inline-flex min-h-11 items-center rounded-sm hover:text-ink"
+            >
+              Terms
+            </Link>
+            <Link
+              to="/privacy"
+              className="report-action-focus inline-flex min-h-11 items-center rounded-sm hover:text-ink"
+            >
+              Privacy
+            </Link>
+          </nav>
+        </footer>
+      ) : !startFlowRoute && !adminRoute ? (
         <footer className="site-footer-gradient border-t border-line bg-surface">
           <div className="mx-auto w-full max-w-7xl px-5 py-6 sm:px-8 sm:py-7">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">

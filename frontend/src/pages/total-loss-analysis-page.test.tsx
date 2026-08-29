@@ -1,5 +1,5 @@
 import { http, HttpResponse } from "msw";
-import { act, screen, waitFor } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { Session } from "@supabase/supabase-js";
 import { describe, expect, it, vi } from "vitest";
@@ -132,6 +132,15 @@ describe("total-loss case analysis page", () => {
     expect(router.state.location.pathname).toBe(casePath);
     expect(getCount).toBeGreaterThanOrEqual(2);
     expect(postCount).toBe(0);
+    const header = within(screen.getByRole("banner"));
+    expect(header.getAllByRole("link")).toHaveLength(1);
+    expect(header.getByRole("link", { name: "Venfour home" })).toBeVisible();
+    expect(header.queryByRole("navigation")).not.toBeInTheDocument();
+    expect(header.queryByRole("button")).not.toBeInTheDocument();
+    expect(screen.getByRole("navigation", { name: "Legal" })).toBeVisible();
+    expect(
+      screen.queryByRole("navigation", { name: "Footer navigation" }),
+    ).not.toBeInTheDocument();
   });
 
   it("offers a safe resume after the processing lease expires", async () => {

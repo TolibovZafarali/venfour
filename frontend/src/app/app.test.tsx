@@ -1001,6 +1001,26 @@ describe("Venfour application", () => {
 
     expect(await screen.findByText("Valuation analysis loaded.")).toBeVisible();
     expect(document.title).toBe("Vehicle Valuation Analysis | Venfour");
+    const header = within(
+      screen.getByRole("link", { name: "Venfour home" }).closest("header")!,
+    );
+    expect(header.getAllByRole("link")).toHaveLength(1);
+    expect(header.getByRole("link", { name: "Venfour home" })).toBeVisible();
+    expect(header.queryByRole("button")).not.toBeInTheDocument();
+    expect(header.queryByRole("navigation")).not.toBeInTheDocument();
+    const legal = within(screen.getByRole("navigation", { name: "Legal" }));
+    expect(legal.getAllByRole("link")).toHaveLength(2);
+    expect(legal.getByRole("link", { name: "Terms" })).toHaveAttribute(
+      "href",
+      "/terms",
+    );
+    expect(legal.getByRole("link", { name: "Privacy" })).toHaveAttribute(
+      "href",
+      "/privacy",
+    );
+    expect(
+      screen.queryByRole("navigation", { name: "Footer navigation" }),
+    ).not.toBeInTheDocument();
   });
 
   test("does not expose the placeholder workspace route", () => {

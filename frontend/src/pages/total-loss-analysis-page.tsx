@@ -96,7 +96,7 @@ function StateCard({
 
 function AnalysisExperienceFrame({ children }: { readonly children: ReactNode }) {
   return (
-    <div className="page-gradient-analysis relative isolate flex min-h-[calc(100svh-4rem)] w-full items-center overflow-hidden bg-canvas px-5 py-10 sm:px-8 sm:py-14 lg:px-10 lg:py-16">
+    <div className="page-gradient-analysis relative isolate flex w-full items-center overflow-hidden bg-canvas px-5 py-10 sm:px-8 sm:py-14 lg:px-10 lg:py-16">
       <span
         className="pointer-events-none absolute -top-40 -left-44 size-[32rem] rounded-full bg-brand-subtle/65 blur-3xl"
         aria-hidden
