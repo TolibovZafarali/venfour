@@ -40,6 +40,11 @@ from venfour.supabase_gateway import (
 
 PACKAGE_WORK_TYPE = "total_loss_package_finalize"
 PACKAGE_WORK_VERSION = "1"
+SUPPORTED_WORK_ITEM_VERSIONS = {
+    PACKAGE_WORK_TYPE: PACKAGE_WORK_VERSION,
+    "total_loss_report_generate": "1",
+    "total_loss_report_review": "1",
+}
 PACKAGE_FAILURE_CODE_PATTERN = re.compile(r"[A-Z][A-Z0-9_]{0,63}")
 PACKAGE_CODE_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}")
 SHA256_PATTERN = re.compile(r"[0-9a-f]{64}")
@@ -632,9 +637,15 @@ class TotalLossPackageCoordinator:
             "processing",
             "source_frozen",
             "assessment_ready",
+            "report_generating",
+            "waiting_ai_review",
+            "waiting_human_review",
+            "refund_pending",
             "review_required",
             "new_evidence_required",
             "retryable_failed",
+            "ready",
+            "not_supportable",
             "failed",
         }
     )
@@ -763,9 +774,11 @@ class TotalLossPackageCoordinator:
             row = _mapping(value, "Work-item dispatch reservation")
             work_item_id = _canonical_uuid(row.get("work_item_id"), "Work item ID")
             _canonical_uuid(row.get("package_job_id"), "Package job ID")
-            if row.get("work_type") != PACKAGE_WORK_TYPE:
+            work_type = row.get("work_type")
+            expected_version = SUPPORTED_WORK_ITEM_VERSIONS.get(work_type)
+            if expected_version is None:
                 raise PackageProcessingContractError("Work item type is invalid")
-            if str(row.get("work_version")) != PACKAGE_WORK_VERSION:
+            if str(row.get("work_version")) != expected_version:
                 raise PackageProcessingContractError("Work item version is invalid")
             attempt_count = _positive_attempt(
                 row.get("dispatch_attempt_count"), "Dispatch attempt count"

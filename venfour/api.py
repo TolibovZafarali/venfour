@@ -103,6 +103,29 @@ from venfour.package_processing import (
     TotalLossPackageCoordinator,
     TotalLossPackageProcessor,
 )
+from venfour.report_processing import (
+    ReportProcessingDatabaseGateway,
+    ReportWorkExecutionResult,
+    TotalLossReportProcessor,
+    TotalLossWorkItemProcessor,
+)
+from venfour.report_review import (
+    OpenAIReportReviewer,
+    ReportReviewConfiguration,
+)
+from venfour.report_review_evals import (
+    ReportReviewEvalError,
+    load_report_review_eval_attestation,
+)
+from venfour.staff_release import (
+    StaffReleaseConflictError,
+    StaffReleaseContractError,
+    StaffReleaseInputError,
+    StaffReleaseNotFoundError,
+    StaffReleaseReviewGateway,
+    StaffReleaseReviewService,
+    StaffReleaseUnavailableError,
+)
 from venfour.presentation import (
     AnalysisPresentationContractError,
     AnalysisPresentationService,
@@ -185,6 +208,17 @@ _ERROR_MESSAGES = {
         "Package processing is temporarily unavailable."
     ),
     "PACKAGE_PROCESSING_FAILED": "Package processing failed safely.",
+    "INVALID_STAFF_RELEASE_REVIEW_REQUEST": (
+        "Staff release-review request is invalid."
+    ),
+    "STAFF_RELEASE_REVIEW_NOT_FOUND": "Release review was not found.",
+    "STAFF_RELEASE_REVIEW_CONFLICT": (
+        "Release review changed before this decision."
+    ),
+    "STAFF_RELEASE_REVIEW_UNAVAILABLE": (
+        "Staff release review is temporarily unavailable."
+    ),
+    "STAFF_RELEASE_REVIEW_FAILED": "Staff release review failed safely.",
 }
 
 LEGACY_API_ENVIRONMENT_NAME = "VENFOUR_ENABLE_LEGACY_ANALYSIS_API"
@@ -202,6 +236,7 @@ MAX_MULTIPART_FIELD_BYTES = 1024
 UPLOAD_COPY_CHUNK_BYTES = 1024 * 1024
 MAX_CLAIM_RECOVERY_BODY_BYTES = 8 * 1024
 MAX_COMMERCE_REQUEST_BODY_BYTES = 8 * 1024
+MAX_STAFF_RELEASE_REQUEST_BODY_BYTES = 16 * 1024
 
 _ANALYSIS_UNAVAILABLE_ERRORS = (
     InvalidAnalysisRunArtifactError,
@@ -1184,6 +1219,141 @@ def _runtime_secret_is_configured(name: str) -> bool:
     )
 
 
+def _staff_release_error(error: Exception) -> JSONResponse:
+    if isinstance(error, SupabaseAuthenticationError):
+        return _error_response(
+            401,
+            "AUTHENTICATION_INVALID",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    if isinstance(error, StaffReleaseInputError):
+        return _error_response(400, "INVALID_STAFF_RELEASE_REVIEW_REQUEST")
+    if isinstance(error, StaffReleaseNotFoundError):
+        return _error_response(404, "STAFF_RELEASE_REVIEW_NOT_FOUND")
+    if isinstance(error, StaffReleaseConflictError):
+        return _error_response(409, "STAFF_RELEASE_REVIEW_CONFLICT")
+    if isinstance(
+        error,
+        (
+            StaffReleaseUnavailableError,
+            SupabaseUnavailableError,
+        ),
+    ):
+        return _error_response(503, "STAFF_RELEASE_REVIEW_UNAVAILABLE")
+    if isinstance(
+        error,
+        (
+            StaffReleaseContractError,
+            SupabaseContractError,
+        ),
+    ):
+        return _error_response(500, "STAFF_RELEASE_REVIEW_FAILED")
+    return _error_response(500, "STAFF_RELEASE_REVIEW_FAILED")
+
+
+async def _staff_release_decision_payload(
+    request: Request,
+) -> Mapping[str, Any]:
+    content_type = request.headers.get("content-type", "")
+    if content_type.partition(";")[0].strip().casefold() != "application/json":
+        raise StaffReleaseInputError("Release review request is invalid")
+    content_length = request.headers.get("content-length")
+    if content_length is not None:
+        try:
+            if not 0 < int(content_length) <= MAX_STAFF_RELEASE_REQUEST_BODY_BYTES:
+                raise StaffReleaseInputError(
+                    "Release review request is invalid"
+                )
+        except ValueError as exc:
+            raise StaffReleaseInputError(
+                "Release review request is invalid"
+            ) from exc
+    bounded = Request(
+        request.scope,
+        receive=_bounded_receive(
+            request.receive, MAX_STAFF_RELEASE_REQUEST_BODY_BYTES
+        ),
+    )
+    try:
+        raw_body = await bounded.body()
+    except _RequestBodyTooLarge as exc:
+        raise StaffReleaseInputError(
+            "Release review request is invalid"
+        ) from exc
+    try:
+        payload = json.loads(raw_body)
+    except (TypeError, ValueError, json.JSONDecodeError) as exc:
+        raise StaffReleaseInputError(
+            "Release review request is invalid"
+        ) from exc
+    if not isinstance(payload, Mapping) or set(payload) != {
+        "expectedUpdatedAt",
+        "decision",
+        "rationale",
+    }:
+        raise StaffReleaseInputError("Release review request is invalid")
+    return payload
+
+
+def _staff_bearer_token(request: Request) -> str | JSONResponse:
+    try:
+        return _bearer_token(request)
+    except SupabaseAuthenticationError:
+        return _error_response(
+            401,
+            "AUTHENTICATION_REQUIRED",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+
+async def _staff_release_review_get(request: Request) -> JSONResponse:
+    service = request.app.state.staff_release_review_service
+    if service is None:
+        return _private_response(
+            _error_response(503, "STAFF_RELEASE_REVIEW_UNAVAILABLE")
+        )
+    access_token = _staff_bearer_token(request)
+    if isinstance(access_token, JSONResponse):
+        return _private_response(access_token)
+    if not await _require_empty_request_body(request):
+        return _private_response(
+            _error_response(400, "INVALID_STAFF_RELEASE_REVIEW_REQUEST")
+        )
+    try:
+        projection = await run_in_threadpool(
+            service.get_review,
+            request.path_params["release_review_id"],
+            access_token,
+        )
+        return _private_response(JSONResponse(projection.to_dict()))
+    except Exception as exc:
+        return _private_response(_staff_release_error(exc))
+
+
+async def _staff_release_review_decide(request: Request) -> JSONResponse:
+    service = request.app.state.staff_release_review_service
+    if service is None:
+        return _private_response(
+            _error_response(503, "STAFF_RELEASE_REVIEW_UNAVAILABLE")
+        )
+    access_token = _staff_bearer_token(request)
+    if isinstance(access_token, JSONResponse):
+        return _private_response(access_token)
+    try:
+        payload = await _staff_release_decision_payload(request)
+        projection = await run_in_threadpool(
+            service.decide,
+            request.path_params["release_review_id"],
+            access_token,
+            expected_updated_at=payload.get("expectedUpdatedAt"),
+            decision=payload.get("decision"),
+            rationale=payload.get("rationale"),
+        )
+        return _private_response(JSONResponse(projection.to_dict()))
+    except Exception as exc:
+        return _private_response(_staff_release_error(exc))
+
+
 def _internal_bearer_token(request: Request) -> str:
     values = [
         value
@@ -1241,6 +1411,8 @@ async def _internal_work_item_execute(request: Request) -> JSONResponse:
 
     try:
         result = await run_in_threadpool(processor.execute, work_item_id)
+        if isinstance(result, ReportWorkExecutionResult):
+            return _private_response(JSONResponse(result.to_dict()))
         if not isinstance(result, PackageExecutionResult):
             raise PackageProcessingContractError(
                 "Package processor returned an invalid result"
@@ -1310,6 +1482,7 @@ def create_app(
     package_coordinator: Any | None = None,
     package_processor: Any | None = None,
     internal_caller_verifier: Any | None = None,
+    staff_release_review_service: Any | None = None,
     vehicle_trim_catalog_service: Any | None = None,
     supabase_gateway: CaseAnalysisGateway | None = None,
     enable_legacy_api: bool | None = None,
@@ -1484,6 +1657,7 @@ def create_app(
 
     selected_package_coordinator = package_coordinator
     selected_package_processor = package_processor
+    selected_report_processor: TotalLossReportProcessor | None = None
     selected_internal_caller_verifier = internal_caller_verifier
     owned_package_dispatcher: CloudTasksWorkItemDispatcher | None = None
 
@@ -1517,11 +1691,7 @@ def create_app(
             "package_coordinator must expose entitlement and reconciliation methods"
         )
 
-    if selected_package_processor is None and isinstance(
-        selected_gateway, PackageProcessingDatabaseGateway
-    ):
-        selected_package_processor = TotalLossPackageProcessor(selected_gateway)
-    elif selected_package_processor is not None and not callable(
+    if selected_package_processor is not None and not callable(
         getattr(selected_package_processor, "execute", None)
     ):
         raise TypeError("package_processor must expose execute(work_item_id)")
@@ -1574,6 +1744,92 @@ def create_app(
             raise TypeError(
                 "commerce_service must expose checkout and webhook methods"
             )
+
+    if selected_package_processor is None and isinstance(
+        selected_gateway, PackageProcessingDatabaseGateway
+    ):
+        base_package_processor = TotalLossPackageProcessor(selected_gateway)
+        if isinstance(selected_gateway, ReportProcessingDatabaseGateway):
+            try:
+                report_review_configuration = (
+                    ReportReviewConfiguration.from_environment(os.environ)
+                )
+            except (TypeError, ValueError):
+                report_review_configuration = ReportReviewConfiguration()
+            report_reviewer = None
+            if (
+                report_review_configuration.review_available
+                and _runtime_secret_is_configured("OPENAI_API_KEY")
+            ):
+                try:
+                    report_reviewer = OpenAIReportReviewer(
+                        report_review_configuration,
+                        api_key=os.environ.get("OPENAI_API_KEY"),
+                    )
+                except (TypeError, ValueError):
+                    report_reviewer = None
+            provider_evaluation_attestation = None
+            if report_review_configuration.approval_configuration_complete:
+                try:
+                    loaded_attestation = load_report_review_eval_attestation(
+                        expected_model_identifier=(
+                            report_review_configuration.approved_model_identifier
+                            or ""
+                        ),
+                        expected_prompt_version=(
+                            report_review_configuration.approved_prompt_version
+                            or ""
+                        ),
+                        expected_review_schema_version=(
+                            report_review_configuration.approved_schema_version
+                            or ""
+                        ),
+                        expected_eval_suite_digest=(
+                            report_review_configuration.approved_eval_suite_digest
+                        ),
+                    )
+                except (OSError, ReportReviewEvalError, TypeError, ValueError):
+                    loaded_attestation = None
+                if loaded_attestation is not None:
+                    provider_evaluation_attestation = (
+                        loaded_attestation.to_dict()
+                    )
+            selected_report_processor = TotalLossReportProcessor(
+                selected_gateway,
+                reviewer=report_reviewer,
+                review_configuration=report_review_configuration,
+                provider_evaluation_attestation=(
+                    provider_evaluation_attestation
+                ),
+                commerce_service=selected_commerce_service,
+            )
+            selected_package_processor = TotalLossWorkItemProcessor(
+                selected_gateway,
+                base_package_processor,
+                selected_report_processor,
+                selected_package_coordinator,
+            )
+        else:
+            selected_package_processor = base_package_processor
+
+    selected_staff_release_review_service = staff_release_review_service
+    if (
+        selected_staff_release_review_service is None
+        and isinstance(selected_gateway, StaffReleaseReviewGateway)
+        and selected_report_processor is not None
+    ):
+        selected_staff_release_review_service = StaffReleaseReviewService(
+            selected_gateway,
+            work_coordinator=selected_package_coordinator,
+            refund_recovery=selected_report_processor,
+        )
+    elif selected_staff_release_review_service is not None and any(
+        not callable(getattr(selected_staff_release_review_service, method, None))
+        for method in ("get_review", "decide")
+    ):
+        raise TypeError(
+            "staff_release_review_service must expose get_review and decide"
+        )
 
     selected_vehicle_trim_catalog_service = vehicle_trim_catalog_service
     trim_cache_methods = (
@@ -1661,6 +1917,17 @@ def create_app(
             _analysis_presentation if legacy_enabled else _owned_analysis_presentation,
             methods=["GET"],
         ),
+        Route(
+            "/api/v1/staff/total-loss/release-reviews/{release_review_id}",
+            _staff_release_review_get,
+            methods=["GET"],
+        ),
+        Route(
+            "/api/v1/staff/total-loss/release-reviews/"
+            "{release_review_id}/decision",
+            _staff_release_review_decide,
+            methods=["POST"],
+        ),
         Route("/health", _health, methods=["GET"]),
         Route("/ready", _readiness, methods=["GET"]),
         Route("/webhooks/stripe", _stripe_webhook, methods=["POST"]),
@@ -1723,6 +1990,9 @@ def create_app(
     app.state.package_coordinator = selected_package_coordinator
     app.state.package_processor = selected_package_processor
     app.state.internal_caller_verifier = selected_internal_caller_verifier
+    app.state.staff_release_review_service = (
+        selected_staff_release_review_service
+    )
     app.state.vehicle_trim_catalog_service = (
         selected_vehicle_trim_catalog_service
     )

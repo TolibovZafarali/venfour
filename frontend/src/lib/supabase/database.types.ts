@@ -7,6 +7,31 @@ export type Json =
   | Json[]
 
 export type Database = {
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
       analysis_runs: {
@@ -1182,6 +1207,8 @@ export type Database = {
       }
       total_loss_ai_review_runs: {
         Row: {
+          assessment_digest: string | null
+          attempt_number: number | null
           case_id: string
           completed_at: string | null
           confidence: string | null
@@ -1192,18 +1219,29 @@ export type Database = {
           input_digest: string
           model_identifier: string
           output_digest: string | null
+          pdf_digest: string | null
+          processing_expires_at: string | null
+          processing_token: string | null
           prompt_version: string
           provider_identifier: string
           recommendation: string | null
+          release_gate_digest: string | null
+          release_gate_manifest: Json | null
+          report_digest: string | null
           report_version_id: string | null
+          returned_model_identifier: string | null
           review_result: Json | null
           schema_version: string
+          source_snapshot_id: string | null
           started_at: string | null
           status: string
           updated_at: string
           usage_metadata: Json | null
+          work_item_id: string | null
         }
         Insert: {
+          assessment_digest?: string | null
+          attempt_number?: number | null
           case_id: string
           completed_at?: string | null
           confidence?: string | null
@@ -1214,18 +1252,29 @@ export type Database = {
           input_digest: string
           model_identifier: string
           output_digest?: string | null
+          pdf_digest?: string | null
+          processing_expires_at?: string | null
+          processing_token?: string | null
           prompt_version: string
           provider_identifier: string
           recommendation?: string | null
+          release_gate_digest?: string | null
+          release_gate_manifest?: Json | null
+          report_digest?: string | null
           report_version_id?: string | null
+          returned_model_identifier?: string | null
           review_result?: Json | null
           schema_version: string
+          source_snapshot_id?: string | null
           started_at?: string | null
           status?: string
           updated_at?: string
           usage_metadata?: Json | null
+          work_item_id?: string | null
         }
         Update: {
+          assessment_digest?: string | null
+          attempt_number?: number | null
           case_id?: string
           completed_at?: string | null
           confidence?: string | null
@@ -1236,16 +1285,25 @@ export type Database = {
           input_digest?: string
           model_identifier?: string
           output_digest?: string | null
+          pdf_digest?: string | null
+          processing_expires_at?: string | null
+          processing_token?: string | null
           prompt_version?: string
           provider_identifier?: string
           recommendation?: string | null
+          release_gate_digest?: string | null
+          release_gate_manifest?: Json | null
+          report_digest?: string | null
           report_version_id?: string | null
+          returned_model_identifier?: string | null
           review_result?: Json | null
           schema_version?: string
+          source_snapshot_id?: string | null
           started_at?: string | null
           status?: string
           updated_at?: string
           usage_metadata?: Json | null
+          work_item_id?: string | null
         }
         Relationships: [
           {
@@ -1275,6 +1333,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "total_loss_report_versions"
             referencedColumns: ["id", "case_id", "final_assessment_id"]
+          },
+          {
+            foreignKeyName: "total_loss_ai_review_runs_source_fkey"
+            columns: ["source_snapshot_id", "case_id"]
+            isOneToOne: false
+            referencedRelation: "total_loss_source_snapshots"
+            referencedColumns: ["id", "case_id"]
+          },
+          {
+            foreignKeyName: "total_loss_ai_review_runs_work_fkey"
+            columns: ["work_item_id", "case_id", "report_version_id"]
+            isOneToOne: false
+            referencedRelation: "workflow_work_items"
+            referencedColumns: ["id", "case_id", "report_version_id"]
           },
         ]
       }
@@ -2861,44 +2933,59 @@ export type Database = {
       }
       total_loss_release_reviews: {
         Row: {
-          ai_review_run_id: string
+          ai_review_run_id: string | null
           assigned_staff_user_id: string | null
           case_id: string
           created_at: string
           decision: string | null
+          decision_digest: string | null
           due_at: string | null
+          final_assessment_id: string | null
           id: string
           rationale: string | null
+          refund_request_id: string | null
+          report_version_id: string | null
           resolved_at: string | null
           resolved_by_user_id: string | null
+          resulting_report_version_id: string | null
           status: string
           updated_at: string
         }
         Insert: {
-          ai_review_run_id: string
+          ai_review_run_id?: string | null
           assigned_staff_user_id?: string | null
           case_id: string
           created_at?: string
           decision?: string | null
+          decision_digest?: string | null
           due_at?: string | null
+          final_assessment_id?: string | null
           id?: string
           rationale?: string | null
+          refund_request_id?: string | null
+          report_version_id?: string | null
           resolved_at?: string | null
           resolved_by_user_id?: string | null
+          resulting_report_version_id?: string | null
           status?: string
           updated_at?: string
         }
         Update: {
-          ai_review_run_id?: string
+          ai_review_run_id?: string | null
           assigned_staff_user_id?: string | null
           case_id?: string
           created_at?: string
           decision?: string | null
+          decision_digest?: string | null
           due_at?: string | null
+          final_assessment_id?: string | null
           id?: string
           rationale?: string | null
+          refund_request_id?: string | null
+          report_version_id?: string | null
           resolved_at?: string | null
           resolved_by_user_id?: string | null
+          resulting_report_version_id?: string | null
           status?: string
           updated_at?: string
         }
@@ -2930,6 +3017,27 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "total_loss_case_operations_internal"
             referencedColumns: ["case_id"]
+          },
+          {
+            foreignKeyName: "total_loss_release_reviews_refund_fkey"
+            columns: ["refund_request_id", "case_id"]
+            isOneToOne: false
+            referencedRelation: "commerce_refund_requests"
+            referencedColumns: ["id", "case_id"]
+          },
+          {
+            foreignKeyName: "total_loss_release_reviews_report_fkey"
+            columns: ["report_version_id", "case_id", "final_assessment_id"]
+            isOneToOne: false
+            referencedRelation: "total_loss_report_versions"
+            referencedColumns: ["id", "case_id", "final_assessment_id"]
+          },
+          {
+            foreignKeyName: "total_loss_release_reviews_result_report_fkey"
+            columns: ["resulting_report_version_id", "case_id"]
+            isOneToOne: false
+            referencedRelation: "total_loss_report_versions"
+            referencedColumns: ["id", "case_id"]
           },
         ]
       }
@@ -2987,6 +3095,8 @@ export type Database = {
         Row: {
           case_id: string
           created_at: string
+          current_published_report_version_id: string | null
+          current_report_version_id: string | null
           id: string
           product_identifier: string
           report_kind: string
@@ -2994,6 +3104,8 @@ export type Database = {
         Insert: {
           case_id: string
           created_at?: string
+          current_published_report_version_id?: string | null
+          current_report_version_id?: string | null
           id?: string
           product_identifier: string
           report_kind: string
@@ -3001,6 +3113,8 @@ export type Database = {
         Update: {
           case_id?: string
           created_at?: string
+          current_published_report_version_id?: string | null
+          current_report_version_id?: string | null
           id?: string
           product_identifier?: string
           report_kind?: string
@@ -3013,64 +3127,114 @@ export type Database = {
             referencedRelation: "total_loss_claim_workflows"
             referencedColumns: ["case_id"]
           },
+          {
+            foreignKeyName: "total_loss_report_series_current_published_fkey"
+            columns: ["current_published_report_version_id", "case_id", "id"]
+            isOneToOne: false
+            referencedRelation: "total_loss_report_versions"
+            referencedColumns: ["id", "case_id", "report_series_id"]
+          },
+          {
+            foreignKeyName: "total_loss_report_series_current_report_fkey"
+            columns: ["current_report_version_id", "case_id", "id"]
+            isOneToOne: false
+            referencedRelation: "total_loss_report_versions"
+            referencedColumns: ["id", "case_id", "report_series_id"]
+          },
         ]
       }
       total_loss_report_versions: {
         Row: {
+          assessment_digest: string | null
           case_id: string
           created_at: string
           document_id: string | null
+          failure_code: string | null
           final_assessment_id: string
+          generated_at: string | null
+          generation_work_item_id: string | null
           id: string
+          package_job_id: string | null
+          pdf_byte_size: number | null
+          pdf_digest: string | null
           preliminary_snapshot_id: string
           published_at: string | null
-          renderer_version: string
-          report: Json
-          report_digest: string
+          renderer_version: string | null
+          report: Json | null
+          report_digest: string | null
           report_series_id: string
-          schema_version: string
+          review_work_item_id: string | null
+          schema_version: string | null
+          source_snapshot_digest: string | null
+          source_snapshot_id: string | null
           status: string
           supersedes_report_version_id: string | null
-          template_version: string
+          template_version: string | null
           updated_at: string
+          validation_manifest: Json | null
+          validation_version: string | null
           version_number: number
         }
         Insert: {
+          assessment_digest?: string | null
           case_id: string
           created_at?: string
           document_id?: string | null
+          failure_code?: string | null
           final_assessment_id: string
+          generated_at?: string | null
+          generation_work_item_id?: string | null
           id?: string
+          package_job_id?: string | null
+          pdf_byte_size?: number | null
+          pdf_digest?: string | null
           preliminary_snapshot_id: string
           published_at?: string | null
-          renderer_version: string
-          report: Json
-          report_digest: string
+          renderer_version?: string | null
+          report?: Json | null
+          report_digest?: string | null
           report_series_id: string
-          schema_version: string
+          review_work_item_id?: string | null
+          schema_version?: string | null
+          source_snapshot_digest?: string | null
+          source_snapshot_id?: string | null
           status?: string
           supersedes_report_version_id?: string | null
-          template_version: string
+          template_version?: string | null
           updated_at?: string
+          validation_manifest?: Json | null
+          validation_version?: string | null
           version_number: number
         }
         Update: {
+          assessment_digest?: string | null
           case_id?: string
           created_at?: string
           document_id?: string | null
+          failure_code?: string | null
           final_assessment_id?: string
+          generated_at?: string | null
+          generation_work_item_id?: string | null
           id?: string
+          package_job_id?: string | null
+          pdf_byte_size?: number | null
+          pdf_digest?: string | null
           preliminary_snapshot_id?: string
           published_at?: string | null
-          renderer_version?: string
-          report?: Json
-          report_digest?: string
+          renderer_version?: string | null
+          report?: Json | null
+          report_digest?: string | null
           report_series_id?: string
-          schema_version?: string
+          review_work_item_id?: string | null
+          schema_version?: string | null
+          source_snapshot_digest?: string | null
+          source_snapshot_id?: string | null
           status?: string
           supersedes_report_version_id?: string | null
-          template_version?: string
+          template_version?: string | null
           updated_at?: string
+          validation_manifest?: Json | null
+          validation_version?: string | null
           version_number?: number
         }
         Relationships: [
@@ -3107,6 +3271,27 @@ export type Database = {
             referencedColumns: ["id", "case_id"]
           },
           {
+            foreignKeyName: "total_loss_report_versions_generation_work_fkey"
+            columns: ["generation_work_item_id", "package_job_id", "case_id"]
+            isOneToOne: false
+            referencedRelation: "workflow_work_items"
+            referencedColumns: ["id", "package_job_id", "case_id"]
+          },
+          {
+            foreignKeyName: "total_loss_report_versions_package_identity_fkey"
+            columns: ["package_job_id", "case_id", "preliminary_snapshot_id"]
+            isOneToOne: false
+            referencedRelation: "total_loss_package_jobs"
+            referencedColumns: ["id", "case_id", "preliminary_snapshot_id"]
+          },
+          {
+            foreignKeyName: "total_loss_report_versions_review_work_fkey"
+            columns: ["review_work_item_id", "package_job_id", "case_id"]
+            isOneToOne: false
+            referencedRelation: "workflow_work_items"
+            referencedColumns: ["id", "package_job_id", "case_id"]
+          },
+          {
             foreignKeyName: "total_loss_report_versions_series_case_fkey"
             columns: ["report_series_id", "case_id"]
             isOneToOne: false
@@ -3119,6 +3304,23 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "total_loss_preliminary_snapshots"
             referencedColumns: ["id", "case_id"]
+          },
+          {
+            foreignKeyName: "total_loss_report_versions_source_identity_fkey"
+            columns: [
+              "source_snapshot_id",
+              "package_job_id",
+              "case_id",
+              "preliminary_snapshot_id",
+            ]
+            isOneToOne: false
+            referencedRelation: "total_loss_source_snapshots"
+            referencedColumns: [
+              "id",
+              "package_job_id",
+              "case_id",
+              "preliminary_snapshot_id",
+            ]
           },
           {
             foreignKeyName: "total_loss_report_versions_supersedes_fkey"
@@ -3429,7 +3631,9 @@ export type Database = {
           package_job_id: string
           processing_expires_at: string | null
           processing_token: string | null
+          report_version_id: string | null
           retryable: boolean | null
+          sequence_number: number
           status: string
           updated_at: string
           work_type: string
@@ -3451,7 +3655,9 @@ export type Database = {
           package_job_id: string
           processing_expires_at?: string | null
           processing_token?: string | null
+          report_version_id?: string | null
           retryable?: boolean | null
+          sequence_number?: number
           status?: string
           updated_at?: string
           work_type: string
@@ -3473,7 +3679,9 @@ export type Database = {
           package_job_id?: string
           processing_expires_at?: string | null
           processing_token?: string | null
+          report_version_id?: string | null
           retryable?: boolean | null
+          sequence_number?: number
           status?: string
           updated_at?: string
           work_type?: string
@@ -3500,6 +3708,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "total_loss_package_jobs"
             referencedColumns: ["id", "case_id"]
+          },
+          {
+            foreignKeyName: "workflow_work_items_report_version_fkey"
+            columns: ["report_version_id", "case_id", "package_job_id"]
+            isOneToOne: false
+            referencedRelation: "total_loss_report_versions"
+            referencedColumns: ["id", "case_id", "package_job_id"]
           },
         ]
       }
@@ -3633,6 +3848,10 @@ export type Database = {
         Args: { object_name: string }
         Returns: boolean
       }
+      authorize_staff_total_loss_deliverable_read: {
+        Args: { object_name: string }
+        Returns: boolean
+      }
       authorize_total_loss_checkout_preflight: {
         Args: { requested_case_id: string; requested_purchaser_user_id: string }
         Returns: Database["public"]["CompositeTypes"]["total_loss_checkout_preflight_result"][]
@@ -3657,6 +3876,10 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      authorize_total_loss_deliverable_read: {
+        Args: { object_name: string }
+        Returns: boolean
+      }
       authorize_total_loss_report_backup_delete: {
         Args: { object_name: string; object_user_metadata: Json }
         Returns: boolean
@@ -3678,6 +3901,33 @@ export type Database = {
           marked_count: number
           run_id: string
           run_status: string
+        }[]
+      }
+      begin_total_loss_ai_review: {
+        Args: {
+          requested_configured_model_identifier: string
+          requested_input_digest: string
+          requested_processing_token: string
+          requested_prompt_version: string
+          requested_provider_identifier: string
+          requested_schema_version: string
+          requested_work_item_id: string
+        }
+        Returns: {
+          ai_review_run_id: string
+          attempt_number: number
+          confidence: string
+          failure_code: string
+          outcome: string
+          output_digest: string
+          processing_expires_at: string
+          recommendation: string
+          release_gate_digest: string
+          release_gate_manifest: Json
+          returned_model_identifier: string
+          review_result: Json
+          review_status: string
+          usage_metadata: Json
         }[]
       }
       block_abandoned_anonymous_guest_cleanup_candidate: {
@@ -3762,6 +4012,55 @@ export type Database = {
           work_item_status: string
         }[]
       }
+      claim_total_loss_report_generation_work_item: {
+        Args: {
+          requested_processing_token: string
+          requested_work_item_id: string
+        }
+        Returns: {
+          attempt_count: number
+          case_id: string
+          document_id: string
+          generated_at: string
+          original_filename: string
+          outcome: string
+          package_job_id: string
+          package_status: string
+          processing_expires_at: string
+          processing_token: string
+          report_series_id: string
+          report_version_id: string
+          report_version_number: number
+          storage_bucket_id: string
+          storage_object_name: string
+          work_item_id: string
+          work_item_status: string
+        }[]
+      }
+      claim_total_loss_report_review_work_item: {
+        Args: {
+          requested_processing_token: string
+          requested_work_item_id: string
+        }
+        Returns: {
+          ai_review_run_id: string
+          attempt_count: number
+          case_id: string
+          final_assessment_id: string
+          outcome: string
+          package_job_id: string
+          package_status: string
+          pdf_digest: string
+          processing_expires_at: string
+          processing_token: string
+          release_disposition: string
+          report_digest: string
+          report_version_id: string
+          source_snapshot_id: string
+          work_item_id: string
+          work_item_status: string
+        }[]
+      }
       claim_vehicle_trim_cache: {
         Args: {
           requested_generation_token: string
@@ -3779,6 +4078,31 @@ export type Database = {
       complete_abandoned_anonymous_guest_cleanup_candidate: {
         Args: { candidate_lease_token: string; candidate_user_id: string }
         Returns: boolean
+      }
+      complete_total_loss_ai_review: {
+        Args: {
+          requested_ai_review_run_id: string
+          requested_confidence: string
+          requested_failure_code: string
+          requested_output_digest: string
+          requested_processing_token: string
+          requested_recommendation: string
+          requested_release_gate_digest: string
+          requested_release_gate_manifest: Json
+          requested_returned_model_identifier: string
+          requested_review_result: Json
+          requested_terminal_status: string
+          requested_usage_metadata: Json
+          requested_work_item_id: string
+        }
+        Returns: {
+          ai_review_run_id: string
+          confidence: string
+          outcome: string
+          recommendation: string
+          release_gate_digest: string
+          review_status: string
+        }[]
       }
       complete_total_loss_analysis: {
         Args: {
@@ -3819,6 +4143,22 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      complete_total_loss_no_dispute_refund: {
+        Args: {
+          requested_refund_request_id: string
+          requested_report_version_id: string
+        }
+        Returns: {
+          case_id: string
+          entitlement_status: string
+          outcome: string
+          package_status: string
+          refund_request_id: string
+          report_version_id: string
+          workflow_phase: string
+          workflow_task: string
+        }[]
+      }
       complete_total_loss_package_work_item: {
         Args: {
           requested_final_assessment_id: string
@@ -3828,6 +4168,33 @@ export type Database = {
           requested_work_item_id: string
         }
         Returns: boolean
+      }
+      complete_total_loss_report_generation: {
+        Args: {
+          requested_pdf_byte_size: number
+          requested_pdf_digest: string
+          requested_processing_token: string
+          requested_renderer_version: string
+          requested_report: Json
+          requested_report_digest: string
+          requested_schema_version: string
+          requested_template_version: string
+          requested_validation_manifest: Json
+          requested_validation_version: string
+          requested_work_item_id: string
+        }
+        Returns: {
+          case_id: string
+          document_id: string
+          generation_work_item_id: string
+          outcome: string
+          package_job_id: string
+          package_status: string
+          report_status: string
+          report_version_id: string
+          review_work_item_id: string
+          workflow_task: string
+        }[]
       }
       complete_total_loss_report_upload_recovery: {
         Args: { case_id: string; upload_id: string }
@@ -3895,6 +4262,29 @@ export type Database = {
         Returns: boolean
       }
       current_auth_user_is_anonymous: { Args: never; Returns: boolean }
+      decide_total_loss_release_review: {
+        Args: {
+          requested_decision: string
+          requested_expected_updated_at: string
+          requested_rationale: string
+          requested_release_review_id: string
+        }
+        Returns: {
+          case_id: string
+          decision: string
+          generation_work_item_id: string | null
+          order_id: string | null
+          outcome: string
+          package_status: string
+          payment_transaction_id: string | null
+          refund_client_request_id: string | null
+          release_review_id: string
+          report_status: string
+          report_version_id: string
+          resulting_report_version_id: string | null
+          workflow_task: string
+        }[]
+      }
       enqueue_total_loss_package_job: {
         Args: { requested_entitlement_id: string }
         Returns: {
@@ -3905,6 +4295,19 @@ export type Database = {
           package_status: string
           work_item_id: string
           work_item_status: string
+          workflow_revision: number
+        }[]
+      }
+      enqueue_total_loss_report_generation: {
+        Args: { requested_package_job_id: string }
+        Returns: {
+          case_id: string
+          outcome: string
+          package_job_id: string
+          work_item_id: string
+          work_item_status: string
+          work_type: string
+          work_version: string
           workflow_revision: number
         }[]
       }
@@ -3960,6 +4363,27 @@ export type Database = {
           requested_work_item_id: string
         }
         Returns: boolean
+      }
+      fail_total_loss_report_work_item: {
+        Args: {
+          requested_failure_code: string
+          requested_failure_kind: string
+          requested_processing_token: string
+          requested_retry_delay_seconds: number
+          requested_work_item_id: string
+        }
+        Returns: {
+          next_attempt_at: string
+          outcome: string
+          package_job_id: string
+          package_status: string
+          release_review_id: string
+          report_status: string
+          report_version_id: string
+          work_item_id: string
+          work_item_status: string
+          workflow_task: string
+        }[]
       }
       finalize_stripe_webhook_event: {
         Args: {
@@ -4113,6 +4537,40 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      get_total_loss_release_review: {
+        Args: { requested_release_review_id: string }
+        Returns: {
+          ai_review_run_id: string | null
+          artifact_availability: Json
+          assessment_digest: string
+          assigned_staff_user_id: string | null
+          case_id: string
+          decision: string | null
+          due_at: string | null
+          failure_code: string | null
+          failure_stage: string | null
+          final_assessment: Json
+          final_assessment_id: string
+          pdf_digest: string | null
+          rationale: string | null
+          release_gate_manifest: Json | null
+          release_review_id: string
+          report: Json | null
+          report_digest: string | null
+          report_status: string
+          report_version_id: string
+          resolved_at: string | null
+          resulting_report_version_id: string | null
+          review_result: Json | null
+          review_status: string
+          source_snapshot_digest: string
+          source_snapshot_id: string
+          storage_bucket_id: string
+          storage_object_name: string
+          updated_at: string
+          validation_manifest: Json | null
+        }[]
+      }
       get_total_loss_report_extraction: {
         Args: {
           analysis_input_revision: number
@@ -4128,6 +4586,22 @@ export type Database = {
         }
       }
       has_current_customer_profile: { Args: never; Returns: boolean }
+      hold_total_loss_no_dispute_refund_failure: {
+        Args: {
+          requested_refund_request_id?: string
+          requested_report_version_id: string
+        }
+        Returns: {
+          case_id: string
+          entitlement_status: string
+          outcome: string
+          package_status: string
+          refund_request_id: string
+          refund_status: string
+          report_version_id: string
+          workflow_task: string
+        }[]
+      }
       invoke_abandoned_anonymous_guest_cleanup: { Args: never; Returns: number }
       is_abandoned_anonymous_guest_eligible: {
         Args: { candidate_user_id: string; observed_at?: string }
@@ -4497,6 +4971,22 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      resolve_total_loss_no_dispute_refund_recovery: {
+        Args: { requested_report_version_id: string }
+        Returns: {
+          access_policy: string
+          case_id: string
+          order_id: string
+          outcome: string
+          package_job_id: string
+          package_status: string
+          payment_transaction_id: string
+          refund_client_request_id: string
+          refund_request_id: string
+          refund_status: string
+          report_version_id: string
+        }[]
+      }
       resolve_total_loss_package_source_context: {
         Args: {
           requested_processing_token: string
@@ -4563,6 +5053,145 @@ export type Database = {
           isOneToOne: false
           isSetofReturn: true
         }
+      }
+      resolve_total_loss_report_generation_context: {
+        Args: {
+          requested_processing_token: string
+          requested_work_item_id: string
+        }
+        Returns: {
+          assessment_digest: string
+          case_id: string
+          document_id: string
+          entitlement_id: string
+          final_assessment: Json
+          final_assessment_id: string
+          generated_at: string
+          original_filename: string
+          package_job_id: string
+          preliminary_snapshot: Json
+          preliminary_snapshot_id: string
+          product_identifier: string
+          product_version: string
+          report_series_id: string
+          report_version_id: string
+          report_version_number: number
+          source_snapshot: Json
+          source_snapshot_digest: string
+          source_snapshot_id: string
+          storage_bucket_id: string
+          storage_object_name: string
+          work_item_id: string
+        }[]
+      }
+      resolve_total_loss_report_release: {
+        Args: {
+          requested_ai_review_run_id: string
+          requested_processing_token: string
+          requested_work_item_id: string
+        }
+        Returns: {
+          ai_review_run_id: string
+          case_id: string
+          disposition: string
+          order_id: string
+          outcome: string
+          package_job_id: string
+          package_status: string
+          payment_transaction_id: string
+          refund_client_request_id: string
+          refund_request_id: string
+          release_review_id: string
+          report_status: string
+          report_version_id: string
+          work_item_id: string
+          workflow_task: string
+        }[]
+      }
+      resolve_total_loss_report_release_context: {
+        Args: {
+          requested_ai_review_run_id: string
+          requested_processing_token: string
+          requested_work_item_id: string
+        }
+        Returns: {
+          ai_review_run_id: string
+          case_id: string
+          configured_model_identifier: string
+          deterministic_report_validation_passed: boolean
+          final_assessment_digest: string
+          final_assessment_id: string
+          final_continuation_status: string
+          human_decision_recorded: boolean
+          input_digest: string
+          package_is_current: boolean
+          package_job_id: string
+          pdf_digest: string
+          pdf_validation_digest: string
+          pdf_validation_passed: boolean
+          prompt_version: string
+          report_digest: string
+          report_is_current: boolean
+          report_json_schema_passed: boolean
+          report_status: string
+          report_version_id: string
+          returned_model_identifier: string
+          review_is_current: boolean
+          review_schema_version: string
+          source_snapshot_digest: string
+          source_snapshot_id: string
+          source_validation_passed: boolean
+          work_item_id: string
+        }[]
+      }
+      resolve_total_loss_report_review_context: {
+        Args: {
+          requested_processing_token: string
+          requested_work_item_id: string
+        }
+        Returns: {
+          assessment_digest: string
+          case_id: string
+          current_package_job_id: string
+          current_report_version_id: string
+          document_id: string
+          final_assessment: Json
+          final_assessment_id: string
+          final_continuation_status: string
+          original_filename: string
+          package_job_id: string
+          package_status: string
+          pdf_byte_size: number
+          pdf_digest: string
+          report: Json
+          report_digest: string
+          report_series_id: string
+          report_status: string
+          report_version_id: string
+          report_version_number: number
+          source_snapshot: Json
+          source_snapshot_digest: string
+          source_snapshot_id: string
+          storage_bucket_id: string
+          storage_object_name: string
+          validation_manifest: Json
+          validation_version: string
+          work_item_id: string
+          workflow_task: string
+        }[]
+      }
+      resolve_workflow_work_item_kind: {
+        Args: { requested_work_item_id: string }
+        Returns: {
+          case_id: string
+          package_job_id: string
+          report_version_id: string
+          sequence_number: number
+          work_item_id: string
+          work_item_status: string
+          work_type: string
+          work_version: string
+        }[]
       }
       retry_abandoned_anonymous_guest_cleanup_candidate: {
         Args: {
@@ -4738,6 +5367,14 @@ export type Database = {
           isOneToOne: false
           isSetofReturn: true
         }
+      }
+      total_loss_canonical_jsonb_digest: {
+        Args: { requested_value: Json }
+        Returns: string
+      }
+      total_loss_canonical_jsonb_text: {
+        Args: { requested_value: Json }
+        Returns: string
       }
       total_loss_case_identity_transfer_allowed_internal: {
         Args: { requested_case_id: string }
@@ -5263,6 +5900,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       appraisal_case_status: [

@@ -7,6 +7,8 @@ paths are derived here and can never be selected by an HTTP request payload.
 
 from __future__ import annotations
 
+import base64
+import hashlib
 import json
 import math
 import os
@@ -21,7 +23,7 @@ from ipaddress import ip_address
 from pathlib import Path
 from typing import Any, Protocol, runtime_checkable
 from urllib.parse import quote, urlsplit
-from uuid import UUID
+from uuid import UUID, uuid4
 
 import httpx
 
@@ -29,7 +31,9 @@ from scripts.extract_report_ai import MAX_PDF_BYTES
 
 
 CASE_FILES_BUCKET = "case-files"
+CASE_DELIVERABLES_BUCKET = "case-deliverables"
 TOTAL_LOSS_REPORT_OBJECT = "valuation-report.pdf"
+TOTAL_LOSS_EVIDENCE_PACKAGE_OBJECT = "valuation-evidence-package.pdf"
 DOWNLOAD_CHUNK_BYTES = 1024 * 1024
 MAX_EXTRACTION_CACHE_BYTES = 1024 * 1024
 MAX_EXTRACTION_PROVIDER_CHARACTERS = 200
@@ -40,6 +44,7 @@ MAX_VEHICLE_TRIM_CACHE_TEXT_CHARACTERS = 100
 MAX_COMMERCE_PROVIDER_IDENTIFIER_CHARACTERS = 255
 COMMERCE_CODE_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}")
 COMMERCE_PRODUCT_PATTERN = re.compile(r"[a-z][a-z0-9_-]{0,63}")
+REPORT_FAILURE_CODE_PATTERN = re.compile(r"[A-Z][A-Z0-9_]{0,63}")
 STRIPE_DISPUTE_EVENT_TYPES = frozenset(
     {
         "charge.dispute.created",
@@ -1340,6 +1345,472 @@ class SupabaseHttpGateway:
         )
         return self._single_rpc_row(payload, "Package enqueue")
 
+    def enqueue_total_loss_report_generation(
+        self, package_job_id: str
+    ) -> Mapping[str, Any]:
+        payload = self._rpc(
+            "enqueue_total_loss_report_generation",
+            {
+                "requested_package_job_id": _canonical_uuid(
+                    package_job_id, "Package job ID"
+                )
+            },
+            retry_ambiguous_claim=True,
+        )
+        return self._single_rpc_row(payload, "Report generation enqueue")
+
+    def resolve_workflow_work_item_kind(
+        self, work_item_id: str
+    ) -> Mapping[str, Any]:
+        payload = self._rpc(
+            "resolve_workflow_work_item_kind",
+            {
+                "requested_work_item_id": _canonical_uuid(
+                    work_item_id, "Work item ID"
+                )
+            },
+        )
+        return self._single_rpc_row(payload, "Work-item kind")
+
+    def claim_total_loss_report_generation_work_item(
+        self, work_item_id: str, processing_token: str
+    ) -> Mapping[str, Any]:
+        payload = self._rpc(
+            "claim_total_loss_report_generation_work_item",
+            {
+                "requested_work_item_id": _canonical_uuid(
+                    work_item_id, "Work item ID"
+                ),
+                "requested_processing_token": _canonical_uuid(
+                    processing_token, "Processing token"
+                ),
+            },
+            retry_ambiguous_claim=True,
+        )
+        return self._single_rpc_row(payload, "Report generation claim")
+
+    def resolve_total_loss_report_generation_context(
+        self, work_item_id: str, processing_token: str
+    ) -> Mapping[str, Any]:
+        payload = self._rpc(
+            "resolve_total_loss_report_generation_context",
+            {
+                "requested_work_item_id": _canonical_uuid(
+                    work_item_id, "Work item ID"
+                ),
+                "requested_processing_token": _canonical_uuid(
+                    processing_token, "Processing token"
+                ),
+            },
+        )
+        return self._single_rpc_row(payload, "Report generation context")
+
+    def complete_total_loss_report_generation(
+        self,
+        work_item_id: str,
+        processing_token: str,
+        report: Mapping[str, Any],
+        report_digest: str,
+        renderer_version: str,
+        template_version: str,
+        schema_version: str,
+        validation_version: str,
+        validation_manifest: Mapping[str, Any],
+        pdf_byte_size: int,
+        pdf_digest: str,
+    ) -> Mapping[str, Any]:
+        if not isinstance(report, Mapping) or not isinstance(
+            validation_manifest, Mapping
+        ):
+            raise SupabaseContractError("Report generation result is invalid")
+        if (
+            isinstance(pdf_byte_size, bool)
+            or not isinstance(pdf_byte_size, int)
+            or not 0 < pdf_byte_size <= MAX_PDF_BYTES
+        ):
+            raise SupabaseContractError("Report PDF size is invalid")
+        payload = self._rpc(
+            "complete_total_loss_report_generation",
+            {
+                "requested_work_item_id": _canonical_uuid(
+                    work_item_id, "Work item ID"
+                ),
+                "requested_processing_token": _canonical_uuid(
+                    processing_token, "Processing token"
+                ),
+                "requested_report": dict(report),
+                "requested_report_digest": self._package_digest(
+                    report_digest, "Report digest"
+                ),
+                "requested_renderer_version": _canonical_commerce_code(
+                    renderer_version,
+                    COMMERCE_CODE_PATTERN,
+                    "Report renderer version",
+                ),
+                "requested_template_version": _canonical_commerce_code(
+                    template_version,
+                    COMMERCE_CODE_PATTERN,
+                    "Report template version",
+                ),
+                "requested_schema_version": _canonical_commerce_code(
+                    schema_version,
+                    COMMERCE_CODE_PATTERN,
+                    "Report schema version",
+                ),
+                "requested_validation_version": _canonical_commerce_code(
+                    validation_version,
+                    COMMERCE_CODE_PATTERN,
+                    "Report validation version",
+                ),
+                "requested_validation_manifest": dict(validation_manifest),
+                "requested_pdf_byte_size": pdf_byte_size,
+                "requested_pdf_digest": self._package_digest(
+                    pdf_digest, "Report PDF digest"
+                ),
+            },
+            retry_ambiguous_claim=True,
+        )
+        return self._single_rpc_row(payload, "Report generation completion")
+
+    def claim_total_loss_report_review_work_item(
+        self, work_item_id: str, processing_token: str
+    ) -> Mapping[str, Any]:
+        payload = self._rpc(
+            "claim_total_loss_report_review_work_item",
+            {
+                "requested_work_item_id": _canonical_uuid(
+                    work_item_id, "Work item ID"
+                ),
+                "requested_processing_token": _canonical_uuid(
+                    processing_token, "Processing token"
+                ),
+            },
+            retry_ambiguous_claim=True,
+        )
+        return self._single_rpc_row(payload, "Report review claim")
+
+    def resolve_total_loss_report_review_context(
+        self, work_item_id: str, processing_token: str
+    ) -> Mapping[str, Any]:
+        payload = self._rpc(
+            "resolve_total_loss_report_review_context",
+            {
+                "requested_work_item_id": _canonical_uuid(
+                    work_item_id, "Work item ID"
+                ),
+                "requested_processing_token": _canonical_uuid(
+                    processing_token, "Processing token"
+                ),
+            },
+        )
+        return self._single_rpc_row(payload, "Report review context")
+
+    def begin_total_loss_ai_review(
+        self,
+        work_item_id: str,
+        processing_token: str,
+        provider_identifier: str,
+        configured_model_identifier: str,
+        prompt_version: str,
+        schema_version: str,
+        input_digest: str,
+    ) -> Mapping[str, Any]:
+        payload = self._rpc(
+            "begin_total_loss_ai_review",
+            {
+                "requested_work_item_id": _canonical_uuid(
+                    work_item_id, "Work item ID"
+                ),
+                "requested_processing_token": _canonical_uuid(
+                    processing_token, "Processing token"
+                ),
+                "requested_provider_identifier": _canonical_commerce_code(
+                    provider_identifier,
+                    COMMERCE_PRODUCT_PATTERN,
+                    "Review provider identifier",
+                ),
+                "requested_configured_model_identifier": _canonical_commerce_code(
+                    configured_model_identifier,
+                    re.compile(r"[A-Za-z0-9][A-Za-z0-9._:-]{0,254}"),
+                    "Configured review model identifier",
+                ),
+                "requested_prompt_version": _canonical_commerce_code(
+                    prompt_version,
+                    COMMERCE_CODE_PATTERN,
+                    "Review prompt version",
+                ),
+                "requested_schema_version": _canonical_commerce_code(
+                    schema_version,
+                    COMMERCE_CODE_PATTERN,
+                    "Review schema version",
+                ),
+                "requested_input_digest": self._package_digest(
+                    input_digest, "Review input digest"
+                ),
+            },
+            retry_ambiguous_claim=True,
+        )
+        return self._single_rpc_row(payload, "AI review begin")
+
+    def complete_total_loss_ai_review(
+        self,
+        work_item_id: str,
+        processing_token: str,
+        ai_review_run_id: str,
+        terminal_status: str,
+        returned_model_identifier: str | None,
+        recommendation: str | None,
+        confidence: str | None,
+        review_result: Mapping[str, Any] | None,
+        output_digest: str | None,
+        usage_metadata: Mapping[str, Any] | None,
+        failure_code: str | None,
+        release_gate_manifest: Mapping[str, Any] | None,
+        release_gate_digest: str | None,
+    ) -> Mapping[str, Any]:
+        selected_status = self._canonical_choice(
+            terminal_status,
+            {"completed", "failed", "refused", "timed_out"},
+            "AI review terminal status",
+        )
+        payload = self._rpc(
+            "complete_total_loss_ai_review",
+            {
+                "requested_work_item_id": _canonical_uuid(
+                    work_item_id, "Work item ID"
+                ),
+                "requested_processing_token": _canonical_uuid(
+                    processing_token, "Processing token"
+                ),
+                "requested_ai_review_run_id": _canonical_uuid(
+                    ai_review_run_id, "AI review run ID"
+                ),
+                "requested_terminal_status": selected_status,
+                "requested_returned_model_identifier": returned_model_identifier,
+                "requested_recommendation": recommendation,
+                "requested_confidence": confidence,
+                "requested_review_result": (
+                    dict(review_result) if review_result is not None else None
+                ),
+                "requested_output_digest": (
+                    self._package_digest(output_digest, "Review output digest")
+                    if output_digest is not None
+                    else None
+                ),
+                "requested_usage_metadata": (
+                    dict(usage_metadata) if usage_metadata is not None else None
+                ),
+                "requested_failure_code": failure_code,
+                "requested_release_gate_manifest": (
+                    dict(release_gate_manifest)
+                    if release_gate_manifest is not None
+                    else None
+                ),
+                "requested_release_gate_digest": (
+                    self._package_digest(
+                        release_gate_digest, "Release gate digest"
+                    )
+                    if release_gate_digest is not None
+                    else None
+                ),
+            },
+            retry_ambiguous_claim=True,
+        )
+        return self._single_rpc_row(payload, "AI review completion")
+
+    def resolve_total_loss_report_release_context(
+        self,
+        work_item_id: str,
+        processing_token: str,
+        ai_review_run_id: str,
+    ) -> Mapping[str, Any]:
+        payload = self._rpc(
+            "resolve_total_loss_report_release_context",
+            {
+                "requested_work_item_id": _canonical_uuid(
+                    work_item_id, "Work item ID"
+                ),
+                "requested_processing_token": _canonical_uuid(
+                    processing_token, "Processing token"
+                ),
+                "requested_ai_review_run_id": _canonical_uuid(
+                    ai_review_run_id, "AI review run ID"
+                ),
+            },
+        )
+        return self._single_rpc_row(payload, "Report release context")
+
+    def resolve_total_loss_report_release(
+        self,
+        work_item_id: str,
+        processing_token: str,
+        ai_review_run_id: str,
+    ) -> Mapping[str, Any]:
+        payload = self._rpc(
+            "resolve_total_loss_report_release",
+            {
+                "requested_work_item_id": _canonical_uuid(
+                    work_item_id, "Work item ID"
+                ),
+                "requested_processing_token": _canonical_uuid(
+                    processing_token, "Processing token"
+                ),
+                "requested_ai_review_run_id": _canonical_uuid(
+                    ai_review_run_id, "AI review run ID"
+                ),
+            },
+            retry_ambiguous_claim=True,
+        )
+        return self._single_rpc_row(payload, "Report release")
+
+    def resolve_total_loss_no_dispute_refund(
+        self, report_version_id: str
+    ) -> Mapping[str, Any]:
+        payload = self._rpc(
+            "resolve_total_loss_no_dispute_refund_recovery",
+            {
+                "requested_report_version_id": _canonical_uuid(
+                    report_version_id, "Report version ID"
+                )
+            },
+        )
+        return self._single_rpc_row(payload, "No-dispute refund recovery")
+
+    def complete_total_loss_no_dispute_refund(
+        self, report_version_id: str, refund_request_id: str
+    ) -> Mapping[str, Any]:
+        payload = self._rpc(
+            "complete_total_loss_no_dispute_refund",
+            {
+                "requested_report_version_id": _canonical_uuid(
+                    report_version_id, "Report version ID"
+                ),
+                "requested_refund_request_id": _canonical_uuid(
+                    refund_request_id, "Refund request ID"
+                ),
+            },
+            retry_ambiguous_claim=True,
+        )
+        return self._single_rpc_row(payload, "No-dispute refund completion")
+
+    def hold_total_loss_no_dispute_refund_failure(
+        self,
+        report_version_id: str,
+        refund_request_id: str | None = None,
+    ) -> Mapping[str, Any]:
+        payload = self._rpc(
+            "hold_total_loss_no_dispute_refund_failure",
+            {
+                "requested_report_version_id": _canonical_uuid(
+                    report_version_id, "Report version ID"
+                ),
+                "requested_refund_request_id": (
+                    _canonical_uuid(refund_request_id, "Refund request ID")
+                    if refund_request_id is not None
+                    else None
+                ),
+            },
+            retry_ambiguous_claim=True,
+        )
+        return self._single_rpc_row(
+            payload, "No-dispute refund failure hold"
+        )
+
+    def fail_total_loss_report_work_item(
+        self,
+        work_item_id: str,
+        processing_token: str,
+        failure_code: str,
+        failure_kind: str,
+        retry_delay_seconds: int,
+    ) -> Mapping[str, Any]:
+        if (
+            isinstance(retry_delay_seconds, bool)
+            or not isinstance(retry_delay_seconds, int)
+            or not 0 <= retry_delay_seconds <= 86400
+        ):
+            raise SupabaseContractError("Report retry delay is invalid")
+        payload = self._rpc(
+            "fail_total_loss_report_work_item",
+            {
+                "requested_work_item_id": _canonical_uuid(
+                    work_item_id, "Work item ID"
+                ),
+                "requested_processing_token": _canonical_uuid(
+                    processing_token, "Processing token"
+                ),
+                "requested_failure_code": _canonical_commerce_code(
+                    failure_code,
+                    REPORT_FAILURE_CODE_PATTERN,
+                    "Report failure code",
+                ),
+                "requested_failure_kind": self._canonical_choice(
+                    failure_kind,
+                    {"retryable", "human_review_required", "terminal"},
+                    "Report failure kind",
+                ),
+                "requested_retry_delay_seconds": retry_delay_seconds,
+            },
+            retry_ambiguous_claim=True,
+        )
+        return self._single_rpc_row(payload, "Report work failure")
+
+    def get_total_loss_release_review(
+        self, release_review_id: str, access_token: str
+    ) -> Mapping[str, Any] | None:
+        payload = self._user_rpc(
+            "get_total_loss_release_review",
+            {
+                "requested_release_review_id": _canonical_uuid(
+                    release_review_id, "Release review ID"
+                )
+            },
+            access_token,
+        )
+        return self._optional_rpc_row(payload, "Release review")
+
+    def decide_total_loss_release_review(
+        self,
+        release_review_id: str,
+        expected_updated_at: str,
+        decision: str,
+        rationale: str,
+        access_token: str,
+    ) -> Mapping[str, Any]:
+        if (
+            not isinstance(expected_updated_at, str)
+            or not expected_updated_at
+            or expected_updated_at != expected_updated_at.strip()
+        ):
+            raise SupabaseContractError("Release review timestamp is invalid")
+        if (
+            not isinstance(rationale, str)
+            or not 1 <= len(rationale.strip()) <= 4000
+        ):
+            raise SupabaseContractError("Release review rationale is invalid")
+        payload = self._user_rpc(
+            "decide_total_loss_release_review",
+            {
+                "requested_release_review_id": _canonical_uuid(
+                    release_review_id, "Release review ID"
+                ),
+                "requested_expected_updated_at": expected_updated_at,
+                "requested_decision": self._canonical_choice(
+                    decision,
+                    {
+                        "approved",
+                        "revision_requested",
+                        "not_supportable",
+                        "new_evidence_required",
+                    },
+                    "Release review decision",
+                ),
+                "requested_rationale": rationale.strip(),
+            },
+            access_token,
+        )
+        return self._single_rpc_row(payload, "Release review decision")
+
     def reserve_due_workflow_work_items(
         self, dispatch_token: str, limit: int
     ) -> list[Mapping[str, Any]]:
@@ -2163,6 +2634,152 @@ class SupabaseHttpGateway:
             raise SupabaseContractError("Report storage object is invalid")
         return bucket, expected_path
 
+    @staticmethod
+    def _validated_deliverable_locator(
+        case_id: str,
+        report_series_id: str,
+        report_version_id: str,
+        storage_locator: Mapping[str, Any],
+    ) -> tuple[str, str]:
+        canonical_case_id = _canonical_uuid(case_id, "Case ID")
+        canonical_series_id = _canonical_uuid(
+            report_series_id, "Report series ID"
+        )
+        canonical_version_id = _canonical_uuid(
+            report_version_id, "Report version ID"
+        )
+        if not isinstance(storage_locator, Mapping):
+            raise SupabaseContractError("Deliverable storage locator is invalid")
+        bucket = storage_locator.get(
+            "storage_bucket", storage_locator.get("storage_bucket_id")
+        )
+        object_path = storage_locator.get(
+            "storage_object_path", storage_locator.get("storage_object_name")
+        )
+        expected_path = "/".join(
+            (
+                "cases",
+                canonical_case_id,
+                "reports",
+                canonical_series_id,
+                "versions",
+                canonical_version_id,
+                TOTAL_LOSS_EVIDENCE_PACKAGE_OBJECT,
+            )
+        )
+        if bucket != CASE_DELIVERABLES_BUCKET or object_path != expected_path:
+            raise SupabaseContractError("Deliverable storage locator is invalid")
+        return bucket, expected_path
+
+    def upload_total_loss_deliverable_pdf(
+        self,
+        case_id: str,
+        report_series_id: str,
+        report_version_id: str,
+        storage_locator: Mapping[str, Any],
+        pdf: bytes,
+        pdf_digest: str,
+    ) -> str:
+        """Create one private immutable report object, or verify exact replay."""
+
+        bucket, object_path = self._validated_deliverable_locator(
+            case_id,
+            report_series_id,
+            report_version_id,
+            storage_locator,
+        )
+        if (
+            not isinstance(pdf, bytes)
+            or not pdf.startswith(b"%PDF-")
+            or not 0 < len(pdf) <= MAX_PDF_BYTES
+        ):
+            raise SupabaseContractError("Deliverable PDF is invalid")
+        if (
+            not isinstance(pdf_digest, str)
+            or re.fullmatch(r"[0-9a-f]{64}", pdf_digest) is None
+            or hashlib.sha256(pdf).hexdigest() != pdf_digest
+        ):
+            raise SupabaseContractError("Deliverable PDF digest is invalid")
+        encoded_path = "/".join(
+            quote(segment, safe="") for segment in object_path.split("/")
+        )
+        url = (
+            f"{self._configuration.url}/storage/v1/object/"
+            f"{quote(bucket, safe='')}/{encoded_path}"
+        )
+        object_metadata = json.dumps(
+            {
+                "caseId": _canonical_uuid(case_id, "Case ID"),
+                "reportSeriesId": _canonical_uuid(
+                    report_series_id, "Report series ID"
+                ),
+                "reportVersionId": _canonical_uuid(
+                    report_version_id, "Report version ID"
+                ),
+                "contentDigest": pdf_digest,
+                "sha256": pdf_digest,
+            },
+            ensure_ascii=True,
+            allow_nan=False,
+            separators=(",", ":"),
+            sort_keys=True,
+        ).encode("utf-8")
+        headers = {
+            **self._admin_headers(),
+            "Content-Type": "application/pdf",
+            "Cache-Control": "private, no-store",
+            "x-upsert": "false",
+            "x-metadata": base64.b64encode(object_metadata).decode("ascii"),
+        }
+        try:
+            response = self._client.post(url, headers=headers, content=pdf)
+        except httpx.HTTPError:
+            response = None
+        if response is not None and 200 <= response.status_code < 300:
+            return "created"
+        if response is not None and response.status_code not in {400, 409}:
+            raise SupabaseUnavailableError(
+                "Private deliverable storage is unavailable"
+            )
+        cache_nonce = str(uuid4())
+        try:
+            with self._materialize_report_object(
+                bucket, object_path, cache_nonce
+            ) as existing_path:
+                existing = existing_path.read_bytes()
+        except (OSError, SupabaseGatewayError) as exc:
+            raise SupabaseUnavailableError(
+                "Private deliverable storage is unavailable"
+            ) from exc
+        if (
+            len(existing) != len(pdf)
+            or hashlib.sha256(existing).hexdigest() != pdf_digest
+        ):
+            raise SupabaseContractError(
+                "Existing deliverable object conflicts with immutable replay"
+            )
+        return "existing"
+
+    @contextmanager
+    def materialize_total_loss_deliverable(
+        self,
+        case_id: str,
+        report_series_id: str,
+        report_version_id: str,
+        storage_locator: Mapping[str, Any],
+        cache_nonce: str,
+    ) -> Iterator[Path]:
+        bucket, object_path = self._validated_deliverable_locator(
+            case_id,
+            report_series_id,
+            report_version_id,
+            storage_locator,
+        )
+        with self._materialize_report_object(
+            bucket, object_path, cache_nonce
+        ) as path:
+            yield path
+
     @contextmanager
     def _materialize_report_object(
         self, bucket: str, object_path: str, cache_nonce: str
@@ -2267,6 +2884,7 @@ class SupabaseHttpGateway:
 
 
 __all__ = [
+    "CASE_DELIVERABLES_BUCKET",
     "CASE_FILES_BUCKET",
     "CaseAnalysisGateway",
     "MAX_EXTRACTION_CACHE_BYTES",
@@ -2280,5 +2898,6 @@ __all__ = [
     "SupabaseReportNotFoundError",
     "SupabaseServerConfiguration",
     "SupabaseUnavailableError",
+    "TOTAL_LOSS_EVIDENCE_PACKAGE_OBJECT",
     "TOTAL_LOSS_REPORT_OBJECT",
 ]

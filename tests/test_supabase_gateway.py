@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import base64
+import hashlib
 import json
 import unittest
 from unittest.mock import patch
@@ -35,6 +37,8 @@ WORK_ITEM_ID = "b0000000-0000-4000-8000-00000000000b"
 SOURCE_SNAPSHOT_ID = "c0000000-0000-4000-8000-00000000000c"
 FINAL_ASSESSMENT_ID = "d0000000-0000-4000-8000-00000000000d"
 DISPATCH_TOKEN_ID = "e0000000-0000-4000-8000-00000000000e"
+REPORT_SERIES_ID = "f0000000-0000-4000-8000-00000000000f"
+REPORT_VERSION_ID = "11000000-0000-4000-8000-000000000011"
 PDF_BYTES = b"%PDF-1.7\nsynthetic private report\n%%EOF\n"
 
 
@@ -47,6 +51,136 @@ def configuration() -> SupabaseServerConfiguration:
 
 
 class SupabaseHttpGatewayTests(unittest.TestCase):
+    @staticmethod
+    def deliverable_locator() -> dict[str, str]:
+        return {
+            "storage_bucket_id": "case-deliverables",
+            "storage_object_name": (
+                f"cases/{CASE_ID}/reports/{REPORT_SERIES_ID}/versions/"
+                f"{REPORT_VERSION_ID}/valuation-evidence-package.pdf"
+            ),
+        }
+
+    def test_deliverable_upload_uses_service_only_immutable_exact_path(self) -> None:
+        requests: list[httpx.Request] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            requests.append(request)
+            return httpx.Response(200, json={"Key": "created"})
+
+        gateway, _ = self.gateway(handler)
+        digest = hashlib.sha256(PDF_BYTES).hexdigest()
+
+        outcome = gateway.upload_total_loss_deliverable_pdf(
+            CASE_ID,
+            REPORT_SERIES_ID,
+            REPORT_VERSION_ID,
+            self.deliverable_locator(),
+            PDF_BYTES,
+            digest,
+        )
+
+        self.assertEqual(outcome, "created")
+        self.assertEqual(len(requests), 1)
+        request = requests[0]
+        self.assertEqual(request.method, "POST")
+        self.assertEqual(
+            request.url.path,
+            (
+                "/storage/v1/object/case-deliverables/cases/"
+                f"{CASE_ID}/reports/{REPORT_SERIES_ID}/versions/"
+                f"{REPORT_VERSION_ID}/valuation-evidence-package.pdf"
+            ),
+        )
+        self.assertEqual(request.headers["authorization"], "Bearer service-role-test-key")
+        self.assertEqual(request.headers["x-upsert"], "false")
+        self.assertEqual(request.headers["content-type"], "application/pdf")
+        self.assertEqual(request.content, PDF_BYTES)
+        self.assertEqual(
+            json.loads(base64.b64decode(request.headers["x-metadata"])),
+            {
+                "caseId": CASE_ID,
+                "contentDigest": digest,
+                "reportSeriesId": REPORT_SERIES_ID,
+                "reportVersionId": REPORT_VERSION_ID,
+                "sha256": digest,
+            },
+        )
+
+    def test_deliverable_upload_conflict_accepts_only_exact_byte_replay(self) -> None:
+        requests: list[httpx.Request] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            requests.append(request)
+            if request.method == "POST":
+                return httpx.Response(409, json={"message": "duplicate"})
+            return httpx.Response(200, content=PDF_BYTES)
+
+        gateway, _ = self.gateway(handler)
+        digest = hashlib.sha256(PDF_BYTES).hexdigest()
+
+        self.assertEqual(
+            gateway.upload_total_loss_deliverable_pdf(
+                CASE_ID,
+                REPORT_SERIES_ID,
+                REPORT_VERSION_ID,
+                self.deliverable_locator(),
+                PDF_BYTES,
+                digest,
+            ),
+            "existing",
+        )
+        self.assertEqual([request.method for request in requests], ["POST", "GET"])
+
+        with self.assertRaises(SupabaseContractError):
+            gateway.upload_total_loss_deliverable_pdf(
+                CASE_ID,
+                REPORT_SERIES_ID,
+                REPORT_VERSION_ID,
+                self.deliverable_locator(),
+                PDF_BYTES + b"changed",
+                hashlib.sha256(PDF_BYTES + b"changed").hexdigest(),
+            )
+
+    def test_deliverable_upload_rejects_cross_case_or_legacy_path_before_io(
+        self,
+    ) -> None:
+        requests: list[httpx.Request] = []
+        gateway, _ = self.gateway(
+            lambda request: requests.append(request) or httpx.Response(500)
+        )
+        digest = hashlib.sha256(PDF_BYTES).hexdigest()
+        invalid_locators = (
+            {
+                **self.deliverable_locator(),
+                "storage_object_name": (
+                    f"cases/{USER_ID}/reports/{REPORT_SERIES_ID}/versions/"
+                    f"{REPORT_VERSION_ID}/valuation-evidence-package.pdf"
+                ),
+            },
+            {
+                **self.deliverable_locator(),
+                "storage_object_name": (
+                    f"cases/{CASE_ID}/reports/{REPORT_SERIES_ID}/v1/"
+                    "Venfour_Valuation_Evidence_case_v1.pdf"
+                ),
+            },
+        )
+
+        for locator in invalid_locators:
+            with self.subTest(locator=locator["storage_object_name"]):
+                with self.assertRaises(SupabaseContractError):
+                    gateway.upload_total_loss_deliverable_pdf(
+                        CASE_ID,
+                        REPORT_SERIES_ID,
+                        REPORT_VERSION_ID,
+                        locator,
+                        PDF_BYTES,
+                        digest,
+                    )
+
+        self.assertEqual(requests, [])
+
     def test_report_locator_and_extraction_cache_use_exact_privilege_boundaries(self) -> None:
         requests: list[httpx.Request] = []
         locator = {
@@ -779,6 +913,221 @@ class SupabaseHttpGatewayTests(unittest.TestCase):
                 request.headers["authorization"],
                 "Bearer service-role-test-key",
             )
+
+    def test_report_release_rpcs_use_exact_privilege_and_argument_contracts(
+        self,
+    ) -> None:
+        requests: list[httpx.Request] = []
+        digest = "a" * 64
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            requests.append(request)
+            return httpx.Response(200, json=[{"outcome": "completed"}])
+
+        gateway, _ = self.gateway(handler)
+        gateway.enqueue_total_loss_report_generation(PACKAGE_JOB_ID)
+        gateway.resolve_workflow_work_item_kind(WORK_ITEM_ID)
+        gateway.claim_total_loss_report_generation_work_item(
+            WORK_ITEM_ID, TOKEN_ID
+        )
+        gateway.resolve_total_loss_report_generation_context(
+            WORK_ITEM_ID, TOKEN_ID
+        )
+        gateway.complete_total_loss_report_generation(
+            WORK_ITEM_ID,
+            TOKEN_ID,
+            {"schemaVersion": "1"},
+            digest,
+            "reportlab-1",
+            "valuation-evidence-v1",
+            "1",
+            "1",
+            {"status": "PASS"},
+            len(PDF_BYTES),
+            digest,
+        )
+        gateway.claim_total_loss_report_review_work_item(
+            WORK_ITEM_ID, TOKEN_ID
+        )
+        gateway.resolve_total_loss_report_review_context(
+            WORK_ITEM_ID, TOKEN_ID
+        )
+        gateway.begin_total_loss_ai_review(
+            WORK_ITEM_ID,
+            TOKEN_ID,
+            "openai",
+            "gpt-review-1",
+            "1",
+            "1",
+            digest,
+        )
+        gateway.complete_total_loss_ai_review(
+            WORK_ITEM_ID,
+            TOKEN_ID,
+            RUN_ID,
+            "completed",
+            "gpt-review-1",
+            "PASS",
+            "HIGH",
+            {"schemaVersion": "1"},
+            digest,
+            {"inputTokens": 1},
+            None,
+            {"disposition": "AUTO_RELEASE_SUPPORTABLE"},
+            digest,
+        )
+        gateway.resolve_total_loss_report_release_context(
+            WORK_ITEM_ID, TOKEN_ID, RUN_ID
+        )
+        gateway.resolve_total_loss_report_release(
+            WORK_ITEM_ID, TOKEN_ID, RUN_ID
+        )
+        gateway.resolve_total_loss_no_dispute_refund(REPORT_VERSION_ID)
+        gateway.complete_total_loss_no_dispute_refund(
+            REPORT_VERSION_ID, CLAIM_ID
+        )
+        gateway.hold_total_loss_no_dispute_refund_failure(
+            REPORT_VERSION_ID, CLAIM_ID
+        )
+        gateway.fail_total_loss_report_work_item(
+            WORK_ITEM_ID,
+            TOKEN_ID,
+            "REPORT_REVIEW_TIMEOUT",
+            "retryable",
+            60,
+        )
+        gateway.get_total_loss_release_review(
+            CLAIM_ID, "staff-access-token"
+        )
+        gateway.decide_total_loss_release_review(
+            CLAIM_ID,
+            "2026-08-26T12:30:00Z",
+            "revision_requested",
+            "Generate a new immutable report version.",
+            "staff-access-token",
+        )
+
+        expected_bodies = {
+            "enqueue_total_loss_report_generation": {
+                "requested_package_job_id": PACKAGE_JOB_ID
+            },
+            "resolve_workflow_work_item_kind": {
+                "requested_work_item_id": WORK_ITEM_ID
+            },
+            "claim_total_loss_report_generation_work_item": {
+                "requested_work_item_id": WORK_ITEM_ID,
+                "requested_processing_token": TOKEN_ID,
+            },
+            "resolve_total_loss_report_generation_context": {
+                "requested_work_item_id": WORK_ITEM_ID,
+                "requested_processing_token": TOKEN_ID,
+            },
+            "complete_total_loss_report_generation": {
+                "requested_work_item_id": WORK_ITEM_ID,
+                "requested_processing_token": TOKEN_ID,
+                "requested_report": {"schemaVersion": "1"},
+                "requested_report_digest": digest,
+                "requested_renderer_version": "reportlab-1",
+                "requested_template_version": "valuation-evidence-v1",
+                "requested_schema_version": "1",
+                "requested_validation_version": "1",
+                "requested_validation_manifest": {"status": "PASS"},
+                "requested_pdf_byte_size": len(PDF_BYTES),
+                "requested_pdf_digest": digest,
+            },
+            "claim_total_loss_report_review_work_item": {
+                "requested_work_item_id": WORK_ITEM_ID,
+                "requested_processing_token": TOKEN_ID,
+            },
+            "resolve_total_loss_report_review_context": {
+                "requested_work_item_id": WORK_ITEM_ID,
+                "requested_processing_token": TOKEN_ID,
+            },
+            "begin_total_loss_ai_review": {
+                "requested_work_item_id": WORK_ITEM_ID,
+                "requested_processing_token": TOKEN_ID,
+                "requested_provider_identifier": "openai",
+                "requested_configured_model_identifier": "gpt-review-1",
+                "requested_prompt_version": "1",
+                "requested_schema_version": "1",
+                "requested_input_digest": digest,
+            },
+            "complete_total_loss_ai_review": {
+                "requested_work_item_id": WORK_ITEM_ID,
+                "requested_processing_token": TOKEN_ID,
+                "requested_ai_review_run_id": RUN_ID,
+                "requested_terminal_status": "completed",
+                "requested_returned_model_identifier": "gpt-review-1",
+                "requested_recommendation": "PASS",
+                "requested_confidence": "HIGH",
+                "requested_review_result": {"schemaVersion": "1"},
+                "requested_output_digest": digest,
+                "requested_usage_metadata": {"inputTokens": 1},
+                "requested_failure_code": None,
+                "requested_release_gate_manifest": {
+                    "disposition": "AUTO_RELEASE_SUPPORTABLE"
+                },
+                "requested_release_gate_digest": digest,
+            },
+            "resolve_total_loss_report_release_context": {
+                "requested_work_item_id": WORK_ITEM_ID,
+                "requested_processing_token": TOKEN_ID,
+                "requested_ai_review_run_id": RUN_ID,
+            },
+            "resolve_total_loss_report_release": {
+                "requested_work_item_id": WORK_ITEM_ID,
+                "requested_processing_token": TOKEN_ID,
+                "requested_ai_review_run_id": RUN_ID,
+            },
+            "resolve_total_loss_no_dispute_refund_recovery": {
+                "requested_report_version_id": REPORT_VERSION_ID
+            },
+            "complete_total_loss_no_dispute_refund": {
+                "requested_report_version_id": REPORT_VERSION_ID,
+                "requested_refund_request_id": CLAIM_ID,
+            },
+            "hold_total_loss_no_dispute_refund_failure": {
+                "requested_report_version_id": REPORT_VERSION_ID,
+                "requested_refund_request_id": CLAIM_ID,
+            },
+            "fail_total_loss_report_work_item": {
+                "requested_work_item_id": WORK_ITEM_ID,
+                "requested_processing_token": TOKEN_ID,
+                "requested_failure_code": "REPORT_REVIEW_TIMEOUT",
+                "requested_failure_kind": "retryable",
+                "requested_retry_delay_seconds": 60,
+            },
+            "get_total_loss_release_review": {
+                "requested_release_review_id": CLAIM_ID
+            },
+            "decide_total_loss_release_review": {
+                "requested_release_review_id": CLAIM_ID,
+                "requested_expected_updated_at": "2026-08-26T12:30:00Z",
+                "requested_decision": "revision_requested",
+                "requested_rationale": (
+                    "Generate a new immutable report version."
+                ),
+            },
+        }
+        self.assertEqual(len(requests), len(expected_bodies))
+        for request in requests:
+            name = request.url.path.rsplit("/", 1)[-1]
+            self.assertEqual(json.loads(request.content), expected_bodies[name])
+            if name in {
+                "get_total_loss_release_review",
+                "decide_total_loss_release_review",
+            }:
+                self.assertEqual(request.headers["apikey"], "publishable-test-key")
+                self.assertEqual(
+                    request.headers["authorization"],
+                    "Bearer staff-access-token",
+                )
+            else:
+                self.assertEqual(request.headers["apikey"], "service-role-test-key")
+                self.assertEqual(
+                    request.headers["authorization"],
+                    "Bearer service-role-test-key",
+                )
 
     def test_vehicle_trim_cache_uses_only_the_bounded_service_role_rpcs(self) -> None:
         requests: list[httpx.Request] = []

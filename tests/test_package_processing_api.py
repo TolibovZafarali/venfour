@@ -13,6 +13,7 @@ from venfour.package_processing import (
     PackageProcessingContractError,
     PackageWorkBusyError,
 )
+from venfour.report_processing import ReportWorkExecutionResult
 
 
 WORK_ITEM_ID = "10000000-0000-4000-8000-000000000001"
@@ -68,6 +69,22 @@ class _Processor:
         )
 
 
+class _ReportProcessor(_Processor):
+    def execute(self, work_item_id: str) -> ReportWorkExecutionResult:
+        self.work_item_ids.append(work_item_id)
+        return ReportWorkExecutionResult(
+            state="completed",
+            work_item_id=work_item_id,
+            work_type="total_loss_report_review",
+            package_job_id=PACKAGE_JOB_ID,
+            package_status="ready",
+            attempt_count=2,
+            report_version_id=FINAL_ASSESSMENT_ID,
+            ai_review_run_id=SOURCE_SNAPSHOT_ID,
+            release_disposition="PUBLISHED",
+        )
+
+
 class PackageProcessingApiTests(unittest.TestCase):
     @staticmethod
     def app(processor: _Processor, verifier: _Verifier, **kwargs: object):
@@ -100,6 +117,35 @@ class PackageProcessingApiTests(unittest.TestCase):
                 "attemptCount": 1,
                 "sourceSnapshotId": SOURCE_SNAPSHOT_ID,
                 "finalAssessmentId": FINAL_ASSESSMENT_ID,
+            },
+        )
+        self.assertEqual(response.headers["cache-control"], "private, no-store")
+        self.assertEqual(verifier.tokens, ["valid-oidc-token"])
+        self.assertEqual(processor.work_item_ids, [WORK_ITEM_ID])
+
+    def test_report_work_result_uses_the_private_bounded_contract(self) -> None:
+        verifier = _Verifier()
+        processor = _ReportProcessor()
+
+        with TestClient(self.app(processor, verifier)) as client:
+            response = client.post(
+                f"/internal/v1/work-items/{WORK_ITEM_ID}/execute",
+                headers={"Authorization": "Bearer valid-oidc-token"},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.json(),
+            {
+                "state": "completed",
+                "workItemId": WORK_ITEM_ID,
+                "workType": "total_loss_report_review",
+                "packageJobId": PACKAGE_JOB_ID,
+                "packageStatus": "ready",
+                "attemptCount": 2,
+                "reportVersionId": FINAL_ASSESSMENT_ID,
+                "aiReviewRunId": SOURCE_SNAPSHOT_ID,
+                "releaseDisposition": "PUBLISHED",
             },
         )
         self.assertEqual(response.headers["cache-control"], "private, no-store")

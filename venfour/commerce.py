@@ -1791,7 +1791,12 @@ class TotalLossCommerceService:
                 raise SupabaseContractError(
                     "Refund reservation response is invalid"
                 )
-            return projection
+            if not (
+                state == "existing"
+                and projection.refund_status == "creating"
+                and external_refund_id is None
+            ):
+                return projection
         if external_refund_id is not None:
             raise SupabaseContractError("Refund reservation response is invalid")
         refund = self._provider.create_refund(

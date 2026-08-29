@@ -2811,6 +2811,33 @@ class CommerceRefundTests(unittest.TestCase):
         self.assertFalse(any(name == "retrieve_refund" for name, _ in provider.calls))
         self.assertFalse(any(name == "create_refund" for name, _ in provider.calls))
 
+    def test_existing_creating_refund_resumes_same_provider_idempotency_key(self) -> None:
+        database = RecordingDatabase()
+        database.refund_reserve_row = {
+            **database.refund_reserve_row,
+            "state": "existing",
+        }
+        commerce, _, provider = service(database)
+
+        result = commerce.refund(
+            case_id=CASE_ID,
+            order_id=ORDER_ID,
+            payment_transaction_id=PAYMENT_ID,
+            client_request_id=CLIENT_REQUEST_ID,
+            reason_code="NO_MATERIAL_DISPUTE_SUPPORTED",
+            access_policy="retain",
+        )
+
+        self.assertEqual(result.refund_status, "succeeded")
+        creates = [
+            value for name, value in provider.calls if name == "create_refund"
+        ]
+        self.assertEqual(len(creates), 1)
+        self.assertEqual(
+            creates[0]["idempotency_key"],
+            f"venfour:refund:v1:{REFUND_REQUEST_ID}",
+        )
+
     def test_succeeded_refund_replay_after_dispute_uses_only_local_state(
         self,
     ) -> None:

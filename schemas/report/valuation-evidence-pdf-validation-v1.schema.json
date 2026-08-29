@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.venfour.local/report/valuation-evidence-pdf-validation-v1.schema.json",
+  "title": "Venfour Valuation Evidence PDF Validation Manifest V1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "status",
+    "reportVersionId",
+    "reportDigest",
+    "rendererVersion",
+    "templateVersion",
+    "filename",
+    "mediaType",
+    "pdfSha256",
+    "byteSize",
+    "pageCount",
+    "extractedTextDigest",
+    "mandatorySectionChecks",
+    "requiredContentChecks",
+    "blankPages",
+    "unresolvedPlaceholders",
+    "manifestDigest"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "1" },
+    "status": { "const": "PASS" },
+    "reportVersionId": { "type": "string", "format": "uuid" },
+    "reportDigest": { "$ref": "#/$defs/digest" },
+    "rendererVersion": { "const": "1" },
+    "templateVersion": { "const": "1" },
+    "filename": { "const": "valuation-evidence-package.pdf" },
+    "mediaType": { "const": "application/pdf" },
+    "pdfSha256": { "$ref": "#/$defs/digest" },
+    "byteSize": { "type": "integer", "minimum": 1 },
+    "pageCount": { "type": "integer", "minimum": 1 },
+    "extractedTextDigest": { "$ref": "#/$defs/digest" },
+    "mandatorySectionChecks": { "type": "array", "minItems": 12, "items": { "$ref": "#/$defs/check" } },
+    "requiredContentChecks": { "type": "array", "minItems": 5, "items": { "$ref": "#/$defs/check" } },
+    "blankPages": { "type": "array", "maxItems": 0, "items": { "type": "integer" } },
+    "unresolvedPlaceholders": { "type": "array", "maxItems": 0, "items": { "type": "string" } },
+    "manifestDigest": { "$ref": "#/$defs/digest" }
+  },
+  "$defs": {
+    "digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "check": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "status"],
+      "properties": {
+        "code": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]{0,63}$" },
+        "status": { "const": "PASS" }
+      }
+    }
+  }
+}

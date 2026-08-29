@@ -1,0 +1,200 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://venfour.com/schemas/package/report-review-eval-suite-v1.schema.json",
+  "title": "Venfour report-review evaluation suite V1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "suiteId",
+    "reviewPromptVersion",
+    "reviewSchemaVersion",
+    "humanLabeled",
+    "providerBackedRequired",
+    "cases"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "1" },
+    "suiteId": { "const": "report-release-adversarial-v1" },
+    "reviewPromptVersion": { "const": "1" },
+    "reviewSchemaVersion": { "const": "1" },
+    "humanLabeled": { "const": true },
+    "providerBackedRequired": { "const": true },
+    "cases": {
+      "type": "array",
+      "minItems": 20,
+      "maxItems": 20,
+      "items": { "$ref": "#/$defs/case" }
+    }
+  },
+  "$defs": {
+    "boundedText": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2000
+    },
+    "nullableText": {
+      "type": ["string", "null"],
+      "minLength": 1,
+      "maxLength": 2000
+    },
+    "scenarioId": {
+      "type": "string",
+      "enum": [
+        "correct_package",
+        "wrong_insurer_valuation",
+        "wrong_subject_vehicle",
+        "missing_insurer_comparable",
+        "lower_valued_strong_insurer_comparable_omitted",
+        "invented_external_comparable",
+        "duplicate_comparable",
+        "reversed_adjustment_sign",
+        "wrong_arithmetic",
+        "incorrect_supported_range",
+        "preliminary_final_mismatch",
+        "unsupported_point_acv",
+        "unsupported_insurer_owes_you",
+        "fake_certified_uspap_language",
+        "missing_material_limitation",
+        "wrong_source_attribution",
+        "report_json_pdf_mismatch",
+        "prompt_injection_inside_source_document",
+        "conflicting_or_insufficient_evidence",
+        "non_supportable_case_accurately_represented"
+      ]
+    },
+    "checkId": {
+      "type": "string",
+      "enum": [
+        "LINEAGE",
+        "SUBJECT_VEHICLE",
+        "INSURER_VALUATION",
+        "INSURER_COMPARABLES",
+        "EXTERNAL_COMPARABLES",
+        "CALCULATIONS",
+        "METHODOLOGY_BOUNDARIES",
+        "EVIDENCE_ATTRIBUTION",
+        "LIMITATIONS",
+        "PDF_CONSISTENCY",
+        "OVERALL_CONCLUSION"
+      ]
+    },
+    "findingCategory": {
+      "type": "string",
+      "enum": [
+        "LINEAGE",
+        "SUBJECT_VEHICLE",
+        "INSURER_VALUATION",
+        "INSURER_COMPARABLES",
+        "EXTERNAL_COMPARABLES",
+        "CALCULATIONS",
+        "METHODOLOGY_BOUNDARIES",
+        "EVIDENCE_ATTRIBUTION",
+        "LIMITATIONS",
+        "PDF_CONSISTENCY",
+        "OVERALL_CONCLUSION",
+        "SOURCE_REFERENCE",
+        "PROMPT_INJECTION",
+        "OTHER"
+      ]
+    },
+    "mutation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["target", "operation", "jsonPointer", "before", "after"],
+      "properties": {
+        "target": {
+          "type": "string",
+          "enum": [
+            "NONE",
+            "REPORT_JSON",
+            "PDF_TEXT",
+            "SOURCE_DOCUMENT",
+            "PACKAGE_EVIDENCE"
+          ]
+        },
+        "operation": {
+          "type": "string",
+          "enum": ["NONE", "REPLACE", "REMOVE", "DUPLICATE", "INSERT"]
+        },
+        "jsonPointer": {
+          "type": ["string", "null"],
+          "maxLength": 500,
+          "pattern": "^(/.*)?$"
+        },
+        "before": { "$ref": "#/$defs/nullableText" },
+        "after": { "$ref": "#/$defs/nullableText" }
+      }
+    },
+    "expected": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "recommendation",
+        "requiredConfidence",
+        "gateDisposition",
+        "failedMandatoryChecks",
+        "findingCategories",
+        "untrustedInstructionDetected"
+      ],
+      "properties": {
+        "recommendation": {
+          "type": "string",
+          "enum": ["PASS", "HUMAN_REVIEW"]
+        },
+        "requiredConfidence": {
+          "type": ["string", "null"],
+          "enum": ["HIGH", "MEDIUM", "LOW", null]
+        },
+        "gateDisposition": {
+          "type": "string",
+          "enum": [
+            "AUTO_RELEASE_SUPPORTABLE",
+            "AUTO_RELEASE_NO_DISPUTE_REFUND",
+            "HUMAN_REVIEW"
+          ]
+        },
+        "failedMandatoryChecks": {
+          "type": "array",
+          "maxItems": 11,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/checkId" }
+        },
+        "findingCategories": {
+          "type": "array",
+          "maxItems": 14,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/findingCategory" }
+        },
+        "untrustedInstructionDetected": {
+          "type": ["boolean", "null"]
+        }
+      }
+    },
+    "case": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scenarioId",
+        "title",
+        "humanLabeled",
+        "basePackage",
+        "mutation",
+        "expected",
+        "rationale"
+      ],
+      "properties": {
+        "scenarioId": { "$ref": "#/$defs/scenarioId" },
+        "title": { "$ref": "#/$defs/boundedText" },
+        "humanLabeled": { "const": true },
+        "basePackage": {
+          "type": "string",
+          "enum": ["SUPPORTABLE", "NON_SUPPORTABLE", "REVIEW_REQUIRED"]
+        },
+        "mutation": { "$ref": "#/$defs/mutation" },
+        "expected": { "$ref": "#/$defs/expected" },
+        "rationale": { "$ref": "#/$defs/boundedText" }
+      }
+    }
+  }
+}

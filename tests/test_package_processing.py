@@ -139,6 +139,8 @@ class FakeAssessmentBuilder:
 class FakeDatabase:
     def __init__(self) -> None:
         self.enqueue_calls = 0
+        self.enqueue_package_status = "queued"
+        self.enqueue_work_item_status = "queued"
         self.reservations: list[Mapping[str, object]] = []
         self.mark_result = True
         self.release_result = True
@@ -177,8 +179,8 @@ class FakeDatabase:
             "entitlement_id": entitlement_id,
             "package_job_id": PACKAGE_JOB_ID,
             "work_item_id": WORK_ITEM_ID,
-            "package_status": "queued",
-            "work_item_status": "queued",
+            "package_status": self.enqueue_package_status,
+            "work_item_status": self.enqueue_work_item_status,
             "workflow_revision": 1,
         }
 
@@ -600,6 +602,29 @@ class PackageCoordinatorTests(unittest.TestCase):
         self.assertEqual(created.package_job_id, existing.package_job_id)
         self.assertEqual(created.work_item_id, existing.work_item_id)
 
+    def test_duplicate_enqueue_accepts_every_report_lifecycle_status(self) -> None:
+        for package_status in (
+            "report_generating",
+            "waiting_ai_review",
+            "waiting_human_review",
+            "refund_pending",
+            "ready",
+            "not_supportable",
+        ):
+            with self.subTest(package_status=package_status):
+                database = FakeDatabase()
+                database.enqueue_calls = 1
+                database.enqueue_package_status = package_status
+                database.enqueue_work_item_status = "completed"
+                coordinator = TotalLossPackageCoordinator(database)
+
+                existing = coordinator.ensure_for_entitlement(ENTITLEMENT_ID)
+
+                self.assertEqual(existing.state, "existing")
+                self.assertEqual(existing.package_status, package_status)
+                self.assertEqual(existing.work_item_status, "completed")
+                self.assertFalse(existing.dispatch_attempted)
+
     def test_enqueue_reconciles_durable_due_work_when_dispatch_is_configured(
         self,
     ) -> None:
@@ -649,6 +674,43 @@ class PackageCoordinatorTests(unittest.TestCase):
         self.assertEqual(
             database.released,
             [(WORK_ITEM_ID, DISPATCH_TOKEN, "TASK_DISPATCH_UNAVAILABLE", 8)],
+        )
+
+    def test_dispatcher_accepts_report_generation_and_review_work(self) -> None:
+        database = FakeDatabase()
+        database.reservations = [
+            {
+                "work_item_id": WORK_ITEM_ID,
+                "package_job_id": PACKAGE_JOB_ID,
+                "work_type": "total_loss_report_generate",
+                "work_version": "1",
+                "dispatch_attempt_count": 1,
+            },
+            {
+                "work_item_id": PROCESSING_TOKEN_1,
+                "package_job_id": PACKAGE_JOB_ID,
+                "work_type": "total_loss_report_review",
+                "work_version": "1",
+                "dispatch_attempt_count": 1,
+            },
+        ]
+        dispatcher = FakeDispatcher()
+        coordinator = TotalLossPackageCoordinator(
+            database,
+            dispatcher,
+            token_factory=TokenSequence(DISPATCH_TOKEN),
+        )
+
+        result = coordinator.reconcile_due(limit=2)
+
+        self.assertEqual((result.reserved, result.dispatched, result.failed), (2, 2, 0))
+        self.assertEqual(dispatcher.calls, [WORK_ITEM_ID, PROCESSING_TOKEN_1])
+        self.assertEqual(
+            database.marked,
+            [
+                (WORK_ITEM_ID, DISPATCH_TOKEN),
+                (PROCESSING_TOKEN_1, DISPATCH_TOKEN),
+            ],
         )
 
     def test_stale_dispatch_fence_is_rejected(self) -> None:
