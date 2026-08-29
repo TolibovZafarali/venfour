@@ -622,6 +622,12 @@ async function chooseMode(
   await user.click(
     withinIntakeFlow().getByRole("button", { name: "Continue" }),
   );
+  await screen.findByRole("heading", {
+    name:
+      label === "I have my valuation report"
+        ? "Upload your valuation report"
+        : "Tell us about your vehicle",
+  });
 }
 
 function withinIntakeFlow() {
@@ -662,6 +668,102 @@ beforeEach(() => {
 });
 
 describe("/start?service=total-loss", () => {
+  it.each([
+    {
+      path: "/start?service=total-loss",
+      label: /I have my valuation report/i,
+      heading: "Upload your valuation report",
+      mode: "report",
+    },
+    {
+      path: `/start?service=total-loss&newCaseId=${NEW_CASE_INTENT_ID}`,
+      label: /I don’t have the report/i,
+      heading: "Tell us about your vehicle",
+      mode: "manual",
+    },
+  ])("opens $mode intake immediately through delayed secure setup", async ({ path, label, heading, mode }) => {
+    const session = createDeferred<Session | null>();
+    const guest = createDeferred<Session>();
+    const bootstrap = createDeferred<AppraisalCase>();
+    const details = createDeferred<TotalLossCaseDetails | null>();
+    const auth = createAuthHarness(null);
+    auth.getSession.mockReturnValue(session.promise);
+    auth.service.signInAnonymously = vi.fn(() => guest.promise);
+    const harness = createDependencyHarness();
+    harness.getOrCreateTotalLossDraft.mockReturnValue(bootstrap.promise);
+    harness.detailsService.getDetails = vi.fn(() => details.promise);
+
+    renderTestApp([path], {
+      authService: auth.service,
+      totalLossDependencies: harness.dependencies,
+    });
+
+    const choice = screen.getByRole("radio", { name: label });
+    const assertOpeningChoice = () => {
+      expect(screen.getByRole("radio", { name: label })).toBe(choice);
+      expect(choice).toBeEnabled();
+      expect(screen.queryByText("Loading your saved appraisal…")).not.toBeInTheDocument();
+      expect(document.querySelector("[data-appraisal-start-flow] .animate-spin")).toBeNull();
+      expect(harness.saveDetails).not.toHaveBeenCalled();
+      expect(harness.uploadReport).not.toHaveBeenCalled();
+    };
+    assertOpeningChoice();
+    fireEvent.click(choice);
+    expect(choice).toBeChecked();
+
+    await act(async () => session.resolve(null));
+    await waitFor(() => expect(auth.service.signInAnonymously).toHaveBeenCalledOnce());
+    assertOpeningChoice();
+    await act(async () => guest.resolve(anonymousSessionFor()));
+    await waitFor(() => expect(harness.getOrCreateTotalLossDraft).toHaveBeenCalledOnce());
+    assertOpeningChoice();
+    await act(async () => bootstrap.resolve(appraisalCase(OTHER_CASE_ID, GUEST_USER_ID)));
+    await waitFor(() => expect(harness.detailsService.getDetails).toHaveBeenCalled());
+    assertOpeningChoice();
+
+    fireEvent.click(withinIntakeFlow().getByRole("button", { name: "Continue" }));
+    expect(withinIntakeFlow().getByRole("button", { name: "Continue" })).toBeDisabled();
+    expect(screen.queryByText("Loading your saved appraisal…")).not.toBeInTheDocument();
+    expect(harness.saveDetails).not.toHaveBeenCalled();
+
+    await act(async () => details.resolve(null));
+    expect(await screen.findByRole("heading", { name: heading })).toBeVisible();
+    await waitFor(() => expect(harness.saveDetails).toHaveBeenCalledWith(
+      expect.objectContaining({
+        caseId: OTHER_CASE_ID,
+        userId: GUEST_USER_ID,
+        values: expect.objectContaining({ intakeMode: mode }),
+      }),
+    ));
+    expect(harness.createOrGetAppraisalCase).not.toHaveBeenCalled();
+  });
+
+  it("restores server details without overwriting them with an early opening choice", async () => {
+    const auth = createAuthHarness(sessionFor());
+    const saved = detailsFor(CASE_ID, {
+      intakeMode: "manual",
+      vin: "1HGCM82633A004352",
+      vehicleYear: 2020,
+      vehicleMake: "Honda",
+      vehicleModel: "Accord",
+    });
+    const details = createDeferred<TotalLossCaseDetails | null>();
+    const harness = createDependencyHarness({ details: [saved] });
+    harness.detailsService.getDetails = vi.fn(() => details.promise);
+    renderTestApp(["/start?service=total-loss"], {
+      authService: auth.service,
+      totalLossDependencies: harness.dependencies,
+    });
+    fireEvent.click(screen.getByRole("radio", { name: /I have my valuation report/i }));
+    fireEvent.click(withinIntakeFlow().getByRole("button", { name: "Continue" }));
+    await waitFor(() => expect(harness.detailsService.getDetails).toHaveBeenCalled());
+    expect(harness.saveDetails).not.toHaveBeenCalled();
+    await act(async () => details.resolve(saved));
+    expect(await screen.findByLabelText("VIN")).toHaveValue(saved.vin);
+    expect(harness.saveDetails).not.toHaveBeenCalled();
+    expect(harness.uploadReport).not.toHaveBeenCalled();
+  });
+
   it("starts signed-out visitors with a hidden anonymous session and durable guest draft", async () => {
     const auth = createAuthHarness(null);
     const harness = createDependencyHarness();
@@ -678,7 +780,7 @@ describe("/start?service=total-loss", () => {
       "lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]",
     );
     const reportChoice =
-      await screen.findByRole("group", {
+      screen.getByRole("group", {
         name: "Do you have your insurance valuation report?",
       });
     expect(reportChoice).toBeVisible();
@@ -714,18 +816,20 @@ describe("/start?service=total-loss", () => {
       expect(auth.service.signInAnonymously).toHaveBeenCalledOnce(),
     );
     expect(harness.createOrGetAppraisalCase).not.toHaveBeenCalled();
-    expect(harness.getOrCreateTotalLossDraft).toHaveBeenCalledWith({
-      userId: GUEST_USER_ID,
-    });
+    await waitFor(() =>
+      expect(harness.getOrCreateTotalLossDraft).toHaveBeenCalledWith({
+        userId: GUEST_USER_ID,
+      }),
+    );
     expect(harness.uploadReport).not.toHaveBeenCalled();
-    expect(readTotalLossDraft()).toMatchObject({
+    await waitFor(() => expect(readTotalLossDraft()).toMatchObject({
       ok: true,
       draft: {
         confirmedCaseId: OTHER_CASE_ID,
         reservedCaseId: OTHER_CASE_ID,
         ownerUserId: GUEST_USER_ID,
       },
-    });
+    }));
   });
 
   it.each([
@@ -865,6 +969,10 @@ describe("/start?service=total-loss", () => {
     await screen.findByRole("group", {
       name: "Do you have your insurance valuation report?",
     });
+    await waitFor(() => expect(readTotalLossDraft()).toMatchObject({
+      ok: true,
+      draft: { ownerUserId: GUEST_USER_ID },
+    }));
     const serialized = window.localStorage.getItem(
       "venfour.totalLossDraft.v1",
     );
@@ -873,7 +981,7 @@ describe("/start?service=total-loss", () => {
     expect(serialized).not.toContain(`refresh-${GUEST_USER_ID}`);
   });
 
-  it("atomically prepares a durable server draft before mounting intake", async () => {
+  it("keeps the opening choices stable while preparing a durable server draft", async () => {
     const auth = createAuthHarness(sessionFor());
     const harness = createDependencyHarness();
     const bootstrap = createDeferred<AppraisalCase>();
@@ -889,9 +997,11 @@ describe("/start?service=total-loss", () => {
         userId: USER_ID,
       }),
     );
-    expect(
-      screen.queryByRole("radio", { name: /I don’t have the report/i }),
-    ).not.toBeInTheDocument();
+    const choice = screen.getByRole("radio", { name: /I don’t have the report/i });
+    expect(choice).toBeEnabled();
+    expect(screen.queryByText("Loading your saved appraisal…")).not.toBeInTheDocument();
+    fireEvent.click(choice);
+    expect(choice).toBeChecked();
     expect(harness.createOrGetAppraisalCase).not.toHaveBeenCalled();
     expect(harness.saveDetails).not.toHaveBeenCalled();
 
@@ -905,14 +1015,19 @@ describe("/start?service=total-loss", () => {
         name: "Do you have your insurance valuation report?",
       }),
     ).toBeVisible();
-    expect(readTotalLossDraft()).toMatchObject({
+    await waitFor(() => expect(readTotalLossDraft()).toMatchObject({
       ok: true,
       draft: {
         confirmedCaseId: CASE_ID,
         reservedCaseId: CASE_ID,
         ownerUserId: USER_ID,
+        mode: "manual",
       },
-    });
+    }));
+    expect(screen.getByRole("radio", { name: /I don’t have the report/i })).toBe(choice);
+    expect(choice).toBeChecked();
+    expect(choice).toBeEnabled();
+    expect(screen.queryByText("Loading your saved appraisal…")).not.toBeInTheDocument();
   });
 
   it("starts another appraisal with one URL intent across reloads", async () => {

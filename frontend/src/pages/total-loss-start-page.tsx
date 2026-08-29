@@ -151,6 +151,11 @@ interface TotalLossIntakeFlowProps {
   onBusyChange?: (busy: boolean) => void;
 }
 
+interface StartupChoice {
+  readonly mode: TotalLossIntakeMode | null;
+  readonly continued: boolean;
+}
+
 export function TotalLossIntakeFlow({
   onBusyChange,
 }: TotalLossIntakeFlowProps) {
@@ -163,6 +168,11 @@ function TotalLossDraftBootstrapGate({
   const { auth, ensureGuestSession } = useAuth();
   const location = useLocation();
   const dependencies = useTotalLossDependencies();
+  const [storedDraft] = useState(() => readTotalLossDraft().draft);
+  const [startupChoice, setStartupChoice] = useState<StartupChoice>({
+    mode: null,
+    continued: false,
+  });
   const [guestBootstrapError, setGuestBootstrapError] = useState<string | null>(
     null,
   );
@@ -232,6 +242,70 @@ function TotalLossDraftBootstrapGate({
     reservedAppraisalCase.serviceType === "total_loss" &&
     reservedAppraisalCase.status === "draft",
   );
+  const appraisalCase = explicitCaseId
+    ? explicitAppraisalCase
+    : newCaseId
+      ? reservedAppraisalCase
+      : canonicalAppraisalCase;
+  const showStartupChoice =
+    !explicitCaseId &&
+    !(storedDraft && (storedDraft.mode || hasMeaningfulManualDraft(storedDraft)));
+  const startupDetailsQuery = useTotalLossDetailsQuery({
+    service: dependencies?.totalLossDetailsService ?? null,
+    userId,
+    caseId:
+      showStartupChoice &&
+      appraisalCase?.userId === userId &&
+      appraisalCase?.serviceType === "total_loss" &&
+      appraisalCase?.status === "draft"
+        ? appraisalCase.id
+        : null,
+  });
+  const pendingContent = showStartupChoice ? (
+    <IntakeStepTransition transitionKey="choice" direction="forward">
+      <ChoiceStep
+        selectedMode={startupChoice.mode}
+        busy={startupChoice.continued}
+        onSelect={(mode) => setStartupChoice({ mode, continued: false })}
+        onContinue={() => {
+          if (startupChoice.mode) {
+            setStartupChoice({ ...startupChoice, continued: true });
+          }
+        }}
+      />
+    </IntakeStepTransition>
+  ) : (
+    <LoadingCard />
+  );
+
+  useEffect(() => {
+    if (
+      !showStartupChoice ||
+      startupChoice.continued ||
+      startupDetailsQuery.data !== null ||
+      !appraisalCase ||
+      appraisalCase.userId !== userId ||
+      invalidNewCaseId ||
+      conflictingCaseIntents
+    ) {
+      return;
+    }
+    loadInitialDraft(
+      appraisalCase,
+      appraisalCase.userId,
+      Boolean(newCaseId),
+      startupChoice,
+    );
+  }, [
+    appraisalCase,
+    conflictingCaseIntents,
+    invalidNewCaseId,
+    newCaseId,
+    showStartupChoice,
+    startupChoice,
+    startupDetailsQuery.data,
+    userId,
+  ]);
 
   const startGuestBootstrap = useCallback(() => {
     guestBootstrapAbortRef.current?.abort();
@@ -288,7 +362,7 @@ function TotalLossDraftBootstrapGate({
     );
   }
   if (auth.status !== "signedIn") {
-    return <LoadingCard />;
+    return pendingContent;
   }
   if (!dependencies) {
     return (
@@ -308,7 +382,7 @@ function TotalLossDraftBootstrapGate({
     (explicitCaseId && explicitCaseQuery.isPending) ||
     (newCaseId && reservedCaseQuery.isPending)
   ) {
-    return <LoadingCard />;
+    return pendingContent;
   }
   if (
     (!explicitCaseId && !newCaseId && bootstrapQuery.isError) ||
@@ -338,11 +412,6 @@ function TotalLossDraftBootstrapGate({
     return <UnavailableCaseCard />;
   }
 
-  const appraisalCase = explicitCaseId
-    ? explicitAppraisalCase
-    : newCaseId
-      ? reservedAppraisalCase
-      : canonicalAppraisalCase;
   if (
     !appraisalCase ||
     appraisalCase.userId !== auth.user.id ||
@@ -352,10 +421,29 @@ function TotalLossDraftBootstrapGate({
     return <UnavailableCaseCard />;
   }
 
+  if (showStartupChoice && startupDetailsQuery.isPending) {
+    return pendingContent;
+  }
+  if (showStartupChoice && startupDetailsQuery.isLoadingError) {
+    return (
+      <SavedDetailsLoadErrorCard
+        onRetry={() => void startupDetailsQuery.refetch()}
+      />
+    );
+  }
+  if (
+    showStartupChoice &&
+    startupDetailsQuery.data === null &&
+    !startupChoice.continued
+  ) {
+    return pendingContent;
+  }
+
   return (
     <TotalLossIntakeFlowContent
       key={appraisalCase.id}
       bootstrapCase={appraisalCase}
+      startupChoice={startupDetailsQuery.data === null ? startupChoice : null}
       startNewCase={Boolean(newCaseId)}
       onBusyChange={onBusyChange}
     />
@@ -365,12 +453,14 @@ function TotalLossDraftBootstrapGate({
 interface TotalLossIntakeFlowContentProps extends TotalLossIntakeFlowProps {
   readonly bootstrapCase: AppraisalCase;
   readonly startNewCase: boolean;
+  readonly startupChoice: StartupChoice | null;
 }
 
 function TotalLossIntakeFlowContent({
   bootstrapCase,
   onBusyChange,
   startNewCase,
+  startupChoice,
 }: TotalLossIntakeFlowContentProps) {
   const location = useLocation();
   const navigate = useNavigate();
@@ -378,7 +468,12 @@ function TotalLossIntakeFlowContent({
   const queryClient = useQueryClient();
   const dependencies = useTotalLossDependencies();
   const [initialDraft] = useState(() =>
-    loadInitialDraft(bootstrapCase, bootstrapCase.userId, startNewCase),
+    loadInitialDraft(
+      bootstrapCase,
+      bootstrapCase.userId,
+      startNewCase,
+      startupChoice,
+    ),
   );
   const [draft, setDraft] = useState(initialDraft.draft);
   const [stepTransitionDirection, setStepTransitionDirection] = useState<
@@ -2211,6 +2306,7 @@ function loadInitialDraft(
   bootstrapCase: AppraisalCase,
   userId: string,
   startNewCase: boolean,
+  startupChoice: StartupChoice | null,
 ): InitialDraftState {
   const stored = readTotalLossDraft();
   if (stored.ok) {
@@ -2224,25 +2320,46 @@ function loadInitialDraft(
       (startNewCase
         ? storedCaseMatchesBootstrap
         : !storedDraft.confirmedCaseId || storedCaseMatchesBootstrap);
-    const draft = routeInvalidReportZipToUpload({
+    const restoredDraft = routeInvalidReportZipToUpload({
       ...(belongsToBootstrapCase ? storedDraft : createEmptyTotalLossDraft()),
       confirmedCaseId: bootstrapCase.id,
       reservedCaseId: bootstrapCase.id,
       ownerUserId: userId,
       dismissedResumeCaseId: null,
     });
+    const draft = applyStartupChoice(restoredDraft, startupChoice);
     return {
       draft,
       storageError: !writeTotalLossDraft(draft).ok,
     };
   }
-  const draft = {
-    ...createEmptyTotalLossDraft(),
-    confirmedCaseId: bootstrapCase.id,
-    reservedCaseId: bootstrapCase.id,
-    ownerUserId: userId,
-  };
+  const draft = applyStartupChoice(
+    {
+      ...createEmptyTotalLossDraft(),
+      confirmedCaseId: bootstrapCase.id,
+      reservedCaseId: bootstrapCase.id,
+      ownerUserId: userId,
+    },
+    startupChoice,
+  );
   return { draft, storageError: !writeTotalLossDraft(draft).ok };
+}
+
+function applyStartupChoice(
+  draft: TotalLossDraft,
+  choice: StartupChoice | null,
+): TotalLossDraft {
+  if (!choice?.mode || draft.step !== "choice") return draft;
+  return {
+    ...draft,
+    mode: choice.mode,
+    step: choice.continued
+      ? choice.mode === "report"
+        ? "report"
+        : "vehicle"
+      : "choice",
+    dirty: true,
+  };
 }
 
 function routeInvalidReportZipToUpload(draft: TotalLossDraft): TotalLossDraft {
