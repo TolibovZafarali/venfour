@@ -2327,6 +2327,10 @@ export type Database = {
           body: string
           case_id: string
           created_at: string
+          generated_body: string | null
+          generated_recipient: string | null
+          generated_subject: string | null
+          generation_template_version: string | null
           id: string
           negotiation_round_id: string | null
           purpose: string
@@ -2340,6 +2344,10 @@ export type Database = {
           body?: string
           case_id: string
           created_at?: string
+          generated_body?: string | null
+          generated_recipient?: string | null
+          generated_subject?: string | null
+          generation_template_version?: string | null
           id?: string
           negotiation_round_id?: string | null
           purpose: string
@@ -2353,6 +2361,10 @@ export type Database = {
           body?: string
           case_id?: string
           created_at?: string
+          generated_body?: string | null
+          generated_recipient?: string | null
+          generated_subject?: string | null
+          generation_template_version?: string | null
           id?: string
           negotiation_round_id?: string | null
           purpose?: string
@@ -2390,6 +2402,7 @@ export type Database = {
         Row: {
           body: string
           case_id: string
+          client_request_id: string | null
           created_at: string
           id: string
           message_digest: string
@@ -2407,6 +2420,7 @@ export type Database = {
         Insert: {
           body: string
           case_id: string
+          client_request_id?: string | null
           created_at?: string
           id?: string
           message_digest: string
@@ -2424,6 +2438,7 @@ export type Database = {
         Update: {
           body?: string
           case_id?: string
+          client_request_id?: string | null
           created_at?: string
           id?: string
           message_digest?: string
@@ -3335,6 +3350,50 @@ export type Database = {
           },
         ]
       }
+      total_loss_sending_details: {
+        Row: {
+          adjuster_email: string | null
+          adjuster_email_confirmed_at: string | null
+          adjuster_name: string | null
+          case_id: string
+          claim_reference: string | null
+          claim_reference_confirmed_at: string | null
+          created_at: string
+          revision: number
+          updated_at: string
+        }
+        Insert: {
+          adjuster_email?: string | null
+          adjuster_email_confirmed_at?: string | null
+          adjuster_name?: string | null
+          case_id: string
+          claim_reference?: string | null
+          claim_reference_confirmed_at?: string | null
+          created_at?: string
+          revision?: number
+          updated_at?: string
+        }
+        Update: {
+          adjuster_email?: string | null
+          adjuster_email_confirmed_at?: string | null
+          adjuster_name?: string | null
+          case_id?: string
+          claim_reference?: string | null
+          claim_reference_confirmed_at?: string | null
+          created_at?: string
+          revision?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "total_loss_sending_details_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: true
+            referencedRelation: "total_loss_claim_workflows"
+            referencedColumns: ["case_id"]
+          },
+        ]
+      }
       total_loss_source_snapshots: {
         Row: {
           analysis_artifact_digest: string
@@ -3876,6 +3935,21 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      authorize_total_loss_customer_report_download: {
+        Args: {
+          requested_case_id: string
+          requested_report_version_id: string
+          requested_user_id: string
+        }
+        Returns: {
+          case_id: string
+          report_series_id: string
+          report_version_id: string
+          storage_bucket_id: string
+          storage_object_name: string
+          suggested_filename: string
+        }[]
+      }
       authorize_total_loss_deliverable_read: {
         Args: { object_name: string }
         Returns: boolean
@@ -4242,6 +4316,16 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      confirm_total_loss_customer_message_sent: {
+        Args: {
+          confirmed_report_attached: boolean
+          expected_workflow_revision: number
+          requested_case_id: string
+          requested_client_request_id: string
+          requested_message_version_id: string
+        }
+        Returns: Json
+      }
       confirm_total_loss_intake: {
         Args: { case_id: string; expected_details_updated_at: string }
         Returns: Database["public"]["CompositeTypes"]["total_loss_intake_confirmation_result"][]
@@ -4272,16 +4356,16 @@ export type Database = {
         Returns: {
           case_id: string
           decision: string
-          generation_work_item_id: string | null
-          order_id: string | null
+          generation_work_item_id: string
+          order_id: string
           outcome: string
           package_status: string
-          payment_transaction_id: string | null
-          refund_client_request_id: string | null
+          payment_transaction_id: string
+          refund_client_request_id: string
           release_review_id: string
           report_status: string
           report_version_id: string
-          resulting_report_version_id: string | null
+          resulting_report_version_id: string
           workflow_task: string
         }[]
       }
@@ -4537,38 +4621,51 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      get_total_loss_customer_message_draft: {
+        Args: { requested_case_id: string }
+        Returns: Json
+      }
+      get_total_loss_customer_reports: {
+        Args: {
+          requested_case_id: string
+          requested_report_version_id?: string
+        }
+        Returns: {
+          report: Json
+        }[]
+      }
       get_total_loss_release_review: {
         Args: { requested_release_review_id: string }
         Returns: {
-          ai_review_run_id: string | null
+          ai_review_run_id: string
           artifact_availability: Json
           assessment_digest: string
-          assigned_staff_user_id: string | null
+          assigned_staff_user_id: string
           case_id: string
-          decision: string | null
-          due_at: string | null
-          failure_code: string | null
-          failure_stage: string | null
+          decision: string
+          due_at: string
+          failure_code: string
+          failure_stage: string
           final_assessment: Json
           final_assessment_id: string
-          pdf_digest: string | null
-          rationale: string | null
-          release_gate_manifest: Json | null
+          pdf_digest: string
+          rationale: string
+          release_gate_manifest: Json
           release_review_id: string
-          report: Json | null
-          report_digest: string | null
+          report: Json
+          report_digest: string
           report_status: string
           report_version_id: string
-          resolved_at: string | null
-          resulting_report_version_id: string | null
-          review_result: Json | null
+          resolved_at: string
+          resulting_report_version_id: string
+          review_result: Json
           review_status: string
           source_snapshot_digest: string
           source_snapshot_id: string
           storage_bucket_id: string
           storage_object_name: string
           updated_at: string
-          validation_manifest: Json | null
+          validation_manifest: Json
         }[]
       }
       get_total_loss_report_extraction: {
@@ -4626,6 +4723,7 @@ export type Database = {
           case_stage: Database["public"]["Enums"]["case_operation_stage"]
           case_status: Database["public"]["Enums"]["appraisal_case_status"]
           case_updated_at: string
+          claim_resume_task: string
           last_activity_at: string
           needs_attention: boolean
           owner_user_id: string
@@ -4673,6 +4771,16 @@ export type Database = {
           requested_work_item_id: string
         }
         Returns: boolean
+      }
+      patch_total_loss_customer_message_draft: {
+        Args: {
+          expected_revision: number
+          requested_body: string
+          requested_case_id: string
+          requested_recipient: string
+          requested_subject: string
+        }
+        Returns: Json
       }
       persist_total_loss_final_assessment: {
         Args: {
@@ -4733,12 +4841,42 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      prepare_total_loss_customer_message: {
+        Args: {
+          expected_workflow_revision: number
+          requested_case_id: string
+          requested_client_request_id: string
+        }
+        Returns: Json
+      }
       project_total_loss_order_coverage_internal: {
         Args: { requested_order_id: string; requested_recorded_at: string }
         Returns: {
           entitlement_status: string
           order_status: string
         }[]
+      }
+      put_total_loss_education_progress: {
+        Args: {
+          expected_workflow_revision: number
+          requested_case_id: string
+          requested_state: string
+          requested_step_identifier: string
+        }
+        Returns: Json
+      }
+      put_total_loss_sending_details: {
+        Args: {
+          expected_revision: number
+          expected_workflow_revision: number
+          requested_adjuster_email: string
+          requested_adjuster_email_confirmed: boolean
+          requested_adjuster_name: string
+          requested_case_id: string
+          requested_claim_reference: string
+          requested_claim_reference_confirmed: boolean
+        }
+        Returns: Json
       }
       reclaim_total_loss_report_upload: {
         Args: {
@@ -4786,6 +4924,14 @@ export type Database = {
           work_type: string
           work_version: string
         }[]
+      }
+      record_total_loss_customer_email_opened: {
+        Args: {
+          requested_case_id: string
+          requested_client_request_id: string
+          requested_message_version_id: string
+        }
+        Returns: Json
       }
       record_total_loss_dispute: {
         Args: {
@@ -5380,11 +5526,63 @@ export type Database = {
         Args: { requested_case_id: string }
         Returns: boolean
       }
+      total_loss_customer_education_projection_internal: {
+        Args: { requested_case_id: string; requested_report_version_id: string }
+        Returns: Json
+      }
+      total_loss_customer_message_draft_projection_internal: {
+        Args: { requested_case_id: string; requested_report_version_id: string }
+        Returns: Json
+      }
+      total_loss_customer_message_version_projection_internal: {
+        Args: { requested_message_version_id: string }
+        Returns: Json
+      }
+      total_loss_customer_money_projection_internal: {
+        Args: { value: Json }
+        Returns: Json
+      }
+      total_loss_customer_price_summary_projection_internal: {
+        Args: { fallback_currency: string; value: Json }
+        Returns: Json
+      }
+      total_loss_customer_report_access_for_user_internal: {
+        Args: {
+          requested_case_id: string
+          requested_report_version_id: string
+          requested_user_id: string
+        }
+        Returns: boolean
+      }
+      total_loss_customer_report_access_internal: {
+        Args: { requested_case_id: string; requested_report_version_id: string }
+        Returns: boolean
+      }
+      total_loss_customer_report_projection_internal: {
+        Args: { requested_report_version_id: string }
+        Returns: Json
+      }
+      total_loss_customer_sending_projection_internal: {
+        Args: { requested_case_id: string; requested_report_version_id: string }
+        Returns: Json
+      }
+      total_loss_customer_stat_money_projection_internal: {
+        Args: { fallback_currency: string; value: Json }
+        Returns: Json
+      }
       total_loss_manual_input_is_complete: {
         Args: {
           details: Database["public"]["Tables"]["total_loss_case_details"]["Row"]
         }
         Returns: boolean
+      }
+      total_loss_message_digest_internal: {
+        Args: {
+          requested_body: string
+          requested_recipient: string
+          requested_subject: string
+        }
+        Returns: string
       }
       total_loss_post_continue_case_is_eligible_internal: {
         Args: { requested_case_id: string }
@@ -5581,6 +5779,13 @@ export type Database = {
         payment_status: string | null
         entitlement_status: string | null
         next_task: string | null
+        commerce_amount_minor_units: number | null
+        commerce_currency: string | null
+        customer_journey: Json | null
+        published_report: Json | null
+        education_progress: Json | null
+        sending_details: Json | null
+        message_draft: Json | null
       }
       total_loss_case_details_public: {
         case_id: string | null

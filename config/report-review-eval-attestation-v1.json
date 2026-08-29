@@ -5,10 +5,14 @@
   "returnedModelIdentifier": "gpt-5.6-sol",
   "promptVersion": "1",
   "reviewSchemaVersion": "1",
+  "promptTemplateDigest": "9c50e019f28f240e80db4bb849688fb0f932a3e86c3952a67bb46efcc69460ac",
+  "reviewSchemaDigest": "11839c12f40f8212c41cd2e3736baa131f46a963fdd83a25bbca1b41e92280f6",
+  "reviewInputContractDigest": "dcd0dfe6e0888dd3271e08323dcc1a3221732eb18a1b3eed0eefe804f4b9be30",
   "evalSuiteDigest": "f06b5fe5460a95d61f9e2f5ff6d36b46e79133c53c5ba137fe4dc2e2d1dc298c",
+  "evalSuiteSchemaDigest": "0e6a52a7b8faede15619efcce15006633f11160b8a1f7ef69b187d30de653a0c",
   "passedCaseCount": 20,
   "totalCaseCount": 20,
   "allPassed": true,
   "evaluatedAt": "2026-08-27T03:38:51.726245Z",
-  "artifactDigest": "b16f53be48de1be4a98ad892a9c9c5801a50a45f3de32e2c60ba97abafa69a41"
+  "artifactDigest": "f32b3a9f79b3f15b538ae6651ae9cdeecc118ea84194296a15b78432bfef8a32"
 }

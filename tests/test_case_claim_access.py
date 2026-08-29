@@ -66,6 +66,24 @@ def resume_row(
     }
 
 
+def legacy_secured_resume_row() -> dict[str, Any]:
+    return {
+        **resume_row("secured"),
+        "workflow_phase": None,
+        "workflow_current_task": None,
+        "workflow_revision": None,
+        "checkout_available": False,
+        "next_task": None,
+        "customer_journey": None,
+        "published_report": None,
+        "education_progress": None,
+        "sending_details": None,
+        "message_draft": None,
+        "commerce_amount_minor_units": None,
+        "commerce_currency": None,
+    }
+
+
 def access_link_row(
     state: str = "secure_required",
 ) -> dict[str, Any]:
@@ -472,6 +490,58 @@ class CaseClaimAccessServiceTests(unittest.TestCase):
             [(CASE_ID, ACCESS_TOKEN)] * len(expected),
         )
 
+    def test_resume_accepts_truthful_refund_pending_fulfillment(self) -> None:
+        service, gateway, _verifier = claim_service()
+        gateway.resolve_result = {
+            **resume_row("secured"),
+            "customer_journey": {
+                "nextState": "no_dispute",
+                "fulfillmentState": "refund_pending",
+                "retryable": False,
+            },
+            "published_report": None,
+            "education_progress": None,
+            "sending_details": None,
+            "message_draft": None,
+        }
+
+        result = service.resolve(CASE_ID, ACCESS_TOKEN).to_dict()
+
+        self.assertEqual(
+            result["journey"],
+            {
+                "nextState": "no_dispute",
+                "fulfillmentState": "refund_pending",
+                "retryable": False,
+            },
+        )
+
+    def test_resume_preserves_legacy_secured_case_without_workflow(self) -> None:
+        service, gateway, _verifier = claim_service()
+        gateway.resolve_result = legacy_secured_resume_row()
+
+        self.assertEqual(
+            service.resolve(CASE_ID, ACCESS_TOKEN).to_dict(),
+            {
+                "state": "secured",
+                "caseId": CASE_ID,
+                "contactEmail": EMAIL,
+                "workflow": None,
+                "commerce": None,
+            },
+        )
+
+        gateway.resolve_result = {
+            **gateway.resolve_result,
+            "customer_journey": {
+                "nextState": "checkout",
+                "fulfillmentState": "not_started",
+                "retryable": False,
+            },
+        }
+        with self.assertRaises(SupabaseContractError):
+            service.resolve(CASE_ID, ACCESS_TOKEN)
+
     def test_resume_hides_unknown_cases_and_rejects_invalid_database_contracts(
         self,
     ) -> None:
@@ -713,6 +783,31 @@ class CaseClaimAccessApiTests(unittest.TestCase):
         )
         self.assertEqual(gateway.authenticated_tokens, [ACCESS_TOKEN])
         self.assertEqual(gateway.resolve_calls, [(CASE_ID, ACCESS_TOKEN)])
+        self.assert_private(response)
+
+    def test_get_claim_keeps_legacy_secured_case_without_workflow_available(
+        self,
+    ) -> None:
+        gateway = RecordingGateway()
+        gateway.resolve_result = legacy_secured_resume_row()
+        client, gateway, _verifier = self.client(gateway=gateway)
+
+        response = client.get(
+            f"/api/v1/appraisal-cases/{CASE_ID}/claim",
+            headers={"Authorization": f"Bearer {ACCESS_TOKEN}"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.json(),
+            {
+                "state": "secured",
+                "caseId": CASE_ID,
+                "contactEmail": EMAIL,
+                "workflow": None,
+                "commerce": None,
+            },
+        )
         self.assert_private(response)
 
     def test_claim_routes_hide_missing_cases_and_reject_noncanonical_ids(self) -> None:

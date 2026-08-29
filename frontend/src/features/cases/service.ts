@@ -17,6 +17,9 @@ const APPRAISAL_CASE_COLUMNS =
 type AppraisalCaseRow = Tables<"appraisal_cases">;
 type OwnedCaseOperationRow =
   Database["public"]["Functions"]["list_owned_case_operations"]["Returns"][number];
+type OwnedCaseOperationRowWithClaimResume = OwnedCaseOperationRow & {
+  readonly claim_resume_task?: string | null;
+};
 
 export interface AppraisalCaseService {
   createAppraisalCase(input: CreateAppraisalCaseInput): Promise<AppraisalCase>;
@@ -55,13 +58,18 @@ function mapAppraisalCase(row: AppraisalCaseRow): AppraisalCase {
   };
 }
 
-function mapOwnedCaseOperation(row: OwnedCaseOperationRow): AppraisalCase {
+function mapOwnedCaseOperation(
+  row: OwnedCaseOperationRowWithClaimResume,
+): AppraisalCase {
   return {
     id: row.case_id,
     userId: row.owner_user_id,
     serviceType: row.service_type,
     status: row.case_status,
     caseStage: row.case_stage,
+    ...(row.claim_resume_task !== undefined
+      ? { claimResumeTask: row.claim_resume_task }
+      : {}),
     needsAttention: row.needs_attention,
     createdAt: row.case_created_at,
     updatedAt: row.case_updated_at,

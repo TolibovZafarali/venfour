@@ -1,4 +1,4 @@
-import { Link, useParams } from "react-router";
+import { Link, Navigate, useLocation, useParams } from "react-router";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -10,6 +10,10 @@ import { ClaimRecoveryForm } from "@/features/total-loss-claim/components/claim-
 import { ClaimStateCard } from "@/features/total-loss-claim/components/claim-state-card";
 import { SecureClaimPanel } from "@/features/total-loss-claim/components/secure-claim-panel";
 import { useTotalLossClaimQuery } from "@/features/total-loss-claim/queries";
+import {
+  authoritativeTotalLossClaimPath,
+  totalLossClaimViewPath,
+} from "@/features/total-loss-claim/workflow-route";
 import { ApiError } from "@/lib/api/client";
 
 const UUID_PATTERN =
@@ -28,6 +32,7 @@ function RecoveryState({ caseId }: { readonly caseId: string }) {
 
 function AuthenticatedClaimPage({
   accessToken,
+  checkoutSearch,
   identity,
   caseId,
   signOut,
@@ -37,6 +42,7 @@ function AuthenticatedClaimPage({
   readonly identity: "anonymous" | "permanent";
   readonly caseId: string;
   readonly signOut: () => Promise<void>;
+  readonly checkoutSearch: string;
   readonly userId: string;
 }) {
   const claimQuery = useTotalLossClaimQuery({ accessToken, caseId, userId });
@@ -117,6 +123,31 @@ function AuthenticatedClaimPage({
         </ClaimStateCard>
       );
     }
+    const checkoutParameters = new URLSearchParams(checkoutSearch);
+    const checkoutOutcome = checkoutParameters.get("checkout");
+    if (checkoutOutcome === "success") {
+      const returnParameters = new URLSearchParams();
+      const sessionId = checkoutParameters.get("session_id");
+      if (sessionId) returnParameters.set("session_id", sessionId);
+      return (
+        <Navigate
+          replace
+          to={`${totalLossClaimViewPath(caseId, "checkout_return")}?${returnParameters.toString()}`}
+        />
+      );
+    }
+    if (checkoutOutcome === "canceled") {
+      return (
+        <Navigate
+          replace
+          to={`${totalLossClaimViewPath(caseId, "checkout")}?checkout=canceled`}
+        />
+      );
+    }
+    const authoritativePath = authoritativeTotalLossClaimPath(claim);
+    if (authoritativePath && authoritativePath !== `/total-loss/cases/${caseId}/claim`) {
+      return <Navigate replace to={authoritativePath} />;
+    }
     return (
       <ClaimStateCard
         eyebrow="Claim secured"
@@ -145,6 +176,7 @@ function AuthenticatedClaimPage({
 
 export function TotalLossClaimPage() {
   const { caseId: caseIdParameter = "" } = useParams();
+  const location = useLocation();
   const { auth, signOut } = useAuth();
 
   if (!UUID_PATTERN.test(caseIdParameter)) {
@@ -203,6 +235,7 @@ export function TotalLossClaimPage() {
       identity={identity}
       caseId={caseId}
       signOut={signOut}
+      checkoutSearch={location.search}
       userId={auth.user.id}
     />
   );

@@ -211,7 +211,6 @@ select is(
   array[
     'case_entitlements',
     'total_loss_ai_review_runs',
-    'total_loss_claim_documents',
     'total_loss_claim_workflows',
     'total_loss_communication_documents',
     'total_loss_communications',
@@ -225,8 +224,7 @@ select is(
     'total_loss_preliminary_snapshots',
     'total_loss_recommendations',
     'total_loss_release_reviews',
-    'total_loss_report_series',
-    'total_loss_report_versions'
+    'total_loss_report_series'
   ]::text[],
   'authenticated SELECT grants contain only owner and staff-readable surfaces'
 );
@@ -407,20 +405,6 @@ select is(
       )
   ),
   array[
-    'Permanent owners can read their case entitlements',
-    'Permanent owners can read their claim workflow',
-    'Permanent owners can read their confirmed communication documen',
-    'Permanent owners can read their confirmed communications',
-    'Permanent owners can read their confirmed facts',
-    'Permanent owners can read their education progress',
-    'Permanent owners can read their message drafts',
-    'Permanent owners can read their message versions',
-    'Permanent owners can read their negotiation rounds',
-    'Permanent owners can read their published recommendations',
-    'Permanent owners can read their published reports',
-    'Permanent owners can read their ready claim documents',
-    'Permanent owners can read their recorded offers',
-    'Permanent owners can read their report series',
     'Staff can read post-Continue AI review runs',
     'Staff can read post-Continue claim documents',
     'Staff can read post-Continue final assessments',
@@ -1029,86 +1013,88 @@ select is(
 
 select is(
   (select count(*) from public.total_loss_claim_workflows),
-  1::bigint,
-  'the permanent owner can read only their workflow'
+  0::bigint,
+  'the permanent owner cannot bypass the safe resolver with a workflow table read'
 );
 
 select is(
   (select count(*) from public.case_entitlements),
-  1::bigint,
-  'the permanent owner can read their entitlement without financial provider data'
+  0::bigint,
+  'the permanent owner cannot bypass the safe commerce projection with an entitlement table read'
 );
 
 select is(
   (select count(*) from public.total_loss_report_series),
-  1::bigint,
-  'the permanent owner can read their report series'
+  0::bigint,
+  'the permanent owner cannot read internal report-series lineage'
 );
 
-select is(
-  (select count(*) from public.total_loss_claim_documents),
-  1::bigint,
-  'the permanent owner sees ready claim documents but not pending metadata'
+select throws_ok(
+  $$select count(*) from public.total_loss_claim_documents$$,
+  '42501',
+  null,
+  'browser owners have no direct claim-document metadata grant'
 );
 
-select is(
-  (select count(*) from public.total_loss_report_versions),
-  1::bigint,
-  'the permanent owner sees published reports but not drafts'
+select throws_ok(
+  $$select count(*) from public.total_loss_report_versions$$,
+  '42501',
+  null,
+  'browser owners have no direct raw-report grant'
 );
 
 select is(
   (select count(*) from public.total_loss_education_progress),
-  1::bigint,
-  'the permanent owner can read their education progress'
+  0::bigint,
+  'a pending-order owner cannot bypass entitlement to read education progress'
 );
 
 select is(
   (select count(*) from public.total_loss_negotiation_rounds),
-  1::bigint,
-  'the permanent owner can read their negotiation rounds'
+  0::bigint,
+  'a pending-order owner cannot bypass entitlement to read negotiation rounds'
 );
 
 select is(
   (select count(*) from public.total_loss_message_drafts),
-  1::bigint,
-  'the permanent owner can read their current message draft'
+  0::bigint,
+  'a pending-order owner cannot bypass entitlement to read message drafts'
 );
 
 select is(
   (select count(*) from public.total_loss_message_versions),
-  1::bigint,
-  'the permanent owner can read immutable prepared message versions'
+  0::bigint,
+  'a pending-order owner cannot bypass entitlement to read message versions'
 );
 
 select is(
   (select count(*) from public.total_loss_communications),
-  1::bigint,
-  'the permanent owner sees confirmed communications but not drafts'
+  0::bigint,
+  'a pending-order owner cannot bypass entitlement to read communications'
 );
 
 select is(
   (select count(*) from public.total_loss_communication_documents),
-  1::bigint,
-  'the permanent owner sees attachments only for confirmed communications'
+  0::bigint,
+  'a pending-order owner cannot bypass entitlement to read communication attachments'
 );
 
 select is(
   (select count(*) from public.total_loss_fact_assertions),
-  1::bigint,
-  'the permanent owner sees confirmed facts'
+  0::bigint,
+  'the permanent owner cannot bypass bounded projections with raw facts'
 );
 
 select is(
   (select count(*) from public.total_loss_offers),
-  1::bigint,
-  'the permanent owner sees their recorded offers'
+  0::bigint,
+  'the permanent owner cannot bypass bounded projections with raw offers'
 );
 
 select is(
   (select count(*) from public.total_loss_recommendations),
-  1::bigint,
-  'the permanent owner sees published recommendations but not drafts'
+  0::bigint,
+  'the permanent owner cannot bypass bounded projections with recommendations'
 );
 
 select is(
@@ -1187,8 +1173,6 @@ select is(
     (select count(*) from public.total_loss_claim_workflows)
     + (select count(*) from public.case_entitlements)
     + (select count(*) from public.total_loss_report_series)
-    + (select count(*) from public.total_loss_claim_documents)
-    + (select count(*) from public.total_loss_report_versions)
     + (select count(*) from public.total_loss_communications)
     + (select count(*) from public.total_loss_fact_assertions)
     + (select count(*) from public.total_loss_offers)
@@ -1220,13 +1204,11 @@ select is(
   array[
     (select count(*) from public.total_loss_preliminary_snapshots),
     (select count(*) from public.total_loss_final_assessments),
-    (select count(*) from public.total_loss_claim_documents),
-    (select count(*) from public.total_loss_report_versions),
     (select count(*) from public.total_loss_ai_review_runs),
     (select count(*) from public.total_loss_release_reviews)
   ],
-  array[2, 1, 2, 2, 1, 1]::bigint[],
-  'database-authorized staff can inspect only the release evidence surfaces'
+  array[2, 1, 1, 1]::bigint[],
+  'database-authorized staff can inspect non-customer release-review surfaces while report artifacts remain service-backed'
 );
 
 select is(
@@ -1692,16 +1674,17 @@ select throws_ok(
 select throws_ok(
   $$
     insert into public.total_loss_message_drafts (
-      case_id, negotiation_round_id, purpose, subject, body
+      case_id, negotiation_round_id, report_version_id, purpose, subject, body
     ) values (
       'da111111-1111-4111-8111-111111111111',
       'e1311111-1111-4111-8111-111111111111',
+      'e1011111-1111-4111-8111-111111111111',
       'initial-request', 'Duplicate', 'Duplicate'
     )
   $$,
   '23505',
   null,
-  'one current message draft exists per case, purpose, and round'
+  'one current message draft exists per case, purpose, round, and report'
 );
 
 select throws_ok(

@@ -84,6 +84,15 @@ from venfour.commerce import (
     StripeSdkGateway,
     TotalLossCommerceService,
 )
+from venfour.customer_delivery import (
+    CustomerDeliveryConflictError,
+    CustomerDeliveryError,
+    CustomerDeliveryGateway,
+    CustomerDeliveryInputError,
+    CustomerDeliveryNotFoundError,
+    CustomerDeliveryService,
+    CustomerDeliveryUnavailableError,
+)
 from venfour.openai_vehicle_catalog import OpenAIVehicleTrimCatalog
 from venfour.package_processing import (
     CloudTasksConfiguration,
@@ -135,6 +144,7 @@ from venfour.supabase_gateway import (
     CaseAnalysisGateway,
     SupabaseAuthenticationError,
     SupabaseConfigurationError,
+    SupabaseConflictError,
     SupabaseContractError,
     SupabaseHttpGateway,
     SupabaseServerConfiguration,
@@ -199,6 +209,14 @@ _ERROR_MESSAGES = {
     "COMMERCE_UNAVAILABLE": "Commerce is temporarily unavailable.",
     "INVALID_STRIPE_WEBHOOK": "Stripe webhook verification failed.",
     "STRIPE_WEBHOOK_TOO_LARGE": "Stripe webhook payload is too large.",
+    "INVALID_CUSTOMER_DELIVERY_REQUEST": "Customer delivery request is invalid.",
+    "CUSTOMER_DELIVERY_CONFLICT": (
+        "This claim changed in another tab. Refresh before trying again."
+    ),
+    "CUSTOMER_DELIVERY_UNAVAILABLE": (
+        "Customer delivery is temporarily unavailable."
+    ),
+    "REPORT_NOT_FOUND": "Published report was not found.",
     "INVALID_WORK_ITEM_ID": "Work item ID is invalid.",
     "INVALID_INTERNAL_WORK_REQUEST": "Internal work request is invalid.",
     "INTERNAL_AUTHENTICATION_REQUIRED": (
@@ -236,6 +254,7 @@ MAX_MULTIPART_FIELD_BYTES = 1024
 UPLOAD_COPY_CHUNK_BYTES = 1024 * 1024
 MAX_CLAIM_RECOVERY_BODY_BYTES = 8 * 1024
 MAX_COMMERCE_REQUEST_BODY_BYTES = 8 * 1024
+MAX_CUSTOMER_DELIVERY_BODY_BYTES = 64 * 1024
 MAX_STAFF_RELEASE_REQUEST_BODY_BYTES = 16 * 1024
 
 _ANALYSIS_UNAVAILABLE_ERRORS = (
@@ -873,6 +892,30 @@ async def _checkout_sessions(request: Request) -> JSONResponse:
         return _private_response(_commerce_error(exc))
 
 
+async def _checkout_quote(request: Request) -> JSONResponse:
+    case_id = request.path_params["case_id"]
+    if not _is_canonical_uuid4(case_id):
+        return _private_response(_error_response(400, "INVALID_CASE_ID"))
+    service = request.app.state.commerce_service
+    if service is None:
+        return _private_response(_error_response(503, "COMMERCE_UNAVAILABLE"))
+    try:
+        token = _bearer_token(request)
+    except SupabaseAuthenticationError:
+        return _private_response(
+            _error_response(
+                401,
+                "AUTHENTICATION_REQUIRED",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        )
+    try:
+        projection = await run_in_threadpool(service.quote, case_id, token)
+        return _private_response(JSONResponse(projection.to_dict()))
+    except Exception as exc:
+        return _private_response(_commerce_error(exc))
+
+
 async def _checkout_reconciliation(request: Request) -> JSONResponse:
     case_id = request.path_params["case_id"]
     if not _is_canonical_uuid4(case_id):
@@ -908,6 +951,271 @@ async def _checkout_reconciliation(request: Request) -> JSONResponse:
         return _private_response(JSONResponse(projection.to_dict()))
     except Exception as exc:
         return _private_response(_commerce_error(exc))
+
+
+def _customer_delivery_error(error: Exception) -> JSONResponse:
+    if isinstance(error, _CustomerDeliveryAuthenticationRequired):
+        return _error_response(
+            401,
+            "AUTHENTICATION_REQUIRED",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    if isinstance(error, SupabaseAuthenticationError):
+        return _error_response(
+            401,
+            "AUTHENTICATION_INVALID",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    if isinstance(error, (CustomerDeliveryNotFoundError,)):
+        return _error_response(404, "REPORT_NOT_FOUND")
+    if isinstance(error, (CustomerDeliveryInputError, CommerceInputError)):
+        return _error_response(400, "INVALID_CUSTOMER_DELIVERY_REQUEST")
+    if isinstance(
+        error,
+        (
+            CustomerDeliveryConflictError,
+            SupabaseConflictError,
+        ),
+    ):
+        return _error_response(409, "CUSTOMER_DELIVERY_CONFLICT")
+    if isinstance(
+        error,
+        (
+            CustomerDeliveryUnavailableError,
+            SupabaseUnavailableError,
+            SupabaseContractError,
+        ),
+    ):
+        return _error_response(503, "CUSTOMER_DELIVERY_UNAVAILABLE")
+    if isinstance(error, CustomerDeliveryError):
+        return _error_response(503, "CUSTOMER_DELIVERY_UNAVAILABLE")
+    return _error_response(500, "INTERNAL_ERROR")
+
+
+def _customer_delivery_service(request: Request) -> Any:
+    service = request.app.state.customer_delivery_service
+    if service is None:
+        raise CustomerDeliveryUnavailableError("Customer delivery is unavailable")
+    return service
+
+
+class _CustomerDeliveryAuthenticationRequired(Exception):
+    pass
+
+
+def _customer_delivery_token(request: Request) -> str:
+    try:
+        return _bearer_token(request)
+    except SupabaseAuthenticationError as exc:
+        raise _CustomerDeliveryAuthenticationRequired from exc
+
+
+async def _customer_json_payload(
+    request: Request, expected_keys: set[str]
+) -> Mapping[str, Any]:
+    return await _strict_json_object(
+        request,
+        expected_keys=expected_keys,
+        maximum_bytes=MAX_CUSTOMER_DELIVERY_BODY_BYTES,
+    )
+
+
+async def _education_progress(request: Request) -> JSONResponse:
+    case_id = request.path_params["case_id"]
+    if not _is_canonical_uuid4(case_id):
+        return _private_response(_error_response(400, "INVALID_CASE_ID"))
+    try:
+        payload = await _customer_json_payload(
+            request, {"state", "expectedWorkflowRevision"}
+        )
+        result = await run_in_threadpool(
+            _customer_delivery_service(request).education,
+            case_id,
+            request.path_params["step"],
+            payload.get("state"),
+            payload.get("expectedWorkflowRevision"),
+            _customer_delivery_token(request),
+        )
+        return _private_response(JSONResponse(result))
+    except Exception as exc:
+        return _private_response(_customer_delivery_error(exc))
+
+
+async def _customer_reports(request: Request) -> JSONResponse:
+    case_id = request.path_params["case_id"]
+    if not _is_canonical_uuid4(case_id):
+        return _private_response(_error_response(400, "INVALID_CASE_ID"))
+    try:
+        reports = await run_in_threadpool(
+            _customer_delivery_service(request).reports,
+            case_id,
+            None,
+            _customer_delivery_token(request),
+        )
+        return _private_response(JSONResponse({"reports": reports}))
+    except Exception as exc:
+        return _private_response(_customer_delivery_error(exc))
+
+
+async def _customer_report(request: Request) -> JSONResponse:
+    case_id = request.path_params["case_id"]
+    report_id = request.path_params["report_version_id"]
+    if not _is_canonical_uuid4(case_id) or not _is_canonical_uuid4(report_id):
+        return _private_response(_error_response(400, "INVALID_CASE_ID"))
+    try:
+        reports = await run_in_threadpool(
+            _customer_delivery_service(request).reports,
+            case_id,
+            report_id,
+            _customer_delivery_token(request),
+        )
+        return _private_response(JSONResponse(reports[0]))
+    except Exception as exc:
+        return _private_response(_customer_delivery_error(exc))
+
+
+async def _customer_report_download(request: Request) -> JSONResponse:
+    case_id = request.path_params["case_id"]
+    report_id = request.path_params["report_version_id"]
+    if not _is_canonical_uuid4(case_id) or not _is_canonical_uuid4(report_id):
+        return _private_response(_error_response(400, "INVALID_CASE_ID"))
+    try:
+        result = await run_in_threadpool(
+            _customer_delivery_service(request).download,
+            case_id,
+            report_id,
+            _customer_delivery_token(request),
+        )
+        return _private_response(JSONResponse(result))
+    except Exception as exc:
+        return _private_response(_customer_delivery_error(exc))
+
+
+async def _sending_details(request: Request) -> JSONResponse:
+    case_id = request.path_params["case_id"]
+    if not _is_canonical_uuid4(case_id):
+        return _private_response(_error_response(400, "INVALID_CASE_ID"))
+    try:
+        payload = await _customer_json_payload(
+            request,
+            {
+                "claimReference",
+                "adjusterName",
+                "adjusterEmail",
+                "claimReferenceConfirmed",
+                "adjusterEmailConfirmed",
+                "expectedRevision",
+                "expectedWorkflowRevision",
+            },
+        )
+        result = await run_in_threadpool(
+            _customer_delivery_service(request).save_sending_details,
+            case_id,
+            payload,
+            _customer_delivery_token(request),
+        )
+        return _private_response(JSONResponse(result))
+    except Exception as exc:
+        return _private_response(_customer_delivery_error(exc))
+
+
+async def _message_draft_get(request: Request) -> JSONResponse:
+    case_id = request.path_params["case_id"]
+    if not _is_canonical_uuid4(case_id):
+        return _private_response(_error_response(400, "INVALID_CASE_ID"))
+    try:
+        result = await run_in_threadpool(
+            _customer_delivery_service(request).draft,
+            case_id,
+            _customer_delivery_token(request),
+        )
+        return _private_response(JSONResponse(result))
+    except Exception as exc:
+        return _private_response(_customer_delivery_error(exc))
+
+
+async def _message_draft_patch(request: Request) -> JSONResponse:
+    case_id = request.path_params["case_id"]
+    if not _is_canonical_uuid4(case_id):
+        return _private_response(_error_response(400, "INVALID_CASE_ID"))
+    try:
+        payload = await _customer_json_payload(
+            request, {"recipient", "subject", "body", "expectedRevision"}
+        )
+        result = await run_in_threadpool(
+            _customer_delivery_service(request).edit_draft,
+            case_id,
+            payload,
+            _customer_delivery_token(request),
+        )
+        return _private_response(JSONResponse(result))
+    except Exception as exc:
+        return _private_response(_customer_delivery_error(exc))
+
+
+async def _message_prepare(request: Request) -> JSONResponse:
+    case_id = request.path_params["case_id"]
+    if not _is_canonical_uuid4(case_id):
+        return _private_response(_error_response(400, "INVALID_CASE_ID"))
+    try:
+        payload = await _customer_json_payload(
+            request, {"clientRequestId", "expectedWorkflowRevision"}
+        )
+        result = await run_in_threadpool(
+            _customer_delivery_service(request).prepare,
+            case_id,
+            payload.get("clientRequestId"),
+            payload.get("expectedWorkflowRevision"),
+            _customer_delivery_token(request),
+        )
+        return _private_response(JSONResponse(result))
+    except Exception as exc:
+        return _private_response(_customer_delivery_error(exc))
+
+
+async def _message_opened(request: Request) -> JSONResponse:
+    case_id = request.path_params["case_id"]
+    if not _is_canonical_uuid4(case_id):
+        return _private_response(_error_response(400, "INVALID_CASE_ID"))
+    try:
+        payload = await _customer_json_payload(
+            request, {"messageVersionId", "clientRequestId"}
+        )
+        result = await run_in_threadpool(
+            _customer_delivery_service(request).opened,
+            case_id,
+            payload.get("messageVersionId"),
+            payload.get("clientRequestId"),
+            _customer_delivery_token(request),
+        )
+        return _private_response(JSONResponse(result))
+    except Exception as exc:
+        return _private_response(_customer_delivery_error(exc))
+
+
+async def _message_sent(request: Request) -> JSONResponse:
+    case_id = request.path_params["case_id"]
+    if not _is_canonical_uuid4(case_id):
+        return _private_response(_error_response(400, "INVALID_CASE_ID"))
+    try:
+        payload = await _customer_json_payload(
+            request,
+            {
+                "messageVersionId",
+                "clientRequestId",
+                "expectedWorkflowRevision",
+                "confirmedReportAttached",
+            },
+        )
+        result = await run_in_threadpool(
+            _customer_delivery_service(request).sent,
+            case_id,
+            payload,
+            _customer_delivery_token(request),
+        )
+        return _private_response(JSONResponse(result))
+    except Exception as exc:
+        return _private_response(_customer_delivery_error(exc))
 
 
 def _stripe_signature_header(request: Request) -> str:
@@ -1478,6 +1786,7 @@ def create_app(
     repository_root: Path | str | None = None,
     case_analysis_service: Any | None = None,
     case_claim_access_service: Any | None = None,
+    customer_delivery_service: Any | None = None,
     commerce_service: Any | None = None,
     package_coordinator: Any | None = None,
     package_processor: Any | None = None,
@@ -1653,6 +1962,33 @@ def create_app(
         ):
             raise TypeError(
                 "case_claim_access_service must expose auth and claim-access methods"
+            )
+
+    selected_customer_delivery_service = customer_delivery_service
+    if selected_customer_delivery_service is None and isinstance(
+        selected_gateway, CustomerDeliveryGateway
+    ):
+        selected_customer_delivery_service = CustomerDeliveryService(
+            selected_gateway
+        )
+    elif selected_customer_delivery_service is not None:
+        required_delivery_methods = (
+            "education",
+            "reports",
+            "download",
+            "save_sending_details",
+            "draft",
+            "edit_draft",
+            "prepare",
+            "opened",
+            "sent",
+        )
+        if any(
+            not callable(getattr(selected_customer_delivery_service, method, None))
+            for method in required_delivery_methods
+        ):
+            raise TypeError(
+                "customer_delivery_service must expose customer delivery methods"
             )
 
     selected_package_coordinator = package_coordinator
@@ -1873,6 +2209,11 @@ def create_app(
     routes = [
         Route("/api/v1/vehicle-trims", _vehicle_trims, methods=["GET"]),
         Route(
+            "/api/v1/appraisal-cases/{case_id}/checkout-quote",
+            _checkout_quote,
+            methods=["GET"],
+        ),
+        Route(
             "/api/v1/appraisal-cases/{case_id}/checkout-sessions",
             _checkout_sessions,
             methods=["POST"],
@@ -1896,6 +2237,57 @@ def create_app(
             "/api/v1/appraisal-cases/{case_id}/claim",
             _claim_resume,
             methods=["GET"],
+        ),
+        Route(
+            "/api/v1/appraisal-cases/{case_id}/education/{step}",
+            _education_progress,
+            methods=["PUT"],
+        ),
+        Route(
+            "/api/v1/appraisal-cases/{case_id}/reports",
+            _customer_reports,
+            methods=["GET"],
+        ),
+        Route(
+            "/api/v1/appraisal-cases/{case_id}/reports/{report_version_id}",
+            _customer_report,
+            methods=["GET"],
+        ),
+        Route(
+            "/api/v1/appraisal-cases/{case_id}/reports/"
+            "{report_version_id}/download",
+            _customer_report_download,
+            methods=["GET"],
+        ),
+        Route(
+            "/api/v1/appraisal-cases/{case_id}/sending-details",
+            _sending_details,
+            methods=["PUT"],
+        ),
+        Route(
+            "/api/v1/appraisal-cases/{case_id}/message-draft",
+            _message_draft_get,
+            methods=["GET"],
+        ),
+        Route(
+            "/api/v1/appraisal-cases/{case_id}/message-draft",
+            _message_draft_patch,
+            methods=["PATCH"],
+        ),
+        Route(
+            "/api/v1/appraisal-cases/{case_id}/message/prepare",
+            _message_prepare,
+            methods=["POST"],
+        ),
+        Route(
+            "/api/v1/appraisal-cases/{case_id}/message/opened",
+            _message_opened,
+            methods=["POST"],
+        ),
+        Route(
+            "/api/v1/appraisal-cases/{case_id}/message/sent",
+            _message_sent,
+            methods=["POST"],
         ),
         Route(
             "/api/v1/appraisal-cases/{case_id}/report-ingestion",
@@ -1986,6 +2378,7 @@ def create_app(
     app.state.creation_service = selected_creation_service
     app.state.case_analysis_service = selected_case_service
     app.state.case_claim_access_service = selected_case_claim_access_service
+    app.state.customer_delivery_service = selected_customer_delivery_service
     app.state.commerce_service = selected_commerce_service
     app.state.package_coordinator = selected_package_coordinator
     app.state.package_processor = selected_package_processor

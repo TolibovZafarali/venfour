@@ -27,6 +27,9 @@ from venfour.report_review import (
     REPORT_REVIEW_PROVIDER_IDENTIFIER,
     REPORT_REVIEW_SCHEMA_VERSION,
     CompletedReportReview,
+    report_quality_review_schema_digest,
+    report_review_input_contract_digest,
+    report_review_prompt_template_digest,
 )
 
 if TYPE_CHECKING:
@@ -248,6 +251,12 @@ def report_review_eval_suite_digest() -> str:
     return load_report_review_eval_suite().suite_digest
 
 
+def report_review_eval_suite_schema_digest() -> str:
+    """Hash the schema that defines the release-critical evaluation fixture."""
+
+    return canonical_package_digest(read_report_review_eval_suite_schema())
+
+
 @dataclass(frozen=True)
 class ReportReviewEvalCaseResult:
     scenario_id: str
@@ -342,7 +351,11 @@ class ReportReviewEvalAttestationV1:
     returned_model_identifier: str
     prompt_version: str
     review_schema_version: str
+    prompt_template_digest: str
+    review_schema_digest: str
+    review_input_contract_digest: str
     eval_suite_digest: str
+    eval_suite_schema_digest: str
     passed_case_count: int
     total_case_count: int
     all_passed: bool
@@ -360,7 +373,11 @@ class ReportReviewEvalAttestationV1:
             "returnedModelIdentifier": self.returned_model_identifier,
             "promptVersion": self.prompt_version,
             "reviewSchemaVersion": self.review_schema_version,
+            "promptTemplateDigest": self.prompt_template_digest,
+            "reviewSchemaDigest": self.review_schema_digest,
+            "reviewInputContractDigest": self.review_input_contract_digest,
             "evalSuiteDigest": self.eval_suite_digest,
+            "evalSuiteSchemaDigest": self.eval_suite_schema_digest,
             "passedCaseCount": self.passed_case_count,
             "totalCaseCount": self.total_case_count,
             "allPassed": self.all_passed,
@@ -389,7 +406,11 @@ class ReportReviewEvalAttestationV1:
             returned_model_identifier=value["returnedModelIdentifier"],
             prompt_version=value["promptVersion"],
             review_schema_version=value["reviewSchemaVersion"],
+            prompt_template_digest=value["promptTemplateDigest"],
+            review_schema_digest=value["reviewSchemaDigest"],
+            review_input_contract_digest=value["reviewInputContractDigest"],
             eval_suite_digest=value["evalSuiteDigest"],
+            eval_suite_schema_digest=value["evalSuiteSchemaDigest"],
             passed_case_count=value["passedCaseCount"],
             total_case_count=value["totalCaseCount"],
             all_passed=value["allPassed"],
@@ -426,7 +447,11 @@ def validate_report_review_eval_attestation(
         "returnedModelIdentifier",
         "promptVersion",
         "reviewSchemaVersion",
+        "promptTemplateDigest",
+        "reviewSchemaDigest",
+        "reviewInputContractDigest",
         "evalSuiteDigest",
+        "evalSuiteSchemaDigest",
         "passedCaseCount",
         "totalCaseCount",
         "allPassed",
@@ -451,7 +476,14 @@ def validate_report_review_eval_attestation(
             or not all(character.isalnum() or character in "._-" for character in selected)
         ):
             raise ReportReviewEvalError(f"Evaluation {key} is invalid")
-    for key in ("evalSuiteDigest", "artifactDigest"):
+    for key in (
+        "promptTemplateDigest",
+        "reviewSchemaDigest",
+        "reviewInputContractDigest",
+        "evalSuiteDigest",
+        "evalSuiteSchemaDigest",
+        "artifactDigest",
+    ):
         selected = value[key]
         if (
             not isinstance(selected, str)
@@ -480,6 +512,17 @@ def validate_report_review_eval_attestation(
         _attestation_unsigned(value)
     ):
         raise ReportReviewEvalError("Evaluation attestation digest changed")
+    current_content_digests = {
+        "promptTemplateDigest": report_review_prompt_template_digest(),
+        "reviewSchemaDigest": report_quality_review_schema_digest(),
+        "reviewInputContractDigest": report_review_input_contract_digest(),
+        "evalSuiteSchemaDigest": report_review_eval_suite_schema_digest(),
+    }
+    for key, expected_digest in current_content_digests.items():
+        if value[key] != expected_digest:
+            raise ReportReviewEvalError(
+                f"Evaluation {key} does not match current content"
+            )
     if expected_model_identifier is not None and model_identifier != _model_identifier(
         expected_model_identifier
     ):
@@ -518,7 +561,11 @@ def build_report_review_eval_attestation_v1(
         "returnedModelIdentifier": returned_model_identifier,
         "promptVersion": prompt_version,
         "reviewSchemaVersion": review_schema_version,
+        "promptTemplateDigest": report_review_prompt_template_digest(),
+        "reviewSchemaDigest": report_quality_review_schema_digest(),
+        "reviewInputContractDigest": report_review_input_contract_digest(),
         "evalSuiteDigest": eval_suite_digest,
+        "evalSuiteSchemaDigest": report_review_eval_suite_schema_digest(),
         "passedCaseCount": passed_case_count,
         "totalCaseCount": total_case_count,
         "allPassed": passed_case_count == total_case_count,
@@ -645,6 +692,7 @@ __all__ = [
     "load_report_review_eval_attestation",
     "read_report_review_eval_suite_schema",
     "report_review_eval_suite_digest",
+    "report_review_eval_suite_schema_digest",
     "run_provider_backed_report_review_eval",
     "validate_report_review_eval_attestation",
     "validate_report_review_eval_suite",

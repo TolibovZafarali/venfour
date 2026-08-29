@@ -22,6 +22,12 @@ import httpx
 from venfour.supabase_gateway import (
     SupabaseContractError,
 )
+from venfour.customer_delivery import (
+    validate_education_projection,
+    validate_message_draft,
+    validate_report_projection,
+    validate_sending_details,
+)
 
 
 CLAIM_RECOVERY_TURNSTILE_ACTION = "claim-recovery"
@@ -356,14 +362,35 @@ class ClaimCommerceProjection:
     payment_status: str | None
     entitlement_status: str | None
     next_task: str | None
+    amount_minor_units: int | None = None
+    currency: str | None = None
+    price_present: bool = False
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        result: dict[str, Any] = {
             "checkoutAvailable": self.checkout_available,
             "orderStatus": self.order_status,
             "paymentStatus": self.payment_status,
             "entitlementStatus": self.entitlement_status,
             "nextTask": self.next_task,
+        }
+        if self.price_present:
+            result["amountMinorUnits"] = self.amount_minor_units
+            result["currency"] = self.currency
+        return result
+
+
+@dataclass(frozen=True)
+class ClaimJourneyProjection:
+    next_state: str
+    fulfillment_state: str
+    retryable: bool
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "nextState": self.next_state,
+            "fulfillmentState": self.fulfillment_state,
+            "retryable": self.retryable,
         }
 
 
@@ -374,15 +401,38 @@ class ClaimResumeState:
     contact_email: str | None
     workflow: ClaimWorkflowProjection | None
     commerce: ClaimCommerceProjection | None
+    journey: ClaimJourneyProjection | None = None
+    report: Mapping[str, Any] | None = None
+    education: Mapping[str, Any] | None = None
+    sending_details: Mapping[str, Any] | None = None
+    message_draft: Mapping[str, Any] | None = None
+    extended: bool = False
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        result: dict[str, Any] = {
             "state": self.state,
             "caseId": self.case_id,
             "contactEmail": self.contact_email,
             "workflow": self.workflow.to_dict() if self.workflow else None,
             "commerce": self.commerce.to_dict() if self.commerce else None,
         }
+        if self.extended:
+            result.update(
+                {
+                    "journey": self.journey.to_dict() if self.journey else None,
+                    "report": dict(self.report) if self.report else None,
+                    "education": dict(self.education) if self.education else None,
+                    "sendingDetails": (
+                        dict(self.sending_details)
+                        if self.sending_details
+                        else None
+                    ),
+                    "messageDraft": (
+                        dict(self.message_draft) if self.message_draft else None
+                    ),
+                }
+            )
+        return result
 
 
 @dataclass(frozen=True)
@@ -423,6 +473,32 @@ class CaseClaimAccessService:
         "refunded_access_retained",
         "suspended",
         "revoked",
+    }
+    _journey_states = {
+        "secure_claim",
+        "checkout",
+        "checkout_confirmation",
+        "processing",
+        "guide_result",
+        "guide_insurer_review",
+        "guide_valuation",
+        "guide_report",
+        "guide_what_next",
+        "prepare_request",
+        "awaiting_insurer_response",
+        "no_dispute",
+        "needs_attention",
+    }
+    _fulfillment_states = {
+        "not_started",
+        "payment_pending",
+        "finalizing",
+        "exception_review",
+        "report_ready",
+        "no_dispute",
+        "refund_pending",
+        "needs_attention",
+        "awaiting_insurer_response",
     }
 
     def __init__(
@@ -561,14 +637,114 @@ class CaseClaimAccessService:
             contact_email = normalize_recovery_email(contact_email)
         if state == "account_switch_required":
             contact_email = None
+        workflow = cls._workflow(row)
+        extended = any(
+            key in row
+            for key in (
+                "customer_journey",
+                "published_report",
+                "education_progress",
+                "sending_details",
+                "message_draft",
+                "commerce_amount_minor_units",
+                "commerce_currency",
+            )
+        )
+        if state == "secured" and workflow is None:
+            if (
+                row.get("checkout_available") not in (None, False)
+                or any(
+                    row.get(key) is not None
+                    for key in (
+                        "commerce_order_status",
+                        "payment_status",
+                        "entitlement_status",
+                        "next_task",
+                        "commerce_amount_minor_units",
+                        "commerce_currency",
+                        "customer_journey",
+                        "published_report",
+                        "education_progress",
+                        "sending_details",
+                        "message_draft",
+                    )
+                )
+            ):
+                raise SupabaseContractError("Claim resume response is invalid")
+            return ClaimResumeState(
+                state=state,
+                case_id=case_id,
+                contact_email=contact_email,
+                workflow=None,
+                commerce=None,
+                extended=False,
+            )
         commerce = cls._commerce(row, state)
+        journey = cls._journey(row.get("customer_journey"), state, extended)
+        report_value = row.get("published_report")
+        report = (
+            validate_report_projection(report_value)
+            if report_value is not None
+            else None
+        )
+        education_value = row.get("education_progress")
+        education = (
+            validate_education_projection(education_value)
+            if education_value is not None
+            else None
+        )
+        sending_value = row.get("sending_details")
+        sending = (
+            validate_sending_details(sending_value)
+            if sending_value is not None
+            else None
+        )
+        draft = validate_message_draft(row.get("message_draft"), nullable=True)
+        if state != "secured" and any(
+            value is not None for value in (report, education, sending, draft)
+        ):
+            raise SupabaseContractError("Claim delivery response is invalid")
+        if report is None and any(value is not None for value in (education, sending, draft)):
+            raise SupabaseContractError("Claim delivery response is invalid")
         return ClaimResumeState(
             state=state,
             case_id=case_id,
             contact_email=contact_email,
-            workflow=cls._workflow(row),
+            workflow=workflow,
             commerce=commerce,
+            journey=journey,
+            report=report,
+            education=education,
+            sending_details=sending,
+            message_draft=draft,
+            extended=extended,
         )
+
+    @classmethod
+    def _journey(
+        cls, value: Any, state: str, extended: bool
+    ) -> ClaimJourneyProjection | None:
+        if value is None:
+            if extended:
+                raise SupabaseContractError("Claim journey response is invalid")
+            return None
+        if not isinstance(value, Mapping) or set(value) != {
+            "nextState",
+            "fulfillmentState",
+            "retryable",
+        }:
+            raise SupabaseContractError("Claim journey response is invalid")
+        next_state = value.get("nextState")
+        fulfillment = value.get("fulfillmentState")
+        retryable = value.get("retryable")
+        if (
+            next_state not in cls._journey_states
+            or fulfillment not in cls._fulfillment_states
+            or not isinstance(retryable, bool)
+            or (state != "secured" and next_state != "secure_claim")
+        ):
+            raise SupabaseContractError("Claim journey response is invalid")
+        return ClaimJourneyProjection(next_state, fulfillment, retryable)
 
     @classmethod
     def _commerce(
@@ -579,6 +755,12 @@ class CaseClaimAccessService:
         payment_status = row.get("payment_status")
         entitlement_status = row.get("entitlement_status")
         next_task = row.get("next_task")
+        price_present = (
+            "commerce_amount_minor_units" in row
+            or "commerce_currency" in row
+        )
+        amount_minor_units = row.get("commerce_amount_minor_units")
+        currency = row.get("commerce_currency")
         if state != "secured":
             if (
                 (checkout_available is not None and checkout_available is not False)
@@ -586,6 +768,8 @@ class CaseClaimAccessService:
                 or payment_status is not None
                 or entitlement_status is not None
                 or next_task is not None
+                or amount_minor_units is not None
+                or currency is not None
             ):
                 raise SupabaseContractError(
                     "Claim commerce response is invalid"
@@ -596,6 +780,19 @@ class CaseClaimAccessService:
             or (
                 order_status is not None
                 and order_status not in cls._order_statuses
+            )
+            or (
+                (amount_minor_units is None) != (currency is None)
+            )
+            or (
+                amount_minor_units is not None
+                and (
+                    isinstance(amount_minor_units, bool)
+                    or not isinstance(amount_minor_units, int)
+                    or amount_minor_units <= 0
+                    or not isinstance(currency, str)
+                    or re.fullmatch(r"[A-Z]{3}", currency) is None
+                )
             )
             or (
                 payment_status is not None
@@ -620,6 +817,9 @@ class CaseClaimAccessService:
             payment_status=payment_status,
             entitlement_status=entitlement_status,
             next_task=next_task,
+            amount_minor_units=amount_minor_units,
+            currency=currency,
+            price_present=price_present,
         )
 
     @classmethod

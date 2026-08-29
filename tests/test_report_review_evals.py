@@ -6,6 +6,7 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from tests import test_report_review as _review_fixture
 from tests.report_review_provider_eval import (
@@ -27,6 +28,9 @@ from venfour.report_review import (
     CompletedReportReview,
     ReportQualityReviewV1,
     ReportReviewTimeoutError,
+    report_quality_review_schema_digest,
+    report_review_input_contract_digest,
+    report_review_prompt_template_digest,
 )
 from venfour.report_review_evals import (
     REPORT_REVIEW_EVAL_ATTESTATION_PATH,
@@ -38,6 +42,7 @@ from venfour.report_review_evals import (
     load_report_review_eval_suite,
     load_report_review_eval_attestation,
     report_review_eval_suite_digest,
+    report_review_eval_suite_schema_digest,
     run_provider_backed_report_review_eval,
     validate_report_review_eval_attestation,
     validate_report_review_eval_suite,
@@ -48,8 +53,20 @@ EXPECTED_SUITE_DIGEST = (
     "f06b5fe5460a95d61f9e2f5ff6d36b46e79133c53c5ba137fe4dc2e2d1dc298c"
 )
 RELEASE_QUALIFIED_MODEL = "gpt-5.6-sol"
+EXPECTED_PROMPT_TEMPLATE_DIGEST = (
+    "9c50e019f28f240e80db4bb849688fb0f932a3e86c3952a67bb46efcc69460ac"
+)
+EXPECTED_REVIEW_SCHEMA_DIGEST = (
+    "11839c12f40f8212c41cd2e3736baa131f46a963fdd83a25bbca1b41e92280f6"
+)
+EXPECTED_REVIEW_INPUT_CONTRACT_DIGEST = (
+    "dcd0dfe6e0888dd3271e08323dcc1a3221732eb18a1b3eed0eefe804f4b9be30"
+)
+EXPECTED_EVAL_SUITE_SCHEMA_DIGEST = (
+    "0e6a52a7b8faede15619efcce15006633f11160b8a1f7ef69b187d30de653a0c"
+)
 PRESERVED_ATTESTATION_DIGEST = (
-    "b16f53be48de1be4a98ad892a9c9c5801a50a45f3de32e2c60ba97abafa69a41"
+    "f32b3a9f79b3f15b538ae6651ae9cdeecc118ea84194296a15b78432bfef8a32"
 )
 
 
@@ -396,6 +413,80 @@ class ReportReviewEvalSuiteTests(_review_fixture.ReportReviewFixture):
                 payload, expected_eval_suite_digest="f" * 64
             )
 
+    def test_release_critical_content_digests_are_deterministic(self) -> None:
+        self.assertEqual(
+            report_review_prompt_template_digest(),
+            EXPECTED_PROMPT_TEMPLATE_DIGEST,
+        )
+        self.assertEqual(
+            report_quality_review_schema_digest(),
+            EXPECTED_REVIEW_SCHEMA_DIGEST,
+        )
+        self.assertEqual(
+            report_review_input_contract_digest(),
+            EXPECTED_REVIEW_INPUT_CONTRACT_DIGEST,
+        )
+        self.assertEqual(
+            report_review_eval_suite_schema_digest(),
+            EXPECTED_EVAL_SUITE_SCHEMA_DIGEST,
+        )
+
+    def test_checked_in_attestation_fails_closed_for_content_drift(self) -> None:
+        from venfour import report_review, report_review_evals
+
+        changed_review_schema = report_review.report_quality_review_api_schema()
+        changed_review_schema["title"] = "drifted review schema"
+        changed_raw_review_schema = copy.deepcopy(
+            report_review.read_report_quality_review_schema()
+        )
+        changed_raw_review_schema["$defs"]["evidenceIds"]["uniqueItems"] = False
+        changed_input_schema = report_review.report_review_input_contract_schema()
+        changed_input_schema["title"] = "drifted input contract"
+        changed_eval_schema = copy.deepcopy(
+            report_review_evals.read_report_review_eval_suite_schema()
+        )
+        changed_eval_schema["title"] = "drifted evaluation schema"
+        drifts = (
+            mock.patch.object(
+                report_review,
+                "REPORT_REVIEW_INSTRUCTIONS",
+                report_review.REPORT_REVIEW_INSTRUCTIONS + "\nDrifted content.",
+            ),
+            mock.patch.object(
+                report_review,
+                "report_quality_review_api_schema",
+                return_value=changed_review_schema,
+            ),
+            mock.patch.object(
+                report_review,
+                "read_report_quality_review_schema",
+                return_value=changed_raw_review_schema,
+            ),
+            mock.patch.object(
+                report_review,
+                "report_review_input_contract_schema",
+                return_value=changed_input_schema,
+            ),
+            mock.patch.object(
+                report_review,
+                "_INJECTION_PATTERNS",
+                report_review._INJECTION_PATTERNS[:-1],
+            ),
+            mock.patch.object(
+                report_review_evals,
+                "read_report_review_eval_suite_schema",
+                return_value=changed_eval_schema,
+            ),
+        )
+
+        for drift in drifts:
+            with self.subTest(drift=drift.attribute):
+                with drift:
+                    with self.assertRaises(ReportReviewEvalError):
+                        load_report_review_eval_attestation(
+                            expected_model_identifier=RELEASE_QUALIFIED_MODEL,
+                        )
+
     def test_checked_in_attestation_qualifies_exact_release_reviewer(self) -> None:
         attestation = load_report_review_eval_attestation(
             expected_model_identifier=RELEASE_QUALIFIED_MODEL,
@@ -407,7 +498,23 @@ class ReportReviewEvalSuiteTests(_review_fixture.ReportReviewFixture):
         self.assertEqual(
             attestation.review_schema_version, REPORT_REVIEW_SCHEMA_VERSION
         )
+        self.assertEqual(
+            attestation.prompt_template_digest,
+            EXPECTED_PROMPT_TEMPLATE_DIGEST,
+        )
+        self.assertEqual(
+            attestation.review_schema_digest,
+            EXPECTED_REVIEW_SCHEMA_DIGEST,
+        )
+        self.assertEqual(
+            attestation.review_input_contract_digest,
+            EXPECTED_REVIEW_INPUT_CONTRACT_DIGEST,
+        )
         self.assertEqual(attestation.eval_suite_digest, EXPECTED_SUITE_DIGEST)
+        self.assertEqual(
+            attestation.eval_suite_schema_digest,
+            EXPECTED_EVAL_SUITE_SCHEMA_DIGEST,
+        )
         self.assertEqual(attestation.passed_case_count, 20)
         self.assertEqual(attestation.total_case_count, 20)
         self.assertTrue(attestation.all_passed)

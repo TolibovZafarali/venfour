@@ -21,6 +21,7 @@ from venfour.commerce import (
     MAX_STRIPE_WEBHOOK_BODY_BYTES,
     CheckoutContext,
     CheckoutProjection,
+    CheckoutQuoteProjection,
     CommerceConflictError,
     CommerceNotFoundError,
     CommerceProviderContractError,
@@ -623,6 +624,48 @@ class CommerceConfigurationTests(unittest.TestCase):
 
 
 class CommerceCheckoutServiceTests(unittest.TestCase):
+    def test_checkout_quote_validates_price_without_creating_commerce_state(self) -> None:
+        commerce, database, provider = service()
+
+        result = commerce.quote(CASE_ID, ACCESS_TOKEN)
+
+        self.assertEqual(
+            result.to_dict(),
+            {
+                "availability": "available",
+                "amountMinorUnits": AMOUNT,
+                "currency": CURRENCY,
+            },
+        )
+        self.assertEqual(
+            database.calls,
+            [
+                ("authenticate", ACCESS_TOKEN),
+                ("authorize_total_loss_checkout_preflight", (CASE_ID, USER_ID)),
+            ],
+        )
+        self.assertEqual(provider.calls, [("retrieve_price", PRICE_ID)])
+
+    def test_unavailable_checkout_quote_never_calls_the_price_provider(self) -> None:
+        database = RecordingDatabase()
+        database.preflight_row = {
+            **database.preflight_row,
+            "checkout_available": False,
+        }
+        commerce, _, provider = service(database)
+
+        result = commerce.quote(CASE_ID, ACCESS_TOKEN)
+
+        self.assertEqual(
+            result.to_dict(),
+            {
+                "availability": "unavailable",
+                "amountMinorUnits": None,
+                "currency": None,
+            },
+        )
+        self.assertEqual(provider.calls, [])
+
     def test_wrong_owner_is_denied_before_any_stripe_lookup(self) -> None:
         database = RecordingDatabase()
         database.preflight_row = None
@@ -3788,6 +3831,9 @@ class RecordingCommerceHttpService:
             "open",
             None,
         )
+        self.quote_projection = CheckoutQuoteProjection(
+            "available", AMOUNT, CURRENCY
+        )
         self.reconciliation = CheckoutProjection(
             "reconciled", None, "pending", "complete", None
         )
@@ -3799,6 +3845,10 @@ class RecordingCommerceHttpService:
     def create_checkout(self, *args: Any) -> CheckoutProjection:
         self.calls.append(("create_checkout", args))
         return self.checkout
+
+    def quote(self, *args: Any) -> CheckoutQuoteProjection:
+        self.calls.append(("quote", args))
+        return self.quote_projection
 
     def reconcile_checkout(self, *args: Any) -> CheckoutProjection:
         self.calls.append(("reconcile_checkout", args))
@@ -3843,6 +3893,24 @@ class CommerceApiTests(unittest.TestCase):
         self.assertEqual(accepted.status_code, 200)
         self.assertEqual(accepted.json(), commerce.checkout.to_dict())
         self.assertEqual(commerce.calls, [("create_checkout", (CASE_ID, ACCESS_TOKEN, CLIENT_REQUEST_ID))])
+        self.assertEqual(accepted.headers["cache-control"], "private, no-store")
+
+    def test_checkout_quote_is_authenticated_read_only_and_price_authoritative(
+        self,
+    ) -> None:
+        commerce = RecordingCommerceHttpService()
+        path = f"/api/v1/appraisal-cases/{CASE_ID}/checkout-quote"
+        with TestClient(self.app(commerce)) as client:
+            unauthenticated = client.get(path)
+            accepted = client.get(
+                path,
+                headers={"Authorization": f"Bearer {ACCESS_TOKEN}"},
+            )
+
+        self.assertEqual(unauthenticated.status_code, 401)
+        self.assertEqual(accepted.status_code, 200)
+        self.assertEqual(accepted.json(), commerce.quote_projection.to_dict())
+        self.assertEqual(commerce.calls, [("quote", (CASE_ID, ACCESS_TOKEN))])
         self.assertEqual(accepted.headers["cache-control"], "private, no-store")
 
     def test_checkout_retry_recovers_complete_paid_pre_attach_without_fulfillment(

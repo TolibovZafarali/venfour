@@ -1318,6 +1318,20 @@ class CheckoutProjection:
 
 
 @dataclass(frozen=True)
+class CheckoutQuoteProjection:
+    availability: str
+    amount_minor_units: int | None
+    currency: str | None
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "availability": self.availability,
+            "amountMinorUnits": self.amount_minor_units,
+            "currency": self.currency,
+        }
+
+
+@dataclass(frozen=True)
 class RefundProjection:
     state: str
     refund_status: str
@@ -1358,6 +1372,48 @@ class TotalLossCommerceService:
 
     def authenticate(self, access_token: str) -> str:
         return self._database.authenticate(access_token)
+
+    def quote(self, case_id: str, access_token: str) -> CheckoutQuoteProjection:
+        """Return the validated hosted-checkout price without creating state."""
+
+        canonical_case_id = _request_uuid(case_id, "Case ID")
+        purchaser_id = self._database.authenticate(access_token)
+        preflight = self._database.authorize_total_loss_checkout_preflight(
+            canonical_case_id, purchaser_id
+        )
+        if preflight is None:
+            raise CommerceNotFoundError("Checkout was not found")
+        checkout_available = preflight.get("checkout_available")
+        if (
+            _canonical_uuid(preflight.get("case_id"), "Case ID")
+            != canonical_case_id
+            or _canonical_uuid(
+                preflight.get("purchaser_user_id"), "Purchaser user ID"
+            )
+            != purchaser_id
+            or not isinstance(checkout_available, bool)
+            or not isinstance(preflight.get("has_pending_order"), bool)
+        ):
+            raise SupabaseContractError("Checkout preflight response is invalid")
+        _normalized_email(preflight.get("purchaser_email"), "Purchaser email")
+        _canonical_uuid(
+            preflight.get("preliminary_snapshot_id"),
+            "Preliminary snapshot ID",
+        )
+        workflow_revision = preflight.get("workflow_revision")
+        if (
+            isinstance(workflow_revision, bool)
+            or not isinstance(workflow_revision, int)
+            or workflow_revision < 1
+        ):
+            raise SupabaseContractError("Checkout preflight response is invalid")
+        if not checkout_available:
+            return CheckoutQuoteProjection("unavailable", None, None)
+        price = self._provider.retrieve_price(self._configuration.price_id)
+        self._validate_price(price)
+        return CheckoutQuoteProjection(
+            "available", price.unit_amount, price.currency
+        )
 
     def create_checkout(
         self, case_id: str, access_token: str, client_request_id: str
@@ -2833,6 +2889,7 @@ __all__ = [
     "CommerceWebhookSignatureError",
     "CheckoutContext",
     "CheckoutProjection",
+    "CheckoutQuoteProjection",
     "EntitlementFulfillmentHook",
     "PaymentContext",
     "RefundProjection",

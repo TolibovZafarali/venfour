@@ -216,9 +216,16 @@ select ok(
     'commerce_order_status',
     'payment_status',
     'entitlement_status',
-    'next_task'
+    'next_task',
+    'commerce_amount_minor_units',
+    'commerce_currency',
+    'customer_journey',
+    'published_report',
+    'education_progress',
+    'sending_details',
+    'message_draft'
   ]::text[],
-  'claim resume adds only provider-safe commerce projection fields'
+  'claim resume preserves commerce fields and adds only customer-safe delivery projections'
 );
 
 insert into auth.users (id, email, email_confirmed_at, is_anonymous)
@@ -1497,13 +1504,16 @@ set local request.jwt.claim.sub = 'd1000000-0000-4000-8000-000000000001';
 select results_eq(
   $$
     select checkout_available, commerce_order_status, payment_status,
-      entitlement_status, next_task
+      entitlement_status, next_task,
+      customer_journey ->> 'nextState',
+      customer_journey ->> 'fulfillmentState'
     from public.resolve_total_loss_case_claim(
       'd2000000-0000-4000-8000-000000000011'
     )
   $$,
   $$values (false, 'void'::text, null::text, null::text,
-    'purchase_unavailable'::text)$$,
+    'purchase_unavailable'::text, 'needs_attention'::text,
+    'needs_attention'::text)$$,
   'customer projection exposes a coherent unavailable void state'
 );
 
@@ -3149,8 +3159,8 @@ select is(
       'd2000000-0000-4000-8000-000000000015'
     )
   ),
-  11::bigint,
-  'the current permanent owner can read only their customer-safe entitlements'
+  0::bigint,
+  'the current permanent owner receives commerce state only through bounded projections'
 );
 
 select throws_ok(

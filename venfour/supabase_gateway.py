@@ -18,11 +18,11 @@ import unicodedata
 from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from ipaddress import ip_address
 from pathlib import Path
 from typing import Any, Protocol, runtime_checkable
-from urllib.parse import quote, urlsplit
+from urllib.parse import parse_qsl, quote, urlencode, urlsplit, urlunsplit
 from uuid import UUID, uuid4
 
 import httpx
@@ -74,6 +74,10 @@ class SupabaseUnavailableError(SupabaseGatewayError):
 
 class SupabaseContractError(SupabaseGatewayError):
     """Supabase returned data outside the checked application contract."""
+
+
+class SupabaseConflictError(SupabaseGatewayError):
+    """A database optimistic-concurrency or immutable-state fence rejected a write."""
 
 
 class SupabaseReportNotFoundError(SupabaseGatewayError):
@@ -499,6 +503,15 @@ class SupabaseHttpGateway:
         if response.status_code in {401, 403}:
             raise SupabaseAuthenticationError("Authentication is invalid")
         if response.status_code < 200 or response.status_code >= 300:
+            try:
+                error_payload = response.json()
+            except (ValueError, json.JSONDecodeError):
+                error_payload = None
+            if isinstance(error_payload, Mapping) and error_payload.get("code") in {
+                "40001",
+                "55000",
+            }:
+                raise SupabaseConflictError("Supabase write conflicted")
             raise SupabaseUnavailableError("Supabase RPC is unavailable")
         try:
             return response.json()
@@ -542,6 +555,302 @@ class SupabaseHttpGateway:
             access_token,
         )
         return self._optional_rpc_row(payload, "Case claim renewal")
+
+    def put_total_loss_education_progress(
+        self,
+        case_id: str,
+        step: str,
+        state: str,
+        workflow_revision: int,
+        access_token: str,
+    ) -> Mapping[str, Any]:
+        payload = self._user_rpc(
+            "put_total_loss_education_progress",
+            {
+                "requested_case_id": _canonical_uuid(case_id, "Case ID"),
+                "requested_step_identifier": step,
+                "requested_state": state,
+                "expected_workflow_revision": workflow_revision,
+            },
+            access_token,
+        )
+        return self._single_rpc_row(payload, "Education progress")
+
+    def get_total_loss_customer_reports(
+        self,
+        case_id: str,
+        report_version_id: str | None,
+        access_token: str,
+    ) -> list[Mapping[str, Any]]:
+        payload = self._user_rpc(
+            "get_total_loss_customer_reports",
+            {
+                "requested_case_id": _canonical_uuid(case_id, "Case ID"),
+                "requested_report_version_id": (
+                    _canonical_uuid(report_version_id, "Report version ID")
+                    if report_version_id is not None
+                    else None
+                ),
+            },
+            access_token,
+        )
+        if not isinstance(payload, list):
+            raise SupabaseContractError("Published reports response is invalid")
+        reports: list[Mapping[str, Any]] = []
+        for row in payload:
+            if not isinstance(row, Mapping) or set(row) != {"report"}:
+                raise SupabaseContractError("Published reports response is invalid")
+            report = row.get("report")
+            if not isinstance(report, Mapping):
+                raise SupabaseContractError("Published reports response is invalid")
+            reports.append(dict(report))
+        return reports
+
+    def create_total_loss_customer_report_download(
+        self,
+        case_id: str,
+        report_version_id: str,
+        user_id: str,
+    ) -> Mapping[str, Any] | None:
+        canonical_case = _canonical_uuid(case_id, "Case ID")
+        canonical_report = _canonical_uuid(report_version_id, "Report version ID")
+        canonical_user = _canonical_uuid(user_id, "User ID")
+        payload = self._rpc(
+            "authorize_total_loss_customer_report_download",
+            {
+                "requested_case_id": canonical_case,
+                "requested_report_version_id": canonical_report,
+                "requested_user_id": canonical_user,
+            },
+        )
+        row = self._optional_rpc_row(payload, "Report download authorization")
+        if row is None:
+            return None
+        if row.get("case_id") != canonical_case or row.get("report_version_id") != canonical_report:
+            raise SupabaseContractError("Report download authorization is invalid")
+        report_series_id = _canonical_uuid(
+            row.get("report_series_id"), "Report series ID"
+        )
+        suggested_filename = row.get("suggested_filename")
+        if (
+            not isinstance(suggested_filename, str)
+            or re.fullmatch(
+                r"Venfour_Valuation_Evidence_[A-Za-z0-9_-]+_v[1-9][0-9]*\.pdf",
+                suggested_filename,
+            )
+            is None
+        ):
+            raise SupabaseContractError("Report filename is invalid")
+        bucket, object_path = self._validated_deliverable_locator(
+            canonical_case,
+            report_series_id,
+            canonical_report,
+            row,
+        )
+        signed_url = self._signed_private_download_url(
+            bucket, object_path, suggested_filename, expires_in_seconds=120
+        )
+        expires_at = (
+            datetime.now(UTC) + timedelta(seconds=120)
+        ).isoformat().replace("+00:00", "Z")
+        return {
+            "downloadUrl": signed_url,
+            "suggestedFilename": suggested_filename,
+            "expiresAt": expires_at,
+        }
+
+    def _signed_private_download_url(
+        self,
+        bucket: str,
+        object_path: str,
+        suggested_filename: str,
+        *,
+        expires_in_seconds: int,
+    ) -> str:
+        encoded_path = "/".join(
+            quote(segment, safe="") for segment in object_path.split("/")
+        )
+        expected_path = (
+            f"/storage/v1/object/sign/{quote(bucket, safe='')}/{encoded_path}"
+        )
+        endpoint = f"{self._configuration.url}{expected_path}"
+        try:
+            response = self._client.post(
+                endpoint,
+                headers=self._admin_headers(json_body=True),
+                json={"expiresIn": expires_in_seconds},
+            )
+        except httpx.HTTPError as exc:
+            raise SupabaseUnavailableError(
+                "Private deliverable signing is unavailable"
+            ) from exc
+        if response.status_code < 200 or response.status_code >= 300:
+            raise SupabaseUnavailableError(
+                "Private deliverable signing is unavailable"
+            )
+        try:
+            payload = response.json()
+        except (ValueError, json.JSONDecodeError) as exc:
+            raise SupabaseContractError(
+                "Private deliverable signing response is invalid"
+            ) from exc
+        if not isinstance(payload, Mapping):
+            raise SupabaseContractError(
+                "Private deliverable signing response is invalid"
+            )
+        value = payload.get("signedURL", payload.get("signedUrl"))
+        if not isinstance(value, str) or not value:
+            raise SupabaseContractError(
+                "Private deliverable signing response is invalid"
+            )
+        if value.startswith("/object/sign/"):
+            value = f"{self._configuration.url}/storage/v1{value}"
+        elif value.startswith("/storage/v1/object/sign/"):
+            value = f"{self._configuration.url}{value}"
+        parsed = urlsplit(value)
+        configured = urlsplit(self._configuration.url)
+        if (
+            parsed.scheme != configured.scheme
+            or parsed.netloc != configured.netloc
+            or parsed.path != expected_path
+            or parsed.fragment
+        ):
+            raise SupabaseContractError(
+                "Private deliverable signing response is invalid"
+            )
+        query = parse_qsl(parsed.query, keep_blank_values=True)
+        token_values = [item for key, item in query if key == "token"]
+        if len(token_values) != 1 or not token_values[0]:
+            raise SupabaseContractError(
+                "Private deliverable signing response is invalid"
+            )
+        query = [(key, item) for key, item in query if key != "download"]
+        query.append(("download", suggested_filename))
+        return urlunsplit(
+            (parsed.scheme, parsed.netloc, parsed.path, urlencode(query), "")
+        )
+
+    def put_total_loss_sending_details(
+        self,
+        case_id: str,
+        values: Mapping[str, Any],
+        access_token: str,
+    ) -> Mapping[str, Any]:
+        payload = self._user_rpc(
+            "put_total_loss_sending_details",
+            {
+                "requested_case_id": _canonical_uuid(case_id, "Case ID"),
+                "requested_claim_reference": values.get("claimReference"),
+                "requested_adjuster_name": values.get("adjusterName"),
+                "requested_adjuster_email": values.get("adjusterEmail"),
+                "requested_claim_reference_confirmed": values.get(
+                    "claimReferenceConfirmed"
+                ),
+                "requested_adjuster_email_confirmed": values.get(
+                    "adjusterEmailConfirmed"
+                ),
+                "expected_revision": values.get("expectedRevision"),
+                "expected_workflow_revision": values.get(
+                    "expectedWorkflowRevision"
+                ),
+            },
+            access_token,
+        )
+        return self._single_rpc_row(payload, "Sending details")
+
+    def get_total_loss_customer_message_draft(
+        self, case_id: str, access_token: str
+    ) -> Mapping[str, Any] | None:
+        payload = self._user_rpc(
+            "get_total_loss_customer_message_draft",
+            {"requested_case_id": _canonical_uuid(case_id, "Case ID")},
+            access_token,
+        )
+        return self._optional_rpc_row(payload, "Message draft")
+
+    def patch_total_loss_customer_message_draft(
+        self,
+        case_id: str,
+        values: Mapping[str, Any],
+        access_token: str,
+    ) -> Mapping[str, Any]:
+        payload = self._user_rpc(
+            "patch_total_loss_customer_message_draft",
+            {
+                "requested_case_id": _canonical_uuid(case_id, "Case ID"),
+                "requested_recipient": values.get("recipient"),
+                "requested_subject": values.get("subject"),
+                "requested_body": values.get("body"),
+                "expected_revision": values.get("expectedRevision"),
+            },
+            access_token,
+        )
+        return self._single_rpc_row(payload, "Message draft")
+
+    def prepare_total_loss_customer_message(
+        self,
+        case_id: str,
+        client_request_id: str,
+        workflow_revision: int,
+        access_token: str,
+    ) -> Mapping[str, Any]:
+        payload = self._user_rpc(
+            "prepare_total_loss_customer_message",
+            {
+                "requested_case_id": _canonical_uuid(case_id, "Case ID"),
+                "requested_client_request_id": _canonical_uuid(
+                    client_request_id, "Client request ID"
+                ),
+                "expected_workflow_revision": workflow_revision,
+            },
+            access_token,
+        )
+        return self._single_rpc_row(payload, "Prepared message")
+
+    def record_total_loss_customer_email_opened(
+        self,
+        case_id: str,
+        message_version_id: str,
+        client_request_id: str,
+        access_token: str,
+    ) -> Mapping[str, Any]:
+        payload = self._user_rpc(
+            "record_total_loss_customer_email_opened",
+            {
+                "requested_case_id": _canonical_uuid(case_id, "Case ID"),
+                "requested_message_version_id": _canonical_uuid(
+                    message_version_id, "Message version ID"
+                ),
+                "requested_client_request_id": _canonical_uuid(
+                    client_request_id, "Client request ID"
+                ),
+            },
+            access_token,
+        )
+        return self._single_rpc_row(payload, "Email-open event")
+
+    def confirm_total_loss_customer_message_sent(
+        self,
+        case_id: str,
+        values: Mapping[str, Any],
+        access_token: str,
+    ) -> Mapping[str, Any]:
+        payload = self._user_rpc(
+            "confirm_total_loss_customer_message_sent",
+            {
+                "requested_case_id": _canonical_uuid(case_id, "Case ID"),
+                "requested_message_version_id": values.get("messageVersionId"),
+                "requested_client_request_id": values.get("clientRequestId"),
+                "expected_workflow_revision": values.get(
+                    "expectedWorkflowRevision"
+                ),
+                "confirmed_report_attached": values.get(
+                    "confirmedReportAttached"
+                ),
+            },
+            access_token,
+        )
+        return self._single_rpc_row(payload, "Sent confirmation")
 
     def prepare_total_loss_case_access_recovery(
         self,
@@ -2891,6 +3200,7 @@ __all__ = [
     "ReportIngestionGateway",
     "SupabaseAuthenticationError",
     "SupabaseConfigurationError",
+    "SupabaseConflictError",
     "SupabaseContractError",
     "SupabaseGatewayError",
     "SupabaseHttpGateway",

@@ -11,6 +11,7 @@ interface AuthenticatedRequestOptions {
 }
 
 interface JsonRequestOptions {
+  readonly accessToken?: string;
   readonly signal?: AbortSignal;
 }
 
@@ -112,12 +113,50 @@ export function createApiClient({
     async postJson<T>(
       path: string,
       body: unknown,
-      { signal }: JsonRequestOptions = {},
+      { accessToken, signal }: JsonRequestOptions = {},
     ): Promise<T> {
       return request<T>(path, {
         method: "POST",
         headers: {
-          Accept: "application/json",
+          ...(accessToken
+            ? authenticatedHeaders(accessToken)
+            : { Accept: "application/json" }),
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
+        signal,
+      });
+    },
+
+    async putJson<T>(
+      path: string,
+      body: unknown,
+      { accessToken, signal }: JsonRequestOptions = {},
+    ): Promise<T> {
+      return request<T>(path, {
+        method: "PUT",
+        headers: {
+          ...(accessToken
+            ? authenticatedHeaders(accessToken)
+            : { Accept: "application/json" }),
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
+        signal,
+      });
+    },
+
+    async patchJson<T>(
+      path: string,
+      body: unknown,
+      { accessToken, signal }: JsonRequestOptions = {},
+    ): Promise<T> {
+      return request<T>(path, {
+        method: "PATCH",
+        headers: {
+          ...(accessToken
+            ? authenticatedHeaders(accessToken)
+            : { Accept: "application/json" }),
           "Content-Type": "application/json",
         },
         body: JSON.stringify(body),

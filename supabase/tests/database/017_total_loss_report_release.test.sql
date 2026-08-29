@@ -3,7 +3,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
 
-select plan(61);
+select plan(62);
 
 select ok(
   to_regclass('public.total_loss_report_versions') is not null
@@ -91,6 +91,8 @@ select ok(
 
 select ok(
   not has_table_privilege('anon', 'public.total_loss_report_versions', 'SELECT')
+    and not has_table_privilege('authenticated', 'public.total_loss_report_versions', 'SELECT')
+    and not has_table_privilege('authenticated', 'public.total_loss_claim_documents', 'SELECT')
     and not has_table_privilege('authenticated', 'public.total_loss_report_versions', 'INSERT,UPDATE,DELETE')
     and not exists (
       select 1 from pg_policies
@@ -481,6 +483,9 @@ cross join lateral public.complete_total_loss_report_generation(
       'sourceSnapshotDigest', repeat('4', 64),
       'finalAssessmentDigest', repeat('6', 64)
     ),
+    'executiveConclusion', jsonb_build_object(
+      'continuationStatus', 'DOES_NOT_SUPPORT_CONTINUATION'
+    ),
     'reportDigest', repeat('7', 64)
   ),
   repeat('7', 64), '1', '1', '1', '1',
@@ -538,17 +543,17 @@ set local role authenticated;
 select set_config('request.jwt.claim.sub', 'a1000000-0000-4000-8000-000000000001', true);
 select set_config('request.jwt.claim.role', 'authenticated', true);
 
-select is(
-  (select count(*) from public.total_loss_report_versions
-   where id = (select report_version_id from m5_generation_claim)),
-  0::bigint,
-  'owners cannot read validated or reviewing report drafts'
+select throws_ok(
+  $$select count(*) from public.total_loss_report_versions$$,
+  '42501',
+  null,
+  'owners have no direct grant for validated, reviewing, or published report rows'
 );
-select is(
-  (select count(*) from public.total_loss_claim_documents
-   where id = (select document_id from m5_generation_claim)),
-  0::bigint,
-  'owners cannot read ready document metadata before report publication'
+select throws_ok(
+  $$select count(*) from public.total_loss_claim_documents$$,
+  '42501',
+  null,
+  'owners have no direct grant for raw document metadata or storage paths'
 );
 select is(
   (select count(*) from storage.objects
@@ -777,6 +782,27 @@ select ok(
   'independent gate publishes the no-dispute report and returns stable refund identities'
 );
 
+grant select on m5_release to authenticated;
+reset role;
+set local role authenticated;
+select set_config('request.jwt.claim.sub', 'a1000000-0000-4000-8000-000000000001', true);
+select set_config('request.jwt.claim.role', 'authenticated', true);
+
+select ok(
+  (
+    select customer_journey ->> 'nextState' = 'no_dispute'
+      and customer_journey ->> 'fulfillmentState' = 'refund_pending'
+      and published_report is not null
+    from public.resolve_total_loss_case_claim(
+      'a2000000-0000-4000-8000-000000000001'
+    )
+  ),
+  'an entitled published no-dispute result remains reviewable while its refund is pending'
+);
+
+reset role;
+set local role service_role;
+
 select ok(
   (
     select outcome = 'refund_required'
@@ -861,24 +887,28 @@ set local role authenticated;
 select set_config('request.jwt.claim.sub', 'a1000000-0000-4000-8000-000000000001', true);
 select set_config('request.jwt.claim.role', 'authenticated', true);
 
-select is(
-  (select count(*) from public.total_loss_report_versions
-   where id = (select report_version_id from m5_release)),
-  1::bigint,
-  'the permanent owner can read the published report after retained-access refund'
+select ok(
+  (
+    select count(*) = 1
+    from public.get_total_loss_customer_reports(
+      'a2000000-0000-4000-8000-000000000001',
+      (select report_version_id from m5_release)
+    )
+  ),
+  'the retained-access owner receives the published report only through the safe RPC'
 );
-select is(
-  (select count(*) from public.total_loss_claim_documents
-   where id = (select document_id from m5_generation_claim)),
-  1::bigint,
-  'the permanent owner can read published deliverable metadata'
+select throws_ok(
+  $$select count(*) from public.total_loss_claim_documents$$,
+  '42501',
+  null,
+  'the retained-access owner cannot read raw deliverable metadata'
 );
 select is(
   (select count(*) from storage.objects
    where bucket_id = 'case-deliverables'
      and name = (select storage_object_name from m5_generation_claim)),
-  1::bigint,
-  'the permanent owner can read only the published private deliverable object'
+  0::bigint,
+  'the owner cannot list private object names even after publication'
 );
 
 reset role;
@@ -1761,10 +1791,12 @@ cross join lateral public.complete_total_loss_report_generation(
       'reportVersionId', claim.report_version_id::text,
       'finalAssessmentId', 'ab000000-0000-4000-8000-000000000004',
       'versionNumber', claim.report_version_number,
+      'versionLabel', 'v2',
       'generatedAt', to_char(
         claim.generated_at at time zone 'UTC',
         'YYYY-MM-DD"T"HH24:MI:SS.US"Z"'
       ),
+      'issueDate', '2026-08-29',
       'suggestedFilename', 'Venfour_Valuation_Evidence_A20000000000_v2.pdf'
     ),
     'lineage', jsonb_build_object(
@@ -1772,6 +1804,135 @@ cross join lateral public.complete_total_loss_report_generation(
       'finalAssessmentId', 'ab000000-0000-4000-8000-000000000004',
       'sourceSnapshotDigest', repeat('4', 64),
       'finalAssessmentDigest', repeat('6', 64)
+    ),
+    'evidenceCutoff', jsonb_build_object(
+      'lossDate', '2026-08-20',
+      'currentObservedDate', '2026-08-26',
+      'historicalEvidenceDate', null,
+      'historicalProviderAsOfDate', null,
+      'analysisCreatedAt', '2026-08-26T12:00:00Z'
+    ),
+    'executiveConclusion', jsonb_build_object(
+      'classification', 'MATERIAL_UNDERVALUE_SIGNAL',
+      'classificationLabel', 'Material undervalue signal',
+      'continuationStatus', 'SUPPORTS_CONTINUATION',
+      'summary', 'The completed evidence supports a written reconsideration request.',
+      'insurerValuation', jsonb_build_object(
+        'value', jsonb_build_object(
+          'minorUnits', 1800000, 'currency', 'USD', 'display', '$18,000.00'
+        )
+      ),
+      'supportedAdvertisedPriceRange', jsonb_build_object(
+        'low', jsonb_build_object(
+          'minorUnits', 2000000, 'currency', 'USD', 'display', '$20,000.00'
+        ),
+        'median', jsonb_build_object(
+          'minorUnits', 2100000, 'currency', 'USD', 'display', '$21,000.00'
+        ),
+        'high', jsonb_build_object(
+          'minorUnits', 2200000, 'currency', 'USD', 'display', '$22,000.00'
+        ),
+        'evidenceBasis', 'CURRENT_MARKET'
+      )
+    ),
+    'subjectVehicle', jsonb_build_object(
+      'vehicleDisplay', '2022 Honda Accord EX-L'
+    ),
+    'insurerValuationReviewed', jsonb_build_object(
+      'insurerName', jsonb_build_object(
+        'value', 'Example Insurance', 'displayValue', 'Example Insurance'
+      )
+    ),
+    'insurerComparableReview', jsonb_build_object(
+      'methodologyStatement', 'Every insurer comparable is shown descriptively.',
+      'weightingStatus', 'NOT_DETERMINED_BY_V1',
+      'summary', jsonb_build_object(
+        'totalCount', 1,
+        'advertisedPriceMissingCount', 0,
+        'adjustedValueMissingCount', 0,
+        'fullyDisclosedAdjustmentCount', 1,
+        'partiallyDisclosedAdjustmentCount', 0,
+        'undisclosedAdjustmentCount', 0,
+        'unavailableAdjustmentCount', 0,
+        'advertisedPrices', jsonb_build_object(
+          'count', 1,
+          'minimumPrice', jsonb_build_object('cents', 1980000, 'display', '$19,800.00'),
+          'medianPrice', jsonb_build_object('cents', 1980000, 'display', '$19,800.00'),
+          'maximumPrice', jsonb_build_object('cents', 1980000, 'display', '$19,800.00')
+        ),
+        'adjustedValues', jsonb_build_object(
+          'count', 1,
+          'minimumPrice', jsonb_build_object('cents', 2000000, 'display', '$20,000.00'),
+          'medianPrice', jsonb_build_object('cents', 2000000, 'display', '$20,000.00'),
+          'maximumPrice', jsonb_build_object('cents', 2000000, 'display', '$20,000.00')
+        )
+      ),
+      'comparables', jsonb_build_array(jsonb_build_object(
+        'comparableNumber', 1,
+        'vehicleDisplay', '2022 Honda Accord EX-L',
+        'vin', '1HGCM82633A004352',
+        'mileage', 32000,
+        'advertisedPrice', '$19,800.00',
+        'adjustedValue', '$20,000.00',
+        'netAdjustment', '$200.00',
+        'adjustments', jsonb_build_object(
+          'package', '$0.00', 'options', '$0.00',
+          'mileage', '$200.00', 'condition', '$0.00'
+        ),
+        'adjustmentDisclosure', 'Fully disclosed',
+        'contributionPercent', 100
+      ))
+    ),
+    'independentMarketEvidence', jsonb_build_object(
+      'primary', jsonb_build_object(
+        'label', 'Primary current market evidence',
+        'description', 'Selected current advertised listings.',
+        'provider', jsonb_build_object('name', 'internal-provider'),
+        'evidenceDate', '2026-08-26',
+        'selectedCount', 1,
+        'prices', jsonb_build_object(
+          'count', 1,
+          'minimumPrice', jsonb_build_object('cents', 2100000, 'display', '$21,000.00'),
+          'medianPrice', jsonb_build_object('cents', 2100000, 'display', '$21,000.00'),
+          'maximumPrice', jsonb_build_object('cents', 2100000, 'display', '$21,000.00')
+        )
+      ),
+      'secondary', null,
+      'comparables', jsonb_build_array(jsonb_build_object(
+        'role', 'PRIMARY',
+        'source', 'internal-provider',
+        'sourceListingId', 'listing-private-1',
+        'vin', '1HGCM82633A004352',
+        'vehicleDisplay', '2022 Honda Accord EX-L',
+        'mileage', 31500,
+        'advertisedPrice', '$21,000.00',
+        'dealer', 'Example Motors',
+        'location', 'Chicago, IL',
+        'distanceMiles', 12,
+        'rank', 1,
+        'evidenceDate', '2026-08-26',
+        'temporalBasis', 'Current listing'
+      ))
+    ),
+    'adjustmentsAndCalculations', jsonb_build_object(
+      'methodologyStatement', 'Only stored deterministic calculations are shown.',
+      'calculations', jsonb_build_array(jsonb_build_object(
+        'code', 'PRIMARY_EVIDENCE_COMPARISON',
+        'values', jsonb_build_array(jsonb_build_object(
+          'key', 'difference', 'value', 300000, 'displayValue', '$3,000.00'
+        ))
+      ))
+    ),
+    'preliminaryVersusFinal', jsonb_build_object(
+      'status', 'CONFIRMED',
+      'summary', 'The final assessment confirms the preliminary range.',
+      'internalRangeDelta', jsonb_build_object('low', 0, 'high', 0)
+    ),
+    'assumptionsAndLimitations', jsonb_build_object(
+      'limitations', jsonb_build_array(jsonb_build_object(
+        'code', 'ADVERTISED_PRICES',
+        'description', 'Advertised prices are evidence, not guaranteed transaction prices.'
+      ))
     ),
     'reportDigest', repeat('7', 64)
   ),

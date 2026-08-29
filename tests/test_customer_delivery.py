@@ -1,0 +1,468 @@
+"""Offline customer-delivery service and HTTP contract coverage."""
+
+from __future__ import annotations
+
+import os
+import unittest
+from collections.abc import Mapping
+from typing import Any
+from unittest.mock import patch
+
+from starlette.testclient import TestClient
+
+from venfour.api import create_app
+from venfour.customer_delivery import (
+    CustomerDeliveryInputError,
+    CustomerDeliveryService,
+    validate_report_projection,
+)
+from venfour.supabase_gateway import SupabaseContractError
+
+
+CASE_ID = "20000000-0000-4000-8000-000000000002"
+REPORT_ID = "30000000-0000-4000-8000-000000000003"
+DRAFT_ID = "40000000-0000-4000-8000-000000000004"
+MESSAGE_VERSION_ID = "50000000-0000-4000-8000-000000000005"
+SENT_VERSION_ID = "51000000-0000-4000-8000-000000000005"
+CLIENT_REQUEST_ID = "60000000-0000-4000-8000-000000000006"
+EVENT_ID = "70000000-0000-4000-8000-000000000007"
+COMMUNICATION_ID = "80000000-0000-4000-8000-000000000008"
+ROUND_ID = "90000000-0000-4000-8000-000000000009"
+USER_ID = "10000000-0000-4000-8000-000000000001"
+ACCESS_TOKEN = "browser-access-token"
+NOW = "2026-08-29T12:00:00Z"
+
+
+def money(amount: int) -> dict[str, Any]:
+    return {
+        "amountMinorUnits": amount,
+        "currency": "USD",
+        "formatted": f"${amount / 100:,.2f}",
+    }
+
+
+def valid_report() -> dict[str, Any]:
+    return {
+        "reportId": REPORT_ID,
+        "versionNumber": 1,
+        "versionLabel": "v1",
+        "issueDate": "2026-08-29",
+        "suggestedFilename": "Venfour_Valuation_Evidence_CASE_v1.pdf",
+        "status": "published",
+        "title": "Venfour Total-Loss Valuation Evidence Package",
+        "conclusion": {
+            "classificationLabel": "Material undervalue signal",
+            "continuingSupported": True,
+            "insurerValuation": money(1_800_000),
+            "supportedRange": {
+                "low": money(2_000_000),
+                "median": money(2_100_000),
+                "high": money(2_200_000),
+                "evidenceBasis": "Current advertised-price evidence",
+            },
+            "indicatedDifference": money(300_000),
+            "summary": "The evidence supports a written reconsideration request.",
+            "limitations": ["Advertised prices are not transaction prices."],
+            "preliminaryComparison": {
+                "status": "CONFIRMED",
+                "summary": "The completed result confirms the preliminary range.",
+            },
+        },
+        "subjectVehicle": {"description": "2022 Honda Accord EX-L"},
+        "insurerEvidence": {
+            "insurerName": "Example Insurance",
+            "comparableCount": 3,
+            "summary": {
+                "totalCount": 3,
+                "advertisedPriceMissingCount": 0,
+                "adjustedValueMissingCount": 0,
+                "fullyDisclosedAdjustmentCount": 3,
+                "partiallyDisclosedAdjustmentCount": 0,
+                "undisclosedAdjustmentCount": 0,
+                "unavailableAdjustmentCount": 0,
+                "advertisedPrices": {
+                    "count": 3,
+                    "low": money(1_980_000),
+                    "median": money(2_010_000),
+                    "high": money(2_040_000),
+                },
+                "adjustedValues": {
+                    "count": 3,
+                    "low": money(2_000_000),
+                    "median": money(2_000_000),
+                    "high": money(2_000_000),
+                },
+            },
+            "comparables": [
+                {
+                    "vehicle": "2022 Honda Accord EX-L",
+                    "mileage": 32_000,
+                    "advertisedPrice": "$19,800.00",
+                    "adjustedValue": "$20,000.00",
+                    "netAdjustment": "$200.00",
+                    "adjustments": {
+                        "package": "$0.00",
+                        "options": "$0.00",
+                        "mileage": "$200.00",
+                        "condition": "$0.00",
+                    },
+                    "adjustmentDisclosure": "Fully disclosed",
+                    "contributionPercent": 33.33,
+                }
+            ],
+            "methodologyStatement": "Insurer comparables are shown descriptively.",
+            "adjustmentContext": (
+                "Insurer adjustments are shown as disclosed in the reviewed report; "
+                "Venfour does not invent missing adjustment details."
+            ),
+        },
+        "marketEvidence": {
+            "primary": {
+                "label": "Current market evidence",
+                "description": "Selected current advertised listings.",
+                "evidenceDate": "2026-08-29",
+                "selectedCount": 1,
+                "prices": {
+                    "count": 1,
+                    "low": money(2_100_000),
+                    "median": money(2_100_000),
+                    "high": money(2_100_000),
+                },
+            },
+            "secondary": None,
+            "comparables": [
+                {
+                    "role": "primary",
+                    "vehicle": "2022 Honda Accord EX-L",
+                    "mileage": 31_500,
+                    "advertisedPrice": "$21,000.00",
+                    "dealer": "Example Motors",
+                    "location": "Chicago, IL",
+                    "distanceMiles": 12.5,
+                    "evidenceDate": "2026-08-29",
+                    "temporalBasis": "Current listing",
+                }
+            ],
+            "methodologyStatement": "Only frozen deterministic evidence is shown.",
+            "evidenceDateContext": {
+                "lossDate": "2026-08-20",
+                "currentObservedDate": "2026-08-29",
+                "historicalEvidenceDate": None,
+            },
+        },
+    }
+
+
+def education_projection() -> dict[str, Any]:
+    empty = {"viewedAt": None, "completedAt": None, "skippedAt": None}
+    return {
+        "reportVersionId": REPORT_ID,
+        "steps": {
+            step: dict(empty)
+            for step in (
+                "result",
+                "insurer_review",
+                "valuation",
+                "report",
+                "what_next",
+                "send",
+            )
+        },
+    }
+
+
+def sending_projection() -> dict[str, Any]:
+    return {
+        "customerName": "Owner Example",
+        "insurerName": "Example Insurance",
+        "claimReference": "CLM 123",
+        "vehicleDescription": "2022 Honda Accord EX-L",
+        "adjusterName": "Alex Adjuster",
+        "adjusterEmail": "adjuster@example.test",
+        "claimReferenceConfirmed": True,
+        "adjusterEmailConfirmed": True,
+        "revision": 1,
+    }
+
+
+def draft_projection() -> dict[str, Any]:
+    return {
+        "draftId": DRAFT_ID,
+        "reportVersionId": REPORT_ID,
+        "purpose": "initial_reconsideration",
+        "recipient": "adjuster@example.test",
+        "subject": "Request for valuation reconsideration - Claim CLM 123",
+        "body": "Please review the attached evidence package.",
+        "revision": 1,
+        "updatedAt": NOW,
+    }
+
+
+class RecordingGateway:
+    def __init__(self) -> None:
+        self.calls: list[tuple[str, Any]] = []
+
+    def authenticate(self, access_token: str) -> str:
+        self.calls.append(("authenticate", access_token))
+        return USER_ID
+
+    def put_total_loss_education_progress(
+        self, case_id: str, step: str, state: str, workflow_revision: int,
+        access_token: str,
+    ) -> Mapping[str, Any]:
+        self.calls.append(
+            (
+                "education",
+                (case_id, step, state, workflow_revision, access_token),
+            )
+        )
+        return education_projection()
+
+    def get_total_loss_customer_reports(
+        self, case_id: str, report_version_id: str | None, access_token: str,
+    ) -> list[Mapping[str, Any]]:
+        self.calls.append(
+            ("reports", (case_id, report_version_id, access_token))
+        )
+        return [valid_report()]
+
+    def create_total_loss_customer_report_download(
+        self, case_id: str, report_version_id: str, user_id: str,
+    ) -> Mapping[str, Any] | None:
+        self.calls.append(
+            ("download", (case_id, report_version_id, user_id))
+        )
+        return {
+            "downloadUrl": "https://storage.example.test/signed-report?token=one",
+            "suggestedFilename": "Venfour_Valuation_Evidence_CASE_v1.pdf",
+            "expiresAt": NOW,
+        }
+
+    def put_total_loss_sending_details(
+        self, case_id: str, values: Mapping[str, Any], access_token: str,
+    ) -> Mapping[str, Any]:
+        self.calls.append(("sending", (case_id, dict(values), access_token)))
+        return sending_projection()
+
+    def get_total_loss_customer_message_draft(
+        self, case_id: str, access_token: str,
+    ) -> Mapping[str, Any] | None:
+        self.calls.append(("draft", (case_id, access_token)))
+        return draft_projection()
+
+    def patch_total_loss_customer_message_draft(
+        self, case_id: str, values: Mapping[str, Any], access_token: str,
+    ) -> Mapping[str, Any]:
+        self.calls.append(("edit", (case_id, dict(values), access_token)))
+        return draft_projection()
+
+    def prepare_total_loss_customer_message(
+        self, case_id: str, client_request_id: str, workflow_revision: int,
+        access_token: str,
+    ) -> Mapping[str, Any]:
+        self.calls.append(
+            (
+                "prepare",
+                (case_id, client_request_id, workflow_revision, access_token),
+            )
+        )
+        return {
+            "draft": draft_projection(),
+            "messageVersion": {
+                "messageVersionId": MESSAGE_VERSION_ID,
+                "versionNumber": 1,
+                "state": "prepared",
+                "reportVersionId": REPORT_ID,
+                "recipient": "adjuster@example.test",
+                "subject": "Request for valuation reconsideration - Claim CLM 123",
+                "body": "Please review the attached evidence package.",
+                "createdAt": NOW,
+            },
+            "workflowRevision": 3,
+        }
+
+    def record_total_loss_customer_email_opened(
+        self, case_id: str, message_version_id: str, client_request_id: str,
+        access_token: str,
+    ) -> Mapping[str, Any]:
+        self.calls.append(
+            (
+                "opened",
+                (case_id, message_version_id, client_request_id, access_token),
+            )
+        )
+        return {
+            "status": "opened",
+            "eventId": EVENT_ID,
+            "messageVersionId": MESSAGE_VERSION_ID,
+            "authoritativeSent": False,
+        }
+
+    def confirm_total_loss_customer_message_sent(
+        self, case_id: str, values: Mapping[str, Any], access_token: str,
+    ) -> Mapping[str, Any]:
+        self.calls.append(("sent", (case_id, dict(values), access_token)))
+        return {
+            "state": "awaiting_insurer_response",
+            "messageVersionId": SENT_VERSION_ID,
+            "communicationId": COMMUNICATION_ID,
+            "negotiationRoundId": ROUND_ID,
+            "customerReportedSentAt": NOW,
+            "workflowRevision": 4,
+        }
+
+
+class CustomerDeliveryServiceTests(unittest.TestCase):
+    def test_sending_details_are_normalized_before_the_database_boundary(self) -> None:
+        gateway = RecordingGateway()
+        service = CustomerDeliveryService(gateway)
+
+        result = service.save_sending_details(
+            CASE_ID,
+            {
+                "claimReference": "  CLM   123  ",
+                "adjusterName": "  Alex   Adjuster ",
+                "adjusterEmail": " Adjuster@Example.Test ",
+                "claimReferenceConfirmed": True,
+                "adjusterEmailConfirmed": True,
+                "expectedRevision": 0,
+                "expectedWorkflowRevision": 2,
+            },
+            ACCESS_TOKEN,
+        )
+
+        self.assertEqual(result, sending_projection())
+        _, (_, values, _) = gateway.calls[-1]
+        self.assertEqual(values["claimReference"], "CLM 123")
+        self.assertEqual(values["adjusterName"], "Alex Adjuster")
+        self.assertEqual(values["adjusterEmail"], "adjuster@example.test")
+
+    def test_invalid_customer_sending_values_fail_before_auth_or_rpc(self) -> None:
+        invalid_values = (
+            {"adjusterEmail": "not-an-email"},
+            {"adjusterEmail": "adjuster @example.test"},
+            {"adjusterEmail": "adjuster@example.test\n"},
+            {"claimReference": "CLM\u202e123"},
+            {"claimReference": None, "claimReferenceConfirmed": True},
+            {"adjusterEmail": None, "adjusterEmailConfirmed": True},
+        )
+        for overrides in invalid_values:
+            with self.subTest(overrides=overrides):
+                gateway = RecordingGateway()
+                service = CustomerDeliveryService(gateway)
+                values = {
+                    "claimReference": "CLM 123",
+                    "adjusterName": "Alex Adjuster",
+                    "adjusterEmail": "adjuster@example.test",
+                    "claimReferenceConfirmed": True,
+                    "adjusterEmailConfirmed": True,
+                    "expectedRevision": 0,
+                    "expectedWorkflowRevision": 2,
+                    **overrides,
+                }
+                with self.assertRaises(CustomerDeliveryInputError):
+                    service.save_sending_details(CASE_ID, values, ACCESS_TOKEN)
+                self.assertEqual(gateway.calls, [])
+
+    def test_prepare_open_and_sent_keep_distinct_authority(self) -> None:
+        service = CustomerDeliveryService(RecordingGateway())
+
+        prepared = service.prepare(CASE_ID, CLIENT_REQUEST_ID, 2, ACCESS_TOKEN)
+        opened = service.opened(
+            CASE_ID, MESSAGE_VERSION_ID, CLIENT_REQUEST_ID, ACCESS_TOKEN
+        )
+        sent = service.sent(
+            CASE_ID,
+            {
+                "messageVersionId": MESSAGE_VERSION_ID,
+                "clientRequestId": CLIENT_REQUEST_ID,
+                "expectedWorkflowRevision": 3,
+                "confirmedReportAttached": True,
+            },
+            ACCESS_TOKEN,
+        )
+
+        self.assertEqual(prepared["messageVersion"]["state"], "prepared")
+        self.assertFalse(opened["authoritativeSent"])
+        self.assertEqual(sent["state"], "awaiting_insurer_response")
+        self.assertEqual(sent["messageVersionId"], SENT_VERSION_ID)
+
+    def test_report_contract_rejects_provider_and_listing_identity_leaks(self) -> None:
+        for mutation in ("provider", "sourceListingId"):
+            with self.subTest(mutation=mutation):
+                report = valid_report()
+                if mutation == "provider":
+                    report["marketEvidence"]["primary"]["provider"] = "provider-name"
+                else:
+                    report["marketEvidence"]["comparables"][0][mutation] = "listing-1"
+                with self.assertRaises(SupabaseContractError):
+                    validate_report_projection(report)
+
+
+class CustomerDeliveryApiTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.gateway = RecordingGateway()
+        service = CustomerDeliveryService(self.gateway)
+        with patch.dict(os.environ, {}, clear=True):
+            self.client = TestClient(
+                create_app(
+                    customer_delivery_service=service,
+                    enable_legacy_api=False,
+                )
+            )
+
+    def tearDown(self) -> None:
+        self.client.close()
+
+    def test_sending_endpoint_requires_auth_and_returns_bounded_400s(self) -> None:
+        path = f"/api/v1/appraisal-cases/{CASE_ID}/sending-details"
+        payload = {
+            "claimReference": "CLM 123",
+            "adjusterName": "Alex Adjuster",
+            "adjusterEmail": "adjuster@example.test",
+            "claimReferenceConfirmed": True,
+            "adjusterEmailConfirmed": True,
+            "expectedRevision": 0,
+            "expectedWorkflowRevision": 2,
+        }
+
+        missing = self.client.put(path, json=payload)
+        invalid = self.client.put(
+            path,
+            headers={"Authorization": f"Bearer {ACCESS_TOKEN}"},
+            json={**payload, "adjusterEmail": "not-an-email"},
+        )
+        valid = self.client.put(
+            path,
+            headers={"Authorization": f"Bearer {ACCESS_TOKEN}"},
+            json=payload,
+        )
+
+        self.assertEqual(missing.status_code, 401)
+        self.assertEqual(missing.json()["error"]["code"], "AUTHENTICATION_REQUIRED")
+        self.assertEqual(invalid.status_code, 400)
+        self.assertEqual(
+            invalid.json()["error"]["code"],
+            "INVALID_CUSTOMER_DELIVERY_REQUEST",
+        )
+        self.assertEqual(valid.status_code, 200)
+        self.assertEqual(valid.json(), sending_projection())
+
+    def test_prepare_endpoint_returns_the_exact_versioned_contract(self) -> None:
+        response = self.client.post(
+            f"/api/v1/appraisal-cases/{CASE_ID}/message/prepare",
+            headers={"Authorization": f"Bearer {ACCESS_TOKEN}"},
+            json={
+                "clientRequestId": CLIENT_REQUEST_ID,
+                "expectedWorkflowRevision": 2,
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["draft"], draft_projection())
+        self.assertEqual(response.json()["messageVersion"]["state"], "prepared")
+        self.assertEqual(response.json()["workflowRevision"], 3)
+
+
+if __name__ == "__main__":
+    unittest.main()

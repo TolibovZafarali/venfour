@@ -20,6 +20,68 @@ type RuntimeAppraisalCase = Omit<AppraisalCase, "serviceType" | "status"> & {
   readonly caseStage?: string;
 };
 
+function postContinuePresentation(
+  caseId: string,
+  task: string,
+): AppraisalCasePresentation {
+  const resumeAction = (label: string) => ({
+    href: `/total-loss/cases/${caseId}/claim`,
+    label,
+  });
+  switch (task) {
+    case "secure_claim":
+      return {
+        action: resumeAction("Secure claim"),
+        serviceLabel: "Total-loss review",
+        statusLabel: "Secure claim",
+      };
+    case "continue_payment":
+      return {
+        action: resumeAction("Continue payment"),
+        serviceLabel: "Total-loss review",
+        statusLabel: "Continue payment",
+      };
+    case "preparing_report":
+      return {
+        action: resumeAction("View progress"),
+        serviceLabel: "Total-loss review",
+        statusLabel: "Preparing report",
+      };
+    case "review_report":
+      return {
+        action: resumeAction("Review report"),
+        serviceLabel: "Total-loss review",
+        statusLabel: "Review report",
+      };
+    case "prepare_request":
+      return {
+        action: resumeAction("Prepare request"),
+        serviceLabel: "Total-loss review",
+        statusLabel: "Prepare request",
+      };
+    case "waiting_for_insurer":
+      return {
+        action: resumeAction("View request"),
+        serviceLabel: "Total-loss review",
+        statusLabel: "Waiting for insurer",
+      };
+    case "review_complete":
+      return {
+        action: resumeAction("Review result"),
+        serviceLabel: "Total-loss review",
+        statusLabel: "Review complete",
+      };
+    case "needs_attention":
+      return {
+        action: resumeAction("Review status"),
+        serviceLabel: "Total-loss review",
+        statusLabel: "Needs attention",
+      };
+    default:
+      return unsupportedPresentation("Total-loss review");
+  }
+}
+
 function unsupportedPresentation(
   serviceLabel: string,
 ): AppraisalCasePresentation {
@@ -142,6 +204,9 @@ export function appraisalCasePresentation(
   const caseId = encodeURIComponent(appraisalCase.id);
 
   if (appraisalCase.serviceType === "total_loss") {
+    if (appraisalCase.claimResumeTask) {
+      return postContinuePresentation(caseId, appraisalCase.claimResumeTask);
+    }
     if (appraisalCase.caseStage) {
       return totalLossStagePresentation(
         caseId,

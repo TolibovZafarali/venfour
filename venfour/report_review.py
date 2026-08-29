@@ -90,6 +90,48 @@ REPORT_REVIEW_SCHEMA_PATH = (
     _REPO_ROOT / "schemas" / "package" / "report-quality-review-v1.schema.json"
 )
 
+_REPORT_REVIEW_INPUT_KEYS = frozenset(
+    {
+        "schemaVersion",
+        "target",
+        "digests",
+        "sourceSnapshot",
+        "finalAssessment",
+        "report",
+        "pdf",
+        "deterministicValidationManifest",
+        "availableEvidenceIds",
+        "untrustedInstructionSignals",
+        "sourceDocumentIncluded",
+        "inputDigest",
+    }
+)
+_REPORT_REVIEW_TARGET_KEYS = frozenset(
+    {
+        "caseId",
+        "sourceSnapshotId",
+        "finalAssessmentId",
+        "reportVersionId",
+    }
+)
+_REPORT_REVIEW_DIGEST_KEYS = frozenset(
+    {
+        "sourceSnapshotDigest",
+        "finalAssessmentDigest",
+        "reportDigest",
+        "pdfDigest",
+        "deterministicValidationDigest",
+        "pdfValidationDigest",
+    }
+)
+_REPORT_REVIEW_PDF_KEYS = frozenset({"extractedText", "validationManifest"})
+_REPORT_REVIEW_EVIDENCE_PREFIX = "CASE_EVIDENCE_JSON\n"
+_REPORT_REVIEW_EVIDENCE_SUFFIX = "\nEND_CASE_EVIDENCE_JSON"
+_REPORT_REVIEW_MESSAGE_ROLE = "user"
+_REPORT_REVIEW_INPUT_FILE_TYPE = "input_file"
+_REPORT_REVIEW_INPUT_FILE_DETAIL = "high"
+_REPORT_REVIEW_INPUT_TEXT_TYPE = "input_text"
+
 _INJECTION_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     (
         "INSTRUCTION_OVERRIDE_LANGUAGE",
@@ -745,29 +787,13 @@ def validate_report_review_input_v1(
     data = value.to_dict() if isinstance(value, ReportReviewInputV1) else value
     if not isinstance(data, Mapping):
         raise ReportReviewInputError("Report review input is invalid")
-    expected_keys = {
-        "schemaVersion",
-        "target",
-        "digests",
-        "sourceSnapshot",
-        "finalAssessment",
-        "report",
-        "pdf",
-        "deterministicValidationManifest",
-        "availableEvidenceIds",
-        "untrustedInstructionSignals",
-        "sourceDocumentIncluded",
-        "inputDigest",
-    }
-    if set(data) != expected_keys or data.get("schemaVersion") != "1":
+    if (
+        set(data) != _REPORT_REVIEW_INPUT_KEYS
+        or data.get("schemaVersion") != REPORT_REVIEW_INPUT_SCHEMA_VERSION
+    ):
         raise ReportReviewInputError("Report review input shape is invalid")
     target = _mapping(data.get("target"), "Report review target")
-    if set(target) != {
-        "caseId",
-        "sourceSnapshotId",
-        "finalAssessmentId",
-        "reportVersionId",
-    }:
+    if set(target) != _REPORT_REVIEW_TARGET_KEYS:
         raise ReportReviewInputError("Report review target is invalid")
     for key, label in (
         ("caseId", "Case ID"),
@@ -777,17 +803,9 @@ def validate_report_review_input_v1(
     ):
         _canonical_uuid(target.get(key), label)
     digests = _mapping(data.get("digests"), "Report review digests")
-    expected_digest_keys = {
-        "sourceSnapshotDigest",
-        "finalAssessmentDigest",
-        "reportDigest",
-        "pdfDigest",
-        "deterministicValidationDigest",
-        "pdfValidationDigest",
-    }
-    if set(digests) != expected_digest_keys:
+    if set(digests) != _REPORT_REVIEW_DIGEST_KEYS:
         raise ReportReviewInputError("Report review digests are invalid")
-    for key in expected_digest_keys:
+    for key in _REPORT_REVIEW_DIGEST_KEYS:
         _sha256(digests.get(key), key)
     source = _mapping(data.get("sourceSnapshot"), "Source snapshot")
     assessment = _mapping(data.get("finalAssessment"), "Final assessment")
@@ -797,7 +815,7 @@ def validate_report_review_input_v1(
         "Deterministic validation manifest",
     )
     pdf = _mapping(data.get("pdf"), "PDF review input")
-    if set(pdf) != {"extractedText", "validationManifest"}:
+    if set(pdf) != _REPORT_REVIEW_PDF_KEYS:
         raise ReportReviewInputError("PDF review input is invalid")
     pdf_manifest = _mapping(
         pdf.get("validationManifest"), "PDF validation manifest"
@@ -923,6 +941,151 @@ def report_quality_review_api_schema() -> dict[str, Any]:
         "cited and unknown identifier sets from all sourceEvidenceIds arrays."
     )
     return schema
+
+
+def report_quality_review_api_format() -> dict[str, Any]:
+    """Return the exact strict structured-output contract sent to the provider."""
+
+    return {
+        "type": "json_schema",
+        "name": REPORT_REVIEW_SCHEMA_NAME,
+        "schema": report_quality_review_api_schema(),
+        "strict": True,
+    }
+
+
+def report_quality_review_schema_digest() -> str:
+    """Hash both local validation and provider-facing review schemas."""
+
+    return canonical_package_digest(
+        {
+            "validationSchema": read_report_quality_review_schema(),
+            "providerFormat": report_quality_review_api_format(),
+        }
+    )
+
+
+def report_review_input_contract_schema() -> dict[str, Any]:
+    """Describe the stable review-input envelope used by builder and validator.
+
+    Nested source, assessment, report, and validation payloads retain their own
+    deterministic digests and validators. This schema binds the review-specific
+    envelope that carries them to the independent reviewer.
+    """
+
+    uuid_schema = {"type": "string", "format": "uuid"}
+    digest_schema = {
+        "type": "string",
+        "pattern": "^[0-9a-f]{64}$",
+    }
+    signal_definitions = [
+        {
+            "code": code,
+            "pattern": pattern.pattern,
+            "flags": pattern.flags,
+        }
+        for code, pattern in _INJECTION_PATTERNS
+    ]
+    return {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "title": "Venfour report-review input contract V1",
+        "type": "object",
+        "additionalProperties": False,
+        "required": sorted(_REPORT_REVIEW_INPUT_KEYS),
+        "properties": {
+            "schemaVersion": {"const": REPORT_REVIEW_INPUT_SCHEMA_VERSION},
+            "target": {
+                "type": "object",
+                "additionalProperties": False,
+                "required": sorted(_REPORT_REVIEW_TARGET_KEYS),
+                "properties": {
+                    key: copy.deepcopy(uuid_schema)
+                    for key in sorted(_REPORT_REVIEW_TARGET_KEYS)
+                },
+            },
+            "digests": {
+                "type": "object",
+                "additionalProperties": False,
+                "required": sorted(_REPORT_REVIEW_DIGEST_KEYS),
+                "properties": {
+                    key: copy.deepcopy(digest_schema)
+                    for key in sorted(_REPORT_REVIEW_DIGEST_KEYS)
+                },
+            },
+            "sourceSnapshot": {"type": "object"},
+            "finalAssessment": {"type": "object"},
+            "report": {"type": "object"},
+            "pdf": {
+                "type": "object",
+                "additionalProperties": False,
+                "required": sorted(_REPORT_REVIEW_PDF_KEYS),
+                "properties": {
+                    "extractedText": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": MAX_EXTRACTED_PDF_TEXT_CHARACTERS,
+                    },
+                    "validationManifest": {"type": "object"},
+                },
+            },
+            "deterministicValidationManifest": {"type": "object"},
+            "availableEvidenceIds": {
+                "type": "array",
+                "items": {
+                    "type": "string",
+                    "pattern": "^(?:ev|ref)_[0-9a-f]{64}$",
+                },
+            },
+            "untrustedInstructionSignals": {
+                "type": "array",
+                "uniqueItems": True,
+                "items": {
+                    "type": "string",
+                    "enum": [item["code"] for item in signal_definitions],
+                },
+                "x-signalDefinitions": signal_definitions,
+            },
+            "sourceDocumentIncluded": {"type": "boolean"},
+            "inputDigest": copy.deepcopy(digest_schema),
+        },
+    }
+
+
+def report_review_input_contract_digest() -> str:
+    """Hash the review-specific input-contract schema without changing it."""
+
+    return canonical_package_digest(report_review_input_contract_schema())
+
+
+def report_review_prompt_template() -> dict[str, Any]:
+    """Return the exact fixed prompt and message-template content."""
+
+    return {
+        "instructions": REPORT_REVIEW_INSTRUCTIONS,
+        "messageRole": _REPORT_REVIEW_MESSAGE_ROLE,
+        "sourceDocumentPart": {
+            "conditional": "sourceDocumentIncluded",
+            "type": _REPORT_REVIEW_INPUT_FILE_TYPE,
+            "detail": _REPORT_REVIEW_INPUT_FILE_DETAIL,
+        },
+        "caseEvidencePart": {
+            "type": _REPORT_REVIEW_INPUT_TEXT_TYPE,
+            "prefix": _REPORT_REVIEW_EVIDENCE_PREFIX,
+            "canonicalJson": {
+                "ensureAscii": True,
+                "allowNan": False,
+                "separators": [",", ":"],
+                "sortKeys": True,
+            },
+            "suffix": _REPORT_REVIEW_EVIDENCE_SUFFIX,
+        },
+    }
+
+
+def report_review_prompt_template_digest() -> str:
+    """Hash the exact system prompt and provider message template."""
+
+    return canonical_package_digest(report_review_prompt_template())
 
 
 def _json_path(parts: Sequence[Any]) -> str:
@@ -1374,7 +1537,7 @@ class OpenAIReportReviewer:
         if source_pdf is not None:
             file_id = self._upload_source_pdf(request, Path(source_pdf))
         evidence_text = (
-            "CASE_EVIDENCE_JSON\n"
+            _REPORT_REVIEW_EVIDENCE_PREFIX
             + json.dumps(
                 request.to_dict(),
                 ensure_ascii=True,
@@ -1382,27 +1545,26 @@ class OpenAIReportReviewer:
                 separators=(",", ":"),
                 sort_keys=True,
             )
-            + "\nEND_CASE_EVIDENCE_JSON"
+            + _REPORT_REVIEW_EVIDENCE_SUFFIX
         )
         content: list[dict[str, Any]] = []
         if file_id is not None:
             content.append(
-                {"type": "input_file", "file_id": file_id, "detail": "high"}
+                {
+                    "type": _REPORT_REVIEW_INPUT_FILE_TYPE,
+                    "file_id": file_id,
+                    "detail": _REPORT_REVIEW_INPUT_FILE_DETAIL,
+                }
             )
-        content.append({"type": "input_text", "text": evidence_text})
+        content.append(
+            {"type": _REPORT_REVIEW_INPUT_TEXT_TYPE, "text": evidence_text}
+        )
         try:
             response = self._client.responses.create(
                 model=model,
                 instructions=REPORT_REVIEW_INSTRUCTIONS,
-                input=[{"role": "user", "content": content}],
-                text={
-                    "format": {
-                        "type": "json_schema",
-                        "name": REPORT_REVIEW_SCHEMA_NAME,
-                        "schema": report_quality_review_api_schema(),
-                        "strict": True,
-                    }
-                },
+                input=[{"role": _REPORT_REVIEW_MESSAGE_ROLE, "content": content}],
+                text={"format": report_quality_review_api_format()},
                 max_output_tokens=MAX_REVIEW_OUTPUT_TOKENS,
                 store=False,
                 safety_identifier=self._safety_identifier(request),
@@ -1511,7 +1673,13 @@ __all__ = [
     "build_report_review_input_v1",
     "detect_untrusted_instruction_signals",
     "read_report_quality_review_schema",
+    "report_quality_review_api_format",
     "report_quality_review_api_schema",
+    "report_quality_review_schema_digest",
+    "report_review_input_contract_digest",
+    "report_review_input_contract_schema",
+    "report_review_prompt_template",
+    "report_review_prompt_template_digest",
     "validate_report_quality_review_v1",
     "validate_report_review_input_v1",
 ]

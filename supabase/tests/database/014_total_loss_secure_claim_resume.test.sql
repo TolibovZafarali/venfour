@@ -1116,8 +1116,8 @@ select is(
     from public.total_loss_claim_workflows
     where case_id = 'c2000000-0000-4000-8000-000000000001'
   ),
-  1::bigint,
-  'the new permanent owner can reopen the preserved secure-claim workflow'
+  0::bigint,
+  'the new permanent owner resumes through the resolver, not the raw workflow table'
 );
 
 reset role;

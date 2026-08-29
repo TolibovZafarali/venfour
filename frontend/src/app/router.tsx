@@ -27,6 +27,7 @@ import { RouteErrorPage } from "@/pages/route-error-page";
 import { TermsPage } from "@/pages/terms-page";
 import { TotalLossAnalysisPage } from "@/pages/total-loss-analysis-page";
 import { TotalLossClaimPage } from "@/pages/total-loss-claim-page";
+import { TotalLossClaimWorkflowPage } from "@/pages/total-loss-claim-workflow-page";
 
 const metadata = (title: string, description: string): PageMetadata => ({
   title,
@@ -101,6 +102,78 @@ export const appRoutes: RouteObject[] = [
         handle: metadata(
           "Secure Your Total-Loss Claim | Venfour",
           "Secure or recover access to a saved Venfour total-loss claim.",
+        ),
+      },
+      {
+        path: "total-loss/cases/:caseId/claim/checkout",
+        element: <TotalLossClaimWorkflowPage view="checkout" />,
+        handle: metadata(
+          "Secure Checkout | Venfour",
+          "Review the customer-safe purchase terms and continue to hosted secure checkout.",
+        ),
+      },
+      {
+        path: "total-loss/cases/:caseId/claim/checkout/return",
+        element: <TotalLossClaimWorkflowPage view="checkout_return" />,
+        handle: metadata(
+          "Confirming Payment | Venfour",
+          "Resume a saved total-loss claim while Venfour confirms the authoritative payment state.",
+        ),
+      },
+      {
+        path: "total-loss/cases/:caseId/claim/processing",
+        element: <TotalLossClaimWorkflowPage view="processing" />,
+        handle: metadata(
+          "Preparing Your Valuation Package | Venfour",
+          "Follow the customer-safe preparation status for a total-loss valuation evidence package.",
+        ),
+      },
+      {
+        path: "total-loss/cases/:caseId/claim/guide/result",
+        element: <TotalLossClaimWorkflowPage view="result" />,
+        handle: metadata(
+          "Completed Valuation Result | Venfour",
+          "Understand what the completed total-loss evidence supports and the important limitations.",
+        ),
+      },
+      {
+        path: "total-loss/cases/:caseId/claim/guide/insurer-review",
+        element: <TotalLossClaimWorkflowPage view="insurer_review" />,
+        handle: metadata(
+          "Insurer Evidence Review | Venfour",
+          "Understand how insurer evidence and additional market evidence informed the completed review.",
+        ),
+      },
+      {
+        path: "total-loss/cases/:caseId/claim/guide/valuation",
+        element: <TotalLossClaimWorkflowPage view="valuation" />,
+        handle: metadata(
+          "Valuation Evidence | Venfour",
+          "Review the supported range, market context, assumptions, and limitations.",
+        ),
+      },
+      {
+        path: "total-loss/cases/:caseId/claim/guide/report",
+        element: <TotalLossClaimWorkflowPage view="report" />,
+        handle: metadata(
+          "Valuation Evidence Package | Venfour",
+          "Open or download the published Venfour total-loss valuation evidence package.",
+        ),
+      },
+      {
+        path: "total-loss/cases/:caseId/claim/guide/what-next",
+        element: <TotalLossClaimWorkflowPage view="what_next" />,
+        handle: metadata(
+          "What May Happen Next | Venfour",
+          "Review possible insurer responses before preparing a valuation reconsideration request.",
+        ),
+      },
+      {
+        path: "total-loss/cases/:caseId/claim/guide/send",
+        element: <TotalLossClaimWorkflowPage view="send" />,
+        handle: metadata(
+          "Prepare Your Reconsideration Request | Venfour",
+          "Review, copy, and open a deterministic valuation reconsideration email request.",
         ),
       },
       {
