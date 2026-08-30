@@ -33,6 +33,7 @@ export function CheckoutScreen({
   caseId,
   claim,
   onRefresh,
+  onVerificationPendingChange,
   userId,
 }: {
   readonly accessToken: string;
@@ -40,6 +41,7 @@ export function CheckoutScreen({
   readonly caseId: string;
   readonly claim: TotalLossClaimSecured | TotalLossClaimSecureRequired;
   readonly onRefresh: () => Promise<unknown>;
+  readonly onVerificationPendingChange?: (pending: boolean) => void;
   readonly userId: string;
 }) {
   const [searchParameters, setSearchParameters] = useSearchParams();
@@ -78,7 +80,7 @@ export function CheckoutScreen({
                   <p className="flex flex-wrap items-center gap-x-3 gap-y-2 text-sm font-semibold text-ink"><span className="break-all">{claim.contactEmail ? maskedClaimEmail(claim.contactEmail) : "Your saved email"}</span><span className="inline-flex items-center gap-1.5 text-market-strong"><CheckCircle2 className="size-4" aria-hidden />Verified</span></p>
                   <p className="mt-2 text-sm leading-6 text-copy">Your claim is securely saved to your account.</p>
                 </div>
-              ) : <SecureClaimPanel accessToken={accessToken} claim={claim} onAccessStateChanged={onRefresh} userId={userId} />}
+              ) : <SecureClaimPanel accessToken={accessToken} claim={claim} onAccessStateChanged={onRefresh} onVerificationPendingChange={onVerificationPendingChange} userId={userId} />}
             </div>
           </section>
           <section aria-labelledby="payment-heading" className="mt-8 border-t border-line pt-8">

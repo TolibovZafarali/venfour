@@ -39,10 +39,12 @@ additional_redirect_urls = [
   "http://localhost:5173/auth/callback/case-claim/*",
   "http://localhost:5173/auth/callback/preview/*/*",
   "http://localhost:5173/auth/callback/preview-ready/*/*",
+  "http://localhost:5173/total-loss/cases/*/claim/checkout",
   "http://127.0.0.1:5173/auth/callback",
   "http://127.0.0.1:5173/auth/callback/case-claim/*",
   "http://127.0.0.1:5173/auth/callback/preview/*/*",
   "http://127.0.0.1:5173/auth/callback/preview-ready/*/*",
+  "http://127.0.0.1:5173/total-loss/cases/*/claim/checkout",
   "https://staging.venfour.com/auth/callback",
   "https://staging.venfour.com/auth/callback/case-claim/*",
   "https://staging.venfour.com/auth/callback/preview/*/*",
@@ -75,14 +77,15 @@ enable_signup = true
 double_confirm_changes = true
 enable_confirmations = true
 max_frequency = "60s"
+otp_length = 6
 otp_expiry = 3600
 
 [auth.email.template.confirmation]
-subject = '{{ $p := print .SiteURL "/auth/callback/preview-ready/" }}{{ if and (ge (len .RedirectTo) (len $p)) (eq (slice .RedirectTo 0 (len $p)) $p) }}Your Venfour valuation preview is ready{{ else }}Continue your Venfour appraisal{{ end }}'
+subject = '{{ $c := print .SiteURL "/total-loss/cases/" }}{{ $l := "http://127.0.0.1:5173/total-loss/cases/" }}{{ $p := print .SiteURL "/auth/callback/preview-ready/" }}{{ if or (and (ge (len .RedirectTo) (len $c)) (eq (slice .RedirectTo 0 (len $c)) $c)) (and (eq .SiteURL "http://localhost:5173") (ge (len .RedirectTo) (len $l)) (eq (slice .RedirectTo 0 (len $l)) $l)) }}Your Venfour verification code{{ else if and (ge (len .RedirectTo) (len $p)) (eq (slice .RedirectTo 0 (len $p)) $p) }}Your Venfour valuation preview is ready{{ else }}Continue your Venfour appraisal{{ end }}'
 content_path = "./supabase/templates/confirmation.html"
 
 [auth.email.template.magic_link]
-subject = '{{ $p := print .SiteURL "/auth/callback/preview-ready/" }}{{ if and (ge (len .RedirectTo) (len $p)) (eq (slice .RedirectTo 0 (len $p)) $p) }}Your Venfour valuation preview is ready{{ else }}Continue your Venfour appraisal{{ end }}'
+subject = '{{ $c := print .SiteURL "/total-loss/cases/" }}{{ $l := "http://127.0.0.1:5173/total-loss/cases/" }}{{ $p := print .SiteURL "/auth/callback/preview-ready/" }}{{ if or (and (ge (len .RedirectTo) (len $c)) (eq (slice .RedirectTo 0 (len $c)) $c)) (and (eq .SiteURL "http://localhost:5173") (ge (len .RedirectTo) (len $l)) (eq (slice .RedirectTo 0 (len $l)) $l)) }}Your Venfour verification code{{ else if and (ge (len .RedirectTo) (len $p)) (eq (slice .RedirectTo 0 (len $p)) $p) }}Your Venfour valuation preview is ready{{ else }}Continue your Venfour appraisal{{ end }}'
 content_path = "./supabase/templates/magic-link.html"
 
 [auth.external.google]

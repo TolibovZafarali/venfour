@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link, Navigate, useParams, useSearchParams } from "react-router";
 
 import { Button } from "@/components/ui/button";
@@ -281,7 +282,17 @@ function AuthenticatedWorkflowPage({
   readonly userId: string;
   readonly view: TotalLossClaimWorkflowView;
 }) {
-  const claimQuery = useTotalLossClaimQuery({ accessToken, caseId, userId });
+  const [verificationPending, setVerificationPending] = useState(false);
+  const suspendRefetch = identity === "anonymous" && view === "checkout" && verificationPending;
+  const claimQuery = useTotalLossClaimQuery({ accessToken, caseId, suspendRefetch, userId });
+
+  if (
+    claimQuery.data?.state === "secure_required" &&
+    identity === "anonymous" && view === "checkout" &&
+    (!claimQuery.isError || suspendRefetch)
+  ) {
+    return <CheckoutScreen accessToken={accessToken} canceled={false} caseId={caseId} claim={claimQuery.data} onRefresh={claimQuery.refetch} onVerificationPendingChange={setVerificationPending} userId={userId} />;
+  }
 
   if (claimQuery.isPending) {
     return (
@@ -307,9 +318,6 @@ function AuthenticatedWorkflowPage({
         </Button>
       </ClaimStateCard>
     );
-  }
-  if (claimQuery.data.state === "secure_required" && identity === "anonymous" && view === "checkout") {
-    return <CheckoutScreen accessToken={accessToken} canceled={false} caseId={caseId} claim={claimQuery.data} onRefresh={claimQuery.refetch} userId={userId} />;
   }
   if (claimQuery.data.state !== "secured" || identity !== "permanent") {
     return <Navigate replace to={totalLossClaimBasePath(caseId)} />;

@@ -37,13 +37,24 @@ summary, server-provided price, refund policy, and settlement disclaimer.
 
 1. Open `http://localhost:5173/_local/claims` and select **Start a new anonymous session**.
 2. Select **Create supportable case**, then **Continue my review**.
-3. Expect the combined purchase page with the masked saved email, **Send verification link**,
+3. Expect the combined purchase page with the masked saved email, **Send verification code**,
    and a locked payment section. There is no email-entry form and no payable client secret.
-4. Select **Send verification link**. The purchase page stays visible with **Check your email**
-   and **Resend link**. Resending uses the existing server throttle.
+4. Select **Send verification code**. The purchase page stays visible with the inline
+   six-digit code field and **Verify**. A resend countdown is shown; **Resend code**
+   appears only when the cooldown ends and remains subject to Supabase Auth's throttle.
 5. Open `http://127.0.0.1:54324` and open the newest message for the synthetic
-   `local-claim-CASE_PREFIX@example.test` address. **Continue securely** completes
-   the existing ownership transfer and returns directly to the same checkout URL.
+   `local-claim-CASE_PREFIX@example.test` address. The subject is **Your Venfour
+   verification code** and the body displays the code as `123-456`, without a
+   magic-link button. Read the code, then type or paste it into the purchase page;
+   raw digits, a dash, or a space are accepted and formatted as `123-456`.
+6. Select **Verify**. Successful verification completes the existing case-bound
+   ownership transfer and shows the masked email as verified on the same checkout
+   URL. There is no `/auth/callback` or `/appraisals` navigation. Payment becomes
+   available subject to the existing sandbox configuration.
+
+See [local purchase-page email verification](local-claim-email-otp.md) for template
+selection, rate limits, six-digit formatting, and the separately authorized hosted
+configuration checklist. Local Auth email goes to Mailpit, not an external inbox.
 
 ### B. Lost-session recovery
 
@@ -65,14 +76,18 @@ to scenario A. An inaccessible old anonymous case requires email recovery.
 
 1. Complete scenario A's verification and remain signed in.
 2. Reload or reopen `/total-loss/cases/CASE_ID/claim/checkout`.
-3. Expect the masked saved email with **Verified**, no email-entry field, and
-   payment initialization if Stripe sandbox configuration is available.
+3. Expect the masked saved email marked **verified** immediately, no code request
+   or email-entry field, and payment initialization if Stripe sandbox configuration
+   is available. A verified permanent owner whose email matches the saved contact
+   email does not receive another code.
 4. Alternatively create another fixture while signed in; its contact email uses
    the permanent account's email, so Continue skips verification.
 
-Post-Continue links return to checkout. Existing intake-purpose links retain
-their prior `/appraisals` behavior. Replay, expiry, exact email, current source,
-and paid ownership-transfer protections remain in force.
+Normal post-Continue verification now stays inline on checkout. Previously issued
+post-Continue links and the separate recovery flow still support the legacy
+callback and return to checkout. Existing intake-purpose links retain their prior
+`/appraisals` behavior. Replay, expiry, exact email, current source, and paid
+ownership-transfer protections remain in force.
 
 ## Payment and package processing
 

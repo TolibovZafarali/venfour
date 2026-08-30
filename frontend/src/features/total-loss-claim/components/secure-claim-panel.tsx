@@ -2,7 +2,9 @@ import { LoaderCircle, MailCheck } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { environment } from "@/config/env";
 import { useAuth } from "@/features/auth";
+import { EmailOtpClaimPanel } from "@/features/total-loss-claim/components/email-otp-claim-panel";
 import type { TotalLossClaimSecureRequired } from "@/features/total-loss-claim/contracts";
 import { useRenewTotalLossClaimAccessLinkMutation } from "@/features/total-loss-claim/queries";
 import { maskedClaimEmail } from "@/features/total-loss-claim/claim-email";
@@ -12,6 +14,7 @@ interface SecureClaimPanelProps {
   readonly accessToken: string;
   readonly claim: TotalLossClaimSecureRequired;
   readonly onAccessStateChanged: () => Promise<unknown>;
+  readonly onVerificationPendingChange?: (pending: boolean) => void;
   readonly userId: string;
 }
 
@@ -27,7 +30,15 @@ function deliveryErrorMessage(error: unknown) {
   return "We couldn’t send the secure link. Please try again.";
 }
 
-export function SecureClaimPanel({
+export function SecureClaimPanel(props: SecureClaimPanelProps) {
+  return environment.localPostContinueEnabled ? (
+    <EmailOtpClaimPanel {...props} />
+  ) : (
+    <MagicLinkClaimPanel {...props} />
+  );
+}
+
+function MagicLinkClaimPanel({
   accessToken,
   claim,
   onAccessStateChanged,

@@ -51,7 +51,7 @@ export function LocalClaimTestingPage() {
       <h2 className="text-lg font-semibold">Choose the journey to review</h2>
       <p><strong>A. Recognized anonymous owner:</strong> start a new anonymous session below, create a case, then select Continue my review. Your saved email and locked payment appear together.</p>
       <p><strong>B. Lost session:</strong> copy the case ID first, start a new anonymous session, then reopen that case below. Only the neutral recovery form should appear.</p>
-      <p><strong>C. Verified owner:</strong> use the verification link from the local inbox. It returns to the same purchase page. Reload or reopen it to confirm the verified state persists.</p>
+      <p><strong>C. Verified owner:</strong> read the verification code in the local inbox and enter it on the purchase page. Select Verify, then reload or reopen the same page to confirm the verified state persists.</p>
       <Button variant="outline" disabled={pending} onClick={() => void startAnonymousSession()}>Start a new anonymous session</Button>
       <p className="text-sm text-muted-foreground">This signs out the current local test account, including its other local sessions. It does not delete cases or payments. An old anonymous case will need its email recovery link.</p>
       <div className="flex flex-wrap items-end gap-3">
