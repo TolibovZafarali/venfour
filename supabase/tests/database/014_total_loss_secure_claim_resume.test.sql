@@ -3,7 +3,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
 
-select plan(47);
+select plan(51);
 
 select is(
   (
@@ -767,6 +767,39 @@ select is(
   'another anonymous user receives owner-safe absence'
 );
 
+select is(
+  (
+    select count(*)
+    from public.renew_total_loss_case_claim(
+      'c2000000-0000-4000-8000-000000000001'
+    )
+  ),
+  0::bigint,
+  'a lost-session visitor cannot retrieve the saved email or verification capability'
+);
+
+set local request.jwt.claim.sub = 'c1000000-0000-4000-8000-000000000004';
+
+select results_eq(
+  $$
+    select
+      (
+        select count(*)
+        from public.resolve_total_loss_case_claim(
+          'c2000000-0000-4000-8000-000000000001'
+        )
+      ),
+      (
+        select count(*)
+        from public.renew_total_loss_case_claim(
+          'c2000000-0000-4000-8000-000000000001'
+        )
+      )
+  $$,
+  $$values (0::bigint, 0::bigint)$$,
+  'a wrong permanent account cannot discover the saved email or request its access link'
+);
+
 set local request.jwt.claim.sub = 'c1000000-0000-4000-8000-000000000001';
 
 select results_eq(
@@ -856,26 +889,26 @@ select results_eq(
 
 set local request.jwt.claim.sub = 'c1000000-0000-4000-8000-000000000006';
 
-select is(
-  (
-    select state
+select results_eq(
+  $$
+    select state, contact_email
     from public.resolve_total_loss_case_claim(
       'c2000000-0000-4000-8000-000000000005'
     )
-  ),
-  'account_mismatch'::text,
-  'a permanent owner with a mismatched verified Auth email receives bounded mismatch state'
+  $$,
+  $$values ('account_mismatch'::text, null::text)$$,
+  'a permanent owner with a mismatched verified Auth email receives no saved email'
 );
 
 select results_eq(
   $$
-    select state, claim_id is null
+    select state, contact_email, claim_id is null
     from public.renew_total_loss_case_claim(
       'c2000000-0000-4000-8000-000000000005'
     )
   $$,
-  $$values ('account_mismatch'::text, true)$$,
-  'a mismatched permanent owner cannot mint a replacement transfer claim'
+  $$values ('account_mismatch'::text, null::text, true)$$,
+  'a mismatched permanent owner cannot retrieve the saved email or mint a replacement transfer claim'
 );
 
 set local request.jwt.claim.sub = 'c1000000-0000-4000-8000-000000000001';
@@ -1088,6 +1121,41 @@ select results_eq(
   $$,
   $$values ('already_claimed'::text, false, 'post_continue'::text)$$,
   'an exact completed-link replay is idempotent and retains trusted purpose'
+);
+
+set local request.jwt.claim.sub = 'c1000000-0000-4000-8000-000000000004';
+
+select throws_ok(
+  $$
+    select public.complete_total_loss_case_claim_with_context(
+      current_setting('test.post_continue_claim_id')::uuid
+    )
+  $$,
+  '42501',
+  'The Total-Loss case claim is unavailable.',
+  'a completed verification capability cannot be replayed by another permanent account'
+);
+
+set local request.jwt.claim.sub = 'c1000000-0000-4000-8000-000000000001';
+
+select results_eq(
+  $$
+    select
+      (
+        select count(*)
+        from public.resolve_total_loss_case_claim(
+          'c2000000-0000-4000-8000-000000000001'
+        )
+      ),
+      (
+        select count(*)
+        from public.renew_total_loss_case_claim(
+          'c2000000-0000-4000-8000-000000000001'
+        )
+      )
+  $$,
+  $$values (0::bigint, 0::bigint)$$,
+  'the former anonymous session loses email and verification-link access after ownership transfer'
 );
 
 reset role;

@@ -2,7 +2,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ConfigEnv } from "vite";
 
 import { createViteConfiguration } from "./vite.config";
@@ -46,6 +46,32 @@ async function withLocalTurnstileKey(
 }
 
 describe("createViteConfiguration", () => {
+  afterEach(() => vi.unstubAllEnvs());
+
+  it("limits Stripe CSP origins and nonce support to the local purchase server", async () => {
+    vi.stubEnv("VITE_ENABLE_POST_CONTINUE_FLOW", "true");
+    await withLocalTurnstileKey("", (environmentDirectory) => {
+      const config = createViteConfiguration({
+        ...BUILD_ENVIRONMENT, command: "serve", mode: "development",
+      }, environmentDirectory);
+      const policy = config.server?.headers?.["Content-Security-Policy"];
+      expect(policy).toContain("https://js.stripe.com https://*.js.stripe.com");
+      expect(policy).toContain("https://hooks.stripe.com");
+      expect(policy).toContain("https://api.stripe.com");
+      expect(policy).not.toContain("https://*.stripe.com");
+      expect(policy).not.toContain("unsafe-eval");
+      expect(policy).toContain(`'nonce-${config.html?.cspNonce}'`);
+      const build = createViteConfiguration(BUILD_ENVIRONMENT, environmentDirectory);
+      expect(build.server?.headers).toBeUndefined();
+      expect(build.html).toBeUndefined();
+      vi.stubEnv("VITE_ENABLE_POST_CONTINUE_FLOW", "false");
+      const normal = createViteConfiguration({
+        ...BUILD_ENVIRONMENT, command: "serve", mode: "development",
+      }, environmentDirectory);
+      expect(normal.server?.headers).toBeUndefined();
+    });
+  });
+
   it("allows an empty Turnstile key in a production build", async () => {
     await withLocalTurnstileKey("", (environmentDirectory) => {
       expect(() =>

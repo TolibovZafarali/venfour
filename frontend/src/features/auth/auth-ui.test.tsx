@@ -662,7 +662,7 @@ describe("auth callback", () => {
     expect(service.restoreSession).not.toHaveBeenCalled();
   });
 
-  test("routes a completed post-Continue claim to its trusted claim route", async () => {
+  test("returns a completed post-Continue claim directly to its trusted checkout", async () => {
     const guestSession = anonymousSessionFor("existing-guest");
     const permanentSession = sessionFor("claim-owner");
     const trustedCaseId = "77777777-7777-4777-8777-777777777777";
@@ -688,8 +688,8 @@ describe("auth callback", () => {
       [
         { path: "/auth/callback/*", element: <AuthCallbackPage /> },
         {
-          path: "/total-loss/cases/:caseId/claim",
-          element: <h1>Claim access</h1>,
+          path: "/total-loss/cases/:caseId/claim/checkout",
+          element: <h1>Complete your valuation review</h1>,
         },
       ],
       {
@@ -710,10 +710,10 @@ describe("auth callback", () => {
     );
 
     expect(
-      await screen.findByRole("heading", { name: "Claim access" }),
+      await screen.findByRole("heading", { name: "Complete your valuation review" }),
     ).toBeVisible();
     expect(router.state.location.pathname).toBe(
-      `/total-loss/cases/${trustedCaseId}/claim`,
+      `/total-loss/cases/${trustedCaseId}/claim/checkout`,
     );
     expect(service.verifyEmailOtp).toHaveBeenCalledWith("claim-token");
     expect(completeIdentityClaim).toHaveBeenCalledWith(CASE_CLAIM_ID);
@@ -743,8 +743,8 @@ describe("auth callback", () => {
       [
         { path: "/auth/callback/*", element: <AuthCallbackPage /> },
         {
-          path: "/total-loss/cases/:caseId/claim",
-          element: <h1>Claim access</h1>,
+          path: "/total-loss/cases/:caseId/claim/checkout",
+          element: <h1>Complete your valuation review</h1>,
         },
       ],
       {
@@ -763,10 +763,10 @@ describe("auth callback", () => {
     );
 
     expect(
-      await screen.findByRole("heading", { name: "Claim access" }),
+      await screen.findByRole("heading", { name: "Complete your valuation review" }),
     ).toBeVisible();
     expect(router.state.location.pathname).toBe(
-      `/total-loss/cases/${trustedCaseId}/claim`,
+      `/total-loss/cases/${trustedCaseId}/claim/checkout`,
     );
     expect(completeIdentityClaim).toHaveBeenCalledOnce();
     expect(service.exchangeCodeForSession).not.toHaveBeenCalled();

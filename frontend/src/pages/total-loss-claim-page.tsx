@@ -8,7 +8,6 @@ import {
 } from "@/features/auth";
 import { ClaimRecoveryForm } from "@/features/total-loss-claim/components/claim-recovery-form";
 import { ClaimStateCard } from "@/features/total-loss-claim/components/claim-state-card";
-import { SecureClaimPanel } from "@/features/total-loss-claim/components/secure-claim-panel";
 import { useTotalLossClaimQuery } from "@/features/total-loss-claim/queries";
 import {
   authoritativeTotalLossClaimPath,
@@ -94,19 +93,7 @@ function AuthenticatedClaimPage({
         </ClaimStateCard>
       );
     }
-    return (
-      <ClaimStateCard
-        heading="Secure and save your claim"
-        description="Verify the email already saved with this claim so you can return from another browser or device."
-      >
-        <SecureClaimPanel
-          accessToken={accessToken}
-          claim={claim}
-          onAccessStateChanged={claimQuery.refetch}
-          userId={userId}
-        />
-      </ClaimStateCard>
-    );
+    return <Navigate replace to={totalLossClaimViewPath(caseId, "checkout")} />;
   }
 
   if (claim.state === "secured") {

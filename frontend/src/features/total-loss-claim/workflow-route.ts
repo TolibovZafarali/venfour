@@ -55,7 +55,7 @@ export function routeForJourneyState(
     case "checkout":
       return totalLossClaimViewPath(caseId, "checkout");
     case "checkout_confirmation":
-      return totalLossClaimViewPath(caseId, "checkout_return");
+      return totalLossClaimViewPath(caseId, "checkout");
     case "processing":
     case "needs_attention":
       return totalLossClaimViewPath(caseId, "processing");
@@ -109,6 +109,7 @@ function legacyJourneyState(
 export function authoritativeTotalLossClaimPath(
   claim: TotalLossClaimResolver,
 ): string | null {
+  if (claim.state === "secure_required") return totalLossClaimViewPath(claim.caseId, "checkout");
   const state = claim.journey?.nextState ?? legacyJourneyState(claim);
   return state ? routeForJourneyState(claim.caseId, state) : null;
 }

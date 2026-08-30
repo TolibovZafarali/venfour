@@ -2,6 +2,7 @@ import { http, HttpResponse } from "msw";
 import { describe, expect, it } from "vitest";
 
 import {
+  createTotalLossCheckout,
   getTotalLossCheckoutQuote,
   getTotalLossClaim,
   initializeTotalLossClaim,
@@ -15,6 +16,20 @@ const OTHER_CASE_ID = "55555555-5555-4555-8555-555555555555";
 const CLAIM_ID = "44444444-4444-4444-8444-444444444444";
 
 describe("total-loss claim API", () => {
+  it.each([
+    { state: "payment_pending" },
+    { checkoutSessionId: "cs_test_different_case" },
+    { publishableKey: "pk_live_" + "fixture" },
+    { uiMode: "hosted" },
+  ])("rejects unsafe Payment Element initialization %o", async (override) => {
+    server.use(http.post("*/api/v1/appraisal-cases/:caseId/checkout-sessions", () => HttpResponse.json({
+      state: "checkout_ready", checkoutStatus: "open", checkoutUrl: null,
+      checkoutSessionId: "cs_test_owned_session", clientSecret: "cs_test_owned_session" + "_secret_fixture",
+      publishableKey: "pk_test_" + "fixture", uiMode: "elements", entitlementStatus: null, orderStatus: "pending", ...override,
+    })));
+    await expect(createTotalLossCheckout(CASE_ID, "owner-token", "request-id")).rejects.toThrow("invalid payment initialization");
+  });
+
   it("does not issue an initialization request when the flag is off", async () => {
     let requests = 0;
     server.use(http.post("*/api/v1/appraisal-cases/:caseId/post-continue", () => {

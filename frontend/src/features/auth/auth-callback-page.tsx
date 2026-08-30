@@ -240,7 +240,7 @@ function completedAuthReturnLocation(
     throw new Error("The secure case-access link could not be completed.");
   }
   return completedClaim.claimPurpose === "post_continue"
-    ? `/total-loss/cases/${encodeURIComponent(completedClaim.caseId)}/claim`
+    ? `/total-loss/cases/${encodeURIComponent(completedClaim.caseId)}/claim/checkout`
     : "/appraisals";
 }
 

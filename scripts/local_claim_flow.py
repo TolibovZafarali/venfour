@@ -49,7 +49,8 @@ def require_local(environment=None):
             parsed = urlsplit(env[key])
             if parsed.scheme != "http" or parsed.hostname not in LOOPBACK or parsed.username:
                 raise RuntimeError("Local testing requires loopback HTTP services.")
-    if env.get("STRIPE_SECRET_KEY", "").startswith("sk_live_"):
+    if (env.get("STRIPE_SECRET_KEY", "").startswith(("sk_live_", "rk_live_"))
+        or env.get("STRIPE_PUBLISHABLE_KEY", "").startswith("pk_live_")):
         raise RuntimeError("Live payment credentials are forbidden in local testing.")
 
 
@@ -231,6 +232,7 @@ class LocalPriceProvider:
     verify_webhook = unavailable
     create_checkout_session = unavailable
     retrieve_checkout_session = unavailable
+    expire_checkout_session = unavailable
     retrieve_payment_intent = unavailable
     create_refund = unavailable
     retrieve_refund = unavailable

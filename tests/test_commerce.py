@@ -85,6 +85,8 @@ AMOUNT = 9900
 CURRENCY = "USD"
 NOW = 1_800_000_000
 SECRET_KEY = "sk" + "_test_123456789012345678901234"
+PUBLISHABLE_KEY = "pk" + "_test_123456789012345678901234"
+CLIENT_SECRET = SESSION_ID + "_secret_checkout_contract_test"
 WEBHOOK_SECRET = "whsec" + "_123456789012345678901234"
 STAGING_PROXY_SECRET = "staging-proxy-test-secret-value-1234567890"
 
@@ -99,6 +101,7 @@ def configuration(**overrides: Any) -> StripeCommerceConfiguration:
         "terms_version": "2026-08-26",
         "refund_policy_version": "2026-08-26",
         "public_app_origin": "https://app.venfour.example",
+        "publishable_key": PUBLISHABLE_KEY,
     }
     values.update(overrides)
     return StripeCommerceConfiguration(**values)
@@ -122,7 +125,9 @@ def stripe_price(**overrides: Any) -> StripePrice:
 def checkout_session(**overrides: Any) -> StripeCheckoutSession:
     values = {
         "id": SESSION_ID,
-        "url": "https://checkout.stripe.com/c/pay/test-session",
+        "url": None,
+        "ui_mode": "elements",
+        "client_secret": CLIENT_SECRET,
         "status": "open",
         "payment_status": "unpaid",
         "mode": "payment",
@@ -142,6 +147,8 @@ def checkout_session(**overrides: Any) -> StripeCheckoutSession:
         "line_item_quantity": 1,
     }
     values.update(overrides)
+    if "id" in overrides and "client_secret" not in overrides:
+        values["client_secret"] = str(overrides["id"]) + "_secret_checkout_contract_test"
     return StripeCheckoutSession(**values)
 
 
@@ -291,6 +298,7 @@ class RecordingProvider:
         self.price = stripe_price()
         self.session = checkout_session()
         self.created_session: StripeCheckoutSession | None = None
+        self.expired_session: StripeCheckoutSession | None = None
         self.created_sessions: list[StripeCheckoutSession] = []
         self.payment = payment_intent()
         self.refund = stripe_refund()
@@ -330,6 +338,12 @@ class RecordingProvider:
     def retrieve_checkout_session(self, session_id: str) -> StripeCheckoutSession:
         self.calls.append(("retrieve_checkout_session", session_id))
         return self.session
+
+    def expire_checkout_session(
+        self, session_id: str, *, idempotency_key: str
+    ) -> StripeCheckoutSession:
+        self.calls.append(("expire_checkout_session", (session_id, idempotency_key)))
+        return self.expired_session or checkout_session(status="expired", client_secret=None)
 
     def retrieve_payment_intent(self, payment_intent_id: str) -> StripePaymentIntent:
         self.calls.append(("retrieve_payment_intent", payment_intent_id))
@@ -471,12 +485,19 @@ class RecordingDatabase:
             "entitlement_status": "suspended",
         }
         self.authenticate_error: Exception | None = None
+        self.claim_resume_row: Mapping[str, Any] | None = None
 
     def authenticate(self, access_token: str) -> str:
         self.calls.append(("authenticate", access_token))
         if self.authenticate_error is not None:
             raise self.authenticate_error
         return USER_ID
+
+    def resolve_total_loss_case_claim(
+        self, case_id: str, access_token: str
+    ) -> Mapping[str, Any] | None:
+        self.calls.append(("resolve_total_loss_case_claim", (case_id, access_token)))
+        return self.claim_resume_row
 
     def reserve_total_loss_checkout(self, *args: Any) -> Mapping[str, Any] | None:
         self.calls.append(("reserve_total_loss_checkout", args))
@@ -580,13 +601,17 @@ def service(
 class CommerceConfigurationTests(unittest.TestCase):
     def test_configuration_is_server_owned_and_mode_is_derived_from_key(self) -> None:
         test = configuration(public_app_origin="http://localhost:5173/")
-        live = configuration(secret_key="sk" + "_live_123456789012345678901234")
+        live = configuration(
+            secret_key="sk" + "_live_123456789012345678901234",
+            publishable_key="pk" + "_live_123456789012345678901234",
+        )
 
         self.assertFalse(test.livemode)
         self.assertEqual(test.public_app_origin, "http://localhost:5173")
         self.assertTrue(live.livemode)
         self.assertNotIn(SECRET_KEY, repr(test))
         self.assertNotIn(WEBHOOK_SECRET, repr(test))
+        self.assertNotIn(PUBLISHABLE_KEY, repr(test))
 
     def test_configuration_requires_exact_supported_key_and_identifier_shapes(self) -> None:
         for overrides in (
@@ -597,6 +622,8 @@ class CommerceConfigurationTests(unittest.TestCase):
             {"product_identifier": "Total Loss"},
             {"product_version": "bad version"},
             {"public_app_origin": "https://app.venfour.example/path"},
+            {"publishable_key": SECRET_KEY},
+            {"publishable_key": "pk" + "_live_123456789012345678901234"},
         ):
             with self.subTest(overrides=tuple(overrides)), self.assertRaises(ValueError):
                 configuration(**overrides)
@@ -624,6 +651,108 @@ class CommerceConfigurationTests(unittest.TestCase):
 
 
 class CommerceCheckoutServiceTests(unittest.TestCase):
+    def test_recognized_anonymous_owner_can_read_price_but_cannot_initialize_payment(self) -> None:
+        database = RecordingDatabase()
+        database.preflight_row = None
+        database.claim_resume_row = {
+            "state": "secure_required",
+            "case_id": CASE_ID,
+            "contact_email": EMAIL,
+            "workflow_phase": "review",
+            "workflow_current_task": "secure_claim",
+            "commerce_order_status": None,
+            "entitlement_status": None,
+        }
+        commerce, database, provider = service(database)
+
+        quote = commerce.quote(CASE_ID, ACCESS_TOKEN)
+        self.assertEqual(
+            quote.to_dict(),
+            {"availability": "available", "amountMinorUnits": AMOUNT, "currency": CURRENCY},
+        )
+        self.assertEqual(provider.calls, [("retrieve_price", PRICE_ID)])
+        provider.calls.clear()
+        with self.assertRaises(CommerceNotFoundError):
+            commerce.create_checkout(CASE_ID, ACCESS_TOKEN, CLIENT_REQUEST_ID)
+        self.assertEqual(provider.calls, [])
+        self.assertFalse(any(name == "reserve_total_loss_checkout" for name, _ in database.calls))
+
+    def test_unrecognized_wrong_account_and_stale_claims_cannot_read_quote(self) -> None:
+        for claim in (
+            None,
+            {"state": "account_mismatch", "contact_email": EMAIL},
+            {"state": "secured", "contact_email": EMAIL},
+            {
+                "state": "secure_required",
+                "case_id": CASE_ID,
+                "contact_email": EMAIL,
+                "workflow_phase": "review",
+                "workflow_current_task": "preliminary_result",
+            },
+        ):
+            with self.subTest(state=claim and claim.get("state")):
+                database = RecordingDatabase()
+                database.preflight_row = None
+                database.claim_resume_row = claim
+                commerce, database, provider = service(database)
+                with self.assertRaises(CommerceNotFoundError):
+                    commerce.quote(CASE_ID, ACCESS_TOKEN)
+                self.assertEqual(provider.calls, [])
+
+    def test_missing_publishable_configuration_fails_before_payment_state_or_stripe(self) -> None:
+        database = RecordingDatabase()
+        provider = RecordingProvider()
+        commerce = TotalLossCommerceService(database, provider, configuration(publishable_key=None))
+        with self.assertRaises(CommerceUnavailableError):
+            commerce.create_checkout(CASE_ID, ACCESS_TOKEN, CLIENT_REQUEST_ID)
+        self.assertEqual(provider.calls, [])
+        self.assertFalse(any(name == "reserve_total_loss_checkout" for name, _ in database.calls))
+
+    def test_session_secret_is_not_logged_and_must_match_authorized_session(self) -> None:
+        self.assertNotIn(CLIENT_SECRET, repr(checkout_session()))
+        for client_secret in (None, SESSION_ID_2 + "_secret_other", CLIENT_SECRET + "\n"):
+            with self.subTest(secret_present=client_secret is not None):
+                provider = RecordingProvider()
+                provider.session = checkout_session(client_secret=client_secret)
+                commerce, database, _ = service(provider=provider)
+                with self.assertRaises(CommerceProviderContractError):
+                    commerce.create_checkout(CASE_ID, ACCESS_TOKEN, CLIENT_REQUEST_ID)
+
+    def test_wrong_case_reservation_never_exposes_secret_or_calls_stripe_session(self) -> None:
+        database = RecordingDatabase()
+        database.reserve_row = context_row(case_id="90000000-0000-4000-8000-000000000099")
+        commerce, database, provider = service(database)
+        with self.assertRaises(SupabaseContractError):
+            commerce.create_checkout(CASE_ID, ACCESS_TOKEN, CLIENT_REQUEST_ID)
+        self.assertEqual(provider.calls, [("retrieve_price", PRICE_ID)])
+
+    def test_existing_open_elements_session_reuses_secret_after_fresh_authorization(self) -> None:
+        database = RecordingDatabase()
+        database.reserve_row = context_row(
+            state="existing", external_checkout_session_id=SESSION_ID, attempt_status="open"
+        )
+        commerce, database, provider = service(database)
+        first = commerce.create_checkout(CASE_ID, ACCESS_TOKEN, CLIENT_REQUEST_ID)
+        second = commerce.create_checkout(
+            CASE_ID, ACCESS_TOKEN, "91000000-0000-4000-8000-000000000009"
+        )
+        self.assertEqual(first.client_secret, second.client_secret)
+        self.assertEqual(first.checkout_session_id, SESSION_ID)
+        self.assertNotIn(CLIENT_SECRET, repr(first))
+        self.assertFalse(any(name == "create_checkout_session" for name, _ in provider.calls))
+        self.assertEqual(
+            len([name for name, _ in database.calls if name == "authorize_total_loss_checkout_preflight"]), 2
+        )
+
+    def test_browser_reconciliation_never_returns_payable_secret(self) -> None:
+        commerce, database, provider = service()
+        database.reconcile_row = {**database.reconcile_row, "attempt_status": "open"}
+        result = commerce.reconcile_checkout(CASE_ID, ACCESS_TOKEN, SESSION_ID)
+        self.assertIsNone(result.client_secret)
+        self.assertIsNone(result.checkout_session_id)
+        self.assertIsNone(result.publishable_key)
+        self.assertFalse(any(name == "fulfill_total_loss_checkout_payment" for name, _ in database.calls))
+
     def test_checkout_quote_validates_price_without_creating_commerce_state(self) -> None:
         commerce, database, provider = service()
 
@@ -698,7 +827,11 @@ class CommerceCheckoutServiceTests(unittest.TestCase):
             result.to_dict(),
             {
                 "state": "checkout_ready",
-                "checkoutUrl": "https://checkout.stripe.com/c/pay/test-session",
+                "checkoutUrl": None,
+                "checkoutSessionId": SESSION_ID,
+                "clientSecret": CLIENT_SECRET,
+                "publishableKey": PUBLISHABLE_KEY,
+                "uiMode": "elements",
                 "orderStatus": "pending",
                 "checkoutStatus": "open",
                 "entitlementStatus": None,
@@ -709,12 +842,8 @@ class CommerceCheckoutServiceTests(unittest.TestCase):
         self.assertEqual(create["customer_email"], EMAIL)
         self.assertEqual(create["price_id"], PRICE_ID)
         self.assertEqual(
-            create["success_url"],
-            f"https://app.venfour.example/total-loss/cases/{CASE_ID}/claim?checkout=success&session_id={{CHECKOUT_SESSION_ID}}",
-        )
-        self.assertEqual(
-            create["cancel_url"],
-            f"https://app.venfour.example/total-loss/cases/{CASE_ID}/claim?checkout=canceled",
+            create["return_url"],
+            f"https://app.venfour.example/total-loss/cases/{CASE_ID}/claim/checkout?checkout=success&session_id={{CHECKOUT_SESSION_ID}}",
         )
         self.assertTrue(any(name == "attach_total_loss_checkout_session" for name, _ in database.calls))
 
@@ -979,6 +1108,88 @@ class CommerceCheckoutServiceTests(unittest.TestCase):
             create["idempotency_key"],
             f"venfour:checkout:v1:{ATTEMPT_ID_2}",
         )
+
+    def test_legacy_hosted_session_is_expired_before_elements_reuses_logical_order(self) -> None:
+        database = RecordingDatabase()
+        database.reserve_rows = [
+            context_row(state="existing", attempt_status="open", external_checkout_session_id=SESSION_ID),
+            context_row(checkout_attempt_id=ATTEMPT_ID_2),
+        ]
+        database.attach_row = context_row(
+            state="attached", checkout_attempt_id=ATTEMPT_ID_2,
+            attempt_status="open", external_checkout_session_id=SESSION_ID_2,
+        )
+        database.reconcile_row = {**database.reconcile_row, "attempt_status": "expired"}
+        provider = RecordingProvider()
+        provider.session = checkout_session(
+            ui_mode="hosted", client_secret=None, url="https://checkout.stripe.com/c/pay/legacy"
+        )
+        provider.created_session = checkout_session(
+            id=SESSION_ID_2,
+            metadata={"venfour_order_id": ORDER_ID, "venfour_checkout_attempt_id": ATTEMPT_ID_2},
+        )
+        commerce, database, provider = service(database, provider)
+
+        result = commerce.create_checkout(CASE_ID, ACCESS_TOKEN, CLIENT_REQUEST_ID)
+
+        self.assertEqual(result.checkout_session_id, SESSION_ID_2)
+        self.assertEqual(
+            [name for name, _ in provider.calls],
+            ["retrieve_price", "retrieve_checkout_session", "expire_checkout_session", "create_checkout_session"],
+        )
+        created = next(value for name, value in provider.calls if name == "create_checkout_session")
+        self.assertEqual(created["order_id"], ORDER_ID)
+        self.assertEqual(created["checkout_attempt_id"], ATTEMPT_ID_2)
+        self.assertFalse(any(name == "fulfill_total_loss_checkout_payment" for name, _ in database.calls))
+
+    def test_legacy_hosted_payment_racing_expiry_never_creates_another_payment(self) -> None:
+        database = RecordingDatabase()
+        database.reserve_row = context_row(
+            state="existing", attempt_status="open", external_checkout_session_id=SESSION_ID
+        )
+        provider = RecordingProvider()
+        provider.session = checkout_session(ui_mode="hosted", client_secret=None)
+        provider.expired_session = checkout_session(
+            ui_mode="hosted", client_secret=None, status="complete", payment_status="paid",
+            payment_intent_id=INTENT_ID,
+        )
+        commerce, database, provider = service(database, provider)
+
+        result = commerce.create_checkout(CASE_ID, ACCESS_TOKEN, CLIENT_REQUEST_ID)
+
+        self.assertEqual(result.state, "payment_pending")
+        self.assertIsNone(result.client_secret)
+        self.assertFalse(any(name == "create_checkout_session" for name, _ in provider.calls))
+        self.assertFalse(any(name == "fulfill_total_loss_checkout_payment" for name, _ in database.calls))
+
+    def test_legacy_hosted_pre_attach_recovery_expires_before_replacement(self) -> None:
+        database = RecordingDatabase()
+        database.reserve_rows = [context_row(), context_row(checkout_attempt_id=ATTEMPT_ID_2)]
+        database.attach_row = context_row(
+            state="attached", checkout_attempt_id=ATTEMPT_ID_2,
+            attempt_status="open", external_checkout_session_id=SESSION_ID_2,
+        )
+        provider = RecordingProvider()
+        provider.created_sessions = [
+            checkout_session(ui_mode="hosted", client_secret=None),
+            checkout_session(
+                id=SESSION_ID_2,
+                metadata={"venfour_order_id": ORDER_ID, "venfour_checkout_attempt_id": ATTEMPT_ID_2},
+            ),
+        ]
+        commerce, database, provider = service(database, provider)
+
+        result = commerce.create_checkout(CASE_ID, ACCESS_TOKEN, CLIENT_REQUEST_ID)
+
+        self.assertEqual(result.checkout_session_id, SESSION_ID_2)
+        self.assertEqual(
+            [name for name, _ in provider.calls],
+            ["retrieve_price", "create_checkout_session", "expire_checkout_session", "create_checkout_session"],
+        )
+        recovery = next(value for name, value in database.calls if name == "recover_total_loss_checkout_attempt")
+        self.assertEqual(recovery[0].order_id, ORDER_ID)
+        self.assertEqual(recovery[1].status, "expired")
+        self.assertFalse(any(name == "fulfill_total_loss_checkout_payment" for name, _ in database.calls))
 
     def test_invalid_or_mutated_price_fails_before_order_reservation(self) -> None:
         for price in (
@@ -3021,6 +3232,10 @@ class StubStripeResource:
         self.calls.append(args)
         return self.value
 
+    def expire(self, *args: Any) -> Mapping[str, Any]:
+        self.calls.append(args)
+        return self.value
+
 
 class FakeStripeClient:
     def __init__(self) -> None:
@@ -3038,7 +3253,9 @@ class FakeStripeClient:
         )
         session = {
             "id": SESSION_ID,
-            "url": "https://checkout.stripe.com/c/pay/test-session",
+            "url": None,
+            "ui_mode": "elements",
+            "client_secret": CLIENT_SECRET,
             "status": "open",
             "payment_status": "unpaid",
             "mode": "payment",
@@ -3075,6 +3292,73 @@ class FakeStripeClient:
 
 
 class StripeSdkGatewayTests(unittest.TestCase):
+    def test_exact_idempotency_mismatch_recovers_legacy_parameters_with_same_key(self) -> None:
+        client = FakeStripeClient()
+        legacy = {**client.checkout.sessions.value, "ui_mode": "hosted", "client_secret": None}
+        gateway = StripeSdkGateway(configuration(), client=client)
+        with patch.object(
+            client.checkout.sessions, "create",
+            side_effect=[stripe.IdempotencyError("Request parameters differ", http_status=400), legacy],
+        ) as create:
+            session = gateway.create_checkout_session(
+                case_id=CASE_ID, order_id=ORDER_ID, checkout_attempt_id=ATTEMPT_ID,
+                price_id=PRICE_ID, customer_email=EMAIL,
+                return_url="https://app.venfour.example/complete",
+                idempotency_key=f"venfour:checkout:v1:{ATTEMPT_ID}",
+            )
+        self.assertEqual(session.ui_mode, "hosted")
+        current_params, current_options = create.call_args_list[0].args
+        legacy_params, legacy_options = create.call_args_list[1].args
+        self.assertEqual(current_options, legacy_options)
+        self.assertEqual(legacy_options, {"idempotency_key": f"venfour:checkout:v1:{ATTEMPT_ID}"})
+        self.assertEqual(
+            legacy_params,
+            {
+                **{key: value for key, value in current_params.items() if key not in {"ui_mode", "return_url"}},
+                "success_url": f"https://app.venfour.example/total-loss/cases/{CASE_ID}/claim?checkout=success&session_id={{CHECKOUT_SESSION_ID}}",
+                "cancel_url": f"https://app.venfour.example/total-loss/cases/{CASE_ID}/claim?checkout=canceled",
+            },
+        )
+
+    def test_unrelated_errors_and_key_conflicts_never_try_legacy_parameters(self) -> None:
+        for error in (
+            stripe.APIConnectionError("Offline"),
+            stripe.IdempotencyError("Key in use", http_status=409),
+            stripe.InvalidRequestError("Invalid request", "price", http_status=400),
+        ):
+            with self.subTest(error_type=type(error).__name__):
+                client = FakeStripeClient()
+                gateway = StripeSdkGateway(configuration(), client=client)
+                with patch.object(client.checkout.sessions, "create", side_effect=error) as create:
+                    with self.assertRaises(CommerceProviderError):
+                        gateway.create_checkout_session(
+                            case_id=CASE_ID, order_id=ORDER_ID, checkout_attempt_id=ATTEMPT_ID,
+                            price_id=PRICE_ID, customer_email=EMAIL,
+                            return_url="https://app.venfour.example/complete",
+                            idempotency_key=f"venfour:checkout:v1:{ATTEMPT_ID}",
+                        )
+                self.assertEqual(create.call_count, 1)
+
+    def test_expiry_error_reconciles_a_completed_session_but_never_accepts_open(self) -> None:
+        for status in ("open", "complete"):
+            with self.subTest(status=status):
+                client = FakeStripeClient()
+                client.checkout.sessions.value = {
+                    **client.checkout.sessions.value, "status": status,
+                    "line_items": {"data": [{"price": PRICE_ID, "quantity": 1}]},
+                }
+                gateway = StripeSdkGateway(configuration(), client=client)
+                with patch.object(
+                    client.checkout.sessions, "expire",
+                    side_effect=stripe.InvalidRequestError("Cannot expire", None, http_status=400),
+                ):
+                    if status == "open":
+                        with self.assertRaises(CommerceProviderError):
+                            gateway.expire_checkout_session(SESSION_ID, idempotency_key="legacy-expiry")
+                    else:
+                        result = gateway.expire_checkout_session(SESSION_ID, idempotency_key="legacy-expiry")
+                        self.assertEqual(result.status, "complete")
+
     def test_checkout_uses_card_only_minimal_metadata_and_stable_sdk_option(self) -> None:
         client = FakeStripeClient()
         gateway = StripeSdkGateway(configuration(), client=client)
@@ -3085,14 +3369,18 @@ class StripeSdkGatewayTests(unittest.TestCase):
             checkout_attempt_id=ATTEMPT_ID,
             price_id=PRICE_ID,
             customer_email=EMAIL,
-            success_url="https://app.venfour.example/success",
-            cancel_url="https://app.venfour.example/cancel",
+            return_url="https://app.venfour.example/complete",
             idempotency_key=f"venfour:checkout:v1:{ATTEMPT_ID}",
         )
 
         self.assertEqual(result.id, SESSION_ID)
         params, options = client.checkout.sessions.calls[0]
         self.assertEqual(params["mode"], "payment")
+        self.assertEqual(params["ui_mode"], "elements")
+        self.assertEqual(params["return_url"], "https://app.venfour.example/complete")
+        self.assertNotIn("success_url", params)
+        self.assertNotIn("cancel_url", params)
+        self.assertEqual(result.client_secret, CLIENT_SECRET)
         self.assertEqual(params["payment_method_types"], ["card"])
         self.assertEqual(params["adaptive_pricing"], {"enabled": False})
         self.assertEqual(params["line_items"], [{"price": PRICE_ID, "quantity": 1}])
@@ -3945,6 +4233,10 @@ class CommerceApiTests(unittest.TestCase):
             {
                 "state": "payment_pending",
                 "checkoutUrl": None,
+                "checkoutSessionId": None,
+                "clientSecret": None,
+                "publishableKey": None,
+                "uiMode": None,
                 "orderStatus": "pending",
                 "checkoutStatus": "complete",
                 "entitlementStatus": None,

@@ -990,7 +990,7 @@ function mapCheckout(value: unknown): TotalLossCheckoutProjection {
     );
   }
   let checkoutUrl: string | null = null;
-  if (value.checkoutUrl !== null) {
+  if (value.checkoutUrl != null) {
     const rawUrl = requiredString(value.checkoutUrl, "secure checkout URL");
     let url: URL;
     try {
@@ -1007,6 +1007,17 @@ function mapCheckout(value: unknown): TotalLossCheckoutProjection {
     }
     checkoutUrl = url.toString();
   }
+  const checkoutSessionId = value.checkoutSessionId == null ? null : requiredString(value.checkoutSessionId, "checkout session ID");
+  const clientSecret = value.clientSecret == null ? null : requiredString(value.clientSecret, "payment initialization");
+  const publishableKey = value.publishableKey == null ? null : requiredString(value.publishableKey, "payment configuration");
+  const uiMode = value.uiMode == null ? null : value.uiMode;
+  if (
+    (clientSecret && (!checkoutSessionId || !clientSecret.startsWith(`${checkoutSessionId}_secret_`) || !publishableKey?.startsWith("pk_test_") || uiMode !== "elements" || state !== "checkout_ready")) ||
+    (uiMode !== null && uiMode !== "elements") ||
+    (checkoutSessionId !== null && !/^cs_test_[A-Za-z0-9_]+$/u.test(checkoutSessionId))
+  ) {
+    throw new TotalLossClaimContractError("The checkout service returned invalid payment initialization.");
+  }
   const checkoutStatus = nullableStatus(
     value.checkoutStatus,
     "checkout status",
@@ -1015,6 +1026,10 @@ function mapCheckout(value: unknown): TotalLossCheckoutProjection {
   return {
     checkoutStatus: checkoutStatus as TotalLossCheckoutProjection["checkoutStatus"],
     checkoutUrl,
+    checkoutSessionId,
+    clientSecret,
+    publishableKey,
+    uiMode,
     entitlementStatus: nullableStatus(
       value.entitlementStatus,
       "checkout entitlement status",

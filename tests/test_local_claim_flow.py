@@ -20,7 +20,9 @@ class LocalClaimFlowTests(unittest.TestCase):
             {"VENFOUR_LOCAL_POST_CONTINUE":"1","SUPABASE_URL":"https://project.supabase.co"},
             {"VENFOUR_LOCAL_POST_CONTINUE":"1","VENFOUR_PUBLIC_APP_ORIGIN":"https://staging.venfour.com"},
             {"VENFOUR_LOCAL_POST_CONTINUE":"1","K_SERVICE":"backend"},
-            {"VENFOUR_LOCAL_POST_CONTINUE":"1","STRIPE_SECRET_KEY":"sk_"+"live_"+"fixture"}):
+            {"VENFOUR_LOCAL_POST_CONTINUE":"1","STRIPE_SECRET_KEY":"sk_"+"live_"+"fixture"},
+            {"VENFOUR_LOCAL_POST_CONTINUE":"1","STRIPE_SECRET_KEY":"rk_"+"live_"+"fixture"},
+            {"VENFOUR_LOCAL_POST_CONTINUE":"1","STRIPE_PUBLISHABLE_KEY":"pk_"+"live_"+"fixture"}):
             with self.subTest(environment=tuple(environment)), self.assertRaises(RuntimeError):
                 require_local(environment)
         require_local({"VENFOUR_LOCAL_POST_CONTINUE":"1","SUPABASE_URL":"http://127.0.0.1:54321"})

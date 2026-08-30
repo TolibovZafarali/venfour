@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/features/auth";
 import type { TotalLossClaimSecureRequired } from "@/features/total-loss-claim/contracts";
 import { useRenewTotalLossClaimAccessLinkMutation } from "@/features/total-loss-claim/queries";
+import { maskedClaimEmail } from "@/features/total-loss-claim/claim-email";
 import { ApiError } from "@/lib/api/client";
 
 interface SecureClaimPanelProps {
@@ -82,7 +83,7 @@ export function SecureClaimPanel({
       }
       await sendMagicLink(link.contactEmail, {
         callbackParameters: { case_claim: link.claimId },
-        returnTo: `/total-loss/cases/${encodeURIComponent(link.caseId)}/claim`,
+        returnTo: `/total-loss/cases/${encodeURIComponent(link.caseId)}/claim/checkout`,
       });
       if (mountedRef.current && !controller.signal.aborted) {
         setDelivery({ status: "sent" });
@@ -108,12 +109,12 @@ export function SecureClaimPanel({
           Claim email
         </p>
         <p className="mt-1 break-words text-base font-semibold text-ink">
-          {claim.contactEmail}
+          {maskedClaimEmail(claim.contactEmail)}
         </p>
       </div>
       <p className="mt-4 max-w-xl text-sm leading-6 text-copy">
-        Venfour will use the email already saved with this claim. Open the link
-        from that inbox to connect the claim to a permanent, recoverable account.
+        Verify your saved email to securely save your report and claim progress.
+        The link opens securely and brings you back here to complete your purchase.
       </p>
       {delivery.status === "sent" ? (
         <div
@@ -122,10 +123,10 @@ export function SecureClaimPanel({
         >
           <p className="flex items-center gap-2 text-sm font-semibold text-ink">
             <MailCheck className="size-4 text-market-strong" aria-hidden />
-            Secure link sent
+            Check your email
           </p>
           <p className="mt-1 text-sm leading-6 text-copy">
-            Check the saved email and open the newest Venfour link.
+            We sent a secure verification link to {maskedClaimEmail(claim.contactEmail)}. Open the newest link to return here.
           </p>
         </div>
       ) : null}
@@ -147,10 +148,10 @@ export function SecureClaimPanel({
           />
         ) : null}
         {delivery.status === "sending"
-          ? "Sending secure link…"
+          ? "Sending verification link…"
           : delivery.status === "sent"
-            ? "Resend secure link"
-            : "Send secure link"}
+            ? "Resend link"
+            : "Send verification link"}
       </Button>
     </div>
   );

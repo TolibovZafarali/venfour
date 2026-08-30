@@ -44,7 +44,7 @@ function securedResolver(
 describe("total-loss claim authoritative route decisions", () => {
   it.each([
     ["checkout", `/total-loss/cases/${CASE_ID}/claim/checkout`],
-    ["checkout_confirmation", `/total-loss/cases/${CASE_ID}/claim/checkout/return`],
+    ["checkout_confirmation", `/total-loss/cases/${CASE_ID}/claim/checkout`],
     ["processing", `/total-loss/cases/${CASE_ID}/claim/processing`],
     ["guide_result", `/total-loss/cases/${CASE_ID}/claim/guide/result`],
     ["guide_insurer_review", `/total-loss/cases/${CASE_ID}/claim/guide/insurer-review`],

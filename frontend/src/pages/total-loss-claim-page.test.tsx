@@ -2,7 +2,7 @@ import { http, HttpResponse } from "msw";
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type {
   AuthService,
@@ -93,10 +93,15 @@ function secureRequiredResponse() {
 }
 
 describe("total-loss claim page", () => {
+  beforeEach(() => {
+    server.use(http.get("*/api/v1/appraisal-cases/:caseId/checkout-quote", () => HttpResponse.json({ amountMinorUnits: 12900, availability: "available", currency: "USD" })));
+  });
   it("shows an authorized anonymous owner the saved email and sends a case-bound magic link", async () => {
     let resolverAuthorization: string | null = null;
     let accessLinkAuthorization: string | null = null;
+    const paymentInitialization = vi.fn();
     server.use(
+      http.post("*/api/v1/appraisal-cases/:caseId/checkout-sessions", () => { paymentInitialization(); return HttpResponse.json({}, { status: 403 }); }),
       http.get("*/api/v1/appraisal-cases/:caseId/claim", ({ request }) => {
         resolverAuthorization = request.headers.get("Authorization");
         return HttpResponse.json(secureRequiredResponse());
@@ -124,20 +129,25 @@ describe("total-loss claim page", () => {
     );
     const turnstile = createTurnstileController();
 
-    renderTestApp([CLAIM_PATH], {
+    const { router } = renderTestApp([CLAIM_PATH], {
       authService,
       authTurnstileController: turnstile.controller,
       strictMode: true,
     });
 
     expect(
-      await screen.findByRole("heading", { name: "Secure and save your claim" }),
+      await screen.findByRole("heading", { name: "Complete your valuation review" }),
     ).toBeVisible();
-    expect(screen.getByText(CONTACT_EMAIL)).toBeVisible();
+    expect(screen.getByText("ow••••@example.com")).toBeVisible();
+    expect(router.state.location.pathname).toBe(`${CLAIM_PATH}/checkout`);
+    expect(screen.queryByRole("textbox", { name: "Email used for this claim" })).not.toBeInTheDocument();
+    expect(screen.getByText("Verify your email above to continue with payment.")).toBeVisible();
+    expect(screen.getByRole("button", { name: "Complete purchase" })).toBeDisabled();
+    expect(paymentInitialization).not.toHaveBeenCalled();
 
-    await user.click(screen.getByRole("button", { name: "Send secure link" }));
+    await user.click(screen.getByRole("button", { name: "Send verification link" }));
 
-    expect(await screen.findByText("Secure link sent")).toBeVisible();
+    expect(await screen.findByText("Check your email")).toBeVisible();
     expect(resolverAuthorization).toBe(`Bearer access-${ANONYMOUS_USER_ID}`);
     expect(accessLinkAuthorization).toBe(
       `Bearer access-${ANONYMOUS_USER_ID}`,
@@ -153,7 +163,23 @@ describe("total-loss claim page", () => {
       expect.any(Function),
       undefined,
     );
-    expect(screen.getByRole("button", { name: "Resend secure link" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Resend link" })).toBeVisible();
+    expect(router.state.location.pathname).toBe(`${CLAIM_PATH}/checkout`);
+    expect(paymentInitialization).not.toHaveBeenCalled();
+  });
+
+  it.each(["signed-out", "unrecognized-anonymous", "wrong-permanent"])("keeps %s checkout recovery neutral without payment initialization", async (identity) => {
+    const paymentInitialization = vi.fn();
+    server.use(
+      http.get("*/api/v1/appraisal-cases/:caseId/claim", () => HttpResponse.json({ detail: "Not found" }, { status: 404 })),
+      http.post("*/api/v1/appraisal-cases/:caseId/checkout-sessions", () => { paymentInitialization(); return HttpResponse.json({}, { status: 403 }); }),
+    );
+    renderTestApp([`${CLAIM_PATH}/checkout`], { authService: createAuthService(identity === "signed-out" ? null : sessionFor(identity === "wrong-permanent" ? PERMANENT_USER_ID : ANONYMOUS_USER_ID, identity === "wrong-permanent" ? "permanent" : "anonymous")) });
+    expect(await screen.findByRole("textbox", { name: "Email used for this claim" })).toBeVisible();
+    expect(screen.queryByText("ow••••@example.com")).not.toBeInTheDocument();
+    expect(screen.queryByText(CONTACT_EMAIL)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Complete purchase" })).not.toBeInTheDocument();
+    expect(paymentInitialization).not.toHaveBeenCalled();
   });
 
   it("uses a fresh recovery Turnstile token and shows only the neutral accepted result while signed out", async () => {
@@ -348,6 +374,7 @@ describe("total-loss claim page", () => {
               state: "secured",
               caseId: CASE_ID,
               contactEmail: CONTACT_EMAIL,
+              commerce: { checkoutAvailable: false, entitlementStatus: null, nextTask: "checkout", orderStatus: null, paymentStatus: null },
               workflow: null,
             });
       }),
@@ -363,16 +390,15 @@ describe("total-loss claim page", () => {
     );
     const rendered = renderTestApp([CLAIM_PATH], { authService: service });
 
-    expect(await screen.findByText(CONTACT_EMAIL)).toBeVisible();
+    expect(await screen.findByText("ow••••@example.com")).toBeVisible();
 
     emitAuthState(
       "SIGNED_IN" as AuthChangeEvent,
       sessionFor(PERMANENT_USER_ID, "permanent"),
     );
 
-    const securedHeading = await screen.findByRole("heading", {
-      name: "Your claim is saved to your account",
-    });
+    await waitFor(() => expect(screen.getByText("Verified")).toBeVisible());
+    const securedHeading = screen.getByRole("heading", { name: "Complete your valuation review" });
     expect(securedHeading).toBeVisible();
     const securedCard = securedHeading.closest("section");
     expect(securedCard).not.toBeNull();

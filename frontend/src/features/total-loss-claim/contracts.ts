@@ -295,6 +295,10 @@ export type TotalLossCheckoutState =
 export interface TotalLossCheckoutProjection {
   readonly checkoutStatus: "creating" | "open" | "complete" | "expired" | "failed" | null;
   readonly checkoutUrl: string | null;
+  readonly checkoutSessionId: string | null;
+  readonly clientSecret: string | null;
+  readonly publishableKey: string | null;
+  readonly uiMode: "elements" | null;
   readonly entitlementStatus: TotalLossClaimEntitlementStatus | null;
   readonly orderStatus: TotalLossClaimOrderStatus | null;
   readonly state: TotalLossCheckoutState;

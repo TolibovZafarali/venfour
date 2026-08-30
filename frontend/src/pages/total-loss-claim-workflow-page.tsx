@@ -2,6 +2,7 @@ import { Link, Navigate, useParams, useSearchParams } from "react-router";
 
 import { Button } from "@/components/ui/button";
 import {
+  isAnonymousAuthState,
   isPermanentAuthState,
   useAuth,
 } from "@/features/auth";
@@ -60,6 +61,7 @@ function WorkflowContent({
   if (view === "checkout") {
     const canCheckout =
       nextState === "checkout" ||
+      nextState === "checkout_confirmation" ||
       (!claim.journey && claim.commerce?.nextTask === "checkout");
     if (!canCheckout && authoritativePath) {
       return <Navigate replace to={authoritativePath} />;
@@ -237,7 +239,7 @@ export function TotalLossClaimWorkflowPage({
       <ClaimStateCard
         kind="loading"
         heading="Checking your secure session…"
-        description="Venfour is confirming the permanent owner before loading this private claim step."
+        description="Venfour is confirming access before loading this private claim step."
       />
     );
   }
@@ -250,13 +252,15 @@ export function TotalLossClaimWorkflowPage({
       />
     );
   }
-  if (auth.status === "signedOut" || !isPermanentAuthState(auth)) {
+  if (auth.status === "signedOut" || (!isPermanentAuthState(auth) && !(view === "checkout" && isAnonymousAuthState(auth)))) {
     return <Navigate replace to={basePath} />;
   }
 
   return (
     <AuthenticatedWorkflowPage
+      key={`${auth.user.id}:${caseId}`}
       accessToken={auth.session.access_token}
+      identity={isAnonymousAuthState(auth) ? "anonymous" : "permanent"}
       caseId={caseId}
       userId={auth.user.id}
       view={view}
@@ -266,10 +270,12 @@ export function TotalLossClaimWorkflowPage({
 
 function AuthenticatedWorkflowPage({
   accessToken,
+  identity,
   caseId,
   userId,
   view,
 }: {
+  readonly identity: "anonymous" | "permanent";
   readonly accessToken: string;
   readonly caseId: string;
   readonly userId: string;
@@ -287,7 +293,7 @@ function AuthenticatedWorkflowPage({
     );
   }
   if (claimQuery.isError) {
-    if (claimQuery.error instanceof ApiError && claimQuery.error.status === 401) {
+    if (claimQuery.error instanceof ApiError && [401, 404].includes(claimQuery.error.status)) {
       return <Navigate replace to={totalLossClaimBasePath(caseId)} />;
     }
     return (
@@ -302,7 +308,10 @@ function AuthenticatedWorkflowPage({
       </ClaimStateCard>
     );
   }
-  if (claimQuery.data.state !== "secured") {
+  if (claimQuery.data.state === "secure_required" && identity === "anonymous" && view === "checkout") {
+    return <CheckoutScreen accessToken={accessToken} canceled={false} caseId={caseId} claim={claimQuery.data} onRefresh={claimQuery.refetch} userId={userId} />;
+  }
+  if (claimQuery.data.state !== "secured" || identity !== "permanent") {
     return <Navigate replace to={totalLossClaimBasePath(caseId)} />;
   }
 

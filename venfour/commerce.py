@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import hashlib
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from typing import Any, Mapping, Protocol, runtime_checkable
 from urllib.parse import urlencode, urlsplit
@@ -294,6 +294,7 @@ class StripeCommerceConfiguration:
     terms_version: str
     refund_policy_version: str
     public_app_origin: str
+    publishable_key: str | None = field(default=None, repr=False)
 
     def __post_init__(self) -> None:
         secret = self.secret_key
@@ -340,6 +341,16 @@ class StripeCommerceConfiguration:
         object.__setattr__(
             self, "public_app_origin", _configured_origin(self.public_app_origin)
         )
+        if self.publishable_key is not None:
+            object.__setattr__(
+                self,
+                "publishable_key",
+                _configured_secret(
+                    self.publishable_key,
+                    "pk_live_" if self.livemode else "pk_test_",
+                    "Stripe publishable key",
+                ),
+            )
 
     @property
     def livemode(self) -> bool:
@@ -360,7 +371,10 @@ class StripeCommerceConfiguration:
         values = {field: environment.get(name, "") for field, name in names.items()}
         if not all(isinstance(value, str) and value for value in values.values()):
             raise ValueError("Stripe commerce configuration is unavailable")
-        return cls(**values)
+        return cls(
+            **values,
+            publishable_key=environment.get("STRIPE_PUBLISHABLE_KEY") or None,
+        )
 
 
 @dataclass(frozen=True)
@@ -393,6 +407,8 @@ class StripeCheckoutSession:
     metadata: Mapping[str, str]
     line_item_price_id: str | None
     line_item_quantity: int | None
+    ui_mode: str = "hosted_page"
+    client_secret: str | None = field(default=None, repr=False)
 
 
 @dataclass(frozen=True)
@@ -538,6 +554,21 @@ def _checkout_url(value: Any) -> str | None:
     return value
 
 
+def _checkout_client_secret(value: Any, session_id: Any) -> str | None:
+    if value is None:
+        return None
+    if (
+        not isinstance(value, str)
+        or not isinstance(session_id, str)
+        or not value.startswith(session_id + "_secret_")
+        or len(value) > 1024
+        or re.fullmatch(r"[A-Za-z0-9_]+", value) is None
+        or value == session_id + "_secret_"
+    ):
+        raise CommerceProviderContractError("Stripe Checkout client secret is invalid")
+    return value
+
+
 @runtime_checkable
 class StripeProviderGateway(Protocol):
     def verify_webhook(self, payload: bytes, signature: str) -> StripeEvent: ...
@@ -552,12 +583,15 @@ class StripeProviderGateway(Protocol):
         checkout_attempt_id: str,
         price_id: str,
         customer_email: str,
-        success_url: str,
-        cancel_url: str,
+        return_url: str,
         idempotency_key: str,
     ) -> StripeCheckoutSession: ...
 
     def retrieve_checkout_session(self, session_id: str) -> StripeCheckoutSession: ...
+
+    def expire_checkout_session(
+        self, session_id: str, *, idempotency_key: str
+    ) -> StripeCheckoutSession: ...
 
     def retrieve_payment_intent(self, payment_intent_id: str) -> StripePaymentIntent: ...
 
@@ -727,30 +761,57 @@ class StripeSdkGateway:
         checkout_attempt_id: str,
         price_id: str,
         customer_email: str,
-        success_url: str,
-        cancel_url: str,
+        return_url: str,
         idempotency_key: str,
     ) -> StripeCheckoutSession:
         metadata = {
             "venfour_order_id": order_id,
             "venfour_checkout_attempt_id": checkout_attempt_id,
         }
-        value = self._provider_call(
-            self._client.v1.checkout.sessions.create,
-            {
-                "mode": "payment",
-                "payment_method_types": ["card"],
-                "adaptive_pricing": {"enabled": False},
-                "line_items": [{"price": price_id, "quantity": 1}],
-                "customer_email": customer_email,
-                "client_reference_id": order_id,
-                "success_url": success_url,
-                "cancel_url": cancel_url,
-                "metadata": metadata,
-                "payment_intent_data": {"metadata": metadata},
-            },
-            {"idempotency_key": idempotency_key},
-        )
+        parameters = {
+            "mode": "payment",
+            "ui_mode": "elements",
+            "payment_method_types": ["card"],
+            "adaptive_pricing": {"enabled": False},
+            "line_items": [{"price": price_id, "quantity": 1}],
+            "customer_email": customer_email,
+            "client_reference_id": order_id,
+            "return_url": return_url,
+            "metadata": metadata,
+            "payment_intent_data": {"metadata": metadata},
+        }
+        options = {"idempotency_key": idempotency_key}
+        try:
+            value = self._provider_call(
+                self._client.v1.checkout.sessions.create, parameters, options
+            )
+        except CommerceProviderError as exc:
+            if (
+                not isinstance(exc.__cause__, stripe.IdempotencyError)
+                or exc.__cause__.http_status != 400
+            ):
+                raise
+            legacy_parameters = dict(parameters)
+            del legacy_parameters["ui_mode"]
+            del legacy_parameters["return_url"]
+            legacy_path = (
+                self._configuration.public_app_origin
+                + f"/total-loss/cases/{case_id}/claim"
+            )
+            legacy_parameters["success_url"] = legacy_path + "?" + urlencode(
+                {"checkout": "success", "session_id": "{CHECKOUT_SESSION_ID}"},
+                safe="{}",
+            )
+            legacy_parameters["cancel_url"] = legacy_path + "?" + urlencode(
+                {"checkout": "canceled"}
+            )
+            value = self._provider_call(
+                self._client.v1.checkout.sessions.create, legacy_parameters, options
+            )
+            recovered = self._checkout_session(value, fallback_price_id=price_id)
+            if recovered.ui_mode not in {"hosted", "hosted_page"}:
+                raise CommerceProviderContractError("Previous checkout mode changed")
+            return recovered
         return self._checkout_session(value, fallback_price_id=price_id)
 
     def retrieve_checkout_session(self, session_id: str) -> StripeCheckoutSession:
@@ -769,6 +830,26 @@ class StripeSdkGateway:
             )
         return result
 
+    def expire_checkout_session(
+        self, session_id: str, *, idempotency_key: str
+    ) -> StripeCheckoutSession:
+        session_id = _provider_identifier(
+            session_id, "cs_", "Stripe Checkout Session ID"
+        )
+        try:
+            self._provider_call(
+                self._client.v1.checkout.sessions.expire,
+                session_id,
+                {},
+                {"idempotency_key": idempotency_key},
+            )
+        except CommerceProviderError:
+            current = self.retrieve_checkout_session(session_id)
+            if current.status not in {"complete", "expired"}:
+                raise
+            return current
+        return self.retrieve_checkout_session(session_id)
+
     def _checkout_session(
         self, value: Any, *, fallback_price_id: str | None = None
     ) -> StripeCheckoutSession:
@@ -781,6 +862,11 @@ class StripeSdkGateway:
         payment_status = row.get("payment_status")
         mode = row.get("mode")
         livemode = row.get("livemode")
+        ui_mode = row.get("ui_mode", "hosted_page")
+        if ui_mode not in {
+            "elements", "custom", "hosted_page", "hosted", "embedded_page", "embedded", "form"
+        }:
+            raise CommerceProviderContractError("Stripe Checkout UI mode is invalid")
         if status not in {"open", "complete", "expired"}:
             raise CommerceProviderContractError("Stripe Checkout status is invalid")
         if payment_status not in {"unpaid", "paid", "no_payment_required"}:
@@ -878,6 +964,10 @@ class StripeSdkGateway:
             metadata=metadata,
             line_item_price_id=price_id,
             line_item_quantity=quantity,
+            ui_mode=ui_mode,
+            client_secret=_checkout_client_secret(
+                row.get("client_secret"), row.get("id")
+            ),
         )
 
     def retrieve_payment_intent(self, payment_intent_id: str) -> StripePaymentIntent:
@@ -1086,6 +1176,10 @@ class StripeSdkGateway:
 @runtime_checkable
 class CommerceDatabaseGateway(Protocol):
     def authenticate(self, access_token: str) -> str: ...
+
+    def resolve_total_loss_case_claim(
+        self, case_id: str, access_token: str
+    ) -> Mapping[str, Any] | None: ...
 
     def authorize_total_loss_checkout_preflight(
         self, case_id: str, purchaser_user_id: str
@@ -1306,6 +1400,10 @@ class CheckoutProjection:
     order_status: str | None
     checkout_status: str | None
     entitlement_status: str | None
+    checkout_session_id: str | None = None
+    client_secret: str | None = field(default=None, repr=False)
+    publishable_key: str | None = field(default=None, repr=False)
+    ui_mode: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -1314,6 +1412,10 @@ class CheckoutProjection:
             "orderStatus": self.order_status,
             "checkoutStatus": self.checkout_status,
             "entitlementStatus": self.entitlement_status,
+            "checkoutSessionId": self.checkout_session_id,
+            "clientSecret": self.client_secret,
+            "publishableKey": self.publishable_key,
+            "uiMode": self.ui_mode,
         }
 
 
@@ -1374,7 +1476,7 @@ class TotalLossCommerceService:
         return self._database.authenticate(access_token)
 
     def quote(self, case_id: str, access_token: str) -> CheckoutQuoteProjection:
-        """Return the validated hosted-checkout price without creating state."""
+        """Return the validated price without creating payable commerce state."""
 
         canonical_case_id = _request_uuid(case_id, "Case ID")
         purchaser_id = self._database.authenticate(access_token)
@@ -1382,7 +1484,25 @@ class TotalLossCommerceService:
             canonical_case_id, purchaser_id
         )
         if preflight is None:
-            raise CommerceNotFoundError("Checkout was not found")
+            claim = self._database.resolve_total_loss_case_claim(
+                canonical_case_id, access_token
+            )
+            if claim is None or claim.get("state") != "secure_required":
+                raise CommerceNotFoundError("Checkout was not found")
+            if (
+                _canonical_uuid(claim.get("case_id"), "Case ID") != canonical_case_id
+                or claim.get("workflow_phase") != "review"
+                or claim.get("workflow_current_task") != "secure_claim"
+                or claim.get("commerce_order_status") is not None
+                or claim.get("entitlement_status") is not None
+            ):
+                raise CommerceNotFoundError("Checkout was not found")
+            _normalized_email(claim.get("contact_email"), "Claim contact email")
+            price = self._provider.retrieve_price(self._configuration.price_id)
+            self._validate_price(price)
+            return CheckoutQuoteProjection(
+                "available", price.unit_amount, price.currency
+            )
         checkout_available = preflight.get("checkout_available")
         if (
             _canonical_uuid(preflight.get("case_id"), "Case ID")
@@ -1452,6 +1572,8 @@ class TotalLossCommerceService:
             raise SupabaseContractError("Checkout preflight response is invalid")
         if not checkout_available:
             raise CommerceConflictError("Checkout is unavailable")
+        if self._configuration.publishable_key is None:
+            raise CommerceUnavailableError("Embedded payment is unavailable")
         price = self._provider.retrieve_price(self._configuration.price_id)
         self._validate_price(price)
         row = self._database.reserve_total_loss_checkout(
@@ -1486,12 +1608,9 @@ class TotalLossCommerceService:
                 context.external_checkout_session_id
             )
             self._validate_session(session, context)
+            session = self._expire_legacy_checkout(session, context)
             if session.status == "open":
-                if session.url is None:
-                    raise CommerceProviderContractError(
-                        "Stripe Checkout URL is unavailable"
-                    )
-                return self._safe_projection(row, "checkout_ready", session.url)
+                return self._payable_projection(row, session)
             if session.payment_status == "paid":
                 if session.payment_intent_id is None:
                     raise CommerceProviderContractError(
@@ -1530,11 +1649,15 @@ class TotalLossCommerceService:
                     raise CommerceConflictError(
                         "Checkout replacement is unavailable"
                     )
+                previous_context = context
                 row = replacement
                 context = CheckoutContext.from_row(replacement)
                 if (
                     context.case_id != canonical_case_id
+                    or context.order_id != previous_context.order_id
                     or context.purchaser_user_id != purchaser_id
+                    or context.purchaser_email != previous_context.purchaser_email
+                    or context.checkout_attempt_id == previous_context.checkout_attempt_id
                     or context.external_checkout_session_id is not None
                     or context.external_price_identifier != price.id
                     or context.amount_minor_units != price.unit_amount
@@ -1549,20 +1672,20 @@ class TotalLossCommerceService:
                     reconciled, "payment_pending", None
                 )
 
-        success_url, cancel_url = self._return_urls(canonical_case_id)
+        return_url = self._return_url(canonical_case_id)
         session = self._provider.create_checkout_session(
             case_id=canonical_case_id,
             order_id=context.order_id,
             checkout_attempt_id=context.checkout_attempt_id,
             price_id=context.external_price_identifier,
             customer_email=context.purchaser_email,
-            success_url=success_url,
-            cancel_url=cancel_url,
+            return_url=return_url,
             idempotency_key=self._checkout_idempotency_key(
                 context.checkout_attempt_id
             ),
         )
         self._validate_session(session, context)
+        session = self._expire_legacy_checkout(session, context)
         if session.status != "open":
             recovered = self._recover_pre_attach_checkout(context, session)
             if session.status == "complete":
@@ -1614,13 +1737,13 @@ class TotalLossCommerceService:
                 checkout_attempt_id=context.checkout_attempt_id,
                 price_id=context.external_price_identifier,
                 customer_email=context.purchaser_email,
-                success_url=success_url,
-                cancel_url=cancel_url,
+                return_url=return_url,
                 idempotency_key=self._checkout_idempotency_key(
                     context.checkout_attempt_id
                 ),
             )
             self._validate_session(session, context)
+            session = self._expire_legacy_checkout(session, context)
             if session.status != "open":
                 recovered = self._recover_pre_attach_checkout(
                     context, session
@@ -1635,11 +1758,13 @@ class TotalLossCommerceService:
         if (
             session.status != "open"
             or session.payment_status != "unpaid"
-            or session.url is None
+            or session.ui_mode != "elements"
+            or session.client_secret is None
         ):
             raise CommerceProviderContractError(
                 "New Stripe Checkout Session is not open"
             )
+        _checkout_client_secret(session.client_secret, session.id)
         attached = self._database.attach_total_loss_checkout_session(
             context.checkout_attempt_id, session
         )
@@ -1653,7 +1778,7 @@ class TotalLossCommerceService:
             or attached_context.external_checkout_session_id != session.id
         ):
             raise SupabaseContractError("Checkout attachment response is invalid")
-        return self._safe_projection(attached, "checkout_ready", session.url)
+        return self._payable_projection(attached, session)
 
     def reconcile_checkout(
         self, case_id: str, access_token: str, checkout_session_id: str
@@ -2625,19 +2750,49 @@ class TotalLossCommerceService:
                 "Stripe refund event snapshot is invalid"
             )
 
-    def _return_urls(self, case_id: str) -> tuple[str, str]:
-        path = f"/total-loss/cases/{case_id}/claim"
-        success = self._configuration.public_app_origin + path + "?" + urlencode(
+    def _return_url(self, case_id: str) -> str:
+        path = f"/total-loss/cases/{case_id}/claim/checkout"
+        return self._configuration.public_app_origin + path + "?" + urlencode(
             {
                 "checkout": "success",
                 "session_id": "{CHECKOUT_SESSION_ID}",
             },
             safe="{}",
         )
-        cancel = self._configuration.public_app_origin + path + "?" + urlencode(
-            {"checkout": "canceled"}
+
+    def _expire_legacy_checkout(
+        self, session: StripeCheckoutSession, context: CheckoutContext
+    ) -> StripeCheckoutSession:
+        if session.status != "open" or session.ui_mode not in {"hosted", "hosted_page"}:
+            return session
+        expired = self._provider.expire_checkout_session(
+            session.id,
+            idempotency_key=f"venfour:checkout-elements-expiry:v1:{context.checkout_attempt_id}",
         )
-        return success, cancel
+        self._validate_session(expired, context)
+        if expired.id != session.id or expired.status == "open":
+            raise CommerceConflictError("Previous checkout is still open")
+        return expired
+
+    def _payable_projection(
+        self, row: Mapping[str, Any], session: StripeCheckoutSession
+    ) -> CheckoutProjection:
+        if (
+            session.status != "open"
+            or session.payment_status != "unpaid"
+            or session.ui_mode != "elements"
+            or session.client_secret is None
+            or self._configuration.publishable_key is None
+        ):
+            raise CommerceProviderContractError("Embedded payment is unavailable")
+        client_secret = _checkout_client_secret(session.client_secret, session.id)
+        return replace(
+            self._safe_projection(row, "checkout_ready", None),
+            checkout_session_id=session.id,
+            client_secret=client_secret,
+            publishable_key=self._configuration.publishable_key,
+            ui_mode="elements",
+        )
 
     @staticmethod
     def _checkout_idempotency_key(attempt_id: str) -> str:

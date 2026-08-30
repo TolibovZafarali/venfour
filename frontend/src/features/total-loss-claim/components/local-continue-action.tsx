@@ -33,7 +33,7 @@ export function LocalContinueAction({ accessToken, caseId, userId }: {
       const claim = await initializeTotalLossClaim(caseId, accessToken);
       queryClient.setQueryData(totalLossClaimQueryKeys.detail(userId, caseId), claim);
       void queryClient.invalidateQueries({ queryKey: appraisalCaseQueryKeys.list(userId) });
-      void navigate(`/total-loss/cases/${caseId}/claim`);
+      void navigate(`/total-loss/cases/${caseId}/claim/checkout`);
     } catch {
       setFailed(true);
     } finally {

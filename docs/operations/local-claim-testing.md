@@ -1,4 +1,4 @@
-# Local post-Continue design checkpoint
+# Local combined purchase review
 
 This workflow is for synthetic localhost cases only. It does not activate any
 deployed environment. Milestone 7 is not included.
@@ -12,10 +12,11 @@ colima start
 VENFOUR_LOCAL_POST_CONTINUE=1 node scripts/dev-local.mjs
 ```
 
-Once the launcher reports ready, install the local SQL from a second terminal
-in the repository root (safe to repeat):
+Once the launcher reports ready, apply outstanding migrations only to the local
+stack and install the local harness SQL from a second terminal (safe to repeat):
 
 ```sh
+frontend/node_modules/.bin/supabase migration up --local
 VENFOUR_LOCAL_POST_CONTINUE=1 .venv/bin/python -m scripts.local_claim_flow install
 ```
 
@@ -25,19 +26,61 @@ offline providers and attaches it to your current session. It does not submit
 an uploaded report or contact a report-review model. If signed out, the normal
 guest-session flow creates an anonymous session.
 
-On the preview, **Continue my review** initializes the claim and opens `/claim`.
-An anonymous owner first sees **Secure and save your claim**. Its email is shown
-on that screen. Select **Send secure link**, then open the message in
-`http://127.0.0.1:54324`. The actual magic-link callback transfers the same case
-to its matching permanent account. A matching permanent owner goes directly to
-checkout.
+On the preview, **Continue my review** initializes the claim; `/claim` resolves
+the recognized owner directly to `/total-loss/cases/CASE_ID/claim/checkout`.
+This one page contains the saved, masked email, verification, payment, package
+summary, server-provided price, refund policy, and settlement disclaimer.
+
+## Three identity scenarios
+
+### A. Recognized anonymous owner
+
+1. Open `http://localhost:5173/_local/claims` and select **Start a new anonymous session**.
+2. Select **Create supportable case**, then **Continue my review**.
+3. Expect the combined purchase page with the masked saved email, **Send verification link**,
+   and a locked payment section. There is no email-entry form and no payable client secret.
+4. Select **Send verification link**. The purchase page stays visible with **Check your email**
+   and **Resend link**. Resending uses the existing server throttle.
+5. Open `http://127.0.0.1:54324` and open the newest message for the synthetic
+   `local-claim-CASE_PREFIX@example.test` address. **Continue securely** completes
+   the existing ownership transfer and returns directly to the same checkout URL.
+
+### B. Lost-session recovery
+
+1. Copy the case ID from scenario A's URL before ending its session.
+2. Return to `/_local/claims` and select **Start a new anonymous session**.
+3. Paste the copied ID into **Case ID to reopen** and select **Reopen purchase**.
+4. Expect the separate neutral **Email used for this claim** form. It must not
+   show the saved email, quote, or payment fields. The same holds for a different
+   permanent account. Submitting the known synthetic email follows existing
+   neutral recovery behavior; the local inbox link can restore the matching owner.
+
+The test panel signs out the current local test account using the existing
+global sign-out behavior, which can revoke its other local sessions, then starts
+a new anonymous session. It does not delete cases or payments.
+Creating a new case in the current anonymous session is the easiest way to return
+to scenario A. An inaccessible old anonymous case requires email recovery.
+
+### C. Already verified permanent owner
+
+1. Complete scenario A's verification and remain signed in.
+2. Reload or reopen `/total-loss/cases/CASE_ID/claim/checkout`.
+3. Expect the masked saved email with **Verified**, no email-entry field, and
+   payment initialization if Stripe sandbox configuration is available.
+4. Alternatively create another fixture while signed in; its contact email uses
+   the permanent account's email, so Continue skips verification.
+
+Post-Continue links return to checkout. Existing intake-purpose links retain
+their prior `/appraisals` behavior. Replay, expiry, exact email, current source,
+and paid ownership-transfer protections remain in force.
 
 ## Payment and package processing
 
-No sandbox Stripe configuration was present at this checkpoint. Checkout shows
-a **synthetic $1 fixture**, not a proposed product price. The regular checkout
-button cannot create a fake paid state. For design iteration, copy the case ID
-from the URL and run:
+Without sandbox Stripe configuration, checkout shows a **synthetic $1 fixture**,
+not a proposed product price. After verification it truthfully reports payment
+setup as unavailable; it does not render pretend card fields. The regular
+checkout button cannot create a fake paid state. For design iteration, copy the
+case ID from the URL and run:
 
 ```sh
 VENFOUR_LOCAL_POST_CONTINUE=1 .venv/bin/python -m scripts.local_claim_flow pay CASE_ID
@@ -69,12 +112,86 @@ The fixture evaluation attestation is local test input, not production approval.
   separate downstream fixture requires an explicit scope decision; the harness
   does not alter frozen evidence or loosen release validation to manufacture it.
 
-To use actual hosted test Checkout separately, supply the repository's existing
-Stripe sandbox settings and start with both `VENFOUR_LOCAL_POST_CONTINUE=1` and
-`VENFOUR_LOCAL_STRIPE_CHECKOUT=1`. Live keys are rejected. Actual sandbox Checkout
-payments must complete through Stripe and its existing verified webhook endpoint;
-the terminal helper refuses to fulfill an actual Checkout session. This was not
-functionally tested because sandbox configuration was absent.
+## Stripe sandbox Payment Element
+
+Set the existing commerce values from `.env.example` in the ignored root `.env`,
+including `STRIPE_SECRET_KEY`, `STRIPE_PUBLISHABLE_KEY`,
+`VENFOUR_TOTAL_LOSS_STRIPE_PRICE_ID`, product/version/terms/refund identifiers,
+and the webhook signing secret. Use test keys and a one-time test Price. Never
+place the secret key or webhook secret in a `VITE_*` variable. The publishable
+key is returned by the authenticated checkout API only when payment is ready.
+
+Use an authenticated Stripe CLI in test mode to forward sandbox webhook events:
+
+```sh
+stripe listen --forward-to http://127.0.0.1:8000/webhooks/stripe
+```
+
+Set that listener's signing secret in `STRIPE_WEBHOOK_SECRET` without copying it
+into logs or documentation. Then restart the ordinary local launcher with both flags:
+
+```sh
+VENFOUR_LOCAL_POST_CONTINUE=1 VENFOUR_LOCAL_STRIPE_CHECKOUT=1 node scripts/dev-local.mjs
+```
+
+The integration preserves Checkout Sessions using the installed SDK's supported
+`ui_mode=elements` (the current name for custom Elements Checkout), with official
+`@stripe/react-stripe-js/checkout` and `@stripe/stripe-js/pure`. It does not create
+direct PaymentIntents. The server owns the Price, amount, purchaser email,
+return URL, metadata, and idempotency keys. Existing attached hosted Sessions
+are expired and reconciled before a replacement attempt can be created on the
+same logical order. A narrowly detected legacy pre-attachment idempotency
+conflict recovers the original hosted Session using its exact old request;
+unrecognized errors fail closed.
+
+Only a permanent verified user who exactly owns the secured eligible case and
+matches the saved contact email can receive a payable client secret. Anonymous
+owners can retrieve only the read-only quote. Stripe.js loads after successful
+authorized initialization. Card number, expiry, and CVC stay in Stripe-hosted
+iframes and go directly to Stripe; Venfour has no raw card input or proxy.
+
+Successful confirmation stays on the purchase page while the server reconciles.
+Only authoritative entitlement routes to `/claim/processing`; the browser cannot
+grant access. Orders, attempts, payment transactions, entitlements, refunds,
+disputes, and the entitlement-to-package hook keep their existing contracts.
+
+Test the following using Stripe's [official sandbox cards](https://docs.stripe.com/testing):
+
+- Successful payment: confirm in-page waiting, a verified webhook, exactly one
+  order/payment/entitlement, then processing.
+- Required card authentication: complete and cancel the challenge; cancellation
+  must allow retry without granting access.
+- Decline: show the Stripe error and allow retry without a second logical order.
+- Refresh/two tabs/close and reopen before paying: reuse the open Session.
+- Close during confirmation or pause webhook forwarding: never claim payment
+  success early; resume from the saved server state when forwarding restarts.
+- Expired, unpaid, invalid, or cross-case return Session: no entitlement; recover
+  an authorized unpaid checkout only after checking its server state.
+
+The terminal helper refuses to fulfill a real Stripe Session. Synthetic helper
+success and mocked SDK tests do not prove iframe loading or 3-D Secure completion.
+
+## Local content security policy
+
+Only the development purchase server adds the policy in `frontend/vite.config.ts`.
+Ordinary development, production builds, and the deployed Worker policy remain
+unchanged. Based on Stripe's [integration security guide](https://docs.stripe.com/security/guide),
+the added Stripe sources are:
+
+| Source | Directive | Purpose |
+| --- | --- | --- |
+| `https://js.stripe.com` | script, frame | Official Stripe.js and secure payment fields |
+| `https://*.js.stripe.com` | script, frame | Stripe.js documented isolated frame origins |
+| `https://hooks.stripe.com` | frame | Supported card authentication frames |
+| `https://api.stripe.com` | connect | Stripe.js requests directly to Stripe |
+
+There is no broad `https:` connection/script/frame allowance and no `*.stripe.com`
+wildcard. Link, address autocomplete, hosted Checkout, and external fonts are not
+enabled. A per-server random nonce permits Vite's inline development bootstrap;
+scripts do not use `unsafe-inline` or `unsafe-eval`. Inline styles support the
+existing styling runtime. Remaining sources cover same-origin assets, loopback
+Supabase, Vite's loopback WebSocket, and the existing Turnstile test widget.
+The local server also sets `Referrer-Policy: no-referrer` and `Cache-Control: no-store`.
 
 ## Repeat or reset
 
@@ -84,6 +201,11 @@ untouched. To repeat secure-claim, sign out first. For the same synthetic case:
 ```sh
 VENFOUR_LOCAL_POST_CONTINUE=1 .venv/bin/python -m scripts.local_claim_flow reset CASE_ID
 ```
+
+Use this database reset for synthetic terminal-helper purchases only. It does
+not expire or refund real Stripe sandbox Sessions/payments. For real Stripe
+test repeats, create a fresh case; manage any prior sandbox Session/payment
+through Stripe's test tools rather than removing its local ledger records.
 
 Then reopen `/total-loss/cases/CASE_ID/analysis`. Reset removes only the selected
 marked case's post-Continue database rows. It preserves the completed analysis,
@@ -145,3 +267,30 @@ preservation. It performs no remote customer flows.
 Stop the launcher with Ctrl+C. Restart without `VENFOUR_LOCAL_POST_CONTINUE=1`
 to restore the ordinary dormant local behavior. No commit, push, deployment,
 linked migration, or remote customer test is part of this procedure.
+
+## Review verification: 2026-08-29
+
+- Full Python suite: 1,139 tests passed, including 110 commerce/API regressions.
+- Full frontend suite: 834 tests passed across 68 files; Worker coverage also
+  passed independently (39 tests).
+- Local database suite: 1,254 assertions passed across 19 files.
+- Local harness integration: four tests passed, including concurrent
+  initialization, authorization, resume/reset, package release, and review holds.
+- Production build and typecheck passed. The build reports a bundle-size warning.
+- Changed-file lint passed. Full lint retains the existing unrelated
+  `react-hooks/set-state-in-effect` error at
+  `frontend/src/pages/total-loss-start-page.tsx:1013`.
+- Browser checks passed for recognized anonymous Continue, masked saved email,
+  locked payment, verification waiting state, actual local magic-link transfer,
+  direct checkout return, verified reload, already permanent owner Continue,
+  lost-session privacy, neutral recovery, and restored permanent ownership.
+  Desktop and mobile layouts were reviewed without horizontal overflow.
+- Synthetic fulfillment produced one order, one attempt, one payment
+  transaction, and one entitlement after repeat invocation. Checkout resumed
+  into processing; existing package/report processing completed to `report_ready`.
+- Real Stripe iframe loading, card confirmation, and 3-D Secure were not run:
+  no supported sandbox credentials were configured. SDK/component mocks and
+  synthetic terminal helpers do not replace that remaining sandbox exercise.
+- Only local migrations were applied. Deployed environments, provider
+  configuration, valuation/analysis logic, and report processing code were
+  unchanged. The next milestone was not started.

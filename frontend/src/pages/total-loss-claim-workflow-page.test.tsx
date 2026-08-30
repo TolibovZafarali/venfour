@@ -2,7 +2,7 @@ import { http, HttpResponse } from "msw";
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { Session } from "@supabase/supabase-js";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { appRoutes } from "@/app/router";
 import type { AuthService } from "@/features/auth";
@@ -13,6 +13,32 @@ import type {
 } from "@/features/total-loss-claim/contracts";
 import { server } from "@/test/mocks/server";
 import { renderTestApp } from "@/test/render";
+
+
+const stripeMock = vi.hoisted(() => ({
+  confirm: vi.fn(),
+  loadStripe: vi.fn(async () => ({})),
+}));
+vi.mock("@stripe/stripe-js/pure", () => ({ loadStripe: stripeMock.loadStripe }));
+vi.mock("@stripe/react-stripe-js/checkout", async () => {
+  const React = await import("react");
+  return {
+    CheckoutElementsProvider: ({ children }: { children: React.ReactNode }) => children,
+    PaymentElement: ({ onReady }: { onReady: () => void }) => {
+      React.useEffect(() => { onReady(); }, [onReady]);
+      return <div data-testid="stripe-payment-element">Secure Stripe fields</div>;
+    },
+    useCheckoutElements: () => ({ type: "success", checkout: { confirm: stripeMock.confirm } }),
+  };
+});
+function embeddedSession(overrides: Record<string, unknown> = {}) {
+  return {
+    checkoutStatus: "open", checkoutUrl: null, checkoutSessionId: "cs_test_local_session",
+    clientSecret: "cs_test_local_session" + "_secret_local_fixture",
+    publishableKey: "pk_test_" + "local_fixture", uiMode: "elements",
+    entitlementStatus: null, orderStatus: "pending", state: "checkout_ready", ...overrides,
+  };
+}
 
 const USER_ID = "22222222-2222-4222-8222-222222222222";
 const CASE_ID = "33333333-3333-4333-8333-333333333333";
@@ -281,6 +307,110 @@ function useClaimHandler(projection: () => ReturnType<typeof claimProjection>) {
 }
 
 describe("Milestone 6 total-loss customer workflow", () => {
+  beforeEach(() => {
+    stripeMock.confirm.mockReset();
+    stripeMock.confirm.mockResolvedValue({ type: "success", session: {} });
+    server.use(http.post("*/api/v1/appraisal-cases/:caseId/checkout-sessions", () => HttpResponse.json(embeddedSession())));
+  });
+  it("initializes one case-bound payment after verification and ignores browser success until entitlement exists", async () => {
+    let initializationCalls = 0;
+    let reconciliationCalls = 0;
+    let paid = false;
+    useClaimHandler(() => paid
+      ? claimProjection({ journey: "processing", fulfillmentState: "finalizing" })
+      : claimProjection({ journey: "checkout" }));
+    server.use(
+      http.get("*/api/v1/appraisal-cases/:caseId/checkout-quote", () => HttpResponse.json({ amountMinorUnits: 12900, availability: "available", currency: "USD" })),
+      http.post("*/api/v1/appraisal-cases/:caseId/checkout-sessions", async ({ request, params }) => {
+        initializationCalls += 1;
+        expect(params.caseId).toBe(CASE_ID);
+        expect(request.headers.get("Authorization")).toBe("Bearer workflow-access-token");
+        expect(await request.json()).toEqual({ clientRequestId: expect.any(String) });
+        return HttpResponse.json(embeddedSession());
+      }),
+      http.post("*/api/v1/appraisal-cases/:caseId/checkout-reconciliation", async ({ request }) => {
+        reconciliationCalls += 1;
+        expect(await request.json()).toEqual({ checkoutSessionId: "cs_test_local_session" });
+        return HttpResponse.json(embeddedSession({ state: "payment_pending", checkoutStatus: "complete", clientSecret: null, publishableKey: null, uiMode: null }));
+      }),
+    );
+    const user = userEvent.setup();
+    const { router } = renderTestApp([`${CLAIM_BASE}/checkout`], { authService: authService(), strictMode: true });
+    expect(await screen.findByText("Verified")).toBeVisible();
+    await waitFor(() => expect(screen.getByRole("button", { name: "Complete purchase" })).toBeEnabled());
+    expect(screen.getByTestId("stripe-payment-element")).toBeVisible();
+    expect(initializationCalls).toBe(1);
+    await user.click(screen.getByRole("button", { name: "Complete purchase" }));
+    expect(stripeMock.confirm).toHaveBeenCalledWith({ redirect: "if_required" });
+    expect(await screen.findByRole("heading", { name: "Confirming your payment" })).toBeVisible();
+    await waitFor(() => expect(reconciliationCalls).toBeGreaterThan(0));
+    expect(router.state.location.pathname).toBe(`${CLAIM_BASE}/checkout`);
+    expect(screen.queryByText("We’re preparing your valuation package")).not.toBeInTheDocument();
+    paid = true;
+    await waitFor(() => expect(router.state.location.pathname).toBe(`${CLAIM_BASE}/processing`), { timeout: 4_000 });
+    expect(await screen.findByText("We’re preparing your valuation package")).toBeVisible();
+    expect(initializationCalls).toBe(1);
+  });
+
+  it("keeps a declined or canceled authentication attempt on the payment form", async () => {
+    stripeMock.confirm.mockResolvedValue({ type: "error", error: { message: "Authentication was canceled. Please try again." } });
+    useClaimHandler(() => claimProjection({ journey: "checkout" }));
+    server.use(http.get("*/api/v1/appraisal-cases/:caseId/checkout-quote", () => HttpResponse.json({ amountMinorUnits: 12900, availability: "available", currency: "USD" })));
+    const user = userEvent.setup();
+    const { router } = renderTestApp([`${CLAIM_BASE}/checkout`], { authService: authService() });
+    await waitFor(() => expect(screen.getByRole("button", { name: "Complete purchase" })).toBeEnabled());
+    await user.click(screen.getByRole("button", { name: "Complete purchase" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Authentication was canceled");
+    expect(screen.getByRole("button", { name: "Complete purchase" })).toBeEnabled();
+    expect(router.state.location.pathname).toBe(`${CLAIM_BASE}/checkout`);
+    expect(router.state.location.search).toBe("");
+  });
+
+  it.each(["open", "expired", "failed", "unknown"])("restores payment after an unpaid %s authentication return", async (status) => {
+    useClaimHandler(() => claimProjection({ journey: "checkout" }));
+    server.use(
+      http.get("*/api/v1/appraisal-cases/:caseId/checkout-quote", () => HttpResponse.json({ amountMinorUnits: 12900, availability: "available", currency: "USD" })),
+      http.post("*/api/v1/appraisal-cases/:caseId/checkout-reconciliation", () => status === "unknown"
+        ? HttpResponse.json({ detail: "Not found" }, { status: 404 })
+        : HttpResponse.json(embeddedSession({ state: "reconciled", checkoutStatus: status, clientSecret: null, publishableKey: null, uiMode: null }))),
+    );
+    const { router } = renderTestApp([`${CLAIM_BASE}/checkout?session_id=cs_test_previous_session`], { authService: authService() });
+    await waitFor(() => expect(screen.getByRole("button", { name: "Complete purchase" })).toBeEnabled());
+    expect(router.state.location.search).toBe("");
+    expect(screen.getByTestId("stripe-payment-element")).toBeVisible();
+  });
+
+  it("clears a confirming marker without a session only after refreshing authoritative unpaid state", async () => {
+    let resolverCalls = 0;
+    let initializationCalls = 0;
+    useClaimHandler(() => { resolverCalls += 1; return claimProjection({ journey: "checkout" }); });
+    server.use(
+      http.get("*/api/v1/appraisal-cases/:caseId/checkout-quote", () => HttpResponse.json({ amountMinorUnits: 12900, availability: "available", currency: "USD" })),
+      http.post("*/api/v1/appraisal-cases/:caseId/checkout-sessions", () => { initializationCalls += 1; return HttpResponse.json(embeddedSession()); }),
+    );
+    const { router } = renderTestApp([`${CLAIM_BASE}/checkout?payment=confirming`], { authService: authService() });
+    await waitFor(() => expect(screen.getByRole("button", { name: "Complete purchase" })).toBeEnabled());
+    expect(router.state.location.search).toBe("");
+    expect(resolverCalls).toBeGreaterThanOrEqual(2);
+    expect(initializationCalls).toBe(1);
+  });
+
+  it("reuses a saved checkout when the browser closes and reopens", async () => {
+    const requests: unknown[] = [];
+    useClaimHandler(() => claimProjection({ journey: "checkout" }));
+    server.use(
+      http.get("*/api/v1/appraisal-cases/:caseId/checkout-quote", () => HttpResponse.json({ amountMinorUnits: 12900, availability: "available", currency: "USD" })),
+      http.post("*/api/v1/appraisal-cases/:caseId/checkout-sessions", async ({ request }) => { requests.push(await request.json()); return HttpResponse.json(embeddedSession()); }),
+    );
+    const first = renderTestApp([`${CLAIM_BASE}/checkout`], { authService: authService() });
+    await waitFor(() => expect(screen.getByRole("button", { name: "Complete purchase" })).toBeEnabled());
+    first.unmount();
+    renderTestApp([`${CLAIM_BASE}/checkout`], { authService: authService() });
+    await waitFor(() => expect(screen.getByRole("button", { name: "Complete purchase" })).toBeEnabled());
+    expect(requests).toHaveLength(2);
+    expect(stripeMock.confirm).not.toHaveBeenCalled();
+  });
+
   it("registers exactly six conceptual guide routes", () => {
     const guideRoutes = appRoutes[0]?.children?.filter((route) =>
       String(route.path).includes("/claim/guide/"),
@@ -314,14 +444,14 @@ describe("Milestone 6 total-loss customer workflow", () => {
 
     expect(
       await screen.findByRole("heading", {
-        name: "Your valuation evidence package",
+        name: "Complete your valuation review",
       }),
     ).toBeVisible();
-    expect(await screen.findByText(/129\.00/u)).toBeVisible();
+    expect((await screen.findAllByText(/129\.00/u))[0]).toBeVisible();
     expect(router.state.location.pathname).toBe(`${CLAIM_BASE}/checkout`);
     await waitFor(() =>
       expect(
-        screen.getByRole("button", { name: "Continue to secure checkout" }),
+        screen.getByRole("button", { name: "Complete purchase" }),
       ).toBeEnabled(),
     );
 
@@ -352,7 +482,7 @@ describe("Milestone 6 total-loss customer workflow", () => {
     ).toBeVisible();
     await waitFor(() =>
       expect(
-        screen.getByRole("button", { name: "Continue to secure checkout" }),
+        screen.getByRole("button", { name: "Complete purchase" }),
       ).toBeEnabled(),
     );
   });
@@ -390,7 +520,7 @@ describe("Milestone 6 total-loss customer workflow", () => {
 
     expect(
       await screen.findByRole("heading", {
-        name: "Your valuation evidence package",
+        name: "Complete your valuation review",
       }),
     ).toBeVisible();
     expect(router.state.location.pathname).toBe(`${CLAIM_BASE}/checkout`);
@@ -420,7 +550,7 @@ describe("Milestone 6 total-loss customer workflow", () => {
 
     expect(
       await screen.findByRole("heading", {
-        name: "Your valuation evidence package",
+        name: "Complete your valuation review",
       }),
     ).toBeVisible();
     expect(router.state.location.pathname).toBe(`${CLAIM_BASE}/checkout`);
