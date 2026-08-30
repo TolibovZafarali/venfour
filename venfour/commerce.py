@@ -562,7 +562,7 @@ def _checkout_client_secret(value: Any, session_id: Any) -> str | None:
         or not isinstance(session_id, str)
         or not value.startswith(session_id + "_secret_")
         or len(value) > 1024
-        or re.fullmatch(r"[A-Za-z0-9_]+", value) is None
+        or re.fullmatch(r"(?:[A-Za-z0-9_]|%[0-9A-Fa-f]{2})+", value) is None
         or value == session_id + "_secret_"
     ):
         raise CommerceProviderContractError("Stripe Checkout client secret is invalid")

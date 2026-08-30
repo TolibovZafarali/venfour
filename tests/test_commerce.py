@@ -710,13 +710,34 @@ class CommerceCheckoutServiceTests(unittest.TestCase):
 
     def test_session_secret_is_not_logged_and_must_match_authorized_session(self) -> None:
         self.assertNotIn(CLIENT_SECRET, repr(checkout_session()))
-        for client_secret in (None, SESSION_ID_2 + "_secret_other", CLIENT_SECRET + "\n"):
+        for client_secret in (
+            None, SESSION_ID_2 + "_secret_other", SESSION_ID + "_secret_",
+            CLIENT_SECRET + "\n", CLIENT_SECRET + "\r", CLIENT_SECRET + "\t",
+            CLIENT_SECRET + " ", CLIENT_SECRET + "\x00",
+            CLIENT_SECRET + "%", CLIENT_SECRET + "%2", CLIENT_SECRET + "%GG",
+            CLIENT_SECRET + "%%2F", CLIENT_SECRET + "%2G", CLIENT_SECRET + "a" * 1025,
+        ):
             with self.subTest(secret_present=client_secret is not None):
                 provider = RecordingProvider()
                 provider.session = checkout_session(client_secret=client_secret)
                 commerce, database, _ = service(provider=provider)
                 with self.assertRaises(CommerceProviderContractError):
                     commerce.create_checkout(CASE_ID, ACCESS_TOKEN, CLIENT_REQUEST_ID)
+                self.assertFalse(any(name == "attach_total_loss_checkout_session" for name, _ in database.calls))
+
+    def test_percent_encoded_session_secret_is_preserved_without_decoding(self) -> None:
+        for suffix in ("opaque%2Fpart%2Bvalue%3D", "opaque%2fpart%2bvalue%3d"):
+            with self.subTest(suffix=suffix):
+                client_secret = SESSION_ID + "_secret_" + suffix
+                provider = RecordingProvider()
+                provider.session = checkout_session(client_secret=client_secret)
+                commerce, _, _ = service(provider=provider)
+
+                result = commerce.create_checkout(CASE_ID, ACCESS_TOKEN, CLIENT_REQUEST_ID)
+
+                self.assertEqual(result.client_secret, client_secret)
+                self.assertEqual(result.to_dict()["clientSecret"], client_secret)
+                self.assertNotIn(client_secret, repr(result))
 
     def test_wrong_case_reservation_never_exposes_secret_or_calls_stripe_session(self) -> None:
         database = RecordingDatabase()
@@ -3390,6 +3411,25 @@ class StripeSdkGatewayTests(unittest.TestCase):
         )
         self.assertNotIn("case", json.dumps(params).lower())
         self.assertEqual(options, {"idempotency_key": f"venfour:checkout:v1:{ATTEMPT_ID}"})
+
+    def test_checkout_response_preserves_percent_encoded_client_secret(self) -> None:
+        client = FakeStripeClient()
+        client_secret = CLIENT_SECRET + "%2Fopaque%2Bvalue%3D"
+        client.checkout.sessions.value = {
+            **client.checkout.sessions.value, "client_secret": client_secret,
+        }
+        gateway = StripeSdkGateway(configuration(), client=client)
+
+        result = gateway.create_checkout_session(
+            case_id=CASE_ID, order_id=ORDER_ID, checkout_attempt_id=ATTEMPT_ID,
+            price_id=PRICE_ID, customer_email=EMAIL,
+            return_url="https://app.venfour.example/complete",
+            idempotency_key=f"venfour:checkout:v1:{ATTEMPT_ID}",
+        )
+
+        self.assertEqual(result.client_secret, client_secret)
+        self.assertEqual(result.id, SESSION_ID)
+        self.assertNotIn(client_secret, repr(result))
 
     def test_price_retrieval_requires_expanded_active_one_time_contract(self) -> None:
         client = FakeStripeClient()

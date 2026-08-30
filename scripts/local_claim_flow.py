@@ -7,7 +7,7 @@ import os
 import socket
 import subprocess
 import time
-from contextlib import contextmanager
+from contextlib import asynccontextmanager, contextmanager
 from pathlib import Path
 from types import SimpleNamespace
 from urllib.parse import urlsplit
@@ -287,17 +287,34 @@ def create_app():
     block_provider_network()
     from venfour.api import create_app as production_app
     gateway = gateway_from_status(local_status())
-    configuration = test_commerce_configuration()
-    provider = LocalPriceProvider()
-    if os.environ.get("VENFOUR_LOCAL_STRIPE_CHECKOUT") == "1":
-        from venfour.commerce import StripeSdkGateway
-        configuration = StripeCommerceConfiguration.from_environment(os.environ)
-        if configuration.livemode:
-            raise RuntimeError("Only sandbox Checkout is permitted")
-        provider = StripeSdkGateway(configuration)
-    commerce = TotalLossCommerceService(gateway,provider,configuration)
-    app = production_app(supabase_gateway=gateway,commerce_service=commerce,
-        package_processor=TotalLossPackageProcessor(gateway))
+    try:
+        configuration = test_commerce_configuration()
+        provider = LocalPriceProvider()
+        if os.environ.get("VENFOUR_LOCAL_STRIPE_CHECKOUT") == "1":
+            from venfour.commerce import StripeSdkGateway
+            configuration = StripeCommerceConfiguration.from_environment(os.environ)
+            if configuration.livemode:
+                raise RuntimeError("Only sandbox Checkout is permitted")
+            provider = StripeSdkGateway(configuration)
+        coordinator = TotalLossPackageCoordinator(gateway, None)
+        commerce = TotalLossCommerceService(gateway, provider, configuration, coordinator)
+        app = production_app(supabase_gateway=gateway, commerce_service=commerce,
+            package_coordinator=coordinator, package_processor=TotalLossPackageProcessor(gateway))
+    except BaseException:
+        gateway.close()
+        raise
+
+    production_lifespan = app.router.lifespan_context
+
+    @asynccontextmanager
+    async def local_lifespan(application):
+        try:
+            async with production_lifespan(application) as state:
+                yield state
+        finally:
+            gateway.close()
+
+    app.router.lifespan_context = local_lifespan
 
     async def post_continue(request):
         if await request.body():

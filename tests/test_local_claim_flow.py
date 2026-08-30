@@ -3,11 +3,16 @@ import copy
 import os
 import socket
 import unittest
+from contextlib import ExitStack
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 from uuid import uuid4
 
+from starlette.testclient import TestClient
+
 from scripts.local_claim_flow import block_provider_network, initialize, require_local, synthetic_artifact
+from venfour.package_processing import TotalLossPackageCoordinator
+from venfour.supabase_gateway import SupabaseHttpGateway
 
 
 class LocalClaimFlowTests(unittest.TestCase):
@@ -80,3 +85,90 @@ class LocalClaimFlowTests(unittest.TestCase):
         service=Mock()
         with self.assertRaises(ValueError): initialize(gateway,service,str(uuid4()),"owner-token")
         service.resolve.assert_not_called()
+
+
+class LocalClaimCompositionTests(unittest.TestCase):
+    def create_local_app(self, gateway, *, provider=None):
+        from scripts.local_claim_flow import create_app
+        from tests.test_commerce import configuration
+
+        environment = {"VENFOUR_LOCAL_POST_CONTINUE": "1"}
+        if provider is not None:
+            environment["VENFOUR_LOCAL_STRIPE_CHECKOUT"] = "1"
+        with ExitStack() as stack:
+            stack.enter_context(patch.dict(os.environ, environment, clear=True))
+            stack.enter_context(patch("scripts.local_claim_flow.block_provider_network"))
+            stack.enter_context(patch("scripts.local_claim_flow.local_status", return_value={}))
+            stack.enter_context(patch("scripts.local_claim_flow.gateway_from_status", return_value=gateway))
+            if provider is not None:
+                stack.enter_context(patch("venfour.commerce.StripeSdkGateway", return_value=provider))
+                stack.enter_context(patch(
+                    "scripts.local_claim_flow.StripeCommerceConfiguration.from_environment",
+                    return_value=configuration(public_app_origin="http://localhost:5173"),
+                ))
+            return create_app()
+
+    def test_local_commerce_shares_coordinator_and_preserves_shutdown(self):
+        gateway = Mock(spec=SupabaseHttpGateway)
+        app = self.create_local_app(gateway)
+        coordinator = app.state.package_coordinator
+        self.assertIsInstance(coordinator, TotalLossPackageCoordinator)
+        self.assertIs(coordinator._database, gateway)
+        self.assertIsNone(coordinator._dispatcher)
+        self.assertIs(app.state.commerce_service._entitlement_fulfillment_hook, coordinator)
+        gateway.close.assert_not_called()
+        self.assertFalse(app.state.accepting_customer_requests)
+
+        with TestClient(app):
+            self.assertTrue(app.state.accepting_customer_requests)
+            gateway.close.assert_not_called()
+
+        self.assertFalse(app.state.accepting_customer_requests)
+        gateway.close.assert_called_once_with()
+
+    def test_local_sandbox_webhook_enqueues_before_finalization(self):
+        from tests.test_commerce import (
+            CASE_ID, ENTITLEMENT_ID, INTENT_ID,
+            RecordingDatabase, RecordingProvider, checkout_session,
+        )
+
+        database = RecordingDatabase()
+        gateway = Mock(spec=SupabaseHttpGateway)
+        for name in (
+            "claim_stripe_webhook_event", "resolve_total_loss_checkout_context",
+            "fulfill_total_loss_checkout_payment", "finalize_stripe_webhook_event",
+        ):
+            getattr(gateway, name).side_effect = getattr(database, name)
+
+        def enqueue(entitlement_id):
+            database.calls.append(("enqueue_total_loss_package_job", (entitlement_id,)))
+            return {
+                "outcome": "created", "case_id": CASE_ID,
+                "entitlement_id": entitlement_id, "package_job_id": str(uuid4()),
+                "work_item_id": str(uuid4()), "package_status": "queued",
+                "work_item_status": "queued", "workflow_revision": 1,
+            }
+
+        gateway.enqueue_total_loss_package_job.side_effect = enqueue
+        provider = RecordingProvider()
+        provider.session = checkout_session(
+            status="complete", payment_status="paid", url=None,
+            payment_intent_id=INTENT_ID,
+        )
+        app = self.create_local_app(gateway, provider=provider)
+        with TestClient(app):
+            self.assertEqual(app.state.commerce_service.handle_webhook(b"signed-raw", "valid"), "processed")
+
+        gateway.enqueue_total_loss_package_job.assert_called_once_with(ENTITLEMENT_ID)
+        gateway.reserve_due_workflow_work_items.assert_not_called()
+        names = [name for name, _ in database.calls]
+        self.assertLess(names.index("fulfill_total_loss_checkout_payment"), names.index("enqueue_total_loss_package_job"))
+        self.assertLess(names.index("enqueue_total_loss_package_job"), names.index("finalize_stripe_webhook_event"))
+        gateway.close.assert_called_once_with()
+
+    def test_local_factory_closes_owned_gateway_when_composition_fails(self):
+        gateway = Mock(spec=SupabaseHttpGateway)
+        with patch("venfour.api.create_app", side_effect=RuntimeError("local composition failed")):
+            with self.assertRaisesRegex(RuntimeError, "local composition failed"):
+                self.create_local_app(gateway)
+        gateway.close.assert_called_once_with()
