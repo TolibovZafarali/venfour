@@ -350,8 +350,9 @@ export function ProcessingScreen({
         <div className="mt-8 flex gap-3 rounded-2xl border border-line bg-surface/60 p-5">
           <ShieldCheck className="mt-0.5 size-5 shrink-0 text-brand" aria-hidden />
           <p className="text-sm leading-6 text-copy">
-            You can close this browser and return from My appraisals. Package
-            preparation continues independently of this page.
+            {needsAttention
+              ? "Your case and payment remain saved. Checking again refreshes the status; it does not restart a failed package."
+              : "You can close this browser and return from My appraisals. Package preparation continues independently of this page."}
           </p>
         </div>
       </ClaimWorkflowCard>

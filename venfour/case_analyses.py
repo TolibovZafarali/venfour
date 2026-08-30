@@ -247,6 +247,12 @@ class SupabaseAnalysisRunRepository:
             else None
         )
         self._completed_run_id: str | None = None
+        self._report_ingestion: ReportIngestionResult | None = None
+
+    def record_report_ingestion(self, ingestion: ReportIngestionResult) -> None:
+        if self._job_id is None or self._processing_token is None:
+            raise AnalysisRunWriteError("Read-only analysis repository cannot record evidence")
+        self._report_ingestion = ReportIngestionResult.from_dict(ingestion.to_dict())
 
     @property
     def completed_run_id(self) -> str | None:
@@ -302,12 +308,18 @@ class SupabaseAnalysisRunRepository:
     ) -> bool:
         try:
             durable = self.get(run_id).to_dict()
-            return canonical_json_bytes(durable) == canonical_json_bytes(expected)
+            if canonical_json_bytes(durable) != canonical_json_bytes(expected):
+                return False
+            if self._report_ingestion is not None:
+                evidence = self._gateway.get_owned_total_loss_report_evidence(run_id, self._user_id)
+                return evidence == self._report_ingestion.to_dict()
+            return True
         except (
             AnalysisRunContractError,
             AnalysisRunRepositoryError,
             AnalysisRunValidationUnavailableError,
             CaseAnalysisError,
+            SupabaseGatewayError,
         ):
             return False
 
@@ -324,12 +336,17 @@ class SupabaseAnalysisRunRepository:
         payload = artifact.to_dict()
         try:
             AnalysisRunArtifact.from_dict(payload)
-            completed = self._gateway.complete_total_loss_analysis(
-                self._job_id,
-                self._processing_token,
-                run_id,
-                payload,
-            )
+            if self._report_ingestion is None:
+                completed = self._gateway.complete_total_loss_analysis(
+                    self._job_id, self._processing_token, run_id, payload,
+                )
+            else:
+                from venfour.report_evidence import validate_report_evidence_for_artifact
+                validate_report_evidence_for_artifact(self._report_ingestion, payload)
+                completed = self._gateway.complete_total_loss_report_analysis(
+                    self._job_id, self._processing_token, run_id, payload,
+                    self._report_ingestion.to_dict(),
+                )
         except (
             AnalysisRunContractError,
             AnalysisRunValidationUnavailableError,
@@ -430,6 +447,8 @@ def _live_creation_factory(
     return create_live_analysis_creation_service(
         repository,
         run_id_factory=lambda: run_id,
+        report_ingestion_recorder=(repository.record_report_ingestion
+                                   if isinstance(repository, SupabaseAnalysisRunRepository) else None),
     )
 
 

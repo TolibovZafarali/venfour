@@ -576,6 +576,8 @@ describe("Milestone 6 total-loss customer workflow", () => {
         }),
       ).toBeVisible();
       expect(screen.getByRole("button", { name: "Check again" })).toBeVisible();
+      expect(screen.getByText(/does not restart a failed package/u)).toBeVisible();
+      expect(screen.queryByText(/preparation continues independently/u)).not.toBeInTheDocument();
       expect(screen.getByText(/could not safely complete the package yet/u))
         .toHaveAttribute("aria-busy", "false");
     },

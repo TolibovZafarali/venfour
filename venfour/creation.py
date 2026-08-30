@@ -51,6 +51,7 @@ from venfour.report_ingestion import (
     ReportDocumentInvalidError,
     ReportExtractionError,
     ReportIngestionService,
+    ReportIngestionResult,
     normalized_report_to_legacy_report,
 )
 from venfour.valuation_inputs import (
@@ -176,6 +177,7 @@ class AnalysisCreationService:
         search_settings: AnalysisSearchSettings | None = None,
         availability_check: AvailabilityCheck | None = None,
         ingestion_service: ReportIngestionService | None = None,
+        report_ingestion_recorder: Callable[[ReportIngestionResult], None] | None = None,
     ) -> None:
         if not callable(orchestrator_factory):
             raise TypeError("orchestrator_factory must be callable")
@@ -187,6 +189,8 @@ class AnalysisCreationService:
             raise TypeError("date_factory must be callable")
         if availability_check is not None and not callable(availability_check):
             raise TypeError("availability_check must be callable")
+        if report_ingestion_recorder is not None and not callable(report_ingestion_recorder):
+            raise TypeError("report_ingestion_recorder must be callable")
         if ingestion_service is not None and not callable(
             getattr(ingestion_service, "ingest", None)
         ):
@@ -206,6 +210,7 @@ class AnalysisCreationService:
         self._search_settings = selected_settings
         self._availability_check = availability_check
         self._ingestion_service = ingestion_service
+        self._report_ingestion_recorder = report_ingestion_recorder
 
     def _require_availability(self) -> None:
         if self._availability_check is None:
@@ -387,6 +392,8 @@ class AnalysisCreationService:
                     "Extracted report failed normalized validation"
                 ) from exc
             context = self._legacy_evidence_context(report_data)
+            if self._report_ingestion_recorder is not None:
+                self._report_ingestion_recorder(ingestion)
             context.update(
                 {
                     "reportProvider": ingestion.provider,
@@ -492,6 +499,7 @@ def create_live_analysis_creation_service(
     search_settings: AnalysisSearchSettings | None = None,
     date_factory: DateFactory = _utc_today,
     run_id_factory: RunIdFactory | None = None,
+    report_ingestion_recorder: Callable[[ReportIngestionResult], None] | None = None,
 ) -> AnalysisCreationService:
     """Build the default runtime composition without eager credential checks."""
 
@@ -532,6 +540,7 @@ def create_live_analysis_creation_service(
         search_settings=search_settings,
         availability_check=require_configuration,
         ingestion_service=ReportIngestionService(),
+        report_ingestion_recorder=report_ingestion_recorder,
     )
 
 

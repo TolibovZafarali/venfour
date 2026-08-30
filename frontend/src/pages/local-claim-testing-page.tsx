@@ -12,7 +12,7 @@ export function LocalClaimTestingPage() {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState(false);
   const [caseId, setCaseId] = useState("");
-  if (!environment.localPostContinueEnabled) return null;
+  if (!environment.localClaimFixturesEnabled) return null;
 
   async function create(mode: string) {
     setPending(true);

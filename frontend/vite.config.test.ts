@@ -58,6 +58,8 @@ describe("createViteConfiguration", () => {
       expect(policy).toContain("https://js.stripe.com https://*.js.stripe.com");
       expect(policy).toContain("https://hooks.stripe.com");
       expect(policy).toContain("https://api.stripe.com");
+      expect(policy).toContain("https://vpic.nhtsa.dot.gov");
+      expect(policy).not.toContain("https://*.dot.gov");
       expect(policy).not.toContain("https://*.stripe.com");
       expect(policy).not.toContain("unsafe-eval");
       expect(policy).toContain(`'nonce-${config.html?.cspNonce}'`);

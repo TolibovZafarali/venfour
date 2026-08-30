@@ -159,6 +159,12 @@ from the repository root with one command:
 node scripts/dev-local.mjs
 ```
 
+For the complete local customer flow, including working claim continuation,
+Stripe sandbox checkout, background processing, and qualified report review, use
+`node scripts/dev-local.mjs --full-flow`. See
+[full-flow local development](docs/operations/local-full-flow.md) for required
+configuration, safety boundaries, and the separate synthetic-fixture workflow.
+
 Open `http://localhost:5173`. Local Auth messages appear in the local email
 inbox at `http://127.0.0.1:54324`, where the one-time email link can be opened
 in the same browser. Vite and Uvicorn reload source changes. Press Control-C to

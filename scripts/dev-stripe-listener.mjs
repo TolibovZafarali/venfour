@@ -7,6 +7,7 @@ import { dirname, join, resolve } from "node:path";
 import process from "node:process";
 import { StringDecoder } from "node:string_decoder";
 import { fileURLToPath } from "node:url";
+import { startListenerStatus } from "./local-listener-status.mjs";
 
 const repositoryRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 export const LOCAL_WEBHOOK_TARGET = "http://127.0.0.1:8000/webhooks/stripe";
@@ -168,9 +169,18 @@ export async function main() {
       throw new LocalListenerSetupError("This local listener accepts no arguments; its test-mode event list and loopback destination are fixed.");
     }
     const plan = loadListenerPlan();
-    verifyListenerSecret(plan);
-    process.stdout.write(`Starting verified sandbox webhook forwarding to ${LOCAL_WEBHOOK_TARGET}.\n`);
-    return await startListener(plan);
+    const monitor = await startListenerStatus(plan);
+    try {
+      verifyListenerSecret(plan);
+      process.stdout.write(`Starting verified sandbox webhook forwarding to ${LOCAL_WEBHOOK_TARGET}.\n`);
+      return await startListener(plan, { write: (text) => {
+        if (text === "Stripe sandbox webhook listener ready.\n") monitor.setReady(true);
+        if (text.includes("connection or delivery issue")) monitor.setReady(false);
+        process.stdout.write(text);
+      } });
+    } finally {
+      await monitor.close();
+    }
   } catch (error) {
     const message = error instanceof LocalListenerSetupError
       ? error.message

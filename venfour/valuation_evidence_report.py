@@ -396,6 +396,15 @@ def _local_reference(
     }
 
 
+def _insurer_name_evidence(source: Mapping[str, Any]):
+    name = source["input"]["confirmedFacts"].get("insurerName")
+    if name is not None:
+        return name, "/input/confirmedFacts/insurerName", CUSTOMER_SUPPLIED
+    extraction = source.get("extraction")
+    name = extraction["normalizedReport"]["report"].get("insurer") if extraction else None
+    return name, "/extraction/normalizedReport/report/insurer", INSURER_EXTRACTED
+
+
 def _evidence_index(source: Mapping[str, Any]) -> list[dict[str, Any]]:
     intake_mode = source["input"]["intakeMode"]
     rows = [
@@ -427,6 +436,9 @@ def _evidence_index(source: Mapping[str, Any]) -> list[dict[str, Any]]:
                     evidence_label=label,
                 )
             )
+    name, pointer, label = _insurer_name_evidence(source)
+    if name is not None and label == INSURER_EXTRACTED:
+        rows.append(_local_reference(source, pointer=pointer, identity="insurerName", evidence_label=label))
     unique = {row["evidenceId"]: row for row in rows}
     return sorted(unique.values(), key=lambda row: row["evidenceId"])
 
@@ -782,9 +794,9 @@ def _project_report_data(
         if source["input"]["intakeMode"] == "REPORT"
         else CUSTOMER_SUPPLIED
     )
-    insurer_name = source["input"]["confirmedFacts"].get("insurerName")
+    insurer_name, insurer_name_pointer, insurer_name_label = _insurer_name_evidence(source)
     insurer_name_ids = (
-        [_reference_id(index, "/input/confirmedFacts/insurerName")]
+        [_reference_id(index, insurer_name_pointer)]
         if insurer_name is not None
         else []
     )
@@ -792,7 +804,7 @@ def _project_report_data(
         key="insurerName",
         label="Insurer",
         value=insurer_name,
-        evidence_label=CUSTOMER_SUPPLIED,
+        evidence_label=insurer_name_label,
         evidence_ids=insurer_name_ids,
     )
     claim_reference_fact = _fact(

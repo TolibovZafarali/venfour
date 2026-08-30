@@ -16,6 +16,12 @@ function turnstileSiteKey(value: string | undefined) {
 }
 
 export const environment = {
+  localClaimFixturesEnabled:
+    import.meta.env.DEV &&
+    import.meta.env.VITE_ENABLE_POST_CONTINUE_FLOW === "true" &&
+    import.meta.env.VITE_ENABLE_LOCAL_CLAIM_FIXTURES === "true" &&
+    typeof window !== "undefined" &&
+    ["localhost", "127.0.0.1", "[::1]"].includes(window.location.hostname),
   localPostContinueEnabled:
     import.meta.env.DEV &&
     import.meta.env.VITE_ENABLE_POST_CONTINUE_FLOW === "true" &&

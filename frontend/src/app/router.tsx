@@ -50,7 +50,7 @@ export const appRoutes: RouteObject[] = [
     element: <AppShell />,
     errorElement: <RouteErrorPage />,
     children: [
-      ...(import.meta.env.DEV && environment.localPostContinueEnabled ? [{
+      ...(import.meta.env.DEV && environment.localClaimFixturesEnabled ? [{
         path: "_local/claims",
         lazy: async () => ({ Component: (await import("@/pages/local-claim-testing-page")).LocalClaimTestingPage }),
       }] : []),

@@ -3,6 +3,9 @@
 This workflow is for synthetic localhost cases only. It does not activate any
 deployed environment. Milestone 7 is not included.
 
+For real intake and analysis followed by sandbox checkout and automatic local
+processing, use [full-flow local development](local-full-flow.md) instead.
+
 ## Start
 
 From the repository root:
@@ -238,10 +241,11 @@ fixed table allowlist; there is no reset RPC or browser button.
 
 - The frontend requires development compilation, the explicit feature flag,
   and a loopback hostname. Production compilation removes the harness route.
-- The launcher sets `VITE_ENABLE_POST_CONTINUE_FLOW=true` only when its local
-  server flag is explicitly enabled. Normal startup keeps Continue inert.
-- Only `scripts.local_claim_flow:create_app` mounts the initializer and fixture
-  endpoints. `venfour.api:create_app` never mounts them.
+- The launcher enables continuation for an explicit fixture or full-flow mode.
+  Fixture creation has a separate flag. Normal startup keeps Continue inert.
+- The fixture factory mounts initializer and fixture endpoints. The separate
+  full-flow factory mounts only the initializer. `venfour.api:create_app` never
+  mounts either local endpoint.
 - The local factory rejects deployed-process markers, staging proxy secrets,
   remote service origins, live payment keys, remote request hosts/origins, and
   nonloopback clients. It strips report/market provider credentials and blocks

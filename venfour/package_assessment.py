@@ -792,6 +792,8 @@ def _validate_source_semantics(data: Mapping[str, Any]) -> None:
             "CONFIRMED_INPUT_DIGEST_MISMATCH",
         )
     facts = source_input["confirmedFacts"]
+    if source_input["intakeMode"] == "MANUAL" and facts["insurerName"] is None:
+        raise _failure("Manual input requires an insurer name", "SOURCE_FACT_CONFLICT")
     vehicle = presentation["vehicle"]
     fact_pairs = {
         "year": vehicle["year"],

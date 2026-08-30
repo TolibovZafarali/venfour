@@ -189,7 +189,7 @@
         "mileage": { "type": "integer", "minimum": 0 },
         "postalCode": { "$ref": "#/$defs/nonEmptyString" },
         "lossDate": { "$ref": "#/$defs/date" },
-        "insurerName": { "$ref": "#/$defs/nonEmptyString" },
+        "insurerName": { "$ref": "#/$defs/nullableString" },
         "insurerVehicleValuationMinorUnits": { "type": ["integer", "null"] },
         "priorTitleStatus": { "$ref": "#/$defs/nullableString" },
         "condition": { "$ref": "#/$defs/nullableString" },

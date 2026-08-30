@@ -2915,6 +2915,24 @@ class SupabaseHttpGateway:
                 return result
         raise SupabaseContractError(f"{label} response is invalid")
 
+    def complete_total_loss_report_analysis(
+        self, job_id: str, processing_token: str, run_id: str,
+        artifact: Mapping[str, Any], ingestion: Mapping[str, Any],
+    ) -> bool:
+        payload = self._rpc("complete_total_loss_report_analysis", {
+            "job_id": _canonical_uuid(job_id, "Job ID"),
+            "processing_token": _canonical_uuid(processing_token, "Processing token"),
+            "run_id": _canonical_uuid(run_id, "Run ID"),
+            "artifact": dict(artifact), "ingestion": dict(ingestion),
+        })
+        return self._rpc_boolean(payload, "Report analysis completion")
+
+    def get_owned_total_loss_report_evidence(self, run_id: str, user_id: str):
+        return self._rpc("get_owned_total_loss_report_evidence", {
+            "requested_run_id": _canonical_uuid(run_id, "Run ID"),
+            "requested_user_id": _canonical_uuid(user_id, "User ID"),
+        })
+
     def complete_total_loss_analysis(
         self,
         job_id: str,

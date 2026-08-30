@@ -5,6 +5,9 @@ import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
+import { localDevelopmentMode } from "./dev-local-mode.mjs";
+import { createListenerPlan, verifyListenerSecret } from "./dev-stripe-listener.mjs";
+import { readListenerStatus } from "./local-listener-status.mjs";
 
 const repositoryRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 const frontendDirectory = join(repositoryRoot, "frontend");
@@ -112,7 +115,14 @@ async function waitForUrl(url, timeoutMs) {
 if (existsSync(localEnvironmentFile)) {
   process.loadEnvFile(localEnvironmentFile);
 }
-const localClaimTesting = process.env.VENFOUR_LOCAL_POST_CONTINUE === "1";
+let mode;
+try {
+  mode = localDevelopmentMode(process.argv.slice(2), process.env);
+} catch (error) {
+  fail(error.message);
+}
+const localClaimTesting = mode.fixtures;
+const localFullFlow = mode.fullFlow;
 
 if (!executableExists(pythonExecutable)) {
   fail("create .venv and install requirements-dev.txt first.");
@@ -186,6 +196,7 @@ const backendEnvironment = {
   VENFOUR_PREVIEW_EMAIL_DISPATCH_SECRET:
     "local-preview-email-dispatch-secret-not-for-production",
   VENFOUR_TURNSTILE_SECRET: turnstileTestSecret,
+  VENFOUR_LOCAL_FULL_FLOW: localFullFlow ? "1" : "0",
 };
 delete backendEnvironment.VENFOUR_STAGING_PROXY_SECRET;
 if (localClaimTesting) {
@@ -196,6 +207,25 @@ if (localClaimTesting) {
   }
 }
 
+let listenerPlan;
+let existingListener;
+if (localFullFlow) {
+  try {
+    listenerPlan = createListenerPlan(backendEnvironment);
+    verifyListenerSecret(listenerPlan);
+    existingListener = await readListenerStatus(listenerPlan);
+  } catch (error) {
+    fail(error.message);
+  }
+  const migrations = runSupabase(["migration", "up", "--local"], supabaseEnvironment);
+  if (migrations.status !== 0) fail("local migrations could not be applied; no linked project was contacted.");
+  const prepared = spawnSync(pythonExecutable, ["-m", "scripts.local_full_flow", "prepare"], {
+    cwd: repositoryRoot, env: backendEnvironment, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"],
+  });
+  if (prepared.status !== 0) fail(prepared.stderr.trim() || "full-flow local preparation failed.");
+  Object.assign(backendEnvironment, JSON.parse(prepared.stdout).reviewEnvironment);
+}
+
 const frontendEnvironment = {
   ...process.env,
   VITE_API_BASE_URL: "",
@@ -203,7 +233,8 @@ const frontendEnvironment = {
   VITE_SUPABASE_URL: credentials.apiUrl,
   VITE_TURNSTILE_SITE_KEY: turnstileTestSiteKey,
   VENFOUR_API_PROXY_TARGET: "http://127.0.0.1:8000",
-  VITE_ENABLE_POST_CONTINUE_FLOW: localClaimTesting ? "true" : "false",
+  VITE_ENABLE_POST_CONTINUE_FLOW: mode.continuation ? "true" : "false",
+  VITE_ENABLE_LOCAL_CLAIM_FIXTURES: localClaimTesting ? "true" : "false",
 };
 for (const secretName of [
   "API_PROXY_SECRET",
@@ -234,22 +265,46 @@ for (const secretName of [
   "VENFOUR_PACKAGE_WORKER_ORIGIN",
   "VENFOUR_PACKAGE_TASKS_OIDC_SERVICE_ACCOUNT",
   "VENFOUR_PACKAGE_TASKS_OIDC_AUDIENCE",
+  "VENFOUR_LOCAL_FULL_FLOW",
+  "VENFOUR_LOCAL_POST_CONTINUE",
+  "VENFOUR_LOCAL_STRIPE_CHECKOUT",
 ]) {
   delete frontendEnvironment[secretName];
 }
 
 const children = [];
 let shuttingDown = false;
+const groupedChildren = localFullFlow && process.platform !== "win32";
+
+if (localFullFlow && !existingListener) {
+  children.push(spawn(process.execPath, [join(repositoryRoot, "scripts/dev-stripe-listener.mjs")], {
+    cwd: repositoryRoot, env: backendEnvironment, stdio: "inherit", detached: groupedChildren,
+  }));
+}
 
 function stopChildren(exitCode = 0) {
   if (shuttingDown) return;
   shuttingDown = true;
   for (const child of children) {
     if (child.exitCode === null && child.signalCode === null) {
-      child.kill("SIGTERM");
+      if (groupedChildren) {
+        try { process.kill(-child.pid, "SIGTERM"); } catch { /* The child may have exited. */ }
+      } else {
+        child.kill("SIGTERM");
+      }
     }
   }
-  setTimeout(() => process.exit(exitCode), 1_500).unref();
+  process.exitCode = exitCode;
+  setTimeout(() => {
+    if (groupedChildren) {
+      for (const child of children) {
+        if (child.exitCode === null && child.signalCode === null) {
+          try { process.kill(-child.pid, "SIGKILL"); } catch { /* Already stopped. */ }
+        }
+      }
+    }
+    process.exit(exitCode);
+  }, localFullFlow ? 30_000 : 1_500).unref();
 }
 
 process.on("SIGINT", () => stopChildren(0));
@@ -260,7 +315,7 @@ const backend = spawn(
   [
     "-m",
     "uvicorn",
-    localClaimTesting ? "scripts.local_claim_flow:create_app" : "venfour.api:create_app",
+    localFullFlow ? "scripts.local_full_flow:create_app" : localClaimTesting ? "scripts.local_claim_flow:create_app" : "venfour.api:create_app",
     "--factory",
     "--host",
     "127.0.0.1",
@@ -269,12 +324,13 @@ const backend = spawn(
     "--reload",
     "--reload-dir",
     "venfour",
-    ...(localClaimTesting ? ["--reload-dir", "scripts"] : []),
+    ...(mode.continuation ? ["--reload-dir", "scripts"] : []),
   ],
   {
     cwd: repositoryRoot,
     env: backendEnvironment,
     stdio: "inherit",
+    detached: groupedChildren,
   },
 );
 children.push(backend);
@@ -286,11 +342,16 @@ const frontend = spawn(
     cwd: frontendDirectory,
     env: frontendEnvironment,
     stdio: "inherit",
+    detached: groupedChildren,
   },
 );
 children.push(frontend);
 
 for (const child of children) {
+  child.on("error", () => {
+    console.error("A local development process could not start.");
+    stopChildren(1);
+  });
   child.on("exit", (code, signal) => {
     if (shuttingDown) return;
     const detail = signal ? `signal ${signal}` : `exit code ${code ?? 1}`;
@@ -304,6 +365,14 @@ try {
     waitForUrl(localClaimTesting ? "http://127.0.0.1:8000/health" : "http://127.0.0.1:8000/ready", 45_000),
     waitForUrl("http://127.0.0.1:5173/", 45_000),
   ]);
+  if (localFullFlow) {
+    const deadline = Date.now() + 25_000;
+    while (!(await readListenerStatus(listenerPlan))?.ready) {
+      if (Date.now() >= deadline) throw new Error("The sandbox webhook listener did not become ready.");
+      await new Promise((resolve) => setTimeout(resolve, 500));
+    }
+    console.log("Full-flow development: live analysis, sandbox payments, local processing, and qualified report review.");
+  }
   console.log("\nVenfour is ready: http://localhost:5173");
   if (localClaimTesting) {
     console.log("Local claim testing: http://localhost:5173/_local/claims (external providers disabled)");

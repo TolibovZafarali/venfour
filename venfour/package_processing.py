@@ -944,7 +944,14 @@ class DeterministicPackageAssessmentBuilder:
 
     @classmethod
     def _confirmed_facts(cls, context: Mapping[str, Any]) -> dict[str, Any]:
-        raw = _mapping(context.get("confirmed_facts"), "Confirmed facts")
+        _mapping(context.get("confirmed_facts"), "Confirmed facts")
+        from venfour.report_evidence import package_report_facts
+        try:
+            raw, _ = package_report_facts(context)
+        except (KeyError, TypeError, ValueError) as exc:
+            raise PackageProcessingContractError(
+                "Report evidence does not match the original valuation inputs"
+            ) from exc
         return {
             "vin": cls._optional_text(raw.get("vin"), "VIN"),
             "year": cls._required_integer(raw.get("vehicle_year"), "Vehicle year"),
@@ -961,8 +968,10 @@ class DeterministicPackageAssessmentBuilder:
                 raw.get("postal_code"), "Postal code"
             ),
             "lossDate": cls._loss_date(raw.get("date_of_loss")),
-            "insurerName": cls._required_text(
-                raw.get("insurer_name"), "Insurer name"
+            "insurerName": (
+                cls._optional_text(raw.get("insurer_name"), "Insurer name")
+                if context.get("source_intake_mode") == "report"
+                else cls._required_text(raw.get("insurer_name"), "Insurer name")
             ),
             "insurerVehicleValuationMinorUnits": cls._insurer_minor_units(
                 raw.get("insurer_vehicle_valuation")
@@ -1091,7 +1100,14 @@ class DeterministicPackageAssessmentBuilder:
             source_document=source_document,
             extraction=extraction,
             validation_checks=(),
-            validation_limitations=(),
+            validation_limitations=(
+                ("REPORT_INPUT_FACTS_DERIVED_FROM_IMMUTABLE_ANALYSIS",)
+                if context.get("source_intake_mode") == "report"
+                and any(context["confirmed_facts"].get(key) is None for key in
+                        ("vehicle_year", "vehicle_make", "vehicle_model", "vehicle_trim",
+                         "mileage_at_loss", "date_of_loss", "insurer_name"))
+                else ()
+            ),
         )
 
     @staticmethod

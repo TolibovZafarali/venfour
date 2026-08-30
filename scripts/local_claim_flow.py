@@ -282,6 +282,34 @@ def pay_fixture(case_id):
     return entitlement_id
 
 
+def add_continuation_route(app, gateway):
+    """Attach the shared owner-scoped initializer to a guarded local app."""
+    async def post_continue(request):
+        if await request.body():
+            return JSONResponse({"error":{"code":"INVALID_INPUT","message":"No request body is accepted."}},400)
+        try:
+            authorization=request.headers.get("authorization", "")
+            if not authorization.startswith("Bearer "):
+                raise SupabaseAuthenticationError("Authentication required")
+            result=await run_in_threadpool(initialize,gateway,app.state.case_claim_access_service,
+                request.path_params["case_id"],authorization[7:])
+            return JSONResponse(result,headers={"Cache-Control":"no-store"})
+        except SupabaseAuthenticationError:
+            status=401
+        except LookupError:
+            status=404
+        except (ValueError, TypeError):
+            status=409
+        except Exception:
+            status=503
+        return JSONResponse({"error":{"code":"POST_CONTINUE_UNAVAILABLE","message":"Unable to initialize this claim."}},status,
+            headers={"Cache-Control":"no-store"})
+
+    app.router.routes.append(Route(
+        "/api/v1/appraisal-cases/{case_id}/post-continue", post_continue, methods=["POST"],
+    ))
+
+
 def create_app():
     require_local()
     block_provider_network()
@@ -316,27 +344,6 @@ def create_app():
 
     app.router.lifespan_context = local_lifespan
 
-    async def post_continue(request):
-        if await request.body():
-            return JSONResponse({"error":{"code":"INVALID_INPUT","message":"No request body is accepted."}},400)
-        try:
-            authorization=request.headers.get("authorization", "")
-            if not authorization.startswith("Bearer "):
-                raise SupabaseAuthenticationError("Authentication required")
-            result=await run_in_threadpool(initialize,gateway,app.state.case_claim_access_service,
-                request.path_params["case_id"],authorization[7:])
-            return JSONResponse(result,headers={"Cache-Control":"no-store"})
-        except SupabaseAuthenticationError:
-            status=401
-        except LookupError:
-            status=404
-        except (ValueError, TypeError):
-            status=409
-        except Exception:
-            status=503
-        return JSONResponse({"error":{"code":"POST_CONTINUE_UNAVAILABLE","message":"Unable to initialize this claim."}},status,
-            headers={"Cache-Control":"no-store"})
-
     async def new_fixture(request):
         try:
             authorization=request.headers.get("authorization", "")
@@ -365,10 +372,8 @@ def create_app():
 
     app.add_middleware(BaseHTTPMiddleware, dispatch=loopback_only)
 
-    app.router.routes.extend([
-        Route("/api/v1/appraisal-cases/{case_id}/post-continue",post_continue,methods=["POST"]),
-        Route("/api/local/claim-fixtures",new_fixture,methods=["POST"]),
-    ])
+    add_continuation_route(app, gateway)
+    app.router.routes.append(Route("/api/local/claim-fixtures",new_fixture,methods=["POST"]))
     return app
 
 

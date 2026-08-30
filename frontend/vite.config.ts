@@ -37,7 +37,7 @@ export function createViteConfiguration(
     "form-action 'self'",
     `script-src 'self' 'nonce-${nonce}' https://challenges.cloudflare.com https://js.stripe.com https://*.js.stripe.com`,
     "frame-src 'self' https://challenges.cloudflare.com https://js.stripe.com https://*.js.stripe.com https://hooks.stripe.com",
-    "connect-src 'self' http://127.0.0.1:54321 ws://127.0.0.1:54321 ws://localhost:5173 ws://127.0.0.1:5173 https://challenges.cloudflare.com https://api.stripe.com",
+    "connect-src 'self' http://127.0.0.1:54321 ws://127.0.0.1:54321 ws://localhost:5173 ws://127.0.0.1:5173 https://challenges.cloudflare.com https://api.stripe.com https://vpic.nhtsa.dot.gov",
     "img-src 'self' data: blob:",
     "font-src 'self' data:",
     "style-src 'self' 'unsafe-inline'",
