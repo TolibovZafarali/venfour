@@ -315,11 +315,6 @@
   flex-shrink: 0;
 }
 
-.completed-analysis[data-stage="request"]:has(.request-prepare) > .review-actions {
-  border-top: 0;
-  box-shadow: none;
-}
-
 .completed-analysis .request-assurance {
   flex: 1 1 18rem;
   max-width: 25rem;
@@ -559,7 +554,6 @@
   border-left: 2px solid var(--review-accent, var(--brand));
   border-radius: 0 8px 8px 0;
   background: linear-gradient(100deg, #eef4ff, #f7f9fd);
-  animation: request-reveal 200ms ease-out;
 }
 
 .completed-analysis .request-sent-confirmation h3 {
@@ -625,11 +619,6 @@
 
 @keyframes request-spin {
   to { transform: rotate(360deg); }
-}
-
-@keyframes request-reveal {
-  from { opacity: 0; transform: translateY(4px); }
-  to { opacity: 1; transform: translateY(0); }
 }
 
 @media (max-width: 767px) {

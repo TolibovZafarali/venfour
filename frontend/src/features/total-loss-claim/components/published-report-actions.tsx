@@ -19,7 +19,7 @@ export function ReportFileRow({ report, ...identity }: ReportActionProps) {
   });
 
   return (
-    <div className="report-file" data-review-reveal="detail" role="region" aria-label="Evidence package">
+    <div className="report-file" role="region" aria-label="Evidence package">
       <div className="report-file-document" aria-hidden="true">
         <FileText strokeWidth={1.4} />
         <span>PDF</span>

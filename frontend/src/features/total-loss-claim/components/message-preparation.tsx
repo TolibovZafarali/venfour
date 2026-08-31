@@ -32,15 +32,15 @@ function RequestError({ children }: { readonly children: React.ReactNode }) {
 function RequestRecorded(props: RequestPreparationOptions) {
   return (
     <section className="request-recorded" aria-label="Request status">
-      <span className="request-recorded-icon" data-review-reveal="completion" aria-hidden="true">
+      <span className="request-recorded-icon" aria-hidden="true">
         <Check />
       </span>
-      <h2 data-review-reveal="heading">Request marked as sent</h2>
-      <p data-review-reveal="lead" role="status">
+      <h2>Request marked as sent</h2>
+      <p role="status">
         You reported sending the request. Venfour cannot verify email delivery
         or receipt.
       </p>
-      <p data-review-reveal="quiet">Keep a copy of the email, the report, and any response from your insurer.</p>
+      <p>Keep a copy of the email, the report, and any response from your insurer.</p>
       <ReportFileRow {...props} />
     </section>
   );
@@ -70,11 +70,11 @@ function DraftEditor({
 
   return (
     <section className="request-review" aria-label="Request draft">
-      <header className="request-heading" data-review-reveal="heading">
+      <header className="request-heading">
         <h1>Review and send</h1>
         <p>Review the message, then send it from your own email account.</p>
       </header>
-      <div className="request-composer" data-review-reveal="composer">
+      <div className="request-composer">
         <div className="request-composer-header">
           <span className="request-composer-title" aria-hidden="true">
             <Mail />Email draft
@@ -179,7 +179,7 @@ function DraftEditor({
           </button>
         </div>
       ) : null}
-      <ol className="request-send-sequence" data-review-reveal="quiet" role="list">
+      <ol className="request-send-sequence" role="list">
         <li>Review the email.</li>
         <li>Download the evidence package.</li>
         <li>Open your email app or copy the message.</li>
@@ -191,7 +191,6 @@ function DraftEditor({
       <div className="request-action-bar request-share-actions" aria-label="Request actions">
         <button
           className="request-button request-button-secondary"
-          data-review-reveal="action"
           disabled={editor.action !== null || editor.conflict}
           onClick={() => void editor.shareEmail("copy")}
           type="button"
@@ -201,7 +200,6 @@ function DraftEditor({
         </button>
         <button
           className={`request-button request-open-action ${editor.sharedMessage ? "request-button-secondary" : "request-button-primary"}`}
-          data-review-reveal="action"
           disabled={editor.action !== null || editor.conflict}
           onClick={() => void editor.shareEmail("open")}
           type="button"
@@ -286,7 +284,7 @@ function SendingDetails({
     details.claimReference && details.claimReferenceConfirmed,
   );
   return (
-    <div className="request-fields" data-review-reveal="fields">
+    <div className="request-fields">
       {!emailConfirmed ? (
         <div className="request-field">
           <label htmlFor="request-adjuster-email">
@@ -380,7 +378,7 @@ export function MessagePreparation({
         void preparation.createDraft();
       }}
     >
-      <header className="request-heading" data-review-reveal="heading">
+      <header className="request-heading" data-review-entrance="primary">
         <h1>Prepare your request</h1>
         <p>
           {intakeMode === "manual"
@@ -388,67 +386,70 @@ export function MessagePreparation({
             : "You’re going to ask the insurer to review its valuation using the market evidence and provide a written response."}
         </p>
       </header>
-      <p className="request-package-intro" data-review-reveal="lead">
-        Your evidence package contains the supporting valuation information and
-        comparable-vehicle evidence. You’ll attach it to your email.
-      </p>
-      <ReportFileRow {...props} />
-      {details ? (
-        <>
-          <dl className="request-known-details" data-review-reveal="quiet">
-            {availableFact(details.insurerName) ? (
-              <>
-                <dt>Insurance company</dt>
-                <dd>{details.insurerName}</dd>
-              </>
-            ) : null}
-            {availableFact(details.customerName) ? (
-              <>
-                <dt>Vehicle owner</dt>
-                <dd>{details.customerName}</dd>
-              </>
-            ) : null}
-          </dl>
-          <SendingDetails
-            attempted={preparation.attempted}
-            details={details}
-            email={preparation.email}
-            reference={preparation.reference}
-            onEmail={preparation.setEmail}
-            onReference={preparation.setReference}
-            pending={preparation.creating}
-          />
-        </>
-      ) : (
-        <RequestError>
-          Sending details are temporarily unavailable. Refresh this case before
-          preparing a request.
-        </RequestError>
-      )}
-      <div className="request-action-bar request-prepare-actions">
-        <p className="request-assurance" data-review-reveal="action">
-          {intakeMode === "manual"
-            ? "Nothing is sent automatically. You’ll send the email from your own account."
-            : "You can review and edit the email before sending it. Nothing is sent automatically."}
+      <div data-review-entrance="secondary">
+        <p className="request-package-intro">
+          Your evidence package contains the supporting valuation information and
+          comparable-vehicle evidence. You’ll attach it to your email.
         </p>
-        {!preparation.reviewCompleted ? (
-          <p>Complete the review before preparing your request.</p>
-        ) : null}
-        {preparation.error ? <RequestError>{preparation.error}</RequestError> : null}
-        <button
-          className="request-button request-button-primary"
-          data-review-reveal="action"
-          disabled={
-            preparation.creating ||
-            !details ||
-            !props.claim.workflow ||
-            !preparation.reviewCompleted
-          }
-          type="submit"
-        >
-          <StableActionLabel reserve="Create my request">{preparation.creating ? "Creating draft…" : "Create my request"}</StableActionLabel>
-          {preparation.creating ? <LoaderCircle className="request-spinner" aria-hidden="true" /> : <ArrowRight aria-hidden="true" />}
-        </button>
+        <ReportFileRow {...props} />
+      </div>
+      <div data-review-entrance="supporting">
+        {details ? (
+          <>
+            <dl className="request-known-details">
+              {availableFact(details.insurerName) ? (
+                <>
+                  <dt>Insurance company</dt>
+                  <dd>{details.insurerName}</dd>
+                </>
+              ) : null}
+              {availableFact(details.customerName) ? (
+                <>
+                  <dt>Vehicle owner</dt>
+                  <dd>{details.customerName}</dd>
+                </>
+              ) : null}
+            </dl>
+            <SendingDetails
+              attempted={preparation.attempted}
+              details={details}
+              email={preparation.email}
+              reference={preparation.reference}
+              onEmail={preparation.setEmail}
+              onReference={preparation.setReference}
+              pending={preparation.creating}
+            />
+          </>
+        ) : (
+          <RequestError>
+            Sending details are temporarily unavailable. Refresh this case before
+            preparing a request.
+          </RequestError>
+        )}
+        <div className="request-action-bar request-prepare-actions">
+          <p className="request-assurance">
+            {intakeMode === "manual"
+              ? "Nothing is sent automatically. You’ll send the email from your own account."
+              : "You can review and edit the email before sending it. Nothing is sent automatically."}
+          </p>
+          {!preparation.reviewCompleted ? (
+            <p>Complete the review before preparing your request.</p>
+          ) : null}
+          {preparation.error ? <RequestError>{preparation.error}</RequestError> : null}
+          <button
+            className="request-button request-button-primary"
+            disabled={
+              preparation.creating ||
+              !details ||
+              !props.claim.workflow ||
+              !preparation.reviewCompleted
+            }
+            type="submit"
+          >
+            <StableActionLabel reserve="Create my request">{preparation.creating ? "Creating draft…" : "Create my request"}</StableActionLabel>
+            {preparation.creating ? <LoaderCircle className="request-spinner" aria-hidden="true" /> : <ArrowRight aria-hidden="true" />}
+          </button>
+        </div>
       </div>
     </form>
   );

@@ -1,7 +1,8 @@
-import { useLayoutEffect, useRef, type RefObject } from "react";
+import { useLayoutEffect, type RefObject } from "react";
 
-const reducedMotion = () => window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-const ease = "cubic-bezier(.2, .75, .25, 1)";
+const entranceSelector = '[data-review-entrance="primary"], [data-review-entrance="secondary"], [data-review-entrance="supporting"]';
+const stationarySelector = ".request-review, .request-composer, .review-progress, .review-actions";
+const entranceDelays: Record<string, number> = { primary: 0, secondary: 45, supporting: 90 };
 
 export function useReviewStageMotion({ root, stage, index, reportId }: {
   readonly root: RefObject<HTMLElement | null>;
@@ -9,89 +10,65 @@ export function useReviewStageMotion({ root, stage, index, reportId }: {
   readonly index: number;
   readonly reportId: string;
 }) {
-  const previous = useRef<{ stage: string; index: number; reportId: string } | null>(null);
-  const entrances = useRef<Animation[]>([]);
-  const outgoing = useRef<Animation | null>(null);
-  const navigation = useRef(0);
-  const exiting = useRef(false);
-
   useLayoutEffect(() => {
     const element = root.current;
     if (!element) return;
-    const before = previous.current;
-    previous.current = { stage, index, reportId };
-    const backward = Boolean(before && before.reportId === reportId && index < before.index);
-    element.setAttribute("data-direction", backward ? "backward" : "forward");
-    // Position the reading surface while the old content is faded, before paint.
-    // Explicit inline alignment prevents scrolling from moving the page sideways.
-    element.focus({ preventScroll: true });
+
+    const active = document.activeElement;
+    const editing = active instanceof HTMLElement && element.contains(active) && (
+      active.matches("input, textarea") || active.isContentEditable
+      || Boolean(active.closest('[contenteditable]:not([contenteditable="false"])'))
+    );
+    // Keep a retained editor's focus and selection when the review index changes.
+    if (!editing) element.focus({ preventScroll: true });
+    // Reset before paint, without smooth scrolling or horizontal realignment.
     element.scrollIntoView?.({ block: "start", inline: "nearest", behavior: "instant" });
 
-    if (!reducedMotion()) {
-      const reveals = element.querySelectorAll<HTMLElement>("[data-review-reveal], [data-review-count]");
-      reveals.forEach((target) => {
-        const closed = target.closest("details:not([open])");
-        if (closed && closed !== target && !target.closest("summary")) return;
-        const style = getComputedStyle(target);
-        const role = target.dataset.reviewReveal;
-        const travel = Number.parseFloat(style.getPropertyValue("--review-travel")) || 0;
-        const duration = Number.parseFloat(style.getPropertyValue("--review-duration")) || 300;
-        const delay = Number.parseFloat(style.getPropertyValue("--review-delay")) || 0;
-        const frames: Keyframe[] = [
-          { opacity: 0, translate: `0 ${backward ? -travel * .65 : travel}px` },
-          { opacity: 1, translate: "0 0" },
-        ];
-        // Individual transforms preserve the range markers' precise positions.
-        if (role === "range") {
-          frames[0].scale = ".96 1";
-          frames[1].scale = "1 1";
-        } else if (role === "completion") {
-          frames[0].scale = ".94";
-          frames[1].scale = "1";
-        }
-        const animation = target.animate?.(frames, { duration, delay: backward ? delay * .7 : delay, easing: ease, fill: "backwards" });
-        if (animation) entrances.current.push(animation);
-      });
-    }
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
+    const compact = window.matchMedia?.("(max-width: 540px)").matches;
 
-    return () => {
-      navigation.current += 1;
-      exiting.current = false;
-      outgoing.current?.cancel();
-      outgoing.current = null;
-      entrances.current.forEach((animation) => animation.cancel());
-      entrances.current = [];
-    };
-  }, [root, stage, index, reportId]);
-
-  const transitionTo = (commit: () => void) => {
-    if (exiting.current) return;
-    const content = root.current?.querySelector<HTMLElement>(".review-stage-content");
-    if (!content?.animate || reducedMotion()) {
-      commit();
-      return;
-    }
-    exiting.current = true;
-    const epoch = ++navigation.current;
-    const animation = content.animate([{ opacity: 1 }, { opacity: 0 }], {
-      duration: 110, easing: "cubic-bezier(.4, 0, 1, 1)", fill: "forwards",
+    const candidates = Array.from(element.querySelectorAll<HTMLElement>(entranceSelector)).filter((target) => {
+      if (target.matches(".review-stage-content") || target.closest(stationarySelector) || target.querySelector(stationarySelector)) return false;
+      const closed = target.closest("details:not([open])");
+      if (closed && closed !== target && !target.closest("summary")) return false;
+      return true;
     });
-    outgoing.current = animation;
-    void animation.finished.then(() => {
-      if (epoch !== navigation.current) return;
-      try {
-        commit();
-      } finally {
-        // A guarded destination may no-op after a same-stage URL change.
-        // Always release its fade and interaction lock, even without a new stage.
-        if (outgoing.current === animation) {
-          outgoing.current = null;
-          exiting.current = false;
-          animation.cancel();
-        }
-      }
-    }, () => { /* A superseding navigation or unmount cancels the old destination. */ });
-  };
+    const groups = candidates.filter((target) => !candidates.some((other) => other !== target && other.contains(target)));
+    const animations = groups.flatMap((target) => {
+      const role = target.dataset.reviewEntrance!;
+      const strong = role === "primary" && (stage === "result" || stage === "meaning");
+      const completion = role === "primary" && stage === "sent";
+      const quiet = role === "supporting";
+      const blur = compact ? strong ? 4 : 3 : strong ? 8 : quiet ? 4 : completion ? 5 : 6;
+      const travel = compact ? strong ? 10 : 8 : strong ? 14 : quiet ? 8 : completion ? 10 : 12;
+      const opacity = strong ? .55 : quiet ? .72 : completion ? .65 : .62;
+      const animation = target.animate?.([
+        { opacity, filter: `blur(${blur}px)`, translate: `0 ${travel}px`, offset: 0 },
+        { opacity: .96, filter: "blur(0px)", translate: "0 2px", offset: .7 },
+        { opacity: 1, filter: "blur(0px)", translate: "0 0", offset: 1 },
+      ], {
+        duration: 600,
+        delay: entranceDelays[role],
+        easing: "cubic-bezier(.22, .8, .24, 1)",
+        fill: "backwards",
+      });
+      return animation ? [animation] : [];
+    });
 
-  return { transitionTo, isExiting: () => exiting.current };
+    const range = stage === "result" ? element.querySelector<HTMLElement>(".value-range-axis") : null;
+    if (range && !range.closest(stationarySelector)) {
+      const animation = range.animate?.([
+        { opacity: .7, translate: "0 2px" },
+        { opacity: 1, translate: "0 0" },
+      ], {
+        duration: 320,
+        delay: 180,
+        easing: "cubic-bezier(.22, .8, .24, 1)",
+        fill: "backwards",
+      });
+      if (animation) animations.push(animation);
+    }
+
+    return () => animations.forEach((animation) => animation.cancel());
+  }, [root, stage, index, reportId]);
 }

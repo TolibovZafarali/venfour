@@ -236,7 +236,7 @@ function renderJourney(intakeMode: TotalLossIntakeMode, initialStage = "result")
     initialEntries: [`${BASE}/review/${initialStage}`],
   });
   const result = render(<QueryClientProvider client={queryClient}><RouterProvider router={router} /></QueryClientProvider>);
-  return { ...result, router };
+  return { ...result, router, queryClient };
 }
 
 function backControl() {
@@ -245,6 +245,61 @@ function backControl() {
 
 describe("completed-analysis guided progression", () => {
   beforeEach(() => request.render.mockClear());
+
+  it("waits for the acknowledgement but never for animations when moving between stable review stages", async () => {
+    const originalAnimate = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "animate");
+    const animationFinished = new Promise<void>(() => undefined);
+    const animate = vi.fn(() => ({ finished: animationFinished, cancel: vi.fn() }));
+    Object.defineProperty(HTMLElement.prototype, "animate", { configurable: true, value: animate });
+    let release!: () => void;
+    const pendingSave = new Promise<void>((resolve) => { release = resolve; });
+    const saved = installClaim(claimProjection(), undefined, () => pendingSave);
+    const user = userEvent.setup();
+    const view = renderJourney("report");
+
+    try {
+      expect(await screen.findByRole("heading", { name: "Your result" })).toBeVisible();
+      const section = screen.getByRole("region", { name: "Completed analysis" });
+      const content = section.querySelector(".review-stage-content");
+      expect(content).not.toBeNull();
+      expect(animate).toHaveBeenCalled();
+
+      await user.click(screen.getByRole("button", { name: "See how the insurer reached its value" }));
+      await waitFor(() => expect(saved.writes).toHaveLength(1));
+      expect(screen.getByRole("button", { name: "Saving progress…" })).toBeDisabled();
+      expect(screen.getByRole("heading", { name: "Your result" })).toBeVisible();
+      expect(view.router.state.location.pathname).toBe(`${BASE}/review/result`);
+      expect(saved.claim().education?.steps.result.completedAt).toBeNull();
+
+      await act(async () => { release(); await pendingSave; });
+      expect(await screen.findByRole("heading", { name: "How your insurer reached its value" })).toBeVisible();
+      expect(saved.claim().education?.steps.result.completedAt).toBe(NOW);
+      expect(view.router.state.location.pathname).toBe(`${BASE}/review/insurer`);
+      expect(screen.getByRole("region", { name: "Completed analysis" })).toBe(section);
+      expect(section.querySelector(".review-stage-content")).toBe(content);
+      expect(section.querySelectorAll("h1")).toHaveLength(1);
+
+      for (let repeat = 0; repeat < 2; repeat += 1) {
+        await user.click(backControl());
+        expect(await screen.findByRole("heading", { name: "Your result" })).toBeVisible();
+        expect(view.router.state.location.pathname).toBe(`${BASE}/review/result`);
+        expect(section.querySelectorAll("h1")).toHaveLength(1);
+        await user.click(screen.getByRole("button", { name: "See how the insurer reached its value" }));
+        expect(await screen.findByRole("heading", { name: "How your insurer reached its value" })).toBeVisible();
+        expect(view.router.state.location.pathname).toBe(`${BASE}/review/insurer`);
+        expect(screen.getByRole("region", { name: "Completed analysis" })).toBe(section);
+        expect(section.querySelector(".review-stage-content")).toBe(content);
+        expect(section.querySelectorAll("h1")).toHaveLength(1);
+      }
+      expect(saved.writes).toEqual([{ step: "result", state: "completed", expectedWorkflowRevision: 7 }]);
+      expect(saved.draftWrites).not.toHaveBeenCalled();
+    } finally {
+      release();
+      view.unmount();
+      if (originalAnimate) Object.defineProperty(HTMLElement.prototype, "animate", originalAnimate);
+      else Reflect.deleteProperty(HTMLElement.prototype, "animate");
+    }
+  });
 
   it("does not navigate away from a route chosen while an acknowledgement is still saving", async () => {
     let release!: () => void;
@@ -479,6 +534,43 @@ describe("completed-analysis guided progression", () => {
     expect(screen.getByText(/reported.*sen|marked.*sen/iu)).toBeVisible();
     expect(screen.queryByText(/delivery confirmed|insurer received|response.*within \d/iu)).not.toBeInTheDocument();
     expect(request.render).not.toHaveBeenCalled();
+  });
+
+  it("keeps the review frame mounted when a saved sent state replaces the request and redirects its URL", async () => {
+    const saved = installClaim(claimProjection(BEFORE_REQUEST));
+    const view = renderJourney("report", "request");
+    expect(await screen.findByRole("heading", { name: "Review and send" })).toBeVisible();
+    expect(screen.queryByRole("heading", { name: "Waiting for the insurer’s response" })).not.toBeInTheDocument();
+    const section = screen.getByRole("region", { name: "Completed analysis" });
+    const content = section.querySelector(".review-stage-content");
+    expect(content).not.toBeNull();
+
+    const sent = claimProjection([...BEFORE_REQUEST, "send"]);
+    server.use(http.get(`${API}/claim`, () => HttpResponse.json({
+      ...sent,
+      journey: { fulfillmentState: "awaiting_insurer_response", nextState: "awaiting_insurer_response", retryable: false },
+      workflow: { currentTask: "awaiting_insurer_response", phase: "initial_request", revision: 13 },
+    })));
+    await act(() => view.queryClient.refetchQueries({ type: "active" }));
+
+    expect(await screen.findByRole("heading", { name: "Waiting for the insurer’s response" })).toBeVisible();
+    await waitFor(() => expect(view.router.state.location.pathname).toBe(`${BASE}/review/sent`));
+    expect(screen.getByRole("region", { name: "Completed analysis" })).toBe(section);
+    expect(section.querySelector(".review-stage-content")).toBe(content);
+    expect(section.querySelectorAll("h1")).toHaveLength(1);
+    expect(screen.queryByTestId("request-controls")).not.toBeInTheDocument();
+    expect(screen.queryByText(/delivery confirmed|insurer received/u)).not.toBeInTheDocument();
+    expect(saved.writes).toEqual([]);
+    expect(saved.draftWrites).not.toHaveBeenCalled();
+  });
+
+  it("does not show sent confirmation from the URL without a saved sent state", async () => {
+    const projection = claimProjection(BEFORE_REQUEST);
+    installClaim({ ...projection, journey: { ...projection.journey!, nextState: "prepare_request" } });
+    const { router } = renderJourney("report", "sent");
+    expect(await screen.findByRole("heading", { name: "Review and send" })).toBeVisible();
+    expect(router.state.location.pathname).toBe(`${BASE}/review/request`);
+    expect(screen.queryByRole("heading", { name: "Waiting for the insurer’s response" })).not.toBeInTheDocument();
   });
 
   it("explains current listing timing once without treating a historical query date as available historical listings", async () => {

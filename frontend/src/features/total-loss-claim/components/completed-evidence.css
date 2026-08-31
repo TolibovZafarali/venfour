@@ -67,10 +67,6 @@
   line-height: 1.75;
 }
 
-.completed-analysis .completed-evidence[open] > .completed-evidence__body {
-  animation: completed-evidence-reveal 180ms ease-out;
-}
-
 .completed-analysis .completed-evidence__body p {
   max-width: 68ch;
   margin-block: 0 0.8rem;
@@ -205,11 +201,6 @@
   color: var(--review-muted, #596678);
 }
 
-@keyframes completed-evidence-reveal {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
 @media (max-width: 1100px) {
   .completed-analysis .completed-evidence__table {
     overflow: visible;
@@ -324,9 +315,5 @@
   .completed-analysis .completed-evidence > summary,
   .completed-analysis .completed-evidence > summary svg {
     transition: none;
-  }
-
-  .completed-analysis .completed-evidence[open] > .completed-evidence__body {
-    animation: none;
   }
 }
