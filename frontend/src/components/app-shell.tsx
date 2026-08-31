@@ -178,7 +178,7 @@ function AppShellContent() {
     : "duration-[360ms] ease-[cubic-bezier(0.4,0,0.2,1)]";
 
   return (
-    <div className="relative flex min-h-svh flex-col bg-background">
+    <div className="relative flex min-h-svh flex-col bg-background" data-completed-review={completedReviewRoute || undefined}>
       <span
         ref={headerSentinelRef}
         className="pointer-events-none absolute top-0 left-0 h-px w-px"

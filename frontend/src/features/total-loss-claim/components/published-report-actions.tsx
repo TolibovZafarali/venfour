@@ -1,5 +1,8 @@
+import { Download, ExternalLink, FileText, LoaderCircle } from "lucide-react";
+
 import type { TotalLossPublishedReport } from "../contracts";
 import { usePublishedReport } from "../use-published-report";
+import "./completed-request.css";
 
 interface ReportActionProps {
   readonly accessToken: string;
@@ -15,20 +18,28 @@ export function ReportFileRow({ report, ...identity }: ReportActionProps) {
   });
 
   return (
-    <div>
-      <p>Venfour Total-Loss Valuation Evidence Package</p>
-      <p>PDF · {report.versionLabel} · Issued {report.issueDate}</p>
-      <p>{report.suggestedFilename}</p>
-      <div>
-        <button type="button" disabled={pendingAction !== null} onClick={() => void open(true)}>
+    <div className="report-file" role="region" aria-label="Evidence package">
+      <div className="report-file-document" aria-hidden="true">
+        <FileText strokeWidth={1.4} />
+        <span>PDF</span>
+      </div>
+      <div className="report-file-content">
+        <p className="report-file-title">Venfour Total-Loss Valuation Evidence Package</p>
+        <p className="report-file-meta">PDF · {report.versionLabel} · Issued {report.issueDate}</p>
+        <p className="report-file-name">{report.suggestedFilename}</p>
+      </div>
+      <div className="report-file-actions">
+        <button className="request-button request-button-utility" type="button" disabled={pendingAction !== null} onClick={() => void open(true)}>
+          {pendingAction === "view" ? <LoaderCircle aria-hidden="true" className="request-spinner" /> : <ExternalLink aria-hidden="true" />}
           {pendingAction === "view" ? "Opening…" : "View report"}
         </button>
-        <button type="button" disabled={pendingAction !== null} onClick={() => void open(false)}>
+        <button className="request-button request-button-utility" type="button" disabled={pendingAction !== null} onClick={() => void open(false)}>
+          {pendingAction === "download" ? <LoaderCircle aria-hidden="true" className="request-spinner" /> : <Download aria-hidden="true" />}
           {pendingAction === "download" ? "Preparing PDF…" : "Download PDF"}
         </button>
       </div>
-      {pendingAction ? <p role="status">Preparing your report</p> : null}
-      {error ? <p role="alert">{error}</p> : null}
+      {pendingAction ? <p className="report-file-status" role="status">Preparing your report</p> : null}
+      {error ? <p className="report-file-status request-error" role="alert">{error}</p> : null}
     </div>
   );
 }

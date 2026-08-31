@@ -1148,7 +1148,7 @@ describe("total-loss customer workflow", () => {
     renderTestApp([`${CLAIM_BASE}/review/next?details=report`], {
       authService: authService(),
     });
-    const reportSection = (await screen.findByText("Venfour Total-Loss Valuation Evidence Package")).closest("div")!;
+    const reportSection = await screen.findByRole("region", { name: "Evidence package" });
     await user.click(
       within(reportSection).getByRole("button", { name: /^View(?: report)?$/u }),
     );
@@ -1244,7 +1244,7 @@ describe("total-loss customer workflow", () => {
       [`${CLAIM_BASE}/review/market?details=report`],
       { authService: authService() },
     );
-    const reportSection = (await screen.findByText("Venfour Total-Loss Valuation Evidence Package")).closest("div")!;
+    const reportSection = await screen.findByRole("region", { name: "Evidence package" });
     await user.click(
       within(reportSection).getByRole("button", { name: /^View(?: report)?$/u }),
     );
@@ -1277,7 +1277,7 @@ describe("total-loss customer workflow", () => {
       }),
     );
     renderTestApp([`${CLAIM_BASE}/guide/report?details=report`], { authService: authService() });
-    const reportSection = (await screen.findByText("Venfour Total-Loss Valuation Evidence Package")).closest("div")!;
+    const reportSection = await screen.findByRole("region", { name: "Evidence package" });
     await userEvent.setup().dblClick(within(reportSection).getByRole("button", { name: "View report" }));
     await waitFor(() => expect(downloadRequests).toBe(1));
     expect(within(reportSection).getByRole("button", { name: "Opening…" })).toBeDisabled();
@@ -1364,7 +1364,8 @@ describe("total-loss customer workflow", () => {
     const status = completed;
     expect(within(status).getByRole("heading", { name: "Waiting for the insurer’s response" })).toBeVisible();
     expect(status).toHaveAttribute("data-stage", "sent");
-    expect(within(status).getByText(NOW)).toHaveAttribute("datetime", NOW);
+    expect(status.querySelector("time")).toHaveAttribute("datetime", NOW);
+    expect(status.querySelector("time")).toHaveTextContent("Aug 29, 2026");
     expect(within(completed).queryByRole("button", { name: "Create request draft" })).not.toBeInTheDocument();
     expect(within(completed).queryByRole("textbox", { name: "Recipient" })).not.toBeInTheDocument();
     const reopenedUrl = initial.router.state.location.pathname;
@@ -1372,7 +1373,8 @@ describe("total-loss customer workflow", () => {
     renderTestApp([reopenedUrl], { authService: authService() });
     const restored = await screen.findByRole("region", { name: "Completed analysis" });
     expect(within(restored).getByRole("heading", { name: "Waiting for the insurer’s response" })).toBeVisible();
-    expect(within(restored).getByText(NOW)).toHaveAttribute("datetime", NOW);
+    expect(restored.querySelector("time")).toHaveAttribute("datetime", NOW);
+    expect(restored.querySelector("time")).toHaveTextContent("Aug 29, 2026");
     expect(within(restored).queryByRole("button", { name: "Mark as sent" })).not.toBeInTheDocument();
     expect(within(restored).queryByRole("button", { name: "Upload insurer response" })).not.toBeInTheDocument();
   });
