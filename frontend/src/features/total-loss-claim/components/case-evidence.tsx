@@ -69,7 +69,7 @@ export function InsurerEvidenceDetails({ report, open }: ReportProps) {
         return summary && summary.count > 1 && summary.low?.amountMinorUnits != null && summary.high?.amountMinorUnits != null && displayed(summary.low.formatted, "") && displayed(summary.high.formatted, "") ? <p key={kind}>{kind === "advertisedPrices" ? "Disclosed advertised prices" : "Disclosed adjusted values"} ranged from {moneyLabel(summary.low)} to {moneyLabel(summary.high)}.</p> : null;
       })}
       {rows.length ? (
-        <div className="evidence-table completed-evidence__table" tabIndex={0} role="region" aria-label="Insurer comparable table">
+        <div className="evidence-table completed-evidence__table" role="region" aria-label="Insurer comparable table">
           <table role="table">
             <caption>Insurer comparables</caption>
             <thead role="rowgroup"><tr role="row">
@@ -108,7 +108,7 @@ export function MarketEvidenceDetails({ report, open }: ReportProps) {
     <EvidenceDisclosure label="See selected market listings" open={open}>
       <p className="completed-evidence__introduction">Explore the selected listings, including mileage, dealer, location, and dates.</p>
       {rows.length ? (
-        <div className="evidence-table completed-evidence__table" tabIndex={0} role="region" aria-label="Selected market listing table">
+        <div className="evidence-table completed-evidence__table" role="region" aria-label="Selected market listing table">
           <table role="table">
             <caption>Selected market listings</caption>
             <thead role="rowgroup"><tr role="row">

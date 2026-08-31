@@ -81,20 +81,34 @@
   margin-bottom: 1.25rem;
 }
 
+[data-completed-review]:has(.completed-evidence__table) #main-content {
+  container-type: inline-size;
+}
+
+.completed-analysis .review-stage-content:has(.completed-evidence__table) {
+  overflow: visible;
+}
+
 .completed-analysis .completed-evidence__table {
-  max-width: 100%;
+  width: 100%;
+  max-width: none;
   margin-top: 1.5rem;
   border-block: 1px solid var(--review-line, #dce3ed);
   border-radius: 0;
-  overflow-x: auto;
-  overscroll-behavior-x: contain;
-  scrollbar-color: #c2cddd transparent;
-  scrollbar-width: thin;
+  overflow: visible;
+}
+
+@supports (width: 1cqi) {
+  .completed-analysis .completed-evidence__table {
+    width: max(100%, calc(100cqi - 3rem));
+    margin-inline: min(0px, calc((100% - 100cqi + 3rem) / 2));
+  }
 }
 
 .completed-analysis .completed-evidence__table table {
   width: 100%;
-  min-width: 66rem;
+  min-width: 0;
+  table-layout: fixed;
   border-collapse: collapse;
   text-align: left;
 }
@@ -117,7 +131,7 @@
   line-height: 1.55;
   text-align: left;
   vertical-align: top;
-  overflow-wrap: normal;
+  overflow-wrap: anywhere;
 }
 
 .completed-analysis .completed-evidence__table thead th {
@@ -128,17 +142,11 @@
 }
 
 .completed-analysis .completed-evidence__table thead th:first-child {
-  position: sticky;
-  left: 0;
-  z-index: 2;
+  width: 13rem;
 }
 
 .completed-analysis .completed-evidence__table th[scope="row"] {
-  position: sticky;
-  left: 0;
-  z-index: 1;
-  min-width: 11rem;
-  max-width: 16rem;
+  min-width: 0;
   background: #f8fafd;
   color: var(--review-ink, #1b2a41);
   font-weight: 600;
@@ -202,10 +210,6 @@
 }
 
 @media (max-width: 1100px) {
-  .completed-analysis .completed-evidence__table {
-    overflow: visible;
-  }
-
   .completed-analysis .completed-evidence__table table {
     display: block;
     min-width: 0;
