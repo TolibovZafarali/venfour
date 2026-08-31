@@ -13,7 +13,7 @@ export function ReviewProgress({ index, total }: { readonly index: number; reado
     <div className="review-progress">
       <div className="review-progress-caption"><p aria-label="Review progress">Step {index} of {total}</p><span>Your valuation review</span></div>
       <div className="review-progress-track" role="progressbar" aria-label="Valuation review" aria-valuemin={0} aria-valuemax={total} aria-valuenow={index} aria-valuetext={`Step ${index} of ${total}`}>
-        {Array.from({ length: total }, (_, position) => <span key={position} data-reached={position < index} />)}
+        <span className="review-progress-fill" style={{ transform: `scaleX(${index / total})` }} />
       </div>
     </div>
   );

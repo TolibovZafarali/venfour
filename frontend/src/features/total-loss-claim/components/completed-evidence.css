@@ -1,27 +1,31 @@
 .completed-analysis .completed-evidence {
   min-width: 0;
-  margin-block: 1rem;
-  border: 1px solid #d9e3e3;
-  border-radius: 12px;
-  background: rgb(255 255 255 / 56%);
-  color: #19323c;
+  margin-block: 1.25rem 0;
+  border-block: 1px solid var(--review-line, #dce3ed);
+  color: var(--review-ink, #1b2a41);
+}
+
+.completed-analysis .completed-evidence + .completed-evidence {
+  margin-top: 0;
+  border-top: 0;
 }
 
 .completed-analysis .completed-evidence > summary {
   display: flex;
-  min-height: 4rem;
+  min-height: 4.25rem;
   align-items: center;
   justify-content: space-between;
   gap: 1.25rem;
-  padding: 1.125rem 1.375rem;
-  border-radius: 11px;
-  color: #244b50;
+  padding: 1.25rem 0;
+  border-radius: 4px;
+  color: var(--review-ink, #1b2a41);
   cursor: pointer;
-  font-size: 0.9375rem;
-  font-weight: 600;
+  font-size: 1rem;
+  font-weight: 550;
+  letter-spacing: -0.015em;
   line-height: 1.45;
   list-style: none;
-  transition: background-color 180ms ease, color 180ms ease;
+  transition: color 180ms ease;
 }
 
 .completed-analysis .completed-evidence > summary::-webkit-details-marker {
@@ -33,22 +37,22 @@
 }
 
 .completed-analysis .completed-evidence > summary:hover {
-  background: rgb(231 240 238 / 56%);
-  color: #174a50;
+  color: var(--review-accent, var(--brand));
 }
 
 .completed-analysis .completed-evidence > summary:focus-visible {
-  outline: 2px solid #33767a;
-  outline-offset: 3px;
+  outline: 2px solid var(--review-accent, var(--brand));
+  outline-offset: 5px;
 }
 
 .completed-analysis .completed-evidence > summary svg {
   flex: none;
+  color: var(--review-accent, var(--brand));
   transition: transform 180ms ease;
 }
 
 .completed-analysis .completed-evidence[open] > summary {
-  border-radius: 11px 11px 0 0;
+  padding-bottom: 1rem;
 }
 
 .completed-analysis .completed-evidence[open] > summary svg {
@@ -57,10 +61,10 @@
 
 .completed-analysis .completed-evidence__body {
   min-width: 0;
-  padding: 0 1.375rem 1.375rem;
-  color: #566870;
+  padding: 0 0 1.5rem;
+  color: var(--review-muted, #596678);
   font-size: 0.875rem;
-  line-height: 1.7;
+  line-height: 1.75;
 }
 
 .completed-analysis .completed-evidence[open] > .completed-evidence__body {
@@ -68,7 +72,7 @@
 }
 
 .completed-analysis .completed-evidence__body p {
-  max-width: 72ch;
+  max-width: 68ch;
   margin-block: 0 0.8rem;
 }
 
@@ -77,18 +81,18 @@
 }
 
 .completed-analysis .completed-evidence__introduction {
-  max-width: 72ch;
-  margin-bottom: 1.125rem;
+  max-width: 68ch;
+  margin-bottom: 1.25rem;
 }
 
 .completed-analysis .completed-evidence__table {
   max-width: 100%;
-  margin-top: 1.25rem;
-  border-block: 1px solid #d9e3e3;
+  margin-top: 1.5rem;
+  border-block: 1px solid var(--review-line, #dce3ed);
   border-radius: 0;
   overflow-x: auto;
   overscroll-behavior-x: contain;
-  scrollbar-color: #bdcdcf transparent;
+  scrollbar-color: #c2cddd transparent;
   scrollbar-width: thin;
 }
 
@@ -100,19 +104,19 @@
 }
 
 .completed-analysis .completed-evidence__table caption {
-  padding-block: 1rem 0.875rem;
-  color: #566870;
+  padding-block: 1rem;
+  color: var(--review-muted, #596678);
   font-size: 0.8125rem;
   font-weight: 500;
   text-align: left;
 }
 
 .completed-analysis .completed-evidence__table :is(th, td) {
-  padding: 0.9rem 0.9rem;
+  padding: 1rem 0.9rem;
   border: 0;
-  border-bottom: 1px solid #e2e9e8;
-  color: #3d555e;
-  font-size: 0.8125rem;
+  border-bottom: 1px solid #e5eaf2;
+  color: #45536a;
+  font-size: 0.84375rem;
   font-variant-numeric: tabular-nums;
   line-height: 1.55;
   text-align: left;
@@ -121,17 +125,31 @@
 }
 
 .completed-analysis .completed-evidence__table thead th {
-  background: #edf3f2;
-  color: #476069;
+  background: #f1f4f9;
+  color: #536177;
   font-size: 0.75rem;
   font-weight: 600;
 }
 
+.completed-analysis .completed-evidence__table thead th:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+}
+
 .completed-analysis .completed-evidence__table th[scope="row"] {
+  position: sticky;
+  left: 0;
+  z-index: 1;
   min-width: 11rem;
   max-width: 16rem;
-  color: #19323c;
+  background: #f8fafd;
+  color: var(--review-ink, #1b2a41);
   font-weight: 600;
+}
+
+.completed-analysis .completed-evidence__table tbody tr:hover {
+  background: #f5f8fd;
 }
 
 .completed-analysis .completed-evidence__table tbody tr:last-child :is(th, td) {
@@ -140,7 +158,7 @@
 
 .completed-analysis .completed-evidence__table td[data-label="Advertised price"],
 .completed-analysis .completed-evidence__table td[data-label="Adjusted value"] {
-  color: #244b50;
+  color: var(--review-accent, var(--brand));
   font-weight: 600;
 }
 
@@ -148,25 +166,35 @@
   background: transparent;
 }
 
+.completed-analysis .completed-evidence--methodology > summary {
+  color: var(--review-muted, #596678);
+  font-size: 0.9375rem;
+  font-weight: 500;
+}
+
+.completed-analysis .completed-evidence--methodology > summary:hover {
+  color: var(--review-accent, var(--brand));
+}
+
 .completed-analysis .completed-evidence__dates {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 1.25rem;
-  margin: 0 0 1.25rem;
-  padding-block: 0.375rem 1.25rem;
-  border-bottom: 1px solid #d9e3e3;
+  gap: 1.5rem;
+  margin: 0 0 1.375rem;
+  padding-block: 0.375rem 1.375rem;
+  border-bottom: 1px solid var(--review-line, #dce3ed);
 }
 
 .completed-analysis .completed-evidence__dates dt {
-  margin-bottom: 0.25rem;
-  color: #566870;
-  font-size: 0.75rem;
+  margin-bottom: 0.35rem;
+  color: var(--review-muted, #596678);
+  font-size: 0.8125rem;
   font-weight: 400;
 }
 
 .completed-analysis .completed-evidence__dates dd {
   margin: 0;
-  color: #19323c;
+  color: var(--review-ink, #1b2a41);
   font-size: 0.875rem;
   font-variant-numeric: tabular-nums;
   font-weight: 500;
@@ -174,7 +202,7 @@
 
 .completed-analysis .completed-evidence__empty {
   padding-block: 0.75rem 0.25rem;
-  color: #566870;
+  color: var(--review-muted, #596678);
 }
 
 @keyframes completed-evidence-reveal {
@@ -213,10 +241,10 @@
   .completed-analysis .completed-evidence__table tbody tr {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    column-gap: 1.375rem;
-    row-gap: 1.125rem;
-    padding-block: 1.375rem;
-    border-top: 1px solid #d9e3e3;
+    column-gap: 1.5rem;
+    row-gap: 1.25rem;
+    padding-block: 1.5rem;
+    border-top: 1px solid var(--review-line, #dce3ed);
   }
 
   .completed-analysis .completed-evidence__table tbody :is(th, td) {
@@ -229,15 +257,27 @@
   }
 
   .completed-analysis .completed-evidence__table th[scope="row"] {
+    position: static;
     grid-column: 1 / -1;
-    padding-bottom: 0.25rem;
+    padding-bottom: 0.375rem;
+    background: transparent;
+    font-size: 1rem;
+    letter-spacing: -0.015em;
+  }
+
+  .completed-analysis .completed-evidence__table tbody tr:hover {
+    background: transparent;
+  }
+
+  .completed-analysis .completed-evidence__table td[data-label="Advertised price"],
+  .completed-analysis .completed-evidence__table td[data-label="Adjusted value"] {
     font-size: 0.9375rem;
   }
 
   .completed-analysis .completed-evidence__table td::before {
     display: block;
-    margin-bottom: 0.3rem;
-    color: #566870;
+    margin-bottom: 0.35rem;
+    color: var(--review-muted, #596678);
     content: attr(data-label);
     font-size: 0.75rem;
     font-weight: 400;
@@ -247,15 +287,15 @@
 
 @media (max-width: 600px) {
   .completed-analysis .completed-evidence > summary {
-    min-height: 3.75rem;
+    min-height: 4rem;
     gap: 1rem;
-    padding: 1rem;
-    font-size: 0.875rem;
+    padding: 1.125rem 0;
+    font-size: 0.9375rem;
   }
 
   .completed-analysis .completed-evidence__body {
-    padding: 0 1rem 1rem;
-    font-size: 0.8125rem;
+    padding: 0 0 1.25rem;
+    font-size: 0.875rem;
   }
 
   .completed-analysis .completed-evidence__table tbody tr {

@@ -99,6 +99,7 @@ function AppShellContent() {
       }
 
       if (isPageNavigation) {
+        if (document.querySelector("[data-completed-review] .completed-analysis")) return;
         const resetScroll = () => {
           window.scrollTo({ top: 0, left: 0, behavior: "auto" });
         };

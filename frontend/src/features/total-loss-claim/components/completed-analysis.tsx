@@ -17,6 +17,7 @@ import { InsurerEvidenceDetails, MarketEvidenceDetails, MethodologyDisclosure } 
 import { MessagePreparation } from "./message-preparation";
 import { ReportFileRow } from "./published-report-actions";
 import { InsurerValueBridge, RecordedTime, RepresentativeListings, ReviewProgress, ValueRangeTrack } from "./completed-analysis-visuals";
+import { supportsReviewTransition, useReviewStageMotion } from "./use-review-stage-motion";
 import "./completed-analysis.css";
 
 interface CompletedAnalysisProps {
@@ -169,10 +170,10 @@ export function CompletedAnalysis(props: CompletedAnalysisProps) {
   const disclosure = report.insurerEvidence.summary;
   const insurerCount = report.insurerEvidence.comparableCount;
 
+  useReviewStageMotion({ root, stage, index: stage === "sent" ? total + 1 : index, locationKey: location.key, pathname: location.pathname, reportId: report.reportId });
+
   useEffect(() => {
     navigationEpoch.current += 1;
-    root.current?.focus({ preventScroll: true });
-    root.current?.scrollIntoView?.({ block: "start" });
     return () => { navigationEpoch.current += 1; };
   }, [stage, hasDraft, location.key, report.reportId]);
 
@@ -185,13 +186,13 @@ export function CompletedAnalysis(props: CompletedAnalysisProps) {
   const continueReview = async () => {
     if (stage === "request" || stage === "sent") return;
     const epoch = navigationEpoch.current;
-    if (await progression.complete(stage) && epoch === navigationEpoch.current) navigate(path(next));
+    if (await progression.complete(stage) && epoch === navigationEpoch.current) navigate(path(next), { viewTransition: supportsReviewTransition() });
   };
 
   return (
     <section className="completed-analysis" aria-label="Completed analysis" ref={root} tabIndex={-1} data-stage={stage}>
       {stage !== "sent" ? <ReviewProgress index={index} total={total} /> : null}
-      <div className="review-stage-content" data-view={stage} key={stage}>
+      <div className="review-stage-content" data-view={stage}>
       {claim.journey?.fulfillmentState === "refund_pending" || claim.commerce?.entitlementStatus === "refunded_access_retained" ? (
         <p role="status">{claim.commerce?.entitlementStatus === "refunded_access_retained" ? "Refunded" : "Refund in progress"}. Your completed report remains available.</p>
       ) : null}
@@ -253,7 +254,7 @@ export function CompletedAnalysis(props: CompletedAnalysisProps) {
         {!report.conclusion.continuingSupported ? <ReportFileRow {...props} /> : null}
       </> : null}
       {stage === "request" ? (
-        canPrepare && report.conclusion.continuingSupported ? <MessagePreparation {...props} onDraftStateChange={setHasDraft} onSent={() => navigate(path("sent"), { replace: true })} /> : <>
+        canPrepare && report.conclusion.continuingSupported ? <MessagePreparation {...props} onDraftStateChange={setHasDraft} onSent={() => navigate(path("sent"), { replace: true, viewTransition: supportsReviewTransition() })} /> : <>
           <h1>Prepare your request</h1>
           {report.conclusion.continuingSupported ? <p>Finish reviewing the result and comparison before creating your request.</p> : <p>The result does not support a higher valuation request. Your report remains available.</p>}
           <ReportFileRow {...props} />
@@ -275,7 +276,7 @@ export function CompletedAnalysis(props: CompletedAnalysisProps) {
       {prerequisite ? <p className="review-prerequisite"><Link to={path(prerequisite)}>Continue your review</Link> before proceeding from this stage.</p> : null}
       {progression.error ? <p className="review-error" role="alert">{progression.error}</p> : null}
       <nav className="review-actions" aria-label="Review navigation">
-        <Link className="review-back" to={previous} onClick={(event) => { if (progression.pending) event.preventDefault(); }}><ArrowLeft aria-hidden="true" />Back</Link>
+        <Link className="review-back" to={previous} viewTransition={stage !== "result" && supportsReviewTransition()} onClick={(event) => { if (progression.pending) event.preventDefault(); }}><ArrowLeft aria-hidden="true" />Back</Link>
         {stage !== "request" && stage !== "sent" && (stage !== "meaning" || report.conclusion.continuingSupported) ? <button className="review-primary" type="button" disabled={progression.pending || Boolean(prerequisite)} onClick={() => void continueReview()}>{progression.pending ? <LoaderCircle className="review-spinner" aria-hidden="true" /> : null}<span>{progression.pending ? "Saving progress…" : action}</span>{!progression.pending ? <ArrowRight aria-hidden="true" /> : null}</button> : null}
       </nav>
     </section>

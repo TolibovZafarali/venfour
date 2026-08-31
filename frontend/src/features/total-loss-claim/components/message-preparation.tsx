@@ -1,5 +1,5 @@
 import { ArrowRight, Check, Copy, LoaderCircle, Mail } from "lucide-react";
-import { useEffect, useId } from "react";
+import { useId, useLayoutEffect } from "react";
 
 import type { TotalLossIntakeMode } from "@/features/total-loss/types";
 import { ReportFileRow } from "@/features/total-loss-claim/components/published-report-actions";
@@ -347,7 +347,7 @@ export function MessagePreparation({
   const preparation = useRequestPreparation(props);
   const { details, draft } = preparation;
   const hasDraft = Boolean(draft);
-  useEffect(() => {
+  useLayoutEffect(() => {
     onDraftStateChange?.(hasDraft);
   }, [hasDraft, onDraftStateChange]);
   if (requestIsSent(props.claim)) return <RequestRecorded {...props} />;
