@@ -29,6 +29,7 @@ function Review({
   includeExtra = false,
   includeActions = false,
   includeRange = false,
+  includeDraftEntrance = false,
   markStationary = false,
   draftStatus = "Saved",
 }: {
@@ -41,6 +42,7 @@ function Review({
   readonly includeExtra?: boolean;
   readonly includeActions?: boolean;
   readonly includeRange?: boolean;
+  readonly includeDraftEntrance?: boolean;
   readonly markStationary?: boolean;
   readonly draftStatus?: string;
 }) {
@@ -58,11 +60,17 @@ function Review({
         </details> : null}
         <div data-review-entrance={markStationary ? "supporting" : undefined}>
           <section className="request-review" data-review-entrance={markStationary ? "primary" : undefined}>
-            <div className="request-composer" data-review-entrance={markStationary ? "secondary" : undefined}>
-              <label>Recipient<input data-review-entrance={markStationary ? "primary" : undefined} defaultValue="adjuster@example.com" /></label>
-              <label>Draft message<textarea data-review-entrance={markStationary ? "supporting" : undefined} value={draft} onChange={(event) => setDraft(event.target.value)} /></label>
-              <div aria-label="Editable note" contentEditable suppressContentEditableWarning tabIndex={0}>Draft note</div>
-              <p role="status" data-review-entrance={markStationary ? "supporting" : undefined}>{draftStatus} revision {savedRevision}</p>
+            {includeDraftEntrance ? <>
+              <header data-review-entrance="primary">Review and send your request</header>
+              <aside data-review-entrance="secondary">Evidence to attach</aside>
+            </> : null}
+            <div className="request-draft-column" data-review-entrance={includeDraftEntrance ? "supporting" : undefined}>
+              <div className="request-composer" data-review-entrance={markStationary ? "secondary" : undefined}>
+                <label>Recipient<input data-review-entrance={markStationary ? "primary" : undefined} defaultValue="adjuster@example.com" /></label>
+                <label>Draft message<textarea data-review-entrance={markStationary ? "supporting" : undefined} value={draft} onChange={(event) => setDraft(event.target.value)} /></label>
+                <div aria-label="Editable note" contentEditable suppressContentEditableWarning tabIndex={0}>Draft note</div>
+                <p role="status" data-review-entrance={markStationary ? "supporting" : undefined}>{draftStatus} revision {savedRevision}</p>
+              </div>
             </div>
           </section>
         </div>
@@ -119,16 +127,19 @@ afterEach(() => {
 
 describe("completed review stage motion", () => {
   it("keeps the editor node, focus, selection, and motion unchanged through typing and saved-draft rerenders", async () => {
-    const { rerender } = render(<Review />);
+    const { rerender } = render(<Review includeDraftEntrance />);
     const root = screen.getByRole("region", { name: "Valuation review" });
     const editor = screen.getByRole<HTMLTextAreaElement>("textbox", { name: "Draft message" });
     expect(root).toHaveFocus();
     expect(scrollIntoView).toHaveBeenCalledOnce();
     const initialEntrances = [...animations];
+    expect(initialEntrances).toHaveLength(6);
+    expect(initialEntrances.slice(0, 3).map((animation) => animation.target.dataset.reviewEntrance)).toEqual(["primary", "secondary", "supporting"]);
+    expect(initialEntrances.filter((animation) => animation.target.contains(editor)).map((animation) => animation.target.className)).toEqual(["request-draft-column"]);
 
     await userEvent.setup().type(editor, " with supporting evidence");
     editor.setSelectionRange(3, 10, "backward");
-    for (const draftStatus of ["Saving", "Conflict resolved", "Saved"]) rerender(<Review savedRevision={2} draftStatus={draftStatus} />);
+    for (const draftStatus of ["Saving", "Conflict resolved", "Saved"]) rerender(<Review includeDraftEntrance savedRevision={2} draftStatus={draftStatus} />);
 
     expect(screen.getByRole("textbox", { name: "Draft message" })).toBe(editor);
     expect(editor).toHaveValue("My request with supporting evidence");
@@ -167,8 +178,8 @@ describe("completed review stage motion", () => {
     render(<Review />);
     expect(animations).toHaveLength(3);
     expect(animations.map((animation) => animation.target.dataset.reviewEntrance)).toEqual(["primary", "secondary", "supporting"]);
-    expect(animations.map((animation) => animation.options.delay)).toEqual([0, 45, 90]);
-    expect(animations.every((animation) => Number(animation.options.delay) + Number(animation.options.duration) <= 690)).toBe(true);
+    expect(animations.map((animation) => animation.options.delay)).toEqual([0, 90, 180]);
+    expect(animations.every((animation) => Number(animation.options.delay) + Number(animation.options.duration) <= 780)).toBe(true);
     expect(animations.every((animation) => animation.frames.every((frame) => Number(frame.opacity) > 0 && frame.transform === undefined && frame.scale === undefined))).toBe(true);
     const stationary = [
       screen.getByRole("region", { name: "Valuation review" }),
@@ -186,6 +197,17 @@ describe("completed review stage motion", () => {
     expect(animations.some((animation) => animation.target.textContent === "Unselected content")).toBe(false);
   });
 
+  it("reveals content in reading order even when later content has a stronger emphasis", () => {
+    render(<Review includeExtra />);
+
+    expect(animations.map((animation) => animation.target.textContent)).toEqual([
+      "request", "Evidence and valuesNested evidence label", "Supporting limitations", "Extra content",
+    ]);
+    expect(animations.map((animation) => animation.options.delay)).toEqual([0, 90, 180, 270]);
+    expect(animations[3].target.dataset.reviewEntrance).toBe("primary");
+    expect(animations.every((animation) => animation.frames[0].opacity !== 0)).toBe(true);
+  });
+
   it("keeps the separate navigation footer and its descendants stationary even when accidentally marked", () => {
     render(<Review stage="market" includeActions />);
 
@@ -194,7 +216,7 @@ describe("completed review stage motion", () => {
     const footer = screen.getByRole("navigation", { name: "Review actions" });
     const button = screen.getByRole("button", { name: "Continue" });
     expect(animations.every((animation) => !animation.target.contains(footer) && !animation.target.contains(button))).toBe(true);
-    expect(animations.every((animation) => Number(animation.options.delay) + Number(animation.options.duration) <= 690)).toBe(true);
+    expect(animations.every((animation) => Number(animation.options.delay) + Number(animation.options.duration) <= 780)).toBe(true);
   });
 
   it("settles the result range axis together without extra blur or individual marker animation", () => {
@@ -203,7 +225,7 @@ describe("completed review stage motion", () => {
     const entrance = animations.find((animation) => animation.target === range)!;
     expect(entrance).toBeDefined();
     expect(entrance.frames).toEqual([{ opacity: .7, translate: "0 2px" }, { opacity: 1, translate: "0 0" }]);
-    expect(entrance.options).toEqual({ duration: 320, delay: 180, easing: "cubic-bezier(.22, .8, .24, 1)", fill: "backwards" });
+    expect(entrance.options).toEqual({ duration: 320, delay: 270, easing: "cubic-bezier(.22, .8, .24, 1)", fill: "backwards" });
     expect(animations.some((animation) => animation.target.matches(".value-range-band, .value-range-median, .value-range-offer"))).toBe(false);
     const initialCount = animations.length;
 
@@ -271,25 +293,26 @@ describe("completed review stage motion", () => {
   });
 
   it("keeps the focused editor and selection when the prepare-to-send index changes", async () => {
-    const { rerender } = render(<Review index={5} />);
+    const { rerender } = render(<Review index={5} includeDraftEntrance />);
     const editor = screen.getByRole<HTMLTextAreaElement>("textbox", { name: "Draft message" });
     await userEvent.setup().type(editor, " retained");
     editor.setSelectionRange(3, 10, "backward");
     const initialCount = animations.length;
 
-    rerender(<Review index={6} />);
+    rerender(<Review index={6} includeDraftEntrance />);
 
     expect(screen.getByRole("textbox", { name: "Draft message" })).toBe(editor);
     expect(editor).toHaveValue("My request retained");
     expect(editor).toHaveFocus();
     expect([editor.selectionStart, editor.selectionEnd, editor.selectionDirection]).toEqual([3, 10, "backward"]);
-    expect(animations).toHaveLength(initialCount + 3);
+    expect(animations).toHaveLength(initialCount + 5);
+    expect(animations.slice(initialCount).every((animation) => !animation.target.contains(editor))).toBe(true);
     expect(scrollIntoView).toHaveBeenCalledTimes(2);
 
-    rerender(<Review index={6} savedRevision={2} />);
+    rerender(<Review index={6} includeDraftEntrance savedRevision={2} />);
     expect(editor).toHaveFocus();
     expect([editor.selectionStart, editor.selectionEnd, editor.selectionDirection]).toEqual([3, 10, "backward"]);
-    expect(animations).toHaveLength(initialCount + 3);
+    expect(animations).toHaveLength(initialCount + 5);
     expect(scrollIntoView).toHaveBeenCalledTimes(2);
   });
 

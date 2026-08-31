@@ -9,6 +9,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
@@ -43,6 +44,7 @@ const REPORT_ID = "44444444-4444-4444-8444-444444444444";
 const DRAFT_ID = "55555555-5555-4555-8555-555555555555";
 const VERSION_ID = "66666666-6666-4666-8666-666666666666";
 const USER_ID = "22222222-2222-4222-8222-222222222222";
+const SENT_ACKNOWLEDGEMENT = "I sent the email with this PDF attached.";
 const NOW = "2026-08-29T18:00:00.000Z";
 const API = "*/api/v1/appraisal-cases/:caseId";
 const amount = (value: number) => ({
@@ -240,6 +242,11 @@ function renderRequest(
   };
 }
 
+function renderRequestFooter() {
+  render(<nav aria-label="Request footer" />);
+  return screen.getByRole("navigation", { name: "Request footer" });
+}
+
 beforeEach(() => {
   vi.mocked(openDefaultEmailApp).mockReset();
 });
@@ -284,7 +291,7 @@ describe("case request preparation", () => {
     const user = userEvent.setup();
     const onDraftStateChange = vi.fn();
     const actionContainer = placement === "footer"
-      ? render(<nav aria-label="Request footer" />).container.querySelector("nav")!
+      ? renderRequestFooter()
       : undefined;
     renderRequest({ ...initial, sendingDetails: details }, undefined, {
       actionContainer,
@@ -317,7 +324,7 @@ describe("case request preparation", () => {
       screen.getByRole("button", { name: "Create my request" }),
     );
     expect(
-      await screen.findByRole("heading", { level: 1, name: "Review and send" }),
+      await screen.findByRole("heading", { level: 1, name: "Review and send your request" }),
     ).toBeVisible();
     expect(onDraftStateChange).toHaveBeenLastCalledWith(true);
     expect(screen.queryByRole("button", { name: "Create my request" })).not.toBeInTheDocument();
@@ -400,7 +407,7 @@ describe("case request preparation", () => {
       workflow: { ...refreshed.workflow!, revision: 12 },
     });
     await user.click(screen.getByRole("button", { name: "Create my request" }));
-    expect(await screen.findByRole("heading", { name: "Review and send" })).toBeVisible();
+    expect(await screen.findByRole("heading", { name: "Review and send your request" })).toBeVisible();
     expect(attempts).toHaveLength(1);
     expect(attempts[0]).toMatchObject({ expectedWorkflowRevision: 12 });
   });
@@ -415,7 +422,7 @@ describe("case request preparation", () => {
       }),
     );
     expect(screen.getByRole("heading", { name: "Prepare your request" })).toBeVisible();
-    expect(screen.queryByRole("heading", { name: "Review and send" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Review and send your request" })).not.toBeInTheDocument();
     expect(screen.queryByRole("textbox", { name: "Message" })).not.toBeInTheDocument();
   });
 
@@ -447,7 +454,7 @@ describe("case request preparation", () => {
     );
     expect(screen.queryByRole("textbox", { name: "Message" })).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Create my request" }));
-    expect(await screen.findByRole("heading", { name: "Review and send" })).toBeVisible();
+    expect(await screen.findByRole("heading", { name: "Review and send your request" })).toBeVisible();
     expect(attempts).toBe(2);
   });
 
@@ -464,21 +471,19 @@ describe("case request preparation", () => {
   it("explains both requests for a manual case without claiming an insurer report was reviewed", () => {
     renderRequest(claim({ messageDraft: null }), undefined, { intakeMode: "manual" });
     expect(screen.getByText("Ask the insurer to review the offer using the attached market evidence and provide a written response. Also ask for the full valuation report, including the comparable vehicles and adjustments used. You can add or edit this request in the email before sending.")).toBeVisible();
-    expect(screen.getByText("Nothing is sent automatically. You’ll send the email from your own account.")).toBeVisible();
+    expect(screen.queryByText("Nothing is sent automatically. You’ll send the email from your own account.")).not.toBeInTheDocument();
     expect(screen.queryByText(/review its valuation/u)).not.toBeInTheDocument();
     expect(screen.getByText("Your evidence package contains the supporting valuation information and comparable-vehicle evidence. You’ll attach it to your email.")).toBeVisible();
   });
 
-  it("explains the six sending actions without implying an automatic attachment or send", () => {
+  it("keeps the evidence available with one manual attachment reminder", () => {
     renderRequest();
-    expect(screen.getAllByRole("listitem").map((item) => item.textContent)).toEqual([
-      "Review the email.",
-      "Download the evidence package.",
-      "Open your email app or copy the message.",
-      "Attach the PDF.",
-      "Send the email.",
-      "Return and mark it as sent.",
-    ]);
+    expect(screen.getByText("Attach this PDF in your email app before sending.")).toBeVisible();
+    const evidence = screen.getByRole("region", { name: "Evidence package" });
+    expect(within(evidence).getByRole("button", { name: "View report" })).toBeEnabled();
+    expect(within(evidence).getByRole("button", { name: "Download PDF" })).toBeEnabled();
+    expect(screen.queryByRole("list")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Mark as sent" })).not.toBeInTheDocument();
   });
 
   it("saves owner-voiced generated copy before preparing or copying the email", async () => {
@@ -704,11 +709,15 @@ describe("case request preparation", () => {
     expect(screen.getByText("Saved")).toBeVisible();
   });
 
-  it("flushes the latest edit before copying and marks only the exact copied version as sent", async () => {
+  it.each(["inline", "footer"] as const)("flushes edits before copying and confirms only the exact version with the %s action", async (placement) => {
     let saved = draft();
     const order: string[] = [];
     let sentPayload: Record<string, unknown> | null = null;
     let sentCalls = 0;
+    let releaseSent!: () => void;
+    const sentResponse = new Promise<void>((resolve) => {
+      releaseSent = resolve;
+    });
     server.use(
       http.patch(`${API}/message-draft`, async ({ request }) => {
         const input = (await request.json()) as {
@@ -729,6 +738,7 @@ describe("case request preparation", () => {
       http.post(`${API}/message/sent`, async ({ request }) => {
         sentCalls += 1;
         sentPayload = (await request.json()) as Record<string, unknown>;
+        await sentResponse;
         return HttpResponse.json(sentResult());
       }),
     );
@@ -737,7 +747,13 @@ describe("case request preparation", () => {
       .spyOn(navigator.clipboard, "writeText")
       .mockResolvedValue(undefined);
     const onSent = vi.fn();
-    renderRequest(undefined, undefined, { onSent });
+    const actionContainer = placement === "footer" ? renderRequestFooter() : undefined;
+    renderRequest(undefined, undefined, { actionContainer, onSent });
+    const openAction = screen.getByRole("button", { name: "Open email app" });
+    if (actionContainer) {
+      expect(actionContainer).toContainElement(openAction);
+      expect(actionContainer).not.toContainElement(screen.getByRole("button", { name: "Copy email" }));
+    }
     expect(
       screen.queryByRole("button", { name: "Mark as sent" }),
     ).not.toBeInTheDocument();
@@ -748,19 +764,35 @@ describe("case request preparation", () => {
       target: { value: "My exact updated request." },
     });
     await user.click(screen.getByRole("button", { name: "Copy email" }));
-    expect(
-      await screen.findByText("Sent the email with the report attached?"),
-    ).toBeVisible();
+    const confirmation = await screen.findByRole("heading", { name: "Sent the email with the report attached?" });
+    expect(confirmation).toBeVisible();
+    expect(confirmation).toHaveFocus();
     expect(order).toEqual(["save", "prepare"]);
     expect(copied).toHaveBeenCalledWith(
       "Subject: Updated subject\n\nMy exact updated request.",
     );
     expect(sentCalls).toBe(0);
     expect(onSent).not.toHaveBeenCalled();
-    expect(
-      screen.getByRole("button", { name: "Open email" }),
-    ).toBeVisible();
-    await user.dblClick(screen.getByRole("button", { name: "Mark as sent" }));
+    expect(screen.queryByRole("button", { name: "Open email app" })).not.toBeInTheDocument();
+    const confirmAction = screen.getByRole("button", { name: "Mark as sent" });
+    expect(confirmAction).toHaveAccessibleDescription("Sent the email with the report attached?");
+    if (actionContainer) expect(actionContainer).toContainElement(confirmAction);
+    const acknowledgement = screen.getByRole("checkbox", { name: SENT_ACKNOWLEDGEMENT });
+    expect(acknowledgement).not.toBeChecked();
+    expect(confirmAction).toBeDisabled();
+    await user.click(confirmAction);
+    expect(sentCalls).toBe(0);
+    await user.click(acknowledgement);
+    expect(confirmAction).toBeEnabled();
+    await user.dblClick(confirmAction);
+    await waitFor(() => expect(sentCalls).toBe(1));
+    expect(screen.getByRole("button", { name: "Recording…" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Not yet" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Copy email" })).toBeDisabled();
+    expect(screen.getByRole("textbox", { name: "Message" })).toBeDisabled();
+    expect(acknowledgement).toBeDisabled();
+    expect(onSent).not.toHaveBeenCalled();
+    await act(async () => releaseSent());
     expect(
       await screen.findByRole("heading", { name: "Request marked as sent" }),
     ).toBeVisible();
@@ -773,7 +805,7 @@ describe("case request preparation", () => {
     });
   });
 
-  it("opens the email app without marking sent and lets the customer choose Not yet", async () => {
+  it.each(["inline", "footer"] as const)("opens email with the %s keyboard action and restores focus after Not yet", async (placement) => {
     let opened = 0;
     let sentCalls = 0;
     server.use(
@@ -790,23 +822,216 @@ describe("case request preparation", () => {
       }),
     );
     const user = userEvent.setup();
-    renderRequest();
-    await user.click(screen.getByRole("button", { name: "Open email" }));
-    expect(
-      await screen.findByRole("button", { name: "Mark as sent" }),
-    ).toBeVisible();
+    const actionContainer = placement === "footer" ? renderRequestFooter() : undefined;
+    renderRequest(undefined, undefined, { actionContainer });
+    const openAction = screen.getByRole("button", { name: "Open email app" });
+    if (actionContainer) expect(actionContainer).toContainElement(openAction);
+    openAction.focus();
+    await user.keyboard("{Enter}");
+    const confirmAction = await screen.findByRole("button", { name: "Mark as sent" });
+    expect(confirmAction).toBeVisible();
+    expect(confirmAction).not.toHaveFocus();
+    expect(screen.getByRole("heading", { name: "Sent the email with the report attached?" })).toHaveFocus();
+    expect(openAction).not.toBeInTheDocument();
+    if (actionContainer) expect(actionContainer).toContainElement(confirmAction);
     expect(openDefaultEmailApp).toHaveBeenCalledWith(
       expect.stringContaining("mailto:adjuster%40example.com?"),
     );
     await waitFor(() => expect(opened).toBe(1));
     expect(sentCalls).toBe(0);
-    await user.click(screen.getByRole("button", { name: "Not yet" }));
+    await user.tab();
+    const acknowledgement = screen.getByRole("checkbox", { name: SENT_ACKNOWLEDGEMENT });
+    expect(acknowledgement).toHaveFocus();
+    expect(acknowledgement).not.toBeChecked();
+    expect(confirmAction).toBeDisabled();
+    await user.keyboard(" ");
+    expect(acknowledgement).toBeChecked();
+    expect(confirmAction).toBeEnabled();
+    await user.tab();
+    expect(screen.getByRole("button", { name: "Not yet" })).toHaveFocus();
+    await user.keyboard("{Enter}");
     expect(
       screen.queryByRole("button", { name: "Mark as sent" }),
     ).not.toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "Open email" }),
-    ).toBeVisible();
+    const restoredOpenAction = screen.getByRole("button", { name: "Open email app" });
+    expect(restoredOpenAction).toBeVisible();
+    expect(restoredOpenAction).toHaveFocus();
+    if (actionContainer) expect(actionContainer).toContainElement(restoredOpenAction);
+    await user.keyboard("{Enter}");
+    expect(await screen.findByRole("checkbox", { name: SENT_ACKNOWLEDGEMENT })).not.toBeChecked();
+    expect(screen.getByRole("button", { name: "Mark as sent" })).toBeDisabled();
+    expect(sentCalls).toBe(0);
+  });
+
+  it("locks footer actions while preparing the email and never treats a repeated click as sent", async () => {
+    let prepareCalls = 0;
+    let sentCalls = 0;
+    let releasePrepare!: () => void;
+    const prepareResponse = new Promise<void>((resolve) => {
+      releasePrepare = resolve;
+    });
+    server.use(
+      http.post(`${API}/message/prepare`, async () => {
+        prepareCalls += 1;
+        await prepareResponse;
+        return HttpResponse.json(prepared(draft()));
+      }),
+      http.post(`${API}/message/opened`, () => HttpResponse.json({ accepted: true })),
+      http.post(`${API}/message/sent`, () => {
+        sentCalls += 1;
+        return HttpResponse.json(sentResult());
+      }),
+    );
+    const user = userEvent.setup();
+    const actionContainer = renderRequestFooter();
+    renderRequest(undefined, undefined, { actionContainer });
+    const openAction = within(actionContainer).getByRole("button", { name: "Open email app" });
+    await user.dblClick(openAction);
+    await waitFor(() => expect(prepareCalls).toBe(1));
+    expect(within(actionContainer).getByRole("button", { name: "Preparing email…" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Copy email" })).toBeDisabled();
+    expect(screen.getByRole("textbox", { name: "Message" })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "Mark as sent" })).not.toBeInTheDocument();
+    expect(openDefaultEmailApp).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "Copy email" }));
+    expect(prepareCalls).toBe(1);
+
+    await act(async () => releasePrepare());
+    const confirmAction = await within(actionContainer).findByRole("button", { name: "Mark as sent" });
+    expect(confirmAction).toBeDisabled();
+    expect(confirmAction).not.toHaveFocus();
+    expect(screen.getByRole("heading", { name: "Sent the email with the report attached?" })).toHaveFocus();
+    expect(openAction).not.toBeInTheDocument();
+    expect(openDefaultEmailApp).toHaveBeenCalledTimes(1);
+    expect(sentCalls).toBe(0);
+  });
+
+  it("ignores a second footer click after Open is replaced by sent confirmation", async () => {
+    let sentCalls = 0;
+    server.use(
+      http.post(`${API}/message/prepare`, () => HttpResponse.json(prepared(draft()))),
+      http.post(`${API}/message/opened`, () => HttpResponse.json({ accepted: true })),
+      http.post(`${API}/message/sent`, () => {
+        sentCalls += 1;
+        return HttpResponse.json(sentResult());
+      }),
+    );
+    const user = userEvent.setup();
+    const actionContainer = renderRequestFooter();
+    renderRequest(undefined, undefined, { actionContainer });
+    await user.click(within(actionContainer).getByRole("button", { name: "Open email app" }));
+    const nextAction = await within(actionContainer).findByRole("button", { name: "Mark as sent" });
+    await user.dblClick(nextAction);
+    expect(nextAction).toBeDisabled();
+    expect(screen.getByRole("checkbox", { name: SENT_ACKNOWLEDGEMENT })).not.toBeChecked();
+    expect(screen.getByRole("heading", { name: "Review and send your request" })).toBeVisible();
+    expect(sentCalls).toBe(0);
+  });
+
+  it("keeps the open-email action when copying fails instead of offering sent confirmation", async () => {
+    server.use(
+      http.post(`${API}/message/prepare`, () => HttpResponse.json(prepared(draft()))),
+    );
+    const user = userEvent.setup();
+    vi.spyOn(navigator.clipboard, "writeText").mockRejectedValue(new Error("Clipboard unavailable"));
+    const actionContainer = renderRequestFooter();
+    renderRequest(undefined, undefined, { actionContainer });
+    await user.click(screen.getByRole("button", { name: "Copy email" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("We couldn’t copy the email.");
+    expect(within(actionContainer).getByRole("button", { name: "Open email app" })).toBeEnabled();
+    expect(screen.queryByRole("button", { name: "Mark as sent" })).not.toBeInTheDocument();
+  });
+
+  it("requires a fresh acknowledgement when the same prepared email is copied again", async () => {
+    let prepareCalls = 0;
+    let sentCalls = 0;
+    server.use(
+      http.post(`${API}/message/prepare`, () => {
+        prepareCalls += 1;
+        return HttpResponse.json(prepared(draft()));
+      }),
+      http.post(`${API}/message/sent`, () => {
+        sentCalls += 1;
+        return HttpResponse.json(sentResult());
+      }),
+    );
+    const user = userEvent.setup();
+    vi.spyOn(navigator.clipboard, "writeText").mockResolvedValue(undefined);
+    const actionContainer = renderRequestFooter();
+    renderRequest(undefined, undefined, { actionContainer });
+    await user.click(screen.getByRole("button", { name: "Copy email" }));
+    await user.click(await screen.findByRole("checkbox", { name: SENT_ACKNOWLEDGEMENT }));
+    expect(within(actionContainer).getByRole("button", { name: "Mark as sent" })).toBeEnabled();
+
+    await user.click(screen.getByRole("button", { name: "Copy email" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Copy email" })).toBeEnabled());
+    expect(screen.getByRole("checkbox", { name: SENT_ACKNOWLEDGEMENT })).not.toBeChecked();
+    const confirmAction = within(actionContainer).getByRole("button", { name: "Mark as sent" });
+    expect(confirmAction).toBeDisabled();
+    await user.click(confirmAction);
+    expect(prepareCalls).toBe(1);
+    expect(sentCalls).toBe(0);
+  });
+
+  it("never reuses acknowledgement after editing and preparing a new message version", async () => {
+    const nextVersionId = "99999999-9999-4999-8999-999999999999";
+    let saved = draft();
+    let prepareCalls = 0;
+    const sentPayloads: Record<string, unknown>[] = [];
+    server.use(
+      http.patch(`${API}/message-draft`, async ({ request }) => {
+        const input = (await request.json()) as { body: string; subject: string; recipient: string };
+        saved = { ...saved, ...input, revision: saved.revision + 1 };
+        return HttpResponse.json(saved);
+      }),
+      http.post(`${API}/message/prepare`, () => {
+        prepareCalls += 1;
+        const response = prepared(saved, 7 + prepareCalls);
+        return HttpResponse.json({
+          ...response,
+          messageVersion: {
+            ...response.messageVersion,
+            messageVersionId: prepareCalls === 1 ? VERSION_ID : nextVersionId,
+          },
+        });
+      }),
+      http.post(`${API}/message/sent`, async ({ request }) => {
+        sentPayloads.push((await request.json()) as Record<string, unknown>);
+        return HttpResponse.json({ ...sentResult(), messageVersionId: nextVersionId });
+      }),
+    );
+    const user = userEvent.setup();
+    vi.spyOn(navigator.clipboard, "writeText").mockResolvedValue(undefined);
+    const actionContainer = renderRequestFooter();
+    renderRequest(undefined, undefined, { actionContainer });
+    const message = screen.getByRole("textbox", { name: "Message" });
+    await user.click(screen.getByRole("button", { name: "Copy email" }));
+    await user.click(await screen.findByRole("checkbox", { name: SENT_ACKNOWLEDGEMENT }));
+    expect(within(actionContainer).getByRole("button", { name: "Mark as sent" })).toBeEnabled();
+
+    await user.click(message);
+    await user.type(message, " Revised.");
+    expect(message).toHaveFocus();
+    expect(screen.queryByRole("checkbox", { name: SENT_ACKNOWLEDGEMENT })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Copy email" }));
+    const acknowledgement = await screen.findByRole("checkbox", { name: SENT_ACKNOWLEDGEMENT });
+    expect(acknowledgement).not.toBeChecked();
+    const confirmAction = within(actionContainer).getByRole("button", { name: "Mark as sent" });
+    expect(confirmAction).toBeDisabled();
+    await user.click(confirmAction);
+    expect(sentPayloads).toEqual([]);
+    expect(screen.getByRole("textbox", { name: "Message" })).toBe(message);
+    expect(message).toHaveValue(`${draft().body} Revised.`);
+
+    await user.click(acknowledgement);
+    await user.click(confirmAction);
+    expect(await screen.findByRole("heading", { name: "Request marked as sent" })).toBeVisible();
+    expect(prepareCalls).toBe(2);
+    expect(sentPayloads).toEqual([expect.objectContaining({
+      confirmedReportAttached: true,
+      expectedWorkflowRevision: 9,
+      messageVersionId: nextVersionId,
+    })]);
   });
 
   it("invalidates sent confirmation when the customer changes the copied draft", async () => {
@@ -817,11 +1042,23 @@ describe("case request preparation", () => {
     );
     const user = userEvent.setup();
     vi.spyOn(navigator.clipboard, "writeText").mockResolvedValue(undefined);
-    renderRequest();
+    const actionContainer = renderRequestFooter();
+    renderRequest(undefined, undefined, { actionContainer });
+    const message = screen.getByRole("textbox", { name: "Message" });
     await user.click(screen.getByRole("button", { name: "Copy email" }));
     expect(
       await screen.findByRole("button", { name: "Mark as sent" }),
     ).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Sent the email with the report attached?" })).toHaveFocus();
+    await user.click(message);
+    await user.type(message, " Updated.");
+    expect(screen.getByRole("textbox", { name: "Message" })).toBe(message);
+    expect(message).toHaveFocus();
+    expect(message).toHaveValue(`${draft().body} Updated.`);
+    const restoredOpenAction = screen.getByRole("button", { name: "Open email app" });
+    expect(actionContainer).toContainElement(restoredOpenAction);
+    expect(restoredOpenAction).not.toHaveFocus();
+    expect(screen.queryByRole("button", { name: "Mark as sent" })).not.toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: "Subject" })).toBeVisible();
     fireEvent.change(screen.getByRole("textbox", { name: "Subject" }), {
       target: { value: "" },
@@ -971,6 +1208,7 @@ describe("case request preparation", () => {
     });
     const rendered = renderRequest(claim(), onRefresh);
     await user.click(screen.getByRole("button", { name: "Copy email" }));
+    await user.click(await screen.findByRole("checkbox", { name: SENT_ACKNOWLEDGEMENT }));
     await user.click(
       await screen.findByRole("button", { name: "Mark as sent" }),
     );
@@ -995,13 +1233,14 @@ describe("case request preparation", () => {
     const onRefresh = vi.fn(async () => undefined);
     renderRequest(claim(), onRefresh, { onSent });
     await user.click(screen.getByRole("button", { name: "Copy email" }));
+    await user.click(await screen.findByRole("checkbox", { name: SENT_ACKNOWLEDGEMENT }));
     await user.click(await screen.findByRole("button", { name: "Mark as sent" }));
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "We couldn’t record that the request was sent.",
     );
     expect(onRefresh).toHaveBeenCalledTimes(1);
     expect(onSent).not.toHaveBeenCalled();
-    expect(screen.getByRole("heading", { name: "Review and send" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Review and send your request" })).toBeVisible();
   });
 
   it("reports persisted sent success even if the following refresh is unavailable", async () => {
@@ -1019,6 +1258,7 @@ describe("case request preparation", () => {
     });
     renderRequest(claim(), onRefresh, { onSent });
     await user.click(screen.getByRole("button", { name: "Copy email" }));
+    await user.click(await screen.findByRole("checkbox", { name: SENT_ACKNOWLEDGEMENT }));
     await user.click(await screen.findByRole("button", { name: "Mark as sent" }));
     await waitFor(() => expect(onSent).toHaveBeenCalledTimes(1));
     expect(screen.getByRole("heading", { name: "Request marked as sent" })).toBeVisible();
@@ -1047,6 +1287,7 @@ describe("case request preparation", () => {
     const onRefresh = vi.fn(async () => undefined);
     const rendered = renderRequest(claim(), onRefresh, { onSent });
     await user.click(screen.getByRole("button", { name: "Copy email" }));
+    await user.click(await screen.findByRole("checkbox", { name: SENT_ACKNOWLEDGEMENT }));
     await user.click(await screen.findByRole("button", { name: "Mark as sent" }));
     await waitFor(() => expect(sentCalls).toBe(1));
     rendered.unmount();

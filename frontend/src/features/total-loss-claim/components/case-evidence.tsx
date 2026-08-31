@@ -20,7 +20,7 @@ function EvidenceDisclosure({
   readonly methodology?: boolean;
 }) {
   return (
-    <details className={`completed-evidence${methodology ? " completed-evidence--methodology" : ""}`} open={open || undefined}>
+    <details className={`completed-evidence${methodology ? " completed-evidence--methodology" : ""}`} data-review-entrance="supporting" open={open || undefined}>
       <summary>
         <span>{label}</span>
         <ChevronDown aria-hidden="true" size={19} strokeWidth={1.7} />

@@ -1,8 +1,8 @@
 import { useLayoutEffect, type RefObject } from "react";
 
 const entranceSelector = '[data-review-entrance="primary"], [data-review-entrance="secondary"], [data-review-entrance="supporting"]';
-const stationarySelector = ".request-review, .request-composer, .review-progress, .review-actions";
-const entranceDelays: Record<string, number> = { primary: 0, secondary: 45, supporting: 90 };
+const stationarySelector = ".review-progress, .review-actions";
+const entranceStagger = 90;
 
 export function useReviewStageMotion({ root, stage, index, reportId }: {
   readonly root: RefObject<HTMLElement | null>;
@@ -28,13 +28,16 @@ export function useReviewStageMotion({ root, stage, index, reportId }: {
     const compact = window.matchMedia?.("(max-width: 540px)").matches;
 
     const candidates = Array.from(element.querySelectorAll<HTMLElement>(entranceSelector)).filter((target) => {
-      if (target.matches(".review-stage-content") || target.closest(stationarySelector) || target.querySelector(stationarySelector)) return false;
+      if (target.matches(".review-stage-content, .request-review") || target.closest(stationarySelector) || target.querySelector(stationarySelector)) return false;
+      // Reveal draft sections together without animating the whole page or individual fields.
+      if (target.querySelector(".request-review") || target.closest(".request-composer")) return false;
+      if (editing && target.contains(active)) return false;
       const closed = target.closest("details:not([open])");
       if (closed && closed !== target && !target.closest("summary")) return false;
       return true;
     });
     const groups = candidates.filter((target) => !candidates.some((other) => other !== target && other.contains(target)));
-    const animations = groups.flatMap((target) => {
+    const animations = groups.flatMap((target, position) => {
       const role = target.dataset.reviewEntrance!;
       const strong = role === "primary" && (stage === "result" || stage === "meaning");
       const completion = role === "primary" && stage === "sent";
@@ -48,7 +51,7 @@ export function useReviewStageMotion({ root, stage, index, reportId }: {
         { opacity: 1, filter: "blur(0px)", translate: "0 0", offset: 1 },
       ], {
         duration: 600,
-        delay: entranceDelays[role],
+        delay: position * entranceStagger,
         easing: "cubic-bezier(.22, .8, .24, 1)",
         fill: "backwards",
       });
@@ -56,13 +59,14 @@ export function useReviewStageMotion({ root, stage, index, reportId }: {
     });
 
     const range = stage === "result" ? element.querySelector<HTMLElement>(".value-range-axis") : null;
-    if (range && !range.closest(stationarySelector)) {
+    const rangeGroup = range ? groups.findIndex((target) => target.contains(range)) : -1;
+    if (range && rangeGroup !== -1) {
       const animation = range.animate?.([
         { opacity: .7, translate: "0 2px" },
         { opacity: 1, translate: "0 0" },
       ], {
         duration: 320,
-        delay: 180,
+        delay: rangeGroup * entranceStagger + 180,
         easing: "cubic-bezier(.22, .8, .24, 1)",
         fill: "backwards",
       });

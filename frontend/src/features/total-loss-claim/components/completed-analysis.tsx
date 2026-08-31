@@ -192,7 +192,7 @@ export function CompletedAnalysis(props: CompletedAnalysisProps) {
   };
 
   return (
-    <section className="completed-analysis" aria-label="Completed analysis" ref={root} tabIndex={-1} data-stage={stage}>
+    <section className="completed-analysis" aria-label="Completed analysis" ref={root} tabIndex={-1} data-stage={stage} data-request-draft={stage === "request" && hasDraft || undefined}>
       {requestedStage === "request" && sent ? <Navigate replace to={path("sent")} /> : null}
       {stage !== "sent" ? <ReviewProgress index={index} total={total} /> : null}
       <div className="review-stage-content" data-view={stage}>
@@ -200,20 +200,20 @@ export function CompletedAnalysis(props: CompletedAnalysisProps) {
         <p role="status">{claim.commerce?.entitlementStatus === "refunded_access_retained" ? "Refunded" : "Refund in progress"}. Your completed report remains available.</p>
       ) : null}
       {stage === "result" ? <>
-        <div className="result-heading"><h1>Your result</h1><p className="review-vehicle">{displayed(report.subjectVehicle.description, "Your vehicle")}</p></div>
+        <div className="result-heading" data-review-entrance="secondary"><h1>Your result</h1><p className="review-vehicle">{displayed(report.subjectVehicle.description, "Your vehicle")}</p></div>
         <h2 className="result-conclusion" data-review-entrance="primary">{classification}</h2>
-        <p className="review-lead">{resultExplanation}</p>
+        <p className="review-lead" data-review-entrance="secondary">{resultExplanation}</p>
         <ValueSummary {...props} />
-        {manual ? <p className="review-note">Because you did not provide the insurer’s valuation report, Venfour did not review the insurer’s comparable vehicles or adjustments.</p> : null}
-        <p className="review-note">Advertised prices are not guaranteed sale prices or settlement values.</p>
+        {manual ? <p className="review-note" data-review-entrance="supporting">Because you did not provide the insurer’s valuation report, Venfour did not review the insurer’s comparable vehicles or adjustments.</p> : null}
+        <p className="review-note" data-review-entrance="supporting">Advertised prices are not guaranteed sale prices or settlement values.</p>
         {!report.conclusion.continuingSupported ? <ReportFileRow {...props} /> : null}
       </> : null}
       {stage === "insurer" ? <>
-        <h1>How your insurer reached its value</h1>
+        <h1 data-review-entrance="primary">How your insurer reached its value</h1>
         <p className="review-lead" data-review-entrance="primary">Insurers may start with prices for similar vehicles, then adjust those values for differences such as mileage or equipment. Venfour shows only the adjustments disclosed in your report.</p>
-        {hasMoney(report.conclusion.insurerValuation) ? <dl className="insurer-reference"><dt>Insurer valuation</dt><dd>{moneyLabel(report.conclusion.insurerValuation)}</dd></dl> : null}
+        {hasMoney(report.conclusion.insurerValuation) ? <dl className="insurer-reference" data-review-entrance="secondary"><dt>Insurer valuation</dt><dd>{moneyLabel(report.conclusion.insurerValuation)}</dd></dl> : null}
         <InsurerValueBridge report={report} />
-        <div className="insurer-explanation">
+        <div className="insurer-explanation" data-review-entrance="supporting">
         <p>{insurerCount ? `Your insurer’s report includes ${insurerCount.toLocaleString("en-US")} comparable ${insurerCount === 1 ? "vehicle" : "vehicles"}.` : "No insurer comparables were available in the report for this review."}</p>
         {insurerMedianExplanation(report) ? <p>{insurerMedianExplanation(report)}</p> : null}
         {disclosure.fullyDisclosedAdjustmentCount > 0 ? <p>{insurerCount === 1 ? "Detailed adjustment information was available for this comparable." : `Detailed adjustment information was available for ${disclosure.fullyDisclosedAdjustmentCount.toLocaleString("en-US")} of the ${insurerCount.toLocaleString("en-US")} comparables.`}</p> : null}
@@ -224,10 +224,10 @@ export function CompletedAnalysis(props: CompletedAnalysisProps) {
         <InsurerEvidenceDetails report={report} open={search.get("details") === "insurer"} />
       </> : null}
       {stage === "market" ? <>
-        <h1>What the market evidence showed</h1>
+        <h1 data-review-entrance="primary">What the market evidence showed</h1>
         <p className="review-lead" data-review-entrance="primary">{primary?.selectedCount ? `Venfour selected ${primary.selectedCount.toLocaleString("en-US")} ${primaryTiming === "current" ? "current " : primaryTiming === "historical" ? "historical " : ""}${primary.selectedCount === 1 ? "listing for a similar vehicle" : "listings for similar vehicles"}.` : report.marketEvidence.comparables.length ? "The listing details show the market information available for this comparison." : "No comparable market listings were available for this comparison."}</p>
         <ValueSummary {...props} marketOnly />
-        <div className="market-evidence-context">
+        <div className="market-evidence-context" data-review-entrance="supporting">
         {primary && primary.selectedCount > 0 ? primaryTiming === "current" ? <p>{primaryDate !== "Not stated" ? `${primary.selectedCount === 1 ? "This listing was" : "These listings were"} collected on ${primaryDate}. ` : ""}{primary.selectedCount === 1 ? "It shows" : "They show"} the market when collected, not necessarily on the date of loss.</p> : primaryTiming === "historical" ? <p>{primary.selectedCount === 1 ? "This listing was" : "These listings were"} verified as active {primaryDate !== "Not stated" ? `on ${primaryDate}, the date used for this comparison` : "on the date of loss"}.</p> : <p>The listing details explain when each price was observed.</p> : null}
         {secondary && secondary.selectedCount > 0 ? <p>A further {secondary.selectedCount.toLocaleString("en-US")} {secondaryTiming === "current" ? "current " : ""}{secondary.selectedCount === 1 ? "listing provides" : "listings provide"} additional context{secondaryTiming === "current" && secondaryDate !== "Not stated" ? ` from ${secondaryDate}` : ""}. {secondary.selectedCount === 1 ? "It is" : "They are"} not included in the range above.{secondaryTiming === "current" ? " Current listings do not establish prices on the date of loss." : ""}</p> : null}
         {report.conclusion.limitations.some((value) => /out.of.provider.range/iu.test(value)) ? <p>The market-data source had limited historical coverage. This does not mean no comparable vehicles existed at the time of loss.</p> : null}
@@ -238,13 +238,13 @@ export function CompletedAnalysis(props: CompletedAnalysisProps) {
         <MethodologyDisclosure report={report} intakeMode={intakeMode} />
       </> : null}
       {stage === "meaning" ? <>
-        <h1>What the comparison means</h1>
+        <h1 data-review-entrance="secondary">What the comparison means</h1>
         <div className="meaning-interpretation" data-review-entrance="primary">
         {hasMoney(report.conclusion.insurerValuation) ? <p className="meaning-value">{manual ? "The insurer offer you entered was" : "Your insurer valued the vehicle at"} {moneyLabel(report.conclusion.insurerValuation)}.</p> : null}
         {position ? <p className="meaning-position">{position}</p> : null}
         {comparison ? <p className="meaning-comparison">{manual ? "The offer" : "The valuation"} {comparison.startsWith("Matches") ? "matches the selected median" : `is ${comparison}`}{hasMoney(report.conclusion.supportedRange?.median) ? ` of ${moneyLabel(report.conclusion.supportedRange?.median)}` : ""}.</p> : null}
         </div>
-        {report.conclusion.continuingSupported ? <p className="meaning-takeaway">Based on the available evidence, you have a reasonable basis to ask the insurer to review {manual ? "the offer" : "its valuation"}.</p> : <p>The result does not support a higher valuation request. Your evidence package remains available.</p>}
+        {report.conclusion.continuingSupported ? <p className="meaning-takeaway" data-review-entrance="secondary">Based on the available evidence, you have a reasonable basis to ask the insurer to review {manual ? "the offer" : "its valuation"}.</p> : <p data-review-entrance="secondary">The result does not support a higher valuation request. Your evidence package remains available.</p>}
         <div className="meaning-limitations" data-review-entrance="secondary">
         <p>This does not mean you are automatically owed the selected median or another specific amount. These are advertised listings, not confirmed sale prices, and the insurer may respond with additional evidence.</p>
         {manual ? <p>Without the insurer’s valuation report, Venfour cannot review which comparable vehicles or adjustments the insurer used.</p> : null}
@@ -258,18 +258,18 @@ export function CompletedAnalysis(props: CompletedAnalysisProps) {
       </> : null}
       {stage === "request" ? (
         canPrepare && report.conclusion.continuingSupported ? <MessagePreparation {...props} actionContainer={footerActions} onDraftStateChange={setHasDraft} onSent={() => navigate(path("sent"), { replace: true })} /> : <>
-          <h1>Prepare your request</h1>
-          {report.conclusion.continuingSupported ? <p>Finish reviewing the result and comparison before creating your request.</p> : <p>The result does not support a higher valuation request. Your report remains available.</p>}
+          <h1 data-review-entrance="primary">Prepare your request</h1>
+          {report.conclusion.continuingSupported ? <p data-review-entrance="secondary">Finish reviewing the result and comparison before creating your request.</p> : <p data-review-entrance="secondary">The result does not support a higher valuation request. Your report remains available.</p>}
           <ReportFileRow {...props} />
         </>
       ) : null}
       {stage === "sent" ? <>
-        <div className="sent-confirmation-mark" aria-hidden="true"><Check /></div>
+        <div className="sent-confirmation-mark" data-review-entrance="supporting" aria-hidden="true"><Check /></div>
         <div className="sent-heading" data-review-entrance="primary"><h1>Waiting for the insurer’s response</h1>
         <p className="review-lead" role="status">You reported sending your reconsideration request with the evidence package attached.</p>
         </div>
-        {claim.education?.reportVersionId === report.reportId && claim.education.steps.send.completedAt ? <p className="sent-recorded">Recorded: <RecordedTime value={claim.education.steps.send.completedAt} /></p> : null}
-        <div className="sent-next-steps">
+        {claim.education?.reportVersionId === report.reportId && claim.education.steps.send.completedAt ? <p className="sent-recorded" data-review-entrance="supporting">Recorded: <RecordedTime value={claim.education.steps.send.completedAt} /></p> : null}
+        <div className="sent-next-steps" data-review-entrance="supporting">
         <p>Venfour cannot verify email delivery or receipt. The next step is waiting for the insurer’s response.</p>
         <p>Keep your sent email, attached package, and the insurer’s written reply. The insurer may revise its valuation, maintain it with an explanation, or ask for more information.</p>
         </div>

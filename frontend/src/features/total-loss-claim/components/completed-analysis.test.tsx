@@ -22,7 +22,7 @@ const request = vi.hoisted(() => ({ render: vi.fn() }));
 vi.mock("@/features/total-loss-claim/components/message-preparation", () => ({
   MessagePreparation: (props: { readonly claim: TotalLossClaimSecured }) => {
     request.render(props);
-    return <><h1>{props.claim.messageDraft ? "Review and send" : "Prepare your request"}</h1><div data-testid="request-controls">Request controls</div></>;
+    return <><h1>{props.claim.messageDraft ? "Review and send your request" : "Prepare your request"}</h1><div data-testid="request-controls">Request controls</div></>;
   },
 }));
 
@@ -361,7 +361,7 @@ describe("completed-analysis guided progression", () => {
     expect(screen.queryByText("The full package records additional provider coverage limitations.")).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Prepare my request" }));
     expect(await screen.findByTestId("request-controls")).toBeVisible();
-    expect(screen.getByRole("heading", { name: "Review and send" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Review and send your request" })).toBeVisible();
     expect(router.state.location.pathname).toBe(`${BASE}/review/request`);
     expect(saved.writes).toEqual(BEFORE_REQUEST.map((step, index) => ({ step, state: "completed", expectedWorkflowRevision: 7 + index })));
     expect(saved.draftWrites).not.toHaveBeenCalled();
@@ -541,7 +541,7 @@ describe("completed-analysis guided progression", () => {
   it("keeps the review frame mounted when a saved sent state replaces the request and redirects its URL", async () => {
     const saved = installClaim(claimProjection(BEFORE_REQUEST));
     const view = renderJourney("report", "request");
-    expect(await screen.findByRole("heading", { name: "Review and send" })).toBeVisible();
+    expect(await screen.findByRole("heading", { name: "Review and send your request" })).toBeVisible();
     expect(screen.queryByRole("heading", { name: "Waiting for the insurer’s response" })).not.toBeInTheDocument();
     const section = screen.getByRole("region", { name: "Completed analysis" });
     const content = section.querySelector(".review-stage-content");
@@ -570,7 +570,7 @@ describe("completed-analysis guided progression", () => {
     const projection = claimProjection(BEFORE_REQUEST);
     installClaim({ ...projection, journey: { ...projection.journey!, nextState: "prepare_request" } });
     const { router } = renderJourney("report", "sent");
-    expect(await screen.findByRole("heading", { name: "Review and send" })).toBeVisible();
+    expect(await screen.findByRole("heading", { name: "Review and send your request" })).toBeVisible();
     expect(router.state.location.pathname).toBe(`${BASE}/review/request`);
     expect(screen.queryByRole("heading", { name: "Waiting for the insurer’s response" })).not.toBeInTheDocument();
   });

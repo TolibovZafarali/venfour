@@ -1,5 +1,5 @@
 import { ArrowRight, Check, Copy, LoaderCircle, Mail } from "lucide-react";
-import { useId, useLayoutEffect } from "react";
+import { useId, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 import type { TotalLossIntakeMode } from "@/features/total-loss/types";
@@ -49,12 +49,14 @@ function RequestRecorded(props: RequestPreparationOptions) {
 }
 
 function DraftEditor({
+  actionContainer,
   draft,
   initialPreparedMessage,
   workflowRevision,
   onSent,
   ...props
 }: RequestPreparationOptions & {
+  readonly actionContainer?: HTMLElement | null;
   readonly draft: TotalLossMessageDraft;
   readonly initialPreparedMessage: TotalLossPreparedMessageVersion | null;
   readonly workflowRevision: number;
@@ -68,191 +70,232 @@ function DraftEditor({
     onSent,
   });
   const fieldId = useId();
+  const confirmationHeading = useRef<HTMLHeadingElement>(null);
+  const confirmationPanel = useRef<HTMLElement>(null);
+  const openButton = useRef<HTMLButtonElement>(null);
+  const restoreOpenFocus = useRef(false);
+  const [acknowledgedMessage, setAcknowledgedMessage] = useState<TotalLossPreparedMessageVersion | null>(null);
+  const hasSharedMessage = Boolean(editor.sharedMessage);
+  const sentAcknowledged = hasSharedMessage && acknowledgedMessage === editor.sharedMessage;
+  const shareEmail = (kind: "open" | "copy") => {
+    setAcknowledgedMessage(null);
+    void editor.shareEmail(kind);
+  };
+  useLayoutEffect(() => {
+    if (hasSharedMessage) {
+      confirmationHeading.current?.focus({ preventScroll: true });
+      confirmationPanel.current?.scrollIntoView?.({ block: "nearest", behavior: "instant" });
+    } else if (restoreOpenFocus.current) {
+      restoreOpenFocus.current = false;
+      openButton.current?.focus({ preventScroll: true });
+    }
+  }, [hasSharedMessage]);
   if (editor.sent) return <RequestRecorded {...props} />;
+
+  const primaryAction = editor.sharedMessage ? (
+    <button
+      key="confirm-sent"
+      className={actionContainer === undefined ? "request-button request-button-primary" : "review-primary"}
+      aria-describedby={`${fieldId}-sent-confirmation`}
+      disabled={!sentAcknowledged || editor.action !== null || editor.conflict}
+      onClick={() => {
+        if (sentAcknowledged) void editor.confirmSent();
+      }}
+      type="button"
+    >
+      <StableActionLabel reserve="Mark as sent">{editor.action === "sent" ? "Recording…" : "Mark as sent"}</StableActionLabel>
+      {editor.action === "sent" ? <LoaderCircle className="request-spinner" aria-hidden="true" /> : <Check aria-hidden="true" />}
+    </button>
+  ) : (
+    <button
+      key="open-email"
+      className={actionContainer === undefined ? "request-button request-button-primary" : "review-primary"}
+      disabled={editor.action !== null || editor.conflict}
+      onClick={() => shareEmail("open")}
+      ref={openButton}
+      type="button"
+    >
+      <StableActionLabel reserve="Preparing email…">{editor.action === "open" ? "Preparing email…" : "Open email app"}</StableActionLabel>
+      {editor.action === "open" ? <LoaderCircle className="request-spinner" aria-hidden="true" /> : <ArrowRight aria-hidden="true" />}
+    </button>
+  );
 
   return (
     <section className="request-review" aria-label="Request draft">
-      <header className="request-heading">
-        <h1>Review and send</h1>
-        <p>Review the message, then send it from your own email account.</p>
+      <header className="request-heading" data-review-entrance="primary">
+        <h1>Review and send your request</h1>
+        <p>Your message and supporting evidence, ready to review.</p>
       </header>
-      <div className="request-composer">
-        <div className="request-composer-header">
-          <span className="request-composer-title" aria-hidden="true">
-            <Mail />Email draft
-          </span>
-          <p
-            className="request-save-status"
-            data-state={editor.saving ? "saving" : editor.saveError ? "error" : editor.dirty ? "unsaved" : "saved"}
-            role="status"
-          >
-            <StableActionLabel reserve="Changes not saved">
-              <span className="request-save-icon" aria-hidden="true">
-                {editor.saving ? <LoaderCircle className="request-spinner" /> : !editor.saveError && !editor.dirty ? <Check /> : null}
+      <div className="request-send-layout" data-confirming={hasSharedMessage || undefined}>
+        <aside className="request-evidence-panel" data-review-entrance="secondary" aria-labelledby={`${fieldId}-evidence`}>
+          <h2 id={`${fieldId}-evidence`}>Evidence to attach</h2>
+          <ReportFileRow {...props} variant="attachment" />
+          <p className="request-attachment-note">Attach this PDF in your email app before sending.</p>
+        </aside>
+        <div className="request-draft-column" data-review-entrance="supporting">
+          <div className="request-composer">
+            <div className="request-composer-header">
+              <span className="request-composer-title" aria-hidden="true">
+                <Mail />Email draft
               </span>
-              {editor.saving
-                ? "Saving…"
-                : editor.saveError
-                  ? "Changes not saved"
-                  : editor.dirty
-                    ? "Unsaved changes"
-                    : "Saved"}
-            </StableActionLabel>
-          </p>
-        </div>
-        {editor.dirty && editor.invalid ? (
-          <p className="request-validation-note">
-            Invalid changes won’t be saved until corrected. Your last saved draft
-            is unchanged.
-          </p>
-        ) : null}
-        <fieldset className="request-composer-fields" disabled={editor.action !== null || editor.conflict}>
-          <legend className="sr-only">Email draft</legend>
-          <div className="request-composer-row">
-            <label htmlFor={`${fieldId}-recipient`}>Recipient</label>
-            <input
-              aria-describedby={
-                editor.fieldErrors.recipient
-                  ? `${fieldId}-recipient-error`
-                  : undefined
-              }
-              aria-invalid={Boolean(editor.fieldErrors.recipient) || undefined}
-              autoComplete="email"
-              id={`${fieldId}-recipient`}
-              maxLength={320}
-              onChange={(event) => editor.edit("recipient", event.target.value)}
-              required
-              type="email"
-              value={editor.content.recipient}
-            />
-            {editor.fieldErrors.recipient ? (
-              <p className="request-field-error" id={`${fieldId}-recipient-error`}>{editor.fieldErrors.recipient}</p>
-            ) : null}
-          </div>
-          <div className="request-composer-row">
-            <label htmlFor={`${fieldId}-subject`}>Subject</label>
-            <input
-              aria-describedby={
-                editor.fieldErrors.subject
-                  ? `${fieldId}-subject-error`
-                  : undefined
-              }
-              aria-invalid={Boolean(editor.fieldErrors.subject) || undefined}
-              id={`${fieldId}-subject`}
-              maxLength={998}
-              onChange={(event) => editor.edit("subject", event.target.value)}
-              required
-              value={editor.content.subject}
-            />
-            {editor.fieldErrors.subject ? (
-              <p className="request-field-error" id={`${fieldId}-subject-error`}>{editor.fieldErrors.subject}</p>
-            ) : null}
-          </div>
-          <div className="request-composer-message">
-            <label htmlFor={`${fieldId}-message`}>Message</label>
-            <div className="request-composer-message-input">
-              <div className="request-composer-message-size" aria-hidden="true">
-                {editor.content.body}{" "}
-              </div>
-              <textarea
-                aria-describedby={
-                  editor.fieldErrors.body ? `${fieldId}-message-error` : undefined
-                }
-                aria-invalid={Boolean(editor.fieldErrors.body) || undefined}
-                id={`${fieldId}-message`}
-                maxLength={50000}
-                onChange={(event) => editor.edit("body", event.target.value)}
-                required
-                rows={1}
-                value={editor.content.body}
-              />
+              <p
+                className="request-save-status"
+                data-state={editor.saving ? "saving" : editor.saveError ? "error" : editor.dirty ? "unsaved" : "saved"}
+                role="status"
+              >
+                <StableActionLabel reserve="Changes not saved">
+                  <span className="request-save-icon" aria-hidden="true">
+                    {editor.saving ? <LoaderCircle className="request-spinner" /> : !editor.saveError && !editor.dirty ? <Check /> : null}
+                  </span>
+                  {editor.saving
+                    ? "Saving…"
+                    : editor.saveError
+                      ? "Changes not saved"
+                      : editor.dirty
+                        ? "Unsaved changes"
+                        : "Saved"}
+                </StableActionLabel>
+              </p>
             </div>
-            {editor.fieldErrors.body ? (
-              <p className="request-field-error" id={`${fieldId}-message-error`}>{editor.fieldErrors.body}</p>
+            {editor.dirty && editor.invalid ? (
+              <p className="request-validation-note">
+                Invalid changes won’t be saved until corrected. Your last saved draft
+                is unchanged.
+              </p>
             ) : null}
+            <fieldset className="request-composer-fields" disabled={editor.action !== null || editor.conflict}>
+              <legend className="sr-only">Email draft</legend>
+              <div className="request-composer-row">
+                <label htmlFor={`${fieldId}-recipient`}>Recipient</label>
+                <input
+                  aria-describedby={
+                    editor.fieldErrors.recipient
+                      ? `${fieldId}-recipient-error`
+                      : undefined
+                  }
+                  aria-invalid={Boolean(editor.fieldErrors.recipient) || undefined}
+                  autoComplete="email"
+                  id={`${fieldId}-recipient`}
+                  maxLength={320}
+                  onChange={(event) => editor.edit("recipient", event.target.value)}
+                  required
+                  type="email"
+                  value={editor.content.recipient}
+                />
+                {editor.fieldErrors.recipient ? (
+                  <p className="request-field-error" id={`${fieldId}-recipient-error`}>{editor.fieldErrors.recipient}</p>
+                ) : null}
+              </div>
+              <div className="request-composer-row">
+                <label htmlFor={`${fieldId}-subject`}>Subject</label>
+                <input
+                  aria-describedby={
+                    editor.fieldErrors.subject
+                      ? `${fieldId}-subject-error`
+                      : undefined
+                  }
+                  aria-invalid={Boolean(editor.fieldErrors.subject) || undefined}
+                  id={`${fieldId}-subject`}
+                  maxLength={998}
+                  onChange={(event) => editor.edit("subject", event.target.value)}
+                  required
+                  value={editor.content.subject}
+                />
+                {editor.fieldErrors.subject ? (
+                  <p className="request-field-error" id={`${fieldId}-subject-error`}>{editor.fieldErrors.subject}</p>
+                ) : null}
+              </div>
+              <div className="request-composer-message">
+                <label className="sr-only" htmlFor={`${fieldId}-message`}>Message</label>
+                <div className="request-composer-message-input">
+                  <div className="request-composer-message-size" aria-hidden="true">
+                    {editor.content.body}{" "}
+                  </div>
+                  <textarea
+                    aria-describedby={
+                      editor.fieldErrors.body ? `${fieldId}-message-error` : undefined
+                    }
+                    aria-invalid={Boolean(editor.fieldErrors.body) || undefined}
+                    id={`${fieldId}-message`}
+                    maxLength={50000}
+                    onChange={(event) => editor.edit("body", event.target.value)}
+                    required
+                    rows={1}
+                    value={editor.content.body}
+                  />
+                </div>
+                {editor.fieldErrors.body ? (
+                  <p className="request-field-error" id={`${fieldId}-message-error`}>{editor.fieldErrors.body}</p>
+                ) : null}
+              </div>
+            </fieldset>
+            <div className="request-composer-actions">
+              <button
+                className="request-button request-button-text"
+                disabled={editor.action !== null || editor.conflict}
+                onClick={() => shareEmail("copy")}
+                type="button"
+              >
+                {editor.action === "copy" ? <LoaderCircle className="request-spinner" aria-hidden="true" /> : <Copy aria-hidden="true" />}
+                <StableActionLabel reserve="Copy email">{editor.action === "copy" ? "Copying…" : "Copy email"}</StableActionLabel>
+              </button>
+            </div>
           </div>
-        </fieldset>
-      </div>
-      {editor.saveError ? (
-        <div className="request-save-recovery">
-          <RequestError>{editor.saveError}</RequestError>
-          <button
-            className="request-button request-button-secondary"
-            disabled={editor.saving || editor.action !== null}
-            onClick={() => void editor.retrySave(editor.conflict)}
-            type="button"
-          >
-            <StableActionLabel reserve="Load saved draft">{editor.conflict ? "Load saved draft" : "Retry save"}</StableActionLabel>
-          </button>
+          {editor.saveError ? (
+            <div className="request-save-recovery">
+              <RequestError>{editor.saveError}</RequestError>
+              <button
+                className="request-button request-button-secondary"
+                disabled={editor.saving || editor.action !== null}
+                onClick={() => void editor.retrySave(editor.conflict)}
+                type="button"
+              >
+                <StableActionLabel reserve="Load saved draft">{editor.conflict ? "Load saved draft" : "Retry save"}</StableActionLabel>
+              </button>
+            </div>
+          ) : null}
+          {editor.notice ? <p className="request-notice" role="status">{editor.notice}</p> : null}
+          {editor.error ? <RequestError>{editor.error}</RequestError> : null}
         </div>
-      ) : null}
-      <ol className="request-send-sequence" role="list">
-        <li>Review the email.</li>
-        <li>Download the evidence package.</li>
-        <li>Open your email app or copy the message.</li>
-        <li>Attach the PDF.</li>
-        <li>Send the email.</li>
-        <li>Return and mark it as sent.</li>
-      </ol>
-      <ReportFileRow {...props} />
-      <div className="request-action-bar request-share-actions" aria-label="Request actions">
-        <button
-          className="request-button request-button-secondary"
-          disabled={editor.action !== null || editor.conflict}
-          onClick={() => void editor.shareEmail("copy")}
-          type="button"
-        >
-          {editor.action === "copy" ? <LoaderCircle className="request-spinner" aria-hidden="true" /> : <Copy aria-hidden="true" />}
-          <StableActionLabel reserve="Copy email">{editor.action === "copy" ? "Copying…" : "Copy email"}</StableActionLabel>
-        </button>
-        <button
-          className={`request-button request-open-action ${editor.sharedMessage ? "request-button-secondary" : "request-button-primary"}`}
-          disabled={editor.action !== null || editor.conflict}
-          onClick={() => void editor.shareEmail("open")}
-          type="button"
-        >
-          {editor.action === "open" ? <LoaderCircle className="request-spinner" aria-hidden="true" /> : <Mail aria-hidden="true" />}
-          <StableActionLabel reserve="Preparing email…">{editor.action === "open" ? "Preparing email…" : "Open email"}</StableActionLabel>
-        </button>
+        {editor.sharedMessage ? (
+          <section className="request-sent-confirmation" aria-labelledby={`${fieldId}-sent-confirmation`} ref={confirmationPanel}>
+            <h3 id={`${fieldId}-sent-confirmation`} ref={confirmationHeading} tabIndex={-1}>
+              Sent the email with the report attached?
+            </h3>
+            <dl className="request-confirmation-details">
+              <dt>To</dt>
+              <dd>{editor.sharedMessage.recipient}</dd>
+              <dt>Subject</dt>
+              <dd>{editor.sharedMessage.subject}</dd>
+            </dl>
+            <label className="request-sent-acknowledgment">
+              <input
+                checked={sentAcknowledged}
+                disabled={editor.action !== null || editor.conflict}
+                onChange={(event) => setAcknowledgedMessage(event.target.checked ? editor.sharedMessage : null)}
+                type="checkbox"
+              />
+              <span>I sent the email with this PDF attached.</span>
+            </label>
+            <div className="request-confirmation-actions">
+              <button
+                className="request-button request-button-text"
+                disabled={editor.action !== null}
+                onClick={() => {
+                  restoreOpenFocus.current = true;
+                  setAcknowledgedMessage(null);
+                  editor.dismissSentConfirmation();
+                }}
+                type="button"
+              >
+                Not yet
+              </button>
+            </div>
+          </section>
+        ) : null}
       </div>
-      {editor.notice ? <p className="request-notice" role="status">{editor.notice}</p> : null}
-      {editor.error ? <RequestError>{editor.error}</RequestError> : null}
-      {editor.sharedMessage ? (
-        <section className="request-sent-confirmation" aria-labelledby={`${fieldId}-sent-confirmation`}>
-          <h3 id={`${fieldId}-sent-confirmation`}>
-            Sent the email with the report attached?
-          </h3>
-          <dl className="request-confirmation-details">
-            <dt>To</dt>
-            <dd>{editor.sharedMessage.recipient}</dd>
-            <dt>Subject</dt>
-            <dd>{editor.sharedMessage.subject}</dd>
-          </dl>
-          <p>
-            Opening or copying the email does not send it. “Mark as sent”
-            confirms that you sent this email with the report.
-          </p>
-          <div className="request-confirmation-actions">
-            <button
-              className="request-button request-button-secondary"
-              disabled={editor.action !== null}
-              onClick={editor.dismissSentConfirmation}
-              type="button"
-            >
-              Not yet
-            </button>
-            <button
-              className="request-button request-button-primary"
-              aria-describedby={`${fieldId}-sent-confirmation`}
-              disabled={editor.action !== null}
-              onClick={() => void editor.confirmSent()}
-              type="button"
-            >
-              {editor.action === "sent" ? <LoaderCircle className="request-spinner" aria-hidden="true" /> : <Check aria-hidden="true" />}
-              <StableActionLabel reserve="Mark as sent">{editor.action === "sent" ? "Recording…" : "Mark as sent"}</StableActionLabel>
-            </button>
-          </div>
-        </section>
+      {actionContainer ? createPortal(primaryAction, actionContainer) : actionContainer === undefined ? (
+        <div className="request-editor-actions" aria-label="Request actions">{primaryAction}</div>
       ) : null}
     </section>
   );
@@ -369,6 +412,7 @@ export function MessagePreparation({
     return (
       <DraftEditor
         {...props}
+        actionContainer={actionContainer}
         draft={draft}
         initialPreparedMessage={preparation.preparedVersion}
         key={draft.draftId}
@@ -454,9 +498,6 @@ export function MessagePreparation({
           </RequestError>
         )}
         <div className="request-action-bar request-prepare-actions" data-footer-action={actionContainer !== undefined || undefined}>
-          {intakeMode === "manual" ? <p className="request-assurance">
-            Nothing is sent automatically. You’ll send the email from your own account.
-          </p> : null}
           {!preparation.reviewCompleted ? (
             <p>Complete the review before preparing your request.</p>
           ) : null}

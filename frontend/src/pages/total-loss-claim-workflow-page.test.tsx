@@ -897,7 +897,7 @@ describe("total-loss customer workflow", () => {
     expect(within(restored).getAllByRole("heading", { level: 1 })).toHaveLength(1);
     expect(within(restored).getByRole("textbox", { name: "Message" })).toHaveValue(draft().body);
     expect(within(restored).getByRole("button", { name: "Copy email" })).toBeEnabled();
-    expect(within(restored).getByRole("button", { name: "Open email" })).toBeEnabled();
+    expect(within(within(restored).getByRole("navigation", { name: "Review navigation" })).getByRole("button", { name: "Open email app" })).toBeEnabled();
   });
 
   it("does not normalize or save legacy drafts until request actions are explicitly opened", async () => {
