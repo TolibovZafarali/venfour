@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { appRoutes } from "@/app/router";
 import type { AuthService } from "@/features/auth";
+import type * as TotalLossDependenciesModule from "@/features/total-loss/dependencies";
 import type {
   TotalLossClaimFulfillmentState,
   TotalLossClaimJourneyState,
@@ -18,6 +19,11 @@ import { renderTestApp } from "@/test/render";
 const stripeMock = vi.hoisted(() => ({
   confirm: vi.fn(),
   loadStripe: vi.fn(async () => ({})),
+}));
+const detailsMock = vi.hoisted(() => ({ getDetails: vi.fn() }));
+vi.mock("@/features/total-loss/dependencies", async (importOriginal) => ({
+  ...await importOriginal<typeof TotalLossDependenciesModule>(),
+  useTotalLossDependencies: () => ({ totalLossDetailsService: detailsMock }),
 }));
 vi.mock("@stripe/stripe-js/pure", () => ({
   loadStripe: stripeMock.loadStripe,
@@ -115,6 +121,14 @@ function educationSteps(
     what_next: { completedAt: null, skippedAt: null, viewedAt: null },
     send: { completedAt: null, skippedAt: null, viewedAt: null },
   };
+}
+
+function completedEducationSteps() {
+  const progress = educationSteps(true);
+  for (const step of ["insurer_review", "valuation", "report", "what_next"] as const) {
+    progress[step] = { viewedAt: NOW, completedAt: NOW, skippedAt: null };
+  }
+  return progress;
 }
 
 const money = (amountMinorUnits: number, formatted: string) => ({
@@ -323,6 +337,8 @@ function useClaimHandler(projection: () => ReturnType<typeof claimProjection>) {
 
 describe("total-loss customer workflow", () => {
   beforeEach(() => {
+    detailsMock.getDetails.mockReset();
+    detailsMock.getDetails.mockResolvedValue({ caseId: CASE_ID, intakeMode: "report" });
     stripeMock.confirm.mockReset();
     stripeMock.confirm.mockResolvedValue({ type: "success", session: {} });
     server.use(
@@ -765,7 +781,7 @@ describe("total-loss customer workflow", () => {
 
   afterEach(() => vi.restoreAllMocks());
 
-  it("renders the saved result, evidence, report, and request actions without writing on visits", async () => {
+  it("shows only the current educational stage without writing progress or opening request actions on visits", async () => {
     let progressWrites = 0;
     let prepareRequests = 0;
     useClaimHandler(() => claimProjection());
@@ -779,74 +795,57 @@ describe("total-loss customer workflow", () => {
         return HttpResponse.json({});
       }),
     );
-    const user = userEvent.setup();
     renderTestApp([`${CLAIM_BASE}/review/result`], { authService: authService() });
     const completed = await screen.findByRole("region", { name: "Completed analysis" });
-    expect(within(completed).getAllByRole("heading", { level: 1 })).toHaveLength(1);
-    for (const value of ["$18,000", "$20,000", "$21,000", "$22,000", "$3,000"]) {
+    expect(within(completed).getByRole("heading", { level: 1, name: "Your result" })).toBeVisible();
+    for (const value of ["$18,000", "$21,000", "$3,000"]) {
       expect(within(completed).getByText(value, { exact: true })).toBeVisible();
     }
-    expect(within(completed).getByText(report().conclusion.summary)).toBeVisible();
-    const insurer = within(completed).getByRole("table", { name: "Insurer comparables" });
-    expect(within(insurer).getByText("$19,800.00")).toBeVisible();
-    expect(within(insurer).getByText("$20,000.00")).toBeVisible();
-    expect(within(insurer).getByText("33.3%")).toBeVisible();
-    const market = within(completed).getByRole("table", { name: "Selected market listings" });
-    expect(within(market).getByText("$21,000.00")).toBeVisible();
-    expect(within(market).getByText("Example Motors")).toBeVisible();
-    await user.click(within(completed).getByText("Methodology and limitations", { selector: "summary" }));
-    expect(within(completed).getByText(report().conclusion.limitations[0]!)).toBeVisible();
-    expect(within(completed).getByRole("heading", { name: "Published report" })).toBeVisible();
-    expect(within(completed).queryByRole("button", { name: "Create request draft" })).not.toBeInTheDocument();
-    await user.click(within(completed).getByText("Request details and email", { selector: "summary" }));
-    expect(await within(completed).findByRole("button", { name: "Create request draft" })).toBeEnabled();
-    expect(within(completed).getByText("adjuster@example.com")).toBeVisible();
-    expect(within(completed).getByText("CLM-42")).toBeVisible();
-    expect(within(completed).queryByRole("link", { name: "Continue" })).not.toBeInTheDocument();
-    expect(within(completed).queryByRole("navigation")).not.toBeInTheDocument();
-    expect(within(completed).queryByRole("dialog")).not.toBeInTheDocument();
+    expect(within(completed).getByText("$20,000 to $22,000", { exact: true })).toBeVisible();
+    expect(within(completed).queryByRole("table")).not.toBeInTheDocument();
+    expect(within(completed).queryByRole("textbox", { name: "Message" })).not.toBeInTheDocument();
+    expect(within(completed).queryByRole("button", { name: "Create my request" })).not.toBeInTheDocument();
+    expect(within(completed).queryByRole("button", { name: "Download PDF" })).not.toBeInTheDocument();
+    expect(within(completed).queryByText("Unavailable")).not.toBeInTheDocument();
     expect(progressWrites).toBe(0);
     expect(prepareRequests).toBe(0);
+    expect(detailsMock.getDetails).toHaveBeenCalledWith({ caseId: CASE_ID, userId: USER_ID });
   });
 
   it.each([
-    ["review/result", "result"],
-    ["review/insurer", "insurer"],
-    ["review/market", "market"],
-    ["review/meaning", "result"],
-    ["review/next", "report"],
-    ["review/request", "request"],
-    ["review/sent", "sent"],
-    ["guide/result", "result"],
-    ["guide/insurer-review", "insurer"],
-    ["guide/valuation", "market"],
-    ["guide/report", "report"],
-    ["guide/what-next", "report"],
-    ["guide/send", "request"],
-    ["overview", "result"],
-    ["evidence", "market"],
-    ["request", "request"],
-    ["activity", "sent"],
-    ["evidence?evidence=insurer", "insurer"],
-    ["review/result?details=market", "market"],
-    ["review/market?details=insurer", "insurer"],
-    ["review/request?details=report", "report"],
-    ["review/request?details=unknown", "request"],
-  ])("opens %s in place and focuses its saved %s destination", async (suffix, section) => {
-    useClaimHandler(() => claimProjection());
+    ["review/result", "result", ""],
+    ["review/insurer", "insurer", ""],
+    ["review/market", "market", ""],
+    ["review/meaning", "meaning", ""],
+    ["review/next", "meaning", ""],
+    ["review/request", "request", ""],
+    ["review/sent", "sent", ""],
+    ["guide/result", "result", ""],
+    ["guide/insurer-review", "insurer", ""],
+    ["guide/valuation", "market", ""],
+    ["guide/report", "meaning", ""],
+    ["guide/what-next", "meaning", ""],
+    ["guide/send", "request", ""],
+    ["overview", "result", ""],
+    ["evidence", "market", ""],
+    ["request", "request", ""],
+    ["activity", "sent", ""],
+    ["evidence?evidence=insurer", "insurer", "?details=insurer"],
+    ["review/result?details=market", "market", "?details=market"],
+    ["review/market?details=insurer", "insurer", "?details=insurer"],
+    ["review/request?details=report", "request", "?details=report"],
+    ["review/request?details=unknown", "request", "?details=unknown"],
+  ])("maps %s into one canonical %s stage", async (suffix, stage, search) => {
+    const progress = completedEducationSteps();
+    if (stage === "sent") progress.send.completedAt = NOW;
+    useClaimHandler(() => claimProjection({ progress, journey: stage === "sent" ? "awaiting_insurer_response" : "prepare_request" }));
     const { router } = renderTestApp([`${CLAIM_BASE}/${suffix}`], { authService: authService() });
     const completed = await screen.findByRole("region", { name: "Completed analysis" });
-    const requested = new URL(`${CLAIM_BASE}/${suffix}`, "http://localhost");
-    expect(router.state.location.pathname).toBe(requested.pathname);
-    expect(router.state.location.search).toBe(requested.search);
-    expect(completed.querySelector(`#${section}`)).toHaveFocus();
-    expect(within(completed).getByRole("table", { name: "Insurer comparables" })).toBeVisible();
-    expect(within(completed).getByRole("table", { name: "Selected market listings" })).toBeVisible();
-    if (section === "request") {
-      expect(await within(completed).findByRole("button", { name: "Create request draft" })).toBeVisible();
-    } else {
-      expect(within(completed).getByText("Request details and email", { selector: "summary" })).toBeVisible();
-      expect(within(completed).queryByRole("button", { name: "Create request draft" })).not.toBeInTheDocument();
+    expect(router.state.location.pathname).toBe(`${CLAIM_BASE}/review/${stage}`);
+    expect(router.state.location.search).toBe(search);
+    expect(within(completed).getAllByRole("heading", { level: 1 })).toHaveLength(1);
+    if (stage !== "request") {
+      expect(within(completed).queryByRole("textbox", { name: "Message" })).not.toBeInTheDocument();
     }
   });
 
@@ -854,29 +853,30 @@ describe("total-loss customer workflow", () => {
     let resolverCalls = 0;
     useClaimHandler(() => {
       resolverCalls += 1;
-      return claimProjection({ journey: "prepare_request", withDraft: true });
+      return claimProjection({ journey: "prepare_request", progress: completedEducationSteps(), withDraft: true });
     });
     const rendered = renderTestApp([`${CLAIM_BASE}/evidence?evidence=insurer`], {
       authService: authService(),
     });
-    const completed = await screen.findByRole("region", { name: "Completed analysis" });
-    expect(completed.querySelector("#insurer")).toHaveFocus();
+    await screen.findByRole("region", { name: "Completed analysis" });
+    expect(rendered.router.state.location.pathname).toBe(`${CLAIM_BASE}/review/insurer`);
     await act(async () => {
       await rendered.router.navigate(`${CLAIM_BASE}/review/market?details=report`);
     });
-    expect(completed.querySelector("#report")).toHaveFocus();
+    expect(rendered.router.state.location.pathname).toBe(`${CLAIM_BASE}/review/request`);
     await act(async () => { await rendered.router.navigate(-1); });
-    expect(rendered.router.state.location.pathname).toBe(`${CLAIM_BASE}/evidence`);
-    expect(rendered.router.state.location.search).toBe("?evidence=insurer");
-    expect(completed.querySelector("#insurer")).toHaveFocus();
+    expect(rendered.router.state.location.pathname).toBe(`${CLAIM_BASE}/review/insurer`);
+    expect(rendered.router.state.location.search).toBe("?details=insurer");
+    expect(rendered.router.state.location.pathname).toBe(`${CLAIM_BASE}/review/insurer`);
     await act(async () => { await rendered.router.navigate(1); });
     expect(rendered.router.state.location.search).toBe("?details=report");
-    expect(completed.querySelector("#report")).toHaveFocus();
+    expect(rendered.router.state.location.pathname).toBe(`${CLAIM_BASE}/review/request`);
     await act(async () => {
       await rendered.router.navigate(`${CLAIM_BASE}/review/request?source=saved`);
     });
-    expect(completed.querySelector("#request")).toHaveFocus();
-    const recipient = await within(completed).findByRole("textbox", { name: "Recipient" });
+    expect(rendered.router.state.location.pathname).toBe(`${CLAIM_BASE}/review/request`);
+    const requestStage = await screen.findByRole("region", { name: "Completed analysis" });
+    const recipient = await within(requestStage).findByRole("textbox", { name: "Recipient" });
     recipient.focus();
     await act(async () => {
       await rendered.queryClient.invalidateQueries({
@@ -886,25 +886,25 @@ describe("total-loss customer workflow", () => {
     expect(resolverCalls).toBeGreaterThanOrEqual(2);
     expect(recipient).toHaveFocus();
     expect(recipient).toHaveValue(draft().recipient);
-    expect(within(completed).getByRole("textbox", { name: "Subject" })).toHaveValue(draft().subject);
-    expect(within(completed).getByRole("textbox", { name: "Message" })).toHaveValue(draft().body);
+    expect(within(requestStage).getByRole("textbox", { name: "Subject" })).toHaveValue(draft().subject);
+    expect(within(requestStage).getByRole("textbox", { name: "Message" })).toHaveValue(draft().body);
     const refreshedUrl = `${rendered.router.state.location.pathname}${rendered.router.state.location.search}`;
     rendered.unmount();
     const refreshed = renderTestApp([refreshedUrl], { authService: authService() });
     const restored = await screen.findByRole("region", { name: "Completed analysis" });
     expect(refreshed.router.state.location.pathname).toBe(`${CLAIM_BASE}/review/request`);
     expect(refreshed.router.state.location.search).toBe("?source=saved");
-    expect(restored.querySelector("#request")).toHaveFocus();
+    expect(within(restored).getAllByRole("heading", { level: 1 })).toHaveLength(1);
     expect(within(restored).getByRole("textbox", { name: "Message" })).toHaveValue(draft().body);
     expect(within(restored).getByRole("button", { name: "Copy email" })).toBeEnabled();
-    expect(within(restored).getByRole("button", { name: "Open email app" })).toBeEnabled();
+    expect(within(restored).getByRole("button", { name: "Open email" })).toBeEnabled();
   });
 
   it("does not normalize or save legacy drafts until request actions are explicitly opened", async () => {
     const originalBody = `I have attached ${report().suggestedFilename}.`;
     let savedDraft = { ...draft(), body: originalBody };
     const writes: Array<{ body: string; expectedRevision: number }> = [];
-    useClaimHandler(() => ({ ...claimProjection({ withDraft: true }), messageDraft: savedDraft }));
+    useClaimHandler(() => ({ ...claimProjection({ journey: "prepare_request", progress: completedEducationSteps(), withDraft: true }), messageDraft: savedDraft }));
     server.use(
       http.patch("*/api/v1/appraisal-cases/:caseId/message-draft", async ({ request }) => {
         const update = await request.json() as { body: string; expectedRevision: number };
@@ -927,12 +927,69 @@ describe("total-loss customer workflow", () => {
     first.unmount();
     expect(writes).toHaveLength(0);
 
-    renderTestApp([`${CLAIM_BASE}/review/result`], { authService: authService() });
+    renderTestApp([`${CLAIM_BASE}/review/request`], { authService: authService() });
     const completed = await screen.findByRole("region", { name: "Completed analysis" });
-    await userEvent.setup().click(within(completed).getByText("Request details and email", { selector: "summary" }));
     expect(await within(completed).findByRole("textbox", { name: "Message" })).toHaveValue("I have attached the market evidence report.");
     await waitFor(() => expect(writes).toHaveLength(1));
     expect(writes[0]).toMatchObject({ body: "I have attached the market evidence report.", expectedRevision: 1 });
+  });
+
+  it("replaces report-specific request state when a newer published report appears", async () => {
+    const nextReportId = "66666666-6666-4666-8666-666666666666";
+    const nextDraftId = "77777777-7777-4777-8777-777777777777";
+    let newerReport = false;
+    let draftWrites = 0;
+    useClaimHandler(() => {
+      const projection = claimProjection({
+        journey: "prepare_request",
+        progress: completedEducationSteps(),
+        withDraft: true,
+      });
+      return {
+        ...projection,
+        education: {
+          reportVersionId: newerReport ? nextReportId : REPORT_ID,
+          steps: completedEducationSteps(),
+        },
+        messageDraft: {
+          ...draft(),
+          body: newerReport ? "Please review the updated evidence." : draft().body,
+          draftId: newerReport ? nextDraftId : DRAFT_ID,
+          reportVersionId: newerReport ? nextReportId : REPORT_ID,
+          revision: newerReport ? 1 : 9,
+        },
+        report: {
+          ...report(),
+          reportId: newerReport ? nextReportId : REPORT_ID,
+          versionLabel: newerReport ? "v2" : "v1",
+          versionNumber: newerReport ? 2 : 1,
+        },
+      };
+    });
+    server.use(
+      http.patch("*/api/v1/appraisal-cases/:caseId/message-draft", () => {
+        draftWrites += 1;
+        return new HttpResponse(null, { status: 500 });
+      }),
+    );
+    const rendered = renderTestApp([`${CLAIM_BASE}/review/request`], {
+      authService: authService(),
+    });
+    const oldMessage = await screen.findByRole("textbox", { name: "Message" });
+    expect(oldMessage).toHaveValue(draft().body);
+    newerReport = true;
+    await act(async () => {
+      await rendered.queryClient.invalidateQueries({
+        queryKey: totalLossClaimQueryKeys.detail(USER_ID, CASE_ID),
+      });
+    });
+    await waitFor(() => {
+      expect(screen.getByRole("textbox", { name: "Message" })).toHaveValue(
+        "Please review the updated evidence.",
+      );
+    });
+    expect(oldMessage).not.toBeInTheDocument();
+    expect(draftWrites).toBe(0);
   });
 
   it.each(["suspended", "revoked"] as const)(
@@ -1091,7 +1148,7 @@ describe("total-loss customer workflow", () => {
     renderTestApp([`${CLAIM_BASE}/review/next?details=report`], {
       authService: authService(),
     });
-    const reportSection = (await screen.findByRole("heading", { name: "Published report" })).closest("section")!;
+    const reportSection = (await screen.findByText("Venfour Total-Loss Valuation Evidence Package")).closest("div")!;
     await user.click(
       within(reportSection).getByRole("button", { name: /^View(?: report)?$/u }),
     );
@@ -1115,6 +1172,58 @@ describe("total-loss customer workflow", () => {
     expect(requestedReports).toEqual([REPORT_ID, REPORT_ID]);
   });
 
+  it.each([
+    ["guide_result", "result"],
+    ["guide_insurer_review", "market"],
+    ["guide_valuation", "market"],
+    ["guide_report", "meaning"],
+    ["guide_what_next", "meaning"],
+    ["prepare_request", "request"],
+    ["awaiting_insurer_response", "sent"],
+  ] as const)("resumes manual %s at %s using the saved owner-scoped intake mode", async (journey, stage) => {
+    detailsMock.getDetails.mockResolvedValue({ caseId: CASE_ID, intakeMode: "manual" });
+    const progress = completedEducationSteps();
+    if (stage === "sent") progress.send.completedAt = NOW;
+    useClaimHandler(() => claimProjection({ journey, progress }));
+    const { router } = renderTestApp([CLAIM_BASE], { authService: authService() });
+    await screen.findByRole("region", { name: "Completed analysis" });
+    expect(router.state.location.pathname).toBe(`${CLAIM_BASE}/review/${stage}`);
+    expect(screen.queryByRole("heading", { name: "How your insurer reached its value" })).not.toBeInTheDocument();
+    expect(detailsMock.getDetails).toHaveBeenCalledWith({ caseId: CASE_ID, userId: USER_ID });
+  });
+
+  it.each(["review/insurer", "guide/insurer-review", "evidence?evidence=insurer", "review/result?details=insurer"])(
+    "redirects manual %s safely to Market without rendering an insurer stage",
+    async (suffix) => {
+      detailsMock.getDetails.mockResolvedValue({ caseId: CASE_ID, intakeMode: "manual" });
+      useClaimHandler(() => claimProjection());
+      const { router } = renderTestApp([`${CLAIM_BASE}/${suffix}`], { authService: authService() });
+      await screen.findByRole("region", { name: "Completed analysis" });
+      expect(router.state.location.pathname).toBe(`${CLAIM_BASE}/review/market`);
+      expect(router.state.location.search).toBe("");
+      expect(screen.queryByRole("heading", { name: "How your insurer reached its value" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("table", { name: "Insurer comparables" })).not.toBeInTheDocument();
+    },
+  );
+
+  it.each([CLAIM_BASE, `${CLAIM_BASE}/review/result`])("fails closed and retries missing intake mode at %s", async (path) => {
+    detailsMock.getDetails.mockResolvedValueOnce(null).mockResolvedValue({ caseId: CASE_ID, intakeMode: "manual" });
+    useClaimHandler(() => claimProjection());
+    const { router } = renderTestApp([path], { authService: authService() });
+    expect(await screen.findByRole("heading", { name: "We couldn’t load your review details" })).toBeVisible();
+    expect(screen.queryByRole("region", { name: "Completed analysis" })).not.toBeInTheDocument();
+    await userEvent.setup().click(screen.getByRole("button", { name: "Try again" }));
+    await screen.findByRole("region", { name: "Completed analysis" });
+    expect(router.state.location.pathname).toBe(`${CLAIM_BASE}/review/result`);
+  });
+
+  it("does not read intake details before ownership and entitlement are verified", async () => {
+    useClaimHandler(() => claimProjection({ entitlementStatus: "revoked", journey: "needs_attention" }));
+    renderTestApp([`${CLAIM_BASE}/review/result`], { authService: authService() });
+    await screen.findByRole("heading", { name: "Your package needs attention" });
+    expect(detailsMock.getDetails).not.toHaveBeenCalled();
+  });
+
   it("keeps report errors inline and retries without changing the completed-analysis URL", async () => {
     useClaimHandler(() => claimProjection());
     let downloadRequests = 0;
@@ -1135,14 +1244,15 @@ describe("total-loss customer workflow", () => {
       [`${CLAIM_BASE}/review/market?details=report`],
       { authService: authService() },
     );
-    const reportSection = (await screen.findByRole("heading", { name: "Published report" })).closest("section")!;
+    const reportSection = (await screen.findByText("Venfour Total-Loss Valuation Evidence Package")).closest("div")!;
     await user.click(
       within(reportSection).getByRole("button", { name: /^View(?: report)?$/u }),
     );
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "We couldn’t open the report. Please try again.",
     );
-    expect(router.state.location.pathname).toBe(`${CLAIM_BASE}/review/market`);
+    expect(router.state.location.pathname).toBe(`${CLAIM_BASE}/review/request`);
+    expect(router.state.location.search).toBe("?details=report");
     await user.click(
       within(reportSection).getByRole("button", { name: /^View(?: report)?$/u }),
     );
@@ -1166,8 +1276,8 @@ describe("total-loss customer workflow", () => {
         });
       }),
     );
-    renderTestApp([`${CLAIM_BASE}/guide/report`], { authService: authService() });
-    const reportSection = (await screen.findByRole("heading", { name: "Published report" })).closest("section")!;
+    renderTestApp([`${CLAIM_BASE}/guide/report?details=report`], { authService: authService() });
+    const reportSection = (await screen.findByText("Venfour Total-Loss Valuation Evidence Package")).closest("div")!;
     await userEvent.setup().dblClick(within(reportSection).getByRole("button", { name: "View report" }));
     await waitFor(() => expect(downloadRequests).toBe(1));
     expect(within(reportSection).getByRole("button", { name: "Opening…" })).toBeDisabled();
@@ -1251,9 +1361,9 @@ describe("total-loss customer workflow", () => {
     const initial = renderTestApp([CLAIM_BASE], { authService: authService() });
     const completed = await screen.findByRole("region", { name: "Completed analysis" });
     expect(initial.router.state.location.pathname).toBe(`${CLAIM_BASE}/review/sent`);
-    const status = completed.querySelector<HTMLElement>("#sent")!;
-    expect(within(status).getByText("Request marked as sent")).toBeVisible();
-    expect(status).toHaveFocus();
+    const status = completed;
+    expect(within(status).getByRole("heading", { name: "Waiting for the insurer’s response" })).toBeVisible();
+    expect(status).toHaveAttribute("data-stage", "sent");
     expect(within(status).getByText(NOW)).toHaveAttribute("datetime", NOW);
     expect(within(completed).queryByRole("button", { name: "Create request draft" })).not.toBeInTheDocument();
     expect(within(completed).queryByRole("textbox", { name: "Recipient" })).not.toBeInTheDocument();
@@ -1261,7 +1371,7 @@ describe("total-loss customer workflow", () => {
     initial.unmount();
     renderTestApp([reopenedUrl], { authService: authService() });
     const restored = await screen.findByRole("region", { name: "Completed analysis" });
-    expect(within(restored).getByText("Request marked as sent")).toBeVisible();
+    expect(within(restored).getByRole("heading", { name: "Waiting for the insurer’s response" })).toBeVisible();
     expect(within(restored).getByText(NOW)).toHaveAttribute("datetime", NOW);
     expect(within(restored).queryByRole("button", { name: "Mark as sent" })).not.toBeInTheDocument();
     expect(within(restored).queryByRole("button", { name: "Upload insurer response" })).not.toBeInTheDocument();

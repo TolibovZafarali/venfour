@@ -3,7 +3,8 @@ import { describe, expect, it } from "vitest";
 import type { TotalLossClaimResolver } from "@/features/total-loss-claim/contracts";
 import {
   authoritativeTotalLossClaimPath,
-  completedAnalysisSection,
+  canonicalCompletedAnalysisPath,
+  completedAnalysisStage,
   isCompletedAnalysisView,
   routeForJourneyState,
   totalLossClaimViewPath,
@@ -53,8 +54,8 @@ describe("total-loss claim authoritative route decisions", () => {
     ["guide_result", `/total-loss/cases/${CASE_ID}/claim/review/result`],
     ["guide_insurer_review", `/total-loss/cases/${CASE_ID}/claim/review/insurer`],
     ["guide_valuation", `/total-loss/cases/${CASE_ID}/claim/review/market`],
-    ["guide_report", `/total-loss/cases/${CASE_ID}/claim/review/next`],
-    ["guide_what_next", `/total-loss/cases/${CASE_ID}/claim/review/next`],
+    ["guide_report", `/total-loss/cases/${CASE_ID}/claim/review/meaning`],
+    ["guide_what_next", `/total-loss/cases/${CASE_ID}/claim/review/meaning`],
     ["prepare_request", `/total-loss/cases/${CASE_ID}/claim/review/request`],
     ["awaiting_insurer_response", `/total-loss/cases/${CASE_ID}/claim/review/sent`],
     ["no_dispute", `/total-loss/cases/${CASE_ID}/claim/review/result`],
@@ -63,6 +64,13 @@ describe("total-loss claim authoritative route decisions", () => {
     expect(authoritativeTotalLossClaimPath(securedResolver(state))).toBe(
       expected,
     );
+  });
+
+  it("resumes manual customers at Market for the legacy insurer milestone", () => {
+    expect(authoritativeTotalLossClaimPath(securedResolver("guide_insurer_review"), "manual"))
+      .toBe(`/total-loss/cases/${CASE_ID}/claim/review/market`);
+    expect(routeForJourneyState(CASE_ID, "guide_valuation", "manual"))
+      .toBe(`/total-loss/cases/${CASE_ID}/claim/review/market`);
   });
 
   it.each([
@@ -108,15 +116,15 @@ describe("completed analysis deep-link compatibility", () => {
     ["overview", "result"],
     ["result", "result"],
     ["review_result", "result"],
-    ["review_meaning", "result"],
+    ["review_meaning", "meaning"],
     ["insurer_review", "insurer"],
     ["review_insurer", "insurer"],
     ["evidence", "market"],
     ["valuation", "market"],
     ["review_market", "market"],
-    ["report", "report"],
-    ["what_next", "report"],
-    ["review_next", "report"],
+    ["report", "meaning"],
+    ["what_next", "meaning"],
+    ["review_next", "meaning"],
     ["request", "request"],
     ["send", "request"],
     ["review_request", "request"],
@@ -124,7 +132,7 @@ describe("completed analysis deep-link compatibility", () => {
     ["review_sent", "sent"],
   ] as const)("keeps %s links focused on %s", (view, section) => {
     expect(isCompletedAnalysisView(view)).toBe(true);
-    expect(completedAnalysisSection(view, new URLSearchParams())).toBe(section);
+    expect(completedAnalysisStage(view, new URLSearchParams(), "report")).toBe(section);
   });
 
   it.each(["checkout", "checkout_return", "processing"] as const)(
@@ -136,30 +144,33 @@ describe("completed analysis deep-link compatibility", () => {
     "preserves the %s details query from shared links",
     (section) => {
       expect(
-        completedAnalysisSection(
+        completedAnalysisStage(
           "review_result",
           new URLSearchParams({ details: section }),
+          "report",
         ),
-      ).toBe(section);
+      ).toBe(section === "report" ? "request" : section);
     },
   );
 
   it("preserves the insurer selection in legacy evidence links", () => {
     expect(
-      completedAnalysisSection(
+      completedAnalysisStage(
         "evidence",
         new URLSearchParams({ evidence: "insurer" }),
+        "report",
       ),
     ).toBe("insurer");
   });
 
   it("prioritizes an explicit details link over the legacy evidence query", () => {
     expect(
-      completedAnalysisSection(
+      completedAnalysisStage(
         "evidence",
         new URLSearchParams({ details: "report", evidence: "insurer" }),
+        "report",
       ),
-    ).toBe("report");
+    ).toBe("request");
   });
 
   it.each([
@@ -169,9 +180,31 @@ describe("completed analysis deep-link compatibility", () => {
   ] satisfies ReadonlyArray<readonly [TotalLossClaimWorkflowView, string, string]>)(
     "ignores unrelated or invalid queries for %s links",
     (view, query, section) => {
-      expect(completedAnalysisSection(view, new URLSearchParams(query))).toBe(
+      expect(completedAnalysisStage(view, new URLSearchParams(query), "report")).toBe(
         section,
       );
     },
+  );
+
+  it.each(["review_insurer", "insurer_review", "evidence"] as const)(
+    "maps a manual %s link to Market without presenting an insurer review",
+    (view) => {
+      expect(completedAnalysisStage(view, new URLSearchParams("details=insurer"), "manual"))
+        .toBe("market");
+      expect(canonicalCompletedAnalysisPath(CASE_ID, view, new URLSearchParams("details=insurer&source=saved"), "manual"))
+        .toBe(`/total-loss/cases/${CASE_ID}/claim/review/market?source=saved`);
+    },
+  );
+
+  it.each([
+    ["evidence", "evidence=insurer", "insurer?details=insurer"],
+    ["review_market", "details=report", "request?details=report"],
+    ["report", "", "meaning"],
+    ["review_next", "", "meaning"],
+    ["review_result", "details=market&source=saved", "market?details=market&source=saved"],
+  ] satisfies ReadonlyArray<readonly [TotalLossClaimWorkflowView, string, string]>)(
+    "canonicalizes %s with %s while retaining valid detail intent",
+    (view, query, suffix) => expect(canonicalCompletedAnalysisPath(CASE_ID, view, new URLSearchParams(query), "report"))
+      .toBe(`/total-loss/cases/${CASE_ID}/claim/review/${suffix}`),
   );
 });

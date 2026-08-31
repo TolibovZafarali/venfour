@@ -24,7 +24,8 @@ export function reportText(value: string) {
       /\b[A-Z]+(?:_[A-Z]+)+\b/gu,
       (code) => REPORT_LABELS[code] ?? "details in the evidence package",
     )
-    .replace(/The deterministic assessment/gu, "The completed review");
+    .replace(/The deterministic assessment/gu, "The completed review")
+    .replace(/\bunavailable\b/giu, "not provided");
 }
 
 export function displayed(
@@ -32,7 +33,7 @@ export function displayed(
   fallback = "—",
 ) {
   return value && !/^(unavailable|unknown|not available)$/iu.test(value.trim())
-    ? value
+    ? reportText(value)
     : fallback;
 }
 
@@ -69,20 +70,20 @@ export function disclosureLabel(value: string | null) {
   if (["partial", "partially disclosed"].includes(key))
     return "Partially disclosed";
   if (["full", "fully disclosed"].includes(key)) return "Fully disclosed";
-  if (key === "unavailable") return "Details unavailable";
-  return /^[A-Z][A-Z_]+$/u.test(value) ? "Not stated" : value;
+  if (key === "unavailable") return "Details not provided";
+  return /^[A-Z][A-Z_]+$/u.test(value) ? "Not stated" : reportText(value);
 }
 
 export function temporalLabel(value: string | null) {
   if (!value) return "Not stated";
   if (/historical|loss.date/iu.test(value)) return "Historical listing";
   if (/current/iu.test(value)) return "Current listing";
-  return /^[A-Z][A-Z_]+$/u.test(value) ? "See evidence package" : value;
+  return /^[A-Z][A-Z_]+$/u.test(value) ? "See evidence package" : reportText(value);
 }
 
 export function roleLabel(value: string | null) {
   if (!value) return "Not stated";
   if (/primary/iu.test(value)) return "Primary comparison evidence";
   if (/secondary/iu.test(value)) return "Additional context evidence";
-  return /^[A-Z][A-Z_]+$/u.test(value) ? "Selected evidence" : value;
+  return /^[A-Z][A-Z_]+$/u.test(value) ? "Selected evidence" : reportText(value);
 }

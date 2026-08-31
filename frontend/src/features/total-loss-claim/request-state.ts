@@ -5,6 +5,26 @@ import type {
 
 export const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/u;
 
+const OPTIONAL_REVIEW_STEPS = [
+  "insurer_review",
+  "valuation",
+  "report",
+  "what_next",
+] as const;
+
+export function requestReviewComplete(
+  claim: TotalLossClaimSecured,
+  reportId: string,
+) {
+  const progress = claim.education?.steps;
+  return Boolean(
+    claim.education?.reportVersionId === reportId &&
+      progress?.result.completedAt &&
+      (OPTIONAL_REVIEW_STEPS.every((step) => progress[step].completedAt) ||
+        OPTIONAL_REVIEW_STEPS.some((step) => progress[step].skippedAt)),
+  );
+}
+
 export type DraftContent = Pick<TotalLossMessageDraft, "body" | "subject"> & {
   readonly recipient: string;
 };

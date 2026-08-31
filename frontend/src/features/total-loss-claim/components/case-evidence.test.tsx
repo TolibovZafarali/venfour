@@ -3,7 +3,8 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 
 import {
-  CaseEvidence,
+  InsurerEvidenceDetails,
+  MarketEvidenceDetails,
   MethodologyDisclosure,
 } from "@/features/total-loss-claim/components/case-evidence";
 import { moneyLabel } from "@/features/total-loss-claim/report-format";
@@ -119,21 +120,29 @@ function report(): TotalLossPublishedReport {
   };
 }
 
+function CaseEvidence({ report }: { report: TotalLossPublishedReport }) {
+  return <>
+    <InsurerEvidenceDetails report={report} open />
+    <MarketEvidenceDetails report={report} open />
+    <MethodologyDisclosure report={report} />
+  </>;
+}
+
 describe("evidence methodology", () => {
-  it("keeps detailed limitations collapsed with accurate evidence dates", async () => {
+  it("keeps methodology collapsed and leaves the complete limitations in the PDF", async () => {
     render(<MethodologyDisclosure report={report()} />);
     expect(
-      screen.getByText("Equipment details are limited for some listings."),
-    ).not.toBeVisible();
+      screen.queryByText("Equipment details are limited for some listings."),
+    ).not.toBeInTheDocument();
     await userEvent
       .setup()
-      .click(screen.getByText("Methodology and limitations"));
+      .click(screen.getByText("Evidence dates and methodology"));
     expect(
-      screen.getByText("Equipment details are limited for some listings."),
+      screen.getByText("The evidence package contains the complete methodology, limitations, and technical evidence."),
     ).toBeVisible();
     expect(screen.getByText("Aug 1, 2026")).toBeVisible();
     expect(screen.getByText("Aug 28, 2026")).toBeVisible();
-    expect(screen.getByText("No historical date provided")).toBeVisible();
+    expect(screen.getByText("Not stated")).toBeVisible();
   });
 
   it("translates legacy codes within stored source descriptions", async () => {
@@ -152,7 +161,7 @@ describe("evidence methodology", () => {
     );
     await userEvent
       .setup()
-      .click(screen.getByText("Methodology and limitations"));
+      .click(screen.getByText("Evidence dates and methodology"));
     expect(
       screen.getByText(
         "The result is Potential undervaluation signal, with current market evidence showing below the selected range.",
@@ -216,10 +225,8 @@ describe("completed case evidence", () => {
       "$450",
       "25%",
     ]);
-    expect(within(table).getByText("Details unavailable")).toBeVisible();
-    expect(screen.getByText(
-      "The insurer used 12 comparable vehicles. Detailed adjustment information was available for 6.",
-    )).toBeVisible();
+    expect(within(table).getByText("Details not provided")).toBeVisible();
+    expect(screen.queryByText("Unavailable")).not.toBeInTheDocument();
   });
 
   it("preserves unknown fields without fabricating zero values", () => {
@@ -249,12 +256,14 @@ describe("completed case evidence", () => {
     ]);
   });
 
-  it("leaves both evidence sections addressable by retained deep links", () => {
-    render(<CaseEvidence report={report()} />);
-    expect(screen.getByRole("region", { name: "Insurer comparables" }))
-      .toHaveAttribute("id", "insurer");
-    expect(screen.getByRole("region", { name: "Selected market listings" }))
-      .toHaveAttribute("id", "market");
+  it("opens each evidence source only through explicit inspection", async () => {
+    render(<><InsurerEvidenceDetails report={report()} /><MarketEvidenceDetails report={report()} /></>);
+    expect(screen.getByText("Dealer 7")).not.toBeVisible();
+    await userEvent.setup().click(screen.getByText("Selected market listing details"));
+    expect(screen.getByText("Dealer 7")).toBeVisible();
+    expect(screen.getByText("2022 Insurer Vehicle 1")).not.toBeVisible();
+    await userEvent.setup().click(screen.getByText("Insurer comparable details"));
+    expect(screen.getByText("2022 Insurer Vehicle 1")).toBeVisible();
     expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
   });
 
@@ -265,11 +274,11 @@ describe("completed case evidence", () => {
       insurerEvidence: { ...data.insurerEvidence, comparableCount: 0, comparables: [] },
       marketEvidence: { ...data.marketEvidence, comparables: [], primary: null },
     }} />);
-    expect(screen.getByText("No selected market listings to display")).toBeVisible();
-    expect(screen.getByText("No insurer comparables to display")).toBeVisible();
+    expect(screen.getByText("No selected market listing rows were provided.")).toBeVisible();
+    expect(screen.getByText("No insurer comparable rows were available in the reviewed report.")).toBeVisible();
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
-    await userEvent.setup().click(screen.getByText("Methodology and limitations"));
-    expect(screen.getByText("Equipment details are limited for some listings.")).toBeVisible();
+    await userEvent.setup().click(screen.getByText("Evidence dates and methodology"));
+    expect(screen.getByText("The evidence package contains the complete methodology, limitations, and technical evidence.")).toBeVisible();
   });
 
   it("keeps missing money distinct from a stored zero amount", () => {

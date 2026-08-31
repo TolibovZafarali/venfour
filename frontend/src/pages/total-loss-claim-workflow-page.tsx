@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, Navigate, useParams, useSearchParams } from "react-router";
+import { Link, Navigate, useLocation, useParams, useSearchParams } from "react-router";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -14,10 +14,12 @@ import {
 } from "@/features/total-loss-claim/components/checkout-experience";
 import { ClaimStateCard } from "@/features/total-loss-claim/components/claim-state-card";
 import { CompletedAnalysis } from "@/features/total-loss-claim/components/completed-analysis";
+import { CompletedAnalysisModeGate } from "@/features/total-loss-claim/components/completed-analysis-mode-gate";
 import type { TotalLossClaimSecured } from "@/features/total-loss-claim/contracts";
 import { useTotalLossClaimQuery } from "@/features/total-loss-claim/queries";
 import {
   authoritativeTotalLossClaimPath,
+  canonicalCompletedAnalysisPath,
   isCompletedAnalysisView,
   totalLossClaimBasePath,
   type TotalLossClaimWorkflowView,
@@ -51,6 +53,7 @@ function WorkflowContent({
   readonly view: TotalLossClaimWorkflowView;
 }) {
   const [searchParameters] = useSearchParams();
+  const location = useLocation();
   const authoritativePath = authoritativeTotalLossClaimPath(claim);
   const nextState = claim.journey?.nextState;
 
@@ -125,16 +128,29 @@ function WorkflowContent({
     );
   }
 
+  const report = claim.report;
   return (
-    <CompletedAnalysis
-      accessToken={accessToken}
-      caseId={caseId}
-      claim={claim}
-      onRefresh={refetch}
-      report={claim.report}
-      userId={userId}
-      view={view}
-    />
+    <CompletedAnalysisModeGate caseId={caseId} userId={userId}>
+      {(intakeMode) => {
+        const canonicalPath = canonicalCompletedAnalysisPath(caseId, view, searchParameters, intakeMode);
+        if (`${location.pathname}${location.search}` !== canonicalPath) {
+          return <Navigate replace to={canonicalPath} />;
+        }
+        return (
+          <CompletedAnalysis
+            accessToken={accessToken}
+            caseId={caseId}
+            claim={claim}
+            intakeMode={intakeMode}
+            key={report.reportId}
+            onRefresh={refetch}
+            report={report}
+            userId={userId}
+            view={view}
+          />
+        );
+      }}
+    </CompletedAnalysisModeGate>
   );
 }
 

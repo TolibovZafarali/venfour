@@ -1,4 +1,4 @@
-import { useId } from "react";
+import { useEffect, useId } from "react";
 
 import { ReportFileRow } from "@/features/total-loss-claim/components/published-report-actions";
 import type {
@@ -13,6 +13,11 @@ import {
 import { useRequestDraft } from "@/features/total-loss-claim/use-request-draft";
 import { useRequestPreparation } from "@/features/total-loss-claim/use-request-preparation";
 import type { RequestPreparationOptions } from "@/features/total-loss-claim/use-request-preparation";
+
+interface MessagePreparationProps extends RequestPreparationOptions {
+  readonly onDraftStateChange?: (hasDraft: boolean) => void;
+  readonly onSent?: () => void;
+}
 
 function RequestError({ children }: { readonly children: React.ReactNode }) {
   return <p role="alert">{children}</p>;
@@ -36,24 +41,28 @@ function DraftEditor({
   draft,
   initialPreparedMessage,
   workflowRevision,
+  onSent,
   ...props
 }: RequestPreparationOptions & {
   readonly draft: TotalLossMessageDraft;
   readonly initialPreparedMessage: TotalLossPreparedMessageVersion | null;
   readonly workflowRevision: number;
+  readonly onSent?: () => void;
 }) {
   const editor = useRequestDraft({
     ...props,
     draft,
     initialPreparedMessage,
     workflowRevision,
+    onSent,
   });
   const fieldId = useId();
   if (editor.sent) return <RequestRecorded {...props} />;
 
   return (
     <section aria-label="Request draft">
-      <h2>Review your request</h2>
+      <h1>Review and send</h1>
+      <p>Review the message, then send it from your own email account.</p>
       <p role="status">
         {editor.saving
           ? "Saving…"
@@ -142,22 +151,28 @@ function DraftEditor({
           </button>
         </div>
       ) : null}
-      <p>Download the PDF and attach it before you send your email.</p>
+      <ol>
+        <li>Review the recipient, subject, and message above.</li>
+        <li>Download your evidence package.</li>
+        <li>Open your email application or copy the email.</li>
+        <li>Attach the PDF yourself, then send the email.</li>
+        <li>Return here and mark the request as sent.</li>
+      </ol>
       <ReportFileRow {...props} />
       <div aria-label="Request actions">
+        <button
+          disabled={editor.action !== null || editor.conflict}
+          onClick={() => void editor.shareEmail("open")}
+          type="button"
+        >
+          {editor.action === "open" ? "Preparing email…" : "Open email"}
+        </button>
         <button
           disabled={editor.action !== null || editor.conflict}
           onClick={() => void editor.shareEmail("copy")}
           type="button"
         >
           {editor.action === "copy" ? "Copying…" : "Copy email"}
-        </button>
-        <button
-          disabled={editor.action !== null || editor.conflict}
-          onClick={() => void editor.shareEmail("open")}
-          type="button"
-        >
-          {editor.action === "open" ? "Preparing email…" : "Open email app"}
         </button>
       </div>
       {editor.notice ? <p role="status">{editor.notice}</p> : null}
@@ -290,9 +305,17 @@ function SendingDetails({
   );
 }
 
-export function MessagePreparation(props: RequestPreparationOptions) {
+export function MessagePreparation({
+  onDraftStateChange,
+  onSent,
+  ...props
+}: MessagePreparationProps) {
   const preparation = useRequestPreparation(props);
   const { details, draft } = preparation;
+  const hasDraft = Boolean(draft);
+  useEffect(() => {
+    onDraftStateChange?.(hasDraft);
+  }, [hasDraft, onDraftStateChange]);
   if (requestIsSent(props.claim)) return <RequestRecorded {...props} />;
   if (draft) {
     return (
@@ -301,6 +324,7 @@ export function MessagePreparation(props: RequestPreparationOptions) {
         draft={draft}
         initialPreparedMessage={preparation.preparedVersion}
         key={draft.draftId}
+        onSent={onSent}
         workflowRevision={preparation.workflowRevision}
       />
     );
@@ -314,7 +338,16 @@ export function MessagePreparation(props: RequestPreparationOptions) {
         void preparation.createDraft();
       }}
     >
-      <h2>Prepare your request</h2>
+      <h1>Prepare your request</h1>
+      <p>
+        You’re asking the insurer to review its valuation using the supporting
+        comparable-vehicle evidence and provide a written response.
+      </p>
+      <p>
+        Your evidence package organizes the supporting valuation information and
+        market evidence. You’ll attach it to your email.
+      </p>
+      <ReportFileRow {...props} />
       {details ? (
         <>
           <dl>
@@ -351,18 +384,20 @@ export function MessagePreparation(props: RequestPreparationOptions) {
         You can edit the entire email. Nothing is sent until you send it from
         your own email account.
       </p>
-      <ReportFileRow {...props} />
-      <p id="request-creation-acknowledgement">
-        Creating a draft confirms you’ve reviewed the completed result and are
-        ready to prepare your request.
-      </p>
+      {!preparation.reviewCompleted ? (
+        <p>Complete the review before preparing your request.</p>
+      ) : null}
       {preparation.error ? <RequestError>{preparation.error}</RequestError> : null}
       <button
-        aria-describedby="request-creation-acknowledgement"
-        disabled={preparation.creating || !details || !props.claim.workflow}
+        disabled={
+          preparation.creating ||
+          !details ||
+          !props.claim.workflow ||
+          !preparation.reviewCompleted
+        }
         type="submit"
       >
-        {preparation.creating ? "Creating draft…" : "Create request draft"}
+        {preparation.creating ? "Creating draft…" : "Create my request"}
       </button>
     </form>
   );

@@ -33,6 +33,7 @@ interface RequestDraftOptions {
   readonly draft: TotalLossMessageDraft;
   readonly initialPreparedMessage: TotalLossPreparedMessageVersion | null;
   readonly onRefresh: () => Promise<unknown>;
+  readonly onSent?: () => void;
   readonly report: TotalLossPublishedReport;
   readonly userId: string;
   readonly workflowRevision: number;
@@ -44,6 +45,7 @@ export function useRequestDraft({
   draft: initialDraft,
   initialPreparedMessage,
   onRefresh,
+  onSent,
   report,
   userId,
   workflowRevision,
@@ -92,6 +94,7 @@ export function useRequestDraft({
   const prepareRequestId = useRef(globalThis.crypto.randomUUID());
   const sentRequestId = useRef(globalThis.crypto.randomUUID());
   const actionRef = useRef(false);
+  const mountedRef = useRef(true);
   const dirty = !sameContent(normalizedContent(content), savedContent);
   const fieldErrors = {
     recipient:
@@ -101,6 +104,13 @@ export function useRequestDraft({
     subject: dirty && !content.subject.trim() ? "Add an email subject." : null,
     body: dirty && !content.body.trim() ? "Add an email message." : null,
   };
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     revisionRef.current = Math.max(revisionRef.current, workflowRevision);
@@ -358,7 +368,8 @@ export function useRequestDraft({
         messageVersionId: sharedMessage.messageVersionId,
       });
       setSent(true);
-      await onRefresh();
+      await onRefresh().catch(() => undefined);
+      if (mountedRef.current) onSent?.();
     } catch {
       await onRefresh().catch(() => undefined);
       setError(

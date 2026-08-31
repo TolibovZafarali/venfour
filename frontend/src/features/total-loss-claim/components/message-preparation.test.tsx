@@ -123,13 +123,17 @@ function draft(
   };
 }
 
-function education(): TotalLossEducationProjection {
+function education(completed = true): TotalLossEducationProjection {
   return {
     reportVersionId: REPORT_ID,
     steps: Object.fromEntries(
       TOTAL_LOSS_EDUCATION_STEPS.map((step) => [
         step,
-        { completedAt: null, skippedAt: null, viewedAt: null },
+        {
+          completedAt: completed && step !== "send" ? NOW : null,
+          skippedAt: null,
+          viewedAt: completed && step !== "send" ? NOW : null,
+        },
       ]),
     ) as TotalLossEducationProjection["steps"],
   };
@@ -202,6 +206,10 @@ function sentResult() {
 function renderRequest(
   initial = claim(),
   onRefresh: () => Promise<unknown> = vi.fn(async () => undefined),
+  callbacks: {
+    readonly onDraftStateChange?: (hasDraft: boolean) => void;
+    readonly onSent?: () => void;
+  } = {},
 ) {
   const client = new QueryClient({
     defaultOptions: { mutations: { retry: false }, queries: { retry: false } },
@@ -210,6 +218,7 @@ function renderRequest(
     <QueryClientProvider client={client}>
       <MemoryRouter>
         <MessagePreparation
+          {...callbacks}
           accessToken="request-test-token"
           caseId={CASE_ID}
           claim={current}
@@ -233,7 +242,7 @@ beforeEach(() => {
 });
 
 describe("case request preparation", () => {
-  it("requires only missing details and records acknowledgement only when creating the draft", async () => {
+  it("requires only missing sending details after completed review without changing education", async () => {
     const initial = claim({ messageDraft: null });
     const details = {
       ...initial.sendingDetails!,
@@ -270,14 +279,19 @@ describe("case request preparation", () => {
       }),
     );
     const user = userEvent.setup();
-    renderRequest({ ...initial, sendingDetails: details });
+    const onDraftStateChange = vi.fn();
+    renderRequest({ ...initial, sendingDetails: details }, undefined, {
+      onDraftStateChange,
+    });
     expect(
       screen.getByRole("heading", { name: "Prepare your request" }),
     ).toBeVisible();
     expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
+    expect(onDraftStateChange).toHaveBeenLastCalledWith(false);
+    expect(screen.queryByRole("textbox", { name: "Message" })).not.toBeInTheDocument();
     expect(operations).toEqual([]);
     await user.click(
-      screen.getByRole("button", { name: "Create request draft" }),
+      screen.getByRole("button", { name: "Create my request" }),
     );
     expect(
       screen.getByRole("textbox", { name: "Adjuster or claims email" }),
@@ -292,27 +306,140 @@ describe("case request preparation", () => {
       "CLM-42",
     );
     await user.click(
-      screen.getByRole("button", { name: "Create request draft" }),
+      screen.getByRole("button", { name: "Create my request" }),
     );
     expect(
-      await screen.findByRole("heading", { name: "Review your request" }),
+      await screen.findByRole("heading", { level: 1, name: "Review and send" }),
     ).toBeVisible();
-    expect(operations).toEqual([
-      "result:completed",
-      "what_next:skipped",
-      "details",
-      "prepare",
-    ]);
-    expect(payloads[2]).toMatchObject({
+    expect(onDraftStateChange).toHaveBeenLastCalledWith(true);
+    expect(operations).toEqual(["details", "prepare"]);
+    expect(payloads[0]).toMatchObject({
       adjusterEmailConfirmed: true,
       claimReferenceConfirmed: true,
       expectedRevision: 1,
-      expectedWorkflowRevision: 9,
+      expectedWorkflowRevision: 7,
     });
-    expect(payloads[3]).toMatchObject({ expectedWorkflowRevision: 10 });
+    expect(payloads[1]).toMatchObject({ expectedWorkflowRevision: 10 });
     expect(
       screen.queryByRole("button", { name: "Save changes" }),
     ).not.toBeInTheDocument();
+  });
+
+  it.each(["result", "insurer_review", "valuation", "report", "what_next"] as const)(
+    "does not create a draft or grant missing %s progress on a direct request visit",
+    async (step) => {
+      const progress = education();
+      const operations: string[] = [];
+      server.use(
+        http.put(`${API}/education/:step`, () => {
+          operations.push("education");
+          return HttpResponse.json({ education: progress });
+        }),
+        http.put(`${API}/sending-details`, () => {
+          operations.push("details");
+          return HttpResponse.json({});
+        }),
+        http.post(`${API}/message/prepare`, () => {
+          operations.push("prepare");
+          return HttpResponse.json(prepared(draft()));
+        }),
+      );
+      renderRequest(claim({
+        messageDraft: null,
+        education: {
+          ...progress,
+          steps: {
+            ...progress.steps,
+            [step]: { completedAt: null, skippedAt: null, viewedAt: null },
+          },
+        },
+      }));
+      expect(screen.getByRole("button", { name: "Create my request" })).toBeDisabled();
+      const form = screen.getByRole("heading", { name: "Prepare your request" }).closest("form");
+      expect(form).not.toBeNull();
+      fireEvent.submit(form!);
+      expect(await screen.findByRole("alert")).toHaveTextContent(
+        "Complete the review before preparing your request.",
+      );
+      expect(operations).toEqual([]);
+      expect(screen.queryByRole("textbox", { name: "Message" })).not.toBeInTheDocument();
+    },
+  );
+
+  it("does not apply acknowledgements belonging to a different report version", () => {
+    renderRequest(claim({
+      messageDraft: null,
+      education: { ...education(), reportVersionId: "99999999-9999-4999-8999-999999999999" },
+    }));
+    expect(screen.getByRole("button", { name: "Create my request" })).toBeDisabled();
+  });
+
+  it("uses refreshed review progress and the current workflow revision for preparation", async () => {
+    const attempts: Record<string, unknown>[] = [];
+    server.use(
+      http.post(`${API}/message/prepare`, async ({ request }) => {
+        attempts.push((await request.json()) as Record<string, unknown>);
+        return HttpResponse.json(prepared(draft(), 13));
+      }),
+    );
+    const user = userEvent.setup();
+    const rendered = renderRequest(claim({ messageDraft: null, education: education(false) }));
+    expect(screen.getByRole("button", { name: "Create my request" })).toBeDisabled();
+    const refreshed = claim({ messageDraft: null });
+    rendered.refresh({
+      ...refreshed,
+      workflow: { ...refreshed.workflow!, revision: 12 },
+    });
+    await user.click(screen.getByRole("button", { name: "Create my request" }));
+    expect(await screen.findByRole("heading", { name: "Review and send" })).toBeVisible();
+    expect(attempts).toHaveLength(1);
+    expect(attempts[0]).toMatchObject({ expectedWorkflowRevision: 12 });
+  });
+
+  it("never opens a stale draft belonging to another published report", () => {
+    renderRequest(
+      claim({
+        messageDraft: draft({
+          reportVersionId: "99999999-9999-4999-8999-999999999999",
+          revision: 99,
+        }),
+      }),
+    );
+    expect(screen.getByRole("heading", { name: "Prepare your request" })).toBeVisible();
+    expect(screen.queryByRole("heading", { name: "Review and send" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("textbox", { name: "Message" })).not.toBeInTheDocument();
+  });
+
+  it("rejects a generated draft for another report and can retry safely", async () => {
+    const staleReportId = "99999999-9999-4999-8999-999999999999";
+    let attempts = 0;
+    server.use(
+      http.post(`${API}/message/prepare`, () => {
+        attempts += 1;
+        if (attempts === 1) {
+          const staleDraft = draft({ reportVersionId: staleReportId });
+          const response = prepared(staleDraft);
+          return HttpResponse.json({
+            ...response,
+            messageVersion: {
+              ...response.messageVersion,
+              reportVersionId: staleReportId,
+            },
+          });
+        }
+        return HttpResponse.json(prepared(draft()));
+      }),
+    );
+    const user = userEvent.setup();
+    renderRequest(claim({ messageDraft: null }));
+    await user.click(screen.getByRole("button", { name: "Create my request" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "We couldn’t create your request draft.",
+    );
+    expect(screen.queryByRole("textbox", { name: "Message" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Create my request" }));
+    expect(await screen.findByRole("heading", { name: "Review and send" })).toBeVisible();
+    expect(attempts).toBe(2);
   });
 
   it("reuses confirmed case facts without asking for them again", () => {
@@ -368,7 +495,7 @@ describe("case request preparation", () => {
     let saved = generated;
     let saves = 0;
     let reads = 0;
-    const progress = education();
+    const progress = education(false);
     const completed = { completedAt: NOW, viewedAt: NOW, skippedAt: null };
     server.use(
       http.post(`${API}/message/prepare`, () =>
@@ -407,7 +534,7 @@ describe("case request preparation", () => {
       }),
     );
     await user.click(
-      screen.getByRole("button", { name: "Create request draft" }),
+      screen.getByRole("button", { name: "Create my request" }),
     );
     expect(await screen.findByRole("textbox", { name: "Message" })).toHaveValue(
       "I am requesting written reconsideration of the vehicle valuation for claim CLM-42.",
@@ -578,7 +705,8 @@ describe("case request preparation", () => {
     const copied = vi
       .spyOn(navigator.clipboard, "writeText")
       .mockResolvedValue(undefined);
-    renderRequest();
+    const onSent = vi.fn();
+    renderRequest(undefined, undefined, { onSent });
     expect(
       screen.queryByRole("button", { name: "Mark as sent" }),
     ).not.toBeInTheDocument();
@@ -597,14 +725,16 @@ describe("case request preparation", () => {
       "Subject: Updated subject\n\nMy exact updated request.",
     );
     expect(sentCalls).toBe(0);
+    expect(onSent).not.toHaveBeenCalled();
     expect(
-      screen.getByRole("button", { name: "Open email app" }),
+      screen.getByRole("button", { name: "Open email" }),
     ).toBeVisible();
     await user.dblClick(screen.getByRole("button", { name: "Mark as sent" }));
     expect(
       await screen.findByRole("heading", { name: "Request marked as sent" }),
     ).toBeVisible();
     expect(sentCalls).toBe(1);
+    expect(onSent).toHaveBeenCalledTimes(1);
     expect(sentPayload).toMatchObject({
       confirmedReportAttached: true,
       expectedWorkflowRevision: 8,
@@ -630,7 +760,7 @@ describe("case request preparation", () => {
     );
     const user = userEvent.setup();
     renderRequest();
-    await user.click(screen.getByRole("button", { name: "Open email app" }));
+    await user.click(screen.getByRole("button", { name: "Open email" }));
     expect(
       await screen.findByRole("button", { name: "Mark as sent" }),
     ).toBeVisible();
@@ -644,7 +774,7 @@ describe("case request preparation", () => {
       screen.queryByRole("button", { name: "Mark as sent" }),
     ).not.toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "Open email app" }),
+      screen.getByRole("button", { name: "Open email" }),
     ).toBeVisible();
   });
 
@@ -817,5 +947,80 @@ describe("case request preparation", () => {
       await screen.findByRole("heading", { name: "Request marked as sent" }),
     ).toBeVisible();
     expect(onRefresh).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not report sent success when confirmation fails", async () => {
+    server.use(
+      http.post(`${API}/message/prepare`, () =>
+        HttpResponse.json(prepared(draft())),
+      ),
+      http.post(`${API}/message/sent`, () =>
+        HttpResponse.json({ detail: "changed" }, { status: 409 }),
+      ),
+    );
+    const user = userEvent.setup();
+    vi.spyOn(navigator.clipboard, "writeText").mockResolvedValue(undefined);
+    const onSent = vi.fn();
+    const onRefresh = vi.fn(async () => undefined);
+    renderRequest(claim(), onRefresh, { onSent });
+    await user.click(screen.getByRole("button", { name: "Copy email" }));
+    await user.click(await screen.findByRole("button", { name: "Mark as sent" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "We couldn’t record that the request was sent.",
+    );
+    expect(onRefresh).toHaveBeenCalledTimes(1);
+    expect(onSent).not.toHaveBeenCalled();
+    expect(screen.getByRole("heading", { name: "Review and send" })).toBeVisible();
+  });
+
+  it("reports persisted sent success even if the following refresh is unavailable", async () => {
+    server.use(
+      http.post(`${API}/message/prepare`, () =>
+        HttpResponse.json(prepared(draft())),
+      ),
+      http.post(`${API}/message/sent`, () => HttpResponse.json(sentResult())),
+    );
+    const user = userEvent.setup();
+    vi.spyOn(navigator.clipboard, "writeText").mockResolvedValue(undefined);
+    const onSent = vi.fn();
+    const onRefresh = vi.fn(async () => {
+      throw new Error("Refresh unavailable");
+    });
+    renderRequest(claim(), onRefresh, { onSent });
+    await user.click(screen.getByRole("button", { name: "Copy email" }));
+    await user.click(await screen.findByRole("button", { name: "Mark as sent" }));
+    await waitFor(() => expect(onSent).toHaveBeenCalledTimes(1));
+    expect(screen.getByRole("heading", { name: "Request marked as sent" })).toBeVisible();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("finishes sent persistence without navigating after the request editor is left", async () => {
+    let sentCalls = 0;
+    let release!: () => void;
+    const pending = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    server.use(
+      http.post(`${API}/message/prepare`, () =>
+        HttpResponse.json(prepared(draft())),
+      ),
+      http.post(`${API}/message/sent`, async () => {
+        sentCalls += 1;
+        await pending;
+        return HttpResponse.json(sentResult());
+      }),
+    );
+    const user = userEvent.setup();
+    vi.spyOn(navigator.clipboard, "writeText").mockResolvedValue(undefined);
+    const onSent = vi.fn();
+    const onRefresh = vi.fn(async () => undefined);
+    const rendered = renderRequest(claim(), onRefresh, { onSent });
+    await user.click(screen.getByRole("button", { name: "Copy email" }));
+    await user.click(await screen.findByRole("button", { name: "Mark as sent" }));
+    await waitFor(() => expect(sentCalls).toBe(1));
+    rendered.unmount();
+    await act(async () => release());
+    await waitFor(() => expect(onRefresh).toHaveBeenCalledTimes(1));
+    expect(onSent).not.toHaveBeenCalled();
   });
 });

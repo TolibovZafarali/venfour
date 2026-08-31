@@ -9,7 +9,6 @@ import type {
 } from "@/features/total-loss-claim/contracts";
 import { normalizeCustomerRequestBody } from "@/features/total-loss-claim/customer-message-copy";
 import {
-  useTotalLossEducationProgressMutation,
   useTotalLossMessageDraftMutation,
   useTotalLossPrepareMessageMutation,
   useTotalLossSendingDetailsMutation,
@@ -18,17 +17,9 @@ import {
   contentOf,
   EMAIL_PATTERN,
   normalizedContent,
+  requestReviewComplete,
   sameContent,
 } from "@/features/total-loss-claim/request-state";
-
-// The existing request API requires these review acknowledgements. Keep them
-// tied to explicit draft creation without requiring the retired review screens.
-const OPTIONAL_REVIEW_STEPS = [
-  "insurer_review",
-  "valuation",
-  "report",
-  "what_next",
-] as const;
 
 export interface RequestPreparationOptions {
   readonly accessToken: string;
@@ -41,8 +32,6 @@ export interface RequestPreparationOptions {
 
 export function useRequestPreparation(options: RequestPreparationOptions) {
   const { accessToken, caseId, claim, report, userId } = options;
-  const { mutateAsync: recordEducation } =
-    useTotalLossEducationProgressMutation({ accessToken, caseId, userId });
   const { mutateAsync: saveDetails } = useTotalLossSendingDetailsMutation({
     accessToken,
     caseId,
@@ -59,7 +48,9 @@ export function useRequestPreparation(options: RequestPreparationOptions) {
     userId,
   });
   const [draft, setDraft] = useState<TotalLossMessageDraft | null>(
-    claim.messageDraft ?? null,
+    claim.messageDraft?.reportVersionId === report.reportId
+      ? claim.messageDraft
+      : null,
   );
   const [preparedVersion, setPreparedVersion] =
     useState<TotalLossPreparedMessageVersion | null>(null);
@@ -77,10 +68,15 @@ export function useRequestPreparation(options: RequestPreparationOptions) {
     null,
   );
   const details = claim.sendingDetails;
+  const reviewCompleted = requestReviewComplete(claim, report.reportId);
 
   const createDraft = async () => {
     if (creatingRef.current || !claim.workflow || !details) return;
     setAttempted(true);
+    if (!reviewCompleted) {
+      setError("Complete the review before preparing your request.");
+      return;
+    }
     if (!EMAIL_PATTERN.test(email.trim())) {
       setError("Enter the adjuster’s valid email address.");
       return;
@@ -95,30 +91,6 @@ export function useRequestPreparation(options: RequestPreparationOptions) {
     try {
       let revision = claim.workflow.revision;
       if (!pendingGenerated.current) {
-        if (!claim.education?.steps.result.completedAt) {
-          const result = await recordEducation({
-            expectedWorkflowRevision: revision,
-            state: "completed",
-            step: "result",
-          });
-          revision = result.workflowRevision;
-        }
-        const progress = claim.education?.steps;
-        if (
-          !OPTIONAL_REVIEW_STEPS.some((step) => progress?.[step].skippedAt) &&
-          !OPTIONAL_REVIEW_STEPS.every((step) => progress?.[step].completedAt)
-        ) {
-          const skip = !progress?.what_next.completedAt
-            ? "what_next"
-            : (OPTIONAL_REVIEW_STEPS.find((step) => !progress?.[step].completedAt) ??
-              "what_next");
-          const result = await recordEducation({
-            expectedWorkflowRevision: revision,
-            state: "skipped",
-            step: skip,
-          });
-          revision = result.workflowRevision;
-        }
         if (
           !details.adjusterEmailConfirmed ||
           !details.claimReferenceConfirmed ||
@@ -142,6 +114,14 @@ export function useRequestPreparation(options: RequestPreparationOptions) {
         });
       }
       const generated = pendingGenerated.current;
+      if (
+        generated.draft.reportVersionId !== report.reportId ||
+        generated.messageVersion.reportVersionId !== report.reportId
+      ) {
+        pendingGenerated.current = null;
+        request.current = globalThis.crypto.randomUUID();
+        throw new Error("The published report changed.");
+      }
       const repairedBody = normalizeCustomerRequestBody(
         generated.draft.body,
         report,
@@ -185,11 +165,16 @@ export function useRequestPreparation(options: RequestPreparationOptions) {
     }
   };
 
-  const incomingDraft = creating ? null : claim.messageDraft;
+  const incomingDraft =
+    !creating && claim.messageDraft?.reportVersionId === report.reportId
+      ? claim.messageDraft
+      : null;
+  const currentDraft = draft?.reportVersionId === report.reportId ? draft : null;
   const selectedDraft =
-    incomingDraft && (!draft || incomingDraft.revision > draft.revision)
+    incomingDraft &&
+    (!currentDraft || incomingDraft.revision > currentDraft.revision)
       ? incomingDraft
-      : draft;
+      : currentDraft;
 
   return {
     attempted,
@@ -202,6 +187,7 @@ export function useRequestPreparation(options: RequestPreparationOptions) {
     markAttempted: () => setAttempted(true),
     preparedVersion,
     reference,
+    reviewCompleted,
     setEmail,
     setReference,
     workflowRevision: Math.max(

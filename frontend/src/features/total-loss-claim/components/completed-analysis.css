@@ -4,6 +4,9 @@
   padding: 1rem;
   background: white;
   overflow-wrap: anywhere;
+  max-width: 65rem;
+  margin-inline: auto;
+  scroll-margin-top: 5rem;
 }
 
 .completed-analysis section,
@@ -16,8 +19,44 @@
   font-weight: bold;
 }
 
-.completed-analysis :is(p, dl, ul, details, label) {
+.completed-analysis :is(p, dl, ul, ol, details, label) {
   margin-block: 0.75rem;
+}
+
+.completed-analysis :is(ul, ol) {
+  padding-inline-start: 1.5rem;
+  list-style: revert;
+}
+
+.completed-analysis h1 {
+  font-size: 1.5rem;
+}
+
+.completed-analysis h2 {
+  font-size: 1.125rem;
+  margin-block-start: 1rem;
+}
+
+.completed-analysis nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem;
+  margin-block-start: 1.5rem;
+}
+
+.completed-analysis a {
+  text-decoration: underline;
+}
+
+.completed-analysis summary {
+  cursor: pointer;
+  list-style: revert;
+}
+
+.completed-analysis .evidence-table {
+  max-width: 100%;
+  overflow-x: auto;
 }
 
 .completed-analysis dd {

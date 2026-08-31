@@ -8,6 +8,7 @@ import {
 } from "@/features/auth";
 import { ClaimRecoveryForm } from "@/features/total-loss-claim/components/claim-recovery-form";
 import { ClaimStateCard } from "@/features/total-loss-claim/components/claim-state-card";
+import { CompletedAnalysisModeGate } from "@/features/total-loss-claim/components/completed-analysis-mode-gate";
 import { useTotalLossClaimQuery } from "@/features/total-loss-claim/queries";
 import {
   authoritativeTotalLossClaimPath,
@@ -133,6 +134,23 @@ function AuthenticatedClaimPage({
     }
     const authoritativePath = authoritativeTotalLossClaimPath(claim);
     if (authoritativePath && authoritativePath !== `/total-loss/cases/${caseId}/claim`) {
+      if (
+        authoritativePath.includes("/review/") &&
+        claim.report?.status === "published" &&
+        (claim.commerce?.entitlementStatus === "active" ||
+          claim.commerce?.entitlementStatus === "refunded_access_retained")
+      ) {
+        return (
+          <CompletedAnalysisModeGate caseId={caseId} userId={userId}>
+            {(intakeMode) => (
+              <Navigate
+                replace
+                to={authoritativeTotalLossClaimPath(claim, intakeMode) ?? authoritativePath}
+              />
+            )}
+          </CompletedAnalysisModeGate>
+        );
+      }
       return <Navigate replace to={authoritativePath} />;
     }
     return (

@@ -2,6 +2,7 @@ import type {
   TotalLossClaimJourneyState,
   TotalLossClaimResolver,
 } from "@/features/total-loss-claim/contracts";
+import type { TotalLossIntakeMode } from "@/features/total-loss/types";
 
 type LegacyCaseView = "overview" | "evidence" | "request" | "activity";
 type LegacyReviewView =
@@ -58,7 +59,7 @@ export function totalLossClaimViewPath(
     case "report":
     case "what_next":
     case "review_next":
-      return `${base}/review/next`;
+      return `${base}/review/meaning`;
     case "activity":
     case "review_sent":
       return `${base}/review/sent`;
@@ -72,6 +73,7 @@ export function totalLossClaimViewPath(
 export function routeForJourneyState(
   caseId: string,
   state: TotalLossClaimJourneyState,
+  intakeMode: TotalLossIntakeMode = "report",
 ) {
   switch (state) {
     case "secure_claim":
@@ -87,7 +89,10 @@ export function routeForJourneyState(
     case "no_dispute":
       return totalLossClaimViewPath(caseId, "result");
     case "guide_insurer_review":
-      return totalLossClaimViewPath(caseId, "insurer_review");
+      return totalLossClaimViewPath(
+        caseId,
+        intakeMode === "manual" ? "review_market" : "review_insurer",
+      );
     case "guide_valuation":
       return totalLossClaimViewPath(caseId, "valuation");
     case "guide_report":
@@ -133,11 +138,12 @@ function legacyJourneyState(
 
 export function authoritativeTotalLossClaimPath(
   claim: TotalLossClaimResolver,
+  intakeMode?: TotalLossIntakeMode,
 ): string | null {
   if (claim.state === "secure_required")
     return totalLossClaimViewPath(claim.caseId, "checkout");
   const state = claim.journey?.nextState ?? legacyJourneyState(claim);
-  return state ? routeForJourneyState(claim.caseId, state) : null;
+  return state ? routeForJourneyState(claim.caseId, state, intakeMode) : null;
 }
 
 export function isCompletedAnalysisView(view: TotalLossClaimWorkflowView) {
@@ -156,28 +162,29 @@ export function isCompletedAnalysisView(view: TotalLossClaimWorkflowView) {
   );
 }
 
-export type CompletedAnalysisSection =
+export type CompletedAnalysisStage =
   | "result"
   | "insurer"
   | "market"
-  | "report"
+  | "meaning"
   | "request"
   | "sent";
 
-export function completedAnalysisSection(
+export function completedAnalysisStage(
   view: TotalLossClaimWorkflowView,
   searchParameters: URLSearchParams,
-): CompletedAnalysisSection {
+  intakeMode: TotalLossIntakeMode,
+): CompletedAnalysisStage {
   const details = searchParameters.get("details");
-  if (details === "insurer" || details === "market" || details === "report") {
-    return details;
-  }
+  if (details === "report") return "request";
+  if (details === "market") return "market";
+  if (details === "insurer") return intakeMode === "manual" ? "market" : "insurer";
   switch (view) {
     case "insurer_review":
     case "review_insurer":
-      return "insurer";
+      return intakeMode === "manual" ? "market" : "insurer";
     case "evidence":
-      return searchParameters.get("evidence") === "insurer"
+      return intakeMode === "report" && searchParameters.get("evidence") === "insurer"
         ? "insurer"
         : "market";
     case "valuation":
@@ -185,8 +192,9 @@ export function completedAnalysisSection(
       return "market";
     case "report":
     case "what_next":
+    case "review_meaning":
     case "review_next":
-      return "report";
+      return "meaning";
     case "send":
     case "request":
     case "review_request":
@@ -197,4 +205,27 @@ export function completedAnalysisSection(
     default:
       return "result";
   }
+}
+
+export function canonicalCompletedAnalysisPath(
+  caseId: string,
+  view: TotalLossClaimWorkflowView,
+  searchParameters: URLSearchParams,
+  intakeMode: TotalLossIntakeMode,
+) {
+  const stage = completedAnalysisStage(view, searchParameters, intakeMode);
+  const parameters = new URLSearchParams(searchParameters);
+  if (
+    view === "evidence" &&
+    parameters.get("evidence") === "insurer" &&
+    !parameters.has("details")
+  ) {
+    parameters.set("details", "insurer");
+  }
+  parameters.delete("evidence");
+  if (intakeMode === "manual" && parameters.get("details") === "insurer") {
+    parameters.delete("details");
+  }
+  const query = parameters.toString();
+  return `${totalLossClaimViewPath(caseId, `review_${stage}`)}${query ? `?${query}` : ""}`;
 }
