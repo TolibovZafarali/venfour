@@ -15,6 +15,7 @@ import {
 import { useRequestDraft } from "@/features/total-loss-claim/use-request-draft";
 import { useRequestPreparation } from "@/features/total-loss-claim/use-request-preparation";
 import type { RequestPreparationOptions } from "@/features/total-loss-claim/use-request-preparation";
+import { StableActionLabel } from "./stable-action-label";
 
 interface MessagePreparationProps extends RequestPreparationOptions {
   readonly intakeMode?: TotalLossIntakeMode;
@@ -31,15 +32,15 @@ function RequestError({ children }: { readonly children: React.ReactNode }) {
 function RequestRecorded(props: RequestPreparationOptions) {
   return (
     <section className="request-recorded" aria-label="Request status">
-      <span className="request-recorded-icon" aria-hidden="true">
+      <span className="request-recorded-icon" data-review-reveal="completion" aria-hidden="true">
         <Check />
       </span>
-      <h2>Request marked as sent</h2>
-      <p role="status">
+      <h2 data-review-reveal="heading">Request marked as sent</h2>
+      <p data-review-reveal="lead" role="status">
         You reported sending the request. Venfour cannot verify email delivery
         or receipt.
       </p>
-      <p>Keep a copy of the email, the report, and any response from your insurer.</p>
+      <p data-review-reveal="quiet">Keep a copy of the email, the report, and any response from your insurer.</p>
       <ReportFileRow {...props} />
     </section>
   );
@@ -69,11 +70,11 @@ function DraftEditor({
 
   return (
     <section className="request-review" aria-label="Request draft">
-      <header className="request-heading">
+      <header className="request-heading" data-review-reveal="heading">
         <h1>Review and send</h1>
         <p>Review the message, then send it from your own email account.</p>
       </header>
-      <div className="request-composer">
+      <div className="request-composer" data-review-reveal="composer">
         <div className="request-composer-header">
           <span className="request-composer-title" aria-hidden="true">
             <Mail />Email draft
@@ -83,14 +84,18 @@ function DraftEditor({
             data-state={editor.saving ? "saving" : editor.saveError ? "error" : editor.dirty ? "unsaved" : "saved"}
             role="status"
           >
-            {editor.saving ? <LoaderCircle className="request-spinner" aria-hidden="true" /> : !editor.saveError && !editor.dirty ? <Check aria-hidden="true" /> : null}
-            {editor.saving
-              ? "Saving…"
-              : editor.saveError
-                ? "Changes not saved"
-                : editor.dirty
-                  ? "Unsaved changes"
-                  : "Saved"}
+            <StableActionLabel reserve="Changes not saved">
+              <span className="request-save-icon" aria-hidden="true">
+                {editor.saving ? <LoaderCircle className="request-spinner" /> : !editor.saveError && !editor.dirty ? <Check /> : null}
+              </span>
+              {editor.saving
+                ? "Saving…"
+                : editor.saveError
+                  ? "Changes not saved"
+                  : editor.dirty
+                    ? "Unsaved changes"
+                    : "Saved"}
+            </StableActionLabel>
           </p>
         </div>
         {editor.dirty && editor.invalid ? (
@@ -170,11 +175,11 @@ function DraftEditor({
             onClick={() => void editor.retrySave(editor.conflict)}
             type="button"
           >
-            {editor.conflict ? "Load saved draft" : "Retry save"}
+            <StableActionLabel reserve="Load saved draft">{editor.conflict ? "Load saved draft" : "Retry save"}</StableActionLabel>
           </button>
         </div>
       ) : null}
-      <ol className="request-send-sequence" role="list">
+      <ol className="request-send-sequence" data-review-reveal="quiet" role="list">
         <li>Review the email.</li>
         <li>Download the evidence package.</li>
         <li>Open your email app or copy the message.</li>
@@ -186,21 +191,23 @@ function DraftEditor({
       <div className="request-action-bar request-share-actions" aria-label="Request actions">
         <button
           className="request-button request-button-secondary"
+          data-review-reveal="action"
           disabled={editor.action !== null || editor.conflict}
           onClick={() => void editor.shareEmail("copy")}
           type="button"
         >
           {editor.action === "copy" ? <LoaderCircle className="request-spinner" aria-hidden="true" /> : <Copy aria-hidden="true" />}
-          {editor.action === "copy" ? "Copying…" : "Copy email"}
+          <StableActionLabel reserve="Copy email">{editor.action === "copy" ? "Copying…" : "Copy email"}</StableActionLabel>
         </button>
         <button
           className={`request-button request-open-action ${editor.sharedMessage ? "request-button-secondary" : "request-button-primary"}`}
+          data-review-reveal="action"
           disabled={editor.action !== null || editor.conflict}
           onClick={() => void editor.shareEmail("open")}
           type="button"
         >
           {editor.action === "open" ? <LoaderCircle className="request-spinner" aria-hidden="true" /> : <Mail aria-hidden="true" />}
-          {editor.action === "open" ? "Preparing email…" : "Open email"}
+          <StableActionLabel reserve="Preparing email…">{editor.action === "open" ? "Preparing email…" : "Open email"}</StableActionLabel>
         </button>
       </div>
       {editor.notice ? <p className="request-notice" role="status">{editor.notice}</p> : null}
@@ -237,7 +244,7 @@ function DraftEditor({
               type="button"
             >
               {editor.action === "sent" ? <LoaderCircle className="request-spinner" aria-hidden="true" /> : <Check aria-hidden="true" />}
-              {editor.action === "sent" ? "Recording…" : "Mark as sent"}
+              <StableActionLabel reserve="Mark as sent">{editor.action === "sent" ? "Recording…" : "Mark as sent"}</StableActionLabel>
             </button>
           </div>
         </section>
@@ -279,7 +286,7 @@ function SendingDetails({
     details.claimReference && details.claimReferenceConfirmed,
   );
   return (
-    <div className="request-fields">
+    <div className="request-fields" data-review-reveal="fields">
       {!emailConfirmed ? (
         <div className="request-field">
           <label htmlFor="request-adjuster-email">
@@ -373,7 +380,7 @@ export function MessagePreparation({
         void preparation.createDraft();
       }}
     >
-      <header className="request-heading">
+      <header className="request-heading" data-review-reveal="heading">
         <h1>Prepare your request</h1>
         <p>
           {intakeMode === "manual"
@@ -381,14 +388,14 @@ export function MessagePreparation({
             : "You’re going to ask the insurer to review its valuation using the market evidence and provide a written response."}
         </p>
       </header>
-      <p className="request-package-intro">
+      <p className="request-package-intro" data-review-reveal="lead">
         Your evidence package contains the supporting valuation information and
         comparable-vehicle evidence. You’ll attach it to your email.
       </p>
       <ReportFileRow {...props} />
       {details ? (
         <>
-          <dl className="request-known-details">
+          <dl className="request-known-details" data-review-reveal="quiet">
             {availableFact(details.insurerName) ? (
               <>
                 <dt>Insurance company</dt>
@@ -419,7 +426,7 @@ export function MessagePreparation({
         </RequestError>
       )}
       <div className="request-action-bar request-prepare-actions">
-        <p className="request-assurance">
+        <p className="request-assurance" data-review-reveal="action">
           {intakeMode === "manual"
             ? "Nothing is sent automatically. You’ll send the email from your own account."
             : "You can review and edit the email before sending it. Nothing is sent automatically."}
@@ -430,6 +437,7 @@ export function MessagePreparation({
         {preparation.error ? <RequestError>{preparation.error}</RequestError> : null}
         <button
           className="request-button request-button-primary"
+          data-review-reveal="action"
           disabled={
             preparation.creating ||
             !details ||
@@ -438,7 +446,7 @@ export function MessagePreparation({
           }
           type="submit"
         >
-          {preparation.creating ? "Creating draft…" : "Create my request"}
+          <StableActionLabel reserve="Create my request">{preparation.creating ? "Creating draft…" : "Create my request"}</StableActionLabel>
           {preparation.creating ? <LoaderCircle className="request-spinner" aria-hidden="true" /> : <ArrowRight aria-hidden="true" />}
         </button>
       </div>

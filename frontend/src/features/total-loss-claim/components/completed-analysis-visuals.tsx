@@ -11,7 +11,7 @@ function available(value: TotalLossMoney | null | undefined): value is TotalLoss
 export function ReviewProgress({ index, total }: { readonly index: number; readonly total: number }) {
   return (
     <div className="review-progress">
-      <div className="review-progress-caption"><p aria-label="Review progress">Step {index} of {total}</p><span>Your valuation review</span></div>
+      <div className="review-progress-caption" data-review-reveal="context"><p aria-label="Review progress">Step <span className="review-progress-count" data-review-count>{index}</span> of {total}</p><span>Your valuation review</span></div>
       <div className="review-progress-track" role="progressbar" aria-label="Valuation review" aria-valuemin={0} aria-valuemax={total} aria-valuenow={index} aria-valuetext={`Step ${index} of ${total}`}>
         <span className="review-progress-fill" style={{ transform: `scaleX(${index / total})` }} />
       </div>
@@ -41,7 +41,7 @@ export function ValueRangeTrack({ report }: { readonly report: TotalLossPublishe
   return (
     <div className="value-range-visual" aria-hidden="true" style={style}>
       <div className="value-range-legend"><span><i />Selected range</span><span><i />Median</span><span><i />Insurer</span></div>
-      <div className="value-range-axis"><span className="value-range-band" /><span className="value-range-median" /><span className="value-range-offer" /></div>
+      <div className="value-range-axis"><span className="value-range-band" data-review-reveal="range" /><span className="value-range-median" data-review-reveal="marker" /><span className="value-range-offer" data-review-reveal="marker" /></div>
     </div>
   );
 }
@@ -54,9 +54,9 @@ export function InsurerValueBridge({ report }: { readonly report: TotalLossPubli
   if (!before && !after) return null;
   return (
     <div className="insurer-value-bridge" data-connected={Boolean(sameSet)}>
-      {before ? <div><span>Advertised-price median</span><strong>{moneyLabel(before)}</strong></div> : null}
-      {sameSet ? <div className="insurer-adjustment-link"><ArrowRight aria-hidden="true" /><span>Insurer adjustments</span></div> : null}
-      {after ? <div><span>Adjusted-value median</span><strong>{moneyLabel(after)}</strong></div> : null}
+      {before ? <div data-review-reveal="value"><span>Advertised-price median</span><strong>{moneyLabel(before)}</strong></div> : null}
+      {sameSet ? <div className="insurer-adjustment-link" data-review-reveal="detail"><ArrowRight aria-hidden="true" /><span>Insurer adjustments</span></div> : null}
+      {after ? <div data-review-reveal="value" style={{ "--review-delay": "160ms" } as CSSProperties}><span>Adjusted-value median</span><strong>{moneyLabel(after)}</strong></div> : null}
     </div>
   );
 }
@@ -66,9 +66,9 @@ export function RepresentativeListings({ report }: { readonly report: TotalLossP
   if (!rows.length) return null;
   return (
     <section className="market-listing-preview" aria-label="A closer look at the listings">
-      <div className="listing-preview-heading"><h2>A closer look at the listings</h2><span>Advertised prices</span></div>
+      <div className="listing-preview-heading" data-review-reveal="detail"><h2>A closer look at the listings</h2><span>Advertised prices</span></div>
       <div className="listing-preview-rows">
-        {rows.map((row, index) => <article key={`${index}:${row.vehicle}`} className="listing-preview-row">
+        {rows.map((row, index) => <article key={`${index}:${row.vehicle}`} className="listing-preview-row" data-review-reveal="listing" style={{ "--review-delay": `${130 + index * 35}ms` } as CSSProperties}>
           <div className="listing-preview-identity"><span className="listing-preview-index" aria-hidden="true">{String(index + 1).padStart(2, "0")}</span><div><h3>{displayed(row.vehicle, `Selected listing ${index + 1}`)}</h3><p>{numeric(row.mileage, " mi")}<span aria-hidden="true"> · </span>{displayed(row.location)}</p></div></div>
           <div className="listing-preview-source"><p>{displayed(row.dealer)}</p><span>{roleLabel(row.role)}</span></div>
           <strong className="listing-preview-price">{displayed(row.advertisedPrice)}</strong>

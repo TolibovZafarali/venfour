@@ -123,6 +123,29 @@
   transition: color 180ms ease, background 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
 }
 
+.completed-analysis .stable-action-label {
+  display: inline-grid;
+  min-width: 0;
+  vertical-align: middle;
+}
+
+.completed-analysis .stable-action-label > span {
+  grid-area: 1 / 1;
+}
+
+.completed-analysis .stable-action-label-reserve {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.completed-analysis .stable-action-label-reserve::before {
+  content: attr(data-label);
+}
+
+.completed-analysis .request-button:active:not(:disabled) {
+  box-shadow: inset 0 2px 5px rgb(0 20 70 / 16%);
+}
+
 .completed-analysis .request-button > svg {
   flex: 0 0 auto;
   width: 1.05rem;
@@ -357,6 +380,24 @@
   width: 0.95rem;
   height: 0.95rem;
   color: var(--review-accent, var(--brand));
+}
+
+.completed-analysis .request-save-status .stable-action-label > span:last-child {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.35rem;
+}
+
+.completed-analysis .request-save-status .stable-action-label-reserve::before {
+  padding-inline-start: 1.3rem;
+}
+
+.completed-analysis .request-save-icon {
+  display: inline-flex;
+  flex: 0 0 0.95rem;
+  width: 0.95rem;
+  height: 0.95rem;
 }
 
 .completed-analysis .request-save-status[data-state="error"] {

@@ -119,19 +119,6 @@
 .completed-analysis .review-primary:hover:not(:disabled) { background: var(--brand-strong); box-shadow: 0 4px 12px -6px #155eef55; }
 .completed-analysis .review-primary svg { width: 1rem; height: 1rem; }
 .completed-analysis .review-spinner { animation: completed-spin 900ms linear infinite; }
-:root:has([data-completed-review] .completed-analysis) { view-transition-name: none; }
-.completed-analysis .review-stage-content { view-transition-name: completed-review-stage; }
-:root:has([data-completed-review] .completed-analysis)::view-transition { pointer-events: none; }
-::view-transition-group(completed-review-stage) { animation-duration: 240ms; animation-timing-function: cubic-bezier(.22, .68, 0, 1); }
-::view-transition-old(completed-review-stage), ::view-transition-new(completed-review-stage) { height: 100%; width: 100%; object-fit: none; object-position: top left; mix-blend-mode: normal; }
-::view-transition-old(completed-review-stage) { animation: completed-stage-out 100ms ease-out both; }
-::view-transition-new(completed-review-stage) { animation: completed-stage-forward 240ms cubic-bezier(.22, .68, 0, 1) both; }
-:root:has(.completed-analysis[data-direction="backward"])::view-transition-old(completed-review-stage) { animation-name: completed-stage-out-back; }
-:root:has(.completed-analysis[data-direction="backward"])::view-transition-new(completed-review-stage) { animation-name: completed-stage-back; }
-@keyframes completed-stage-out { to { opacity: 0; transform: translateX(-10px); } }
-@keyframes completed-stage-out-back { to { opacity: 0; transform: translateX(10px); } }
-@keyframes completed-stage-forward { from { opacity: 0; transform: translateX(16px); } to { opacity: 1; transform: translateX(0); } }
-@keyframes completed-stage-back { from { opacity: 0; transform: translateX(-16px); } to { opacity: 1; transform: translateX(0); } }
 @keyframes completed-spin { to { transform: rotate(360deg); } }
 @media (max-width: 767px) {
   .completed-analysis { padding: 1.75rem 1.5rem 1rem; }
@@ -187,7 +174,6 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .completed-analysis *, .completed-analysis *::before, .completed-analysis *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
-  ::view-transition-group(completed-review-stage), ::view-transition-old(completed-review-stage), ::view-transition-new(completed-review-stage) { animation: none !important; }
 }
 
 .completed-analysis .value-summary:not(.value-summary-market)[data-has-offer="false"] .value-summary-grid,

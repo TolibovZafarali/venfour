@@ -1,0 +1,58 @@
+/* Reserve the same content width on short, tall, and expanded review stages. */
+html:has([data-completed-review]) { scrollbar-gutter: stable; }
+@supports not (scrollbar-gutter: stable) {
+  html:has([data-completed-review]) { overflow-y: scroll; }
+}
+
+.completed-analysis .review-stage-content {
+  min-width: 0;
+  overflow-x: clip;
+  overflow-y: visible;
+  overflow-clip-margin: 8px;
+}
+
+.completed-analysis [data-review-reveal] {
+  --review-travel: 8;
+  --review-duration: 320;
+  --review-delay: 0;
+}
+.completed-analysis [data-review-reveal="context"] { --review-travel: 0; --review-duration: 220; }
+.completed-analysis [data-review-reveal="heading"] { --review-duration: 340; --review-delay: 20; }
+.completed-analysis [data-review-reveal="lead"] { --review-travel: 6; --review-delay: 55; }
+.completed-analysis [data-review-reveal="value"] { --review-delay: 95; --review-duration: 360; }
+.completed-analysis [data-review-reveal="detail"] { --review-travel: 6; --review-delay: 135; }
+.completed-analysis [data-review-reveal="quiet"] { --review-travel: 4; --review-duration: 280; --review-delay: 175; }
+.completed-analysis [data-review-reveal="fields"] { --review-travel: 6; --review-delay: 155; }
+.completed-analysis [data-review-reveal="action"] { --review-travel: 0; --review-duration: 240; --review-delay: 205; }
+.completed-analysis [data-review-reveal="composer"] { --review-travel: 0; --review-duration: 260; --review-delay: 75; }
+.completed-analysis [data-review-reveal="listing"] { --review-travel: 5; --review-duration: 300; }
+.completed-analysis [data-review-reveal="interpretation"] { --review-travel: 10; --review-duration: 380; --review-delay: 65; }
+.completed-analysis [data-review-reveal="takeaway"] { --review-travel: 6; --review-duration: 360; --review-delay: 120; }
+.completed-analysis [data-review-reveal="completion"] { --review-travel: 0; --review-duration: 380; }
+.completed-analysis [data-review-reveal="range"] { --review-travel: 0; --review-delay: 170; transform-origin: center; }
+.completed-analysis [data-review-reveal="marker"] { --review-travel: 3; --review-delay: 215; --review-duration: 300; }
+.completed-analysis .insurer-adjustment-link { --review-travel: 0; --review-delay: 130; }
+.completed-analysis [data-view="sent"] [data-review-reveal="heading"] { --review-travel: 5; --review-delay: 65; }
+
+.completed-analysis .review-progress-caption > p { min-width: 7.5rem; white-space: nowrap; }
+.completed-analysis [data-review-count] { display: inline-block; min-width: 1ch; text-align: center; font-variant-numeric: tabular-nums; --review-travel: 0; --review-duration: 200; --review-delay: 0; }
+.completed-analysis .review-progress-fill { transition: transform 340ms cubic-bezier(.2, .75, .25, 1); }
+
+.completed-analysis .review-action-label { display: grid; min-width: 0; }
+.completed-analysis .review-action-label > span { grid-area: 1 / 1; }
+.completed-analysis .review-action-reserve { visibility: hidden; }
+.completed-analysis .review-action-icon { display: grid; place-items: center; flex: 0 0 1rem; }
+.completed-analysis :is(.review-primary, .review-back) { transition: background-color 180ms, color 180ms, box-shadow 180ms; }
+.completed-analysis :is(.review-primary, .review-back):active:not(:disabled) { box-shadow: inset 0 2px 5px rgb(0 20 70 / 16%); }
+
+/* Only the newly opened evidence body moves; tables remain one coherent block. */
+.completed-analysis .completed-evidence[open] > .completed-evidence__body { animation: completed-review-evidence-enter 240ms cubic-bezier(.2, .75, .25, 1) backwards; }
+@keyframes completed-review-evidence-enter {
+  from { opacity: 0; translate: 0 4px; }
+  to { opacity: 1; translate: 0 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .completed-analysis .review-progress-fill { transition: none; }
+  .completed-analysis .completed-evidence[open] > .completed-evidence__body { animation: none; }
+}
