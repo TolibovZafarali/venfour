@@ -1,5 +1,6 @@
 import { useEffect, useId } from "react";
 
+import type { TotalLossIntakeMode } from "@/features/total-loss/types";
 import { ReportFileRow } from "@/features/total-loss-claim/components/published-report-actions";
 import type {
   TotalLossMessageDraft,
@@ -15,6 +16,7 @@ import { useRequestPreparation } from "@/features/total-loss-claim/use-request-p
 import type { RequestPreparationOptions } from "@/features/total-loss-claim/use-request-preparation";
 
 interface MessagePreparationProps extends RequestPreparationOptions {
+  readonly intakeMode?: TotalLossIntakeMode;
   readonly onDraftStateChange?: (hasDraft: boolean) => void;
   readonly onSent?: () => void;
 }
@@ -152,11 +154,12 @@ function DraftEditor({
         </div>
       ) : null}
       <ol>
-        <li>Review the recipient, subject, and message above.</li>
-        <li>Download your evidence package.</li>
-        <li>Open your email application or copy the email.</li>
-        <li>Attach the PDF yourself, then send the email.</li>
-        <li>Return here and mark the request as sent.</li>
+        <li>Review the email.</li>
+        <li>Download the evidence package.</li>
+        <li>Open your email app or copy the message.</li>
+        <li>Attach the PDF.</li>
+        <li>Send the email.</li>
+        <li>Return and mark it as sent.</li>
       </ol>
       <ReportFileRow {...props} />
       <div aria-label="Request actions">
@@ -306,6 +309,7 @@ function SendingDetails({
 }
 
 export function MessagePreparation({
+  intakeMode = "report",
   onDraftStateChange,
   onSent,
   ...props
@@ -340,12 +344,13 @@ export function MessagePreparation({
     >
       <h1>Prepare your request</h1>
       <p>
-        You’re asking the insurer to review its valuation using the supporting
-        comparable-vehicle evidence and provide a written response.
+        {intakeMode === "manual"
+          ? "Ask the insurer to review the offer using the attached market evidence and provide a written response. Also ask for the full valuation report, including the comparable vehicles and adjustments used. You can add or edit this request in the email before sending."
+          : "You’re going to ask the insurer to review its valuation using the market evidence and provide a written response."}
       </p>
       <p>
-        Your evidence package organizes the supporting valuation information and
-        market evidence. You’ll attach it to your email.
+        Your evidence package contains the supporting valuation information and
+        comparable-vehicle evidence. You’ll attach it to your email.
       </p>
       <ReportFileRow {...props} />
       {details ? (
@@ -381,8 +386,9 @@ export function MessagePreparation({
         </RequestError>
       )}
       <p>
-        You can edit the entire email. Nothing is sent until you send it from
-        your own email account.
+        {intakeMode === "manual"
+          ? "Nothing is sent automatically. You’ll send the email from your own account."
+          : "You can review and edit the email before sending it. Nothing is sent automatically."}
       </p>
       {!preparation.reviewCompleted ? (
         <p>Complete the review before preparing your request.</p>

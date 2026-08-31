@@ -259,7 +259,7 @@ describe("completed case evidence", () => {
   it("opens each evidence source only through explicit inspection", async () => {
     render(<><InsurerEvidenceDetails report={report()} /><MarketEvidenceDetails report={report()} /></>);
     expect(screen.getByText("Dealer 7")).not.toBeVisible();
-    await userEvent.setup().click(screen.getByText("Selected market listing details"));
+    await userEvent.setup().click(screen.getByText("See selected market listings"));
     expect(screen.getByText("Dealer 7")).toBeVisible();
     expect(screen.getByText("2022 Insurer Vehicle 1")).not.toBeVisible();
     await userEvent.setup().click(screen.getByText("Insurer comparable details"));
@@ -274,8 +274,8 @@ describe("completed case evidence", () => {
       insurerEvidence: { ...data.insurerEvidence, comparableCount: 0, comparables: [] },
       marketEvidence: { ...data.marketEvidence, comparables: [], primary: null },
     }} />);
-    expect(screen.getByText("No selected market listing rows were provided.")).toBeVisible();
-    expect(screen.getByText("No insurer comparable rows were available in the reviewed report.")).toBeVisible();
+    expect(screen.getByText("No comparable market listings were available.")).toBeVisible();
+    expect(screen.getByText("No insurer comparables were available in the report.")).toBeVisible();
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
     await userEvent.setup().click(screen.getByText("Evidence dates and methodology"));
     expect(screen.getByText("The evidence package contains the complete methodology, limitations, and technical evidence.")).toBeVisible();
@@ -286,5 +286,25 @@ describe("completed case evidence", () => {
     expect(moneyLabel({ ...money(null), formatted: "$0" })).toBe("Not stated");
     expect(moneyLabel(money(0))).toBe("$0");
     expect(moneyLabel(undefined)).toBe("Not stated");
+  });
+
+  it("keeps deeper insurer ranges in optional details and omits incomplete ranges", async () => {
+    const data = report();
+    render(<InsurerEvidenceDetails report={{
+      ...data,
+      insurerEvidence: {
+        ...data.insurerEvidence,
+        summary: {
+          ...data.insurerEvidence.summary,
+          advertisedPrices: { count: 2, low: money(1800000), high: money(2000000), median: money(1900000) },
+          adjustedValues: { count: 2, low: null, high: money(1800000), median: money(1800000) },
+        },
+      },
+    }} />);
+    expect(screen.getByText("Disclosed advertised prices ranged from $18,000 to $20,000.")).not.toBeVisible();
+    await userEvent.setup().click(screen.getByText("Insurer comparable details"));
+    expect(screen.getByText("Disclosed advertised prices ranged from $18,000 to $20,000.")).toBeVisible();
+    expect(screen.queryByText(/Disclosed adjusted values ranged/u)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Unavailable|Not stated to/u)).not.toBeInTheDocument();
   });
 });

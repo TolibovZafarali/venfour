@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link, Navigate, useLocation, useNavigate, useSearchParams } from "react-router";
 
 import type { TotalLossIntakeMode } from "@/features/total-loss/types";
-import type { TotalLossClaimSecured, TotalLossPriceSummary, TotalLossPublishedReport } from "../contracts";
+import type { TotalLossClaimSecured, TotalLossMoney, TotalLossPublishedReport } from "../contracts";
 import { dateLabel, displayed, moneyLabel, reportText } from "../report-format";
 import { requestIsSent, requestReviewComplete } from "../request-state";
 import { reviewPrerequisite, useReviewProgression } from "../use-review-progression";
@@ -28,42 +28,95 @@ interface CompletedAnalysisProps {
   readonly view: TotalLossClaimWorkflowView;
 }
 
+function hasMoney(value: TotalLossMoney | null | undefined): value is TotalLossMoney & { amountMinorUnits: number } {
+  return value?.amountMinorUnits != null && Number.isSafeInteger(value.amountMinorUnits) && Boolean(displayed(value.formatted, ""));
+}
+
+function amountLabel(amountMinorUnits: number, currency: string) {
+  if (!Number.isSafeInteger(amountMinorUnits)) return null;
+  try {
+    return new Intl.NumberFormat("en-US", { style: "currency", currency }).format(amountMinorUnits / 100);
+  } catch {
+    return null;
+  }
+}
+
+function medianComparison(report: TotalLossPublishedReport) {
+  const difference = report.conclusion.indicatedDifference;
+  const median = report.conclusion.supportedRange?.median;
+  const value = report.conclusion.insurerValuation;
+  if (!hasMoney(difference) || !hasMoney(median) || !hasMoney(value) || difference.currency !== median.currency || value.currency !== median.currency) return null;
+  if (difference.amountMinorUnits === 0) return "Matches the selected median";
+  const amount = difference.amountMinorUnits > 0 ? moneyLabel(difference) : amountLabel(-difference.amountMinorUnits, difference.currency);
+  return amount ? `${amount} ${difference.amountMinorUnits > 0 ? "below" : "above"} the selected median` : null;
+}
+
 function ValueSummary({ report, intakeMode, marketOnly = false }: {
   readonly report: TotalLossPublishedReport;
   readonly intakeMode: TotalLossIntakeMode;
   readonly marketOnly?: boolean;
 }) {
   const range = report.conclusion.supportedRange;
+  const comparison = medianComparison(report);
   return (
     <dl>
-      {!marketOnly ? <><dt>{intakeMode === "manual" ? "Insurer offer you entered" : "Insurer valuation"}</dt><dd>{moneyLabel(report.conclusion.insurerValuation)}</dd></> : null}
-      <dt>Selected advertised-price range</dt>
-      <dd>{range ? `${moneyLabel(range.low)} to ${moneyLabel(range.high)}` : "No selected range provided"}</dd>
-      <dt>Selected median</dt><dd>{moneyLabel(range?.median)}</dd>
-      {!marketOnly && report.conclusion.indicatedDifference?.amountMinorUnits != null ? <>
-        <dt>Stored difference from the insurer valuation</dt><dd>{moneyLabel(report.conclusion.indicatedDifference)}</dd>
+      {!marketOnly && hasMoney(report.conclusion.insurerValuation) ? <><dt>{intakeMode === "manual" ? "Insurer offer you entered" : "Insurer valuation"}</dt><dd>{moneyLabel(report.conclusion.insurerValuation)}</dd></> : null}
+      {range && hasMoney(range.low) && hasMoney(range.high) ? <>
+        <dt>Selected advertised-price range</dt><dd>{moneyLabel(range.low)} to {moneyLabel(range.high)}</dd>
+      </> : null}
+      {hasMoney(range?.median) ? <><dt>Selected median</dt><dd>{moneyLabel(range?.median)}</dd></> : null}
+      {!marketOnly && comparison ? <>
+        <dt>{intakeMode === "manual" ? "How your offer compares" : "How the insurer’s value compares"}</dt><dd>{comparison}</dd>
       </> : null}
     </dl>
   );
 }
 
-function PriceSummary({ label, summary }: { readonly label: string; readonly summary: TotalLossPriceSummary | null }) {
-  if (!summary || summary.count === 0) return <p>{label}: no values were provided.</p>;
-  return <dl>
-    <dt>{label}</dt><dd>{moneyLabel(summary.low)} to {moneyLabel(summary.high)}</dd>
-    <dt>{label} median</dt><dd>{moneyLabel(summary.median)}</dd>
-  </dl>;
+function insurerMedianExplanation(report: TotalLossPublishedReport) {
+  const { advertisedPrices, adjustedValues } = report.insurerEvidence.summary;
+  const advertised = advertisedPrices?.count && hasMoney(advertisedPrices.median) ? advertisedPrices.median : null;
+  const adjusted = adjustedValues?.count && hasMoney(adjustedValues.median) ? adjustedValues.median : null;
+  if (advertised && adjusted && advertisedPrices?.count === report.insurerEvidence.comparableCount && adjustedValues?.count === report.insurerEvidence.comparableCount) {
+    return `The advertised-price median was ${moneyLabel(advertised)}. After the report’s adjustments, the median was ${moneyLabel(adjusted)}.`;
+  }
+  return [
+    advertised ? `The disclosed advertised prices had a median of ${moneyLabel(advertised)}.` : null,
+    adjusted ? `The disclosed adjusted values had a median of ${moneyLabel(adjusted)}.` : null,
+  ].filter(Boolean).join(" ");
 }
 
-function rangePosition(report: TotalLossPublishedReport) {
+function rangePosition(report: TotalLossPublishedReport, intakeMode: TotalLossIntakeMode) {
   const value = report.conclusion.insurerValuation;
   const range = report.conclusion.supportedRange;
-  if (!range || value.amountMinorUnits === null || range.low.amountMinorUnits === null || range.high.amountMinorUnits === null) return null;
+  if (!range || !hasMoney(value) || !hasMoney(range.low) || !hasMoney(range.high)) return null;
   if (![value, range.low, range.high].every((money) => Number.isSafeInteger(money.amountMinorUnits) && money.currency === value.currency)) return null;
   if (range.low.amountMinorUnits > range.high.amountMinorUnits) return null;
-  if (value.amountMinorUnits < range.low.amountMinorUnits) return "The insurer valuation is below the selected advertised-price range.";
-  if (value.amountMinorUnits > range.high.amountMinorUnits) return "The insurer valuation is above the selected advertised-price range.";
-  return "The insurer valuation is within the selected advertised-price range.";
+  const subject = intakeMode === "manual" ? "The offer you entered" : "Your insurer’s valuation";
+  if (value.amountMinorUnits < range.low.amountMinorUnits) {
+    const gap = amountLabel(range.low.amountMinorUnits - value.amountMinorUnits, value.currency);
+    return `${subject} is below the selected advertised-price range.${gap ? ` Even the lowest listing used for this comparison, at ${moneyLabel(range.low)}, was ${gap} higher.` : ""}`;
+  }
+  if (value.amountMinorUnits > range.high.amountMinorUnits) return `${subject} is above the selected advertised-price range.`;
+  return `${subject} is within the selected advertised-price range.`;
+}
+
+function listingTiming(basis: string | null | undefined, label: string | null | undefined) {
+  if (basis === "Historical advertised-price evidence from around the loss date" || basis === "LOSS_DATE_HISTORICAL" || label === "Primary loss-date historical evidence") return "historical";
+  if (basis === "Current advertised-price evidence" || basis === "CURRENT_MARKET" || ["Primary current market evidence", "Secondary current market evidence", "Current market evidence"].includes(label ?? "")) return "current";
+  return null;
+}
+
+function decisionLimitations(report: TotalLossPublishedReport) {
+  const limitations = report.conclusion.limitations.join(" ");
+  const differences = [
+    /no[^.]*condition.adjustment/iu.test(limitations) ? "condition" : null,
+    /without an independent dollar.per.mile|applies no independent dollar.per.mile|no independent mileage adjustment/iu.test(limitations) ? "mileage" : null,
+    /no[^.]*option, package, or equipment|no independent options adjustment/iu.test(limitations) ? "equipment" : null,
+  ].filter((value): value is string => value !== null);
+  return [
+    differences.length ? `This comparison does not add dollar adjustments for differences in ${new Intl.ListFormat("en-US", { type: "conjunction" }).format(differences)}.` : null,
+    /not an independent.*appraisal/iu.test(limitations) ? "This comparison is not an independent vehicle appraisal." : null,
+  ].filter((value): value is string => value !== null);
 }
 
 export function CompletedAnalysis(props: CompletedAnalysisProps) {
@@ -87,6 +140,25 @@ export function CompletedAnalysis(props: CompletedAnalysisProps) {
   const previous = stage === "result" ? "/appraisals" : stage === "insurer" ? path("result") : stage === "market" ? path(manual ? "result" : "insurer") : stage === "meaning" ? path("market") : path("meaning");
   const next = stage === "result" ? manual ? "market" : "insurer" : stage === "insurer" ? "market" : stage === "market" ? "meaning" : "request";
   const action = stage === "result" && !manual ? "See how the insurer reached its value" : stage === "result" || stage === "insurer" ? "See the market evidence" : stage === "market" ? "Compare the values" : "Prepare my request";
+  const classification = reportText(report.conclusion.classificationLabel).replace(/^Potential undervaluation signal$/iu, "Potential undervaluation");
+  const resultExplanation = report.conclusion.continuingSupported
+    ? `${manual ? "The offer you entered" : "Your insurer’s valuation"} appears low compared with the selected market listings.`
+    : /no material discrepancy/iu.test(classification)
+      ? "The available market listings do not show a clear basis for a higher valuation."
+      : /insufficient evidence/iu.test(classification)
+        ? "There was not enough market information to draw a clear comparison."
+        : "Your report explains what the available market information can support.";
+  const primary = report.marketEvidence.primary;
+  const secondary = report.marketEvidence.secondary;
+  const primaryTiming = listingTiming(report.conclusion.supportedRange?.evidenceBasis, primary?.label);
+  const secondaryTiming = listingTiming(null, secondary?.label);
+  const primaryDate = dateLabel(primary?.evidenceDate ?? null);
+  const secondaryDate = dateLabel(secondary?.evidenceDate ?? null);
+  const comparison = medianComparison(report);
+  const position = rangePosition(report, intakeMode);
+  const limitations = decisionLimitations(report);
+  const disclosure = report.insurerEvidence.summary;
+  const insurerCount = report.insurerEvidence.comparableCount;
 
   useEffect(() => {
     navigationEpoch.current += 1;
@@ -116,62 +188,55 @@ export function CompletedAnalysis(props: CompletedAnalysisProps) {
       {stage === "result" ? <>
         <h1>Your result</h1>
         <p>{displayed(report.subjectVehicle.description, "Your vehicle")}</p>
-        <h2>{reportText(report.conclusion.classificationLabel)}</h2>
-        <p>{reportText(report.conclusion.summary)}</p>
+        <h2>{classification}</h2>
+        <p>{resultExplanation}</p>
         <ValueSummary {...props} />
-        {manual ? <p>Because you did not provide the insurer’s valuation report, this analysis does not review the insurer’s comparable vehicles or adjustments.</p> : null}
-        <p>Advertised listings are supporting market evidence, not guaranteed sale prices or settlement values.</p>
+        {manual ? <p>Because you did not provide the insurer’s valuation report, Venfour did not review the insurer’s comparable vehicles or adjustments.</p> : null}
+        <p>Advertised prices are not guaranteed sale prices or settlement values.</p>
         {!report.conclusion.continuingSupported ? <ReportFileRow {...props} /> : null}
       </> : null}
       {stage === "insurer" ? <>
         <h1>How your insurer reached its value</h1>
-        <p>Insurers may start with comparable vehicles and apply adjustments. Here is what was disclosed in the report provided for this review.</p>
-        <dl><dt>Insurer valuation</dt><dd>{moneyLabel(report.conclusion.insurerValuation)}</dd></dl>
-        <p>{report.insurerEvidence.comparableCount.toLocaleString("en-US")} insurer comparable rows are available in the reviewed evidence.</p>
-        <PriceSummary label="Advertised comparable values" summary={report.insurerEvidence.summary.advertisedPrices} />
-        <PriceSummary label="Adjusted comparable values" summary={report.insurerEvidence.summary.adjustedValues} />
-        <p>Detailed adjustment information was disclosed for {report.insurerEvidence.summary.fullyDisclosedAdjustmentCount.toLocaleString("en-US")} comparables; {report.insurerEvidence.summary.partiallyDisclosedAdjustmentCount.toLocaleString("en-US")} had partial disclosure.</p>
-        <p>For {report.insurerEvidence.summary.undisclosedAdjustmentCount.toLocaleString("en-US")} comparables, adjustments were not disclosed. Adjustment information was not provided for {report.insurerEvidence.summary.unavailableAdjustmentCount.toLocaleString("en-US")}.</p>
-        <p>Missing details limit what can be explained. They do not, by themselves, show that the valuation or an adjustment was wrong.</p>
+        <p>Insurers may start with prices for similar vehicles, then adjust those values for differences such as mileage or equipment. Venfour shows only the adjustments disclosed in your report.</p>
+        {hasMoney(report.conclusion.insurerValuation) ? <dl><dt>Insurer valuation</dt><dd>{moneyLabel(report.conclusion.insurerValuation)}</dd></dl> : null}
+        <p>{insurerCount ? `Your insurer’s report includes ${insurerCount.toLocaleString("en-US")} comparable ${insurerCount === 1 ? "vehicle" : "vehicles"}.` : "No insurer comparables were available in the report for this review."}</p>
+        {insurerMedianExplanation(report) ? <p>{insurerMedianExplanation(report)}</p> : null}
+        {disclosure.fullyDisclosedAdjustmentCount > 0 ? <p>{insurerCount === 1 ? "Detailed adjustment information was available for this comparable." : `Detailed adjustment information was available for ${disclosure.fullyDisclosedAdjustmentCount.toLocaleString("en-US")} of the ${insurerCount.toLocaleString("en-US")} comparables.`}</p> : null}
+        {disclosure.partiallyDisclosedAdjustmentCount > 0 ? <p>Some adjustment details were only partially disclosed, so not every adjustment could be reviewed in the same detail.</p> : null}
+        {disclosure.undisclosedAdjustmentCount > 0 || disclosure.unavailableAdjustmentCount > 0 ? <p>{insurerCount === 1 ? "This comparable had" : "Some comparables had"} no adjustment details, so Venfour could not explain all of the report’s adjustments.</p> : null}
+        {insurerCount > 0 && (disclosure.partiallyDisclosedAdjustmentCount > 0 || disclosure.undisclosedAdjustmentCount > 0 || disclosure.unavailableAdjustmentCount > 0) ? <p>Missing details do not, by themselves, mean the valuation or an adjustment was wrong.</p> : null}
         <InsurerEvidenceDetails report={report} open={search.get("details") === "insurer"} />
       </> : null}
       {stage === "market" ? <>
         <h1>What the market evidence showed</h1>
-        <p>The completed review includes {report.marketEvidence.comparables.length.toLocaleString("en-US")} selected market listings.</p>
+        <p>{primary?.selectedCount ? `Venfour selected ${primary.selectedCount.toLocaleString("en-US")} ${primaryTiming === "current" ? "current " : primaryTiming === "historical" ? "historical " : ""}${primary.selectedCount === 1 ? "listing for a similar vehicle" : "listings for similar vehicles"}.` : report.marketEvidence.comparables.length ? "The listing details show the market information available for this comparison." : "No comparable market listings were available for this comparison."}</p>
         <ValueSummary {...props} marketOnly />
-        {report.conclusion.supportedRange?.evidenceBasis ? <p>{reportText(report.conclusion.supportedRange.evidenceBasis)}</p> : null}
-        {(["primary", "secondary"] as const).map((role) => {
-          const group = report.marketEvidence[role];
-          return group ? <div key={role}>
-            <h2>{role === "primary" ? "Evidence used for the comparison" : "Additional market context"}</h2>
-            {group.label ? <p>{reportText(group.label)}</p> : null}
-            <p>{group.selectedCount.toLocaleString("en-US")} selected listings{group.evidenceDate ? ` · Evidence date: ${dateLabel(group.evidenceDate)}` : ""}</p>
-            {group.description ? <p>{reportText(group.description)}</p> : null}
-          </div> : null;
-        })}
-        <p>Advertised prices are not completed-sale prices. Current listings describe the market when collected and are not automatically observations from the date of loss.</p>
+        {primary && primary.selectedCount > 0 ? primaryTiming === "current" ? <p>{primaryDate !== "Not stated" ? `${primary.selectedCount === 1 ? "This listing was" : "These listings were"} collected on ${primaryDate}. ` : ""}{primary.selectedCount === 1 ? "It shows" : "They show"} the market when collected, not necessarily on the date of loss.</p> : primaryTiming === "historical" ? <p>{primary.selectedCount === 1 ? "This listing was" : "These listings were"} verified as active {primaryDate !== "Not stated" ? `on ${primaryDate}, the date used for this comparison` : "on the date of loss"}.</p> : <p>The listing details explain when each price was observed.</p> : null}
+        {secondary && secondary.selectedCount > 0 ? <p>A further {secondary.selectedCount.toLocaleString("en-US")} {secondaryTiming === "current" ? "current " : ""}{secondary.selectedCount === 1 ? "listing provides" : "listings provide"} additional context{secondaryTiming === "current" && secondaryDate !== "Not stated" ? ` from ${secondaryDate}` : ""}. {secondary.selectedCount === 1 ? "It is" : "They are"} not included in the range above.{secondaryTiming === "current" ? " Current listings do not establish prices on the date of loss." : ""}</p> : null}
+        {report.conclusion.limitations.some((value) => /out.of.provider.range/iu.test(value)) ? <p>The market-data source had limited historical coverage. This does not mean no comparable vehicles existed at the time of loss.</p> : null}
+        <p>These are advertised prices, not confirmed sale prices.</p>
         <MarketEvidenceDetails report={report} open={search.get("details") === "market"} />
         <MethodologyDisclosure report={report} intakeMode={intakeMode} />
       </> : null}
       {stage === "meaning" ? <>
         <h1>What the comparison means</h1>
-        <ValueSummary {...props} />
-        {rangePosition(report) ? <p>{rangePosition(report)}</p> : null}
-        <h2>{reportText(report.conclusion.classificationLabel)}</h2>
-        <p>{reportText(report.conclusion.summary)}</p>
-        {report.conclusion.continuingSupported ? <p>The available evidence gives you a reasonable basis to ask the insurer to review its valuation. It does not establish a legally owed amount or guarantee an increase.</p> : <p>The completed result does not support a higher valuation request. Your evidence package remains available.</p>}
+        {hasMoney(report.conclusion.insurerValuation) ? <p>{manual ? "The insurer offer you entered was" : "Your insurer valued the vehicle at"} {moneyLabel(report.conclusion.insurerValuation)}.</p> : null}
+        {position ? <p>{position}</p> : null}
+        {comparison ? <p>{manual ? "The offer" : "The valuation"} {comparison.startsWith("Matches") ? "matches the selected median" : `is ${comparison}`}{hasMoney(report.conclusion.supportedRange?.median) ? ` of ${moneyLabel(report.conclusion.supportedRange?.median)}` : ""}.</p> : null}
+        {report.conclusion.continuingSupported ? <p>Based on the available evidence, you have a reasonable basis to ask the insurer to review {manual ? "the offer" : "its valuation"}.</p> : <p>The result does not support a higher valuation request. Your evidence package remains available.</p>}
+        <p>This does not mean you are automatically owed the selected median or another specific amount. These are advertised listings, not confirmed sale prices, and the insurer may respond with additional evidence.</p>
         {manual ? <p>Without the insurer’s valuation report, Venfour cannot review which comparable vehicles or adjustments the insurer used.</p> : null}
-        {report.conclusion.limitations.length ? <>
+        {limitations.length ? <>
           <h2>Limitations to keep in mind</h2>
-          <ul>{report.conclusion.limitations.slice(0, 2).map((value, index) => <li key={index}>{reportText(value)}</li>)}</ul>
+          <ul>{limitations.map((value) => <li key={value}>{value}</li>)}</ul>
         </> : null}
-        <p>The evidence package records the full limitations. If you request reconsideration, you will attach it and ask for a written response.</p>
+        <p>Your evidence package explains the comparison and its limitations in more detail.</p>
         {!report.conclusion.continuingSupported ? <ReportFileRow {...props} /> : null}
       </> : null}
       {stage === "request" ? (
         canPrepare && report.conclusion.continuingSupported ? <MessagePreparation {...props} onDraftStateChange={setHasDraft} onSent={() => navigate(path("sent"), { replace: true })} /> : <>
           <h1>Prepare your request</h1>
-          {report.conclusion.continuingSupported ? <p>Finish reviewing the result and comparison before creating your request.</p> : <p>The completed result does not support a higher valuation request. Your report remains available.</p>}
+          {report.conclusion.continuingSupported ? <p>Finish reviewing the result and comparison before creating your request.</p> : <p>The result does not support a higher valuation request. Your report remains available.</p>}
           <ReportFileRow {...props} />
         </>
       ) : null}

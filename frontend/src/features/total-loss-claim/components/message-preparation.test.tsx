@@ -28,6 +28,7 @@ import type {
 } from "@/features/total-loss-claim/contracts";
 import { server } from "@/test/mocks/server";
 import { totalLossClaimQueryKeys } from "@/features/total-loss-claim/queries";
+import type { TotalLossIntakeMode } from "@/features/total-loss/types";
 
 vi.mock(
   "@/features/total-loss-claim/browser-actions",
@@ -207,6 +208,7 @@ function renderRequest(
   initial = claim(),
   onRefresh: () => Promise<unknown> = vi.fn(async () => undefined),
   callbacks: {
+    readonly intakeMode?: TotalLossIntakeMode;
     readonly onDraftStateChange?: (hasDraft: boolean) => void;
     readonly onSent?: () => void;
   } = {},
@@ -448,6 +450,28 @@ describe("case request preparation", () => {
     expect(screen.getByText("adjuster@example.com")).toBeVisible();
     expect(screen.getByText("CLM-42")).toBeVisible();
     expect(screen.queryByText("Unavailable")).not.toBeInTheDocument();
+    expect(screen.getByText("You’re going to ask the insurer to review its valuation using the market evidence and provide a written response.")).toBeVisible();
+    expect(screen.getByText("You can review and edit the email before sending it. Nothing is sent automatically.")).toBeVisible();
+  });
+
+  it("explains both requests for a manual case without claiming an insurer report was reviewed", () => {
+    renderRequest(claim({ messageDraft: null }), undefined, { intakeMode: "manual" });
+    expect(screen.getByText("Ask the insurer to review the offer using the attached market evidence and provide a written response. Also ask for the full valuation report, including the comparable vehicles and adjustments used. You can add or edit this request in the email before sending.")).toBeVisible();
+    expect(screen.getByText("Nothing is sent automatically. You’ll send the email from your own account.")).toBeVisible();
+    expect(screen.queryByText(/review its valuation/u)).not.toBeInTheDocument();
+    expect(screen.getByText("Your evidence package contains the supporting valuation information and comparable-vehicle evidence. You’ll attach it to your email.")).toBeVisible();
+  });
+
+  it("explains the six sending actions without implying an automatic attachment or send", () => {
+    renderRequest();
+    expect(screen.getAllByRole("listitem").map((item) => item.textContent)).toEqual([
+      "Review the email.",
+      "Download the evidence package.",
+      "Open your email app or copy the message.",
+      "Attach the PDF.",
+      "Send the email.",
+      "Return and mark it as sent.",
+    ]);
   });
 
   it("saves owner-voiced generated copy before preparing or copying the email", async () => {

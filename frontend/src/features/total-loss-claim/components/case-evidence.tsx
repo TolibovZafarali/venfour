@@ -1,6 +1,6 @@
 import type { TotalLossIntakeMode } from "@/features/total-loss/types";
 import type { TotalLossPublishedReport } from "../contracts";
-import { dateLabel, disclosureLabel, displayed, numeric, reportText, roleLabel, temporalLabel } from "../report-format";
+import { dateLabel, disclosureLabel, displayed, moneyLabel, numeric, reportText, roleLabel, temporalLabel } from "../report-format";
 
 type ReportProps = { readonly report: TotalLossPublishedReport; readonly open?: boolean };
 
@@ -30,8 +30,12 @@ export function InsurerEvidenceDetails({ report, open }: ReportProps) {
   return (
     <details open={open || undefined}>
       <summary>Insurer comparable details</summary>
-      <p>These are the values and adjustments disclosed in the reviewed report. Missing details do not establish that an adjustment was improper.</p>
-      <p>Reported contribution is the insurer’s contribution percentage. Venfour has not assigned professional accepted, challenged, or excluded weights.</p>
+      <p>These are the values and adjustments disclosed in your insurer’s report. Missing details do not mean an adjustment was improper.</p>
+      <p>Reported contribution shows the percentage the insurer assigned to a comparable. Venfour has not assigned its own accepted, challenged, or excluded weights.</p>
+      {(["advertisedPrices", "adjustedValues"] as const).map((kind) => {
+        const summary = report.insurerEvidence.summary[kind];
+        return summary && summary.count > 1 && summary.low?.amountMinorUnits != null && summary.high?.amountMinorUnits != null && displayed(summary.low.formatted, "") && displayed(summary.high.formatted, "") ? <p key={kind}>{kind === "advertisedPrices" ? "Disclosed advertised prices" : "Disclosed adjusted values"} ranged from {moneyLabel(summary.low)} to {moneyLabel(summary.high)}.</p> : null;
+      })}
       {rows.length ? (
         <div className="evidence-table" tabIndex={0} role="region" aria-label="Insurer comparable table">
           <table>
@@ -59,7 +63,7 @@ export function InsurerEvidenceDetails({ report, open }: ReportProps) {
             ))}</tbody>
           </table>
         </div>
-      ) : <p>No insurer comparable rows were available in the reviewed report.</p>}
+      ) : <p>No insurer comparables were available in the report.</p>}
     </details>
   );
 }
@@ -68,8 +72,8 @@ export function MarketEvidenceDetails({ report, open }: ReportProps) {
   const rows = report.marketEvidence.comparables;
   return (
     <details open={open || undefined}>
-      <summary>Selected market listing details</summary>
-      <p>All selected rows are shown in the order supplied by the completed review.</p>
+      <summary>See selected market listings</summary>
+      <p>Explore the selected listings, including mileage, dealer, location, and dates.</p>
       {rows.length ? (
         <div className="evidence-table" tabIndex={0} role="region" aria-label="Selected market listing table">
           <table>
@@ -91,7 +95,7 @@ export function MarketEvidenceDetails({ report, open }: ReportProps) {
             ))}</tbody>
           </table>
         </div>
-      ) : <p>No selected market listing rows were provided.</p>}
+      ) : <p>No comparable market listings were available.</p>}
     </details>
   );
 }

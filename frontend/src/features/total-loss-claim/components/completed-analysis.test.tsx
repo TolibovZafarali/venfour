@@ -267,6 +267,9 @@ describe("completed-analysis guided progression", () => {
 
     expect(await screen.findByRole("heading", { name: "Your result" })).toBeVisible();
     expect(screen.getByText("$20,490")).toBeVisible();
+    expect(screen.getByText("Your insurer’s valuation appears low compared with the selected market listings.")).toBeVisible();
+    expect(screen.getByText("$1,444 below the selected median")).toBeVisible();
+    expect(screen.queryByText(/stored difference|completed evidence/iu)).not.toBeInTheDocument();
     expect(screen.queryByText(/midpoint|evidence strength|percentage difference/iu)).not.toBeInTheDocument();
     expect(request.render).not.toHaveBeenCalled();
     expect(saved.writes).toEqual([]);
@@ -274,6 +277,10 @@ describe("completed-analysis guided progression", () => {
     await user.click(screen.getByRole("button", { name: "See how the insurer reached its value" }));
     expect(await screen.findByRole("heading", { name: "How your insurer reached its value" })).toBeVisible();
     expect(router.state.location.pathname).toBe(`${BASE}/review/insurer`);
+    expect(screen.getByText("Your insurer’s report includes 1 comparable vehicle.")).toBeVisible();
+    expect(screen.getByText("The advertised-price median was $19,800. After the report’s adjustments, the median was $19,500.")).toBeVisible();
+    expect(screen.getByText(/Some adjustment details were only partially disclosed/u)).toBeVisible();
+    expect(screen.queryByText(/available for 0|not provided for 0|0 comparables/u)).not.toBeInTheDocument();
     expect(screen.getByRole("table", { name: "Insurer comparables" })).not.toBeVisible();
     await user.click(screen.getByText("Insurer comparable details"));
     expect(screen.getByRole("table", { name: "Insurer comparables" })).toBeVisible();
@@ -283,7 +290,7 @@ describe("completed-analysis guided progression", () => {
     await user.click(screen.getByRole("button", { name: "See the market evidence" }));
     expect(await screen.findByRole("heading", { name: "What the market evidence showed" })).toBeVisible();
     expect(router.state.location.pathname).toBe(`${BASE}/review/market`);
-    await user.click(screen.getByText("Selected market listing details"));
+    await user.click(screen.getByText("See selected market listings"));
     const marketTable = screen.getByRole("table", { name: "Selected market listings" });
     expect(within(marketTable).getByText("Example Motors")).toBeVisible();
     expect(within(marketTable).getByText("Chicago, IL")).toBeVisible();
@@ -291,6 +298,10 @@ describe("completed-analysis guided progression", () => {
 
     await user.click(screen.getByRole("button", { name: "Compare the values" }));
     expect(await screen.findByRole("heading", { name: "What the comparison means" })).toBeVisible();
+    expect(screen.getByText("Your insurer’s valuation is below the selected advertised-price range. Even the lowest listing used for this comparison, at $19,800, was $754.00 higher.")).toBeVisible();
+    expect(screen.getByText("The valuation is $1,444 below the selected median of $20,490.")).toBeVisible();
+    expect(screen.getByText("This comparison does not add dollar adjustments for differences in condition.")).toBeVisible();
+    expect(screen.queryByText("Your insurer’s valuation appears low compared with the selected market listings.")).not.toBeInTheDocument();
     expect(request.render).not.toHaveBeenCalled();
     expect(screen.queryByText("The full package records additional provider coverage limitations.")).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Prepare my request" }));
@@ -306,6 +317,8 @@ describe("completed-analysis guided progression", () => {
     const user = userEvent.setup();
     const { router } = renderJourney("manual");
     expect(await screen.findByRole("heading", { name: "Your result" })).toBeVisible();
+    expect(screen.getByText("Insurer offer you entered")).toBeVisible();
+    expect(screen.getByText("The offer you entered appears low compared with the selected market listings.")).toBeVisible();
     expect(screen.getByText(/did not provide the insurer.s valuation report/iu)).toBeVisible();
     expect(screen.queryByRole("button", { name: "See how the insurer reached its value" })).not.toBeInTheDocument();
 
@@ -323,6 +336,9 @@ describe("completed-analysis guided progression", () => {
     await user.click(screen.getByRole("button", { name: "Compare the values" }));
     expect(await screen.findByRole("heading", { name: "What the comparison means" })).toBeVisible();
     expect(saved.writes.map(({ step }) => step)).toEqual(BEFORE_MEANING);
+    expect(screen.getByText("The offer you entered is below the selected advertised-price range. Even the lowest listing used for this comparison, at $19,800, was $754.00 higher.")).toBeVisible();
+    expect(screen.getByText("The offer is $1,444 below the selected median of $20,490.")).toBeVisible();
+    expect(screen.queryByText(/Your insurer valued|Your insurer’s valuation is below/u)).not.toBeInTheDocument();
     expect(screen.getByText(/cannot review which comparable vehicles or adjustments/iu)).toBeVisible();
     await user.click(screen.getByRole("button", { name: "Prepare my request" }));
     expect(await screen.findByTestId("request-controls")).toBeVisible();
@@ -443,10 +459,11 @@ describe("completed-analysis guided progression", () => {
     const user = userEvent.setup();
     const { router } = renderJourney("report", "insurer");
     expect(await screen.findByRole("heading", { name: "How your insurer reached its value" })).toBeVisible();
-    expect(screen.getByText("0 insurer comparable rows are available in the reviewed evidence.")).toBeVisible();
+    expect(screen.getByText("No insurer comparables were available in the report for this review.")).toBeVisible();
+    expect(screen.queryByText(/\b0 (?:insurer|comparable)|available for 0|not provided for 0/u)).not.toBeInTheDocument();
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
     await user.click(screen.getByText("Insurer comparable details"));
-    expect(screen.getByText("No insurer comparable rows were available in the reviewed report.")).toBeVisible();
+    expect(screen.getByText("No insurer comparables were available in the report.")).toBeVisible();
     expect(screen.getByRole("region", { name: "Completed analysis" }).textContent).not.toMatch(/\bUnavailable\b|DESCRIPTIVE_ONLY|NOT_DETERMINED_BY_V1/u);
     await act(() => router.navigate(`${BASE}/review/result`));
     expect(await screen.findByRole("heading", { name: "Your result" })).toBeVisible();
@@ -462,5 +479,133 @@ describe("completed-analysis guided progression", () => {
     expect(screen.getByText(/reported.*sen|marked.*sen/iu)).toBeVisible();
     expect(screen.queryByText(/delivery confirmed|insurer received|response.*within \d/iu)).not.toBeInTheDocument();
     expect(request.render).not.toHaveBeenCalled();
+  });
+
+  it("explains current listing timing once without treating a historical query date as available historical listings", async () => {
+    const projection = claimProjection(BEFORE_MEANING);
+    const report = projection.report!;
+    installClaim({ ...projection, report: {
+      ...report,
+      marketEvidence: {
+        ...report.marketEvidence,
+        primary: {
+          ...report.marketEvidence.primary!,
+          label: "Primary current market evidence",
+          description: "Current listings form the primary external evidence set selected by Phase 3D; they are not labeled as loss-date observations.",
+        },
+        evidenceDateContext: { ...report.marketEvidence.evidenceDateContext, historicalEvidenceDate: "2026-08-01" },
+      },
+    } });
+    renderJourney("report", "market");
+    expect(await screen.findByRole("heading", { name: "What the market evidence showed" })).toBeVisible();
+    expect(screen.getByText(/^Venfour selected 1 current listing for /u)).toBeVisible();
+    expect(screen.getByText("This listing was collected on Aug 28, 2026. It shows the market when collected, not necessarily on the date of loss.")).toBeVisible();
+    expect(screen.queryByText(/verified as active|historical evidence (?:was|is) unavailable|limited historical coverage/u)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Evidence used for the comparison|Current advertised-price evidence/u)).not.toBeInTheDocument();
+    expect(screen.getByText(/Current listings form the primary external evidence set selected by Phase 3D/u)).not.toBeVisible();
+  });
+
+  it("keeps historical comparison prices separate from additional current listings", async () => {
+    const projection = claimProjection(BEFORE_MEANING);
+    const report = projection.report!;
+    installClaim({ ...projection, report: {
+      ...report,
+      conclusion: { ...report.conclusion, supportedRange: { ...report.conclusion.supportedRange!, evidenceBasis: "Historical advertised-price evidence from around the loss date" } },
+      marketEvidence: {
+        ...report.marketEvidence,
+        comparables: [
+          ...["$19,800", "$20,490", "$22,263"].map((advertisedPrice) => ({ ...report.marketEvidence.comparables[0], advertisedPrice, evidenceDate: "2026-08-01", temporalBasis: "Verified active on the evidence date from stored lifecycle records" })),
+          { ...report.marketEvidence.comparables[0], role: "SECONDARY", advertisedPrice: "$25,000" },
+        ],
+        primary: { ...report.marketEvidence.primary!, label: "Primary loss-date historical evidence", description: "Resolved listings active on the loss date form the primary external evidence set selected by Phase 3D.", selectedCount: 3, evidenceDate: "2026-08-01" },
+        secondary: { ...report.marketEvidence.primary!, label: "Secondary current market evidence", description: "Current evidence is retained as secondary context and is not combined with the primary loss-date historical price set." },
+        evidenceDateContext: { ...report.marketEvidence.evidenceDateContext, historicalEvidenceDate: "2026-08-01" },
+      },
+    } });
+    renderJourney("report", "market");
+    expect(await screen.findByRole("heading", { name: "What the market evidence showed" })).toBeVisible();
+    expect(screen.getByText("Venfour selected 3 historical listings for similar vehicles.")).toBeVisible();
+    expect(screen.getByText("$19,800 to $22,263")).toBeVisible();
+    expect(screen.getByText("These listings were verified as active on Aug 1, 2026, the date used for this comparison.")).toBeVisible();
+    expect(screen.getByText("A further 1 current listing provides additional context from Aug 28, 2026. It is not included in the range above. Current listings do not establish prices on the date of loss.")).toBeVisible();
+    expect(screen.queryByText(/selected 4|3 current listings|additional historical/u)).not.toBeInTheDocument();
+    await userEvent.setup().click(screen.getByText("See selected market listings"));
+    expect(screen.getByRole("table", { name: "Selected market listings" })).toBeVisible();
+    expect(screen.getByText("$25,000")).toBeVisible();
+  });
+
+  it("uses neutral timing when the paid evidence labels do not identify a current or historical group", async () => {
+    const projection = claimProjection(BEFORE_MEANING);
+    const report = projection.report!;
+    installClaim({ ...projection, report: {
+      ...report,
+      conclusion: { ...report.conclusion, supportedRange: { ...report.conclusion.supportedRange!, evidenceBasis: null } },
+      marketEvidence: { ...report.marketEvidence, primary: { ...report.marketEvidence.primary!, label: null, description: null, evidenceDate: null } },
+    } });
+    renderJourney("manual", "market");
+    expect(await screen.findByRole("heading", { name: "What the market evidence showed" })).toBeVisible();
+    expect(screen.getByText(/^Venfour selected 1 listing for /u)).toBeVisible();
+    expect(screen.getByText("The listing details explain when each price was observed.")).toBeVisible();
+    expect(screen.queryByText(/listing was collected on|verified as active|insurer’s comparable vehicles|insurer’s adjustments/u)).not.toBeInTheDocument();
+  });
+
+  it.each([
+    { insurer: 2300000, insurerLabel: "$23,000", difference: -251000, differenceLabel: "-$2,510", result: "$2,510.00 above the selected median", meaning: "The valuation is $2,510.00 above the selected median of $20,490.", position: "above" },
+    { insurer: 2049000, insurerLabel: "$20,490", difference: 0, differenceLabel: "$0", result: "Matches the selected median", meaning: "The valuation matches the selected median of $20,490.", position: "within" },
+  ])("describes the signed median comparison and $position range position without implying an increase", async ({ insurer, insurerLabel, difference, differenceLabel, result, meaning, position }) => {
+    const projection = claimProjection(BEFORE_MEANING);
+    const report = projection.report!;
+    const saved = installClaim({ ...projection, report: {
+      ...report,
+      conclusion: { ...report.conclusion, continuingSupported: false, classificationLabel: "No material discrepancy identified", insurerValuation: money(insurer, insurerLabel), indicatedDifference: money(difference, differenceLabel) },
+    } });
+    const { router } = renderJourney("report", "result");
+    expect(await screen.findByRole("heading", { name: "Your result" })).toBeVisible();
+    expect(screen.getByText(result)).toBeVisible();
+    expect(screen.queryByText(/appears low/u)).not.toBeInTheDocument();
+    await act(() => router.navigate(`${BASE}/review/meaning`));
+    expect(await screen.findByRole("heading", { name: "What the comparison means" })).toBeVisible();
+    expect(screen.getByText(meaning)).toBeVisible();
+    expect(screen.getByText(`Your insurer’s valuation is ${position} the selected advertised-price range.`)).toBeVisible();
+    expect(screen.queryByText(/Even the lowest listing|reasonable basis to ask/u)).not.toBeInTheDocument();
+    expect(saved.writes).toEqual([]);
+  });
+
+  it("omits monetary comparisons when the insurer value is missing or currencies differ", async () => {
+    const projection = claimProjection(BEFORE_MEANING);
+    const report = projection.report!;
+    installClaim({ ...projection, report: {
+      ...report,
+      conclusion: { ...report.conclusion, continuingSupported: false, classificationLabel: "Insufficient evidence", insurerValuation: { amountMinorUnits: null, currency: "USD", formatted: "Unavailable" }, indicatedDifference: null, supportedRange: null },
+    } });
+    const view = renderJourney("manual", "result");
+    expect(await screen.findByRole("heading", { name: "Your result" })).toBeVisible();
+    expect(screen.queryByText(/Not stated|Unavailable|selected median|Selected advertised-price range/u)).not.toBeInTheDocument();
+    view.unmount();
+    installClaim({ ...projection, report: {
+      ...report,
+      conclusion: { ...report.conclusion, insurerValuation: { ...report.conclusion.insurerValuation, currency: "CAD" } },
+    } });
+    renderJourney("manual", "meaning");
+    expect(await screen.findByRole("heading", { name: "What the comparison means" })).toBeVisible();
+    expect(screen.queryByText(/Even the lowest listing|The offer is .*selected median|offer you entered is below/u)).not.toBeInTheDocument();
+  });
+
+  it("does not describe medians from different insurer subsets as a before-and-after adjustment", async () => {
+    const projection = claimProjection(["result"]);
+    const report = projection.report!;
+    installClaim({ ...projection, report: {
+      ...report,
+      insurerEvidence: {
+        ...report.insurerEvidence,
+        comparableCount: 2,
+        summary: { ...report.insurerEvidence.summary, totalCount: 2, adjustedValueMissingCount: 1, advertisedPrices: { ...report.insurerEvidence.summary.advertisedPrices!, count: 2 } },
+      },
+    } });
+    renderJourney("report", "insurer");
+    expect(await screen.findByRole("heading", { name: "How your insurer reached its value" })).toBeVisible();
+    expect(screen.getByText("Your insurer’s report includes 2 comparable vehicles.")).toBeVisible();
+    expect(screen.getByText("The disclosed advertised prices had a median of $19,800. The disclosed adjusted values had a median of $19,500.")).toBeVisible();
+    expect(screen.queryByText(/After the report’s adjustments/u)).not.toBeInTheDocument();
   });
 });

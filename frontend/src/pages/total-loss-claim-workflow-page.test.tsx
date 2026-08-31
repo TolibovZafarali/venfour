@@ -798,7 +798,7 @@ describe("total-loss customer workflow", () => {
     renderTestApp([`${CLAIM_BASE}/review/result`], { authService: authService() });
     const completed = await screen.findByRole("region", { name: "Completed analysis" });
     expect(within(completed).getByRole("heading", { level: 1, name: "Your result" })).toBeVisible();
-    for (const value of ["$18,000", "$21,000", "$3,000"]) {
+    for (const value of ["$18,000", "$21,000", "$3,000 below the selected median"]) {
       expect(within(completed).getByText(value, { exact: true })).toBeVisible();
     }
     expect(within(completed).getByText("$20,000 to $22,000", { exact: true })).toBeVisible();
