@@ -1,8 +1,8 @@
 import { http, HttpResponse } from "msw";
-import { screen, waitFor, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { Session } from "@supabase/supabase-js";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { appRoutes } from "@/app/router";
 import type { AuthService } from "@/features/auth";
@@ -11,32 +11,48 @@ import type {
   TotalLossClaimJourneyState,
   TotalLossEducationStep,
 } from "@/features/total-loss-claim/contracts";
+import { totalLossClaimQueryKeys } from "@/features/total-loss-claim/queries";
 import { server } from "@/test/mocks/server";
 import { renderTestApp } from "@/test/render";
-
 
 const stripeMock = vi.hoisted(() => ({
   confirm: vi.fn(),
   loadStripe: vi.fn(async () => ({})),
 }));
-vi.mock("@stripe/stripe-js/pure", () => ({ loadStripe: stripeMock.loadStripe }));
+vi.mock("@stripe/stripe-js/pure", () => ({
+  loadStripe: stripeMock.loadStripe,
+}));
 vi.mock("@stripe/react-stripe-js/checkout", async () => {
   const React = await import("react");
   return {
-    CheckoutElementsProvider: ({ children }: { children: React.ReactNode }) => children,
+    CheckoutElementsProvider: ({ children }: { children: React.ReactNode }) =>
+      children,
     PaymentElement: ({ onReady }: { onReady: () => void }) => {
-      React.useEffect(() => { onReady(); }, [onReady]);
-      return <div data-testid="stripe-payment-element">Secure Stripe fields</div>;
+      React.useEffect(() => {
+        onReady();
+      }, [onReady]);
+      return (
+        <div data-testid="stripe-payment-element">Secure Stripe fields</div>
+      );
     },
-    useCheckoutElements: () => ({ type: "success", checkout: { confirm: stripeMock.confirm } }),
+    useCheckoutElements: () => ({
+      type: "success",
+      checkout: { confirm: stripeMock.confirm },
+    }),
   };
 });
 function embeddedSession(overrides: Record<string, unknown> = {}) {
   return {
-    checkoutStatus: "open", checkoutUrl: null, checkoutSessionId: "cs_test_local_session",
+    checkoutStatus: "open",
+    checkoutUrl: null,
+    checkoutSessionId: "cs_test_local_session",
     clientSecret: "cs_test_local_session" + "_secret_local_fixture",
-    publishableKey: "pk_test_" + "local_fixture", uiMode: "elements",
-    entitlementStatus: null, orderStatus: "pending", state: "checkout_ready", ...overrides,
+    publishableKey: "pk_test_" + "local_fixture",
+    uiMode: "elements",
+    entitlementStatus: null,
+    orderStatus: "pending",
+    state: "checkout_ready",
+    ...overrides,
   };
 }
 
@@ -44,10 +60,6 @@ const USER_ID = "22222222-2222-4222-8222-222222222222";
 const CASE_ID = "33333333-3333-4333-8333-333333333333";
 const REPORT_ID = "44444444-4444-4444-8444-444444444444";
 const DRAFT_ID = "55555555-5555-4555-8555-555555555555";
-const MESSAGE_VERSION_ID = "66666666-6666-4666-8666-666666666666";
-const UPDATED_MESSAGE_VERSION_ID = "99999999-9999-4999-8999-999999999999";
-const COMMUNICATION_ID = "77777777-7777-4777-8777-777777777777";
-const ROUND_ID = "88888888-8888-4888-8888-888888888888";
 const NOW = "2026-08-29T18:00:00.000Z";
 const CLAIM_BASE = `/total-loss/cases/${CASE_ID}/claim`;
 
@@ -85,7 +97,11 @@ function educationSteps(
   resultCompleted = false,
 ): Record<
   TotalLossEducationStep,
-  { completedAt: string | null; skippedAt: string | null; viewedAt: string | null }
+  {
+    completedAt: string | null;
+    skippedAt: string | null;
+    viewedAt: string | null;
+  }
 > {
   return {
     result: {
@@ -119,7 +135,8 @@ function report(continuingSupported = true) {
       limitations: ["Advertised prices are not guaranteed transaction prices."],
       preliminaryComparison: {
         status: "CONFIRMED",
-        summary: "The final review confirmed the preliminary classification and supported range.",
+        summary:
+          "The final review confirmed the preliminary classification and supported range.",
       },
       summary: continuingSupported
         ? "The completed review supports a written reconsideration request."
@@ -232,10 +249,7 @@ function claimProjection({
 }: {
   readonly continuingSupported?: boolean;
   readonly entitlementStatus?:
-    | "active"
-    | "refunded_access_retained"
-    | "revoked"
-    | "suspended";
+    "active" | "refunded_access_retained" | "revoked" | "suspended";
   readonly fulfillmentState?: TotalLossClaimFulfillmentState;
   readonly journey?: TotalLossClaimJourneyState;
   readonly progress?: ReturnType<typeof educationSteps>;
@@ -248,7 +262,8 @@ function claimProjection({
       checkoutAvailable: journey === "checkout",
       entitlementStatus: journey === "checkout" ? null : entitlementStatus,
       nextTask: journey,
-      orderStatus: journey === "checkout" ? null : noDispute ? "refunded" : "paid",
+      orderStatus:
+        journey === "checkout" ? null : noDispute ? "refunded" : "paid",
       paymentStatus:
         journey === "checkout" ? null : noDispute ? "refunded" : "succeeded",
     },
@@ -310,86 +325,208 @@ describe("Milestone 6 total-loss customer workflow", () => {
   beforeEach(() => {
     stripeMock.confirm.mockReset();
     stripeMock.confirm.mockResolvedValue({ type: "success", session: {} });
-    server.use(http.post("*/api/v1/appraisal-cases/:caseId/checkout-sessions", () => HttpResponse.json(embeddedSession())));
+    server.use(
+      http.post("*/api/v1/appraisal-cases/:caseId/checkout-sessions", () =>
+        HttpResponse.json(embeddedSession()),
+      ),
+    );
   });
   it("initializes one case-bound payment after verification and ignores browser success until entitlement exists", async () => {
     let initializationCalls = 0;
     let reconciliationCalls = 0;
     let paid = false;
-    useClaimHandler(() => paid
-      ? claimProjection({ journey: "processing", fulfillmentState: "finalizing" })
-      : claimProjection({ journey: "checkout" }));
+    useClaimHandler(() =>
+      paid
+        ? claimProjection({
+            journey: "processing",
+            fulfillmentState: "finalizing",
+          })
+        : claimProjection({ journey: "checkout" }),
+    );
     server.use(
-      http.get("*/api/v1/appraisal-cases/:caseId/checkout-quote", () => HttpResponse.json({ amountMinorUnits: 12900, availability: "available", currency: "USD" })),
-      http.post("*/api/v1/appraisal-cases/:caseId/checkout-sessions", async ({ request, params }) => {
-        initializationCalls += 1;
-        expect(params.caseId).toBe(CASE_ID);
-        expect(request.headers.get("Authorization")).toBe("Bearer workflow-access-token");
-        expect(await request.json()).toEqual({ clientRequestId: expect.any(String) });
-        return HttpResponse.json(embeddedSession());
-      }),
-      http.post("*/api/v1/appraisal-cases/:caseId/checkout-reconciliation", async ({ request }) => {
-        reconciliationCalls += 1;
-        expect(await request.json()).toEqual({ checkoutSessionId: "cs_test_local_session" });
-        return HttpResponse.json(embeddedSession({ state: "payment_pending", checkoutStatus: "complete", clientSecret: null, publishableKey: null, uiMode: null }));
-      }),
+      http.get("*/api/v1/appraisal-cases/:caseId/checkout-quote", () =>
+        HttpResponse.json({
+          amountMinorUnits: 12900,
+          availability: "available",
+          currency: "USD",
+        }),
+      ),
+      http.post(
+        "*/api/v1/appraisal-cases/:caseId/checkout-sessions",
+        async ({ request, params }) => {
+          initializationCalls += 1;
+          expect(params.caseId).toBe(CASE_ID);
+          expect(request.headers.get("Authorization")).toBe(
+            "Bearer workflow-access-token",
+          );
+          expect(await request.json()).toEqual({
+            clientRequestId: expect.any(String),
+          });
+          return HttpResponse.json(embeddedSession());
+        },
+      ),
+      http.post(
+        "*/api/v1/appraisal-cases/:caseId/checkout-reconciliation",
+        async ({ request }) => {
+          reconciliationCalls += 1;
+          expect(await request.json()).toEqual({
+            checkoutSessionId: "cs_test_local_session",
+          });
+          return HttpResponse.json(
+            embeddedSession({
+              state: "payment_pending",
+              checkoutStatus: "complete",
+              clientSecret: null,
+              publishableKey: null,
+              uiMode: null,
+            }),
+          );
+        },
+      ),
     );
     const user = userEvent.setup();
-    const { router } = renderTestApp([`${CLAIM_BASE}/checkout`], { authService: authService(), strictMode: true });
+    const { router } = renderTestApp([`${CLAIM_BASE}/checkout`], {
+      authService: authService(),
+      strictMode: true,
+    });
     expect(await screen.findByText("Verified")).toBeVisible();
-    await waitFor(() => expect(screen.getByRole("button", { name: "Complete purchase" })).toBeEnabled());
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "Complete purchase" }),
+      ).toBeEnabled(),
+    );
     expect(screen.getByTestId("stripe-payment-element")).toBeVisible();
     expect(initializationCalls).toBe(1);
     await user.click(screen.getByRole("button", { name: "Complete purchase" }));
-    expect(stripeMock.confirm).toHaveBeenCalledWith({ redirect: "if_required" });
-    expect(await screen.findByRole("heading", { name: "Confirming your payment" })).toBeVisible();
+    expect(stripeMock.confirm).toHaveBeenCalledWith({
+      redirect: "if_required",
+    });
+    expect(
+      await screen.findByRole("heading", { name: "Confirming your payment" }),
+    ).toBeVisible();
     await waitFor(() => expect(reconciliationCalls).toBeGreaterThan(0));
     expect(router.state.location.pathname).toBe(`${CLAIM_BASE}/checkout`);
-    expect(screen.queryByText("We’re preparing your valuation package")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("We’re preparing your valuation package"),
+    ).not.toBeInTheDocument();
     paid = true;
-    await waitFor(() => expect(router.state.location.pathname).toBe(`${CLAIM_BASE}/processing`), { timeout: 4_000 });
-    expect(await screen.findByText("We’re preparing your valuation package")).toBeVisible();
+    await waitFor(
+      () =>
+        expect(router.state.location.pathname).toBe(`${CLAIM_BASE}/processing`),
+      { timeout: 4_000 },
+    );
+    expect(
+      await screen.findByText("We’re preparing your valuation package"),
+    ).toBeVisible();
     expect(initializationCalls).toBe(1);
   });
 
   it("keeps a declined or canceled authentication attempt on the payment form", async () => {
-    stripeMock.confirm.mockResolvedValue({ type: "error", error: { message: "Authentication was canceled. Please try again." } });
+    stripeMock.confirm.mockResolvedValue({
+      type: "error",
+      error: { message: "Authentication was canceled. Please try again." },
+    });
     useClaimHandler(() => claimProjection({ journey: "checkout" }));
-    server.use(http.get("*/api/v1/appraisal-cases/:caseId/checkout-quote", () => HttpResponse.json({ amountMinorUnits: 12900, availability: "available", currency: "USD" })));
+    server.use(
+      http.get("*/api/v1/appraisal-cases/:caseId/checkout-quote", () =>
+        HttpResponse.json({
+          amountMinorUnits: 12900,
+          availability: "available",
+          currency: "USD",
+        }),
+      ),
+    );
     const user = userEvent.setup();
-    const { router } = renderTestApp([`${CLAIM_BASE}/checkout`], { authService: authService() });
-    await waitFor(() => expect(screen.getByRole("button", { name: "Complete purchase" })).toBeEnabled());
+    const { router } = renderTestApp([`${CLAIM_BASE}/checkout`], {
+      authService: authService(),
+    });
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "Complete purchase" }),
+      ).toBeEnabled(),
+    );
     await user.click(screen.getByRole("button", { name: "Complete purchase" }));
-    expect(await screen.findByRole("alert")).toHaveTextContent("Authentication was canceled");
-    expect(screen.getByRole("button", { name: "Complete purchase" })).toBeEnabled();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Authentication was canceled",
+    );
+    expect(
+      screen.getByRole("button", { name: "Complete purchase" }),
+    ).toBeEnabled();
     expect(router.state.location.pathname).toBe(`${CLAIM_BASE}/checkout`);
     expect(router.state.location.search).toBe("");
   });
 
-  it.each(["open", "expired", "failed", "unknown"])("restores payment after an unpaid %s authentication return", async (status) => {
-    useClaimHandler(() => claimProjection({ journey: "checkout" }));
-    server.use(
-      http.get("*/api/v1/appraisal-cases/:caseId/checkout-quote", () => HttpResponse.json({ amountMinorUnits: 12900, availability: "available", currency: "USD" })),
-      http.post("*/api/v1/appraisal-cases/:caseId/checkout-reconciliation", () => status === "unknown"
-        ? HttpResponse.json({ detail: "Not found" }, { status: 404 })
-        : HttpResponse.json(embeddedSession({ state: "reconciled", checkoutStatus: status, clientSecret: null, publishableKey: null, uiMode: null }))),
-    );
-    const { router } = renderTestApp([`${CLAIM_BASE}/checkout?session_id=cs_test_previous_session`], { authService: authService() });
-    await waitFor(() => expect(screen.getByRole("button", { name: "Complete purchase" })).toBeEnabled());
-    expect(router.state.location.search).toBe("");
-    expect(screen.getByTestId("stripe-payment-element")).toBeVisible();
-  });
+  it.each(["open", "expired", "failed", "unknown"])(
+    "restores payment after an unpaid %s authentication return",
+    async (status) => {
+      useClaimHandler(() => claimProjection({ journey: "checkout" }));
+      server.use(
+        http.get("*/api/v1/appraisal-cases/:caseId/checkout-quote", () =>
+          HttpResponse.json({
+            amountMinorUnits: 12900,
+            availability: "available",
+            currency: "USD",
+          }),
+        ),
+        http.post(
+          "*/api/v1/appraisal-cases/:caseId/checkout-reconciliation",
+          () =>
+            status === "unknown"
+              ? HttpResponse.json({ detail: "Not found" }, { status: 404 })
+              : HttpResponse.json(
+                  embeddedSession({
+                    state: "reconciled",
+                    checkoutStatus: status,
+                    clientSecret: null,
+                    publishableKey: null,
+                    uiMode: null,
+                  }),
+                ),
+        ),
+      );
+      const { router } = renderTestApp(
+        [`${CLAIM_BASE}/checkout?session_id=cs_test_previous_session`],
+        { authService: authService() },
+      );
+      await waitFor(() =>
+        expect(
+          screen.getByRole("button", { name: "Complete purchase" }),
+        ).toBeEnabled(),
+      );
+      expect(router.state.location.search).toBe("");
+      expect(screen.getByTestId("stripe-payment-element")).toBeVisible();
+    },
+  );
 
   it("clears a confirming marker without a session only after refreshing authoritative unpaid state", async () => {
     let resolverCalls = 0;
     let initializationCalls = 0;
-    useClaimHandler(() => { resolverCalls += 1; return claimProjection({ journey: "checkout" }); });
+    useClaimHandler(() => {
+      resolverCalls += 1;
+      return claimProjection({ journey: "checkout" });
+    });
     server.use(
-      http.get("*/api/v1/appraisal-cases/:caseId/checkout-quote", () => HttpResponse.json({ amountMinorUnits: 12900, availability: "available", currency: "USD" })),
-      http.post("*/api/v1/appraisal-cases/:caseId/checkout-sessions", () => { initializationCalls += 1; return HttpResponse.json(embeddedSession()); }),
+      http.get("*/api/v1/appraisal-cases/:caseId/checkout-quote", () =>
+        HttpResponse.json({
+          amountMinorUnits: 12900,
+          availability: "available",
+          currency: "USD",
+        }),
+      ),
+      http.post("*/api/v1/appraisal-cases/:caseId/checkout-sessions", () => {
+        initializationCalls += 1;
+        return HttpResponse.json(embeddedSession());
+      }),
     );
-    const { router } = renderTestApp([`${CLAIM_BASE}/checkout?payment=confirming`], { authService: authService() });
-    await waitFor(() => expect(screen.getByRole("button", { name: "Complete purchase" })).toBeEnabled());
+    const { router } = renderTestApp(
+      [`${CLAIM_BASE}/checkout?payment=confirming`],
+      { authService: authService() },
+    );
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "Complete purchase" }),
+      ).toBeEnabled(),
+    );
     expect(router.state.location.search).toBe("");
     expect(resolverCalls).toBeGreaterThanOrEqual(2);
     expect(initializationCalls).toBe(1);
@@ -399,30 +536,66 @@ describe("Milestone 6 total-loss customer workflow", () => {
     const requests: unknown[] = [];
     useClaimHandler(() => claimProjection({ journey: "checkout" }));
     server.use(
-      http.get("*/api/v1/appraisal-cases/:caseId/checkout-quote", () => HttpResponse.json({ amountMinorUnits: 12900, availability: "available", currency: "USD" })),
-      http.post("*/api/v1/appraisal-cases/:caseId/checkout-sessions", async ({ request }) => { requests.push(await request.json()); return HttpResponse.json(embeddedSession()); }),
+      http.get("*/api/v1/appraisal-cases/:caseId/checkout-quote", () =>
+        HttpResponse.json({
+          amountMinorUnits: 12900,
+          availability: "available",
+          currency: "USD",
+        }),
+      ),
+      http.post(
+        "*/api/v1/appraisal-cases/:caseId/checkout-sessions",
+        async ({ request }) => {
+          requests.push(await request.json());
+          return HttpResponse.json(embeddedSession());
+        },
+      ),
     );
-    const first = renderTestApp([`${CLAIM_BASE}/checkout`], { authService: authService() });
-    await waitFor(() => expect(screen.getByRole("button", { name: "Complete purchase" })).toBeEnabled());
+    const first = renderTestApp([`${CLAIM_BASE}/checkout`], {
+      authService: authService(),
+    });
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "Complete purchase" }),
+      ).toBeEnabled(),
+    );
     first.unmount();
     renderTestApp([`${CLAIM_BASE}/checkout`], { authService: authService() });
-    await waitFor(() => expect(screen.getByRole("button", { name: "Complete purchase" })).toBeEnabled());
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "Complete purchase" }),
+      ).toBeEnabled(),
+    );
     expect(requests).toHaveLength(2);
     expect(stripeMock.confirm).not.toHaveBeenCalled();
   });
 
-  it("registers exactly six conceptual guide routes", () => {
-    const guideRoutes = appRoutes[0]?.children?.filter((route) =>
-      String(route.path).includes("/claim/guide/"),
+  it("registers the guided review stages while retaining previous deep links", () => {
+    const paths = appRoutes[0]?.children?.map((route) => route.path);
+    expect(paths).toEqual(
+      expect.arrayContaining([
+        ...[
+          "result",
+          "insurer",
+          "market",
+          "meaning",
+          "next",
+          "request",
+          "sent",
+        ].map((stage) => `total-loss/cases/:caseId/claim/review/${stage}`),
+        ...["overview", "evidence", "request", "activity"].map(
+          (section) => `total-loss/cases/:caseId/claim/${section}`,
+        ),
+        ...[
+          "result",
+          "insurer-review",
+          "valuation",
+          "report",
+          "what-next",
+          "send",
+        ].map((step) => `total-loss/cases/:caseId/claim/guide/${step}`),
+      ]),
     );
-    expect(guideRoutes?.map((route) => route.path)).toEqual([
-      "total-loss/cases/:caseId/claim/guide/result",
-      "total-loss/cases/:caseId/claim/guide/insurer-review",
-      "total-loss/cases/:caseId/claim/guide/valuation",
-      "total-loss/cases/:caseId/claim/guide/report",
-      "total-loss/cases/:caseId/claim/guide/what-next",
-      "total-loss/cases/:caseId/claim/guide/send",
-    ]);
   });
 
   it("uses the resolver as the authoritative resume route and loads a server quote", async () => {
@@ -477,9 +650,7 @@ describe("Milestone 6 total-loss customer workflow", () => {
       authService: authService(),
     });
 
-    expect(
-      await screen.findByText(/Checkout was canceled/u),
-    ).toBeVisible();
+    expect(await screen.findByText(/Checkout was canceled/u)).toBeVisible();
     await waitFor(() =>
       expect(
         screen.getByRole("button", { name: "Complete purchase" }),
@@ -532,7 +703,11 @@ describe("Milestone 6 total-loss customer workflow", () => {
     server.use(
       http.post(
         "*/api/v1/appraisal-cases/:caseId/checkout-reconciliation",
-        () => HttpResponse.json({ detail: "Checkout was not found" }, { status: 404 }),
+        () =>
+          HttpResponse.json(
+            { detail: "Checkout was not found" },
+            { status: 404 },
+          ),
       ),
       http.get("*/api/v1/appraisal-cases/:caseId/checkout-quote", () =>
         HttpResponse.json({
@@ -576,290 +751,446 @@ describe("Milestone 6 total-loss customer workflow", () => {
         }),
       ).toBeVisible();
       expect(screen.getByRole("button", { name: "Check again" })).toBeVisible();
-      expect(screen.getByText(/does not restart a failed package/u)).toBeVisible();
-      expect(screen.queryByText(/preparation continues independently/u)).not.toBeInTheDocument();
-      expect(screen.getByText(/could not safely complete the package yet/u))
-        .toHaveAttribute("aria-busy", "false");
+      expect(
+        screen.getByText(/does not restart a failed package/u),
+      ).toBeVisible();
+      expect(
+        screen.queryByText(/preparation continues independently/u),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.getByText(/could not safely complete the package yet/u),
+      ).toHaveAttribute("aria-busy", "false");
     },
   );
 
-  it("keeps first-visit primary and skip actions enabled while viewed progress refetches", async () => {
-    const progress = educationSteps(true);
+  afterEach(() => vi.restoreAllMocks());
+
+  it("walks through the case with one Continue action without completing education on visits", async () => {
+    let progressWrites = 0;
+    useClaimHandler(() => claimProjection());
+    server.use(
+      http.put("*/api/v1/appraisal-cases/:caseId/education/:step", () => {
+        progressWrites += 1;
+        return HttpResponse.json({
+          reportVersionId: REPORT_ID,
+          steps: educationSteps(),
+        });
+      }),
+    );
+    const user = userEvent.setup();
+    const { router } = renderTestApp([`${CLAIM_BASE}/review/result`], {
+      authService: authService(),
+    });
+    await screen.findByRole("region", { name: "Your guided valuation review" });
+    expect(
+      screen.queryByRole("navigation", { name: "Case sections" }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("table")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/Step [0-9] of 6|Skip to prepare request/u),
+    ).not.toBeInTheDocument();
+
+    for (const stage of ["insurer", "market", "meaning", "next", "request"]) {
+      expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+      const next = screen.getAllByRole("link", { name: "Continue" });
+      expect(next).toHaveLength(1);
+      await user.click(next[0]!);
+      await waitFor(() =>
+        expect(router.state.location.pathname).toBe(
+          `${CLAIM_BASE}/review/${stage}`,
+        ),
+      );
+    }
+    expect(progressWrites).toBe(0);
+  });
+
+  it("preserves the review stage through Back, Forward, refetch, and refresh", async () => {
     let resolverCalls = 0;
-    let viewPutCompleted = false;
-    let releaseRefetch: () => void = () => undefined;
-    const refetchGate = new Promise<void>((resolve) => {
-      releaseRefetch = resolve;
+    useClaimHandler(() => {
+      resolverCalls += 1;
+      return claimProjection({ journey: "guide_result" });
+    });
+    const user = userEvent.setup();
+    const rendered = renderTestApp([`${CLAIM_BASE}/review/result`], {
+      authService: authService(),
+    });
+    await screen.findByRole("region", { name: "Your guided valuation review" });
+    await user.click(screen.getByRole("link", { name: "Continue" }));
+    await user.click(screen.getByRole("link", { name: "Continue" }));
+    await act(async () => {
+      await rendered.router.navigate(-1);
+    });
+    expect(rendered.router.state.location.pathname).toBe(
+      `${CLAIM_BASE}/review/insurer`,
+    );
+    await act(async () => {
+      await rendered.router.navigate(1);
+    });
+    expect(rendered.router.state.location.pathname).toBe(
+      `${CLAIM_BASE}/review/market`,
+    );
+    await act(async () => {
+      await rendered.queryClient.invalidateQueries({
+        queryKey: totalLossClaimQueryKeys.detail(USER_ID, CASE_ID),
+      });
+    });
+    expect(resolverCalls).toBeGreaterThanOrEqual(2);
+    expect(rendered.router.state.location.pathname).toBe(
+      `${CLAIM_BASE}/review/market`,
+    );
+    expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+
+    const refreshedPath = rendered.router.state.location.pathname;
+    rendered.unmount();
+    const refreshed = renderTestApp([refreshedPath], {
+      authService: authService(),
+    });
+    await screen.findByRole("region", { name: "Your guided valuation review" });
+    expect(refreshed.router.state.location.pathname).toBe(
+      `${CLAIM_BASE}/review/market`,
+    );
+    expect(screen.getByRole("link", { name: "Continue" })).toBeVisible();
+  });
+
+  it.each([
+    ["guide/result", "result", ""],
+    ["guide/insurer-review", "insurer", ""],
+    ["guide/valuation", "market", ""],
+    ["guide/report", "next", "?details=report"],
+    ["guide/what-next", "next", ""],
+    ["guide/send", "request", ""],
+    ["overview", "result", ""],
+    ["evidence", "market", "?details=market"],
+    ["evidence?evidence=insurer", "market", "?details=insurer"],
+    ["request", "request", ""],
+    ["activity", "sent", ""],
+  ])(
+    "redirects legacy %s without requiring education completion",
+    async (legacy, stage, search) => {
+      useClaimHandler(() => claimProjection());
+      const { router } = renderTestApp([`${CLAIM_BASE}/${legacy}`], {
+        authService: authService(),
+      });
+      if (search) {
+        await screen.findByRole("dialog");
+      } else {
+        await screen.findByRole("region", {
+          name: "Your guided valuation review",
+        });
+      }
+      expect(router.state.location.pathname).toBe(
+        `${CLAIM_BASE}/review/${stage}`,
+      );
+      expect(router.state.location.search).toBe(search);
+    },
+  );
+
+  it("keeps detailed evidence secondary and closes it through browser history or the close action", async () => {
+    useClaimHandler(() => claimProjection());
+    const user = userEvent.setup();
+    const { router } = renderTestApp([`${CLAIM_BASE}/review/market`], {
+      authService: authService(),
+    });
+    await screen.findByRole("region", { name: "Your guided valuation review" });
+    expect(screen.queryByRole("table")).not.toBeInTheDocument();
+    await user.click(
+      screen.getByRole("button", { name: "Explore the selected listings" }),
+    );
+    expect(
+      await screen.findByRole("dialog", { name: "Your supporting evidence" }),
+    ).toBeVisible();
+    expect(screen.getByRole("table")).toBeVisible();
+    await act(async () => {
+      await router.navigate(-1);
+    });
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(router.state.location.pathname).toBe(`${CLAIM_BASE}/review/market`);
+    await act(async () => {
+      await router.navigate(1);
+    });
+    expect(await screen.findByRole("dialog")).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Close details" }));
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+    );
+    expect(router.state.location.pathname).toBe(`${CLAIM_BASE}/review/market`);
+    expect(router.state.location.search).toBe("");
+  });
+
+  it("preserves the selected evidence view and focus through URL updates, refetch, and refresh", async () => {
+    useClaimHandler(() => claimProjection());
+    const user = userEvent.setup();
+    const rendered = renderTestApp([`${CLAIM_BASE}/review/market`], {
+      authService: authService(),
+    });
+    await screen.findByRole("region", { name: "Your guided valuation review" });
+    await user.click(
+      screen.getByRole("button", { name: "Explore the selected listings" }),
+    );
+    const dialog = await screen.findByRole("dialog", {
+      name: "Your supporting evidence",
+    });
+    expect(
+      within(dialog).getByRole("tab", { name: "Selected market listings" }),
+    ).toHaveAttribute("aria-selected", "true");
+
+    const insurerTab = within(dialog).getByRole("tab", {
+      name: "Insurer comparables",
+    });
+    await user.click(insurerTab);
+    await waitFor(() =>
+      expect(rendered.router.state.location.search).toBe("?details=insurer"),
+    );
+    expect(insurerTab).toHaveAttribute("aria-selected", "true");
+    expect(insurerTab).toHaveFocus();
+    expect(
+      within(dialog).getByRole("table", { name: "Insurer comparables" }),
+    ).toBeVisible();
+
+    await act(async () => {
+      await rendered.queryClient.invalidateQueries({
+        queryKey: totalLossClaimQueryKeys.detail(USER_ID, CASE_ID),
+      });
+    });
+    expect(rendered.router.state.location.search).toBe("?details=insurer");
+    expect(insurerTab).toHaveAttribute("aria-selected", "true");
+    expect(insurerTab).toHaveFocus();
+
+    const refreshedUrl = `${rendered.router.state.location.pathname}${rendered.router.state.location.search}`;
+    rendered.unmount();
+    const refreshed = renderTestApp([refreshedUrl], {
+      authService: authService(),
+    });
+    const refreshedDialog = await screen.findByRole("dialog", {
+      name: "Your supporting evidence",
+    });
+    expect(
+      within(refreshedDialog).getByRole("tab", { name: "Insurer comparables" }),
+    ).toHaveAttribute("aria-selected", "true");
+    expect(
+      within(refreshedDialog).getByRole("table", {
+        name: "Insurer comparables",
+      }),
+    ).toBeVisible();
+    await user.click(
+      within(refreshedDialog).getByRole("button", { name: "Close details" }),
+    );
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+    );
+    expect(refreshed.router.state.location.pathname).toBe(
+      `${CLAIM_BASE}/review/market`,
+    );
+    expect(refreshed.router.state.location.search).toBe("");
+    expect(screen.getByRole("link", { name: "Continue" })).toBeVisible();
+  });
+
+  it.each(["suspended", "revoked"] as const)(
+    "does not expose a report through a direct guided review URL with %s access",
+    async (entitlementStatus) => {
+      useClaimHandler(() =>
+        claimProjection({ entitlementStatus, journey: "needs_attention" }),
+      );
+      const { router } = renderTestApp([`${CLAIM_BASE}/review/market`], {
+        authService: authService(),
+      });
+      expect(
+        await screen.findByRole("heading", {
+          name: "Your package needs attention",
+        }),
+      ).toBeVisible();
+      expect(router.state.location.pathname).toBe(`${CLAIM_BASE}/processing`);
+      expect(
+        screen.queryByRole("navigation", { name: "Case sections" }),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: "Download PDF" }),
+      ).not.toBeInTheDocument();
+    },
+  );
+
+  it("keeps a wrong-account deep link neutral without exposing completed evidence", async () => {
+    server.use(
+      http.get("*/api/v1/appraisal-cases/:caseId/claim", () =>
+        HttpResponse.json({
+          caseId: CASE_ID,
+          commerce: null,
+          contactEmail: null,
+          education: null,
+          journey: null,
+          messageDraft: null,
+          report: null,
+          sendingDetails: null,
+          state: "account_switch_required",
+          workflow: null,
+        }),
+      ),
+    );
+    const { router } = renderTestApp([`${CLAIM_BASE}/review/request`], {
+      authService: authService(),
+    });
+    expect(
+      await screen.findByRole("heading", {
+        name: "Use the account associated with this claim",
+      }),
+    ).toBeVisible();
+    expect(router.state.location.pathname).toBe(CLAIM_BASE);
+    expect(
+      screen.queryByRole("navigation", { name: "Case sections" }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText("2022 Example Sedan")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("textbox", { name: "Recipient" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("uses the existing owner-authorized download endpoint for viewing and downloading the report", async () => {
+    useClaimHandler(() => claimProjection());
+    const requestedReports: string[] = [];
+    const clicked: Array<{ download: string; href: string; target: string }> =
+      [];
+    const signedUrl =
+      "https://files.example.test/evidence.pdf?token=synthetic&download=package.pdf";
+    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(function (
+      this: HTMLAnchorElement,
+    ) {
+      clicked.push({
+        download: this.download,
+        href: this.href,
+        target: this.target,
+      });
     });
     server.use(
       http.get(
-        "*/api/v1/appraisal-cases/:caseId/claim",
-        async ({ request }) => {
+        "*/api/v1/appraisal-cases/:caseId/reports/:reportId/download",
+        ({ params, request }) => {
+          expect(params.caseId).toBe(CASE_ID);
           expect(request.headers.get("Authorization")).toBe(
             "Bearer workflow-access-token",
           );
-          resolverCalls += 1;
-          if (resolverCalls > 1) await refetchGate;
-          return HttpResponse.json(
-            claimProjection({
-              journey: "guide_insurer_review",
-              progress,
-            }),
-          );
-        },
-      ),
-      http.put(
-        "*/api/v1/appraisal-cases/:caseId/education/:step",
-        async ({ params, request }) => {
-          expect(params.step).toBe("insurer_review");
-          expect(await request.json()).toMatchObject({ state: "viewed" });
-          progress.insurer_review.viewedAt = NOW;
-          viewPutCompleted = true;
-          return HttpResponse.json({ reportVersionId: REPORT_ID, steps: progress });
-        },
-      ),
-    );
-
-    renderTestApp([`${CLAIM_BASE}/guide/insurer-review`], {
-      authService: authService(),
-    });
-
-    expect(
-      await screen.findByRole("heading", {
-        name: "We reviewed the insurer’s evidence too",
-      }),
-    ).toBeVisible();
-    await waitFor(() => expect(viewPutCompleted).toBe(true));
-    await waitFor(() => expect(resolverCalls).toBeGreaterThanOrEqual(2));
-
-    const primaryEnabled = !screen
-      .getByRole("button", { name: "See the market evidence" })
-      .hasAttribute("disabled");
-    const skipEnabled = !screen
-      .getByRole("button", { name: "Skip to prepare request" })
-      .hasAttribute("disabled");
-    releaseRefetch();
-    await waitFor(() =>
-      expect(
-        screen.getByRole("button", { name: "See the market evidence" }),
-      ).toBeEnabled(),
-    );
-
-    expect(primaryEnabled).toBe(true);
-    expect(skipEnabled).toBe(true);
-  });
-
-  it("persists required result completion and an optional skip before opening Screen 6", async () => {
-    const progress = educationSteps(false);
-    let journey: TotalLossClaimJourneyState = "guide_result";
-    const updates: Array<{ state: string; step: string }> = [];
-    useClaimHandler(() => claimProjection({ journey, progress, withDraft: true }));
-    server.use(
-      http.put(
-        "*/api/v1/appraisal-cases/:caseId/education/:step",
-        async ({ params, request }) => {
-          const step = String(params.step) as TotalLossEducationStep;
-          const payload = (await request.json()) as { state: string };
-          updates.push({ state: payload.state, step });
-          progress[step].viewedAt ??= NOW;
-          if (payload.state === "completed") progress[step].completedAt = NOW;
-          if (payload.state === "skipped") progress[step].skippedAt = NOW;
-          if (step === "result" && payload.state === "completed") {
-            journey = "guide_insurer_review";
-          }
-          if (step === "insurer_review" && payload.state === "skipped") {
-            journey = "prepare_request";
-          }
-          return HttpResponse.json({ reportVersionId: REPORT_ID, steps: progress });
+          requestedReports.push(String(params.reportId));
+          return HttpResponse.json({
+            downloadUrl: signedUrl,
+            expiresAt: "2026-08-29T19:00:00.000Z",
+            suggestedFilename: report().suggestedFilename,
+          });
         },
       ),
     );
     const user = userEvent.setup();
-    const { router } = renderTestApp([`${CLAIM_BASE}/guide/result`], {
+    renderTestApp([`${CLAIM_BASE}/review/next?details=report`], {
       authService: authService(),
     });
-
-    const resultHeading = await screen.findByRole("heading", {
-      name: "Here’s what the completed evidence supports",
+    const reportDialog = await screen.findByRole("dialog", {
+      name: "Your valuation report",
     });
-    expect(resultHeading).toBeVisible();
-    expect(
-      screen.getByRole("heading", {
-        name: "The final review confirmed your preliminary result",
-      }),
-    ).toBeVisible();
-    expect(screen.getByRole("link", { name: /Result/u })).toHaveAttribute(
-      "aria-current",
-      "step",
+    await user.click(
+      within(reportDialog).getByRole("button", { name: /^View(?: report)?$/u }),
     );
-    expect(
-      screen.queryByRole("link", { name: /Prepare request/u }),
-    ).not.toBeInTheDocument();
-    expect(screen.getByText("Prepare request").closest("[aria-disabled=true]"))
-      .toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: "Skip to prepare request" }),
-    ).not.toBeInTheDocument();
-
-    const continueButton = screen.getByRole("button", {
-      name: "See how we reached it",
+    await waitFor(() => expect(clicked).toHaveLength(1));
+    expect(clicked[0]).toEqual({
+      download: "",
+      href: "https://files.example.test/evidence.pdf?token=synthetic",
+      target: "_blank",
     });
-    await waitFor(() => expect(continueButton).toBeEnabled());
-    await user.click(continueButton);
-
-    expect(
-      await screen.findByRole("heading", {
-        name: "We reviewed the insurer’s evidence too",
+    await user.click(
+      within(reportDialog).getByRole("button", {
+        name: /^Download(?: PDF)?$/u,
       }),
-    ).toBeVisible();
-    expect(screen.getByText("3 reviewed")).toBeVisible();
-    expect(screen.getByText("2 of 3")).toBeVisible();
-    expect(screen.getByText(/Every insurer comparable was shown descriptively/u))
-      .toBeVisible();
-    expect(screen.getByText(/Advertised \$19,800\.00/u)).toBeVisible();
-    const skip = screen.getByRole("button", { name: "Skip to prepare request" });
-    await waitFor(() => expect(skip).toBeEnabled());
-    await user.click(skip);
-
-    expect(
-      await screen.findByRole("heading", {
-        name: "Review your valuation reconsideration request",
-      }),
-    ).toBeVisible();
-    expect(router.state.location.pathname).toBe(`${CLAIM_BASE}/guide/send`);
-    expect(screen.getByRole("link", { name: /Insurer review/u })).toBeVisible();
-    expect(updates).toEqual(
-      expect.arrayContaining([
-        { state: "completed", step: "result" },
-        { state: "skipped", step: "insurer_review" },
-      ]),
     );
+    await waitFor(() => expect(clicked).toHaveLength(2));
+    expect(clicked[1]).toEqual({
+      download: report().suggestedFilename,
+      href: signedUrl,
+      target: "",
+    });
+    expect(requestedReports).toEqual([REPORT_ID, REPORT_ID]);
   });
 
-  it("rejects a direct send route until the resolver authorizes preparation", async () => {
-    const progress = educationSteps(true);
-    useClaimHandler(() =>
-      claimProjection({
-        journey: "guide_insurer_review",
-        progress,
-        withDraft: true,
-      }),
-    );
+  it("keeps report errors inline and retries without changing the review stage", async () => {
+    useClaimHandler(() => claimProjection());
+    let downloadRequests = 0;
     server.use(
-      http.put("*/api/v1/appraisal-cases/:caseId/education/:step", () =>
-        HttpResponse.json({ reportVersionId: REPORT_ID, steps: progress }),
+      http.get(
+        "*/api/v1/appraisal-cases/:caseId/reports/:reportId/download",
+        () => {
+          downloadRequests += 1;
+          return HttpResponse.json(
+            { detail: "Temporarily unavailable" },
+            { status: 503 },
+          );
+        },
       ),
     );
-
-    const { router } = renderTestApp([`${CLAIM_BASE}/guide/send`], {
-      authService: authService(),
-    });
-
-    expect(
-      await screen.findByRole("heading", {
-        name: "We reviewed the insurer’s evidence too",
-      }),
-    ).toBeVisible();
-    expect(router.state.location.pathname).toBe(
-      `${CLAIM_BASE}/guide/insurer-review`,
+    const user = userEvent.setup();
+    const { router } = renderTestApp(
+      [`${CLAIM_BASE}/review/market?details=report`],
+      { authService: authService() },
     );
-    expect(
-      screen.queryByRole("heading", {
-        name: "Review your valuation reconsideration request",
-      }),
-    ).not.toBeInTheDocument();
+    const reportDialog = await screen.findByRole("dialog", {
+      name: "Your valuation report",
+    });
+    await user.click(
+      within(reportDialog).getByRole("button", { name: /^View(?: report)?$/u }),
+    );
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "We couldn’t open the report. Please try again.",
+    );
+    expect(router.state.location.pathname).toBe(`${CLAIM_BASE}/review/market`);
+    await user.click(
+      within(reportDialog).getByRole("button", { name: /^View(?: report)?$/u }),
+    );
+    await waitFor(() => expect(downloadRequests).toBe(2));
   });
 
-  it("renders only safe completed evidence facts on Screens 1 through 3", async () => {
-    const progress = educationSteps(true);
-    progress.insurer_review.completedAt = NOW;
-    progress.insurer_review.viewedAt = NOW;
-    useClaimHandler(() =>
-      claimProjection({ journey: "guide_valuation", progress }),
-    );
-    server.use(
-      http.put("*/api/v1/appraisal-cases/:caseId/education/:step", () =>
-        HttpResponse.json({ reportVersionId: REPORT_ID, steps: progress }),
-      ),
-    );
-
-    renderTestApp([`${CLAIM_BASE}/guide/valuation`], {
-      authService: authService(),
-    });
-
-    expect(
-      await screen.findByRole("heading", {
-        name: "How the evidence supports your range",
-      }),
-    ).toBeVisible();
-    expect(screen.getByText("2022 Example Sedan")).toBeVisible();
-    expect(screen.getByText(/Chicago, IL/u)).toBeVisible();
-    expect(screen.getByText(/Only selected frozen evidence/u)).toBeVisible();
-    expect(screen.getByText("2026-08-28")).toBeVisible();
-    expect(screen.getByText(/server-completed report values/u)).toBeVisible();
-    expect(screen.queryByText(/provider|source listing|VIN/iu)).not.toBeInTheDocument();
-  });
-
-  it("keeps Screen 5 optional without a redundant skip action", async () => {
-    const progress = educationSteps(true);
-    for (const step of ["insurer_review", "valuation", "report"] as const) {
-      progress[step].completedAt = NOW;
-      progress[step].viewedAt = NOW;
-    }
-    useClaimHandler(() =>
-      claimProjection({ journey: "guide_what_next", progress }),
-    );
-    server.use(
-      http.put("*/api/v1/appraisal-cases/:caseId/education/:step", () =>
-        HttpResponse.json({ reportVersionId: REPORT_ID, steps: progress }),
-      ),
-    );
-
-    renderTestApp([`${CLAIM_BASE}/guide/what-next`], {
-      authService: authService(),
-    });
-
-    expect(
-      await screen.findByRole("heading", { name: "What may happen next" }),
-    ).toBeVisible();
-    expect(
-      screen.getByRole("button", { name: "Prepare my request" }),
-    ).toBeVisible();
-    expect(screen.getByRole("button", { name: "Back" })).toBeVisible();
-    expect(
-      screen.queryByRole("button", { name: "Skip to prepare request" }),
-    ).not.toBeInTheDocument();
-  });
-
-  it("diverts a refunded no-dispute result away from education and email", async () => {
+  it("keeps reports accessible for a refunded no-dispute result without creating a request", async () => {
     useClaimHandler(() =>
       claimProjection({
         continuingSupported: false,
         entitlementStatus: "refunded_access_retained",
         journey: "no_dispute",
-        progress: educationSteps(false),
       }),
     );
-    const { router } = renderTestApp(
-      [`${CLAIM_BASE}/guide/insurer-review`],
-      { authService: authService() },
-    );
-
+    const { router } = renderTestApp([`${CLAIM_BASE}/review/request`], {
+      authService: authService(),
+    });
+    await screen.findByRole("region", { name: "Your guided valuation review" });
+    expect(router.state.location.pathname).toBe(`${CLAIM_BASE}/review/request`);
     expect(
-      await screen.findByRole("heading", {
-        name: "The completed review does not support asking for a higher valuation",
-      }),
-    ).toBeVisible();
-    expect(screen.getByText("Refunded")).toBeVisible();
-    expect(screen.getByText("1 selected")).toBeVisible();
-    expect(screen.getByRole("button", { name: "Download report" })).toBeVisible();
-    expect(
-      screen.queryByRole("button", { name: /Prepare request|Open default email/u }),
+      screen.queryByRole("button", { name: "Create request draft" }),
     ).not.toBeInTheDocument();
-    expect(router.state.location.pathname).toBe(`${CLAIM_BASE}/guide/result`);
+    expect(
+      screen.queryByRole("textbox", { name: "Recipient" }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText("Unavailable")).not.toBeInTheDocument();
   });
 
-  it("routes a published no-dispute report to its result while refund is pending", async () => {
+  it("finishes an unsupported result with report access instead of continuing to request creation", async () => {
+    useClaimHandler(() =>
+      claimProjection({ continuingSupported: false, journey: "no_dispute" }),
+    );
+    renderTestApp([`${CLAIM_BASE}/review/next`], {
+      authService: authService(),
+    });
+    await screen.findByRole("region", { name: "Your guided valuation review" });
+    expect(
+      screen.queryByRole("link", { name: "Continue" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Create request draft" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "View your report" }),
+    ).toBeVisible();
+    const review = screen.getByRole("region", {
+      name: "Your guided valuation review",
+    });
+    expect(
+      within(review).getByRole("link", { name: "My appraisals" }),
+    ).toHaveAttribute("href", "/appraisals");
+  });
+
+  it("continues polling a no-dispute refund while preserving report access", async () => {
     let fulfillmentState: TotalLossClaimFulfillmentState = "refund_pending";
     let entitlementStatus: "active" | "refunded_access_retained" = "active";
     let resolverCalls = 0;
@@ -877,320 +1208,86 @@ describe("Milestone 6 total-loss customer workflow", () => {
       }
       return projection;
     });
-
     const { router } = renderTestApp([`${CLAIM_BASE}/processing`], {
       authService: authService(),
     });
-
+    expect(await screen.findByText("Refund in progress")).toBeVisible();
     expect(
-      await screen.findByRole("heading", {
-        name: "The completed review does not support asking for a higher valuation",
-      }),
+      screen.getByRole("link", { name: "Evidence & report" }),
     ).toBeVisible();
-    expect(screen.getByText("Refund in progress")).toBeVisible();
-    expect(screen.getByRole("button", { name: "Download report" })).toBeVisible();
-    expect(router.state.location.pathname).toBe(`${CLAIM_BASE}/guide/result`);
-    expect(await screen.findByText("Refunded", {}, { timeout: 4_000 })).toBeVisible();
+    expect(router.state.location.pathname).toBe(`${CLAIM_BASE}/review/result`);
+    expect(
+      await screen.findByText("Refunded", {}, { timeout: 4_000 }),
+    ).toBeVisible();
     expect(resolverCalls).toBeGreaterThanOrEqual(2);
   });
 
-  it("prepares the exact saved edit before copy and sent confirmation", async () => {
+  it("restores the sent state from persisted workflow data without inventing later stages", async () => {
     const progress = educationSteps(true);
-    let journey: TotalLossClaimJourneyState = "prepare_request";
-    let persistedDraft = draft();
-    let prepareCalls = 0;
-    let sentBody: Record<string, unknown> | null = null;
-    const preparedSubjects: string[] = [];
-    useClaimHandler(() => claimProjection({ journey, progress }));
-    server.use(
-      http.put(
-        "*/api/v1/appraisal-cases/:caseId/education/:step",
-        async ({ params }) => {
-          const step = String(params.step) as TotalLossEducationStep;
-          progress[step].viewedAt ??= NOW;
-          return HttpResponse.json({ reportVersionId: REPORT_ID, steps: progress });
-        },
-      ),
-      http.patch(
-        "*/api/v1/appraisal-cases/:caseId/message-draft",
-        async ({ request }) => {
-          const payload = (await request.json()) as {
-            body: string;
-            recipient: string;
-            subject: string;
-          };
-          persistedDraft = {
-            ...persistedDraft,
-            body: payload.body,
-            recipient: payload.recipient,
-            revision: persistedDraft.revision + 1,
-            subject: payload.subject,
-          };
-          return HttpResponse.json(persistedDraft);
-        },
-      ),
-      http.post(
-        "*/api/v1/appraisal-cases/:caseId/message/prepare",
-        () => {
-          prepareCalls += 1;
-          preparedSubjects.push(persistedDraft.subject);
-          return HttpResponse.json({
-            draft: persistedDraft,
-            messageVersion: {
-              body: persistedDraft.body,
-              createdAt: NOW,
-              messageVersionId:
-                prepareCalls === 1
-                  ? MESSAGE_VERSION_ID
-                  : UPDATED_MESSAGE_VERSION_ID,
-              recipient: persistedDraft.recipient,
-              reportVersionId: REPORT_ID,
-              state: "prepared",
-              subject: persistedDraft.subject,
-              versionNumber: prepareCalls,
-            },
-            workflowRevision: 9,
-          });
-        },
-      ),
-      http.post(
-        "*/api/v1/appraisal-cases/:caseId/message/sent",
-        async ({ request }) => {
-          sentBody = (await request.json()) as Record<string, unknown>;
-          journey = "awaiting_insurer_response";
-          return HttpResponse.json({
-            communicationId: COMMUNICATION_ID,
-            customerReportedSentAt: NOW,
-            messageVersionId: UPDATED_MESSAGE_VERSION_ID,
-            negotiationRoundId: ROUND_ID,
-            state: "awaiting_insurer_response",
-            workflowRevision: 10,
-          });
-        },
-      ),
-    );
-    const user = userEvent.setup();
-    const writeText = vi
-      .spyOn(navigator.clipboard, "writeText")
-      .mockResolvedValue(undefined);
-    renderTestApp([`${CLAIM_BASE}/guide/send`], {
-      authService: authService(),
-    });
-
-    await user.click(
-      await screen.findByRole("button", { name: "Prepare request draft" }),
-    );
-    const subject = await screen.findByRole("textbox", { name: "Subject" });
-    const message = screen.getByRole("textbox", { name: "Message" });
-    await user.clear(subject);
-    await user.type(subject, "Updated claim CLM-42 valuation request");
-    await user.clear(message);
-    await user.type(
-      message,
-      "Please review my updated request and the attached evidence package.",
-    );
-    await user.click(screen.getByRole("button", { name: "Save changes" }));
-    expect(await screen.findByText("Draft saved.")).toBeVisible();
-
-    await user.click(screen.getByRole("button", { name: "Copy email" }));
-    expect(await screen.findByText(/Email copied/u)).toBeVisible();
-    expect(prepareCalls).toBe(2);
-    expect(preparedSubjects).toEqual([
-      draft().subject,
-      "Updated claim CLM-42 valuation request",
-    ]);
-    expect(writeText).toHaveBeenCalledWith(
-      "Subject: Updated claim CLM-42 valuation request\n\nPlease review my updated request and the attached evidence package.",
-    );
-
-    await user.click(screen.getByRole("button", { name: "I sent it" }));
-    const dialog = await screen.findByRole("dialog", {
-      name: "Confirm that you sent the request",
-    });
-    await user.click(
-      within(dialog).getByRole("checkbox", {
-        name: /I sent the email to my insurer and attached the Venfour report/u,
+    progress.send.completedAt = NOW;
+    useClaimHandler(() =>
+      claimProjection({
+        journey: "awaiting_insurer_response",
+        progress,
+        withDraft: true,
       }),
     );
-    await user.click(
-      within(dialog).getByRole("button", { name: "Confirm I sent it" }),
-    );
-
-    expect(
-      await screen.findByRole("heading", { name: "Your request is recorded" }),
-    ).toBeVisible();
-    expect(prepareCalls).toBe(2);
-    expect(sentBody).toMatchObject({
-      messageVersionId: UPDATED_MESSAGE_VERSION_ID,
-    });
-    writeText.mockRestore();
-  });
-
-  it("requires explicit attachment confirmation and records sent only once", async () => {
-    const progress = educationSteps(true);
-    let journey: TotalLossClaimJourneyState = "prepare_request";
-    let sentBody: Record<string, unknown> | null = null;
-    let sentCalls = 0;
-    useClaimHandler(() => claimProjection({ journey, progress, withDraft: true }));
-    server.use(
-      http.put(
-        "*/api/v1/appraisal-cases/:caseId/education/:step",
-        async ({ params }) => {
-          const step = String(params.step) as TotalLossEducationStep;
-          progress[step].viewedAt ??= NOW;
-          return HttpResponse.json({ reportVersionId: REPORT_ID, steps: progress });
-        },
-      ),
-      http.post(
-        "*/api/v1/appraisal-cases/:caseId/message/prepare",
-        () =>
-          HttpResponse.json({
-            draft: draft(),
-            messageVersion: {
-              body: draft().body,
-              createdAt: NOW,
-              messageVersionId: MESSAGE_VERSION_ID,
-              recipient: draft().recipient,
-              reportVersionId: REPORT_ID,
-              state: "prepared",
-              subject: draft().subject,
-              versionNumber: 1,
-            },
-            workflowRevision: 9,
-          }),
-      ),
-      http.post(
-        "*/api/v1/appraisal-cases/:caseId/message/sent",
-        async ({ request }) => {
-          sentCalls += 1;
-          sentBody = (await request.json()) as Record<string, unknown>;
-          journey = "awaiting_insurer_response";
-          return HttpResponse.json({
-            communicationId: COMMUNICATION_ID,
-            customerReportedSentAt: NOW,
-            messageVersionId: MESSAGE_VERSION_ID,
-            negotiationRoundId: ROUND_ID,
-            state: "awaiting_insurer_response",
-            workflowRevision: 8,
-          });
-        },
-      ),
-    );
-    const user = userEvent.setup();
-    renderTestApp([`${CLAIM_BASE}/guide/send`], {
+    const { router } = renderTestApp([CLAIM_BASE], {
       authService: authService(),
     });
-
     expect(
       await screen.findByRole("heading", {
-        name: "Review your valuation reconsideration request",
+        name: "Waiting for the insurer’s response",
+      }),
+    ).toBeVisible();
+    expect(router.state.location.pathname).toBe(`${CLAIM_BASE}/review/sent`);
+    await userEvent
+      .setup()
+      .click(screen.getByText("Your case record", { selector: "summary" }));
+    const timeline = screen.getByRole("list", { name: "Case timeline" });
+    expect(
+      within(timeline).getByRole("heading", {
+        name: "Evidence package completed",
       }),
     ).toBeVisible();
     expect(
-      screen.getByText("Venfour_Valuation_Evidence_Synthetic_v1.pdf"),
+      within(timeline).getByRole("heading", { name: "Request prepared" }),
     ).toBeVisible();
-    await user.click(screen.getByRole("button", { name: "I sent it" }));
-
-    const dialog = await screen.findByRole("dialog", {
-      name: "Confirm that you sent the request",
-    });
-    const confirm = within(dialog).getByRole("button", {
-      name: "Confirm I sent it",
-    });
-    expect(confirm).toBeDisabled();
-    await user.click(
-      within(dialog).getByRole("checkbox", {
-        name: /I sent the email to my insurer and attached the Venfour report/u,
-      }),
-    );
-    await user.click(confirm);
-
     expect(
-      await screen.findByRole("heading", { name: "Your request is recorded" }),
+      within(timeline).getByRole("heading", { name: "Request marked as sent" }),
     ).toBeVisible();
-    expect(sentCalls).toBe(1);
-    expect(sentBody).toMatchObject({
-      confirmedReportAttached: true,
-      expectedWorkflowRevision: 9,
-      messageVersionId: MESSAGE_VERSION_ID,
-    });
-    expect(screen.getByText(/cannot verify email delivery/iu)).toBeVisible();
+    expect(
+      within(timeline).queryByText("Response received"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Upload insurer response" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByText("What the insurer may do").closest("details"),
+    ).not.toHaveAttribute("open");
   });
 
-  it("recovers from a stale sent confirmation by refreshing authoritative state", async () => {
-    const progress = educationSteps(true);
-    let journey: TotalLossClaimJourneyState = "prepare_request";
-    let sentCalls = 0;
-    useClaimHandler(() => claimProjection({ journey, progress, withDraft: true }));
-    server.use(
-      http.put(
-        "*/api/v1/appraisal-cases/:caseId/education/:step",
-        async ({ params }) => {
-          const step = String(params.step) as TotalLossEducationStep;
-          progress[step].viewedAt ??= NOW;
-          return HttpResponse.json({ reportVersionId: REPORT_ID, steps: progress });
-        },
-      ),
-      http.post(
-        "*/api/v1/appraisal-cases/:caseId/message/prepare",
-        () =>
-          HttpResponse.json({
-            draft: draft(),
-            messageVersion: {
-              body: draft().body,
-              createdAt: NOW,
-              messageVersionId: MESSAGE_VERSION_ID,
-              recipient: draft().recipient,
-              reportVersionId: REPORT_ID,
-              state: "prepared",
-              subject: draft().subject,
-              versionNumber: 1,
-            },
-            workflowRevision: 9,
-          }),
-      ),
-      http.post(
-        "*/api/v1/appraisal-cases/:caseId/message/sent",
-        () => {
-          sentCalls += 1;
-          journey = "awaiting_insurer_response";
-          return HttpResponse.json(
-            { detail: "The case changed in another tab." },
-            { status: 409 },
-          );
-        },
-      ),
+  it("keeps the unsent route neutral and does not offer unsupported request preparation", async () => {
+    useClaimHandler(() =>
+      claimProjection({ continuingSupported: false, journey: "no_dispute" }),
     );
-    const user = userEvent.setup();
-    renderTestApp([`${CLAIM_BASE}/guide/send`], {
+    renderTestApp([`${CLAIM_BASE}/review/sent`], {
       authService: authService(),
     });
-
+    await screen.findByRole("region", { name: "Your guided valuation review" });
     expect(
-      await screen.findByRole("heading", {
-        name: "Review your valuation reconsideration request",
+      screen.queryByRole("heading", {
+        name: "Waiting for the insurer’s response",
       }),
-    ).toBeVisible();
-    await user.click(screen.getByRole("button", { name: "I sent it" }));
-    const dialog = await screen.findByRole("dialog", {
-      name: "Confirm that you sent the request",
-    });
-    await user.click(
-      within(dialog).getByRole("checkbox", {
-        name: /I sent the email to my insurer and attached the Venfour report/u,
-      }),
-    );
-    await user.click(
-      within(dialog).getByRole("button", { name: "Confirm I sent it" }),
-    );
-
+    ).not.toBeInTheDocument();
     expect(
-      await screen.findByRole("heading", { name: "Your request is recorded" }),
-    ).toBeVisible();
-    expect(sentCalls).toBe(1);
-    expect(screen.getByText(/cannot verify email delivery/iu)).toBeVisible();
+      screen.queryByText("Your request is recorded"),
+    ).not.toBeInTheDocument();
     expect(
-      screen.queryByText(/couldn’t record the confirmation/iu),
+      screen.queryByRole("link", { name: "Prepare request" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "Request marked as sent" }),
     ).not.toBeInTheDocument();
   });
 });

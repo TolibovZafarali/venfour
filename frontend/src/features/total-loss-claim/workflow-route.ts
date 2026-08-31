@@ -3,7 +3,14 @@ import type {
   TotalLossClaimResolver,
 } from "@/features/total-loss-claim/contracts";
 
+type LegacyCaseView = "overview" | "evidence" | "request" | "activity";
+export type ReviewStage =
+  "result" | "insurer" | "market" | "meaning" | "next" | "request" | "sent";
+export type ReviewView = `review_${ReviewStage}`;
+
 export type TotalLossClaimWorkflowView =
+  | LegacyCaseView
+  | ReviewView
   | "checkout"
   | "checkout_return"
   | "processing"
@@ -30,18 +37,30 @@ export function totalLossClaimViewPath(
       return `${base}/checkout/return`;
     case "processing":
       return `${base}/processing`;
+    case "overview":
     case "result":
-      return `${base}/guide/result`;
+    case "review_result":
+      return `${base}/review/result`;
     case "insurer_review":
-      return `${base}/guide/insurer-review`;
+    case "review_insurer":
+      return `${base}/review/insurer`;
+    case "evidence":
     case "valuation":
-      return `${base}/guide/valuation`;
+    case "review_market":
+      return `${base}/review/market`;
+    case "review_meaning":
+      return `${base}/review/meaning`;
     case "report":
-      return `${base}/guide/report`;
     case "what_next":
-      return `${base}/guide/what-next`;
+    case "review_next":
+      return `${base}/review/next`;
+    case "activity":
+    case "review_sent":
+      return `${base}/review/sent`;
+    case "request":
     case "send":
-      return `${base}/guide/send`;
+    case "review_request":
+      return `${base}/review/request`;
   }
 }
 
@@ -71,8 +90,9 @@ export function routeForJourneyState(
     case "guide_what_next":
       return totalLossClaimViewPath(caseId, "what_next");
     case "prepare_request":
+      return totalLossClaimViewPath(caseId, "request");
     case "awaiting_insurer_response":
-      return totalLossClaimViewPath(caseId, "send");
+      return totalLossClaimViewPath(caseId, "activity");
   }
 }
 
@@ -109,13 +129,19 @@ function legacyJourneyState(
 export function authoritativeTotalLossClaimPath(
   claim: TotalLossClaimResolver,
 ): string | null {
-  if (claim.state === "secure_required") return totalLossClaimViewPath(claim.caseId, "checkout");
+  if (claim.state === "secure_required")
+    return totalLossClaimViewPath(claim.caseId, "checkout");
   const state = claim.journey?.nextState ?? legacyJourneyState(claim);
   return state ? routeForJourneyState(claim.caseId, state) : null;
 }
 
 export function isGuideView(view: TotalLossClaimWorkflowView) {
   return (
+    view.startsWith("review_") ||
+    view === "overview" ||
+    view === "evidence" ||
+    view === "request" ||
+    view === "activity" ||
     view === "result" ||
     view === "insurer_review" ||
     view === "valuation" ||
@@ -123,4 +149,16 @@ export function isGuideView(view: TotalLossClaimWorkflowView) {
     view === "what_next" ||
     view === "send"
   );
+}
+
+export function reviewStageForView(
+  view: TotalLossClaimWorkflowView,
+): ReviewStage {
+  if (view.startsWith("review_")) return view.slice(7) as ReviewStage;
+  if (view === "insurer_review") return "insurer";
+  if (view === "valuation" || view === "evidence") return "market";
+  if (view === "what_next" || view === "report") return "next";
+  if (view === "send" || view === "request") return "request";
+  if (view === "activity") return "sent";
+  return "result";
 }

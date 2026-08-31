@@ -1,27 +1,15 @@
-import {
-  ArrowLeft,
-  CheckCircle2,
-  Copy,
-  Download,
-  Mail,
-  Send,
-  X,
-} from "lucide-react";
-import { useEffect, useRef, useState } from "react";
-import { Dialog } from "radix-ui";
-import { useNavigate } from "react-router";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { Link } from "react-router";
 
-import { Button } from "@/components/ui/button";
+import { normalizeCustomerRequestBody } from "@/features/total-loss-claim/customer-message-copy";
+import { totalLossClaimViewPath } from "@/features/total-loss-claim/workflow-route";
+import { getTotalLossMessageDraft } from "@/features/total-loss-claim/api";
 import {
   buildTotalLossMailto,
   copyPreparedEmail,
   openDefaultEmailApp,
 } from "@/features/total-loss-claim/browser-actions";
-import {
-  GuidedClaimShell,
-  WorkflowError,
-} from "@/features/total-loss-claim/components/claim-workflow-shell";
-import { PublishedReportActions } from "@/features/total-loss-claim/components/published-report-actions";
+import { ReportFileRow } from "@/features/total-loss-claim/components/published-report-actions";
 import type {
   TotalLossClaimSecured,
   TotalLossMessageDraft,
@@ -37,251 +25,137 @@ import {
   useTotalLossPrepareMessageMutation,
   useTotalLossSendingDetailsMutation,
 } from "@/features/total-loss-claim/queries";
-import { totalLossClaimViewPath } from "@/features/total-loss-claim/workflow-route";
 
 function requestId() {
   return globalThis.crypto.randomUUID();
 }
 
-function SendingDetailsForm({
-  accessToken,
-  caseId,
-  claim,
-  details,
-  onRefresh,
-  userId,
-}: MessagePreparationProps & {
-  readonly details: TotalLossSendingDetails;
-}) {
-  const save = useTotalLossSendingDetailsMutation({ accessToken, caseId, userId });
-  const [adjusterEmail, setAdjusterEmail] = useState(details.adjusterEmail ?? "");
-  const [claimReference, setClaimReference] = useState(
-    details.claimReference ?? "",
-  );
-  const [confirmEmail, setConfirmEmail] = useState(
-    details.adjusterEmailConfirmed,
-  );
-  const [confirmReference, setConfirmReference] = useState(
-    details.claimReferenceConfirmed,
-  );
-  const [error, setError] = useState<string | null>(null);
+const OPTIONAL_REVIEW = [
+  "insurer_review",
+  "valuation",
+  "report",
+  "what_next",
+] as const;
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/u;
 
-  const submit = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    setError(null);
-    if (!claim.workflow) return;
-    if (!adjusterEmail.trim() || !/^\S+@\S+\.\S+$/u.test(adjusterEmail.trim())) {
-      setError("Enter the adjuster’s valid email address.");
-      return;
-    }
-    if (!claimReference.trim()) {
-      setError("Enter the claim or reference number.");
-      return;
-    }
-    if (!confirmEmail || !confirmReference) {
-      setError("Confirm both sending details before preparing the request.");
-      return;
-    }
-    try {
-      await save.mutateAsync({
-        adjusterName: details.adjusterName,
-        adjusterEmail: adjusterEmail.trim(),
-        adjusterEmailConfirmed: true,
-        claimReference: claimReference.trim(),
-        claimReferenceConfirmed: true,
-        expectedRevision: details.revision,
-        expectedWorkflowRevision: claim.workflow.revision,
-      });
-      await onRefresh();
-    } catch {
-      setError(
-        "We couldn’t save these details. The case may have changed in another tab; refresh and try again.",
-      );
-    }
-  };
-
-  return (
-    <form className="max-w-2xl" onSubmit={(event) => void submit(event)}>
-      <div className="rounded-2xl border border-line bg-surface/60 p-5 sm:p-6">
-        <h2 className="text-lg font-semibold text-ink">Confirm sending details</h2>
-        <p className="mt-2 text-sm leading-6 text-copy">
-          Venfour uses already-confirmed case facts. Only the missing or
-          unconfirmed sending details below can be changed here.
-        </p>
-        <dl className="mt-5 grid gap-3 text-sm sm:grid-cols-2">
-          <div>
-            <dt className="font-medium text-copy">Customer</dt>
-            <dd className="mt-1 text-ink">{details.customerName ?? "Not available"}</dd>
-          </div>
-          <div>
-            <dt className="font-medium text-copy">Insurer</dt>
-            <dd className="mt-1 text-ink">{details.insurerName ?? "Not available"}</dd>
-          </div>
-          <div className="sm:col-span-2">
-            <dt className="font-medium text-copy">Subject vehicle</dt>
-            <dd className="mt-1 text-ink">{details.vehicleDescription ?? "Not available"}</dd>
-          </div>
-        </dl>
-        <div className="mt-6 grid gap-5">
-          <label className="grid gap-2 text-sm font-medium text-ink">
-            Adjuster email
-            <input
-              autoComplete="email"
-              className="min-h-12 w-full rounded-xl border border-line bg-white px-4 py-3 text-base font-normal text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
-              onChange={(event) => {
-                setAdjusterEmail(event.target.value);
-                setConfirmEmail(false);
-              }}
-              type="email"
-              value={adjusterEmail}
-            />
-          </label>
-          <label className="flex min-h-11 items-start gap-3 text-sm leading-6 text-copy">
-            <input
-              checked={confirmEmail}
-              className="mt-1 size-5 shrink-0 accent-brand"
-              onChange={(event) => setConfirmEmail(event.target.checked)}
-              type="checkbox"
-            />
-            I confirmed this is the adjuster email that should receive the request.
-          </label>
-          <label className="grid gap-2 text-sm font-medium text-ink">
-            Claim or reference number
-            <input
-              className="min-h-12 w-full rounded-xl border border-line bg-white px-4 py-3 text-base font-normal text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
-              onChange={(event) => {
-                setClaimReference(event.target.value);
-                setConfirmReference(false);
-              }}
-              value={claimReference}
-            />
-          </label>
-          <label className="flex min-h-11 items-start gap-3 text-sm leading-6 text-copy">
-            <input
-              checked={confirmReference}
-              className="mt-1 size-5 shrink-0 accent-brand"
-              onChange={(event) => setConfirmReference(event.target.checked)}
-              type="checkbox"
-            />
-            I confirmed this claim or reference number is correct.
-          </label>
-        </div>
-      </div>
-      {error ? <WorkflowError>{error}</WorkflowError> : null}
-      <Button className="mt-6 min-h-12" disabled={save.isPending} type="submit">
-        {save.isPending ? "Saving details…" : "Save and prepare request"}
-      </Button>
-    </form>
-  );
+interface MessagePreparationProps {
+  readonly accessToken: string;
+  readonly backTo?: string;
+  readonly caseId: string;
+  readonly claim: TotalLossClaimSecured;
+  readonly onRefresh: () => Promise<unknown>;
+  readonly report: TotalLossPublishedReport;
+  readonly userId: string;
 }
 
-function SentConfirmationDialog({
-  onConfirm,
-  onOpenChange,
-  open,
-  pending,
-}: {
-  readonly onConfirm: () => void;
-  readonly onOpenChange: (open: boolean) => void;
-  readonly open: boolean;
-  readonly pending: boolean;
-}) {
-  const [confirmed, setConfirmed] = useState(false);
-
+function RequestError({ children }: { readonly children: React.ReactNode }) {
   return (
-    <Dialog.Root
-      open={open}
-      onOpenChange={(nextOpen) => {
-        if (!nextOpen) setConfirmed(false);
-        onOpenChange(nextOpen);
-      }}
-    >
-      <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-[70] bg-ink/35 backdrop-blur-[3px] data-[state=closed]:animate-out data-[state=closed]:fade-out data-[state=open]:animate-in data-[state=open]:fade-in motion-reduce:animate-none" />
-        <Dialog.Content className="fixed top-1/2 left-1/2 z-[71] max-h-[calc(100svh-2rem)] w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border border-white/80 bg-white p-6 shadow-[0_28px_80px_-28px_rgba(11,31,51,0.58)] focus:outline-none">
-          <div className="pr-10">
-            <Dialog.Title className="text-xl font-semibold tracking-[-0.025em] text-ink">
-              Confirm that you sent the request
-            </Dialog.Title>
-            <Dialog.Description className="mt-2 text-sm leading-6 text-copy">
-              Opening an email app does not tell Venfour whether an email was sent.
-              Confirm only after sending it yourself.
-            </Dialog.Description>
-          </div>
-          <Dialog.Close asChild>
-            <button
-              aria-label="Close sent confirmation"
-              className="absolute top-4 right-4 inline-flex size-11 items-center justify-center rounded-lg text-copy outline-none transition-colors hover:bg-surface hover:text-ink focus-visible:ring-2 focus-visible:ring-brand motion-reduce:transition-none"
-              type="button"
-            >
-              <X className="size-4" aria-hidden />
-            </button>
-          </Dialog.Close>
-          <label className="mt-6 flex min-h-12 items-start gap-3 rounded-xl border border-line bg-surface/60 p-4 text-sm leading-6 text-ink">
-            <input
-              checked={confirmed}
-              className="mt-1 size-5 shrink-0 accent-brand"
-              onChange={(event) => setConfirmed(event.target.checked)}
-              type="checkbox"
-            />
-            I sent the email to my insurer and attached the Venfour report.
-          </label>
-          <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-            <Button
-              disabled={!confirmed || pending}
-              onClick={onConfirm}
-              type="button"
-            >
-              {pending ? "Recording…" : "Confirm I sent it"}
-            </Button>
-            <Dialog.Close asChild>
-              <Button type="button" variant="outline">
-                Not yet
-              </Button>
-            </Dialog.Close>
-          </div>
-        </Dialog.Content>
-      </Dialog.Portal>
-    </Dialog.Root>
+    <p className="case-error" role="alert">
+      {children}
+    </p>
   );
 }
 
 function RequestRecorded({
   accessToken,
+  backTo,
   caseId,
   report,
   userId,
 }: Omit<MessagePreparationProps, "claim" | "onRefresh">) {
+  const heading = useRef<HTMLHeadingElement>(null);
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+    heading.current?.focus({ preventScroll: true });
+  }, []);
   return (
-    <div>
-      <div className="flex gap-3 rounded-2xl border border-green-200 bg-green-50 p-5 text-green-950">
-        <CheckCircle2 className="mt-0.5 size-6 shrink-0" aria-hidden />
-        <div>
-          <h2 className="text-lg font-semibold">Your request is recorded</h2>
-          <p className="mt-2 text-sm leading-6">
-            Venfour recorded that you reported sending the request. Venfour
-            cannot verify email delivery or receipt by the insurer.
-          </p>
+    <div className="review-request">
+      <div className="review-request-form review-request-receipt">
+        <p className="review-eyebrow">You’ve taken the next step</p>
+        <h1 className="review-heading" ref={heading} tabIndex={-1}>
+          Request marked as sent
+        </h1>
+        <p className="review-lead">
+          Now give your insurer time to review the evidence and respond in
+          writing.
+        </p>
+        <p className="review-copy">
+          Keep a copy of the email and any response, requested documents, or
+          revised valuation. You reported sending the request; Venfour cannot
+          verify email delivery or receipt.
+        </p>
+        <details className="review-disclosure">
+          <summary>Keep your evidence report</summary>
+          <ReportFileRow
+            accessToken={accessToken}
+            caseId={caseId}
+            report={report}
+            userId={userId}
+          />
+        </details>
+      </div>
+      <footer
+        className="review-actions review-request-actions"
+        aria-label="Request actions"
+      >
+        <div className="review-action-buttons">
+          {backTo ? (
+            <Link className="case-button" data-variant="text" to={backTo}>
+              Back
+            </Link>
+          ) : null}
+          <Link
+            className="case-button"
+            data-variant="primary"
+            to={totalLossClaimViewPath(caseId, "activity")}
+          >
+            Continue
+          </Link>
         </div>
-      </div>
-      <p className="mt-6 max-w-3xl text-sm leading-6 text-copy">
-        Save any insurer response, requested document list, or revised valuation.
-        A later milestone will let you provide that response for analysis.
-      </p>
-      <div className="mt-6">
-        <PublishedReportActions
-          accessToken={accessToken}
-          caseId={caseId}
-          report={report}
-          userId={userId}
-        />
-      </div>
+      </footer>
     </div>
   );
 }
 
+type DraftContent = Pick<TotalLossMessageDraft, "body" | "subject"> & {
+  readonly recipient: string;
+};
+
+function contentOf(draft: TotalLossMessageDraft): DraftContent {
+  return {
+    recipient: draft.recipient ?? "",
+    subject: draft.subject,
+    body: draft.body,
+  };
+}
+
+function normalizedContent(content: DraftContent): DraftContent {
+  return {
+    recipient: content.recipient.trim().toLowerCase(),
+    subject: content.subject.trim(),
+    body: content.body,
+  };
+}
+
+function sameContent(left: DraftContent, right: DraftContent) {
+  return (
+    left.recipient === right.recipient &&
+    left.subject === right.subject &&
+    left.body === right.body
+  );
+}
+
+function validationError(content: DraftContent) {
+  if (!EMAIL_PATTERN.test(content.recipient.trim()))
+    return "Enter a valid recipient email address.";
+  if (!content.subject.trim()) return "Add an email subject.";
+  if (!content.body.trim()) return "Add an email message.";
+  return null;
+}
+
 function DraftEditor({
   accessToken,
+  backTo,
   caseId,
   draft: initialDraft,
   initialPreparedMessage,
@@ -291,464 +165,954 @@ function DraftEditor({
   workflowRevision,
 }: MessagePreparationProps & {
   readonly draft: TotalLossMessageDraft;
-  readonly initialPreparedMessage?: TotalLossPreparedMessageVersion | null;
+  readonly initialPreparedMessage: TotalLossPreparedMessageVersion | null;
   readonly workflowRevision: number;
 }) {
-  const saveDraft = useTotalLossMessageDraftMutation({
+  const { mutateAsync: saveDraft } = useTotalLossMessageDraftMutation({
     accessToken,
     caseId,
     userId,
   });
-  const prepare = useTotalLossPrepareMessageMutation({
+  const { mutateAsync: prepare } = useTotalLossPrepareMessageMutation({
     accessToken,
     caseId,
     userId,
   });
-  const opened = useTotalLossMessageOpenedMutation({
+  const { mutateAsync: recordOpened } = useTotalLossMessageOpenedMutation({
     accessToken,
     caseId,
     userId,
   });
-  const sent = useTotalLossMessageSentMutation({ accessToken, caseId, userId });
-  const [draft, setDraft] = useState(initialDraft);
-  const [recipient, setRecipient] = useState(initialDraft.recipient ?? "");
-  const [subject, setSubject] = useState(initialDraft.subject);
-  const [body, setBody] = useState(initialDraft.body);
-  const [preparedMessage, setPreparedMessage] =
-    useState<TotalLossPreparedMessageVersion | null>(null);
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [confirmedPrepared, setConfirmedPrepared] =
-    useState<TotalLossPreparedMessageVersion | null>(null);
+  const { mutateAsync: recordSent } = useTotalLossMessageSentMutation({
+    accessToken,
+    caseId,
+    userId,
+  });
+  const [content, setContent] = useState(() => ({
+    ...contentOf(initialDraft),
+    body: normalizeCustomerRequestBody(initialDraft.body, report),
+  }));
+  const [savedContent, setSavedContent] = useState(() =>
+    contentOf(initialDraft),
+  );
+  const [saving, setSaving] = useState(false);
+  const [action, setAction] = useState<"copy" | "open" | "sent" | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [conflict, setConflict] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
-  const preparedWorkflowRevision = useRef<number | null>(null);
+  const [sent, setSent] = useState(false);
+  const [sharedMessage, setSharedMessage] =
+    useState<TotalLossPreparedMessageVersion | null>(null);
+  const contentRef = useRef(content);
+  const savedRef = useRef(initialDraft);
+  const inFlightSave = useRef<Promise<TotalLossMessageDraft> | null>(null);
+  const preparedRef = useRef(initialPreparedMessage);
+  const revisionRef = useRef(workflowRevision);
   const prepareRequestId = useRef(requestId());
   const sentRequestId = useRef(requestId());
-  const dirty =
-    recipient !== (draft.recipient ?? "") ||
-    subject !== draft.subject ||
-    body !== draft.body;
-  const matchesDraft = (candidate: TotalLossPreparedMessageVersion | null) =>
-    Boolean(
-      candidate &&
-        candidate.reportVersionId === draft.reportVersionId &&
-        candidate.recipient === (draft.recipient ?? "") &&
-        candidate.subject === draft.subject &&
-        candidate.body === draft.body,
-    );
-  const exactPreparedMessage = matchesDraft(preparedMessage)
-    ? preparedMessage
-    : matchesDraft(initialPreparedMessage ?? null)
-      ? (initialPreparedMessage ?? null)
-      : null;
-  const latestWorkflowRevision = () =>
-    Math.max(workflowRevision, preparedWorkflowRevision.current ?? 0);
-
-  const edited = () => {
-    setPreparedMessage(null);
-    prepareRequestId.current = requestId();
-    setNotice(null);
+  const actionRef = useRef(false);
+  const dirty = !sameContent(normalizedContent(content), savedContent);
+  const fieldId = useId();
+  const stageHeading = useRef<HTMLHeadingElement>(null);
+  const confirmingSent = Boolean(sharedMessage);
+  const fieldErrors = {
+    recipient:
+      dirty && !EMAIL_PATTERN.test(content.recipient.trim())
+        ? "Enter a valid recipient email address."
+        : null,
+    subject: dirty && !content.subject.trim() ? "Add an email subject." : null,
+    body: dirty && !content.body.trim() ? "Add an email message." : null,
   };
 
-  const validate = () => {
-    if (!/^\S+@\S+\.\S+$/u.test(recipient.trim())) {
-      throw new Error("Enter a valid recipient email address.");
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+    stageHeading.current?.focus({ preventScroll: true });
+  }, [confirmingSent]);
+
+  useEffect(() => {
+    revisionRef.current = Math.max(revisionRef.current, workflowRevision);
+  }, [workflowRevision]);
+
+  useEffect(() => {
+    if (
+      initialDraft.revision <= savedRef.current.revision ||
+      inFlightSave.current
+    )
+      return;
+    const incoming = contentOf(initialDraft);
+    const local = normalizedContent(contentRef.current);
+    if (
+      !sameContent(local, contentOf(savedRef.current)) &&
+      !sameContent(local, incoming)
+    ) {
+      setConflict(true);
+      setSaveError(
+        "This draft changed in another tab. Load the saved draft to review those changes before editing again.",
+      );
+      return;
     }
-    if (!subject.trim()) throw new Error("Add an email subject.");
-    if (!body.trim()) throw new Error("Add an email message.");
+    const nextContent = {
+      ...incoming,
+      body: normalizeCustomerRequestBody(initialDraft.body, report),
+    };
+    savedRef.current = initialDraft;
+    contentRef.current = nextContent;
+    preparedRef.current = null;
+    prepareRequestId.current = requestId();
+    sentRequestId.current = requestId();
+    setSaveError(null);
+    setConflict(false);
+    setSavedContent(incoming);
+    setContent(nextContent);
+    setSharedMessage(null);
+    setNotice(null);
+  }, [initialDraft, report]);
+
+  const persist = useCallback(async (): Promise<TotalLossMessageDraft> => {
+    if (inFlightSave.current) return inFlightSave.current;
+    const saveLatest = async () => {
+      try {
+        while (true) {
+          const snapshot = contentRef.current;
+          const normalized = normalizedContent(snapshot);
+          const invalid = validationError(normalized);
+          if (invalid) throw new Error(invalid);
+          if (sameContent(normalized, contentOf(savedRef.current))) {
+            setSaveError(null);
+            return savedRef.current;
+          }
+          setSaving(true);
+          const saved = await saveDraft({
+            ...normalized,
+            expectedRevision: savedRef.current.revision,
+          });
+          savedRef.current = saved;
+          setSavedContent(contentOf(saved));
+          if (sameContent(contentRef.current, snapshot)) {
+            contentRef.current = contentOf(saved);
+            setContent(contentOf(saved));
+          }
+        }
+      } catch {
+        const message =
+          validationError(contentRef.current) ??
+          "We couldn’t save your changes. Your last saved draft is unchanged. Retry saving before sending.";
+        setSaveError(message);
+        throw new Error(message);
+      } finally {
+        setSaving(false);
+      }
+    };
+    const pending = saveLatest();
+    inFlightSave.current = pending;
+    try {
+      return await pending;
+    } finally {
+      inFlightSave.current = null;
+    }
+  }, [saveDraft]);
+
+  useEffect(() => {
+    if (!dirty || validationError(content) || saveError || conflict) return;
+    const timeout = window.setTimeout(() => {
+      void persist().catch(() => undefined);
+    }, 650);
+    return () => window.clearTimeout(timeout);
+  }, [content, conflict, dirty, persist, saveError]);
+
+  useEffect(() => {
+    const warnUnsaved = (event: BeforeUnloadEvent) => {
+      if (
+        sameContent(
+          normalizedContent(contentRef.current),
+          contentOf(savedRef.current),
+        )
+      )
+        return;
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", warnUnsaved);
+    return () => {
+      window.removeEventListener("beforeunload", warnUnsaved);
+      if (!validationError(contentRef.current))
+        void persist().catch(() => undefined);
+    };
+  }, [persist]);
+
+  const edit = (field: keyof DraftContent, value: string) => {
+    const next = { ...contentRef.current, [field]: value };
+    contentRef.current = next;
+    setContent(next);
+    preparedRef.current = null;
+    prepareRequestId.current = requestId();
+    sentRequestId.current = requestId();
+    setSharedMessage(null);
+    setNotice(null);
+    setError(null);
   };
 
-  const persist = async () => {
-    validate();
-    if (!dirty) return draft;
-    const saved = await saveDraft.mutateAsync({
-      body: body.trim(),
-      expectedRevision: draft.revision,
-      recipient: recipient.trim(),
-      subject: subject.trim(),
-    });
-    setDraft(saved);
-    setRecipient(saved.recipient ?? "");
-    setSubject(saved.subject);
-    setBody(saved.body);
-    return saved;
+  const retrySave = async (loadSaved = false) => {
+    setSaving(true);
+    setError(null);
+    try {
+      if (inFlightSave.current)
+        await inFlightSave.current.catch(() => undefined);
+      const current = await getTotalLossMessageDraft(caseId, accessToken);
+      const currentContent = contentOf(current);
+      const matchesLocal = sameContent(
+        currentContent,
+        normalizedContent(contentRef.current),
+      );
+      const matchesBaseline = sameContent(
+        currentContent,
+        contentOf(savedRef.current),
+      );
+      if (!loadSaved && !matchesLocal && !matchesBaseline) {
+        setConflict(true);
+        setSaveError(
+          "This draft changed in another tab. Load the saved draft to review those changes before editing again.",
+        );
+        return;
+      }
+      savedRef.current = current;
+      setSavedContent(currentContent);
+      setSaveError(null);
+      setConflict(false);
+      if (loadSaved || matchesLocal) {
+        const displayContent = {
+          ...currentContent,
+          body: normalizeCustomerRequestBody(current.body, report),
+        };
+        contentRef.current = displayContent;
+        setContent(displayContent);
+        preparedRef.current = null;
+        prepareRequestId.current = requestId();
+        sentRequestId.current = requestId();
+        setSharedMessage(null);
+      } else {
+        await persist();
+      }
+    } catch {
+      setSaveError("We couldn’t save your changes. Try again before sending.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const prepareExact = async () => {
-    if (exactPreparedMessage && !dirty) return exactPreparedMessage;
-    await persist();
-    const prepared = await prepare.mutateAsync({
+    const saved = await persist();
+    if (
+      preparedRef.current &&
+      preparedRef.current.reportVersionId === saved.reportVersionId &&
+      sameContent(preparedRef.current, contentOf(saved))
+    )
+      return preparedRef.current;
+    const prepared = await prepare({
       clientRequestId: prepareRequestId.current,
-      expectedWorkflowRevision: latestWorkflowRevision(),
+      expectedWorkflowRevision: revisionRef.current,
     });
-    setDraft(prepared.draft);
-    setPreparedMessage(prepared.messageVersion);
-    preparedWorkflowRevision.current = prepared.workflowRevision;
+    revisionRef.current = Math.max(
+      revisionRef.current,
+      prepared.workflowRevision,
+    );
+    if (
+      prepared.draft.reportVersionId !== saved.reportVersionId ||
+      !sameContent(contentOf(prepared.draft), contentOf(saved)) ||
+      !sameContent(prepared.messageVersion, contentOf(saved))
+    ) {
+      setConflict(true);
+      setSaveError(
+        "This draft changed in another tab. Load the saved draft to review those changes before sending.",
+      );
+      throw new Error(
+        "The saved request changed. Review it before continuing.",
+      );
+    }
+    preparedRef.current = prepared.messageVersion;
     return prepared.messageVersion;
   };
 
-  const save = async () => {
-    setError(null);
-    setNotice(null);
-    try {
-      await persist();
-      setNotice("Draft saved.");
-    } catch (saveError) {
-      setError(
-        saveError instanceof Error
-          ? saveError.message
-          : "We couldn’t save this draft.",
-      );
-    }
-  };
-
-  const copyEmail = async () => {
+  const shareEmail = async (kind: "copy" | "open") => {
+    if (actionRef.current || conflict) return;
+    actionRef.current = true;
+    setAction(kind);
     setError(null);
     setNotice(null);
     try {
       const exact = await prepareExact();
-      await copyPreparedEmail(exact);
-      setNotice(
-        "Email copied. Attach the Venfour report yourself before sending.",
-      );
-    } catch (copyError) {
-      setError(
-        copyError instanceof Error
-          ? copyError.message
-          : "We couldn’t copy the email.",
-      );
-    }
-  };
-
-  const openEmail = async () => {
-    setError(null);
-    setNotice(null);
-    try {
-      const exact = await prepareExact();
-      openDefaultEmailApp(buildTotalLossMailto(exact));
-      void opened
-        .mutateAsync({
+      if (kind === "copy") {
+        await copyPreparedEmail(exact);
+        setNotice("Email copied. Attach the PDF before sending.");
+      } else {
+        openDefaultEmailApp(buildTotalLossMailto(exact));
+        void recordOpened({
           clientRequestId: requestId(),
           messageVersionId: exact.messageVersionId,
-        })
-        .catch(() => undefined);
-      setNotice(
-        "Email app opened. Venfour has not marked the request sent. Attach the report before sending.",
-      );
-    } catch (openError) {
+        }).catch(() => undefined);
+        setNotice("Email app opened. Attach the PDF before sending.");
+      }
+      if (!sameContent(normalizedContent(contentRef.current), exact)) {
+        setNotice(
+          "The draft changed while you were opening or copying it. Review the current draft before continuing.",
+        );
+        setSharedMessage(null);
+      } else {
+        setSharedMessage(exact);
+      }
+    } catch {
       setError(
-        openError instanceof Error
-          ? openError.message
-          : "We couldn’t open the default email app. You can copy the email instead.",
+        validationError(contentRef.current) ??
+          (kind === "copy"
+            ? "We couldn’t copy the email. Try again after saving your draft, or open your email app."
+            : "We couldn’t open your email app. Try again after saving your draft, or copy the email instead."),
       );
-    }
-  };
-
-  const askToConfirm = async () => {
-    setError(null);
-    try {
-      const exact = await prepareExact();
-      setConfirmedPrepared(exact);
-      setDialogOpen(true);
-    } catch (prepareError) {
-      setError(
-        prepareError instanceof Error
-          ? prepareError.message
-          : "We couldn’t prepare the exact message for confirmation.",
-      );
+    } finally {
+      actionRef.current = false;
+      setAction(null);
     }
   };
 
   const confirmSent = async () => {
-    if (!confirmedPrepared || sent.isPending) return;
+    if (!sharedMessage || actionRef.current) return;
+    actionRef.current = true;
+    setAction("sent");
     setError(null);
     try {
-      await sent.mutateAsync({
+      await recordSent({
         clientRequestId: sentRequestId.current,
-        expectedWorkflowRevision: latestWorkflowRevision(),
-        messageVersionId: confirmedPrepared.messageVersionId,
+        expectedWorkflowRevision: revisionRef.current,
+        messageVersionId: sharedMessage.messageVersionId,
       });
-      setDialogOpen(false);
+      setSent(true);
       await onRefresh();
     } catch {
       await onRefresh().catch(() => undefined);
       setError(
-        "We couldn’t record the confirmation. Your exact prepared message remains saved; try again without creating a duplicate.",
+        "We couldn’t record that the request was sent. Your exact prepared message is saved; try again.",
       );
+    } finally {
+      actionRef.current = false;
+      setAction(null);
     }
   };
 
-  if (sent.data?.state === "awaiting_insurer_response") {
+  if (sent)
     return (
       <RequestRecorded
         accessToken={accessToken}
+        backTo={backTo}
         caseId={caseId}
         report={report}
         userId={userId}
       />
     );
-  }
 
   return (
-    <div>
-      <div className="grid gap-5">
-        <label className="grid gap-2 text-sm font-medium text-ink">
-          Recipient
-          <input
-            className="min-h-12 w-full rounded-xl border border-line bg-white px-4 py-3 text-base font-normal text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
-            onChange={(event) => {
-              setRecipient(event.target.value);
-              edited();
-            }}
-            type="email"
-            value={recipient}
-          />
-        </label>
-        <label className="grid gap-2 text-sm font-medium text-ink">
-          Subject
-          <input
-            className="min-h-12 w-full rounded-xl border border-line bg-white px-4 py-3 text-base font-normal text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
-            onChange={(event) => {
-              setSubject(event.target.value);
-              edited();
-            }}
-            value={subject}
-          />
-        </label>
-        <label className="grid gap-2 text-sm font-medium text-ink">
-          Message
-          <textarea
-            className="min-h-64 w-full resize-y rounded-xl border border-line bg-white px-4 py-3 text-base leading-7 font-normal text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
-            onChange={(event) => {
-              setBody(event.target.value);
-              edited();
-            }}
-            value={body}
-          />
-        </label>
-      </div>
-
-      <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 p-5">
-        <div className="flex gap-3">
-          <Download className="mt-0.5 size-5 shrink-0 text-amber-800" aria-hidden />
-          <div>
-            <h2 className="font-semibold text-amber-950">Attach the report yourself</h2>
-            <p className="mt-2 break-words text-sm leading-6 text-amber-900">
-              Attach <strong>{report.suggestedFilename}</strong> before sending.
-              The email app link cannot attach the PDF automatically.
+    <div className="review-request">
+      <div className="review-request-form">
+        {sharedMessage ? (
+          <section
+            className="review-request-confirmation"
+            aria-labelledby="sent-confirmation-heading"
+          >
+            <p className="review-eyebrow">One last check</p>
+            <h1
+              className="review-heading"
+              id="sent-confirmation-heading"
+              ref={stageHeading}
+              tabIndex={-1}
+            >
+              Sent the email with the report attached?
+            </h1>
+            <p className="review-lead">
+              Send the email from your account, with the market evidence report
+              attached. Then mark it as sent here.
             </p>
-          </div>
+            <dl className="review-message-summary">
+              <div>
+                <dt>To</dt>
+                <dd>{sharedMessage.recipient}</dd>
+              </div>
+              <div>
+                <dt>Subject</dt>
+                <dd>{sharedMessage.subject}</dd>
+              </div>
+            </dl>
+            <p className="review-copy">
+              Opening or copying the email does not send it. “Mark as sent”
+              confirms that you sent this email with the report.
+            </p>
+            <ReportFileRow
+              accessToken={accessToken}
+              caseId={caseId}
+              report={report}
+              userId={userId}
+            />
+          </section>
+        ) : (
+          <>
+            <header className="review-request-heading">
+              <div>
+                <p className="review-eyebrow">Your email, in your words</p>
+                <h1 className="review-heading" ref={stageHeading} tabIndex={-1}>
+                  Review your request
+                </h1>
+              </div>
+              <span className="case-status" role="status">
+                {saving
+                  ? "Saving…"
+                  : saveError
+                    ? "Changes not saved"
+                    : dirty
+                      ? "Unsaved changes"
+                      : "Saved"}
+              </span>
+            </header>
+            <p className="review-lead">
+              Here’s a starting point for your email. Make any changes you’d
+              like before sending it to your insurer.
+            </p>
+            {dirty && validationError(content) ? (
+              <p className="review-copy">
+                Invalid changes won’t be saved until corrected. Your last saved
+                draft is unchanged.
+              </p>
+            ) : null}
+            <div className="review-letter">
+              <div className="case-label">
+                <label htmlFor={`${fieldId}-recipient`}>Recipient</label>
+                <input
+                  aria-describedby={
+                    fieldErrors.recipient
+                      ? `${fieldId}-recipient-error`
+                      : undefined
+                  }
+                  aria-invalid={Boolean(fieldErrors.recipient) || undefined}
+                  autoComplete="email"
+                  className="case-field"
+                  disabled={action !== null || conflict}
+                  id={`${fieldId}-recipient`}
+                  maxLength={320}
+                  onChange={(event) => edit("recipient", event.target.value)}
+                  required
+                  type="email"
+                  value={content.recipient}
+                />
+                {fieldErrors.recipient ? (
+                  <p className="case-error" id={`${fieldId}-recipient-error`}>
+                    {fieldErrors.recipient}
+                  </p>
+                ) : null}
+              </div>
+              <div className="case-label">
+                <label htmlFor={`${fieldId}-subject`}>Subject</label>
+                <input
+                  aria-describedby={
+                    fieldErrors.subject ? `${fieldId}-subject-error` : undefined
+                  }
+                  aria-invalid={Boolean(fieldErrors.subject) || undefined}
+                  className="case-field"
+                  disabled={action !== null || conflict}
+                  id={`${fieldId}-subject`}
+                  maxLength={998}
+                  onChange={(event) => edit("subject", event.target.value)}
+                  required
+                  value={content.subject}
+                />
+                {fieldErrors.subject ? (
+                  <p className="case-error" id={`${fieldId}-subject-error`}>
+                    {fieldErrors.subject}
+                  </p>
+                ) : null}
+              </div>
+              <div className="case-label">
+                <label htmlFor={`${fieldId}-message`}>Message</label>
+                <textarea
+                  aria-describedby={
+                    fieldErrors.body ? `${fieldId}-message-error` : undefined
+                  }
+                  aria-invalid={Boolean(fieldErrors.body) || undefined}
+                  className="case-field case-message-field"
+                  disabled={action !== null || conflict}
+                  id={`${fieldId}-message`}
+                  maxLength={50000}
+                  onChange={(event) => edit("body", event.target.value)}
+                  required
+                  rows={15}
+                  value={content.body}
+                />
+                {fieldErrors.body ? (
+                  <p className="case-error" id={`${fieldId}-message-error`}>
+                    {fieldErrors.body}
+                  </p>
+                ) : null}
+              </div>
+            </div>
+            {saveError ? (
+              <div>
+                <RequestError>{saveError}</RequestError>
+                <button
+                  className="case-button"
+                  data-variant="text"
+                  disabled={saving || action !== null}
+                  onClick={() => void retrySave(conflict)}
+                  type="button"
+                >
+                  {conflict ? "Load saved draft" : "Retry save"}
+                </button>
+              </div>
+            ) : null}
+            <section
+              className="review-request-attachment"
+              aria-labelledby="request-attachment-heading"
+            >
+              <h2 id="request-attachment-heading">Attach the evidence</h2>
+              <p className="review-copy">
+                Download this PDF and attach it before you send your email.
+              </p>
+              <ReportFileRow
+                accessToken={accessToken}
+                caseId={caseId}
+                report={report}
+                userId={userId}
+              />
+            </section>
+          </>
+        )}
+      </div>
+      <footer
+        className="review-actions review-request-actions"
+        aria-label="Request actions"
+      >
+        <div className="review-action-feedback" aria-live="polite">
+          {notice ? (
+            <p className="case-status" role="status">
+              {notice}
+            </p>
+          ) : null}
+          {error ? <RequestError>{error}</RequestError> : null}
         </div>
-        <div className="mt-4">
-          <PublishedReportActions
+        <div className="review-action-buttons">
+          {sharedMessage ? (
+            <>
+              <button
+                className="case-button"
+                data-variant="secondary"
+                disabled={action !== null}
+                onClick={() => setSharedMessage(null)}
+                type="button"
+              >
+                Not yet
+              </button>
+              <button
+                aria-describedby="sent-confirmation-heading"
+                className="case-button"
+                data-variant="primary"
+                disabled={action !== null}
+                onClick={() => void confirmSent()}
+                type="button"
+              >
+                {action === "sent" ? "Recording…" : "Mark as sent"}
+              </button>
+            </>
+          ) : (
+            <>
+              {backTo ? (
+                <Link className="case-button" data-variant="text" to={backTo}>
+                  Back
+                </Link>
+              ) : null}
+              <button
+                className="case-button"
+                data-variant="secondary"
+                disabled={action !== null || conflict}
+                onClick={() => void shareEmail("copy")}
+                type="button"
+              >
+                {action === "copy" ? "Copying…" : "Copy email"}
+              </button>
+              <button
+                className="case-button"
+                data-variant="primary"
+                disabled={action !== null || conflict}
+                onClick={() => void shareEmail("open")}
+                type="button"
+              >
+                {action === "open" ? "Preparing email…" : "Open email app"}
+              </button>
+            </>
+          )}
+        </div>
+      </footer>
+    </div>
+  );
+}
+
+function availableFact(value: string | null | undefined) {
+  return value &&
+    !/^(?:unavailable|not available|not disclosed)$/iu.test(value.trim())
+    ? value
+    : null;
+}
+
+function SendingDetails({
+  details,
+  email,
+  reference,
+  onEmail,
+  onReference,
+  pending,
+  attempted,
+}: {
+  readonly details: TotalLossSendingDetails;
+  readonly email: string;
+  readonly reference: string;
+  readonly onEmail: (value: string) => void;
+  readonly onReference: (value: string) => void;
+  readonly pending: boolean;
+  readonly attempted: boolean;
+}) {
+  const emailError = attempted && !EMAIL_PATTERN.test(email.trim());
+  const referenceError = attempted && !reference.trim();
+  const emailConfirmed = Boolean(
+    details.adjusterEmail && details.adjusterEmailConfirmed,
+  );
+  const referenceConfirmed = Boolean(
+    details.claimReference && details.claimReferenceConfirmed,
+  );
+  return (
+    <div className="case-request-fields">
+      {!emailConfirmed ? (
+        <div className="case-label">
+          <label htmlFor="request-adjuster-email">
+            Adjuster or claims email
+          </label>
+          <input
+            aria-describedby="request-email-help"
+            aria-invalid={emailError || undefined}
+            autoComplete="email"
+            className="case-field"
+            disabled={pending}
+            id="request-adjuster-email"
+            maxLength={320}
+            onChange={(event) => onEmail(event.target.value)}
+            required
+            type="email"
+            value={email}
+          />
+          <span
+            className={emailError ? "case-error" : "case-copy"}
+            id="request-email-help"
+          >
+            {emailError
+              ? "Enter the adjuster’s valid email address."
+              : "Required so the request is addressed to your insurer."}
+          </span>
+        </div>
+      ) : (
+        <p className="case-copy">
+          Recipient: <strong>{details.adjusterEmail}</strong>
+        </p>
+      )}
+      {!referenceConfirmed ? (
+        <div className="case-label">
+          <label htmlFor="request-claim-reference">
+            Claim or reference number
+          </label>
+          <input
+            aria-describedby="request-reference-help"
+            aria-invalid={Boolean(referenceError) || undefined}
+            className="case-field"
+            disabled={pending}
+            id="request-claim-reference"
+            maxLength={200}
+            onChange={(event) => onReference(event.target.value)}
+            required
+            value={reference}
+          />
+          <span
+            className={referenceError ? "case-error" : "case-copy"}
+            id="request-reference-help"
+          >
+            {referenceError
+              ? "Enter the claim or reference number."
+              : "Required so the insurer can identify your claim."}
+          </span>
+        </div>
+      ) : (
+        <p className="case-copy">
+          Claim reference: <strong>{details.claimReference}</strong>
+        </p>
+      )}
+    </div>
+  );
+}
+
+export function MessagePreparation(props: MessagePreparationProps) {
+  const { accessToken, caseId, claim, report, userId } = props;
+  const { mutateAsync: recordEducation } =
+    useTotalLossEducationProgressMutation({ accessToken, caseId, userId });
+  const { mutateAsync: saveDetails } = useTotalLossSendingDetailsMutation({
+    accessToken,
+    caseId,
+    userId,
+  });
+  const { mutateAsync: prepare } = useTotalLossPrepareMessageMutation({
+    accessToken,
+    caseId,
+    userId,
+  });
+  const { mutateAsync: saveDraft } = useTotalLossMessageDraftMutation({
+    accessToken,
+    caseId,
+    userId,
+  });
+  const [draft, setDraft] = useState<TotalLossMessageDraft | null>(
+    claim.messageDraft ?? null,
+  );
+  const [preparedVersion, setPreparedVersion] =
+    useState<TotalLossPreparedMessageVersion | null>(null);
+  const [preparedRevision, setPreparedRevision] = useState<number | null>(null);
+  const [email, setEmail] = useState(claim.sendingDetails?.adjusterEmail ?? "");
+  const [reference, setReference] = useState(
+    claim.sendingDetails?.claimReference ?? "",
+  );
+  const [creating, setCreating] = useState(false);
+  const [attempted, setAttempted] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const request = useRef(requestId());
+  const creatingRef = useRef(false);
+  const pendingGenerated = useRef<Awaited<ReturnType<typeof prepare>> | null>(
+    null,
+  );
+  const details = claim.sendingDetails;
+
+  const createDraft = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (creatingRef.current || !claim.workflow || !details) return;
+    setAttempted(true);
+    if (!EMAIL_PATTERN.test(email.trim())) {
+      setError("Enter the adjuster’s valid email address.");
+      return;
+    }
+    if (!reference.trim()) {
+      setError("Enter the claim or reference number.");
+      return;
+    }
+    creatingRef.current = true;
+    setCreating(true);
+    setError(null);
+    try {
+      let revision = claim.workflow.revision;
+      if (!pendingGenerated.current) {
+        if (!claim.education?.steps.result.completedAt) {
+          const result = await recordEducation({
+            expectedWorkflowRevision: revision,
+            state: "completed",
+            step: "result",
+          });
+          revision = result.workflowRevision;
+        }
+        const progress = claim.education?.steps;
+        if (
+          !OPTIONAL_REVIEW.some((step) => progress?.[step].skippedAt) &&
+          !OPTIONAL_REVIEW.every((step) => progress?.[step].completedAt)
+        ) {
+          const skip = !progress?.what_next.completedAt
+            ? "what_next"
+            : (OPTIONAL_REVIEW.find((step) => !progress?.[step].completedAt) ??
+              "what_next");
+          const result = await recordEducation({
+            expectedWorkflowRevision: revision,
+            state: "skipped",
+            step: skip,
+          });
+          revision = result.workflowRevision;
+        }
+        if (
+          !details.adjusterEmailConfirmed ||
+          !details.claimReferenceConfirmed ||
+          email.trim() !== details.adjusterEmail ||
+          reference.trim() !== details.claimReference
+        ) {
+          const result = await saveDetails({
+            adjusterName: details.adjusterName,
+            adjusterEmail: email.trim(),
+            adjusterEmailConfirmed: true,
+            claimReference: reference.trim(),
+            claimReferenceConfirmed: true,
+            expectedRevision: details.revision,
+            expectedWorkflowRevision: revision,
+          });
+          revision = result.workflowRevision;
+        }
+        pendingGenerated.current = await prepare({
+          clientRequestId: request.current,
+          expectedWorkflowRevision: revision,
+        });
+      }
+      const generated = pendingGenerated.current;
+      const repairedBody = normalizeCustomerRequestBody(
+        generated.draft.body,
+        report,
+      );
+      let nextDraft = generated.draft;
+      let nextVersion: TotalLossPreparedMessageVersion | null =
+        generated.messageVersion;
+      if (repairedBody !== generated.draft.body) {
+        const corrected = normalizedContent({
+          body: repairedBody,
+          recipient: generated.draft.recipient ?? email.trim(),
+          subject: generated.draft.subject,
+        });
+        try {
+          nextDraft = await saveDraft({
+            ...corrected,
+            expectedRevision: generated.draft.revision,
+          });
+        } catch {
+          const current = await getTotalLossMessageDraft(caseId, accessToken);
+          if (
+            current.reportVersionId !== generated.draft.reportVersionId ||
+            !sameContent(contentOf(current), corrected)
+          )
+            throw new Error("The draft could not be saved.");
+          nextDraft = current;
+        }
+        nextVersion = null;
+      }
+      setPreparedRevision(generated.workflowRevision);
+      setPreparedVersion(nextVersion);
+      setDraft(nextDraft);
+    } catch {
+      await props.onRefresh().catch(() => undefined);
+      setError(
+        "We couldn’t create your request draft. Your case is saved; try again.",
+      );
+    } finally {
+      creatingRef.current = false;
+      setCreating(false);
+    }
+  };
+
+  if (
+    claim.journey?.nextState === "awaiting_insurer_response" ||
+    claim.journey?.fulfillmentState === "awaiting_insurer_response" ||
+    claim.workflow?.currentTask === "awaiting_insurer_response"
+  )
+    return <RequestRecorded {...props} />;
+  const incomingDraft = creating ? null : claim.messageDraft;
+  const selectedDraft =
+    incomingDraft && (!draft || incomingDraft.revision > draft.revision)
+      ? incomingDraft
+      : draft;
+  if (selectedDraft)
+    return (
+      <DraftEditor
+        {...props}
+        draft={selectedDraft}
+        initialPreparedMessage={preparedVersion}
+        key={selectedDraft.draftId}
+        workflowRevision={Math.max(
+          preparedRevision ?? 0,
+          claim.workflow?.revision ?? 1,
+        )}
+      />
+    );
+
+  return (
+    <form
+      className="review-request"
+      onInvalid={() => setAttempted(true)}
+      onSubmit={(event) => void createDraft(event)}
+    >
+      <div className="review-request-form">
+        <p className="review-eyebrow">Let’s put the evidence to work</p>
+        <h1 className="review-heading">Prepare your request</h1>
+        <p className="review-lead">
+          We’ll help you ask your insurer to review the valuation in writing.
+          First, check where the email should go.
+        </p>
+        {details ? (
+          <>
+            <dl className="review-request-facts">
+              {availableFact(details.insurerName) ? (
+                <div>
+                  <dt>Insurance company</dt>
+                  <dd>{details.insurerName}</dd>
+                </div>
+              ) : null}
+              {availableFact(details.customerName) ? (
+                <div>
+                  <dt>Vehicle owner</dt>
+                  <dd>{details.customerName}</dd>
+                </div>
+              ) : null}
+            </dl>
+            <SendingDetails
+              attempted={attempted}
+              details={details}
+              email={email}
+              reference={reference}
+              onEmail={setEmail}
+              onReference={setReference}
+              pending={creating}
+            />
+          </>
+        ) : (
+          <RequestError>
+            Sending details are temporarily unavailable. Refresh this case
+            before preparing a request.
+          </RequestError>
+        )}
+        <p className="review-copy">
+          You’ll be able to edit the entire email. Nothing is sent until you
+          send it from your own email account.
+        </p>
+        <details className="review-disclosure">
+          <summary>The evidence you’ll attach</summary>
+          <p className="review-copy">
+            The PDF includes the valuation comparison, selected listings, and
+            the review’s limitations.
+          </p>
+          <ReportFileRow
             accessToken={accessToken}
             caseId={caseId}
             report={report}
             userId={userId}
           />
+        </details>
+      </div>
+      <footer
+        className="review-actions review-request-actions"
+        aria-label="Request actions"
+      >
+        <div className="review-action-feedback">
+          <p className="case-status" id="request-creation-acknowledgement">
+            Creating a draft confirms you’ve reviewed the completed result and
+            are ready to prepare your request.
+          </p>
+          {error ? <RequestError>{error}</RequestError> : null}
         </div>
-      </div>
-
-      <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-        <Button
-          className="min-h-12"
-          disabled={saveDraft.isPending || prepare.isPending}
-          onClick={() => void save()}
-          type="button"
-          variant="outline"
-        >
-          Save changes
-        </Button>
-        <Button
-          className="min-h-12"
-          disabled={saveDraft.isPending || prepare.isPending}
-          onClick={() => void copyEmail()}
-          type="button"
-          variant="outline"
-        >
-          <Copy className="size-4" aria-hidden />
-          Copy email
-        </Button>
-        <Button
-          className="min-h-12"
-          disabled={saveDraft.isPending || prepare.isPending}
-          onClick={() => void openEmail()}
-          type="button"
-        >
-          <Mail className="size-4" aria-hidden />
-          Open default email app
-        </Button>
-        <Button
-          className="min-h-12"
-          disabled={saveDraft.isPending || prepare.isPending || sent.isPending}
-          onClick={() => void askToConfirm()}
-          type="button"
-          variant="secondary"
-        >
-          <Send className="size-4" aria-hidden />
-          I sent it
-        </Button>
-      </div>
-      <p className="mt-4 text-sm leading-6 text-copy">
-        Copying or opening the email does not mark it sent, delivered, or
-        received. Use “I sent it” only after sending the email and attaching the
-        report.
-      </p>
-      {notice ? (
-        <p className="mt-4 rounded-xl border border-brand/15 bg-brand-soft/55 px-4 py-3 text-sm leading-6 text-ink" role="status">
-          {notice}
-        </p>
-      ) : null}
-      {error ? <WorkflowError>{error}</WorkflowError> : null}
-      <SentConfirmationDialog
-        onConfirm={() => void confirmSent()}
-        onOpenChange={setDialogOpen}
-        open={dialogOpen}
-        pending={sent.isPending}
-      />
-    </div>
-  );
-}
-
-interface MessagePreparationProps {
-  readonly accessToken: string;
-  readonly caseId: string;
-  readonly claim: TotalLossClaimSecured;
-  readonly onRefresh: () => Promise<unknown>;
-  readonly report: TotalLossPublishedReport;
-  readonly userId: string;
-}
-
-export function MessagePreparation(props: MessagePreparationProps) {
-  const { accessToken, caseId, claim, report, userId } = props;
-  const navigate = useNavigate();
-  const education = useTotalLossEducationProgressMutation({
-    accessToken,
-    caseId,
-    userId,
-  });
-  const viewed = useRef(false);
-  const prepare = useTotalLossPrepareMessageMutation({
-    accessToken,
-    caseId,
-    userId,
-  });
-  const createDraftRequestId = useRef(requestId());
-  const [preparedDraft, setPreparedDraft] = useState<TotalLossMessageDraft | null>(
-    claim.messageDraft ?? null,
-  );
-  const [preparedWorkflowRevision, setPreparedWorkflowRevision] = useState<
-    number | null
-  >(null);
-  const [preparedVersion, setPreparedVersion] =
-    useState<TotalLossPreparedMessageVersion | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (viewed.current || claim.education?.steps.send.viewedAt || !claim.workflow) {
-      return;
-    }
-    viewed.current = true;
-    void education
-      .mutateAsync({
-        expectedWorkflowRevision: claim.workflow.revision,
-        state: "viewed",
-        step: "send",
-      })
-      .catch(() => undefined);
-  }, [claim.education, claim.workflow, education]);
-
-  const details = claim.sendingDetails;
-  const detailsReady = Boolean(
-    details?.adjusterEmail &&
-      details.adjusterEmailConfirmed &&
-      details.claimReference &&
-      details.claimReferenceConfirmed,
-  );
-  const awaiting = claim.journey?.nextState === "awaiting_insurer_response";
-
-  const createDraft = async () => {
-    if (!claim.workflow) return;
-    setError(null);
-    try {
-      const result = await prepare.mutateAsync({
-        clientRequestId: createDraftRequestId.current,
-        expectedWorkflowRevision: claim.workflow.revision,
-      });
-      setPreparedDraft(result.draft);
-      setPreparedVersion(result.messageVersion);
-      setPreparedWorkflowRevision(result.workflowRevision);
-    } catch {
-      setError(
-        "We couldn’t prepare the deterministic request draft. Refresh the authoritative case state and try again.",
-      );
-    }
-  };
-
-  const selectedDraft = preparedDraft ?? claim.messageDraft;
-  const selectedWorkflowRevision =
-    preparedWorkflowRevision ?? claim.workflow?.revision ?? null;
-
-  return (
-    <GuidedClaimShell
-      caseId={caseId}
-      description="Review and edit the deterministic, evidence-focused request before using your own email app. Venfour does not send the email for you."
-      education={claim.education ?? null}
-      eyebrow="Step 6 of 6 · Required"
-      heading="Review your valuation reconsideration request"
-      view="send"
-    >
-      {awaiting ? (
-        <RequestRecorded
-          accessToken={accessToken}
-          caseId={caseId}
-          report={report}
-          userId={userId}
-        />
-      ) : !details ? (
-        <WorkflowError>
-          Sending details are temporarily unavailable. Refresh this case before
-          preparing a request.
-        </WorkflowError>
-      ) : !detailsReady ? (
-        <SendingDetailsForm {...props} details={details} />
-      ) : selectedDraft && selectedWorkflowRevision !== null ? (
-        <DraftEditor
-          {...props}
-          draft={selectedDraft}
-          initialPreparedMessage={preparedVersion}
-          key={selectedDraft.draftId}
-          workflowRevision={selectedWorkflowRevision}
-        />
-      ) : (
-        <div>
-          <div className="rounded-2xl border border-line bg-surface/60 p-5 text-sm leading-6 text-copy">
-            Venfour will generate a concise neutral baseline from the confirmed
-            case facts and published report. The template is deterministic and
-            does not use a provider-backed writing service.
-          </div>
-          <Button
-            className="mt-6 min-h-12"
-            disabled={prepare.isPending}
-            onClick={() => void createDraft()}
-            type="button"
+        <div className="review-action-buttons">
+          {props.backTo ? (
+            <Link className="case-button" data-variant="text" to={props.backTo}>
+              Back
+            </Link>
+          ) : null}
+          <button
+            aria-describedby="request-creation-acknowledgement"
+            className="case-button"
+            data-variant="primary"
+            disabled={creating || !details || !claim.workflow}
+            type="submit"
           >
-            {prepare.isPending ? "Preparing request…" : "Prepare request draft"}
-          </Button>
-          {error ? <WorkflowError>{error}</WorkflowError> : null}
+            {creating ? "Creating draft…" : "Create request draft"}
+          </button>
         </div>
-      )}
-      {!awaiting ? (
-        <Button
-          className="mt-7"
-          onClick={() => void navigate(totalLossClaimViewPath(caseId, "what_next"))}
-          type="button"
-          variant="ghost"
-        >
-          <ArrowLeft className="size-4" aria-hidden />
-          Back
-        </Button>
-      ) : null}
-    </GuidedClaimShell>
+      </footer>
+    </form>
   );
 }

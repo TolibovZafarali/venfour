@@ -52,6 +52,7 @@ function AppShellContent() {
   const findReviewRoute = useMatch("/find-review");
   const productFlowRoute = Boolean(analysisRoute || totalLossCaseRoute || previewReturnRoute || previewReadyRoute || findReviewRoute);
   const location = useLocation();
+  const completedReviewRoute = /^\/total-loss\/cases\/[^/]+\/claim\/(overview|evidence|request|activity|guide(?:\/.*)?|review(?:\/.*)?)\/?$/.test(location.pathname);
   const adminRoute = location.pathname.startsWith("/admin/");
   const startFlowRoute =
     location.pathname === "/start" || location.pathname === "/total-loss/start";
@@ -177,7 +178,7 @@ function AppShellContent() {
     : "duration-[360ms] ease-[cubic-bezier(0.4,0,0.2,1)]";
 
   return (
-    <div className="relative flex min-h-svh flex-col bg-background">
+    <div className={cn("relative flex min-h-svh flex-col bg-background", completedReviewRoute && "review-app")}>
       <span
         ref={headerSentinelRef}
         className="pointer-events-none absolute top-0 left-0 h-px w-px"
@@ -251,7 +252,12 @@ function AppShellContent() {
                 ) : null}
               </div>
 
-              {productFlowRoute ? null : startFlowRoute || adminRoute ? (
+              {completedReviewRoute ? (
+                <div className="review-account-navigation">
+                  {isPermanentAuthState(auth) && <Link to="/appraisals" className={primaryLinkClassName}>My appraisals</Link>}
+                  <AccountControl className="shrink-0" onStaffNavigationRequest={requestStaffNavigation} staffReviewHref={staffReviewHref} />
+                </div>
+              ) : productFlowRoute ? null : startFlowRoute || adminRoute ? (
                 <AccountControl
                   className="shrink-0"
                   onStaffNavigationRequest={requestStaffNavigation}
@@ -461,7 +467,7 @@ function AppShellContent() {
         id="main-content"
         className={cn(
           "flex flex-1",
-          appRouteGradientClassName(location.pathname),
+          !completedReviewRoute && appRouteGradientClassName(location.pathname),
         )}
         tabIndex={-1}
       >

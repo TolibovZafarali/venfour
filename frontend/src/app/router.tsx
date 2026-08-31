@@ -155,6 +155,61 @@ export const appRoutes: RouteObject[] = [
         ),
       },
       {
+        path: "total-loss/cases/:caseId/claim/review/result",
+        element: <TotalLossClaimWorkflowPage view="review_result" />,
+        handle: metadata("Your Valuation Result | Venfour", "A guided review of your completed total-loss valuation and supporting evidence."),
+      },
+      {
+        path: "total-loss/cases/:caseId/claim/review/insurer",
+        element: <TotalLossClaimWorkflowPage view="review_insurer" />,
+        handle: metadata("Understanding the Insurer Valuation | Venfour", "A guided review of your completed total-loss valuation and supporting evidence."),
+      },
+      {
+        path: "total-loss/cases/:caseId/claim/review/market",
+        element: <TotalLossClaimWorkflowPage view="review_market" />,
+        handle: metadata("Understanding the Market Evidence | Venfour", "A guided review of your completed total-loss valuation and supporting evidence."),
+      },
+      {
+        path: "total-loss/cases/:caseId/claim/review/meaning",
+        element: <TotalLossClaimWorkflowPage view="review_meaning" />,
+        handle: metadata("What Your Valuation Result Means | Venfour", "A guided review of your completed total-loss valuation and supporting evidence."),
+      },
+      {
+        path: "total-loss/cases/:caseId/claim/review/next",
+        element: <TotalLossClaimWorkflowPage view="review_next" />,
+        handle: metadata("Your Next Step | Venfour", "A guided review of your completed total-loss valuation and supporting evidence."),
+      },
+      {
+        path: "total-loss/cases/:caseId/claim/review/request",
+        element: <TotalLossClaimWorkflowPage view="review_request" />,
+        handle: metadata("Prepare Your Reconsideration Request | Venfour", "A guided review of your completed total-loss valuation and supporting evidence."),
+      },
+      {
+        path: "total-loss/cases/:caseId/claim/review/sent",
+        element: <TotalLossClaimWorkflowPage view="review_sent" />,
+        handle: metadata("Your Reconsideration Request | Venfour", "A guided review of your completed total-loss valuation and supporting evidence."),
+      },
+      {
+        path: "total-loss/cases/:caseId/claim/overview",
+        element: <TotalLossClaimWorkflowPage view="overview" />,
+        handle: metadata("Valuation Overview | Venfour", "Understand your completed total-loss valuation and supporting evidence."),
+      },
+      {
+        path: "total-loss/cases/:caseId/claim/evidence",
+        element: <TotalLossClaimWorkflowPage view="evidence" />,
+        handle: metadata("Valuation Evidence | Venfour", "Understand your completed total-loss valuation and supporting evidence."),
+      },
+      {
+        path: "total-loss/cases/:caseId/claim/request",
+        element: <TotalLossClaimWorkflowPage view="request" />,
+        handle: metadata("Valuation Request | Venfour", "Understand your completed total-loss valuation and supporting evidence."),
+      },
+      {
+        path: "total-loss/cases/:caseId/claim/activity",
+        element: <TotalLossClaimWorkflowPage view="activity" />,
+        handle: metadata("Case Activity | Venfour", "Understand your completed total-loss valuation and supporting evidence."),
+      },
+      {
         path: "total-loss/cases/:caseId/claim/guide/result",
         element: <TotalLossClaimWorkflowPage view="result" />,
         handle: metadata(

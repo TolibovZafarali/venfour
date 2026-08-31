@@ -13,15 +13,12 @@ import {
   ProcessingScreen,
 } from "@/features/total-loss-claim/components/checkout-experience";
 import { ClaimStateCard } from "@/features/total-loss-claim/components/claim-state-card";
-import {
-  GuidedExperience,
-  NoDisputeExperience,
-} from "@/features/total-loss-claim/components/guided-experience";
-import { MessagePreparation } from "@/features/total-loss-claim/components/message-preparation";
+import { GuidedReview } from "@/features/total-loss-claim/components/guided-review";
 import type { TotalLossClaimSecured } from "@/features/total-loss-claim/contracts";
 import { useTotalLossClaimQuery } from "@/features/total-loss-claim/queries";
 import {
   authoritativeTotalLossClaimPath,
+  reviewStageForView,
   isGuideView,
   totalLossClaimBasePath,
   totalLossClaimViewPath,
@@ -115,7 +112,8 @@ function WorkflowContent({
   }
 
   if (!isGuideView(view) || !guideIsAvailable(claim) || !claim.report) {
-    if (authoritativePath) return <Navigate replace to={authoritativePath} />;
+    if (authoritativePath && !authoritativePath.includes("/review/"))
+      return <Navigate replace to={authoritativePath} />;
     return (
       <ClaimStateCard
         kind="error"
@@ -129,83 +127,33 @@ function WorkflowContent({
     );
   }
 
-  const noDispute =
-    nextState === "no_dispute" ||
-    claim.journey?.fulfillmentState === "no_dispute" ||
-    !claim.report.conclusion.continuingSupported;
-  if (noDispute) {
-    if (view !== "result") {
-      return <Navigate replace to={totalLossClaimViewPath(caseId, "result")} />;
-    }
+  const stage = reviewStageForView(view);
+  if (view !== `review_${stage}`) {
+    const query =
+      view === "evidence"
+        ? searchParameters.get("evidence") === "insurer"
+          ? "?details=insurer"
+          : "?details=market"
+        : view === "report"
+          ? "?details=report"
+          : "";
     return (
-      <NoDisputeExperience
-        accessToken={accessToken}
-        caseId={caseId}
-        claim={claim}
-        report={claim.report}
-        userId={userId}
-      />
-    );
-  }
-
-  const resultCompleted = Boolean(claim.education?.steps.result.completedAt);
-  if (view !== "result" && !resultCompleted) {
-    return <Navigate replace to={totalLossClaimViewPath(caseId, "result")} />;
-  }
-
-  if (view === "send") {
-    const legacySendProgress = claim.education?.steps.send;
-    const legacyOptionalProgress = claim.education
-      ? (["insurer_review", "valuation", "report", "what_next"] as const).map(
-          (step) => claim.education!.steps[step],
-        )
-      : [];
-    const legacySendAvailable = Boolean(
-      !claim.journey &&
-        (legacySendProgress?.viewedAt ||
-          legacySendProgress?.completedAt ||
-          legacySendProgress?.skippedAt ||
-          legacyOptionalProgress.some((step) => step.skippedAt) ||
-          (legacyOptionalProgress.length === 4 &&
-            legacyOptionalProgress.every(
-              (step) => step.completedAt || step.skippedAt,
-            ))),
-    );
-    const sendAvailable =
-      nextState === "prepare_request" ||
-      nextState === "awaiting_insurer_response" ||
-      legacySendAvailable;
-    if (!sendAvailable) {
-      return (
-        <Navigate
-          replace
-          to={
-            authoritativePath ??
-            totalLossClaimViewPath(caseId, "insurer_review")
-          }
-        />
-      );
-    }
-    return (
-      <MessagePreparation
-        accessToken={accessToken}
-        caseId={caseId}
-        claim={claim}
-        onRefresh={refetch}
-        report={claim.report}
-        userId={userId}
+      <Navigate
+        replace
+        to={`${totalLossClaimViewPath(caseId, `review_${stage}`)}${query}`}
       />
     );
   }
 
   return (
-    <GuidedExperience
+    <GuidedReview
       accessToken={accessToken}
       caseId={caseId}
       claim={claim}
+      onRefresh={refetch}
       report={claim.report}
       userId={userId}
-      view={view}
+      stage={stage}
     />
   );
 }
@@ -240,7 +188,7 @@ export function TotalLossClaimWorkflowPage({
       <ClaimStateCard
         kind="loading"
         heading="Checking your secure session…"
-        description="Venfour is confirming access before loading this private claim step."
+        description="Venfour is confirming access before loading this private claim."
       />
     );
   }
@@ -253,7 +201,11 @@ export function TotalLossClaimWorkflowPage({
       />
     );
   }
-  if (auth.status === "signedOut" || (!isPermanentAuthState(auth) && !(view === "checkout" && isAnonymousAuthState(auth)))) {
+  if (
+    auth.status === "signedOut" ||
+    (!isPermanentAuthState(auth) &&
+      !(view === "checkout" && isAnonymousAuthState(auth)))
+  ) {
     return <Navigate replace to={basePath} />;
   }
 
@@ -283,15 +235,32 @@ function AuthenticatedWorkflowPage({
   readonly view: TotalLossClaimWorkflowView;
 }) {
   const [verificationPending, setVerificationPending] = useState(false);
-  const suspendRefetch = identity === "anonymous" && view === "checkout" && verificationPending;
-  const claimQuery = useTotalLossClaimQuery({ accessToken, caseId, suspendRefetch, userId });
+  const suspendRefetch =
+    identity === "anonymous" && view === "checkout" && verificationPending;
+  const claimQuery = useTotalLossClaimQuery({
+    accessToken,
+    caseId,
+    suspendRefetch,
+    userId,
+  });
 
   if (
     claimQuery.data?.state === "secure_required" &&
-    identity === "anonymous" && view === "checkout" &&
+    identity === "anonymous" &&
+    view === "checkout" &&
     (!claimQuery.isError || suspendRefetch)
   ) {
-    return <CheckoutScreen accessToken={accessToken} canceled={false} caseId={caseId} claim={claimQuery.data} onRefresh={claimQuery.refetch} onVerificationPendingChange={setVerificationPending} userId={userId} />;
+    return (
+      <CheckoutScreen
+        accessToken={accessToken}
+        canceled={false}
+        caseId={caseId}
+        claim={claimQuery.data}
+        onRefresh={claimQuery.refetch}
+        onVerificationPendingChange={setVerificationPending}
+        userId={userId}
+      />
+    );
   }
 
   if (claimQuery.isPending) {
@@ -299,18 +268,21 @@ function AuthenticatedWorkflowPage({
       <ClaimStateCard
         kind="loading"
         heading="Opening your claim…"
-        description="Venfour is loading the current server-authoritative step."
+        description="Venfour is loading your saved case and completed evidence."
       />
     );
   }
   if (claimQuery.isError) {
-    if (claimQuery.error instanceof ApiError && [401, 404].includes(claimQuery.error.status)) {
+    if (
+      claimQuery.error instanceof ApiError &&
+      [401, 404].includes(claimQuery.error.status)
+    ) {
       return <Navigate replace to={totalLossClaimBasePath(caseId)} />;
     }
     return (
       <ClaimStateCard
         kind="error"
-        heading="We couldn’t open this claim step"
+        heading="We couldn’t open this claim"
         description="Venfour could not verify the current claim state. No payment, report, or message information has been changed."
       >
         <Button onClick={() => void claimQuery.refetch()} type="button">

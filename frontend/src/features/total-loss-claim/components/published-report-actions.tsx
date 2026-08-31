@@ -1,32 +1,38 @@
-import { Download, ExternalLink } from "lucide-react";
+import { Download, ExternalLink, FileText } from "lucide-react";
 import { useState } from "react";
 
-import { Button } from "@/components/ui/button";
-import { openPublishedReport } from "@/features/total-loss-claim/browser-actions";
-import type { TotalLossPublishedReport } from "@/features/total-loss-claim/contracts";
-import { useTotalLossReportDownloadMutation } from "@/features/total-loss-claim/queries";
-import { WorkflowError } from "@/features/total-loss-claim/components/claim-workflow-shell";
+import { openPublishedReport } from "../browser-actions";
+import type { TotalLossPublishedReport } from "../contracts";
+import { useTotalLossReportDownloadMutation } from "../queries";
+
+interface ReportActionProps {
+  readonly accessToken: string;
+  readonly caseId: string;
+  readonly report: TotalLossPublishedReport;
+  readonly userId: string;
+  readonly compact?: boolean;
+}
 
 export function PublishedReportActions({
   accessToken,
   caseId,
   report,
   userId,
-}: {
-  readonly accessToken: string;
-  readonly caseId: string;
-  readonly report: TotalLossPublishedReport;
-  readonly userId: string;
-}) {
+  compact = false,
+}: ReportActionProps) {
   const download = useTotalLossReportDownloadMutation({
     accessToken,
     caseId,
     userId,
   });
   const [error, setError] = useState<string | null>(null);
-
+  const [pendingAction, setPendingAction] = useState<
+    "view" | "download" | null
+  >(null);
   const open = async (preview: boolean) => {
+    if (pendingAction) return;
     setError(null);
+    setPendingAction(preview ? "view" : "download");
     try {
       const details = await download.mutateAsync({
         reportVersionId: report.reportId,
@@ -38,33 +44,76 @@ export function PublishedReportActions({
       );
     } catch {
       setError(
-        "We couldn’t open the report just now. Try again; your published report remains available.",
+        `We couldn’t ${preview ? "open" : "download"} the report. Please try again.`,
       );
+    } finally {
+      setPendingAction(null);
     }
   };
-
   return (
-    <div>
-      <div className="flex flex-wrap gap-3">
-        <Button
+    <div className="case-report-actions">
+      <div className="case-utility-actions">
+        <button
           type="button"
-          variant="outline"
-          disabled={download.isPending}
+          className="case-button"
+          data-variant="text"
+          disabled={pendingAction !== null}
           onClick={() => void open(true)}
         >
-          <ExternalLink className="size-4" aria-hidden />
-          Open report
-        </Button>
-        <Button
+          <ExternalLink aria-hidden />
+          {pendingAction === "view"
+            ? "Opening…"
+            : compact
+              ? "View"
+              : "View report"}
+        </button>
+        <button
           type="button"
-          disabled={download.isPending}
+          className="case-button"
+          data-variant="text"
+          disabled={pendingAction !== null}
           onClick={() => void open(false)}
         >
-          <Download className="size-4" aria-hidden />
-          {download.isPending ? "Preparing download…" : "Download report"}
-        </Button>
+          <Download aria-hidden />
+          {pendingAction === "download"
+            ? "Preparing PDF…"
+            : compact
+              ? "Download"
+              : "Download PDF"}
+        </button>
       </div>
-      {error ? <WorkflowError>{error}</WorkflowError> : null}
+      {pendingAction && (
+        <span className="sr-only" role="status">
+          Preparing your report
+        </span>
+      )}
+      {error && (
+        <p className="case-error" role="alert">
+          {error}
+        </p>
+      )}
+    </div>
+  );
+}
+
+export function ReportFileRow(props: ReportActionProps) {
+  const { report } = props;
+  return (
+    <div className="case-report-file">
+      <div className="case-file-heading">
+        <FileText aria-hidden />
+        <div>
+          <h2>Venfour Total-Loss Valuation Evidence Package</h2>
+          <p>
+            PDF · {report.versionLabel} · Issued {report.issueDate}
+          </p>
+        </div>
+      </div>
+      <PublishedReportActions {...props} compact />
+      <details className="case-file-details">
+        <summary>File details</summary>
+        <p>{report.suggestedFilename}</p>
+      </details>
     </div>
   );
 }

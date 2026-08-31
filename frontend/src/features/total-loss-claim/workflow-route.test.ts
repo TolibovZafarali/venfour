@@ -4,6 +4,7 @@ import type { TotalLossClaimResolver } from "@/features/total-loss-claim/contrac
 import {
   authoritativeTotalLossClaimPath,
   routeForJourneyState,
+  totalLossClaimViewPath,
 } from "@/features/total-loss-claim/workflow-route";
 
 const CASE_ID = "33333333-3333-4333-8333-333333333333";
@@ -46,18 +47,35 @@ describe("total-loss claim authoritative route decisions", () => {
     ["checkout", `/total-loss/cases/${CASE_ID}/claim/checkout`],
     ["checkout_confirmation", `/total-loss/cases/${CASE_ID}/claim/checkout`],
     ["processing", `/total-loss/cases/${CASE_ID}/claim/processing`],
-    ["guide_result", `/total-loss/cases/${CASE_ID}/claim/guide/result`],
-    ["guide_insurer_review", `/total-loss/cases/${CASE_ID}/claim/guide/insurer-review`],
-    ["guide_valuation", `/total-loss/cases/${CASE_ID}/claim/guide/valuation`],
-    ["guide_report", `/total-loss/cases/${CASE_ID}/claim/guide/report`],
-    ["guide_what_next", `/total-loss/cases/${CASE_ID}/claim/guide/what-next`],
-    ["prepare_request", `/total-loss/cases/${CASE_ID}/claim/guide/send`],
-    ["awaiting_insurer_response", `/total-loss/cases/${CASE_ID}/claim/guide/send`],
-    ["no_dispute", `/total-loss/cases/${CASE_ID}/claim/guide/result`],
+    ["guide_result", `/total-loss/cases/${CASE_ID}/claim/review/result`],
+    ["guide_insurer_review", `/total-loss/cases/${CASE_ID}/claim/review/insurer`],
+    ["guide_valuation", `/total-loss/cases/${CASE_ID}/claim/review/market`],
+    ["guide_report", `/total-loss/cases/${CASE_ID}/claim/review/next`],
+    ["guide_what_next", `/total-loss/cases/${CASE_ID}/claim/review/next`],
+    ["prepare_request", `/total-loss/cases/${CASE_ID}/claim/review/request`],
+    ["awaiting_insurer_response", `/total-loss/cases/${CASE_ID}/claim/review/sent`],
+    ["no_dispute", `/total-loss/cases/${CASE_ID}/claim/review/result`],
   ] as const)("routes %s to its case-scoped state", (state, expected) => {
     expect(routeForJourneyState(CASE_ID, state)).toBe(expected);
     expect(authoritativeTotalLossClaimPath(securedResolver(state))).toBe(
       expected,
+    );
+  });
+
+  it.each([
+    ["result", "review_result"],
+    ["valuation", "review_market"],
+    ["report", "review_next"],
+    ["insurer_review", "review_insurer"],
+    ["send", "review_request"],
+    ["what_next", "review_next"],
+    ["overview", "review_result"],
+    ["evidence", "review_market"],
+    ["request", "review_request"],
+    ["activity", "review_sent"],
+  ] as const)("maps the legacy %s view to the %s review stage", (legacy, stage) => {
+    expect(totalLossClaimViewPath(CASE_ID, legacy)).toBe(
+      totalLossClaimViewPath(CASE_ID, stage),
     );
   });
 
