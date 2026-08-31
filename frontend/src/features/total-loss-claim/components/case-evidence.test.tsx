@@ -1,12 +1,12 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import {
   CaseEvidence,
   MethodologyDisclosure,
-  ValueRangeComparison,
 } from "@/features/total-loss-claim/components/case-evidence";
+import { moneyLabel } from "@/features/total-loss-claim/report-format";
 import type {
   TotalLossMoney,
   TotalLossPublishedReport,
@@ -119,129 +119,6 @@ function report(): TotalLossPublishedReport {
   };
 }
 
-describe("value range comparison", () => {
-  it("shows stored prices with an explicit median and a separate legend", () => {
-    render(<ValueRangeComparison report={report()} />);
-    expect(screen.getByRole("img")).toHaveAccessibleName(
-      "Insurer value $18,000; selected listing range $20,000 to $22,000; median $21,000.",
-    );
-    expect(
-      screen.getByText("$3,000 below the selected listing median"),
-    ).toBeVisible();
-    expect(
-      screen.getByText("Selected listing prices").parentElement,
-    ).not.toHaveAttribute("role", "img");
-    expect(screen.queryByText(/midpoint/iu)).not.toBeInTheDocument();
-  });
-
-  it.each([
-    [1_800_000, "below"],
-    [2_050_000, "within"],
-    [2_500_000, "above"],
-  ])(
-    "positions the insurer marker correctly for a %s valuation",
-    (valuation, relation) => {
-      const data = report();
-      const { container } = render(
-        <ValueRangeComparison
-          report={{
-            ...data,
-            conclusion: {
-              ...data.conclusion,
-              insurerValuation: money(valuation),
-            },
-          }}
-        />,
-      );
-      const plot = container.querySelector<HTMLElement>(".case-range-plot")!;
-      expect(plot).toHaveAttribute("data-position", relation);
-      const insurerPosition = parseFloat(
-        plot.style.getPropertyValue("--case-range-insurer"),
-      );
-      const lowPosition = parseFloat(
-        plot.style.getPropertyValue("--case-range-low"),
-      );
-      const highPosition = parseFloat(
-        plot.style.getPropertyValue("--case-range-high"),
-      );
-      if (relation === "below")
-        expect(insurerPosition).toBeLessThan(lowPosition);
-      else if (relation === "above")
-        expect(insurerPosition).toBeGreaterThan(highPosition);
-      else {
-        expect(insurerPosition).toBeGreaterThan(lowPosition);
-        expect(insurerPosition).toBeLessThan(highPosition);
-      }
-    },
-  );
-
-  it("does not invent an insurer marker or difference when the valuation is absent", () => {
-    const data = report();
-    const { container } = render(
-      <ValueRangeComparison
-        report={{
-          ...data,
-          conclusion: { ...data.conclusion, insurerValuation: money(null) },
-        }}
-      />,
-    );
-    expect(screen.getByText("Insurer valuation not stated")).toBeVisible();
-    expect(container.querySelector(".case-range-insurer")).toBeNull();
-    expect(container.querySelector(".case-comparison-difference")).toBeNull();
-    expect(screen.queryByText(/Unavailable/u)).not.toBeInTheDocument();
-  });
-
-  it("keeps equal range markers finite and centered", () => {
-    const data = report();
-    const { container } = render(
-      <ValueRangeComparison
-        report={{
-          ...data,
-          conclusion: {
-            ...data.conclusion,
-            insurerValuation: money(2_100_000),
-            supportedRange: {
-              low: money(2_100_000),
-              high: money(2_100_000),
-              median: money(2_100_000),
-            },
-          },
-        }}
-      />,
-    );
-    const plot = container.querySelector<HTMLElement>(".case-range-plot")!;
-    expect(plot.style.getPropertyValue("--case-range-insurer")).toBe("50%");
-    expect(
-      screen.getByText(
-        "The insurer’s value matches the selected listing median.",
-      ),
-    ).toBeVisible();
-  });
-
-  it("handles an absent range without fabricated values", () => {
-    const data = report();
-    render(
-      <ValueRangeComparison
-        report={{
-          ...data,
-          conclusion: {
-            ...data.conclusion,
-            supportedRange: null,
-            indicatedDifference: null,
-          },
-        }}
-      />,
-    );
-    expect(
-      screen.getByText(
-        "A selected market range is not available for this result.",
-      ),
-    ).toBeVisible();
-    expect(screen.queryByRole("img")).not.toBeInTheDocument();
-    expect(screen.queryByText(/\$3,000/u)).not.toBeInTheDocument();
-  });
-});
-
 describe("evidence methodology", () => {
   it("keeps detailed limitations collapsed with accurate evidence dates", async () => {
     render(<MethodologyDisclosure report={report()} />);
@@ -290,181 +167,115 @@ describe("evidence methodology", () => {
 });
 
 describe("completed case evidence", () => {
-  it("uses a secondary heading when opened alongside a guided stage", () => {
-    render(<CaseEvidence report={report()} headingLevel={2} />);
-    expect(
-      screen.getByRole("heading", { level: 2, name: "Evidence" }),
-    ).toBeVisible();
-    expect(screen.queryByRole("heading", { level: 1 })).not.toBeInTheDocument();
-  });
-  it("opens the insurer view when requested by a legacy deep link", () => {
-    render(<CaseEvidence report={report()} initialView="insurer" />);
-    expect(
-      screen.getByRole("tab", { name: "Insurer comparables" }),
-    ).toHaveAttribute("aria-selected", "true");
-    expect(
-      screen.getByRole("table", { name: "Insurer comparables" }),
-    ).toBeVisible();
-  });
-
-  it("renders a semantic comparison table, expands source details, and shows all rows", async () => {
-    const user = userEvent.setup();
+  it("keeps every selected market listing and source detail in backend order", () => {
     render(<CaseEvidence report={report()} />);
-    const table = screen.getByRole("table", {
-      name: "Selected market listings",
-    });
+    const table = screen.getByRole("table", { name: "Selected market listings" });
     expect(
-      within(table)
-        .getAllByRole("columnheader")
-        .map((cell) => cell.textContent),
-    ).toEqual(["Vehicle", "Mileage", "Advertised price", "Distance"]);
-    expect(within(table).getAllByRole("rowheader")).toHaveLength(5);
-    expect(screen.queryByText("2022 Market Vehicle 7")).not.toBeInTheDocument();
-    const details = screen.getByRole("button", {
-      name: "Show details for 2022 Market Vehicle 1",
-    });
-    await user.click(details);
-    expect(details).toHaveAttribute("aria-expanded", "true");
-    expect(screen.getByText("Dealer 1")).toBeVisible();
-    expect(screen.getByText("Primary comparison evidence")).toBeVisible();
-    expect(screen.getByText("Current listing")).toBeVisible();
+      within(table).getAllByRole("rowheader").map((cell) => cell.textContent),
+    ).toEqual(Array.from({ length: 7 }, (_, index) => `2022 Market Vehicle ${index + 1}`));
+    const firstRow = within(table).getAllByRole("row")[1];
+    expect(within(firstRow).getAllByRole("cell").map((cell) => cell.textContent)).toEqual([
+      "31,500 mi",
+      "$21,000",
+      "12.5 mi",
+      "Dealer 1",
+      "Chicago, IL",
+      "Aug 28, 2026",
+      "Current listing",
+      "Primary comparison evidence",
+    ]);
+    expect(screen.getByText("Dealer 7")).toBeVisible();
     expect(screen.queryByText("PRIMARY")).not.toBeInTheDocument();
     expect(screen.queryByText("CURRENT_MARKET")).not.toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Show all 7" }));
-    expect(within(table).getAllByRole("rowheader")).toHaveLength(7);
-    await user.click(screen.getByRole("button", { name: "Show fewer" }));
-    expect(within(table).getAllByRole("rowheader")).toHaveLength(5);
   });
 
-  it("preserves disclosed adjustment details and distinguishes non-disclosure from unavailability", async () => {
-    const user = userEvent.setup();
-    render(<CaseEvidence report={report()} />);
-    await user.click(screen.getByRole("tab", { name: "Insurer comparables" }));
+  it("preserves every insurer adjustment and distinguishes non-disclosure from unavailability", () => {
+    const data = report();
+    render(<CaseEvidence report={{
+      ...data,
+      insurerEvidence: {
+        ...data.insurerEvidence,
+        comparables: data.insurerEvidence.comparables.map((comparable, index) => index === 0 ? {
+          ...comparable,
+          adjustments: { condition: "-$120", mileage: "$200", options: "$0", package: "$450" },
+        } : comparable),
+      },
+    }} />);
     const table = screen.getByRole("table", { name: "Insurer comparables" });
-    expect(within(table).getAllByRole("columnheader")).toHaveLength(6);
-    expect(
-      screen.getByText(
-        "The insurer used 12 comparable vehicles. Detailed adjustment information was available for 6.",
-      ),
-    ).toBeVisible();
-    expect(within(table).getAllByText("Not disclosed")).toHaveLength(2);
+    expect(within(table).getAllByRole("rowheader")).toHaveLength(7);
+    const firstRow = within(table).getAllByRole("row")[1];
+    expect(within(firstRow).getAllByRole("cell").map((cell) => cell.textContent)).toEqual([
+      "30,000 mi",
+      "$18,500",
+      "$18,000",
+      "Not disclosed",
+      "Not disclosed",
+      "-$120",
+      "$200",
+      "$0",
+      "$450",
+      "25%",
+    ]);
     expect(within(table).getByText("Details unavailable")).toBeVisible();
-    await user.click(
-      screen.getByRole("button", {
-        name: "Show details for 2022 Insurer Vehicle 1",
-      }),
-    );
-    expect(within(table).getByText("$200")).toBeVisible();
-    expect(within(table).getByText("Reported contribution")).toBeVisible();
-    expect(within(table).getByText("25%")).toBeVisible();
+    expect(screen.getByText(
+      "The insurer used 12 comparable vehicles. Detailed adjustment information was available for 6.",
+    )).toBeVisible();
   });
 
-  it("supports arrow, Home, and End keys for evidence tabs", async () => {
-    const user = userEvent.setup();
+  it("preserves unknown fields without fabricating zero values", () => {
+    const data = report();
+    render(<CaseEvidence report={{
+      ...data,
+      marketEvidence: {
+        ...data.marketEvidence,
+        comparables: [{
+          vehicle: null,
+          mileage: null,
+          advertisedPrice: "Unavailable",
+          distanceMiles: 0,
+          dealer: "unknown",
+          location: null,
+          evidenceDate: null,
+          temporalBasis: null,
+          role: null,
+        }],
+      },
+    }} />);
+    const table = screen.getByRole("table", { name: "Selected market listings" });
+    expect(within(table).getByRole("rowheader")).toHaveTextContent("Selected listing 1");
+    const row = within(table).getAllByRole("row")[1];
+    expect(within(row).getAllByRole("cell").map((cell) => cell.textContent)).toEqual([
+      "—", "—", "0 mi", "—", "—", "Not stated", "Not stated", "Not stated",
+    ]);
+  });
+
+  it("leaves both evidence sections addressable by retained deep links", () => {
     render(<CaseEvidence report={report()} />);
-    const market = screen.getByRole("tab", {
-      name: "Selected market listings",
-    });
-    const insurer = screen.getByRole("tab", { name: "Insurer comparables" });
-    market.focus();
-    await user.keyboard("{ArrowRight}");
-    expect(insurer).toHaveFocus();
-    expect(insurer).toHaveAttribute("aria-selected", "true");
-    expect(screen.getByRole("tabpanel")).toHaveAccessibleName(
-      "Insurer comparables",
-    );
-    await user.keyboard("{Home}");
-    expect(market).toHaveFocus();
-    expect(market).toHaveAttribute("aria-selected", "true");
-    await user.keyboard("{End}");
-    expect(insurer).toHaveFocus();
+    expect(screen.getByRole("region", { name: "Insurer comparables" }))
+      .toHaveAttribute("id", "insurer");
+    expect(screen.getByRole("region", { name: "Selected market listings" }))
+      .toHaveAttribute("id", "market");
+    expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
   });
 
-  it("reports mouse and keyboard view changes for URL persistence", async () => {
-    const user = userEvent.setup();
-    const onViewChange = vi.fn();
-    render(<CaseEvidence report={report()} onViewChange={onViewChange} />);
-    expect(onViewChange).not.toHaveBeenCalled();
-    const insurer = screen.getByRole("tab", { name: "Insurer comparables" });
-    await user.click(insurer);
-    expect(onViewChange).toHaveBeenLastCalledWith("insurer");
-    expect(screen.getByRole("tabpanel")).toHaveAccessibleName(
-      "Insurer comparables",
-    );
-    await user.keyboard("{ArrowLeft}");
-    expect(onViewChange).toHaveBeenLastCalledWith("market");
-    expect(screen.getByRole("tabpanel")).toHaveAccessibleName(
-      "Selected market listings",
-    );
-    expect(
-      screen.getByRole("tab", { name: "Selected market listings" }),
-    ).toHaveFocus();
-    expect(onViewChange).toHaveBeenCalledTimes(2);
-  });
-
-  it("accepts controlled URL state without remounting the focused tab", async () => {
-    const user = userEvent.setup();
-    const onViewChange = vi.fn();
+  it("shows empty states for both evidence sources without hiding the methodology", async () => {
     const data = report();
-    const { rerender } = render(
-      <CaseEvidence report={data} view="market" onViewChange={onViewChange} />,
-    );
-    const market = screen.getByRole("tab", {
-      name: "Selected market listings",
-    });
-    const insurer = screen.getByRole("tab", { name: "Insurer comparables" });
-    market.focus();
-    await user.keyboard("{ArrowRight}");
-    expect(onViewChange).toHaveBeenLastCalledWith("insurer");
-    expect(insurer).toHaveFocus();
-    rerender(
-      <CaseEvidence report={data} view="insurer" onViewChange={onViewChange} />,
-    );
-    expect(screen.getByRole("tab", { name: "Insurer comparables" })).toBe(
-      insurer,
-    );
-    expect(insurer).toHaveFocus();
-    expect(insurer).toHaveAttribute("aria-selected", "true");
-    expect(screen.getByRole("tabpanel")).toHaveAccessibleName(
-      "Insurer comparables",
-    );
-    rerender(
-      <CaseEvidence report={data} view="market" onViewChange={onViewChange} />,
-    );
-    expect(market).toHaveAttribute("aria-selected", "true");
-    expect(screen.getByRole("tabpanel")).toHaveAccessibleName(
-      "Selected market listings",
-    );
-    expect(onViewChange).toHaveBeenCalledTimes(1);
-  });
-
-  it("shows intentional empty states for each evidence view", async () => {
-    const data = report();
-    render(
-      <CaseEvidence
-        report={{
-          ...data,
-          insurerEvidence: {
-            ...data.insurerEvidence,
-            comparableCount: 0,
-            comparables: [],
-          },
-          marketEvidence: {
-            ...data.marketEvidence,
-            comparables: [],
-            primary: null,
-          },
-        }}
-      />,
-    );
-    expect(
-      screen.getByText("No selected market listings to display"),
-    ).toBeVisible();
-    expect(screen.queryByRole("table")).not.toBeInTheDocument();
-    await userEvent
-      .setup()
-      .click(screen.getByRole("tab", { name: "Insurer comparables" }));
+    render(<CaseEvidence report={{
+      ...data,
+      insurerEvidence: { ...data.insurerEvidence, comparableCount: 0, comparables: [] },
+      marketEvidence: { ...data.marketEvidence, comparables: [], primary: null },
+    }} />);
+    expect(screen.getByText("No selected market listings to display")).toBeVisible();
     expect(screen.getByText("No insurer comparables to display")).toBeVisible();
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
+    await userEvent.setup().click(screen.getByText("Methodology and limitations"));
+    expect(screen.getByText("Equipment details are limited for some listings.")).toBeVisible();
+  });
+
+  it("keeps missing money distinct from a stored zero amount", () => {
+    expect(moneyLabel(money(null))).toBe("Not stated");
+    expect(moneyLabel({ ...money(null), formatted: "$0" })).toBe("Not stated");
+    expect(moneyLabel(money(0))).toBe("$0");
+    expect(moneyLabel(undefined)).toBe("Not stated");
   });
 });

@@ -13,15 +13,13 @@ import {
   ProcessingScreen,
 } from "@/features/total-loss-claim/components/checkout-experience";
 import { ClaimStateCard } from "@/features/total-loss-claim/components/claim-state-card";
-import { GuidedReview } from "@/features/total-loss-claim/components/guided-review";
+import { CompletedAnalysis } from "@/features/total-loss-claim/components/completed-analysis";
 import type { TotalLossClaimSecured } from "@/features/total-loss-claim/contracts";
 import { useTotalLossClaimQuery } from "@/features/total-loss-claim/queries";
 import {
   authoritativeTotalLossClaimPath,
-  reviewStageForView,
-  isGuideView,
+  isCompletedAnalysisView,
   totalLossClaimBasePath,
-  totalLossClaimViewPath,
   type TotalLossClaimWorkflowView,
 } from "@/features/total-loss-claim/workflow-route";
 import { ApiError } from "@/lib/api/client";
@@ -29,7 +27,7 @@ import { ApiError } from "@/lib/api/client";
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
 
-function guideIsAvailable(claim: TotalLossClaimSecured) {
+function completedAnalysisIsAvailable(claim: TotalLossClaimSecured) {
   return (
     claim.report?.status === "published" &&
     (claim.commerce?.entitlementStatus === "active" ||
@@ -111,7 +109,7 @@ function WorkflowContent({
     return <ProcessingScreen claim={claim} onRefresh={refetch} />;
   }
 
-  if (!isGuideView(view) || !guideIsAvailable(claim) || !claim.report) {
+  if (!isCompletedAnalysisView(view) || !completedAnalysisIsAvailable(claim) || !claim.report) {
     if (authoritativePath && !authoritativePath.includes("/review/"))
       return <Navigate replace to={authoritativePath} />;
     return (
@@ -127,33 +125,15 @@ function WorkflowContent({
     );
   }
 
-  const stage = reviewStageForView(view);
-  if (view !== `review_${stage}`) {
-    const query =
-      view === "evidence"
-        ? searchParameters.get("evidence") === "insurer"
-          ? "?details=insurer"
-          : "?details=market"
-        : view === "report"
-          ? "?details=report"
-          : "";
-    return (
-      <Navigate
-        replace
-        to={`${totalLossClaimViewPath(caseId, `review_${stage}`)}${query}`}
-      />
-    );
-  }
-
   return (
-    <GuidedReview
+    <CompletedAnalysis
       accessToken={accessToken}
       caseId={caseId}
       claim={claim}
       onRefresh={refetch}
       report={claim.report}
       userId={userId}
-      stage={stage}
+      view={view}
     />
   );
 }

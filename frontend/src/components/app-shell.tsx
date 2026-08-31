@@ -178,7 +178,7 @@ function AppShellContent() {
     : "duration-[360ms] ease-[cubic-bezier(0.4,0,0.2,1)]";
 
   return (
-    <div className={cn("relative flex min-h-svh flex-col bg-background", completedReviewRoute && "review-app")}>
+    <div className="relative flex min-h-svh flex-col bg-background">
       <span
         ref={headerSentinelRef}
         className="pointer-events-none absolute top-0 left-0 h-px w-px"
@@ -253,7 +253,7 @@ function AppShellContent() {
               </div>
 
               {completedReviewRoute ? (
-                <div className="review-account-navigation">
+                <div className="flex items-center gap-4">
                   {isPermanentAuthState(auth) && <Link to="/appraisals" className={primaryLinkClassName}>My appraisals</Link>}
                   <AccountControl className="shrink-0" onStaffNavigationRequest={requestStaffNavigation} staffReviewHref={staffReviewHref} />
                 </div>

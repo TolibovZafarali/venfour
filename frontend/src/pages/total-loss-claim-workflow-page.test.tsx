@@ -321,7 +321,7 @@ function useClaimHandler(projection: () => ReturnType<typeof claimProjection>) {
   );
 }
 
-describe("Milestone 6 total-loss customer workflow", () => {
+describe("total-loss customer workflow", () => {
   beforeEach(() => {
     stripeMock.confirm.mockReset();
     stripeMock.confirm.mockResolvedValue({ type: "success", session: {} });
@@ -570,7 +570,7 @@ describe("Milestone 6 total-loss customer workflow", () => {
     expect(stripeMock.confirm).not.toHaveBeenCalled();
   });
 
-  it("registers the guided review stages while retaining previous deep links", () => {
+  it("registers completed-analysis and historical deep links", () => {
     const paths = appRoutes[0]?.children?.map((route) => route.path);
     expect(paths).toEqual(
       expect.arrayContaining([
@@ -765,228 +765,178 @@ describe("Milestone 6 total-loss customer workflow", () => {
 
   afterEach(() => vi.restoreAllMocks());
 
-  it("walks through the case with one Continue action without completing education on visits", async () => {
+  it("renders the saved result, evidence, report, and request actions without writing on visits", async () => {
     let progressWrites = 0;
+    let prepareRequests = 0;
     useClaimHandler(() => claimProjection());
     server.use(
       http.put("*/api/v1/appraisal-cases/:caseId/education/:step", () => {
         progressWrites += 1;
-        return HttpResponse.json({
-          reportVersionId: REPORT_ID,
-          steps: educationSteps(),
-        });
+        return HttpResponse.json({ reportVersionId: REPORT_ID, steps: educationSteps() });
+      }),
+      http.post("*/api/v1/appraisal-cases/:caseId/message/prepare", () => {
+        prepareRequests += 1;
+        return HttpResponse.json({});
       }),
     );
     const user = userEvent.setup();
-    const { router } = renderTestApp([`${CLAIM_BASE}/review/result`], {
-      authService: authService(),
-    });
-    await screen.findByRole("region", { name: "Your guided valuation review" });
-    expect(
-      screen.queryByRole("navigation", { name: "Case sections" }),
-    ).not.toBeInTheDocument();
-    expect(screen.queryByRole("table")).not.toBeInTheDocument();
-    expect(
-      screen.queryByText(/Step [0-9] of 6|Skip to prepare request/u),
-    ).not.toBeInTheDocument();
-
-    for (const stage of ["insurer", "market", "meaning", "next", "request"]) {
-      expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
-      const next = screen.getAllByRole("link", { name: "Continue" });
-      expect(next).toHaveLength(1);
-      await user.click(next[0]!);
-      await waitFor(() =>
-        expect(router.state.location.pathname).toBe(
-          `${CLAIM_BASE}/review/${stage}`,
-        ),
-      );
+    renderTestApp([`${CLAIM_BASE}/review/result`], { authService: authService() });
+    const completed = await screen.findByRole("region", { name: "Completed analysis" });
+    expect(within(completed).getAllByRole("heading", { level: 1 })).toHaveLength(1);
+    for (const value of ["$18,000", "$20,000", "$21,000", "$22,000", "$3,000"]) {
+      expect(within(completed).getByText(value, { exact: true })).toBeVisible();
     }
+    expect(within(completed).getByText(report().conclusion.summary)).toBeVisible();
+    const insurer = within(completed).getByRole("table", { name: "Insurer comparables" });
+    expect(within(insurer).getByText("$19,800.00")).toBeVisible();
+    expect(within(insurer).getByText("$20,000.00")).toBeVisible();
+    expect(within(insurer).getByText("33.3%")).toBeVisible();
+    const market = within(completed).getByRole("table", { name: "Selected market listings" });
+    expect(within(market).getByText("$21,000.00")).toBeVisible();
+    expect(within(market).getByText("Example Motors")).toBeVisible();
+    await user.click(within(completed).getByText("Methodology and limitations", { selector: "summary" }));
+    expect(within(completed).getByText(report().conclusion.limitations[0]!)).toBeVisible();
+    expect(within(completed).getByRole("heading", { name: "Published report" })).toBeVisible();
+    expect(within(completed).queryByRole("button", { name: "Create request draft" })).not.toBeInTheDocument();
+    await user.click(within(completed).getByText("Request details and email", { selector: "summary" }));
+    expect(await within(completed).findByRole("button", { name: "Create request draft" })).toBeEnabled();
+    expect(within(completed).getByText("adjuster@example.com")).toBeVisible();
+    expect(within(completed).getByText("CLM-42")).toBeVisible();
+    expect(within(completed).queryByRole("link", { name: "Continue" })).not.toBeInTheDocument();
+    expect(within(completed).queryByRole("navigation")).not.toBeInTheDocument();
+    expect(within(completed).queryByRole("dialog")).not.toBeInTheDocument();
     expect(progressWrites).toBe(0);
+    expect(prepareRequests).toBe(0);
   });
 
-  it("preserves the review stage through Back, Forward, refetch, and refresh", async () => {
+  it.each([
+    ["review/result", "result"],
+    ["review/insurer", "insurer"],
+    ["review/market", "market"],
+    ["review/meaning", "result"],
+    ["review/next", "report"],
+    ["review/request", "request"],
+    ["review/sent", "sent"],
+    ["guide/result", "result"],
+    ["guide/insurer-review", "insurer"],
+    ["guide/valuation", "market"],
+    ["guide/report", "report"],
+    ["guide/what-next", "report"],
+    ["guide/send", "request"],
+    ["overview", "result"],
+    ["evidence", "market"],
+    ["request", "request"],
+    ["activity", "sent"],
+    ["evidence?evidence=insurer", "insurer"],
+    ["review/result?details=market", "market"],
+    ["review/market?details=insurer", "insurer"],
+    ["review/request?details=report", "report"],
+    ["review/request?details=unknown", "request"],
+  ])("opens %s in place and focuses its saved %s destination", async (suffix, section) => {
+    useClaimHandler(() => claimProjection());
+    const { router } = renderTestApp([`${CLAIM_BASE}/${suffix}`], { authService: authService() });
+    const completed = await screen.findByRole("region", { name: "Completed analysis" });
+    const requested = new URL(`${CLAIM_BASE}/${suffix}`, "http://localhost");
+    expect(router.state.location.pathname).toBe(requested.pathname);
+    expect(router.state.location.search).toBe(requested.search);
+    expect(completed.querySelector(`#${section}`)).toHaveFocus();
+    expect(within(completed).getByRole("table", { name: "Insurer comparables" })).toBeVisible();
+    expect(within(completed).getByRole("table", { name: "Selected market listings" })).toBeVisible();
+    if (section === "request") {
+      expect(await within(completed).findByRole("button", { name: "Create request draft" })).toBeVisible();
+    } else {
+      expect(within(completed).getByText("Request details and email", { selector: "summary" })).toBeVisible();
+      expect(within(completed).queryByRole("button", { name: "Create request draft" })).not.toBeInTheDocument();
+    }
+  });
+
+  it("preserves deep-link history, query focus, and the saved draft through refetch and refresh", async () => {
     let resolverCalls = 0;
     useClaimHandler(() => {
       resolverCalls += 1;
-      return claimProjection({ journey: "guide_result" });
+      return claimProjection({ journey: "prepare_request", withDraft: true });
     });
-    const user = userEvent.setup();
-    const rendered = renderTestApp([`${CLAIM_BASE}/review/result`], {
+    const rendered = renderTestApp([`${CLAIM_BASE}/evidence?evidence=insurer`], {
       authService: authService(),
     });
-    await screen.findByRole("region", { name: "Your guided valuation review" });
-    await user.click(screen.getByRole("link", { name: "Continue" }));
-    await user.click(screen.getByRole("link", { name: "Continue" }));
+    const completed = await screen.findByRole("region", { name: "Completed analysis" });
+    expect(completed.querySelector("#insurer")).toHaveFocus();
     await act(async () => {
-      await rendered.router.navigate(-1);
+      await rendered.router.navigate(`${CLAIM_BASE}/review/market?details=report`);
     });
-    expect(rendered.router.state.location.pathname).toBe(
-      `${CLAIM_BASE}/review/insurer`,
-    );
+    expect(completed.querySelector("#report")).toHaveFocus();
+    await act(async () => { await rendered.router.navigate(-1); });
+    expect(rendered.router.state.location.pathname).toBe(`${CLAIM_BASE}/evidence`);
+    expect(rendered.router.state.location.search).toBe("?evidence=insurer");
+    expect(completed.querySelector("#insurer")).toHaveFocus();
+    await act(async () => { await rendered.router.navigate(1); });
+    expect(rendered.router.state.location.search).toBe("?details=report");
+    expect(completed.querySelector("#report")).toHaveFocus();
     await act(async () => {
-      await rendered.router.navigate(1);
+      await rendered.router.navigate(`${CLAIM_BASE}/review/request?source=saved`);
     });
-    expect(rendered.router.state.location.pathname).toBe(
-      `${CLAIM_BASE}/review/market`,
-    );
+    expect(completed.querySelector("#request")).toHaveFocus();
+    const recipient = await within(completed).findByRole("textbox", { name: "Recipient" });
+    recipient.focus();
     await act(async () => {
       await rendered.queryClient.invalidateQueries({
         queryKey: totalLossClaimQueryKeys.detail(USER_ID, CASE_ID),
       });
     });
     expect(resolverCalls).toBeGreaterThanOrEqual(2);
-    expect(rendered.router.state.location.pathname).toBe(
-      `${CLAIM_BASE}/review/market`,
-    );
-    expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
-
-    const refreshedPath = rendered.router.state.location.pathname;
-    rendered.unmount();
-    const refreshed = renderTestApp([refreshedPath], {
-      authService: authService(),
-    });
-    await screen.findByRole("region", { name: "Your guided valuation review" });
-    expect(refreshed.router.state.location.pathname).toBe(
-      `${CLAIM_BASE}/review/market`,
-    );
-    expect(screen.getByRole("link", { name: "Continue" })).toBeVisible();
-  });
-
-  it.each([
-    ["guide/result", "result", ""],
-    ["guide/insurer-review", "insurer", ""],
-    ["guide/valuation", "market", ""],
-    ["guide/report", "next", "?details=report"],
-    ["guide/what-next", "next", ""],
-    ["guide/send", "request", ""],
-    ["overview", "result", ""],
-    ["evidence", "market", "?details=market"],
-    ["evidence?evidence=insurer", "market", "?details=insurer"],
-    ["request", "request", ""],
-    ["activity", "sent", ""],
-  ])(
-    "redirects legacy %s without requiring education completion",
-    async (legacy, stage, search) => {
-      useClaimHandler(() => claimProjection());
-      const { router } = renderTestApp([`${CLAIM_BASE}/${legacy}`], {
-        authService: authService(),
-      });
-      if (search) {
-        await screen.findByRole("dialog");
-      } else {
-        await screen.findByRole("region", {
-          name: "Your guided valuation review",
-        });
-      }
-      expect(router.state.location.pathname).toBe(
-        `${CLAIM_BASE}/review/${stage}`,
-      );
-      expect(router.state.location.search).toBe(search);
-    },
-  );
-
-  it("keeps detailed evidence secondary and closes it through browser history or the close action", async () => {
-    useClaimHandler(() => claimProjection());
-    const user = userEvent.setup();
-    const { router } = renderTestApp([`${CLAIM_BASE}/review/market`], {
-      authService: authService(),
-    });
-    await screen.findByRole("region", { name: "Your guided valuation review" });
-    expect(screen.queryByRole("table")).not.toBeInTheDocument();
-    await user.click(
-      screen.getByRole("button", { name: "Explore the selected listings" }),
-    );
-    expect(
-      await screen.findByRole("dialog", { name: "Your supporting evidence" }),
-    ).toBeVisible();
-    expect(screen.getByRole("table")).toBeVisible();
-    await act(async () => {
-      await router.navigate(-1);
-    });
-    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-    expect(router.state.location.pathname).toBe(`${CLAIM_BASE}/review/market`);
-    await act(async () => {
-      await router.navigate(1);
-    });
-    expect(await screen.findByRole("dialog")).toBeVisible();
-    await user.click(screen.getByRole("button", { name: "Close details" }));
-    await waitFor(() =>
-      expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
-    );
-    expect(router.state.location.pathname).toBe(`${CLAIM_BASE}/review/market`);
-    expect(router.state.location.search).toBe("");
-  });
-
-  it("preserves the selected evidence view and focus through URL updates, refetch, and refresh", async () => {
-    useClaimHandler(() => claimProjection());
-    const user = userEvent.setup();
-    const rendered = renderTestApp([`${CLAIM_BASE}/review/market`], {
-      authService: authService(),
-    });
-    await screen.findByRole("region", { name: "Your guided valuation review" });
-    await user.click(
-      screen.getByRole("button", { name: "Explore the selected listings" }),
-    );
-    const dialog = await screen.findByRole("dialog", {
-      name: "Your supporting evidence",
-    });
-    expect(
-      within(dialog).getByRole("tab", { name: "Selected market listings" }),
-    ).toHaveAttribute("aria-selected", "true");
-
-    const insurerTab = within(dialog).getByRole("tab", {
-      name: "Insurer comparables",
-    });
-    await user.click(insurerTab);
-    await waitFor(() =>
-      expect(rendered.router.state.location.search).toBe("?details=insurer"),
-    );
-    expect(insurerTab).toHaveAttribute("aria-selected", "true");
-    expect(insurerTab).toHaveFocus();
-    expect(
-      within(dialog).getByRole("table", { name: "Insurer comparables" }),
-    ).toBeVisible();
-
-    await act(async () => {
-      await rendered.queryClient.invalidateQueries({
-        queryKey: totalLossClaimQueryKeys.detail(USER_ID, CASE_ID),
-      });
-    });
-    expect(rendered.router.state.location.search).toBe("?details=insurer");
-    expect(insurerTab).toHaveAttribute("aria-selected", "true");
-    expect(insurerTab).toHaveFocus();
-
+    expect(recipient).toHaveFocus();
+    expect(recipient).toHaveValue(draft().recipient);
+    expect(within(completed).getByRole("textbox", { name: "Subject" })).toHaveValue(draft().subject);
+    expect(within(completed).getByRole("textbox", { name: "Message" })).toHaveValue(draft().body);
     const refreshedUrl = `${rendered.router.state.location.pathname}${rendered.router.state.location.search}`;
     rendered.unmount();
-    const refreshed = renderTestApp([refreshedUrl], {
-      authService: authService(),
-    });
-    const refreshedDialog = await screen.findByRole("dialog", {
-      name: "Your supporting evidence",
-    });
-    expect(
-      within(refreshedDialog).getByRole("tab", { name: "Insurer comparables" }),
-    ).toHaveAttribute("aria-selected", "true");
-    expect(
-      within(refreshedDialog).getByRole("table", {
-        name: "Insurer comparables",
+    const refreshed = renderTestApp([refreshedUrl], { authService: authService() });
+    const restored = await screen.findByRole("region", { name: "Completed analysis" });
+    expect(refreshed.router.state.location.pathname).toBe(`${CLAIM_BASE}/review/request`);
+    expect(refreshed.router.state.location.search).toBe("?source=saved");
+    expect(restored.querySelector("#request")).toHaveFocus();
+    expect(within(restored).getByRole("textbox", { name: "Message" })).toHaveValue(draft().body);
+    expect(within(restored).getByRole("button", { name: "Copy email" })).toBeEnabled();
+    expect(within(restored).getByRole("button", { name: "Open email app" })).toBeEnabled();
+  });
+
+  it("does not normalize or save legacy drafts until request actions are explicitly opened", async () => {
+    const originalBody = `I have attached ${report().suggestedFilename}.`;
+    let savedDraft = { ...draft(), body: originalBody };
+    const writes: Array<{ body: string; expectedRevision: number }> = [];
+    useClaimHandler(() => ({ ...claimProjection({ withDraft: true }), messageDraft: savedDraft }));
+    server.use(
+      http.patch("*/api/v1/appraisal-cases/:caseId/message-draft", async ({ request }) => {
+        const update = await request.json() as { body: string; expectedRevision: number };
+        writes.push(update);
+        savedDraft = { ...savedDraft, body: update.body, revision: savedDraft.revision + 1 };
+        return HttpResponse.json(savedDraft);
       }),
-    ).toBeVisible();
-    await user.click(
-      within(refreshedDialog).getByRole("button", { name: "Close details" }),
     );
-    await waitFor(() =>
-      expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
-    );
-    expect(refreshed.router.state.location.pathname).toBe(
-      `${CLAIM_BASE}/review/market`,
-    );
-    expect(refreshed.router.state.location.search).toBe("");
-    expect(screen.getByRole("link", { name: "Continue" })).toBeVisible();
+    const first = renderTestApp([`${CLAIM_BASE}/review/result`], { authService: authService() });
+    await screen.findByRole("region", { name: "Completed analysis" });
+    for (const suffix of ["evidence", "guide/report"]) {
+      await act(async () => { await first.router.navigate(`${CLAIM_BASE}/${suffix}`); });
+    }
+    await act(async () => {
+      await first.queryClient.invalidateQueries({ queryKey: totalLossClaimQueryKeys.detail(USER_ID, CASE_ID) });
+      await new Promise((resolve) => window.setTimeout(resolve, 725));
+    });
+    expect(screen.queryByRole("textbox", { name: "Message" })).not.toBeInTheDocument();
+    expect(writes).toHaveLength(0);
+    first.unmount();
+    expect(writes).toHaveLength(0);
+
+    renderTestApp([`${CLAIM_BASE}/review/result`], { authService: authService() });
+    const completed = await screen.findByRole("region", { name: "Completed analysis" });
+    await userEvent.setup().click(within(completed).getByText("Request details and email", { selector: "summary" }));
+    expect(await within(completed).findByRole("textbox", { name: "Message" })).toHaveValue("I have attached the market evidence report.");
+    await waitFor(() => expect(writes).toHaveLength(1));
+    expect(writes[0]).toMatchObject({ body: "I have attached the market evidence report.", expectedRevision: 1 });
   });
 
   it.each(["suspended", "revoked"] as const)(
-    "does not expose a report through a direct guided review URL with %s access",
+    "does not expose a report through a completed-analysis URL with %s access",
     async (entitlementStatus) => {
       useClaimHandler(() =>
         claimProjection({ entitlementStatus, journey: "needs_attention" }),
@@ -1044,6 +994,66 @@ describe("Milestone 6 total-loss customer workflow", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("rejects an invalid case link before requesting private data", async () => {
+    let resolverCalls = 0;
+    useClaimHandler(() => {
+      resolverCalls += 1;
+      return claimProjection();
+    });
+    renderTestApp(["/total-loss/cases/not-a-case/claim/review/result"], {
+      authService: authService(),
+    });
+    expect(await screen.findByRole("heading", { name: "This claim link is invalid" })).toBeVisible();
+    expect(resolverCalls).toBe(0);
+    expect(screen.queryByRole("region", { name: "Completed analysis" })).not.toBeInTheDocument();
+  });
+
+  it("returns signed-out completed-analysis links to neutral claim recovery", async () => {
+    const signedOut = authService();
+    vi.mocked(signedOut.getSession).mockResolvedValue(null);
+    let resolverCalls = 0;
+    useClaimHandler(() => {
+      resolverCalls += 1;
+      return claimProjection();
+    });
+    const { router } = renderTestApp([`${CLAIM_BASE}/review/request`], {
+      authService: signedOut,
+    });
+    expect(await screen.findByRole("heading", { name: "Request a secure claim link" })).toBeVisible();
+    expect(router.state.location.pathname).toBe(CLAIM_BASE);
+    expect(resolverCalls).toBe(0);
+    expect(screen.queryByText("owner@example.com")).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Completed analysis" })).not.toBeInTheDocument();
+  });
+
+  it("does not expose completed evidence to an anonymous session even with a secured response", async () => {
+    const guest = authService();
+    const guestSession = session();
+    guestSession.user.is_anonymous = true;
+    vi.mocked(guest.getSession).mockResolvedValue(guestSession);
+    useClaimHandler(() => claimProjection());
+    const { router } = renderTestApp([`${CLAIM_BASE}/guide/report`], { authService: guest });
+    expect(await screen.findByRole("heading", { name: "We couldn’t verify permanent claim access" })).toBeVisible();
+    expect(router.state.location.pathname).toBe(CLAIM_BASE);
+    expect(screen.queryByText("2022 Example Sedan")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Download PDF" })).not.toBeInTheDocument();
+  });
+
+  it("does not render completed actions when the published report is missing", async () => {
+    useClaimHandler(() => ({
+      ...claimProjection(),
+      education: null,
+      report: null,
+      sendingDetails: null,
+    }));
+    const { router } = renderTestApp([`${CLAIM_BASE}/review/result`], { authService: authService() });
+    expect(await screen.findByRole("heading", { name: "This part of your claim is not ready" })).toBeVisible();
+    expect(router.state.location.pathname).toBe(`${CLAIM_BASE}/review/result`);
+    expect(screen.queryByRole("region", { name: "Completed analysis" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Create request draft" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Download PDF" })).not.toBeInTheDocument();
+  });
+
   it("uses the existing owner-authorized download endpoint for viewing and downloading the report", async () => {
     useClaimHandler(() => claimProjection());
     const requestedReports: string[] = [];
@@ -1081,11 +1091,9 @@ describe("Milestone 6 total-loss customer workflow", () => {
     renderTestApp([`${CLAIM_BASE}/review/next?details=report`], {
       authService: authService(),
     });
-    const reportDialog = await screen.findByRole("dialog", {
-      name: "Your valuation report",
-    });
+    const reportSection = (await screen.findByRole("heading", { name: "Published report" })).closest("section")!;
     await user.click(
-      within(reportDialog).getByRole("button", { name: /^View(?: report)?$/u }),
+      within(reportSection).getByRole("button", { name: /^View(?: report)?$/u }),
     );
     await waitFor(() => expect(clicked).toHaveLength(1));
     expect(clicked[0]).toEqual({
@@ -1094,7 +1102,7 @@ describe("Milestone 6 total-loss customer workflow", () => {
       target: "_blank",
     });
     await user.click(
-      within(reportDialog).getByRole("button", {
+      within(reportSection).getByRole("button", {
         name: /^Download(?: PDF)?$/u,
       }),
     );
@@ -1107,7 +1115,7 @@ describe("Milestone 6 total-loss customer workflow", () => {
     expect(requestedReports).toEqual([REPORT_ID, REPORT_ID]);
   });
 
-  it("keeps report errors inline and retries without changing the review stage", async () => {
+  it("keeps report errors inline and retries without changing the completed-analysis URL", async () => {
     useClaimHandler(() => claimProjection());
     let downloadRequests = 0;
     server.use(
@@ -1127,20 +1135,48 @@ describe("Milestone 6 total-loss customer workflow", () => {
       [`${CLAIM_BASE}/review/market?details=report`],
       { authService: authService() },
     );
-    const reportDialog = await screen.findByRole("dialog", {
-      name: "Your valuation report",
-    });
+    const reportSection = (await screen.findByRole("heading", { name: "Published report" })).closest("section")!;
     await user.click(
-      within(reportDialog).getByRole("button", { name: /^View(?: report)?$/u }),
+      within(reportSection).getByRole("button", { name: /^View(?: report)?$/u }),
     );
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "We couldn’t open the report. Please try again.",
     );
     expect(router.state.location.pathname).toBe(`${CLAIM_BASE}/review/market`);
     await user.click(
-      within(reportDialog).getByRole("button", { name: /^View(?: report)?$/u }),
+      within(reportSection).getByRole("button", { name: /^View(?: report)?$/u }),
     );
     await waitFor(() => expect(downloadRequests).toBe(2));
+  });
+
+  it("disables report actions while retrieving a URL and ignores repeated clicks", async () => {
+    useClaimHandler(() => claimProjection());
+    let downloadRequests = 0;
+    let releaseDownload!: () => void;
+    const pendingDownload = new Promise<void>((resolve) => { releaseDownload = resolve; });
+    const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => undefined);
+    server.use(
+      http.get("*/api/v1/appraisal-cases/:caseId/reports/:reportId/download", async () => {
+        downloadRequests += 1;
+        await pendingDownload;
+        return HttpResponse.json({
+          downloadUrl: "https://files.example.test/evidence.pdf?token=synthetic",
+          expiresAt: "2026-08-29T19:00:00.000Z",
+          suggestedFilename: report().suggestedFilename,
+        });
+      }),
+    );
+    renderTestApp([`${CLAIM_BASE}/guide/report`], { authService: authService() });
+    const reportSection = (await screen.findByRole("heading", { name: "Published report" })).closest("section")!;
+    await userEvent.setup().dblClick(within(reportSection).getByRole("button", { name: "View report" }));
+    await waitFor(() => expect(downloadRequests).toBe(1));
+    expect(within(reportSection).getByRole("button", { name: "Opening…" })).toBeDisabled();
+    expect(within(reportSection).getByRole("button", { name: "Download PDF" })).toBeDisabled();
+    expect(within(reportSection).getByRole("status")).toHaveTextContent("Preparing your report");
+    await act(async () => { releaseDownload(); });
+    await waitFor(() => expect(click).toHaveBeenCalledTimes(1));
+    expect(within(reportSection).getByRole("button", { name: "View report" })).toBeEnabled();
+    expect(within(reportSection).getByRole("button", { name: "Download PDF" })).toBeEnabled();
   });
 
   it("keeps reports accessible for a refunded no-dispute result without creating a request", async () => {
@@ -1154,7 +1190,7 @@ describe("Milestone 6 total-loss customer workflow", () => {
     const { router } = renderTestApp([`${CLAIM_BASE}/review/request`], {
       authService: authService(),
     });
-    await screen.findByRole("region", { name: "Your guided valuation review" });
+    await screen.findByRole("region", { name: "Completed analysis" });
     expect(router.state.location.pathname).toBe(`${CLAIM_BASE}/review/request`);
     expect(
       screen.queryByRole("button", { name: "Create request draft" }),
@@ -1165,29 +1201,15 @@ describe("Milestone 6 total-loss customer workflow", () => {
     expect(screen.queryByText("Unavailable")).not.toBeInTheDocument();
   });
 
-  it("finishes an unsupported result with report access instead of continuing to request creation", async () => {
-    useClaimHandler(() =>
-      claimProjection({ continuingSupported: false, journey: "no_dispute" }),
-    );
-    renderTestApp([`${CLAIM_BASE}/review/next`], {
-      authService: authService(),
-    });
-    await screen.findByRole("region", { name: "Your guided valuation review" });
-    expect(
-      screen.queryByRole("link", { name: "Continue" }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: "Create request draft" }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "View your report" }),
-    ).toBeVisible();
-    const review = screen.getByRole("region", {
-      name: "Your guided valuation review",
-    });
-    expect(
-      within(review).getByRole("link", { name: "My appraisals" }),
-    ).toHaveAttribute("href", "/appraisals");
+  it("keeps report access for unsupported results without request creation", async () => {
+    useClaimHandler(() => claimProjection({ continuingSupported: false, journey: "no_dispute" }));
+    renderTestApp([`${CLAIM_BASE}/review/next`], { authService: authService() });
+    const completed = await screen.findByRole("region", { name: "Completed analysis" });
+    expect(within(completed).queryByRole("link", { name: "Continue" })).not.toBeInTheDocument();
+    expect(within(completed).queryByRole("button", { name: "Create request draft" })).not.toBeInTheDocument();
+    expect(within(completed).getByRole("button", { name: "View report" })).toBeEnabled();
+    expect(within(completed).getByRole("button", { name: "Download PDF" })).toBeEnabled();
+    expect(within(completed).getByText(/does not support a higher valuation request/u)).toBeVisible();
   });
 
   it("continues polling a no-dispute refund while preserving report access", async () => {
@@ -1211,60 +1233,38 @@ describe("Milestone 6 total-loss customer workflow", () => {
     const { router } = renderTestApp([`${CLAIM_BASE}/processing`], {
       authService: authService(),
     });
-    expect(await screen.findByText("Refund in progress")).toBeVisible();
+    expect(await screen.findByText(/^Refund in progress/u)).toBeVisible();
     expect(
-      screen.getByRole("link", { name: "Evidence & report" }),
+      screen.getByRole("button", { name: "View report" }),
     ).toBeVisible();
     expect(router.state.location.pathname).toBe(`${CLAIM_BASE}/review/result`);
     expect(
-      await screen.findByText("Refunded", {}, { timeout: 4_000 }),
+      await screen.findByText(/^Refunded/u, {}, { timeout: 4_000 }),
     ).toBeVisible();
     expect(resolverCalls).toBeGreaterThanOrEqual(2);
   });
 
-  it("restores the sent state from persisted workflow data without inventing later stages", async () => {
+  it("restores persisted sent confirmation and timestamp when the case is reopened", async () => {
     const progress = educationSteps(true);
     progress.send.completedAt = NOW;
-    useClaimHandler(() =>
-      claimProjection({
-        journey: "awaiting_insurer_response",
-        progress,
-        withDraft: true,
-      }),
-    );
-    const { router } = renderTestApp([CLAIM_BASE], {
-      authService: authService(),
-    });
-    expect(
-      await screen.findByRole("heading", {
-        name: "Waiting for the insurer’s response",
-      }),
-    ).toBeVisible();
-    expect(router.state.location.pathname).toBe(`${CLAIM_BASE}/review/sent`);
-    await userEvent
-      .setup()
-      .click(screen.getByText("Your case record", { selector: "summary" }));
-    const timeline = screen.getByRole("list", { name: "Case timeline" });
-    expect(
-      within(timeline).getByRole("heading", {
-        name: "Evidence package completed",
-      }),
-    ).toBeVisible();
-    expect(
-      within(timeline).getByRole("heading", { name: "Request prepared" }),
-    ).toBeVisible();
-    expect(
-      within(timeline).getByRole("heading", { name: "Request marked as sent" }),
-    ).toBeVisible();
-    expect(
-      within(timeline).queryByText("Response received"),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: "Upload insurer response" }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.getByText("What the insurer may do").closest("details"),
-    ).not.toHaveAttribute("open");
+    useClaimHandler(() => claimProjection({ journey: "awaiting_insurer_response", progress, withDraft: true }));
+    const initial = renderTestApp([CLAIM_BASE], { authService: authService() });
+    const completed = await screen.findByRole("region", { name: "Completed analysis" });
+    expect(initial.router.state.location.pathname).toBe(`${CLAIM_BASE}/review/sent`);
+    const status = completed.querySelector<HTMLElement>("#sent")!;
+    expect(within(status).getByText("Request marked as sent")).toBeVisible();
+    expect(status).toHaveFocus();
+    expect(within(status).getByText(NOW)).toHaveAttribute("datetime", NOW);
+    expect(within(completed).queryByRole("button", { name: "Create request draft" })).not.toBeInTheDocument();
+    expect(within(completed).queryByRole("textbox", { name: "Recipient" })).not.toBeInTheDocument();
+    const reopenedUrl = initial.router.state.location.pathname;
+    initial.unmount();
+    renderTestApp([reopenedUrl], { authService: authService() });
+    const restored = await screen.findByRole("region", { name: "Completed analysis" });
+    expect(within(restored).getByText("Request marked as sent")).toBeVisible();
+    expect(within(restored).getByText(NOW)).toHaveAttribute("datetime", NOW);
+    expect(within(restored).queryByRole("button", { name: "Mark as sent" })).not.toBeInTheDocument();
+    expect(within(restored).queryByRole("button", { name: "Upload insurer response" })).not.toBeInTheDocument();
   });
 
   it("keeps the unsent route neutral and does not offer unsupported request preparation", async () => {
@@ -1274,7 +1274,7 @@ describe("Milestone 6 total-loss customer workflow", () => {
     renderTestApp([`${CLAIM_BASE}/review/sent`], {
       authService: authService(),
     });
-    await screen.findByRole("region", { name: "Your guided valuation review" });
+    await screen.findByRole("region", { name: "Completed analysis" });
     expect(
       screen.queryByRole("heading", {
         name: "Waiting for the insurer’s response",

@@ -155,12 +155,9 @@ export function useTotalLossCheckoutReconciliationMutation({
 
 export function useTotalLossEducationProgressMutation({
   accessToken,
-  backgroundInvalidation = false,
   caseId,
   userId,
-}: ClaimIdentityOptions & {
-  readonly backgroundInvalidation?: boolean;
-}) {
+}: ClaimIdentityOptions) {
   const invalidate = useClaimMutationInvalidation({ caseId, userId });
   return useMutation({
     gcTime: 0,
@@ -185,14 +182,7 @@ export function useTotalLossEducationProgressMutation({
         expectedWorkflowRevision,
       );
     },
-    onSuccess: () => {
-      const invalidation = invalidate();
-      if (backgroundInvalidation) {
-        void invalidation.catch(() => undefined);
-        return;
-      }
-      return invalidation;
-    },
+    onSuccess: invalidate,
     retry: false,
   });
 }

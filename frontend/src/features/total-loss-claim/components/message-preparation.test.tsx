@@ -230,7 +230,6 @@ function renderRequest(
 
 beforeEach(() => {
   vi.mocked(openDefaultEmailApp).mockReset();
-  vi.spyOn(window, "scrollTo").mockImplementation(() => undefined);
 });
 
 describe("case request preparation", () => {
@@ -470,7 +469,6 @@ describe("case request preparation", () => {
     ]);
     expect(subject).toHaveValue("Latest edit while saving");
     expect(await screen.findByText("Saved")).toBeVisible();
-    expect(window.scrollTo).toHaveBeenCalledTimes(1);
   });
 
   it("restores the completed save after leaving and remounting before its response arrives", async () => {
@@ -496,7 +494,7 @@ describe("case request preparation", () => {
     const client = new QueryClient({
       defaultOptions: { queries: { retry: false, staleTime: Infinity } },
     });
-    function Workspace() {
+    function RequestMountHarness() {
       const [showRequest, setShowRequest] = useState(true);
       const query = useQuery({
         queryKey: totalLossClaimQueryKeys.detail(USER_ID, CASE_ID),
@@ -506,9 +504,9 @@ describe("case request preparation", () => {
       return (
         <>
           <button onClick={() => setShowRequest(false)}>
-            Evidence section
+            Leave request
           </button>
-          <button onClick={() => setShowRequest(true)}>Request section</button>
+          <button onClick={() => setShowRequest(true)}>Return to request</button>
           {showRequest && (
             <MessagePreparation
               accessToken="request-test-token"
@@ -526,7 +524,7 @@ describe("case request preparation", () => {
     render(
       <QueryClientProvider client={client}>
         <MemoryRouter>
-          <Workspace />
+          <RequestMountHarness />
         </MemoryRouter>
       </QueryClientProvider>,
     );
@@ -534,8 +532,8 @@ describe("case request preparation", () => {
       target: { value: "Saved while away" },
     });
     await waitFor(() => expect(saveStarted).toBe(true), { timeout: 2000 });
-    await user.click(screen.getByRole("button", { name: "Evidence section" }));
-    await user.click(screen.getByRole("button", { name: "Request section" }));
+    await user.click(screen.getByRole("button", { name: "Leave request" }));
+    await user.click(screen.getByRole("button", { name: "Return to request" }));
     expect(screen.getByRole("textbox", { name: "Subject" })).toHaveValue(
       draft().subject,
     );
@@ -581,7 +579,6 @@ describe("case request preparation", () => {
       .spyOn(navigator.clipboard, "writeText")
       .mockResolvedValue(undefined);
     renderRequest();
-    expect(window.scrollTo).toHaveBeenCalledTimes(1);
     expect(
       screen.queryByRole("button", { name: "Mark as sent" }),
     ).not.toBeInTheDocument();
@@ -591,30 +588,22 @@ describe("case request preparation", () => {
     fireEvent.change(screen.getByRole("textbox", { name: "Message" }), {
       target: { value: "My exact updated request." },
     });
-    expect(window.scrollTo).toHaveBeenCalledTimes(1);
     await user.click(screen.getByRole("button", { name: "Copy email" }));
     expect(
       await screen.findByText("Sent the email with the report attached?"),
     ).toBeVisible();
-    expect(window.scrollTo).toHaveBeenCalledTimes(2);
-    expect(window.scrollTo).toHaveBeenLastCalledWith({
-      top: 0,
-      left: 0,
-      behavior: "instant",
-    });
     expect(order).toEqual(["save", "prepare"]);
     expect(copied).toHaveBeenCalledWith(
       "Subject: Updated subject\n\nMy exact updated request.",
     );
     expect(sentCalls).toBe(0);
     expect(
-      screen.queryByRole("button", { name: "Open email app" }),
-    ).not.toBeInTheDocument();
+      screen.getByRole("button", { name: "Open email app" }),
+    ).toBeVisible();
     await user.dblClick(screen.getByRole("button", { name: "Mark as sent" }));
     expect(
       await screen.findByRole("heading", { name: "Request marked as sent" }),
     ).toBeVisible();
-    expect(window.scrollTo).toHaveBeenCalledTimes(3);
     expect(sentCalls).toBe(1);
     expect(sentPayload).toMatchObject({
       confirmedReportAttached: true,
@@ -672,18 +661,7 @@ describe("case request preparation", () => {
     expect(
       await screen.findByRole("button", { name: "Mark as sent" }),
     ).toBeVisible();
-    expect(
-      screen.queryByRole("textbox", { name: "Subject" }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.getByRole("heading", {
-        name: "Sent the email with the report attached?",
-      }),
-    ).toHaveFocus();
-    await user.click(screen.getByRole("button", { name: "Not yet" }));
-    expect(
-      screen.getByRole("heading", { name: "Review your request" }),
-    ).toHaveFocus();
+    expect(screen.getByRole("textbox", { name: "Subject" })).toBeVisible();
     fireEvent.change(screen.getByRole("textbox", { name: "Subject" }), {
       target: { value: "" },
     });
@@ -838,14 +816,6 @@ describe("case request preparation", () => {
     expect(
       await screen.findByRole("heading", { name: "Request marked as sent" }),
     ).toBeVisible();
-    expect(
-      screen.getByRole("heading", { name: "Request marked as sent" }),
-    ).toHaveFocus();
-    expect(window.scrollTo).toHaveBeenLastCalledWith({
-      top: 0,
-      left: 0,
-      behavior: "instant",
-    });
     expect(onRefresh).toHaveBeenCalledTimes(1);
   });
 });

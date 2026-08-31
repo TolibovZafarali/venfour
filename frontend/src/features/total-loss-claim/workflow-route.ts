@@ -4,13 +4,18 @@ import type {
 } from "@/features/total-loss-claim/contracts";
 
 type LegacyCaseView = "overview" | "evidence" | "request" | "activity";
-export type ReviewStage =
-  "result" | "insurer" | "market" | "meaning" | "next" | "request" | "sent";
-export type ReviewView = `review_${ReviewStage}`;
+type LegacyReviewView =
+  | "review_result"
+  | "review_insurer"
+  | "review_market"
+  | "review_meaning"
+  | "review_next"
+  | "review_request"
+  | "review_sent";
 
 export type TotalLossClaimWorkflowView =
   | LegacyCaseView
-  | ReviewView
+  | LegacyReviewView
   | "checkout"
   | "checkout_return"
   | "processing"
@@ -135,7 +140,7 @@ export function authoritativeTotalLossClaimPath(
   return state ? routeForJourneyState(claim.caseId, state) : null;
 }
 
-export function isGuideView(view: TotalLossClaimWorkflowView) {
+export function isCompletedAnalysisView(view: TotalLossClaimWorkflowView) {
   return (
     view.startsWith("review_") ||
     view === "overview" ||
@@ -151,14 +156,45 @@ export function isGuideView(view: TotalLossClaimWorkflowView) {
   );
 }
 
-export function reviewStageForView(
+export type CompletedAnalysisSection =
+  | "result"
+  | "insurer"
+  | "market"
+  | "report"
+  | "request"
+  | "sent";
+
+export function completedAnalysisSection(
   view: TotalLossClaimWorkflowView,
-): ReviewStage {
-  if (view.startsWith("review_")) return view.slice(7) as ReviewStage;
-  if (view === "insurer_review") return "insurer";
-  if (view === "valuation" || view === "evidence") return "market";
-  if (view === "what_next" || view === "report") return "next";
-  if (view === "send" || view === "request") return "request";
-  if (view === "activity") return "sent";
-  return "result";
+  searchParameters: URLSearchParams,
+): CompletedAnalysisSection {
+  const details = searchParameters.get("details");
+  if (details === "insurer" || details === "market" || details === "report") {
+    return details;
+  }
+  switch (view) {
+    case "insurer_review":
+    case "review_insurer":
+      return "insurer";
+    case "evidence":
+      return searchParameters.get("evidence") === "insurer"
+        ? "insurer"
+        : "market";
+    case "valuation":
+    case "review_market":
+      return "market";
+    case "report":
+    case "what_next":
+    case "review_next":
+      return "report";
+    case "send":
+    case "request":
+    case "review_request":
+      return "request";
+    case "activity":
+    case "review_sent":
+      return "sent";
+    default:
+      return "result";
+  }
 }
