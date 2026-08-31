@@ -1,5 +1,6 @@
 import { ArrowRight, Check, Copy, LoaderCircle, Mail } from "lucide-react";
 import { useId, useLayoutEffect } from "react";
+import { createPortal } from "react-dom";
 
 import type { TotalLossIntakeMode } from "@/features/total-loss/types";
 import { ReportFileRow } from "@/features/total-loss-claim/components/published-report-actions";
@@ -18,6 +19,7 @@ import type { RequestPreparationOptions } from "@/features/total-loss-claim/use-
 import { StableActionLabel } from "./stable-action-label";
 
 interface MessagePreparationProps extends RequestPreparationOptions {
+  readonly actionContainer?: HTMLElement | null;
   readonly intakeMode?: TotalLossIntakeMode;
   readonly onDraftStateChange?: (hasDraft: boolean) => void;
   readonly onSent?: () => void;
@@ -148,18 +150,23 @@ function DraftEditor({
           </div>
           <div className="request-composer-message">
             <label htmlFor={`${fieldId}-message`}>Message</label>
-            <textarea
-              aria-describedby={
-                editor.fieldErrors.body ? `${fieldId}-message-error` : undefined
-              }
-              aria-invalid={Boolean(editor.fieldErrors.body) || undefined}
-              id={`${fieldId}-message`}
-              maxLength={50000}
-              onChange={(event) => editor.edit("body", event.target.value)}
-              required
-              rows={15}
-              value={editor.content.body}
-            />
+            <div className="request-composer-message-input">
+              <div className="request-composer-message-size" aria-hidden="true">
+                {editor.content.body}{" "}
+              </div>
+              <textarea
+                aria-describedby={
+                  editor.fieldErrors.body ? `${fieldId}-message-error` : undefined
+                }
+                aria-invalid={Boolean(editor.fieldErrors.body) || undefined}
+                id={`${fieldId}-message`}
+                maxLength={50000}
+                onChange={(event) => editor.edit("body", event.target.value)}
+                required
+                rows={1}
+                value={editor.content.body}
+              />
+            </div>
             {editor.fieldErrors.body ? (
               <p className="request-field-error" id={`${fieldId}-message-error`}>{editor.fieldErrors.body}</p>
             ) : null}
@@ -344,11 +351,13 @@ function SendingDetails({
 }
 
 export function MessagePreparation({
+  actionContainer,
   intakeMode = "report",
   onDraftStateChange,
   onSent,
   ...props
 }: MessagePreparationProps) {
+  const formId = useId();
   const preparation = useRequestPreparation(props);
   const { details, draft } = preparation;
   const hasDraft = Boolean(draft);
@@ -369,9 +378,27 @@ export function MessagePreparation({
     );
   }
 
+  const createAction = (
+    <button
+      className={actionContainer === undefined ? "request-button request-button-primary" : "review-primary"}
+      disabled={
+        preparation.creating ||
+        !details ||
+        !props.claim.workflow ||
+        !preparation.reviewCompleted
+      }
+      form={formId}
+      type="submit"
+    >
+      <StableActionLabel reserve="Create my request">{preparation.creating ? "Creating draft…" : "Create my request"}</StableActionLabel>
+      {preparation.creating ? <LoaderCircle className="request-spinner" aria-hidden="true" /> : <ArrowRight aria-hidden="true" />}
+    </button>
+  );
+
   return (
     <form
       className="request-prepare"
+      id={formId}
       onInvalid={preparation.markAttempted}
       onSubmit={(event) => {
         event.preventDefault();
@@ -426,31 +453,18 @@ export function MessagePreparation({
             preparing a request.
           </RequestError>
         )}
-        <div className="request-action-bar request-prepare-actions">
-          <p className="request-assurance">
-            {intakeMode === "manual"
-              ? "Nothing is sent automatically. You’ll send the email from your own account."
-              : "You can review and edit the email before sending it. Nothing is sent automatically."}
-          </p>
+        <div className="request-action-bar request-prepare-actions" data-footer-action={actionContainer !== undefined || undefined}>
+          {intakeMode === "manual" ? <p className="request-assurance">
+            Nothing is sent automatically. You’ll send the email from your own account.
+          </p> : null}
           {!preparation.reviewCompleted ? (
             <p>Complete the review before preparing your request.</p>
           ) : null}
           {preparation.error ? <RequestError>{preparation.error}</RequestError> : null}
-          <button
-            className="request-button request-button-primary"
-            disabled={
-              preparation.creating ||
-              !details ||
-              !props.claim.workflow ||
-              !preparation.reviewCompleted
-            }
-            type="submit"
-          >
-            <StableActionLabel reserve="Create my request">{preparation.creating ? "Creating draft…" : "Create my request"}</StableActionLabel>
-            {preparation.creating ? <LoaderCircle className="request-spinner" aria-hidden="true" /> : <ArrowRight aria-hidden="true" />}
-          </button>
+          {actionContainer === undefined ? createAction : null}
         </div>
       </div>
+      {actionContainer ? createPortal(createAction, actionContainer) : null}
     </form>
   );
 }

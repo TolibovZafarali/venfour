@@ -208,6 +208,7 @@ function renderRequest(
   initial = claim(),
   onRefresh: () => Promise<unknown> = vi.fn(async () => undefined),
   callbacks: {
+    readonly actionContainer?: HTMLElement;
     readonly intakeMode?: TotalLossIntakeMode;
     readonly onDraftStateChange?: (hasDraft: boolean) => void;
     readonly onSent?: () => void;
@@ -244,7 +245,7 @@ beforeEach(() => {
 });
 
 describe("case request preparation", () => {
-  it("requires only missing sending details after completed review without changing education", async () => {
+  it.each(["inline", "footer"] as const)("requires only missing sending details with the %s action without changing education", async (placement) => {
     const initial = claim({ messageDraft: null });
     const details = {
       ...initial.sendingDetails!,
@@ -282,7 +283,11 @@ describe("case request preparation", () => {
     );
     const user = userEvent.setup();
     const onDraftStateChange = vi.fn();
+    const actionContainer = placement === "footer"
+      ? render(<nav aria-label="Request footer" />).container.querySelector("nav")!
+      : undefined;
     renderRequest({ ...initial, sendingDetails: details }, undefined, {
+      actionContainer,
       onDraftStateChange,
     });
     expect(
@@ -292,6 +297,7 @@ describe("case request preparation", () => {
     expect(onDraftStateChange).toHaveBeenLastCalledWith(false);
     expect(screen.queryByRole("textbox", { name: "Message" })).not.toBeInTheDocument();
     expect(operations).toEqual([]);
+    if (actionContainer) expect(actionContainer).toContainElement(screen.getByRole("button", { name: "Create my request" }));
     await user.click(
       screen.getByRole("button", { name: "Create my request" }),
     );
@@ -314,6 +320,7 @@ describe("case request preparation", () => {
       await screen.findByRole("heading", { level: 1, name: "Review and send" }),
     ).toBeVisible();
     expect(onDraftStateChange).toHaveBeenLastCalledWith(true);
+    expect(screen.queryByRole("button", { name: "Create my request" })).not.toBeInTheDocument();
     expect(operations).toEqual(["details", "prepare"]);
     expect(payloads[0]).toMatchObject({
       adjusterEmailConfirmed: true,
@@ -451,7 +458,7 @@ describe("case request preparation", () => {
     expect(screen.getByText("CLM-42")).toBeVisible();
     expect(screen.queryByText("Unavailable")).not.toBeInTheDocument();
     expect(screen.getByText("You’re going to ask the insurer to review its valuation using the market evidence and provide a written response.")).toBeVisible();
-    expect(screen.getByText("You can review and edit the email before sending it. Nothing is sent automatically.")).toBeVisible();
+    expect(screen.queryByText("You can review and edit the email before sending it. Nothing is sent automatically.")).not.toBeInTheDocument();
   });
 
   it("explains both requests for a manual case without claiming an insurer report was reviewed", () => {

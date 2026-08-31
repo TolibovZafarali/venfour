@@ -136,6 +136,7 @@ export function CompletedAnalysis(props: CompletedAnalysisProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const root = useRef<HTMLElement>(null);
+  const [footerActions, setFooterActions] = useState<HTMLElement | null>(null);
   const navigationEpoch = useRef(0);
   const requestedStage = completedAnalysisStage(view, search, intakeMode);
   const sent = requestIsSent(claim);
@@ -256,7 +257,7 @@ export function CompletedAnalysis(props: CompletedAnalysisProps) {
         {!report.conclusion.continuingSupported ? <ReportFileRow {...props} /> : null}
       </> : null}
       {stage === "request" ? (
-        canPrepare && report.conclusion.continuingSupported ? <MessagePreparation {...props} onDraftStateChange={setHasDraft} onSent={() => navigate(path("sent"), { replace: true })} /> : <>
+        canPrepare && report.conclusion.continuingSupported ? <MessagePreparation {...props} actionContainer={footerActions} onDraftStateChange={setHasDraft} onSent={() => navigate(path("sent"), { replace: true })} /> : <>
           <h1>Prepare your request</h1>
           {report.conclusion.continuingSupported ? <p>Finish reviewing the result and comparison before creating your request.</p> : <p>The result does not support a higher valuation request. Your report remains available.</p>}
           <ReportFileRow {...props} />
@@ -278,7 +279,7 @@ export function CompletedAnalysis(props: CompletedAnalysisProps) {
       {prerequisite ? <p className="review-prerequisite"><Link to={path(prerequisite)}>Continue your review</Link> before proceeding from this stage.</p> : null}
       {progression.error ? <p className="review-error" role="alert">{progression.error}</p> : null}
       <footer className="review-navigation-footer">
-        <nav className="review-actions" aria-label="Review navigation">
+        <nav className="review-actions" aria-label="Review navigation" ref={setFooterActions}>
           {previous ? <Link className="review-back" to={previous} onClick={(event) => {
             if (progression.pending) event.preventDefault();
           }}><ArrowLeft aria-hidden="true" />Back</Link> : null}

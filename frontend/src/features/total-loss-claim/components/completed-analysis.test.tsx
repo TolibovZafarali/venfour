@@ -458,7 +458,9 @@ describe("completed-analysis guided progression", () => {
     renderJourney("report", "request");
     expect(await screen.findByRole("heading", { name: "Prepare your request" })).toBeVisible();
     expect(screen.getByTestId("request-controls")).toBeVisible();
-    expect(request.render).toHaveBeenCalledTimes(1);
+    expect(request.render).toHaveBeenLastCalledWith(expect.objectContaining({
+      actionContainer: screen.getByRole("navigation", { name: "Review navigation" }),
+    }));
   });
 
   it("preserves an old skipped compatibility marker rather than trying to rewrite it on a later manual visit", async () => {

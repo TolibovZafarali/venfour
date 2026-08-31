@@ -272,9 +272,9 @@
 
 .completed-analysis :is(.request-field, .request-composer) :is(input, textarea):focus-visible {
   border-color: var(--review-accent, var(--brand));
-  outline: 2px solid #155eef40;
-  outline-offset: 2px;
-  box-shadow: 0 0 0 4px #155eef0a;
+  outline: none;
+  outline-offset: 0;
+  box-shadow: none;
 }
 
 .completed-analysis .request-button:focus-visible {
@@ -307,6 +307,14 @@
 
 .completed-analysis .request-prepare-actions {
   flex-wrap: wrap;
+}
+
+.completed-analysis .request-prepare-actions:empty {
+  display: none;
+}
+
+.completed-analysis .request-prepare-actions[data-footer-action] {
+  justify-content: flex-start;
 }
 
 .completed-analysis .request-prepare-actions > .request-button-primary {
@@ -454,16 +462,38 @@
   font-weight: 500;
 }
 
-.completed-analysis .request-composer-message textarea {
+.completed-analysis .request-composer-message-input {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+/* The hidden copy sizes the shared grid row, including a trailing blank line. */
+.completed-analysis :is(.request-composer-message textarea, .request-composer-message-size) {
+  grid-area: 1 / 1;
   display: block;
-  min-height: 19rem;
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  margin: 0;
   padding: 1rem 1.1rem;
-  border-color: transparent;
+  border: 1px solid transparent;
   border-radius: 4px;
   background: #fbfcfe;
+  font: inherit;
   font-size: 0.975rem;
   line-height: 1.85;
-  resize: vertical;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+}
+
+.completed-analysis .request-composer-message-size {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.completed-analysis .request-composer-message textarea {
+  overflow: hidden;
+  resize: none;
 }
 
 .completed-analysis .request-composer-message textarea:hover:not(:disabled):not(:focus-visible) {
@@ -722,8 +752,7 @@
     padding: 1.1rem;
   }
 
-  .completed-analysis .request-composer-message textarea {
-    min-height: 24rem;
+  .completed-analysis :is(.request-composer-message textarea, .request-composer-message-size) {
     padding: 0.8rem;
     font-size: 1rem;
     line-height: 1.7;
