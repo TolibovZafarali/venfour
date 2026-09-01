@@ -9,7 +9,9 @@ import {
   getTotalLossCheckoutQuote,
   getTotalLossReportDownload,
   prepareTotalLossMessage,
+  prepareTotalLossInsurerResponseUpload,
   reconcileTotalLossCheckout,
+  recordTotalLossInsurerResponse,
   recordTotalLossMessageOpened,
   renewTotalLossClaimAccessLink,
   requestTotalLossClaimRecovery,
@@ -20,6 +22,7 @@ import {
 import type {
   TotalLossEducationProgressState,
   TotalLossEducationStep,
+  TotalLossInsurerResponseMediaType,
 } from "@/features/total-loss-claim/contracts";
 import { ApiError } from "@/lib/api/client";
 
@@ -343,6 +346,65 @@ export function useTotalLossMessageSentMutation({
         throw new Error("An authenticated session is required.");
       }
       return confirmTotalLossMessageSent(caseId, accessToken, input);
+    },
+    onSuccess: invalidate,
+    retry: false,
+  });
+}
+
+export function useTotalLossInsurerResponseUploadPreparationMutation({
+  accessToken,
+  caseId,
+  userId,
+}: ClaimIdentityOptions) {
+  return useMutation({
+    gcTime: 0,
+    mutationKey: [
+      ...totalLossClaimQueryKeys.detail(userId, caseId),
+      "insurerResponseUpload",
+    ],
+    mutationFn: (input: {
+      readonly byteSize: number;
+      readonly clientRequestId: string;
+      readonly contentDigest: string;
+      readonly expectedWorkflowRevision: number;
+      readonly mediaType: TotalLossInsurerResponseMediaType;
+      readonly originalFilename: string;
+    }) => {
+      if (!accessToken || !userId) {
+        throw new Error("An authenticated session is required.");
+      }
+      return prepareTotalLossInsurerResponseUpload(caseId, accessToken, input);
+    },
+    retry: false,
+  });
+}
+
+export function useTotalLossInsurerResponseMutation({
+  accessToken,
+  caseId,
+  userId,
+}: ClaimIdentityOptions) {
+  const invalidate = useClaimMutationInvalidation({ caseId, userId });
+  return useMutation({
+    gcTime: 0,
+    mutationKey: [
+      ...totalLossClaimQueryKeys.detail(userId, caseId),
+      "insurerResponse",
+    ],
+    mutationFn: (input: {
+      readonly clientRequestId: string;
+      readonly documentId: string | null;
+      readonly expectedWorkflowRevision: number;
+      readonly responseText: string | null;
+      readonly retainedDocumentId: string | null;
+      readonly revisedOfferMinorUnits: number | null;
+      readonly supersedesResponseId: string | null;
+    }) => {
+      if (!accessToken || !userId) {
+        throw new Error("An authenticated session is required.");
+      }
+      return recordTotalLossInsurerResponse(caseId, accessToken, input);
     },
     onSuccess: invalidate,
     retry: false,

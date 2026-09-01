@@ -490,6 +490,8 @@ class SupabaseHttpGateway:
         name: str,
         arguments: Mapping[str, Any],
         access_token: str,
+        *,
+        permission_denied_as_conflict: bool = False,
     ) -> Any:
         if not isinstance(access_token, str) or not access_token.strip():
             raise SupabaseAuthenticationError("Authentication is required")
@@ -504,7 +506,19 @@ class SupabaseHttpGateway:
             )
         except httpx.HTTPError as exc:
             raise SupabaseUnavailableError("Supabase RPC is unavailable") from exc
-        if response.status_code in {401, 403}:
+        if response.status_code == 401:
+            raise SupabaseAuthenticationError("Authentication is invalid")
+        if response.status_code == 403:
+            try:
+                permission_payload = response.json()
+            except (ValueError, json.JSONDecodeError):
+                permission_payload = None
+            if (
+                permission_denied_as_conflict
+                and isinstance(permission_payload, Mapping)
+                and permission_payload.get("code") == "42501"
+            ):
+                raise SupabaseConflictError("Supabase write conflicted")
             raise SupabaseAuthenticationError("Authentication is invalid")
         if response.status_code < 200 or response.status_code >= 300:
             try:
@@ -858,6 +872,61 @@ class SupabaseHttpGateway:
             access_token,
         )
         return self._single_rpc_row(payload, "Sent confirmation")
+
+    def prepare_total_loss_insurer_response_upload(
+        self,
+        case_id: str,
+        values: Mapping[str, Any],
+        access_token: str,
+    ) -> Mapping[str, Any]:
+        payload = self._user_rpc(
+            "prepare_total_loss_insurer_response_upload",
+            {
+                "requested_case_id": _canonical_uuid(case_id, "Case ID"),
+                "requested_client_request_id": values.get("clientRequestId"),
+                "expected_workflow_revision": values.get(
+                    "expectedWorkflowRevision"
+                ),
+                "requested_original_filename": values.get("originalFilename"),
+                "requested_media_type": values.get("mediaType"),
+                "requested_byte_size": values.get("byteSize"),
+                "requested_content_digest": values.get("contentDigest"),
+            },
+            access_token,
+            permission_denied_as_conflict=True,
+        )
+        return self._single_rpc_row(payload, "Insurer response upload")
+
+    def record_total_loss_insurer_response(
+        self,
+        case_id: str,
+        values: Mapping[str, Any],
+        access_token: str,
+    ) -> Mapping[str, Any]:
+        payload = self._user_rpc(
+            "record_total_loss_insurer_response",
+            {
+                "requested_case_id": _canonical_uuid(case_id, "Case ID"),
+                "requested_client_request_id": values.get("clientRequestId"),
+                "expected_workflow_revision": values.get(
+                    "expectedWorkflowRevision"
+                ),
+                "requested_response_text": values.get("responseText"),
+                "requested_revised_offer_minor_units": values.get(
+                    "revisedOfferMinorUnits"
+                ),
+                "requested_document_id": values.get("documentId"),
+                "requested_retained_document_id": values.get(
+                    "retainedDocumentId"
+                ),
+                "requested_supersedes_response_id": values.get(
+                    "supersedesResponseId"
+                ),
+            },
+            access_token,
+            permission_denied_as_conflict=True,
+        )
+        return self._single_rpc_row(payload, "Insurer response")
 
     def prepare_total_loss_case_access_recovery(
         self,

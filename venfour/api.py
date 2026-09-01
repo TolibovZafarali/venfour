@@ -258,6 +258,7 @@ UPLOAD_COPY_CHUNK_BYTES = 1024 * 1024
 MAX_CLAIM_RECOVERY_BODY_BYTES = 8 * 1024
 MAX_COMMERCE_REQUEST_BODY_BYTES = 8 * 1024
 MAX_CUSTOMER_DELIVERY_BODY_BYTES = 64 * 1024
+MAX_INSURER_RESPONSE_BODY_BYTES = 2 * 1024 * 1024
 MAX_STAFF_RELEASE_REQUEST_BODY_BYTES = 16 * 1024
 
 _ANALYSIS_UNAVAILABLE_ERRORS = (
@@ -1073,6 +1074,16 @@ async def _customer_json_payload(
     )
 
 
+async def _insurer_response_json_payload(
+    request: Request, expected_keys: set[str]
+) -> Mapping[str, Any]:
+    return await _strict_json_object(
+        request,
+        expected_keys=expected_keys,
+        maximum_bytes=MAX_INSURER_RESPONSE_BODY_BYTES,
+    )
+
+
 async def _education_progress(request: Request) -> JSONResponse:
     case_id = request.path_params["case_id"]
     if not _is_canonical_uuid4(case_id):
@@ -1262,6 +1273,61 @@ async def _message_sent(request: Request) -> JSONResponse:
         )
         result = await run_in_threadpool(
             _customer_delivery_service(request).sent,
+            case_id,
+            payload,
+            _customer_delivery_token(request),
+        )
+        return _private_response(JSONResponse(result))
+    except Exception as exc:
+        return _private_response(_customer_delivery_error(exc))
+
+
+async def _insurer_response_upload(request: Request) -> JSONResponse:
+    case_id = request.path_params["case_id"]
+    if not _is_canonical_uuid4(case_id):
+        return _private_response(_error_response(400, "INVALID_CASE_ID"))
+    try:
+        payload = await _customer_json_payload(
+            request,
+            {
+                "clientRequestId",
+                "expectedWorkflowRevision",
+                "originalFilename",
+                "mediaType",
+                "byteSize",
+                "contentDigest",
+            },
+        )
+        result = await run_in_threadpool(
+            _customer_delivery_service(request).prepare_response_upload,
+            case_id,
+            payload,
+            _customer_delivery_token(request),
+        )
+        return _private_response(JSONResponse(result))
+    except Exception as exc:
+        return _private_response(_customer_delivery_error(exc))
+
+
+async def _insurer_response_record(request: Request) -> JSONResponse:
+    case_id = request.path_params["case_id"]
+    if not _is_canonical_uuid4(case_id):
+        return _private_response(_error_response(400, "INVALID_CASE_ID"))
+    try:
+        payload = await _insurer_response_json_payload(
+            request,
+            {
+                "clientRequestId",
+                "expectedWorkflowRevision",
+                "responseText",
+                "revisedOfferMinorUnits",
+                "documentId",
+                "retainedDocumentId",
+                "supersedesResponseId",
+            },
+        )
+        result = await run_in_threadpool(
+            _customer_delivery_service(request).record_insurer_response,
             case_id,
             payload,
             _customer_delivery_token(request),
@@ -2063,6 +2129,8 @@ def create_app(
             "prepare",
             "opened",
             "sent",
+            "prepare_response_upload",
+            "record_insurer_response",
         )
         if any(
             not callable(getattr(selected_customer_delivery_service, method, None))
@@ -2368,6 +2436,16 @@ def create_app(
         Route(
             "/api/v1/appraisal-cases/{case_id}/message/sent",
             _message_sent,
+            methods=["POST"],
+        ),
+        Route(
+            "/api/v1/appraisal-cases/{case_id}/insurer-response/upload",
+            _insurer_response_upload,
+            methods=["POST"],
+        ),
+        Route(
+            "/api/v1/appraisal-cases/{case_id}/insurer-response",
+            _insurer_response_record,
             methods=["POST"],
         ),
         Route(

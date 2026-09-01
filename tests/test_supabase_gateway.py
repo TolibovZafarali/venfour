@@ -15,6 +15,7 @@ from venfour.supabase_gateway import (
     MAX_EXTRACTION_CACHE_BYTES,
     SupabaseAuthenticationError,
     SupabaseConfigurationError,
+    SupabaseConflictError,
     SupabaseContractError,
     SupabaseHttpGateway,
     SupabaseReportInvalidError,
@@ -40,6 +41,9 @@ FINAL_ASSESSMENT_ID = "d0000000-0000-4000-8000-00000000000d"
 DISPATCH_TOKEN_ID = "e0000000-0000-4000-8000-00000000000e"
 REPORT_SERIES_ID = "f0000000-0000-4000-8000-00000000000f"
 REPORT_VERSION_ID = "11000000-0000-4000-8000-000000000011"
+CLIENT_REQUEST_ID = "12000000-0000-4000-8000-000000000012"
+RETAINED_DOCUMENT_ID = "13000000-0000-4000-8000-000000000013"
+SUPERSEDED_RESPONSE_ID = "14000000-0000-4000-8000-000000000014"
 PDF_BYTES = b"%PDF-1.7\nsynthetic private report\n%%EOF\n"
 
 
@@ -539,6 +543,118 @@ class SupabaseHttpGatewayTests(unittest.TestCase):
                     gateway.renew_total_loss_case_claim(
                         CASE_ID, "browser-token"
                     )
+
+    def test_insurer_response_user_rpcs_use_exact_names_and_arguments(
+        self,
+    ) -> None:
+        requests: list[httpx.Request] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            requests.append(request)
+            return httpx.Response(200, json=[{"outcome": "accepted"}])
+
+        gateway, _ = self.gateway(handler)
+        upload_values = {
+            "clientRequestId": CLIENT_REQUEST_ID,
+            "expectedWorkflowRevision": 4,
+            "originalFilename": "response.pdf",
+            "mediaType": "application/pdf",
+            "byteSize": 1024,
+            "contentDigest": "a" * 64,
+        }
+        record_values = {
+            "clientRequestId": CLIENT_REQUEST_ID,
+            "expectedWorkflowRevision": 4,
+            "responseText": "Please see the revised offer.",
+            "revisedOfferMinorUnits": 2_100_000,
+            "documentId": None,
+            "retainedDocumentId": RETAINED_DOCUMENT_ID,
+            "supersedesResponseId": SUPERSEDED_RESPONSE_ID,
+        }
+
+        self.assertEqual(
+            gateway.prepare_total_loss_insurer_response_upload(
+                CASE_ID, upload_values, "browser-token"
+            ),
+            {"outcome": "accepted"},
+        )
+        self.assertEqual(
+            gateway.record_total_loss_insurer_response(
+                CASE_ID, record_values, "browser-token"
+            ),
+            {"outcome": "accepted"},
+        )
+
+        expected_bodies = {
+            "prepare_total_loss_insurer_response_upload": {
+                "requested_case_id": CASE_ID,
+                "requested_client_request_id": CLIENT_REQUEST_ID,
+                "expected_workflow_revision": 4,
+                "requested_original_filename": "response.pdf",
+                "requested_media_type": "application/pdf",
+                "requested_byte_size": 1024,
+                "requested_content_digest": "a" * 64,
+            },
+            "record_total_loss_insurer_response": {
+                "requested_case_id": CASE_ID,
+                "requested_client_request_id": CLIENT_REQUEST_ID,
+                "expected_workflow_revision": 4,
+                "requested_response_text": "Please see the revised offer.",
+                "requested_revised_offer_minor_units": 2_100_000,
+                "requested_document_id": None,
+                "requested_retained_document_id": RETAINED_DOCUMENT_ID,
+                "requested_supersedes_response_id": SUPERSEDED_RESPONSE_ID,
+            },
+        }
+        self.assertEqual(len(requests), 2)
+        for request in requests:
+            rpc_name = request.url.path.rsplit("/", 1)[-1]
+            self.assertEqual(request.method, "POST")
+            self.assertEqual(json.loads(request.content), expected_bodies[rpc_name])
+            self.assertEqual(request.headers["apikey"], "publishable-test-key")
+            self.assertEqual(
+                request.headers["authorization"], "Bearer browser-token"
+            )
+
+    def test_insurer_response_owner_denial_is_a_neutral_write_conflict(
+        self,
+    ) -> None:
+        gateway, _ = self.gateway(
+            lambda _request: httpx.Response(
+                403,
+                json={"code": "42501", "message": "unavailable"},
+            )
+        )
+        upload_values = {
+            "clientRequestId": CLIENT_REQUEST_ID,
+            "expectedWorkflowRevision": 4,
+            "originalFilename": "response.pdf",
+            "mediaType": "application/pdf",
+            "byteSize": 1024,
+            "contentDigest": "a" * 64,
+        }
+        record_values = {
+            "clientRequestId": CLIENT_REQUEST_ID,
+            "expectedWorkflowRevision": 4,
+            "responseText": "Please see the response.",
+            "revisedOfferMinorUnits": None,
+            "documentId": None,
+            "retainedDocumentId": None,
+            "supersedesResponseId": None,
+        }
+
+        for operation in (
+            lambda: gateway.prepare_total_loss_insurer_response_upload(
+                CASE_ID, upload_values, "browser-token"
+            ),
+            lambda: gateway.record_total_loss_insurer_response(
+                CASE_ID, record_values, "browser-token"
+            ),
+        ):
+            with self.subTest(operation=operation), self.assertRaises(
+                SupabaseConflictError
+            ):
+                operation()
 
     def test_magic_link_uses_service_role_otp_with_only_the_server_callback(
         self,

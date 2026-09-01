@@ -1,6 +1,7 @@
 import { ArrowRight } from "lucide-react";
 import type { CSSProperties } from "react";
 
+import type { TotalLossCaseJourneyProgress } from "../case-journey";
 import type { TotalLossMoney, TotalLossPublishedReport } from "../contracts";
 import { displayed, moneyLabel, numeric, roleLabel } from "../report-format";
 
@@ -8,12 +9,26 @@ function available(value: TotalLossMoney | null | undefined): value is TotalLoss
   return value?.amountMinorUnits != null && Number.isSafeInteger(value.amountMinorUnits) && Boolean(displayed(value.formatted, ""));
 }
 
-export function ReviewProgress({ index, total }: { readonly index: number; readonly total: number }) {
+export function CaseJourneyProgress({
+  progress,
+}: {
+  readonly progress: TotalLossCaseJourneyProgress;
+}) {
+  const progressValue = progress.isCaseActive
+    ? progress.position - 0.5
+    : progress.position;
+  const valueText = progress.isCaseActive
+    ? `Current stage: ${progress.current.label}. Case active.`
+    : `Step ${progress.position} of ${progress.total}: ${progress.current.label}`;
   return (
-    <div className="review-progress">
-      <div className="review-progress-caption"><p aria-label="Review progress">Step <span className="review-progress-count">{index}</span> of {total}</p><span>Your valuation review</span></div>
-      <div className="review-progress-track" role="progressbar" aria-label="Valuation review" aria-valuemin={1} aria-valuemax={total} aria-valuenow={index} aria-valuetext={`Step ${index} of ${total}`}>
-        <span className="review-progress-fill" style={{ transform: `scaleX(${index / total})` }} />
+    <div
+      className="review-progress"
+      data-case-active={progress.isCaseActive || undefined}
+      data-current-step={progress.current.id}
+    >
+      <div className="review-progress-caption"><p aria-label="Case journey progress">{progress.isCaseActive ? "Current stage" : <>Step <span className="review-progress-count">{progress.position}</span> of {progress.total}</>}</p><span>{progress.current.label}</span></div>
+      <div className="review-progress-track" role="progressbar" aria-label="Case journey" aria-valuemin={1} aria-valuemax={progress.total} aria-valuenow={progressValue} aria-valuetext={valueText}>
+        <span className="review-progress-fill" style={{ transform: `scaleX(${progressValue / progress.total})` }} />
       </div>
     </div>
   );

@@ -11,7 +11,7 @@ export function PrivacyPage() {
       eyebrow="Privacy"
       title="How Venfour handles your information"
       introduction="This page describes the current Venfour service in practical terms: what is stored when you use an account, start a supported total-loss review, or have a previously saved diminished-value request, and what controls are not yet available."
-      updated="Last updated August 23, 2026"
+      updated="Last updated September 1, 2026"
       tone="privacy"
     >
       <PublicPageSection title="Information you provide">
@@ -22,6 +22,14 @@ export function PrivacyPage() {
           scan pages. A report can include claim or report references, dates,
           valuation amounts, dealer information, comparable vehicles, and
           adjustment details. Please review your document before uploading it.
+        </p>
+        <p>
+          After you record that a reconsideration request was sent, you may
+          paste an insurer’s written response, upload the original response as
+          a PDF, JPEG, PNG, HEIC, or HEIF file, and optionally record a revised
+          offer. If you correct a saved response, Venfour keeps the prior
+          submitted material in the case history instead of silently
+          overwriting it.
         </p>
         <p>
           Diminished-value customer intake is currently paused. A request saved
@@ -73,10 +81,12 @@ export function PrivacyPage() {
         <p>
           Customer case records are protected by database access policies
           intended to restrict each signed-in customer to their own records.
-          Total-loss reports and diminished-value supporting documents are kept
-          in private case-file storage. When you start a total-loss value check,
-          Venfour also stores case-owned processing state and the resulting
-          analysis record. Authorized Venfour staff can inspect bounded
+          Total-loss reports, insurer-response files, and diminished-value
+          supporting documents are kept in private case-file storage. Venfour
+          also stores the customer-provided response text, an optional revised
+          offer, and the response history with the case. When you start a
+          total-loss value check, Venfour stores case-owned processing state and
+          the resulting analysis record. Authorized Venfour staff can inspect bounded
           customer identity, intake, report metadata, processing state,
           failures, and completed-run summary information for Total Loss cases.
           The operations workspace does not provide source-PDF viewing or
@@ -141,8 +151,9 @@ export function PrivacyPage() {
 
       <PublicPageSection title="Storage and retention">
         <p>
-          Total-loss reports and diminished-value supporting documents remain
-          in private case-file storage with their saved cases. Limited
+          Total-loss reports, insurer-response files, and diminished-value
+          supporting documents remain in private case-file storage with their
+          saved cases. Limited
           in-progress intake state may be kept in essential browser storage for
           recovery, but the authoritative Total Loss case belongs first to the
           isolated anonymous or permanent authenticated identity and is created

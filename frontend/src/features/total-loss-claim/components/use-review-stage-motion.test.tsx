@@ -258,7 +258,7 @@ describe("completed review stage motion", () => {
     ["insurer", 6, 12, .62],
     ["market", 6, 12, .62],
     ["request", 6, 12, .62],
-    ["sent", 5, 10, .65],
+    ["waiting", 5, 10, .65],
   ] as const)("uses the intended primary emphasis for %s and a quieter supporting entrance", (stage, blur, travel, opacity) => {
     render(<Review stage={stage} />);
 
@@ -271,7 +271,7 @@ describe("completed review stage motion", () => {
     ["result", 4, 10],
     ["meaning", 4, 10],
     ["market", 3, 8],
-    ["sent", 3, 8],
+    ["waiting", 3, 8],
   ] as const)("reduces blur and travel on compact layouts for %s", (stage, blur, travel) => {
     setMotionPreferences({ compact: true });
     render(<Review stage={stage} />);

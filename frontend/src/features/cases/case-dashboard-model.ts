@@ -27,6 +27,7 @@ export interface CaseDashboardMilestone {
     | "report"
     | "request"
     | "waiting"
+    | "response"
     | "service"
     | "closed";
   readonly label: string;
@@ -68,6 +69,7 @@ export type CaseDashboardStatusCode =
   | "request_preparation"
   | "request_ready"
   | "waiting_for_insurer"
+  | "response_received"
   | "no_dispute"
   | "refund_pending"
   | "needs_attention"
@@ -267,9 +269,19 @@ function claimStatus(
         code: "waiting_for_insurer",
         label: insurer ? `Waiting for ${insurer}` : "Waiting for the insurer",
         explanation:
-          "You marked the request as sent. Venfour cannot verify delivery or receipt, so return here when the insurer responds.",
+          "You confirmed the request was sent. The case remains active while you wait, but Venfour cannot monitor email or detect the insurer’s response automatically.",
         tone: "active",
-        actionLabel: "View sent request",
+        actionLabel: "Return to case",
+        actionRequired: false,
+      };
+    case "insurer_response_received":
+      return {
+        code: "response_received",
+        label: "Insurer response received",
+        explanation:
+          "The insurer’s response is saved with this case. Venfour has not analyzed it or prepared advice or a reply.",
+        tone: "active",
+        actionLabel: "Review saved response",
         actionRequired: false,
       };
     case "no_dispute":
@@ -602,6 +614,17 @@ function claimMilestones(
       milestone("report", "Valuation report", "complete"),
       milestone("request", "Request", "current"),
       milestone("waiting", "Insurer follow-up", "upcoming"),
+    ];
+  }
+
+  if (journeyState === "insurer_response_received") {
+    return [
+      ...base,
+      continuation,
+      milestone("report", "Valuation report", "complete"),
+      milestone("request", "Request sent", "complete"),
+      milestone("waiting", "Waiting for insurer", "complete"),
+      milestone("response", "Response received", "current"),
     ];
   }
 

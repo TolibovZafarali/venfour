@@ -223,9 +223,10 @@ select ok(
     'published_report',
     'education_progress',
     'sending_details',
-    'message_draft'
+    'message_draft',
+    'insurer_response'
   ]::text[],
-  'claim resume preserves commerce fields and adds only customer-safe delivery projections'
+  'claim resume preserves commerce fields and adds only customer-safe delivery and response projections'
 );
 
 insert into auth.users (id, email, email_confirmed_at, is_anonymous)

@@ -24,6 +24,7 @@ from venfour.supabase_gateway import (
 )
 from venfour.customer_delivery import (
     validate_education_projection,
+    validate_insurer_response_projection,
     validate_message_draft,
     validate_report_projection,
     validate_sending_details,
@@ -406,6 +407,7 @@ class ClaimResumeState:
     education: Mapping[str, Any] | None = None
     sending_details: Mapping[str, Any] | None = None
     message_draft: Mapping[str, Any] | None = None
+    insurer_response: Mapping[str, Any] | None = None
     extended: bool = False
 
     def to_dict(self) -> dict[str, Any]:
@@ -429,6 +431,11 @@ class ClaimResumeState:
                     ),
                     "messageDraft": (
                         dict(self.message_draft) if self.message_draft else None
+                    ),
+                    "insurerResponse": (
+                        dict(self.insurer_response)
+                        if self.insurer_response
+                        else None
                     ),
                 }
             )
@@ -486,6 +493,7 @@ class CaseClaimAccessService:
         "guide_what_next",
         "prepare_request",
         "awaiting_insurer_response",
+        "insurer_response_received",
         "no_dispute",
         "needs_attention",
     }
@@ -499,6 +507,7 @@ class CaseClaimAccessService:
         "refund_pending",
         "needs_attention",
         "awaiting_insurer_response",
+        "insurer_response_received",
     }
 
     def __init__(
@@ -646,6 +655,7 @@ class CaseClaimAccessService:
                 "education_progress",
                 "sending_details",
                 "message_draft",
+                "insurer_response",
                 "commerce_amount_minor_units",
                 "commerce_currency",
             )
@@ -667,6 +677,7 @@ class CaseClaimAccessService:
                         "education_progress",
                         "sending_details",
                         "message_draft",
+                        "insurer_response",
                     )
                 )
             ):
@@ -700,11 +711,28 @@ class CaseClaimAccessService:
             else None
         )
         draft = validate_message_draft(row.get("message_draft"), nullable=True)
+        response_value = row.get("insurer_response")
+        insurer_response = (
+            validate_insurer_response_projection(response_value)
+            if response_value is not None
+            else None
+        )
         if state != "secured" and any(
-            value is not None for value in (report, education, sending, draft)
+            value is not None
+            for value in (report, education, sending, draft, insurer_response)
         ):
             raise SupabaseContractError("Claim delivery response is invalid")
-        if report is None and any(value is not None for value in (education, sending, draft)):
+        if report is None and any(
+            value is not None
+            for value in (education, sending, draft)
+        ):
+            raise SupabaseContractError("Claim delivery response is invalid")
+        response_state = bool(
+            state == "secured"
+            and workflow
+            and workflow.current_task == "insurer_response_received"
+        )
+        if response_state != (insurer_response is not None):
             raise SupabaseContractError("Claim delivery response is invalid")
         return ClaimResumeState(
             state=state,
@@ -717,6 +745,7 @@ class CaseClaimAccessService:
             education=education,
             sending_details=sending,
             message_draft=draft,
+            insurer_response=insurer_response,
             extended=extended,
         )
 

@@ -57,7 +57,8 @@ describe("total-loss claim authoritative route decisions", () => {
     ["guide_report", `/total-loss/cases/${CASE_ID}/claim/review/meaning`],
     ["guide_what_next", `/total-loss/cases/${CASE_ID}/claim/review/meaning`],
     ["prepare_request", `/total-loss/cases/${CASE_ID}/claim/review/request`],
-    ["awaiting_insurer_response", `/total-loss/cases/${CASE_ID}/claim/review/sent`],
+    ["awaiting_insurer_response", `/total-loss/cases/${CASE_ID}/claim/review/waiting`],
+    ["insurer_response_received", `/total-loss/cases/${CASE_ID}/claim/review/response-received`],
     ["no_dispute", `/total-loss/cases/${CASE_ID}/claim/review/result`],
   ] as const)("routes %s to its case-scoped state", (state, expected) => {
     expect(routeForJourneyState(CASE_ID, state)).toBe(expected);
@@ -83,7 +84,8 @@ describe("total-loss claim authoritative route decisions", () => {
     ["overview", "review_result"],
     ["evidence", "review_market"],
     ["request", "review_request"],
-    ["activity", "review_sent"],
+    ["activity", "review_waiting"],
+    ["review_sent", "review_waiting"],
   ] as const)("preserves the URL for the legacy %s view", (legacy, compatibleView) => {
     expect(totalLossClaimViewPath(CASE_ID, legacy)).toBe(
       totalLossClaimViewPath(CASE_ID, compatibleView),
@@ -128,8 +130,11 @@ describe("completed analysis deep-link compatibility", () => {
     ["request", "request"],
     ["send", "request"],
     ["review_request", "request"],
-    ["activity", "sent"],
-    ["review_sent", "sent"],
+    ["activity", "waiting"],
+    ["review_sent", "waiting"],
+    ["review_waiting", "waiting"],
+    ["review_response", "response"],
+    ["review_response_received", "response_received"],
   ] as const)("keeps %s links focused on %s", (view, section) => {
     expect(isCompletedAnalysisView(view)).toBe(true);
     expect(completedAnalysisStage(view, new URLSearchParams(), "report")).toBe(section);
@@ -201,6 +206,9 @@ describe("completed analysis deep-link compatibility", () => {
     ["review_market", "details=report", "request?details=report"],
     ["report", "", "meaning"],
     ["review_next", "", "meaning"],
+    ["review_sent", "", "waiting"],
+    ["review_response", "", "response"],
+    ["review_response_received", "", "response-received"],
     ["review_result", "details=market&source=saved", "market?details=market&source=saved"],
   ] satisfies ReadonlyArray<readonly [TotalLossClaimWorkflowView, string, string]>)(
     "canonicalizes %s with %s while retaining valid detail intent",

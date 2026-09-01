@@ -6,6 +6,10 @@ import { createMemoryRouter, RouterProvider, useParams } from "react-router";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { TotalLossIntakeMode } from "@/features/total-loss/types";
+import {
+  TotalLossDependenciesProvider,
+  type TotalLossDependencies,
+} from "@/features/total-loss/dependencies";
 import { CompletedAnalysis } from "@/features/total-loss-claim/components/completed-analysis";
 import {
   TOTAL_LOSS_EDUCATION_STEPS,
@@ -171,10 +175,31 @@ interface EducationWrite {
   readonly expectedWorkflowRevision: number;
 }
 
+interface InsurerResponseWrite {
+  readonly clientRequestId: string;
+  readonly documentId: string | null;
+  readonly expectedWorkflowRevision: number;
+  readonly responseText: string | null;
+  readonly retainedDocumentId: string | null;
+  readonly revisedOfferMinorUnits: number | null;
+  readonly supersedesResponseId: string | null;
+}
+
+interface InsurerResponseUploadWrite {
+  readonly byteSize: number;
+  readonly clientRequestId: string;
+  readonly contentDigest: string;
+  readonly expectedWorkflowRevision: number;
+  readonly mediaType: string;
+  readonly originalFilename: string;
+}
+
 function installClaim(initialClaim = claimProjection(), failOnce?: TotalLossEducationStep, beforeSave?: () => Promise<void>) {
   let claim = initialClaim;
   let failed = false;
   const writes: EducationWrite[] = [];
+  const responseWrites: InsurerResponseWrite[] = [];
+  const responseUploadWrites: InsurerResponseUploadWrite[] = [];
   const draftWrites = vi.fn();
   server.use(
     http.get(`${API}/claim`, () => HttpResponse.json(claim)),
@@ -209,8 +234,47 @@ function installClaim(initialClaim = claimProjection(), failOnce?: TotalLossEduc
       draftWrites();
       return HttpResponse.json({ error: { code: "UNEXPECTED_WRITE", message: "An evidence visit must not update a draft." } }, { status: 500 });
     }),
+    http.post(`${API}/insurer-response`, async ({ request: update }) => {
+      const body = await update.json() as InsurerResponseWrite;
+      responseWrites.push(body);
+      const response = {
+        responseId: "99999999-9999-4999-8999-999999999999",
+        clientRequestId: body.clientRequestId,
+        receivedAt: NOW,
+        sourceType: body.documentId ? "uploaded_document" as const : "pasted_message" as const,
+        text: body.responseText,
+        document: body.documentId ? {
+          documentId: body.documentId,
+          originalFilename: "insurer-response.png",
+          mediaType: "image/png" as const,
+          byteSize: 11,
+        } : null,
+        revisedOffer: body.revisedOfferMinorUnits ? { amountMinorUnits: body.revisedOfferMinorUnits, currency: "USD" } : null,
+        processingState: "not_started" as const,
+        supersedesResponseId: body.supersedesResponseId,
+      };
+      claim = {
+        ...claim,
+        insurerResponse: response,
+        journey: { fulfillmentState: "insurer_response_received", nextState: "insurer_response_received", retryable: false },
+        workflow: { ...claim.workflow!, currentTask: "insurer_response_received", revision: claim.workflow!.revision + 1 },
+      };
+      return HttpResponse.json({ state: "insurer_response_received", response, workflowRevision: claim.workflow!.revision });
+    }),
+    http.post(`${API}/insurer-response/upload`, async ({ request: update }) => {
+      const body = await update.json() as InsurerResponseUploadWrite;
+      responseUploadWrites.push(body);
+      return HttpResponse.json({
+        documentId: body.clientRequestId,
+        uploadPath: `${USER_ID}/${CASE_ID}/insurer-responses/${body.clientRequestId}.png`,
+        originalFilename: body.originalFilename,
+        mediaType: body.mediaType,
+        byteSize: body.byteSize,
+        contentDigest: body.contentDigest,
+      });
+    }),
   );
-  return { writes, draftWrites, claim: () => claim };
+  return { writes, responseWrites, responseUploadWrites, draftWrites, claim: () => claim };
 }
 
 function JourneyHarness({ intakeMode }: { readonly intakeMode: TotalLossIntakeMode }) {
@@ -226,16 +290,27 @@ function JourneyHarness({ intakeMode }: { readonly intakeMode: TotalLossIntakeMo
     onRefresh={query.refetch}
     report={query.data.report}
     userId={USER_ID}
-    view={`review_${stage}` as TotalLossClaimWorkflowView}
+    view={`review_${stage.replaceAll("-", "_")}` as TotalLossClaimWorkflowView}
   />;
 }
 
-function renderJourney(intakeMode: TotalLossIntakeMode, initialStage = "result") {
+function renderJourney(
+  intakeMode: TotalLossIntakeMode,
+  initialStage = "result",
+  insurerResponseStorageService?: NonNullable<TotalLossDependencies["totalLossInsurerResponseStorageService"]>,
+) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
   const router = createMemoryRouter([{ path: `${BASE}/review/:stage`, element: <JourneyHarness intakeMode={intakeMode} /> }], {
     initialEntries: [`${BASE}/review/${initialStage}`],
   });
-  const result = render(<QueryClientProvider client={queryClient}><RouterProvider router={router} /></QueryClientProvider>);
+  const dependencies = insurerResponseStorageService ? {
+    totalLossInsurerResponseStorageService: insurerResponseStorageService,
+  } as unknown as TotalLossDependencies : null;
+  const result = render(
+    <TotalLossDependenciesProvider dependencies={dependencies}>
+      <QueryClientProvider client={queryClient}><RouterProvider router={router} /></QueryClientProvider>
+    </TotalLossDependenciesProvider>,
+  );
   return { ...result, router, queryClient };
 }
 
@@ -546,11 +621,116 @@ describe("completed-analysis guided progression", () => {
   it("shows a persisted customer-reported sent state without mounting the editor or claiming delivery", async () => {
     const projection = claimProjection([...BEFORE_REQUEST, "send"]);
     installClaim({ ...projection, journey: { fulfillmentState: "awaiting_insurer_response", nextState: "awaiting_insurer_response", retryable: false }, workflow: { currentTask: "awaiting_insurer_response", phase: "initial_request", revision: 13 } });
-    renderJourney("report", "sent");
+    renderJourney("report", "waiting");
     expect(await screen.findByRole("heading", { name: "Waiting for the insurer’s response" })).toBeVisible();
-    expect(screen.getByText(/reported.*sen|marked.*sen/iu)).toBeVisible();
+    expect(screen.getByText("Case active")).toBeVisible();
+    expect(screen.getByText(/Based on your confirmation.*recorded.*sent/iu)).toBeVisible();
+    expect(screen.getByRole("progressbar", { name: "Case journey" })).toHaveAttribute(
+      "aria-valuetext",
+      "Current stage: Waiting for insurer. Case active.",
+    );
+    expect(screen.getByRole("progressbar", { name: "Case journey" })).toHaveAttribute("aria-valuenow", "6.5");
+    expect(screen.getByText(/does not monitor.*cannot verify delivery, receipt, or detect a response automatically/iu)).toBeVisible();
+    expect(screen.getByText(/return to this case.*I received a response/iu)).toBeVisible();
     expect(screen.queryByText(/delivery confirmed|insurer received|response.*within \d/iu)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "I received a response" })).toBeVisible();
+    expect(screen.queryByRole("button", { name: /offer|negotiat|close/iu })).not.toBeInTheDocument();
     expect(request.render).not.toHaveBeenCalled();
+  });
+
+  it("records an offer-only insurer response once and advances to the saved received state", async () => {
+    const projection = claimProjection([...BEFORE_REQUEST, "send"]);
+    const installed = installClaim({
+      ...projection,
+      journey: { fulfillmentState: "awaiting_insurer_response", nextState: "awaiting_insurer_response", retryable: false },
+      workflow: { currentTask: "awaiting_insurer_response", phase: "initial_request", revision: 13 },
+    });
+    renderJourney("report", "waiting");
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole("button", { name: "I received a response" }));
+    expect(await screen.findByRole("heading", { name: "Add the insurer’s response" })).toBeVisible();
+    await user.type(screen.getByRole("textbox", { name: /^Revised offer/iu }), "21125.50");
+    const save = screen.getByRole("button", { name: "Save response" });
+    await Promise.all([user.click(save), user.click(save)]);
+
+    expect(await screen.findByRole("heading", { name: "The insurer’s response is saved" })).toBeVisible();
+    expect(installed.responseWrites).toHaveLength(1);
+    expect(installed.responseWrites[0]).toMatchObject({
+      documentId: null,
+      expectedWorkflowRevision: 13,
+      responseText: null,
+      retainedDocumentId: null,
+      revisedOfferMinorUnits: 2_112_550,
+      supersedesResponseId: null,
+    });
+    expect(screen.getByText("$21,125.50")).toBeVisible();
+    expect(screen.getByText(/has not analyzed it/iu)).toBeVisible();
+    expect(screen.getByRole("region", { name: "Valuation report" })).toBeVisible();
+
+    await user.click(screen.getByRole("button", { name: "Correct this response" }));
+    expect(await screen.findByText("Correct saved response")).toBeVisible();
+    const pasted = screen.getByRole("textbox", { name: /^Paste the response/iu });
+    await user.type(pasted, "  Exact corrected reply.\n");
+    await user.click(screen.getByRole("button", { name: "Save corrected response" }));
+
+    expect(await screen.findByRole("heading", { name: "The insurer’s response is saved" })).toBeVisible();
+    expect(installed.responseWrites).toHaveLength(2);
+    expect(installed.responseWrites[1]).toMatchObject({
+      responseText: "  Exact corrected reply.\n",
+      revisedOfferMinorUnits: 2_112_550,
+      supersedesResponseId: "99999999-9999-4999-8999-999999999999",
+    });
+    expect(installed.responseWrites[1].clientRequestId).not.toBe(installed.responseWrites[0].clientRequestId);
+  });
+
+  it("prepares, privately uploads, and records an original response file", async () => {
+    const projection = claimProjection([...BEFORE_REQUEST, "send"]);
+    const installed = installClaim({
+      ...projection,
+      journey: { fulfillmentState: "awaiting_insurer_response", nextState: "awaiting_insurer_response", retryable: false },
+      workflow: { currentTask: "awaiting_insurer_response", phase: "initial_request", revision: 13 },
+    });
+    const uploadPreparedResponse = vi.fn(async () => undefined);
+    renderJourney("report", "waiting", { uploadPreparedResponse });
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole("button", { name: "I received a response" }));
+    const fileInput = document.querySelector<HTMLInputElement>('input[type="file"]');
+    expect(fileInput).not.toBeNull();
+    const file = new File(
+      [new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3])],
+      "insurer-response.png",
+      { type: "image/png" },
+    );
+    await user.upload(fileInput!, file);
+    expect(await screen.findByText("insurer-response.png")).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Save response" }));
+
+    expect(await screen.findByRole("heading", { name: "The insurer’s response is saved" })).toBeVisible();
+    expect(installed.responseUploadWrites).toHaveLength(1);
+    expect(installed.responseUploadWrites[0]).toMatchObject({
+      byteSize: file.size,
+      expectedWorkflowRevision: 13,
+      mediaType: "image/png",
+      originalFilename: file.name,
+    });
+    expect(installed.responseUploadWrites[0].contentDigest).toMatch(/^[a-f0-9]{64}$/u);
+    expect(uploadPreparedResponse).toHaveBeenCalledWith(expect.objectContaining({
+      caseId: CASE_ID,
+      clientRequestId: installed.responseUploadWrites[0].clientRequestId,
+      file,
+      preparation: expect.objectContaining({
+        documentId: installed.responseUploadWrites[0].clientRequestId,
+      }),
+    }));
+    expect(installed.responseWrites).toHaveLength(1);
+    expect(installed.responseWrites[0]).toMatchObject({
+      documentId: installed.responseUploadWrites[0].clientRequestId,
+      responseText: null,
+      retainedDocumentId: null,
+      revisedOfferMinorUnits: null,
+    });
   });
 
   it("returns a customer reviewing Meaning after sending to the saved request status", async () => {
@@ -563,11 +743,11 @@ describe("completed-analysis guided progression", () => {
     const user = userEvent.setup();
     const { router } = renderJourney("report", "meaning");
 
-    expect(await screen.findByRole("button", { name: "Return to request status" })).toBeVisible();
+    expect(await screen.findByRole("button", { name: "Return to case status" })).toBeVisible();
     expect(screen.queryByRole("button", { name: "Prepare my request" })).not.toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Return to request status" }));
+    await user.click(screen.getByRole("button", { name: "Return to case status" }));
     expect(await screen.findByRole("heading", { name: "Waiting for the insurer’s response" })).toBeVisible();
-    expect(router.state.location.pathname).toBe(`${BASE}/review/sent`);
+    expect(router.state.location.pathname).toBe(`${BASE}/review/waiting`);
   });
 
   it("keeps the review frame mounted when a saved sent state replaces the request and redirects its URL", async () => {
@@ -588,7 +768,7 @@ describe("completed-analysis guided progression", () => {
     await act(() => view.queryClient.refetchQueries({ type: "active" }));
 
     expect(await screen.findByRole("heading", { name: "Waiting for the insurer’s response" })).toBeVisible();
-    await waitFor(() => expect(view.router.state.location.pathname).toBe(`${BASE}/review/sent`));
+    await waitFor(() => expect(view.router.state.location.pathname).toBe(`${BASE}/review/waiting`));
     expect(screen.getByRole("region", { name: "Completed analysis" })).toBe(section);
     expect(section.querySelector(".review-stage-content")).toBe(content);
     expect(section.querySelectorAll("h1")).toHaveLength(1);
@@ -601,7 +781,7 @@ describe("completed-analysis guided progression", () => {
   it("does not show sent confirmation from the URL without a saved sent state", async () => {
     const projection = claimProjection(BEFORE_REQUEST);
     installClaim({ ...projection, journey: { ...projection.journey!, nextState: "prepare_request" } });
-    const { router } = renderJourney("report", "sent");
+    const { router } = renderJourney("report", "waiting");
     expect(await screen.findByRole("heading", { name: "Review and send your request" })).toBeVisible();
     expect(router.state.location.pathname).toBe(`${BASE}/review/request`);
     expect(screen.queryByRole("heading", { name: "Waiting for the insurer’s response" })).not.toBeInTheDocument();
@@ -719,7 +899,7 @@ describe("completed-analysis guided progression", () => {
 
     expect(await screen.findByRole("heading", { name: "What the comparison means" })).toBeVisible();
     expect(router.state.location.pathname).toBe(`${BASE}/review/meaning`);
-    expect(screen.getByRole("progressbar", { name: "Valuation review" })).toHaveAttribute("aria-valuetext", `Step ${total} of ${total}`);
+    expect(screen.getByRole("progressbar", { name: "Case journey" })).toHaveAttribute("aria-valuetext", `Step ${total} of ${total}: Understand comparison`);
     expect(screen.queryByText(report.suggestedFilename)).not.toBeInTheDocument();
     expect(screen.getByText("PDF report · Issued Aug 29, 2026")).toBeVisible();
     expect(screen.queryByRole("button", { name: /request/iu })).not.toBeInTheDocument();

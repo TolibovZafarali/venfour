@@ -23,6 +23,11 @@ import type {
   TotalLossInsurerEvidence,
   TotalLossInsurerComparable,
   TotalLossInsurerEvidenceSummary,
+  TotalLossInsurerResponse,
+  TotalLossInsurerResponseDocument,
+  TotalLossInsurerResponseMediaType,
+  TotalLossInsurerResponseRecorded,
+  TotalLossInsurerResponseUploadPreparation,
   TotalLossMarketComparable,
   TotalLossMarketEvidence,
   TotalLossMarketEvidenceDateContext,
@@ -40,7 +45,10 @@ import type {
   TotalLossSentMessage,
   TotalLossSupportedRange,
 } from "@/features/total-loss-claim/contracts";
-import { TOTAL_LOSS_EDUCATION_STEPS } from "@/features/total-loss-claim/contracts";
+import {
+  TOTAL_LOSS_EDUCATION_STEPS,
+  TOTAL_LOSS_INSURER_RESPONSE_MEDIA_TYPES,
+} from "@/features/total-loss-claim/contracts";
 import { createApiClient } from "@/lib/api/client";
 
 const apiClient = createApiClient({ baseUrl: environment.apiBaseUrl });
@@ -77,6 +85,7 @@ const CLAIM_ENTITLEMENT_STATUSES = new Set<TotalLossClaimEntitlementStatus>([
 ]);
 const SAFE_TASK_PATTERN = /^[a-z][a-z0-9_]{0,63}$/u;
 const SAFE_FILENAME_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_. -]{0,175}\.pdf$/u;
+const SHA256_PATTERN = /^[a-f0-9]{64}$/u;
 const CURRENCY_PATTERN = /^[A-Z]{3}$/u;
 const JOURNEY_STATES = new Set<TotalLossClaimJourneyState>([
   "secure_claim",
@@ -90,6 +99,7 @@ const JOURNEY_STATES = new Set<TotalLossClaimJourneyState>([
   "guide_what_next",
   "prepare_request",
   "awaiting_insurer_response",
+  "insurer_response_received",
   "no_dispute",
   "needs_attention",
 ]);
@@ -103,7 +113,11 @@ const FULFILLMENT_STATES = new Set<TotalLossClaimFulfillmentState>([
   "no_dispute",
   "needs_attention",
   "awaiting_insurer_response",
+  "insurer_response_received",
 ]);
+const INSURER_RESPONSE_MEDIA_TYPES = new Set<TotalLossInsurerResponseMediaType>(
+  TOTAL_LOSS_INSURER_RESPONSE_MEDIA_TYPES,
+);
 const CHECKOUT_STATES = new Set<TotalLossCheckoutState>([
   "already_fulfilled",
   "checkout_ready",
@@ -148,6 +162,42 @@ function requiredString(
     );
   }
   return value;
+}
+
+function safeResponseFilename(value: unknown, field: string) {
+  const filename = requiredString(value, field);
+  const hasControlCharacter = [...filename].some((character) => {
+    const codePoint = character.codePointAt(0) ?? 0;
+    return codePoint <= 0x1f || codePoint === 0x7f;
+  });
+  if (
+    [...filename].length > 255 ||
+    filename.includes("/") ||
+    filename.includes("\\") ||
+    filename === "." ||
+    filename === ".." ||
+    hasControlCharacter
+  ) {
+    throw new TotalLossClaimContractError(
+      `The claim service returned an invalid ${field}.`,
+    );
+  }
+  return filename;
+}
+
+function insurerResponseMediaType(
+  value: unknown,
+  field: string,
+): TotalLossInsurerResponseMediaType {
+  if (
+    typeof value !== "string" ||
+    !INSURER_RESPONSE_MEDIA_TYPES.has(value as TotalLossInsurerResponseMediaType)
+  ) {
+    throw new TotalLossClaimContractError(
+      `The claim service returned an invalid ${field}.`,
+    );
+  }
+  return value as TotalLossInsurerResponseMediaType;
 }
 
 function nullableString(value: unknown, field: string): string | null {
@@ -848,6 +898,174 @@ function mapCommerce(
   };
 }
 
+function mapInsurerResponseDocument(
+  value: unknown,
+): TotalLossInsurerResponseDocument | null {
+  if (value === null) return null;
+  if (!isRecord(value)) {
+    throw new TotalLossClaimContractError(
+      "The claim service returned an invalid insurer-response document.",
+    );
+  }
+  return {
+    byteSize: positiveInteger(value.byteSize, "insurer-response document size"),
+    documentId: requiredString(
+      value.documentId,
+      "insurer-response document ID",
+      UUID_PATTERN,
+    ),
+    mediaType: insurerResponseMediaType(
+      value.mediaType,
+      "insurer-response document media type",
+    ),
+    originalFilename: safeResponseFilename(
+      value.originalFilename,
+      "insurer-response document filename",
+    ),
+  };
+}
+
+function mapInsurerResponse(value: unknown): TotalLossInsurerResponse | null {
+  if (value === null || value === undefined) return null;
+  if (!isRecord(value)) {
+    throw new TotalLossClaimContractError(
+      "The claim service returned an invalid insurer response.",
+    );
+  }
+  const sourceType = value.sourceType;
+  if (sourceType !== "pasted_message" && sourceType !== "uploaded_document") {
+    throw new TotalLossClaimContractError(
+      "The claim service returned an invalid insurer-response source type.",
+    );
+  }
+  if (value.processingState !== "not_started") {
+    throw new TotalLossClaimContractError(
+      "The claim service returned an invalid insurer-response processing state.",
+    );
+  }
+  const document = mapInsurerResponseDocument(value.document);
+  if ((sourceType === "uploaded_document") !== Boolean(document)) {
+    throw new TotalLossClaimContractError(
+      "The claim service returned an insurer response without its document.",
+    );
+  }
+  let revisedOffer: TotalLossInsurerResponse["revisedOffer"] = null;
+  if (value.revisedOffer !== null) {
+    if (!isRecord(value.revisedOffer)) {
+      throw new TotalLossClaimContractError(
+        "The claim service returned an invalid revised offer.",
+      );
+    }
+    revisedOffer = {
+      amountMinorUnits: positiveInteger(
+        value.revisedOffer.amountMinorUnits,
+        "revised-offer amount",
+      ),
+      currency: requiredString(
+        value.revisedOffer.currency,
+        "revised-offer currency",
+        CURRENCY_PATTERN,
+      ),
+    };
+  }
+  return {
+    clientRequestId: requiredString(
+      value.clientRequestId,
+      "insurer-response request ID",
+      UUID_PATTERN,
+    ),
+    document,
+    processingState: "not_started",
+    receivedAt: requiredString(
+      value.receivedAt,
+      "insurer-response received time",
+      ISO_TIMESTAMP_PATTERN,
+    ),
+    responseId: requiredString(
+      value.responseId,
+      "insurer-response ID",
+      UUID_PATTERN,
+    ),
+    revisedOffer,
+    sourceType,
+    supersedesResponseId:
+      value.supersedesResponseId === null
+        ? null
+        : requiredString(
+            value.supersedesResponseId,
+            "superseded insurer-response ID",
+            UUID_PATTERN,
+          ),
+    text: nullableString(value.text, "insurer-response text"),
+  };
+}
+
+function mapInsurerResponseUploadPreparation(
+  value: unknown,
+): TotalLossInsurerResponseUploadPreparation {
+  if (!isRecord(value)) {
+    throw new TotalLossClaimContractError(
+      "The claim service returned invalid insurer-response upload details.",
+    );
+  }
+  const uploadPath = requiredString(
+    value.uploadPath,
+    "insurer-response upload path",
+  );
+  if (
+    uploadPath.startsWith("/") ||
+    uploadPath.includes("\\") ||
+    uploadPath.split("/").some((segment) => !segment || segment === "." || segment === "..")
+  ) {
+    throw new TotalLossClaimContractError(
+      "The claim service returned an invalid insurer-response upload path.",
+    );
+  }
+  return {
+    byteSize: positiveInteger(value.byteSize, "insurer-response upload size"),
+    contentDigest: requiredString(
+      value.contentDigest,
+      "insurer-response content digest",
+      SHA256_PATTERN,
+    ),
+    documentId: requiredString(
+      value.documentId,
+      "insurer-response document ID",
+      UUID_PATTERN,
+    ),
+    mediaType: insurerResponseMediaType(
+      value.mediaType,
+      "insurer-response upload media type",
+    ),
+    originalFilename: safeResponseFilename(
+      value.originalFilename,
+      "insurer-response upload filename",
+    ),
+    uploadPath,
+  };
+}
+
+function mapInsurerResponseRecorded(
+  value: unknown,
+): TotalLossInsurerResponseRecorded {
+  if (!isRecord(value) || value.state !== "insurer_response_received") {
+    throw new TotalLossClaimContractError(
+      "The claim service returned an invalid insurer-response confirmation.",
+    );
+  }
+  const response = mapInsurerResponse(value.response);
+  if (!response) {
+    throw new TotalLossClaimContractError(
+      "The claim service returned an invalid insurer-response confirmation.",
+    );
+  }
+  return {
+    response,
+    state: "insurer_response_received",
+    workflowRevision: workflowRevision(value.workflowRevision),
+  };
+}
+
 function mapResolver(value: unknown): TotalLossClaimResolver {
   if (!isRecord(value)) {
     throw new TotalLossClaimContractError(
@@ -857,6 +1075,7 @@ function mapResolver(value: unknown): TotalLossClaimResolver {
   const caseId = requiredString(value.caseId, "case ID", UUID_PATTERN);
   const commerce = mapCommerce(value.commerce, value.state);
   const education = mapEducation(value.education);
+  const insurerResponse = mapInsurerResponse(value.insurerResponse);
   const journey = mapJourney(value.journey);
   const messageDraft = mapMessageDraft(value.messageDraft);
   const report = mapReport(value.report);
@@ -864,6 +1083,7 @@ function mapResolver(value: unknown): TotalLossClaimResolver {
   const workflow = mapWorkflow(value.workflow);
   const extensions = {
     ...(value.education !== undefined ? { education } : {}),
+    ...(value.insurerResponse !== undefined ? { insurerResponse } : {}),
     ...(value.journey !== undefined ? { journey } : {}),
     ...(value.messageDraft !== undefined ? { messageDraft } : {}),
     ...(value.report !== undefined ? { report } : {}),
@@ -872,10 +1092,22 @@ function mapResolver(value: unknown): TotalLossClaimResolver {
 
   if (
     value.state !== "secured" &&
-    (education || messageDraft || report || sendingDetails)
+    (education || insurerResponse || messageDraft || report || sendingDetails)
   ) {
     throw new TotalLossClaimContractError(
       "The claim service exposed delivery details before permanent ownership.",
+    );
+  }
+  const responseReceivedState =
+    journey?.nextState === "insurer_response_received" ||
+    journey?.fulfillmentState === "insurer_response_received" ||
+    workflow?.currentTask === "insurer_response_received";
+  if (
+    value.state === "secured" &&
+    responseReceivedState !== Boolean(insurerResponse)
+  ) {
+    throw new TotalLossClaimContractError(
+      "The claim service returned an inconsistent insurer-response state.",
     );
   }
 
@@ -1547,4 +1779,49 @@ export async function confirmTotalLossMessageSent(
     { accessToken, signal },
   );
   return mapSentMessage(response);
+}
+
+export async function prepareTotalLossInsurerResponseUpload(
+  caseId: string,
+  accessToken: string,
+  input: {
+    readonly byteSize: number;
+    readonly clientRequestId: string;
+    readonly contentDigest: string;
+    readonly expectedWorkflowRevision: number;
+    readonly mediaType: TotalLossInsurerResponseMediaType;
+    readonly originalFilename: string;
+  },
+  signal?: AbortSignal,
+) {
+  ensureCaseId(caseId);
+  const response = await apiClient.postJson<unknown>(
+    `/api/v1/appraisal-cases/${encodeURIComponent(caseId)}/insurer-response/upload`,
+    input,
+    { accessToken, signal },
+  );
+  return mapInsurerResponseUploadPreparation(response);
+}
+
+export async function recordTotalLossInsurerResponse(
+  caseId: string,
+  accessToken: string,
+  input: {
+    readonly clientRequestId: string;
+    readonly documentId: string | null;
+    readonly expectedWorkflowRevision: number;
+    readonly responseText: string | null;
+    readonly retainedDocumentId: string | null;
+    readonly revisedOfferMinorUnits: number | null;
+    readonly supersedesResponseId: string | null;
+  },
+  signal?: AbortSignal,
+) {
+  ensureCaseId(caseId);
+  const response = await apiClient.postJson<unknown>(
+    `/api/v1/appraisal-cases/${encodeURIComponent(caseId)}/insurer-response`,
+    input,
+    { accessToken, signal },
+  );
+  return mapInsurerResponseRecorded(response);
 }

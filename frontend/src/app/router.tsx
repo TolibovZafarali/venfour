@@ -185,9 +185,36 @@ export const appRoutes: RouteObject[] = [
         handle: metadata("Prepare Your Reconsideration Request | Venfour", "Review your completed total-loss valuation and supporting evidence."),
       },
       {
+        path: "total-loss/cases/:caseId/claim/review/waiting",
+        element: <TotalLossClaimWorkflowPage view="review_waiting" />,
+        handle: metadata(
+          "Waiting for the Insurer | Venfour",
+          "Return to the active case after confirming that the reconsideration request was sent.",
+        ),
+      },
+      {
+        path: "total-loss/cases/:caseId/claim/review/response",
+        element: <TotalLossClaimWorkflowPage view="review_response" />,
+        handle: metadata(
+          "Add the Insurer Response | Venfour",
+          "Save the insurer’s written response and any revised offer to the active case.",
+        ),
+      },
+      {
+        path: "total-loss/cases/:caseId/claim/review/response-received",
+        element: <TotalLossClaimWorkflowPage view="review_response_received" />,
+        handle: metadata(
+          "Insurer Response Received | Venfour",
+          "Review the insurer response saved to this total-loss case.",
+        ),
+      },
+      {
         path: "total-loss/cases/:caseId/claim/review/sent",
         element: <TotalLossClaimWorkflowPage view="review_sent" />,
-        handle: metadata("Your Reconsideration Request | Venfour", "Review your completed total-loss valuation and supporting evidence."),
+        handle: metadata(
+          "Waiting for the Insurer | Venfour",
+          "Return to the active case after confirming that the reconsideration request was sent.",
+        ),
       },
       {
         path: "total-loss/cases/:caseId/claim/overview",

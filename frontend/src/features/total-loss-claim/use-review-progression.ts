@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 
 import type { TotalLossIntakeMode } from "@/features/total-loss/types";
+import type { TotalLossCaseJourneyStage } from "./case-journey";
 import type { TotalLossClaimSecured, TotalLossEducationStep } from "./contracts";
 import { useTotalLossEducationProgressMutation } from "./queries";
 
@@ -10,9 +11,9 @@ export function reviewPrerequisite(
   claim: TotalLossClaimSecured,
   reportId: string,
   intakeMode: TotalLossIntakeMode,
-  stage: ReadingStage | "request" | "sent",
+  stage: TotalLossCaseJourneyStage,
 ): ReadingStage | null {
-  if (stage === "result" || stage === "sent") return null;
+  if (stage === "result" || stage === "waiting") return null;
   const steps = claim.education?.reportVersionId === reportId
     ? claim.education.steps
     : null;

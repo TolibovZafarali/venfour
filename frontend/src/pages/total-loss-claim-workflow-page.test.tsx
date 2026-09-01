@@ -598,6 +598,7 @@ describe("total-loss customer workflow", () => {
           "meaning",
           "next",
           "request",
+          "waiting",
           "sent",
         ].map((stage) => `total-loss/cases/:caseId/claim/review/${stage}`),
         ...["overview", "evidence", "request", "activity"].map(
@@ -824,7 +825,8 @@ describe("total-loss customer workflow", () => {
     ["review/meaning", "meaning", ""],
     ["review/next", "meaning", ""],
     ["review/request", "request", ""],
-    ["review/sent", "sent", ""],
+    ["review/waiting", "waiting", ""],
+    ["review/sent", "waiting", ""],
     ["guide/result", "result", ""],
     ["guide/insurer-review", "insurer", ""],
     ["guide/valuation", "market", ""],
@@ -834,7 +836,7 @@ describe("total-loss customer workflow", () => {
     ["overview", "result", ""],
     ["evidence", "market", ""],
     ["request", "request", ""],
-    ["activity", "sent", ""],
+    ["activity", "waiting", ""],
     ["evidence?evidence=insurer", "insurer", "?details=insurer"],
     ["review/result?details=market", "market", "?details=market"],
     ["review/market?details=insurer", "insurer", "?details=insurer"],
@@ -842,8 +844,8 @@ describe("total-loss customer workflow", () => {
     ["review/request?details=unknown", "request", "?details=unknown"],
   ])("maps %s into one canonical %s stage", async (suffix, stage, search) => {
     const progress = completedEducationSteps();
-    if (stage === "sent") progress.send.completedAt = NOW;
-    useClaimHandler(() => claimProjection({ progress, journey: stage === "sent" ? "awaiting_insurer_response" : "prepare_request" }));
+    if (stage === "waiting") progress.send.completedAt = NOW;
+    useClaimHandler(() => claimProjection({ progress, journey: stage === "waiting" ? "awaiting_insurer_response" : "prepare_request" }));
     const { router } = renderTestApp([`${CLAIM_BASE}/${suffix}`], { authService: authService() });
     const completed = await screen.findByRole("region", { name: "Completed analysis" });
     expect(router.state.location.pathname).toBe(`${CLAIM_BASE}/review/${stage}`);
@@ -1184,11 +1186,11 @@ describe("total-loss customer workflow", () => {
     ["guide_report", "meaning"],
     ["guide_what_next", "meaning"],
     ["prepare_request", "request"],
-    ["awaiting_insurer_response", "sent"],
+    ["awaiting_insurer_response", "waiting"],
   ] as const)("resumes manual %s at %s using the saved owner-scoped intake mode", async (journey, stage) => {
     detailsMock.getDetails.mockResolvedValue({ caseId: CASE_ID, intakeMode: "manual" });
     const progress = completedEducationSteps();
-    if (stage === "sent") progress.send.completedAt = NOW;
+    if (stage === "waiting") progress.send.completedAt = NOW;
     useClaimHandler(() => claimProjection({ journey, progress }));
     const { router } = renderTestApp([CLAIM_BASE], { authService: authService() });
     await screen.findByRole("region", { name: "Completed analysis" });
@@ -1365,10 +1367,10 @@ describe("total-loss customer workflow", () => {
     useClaimHandler(() => claimProjection({ journey: "awaiting_insurer_response", progress, withDraft: true }));
     const initial = renderTestApp([CLAIM_BASE], { authService: authService() });
     const completed = await screen.findByRole("region", { name: "Completed analysis" });
-    expect(initial.router.state.location.pathname).toBe(`${CLAIM_BASE}/review/sent`);
+    expect(initial.router.state.location.pathname).toBe(`${CLAIM_BASE}/review/waiting`);
     const status = completed;
     expect(within(status).getByRole("heading", { name: "Waiting for the insurer’s response" })).toBeVisible();
-    expect(status).toHaveAttribute("data-stage", "sent");
+    expect(status).toHaveAttribute("data-stage", "waiting");
     expect(status.querySelector("time")).toHaveAttribute("datetime", NOW);
     expect(status.querySelector("time")).toHaveTextContent("Aug 29, 2026");
     expect(within(completed).queryByRole("button", { name: "Create request draft" })).not.toBeInTheDocument();
@@ -1381,6 +1383,7 @@ describe("total-loss customer workflow", () => {
     expect(restored.querySelector("time")).toHaveAttribute("datetime", NOW);
     expect(restored.querySelector("time")).toHaveTextContent("Aug 29, 2026");
     expect(within(restored).queryByRole("button", { name: "Mark as sent" })).not.toBeInTheDocument();
+    expect(within(restored).getByRole("button", { name: "I received a response" })).toBeVisible();
     expect(within(restored).queryByRole("button", { name: "Upload insurer response" })).not.toBeInTheDocument();
   });
 

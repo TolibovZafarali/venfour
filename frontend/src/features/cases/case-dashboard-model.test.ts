@@ -110,6 +110,8 @@ function fulfillmentState(
       return "finalizing";
     case "awaiting_insurer_response":
       return "awaiting_insurer_response";
+    case "insurer_response_received":
+      return "insurer_response_received";
     case "no_dispute":
       return "no_dispute";
     case "needs_attention":
@@ -344,19 +346,43 @@ describe("case dashboard model", () => {
 
     expect(model.statusCode).toBe("waiting_for_insurer");
     expect(model.statusLabel).toBe("Waiting for Acme Insurance");
-    expect(model.statusExplanation).toContain("You marked the request as sent");
+    expect(model.statusExplanation).toContain("You confirmed the request was sent");
+    expect(model.statusExplanation).toContain("case remains active");
     expect(model.statusExplanation).toContain(
-      "cannot verify delivery or receipt",
+      "cannot monitor email or detect the insurer’s response automatically",
     );
     expect(model.statusExplanation).not.toMatch(/delivered|received by/i);
     expect(model.nextAction).toEqual({
-      href: `${CLAIM_BASE}/review/sent`,
-      label: "View sent request",
+      href: `${CLAIM_BASE}/review/waiting`,
+      label: "Return to case",
       required: false,
     });
     expect(milestoneStates(model)).toMatchObject({
       request: "complete",
       waiting: "current",
+    });
+  });
+
+  it("keeps a received response active without implying analysis or advice", () => {
+    const model = createCaseDashboardModel({
+      appraisalCase: appraisalCase({ caseStage: "analysis_complete" }),
+      totalLossDetails: totalLossDetails({ insurerName: "Acme Insurance" }),
+      claim: claim("insurer_response_received"),
+    });
+
+    expect(model.statusCode).toBe("response_received");
+    expect(model.statusLabel).toBe("Insurer response received");
+    expect(model.statusExplanation).toContain("saved with this case");
+    expect(model.statusExplanation).toContain("has not analyzed it");
+    expect(model.nextAction).toEqual({
+      href: `${CLAIM_BASE}/review/response-received`,
+      label: "Review saved response",
+      required: false,
+    });
+    expect(milestoneStates(model)).toMatchObject({
+      request: "complete",
+      waiting: "complete",
+      response: "current",
     });
   });
 

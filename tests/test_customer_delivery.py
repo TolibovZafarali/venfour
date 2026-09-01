@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 import unittest
 from collections.abc import Mapping
@@ -14,6 +15,7 @@ from venfour.api import create_app
 from venfour.customer_delivery import (
     CustomerDeliveryInputError,
     CustomerDeliveryService,
+    validate_insurer_response_projection,
     validate_report_projection,
 )
 from venfour.supabase_gateway import (
@@ -31,9 +33,11 @@ CLIENT_REQUEST_ID = "60000000-0000-4000-8000-000000000006"
 EVENT_ID = "70000000-0000-4000-8000-000000000007"
 COMMUNICATION_ID = "80000000-0000-4000-8000-000000000008"
 ROUND_ID = "90000000-0000-4000-8000-000000000009"
+SUPERSEDED_RESPONSE_ID = "91000000-0000-4000-8000-000000000009"
 USER_ID = "10000000-0000-4000-8000-000000000001"
 ACCESS_TOKEN = "browser-access-token"
 NOW = "2026-08-29T12:00:00Z"
+CONTENT_DIGEST = "a" * 64
 
 
 def money(amount: int) -> dict[str, Any]:
@@ -201,6 +205,58 @@ def draft_projection() -> dict[str, Any]:
     }
 
 
+def response_upload_projection() -> dict[str, Any]:
+    return {
+        "documentId": CLIENT_REQUEST_ID,
+        "uploadPath": (
+            f"{USER_ID}/{CASE_ID}/insurer-responses/{CLIENT_REQUEST_ID}.jpg"
+        ),
+        "originalFilename": "adjuster-response.jpeg",
+        "mediaType": "image/jpeg",
+        "byteSize": 4096,
+        "contentDigest": CONTENT_DIGEST,
+    }
+
+
+def insurer_response_projection(
+    *,
+    text: str | None = "First line\nSecond line",
+    document_id: str | None = CLIENT_REQUEST_ID,
+    offer: int | None = 2_100_000,
+    supersedes_response_id: str | None = None,
+) -> dict[str, Any]:
+    return {
+        "state": "insurer_response_received",
+        "response": {
+            "responseId": COMMUNICATION_ID,
+            "clientRequestId": CLIENT_REQUEST_ID,
+            "receivedAt": NOW,
+            "sourceType": (
+                "uploaded_document" if document_id is not None else "pasted_message"
+            ),
+            "text": text,
+            "document": (
+                {
+                    "documentId": document_id,
+                    "originalFilename": "adjuster-response.jpeg",
+                    "mediaType": "image/jpeg",
+                    "byteSize": 4096,
+                }
+                if document_id is not None
+                else None
+            ),
+            "revisedOffer": (
+                {"amountMinorUnits": offer, "currency": "USD"}
+                if offer is not None
+                else None
+            ),
+            "processingState": "not_started",
+            "supersedesResponseId": supersedes_response_id,
+        },
+        "workflowRevision": 5,
+    }
+
+
 class RecordingGateway:
     def __init__(self) -> None:
         self.calls: list[tuple[str, Any]] = []
@@ -314,6 +370,30 @@ class RecordingGateway:
             "workflowRevision": 4,
         }
 
+    def prepare_total_loss_insurer_response_upload(
+        self, case_id: str, values: Mapping[str, Any], access_token: str,
+    ) -> Mapping[str, Any]:
+        self.calls.append(
+            ("prepare_response_upload", (case_id, dict(values), access_token))
+        )
+        return response_upload_projection()
+
+    def record_total_loss_insurer_response(
+        self, case_id: str, values: Mapping[str, Any], access_token: str,
+    ) -> Mapping[str, Any]:
+        self.calls.append(
+            ("record_insurer_response", (case_id, dict(values), access_token))
+        )
+        document_id = values.get("documentId") or values.get(
+            "retainedDocumentId"
+        )
+        return insurer_response_projection(
+            text=values.get("responseText"),
+            document_id=document_id,
+            offer=values.get("revisedOfferMinorUnits"),
+            supersedes_response_id=values.get("supersedesResponseId"),
+        )
+
 
 class CustomerDeliveryServiceTests(unittest.TestCase):
     def test_sending_details_are_normalized_before_the_database_boundary(self) -> None:
@@ -389,6 +469,186 @@ class CustomerDeliveryServiceTests(unittest.TestCase):
         self.assertFalse(opened["authoritativeSent"])
         self.assertEqual(sent["state"], "awaiting_insurer_response")
         self.assertEqual(sent["messageVersionId"], SENT_VERSION_ID)
+
+    def test_prepare_response_upload_validates_and_preserves_exact_metadata(
+        self,
+    ) -> None:
+        gateway = RecordingGateway()
+        service = CustomerDeliveryService(gateway)
+        values = {
+            "clientRequestId": CLIENT_REQUEST_ID,
+            "expectedWorkflowRevision": 4,
+            "originalFilename": "adjuster-response.jpeg",
+            "mediaType": "image/jpeg",
+            "byteSize": 4096,
+            "contentDigest": CONTENT_DIGEST,
+        }
+
+        result = service.prepare_response_upload(
+            CASE_ID, values, ACCESS_TOKEN
+        )
+
+        self.assertEqual(result, response_upload_projection())
+        self.assertEqual(
+            gateway.calls,
+            [
+                ("authenticate", ACCESS_TOKEN),
+                ("prepare_response_upload", (CASE_ID, values, ACCESS_TOKEN)),
+            ],
+        )
+
+    def test_invalid_response_upload_fails_before_auth_or_rpc(self) -> None:
+        valid = {
+            "clientRequestId": CLIENT_REQUEST_ID,
+            "expectedWorkflowRevision": 4,
+            "originalFilename": "adjuster-response.jpeg",
+            "mediaType": "image/jpeg",
+            "byteSize": 4096,
+            "contentDigest": CONTENT_DIGEST,
+        }
+        invalid_values = (
+            {**valid, "mediaType": []},
+            {**valid, "mediaType": "image/gif"},
+            {**valid, "originalFilename": "adjuster-response.png"},
+            {**valid, "originalFilename": " adjuster-response.jpeg"},
+            {**valid, "originalFilename": "adjuster  response.jpeg"},
+            {**valid, "byteSize": 0},
+            {**valid, "byteSize": 10 * 1024 * 1024 + 1},
+            {**valid, "contentDigest": CONTENT_DIGEST.upper()},
+            {**valid, "unexpected": True},
+        )
+        for values in invalid_values:
+            with self.subTest(values=values):
+                gateway = RecordingGateway()
+                service = CustomerDeliveryService(gateway)
+                with self.assertRaises(CustomerDeliveryInputError):
+                    service.prepare_response_upload(
+                        CASE_ID, values, ACCESS_TOKEN
+                    )
+                self.assertEqual(gateway.calls, [])
+
+    def test_response_upload_rejects_noncanonical_storage_path(self) -> None:
+        class PrefixedPathGateway(RecordingGateway):
+            def prepare_total_loss_insurer_response_upload(
+                self, case_id: str, values: Mapping[str, Any], access_token: str,
+            ) -> Mapping[str, Any]:
+                result = dict(
+                    super().prepare_total_loss_insurer_response_upload(
+                        case_id, values, access_token
+                    )
+                )
+                result["uploadPath"] = "extra/" + result["uploadPath"]
+                return result
+
+        service = CustomerDeliveryService(PrefixedPathGateway())
+        with self.assertRaisesRegex(
+            SupabaseContractError, "upload path is invalid"
+        ):
+            service.prepare_response_upload(
+                CASE_ID,
+                {
+                    "clientRequestId": CLIENT_REQUEST_ID,
+                    "expectedWorkflowRevision": 4,
+                    "originalFilename": "adjuster-response.jpeg",
+                    "mediaType": "image/jpeg",
+                    "byteSize": 4096,
+                    "contentDigest": CONTENT_DIGEST,
+                },
+                ACCESS_TOKEN,
+            )
+
+    def test_record_response_preserves_multiline_text_and_material_identity(
+        self,
+    ) -> None:
+        gateway = RecordingGateway()
+        service = CustomerDeliveryService(gateway)
+        text = "First line\r\nSecond\tcolumn"
+        values = {
+            "clientRequestId": CLIENT_REQUEST_ID,
+            "expectedWorkflowRevision": 4,
+            "responseText": text,
+            "revisedOfferMinorUnits": 2_100_000,
+            "documentId": CLIENT_REQUEST_ID,
+            "retainedDocumentId": None,
+            "supersedesResponseId": SUPERSEDED_RESPONSE_ID,
+        }
+
+        result = service.record_insurer_response(
+            CASE_ID, values, ACCESS_TOKEN
+        )
+
+        self.assertEqual(result["state"], "insurer_response_received")
+        self.assertEqual(result["response"]["clientRequestId"], CLIENT_REQUEST_ID)
+        self.assertEqual(result["response"]["text"], text)
+        self.assertEqual(
+            result["response"]["supersedesResponseId"],
+            SUPERSEDED_RESPONSE_ID,
+        )
+        self.assertEqual(
+            gateway.calls,
+            [
+                ("authenticate", ACCESS_TOKEN),
+                ("record_insurer_response", (CASE_ID, values, ACCESS_TOKEN)),
+            ],
+        )
+
+    def test_invalid_response_material_fails_before_auth_or_rpc(self) -> None:
+        valid = {
+            "clientRequestId": CLIENT_REQUEST_ID,
+            "expectedWorkflowRevision": 4,
+            "responseText": "Received response",
+            "revisedOfferMinorUnits": None,
+            "documentId": None,
+            "retainedDocumentId": None,
+            "supersedesResponseId": None,
+        }
+        invalid_values = (
+            {**valid, "responseText": " \n\t"},
+            {**valid, "responseText": "unsafe\u0000text"},
+            {**valid, "responseText": "unsafe\u0085text"},
+            {**valid, "responseText": "unsafe\u2066text"},
+            {**valid, "responseText": None},
+            {**valid, "revisedOfferMinorUnits": 0},
+            {**valid, "revisedOfferMinorUnits": 9_007_199_254_740_992},
+            {
+                **valid,
+                "documentId": CLIENT_REQUEST_ID,
+                "retainedDocumentId": REPORT_ID,
+            },
+            {**valid, "documentId": REPORT_ID},
+            {
+                **valid,
+                "responseText": None,
+                "retainedDocumentId": REPORT_ID,
+            },
+            {**valid, "unexpected": True},
+        )
+        for values in invalid_values:
+            with self.subTest(values=values):
+                gateway = RecordingGateway()
+                service = CustomerDeliveryService(gateway)
+                with self.assertRaises(CustomerDeliveryInputError):
+                    service.record_insurer_response(
+                        CASE_ID, values, ACCESS_TOKEN
+                    )
+                self.assertEqual(gateway.calls, [])
+
+    def test_insurer_response_projection_is_strict_and_idempotency_visible(
+        self,
+    ) -> None:
+        projection = insurer_response_projection()["response"]
+        self.assertEqual(
+            validate_insurer_response_projection(projection)["clientRequestId"],
+            CLIENT_REQUEST_ID,
+        )
+        with self.assertRaises(SupabaseContractError):
+            validate_insurer_response_projection(
+                {**projection, "unexpected": True}
+            )
+        with self.assertRaises(SupabaseContractError):
+            validate_insurer_response_projection(
+                {**projection, "sourceType": []}
+            )
 
     def test_report_download_uses_the_neutral_customer_filename(self) -> None:
         gateway = RecordingGateway()
@@ -509,6 +769,97 @@ class CustomerDeliveryApiTests(unittest.TestCase):
         self.assertEqual(response.json()["draft"], draft_projection())
         self.assertEqual(response.json()["messageVersion"]["state"], "prepared")
         self.assertEqual(response.json()["workflowRevision"], 3)
+
+    def test_prepare_response_upload_endpoint_returns_exact_projection(self) -> None:
+        response = self.client.post(
+            f"/api/v1/appraisal-cases/{CASE_ID}/insurer-response/upload",
+            headers={"Authorization": f"Bearer {ACCESS_TOKEN}"},
+            json={
+                "clientRequestId": CLIENT_REQUEST_ID,
+                "expectedWorkflowRevision": 4,
+                "originalFilename": "adjuster-response.jpeg",
+                "mediaType": "image/jpeg",
+                "byteSize": 4096,
+                "contentDigest": CONTENT_DIGEST,
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), response_upload_projection())
+
+    def test_record_response_endpoint_accepts_maximum_escaped_text(
+        self,
+    ) -> None:
+        response_text = "\\" * 100_000
+        response = self.client.post(
+            f"/api/v1/appraisal-cases/{CASE_ID}/insurer-response",
+            headers={"Authorization": f"Bearer {ACCESS_TOKEN}"},
+            json={
+                "clientRequestId": CLIENT_REQUEST_ID,
+                "expectedWorkflowRevision": 4,
+                "responseText": response_text,
+                "revisedOfferMinorUnits": None,
+                "documentId": None,
+                "retainedDocumentId": None,
+                "supersedesResponseId": None,
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["state"], "insurer_response_received")
+        self.assertEqual(response.json()["response"]["text"], response_text)
+        self.assertEqual(
+            response.json()["response"]["clientRequestId"], CLIENT_REQUEST_ID
+        )
+
+    def test_record_response_endpoint_rejects_text_above_character_limit(self) -> None:
+        response = self.client.post(
+            f"/api/v1/appraisal-cases/{CASE_ID}/insurer-response",
+            headers={"Authorization": f"Bearer {ACCESS_TOKEN}"},
+            json={
+                "clientRequestId": CLIENT_REQUEST_ID,
+                "expectedWorkflowRevision": 4,
+                "responseText": "x" * 100_001,
+                "revisedOfferMinorUnits": None,
+                "documentId": None,
+                "retainedDocumentId": None,
+                "supersedesResponseId": None,
+            },
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(
+            response.json()["error"]["code"],
+            "INVALID_CUSTOMER_DELIVERY_REQUEST",
+        )
+
+    def test_record_response_endpoint_rejects_body_above_transport_cap(self) -> None:
+        payload = {
+            "clientRequestId": CLIENT_REQUEST_ID,
+            "expectedWorkflowRevision": 4,
+            "responseText": "Response received",
+            "revisedOfferMinorUnits": None,
+            "documentId": None,
+            "retainedDocumentId": None,
+            "supersedesResponseId": None,
+        }
+        body = json.dumps(payload).encode("utf-8") + b" " * (2 * 1024 * 1024)
+
+        response = self.client.post(
+            f"/api/v1/appraisal-cases/{CASE_ID}/insurer-response",
+            headers={
+                "Authorization": f"Bearer {ACCESS_TOKEN}",
+                "Content-Type": "application/json",
+            },
+            content=body,
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(
+            response.json()["error"]["code"],
+            "INVALID_CUSTOMER_DELIVERY_REQUEST",
+        )
+        self.assertEqual(self.gateway.calls, [])
 
     def test_report_download_endpoint_returns_the_neutral_customer_filename(self) -> None:
         response = self.client.get(

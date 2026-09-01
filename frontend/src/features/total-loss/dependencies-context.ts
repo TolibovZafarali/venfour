@@ -21,10 +21,15 @@ import {
   type TotalLossIdentityService,
 } from "@/features/total-loss/identity-service";
 import type { Database } from "@/lib/supabase/database.types";
+import {
+  createTotalLossInsurerResponseStorageService,
+  type TotalLossInsurerResponseStorageService,
+} from "@/features/total-loss-claim/insurer-response-storage-service";
 
 export interface TotalLossDependencies {
   readonly appraisalCaseService: AppraisalCaseService;
   readonly totalLossDetailsService: TotalLossDetailsService;
+  readonly totalLossInsurerResponseStorageService?: TotalLossInsurerResponseStorageService;
   readonly totalLossReportStorageService: TotalLossReportStorageService;
   readonly totalLossIdentityService?: TotalLossIdentityService;
   readonly vehicleLookupService: VehicleLookupService;
@@ -43,6 +48,8 @@ export function createTotalLossDependencies(
       client,
       appraisalCaseService,
     ),
+    totalLossInsurerResponseStorageService:
+      createTotalLossInsurerResponseStorageService(client),
     totalLossReportStorageService:
       createTotalLossReportStorageService(client),
     totalLossIdentityService: createTotalLossIdentityService(client),

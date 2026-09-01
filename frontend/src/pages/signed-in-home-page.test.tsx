@@ -433,10 +433,10 @@ describe("signed-in homepage case workspace", () => {
       nextState: "prepare_request" as const,
     },
     {
-      action: "View sent request",
+      action: "Return to case",
       fulfillmentState: "awaiting_insurer_response" as const,
       heading: "Waiting for Example Mutual",
-      href: `/total-loss/cases/${FIRST_CASE_ID}/claim/review/sent`,
+      href: `/total-loss/cases/${FIRST_CASE_ID}/claim/review/waiting`,
       milestone: "Waiting for insurer",
       nextState: "awaiting_insurer_response" as const,
     },

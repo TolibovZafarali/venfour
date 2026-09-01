@@ -4938,6 +4938,18 @@ export type Database = {
         }
         Returns: Json
       }
+      prepare_total_loss_insurer_response_upload: {
+        Args: {
+          expected_workflow_revision: number
+          requested_byte_size: number
+          requested_case_id: string
+          requested_client_request_id: string
+          requested_content_digest: string
+          requested_media_type: string
+          requested_original_filename: string
+        }
+        Returns: Json
+      }
       project_total_loss_order_coverage_internal: {
         Args: { requested_order_id: string; requested_recorded_at: string }
         Returns: {
@@ -5042,6 +5054,19 @@ export type Database = {
           isOneToOne: false
           isSetofReturn: true
         }
+      }
+      record_total_loss_insurer_response: {
+        Args: {
+          expected_workflow_revision: number
+          requested_case_id: string
+          requested_client_request_id: string
+          requested_document_id: string
+          requested_response_text: string
+          requested_retained_document_id: string
+          requested_revised_offer_minor_units: number
+          requested_supersedes_response_id: string
+        }
+        Returns: Json
       }
       record_total_loss_refund_result: {
         Args: {
@@ -5898,6 +5923,7 @@ export type Database = {
         education_progress: Json | null
         sending_details: Json | null
         message_draft: Json | null
+        insurer_response: Json | null
       }
       total_loss_case_details_public: {
         case_id: string | null

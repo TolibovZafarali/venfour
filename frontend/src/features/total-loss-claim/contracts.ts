@@ -58,6 +58,7 @@ export type TotalLossClaimJourneyState =
   | "guide_what_next"
   | "prepare_request"
   | "awaiting_insurer_response"
+  | "insurer_response_received"
   | "no_dispute"
   | "needs_attention";
 
@@ -70,7 +71,8 @@ export type TotalLossClaimFulfillmentState =
   | "refund_pending"
   | "no_dispute"
   | "needs_attention"
-  | "awaiting_insurer_response";
+  | "awaiting_insurer_response"
+  | "insurer_response_received";
 
 export interface TotalLossClaimJourneyProjection {
   readonly fulfillmentState: TotalLossClaimFulfillmentState;
@@ -280,6 +282,56 @@ export interface TotalLossSentMessage {
   readonly workflowRevision: number;
 }
 
+export const TOTAL_LOSS_INSURER_RESPONSE_MEDIA_TYPES = [
+  "application/pdf",
+  "image/jpeg",
+  "image/png",
+  "image/heic",
+  "image/heif",
+] as const;
+
+export type TotalLossInsurerResponseMediaType =
+  (typeof TOTAL_LOSS_INSURER_RESPONSE_MEDIA_TYPES)[number];
+
+export interface TotalLossInsurerResponseDocument {
+  readonly byteSize: number;
+  readonly documentId: string;
+  readonly mediaType: TotalLossInsurerResponseMediaType;
+  readonly originalFilename: string;
+}
+
+export interface TotalLossInsurerResponseOffer {
+  readonly amountMinorUnits: number;
+  readonly currency: string;
+}
+
+export interface TotalLossInsurerResponse {
+  readonly clientRequestId: string;
+  readonly document: TotalLossInsurerResponseDocument | null;
+  readonly processingState: "not_started";
+  readonly receivedAt: string;
+  readonly responseId: string;
+  readonly revisedOffer: TotalLossInsurerResponseOffer | null;
+  readonly sourceType: "pasted_message" | "uploaded_document";
+  readonly supersedesResponseId: string | null;
+  readonly text: string | null;
+}
+
+export interface TotalLossInsurerResponseUploadPreparation {
+  readonly byteSize: number;
+  readonly contentDigest: string;
+  readonly documentId: string;
+  readonly mediaType: TotalLossInsurerResponseMediaType;
+  readonly originalFilename: string;
+  readonly uploadPath: string;
+}
+
+export interface TotalLossInsurerResponseRecorded {
+  readonly response: TotalLossInsurerResponse;
+  readonly state: "insurer_response_received";
+  readonly workflowRevision: number;
+}
+
 export interface TotalLossReportDownload {
   readonly downloadUrl: string;
   readonly expiresAt: string;
@@ -314,6 +366,7 @@ interface TotalLossClaimResolverBase {
   readonly caseId: string;
   readonly commerce: TotalLossClaimCommerceProjection | null;
   readonly education?: TotalLossEducationProjection | null;
+  readonly insurerResponse?: TotalLossInsurerResponse | null;
   readonly journey?: TotalLossClaimJourneyProjection | null;
   readonly messageDraft?: TotalLossMessageDraft | null;
   readonly report?: TotalLossPublishedReport | null;

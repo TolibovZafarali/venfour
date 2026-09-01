@@ -36,6 +36,16 @@ _REPORT_IDENTITY_FILENAME = re.compile(
     r"Venfour_Valuation_Evidence_[A-Za-z0-9_-]+_v[1-9][0-9]*\.pdf"
 )
 _CURRENCY = re.compile(r"[A-Z]{3}")
+_CONTENT_DIGEST = re.compile(r"[0-9a-f]{64}")
+_INSURER_RESPONSE_MEDIA_EXTENSIONS = {
+    "application/pdf": ("pdf", {".pdf"}),
+    "image/jpeg": ("jpg", {".jpg", ".jpeg"}),
+    "image/png": ("png", {".png"}),
+    "image/heic": ("heic", {".heic"}),
+    "image/heif": ("heif", {".heif"}),
+}
+_MAX_INSURER_RESPONSE_UPLOAD_BYTES = 10 * 1024 * 1024
+_MAX_SAFE_MINOR_UNITS = 9_007_199_254_740_991
 
 
 class CustomerDeliveryError(Exception):
@@ -171,6 +181,252 @@ def _safe_customer_text(
     if not normalized or len(normalized) > maximum:
         raise CustomerDeliveryInputError(f"{label} is invalid")
     return normalized
+
+
+def _has_unsafe_customer_character(
+    value: str, *, allow_multiline_whitespace: bool = False
+) -> bool:
+    allowed_controls = {"\t", "\n", "\r"} if allow_multiline_whitespace else set()
+    return any(
+        (ord(character) < 32 and character not in allowed_controls)
+        or 127 <= ord(character) <= 159
+        or character in {"\u061c", "\u200e", "\u200f"}
+        or "\u202a" <= character <= "\u202e"
+        or "\u2066" <= character <= "\u2069"
+        for character in value
+    )
+
+
+def _response_text(value: Any, *, browser_input: bool) -> str | None:
+    if value is None:
+        return None
+    invalid = (
+        not isinstance(value, str)
+        or not value.strip()
+        or len(value) > 100_000
+        or (
+            isinstance(value, str)
+            and _has_unsafe_customer_character(
+                value, allow_multiline_whitespace=True
+            )
+        )
+    )
+    if invalid:
+        error = (
+            CustomerDeliveryInputError
+            if browser_input
+            else SupabaseContractError
+        )
+        raise error("Insurer response text is invalid")
+    return value
+
+
+def _safe_filename(
+    value: Any, media_type: Any, *, browser_input: bool
+) -> str:
+    media = (
+        _INSURER_RESPONSE_MEDIA_EXTENSIONS.get(media_type)
+        if isinstance(media_type, str)
+        else None
+    )
+    invalid = (
+        not isinstance(value, str)
+        or not value.strip()
+        or not 1 <= len(value) <= 255
+        or (isinstance(value, str) and value != " ".join(value.split()))
+        or "/" in value
+        or "\\" in value
+        or (isinstance(value, str) and _has_unsafe_customer_character(value))
+        or media is None
+        or (
+            isinstance(value, str)
+            and not any(value.casefold().endswith(extension) for extension in media[1])
+        )
+    )
+    if invalid:
+        error = (
+            CustomerDeliveryInputError
+            if browser_input
+            else SupabaseContractError
+        )
+        raise error("Insurer response filename is invalid")
+    return value
+
+
+def _upload_byte_size(value: Any, *, browser_input: bool) -> int:
+    if (
+        isinstance(value, bool)
+        or not isinstance(value, int)
+        or not 1 <= value <= _MAX_INSURER_RESPONSE_UPLOAD_BYTES
+    ):
+        error = (
+            CustomerDeliveryInputError
+            if browser_input
+            else SupabaseContractError
+        )
+        raise error("Insurer response file size is invalid")
+    return value
+
+
+def _minor_units(
+    value: Any, *, browser_input: bool, nullable: bool = True
+) -> int | None:
+    if value is None and nullable:
+        return None
+    if (
+        isinstance(value, bool)
+        or not isinstance(value, int)
+        or not 1 <= value <= _MAX_SAFE_MINOR_UNITS
+    ):
+        error = (
+            CustomerDeliveryInputError
+            if browser_input
+            else SupabaseContractError
+        )
+        raise error("Revised offer amount is invalid")
+    return value
+
+
+def validate_insurer_response_projection(value: Any) -> dict[str, Any]:
+    """Validate the owner-safe projection of one recorded insurer response."""
+
+    if not isinstance(value, Mapping) or set(value) != {
+        "responseId",
+        "clientRequestId",
+        "receivedAt",
+        "sourceType",
+        "text",
+        "document",
+        "revisedOffer",
+        "processingState",
+        "supersedesResponseId",
+    }:
+        raise SupabaseContractError("Insurer response is invalid")
+
+    response_id = _uuid(value.get("responseId"), "Insurer response ID")
+    _uuid(value.get("clientRequestId"), "Insurer response client request ID")
+    _timestamp(value.get("receivedAt"), "Insurer response receipt time")
+    source_type = value.get("sourceType")
+    if not isinstance(source_type, str) or source_type not in {
+        "pasted_message",
+        "uploaded_document",
+    }:
+        raise SupabaseContractError("Insurer response source is invalid")
+    text = _response_text(value.get("text"), browser_input=False)
+
+    document = value.get("document")
+    if document is not None:
+        if not isinstance(document, Mapping) or set(document) != {
+            "documentId",
+            "originalFilename",
+            "mediaType",
+            "byteSize",
+        }:
+            raise SupabaseContractError("Insurer response document is invalid")
+        _uuid(document.get("documentId"), "Insurer response document ID")
+        media_type = document.get("mediaType")
+        _safe_filename(
+            document.get("originalFilename"),
+            media_type,
+            browser_input=False,
+        )
+        _upload_byte_size(document.get("byteSize"), browser_input=False)
+
+    revised_offer = value.get("revisedOffer")
+    if revised_offer is not None:
+        if not isinstance(revised_offer, Mapping) or set(revised_offer) != {
+            "amountMinorUnits",
+            "currency",
+        }:
+            raise SupabaseContractError("Insurer response revised offer is invalid")
+        _minor_units(
+            revised_offer.get("amountMinorUnits"),
+            browser_input=False,
+            nullable=False,
+        )
+        currency = revised_offer.get("currency")
+        if not isinstance(currency, str) or _CURRENCY.fullmatch(currency) is None:
+            raise SupabaseContractError("Insurer response currency is invalid")
+
+    if value.get("processingState") != "not_started":
+        raise SupabaseContractError("Insurer response processing state is invalid")
+    supersedes = value.get("supersedesResponseId")
+    if supersedes is not None:
+        supersedes = _uuid(supersedes, "Superseded insurer response ID")
+        if supersedes == response_id:
+            raise SupabaseContractError("Insurer response lineage is invalid")
+    if document is None and text is None and revised_offer is None:
+        raise SupabaseContractError("Insurer response material is missing")
+    if (source_type == "uploaded_document") is not (document is not None):
+        raise SupabaseContractError("Insurer response source is invalid")
+    return dict(value)
+
+
+def _validate_insurer_response_upload_projection(
+    value: Any,
+    *,
+    case_id: str,
+    document_id: str,
+    original_filename: str,
+    media_type: str,
+    byte_size: int,
+    content_digest: str,
+) -> dict[str, Any]:
+    if not isinstance(value, Mapping) or set(value) != {
+        "documentId",
+        "uploadPath",
+        "originalFilename",
+        "mediaType",
+        "byteSize",
+        "contentDigest",
+    }:
+        raise SupabaseContractError("Insurer response upload is invalid")
+    if value.get("documentId") != document_id:
+        raise SupabaseContractError("Insurer response upload identity is invalid")
+    _uuid(value.get("documentId"), "Insurer response document ID")
+    if (
+        value.get("originalFilename") != original_filename
+        or value.get("mediaType") != media_type
+        or value.get("byteSize") != byte_size
+        or value.get("contentDigest") != content_digest
+    ):
+        raise SupabaseContractError("Insurer response upload metadata is invalid")
+    _safe_filename(
+        value.get("originalFilename"),
+        value.get("mediaType"),
+        browser_input=False,
+    )
+    _upload_byte_size(value.get("byteSize"), browser_input=False)
+    if (
+        not isinstance(value.get("contentDigest"), str)
+        or _CONTENT_DIGEST.fullmatch(value["contentDigest"]) is None
+    ):
+        raise SupabaseContractError("Insurer response content digest is invalid")
+    canonical_extension = _INSURER_RESPONSE_MEDIA_EXTENSIONS[media_type][0]
+    upload_path = value.get("uploadPath")
+    if (
+        not isinstance(upload_path, str)
+        or not 1 <= len(upload_path) <= 1024
+        or _has_unsafe_customer_character(upload_path)
+        or "//" in upload_path
+    ):
+        raise SupabaseContractError("Insurer response upload path is invalid")
+    segments = upload_path.split("/")
+    if (
+        len(segments) != 4
+        or any(segment in {"", ".", ".."} for segment in segments)
+        or segments[1] != case_id
+        or segments[2] != "insurer-responses"
+        or segments[3] != f"{document_id}.{canonical_extension}"
+    ):
+        raise SupabaseContractError("Insurer response upload path is invalid")
+    try:
+        _uuid(segments[0], "Insurer response upload owner ID")
+    except SupabaseContractError as exc:
+        raise SupabaseContractError(
+            "Insurer response upload path is invalid"
+        ) from exc
+    return dict(value)
 
 
 def _money(value: Any, label: str, *, nullable: bool = False) -> dict[str, Any] | None:
@@ -664,6 +920,14 @@ class CustomerDeliveryGateway(Protocol):
         self, case_id: str, values: Mapping[str, Any], access_token: str
     ) -> Mapping[str, Any]: ...
 
+    def prepare_total_loss_insurer_response_upload(
+        self, case_id: str, values: Mapping[str, Any], access_token: str
+    ) -> Mapping[str, Any]: ...
+
+    def record_total_loss_insurer_response(
+        self, case_id: str, values: Mapping[str, Any], access_token: str
+    ) -> Mapping[str, Any]: ...
+
 
 @dataclass(frozen=True)
 class CustomerDeliveryService:
@@ -947,6 +1211,184 @@ class CustomerDeliveryService:
             raise SupabaseContractError("Workflow revision is invalid")
         return dict(result)
 
+    def prepare_response_upload(
+        self, case_id: str, values: Mapping[str, Any], access_token: str
+    ) -> dict[str, Any]:
+        canonical_case = _request_uuid(case_id, "Case ID")
+        if not isinstance(values, Mapping) or set(values) != {
+            "clientRequestId",
+            "expectedWorkflowRevision",
+            "originalFilename",
+            "mediaType",
+            "byteSize",
+            "contentDigest",
+        }:
+            raise CustomerDeliveryInputError(
+                "Insurer response upload request is invalid"
+            )
+        canonical_request = _request_uuid(
+            values.get("clientRequestId"), "Client request ID"
+        )
+        _positive_revision(
+            values.get("expectedWorkflowRevision"), "Workflow revision"
+        )
+        media_type = values.get("mediaType")
+        original_filename = _safe_filename(
+            values.get("originalFilename"),
+            media_type,
+            browser_input=True,
+        )
+        byte_size = _upload_byte_size(
+            values.get("byteSize"), browser_input=True
+        )
+        content_digest = values.get("contentDigest")
+        if (
+            not isinstance(content_digest, str)
+            or _CONTENT_DIGEST.fullmatch(content_digest) is None
+        ):
+            raise CustomerDeliveryInputError(
+                "Insurer response content digest is invalid"
+            )
+        normalized = dict(values)
+        normalized["clientRequestId"] = canonical_request
+        normalized["originalFilename"] = original_filename
+        normalized["byteSize"] = byte_size
+        self.gateway.authenticate(access_token)
+        return _validate_insurer_response_upload_projection(
+            self.gateway.prepare_total_loss_insurer_response_upload(
+                canonical_case, normalized, access_token
+            ),
+            case_id=canonical_case,
+            document_id=canonical_request,
+            original_filename=original_filename,
+            media_type=media_type,
+            byte_size=byte_size,
+            content_digest=content_digest,
+        )
+
+    def record_insurer_response(
+        self, case_id: str, values: Mapping[str, Any], access_token: str
+    ) -> dict[str, Any]:
+        canonical_case = _request_uuid(case_id, "Case ID")
+        if not isinstance(values, Mapping) or set(values) != {
+            "clientRequestId",
+            "expectedWorkflowRevision",
+            "responseText",
+            "revisedOfferMinorUnits",
+            "documentId",
+            "retainedDocumentId",
+            "supersedesResponseId",
+        }:
+            raise CustomerDeliveryInputError("Insurer response request is invalid")
+        canonical_request = _request_uuid(
+            values.get("clientRequestId"), "Client request ID"
+        )
+        _positive_revision(
+            values.get("expectedWorkflowRevision"), "Workflow revision"
+        )
+        response_text = _response_text(
+            values.get("responseText"), browser_input=True
+        )
+        revised_offer = _minor_units(
+            values.get("revisedOfferMinorUnits"), browser_input=True
+        )
+        document_id = (
+            _request_uuid(values.get("documentId"), "Document ID")
+            if values.get("documentId") is not None
+            else None
+        )
+        retained_document_id = (
+            _request_uuid(
+                values.get("retainedDocumentId"), "Retained document ID"
+            )
+            if values.get("retainedDocumentId") is not None
+            else None
+        )
+        supersedes_response_id = (
+            _request_uuid(
+                values.get("supersedesResponseId"),
+                "Superseded insurer response ID",
+            )
+            if values.get("supersedesResponseId") is not None
+            else None
+        )
+        if document_id is not None and retained_document_id is not None:
+            raise CustomerDeliveryInputError(
+                "Insurer response documents are mutually exclusive"
+            )
+        if document_id is not None and document_id != canonical_request:
+            raise CustomerDeliveryInputError(
+                "New insurer response document identity is invalid"
+            )
+        if retained_document_id is not None and supersedes_response_id is None:
+            raise CustomerDeliveryInputError(
+                "Only a correction can retain a prior response document"
+            )
+        selected_document_id = document_id or retained_document_id
+        if (
+            response_text is None
+            and revised_offer is None
+            and selected_document_id is None
+        ):
+            raise CustomerDeliveryInputError(
+                "Insurer response material is required"
+            )
+
+        normalized = dict(values)
+        normalized.update(
+            {
+                "clientRequestId": canonical_request,
+                "responseText": response_text,
+                "revisedOfferMinorUnits": revised_offer,
+                "documentId": document_id,
+                "retainedDocumentId": retained_document_id,
+                "supersedesResponseId": supersedes_response_id,
+            }
+        )
+        self.gateway.authenticate(access_token)
+        result = self.gateway.record_total_loss_insurer_response(
+            canonical_case, normalized, access_token
+        )
+        if not isinstance(result, Mapping) or set(result) != {
+            "state",
+            "response",
+            "workflowRevision",
+        }:
+            raise SupabaseContractError("Insurer response result is invalid")
+        if result.get("state") != "insurer_response_received":
+            raise SupabaseContractError("Insurer response state is invalid")
+        response = validate_insurer_response_projection(result.get("response"))
+        if (
+            response.get("clientRequestId") != canonical_request
+            or response.get("text") != response_text
+            or response.get("supersedesResponseId") != supersedes_response_id
+        ):
+            raise SupabaseContractError("Insurer response result is invalid")
+        projected_document = response.get("document")
+        if (projected_document is None) is not (selected_document_id is None):
+            raise SupabaseContractError("Insurer response document is invalid")
+        if (
+            projected_document is not None
+            and projected_document.get("documentId") != selected_document_id
+        ):
+            raise SupabaseContractError("Insurer response document is invalid")
+        projected_offer = response.get("revisedOffer")
+        if (projected_offer is None) is not (revised_offer is None):
+            raise SupabaseContractError("Insurer response revised offer is invalid")
+        if (
+            projected_offer is not None
+            and projected_offer.get("amountMinorUnits") != revised_offer
+        ):
+            raise SupabaseContractError("Insurer response revised offer is invalid")
+        revision = result.get("workflowRevision")
+        if isinstance(revision, bool) or not isinstance(revision, int) or revision < 1:
+            raise SupabaseContractError("Workflow revision is invalid")
+        return {
+            "state": "insurer_response_received",
+            "response": response,
+            "workflowRevision": revision,
+        }
+
 
 __all__ = [
     "CustomerDeliveryConflictError",
@@ -957,6 +1399,7 @@ __all__ = [
     "CustomerDeliveryService",
     "CustomerDeliveryUnavailableError",
     "validate_education_projection",
+    "validate_insurer_response_projection",
     "validate_message_draft",
     "validate_report_projection",
     "validate_sending_details",

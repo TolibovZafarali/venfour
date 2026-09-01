@@ -79,6 +79,7 @@ def legacy_secured_resume_row() -> dict[str, Any]:
         "education_progress": None,
         "sending_details": None,
         "message_draft": None,
+        "insurer_response": None,
         "commerce_amount_minor_units": None,
         "commerce_currency": None,
     }
@@ -492,7 +493,7 @@ class CaseClaimAccessServiceTests(unittest.TestCase):
 
     def test_resume_accepts_truthful_refund_pending_fulfillment(self) -> None:
         service, gateway, _verifier = claim_service()
-        gateway.resolve_result = {
+        response_row = {
             **resume_row("secured"),
             "customer_journey": {
                 "nextState": "no_dispute",
@@ -504,6 +505,7 @@ class CaseClaimAccessServiceTests(unittest.TestCase):
             "sending_details": None,
             "message_draft": None,
         }
+        gateway.resolve_result = response_row
 
         result = service.resolve(CASE_ID, ACCESS_TOKEN).to_dict()
 
@@ -515,6 +517,119 @@ class CaseClaimAccessServiceTests(unittest.TestCase):
                 "retryable": False,
             },
         )
+
+    def test_resume_projects_the_current_owner_response_without_storage_details(
+        self,
+    ) -> None:
+        service, gateway, _verifier = claim_service()
+        response = {
+            "responseId": "80000000-0000-4000-8000-000000000008",
+            "clientRequestId": "60000000-0000-4000-8000-000000000006",
+            "receivedAt": "2026-09-01T12:00:00Z",
+            "sourceType": "pasted_message",
+            "text": "The insurer declined the request.",
+            "document": None,
+            "revisedOffer": None,
+            "processingState": "not_started",
+            "supersedesResponseId": None,
+        }
+        response_row = {
+            **resume_row("secured"),
+            "workflow_phase": "negotiation",
+            "workflow_current_task": "insurer_response_received",
+            "workflow_revision": 5,
+            "checkout_available": False,
+            "next_task": "insurer_response_received",
+            "customer_journey": {
+                "nextState": "insurer_response_received",
+                "fulfillmentState": "insurer_response_received",
+                "retryable": False,
+            },
+            "published_report": {"validated": "below"},
+            "education_progress": None,
+            "sending_details": None,
+            "message_draft": None,
+            "insurer_response": response,
+        }
+        gateway.resolve_result = response_row
+
+        with patch(
+            "venfour.case_claim_access.validate_report_projection",
+            return_value={"reportId": "validated-report"},
+        ):
+            result = service.resolve(CASE_ID, ACCESS_TOKEN).to_dict()
+
+        self.assertEqual(result["insurerResponse"], response)
+        self.assertEqual(
+            result["journey"],
+            {
+                "nextState": "insurer_response_received",
+                "fulfillmentState": "insurer_response_received",
+                "retryable": False,
+            },
+        )
+        self.assertEqual(result["report"], {"reportId": "validated-report"})
+
+        gateway.resolve_result = {
+            **response_row,
+            "entitlement_status": "suspended",
+            "next_task": "payment_review",
+            "customer_journey": {
+                "nextState": "needs_attention",
+                "fulfillmentState": "needs_attention",
+                "retryable": False,
+            },
+            "published_report": None,
+        }
+        needs_attention = service.resolve(CASE_ID, ACCESS_TOKEN).to_dict()
+        self.assertEqual(needs_attention["insurerResponse"], response)
+        self.assertIsNone(needs_attention["report"])
+
+        invalid_rows = (
+            {**response_row, "insurer_response": None},
+            {
+                **response_row,
+                "workflow_current_task": "awaiting_insurer_response",
+            },
+            {
+                **resume_row("secured"),
+                "workflow_phase": "negotiation",
+                "workflow_current_task": "insurer_response_received",
+                "workflow_revision": 5,
+                "checkout_available": False,
+                "next_task": "insurer_response_received",
+            },
+            {
+                **response_row,
+                "insurer_response": {**response, "processingState": "analyzed"},
+            },
+            {
+                **response_row,
+                "state": "account_mismatch",
+                "contact_email": None,
+                "checkout_available": False,
+                "commerce_order_status": None,
+                "payment_status": None,
+                "entitlement_status": None,
+                "next_task": None,
+                "customer_journey": {
+                    "nextState": "secure_claim",
+                    "fulfillmentState": "not_started",
+                    "retryable": False,
+                },
+                "published_report": None,
+                "education_progress": None,
+                "sending_details": None,
+                "message_draft": None,
+            },
+        )
+        for row in invalid_rows:
+            with self.subTest(row=row), patch(
+                "venfour.case_claim_access.validate_report_projection",
+                return_value={"reportId": "validated-report"},
+            ), self.assertRaises(SupabaseContractError):
+                gateway.resolve_result = row
+                service.resolve(CASE_ID, ACCESS_TOKEN)
 
     def test_resume_preserves_legacy_secured_case_without_workflow(self) -> None:
         service, gateway, _verifier = claim_service()

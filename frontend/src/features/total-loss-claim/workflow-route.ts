@@ -2,6 +2,7 @@ import type {
   TotalLossClaimJourneyState,
   TotalLossClaimResolver,
 } from "@/features/total-loss-claim/contracts";
+import type { TotalLossCaseJourneyStage } from "@/features/total-loss-claim/case-journey";
 import type { TotalLossIntakeMode } from "@/features/total-loss/types";
 
 type LegacyCaseView = "overview" | "evidence" | "request" | "activity";
@@ -12,7 +13,10 @@ type LegacyReviewView =
   | "review_meaning"
   | "review_next"
   | "review_request"
-  | "review_sent";
+  | "review_response"
+  | "review_response_received"
+  | "review_sent"
+  | "review_waiting";
 
 export type TotalLossClaimWorkflowView =
   | LegacyCaseView
@@ -62,7 +66,12 @@ export function totalLossClaimViewPath(
       return `${base}/review/meaning`;
     case "activity":
     case "review_sent":
-      return `${base}/review/sent`;
+    case "review_waiting":
+      return `${base}/review/waiting`;
+    case "review_response":
+      return `${base}/review/response`;
+    case "review_response_received":
+      return `${base}/review/response-received`;
     case "request":
     case "send":
     case "review_request":
@@ -102,7 +111,9 @@ export function routeForJourneyState(
     case "prepare_request":
       return totalLossClaimViewPath(caseId, "request");
     case "awaiting_insurer_response":
-      return totalLossClaimViewPath(caseId, "activity");
+      return totalLossClaimViewPath(caseId, "review_waiting");
+    case "insurer_response_received":
+      return totalLossClaimViewPath(caseId, "review_response_received");
   }
 }
 
@@ -128,6 +139,8 @@ function legacyJourneyState(
       return "no_dispute";
     case "awaiting_insurer_response":
       return "awaiting_insurer_response";
+    case "insurer_response_received":
+      return "insurer_response_received";
     case "secure_claim":
     case null:
       return null;
@@ -168,13 +181,7 @@ export function isCompletedAnalysisView(view: TotalLossClaimWorkflowView) {
   );
 }
 
-export type CompletedAnalysisStage =
-  | "result"
-  | "insurer"
-  | "market"
-  | "meaning"
-  | "request"
-  | "sent";
+export type CompletedAnalysisStage = TotalLossCaseJourneyStage;
 
 export function completedAnalysisStage(
   view: TotalLossClaimWorkflowView,
@@ -207,7 +214,12 @@ export function completedAnalysisStage(
       return "request";
     case "activity":
     case "review_sent":
-      return "sent";
+    case "review_waiting":
+      return "waiting";
+    case "review_response":
+      return "response";
+    case "review_response_received":
+      return "response_received";
     default:
       return "result";
   }

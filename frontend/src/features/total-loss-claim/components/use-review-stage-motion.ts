@@ -40,7 +40,7 @@ export function useReviewStageMotion({ root, stage, index, reportId }: {
     const animations = groups.flatMap((target, position) => {
       const role = target.dataset.reviewEntrance!;
       const strong = role === "primary" && (stage === "result" || stage === "meaning");
-      const completion = role === "primary" && stage === "sent";
+      const completion = role === "primary" && (stage === "waiting" || stage === "response_received");
       const quiet = role === "supporting";
       const blur = compact ? strong ? 4 : 3 : strong ? 8 : quiet ? 4 : completion ? 5 : 6;
       const travel = compact ? strong ? 10 : 8 : strong ? 14 : quiet ? 8 : completion ? 10 : 12;
