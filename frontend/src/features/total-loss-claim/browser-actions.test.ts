@@ -4,6 +4,7 @@ import {
   buildTotalLossMailto,
   formatCommercePrice,
   openPublishedReport,
+  reservePublishedReportPreview,
 } from "@/features/total-loss-claim/browser-actions";
 
 describe("total-loss email and price browser actions", () => {
@@ -41,9 +42,9 @@ describe("total-loss email and price browser actions", () => {
       .spyOn(HTMLAnchorElement.prototype, "click")
       .mockImplementation(() => undefined);
     const signedUrl =
-      "https://storage.example.test/report.pdf?token=signed%2Bvalue&download=Venfour_Report.pdf&expires=1788030000";
+      "https://storage.example.test/report.pdf?token=signed%2Bvalue&download=Vehicle_Valuation_Report.pdf&expires=1788030000";
 
-    openPublishedReport(signedUrl, "Venfour_Report.pdf", true);
+    openPublishedReport(signedUrl, "Vehicle_Valuation_Report.pdf", true);
     const previewAnchor = click.mock.instances.at(-1) as HTMLAnchorElement;
     const previewUrl = new URL(previewAnchor.href);
 
@@ -54,13 +55,36 @@ describe("total-loss email and price browser actions", () => {
     expect(previewUrl.searchParams.has("download")).toBe(false);
     expect(previewAnchor.target).toBe("_blank");
 
-    openPublishedReport(signedUrl, "Venfour_Report.pdf", false);
+    openPublishedReport(signedUrl, "Vehicle_Valuation_Report.pdf", false);
     const downloadAnchor = click.mock.instances.at(-1) as HTMLAnchorElement;
     expect(new URL(downloadAnchor.href).searchParams.get("download")).toBe(
-      "Venfour_Report.pdf",
+      "Vehicle_Valuation_Report.pdf",
     );
-    expect(downloadAnchor.download).toBe("Venfour_Report.pdf");
+    expect(downloadAnchor.download).toBe("Vehicle_Valuation_Report.pdf");
 
     click.mockRestore();
+  });
+
+  it("reserves a user-initiated window before asynchronously opening a preview", () => {
+    const replace = vi.fn();
+    const previewWindow = {
+      closed: false,
+      location: { replace },
+      opener: window,
+    } as unknown as Window;
+    const opened = vi.spyOn(window, "open").mockReturnValue(previewWindow);
+    const reserved = reservePublishedReportPreview();
+
+    expect(opened).toHaveBeenCalledWith("about:blank", "_blank");
+    expect(previewWindow.opener).toBeNull();
+    openPublishedReport(
+      "https://storage.example.test/report.pdf?token=signed&download=Vehicle_Valuation_Report.pdf",
+      "Vehicle_Valuation_Report.pdf",
+      true,
+      reserved,
+    );
+    expect(replace).toHaveBeenCalledWith(
+      "https://storage.example.test/report.pdf?token=signed",
+    );
   });
 });

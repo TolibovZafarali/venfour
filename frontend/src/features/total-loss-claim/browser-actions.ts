@@ -39,19 +39,30 @@ export function openDefaultEmailApp(mailto: string) {
   window.location.assign(mailto);
 }
 
+export function reservePublishedReportPreview() {
+  const previewWindow = window.open("about:blank", "_blank");
+  if (previewWindow) previewWindow.opener = null;
+  return previewWindow;
+}
+
 export function openPublishedReport(
   url: string,
   suggestedFilename: string,
   preview: boolean,
+  previewWindow?: Window | null,
 ) {
-  const anchor = document.createElement("a");
+  let destination = url;
   if (preview) {
     const previewUrl = new URL(url);
     previewUrl.searchParams.delete("download");
-    anchor.href = previewUrl.toString();
-  } else {
-    anchor.href = url;
+    destination = previewUrl.toString();
+    if (previewWindow && !previewWindow.closed) {
+      previewWindow.location.replace(destination);
+      return;
+    }
   }
+  const anchor = document.createElement("a");
+  anchor.href = destination;
   anchor.rel = "noopener noreferrer";
   if (preview) {
     anchor.target = "_blank";

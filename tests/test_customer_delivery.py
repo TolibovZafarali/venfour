@@ -16,7 +16,10 @@ from venfour.customer_delivery import (
     CustomerDeliveryService,
     validate_report_projection,
 )
-from venfour.supabase_gateway import SupabaseContractError
+from venfour.supabase_gateway import (
+    CUSTOMER_TOTAL_LOSS_REPORT_FILENAME,
+    SupabaseContractError,
+)
 
 
 CASE_ID = "20000000-0000-4000-8000-000000000002"
@@ -234,7 +237,7 @@ class RecordingGateway:
         )
         return {
             "downloadUrl": "https://storage.example.test/signed-report?token=one",
-            "suggestedFilename": "Venfour_Valuation_Evidence_CASE_v1.pdf",
+            "suggestedFilename": CUSTOMER_TOTAL_LOSS_REPORT_FILENAME,
             "expiresAt": NOW,
         }
 
@@ -387,6 +390,50 @@ class CustomerDeliveryServiceTests(unittest.TestCase):
         self.assertEqual(sent["state"], "awaiting_insurer_response")
         self.assertEqual(sent["messageVersionId"], SENT_VERSION_ID)
 
+    def test_report_download_uses_the_neutral_customer_filename(self) -> None:
+        gateway = RecordingGateway()
+        service = CustomerDeliveryService(gateway)
+
+        result = service.download(CASE_ID, REPORT_ID, ACCESS_TOKEN)
+
+        self.assertEqual(
+            result["suggestedFilename"], CUSTOMER_TOTAL_LOSS_REPORT_FILENAME
+        )
+        self.assertEqual(
+            gateway.calls,
+            [
+                ("authenticate", ACCESS_TOKEN),
+                ("download", (CASE_ID, REPORT_ID, USER_ID)),
+            ],
+        )
+
+    def test_report_download_rejects_a_legacy_customer_filename(self) -> None:
+        class LegacyFilenameGateway(RecordingGateway):
+            def create_total_loss_customer_report_download(
+                self, case_id: str, report_version_id: str, user_id: str,
+            ) -> Mapping[str, Any] | None:
+                result = dict(
+                    super().create_total_loss_customer_report_download(
+                        case_id, report_version_id, user_id
+                    )
+                )
+                result["suggestedFilename"] = valid_report()["suggestedFilename"]
+                return result
+
+        gateway = LegacyFilenameGateway()
+        service = CustomerDeliveryService(gateway)
+
+        with self.assertRaisesRegex(SupabaseContractError, "Report filename is invalid"):
+            service.download(CASE_ID, REPORT_ID, ACCESS_TOKEN)
+
+        self.assertEqual(
+            gateway.calls,
+            [
+                ("authenticate", ACCESS_TOKEN),
+                ("download", (CASE_ID, REPORT_ID, USER_ID)),
+            ],
+        )
+
     def test_report_contract_rejects_provider_and_listing_identity_leaks(self) -> None:
         for mutation in ("provider", "sourceListingId"):
             with self.subTest(mutation=mutation):
@@ -462,6 +509,25 @@ class CustomerDeliveryApiTests(unittest.TestCase):
         self.assertEqual(response.json()["draft"], draft_projection())
         self.assertEqual(response.json()["messageVersion"]["state"], "prepared")
         self.assertEqual(response.json()["workflowRevision"], 3)
+
+    def test_report_download_endpoint_returns_the_neutral_customer_filename(self) -> None:
+        response = self.client.get(
+            f"/api/v1/appraisal-cases/{CASE_ID}/reports/{REPORT_ID}/download",
+            headers={"Authorization": f"Bearer {ACCESS_TOKEN}"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.json()["suggestedFilename"],
+            CUSTOMER_TOTAL_LOSS_REPORT_FILENAME,
+        )
+        self.assertEqual(
+            self.gateway.calls[-2:],
+            [
+                ("authenticate", ACCESS_TOKEN),
+                ("download", (CASE_ID, REPORT_ID, USER_ID)),
+            ],
+        )
 
 
 if __name__ == "__main__":

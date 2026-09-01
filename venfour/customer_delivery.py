@@ -16,7 +16,10 @@ from datetime import datetime
 from typing import Any, Protocol, runtime_checkable
 from uuid import UUID
 
-from venfour.supabase_gateway import SupabaseContractError
+from venfour.supabase_gateway import (
+    CUSTOMER_TOTAL_LOSS_REPORT_FILENAME,
+    SupabaseContractError,
+)
 
 
 _STEP_IDENTIFIERS = {
@@ -29,7 +32,7 @@ _STEP_IDENTIFIERS = {
 }
 _PROGRESS_STATES = {"viewed", "completed", "skipped"}
 _EMAIL = re.compile(r"[^\s@]+@[^\s@]+\.[^\s@]+")
-_FILENAME = re.compile(
+_REPORT_IDENTITY_FILENAME = re.compile(
     r"Venfour_Valuation_Evidence_[A-Za-z0-9_-]+_v[1-9][0-9]*\.pdf"
 )
 _CURRENCY = re.compile(r"[A-Z]{3}")
@@ -243,7 +246,10 @@ def validate_report_projection(value: Any) -> dict[str, Any]:
     except ValueError as exc:
         raise SupabaseContractError("Report issue date is invalid") from exc
     filename = report.get("suggestedFilename")
-    if not isinstance(filename, str) or _FILENAME.fullmatch(filename) is None:
+    if (
+        not isinstance(filename, str)
+        or _REPORT_IDENTITY_FILENAME.fullmatch(filename) is None
+    ):
         raise SupabaseContractError("Report filename is invalid")
     if (
         report.get("status") != "published"
@@ -726,7 +732,7 @@ class CustomerDeliveryService:
         filename = result.get("suggestedFilename")
         if not isinstance(url, str) or not url.startswith(("https://", "http://")):
             raise SupabaseContractError("Report download URL is invalid")
-        if not isinstance(filename, str) or _FILENAME.fullmatch(filename) is None:
+        if filename != CUSTOMER_TOTAL_LOSS_REPORT_FILENAME:
             raise SupabaseContractError("Report filename is invalid")
         _timestamp(result.get("expiresAt"), "Report download expiry")
         return dict(result)

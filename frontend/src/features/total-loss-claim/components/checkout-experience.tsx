@@ -225,7 +225,7 @@ export function CheckoutReturnScreen({
       await onRefresh().catch(() => undefined);
       setAttemptFinished(true);
       setError(
-        "Payment confirmation is taking longer than expected. Your payment status remains server-controlled; try checking again.",
+        "Payment confirmation is taking longer than expected. We’re still waiting for secure confirmation from the payment provider; try checking again.",
       );
     }
   }, [checkoutSessionId, onRefresh, reconciliation]);
@@ -264,9 +264,9 @@ export function CheckoutReturnScreen({
           aria-live="polite"
           aria-busy={reconciliation.isPending}
         >
-          Venfour is checking the authoritative payment record. You can safely
-          refresh or close this page; fulfillment is controlled by the payment
-          confirmation received by the server, not this browser link.
+          Venfour is securely confirming your payment with the payment provider.
+          You can safely refresh or close this page; this return link cannot
+          complete or change the purchase on its own.
         </p>
         {error ? (
           <>
@@ -301,12 +301,12 @@ export function ProcessingScreen({
     claim.journey?.nextState === "needs_attention";
   const Icon = needsAttention ? AlertCircle : LoaderCircle;
   const heading = needsAttention
-    ? "Your package needs attention"
+    ? "We need to check a detail in your case"
     : exception
       ? "We’re checking a detail before your report is ready"
-      : "We’re preparing your valuation package";
+      : "We’re preparing your valuation report";
   const description = needsAttention
-    ? "Venfour could not safely complete the package yet. Your payment and case remain recorded; retry or contact support if this continues."
+    ? "Venfour could not safely move your case forward yet. Your case and any completed payment remain recorded; check again or contact support if this continues."
     : exception
       ? "A detail needs an additional quality check before the report can be released. There’s nothing you need to do right now."
       : "Venfour is validating the evidence and preparing the customer-ready report. This may take a little time.";
@@ -325,7 +325,7 @@ export function ProcessingScreen({
           />
         </span>
         <p className="mt-6 text-sm font-semibold tracking-[0.12em] text-brand uppercase">
-          Package preparation
+          {needsAttention ? "Case status" : "Report preparation"}
         </p>
         <h1 className="mt-3 max-w-3xl text-3xl font-semibold tracking-[-0.04em] text-ink sm:text-4xl">
           {heading}
@@ -338,21 +338,27 @@ export function ProcessingScreen({
           {description}
         </p>
         {claim.journey?.retryable || needsAttention ? (
-          <Button
-            className="mt-7"
-            onClick={() => void onRefresh()}
-            type="button"
-            variant="outline"
-          >
-            Check again
-          </Button>
+          <div className="mt-7 flex flex-wrap gap-3">
+            <Button
+              onClick={() => void onRefresh()}
+              type="button"
+              variant="outline"
+            >
+              Check again
+            </Button>
+            {needsAttention ? (
+              <Button asChild variant="ghost">
+                <Link to="/contact">Contact support</Link>
+              </Button>
+            ) : null}
+          </div>
         ) : null}
         <div className="mt-8 flex gap-3 rounded-2xl border border-line bg-surface/60 p-5">
           <ShieldCheck className="mt-0.5 size-5 shrink-0 text-brand" aria-hidden />
           <p className="text-sm leading-6 text-copy">
             {needsAttention
-              ? "Your case and payment remain saved. Checking again refreshes the status; it does not restart a failed package."
-              : "You can close this browser and return from My appraisals. Package preparation continues independently of this page."}
+              ? "Your case remains saved. Checking again only refreshes its status; it does not repeat any completed payment or processing step."
+              : "You can close this browser and return from My appraisals. Report preparation continues independently of this page."}
           </p>
         </div>
       </ClaimWorkflowCard>

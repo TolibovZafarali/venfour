@@ -11,6 +11,7 @@ from unittest.mock import patch
 import httpx
 
 from venfour.supabase_gateway import (
+    CUSTOMER_TOTAL_LOSS_REPORT_FILENAME,
     MAX_EXTRACTION_CACHE_BYTES,
     SupabaseAuthenticationError,
     SupabaseConfigurationError,
@@ -576,6 +577,67 @@ class SupabaseHttpGatewayTests(unittest.TestCase):
         self.assertEqual(
             request.headers["authorization"], "Bearer service-role-test-key"
         )
+
+    def test_customer_report_download_uses_neutral_name_without_changing_storage_identity(self) -> None:
+        requests: list[httpx.Request] = []
+        object_path = self.deliverable_locator()["storage_object_name"]
+        signed_path = f"/storage/v1/object/sign/case-deliverables/{object_path}"
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            requests.append(request)
+            if request.url.path.endswith(
+                "/rest/v1/rpc/authorize_total_loss_customer_report_download"
+            ):
+                return httpx.Response(
+                    200,
+                    json=[
+                        {
+                            "case_id": CASE_ID,
+                            "report_version_id": REPORT_VERSION_ID,
+                            "report_series_id": REPORT_SERIES_ID,
+                            "suggested_filename": "Venfour_Valuation_Evidence_CASE_v1.pdf",
+                            "storage_bucket_id": "case-deliverables",
+                            "storage_object_name": object_path,
+                        }
+                    ],
+                )
+            self.assertEqual(request.url.path, signed_path)
+            return httpx.Response(
+                200,
+                json={
+                    "signedURL": (
+                        f"/object/sign/case-deliverables/{object_path}"
+                        "?token=signed%2Bvalue&download=legacy.pdf"
+                    )
+                },
+            )
+
+        gateway, _ = self.gateway(handler)
+        result = gateway.create_total_loss_customer_report_download(
+            CASE_ID, REPORT_VERSION_ID, USER_ID
+        )
+
+        self.assertIsNotNone(result)
+        assert result is not None
+        self.assertEqual(
+            result["suggestedFilename"], CUSTOMER_TOTAL_LOSS_REPORT_FILENAME
+        )
+        download_url = httpx.URL(result["downloadUrl"])
+        self.assertEqual(download_url.path, signed_path)
+        self.assertEqual(download_url.params["token"], "signed+value")
+        self.assertEqual(
+            download_url.params["download"], CUSTOMER_TOTAL_LOSS_REPORT_FILENAME
+        )
+        self.assertEqual(len(requests), 2)
+        self.assertEqual(
+            json.loads(requests[0].content),
+            {
+                "requested_case_id": CASE_ID,
+                "requested_report_version_id": REPORT_VERSION_ID,
+                "requested_user_id": USER_ID,
+            },
+        )
+        self.assertEqual(json.loads(requests[1].content), {"expiresIn": 120})
 
     def test_magic_link_rejects_untrusted_inputs_and_maps_delivery_failures(
         self,

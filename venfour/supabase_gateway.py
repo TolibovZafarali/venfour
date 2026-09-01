@@ -34,6 +34,7 @@ CASE_FILES_BUCKET = "case-files"
 CASE_DELIVERABLES_BUCKET = "case-deliverables"
 TOTAL_LOSS_REPORT_OBJECT = "valuation-report.pdf"
 TOTAL_LOSS_EVIDENCE_PACKAGE_OBJECT = "valuation-evidence-package.pdf"
+CUSTOMER_TOTAL_LOSS_REPORT_FILENAME = "Vehicle_Valuation_Report.pdf"
 DOWNLOAD_CHUNK_BYTES = 1024 * 1024
 MAX_EXTRACTION_CACHE_BYTES = 1024 * 1024
 MAX_EXTRACTION_PROVIDER_CHARACTERS = 200
@@ -634,12 +635,12 @@ class SupabaseHttpGateway:
         report_series_id = _canonical_uuid(
             row.get("report_series_id"), "Report series ID"
         )
-        suggested_filename = row.get("suggested_filename")
+        authorized_filename = row.get("suggested_filename")
         if (
-            not isinstance(suggested_filename, str)
+            not isinstance(authorized_filename, str)
             or re.fullmatch(
                 r"Venfour_Valuation_Evidence_[A-Za-z0-9_-]+_v[1-9][0-9]*\.pdf",
-                suggested_filename,
+                authorized_filename,
             )
             is None
         ):
@@ -651,14 +652,17 @@ class SupabaseHttpGateway:
             row,
         )
         signed_url = self._signed_private_download_url(
-            bucket, object_path, suggested_filename, expires_in_seconds=120
+            bucket,
+            object_path,
+            CUSTOMER_TOTAL_LOSS_REPORT_FILENAME,
+            expires_in_seconds=120,
         )
         expires_at = (
             datetime.now(UTC) + timedelta(seconds=120)
         ).isoformat().replace("+00:00", "Z")
         return {
             "downloadUrl": signed_url,
-            "suggestedFilename": suggested_filename,
+            "suggestedFilename": CUSTOMER_TOTAL_LOSS_REPORT_FILENAME,
             "expiresAt": expires_at,
         }
 
@@ -3281,6 +3285,7 @@ __all__ = [
     "CASE_DELIVERABLES_BUCKET",
     "CASE_FILES_BUCKET",
     "CaseAnalysisGateway",
+    "CUSTOMER_TOTAL_LOSS_REPORT_FILENAME",
     "MAX_EXTRACTION_CACHE_BYTES",
     "ReportIngestionGateway",
     "SupabaseAuthenticationError",

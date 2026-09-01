@@ -12,14 +12,14 @@ export function ReviewProgress({ index, total }: { readonly index: number; reado
   return (
     <div className="review-progress">
       <div className="review-progress-caption"><p aria-label="Review progress">Step <span className="review-progress-count">{index}</span> of {total}</p><span>Your valuation review</span></div>
-      <div className="review-progress-track" role="progressbar" aria-label="Valuation review" aria-valuemin={0} aria-valuemax={total} aria-valuenow={index} aria-valuetext={`Step ${index} of ${total}`}>
+      <div className="review-progress-track" role="progressbar" aria-label="Valuation review" aria-valuemin={1} aria-valuemax={total} aria-valuenow={index} aria-valuetext={`Step ${index} of ${total}`}>
         <span className="review-progress-fill" style={{ transform: `scaleX(${index / total})` }} />
       </div>
     </div>
   );
 }
 
-export function ValueRangeTrack({ report }: { readonly report: TotalLossPublishedReport }) {
+export function ValueRangeTrack({ report, valueLabel = "Insurer" }: { readonly report: TotalLossPublishedReport; readonly valueLabel?: string }) {
   const value = report.conclusion.insurerValuation;
   const range = report.conclusion.supportedRange;
   if (!range || !available(value) || !available(range.low) || !available(range.high) || !available(range.median)) return null;
@@ -40,7 +40,7 @@ export function ValueRangeTrack({ report }: { readonly report: TotalLossPublishe
   } as CSSProperties;
   return (
     <div className="value-range-visual" aria-hidden="true" style={style}>
-      <div className="value-range-legend"><span><i />Selected range</span><span><i />Median</span><span><i />Insurer</span></div>
+      <div className="value-range-legend"><span><i />Selected range</span><span><i />Median</span><span><i />{valueLabel}</span></div>
       <div className="value-range-axis"><span className="value-range-band" /><span className="value-range-median" /><span className="value-range-offer" /></div>
     </div>
   );

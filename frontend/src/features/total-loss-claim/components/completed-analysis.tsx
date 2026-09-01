@@ -39,7 +39,13 @@ function hasMoney(value: TotalLossMoney | null | undefined): value is TotalLossM
 function amountLabel(amountMinorUnits: number, currency: string) {
   if (!Number.isSafeInteger(amountMinorUnits)) return null;
   try {
-    return new Intl.NumberFormat("en-US", { style: "currency", currency }).format(amountMinorUnits / 100);
+    const exactDollars = amountMinorUnits % 100 === 0;
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency,
+      minimumFractionDigits: exactDollars ? 0 : 2,
+      maximumFractionDigits: 2,
+    }).format(amountMinorUnits / 100);
   } catch {
     return null;
   }
@@ -78,7 +84,7 @@ function ValueSummary({ report, intakeMode, marketOnly = false }: {
           <dt>{intakeMode === "manual" ? "How your offer compares" : "How the insurer’s value compares"}</dt><dd>{comparison}</dd>
         </div> : null}
       </dl>
-      {!marketOnly ? <ValueRangeTrack report={report} /> : null}
+      {!marketOnly ? <ValueRangeTrack report={report} valueLabel={intakeMode === "manual" ? "Offer" : "Insurer"} /> : null}
     </div>
   );
 }
@@ -148,11 +154,13 @@ export function CompletedAnalysis(props: CompletedAnalysisProps) {
   const prerequisite = reviewPrerequisite(claim, report.reportId, intakeMode, stage);
   const canPrepare = requestReviewComplete(claim, report.reportId);
   const manual = intakeMode === "manual";
-  const total = manual ? 5 : 6;
+  const continuing = report.conclusion.continuingSupported;
+  const total = continuing ? (manual ? 5 : 6) : manual ? 3 : 4;
   const index = stage === "result" ? 1 : stage === "insurer" ? 2 : stage === "market" ? manual ? 2 : 3 : stage === "meaning" ? manual ? 3 : 4 : hasDraft ? total : total - 1;
   const previous = stage === "result" ? null : stage === "insurer" ? path("result") : stage === "market" ? path(manual ? "result" : "insurer") : stage === "meaning" ? path("market") : path("meaning");
-  const next = stage === "result" ? manual ? "market" : "insurer" : stage === "insurer" ? "market" : stage === "market" ? "meaning" : "request";
-  const action = stage === "result" && !manual ? "See how the insurer reached its value" : stage === "result" || stage === "insurer" ? "See the market evidence" : stage === "market" ? "Compare the values" : "Prepare my request";
+  const next = stage === "result" ? manual ? "market" : "insurer" : stage === "insurer" ? "market" : stage === "market" ? "meaning" : stage === "meaning" && sent ? "sent" : "request";
+  const requestAction = sent ? "Return to request status" : hasDraft ? "Review my request" : "Prepare my request";
+  const action = stage === "result" && !manual ? "See how the insurer reached its value" : stage === "result" || stage === "insurer" ? "See the market evidence" : stage === "market" ? "Compare the values" : requestAction;
   const classification = reportText(report.conclusion.classificationLabel).replace(/^Potential undervaluation signal$/iu, "Potential undervaluation");
   const resultExplanation = report.conclusion.continuingSupported
     ? `${manual ? "The offer you entered" : "Your insurer’s valuation"} appears low compared with the selected market listings.`
@@ -167,6 +175,7 @@ export function CompletedAnalysis(props: CompletedAnalysisProps) {
   const secondaryTiming = listingTiming(null, secondary?.label);
   const primaryDate = dateLabel(primary?.evidenceDate ?? null);
   const secondaryDate = dateLabel(secondary?.evidenceDate ?? null);
+  const hasMarketListings = report.marketEvidence.comparables.length > 0 || Boolean(primary?.selectedCount) || Boolean(secondary?.selectedCount);
   const comparison = medianComparison(report);
   const position = rangePosition(report, intakeMode);
   const limitations = decisionLimitations(report);
@@ -184,6 +193,9 @@ export function CompletedAnalysis(props: CompletedAnalysisProps) {
     const resume = authoritativeTotalLossClaimPath(claim, intakeMode);
     return <Navigate replace to={resume && resume !== path("sent") ? resume : path("result")} />;
   }
+  if (stage === "request" && !continuing) {
+    return <Navigate replace to={path("meaning")} />;
+  }
 
   const continueReview = async () => {
     if (stage === "request" || stage === "sent") return;
@@ -197,7 +209,7 @@ export function CompletedAnalysis(props: CompletedAnalysisProps) {
       {stage !== "sent" ? <ReviewProgress index={index} total={total} /> : null}
       <div className="review-stage-content" data-view={stage}>
       {claim.journey?.fulfillmentState === "refund_pending" || claim.commerce?.entitlementStatus === "refunded_access_retained" ? (
-        <p role="status">{claim.commerce?.entitlementStatus === "refunded_access_retained" ? "Refunded" : "Refund in progress"}. Your completed report remains available.</p>
+        <p className="review-refund-status" role="status">{claim.commerce?.entitlementStatus === "refunded_access_retained" ? "Your payment was refunded. Your completed report remains available." : "Your refund is in progress. Your completed report remains available while it is processed."}</p>
       ) : null}
       {stage === "result" ? <>
         <div className="result-heading" data-review-entrance="secondary"><h1>Your result</h1><p className="review-vehicle">{displayed(report.subjectVehicle.description, "Your vehicle")}</p></div>
@@ -231,7 +243,7 @@ export function CompletedAnalysis(props: CompletedAnalysisProps) {
         {primary && primary.selectedCount > 0 ? primaryTiming === "current" ? <p>{primaryDate !== "Not stated" ? `${primary.selectedCount === 1 ? "This listing was" : "These listings were"} collected on ${primaryDate}. ` : ""}{primary.selectedCount === 1 ? "It shows" : "They show"} the market when collected, not necessarily on the date of loss.</p> : primaryTiming === "historical" ? <p>{primary.selectedCount === 1 ? "This listing was" : "These listings were"} verified as active {primaryDate !== "Not stated" ? `on ${primaryDate}, the date used for this comparison` : "on the date of loss"}.</p> : <p>The listing details explain when each price was observed.</p> : null}
         {secondary && secondary.selectedCount > 0 ? <p>A further {secondary.selectedCount.toLocaleString("en-US")} {secondaryTiming === "current" ? "current " : ""}{secondary.selectedCount === 1 ? "listing provides" : "listings provide"} additional context{secondaryTiming === "current" && secondaryDate !== "Not stated" ? ` from ${secondaryDate}` : ""}. {secondary.selectedCount === 1 ? "It is" : "They are"} not included in the range above.{secondaryTiming === "current" ? " Current listings do not establish prices on the date of loss." : ""}</p> : null}
         {report.conclusion.limitations.some((value) => /out.of.provider.range/iu.test(value)) ? <p>The market-data source had limited historical coverage. This does not mean no comparable vehicles existed at the time of loss.</p> : null}
-        <p>These are advertised prices, not confirmed sale prices.</p>
+        {hasMarketListings ? <p>These are advertised prices, not confirmed sale prices.</p> : null}
         </div>
         <RepresentativeListings report={report} />
         <MarketEvidenceDetails report={report} open={search.get("details") === "market"} />
@@ -244,15 +256,15 @@ export function CompletedAnalysis(props: CompletedAnalysisProps) {
         {position ? <p className="meaning-position">{position}</p> : null}
         {comparison ? <p className="meaning-comparison">{manual ? "The offer" : "The valuation"} {comparison.startsWith("Matches") ? "matches the selected median" : `is ${comparison}`}{hasMoney(report.conclusion.supportedRange?.median) ? ` of ${moneyLabel(report.conclusion.supportedRange?.median)}` : ""}.</p> : null}
         </div>
-        {report.conclusion.continuingSupported ? <p className="meaning-takeaway" data-review-entrance="secondary">Based on the available evidence, you have a reasonable basis to ask the insurer to review {manual ? "the offer" : "its valuation"}.</p> : <p data-review-entrance="secondary">The result does not support a higher valuation request. Your evidence package remains available.</p>}
+        {report.conclusion.continuingSupported ? <p className="meaning-takeaway" data-review-entrance="secondary">Based on the available evidence, you have a reasonable basis to ask the insurer to review {manual ? "the offer" : "its valuation"}.</p> : <p data-review-entrance="secondary">The result does not support a higher valuation request. Your valuation report remains available.</p>}
         <div className="meaning-limitations" data-review-entrance="secondary">
-        <p>This does not mean you are automatically owed the selected median or another specific amount. These are advertised listings, not confirmed sale prices, and the insurer may respond with additional evidence.</p>
+        <p>{hasMarketListings ? "This does not mean you are automatically owed the selected median or another specific amount. These are advertised listings, not confirmed sale prices, and the insurer may respond with additional evidence." : "This result does not establish that you are owed a higher amount. The insurer may respond with additional evidence."}</p>
         {manual ? <p>Without the insurer’s valuation report, Venfour cannot review which comparable vehicles or adjustments the insurer used.</p> : null}
         {limitations.length ? <>
           <h2>Limitations to keep in mind</h2>
           <ul>{limitations.map((value) => <li key={value}>{value}</li>)}</ul>
         </> : null}
-        <p>Your evidence package explains the comparison and its limitations in more detail.</p>
+        <p>Your valuation report explains the comparison and its limitations in more detail.</p>
         </div>
         {!report.conclusion.continuingSupported ? <ReportFileRow {...props} /> : null}
       </> : null}
@@ -266,12 +278,12 @@ export function CompletedAnalysis(props: CompletedAnalysisProps) {
       {stage === "sent" ? <>
         <div className="sent-confirmation-mark" data-review-entrance="supporting" aria-hidden="true"><Check /></div>
         <div className="sent-heading" data-review-entrance="primary"><h1>Waiting for the insurer’s response</h1>
-        <p className="review-lead" role="status">You reported sending your reconsideration request with the evidence package attached.</p>
+        <p className="review-lead" role="status">You reported sending your reconsideration request with the valuation report attached.</p>
         </div>
         {claim.education?.reportVersionId === report.reportId && claim.education.steps.send.completedAt ? <p className="sent-recorded" data-review-entrance="supporting">Recorded: <RecordedTime value={claim.education.steps.send.completedAt} /></p> : null}
         <div className="sent-next-steps" data-review-entrance="supporting">
         <p>Venfour cannot verify email delivery or receipt. The next step is waiting for the insurer’s response.</p>
-        <p>Keep your sent email, attached package, and the insurer’s written reply. The insurer may revise its valuation, maintain it with an explanation, or ask for more information.</p>
+        <p>Keep your sent email, attached report, and the insurer’s written reply. The insurer may revise its valuation, maintain it with an explanation, or ask for more information.</p>
         </div>
         <ReportFileRow {...props} />
       </> : null}
@@ -280,7 +292,7 @@ export function CompletedAnalysis(props: CompletedAnalysisProps) {
       {progression.error ? <p className="review-error" role="alert">{progression.error}</p> : null}
       <footer className="review-navigation-footer">
         <nav className="review-actions" aria-label="Review navigation" ref={setFooterActions}>
-          {previous ? <Link className="review-back" to={previous} onClick={(event) => {
+          {previous ? <Link aria-disabled={progression.pending || undefined} className="review-back" to={previous} onClick={(event) => {
             if (progression.pending) event.preventDefault();
           }}><ArrowLeft aria-hidden="true" />Back</Link> : null}
           {stage !== "request" && stage !== "sent" && (stage !== "meaning" || report.conclusion.continuingSupported) ? <button className="review-primary" type="button" disabled={progression.pending || Boolean(prerequisite)} onClick={() => void continueReview()}><span className="review-action-label"><span className="review-action-reserve" aria-hidden="true">{action}</span><span>{progression.pending ? "Saving progress…" : action}</span></span><span className="review-action-icon">{progression.pending ? <LoaderCircle className="review-spinner" aria-hidden="true" /> : <ArrowRight aria-hidden="true" />}</span></button> : null}

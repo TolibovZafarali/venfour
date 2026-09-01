@@ -75,17 +75,12 @@
   letter-spacing: -0.012em;
 }
 
-.completed-analysis :is(.report-file-meta, .report-file-name) {
+.completed-analysis .report-file-meta {
   margin: 0.35rem 0 0;
   color: #65738b;
   font-size: 0.775rem;
   line-height: 1.5;
   overflow-wrap: anywhere;
-}
-
-.completed-analysis .report-file-name {
-  color: #728096;
-  font-size: 0.75rem;
 }
 
 .completed-analysis .report-file-actions {
@@ -622,7 +617,7 @@
   scroll-margin-block: 5.5rem calc(7rem + env(safe-area-inset-bottom, 0px));
 }
 
-.completed-analysis .request-sent-confirmation h3 {
+.completed-analysis .request-sent-confirmation h2 {
   margin: 0;
   color: #243e65;
   font-size: 1rem;
@@ -631,7 +626,7 @@
   letter-spacing: -0.018em;
 }
 
-.completed-analysis .request-sent-confirmation h3:focus {
+.completed-analysis .request-sent-confirmation h2:focus {
   outline: none;
 }
 
@@ -798,12 +793,6 @@
 
   .completed-analysis .report-file {
     padding: 1.2rem 0;
-  }
-
-  .completed-analysis .report-file-name {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
   }
 
   .completed-analysis .report-file-document {

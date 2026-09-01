@@ -138,7 +138,7 @@ describe("evidence methodology", () => {
       .setup()
       .click(screen.getByText("Evidence dates and methodology"));
     expect(
-      screen.getByText("The evidence package contains the complete methodology, limitations, and technical evidence."),
+      screen.getByText("Your valuation report contains the complete methodology, limitations, and technical evidence."),
     ).toBeVisible();
     expect(screen.getByText("Aug 1, 2026")).toBeVisible();
     expect(screen.getByText("Aug 28, 2026")).toBeVisible();
@@ -278,7 +278,7 @@ describe("completed case evidence", () => {
     expect(screen.getByText("No insurer comparables were available in the report.")).toBeVisible();
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
     await userEvent.setup().click(screen.getByText("Evidence dates and methodology"));
-    expect(screen.getByText("The evidence package contains the complete methodology, limitations, and technical evidence.")).toBeVisible();
+    expect(screen.getByText("Your valuation report contains the complete methodology, limitations, and technical evidence.")).toBeVisible();
   });
 
   it("keeps missing money distinct from a stored zero amount", () => {

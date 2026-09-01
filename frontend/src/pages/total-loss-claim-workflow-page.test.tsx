@@ -341,6 +341,7 @@ describe("total-loss customer workflow", () => {
     detailsMock.getDetails.mockResolvedValue({ caseId: CASE_ID, intakeMode: "report" });
     stripeMock.confirm.mockReset();
     stripeMock.confirm.mockResolvedValue({ type: "success", session: {} });
+    vi.spyOn(window, "open").mockReturnValue(null);
     server.use(
       http.post("*/api/v1/appraisal-cases/:caseId/checkout-sessions", () =>
         HttpResponse.json(embeddedSession()),
@@ -423,7 +424,7 @@ describe("total-loss customer workflow", () => {
     await waitFor(() => expect(reconciliationCalls).toBeGreaterThan(0));
     expect(router.state.location.pathname).toBe(`${CLAIM_BASE}/checkout`);
     expect(
-      screen.queryByText("We’re preparing your valuation package"),
+      screen.queryByText("We’re preparing your valuation report"),
     ).not.toBeInTheDocument();
     paid = true;
     await waitFor(
@@ -432,7 +433,7 @@ describe("total-loss customer workflow", () => {
       { timeout: 4_000 },
     );
     expect(
-      await screen.findByText("We’re preparing your valuation package"),
+      await screen.findByText("We’re preparing your valuation report"),
     ).toBeVisible();
     expect(initializationCalls).toBe(1);
   });
@@ -763,18 +764,22 @@ describe("total-loss customer workflow", () => {
 
       expect(
         await screen.findByRole("heading", {
-          name: "Your package needs attention",
+          name: "We need to check a detail in your case",
         }),
       ).toBeVisible();
       expect(screen.getByRole("button", { name: "Check again" })).toBeVisible();
+      expect(screen.getByRole("link", { name: "Contact support" })).toHaveAttribute(
+        "href",
+        "/contact",
+      );
       expect(
-        screen.getByText(/does not restart a failed package/u),
+        screen.getByText(/does not repeat any completed payment or processing step/u),
       ).toBeVisible();
       expect(
         screen.queryByText(/preparation continues independently/u),
       ).not.toBeInTheDocument();
       expect(
-        screen.getByText(/could not safely complete the package yet/u),
+        screen.getByText(/could not safely move your case forward yet/u),
       ).toHaveAttribute("aria-busy", "false");
     },
   );
@@ -805,7 +810,7 @@ describe("total-loss customer workflow", () => {
     expect(within(completed).queryByRole("table")).not.toBeInTheDocument();
     expect(within(completed).queryByRole("textbox", { name: "Message" })).not.toBeInTheDocument();
     expect(within(completed).queryByRole("button", { name: "Create my request" })).not.toBeInTheDocument();
-    expect(within(completed).queryByRole("button", { name: "Download PDF" })).not.toBeInTheDocument();
+    expect(within(completed).queryByRole("button", { name: "Download report" })).not.toBeInTheDocument();
     expect(within(completed).queryByText("Unavailable")).not.toBeInTheDocument();
     expect(progressWrites).toBe(0);
     expect(prepareRequests).toBe(0);
@@ -1003,7 +1008,7 @@ describe("total-loss customer workflow", () => {
       });
       expect(
         await screen.findByRole("heading", {
-          name: "Your package needs attention",
+          name: "We need to check a detail in your case",
         }),
       ).toBeVisible();
       expect(router.state.location.pathname).toBe(`${CLAIM_BASE}/processing`);
@@ -1011,7 +1016,7 @@ describe("total-loss customer workflow", () => {
         screen.queryByRole("navigation", { name: "Case sections" }),
       ).not.toBeInTheDocument();
       expect(
-        screen.queryByRole("button", { name: "Download PDF" }),
+        screen.queryByRole("button", { name: "Download report" }),
       ).not.toBeInTheDocument();
     },
   );
@@ -1093,7 +1098,7 @@ describe("total-loss customer workflow", () => {
     expect(await screen.findByRole("heading", { name: "We couldn’t verify permanent claim access" })).toBeVisible();
     expect(router.state.location.pathname).toBe(CLAIM_BASE);
     expect(screen.queryByText("2022 Example Sedan")).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Download PDF" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Download report" })).not.toBeInTheDocument();
   });
 
   it("does not render completed actions when the published report is missing", async () => {
@@ -1108,7 +1113,7 @@ describe("total-loss customer workflow", () => {
     expect(router.state.location.pathname).toBe(`${CLAIM_BASE}/review/result`);
     expect(screen.queryByRole("region", { name: "Completed analysis" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Create request draft" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Download PDF" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Download report" })).not.toBeInTheDocument();
   });
 
   it("uses the existing owner-authorized download endpoint for viewing and downloading the report", async () => {
@@ -1117,7 +1122,7 @@ describe("total-loss customer workflow", () => {
     const clicked: Array<{ download: string; href: string; target: string }> =
       [];
     const signedUrl =
-      "https://files.example.test/evidence.pdf?token=synthetic&download=package.pdf";
+      "https://files.example.test/evidence.pdf?token=synthetic&download=Vehicle_Valuation_Report.pdf";
     vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(function (
       this: HTMLAnchorElement,
     ) {
@@ -1139,7 +1144,7 @@ describe("total-loss customer workflow", () => {
           return HttpResponse.json({
             downloadUrl: signedUrl,
             expiresAt: "2026-08-29T19:00:00.000Z",
-            suggestedFilename: report().suggestedFilename,
+            suggestedFilename: "Vehicle_Valuation_Report.pdf",
           });
         },
       ),
@@ -1148,7 +1153,7 @@ describe("total-loss customer workflow", () => {
     renderTestApp([`${CLAIM_BASE}/review/next?details=report`], {
       authService: authService(),
     });
-    const reportSection = await screen.findByRole("region", { name: "Evidence package" });
+    const reportSection = await screen.findByRole("region", { name: "Valuation report" });
     await user.click(
       within(reportSection).getByRole("button", { name: /^View(?: report)?$/u }),
     );
@@ -1160,12 +1165,12 @@ describe("total-loss customer workflow", () => {
     });
     await user.click(
       within(reportSection).getByRole("button", {
-        name: /^Download(?: PDF)?$/u,
+        name: /^Download(?: report)?$/u,
       }),
     );
     await waitFor(() => expect(clicked).toHaveLength(2));
     expect(clicked[1]).toEqual({
-      download: report().suggestedFilename,
+      download: "Vehicle_Valuation_Report.pdf",
       href: signedUrl,
       target: "",
     });
@@ -1220,7 +1225,7 @@ describe("total-loss customer workflow", () => {
   it("does not read intake details before ownership and entitlement are verified", async () => {
     useClaimHandler(() => claimProjection({ entitlementStatus: "revoked", journey: "needs_attention" }));
     renderTestApp([`${CLAIM_BASE}/review/result`], { authService: authService() });
-    await screen.findByRole("heading", { name: "Your package needs attention" });
+    await screen.findByRole("heading", { name: "We need to check a detail in your case" });
     expect(detailsMock.getDetails).not.toHaveBeenCalled();
   });
 
@@ -1244,7 +1249,7 @@ describe("total-loss customer workflow", () => {
       [`${CLAIM_BASE}/review/market?details=report`],
       { authService: authService() },
     );
-    const reportSection = await screen.findByRole("region", { name: "Evidence package" });
+    const reportSection = await screen.findByRole("region", { name: "Valuation report" });
     await user.click(
       within(reportSection).getByRole("button", { name: /^View(?: report)?$/u }),
     );
@@ -1272,21 +1277,21 @@ describe("total-loss customer workflow", () => {
         return HttpResponse.json({
           downloadUrl: "https://files.example.test/evidence.pdf?token=synthetic",
           expiresAt: "2026-08-29T19:00:00.000Z",
-          suggestedFilename: report().suggestedFilename,
+          suggestedFilename: "Vehicle_Valuation_Report.pdf",
         });
       }),
     );
     renderTestApp([`${CLAIM_BASE}/guide/report?details=report`], { authService: authService() });
-    const reportSection = await screen.findByRole("region", { name: "Evidence package" });
+    const reportSection = await screen.findByRole("region", { name: "Valuation report" });
     await userEvent.setup().dblClick(within(reportSection).getByRole("button", { name: "View report" }));
     await waitFor(() => expect(downloadRequests).toBe(1));
     expect(within(reportSection).getByRole("button", { name: "Opening…" })).toBeDisabled();
-    expect(within(reportSection).getByRole("button", { name: "Download PDF" })).toBeDisabled();
+    expect(within(reportSection).getByRole("button", { name: "Download report" })).toBeDisabled();
     expect(within(reportSection).getByRole("status")).toHaveTextContent("Preparing your report");
     await act(async () => { releaseDownload(); });
     await waitFor(() => expect(click).toHaveBeenCalledTimes(1));
     expect(within(reportSection).getByRole("button", { name: "View report" })).toBeEnabled();
-    expect(within(reportSection).getByRole("button", { name: "Download PDF" })).toBeEnabled();
+    expect(within(reportSection).getByRole("button", { name: "Download report" })).toBeEnabled();
   });
 
   it("keeps reports accessible for a refunded no-dispute result without creating a request", async () => {
@@ -1301,7 +1306,7 @@ describe("total-loss customer workflow", () => {
       authService: authService(),
     });
     await screen.findByRole("region", { name: "Completed analysis" });
-    expect(router.state.location.pathname).toBe(`${CLAIM_BASE}/review/request`);
+    await waitFor(() => expect(router.state.location.pathname).toBe(`${CLAIM_BASE}/review/meaning`));
     expect(
       screen.queryByRole("button", { name: "Create request draft" }),
     ).not.toBeInTheDocument();
@@ -1318,7 +1323,7 @@ describe("total-loss customer workflow", () => {
     expect(within(completed).queryByRole("link", { name: "Continue" })).not.toBeInTheDocument();
     expect(within(completed).queryByRole("button", { name: "Create request draft" })).not.toBeInTheDocument();
     expect(within(completed).getByRole("button", { name: "View report" })).toBeEnabled();
-    expect(within(completed).getByRole("button", { name: "Download PDF" })).toBeEnabled();
+    expect(within(completed).getByRole("button", { name: "Download report" })).toBeEnabled();
     expect(within(completed).getByText(/does not support a higher valuation request/u)).toBeVisible();
   });
 
@@ -1343,13 +1348,13 @@ describe("total-loss customer workflow", () => {
     const { router } = renderTestApp([`${CLAIM_BASE}/processing`], {
       authService: authService(),
     });
-    expect(await screen.findByText(/^Refund in progress/u)).toBeVisible();
+    expect(await screen.findByText(/^Your refund is in progress/u)).toBeVisible();
     expect(
       screen.getByRole("button", { name: "View report" }),
     ).toBeVisible();
     expect(router.state.location.pathname).toBe(`${CLAIM_BASE}/review/result`);
     expect(
-      await screen.findByText(/^Refunded/u, {}, { timeout: 4_000 }),
+      await screen.findByText(/^Your payment was refunded/u, {}, { timeout: 4_000 }),
     ).toBeVisible();
     expect(resolverCalls).toBeGreaterThanOrEqual(2);
   });

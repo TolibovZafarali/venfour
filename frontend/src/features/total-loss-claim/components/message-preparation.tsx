@@ -124,7 +124,7 @@ function DraftEditor({
     <section className="request-review" aria-label="Request draft">
       <header className="request-heading" data-review-entrance="primary">
         <h1>Review and send your request</h1>
-        <p>Your message and supporting evidence, ready to review.</p>
+        <p>Review the message below. When it’s ready, open it in your email app, attach the valuation report, and send it.</p>
       </header>
       <div className="request-send-layout" data-confirming={hasSharedMessage || undefined}>
         <aside className="request-evidence-panel" data-review-entrance="secondary" aria-labelledby={`${fieldId}-evidence`}>
@@ -259,9 +259,9 @@ function DraftEditor({
         </div>
         {editor.sharedMessage ? (
           <section className="request-sent-confirmation" aria-labelledby={`${fieldId}-sent-confirmation`} ref={confirmationPanel}>
-            <h3 id={`${fieldId}-sent-confirmation`} ref={confirmationHeading} tabIndex={-1}>
+            <h2 id={`${fieldId}-sent-confirmation`} ref={confirmationHeading} tabIndex={-1}>
               Sent the email with the report attached?
-            </h3>
+            </h2>
             <dl className="request-confirmation-details">
               <dt>To</dt>
               <dd>{editor.sharedMessage.recipient}</dd>
@@ -453,14 +453,14 @@ export function MessagePreparation({
         <h1>Prepare your request</h1>
         <p>
           {intakeMode === "manual"
-            ? "Ask the insurer to review the offer using the attached market evidence and provide a written response. Also ask for the full valuation report, including the comparable vehicles and adjustments used. You can add or edit this request in the email before sending."
-            : "You’re going to ask the insurer to review its valuation using the market evidence and provide a written response."}
+            ? "We’ll prepare an editable email asking the insurer to review the offer using the attached market evidence and respond in writing. If you also want the insurer’s full valuation report—including the comparable vehicles and adjustments used—add that request to the draft before sending."
+            : "We’ll prepare an editable email asking the insurer to review its valuation using the market evidence and respond in writing."}
         </p>
       </header>
       <div data-review-entrance="secondary">
         <p className="request-package-intro">
-          Your evidence package contains the supporting valuation information and
-          comparable-vehicle evidence. You’ll attach it to your email.
+          Your valuation report contains the supporting valuation information and
+          comparable-vehicle evidence. You’ll attach it when you send the email from your email app.
         </p>
         <ReportFileRow {...props} />
       </div>
@@ -492,10 +492,14 @@ export function MessagePreparation({
             />
           </>
         ) : (
-          <RequestError>
-            Sending details are temporarily unavailable. Refresh this case before
-            preparing a request.
-          </RequestError>
+          <div className="request-save-recovery">
+            <RequestError>
+              Sending details are temporarily unavailable. Try refreshing your saved case before preparing a request.
+            </RequestError>
+            <button className="request-button request-button-secondary" onClick={() => void props.onRefresh()} type="button">
+              Try again
+            </button>
+          </div>
         )}
         <div className="request-action-bar request-prepare-actions" data-footer-action={actionContainer !== undefined || undefined}>
           {!preparation.reviewCompleted ? (

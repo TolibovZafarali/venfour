@@ -464,26 +464,37 @@ describe("case request preparation", () => {
     expect(screen.getByText("adjuster@example.com")).toBeVisible();
     expect(screen.getByText("CLM-42")).toBeVisible();
     expect(screen.queryByText("Unavailable")).not.toBeInTheDocument();
-    expect(screen.getByText("You’re going to ask the insurer to review its valuation using the market evidence and provide a written response.")).toBeVisible();
+    expect(screen.getByText("We’ll prepare an editable email asking the insurer to review its valuation using the market evidence and respond in writing.")).toBeVisible();
     expect(screen.queryByText("You can review and edit the email before sending it. Nothing is sent automatically.")).not.toBeInTheDocument();
   });
 
   it("explains both requests for a manual case without claiming an insurer report was reviewed", () => {
     renderRequest(claim({ messageDraft: null }), undefined, { intakeMode: "manual" });
-    expect(screen.getByText("Ask the insurer to review the offer using the attached market evidence and provide a written response. Also ask for the full valuation report, including the comparable vehicles and adjustments used. You can add or edit this request in the email before sending.")).toBeVisible();
+    expect(screen.getByText("We’ll prepare an editable email asking the insurer to review the offer using the attached market evidence and respond in writing. If you also want the insurer’s full valuation report—including the comparable vehicles and adjustments used—add that request to the draft before sending.")).toBeVisible();
     expect(screen.queryByText("Nothing is sent automatically. You’ll send the email from your own account.")).not.toBeInTheDocument();
     expect(screen.queryByText(/review its valuation/u)).not.toBeInTheDocument();
-    expect(screen.getByText("Your evidence package contains the supporting valuation information and comparable-vehicle evidence. You’ll attach it to your email.")).toBeVisible();
+    expect(screen.getByText("Your valuation report contains the supporting valuation information and comparable-vehicle evidence. You’ll attach it when you send the email from your email app.")).toBeVisible();
   });
 
   it("keeps the evidence available with one manual attachment reminder", () => {
     renderRequest();
     expect(screen.getByText("Attach this PDF in your email app before sending.")).toBeVisible();
-    const evidence = screen.getByRole("region", { name: "Evidence package" });
+    const evidence = screen.getByRole("region", { name: "Valuation report" });
     expect(within(evidence).getByRole("button", { name: "View report" })).toBeEnabled();
-    expect(within(evidence).getByRole("button", { name: "Download PDF" })).toBeEnabled();
+    expect(within(evidence).getByRole("button", { name: "Download report" })).toBeEnabled();
+    expect(screen.queryByText(report().suggestedFilename)).not.toBeInTheDocument();
     expect(screen.queryByRole("list")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Mark as sent" })).not.toBeInTheDocument();
+  });
+
+  it("offers an in-place retry when saved sending details are unavailable", async () => {
+    const onRefresh = vi.fn(async () => undefined);
+    renderRequest(claim({ messageDraft: null, sendingDetails: null }), onRefresh);
+
+    expect(screen.getByRole("alert")).toHaveTextContent("Sending details are temporarily unavailable");
+    await userEvent.setup().click(screen.getByRole("button", { name: "Try again" }));
+    expect(onRefresh).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("button", { name: "Create my request" })).toBeDisabled();
   });
 
   it("saves owner-voiced generated copy before preparing or copying the email", async () => {
@@ -764,7 +775,7 @@ describe("case request preparation", () => {
       target: { value: "My exact updated request." },
     });
     await user.click(screen.getByRole("button", { name: "Copy email" }));
-    const confirmation = await screen.findByRole("heading", { name: "Sent the email with the report attached?" });
+    const confirmation = await screen.findByRole("heading", { level: 2, name: "Sent the email with the report attached?" });
     expect(confirmation).toBeVisible();
     expect(confirmation).toHaveFocus();
     expect(order).toEqual(["save", "prepare"]);

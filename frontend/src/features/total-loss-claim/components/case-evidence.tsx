@@ -50,7 +50,7 @@ export function MethodologyDisclosure({ report, intakeMode = "report" }: ReportP
         {intakeMode === "report" && report.insurerEvidence.methodologyStatement ? <p>{reportText(report.insurerEvidence.methodologyStatement)}</p> : null}
         {intakeMode === "report" && report.insurerEvidence.adjustmentContext ? <p>{reportText(report.insurerEvidence.adjustmentContext)}</p> : null}
         {report.conclusion.preliminaryComparison?.summary ? <p>{reportText(report.conclusion.preliminaryComparison.summary)}</p> : null}
-        <p>The evidence package contains the complete methodology, limitations, and technical evidence.</p>
+        <p>Your valuation report contains the complete methodology, limitations, and technical evidence.</p>
       </div>
     </EvidenceDisclosure>
   );
@@ -105,8 +105,8 @@ export function InsurerEvidenceDetails({ report, open }: ReportProps) {
 export function MarketEvidenceDetails({ report, open }: ReportProps) {
   const rows = report.marketEvidence.comparables;
   return (
-    <EvidenceDisclosure label="See selected market listings" open={open}>
-      <p className="completed-evidence__introduction">Explore the selected listings, including mileage, dealer, location, and dates.</p>
+    <EvidenceDisclosure label={rows.length ? "See selected market listings" : "Market listing details"} open={open}>
+      {rows.length ? <p className="completed-evidence__introduction">Explore the selected listings, including mileage, dealer, location, and dates.</p> : null}
       {rows.length ? (
         <div className="evidence-table completed-evidence__table" role="region" aria-label="Selected market listing table">
           <table role="table">
