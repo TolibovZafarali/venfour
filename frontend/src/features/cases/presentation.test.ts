@@ -61,38 +61,43 @@ describe("appraisal case presentation", () => {
     },
   );
 
-  it.each([
-    ["secure_claim", "Secure claim", "Secure claim"],
-    ["continue_payment", "Continue payment", "Continue payment"],
-    ["preparing_report", "Preparing report", "View progress"],
-    ["review_report", "Review report", "Review report"],
-    ["prepare_request", "Prepare request", "Prepare request"],
-    ["waiting_for_insurer", "Waiting for insurer", "View request"],
-    ["review_complete", "Review complete", "Review result"],
-    ["needs_attention", "Needs attention", "Review status"],
-  ])(
-    "uses the customer-safe %s post-Continue resume label",
-    (claimResumeTask, statusLabel, actionLabel) => {
-      expect(
-        appraisalCasePresentation(
-          appraisalCase("total_loss", "paid", { claimResumeTask }),
-        ),
-      ).toEqual({
-        action: {
-          href: `/total-loss/cases/${CASE_ID}/claim`,
-          label: actionLabel,
-        },
-        serviceLabel: "Total-loss review",
-        statusLabel,
-      });
-    },
-  );
+  it("uses a resolver-free post-Continue history action", () => {
+    expect(
+      appraisalCasePresentation(
+        appraisalCase("total_loss", "paid", {
+          hasTotalLossClaimWorkflow: true,
+        }),
+      ),
+    ).toEqual({
+      action: {
+        href: `/total-loss/cases/${CASE_ID}/claim`,
+        label: "Open case",
+      },
+      serviceLabel: "Total-loss review",
+      statusLabel: "Claim in progress",
+    });
+  });
+
+  it("keeps a post-Continue closed Total Loss case terminal", () => {
+    expect(
+      appraisalCasePresentation(
+        appraisalCase("total_loss", "closed", {
+          caseStage: "closed",
+          hasTotalLossClaimWorkflow: true,
+        }),
+      ),
+    ).toEqual({
+      action: null,
+      serviceLabel: "Total-loss review",
+      statusLabel: "Closed",
+    });
+  });
 
   it("leaves a pre-Continue case unchanged when no claim resume task exists", () => {
     expect(
       appraisalCasePresentation(
         appraisalCase("total_loss", "check_complete", {
-          claimResumeTask: null,
+          hasTotalLossClaimWorkflow: false,
         }),
       ),
     ).toMatchObject({

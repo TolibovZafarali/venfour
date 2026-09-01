@@ -47,6 +47,7 @@ export function AppShell() {
 function AppShellContent() {
   const analysisRoute = useMatch("/analyses/:runId");
   const totalLossCaseRoute = useMatch("/total-loss/cases/:caseId/*");
+  const appraisalsRoute = useMatch("/appraisals");
   const previewReturnRoute = useMatch("/auth/callback/preview/:caseId/:claimId");
   const previewReadyRoute = useMatch("/auth/callback/preview-ready/:caseId/:claimId");
   const findReviewRoute = useMatch("/find-review");
@@ -153,8 +154,11 @@ function AppShellContent() {
 
   const onHomePage = location.pathname === "/";
   const guestReturn = useGuestAnalysisReturn(onHomePage);
-  const resolvingHomeAudience = onHomePage && auth.status === "loading";
-  const permanentHome = onHomePage && isPermanentAuthState(auth);
+  const accountPortalRoute = onHomePage || Boolean(appraisalsRoute);
+  const resolvingPortalAudience =
+    accountPortalRoute && auth.status === "loading";
+  const permanentPortal =
+    accountPortalRoute && isPermanentAuthState(auth);
   const totalLossHref = onHomePage ? "#total-loss" : "/#total-loss";
   const diminishedValueHref = onHomePage
     ? "#diminished-value"
@@ -250,6 +254,10 @@ function AppShellContent() {
                   <span className="hidden border-l border-ink/10 pl-4 text-[0.6875rem] font-semibold tracking-[0.12em] text-copy/80 uppercase sm:block">
                     Staff review
                   </span>
+                ) : permanentPortal ? (
+                  <span className="hidden border-l border-ink/10 pl-4 text-[0.6875rem] font-semibold tracking-[0.12em] text-copy/80 uppercase sm:block">
+                    Customer portal
+                  </span>
                 ) : null}
               </div>
 
@@ -267,7 +275,7 @@ function AppShellContent() {
                   }
                   staffReviewHref={staffReviewHref}
                 />
-              ) : resolvingHomeAudience ? (
+              ) : resolvingPortalAudience ? (
                 <div
                   className="flex min-h-11 shrink-0 items-center gap-2"
                   data-home-navigation-state="loading"
@@ -289,11 +297,19 @@ function AppShellContent() {
                     className="hidden shrink-0 items-center gap-1 lg:flex lg:gap-2"
                     aria-label="Primary navigation"
                   >
-                    {permanentHome ? (
+                    {permanentPortal ? (
                       <>
+                        <Link
+                          to="/"
+                          className={primaryLinkClassName}
+                          aria-current={onHomePage ? "page" : undefined}
+                        >
+                          Case workspace
+                        </Link>
                         <Link
                           to="/appraisals"
                           className={primaryLinkClassName}
+                          aria-current={appraisalsRoute ? "page" : undefined}
                         >
                           My appraisals
                         </Link>
@@ -348,7 +364,7 @@ function AppShellContent() {
                   </nav>
 
                   <div className="flex shrink-0 items-center gap-1.5 lg:hidden">
-                    {!permanentHome ? (
+                    {!permanentPortal ? (
                       guestReturn.pending ? (
                         <span className="inline-flex min-h-11 w-24 items-center justify-center rounded-lg bg-brand/10" role="status">
                           <span className="sr-only">Checking your saved review…</span>
@@ -395,7 +411,7 @@ function AppShellContent() {
             {!startFlowRoute &&
             !adminRoute &&
             !productFlowRoute &&
-            !resolvingHomeAudience &&
+            !resolvingPortalAudience &&
             mobileNavigationOpen ? (
               <nav
                 id="mobile-navigation"
@@ -406,10 +422,17 @@ function AppShellContent() {
                 aria-label="Mobile navigation"
               >
                 <div className="mx-auto flex w-full max-w-7xl flex-col py-2">
-                  {permanentHome ? (
+                  {permanentPortal ? (
                     <>
+                      <Link
+                        to="/"
+                        className={mobileLinkClassName}
+                        aria-current={onHomePage ? "page" : undefined}
+                        onClick={() => setMobileNavigationOpen(false)}
+                      >
+                        Case workspace
+                      </Link>
                       <MobileAccountControl
-                        className="border-t-0"
                         onAction={() => setMobileNavigationOpen(false)}
                         staffReviewHref={staffReviewHref}
                       />
@@ -529,15 +552,22 @@ function AppShellContent() {
                 ) : null}
               </div>
 
-              {!resolvingHomeAudience ? (
+              {!resolvingPortalAudience ? (
                 <nav aria-label="Footer navigation">
                   <ul className="flex flex-wrap gap-x-5 gap-y-3">
-                    {permanentHome ? (
-                      <li>
-                        <Link to="/appraisals" className={footerLinkClassName}>
-                          My appraisals
-                        </Link>
-                      </li>
+                    {permanentPortal ? (
+                      <>
+                        <li>
+                          <Link to="/" className={footerLinkClassName}>
+                            Case workspace
+                          </Link>
+                        </li>
+                        <li>
+                          <Link to="/appraisals" className={footerLinkClassName}>
+                            My appraisals
+                          </Link>
+                        </li>
+                      </>
                     ) : (
                       <>
                         <li>

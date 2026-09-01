@@ -8,7 +8,11 @@ import type { ReactNode } from "react";
 import { Link } from "react-router";
 
 import { Button } from "@/components/ui/button";
-import { useAuth, useSignInDialog } from "@/features/auth";
+import {
+  isPermanentAuthState,
+  useAuth,
+  useSignInDialog,
+} from "@/features/auth";
 import { AppraisalCaseCard } from "@/features/cases/appraisal-case-card";
 import {
   AppraisalCasesEmptyState,
@@ -168,20 +172,6 @@ export function AppraisalsPage() {
     );
   }
 
-  if (auth.status === "signedOut") {
-    return (
-      <MessageCard
-        heading="Sign in to view your appraisals."
-        description="Saved appraisals are private. Sign in with the account that owns them to continue."
-      >
-        <Button onClick={() => openSignIn({ returnTo: appraisalsPath })}>
-          <ShieldCheck className="size-4" aria-hidden />
-          Sign in
-        </Button>
-      </MessageCard>
-    );
-  }
-
   if (auth.status === "unavailable") {
     return (
       <MessageCard
@@ -191,6 +181,20 @@ export function AppraisalsPage() {
       >
         <Button asChild variant="outline">
           <Link to="/contact">Contact support</Link>
+        </Button>
+      </MessageCard>
+    );
+  }
+
+  if (!isPermanentAuthState(auth)) {
+    return (
+      <MessageCard
+        heading="Sign in to view your appraisals."
+        description="Saved appraisals are private. Sign in with the account that owns them to continue."
+      >
+        <Button onClick={() => openSignIn({ returnTo: appraisalsPath })}>
+          <ShieldCheck className="size-4" aria-hidden />
+          Sign in
         </Button>
       </MessageCard>
     );

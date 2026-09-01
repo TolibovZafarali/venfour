@@ -438,7 +438,12 @@ export function HomePage() {
   }
 
   if (isPermanentAuthState(auth)) {
-    return <SignedInHomePage userId={auth.user.id} />;
+    return (
+      <SignedInHomePage
+        accessToken={auth.session.access_token}
+        userId={auth.user.id}
+      />
+    );
   }
 
   return <PublicHomePage />;

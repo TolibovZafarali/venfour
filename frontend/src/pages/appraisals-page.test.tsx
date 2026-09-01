@@ -38,6 +38,20 @@ function sessionFor(id = FIRST_USER_ID): Session {
   } as Session;
 }
 
+function anonymousSession(): Session {
+  const session = sessionFor();
+
+  return {
+    ...session,
+    user: {
+      ...session.user,
+      app_metadata: { provider: "anonymous", providers: [] },
+      email: undefined,
+      is_anonymous: true,
+    },
+  };
+}
+
 function createAuthHarness(initialSession: Session | null) {
   let currentSession = initialSession;
   const listeners = new Set<AuthStateChangeListener>();
@@ -152,6 +166,23 @@ describe("customer appraisals page", () => {
     expect(window.localStorage.getItem(AUTH_RETURN_LOCATION_STORAGE_KEY)).toBe(
       "/appraisals",
     );
+    expect(listAppraisalCases).not.toHaveBeenCalled();
+  });
+
+  it("treats an anonymous session as signed out without requesting owner data", async () => {
+    const listAppraisalCases = vi.fn(async () => [appraisalCase()]);
+
+    renderTestApp(["/appraisals"], {
+      appraisalCaseService: createCaseService(listAppraisalCases),
+      authService: createAuthHarness(anonymousSession()).service,
+    });
+
+    expect(
+      await screen.findByRole("heading", {
+        name: "Sign in to view your appraisals.",
+      }),
+    ).toBeVisible();
+    expect(screen.getByRole("button", { name: "Sign in" })).toBeVisible();
     expect(listAppraisalCases).not.toHaveBeenCalled();
   });
 

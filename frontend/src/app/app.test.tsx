@@ -264,6 +264,95 @@ describe("Venfour application", () => {
     ).not.toBeInTheDocument();
   });
 
+  test("uses the account portal navigation on permanent signed-in appraisals", async () => {
+    const user = userEvent.setup();
+    renderTestApp(["/appraisals"], {
+      authService: createTestAuthService(createTestSession()),
+    });
+
+    const primaryNavigation = await screen.findByRole("navigation", {
+      name: "Primary navigation",
+    });
+    expect(
+      within(primaryNavigation).getByRole("link", { name: "My appraisals" }),
+    ).toHaveAttribute("href", "/appraisals");
+    expect(
+      within(primaryNavigation).getByRole("link", { name: "Methodology" }),
+    ).toHaveAttribute("href", "/methodology");
+    expect(
+      within(primaryNavigation).getByRole("link", { name: "Contact" }),
+    ).toHaveAttribute("href", "/contact");
+    expect(
+      within(primaryNavigation).queryByRole("link", { name: "Total Loss" }),
+    ).not.toBeInTheDocument();
+
+    const shellHeader = primaryNavigation.closest("header");
+    expect(shellHeader).not.toBeNull();
+    if (!shellHeader) {
+      throw new Error("The primary navigation was not inside the app shell header.");
+    }
+    expect(
+      within(shellHeader).queryByRole("link", { name: "Get Started" }),
+    ).not.toBeInTheDocument();
+
+    const footerNavigation = screen.getByRole("navigation", {
+      name: "Footer navigation",
+    });
+    expect(
+      within(footerNavigation).getByRole("link", { name: "My appraisals" }),
+    ).toHaveAttribute("href", "/appraisals");
+    expect(
+      within(footerNavigation).queryByRole("link", { name: "Total Loss" }),
+    ).not.toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole("button", { name: "Open navigation" }),
+    );
+    const mobileNavigation = screen.getByRole("navigation", {
+      name: "Mobile navigation",
+    });
+    expect(
+      within(mobileNavigation).getByRole("link", { name: "My appraisals" }),
+    ).toHaveAttribute("href", "/appraisals");
+    expect(
+      within(mobileNavigation).getByText("ada@example.com"),
+    ).toBeVisible();
+    expect(
+      within(mobileNavigation).queryByRole("link", { name: "Total Loss" }),
+    ).not.toBeInTheDocument();
+  });
+
+  test("does not flash public navigation while the appraisals audience resolves", async () => {
+    let resolveSession: ((session: Session | null) => void) | undefined;
+    const authService = createTestAuthService(null, {
+      getSession: () =>
+        new Promise((resolve) => {
+          resolveSession = resolve;
+        }),
+    });
+
+    renderTestApp(["/appraisals"], { authService });
+
+    expect(screen.getByText("Checking sign-in status")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("navigation", { name: "Primary navigation" }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(screen.getByRole("banner")).queryByRole("link", {
+        name: "Get Started",
+      }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("navigation", { name: "Footer navigation" }),
+    ).not.toBeInTheDocument();
+
+    await act(async () => resolveSession?.(createTestSession()));
+
+    expect(
+      await screen.findByRole("navigation", { name: "Primary navigation" }),
+    ).toBeVisible();
+  });
+
   test("offers report and no-report intake after secure setup", async () => {
     renderTotalLossApp();
 

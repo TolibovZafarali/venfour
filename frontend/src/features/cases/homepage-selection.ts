@@ -1,25 +1,17 @@
-import { appraisalCasePresentation } from "@/features/cases/presentation";
 import type { AppraisalCase } from "@/features/cases/types";
 
-const MAX_RECENT_CASES = 3;
-
 export interface SignedInHomepageCaseSelection {
-  readonly featuredCase: AppraisalCase | null;
-  readonly recentCases: readonly AppraisalCase[];
+  readonly focalCase: AppraisalCase | null;
   readonly hasActiveTotalLossDraft: boolean;
   readonly allCasesClosed: boolean;
+  readonly historicalCaseCount: number;
 }
 
-function featuredCasePriority(appraisalCase: AppraisalCase): number | null {
-  const presentation = appraisalCasePresentation(appraisalCase);
-
+function focalCasePriority(appraisalCase: AppraisalCase): number {
   if (
-    !presentation.action ||
     appraisalCase.status === "closed" ||
     appraisalCase.caseStage === "closed"
-  ) {
-    return null;
-  }
+  ) return 8;
 
   if (
     appraisalCase.needsAttention ||
@@ -29,37 +21,28 @@ function featuredCasePriority(appraisalCase: AppraisalCase): number | null {
     return 0;
   }
 
-  // Diminished Value remains a service-update-only experience. Its persisted
-  // case stage may still look like intake work, so classify the authoritative
-  // action before applying Total-Loss workflow-stage priorities.
-  if (presentation.action.label === "View service update") return 5;
+  // Exact downstream state belongs to the focal-only claim resolver. The
+  // collection contract intentionally exposes only workflow existence.
+  if (appraisalCase.hasTotalLossClaimWorkflow) return 1;
+
+  // Diminished Value is currently a saved service-update experience, even
+  // when its generic case stage resembles an active intake.
+  if (appraisalCase.serviceType === "diminished_value") return 6;
 
   switch (appraisalCase.caseStage) {
     case "analysis_complete":
-      return 1;
-    case "ready_for_analysis":
       return 2;
+    case "ready_for_analysis":
+      return 3;
     case "report_required":
     case "report_uploaded":
     case "intake_in_progress":
     case "intake_not_started":
-      return 3;
-    case "analysis_processing":
       return 4;
-    case "submitted":
+    case "analysis_processing":
       return 5;
-  }
-
-  if (appraisalCase.serviceType === "total_loss") {
-    switch (appraisalCase.status) {
-      case "check_complete":
-      case "completed":
-        return 1;
-      case "draft":
-        return 3;
-      case "checking":
-        return 4;
-    }
+    case "submitted":
+      return 6;
   }
 
   return 7;
@@ -68,31 +51,25 @@ function featuredCasePriority(appraisalCase: AppraisalCase): number | null {
 export function selectSignedInHomepageCases(
   cases: readonly AppraisalCase[],
 ): SignedInHomepageCaseSelection {
-  let featuredCase: AppraisalCase | null = null;
+  let focalCase: AppraisalCase | null = null;
   let bestPriority = Number.POSITIVE_INFINITY;
 
   for (const appraisalCase of cases) {
-    const priority = featuredCasePriority(appraisalCase);
-    if (priority !== null && priority < bestPriority) {
-      featuredCase = appraisalCase;
+    const priority = focalCasePriority(appraisalCase);
+    if (priority < bestPriority) {
+      focalCase = appraisalCase;
       bestPriority = priority;
     }
   }
 
-  const seenCaseIds = new Set<string>();
-  if (featuredCase) seenCaseIds.add(featuredCase.id);
-
-  const recentCases: AppraisalCase[] = [];
-  for (const appraisalCase of cases) {
-    if (seenCaseIds.has(appraisalCase.id)) continue;
-    seenCaseIds.add(appraisalCase.id);
-    recentCases.push(appraisalCase);
-    if (recentCases.length === MAX_RECENT_CASES) break;
-  }
+  const historicalCaseIds = new Set(
+    cases
+      .filter((appraisalCase) => appraisalCase.id !== focalCase?.id)
+      .map((appraisalCase) => appraisalCase.id),
+  );
 
   return {
-    featuredCase,
-    recentCases,
+    focalCase,
     hasActiveTotalLossDraft: cases.some(
       (appraisalCase) =>
         appraisalCase.serviceType === "total_loss" &&
@@ -105,5 +82,6 @@ export function selectSignedInHomepageCases(
           appraisalCase.status === "closed" ||
           appraisalCase.caseStage === "closed",
       ),
+    historicalCaseCount: historicalCaseIds.size,
   };
 }

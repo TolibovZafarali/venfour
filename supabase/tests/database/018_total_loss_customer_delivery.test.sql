@@ -3,7 +3,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
 
-select plan(45);
+select plan(48);
 
 insert into auth.users (id, email, email_confirmed_at, is_anonymous)
 values
@@ -552,11 +552,48 @@ select ok(
 
 select ok(
   (
-    select count(*) = 1 and bool_and(claim_resume_task is null)
+    select count(*) = 2
+      and bool_and(
+        has_total_loss_claim_workflow = (
+          case_id = 'f2000000-0000-4000-8000-000000000001'::uuid
+        )
+      )
     from public.list_owned_case_operations()
-    where case_id = 'd2000000-0000-4000-8000-000000000001'
+    where case_id in (
+      'd2000000-0000-4000-8000-000000000001',
+      'f2000000-0000-4000-8000-000000000001'
+    )
   ),
-  'an eligible legacy case without a workflow gains no post-Continue appraisals resume task'
+  'the owned-case list exposes only direct post-Continue workflow existence'
+);
+
+reset role;
+update public.total_loss_claim_workflows
+set
+  current_task = current_task,
+  revision = revision + 1
+where case_id = 'f2000000-0000-4000-8000-000000000001';
+select set_config(
+  'test.workflow_updated_at',
+  (
+    select updated_at::text
+    from public.total_loss_claim_workflows
+    where case_id = 'f2000000-0000-4000-8000-000000000001'
+  ),
+  true
+);
+set local role authenticated;
+select set_config('request.jwt.claim.sub', 'f1000000-0000-4000-8000-000000000001', true);
+select set_config('request.jwt.claim.role', 'authenticated', true);
+
+select is(
+  (
+    select owned_case.last_activity_at::text
+    from public.list_owned_case_operations() as owned_case
+    where owned_case.case_id = 'f2000000-0000-4000-8000-000000000001'
+  ),
+  current_setting('test.workflow_updated_at'),
+  'the owned-case list orders post-Continue work by effective workflow activity'
 );
 
 select ok(
@@ -713,6 +750,15 @@ reset role;
 update public.case_entitlements
 set status = 'suspended', status_changed_at = statement_timestamp()
 where id = 'f8000000-0000-4000-8000-000000000001';
+select set_config(
+  'test.entitlement_updated_at',
+  (
+    select updated_at::text
+    from public.case_entitlements
+    where id = 'f8000000-0000-4000-8000-000000000001'
+  ),
+  true
+);
 
 set local role authenticated;
 select set_config('request.jwt.claim.sub', 'f1000000-0000-4000-8000-000000000001', true);
@@ -727,6 +773,26 @@ select ok(
     )
   ),
   'suspended entitlement forces both resolver states to needs-attention and removes report/message projections'
+);
+
+select is(
+  (
+    select owned_case.needs_attention
+    from public.list_owned_case_operations() as owned_case
+    where owned_case.case_id = 'f2000000-0000-4000-8000-000000000001'
+  ),
+  true,
+  'the owner list exposes direct post-Continue entitlement attention without invoking the rich resolver'
+);
+
+select is(
+  (
+    select owned_case.last_activity_at::text
+    from public.list_owned_case_operations() as owned_case
+    where owned_case.case_id = 'f2000000-0000-4000-8000-000000000001'
+  ),
+  current_setting('test.entitlement_updated_at'),
+  'the owner list includes entitlement changes in effective lifecycle activity'
 );
 
 select is(

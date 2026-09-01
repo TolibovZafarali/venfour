@@ -4812,7 +4812,7 @@ export type Database = {
           case_stage: Database["public"]["Enums"]["case_operation_stage"]
           case_status: Database["public"]["Enums"]["appraisal_case_status"]
           case_updated_at: string
-          claim_resume_task: string
+          has_total_loss_claim_workflow: boolean
           last_activity_at: string
           needs_attention: boolean
           owner_user_id: string

@@ -1,5 +1,5 @@
+import { http, HttpResponse } from "msw";
 import { act, screen, waitFor, within } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
 import { describe, expect, it, vi } from "vitest";
 
@@ -9,25 +9,37 @@ import type {
 } from "@/features/auth/auth-service";
 import type { AppraisalCaseService } from "@/features/cases/service";
 import type { AppraisalCase } from "@/features/cases/types";
+import type {
+  TotalLossClaimFulfillmentState,
+  TotalLossClaimJourneyState,
+  TotalLossClaimResolver,
+} from "@/features/total-loss-claim/contracts";
+import type { TotalLossCaseDetails } from "@/features/total-loss/data-types";
+import type { TotalLossDependencies } from "@/features/total-loss/dependencies";
 import { isNewTotalLossAppraisalIntentId } from "@/features/total-loss/new-appraisal";
+import type { TotalLossDetailsService } from "@/features/total-loss/service";
+import { server } from "@/test/mocks/server";
 import { renderTestApp } from "@/test/render";
 
 const FIRST_USER_ID = "11111111-1111-4111-8111-111111111111";
 const SECOND_USER_ID = "22222222-2222-4222-8222-222222222222";
+const FIRST_CASE_ID = "33333333-3333-4333-8333-333333333333";
+const SECOND_CASE_ID = "44444444-4444-4444-8444-444444444444";
+const THIRD_CASE_ID = "55555555-5555-4555-8555-555555555555";
+const CREATED_AT = "2026-08-20T12:00:00.000Z";
 
-function sessionFor(id = FIRST_USER_ID, anonymous = false): Session {
+function sessionFor(id = FIRST_USER_ID): Session {
   return {
     access_token: `access-${id}`,
     expires_in: 3600,
     refresh_token: `refresh-${id}`,
     token_type: "bearer",
     user: {
-      app_metadata: anonymous ? { provider: "anonymous" } : {},
+      app_metadata: {},
       aud: "authenticated",
       created_at: "2026-08-18T14:00:00.000Z",
-      email: anonymous ? undefined : `${id.slice(0, 4)}@example.com`,
+      email: `${id.slice(0, 4)}@example.com`,
       id,
-      is_anonymous: anonymous,
       user_metadata: {},
     },
   } as Session;
@@ -59,7 +71,7 @@ function createAuthHarness(initialSession: Session | null) {
 }
 
 function appraisalCase({
-  id = "33333333-3333-4333-8333-333333333333",
+  id = FIRST_CASE_ID,
   lastActivityAt = "2026-08-24T15:00:00.000Z",
   serviceType = "total_loss",
   status = "draft",
@@ -71,7 +83,7 @@ function appraisalCase({
     userId,
     serviceType,
     status,
-    createdAt: "2026-08-20T12:00:00.000Z",
+    createdAt: CREATED_AT,
     updatedAt: lastActivityAt,
     lastActivityAt,
     ...operation,
@@ -92,6 +104,94 @@ function createCaseService(
   };
 }
 
+function detailsFor(
+  caseId: string,
+  values: Partial<TotalLossCaseDetails> = {},
+): TotalLossCaseDetails {
+  return {
+    caseId,
+    intakeMode: "manual",
+    vin: null,
+    vehicleYear: null,
+    vehicleMake: null,
+    vehicleModel: null,
+    vehicleTrim: null,
+    mileageAtLoss: null,
+    postalCode: null,
+    dateOfLoss: null,
+    insurerName: null,
+    insurerVehicleValuation: null,
+    reportUploadRecoveryRequired: false,
+    reportOriginalFilename: null,
+    reportUploadedAt: null,
+    intakeCompletedAt: null,
+    createdAt: CREATED_AT,
+    updatedAt: CREATED_AT,
+    ...values,
+  };
+}
+
+function createTotalLossDependencies(
+  getDetails: TotalLossDetailsService["getDetails"],
+): TotalLossDependencies {
+  return {
+    appraisalCaseService: createCaseService(),
+    totalLossDetailsService: { getDetails },
+    totalLossReportStorageService: {},
+    vehicleLookupService: {},
+  } as unknown as TotalLossDependencies;
+}
+
+function claimResolver(
+  caseId: string,
+  nextState: TotalLossClaimJourneyState,
+  fulfillmentState: TotalLossClaimFulfillmentState,
+): TotalLossClaimResolver {
+  return {
+    caseId,
+    commerce: {
+      checkoutAvailable: false,
+      entitlementStatus: "active",
+      nextTask: nextState,
+      orderStatus: "paid",
+      paymentStatus: "succeeded",
+    },
+    contactEmail: null,
+    journey: { fulfillmentState, nextState, retryable: false },
+    state: "secured",
+    workflow: {
+      currentTask: nextState,
+      phase: "initial_request",
+      revision: 7,
+    },
+  };
+}
+
+function installClaimResolver(
+  resolver: (caseId: string) => TotalLossClaimResolver,
+) {
+  const requests: Array<{
+    authorization: string | null;
+    caseId: string;
+  }> = [];
+
+  server.use(
+    http.get(
+      "*/api/v1/appraisal-cases/:caseId/claim",
+      ({ params, request }) => {
+        const caseId = String(params.caseId);
+        requests.push({
+          authorization: request.headers.get("Authorization"),
+          caseId,
+        });
+        return HttpResponse.json(resolver(caseId));
+      },
+    ),
+  );
+
+  return requests;
+}
+
 function expectNewAppraisalHref(link: HTMLElement) {
   const href = link.getAttribute("href");
   expect(href).not.toBeNull();
@@ -106,311 +206,478 @@ function expectNewAppraisalHref(link: HTMLElement) {
   expect(url.searchParams.has("caseId")).toBe(false);
 }
 
-describe("signed-in homepage", () => {
-  it("shows a neutral surface until authentication resolves", async () => {
-    let resolveSession!: (session: Session | null) => void;
-    const auth = createAuthHarness(null);
-    auth.service.getSession = vi.fn(
-      () =>
-        new Promise<Session | null>((resolve) => {
-          resolveSession = resolve;
-        }),
-    );
+function expectCurrentMilestone(label: string) {
+  const milestones = screen.getByRole("list", { name: "Case milestones" });
+  const milestone = within(milestones).getByText(label).closest("li");
+  expect(milestone).toHaveAttribute("aria-current", "step");
+}
+
+function expectMilestoneState(label: string, stateLabel: string) {
+  const milestones = screen.getByRole("list", { name: "Case milestones" });
+  const milestone = within(milestones).getByText(label).closest("li");
+  expect(milestone).not.toBeNull();
+  expect(within(milestone as HTMLElement).getByText(stateLabel)).toBeInTheDocument();
+}
+
+describe("signed-in homepage case workspace", () => {
+  it("shows an intentional first-appraisal state without case enrichment", async () => {
+    const getDetails = vi.fn<TotalLossDetailsService["getDetails"]>();
     const listAppraisalCases = vi.fn(async () => []);
 
     renderTestApp(["/"], {
       appraisalCaseService: createCaseService(listAppraisalCases),
-      authService: auth.service,
-    });
-
-    expect(screen.getByLabelText("Loading home")).toBeVisible();
-    expect(
-      screen.queryByRole("heading", {
-        name: "Your Vehicle’s Value, Made Clear.",
-      }),
-    ).not.toBeInTheDocument();
-    expect(screen.queryByText("Welcome back.")).not.toBeInTheDocument();
-    expect(listAppraisalCases).not.toHaveBeenCalled();
-
-    await act(async () => resolveSession(sessionFor()));
-
-    expect(
-      await screen.findByRole("heading", { name: "Welcome back." }),
-    ).toBeVisible();
-    await waitFor(() => expect(listAppraisalCases).toHaveBeenCalledOnce());
-  });
-
-  it.each([
-    ["signed out", null, undefined],
-    ["anonymous guest", sessionFor(FIRST_USER_ID, true), undefined],
-    ["auth unavailable", null, "Secure sign-in is unavailable."],
-  ])(
-    "keeps the public homepage for a %s visitor",
-    async (_label, session, unavailableReason) => {
-      const listAppraisalCases = vi.fn(async () => [appraisalCase()]);
-
-      renderTestApp(["/"], {
-        appraisalCaseService: createCaseService(listAppraisalCases),
-        authService: unavailableReason
-          ? null
-          : createAuthHarness(session).service,
-        authUnavailableReason: unavailableReason,
-      });
-
-      expect(
-        await screen.findByRole("heading", {
-          name: "Your Vehicle’s Value, Made Clear.",
-        }),
-      ).toBeVisible();
-      expect(screen.queryByText("Welcome back.")).not.toBeInTheDocument();
-      if (session?.user.is_anonymous) {
-        await waitFor(() => expect(listAppraisalCases).toHaveBeenCalledWith(session.user.id));
-      } else {
-        expect(listAppraisalCases).not.toHaveBeenCalled();
-      }
-    },
-  );
-
-  it("features the highest-priority next step and shows three distinct recent cases", async () => {
-    const cases = [
-      appraisalCase({
-        id: "33333333-3333-4333-8333-333333333333",
-        status: "checking",
-        caseStage: "analysis_processing",
-      }),
-      appraisalCase({
-        id: "44444444-4444-4444-8444-444444444444",
-        status: "check_complete",
-        caseStage: "analysis_complete",
-      }),
-      appraisalCase({
-        id: "55555555-5555-4555-8555-555555555555",
-        status: "payment_pending",
-        caseStage: "needs_attention",
-        needsAttention: true,
-      }),
-      appraisalCase({
-        id: "66666666-6666-4666-8666-666666666666",
-        status: "draft",
-        caseStage: "intake_in_progress",
-      }),
-      appraisalCase({
-        id: "77777777-7777-4777-8777-777777777777",
-        serviceType: "diminished_value",
-        status: "submitted",
-        caseStage: "submitted",
-      }),
-    ];
-
-    renderTestApp(["/"], {
-      appraisalCaseService: createCaseService(async () => cases),
       authService: createAuthHarness(sessionFor()).service,
-    });
-
-    const nextStep = await screen.findByRole("region", {
-      name: "Total-loss review",
-    });
-    expect(within(nextStep).getByText("Needs attention")).toBeVisible();
-    expect(
-      within(nextStep).getByRole("link", { name: "Contact support" }),
-    ).toHaveAttribute("href", "/contact");
-
-    const recent = screen.getByRole("region", { name: "Recent appraisals" });
-    const recentCards = within(recent).getAllByRole("article");
-    expect(recentCards).toHaveLength(3);
-    expect(within(recentCards[0]).getByText("Value check in progress")).toBeVisible();
-    expect(within(recentCards[1]).getByText("Result ready")).toBeVisible();
-    expect(within(recentCards[2]).getByText("Intake in progress")).toBeVisible();
-    expect(
-      screen.getByRole("link", { name: "View all appraisals" }),
-    ).toHaveAttribute("href", "/appraisals");
-    expect(
-      screen.queryByRole("link", { name: "Start a new appraisal" }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole("link", { name: "Start Total Loss review" }),
-    ).not.toBeInTheDocument();
-  });
-
-  it("opens a completed result and offers a quiet new appraisal when no draft exists", async () => {
-    const resultCaseId = "44444444-4444-4444-8444-444444444444";
-
-    renderTestApp(["/"], {
-      appraisalCaseService: createCaseService(async () => [
-        appraisalCase({
-          id: resultCaseId,
-          status: "check_complete",
-          caseStage: "analysis_complete",
-        }),
-      ]),
-      authService: createAuthHarness(sessionFor()).service,
-    });
-
-    expect(
-      await screen.findByRole("link", { name: "View result" }),
-    ).toHaveAttribute("href", `/total-loss/cases/${resultCaseId}/analysis`);
-    expectNewAppraisalHref(
-      screen.getByRole("link", { name: "Start a new appraisal" }),
-    );
-  });
-
-  it("makes the first-appraisal action primary for an empty account", async () => {
-    renderTestApp(["/"], {
-      appraisalCaseService: createCaseService(),
-      authService: createAuthHarness(sessionFor()).service,
-    });
-
-    expect(
-      await screen.findByRole("heading", { name: "No appraisals yet" }),
-    ).toBeVisible();
-    expectNewAppraisalHref(
-      screen.getByRole("link", { name: "Start your first appraisal" }),
-    );
-    expect(
-      screen.queryByRole("link", { name: "Start a new appraisal" }),
-    ).not.toBeInTheDocument();
-  });
-
-  it("shows an all-caught-up state and recent history for closed cases", async () => {
-    renderTestApp(["/"], {
-      appraisalCaseService: createCaseService(async () => [
-        appraisalCase({ status: "closed", caseStage: "closed" }),
-        appraisalCase({
-          id: "44444444-4444-4444-8444-444444444444",
-          serviceType: "diminished_value",
-          status: "closed",
-          caseStage: "closed",
-        }),
-      ]),
-      authService: createAuthHarness(sessionFor()).service,
-    });
-
-    expect(
-      await screen.findByRole("heading", { name: "You’re all caught up." }),
-    ).toBeVisible();
-    expect(screen.getAllByRole("article")).toHaveLength(2);
-    expectNewAppraisalHref(
-      screen.getByRole("link", { name: "Start a new appraisal" }),
-    );
-  });
-
-  it("retries a temporary owner-list failure without showing a new-appraisal action", async () => {
-    const user = userEvent.setup();
-    const listAppraisalCases = vi
-      .fn<AppraisalCaseService["listAppraisalCases"]>()
-      .mockRejectedValueOnce(new Error("temporary"))
-      .mockResolvedValueOnce([
-        appraisalCase({ caseStage: "intake_in_progress" }),
-      ]);
-
-    renderTestApp(["/"], {
-      appraisalCaseService: createCaseService(listAppraisalCases),
-      authService: createAuthHarness(sessionFor()).service,
+      totalLossDependencies: createTotalLossDependencies(getDetails),
     });
 
     expect(
       await screen.findByRole("heading", {
-        name: "We couldn’t load your appraisal overview.",
+        name: "Start your first appraisal",
       }),
     ).toBeVisible();
-    expect(
-      screen.queryByRole("link", { name: "Start a new appraisal" }),
-    ).not.toBeInTheDocument();
-
-    await user.click(screen.getByRole("button", { name: "Try again" }));
-
-    expect(
-      await screen.findByRole("link", { name: "Continue review" }),
-    ).toBeVisible();
-    expect(listAppraisalCases).toHaveBeenCalledTimes(2);
+    expectNewAppraisalHref(
+      screen.getByRole("link", { name: "Start your first appraisal" }),
+    );
+    expect(screen.queryByText("Case progress")).not.toBeInTheDocument();
+    expect(listAppraisalCases).toHaveBeenCalledOnce();
+    expect(getDetails).not.toHaveBeenCalled();
   });
 
-  it("rejects data outside the signed-in owner scope", async () => {
+  it("enriches only the focal intake case and keeps all other cases in history", async () => {
+    const cases = [
+      appraisalCase({ caseStage: "intake_in_progress" }),
+      appraisalCase({
+        id: SECOND_CASE_ID,
+        caseStage: "closed",
+        status: "closed",
+      }),
+      appraisalCase({
+        id: THIRD_CASE_ID,
+        caseStage: "closed",
+        serviceType: "diminished_value",
+        status: "closed",
+      }),
+    ];
+    const getDetails = vi.fn<TotalLossDetailsService["getDetails"]>(
+      async ({ caseId }) =>
+        detailsFor(caseId, {
+          dateOfLoss: "2026-08-14",
+          insurerName: "Example Mutual",
+          vehicleMake: "Honda",
+          vehicleModel: "Accord",
+          vehicleTrim: "EX",
+          vehicleYear: 2021,
+        }),
+    );
+
+    renderTestApp(["/"], {
+      appraisalCaseService: createCaseService(async () => cases),
+      authService: createAuthHarness(sessionFor()).service,
+      totalLossDependencies: createTotalLossDependencies(getDetails),
+    });
+
+    expect(
+      await screen.findByRole("heading", { name: "2021 Honda Accord EX" }),
+    ).toBeVisible();
+    expect(screen.getByText("Example Mutual")).toBeVisible();
+    expect(screen.getByText("Date of loss Aug 14, 2026")).toBeVisible();
+    expect(
+      screen.getByRole("heading", { name: "Continue your case details" }),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("link", { name: "Continue review" }),
+    ).toHaveAttribute(
+      "href",
+      `/start?service=total-loss&view=intake&caseId=${FIRST_CASE_ID}`,
+    );
+    expectCurrentMilestone("Vehicle details");
+    expect(
+      screen.getByRole("link", { name: "View all appraisals (3)" }),
+    ).toHaveAttribute("href", "/appraisals");
+    expect(screen.queryAllByRole("article")).toHaveLength(0);
+    expect(screen.queryByText("Recent appraisals")).not.toBeInTheDocument();
+    expect(getDetails).toHaveBeenCalledOnce();
+    expect(getDetails).toHaveBeenCalledWith({
+      caseId: FIRST_CASE_ID,
+      userId: FIRST_USER_ID,
+    });
+  });
+
+  it("presents processing and completed preliminary-analysis branches", async () => {
+    const processingDetails = vi.fn<TotalLossDetailsService["getDetails"]>(
+      async ({ caseId }) => detailsFor(caseId),
+    );
+    const processing = renderTestApp(["/"], {
+      appraisalCaseService: createCaseService(async () => [
+        appraisalCase({
+          caseStage: "analysis_processing",
+          status: "checking",
+        }),
+      ]),
+      authService: createAuthHarness(sessionFor()).service,
+      totalLossDependencies: createTotalLossDependencies(processingDetails),
+    });
+
+    expect(
+      await screen.findByRole("heading", {
+        name: "Your value check is in progress",
+      }),
+    ).toBeVisible();
+    expect(screen.getByRole("link", { name: "View progress" })).toHaveAttribute(
+      "href",
+      `/total-loss/cases/${FIRST_CASE_ID}/analysis`,
+    );
+    expectCurrentMilestone("Value analysis");
+    expectMilestoneState("Vehicle details", "Completed");
+    expectMilestoneState("Value analysis", "Current step");
+    expect(screen.getByText("Current status").parentElement?.parentElement).toHaveAttribute(
+      "aria-live",
+      "polite",
+    );
+    expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
+    processing.unmount();
+
+    const completedDetails = vi.fn<TotalLossDetailsService["getDetails"]>(
+      async ({ caseId }) => detailsFor(caseId),
+    );
+    renderTestApp(["/"], {
+      appraisalCaseService: createCaseService(async () => [
+        appraisalCase({
+          caseStage: "analysis_complete",
+          status: "check_complete",
+        }),
+      ]),
+      authService: createAuthHarness(sessionFor()).service,
+      totalLossDependencies: createTotalLossDependencies(completedDetails),
+    });
+
+    expect(
+      await screen.findByRole("heading", {
+        name: "Your preliminary result is ready",
+      }),
+    ).toBeVisible();
+    expect(screen.getByRole("link", { name: "View result" })).toHaveAttribute(
+      "href",
+      `/total-loss/cases/${FIRST_CASE_ID}/analysis`,
+    );
+    expectCurrentMilestone("Value analysis");
+  });
+
+  it("resolves only the focal post-Continue case once and uses its canonical manual route", async () => {
+    const cases = [
+      appraisalCase({
+        caseStage: "analysis_complete",
+        hasTotalLossClaimWorkflow: true,
+        status: "paid",
+      }),
+      appraisalCase({
+        id: SECOND_CASE_ID,
+        caseStage: "analysis_complete",
+        status: "check_complete",
+      }),
+      appraisalCase({
+        id: THIRD_CASE_ID,
+        caseStage: "closed",
+        status: "closed",
+      }),
+    ];
+    const getDetails = vi.fn<TotalLossDetailsService["getDetails"]>(
+      async ({ caseId }) =>
+        detailsFor(caseId, {
+          intakeMode: "manual",
+          vehicleMake: "Toyota",
+          vehicleModel: "Camry",
+          vehicleYear: 2022,
+        }),
+    );
+    const claimRequests = installClaimResolver((caseId) =>
+      claimResolver(caseId, "guide_insurer_review", "report_ready"),
+    );
+
+    renderTestApp(["/"], {
+      appraisalCaseService: createCaseService(async () => cases),
+      authService: createAuthHarness(sessionFor()).service,
+      totalLossDependencies: createTotalLossDependencies(getDetails),
+    });
+
+    expect(
+      await screen.findByRole("heading", { name: "Your valuation is ready" }),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("link", { name: "Review valuation" }),
+    ).toHaveAttribute(
+      "href",
+      `/total-loss/cases/${FIRST_CASE_ID}/claim/review/market`,
+    );
+    await waitFor(() => expect(claimRequests).toHaveLength(1));
+    expect(claimRequests).toEqual([
+      {
+        authorization: `Bearer access-${FIRST_USER_ID}`,
+        caseId: FIRST_CASE_ID,
+      },
+    ]);
+    expect(getDetails).toHaveBeenCalledOnce();
+    expect(getDetails).toHaveBeenCalledWith({
+      caseId: FIRST_CASE_ID,
+      userId: FIRST_USER_ID,
+    });
+  });
+
+  it.each([
+    {
+      action: "Prepare request",
+      fulfillmentState: "report_ready" as const,
+      heading: "Prepare your request",
+      href: `/total-loss/cases/${FIRST_CASE_ID}/claim/review/request`,
+      milestone: "Request",
+      nextState: "prepare_request" as const,
+    },
+    {
+      action: "View sent request",
+      fulfillmentState: "awaiting_insurer_response" as const,
+      heading: "Waiting for Example Mutual",
+      href: `/total-loss/cases/${FIRST_CASE_ID}/claim/review/sent`,
+      milestone: "Waiting for insurer",
+      nextState: "awaiting_insurer_response" as const,
+    },
+    {
+      action: "Review status",
+      fulfillmentState: "needs_attention" as const,
+      heading: "Your case needs attention",
+      href: `/total-loss/cases/${FIRST_CASE_ID}/claim/processing`,
+      milestone: "Valuation report",
+      nextState: "needs_attention" as const,
+    },
+  ])(
+    "renders the $nextState post-Continue branch",
+    async ({
+      action,
+      fulfillmentState,
+      heading,
+      href,
+      milestone,
+      nextState,
+    }) => {
+      const getDetails = vi.fn<TotalLossDetailsService["getDetails"]>(
+        async ({ caseId }) =>
+          detailsFor(caseId, { insurerName: "Example Mutual" }),
+      );
+      const claimRequests = installClaimResolver((caseId) =>
+        claimResolver(caseId, nextState, fulfillmentState),
+      );
+
+      renderTestApp(["/"], {
+        appraisalCaseService: createCaseService(async () => [
+          appraisalCase({
+            caseStage: "analysis_complete",
+            hasTotalLossClaimWorkflow: true,
+            status: "paid",
+          }),
+        ]),
+        authService: createAuthHarness(sessionFor()).service,
+        totalLossDependencies: createTotalLossDependencies(getDetails),
+      });
+
+      expect(
+        await screen.findByRole("heading", { name: heading }),
+      ).toBeVisible();
+      expect(screen.getByRole("link", { name: action })).toHaveAttribute(
+        "href",
+        href,
+      );
+      expectCurrentMilestone(milestone);
+      expect(claimRequests).toHaveLength(1);
+    },
+  );
+
+  it("keeps a closed case as a meaningful terminal workspace", async () => {
+    const getDetails = vi.fn<TotalLossDetailsService["getDetails"]>(
+      async ({ caseId }) =>
+        detailsFor(caseId, {
+          vehicleMake: "Ford",
+          vehicleModel: "Escape",
+          vehicleYear: 2020,
+        }),
+    );
+
+    renderTestApp(["/"], {
+      appraisalCaseService: createCaseService(async () => [
+        appraisalCase({ caseStage: "closed", status: "closed" }),
+      ]),
+      authService: createAuthHarness(sessionFor()).service,
+      totalLossDependencies: createTotalLossDependencies(getDetails),
+    });
+
+    expect(
+      await screen.findByRole("heading", { name: "2020 Ford Escape" }),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("heading", { name: "Case closed" }),
+    ).toBeVisible();
+    expect(
+      screen.getByText("No action is required for this case."),
+    ).toBeVisible();
+    expectCurrentMilestone("Case closed");
+  });
+
+  it("retains safe status and resume paths when detail or resolver enrichment fails", async () => {
+    const failingDetails = vi.fn<TotalLossDetailsService["getDetails"]>(
+      async () => {
+        throw new Error("details unavailable");
+      },
+    );
+    const detailFailure = renderTestApp(["/"], {
+      appraisalCaseService: createCaseService(async () => [
+        appraisalCase({ caseStage: "intake_in_progress" }),
+      ]),
+      authService: createAuthHarness(sessionFor()).service,
+      totalLossDependencies: createTotalLossDependencies(failingDetails),
+    });
+
+    expect(
+      await screen.findByText(
+        "Some vehicle context could not be refreshed. The case status and resume path are still available.",
+      ),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("heading", { name: "Your total-loss case" }),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("link", { name: "Continue review" }),
+    ).toHaveAttribute(
+      "href",
+      `/start?service=total-loss&view=intake&caseId=${FIRST_CASE_ID}`,
+    );
+    detailFailure.unmount();
+
+    let claimRequests = 0;
+    server.use(
+      http.get("*/api/v1/appraisal-cases/:caseId/claim", () => {
+        claimRequests += 1;
+        return HttpResponse.json(
+          { error: { code: "FORBIDDEN", message: "Unavailable" } },
+          { status: 403 },
+        );
+      }),
+    );
+    const availableDetails = vi.fn<TotalLossDetailsService["getDetails"]>(
+      async ({ caseId }) =>
+        detailsFor(caseId, {
+          vehicleMake: "Mazda",
+          vehicleModel: "CX-5",
+          vehicleYear: 2021,
+        }),
+    );
+    renderTestApp(["/"], {
+      appraisalCaseService: createCaseService(async () => [
+        appraisalCase({
+          caseStage: "analysis_complete",
+          hasTotalLossClaimWorkflow: true,
+          status: "paid",
+        }),
+      ]),
+      authService: createAuthHarness(sessionFor()).service,
+      totalLossDependencies: createTotalLossDependencies(availableDetails),
+    });
+
+    expect(
+      await screen.findByText(
+        "Some vehicle context could not be refreshed. The case status and resume path are still available.",
+      ),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("heading", { name: "2021 Mazda CX-5" }),
+    ).toBeVisible();
+    expect(screen.getByRole("link", { name: "Open case" })).toHaveAttribute(
+      "href",
+      `/total-loss/cases/${FIRST_CASE_ID}/claim`,
+    );
+    expect(claimRequests).toBe(1);
+  });
+
+  it("rejects an owner-mismatched list before any focal enrichment", async () => {
+    const getDetails = vi.fn<TotalLossDetailsService["getDetails"]>();
+
     renderTestApp(["/"], {
       appraisalCaseService: createCaseService(async () => [
         appraisalCase({ userId: SECOND_USER_ID }),
       ]),
       authService: createAuthHarness(sessionFor()).service,
+      totalLossDependencies: createTotalLossDependencies(getDetails),
     });
 
     expect(
       await screen.findByRole("heading", {
-        name: "We couldn’t load your appraisal overview.",
+        name: "We couldn’t load your case workspace.",
       }),
     ).toBeVisible();
-    expect(screen.queryByRole("article")).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Try again" })).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole("link", { name: "Start a new appraisal" }),
-    ).not.toBeInTheDocument();
+    expect(getDetails).not.toHaveBeenCalled();
+    expect(screen.queryByText("Your total-loss case")).not.toBeInTheDocument();
   });
 
-  it("does not expose the prior owner while a new identity loads", async () => {
+  it("clears the prior focal workspace while a new identity loads", async () => {
     const auth = createAuthHarness(sessionFor());
     let resolveSecondOwner!: (cases: AppraisalCase[]) => void;
     const listAppraisalCases = vi.fn((userId: string) => {
       if (userId === FIRST_USER_ID) {
         return Promise.resolve([
-          appraisalCase({
-            caseStage: "analysis_processing",
-            status: "checking",
-          }),
+          appraisalCase({ caseStage: "intake_in_progress" }),
         ]);
       }
       return new Promise<AppraisalCase[]>((resolve) => {
         resolveSecondOwner = resolve;
       });
     });
+    const getDetails = vi.fn<TotalLossDetailsService["getDetails"]>(
+      async ({ caseId }) =>
+        caseId === FIRST_CASE_ID
+          ? detailsFor(caseId, {
+              vehicleMake: "Honda",
+              vehicleModel: "Accord",
+              vehicleYear: 2021,
+            })
+          : detailsFor(caseId, {
+              vehicleMake: "Toyota",
+              vehicleModel: "RAV4",
+              vehicleYear: 2024,
+            }),
+    );
 
     renderTestApp(["/"], {
       appraisalCaseService: createCaseService(listAppraisalCases),
       authService: auth.service,
+      totalLossDependencies: createTotalLossDependencies(getDetails),
     });
 
     expect(
-      await screen.findByRole("link", { name: "View progress" }),
+      await screen.findByRole("heading", { name: "2021 Honda Accord" }),
     ).toBeVisible();
 
     act(() => auth.emit("SIGNED_IN", sessionFor(SECOND_USER_ID)));
 
+    expect(await screen.findByLabelText("Loading case workspace")).toBeVisible();
     expect(
-      await screen.findByLabelText("Loading appraisal overview"),
-    ).toBeVisible();
-    expect(
-      screen.queryByRole("link", { name: "View progress" }),
+      screen.queryByRole("heading", { name: "2021 Honda Accord" }),
     ).not.toBeInTheDocument();
 
     await act(async () =>
       resolveSecondOwner([
         appraisalCase({
-          id: "44444444-4444-4444-8444-444444444444",
-          serviceType: "diminished_value",
-          status: "submitted",
-          caseStage: "submitted",
+          id: SECOND_CASE_ID,
+          caseStage: "intake_in_progress",
           userId: SECOND_USER_ID,
         }),
       ]),
     );
 
     expect(
-      await screen.findByRole("link", { name: "View service update" }),
+      await screen.findByRole("heading", { name: "2024 Toyota RAV4" }),
     ).toBeVisible();
-  });
-
-  it("shows a safe configuration state when the case service is unavailable", async () => {
-    renderTestApp(["/"], {
-      appraisalCaseService: null,
-      authService: createAuthHarness(sessionFor()).service,
+    expect(listAppraisalCases).toHaveBeenNthCalledWith(1, FIRST_USER_ID);
+    expect(listAppraisalCases).toHaveBeenNthCalledWith(2, SECOND_USER_ID);
+    expect(getDetails).toHaveBeenCalledWith({
+      caseId: SECOND_CASE_ID,
+      userId: SECOND_USER_ID,
     });
-
-    expect(
-      await screen.findByRole("heading", {
-        name: "We couldn’t load your appraisal overview.",
-      }),
-    ).toBeVisible();
-    expect(
-      screen.getByRole("link", { name: "Contact support" }),
-    ).toHaveAttribute("href", "/contact");
-    expect(screen.queryByRole("button", { name: "Try again" })).not.toBeInTheDocument();
   });
 });

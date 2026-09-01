@@ -57,6 +57,7 @@ const ownedCaseOperationRow = {
     analysis_retryable: null,
     analysis_failure_code: null,
     analysis_processing_expires_at: "2026-08-18T15:05:00.000Z",
+    has_total_loss_claim_workflow: false,
 };
 
 const expectedOperationCase: AppraisalCase = {
@@ -71,6 +72,7 @@ const expectedOperationCase: AppraisalCase = {
   analysisRetryable: null,
   analysisFailureCode: null,
   analysisProcessingExpiresAt: "2026-08-18T15:05:00.000Z",
+  hasTotalLossClaimWorkflow: false,
 };
 
 function createTestService() {

@@ -42,9 +42,13 @@ interface ClaimIdentityOptions {
 export function useTotalLossClaimQuery({
   accessToken,
   caseId,
+  enabled = true,
   suspendRefetch = false,
   userId,
-}: ClaimIdentityOptions & { readonly suspendRefetch?: boolean }) {
+}: ClaimIdentityOptions & {
+  readonly enabled?: boolean;
+  readonly suspendRefetch?: boolean;
+}) {
   return useQuery({
     queryKey: totalLossClaimQueryKeys.detail(userId, caseId),
     queryFn: ({ signal }) => {
@@ -53,7 +57,7 @@ export function useTotalLossClaimQuery({
       }
       return getTotalLossClaim(caseId, accessToken, signal);
     },
-    enabled: Boolean(accessToken && userId) && !suspendRefetch,
+    enabled: enabled && Boolean(accessToken && userId) && !suspendRefetch,
     refetchInterval: (query) => {
       const nextState = query.state.data?.journey?.nextState;
       const fulfillmentState =

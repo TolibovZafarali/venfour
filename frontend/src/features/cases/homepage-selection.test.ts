@@ -27,11 +27,16 @@ const priorityCases = [
     needsAttention: true,
     status: "draft",
   }),
+  appraisalCase("post-continue", {
+    caseStage: "analysis_complete",
+    hasTotalLossClaimWorkflow: true,
+  }),
   appraisalCase("result-ready", { caseStage: "analysis_complete" }),
   appraisalCase("ready-for-analysis", { caseStage: "ready_for_analysis" }),
   appraisalCase("report-required", { caseStage: "report_required" }),
   appraisalCase("processing", { caseStage: "analysis_processing" }),
-  appraisalCase("service-update", {
+  appraisalCase("submitted", {
+    caseStage: "submitted",
     serviceType: "diminished_value",
     status: "submitted",
   }),
@@ -43,11 +48,42 @@ describe("signed-in homepage case selection", () => {
     (priorityIndex) => {
       const candidates = priorityCases.slice(priorityIndex).toReversed();
 
-      expect(selectSignedInHomepageCases(candidates).featuredCase?.id).toBe(
+      expect(selectSignedInHomepageCases(candidates).focalCase?.id).toBe(
         priorityCases[priorityIndex]?.id,
       );
     },
   );
+
+  it("keeps a post-Continue workflow behind attention and ahead of preliminary work", () => {
+    const attention = priorityCases[0];
+    const postContinue = priorityCases[1];
+    const preliminaryResult = priorityCases[2];
+
+    expect(
+      selectSignedInHomepageCases([preliminaryResult, postContinue]).focalCase,
+    ).toBe(postContinue);
+    expect(
+      selectSignedInHomepageCases([preliminaryResult, postContinue, attention])
+        .focalCase,
+    ).toBe(attention);
+  });
+
+  it("prioritizes an older post-Continue attention case over a newer waiting case", () => {
+    const newerWaiting = appraisalCase("newer-waiting", {
+      caseStage: "analysis_complete",
+      hasTotalLossClaimWorkflow: true,
+      needsAttention: false,
+    });
+    const olderAttention = appraisalCase("older-attention", {
+      caseStage: "analysis_complete",
+      hasTotalLossClaimWorkflow: true,
+      needsAttention: true,
+    });
+
+    expect(
+      selectSignedInHomepageCases([newerWaiting, olderAttention]).focalCase,
+    ).toBe(olderAttention);
+  });
 
   it("preserves server order for cases in the same priority group", () => {
     const explicitNeedsAttention = appraisalCase("explicit-needs-attention", {
@@ -66,11 +102,11 @@ describe("signed-in homepage case selection", () => {
         explicitNeedsAttention,
         analysisFailed,
         flagged,
-      ]).featuredCase?.id,
-    ).toBe(explicitNeedsAttention.id);
+      ]).focalCase,
+    ).toBe(explicitNeedsAttention);
   });
 
-  it("uses server recency across report and intake work", () => {
+  it("uses server recency across intake work in the same priority group", () => {
     const newerReportUploaded = appraisalCase("report-uploaded", {
       caseStage: "report_uploaded",
     });
@@ -86,8 +122,8 @@ describe("signed-in homepage case selection", () => {
         newerReportUploaded,
         olderReportRequired,
         intakeNotStarted,
-      ]).featuredCase?.id,
-    ).toBe(newerReportUploaded.id);
+      ]).focalCase,
+    ).toBe(newerReportUploaded);
   });
 
   it("keeps a Diminished Value service update behind Total-Loss processing", () => {
@@ -105,11 +141,11 @@ describe("signed-in homepage case selection", () => {
       selectSignedInHomepageCases([
         diminishedValueUpdate,
         totalLossProcessing,
-      ]).featuredCase?.id,
-    ).toBe(totalLossProcessing.id);
+      ]).focalCase,
+    ).toBe(totalLossProcessing);
   });
 
-  it("keeps submitted cases behind processing even when support is the action", () => {
+  it("keeps submitted cases behind processing", () => {
     const submitted = appraisalCase("submitted", {
       caseStage: "submitted",
       status: "submitted",
@@ -119,31 +155,12 @@ describe("signed-in homepage case selection", () => {
       status: "checking",
     });
 
-    expect(
-      selectSignedInHomepageCases([submitted, processing]).featuredCase?.id,
-    ).toBe(processing.id);
+    expect(selectSignedInHomepageCases([submitted, processing]).focalCase).toBe(
+      processing,
+    );
   });
 
-  it("uses server recency across submitted and service-update cases", () => {
-    const newerServiceUpdate = appraisalCase("dv-service-update", {
-      caseStage: "intake_in_progress",
-      serviceType: "diminished_value",
-      status: "draft",
-    });
-    const olderSubmitted = appraisalCase("submitted", {
-      caseStage: "submitted",
-      status: "submitted",
-    });
-
-    expect(
-      selectSignedInHomepageCases([
-        newerServiceUpdate,
-        olderSubmitted,
-      ]).featuredCase?.id,
-    ).toBe(newerServiceUpdate.id);
-  });
-
-  it("does not feature closed or otherwise non-actionable cases", () => {
+  it("uses a closed case as the historical focal case when nothing is active", () => {
     const closed = appraisalCase("closed", {
       caseStage: "closed",
       needsAttention: true,
@@ -152,30 +169,26 @@ describe("signed-in homepage case selection", () => {
 
     const selection = selectSignedInHomepageCases([closed]);
 
-    expect(selection.featuredCase).toBeNull();
-    expect(selection.recentCases).toEqual([closed]);
+    expect(selection.focalCase).toBe(closed);
     expect(selection.allCasesClosed).toBe(true);
+    expect(selection.historicalCaseCount).toBe(0);
   });
 
-  it("returns the first three distinct recent cases excluding the feature", () => {
-    const featured = priorityCases[0];
-    const recentA = appraisalCase("recent-a", { status: "closed" });
-    const recentB = appraisalCase("recent-b", { status: "closed" });
-    const recentC = appraisalCase("recent-c", { status: "closed" });
-    const recentD = appraisalCase("recent-d", { status: "closed" });
+  it("counts distinct historical cases and excludes every copy of the focal case", () => {
+    const focal = priorityCases[0];
+    const historicalA = appraisalCase("historical-a", { status: "closed" });
+    const historicalB = appraisalCase("historical-b", { status: "closed" });
 
     const selection = selectSignedInHomepageCases([
-      recentA,
-      featured,
-      recentA,
-      recentB,
-      recentC,
-      recentD,
-      featured,
+      historicalA,
+      focal,
+      historicalA,
+      historicalB,
+      focal,
     ]);
 
-    expect(selection.featuredCase).toBe(featured);
-    expect(selection.recentCases).toEqual([recentA, recentB, recentC]);
+    expect(selection.focalCase).toBe(focal);
+    expect(selection.historicalCaseCount).toBe(2);
   });
 
   it("detects only Total-Loss cases with an active draft status", () => {
@@ -202,10 +215,10 @@ describe("signed-in homepage case selection", () => {
 
   it("does not report an empty account as all closed", () => {
     expect(selectSignedInHomepageCases([])).toEqual({
-      featuredCase: null,
-      recentCases: [],
+      focalCase: null,
       hasActiveTotalLossDraft: false,
       allCasesClosed: false,
+      historicalCaseCount: 0,
     });
   });
 });

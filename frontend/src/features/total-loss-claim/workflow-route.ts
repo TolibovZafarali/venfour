@@ -136,13 +136,19 @@ function legacyJourneyState(
   }
 }
 
+export function resolvedTotalLossClaimJourneyState(
+  claim: TotalLossClaimResolver,
+): TotalLossClaimJourneyState | null {
+  return claim.journey?.nextState ?? legacyJourneyState(claim);
+}
+
 export function authoritativeTotalLossClaimPath(
   claim: TotalLossClaimResolver,
   intakeMode?: TotalLossIntakeMode,
 ): string | null {
   if (claim.state === "secure_required")
     return totalLossClaimViewPath(claim.caseId, "checkout");
-  const state = claim.journey?.nextState ?? legacyJourneyState(claim);
+  const state = resolvedTotalLossClaimJourneyState(claim);
   return state ? routeForJourneyState(claim.caseId, state, intakeMode) : null;
 }
 
