@@ -68,8 +68,8 @@ const processSteps = [
 export function PublicHomePage() {
   const guestReturn = useGuestAnalysisReturn();
   return (
-    <div className="w-full overflow-clip bg-white text-ink">
-      <section className="home-hero-gradient relative isolate overflow-hidden border-b border-slate-200 bg-canvas">
+    <div className="-mt-16 w-full overflow-clip bg-white text-ink">
+      <section className="home-hero-gradient relative isolate overflow-hidden border-b border-slate-200 bg-canvas pt-16">
         <div
           className="pointer-events-none absolute inset-y-0 right-0 hidden w-[64%] max-w-[72rem] xl:block"
           aria-hidden="true"

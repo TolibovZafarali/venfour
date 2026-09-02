@@ -1,5 +1,5 @@
 import { Check, LockKeyhole, X } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Link } from "react-router";
 import { Dialog, Switch } from "radix-ui";
 
@@ -26,11 +26,42 @@ export function CookieConsent() {
     savePreferences,
     setPreferencesOpen,
   } = useCookieConsent();
+  const bannerRef = useRef<HTMLDivElement>(null);
+  const [bannerExiting, setBannerExiting] = useState(false);
+
+  const acceptWithMotion = () => {
+    const banner = bannerRef.current;
+    const reducedMotion = window.matchMedia?.(
+      "(prefers-reduced-motion: reduce)",
+    ).matches;
+
+    if (banner?.animate && !reducedMotion) {
+      setBannerExiting(true);
+      const animation = banner.animate(
+        [
+          { transform: "translateY(0)", opacity: 1 },
+          { transform: "translateY(calc(100% + 2rem))", opacity: 0 },
+        ],
+        { duration: 320, easing: "cubic-bezier(0.4, 0, 1, 1)", fill: "forwards" },
+      );
+      void animation.finished.then(
+        () => setBannerExiting(false),
+        () => setBannerExiting(false),
+      );
+    }
+
+    acceptAll();
+  };
 
   return (
     <>
-      {bannerVisible ? (
-        <div className="width-before-scroll-bar pointer-events-none fixed inset-x-0 bottom-3 z-50 px-3 sm:bottom-5 sm:px-5">
+      {bannerVisible || bannerExiting ? (
+        <div
+          ref={bannerRef}
+          className="width-before-scroll-bar pointer-events-none fixed inset-x-0 bottom-3 z-50 px-3 sm:bottom-5 sm:px-5"
+          inert={bannerExiting}
+          aria-hidden={bannerExiting || undefined}
+        >
           <section
             className="pointer-events-auto mx-auto w-full max-w-6xl rounded-2xl border border-ink/12 bg-white/96 p-4 shadow-[0_24px_64px_-24px_rgba(11,31,51,0.38),0_8px_24px_-16px_rgba(11,31,51,0.24)] backdrop-blur-xl sm:p-5"
             aria-labelledby="cookie-consent-title"
@@ -67,7 +98,7 @@ export function CookieConsent() {
                 <button
                   type="button"
                   className={`${bannerButtonClassName} ${focusRingClassName} bg-brand text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.2)] hover:bg-brand-strong`}
-                  onClick={acceptAll}
+                  onClick={acceptWithMotion}
                 >
                   Accept All
                 </button>
