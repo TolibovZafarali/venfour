@@ -1,0 +1,38 @@
+[data-scroll-reveal] {
+  --scroll-entrance-blur: 5px;
+  --scroll-entrance-duration: 900ms;
+}
+
+:is([data-home-motion], .completed-analysis) [data-scroll-reveal="pending"]:not(:focus-within) {
+  opacity: 0;
+}
+
+[data-scroll-reveal="entering"] {
+  animation:
+    scroll-opacity-enter var(--scroll-entrance-duration) cubic-bezier(.2, .7, .2, 1) var(--scroll-entrance-delay, 0ms) backwards,
+    scroll-focus-enter var(--scroll-entrance-duration) ease var(--scroll-entrance-delay, 0ms) backwards;
+}
+
+@keyframes scroll-opacity-enter {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes scroll-focus-enter {
+  from { filter: blur(var(--scroll-entrance-blur)); }
+  to { filter: blur(0); }
+}
+
+@media (max-width: 540px) {
+  [data-scroll-reveal] {
+    --scroll-entrance-blur: 3px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce), print {
+  :is([data-home-motion], .completed-analysis) [data-scroll-reveal]:not(:focus-within) {
+    animation: none;
+    opacity: 1;
+    filter: none;
+  }
+}

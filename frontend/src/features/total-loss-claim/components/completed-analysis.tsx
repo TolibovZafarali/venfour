@@ -82,14 +82,14 @@ function ValueSummary({ report, intakeMode, marketOnly = false }: {
   const showMedian = hasMoney(range?.median);
   if (!showOffer && !showRange && !showMedian) return null;
   return (
-    <div className={`value-summary${marketOnly ? " value-summary-market" : ""}`} data-review-entrance="secondary" data-has-offer={showOffer} data-has-range={showRange} data-has-median={showMedian}>
+    <div className={`value-summary${marketOnly ? " value-summary-market" : ""}`} data-has-offer={showOffer} data-has-range={showRange} data-has-median={showMedian}>
       <dl className="value-summary-grid">
-        {!marketOnly && hasMoney(report.conclusion.insurerValuation) ? <div className="value-summary-offer"><dt>{intakeMode === "manual" ? "Insurer offer you entered" : "Insurer valuation"}</dt><dd>{moneyLabel(report.conclusion.insurerValuation)}</dd></div> : null}
-        {range && hasMoney(range.low) && hasMoney(range.high) ? <div className="value-summary-range">
+        {!marketOnly && hasMoney(report.conclusion.insurerValuation) ? <div className="value-summary-offer" data-review-entrance="secondary" data-review-order="0"><dt>{intakeMode === "manual" ? "Insurer offer you entered" : "Insurer valuation"}</dt><dd>{moneyLabel(report.conclusion.insurerValuation)}</dd></div> : null}
+        {range && hasMoney(range.low) && hasMoney(range.high) ? <div className="value-summary-range" data-review-entrance="secondary" data-review-order="1">
           <dt>Selected advertised-price range</dt><dd>{range.low.currency === range.high.currency && range.low.amountMinorUnits === range.high.amountMinorUnits ? moneyLabel(range.low) : `${moneyLabel(range.low)} to ${moneyLabel(range.high)}`}</dd>
         </div> : null}
-        {hasMoney(range?.median) ? <div className="value-summary-median"><dt>Selected median</dt><dd>{moneyLabel(range?.median)}</dd></div> : null}
-        {!marketOnly && comparison ? <div className="value-summary-comparison">
+        {hasMoney(range?.median) ? <div className="value-summary-median" data-review-entrance="secondary" data-review-order="2"><dt>Selected median</dt><dd>{moneyLabel(range?.median)}</dd></div> : null}
+        {!marketOnly && comparison ? <div className="value-summary-comparison" data-review-entrance="secondary" data-review-order="3">
           <dt>{intakeMode === "manual" ? "How your offer compares" : "How the insurer’s value compares"}</dt><dd>{comparison}</dd>
         </div> : null}
       </dl>
@@ -270,8 +270,8 @@ export function CompletedAnalysis(props: CompletedAnalysisProps) {
       ) : null}
       {stage === "result" ? <>
         <div className="result-heading" data-review-entrance="secondary"><h1>Your result</h1><p className="review-vehicle">{displayed(report.subjectVehicle.description, "Your vehicle")}</p></div>
-        <h2 className="result-conclusion" data-review-entrance="primary">{classification}</h2>
-        <p className="review-lead" data-review-entrance="secondary">{resultExplanation}</p>
+        <h2 className="result-conclusion" data-review-entrance="primary" data-review-order="1">{classification}</h2>
+        <p className="review-lead" data-review-entrance="secondary" data-review-order="2">{resultExplanation}</p>
         <ValueSummary {...props} />
         {manual ? <p className="review-note" data-review-entrance="supporting">Because you did not provide the insurer’s valuation report, Venfour did not review the insurer’s comparable vehicles or adjustments.</p> : null}
         <p className="review-note" data-review-entrance="supporting">Advertised prices are not guaranteed sale prices or settlement values.</p>
@@ -279,28 +279,28 @@ export function CompletedAnalysis(props: CompletedAnalysisProps) {
       </> : null}
       {stage === "insurer" ? <>
         <h1 data-review-entrance="primary">How your insurer reached its value</h1>
-        <p className="review-lead" data-review-entrance="primary">Insurers may start with prices for similar vehicles, then adjust those values for differences such as mileage or equipment. Venfour shows only the adjustments disclosed in your report.</p>
+        <p className="review-lead" data-review-entrance="primary" data-review-order="1">Insurers may start with prices for similar vehicles, then adjust those values for differences such as mileage or equipment. Venfour shows only the adjustments disclosed in your report.</p>
         {hasMoney(report.conclusion.insurerValuation) ? <dl className="insurer-reference" data-review-entrance="secondary"><dt>Insurer valuation</dt><dd>{moneyLabel(report.conclusion.insurerValuation)}</dd></dl> : null}
         <InsurerValueBridge report={report} />
-        <div className="insurer-explanation" data-review-entrance="supporting">
-        <p>{insurerCount ? `Your insurer’s report includes ${insurerCount.toLocaleString("en-US")} comparable ${insurerCount === 1 ? "vehicle" : "vehicles"}.` : "No insurer comparables were available in the report for this review."}</p>
-        {insurerMedianExplanation(report) ? <p>{insurerMedianExplanation(report)}</p> : null}
-        {disclosure.fullyDisclosedAdjustmentCount > 0 ? <p>{insurerCount === 1 ? "Detailed adjustment information was available for this comparable." : `Detailed adjustment information was available for ${disclosure.fullyDisclosedAdjustmentCount.toLocaleString("en-US")} of the ${insurerCount.toLocaleString("en-US")} comparables.`}</p> : null}
-        {disclosure.partiallyDisclosedAdjustmentCount > 0 ? <p>Some adjustment details were only partially disclosed, so not every adjustment could be reviewed in the same detail.</p> : null}
-        {disclosure.undisclosedAdjustmentCount > 0 || disclosure.unavailableAdjustmentCount > 0 ? <p>{insurerCount === 1 ? "This comparable had" : "Some comparables had"} no adjustment details, so Venfour could not explain all of the report’s adjustments.</p> : null}
-        {insurerCount > 0 && (disclosure.partiallyDisclosedAdjustmentCount > 0 || disclosure.undisclosedAdjustmentCount > 0 || disclosure.unavailableAdjustmentCount > 0) ? <p>Missing details do not, by themselves, mean the valuation or an adjustment was wrong.</p> : null}
+        <div className="insurer-explanation">
+        <p data-review-entrance="supporting" data-review-order="0">{insurerCount ? `Your insurer’s report includes ${insurerCount.toLocaleString("en-US")} comparable ${insurerCount === 1 ? "vehicle" : "vehicles"}.` : "No insurer comparables were available in the report for this review."}</p>
+        {insurerMedianExplanation(report) ? <p data-review-entrance="supporting" data-review-order="1">{insurerMedianExplanation(report)}</p> : null}
+        {disclosure.fullyDisclosedAdjustmentCount > 0 ? <p data-review-entrance="supporting" data-review-order="2">{insurerCount === 1 ? "Detailed adjustment information was available for this comparable." : `Detailed adjustment information was available for ${disclosure.fullyDisclosedAdjustmentCount.toLocaleString("en-US")} of the ${insurerCount.toLocaleString("en-US")} comparables.`}</p> : null}
+        {disclosure.partiallyDisclosedAdjustmentCount > 0 ? <p data-review-entrance="supporting" data-review-order="3">Some adjustment details were only partially disclosed, so not every adjustment could be reviewed in the same detail.</p> : null}
+        {disclosure.undisclosedAdjustmentCount > 0 || disclosure.unavailableAdjustmentCount > 0 ? <p data-review-entrance="supporting" data-review-order="3">{insurerCount === 1 ? "This comparable had" : "Some comparables had"} no adjustment details, so Venfour could not explain all of the report’s adjustments.</p> : null}
+        {insurerCount > 0 && (disclosure.partiallyDisclosedAdjustmentCount > 0 || disclosure.undisclosedAdjustmentCount > 0 || disclosure.unavailableAdjustmentCount > 0) ? <p data-review-entrance="supporting" data-review-order="3">Missing details do not, by themselves, mean the valuation or an adjustment was wrong.</p> : null}
         </div>
         <InsurerEvidenceDetails report={report} open={search.get("details") === "insurer"} />
       </> : null}
       {stage === "market" ? <>
         <h1 data-review-entrance="primary">What the market evidence showed</h1>
-        <p className="review-lead" data-review-entrance="primary">{primary?.selectedCount ? `Venfour selected ${primary.selectedCount.toLocaleString("en-US")} ${primaryTiming === "current" ? "current " : primaryTiming === "historical" ? "historical " : ""}${primary.selectedCount === 1 ? "listing for a similar vehicle" : "listings for similar vehicles"}.` : report.marketEvidence.comparables.length ? "The listing details show the market information available for this comparison." : "No comparable market listings were available for this comparison."}</p>
+        <p className="review-lead" data-review-entrance="primary" data-review-order="1">{primary?.selectedCount ? `Venfour selected ${primary.selectedCount.toLocaleString("en-US")} ${primaryTiming === "current" ? "current " : primaryTiming === "historical" ? "historical " : ""}${primary.selectedCount === 1 ? "listing for a similar vehicle" : "listings for similar vehicles"}.` : report.marketEvidence.comparables.length ? "The listing details show the market information available for this comparison." : "No comparable market listings were available for this comparison."}</p>
         <ValueSummary {...props} marketOnly />
-        <div className="market-evidence-context" data-review-entrance="supporting">
-        {primary && primary.selectedCount > 0 ? primaryTiming === "current" ? <p>{primaryDate !== "Not stated" ? `${primary.selectedCount === 1 ? "This listing was" : "These listings were"} collected on ${primaryDate}. ` : ""}{primary.selectedCount === 1 ? "It shows" : "They show"} the market when collected, not necessarily on the date of loss.</p> : primaryTiming === "historical" ? <p>{primary.selectedCount === 1 ? "This listing was" : "These listings were"} verified as active {primaryDate !== "Not stated" ? `on ${primaryDate}, the date used for this comparison` : "on the date of loss"}.</p> : <p>The listing details explain when each price was observed.</p> : null}
-        {secondary && secondary.selectedCount > 0 ? <p>A further {secondary.selectedCount.toLocaleString("en-US")} {secondaryTiming === "current" ? "current " : ""}{secondary.selectedCount === 1 ? "listing provides" : "listings provide"} additional context{secondaryTiming === "current" && secondaryDate !== "Not stated" ? ` from ${secondaryDate}` : ""}. {secondary.selectedCount === 1 ? "It is" : "They are"} not included in the range above.{secondaryTiming === "current" ? " Current listings do not establish prices on the date of loss." : ""}</p> : null}
-        {report.conclusion.limitations.some((value) => /out.of.provider.range/iu.test(value)) ? <p>The market-data source had limited historical coverage. This does not mean no comparable vehicles existed at the time of loss.</p> : null}
-        {hasMarketListings ? <p>These are advertised prices, not confirmed sale prices.</p> : null}
+        <div className="market-evidence-context">
+        {primary && primary.selectedCount > 0 ? primaryTiming === "current" ? <p data-review-entrance="supporting" data-review-order="0">{primaryDate !== "Not stated" ? `${primary.selectedCount === 1 ? "This listing was" : "These listings were"} collected on ${primaryDate}. ` : ""}{primary.selectedCount === 1 ? "It shows" : "They show"} the market when collected, not necessarily on the date of loss.</p> : primaryTiming === "historical" ? <p data-review-entrance="supporting" data-review-order="0">{primary.selectedCount === 1 ? "This listing was" : "These listings were"} verified as active {primaryDate !== "Not stated" ? `on ${primaryDate}, the date used for this comparison` : "on the date of loss"}.</p> : <p data-review-entrance="supporting" data-review-order="0">The listing details explain when each price was observed.</p> : null}
+        {secondary && secondary.selectedCount > 0 ? <p data-review-entrance="supporting" data-review-order="1">A further {secondary.selectedCount.toLocaleString("en-US")} {secondaryTiming === "current" ? "current " : ""}{secondary.selectedCount === 1 ? "listing provides" : "listings provide"} additional context{secondaryTiming === "current" && secondaryDate !== "Not stated" ? ` from ${secondaryDate}` : ""}. {secondary.selectedCount === 1 ? "It is" : "They are"} not included in the range above.{secondaryTiming === "current" ? " Current listings do not establish prices on the date of loss." : ""}</p> : null}
+        {report.conclusion.limitations.some((value) => /out.of.provider.range/iu.test(value)) ? <p data-review-entrance="supporting" data-review-order="2">The market-data source had limited historical coverage. This does not mean no comparable vehicles existed at the time of loss.</p> : null}
+        {hasMarketListings ? <p data-review-entrance="supporting" data-review-order="3">These are advertised prices, not confirmed sale prices.</p> : null}
         </div>
         <RepresentativeListings report={report} />
         <MarketEvidenceDetails report={report} open={search.get("details") === "market"} />
@@ -308,20 +308,20 @@ export function CompletedAnalysis(props: CompletedAnalysisProps) {
       </> : null}
       {stage === "meaning" ? <>
         <h1 data-review-entrance="secondary">What the comparison means</h1>
-        <div className="meaning-interpretation" data-review-entrance="primary">
-        {hasMoney(report.conclusion.insurerValuation) ? <p className="meaning-value">{manual ? "The insurer offer you entered was" : "Your insurer valued the vehicle at"} {moneyLabel(report.conclusion.insurerValuation)}.</p> : null}
-        {position ? <p className="meaning-position">{position}</p> : null}
-        {comparison ? <p className="meaning-comparison">{manual ? "The offer" : "The valuation"} {comparison.startsWith("Matches") ? "matches the selected median" : `is ${comparison}`}{hasMoney(report.conclusion.supportedRange?.median) ? ` of ${moneyLabel(report.conclusion.supportedRange?.median)}` : ""}.</p> : null}
+        <div className="meaning-interpretation">
+        {hasMoney(report.conclusion.insurerValuation) ? <p className="meaning-value" data-review-entrance="primary" data-review-order="0">{manual ? "The insurer offer you entered was" : "Your insurer valued the vehicle at"} {moneyLabel(report.conclusion.insurerValuation)}.</p> : null}
+        {position ? <p className="meaning-position" data-review-entrance="primary" data-review-order="1">{position}</p> : null}
+        {comparison ? <p className="meaning-comparison" data-review-entrance="primary" data-review-order="2">{manual ? "The offer" : "The valuation"} {comparison.startsWith("Matches") ? "matches the selected median" : `is ${comparison}`}{hasMoney(report.conclusion.supportedRange?.median) ? ` of ${moneyLabel(report.conclusion.supportedRange?.median)}` : ""}.</p> : null}
         </div>
         {report.conclusion.continuingSupported ? <p className="meaning-takeaway" data-review-entrance="secondary">Based on the available evidence, you have a reasonable basis to ask the insurer to review {manual ? "the offer" : "its valuation"}.</p> : <p data-review-entrance="secondary">The result does not support a higher valuation request. Your valuation report remains available.</p>}
-        <div className="meaning-limitations" data-review-entrance="secondary">
-        <p>{hasMarketListings ? "This does not mean you are automatically owed the selected median or another specific amount. These are advertised listings, not confirmed sale prices, and the insurer may respond with additional evidence." : "This result does not establish that you are owed a higher amount. The insurer may respond with additional evidence."}</p>
-        {manual ? <p>Without the insurer’s valuation report, Venfour cannot review which comparable vehicles or adjustments the insurer used.</p> : null}
+        <div className="meaning-limitations">
+        <p data-review-entrance="secondary" data-review-order="0">{hasMarketListings ? "This does not mean you are automatically owed the selected median or another specific amount. These are advertised listings, not confirmed sale prices, and the insurer may respond with additional evidence." : "This result does not establish that you are owed a higher amount. The insurer may respond with additional evidence."}</p>
+        {manual ? <p data-review-entrance="secondary" data-review-order="1">Without the insurer’s valuation report, Venfour cannot review which comparable vehicles or adjustments the insurer used.</p> : null}
         {limitations.length ? <>
-          <h2>Limitations to keep in mind</h2>
-          <ul>{limitations.map((value) => <li key={value}>{value}</li>)}</ul>
+          <h2 data-review-entrance="secondary" data-review-order="2">Limitations to keep in mind</h2>
+          <ul>{limitations.map((value) => <li key={value} data-review-entrance="secondary" data-review-order="3">{value}</li>)}</ul>
         </> : null}
-        <p>Your valuation report explains the comparison and its limitations in more detail.</p>
+        <p data-review-entrance="secondary" data-review-order="3">Your valuation report explains the comparison and its limitations in more detail.</p>
         </div>
         {!report.conclusion.continuingSupported ? <ReportFileRow {...props} /> : null}
       </> : null}
@@ -339,10 +339,10 @@ export function CompletedAnalysis(props: CompletedAnalysisProps) {
         <p className="review-lead" role="status">Based on your confirmation, Venfour recorded that you sent your reconsideration request with the valuation report attached.</p>
         </div>
         {claim.education?.reportVersionId === report.reportId && claim.education.steps.send.completedAt ? <p className="sent-recorded" data-review-entrance="supporting">Request recorded: <RecordedTime value={claim.education.steps.send.completedAt} /></p> : null}
-        <div className="sent-next-steps" data-review-entrance="supporting">
-        <h2>What happens now</h2>
-        <p>Your case remains active while you wait. Venfour does not monitor your email or the insurer, so it cannot verify delivery, receipt, or detect a response automatically.</p>
-        <p>Keep your sent email, attached report, and the insurer’s written reply. When the insurer responds, return to this case and choose “I received a response” to continue.</p>
+        <div className="sent-next-steps">
+        <h2 data-review-entrance="supporting" data-review-order="0">What happens now</h2>
+        <p data-review-entrance="supporting" data-review-order="1">Your case remains active while you wait. Venfour does not monitor your email or the insurer, so it cannot verify delivery, receipt, or detect a response automatically.</p>
+        <p data-review-entrance="supporting" data-review-order="2">Keep your sent email, attached report, and the insurer’s written reply. When the insurer responds, return to this case and choose “I received a response” to continue.</p>
         </div>
         <ReportFileRow {...props} />
       </> : null}
@@ -370,11 +370,11 @@ export function CompletedAnalysis(props: CompletedAnalysisProps) {
         {prerequisite ? <p className="review-prerequisite"><Link to={path(prerequisite)}>Continue your review</Link> before proceeding from this stage.</p> : null}
         {progression.error ? <p className="review-error" role="alert">{progression.error}</p> : null}
         <nav className="review-actions" aria-label="Review navigation" ref={setNavigationActions}>
-          {previous ? <Link aria-disabled={progression.pending || undefined} className="review-back" data-review-entrance="supporting" to={previous} onClick={(event) => {
+          {previous ? <Link aria-disabled={progression.pending || undefined} className="review-back" data-review-entrance="supporting" data-review-order="0" to={previous} onClick={(event) => {
             if (progression.pending) event.preventDefault();
           }}><ArrowLeft aria-hidden="true" />Back</Link> : null}
-          {stage === "waiting" ? <button className="review-primary" data-review-entrance="secondary" type="button" onClick={() => navigate(path("response"))}><span className="review-action-label"><span className="review-action-reserve" aria-hidden="true">I received a response</span><span>I received a response</span></span><span className="review-action-icon"><ArrowRight aria-hidden="true" /></span></button> : null}
-          {stage !== "request" && stage !== "waiting" && stage !== "response" && stage !== "response_received" && stage !== "response_reviewing" && stage !== "response_reviewed" && (stage !== "meaning" || report.conclusion.continuingSupported) ? <button className="review-primary" data-review-entrance="secondary" type="button" disabled={progression.pending || Boolean(prerequisite)} onClick={() => void continueReview()}><span className="review-action-label"><span className="review-action-reserve" aria-hidden="true">{action}</span><span>{progression.pending ? "Saving progress…" : action}</span></span><span className="review-action-icon">{progression.pending ? <LoaderCircle className="review-spinner" aria-hidden="true" /> : <ArrowRight aria-hidden="true" />}</span></button> : null}
+          {stage === "waiting" ? <button className="review-primary" data-review-entrance="secondary" data-review-order="1" type="button" onClick={() => navigate(path("response"))}><span className="review-action-label"><span className="review-action-reserve" aria-hidden="true">I received a response</span><span>I received a response</span></span><span className="review-action-icon"><ArrowRight aria-hidden="true" /></span></button> : null}
+          {stage !== "request" && stage !== "waiting" && stage !== "response" && stage !== "response_received" && stage !== "response_reviewing" && stage !== "response_reviewed" && (stage !== "meaning" || report.conclusion.continuingSupported) ? <button className="review-primary" data-review-entrance="secondary" data-review-order="1" type="button" disabled={progression.pending || Boolean(prerequisite)} onClick={() => void continueReview()}><span className="review-action-label"><span className="review-action-reserve" aria-hidden="true">{action}</span><span>{progression.pending ? "Saving progress…" : action}</span></span><span className="review-action-icon">{progression.pending ? <LoaderCircle className="review-spinner" aria-hidden="true" /> : <ArrowRight aria-hidden="true" />}</span></button> : null}
         </nav>
       </div>
     </section>

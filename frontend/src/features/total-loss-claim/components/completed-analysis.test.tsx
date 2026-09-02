@@ -527,10 +527,15 @@ describe("completed-analysis guided progression", () => {
   });
 
   it("waits for the acknowledgement but never for animations when moving between stable review stages", async () => {
-    const originalAnimate = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "animate");
-    const animationFinished = new Promise<void>(() => undefined);
-    const animate = vi.fn(() => ({ finished: animationFinished, cancel: vi.fn() }));
-    Object.defineProperty(HTMLElement.prototype, "animate", { configurable: true, value: animate });
+    const originalObserver = Object.getOwnPropertyDescriptor(window, "IntersectionObserver");
+    let intersect!: IntersectionObserverCallback;
+    class ControlledObserver {
+      constructor(callback: IntersectionObserverCallback) { intersect = callback; }
+      observe = vi.fn();
+      unobserve = vi.fn();
+      disconnect = vi.fn();
+    }
+    Object.defineProperty(window, "IntersectionObserver", { configurable: true, value: ControlledObserver });
     let release!: () => void;
     const pendingSave = new Promise<void>((resolve) => { release = resolve; });
     const saved = installClaim(claimProjection(), undefined, () => pendingSave);
@@ -546,7 +551,17 @@ describe("completed-analysis guided progression", () => {
       expect(navigation.parentElement).toBe(content);
       expect(content?.lastElementChild).toBe(navigation);
       expect(section.querySelector("footer")).not.toBeInTheDocument();
-      expect(animate).toHaveBeenCalled();
+      const entrance = section.querySelector<HTMLElement>("[data-review-entrance]")!;
+      act(() => intersect([{
+        target: entrance,
+        isIntersecting: true,
+        intersectionRatio: 1,
+        boundingClientRect: entrance.getBoundingClientRect(),
+        intersectionRect: entrance.getBoundingClientRect(),
+        rootBounds: null,
+        time: 0,
+      }], {} as IntersectionObserver));
+      expect(entrance).toHaveAttribute("data-scroll-reveal", "entering");
 
       await user.click(screen.getByRole("button", { name: "See how the insurer reached its value" }));
       await waitFor(() => expect(saved.writes).toHaveLength(1));
@@ -554,6 +569,7 @@ describe("completed-analysis guided progression", () => {
       expect(screen.getByRole("heading", { name: "Your result" })).toBeVisible();
       expect(view.router.state.location.pathname).toBe(`${BASE}/review/result`);
       expect(saved.claim().education?.steps.result.completedAt).toBeNull();
+      expect(entrance).toHaveAttribute("data-scroll-reveal", "entering");
 
       await act(async () => { release(); await pendingSave; });
       expect(await screen.findByRole("heading", { name: "How your insurer reached its value" })).toBeVisible();
@@ -582,8 +598,8 @@ describe("completed-analysis guided progression", () => {
     } finally {
       release();
       view.unmount();
-      if (originalAnimate) Object.defineProperty(HTMLElement.prototype, "animate", originalAnimate);
-      else Reflect.deleteProperty(HTMLElement.prototype, "animate");
+      if (originalObserver) Object.defineProperty(window, "IntersectionObserver", originalObserver);
+      else Reflect.deleteProperty(window, "IntersectionObserver");
     }
   });
 

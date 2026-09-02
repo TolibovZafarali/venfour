@@ -61,7 +61,7 @@ export function ValueRangeTrack({ report, valueLabel = "Insurer" }: { readonly r
     "--range-offer": `${point(value.amountMinorUnits)}%`,
   } as CSSProperties;
   return (
-    <div className="value-range-visual" aria-hidden="true" style={style}>
+    <div className="value-range-visual" data-review-entrance="supporting" data-review-order="1" aria-hidden="true" style={style}>
       <div className="value-range-legend"><span><i />Selected range</span><span><i />Median</span><span><i />{valueLabel}</span></div>
       <div className="value-range-axis"><span className="value-range-band" /><span className="value-range-median" /><span className="value-range-offer" /></div>
     </div>
@@ -75,10 +75,10 @@ export function InsurerValueBridge({ report }: { readonly report: TotalLossPubli
   const sameSet = before && after && advertisedPrices?.count === report.insurerEvidence.comparableCount && adjustedValues?.count === report.insurerEvidence.comparableCount && before.currency === after.currency;
   if (!before && !after) return null;
   return (
-    <div className="insurer-value-bridge" data-review-entrance="secondary" data-connected={Boolean(sameSet)}>
-      {before ? <div><span>Advertised-price median</span><strong>{moneyLabel(before)}</strong></div> : null}
-      {sameSet ? <div className="insurer-adjustment-link"><ArrowRight aria-hidden="true" /><span>Insurer adjustments</span></div> : null}
-      {after ? <div><span>Adjusted-value median</span><strong>{moneyLabel(after)}</strong></div> : null}
+    <div className="insurer-value-bridge" data-connected={Boolean(sameSet)}>
+      {before ? <div data-review-entrance="secondary" data-review-order="0"><span>Advertised-price median</span><strong>{moneyLabel(before)}</strong></div> : null}
+      {sameSet ? <div className="insurer-adjustment-link" data-review-entrance="secondary" data-review-order="1"><ArrowRight aria-hidden="true" /><span>Insurer adjustments</span></div> : null}
+      {after ? <div data-review-entrance="secondary" data-review-order="2"><span>Adjusted-value median</span><strong>{moneyLabel(after)}</strong></div> : null}
     </div>
   );
 }
@@ -87,10 +87,10 @@ export function RepresentativeListings({ report }: { readonly report: TotalLossP
   const rows = report.marketEvidence.comparables.slice(0, 3);
   if (!rows.length) return null;
   return (
-    <section className="market-listing-preview" data-review-entrance="supporting" aria-label="A closer look at the listings">
-      <div className="listing-preview-heading"><h2>A closer look at the listings</h2><span>Advertised prices</span></div>
+    <section className="market-listing-preview" aria-label="A closer look at the listings">
+      <div className="listing-preview-heading" data-review-entrance="supporting" data-review-order="0"><h2>A closer look at the listings</h2><span>Advertised prices</span></div>
       <div className="listing-preview-rows">
-        {rows.map((row, index) => <article key={`${index}:${row.vehicle}`} className="listing-preview-row">
+        {rows.map((row, index) => <article key={`${index}:${row.vehicle}`} className="listing-preview-row" data-review-entrance="supporting" data-review-order={index + 1}>
           <div className="listing-preview-identity"><span className="listing-preview-index" aria-hidden="true">{String(index + 1).padStart(2, "0")}</span><div><h3>{displayed(row.vehicle, `Selected listing ${index + 1}`)}</h3><p>{numeric(row.mileage, " mi")}<span aria-hidden="true"> · </span>{displayed(row.location)}</p></div></div>
           <div className="listing-preview-source"><p>{displayed(row.dealer)}</p><span>{roleLabel(row.role)}</span></div>
           <strong className="listing-preview-price">{displayed(row.advertisedPrice)}</strong>

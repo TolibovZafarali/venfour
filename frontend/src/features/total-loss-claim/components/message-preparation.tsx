@@ -122,17 +122,17 @@ function DraftEditor({
 
   return (
     <section className="request-review" aria-label="Request draft">
-      <header className="request-heading" data-review-entrance="primary">
+      <header className="request-heading" data-review-entrance="primary" data-review-order="0">
         <h1>Review and send your request</h1>
         <p>Review the message below. When it’s ready, open it in your email app, attach the valuation report, and send it.</p>
       </header>
       <div className="request-send-layout" data-confirming={hasSharedMessage || undefined}>
-        <aside className="request-evidence-panel" data-review-entrance="secondary" aria-labelledby={`${fieldId}-evidence`}>
+        <aside className="request-evidence-panel" data-review-entrance="secondary" data-review-order="1" aria-labelledby={`${fieldId}-evidence`}>
           <h2 id={`${fieldId}-evidence`}>Evidence to attach</h2>
           <ReportFileRow {...props} variant="attachment" />
           <p className="request-attachment-note">Attach this PDF in your email app before sending.</p>
         </aside>
-        <div className="request-draft-column" data-review-entrance="supporting">
+        <div className="request-draft-column" data-review-entrance="supporting" data-review-order="2">
           <div className="request-composer">
             <div className="request-composer-header">
               <span className="request-composer-title" aria-hidden="true">
@@ -449,7 +449,7 @@ export function MessagePreparation({
         void preparation.createDraft();
       }}
     >
-      <header className="request-heading" data-review-entrance="primary">
+      <header className="request-heading" data-review-entrance="primary" data-review-order="0">
         <h1>Prepare your request</h1>
         <p>
           {intakeMode === "manual"

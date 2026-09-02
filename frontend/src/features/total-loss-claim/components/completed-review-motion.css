@@ -17,12 +17,6 @@ html:has([data-completed-review]) { scrollbar-gutter: stable; }
 
 :is(.completed-analysis, .completed-review-progress-host) .review-progress-fill { transition: transform 220ms cubic-bezier(.2, .75, .25, 1); }
 
-.completed-analysis [data-review-reveal="pending"] {
-  opacity: .62;
-  filter: blur(6px);
-  translate: 0 12px;
-}
-
 .completed-analysis .review-action-label { display: grid; min-width: 0; }
 .completed-analysis .review-action-label > span { grid-area: 1 / 1; }
 .completed-analysis .review-action-reserve { visibility: hidden; }
@@ -32,9 +26,4 @@ html:has([data-completed-review]) { scrollbar-gutter: stable; }
 
 @media (prefers-reduced-motion: reduce) {
   :is(.completed-analysis, .completed-review-progress-host) .review-progress-fill { transition: none; }
-  .completed-analysis [data-review-reveal="pending"] { opacity: 1; filter: none; translate: none; }
-}
-
-@media (max-width: 540px) {
-  .completed-analysis [data-review-reveal="pending"] { filter: blur(3px); translate: 0 8px; }
 }

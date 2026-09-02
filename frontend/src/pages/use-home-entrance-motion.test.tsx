@@ -106,10 +106,10 @@ describe("homepage entrance behavior", () => {
     render(<HomeMotion />);
     const heading = screen.getByRole("heading", { name: "Services heading" });
 
-    expect(heading).toHaveAttribute("data-home-reveal", "pending");
+    expect(heading).toHaveAttribute("data-scroll-reveal", "pending");
     expect(currentObserver().targets.has(heading)).toBe(true);
     act(() => currentObserver().notify(heading, false, 0));
-    expect(heading).toHaveAttribute("data-home-reveal", "pending");
+    expect(heading).toHaveAttribute("data-scroll-reveal", "pending");
   });
 
   it("reveals at the viewport boundary without requiring a fraction of a large target", () => {
@@ -120,9 +120,9 @@ describe("homepage entrance behavior", () => {
     expect(observer.rootMargin).toBe("0px 0px -160px 0px");
     expect(observer.thresholds).toEqual([0]);
     act(() => observer.notify(illustration, false, 0));
-    expect(illustration).toHaveAttribute("data-home-reveal", "pending");
+    expect(illustration).toHaveAttribute("data-scroll-reveal", "pending");
     act(() => observer.notify(illustration, true, 0.001));
-    expect(illustration).toHaveAttribute("data-home-reveal", "entering");
+    expect(illustration).toHaveAttribute("data-scroll-reveal", "entering");
     expect(observer.targets.has(illustration)).toBe(false);
   });
 
@@ -139,10 +139,10 @@ describe("homepage entrance behavior", () => {
     act(() => observer.notify(heading));
     act(() => observer.notify(actions));
 
-    expect(heading.style.getPropertyValue("--home-entrance-delay")).toBe("0ms");
-    expect(explanation.style.getPropertyValue("--home-entrance-delay")).toBe("80ms");
-    expect(illustration.style.getPropertyValue("--home-entrance-delay")).toBe("160ms");
-    expect(actions.style.getPropertyValue("--home-entrance-delay")).toBe("240ms");
+    expect(heading.style.getPropertyValue("--scroll-entrance-delay")).toBe("0ms");
+    expect(explanation.style.getPropertyValue("--scroll-entrance-delay")).toBe("80ms");
+    expect(illustration.style.getPropertyValue("--scroll-entrance-delay")).toBe("160ms");
+    expect(actions.style.getPropertyValue("--scroll-entrance-delay")).toBe("240ms");
   });
 
   it("does not animate a nested target independently of its visual parent", () => {
@@ -152,7 +152,7 @@ describe("homepage entrance behavior", () => {
 
     expect(currentObserver().targets.has(illustration)).toBe(true);
     expect(currentObserver().targets.has(nestedLabel)).toBe(false);
-    expect(nestedLabel).not.toHaveAttribute("data-home-reveal");
+    expect(nestedLabel).not.toHaveAttribute("data-scroll-reveal");
   });
 
   it("makes an anchor heading readable without revealing the rest of its section", () => {
@@ -165,11 +165,11 @@ describe("homepage entrance behavior", () => {
     act(() => section.focus());
 
     expect(section).toHaveFocus();
-    expect(heading).not.toHaveAttribute("data-home-reveal");
+    expect(heading).not.toHaveAttribute("data-scroll-reveal");
     expect(currentObserver().targets.has(heading)).toBe(false);
-    expect(explanation).toHaveAttribute("data-home-reveal", "pending");
-    expect(illustration).toHaveAttribute("data-home-reveal", "pending");
-    expect(screen.getByRole("heading", { name: "Process heading" })).toHaveAttribute("data-home-reveal", "pending");
+    expect(explanation).toHaveAttribute("data-scroll-reveal", "pending");
+    expect(illustration).toHaveAttribute("data-scroll-reveal", "pending");
+    expect(screen.getByRole("heading", { name: "Process heading" })).toHaveAttribute("data-scroll-reveal", "pending");
   });
 
   it("makes a focused control readable without advancing nearby content", () => {
@@ -179,9 +179,9 @@ describe("homepage entrance behavior", () => {
 
     act(() => screen.getByRole("button", { name: "Start a review" }).focus());
 
-    expect(actions).not.toHaveAttribute("data-home-reveal");
-    expect(actions.style.getPropertyValue("--home-entrance-delay")).toBe("");
-    expect(screen.getByText("Service explanation")).toHaveAttribute("data-home-reveal", "pending");
+    expect(actions).not.toHaveAttribute("data-scroll-reveal");
+    expect(actions.style.getPropertyValue("--scroll-entrance-delay")).toBe("");
+    expect(screen.getByText("Service explanation")).toHaveAttribute("data-scroll-reveal", "pending");
   });
 
   it("updates the viewport boundary on resize without replaying or losing pending content", () => {
@@ -199,9 +199,9 @@ describe("homepage entrance behavior", () => {
     expect(resizedObserver.rootMargin).toBe("0px 0px -96px 0px");
     expect(resizedObserver.targets.has(heading)).toBe(false);
     expect(resizedObserver.targets.has(explanation)).toBe(true);
-    expect(explanation).toHaveAttribute("data-home-reveal", "pending");
+    expect(explanation).toHaveAttribute("data-scroll-reveal", "pending");
     act(() => resizedObserver.notify(explanation));
-    expect(explanation).toHaveAttribute("data-home-reveal", "entering");
+    expect(explanation).toHaveAttribute("data-scroll-reveal", "entering");
   });
 
   it("clears reveal state at focus resolution and does not replay a settled target", () => {
@@ -211,20 +211,20 @@ describe("homepage entrance behavior", () => {
     act(() => observer.notify(explanation));
 
     finishAnimation(explanation, "unrelated-animation");
-    expect(explanation).toHaveAttribute("data-home-reveal", "entering");
-    finishAnimation(explanation, "home-focus-enter");
-    expect(explanation).not.toHaveAttribute("data-home-reveal");
-    expect(explanation.style.getPropertyValue("--home-entrance-delay")).toBe("");
+    expect(explanation).toHaveAttribute("data-scroll-reveal", "entering");
+    finishAnimation(explanation, "scroll-focus-enter");
+    expect(explanation).not.toHaveAttribute("data-scroll-reveal");
+    expect(explanation.style.getPropertyValue("--scroll-entrance-delay")).toBe("");
     act(() => observer.notify(explanation));
-    expect(explanation).not.toHaveAttribute("data-home-reveal");
+    expect(explanation).not.toHaveAttribute("data-scroll-reveal");
   });
 
   it("leaves content visible when reduced motion is already requested", () => {
     motion.matches = true;
     render(<HomeMotion />);
 
-    expect(screen.getByRole("heading", { name: "Services heading" })).not.toHaveAttribute("data-home-reveal");
-    expect(screen.getByText("Service explanation")).not.toHaveAttribute("data-home-reveal");
+    expect(screen.getByRole("heading", { name: "Services heading" })).not.toHaveAttribute("data-scroll-reveal");
+    expect(screen.getByText("Service explanation")).not.toHaveAttribute("data-scroll-reveal");
     expect(observers).toHaveLength(0);
   });
 
@@ -241,8 +241,8 @@ describe("homepage entrance behavior", () => {
     });
 
     expect(observer.disconnect).toHaveBeenCalled();
-    expect(heading).not.toHaveAttribute("data-home-reveal");
-    expect(explanation).not.toHaveAttribute("data-home-reveal");
+    expect(heading).not.toHaveAttribute("data-scroll-reveal");
+    expect(explanation).not.toHaveAttribute("data-scroll-reveal");
     vi.stubGlobal("innerHeight", 600);
     fireEvent(window, new Event("resize"));
     expect(observers.every((item) => item.targets.size === 0)).toBe(true);
@@ -252,8 +252,8 @@ describe("homepage entrance behavior", () => {
     vi.stubGlobal("IntersectionObserver", undefined);
     render(<HomeMotion />);
 
-    expect(screen.getByRole("heading", { name: "Services heading" })).not.toHaveAttribute("data-home-reveal");
-    expect(screen.getByText("Service explanation")).not.toHaveAttribute("data-home-reveal");
+    expect(screen.getByRole("heading", { name: "Services heading" })).not.toHaveAttribute("data-scroll-reveal");
+    expect(screen.getByText("Service explanation")).not.toHaveAttribute("data-scroll-reveal");
   });
 
   it("disconnects observation and removes motion state and listeners on unmount", () => {
@@ -270,8 +270,8 @@ describe("homepage entrance behavior", () => {
 
     expect(observer.disconnect).toHaveBeenCalled();
     expect(observer.targets.size).toBe(0);
-    expect(explanation).not.toHaveAttribute("data-home-reveal");
-    expect(explanation.style.getPropertyValue("--home-entrance-delay")).toBe("");
+    expect(explanation).not.toHaveAttribute("data-scroll-reveal");
+    expect(explanation.style.getPropertyValue("--scroll-entrance-delay")).toBe("");
     expect(removeRootListener).toHaveBeenCalledWith("focusin", expect.any(Function));
     expect(removeRootListener).toHaveBeenCalledWith("animationend", expect.any(Function));
     expect(removeMotionChange).toHaveBeenCalledWith("change", expect.any(Function));
