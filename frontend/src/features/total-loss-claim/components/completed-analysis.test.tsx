@@ -516,6 +516,10 @@ describe("completed-analysis guided progression", () => {
       const section = screen.getByRole("region", { name: "Completed analysis" });
       const content = section.querySelector(".review-stage-content");
       expect(content).not.toBeNull();
+      const navigation = screen.getByRole("navigation", { name: "Review navigation" });
+      expect(navigation.parentElement).toBe(content);
+      expect(content?.lastElementChild).toBe(navigation);
+      expect(section.querySelector("footer")).not.toBeInTheDocument();
       expect(animate).toHaveBeenCalled();
 
       await user.click(screen.getByRole("button", { name: "See how the insurer reached its value" }));
@@ -531,6 +535,8 @@ describe("completed-analysis guided progression", () => {
       expect(view.router.state.location.pathname).toBe(`${BASE}/review/insurer`);
       expect(screen.getByRole("region", { name: "Completed analysis" })).toBe(section);
       expect(section.querySelector(".review-stage-content")).toBe(content);
+      expect(screen.getByRole("navigation", { name: "Review navigation" })).toBe(navigation);
+      expect(content?.lastElementChild).toBe(navigation);
       expect(section.querySelectorAll("h1")).toHaveLength(1);
 
       for (let repeat = 0; repeat < 2; repeat += 1) {

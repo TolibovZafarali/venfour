@@ -323,7 +323,7 @@
   display: none;
 }
 
-.completed-analysis .request-prepare-actions[data-footer-action] {
+.completed-analysis .request-prepare-actions[data-navigation-action] {
   justify-content: flex-start;
 }
 

@@ -501,7 +501,7 @@ export function MessagePreparation({
             </button>
           </div>
         )}
-        <div className="request-action-bar request-prepare-actions" data-footer-action={actionContainer !== undefined || undefined}>
+        <div className="request-action-bar request-prepare-actions" data-navigation-action={actionContainer !== undefined || undefined}>
           {!preparation.reviewCompleted ? (
             <p>Complete the review before preparing your request.</p>
           ) : null}

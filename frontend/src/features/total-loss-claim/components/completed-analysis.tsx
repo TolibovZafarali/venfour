@@ -151,7 +151,7 @@ export function CompletedAnalysis(props: CompletedAnalysisProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const root = useRef<HTMLElement>(null);
-  const [footerActions, setFooterActions] = useState<HTMLElement | null>(null);
+  const [navigationActions, setNavigationActions] = useState<HTMLElement | null>(null);
   const navigationEpoch = useRef(0);
   const requestedStage = completedAnalysisStage(view, search, intakeMode);
   const sent = requestIsSent(claim);
@@ -261,7 +261,7 @@ export function CompletedAnalysis(props: CompletedAnalysisProps) {
   };
 
   return (
-    <section className="completed-analysis" aria-label="Completed analysis" ref={root} tabIndex={-1} data-stage={stage} data-request-draft={stage === "request" && hasDraft || undefined}>
+    <section className="completed-analysis" aria-label="Completed analysis" ref={root} tabIndex={-1} data-stage={stage}>
       {requestedStage === "request" && sent ? <Navigate replace to={path(responsePath)} /> : null}
       <CaseJourneyProgress progress={journeyProgress} />
       <div className="review-stage-content" data-view={stage}>
@@ -326,7 +326,7 @@ export function CompletedAnalysis(props: CompletedAnalysisProps) {
         {!report.conclusion.continuingSupported ? <ReportFileRow {...props} /> : null}
       </> : null}
       {stage === "request" ? (
-        canPrepare && report.conclusion.continuingSupported ? <MessagePreparation {...props} actionContainer={footerActions} onDraftStateChange={setHasDraft} onSent={() => navigate(path("waiting"), { replace: true })} /> : <>
+        canPrepare && report.conclusion.continuingSupported ? <MessagePreparation {...props} actionContainer={navigationActions} onDraftStateChange={setHasDraft} onSent={() => navigate(path("waiting"), { replace: true })} /> : <>
           <h1 data-review-entrance="primary">Prepare your request</h1>
           {report.conclusion.continuingSupported ? <p data-review-entrance="secondary">Finish reviewing the result and comparison before creating your request.</p> : <p data-review-entrance="secondary">The result does not support a higher valuation request. Your report remains available.</p>}
           <ReportFileRow {...props} />
@@ -367,18 +367,16 @@ export function CompletedAnalysis(props: CompletedAnalysisProps) {
         />
         <ReportFileRow {...props} />
       </> : null}
-      </div>
-      {prerequisite ? <p className="review-prerequisite"><Link to={path(prerequisite)}>Continue your review</Link> before proceeding from this stage.</p> : null}
-      {progression.error ? <p className="review-error" role="alert">{progression.error}</p> : null}
-      <footer className="review-navigation-footer">
-        <nav className="review-actions" aria-label="Review navigation" ref={setFooterActions}>
+        {prerequisite ? <p className="review-prerequisite"><Link to={path(prerequisite)}>Continue your review</Link> before proceeding from this stage.</p> : null}
+        {progression.error ? <p className="review-error" role="alert">{progression.error}</p> : null}
+        <nav className="review-actions" aria-label="Review navigation" ref={setNavigationActions}>
           {previous ? <Link aria-disabled={progression.pending || undefined} className="review-back" to={previous} onClick={(event) => {
             if (progression.pending) event.preventDefault();
           }}><ArrowLeft aria-hidden="true" />Back</Link> : null}
           {stage === "waiting" ? <button className="review-primary" type="button" onClick={() => navigate(path("response"))}><span className="review-action-label"><span className="review-action-reserve" aria-hidden="true">I received a response</span><span>I received a response</span></span><span className="review-action-icon"><ArrowRight aria-hidden="true" /></span></button> : null}
           {stage !== "request" && stage !== "waiting" && stage !== "response" && stage !== "response_received" && stage !== "response_reviewing" && stage !== "response_reviewed" && (stage !== "meaning" || report.conclusion.continuingSupported) ? <button className="review-primary" type="button" disabled={progression.pending || Boolean(prerequisite)} onClick={() => void continueReview()}><span className="review-action-label"><span className="review-action-reserve" aria-hidden="true">{action}</span><span>{progression.pending ? "Saving progress…" : action}</span></span><span className="review-action-icon">{progression.pending ? <LoaderCircle className="review-spinner" aria-hidden="true" /> : <ArrowRight aria-hidden="true" />}</span></button> : null}
         </nav>
-      </footer>
+      </div>
     </section>
   );
 }
