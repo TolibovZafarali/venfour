@@ -127,6 +127,19 @@ function workspace(savedClaim = claim(), intakeMode: "manual" | "report" = "repo
 }
 
 describe("persistent case workspace projection", () => {
+  it("opens closed cases in the existing workspace with education and saved responses available", () => {
+    const saved: TotalLossClaimSecured = { ...claim("resolved"), insurerResponse: response("completed"),
+      workflow: { phase: "resolution", currentTask: "resolved", revision: 9 },
+      resolution: { code: "RESOLVED_WITH_INSURER", resolvedAt: NOW, customerConfirmed: true, clientRequestId: CASE_ID, offerId: null, amountMinorUnits: null, currency: null, amountSource: null, recommendationId: null, decisionId: null, responseId: null },
+    };
+    const result = workspace(saved);
+    expect(result.currentPath).toBe(`${BASE}/resolution`);
+    expect(result.currentLabel).toBe("Case closed");
+    expect(result.progress.isCaseClosed).toBe(true);
+    expect(result.sections.filter((section) => ["result", "insurer", "market", "meaning", "response_received", "response_reviewed", "resolution"].includes(section.stage)).every((section) => section.available)).toBe(true);
+    expect(result.sections.some((section) => section.stage === "waiting")).toBe(false);
+    expect(result.sections.find((section) => section.stage === "result")?.complete).toBe(false);
+  });
   it.each(["report", "manual"] as const)("resumes the follow-up and retains response and initial-request history for %s intake", (intakeMode) => {
     const savedResponse = response("completed");
     const continued = { ...savedResponse, decision: {

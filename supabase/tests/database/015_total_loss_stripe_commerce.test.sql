@@ -227,7 +227,8 @@ select ok(
     'insurer_response',
     'follow_up',
     'response_intake',
-    'negotiation_history'
+    'negotiation_history',
+    'case_resolution'
   ]::text[],
   'claim resume preserves commerce fields and adds only customer-safe delivery and response projections'
 );

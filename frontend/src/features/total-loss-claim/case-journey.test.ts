@@ -22,6 +22,13 @@ function progress(
 }
 
 describe("total-loss case journey progress", () => {
+  it("has a terminal completion only after a recorded closure", () => {
+    expect(progress("response_reviewed").isCaseClosed).toBe(false);
+    expect(progress("resolution")).toMatchObject({ isCaseClosed: false, isCaseActive: true, current: { id: "finalize_case" } });
+    const closed = totalLossCaseJourneyProgress({ continuingSupported: true, hasDraft: true, intakeMode: "report", stage: "result", isClosed: true });
+    expect(closed).toMatchObject({ isCaseClosed: true, isCaseActive: false, current: { id: "case_closed" } });
+    expect(closed.position).toBe(closed.total);
+  });
   it.each(["manual", "report"] as const)("returns to active waiting after the sent follow-up for %s intake", (intakeMode) => {
     const result = totalLossCaseJourneyProgress({ continuingSupported: true, hasDraft: true, intakeMode, stage: "waiting", hasFollowUp: true, followUpSent: true });
     expect(result.current.id).toBe("waiting_for_follow_up_response");

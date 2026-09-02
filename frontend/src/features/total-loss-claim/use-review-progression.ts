@@ -4,6 +4,7 @@ import type { TotalLossIntakeMode } from "@/features/total-loss/types";
 import type { TotalLossCaseJourneyStage } from "./case-journey";
 import type { TotalLossClaimSecured, TotalLossEducationStep } from "./contracts";
 import { useTotalLossEducationProgressMutation } from "./queries";
+import { caseIsClosed } from "./resolution";
 
 type ReadingStage = "result" | "insurer" | "market" | "meaning";
 
@@ -13,6 +14,7 @@ export function reviewPrerequisite(
   intakeMode: TotalLossIntakeMode,
   stage: TotalLossCaseJourneyStage,
 ): ReadingStage | null {
+  if (caseIsClosed(claim)) return null;
   if (stage === "result" || stage === "waiting") return null;
   const steps = claim.education?.reportVersionId === reportId
     ? claim.education.steps
@@ -54,6 +56,7 @@ export function useReviewProgression({
   const checkpoint = useRef({ reportId, revision: 0, completed: new Set<TotalLossEducationStep>() });
 
   const complete = async (stage: ReadingStage) => {
+    if (caseIsClosed(claim)) return false;
     if (inFlight.current) return false;
     if (!claim.workflow || claim.education?.reportVersionId !== reportId) {
       setError("We couldn’t verify your saved review. Refresh and try again.");

@@ -21,8 +21,8 @@ export function CaseJourneyProgress({
 }) {
   const headerHost = useCompletedReviewProgressHost();
   const currentIndex = Math.max(0, sections.findIndex((section) => section.current));
-  const progressValue = currentIndex + 0.5;
-  const valueText = progress.isCaseActive
+  const progressValue = progress.isCaseClosed ? sections.length : currentIndex + 0.5;
+  const valueText = progress.isCaseClosed ? "Case closed. Lifecycle complete." : progress.isCaseActive
     ? `Current stage: ${progress.current.label}. Case active.`
     : `Step ${currentIndex + 1} of ${sections.length}: ${progress.current.label}`;
   const progressBar = (

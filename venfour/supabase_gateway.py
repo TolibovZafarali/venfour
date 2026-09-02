@@ -1137,6 +1137,26 @@ class SupabaseHttpGateway:
         )
         return self._single_rpc_row(payload, "Insurer response decision")
 
+    def confirm_total_loss_case_resolution(
+        self, case_id: str, values: Mapping[str, Any], access_token: str,
+    ) -> Mapping[str, Any]:
+        payload = self._user_rpc(
+            "confirm_total_loss_case_resolution",
+            {
+                "requested_case_id": _canonical_uuid(case_id, "Case ID"),
+                "requested_client_request_id": values.get("clientRequestId"),
+                "requested_resolution_code": values.get("resolutionCode"),
+                "expected_workflow_revision": values.get("workflowRevision"),
+                "requested_decision_id": values.get("decisionId"),
+                "requested_offer_id": values.get("offerId"),
+                "requested_amount_minor_units": values.get("amountMinorUnits"),
+                "requested_currency": values.get("currency"),
+            },
+            access_token,
+            permission_denied_as_conflict=True,
+        )
+        return self._single_rpc_row(payload, "Case resolution")
+
     def claim_current_total_loss_insurer_response_analysis(
         self,
         case_id: str,

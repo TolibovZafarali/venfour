@@ -11,6 +11,7 @@ export type TotalLossCaseJourneyStage =
   | "response_received"
   | "response_reviewing"
   | "follow_up"
+  | "resolution"
   | "response_reviewed";
 
 export type TotalLossCaseJourneyStepId =
@@ -25,6 +26,8 @@ export type TotalLossCaseJourneyStepId =
   | "response_reviewing"
   | "prepare_follow_up"
   | "waiting_for_follow_up_response"
+  | "finalize_case"
+  | "case_closed"
   | "response_reviewed";
 
 export interface TotalLossCaseJourneyStep {
@@ -35,6 +38,7 @@ export interface TotalLossCaseJourneyStep {
 export interface TotalLossCaseJourneyProgress {
   readonly current: TotalLossCaseJourneyStep;
   readonly isCaseActive: boolean;
+  readonly isCaseClosed: boolean;
   readonly position: number;
   readonly steps: readonly TotalLossCaseJourneyStep[];
   readonly total: number;
@@ -89,6 +93,8 @@ const journeySteps = {
     id: "waiting_for_follow_up_response",
     label: "Waiting for insurer",
   },
+  finalize_case: { id: "finalize_case", label: "Confirm the outcome" },
+  case_closed: { id: "case_closed", label: "Case closed" },
 } as const satisfies Record<
   TotalLossCaseJourneyStepId,
   TotalLossCaseJourneyStep
@@ -120,6 +126,8 @@ function currentStepId(
       return "response_reviewed";
     case "follow_up":
       return "prepare_follow_up";
+    case "resolution":
+      return "finalize_case";
   }
 }
 
@@ -130,6 +138,7 @@ export function totalLossCaseJourneyProgress({
   stage,
   hasFollowUp = false,
   followUpSent = false,
+  isClosed = false,
 }: {
   readonly continuingSupported: boolean;
   readonly hasDraft: boolean;
@@ -137,6 +146,7 @@ export function totalLossCaseJourneyProgress({
   readonly stage: TotalLossCaseJourneyStage;
   readonly hasFollowUp?: boolean;
   readonly followUpSent?: boolean;
+  readonly isClosed?: boolean;
 }): TotalLossCaseJourneyProgress {
   const steps: TotalLossCaseJourneyStep[] = [journeySteps.understand_result];
   if (intakeMode === "report") steps.push(journeySteps.review_insurer_report);
@@ -155,7 +165,8 @@ export function totalLossCaseJourneyProgress({
     stage === "response_received" ||
     stage === "response_reviewing" ||
     stage === "response_reviewed" ||
-    stage === "follow_up"
+    stage === "follow_up" ||
+    stage === "resolution"
   ) {
     steps.push(
       journeySteps.prepare_request,
@@ -168,8 +179,11 @@ export function totalLossCaseJourneyProgress({
   }
   if (stage === "follow_up" || hasFollowUp) steps.push(journeySteps.prepare_follow_up);
   if (followUpSent) steps.push(journeySteps.waiting_for_follow_up_response);
+  if (stage === "resolution") steps.push(journeySteps.finalize_case);
+  if (isClosed) steps.push(journeySteps.case_closed);
 
   let id = stage === "waiting" && followUpSent ? "waiting_for_follow_up_response" : currentStepId(stage, hasDraft);
+  if (isClosed) id = "case_closed";
   if (intakeMode === "manual" && id === "review_insurer_report") {
     id = "review_market_evidence";
   }
@@ -179,10 +193,11 @@ export function totalLossCaseJourneyProgress({
 
   return {
     current,
+    isCaseClosed: isClosed,
     isCaseActive:
-      current.id === "waiting_for_insurer" ||
+      !isClosed && (current.id === "waiting_for_insurer" ||
       current.id === "waiting_for_follow_up_response" ||
-      current.id === "response_reviewing",
+      current.id === "response_reviewing" || current.id === "finalize_case"),
     position,
     steps,
     total: steps.length,

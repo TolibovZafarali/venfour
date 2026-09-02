@@ -1801,6 +1801,7 @@ export type Database = {
           phase: Database["public"]["Enums"]["total_loss_claim_phase"]
           preliminary_snapshot_id: string
           resolution_code: string | null
+          resolution_details: Json | null
           resolved_at: string | null
           revision: number
           updated_at: string
@@ -1817,6 +1818,7 @@ export type Database = {
           phase?: Database["public"]["Enums"]["total_loss_claim_phase"]
           preliminary_snapshot_id: string
           resolution_code?: string | null
+          resolution_details?: Json | null
           resolved_at?: string | null
           revision?: number
           updated_at?: string
@@ -1833,6 +1835,7 @@ export type Database = {
           phase?: Database["public"]["Enums"]["total_loss_claim_phase"]
           preliminary_snapshot_id?: string
           resolution_code?: string | null
+          resolution_details?: Json | null
           resolved_at?: string | null
           revision?: number
           updated_at?: string
@@ -4396,6 +4399,19 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      confirm_total_loss_case_resolution: {
+        Args: {
+          expected_workflow_revision: number
+          requested_amount_minor_units?: number
+          requested_case_id: string
+          requested_client_request_id: string
+          requested_currency?: string
+          requested_decision_id?: string
+          requested_offer_id?: string
+          requested_resolution_code: string
+        }
+        Returns: Json
+      }
       confirm_total_loss_customer_message_sent: {
         Args: {
           confirmed_report_attached: boolean
@@ -5924,6 +5940,7 @@ export type Database = {
         sending_details: Json | null
         message_draft: Json | null
         insurer_response: Json | null
+        case_resolution: Json | null
       }
       total_loss_case_details_public: {
         case_id: string | null

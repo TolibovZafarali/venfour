@@ -11,6 +11,7 @@ import type {
 } from "./contracts";
 import { requestIsSent, requestReviewComplete } from "./request-state";
 import { reviewPrerequisite } from "./use-review-progression";
+import { caseIsClosed, currentAcceptedOffer } from "./resolution";
 import {
   authoritativeTotalLossClaimPath,
   completedAnalysisStage,
@@ -39,6 +40,7 @@ export interface CaseWorkspace {
 const reviewStages: readonly TotalLossCaseJourneyStage[] = [
   "result", "insurer", "market", "meaning", "request", "waiting",
   "response", "response_received", "response_reviewing", "response_reviewed", "follow_up",
+  "resolution",
 ];
 
 export function createCaseWorkspace({
@@ -52,6 +54,7 @@ export function createCaseWorkspace({
   readonly intakeMode: TotalLossIntakeMode;
   readonly hasDraft: boolean;
 }): CaseWorkspace {
+  const closed = caseIsClosed(claim);
   const currentPath = authoritativeTotalLossClaimPath(claim, intakeMode) ??
     totalLossClaimBasePath(claim.caseId);
   const routeStage = reviewStages.find((stage) =>
@@ -67,6 +70,7 @@ export function createCaseWorkspace({
     stage: currentStage,
     hasFollowUp: Boolean(claim.followUp),
     followUpSent: claim.followUp?.state === "sent",
+    isClosed: closed,
   });
   const education = claim.education?.reportVersionId === report.reportId
     ? claim.education.steps
@@ -95,7 +99,7 @@ export function createCaseWorkspace({
     ...steps: TotalLossEducationStep[]
   ) => {
     const complete = completed(...steps);
-    add(stage, label, complete || !reviewPrerequisite(claim, report.reportId, intakeMode, stage), complete);
+    add(stage, label, closed || complete || !reviewPrerequisite(claim, report.reportId, intakeMode, stage), complete);
   };
 
   addEducation("result", "Your result", "result");
@@ -109,27 +113,28 @@ export function createCaseWorkspace({
 
   const sent = requestIsSent(claim);
   const response = claim.insurerResponse;
-  if (report.conclusion.continuingSupported || sent) {
+  if ((!closed && report.conclusion.continuingSupported) || sent) {
     add("request", sent ? "Initial request" : "Request preparation",
       sent || requestReviewComplete(claim, report.reportId), sent);
-    add("waiting", "Waiting for insurer", sent, Boolean(response) && claim.followUp?.state !== "sent");
+    if (!closed) add("waiting", "Waiting for insurer", sent, Boolean(response) && claim.followUp?.state !== "sent");
   }
-  if (report.conclusion.continuingSupported || sent || response) {
+  if ((!closed && report.conclusion.continuingSupported) || sent || response) {
     add("response_received", "Insurer response", Boolean(response), Boolean(response));
     const reviewed = response?.processingState === "completed" &&
       Boolean(response.analysis && response.analysisEvidence);
     const reviewAvailable = reviewed || currentStage === "response_reviewing" || currentStage === "response_reviewed";
     add(reviewed ? "response_reviewed" : "response_reviewing", "Response review", reviewAvailable, reviewed);
   }
-  if (response?.decision?.choice === "CONTINUE_CHALLENGING") {
+  if (response?.decision?.choice === "CONTINUE_CHALLENGING" && (!closed || claim.followUp?.sentMessage || claim.followUp?.draft)) {
     add("follow_up", claim.followUp?.state === "sent" ? "Sent follow-up" : "Follow-up request", true, claim.followUp?.state === "sent");
   }
 
-  const awaitingFinalization = response?.decision?.choice === "ACCEPT_OFFER";
+  const awaitingFinalization = !closed && Boolean(currentAcceptedOffer(claim));
+  if (closed || awaitingFinalization) add("resolution", closed ? "Resolution" : "Confirm outcome", true, closed);
   return {
     currentStage,
     currentPath,
-    currentLabel: awaitingFinalization ? "Awaiting finalization" : resolvedTotalLossClaimJourneyState(claim) === "insurer_response_review_unavailable"
+    currentLabel: closed ? "Case closed" : awaitingFinalization ? "Awaiting finalization" : resolvedTotalLossClaimJourneyState(claim) === "insurer_response_review_unavailable"
       ? "Response review needs attention"
       : progress.current.label,
     progress: awaitingFinalization ? { ...progress, current: { ...progress.current, label: "Awaiting finalization" } } : progress,

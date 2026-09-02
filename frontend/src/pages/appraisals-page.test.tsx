@@ -380,6 +380,20 @@ describe("customer appraisals page", () => {
     ).toBeVisible();
   });
 
+  it("keeps a closed workflow openable through its owner-scoped claim route", async () => {
+    renderTestApp(["/appraisals"], {
+      appraisalCaseService: createCaseService(async () => [appraisalCase({
+        id: FIRST_CASE_ID, status: "closed", caseStage: "closed", hasTotalLossClaimWorkflow: true,
+      })]),
+      authService: createAuthHarness(sessionFor()).service,
+    });
+
+    expect(await screen.findByRole("link", { name: "View case history" }))
+      .toHaveAttribute("href", `/total-loss/cases/${FIRST_CASE_ID}/claim`);
+    expect(screen.getByText("Closed")).toBeVisible();
+    expect(screen.queryByText("Claim in progress")).not.toBeInTheDocument();
+  });
+
   it("reopens a completed result after local browser state has been cleared", async () => {
     const user = userEvent.setup();
     window.localStorage.clear();

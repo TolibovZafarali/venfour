@@ -22,6 +22,7 @@ import {
   type TotalLossInsurerResponseAnalysis,
   type TotalLossPublishedReport,
   type TotalLossResponseDecisionInput,
+  type TotalLossCaseResolutionInput,
   type TotalLossResponseRecommendation,
   type TotalLossNegotiationHistoryRound,
 } from "@/features/total-loss-claim/contracts";
@@ -205,7 +206,7 @@ function waitingClaim(): TotalLossClaimSecured {
     ...claimProjection([...BEFORE_REQUEST, "send"]),
     responseIntake: { negotiationRoundId: ROUND_ID, outboundCommunicationId: OUTBOUND_ID },
     journey: { fulfillmentState: "awaiting_insurer_response", nextState: "awaiting_insurer_response", retryable: false },
-    workflow: { currentTask: "awaiting_insurer_response", phase: "initial_request", revision: 13 },
+    workflow: { currentTask: "awaiting_insurer_response", phase: "negotiation", revision: 13 },
   };
 }
 
@@ -649,6 +650,148 @@ function backControl() {
 }
 
 describe("completed-analysis guided progression", () => {
+  function closeSavedClaim(claim: TotalLossClaimSecured, input: TotalLossCaseResolutionInput): TotalLossClaimSecured {
+    const accepted = input.resolutionCode === "ACCEPTED_VERIFIED_OFFER";
+    return { ...claim, responseIntake: null,
+      workflow: { phase: "resolution", currentTask: "resolved", revision: claim.workflow!.revision + 1 },
+      journey: { fulfillmentState: "resolved", nextState: "resolved", retryable: false },
+      resolution: { code: input.resolutionCode, resolvedAt: NOW, customerConfirmed: true, clientRequestId: input.clientRequestId,
+        offerId: input.offerId, decisionId: input.decisionId,
+        recommendationId: accepted ? claim.insurerResponse!.recommendation!.recommendationId : null,
+        responseId: accepted ? claim.insurerResponse!.responseId : null,
+        amountMinorUnits: accepted ? claim.insurerResponse!.usableOffer!.amountMinorUnits : input.amountMinorUnits,
+        currency: accepted ? claim.insurerResponse!.usableOffer!.currency : input.currency,
+        amountSource: accepted ? "VERIFIED_INSURER_OFFER" : input.amountMinorUnits !== null ? "CUSTOMER_REPORTED" : null,
+      },
+    };
+  }
+
+  it("keeps Accept open, then closes only after confirming the exact offer and preserves three rounds", async () => {
+    const history = threeResponseHistory();
+    const response = history[2]!.responses[0]!;
+    const decided = decisionResponse(response, { clientRequestId: USER_ID, recommendationId: response.recommendation!.recommendationId, choice: "ACCEPT_OFFER", offerId: response.usableOffer!.offerId, workflowRevision: 15 });
+    history[2] = { ...history[2]!, responses: [decided] };
+    const saved = installClaim({ ...reviewedClaim(decided), negotiationHistory: history });
+    const writes: TotalLossCaseResolutionInput[] = [];
+    server.use(http.post(`${API}/claim/resolution`, async ({ request: update }) => {
+      const input = await update.json() as TotalLossCaseResolutionInput;
+      writes.push(input);
+      const closed = closeSavedClaim(saved.claim(), input);
+      saved.setClaim(closed);
+      return HttpResponse.json({ state: "resolved", resolution: closed.resolution, workflowRevision: closed.workflow!.revision });
+    }));
+    const view = renderJourney("report", "resolution");
+    const user = userEvent.setup();
+    await screen.findByRole("heading", { name: "Complete acceptance with your insurer" });
+    expect(saved.claim().resolution).toBeUndefined();
+    expect(writes).toHaveLength(0);
+    expect(screen.getByText("$20,100.00 USD")).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "I accepted this offer with my insurer" }));
+    expect(writes).toHaveLength(0);
+    await user.click(screen.getByRole("button", { name: "Confirm accepted and resolve case" }));
+    expect(await screen.findByRole("heading", { name: "Case resolved" })).toBeVisible();
+    expect(writes).toEqual([{ clientRequestId: expect.any(String), workflowRevision: 15, resolutionCode: "ACCEPTED_VERIFIED_OFFER", decisionId: decided.decision!.decisionId, offerId: decided.usableOffer!.offerId, amountMinorUnits: null, currency: null }]);
+    expect(screen.getByText("Exact verified insurer offer · acceptance confirmed by you")).toBeVisible();
+    const bar = screen.getByRole("progressbar", { name: "Case journey" });
+    expect(bar.getAttribute("aria-valuenow")).toBe(bar.getAttribute("aria-valuemax"));
+    expect(saved.claim().negotiationHistory).toHaveLength(3);
+    await user.click(screen.getByText("Case history", { exact: false, selector: "summary" }));
+    const reviewLinks = screen.getAllByRole("link", { name: /Venfour review/u });
+    expect(reviewLinks).toHaveLength(3);
+    await user.click(reviewLinks[0]!);
+    expect(await screen.findByText("You chose to continue challenging")).toBeVisible();
+    expect(screen.queryByRole("button", { name: /Correct this response|Accept offer|Continue challenging|Close case/u })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Prepare my follow-up" })).not.toBeInTheDocument();
+    await act(() => view.router.navigate(`${BASE}/review/result`));
+    await screen.findByRole("heading", { name: "Your result" });
+    await user.click(screen.getByRole("button", { name: "See how the insurer reached its value" }));
+    expect(await screen.findByRole("heading", { name: "How your insurer reached its value" })).toBeVisible();
+    expect(saved.writes).toEqual([]);
+    expect(saved.draftWrites).not.toHaveBeenCalled();
+  });
+
+  it.each([false, true])("manually resolves without Accept and optional customer-reported amount=%s", async (withAmount) => {
+    const saved = installClaim(reviewedClaim());
+    const writes: TotalLossCaseResolutionInput[] = [];
+    server.use(http.post(`${API}/claim/resolution`, async ({ request: update }) => {
+      const input = await update.json() as TotalLossCaseResolutionInput;
+      writes.push(input);
+      const closed = closeSavedClaim(saved.claim(), input);
+      saved.setClaim(closed);
+      return HttpResponse.json({ state: "resolved", resolution: closed.resolution, workflowRevision: closed.workflow!.revision });
+    }));
+    renderJourney("report", "response-reviewed");
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: "Close case" }));
+    if (withAmount) await user.type(screen.getByRole("textbox", { name: /Final amount/u }), "21500.25");
+    await user.click(screen.getByRole("button", { name: "Confirm and close case" }));
+    expect(await screen.findByRole("heading", { name: "Case resolved" })).toBeVisible();
+    expect(writes[0]).toMatchObject({ resolutionCode: "RESOLVED_WITH_INSURER", decisionId: null, offerId: null, amountMinorUnits: withAmount ? 2150025 : null, currency: withAmount ? "USD" : null });
+    if (withAmount) expect(screen.getByText("Final amount reported by you")).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Accept offer" })).not.toBeInTheDocument();
+  });
+
+  it("closes as stopped pursuing without recording a settlement or allowing draft mutations", async () => {
+    const original = followUpJourneyClaim();
+    const saved = installClaim(original);
+    server.use(http.post(`${API}/claim/resolution`, async ({ request: update }) => {
+      const input = await update.json() as TotalLossCaseResolutionInput;
+      expect(input).toMatchObject({ resolutionCode: "CUSTOMER_STOPPED_PURSUING", amountMinorUnits: null, currency: null, offerId: null, decisionId: null });
+      const closed = closeSavedClaim(saved.claim(), input);
+      saved.setClaim(closed);
+      return HttpResponse.json({ state: "resolved", resolution: closed.resolution, workflowRevision: closed.workflow!.revision });
+    }));
+    const view = renderJourney("report", "response-reviewed");
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: "Close case" }));
+    await user.click(screen.getByRole("radio", { name: "I’m no longer pursuing this" }));
+    expect(screen.queryByRole("textbox", { name: /Final amount/u })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Confirm and close case" }));
+    expect(await screen.findByRole("heading", { name: "Case closed" })).toBeVisible();
+    expect(screen.getByText(/This does not record a settlement with your insurer/u)).toBeVisible();
+    await act(() => view.router.navigate(`${BASE}/review/follow-up`));
+    expect(await screen.findByRole("heading", { name: "Your saved follow-up" })).toBeVisible();
+    expect(screen.getByText(original.followUp!.draft!.body)).toBeVisible();
+    expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Mark as sent|Copy email|Prepare my follow-up/u })).not.toBeInTheDocument();
+    expect(saved.draftWrites).not.toHaveBeenCalled();
+  });
+
+  it("retries an uncertain closure with the same request and rejects stale confirmation", async () => {
+    installClaim(reviewedClaim());
+    const inputs: TotalLossCaseResolutionInput[] = [];
+    server.use(http.post(`${API}/claim/resolution`, async ({ request: update }) => {
+      inputs.push(await update.json() as TotalLossCaseResolutionInput);
+      return HttpResponse.json({ error: { code: inputs.length === 1 ? "SERVICE_UNAVAILABLE" : "WORKFLOW_REVISION_CONFLICT", message: "Try again." } }, { status: inputs.length === 1 ? 503 : 409 });
+    }));
+    renderJourney("report", "response-reviewed");
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: "Close case" }));
+    await user.click(screen.getByRole("button", { name: "Confirm and close case" }));
+    await screen.findByText(/We couldn’t confirm closure/u);
+    await user.click(screen.getByRole("button", { name: "Retry closure confirmation" }));
+    expect(await screen.findByText(/Your case changed or another step is still being saved/u)).toBeVisible();
+    expect(inputs).toHaveLength(2);
+    expect(inputs[0]).toEqual(inputs[1]);
+    expect(screen.getByRole("button", { name: "Retry closure confirmation" })).toBeDisabled();
+  });
+
+  it("keeps a no-dispute resolution read-only while allowing section navigation", async () => {
+    const open = claimProjection();
+    const saved = installClaim({ ...open, report: { ...open.report!, conclusion: { ...open.report!.conclusion, continuingSupported: false } },
+      workflow: { phase: "resolution", currentTask: "no_dispute_resolved", revision: 8 },
+      journey: { fulfillmentState: "no_dispute", nextState: "no_dispute", retryable: false },
+      resolution: { code: "NO_DISPUTE_SUPPORTED", resolvedAt: NOW, customerConfirmed: false, clientRequestId: null, amountMinorUnits: null, amountSource: null, currency: null, offerId: null, decisionId: null, recommendationId: null, responseId: null },
+    });
+    renderJourney("report");
+    const user = userEvent.setup();
+    expect(await screen.findByRole("heading", { name: "Case closed" })).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "See how the insurer reached its value" }));
+    expect(await screen.findByRole("heading", { name: "How your insurer reached its value" })).toBeVisible();
+    expect(saved.writes).toEqual([]);
+    expect(screen.queryByRole("button", { name: "Close case" })).not.toBeInTheDocument();
+  });
+
   it.each(["manual", "report"] as const)("navigates %s follow-up confirmation to waiting when the live claim refresh replaces the editor", async (intakeMode) => {
     const saved = installClaim(followUpJourneyClaim());
     const sent = followUpJourneyClaim(true);
@@ -792,11 +935,11 @@ describe("completed-analysis guided progression", () => {
     const decided = decisionResponse(response, { clientRequestId: USER_ID, recommendationId: response.recommendation!.recommendationId, choice: "ACCEPT_OFFER", offerId: response.usableOffer!.offerId, workflowRevision: 15 });
     installClaim(reviewedClaim(decided));
     const view = renderJourney("report", "waiting");
-    expect(await screen.findByRole("heading", { name: "What the insurer’s response means" })).toBeVisible();
-    expect(screen.getByText(/case is awaiting finalization and remains open/u)).toBeVisible();
+    expect(await screen.findByRole("heading", { name: "Complete acceptance with your insurer" })).toBeVisible();
+    expect(screen.getByText(/Your case remains open until you explicitly confirm/u)).toBeVisible();
     expect(screen.queryByRole("button", { name: "I received a response" })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Correct this response" })).toBeVisible();
-    expect(view.router.state.location.pathname).toBe(`${BASE}/review/response-reviewed`);
+    expect(screen.getByRole("link", { name: "Review the offer, recommendation, and your decision" })).toHaveAttribute("href", `${BASE}/review/response-reviewed`);
+    expect(view.router.state.location.pathname).toBe(`${BASE}/review/resolution`);
   });
 
   it("does not expose new response intake without the resolver's applicable sent outbound", async () => {
@@ -1836,7 +1979,7 @@ describe("completed-analysis guided progression", () => {
       screen.getByText(/does not recalculate the vehicle’s value or change the published report/iu),
     ).toBeVisible();
     expect(
-      screen.queryByRole("button", { name: /reply|send|negotiate|close case/iu }),
+      screen.queryByRole("button", { name: /reply|send|negotiate/iu }),
     ).not.toBeInTheDocument();
   });
 

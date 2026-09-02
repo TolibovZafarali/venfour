@@ -174,6 +174,18 @@ describe("signed-in homepage case selection", () => {
     expect(selection.historicalCaseCount).toBe(0);
   });
 
+  it("keeps closed workflows behind active work even with an attention flag", () => {
+    const closed = appraisalCase("closed", {
+      status: "closed", caseStage: "closed", hasTotalLossClaimWorkflow: true, needsAttention: true,
+    });
+    const active = appraisalCase("active", { status: "draft", caseStage: "intake_in_progress" });
+    expect(selectSignedInHomepageCases([closed, active]).focalCase).toBe(active);
+    expect(selectSignedInHomepageCases([closed, active]).allCasesClosed).toBe(false);
+    expect(selectSignedInHomepageCases([appraisalCase("closed-draft", {
+      status: "draft", caseStage: "closed",
+    })]).hasActiveTotalLossDraft).toBe(false);
+  });
+
   it("counts distinct historical cases and excludes every copy of the focal case", () => {
     const focal = priorityCases[0];
     const historicalA = appraisalCase("historical-a", { status: "closed" });

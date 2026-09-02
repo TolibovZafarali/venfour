@@ -68,6 +68,9 @@ class FollowUpGateway(RecordingGateway):
         self.calls.append(("follow_up", (case_id, token)))
         return copy.deepcopy(self.followup)
 
+    def resolve_total_loss_follow_up_generation_context(self, case_id, user_id, decision_id):
+        return {"current": True}
+
     def patch_total_loss_customer_follow_up_draft(self, case_id, values, token):
         self.calls.append(("edit_follow_up", (case_id, values, token)))
         self.followup["draft"] = {
@@ -109,7 +112,7 @@ class FollowUpDeliveryTests(unittest.TestCase):
 
     def test_generation_resumes_customer_edits_without_rebuilding(self):
         self.gateway.followup["draft"]["body"] = "Customer's saved edits"
-        with patch("venfour.insurer_response_followup.build_insurer_response_followup_v1") as builder:
+        with patch("venfour.insurer_response_followup.build_insurer_response_followup_v1") as builder, patch.object(self.gateway, "resolve_total_loss_follow_up_generation_context", return_value={"current": True}, create=True):
             for _ in range(2):
                 result = self.service.generate_follow_up(CASE_ID, {"decisionId": DECISION_ID}, ACCESS_TOKEN)
                 self.assertEqual(result["draft"]["body"], "Customer's saved edits")
@@ -141,15 +144,27 @@ class FollowUpDeliveryTests(unittest.TestCase):
         with patch.object(self.gateway, "resolve_total_loss_follow_up_generation_context", return_value=altered, create=True), self.assertRaises(SupabaseContractError):
             self.service.generate_follow_up(CASE_ID, {"decisionId": DECISION_ID}, ACCESS_TOKEN)
 
-    def test_missing_sources_are_recoverable_and_auth_failure_never_reads_sources(self):
+    def test_missing_sources_conflict_and_auth_failure_never_reads_sources(self):
         self.gateway.followup = follow_up_projection("available")
         with patch.object(self.gateway, "resolve_total_loss_follow_up_generation_context", return_value=None, create=True):
-            result = self.service.generate_follow_up(CASE_ID, {"decisionId": DECISION_ID}, ACCESS_TOKEN)
-        self.assertEqual(result["state"], "unavailable")
-        self.assertEqual(result["decisionId"], DECISION_ID)
+            with self.assertRaises(CustomerDeliveryConflictError):
+                self.service.generate_follow_up(CASE_ID, {"decisionId": DECISION_ID}, ACCESS_TOKEN)
         with patch.object(self.gateway, "authenticate", side_effect=SupabaseAuthenticationError("expired")), patch.object(self.gateway, "get_total_loss_customer_follow_up") as read, self.assertRaises(SupabaseAuthenticationError):
             self.service.generate_follow_up(CASE_ID, {"decisionId": DECISION_ID}, ACCESS_TOKEN)
         read.assert_not_called()
+
+    def test_closed_case_rejects_generation_even_when_a_draft_or_sent_message_exists(self):
+        for state in ("draft", "sent"):
+            self.gateway.followup = follow_up_projection(state)
+            if state == "sent":
+                self.gateway.followup["sentMessage"] = {
+                    **prepared_version(self.gateway.followup["draft"]), "state": "sent",
+                    "customerReportedSentAt": NOW, "communicationId": COMMUNICATION_ID,
+                    "negotiationRoundId": ROUND_ID,
+                }
+            with self.subTest(state=state), patch.object(self.gateway, "resolve_total_loss_follow_up_generation_context", return_value=None, create=True):
+                with self.assertRaises(CustomerDeliveryConflictError):
+                    self.service.generate_follow_up(CASE_ID, {"decisionId": DECISION_ID}, ACCESS_TOKEN)
 
     def test_edit_and_prepare_preserve_exact_customer_content_and_revision(self):
         values = {"draftId": DRAFT_ID, "recipient": "other@example.test", "subject": "My follow-up", "body": "My exact text\nThank you.", "expectedRevision": 1}

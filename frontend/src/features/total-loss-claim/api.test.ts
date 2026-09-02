@@ -13,11 +13,13 @@ import {
   prepareTotalLossInsurerResponseUpload,
   recordTotalLossInsurerResponse,
   recordTotalLossInsurerResponseDecision,
+  resolveTotalLossCase,
   retryTotalLossInsurerResponseAnalysis,
   renewTotalLossClaimAccessLink,
   requestTotalLossClaimRecovery,
 } from "@/features/total-loss-claim/api";
 import { server } from "@/test/mocks/server";
+import type { TotalLossCaseResolution, TotalLossCaseResolutionInput } from "./contracts";
 
 const CASE_ID = "33333333-3333-4333-8333-333333333333";
 const OTHER_CASE_ID = "55555555-5555-4555-8555-555555555555";
@@ -110,6 +112,69 @@ function acceptedDecision() {
     choice: "ACCEPT_OFFER", offerId: OFFER_ID, amountMinorUnits: 2_010_000, currency: "USD", recordedAt: "2026-09-02T12:00:00Z",
   };
 }
+
+describe("case resolution contracts", () => {
+  function acceptedResolution(): TotalLossCaseResolution {
+    return { code: "ACCEPTED_VERIFIED_OFFER", resolvedAt: "2026-09-02T12:00:00Z", customerConfirmed: true,
+      clientRequestId: OTHER_CASE_ID, offerId: OFFER_ID, amountMinorUnits: 2010000, currency: "USD", amountSource: "VERIFIED_INSURER_OFFER",
+      recommendationId: RECOMMENDATION_ID, decisionId: acceptedDecision().decisionId, responseId: CLAIM_ID };
+  }
+  const input: TotalLossCaseResolutionInput = { clientRequestId: OTHER_CASE_ID, workflowRevision: 15, resolutionCode: "ACCEPTED_VERIFIED_OFFER", decisionId: acceptedDecision().decisionId, offerId: OFFER_ID, amountMinorUnits: null, currency: null };
+
+  it("posts explicit current revision and exact identity while the server supplies the verified amount", async () => {
+    server.use(http.post("*/api/v1/appraisal-cases/:caseId/claim/resolution", async ({ request }) => {
+      expect(request.headers.get("authorization")).toBe("Bearer owner-token");
+      expect(await request.json()).toEqual(input);
+      return HttpResponse.json({ state: "resolved", resolution: acceptedResolution(), workflowRevision: 16 });
+    }));
+    await expect(resolveTotalLossCase(CASE_ID, "owner-token", input)).resolves.toEqual({ state: "resolved", resolution: acceptedResolution(), workflowRevision: 16 });
+  });
+
+  it("maps an accepted terminal resolver retaining the complete exact offer and decision", async () => {
+    const response = { ...recommendedResponseProjection(), decision: acceptedDecision() };
+    const projection = { ...recommendationResolver(response), resolution: acceptedResolution(),
+      workflow: { phase: "resolution", currentTask: "resolved", revision: 16 },
+      journey: { nextState: "resolved", fulfillmentState: "resolved", retryable: false } };
+    server.use(http.get("*/api/v1/appraisal-cases/:caseId/claim", () => HttpResponse.json(projection)));
+    await expect(getTotalLossClaim(CASE_ID, "owner-token")).resolves.toMatchObject({ resolution: acceptedResolution(), insurerResponse: { decision: acceptedDecision() } });
+  });
+
+  it.each([
+    { amountSource: "CUSTOMER_REPORTED" }, { offerId: null }, { decisionId: null },
+    { recommendationId: null }, { customerConfirmed: false }, { currency: null },
+  ])("rejects inconsistent accepted resolution provenance %o", async (patch) => {
+    server.use(http.post("*/api/v1/appraisal-cases/:caseId/claim/resolution", () => HttpResponse.json({ state: "resolved", resolution: { ...acceptedResolution(), ...patch }, workflowRevision: 16 })));
+    await expect(resolveTotalLossCase(CASE_ID, "owner-token", input)).rejects.toThrow();
+  });
+
+  it("rejects a terminal accepted amount that conflicts with the original offer", async () => {
+    const response = { ...recommendedResponseProjection(), decision: acceptedDecision() };
+    server.use(http.get("*/api/v1/appraisal-cases/:caseId/claim", () => HttpResponse.json({
+      ...recommendationResolver(response), resolution: { ...acceptedResolution(), amountMinorUnits: 9999999 },
+      workflow: { phase: "resolution", currentTask: "resolved", revision: 16 },
+      journey: { nextState: "resolved", fulfillmentState: "resolved", retryable: false },
+    })));
+    await expect(getTotalLossClaim(CASE_ID, "owner-token")).rejects.toThrow("does not match its saved insurer offer");
+  });
+
+  it.each([null, 2100025])("retains optional manual amount %s only as customer-reported", async (amount) => {
+    const manual: TotalLossCaseResolutionInput = { ...input, resolutionCode: "RESOLVED_WITH_INSURER", decisionId: null, offerId: null, amountMinorUnits: amount, currency: amount === null ? null : "USD" };
+    const resolution: TotalLossCaseResolution = { ...acceptedResolution(), code: "RESOLVED_WITH_INSURER", decisionId: null, offerId: null, recommendationId: null, responseId: null, amountMinorUnits: amount, currency: manual.currency, amountSource: amount === null ? null : "CUSTOMER_REPORTED" };
+    server.use(http.post("*/api/v1/appraisal-cases/:caseId/claim/resolution", () => HttpResponse.json({ state: "resolved", resolution, workflowRevision: 16 })));
+    await expect(resolveTotalLossCase(CASE_ID, "owner-token", manual)).resolves.toMatchObject({ resolution });
+  });
+
+  it("preserves no-dispute resolution without customer-confirmed settlement meaning", async () => {
+    const resolution: TotalLossCaseResolution = { ...acceptedResolution(), code: "NO_DISPUTE_SUPPORTED", customerConfirmed: false, clientRequestId: null,
+      decisionId: null, offerId: null, recommendationId: null, responseId: null, amountMinorUnits: null, currency: null, amountSource: null };
+    server.use(http.get("*/api/v1/appraisal-cases/:caseId/claim", () => HttpResponse.json({
+      ...recommendationResolver(null), resolution,
+      workflow: { phase: "resolution", currentTask: "no_dispute_resolved", revision: 16 },
+      journey: { nextState: "no_dispute", fulfillmentState: "no_dispute", retryable: false },
+    })));
+    await expect(getTotalLossClaim(CASE_ID, "owner-token")).resolves.toMatchObject({ resolution, journey: { nextState: "no_dispute" } });
+  });
+});
 
 describe("repeatable response round projection", () => {
   function historyProjection() {

@@ -50,6 +50,9 @@ _INSURER_RESPONSE_MEDIA_EXTENSIONS = {
 _MAX_INSURER_RESPONSE_UPLOAD_BYTES = 10 * 1024 * 1024
 _MAX_SAFE_MINOR_UNITS = 9_007_199_254_740_991
 _RESPONSE_DECISION_CHOICES = {"ACCEPT_OFFER", "CONTINUE_CHALLENGING"}
+_CUSTOMER_RESOLUTION_CODES = {
+    "ACCEPTED_VERIFIED_OFFER", "RESOLVED_WITH_INSURER", "CUSTOMER_STOPPED_PURSUING",
+}
 
 
 class CustomerDeliveryError(Exception):
@@ -1362,6 +1365,49 @@ def validate_negotiation_history(value: Any) -> list[dict[str, Any]]:
     return history
 
 
+def validate_case_resolution(value: Any) -> dict[str, Any]:
+    """Validate a terminal outcome without promoting a customer amount to evidence."""
+    if not isinstance(value, Mapping) or set(value) != {
+        "code", "resolvedAt", "customerConfirmed", "clientRequestId", "offerId",
+        "amountMinorUnits", "currency", "amountSource", "recommendationId",
+        "decisionId", "responseId",
+    }:
+        raise SupabaseContractError("Case resolution is invalid")
+    code = value.get("code")
+    if not isinstance(code, str) or code not in _CUSTOMER_RESOLUTION_CODES | {"NO_DISPUTE_SUPPORTED"}:
+        raise SupabaseContractError("Case resolution code is invalid")
+    _timestamp(value.get("resolvedAt"), "Case resolution time")
+    if value.get("customerConfirmed") is not (code != "NO_DISPUTE_SUPPORTED"):
+        raise SupabaseContractError("Case resolution confirmation is invalid")
+    if code != "NO_DISPUTE_SUPPORTED":
+        _uuid(value.get("clientRequestId"), "Resolution client request ID")
+    elif value.get("clientRequestId") is not None:
+        raise SupabaseContractError("No-dispute resolution cannot have a customer request")
+    amount, currency, source = (value.get(key) for key in ("amountMinorUnits", "currency", "amountSource"))
+    if amount is not None and (
+        type(amount) is not int or not 0 < amount <= _MAX_SAFE_MINOR_UNITS
+        or not isinstance(currency, str) or _CURRENCY.fullmatch(currency) is None
+    ):
+        raise SupabaseContractError("Case resolution amount is invalid")
+    if amount is None and (currency is not None or source is not None):
+        raise SupabaseContractError("Case resolution amount provenance is invalid")
+    references = ("offerId", "recommendationId", "decisionId", "responseId")
+    if code == "ACCEPTED_VERIFIED_OFFER":
+        for key in references:
+            _uuid(value.get(key), "Resolution " + key)
+        if amount is None or source != "VERIFIED_INSURER_OFFER":
+            raise SupabaseContractError("Accepted resolution requires a verified insurer offer")
+    else:
+        if any(value.get(key) is not None for key in references):
+            raise SupabaseContractError("Manual resolution cannot bind an insurer offer")
+        if code == "RESOLVED_WITH_INSURER":
+            if amount is not None and source != "CUSTOMER_REPORTED":
+                raise SupabaseContractError("Manual resolution amount must be customer-reported")
+        elif amount is not None:
+            raise SupabaseContractError("This resolution cannot contain an amount")
+    return dict(value)
+
+
 @runtime_checkable
 class CustomerDeliveryGateway(Protocol):
     def authenticate(self, access_token: str) -> str: ...
@@ -1418,6 +1464,10 @@ class CustomerDeliveryGateway(Protocol):
         self, case_id: str, response_id: str, values: Mapping[str, Any], access_token: str
     ) -> Mapping[str, Any]: ...
 
+    def confirm_total_loss_case_resolution(
+        self, case_id: str, values: Mapping[str, Any], access_token: str
+    ) -> Mapping[str, Any]: ...
+
 
 @dataclass(frozen=True)
 class CustomerDeliveryService:
@@ -1426,6 +1476,53 @@ class CustomerDeliveryService:
     def __post_init__(self) -> None:
         if not isinstance(self.gateway, CustomerDeliveryGateway):
             raise TypeError("gateway must implement CustomerDeliveryGateway")
+
+    def confirm_resolution(
+        self, case_id: str, values: Mapping[str, Any], access_token: str
+    ) -> dict[str, Any]:
+        canonical_case = _request_uuid(case_id, "Case ID")
+        if not isinstance(values, Mapping) or set(values) != {
+            "clientRequestId", "workflowRevision", "resolutionCode", "decisionId",
+            "offerId", "amountMinorUnits", "currency",
+        }:
+            raise CustomerDeliveryInputError("Case resolution request is invalid")
+        request_id = _request_uuid(values.get("clientRequestId"), "Client request ID")
+        revision = _positive_revision(values.get("workflowRevision"), "Workflow revision")
+        code = values.get("resolutionCode")
+        if not isinstance(code, str) or code not in _CUSTOMER_RESOLUTION_CODES:
+            raise CustomerDeliveryInputError("Customer resolution code is invalid")
+        if code == "ACCEPTED_VERIFIED_OFFER":
+            _request_uuid(values.get("decisionId"), "Customer decision ID")
+            _request_uuid(values.get("offerId"), "Insurer offer ID")
+        elif values.get("decisionId") is not None or values.get("offerId") is not None:
+            raise CustomerDeliveryInputError("Manual resolution cannot bind an insurer offer")
+        amount, currency = values.get("amountMinorUnits"), values.get("currency")
+        if code == "RESOLVED_WITH_INSURER":
+            if (amount is None) != (currency is None) or (amount is not None and (
+                type(amount) is not int or not 0 < amount <= _MAX_SAFE_MINOR_UNITS
+                or not isinstance(currency, str) or _CURRENCY.fullmatch(currency) is None
+            )):
+                raise CustomerDeliveryInputError("Customer-reported resolution amount is invalid")
+        elif amount is not None or currency is not None:
+            raise CustomerDeliveryInputError("This resolution cannot supply an amount")
+        self.gateway.authenticate(access_token)
+        result = self.gateway.confirm_total_loss_case_resolution(canonical_case, dict(values), access_token)
+        if not isinstance(result, Mapping) or set(result) != {"state", "resolution", "workflowRevision"} or result.get("state") != "resolved":
+            raise SupabaseContractError("Case resolution result is invalid")
+        resolution = validate_case_resolution(result.get("resolution"))
+        if (
+            resolution["code"] != code or resolution["clientRequestId"] != request_id
+            or resolution["decisionId"] != values.get("decisionId")
+            or resolution["offerId"] != values.get("offerId")
+            or (code == "RESOLVED_WITH_INSURER" and (
+                resolution["amountMinorUnits"] != amount or resolution["currency"] != currency
+            ))
+        ):
+            raise SupabaseContractError("Case resolution acknowledgement differs from the request")
+        current_revision = result.get("workflowRevision")
+        if type(current_revision) is not int or current_revision != revision + 1:
+            raise SupabaseContractError("Case resolution workflow revision is invalid")
+        return {"state": "resolved", "resolution": resolution, "workflowRevision": current_revision}
 
     def record_response_decision(
         self, case_id: str, response_id: str, values: Mapping[str, Any], access_token: str
@@ -1651,13 +1748,13 @@ class CustomerDeliveryService:
         )
         if existing is None or existing["decisionId"] != decision_id:
             raise CustomerDeliveryConflictError("The saved Continue decision is no longer current")
-        if existing["state"] in {"draft", "sent"}:
-            return existing
         context = self.gateway.resolve_total_loss_follow_up_generation_context(
             canonical_case, user_id, decision_id
         )
         if context is None:
-            return {**existing, "state": "unavailable", "reasonCode": "FOLLOW_UP_SOURCE_UNAVAILABLE"}
+            raise CustomerDeliveryConflictError("The follow-up sources are no longer current or this case is closed")
+        if existing["state"] in {"draft", "sent"}:
+            return existing
         if not isinstance(context, Mapping) or set(context) != {
             "sourceIdentity", "analysis", "evidenceIndex", "recommendation",
             "finalAssessment", "report", "initialRequest", "sendingDetails",
@@ -2084,6 +2181,7 @@ __all__ = [
     "CustomerDeliveryNotFoundError",
     "CustomerDeliveryService",
     "CustomerDeliveryUnavailableError",
+    "validate_case_resolution",
     "validate_education_projection",
     "validate_insurer_response_projection",
     "validate_message_draft",

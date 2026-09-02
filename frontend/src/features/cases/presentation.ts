@@ -147,7 +147,9 @@ export function appraisalCasePresentation(
       appraisalCase.caseStage === "closed"
     ) {
       return {
-        action: null,
+        action: appraisalCase.hasTotalLossClaimWorkflow
+          ? { href: `/total-loss/cases/${caseId}/claim`, label: "View case history" }
+          : null,
         serviceLabel: "Total-loss review",
         statusLabel: "Closed",
       };

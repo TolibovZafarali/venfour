@@ -93,8 +93,8 @@ function AppraisalsHeader() {
           My appraisals
         </h1>
         <p className="mt-4 text-base leading-7 text-copy sm:text-lg">
-          Continue a saved request, follow a value check, or reopen a completed
-          result.
+          Continue a saved request, follow a value check, or view your completed
+          case history.
         </p>
       </div>
       <Button asChild className="shrink-0 self-start sm:self-auto">

@@ -278,6 +278,9 @@ class RecordingGateway:
     def record_total_loss_insurer_response_decision(self, *args):
         raise AssertionError("Decision was not requested")
 
+    def confirm_total_loss_case_resolution(self, *args):
+        raise AssertionError("Resolution was not requested")
+
     def put_total_loss_education_progress(
         self, case_id: str, step: str, state: str, workflow_revision: int,
         access_token: str,

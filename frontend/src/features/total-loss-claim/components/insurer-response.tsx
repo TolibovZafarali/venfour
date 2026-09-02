@@ -810,6 +810,7 @@ function ResponseDecisionArea({ accessToken, caseId, claim, onRefresh, response,
               ? readOnly ? "This saved choice applies to the exact insurer offer in this response version. Your current case step is shown above." : "Your choice is saved for this exact insurer offer. Your case is awaiting finalization and remains open. Nothing has been sent to the insurer."
               : readOnly ? "This decision is preserved with this saved response. Any resulting follow-up is available in case history." : claim.followUp?.state === "sent" ? "You confirmed sending your follow-up. Your case remains open while you wait for the insurer." : "Your choice is saved. Review and send a focused follow-up based on the saved response and supporting evidence."}</p>
             {decision.choice === "CONTINUE_CHALLENGING" && !readOnly ? <Link className="request-button request-button-primary" to={totalLossClaimViewPath(caseId, "review_follow_up")}>{claim.followUp?.state === "sent" ? "View sent follow-up" : claim.followUp?.draft ? "Review my follow-up" : "Prepare my follow-up"}</Link> : null}
+            {decision.choice === "ACCEPT_OFFER" && !readOnly ? <Link className="request-button request-button-primary" to={totalLossClaimViewPath(caseId, "review_resolution")}>Complete acceptance with insurer</Link> : null}
           </div>
         </div>
       ) : readOnly ? <p>No decision was recorded for this saved response version.</p> : (
@@ -962,9 +963,11 @@ export function InsurerResponseReviewing({
   onRefresh,
   response,
   userId,
+  readOnly = false,
 }: InsurerResponseIdentity & {
   readonly onCorrect?: () => void;
   readonly response: TotalLossInsurerResponse;
+  readonly readOnly?: boolean;
 }) {
   const retry = useTotalLossInsurerResponseAnalysisRetryMutation({
     accessToken,
@@ -980,7 +983,7 @@ export function InsurerResponseReviewing({
   const unreadable = response.failureReason === "unreadable_document";
 
   const retryReview = async () => {
-    if (!claim.workflow || retry.isPending) return;
+    if (readOnly || !claim.workflow || retry.isPending) return;
     setRetryError(null);
     try {
       await retry.mutateAsync({
@@ -1043,7 +1046,7 @@ export function InsurerResponseReviewing({
       <p className="sent-recorded" data-review-entrance="supporting">
         Response recorded: <RecordedTime value={response.receivedAt} />
       </p>
-      {retryable ? (
+      {retryable && !readOnly ? (
         <div className="response-review-retry" data-review-entrance="secondary">
           {retryError ? (
             <p className="request-error" role="alert">

@@ -78,7 +78,7 @@ describe("appraisal case presentation", () => {
     });
   });
 
-  it("keeps a post-Continue closed Total Loss case terminal", () => {
+  it("opens a closed Total Loss workflow in its historical workspace", () => {
     expect(
       appraisalCasePresentation(
         appraisalCase("total_loss", "closed", {
@@ -87,7 +87,10 @@ describe("appraisal case presentation", () => {
         }),
       ),
     ).toEqual({
-      action: null,
+      action: {
+        href: `/total-loss/cases/${CASE_ID}/claim`,
+        label: "View case history",
+      },
       serviceLabel: "Total-loss review",
       statusLabel: "Closed",
     });

@@ -63,6 +63,7 @@ export type TotalLossClaimJourneyState =
   | "insurer_response_reviewed"
   | "insurer_response_review_unavailable"
   | "follow_up_preparation"
+  | "resolved"
   | "no_dispute"
   | "needs_attention";
 
@@ -80,6 +81,7 @@ export type TotalLossClaimFulfillmentState =
   | "insurer_response_reviewing"
   | "insurer_response_reviewed"
   | "follow_up_preparation"
+  | "resolved"
   | "insurer_response_review_unavailable";
 
 export interface TotalLossClaimJourneyProjection {
@@ -548,6 +550,42 @@ export interface TotalLossResponseDecisionInput {
   readonly workflowRevision: number;
 }
 
+export type TotalLossResolutionCode =
+  | "NO_DISPUTE_SUPPORTED"
+  | "ACCEPTED_VERIFIED_OFFER"
+  | "RESOLVED_WITH_INSURER"
+  | "CUSTOMER_STOPPED_PURSUING";
+
+export interface TotalLossCaseResolution {
+  readonly code: TotalLossResolutionCode;
+  readonly resolvedAt: string;
+  readonly customerConfirmed: boolean;
+  readonly clientRequestId: string | null;
+  readonly offerId: string | null;
+  readonly amountMinorUnits: number | null;
+  readonly currency: string | null;
+  readonly amountSource: "VERIFIED_INSURER_OFFER" | "CUSTOMER_REPORTED" | null;
+  readonly recommendationId: string | null;
+  readonly decisionId: string | null;
+  readonly responseId: string | null;
+}
+
+export interface TotalLossCaseResolutionInput {
+  readonly clientRequestId: string;
+  readonly workflowRevision: number;
+  readonly resolutionCode: Exclude<TotalLossResolutionCode, "NO_DISPUTE_SUPPORTED">;
+  readonly decisionId: string | null;
+  readonly offerId: string | null;
+  readonly amountMinorUnits: number | null;
+  readonly currency: string | null;
+}
+
+export interface TotalLossCaseResolutionRecorded {
+  readonly state: "resolved";
+  readonly resolution: TotalLossCaseResolution;
+  readonly workflowRevision: number;
+}
+
 export interface TotalLossResponseDecisionRecorded {
   readonly state: "insurer_response_reviewed";
   readonly response: TotalLossInsurerResponse;
@@ -643,6 +681,7 @@ interface TotalLossClaimResolverBase {
   readonly followUp?: TotalLossFollowUp | null;
   readonly responseIntake?: TotalLossResponseIntake | null;
   readonly negotiationHistory?: readonly TotalLossNegotiationHistoryRound[];
+  readonly resolution?: TotalLossCaseResolution | null;
   readonly journey?: TotalLossClaimJourneyProjection | null;
   readonly messageDraft?: TotalLossMessageDraft | null;
   readonly report?: TotalLossPublishedReport | null;

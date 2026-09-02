@@ -13,6 +13,9 @@ import type {
   TotalLossClaimRecoveryRequest,
   TotalLossClaimResolver,
   TotalLossClaimWorkflowProjection,
+  TotalLossCaseResolution,
+  TotalLossCaseResolutionInput,
+  TotalLossCaseResolutionRecorded,
   TotalLossCheckoutProjection,
   TotalLossCheckoutQuote,
   TotalLossCheckoutState,
@@ -102,6 +105,7 @@ const CURRENCY_PATTERN = /^[A-Z]{3}$/u;
 const RESPONSE_EVIDENCE_REFERENCE_PATTERN = /^response_[a-f0-9]{64}$/u;
 const CASE_EVIDENCE_REFERENCE_PATTERN = /^case_[a-f0-9]{64}$/u;
 const JOURNEY_STATES = new Set<TotalLossClaimJourneyState>([
+  "resolved",
   "secure_claim",
   "checkout",
   "checkout_confirmation",
@@ -122,6 +126,7 @@ const JOURNEY_STATES = new Set<TotalLossClaimJourneyState>([
   "needs_attention",
 ]);
 const FULFILLMENT_STATES = new Set<TotalLossClaimFulfillmentState>([
+  "resolved",
   "not_started",
   "payment_pending",
   "finalizing",
@@ -1984,6 +1989,37 @@ function mapNegotiationHistory(value: unknown): readonly TotalLossNegotiationHis
   });
 }
 
+function mapResolution(value: unknown): TotalLossCaseResolution | null {
+  if (value == null) return null;
+  const item = exactRecord(value, ["code", "resolvedAt", "customerConfirmed", "clientRequestId", "offerId", "amountMinorUnits", "currency", "amountSource", "recommendationId", "decisionId", "responseId"], "case resolution");
+  const id = (key: string) => item[key] === null ? null : requiredString(item[key], `resolution ${key}`, UUID_PATTERN);
+  const result: TotalLossCaseResolution = {
+    code: enumValue(item.code, new Set<TotalLossCaseResolution["code"]>(["NO_DISPUTE_SUPPORTED", "ACCEPTED_VERIFIED_OFFER", "RESOLVED_WITH_INSURER", "CUSTOMER_STOPPED_PURSUING"]), "resolution code"),
+    resolvedAt: requiredString(item.resolvedAt, "resolution time", ISO_TIMESTAMP_PATTERN),
+    customerConfirmed: item.customerConfirmed === true,
+    clientRequestId: id("clientRequestId"),
+    offerId: id("offerId"),
+    recommendationId: id("recommendationId"),
+    decisionId: id("decisionId"),
+    responseId: id("responseId"),
+    amountMinorUnits: item.amountMinorUnits === null ? null : positiveInteger(item.amountMinorUnits, "resolution amount"),
+    currency: item.currency === null ? null : requiredString(item.currency, "resolution currency", CURRENCY_PATTERN),
+    amountSource: item.amountSource === null ? null : enumValue(item.amountSource, new Set<NonNullable<TotalLossCaseResolution["amountSource"]>>(["VERIFIED_INSURER_OFFER", "CUSTOMER_REPORTED"]), "resolution amount source"),
+  };
+  const accepted = result.code === "ACCEPTED_VERIFIED_OFFER";
+  const hasAmount = result.amountMinorUnits !== null;
+  if (typeof item.customerConfirmed !== "boolean" ||
+    result.customerConfirmed !== (result.code !== "NO_DISPUTE_SUPPORTED") ||
+    Boolean(result.clientRequestId) !== result.customerConfirmed ||
+    hasAmount !== Boolean(result.currency) ||
+    (accepted ? !result.offerId || !result.decisionId || !result.responseId || !result.recommendationId || !hasAmount || result.amountSource !== "VERIFIED_INSURER_OFFER"
+      : result.offerId || result.decisionId || result.responseId || result.recommendationId ||
+        (result.code === "RESOLVED_WITH_INSURER" ? result.amountSource !== (hasAmount ? "CUSTOMER_REPORTED" : null) : hasAmount || result.amountSource !== null))) {
+    throw new TotalLossClaimContractError("The claim service returned inconsistent resolution provenance.");
+  }
+  return result;
+}
+
 function mapResolver(value: unknown): TotalLossClaimResolver {
   if (!isRecord(value)) {
     throw new TotalLossClaimContractError(
@@ -2002,6 +2038,7 @@ function mapResolver(value: unknown): TotalLossClaimResolver {
   const report = mapReport(value.report);
   const sendingDetails = mapSendingDetails(value.sendingDetails);
   const workflow = mapWorkflow(value.workflow);
+  const resolution = mapResolution(value.resolution);
   const extensions = {
     ...(value.education !== undefined ? { education } : {}),
     ...(value.insurerResponse !== undefined ? { insurerResponse } : {}),
@@ -2012,11 +2049,12 @@ function mapResolver(value: unknown): TotalLossClaimResolver {
     ...(value.messageDraft !== undefined ? { messageDraft } : {}),
     ...(value.report !== undefined ? { report } : {}),
     ...(value.sendingDetails !== undefined ? { sendingDetails } : {}),
+    ...(value.resolution !== undefined ? { resolution } : {}),
   };
 
   if (
     value.state !== "secured" &&
-    (education || insurerResponse || followUp || responseIntake || negotiationHistory.length || messageDraft || report || sendingDetails)
+    (education || insurerResponse || followUp || responseIntake || negotiationHistory.length || messageDraft || report || sendingDetails || resolution)
   ) {
     throw new TotalLossClaimContractError(
       "The claim service exposed delivery details before permanent ownership.",
@@ -2035,7 +2073,7 @@ function mapResolver(value: unknown): TotalLossClaimResolver {
     responseJourneyStates.has(workflow?.currentTask ?? "");
   if (
     value.state === "secured" &&
-    (responseReceivedState || followUp?.state === "sent") !== Boolean(insurerResponse)
+    !resolution && (responseReceivedState || followUp?.state === "sent") !== Boolean(insurerResponse)
   ) {
     throw new TotalLossClaimContractError(
       "The claim service returned an inconsistent insurer-response state.",
@@ -2044,6 +2082,19 @@ function mapResolver(value: unknown): TotalLossClaimResolver {
   if (responseIntake && (journey?.nextState !== "awaiting_insurer_response" || insurerResponse?.decision?.choice === "ACCEPT_OFFER")) {
     throw new TotalLossClaimContractError("The claim service exposed response intake outside insurer waiting.");
   }
+  if ((journey?.nextState === "resolved" && (!resolution || resolution.code === "NO_DISPUTE_SUPPORTED")) ||
+    (resolution && (workflow?.phase !== "resolution" || responseIntake ||
+      (resolution.code !== "NO_DISPUTE_SUPPORTED" && (journey?.nextState !== "resolved" || journey.fulfillmentState !== "resolved"))))) {
+    throw new TotalLossClaimContractError("The claim service returned an inconsistent closed case state.");
+  }
+  if (resolution?.code === "ACCEPTED_VERIFIED_OFFER" && (
+    insurerResponse?.responseId !== resolution.responseId ||
+    insurerResponse.decision?.decisionId !== resolution.decisionId ||
+    insurerResponse.decision.recommendationId !== resolution.recommendationId ||
+    insurerResponse.decision.offerId !== resolution.offerId ||
+    insurerResponse.decision.amountMinorUnits !== resolution.amountMinorUnits ||
+    insurerResponse.decision.currency !== resolution.currency
+  )) throw new TotalLossClaimContractError("The accepted resolution does not match its saved insurer offer and decision.");
   if (followUp && (
     insurerResponse?.decision?.choice !== "CONTINUE_CHALLENGING" ||
     followUp.decisionId !== insurerResponse.decision.decisionId ||
@@ -2885,6 +2936,26 @@ export async function retryTotalLossInsurerResponseAnalysis(
     { accessToken, signal },
   );
   return mapResolver(response);
+}
+
+export async function resolveTotalLossCase(
+  caseId: string,
+  accessToken: string,
+  input: TotalLossCaseResolutionInput,
+): Promise<TotalLossCaseResolutionRecorded> {
+  const raw = await apiClient.postJson<unknown>(
+    `/api/v1/appraisal-cases/${encodeURIComponent(caseId)}/claim/resolution`, input, { accessToken },
+  );
+  const result = exactRecord(raw, ["state", "resolution", "workflowRevision"], "case resolution confirmation");
+  const resolution = mapResolution(result.resolution);
+  if (result.state !== "resolved" || !resolution || resolution.code !== input.resolutionCode ||
+    resolution.clientRequestId !== input.clientRequestId || resolution.offerId !== input.offerId ||
+    resolution.decisionId !== input.decisionId ||
+    (input.resolutionCode !== "ACCEPTED_VERIFIED_OFFER" &&
+      (resolution.amountMinorUnits !== input.amountMinorUnits || resolution.currency !== input.currency))) {
+    throw new TotalLossClaimContractError("The claim service returned an inconsistent case resolution confirmation.");
+  }
+  return { state: "resolved", resolution, workflowRevision: workflowRevision(result.workflowRevision) };
 }
 
 export async function recordTotalLossInsurerResponseDecision(

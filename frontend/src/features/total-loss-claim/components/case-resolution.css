@@ -1,0 +1,28 @@
+.case-resolution-banner { margin-bottom: 2rem; padding: 1.4rem 1.6rem; border: 1px solid #d8e5df; border-radius: 1rem; background: #f4f8f5; color: #244438; }
+.case-resolution-banner h2 { margin: 0 0 0.55rem; font-size: 1.25rem; font-weight: 650; }
+.case-resolution-banner p { margin: 0.65rem 0 0; font-size: 0.9rem; line-height: 1.65; }
+.case-resolution-banner .case-resolution-amount { font-size: 1.4rem; font-weight: 600; }
+.case-resolution-amount span { display: block; font-size: 0.8rem; font-weight: 400; }
+.case-finalization { max-width: 48rem; }
+.case-finalization > p { margin-block: 1.25rem; }
+.case-finalization > a { display: block; margin-block: 1.5rem; text-decoration: underline; text-underline-offset: 0.2em; }
+.case-finalization-offer { margin-block: 2rem; padding-block: 1.5rem; border-block: 1px solid #e1e7ec; }
+.case-finalization-offer dt { color: #637186; font-size: 0.9rem; }
+.case-finalization-offer dd { margin: 0.5rem 0 0; font-size: clamp(1.7rem, 5vw, 2.4rem); letter-spacing: -0.04em; }
+.case-manual-closure { margin-top: 2rem; padding-top: 1rem; border-top: 1px solid #e5e9ef; }
+.case-close-trigger { min-height: 44px; padding: 0.5rem 0; color: #637186; text-decoration: underline; text-underline-offset: 0.25em; font-size: 0.875rem; }
+.case-closure-confirmation { margin-top: 1rem; padding: 1.5rem; background: #f7f9fb; border: 1px solid #e1e7ef; border-radius: 1rem; }
+.case-closure-confirmation h2, .case-closure-confirmation legend { margin: 0 0 1rem; font-weight: 600; font-size: 1.1rem; }
+.case-closure-confirmation p { margin-block: 1rem; line-height: 1.65; }
+.case-closure-confirmation fieldset { min-width: 0; }
+.case-closure-choice { display: flex; gap: 0.75rem; align-items: center; min-height: 48px; }
+.case-closure-choice input { accent-color: #2365cf; }
+.case-closure-amount { display: grid; gap: 0.6rem; margin-top: 1rem; font-size: 0.9rem; }
+.case-closure-amount input { width: min(100%, 18rem); min-height: 44px; padding: 0.6rem 0.8rem; border: 1px solid #becbd9; border-radius: 0.5rem; background: white; }
+.case-closure-amount span { color: #637186; font-size: 0.8rem; line-height: 1.6; }
+.case-closure-confirmation button + button { margin-top: 0.75rem; }
+.case-close-trigger:focus-visible, .case-finalization a:focus-visible, .case-closure-confirmation input:focus-visible { outline: 2px solid #246be4; outline-offset: 4px; }
+@media (max-width: 640px) {
+  .case-resolution-banner, .case-closure-confirmation { padding: 1.2rem; }
+  .case-finalization .request-button, .case-closure-confirmation .request-button { width: 100%; white-space: normal; text-align: center; }
+}

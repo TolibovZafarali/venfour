@@ -73,7 +73,8 @@ export function selectSignedInHomepageCases(
     hasActiveTotalLossDraft: cases.some(
       (appraisalCase) =>
         appraisalCase.serviceType === "total_loss" &&
-        appraisalCase.status === "draft",
+        appraisalCase.status === "draft" &&
+        appraisalCase.caseStage !== "closed",
     ),
     allCasesClosed:
       cases.length > 0 &&

@@ -144,7 +144,7 @@ describe("signed-in guided valuation review entry", () => {
   it("sends an all-closed account to appraisal history", async () => {
     const { router } = renderTestApp(["/"], {
       appraisalCaseService: caseService([
-        appraisalCase({ status: "closed", caseStage: "closed" }),
+        appraisalCase({ status: "closed", caseStage: "closed", hasTotalLossClaimWorkflow: true }),
       ]),
       authService: authService(),
     });
@@ -155,6 +155,21 @@ describe("signed-in guided valuation review entry", () => {
     expect(
       await screen.findByRole("heading", { name: "My appraisals" }),
     ).toBeVisible();
+    expect(screen.getByRole("link", { name: "View case history" }))
+      .toHaveAttribute("href", `/total-loss/cases/${CASE_ID}/claim`);
+  });
+
+  it("prioritizes an active claim over a more recently closed claim", async () => {
+    const { router } = renderTestApp(["/"], {
+      appraisalCaseService: caseService([
+        appraisalCase({ status: "closed", caseStage: "closed", hasTotalLossClaimWorkflow: true, needsAttention: true }),
+        appraisalCase({ id: OTHER_CASE_ID, status: "paid", caseStage: "analysis_complete", hasTotalLossClaimWorkflow: true }),
+      ]),
+      authService: authService(),
+    });
+
+    await waitFor(() => expect(router.state.location.pathname)
+      .toBe(`/total-loss/cases/${OTHER_CASE_ID}/claim`));
   });
 
   it("does not treat a paused diminished-value case as the guided review", async () => {

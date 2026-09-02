@@ -23,6 +23,7 @@ from venfour.supabase_gateway import (
     SupabaseContractError,
 )
 from venfour.customer_delivery import (
+    validate_case_resolution,
     validate_education_projection,
     validate_follow_up_projection,
     validate_insurer_response_projection,
@@ -413,6 +414,7 @@ class ClaimResumeState:
     follow_up: Mapping[str, Any] | None = None
     response_intake: Mapping[str, Any] | None = None
     negotiation_history: tuple[Mapping[str, Any], ...] = ()
+    resolution: Mapping[str, Any] | None = None
     extended: bool = False
 
     def to_dict(self) -> dict[str, Any]:
@@ -444,6 +446,7 @@ class ClaimResumeState:
                     ),
                     "responseIntake": dict(self.response_intake) if self.response_intake else None,
                     "negotiationHistory": [dict(item) for item in self.negotiation_history],
+                    "resolution": dict(self.resolution) if self.resolution else None,
                 }
             )
             if self.follow_up is not None:
@@ -508,6 +511,7 @@ class CaseClaimAccessService:
         "insurer_response_reviewed",
         "insurer_response_review_unavailable",
         "no_dispute",
+        "resolved",
         "needs_attention",
     }
     _fulfillment_states = {
@@ -517,6 +521,7 @@ class CaseClaimAccessService:
         "exception_review",
         "report_ready",
         "no_dispute",
+        "resolved",
         "refund_pending",
         "needs_attention",
         "awaiting_insurer_response",
@@ -676,6 +681,7 @@ class CaseClaimAccessService:
                 "follow_up",
                 "response_intake",
                 "negotiation_history",
+                "case_resolution",
                 "commerce_amount_minor_units",
                 "commerce_currency",
             )
@@ -701,6 +707,7 @@ class CaseClaimAccessService:
                         "follow_up",
                         "response_intake",
                         "negotiation_history",
+                        "case_resolution",
                     )
                 )
             ):
@@ -743,6 +750,31 @@ class CaseClaimAccessService:
         follow_up = validate_follow_up_projection(row.get("follow_up"))
         history_value = row.get("negotiation_history")
         history = validate_negotiation_history(history_value) if history_value is not None else []
+        resolution_value = row.get("case_resolution")
+        resolution = validate_case_resolution(resolution_value) if resolution_value is not None else None
+        resolved = bool(journey and journey.next_state == "resolved")
+        if resolved and (
+            state != "secured" or workflow is None or workflow.phase != "resolution"
+            or workflow.current_task != "resolved" or resolution is None
+            or resolution["code"] == "NO_DISPUTE_SUPPORTED" or journey is None
+            or journey.next_state != "resolved" or journey.fulfillment_state != "resolved"
+            or journey.retryable or commerce.checkout_available
+        ):
+            raise SupabaseContractError("Resolved claim workflow is invalid")
+        if journey and (journey.next_state == "resolved" or journey.fulfillment_state == "resolved") and not resolved:
+            raise SupabaseContractError("Resolved claim journey is invalid")
+        if workflow and workflow.current_task == "resolved" and not resolved and (
+            journey is None or journey.next_state != "needs_attention" or resolution is not None
+        ):
+            raise SupabaseContractError("Closed claim access state is invalid")
+        if resolution is not None and (
+            state != "secured" or workflow is None or workflow.phase != "resolution"
+            or (resolution["code"] != "NO_DISPUTE_SUPPORTED" and not resolved)
+            or (resolution["code"] == "NO_DISPUTE_SUPPORTED" and (
+                journey is None or journey.next_state != "no_dispute"
+            ))
+        ):
+            raise SupabaseContractError("Case resolution workflow is invalid")
         intake = row.get("response_intake")
         if intake is not None:
             if not isinstance(intake, Mapping) or set(intake) != {"negotiationRoundId", "outboundCommunicationId"}:
@@ -753,7 +785,7 @@ class CaseClaimAccessService:
                 raise SupabaseContractError("Response intake workflow is invalid")
         if state != "secured" and any(
             value is not None
-            for value in (report, education, sending, draft, insurer_response, follow_up, intake)
+            for value in (report, education, sending, draft, insurer_response, follow_up, intake, resolution)
         ):
             raise SupabaseContractError("Claim delivery response is invalid")
         if state != "secured" and history:
@@ -788,6 +820,12 @@ class CaseClaimAccessService:
                 if follow_up["state"] != "sent":
                     raise SupabaseContractError("Follow-up waiting state is invalid")
                 response_state = True
+        if resolved:
+            response_state = insurer_response is not None
+            if any(response["canCorrect"] for item in history for response in item["responses"]):
+                raise SupabaseContractError("Closed response history must be read-only")
+            if insurer_response is not None and insurer_response["canCorrect"]:
+                raise SupabaseContractError("Closed insurer response must be read-only")
         if response_state != (insurer_response is not None):
             raise SupabaseContractError("Claim delivery response is invalid")
         if history:
@@ -803,6 +841,18 @@ class CaseClaimAccessService:
                     or (responses and current_round["followUp"] is None)
                 ):
                     raise SupabaseContractError("Current response intake lineage is invalid")
+        if resolution is not None and resolution["code"] == "ACCEPTED_VERIFIED_OFFER":
+            decision = insurer_response.get("decision") if insurer_response else None
+            offer = insurer_response.get("usableOffer") if insurer_response else None
+            if not isinstance(decision, Mapping) or not isinstance(offer, Mapping) or (
+                decision["choice"] != "ACCEPT_OFFER"
+                or resolution["responseId"] != insurer_response["responseId"]
+                or resolution["recommendationId"] != decision["recommendationId"]
+                or resolution["decisionId"] != decision["decisionId"]
+                or any(resolution[key] != offer[key] for key in ("offerId", "amountMinorUnits", "currency"))
+                or not history
+            ):
+                raise SupabaseContractError("Accepted resolution offer lineage is invalid")
         return ClaimResumeState(
             state=state,
             case_id=case_id,
@@ -818,6 +868,7 @@ class CaseClaimAccessService:
             follow_up=follow_up,
             response_intake=dict(intake) if intake is not None else None,
             negotiation_history=tuple(history),
+            resolution=resolution,
             extended=extended,
         )
 

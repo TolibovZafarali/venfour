@@ -705,5 +705,29 @@ select set_config('request.jwt.claim.sub','b1000000-0000-4000-8000-000000000001'
 update public.case_entitlements set status='suspended' where id='b8000000-0000-4000-8000-000000000001';
 select ok((select negotiation_history is null and response_intake is null and next_task='payment_review'
   from public.resolve_total_loss_case_claim('b2000000-0000-4000-8000-000000000001')),'suspended entitlement hides history and intake while preserving resolver attention');
+update public.case_entitlements set status='active' where id='b8000000-0000-4000-8000-000000000001';
+select public.confirm_total_loss_case_resolution('b2000000-0000-4000-8000-000000000001',gen_random_uuid(),
+  'ACCEPTED_VERIFIED_OFFER',claim.workflow_revision,(claim.insurer_response#>>'{decision,decisionId}')::uuid,
+  (claim.insurer_response#>>'{usableOffer,offerId}')::uuid)
+  from public.resolve_total_loss_case_claim('b2000000-0000-4000-8000-000000000001') claim;
+select ok((select customer_journey ->> 'nextState'='resolved' and jsonb_array_length(negotiation_history)=3
+  and jsonb_array_length(negotiation_history#>'{0,responses}')=2
+  and jsonb_array_length(negotiation_history#>'{1,responses}')=2
+  and negotiation_history#>'{0,followUp}'=negotiation_history#>'{1,outbound}'
+  and negotiation_history#>'{1,followUp}'=negotiation_history#>'{2,outbound}'
+  from public.resolve_total_loss_case_claim('b2000000-0000-4000-8000-000000000001')),
+  'closure preserves every completed round original correction decision and follow-up link');
+select ok((select bool_and(response ->> 'canCorrect'='false')
+  from public.resolve_total_loss_case_claim('b2000000-0000-4000-8000-000000000001') claim,
+  lateral jsonb_array_elements(claim.negotiation_history) round,
+  lateral jsonb_array_elements(round -> 'responses') response),
+  'all retained response rounds are read-only after closure');
+select throws_ok($$select public.confirm_total_loss_customer_follow_up_sent('b2000000-0000-4000-8000-000000000001',
+  (select prepared_id from sources_snapshot where round_number=1),(select sent_request_id from sources_snapshot where round_number=1),1,true)$$,
+  '55000','This case is closed and read-only.','even exact historical sent confirmations reject after case closure');
+select throws_ok($$select public.record_total_loss_insurer_response('b2000000-0000-4000-8000-000000000001',
+  (select original_request_id from sources_snapshot where round_number=1),'The original offer is unchanged.',null,null,null,null,1,
+  'be300000-0000-4000-8000-000000000001')$$,
+  '55000','This case is closed and read-only.','even exact historical response retries reject after case closure');
 select * from finish();
 rollback;

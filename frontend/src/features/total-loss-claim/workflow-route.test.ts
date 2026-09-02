@@ -64,6 +64,7 @@ describe("total-loss claim authoritative route decisions", () => {
     ["follow_up_preparation", `/total-loss/cases/${CASE_ID}/claim/review/follow-up`],
     ["insurer_response_review_unavailable", `/total-loss/cases/${CASE_ID}/claim/review/response-reviewing`],
     ["no_dispute", `/total-loss/cases/${CASE_ID}/claim/review/result`],
+    ["resolved", `/total-loss/cases/${CASE_ID}/claim/review/resolution`],
   ] as const)("routes %s to its case-scoped state", (state, expected) => {
     expect(routeForJourneyState(CASE_ID, state)).toBe(expected);
     expect(authoritativeTotalLossClaimPath(securedResolver(state))).toBe(
@@ -141,6 +142,7 @@ describe("completed analysis deep-link compatibility", () => {
     ["review_response_received", "response_received"],
     ["review_response_reviewing", "response_reviewing"],
     ["review_response_reviewed", "response_reviewed"],
+    ["review_resolution", "resolution"],
     ["review_follow_up", "follow_up"],
   ] as const)("keeps %s links focused on %s", (view, section) => {
     expect(isCompletedAnalysisView(view)).toBe(true);
@@ -218,6 +220,7 @@ describe("completed analysis deep-link compatibility", () => {
     ["review_response_received", "", "response-received"],
     ["review_response_reviewing", "", "response-reviewing"],
     ["review_response_reviewed", "", "response-reviewed"],
+    ["review_resolution", "", "resolution"],
     ["review_result", "details=market&source=saved", "market?details=market&source=saved"],
   ] satisfies ReadonlyArray<readonly [TotalLossClaimWorkflowView, string, string]>)(
     "canonicalizes %s with %s while retaining valid detail intent",

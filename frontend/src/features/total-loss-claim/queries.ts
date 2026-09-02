@@ -15,6 +15,7 @@ import {
   reconcileTotalLossCheckout,
   recordTotalLossInsurerResponse,
   recordTotalLossInsurerResponseDecision,
+  resolveTotalLossCase,
   recordTotalLossMessageOpened,
   retryTotalLossInsurerResponseAnalysis,
   renewTotalLossClaimAccessLink,
@@ -28,6 +29,8 @@ import type {
   TotalLossEducationStep,
   TotalLossInsurerResponseMediaType,
   TotalLossResponseDecisionInput,
+  TotalLossCaseResolutionInput,
+  TotalLossClaimResolver,
 } from "@/features/total-loss-claim/contracts";
 import { ApiError } from "@/lib/api/client";
 
@@ -513,6 +516,28 @@ export function useTotalLossInsurerResponseDecisionMutation({
     mutationFn: (input: TotalLossResponseDecisionInput) => {
       if (!accessToken || !userId) throw new Error("An authenticated session is required.");
       return recordTotalLossInsurerResponseDecision(caseId, responseId, accessToken, input);
+    },
+    retry: false,
+  });
+}
+
+export function useTotalLossCaseResolutionMutation({ accessToken, caseId, userId }: ClaimIdentityOptions) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    gcTime: 0,
+    mutationKey: [...totalLossClaimQueryKeys.detail(userId, caseId), "resolution"],
+    mutationFn: (input: TotalLossCaseResolutionInput) => {
+      if (!accessToken || !userId) throw new Error("An authenticated session is required.");
+      return resolveTotalLossCase(caseId, accessToken, input);
+    },
+    onSuccess: async (result) => {
+      queryClient.setQueryData<TotalLossClaimResolver>(totalLossClaimQueryKeys.detail(userId, caseId), (claim) => {
+        if (claim?.state !== "secured" || !claim.workflow || claim.workflow.revision > result.workflowRevision) return claim;
+        return { ...claim, resolution: result.resolution, responseIntake: null,
+          workflow: { ...claim.workflow, phase: "resolution", currentTask: "resolved", revision: result.workflowRevision },
+          journey: { fulfillmentState: "resolved", nextState: "resolved", retryable: false } };
+      });
+      await queryClient.invalidateQueries({ queryKey: appraisalCaseQueryKeys.user(userId) });
     },
     retry: false,
   });

@@ -4,6 +4,7 @@ import type {
 } from "@/features/total-loss-claim/contracts";
 import type { TotalLossCaseJourneyStage } from "@/features/total-loss-claim/case-journey";
 import type { TotalLossIntakeMode } from "@/features/total-loss/types";
+import { currentAcceptedOffer } from "./resolution";
 
 type LegacyCaseView = "overview" | "evidence" | "request" | "activity";
 type LegacyReviewView =
@@ -18,6 +19,7 @@ type LegacyReviewView =
   | "review_response_reviewing"
   | "review_response_reviewed"
   | "review_follow_up"
+  | "review_resolution"
   | "review_sent"
   | "review_waiting";
 
@@ -81,6 +83,8 @@ export function totalLossClaimViewPath(
       return `${base}/review/response-reviewed`;
     case "review_follow_up":
       return `${base}/review/follow-up`;
+    case "review_resolution":
+      return `${base}/review/resolution`;
     case "request":
     case "send":
     case "review_request":
@@ -130,6 +134,8 @@ export function routeForJourneyState(
       return totalLossClaimViewPath(caseId, "review_response_reviewed");
     case "follow_up_preparation":
       return totalLossClaimViewPath(caseId, "review_follow_up");
+    case "resolved":
+      return totalLossClaimViewPath(caseId, "review_resolution");
   }
 }
 
@@ -153,6 +159,10 @@ function legacyJourneyState(
     case "no_dispute_supported":
     case "no_dispute_resolved":
       return "no_dispute";
+    case "case_resolved":
+    case "case_closed":
+    case "resolved":
+      return "resolved";
     case "awaiting_insurer_response":
       return "awaiting_insurer_response";
     case "insurer_response_received":
@@ -185,6 +195,8 @@ export function authoritativeTotalLossClaimPath(
 ): string | null {
   if (claim.state === "secure_required")
     return totalLossClaimViewPath(claim.caseId, "checkout");
+  if (claim.state === "secured" && !claim.resolution && currentAcceptedOffer(claim))
+    return totalLossClaimViewPath(claim.caseId, "review_resolution");
   const state = resolvedTotalLossClaimJourneyState(claim);
   return state ? routeForJourneyState(claim.caseId, state, intakeMode) : null;
 }
@@ -250,6 +262,8 @@ export function completedAnalysisStage(
       return "response_reviewed";
     case "review_follow_up":
       return "follow_up";
+    case "review_resolution":
+      return "resolution";
     default:
       return "result";
   }
