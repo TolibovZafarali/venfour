@@ -24,20 +24,21 @@ export function CaseJourneyProgress({
     ? `Current stage: ${progress.current.label}. Case active.`
     : `Step ${progress.position} of ${progress.total}: ${progress.current.label}`;
   const progressBar = (
-    <div className="review-progress-track" role="progressbar" aria-label="Case journey" aria-valuemin={1} aria-valuemax={progress.total} aria-valuenow={progressValue} aria-valuetext={valueText}>
-      <span className="review-progress-fill" style={{ transform: `scaleX(${progressValue / progress.total})` }} />
-    </div>
-  );
-  return (
     <div
-      className="review-progress"
+      className="review-progress-track"
+      role="progressbar"
+      aria-label="Case journey"
+      aria-valuemin={1}
+      aria-valuemax={progress.total}
+      aria-valuenow={progressValue}
+      aria-valuetext={valueText}
       data-case-active={progress.isCaseActive || undefined}
       data-current-step={progress.current.id}
     >
-      <div className="review-progress-caption"><p aria-label="Case journey progress">{progress.isCaseActive ? "Current stage" : <>Step <span className="review-progress-count">{progress.position}</span> of {progress.total}</>}</p><span>{progress.current.label}</span></div>
-      {headerHost ? createPortal(progressBar, headerHost) : progressBar}
+      <span className="review-progress-fill" style={{ transform: `scaleX(${progressValue / progress.total})` }} />
     </div>
   );
+  return headerHost ? createPortal(progressBar, headerHost) : progressBar;
 }
 
 export function ValueRangeTrack({ report, valueLabel = "Insurer" }: { readonly report: TotalLossPublishedReport; readonly valueLabel?: string }) {

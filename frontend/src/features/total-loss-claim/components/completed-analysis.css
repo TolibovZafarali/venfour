@@ -84,15 +84,10 @@
 .completed-analysis button:disabled { cursor: not-allowed; opacity: .55; }
 .completed-analysis svg { flex-shrink: 0; }
 .completed-analysis :is(input, textarea) { min-width: 0; }
-.completed-analysis .review-progress { margin-bottom: 2.75rem; }
-.completed-analysis .review-progress-caption { display: flex; justify-content: space-between; align-items: center; gap: 1rem; font-size: .8125rem; line-height: 1.5; }
-.completed-analysis .review-progress-caption p { color: var(--review-ink); font-weight: 600; font-variant-numeric: tabular-nums; }
-.completed-analysis .review-progress-caption > span { color: var(--review-muted); }
-.completed-analysis .review-progress[data-case-active="true"] .review-progress-caption > span { color: var(--review-accent); font-weight: 600; }
 .completed-review-progress-host { --review-accent: var(--brand); position: absolute; right: 0; bottom: -1px; left: 0; z-index: 1; height: 3px; pointer-events: none; }
 :is(.completed-analysis, .completed-review-progress-host) .review-progress-track { position: relative; height: 3px; background: #dce5f4; overflow: hidden; }
 :is(.completed-analysis, .completed-review-progress-host) .review-progress-fill { display: block; width: 100%; height: 100%; background: var(--review-accent); transform-origin: left; }
-[data-completed-review] .completed-analysis .review-progress > .review-progress-track { visibility: hidden; }
+[data-completed-review] .completed-analysis > .review-progress-track { visibility: hidden; }
 .completed-analysis .review-stage-content { padding-bottom: 1.5rem; }
 .completed-analysis .review-stage-content > h1 { margin-bottom: 1rem; }
 .completed-analysis .review-stage-content > p + p { margin-top: .85rem; }
@@ -202,7 +197,6 @@
 @keyframes completed-spin { to { transform: rotate(360deg); } }
 @media (max-width: 767px) {
   .completed-analysis { padding: 1.75rem 1.5rem 1rem; }
-  .completed-analysis .review-progress { margin-bottom: 2rem; }
   .completed-analysis .result-heading { margin-bottom: 1.5rem; }
   .completed-analysis .value-summary { padding: 1.5rem; }
   .completed-analysis .value-summary-grid { column-gap: 1.5rem; }
@@ -221,7 +215,6 @@
   [data-completed-review]:has(.completed-analysis) .header-glass > div > div:last-child { gap: .5rem; }
   [data-completed-review]:has(.completed-analysis) .header-glass button { max-width: 6rem; }
   .completed-analysis { padding: 1.5rem 1.25rem 0; }
-  .completed-analysis .review-progress-caption { font-size: .75rem; }
   .completed-analysis .result-heading { display: block; }
   .completed-analysis .review-vehicle { text-align: left; margin-top: .35rem; }
   .completed-analysis .review-lead { font-size: 1rem; line-height: 1.65; }

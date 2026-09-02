@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useRef, useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -84,8 +84,9 @@ function Review({
         {includeExtra ? <p data-review-entrance="primary">Extra content</p> : null}
         <p data-review-entrance="unknown">Unselected content</p>
       </div>
-      <nav className="review-actions" aria-label="Review actions" data-review-entrance={includeActions ? "supporting" : undefined}>
-        <button data-review-entrance={includeActions ? "supporting" : undefined} onClick={onCommit} type="button">Continue</button>
+      <nav className="review-actions" aria-label="Review actions">
+        {includeActions ? <button data-review-entrance="supporting" type="button">Back</button> : null}
+        <button data-review-entrance={includeActions ? "secondary" : undefined} onClick={onCommit} type="button">Continue</button>
       </nav>
     </section>
   );
@@ -158,7 +159,7 @@ describe("completed review stage motion", () => {
 
     expect(forward.frames[0]).toEqual({ opacity: .62, filter: "blur(6px)", translate: "0 12px", offset: 0 });
     expect(forward.frames.at(-1)).toEqual({ opacity: 1, filter: "blur(0px)", translate: "0 0", offset: 1 });
-    expect(forward.options).toEqual({ duration: 600, delay: 0, easing: "cubic-bezier(.22, .8, .24, 1)", fill: "backwards" });
+    expect(forward.options).toEqual({ duration: 900, delay: 0, easing: "cubic-bezier(.22, .8, .24, 1)", fill: "backwards" });
     expect(firstEntrances.every((animation) => animation.cancel.mock.calls.length === 1)).toBe(true);
 
     rerender(<Review stage="market" index={3} />);
@@ -178,8 +179,8 @@ describe("completed review stage motion", () => {
     render(<Review />);
     expect(animations).toHaveLength(3);
     expect(animations.map((animation) => animation.target.dataset.reviewEntrance)).toEqual(["primary", "secondary", "supporting"]);
-    expect(animations.map((animation) => animation.options.delay)).toEqual([0, 90, 180]);
-    expect(animations.every((animation) => Number(animation.options.delay) + Number(animation.options.duration) <= 780)).toBe(true);
+    expect(animations.map((animation) => animation.options.delay)).toEqual([0, 150, 300]);
+    expect(animations.every((animation) => Number(animation.options.delay) + Number(animation.options.duration) <= 1200)).toBe(true);
     expect(animations.every((animation) => animation.frames.every((frame) => Number(frame.opacity) > 0 && frame.transform === undefined && frame.scale === undefined))).toBe(true);
     const stationary = [
       screen.getByRole("region", { name: "Valuation review" }),
@@ -203,20 +204,109 @@ describe("completed review stage motion", () => {
     expect(animations.map((animation) => animation.target.textContent)).toEqual([
       "request", "Evidence and valuesNested evidence label", "Supporting limitations", "Extra content",
     ]);
-    expect(animations.map((animation) => animation.options.delay)).toEqual([0, 90, 180, 270]);
+    expect(animations.map((animation) => animation.options.delay)).toEqual([0, 150, 300, 450]);
     expect(animations[3].target.dataset.reviewEntrance).toBe("primary");
     expect(animations.every((animation) => animation.frames[0].opacity !== 0)).toBe(true);
   });
 
-  it("keeps the separate navigation footer and its descendants stationary even when accidentally marked", () => {
+  it("keeps offscreen groups softly blurred and reveals intersecting groups in document order", () => {
+    let notify!: IntersectionObserverCallback;
+    const observe = vi.fn();
+    const unobserve = vi.fn();
+    const disconnect = vi.fn();
+    class ControlledIntersectionObserver {
+      constructor(callback: IntersectionObserverCallback) { notify = callback; }
+      observe = observe;
+      unobserve = unobserve;
+      disconnect = disconnect;
+    }
+    vi.stubGlobal("IntersectionObserver", ControlledIntersectionObserver);
+
+    const { unmount } = render(<Review />);
+    const groups = Array.from(document.querySelectorAll<HTMLElement>("[data-review-entrance]"))
+      .filter((target) => target.closest(".review-stage-content") === target.parentElement);
+    const heading = screen.getByRole("heading", { name: "request" });
+    const supporting = screen.getByText("Supporting limitations");
+
+    expect(animations).toHaveLength(0);
+    expect(observe).toHaveBeenCalledTimes(3);
+    expect(heading).toHaveAttribute("data-review-reveal", "pending");
+    expect(supporting).toHaveAttribute("data-review-reveal", "pending");
+
+    const entry = (target: Element): IntersectionObserverEntry => ({
+      target,
+      isIntersecting: true,
+      intersectionRatio: 1,
+      boundingClientRect: target.getBoundingClientRect(),
+      intersectionRect: target.getBoundingClientRect(),
+      rootBounds: null,
+      time: 0,
+    });
+    act(() => notify([
+      entry(supporting),
+      entry(heading),
+    ], {} as IntersectionObserver));
+
+    expect(animations.map((animation) => animation.target)).toEqual([heading, supporting]);
+    expect(animations.map((animation) => animation.options.delay)).toEqual([0, 150]);
+    expect(unobserve.mock.calls.map(([target]) => target)).toEqual([supporting, heading]);
+    expect(heading).not.toHaveAttribute("data-review-reveal");
+    expect(supporting).not.toHaveAttribute("data-review-reveal");
+    expect(groups.filter((target) => target.dataset.reviewReveal === "pending")).toHaveLength(1);
+
+    unmount();
+    expect(disconnect).toHaveBeenCalledOnce();
+    expect(document.querySelector("[data-review-reveal='pending']")).not.toBeInTheDocument();
+  });
+
+  it("reveals the navigation buttons individually after the content in control order", () => {
     render(<Review stage="market" includeActions />);
 
-    expect(animations).toHaveLength(3);
-    expect(new Set(animations.map((animation) => animation.target.dataset.reviewEntrance))).toEqual(new Set(["primary", "secondary", "supporting"]));
+    expect(animations).toHaveLength(5);
     const footer = screen.getByRole("navigation", { name: "Review actions" });
-    const button = screen.getByRole("button", { name: "Continue" });
-    expect(animations.every((animation) => !animation.target.contains(footer) && !animation.target.contains(button))).toBe(true);
-    expect(animations.every((animation) => Number(animation.options.delay) + Number(animation.options.duration) <= 780)).toBe(true);
+    const back = screen.getByRole("button", { name: "Back" });
+    const continueButton = screen.getByRole("button", { name: "Continue" });
+    expect(animations.some((animation) => animation.target === footer)).toBe(false);
+    expect(animations.slice(-2).map((animation) => animation.target)).toEqual([back, continueButton]);
+    expect(animations.slice(-2).map((animation) => animation.target.dataset.reviewEntrance)).toEqual(["supporting", "secondary"]);
+    expect(animations.slice(-2).map((animation) => animation.options.delay)).toEqual([450, 600]);
+    expect(animations.every((animation) => Number(animation.options.delay) + Number(animation.options.duration) <= 1500)).toBe(true);
+  });
+
+  it("keeps navigation buttons blurred until they enter the viewport, then reveals Back before Continue", () => {
+    let notify!: IntersectionObserverCallback;
+    const observe = vi.fn();
+    const unobserve = vi.fn();
+    class ControlledIntersectionObserver {
+      constructor(callback: IntersectionObserverCallback) { notify = callback; }
+      observe = observe;
+      unobserve = unobserve;
+      disconnect = vi.fn();
+    }
+    vi.stubGlobal("IntersectionObserver", ControlledIntersectionObserver);
+
+    render(<Review stage="market" includeActions />);
+    const back = screen.getByRole("button", { name: "Back" });
+    const continueButton = screen.getByRole("button", { name: "Continue" });
+    expect(back).toHaveAttribute("data-review-reveal", "pending");
+    expect(continueButton).toHaveAttribute("data-review-reveal", "pending");
+
+    const entry = (target: Element): IntersectionObserverEntry => ({
+      target,
+      isIntersecting: true,
+      intersectionRatio: 1,
+      boundingClientRect: target.getBoundingClientRect(),
+      intersectionRect: target.getBoundingClientRect(),
+      rootBounds: null,
+      time: 0,
+    });
+    act(() => notify([entry(continueButton), entry(back)], {} as IntersectionObserver));
+
+    expect(animations.map((animation) => animation.target)).toEqual([back, continueButton]);
+    expect(animations.map((animation) => animation.options.delay)).toEqual([0, 150]);
+    expect(unobserve.mock.calls.map(([target]) => target)).toEqual([continueButton, back]);
+    expect(back).not.toHaveAttribute("data-review-reveal");
+    expect(continueButton).not.toHaveAttribute("data-review-reveal");
   });
 
   it("settles the result range axis together without extra blur or individual marker animation", () => {
@@ -225,7 +315,7 @@ describe("completed review stage motion", () => {
     const entrance = animations.find((animation) => animation.target === range)!;
     expect(entrance).toBeDefined();
     expect(entrance.frames).toEqual([{ opacity: .7, translate: "0 2px" }, { opacity: 1, translate: "0 0" }]);
-    expect(entrance.options).toEqual({ duration: 320, delay: 270, easing: "cubic-bezier(.22, .8, .24, 1)", fill: "backwards" });
+    expect(entrance.options).toEqual({ duration: 420, delay: 430, easing: "cubic-bezier(.22, .8, .24, 1)", fill: "backwards" });
     expect(animations.some((animation) => animation.target.matches(".value-range-band, .value-range-median, .value-range-offer"))).toBe(false);
     const initialCount = animations.length;
 
@@ -246,7 +336,7 @@ describe("completed review stage motion", () => {
 
     for (const animation of animations) {
       expect(animation.frames).toHaveLength(3);
-      expect(animation.frames[1]).toEqual({ opacity: .96, filter: "blur(0px)", translate: "0 2px", offset: .7 });
+      expect(animation.frames[1]).toEqual({ opacity: .96, filter: "blur(0px)", translate: "0 2px", offset: .78 });
       expect(animation.frames[2]).toEqual({ opacity: 1, filter: "blur(0px)", translate: "0 0", offset: 1 });
       expect(animation.frames.every((frame) => Number(frame.opacity) > 0 && String(frame.translate).split(" ")[0] === "0")).toBe(true);
     }

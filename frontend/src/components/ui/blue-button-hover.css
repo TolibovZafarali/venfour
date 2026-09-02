@@ -1,0 +1,45 @@
+:is(button, a, [role="button"])[data-blue-button-hover]:not(:disabled) {
+  isolation: isolate;
+  transition-duration: 300ms;
+  transition-timing-function: cubic-bezier(0, 0, .2, 1);
+}
+
+:is(button, a, [role="button"])[data-blue-button-position="static"] {
+  position: relative;
+}
+
+:is(button, a, [role="button"])[data-blue-button-hover="active"]:not(:disabled):not([aria-disabled="true"]):not([aria-busy="true"]) {
+  background-color: color-mix(in srgb, var(--brand) 82%, #0b1f33);
+}
+
+[data-blue-button-fluid] {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  display: block;
+  overflow: hidden;
+  border-radius: inherit;
+  pointer-events: none;
+  mix-blend-mode: screen;
+  opacity: .6;
+  transition: opacity 380ms ease-out;
+}
+
+[data-blue-button-fluid][data-renderer="fallback"] {
+  background: radial-gradient(ellipse 90px 48px at var(--fluid-x, 50%) var(--fluid-y, 50%), rgb(56 77 209 / 80%), rgb(40 65 190 / 18%) 48%, transparent 75%);
+}
+
+[data-blue-button-fluid] > canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+[data-blue-button-hover="leaving"] > [data-blue-button-fluid] {
+  opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce), (any-hover: none) {
+  [data-blue-button-fluid] { display: none; }
+}

@@ -4,6 +4,8 @@ import { useCallback, useRef } from "react";
 import { RouterProvider } from "react-router";
 import type { RouterProviderProps } from "react-router";
 
+import { BlueButtonHover } from "@/components/ui/blue-button-hover";
+
 import {
   AdminCaseOperationsDependenciesProvider,
   createAdminCaseOperationsDependencies,
@@ -179,6 +181,7 @@ export function AppProvider({
 
   return (
     <QueryClientProvider client={queryClient}>
+      <BlueButtonHover />
       <AuthProvider
         service={authService}
         unavailableReason={authUnavailableReason}

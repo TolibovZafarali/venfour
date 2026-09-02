@@ -513,8 +513,9 @@ describe("completed-analysis guided progression", () => {
     try {
       const progress = await within(headerHost).findByRole("progressbar", { name: "Case journey" });
       expect(progress.parentElement).toBe(headerHost);
-      expect(screen.getByLabelText("Case journey progress")).toBeVisible();
-      expect(document.querySelector(".review-progress")?.contains(progress)).toBe(false);
+      expect(screen.queryByLabelText("Case journey progress")).not.toBeInTheDocument();
+      expect(document.querySelector(".review-progress-caption")).not.toBeInTheDocument();
+      expect(document.querySelector(".completed-analysis")?.contains(progress)).toBe(false);
 
       await user.click(screen.getByRole("button", { name: "See how the insurer reached its value" }));
       expect(await screen.findByRole("heading", { name: "How your insurer reached its value" })).toBeVisible();

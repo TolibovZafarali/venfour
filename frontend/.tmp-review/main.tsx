@@ -4,6 +4,7 @@ import {createRoot} from 'react-dom/client';
 import {QueryClient,QueryClientProvider} from '@tanstack/react-query';
 import {createBrowserRouter,RouterProvider,useParams,useLocation} from 'react-router';
 import {AppShell} from '@/components/app-shell';
+import {BlueButtonHover} from '@/components/ui/blue-button-hover';
 import {AuthContext} from '@/features/auth/auth-context';
 import {CookieConsentContext} from '@/features/privacy/cookie-consent-context';
 import {CompletedAnalysis} from '@/features/total-loss-claim/components/completed-analysis';
@@ -28,4 +29,4 @@ function Controls(){
 }
 const router=createBrowserRouter(page==='launcher'?[{path:'/',element:<Launcher/>}]:[{element:<AppShell/>,children:[{path:`${BASE}/review/:stage`,element:<Harness/>},{path:'/total-loss/cases/:caseId/analysis',element:<TotalLossAnalysisPage/>},{path:'/',element:<PublicHomePage/>}]}]);
 const runtime=globalThis as any;const root=runtime.__reviewRoot||=createRoot(document.getElementById('root')!);const queryClient=runtime.__reviewQueryClient||=new QueryClient({defaultOptions:{queries:{retry:false},mutations:{retry:false}}});
-root.render(<QueryClientProvider client={queryClient}><AuthContext.Provider value={auth}><CookieConsentContext.Provider value={consent}><RouterProvider router={router}/>{page==='launcher'?null:<Controls/>}</CookieConsentContext.Provider></AuthContext.Provider></QueryClientProvider>);
+root.render(<QueryClientProvider client={queryClient}><BlueButtonHover/><AuthContext.Provider value={auth}><CookieConsentContext.Provider value={consent}><RouterProvider router={router}/>{page==='launcher'?null:<Controls/>}</CookieConsentContext.Provider></AuthContext.Provider></QueryClientProvider>);
