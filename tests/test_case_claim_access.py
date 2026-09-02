@@ -533,6 +533,9 @@ class CaseClaimAccessServiceTests(unittest.TestCase):
             "processingState": "pending",
             "failureReason": None,
             "supersedesResponseId": None,
+            "recommendation": None,
+            "usableOffer": None,
+            "decision": None,
         }
         response_row = {
             **resume_row("secured"),

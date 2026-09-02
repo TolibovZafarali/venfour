@@ -255,6 +255,9 @@ def insurer_response_projection(
             "processingState": "pending",
             "failureReason": None,
             "supersedesResponseId": supersedes_response_id,
+            "recommendation": None,
+            "usableOffer": None,
+            "decision": None,
         },
         "workflowRevision": 5,
     }
@@ -267,6 +270,9 @@ class RecordingGateway:
     def authenticate(self, access_token: str) -> str:
         self.calls.append(("authenticate", access_token))
         return USER_ID
+
+    def record_total_loss_insurer_response_decision(self, *args):
+        raise AssertionError("Decision was not requested")
 
     def put_total_loss_education_progress(
         self, case_id: str, step: str, state: str, workflow_revision: int,

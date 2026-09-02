@@ -1313,7 +1313,10 @@ select ok(
       and insurer_response -> 'analysisEvidence' = (
         select evidence_index from valid_evidence_index
       )
-      and (select count(*) = 12 from jsonb_object_keys(insurer_response))
+      and insurer_response -> 'recommendation' = 'null'::jsonb
+      and insurer_response -> 'usableOffer' = 'null'::jsonb
+      and insurer_response -> 'decision' = 'null'::jsonb
+      and (select count(*) = 15 from jsonb_object_keys(insurer_response))
       and insurer_response::text not like '%analysis-provider%'
       and insurer_response::text not like '%response-model-v1%'
       and insurer_response::text not like '%processing_token%'

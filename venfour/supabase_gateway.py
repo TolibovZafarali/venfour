@@ -1022,6 +1022,29 @@ class SupabaseHttpGateway:
         )
         return self._single_rpc_row(payload, "Insurer response analysis retry")
 
+    def record_total_loss_insurer_response_decision(
+        self,
+        case_id: str,
+        response_id: str,
+        values: Mapping[str, Any],
+        access_token: str,
+    ) -> Mapping[str, Any]:
+        payload = self._user_rpc(
+            "record_total_loss_insurer_response_decision",
+            {
+                "requested_case_id": _canonical_uuid(case_id, "Case ID"),
+                "requested_response_id": _canonical_uuid(response_id, "Insurer response ID"),
+                "requested_client_request_id": values.get("clientRequestId"),
+                "requested_recommendation_id": values.get("recommendationId"),
+                "requested_choice": values.get("choice"),
+                "requested_offer_id": values.get("offerId"),
+                "expected_workflow_revision": values.get("workflowRevision"),
+            },
+            access_token,
+            permission_denied_as_conflict=True,
+        )
+        return self._single_rpc_row(payload, "Insurer response decision")
+
     def claim_current_total_loss_insurer_response_analysis(
         self,
         case_id: str,
@@ -1101,7 +1124,7 @@ class SupabaseHttpGateway:
         self, job_id: str, processing_token: str
     ) -> Mapping[str, Any]:
         payload = self._rpc(
-            "resolve_total_loss_insurer_response_analysis_context",
+            "resolve_total_loss_response_recommendation_processing_context",
             {
                 "requested_job_id": _canonical_uuid(job_id, "Analysis job ID"),
                 "requested_processing_token": _canonical_uuid(
@@ -1127,9 +1150,11 @@ class SupabaseHttpGateway:
         verified_document_digest: str | None,
         evidence_index: Mapping[str, Any],
         evidence_index_digest: str,
+        recommendation: Mapping[str, Any],
+        recommendation_digest: str,
     ) -> Mapping[str, Any]:
         payload = self._rpc(
-            "complete_total_loss_insurer_response_analysis",
+            "complete_total_loss_response_analysis_with_recommendation",
             {
                 "requested_job_id": _canonical_uuid(job_id, "Analysis job ID"),
                 "requested_processing_token": _canonical_uuid(
@@ -1177,10 +1202,42 @@ class SupabaseHttpGateway:
                 "requested_evidence_index_digest": self._package_digest(
                     evidence_index_digest, "Analysis evidence index digest"
                 ),
+                "requested_recommendation": dict(
+                    self._package_mapping(recommendation, "Response recommendation")
+                ),
+                "requested_recommendation_digest": self._package_digest(
+                    recommendation_digest, "Response recommendation digest"
+                ),
             },
             retry_ambiguous_claim=True,
         )
         return self._single_rpc_row(payload, "Insurer response analysis completion")
+
+    def resolve_current_total_loss_insurer_response_recommendation_context(
+        self, case_id: str
+    ) -> Mapping[str, Any] | None:
+        payload = self._rpc(
+            "resolve_current_total_loss_response_recommendation_context",
+            {"requested_case_id": _canonical_uuid(case_id, "Case ID")},
+        )
+        return self._optional_rpc_row(payload, "Completed response recommendation context")
+
+    def publish_total_loss_insurer_response_recommendation(
+        self,
+        analysis_result_id: str,
+        recommendation: Mapping[str, Any],
+        recommendation_digest: str,
+    ) -> Mapping[str, Any]:
+        payload = self._rpc(
+            "publish_total_loss_insurer_response_recommendation",
+            {
+                "requested_analysis_result_id": _canonical_uuid(analysis_result_id, "Response analysis result ID"),
+                "requested_recommendation": dict(self._package_mapping(recommendation, "Response recommendation")),
+                "requested_recommendation_digest": self._package_digest(recommendation_digest, "Response recommendation digest"),
+            },
+            retry_ambiguous_claim=True,
+        )
+        return self._single_rpc_row(payload, "Response recommendation publication")
 
     def fail_total_loss_insurer_response_analysis(
         self,

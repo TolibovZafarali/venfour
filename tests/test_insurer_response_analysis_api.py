@@ -61,6 +61,9 @@ def _insurer_response(processing_state: str) -> dict[str, Any]:
             else None
         ),
         "supersedesResponseId": None,
+        "recommendation": None,
+        "usableOffer": None,
+        "decision": None,
     }
 
 

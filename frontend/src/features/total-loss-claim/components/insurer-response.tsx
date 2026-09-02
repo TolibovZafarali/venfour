@@ -35,11 +35,16 @@ import type {
   TotalLossInsurerResponseAnalysisEvidence,
   TotalLossInsurerResponseMediaType,
   TotalLossMoney,
+  TotalLossResponseDecision,
+  TotalLossResponseDecisionChoice,
+  TotalLossResponseDecisionInput,
+  TotalLossResponseRecommendation,
 } from "../contracts";
 import {
   totalLossClaimQueryKeys,
   useTotalLossInsurerResponseAnalysisRetryMutation,
   useTotalLossInsurerResponseDownloadMutation,
+  useTotalLossInsurerResponseDecisionMutation,
   useTotalLossInsurerResponseMutation,
   useTotalLossInsurerResponseUploadPreparationMutation,
 } from "../queries";
@@ -53,6 +58,7 @@ import { displayed } from "../report-format";
 import { openPublishedReport, reservePublishedReportPreview } from "../browser-actions";
 import { useInsurerResponseDraft } from "../use-insurer-response-draft";
 import { resolvedTotalLossClaimJourneyState } from "../workflow-route";
+import { clearResponseDecisionAttempt, readResponseDecisionAttempt, responseDecisionAttemptKey, writeResponseDecisionAttempt } from "../response-decision-attempt";
 import "./insurer-response.css";
 
 interface InsurerResponseIdentity {
@@ -681,20 +687,141 @@ function responsePointLabel(
 }
 
 function recommendationLabel(
-  category: TotalLossInsurerResponseAnalysis["recommendedNextStep"]["category"],
+  category: TotalLossResponseRecommendation["state"],
 ) {
   switch (category) {
-    case "REVIEW_REVISED_OFFER":
-      return "Review their revised offer";
-    case "MORE_INFORMATION_MAY_BE_NEEDED":
-      return "More information may be needed";
-    case "FOLLOW_UP_APPEARS_WARRANTED":
-      return "A follow-up appears warranted";
-    case "VALUATION_ISSUE_APPEARS_RESOLVED":
-      return "The valuation issue appears resolved";
-    case "REVIEW_RESPONSE":
-      return "Review the insurer’s response";
+    case "ACCEPT_OFFER": return "Accept offer";
+    case "CONTINUE_CHALLENGING": return "Continue challenging";
+    case "NO_CLEAR_RECOMMENDATION": return "No clear recommendation";
   }
+}
+
+function ResponseDecisionArea({ accessToken, caseId, claim, onRefresh, response, userId }: InsurerResponseIdentity & {
+  readonly response: TotalLossInsurerResponse & { readonly recommendation: TotalLossResponseRecommendation };
+}) {
+  const { recommendation, usableOffer } = response;
+  const key = responseDecisionAttemptKey(userId, caseId, response.responseId, recommendation.recommendationId);
+  const queryClient = useQueryClient();
+  const mutation = useTotalLossInsurerResponseDecisionMutation({ accessToken, caseId, userId, responseId: response.responseId });
+  const [attempt, setAttempt] = useState(() => response.decision ? null : readResponseDecisionAttempt(key, recommendation.recommendationId, usableOffer));
+  const attemptRef = useRef(attempt);
+  const [acknowledged, setAcknowledged] = useState<TotalLossResponseDecision | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [pending, setPending] = useState(false);
+  const [storageUnavailable, setStorageUnavailable] = useState(false);
+  const locked = useRef(false);
+  const confirmed = useRef(Boolean(response.decision));
+  const decision = response.decision ?? acknowledged;
+
+  useEffect(() => {
+    if (!response.decision) return;
+    confirmed.current = true;
+    clearResponseDecisionAttempt(key);
+  }, [key, response.decision]);
+
+  useEffect(() => {
+    const warn = (event: BeforeUnloadEvent) => {
+      if (confirmed.current || !attemptRef.current) return;
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, []);
+
+  const confirm = (saved: TotalLossResponseDecision) => {
+    confirmed.current = true;
+    clearResponseDecisionAttempt(key);
+    setAcknowledged(saved);
+    setError(null);
+  };
+
+  const choose = async (choice: TotalLossResponseDecisionChoice) => {
+    if (locked.current || decision || (attemptRef.current && attemptRef.current.choice !== choice)) return;
+    if (!claim.workflow || (choice === "ACCEPT_OFFER" && !usableOffer)) return;
+    const input: TotalLossResponseDecisionInput = {
+      ...(attemptRef.current ?? {
+        clientRequestId: globalThis.crypto.randomUUID(),
+        recommendationId: recommendation.recommendationId,
+        choice,
+        offerId: choice === "ACCEPT_OFFER" ? usableOffer!.offerId : null,
+      }),
+      workflowRevision: claim.workflow.revision,
+    };
+    attemptRef.current = input;
+    setAttempt(input);
+    setStorageUnavailable(!writeResponseDecisionAttempt(key, input));
+    locked.current = true;
+    setPending(true);
+    setError(null);
+    try {
+      const result = await mutation.mutateAsync(input);
+      if (!result.response.decision) throw new Error("The saved choice could not be verified.");
+      confirm(result.response.decision);
+      queryClient.setQueryData<TotalLossClaimResolver>(totalLossClaimQueryKeys.detail(userId, caseId), (current) => {
+        if (current?.state !== "secured" || current.caseId !== caseId ||
+          current.insurerResponse?.responseId !== response.responseId ||
+          current.insurerResponse.recommendation?.recommendationId !== recommendation.recommendationId ||
+          !current.workflow || current.workflow.revision > result.workflowRevision) return current;
+        return { ...current, insurerResponse: result.response, workflow: { ...current.workflow, revision: result.workflowRevision } };
+      });
+      await onRefresh().catch(() => undefined);
+    } catch {
+      await onRefresh().catch(() => undefined);
+      const refreshed = queryClient.getQueryState<TotalLossClaimResolver>(totalLossClaimQueryKeys.detail(userId, caseId));
+      const current = refreshed?.status === "success" ? refreshed.data : null;
+      const saved = current?.state === "secured" && current.caseId === caseId &&
+        current.insurerResponse?.responseId === response.responseId &&
+        current.insurerResponse.recommendation?.recommendationId === recommendation.recommendationId
+        ? current.insurerResponse.decision : null;
+      if (saved) confirm(saved);
+      else setError("We couldn’t confirm that your choice was saved. Retry the same choice; your response and recommendation have not changed.");
+    } finally {
+      locked.current = false;
+      setPending(false);
+    }
+  };
+
+  return (
+    <div className="response-decision" aria-labelledby="response-decision-heading">
+      <h3 id="response-decision-heading">Your decision</h3>
+      {decision ? (
+        <div className="response-decision-recorded" role="status">
+          <CheckCircle2 aria-hidden="true" />
+          <div>
+            <strong>{decision.choice === "ACCEPT_OFFER"
+              ? `You chose to accept ${offerLabel(decision.amountMinorUnits!, decision.currency!)}`
+              : "You chose to continue challenging"}</strong>
+            <p>Recorded <RecordedTime value={decision.recordedAt} />.</p>
+            <p>{decision.choice === "ACCEPT_OFFER"
+              ? "Your choice is saved for this exact insurer offer. Nothing has been sent to the insurer, and your case remains open."
+              : "Your choice is saved. No follow-up has been created or sent, and your case remains open."}</p>
+          </div>
+        </div>
+      ) : (
+        <>
+          <p>The decision is yours, even if you choose differently from Venfour’s recommendation. Saving a choice does not contact the insurer or close your case.</p>
+          {usableOffer ? <p className="response-decision-offer">Insurer offer: <strong>{offerLabel(usableOffer.amountMinorUnits, usableOffer.currency)}</strong></p>
+            : <p>No verified revised offer is available to accept.</p>}
+          {attempt && !pending ? <p className="response-decision-notice" role="status">Your {attempt.choice === "ACCEPT_OFFER" ? "Accept offer" : "Continue challenging"} choice still needs confirmation. Retry saving that same choice.</p> : null}
+          {storageUnavailable ? <p className="response-decision-notice">This browser could not preserve the pending choice. Keep this page open until saving is confirmed.</p> : null}
+          {error ? <p className="request-error" role="alert">{error}</p> : null}
+          <div className="response-decision-actions">
+            {usableOffer ? <button className={`request-button ${recommendation.state === "ACCEPT_OFFER" ? "request-button-primary" : "request-button-secondary"}`} type="button" disabled={pending || Boolean(attempt && attempt.choice !== "ACCEPT_OFFER") || !claim.workflow}
+              onClick={() => void choose("ACCEPT_OFFER")}>
+              {pending && attempt?.choice === "ACCEPT_OFFER" ? <LoaderCircle className="request-spinner" aria-hidden="true" /> : null}
+              {pending && attempt?.choice === "ACCEPT_OFFER" ? "Saving choice…" : attempt?.choice === "ACCEPT_OFFER" ? "Retry saving Accept offer" : "Accept offer"}
+            </button> : null}
+            <button className={`request-button ${recommendation.state === "CONTINUE_CHALLENGING" || !usableOffer ? "request-button-primary" : "request-button-secondary"}`} type="button" disabled={pending || Boolean(attempt && attempt.choice !== "CONTINUE_CHALLENGING") || !claim.workflow}
+              onClick={() => void choose("CONTINUE_CHALLENGING")}>
+              {pending && attempt?.choice === "CONTINUE_CHALLENGING" ? <LoaderCircle className="request-spinner" aria-hidden="true" /> : null}
+              {pending && attempt?.choice === "CONTINUE_CHALLENGING" ? "Saving choice…" : attempt?.choice === "CONTINUE_CHALLENGING" ? "Retry saving Continue challenging" : "Continue challenging"}
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  );
 }
 
 function BasisReferences({
@@ -943,11 +1070,13 @@ export function InsurerResponseReviewing({
 export function InsurerResponseReviewed({
   accessToken,
   caseId,
+  claim,
   onCorrect,
+  onRefresh,
   priorValuation,
   response,
   userId,
-}: InsurerResponseAccess & {
+}: InsurerResponseIdentity & {
   readonly onCorrect: () => void;
   readonly priorValuation: TotalLossMoney;
   readonly response: TotalLossInsurerResponse & {
@@ -1120,12 +1249,22 @@ export function InsurerResponseReviewed({
       </section>
 
       <section className="response-analysis-section response-recommendation" data-review-entrance="primary">
-        <h2>Recommended next step</h2>
-        <strong>
-          {recommendationLabel(analysis.recommendedNextStep.category)}
-        </strong>
-        <p>{analysis.recommendedNextStep.explanation}</p>
-        <BasisReferences evidence={analysisEvidence} {...analysis.recommendedNextStep} />
+        <h2>Venfour’s recommendation</h2>
+        {response.recommendation ? <>
+          <strong>{recommendationLabel(response.recommendation.state)}</strong>
+          <p>{response.recommendation.summary}</p>
+          {response.recommendation.reasons.length ? <ul className="response-recommendation-reasons">{response.recommendation.reasons.map((reason, index) => <li key={`${index}:${reason}`}>{reason}</li>)}</ul> : null}
+          <BasisReferences evidence={analysisEvidence} {...response.recommendation} />
+          {response.recommendation.limitations.length ? <ul className="response-recommendation-limitations">{response.recommendation.limitations.map((limitation, index) => <li key={`${index}:${limitation}`}>{limitation}</li>)}</ul> : null}
+          <ResponseDecisionArea
+            key={`${userId}:${caseId}:${response.responseId}:${response.recommendation.recommendationId}`}
+            accessToken={accessToken} caseId={caseId} claim={claim} onRefresh={onRefresh} userId={userId}
+            response={{ ...response, recommendation: response.recommendation }}
+          />
+        </> : <>
+          <strong>Recommendation unavailable</strong>
+          <p>This saved review does not yet have an evidence-based Accept or Continue recommendation. Your analysis and original response remain available.</p>
+        </>}
       </section>
 
       <section className="response-analysis-foundation" data-review-entrance="supporting">

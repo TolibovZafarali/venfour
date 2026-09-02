@@ -13,6 +13,7 @@ import {
   prepareTotalLossInsurerResponseUpload,
   reconcileTotalLossCheckout,
   recordTotalLossInsurerResponse,
+  recordTotalLossInsurerResponseDecision,
   recordTotalLossMessageOpened,
   retryTotalLossInsurerResponseAnalysis,
   renewTotalLossClaimAccessLink,
@@ -25,6 +26,7 @@ import type {
   TotalLossEducationProgressState,
   TotalLossEducationStep,
   TotalLossInsurerResponseMediaType,
+  TotalLossResponseDecisionInput,
 } from "@/features/total-loss-claim/contracts";
 import { ApiError } from "@/lib/api/client";
 
@@ -469,6 +471,20 @@ export function useTotalLossInsurerResponseAnalysisRetryMutation({
       );
     },
     onSuccess: invalidate,
+    retry: false,
+  });
+}
+
+export function useTotalLossInsurerResponseDecisionMutation({
+  accessToken, caseId, userId, responseId,
+}: ClaimIdentityOptions & { readonly responseId: string }) {
+  return useMutation({
+    gcTime: 0,
+    mutationKey: [...totalLossClaimQueryKeys.detail(userId, caseId), "insurerResponseDecision", responseId],
+    mutationFn: (input: TotalLossResponseDecisionInput) => {
+      if (!accessToken || !userId) throw new Error("An authenticated session is required.");
+      return recordTotalLossInsurerResponseDecision(caseId, responseId, accessToken, input);
+    },
     retry: false,
   });
 }

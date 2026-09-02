@@ -1347,6 +1347,28 @@ async def _insurer_response_original_download(request: Request) -> JSONResponse:
         return _private_response(_customer_delivery_error(exc))
 
 
+async def _insurer_response_decision(request: Request) -> JSONResponse:
+    case_id = request.path_params["case_id"]
+    response_id = request.path_params["response_id"]
+    if not _is_canonical_uuid4(case_id) or not _is_canonical_uuid4(response_id):
+        return _private_response(_error_response(400, "INVALID_CASE_ID"))
+    try:
+        payload = await _customer_json_payload(
+            request,
+            {"clientRequestId", "recommendationId", "choice", "offerId", "workflowRevision"},
+        )
+        result = await run_in_threadpool(
+            _customer_delivery_service(request).record_response_decision,
+            case_id,
+            response_id,
+            payload,
+            _customer_delivery_token(request),
+        )
+        return _private_response(JSONResponse(result))
+    except Exception as exc:
+        return _private_response(_customer_delivery_error(exc))
+
+
 async def _insurer_response_upload(request: Request) -> JSONResponse:
     case_id = request.path_params["case_id"]
     if not _is_canonical_uuid4(case_id):
@@ -2922,6 +2944,12 @@ def create_app(
             "/api/v1/appraisal-cases/{case_id}/claim/insurer-responses/"
             "{response_id}/original/download",
             _insurer_response_original_download,
+            methods=["POST"],
+        ),
+        Route(
+            "/api/v1/appraisal-cases/{case_id}/claim/insurer-responses/"
+            "{response_id}/decision",
+            _insurer_response_decision,
             methods=["POST"],
         ),
         Route(

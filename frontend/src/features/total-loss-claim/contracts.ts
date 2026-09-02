@@ -474,12 +474,61 @@ export type TotalLossInsurerResponseFailureReason =
   | "unreadable_document"
   | "unsupported_document";
 
+export type TotalLossResponseDecisionChoice = "ACCEPT_OFFER" | "CONTINUE_CHALLENGING";
+
+export interface TotalLossResponseRecommendation extends TotalLossInsurerResponseAnalysisReferenceSet {
+  readonly recommendationId: string;
+  readonly versionNumber: number;
+  readonly analysisResultId: string;
+  readonly schemaVersion: "1";
+  readonly policyVersion: "1";
+  readonly state: TotalLossResponseDecisionChoice | "NO_CLEAR_RECOMMENDATION";
+  readonly summary: string;
+  readonly reasons: readonly string[];
+  readonly reasonCodes: readonly string[];
+  readonly limitations: readonly string[];
+}
+
+export interface TotalLossResponseUsableOffer extends TotalLossInsurerResponseOffer {
+  readonly offerId: string;
+  readonly source: "CUSTOMER_RECORDED" | "RESPONSE_TEXT";
+}
+
+export interface TotalLossResponseDecision {
+  readonly decisionId: string;
+  readonly clientRequestId: string;
+  readonly recommendationId: string;
+  readonly analysisResultId: string;
+  readonly choice: TotalLossResponseDecisionChoice;
+  readonly offerId: string | null;
+  readonly amountMinorUnits: number | null;
+  readonly currency: string | null;
+  readonly recordedAt: string;
+}
+
+export interface TotalLossResponseDecisionInput {
+  readonly clientRequestId: string;
+  readonly recommendationId: string;
+  readonly choice: TotalLossResponseDecisionChoice;
+  readonly offerId: string | null;
+  readonly workflowRevision: number;
+}
+
+export interface TotalLossResponseDecisionRecorded {
+  readonly state: "insurer_response_reviewed";
+  readonly response: TotalLossInsurerResponse;
+  readonly workflowRevision: number;
+}
+
 export interface TotalLossInsurerResponse {
   readonly analysis: TotalLossInsurerResponseAnalysis | null;
   readonly analysisEvidence: TotalLossInsurerResponseAnalysisEvidence | null;
   readonly clientRequestId: string;
   readonly document: TotalLossInsurerResponseDocument | null;
   readonly failureReason: TotalLossInsurerResponseFailureReason | null;
+  readonly recommendation: TotalLossResponseRecommendation | null;
+  readonly usableOffer: TotalLossResponseUsableOffer | null;
+  readonly decision: TotalLossResponseDecision | null;
   readonly processingState:
     | "pending"
     | "processing"

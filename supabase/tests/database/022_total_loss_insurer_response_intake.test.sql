@@ -700,8 +700,11 @@ select ok(
         'supersedesResponseId'
       ]
       and insurer_response -> 'failureReason' = 'null'::jsonb
+      and insurer_response -> 'recommendation' = 'null'::jsonb
+      and insurer_response -> 'usableOffer' = 'null'::jsonb
+      and insurer_response -> 'decision' = 'null'::jsonb
       and (
-        select count(*) = 10
+        select count(*) = 13
         from jsonb_object_keys(insurer_response)
       )
       and not (insurer_response -> 'document' ? 'uploadPath')

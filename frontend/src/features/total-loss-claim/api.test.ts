@@ -9,6 +9,7 @@ import {
   initializeTotalLossClaim,
   prepareTotalLossInsurerResponseUpload,
   recordTotalLossInsurerResponse,
+  recordTotalLossInsurerResponseDecision,
   retryTotalLossInsurerResponseAnalysis,
   renewTotalLossClaimAccessLink,
   requestTotalLossClaimRecovery,
@@ -20,6 +21,151 @@ const OTHER_CASE_ID = "55555555-5555-4555-8555-555555555555";
 const CLAIM_ID = "44444444-4444-4444-8444-444444444444";
 const RESPONSE_REF = `response_${"a".repeat(64)}`;
 const CASE_REF = `case_${"b".repeat(64)}`;
+const RECOMMENDATION_ID = "11111111-1111-4111-8111-111111111111";
+const ANALYSIS_RESULT_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+const OFFER_ID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+
+function recommendedResponseProjection() {
+  return {
+    responseId: CLAIM_ID, clientRequestId: OTHER_CASE_ID,
+    receivedAt: "2026-09-01T12:00:00.000Z", sourceType: "pasted_message", text: "The insurer revised the offer.",
+    document: null, revisedOffer: { amountMinorUnits: 2_010_000, currency: "USD" },
+    processingState: "completed", failureReason: null, supersedesResponseId: null,
+    analysis: responseAnalysis(), analysisEvidence: responseAnalysisEvidence(),
+    recommendation: {
+      recommendationId: RECOMMENDATION_ID, versionNumber: 1, analysisResultId: ANALYSIS_RESULT_ID,
+      schemaVersion: "1", policyVersion: "1", state: "CONTINUE_CHALLENGING",
+      summary: "The evidence supports continuing to challenge.", reasons: ["The offer remains below the saved evidence range."],
+      reasonCodes: ["OFFER_BELOW_SUPPORTED_RANGE"], limitations: ["Advertised prices are not guaranteed settlement values."],
+      responseEvidenceRefs: [RESPONSE_REF], caseEvidenceRefs: [CASE_REF],
+    },
+    usableOffer: { offerId: OFFER_ID, amountMinorUnits: 2_010_000, currency: "USD", source: "CUSTOMER_RECORDED" },
+    decision: null as Record<string, unknown> | null,
+  };
+}
+
+function recommendationResolver(response: unknown) {
+  return {
+    state: "secured", caseId: CASE_ID, commerce: null, contactEmail: "owner@example.com", insurerResponse: response,
+    journey: { fulfillmentState: "insurer_response_reviewed", nextState: "insurer_response_reviewed", retryable: false },
+    workflow: { phase: "negotiation", currentTask: "insurer_response_reviewed", revision: 15 },
+  };
+}
+
+function acceptedDecision() {
+  return {
+    decisionId: "cccccccc-cccc-4ccc-8ccc-cccccccccccc", clientRequestId: OTHER_CASE_ID,
+    recommendationId: RECOMMENDATION_ID, analysisResultId: ANALYSIS_RESULT_ID,
+    choice: "ACCEPT_OFFER", offerId: OFFER_ID, amountMinorUnits: 2_010_000, currency: "USD", recordedAt: "2026-09-02T12:00:00Z",
+  };
+}
+
+describe("persisted response recommendations and decisions", () => {
+  it.each(["ACCEPT_OFFER", "CONTINUE_CHALLENGING", "NO_CLEAR_RECOMMENDATION"])("maps authoritative %s independently of the response-analysis suggestion", async (state) => {
+    const response = recommendedResponseProjection();
+    response.recommendation.state = state;
+    server.use(http.get("*/api/v1/appraisal-cases/:caseId/claim", () => HttpResponse.json(recommendationResolver(response))));
+    await expect(getTotalLossClaim(CASE_ID, "owner-token")).resolves.toMatchObject({ insurerResponse: {
+      recommendation: response.recommendation, usableOffer: response.usableOffer, decision: null,
+    } });
+  });
+
+  it.each([
+    { policyVersion: "2" }, { schemaVersion: "2" }, { state: "GUARANTEED_WIN" },
+    { policyInput: { internal: true } }, { responseEvidenceRefs: [`response_${"c".repeat(64)}`] },
+    { responseEvidenceRefs: [RESPONSE_REF, RESPONSE_REF] }, { reasons: Array.from({ length: 11 }, () => "A reason.") },
+  ])("rejects unknown, internal or ungrounded recommendation fields: %o", async (patch) => {
+    const response = recommendedResponseProjection();
+    server.use(http.get("*/api/v1/appraisal-cases/:caseId/claim", () => HttpResponse.json(recommendationResolver({ ...response, recommendation: { ...response.recommendation, ...patch } }))));
+    await expect(getTotalLossClaim(CASE_ID, "owner-token")).rejects.toThrow();
+  });
+
+  it.each([
+    { offerId: OTHER_CASE_ID }, { amountMinorUnits: 3_000_000 }, { currency: "CAD" },
+    { recommendationId: OTHER_CASE_ID }, { analysisResultId: OTHER_CASE_ID },
+    { choice: "CONTINUE_CHALLENGING" },
+  ])("rejects a decision with mismatched immutable source or offer binding: %o", async (patch) => {
+    server.use(http.get("*/api/v1/appraisal-cases/:caseId/claim", () => HttpResponse.json(recommendationResolver({
+      ...recommendedResponseProjection(), decision: { ...acceptedDecision(), ...patch },
+    }))));
+    await expect(getTotalLossClaim(CASE_ID, "owner-token")).rejects.toThrow("inconsistent response recommendation or decision lineage");
+  });
+
+  it("keeps a usable exact offer independent from the model offer source", async () => {
+    const response = recommendedResponseProjection();
+    response.analysis.revisedOffer.source = "INSURER_RESPONSE";
+    server.use(http.get("*/api/v1/appraisal-cases/:caseId/claim", () => HttpResponse.json(recommendationResolver(response))));
+    expect((await getTotalLossClaim(CASE_ID, "owner-token")).insurerResponse?.usableOffer?.offerId).toBe(OFFER_ID);
+  });
+
+  it.each([
+    { revisedOffer: null },
+    { revisedOffer: { amountMinorUnits: 1_900_000, currency: "USD" } },
+    { revisedOffer: { amountMinorUnits: 2_010_000, currency: "CAD" } },
+  ])("rejects a customer-recorded usable offer inconsistent with its original record: %o", async (patch) => {
+    server.use(http.get("*/api/v1/appraisal-cases/:caseId/claim", () => HttpResponse.json(recommendationResolver({ ...recommendedResponseProjection(), ...patch }))));
+    await expect(getTotalLossClaim(CASE_ID, "owner-token")).rejects.toThrow("inconsistent usable insurer offer");
+  });
+
+  it("rejects a usable offer that differs from the analyzed amount", async () => {
+    const response = recommendedResponseProjection();
+    response.usableOffer.amountMinorUnits = 2_100_000;
+    server.use(http.get("*/api/v1/appraisal-cases/:caseId/claim", () => HttpResponse.json(recommendationResolver(response))));
+    await expect(getTotalLossClaim(CASE_ID, "owner-token")).rejects.toThrow("inconsistent usable insurer offer");
+  });
+
+  it("does not treat a visual transcription as a usable response-text offer", async () => {
+    const response = recommendedResponseProjection();
+    server.use(http.get("*/api/v1/appraisal-cases/:caseId/claim", () => HttpResponse.json(recommendationResolver({
+      ...response,
+      usableOffer: { ...response.usableOffer, source: "RESPONSE_TEXT" },
+      analysis: { ...response.analysis, revisedOffer: { ...response.analysis.revisedOffer, visualSourceInterpretation: {
+        derivation: "MODEL_VISUAL_TRANSCRIPTION", derivedText: "Revised offer: $20,100", responseEvidenceRef: RESPONSE_REF,
+        confidence: "HIGH", originalSourceAuthoritative: true, verificationRequired: true,
+      } } },
+    }))));
+    await expect(getTotalLossClaim(CASE_ID, "owner-token")).rejects.toThrow("inconsistent usable insurer offer");
+  });
+
+  it("supports the complete 250-item recommendation reference boundary", async () => {
+    const response = recommendedResponseProjection();
+    const additional = Array.from({ length: 249 }, (_, index) => ({
+      ...response.analysisEvidence.responseEvidence[0], evidenceRef: `response_${index.toString(16).padStart(64, "0")}`,
+    }));
+    response.analysisEvidence.responseEvidence.push(...additional);
+    response.recommendation.responseEvidenceRefs = response.analysisEvidence.responseEvidence.map((item) => item.evidenceRef);
+    server.use(http.get("*/api/v1/appraisal-cases/:caseId/claim", () => HttpResponse.json(recommendationResolver(response))));
+    expect((await getTotalLossClaim(CASE_ID, "owner-token")).insurerResponse?.recommendation?.responseEvidenceRefs).toHaveLength(250);
+  });
+
+  it("does not allow an Accept recommendation without a usable stored offer", async () => {
+    const response = recommendedResponseProjection();
+    server.use(http.get("*/api/v1/appraisal-cases/:caseId/claim", () => HttpResponse.json(recommendationResolver({
+      ...response, recommendation: { ...response.recommendation, state: "ACCEPT_OFFER" }, usableOffer: null,
+    }))));
+    await expect(getTotalLossClaim(CASE_ID, "owner-token")).rejects.toThrow("inconsistent response recommendation or decision lineage");
+  });
+
+  it.each(["ACCEPT_OFFER", "CONTINUE_CHALLENGING"] as const)("posts an explicit %s bound to the exact recommendation and validates the acknowledgement", async (choice) => {
+    const input = { clientRequestId: OTHER_CASE_ID, recommendationId: RECOMMENDATION_ID, choice, offerId: choice === "ACCEPT_OFFER" ? OFFER_ID : null, workflowRevision: 15 };
+    const response = { ...recommendedResponseProjection(), decision: { ...acceptedDecision(), choice, offerId: input.offerId,
+      amountMinorUnits: choice === "ACCEPT_OFFER" ? 2_010_000 : null, currency: choice === "ACCEPT_OFFER" ? "USD" : null } };
+    server.use(http.post(`*/api/v1/appraisal-cases/:caseId/claim/insurer-responses/:responseId/decision`, async ({ request, params }) => {
+      expect(params).toMatchObject({ caseId: CASE_ID, responseId: CLAIM_ID });
+      expect(request.headers.get("Authorization")).toBe("Bearer owner-token");
+      expect(await request.json()).toEqual(input);
+      return HttpResponse.json({ state: "insurer_response_reviewed", response, workflowRevision: 16 });
+    }));
+    await expect(recordTotalLossInsurerResponseDecision(CASE_ID, CLAIM_ID, "owner-token", input)).resolves.toMatchObject({ response: { decision: response.decision }, workflowRevision: 16 });
+  });
+
+  it("rejects a successful-looking acknowledgement for another request", async () => {
+    server.use(http.post(`*/api/v1/appraisal-cases/:caseId/claim/insurer-responses/:responseId/decision`, () => HttpResponse.json({
+      state: "insurer_response_reviewed", response: { ...recommendedResponseProjection(), decision: { ...acceptedDecision(), clientRequestId: CASE_ID } }, workflowRevision: 16,
+    })));
+    await expect(recordTotalLossInsurerResponseDecision(CASE_ID, CLAIM_ID, "owner-token", { clientRequestId: OTHER_CASE_ID, recommendationId: RECOMMENDATION_ID, choice: "ACCEPT_OFFER", offerId: OFFER_ID, workflowRevision: 15 })).rejects.toThrow("inconsistent response decision confirmation");
+  });
+});
 
 describe("submitted insurer response original access", () => {
   const path = `/api/v1/appraisal-cases/${CASE_ID}/claim/insurer-responses/${OTHER_CASE_ID}/original/download`;
@@ -316,6 +462,9 @@ describe("total-loss claim API", () => {
           revisedOffer: { amountMinorUnits: 2_050_000, currency: "USD" },
           processingState: "pending",
           failureReason: null,
+          recommendation: null,
+          usableOffer: null,
+          decision: null,
           supersedesResponseId: null,
         },
         journey: {
@@ -356,6 +505,9 @@ describe("total-loss claim API", () => {
         revisedOffer: { amountMinorUnits: 2_010_000, currency: "USD" },
         processingState: "completed",
         failureReason: null,
+        recommendation: null,
+        usableOffer: null,
+        decision: null,
         supersedesResponseId: null,
         analysis,
         analysisEvidence: responseAnalysisEvidence(),
@@ -476,6 +628,9 @@ describe("total-loss claim API", () => {
         revisedOffer: null,
         processingState: "terminal_failed",
         failureReason,
+        recommendation: null,
+        usableOffer: null,
+        decision: null,
         supersedesResponseId: null,
       },
       journey: {
@@ -563,6 +718,9 @@ describe("total-loss claim API", () => {
             revisedOffer: null,
             processingState: "pending",
             failureReason: null,
+            recommendation: null,
+            usableOffer: null,
+            decision: null,
             supersedesResponseId: null,
           },
         });
@@ -629,6 +787,9 @@ describe("total-loss claim API", () => {
               revisedOffer: null,
               processingState: "pending",
               failureReason: null,
+              recommendation: null,
+              usableOffer: null,
+              decision: null,
               supersedesResponseId: null,
             },
             journey: {

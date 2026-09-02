@@ -49,6 +49,7 @@ _INSURER_RESPONSE_MEDIA_EXTENSIONS = {
 }
 _MAX_INSURER_RESPONSE_UPLOAD_BYTES = 10 * 1024 * 1024
 _MAX_SAFE_MINOR_UNITS = 9_007_199_254_740_991
+_RESPONSE_DECISION_CHOICES = {"ACCEPT_OFFER", "CONTINUE_CHALLENGING"}
 
 
 class CustomerDeliveryError(Exception):
@@ -469,6 +470,116 @@ def _validate_insurer_response_analysis_evidence(
     }
 
 
+def _validate_response_recommendation(value: Mapping[str, Any]) -> None:
+    recommendation = value.get("recommendation")
+    offer = value.get("usableOffer")
+    decision = value.get("decision")
+    if recommendation is None:
+        if offer is not None or decision is not None:
+            raise SupabaseContractError("Insurer response recommendation is missing")
+        return
+    if value.get("processingState") != "completed":
+        raise SupabaseContractError("Insurer response recommendation is premature")
+    if not isinstance(recommendation, Mapping) or set(recommendation) != {
+        "recommendationId", "versionNumber", "analysisResultId",
+        "schemaVersion", "policyVersion", "state", "summary", "reasons",
+        "reasonCodes", "limitations", "responseEvidenceRefs", "caseEvidenceRefs",
+    }:
+        raise SupabaseContractError("Insurer response recommendation is invalid")
+    _uuid(recommendation.get("recommendationId"), "Recommendation ID")
+    _uuid(recommendation.get("analysisResultId"), "Response analysis result ID")
+    version = recommendation.get("versionNumber")
+    if isinstance(version, bool) or not isinstance(version, int) or version < 1:
+        raise SupabaseContractError("Recommendation version is invalid")
+    if recommendation.get("schemaVersion") != "1" or recommendation.get("policyVersion") != "1":
+        raise SupabaseContractError("Recommendation policy version is invalid")
+    state = recommendation.get("state")
+    if not isinstance(state, str) or state not in (
+        _RESPONSE_DECISION_CHOICES | {"NO_CLEAR_RECOMMENDATION"}
+    ):
+        raise SupabaseContractError("Recommendation state is invalid")
+    _bounded_text(recommendation.get("summary"), "Recommendation summary", 2_000)
+    for key in ("reasons", "limitations", "reasonCodes"):
+        items = recommendation.get(key)
+        if not isinstance(items, list) or not 1 <= len(items) <= 10:
+            raise SupabaseContractError("Recommendation explanation is invalid")
+        for item in items:
+            _bounded_text(item, "Recommendation explanation", 2_000)
+            if key == "reasonCodes" and re.fullmatch(r"[A-Z][A-Z0-9_]{0,95}", item) is None:
+                raise SupabaseContractError("Recommendation reason code is invalid")
+    evidence = value["analysisEvidence"]
+    for key, evidence_key, pattern in (
+        ("responseEvidenceRefs", "responseEvidence", _RESPONSE_EVIDENCE_REFERENCE),
+        ("caseEvidenceRefs", "caseEvidence", _CASE_EVIDENCE_REFERENCE),
+    ):
+        references = recommendation.get(key)
+        available = {item["evidenceRef"] for item in evidence[evidence_key]}
+        if (
+            not isinstance(references, list)
+            or len(references) > 250
+            or any(not isinstance(ref, str) or pattern.fullmatch(ref) is None for ref in references)
+            or len(set(references)) != len(references)
+            or not set(references).issubset(available)
+        ):
+            raise SupabaseContractError("Recommendation evidence references are invalid")
+    if offer is not None:
+        if not isinstance(offer, Mapping) or set(offer) != {
+            "offerId", "amountMinorUnits", "currency", "source",
+        }:
+            raise SupabaseContractError("Recommendation offer is invalid")
+        _uuid(offer.get("offerId"), "Insurer offer ID")
+        _minor_units(offer.get("amountMinorUnits"), browser_input=False, nullable=False)
+        currency = offer.get("currency")
+        if not isinstance(currency, str) or _CURRENCY.fullmatch(currency) is None:
+            raise SupabaseContractError("Recommendation offer currency is invalid")
+        source = offer.get("source")
+        if not isinstance(source, str) or source not in {"CUSTOMER_RECORDED", "RESPONSE_TEXT"}:
+            raise SupabaseContractError("Recommendation offer source is invalid")
+        analyzed_offer = value["analysis"]["revisedOffer"]
+        if (
+            analyzed_offer["status"] != "PRESENT"
+            or analyzed_offer["amountMinorUnits"] != offer["amountMinorUnits"]
+            or analyzed_offer["currency"] != currency
+        ):
+            raise SupabaseContractError("Recommendation offer differs from the analyzed offer")
+        if source == "CUSTOMER_RECORDED":
+            recorded_offer = value.get("revisedOffer")
+            if (
+                not isinstance(recorded_offer, Mapping)
+                or recorded_offer.get("amountMinorUnits") != offer["amountMinorUnits"]
+                or recorded_offer.get("currency") != currency
+            ):
+                raise SupabaseContractError("Recommendation customer offer is invalid")
+        elif (
+            analyzed_offer["visualSourceInterpretation"] is not None
+            or analyzed_offer["source"] != "INSURER_RESPONSE"
+        ):
+            raise SupabaseContractError("Recommendation response offer is unverified")
+    elif state == "ACCEPT_OFFER":
+        raise SupabaseContractError("Accept recommendation requires a usable offer")
+
+    if decision is None:
+        return
+    if not isinstance(decision, Mapping) or set(decision) != {
+        "decisionId", "clientRequestId", "recommendationId", "analysisResultId",
+        "choice", "offerId", "amountMinorUnits", "currency", "recordedAt",
+    }:
+        raise SupabaseContractError("Insurer response decision is invalid")
+    for key in ("decisionId", "clientRequestId", "recommendationId", "analysisResultId"):
+        _uuid(decision.get(key), "Insurer response decision identity")
+    if any(decision[key] != recommendation[key] for key in ("recommendationId", "analysisResultId")):
+        raise SupabaseContractError("Insurer response decision lineage is invalid")
+    choice = decision.get("choice")
+    if not isinstance(choice, str) or choice not in _RESPONSE_DECISION_CHOICES:
+        raise SupabaseContractError("Insurer response decision choice is invalid")
+    if choice == "ACCEPT_OFFER":
+        if offer is None or any(decision[key] != offer[key] for key in ("offerId", "amountMinorUnits", "currency")):
+            raise SupabaseContractError("Accepted insurer offer identity is invalid")
+    elif any(decision[key] is not None for key in ("offerId", "amountMinorUnits", "currency")):
+        raise SupabaseContractError("Continue decision cannot accept an offer")
+    _timestamp(decision.get("recordedAt"), "Insurer response decision time")
+
+
 def validate_insurer_response_projection(value: Any) -> dict[str, Any]:
     """Validate the owner-safe projection of one recorded insurer response."""
 
@@ -483,6 +594,9 @@ def validate_insurer_response_projection(value: Any) -> dict[str, Any]:
         "processingState",
         "failureReason",
         "supersedesResponseId",
+        "recommendation",
+        "usableOffer",
+        "decision",
     }
     if not isinstance(value, Mapping):
         raise SupabaseContractError("Insurer response is invalid")
@@ -571,6 +685,7 @@ def validate_insurer_response_projection(value: Any) -> dict[str, Any]:
         _validate_insurer_response_analysis_evidence(
             value.get("analysisEvidence"), analysis
         )
+    _validate_response_recommendation(value)
     supersedes = value.get("supersedesResponseId")
     if supersedes is not None:
         supersedes = _uuid(supersedes, "Superseded insurer response ID")
@@ -1153,6 +1268,10 @@ class CustomerDeliveryGateway(Protocol):
         self, case_id: str, values: Mapping[str, Any], access_token: str
     ) -> Mapping[str, Any]: ...
 
+    def record_total_loss_insurer_response_decision(
+        self, case_id: str, response_id: str, values: Mapping[str, Any], access_token: str
+    ) -> Mapping[str, Any]: ...
+
 
 @dataclass(frozen=True)
 class CustomerDeliveryService:
@@ -1161,6 +1280,50 @@ class CustomerDeliveryService:
     def __post_init__(self) -> None:
         if not isinstance(self.gateway, CustomerDeliveryGateway):
             raise TypeError("gateway must implement CustomerDeliveryGateway")
+
+    def record_response_decision(
+        self, case_id: str, response_id: str, values: Mapping[str, Any], access_token: str
+    ) -> dict[str, Any]:
+        canonical_case = _request_uuid(case_id, "Case ID")
+        canonical_response = _request_uuid(response_id, "Insurer response ID")
+        if not isinstance(values, Mapping) or set(values) != {
+            "clientRequestId", "recommendationId", "choice", "offerId", "workflowRevision",
+        }:
+            raise CustomerDeliveryInputError("Insurer response decision request is invalid")
+        client_request = _request_uuid(values.get("clientRequestId"), "Client request ID")
+        recommendation_id = _request_uuid(values.get("recommendationId"), "Recommendation ID")
+        revision = _positive_revision(values.get("workflowRevision"), "Workflow revision")
+        choice = values.get("choice")
+        if not isinstance(choice, str) or choice not in _RESPONSE_DECISION_CHOICES:
+            raise CustomerDeliveryInputError("Insurer response decision choice is invalid")
+        offer_id = values.get("offerId")
+        if choice == "ACCEPT_OFFER":
+            offer_id = _request_uuid(offer_id, "Insurer offer ID")
+        elif offer_id is not None:
+            raise CustomerDeliveryInputError("Continue decision cannot accept an offer")
+        self.gateway.authenticate(access_token)
+        result = self.gateway.record_total_loss_insurer_response_decision(
+            canonical_case, canonical_response, dict(values), access_token
+        )
+        if not isinstance(result, Mapping) or set(result) != {"state", "response", "workflowRevision"}:
+            raise SupabaseContractError("Insurer response decision result is invalid")
+        if result.get("state") != "insurer_response_reviewed":
+            raise SupabaseContractError("Insurer response decision cannot advance the case")
+        response = validate_insurer_response_projection(result.get("response"))
+        decision = response.get("decision")
+        if (
+            response.get("responseId") != canonical_response
+            or not isinstance(decision, Mapping)
+            or decision.get("clientRequestId") != client_request
+            or decision.get("recommendationId") != recommendation_id
+            or decision.get("choice") != choice
+            or decision.get("offerId") != offer_id
+        ):
+            raise SupabaseContractError("Insurer response decision acknowledgement differs from the request")
+        current_revision = result.get("workflowRevision")
+        if isinstance(current_revision, bool) or not isinstance(current_revision, int) or current_revision < revision:
+            raise SupabaseContractError("Workflow revision is invalid")
+        return {"state": "insurer_response_reviewed", "response": response, "workflowRevision": current_revision}
 
     def education(
         self, case_id: str, step: str, state: str, workflow_revision: int, access_token: str

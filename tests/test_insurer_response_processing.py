@@ -204,6 +204,17 @@ class _Database:
             "existing_extraction_version": None,
             "existing_extraction": None,
             "existing_extraction_digest": None,
+            "final_assessment": None,
+            "assessment_digest": "a" * 64,
+            "customer_offer": (
+                {
+                    "offerId": "90000000-0000-4000-8000-000000000009",
+                    "sourceCommunicationId": "80000000-0000-4000-8000-000000000008",
+                    **self.context["insurerResponse"]["customerRecordedRevisedOffer"],
+                }
+                if self.context["insurerResponse"]["customerRecordedRevisedOffer"] is not None
+                else None
+            ),
         }
 
     def complete_total_loss_insurer_response_analysis(self, *args):
@@ -471,6 +482,9 @@ class InsurerResponseProcessorTests(unittest.TestCase):
             "supersedesResponseId": None,
             "analysis": completion[5],
             "analysisEvidence": evidence_index,
+            "recommendation": None,
+            "usableOffer": None,
+            "decision": None,
         }
         self.assertEqual(
             validate_insurer_response_projection(projection)["analysisEvidence"],

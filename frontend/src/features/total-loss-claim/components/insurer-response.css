@@ -112,6 +112,18 @@
 .completed-analysis .response-recommendation > h2 { color: var(--review-muted); font-size: .8rem; letter-spacing: .045em; text-transform: uppercase; }
 .completed-analysis .response-recommendation > strong { display: block; color: var(--review-accent); font-size: 1.35rem; line-height: 1.45; letter-spacing: -.02em; }
 .completed-analysis .response-recommendation > p { margin-top: .6rem; }
+.completed-analysis .response-recommendation-reasons { display: grid; gap: .45rem; margin: .9rem 0 0; padding-left: 1.2rem; color: var(--review-ink); font-size: .9rem; line-height: 1.65; }
+.completed-analysis .response-recommendation-limitations { margin-top: 1rem; padding-left: 1.2rem; color: var(--review-muted); font-size: .8rem; line-height: 1.6; }
+.completed-analysis .response-decision { margin-top: 1.5rem; padding-top: 1.25rem; border-top: 1px solid var(--review-line); }
+.completed-analysis .response-decision h3 { margin-bottom: .6rem; color: var(--review-ink); font-size: 1rem; }
+.completed-analysis .response-decision > p { margin-top: .6rem; font-size: .85rem; line-height: 1.6; }
+.completed-analysis .response-decision-offer strong { color: var(--review-ink); font-variant-numeric: tabular-nums; }
+.completed-analysis .response-decision-actions { display: flex; flex-wrap: wrap; gap: .75rem; margin-top: 1rem; }
+.completed-analysis .response-decision-notice { color: #7f642c; }
+.completed-analysis .response-decision-recorded { display: flex; align-items: flex-start; gap: .65rem; }
+.completed-analysis .response-decision-recorded > svg { flex-shrink: 0; width: 1.2rem; margin-top: .2rem; color: #26765d; }
+.completed-analysis .response-decision-recorded strong { color: var(--review-ink); font-size: 1rem; }
+.completed-analysis .response-decision-recorded p { margin-top: .5rem; font-size: .83rem; line-height: 1.6; }
 .completed-analysis .response-analysis-foundation { max-width: 44rem; margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid var(--review-line); font-size: .82rem; }
 .completed-analysis .response-analysis-foundation h2 { margin-bottom: .65rem; font-size: .9rem; }
 .completed-analysis .response-analysis-foundation p + p { margin-top: .65rem; }
@@ -140,6 +152,7 @@
   .completed-analysis .response-points article { padding: 1rem; }
   .completed-analysis .response-points article > header { align-items: flex-start; flex-direction: column; }
   .completed-analysis .response-recommendation { padding: 1.2rem; }
+  .completed-analysis .response-decision-actions .request-button { width: 100%; justify-content: center; white-space: normal; }
   .completed-analysis .response-review-retry .request-button { width: 100%; justify-content: center; }
 }
 

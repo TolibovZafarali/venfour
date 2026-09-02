@@ -34,6 +34,10 @@ from venfour.insurer_response_analysis import (
     understand_insurer_response_document,
 )
 from venfour.package_processing import CloudTasksConfiguration
+from venfour.insurer_response_recommendation import (
+    InsurerResponseRecommendationError,
+    build_insurer_response_recommendation_v1,
+)
 from venfour.supabase_gateway import (
     SupabaseContractError,
     SupabaseResponseDocumentInvalidError,
@@ -116,6 +120,8 @@ class InsurerResponseAnalysisDatabase(Protocol):
         verified_document_digest: str | None,
         evidence_index: Mapping[str, Any],
         evidence_index_digest: str,
+        recommendation: Mapping[str, Any],
+        recommendation_digest: str,
     ) -> Mapping[str, Any]: ...
 
     def fail_total_loss_insurer_response_analysis(
@@ -157,6 +163,61 @@ class InsurerResponseAnalysisDispatchDatabase(Protocol):
     def resolve_total_loss_insurer_response_analysis_job_case(
         self, job_id: str
     ) -> Mapping[str, Any] | None: ...
+
+
+@runtime_checkable
+class InsurerResponseRecommendationDatabase(Protocol):
+    def resolve_current_total_loss_insurer_response_recommendation_context(
+        self, case_id: str
+    ) -> Mapping[str, Any] | None: ...
+
+    def publish_total_loss_insurer_response_recommendation(
+        self, analysis_result_id: str, recommendation: Mapping[str, Any],
+        recommendation_digest: str,
+    ) -> Mapping[str, Any]: ...
+
+
+def backfill_current_insurer_response_recommendation(
+    database: InsurerResponseRecommendationDatabase, case_id: str, *, apply: bool = False,
+) -> dict[str, Any]:
+    """Explicitly preview or publish a missing recommendation, without reanalysis.
+
+    Customer reads never call this maintenance path. Publication is fenced by
+    the exact completed result and returns superseded if the source changed.
+    """
+    if not isinstance(database, InsurerResponseRecommendationDatabase):
+        raise TypeError("database must implement InsurerResponseRecommendationDatabase")
+    canonical_case = _request_uuid(case_id, "Case ID")
+    context = database.resolve_current_total_loss_insurer_response_recommendation_context(canonical_case)
+    if context is None:
+        return {"outcome": "not_found"}
+    context = _mapping(context, "Completed response recommendation context", keys={
+        "analysis_result_id", "response_id", "analysis_result", "evidence_index",
+        "final_assessment", "assessment_digest", "customer_offer", "recommendation_id",
+    })
+    result_id = _canonical_uuid(context["analysis_result_id"], "Response analysis result ID")
+    _canonical_uuid(context["response_id"], "Insurer response ID")
+    if context["recommendation_id"] is not None:
+        return {
+            "outcome": "already_published",
+            "recommendationId": _canonical_uuid(context["recommendation_id"], "Recommendation ID"),
+        }
+    recommendation = build_insurer_response_recommendation_v1(
+        analysis=context["analysis_result"], evidence_index=context["evidence_index"],
+        final_assessment=context["final_assessment"], assessment_digest=context["assessment_digest"],
+        customer_offer=context["customer_offer"],
+    )
+    if not apply:
+        return {"outcome": "ready", "analysisResultId": result_id, "recommendation": recommendation}
+    result = _mapping(database.publish_total_loss_insurer_response_recommendation(
+        result_id, recommendation, _canonical_json_digest(recommendation),
+    ), "Response recommendation publication", keys={"outcome", "recommendationId", "workflowRevision"})
+    if result.get("outcome") not in {"published", "duplicate", "superseded"}:
+        raise InsurerResponseProcessingContractError("Response recommendation publication is invalid")
+    if result.get("outcome") != "superseded":
+        _canonical_uuid(result.get("recommendationId"), "Recommendation ID")
+        _positive_integer(result.get("workflowRevision"), "Workflow revision")
+    return dict(result)
 
 
 @runtime_checkable
@@ -1376,6 +1437,9 @@ class TotalLossInsurerResponseProcessor:
                 "existing_extraction_version",
                 "existing_extraction",
                 "existing_extraction_digest",
+                "final_assessment",
+                "assessment_digest",
+                "customer_offer",
             },
         )
         if (
@@ -1485,7 +1549,7 @@ class TotalLossInsurerResponseProcessor:
             )
         if isinstance(
             error,
-            (SupabaseContractError, InsurerResponseProcessingContractError),
+            (SupabaseContractError, InsurerResponseProcessingContractError, InsurerResponseRecommendationError),
         ):
             return "INSURER_RESPONSE_ANALYSIS_CONTEXT_INVALID", "terminal", 0
         return (
@@ -1607,6 +1671,13 @@ class TotalLossInsurerResponseProcessor:
             persisted_result_digest = _canonical_json_digest(result)
             evidence_index = _analysis_evidence_index(request)
             evidence_index_digest = _canonical_json_digest(evidence_index)
+            recommendation = build_insurer_response_recommendation_v1(
+                analysis=result,
+                evidence_index=evidence_index,
+                final_assessment=context_row["final_assessment"],
+                assessment_digest=context_row["assessment_digest"],
+                customer_offer=context_row["customer_offer"],
+            )
             completion = _mapping(
                 self._database.complete_total_loss_insurer_response_analysis(
                     claimed.job_id,
@@ -1623,6 +1694,8 @@ class TotalLossInsurerResponseProcessor:
                     document.content_digest if document is not None else None,
                     evidence_index,
                     evidence_index_digest,
+                    recommendation,
+                    _canonical_json_digest(recommendation),
                 ),
                 "Response analysis completion",
                 keys={"outcome", "status", "workflow_revision"},
@@ -1680,6 +1753,8 @@ __all__ = [
     "InsurerResponseProcessingContractError",
     "InsurerResponseProcessingError",
     "InsurerResponseProcessingUnavailableError",
+    "InsurerResponseRecommendationDatabase",
     "TotalLossInsurerResponseCoordinator",
     "TotalLossInsurerResponseProcessor",
+    "backfill_current_insurer_response_recommendation",
 ]

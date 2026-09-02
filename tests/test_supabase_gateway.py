@@ -695,7 +695,7 @@ class SupabaseHttpGatewayTests(unittest.TestCase):
             ),
             {
                 "outcome": (
-                    "resolve_total_loss_insurer_response_analysis_context"
+                    "resolve_total_loss_response_recommendation_processing_context"
                 )
             },
         )

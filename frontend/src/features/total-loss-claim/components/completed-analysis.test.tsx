@@ -20,6 +20,8 @@ import {
   type TotalLossInsurerResponse,
   type TotalLossInsurerResponseAnalysis,
   type TotalLossPublishedReport,
+  type TotalLossResponseDecisionInput,
+  type TotalLossResponseRecommendation,
 } from "@/features/total-loss-claim/contracts";
 import { useTotalLossClaimQuery } from "@/features/total-loss-claim/queries";
 import type { TotalLossClaimWorkflowView } from "@/features/total-loss-claim/workflow-route";
@@ -177,6 +179,9 @@ function savedInsurerResponse(
     clientRequestId: "88888888-8888-4888-8888-888888888888",
     document: null,
     failureReason,
+    recommendation: null,
+    usableOffer: null,
+    decision: null,
     processingState,
     receivedAt: NOW,
     responseId: "99999999-9999-4999-8999-999999999999",
@@ -201,6 +206,45 @@ function responseClaim(response = savedInsurerResponse("pending")): TotalLossCla
     insurerResponse: response,
     journey: { fulfillmentState: "insurer_response_reviewing", nextState: "insurer_response_reviewing", retryable: false },
     workflow: { currentTask: "insurer_response_reviewing", phase: "negotiation", revision: 14 },
+  };
+}
+
+function recommendedResponse(state: TotalLossResponseRecommendation["state"] = "CONTINUE_CHALLENGING", usable = true): TotalLossInsurerResponse {
+  return {
+    ...savedInsurerResponse("completed", reviewedResponseAnalysis()),
+    recommendation: {
+      recommendationId: "11111111-1111-4111-8111-111111111111",
+      versionNumber: 1,
+      analysisResultId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      schemaVersion: "1", policyVersion: "1", state,
+      summary: "The saved valuation evidence supports this recommendation.",
+      reasons: ["The revised amount was compared with the saved evidence range."],
+      reasonCodes: ["OFFER_COMPARED_WITH_SAVED_EVIDENCE"],
+      limitations: ["Advertised prices do not guarantee a settlement."],
+      responseEvidenceRefs: [RESPONSE_EVIDENCE_REF], caseEvidenceRefs: [CASE_EVIDENCE_REF],
+    },
+    usableOffer: usable ? { offerId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb", amountMinorUnits: 2_010_000, currency: "USD", source: "CUSTOMER_RECORDED" } : null,
+  };
+}
+
+function reviewedClaim(response = recommendedResponse()): TotalLossClaimSecured {
+  return {
+    ...responseClaim(response),
+    journey: { fulfillmentState: "insurer_response_reviewed", nextState: "insurer_response_reviewed", retryable: false },
+    workflow: { currentTask: "insurer_response_reviewed", phase: "negotiation", revision: 15 },
+  };
+}
+
+function decisionResponse(response: TotalLossInsurerResponse, input: TotalLossResponseDecisionInput): TotalLossInsurerResponse {
+  return {
+    ...response,
+    decision: {
+      decisionId: "cccccccc-cccc-4ccc-8ccc-cccccccccccc", clientRequestId: input.clientRequestId,
+      recommendationId: input.recommendationId, analysisResultId: response.recommendation!.analysisResultId,
+      choice: input.choice, offerId: input.offerId,
+      amountMinorUnits: input.choice === "ACCEPT_OFFER" ? response.usableOffer!.amountMinorUnits : null,
+      currency: input.choice === "ACCEPT_OFFER" ? response.usableOffer!.currency : null, recordedAt: NOW,
+    },
   };
 }
 
@@ -456,6 +500,9 @@ function installClaim(initialClaim = claimProjection(), failOnce?: TotalLossEduc
         revisedOffer: body.revisedOfferMinorUnits ? { amountMinorUnits: body.revisedOfferMinorUnits, currency: "USD" } : null,
         processingState: "pending" as const,
         failureReason: null,
+        recommendation: null,
+        usableOffer: null,
+        decision: null,
         supersedesResponseId: body.supersedesResponseId,
       };
       claim = {
@@ -1500,7 +1547,7 @@ describe("completed-analysis guided progression", () => {
     expect(access).not.toHaveBeenCalled();
   });
 
-  it("renders a completed response review as a grounded guided step without negotiation controls", async () => {
+  it("renders a legacy completed response review without inventing a recommendation or decision controls", async () => {
     const user = userEvent.setup();
     const projection = claimProjection([...BEFORE_REQUEST, "send"]);
     installClaim({
@@ -1535,12 +1582,15 @@ describe("completed-analysis guided progression", () => {
     ).toBeVisible();
     expect(screen.getByRole("heading", { name: "What matters" })).toBeVisible();
     expect(
-      screen.getByRole("heading", { name: "Recommended next step" }),
+      screen.getByRole("heading", { name: "Venfour’s recommendation" }),
     ).toBeVisible();
     expect(screen.getByText("$19,046")).toBeVisible();
     expect(screen.getAllByText("$20,100.00").length).toBeGreaterThan(0);
     expect(screen.getByText("Partially accepted")).toBeVisible();
-    expect(screen.getByText("Review their revised offer")).toBeVisible();
+    expect(screen.getByText("Recommendation unavailable")).toBeVisible();
+    expect(screen.queryByText("Review their revised offer")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Accept offer" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Continue challenging" })).not.toBeInTheDocument();
     const basisControls = screen.getAllByText(/^Basis:/u);
     expect(basisControls.length).toBeGreaterThan(0);
     await user.click(basisControls[0]);
@@ -1617,6 +1667,186 @@ describe("completed-analysis guided progression", () => {
     expect(
       within(customerBasis!.parentElement!).getByText("Amount you recorded"),
     ).toBeVisible();
+  });
+
+  it.each([
+    ["ACCEPT_OFFER", "Accept offer"],
+    ["CONTINUE_CHALLENGING", "Continue challenging"],
+    ["NO_CLEAR_RECOMMENDATION", "No clear recommendation"],
+  ] as const)("presents the persisted %s recommendation without making a customer choice on view", async (state, label) => {
+    installClaim(reviewedClaim(recommendedResponse(state)));
+    const writes = vi.fn();
+    server.use(http.post(`${API}/claim/insurer-responses/:responseId/decision`, () => {
+      writes(); return new HttpResponse(null, { status: 500 });
+    }));
+    const view = renderJourney("report", "response-reviewed");
+    await screen.findByRole("heading", { name: "Venfour’s recommendation" });
+    const card = screen.getByRole("heading", { name: "Venfour’s recommendation" }).parentElement!;
+    expect(within(card).getByText(label, { selector: "strong" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Accept offer" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Continue challenging" })).toBeEnabled();
+    expect(screen.queryByText("Review their revised offer")).not.toBeInTheDocument();
+    expect(screen.getByText("The revised amount was compared with the saved evidence range.")).toBeVisible();
+    expect(writes).not.toHaveBeenCalled();
+    expect(window.sessionStorage.length).toBe(0);
+    await act(async () => { await view.queryClient.invalidateQueries(); });
+    expect(within(card).getByText(label, { selector: "strong" })).toBeVisible();
+    expect(writes).not.toHaveBeenCalled();
+  });
+
+  it.each(["ACCEPT_OFFER", "CONTINUE_CHALLENGING"] as const)("records an explicit %s choice independently from the recommendation and resumes it", async (choice) => {
+    const recommendationState = choice === "ACCEPT_OFFER" ? "CONTINUE_CHALLENGING" : "ACCEPT_OFFER";
+    const initial = reviewedClaim(recommendedResponse(recommendationState));
+    const installed = installClaim(initial);
+    const writes: TotalLossResponseDecisionInput[] = [];
+    let release: (() => void) | undefined;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    server.use(http.post(`${API}/claim/insurer-responses/:responseId/decision`, async ({ request: update, params }) => {
+      const input = await update.json() as TotalLossResponseDecisionInput;
+      expect(params.responseId).toBe(initial.insurerResponse!.responseId);
+      writes.push(input);
+      await gate;
+      const response = decisionResponse(initial.insurerResponse!, input);
+      installed.setClaim({ ...initial, insurerResponse: response, workflow: { ...initial.workflow!, revision: 16 } });
+      return HttpResponse.json({ state: "insurer_response_reviewed", response: publicInsurerResponseProjection(response), workflowRevision: 16 });
+    }));
+    const user = userEvent.setup();
+    const first = renderJourney("report", "response-reviewed");
+    const label = choice === "ACCEPT_OFFER" ? "Accept offer" : "Continue challenging";
+    const button = await screen.findByRole("button", { name: label });
+    expect(writes).toHaveLength(0);
+    await user.dblClick(button);
+    await waitFor(() => expect(writes).toHaveLength(1));
+    expect(screen.getByRole("button", { name: "Saving choice…" })).toBeDisabled();
+    expect(writes[0]).toEqual({
+      clientRequestId: expect.any(String), recommendationId: initial.insurerResponse!.recommendation!.recommendationId,
+      choice, offerId: choice === "ACCEPT_OFFER" ? initial.insurerResponse!.usableOffer!.offerId : null,
+      workflowRevision: 15,
+    });
+    await act(async () => { release?.(); });
+    const recorded = choice === "ACCEPT_OFFER" ? "You chose to accept $20,100.00" : "You chose to continue challenging";
+    expect(await screen.findByText(recorded)).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Accept offer" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Continue challenging" })).not.toBeInTheDocument();
+    expect(window.sessionStorage.length).toBe(0);
+    expect(screen.getByText(/case remains open/u)).toBeVisible();
+    first.unmount();
+    renderJourney("report", "response-reviewed");
+    expect(await screen.findByText(recorded)).toBeVisible();
+    expect(writes).toHaveLength(1);
+    expect(screen.getByText(recommendationState === "ACCEPT_OFFER" ? "Accept offer" : "Continue challenging", { selector: ".response-recommendation > strong" })).toBeVisible();
+  });
+
+  it("offers Continue without inventing an Accept action from the analyzed amount", async () => {
+    installClaim(reviewedClaim(recommendedResponse("NO_CLEAR_RECOMMENDATION", false)));
+    renderJourney("report", "response-reviewed");
+    expect(await screen.findByText("No clear recommendation")).toBeVisible();
+    expect(screen.getAllByText("$20,100.00").length).toBeGreaterThan(0);
+    expect(screen.queryByRole("button", { name: "Accept offer" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Continue challenging" })).toBeEnabled();
+    expect(screen.getByText("No verified revised offer is available to accept.")).toBeVisible();
+  });
+
+  it("restores an interrupted explicit choice and retries the identical request after refresh", async () => {
+    const initial = reviewedClaim();
+    const installed = installClaim(initial);
+    const writes: TotalLossResponseDecisionInput[] = [];
+    server.use(http.post(`${API}/claim/insurer-responses/:responseId/decision`, async ({ request: update }) => {
+      const input = await update.json() as TotalLossResponseDecisionInput;
+      writes.push(input);
+      if (writes.length === 1) return HttpResponse.json({ error: { code: "SERVICE_UNAVAILABLE", message: "Try again." } }, { status: 503 });
+      const response = decisionResponse(initial.insurerResponse!, input);
+      installed.setClaim({ ...initial, insurerResponse: response, workflow: { ...initial.workflow!, revision: 16 } });
+      return HttpResponse.json({ state: "insurer_response_reviewed", response: publicInsurerResponseProjection(response), workflowRevision: 16 });
+    }));
+    const user = userEvent.setup();
+    const first = renderJourney("report", "response-reviewed");
+    await user.click(await screen.findByRole("button", { name: "Accept offer" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("couldn’t confirm");
+    expect(window.sessionStorage.length).toBe(1);
+    const beforeUnload = new Event("beforeunload", { cancelable: true });
+    window.dispatchEvent(beforeUnload);
+    expect(beforeUnload.defaultPrevented).toBe(true);
+    first.unmount();
+    renderJourney("report", "response-reviewed");
+    const retry = await screen.findByRole("button", { name: "Retry saving Accept offer" });
+    expect(writes).toHaveLength(1);
+    expect(screen.getByRole("button", { name: "Continue challenging" })).toBeDisabled();
+    await user.click(retry);
+    expect(await screen.findByText("You chose to accept $20,100.00")).toBeVisible();
+    expect(writes).toHaveLength(2);
+    expect(writes[1]).toEqual(writes[0]);
+    expect(window.sessionStorage.length).toBe(0);
+  });
+
+  it("reconciles a lost write acknowledgement with the persisted decision without a second choice", async () => {
+    const initial = reviewedClaim();
+    const installed = installClaim(initial);
+    const writes = vi.fn();
+    server.use(http.post(`${API}/claim/insurer-responses/:responseId/decision`, async ({ request: update }) => {
+      const input = await update.json() as TotalLossResponseDecisionInput;
+      writes();
+      installed.setClaim({ ...initial, insurerResponse: decisionResponse(initial.insurerResponse!, input), workflow: { ...initial.workflow!, revision: 16 } });
+      return HttpResponse.json({ error: { code: "SERVICE_UNAVAILABLE", message: "Connection interrupted." } }, { status: 503 });
+    }));
+    renderJourney("report", "response-reviewed");
+    await userEvent.click(await screen.findByRole("button", { name: "Continue challenging" }));
+    expect(await screen.findByText("You chose to continue challenging")).toBeVisible();
+    expect(writes).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(window.sessionStorage.length).toBe(0);
+  });
+
+  it("rebases only the workflow revision when explicitly retrying an unchanged decision", async () => {
+    const initial = reviewedClaim();
+    const installed = installClaim(initial);
+    const writes: TotalLossResponseDecisionInput[] = [];
+    server.use(http.post(`${API}/claim/insurer-responses/:responseId/decision`, async ({ request: update }) => {
+      const input = await update.json() as TotalLossResponseDecisionInput;
+      writes.push(input);
+      if (writes.length === 1) {
+        installed.setClaim({ ...initial, workflow: { ...initial.workflow!, revision: 16 } });
+        return HttpResponse.json({ error: { code: "CONFLICT", message: "The workflow changed." } }, { status: 409 });
+      }
+      const response = decisionResponse(initial.insurerResponse!, input);
+      installed.setClaim({ ...initial, insurerResponse: response, workflow: { ...initial.workflow!, revision: 17 } });
+      return HttpResponse.json({ state: "insurer_response_reviewed", response: publicInsurerResponseProjection(response), workflowRevision: 17 });
+    }));
+    renderJourney("report", "response-reviewed");
+    await userEvent.click(await screen.findByRole("button", { name: "Accept offer" }));
+    await screen.findByRole("alert");
+    await userEvent.click(screen.getByRole("button", { name: "Retry saving Accept offer" }));
+    expect(await screen.findByText("You chose to accept $20,100.00")).toBeVisible();
+    expect(writes).toHaveLength(2);
+    expect(writes[0].workflowRevision).toBe(15);
+    expect(writes[1]).toEqual({ ...writes[0], workflowRevision: 16 });
+    expect(window.sessionStorage.length).toBe(0);
+  });
+
+  it("isolates pending choices from a corrected response and its new recommendation", async () => {
+    const initial = reviewedClaim();
+    const installed = installClaim(initial);
+    const writes: TotalLossResponseDecisionInput[] = [];
+    server.use(http.post(`${API}/claim/insurer-responses/:responseId/decision`, async ({ request: update }) => {
+      writes.push(await update.json() as TotalLossResponseDecisionInput);
+      return HttpResponse.json({ error: { code: "SERVICE_UNAVAILABLE", message: "Try again." } }, { status: 503 });
+    }));
+    const view = renderJourney("report", "response-reviewed");
+    await userEvent.click(await screen.findByRole("button", { name: "Accept offer" }));
+    await screen.findByRole("alert");
+    const old = initial.insurerResponse!;
+    const corrected = { ...recommendedResponse(), responseId: "dddddddd-dddd-4ddd-8ddd-dddddddddddd", supersedesResponseId: old.responseId,
+      recommendation: { ...old.recommendation!, recommendationId: "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee", analysisResultId: "ffffffff-ffff-4fff-8fff-ffffffffffff" } };
+    installed.setClaim(reviewedClaim(corrected));
+    await act(async () => { await view.queryClient.invalidateQueries(); });
+    expect(await screen.findByRole("button", { name: "Accept offer" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Continue challenging" })).toBeEnabled();
+    expect(screen.queryByRole("button", { name: "Retry saving Accept offer" })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Continue challenging" }));
+    await waitFor(() => expect(writes).toHaveLength(2));
+    expect(writes[1].recommendationId).toBe(corrected.recommendation.recommendationId);
+    expect(writes[1].clientRequestId).not.toBe(writes[0].clientRequestId);
+    expect(writes[1].offerId).toBeNull();
   });
 
   it("labels a visual transcription as derived and preserves original authority", async () => {

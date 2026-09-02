@@ -31,6 +31,11 @@ import type {
   TotalLossInsurerResponseMediaType,
   TotalLossInsurerResponseRecorded,
   TotalLossInsurerResponseUploadPreparation,
+  TotalLossResponseRecommendation,
+  TotalLossResponseUsableOffer,
+  TotalLossResponseDecision,
+  TotalLossResponseDecisionInput,
+  TotalLossResponseDecisionRecorded,
   TotalLossMarketComparable,
   TotalLossMarketEvidence,
   TotalLossMarketEvidenceDateContext,
@@ -989,8 +994,9 @@ function mappedList<T>(
   value: unknown,
   field: string,
   map: (item: unknown, index: number) => T,
+  maximumItems = 100,
 ): readonly T[] {
-  if (!Array.isArray(value) || value.length > 100) {
+  if (!Array.isArray(value) || value.length > maximumItems) {
     throw new TotalLossClaimContractError(
       `The claim service returned invalid ${field}.`,
     );
@@ -1015,8 +1021,9 @@ function evidenceReferenceList(
   value: unknown,
   field: string,
   pattern: RegExp,
+  maximumItems = 100,
 ) {
-  return mappedList(value, field, (item) => requiredString(item, field, pattern));
+  return mappedList(value, field, (item) => requiredString(item, field, pattern), maximumItems);
 }
 
 function mapResponseAnalysisReferenceSet(
@@ -1602,6 +1609,68 @@ function mapInsurerResponseAnalysisEvidence(
   return { caseEvidence, responseEvidence };
 }
 
+function mapResponseRecommendation(value: unknown): TotalLossResponseRecommendation | null {
+  if (value === null) return null;
+  const item = exactRecord(value, [
+    "recommendationId", "versionNumber", "analysisResultId", "schemaVersion", "policyVersion",
+    "state", "summary", "reasons", "reasonCodes", "limitations", "responseEvidenceRefs", "caseEvidenceRefs",
+  ], "insurer-response recommendation");
+  if (item.schemaVersion !== "1" || item.policyVersion !== "1") {
+    throw new TotalLossClaimContractError("The claim service returned an unsupported recommendation version.");
+  }
+  const text = (value: unknown, field: string) => {
+    const result = requiredString(value, field);
+    if ([...result].length > 2_000) throw new TotalLossClaimContractError(`The claim service returned invalid ${field}.`);
+    return result;
+  };
+  const responseEvidenceRefs = evidenceReferenceList(item.responseEvidenceRefs, "recommendation response references", RESPONSE_EVIDENCE_REFERENCE_PATTERN, 250);
+  const caseEvidenceRefs = evidenceReferenceList(item.caseEvidenceRefs, "recommendation case references", CASE_EVIDENCE_REFERENCE_PATTERN, 250);
+  if (new Set(responseEvidenceRefs).size !== responseEvidenceRefs.length || new Set(caseEvidenceRefs).size !== caseEvidenceRefs.length) {
+    throw new TotalLossClaimContractError("The claim service returned duplicate recommendation evidence references.");
+  }
+  return {
+    recommendationId: requiredString(item.recommendationId, "recommendation ID", UUID_PATTERN),
+    versionNumber: positiveInteger(item.versionNumber, "recommendation version"),
+    analysisResultId: requiredString(item.analysisResultId, "analysis result ID", UUID_PATTERN),
+    schemaVersion: "1",
+    policyVersion: "1",
+    state: enumValue(item.state, new Set<TotalLossResponseRecommendation["state"]>(["ACCEPT_OFFER", "CONTINUE_CHALLENGING", "NO_CLEAR_RECOMMENDATION"]), "recommendation state"),
+    summary: text(item.summary, "recommendation summary"),
+    reasons: mappedList(item.reasons, "recommendation reasons", (reason) => text(reason, "recommendation reason"), 10),
+    reasonCodes: mappedList(item.reasonCodes, "recommendation reason codes", (reason) => requiredString(reason, "recommendation reason code", /^[A-Z][A-Z0-9_]{0,95}$/u), 10),
+    limitations: mappedList(item.limitations, "recommendation limitations", (reason) => text(reason, "recommendation limitation"), 10),
+    responseEvidenceRefs,
+    caseEvidenceRefs,
+  };
+}
+
+function mapResponseUsableOffer(value: unknown): TotalLossResponseUsableOffer | null {
+  if (value === null) return null;
+  const item = exactRecord(value, ["offerId", "amountMinorUnits", "currency", "source"], "usable insurer offer");
+  return {
+    offerId: requiredString(item.offerId, "insurer offer ID", UUID_PATTERN),
+    amountMinorUnits: positiveInteger(item.amountMinorUnits, "insurer offer amount"),
+    currency: requiredString(item.currency, "insurer offer currency", CURRENCY_PATTERN),
+    source: enumValue(item.source, new Set<TotalLossResponseUsableOffer["source"]>(["CUSTOMER_RECORDED", "RESPONSE_TEXT"]), "insurer offer source"),
+  };
+}
+
+function mapResponseDecision(value: unknown): TotalLossResponseDecision | null {
+  if (value === null) return null;
+  const item = exactRecord(value, ["decisionId", "clientRequestId", "recommendationId", "analysisResultId", "choice", "offerId", "amountMinorUnits", "currency", "recordedAt"], "insurer-response decision");
+  return {
+    decisionId: requiredString(item.decisionId, "response decision ID", UUID_PATTERN),
+    clientRequestId: requiredString(item.clientRequestId, "response decision request ID", UUID_PATTERN),
+    recommendationId: requiredString(item.recommendationId, "response decision recommendation ID", UUID_PATTERN),
+    analysisResultId: requiredString(item.analysisResultId, "response decision analysis result ID", UUID_PATTERN),
+    choice: enumValue(item.choice, new Set<TotalLossResponseDecision["choice"]>(["ACCEPT_OFFER", "CONTINUE_CHALLENGING"]), "response decision choice"),
+    offerId: item.offerId === null ? null : requiredString(item.offerId, "accepted offer ID", UUID_PATTERN),
+    amountMinorUnits: item.amountMinorUnits === null ? null : positiveInteger(item.amountMinorUnits, "accepted offer amount"),
+    currency: item.currency === null ? null : requiredString(item.currency, "accepted offer currency", CURRENCY_PATTERN),
+    recordedAt: requiredString(item.recordedAt, "response decision recorded time", ISO_TIMESTAMP_PATTERN),
+  };
+}
+
 function mapInsurerResponse(value: unknown): TotalLossInsurerResponse | null {
   if (value === null || value === undefined) return null;
   if (!isRecord(value)) {
@@ -1638,6 +1707,7 @@ function mapInsurerResponse(value: unknown): TotalLossInsurerResponse | null {
       "processingState",
       "failureReason",
       "supersedesResponseId",
+      "recommendation", "usableOffer", "decision",
       ...(value.processingState === "completed"
         ? ["analysis", "analysisEvidence"]
         : []),
@@ -1656,6 +1726,27 @@ function mapInsurerResponse(value: unknown): TotalLossInsurerResponse | null {
     analysis,
   );
   const failureReason = value.failureReason;
+  const recommendation = mapResponseRecommendation(value.recommendation);
+  const usableOffer = mapResponseUsableOffer(value.usableOffer);
+  const decision = mapResponseDecision(value.decision);
+  if (
+    (value.processingState !== "completed" && (recommendation || usableOffer || decision)) ||
+    (!recommendation && (usableOffer || decision)) ||
+    (recommendation?.state === "ACCEPT_OFFER" && !usableOffer) ||
+    (recommendation && (
+      recommendation.responseEvidenceRefs.some((reference) => !analysisEvidence?.responseEvidence.some((item) => item.evidenceRef === reference)) ||
+      recommendation.caseEvidenceRefs.some((reference) => !analysisEvidence?.caseEvidence.some((item) => item.evidenceRef === reference))
+    )) ||
+    (decision && (
+      decision.recommendationId !== recommendation?.recommendationId ||
+      decision.analysisResultId !== recommendation?.analysisResultId ||
+      (decision.choice === "ACCEPT_OFFER"
+        ? !usableOffer || decision.offerId !== usableOffer.offerId || decision.amountMinorUnits !== usableOffer.amountMinorUnits || decision.currency !== usableOffer.currency
+        : decision.offerId !== null || decision.amountMinorUnits !== null || decision.currency !== null)
+    ))
+  ) {
+    throw new TotalLossClaimContractError("The claim service returned inconsistent response recommendation or decision lineage.");
+  }
   if (
     failureReason !== null &&
     (typeof failureReason !== "string" ||
@@ -1707,9 +1798,22 @@ function mapInsurerResponse(value: unknown): TotalLossInsurerResponse | null {
       ),
     };
   }
+  if (usableOffer && (
+    analysis?.revisedOffer.status !== "PRESENT" ||
+    analysis.revisedOffer.amountMinorUnits !== usableOffer.amountMinorUnits ||
+    analysis.revisedOffer.currency !== usableOffer.currency ||
+    (usableOffer.source === "CUSTOMER_RECORDED"
+      ? revisedOffer?.amountMinorUnits !== usableOffer.amountMinorUnits || revisedOffer.currency !== usableOffer.currency
+      : analysis.revisedOffer.visualSourceInterpretation !== null || analysis.revisedOffer.source !== "INSURER_RESPONSE")
+  )) {
+    throw new TotalLossClaimContractError("The claim service returned an inconsistent usable insurer offer.");
+  }
   return {
     analysis,
     analysisEvidence,
+    recommendation,
+    usableOffer,
+    decision,
     clientRequestId: requiredString(
       value.clientRequestId,
       "insurer-response request ID",
@@ -2638,4 +2742,28 @@ export async function retryTotalLossInsurerResponseAnalysis(
     { accessToken, signal },
   );
   return mapResolver(response);
+}
+
+export async function recordTotalLossInsurerResponseDecision(
+  caseId: string,
+  responseId: string,
+  accessToken: string,
+  input: TotalLossResponseDecisionInput,
+  signal?: AbortSignal,
+): Promise<TotalLossResponseDecisionRecorded> {
+  ensureCaseId(caseId);
+  requiredString(responseId, "insurer-response ID", UUID_PATTERN);
+  const raw = await apiClient.postJson<unknown>(
+    `/api/v1/appraisal-cases/${encodeURIComponent(caseId)}/claim/insurer-responses/${encodeURIComponent(responseId)}/decision`,
+    input,
+    { accessToken, signal },
+  );
+  const result = exactRecord(raw, ["state", "response", "workflowRevision"], "response decision confirmation");
+  const response = mapInsurerResponse(result.response);
+  if (result.state !== "insurer_response_reviewed" || response?.responseId !== responseId || !response.decision ||
+    response.decision.clientRequestId !== input.clientRequestId || response.decision.recommendationId !== input.recommendationId ||
+    response.decision.choice !== input.choice || response.decision.offerId !== input.offerId) {
+    throw new TotalLossClaimContractError("The claim service returned an inconsistent response decision confirmation.");
+  }
+  return { state: "insurer_response_reviewed", response, workflowRevision: workflowRevision(result.workflowRevision) };
 }
