@@ -15,17 +15,17 @@
     linear-gradient(155deg, #f0f4fb 0%, #fafbfd 48%, #eef3fa 100%);
 }
 [data-completed-review]:has(.completed-analysis) header[data-header-state] {
-  top: .75rem;
-  left: 1rem;
-  right: 1rem;
+  top: 0;
+  left: 0;
+  right: 0;
   transition: none;
 }
 [data-completed-review]:has(.completed-analysis) .header-glass {
   position: relative;
   isolation: isolate;
-  max-width: 80rem;
-  border-color: transparent;
-  border-radius: 24px;
+  max-width: 100vw;
+  border-color: var(--line);
+  border-radius: 0;
   color: #20252c;
   transition: none;
 }
@@ -227,8 +227,8 @@
   .completed-analysis .listing-preview-price { grid-column: 2; grid-row: 1; }
 }
 @media (max-width: 540px) {
-  [data-completed-review]:has(.completed-analysis) header[data-header-state] { top: .5rem; left: .75rem; right: .75rem; }
-  [data-completed-review]:has(.completed-analysis) .header-glass { border-radius: 22px; }
+  [data-completed-review]:has(.completed-analysis) header[data-header-state] { top: 0; left: 0; right: 0; }
+  [data-completed-review]:has(.completed-analysis) .header-glass { border-radius: 0; }
   [data-completed-review]:has(.completed-analysis) .header-glass > div { gap: .5rem; padding-inline: .75rem; }
   [data-completed-review]:has(.completed-analysis) .header-glass > div > div:last-child { gap: .5rem; }
   [data-completed-review]:has(.completed-analysis) .header-glass button { max-width: 6rem; }
@@ -285,7 +285,7 @@
 .completed-analysis .value-summary-market[data-has-range="false"] .value-summary-median { grid-column: 1; border: 0; padding: 0; }
 .completed-analysis .value-summary[data-has-range="false"][data-has-median="false"] .value-summary-offer { grid-row: auto; border: 0; padding: 0; }
 
-.completed-analysis[data-stage="request"] .review-navigation-footer, .completed-analysis[data-stage="waiting"] .review-navigation-footer, .completed-analysis[data-stage="response"] .review-navigation-footer, .completed-analysis[data-stage="response_received"] .review-navigation-footer { position: static; }
+.completed-analysis[data-stage="request"] .review-navigation-footer, .completed-analysis[data-stage="waiting"] .review-navigation-footer, .completed-analysis[data-stage="response"] .review-navigation-footer, .completed-analysis[data-stage="response_received"] .review-navigation-footer, .completed-analysis[data-stage="response_reviewing"] .review-navigation-footer, .completed-analysis[data-stage="response_reviewed"] .review-navigation-footer { position: static; }
 .completed-analysis[data-request-draft] .review-navigation-footer { position: sticky; }
 
 @media (prefers-reduced-transparency: reduce) {

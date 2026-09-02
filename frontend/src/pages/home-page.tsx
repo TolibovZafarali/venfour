@@ -13,7 +13,7 @@ import {
   RepairedVehicleServiceVisual,
   TotalLossServiceVisual,
 } from "@/pages/home-visuals";
-import { SignedInHomePage } from "@/pages/signed-in-home-page";
+import { SignedInJourneyEntry } from "@/pages/signed-in-journey-entry";
 
 const primaryActionClassName =
   "inline-flex min-h-12 items-center justify-center gap-2 rounded-lg bg-brand px-5 text-sm font-semibold whitespace-nowrap text-white transition-colors hover:bg-brand-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 motion-reduce:transition-none";
@@ -411,11 +411,11 @@ function HomePageLoading() {
   return (
     <section
       className="page-gradient-account-home w-full bg-canvas"
-      aria-label="Loading home"
+      aria-label="Loading Venfour"
       aria-live="polite"
       aria-busy="true"
     >
-      <span className="sr-only">Loading your home…</span>
+      <span className="sr-only">Loading Venfour…</span>
       <div className="mx-auto w-full max-w-7xl px-5 py-12 sm:px-8 sm:py-16 lg:px-10 lg:py-20">
         <div
           className="h-32 max-w-2xl animate-pulse rounded-2xl bg-white motion-reduce:animate-none"
@@ -438,12 +438,7 @@ export function HomePage() {
   }
 
   if (isPermanentAuthState(auth)) {
-    return (
-      <SignedInHomePage
-        accessToken={auth.session.access_token}
-        userId={auth.user.id}
-      />
-    );
+    return <SignedInJourneyEntry userId={auth.user.id} />;
   }
 
   return <PublicHomePage />;

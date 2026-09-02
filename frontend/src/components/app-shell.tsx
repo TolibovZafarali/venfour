@@ -158,7 +158,12 @@ function AppShellContent() {
   const resolvingPortalAudience =
     accountPortalRoute && auth.status === "loading";
   const permanentPortal =
-    accountPortalRoute && isPermanentAuthState(auth);
+    Boolean(appraisalsRoute) && isPermanentAuthState(auth);
+  const signedInJourneyEntryRoute =
+    onHomePage && isPermanentAuthState(auth);
+  const focusedCaseAccountHeader =
+    completedReviewRoute ||
+    (Boolean(totalLossCaseRoute) && isPermanentAuthState(auth));
   const totalLossHref = onHomePage ? "#total-loss" : "/#total-loss";
   const diminishedValueHref = onHomePage
     ? "#diminished-value"
@@ -261,9 +266,8 @@ function AppShellContent() {
                 ) : null}
               </div>
 
-              {completedReviewRoute ? (
+              {focusedCaseAccountHeader ? (
                 <div className="flex items-center gap-4">
-                  {isPermanentAuthState(auth) && <Link to="/appraisals" className={primaryLinkClassName}>My appraisals</Link>}
                   <AccountControl className="shrink-0" onStaffNavigationRequest={requestStaffNavigation} staffReviewHref={staffReviewHref} />
                 </div>
               ) : productFlowRoute ? null : startFlowRoute || adminRoute ? (
@@ -291,6 +295,12 @@ function AppShellContent() {
                     aria-hidden
                   />
                 </div>
+              ) : signedInJourneyEntryRoute ? (
+                <AccountControl
+                  className="shrink-0"
+                  onStaffNavigationRequest={requestStaffNavigation}
+                  staffReviewHref={staffReviewHref}
+                />
               ) : (
                 <>
                   <nav
@@ -304,14 +314,7 @@ function AppShellContent() {
                           className={primaryLinkClassName}
                           aria-current={onHomePage ? "page" : undefined}
                         >
-                          Case workspace
-                        </Link>
-                        <Link
-                          to="/appraisals"
-                          className={primaryLinkClassName}
-                          aria-current={appraisalsRoute ? "page" : undefined}
-                        >
-                          My appraisals
+                          Guided valuation review
                         </Link>
                         <Link
                           to="/methodology"
@@ -424,14 +427,6 @@ function AppShellContent() {
                 <div className="mx-auto flex w-full max-w-7xl flex-col py-2">
                   {permanentPortal ? (
                     <>
-                      <Link
-                        to="/"
-                        className={mobileLinkClassName}
-                        aria-current={onHomePage ? "page" : undefined}
-                        onClick={() => setMobileNavigationOpen(false)}
-                      >
-                        Case workspace
-                      </Link>
                       <MobileAccountControl
                         onAction={() => setMobileNavigationOpen(false)}
                         staffReviewHref={staffReviewHref}
@@ -517,7 +512,7 @@ function AppShellContent() {
             </Link>
           </nav>
         </footer>
-      ) : !startFlowRoute && !adminRoute ? (
+      ) : !startFlowRoute && !adminRoute && !signedInJourneyEntryRoute ? (
         <footer className="site-footer-gradient border-t border-line bg-surface">
           <div className="mx-auto w-full max-w-7xl px-5 py-6 sm:px-8 sm:py-7">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -559,12 +554,7 @@ function AppShellContent() {
                       <>
                         <li>
                           <Link to="/" className={footerLinkClassName}>
-                            Case workspace
-                          </Link>
-                        </li>
-                        <li>
-                          <Link to="/appraisals" className={footerLinkClassName}>
-                            My appraisals
+                            Guided valuation review
                           </Link>
                         </li>
                       </>

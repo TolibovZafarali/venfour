@@ -59,6 +59,9 @@ export type TotalLossClaimJourneyState =
   | "prepare_request"
   | "awaiting_insurer_response"
   | "insurer_response_received"
+  | "insurer_response_reviewing"
+  | "insurer_response_reviewed"
+  | "insurer_response_review_unavailable"
   | "no_dispute"
   | "needs_attention";
 
@@ -72,7 +75,10 @@ export type TotalLossClaimFulfillmentState =
   | "no_dispute"
   | "needs_attention"
   | "awaiting_insurer_response"
-  | "insurer_response_received";
+  | "insurer_response_received"
+  | "insurer_response_reviewing"
+  | "insurer_response_reviewed"
+  | "insurer_response_review_unavailable";
 
 export interface TotalLossClaimJourneyProjection {
   readonly fulfillmentState: TotalLossClaimFulfillmentState;
@@ -305,10 +311,182 @@ export interface TotalLossInsurerResponseOffer {
   readonly currency: string;
 }
 
+export type TotalLossInsurerResponseAnalysisConfidence =
+  | "HIGH"
+  | "MEDIUM"
+  | "LOW";
+
+export type TotalLossInsurerPositionCategory =
+  | "REVISED_OFFER"
+  | "MAINTAINS_PRIOR_POSITION"
+  | "REQUESTS_MORE_INFORMATION"
+  | "ACCEPTS_REQUEST"
+  | "MIXED"
+  | "UNCLEAR";
+
+export type TotalLossRequestDispositionCategory =
+  | "ACCEPTED"
+  | "PARTIALLY_ACCEPTED"
+  | "REJECTED"
+  | "MORE_INFORMATION_REQUESTED"
+  | "UNCLEAR";
+
+export type TotalLossResponsePointDisposition =
+  | "ACCEPTED"
+  | "REJECTED"
+  | "QUESTIONED"
+  | "IGNORED"
+  | "UNRESOLVED"
+  | "UNCLEAR";
+
+export type TotalLossResponseRecommendationCategory =
+  | "REVIEW_REVISED_OFFER"
+  | "MORE_INFORMATION_MAY_BE_NEEDED"
+  | "FOLLOW_UP_APPEARS_WARRANTED"
+  | "VALUATION_ISSUE_APPEARS_RESOLVED"
+  | "REVIEW_RESPONSE";
+
+export interface TotalLossInsurerResponseAnalysisReferenceSet {
+  readonly caseEvidenceRefs: readonly string[];
+  readonly responseEvidenceRefs: readonly string[];
+}
+
+export interface TotalLossInsurerResponseAnalysisSummary
+  extends TotalLossInsurerResponseAnalysisReferenceSet {
+  readonly whatInsurerSaid: string;
+  readonly whatThisMeans: string;
+}
+
+export interface TotalLossInsurerResponseAnalysisPosition {
+  readonly category: TotalLossInsurerPositionCategory;
+  readonly responseEvidenceRefs: readonly string[];
+  readonly summary: string;
+}
+
+export interface TotalLossInsurerResponseVisualSourceInterpretation {
+  readonly confidence: "HIGH";
+  readonly derivation: "MODEL_VISUAL_TRANSCRIPTION";
+  readonly derivedText: string;
+  readonly originalSourceAuthoritative: true;
+  readonly responseEvidenceRef: string;
+  readonly verificationRequired: true;
+}
+
+export interface TotalLossInsurerResponseAnalysisOffer {
+  readonly amountMinorUnits: number | null;
+  readonly currency: string | null;
+  readonly responseEvidenceRefs: readonly string[];
+  readonly source: "CUSTOMER_SUPPLIED" | "INSURER_RESPONSE" | "BOTH" | null;
+  readonly status: "PRESENT" | "ABSENT" | "UNCLEAR";
+  readonly visualSourceInterpretation:
+    | TotalLossInsurerResponseVisualSourceInterpretation
+    | null;
+}
+
+export interface TotalLossInsurerResponseAnalysisDisposition
+  extends TotalLossInsurerResponseAnalysisReferenceSet {
+  readonly category: TotalLossRequestDispositionCategory;
+  readonly summary: string;
+}
+
+export interface TotalLossInsurerResponseAnalysisPoint
+  extends TotalLossInsurerResponseAnalysisReferenceSet {
+  readonly confidence: TotalLossInsurerResponseAnalysisConfidence;
+  readonly disposition: TotalLossResponsePointDisposition;
+  readonly topic: string;
+  readonly whatInsurerSaid: string;
+  readonly whatThisMeans: string;
+}
+
+export interface TotalLossInsurerResponseAnalysisArgument
+  extends TotalLossInsurerResponseAnalysisReferenceSet {
+  readonly argument: string;
+  readonly whatItReliesOn: string;
+}
+
+export interface TotalLossInsurerResponseAnalysisIssue
+  extends TotalLossInsurerResponseAnalysisReferenceSet {
+  readonly description: string;
+}
+
+export interface TotalLossInsurerResponseAnalysisRecommendation
+  extends TotalLossInsurerResponseAnalysisReferenceSet {
+  readonly category: TotalLossResponseRecommendationCategory;
+  readonly explanation: string;
+}
+
+export interface TotalLossInsurerResponseAnalysisInputCoverage {
+  readonly document: "AVAILABLE" | "NOT_PROVIDED" | "UNREADABLE" | "UNSUPPORTED";
+  readonly limitations: readonly string[];
+  readonly pastedText: "AVAILABLE" | "NOT_PROVIDED";
+}
+
+export interface TotalLossInsurerResponseAnalysis {
+  readonly analysisSummary: TotalLossInsurerResponseAnalysisSummary;
+  readonly confidence: TotalLossInsurerResponseAnalysisConfidence;
+  readonly importantChanges: readonly TotalLossInsurerResponseAnalysisIssue[];
+  readonly inputCoverage: TotalLossInsurerResponseAnalysisInputCoverage;
+  readonly insurerArguments: readonly TotalLossInsurerResponseAnalysisArgument[];
+  readonly insurerPosition: TotalLossInsurerResponseAnalysisPosition;
+  readonly recommendedNextStep: TotalLossInsurerResponseAnalysisRecommendation;
+  readonly requestDisposition: TotalLossInsurerResponseAnalysisDisposition;
+  readonly responsePoints: readonly TotalLossInsurerResponseAnalysisPoint[];
+  readonly revisedOffer: TotalLossInsurerResponseAnalysisOffer;
+  readonly schemaVersion: "1";
+  readonly uncertainties: readonly TotalLossInsurerResponseAnalysisIssue[];
+  readonly unresolvedIssues: readonly TotalLossInsurerResponseAnalysisIssue[];
+  readonly untrustedInstructionDetected: boolean;
+  readonly untrustedInstructionFollowed: boolean;
+}
+
+export interface TotalLossInsurerResponseAnalysisResponseEvidence {
+  readonly content: string | null;
+  readonly evidenceRef: string;
+  readonly pageNumber: number | null;
+  readonly sourceType:
+    | "PASTED_TEXT"
+    | "DOCUMENT"
+    | "DOCUMENT_TEXT"
+    | "DOCUMENT_IMAGE"
+    | "CUSTOMER_SUPPLIED_OFFER";
+}
+
+export interface TotalLossInsurerResponseAnalysisCaseEvidence {
+  readonly amountMinorUnits: number | null;
+  readonly currency: string | null;
+  readonly evidenceRef: string;
+  readonly evidenceType:
+    | "INSURER_VALUATION"
+    | "VENFOUR_FINDING"
+    | "VENFOUR_COMPARABLE"
+    | "CUSTOMER_REQUEST"
+    | "OTHER";
+  readonly summary: string;
+}
+
+export interface TotalLossInsurerResponseAnalysisEvidence {
+  readonly caseEvidence: readonly TotalLossInsurerResponseAnalysisCaseEvidence[];
+  readonly responseEvidence: readonly TotalLossInsurerResponseAnalysisResponseEvidence[];
+}
+
+export type TotalLossInsurerResponseFailureReason =
+  | "generic"
+  | "unreadable_document"
+  | "unsupported_document";
+
 export interface TotalLossInsurerResponse {
+  readonly analysis: TotalLossInsurerResponseAnalysis | null;
+  readonly analysisEvidence: TotalLossInsurerResponseAnalysisEvidence | null;
   readonly clientRequestId: string;
   readonly document: TotalLossInsurerResponseDocument | null;
-  readonly processingState: "not_started";
+  readonly failureReason: TotalLossInsurerResponseFailureReason | null;
+  readonly processingState:
+    | "pending"
+    | "processing"
+    | "completed"
+    | "retryable_failed"
+    | "terminal_failed"
+    | "unsupported";
   readonly receivedAt: string;
   readonly responseId: string;
   readonly revisedOffer: TotalLossInsurerResponseOffer | null;
@@ -328,7 +506,10 @@ export interface TotalLossInsurerResponseUploadPreparation {
 
 export interface TotalLossInsurerResponseRecorded {
   readonly response: TotalLossInsurerResponse;
-  readonly state: "insurer_response_received";
+  readonly state:
+    | "insurer_response_received"
+    | "insurer_response_reviewing"
+    | "insurer_response_review_unavailable";
   readonly workflowRevision: number;
 }
 

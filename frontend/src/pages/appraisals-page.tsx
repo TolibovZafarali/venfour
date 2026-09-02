@@ -99,7 +99,7 @@ function AppraisalsHeader() {
       </div>
       <Button asChild className="shrink-0 self-start sm:self-auto">
         <Link to={newAppraisalHref}>
-          Start another appraisal
+          Start a new appraisal
           <ArrowRight className="size-4" aria-hidden />
         </Link>
       </Button>
@@ -126,7 +126,7 @@ function AuthenticatedAppraisalsPage({
         <AppraisalsHeader />
 
         {appraisalsQuery.isPending ? (
-          <AppraisalCasesLoadingState variant="list" />
+          <AppraisalCasesLoadingState />
         ) : appraisalsQuery.isError || responseOutsideOwnerScope ? (
           <AppraisalCasesErrorState
             heading="We couldn’t load your appraisals."
@@ -139,7 +139,6 @@ function AuthenticatedAppraisalsPage({
           />
         ) : cases.length === 0 ? (
           <AppraisalCasesEmptyState
-            variant="compact"
             description="When you save a vehicle review or request, it will appear here for this signed-in account."
           />
         ) : (

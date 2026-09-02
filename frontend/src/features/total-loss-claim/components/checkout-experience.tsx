@@ -358,7 +358,7 @@ export function ProcessingScreen({
           <p className="text-sm leading-6 text-copy">
             {needsAttention
               ? "Your case remains saved. Checking again only refreshes its status; it does not repeat any completed payment or processing step."
-              : "You can close this browser and return from My appraisals. Report preparation continues independently of this page."}
+              : "You can close this browser and return to your saved case. Report preparation continues independently of this page."}
           </p>
         </div>
       </ClaimWorkflowCard>

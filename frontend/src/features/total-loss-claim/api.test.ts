@@ -8,6 +8,7 @@ import {
   initializeTotalLossClaim,
   prepareTotalLossInsurerResponseUpload,
   recordTotalLossInsurerResponse,
+  retryTotalLossInsurerResponseAnalysis,
   renewTotalLossClaimAccessLink,
   requestTotalLossClaimRecovery,
 } from "@/features/total-loss-claim/api";
@@ -16,6 +17,97 @@ import { server } from "@/test/mocks/server";
 const CASE_ID = "33333333-3333-4333-8333-333333333333";
 const OTHER_CASE_ID = "55555555-5555-4555-8555-555555555555";
 const CLAIM_ID = "44444444-4444-4444-8444-444444444444";
+const RESPONSE_REF = `response_${"a".repeat(64)}`;
+const CASE_REF = `case_${"b".repeat(64)}`;
+
+function responseAnalysis() {
+  return {
+    schemaVersion: "1",
+    analysisSummary: {
+      whatInsurerSaid: "The insurer revised the offer.",
+      whatThisMeans: "The amount changed, while one issue remains unresolved.",
+      responseEvidenceRefs: [RESPONSE_REF],
+      caseEvidenceRefs: [CASE_REF],
+    },
+    insurerPosition: {
+      category: "REVISED_OFFER",
+      summary: "The insurer made a revised offer.",
+      responseEvidenceRefs: [RESPONSE_REF],
+    },
+    revisedOffer: {
+      status: "PRESENT",
+      amountMinorUnits: 2_010_000,
+      currency: "USD",
+      source: "INSURER_RESPONSE",
+      responseEvidenceRefs: [RESPONSE_REF],
+      visualSourceInterpretation: null,
+    },
+    requestDisposition: {
+      category: "PARTIALLY_ACCEPTED",
+      summary: "The insurer changed the amount but did not address every point.",
+      responseEvidenceRefs: [RESPONSE_REF],
+      caseEvidenceRefs: [CASE_REF],
+    },
+    responsePoints: [{
+      topic: "Offer amount",
+      disposition: "ACCEPTED",
+      whatInsurerSaid: "The offer is now $20,100.",
+      whatThisMeans: "The insurer increased its offer.",
+      responseEvidenceRefs: [RESPONSE_REF],
+      caseEvidenceRefs: [CASE_REF],
+      confidence: "HIGH",
+    }],
+    insurerArguments: [{
+      argument: "The prior comparable method still applies.",
+      whatItReliesOn: "The insurer repeated its prior explanation.",
+      responseEvidenceRefs: [RESPONSE_REF],
+      caseEvidenceRefs: [CASE_REF],
+    }],
+    importantChanges: [{
+      description: "The offer increased.",
+      responseEvidenceRefs: [RESPONSE_REF],
+      caseEvidenceRefs: [CASE_REF],
+    }],
+    unresolvedIssues: [{
+      description: "The market listings were not addressed.",
+      responseEvidenceRefs: [RESPONSE_REF],
+      caseEvidenceRefs: [CASE_REF],
+    }],
+    recommendedNextStep: {
+      category: "REVIEW_REVISED_OFFER",
+      explanation: "Review the revised amount and remaining issue.",
+      responseEvidenceRefs: [RESPONSE_REF],
+      caseEvidenceRefs: [CASE_REF],
+    },
+    confidence: "HIGH",
+    uncertainties: [],
+    inputCoverage: {
+      pastedText: "AVAILABLE",
+      document: "NOT_PROVIDED",
+      limitations: [],
+    },
+    untrustedInstructionDetected: true,
+    untrustedInstructionFollowed: false,
+  };
+}
+
+function responseAnalysisEvidence() {
+  return {
+    responseEvidence: [{
+      evidenceRef: RESPONSE_REF,
+      sourceType: "PASTED_TEXT",
+      content: "The insurer revised the offer to $20,100.",
+      pageNumber: null,
+    }],
+    caseEvidence: [{
+      evidenceRef: CASE_REF,
+      evidenceType: "CUSTOMER_REQUEST",
+      summary: "Please review the valuation and comparable evidence.",
+      amountMinorUnits: null,
+      currency: null,
+    }],
+  };
+}
 
 describe("total-loss claim API", () => {
   it.each([
@@ -181,7 +273,8 @@ describe("total-loss claim API", () => {
             uploadPath: "must/not/be/projected",
           },
           revisedOffer: { amountMinorUnits: 2_050_000, currency: "USD" },
-          processingState: "not_started",
+          processingState: "pending",
+          failureReason: null,
           supersedesResponseId: null,
         },
         journey: {
@@ -204,6 +297,192 @@ describe("total-loss claim API", () => {
       document: { originalFilename: "insurer-response.png" },
     });
     expect(claim.insurerResponse?.document).not.toHaveProperty("uploadPath");
+  });
+
+  it("strictly maps a completed grounded response analysis and rejects arbitrary result fields", async () => {
+    const resolver = (analysis: Record<string, unknown>) => ({
+      state: "secured",
+      caseId: CASE_ID,
+      commerce: null,
+      contactEmail: "owner@example.com",
+      insurerResponse: {
+        responseId: CLAIM_ID,
+        clientRequestId: OTHER_CASE_ID,
+        receivedAt: "2026-09-01T12:00:00.000Z",
+        sourceType: "pasted_message",
+        text: "The insurer revised the offer.",
+        document: null,
+        revisedOffer: { amountMinorUnits: 2_010_000, currency: "USD" },
+        processingState: "completed",
+        failureReason: null,
+        supersedesResponseId: null,
+        analysis,
+        analysisEvidence: responseAnalysisEvidence(),
+      },
+      journey: {
+        fulfillmentState: "insurer_response_reviewed",
+        nextState: "insurer_response_reviewed",
+        retryable: false,
+      },
+      workflow: {
+        phase: "negotiation",
+        currentTask: "insurer_response_reviewed",
+        revision: 11,
+      },
+    });
+    server.use(
+      http.get("*/api/v1/appraisal-cases/:caseId/claim", () =>
+        HttpResponse.json(resolver(responseAnalysis()))),
+    );
+
+    const claim = await getTotalLossClaim(CASE_ID, "owner-token");
+    expect(claim.insurerResponse?.analysis).toMatchObject({
+      schemaVersion: "1",
+      confidence: "HIGH",
+      untrustedInstructionDetected: true,
+      untrustedInstructionFollowed: false,
+      revisedOffer: {
+        amountMinorUnits: 2_010_000,
+        source: "INSURER_RESPONSE",
+      },
+    });
+    expect(claim.insurerResponse?.analysis?.responsePoints[0]).toMatchObject({
+      topic: "Offer amount",
+      responseEvidenceRefs: [RESPONSE_REF],
+      caseEvidenceRefs: [CASE_REF],
+    });
+    expect(claim.insurerResponse?.analysis?.analysisSummary).toMatchObject({
+      responseEvidenceRefs: [RESPONSE_REF],
+      caseEvidenceRefs: [CASE_REF],
+    });
+    expect(claim.insurerResponse?.analysisEvidence?.responseEvidence[0]).toMatchObject({
+      content: "The insurer revised the offer to $20,100.",
+      evidenceRef: RESPONSE_REF,
+    });
+
+    const visualAnalysis = {
+      ...responseAnalysis(),
+      revisedOffer: {
+        ...responseAnalysis().revisedOffer,
+        visualSourceInterpretation: {
+          derivation: "MODEL_VISUAL_TRANSCRIPTION",
+          derivedText: "Revised settlement offer: $20,100.00",
+          responseEvidenceRef: RESPONSE_REF,
+          confidence: "HIGH",
+          originalSourceAuthoritative: true,
+          verificationRequired: true,
+        },
+      },
+    };
+    server.use(
+      http.get("*/api/v1/appraisal-cases/:caseId/claim", () =>
+        HttpResponse.json(resolver(visualAnalysis))),
+    );
+    const visualClaim = await getTotalLossClaim(CASE_ID, "owner-token");
+    expect(
+      visualClaim.insurerResponse?.analysis?.revisedOffer
+        .visualSourceInterpretation,
+    ).toEqual(visualAnalysis.revisedOffer.visualSourceInterpretation);
+
+    server.use(
+      http.get("*/api/v1/appraisal-cases/:caseId/claim", () =>
+        HttpResponse.json(
+          resolver({
+            ...visualAnalysis,
+            revisedOffer: {
+              ...visualAnalysis.revisedOffer,
+              visualSourceInterpretation: {
+                ...visualAnalysis.revisedOffer.visualSourceInterpretation,
+                originalSourceAuthoritative: false,
+              },
+            },
+          }),
+        )),
+    );
+    await expect(
+      getTotalLossClaim(CASE_ID, "owner-token"),
+    ).rejects.toThrow("invalid visual revised-offer interpretation");
+
+    server.use(
+      http.get("*/api/v1/appraisal-cases/:caseId/claim", () =>
+        HttpResponse.json(
+          resolver({ ...responseAnalysis(), arbitraryWorkflowAction: "SEND_REPLY" }),
+        )),
+    );
+    await expect(
+      getTotalLossClaim(CASE_ID, "owner-token"),
+    ).rejects.toThrow("invalid insurer-response analysis");
+  });
+
+  it("maps only customer-safe response failure reasons that match the processing state", async () => {
+    const resolver = (failureReason: unknown) => ({
+      state: "secured",
+      caseId: CASE_ID,
+      commerce: null,
+      contactEmail: "owner@example.com",
+      insurerResponse: {
+        responseId: CLAIM_ID,
+        clientRequestId: OTHER_CASE_ID,
+        receivedAt: "2026-09-01T12:00:00.000Z",
+        sourceType: "uploaded_document",
+        text: null,
+        document: {
+          documentId: OTHER_CASE_ID,
+          originalFilename: "insurer-response.pdf",
+          mediaType: "application/pdf",
+          byteSize: 512,
+        },
+        revisedOffer: null,
+        processingState: "terminal_failed",
+        failureReason,
+        supersedesResponseId: null,
+      },
+      journey: {
+        fulfillmentState: "insurer_response_review_unavailable",
+        nextState: "insurer_response_review_unavailable",
+        retryable: false,
+      },
+      workflow: {
+        phase: "negotiation",
+        currentTask: "insurer_response_review_unavailable",
+        revision: 11,
+      },
+    });
+    server.use(
+      http.get("*/api/v1/appraisal-cases/:caseId/claim", () =>
+        HttpResponse.json(resolver("unreadable_document"))),
+    );
+
+    await expect(
+      getTotalLossClaim(CASE_ID, "owner-token"),
+    ).resolves.toMatchObject({
+      insurerResponse: {
+        failureReason: "unreadable_document",
+        processingState: "terminal_failed",
+      },
+    });
+
+    server.use(
+      http.get("*/api/v1/appraisal-cases/:caseId/claim", () =>
+        HttpResponse.json(resolver("INSURER_RESPONSE_MATERIAL_UNREADABLE"))),
+    );
+    await expect(
+      getTotalLossClaim(CASE_ID, "owner-token"),
+    ).rejects.toThrow("invalid insurer-response failure reason");
+
+    server.use(
+      http.get("*/api/v1/appraisal-cases/:caseId/claim", () =>
+        HttpResponse.json({
+          ...resolver("generic"),
+          insurerResponse: {
+            ...resolver("generic").insurerResponse,
+            processingState: "pending",
+          },
+        })),
+    );
+    await expect(
+      getTotalLossClaim(CASE_ID, "owner-token"),
+    ).rejects.toThrow("inconsistent insurer-response analysis state");
   });
 
   it("prepares and records an idempotent insurer response using the exact request bodies", async () => {
@@ -241,7 +520,8 @@ describe("total-loss claim API", () => {
               byteSize: 512,
             },
             revisedOffer: null,
-            processingState: "not_started",
+            processingState: "pending",
+            failureReason: null,
             supersedesResponseId: null,
           },
         });
@@ -282,6 +562,64 @@ describe("total-loss claim API", () => {
         retainedDocumentId: null,
         revisedOfferMinorUnits: null,
         supersedesResponseId: null,
+      },
+    ]);
+  });
+
+  it("retries a response review with the exact revision-fenced body and maps the returned resolver", async () => {
+    const bodies: unknown[] = [];
+    server.use(
+      http.post(
+        "*/api/v1/appraisal-cases/:caseId/insurer-response-analysis/retry",
+        async ({ request }) => {
+          bodies.push(await request.json());
+          return HttpResponse.json({
+            state: "secured",
+            caseId: CASE_ID,
+            commerce: null,
+            contactEmail: "owner@example.com",
+            insurerResponse: {
+              responseId: CLAIM_ID,
+              clientRequestId: OTHER_CASE_ID,
+              receivedAt: "2026-09-01T12:00:00.000Z",
+              sourceType: "pasted_message",
+              text: "The insurer maintained its position.",
+              document: null,
+              revisedOffer: null,
+              processingState: "pending",
+              failureReason: null,
+              supersedesResponseId: null,
+            },
+            journey: {
+              fulfillmentState: "insurer_response_reviewing",
+              nextState: "insurer_response_reviewing",
+              retryable: false,
+            },
+            workflow: {
+              phase: "negotiation",
+              currentTask: "insurer_response_reviewing",
+              revision: 12,
+            },
+          });
+        },
+      ),
+    );
+
+    await expect(
+      retryTotalLossInsurerResponseAnalysis(CASE_ID, "owner-token", {
+        clientRequestId: OTHER_CASE_ID,
+        expectedWorkflowRevision: 11,
+      }),
+    ).resolves.toMatchObject({
+      caseId: CASE_ID,
+      insurerResponse: { processingState: "pending", analysis: null },
+      journey: { nextState: "insurer_response_reviewing" },
+      workflow: { revision: 12 },
+    });
+    expect(bodies).toEqual([
+      {
+        clientRequestId: OTHER_CASE_ID,
+        expectedWorkflowRevision: 11,
       },
     ]);
   });

@@ -494,6 +494,9 @@ class CaseClaimAccessService:
         "prepare_request",
         "awaiting_insurer_response",
         "insurer_response_received",
+        "insurer_response_reviewing",
+        "insurer_response_reviewed",
+        "insurer_response_review_unavailable",
         "no_dispute",
         "needs_attention",
     }
@@ -508,6 +511,9 @@ class CaseClaimAccessService:
         "needs_attention",
         "awaiting_insurer_response",
         "insurer_response_received",
+        "insurer_response_reviewing",
+        "insurer_response_reviewed",
+        "insurer_response_review_unavailable",
     }
 
     def __init__(
@@ -730,7 +736,13 @@ class CaseClaimAccessService:
         response_state = bool(
             state == "secured"
             and workflow
-            and workflow.current_task == "insurer_response_received"
+            and workflow.current_task
+            in {
+                "insurer_response_received",
+                "insurer_response_reviewing",
+                "insurer_response_reviewed",
+                "insurer_response_review_unavailable",
+            }
         )
         if response_state != (insurer_response is not None):
             raise SupabaseContractError("Claim delivery response is invalid")

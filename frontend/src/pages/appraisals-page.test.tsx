@@ -259,7 +259,7 @@ describe("customer appraisals page", () => {
       await screen.findByRole("heading", { name: "No appraisals yet" }),
     ).toBeVisible();
     const newAppraisalHref = screen
-      .getByRole("link", { name: "Start another appraisal" })
+      .getByRole("link", { name: "Start a new appraisal" })
       .getAttribute("href");
     expect(newAppraisalHref).not.toBeNull();
     const newAppraisalUrl = new URL(newAppraisalHref ?? "", "http://localhost");

@@ -1,4 +1,4 @@
-import { act, screen, waitFor } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { Session } from "@supabase/supabase-js";
 import { focusManager, onlineManager } from "@tanstack/react-query";
@@ -519,7 +519,9 @@ describe("local purchase email verification", () => {
     renderPurchase(identity);
     expect(await screen.findByRole("textbox", { name: "Email used for this claim" })).toBeVisible();
     expect(screen.queryByText("ow••••@example.com")).not.toBeInTheDocument();
-    expect(screen.queryByText(CONTACT_EMAIL)).not.toBeInTheDocument();
+    expect(
+      within(screen.getByRole("main")).queryByText(CONTACT_EMAIL),
+    ).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Send verification code" })).not.toBeInTheDocument();
     expect(otp.sendCode).not.toHaveBeenCalled();
     expect(otp.verifyCodeAndClaim).not.toHaveBeenCalled();

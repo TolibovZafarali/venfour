@@ -99,7 +99,7 @@ STAGING_PROXY_REQUIRED_ERROR = {
 
 STAGING_PROXY_SECRET = "staging-proxy-test-secret-value-1234567890"
 
-RUNTIME_ENVIRONMENT = {
+BASE_RUNTIME_ENVIRONMENT = {
     "SUPABASE_URL": "https://runtime-test.supabase.co",
     "SUPABASE_PUBLISHABLE_KEY": "publishable-runtime-test-key",
     "SUPABASE_SERVICE_ROLE_KEY": "service-role-runtime-test-key",
@@ -110,6 +110,26 @@ RUNTIME_ENVIRONMENT = {
     "VENFOUR_CLAIM_RECOVERY_RATE_LIMIT_SECRET": (
         "claim-recovery-rate-runtime-test-secret"
     ),
+}
+RESPONSE_ANALYSIS_RUNTIME_ENVIRONMENT = {
+    "OPENAI_INSURER_RESPONSE_ANALYSIS_MODEL": "gpt-response-test",
+    "VENFOUR_INSURER_RESPONSE_DISPATCH_SECRET": (
+        "insurer-response-dispatch-runtime-test-secret"
+    ),
+    "VENFOUR_PACKAGE_TASKS_PROJECT": "venfour-runtime-test",
+    "VENFOUR_PACKAGE_TASKS_LOCATION": "us-central1",
+    "VENFOUR_PACKAGE_TASKS_QUEUE": "case-processing",
+    "VENFOUR_PACKAGE_WORKER_ORIGIN": "https://worker.runtime.venfour.example",
+    "VENFOUR_PACKAGE_TASKS_OIDC_SERVICE_ACCOUNT": (
+        "case-worker@venfour-runtime-test.iam.gserviceaccount.com"
+    ),
+    "VENFOUR_PACKAGE_TASKS_OIDC_AUDIENCE": (
+        "https://worker.runtime.venfour.example"
+    ),
+}
+RUNTIME_ENVIRONMENT = {
+    **BASE_RUNTIME_ENVIRONMENT,
+    **RESPONSE_ANALYSIS_RUNTIME_ENVIRONMENT,
 }
 
 
@@ -151,10 +171,55 @@ class InjectedCaseAnalysisService:
         raise AssertionError("readiness must not retrieve an analysis")
 
 
+class RuntimeProbeResponseDispatcher:
+    def dispatch(self, job_id: str, attempt_count: int) -> str:
+        return f"tasks/{job_id}-attempt-{attempt_count}"
+
+    def close(self) -> None:
+        pass
+
+
+class RuntimeProbePackageDispatcher:
+    def dispatch(self, work_item_id: str) -> str:
+        return f"tasks/{work_item_id}"
+
+    def close(self) -> None:
+        pass
+
+
+class RuntimeProbeClaimAccessService:
+    def authenticate(self, _token: str) -> str:
+        raise AssertionError("rejected response work must not authenticate")
+
+    def resolve(self, _case_id: str, _token: str) -> None:
+        raise AssertionError("rejected response work must not resolve claims")
+
+    def access_link(self, *_args: Any) -> None:
+        raise AssertionError("rejected response work must not issue links")
+
+    def recover(self, *_args: Any) -> None:
+        raise AssertionError("rejected response work must not recover claims")
+
+
+class RuntimeProbeInternalVerifier:
+    def verify(self, _token: str) -> str:
+        raise AssertionError("customer response work must not verify callbacks")
+
+
 class RuntimeProbeApiTests(unittest.TestCase):
     @staticmethod
     def probe(environment: dict[str, str]) -> tuple[Any, Any]:
-        with patch.dict(os.environ, environment, clear=True):
+        with patch.dict(os.environ, environment, clear=True), patch(
+            "venfour.api.CloudTasksInsurerResponseJobDispatcher",
+            return_value=RuntimeProbeResponseDispatcher(),
+        ), patch(
+            "venfour.api.CloudTasksWorkItemDispatcher",
+            return_value=RuntimeProbePackageDispatcher(),
+        ), patch.object(
+            SupabaseHttpGateway,
+            "list_due_total_loss_insurer_response_analysis_jobs",
+            return_value=[],
+        ):
             with TestClient(create_app(enable_legacy_api=False)) as client:
                 return client.get("/health"), client.get("/ready")
 
@@ -170,10 +235,14 @@ class RuntimeProbeApiTests(unittest.TestCase):
         self.assertEqual(readiness.headers["cache-control"], "no-store")
 
     def test_readiness_requires_every_customer_path_credential(self) -> None:
-        for missing_name in RUNTIME_ENVIRONMENT:
+        for missing_name in BASE_RUNTIME_ENVIRONMENT:
             with self.subTest(missing=missing_name):
                 environment = dict(RUNTIME_ENVIRONMENT)
                 del environment[missing_name]
+                if missing_name == "OPENAI_API_KEY":
+                    del environment[
+                        "OPENAI_INSURER_RESPONSE_ANALYSIS_MODEL"
+                    ]
 
                 health, readiness = self.probe(environment)
 
@@ -219,6 +288,10 @@ class RuntimeProbeApiTests(unittest.TestCase):
         for overrides in malformed_overrides:
             with self.subTest(names=tuple(overrides)):
                 environment = {**RUNTIME_ENVIRONMENT, **overrides}
+                if "OPENAI_API_KEY" in overrides:
+                    del environment[
+                        "OPENAI_INSURER_RESPONSE_ANALYSIS_MODEL"
+                    ]
 
                 _health, readiness = self.probe(environment)
 
@@ -232,13 +305,23 @@ class RuntimeProbeApiTests(unittest.TestCase):
     def test_valid_readiness_is_configuration_only_and_legacy_stays_disabled(
         self,
     ) -> None:
-        with patch.dict(os.environ, RUNTIME_ENVIRONMENT, clear=True):
+        with patch.dict(os.environ, RUNTIME_ENVIRONMENT, clear=True), patch(
+            "venfour.api.CloudTasksInsurerResponseJobDispatcher",
+            return_value=RuntimeProbeResponseDispatcher(),
+        ), patch(
+            "venfour.api.CloudTasksWorkItemDispatcher",
+            return_value=RuntimeProbePackageDispatcher(),
+        ):
             app = create_app()
         with patch.object(
             SupabaseHttpGateway,
             "authenticate",
             side_effect=AssertionError("readiness must not call Supabase"),
-        ) as authenticate:
+        ) as authenticate, patch.object(
+            SupabaseHttpGateway,
+            "list_due_total_loss_insurer_response_analysis_jobs",
+            return_value=[],
+        ):
             with TestClient(app) as client:
                 readiness = client.get("/ready")
 
@@ -249,6 +332,161 @@ class RuntimeProbeApiTests(unittest.TestCase):
         authenticate.assert_not_called()
         for secret in RUNTIME_ENVIRONMENT.values():
             self.assertNotIn(secret, readiness.text)
+
+    def test_owned_runtime_rejects_response_work_when_analysis_is_incomplete(
+        self,
+    ) -> None:
+        case_id = "11111111-1111-4111-8111-111111111111"
+        with patch.dict(
+            os.environ, BASE_RUNTIME_ENVIRONMENT, clear=True
+        ):
+            app = create_app(enable_legacy_api=False)
+        with TestClient(app) as client:
+            readiness = client.get("/ready")
+            responses = (
+                client.post(
+                    f"/api/v1/appraisal-cases/{case_id}/"
+                    "insurer-response/upload",
+                    json={},
+                ),
+                client.post(
+                    f"/api/v1/appraisal-cases/{case_id}/insurer-response",
+                    json={},
+                ),
+                client.post(
+                    f"/api/v1/appraisal-cases/{case_id}/"
+                    "insurer-response-analysis/retry",
+                    json={},
+                ),
+            )
+
+        self.assertEqual(readiness.status_code, 503)
+        self.assertFalse(app.state.insurer_response_customer_path_configured)
+        for response in responses:
+            self.assertEqual(response.status_code, 503)
+            self.assertEqual(
+                response.json()["error"]["code"],
+                "CUSTOMER_DELIVERY_UNAVAILABLE",
+            )
+            self.assertEqual(
+                response.headers["cache-control"], "private, no-store"
+            )
+
+    def test_injected_gateway_with_default_services_uses_the_same_gate(
+        self,
+    ) -> None:
+        http_client = httpx.Client(
+            transport=httpx.MockTransport(lambda _request: None)
+        )
+        self.addCleanup(http_client.close)
+        gateway = SupabaseHttpGateway(
+            SupabaseServerConfiguration(
+                url=BASE_RUNTIME_ENVIRONMENT["SUPABASE_URL"],
+                publishable_key=BASE_RUNTIME_ENVIRONMENT[
+                    "SUPABASE_PUBLISHABLE_KEY"
+                ],
+                service_role_key=BASE_RUNTIME_ENVIRONMENT[
+                    "SUPABASE_SERVICE_ROLE_KEY"
+                ],
+            ),
+            client=http_client,
+        )
+        with patch.dict(
+            os.environ, BASE_RUNTIME_ENVIRONMENT, clear=True
+        ):
+            app = create_app(
+                supabase_gateway=gateway,
+                enable_legacy_api=False,
+            )
+        with TestClient(app) as client:
+            readiness = client.get("/ready")
+            rejected = client.post(
+                "/api/v1/appraisal-cases/"
+                "11111111-1111-4111-8111-111111111111/insurer-response",
+                json={},
+            )
+
+        self.assertEqual(readiness.status_code, 503)
+        self.assertFalse(app.state.insurer_response_customer_path_configured)
+        self.assertEqual(rejected.status_code, 503)
+        self.assertEqual(
+            rejected.json()["error"]["code"],
+            "CUSTOMER_DELIVERY_UNAVAILABLE",
+        )
+        self.assertFalse(http_client.is_closed)
+
+    def test_claim_or_verifier_only_override_cannot_bypass_response_gate(
+        self,
+    ) -> None:
+        overrides = (
+            (
+                "claim access",
+                {
+                    "case_claim_access_service": (
+                        RuntimeProbeClaimAccessService()
+                    )
+                },
+            ),
+            (
+                "callback verifier",
+                {
+                    "internal_caller_verifier": (
+                        RuntimeProbeInternalVerifier()
+                    )
+                },
+            ),
+        )
+        for label, services in overrides:
+            with self.subTest(override=label), patch.dict(
+                os.environ, BASE_RUNTIME_ENVIRONMENT, clear=True
+            ):
+                app = create_app(
+                    enable_legacy_api=False,
+                    **services,
+                )
+                with TestClient(app) as client:
+                    readiness = client.get("/ready")
+                    rejected = client.post(
+                        "/api/v1/appraisal-cases/"
+                        "11111111-1111-4111-8111-111111111111/"
+                        "insurer-response",
+                        json={},
+                    )
+
+                self.assertEqual(readiness.status_code, 503)
+                self.assertFalse(
+                    app.state.insurer_response_customer_path_configured
+                )
+                self.assertEqual(rejected.status_code, 503)
+                self.assertEqual(
+                    rejected.json()["error"]["code"],
+                    "CUSTOMER_DELIVERY_UNAVAILABLE",
+                )
+
+    def test_local_full_flow_flag_cannot_bypass_gate_outside_harness(
+        self,
+    ) -> None:
+        environment = {
+            **BASE_RUNTIME_ENVIRONMENT,
+            "VENFOUR_LOCAL_FULL_FLOW": "1",
+        }
+        with patch.dict(os.environ, environment, clear=True):
+            app = create_app(enable_legacy_api=False)
+        with TestClient(app) as client:
+            readiness = client.get("/ready")
+            rejected = client.post(
+                "/api/v1/appraisal-cases/"
+                "11111111-1111-4111-8111-111111111111/insurer-response",
+                json={},
+            )
+
+        self.assertEqual(readiness.status_code, 503)
+        self.assertFalse(app.state.insurer_response_customer_path_configured)
+        self.assertEqual(rejected.status_code, 503)
+        self.assertEqual(
+            rejected.json()["error"]["code"],
+            "CUSTOMER_DELIVERY_UNAVAILABLE",
+        )
 
     def test_injected_customer_service_is_ready_without_environment_secrets(
         self,
@@ -325,8 +563,20 @@ class RuntimeProbeApiTests(unittest.TestCase):
             closed.append(gateway)
             original_close(gateway)
 
-        with patch.dict(os.environ, RUNTIME_ENVIRONMENT, clear=True):
-            with patch.object(SupabaseHttpGateway, "close", new=record_close):
+        with patch.dict(os.environ, RUNTIME_ENVIRONMENT, clear=True), patch(
+            "venfour.api.CloudTasksInsurerResponseJobDispatcher",
+            return_value=RuntimeProbeResponseDispatcher(),
+        ), patch(
+            "venfour.api.CloudTasksWorkItemDispatcher",
+            return_value=RuntimeProbePackageDispatcher(),
+        ):
+            with patch.object(
+                SupabaseHttpGateway, "close", new=record_close
+            ), patch.object(
+                SupabaseHttpGateway,
+                "list_due_total_loss_insurer_response_analysis_jobs",
+                return_value=[],
+            ):
                 app = create_app(enable_legacy_api=False)
                 self.assertFalse(app.state.accepting_customer_requests)
                 with TestClient(app) as client:
@@ -352,7 +602,17 @@ class RuntimeProbeApiTests(unittest.TestCase):
             ),
             client=client,
         )
-        with patch.dict(os.environ, RUNTIME_ENVIRONMENT, clear=True):
+        with patch.dict(os.environ, RUNTIME_ENVIRONMENT, clear=True), patch(
+            "venfour.api.CloudTasksInsurerResponseJobDispatcher",
+            return_value=RuntimeProbeResponseDispatcher(),
+        ), patch(
+            "venfour.api.CloudTasksWorkItemDispatcher",
+            return_value=RuntimeProbePackageDispatcher(),
+        ), patch.object(
+            SupabaseHttpGateway,
+            "list_due_total_loss_insurer_response_analysis_jobs",
+            return_value=[],
+        ):
             app = create_app(
                 supabase_gateway=gateway,
                 enable_legacy_api=False,

@@ -477,7 +477,7 @@ select ok(
 
 select ok(
   (
-    select count(*) = 5
+    select count(*) = 6
       and bool_and(constraint_record.condeferrable)
       and bool_and(constraint_record.condeferred)
     from pg_constraint as constraint_record

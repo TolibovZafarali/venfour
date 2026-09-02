@@ -600,6 +600,10 @@ describe("total-loss customer workflow", () => {
           "request",
           "waiting",
           "sent",
+          "response",
+          "response-received",
+          "response-reviewing",
+          "response-reviewed",
         ].map((stage) => `total-loss/cases/:caseId/claim/review/${stage}`),
         ...["overview", "evidence", "request", "activity"].map(
           (section) => `total-loss/cases/:caseId/claim/${section}`,

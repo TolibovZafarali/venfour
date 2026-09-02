@@ -43,6 +43,14 @@ MAX_VEHICLE_TRIM_CACHE_KEY_CHARACTERS = 512
 MAX_VEHICLE_TRIM_CACHE_ITEMS = 50
 MAX_VEHICLE_TRIM_CACHE_TEXT_CHARACTERS = 100
 MAX_COMMERCE_PROVIDER_IDENTIFIER_CHARACTERS = 255
+MAX_INSURER_RESPONSE_DOCUMENT_BYTES = 10 * 1024 * 1024
+INSURER_RESPONSE_DOCUMENT_EXTENSIONS = {
+    "application/pdf": "pdf",
+    "image/jpeg": "jpg",
+    "image/png": "png",
+    "image/heic": "heic",
+    "image/heif": "heif",
+}
 COMMERCE_CODE_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}")
 COMMERCE_PRODUCT_PATTERN = re.compile(r"[a-z][a-z0-9_-]{0,63}")
 REPORT_FAILURE_CODE_PATTERN = re.compile(r"[A-Z][A-Z0-9_]{0,63}")
@@ -87,6 +95,14 @@ class SupabaseReportNotFoundError(SupabaseGatewayError):
 
 class SupabaseReportInvalidError(SupabaseGatewayError):
     """The private report object is empty, oversized, or not a PDF."""
+
+
+class SupabaseResponseDocumentNotFoundError(SupabaseGatewayError):
+    """The immutable private insurer-response object does not exist."""
+
+
+class SupabaseResponseDocumentInvalidError(SupabaseGatewayError):
+    """The immutable private insurer-response object failed verification."""
 
 
 def _canonical_uuid(value: Any, label: str) -> str:
@@ -927,6 +943,228 @@ class SupabaseHttpGateway:
             permission_denied_as_conflict=True,
         )
         return self._single_rpc_row(payload, "Insurer response")
+
+    def retry_total_loss_insurer_response_analysis(
+        self,
+        case_id: str,
+        client_request_id: str,
+        workflow_revision: int,
+        access_token: str,
+    ) -> Mapping[str, Any]:
+        payload = self._user_rpc(
+            "retry_total_loss_insurer_response_analysis",
+            {
+                "requested_case_id": _canonical_uuid(case_id, "Case ID"),
+                "requested_client_request_id": _canonical_uuid(
+                    client_request_id, "Client request ID"
+                ),
+                "expected_workflow_revision": workflow_revision,
+            },
+            access_token,
+            permission_denied_as_conflict=True,
+        )
+        return self._single_rpc_row(payload, "Insurer response analysis retry")
+
+    def claim_current_total_loss_insurer_response_analysis(
+        self,
+        case_id: str,
+        processing_token: str,
+        provider_identifier: str,
+        model_identifier: str,
+        prompt_version: str,
+        schema_version: str,
+        context_version: str,
+    ) -> Mapping[str, Any]:
+        payload = self._rpc(
+            "claim_current_total_loss_insurer_response_analysis",
+            {
+                "requested_case_id": _canonical_uuid(case_id, "Case ID"),
+                "requested_processing_token": _canonical_uuid(
+                    processing_token, "Processing token"
+                ),
+                "requested_provider_identifier": _canonical_cache_text(
+                    provider_identifier, "Analysis provider identifier", 255
+                ),
+                "requested_model_identifier": _canonical_cache_text(
+                    model_identifier, "Analysis model identifier", 255
+                ),
+                "requested_prompt_version": _canonical_cache_text(
+                    prompt_version, "Analysis prompt version", 64
+                ),
+                "requested_schema_version": _canonical_cache_text(
+                    schema_version, "Analysis schema version", 64
+                ),
+                "requested_context_version": _canonical_cache_text(
+                    context_version, "Analysis context version", 64
+                ),
+            },
+            retry_ambiguous_claim=True,
+        )
+        return self._single_rpc_row(payload, "Insurer response analysis claim")
+
+    def list_due_total_loss_insurer_response_analysis_jobs(
+        self, limit: int
+    ) -> list[Mapping[str, Any]]:
+        if (
+            isinstance(limit, bool)
+            or not isinstance(limit, int)
+            or not 1 <= limit <= 100
+        ):
+            raise SupabaseContractError(
+                "Insurer response analysis dispatch limit is invalid"
+            )
+        payload = self._rpc(
+            "list_due_total_loss_insurer_response_analysis_jobs",
+            {"requested_limit": limit},
+        )
+        if not isinstance(payload, list) or any(
+            not isinstance(row, Mapping) for row in payload
+        ):
+            raise SupabaseContractError(
+                "Insurer response analysis due jobs response is invalid"
+            )
+        return [dict(row) for row in payload]
+
+    def resolve_total_loss_insurer_response_analysis_job_case(
+        self, job_id: str
+    ) -> Mapping[str, Any] | None:
+        payload = self._rpc(
+            "resolve_total_loss_insurer_response_analysis_job_case",
+            {
+                "requested_job_id": _canonical_uuid(
+                    job_id, "Analysis job ID"
+                )
+            },
+        )
+        return self._optional_rpc_row(
+            payload, "Insurer response analysis job case"
+        )
+
+    def resolve_total_loss_insurer_response_analysis_context(
+        self, job_id: str, processing_token: str
+    ) -> Mapping[str, Any]:
+        payload = self._rpc(
+            "resolve_total_loss_insurer_response_analysis_context",
+            {
+                "requested_job_id": _canonical_uuid(job_id, "Analysis job ID"),
+                "requested_processing_token": _canonical_uuid(
+                    processing_token, "Processing token"
+                ),
+            },
+        )
+        return self._single_rpc_row(payload, "Insurer response analysis context")
+
+    def complete_total_loss_insurer_response_analysis(
+        self,
+        job_id: str,
+        processing_token: str,
+        run_id: str,
+        returned_model_identifier: str,
+        input_digest: str,
+        result: Mapping[str, Any],
+        result_digest: str,
+        usage_metadata: Mapping[str, Any],
+        extraction_version: str,
+        extraction: Mapping[str, Any],
+        extraction_digest: str,
+        verified_document_digest: str | None,
+        evidence_index: Mapping[str, Any],
+        evidence_index_digest: str,
+    ) -> Mapping[str, Any]:
+        payload = self._rpc(
+            "complete_total_loss_insurer_response_analysis",
+            {
+                "requested_job_id": _canonical_uuid(job_id, "Analysis job ID"),
+                "requested_processing_token": _canonical_uuid(
+                    processing_token, "Processing token"
+                ),
+                "requested_run_id": _canonical_uuid(run_id, "Analysis run ID"),
+                "requested_returned_model_identifier": _canonical_cache_text(
+                    returned_model_identifier, "Returned model identifier", 255
+                ),
+                "requested_input_digest": self._package_digest(
+                    input_digest, "Analysis input digest"
+                ),
+                "requested_result": dict(
+                    self._package_mapping(result, "Analysis result")
+                ),
+                "requested_result_digest": self._package_digest(
+                    result_digest, "Analysis result digest"
+                ),
+                "requested_usage_metadata": dict(
+                    self._package_mapping(
+                        usage_metadata, "Analysis usage metadata"
+                    )
+                ),
+                "requested_extraction_version": _canonical_cache_text(
+                    extraction_version, "Document extraction version", 64
+                ),
+                "requested_extraction": dict(
+                    self._package_mapping(extraction, "Document extraction")
+                ),
+                "requested_extraction_digest": self._package_digest(
+                    extraction_digest, "Document extraction digest"
+                ),
+                "requested_verified_document_digest": (
+                    self._package_digest(
+                        verified_document_digest, "Verified document digest"
+                    )
+                    if verified_document_digest is not None
+                    else None
+                ),
+                "requested_evidence_index": dict(
+                    self._package_mapping(
+                        evidence_index, "Analysis evidence index"
+                    )
+                ),
+                "requested_evidence_index_digest": self._package_digest(
+                    evidence_index_digest, "Analysis evidence index digest"
+                ),
+            },
+            retry_ambiguous_claim=True,
+        )
+        return self._single_rpc_row(payload, "Insurer response analysis completion")
+
+    def fail_total_loss_insurer_response_analysis(
+        self,
+        job_id: str,
+        processing_token: str,
+        run_id: str,
+        failure_code: str,
+        failure_kind: str,
+        retry_delay_seconds: int,
+    ) -> Mapping[str, Any]:
+        selected_code = _canonical_commerce_code(
+            failure_code,
+            REPORT_FAILURE_CODE_PATTERN,
+            "Analysis failure code",
+        )
+        selected_kind = self._canonical_choice(
+            failure_kind,
+            {"retryable", "terminal", "unsupported"},
+            "Analysis failure kind",
+        )
+        if (
+            isinstance(retry_delay_seconds, bool)
+            or not isinstance(retry_delay_seconds, int)
+            or not 0 <= retry_delay_seconds <= 86_400
+        ):
+            raise SupabaseContractError("Analysis retry delay is invalid")
+        payload = self._rpc(
+            "fail_total_loss_insurer_response_analysis",
+            {
+                "requested_job_id": _canonical_uuid(job_id, "Analysis job ID"),
+                "requested_processing_token": _canonical_uuid(
+                    processing_token, "Processing token"
+                ),
+                "requested_run_id": _canonical_uuid(run_id, "Analysis run ID"),
+                "requested_failure_code": selected_code,
+                "requested_failure_kind": selected_kind,
+                "requested_retry_delay_seconds": retry_delay_seconds,
+            },
+            retry_ambiguous_claim=True,
+        )
+        return self._single_rpc_row(payload, "Insurer response analysis failure")
 
     def prepare_total_loss_case_access_recovery(
         self,
@@ -3349,12 +3587,143 @@ class SupabaseHttpGateway:
         ) as destination:
             yield destination
 
+    @contextmanager
+    def materialize_total_loss_insurer_response_document(
+        self,
+        case_id: str,
+        document_id: str,
+        storage_locator: Mapping[str, Any],
+        media_type: str,
+        byte_size: int,
+        content_digest: str,
+        cache_nonce: str,
+    ) -> Iterator[Path]:
+        """Download and verify one server-resolved immutable response object."""
+
+        canonical_case_id = _canonical_uuid(case_id, "Case ID")
+        canonical_document_id = _canonical_uuid(document_id, "Response document ID")
+        bucket = storage_locator.get(
+            "storage_bucket", storage_locator.get("storage_bucket_id")
+        )
+        object_path = storage_locator.get(
+            "storage_object_path", storage_locator.get("storage_object_name")
+        )
+        extension = INSURER_RESPONSE_DOCUMENT_EXTENSIONS.get(media_type)
+        if extension is None:
+            raise SupabaseResponseDocumentInvalidError(
+                "Insurer response media type is invalid"
+            )
+        path_segments = object_path.split("/") if isinstance(object_path, str) else []
+        if len(path_segments) != 4:
+            raise SupabaseContractError(
+                "Insurer response storage locator is invalid"
+            )
+        owner_id = _canonical_uuid(path_segments[0], "Storage owner ID")
+        expected_path = "/".join(
+            (
+                owner_id,
+                canonical_case_id,
+                "insurer-responses",
+                f"{canonical_document_id}.{extension}",
+            )
+        )
+        if bucket != CASE_FILES_BUCKET or object_path != expected_path:
+            raise SupabaseContractError(
+                "Insurer response storage locator is invalid"
+            )
+        if (
+            isinstance(byte_size, bool)
+            or not isinstance(byte_size, int)
+            or not 1 <= byte_size <= MAX_INSURER_RESPONSE_DOCUMENT_BYTES
+            or not isinstance(content_digest, str)
+            or re.fullmatch(r"[0-9a-f]{64}", content_digest) is None
+        ):
+            raise SupabaseContractError(
+                "Insurer response document metadata is invalid"
+            )
+        nonce = _canonical_uuid(cache_nonce, "Storage cache nonce")
+        encoded_path = "/".join(
+            quote(segment, safe="") for segment in expected_path.split("/")
+        )
+        url = (
+            f"{self._configuration.url}/storage/v1/object/authenticated/"
+            f"{quote(CASE_FILES_BUCKET, safe='')}/{encoded_path}"
+            f"?cacheNonce={quote(nonce, safe='')}"
+        )
+        try:
+            with self._client.stream(
+                "GET", url, headers=self._admin_headers()
+            ) as response:
+                if response.status_code == 404:
+                    raise SupabaseResponseDocumentNotFoundError(
+                        "Insurer response document was not found"
+                    )
+                if response.status_code < 200 or response.status_code >= 300:
+                    raise SupabaseUnavailableError(
+                        "Private insurer response storage is unavailable"
+                    )
+                declared_length = response.headers.get("content-length")
+                if declared_length is not None:
+                    try:
+                        parsed_length = int(declared_length)
+                    except ValueError as exc:
+                        raise SupabaseResponseDocumentInvalidError(
+                            "Insurer response document is invalid"
+                        ) from exc
+                    if parsed_length != byte_size:
+                        raise SupabaseResponseDocumentInvalidError(
+                            "Insurer response document size changed"
+                        )
+
+                with tempfile.TemporaryDirectory(
+                    prefix="venfour-insurer-response-"
+                ) as temporary_root:
+                    destination = Path(temporary_root) / f"response.{extension}"
+                    copied = 0
+                    digest = hashlib.sha256()
+                    try:
+                        with destination.open("xb") as output:
+                            for chunk in response.iter_bytes(DOWNLOAD_CHUNK_BYTES):
+                                if not chunk:
+                                    continue
+                                copied += len(chunk)
+                                if copied > MAX_INSURER_RESPONSE_DOCUMENT_BYTES:
+                                    raise SupabaseResponseDocumentInvalidError(
+                                        "Insurer response document is too large"
+                                    )
+                                digest.update(chunk)
+                                output.write(chunk)
+                    except OSError as exc:
+                        raise SupabaseUnavailableError(
+                            "Temporary insurer response storage is unavailable"
+                        ) from exc
+                    if (
+                        copied != byte_size
+                        or digest.hexdigest() != content_digest
+                    ):
+                        raise SupabaseResponseDocumentInvalidError(
+                            "Insurer response document verification failed"
+                        )
+                    yield destination
+        except (
+            SupabaseResponseDocumentNotFoundError,
+            SupabaseResponseDocumentInvalidError,
+            SupabaseUnavailableError,
+        ):
+            raise
+        except httpx.HTTPError as exc:
+            raise SupabaseUnavailableError(
+                "Private insurer response storage is unavailable"
+            ) from exc
+
 
 __all__ = [
     "CASE_DELIVERABLES_BUCKET",
     "CASE_FILES_BUCKET",
     "CaseAnalysisGateway",
     "CUSTOMER_TOTAL_LOSS_REPORT_FILENAME",
+    "INSURER_RESPONSE_DOCUMENT_EXTENSIONS",
+    "MAX_INSURER_RESPONSE_DOCUMENT_BYTES",
     "MAX_EXTRACTION_CACHE_BYTES",
     "ReportIngestionGateway",
     "SupabaseAuthenticationError",
@@ -3365,6 +3734,8 @@ __all__ = [
     "SupabaseHttpGateway",
     "SupabaseReportInvalidError",
     "SupabaseReportNotFoundError",
+    "SupabaseResponseDocumentInvalidError",
+    "SupabaseResponseDocumentNotFoundError",
     "SupabaseServerConfiguration",
     "SupabaseUnavailableError",
     "TOTAL_LOSS_EVIDENCE_PACKAGE_OBJECT",

@@ -8,7 +8,9 @@ export type TotalLossCaseJourneyStage =
   | "request"
   | "waiting"
   | "response"
-  | "response_received";
+  | "response_received"
+  | "response_reviewing"
+  | "response_reviewed";
 
 export type TotalLossCaseJourneyStepId =
   | "understand_result"
@@ -18,7 +20,9 @@ export type TotalLossCaseJourneyStepId =
   | "prepare_request"
   | "send_request"
   | "waiting_for_insurer"
-  | "response_received";
+  | "response_received"
+  | "response_reviewing"
+  | "response_reviewed";
 
 export interface TotalLossCaseJourneyStep {
   readonly id: TotalLossCaseJourneyStepId;
@@ -66,6 +70,14 @@ const journeySteps = {
     id: "response_received",
     label: "Response received",
   },
+  response_reviewing: {
+    id: "response_reviewing",
+    label: "Reviewing response",
+  },
+  response_reviewed: {
+    id: "response_reviewed",
+    label: "Response reviewed",
+  },
 } as const satisfies Record<
   TotalLossCaseJourneyStepId,
   TotalLossCaseJourneyStep
@@ -91,6 +103,10 @@ function currentStepId(
       return "waiting_for_insurer";
     case "response_received":
       return "response_received";
+    case "response_reviewing":
+      return "response_reviewing";
+    case "response_reviewed":
+      return "response_reviewed";
   }
 }
 
@@ -119,13 +135,17 @@ export function totalLossCaseJourneyProgress({
     stage === "request" ||
     stage === "waiting" ||
     stage === "response" ||
-    stage === "response_received"
+    stage === "response_received" ||
+    stage === "response_reviewing" ||
+    stage === "response_reviewed"
   ) {
     steps.push(
       journeySteps.prepare_request,
       journeySteps.send_request,
       journeySteps.waiting_for_insurer,
       journeySteps.response_received,
+      journeySteps.response_reviewing,
+      journeySteps.response_reviewed,
     );
   }
 
@@ -139,7 +159,9 @@ export function totalLossCaseJourneyProgress({
 
   return {
     current,
-    isCaseActive: current.id === "waiting_for_insurer",
+    isCaseActive:
+      current.id === "waiting_for_insurer" ||
+      current.id === "response_reviewing",
     position,
     steps,
     total: steps.length,

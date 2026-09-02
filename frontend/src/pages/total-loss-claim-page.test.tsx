@@ -177,7 +177,9 @@ describe("total-loss claim page", () => {
     renderTestApp([`${CLAIM_PATH}/checkout`], { authService: createAuthService(identity === "signed-out" ? null : sessionFor(identity === "wrong-permanent" ? PERMANENT_USER_ID : ANONYMOUS_USER_ID, identity === "wrong-permanent" ? "permanent" : "anonymous")) });
     expect(await screen.findByRole("textbox", { name: "Email used for this claim" })).toBeVisible();
     expect(screen.queryByText("ow••••@example.com")).not.toBeInTheDocument();
-    expect(screen.queryByText(CONTACT_EMAIL)).not.toBeInTheDocument();
+    expect(
+      within(screen.getByRole("main")).queryByText(CONTACT_EMAIL),
+    ).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Complete purchase" })).not.toBeInTheDocument();
     expect(paymentInitialization).not.toHaveBeenCalled();
   });

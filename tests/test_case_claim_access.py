@@ -530,7 +530,8 @@ class CaseClaimAccessServiceTests(unittest.TestCase):
             "text": "The insurer declined the request.",
             "document": None,
             "revisedOffer": None,
-            "processingState": "not_started",
+            "processingState": "pending",
+            "failureReason": None,
             "supersedesResponseId": None,
         }
         response_row = {

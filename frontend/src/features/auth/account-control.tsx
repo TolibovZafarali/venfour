@@ -1,8 +1,9 @@
 import {
+  CarFront,
   CircleUserRound,
   ClipboardList,
-  FolderOpen,
   LogOut,
+  Plus,
 } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router";
@@ -18,6 +19,7 @@ import {
   getUserAccountLabel,
   getUserIdentityLabel,
 } from "@/features/auth/user-display";
+import { useNewTotalLossAppraisalHref } from "@/features/total-loss/new-appraisal";
 import { cn } from "@/lib/utils";
 
 const focusRingClassName =
@@ -40,6 +42,7 @@ export function AccountControl({
   const { openSignIn } = useSignInDialog();
   const [signOutPending, setSignOutPending] = useState(false);
   const [signOutError, setSignOutError] = useState<string | null>(null);
+  const newAppraisalHref = useNewTotalLossAppraisalHref();
 
   if (auth.status === "loading") {
     return (
@@ -133,11 +136,20 @@ export function AccountControl({
             </DropdownMenu.Label>
             <DropdownMenu.Item asChild>
               <Link
-                to="/appraisals"
+                to="/"
                 className="flex min-h-10 w-full items-center gap-2 rounded-lg px-2.5 text-sm font-medium text-ink outline-none transition-colors hover:bg-surface focus:bg-surface"
               >
-                <FolderOpen className="size-4" aria-hidden />
-                My appraisals
+                <CarFront className="size-4" aria-hidden />
+                Guided valuation review
+              </Link>
+            </DropdownMenu.Item>
+            <DropdownMenu.Item asChild>
+              <Link
+                to={newAppraisalHref}
+                className="flex min-h-10 w-full items-center gap-2 rounded-lg px-2.5 text-sm font-medium text-ink outline-none transition-colors hover:bg-surface focus:bg-surface"
+              >
+                <Plus className="size-4" aria-hidden />
+                Start a new appraisal
               </Link>
             </DropdownMenu.Item>
             {staffReviewHref ? (
@@ -196,6 +208,7 @@ export function MobileAccountControl({
   const { openSignIn } = useSignInDialog();
   const [signOutPending, setSignOutPending] = useState(false);
   const [signOutError, setSignOutError] = useState<string | null>(null);
+  const newAppraisalHref = useNewTotalLossAppraisalHref();
 
   if (auth.status === "loading") {
     return (
@@ -246,12 +259,20 @@ export function MobileAccountControl({
         <span className="font-semibold text-ink">{identityLabel}</span>
       </p>
       <Link
-        to="/appraisals"
+        to="/"
         className="mt-1 inline-flex min-h-11 w-full items-center gap-2 rounded-lg px-1 text-sm font-medium text-ink/75 transition-colors hover:bg-white/35 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand/60"
         onClick={onAction}
       >
-        <FolderOpen className="size-4" aria-hidden />
-        My appraisals
+        <CarFront className="size-4" aria-hidden />
+        Guided valuation review
+      </Link>
+      <Link
+        to={newAppraisalHref}
+        className="mt-1 inline-flex min-h-11 w-full items-center gap-2 rounded-lg px-1 text-sm font-medium text-ink/75 transition-colors hover:bg-white/35 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand/60"
+        onClick={onAction}
+      >
+        <Plus className="size-4" aria-hidden />
+        Start a new appraisal
       </Link>
       {staffReviewHref ? (
         <Link

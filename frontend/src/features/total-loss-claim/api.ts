@@ -24,6 +24,8 @@ import type {
   TotalLossInsurerComparable,
   TotalLossInsurerEvidenceSummary,
   TotalLossInsurerResponse,
+  TotalLossInsurerResponseAnalysis,
+  TotalLossInsurerResponseAnalysisEvidence,
   TotalLossInsurerResponseDocument,
   TotalLossInsurerResponseMediaType,
   TotalLossInsurerResponseRecorded,
@@ -87,6 +89,8 @@ const SAFE_TASK_PATTERN = /^[a-z][a-z0-9_]{0,63}$/u;
 const SAFE_FILENAME_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_. -]{0,175}\.pdf$/u;
 const SHA256_PATTERN = /^[a-f0-9]{64}$/u;
 const CURRENCY_PATTERN = /^[A-Z]{3}$/u;
+const RESPONSE_EVIDENCE_REFERENCE_PATTERN = /^response_[a-f0-9]{64}$/u;
+const CASE_EVIDENCE_REFERENCE_PATTERN = /^case_[a-f0-9]{64}$/u;
 const JOURNEY_STATES = new Set<TotalLossClaimJourneyState>([
   "secure_claim",
   "checkout",
@@ -100,6 +104,9 @@ const JOURNEY_STATES = new Set<TotalLossClaimJourneyState>([
   "prepare_request",
   "awaiting_insurer_response",
   "insurer_response_received",
+  "insurer_response_reviewing",
+  "insurer_response_reviewed",
+  "insurer_response_review_unavailable",
   "no_dispute",
   "needs_attention",
 ]);
@@ -114,7 +121,23 @@ const FULFILLMENT_STATES = new Set<TotalLossClaimFulfillmentState>([
   "needs_attention",
   "awaiting_insurer_response",
   "insurer_response_received",
+  "insurer_response_reviewing",
+  "insurer_response_reviewed",
+  "insurer_response_review_unavailable",
 ]);
+const INSURER_RESPONSE_PROCESSING_STATES = new Set<
+  TotalLossInsurerResponse["processingState"]
+>([
+  "pending",
+  "processing",
+  "completed",
+  "retryable_failed",
+  "terminal_failed",
+  "unsupported",
+]);
+const INSURER_RESPONSE_FAILURE_REASONS = new Set<
+  NonNullable<TotalLossInsurerResponse["failureReason"]>
+>(["generic", "unreadable_document", "unsupported_document"]);
 const INSURER_RESPONSE_MEDIA_TYPES = new Set<TotalLossInsurerResponseMediaType>(
   TOTAL_LOSS_INSURER_RESPONSE_MEDIA_TYPES,
 );
@@ -925,6 +948,659 @@ function mapInsurerResponseDocument(
   };
 }
 
+function exactRecord(
+  value: unknown,
+  keys: readonly string[],
+  field: string,
+): Record<string, unknown> {
+  if (!isRecord(value)) {
+    throw new TotalLossClaimContractError(
+      `The claim service returned invalid ${field}.`,
+    );
+  }
+  const actualKeys = Object.keys(value).sort();
+  const expectedKeys = [...keys].sort();
+  if (
+    actualKeys.length !== expectedKeys.length ||
+    actualKeys.some((key, index) => key !== expectedKeys[index])
+  ) {
+    throw new TotalLossClaimContractError(
+      `The claim service returned invalid ${field}.`,
+    );
+  }
+  return value;
+}
+
+function enumValue<T extends string>(
+  value: unknown,
+  allowed: ReadonlySet<T>,
+  field: string,
+): T {
+  if (typeof value !== "string" || !allowed.has(value as T)) {
+    throw new TotalLossClaimContractError(
+      `The claim service returned invalid ${field}.`,
+    );
+  }
+  return value as T;
+}
+
+function mappedList<T>(
+  value: unknown,
+  field: string,
+  map: (item: unknown, index: number) => T,
+): readonly T[] {
+  if (!Array.isArray(value) || value.length > 100) {
+    throw new TotalLossClaimContractError(
+      `The claim service returned invalid ${field}.`,
+    );
+  }
+  return value.map(map);
+}
+
+function insurerResponseAnalysisAmount(value: unknown) {
+  const amount = nonnegativeInteger(
+    value,
+    "insurer-response revised-offer amount",
+  );
+  if (amount > 1_000_000_000_000) {
+    throw new TotalLossClaimContractError(
+      "The claim service returned an invalid insurer-response revised-offer amount.",
+    );
+  }
+  return amount;
+}
+
+function evidenceReferenceList(
+  value: unknown,
+  field: string,
+  pattern: RegExp,
+) {
+  return mappedList(value, field, (item) => requiredString(item, field, pattern));
+}
+
+function mapResponseAnalysisReferenceSet(
+  value: Record<string, unknown>,
+  field: string,
+) {
+  return {
+    caseEvidenceRefs: evidenceReferenceList(
+      value.caseEvidenceRefs,
+      `${field} case evidence references`,
+      CASE_EVIDENCE_REFERENCE_PATTERN,
+    ),
+    responseEvidenceRefs: evidenceReferenceList(
+      value.responseEvidenceRefs,
+      `${field} response evidence references`,
+      RESPONSE_EVIDENCE_REFERENCE_PATTERN,
+    ),
+  };
+}
+
+function mapResponseAnalysisIssue(value: unknown, index: number) {
+  const field = `response-analysis item ${index + 1}`;
+  const item = exactRecord(
+    value,
+    ["description", "responseEvidenceRefs", "caseEvidenceRefs"],
+    field,
+  );
+  return {
+    description: requiredString(item.description, `${field} description`),
+    ...mapResponseAnalysisReferenceSet(item, field),
+  };
+}
+
+const INSURER_POSITION_CATEGORIES = new Set<
+  TotalLossInsurerResponseAnalysis["insurerPosition"]["category"]
+>([
+  "REVISED_OFFER",
+  "MAINTAINS_PRIOR_POSITION",
+  "REQUESTS_MORE_INFORMATION",
+  "ACCEPTS_REQUEST",
+  "MIXED",
+  "UNCLEAR",
+]);
+const REQUEST_DISPOSITION_CATEGORIES = new Set<
+  TotalLossInsurerResponseAnalysis["requestDisposition"]["category"]
+>([
+  "ACCEPTED",
+  "PARTIALLY_ACCEPTED",
+  "REJECTED",
+  "MORE_INFORMATION_REQUESTED",
+  "UNCLEAR",
+]);
+const RESPONSE_POINT_DISPOSITIONS = new Set<
+  TotalLossInsurerResponseAnalysis["responsePoints"][number]["disposition"]
+>([
+  "ACCEPTED",
+  "REJECTED",
+  "QUESTIONED",
+  "IGNORED",
+  "UNRESOLVED",
+  "UNCLEAR",
+]);
+const RESPONSE_ANALYSIS_CONFIDENCE = new Set<
+  TotalLossInsurerResponseAnalysis["confidence"]
+>(["HIGH", "MEDIUM", "LOW"]);
+const RESPONSE_RECOMMENDATION_CATEGORIES = new Set<
+  TotalLossInsurerResponseAnalysis["recommendedNextStep"]["category"]
+>([
+  "REVIEW_REVISED_OFFER",
+  "MORE_INFORMATION_MAY_BE_NEEDED",
+  "FOLLOW_UP_APPEARS_WARRANTED",
+  "VALUATION_ISSUE_APPEARS_RESOLVED",
+  "REVIEW_RESPONSE",
+]);
+
+function mapInsurerResponseAnalysis(
+  value: unknown,
+): TotalLossInsurerResponseAnalysis | null {
+  if (value === null || value === undefined) return null;
+  const analysis = exactRecord(
+    value,
+    [
+      "schemaVersion",
+      "analysisSummary",
+      "insurerPosition",
+      "revisedOffer",
+      "requestDisposition",
+      "responsePoints",
+      "insurerArguments",
+      "importantChanges",
+      "unresolvedIssues",
+      "recommendedNextStep",
+      "confidence",
+      "uncertainties",
+      "inputCoverage",
+      "untrustedInstructionDetected",
+      "untrustedInstructionFollowed",
+    ],
+    "insurer-response analysis",
+  );
+  if (analysis.schemaVersion !== "1") {
+    throw new TotalLossClaimContractError(
+      "The claim service returned an unsupported insurer-response analysis version.",
+    );
+  }
+
+  const summary = exactRecord(
+    analysis.analysisSummary,
+    [
+      "whatInsurerSaid",
+      "whatThisMeans",
+      "responseEvidenceRefs",
+      "caseEvidenceRefs",
+    ],
+    "insurer-response analysis summary",
+  );
+  const position = exactRecord(
+    analysis.insurerPosition,
+    ["category", "summary", "responseEvidenceRefs"],
+    "insurer-response position",
+  );
+  const offer = exactRecord(
+    analysis.revisedOffer,
+    [
+      "status",
+      "amountMinorUnits",
+      "currency",
+      "source",
+      "responseEvidenceRefs",
+      "visualSourceInterpretation",
+    ],
+    "insurer-response revised offer",
+  );
+  const offerStatus = enumValue(
+    offer.status,
+    new Set(["PRESENT", "ABSENT", "UNCLEAR"] as const),
+    "insurer-response revised-offer status",
+  );
+  const offerSource =
+    offer.source === null
+      ? null
+      : enumValue(
+          offer.source,
+          new Set(["CUSTOMER_SUPPLIED", "INSURER_RESPONSE", "BOTH"] as const),
+          "insurer-response revised-offer source",
+        );
+  const offerAmount =
+    offer.amountMinorUnits === null
+      ? null
+      : insurerResponseAnalysisAmount(offer.amountMinorUnits);
+  const offerCurrency =
+    offer.currency === null
+      ? null
+      : requiredString(
+          offer.currency,
+          "insurer-response revised-offer currency",
+          CURRENCY_PATTERN,
+        );
+  const offerResponseEvidenceRefs = evidenceReferenceList(
+    offer.responseEvidenceRefs,
+    "revised-offer response evidence references",
+    RESPONSE_EVIDENCE_REFERENCE_PATTERN,
+  );
+  let visualSourceInterpretation: TotalLossInsurerResponseAnalysis[
+    "revisedOffer"
+  ]["visualSourceInterpretation"] = null;
+  if (offer.visualSourceInterpretation !== null) {
+    const visual = exactRecord(
+      offer.visualSourceInterpretation,
+      [
+        "derivation",
+        "derivedText",
+        "responseEvidenceRef",
+        "confidence",
+        "originalSourceAuthoritative",
+        "verificationRequired",
+      ],
+      "insurer-response visual offer interpretation",
+    );
+    const responseEvidenceRef = requiredString(
+      visual.responseEvidenceRef,
+      "insurer-response visual offer reference",
+      RESPONSE_EVIDENCE_REFERENCE_PATTERN,
+    );
+    if (
+      visual.derivation !== "MODEL_VISUAL_TRANSCRIPTION" ||
+      visual.confidence !== "HIGH" ||
+      visual.originalSourceAuthoritative !== true ||
+      visual.verificationRequired !== true ||
+      !offerResponseEvidenceRefs.includes(responseEvidenceRef)
+    ) {
+      throw new TotalLossClaimContractError(
+        "The claim service returned an invalid visual revised-offer interpretation.",
+      );
+    }
+    visualSourceInterpretation = {
+      confidence: "HIGH",
+      derivation: "MODEL_VISUAL_TRANSCRIPTION",
+      derivedText: requiredString(
+        visual.derivedText,
+        "insurer-response visual offer transcription",
+      ),
+      originalSourceAuthoritative: true,
+      responseEvidenceRef,
+      verificationRequired: true,
+    };
+  }
+  if (
+    (offerStatus === "PRESENT" &&
+      (offerAmount === null || offerCurrency === null || offerSource === null)) ||
+    (offerStatus !== "PRESENT" &&
+      (offerAmount !== null ||
+        offerCurrency !== null ||
+        offerSource !== null ||
+        visualSourceInterpretation !== null)) ||
+    (visualSourceInterpretation !== null &&
+      offerSource !== "INSURER_RESPONSE" &&
+      offerSource !== "BOTH")
+  ) {
+    throw new TotalLossClaimContractError(
+      "The claim service returned inconsistent insurer-response revised-offer details.",
+    );
+  }
+
+  const disposition = exactRecord(
+    analysis.requestDisposition,
+    ["category", "summary", "responseEvidenceRefs", "caseEvidenceRefs"],
+    "insurer-response request disposition",
+  );
+  const recommendation = exactRecord(
+    analysis.recommendedNextStep,
+    ["category", "explanation", "responseEvidenceRefs", "caseEvidenceRefs"],
+    "insurer-response recommendation",
+  );
+  const coverage = exactRecord(
+    analysis.inputCoverage,
+    ["pastedText", "document", "limitations"],
+    "insurer-response input coverage",
+  );
+
+  return {
+    analysisSummary: {
+      whatInsurerSaid: requiredString(
+        summary.whatInsurerSaid,
+        "insurer-response summary",
+      ),
+      whatThisMeans: requiredString(
+        summary.whatThisMeans,
+        "insurer-response meaning",
+      ),
+      ...mapResponseAnalysisReferenceSet(
+        summary,
+        "insurer-response analysis summary",
+      ),
+    },
+    confidence: enumValue(
+      analysis.confidence,
+      RESPONSE_ANALYSIS_CONFIDENCE,
+      "insurer-response analysis confidence",
+    ),
+    importantChanges: mappedList(
+      analysis.importantChanges,
+      "insurer-response important changes",
+      mapResponseAnalysisIssue,
+    ),
+    inputCoverage: {
+      document: enumValue(
+        coverage.document,
+        new Set(
+          ["AVAILABLE", "NOT_PROVIDED", "UNREADABLE", "UNSUPPORTED"] as const,
+        ),
+        "insurer-response document coverage",
+      ),
+      limitations: stringList(
+        coverage.limitations,
+        "insurer-response coverage limitations",
+      ),
+      pastedText: enumValue(
+        coverage.pastedText,
+        new Set(["AVAILABLE", "NOT_PROVIDED"] as const),
+        "insurer-response text coverage",
+      ),
+    },
+    insurerArguments: mappedList(
+      analysis.insurerArguments,
+      "insurer-response arguments",
+      (value, index) => {
+        const field = `insurer argument ${index + 1}`;
+        const argument = exactRecord(
+          value,
+          [
+            "argument",
+            "whatItReliesOn",
+            "responseEvidenceRefs",
+            "caseEvidenceRefs",
+          ],
+          field,
+        );
+        return {
+          argument: requiredString(argument.argument, `${field} text`),
+          whatItReliesOn: requiredString(
+            argument.whatItReliesOn,
+            `${field} basis`,
+          ),
+          ...mapResponseAnalysisReferenceSet(argument, field),
+        };
+      },
+    ),
+    insurerPosition: {
+      category: enumValue(
+        position.category,
+        INSURER_POSITION_CATEGORIES,
+        "insurer-response position category",
+      ),
+      responseEvidenceRefs: evidenceReferenceList(
+        position.responseEvidenceRefs,
+        "insurer-position response evidence references",
+        RESPONSE_EVIDENCE_REFERENCE_PATTERN,
+      ),
+      summary: requiredString(position.summary, "insurer-position summary"),
+    },
+    recommendedNextStep: {
+      category: enumValue(
+        recommendation.category,
+        RESPONSE_RECOMMENDATION_CATEGORIES,
+        "insurer-response recommendation category",
+      ),
+      explanation: requiredString(
+        recommendation.explanation,
+        "insurer-response recommendation",
+      ),
+      ...mapResponseAnalysisReferenceSet(
+        recommendation,
+        "insurer-response recommendation",
+      ),
+    },
+    requestDisposition: {
+      category: enumValue(
+        disposition.category,
+        REQUEST_DISPOSITION_CATEGORIES,
+        "insurer-response request disposition category",
+      ),
+      summary: requiredString(
+        disposition.summary,
+        "insurer-response request disposition summary",
+      ),
+      ...mapResponseAnalysisReferenceSet(
+        disposition,
+        "insurer-response request disposition",
+      ),
+    },
+    responsePoints: mappedList(
+      analysis.responsePoints,
+      "insurer-response points",
+      (value, index) => {
+        const field = `insurer-response point ${index + 1}`;
+        const point = exactRecord(
+          value,
+          [
+            "topic",
+            "disposition",
+            "whatInsurerSaid",
+            "whatThisMeans",
+            "responseEvidenceRefs",
+            "caseEvidenceRefs",
+            "confidence",
+          ],
+          field,
+        );
+        return {
+          confidence: enumValue(
+            point.confidence,
+            RESPONSE_ANALYSIS_CONFIDENCE,
+            `${field} confidence`,
+          ),
+          disposition: enumValue(
+            point.disposition,
+            RESPONSE_POINT_DISPOSITIONS,
+            `${field} disposition`,
+          ),
+          topic: requiredString(point.topic, `${field} topic`),
+          whatInsurerSaid: requiredString(
+            point.whatInsurerSaid,
+            `${field} insurer statement`,
+          ),
+          whatThisMeans: requiredString(
+            point.whatThisMeans,
+            `${field} meaning`,
+          ),
+          ...mapResponseAnalysisReferenceSet(point, field),
+        };
+      },
+    ),
+    revisedOffer: {
+      amountMinorUnits: offerAmount,
+      currency: offerCurrency,
+      responseEvidenceRefs: offerResponseEvidenceRefs,
+      source: offerSource,
+      status: offerStatus,
+      visualSourceInterpretation,
+    },
+    schemaVersion: "1",
+    uncertainties: mappedList(
+      analysis.uncertainties,
+      "insurer-response uncertainties",
+      mapResponseAnalysisIssue,
+    ),
+    unresolvedIssues: mappedList(
+      analysis.unresolvedIssues,
+      "insurer-response unresolved issues",
+      mapResponseAnalysisIssue,
+    ),
+    untrustedInstructionDetected: requiredBoolean(
+      analysis.untrustedInstructionDetected,
+      "insurer-response untrusted-instruction detection",
+    ),
+    untrustedInstructionFollowed: requiredBoolean(
+      analysis.untrustedInstructionFollowed,
+      "insurer-response untrusted-instruction handling",
+    ),
+  };
+}
+
+function mapInsurerResponseAnalysisEvidence(
+  value: unknown,
+  analysis: TotalLossInsurerResponseAnalysis | null,
+): TotalLossInsurerResponseAnalysisEvidence | null {
+  if (value === null || value === undefined) return null;
+  if (!analysis) {
+    throw new TotalLossClaimContractError(
+      "The claim service returned response evidence without an analysis.",
+    );
+  }
+  const index = exactRecord(
+    value,
+    ["responseEvidence", "caseEvidence"],
+    "insurer-response analysis evidence",
+  );
+  if (
+    !Array.isArray(index.responseEvidence) ||
+    index.responseEvidence.length > 250 ||
+    !Array.isArray(index.caseEvidence) ||
+    index.caseEvidence.length > 250
+  ) {
+    throw new TotalLossClaimContractError(
+      "The claim service returned invalid insurer-response analysis evidence.",
+    );
+  }
+  const responseRefs = new Set<string>();
+  const responseEvidence = index.responseEvidence.map((value, position) => {
+    const field = `insurer-response evidence item ${position + 1}`;
+    const item = exactRecord(
+      value,
+      ["evidenceRef", "sourceType", "content", "pageNumber"],
+      field,
+    );
+    const evidenceRef = requiredString(
+      item.evidenceRef,
+      `${field} reference`,
+      RESPONSE_EVIDENCE_REFERENCE_PATTERN,
+    );
+    if (responseRefs.has(evidenceRef)) {
+      throw new TotalLossClaimContractError(
+        "The claim service returned duplicate insurer-response evidence.",
+      );
+    }
+    responseRefs.add(evidenceRef);
+    const sourceType = enumValue(
+      item.sourceType,
+      new Set(
+        [
+          "PASTED_TEXT",
+          "DOCUMENT",
+          "DOCUMENT_TEXT",
+          "DOCUMENT_IMAGE",
+          "CUSTOMER_SUPPLIED_OFFER",
+        ] as const,
+      ),
+      `${field} source type`,
+    );
+    const pageNumber =
+      item.pageNumber === null
+        ? null
+        : positiveInteger(item.pageNumber, `${field} page number`);
+    return {
+      content: nullableString(item.content, `${field} content`),
+      evidenceRef,
+      pageNumber,
+      sourceType,
+    };
+  });
+
+  const caseRefs = new Set<string>();
+  const caseEvidence = index.caseEvidence.map((value, position) => {
+    const field = `case evidence item ${position + 1}`;
+    const item = exactRecord(
+      value,
+      [
+        "evidenceRef",
+        "evidenceType",
+        "summary",
+        "amountMinorUnits",
+        "currency",
+      ],
+      field,
+    );
+    const evidenceRef = requiredString(
+      item.evidenceRef,
+      `${field} reference`,
+      CASE_EVIDENCE_REFERENCE_PATTERN,
+    );
+    if (caseRefs.has(evidenceRef)) {
+      throw new TotalLossClaimContractError(
+        "The claim service returned duplicate case evidence.",
+      );
+    }
+    caseRefs.add(evidenceRef);
+    const amountMinorUnits =
+      item.amountMinorUnits === null
+        ? null
+        : nonnegativeInteger(item.amountMinorUnits, `${field} amount`);
+    const currency =
+      item.currency === null
+        ? null
+        : requiredString(item.currency, `${field} currency`, CURRENCY_PATTERN);
+    if ((amountMinorUnits === null) !== (currency === null)) {
+      throw new TotalLossClaimContractError(
+        "The claim service returned inconsistent case-evidence money.",
+      );
+    }
+    return {
+      amountMinorUnits,
+      currency,
+      evidenceRef,
+      evidenceType: enumValue(
+        item.evidenceType,
+        new Set(
+          [
+            "INSURER_VALUATION",
+            "VENFOUR_FINDING",
+            "VENFOUR_COMPARABLE",
+            "CUSTOMER_REQUEST",
+            "OTHER",
+          ] as const,
+        ),
+        `${field} type`,
+      ),
+      summary: requiredString(item.summary, `${field} summary`),
+    };
+  });
+
+  const citedResponseRefs = new Set<string>();
+  const citedCaseRefs = new Set<string>();
+  const collectReferences = (node: unknown): void => {
+    if (Array.isArray(node)) {
+      node.forEach(collectReferences);
+      return;
+    }
+    if (!isRecord(node)) return;
+    Object.entries(node).forEach(([key, child]) => {
+      if (key === "responseEvidenceRefs" && Array.isArray(child)) {
+        child.forEach((reference) => {
+          if (typeof reference === "string") citedResponseRefs.add(reference);
+        });
+      } else if (key === "caseEvidenceRefs" && Array.isArray(child)) {
+        child.forEach((reference) => {
+          if (typeof reference === "string") citedCaseRefs.add(reference);
+        });
+      } else {
+        collectReferences(child);
+      }
+    });
+  };
+  collectReferences(analysis);
+  if (
+    [...citedResponseRefs].some((reference) => !responseRefs.has(reference)) ||
+    [...citedCaseRefs].some((reference) => !caseRefs.has(reference))
+  ) {
+    throw new TotalLossClaimContractError(
+      "The claim service returned incomplete insurer-response evidence.",
+    );
+  }
+  return { caseEvidence, responseEvidence };
+}
+
 function mapInsurerResponse(value: unknown): TotalLossInsurerResponse | null {
   if (value === null || value === undefined) return null;
   if (!isRecord(value)) {
@@ -938,15 +1614,77 @@ function mapInsurerResponse(value: unknown): TotalLossInsurerResponse | null {
       "The claim service returned an invalid insurer-response source type.",
     );
   }
-  if (value.processingState !== "not_started") {
+  if (
+    typeof value.processingState !== "string" ||
+    !INSURER_RESPONSE_PROCESSING_STATES.has(
+      value.processingState as TotalLossInsurerResponse["processingState"],
+    )
+  ) {
     throw new TotalLossClaimContractError(
       "The claim service returned an invalid insurer-response processing state.",
     );
   }
+  exactRecord(
+    value,
+    [
+      "responseId",
+      "clientRequestId",
+      "receivedAt",
+      "sourceType",
+      "text",
+      "document",
+      "revisedOffer",
+      "processingState",
+      "failureReason",
+      "supersedesResponseId",
+      ...(value.processingState === "completed"
+        ? ["analysis", "analysisEvidence"]
+        : []),
+    ],
+    "insurer response",
+  );
   const document = mapInsurerResponseDocument(value.document);
   if ((sourceType === "uploaded_document") !== Boolean(document)) {
     throw new TotalLossClaimContractError(
       "The claim service returned an insurer response without its document.",
+    );
+  }
+  const analysis = mapInsurerResponseAnalysis(value.analysis);
+  const analysisEvidence = mapInsurerResponseAnalysisEvidence(
+    value.analysisEvidence,
+    analysis,
+  );
+  const failureReason = value.failureReason;
+  if (
+    failureReason !== null &&
+    (typeof failureReason !== "string" ||
+      !INSURER_RESPONSE_FAILURE_REASONS.has(
+        failureReason as NonNullable<
+          TotalLossInsurerResponse["failureReason"]
+        >,
+      ))
+  ) {
+    throw new TotalLossClaimContractError(
+      "The claim service returned an invalid insurer-response failure reason.",
+    );
+  }
+  const failureReasonMatchesState =
+    value.processingState === "retryable_failed"
+      ? failureReason === "generic"
+      : value.processingState === "terminal_failed"
+        ? failureReason === "generic" ||
+          failureReason === "unreadable_document"
+        : value.processingState === "unsupported"
+          ? failureReason === "unsupported_document"
+          : failureReason === null;
+  if (
+    (value.processingState === "completed") !== Boolean(analysis) ||
+    (value.processingState === "completed") !== Boolean(analysisEvidence) ||
+    analysis?.untrustedInstructionFollowed ||
+    !failureReasonMatchesState
+  ) {
+    throw new TotalLossClaimContractError(
+      "The claim service returned inconsistent insurer-response analysis state.",
     );
   }
   let revisedOffer: TotalLossInsurerResponse["revisedOffer"] = null;
@@ -969,13 +1707,18 @@ function mapInsurerResponse(value: unknown): TotalLossInsurerResponse | null {
     };
   }
   return {
+    analysis,
+    analysisEvidence,
     clientRequestId: requiredString(
       value.clientRequestId,
       "insurer-response request ID",
       UUID_PATTERN,
     ),
     document,
-    processingState: "not_started",
+    failureReason:
+      failureReason as TotalLossInsurerResponse["failureReason"],
+    processingState:
+      value.processingState as TotalLossInsurerResponse["processingState"],
     receivedAt: requiredString(
       value.receivedAt,
       "insurer-response received time",
@@ -1048,7 +1791,14 @@ function mapInsurerResponseUploadPreparation(
 function mapInsurerResponseRecorded(
   value: unknown,
 ): TotalLossInsurerResponseRecorded {
-  if (!isRecord(value) || value.state !== "insurer_response_received") {
+  if (
+    !isRecord(value) ||
+    ![
+      "insurer_response_received",
+      "insurer_response_reviewing",
+      "insurer_response_review_unavailable",
+    ].includes(typeof value.state === "string" ? value.state : "")
+  ) {
     throw new TotalLossClaimContractError(
       "The claim service returned an invalid insurer-response confirmation.",
     );
@@ -1061,7 +1811,7 @@ function mapInsurerResponseRecorded(
   }
   return {
     response,
-    state: "insurer_response_received",
+    state: value.state as TotalLossInsurerResponseRecorded["state"],
     workflowRevision: workflowRevision(value.workflowRevision),
   };
 }
@@ -1098,10 +1848,16 @@ function mapResolver(value: unknown): TotalLossClaimResolver {
       "The claim service exposed delivery details before permanent ownership.",
     );
   }
+  const responseJourneyStates = new Set([
+    "insurer_response_received",
+    "insurer_response_reviewing",
+    "insurer_response_reviewed",
+    "insurer_response_review_unavailable",
+  ]);
   const responseReceivedState =
-    journey?.nextState === "insurer_response_received" ||
-    journey?.fulfillmentState === "insurer_response_received" ||
-    workflow?.currentTask === "insurer_response_received";
+    responseJourneyStates.has(journey?.nextState ?? "") ||
+    responseJourneyStates.has(journey?.fulfillmentState ?? "") ||
+    responseJourneyStates.has(workflow?.currentTask ?? "");
   if (
     value.state === "secured" &&
     responseReceivedState !== Boolean(insurerResponse)
@@ -1824,4 +2580,22 @@ export async function recordTotalLossInsurerResponse(
     { accessToken, signal },
   );
   return mapInsurerResponseRecorded(response);
+}
+
+export async function retryTotalLossInsurerResponseAnalysis(
+  caseId: string,
+  accessToken: string,
+  input: {
+    readonly clientRequestId: string;
+    readonly expectedWorkflowRevision: number;
+  },
+  signal?: AbortSignal,
+) {
+  ensureCaseId(caseId);
+  const response = await apiClient.postJson<unknown>(
+    `/api/v1/appraisal-cases/${encodeURIComponent(caseId)}/insurer-response-analysis/retry`,
+    input,
+    { accessToken, signal },
+  );
+  return mapResolver(response);
 }

@@ -235,6 +235,55 @@ insert into public.total_loss_negotiation_rounds (
   1, 'waiting_for_insurer'
 );
 
+insert into public.total_loss_message_drafts (
+  id, case_id, negotiation_round_id, report_version_id,
+  purpose, recipient, subject, body
+) values (
+  'ef100000-0000-4000-8000-000000000001',
+  'e2000000-0000-4000-8000-000000000001',
+  'ef000000-0000-4000-8000-000000000001',
+  'ee000000-0000-4000-8000-000000000001',
+  'initial-reconsideration-request', 'adjuster@example.test',
+  'Valuation review', 'Please review the attached valuation evidence.'
+);
+
+insert into public.total_loss_message_versions (
+  id, case_id, message_draft_id, negotiation_round_id, report_version_id,
+  version_number, message_state, purpose, recipient, subject, body,
+  message_digest, sent_at
+) values (
+  'ef200000-0000-4000-8000-000000000001',
+  'e2000000-0000-4000-8000-000000000001',
+  'ef100000-0000-4000-8000-000000000001',
+  'ef000000-0000-4000-8000-000000000001',
+  'ee000000-0000-4000-8000-000000000001',
+  1, 'customer_reported_sent', 'initial-reconsideration-request',
+  'adjuster@example.test', 'Valuation review',
+  'Please review the attached valuation evidence.', repeat('9', 64),
+  statement_timestamp()
+);
+
+insert into public.total_loss_communications (
+  id, case_id, negotiation_round_id, direction, channel,
+  communication_type, status, sender, recipient, subject, original_content,
+  occurred_at, confirmed_at, recorded_by_user_id, message_version_id
+) values (
+  'ef300000-0000-4000-8000-000000000001',
+  'e2000000-0000-4000-8000-000000000001',
+  'ef000000-0000-4000-8000-000000000001',
+  'outbound', 'email', 'initial_reconsideration_request', 'confirmed',
+  'response-owner@example.test', 'adjuster@example.test',
+  'Valuation review', 'Please review the attached valuation evidence.',
+  statement_timestamp(), statement_timestamp(),
+  'e1000000-0000-4000-8000-000000000001',
+  'ef200000-0000-4000-8000-000000000001'
+);
+
+update public.total_loss_negotiation_rounds
+set originating_communication_id = 'ef300000-0000-4000-8000-000000000001',
+    revision = revision + 1
+where id = 'ef000000-0000-4000-8000-000000000001';
+
 update public.total_loss_claim_workflows
 set phase = 'negotiation',
     current_task = 'awaiting_insurer_response',
@@ -434,13 +483,13 @@ select ok(
         'a2000000-0000-4000-8000-000000000001'
       and response #>> '{response,sourceType}' = 'pasted_message'
       and response #>> '{response,text}' = '  The insurer declined the request.  '
-      and response #>> '{response,processingState}' = 'not_started'
+      and response #>> '{response,processingState}' = 'pending'
       and response #> '{response,document}' = 'null'::jsonb
       and response #> '{response,revisedOffer}' = 'null'::jsonb
       and (response ->> 'workflowRevision')::bigint = 4
     from initial_response
   ),
-  'text-only intake returns the exact unprocessed response projection without an offer'
+  'text-only intake returns the exact pending response projection without an offer'
 );
 
 reset role;
@@ -453,7 +502,7 @@ select ok(
     where case_id = 'e2000000-0000-4000-8000-000000000001'
   )
   and (
-    select status = 'response_received' and revision = 2
+    select status = 'response_received' and revision = 3
     from public.total_loss_negotiation_rounds
     where id = 'ef000000-0000-4000-8000-000000000001'
   )
@@ -621,18 +670,20 @@ select is(
 
 select ok(
   (
-    select workflow_current_task = 'insurer_response_received'
-      and customer_journey ->> 'nextState' = 'insurer_response_received'
-      and customer_journey ->> 'fulfillmentState' = 'insurer_response_received'
+    select workflow_current_task = 'insurer_response_reviewing'
+      and customer_journey ->> 'nextState' = 'insurer_response_reviewing'
+      and customer_journey ->> 'fulfillmentState' = 'insurer_response_reviewing'
       and insurer_response = (
         select response -> 'response' from uploaded_correction
       )
       and insurer_response ?& array[
         'responseId', 'clientRequestId', 'receivedAt', 'sourceType', 'text',
-        'document', 'revisedOffer', 'processingState', 'supersedesResponseId'
+        'document', 'revisedOffer', 'processingState', 'failureReason',
+        'supersedesResponseId'
       ]
+      and insurer_response -> 'failureReason' = 'null'::jsonb
       and (
-        select count(*) = 9
+        select count(*) = 10
         from jsonb_object_keys(insurer_response)
       )
       and not (insurer_response -> 'document' ? 'uploadPath')
@@ -642,7 +693,7 @@ select ok(
       'e2000000-0000-4000-8000-000000000001'
     )
   ),
-  'the secured resolver exposes only the exact current owner-safe response projection and journey state'
+  'the secured resolver exposes the exact current owner-safe response and resumes pending work at Reviewing response'
 );
 
 create temporary table retained_correction on commit drop as
@@ -719,7 +770,12 @@ select ok(
 
 select ok(
   (
-    select response = (select response from initial_response)
+    select response #>> '{response,responseId}' =
+        (select response #>> '{response,responseId}' from initial_response)
+      and response #>> '{response,text}' =
+        (select response #>> '{response,text}' from initial_response)
+      and response #>> '{response,clientRequestId}' =
+        'a2000000-0000-4000-8000-000000000001'
       and (response ->> 'workflowRevision')::bigint = 4
     from (
       select public.record_total_loss_insurer_response(
@@ -730,7 +786,7 @@ select ok(
       ) as response
     ) as replay
   ),
-  'an older accepted request replays its original workflow revision after later corrections'
+  'an older accepted request replays its immutable response identity and original workflow revision after later corrections'
 );
 
 create temporary table bounded_pending_prepares (

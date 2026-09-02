@@ -11,12 +11,19 @@ import { reviewPrerequisite, useReviewProgression } from "../use-review-progress
 import {
   authoritativeTotalLossClaimPath,
   completedAnalysisStage,
+  resolvedTotalLossClaimJourneyState,
+  routeForJourneyState,
   totalLossClaimBasePath,
   type TotalLossClaimWorkflowView,
 } from "../workflow-route";
 import { InsurerEvidenceDetails, MarketEvidenceDetails, MethodologyDisclosure } from "./case-evidence";
 import { MessagePreparation } from "./message-preparation";
-import { InsurerResponseForm, InsurerResponseReceived } from "./insurer-response";
+import {
+  InsurerResponseForm,
+  InsurerResponseReceived,
+  InsurerResponseReviewed,
+  InsurerResponseReviewing,
+} from "./insurer-response";
 import { ReportFileRow } from "./published-report-actions";
 import { CaseJourneyProgress, InsurerValueBridge, RecordedTime, RepresentativeListings, ValueRangeTrack } from "./completed-analysis-visuals";
 import { useReviewStageMotion } from "./use-review-stage-motion";
@@ -148,14 +155,19 @@ export function CompletedAnalysis(props: CompletedAnalysisProps) {
   const navigationEpoch = useRef(0);
   const requestedStage = completedAnalysisStage(view, search, intakeMode);
   const sent = requestIsSent(claim);
-  const responseReceived = Boolean(
-    claim.insurerResponse &&
-      (claim.journey?.nextState === "insurer_response_received" ||
-        claim.journey?.fulfillmentState === "insurer_response_received" ||
-        claim.workflow?.currentTask === "insurer_response_received"),
-  );
+  const journeyState = resolvedTotalLossClaimJourneyState(claim);
+  const responseStage = claim.insurerResponse
+    ? journeyState === "insurer_response_reviewed"
+      ? "response_reviewed"
+      : journeyState === "insurer_response_reviewing" ||
+          journeyState === "insurer_response_review_unavailable"
+        ? "response_reviewing"
+        : journeyState === "insurer_response_received"
+          ? "response_received"
+          : null
+    : null;
   const stage = requestedStage === "request" && sent
-    ? responseReceived ? "response_received" : "waiting"
+    ? responseStage ?? "waiting"
     : requestedStage;
   const [hasDraft, setHasDraft] = useState(claim.messageDraft?.reportVersionId === report.reportId);
   const progression = useReviewProgression({ ...props, reportId: report.reportId });
@@ -171,8 +183,15 @@ export function CompletedAnalysis(props: CompletedAnalysisProps) {
     intakeMode,
     stage,
   });
-  const previous = stage === "result" || stage === "response_received" ? null : stage === "insurer" ? path("result") : stage === "market" ? path(manual ? "result" : "insurer") : stage === "meaning" ? path("market") : stage === "response" ? path(responseReceived ? "response-received" : "waiting") : path("meaning");
-  const next = stage === "result" ? manual ? "market" : "insurer" : stage === "insurer" ? "market" : stage === "market" ? "meaning" : stage === "meaning" && sent ? responseReceived ? "response-received" : "waiting" : "request";
+  const responsePath = responseStage === "response_reviewed"
+    ? "response-reviewed"
+    : responseStage === "response_reviewing"
+      ? "response-reviewing"
+      : responseStage === "response_received"
+        ? "response-received"
+        : "waiting";
+  const previous = stage === "result" || stage === "response_received" || stage === "response_reviewing" || stage === "response_reviewed" ? null : stage === "insurer" ? path("result") : stage === "market" ? path(manual ? "result" : "insurer") : stage === "meaning" ? path("market") : stage === "response" ? path(responsePath) : path("meaning");
+  const next = stage === "result" ? manual ? "market" : "insurer" : stage === "insurer" ? "market" : stage === "market" ? "meaning" : stage === "meaning" && sent ? responsePath : "request";
   const requestAction = sent ? "Return to case status" : hasDraft ? "Review my request" : "Prepare my request";
   const action = stage === "result" && !manual ? "See how the insurer reached its value" : stage === "result" || stage === "insurer" ? "See the market evidence" : stage === "market" ? "Compare the values" : requestAction;
   const classification = reportText(report.conclusion.classificationLabel).replace(/^Potential undervaluation signal$/iu, "Potential undervaluation");
@@ -203,8 +222,8 @@ export function CompletedAnalysis(props: CompletedAnalysisProps) {
     return () => { navigationEpoch.current += 1; };
   }, [stage, hasDraft, location.key, report.reportId]);
 
-  if (stage === "waiting" && responseReceived) {
-    return <Navigate replace to={path("response-received")} />;
+  if (stage === "waiting" && responseStage) {
+    return <Navigate replace to={path(responsePath)} />;
   }
   if (stage === "waiting" && !sent) {
     const resume = authoritativeTotalLossClaimPath(claim, intakeMode);
@@ -214,23 +233,36 @@ export function CompletedAnalysis(props: CompletedAnalysisProps) {
     const resume = authoritativeTotalLossClaimPath(claim, intakeMode);
     return <Navigate replace to={resume ?? path("result")} />;
   }
-  if (stage === "response_received" && !responseReceived) {
+  if (stage === "response_received" && responseStage !== "response_received") {
     const resume = authoritativeTotalLossClaimPath(claim, intakeMode);
     return <Navigate replace to={resume && resume !== path("response-received") ? resume : path("waiting")} />;
+  }
+  if (stage === "response_reviewing" && responseStage !== "response_reviewing") {
+    const resume = authoritativeTotalLossClaimPath(claim, intakeMode);
+    return <Navigate replace to={resume && resume !== path("response-reviewing") ? resume : path("waiting")} />;
+  }
+  if (
+    stage === "response_reviewed" &&
+    (responseStage !== "response_reviewed" ||
+      !claim.insurerResponse?.analysis ||
+      claim.insurerResponse.processingState !== "completed")
+  ) {
+    const resume = authoritativeTotalLossClaimPath(claim, intakeMode);
+    return <Navigate replace to={resume && resume !== path("response-reviewed") ? resume : path("waiting")} />;
   }
   if (stage === "request" && !continuing) {
     return <Navigate replace to={path("meaning")} />;
   }
 
   const continueReview = async () => {
-    if (stage === "request" || stage === "waiting" || stage === "response" || stage === "response_received") return;
+    if (stage === "request" || stage === "waiting" || stage === "response" || stage === "response_received" || stage === "response_reviewing" || stage === "response_reviewed") return;
     const epoch = navigationEpoch.current;
     if (await progression.complete(stage) && epoch === navigationEpoch.current) navigate(path(next));
   };
 
   return (
     <section className="completed-analysis" aria-label="Completed analysis" ref={root} tabIndex={-1} data-stage={stage} data-request-draft={stage === "request" && hasDraft || undefined}>
-      {requestedStage === "request" && sent ? <Navigate replace to={path(responseReceived ? "response-received" : "waiting")} /> : null}
+      {requestedStage === "request" && sent ? <Navigate replace to={path(responsePath)} /> : null}
       <CaseJourneyProgress progress={journeyProgress} />
       <div className="review-stage-content" data-view={stage}>
       {claim.journey?.fulfillmentState === "refund_pending" || claim.commerce?.entitlementStatus === "refunded_access_retained" ? (
@@ -314,9 +346,25 @@ export function CompletedAnalysis(props: CompletedAnalysisProps) {
         </div>
         <ReportFileRow {...props} />
       </> : null}
-      {stage === "response" ? <InsurerResponseForm {...props} onRecorded={() => navigate(path("response-received"), { replace: true })} /> : null}
+      {stage === "response" ? <InsurerResponseForm {...props} onRecorded={(state) => navigate(routeForJourneyState(caseId, state), { replace: true })} /> : null}
       {stage === "response_received" && claim.insurerResponse ? <>
         <InsurerResponseReceived response={claim.insurerResponse} onCorrect={() => navigate(path("response"))} />
+        <ReportFileRow {...props} />
+      </> : null}
+      {stage === "response_reviewing" && claim.insurerResponse ? <>
+        <InsurerResponseReviewing {...props} response={claim.insurerResponse} onCorrect={() => navigate(path("response"))} />
+        <ReportFileRow {...props} />
+      </> : null}
+      {stage === "response_reviewed" && claim.insurerResponse?.analysis && claim.insurerResponse.analysisEvidence ? <>
+        <InsurerResponseReviewed
+          onCorrect={() => navigate(path("response"))}
+          priorValuation={report.conclusion.insurerValuation}
+          response={{
+            ...claim.insurerResponse,
+            analysis: claim.insurerResponse.analysis,
+            analysisEvidence: claim.insurerResponse.analysisEvidence,
+          }}
+        />
         <ReportFileRow {...props} />
       </> : null}
       </div>
@@ -328,7 +376,7 @@ export function CompletedAnalysis(props: CompletedAnalysisProps) {
             if (progression.pending) event.preventDefault();
           }}><ArrowLeft aria-hidden="true" />Back</Link> : null}
           {stage === "waiting" ? <button className="review-primary" type="button" onClick={() => navigate(path("response"))}><span className="review-action-label"><span className="review-action-reserve" aria-hidden="true">I received a response</span><span>I received a response</span></span><span className="review-action-icon"><ArrowRight aria-hidden="true" /></span></button> : null}
-          {stage !== "request" && stage !== "waiting" && stage !== "response" && stage !== "response_received" && (stage !== "meaning" || report.conclusion.continuingSupported) ? <button className="review-primary" type="button" disabled={progression.pending || Boolean(prerequisite)} onClick={() => void continueReview()}><span className="review-action-label"><span className="review-action-reserve" aria-hidden="true">{action}</span><span>{progression.pending ? "Saving progress…" : action}</span></span><span className="review-action-icon">{progression.pending ? <LoaderCircle className="review-spinner" aria-hidden="true" /> : <ArrowRight aria-hidden="true" />}</span></button> : null}
+          {stage !== "request" && stage !== "waiting" && stage !== "response" && stage !== "response_received" && stage !== "response_reviewing" && stage !== "response_reviewed" && (stage !== "meaning" || report.conclusion.continuingSupported) ? <button className="review-primary" type="button" disabled={progression.pending || Boolean(prerequisite)} onClick={() => void continueReview()}><span className="review-action-label"><span className="review-action-reserve" aria-hidden="true">{action}</span><span>{progression.pending ? "Saving progress…" : action}</span></span><span className="review-action-icon">{progression.pending ? <LoaderCircle className="review-spinner" aria-hidden="true" /> : <ArrowRight aria-hidden="true" />}</span></button> : null}
         </nav>
       </footer>
     </section>

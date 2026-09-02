@@ -13,6 +13,7 @@ import {
   reconcileTotalLossCheckout,
   recordTotalLossInsurerResponse,
   recordTotalLossMessageOpened,
+  retryTotalLossInsurerResponseAnalysis,
   renewTotalLossClaimAccessLink,
   requestTotalLossClaimRecovery,
   updateTotalLossEducationProgress,
@@ -65,8 +66,17 @@ export function useTotalLossClaimQuery({
       const nextState = query.state.data?.journey?.nextState;
       const fulfillmentState =
         query.state.data?.journey?.fulfillmentState;
+      const responseProcessingState =
+        query.state.data?.insurerResponse?.processingState;
+      const responseReviewActive =
+        nextState === "insurer_response_reviewing" &&
+        (responseProcessingState === "pending" ||
+          responseProcessingState === "processing");
       return nextState === "processing" ||
+        responseReviewActive ||
         nextState === "checkout_confirmation" ||
+        responseProcessingState === "pending" ||
+        responseProcessingState === "processing" ||
         fulfillmentState === "refund_pending"
         ? 2_000
         : false;
@@ -405,6 +415,36 @@ export function useTotalLossInsurerResponseMutation({
         throw new Error("An authenticated session is required.");
       }
       return recordTotalLossInsurerResponse(caseId, accessToken, input);
+    },
+    onSuccess: invalidate,
+    retry: false,
+  });
+}
+
+export function useTotalLossInsurerResponseAnalysisRetryMutation({
+  accessToken,
+  caseId,
+  userId,
+}: ClaimIdentityOptions) {
+  const invalidate = useClaimMutationInvalidation({ caseId, userId });
+  return useMutation({
+    gcTime: 0,
+    mutationKey: [
+      ...totalLossClaimQueryKeys.detail(userId, caseId),
+      "insurerResponseAnalysisRetry",
+    ],
+    mutationFn: (input: {
+      readonly clientRequestId: string;
+      readonly expectedWorkflowRevision: number;
+    }) => {
+      if (!accessToken || !userId) {
+        throw new Error("An authenticated session is required.");
+      }
+      return retryTotalLossInsurerResponseAnalysis(
+        caseId,
+        accessToken,
+        input,
+      );
     },
     onSuccess: invalidate,
     retry: false,

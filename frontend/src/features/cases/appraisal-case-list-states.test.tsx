@@ -10,13 +10,13 @@ import {
 } from "@/features/cases/appraisal-case-list-states";
 
 describe("appraisal case list states", () => {
-  it.each([
-    ["list", "Loading appraisals"],
-    ["overview", "Loading appraisal overview"],
-  ] as const)("renders the %s loading state", (variant, label) => {
-    render(<AppraisalCasesLoadingState variant={variant} />);
+  it("renders the appraisal-list loading state", () => {
+    render(<AppraisalCasesLoadingState />);
 
-    expect(screen.getByLabelText(label)).toHaveAttribute("aria-busy", "true");
+    expect(screen.getByLabelText("Loading appraisals")).toHaveAttribute(
+      "aria-busy",
+      "true",
+    );
   });
 
   it("renders configured error actions", async () => {
@@ -45,7 +45,6 @@ describe("appraisal case list states", () => {
   it("keeps the compact empty state informational", () => {
     render(
       <AppraisalCasesEmptyState
-        variant="compact"
         description="Saved appraisals will appear here."
       />,
     );
@@ -56,22 +55,4 @@ describe("appraisal case list states", () => {
     expect(screen.queryByRole("link")).not.toBeInTheDocument();
   });
 
-  it("offers the first-appraisal action from the overview empty state", () => {
-    render(
-      <MemoryRouter>
-        <AppraisalCasesEmptyState
-          variant="first-appraisal"
-          description="Start a review when you are ready."
-          newAppraisalHref="/start?service=total-loss&newCaseId=case-id"
-        />
-      </MemoryRouter>,
-    );
-
-    expect(
-      screen.getByRole("link", { name: "Start your first appraisal" }),
-    ).toHaveAttribute(
-      "href",
-      "/start?service=total-loss&newCaseId=case-id",
-    );
-  });
 });

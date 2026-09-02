@@ -16,6 +16,8 @@ import {
   type TotalLossClaimJourneyState,
   type TotalLossClaimSecured,
   type TotalLossEducationStep,
+  type TotalLossInsurerResponse,
+  type TotalLossInsurerResponseAnalysis,
   type TotalLossPublishedReport,
 } from "@/features/total-loss-claim/contracts";
 import { useTotalLossClaimQuery } from "@/features/total-loss-claim/queries";
@@ -36,6 +38,9 @@ const USER_ID = "22222222-2222-4222-8222-222222222222";
 const NOW = "2026-08-29T18:00:00.000Z";
 const BASE = `/total-loss/cases/${CASE_ID}/claim`;
 const API = "*/api/v1/appraisal-cases/:caseId";
+const RESPONSE_EVIDENCE_REF = `response_${"a".repeat(64)}`;
+const CUSTOMER_OFFER_EVIDENCE_REF = `response_${"c".repeat(64)}`;
+const CASE_EVIDENCE_REF = `case_${"b".repeat(64)}`;
 const BEFORE_MEANING: TotalLossEducationStep[] = [
   "result", "insurer_review", "valuation",
 ];
@@ -45,6 +50,162 @@ const BEFORE_REQUEST: TotalLossEducationStep[] = [
 
 function money(amountMinorUnits: number, formatted: string) {
   return { amountMinorUnits, currency: "USD", formatted };
+}
+
+function reviewedResponseAnalysis(): TotalLossInsurerResponseAnalysis {
+  return {
+    schemaVersion: "1",
+    analysisSummary: {
+      whatInsurerSaid:
+        "The insurer increased the offer but did not address the market listings.",
+      whatThisMeans:
+        "The offer changed, while the main market-evidence question remains unresolved.",
+      responseEvidenceRefs: [RESPONSE_EVIDENCE_REF],
+      caseEvidenceRefs: [CASE_EVIDENCE_REF],
+    },
+    insurerPosition: {
+      category: "REVISED_OFFER",
+      summary: "The insurer revised its offer without accepting the full request.",
+      responseEvidenceRefs: [RESPONSE_EVIDENCE_REF],
+    },
+    revisedOffer: {
+      status: "PRESENT",
+      amountMinorUnits: 2_010_000,
+      currency: "USD",
+      source: "BOTH",
+      responseEvidenceRefs: [RESPONSE_EVIDENCE_REF],
+      visualSourceInterpretation: null,
+    },
+    requestDisposition: {
+      category: "PARTIALLY_ACCEPTED",
+      summary: "The insurer increased the offer but did not address every point.",
+      responseEvidenceRefs: [RESPONSE_EVIDENCE_REF],
+      caseEvidenceRefs: [CASE_EVIDENCE_REF],
+    },
+    responsePoints: [
+      {
+        topic: "Requested valuation review",
+        disposition: "ACCEPTED",
+        whatInsurerSaid: "A revised offer of $20,100 is available.",
+        whatThisMeans: "The offer increased, but it remains below the selected median.",
+        responseEvidenceRefs: [RESPONSE_EVIDENCE_REF],
+        caseEvidenceRefs: [CASE_EVIDENCE_REF],
+        confidence: "HIGH",
+      },
+    ],
+    insurerArguments: [
+      {
+        argument: "The original comparable set remains appropriate.",
+        whatItReliesOn: "The insurer repeated its prior comparable methodology.",
+        responseEvidenceRefs: [RESPONSE_EVIDENCE_REF],
+        caseEvidenceRefs: [CASE_EVIDENCE_REF],
+      },
+    ],
+    importantChanges: [
+      {
+        description: "The insurer offer increased to $20,100.",
+        responseEvidenceRefs: [RESPONSE_EVIDENCE_REF],
+        caseEvidenceRefs: [CASE_EVIDENCE_REF],
+      },
+    ],
+    unresolvedIssues: [
+      {
+        description: "The selected market listings were not addressed.",
+        responseEvidenceRefs: [RESPONSE_EVIDENCE_REF],
+        caseEvidenceRefs: [CASE_EVIDENCE_REF],
+      },
+    ],
+    recommendedNextStep: {
+      category: "REVIEW_REVISED_OFFER",
+      explanation: "Review the revised amount and the unresolved market-evidence issue.",
+      responseEvidenceRefs: [RESPONSE_EVIDENCE_REF],
+      caseEvidenceRefs: [CASE_EVIDENCE_REF],
+    },
+    confidence: "HIGH",
+    uncertainties: [],
+    inputCoverage: {
+      pastedText: "AVAILABLE",
+      document: "NOT_PROVIDED",
+      limitations: [],
+    },
+    untrustedInstructionDetected: false,
+    untrustedInstructionFollowed: false,
+  };
+}
+
+function reviewedResponseEvidence() {
+  return {
+    responseEvidence: [
+      {
+        evidenceRef: RESPONSE_EVIDENCE_REF,
+        sourceType: "PASTED_TEXT" as const,
+        content: "We can revise the offer to $20,100.",
+        pageNumber: null,
+      },
+      {
+        evidenceRef: CUSTOMER_OFFER_EVIDENCE_REF,
+        sourceType: "CUSTOMER_SUPPLIED_OFFER" as const,
+        content: null,
+        pageNumber: null,
+      },
+    ],
+    caseEvidence: [{
+      evidenceRef: CASE_EVIDENCE_REF,
+      evidenceType: "CUSTOMER_REQUEST" as const,
+      summary: "Please review the valuation and selected market evidence.",
+      amountMinorUnits: null,
+      currency: null,
+    }],
+  };
+}
+
+function savedInsurerResponse(
+  processingState: TotalLossInsurerResponse["processingState"],
+  analysis: TotalLossInsurerResponseAnalysis | null = null,
+  failureReason: TotalLossInsurerResponse["failureReason"] =
+    processingState === "retryable_failed" ||
+    processingState === "terminal_failed"
+      ? "generic"
+      : processingState === "unsupported"
+        ? "unsupported_document"
+        : null,
+): TotalLossInsurerResponse {
+  return {
+    analysis,
+    analysisEvidence: analysis ? reviewedResponseEvidence() : null,
+    clientRequestId: "88888888-8888-4888-8888-888888888888",
+    document: null,
+    failureReason,
+    processingState,
+    receivedAt: NOW,
+    responseId: "99999999-9999-4999-8999-999999999999",
+    revisedOffer: { amountMinorUnits: 2_010_000, currency: "USD" },
+    sourceType: "pasted_message",
+    supersedesResponseId: null,
+    text: "We can revise the offer to $20,100.",
+  };
+}
+
+function publicInsurerResponseProjection(
+  response: TotalLossInsurerResponse,
+) {
+  const projection: Record<string, unknown> = { ...response };
+  delete projection.analysis;
+  delete projection.analysisEvidence;
+  return projection;
+}
+
+function publicClaimProjection(claim: TotalLossClaimSecured) {
+  if (
+    !claim.insurerResponse ||
+    claim.insurerResponse.processingState === "completed"
+  ) {
+    return claim;
+  }
+  return {
+    ...claim,
+    insurerResponse: publicInsurerResponseProjection(claim.insurerResponse),
+  };
 }
 
 function publishedReport(): TotalLossPublishedReport {
@@ -202,7 +363,9 @@ function installClaim(initialClaim = claimProjection(), failOnce?: TotalLossEduc
   const responseUploadWrites: InsurerResponseUploadWrite[] = [];
   const draftWrites = vi.fn();
   server.use(
-    http.get(`${API}/claim`, () => HttpResponse.json(claim)),
+    http.get(`${API}/claim`, () =>
+      HttpResponse.json(publicClaimProjection(claim)),
+    ),
     http.put(`${API}/education/:step`, async ({ params, request: update }) => {
       const step = params.step as TotalLossEducationStep;
       const body = await update.json() as Omit<EducationWrite, "step">;
@@ -237,7 +400,9 @@ function installClaim(initialClaim = claimProjection(), failOnce?: TotalLossEduc
     http.post(`${API}/insurer-response`, async ({ request: update }) => {
       const body = await update.json() as InsurerResponseWrite;
       responseWrites.push(body);
-      const response = {
+      const response: TotalLossInsurerResponse = {
+        analysis: null,
+        analysisEvidence: null,
         responseId: "99999999-9999-4999-8999-999999999999",
         clientRequestId: body.clientRequestId,
         receivedAt: NOW,
@@ -250,16 +415,21 @@ function installClaim(initialClaim = claimProjection(), failOnce?: TotalLossEduc
           byteSize: 11,
         } : null,
         revisedOffer: body.revisedOfferMinorUnits ? { amountMinorUnits: body.revisedOfferMinorUnits, currency: "USD" } : null,
-        processingState: "not_started" as const,
+        processingState: "pending" as const,
+        failureReason: null,
         supersedesResponseId: body.supersedesResponseId,
       };
       claim = {
         ...claim,
         insurerResponse: response,
-        journey: { fulfillmentState: "insurer_response_received", nextState: "insurer_response_received", retryable: false },
-        workflow: { ...claim.workflow!, currentTask: "insurer_response_received", revision: claim.workflow!.revision + 1 },
+        journey: { fulfillmentState: "insurer_response_reviewing", nextState: "insurer_response_reviewing", retryable: false },
+        workflow: { ...claim.workflow!, currentTask: "insurer_response_reviewing", revision: claim.workflow!.revision + 1 },
       };
-      return HttpResponse.json({ state: "insurer_response_received", response, workflowRevision: claim.workflow!.revision });
+      return HttpResponse.json({
+        state: "insurer_response_received",
+        response: publicInsurerResponseProjection(response),
+        workflowRevision: claim.workflow!.revision,
+      });
     }),
     http.post(`${API}/insurer-response/upload`, async ({ request: update }) => {
       const body = await update.json() as InsurerResponseUploadWrite;
@@ -274,7 +444,16 @@ function installClaim(initialClaim = claimProjection(), failOnce?: TotalLossEduc
       });
     }),
   );
-  return { writes, responseWrites, responseUploadWrites, draftWrites, claim: () => claim };
+  return {
+    writes,
+    responseWrites,
+    responseUploadWrites,
+    draftWrites,
+    claim: () => claim,
+    setClaim: (nextClaim: TotalLossClaimSecured) => {
+      claim = nextClaim;
+    },
+  };
 }
 
 function JourneyHarness({ intakeMode }: { readonly intakeMode: TotalLossIntakeMode }) {
@@ -638,7 +817,7 @@ describe("completed-analysis guided progression", () => {
     expect(request.render).not.toHaveBeenCalled();
   });
 
-  it("records an offer-only insurer response once and advances to the saved received state", async () => {
+  it("records an offer-only insurer response once and advances to the reviewing state", async () => {
     const projection = claimProjection([...BEFORE_REQUEST, "send"]);
     const installed = installClaim({
       ...projection,
@@ -654,7 +833,7 @@ describe("completed-analysis guided progression", () => {
     const save = screen.getByRole("button", { name: "Save response" });
     await Promise.all([user.click(save), user.click(save)]);
 
-    expect(await screen.findByRole("heading", { name: "The insurer’s response is saved" })).toBeVisible();
+    expect(await screen.findByRole("heading", { name: "Venfour is reviewing the insurer’s response" })).toBeVisible();
     expect(installed.responseWrites).toHaveLength(1);
     expect(installed.responseWrites[0]).toMatchObject({
       documentId: null,
@@ -664,9 +843,13 @@ describe("completed-analysis guided progression", () => {
       revisedOfferMinorUnits: 2_112_550,
       supersedesResponseId: null,
     });
-    expect(screen.getByText("$21,125.50")).toBeVisible();
-    expect(screen.getByText(/has not analyzed it/iu)).toBeVisible();
+    expect(screen.getByText(/comparing what the insurer said with the request/iu)).toBeVisible();
     expect(screen.getByRole("region", { name: "Valuation report" })).toBeVisible();
+
+    await user.click(
+      screen.getByText("View the saved insurer response"),
+    );
+    expect(screen.getByText("$21,125.50")).toBeVisible();
 
     await user.click(screen.getByRole("button", { name: "Correct this response" }));
     expect(await screen.findByText("Correct saved response")).toBeVisible();
@@ -674,7 +857,7 @@ describe("completed-analysis guided progression", () => {
     await user.type(pasted, "  Exact corrected reply.\n");
     await user.click(screen.getByRole("button", { name: "Save corrected response" }));
 
-    expect(await screen.findByRole("heading", { name: "The insurer’s response is saved" })).toBeVisible();
+    expect(await screen.findByRole("heading", { name: "Venfour is reviewing the insurer’s response" })).toBeVisible();
     expect(installed.responseWrites).toHaveLength(2);
     expect(installed.responseWrites[1]).toMatchObject({
       responseText: "  Exact corrected reply.\n",
@@ -707,7 +890,7 @@ describe("completed-analysis guided progression", () => {
     expect(await screen.findByText("insurer-response.png")).toBeVisible();
     await user.click(screen.getByRole("button", { name: "Save response" }));
 
-    expect(await screen.findByRole("heading", { name: "The insurer’s response is saved" })).toBeVisible();
+    expect(await screen.findByRole("heading", { name: "Venfour is reviewing the insurer’s response" })).toBeVisible();
     expect(installed.responseUploadWrites).toHaveLength(1);
     expect(installed.responseUploadWrites[0]).toMatchObject({
       byteSize: file.size,
@@ -731,6 +914,357 @@ describe("completed-analysis guided progression", () => {
       retainedDocumentId: null,
       revisedOfferMinorUnits: null,
     });
+  });
+
+  it("renders a completed response review as a grounded guided step without negotiation controls", async () => {
+    const user = userEvent.setup();
+    const projection = claimProjection([...BEFORE_REQUEST, "send"]);
+    installClaim({
+      ...projection,
+      insurerResponse: savedInsurerResponse(
+        "completed",
+        reviewedResponseAnalysis(),
+      ),
+      journey: {
+        fulfillmentState: "insurer_response_reviewed",
+        nextState: "insurer_response_reviewed",
+        retryable: false,
+      },
+      workflow: {
+        currentTask: "insurer_response_reviewed",
+        phase: "negotiation",
+        revision: 15,
+      },
+    });
+
+    renderJourney("report", "response-reviewed");
+
+    expect(
+      await screen.findByRole("heading", {
+        name: "What the insurer’s response means",
+      }),
+    ).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Insurer’s response" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "What changed" })).toBeVisible();
+    expect(
+      screen.getByRole("heading", { name: "How they responded" }),
+    ).toBeVisible();
+    expect(screen.getByRole("heading", { name: "What matters" })).toBeVisible();
+    expect(
+      screen.getByRole("heading", { name: "Recommended next step" }),
+    ).toBeVisible();
+    expect(screen.getByText("$19,046")).toBeVisible();
+    expect(screen.getAllByText("$20,100.00").length).toBeGreaterThan(0);
+    expect(screen.getByText("Partially accepted")).toBeVisible();
+    expect(screen.getByText("Review their revised offer")).toBeVisible();
+    const basisControls = screen.getAllByText(/^Basis:/u);
+    expect(basisControls.length).toBeGreaterThan(0);
+    await user.click(basisControls[0]);
+    expect(
+      within(basisControls[0].parentElement!).getByText(
+        /We can revise the offer to \$20,100\./u,
+      ),
+    ).toBeVisible();
+    const caseBasis = basisControls.find((control) =>
+      control.textContent?.includes("existing case evidence"),
+    );
+    expect(caseBasis).toBeDefined();
+    if (!caseBasis!.parentElement?.hasAttribute("open")) {
+      await user.click(caseBasis!);
+    }
+    expect(
+      within(caseBasis!.parentElement!).getByText(
+        "Please review the valuation and selected market evidence.",
+      ),
+    ).toBeVisible();
+    expect(
+      screen.getAllByText("We can revise the offer to $20,100.").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("Please review the valuation and selected market evidence.").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getByText(/does not recalculate the vehicle’s value or change the published report/iu),
+    ).toBeVisible();
+    expect(
+      screen.queryByRole("button", { name: /reply|send|negotiate|close case/iu }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("labels a customer-recorded offer separately from insurer-authored response evidence", async () => {
+    const analysis = reviewedResponseAnalysis();
+    const projection = claimProjection([...BEFORE_REQUEST, "send"]);
+    installClaim({
+      ...projection,
+      insurerResponse: {
+        ...savedInsurerResponse("completed", analysis),
+        analysis: {
+          ...analysis,
+          revisedOffer: {
+            ...analysis.revisedOffer,
+            source: "CUSTOMER_SUPPLIED",
+            responseEvidenceRefs: [CUSTOMER_OFFER_EVIDENCE_REF],
+          },
+        },
+      },
+      journey: {
+        fulfillmentState: "insurer_response_reviewed",
+        nextState: "insurer_response_reviewed",
+        retryable: false,
+      },
+      workflow: {
+        currentTask: "insurer_response_reviewed",
+        phase: "negotiation",
+        revision: 15,
+      },
+    });
+
+    renderJourney("report", "response-reviewed");
+
+    await screen.findByRole("heading", {
+      name: "What the insurer’s response means",
+    });
+    const customerBasis = screen.getAllByText(/^Basis:/u).find((control) =>
+      control.textContent?.includes("revised-offer amount you recorded"),
+    );
+    expect(customerBasis).toBeDefined();
+    expect(customerBasis).not.toHaveTextContent("part of the insurer response");
+    await userEvent.click(customerBasis!);
+    expect(
+      within(customerBasis!.parentElement!).getByText("Amount you recorded"),
+    ).toBeVisible();
+  });
+
+  it("labels a visual transcription as derived and preserves original authority", async () => {
+    const baseAnalysis = reviewedResponseAnalysis();
+    const visualAnalysis: TotalLossInsurerResponseAnalysis = {
+      ...baseAnalysis,
+      inputCoverage: {
+        document: "AVAILABLE",
+        limitations: [
+          "No reliable local text passages were extracted; the attached PDF must be interpreted directly.",
+        ],
+        pastedText: "NOT_PROVIDED",
+      },
+      revisedOffer: {
+        ...baseAnalysis.revisedOffer,
+        source: "INSURER_RESPONSE",
+        visualSourceInterpretation: {
+          confidence: "HIGH",
+          derivation: "MODEL_VISUAL_TRANSCRIPTION",
+          derivedText: "Revised settlement offer: $20,100.00",
+          originalSourceAuthoritative: true,
+          responseEvidenceRef: RESPONSE_EVIDENCE_REF,
+          verificationRequired: true,
+        },
+      },
+      uncertainties: [
+        {
+          caseEvidenceRefs: [],
+          description:
+            "The revised-offer amount was derived from a visual reading of the uploaded document. Check it against the saved original before relying on it.",
+          responseEvidenceRefs: [RESPONSE_EVIDENCE_REF],
+        },
+      ],
+    };
+    const projection = claimProjection([...BEFORE_REQUEST, "send"]);
+    installClaim({
+      ...projection,
+      insurerResponse: {
+        ...savedInsurerResponse("completed", visualAnalysis),
+        analysisEvidence: {
+          ...reviewedResponseEvidence(),
+          responseEvidence: [
+            {
+              content: null,
+              evidenceRef: RESPONSE_EVIDENCE_REF,
+              pageNumber: null,
+              sourceType: "DOCUMENT_IMAGE",
+            },
+          ],
+        },
+        document: {
+          byteSize: 512,
+          documentId: "77777777-7777-4777-8777-777777777777",
+          mediaType: "image/png",
+          originalFilename: "insurer-response.png",
+        },
+        sourceType: "uploaded_document",
+        text: null,
+      },
+      journey: {
+        fulfillmentState: "insurer_response_reviewed",
+        nextState: "insurer_response_reviewed",
+        retryable: false,
+      },
+      workflow: {
+        currentTask: "insurer_response_reviewed",
+        phase: "negotiation",
+        revision: 15,
+      },
+    });
+
+    renderJourney("report", "response-reviewed");
+
+    await screen.findByRole("heading", {
+      name: "What the insurer’s response means",
+    });
+    expect(screen.getByText("Derived visual transcription")).toBeVisible();
+    expect(
+      screen.getByText("“Revised settlement offer: $20,100.00”"),
+    ).toBeVisible();
+    expect(
+      screen.getByText(/saved insurer document.*authoritative source/iu),
+    ).toBeVisible();
+    expect(
+      screen.getByText("Amount derived from the insurer document"),
+    ).toBeVisible();
+  });
+
+  it("offers an owner-authorized retry only for a retryable response-review failure", async () => {
+    const projection = claimProjection([...BEFORE_REQUEST, "send"]);
+    const installed = installClaim({
+      ...projection,
+      insurerResponse: savedInsurerResponse("retryable_failed"),
+      journey: {
+        fulfillmentState: "insurer_response_review_unavailable",
+        nextState: "insurer_response_review_unavailable",
+        retryable: true,
+      },
+      workflow: {
+        currentTask: "insurer_response_review_unavailable",
+        phase: "negotiation",
+        revision: 15,
+      },
+    });
+    const retryBodies: unknown[] = [];
+    server.use(
+      http.post(`${API}/insurer-response-analysis/retry`, async ({ request }) => {
+        retryBodies.push(await request.json());
+        const next = {
+          ...installed.claim(),
+          insurerResponse: savedInsurerResponse("pending"),
+          journey: {
+            fulfillmentState: "insurer_response_reviewing" as const,
+            nextState: "insurer_response_reviewing" as const,
+            retryable: false,
+          },
+          workflow: {
+            currentTask: "insurer_response_reviewing",
+            phase: "negotiation" as const,
+            revision: 16,
+          },
+        };
+        installed.setClaim(next);
+        return HttpResponse.json(publicClaimProjection(next));
+      }),
+    );
+
+    renderJourney("report", "response-reviewing");
+    const user = userEvent.setup();
+    expect(
+      await screen.findByRole("heading", {
+        name: "The response review could not be completed",
+      }),
+    ).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Try review again" }));
+
+    expect(
+      await screen.findByRole("heading", {
+        name: "Venfour is reviewing the insurer’s response",
+      }),
+    ).toBeVisible();
+    expect(retryBodies).toHaveLength(1);
+    expect(retryBodies[0]).toMatchObject({
+      expectedWorkflowRevision: 15,
+      clientRequestId: expect.stringMatching(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu,
+      ),
+    });
+  });
+
+  it.each(["unsupported", "terminal_failed"] as const)(
+    "keeps an unavailable %s response review neutral and non-actionable",
+    async (processingState) => {
+      const projection = claimProjection([...BEFORE_REQUEST, "send"]);
+      installClaim({
+        ...projection,
+        insurerResponse: savedInsurerResponse(processingState),
+        journey: {
+          fulfillmentState: "insurer_response_review_unavailable",
+          nextState: "insurer_response_review_unavailable",
+          retryable: false,
+        },
+        workflow: {
+          currentTask: "insurer_response_review_unavailable",
+          phase: "negotiation",
+          revision: 15,
+        },
+      });
+
+      renderJourney("report", "response-reviewing");
+      expect(
+        await screen.findByRole("heading", {
+          name:
+            processingState === "unsupported"
+              ? "This response could not be fully reviewed"
+              : "The response review could not be completed",
+        }),
+      ).toBeVisible();
+      expect(
+        screen.queryByRole("button", { name: "Try review again" }),
+      ).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Correct this response" })).toBeVisible();
+    },
+  );
+
+  it("explains when a document-only response could not be read", async () => {
+    const projection = claimProjection([...BEFORE_REQUEST, "send"]);
+    installClaim({
+      ...projection,
+      insurerResponse: {
+        ...savedInsurerResponse(
+          "terminal_failed",
+          null,
+          "unreadable_document",
+        ),
+        document: {
+          byteSize: 4096,
+          documentId: "77777777-7777-4777-8777-777777777777",
+          mediaType: "application/pdf",
+          originalFilename: "insurer-response.pdf",
+        },
+        revisedOffer: null,
+        sourceType: "uploaded_document",
+        text: null,
+      },
+      journey: {
+        fulfillmentState: "insurer_response_review_unavailable",
+        nextState: "insurer_response_review_unavailable",
+        retryable: false,
+      },
+      workflow: {
+        currentTask: "insurer_response_review_unavailable",
+        phase: "negotiation",
+        revision: 15,
+      },
+    });
+
+    renderJourney("report", "response-reviewing");
+
+    expect(
+      await screen.findByRole("heading", {
+        name: "This document could not be reviewed",
+      }),
+    ).toBeVisible();
+    expect(
+      screen.getByText(
+        "Venfour could not reliably read and analyze the submitted document. The original response remains saved, and no case evidence or valuation has changed.",
+      ),
+    ).toBeVisible();
+    expect(
+      screen.queryByRole("button", { name: "Try review again" }),
+    ).not.toBeInTheDocument();
   });
 
   it("returns a customer reviewing Meaning after sending to the saved request status", async () => {

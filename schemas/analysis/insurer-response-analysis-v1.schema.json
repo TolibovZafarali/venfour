@@ -1,0 +1,345 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://venfour.com/schemas/analysis/insurer-response-analysis-v1.schema.json",
+  "title": "Venfour insurer response analysis V1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "analysisSummary",
+    "insurerPosition",
+    "revisedOffer",
+    "requestDisposition",
+    "responsePoints",
+    "insurerArguments",
+    "importantChanges",
+    "unresolvedIssues",
+    "recommendedNextStep",
+    "confidence",
+    "uncertainties",
+    "inputCoverage",
+    "untrustedInstructionDetected",
+    "untrustedInstructionFollowed"
+  ],
+  "properties": {
+    "schemaVersion": { "type": "string", "const": "1" },
+    "analysisSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "whatInsurerSaid",
+        "whatThisMeans",
+        "responseEvidenceRefs",
+        "caseEvidenceRefs"
+      ],
+      "properties": {
+        "whatInsurerSaid": { "$ref": "#/$defs/description" },
+        "whatThisMeans": { "$ref": "#/$defs/description" },
+        "responseEvidenceRefs": { "$ref": "#/$defs/responseEvidenceRefs" },
+        "caseEvidenceRefs": { "$ref": "#/$defs/caseEvidenceRefs" }
+      }
+    },
+    "insurerPosition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["category", "summary", "responseEvidenceRefs"],
+      "properties": {
+        "category": {
+          "type": "string",
+          "enum": [
+            "REVISED_OFFER",
+            "MAINTAINS_PRIOR_POSITION",
+            "REQUESTS_MORE_INFORMATION",
+            "ACCEPTS_REQUEST",
+            "MIXED",
+            "UNCLEAR"
+          ]
+        },
+        "summary": { "$ref": "#/$defs/summary" },
+        "responseEvidenceRefs": { "$ref": "#/$defs/responseEvidenceRefs" }
+      }
+    },
+    "revisedOffer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "amountMinorUnits",
+        "currency",
+        "source",
+        "responseEvidenceRefs",
+        "visualSourceInterpretation"
+      ],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": ["PRESENT", "ABSENT", "UNCLEAR"]
+        },
+        "amountMinorUnits": {
+          "type": ["integer", "null"],
+          "minimum": 0,
+          "maximum": 1000000000000
+        },
+        "currency": {
+          "type": ["string", "null"],
+          "pattern": "^[A-Z]{3}$"
+        },
+        "source": {
+          "type": ["string", "null"],
+          "enum": [
+            "CUSTOMER_SUPPLIED",
+            "INSURER_RESPONSE",
+            "BOTH",
+            null
+          ]
+        },
+        "responseEvidenceRefs": { "$ref": "#/$defs/responseEvidenceRefs" },
+        "visualSourceInterpretation": {
+          "type": ["object", "null"],
+          "additionalProperties": false,
+          "required": [
+            "derivation",
+            "derivedText",
+            "responseEvidenceRef",
+            "confidence",
+            "originalSourceAuthoritative",
+            "verificationRequired"
+          ],
+          "properties": {
+            "derivation": {
+              "type": "string",
+              "const": "MODEL_VISUAL_TRANSCRIPTION"
+            },
+            "derivedText": { "$ref": "#/$defs/summary" },
+            "responseEvidenceRef": {
+              "$ref": "#/$defs/responseEvidenceRef"
+            },
+            "confidence": { "type": "string", "const": "HIGH" },
+            "originalSourceAuthoritative": {
+              "type": "boolean",
+              "const": true
+            },
+            "verificationRequired": {
+              "type": "boolean",
+              "const": true
+            }
+          }
+        }
+      }
+    },
+    "requestDisposition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "category",
+        "summary",
+        "responseEvidenceRefs",
+        "caseEvidenceRefs"
+      ],
+      "properties": {
+        "category": {
+          "type": "string",
+          "enum": [
+            "ACCEPTED",
+            "PARTIALLY_ACCEPTED",
+            "REJECTED",
+            "MORE_INFORMATION_REQUESTED",
+            "UNCLEAR"
+          ]
+        },
+        "summary": { "$ref": "#/$defs/summary" },
+        "responseEvidenceRefs": { "$ref": "#/$defs/responseEvidenceRefs" },
+        "caseEvidenceRefs": { "$ref": "#/$defs/caseEvidenceRefs" }
+      }
+    },
+    "responsePoints": {
+      "type": "array",
+      "maxItems": 50,
+      "items": { "$ref": "#/$defs/responsePoint" }
+    },
+    "insurerArguments": {
+      "type": "array",
+      "maxItems": 50,
+      "items": { "$ref": "#/$defs/insurerArgument" }
+    },
+    "importantChanges": {
+      "type": "array",
+      "maxItems": 50,
+      "items": { "$ref": "#/$defs/groundedObservation" }
+    },
+    "unresolvedIssues": {
+      "type": "array",
+      "maxItems": 50,
+      "items": { "$ref": "#/$defs/groundedObservation" }
+    },
+    "recommendedNextStep": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "category",
+        "explanation",
+        "responseEvidenceRefs",
+        "caseEvidenceRefs"
+      ],
+      "properties": {
+        "category": {
+          "type": "string",
+          "enum": [
+            "REVIEW_REVISED_OFFER",
+            "MORE_INFORMATION_MAY_BE_NEEDED",
+            "FOLLOW_UP_APPEARS_WARRANTED",
+            "VALUATION_ISSUE_APPEARS_RESOLVED",
+            "REVIEW_RESPONSE"
+          ]
+        },
+        "explanation": { "$ref": "#/$defs/description" },
+        "responseEvidenceRefs": { "$ref": "#/$defs/responseEvidenceRefs" },
+        "caseEvidenceRefs": { "$ref": "#/$defs/caseEvidenceRefs" }
+      }
+    },
+    "confidence": { "$ref": "#/$defs/confidence" },
+    "uncertainties": {
+      "type": "array",
+      "maxItems": 50,
+      "items": { "$ref": "#/$defs/groundedObservation" }
+    },
+    "inputCoverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["pastedText", "document", "limitations"],
+      "properties": {
+        "pastedText": {
+          "type": "string",
+          "enum": ["AVAILABLE", "NOT_PROVIDED"]
+        },
+        "document": {
+          "type": "string",
+          "enum": [
+            "AVAILABLE",
+            "NOT_PROVIDED",
+            "UNREADABLE",
+            "UNSUPPORTED"
+          ]
+        },
+        "limitations": {
+          "type": "array",
+          "maxItems": 20,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/summary" }
+        }
+      }
+    },
+    "untrustedInstructionDetected": { "type": "boolean" },
+    "untrustedInstructionFollowed": { "type": "boolean", "const": false }
+  },
+  "$defs": {
+    "summary": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500
+    },
+    "description": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2000
+    },
+    "responseEvidenceRef": {
+      "type": "string",
+      "pattern": "^response_[0-9a-f]{64}$"
+    },
+    "caseEvidenceRef": {
+      "type": "string",
+      "pattern": "^case_[0-9a-f]{64}$"
+    },
+    "responseEvidenceRefs": {
+      "type": "array",
+      "maxItems": 100,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/responseEvidenceRef" }
+    },
+    "caseEvidenceRefs": {
+      "type": "array",
+      "maxItems": 100,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/caseEvidenceRef" }
+    },
+    "confidence": {
+      "type": "string",
+      "enum": ["HIGH", "MEDIUM", "LOW"]
+    },
+    "responsePoint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "topic",
+        "disposition",
+        "whatInsurerSaid",
+        "whatThisMeans",
+        "responseEvidenceRefs",
+        "caseEvidenceRefs",
+        "confidence"
+      ],
+      "properties": {
+        "topic": { "$ref": "#/$defs/summary" },
+        "disposition": {
+          "type": "string",
+          "enum": [
+            "ACCEPTED",
+            "REJECTED",
+            "QUESTIONED",
+            "IGNORED",
+            "UNRESOLVED",
+            "UNCLEAR"
+          ]
+        },
+        "whatInsurerSaid": { "$ref": "#/$defs/description" },
+        "whatThisMeans": { "$ref": "#/$defs/description" },
+        "responseEvidenceRefs": { "$ref": "#/$defs/responseEvidenceRefs" },
+        "caseEvidenceRefs": { "$ref": "#/$defs/caseEvidenceRefs" },
+        "confidence": { "$ref": "#/$defs/confidence" }
+      }
+    },
+    "insurerArgument": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "argument",
+        "whatItReliesOn",
+        "responseEvidenceRefs",
+        "caseEvidenceRefs"
+      ],
+      "properties": {
+        "argument": { "$ref": "#/$defs/description" },
+        "whatItReliesOn": { "$ref": "#/$defs/description" },
+        "responseEvidenceRefs": { "$ref": "#/$defs/responseEvidenceRefs" },
+        "caseEvidenceRefs": { "$ref": "#/$defs/caseEvidenceRefs" }
+      }
+    },
+    "groundedObservation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "description",
+        "responseEvidenceRefs",
+        "caseEvidenceRefs"
+      ],
+      "properties": {
+        "description": { "$ref": "#/$defs/description" },
+        "responseEvidenceRefs": { "$ref": "#/$defs/responseEvidenceRefs" },
+        "caseEvidenceRefs": { "$ref": "#/$defs/caseEvidenceRefs" }
+      },
+      "anyOf": [
+        {
+          "properties": {
+            "responseEvidenceRefs": { "minItems": 1 }
+          }
+        },
+        {
+          "properties": {
+            "caseEvidenceRefs": { "minItems": 1 }
+          }
+        }
+      ]
+    }
+  }
+}

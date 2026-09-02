@@ -18,6 +18,7 @@ from starlette.routing import Route
 
 from scripts.local_claim_flow import add_continuation_route, gateway_from_status
 from venfour.commerce import StripeCommerceConfiguration
+from venfour.customer_delivery import CustomerDeliveryService
 from venfour.package_processing import TotalLossPackageCoordinator
 from venfour.report_review import ReportReviewConfiguration
 from venfour.report_review_evals import (
@@ -234,6 +235,7 @@ def create_app():
         with review_environment(review):
             app = production_app(
                 supabase_gateway=gateway,
+                customer_delivery_service=CustomerDeliveryService(gateway),
                 package_coordinator=TotalLossPackageCoordinator(gateway),
             )
         worker = LocalWorker(gateway, app.state.package_processor)

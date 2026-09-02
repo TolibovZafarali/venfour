@@ -1,4 +1,16 @@
-import { ArrowRight, FileText, LoaderCircle, Paperclip, RotateCcw, Trash2, Upload } from "lucide-react";
+import {
+  ArrowRight,
+  CheckCircle2,
+  CircleAlert,
+  FileText,
+  LoaderCircle,
+  Paperclip,
+  RefreshCw,
+  RotateCcw,
+  ScanSearch,
+  Trash2,
+  Upload,
+} from "lucide-react";
 import { useId, useRef, useState } from "react";
 
 import {
@@ -12,9 +24,14 @@ import {
 import type {
   TotalLossClaimSecured,
   TotalLossInsurerResponse,
+  TotalLossInsurerResponseAnalysis,
+  TotalLossInsurerResponseAnalysisEvidence,
   TotalLossInsurerResponseMediaType,
+  TotalLossInsurerResponseRecorded,
+  TotalLossMoney,
 } from "../contracts";
 import {
+  useTotalLossInsurerResponseAnalysisRetryMutation,
   useTotalLossInsurerResponseMutation,
   useTotalLossInsurerResponseUploadPreparationMutation,
 } from "../queries";
@@ -24,6 +41,7 @@ import {
 } from "../insurer-response-storage-service";
 import { RecordedTime } from "./completed-analysis-visuals";
 import { StableActionLabel } from "./stable-action-label";
+import { displayed } from "../report-format";
 import "./insurer-response.css";
 
 interface InsurerResponseIdentity {
@@ -94,7 +112,7 @@ export function InsurerResponseForm({
   onRecorded,
   userId,
 }: InsurerResponseIdentity & {
-  readonly onRecorded: () => void;
+  readonly onRecorded: (state: TotalLossInsurerResponseRecorded["state"]) => void;
 }) {
   const existing = claim.insurerResponse ?? null;
   const dependencies = useTotalLossDependencies();
@@ -218,7 +236,7 @@ export function InsurerResponseForm({
         documentId = preparation.documentId;
       }
 
-      await recordResponse.mutateAsync({
+      const recorded = await recordResponse.mutateAsync({
         clientRequestId: requestId.current,
         documentId,
         expectedWorkflowRevision,
@@ -229,7 +247,7 @@ export function InsurerResponseForm({
         supersedesResponseId: existing?.responseId ?? null,
       });
       await onRefresh().catch(() => undefined);
-      onRecorded();
+      onRecorded(recorded.state);
     } catch (caught) {
       await onRefresh().catch(() => undefined);
       setError(
@@ -354,6 +372,65 @@ export function InsurerResponseForm({
   );
 }
 
+function SavedResponseMaterial({
+  response,
+}: {
+  readonly response: TotalLossInsurerResponse;
+}) {
+  return (
+    <dl className="response-summary">
+      {response.text ? (
+        <div>
+          <dt>Written response</dt>
+          <dd className="response-summary-text">{response.text}</dd>
+        </div>
+      ) : null}
+      {response.document ? (
+        <div>
+          <dt>Original file</dt>
+          <dd>
+            <Paperclip aria-hidden="true" />
+            {response.document.originalFilename}
+            <span>{readableSize(response.document.byteSize)}</span>
+          </dd>
+        </div>
+      ) : null}
+      {response.revisedOffer ? (
+        <div>
+          <dt>Revised offer you entered</dt>
+          <dd>
+            <strong>
+              {offerLabel(
+                response.revisedOffer.amountMinorUnits,
+                response.revisedOffer.currency,
+              )}
+            </strong>
+          </dd>
+        </div>
+      ) : null}
+    </dl>
+  );
+}
+
+function CorrectionAction({ onCorrect }: { readonly onCorrect: () => void }) {
+  return (
+    <div className="response-received-actions">
+      <p>
+        If you saved the wrong text, file, or offer, you can add a corrected
+        version. The prior version remains in the case history.
+      </p>
+      <button
+        className="request-button request-button-secondary"
+        onClick={onCorrect}
+        type="button"
+      >
+        <RotateCcw aria-hidden="true" />
+        Correct this response
+      </button>
+    </div>
+  );
+}
+
 export function InsurerResponseReceived({
   response,
   onCorrect,
@@ -362,21 +439,568 @@ export function InsurerResponseReceived({
   readonly response: TotalLossInsurerResponse;
 }) {
   return (
-    <section className="insurer-response-received" aria-labelledby="insurer-response-received-heading">
-      <p className="waiting-case-status" data-review-entrance="supporting"><span aria-hidden="true" />Response received</p>
+    <section
+      className="insurer-response-received"
+      aria-labelledby="insurer-response-received-heading"
+    >
+      <p className="waiting-case-status" data-review-entrance="supporting">
+        <span aria-hidden="true" />
+        Response received
+      </p>
       <div className="response-heading" data-review-entrance="primary">
-        <h1 id="insurer-response-received-heading">The insurer’s response is saved</h1>
-        <p className="review-lead" role="status">It is now part of this case. Venfour has not analyzed it or prepared advice or a reply.</p>
+        <h1 id="insurer-response-received-heading">
+          The insurer’s response is saved
+        </h1>
+        <p className="review-lead" role="status">
+          It is now part of this case. Venfour is preparing to review it
+          against the evidence already saved here.
+        </p>
       </div>
-      <p className="sent-recorded" data-review-entrance="supporting">Response recorded: <RecordedTime value={response.receivedAt} /></p>
-      <dl className="response-summary" data-review-entrance="secondary">
-        {response.text ? <div><dt>Written response</dt><dd className="response-summary-text">{response.text}</dd></div> : null}
-        {response.document ? <div><dt>Original file</dt><dd><Paperclip aria-hidden="true" />{response.document.originalFilename}<span>{readableSize(response.document.byteSize)}</span></dd></div> : null}
-        {response.revisedOffer ? <div><dt>Revised offer</dt><dd><strong>{offerLabel(response.revisedOffer.amountMinorUnits, response.revisedOffer.currency)}</strong></dd></div> : null}
-      </dl>
-      <div className="response-received-actions" data-review-entrance="supporting">
-        <p>If you saved the wrong text, file, or offer, you can add a corrected version. The prior version remains in the case history.</p>
-        <button className="request-button request-button-secondary" onClick={onCorrect} type="button"><RotateCcw aria-hidden="true" />Correct this response</button>
+      <p className="sent-recorded" data-review-entrance="supporting">
+        Response recorded: <RecordedTime value={response.receivedAt} />
+      </p>
+      <div data-review-entrance="secondary">
+        <SavedResponseMaterial response={response} />
+      </div>
+      <div data-review-entrance="supporting">
+        <CorrectionAction onCorrect={onCorrect} />
+      </div>
+    </section>
+  );
+}
+
+function confidenceLabel(
+  confidence: TotalLossInsurerResponseAnalysis["confidence"],
+) {
+  return confidence === "HIGH"
+    ? "High confidence"
+    : confidence === "MEDIUM"
+      ? "Moderate confidence"
+      : "Limited confidence";
+}
+
+function dispositionLabel(
+  disposition: TotalLossInsurerResponseAnalysis["requestDisposition"]["category"],
+) {
+  switch (disposition) {
+    case "ACCEPTED":
+      return "Accepted";
+    case "PARTIALLY_ACCEPTED":
+      return "Partially accepted";
+    case "REJECTED":
+      return "Rejected";
+    case "MORE_INFORMATION_REQUESTED":
+      return "More information requested";
+    case "UNCLEAR":
+      return "Unclear";
+  }
+}
+
+function responsePointLabel(
+  disposition: TotalLossInsurerResponseAnalysis["responsePoints"][number]["disposition"],
+) {
+  switch (disposition) {
+    case "ACCEPTED":
+      return "Accepted";
+    case "REJECTED":
+      return "Rejected";
+    case "QUESTIONED":
+      return "Questioned";
+    case "IGNORED":
+      return "Not addressed";
+    case "UNRESOLVED":
+      return "Unresolved";
+    case "UNCLEAR":
+      return "Unclear";
+  }
+}
+
+function recommendationLabel(
+  category: TotalLossInsurerResponseAnalysis["recommendedNextStep"]["category"],
+) {
+  switch (category) {
+    case "REVIEW_REVISED_OFFER":
+      return "Review their revised offer";
+    case "MORE_INFORMATION_MAY_BE_NEEDED":
+      return "More information may be needed";
+    case "FOLLOW_UP_APPEARS_WARRANTED":
+      return "A follow-up appears warranted";
+    case "VALUATION_ISSUE_APPEARS_RESOLVED":
+      return "The valuation issue appears resolved";
+    case "REVIEW_RESPONSE":
+      return "Review the insurer’s response";
+  }
+}
+
+function BasisReferences({
+  caseEvidenceRefs,
+  evidence,
+  responseEvidenceRefs,
+}: {
+  readonly caseEvidenceRefs?: readonly string[];
+  readonly evidence: TotalLossInsurerResponseAnalysisEvidence;
+  readonly responseEvidenceRefs?: readonly string[];
+}) {
+  const caseCount = caseEvidenceRefs?.length ?? 0;
+  const responseItems = (responseEvidenceRefs ?? []).map((reference) =>
+    evidence.responseEvidence.find((item) => item.evidenceRef === reference),
+  ).filter((item): item is NonNullable<typeof item> => Boolean(item));
+  const caseItems = (caseEvidenceRefs ?? []).map((reference) =>
+    evidence.caseEvidence.find((item) => item.evidenceRef === reference),
+  ).filter((item): item is NonNullable<typeof item> => Boolean(item));
+  const customerSuppliedCount = responseItems.filter(
+    (item) => item.sourceType === "CUSTOMER_SUPPLIED_OFFER",
+  ).length;
+  const insurerResponseCount = responseItems.length - customerSuppliedCount;
+  if (!responseItems.length && !caseCount) return null;
+  const parts = [
+    insurerResponseCount
+      ? `${insurerResponseCount} ${insurerResponseCount === 1 ? "part" : "parts"} of the insurer response`
+      : null,
+    customerSuppliedCount
+      ? customerSuppliedCount === 1
+        ? "the revised-offer amount you recorded"
+        : `${customerSuppliedCount} revised-offer amounts you recorded`
+      : null,
+    caseCount
+      ? `${caseCount} ${caseCount === 1 ? "item" : "items"} in the existing case evidence`
+      : null,
+  ].filter((part): part is string => Boolean(part));
+  const excerpt = (value: string) =>
+    value.length > 360 ? `${value.slice(0, 357).trimEnd()}…` : value;
+  return (
+    <details className="response-analysis-basis">
+      <summary>
+        Basis: {new Intl.ListFormat("en-US", { type: "conjunction" }).format(parts)}
+      </summary>
+      <ul aria-label="Supporting evidence">
+        {responseItems.map((item) => (
+          <li key={item.evidenceRef}>
+            <strong>
+              {item.sourceType === "PASTED_TEXT"
+                ? "Insurer response"
+                : item.sourceType === "DOCUMENT_TEXT"
+                  ? `Insurer document${item.pageNumber ? `, page ${item.pageNumber}` : ""}`
+                  : item.sourceType === "CUSTOMER_SUPPLIED_OFFER"
+                    ? "Amount you recorded"
+                    : "Uploaded insurer document"}
+            </strong>
+            <span>
+              {item.content
+                ? `“${excerpt(item.content)}”`
+                : item.sourceType === "CUSTOMER_SUPPLIED_OFFER"
+                  ? "The revised-offer amount entered with this response."
+                  : "The uploaded document was interpreted as a visual source."}
+            </span>
+          </li>
+        ))}
+        {caseItems.map((item) => (
+          <li key={item.evidenceRef}>
+            <strong>
+              {item.evidenceType === "CUSTOMER_REQUEST"
+                ? "Your request"
+                : item.evidenceType === "INSURER_VALUATION"
+                  ? "Saved insurer valuation"
+                  : item.evidenceType === "VENFOUR_COMPARABLE"
+                    ? "Saved comparable evidence"
+                    : "Saved case evidence"}
+            </strong>
+            <span>{excerpt(item.summary)}</span>
+          </li>
+        ))}
+      </ul>
+    </details>
+  );
+}
+
+function analysisOfferSourceLabel(
+  offer: TotalLossInsurerResponseAnalysis["revisedOffer"],
+) {
+  if (offer.visualSourceInterpretation) {
+    return offer.source === "BOTH"
+      ? "Amount derived from the insurer document and matched to your entry"
+      : "Amount derived from the insurer document";
+  }
+  switch (offer.source) {
+    case "CUSTOMER_SUPPLIED":
+      return "Amount you entered";
+    case "INSURER_RESPONSE":
+      return "Amount identified in the insurer response";
+    case "BOTH":
+      return "Amount supported by the response and your entry";
+    case null:
+      return "Revised offer";
+  }
+}
+
+function supportedPriorValue(
+  value: TotalLossMoney,
+  currency: string | null,
+) {
+  if (
+    value.amountMinorUnits === null ||
+    !Number.isSafeInteger(value.amountMinorUnits) ||
+    !displayed(value.formatted, "") ||
+    value.currency !== currency
+  ) {
+    return null;
+  }
+  return value.formatted;
+}
+
+export function InsurerResponseReviewing({
+  accessToken,
+  caseId,
+  claim,
+  onCorrect,
+  onRefresh,
+  response,
+  userId,
+}: InsurerResponseIdentity & {
+  readonly onCorrect: () => void;
+  readonly response: TotalLossInsurerResponse;
+}) {
+  const retry = useTotalLossInsurerResponseAnalysisRetryMutation({
+    accessToken,
+    caseId,
+    userId,
+  });
+  const [retryError, setRetryError] = useState<string | null>(null);
+  const processing =
+    response.processingState === "pending" ||
+    response.processingState === "processing";
+  const retryable = response.processingState === "retryable_failed";
+  const unsupported = response.processingState === "unsupported";
+  const unreadable = response.failureReason === "unreadable_document";
+
+  const retryReview = async () => {
+    if (!claim.workflow || retry.isPending) return;
+    setRetryError(null);
+    try {
+      await retry.mutateAsync({
+        clientRequestId: globalThis.crypto.randomUUID(),
+        expectedWorkflowRevision: claim.workflow.revision,
+      });
+      await onRefresh().catch(() => undefined);
+    } catch {
+      await onRefresh().catch(() => undefined);
+      setRetryError(
+        "We couldn’t restart the review. The saved response has not changed; try again.",
+      );
+    }
+  };
+
+  return (
+    <section
+      className="insurer-response-reviewing"
+      aria-labelledby="insurer-response-reviewing-heading"
+    >
+      <p className="waiting-case-status" data-review-entrance="supporting">
+        <span aria-hidden="true" />
+        {processing ? "Reviewing response" : "Response review"}
+      </p>
+      <div className="response-review-status" data-review-entrance="primary">
+        <div
+          className="response-review-status-mark"
+          data-state={processing ? "processing" : "attention"}
+          aria-hidden="true"
+        >
+          {processing ? (
+            <ScanSearch />
+          ) : (
+            <CircleAlert />
+          )}
+        </div>
+        <div>
+          <h1 id="insurer-response-reviewing-heading">
+            {processing
+              ? "Venfour is reviewing the insurer’s response"
+              : unsupported
+                ? "This response could not be fully reviewed"
+                : unreadable
+                  ? "This document could not be reviewed"
+                  : "The response review could not be completed"}
+          </h1>
+          <p className="review-lead" role="status">
+            {processing
+              ? "Venfour is comparing what the insurer said with the request, valuation, and evidence already saved in this case."
+              : unsupported
+                ? "Venfour could not reliably interpret the submitted material. The original response remains saved, and no case evidence or valuation has changed."
+                : unreadable
+                  ? "Venfour could not reliably read and analyze the submitted document. The original response remains saved, and no case evidence or valuation has changed."
+                  : retryable
+                    ? "The review stopped before an explanation could be completed. The original response remains saved, and you can try the review again."
+                    : "Venfour could not complete a reliable explanation. The original response remains saved, and no case evidence or valuation has changed."}
+          </p>
+        </div>
+      </div>
+      <p className="sent-recorded" data-review-entrance="supporting">
+        Response recorded: <RecordedTime value={response.receivedAt} />
+      </p>
+      {retryable ? (
+        <div className="response-review-retry" data-review-entrance="secondary">
+          {retryError ? (
+            <p className="request-error" role="alert">
+              {retryError}
+            </p>
+          ) : null}
+          <button
+            className="request-button request-button-primary"
+            disabled={retry.isPending}
+            onClick={() => void retryReview()}
+            type="button"
+          >
+            {retry.isPending ? (
+              <LoaderCircle className="request-spinner" aria-hidden="true" />
+            ) : (
+              <RefreshCw aria-hidden="true" />
+            )}
+            {retry.isPending ? "Restarting review…" : "Try review again"}
+          </button>
+        </div>
+      ) : null}
+      <details className="response-original-material" data-review-entrance="secondary">
+        <summary>View the saved insurer response</summary>
+        <SavedResponseMaterial response={response} />
+      </details>
+      <div data-review-entrance="supporting">
+        <CorrectionAction onCorrect={onCorrect} />
+      </div>
+      <p className="response-analysis-disclosure" data-review-entrance="supporting">
+        This step interprets the insurer response using evidence already in the
+        case. It does not recalculate the vehicle’s value, change the published
+        report, or send a reply.
+      </p>
+    </section>
+  );
+}
+
+export function InsurerResponseReviewed({
+  onCorrect,
+  priorValuation,
+  response,
+}: {
+  readonly onCorrect: () => void;
+  readonly priorValuation: TotalLossMoney;
+  readonly response: TotalLossInsurerResponse & {
+    readonly analysis: TotalLossInsurerResponseAnalysis;
+    readonly analysisEvidence: TotalLossInsurerResponseAnalysisEvidence;
+  };
+}) {
+  const { analysis, analysisEvidence } = response;
+  const newOffer = analysis.revisedOffer;
+  const priorOffer = supportedPriorValue(priorValuation, newOffer.currency);
+  const hasOffer =
+    newOffer.status === "PRESENT" &&
+    newOffer.amountMinorUnits !== null &&
+    newOffer.currency !== null;
+  const partialDocument =
+    analysis.inputCoverage.document === "UNREADABLE" ||
+    analysis.inputCoverage.document === "UNSUPPORTED";
+
+  return (
+    <section
+      className="insurer-response-reviewed"
+      aria-labelledby="insurer-response-reviewed-heading"
+    >
+      <p className="waiting-case-status" data-review-entrance="supporting">
+        <span aria-hidden="true" />
+        Response reviewed
+      </p>
+      <div className="response-reviewed-heading" data-review-entrance="primary">
+        <div className="response-review-status-mark" data-state="complete" aria-hidden="true">
+          <CheckCircle2 />
+        </div>
+        <div>
+          <h1 id="insurer-response-reviewed-heading">
+            What the insurer’s response means
+          </h1>
+          <p className="review-lead">
+            Venfour reviewed the saved response in the context of the request,
+            valuation, and evidence already in this case.
+          </p>
+        </div>
+      </div>
+
+      <section className="response-analysis-section" data-review-entrance="secondary">
+        <h2>Insurer’s response</h2>
+        <div className="response-analysis-summary">
+          <div>
+            <h3>What the insurer said</h3>
+            <p>{analysis.analysisSummary.whatInsurerSaid}</p>
+          </div>
+          <div>
+            <h3>What this means for your case</h3>
+            <p>{analysis.analysisSummary.whatThisMeans}</p>
+          </div>
+        </div>
+        <BasisReferences
+          evidence={analysisEvidence}
+          {...analysis.analysisSummary}
+        />
+      </section>
+
+      <section className="response-analysis-section" data-review-entrance="secondary">
+        <h2>What changed</h2>
+        {hasOffer ? (
+          <dl className="response-offer-change">
+            {priorOffer ? (
+              <div>
+                <dt>Previous insurer valuation</dt>
+                <dd>{priorOffer}</dd>
+              </div>
+            ) : null}
+            <div>
+              <dt>{analysisOfferSourceLabel(newOffer)}</dt>
+              <dd>
+                {offerLabel(newOffer.amountMinorUnits!, newOffer.currency!)}
+              </dd>
+            </div>
+          </dl>
+        ) : null}
+        {newOffer.visualSourceInterpretation ? (
+          <div className="response-visual-transcription">
+            <strong>Derived visual transcription</strong>
+            <p>“{newOffer.visualSourceInterpretation.derivedText}”</p>
+            <small>
+              This text was derived from a visual reading. It does not replace
+              the saved insurer document, which remains the authoritative
+              source. Check the original before relying on the amount.
+            </small>
+          </div>
+        ) : null}
+        {analysis.importantChanges.length ? (
+          <ul className="response-analysis-list">
+            {analysis.importantChanges.map((change, index) => (
+              <li key={`${index}:${change.description}`}>
+                <p>{change.description}</p>
+                <BasisReferences evidence={analysisEvidence} {...change} />
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p>{analysis.insurerPosition.summary}</p>
+        )}
+        {hasOffer ? (
+          <BasisReferences
+            evidence={analysisEvidence}
+            responseEvidenceRefs={newOffer.responseEvidenceRefs}
+          />
+        ) : null}
+      </section>
+
+      <section className="response-analysis-section" data-review-entrance="secondary">
+        <h2>How they responded</h2>
+        <p className="response-disposition">
+          <span>{dispositionLabel(analysis.requestDisposition.category)}</span>
+          {analysis.requestDisposition.summary}
+        </p>
+        <BasisReferences evidence={analysisEvidence} {...analysis.requestDisposition} />
+        {analysis.responsePoints.length ? (
+          <div className="response-points">
+            {analysis.responsePoints.map((point, index) => (
+              <article key={`${index}:${point.topic}`}>
+                <header>
+                  <h3>{point.topic}</h3>
+                  <span>{responsePointLabel(point.disposition)}</span>
+                </header>
+                <dl>
+                  <div>
+                    <dt>What the insurer said</dt>
+                    <dd>{point.whatInsurerSaid}</dd>
+                  </div>
+                  <div>
+                    <dt>What this means</dt>
+                    <dd>{point.whatThisMeans}</dd>
+                  </div>
+                </dl>
+                <BasisReferences evidence={analysisEvidence} {...point} />
+              </article>
+            ))}
+          </div>
+        ) : null}
+      </section>
+
+      <section className="response-analysis-section" data-review-entrance="secondary">
+        <h2>What matters</h2>
+        {analysis.insurerArguments.length ? (
+          <div className="response-arguments">
+            {analysis.insurerArguments.map((argument, index) => (
+              <article key={`${index}:${argument.argument}`}>
+                <h3>{argument.argument}</h3>
+                <p>{argument.whatItReliesOn}</p>
+                <BasisReferences evidence={analysisEvidence} {...argument} />
+              </article>
+            ))}
+          </div>
+        ) : (
+          <p>{analysis.insurerPosition.summary}</p>
+        )}
+        {analysis.unresolvedIssues.length ? (
+          <div className="response-unresolved">
+            <h3>Still unresolved</h3>
+            <ul>
+              {analysis.unresolvedIssues.map((issue, index) => (
+                <li key={`${index}:${issue.description}`}>
+                  <p>{issue.description}</p>
+                  <BasisReferences evidence={analysisEvidence} {...issue} />
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+      </section>
+
+      <section className="response-analysis-section response-recommendation" data-review-entrance="primary">
+        <h2>Recommended next step</h2>
+        <strong>
+          {recommendationLabel(analysis.recommendedNextStep.category)}
+        </strong>
+        <p>{analysis.recommendedNextStep.explanation}</p>
+        <BasisReferences evidence={analysisEvidence} {...analysis.recommendedNextStep} />
+      </section>
+
+      <section className="response-analysis-foundation" data-review-entrance="supporting">
+        <h2>What this explanation is based on</h2>
+        <p>
+          This explanation uses the insurer response and the valuation evidence
+          already saved in this case. It does not recalculate the vehicle’s
+          value or change the published report.
+        </p>
+        <p>{confidenceLabel(analysis.confidence)} based on the available material.</p>
+        {partialDocument ? (
+          <p>
+            Venfour could not reliably interpret the submitted document. The
+            explanation uses only the other response material that was available.
+          </p>
+        ) : null}
+        {analysis.inputCoverage.limitations.length ? (
+          <ul>
+            {analysis.inputCoverage.limitations.map((limitation) => (
+              <li key={limitation}>{limitation}</li>
+            ))}
+          </ul>
+        ) : null}
+        {analysis.uncertainties.length ? (
+          <div className="response-uncertainties">
+            <h3>Uncertainty to keep in mind</h3>
+            <ul>
+              {analysis.uncertainties.map((uncertainty, index) => (
+                <li key={`${index}:${uncertainty.description}`}>
+                  {uncertainty.description}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+      </section>
+
+      <details className="response-original-material" data-review-entrance="supporting">
+        <summary>View the saved insurer response</summary>
+        <SavedResponseMaterial response={response} />
+      </details>
+      <div data-review-entrance="supporting">
+        <CorrectionAction onCorrect={onCorrect} />
       </div>
     </section>
   );

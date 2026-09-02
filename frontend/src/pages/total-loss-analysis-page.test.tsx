@@ -136,7 +136,9 @@ describe("total-loss case analysis page", () => {
     expect(header.getAllByRole("link")).toHaveLength(1);
     expect(header.getByRole("link", { name: "Venfour home" })).toBeVisible();
     expect(header.queryByRole("navigation")).not.toBeInTheDocument();
-    expect(header.queryByRole("button")).not.toBeInTheDocument();
+    expect(
+      header.getByRole("button", { name: "Account for owner@example.com" }),
+    ).toBeVisible();
     expect(screen.getByRole("navigation", { name: "Legal" })).toBeVisible();
     expect(
       screen.queryByRole("navigation", { name: "Footer navigation" }),

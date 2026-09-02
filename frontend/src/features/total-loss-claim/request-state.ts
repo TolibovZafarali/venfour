@@ -65,9 +65,18 @@ export function requestIsSent(claim: TotalLossClaimSecured) {
   return (
     claim.journey?.nextState === "awaiting_insurer_response" ||
     claim.journey?.nextState === "insurer_response_received" ||
+    claim.journey?.nextState === "insurer_response_reviewing" ||
+    claim.journey?.nextState === "insurer_response_reviewed" ||
+    claim.journey?.nextState === "insurer_response_review_unavailable" ||
     claim.journey?.fulfillmentState === "awaiting_insurer_response" ||
     claim.journey?.fulfillmentState === "insurer_response_received" ||
+    claim.journey?.fulfillmentState === "insurer_response_reviewing" ||
+    claim.journey?.fulfillmentState === "insurer_response_reviewed" ||
+    claim.journey?.fulfillmentState === "insurer_response_review_unavailable" ||
     claim.workflow?.currentTask === "awaiting_insurer_response" ||
-    claim.workflow?.currentTask === "insurer_response_received"
+    claim.workflow?.currentTask === "insurer_response_received" ||
+    claim.workflow?.currentTask === "insurer_response_reviewing" ||
+    claim.workflow?.currentTask === "insurer_response_reviewed" ||
+    claim.workflow?.currentTask === "insurer_response_review_unavailable"
   );
 }

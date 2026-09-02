@@ -250,7 +250,8 @@ def insurer_response_projection(
                 if offer is not None
                 else None
             ),
-            "processingState": "not_started",
+            "processingState": "pending",
+            "failureReason": None,
             "supersedesResponseId": supersedes_response_id,
         },
         "workflowRevision": 5,
@@ -649,6 +650,45 @@ class CustomerDeliveryServiceTests(unittest.TestCase):
             validate_insurer_response_projection(
                 {**projection, "sourceType": []}
             )
+
+        for processing_state, failure_reason in (
+            ("retryable_failed", "generic"),
+            ("terminal_failed", "generic"),
+            ("terminal_failed", "unreadable_document"),
+            ("unsupported", "unsupported_document"),
+        ):
+            with self.subTest(
+                processing_state=processing_state,
+                failure_reason=failure_reason,
+            ):
+                validated = validate_insurer_response_projection(
+                    {
+                        **projection,
+                        "processingState": processing_state,
+                        "failureReason": failure_reason,
+                    }
+                )
+                self.assertEqual(validated["failureReason"], failure_reason)
+
+        for processing_state, failure_reason in (
+            ("pending", "generic"),
+            ("retryable_failed", None),
+            ("unsupported", "generic"),
+            ("terminal_failed", "INSURER_RESPONSE_MATERIAL_UNREADABLE"),
+        ):
+            with self.subTest(
+                processing_state=processing_state,
+                failure_reason=failure_reason,
+            ), self.assertRaisesRegex(
+                SupabaseContractError, "failure reason is invalid"
+            ):
+                validate_insurer_response_projection(
+                    {
+                        **projection,
+                        "processingState": processing_state,
+                        "failureReason": failure_reason,
+                    }
+                )
 
     def test_report_download_uses_the_neutral_customer_filename(self) -> None:
         gateway = RecordingGateway()

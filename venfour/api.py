@@ -8,6 +8,7 @@ by :func:`create_app`; this module has no process-global service instance.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 import tempfile
@@ -96,6 +97,22 @@ from venfour.customer_delivery import (
     CustomerDeliveryUnavailableError,
 )
 from venfour.openai_vehicle_catalog import OpenAIVehicleTrimCatalog
+from venfour.insurer_response_analysis import (
+    InsurerResponseAnalysisConfiguration,
+    OpenAIInsurerResponseAnalyzer,
+)
+from venfour.insurer_response_processing import (
+    DEFAULT_RESPONSE_ANALYSIS_RECONCILIATION_INTERVAL_SECONDS,
+    InsurerResponseAnalysisDatabase,
+    InsurerResponseAnalysisDispatchDatabase,
+    InsurerResponseDispatchResult,
+    InsurerResponseJobExecutionResult,
+    InsurerResponseProcessingContractError,
+    InsurerResponseProcessingUnavailableError,
+    CloudTasksInsurerResponseJobDispatcher,
+    TotalLossInsurerResponseCoordinator,
+    TotalLossInsurerResponseProcessor,
+)
 from venfour.package_processing import (
     CloudTasksConfiguration,
     CloudTasksWorkItemDispatcher,
@@ -164,11 +181,23 @@ _ERROR_MESSAGES = {
     "AUTHENTICATION_INVALID": "Authentication is invalid.",
     "AUTHENTICATION_UNAVAILABLE": "Authentication is temporarily unavailable.",
     "INVALID_CASE_ID": "Appraisal case ID is invalid.",
+    "INVALID_INSURER_RESPONSE_ANALYSIS_JOB_ID": (
+        "Insurer response analysis job ID is invalid."
+    ),
+    "INVALID_INTERNAL_RESPONSE_ANALYSIS_REQUEST": (
+        "Internal insurer response analysis request is invalid."
+    ),
     "INVALID_RUN_ID": "Analysis run ID is invalid.",
     "CASE_NOT_FOUND": "Appraisal case was not found.",
     "ANALYSIS_NOT_FOUND": "Analysis run was not found.",
     "ANALYSIS_UNAVAILABLE": "Analysis run is unavailable.",
     "INTERNAL_ERROR": "An internal server error occurred.",
+    "INSURER_RESPONSE_ANALYSIS_PROCESSING_FAILED": (
+        "Insurer response analysis processing failed."
+    ),
+    "INSURER_RESPONSE_ANALYSIS_PROCESSING_UNAVAILABLE": (
+        "Insurer response analysis processing is temporarily unavailable."
+    ),
     "ROUTE_NOT_FOUND": "Route was not found.",
     "METHOD_NOT_ALLOWED": "Method is not allowed.",
     "UNSUPPORTED_MEDIA_TYPE": "Content type must be multipart/form-data.",
@@ -250,6 +279,9 @@ RECOVERY_RATE_SECRET_ENVIRONMENT_NAME = (
     "VENFOUR_CLAIM_RECOVERY_RATE_LIMIT_SECRET"
 )
 PREVIEW_DISPATCH_SECRET_ENVIRONMENT_NAME = "VENFOUR_PREVIEW_EMAIL_DISPATCH_SECRET"
+INSURER_RESPONSE_DISPATCH_SECRET_ENVIRONMENT_NAME = (
+    "VENFOUR_INSURER_RESPONSE_DISPATCH_SECRET"
+)
 
 MAX_MULTIPART_OVERHEAD_BYTES = 1024 * 1024
 MAX_UPLOAD_BODY_BYTES = MAX_PDF_BYTES + MAX_MULTIPART_OVERHEAD_BYTES
@@ -260,6 +292,7 @@ MAX_COMMERCE_REQUEST_BODY_BYTES = 8 * 1024
 MAX_CUSTOMER_DELIVERY_BODY_BYTES = 64 * 1024
 MAX_INSURER_RESPONSE_BODY_BYTES = 2 * 1024 * 1024
 MAX_STAFF_RELEASE_REQUEST_BODY_BYTES = 16 * 1024
+INSURER_RESPONSE_SCHEDULED_RECONCILIATION_LIMIT = 5
 
 _ANALYSIS_UNAVAILABLE_ERRORS = (
     InvalidAnalysisRunArtifactError,
@@ -683,7 +716,16 @@ async def _claim_resume(request: Request) -> JSONResponse:
             request.path_params["case_id"],
             access_token,
         )
-        return _private_response(JSONResponse(result.to_dict()))
+        projection = result.to_dict()
+        response = JSONResponse(projection)
+        return _private_response(
+            _attach_insurer_response_analysis(
+                response,
+                request,
+                request.path_params["case_id"],
+                projection.get("insurerResponse"),
+            )
+        )
     except Exception as exc:
         return _private_response(_claim_access_error(exc))
 
@@ -1053,6 +1095,12 @@ def _customer_delivery_service(request: Request) -> Any:
     return service
 
 
+def _insurer_response_customer_path_available(request: Request) -> bool:
+    return bool(
+        request.app.state.insurer_response_customer_path_configured
+    )
+
+
 class _CustomerDeliveryAuthenticationRequired(Exception):
     pass
 
@@ -1286,6 +1334,10 @@ async def _insurer_response_upload(request: Request) -> JSONResponse:
     case_id = request.path_params["case_id"]
     if not _is_canonical_uuid4(case_id):
         return _private_response(_error_response(400, "INVALID_CASE_ID"))
+    if not _insurer_response_customer_path_available(request):
+        return _private_response(
+            _error_response(503, "CUSTOMER_DELIVERY_UNAVAILABLE")
+        )
     try:
         payload = await _customer_json_payload(
             request,
@@ -1309,10 +1361,158 @@ async def _insurer_response_upload(request: Request) -> JSONResponse:
         return _private_response(_customer_delivery_error(exc))
 
 
+def _run_insurer_response_analysis(
+    processor: Any, case_id: str
+) -> None:
+    try:
+        processor.execute(case_id)
+    except Exception:
+        # The database job and lease remain authoritative. A later owner resume
+        # safely reclaims due work without exposing an operational error.
+        pass
+
+
+def _reconcile_insurer_response_analysis(coordinator: Any) -> None:
+    try:
+        coordinator.reconcile_due()
+    except Exception:
+        # The pending database job remains authoritative. Startup or a later
+        # intake/retry request can safely reconcile the same dispatch identity.
+        pass
+
+
+async def _periodically_reconcile_insurer_response_analysis(
+    coordinator: Any, stop_event: asyncio.Event
+) -> None:
+    """Keep the durable outbox moving without depending on owner traffic."""
+
+    while True:
+        try:
+            await asyncio.wait_for(
+                stop_event.wait(),
+                timeout=(
+                    DEFAULT_RESPONSE_ANALYSIS_RECONCILIATION_INTERVAL_SECONDS
+                ),
+            )
+            return
+        except TimeoutError:
+            await run_in_threadpool(
+                _reconcile_insurer_response_analysis, coordinator
+            )
+
+
+async def _insurer_response_dispatch_reconcile(
+    request: Request,
+) -> JSONResponse:
+    secret = request.app.state.insurer_response_dispatch_secret
+    values = [
+        value
+        for name, value in request.scope.get("headers", ())
+        if name.lower() == b"x-venfour-insurer-response-dispatch"
+    ]
+    if (
+        not secret
+        or len(values) != 1
+        or not compare_digest(values[0], secret.encode("ascii"))
+    ):
+        return _private_response(
+            _error_response(401, "INTERNAL_AUTHENTICATION_REQUIRED")
+        )
+    bounded = Request(request.scope, receive=_bounded_receive(request.receive, 2))
+    try:
+        if await bounded.body() not in (b"", b"{}"):
+            return _private_response(
+                _error_response(400, "INVALID_INTERNAL_RESPONSE_ANALYSIS_REQUEST")
+            )
+    except _RequestBodyTooLarge:
+        return _private_response(
+            _error_response(400, "INVALID_INTERNAL_RESPONSE_ANALYSIS_REQUEST")
+        )
+
+    coordinator = request.app.state.insurer_response_coordinator
+    if coordinator is None or coordinator.dispatcher_configured is not True:
+        return _private_response(
+            _error_response(
+                503, "INSURER_RESPONSE_ANALYSIS_PROCESSING_UNAVAILABLE"
+            )
+        )
+    try:
+        result = await run_in_threadpool(
+            coordinator.reconcile_due,
+            limit=INSURER_RESPONSE_SCHEDULED_RECONCILIATION_LIMIT,
+        )
+        if not isinstance(result, InsurerResponseDispatchResult):
+            raise InsurerResponseProcessingContractError(
+                "Response analysis reconciliation returned an invalid result"
+            )
+        if result.failed:
+            return _private_response(
+                _error_response(
+                    503,
+                    "INSURER_RESPONSE_ANALYSIS_PROCESSING_UNAVAILABLE",
+                    headers={"Retry-After": "60"},
+                )
+            )
+        return _private_response(
+            JSONResponse(
+                {
+                    "due": result.due,
+                    "dispatched": result.dispatched,
+                }
+            )
+        )
+    except InsurerResponseProcessingUnavailableError:
+        return _private_response(
+            _error_response(
+                503,
+                "INSURER_RESPONSE_ANALYSIS_PROCESSING_UNAVAILABLE",
+                headers={"Retry-After": "60"},
+            )
+        )
+    except InsurerResponseProcessingContractError:
+        return _private_response(
+            _error_response(500, "INSURER_RESPONSE_ANALYSIS_PROCESSING_FAILED")
+        )
+    except Exception:
+        return _private_response(
+            _error_response(500, "INSURER_RESPONSE_ANALYSIS_PROCESSING_FAILED")
+        )
+
+
+def _attach_insurer_response_analysis(
+    response: JSONResponse,
+    request: Request,
+    case_id: str,
+    insurer_response: Mapping[str, Any] | None,
+) -> JSONResponse:
+    processor = request.app.state.insurer_response_processor
+    coordinator = request.app.state.insurer_response_coordinator
+    if not isinstance(insurer_response, Mapping) or insurer_response.get(
+        "processingState"
+    ) not in {"pending", "processing"}:
+        return response
+    if (
+        coordinator is not None
+        and coordinator.dispatcher_configured is True
+    ):
+        response.background = BackgroundTask(
+            _reconcile_insurer_response_analysis, coordinator
+        )
+    elif processor is not None:
+        response.background = BackgroundTask(
+            _run_insurer_response_analysis, processor, case_id
+        )
+    return response
+
+
 async def _insurer_response_record(request: Request) -> JSONResponse:
     case_id = request.path_params["case_id"]
     if not _is_canonical_uuid4(case_id):
         return _private_response(_error_response(400, "INVALID_CASE_ID"))
+    if not _insurer_response_customer_path_available(request):
+        return _private_response(
+            _error_response(503, "CUSTOMER_DELIVERY_UNAVAILABLE")
+        )
     try:
         payload = await _insurer_response_json_payload(
             request,
@@ -1332,7 +1532,73 @@ async def _insurer_response_record(request: Request) -> JSONResponse:
             payload,
             _customer_delivery_token(request),
         )
-        return _private_response(JSONResponse(result))
+        response = JSONResponse(result)
+        return _private_response(
+            _attach_insurer_response_analysis(
+                response,
+                request,
+                case_id,
+                result.get("response") if isinstance(result, Mapping) else None,
+            )
+        )
+    except Exception as exc:
+        return _private_response(_customer_delivery_error(exc))
+
+
+async def _insurer_response_analysis_retry(request: Request) -> JSONResponse:
+    case_id = request.path_params["case_id"]
+    if not _is_canonical_uuid4(case_id):
+        return _private_response(_error_response(400, "INVALID_CASE_ID"))
+    if not _insurer_response_customer_path_available(request):
+        return _private_response(
+            _error_response(503, "CUSTOMER_DELIVERY_UNAVAILABLE")
+        )
+    processor = request.app.state.insurer_response_processor
+    claim_service = request.app.state.case_claim_access_service
+    if processor is None or claim_service is None:
+        return _private_response(
+            _error_response(503, "CUSTOMER_DELIVERY_UNAVAILABLE")
+        )
+    try:
+        token = _customer_delivery_token(request)
+        payload = await _customer_json_payload(
+            request, {"clientRequestId", "expectedWorkflowRevision"}
+        )
+        client_request_id = payload.get("clientRequestId")
+        expected_revision = payload.get("expectedWorkflowRevision")
+        if (
+            not isinstance(client_request_id, str)
+            or isinstance(expected_revision, bool)
+            or not isinstance(expected_revision, int)
+            or expected_revision < 1
+        ):
+            raise CustomerDeliveryInputError(
+                "Response analysis retry request is invalid"
+            )
+        await run_in_threadpool(
+            processor.retry,
+            case_id,
+            client_request_id,
+            expected_revision,
+            token,
+        )
+        claim = await run_in_threadpool(claim_service.resolve, case_id, token)
+        projection = claim.to_dict()
+        response = JSONResponse(projection)
+        return _private_response(
+            _attach_insurer_response_analysis(
+                response,
+                request,
+                case_id,
+                projection.get("insurerResponse"),
+            )
+        )
+    except (TypeError, ValueError) as exc:
+        return _private_response(
+            _customer_delivery_error(
+                CustomerDeliveryInputError(str(exc))
+            )
+        )
     except Exception as exc:
         return _private_response(_customer_delivery_error(exc))
 
@@ -1885,6 +2151,84 @@ async def _internal_work_item_execute(request: Request) -> JSONResponse:
         return _private_response(_error_response(500, "PACKAGE_PROCESSING_FAILED"))
 
 
+async def _internal_insurer_response_analysis_execute(
+    request: Request,
+) -> JSONResponse:
+    job_id = request.path_params["job_id"]
+    if not _is_canonical_uuid4(job_id):
+        return _private_response(
+            _error_response(400, "INVALID_INSURER_RESPONSE_ANALYSIS_JOB_ID")
+        )
+    if not await _require_empty_request_body(request):
+        return _private_response(
+            _error_response(400, "INVALID_INTERNAL_RESPONSE_ANALYSIS_REQUEST")
+        )
+
+    coordinator = request.app.state.insurer_response_coordinator
+    verifier = request.app.state.internal_caller_verifier
+    if coordinator is None or verifier is None:
+        return _private_response(
+            _error_response(
+                503, "INSURER_RESPONSE_ANALYSIS_PROCESSING_UNAVAILABLE"
+            )
+        )
+    try:
+        token = _internal_bearer_token(request)
+        await run_in_threadpool(verifier.verify, token)
+    except InternalCallerAuthenticationError:
+        return _private_response(
+            _error_response(
+                401,
+                "INTERNAL_AUTHENTICATION_REQUIRED",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        )
+
+    try:
+        result = await run_in_threadpool(coordinator.execute, job_id)
+        if not isinstance(result, InsurerResponseJobExecutionResult):
+            raise InsurerResponseProcessingContractError(
+                "Response analysis coordinator returned an invalid result"
+            )
+        if result.state == "processing":
+            return _private_response(
+                _error_response(
+                    503,
+                    "INSURER_RESPONSE_ANALYSIS_PROCESSING_UNAVAILABLE",
+                    headers={"Retry-After": "60"},
+                )
+            )
+        response = JSONResponse(result.to_dict())
+        if coordinator.dispatcher_configured is True:
+            response.background = BackgroundTask(
+                _reconcile_insurer_response_analysis, coordinator
+            )
+        return _private_response(response)
+    except ValueError:
+        return _private_response(
+            _error_response(400, "INVALID_INSURER_RESPONSE_ANALYSIS_JOB_ID")
+        )
+    except (
+        InsurerResponseProcessingUnavailableError,
+        SupabaseUnavailableError,
+    ):
+        return _private_response(
+            _error_response(
+                503,
+                "INSURER_RESPONSE_ANALYSIS_PROCESSING_UNAVAILABLE",
+                headers={"Retry-After": "60"},
+            )
+        )
+    except InsurerResponseProcessingContractError:
+        return _private_response(
+            _error_response(500, "INSURER_RESPONSE_ANALYSIS_PROCESSING_FAILED")
+        )
+    except Exception:
+        return _private_response(
+            _error_response(500, "INSURER_RESPONSE_ANALYSIS_PROCESSING_FAILED")
+        )
+
+
 async def _http_exception_response(
     _request: Request, exc: Exception
 ) -> JSONResponse:
@@ -1916,6 +2260,8 @@ def create_app(
     commerce_service: Any | None = None,
     package_coordinator: Any | None = None,
     package_processor: Any | None = None,
+    insurer_response_processor: Any | None = None,
+    insurer_response_coordinator: Any | None = None,
     internal_caller_verifier: Any | None = None,
     staff_release_review_service: Any | None = None,
     vehicle_trim_catalog_service: Any | None = None,
@@ -2110,6 +2456,14 @@ def create_app(
         )
     except ValueError as exc:
         raise ValueError("preview email dispatch secret configuration is invalid") from exc
+    try:
+        insurer_response_dispatch_secret = _validated_staging_proxy_secret(
+            os.environ.get(INSURER_RESPONSE_DISPATCH_SECRET_ENVIRONMENT_NAME)
+        )
+    except ValueError as exc:
+        raise ValueError(
+            "insurer response dispatch secret configuration is invalid"
+        ) from exc
 
     selected_customer_delivery_service = customer_delivery_service
     if selected_customer_delivery_service is None and isinstance(
@@ -2139,6 +2493,89 @@ def create_app(
             raise TypeError(
                 "customer_delivery_service must expose customer delivery methods"
             )
+
+    selected_insurer_response_processor = insurer_response_processor
+    if selected_insurer_response_processor is None:
+        response_analysis_configuration = (
+            InsurerResponseAnalysisConfiguration.from_environment(
+                os.environ
+            )
+        )
+        if response_analysis_configuration.analysis_available:
+            if not _runtime_secret_is_configured("OPENAI_API_KEY"):
+                raise ValueError(
+                    "OPENAI_API_KEY is required when insurer response "
+                    "analysis is configured"
+                )
+            if isinstance(selected_gateway, InsurerResponseAnalysisDatabase):
+                response_analyzer = OpenAIInsurerResponseAnalyzer(
+                    response_analysis_configuration,
+                    api_key=os.environ.get("OPENAI_API_KEY"),
+                )
+                selected_insurer_response_processor = (
+                    TotalLossInsurerResponseProcessor(
+                        selected_gateway,
+                        response_analysis_configuration,
+                        analyzer=response_analyzer,
+                    )
+                )
+    elif selected_insurer_response_processor is not None and any(
+        not callable(getattr(selected_insurer_response_processor, method, None))
+        for method in ("execute", "retry")
+    ):
+        raise TypeError(
+            "insurer_response_processor must expose execute and retry methods"
+        )
+
+    selected_insurer_response_coordinator = insurer_response_coordinator
+    owned_insurer_response_dispatcher: (
+        CloudTasksInsurerResponseJobDispatcher | None
+    ) = None
+    if (
+        selected_insurer_response_coordinator is None
+        and selected_insurer_response_processor is not None
+        and isinstance(
+            selected_gateway, InsurerResponseAnalysisDispatchDatabase
+        )
+    ):
+        response_dispatcher = None
+        response_tasks_configuration = CloudTasksConfiguration.from_environment(
+            os.environ
+        )
+        if response_tasks_configuration is not None:
+            owned_insurer_response_dispatcher = (
+                CloudTasksInsurerResponseJobDispatcher(
+                    response_tasks_configuration
+                )
+            )
+            response_dispatcher = owned_insurer_response_dispatcher
+        selected_insurer_response_coordinator = (
+            TotalLossInsurerResponseCoordinator(
+                selected_gateway,
+                selected_insurer_response_processor,
+                response_dispatcher,
+            )
+        )
+    elif selected_insurer_response_coordinator is not None and (
+        any(
+            not callable(
+                getattr(selected_insurer_response_coordinator, method, None)
+            )
+            for method in ("execute", "reconcile_due")
+        )
+        or not isinstance(
+            getattr(
+                selected_insurer_response_coordinator,
+                "dispatcher_configured",
+                None,
+            ),
+            bool,
+        )
+    ):
+        raise TypeError(
+            "insurer_response_coordinator must expose execution, "
+            "reconciliation, and dispatch configuration"
+        )
 
     selected_package_coordinator = package_coordinator
     selected_package_processor = package_processor
@@ -2342,6 +2779,22 @@ def create_app(
             "vehicle_trim_catalog_service must expose list_trims(request)"
         )
 
+    default_supabase_customer_runtime = (
+        selected_gateway is not None
+        and customer_delivery_service is None
+        and insurer_response_processor is None
+        and insurer_response_coordinator is None
+    )
+    insurer_response_customer_path_configured = (
+        not default_supabase_customer_runtime
+        or (
+            selected_insurer_response_processor is not None
+            and selected_insurer_response_coordinator is not None
+            and selected_insurer_response_coordinator.dispatcher_configured
+            and selected_internal_caller_verifier is not None
+            and insurer_response_dispatch_secret is not None
+        )
+    )
     customer_path_configured = (
         selected_case_service is not None and not legacy_enabled
     )
@@ -2353,6 +2806,11 @@ def create_app(
                 _runtime_secret_is_configured(name)
                 for name in ("OPENAI_API_KEY", "MARKETCHECK_API_KEY")
             )
+        )
+    if default_supabase_customer_runtime:
+        customer_path_configured = (
+            customer_path_configured
+            and insurer_response_customer_path_configured
         )
 
     routes = [
@@ -2449,6 +2907,12 @@ def create_app(
             methods=["POST"],
         ),
         Route(
+            "/api/v1/appraisal-cases/{case_id}/"
+            "insurer-response-analysis/retry",
+            _insurer_response_analysis_retry,
+            methods=["POST"],
+        ),
+        Route(
             "/api/v1/appraisal-cases/{case_id}/report-ingestion",
             _case_report_ingestion,
             methods=["POST"],
@@ -2494,6 +2958,18 @@ def create_app(
                 methods=["POST"],
             )
         )
+    if (
+        selected_insurer_response_coordinator is not None
+        and selected_internal_caller_verifier is not None
+    ):
+        routes.append(
+            Route(
+                "/internal/v1/insurer-response-analysis-jobs/"
+                "{job_id}/execute",
+                _internal_insurer_response_analysis_execute,
+                methods=["POST"],
+            )
+        )
     if legacy_enabled:
         routes.insert(
             0,
@@ -2505,21 +2981,49 @@ def create_app(
         Route("/api/v1/appraisal-cases/{case_id}/preview-access/recovery",
               _preview_access_recovery, methods=["POST"]),
         Route("/internal/v1/preview-emails/dispatch", _preview_email_dispatch, methods=["POST"]),
+        Route(
+            "/internal/v1/insurer-response-analysis/dispatch",
+            _insurer_response_dispatch_reconcile,
+            methods=["POST"],
+        ),
     ])
 
     @asynccontextmanager
     async def lifespan(application: Starlette):
-        application.state.accepting_customer_requests = True
+        insurer_response_reconciler_stop: asyncio.Event | None = None
+        insurer_response_reconciler_task: asyncio.Task[None] | None = None
         try:
+            if (
+                selected_insurer_response_coordinator is not None
+                and selected_insurer_response_coordinator.dispatcher_configured
+            ):
+                await run_in_threadpool(
+                    selected_insurer_response_coordinator.reconcile_due,
+                    limit=INSURER_RESPONSE_SCHEDULED_RECONCILIATION_LIMIT,
+                )
+                insurer_response_reconciler_stop = asyncio.Event()
+                insurer_response_reconciler_task = asyncio.create_task(
+                    _periodically_reconcile_insurer_response_analysis(
+                        selected_insurer_response_coordinator,
+                        insurer_response_reconciler_stop,
+                    )
+                )
+            application.state.accepting_customer_requests = True
             yield
         finally:
             application.state.accepting_customer_requests = False
+            if insurer_response_reconciler_stop is not None:
+                insurer_response_reconciler_stop.set()
+            if insurer_response_reconciler_task is not None:
+                await insurer_response_reconciler_task
             if owned_supabase_gateway is not None:
                 owned_supabase_gateway.close()
             if owned_case_claim_access_service is not None:
                 owned_case_claim_access_service.close()
             if owned_package_dispatcher is not None:
                 owned_package_dispatcher.close()
+            if owned_insurer_response_dispatcher is not None:
+                owned_insurer_response_dispatcher.close()
 
     middleware = []
     if selected_staging_proxy_secret is not None:
@@ -2546,10 +3050,22 @@ def create_app(
     app.state.case_claim_access_service = selected_case_claim_access_service
     app.state.preview_access_service = selected_preview_access_service
     app.state.preview_email_dispatch_secret = preview_dispatch_secret
+    app.state.insurer_response_dispatch_secret = (
+        insurer_response_dispatch_secret
+    )
     app.state.customer_delivery_service = selected_customer_delivery_service
     app.state.commerce_service = selected_commerce_service
     app.state.package_coordinator = selected_package_coordinator
     app.state.package_processor = selected_package_processor
+    app.state.insurer_response_processor = (
+        selected_insurer_response_processor
+    )
+    app.state.insurer_response_coordinator = (
+        selected_insurer_response_coordinator
+    )
+    app.state.insurer_response_customer_path_configured = (
+        insurer_response_customer_path_configured
+    )
     app.state.internal_caller_verifier = selected_internal_caller_verifier
     app.state.staff_release_review_service = (
         selected_staff_release_review_service

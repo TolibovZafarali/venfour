@@ -1,40 +1,9 @@
-import { AlertCircle, ArrowRight, ClipboardList, RefreshCw } from "lucide-react";
+import { AlertCircle, ClipboardList, RefreshCw } from "lucide-react";
 import { Link } from "react-router";
 
 import { Button } from "@/components/ui/button";
 
-export interface AppraisalCasesLoadingStateProps {
-  readonly variant: "list" | "overview";
-}
-
-export function AppraisalCasesLoadingState({
-  variant,
-}: AppraisalCasesLoadingStateProps) {
-  if (variant === "overview") {
-    return (
-      <div
-        className="mt-10 space-y-6"
-        aria-label="Loading appraisal overview"
-        aria-live="polite"
-        aria-busy="true"
-      >
-        <span className="sr-only">Loading your appraisal overview…</span>
-        <div
-          className="h-72 animate-pulse rounded-3xl bg-white motion-reduce:animate-none"
-          aria-hidden
-        />
-        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3" aria-hidden>
-          {[0, 1, 2].map((item) => (
-            <div
-              key={item}
-              className="h-64 animate-pulse rounded-2xl bg-white motion-reduce:animate-none"
-            />
-          ))}
-        </div>
-      </div>
-    );
-  }
-
+export function AppraisalCasesLoadingState() {
   return (
     <div
       className="mt-10 grid gap-5 sm:grid-cols-2 xl:grid-cols-3"
@@ -104,66 +73,13 @@ export function AppraisalCasesErrorState({
   );
 }
 
-interface CompactEmptyStateProps {
+export interface AppraisalCasesEmptyStateProps {
   readonly description: string;
-  readonly variant: "compact";
 }
-
-interface FirstAppraisalEmptyStateProps {
-  readonly description: string;
-  readonly newAppraisalHref: string;
-  readonly variant: "first-appraisal";
-}
-
-export type AppraisalCasesEmptyStateProps =
-  | CompactEmptyStateProps
-  | FirstAppraisalEmptyStateProps;
 
 export function AppraisalCasesEmptyState(
   props: AppraisalCasesEmptyStateProps,
 ) {
-  if (props.variant === "first-appraisal") {
-    return (
-      <section
-        className="mt-10 overflow-hidden rounded-3xl border border-line bg-white"
-        aria-labelledby="empty-appraisals-title"
-      >
-        <div className="grid lg:grid-cols-[minmax(0,1fr)_minmax(18rem,0.46fr)]">
-          <div className="p-6 sm:p-8 lg:p-10">
-            <span className="flex size-12 items-center justify-center rounded-2xl bg-brand-soft text-brand">
-              <ClipboardList className="size-6" aria-hidden />
-            </span>
-            <h2
-              id="empty-appraisals-title"
-              className="mt-6 text-3xl font-semibold tracking-[-0.035em] text-ink"
-            >
-              No appraisals yet
-            </h2>
-            <p className="mt-3 max-w-xl text-base leading-7 text-copy">
-              {props.description}
-            </p>
-            <Button asChild className="mt-7">
-              <Link to={props.newAppraisalHref}>
-                Start your first appraisal
-                <ArrowRight className="size-4" aria-hidden />
-              </Link>
-            </Button>
-          </div>
-          <div
-            className="relative min-h-48 overflow-hidden border-t border-line bg-brand-soft lg:border-t-0 lg:border-l"
-            aria-hidden
-          >
-            <div className="absolute -right-16 -bottom-24 size-72 rounded-full border-[2rem] border-white/55" />
-            <div className="absolute top-10 left-10 size-20 rounded-2xl border border-brand/15 bg-white/75 shadow-sm" />
-            <div className="absolute top-20 left-20 h-24 w-52 rounded-2xl border border-brand/15 bg-white shadow-sm" />
-            <div className="absolute top-28 left-28 h-2.5 w-24 rounded-full bg-brand/25" />
-            <div className="absolute top-36 left-28 h-2.5 w-16 rounded-full bg-market/25" />
-          </div>
-        </div>
-      </section>
-    );
-  }
-
   return (
     <div className="mt-10 rounded-2xl border border-line bg-white p-6 sm:p-8">
       <ClipboardList className="size-8 text-brand" aria-hidden />

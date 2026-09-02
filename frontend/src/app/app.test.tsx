@@ -189,79 +189,27 @@ describe("Venfour application", () => {
 
   });
 
-  test("uses account-oriented primary and footer navigation on a permanent signed-in homepage", async () => {
+  test("keeps the permanent signed-in journey entry focused on the current review", async () => {
     renderTestApp(["/"], {
       authService: createTestAuthService(createTestSession()),
     });
 
-    const primaryNavigation = await screen.findByRole("navigation", {
-      name: "Primary navigation",
-    });
+    const header = screen.getByRole("banner");
     expect(
-      within(primaryNavigation).getByRole("link", { name: "My appraisals" }),
-    ).toHaveAttribute("href", "/appraisals");
-    expect(
-      within(primaryNavigation).getByRole("link", { name: "Methodology" }),
-    ).toHaveAttribute("href", "/methodology");
-    expect(
-      within(primaryNavigation).getByRole("link", { name: "Contact" }),
-    ).toHaveAttribute("href", "/contact");
-    expect(
-      within(primaryNavigation).getByRole("button", {
+      await within(header).findByRole("button", {
         name: "Account for ada@example.com",
       }),
     ).toBeVisible();
     expect(
-      within(primaryNavigation).queryByRole("link", { name: "Total Loss" }),
+      within(header).queryByRole("navigation", { name: "Primary navigation" }),
     ).not.toBeInTheDocument();
     expect(
-      within(primaryNavigation).queryByRole("link", {
-        name: "Diminished Value",
-      }),
+      within(header).queryByRole("button", { name: "Open navigation" }),
     ).not.toBeInTheDocument();
     expect(
-      within(primaryNavigation).queryByRole("link", { name: "How It Works" }),
+      within(header).queryByRole("link", { name: "Get Started" }),
     ).not.toBeInTheDocument();
-    const shellHeader = primaryNavigation.closest("header");
-    expect(shellHeader).not.toBeNull();
-    if (!shellHeader) {
-      throw new Error("The primary navigation was not inside the app shell header.");
-    }
-    expect(
-      within(shellHeader).queryByRole("link", {
-        name: "Get Started",
-      }),
-    ).not.toBeInTheDocument();
-
-    const footerNavigation = screen.getByRole("navigation", {
-      name: "Footer navigation",
-    });
-    expect(
-      within(footerNavigation).getByRole("link", { name: "My appraisals" }),
-    ).toHaveAttribute("href", "/appraisals");
-    expect(
-      within(footerNavigation).getByRole("link", { name: "Methodology" }),
-    ).toHaveAttribute("href", "/methodology");
-    expect(
-      within(footerNavigation).getByRole("link", { name: "Terms" }),
-    ).toHaveAttribute("href", "/terms");
-    expect(
-      within(footerNavigation).getByRole("link", { name: "Privacy" }),
-    ).toHaveAttribute("href", "/privacy");
-    expect(
-      within(footerNavigation).getByRole("link", { name: "Cookie Policy" }),
-    ).toHaveAttribute("href", "/cookies");
-    expect(
-      within(footerNavigation).getByRole("link", { name: "Contact" }),
-    ).toHaveAttribute("href", "/contact");
-    expect(
-      within(footerNavigation).queryByRole("link", { name: "Total Loss" }),
-    ).not.toBeInTheDocument();
-    expect(
-      within(footerNavigation).queryByRole("link", {
-        name: "Diminished Value",
-      }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("contentinfo")).not.toBeInTheDocument();
   });
 
   test("uses the account portal navigation on permanent signed-in appraisals", async () => {
@@ -274,8 +222,13 @@ describe("Venfour application", () => {
       name: "Primary navigation",
     });
     expect(
-      within(primaryNavigation).getByRole("link", { name: "My appraisals" }),
-    ).toHaveAttribute("href", "/appraisals");
+      within(primaryNavigation).getByRole("link", {
+        name: "Guided valuation review",
+      }),
+    ).toHaveAttribute("href", "/");
+    expect(
+      within(primaryNavigation).queryByRole("link", { name: "My appraisals" }),
+    ).not.toBeInTheDocument();
     expect(
       within(primaryNavigation).getByRole("link", { name: "Methodology" }),
     ).toHaveAttribute("href", "/methodology");
@@ -299,8 +252,13 @@ describe("Venfour application", () => {
       name: "Footer navigation",
     });
     expect(
-      within(footerNavigation).getByRole("link", { name: "My appraisals" }),
-    ).toHaveAttribute("href", "/appraisals");
+      within(footerNavigation).getByRole("link", {
+        name: "Guided valuation review",
+      }),
+    ).toHaveAttribute("href", "/");
+    expect(
+      within(footerNavigation).queryByRole("link", { name: "My appraisals" }),
+    ).not.toBeInTheDocument();
     expect(
       within(footerNavigation).queryByRole("link", { name: "Total Loss" }),
     ).not.toBeInTheDocument();
@@ -312,8 +270,15 @@ describe("Venfour application", () => {
       name: "Mobile navigation",
     });
     expect(
-      within(mobileNavigation).getByRole("link", { name: "My appraisals" }),
-    ).toHaveAttribute("href", "/appraisals");
+      within(mobileNavigation).getByRole("link", {
+        name: "Guided valuation review",
+      }),
+    ).toHaveAttribute("href", "/");
+    expect(
+      within(mobileNavigation).getByRole("link", {
+        name: "Start a new appraisal",
+      }),
+    ).toHaveAttribute("href", expect.stringContaining("/start?"));
     expect(
       within(mobileNavigation).getByText("ada@example.com"),
     ).toBeVisible();
@@ -463,57 +428,21 @@ describe("Venfour application", () => {
     expect(screen.getByRole("button", { name: "Open navigation" })).toHaveFocus();
   });
 
-  test("uses account-oriented mobile navigation on a permanent signed-in homepage", async () => {
-    const user = userEvent.setup();
+  test("does not add a competing mobile navigation to the signed-in journey entry", async () => {
     renderTestApp(["/"], {
       authService: createTestAuthService(createTestSession()),
     });
 
-    await screen.findByRole("button", {
-      name: "Account for ada@example.com",
-    });
-    const openNavigation = screen.getByRole("button", {
-      name: "Open navigation",
-    });
-    const mobileControls = openNavigation.parentElement;
-    expect(mobileControls).not.toBeNull();
-    if (!mobileControls) {
-      throw new Error("Mobile navigation controls were not rendered.");
-    }
     expect(
-      within(mobileControls).queryByRole("link", { name: "Get Started" }),
-    ).not.toBeInTheDocument();
-
-    await user.click(openNavigation);
-
-    const mobileNavigation = screen.getByRole("navigation", {
-      name: "Mobile navigation",
-    });
-    expect(
-      within(mobileNavigation).getByRole("link", { name: "My appraisals" }),
-    ).toHaveAttribute("href", "/appraisals");
-    expect(
-      within(mobileNavigation).getByRole("link", { name: "Methodology" }),
-    ).toHaveAttribute("href", "/methodology");
-    expect(
-      within(mobileNavigation).getByRole("link", { name: "Contact" }),
-    ).toHaveAttribute("href", "/contact");
-    expect(
-      within(mobileNavigation).getByText("ada@example.com"),
-    ).toBeVisible();
-    expect(
-      within(mobileNavigation).getByRole("button", { name: "Sign Out" }),
-    ).toBeVisible();
-    expect(
-      within(mobileNavigation).queryByRole("link", { name: "Total Loss" }),
-    ).not.toBeInTheDocument();
-    expect(
-      within(mobileNavigation).queryByRole("link", {
-        name: "Diminished Value",
+      await screen.findByRole("button", {
+        name: "Account for ada@example.com",
       }),
+    ).toBeVisible();
+    expect(
+      screen.queryByRole("button", { name: "Open navigation" }),
     ).not.toBeInTheDocument();
     expect(
-      within(mobileNavigation).queryByRole("link", { name: "How It Works" }),
+      screen.queryByRole("navigation", { name: "Mobile navigation" }),
     ).not.toBeInTheDocument();
   });
 
@@ -658,7 +587,7 @@ describe("Venfour application", () => {
     expect(readTotalLossDraft()).toEqual({ ok: true, draft: null });
   });
 
-  test("shows signed-in identity and sign out in mobile navigation", async () => {
+  test("shows signed-in identity and sign out in the focused journey header", async () => {
     const user = userEvent.setup();
     renderTestApp(["/"], {
       authService: createTestAuthService(createTestSession()),
@@ -668,17 +597,13 @@ describe("Venfour application", () => {
       name: "Account for ada@example.com",
     });
     await user.click(
-      screen.getByRole("button", { name: "Open navigation" }),
+      screen.getByRole("button", { name: "Account for ada@example.com" }),
     );
-
-    const mobileNavigation = screen.getByRole("navigation", {
-      name: "Mobile navigation",
-    });
     expect(
-      within(mobileNavigation).getByText("ada@example.com"),
+      screen.getByText("ada@example.com"),
     ).toBeVisible();
     expect(
-      within(mobileNavigation).getByRole("button", { name: "Sign Out" }),
+      screen.getByRole("menuitem", { name: "Sign Out" }),
     ).toBeVisible();
   });
 
@@ -908,7 +833,7 @@ describe("Venfour application", () => {
     }
   });
 
-  test("transitions the shared header between integrated and detached states", () => {
+  test("transitions the public header between integrated and detached states", () => {
     const intersectionObserverDescriptor = Object.getOwnPropertyDescriptor(
       globalThis,
       "IntersectionObserver",
@@ -992,6 +917,7 @@ describe("Venfour application", () => {
       unmount();
       unmount = undefined;
       expect(disconnect).toHaveBeenCalledOnce();
+
     } finally {
       unmount?.();
       if (intersectionObserverDescriptor) {

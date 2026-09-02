@@ -209,6 +209,22 @@ export const appRoutes: RouteObject[] = [
         ),
       },
       {
+        path: "total-loss/cases/:caseId/claim/review/response-reviewing",
+        element: <TotalLossClaimWorkflowPage view="review_response_reviewing" />,
+        handle: metadata(
+          "Reviewing the Insurer Response | Venfour",
+          "Follow Venfour’s secure review of the insurer response saved to this total-loss case.",
+        ),
+      },
+      {
+        path: "total-loss/cases/:caseId/claim/review/response-reviewed",
+        element: <TotalLossClaimWorkflowPage view="review_response_reviewed" />,
+        handle: metadata(
+          "Insurer Response Reviewed | Venfour",
+          "Understand the insurer response in the context of the evidence already saved to this total-loss case.",
+        ),
+      },
+      {
         path: "total-loss/cases/:caseId/claim/review/sent",
         element: <TotalLossClaimWorkflowPage view="review_sent" />,
         handle: metadata(

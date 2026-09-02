@@ -59,6 +59,9 @@ describe("total-loss claim authoritative route decisions", () => {
     ["prepare_request", `/total-loss/cases/${CASE_ID}/claim/review/request`],
     ["awaiting_insurer_response", `/total-loss/cases/${CASE_ID}/claim/review/waiting`],
     ["insurer_response_received", `/total-loss/cases/${CASE_ID}/claim/review/response-received`],
+    ["insurer_response_reviewing", `/total-loss/cases/${CASE_ID}/claim/review/response-reviewing`],
+    ["insurer_response_reviewed", `/total-loss/cases/${CASE_ID}/claim/review/response-reviewed`],
+    ["insurer_response_review_unavailable", `/total-loss/cases/${CASE_ID}/claim/review/response-reviewing`],
     ["no_dispute", `/total-loss/cases/${CASE_ID}/claim/review/result`],
   ] as const)("routes %s to its case-scoped state", (state, expected) => {
     expect(routeForJourneyState(CASE_ID, state)).toBe(expected);
@@ -135,6 +138,8 @@ describe("completed analysis deep-link compatibility", () => {
     ["review_waiting", "waiting"],
     ["review_response", "response"],
     ["review_response_received", "response_received"],
+    ["review_response_reviewing", "response_reviewing"],
+    ["review_response_reviewed", "response_reviewed"],
   ] as const)("keeps %s links focused on %s", (view, section) => {
     expect(isCompletedAnalysisView(view)).toBe(true);
     expect(completedAnalysisStage(view, new URLSearchParams(), "report")).toBe(section);
@@ -209,6 +214,8 @@ describe("completed analysis deep-link compatibility", () => {
     ["review_sent", "", "waiting"],
     ["review_response", "", "response"],
     ["review_response_received", "", "response-received"],
+    ["review_response_reviewing", "", "response-reviewing"],
+    ["review_response_reviewed", "", "response-reviewed"],
     ["review_result", "details=market&source=saved", "market?details=market&source=saved"],
   ] satisfies ReadonlyArray<readonly [TotalLossClaimWorkflowView, string, string]>)(
     "canonicalizes %s with %s while retaining valid detail intent",

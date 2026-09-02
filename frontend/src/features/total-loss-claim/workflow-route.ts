@@ -15,6 +15,8 @@ type LegacyReviewView =
   | "review_request"
   | "review_response"
   | "review_response_received"
+  | "review_response_reviewing"
+  | "review_response_reviewed"
   | "review_sent"
   | "review_waiting";
 
@@ -72,6 +74,10 @@ export function totalLossClaimViewPath(
       return `${base}/review/response`;
     case "review_response_received":
       return `${base}/review/response-received`;
+    case "review_response_reviewing":
+      return `${base}/review/response-reviewing`;
+    case "review_response_reviewed":
+      return `${base}/review/response-reviewed`;
     case "request":
     case "send":
     case "review_request":
@@ -114,6 +120,11 @@ export function routeForJourneyState(
       return totalLossClaimViewPath(caseId, "review_waiting");
     case "insurer_response_received":
       return totalLossClaimViewPath(caseId, "review_response_received");
+    case "insurer_response_reviewing":
+    case "insurer_response_review_unavailable":
+      return totalLossClaimViewPath(caseId, "review_response_reviewing");
+    case "insurer_response_reviewed":
+      return totalLossClaimViewPath(caseId, "review_response_reviewed");
   }
 }
 
@@ -141,6 +152,12 @@ function legacyJourneyState(
       return "awaiting_insurer_response";
     case "insurer_response_received":
       return "insurer_response_received";
+    case "insurer_response_reviewing":
+      return "insurer_response_reviewing";
+    case "insurer_response_reviewed":
+      return "insurer_response_reviewed";
+    case "insurer_response_review_unavailable":
+      return "insurer_response_review_unavailable";
     case "secure_claim":
     case null:
       return null;
@@ -220,6 +237,10 @@ export function completedAnalysisStage(
       return "response";
     case "review_response_received":
       return "response_received";
+    case "review_response_reviewing":
+      return "response_reviewing";
+    case "review_response_reviewed":
+      return "response_reviewed";
     default:
       return "result";
   }

@@ -19,6 +19,7 @@ import {
 } from "@/features/auth";
 import type { AuthService } from "@/features/auth/auth-service";
 import { storeAuthReturnLocation } from "@/features/auth/return-location";
+import { isNewTotalLossAppraisalIntentId } from "@/features/total-loss/new-appraisal";
 import {
   TotalLossDependenciesProvider,
   type TotalLossDependencies,
@@ -378,8 +379,22 @@ describe("account control", () => {
     await user.click(account);
     expect(screen.getByText("owner@example.com")).toBeVisible();
     expect(
-      screen.getByRole("menuitem", { name: "My appraisals" }),
-    ).toHaveAttribute("href", "/appraisals");
+      screen.getByRole("menuitem", { name: "Guided valuation review" }),
+    ).toHaveAttribute("href", "/");
+    const newAppraisal = screen.getByRole("menuitem", {
+      name: "Start a new appraisal",
+    });
+    const newAppraisalUrl = new URL(
+      newAppraisal.getAttribute("href") ?? "",
+      "http://localhost",
+    );
+    expect(newAppraisalUrl.pathname).toBe("/start");
+    expect(newAppraisalUrl.searchParams.get("service")).toBe("total-loss");
+    expect(
+      isNewTotalLossAppraisalIntentId(
+        newAppraisalUrl.searchParams.get("newCaseId") ?? "",
+      ),
+    ).toBe(true);
     await user.click(screen.getByRole("menuitem", { name: "Sign Out" }));
     await waitFor(() => expect(service.signOut).toHaveBeenCalledOnce());
   });
@@ -463,7 +478,7 @@ describe("account control", () => {
     await waitFor(() => expect(trigger).toHaveFocus());
   });
 
-  test("links a signed-in mobile customer to their appraisals", async () => {
+  test("links a signed-in mobile customer to their guided review and a new appraisal", async () => {
     const user = userEvent.setup();
     const onAction = vi.fn();
     render(
@@ -480,11 +495,25 @@ describe("account control", () => {
       </MemoryRouter>,
     );
 
-    const appraisals = await screen.findByRole("link", {
-      name: "My appraisals",
+    const guidedReview = await screen.findByRole("link", {
+      name: "Guided valuation review",
     });
-    expect(appraisals).toHaveAttribute("href", "/appraisals");
-    await user.click(appraisals);
+    expect(guidedReview).toHaveAttribute("href", "/");
+    const newAppraisal = screen.getByRole("link", {
+      name: "Start a new appraisal",
+    });
+    const newAppraisalUrl = new URL(
+      newAppraisal.getAttribute("href") ?? "",
+      "http://localhost",
+    );
+    expect(newAppraisalUrl.pathname).toBe("/start");
+    expect(newAppraisalUrl.searchParams.get("service")).toBe("total-loss");
+    expect(
+      isNewTotalLossAppraisalIntentId(
+        newAppraisalUrl.searchParams.get("newCaseId") ?? "",
+      ),
+    ).toBe(true);
+    await user.click(guidedReview);
     expect(onAction).toHaveBeenCalledOnce();
   });
 });

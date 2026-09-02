@@ -37,6 +37,8 @@ _REPORT_IDENTITY_FILENAME = re.compile(
 )
 _CURRENCY = re.compile(r"[A-Z]{3}")
 _CONTENT_DIGEST = re.compile(r"[0-9a-f]{64}")
+_CASE_EVIDENCE_REFERENCE = re.compile(r"case_[0-9a-f]{64}")
+_RESPONSE_EVIDENCE_REFERENCE = re.compile(r"response_[0-9a-f]{64}")
 _INSURER_RESPONSE_MEDIA_EXTENSIONS = {
     "application/pdf": ("pdf", {".pdf"}),
     "image/jpeg": ("jpg", {".jpg", ".jpeg"}),
@@ -287,10 +289,189 @@ def _minor_units(
     return value
 
 
+def _validate_insurer_response_analysis_evidence(
+    value: Any,
+    analysis: Mapping[str, Any],
+) -> dict[str, Any]:
+    if not isinstance(value, Mapping) or set(value) != {
+        "responseEvidence",
+        "caseEvidence",
+    }:
+        raise SupabaseContractError("Insurer response analysis evidence is invalid")
+
+    response_values = value.get("responseEvidence")
+    case_values = value.get("caseEvidence")
+    if (
+        not isinstance(response_values, list)
+        or not isinstance(case_values, list)
+        or len(response_values) > 250
+        or len(case_values) > 250
+    ):
+        raise SupabaseContractError("Insurer response analysis evidence is invalid")
+
+    response_refs: set[str] = set()
+    response_evidence: list[dict[str, Any]] = []
+    for item in response_values:
+        if not isinstance(item, Mapping) or set(item) != {
+            "evidenceRef",
+            "sourceType",
+            "content",
+            "pageNumber",
+        }:
+            raise SupabaseContractError(
+                "Insurer response analysis response evidence is invalid"
+            )
+        reference = item.get("evidenceRef")
+        if (
+            not isinstance(reference, str)
+            or _RESPONSE_EVIDENCE_REFERENCE.fullmatch(reference) is None
+            or reference in response_refs
+        ):
+            raise SupabaseContractError(
+                "Insurer response analysis response evidence is invalid"
+            )
+        source_type = item.get("sourceType")
+        if source_type not in {
+            "PASTED_TEXT",
+            "DOCUMENT",
+            "DOCUMENT_TEXT",
+            "DOCUMENT_IMAGE",
+            "CUSTOMER_SUPPLIED_OFFER",
+        }:
+            raise SupabaseContractError(
+                "Insurer response analysis response evidence is invalid"
+            )
+        content = _bounded_text(
+            item.get("content"),
+            "Insurer response analysis evidence content",
+            100_000,
+            nullable=True,
+        )
+        page_number = item.get("pageNumber")
+        if page_number is not None and (
+            isinstance(page_number, bool)
+            or not isinstance(page_number, int)
+            or not 1 <= page_number <= 200
+        ):
+            raise SupabaseContractError(
+                "Insurer response analysis response evidence is invalid"
+            )
+        response_refs.add(reference)
+        response_evidence.append(
+            {
+                "evidenceRef": reference,
+                "sourceType": source_type,
+                "content": content,
+                "pageNumber": page_number,
+            }
+        )
+
+    case_refs: set[str] = set()
+    case_evidence: list[dict[str, Any]] = []
+    for item in case_values:
+        if not isinstance(item, Mapping) or set(item) != {
+            "evidenceRef",
+            "evidenceType",
+            "summary",
+            "amountMinorUnits",
+            "currency",
+        }:
+            raise SupabaseContractError(
+                "Insurer response analysis case evidence is invalid"
+            )
+        reference = item.get("evidenceRef")
+        if (
+            not isinstance(reference, str)
+            or _CASE_EVIDENCE_REFERENCE.fullmatch(reference) is None
+            or reference in case_refs
+        ):
+            raise SupabaseContractError(
+                "Insurer response analysis case evidence is invalid"
+            )
+        evidence_type = item.get("evidenceType")
+        if evidence_type not in {
+            "INSURER_VALUATION",
+            "VENFOUR_FINDING",
+            "VENFOUR_COMPARABLE",
+            "CUSTOMER_REQUEST",
+            "OTHER",
+        }:
+            raise SupabaseContractError(
+                "Insurer response analysis case evidence is invalid"
+            )
+        summary = _bounded_text(
+            item.get("summary"),
+            "Insurer response analysis evidence summary",
+            2_000,
+        )
+        amount = item.get("amountMinorUnits")
+        currency = item.get("currency")
+        if amount is not None and (
+            isinstance(amount, bool)
+            or not isinstance(amount, int)
+            or not 0 <= amount <= _MAX_SAFE_MINOR_UNITS
+        ):
+            raise SupabaseContractError(
+                "Insurer response analysis case evidence is invalid"
+            )
+        if (amount is None) is not (currency is None) or (
+            currency is not None
+            and (
+                not isinstance(currency, str)
+                or _CURRENCY.fullmatch(currency) is None
+            )
+        ):
+            raise SupabaseContractError(
+                "Insurer response analysis case evidence is invalid"
+            )
+        case_refs.add(reference)
+        case_evidence.append(
+            {
+                "evidenceRef": reference,
+                "evidenceType": evidence_type,
+                "summary": summary,
+                "amountMinorUnits": amount,
+                "currency": currency,
+            }
+        )
+
+    cited_response_refs: set[str] = set()
+    cited_case_refs: set[str] = set()
+
+    def collect(node: Any) -> None:
+        if isinstance(node, Mapping):
+            for key, child in node.items():
+                if key == "responseEvidenceRefs" and isinstance(child, list):
+                    cited_response_refs.update(
+                        item for item in child if isinstance(item, str)
+                    )
+                elif key == "caseEvidenceRefs" and isinstance(child, list):
+                    cited_case_refs.update(
+                        item for item in child if isinstance(item, str)
+                    )
+                else:
+                    collect(child)
+        elif isinstance(node, list):
+            for child in node:
+                collect(child)
+
+    collect(analysis)
+    if not cited_response_refs.issubset(response_refs) or not cited_case_refs.issubset(
+        case_refs
+    ):
+        raise SupabaseContractError(
+            "Insurer response analysis evidence references are incomplete"
+        )
+    return {
+        "responseEvidence": response_evidence,
+        "caseEvidence": case_evidence,
+    }
+
+
 def validate_insurer_response_projection(value: Any) -> dict[str, Any]:
     """Validate the owner-safe projection of one recorded insurer response."""
 
-    if not isinstance(value, Mapping) or set(value) != {
+    base_keys = {
         "responseId",
         "clientRequestId",
         "receivedAt",
@@ -299,8 +480,18 @@ def validate_insurer_response_projection(value: Any) -> dict[str, Any]:
         "document",
         "revisedOffer",
         "processingState",
+        "failureReason",
         "supersedesResponseId",
-    }:
+    }
+    if not isinstance(value, Mapping):
+        raise SupabaseContractError("Insurer response is invalid")
+    processing_state = value.get("processingState")
+    expected_keys = (
+        base_keys | {"analysis", "analysisEvidence"}
+        if processing_state == "completed"
+        else base_keys
+    )
+    if set(value) != expected_keys:
         raise SupabaseContractError("Insurer response is invalid")
 
     response_id = _uuid(value.get("responseId"), "Insurer response ID")
@@ -348,8 +539,37 @@ def validate_insurer_response_projection(value: Any) -> dict[str, Any]:
         if not isinstance(currency, str) or _CURRENCY.fullmatch(currency) is None:
             raise SupabaseContractError("Insurer response currency is invalid")
 
-    if value.get("processingState") != "not_started":
+    if processing_state not in {
+        "pending",
+        "processing",
+        "completed",
+        "retryable_failed",
+        "terminal_failed",
+        "unsupported",
+    }:
         raise SupabaseContractError("Insurer response processing state is invalid")
+    failure_reason = value.get("failureReason")
+    allowed_failure_reasons = {
+        "pending": {None},
+        "processing": {None},
+        "completed": {None},
+        "retryable_failed": {"generic"},
+        "terminal_failed": {"generic", "unreadable_document"},
+        "unsupported": {"unsupported_document"},
+    }
+    if failure_reason not in allowed_failure_reasons[processing_state]:
+        raise SupabaseContractError("Insurer response failure reason is invalid")
+    if processing_state == "completed":
+        from venfour.insurer_response_analysis import (
+            validate_insurer_response_analysis_v1,
+        )
+
+        analysis = value.get("analysis")
+        validate_insurer_response_analysis_v1(analysis)
+        assert isinstance(analysis, Mapping)
+        _validate_insurer_response_analysis_evidence(
+            value.get("analysisEvidence"), analysis
+        )
     supersedes = value.get("supersedesResponseId")
     if supersedes is not None:
         supersedes = _uuid(supersedes, "Superseded insurer response ID")

@@ -20,6 +20,7 @@ from venfour.supabase_gateway import (
     SupabaseHttpGateway,
     SupabaseReportInvalidError,
     SupabaseReportNotFoundError,
+    SupabaseResponseDocumentInvalidError,
     SupabaseServerConfiguration,
     SupabaseUnavailableError,
 )
@@ -655,6 +656,220 @@ class SupabaseHttpGatewayTests(unittest.TestCase):
                 SupabaseConflictError
             ):
                 operation()
+
+    def test_insurer_response_analysis_rpcs_keep_service_and_owner_boundaries(
+        self,
+    ) -> None:
+        requests: list[httpx.Request] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            requests.append(request)
+            name = request.url.path.rsplit("/", 1)[-1]
+            if name == "retry_total_loss_insurer_response_analysis":
+                return httpx.Response(
+                    200,
+                    json={
+                        "state": "insurer_response_reviewing",
+                        "processingState": "pending",
+                        "workflowRevision": 9,
+                    },
+                )
+            return httpx.Response(200, json=[{"outcome": name}])
+
+        gateway, _ = self.gateway(handler)
+        self.assertEqual(
+            gateway.claim_current_total_loss_insurer_response_analysis(
+                CASE_ID,
+                TOKEN_ID,
+                "openai",
+                "gpt-response-test",
+                "1",
+                "1",
+                "1",
+            ),
+            {"outcome": "claim_current_total_loss_insurer_response_analysis"},
+        )
+        self.assertEqual(
+            gateway.resolve_total_loss_insurer_response_analysis_context(
+                JOB_ID, TOKEN_ID
+            ),
+            {
+                "outcome": (
+                    "resolve_total_loss_insurer_response_analysis_context"
+                )
+            },
+        )
+        self.assertEqual(
+            gateway.retry_total_loss_insurer_response_analysis(
+                CASE_ID, CLIENT_REQUEST_ID, 8, "browser-token"
+            )["workflowRevision"],
+            9,
+        )
+
+        claim, context, retry = requests
+        self.assertEqual(
+            json.loads(claim.content),
+            {
+                "requested_case_id": CASE_ID,
+                "requested_processing_token": TOKEN_ID,
+                "requested_provider_identifier": "openai",
+                "requested_model_identifier": "gpt-response-test",
+                "requested_prompt_version": "1",
+                "requested_schema_version": "1",
+                "requested_context_version": "1",
+            },
+        )
+        self.assertEqual(
+            json.loads(context.content),
+            {
+                "requested_job_id": JOB_ID,
+                "requested_processing_token": TOKEN_ID,
+            },
+        )
+        self.assertEqual(
+            json.loads(retry.content),
+            {
+                "requested_case_id": CASE_ID,
+                "requested_client_request_id": CLIENT_REQUEST_ID,
+                "expected_workflow_revision": 8,
+            },
+        )
+        for request in (claim, context):
+            self.assertEqual(
+                request.headers["authorization"],
+                "Bearer service-role-test-key",
+            )
+        self.assertEqual(
+            retry.headers["authorization"], "Bearer browser-token"
+        )
+
+    def test_insurer_response_dispatch_rpcs_are_service_only_and_exact(
+        self,
+    ) -> None:
+        requests: list[httpx.Request] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            requests.append(request)
+            name = request.url.path.rsplit("/", 1)[-1]
+            if name == "list_due_total_loss_insurer_response_analysis_jobs":
+                return httpx.Response(
+                    200,
+                    json=[
+                        {
+                            "job_id": JOB_ID,
+                            "case_id": CASE_ID,
+                            "attempt_count": 0,
+                        }
+                    ],
+                )
+            return httpx.Response(
+                200,
+                json=[{"job_id": JOB_ID, "case_id": CASE_ID}],
+            )
+
+        gateway, _ = self.gateway(handler)
+
+        self.assertEqual(
+            gateway.list_due_total_loss_insurer_response_analysis_jobs(25),
+            [{"job_id": JOB_ID, "case_id": CASE_ID, "attempt_count": 0}],
+        )
+        self.assertEqual(
+            gateway.resolve_total_loss_insurer_response_analysis_job_case(
+                JOB_ID
+            ),
+            {"job_id": JOB_ID, "case_id": CASE_ID},
+        )
+        self.assertEqual(
+            [json.loads(request.content) for request in requests],
+            [
+                {"requested_limit": 25},
+                {"requested_job_id": JOB_ID},
+            ],
+        )
+        for request in requests:
+            self.assertEqual(
+                request.headers["authorization"],
+                "Bearer service-role-test-key",
+            )
+
+        before = len(requests)
+        for limit in (0, 101, True):
+            with self.subTest(limit=limit), self.assertRaises(
+                SupabaseContractError
+            ):
+                gateway.list_due_total_loss_insurer_response_analysis_jobs(
+                    limit
+                )
+        self.assertEqual(len(requests), before)
+
+    def test_response_document_materialization_verifies_sealed_identity_but_not_content_semantics(
+        self,
+    ) -> None:
+        content = b"malformed PDF material handled by the understanding layer"
+        digest = hashlib.sha256(content).hexdigest()
+        object_name = (
+            f"{USER_ID}/{CASE_ID}/insurer-responses/{CLIENT_REQUEST_ID}.pdf"
+        )
+        requests: list[httpx.Request] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            requests.append(request)
+            return httpx.Response(200, content=content)
+
+        gateway, _ = self.gateway(handler)
+        with gateway.materialize_total_loss_insurer_response_document(
+            CASE_ID,
+            CLIENT_REQUEST_ID,
+            {
+                "storage_bucket_id": "case-files",
+                "storage_object_name": object_name,
+            },
+            "application/pdf",
+            len(content),
+            digest,
+            TOKEN_ID,
+        ) as path:
+            self.assertEqual(path.read_bytes(), content)
+        self.assertEqual(len(requests), 1)
+        self.assertEqual(
+            requests[0].url.path,
+            f"/storage/v1/object/authenticated/case-files/{object_name}",
+        )
+        self.assertEqual(
+            requests[0].headers["authorization"],
+            "Bearer service-role-test-key",
+        )
+
+        with self.assertRaises(SupabaseContractError):
+            with gateway.materialize_total_loss_insurer_response_document(
+                CASE_ID,
+                CLIENT_REQUEST_ID,
+                {
+                    "storage_bucket_id": "case-files",
+                    "storage_object_name": object_name.replace(
+                        CASE_ID, JOB_ID
+                    ),
+                },
+                "application/pdf",
+                len(content),
+                digest,
+                TOKEN_ID,
+            ):
+                pass
+        with self.assertRaises(SupabaseResponseDocumentInvalidError):
+            with gateway.materialize_total_loss_insurer_response_document(
+                CASE_ID,
+                CLIENT_REQUEST_ID,
+                {
+                    "storage_bucket_id": "case-files",
+                    "storage_object_name": object_name,
+                },
+                "application/pdf",
+                len(content),
+                "f" * 64,
+                TOKEN_ID,
+            ):
+                pass
 
     def test_magic_link_uses_service_role_otp_with_only_the_server_callback(
         self,
