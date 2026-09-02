@@ -17,6 +17,7 @@ type LegacyReviewView =
   | "review_response_received"
   | "review_response_reviewing"
   | "review_response_reviewed"
+  | "review_follow_up"
   | "review_sent"
   | "review_waiting";
 
@@ -78,6 +79,8 @@ export function totalLossClaimViewPath(
       return `${base}/review/response-reviewing`;
     case "review_response_reviewed":
       return `${base}/review/response-reviewed`;
+    case "review_follow_up":
+      return `${base}/review/follow-up`;
     case "request":
     case "send":
     case "review_request":
@@ -125,6 +128,8 @@ export function routeForJourneyState(
       return totalLossClaimViewPath(caseId, "review_response_reviewing");
     case "insurer_response_reviewed":
       return totalLossClaimViewPath(caseId, "review_response_reviewed");
+    case "follow_up_preparation":
+      return totalLossClaimViewPath(caseId, "review_follow_up");
   }
 }
 
@@ -156,6 +161,8 @@ function legacyJourneyState(
       return "insurer_response_reviewing";
     case "insurer_response_reviewed":
       return "insurer_response_reviewed";
+    case "follow_up_preparation":
+      return "follow_up_preparation";
     case "insurer_response_review_unavailable":
       return "insurer_response_review_unavailable";
     case "secure_claim":
@@ -241,6 +248,8 @@ export function completedAnalysisStage(
       return "response_reviewing";
     case "review_response_reviewed":
       return "response_reviewed";
+    case "review_follow_up":
+      return "follow_up";
     default:
       return "result";
   }

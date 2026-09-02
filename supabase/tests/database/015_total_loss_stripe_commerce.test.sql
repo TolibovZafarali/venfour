@@ -224,7 +224,8 @@ select ok(
     'education_progress',
     'sending_details',
     'message_draft',
-    'insurer_response'
+    'insurer_response',
+    'follow_up'
   ]::text[],
   'claim resume preserves commerce fields and adds only customer-safe delivery and response projections'
 );

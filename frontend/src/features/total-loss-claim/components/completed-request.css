@@ -708,6 +708,7 @@
   .completed-analysis .report-file-actions {
     grid-column: 1 / -1;
     flex-direction: row;
+    flex-wrap: wrap;
     gap: 0.5rem;
     padding-top: 0.3rem;
   }

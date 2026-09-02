@@ -62,6 +62,7 @@ export type TotalLossClaimJourneyState =
   | "insurer_response_reviewing"
   | "insurer_response_reviewed"
   | "insurer_response_review_unavailable"
+  | "follow_up_preparation"
   | "no_dispute"
   | "needs_attention";
 
@@ -78,6 +79,7 @@ export type TotalLossClaimFulfillmentState =
   | "insurer_response_received"
   | "insurer_response_reviewing"
   | "insurer_response_reviewed"
+  | "follow_up_preparation"
   | "insurer_response_review_unavailable";
 
 export interface TotalLossClaimJourneyProjection {
@@ -254,7 +256,7 @@ export interface TotalLossSendingDetails {
 export interface TotalLossMessageDraft {
   readonly body: string;
   readonly draftId: string;
-  readonly purpose: "initial_reconsideration";
+  readonly purpose: "initial_reconsideration" | "follow_up_reconsideration";
   readonly recipient: string | null;
   readonly reportVersionId: string;
   readonly revision: number;
@@ -286,6 +288,23 @@ export interface TotalLossSentMessage {
   readonly negotiationRoundId: string;
   readonly state: "awaiting_insurer_response";
   readonly workflowRevision: number;
+}
+
+export interface TotalLossFollowUp {
+  readonly draft: TotalLossMessageDraft | null;
+  readonly responseId: string;
+  readonly analysisResultId: string;
+  readonly decisionId: string;
+  readonly reportVersionId: string;
+  readonly state: "available" | "draft" | "sent" | "unavailable";
+  readonly preparedMessage: TotalLossPreparedMessageVersion | null;
+  readonly sentMessage: (Omit<TotalLossPreparedMessageVersion, "state"> & {
+    readonly state: "sent";
+    readonly customerReportedSentAt: string;
+    readonly communicationId: string;
+    readonly negotiationRoundId: string;
+  }) | null;
+  readonly reasonCode: string | null;
 }
 
 export const TOTAL_LOSS_INSURER_RESPONSE_MEDIA_TYPES = [
@@ -603,6 +622,7 @@ interface TotalLossClaimResolverBase {
   readonly commerce: TotalLossClaimCommerceProjection | null;
   readonly education?: TotalLossEducationProjection | null;
   readonly insurerResponse?: TotalLossInsurerResponse | null;
+  readonly followUp?: TotalLossFollowUp | null;
   readonly journey?: TotalLossClaimJourneyProjection | null;
   readonly messageDraft?: TotalLossMessageDraft | null;
   readonly report?: TotalLossPublishedReport | null;

@@ -9,6 +9,7 @@ import {
   getTotalLossCheckoutQuote,
   getTotalLossReportDownload,
   getTotalLossInsurerResponseDownload,
+  generateTotalLossFollowUp,
   prepareTotalLossMessage,
   prepareTotalLossInsurerResponseUpload,
   reconcileTotalLossCheckout,
@@ -281,7 +282,8 @@ export function useTotalLossMessageDraftMutation({
   accessToken,
   caseId,
   userId,
-}: ClaimIdentityOptions) {
+  followUpDraftId,
+}: ClaimIdentityOptions & { readonly followUpDraftId?: string }) {
   const invalidate = useClaimMutationInvalidation({ caseId, userId });
   return useMutation({
     gcTime: 0,
@@ -295,7 +297,7 @@ export function useTotalLossMessageDraftMutation({
       if (!accessToken || !userId) {
         throw new Error("An authenticated session is required.");
       }
-      return updateTotalLossMessageDraft(caseId, accessToken, input);
+      return followUpDraftId ? updateTotalLossMessageDraft(caseId, accessToken, input, undefined, followUpDraftId) : updateTotalLossMessageDraft(caseId, accessToken, input);
     },
     onSuccess: invalidate,
     retry: false,
@@ -306,7 +308,8 @@ export function useTotalLossPrepareMessageMutation({
   accessToken,
   caseId,
   userId,
-}: ClaimIdentityOptions) {
+  followUpDraftId,
+}: ClaimIdentityOptions & { readonly followUpDraftId?: string }) {
   const invalidate = useClaimMutationInvalidation({ caseId, userId });
   return useMutation({
     gcTime: 0,
@@ -314,12 +317,18 @@ export function useTotalLossPrepareMessageMutation({
     mutationFn: ({
       clientRequestId,
       expectedWorkflowRevision,
+      expectedDraftRevision,
     }: {
       readonly clientRequestId: string;
       readonly expectedWorkflowRevision: number;
+      readonly expectedDraftRevision?: number;
     }) => {
       if (!accessToken || !userId) {
         throw new Error("An authenticated session is required.");
+      }
+      if (followUpDraftId) {
+        if (expectedDraftRevision === undefined) throw new Error("A saved follow-up revision is required.");
+        return prepareTotalLossMessage(caseId, accessToken, clientRequestId, expectedWorkflowRevision, undefined, { draftId: followUpDraftId, expectedDraftRevision });
       }
       return prepareTotalLossMessage(
         caseId,
@@ -337,7 +346,8 @@ export function useTotalLossMessageOpenedMutation({
   accessToken,
   caseId,
   userId,
-}: ClaimIdentityOptions) {
+  followUpDraftId,
+}: ClaimIdentityOptions & { readonly followUpDraftId?: string }) {
   return useMutation({
     gcTime: 0,
     mutationKey: [...totalLossClaimQueryKeys.detail(userId, caseId), "opened"],
@@ -351,6 +361,7 @@ export function useTotalLossMessageOpenedMutation({
       if (!accessToken || !userId) {
         throw new Error("An authenticated session is required.");
       }
+      if (followUpDraftId) return recordTotalLossMessageOpened(caseId, accessToken, clientRequestId, messageVersionId, undefined, followUpDraftId);
       return recordTotalLossMessageOpened(
         caseId,
         accessToken,
@@ -366,7 +377,8 @@ export function useTotalLossMessageSentMutation({
   accessToken,
   caseId,
   userId,
-}: ClaimIdentityOptions) {
+  followUpDraftId,
+}: ClaimIdentityOptions & { readonly followUpDraftId?: string }) {
   const invalidate = useClaimMutationInvalidation({ caseId, userId });
   return useMutation({
     gcTime: 0,
@@ -379,7 +391,21 @@ export function useTotalLossMessageSentMutation({
       if (!accessToken || !userId) {
         throw new Error("An authenticated session is required.");
       }
-      return confirmTotalLossMessageSent(caseId, accessToken, input);
+      return followUpDraftId ? confirmTotalLossMessageSent(caseId, accessToken, input, undefined, followUpDraftId) : confirmTotalLossMessageSent(caseId, accessToken, input);
+    },
+    onSuccess: invalidate,
+    retry: false,
+  });
+}
+
+export function useTotalLossFollowUpGenerationMutation({ accessToken, caseId, userId }: ClaimIdentityOptions) {
+  const invalidate = useClaimMutationInvalidation({ caseId, userId });
+  return useMutation({
+    gcTime: 0,
+    mutationKey: [...totalLossClaimQueryKeys.detail(userId, caseId), "followUp"],
+    mutationFn: (decisionId: string) => {
+      if (!accessToken || !userId) throw new Error("An authenticated session is required.");
+      return generateTotalLossFollowUp(caseId, accessToken, decisionId);
     },
     onSuccess: invalidate,
     retry: false,

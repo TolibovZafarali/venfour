@@ -18,12 +18,14 @@ import { MemoryRouter } from "react-router";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { MessagePreparation } from "@/features/total-loss-claim/components/message-preparation";
+import { FollowUpPreparation } from "@/features/total-loss-claim/components/follow-up-preparation";
 import { openDefaultEmailApp } from "@/features/total-loss-claim/browser-actions";
 import type * as RequestBrowserActions from "@/features/total-loss-claim/browser-actions";
 import { TOTAL_LOSS_EDUCATION_STEPS } from "@/features/total-loss-claim/contracts";
 import type {
   TotalLossClaimSecured,
   TotalLossEducationProjection,
+  TotalLossFollowUp,
   TotalLossMessageDraft,
   TotalLossPublishedReport,
 } from "@/features/total-loss-claim/contracts";
@@ -210,6 +212,7 @@ function renderRequest(
   initial = claim(),
   onRefresh: () => Promise<unknown> = vi.fn(async () => undefined),
   callbacks: {
+    readonly followUp?: boolean;
     readonly actionContainer?: HTMLElement;
     readonly intakeMode?: TotalLossIntakeMode;
     readonly onDraftStateChange?: (hasDraft: boolean) => void;
@@ -222,7 +225,11 @@ function renderRequest(
   const view = (current: TotalLossClaimSecured) => (
     <QueryClientProvider client={client}>
       <MemoryRouter>
-        <MessagePreparation
+        {callbacks.followUp ? <FollowUpPreparation
+          accessToken="request-test-token" caseId={CASE_ID} claim={current}
+          onRefresh={onRefresh} report={report()} userId={USER_ID}
+          onSent={callbacks.onSent ?? (() => undefined)}
+        /> : <MessagePreparation
           {...callbacks}
           accessToken="request-test-token"
           caseId={CASE_ID}
@@ -230,7 +237,7 @@ function renderRequest(
           onRefresh={onRefresh}
           report={report()}
           userId={USER_ID}
-        />
+        />}
       </MemoryRouter>
     </QueryClientProvider>
   );
@@ -246,6 +253,148 @@ function renderRequestFooter() {
   render(<nav aria-label="Request footer" />);
   return screen.getByRole("navigation", { name: "Request footer" });
 }
+
+function followUpProjection(state: TotalLossFollowUp["state"] = "draft"): TotalLossFollowUp {
+  const current = draft({ purpose: "follow_up_reconsideration", subject: "Follow-up - Claim CLM-42", body: "Thank you for your response. Please explain how you considered the listings in my previous request." });
+  return {
+    state, decisionId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+    responseId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb", analysisResultId: "cccccccc-cccc-4ccc-8ccc-cccccccccccc", reportVersionId: REPORT_ID,
+    draft: state === "draft" || state === "sent" ? current : null,
+    preparedMessage: null,
+    sentMessage: state === "sent" ? { ...prepared(current).messageVersion, recipient: current.recipient!, ...sentResult(), state: "sent" } : null,
+    reasonCode: state === "unavailable" ? "NO_SUPPORTED_UNRESOLVED_ISSUE" : null,
+  };
+}
+
+function followUpClaim(state: TotalLossFollowUp["state"] = "draft"): TotalLossClaimSecured {
+  const followUp = followUpProjection(state);
+  return claim({
+    journey: { fulfillmentState: "follow_up_preparation", nextState: "follow_up_preparation", retryable: false },
+    followUp,
+    insurerResponse: {
+      analysis: null, analysisEvidence: null, clientRequestId: USER_ID, document: null, failureReason: null,
+      recommendation: null, usableOffer: null, processingState: "completed", receivedAt: NOW,
+      responseId: followUp.responseId, revisedOffer: null, sourceType: "pasted_message", supersedesResponseId: null, text: "The original comparable set remains appropriate.",
+      decision: { decisionId: followUp.decisionId, analysisResultId: followUp.analysisResultId, clientRequestId: USER_ID, recommendationId: VERSION_ID, choice: "CONTINUE_CHALLENGING", offerId: null, amountMinorUnits: null, currency: null, recordedAt: NOW },
+    },
+  });
+}
+
+describe("follow-up preparation with the shared request editor", () => {
+  it("creates only after the customer action and resumes the same saved draft on return", async () => {
+    const writes: unknown[] = [];
+    const current = followUpClaim("available");
+    server.use(http.post(`${API}/follow-up`, async ({ request }) => {
+      writes.push(await request.json());
+      return HttpResponse.json(followUpProjection());
+    }));
+    const view = renderRequest(current, undefined, { followUp: true });
+    expect(writes).toHaveLength(0);
+    expect(screen.getByRole("heading", { name: "Prepare your follow-up" })).toBeVisible();
+    await userEvent.click(screen.getByRole("button", { name: "Prepare my follow-up" }));
+    expect(await screen.findByRole("heading", { name: "Review and send your follow-up" })).toBeVisible();
+    expect(writes).toEqual([{ decisionId: current.followUp!.decisionId }]);
+    expect(screen.getByRole("textbox", { name: "Message" })).toHaveValue(followUpProjection().draft!.body);
+    view.unmount();
+    renderRequest(followUpClaim(), undefined, { followUp: true });
+    expect(screen.getByRole("heading", { name: "Review and send your follow-up" })).toBeVisible();
+    expect(writes).toHaveLength(1);
+  });
+
+  it("leaves an Accept decision without follow-up controls or generation", () => {
+    const current = followUpClaim("available");
+    renderRequest({ ...current, followUp: null, insurerResponse: { ...current.insurerResponse!, decision: { ...current.insurerResponse!.decision!, choice: "ACCEPT_OFFER" } } }, undefined, { followUp: true });
+    expect(screen.queryByRole("button", { name: "Prepare my follow-up" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("textbox", { name: "Message" })).not.toBeInTheDocument();
+  });
+
+  it.each(["copy", "open"] as const)("saves exact edits before %s and confirms a distinct prepared follow-up without changing the original", async (kind) => {
+    const current = followUpClaim();
+    const original = structuredClone(current.messageDraft);
+    let saved = current.followUp!.draft!;
+    const calls: string[] = [];
+    const sentInputs: unknown[] = [];
+    server.use(
+      http.patch(`${API}/follow-up/draft`, async ({ request }) => {
+        const input = await request.json() as { body: string; recipient: string; subject: string; expectedRevision: number; draftId: string };
+        expect(input.draftId).toBe(saved.draftId);
+        expect(input.expectedRevision).toBe(saved.revision);
+        calls.push("save"); saved = { ...saved, ...input, revision: saved.revision + 1 };
+        return HttpResponse.json(saved);
+      }),
+      http.post(`${API}/follow-up/prepare`, async ({ request }) => {
+        expect(await request.json()).toMatchObject({ draftId: saved.draftId, expectedDraftRevision: saved.revision, expectedWorkflowRevision: 7 });
+        calls.push("prepare"); return HttpResponse.json(prepared(saved));
+      }),
+      http.post(`${API}/follow-up/opened`, () => HttpResponse.json({})),
+      http.post(`${API}/follow-up/sent`, async ({ request }) => {
+        sentInputs.push(await request.json()); return HttpResponse.json(sentResult());
+      }),
+    );
+    const user = userEvent.setup();
+    const clipboard = vi.spyOn(navigator.clipboard, "writeText").mockResolvedValue(undefined);
+    const onSent = vi.fn();
+    renderRequest(current, undefined, { followUp: true, onSent });
+    await user.clear(screen.getByRole("textbox", { name: "Subject" }));
+    await user.type(screen.getByRole("textbox", { name: "Subject" }), "My reviewed follow-up");
+    await user.click(screen.getByRole("button", { name: kind === "copy" ? "Copy email" : "Open email app" }));
+    await screen.findByRole("checkbox", { name: SENT_ACKNOWLEDGEMENT });
+    expect(calls).toEqual(["save", "prepare"]);
+    if (kind === "copy") expect(clipboard).toHaveBeenCalledWith(expect.stringContaining("Subject: My reviewed follow-up"));
+    else expect(new URL(vi.mocked(openDefaultEmailApp).mock.calls[0]![0]).searchParams.get("subject")).toBe("My reviewed follow-up");
+    expect(screen.getByRole("button", { name: "Mark as sent" })).toBeDisabled();
+    await user.click(screen.getByRole("checkbox", { name: SENT_ACKNOWLEDGEMENT }));
+    await user.click(screen.getByRole("button", { name: "Mark as sent" }));
+    await waitFor(() => expect(onSent).toHaveBeenCalledOnce());
+    expect(sentInputs).toEqual([{ clientRequestId: expect.any(String), expectedWorkflowRevision: 8, messageVersionId: VERSION_ID, confirmedReportAttached: true }]);
+    expect(current.messageDraft).toEqual(original);
+  });
+
+  it("autosaves follow-up edits and restores them after returning", async () => {
+    let current = followUpClaim();
+    const writes = vi.fn();
+    server.use(http.patch(`${API}/follow-up/draft`, async ({ request }) => {
+      const input = await request.json() as { body: string; recipient: string; subject: string };
+      const saved = { ...current.followUp!.draft!, ...input, revision: 2 };
+      current = { ...current, followUp: { ...current.followUp!, draft: saved } };
+      writes(); return HttpResponse.json(saved);
+    }));
+    const first = renderRequest(current, undefined, { followUp: true });
+    const user = userEvent.setup();
+    await user.type(screen.getByRole("textbox", { name: "Message" }), " Thank you for reviewing it again.");
+    await waitFor(() => expect(writes).toHaveBeenCalledOnce(), { timeout: 2000 });
+    first.unmount();
+    renderRequest(current, undefined, { followUp: true });
+    expect(screen.getByRole("textbox", { name: "Message" })).toHaveValue(current.followUp!.draft!.body);
+    expect(current.messageDraft!.body).toBe("Please review the attached evidence package.");
+  });
+
+  it("shows a recoverable evidence limitation without fabricating an editable message", () => {
+    renderRequest(followUpClaim("unavailable"), undefined, { followUp: true });
+    expect(screen.getByText(/does not identify a remaining issue/u)).toBeVisible();
+    expect(screen.getByRole("button", { name: "Retry preparation" })).toBeEnabled();
+    expect(screen.queryByRole("textbox", { name: "Message" })).not.toBeInTheDocument();
+  });
+
+  it("hides a generated editor when the current case can no longer verify its sources", async () => {
+    server.use(http.post(`${API}/follow-up`, () => HttpResponse.json(followUpProjection())));
+    const view = renderRequest(followUpClaim("available"), undefined, { followUp: true });
+    await userEvent.click(screen.getByRole("button", { name: "Prepare my follow-up" }));
+    await screen.findByRole("textbox", { name: "Message" });
+    view.refresh(followUpClaim("unavailable"));
+    expect(screen.queryByRole("textbox", { name: "Message" })).not.toBeInTheDocument();
+    expect(screen.getByText(/does not identify a remaining issue/u)).toBeVisible();
+  });
+
+  it("shows the immutable sent version instead of a newer or different draft", () => {
+    const current = followUpClaim("sent");
+    renderRequest({ ...current, followUp: { ...current.followUp!, draft: { ...current.followUp!.draft!, body: "Different draft body" } } }, undefined, { followUp: true });
+    expect(screen.getByRole("heading", { name: "Your sent follow-up" })).toBeVisible();
+    expect(screen.getByLabelText("Follow-up message")).toHaveTextContent(current.followUp!.sentMessage!.body);
+    expect(screen.queryByText("Different draft body")).not.toBeInTheDocument();
+    expect(screen.queryByRole("textbox", { name: "Message" })).not.toBeInTheDocument();
+  });
+});
 
 beforeEach(() => {
   vi.mocked(openDefaultEmailApp).mockReset();

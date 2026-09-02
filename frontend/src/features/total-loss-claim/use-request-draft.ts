@@ -37,6 +37,7 @@ interface RequestDraftOptions {
   readonly report: TotalLossPublishedReport;
   readonly userId: string;
   readonly workflowRevision: number;
+  readonly followUpDraftId?: string;
 }
 
 export function useRequestDraft({
@@ -49,30 +50,35 @@ export function useRequestDraft({
   report,
   userId,
   workflowRevision,
+  followUpDraftId,
 }: RequestDraftOptions) {
   const { mutateAsync: saveDraft } = useTotalLossMessageDraftMutation({
     accessToken,
     caseId,
     userId,
+    followUpDraftId,
   });
   const { mutateAsync: prepare } = useTotalLossPrepareMessageMutation({
     accessToken,
     caseId,
     userId,
+    followUpDraftId,
   });
   const { mutateAsync: recordOpened } = useTotalLossMessageOpenedMutation({
     accessToken,
     caseId,
     userId,
+    followUpDraftId,
   });
   const { mutateAsync: recordSent } = useTotalLossMessageSentMutation({
     accessToken,
     caseId,
     userId,
+    followUpDraftId,
   });
   const [content, setContent] = useState(() => ({
     ...contentOf(initialDraft),
-    body: normalizeCustomerRequestBody(initialDraft.body, report),
+    body: followUpDraftId ? initialDraft.body : normalizeCustomerRequestBody(initialDraft.body, report),
   }));
   const [savedContent, setSavedContent] = useState(() =>
     contentOf(initialDraft),
@@ -136,7 +142,7 @@ export function useRequestDraft({
     }
     const nextContent = {
       ...incoming,
-      body: normalizeCustomerRequestBody(initialDraft.body, report),
+      body: followUpDraftId ? initialDraft.body : normalizeCustomerRequestBody(initialDraft.body, report),
     };
     savedRef.current = initialDraft;
     contentRef.current = nextContent;
@@ -149,7 +155,7 @@ export function useRequestDraft({
     setContent(nextContent);
     setSharedMessage(null);
     setNotice(null);
-  }, [initialDraft, report]);
+  }, [followUpDraftId, initialDraft, report]);
 
   const persist = useCallback(async (): Promise<TotalLossMessageDraft> => {
     if (inFlightSave.current) return inFlightSave.current;
@@ -241,7 +247,9 @@ export function useRequestDraft({
     try {
       if (inFlightSave.current)
         await inFlightSave.current.catch(() => undefined);
-      const current = await getTotalLossMessageDraft(caseId, accessToken);
+      const current = followUpDraftId
+        ? await getTotalLossMessageDraft(caseId, accessToken, undefined, followUpDraftId)
+        : await getTotalLossMessageDraft(caseId, accessToken);
       const currentContent = contentOf(current);
       const matchesLocal = sameContent(
         currentContent,
@@ -265,7 +273,7 @@ export function useRequestDraft({
       if (loadSaved || matchesLocal) {
         const displayContent = {
           ...currentContent,
-          body: normalizeCustomerRequestBody(current.body, report),
+          body: followUpDraftId ? current.body : normalizeCustomerRequestBody(current.body, report),
         };
         contentRef.current = displayContent;
         setContent(displayContent);
@@ -294,12 +302,14 @@ export function useRequestDraft({
     const prepared = await prepare({
       clientRequestId: prepareRequestId.current,
       expectedWorkflowRevision: revisionRef.current,
+      ...(followUpDraftId ? { expectedDraftRevision: saved.revision } : {}),
     });
     revisionRef.current = Math.max(
       revisionRef.current,
       prepared.workflowRevision,
     );
     if (
+      prepared.draft.draftId !== saved.draftId ||
       prepared.draft.reportVersionId !== saved.reportVersionId ||
       !sameContent(contentOf(prepared.draft), contentOf(saved)) ||
       !sameContent(prepared.messageVersion, contentOf(saved))

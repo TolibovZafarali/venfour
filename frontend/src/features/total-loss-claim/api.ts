@@ -20,6 +20,7 @@ import type {
   TotalLossEducationProjection,
   TotalLossEducationStep,
   TotalLossEducationStepProgress,
+  TotalLossFollowUp,
   TotalLossInsurerEvidence,
   TotalLossInsurerComparable,
   TotalLossInsurerEvidenceSummary,
@@ -113,6 +114,7 @@ const JOURNEY_STATES = new Set<TotalLossClaimJourneyState>([
   "insurer_response_reviewing",
   "insurer_response_reviewed",
   "insurer_response_review_unavailable",
+  "follow_up_preparation",
   "no_dispute",
   "needs_attention",
 ]);
@@ -130,6 +132,7 @@ const FULFILLMENT_STATES = new Set<TotalLossClaimFulfillmentState>([
   "insurer_response_reviewing",
   "insurer_response_reviewed",
   "insurer_response_review_unavailable",
+  "follow_up_preparation",
 ]);
 const INSURER_RESPONSE_PROCESSING_STATES = new Set<
   TotalLossInsurerResponse["processingState"]
@@ -783,9 +786,9 @@ function mapSendingDetails(value: unknown): TotalLossSendingDetails | null {
   };
 }
 
-function mapMessageDraft(value: unknown): TotalLossMessageDraft | null {
+function mapMessageDraft(value: unknown, purpose: TotalLossMessageDraft["purpose"] = "initial_reconsideration"): TotalLossMessageDraft | null {
   if (value === undefined || value === null) return null;
-  if (!isRecord(value) || value.purpose !== "initial_reconsideration") {
+  if (!isRecord(value) || value.purpose !== purpose) {
     throw new TotalLossClaimContractError(
       "The claim service returned an invalid message draft.",
     );
@@ -793,7 +796,7 @@ function mapMessageDraft(value: unknown): TotalLossMessageDraft | null {
   return {
     body: typeof value.body === "string" ? value.body : requiredString(value.body, "draft body"),
     draftId: requiredString(value.draftId, "draft ID", UUID_PATTERN),
-    purpose: "initial_reconsideration",
+    purpose,
     recipient: nullableString(value.recipient, "draft recipient"),
     reportVersionId: requiredString(
       value.reportVersionId,
@@ -1935,6 +1938,7 @@ function mapResolver(value: unknown): TotalLossClaimResolver {
   const commerce = mapCommerce(value.commerce, value.state);
   const education = mapEducation(value.education);
   const insurerResponse = mapInsurerResponse(value.insurerResponse);
+  const followUp = mapFollowUp(value.followUp);
   const journey = mapJourney(value.journey);
   const messageDraft = mapMessageDraft(value.messageDraft);
   const report = mapReport(value.report);
@@ -1943,6 +1947,7 @@ function mapResolver(value: unknown): TotalLossClaimResolver {
   const extensions = {
     ...(value.education !== undefined ? { education } : {}),
     ...(value.insurerResponse !== undefined ? { insurerResponse } : {}),
+    ...(value.followUp !== undefined ? { followUp } : {}),
     ...(value.journey !== undefined ? { journey } : {}),
     ...(value.messageDraft !== undefined ? { messageDraft } : {}),
     ...(value.report !== undefined ? { report } : {}),
@@ -1951,7 +1956,7 @@ function mapResolver(value: unknown): TotalLossClaimResolver {
 
   if (
     value.state !== "secured" &&
-    (education || insurerResponse || messageDraft || report || sendingDetails)
+    (education || insurerResponse || followUp || messageDraft || report || sendingDetails)
   ) {
     throw new TotalLossClaimContractError(
       "The claim service exposed delivery details before permanent ownership.",
@@ -1962,6 +1967,7 @@ function mapResolver(value: unknown): TotalLossClaimResolver {
     "insurer_response_reviewing",
     "insurer_response_reviewed",
     "insurer_response_review_unavailable",
+    "follow_up_preparation",
   ]);
   const responseReceivedState =
     responseJourneyStates.has(journey?.nextState ?? "") ||
@@ -1969,12 +1975,19 @@ function mapResolver(value: unknown): TotalLossClaimResolver {
     responseJourneyStates.has(workflow?.currentTask ?? "");
   if (
     value.state === "secured" &&
-    responseReceivedState !== Boolean(insurerResponse)
+    (responseReceivedState || followUp?.state === "sent") !== Boolean(insurerResponse)
   ) {
     throw new TotalLossClaimContractError(
       "The claim service returned an inconsistent insurer-response state.",
     );
   }
+  if (followUp && (
+    insurerResponse?.decision?.choice !== "CONTINUE_CHALLENGING" ||
+    followUp.decisionId !== insurerResponse.decision.decisionId ||
+    followUp.responseId !== insurerResponse.responseId ||
+    followUp.analysisResultId !== insurerResponse.decision.analysisResultId ||
+    (followUp.reportVersionId !== report?.reportId && followUp.state !== "unavailable")
+  )) throw new TotalLossClaimContractError("The follow-up does not match the saved response and decision.");
 
   if (value.state === "secure_required") {
     return {
@@ -2269,13 +2282,13 @@ function mapPreparedMessageVersion(
   };
 }
 
-function mapPreparedMessage(value: unknown): TotalLossPreparedMessage {
+function mapPreparedMessage(value: unknown, purpose: TotalLossMessageDraft["purpose"] = "initial_reconsideration"): TotalLossPreparedMessage {
   if (!isRecord(value)) {
     throw new TotalLossClaimContractError(
       "The claim service returned an invalid prepared message.",
     );
   }
-  const draft = mapMessageDraft(value.draft);
+  const draft = mapMessageDraft(value.draft, purpose);
   if (!draft) {
     throw new TotalLossClaimContractError(
       "The claim service returned an invalid prepared message draft.",
@@ -2318,6 +2331,55 @@ function mapSentMessage(value: unknown): TotalLossSentMessage {
     state: "awaiting_insurer_response",
     workflowRevision: workflowRevision(value.workflowRevision),
   };
+}
+
+function mapFollowUp(value: unknown): TotalLossFollowUp | null {
+  if (value === null || value === undefined) return null;
+  if (!isRecord(value) || !["available", "draft", "sent", "unavailable"].includes(String(value.state))) {
+    throw new TotalLossClaimContractError("The claim service returned an invalid follow-up.");
+  }
+  const draft = mapMessageDraft(value.draft, "follow_up_reconsideration");
+  const preparedMessage = value.preparedMessage == null ? null : mapPreparedMessageVersion(value.preparedMessage);
+  const rawSent = value.sentMessage;
+  if (rawSent != null && (!isRecord(rawSent) || rawSent.state !== "sent")) throw new TotalLossClaimContractError("The claim service returned an invalid sent follow-up.");
+  const sentMessage = rawSent == null ? null : {
+    ...mapPreparedMessageVersion({ ...rawSent, state: "prepared" }),
+    state: "sent" as const,
+    customerReportedSentAt: requiredString(isRecord(rawSent) ? rawSent.customerReportedSentAt : null, "follow-up sent time", ISO_TIMESTAMP_PATTERN),
+    communicationId: requiredString(isRecord(rawSent) ? rawSent.communicationId : null, "follow-up communication ID", UUID_PATTERN),
+    negotiationRoundId: requiredString(isRecord(rawSent) ? rawSent.negotiationRoundId : null, "follow-up round ID", UUID_PATTERN),
+  };
+  const reportVersionId = requiredString(value.reportVersionId, "follow-up report ID", UUID_PATTERN);
+  if ((value.state === "sent") !== Boolean(sentMessage) ||
+    ((value.state === "available" || value.state === "unavailable") && Boolean(draft || preparedMessage || sentMessage)) ||
+    ((value.state === "draft" || value.state === "sent") && !draft) ||
+    (draft && draft.reportVersionId !== reportVersionId) ||
+    (preparedMessage && preparedMessage.reportVersionId !== reportVersionId) ||
+    (sentMessage && sentMessage.reportVersionId !== reportVersionId)) {
+    throw new TotalLossClaimContractError("The claim service returned an inconsistent follow-up.");
+  }
+  return {
+    state: value.state as TotalLossFollowUp["state"],
+    decisionId: requiredString(value.decisionId, "follow-up decision ID", UUID_PATTERN),
+    responseId: requiredString(value.responseId, "follow-up response ID", UUID_PATTERN),
+    analysisResultId: requiredString(value.analysisResultId, "follow-up analysis ID", UUID_PATTERN),
+    reportVersionId, draft, preparedMessage, sentMessage,
+    reasonCode: nullableString(value.reasonCode, "follow-up unavailability reason"),
+  };
+}
+
+export async function getTotalLossFollowUp(caseId: string, accessToken: string) {
+  ensureCaseId(caseId);
+  const response = await apiClient.getAuthenticated<unknown>(`/api/v1/appraisal-cases/${encodeURIComponent(caseId)}/follow-up`, { accessToken });
+  return mapFollowUp(isRecord(response) && "followUp" in response ? response.followUp : response);
+}
+
+export async function generateTotalLossFollowUp(caseId: string, accessToken: string, decisionId: string) {
+  ensureCaseId(caseId);
+  const response = await apiClient.postJson<unknown>(`/api/v1/appraisal-cases/${encodeURIComponent(caseId)}/follow-up`, { decisionId }, { accessToken });
+  const followUp = mapFollowUp(isRecord(response) && "followUp" in response ? response.followUp : response);
+  if (!followUp || followUp.decisionId !== decisionId) throw new TotalLossClaimContractError("The generated follow-up could not be verified.");
+  return followUp;
 }
 
 function ensureCaseId(caseId: string) {
@@ -2586,8 +2648,14 @@ export async function getTotalLossMessageDraft(
   caseId: string,
   accessToken: string,
   signal?: AbortSignal,
+  followUpDraftId?: string,
 ) {
   ensureCaseId(caseId);
+  if (followUpDraftId) {
+    const followUp = await getTotalLossFollowUp(caseId, accessToken);
+    if (!followUp?.draft || followUp.draft.draftId !== followUpDraftId) throw new TotalLossClaimContractError("The follow-up draft is no longer current.");
+    return followUp.draft;
+  }
   const response = await apiClient.getAuthenticated<unknown>(
     `/api/v1/appraisal-cases/${encodeURIComponent(caseId)}/message-draft`,
     { accessToken, signal },
@@ -2615,17 +2683,19 @@ export async function updateTotalLossMessageDraft(
     readonly subject: string;
   },
   signal?: AbortSignal,
+  followUpDraftId?: string,
 ) {
   ensureCaseId(caseId);
   const response = await apiClient.patchJson<unknown>(
-    `/api/v1/appraisal-cases/${encodeURIComponent(caseId)}/message-draft`,
-    input,
+    `/api/v1/appraisal-cases/${encodeURIComponent(caseId)}/${followUpDraftId ? "follow-up/draft" : "message-draft"}`,
+    followUpDraftId ? { ...input, draftId: followUpDraftId } : input,
     { accessToken, signal },
   );
   const draft = mapMessageDraft(
     isRecord(response) && "messageDraft" in response
       ? response.messageDraft
       : response,
+    followUpDraftId ? "follow_up_reconsideration" : "initial_reconsideration",
   );
   if (!draft) {
     throw new TotalLossClaimContractError(
@@ -2641,14 +2711,15 @@ export async function prepareTotalLossMessage(
   clientRequestId: string,
   expectedWorkflowRevision: number,
   signal?: AbortSignal,
+  followUp?: { readonly draftId: string; readonly expectedDraftRevision: number },
 ) {
   ensureCaseId(caseId);
   const response = await apiClient.postJson<unknown>(
-    `/api/v1/appraisal-cases/${encodeURIComponent(caseId)}/message/prepare`,
-    { clientRequestId, expectedWorkflowRevision },
+    `/api/v1/appraisal-cases/${encodeURIComponent(caseId)}/${followUp ? "follow-up" : "message"}/prepare`,
+    { clientRequestId, expectedWorkflowRevision, ...followUp },
     { accessToken, signal },
   );
-  return mapPreparedMessage(response);
+  return mapPreparedMessage(response, followUp ? "follow_up_reconsideration" : "initial_reconsideration");
 }
 
 export async function recordTotalLossMessageOpened(
@@ -2657,10 +2728,11 @@ export async function recordTotalLossMessageOpened(
   clientRequestId: string,
   messageVersionId: string,
   signal?: AbortSignal,
+  followUpDraftId?: string,
 ) {
   ensureCaseId(caseId);
   return apiClient.postJson<unknown>(
-    `/api/v1/appraisal-cases/${encodeURIComponent(caseId)}/message/opened`,
+    `/api/v1/appraisal-cases/${encodeURIComponent(caseId)}/${followUpDraftId ? "follow-up" : "message"}/opened`,
     { clientRequestId, messageVersionId },
     { accessToken, signal },
   );
@@ -2675,10 +2747,11 @@ export async function confirmTotalLossMessageSent(
     readonly messageVersionId: string;
   },
   signal?: AbortSignal,
+  followUpDraftId?: string,
 ) {
   ensureCaseId(caseId);
   const response = await apiClient.postJson<unknown>(
-    `/api/v1/appraisal-cases/${encodeURIComponent(caseId)}/message/sent`,
+    `/api/v1/appraisal-cases/${encodeURIComponent(caseId)}/${followUpDraftId ? "follow-up" : "message"}/sent`,
     { ...input, confirmedReportAttached: true },
     { accessToken, signal },
   );

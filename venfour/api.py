@@ -1231,6 +1231,35 @@ async def _sending_details(request: Request) -> JSONResponse:
         return _private_response(_customer_delivery_error(exc))
 
 
+async def _follow_up(request: Request) -> JSONResponse:
+    case_id = request.path_params["case_id"]
+    if not _is_canonical_uuid4(case_id):
+        return _private_response(_error_response(400, "INVALID_CASE_ID"))
+    try:
+        service = _customer_delivery_service(request)
+        token = _customer_delivery_token(request)
+        operation = request.path_params.get("operation")
+        if request.method == "GET":
+            result = await run_in_threadpool(service.follow_up, case_id, token)
+        elif operation is None:
+            payload = await _customer_json_payload(request, {"decisionId"})
+            result = await run_in_threadpool(service.generate_follow_up, case_id, payload, token)
+        elif operation == "draft" and request.method == "PATCH":
+            payload = await _customer_json_payload(request, {"draftId", "recipient", "subject", "body", "expectedRevision"})
+            result = await run_in_threadpool(service.edit_draft, case_id, payload, token, follow_up=True)
+        elif operation == "prepare" and request.method == "POST":
+            payload = await _customer_json_payload(request, {"draftId", "clientRequestId", "expectedWorkflowRevision", "expectedDraftRevision"})
+            result = await run_in_threadpool(service.prepare_follow_up, case_id, payload, token)
+        elif operation == "sent" and request.method == "POST":
+            payload = await _customer_json_payload(request, {"messageVersionId", "clientRequestId", "expectedWorkflowRevision", "confirmedReportAttached"})
+            result = await run_in_threadpool(service.sent, case_id, payload, token, follow_up=True)
+        else:
+            return _private_response(_error_response(404, "NOT_FOUND"))
+        return _private_response(JSONResponse(result))
+    except Exception as exc:
+        return _private_response(_customer_delivery_error(exc))
+
+
 async def _message_draft_get(request: Request) -> JSONResponse:
     case_id = request.path_params["case_id"]
     if not _is_canonical_uuid4(case_id):
@@ -2914,6 +2943,21 @@ def create_app(
             "/api/v1/appraisal-cases/{case_id}/message-draft",
             _message_draft_get,
             methods=["GET"],
+        ),
+        Route(
+            "/api/v1/appraisal-cases/{case_id}/follow-up",
+            _follow_up,
+            methods=["GET", "POST"],
+        ),
+        Route(
+            "/api/v1/appraisal-cases/{case_id}/follow-up/opened",
+            _message_opened,
+            methods=["POST"],
+        ),
+        Route(
+            "/api/v1/appraisal-cases/{case_id}/follow-up/{operation}",
+            _follow_up,
+            methods=["PATCH", "POST"],
         ),
         Route(
             "/api/v1/appraisal-cases/{case_id}/message-draft",

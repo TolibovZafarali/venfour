@@ -1422,14 +1422,14 @@ describe("total-loss customer workflow", () => {
     const progressLabel = progressBar.getAttribute("aria-valuetext");
     expect(initial.router.state.location.pathname).toBe(`${CLAIM_BASE}/review/waiting`);
 
-    await user.click(within(navigation).getByRole("link", { name: /^Sent request/u }));
+    await user.click(within(navigation).getByRole("link", { name: /^Initial request/u }));
     expect(await screen.findByRole("heading", { name: "Your sent request" })).toBeVisible();
     expect(screen.getByText(originalBody, { exact: true })).toBeVisible();
     expect(initial.router.state.location.pathname).toBe(`${CLAIM_BASE}/review/request`);
     expect(screen.queryByRole("textbox", { name: "Message" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /copy email|open email app|mark as sent/iu })).not.toBeInTheDocument();
     expect(progressBar).toHaveAttribute("aria-valuetext", progressLabel);
-    expect(within(navigation).getByRole("link", { name: /^Sent request/u })).toHaveAttribute("aria-current", "page");
+    expect(within(navigation).getByRole("link", { name: /^Initial request/u })).toHaveAttribute("aria-current", "page");
     await act(async () => {
       await initial.queryClient.refetchQueries({ type: "active" });
       await new Promise((resolve) => window.setTimeout(resolve, 725));

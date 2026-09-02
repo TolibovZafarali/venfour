@@ -1,7 +1,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path=public,extensions;
-select plan(53);
+select plan(54);
 
 insert into auth.users (id, email, email_confirmed_at, is_anonymous)
 values
@@ -541,6 +541,9 @@ select ok((select payload #>> '{response,decision,choice}'='ACCEPT_OFFER'
   and payload #>> '{response,decision,amountMinorUnits}'='2050000'
   and payload #>> '{response,decision,recommendationId}'=payload #>> '{response,recommendation,recommendationId}'
   from scenario where name='accepted'),'Accept records the explicit choice and exact immutable offer amount/version');
+select ok(public.get_total_loss_customer_follow_up('b2000000-0000-4000-8000-000000000001') is null
+  and (select next_task='insurer_response_reviewed' and follow_up is null from public.resolve_total_loss_case_claim('b2000000-0000-4000-8000-000000000001')),
+  'Accept does not expose or generate a follow-up request');
 reset role;
 select ok((select
     projected #>> '{recommendation,state}' = 'NO_CLEAR_RECOMMENDATION'

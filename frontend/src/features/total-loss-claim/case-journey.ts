@@ -10,6 +10,7 @@ export type TotalLossCaseJourneyStage =
   | "response"
   | "response_received"
   | "response_reviewing"
+  | "follow_up"
   | "response_reviewed";
 
 export type TotalLossCaseJourneyStepId =
@@ -22,6 +23,8 @@ export type TotalLossCaseJourneyStepId =
   | "waiting_for_insurer"
   | "response_received"
   | "response_reviewing"
+  | "prepare_follow_up"
+  | "waiting_for_follow_up_response"
   | "response_reviewed";
 
 export interface TotalLossCaseJourneyStep {
@@ -78,6 +81,14 @@ const journeySteps = {
     id: "response_reviewed",
     label: "Response reviewed",
   },
+  prepare_follow_up: {
+    id: "prepare_follow_up",
+    label: "Prepare follow-up",
+  },
+  waiting_for_follow_up_response: {
+    id: "waiting_for_follow_up_response",
+    label: "Waiting for insurer",
+  },
 } as const satisfies Record<
   TotalLossCaseJourneyStepId,
   TotalLossCaseJourneyStep
@@ -107,6 +118,8 @@ function currentStepId(
       return "response_reviewing";
     case "response_reviewed":
       return "response_reviewed";
+    case "follow_up":
+      return "prepare_follow_up";
   }
 }
 
@@ -115,11 +128,15 @@ export function totalLossCaseJourneyProgress({
   hasDraft,
   intakeMode,
   stage,
+  hasFollowUp = false,
+  followUpSent = false,
 }: {
   readonly continuingSupported: boolean;
   readonly hasDraft: boolean;
   readonly intakeMode: TotalLossIntakeMode;
   readonly stage: TotalLossCaseJourneyStage;
+  readonly hasFollowUp?: boolean;
+  readonly followUpSent?: boolean;
 }): TotalLossCaseJourneyProgress {
   const steps: TotalLossCaseJourneyStep[] = [journeySteps.understand_result];
   if (intakeMode === "report") steps.push(journeySteps.review_insurer_report);
@@ -137,7 +154,8 @@ export function totalLossCaseJourneyProgress({
     stage === "response" ||
     stage === "response_received" ||
     stage === "response_reviewing" ||
-    stage === "response_reviewed"
+    stage === "response_reviewed" ||
+    stage === "follow_up"
   ) {
     steps.push(
       journeySteps.prepare_request,
@@ -148,8 +166,10 @@ export function totalLossCaseJourneyProgress({
       journeySteps.response_reviewed,
     );
   }
+  if (stage === "follow_up" || hasFollowUp) steps.push(journeySteps.prepare_follow_up);
+  if (followUpSent) steps.push(journeySteps.waiting_for_follow_up_response);
 
-  let id = currentStepId(stage, hasDraft);
+  let id = stage === "waiting" && followUpSent ? "waiting_for_follow_up_response" : currentStepId(stage, hasDraft);
   if (intakeMode === "manual" && id === "review_insurer_report") {
     id = "review_market_evidence";
   }
@@ -161,6 +181,7 @@ export function totalLossCaseJourneyProgress({
     current,
     isCaseActive:
       current.id === "waiting_for_insurer" ||
+      current.id === "waiting_for_follow_up_response" ||
       current.id === "response_reviewing",
     position,
     steps,

@@ -63,6 +63,9 @@ export function validationError(content: DraftContent) {
 
 export function requestIsSent(claim: TotalLossClaimSecured) {
   return (
+    Boolean(claim.followUp || claim.insurerResponse) ||
+    claim.journey?.nextState === "follow_up_preparation" ||
+    claim.workflow?.currentTask === "follow_up_preparation" ||
     claim.journey?.nextState === "awaiting_insurer_response" ||
     claim.journey?.nextState === "insurer_response_received" ||
     claim.journey?.nextState === "insurer_response_reviewing" ||

@@ -38,7 +38,7 @@ export interface CaseWorkspace {
 
 const reviewStages: readonly TotalLossCaseJourneyStage[] = [
   "result", "insurer", "market", "meaning", "request", "waiting",
-  "response", "response_received", "response_reviewing", "response_reviewed",
+  "response", "response_received", "response_reviewing", "response_reviewed", "follow_up",
 ];
 
 export function createCaseWorkspace({
@@ -65,6 +65,8 @@ export function createCaseWorkspace({
     hasDraft,
     intakeMode,
     stage: currentStage,
+    hasFollowUp: Boolean(claim.followUp),
+    followUpSent: claim.followUp?.state === "sent",
   });
   const education = claim.education?.reportVersionId === report.reportId
     ? claim.education.steps
@@ -108,16 +110,19 @@ export function createCaseWorkspace({
   const sent = requestIsSent(claim);
   const response = claim.insurerResponse;
   if (report.conclusion.continuingSupported || sent) {
-    add("request", sent ? "Sent request" : "Request preparation",
+    add("request", sent ? "Initial request" : "Request preparation",
       sent || requestReviewComplete(claim, report.reportId), sent);
-    add("waiting", "Waiting for insurer", sent, Boolean(response));
+    add("waiting", "Waiting for insurer", sent, Boolean(response) && claim.followUp?.state !== "sent");
   }
   if (report.conclusion.continuingSupported || sent || response) {
     add("response_received", "Insurer response", Boolean(response), Boolean(response));
     const reviewed = response?.processingState === "completed" &&
       Boolean(response.analysis && response.analysisEvidence);
-    const reviewAvailable = currentStage === "response_reviewing" || currentStage === "response_reviewed";
+    const reviewAvailable = reviewed || currentStage === "response_reviewing" || currentStage === "response_reviewed";
     add(reviewed ? "response_reviewed" : "response_reviewing", "Response review", reviewAvailable, reviewed);
+  }
+  if (response?.decision?.choice === "CONTINUE_CHALLENGING") {
+    add("follow_up", claim.followUp?.state === "sent" ? "Sent follow-up" : "Follow-up request", true, claim.followUp?.state === "sent");
   }
 
   return {

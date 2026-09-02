@@ -1190,7 +1190,9 @@ def validate_sending_details(value: Any) -> dict[str, Any]:
     return dict(value)
 
 
-def validate_message_draft(value: Any, *, nullable: bool = False) -> dict[str, Any] | None:
+def validate_message_draft(
+    value: Any, *, nullable: bool = False, purpose: str = "initial_reconsideration"
+) -> dict[str, Any] | None:
     if value is None and nullable:
         return None
     if not isinstance(value, Mapping) or set(value) != {
@@ -1206,7 +1208,7 @@ def validate_message_draft(value: Any, *, nullable: bool = False) -> dict[str, A
         raise SupabaseContractError("Message draft is invalid")
     _uuid(value.get("draftId"), "Draft ID")
     _uuid(value.get("reportVersionId"), "Draft report ID")
-    if value.get("purpose") != "initial_reconsideration":
+    if value.get("purpose") != purpose:
         raise SupabaseContractError("Message purpose is invalid")
     recipient = _bounded_text(value.get("recipient"), "Draft recipient", 320, nullable=True)
     if recipient is not None and _EMAIL.fullmatch(recipient) is None:
@@ -1217,6 +1219,58 @@ def validate_message_draft(value: Any, *, nullable: bool = False) -> dict[str, A
     if isinstance(revision, bool) or not isinstance(revision, int) or revision < 1:
         raise SupabaseContractError("Draft revision is invalid")
     _timestamp(value.get("updatedAt"), "Draft update time")
+    return dict(value)
+
+
+def validate_follow_up_projection(value: Any) -> dict[str, Any] | None:
+    """Validate a distinct follow-up without reinterpreting the initial request."""
+    if value is None:
+        return None
+    if not isinstance(value, Mapping) or set(value) != {
+        "state", "decisionId", "responseId", "analysisResultId", "reportVersionId",
+        "draft", "preparedMessage", "sentMessage", "reasonCode",
+    }:
+        raise SupabaseContractError("Follow-up response is invalid")
+    if value.get("state") not in {"available", "draft", "sent", "unavailable"}:
+        raise SupabaseContractError("Follow-up state is invalid")
+    for key in ("decisionId", "responseId", "analysisResultId", "reportVersionId"):
+        _uuid(value.get(key), key)
+    draft = validate_message_draft(
+        value.get("draft"), nullable=True, purpose="follow_up_reconsideration"
+    )
+    if (value.get("state") in {"draft", "sent"}) != (draft is not None):
+        raise SupabaseContractError("Follow-up draft state is invalid")
+    if draft is not None and draft["reportVersionId"] != value["reportVersionId"]:
+        raise SupabaseContractError("Follow-up report lineage is invalid")
+    for key, state in (("preparedMessage", "prepared"), ("sentMessage", "sent")):
+        version = value.get(key)
+        if version is None:
+            continue
+        extra = {"customerReportedSentAt", "communicationId", "negotiationRoundId"} if state == "sent" else set()
+        if not isinstance(version, Mapping) or set(version) != {
+            "messageVersionId", "versionNumber", "state", "reportVersionId",
+            "recipient", "subject", "body", "createdAt",
+        } | extra:
+            raise SupabaseContractError("Follow-up message version is invalid")
+        if draft is None or version.get("reportVersionId") != value["reportVersionId"] or version.get("state") != state:
+            raise SupabaseContractError("Follow-up message lineage is invalid")
+        CustomerDeliveryService._prepared({
+            "draft": draft,
+            "messageVersion": {**{k: v for k, v in version.items() if k not in extra}, "state": "prepared"},
+            "workflowRevision": 1,
+        }, purpose="follow_up_reconsideration")
+        if state == "sent":
+            for identifier in ("communicationId", "negotiationRoundId"):
+                _uuid(version.get(identifier), identifier)
+            _timestamp(version.get("customerReportedSentAt"), "Follow-up sent time")
+    if (value.get("state") == "sent") != (value.get("sentMessage") is not None):
+        raise SupabaseContractError("Follow-up sent state is invalid")
+    reason = value.get("reasonCode")
+    if value.get("state") == "unavailable":
+        if not isinstance(reason, str) or re.fullmatch(r"[A-Z][A-Z0-9_]{0,99}", reason) is None:
+            raise SupabaseContractError("Follow-up recovery reason is invalid")
+    elif reason is not None:
+        raise SupabaseContractError("Follow-up recovery reason is invalid")
     return dict(value)
 
 
@@ -1486,8 +1540,94 @@ class CustomerDeliveryService:
             nullable=True,
         )
 
-    def edit_draft(
+    def follow_up(self, case_id: str, access_token: str) -> dict[str, Any] | None:
+        canonical_case = _request_uuid(case_id, "Case ID")
+        self.gateway.authenticate(access_token)
+        return validate_follow_up_projection(
+            self.gateway.get_total_loss_customer_follow_up(canonical_case, access_token)
+        )
+
+    def generate_follow_up(
         self, case_id: str, values: Mapping[str, Any], access_token: str
+    ) -> dict[str, Any]:
+        from venfour.insurer_response_followup import build_insurer_response_followup_v1
+        from venfour.package_assessment import canonical_package_digest
+
+        canonical_case = _request_uuid(case_id, "Case ID")
+        if not isinstance(values, Mapping) or set(values) != {"decisionId"}:
+            raise CustomerDeliveryInputError("Follow-up generation request is invalid")
+        decision_id = _request_uuid(values.get("decisionId"), "Decision ID")
+        user_id = self.gateway.authenticate(access_token)
+        existing = validate_follow_up_projection(
+            self.gateway.get_total_loss_customer_follow_up(canonical_case, access_token)
+        )
+        if existing is None or existing["decisionId"] != decision_id:
+            raise CustomerDeliveryConflictError("The saved Continue decision is no longer current")
+        if existing["state"] in {"draft", "sent"}:
+            return existing
+        context = self.gateway.resolve_total_loss_follow_up_generation_context(
+            canonical_case, user_id, decision_id
+        )
+        if context is None:
+            return {**existing, "state": "unavailable", "reasonCode": "FOLLOW_UP_SOURCE_UNAVAILABLE"}
+        if not isinstance(context, Mapping) or set(context) != {
+            "sourceIdentity", "analysis", "evidenceIndex", "recommendation",
+            "finalAssessment", "report", "initialRequest", "sendingDetails",
+            "customerOffer", "contextDigest",
+        }:
+            raise SupabaseContractError("Follow-up source context is invalid")
+        digest = context.get("contextDigest")
+        identity = context.get("sourceIdentity")
+        if (not isinstance(digest, str) or _CONTENT_DIGEST.fullmatch(digest) is None
+            or canonical_package_digest({k: v for k, v in context.items() if k != "contextDigest"}) != digest
+            or not isinstance(identity, Mapping)
+            or identity.get("caseId") != canonical_case
+            or identity.get("decisionId") != decision_id
+            or identity.get("decision") != "CONTINUE_CHALLENGING"
+            or identity.get("responseId") != existing["responseId"]
+            or identity.get("analysisResultId") != existing["analysisResultId"]
+            or identity.get("reportId") != existing["reportVersionId"]):
+            raise SupabaseContractError("Follow-up source identity is invalid")
+        generated = build_insurer_response_followup_v1(
+            source_identity=identity,
+            analysis=context["analysis"], evidence_index=context["evidenceIndex"],
+            recommendation=context["recommendation"], final_assessment=context["finalAssessment"],
+            initial_request=context["initialRequest"], sending_details=context["sendingDetails"],
+            customer_offer=context["customerOffer"], report=context["report"],
+        )
+        result = validate_follow_up_projection(self.gateway.store_total_loss_follow_up_draft(
+            canonical_case, user_id, decision_id, digest, generated
+        ))
+        if result is None or any(result[key] != existing[key] for key in (
+            "decisionId", "responseId", "analysisResultId", "reportVersionId"
+        )):
+            raise SupabaseContractError("Generated follow-up identity is invalid")
+        return result
+
+    def prepare_follow_up(
+        self, case_id: str, values: Mapping[str, Any], access_token: str
+    ) -> dict[str, Any]:
+        canonical_case = _request_uuid(case_id, "Case ID")
+        if not isinstance(values, Mapping) or set(values) != {
+            "draftId", "clientRequestId", "expectedWorkflowRevision", "expectedDraftRevision",
+        }:
+            raise CustomerDeliveryInputError("Follow-up preparation request is invalid")
+        for key in ("draftId", "clientRequestId"):
+            _request_uuid(values.get(key), key)
+        for key in ("expectedWorkflowRevision", "expectedDraftRevision"):
+            _positive_revision(values.get(key), key)
+        self.gateway.authenticate(access_token)
+        prepared = self._prepared(
+            self.gateway.prepare_total_loss_customer_follow_up(canonical_case, values, access_token),
+            purpose="follow_up_reconsideration",
+        )
+        if prepared["draft"]["draftId"] != values["draftId"]:
+            raise SupabaseContractError("Prepared follow-up identity is invalid")
+        return prepared
+
+    def edit_draft(
+        self, case_id: str, values: Mapping[str, Any], access_token: str,
+        *, follow_up: bool = False,
     ) -> dict[str, Any]:
         canonical_case = _request_uuid(case_id, "Case ID")
         if not isinstance(values, Mapping) or set(values) != {
@@ -1495,7 +1635,7 @@ class CustomerDeliveryService:
             "subject",
             "body",
             "expectedRevision",
-        }:
+        } | ({"draftId"} if follow_up else set()):
             raise CustomerDeliveryInputError("Message draft request is invalid")
         recipient = values.get("recipient")
         subject = values.get("subject")
@@ -1513,11 +1653,21 @@ class CustomerDeliveryService:
         ):
             raise CustomerDeliveryInputError("Message draft request is invalid")
         _positive_revision(values.get("expectedRevision"), "Draft revision")
+        if follow_up:
+            _request_uuid(values.get("draftId"), "Draft ID")
         self.gateway.authenticate(access_token)
-        draft = self.gateway.patch_total_loss_customer_message_draft(
+        save = (
+            self.gateway.patch_total_loss_customer_follow_up_draft
+            if follow_up else self.gateway.patch_total_loss_customer_message_draft
+        )
+        draft = save(
             canonical_case, values, access_token
         )
-        validated = validate_message_draft(draft)
+        validated = validate_message_draft(
+            draft, purpose="follow_up_reconsideration" if follow_up else "initial_reconsideration"
+        )
+        if follow_up and validated and validated["draftId"] != values["draftId"]:
+            raise SupabaseContractError("Follow-up draft identity is invalid")
         assert validated is not None
         return validated
 
@@ -1534,14 +1684,14 @@ class CustomerDeliveryService:
         return self._prepared(result)
 
     @staticmethod
-    def _prepared(value: Any) -> dict[str, Any]:
+    def _prepared(value: Any, *, purpose: str = "initial_reconsideration") -> dict[str, Any]:
         if not isinstance(value, Mapping) or set(value) != {
             "draft",
             "messageVersion",
             "workflowRevision",
         }:
             raise SupabaseContractError("Prepared message response is invalid")
-        draft = validate_message_draft(value.get("draft"))
+        draft = validate_message_draft(value.get("draft"), purpose=purpose)
         version = value.get("messageVersion")
         if not isinstance(version, Mapping) or set(version) != {
             "messageVersionId",
@@ -1603,7 +1753,8 @@ class CustomerDeliveryService:
         return dict(value)
 
     def sent(
-        self, case_id: str, values: Mapping[str, Any], access_token: str
+        self, case_id: str, values: Mapping[str, Any], access_token: str,
+        *, follow_up: bool = False,
     ) -> dict[str, Any]:
         canonical_case = _request_uuid(case_id, "Case ID")
         if not isinstance(values, Mapping) or set(values) != {
@@ -1619,7 +1770,11 @@ class CustomerDeliveryService:
         if values.get("confirmedReportAttached") is not True:
             raise CustomerDeliveryInputError("Report attachment confirmation is required")
         self.gateway.authenticate(access_token)
-        result = self.gateway.confirm_total_loss_customer_message_sent(
+        confirm = (
+            self.gateway.confirm_total_loss_customer_follow_up_sent
+            if follow_up else self.gateway.confirm_total_loss_customer_message_sent
+        )
+        result = confirm(
             canonical_case, values, access_token
         )
         if not isinstance(result, Mapping) or set(result) != {

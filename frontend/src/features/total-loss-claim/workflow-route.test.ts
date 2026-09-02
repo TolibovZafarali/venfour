@@ -61,6 +61,7 @@ describe("total-loss claim authoritative route decisions", () => {
     ["insurer_response_received", `/total-loss/cases/${CASE_ID}/claim/review/response-received`],
     ["insurer_response_reviewing", `/total-loss/cases/${CASE_ID}/claim/review/response-reviewing`],
     ["insurer_response_reviewed", `/total-loss/cases/${CASE_ID}/claim/review/response-reviewed`],
+    ["follow_up_preparation", `/total-loss/cases/${CASE_ID}/claim/review/follow-up`],
     ["insurer_response_review_unavailable", `/total-loss/cases/${CASE_ID}/claim/review/response-reviewing`],
     ["no_dispute", `/total-loss/cases/${CASE_ID}/claim/review/result`],
   ] as const)("routes %s to its case-scoped state", (state, expected) => {
@@ -140,6 +141,7 @@ describe("completed analysis deep-link compatibility", () => {
     ["review_response_received", "response_received"],
     ["review_response_reviewing", "response_reviewing"],
     ["review_response_reviewed", "response_reviewed"],
+    ["review_follow_up", "follow_up"],
   ] as const)("keeps %s links focused on %s", (view, section) => {
     expect(isCompletedAnalysisView(view)).toBe(true);
     expect(completedAnalysisStage(view, new URLSearchParams(), "report")).toBe(section);

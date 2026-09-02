@@ -12,6 +12,7 @@ import {
   type TotalLossDependencies,
 } from "@/features/total-loss/dependencies";
 import { CompletedAnalysis } from "@/features/total-loss-claim/components/completed-analysis";
+import type * as MessagePreparationComponents from "@/features/total-loss-claim/components/message-preparation";
 import {
   TOTAL_LOSS_EDUCATION_STEPS,
   type TotalLossClaimJourneyState,
@@ -23,12 +24,13 @@ import {
   type TotalLossResponseDecisionInput,
   type TotalLossResponseRecommendation,
 } from "@/features/total-loss-claim/contracts";
-import { useTotalLossClaimQuery } from "@/features/total-loss-claim/queries";
+import { totalLossClaimQueryKeys, useTotalLossClaimQuery } from "@/features/total-loss-claim/queries";
 import type { TotalLossClaimWorkflowView } from "@/features/total-loss-claim/workflow-route";
 import { server } from "@/test/mocks/server";
 
 const request = vi.hoisted(() => ({ render: vi.fn() }));
-vi.mock("@/features/total-loss-claim/components/message-preparation", () => ({
+vi.mock("@/features/total-loss-claim/components/message-preparation", async (importOriginal) => ({
+  ...await importOriginal<typeof MessagePreparationComponents>(),
   MessagePreparation: (props: { readonly claim: TotalLossClaimSecured }) => {
     request.render(props);
     return <><h1>{props.claim.messageDraft ? "Review and send your request" : "Prepare your request"}</h1><div data-testid="request-controls">Request controls</div></>;
@@ -216,7 +218,7 @@ function recommendedResponse(state: TotalLossResponseRecommendation["state"] = "
       recommendationId: "11111111-1111-4111-8111-111111111111",
       versionNumber: 1,
       analysisResultId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
-      schemaVersion: "1", policyVersion: "1", state,
+      schemaVersion: "1", policyVersion: "2", state,
       summary: "The saved valuation evidence supports this recommendation.",
       reasons: ["The revised amount was compared with the saved evidence range."],
       reasonCodes: ["OFFER_COMPARED_WITH_SAVED_EVIDENCE"],
@@ -244,6 +246,29 @@ function decisionResponse(response: TotalLossInsurerResponse, input: TotalLossRe
       choice: input.choice, offerId: input.offerId,
       amountMinorUnits: input.choice === "ACCEPT_OFFER" ? response.usableOffer!.amountMinorUnits : null,
       currency: input.choice === "ACCEPT_OFFER" ? response.usableOffer!.currency : null, recordedAt: NOW,
+    },
+  };
+}
+
+function followUpJourneyClaim(sent = false): TotalLossClaimSecured {
+  const response = recommendedResponse();
+  const selected = decisionResponse(response, {
+    clientRequestId: USER_ID, recommendationId: response.recommendation!.recommendationId, choice: "CONTINUE_CHALLENGING", offerId: null, workflowRevision: 15,
+  });
+  const draft = {
+    ...claimProjection().messageDraft!, draftId: "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee", purpose: "follow_up_reconsideration" as const,
+    body: "Thank you for your response. Please explain how you considered the previous evidence.", subject: "Follow-up request - CLM-42",
+  };
+  const message = { ...draft, recipient: draft.recipient!, messageVersionId: "ffffffff-ffff-4fff-8fff-ffffffffffff", versionNumber: 1, state: "prepared" as const, createdAt: NOW };
+  return {
+    ...reviewedClaim(selected),
+    workflow: { phase: "negotiation", currentTask: sent ? "awaiting_insurer_response" : "follow_up_preparation", revision: 16 },
+    journey: { fulfillmentState: sent ? "awaiting_insurer_response" : "follow_up_preparation", nextState: sent ? "awaiting_insurer_response" : "follow_up_preparation", retryable: false },
+    followUp: {
+      state: sent ? "sent" : "draft", decisionId: selected.decision!.decisionId, responseId: selected.responseId,
+      analysisResultId: selected.decision!.analysisResultId, reportVersionId: REPORT_ID, draft,
+      preparedMessage: message, sentMessage: sent ? { ...message, state: "sent", customerReportedSentAt: NOW, communicationId: "12121212-1212-4212-8212-121212121212", negotiationRoundId: "13131313-1313-4313-8313-131313131313" } : null,
+      reasonCode: null,
     },
   };
 }
@@ -591,6 +616,90 @@ function backControl() {
 }
 
 describe("completed-analysis guided progression", () => {
+  it.each(["manual", "report"] as const)("navigates %s follow-up confirmation to waiting when the live claim refresh replaces the editor", async (intakeMode) => {
+    const saved = installClaim(followUpJourneyClaim());
+    const sent = followUpJourneyClaim(true);
+    server.use(http.post(`${API}/follow-up/sent`, async ({ request: update }) => {
+      const input = await update.json() as { messageVersionId: string };
+      expect(input.messageVersionId).toBe(sent.followUp!.preparedMessage!.messageVersionId);
+      saved.setClaim(sent);
+      return HttpResponse.json({
+        state: "awaiting_insurer_response", workflowRevision: sent.workflow!.revision,
+        messageVersionId: input.messageVersionId, communicationId: sent.followUp!.sentMessage!.communicationId,
+        negotiationRoundId: sent.followUp!.sentMessage!.negotiationRoundId, customerReportedSentAt: NOW,
+      });
+    }));
+    const view = renderJourney(intakeMode, "follow-up");
+    const user = userEvent.setup();
+    vi.spyOn(navigator.clipboard, "writeText").mockResolvedValue(undefined);
+    await user.click(await screen.findByRole("button", { name: "Copy email" }));
+    await user.click(await screen.findByRole("checkbox", { name: "I sent the email with this PDF attached." }));
+    await user.click(screen.getByRole("button", { name: "Mark as sent" }));
+    expect(await screen.findByRole("heading", { name: "Waiting for the insurer’s response" })).toBeVisible();
+    expect(view.router.state.location.pathname).toBe(`${BASE}/review/waiting`);
+    expect(screen.queryByRole("textbox", { name: "Message" })).not.toBeInTheDocument();
+  });
+
+  it("does not move a customer who left the follow-up while sent confirmation was pending", async () => {
+    const saved = installClaim(followUpJourneyClaim());
+    const sent = followUpJourneyClaim(true);
+    let release: (() => void) | undefined;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    server.use(http.post(`${API}/follow-up/sent`, async () => {
+      await gate;
+      saved.setClaim(sent);
+      return HttpResponse.json({
+        state: "awaiting_insurer_response", workflowRevision: sent.workflow!.revision,
+        messageVersionId: sent.followUp!.preparedMessage!.messageVersionId,
+        communicationId: sent.followUp!.sentMessage!.communicationId,
+        negotiationRoundId: sent.followUp!.sentMessage!.negotiationRoundId, customerReportedSentAt: NOW,
+      });
+    }));
+    const view = renderJourney("report", "follow-up");
+    const user = userEvent.setup();
+    vi.spyOn(navigator.clipboard, "writeText").mockResolvedValue(undefined);
+    await user.click(await screen.findByRole("button", { name: "Copy email" }));
+    await user.click(await screen.findByRole("checkbox", { name: "I sent the email with this PDF attached." }));
+    await user.click(screen.getByRole("button", { name: "Mark as sent" }));
+    await user.click(screen.getByRole("link", { name: "Initial request" }));
+    expect(await screen.findByRole("heading", { name: "Your sent request" })).toBeVisible();
+    await act(async () => { release?.(); });
+    await waitFor(() => expect(view.queryClient.getQueryData<TotalLossClaimSecured>(totalLossClaimQueryKeys.detail(USER_ID, CASE_ID))?.followUp?.state).toBe("sent"));
+    expect(view.router.state.location.pathname).toBe(`${BASE}/review/request`);
+    expect(screen.getByRole("heading", { name: "Your sent request" })).toBeVisible();
+  });
+
+  it.each(["manual", "report"] as const)("resumes the same %s follow-up and keeps the original request and response review reachable", async (intakeMode) => {
+    const current = followUpJourneyClaim();
+    const installed = installClaim(current);
+    const view = renderJourney(intakeMode, "follow-up");
+    const user = userEvent.setup();
+    expect(await screen.findByRole("heading", { name: "Review and send your follow-up" })).toBeVisible();
+    expect(screen.getByRole("textbox", { name: "Message" })).toHaveValue(current.followUp!.draft!.body);
+    await user.click(screen.getByRole("link", { name: "Initial request" }));
+    expect(await screen.findByRole("heading", { name: "Your sent request" })).toBeVisible();
+    expect(screen.getByLabelText("Request message")).toHaveTextContent(current.messageDraft!.body);
+    await user.click(screen.getByRole("link", { name: "Response review" }));
+    expect(await screen.findByText("You chose to continue challenging")).toBeVisible();
+    await user.click(screen.getByRole("link", { name: "Review my follow-up" }));
+    expect(await screen.findByRole("heading", { name: "Review and send your follow-up" })).toBeVisible();
+    expect(installed.draftWrites).not.toHaveBeenCalled();
+    expect(installed.responseWrites).toHaveLength(0);
+    expect(view.router.state.location.pathname).toBe(`${BASE}/review/follow-up`);
+  });
+
+  it("resumes waiting after the follow-up is sent and blocks another response intake route", async () => {
+    installClaim(followUpJourneyClaim(true));
+    const view = renderJourney("report", "response");
+    expect(await screen.findByRole("heading", { name: "Waiting for the insurer’s response" })).toBeVisible();
+    expect(view.router.state.location.pathname).toBe(`${BASE}/review/waiting`);
+    expect(screen.queryByRole("button", { name: "I received a response" })).not.toBeInTheDocument();
+    expect(screen.getByText(/adding another insurer response is not available yet/u)).toBeVisible();
+    await userEvent.click(screen.getByRole("link", { name: "View your sent follow-up" }));
+    expect(await screen.findByRole("heading", { name: "Your sent follow-up" })).toBeVisible();
+    expect(screen.getByLabelText("Follow-up message")).toHaveTextContent(followUpJourneyClaim(true).followUp!.sentMessage!.body);
+    expect(screen.queryByRole("textbox", { name: "Message" })).not.toBeInTheDocument();
+  });
   beforeEach(() => {
     request.render.mockClear();
     window.sessionStorage.clear();
@@ -1670,7 +1779,6 @@ describe("completed-analysis guided progression", () => {
   });
 
   it.each([
-    ["ACCEPT_OFFER", "Accept offer"],
     ["CONTINUE_CHALLENGING", "Continue challenging"],
     ["NO_CLEAR_RECOMMENDATION", "No clear recommendation"],
   ] as const)("presents the persisted %s recommendation without making a customer choice on view", async (state, label) => {
@@ -1695,7 +1803,7 @@ describe("completed-analysis guided progression", () => {
   });
 
   it.each(["ACCEPT_OFFER", "CONTINUE_CHALLENGING"] as const)("records an explicit %s choice independently from the recommendation and resumes it", async (choice) => {
-    const recommendationState = choice === "ACCEPT_OFFER" ? "CONTINUE_CHALLENGING" : "ACCEPT_OFFER";
+    const recommendationState = choice === "ACCEPT_OFFER" ? "CONTINUE_CHALLENGING" : "NO_CLEAR_RECOMMENDATION";
     const initial = reviewedClaim(recommendedResponse(recommendationState));
     const installed = installClaim(initial);
     const writes: TotalLossResponseDecisionInput[] = [];
@@ -1729,12 +1837,13 @@ describe("completed-analysis guided progression", () => {
     expect(screen.queryByRole("button", { name: "Accept offer" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Continue challenging" })).not.toBeInTheDocument();
     expect(window.sessionStorage.length).toBe(0);
-    expect(screen.getByText(/case remains open/u)).toBeVisible();
+    expect(screen.getByText(choice === "ACCEPT_OFFER" ? /case remains open/u : /Your choice is saved\. Review and send/u)).toBeVisible();
+    expect(screen.queryByRole("link", { name: "Prepare my follow-up" })).toBe(choice === "ACCEPT_OFFER" ? null : screen.getByRole("link", { name: "Prepare my follow-up" }));
     first.unmount();
     renderJourney("report", "response-reviewed");
     expect(await screen.findByText(recorded)).toBeVisible();
     expect(writes).toHaveLength(1);
-    expect(screen.getByText(recommendationState === "ACCEPT_OFFER" ? "Accept offer" : "Continue challenging", { selector: ".response-recommendation > strong" })).toBeVisible();
+    expect(screen.getByText(recommendationState === "NO_CLEAR_RECOMMENDATION" ? "No clear recommendation" : "Continue challenging", { selector: ".response-recommendation > strong" })).toBeVisible();
   });
 
   it("offers Continue without inventing an Accept action from the analyzed amount", async () => {
@@ -2148,7 +2257,7 @@ describe("completed-analysis guided progression", () => {
     await user.click(within(navigation).getByRole("link", { name: /^Your result/u }));
     expect(await screen.findByRole("heading", { name: "Your result" })).toBeVisible();
     expect(progress).toHaveAttribute("aria-valuetext", progressLabel);
-    await user.click(within(navigation).getByRole("link", { name: /^Sent request/u }));
+    await user.click(within(navigation).getByRole("link", { name: /^Initial request/u }));
     expect(await screen.findByRole("heading", { name: "Your sent request" })).toBeVisible();
     expect(view.router.state.location.pathname).toBe(`${BASE}/review/request`);
     expect(screen.queryByTestId("request-controls")).not.toBeInTheDocument();

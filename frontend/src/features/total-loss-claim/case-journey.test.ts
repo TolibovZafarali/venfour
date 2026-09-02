@@ -22,6 +22,14 @@ function progress(
 }
 
 describe("total-loss case journey progress", () => {
+  it.each(["manual", "report"] as const)("returns to active waiting after the sent follow-up for %s intake", (intakeMode) => {
+    const result = totalLossCaseJourneyProgress({ continuingSupported: true, hasDraft: true, intakeMode, stage: "waiting", hasFollowUp: true, followUpSent: true });
+    expect(result.current.id).toBe("waiting_for_follow_up_response");
+    expect(result.current.label).toBe("Waiting for insurer");
+    expect(result.position).toBe(result.total);
+    expect(result.isCaseActive).toBe(true);
+    expect(result.steps.at(-2)?.id).toBe("prepare_follow_up");
+  });
   it("keeps the current report-based journey ordered through active waiting", () => {
     const waiting = progress("waiting", { hasDraft: true });
 

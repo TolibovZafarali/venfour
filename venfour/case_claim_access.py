@@ -24,6 +24,7 @@ from venfour.supabase_gateway import (
 )
 from venfour.customer_delivery import (
     validate_education_projection,
+    validate_follow_up_projection,
     validate_insurer_response_projection,
     validate_message_draft,
     validate_report_projection,
@@ -408,6 +409,7 @@ class ClaimResumeState:
     sending_details: Mapping[str, Any] | None = None
     message_draft: Mapping[str, Any] | None = None
     insurer_response: Mapping[str, Any] | None = None
+    follow_up: Mapping[str, Any] | None = None
     extended: bool = False
 
     def to_dict(self) -> dict[str, Any]:
@@ -439,6 +441,8 @@ class ClaimResumeState:
                     ),
                 }
             )
+            if self.follow_up is not None:
+                result["followUp"] = dict(self.follow_up)
         return result
 
 
@@ -492,6 +496,7 @@ class CaseClaimAccessService:
         "guide_report",
         "guide_what_next",
         "prepare_request",
+        "follow_up_preparation",
         "awaiting_insurer_response",
         "insurer_response_received",
         "insurer_response_reviewing",
@@ -514,6 +519,7 @@ class CaseClaimAccessService:
         "insurer_response_reviewing",
         "insurer_response_reviewed",
         "insurer_response_review_unavailable",
+        "follow_up_preparation",
     }
 
     def __init__(
@@ -662,6 +668,7 @@ class CaseClaimAccessService:
                 "sending_details",
                 "message_draft",
                 "insurer_response",
+                "follow_up",
                 "commerce_amount_minor_units",
                 "commerce_currency",
             )
@@ -684,6 +691,7 @@ class CaseClaimAccessService:
                         "sending_details",
                         "message_draft",
                         "insurer_response",
+                        "follow_up",
                     )
                 )
             ):
@@ -723,14 +731,15 @@ class CaseClaimAccessService:
             if response_value is not None
             else None
         )
+        follow_up = validate_follow_up_projection(row.get("follow_up"))
         if state != "secured" and any(
             value is not None
-            for value in (report, education, sending, draft, insurer_response)
+            for value in (report, education, sending, draft, insurer_response, follow_up)
         ):
             raise SupabaseContractError("Claim delivery response is invalid")
         if report is None and any(
             value is not None
-            for value in (education, sending, draft)
+            for value in (education, sending, draft, follow_up)
         ):
             raise SupabaseContractError("Claim delivery response is invalid")
         response_state = bool(
@@ -742,8 +751,22 @@ class CaseClaimAccessService:
                 "insurer_response_reviewing",
                 "insurer_response_reviewed",
                 "insurer_response_review_unavailable",
+                "follow_up_preparation",
             }
         )
+        if follow_up is not None:
+            decision = insurer_response.get("decision") if insurer_response else None
+            if not isinstance(decision, Mapping) or (
+                decision.get("choice") != "CONTINUE_CHALLENGING"
+                or decision.get("decisionId") != follow_up["decisionId"]
+                or insurer_response.get("responseId") != follow_up["responseId"]
+                or decision.get("analysisResultId") != follow_up["analysisResultId"]
+            ):
+                raise SupabaseContractError("Follow-up response lineage is invalid")
+            if workflow and workflow.current_task == "awaiting_insurer_response":
+                if follow_up["state"] != "sent":
+                    raise SupabaseContractError("Follow-up waiting state is invalid")
+                response_state = True
         if response_state != (insurer_response is not None):
             raise SupabaseContractError("Claim delivery response is invalid")
         return ClaimResumeState(
@@ -758,6 +781,7 @@ class CaseClaimAccessService:
             sending_details=sending,
             message_draft=draft,
             insurer_response=insurer_response,
+            follow_up=follow_up,
             extended=extended,
         )
 

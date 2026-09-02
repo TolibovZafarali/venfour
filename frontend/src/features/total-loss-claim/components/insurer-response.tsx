@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { Link } from "react-router";
 
 import {
   DIMINISHED_VALUE_DOCUMENT_ACCEPT,
@@ -53,6 +54,7 @@ import {
   TotalLossInsurerResponseStorageError,
 } from "../insurer-response-storage-service";
 import { RecordedTime } from "./completed-analysis-visuals";
+import { totalLossClaimViewPath } from "../workflow-route";
 import { StableActionLabel } from "./stable-action-label";
 import { displayed } from "../report-format";
 import { openPublishedReport, reservePublishedReportPreview } from "../browser-actions";
@@ -579,7 +581,8 @@ function SavedResponseMaterial({
   );
 }
 
-function CorrectionAction({ onCorrect }: { readonly onCorrect: () => void }) {
+function CorrectionAction({ onCorrect }: { readonly onCorrect?: () => void }) {
+  if (!onCorrect) return null;
   return (
     <div className="response-received-actions">
       <p>
@@ -605,7 +608,7 @@ export function InsurerResponseReceived({
   onCorrect,
   userId,
 }: InsurerResponseAccess & {
-  readonly onCorrect: () => void;
+  readonly onCorrect?: () => void;
   readonly response: TotalLossInsurerResponse;
 }) {
   return (
@@ -795,7 +798,8 @@ function ResponseDecisionArea({ accessToken, caseId, claim, onRefresh, response,
             <p>Recorded <RecordedTime value={decision.recordedAt} />.</p>
             <p>{decision.choice === "ACCEPT_OFFER"
               ? "Your choice is saved for this exact insurer offer. Nothing has been sent to the insurer, and your case remains open."
-              : "Your choice is saved. No follow-up has been created or sent, and your case remains open."}</p>
+              : claim.followUp?.state === "sent" ? "You confirmed sending your follow-up. Your case remains open while you wait for the insurer." : "Your choice is saved. Review and send a focused follow-up based on the saved response and supporting evidence."}</p>
+            {decision.choice === "CONTINUE_CHALLENGING" ? <Link className="request-button request-button-primary" to={totalLossClaimViewPath(caseId, "review_follow_up")}>{claim.followUp?.state === "sent" ? "View sent follow-up" : claim.followUp?.draft ? "Review my follow-up" : "Prepare my follow-up"}</Link> : null}
           </div>
         </div>
       ) : (
@@ -949,7 +953,7 @@ export function InsurerResponseReviewing({
   response,
   userId,
 }: InsurerResponseIdentity & {
-  readonly onCorrect: () => void;
+  readonly onCorrect?: () => void;
   readonly response: TotalLossInsurerResponse;
 }) {
   const retry = useTotalLossInsurerResponseAnalysisRetryMutation({
@@ -1077,7 +1081,7 @@ export function InsurerResponseReviewed({
   response,
   userId,
 }: InsurerResponseIdentity & {
-  readonly onCorrect: () => void;
+  readonly onCorrect?: () => void;
   readonly priorValuation: TotalLossMoney;
   readonly response: TotalLossInsurerResponse & {
     readonly analysis: TotalLossInsurerResponseAnalysis;

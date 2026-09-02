@@ -48,12 +48,14 @@ function RequestRecorded(props: RequestPreparationOptions) {
   );
 }
 
-function DraftEditor({
+export function DraftEditor({
   actionContainer,
   draft,
   initialPreparedMessage,
   workflowRevision,
   onSent,
+  onSentAttempt,
+  followUpDraftId,
   ...props
 }: RequestPreparationOptions & {
   readonly actionContainer?: HTMLElement | null;
@@ -61,6 +63,8 @@ function DraftEditor({
   readonly initialPreparedMessage: TotalLossPreparedMessageVersion | null;
   readonly workflowRevision: number;
   readonly onSent?: () => void;
+  readonly onSentAttempt?: () => void;
+  readonly followUpDraftId?: string;
 }) {
   const editor = useRequestDraft({
     ...props,
@@ -68,6 +72,7 @@ function DraftEditor({
     initialPreparedMessage,
     workflowRevision,
     onSent,
+    followUpDraftId,
   });
   const fieldId = useId();
   const confirmationHeading = useRef<HTMLHeadingElement>(null);
@@ -99,7 +104,10 @@ function DraftEditor({
       aria-describedby={`${fieldId}-sent-confirmation`}
       disabled={!sentAcknowledged || editor.action !== null || editor.conflict}
       onClick={() => {
-        if (sentAcknowledged) void editor.confirmSent();
+        if (sentAcknowledged) {
+          onSentAttempt?.();
+          void editor.confirmSent();
+        }
       }}
       type="button"
     >
@@ -121,10 +129,10 @@ function DraftEditor({
   );
 
   return (
-    <section className="request-review" aria-label="Request draft">
+    <section className="request-review" aria-label={followUpDraftId ? "Follow-up draft" : "Request draft"}>
       <header className="request-heading" data-review-entrance="primary" data-review-order="0">
-        <h1>Review and send your request</h1>
-        <p>Review the message below. When it’s ready, open it in your email app, attach the valuation report, and send it.</p>
+        <h1>{followUpDraftId ? "Review and send your follow-up" : "Review and send your request"}</h1>
+        <p>{followUpDraftId ? "This follow-up responds to the insurer’s saved response using the evidence reviewed with your Continue decision. Review and edit it before sending from your email app." : "Review the message below. When it’s ready, open it in your email app, attach the valuation report, and send it."}</p>
       </header>
       <div className="request-send-layout" data-confirming={hasSharedMessage || undefined}>
         <aside className="request-evidence-panel" data-review-entrance="secondary" data-review-order="1" aria-labelledby={`${fieldId}-evidence`}>

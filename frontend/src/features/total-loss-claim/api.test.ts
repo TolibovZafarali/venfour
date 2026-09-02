@@ -6,6 +6,9 @@ import {
   getTotalLossCheckoutQuote,
   getTotalLossClaim,
   getTotalLossInsurerResponseDownload,
+  getTotalLossFollowUp,
+  generateTotalLossFollowUp,
+  getTotalLossMessageDraft,
   initializeTotalLossClaim,
   prepareTotalLossInsurerResponseUpload,
   recordTotalLossInsurerResponse,
@@ -24,6 +27,54 @@ const CASE_REF = `case_${"b".repeat(64)}`;
 const RECOMMENDATION_ID = "11111111-1111-4111-8111-111111111111";
 const ANALYSIS_RESULT_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const OFFER_ID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+
+function savedFollowUpProjection() {
+  return {
+    state: "draft", decisionId: OFFER_ID, responseId: CLAIM_ID, analysisResultId: ANALYSIS_RESULT_ID, reportVersionId: OTHER_CASE_ID,
+    draft: { draftId: RECOMMENDATION_ID, purpose: "follow_up_reconsideration", recipient: "adjuster@example.com", subject: "Follow-up", body: "Thank you for reviewing my request.", reportVersionId: OTHER_CASE_ID, revision: 1, updatedAt: "2026-09-02T12:00:00Z" },
+    preparedMessage: null, sentMessage: null, reasonCode: null,
+  };
+}
+
+describe("follow-up API contracts", () => {
+  it("maps the distinct immutable sent state and retains its exact message", async () => {
+    const followUp = savedFollowUpProjection();
+    const sentMessage = {
+      ...followUp.draft, state: "sent", messageVersionId: CASE_ID, createdAt: "2026-09-02T12:01:00Z", versionNumber: 2,
+      customerReportedSentAt: "2026-09-02T12:02:00Z", communicationId: CLAIM_ID, negotiationRoundId: OFFER_ID,
+    };
+    server.use(http.get("*/api/v1/appraisal-cases/:caseId/follow-up", () => HttpResponse.json({ ...followUp, state: "sent", sentMessage })));
+    await expect(getTotalLossFollowUp(CASE_ID, "owner-token")).resolves.toMatchObject({ state: "sent", sentMessage: { state: "sent", body: sentMessage.body, messageVersionId: CASE_ID, customerReportedSentAt: sentMessage.customerReportedSentAt } });
+  });
+  it("reads a saved follow-up and generation binds the explicit decision", async () => {
+    const followUp = savedFollowUpProjection();
+    server.use(
+      http.get("*/api/v1/appraisal-cases/:caseId/follow-up", () => HttpResponse.json(followUp)),
+      http.post("*/api/v1/appraisal-cases/:caseId/follow-up", async ({ request }) => {
+        expect(await request.json()).toEqual({ decisionId: OFFER_ID });
+        return HttpResponse.json({ followUp });
+      }),
+    );
+    await expect(getTotalLossFollowUp(CASE_ID, "owner-token")).resolves.toEqual(followUp);
+    await expect(generateTotalLossFollowUp(CASE_ID, "owner-token", OFFER_ID)).resolves.toEqual(followUp);
+    await expect(getTotalLossMessageDraft(CASE_ID, "owner-token", undefined, RECOMMENDATION_ID)).resolves.toEqual(followUp.draft);
+    await expect(getTotalLossMessageDraft(CASE_ID, "owner-token", undefined, CLAIM_ID)).rejects.toThrow("no longer current");
+  });
+
+  it.each([
+    { state: "sent" },
+    { draft: { ...savedFollowUpProjection().draft, purpose: "initial_reconsideration" } },
+    { draft: { ...savedFollowUpProjection().draft, reportVersionId: CASE_ID } },
+  ])("rejects an inconsistent or original-request follow-up projection %o", async (patch) => {
+    server.use(http.get("*/api/v1/appraisal-cases/:caseId/follow-up", () => HttpResponse.json({ ...savedFollowUpProjection(), ...patch })));
+    await expect(getTotalLossFollowUp(CASE_ID, "owner-token")).rejects.toThrow();
+  });
+
+  it("rejects a generated draft for another decision", async () => {
+    server.use(http.post("*/api/v1/appraisal-cases/:caseId/follow-up", () => HttpResponse.json(savedFollowUpProjection())));
+    await expect(generateTotalLossFollowUp(CASE_ID, "owner-token", CLAIM_ID)).rejects.toThrow("could not be verified");
+  });
+});
 
 function recommendedResponseProjection() {
   return {

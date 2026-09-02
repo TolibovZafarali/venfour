@@ -225,6 +225,14 @@ export const appRoutes: RouteObject[] = [
         ),
       },
       {
+        path: "total-loss/cases/:caseId/claim/review/follow-up",
+        element: <TotalLossClaimWorkflowPage view="review_follow_up" />,
+        handle: metadata(
+          "Your Follow-up Request | Venfour",
+          "Review and send a follow-up grounded in your saved insurer response and case evidence.",
+        ),
+      },
+      {
         path: "total-loss/cases/:caseId/claim/review/sent",
         element: <TotalLossClaimWorkflowPage view="review_sent" />,
         handle: metadata(

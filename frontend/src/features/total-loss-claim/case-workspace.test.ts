@@ -127,6 +127,23 @@ function workspace(savedClaim = claim(), intakeMode: "manual" | "report" = "repo
 }
 
 describe("persistent case workspace projection", () => {
+  it.each(["report", "manual"] as const)("resumes the follow-up and retains response and initial-request history for %s intake", (intakeMode) => {
+    const savedResponse = response("completed");
+    const continued = { ...savedResponse, decision: {
+      decisionId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", clientRequestId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+      recommendationId: "cccccccc-cccc-4ccc-8ccc-cccccccccccc", analysisResultId: "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+      choice: "CONTINUE_CHALLENGING" as const, offerId: null, amountMinorUnits: null, currency: null, recordedAt: NOW,
+    } };
+    const saved = { ...claim("follow_up_preparation", TOTAL_LOSS_EDUCATION_STEPS), insurerResponse: continued };
+    const result = workspace(saved, intakeMode);
+    expect(result.currentPath).toBe(`${BASE}/follow-up`);
+    expect(result.currentLabel).toBe("Prepare follow-up");
+    expect(result.sections.find((section) => section.stage === "follow_up")).toMatchObject({ available: true, complete: false, current: true });
+    expect(result.sections.find((section) => section.stage === "request")).toMatchObject({ label: "Initial request", available: true, complete: true });
+    expect(result.sections.find((section) => section.stage === "response_reviewed")).toMatchObject({ available: true, complete: true });
+    const accepted = workspace({ ...saved, insurerResponse: { ...continued, decision: { ...continued.decision, choice: "ACCEPT_OFFER" } } }, intakeMode);
+    expect(accepted.sections.some((section) => section.stage === "follow_up")).toBe(false);
+  });
   it("starts with only the result reachable and no implied completed sections", () => {
     const result = workspace();
     expect(result.currentPath).toBe(`${BASE}/result`);
@@ -179,7 +196,7 @@ describe("persistent case workspace projection", () => {
   it("keeps request and waiting available after sending without completing active waiting", () => {
     const result = workspace(claim("awaiting_insurer_response", TOTAL_LOSS_EDUCATION_STEPS));
     expect(result.currentPath).toBe(`${BASE}/waiting`);
-    expect(result.sections.find((section) => section.stage === "request")).toMatchObject({ label: "Sent request", href: `${BASE}/request`, available: true, complete: true });
+    expect(result.sections.find((section) => section.stage === "request")).toMatchObject({ label: "Initial request", href: `${BASE}/request`, available: true, complete: true });
     expect(result.sections.find((section) => section.stage === "waiting")).toMatchObject({ available: true, complete: false, current: true });
     expect(result.progress.current.id).toBe("waiting_for_insurer");
   });
@@ -215,7 +232,7 @@ describe("persistent case workspace projection", () => {
     expect(result.sections.find((section) => section.stage === "response_received")).toMatchObject({ label: "Insurer response", href: `${BASE}/response-received?view=saved`, available: true, complete: true });
     expect(result.currentPath).not.toContain("?");
     expect(result.sections.find((section) => section.label === "Response review")).toMatchObject({ stage: reviewStage, available: state !== "insurer_response_received", complete });
-    expect(result.sections.find((section) => section.stage === "request")?.label).toBe("Sent request");
+    expect(result.sections.find((section) => section.stage === "request")?.label).toBe("Initial request");
     if (state === "insurer_response_review_unavailable") expect(result.currentLabel).toBe("Response review needs attention");
   });
 

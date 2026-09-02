@@ -862,6 +862,95 @@ class SupabaseHttpGateway:
         )
         return self._optional_rpc_row(payload, "Message draft")
 
+    def get_total_loss_customer_follow_up(
+        self, case_id: str, access_token: str
+    ) -> Mapping[str, Any] | None:
+        payload = self._user_rpc(
+            "get_total_loss_customer_follow_up",
+            {"requested_case_id": _canonical_uuid(case_id, "Case ID")},
+            access_token,
+        )
+        return self._optional_rpc_row(payload, "Follow-up")
+
+    def resolve_total_loss_follow_up_generation_context(
+        self, case_id: str, user_id: str, decision_id: str
+    ) -> Mapping[str, Any] | None:
+        payload = self._rpc(
+            "resolve_total_loss_follow_up_generation_context",
+            {
+                "requested_case_id": _canonical_uuid(case_id, "Case ID"),
+                "requested_user_id": _canonical_uuid(user_id, "User ID"),
+                "requested_decision_id": _canonical_uuid(decision_id, "Decision ID"),
+            },
+        )
+        return self._optional_rpc_row(payload, "Follow-up generation context")
+
+    def store_total_loss_follow_up_draft(
+        self, case_id: str, user_id: str, decision_id: str,
+        context_digest: str, generation: Mapping[str, Any],
+    ) -> Mapping[str, Any]:
+        payload = self._rpc(
+            "store_total_loss_follow_up_draft",
+            {
+                "requested_case_id": _canonical_uuid(case_id, "Case ID"),
+                "requested_user_id": _canonical_uuid(user_id, "User ID"),
+                "requested_decision_id": _canonical_uuid(decision_id, "Decision ID"),
+                "expected_context_digest": self._package_digest(context_digest, "Follow-up context digest"),
+                "requested_generation": dict(self._package_mapping(generation, "Follow-up generation")),
+            },
+            retry_ambiguous_claim=True,
+        )
+        return self._single_rpc_row(payload, "Generated follow-up")
+
+    def patch_total_loss_customer_follow_up_draft(
+        self, case_id: str, values: Mapping[str, Any], access_token: str
+    ) -> Mapping[str, Any]:
+        payload = self._user_rpc(
+            "patch_total_loss_customer_follow_up_draft",
+            {
+                "requested_case_id": _canonical_uuid(case_id, "Case ID"),
+                "requested_draft_id": values.get("draftId"),
+                "requested_recipient": values.get("recipient"),
+                "requested_subject": values.get("subject"),
+                "requested_body": values.get("body"),
+                "expected_revision": values.get("expectedRevision"),
+            },
+            access_token,
+        )
+        return self._single_rpc_row(payload, "Follow-up draft")
+
+    def prepare_total_loss_customer_follow_up(
+        self, case_id: str, values: Mapping[str, Any], access_token: str
+    ) -> Mapping[str, Any]:
+        payload = self._user_rpc(
+            "prepare_total_loss_customer_follow_up",
+            {
+                "requested_case_id": _canonical_uuid(case_id, "Case ID"),
+                "requested_draft_id": values.get("draftId"),
+                "requested_client_request_id": values.get("clientRequestId"),
+                "expected_revision": values.get("expectedDraftRevision"),
+                "expected_workflow_revision": values.get("expectedWorkflowRevision"),
+            },
+            access_token,
+        )
+        return self._single_rpc_row(payload, "Prepared follow-up")
+
+    def confirm_total_loss_customer_follow_up_sent(
+        self, case_id: str, values: Mapping[str, Any], access_token: str
+    ) -> Mapping[str, Any]:
+        payload = self._user_rpc(
+            "confirm_total_loss_customer_follow_up_sent",
+            {
+                "requested_case_id": _canonical_uuid(case_id, "Case ID"),
+                "requested_message_version_id": values.get("messageVersionId"),
+                "requested_client_request_id": values.get("clientRequestId"),
+                "expected_workflow_revision": values.get("expectedWorkflowRevision"),
+                "confirmed_report_attached": values.get("confirmedReportAttached"),
+            },
+            access_token,
+        )
+        return self._single_rpc_row(payload, "Follow-up sent confirmation")
+
     def patch_total_loss_customer_message_draft(
         self,
         case_id: str,
