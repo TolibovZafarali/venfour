@@ -1,0 +1,23 @@
+.completed-review-navigation-host { scroll-margin-top: 4rem; }
+.case-workspace-navigation { --review-ink: #1a2942; --review-muted: #59667b; --review-accent: var(--brand); --review-line: #dce3ef; width: 100%; padding-block: .5rem; color: var(--review-ink); line-height: 1.45; }
+.completed-analysis > .case-workspace-navigation { margin-bottom: 2.25rem; }
+.case-workspace-navigation .case-workspace-sections { display: grid; gap: 0; padding: 0; margin: 0; list-style: none; }
+.case-workspace-navigation .case-workspace-sections li { min-width: 0; margin: 0; }
+.case-workspace-sections :is(a, .case-workspace-unavailable) { display: flex; align-items: center; justify-content: center; gap: .4rem; min-height: 2.75rem; height: 100%; padding: .5rem; font-size: .8125rem; line-height: 1.35; text-decoration: none; }
+.case-workspace-sections a { color: var(--review-muted); }
+.case-workspace-sections a:hover { color: var(--review-accent); text-decoration: underline; text-underline-offset: 4px; }
+.case-workspace-sections a[aria-current="page"] { text-decoration: underline; text-underline-offset: 4px; }
+.case-workspace-sections [data-current] a { color: var(--review-accent); font-weight: 600; text-decoration: none; }
+.case-workspace-sections svg { width: .875rem; height: .875rem; stroke-width: 1.75; flex-shrink: 0; }
+.case-workspace-unavailable { color: #778296; }
+.case-workspace-unavailable svg { opacity: .5; }
+.case-workspace-mobile { display: none; }
+.case-workspace-navigation :is(a, select):focus-visible { outline: 3px solid var(--review-accent); outline-offset: -3px; border-radius: 3px; }
+.case-workspace-navigation [aria-disabled="true"] { opacity: .6; cursor: wait; }
+@media (max-width: 1023px) {
+  .case-workspace-navigation { padding: .375rem 1.25rem; }
+  .completed-analysis > .case-workspace-navigation { margin-bottom: 1.75rem; }
+  .case-workspace-navigation .case-workspace-sections { display: none; }
+  .case-workspace-mobile { display: block; }
+  .case-workspace-mobile select { display: block; width: 100%; min-height: 2.75rem; padding-block: .5rem; border: 0; background: transparent; color: var(--review-ink); font: inherit; font-size: .875rem; line-height: 1.4; }
+}

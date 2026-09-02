@@ -10,7 +10,7 @@ import {
 } from "react-router";
 
 import { isPageMetadata, useDocumentMetadata } from "@/app/document-metadata";
-import { CompletedReviewProgressHostContext } from "@/components/completed-review-progress-host";
+import { CompletedReviewNavigationHostContext, CompletedReviewProgressHostContext } from "@/components/completed-review-progress-host";
 import { supportEmail } from "@/config/support";
 import { useAdminDiminishedValueDependencies } from "@/features/admin/diminished-value/dependencies";
 import { useStaffAccessQuery } from "@/features/admin/diminished-value/queries";
@@ -76,6 +76,8 @@ function AppShellContent() {
   const [headerDetached, setHeaderDetached] = useState(false);
   const [mobileNavigationOpen, setMobileNavigationOpen] = useState(false);
   const [completedReviewProgressHost, setCompletedReviewProgressHost] =
+    useState<HTMLDivElement | null>(null);
+  const [completedReviewNavigationHost, setCompletedReviewNavigationHost] =
     useState<HTMLDivElement | null>(null);
   const headerSentinelRef = useRef<HTMLSpanElement>(null);
   const mobileNavigationButtonRef = useRef<HTMLButtonElement>(null);
@@ -498,6 +500,12 @@ function AppShellContent() {
           </div>
         </header>
       </div>
+      {completedReviewRoute ? (
+        <div
+          className="completed-review-navigation-host"
+          ref={setCompletedReviewNavigationHost}
+        />
+      ) : null}
       <main
         id="main-content"
         className={cn(
@@ -509,7 +517,9 @@ function AppShellContent() {
         <CompletedReviewProgressHostContext.Provider
           value={completedReviewProgressHost}
         >
-          <Outlet />
+          <CompletedReviewNavigationHostContext.Provider value={completedReviewNavigationHost}>
+            <Outlet />
+          </CompletedReviewNavigationHostContext.Provider>
         </CompletedReviewProgressHostContext.Provider>
       </main>
       {productFlowRoute ? (

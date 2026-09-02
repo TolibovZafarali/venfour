@@ -6,7 +6,7 @@ import { createMemoryRouter, RouterProvider, useParams } from "react-router";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { TotalLossIntakeMode } from "@/features/total-loss/types";
-import { CompletedReviewProgressHostContext } from "@/components/completed-review-progress-host";
+import { CompletedReviewNavigationHostContext, CompletedReviewProgressHostContext } from "@/components/completed-review-progress-host";
 import {
   TotalLossDependenciesProvider,
   type TotalLossDependencies,
@@ -394,7 +394,7 @@ function installClaim(initialClaim = claimProjection(), failOnce?: TotalLossEduc
       };
       return HttpResponse.json({ education: claim.education, workflowRevision: claim.workflow!.revision });
     }),
-    http.put(`${API}/message-draft`, () => {
+    http.patch(`${API}/message-draft`, () => {
       draftWrites();
       return HttpResponse.json({ error: { code: "UNEXPECTED_WRITE", message: "An evidence visit must not update a draft." } }, { status: 500 });
     }),
@@ -479,6 +479,7 @@ function renderJourney(
   initialStage = "result",
   insurerResponseStorageService?: NonNullable<TotalLossDependencies["totalLossInsurerResponseStorageService"]>,
   progressHost: HTMLElement | null = null,
+  navigationHost: HTMLElement | null = null,
 ) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
   const router = createMemoryRouter([{ path: `${BASE}/review/:stage`, element: <JourneyHarness intakeMode={intakeMode} /> }], {
@@ -490,7 +491,9 @@ function renderJourney(
   const result = render(
     <TotalLossDependenciesProvider dependencies={dependencies}>
       <CompletedReviewProgressHostContext.Provider value={progressHost}>
-        <QueryClientProvider client={queryClient}><RouterProvider router={router} /></QueryClientProvider>
+        <CompletedReviewNavigationHostContext.Provider value={navigationHost}>
+          <QueryClientProvider client={queryClient}><RouterProvider router={router} /></QueryClientProvider>
+        </CompletedReviewNavigationHostContext.Provider>
       </CompletedReviewProgressHostContext.Provider>
     </TotalLossDependenciesProvider>,
   );
@@ -504,11 +507,12 @@ function backControl() {
 describe("completed-analysis guided progression", () => {
   beforeEach(() => request.render.mockClear());
 
-  it("mounts the journey progress line into the header surface when its host is available", async () => {
+  it("mounts progress and case navigation in their shell hosts with the same current step", async () => {
     const headerHost = document.createElement("div");
+    const navigationHost = document.createElement("div");
     installClaim(claimProjection());
     const user = userEvent.setup();
-    const view = renderJourney("report", "result", undefined, headerHost);
+    const view = renderJourney("report", "result", undefined, headerHost, navigationHost);
 
     try {
       const progress = await within(headerHost).findByRole("progressbar", { name: "Case journey" });
@@ -516,14 +520,139 @@ describe("completed-analysis guided progression", () => {
       expect(screen.queryByLabelText("Case journey progress")).not.toBeInTheDocument();
       expect(document.querySelector(".review-progress-caption")).not.toBeInTheDocument();
       expect(document.querySelector(".completed-analysis")?.contains(progress)).toBe(false);
+      const navigation = within(navigationHost).getByRole("navigation", { name: "Case sections" });
+      expect(navigation.parentElement).toBe(navigationHost);
+      expect(document.querySelector(".completed-analysis")?.contains(navigation)).toBe(false);
+      expect(within(navigation).queryByText("Current step", { exact: true })).not.toBeInTheDocument();
+      expect(progress).toHaveAttribute("aria-valuemax", "8");
+      expect(progress.firstElementChild).toHaveStyle({ transform: "scaleX(0.0625)" });
 
       await user.click(screen.getByRole("button", { name: "See how the insurer reached its value" }));
       expect(await screen.findByRole("heading", { name: "How your insurer reached its value" })).toBeVisible();
       expect(within(headerHost).getByRole("progressbar", { name: "Case journey" })).toBe(progress);
-      expect(progress).toHaveAttribute("aria-valuenow", "2");
+      expect(progress).toHaveAttribute("aria-valuenow", "1.5");
+      expect(progress.firstElementChild).toHaveStyle({ transform: "scaleX(0.1875)" });
+      await user.click(within(navigation).getByRole("link", { name: "Your result" }));
+      expect(await screen.findByRole("heading", { name: "Your result" })).toBeVisible();
+      expect(within(navigation).getByRole("link", { name: "Your result" })).toHaveAttribute("aria-current", "page");
+      expect(within(navigation).getByRole("link", { name: "Insurer review" }).parentElement).toHaveAttribute("data-current", "true");
+      expect(progress).toHaveAttribute("aria-valuenow", "1.5");
+      expect(progress.firstElementChild).toHaveStyle({ transform: "scaleX(0.1875)" });
     } finally {
       view.unmount();
     }
+  });
+
+  it("exposes only reachable case sections before the first result acknowledgement", async () => {
+    const saved = installClaim(claimProjection());
+    const user = userEvent.setup();
+    renderJourney("report");
+
+    const navigation = await screen.findByRole("navigation", { name: "Case sections" });
+    expect(within(navigation).getByRole("link", { name: /^Your result/u })).toHaveAttribute("aria-current", "page");
+    for (const label of ["Insurer review", "Market evidence", "What it means", "Request preparation", "Waiting for insurer"]) {
+      expect(within(within(navigation).getByRole("list")).getByText(label, { exact: true })).toBeVisible();
+      expect(within(navigation).getByRole("option", { name: label })).toBeDisabled();
+      expect(within(navigation).queryByRole("link", { name: new RegExp(`^${label}`, "u") })).not.toBeInTheDocument();
+    }
+    for (const label of ["Insurer response", "Response review"]) {
+      expect(within(navigation).queryByRole("link", { name: new RegExp(`^${label}`, "u") })).not.toBeInTheDocument();
+    }
+    expect(saved.writes).toEqual([]);
+    expect(saved.draftWrites).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole("button", { name: "See how the insurer reached its value" }));
+    expect(await screen.findByRole("heading", { name: "How your insurer reached its value" })).toBeVisible();
+    expect(within(navigation).getByRole("link", { name: /^Your result/u })).toHaveAttribute("href", `${BASE}/review/result`);
+    expect(within(navigation).getByRole("link", { name: /^Insurer review/u })).toHaveAttribute("aria-current", "page");
+    expect(within(navigation).queryByRole("link", { name: /^Market evidence/u })).not.toBeInTheDocument();
+    expect(saved.writes).toEqual([{ step: "result", state: "completed", expectedWorkflowRevision: 7 }]);
+  });
+
+  it.each(["report", "manual"] as const)("keeps the authoritative %s step stable while revisiting completed education and refreshing", async (intakeMode) => {
+    const projection = claimProjection(BEFORE_REQUEST);
+    const saved = installClaim({
+      ...projection,
+      messageDraft: null,
+      journey: { fulfillmentState: "report_ready", nextState: "prepare_request", retryable: false },
+    });
+    const user = userEvent.setup();
+    const view = renderJourney(intakeMode, "request");
+    const navigation = await screen.findByRole("navigation", { name: "Case sections" });
+    const progress = screen.getByRole("progressbar", { name: "Case journey" });
+    const savedProgress = progress.getAttribute("aria-valuenow");
+    const savedProgressLabel = progress.getAttribute("aria-valuetext");
+    const originalRevision = saved.claim().workflow!.revision;
+    const originalEducation = saved.claim().education;
+    expect(progress).toHaveAttribute("data-current-step", "prepare_request");
+    if (intakeMode === "manual") {
+      expect(within(navigation).queryByText("Insurer review", { exact: true })).not.toBeInTheDocument();
+    }
+    request.render.mockClear();
+
+    const sections = [
+      ["Your result", "Your result", "result"],
+      ...(intakeMode === "report" ? [["Insurer review", "How your insurer reached its value", "insurer"]] : []),
+      ["Market evidence", "What the market evidence showed", "market"],
+      ["What it means", "What the comparison means", "meaning"],
+    ];
+    for (const [label, heading, stage] of sections) {
+      await user.click(within(navigation).getByRole("link", { name: new RegExp(`^${label}`, "u") }));
+      expect(await screen.findByRole("heading", { name: heading })).toBeVisible();
+      expect(view.router.state.location.pathname).toBe(`${BASE}/review/${stage}`);
+      expect(within(navigation).getByRole("link", { name: new RegExp(`^${label}`, "u") })).toHaveAttribute("aria-current", "page");
+      expect(progress).toHaveAttribute("aria-valuenow", savedProgress);
+      expect(progress).toHaveAttribute("aria-valuetext", savedProgressLabel);
+    }
+    await act(() => view.router.navigate(-1));
+    expect(await screen.findByRole("heading", { name: "What the market evidence showed" })).toBeVisible();
+    await act(() => view.queryClient.refetchQueries({ type: "active" }));
+    expect(progress).toHaveAttribute("aria-valuenow", savedProgress);
+    expect(saved.claim().workflow!.revision).toBe(originalRevision);
+    expect(saved.claim().education).toEqual(originalEducation);
+    expect(saved.writes).toEqual([]);
+    expect(saved.draftWrites).not.toHaveBeenCalled();
+    expect(request.render).not.toHaveBeenCalled();
+
+    view.unmount();
+    renderJourney(intakeMode, "market");
+    expect(await screen.findByRole("heading", { name: "What the market evidence showed" })).toBeVisible();
+    expect(screen.getByRole("progressbar", { name: "Case journey" })).toHaveAttribute("aria-valuetext", savedProgressLabel);
+    expect(within(screen.getByRole("navigation", { name: "Case sections" })).getByRole("link", { name: /^Market evidence/u })).toHaveAttribute("aria-current", "page");
+    expect(saved.claim().workflow!.revision).toBe(originalRevision);
+    expect(saved.writes).toEqual([]);
+  });
+
+  it("updates the current request step when a same-report saved draft arrives during an earlier education visit", async () => {
+    const projection = claimProjection(BEFORE_REQUEST);
+    const saved = installClaim({
+      ...projection,
+      messageDraft: null,
+      journey: { fulfillmentState: "report_ready", nextState: "prepare_request", retryable: false },
+    });
+    const view = renderJourney("report", "market");
+    expect(await screen.findByRole("heading", { name: "What the market evidence showed" })).toBeVisible();
+    const navigation = screen.getByRole("navigation", { name: "Case sections" });
+    const progress = screen.getByRole("progressbar", { name: "Case journey" });
+    expect(progress).toHaveAttribute("aria-valuetext", "Step 5 of 8: Prepare request");
+    expect(progress).toHaveAttribute("data-current-step", "prepare_request");
+    expect(request.render).not.toHaveBeenCalled();
+    const initialRevision = saved.claim().workflow!.revision;
+    const initialEducation = saved.claim().education;
+
+    saved.setClaim({ ...saved.claim(), messageDraft: projection.messageDraft });
+    await act(() => view.queryClient.refetchQueries({ type: "active" }));
+
+    await waitFor(() => expect(progress).toHaveAttribute("aria-valuetext", "Step 5 of 8: Send request"));
+    expect(progress).toHaveAttribute("data-current-step", "send_request");
+    expect(view.router.state.location.pathname).toBe(`${BASE}/review/market`);
+    expect(screen.getByRole("heading", { name: "What the market evidence showed" })).toBeVisible();
+    expect(within(navigation).getByRole("link", { name: /^Market evidence/u })).toHaveAttribute("aria-current", "page");
+    expect(request.render).not.toHaveBeenCalled();
+    expect(saved.writes).toEqual([]);
+    expect(saved.draftWrites).not.toHaveBeenCalled();
+    expect(saved.claim().workflow!.revision).toBe(initialRevision);
+    expect(saved.claim().education).toEqual(initialEducation);
   });
 
   it("waits for the acknowledgement but never for animations when moving between stable review stages", async () => {
@@ -855,7 +984,7 @@ describe("completed-analysis guided progression", () => {
       "aria-valuetext",
       "Current stage: Waiting for insurer. Case active.",
     );
-    expect(screen.getByRole("progressbar", { name: "Case journey" })).toHaveAttribute("aria-valuenow", "6.5");
+    expect(screen.getByRole("progressbar", { name: "Case journey" })).toHaveAttribute("aria-valuenow", "5.5");
     expect(screen.getByText(/does not monitor.*cannot verify delivery, receipt, or detect a response automatically/iu)).toBeVisible();
     expect(screen.getByText(/return to this case.*I received a response/iu)).toBeVisible();
     expect(screen.queryByText(/delivery confirmed|insurer received|response.*within \d/iu)).not.toBeInTheDocument();
@@ -1331,7 +1460,7 @@ describe("completed-analysis guided progression", () => {
     expect(router.state.location.pathname).toBe(`${BASE}/review/waiting`);
   });
 
-  it("keeps the review frame mounted when a saved sent state replaces the request and redirects its URL", async () => {
+  it("keeps the review frame and request URL when saved sent state replaces editing with read-only content", async () => {
     const saved = installClaim(claimProjection(BEFORE_REQUEST));
     const view = renderJourney("report", "request");
     expect(await screen.findByRole("heading", { name: "Review and send your request" })).toBeVisible();
@@ -1348,8 +1477,8 @@ describe("completed-analysis guided progression", () => {
     })));
     await act(() => view.queryClient.refetchQueries({ type: "active" }));
 
-    expect(await screen.findByRole("heading", { name: "Waiting for the insurer’s response" })).toBeVisible();
-    await waitFor(() => expect(view.router.state.location.pathname).toBe(`${BASE}/review/waiting`));
+    expect(await screen.findByRole("heading", { name: "Your sent request" })).toBeVisible();
+    expect(view.router.state.location.pathname).toBe(`${BASE}/review/request`);
     expect(screen.getByRole("region", { name: "Completed analysis" })).toBe(section);
     expect(section.querySelector(".review-stage-content")).toBe(content);
     expect(section.querySelectorAll("h1")).toHaveLength(1);
@@ -1357,6 +1486,71 @@ describe("completed-analysis guided progression", () => {
     expect(screen.queryByText(/delivery confirmed|insurer received/u)).not.toBeInTheDocument();
     expect(saved.writes).toEqual([]);
     expect(saved.draftWrites).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["insurer_response_received", "pending", "response-received"],
+    ["insurer_response_reviewing", "processing", "response-reviewing"],
+    ["insurer_response_reviewed", "completed", "response-reviewed"],
+  ] as const)("keeps saved material reachable without mutations while the case is %s", async (journeyState, processingState, initialStage) => {
+    const projection = claimProjection([...BEFORE_REQUEST, "send"]);
+    const saved = installClaim({
+      ...projection,
+      insurerResponse: savedInsurerResponse(processingState, processingState === "completed" ? reviewedResponseAnalysis() : null),
+      journey: { fulfillmentState: journeyState, nextState: journeyState, retryable: false },
+      workflow: { currentTask: journeyState, phase: "negotiation", revision: 15 },
+    });
+    const originalClaim = saved.claim();
+    const user = userEvent.setup();
+    const view = renderJourney("report", initialStage);
+    const navigation = await screen.findByRole("navigation", { name: "Case sections" });
+    const progress = screen.getByRole("progressbar", { name: "Case journey" });
+    const progressLabel = progress.getAttribute("aria-valuetext");
+
+    await user.click(within(navigation).getByRole("link", { name: /^Your result/u }));
+    expect(await screen.findByRole("heading", { name: "Your result" })).toBeVisible();
+    expect(progress).toHaveAttribute("aria-valuetext", progressLabel);
+    await user.click(within(navigation).getByRole("link", { name: /^Sent request/u }));
+    expect(await screen.findByRole("heading", { name: "Your sent request" })).toBeVisible();
+    expect(view.router.state.location.pathname).toBe(`${BASE}/review/request`);
+    expect(screen.queryByTestId("request-controls")).not.toBeInTheDocument();
+    expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /mark as sent|copy email|open email app/iu })).not.toBeInTheDocument();
+    expect(progress).toHaveAttribute("aria-valuetext", progressLabel);
+
+    await user.click(within(navigation).getByRole("link", { name: /^Waiting for insurer/u }));
+    expect(view.router.state.location.pathname).toBe(`${BASE}/review/waiting`);
+    expect(screen.queryByRole("button", { name: "I received a response" })).not.toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Completed analysis" })).toHaveAttribute("data-stage", "waiting");
+    expect(progress).toHaveAttribute("aria-valuetext", progressLabel);
+
+    await user.click(within(navigation).getByRole("link", { name: /^Insurer response/u }));
+    expect(await screen.findByRole("heading", { name: "The insurer’s response is saved" })).toBeVisible();
+    expect(view.router.state.location.pathname).toBe(`${BASE}/review/response-received`);
+    expect(view.router.state.location.search).toBe("?view=saved");
+    expect(screen.getByText("We can revise the offer to $20,100.")).toBeVisible();
+    expect(screen.getByRole("button", { name: "Correct this response" })).toBeVisible();
+    expect(within(navigation).getByRole("link", { name: /^Insurer response/u })).toHaveAttribute("aria-current", "page");
+    expect(progress).toHaveAttribute("aria-valuetext", progressLabel);
+    if (journeyState !== "insurer_response_received") {
+      expect(within(navigation).getByRole("link", { name: /^Response review/u })).toHaveAttribute("href", `${BASE}/review/${initialStage}`);
+    }
+    await act(() => view.queryClient.refetchQueries({ type: "active" }));
+    expect(view.router.state.location.pathname).toBe(`${BASE}/review/response-received`);
+    expect(view.router.state.location.search).toBe("?view=saved");
+    expect(saved.claim()).toEqual(originalClaim);
+    expect(saved.writes).toEqual([]);
+    expect(saved.responseWrites).toEqual([]);
+    expect(saved.responseUploadWrites).toEqual([]);
+    expect(saved.draftWrites).not.toHaveBeenCalled();
+    expect(request.render).not.toHaveBeenCalled();
+
+    view.unmount();
+    renderJourney("report", "response-received?view=saved");
+    expect(await screen.findByRole("heading", { name: "The insurer’s response is saved" })).toBeVisible();
+    expect(screen.getByRole("progressbar", { name: "Case journey" })).toHaveAttribute("aria-valuetext", progressLabel);
+    expect(saved.claim().workflow!.revision).toBe(15);
+    expect(saved.responseWrites).toEqual([]);
   });
 
   it("does not show sent confirmation from the URL without a saved sent state", async () => {
@@ -1461,7 +1655,7 @@ describe("completed-analysis guided progression", () => {
   it.each([
     ["report", 4],
     ["manual", 3],
-  ] as const)("ends an unsupported %s review at its final education step", async (intakeMode, total) => {
+  ] as const)("keeps an unsupported %s review accessible without projecting a case-closure state", async (intakeMode, total) => {
     const projection = claimProjection(BEFORE_REQUEST);
     const report = projection.report!;
     installClaim({
@@ -1480,7 +1674,7 @@ describe("completed-analysis guided progression", () => {
 
     expect(await screen.findByRole("heading", { name: "What the comparison means" })).toBeVisible();
     expect(router.state.location.pathname).toBe(`${BASE}/review/meaning`);
-    expect(screen.getByRole("progressbar", { name: "Case journey" })).toHaveAttribute("aria-valuetext", `Step ${total} of ${total}: Understand comparison`);
+    expect(screen.getByRole("progressbar", { name: "Case journey" })).toHaveAttribute("aria-valuetext", `Step 1 of ${total}: Understand result`);
     expect(screen.queryByText(report.suggestedFilename)).not.toBeInTheDocument();
     expect(screen.getByText("PDF report · Issued Aug 29, 2026")).toBeVisible();
     expect(screen.queryByRole("button", { name: /request/iu })).not.toBeInTheDocument();

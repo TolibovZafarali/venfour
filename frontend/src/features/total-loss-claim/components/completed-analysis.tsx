@@ -4,6 +4,7 @@ import { Link, Navigate, useLocation, useNavigate, useSearchParams } from "react
 
 import type { TotalLossIntakeMode } from "@/features/total-loss/types";
 import { totalLossCaseJourneyProgress } from "../case-journey";
+import { createCaseWorkspace } from "../case-workspace";
 import type { TotalLossClaimSecured, TotalLossMoney, TotalLossPublishedReport } from "../contracts";
 import { dateLabel, displayed, moneyLabel, reportText } from "../report-format";
 import { requestIsSent, requestReviewComplete } from "../request-state";
@@ -25,6 +26,8 @@ import {
   InsurerResponseReviewing,
 } from "./insurer-response";
 import { ReportFileRow } from "./published-report-actions";
+import { CaseWorkspaceNavigation } from "./case-workspace-navigation";
+import { SentRequest } from "./sent-request";
 import { CaseJourneyProgress, InsurerValueBridge, RecordedTime, RepresentativeListings, ValueRangeTrack } from "./completed-analysis-visuals";
 import { useReviewStageMotion } from "./use-review-stage-motion";
 import "./completed-analysis.css";
@@ -166,10 +169,9 @@ export function CompletedAnalysis(props: CompletedAnalysisProps) {
           ? "response_received"
           : null
     : null;
-  const stage = requestedStage === "request" && sent
-    ? responseStage ?? "waiting"
-    : requestedStage;
-  const [hasDraft, setHasDraft] = useState(claim.messageDraft?.reportVersionId === report.reportId);
+  const stage = requestedStage;
+  const [preparedDraft, setHasDraft] = useState(false);
+  const hasDraft = preparedDraft || claim.messageDraft?.reportVersionId === report.reportId;
   const progression = useReviewProgression({ ...props, reportId: report.reportId });
   const base = totalLossClaimBasePath(caseId);
   const path = (next: string) => `${base}/review/${next}`;
@@ -177,7 +179,8 @@ export function CompletedAnalysis(props: CompletedAnalysisProps) {
   const canPrepare = requestReviewComplete(claim, report.reportId);
   const manual = intakeMode === "manual";
   const continuing = report.conclusion.continuingSupported;
-  const journeyProgress = totalLossCaseJourneyProgress({
+  const workspace = createCaseWorkspace({ claim, report, intakeMode, hasDraft });
+  const viewedProgress = totalLossCaseJourneyProgress({
     continuingSupported: continuing,
     hasDraft,
     intakeMode,
@@ -215,16 +218,13 @@ export function CompletedAnalysis(props: CompletedAnalysisProps) {
   const disclosure = report.insurerEvidence.summary;
   const insurerCount = report.insurerEvidence.comparableCount;
 
-  useReviewStageMotion({ root, stage, index: journeyProgress.position, reportId: report.reportId });
+  useReviewStageMotion({ root, stage, index: viewedProgress.position, reportId: report.reportId });
 
   useEffect(() => {
     navigationEpoch.current += 1;
     return () => { navigationEpoch.current += 1; };
   }, [stage, hasDraft, location.key, report.reportId]);
 
-  if (stage === "waiting" && responseStage) {
-    return <Navigate replace to={path(responsePath)} />;
-  }
   if (stage === "waiting" && !sent) {
     const resume = authoritativeTotalLossClaimPath(claim, intakeMode);
     return <Navigate replace to={resume && resume !== path("waiting") ? resume : path("result")} />;
@@ -233,7 +233,9 @@ export function CompletedAnalysis(props: CompletedAnalysisProps) {
     const resume = authoritativeTotalLossClaimPath(claim, intakeMode);
     return <Navigate replace to={resume ?? path("result")} />;
   }
-  if (stage === "response_received" && responseStage !== "response_received") {
+  if (stage === "response_received" && (
+    !claim.insurerResponse || (search.get("view") !== "saved" && responseStage !== "response_received")
+  )) {
     const resume = authoritativeTotalLossClaimPath(claim, intakeMode);
     return <Navigate replace to={resume && resume !== path("response-received") ? resume : path("waiting")} />;
   }
@@ -250,7 +252,7 @@ export function CompletedAnalysis(props: CompletedAnalysisProps) {
     const resume = authoritativeTotalLossClaimPath(claim, intakeMode);
     return <Navigate replace to={resume && resume !== path("response-reviewed") ? resume : path("waiting")} />;
   }
-  if (stage === "request" && !continuing) {
+  if (stage === "request" && !continuing && !sent) {
     return <Navigate replace to={path("meaning")} />;
   }
 
@@ -262,8 +264,8 @@ export function CompletedAnalysis(props: CompletedAnalysisProps) {
 
   return (
     <section className="completed-analysis" aria-label="Completed analysis" ref={root} tabIndex={-1} data-stage={stage}>
-      {requestedStage === "request" && sent ? <Navigate replace to={path(responsePath)} /> : null}
-      <CaseJourneyProgress progress={journeyProgress} />
+      <CaseJourneyProgress progress={workspace.progress} sections={workspace.sections} />
+      <CaseWorkspaceNavigation workspace={workspace} stage={stage} pending={progression.pending} />
       <div className="review-stage-content" data-view={stage}>
       {claim.journey?.fulfillmentState === "refund_pending" || claim.commerce?.entitlementStatus === "refunded_access_retained" ? (
         <p className="review-refund-status" role="status">{claim.commerce?.entitlementStatus === "refunded_access_retained" ? "Your payment was refunded. Your completed report remains available." : "Your refund is in progress. Your completed report remains available while it is processed."}</p>
@@ -326,22 +328,22 @@ export function CompletedAnalysis(props: CompletedAnalysisProps) {
         {!report.conclusion.continuingSupported ? <ReportFileRow {...props} /> : null}
       </> : null}
       {stage === "request" ? (
-        canPrepare && report.conclusion.continuingSupported ? <MessagePreparation {...props} actionContainer={navigationActions} onDraftStateChange={setHasDraft} onSent={() => navigate(path("waiting"), { replace: true })} /> : <>
+        sent ? <><SentRequest claim={claim} report={report} /><ReportFileRow {...props} /></> : canPrepare && report.conclusion.continuingSupported ? <MessagePreparation {...props} actionContainer={navigationActions} onDraftStateChange={setHasDraft} onSent={() => navigate(path("waiting"), { replace: true })} /> : <>
           <h1 data-review-entrance="primary">Prepare your request</h1>
           {report.conclusion.continuingSupported ? <p data-review-entrance="secondary">Finish reviewing the result and comparison before creating your request.</p> : <p data-review-entrance="secondary">The result does not support a higher valuation request. Your report remains available.</p>}
           <ReportFileRow {...props} />
         </>
       ) : null}
       {stage === "waiting" ? <>
-        <div className="sent-heading" data-review-entrance="primary"><h1>Waiting for the insurer’s response</h1>
+        <div className="sent-heading" data-review-entrance="primary"><h1>{claim.insurerResponse ? "Insurer response recorded" : "Waiting for the insurer’s response"}</h1>
         <p className="review-lead" role="status">Based on your confirmation, Venfour recorded that you sent your reconsideration request with the valuation report attached.</p>
         </div>
         {claim.education?.reportVersionId === report.reportId && claim.education.steps.send.completedAt ? <p className="sent-recorded" data-review-entrance="supporting">Request recorded: <RecordedTime value={claim.education.steps.send.completedAt} /></p> : null}
-        <div className="sent-next-steps">
+        {claim.insurerResponse ? <p className="review-note" data-review-entrance="supporting">You recorded the insurer’s response on <RecordedTime value={claim.insurerResponse.receivedAt} />. <Link to={`${path("response-received")}?view=saved`}>View the insurer’s response</Link></p> : <div className="sent-next-steps">
         <h2 data-review-entrance="supporting" data-review-order="0">What happens now</h2>
         <p data-review-entrance="supporting" data-review-order="1">Your case remains active while you wait. Venfour does not monitor your email or the insurer, so it cannot verify delivery, receipt, or detect a response automatically.</p>
         <p data-review-entrance="supporting" data-review-order="2">Keep your sent email, attached report, and the insurer’s written reply. When the insurer responds, return to this case and choose “I received a response” to continue.</p>
-        </div>
+        </div>}
         <ReportFileRow {...props} />
       </> : null}
       {stage === "response" ? <InsurerResponseForm {...props} actionContainer={navigationActions} onRecorded={(state) => navigate(routeForJourneyState(caseId, state), { replace: true })} /> : null}
@@ -371,7 +373,7 @@ export function CompletedAnalysis(props: CompletedAnalysisProps) {
           {previous ? <Link aria-disabled={progression.pending || undefined} className="review-back" data-review-entrance="supporting" data-review-order="0" to={previous} onClick={(event) => {
             if (progression.pending) event.preventDefault();
           }}><ArrowLeft aria-hidden="true" />Back</Link> : null}
-          {stage === "waiting" ? <button className="review-primary" data-review-entrance="secondary" data-review-order="1" type="button" onClick={() => navigate(path("response"))}><span className="review-action-label"><span className="review-action-reserve" aria-hidden="true">I received a response</span><span>I received a response</span></span><span className="review-action-icon"><ArrowRight aria-hidden="true" /></span></button> : null}
+          {stage === "waiting" && !claim.insurerResponse ? <button className="review-primary" data-review-entrance="secondary" data-review-order="1" type="button" onClick={() => navigate(path("response"))}><span className="review-action-label"><span className="review-action-reserve" aria-hidden="true">I received a response</span><span>I received a response</span></span><span className="review-action-icon"><ArrowRight aria-hidden="true" /></span></button> : null}
           {stage !== "request" && stage !== "waiting" && stage !== "response" && stage !== "response_received" && stage !== "response_reviewing" && stage !== "response_reviewed" && (stage !== "meaning" || report.conclusion.continuingSupported) ? <button className="review-primary" data-review-entrance="secondary" data-review-order="1" type="button" disabled={progression.pending || Boolean(prerequisite)} onClick={() => void continueReview()}><span className="review-action-label"><span className="review-action-reserve" aria-hidden="true">{action}</span><span>{progression.pending ? "Saving progress…" : action}</span></span><span className="review-action-icon">{progression.pending ? <LoaderCircle className="review-spinner" aria-hidden="true" /> : <ArrowRight aria-hidden="true" />}</span></button> : null}
         </nav>
       </div>

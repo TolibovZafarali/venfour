@@ -23,7 +23,9 @@ export function useReviewStageMotion({ root, stage, index, reportId }: {
     // Keep a retained editor's focus and selection when the review index changes.
     if (!editing) element.focus({ preventScroll: true });
     // Reset before paint, without smooth scrolling or horizontal realignment.
-    element.scrollIntoView?.({ block: "start", inline: "nearest", behavior: "instant" });
+    const navigation = element.closest("[data-completed-review]")?.querySelector<HTMLElement>(".completed-review-navigation-host");
+    const scrollTarget = navigation?.firstElementChild ? navigation : element;
+    scrollTarget.scrollIntoView?.({ block: "start", inline: "nearest", behavior: "instant" });
 
     const candidates = Array.from(element.querySelectorAll<HTMLElement>(entranceSelector)).filter((target) => {
       if (target.matches(".review-stage-content, .request-review") || target.closest(stationarySelector) || target.querySelector(stationarySelector)) return false;

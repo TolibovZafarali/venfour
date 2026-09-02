@@ -459,8 +459,9 @@ export function InsurerResponseReceived({
           The insurer’s response is saved
         </h1>
         <p className="review-lead" role="status">
-          It is now part of this case. Venfour is preparing to review it
-          against the evidence already saved here.
+          {response.processingState === "pending"
+            ? "It is now part of this case. Venfour is preparing to review it against the evidence already saved here."
+            : "The response you recorded remains part of this case."}
         </p>
       </div>
       <p className="sent-recorded" data-review-entrance="supporting">

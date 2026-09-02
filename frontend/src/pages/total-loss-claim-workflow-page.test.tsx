@@ -1391,6 +1391,69 @@ describe("total-loss customer workflow", () => {
     expect(within(restored).queryByRole("button", { name: "Upload insurer response" })).not.toBeInTheDocument();
   });
 
+  it("revisits the saved sent request without editing and resumes the authoritative waiting step", async () => {
+    const progress = completedEducationSteps();
+    progress.send = { completedAt: NOW, skippedAt: null, viewedAt: NOW };
+    const originalBody = `I have attached ${report().suggestedFilename}.`;
+    const projection = {
+      ...claimProjection({ journey: "awaiting_insurer_response", progress, withDraft: true }),
+      messageDraft: { ...draft(), body: originalBody },
+    };
+    let writes = 0;
+    useClaimHandler(() => projection);
+    server.use(
+      http.patch("*/api/v1/appraisal-cases/:caseId/message-draft", () => {
+        writes += 1;
+        return HttpResponse.json(projection.messageDraft);
+      }),
+      http.put("*/api/v1/appraisal-cases/:caseId/education/:step", () => {
+        writes += 1;
+        return HttpResponse.json({ education: projection.education, workflowRevision: projection.workflow.revision });
+      }),
+      http.post("*/api/v1/appraisal-cases/:caseId/message/:action", () => {
+        writes += 1;
+        return HttpResponse.json({});
+      }),
+    );
+    const user = userEvent.setup();
+    const initial = renderTestApp([CLAIM_BASE], { authService: authService() });
+    const navigation = await screen.findByRole("navigation", { name: "Case sections" });
+    const progressBar = screen.getByRole("progressbar", { name: "Case journey" });
+    const progressLabel = progressBar.getAttribute("aria-valuetext");
+    expect(initial.router.state.location.pathname).toBe(`${CLAIM_BASE}/review/waiting`);
+
+    await user.click(within(navigation).getByRole("link", { name: /^Sent request/u }));
+    expect(await screen.findByRole("heading", { name: "Your sent request" })).toBeVisible();
+    expect(screen.getByText(originalBody, { exact: true })).toBeVisible();
+    expect(initial.router.state.location.pathname).toBe(`${CLAIM_BASE}/review/request`);
+    expect(screen.queryByRole("textbox", { name: "Message" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /copy email|open email app|mark as sent/iu })).not.toBeInTheDocument();
+    expect(progressBar).toHaveAttribute("aria-valuetext", progressLabel);
+    expect(within(navigation).getByRole("link", { name: /^Sent request/u })).toHaveAttribute("aria-current", "page");
+    await act(async () => {
+      await initial.queryClient.refetchQueries({ type: "active" });
+      await new Promise((resolve) => window.setTimeout(resolve, 725));
+    });
+    expect(writes).toBe(0);
+    expect(projection.messageDraft.body).toBe(originalBody);
+    expect(projection.workflow.revision).toBe(7);
+
+    initial.unmount();
+    const refreshed = renderTestApp([`${CLAIM_BASE}/review/request`], { authService: authService() });
+    expect(await screen.findByRole("heading", { name: "Your sent request" })).toBeVisible();
+    expect(screen.getByText(originalBody, { exact: true })).toBeVisible();
+    expect(refreshed.router.state.location.pathname).toBe(`${CLAIM_BASE}/review/request`);
+    expect(screen.getByRole("progressbar", { name: "Case journey" })).toHaveAttribute("aria-valuetext", progressLabel);
+    expect(screen.queryByRole("textbox", { name: "Message" })).not.toBeInTheDocument();
+    expect(writes).toBe(0);
+    refreshed.unmount();
+
+    const resumed = renderTestApp([CLAIM_BASE], { authService: authService() });
+    expect(await screen.findByRole("heading", { name: "Waiting for the insurer’s response" })).toBeVisible();
+    expect(resumed.router.state.location.pathname).toBe(`${CLAIM_BASE}/review/waiting`);
+    expect(writes).toBe(0);
+  });
+
   it("keeps the unsent route neutral and does not offer unsupported request preparation", async () => {
     useClaimHandler(() =>
       claimProjection({ continuingSupported: false, journey: "no_dispute" }),

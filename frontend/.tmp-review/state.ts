@@ -1,6 +1,8 @@
 import {claimProjection,CASE_ID,REPORT_ID,NOW,BASE} from './fixtures';
 import {TOTAL_LOSS_EDUCATION_STEPS} from '@/features/total-loss-claim/contracts';
+import type {TotalLossInsurerResponseRecorded} from '@/features/total-loss-claim/contracts';
 import {materialUndervalueAnalysis} from '@/test/fixtures/analysis-presentation';
+type PreviewResponseRecord=Omit<TotalLossInsurerResponseRecorded,'response'>&{response:Omit<TotalLossInsurerResponseRecorded['response'],'analysis'|'analysisEvidence'>};
 const params=new URLSearchParams(location.search);
 export const page=params.get('page')||(location.pathname.endsWith('/analysis')?'preview':location.pathname==='/'&&!params.has('mode')&&!params.has('stage')?'launcher':'review');
 export const mode=(params.get('mode')||sessionStorage.getItem('review-mode')||'report') as 'report'|'manual';
@@ -9,6 +11,7 @@ export const delay=Math.max(0,Math.min(2500,Number(params.get('delay')||sessionS
 if(page==='review'){sessionStorage.setItem('review-mode',mode);sessionStorage.setItem('review-fixture',fixture);sessionStorage.setItem('review-delay',String(delay));}
 export const storageKey=`venfour-synthetic-refinement-${mode}-${fixture}`;
 const stage=params.get('stage')||'result';
+const requestSent=stage==='sent'||stage==='response';
 const completed=stage==='result'?[]:stage==='insurer'?['result']:stage==='market'?['result',...(mode==='report'?['insurer_review']:[])]:stage==='meaning'?['result','insurer_review','valuation']:['result','insurer_review','valuation','report','what_next'];
 const initial=claimProjection(completed as any);
 const value=(amount:number)=>({amountMinorUnits:amount*100,currency:'USD',formatted:new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0}).format(amount)});
@@ -41,10 +44,12 @@ if(fixture==='sparse'){
  initial.report.marketEvidence.comparables=[];initial.report.marketEvidence.primary=null;initial.report.insurerEvidence.adjustmentContext=null;
 }
 const requestBody='Hello,\n\nI am requesting reconsideration of the $19,046 valuation for my 2022 Toyota Camry SE under claim CLM-42.\n\nThe attached Venfour evidence package compares the insurer valuation with selected advertised vehicles. The selected prices range from $19,800 to $22,263, with a median of $20,490. This places the valuation $1,444 below that median.\n\nPlease review the attached evidence and explain whether the valuation can be revised. I understand that advertised prices do not establish final sale prices or a guaranteed settlement amount.\n\nPlease provide your response in writing.\n\nThank you,\nCase Owner';
-initial.messageDraft=stage==='send'||stage==='sent'?{...initial.messageDraft,body:requestBody}:null;
+initial.messageDraft=stage==='send'||requestSent?{...initial.messageDraft,body:requestBody}:null;
 initial.sendingDetails={adjusterEmail:initial.messageDraft?'adjuster@example.com':null,adjusterEmailConfirmed:Boolean(initial.messageDraft),adjusterName:null,claimReference:initial.messageDraft?'CLM-42':null,claimReferenceConfirmed:Boolean(initial.messageDraft),customerName:fixture==='long'?'Alexandra Montgomery-Richardson':'Case Owner',insurerName:initial.report.insurerEvidence.insurerName,revision:1,vehicleDescription:initial.report.subjectVehicle.description};
-if(stage==='sent'){initial.education.steps.send={completedAt:NOW,viewedAt:NOW,skippedAt:null};initial.journey={fulfillmentState:'awaiting_insurer_response',nextState:'awaiting_insurer_response',retryable:false};initial.workflow.currentTask='awaiting_insurer_response';}
+if(requestSent){initial.education.steps.send={completedAt:NOW,viewedAt:NOW,skippedAt:null};initial.journey={fulfillmentState:'awaiting_insurer_response',nextState:'awaiting_insurer_response',retryable:false};initial.workflow.currentTask='awaiting_insurer_response';}
 export let claim=params.has('reset')||!localStorage.getItem(storageKey)?initial:JSON.parse(localStorage.getItem(storageKey)!);
+const responseHistoryKey=`${storageKey}-insurer-responses`;
+if(params.has('reset'))localStorage.removeItem(responseHistoryKey);
 const persist=()=>localStorage.setItem(storageKey,JSON.stringify(claim));
 if(page==='review')persist();
 if(location.pathname==='/'&&page==='preview')history.replaceState(null,'',`/total-loss/cases/${CASE_ID}/analysis`);
@@ -71,6 +76,34 @@ globalThis.fetch=async(input,init)=>{
  if(url.pathname.startsWith('/api/v1/analyses/'))return result(materialUndervalueAnalysis);
  if(path==='/analysis')return result({status:'completed',attemptCount:1,runId:materialUndervalueAnalysis.runId});
  if(path==='/claim')return result(claim);
+ if(path==='/insurer-response'&&method==='POST'){
+  const fingerprint=JSON.stringify({text:body.responseText,offer:body.revisedOfferMinorUnits,document:body.documentId,retainedDocument:body.retainedDocumentId,supersedes:body.supersedesResponseId});
+  const history=JSON.parse(localStorage.getItem(responseHistoryKey)||'[]') as Array<{fingerprint:string;recorded:PreviewResponseRecord}>;
+  const replay=history.find(entry=>entry.recorded.response.clientRequestId===body.clientRequestId);
+  if(replay)return replay.fingerprint===fingerprint?result(replay.recorded):error(409,'This request was already used for a different response.');
+  if(!claim.education.steps.send.completedAt)return error(409,'Record the sent request first.');
+  if(body.expectedWorkflowRevision!==claim.workflow.revision)return error(409,'The workflow changed.');
+  if(body.supersedesResponseId!==(claim.insurerResponse?.responseId??null))return error(409,'The saved response changed.');
+  if(body.documentId||body.retainedDocumentId)return error(400,'This preview supports pasted text and revised offers only.');
+  if(body.responseText!==null&&(typeof body.responseText!=='string'||!body.responseText.trim()||body.responseText.length>100_000))return error(400,'Enter valid response text.');
+  if(body.revisedOfferMinorUnits!==null&&(!Number.isSafeInteger(body.revisedOfferMinorUnits)||body.revisedOfferMinorUnits<=0))return error(400,'Enter a valid revised offer.');
+  if(!body.responseText&&!body.revisedOfferMinorUnits)return error(400,'Add response text or a revised offer.');
+  if(failNext==='save'){failNext='';return error(503,'The response could not be saved.');}
+  const response={
+   responseId:crypto.randomUUID(),clientRequestId:body.clientRequestId,receivedAt:new Date().toISOString(),
+   sourceType:'pasted_message' as const,text:body.responseText,document:null,
+   revisedOffer:body.revisedOfferMinorUnits===null?null:{amountMinorUnits:body.revisedOfferMinorUnits,currency:'USD'},
+   processingState:'pending' as const,failureReason:null,supersedesResponseId:body.supersedesResponseId,
+  };
+  claim.insurerResponse=response;
+  claim.journey={fulfillmentState:'insurer_response_received',nextState:'insurer_response_received',retryable:false};
+  claim.workflow={...claim.workflow,currentTask:'insurer_response_received',revision:claim.workflow.revision+1};
+  const recorded:PreviewResponseRecord={state:'insurer_response_received',response,workflowRevision:claim.workflow.revision};
+  history.push({fingerprint,recorded});
+  localStorage.setItem(responseHistoryKey,JSON.stringify(history));persist();
+  log('Response saved in this browser only. Automatic review is not running.');
+  return result(recorded);
+ }
  if(path.startsWith('/education/')){
   if(body.expectedWorkflowRevision!==claim.workflow.revision)return error(409,'Progress changed');
   const step=path.split('/').pop()!;claim.education.steps[step]={completedAt:NOW,viewedAt:NOW,skippedAt:null};claim.workflow.revision++;
