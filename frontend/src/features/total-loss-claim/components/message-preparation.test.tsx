@@ -14,7 +14,7 @@ import {
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import { useState } from "react";
-import { MemoryRouter } from "react-router";
+import { createMemoryRouter, RouterProvider } from "react-router";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { MessagePreparation } from "@/features/total-loss-claim/components/message-preparation";
@@ -31,6 +31,7 @@ import type {
 } from "@/features/total-loss-claim/contracts";
 import { server } from "@/test/mocks/server";
 import { totalLossClaimQueryKeys } from "@/features/total-loss-claim/queries";
+import { preserveRequestDraft, requestDraftRecoveryKey } from "@/features/total-loss-claim/request-draft-recovery";
 import type { TotalLossIntakeMode } from "@/features/total-loss/types";
 
 vi.mock(
@@ -222,29 +223,38 @@ function renderRequest(
   const client = new QueryClient({
     defaultOptions: { mutations: { retry: false }, queries: { retry: false } },
   });
-  const view = (current: TotalLossClaimSecured) => (
-    <QueryClientProvider client={client}>
-      <MemoryRouter>
-        {callbacks.followUp ? <FollowUpPreparation
-          accessToken="request-test-token" caseId={CASE_ID} claim={current}
+  let currentClaim = initial;
+  let updateClaim: (current: TotalLossClaimSecured) => void;
+  function RequestRoute() {
+    const [current, setCurrent] = useState(currentClaim);
+    updateClaim = setCurrent;
+    return callbacks.followUp ? <FollowUpPreparation
+          accessToken="request-test-token" caseId={current.caseId} claim={current}
           onRefresh={onRefresh} report={report()} userId={USER_ID}
           onSent={callbacks.onSent ?? (() => undefined)}
         /> : <MessagePreparation
           {...callbacks}
           accessToken="request-test-token"
-          caseId={CASE_ID}
+          caseId={current.caseId}
           claim={current}
           onRefresh={onRefresh}
           report={report()}
           userId={USER_ID}
-        />}
-      </MemoryRouter>
-    </QueryClientProvider>
-  );
-  const result = render(view(initial));
+        />;
+  }
+  const router = createMemoryRouter([
+    { path: "/request", element: <RequestRoute /> },
+    { path: "/section", element: <h1>Another review section</h1> },
+  ], { initialEntries: ["/request"] });
+  const result = render(<QueryClientProvider client={client}><RouterProvider router={router} /></QueryClientProvider>);
   return {
     ...result,
-    refresh: (current: TotalLossClaimSecured) => result.rerender(view(current)),
+    refresh: (current: TotalLossClaimSecured) => {
+      currentClaim = current;
+      act(() => updateClaim(current));
+    },
+    navigate: async (path: string) => { await act(async () => { await router.navigate(path); }); },
+    router,
     onRefresh,
   };
 }
@@ -396,7 +406,216 @@ describe("follow-up preparation with the shared request editor", () => {
   });
 });
 
+describe("request edits across section navigation", () => {
+  it.each([false, true])("restores invalid subject and authored body across navigation and refresh (follow-up: %s)", async (followUp) => {
+    const current = followUp ? followUpClaim() : claim();
+    const writes = vi.fn();
+    server.use(http.patch(`${API}/${followUp ? "follow-up/draft" : "message-draft"}`, () => {
+      writes(); return HttpResponse.json({ detail: "Invalid subject" }, { status: 422 });
+    }));
+    const view = renderRequest(current, undefined, { followUp });
+    fireEvent.change(screen.getByRole("textbox", { name: "Subject" }), { target: { value: "" } });
+    fireEvent.change(screen.getByRole("textbox", { name: "Message" }), { target: { value: "My unfinished rewrite survives another section." } });
+    await view.navigate("/section");
+    expect(screen.getByRole("heading", { name: "Another review section" })).toBeVisible();
+    await view.navigate("/request");
+    expect(screen.getByRole("textbox", { name: "Subject" })).toHaveValue("");
+    expect(screen.getByRole("textbox", { name: "Message" })).toHaveValue("My unfinished rewrite survives another section.");
+    expect(screen.getByText(/Your unfinished edits were restored/u)).toBeVisible();
+    view.unmount();
+    renderRequest(current, undefined, { followUp });
+    expect(screen.getByRole("textbox", { name: "Subject" })).toHaveValue("");
+    expect(screen.getByRole("textbox", { name: "Message" })).toHaveValue("My unfinished rewrite survives another section.");
+    expect(writes).not.toHaveBeenCalled();
+  });
+
+  it.each([false, true])("retains failed edits and the visible retry state after returning (follow-up: %s)", async (followUp) => {
+    const current = followUp ? followUpClaim() : claim();
+    const writes = vi.fn();
+    server.use(http.patch(`${API}/${followUp ? "follow-up/draft" : "message-draft"}`, () => {
+      writes(); return HttpResponse.json({ detail: "Unavailable" }, { status: 503 });
+    }));
+    const view = renderRequest(current, undefined, { followUp });
+    fireEvent.change(screen.getByRole("textbox", { name: "Message" }), { target: { value: "My authored work when saving fails." } });
+    await screen.findByRole("button", { name: "Retry save" }, { timeout: 2000 });
+    await view.navigate("/section");
+    await view.navigate("/request");
+    expect(screen.getByRole("textbox", { name: "Message" })).toHaveValue("My authored work when saving fails.");
+    expect(screen.getByRole("button", { name: "Retry save" })).toBeVisible();
+    expect(screen.getByText("Changes not saved")).toBeVisible();
+    expect(writes).toHaveBeenCalledOnce();
+  });
+
+  it("keeps initial, different-case, and different-round follow-up drafts isolated", () => {
+    const first = renderRequest();
+    fireEvent.change(screen.getByRole("textbox", { name: "Subject" }), { target: { value: "" } });
+    fireEvent.change(screen.getByRole("textbox", { name: "Message" }), { target: { value: "Initial request work" } });
+    first.unmount();
+    const otherCase = renderRequest(claim({ caseId: "99999999-9999-4999-8999-999999999999" }));
+    expect(screen.getByRole("textbox", { name: "Message" })).toHaveValue(draft().body);
+    otherCase.unmount();
+    const second = renderRequest(followUpClaim(), undefined, { followUp: true });
+    expect(screen.getByRole("textbox", { name: "Message" })).toHaveValue(followUpProjection().draft!.body);
+    fireEvent.change(screen.getByRole("textbox", { name: "Subject" }), { target: { value: "" } });
+    fireEvent.change(screen.getByRole("textbox", { name: "Message" }), { target: { value: "Round two work" } });
+    second.unmount();
+    const roundTwo = followUpClaim();
+    const roundThree = { ...roundTwo, followUp: { ...roundTwo.followUp!, draft: { ...roundTwo.followUp!.draft!, draftId: "aaaaaaaa-1111-4111-8111-111111111111" } } };
+    const third = renderRequest(roundThree, undefined, { followUp: true });
+    expect(screen.getByRole("textbox", { name: "Message" })).toHaveValue(followUpProjection().draft!.body);
+    third.unmount();
+    const returned = renderRequest(followUpClaim(), undefined, { followUp: true });
+    expect(screen.getByRole("textbox", { name: "Message" })).toHaveValue("Round two work");
+    returned.unmount();
+    renderRequest();
+    expect(screen.getByRole("textbox", { name: "Message" })).toHaveValue("Initial request work");
+  });
+
+  it("preserves newer invalid work when a previous editor's pending save finishes", async () => {
+    let release!: () => void;
+    let started = false;
+    const held = new Promise<void>((resolve) => { release = resolve; });
+    let saved = draft();
+    server.use(http.patch(`${API}/message-draft`, async ({ request }) => {
+      const input = await request.json() as { recipient: string; subject: string; body: string };
+      started = true;
+      await held;
+      saved = { ...saved, ...input, revision: 2 };
+      return HttpResponse.json(saved);
+    }));
+    const view = renderRequest();
+    fireEvent.change(screen.getByRole("textbox", { name: "Subject" }), { target: { value: "First edit" } });
+    await waitFor(() => expect(started).toBe(true), { timeout: 2000 });
+    await view.navigate("/section");
+    await view.navigate("/request");
+    expect(screen.getByRole("textbox", { name: "Subject" })).toHaveValue("First edit");
+    fireEvent.change(screen.getByRole("textbox", { name: "Subject" }), { target: { value: "" } });
+    fireEvent.change(screen.getByRole("textbox", { name: "Message" }), { target: { value: "New work after return" } });
+    await act(async () => release());
+    await waitFor(() => expect(saved.revision).toBe(2));
+    await view.navigate("/section");
+    view.refresh(claim({ messageDraft: saved }));
+    await view.navigate("/request");
+    expect(screen.getByRole("textbox", { name: "Subject" })).toHaveValue("");
+    expect(screen.getByRole("textbox", { name: "Message" })).toHaveValue("New work after return");
+    expect(screen.queryByRole("button", { name: "Load saved draft" })).not.toBeInTheDocument();
+  });
+
+  it("preserves an acknowledged save when the resolver refresh remains stale", async () => {
+    const saved = draft({ subject: "Saved although refresh failed", revision: 2 });
+    server.use(http.patch(`${API}/message-draft`, () => HttpResponse.json(saved)));
+    const view = renderRequest();
+    fireEvent.change(screen.getByRole("textbox", { name: "Subject" }), { target: { value: saved.subject } });
+    await screen.findByText("Saved", {}, { timeout: 2000 });
+    await view.navigate("/section");
+    await view.navigate("/request");
+    expect(screen.getByRole("textbox", { name: "Subject" })).toHaveValue(saved.subject);
+    expect(screen.queryByRole("button", { name: "Load saved draft" })).not.toBeInTheDocument();
+    view.refresh(claim({ messageDraft: saved }));
+    expect(window.sessionStorage.length).toBe(0);
+  });
+
+  it("persists a reversion made while an older save is pending", async () => {
+    let release!: () => void;
+    let writes = 0;
+    let saved = draft();
+    const held = new Promise<void>((resolve) => { release = resolve; });
+    server.use(http.patch(`${API}/message-draft`, async ({ request }) => {
+      const input = await request.json() as { recipient: string; subject: string; body: string; expectedRevision: number };
+      writes += 1;
+      if (writes === 1) await held;
+      saved = { ...saved, ...input, revision: input.expectedRevision + 1 };
+      return HttpResponse.json(saved);
+    }));
+    const view = renderRequest();
+    fireEvent.change(screen.getByRole("textbox", { name: "Subject" }), { target: { value: "Pending change" } });
+    await waitFor(() => expect(writes).toBe(1), { timeout: 2000 });
+    fireEvent.change(screen.getByRole("textbox", { name: "Subject" }), { target: { value: draft().subject } });
+    await view.navigate("/section");
+    await view.navigate("/request");
+    expect(screen.getByRole("textbox", { name: "Subject" })).toHaveValue(draft().subject);
+    await act(async () => release());
+    await waitFor(() => expect(writes).toBe(2), { timeout: 2000 });
+    await waitFor(() => expect(saved.subject).toBe(draft().subject));
+    expect(saved.revision).toBe(3);
+    view.refresh(claim({ messageDraft: saved }));
+    await view.navigate("/section");
+    await view.navigate("/request");
+    expect(screen.getByRole("textbox", { name: "Subject" })).toHaveValue(draft().subject);
+    expect(screen.queryByRole("button", { name: "Load saved draft" })).not.toBeInTheDocument();
+  });
+
+  it("keeps a restored rewrite when a save interrupted by refresh later appears in the resolver", () => {
+    const current = draft();
+    const pending = { recipient: current.recipient!, subject: "Earlier pending subject", body: current.body };
+    const local = { ...pending, subject: "", body: "Latest rewrite after the pending snapshot" };
+    const recoveryKey = requestDraftRecoveryKey({ userId: USER_ID, caseId: CASE_ID, draft: current });
+    preserveRequestDraft(recoveryKey, local, current, false, pending);
+    const view = renderRequest();
+    expect(screen.getByRole("textbox", { name: "Message" })).toHaveValue(local.body);
+    view.refresh(claim({ messageDraft: { ...current, ...pending, revision: 2 } }));
+    expect(screen.getByRole("textbox", { name: "Subject" })).toHaveValue("");
+    expect(screen.getByRole("textbox", { name: "Message" })).toHaveValue(local.body);
+    expect(screen.getByRole("textbox", { name: "Message" })).toBeEnabled();
+    expect(screen.queryByRole("button", { name: "Load saved draft" })).not.toBeInTheDocument();
+  });
+
+  it("blocks section navigation when the latest work cannot be stored", async () => {
+    const view = renderRequest();
+    const storage = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("Storage unavailable"); });
+    fireEvent.change(screen.getByRole("textbox", { name: "Subject" }), { target: { value: "" } });
+    fireEvent.change(screen.getByRole("textbox", { name: "Message" }), { target: { value: "Work held only in the editor" } });
+    await view.navigate("/section");
+    expect(screen.getByRole("alertdialog", { name: "Leave your unsaved changes?" })).toBeVisible();
+    expect(view.router.state.location.pathname).toBe("/request");
+    await userEvent.click(screen.getByRole("button", { name: "Keep editing" }));
+    storage.mockRestore();
+    fireEvent.change(screen.getByRole("textbox", { name: "Message" }), { target: { value: "Work safely preserved now" } });
+    await view.navigate("/section");
+    await view.navigate("/request");
+    expect(screen.getByRole("textbox", { name: "Message" })).toHaveValue("Work safely preserved now");
+  });
+
+  it("restores concurrent edits behind revision conflict protection", async () => {
+    const first = renderRequest();
+    fireEvent.change(screen.getByRole("textbox", { name: "Subject" }), { target: { value: "" } });
+    fireEvent.change(screen.getByRole("textbox", { name: "Message" }), { target: { value: "My preserved work" } });
+    first.unmount();
+    const remote = draft({ subject: "Other tab's saved subject", revision: 2 });
+    server.use(http.get(`${API}/message-draft`, () => HttpResponse.json(remote)));
+    renderRequest(claim({ messageDraft: remote }));
+    expect(screen.getByRole("textbox", { name: "Message" })).toHaveValue("My preserved work");
+    expect(screen.getByRole("textbox", { name: "Message" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Copy email" })).toBeDisabled();
+    await userEvent.click(screen.getByRole("button", { name: "Load saved draft" }));
+    expect(screen.getByRole("textbox", { name: "Subject" })).toHaveValue(remote.subject);
+    expect(window.sessionStorage.length).toBe(0);
+  });
+
+  it.each([false, true])("clears obsolete recovery after a successful sent confirmation (follow-up: %s)", async (followUp) => {
+    const current = followUp ? followUpClaim() : claim();
+    const currentDraft = followUp ? current.followUp!.draft! : current.messageDraft!;
+    const recoveryKey = requestDraftRecoveryKey({ userId: USER_ID, caseId: CASE_ID, draft: currentDraft, followUpDraftId: followUp ? currentDraft.draftId : undefined });
+    server.use(
+      http.post(`${API}/${followUp ? "follow-up" : "message"}/prepare`, () => HttpResponse.json(prepared(currentDraft))),
+      http.post(`${API}/${followUp ? "follow-up" : "message"}/sent`, () => HttpResponse.json(sentResult())),
+    );
+    const user = userEvent.setup();
+    vi.spyOn(navigator.clipboard, "writeText").mockResolvedValue(undefined);
+    renderRequest(current, undefined, { followUp });
+    await user.click(screen.getByRole("button", { name: "Copy email" }));
+    await screen.findByRole("checkbox", { name: SENT_ACKNOWLEDGEMENT });
+    preserveRequestDraft(recoveryKey, { recipient: currentDraft.recipient!, subject: "", body: "Obsolete local recovery" }, currentDraft, true);
+    await user.click(screen.getByRole("checkbox", { name: SENT_ACKNOWLEDGEMENT }));
+    await user.click(screen.getByRole("button", { name: "Mark as sent" }));
+    await screen.findByRole("heading", { name: "Request marked as sent" });
+    expect(window.sessionStorage.getItem(recoveryKey)).toBeNull();
+    expect(screen.queryByRole("textbox", { name: "Message" })).not.toBeInTheDocument();
+  });
+});
+
 beforeEach(() => {
+  window.sessionStorage.clear();
   vi.mocked(openDefaultEmailApp).mockReset();
 });
 
@@ -846,9 +1065,7 @@ describe("case request preparation", () => {
     const user = userEvent.setup();
     render(
       <QueryClientProvider client={client}>
-        <MemoryRouter>
-          <RequestMountHarness />
-        </MemoryRouter>
+        <RouterProvider router={createMemoryRouter([{ path: "*", element: <RequestMountHarness /> }])} />
       </QueryClientProvider>,
     );
     fireEvent.change(screen.getByRole("textbox", { name: "Subject" }), {
@@ -858,7 +1075,7 @@ describe("case request preparation", () => {
     await user.click(screen.getByRole("button", { name: "Leave request" }));
     await user.click(screen.getByRole("button", { name: "Return to request" }));
     expect(screen.getByRole("textbox", { name: "Subject" })).toHaveValue(
-      draft().subject,
+      "Saved while away",
     );
     await act(async () => release());
     await waitFor(() =>
@@ -1358,6 +1575,12 @@ describe("case request preparation", () => {
     const onRefresh = vi.fn(async () => {
       rendered.refresh(
         claim({
+          negotiationHistory: [{
+            negotiationRoundId: sentResult().negotiationRoundId,
+            roundNumber: 1,
+            outbound: { ...prepared(draft()).messageVersion, recipient: draft().recipient!, ...sentResult(), state: "sent" },
+            responses: [], followUp: null,
+          }],
           journey: {
             nextState: "awaiting_insurer_response",
             fulfillmentState: "awaiting_insurer_response",

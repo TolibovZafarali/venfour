@@ -9,12 +9,26 @@ import {
   type TotalLossInsurerResponse,
   type TotalLossInsurerResponseAnalysis,
   type TotalLossPublishedReport,
+  type TotalLossSentCommunication,
 } from "./contracts";
 
 const CASE_ID = "33333333-3333-4333-8333-333333333333";
 const REPORT_ID = "44444444-4444-4444-8444-444444444444";
 const NOW = "2026-09-02T18:00:00.000Z";
 const BASE = `/total-loss/cases/${CASE_ID}/claim/review`;
+const sentMessage: TotalLossSentCommunication = {
+  body: "Please review the attached evidence package.",
+  communicationId: "11111111-1111-4111-8111-111111111111",
+  createdAt: NOW,
+  customerReportedSentAt: NOW,
+  messageVersionId: "22222222-2222-4222-8222-222222222222",
+  negotiationRoundId: "77777777-7777-4777-8777-777777777777",
+  recipient: "adjuster@example.test",
+  reportVersionId: REPORT_ID,
+  state: "sent",
+  subject: "Please review the valuation",
+  versionNumber: 1,
+};
 
 const report: TotalLossPublishedReport = {
   conclusion: {
@@ -73,6 +87,9 @@ function claim(
     state: "secured",
     workflow: { phase: "initial_request", currentTask: nextState, revision: 8 },
     journey: { nextState, fulfillmentState: "report_ready", retryable: false },
+    negotiationHistory: ["awaiting_insurer_response", "insurer_response_received", "insurer_response_reviewing", "insurer_response_reviewed", "insurer_response_review_unavailable", "follow_up_preparation"].includes(nextState)
+      ? [{ negotiationRoundId: sentMessage.negotiationRoundId, roundNumber: 1, outbound: sentMessage, responses: [], followUp: null }]
+      : [],
     education: {
       reportVersionId: REPORT_ID,
       steps: Object.fromEntries(TOTAL_LOSS_EDUCATION_STEPS.map((step) => [step, {
@@ -127,6 +144,19 @@ function workspace(savedClaim = claim(), intakeMode: "manual" | "report" = "repo
 }
 
 describe("persistent case workspace projection", () => {
+  it("retains a confirmed initial request in the closed workspace from its durable communication", () => {
+    const saved = claim("awaiting_insurer_response", TOTAL_LOSS_EDUCATION_STEPS);
+    const closed: TotalLossClaimSecured = {
+      ...saved,
+      journey: { nextState: "resolved", fulfillmentState: "resolved", retryable: false },
+      workflow: { phase: "resolution", currentTask: "resolved", revision: 9 },
+      resolution: { code: "CUSTOMER_STOPPED_PURSUING", resolvedAt: NOW, customerConfirmed: true, clientRequestId: CASE_ID, offerId: null, amountMinorUnits: null, currency: null, amountSource: null, recommendationId: null, decisionId: null, responseId: null },
+    };
+
+    expect(workspace(closed).sections.find((section) => section.stage === "request")).toMatchObject({ label: "Initial request", available: true, complete: true });
+    expect(workspace({ ...closed, negotiationHistory: [] }).sections.some((section) => section.stage === "request")).toBe(false);
+  });
+
   it("opens closed cases in the existing workspace with education and saved responses available", () => {
     const saved: TotalLossClaimSecured = { ...claim("resolved"), insurerResponse: response("completed"),
       workflow: { phase: "resolution", currentTask: "resolved", revision: 9 },

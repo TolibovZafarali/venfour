@@ -43,7 +43,7 @@ export function SentFollowUp({ followUp }: { readonly followUp: TotalLossFollowU
         <h1 id="sent-follow-up-heading">Your sent follow-up</h1>
         <p>The follow-up you confirmed sending in response to the saved insurer reply.</p>
       </header>
-      <p className="sent-request-recorded" data-review-entrance="supporting">You confirmed sending this message on <RecordedTime value={message.customerReportedSentAt} />.</p>
+      <p className="sent-request-recorded" data-review-entrance="supporting">You confirmed sending this message on <RecordedTime value={message.customerReportedSentAt} />. Version {message.versionNumber}.</p>
       <div className="sent-request-content" data-review-entrance="secondary">
         <dl className="sent-request-details">
           <div><dt>To</dt><dd>{message.recipient}</dd></div>
@@ -55,9 +55,10 @@ export function SentFollowUp({ followUp }: { readonly followUp: TotalLossFollowU
   );
 }
 
-export function FollowUpPreparation({ actionContainer, onSent, ...props }: RequestPreparationOptions & {
+export function FollowUpPreparation({ actionContainer, onSent, onSentAttempt, ...props }: RequestPreparationOptions & {
   readonly actionContainer?: HTMLElement | null;
-  readonly onSent: () => void;
+  readonly onSent?: () => void;
+  readonly onSentAttempt?: (messageVersionId: string) => void;
 }) {
   const { claim, caseId, report } = props;
   const mutation = useTotalLossFollowUpGenerationMutation(props);
@@ -73,7 +74,7 @@ export function FollowUpPreparation({ actionContainer, onSent, ...props }: Reque
   useEffect(() => {
     if (sentConfirmationRequested.current && incoming?.state === "sent") {
       sentConfirmationRequested.current = false;
-      onSent();
+      onSent?.();
     }
   }, [incoming?.state, onSent]);
 
@@ -97,7 +98,7 @@ export function FollowUpPreparation({ actionContainer, onSent, ...props }: Reque
     }
   };
   if (followUp?.sentMessage) return <><SentFollowUp followUp={followUp} /><ReportFileRow {...props} /></>;
-  if (followUp?.state === "draft" && followUp.draft) return <DraftEditor {...props} actionContainer={actionContainer} draft={followUp.draft} followUpDraftId={followUp.draft.draftId} initialPreparedMessage={followUp.preparedMessage} key={followUp.draft.draftId} onSent={onSent} onSentAttempt={() => { sentConfirmationRequested.current = true; }} workflowRevision={claim.workflow?.revision ?? 1} />;
+  if (followUp?.state === "draft" && followUp.draft) return <DraftEditor {...props} actionContainer={actionContainer} draft={followUp.draft} followUpDraftId={followUp.draft.draftId} initialPreparedMessage={followUp.preparedMessage} key={followUp.draft.draftId} onSent={onSent} onSentAttempt={(messageVersionId) => { sentConfirmationRequested.current = true; onSentAttempt?.(messageVersionId); }} workflowRevision={claim.workflow?.revision ?? 1} />;
 
   const createAction = <button className={actionContainer === undefined ? "request-button request-button-primary" : "review-primary"} disabled={mutation.isPending} type="button" onClick={() => void create()}>
     <StableActionLabel reserve="Prepare my follow-up">{mutation.isPending ? "Preparing follow-up…" : followUp?.state === "unavailable" || error ? "Retry preparation" : "Prepare my follow-up"}</StableActionLabel>

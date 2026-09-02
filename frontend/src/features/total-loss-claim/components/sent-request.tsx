@@ -4,7 +4,7 @@ import type {
   TotalLossClaimSecured,
   TotalLossPublishedReport,
 } from "../contracts";
-import { requestIsSent } from "../request-state";
+import { initialSentRequest } from "../request-state";
 import { RecordedTime } from "./completed-analysis-visuals";
 import "./sent-request.css";
 
@@ -15,32 +15,26 @@ export interface SentRequestProps {
 
 export function SentRequest({ claim, report }: SentRequestProps) {
   const headingId = useId();
-  const sent = requestIsSent(claim);
-  const draft = sent && claim.messageDraft?.reportVersionId === report.reportId
-    ? claim.messageDraft
-    : null;
-  const recordedAt = sent && claim.education?.reportVersionId === report.reportId
-    ? claim.education.steps.send.completedAt
-    : null;
+  const message = initialSentRequest(claim, report.reportId);
 
   return (
     <section className="sent-request" aria-labelledby={headingId}>
       <header className="request-heading" data-review-entrance="primary">
-        <h1 id={headingId}>Your sent request</h1>
-        <p>The request you marked as sent to your insurer.</p>
+        <h1 id={headingId}>{message ? "Your sent request" : "Your saved request"}</h1>
+        <p>{message ? "The request you marked as sent to your insurer." : "This message was not confirmed as sent for this report."}</p>
       </header>
-      {recordedAt ? (
+      {message ? (
         <p className="sent-request-recorded" data-review-entrance="supporting">
-          Recorded <RecordedTime value={recordedAt} />
+          Sent · Recorded <RecordedTime value={message.customerReportedSentAt} /> · Version {message.versionNumber}
         </p>
       ) : null}
-      {draft ? (
+      {message ? (
         <div className="sent-request-content" data-review-entrance="secondary">
           <dl className="sent-request-details">
-            <div><dt>To</dt><dd>{draft.recipient ?? "Recipient unavailable"}</dd></div>
-            <div><dt>Subject</dt><dd>{draft.subject}</dd></div>
+            <div><dt>To</dt><dd>{message.recipient}</dd></div>
+            <div><dt>Subject</dt><dd>{message.subject}</dd></div>
           </dl>
-          <p className="sent-request-body" aria-label="Request message">{draft.body}</p>
+          <p className="sent-request-body" aria-label="Request message">{message.body}</p>
         </div>
       ) : (
         <p className="review-note" data-review-entrance="secondary">

@@ -10,7 +10,7 @@ function SentHistoryMessage({ message, label }: {
   readonly label: string;
 }) {
   return <details className="case-history-message">
-    <summary>{label} <span>Sent <RecordedTime value={message.customerReportedSentAt} /></span></summary>
+    <summary>{label} <span>Sent <RecordedTime value={message.customerReportedSentAt} /> · Version {message.versionNumber}</span></summary>
     <dl className="sent-request-details">
       <div><dt>To</dt><dd>{message.recipient}</dd></div>
       <div><dt>Subject</dt><dd>{message.subject}</dd></div>

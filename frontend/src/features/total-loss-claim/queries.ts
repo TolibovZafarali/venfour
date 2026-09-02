@@ -287,6 +287,7 @@ export function useTotalLossMessageDraftMutation({
   userId,
   followUpDraftId,
 }: ClaimIdentityOptions & { readonly followUpDraftId?: string }) {
+  const queryClient = useQueryClient();
   const invalidate = useClaimMutationInvalidation({ caseId, userId });
   return useMutation({
     gcTime: 0,
@@ -302,7 +303,24 @@ export function useTotalLossMessageDraftMutation({
       }
       return followUpDraftId ? updateTotalLossMessageDraft(caseId, accessToken, input, undefined, followUpDraftId) : updateTotalLossMessageDraft(caseId, accessToken, input);
     },
-    onSuccess: invalidate,
+    onSuccess: async (saved) => {
+      queryClient.setQueryData<TotalLossClaimResolver>(totalLossClaimQueryKeys.detail(userId, caseId), (claim) => {
+        if (claim?.state !== "secured" || claim.resolution) return claim;
+        if (followUpDraftId) {
+          const current = claim.followUp;
+          if (current?.state !== "draft" || current.sentMessage || !current.draft ||
+            current.draft.draftId !== saved.draftId || saved.draftId !== followUpDraftId ||
+            current.draft.reportVersionId !== saved.reportVersionId || current.draft.revision > saved.revision) return claim;
+          return { ...claim, followUp: { ...current, draft: saved } };
+        }
+        const current = claim.messageDraft;
+        if (!current || current.draftId !== saved.draftId || current.reportVersionId !== saved.reportVersionId ||
+          current.revision > saved.revision || claim.negotiationHistory?.some((round) =>
+            round.roundNumber === 1 && round.outbound?.state === "sent")) return claim;
+        return { ...claim, messageDraft: saved };
+      });
+      await invalidate();
+    },
     retry: false,
   });
 }

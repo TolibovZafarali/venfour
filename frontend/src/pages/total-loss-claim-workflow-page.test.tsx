@@ -300,6 +300,13 @@ function claimProjection({
       retryable: false,
     },
     responseIntake: journey === "awaiting_insurer_response" ? { negotiationRoundId: "12121212-1212-4212-8212-121212121212", outboundCommunicationId: "13131313-1313-4313-8313-131313131313" } : null,
+    negotiationHistory: progress.send.completedAt ? [{
+      negotiationRoundId: "12121212-1212-4212-8212-121212121212", roundNumber: 1,
+      outbound: { ...draft(), state: "sent", messageVersionId: "66666666-6666-4666-8666-666666666666",
+        versionNumber: 1, createdAt: NOW, customerReportedSentAt: progress.send.completedAt,
+        communicationId: "13131313-1313-4313-8313-131313131313", negotiationRoundId: "12121212-1212-4212-8212-121212121212" },
+      responses: [], followUp: null,
+    }] : [],
     messageDraft: withDraft ? draft() : null,
     report: journey === "checkout" ? null : report(continuingSupported),
     sendingDetails:
@@ -1396,8 +1403,10 @@ describe("total-loss customer workflow", () => {
     const progress = completedEducationSteps();
     progress.send = { completedAt: NOW, skippedAt: null, viewedAt: NOW };
     const originalBody = `I have attached ${report().suggestedFilename}.`;
+    const current = claimProjection({ journey: "awaiting_insurer_response", progress, withDraft: true });
     const projection = {
-      ...claimProjection({ journey: "awaiting_insurer_response", progress, withDraft: true }),
+      ...current,
+      negotiationHistory: current.negotiationHistory.map((round) => ({ ...round, outbound: { ...round.outbound, body: originalBody } })),
       messageDraft: { ...draft(), body: originalBody },
     };
     let writes = 0;
@@ -1425,7 +1434,7 @@ describe("total-loss customer workflow", () => {
 
     await user.click(within(navigation).getByRole("link", { name: /^Initial request/u }));
     expect(await screen.findByRole("heading", { name: "Your sent request" })).toBeVisible();
-    expect(screen.getByText(originalBody, { exact: true })).toBeVisible();
+    expect(screen.getByLabelText("Request message")).toHaveTextContent(originalBody);
     expect(initial.router.state.location.pathname).toBe(`${CLAIM_BASE}/review/request`);
     expect(screen.queryByRole("textbox", { name: "Message" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /copy email|open email app|mark as sent/iu })).not.toBeInTheDocument();
@@ -1442,7 +1451,7 @@ describe("total-loss customer workflow", () => {
     initial.unmount();
     const refreshed = renderTestApp([`${CLAIM_BASE}/review/request`], { authService: authService() });
     expect(await screen.findByRole("heading", { name: "Your sent request" })).toBeVisible();
-    expect(screen.getByText(originalBody, { exact: true })).toBeVisible();
+    expect(screen.getByLabelText("Request message")).toHaveTextContent(originalBody);
     expect(refreshed.router.state.location.pathname).toBe(`${CLAIM_BASE}/review/request`);
     expect(screen.getByRole("progressbar", { name: "Case journey" })).toHaveAttribute("aria-valuetext", progressLabel);
     expect(screen.queryByRole("textbox", { name: "Message" })).not.toBeInTheDocument();

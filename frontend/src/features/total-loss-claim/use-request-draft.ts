@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useBlocker } from "react-router";
 
 import { getTotalLossMessageDraft } from "@/features/total-loss-claim/api";
 import {
@@ -26,6 +27,19 @@ import {
   validationError,
 } from "@/features/total-loss-claim/request-state";
 import type { DraftContent } from "@/features/total-loss-claim/request-state";
+import {
+  acknowledgeRequestDraftProjection,
+  clearRequestDraftRecovery,
+  preserveRequestDraft,
+  reconcileRequestDraft,
+  recordRequestDraftFailure,
+  requestDraftRecoveryKey,
+  restoreRequestDraft,
+} from "./request-draft-recovery";
+
+const pendingDraftSaves = new Map<string, Promise<TotalLossMessageDraft>>();
+const SAVE_ERROR = "We couldn’t save your changes. Your last saved draft is unchanged. Retry saving before sending.";
+const CONFLICT_ERROR = "This draft changed in another tab. Load the saved draft to review those changes before editing again.";
 
 interface RequestDraftOptions {
   readonly accessToken: string;
@@ -76,24 +90,29 @@ export function useRequestDraft({
     userId,
     followUpDraftId,
   });
-  const [content, setContent] = useState(() => ({
+  const recoveryKey = requestDraftRecoveryKey({ userId, caseId, draft: initialDraft, followUpDraftId });
+  const [recovery] = useState(() => restoreRequestDraft(recoveryKey, initialDraft, {
     ...contentOf(initialDraft),
     body: followUpDraftId ? initialDraft.body : normalizeCustomerRequestBody(initialDraft.body, report),
   }));
+  const [content, setContent] = useState(recovery.content);
   const [savedContent, setSavedContent] = useState(() =>
-    contentOf(initialDraft),
+    contentOf(recovery.baseline),
   );
   const [saving, setSaving] = useState(false);
   const [action, setAction] = useState<"copy" | "open" | "sent" | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [saveError, setSaveError] = useState<string | null>(null);
-  const [conflict, setConflict] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(recovery.conflict ? CONFLICT_ERROR : recovery.failed ? SAVE_ERROR : null);
+  const [conflict, setConflict] = useState(recovery.conflict);
+  const [storageError, setStorageError] = useState(recovery.storageError);
+  const [pendingRecovery, setPendingRecovery] = useState(Boolean(recovery.pendingContent));
   const [notice, setNotice] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
   const [sharedMessage, setSharedMessage] =
     useState<TotalLossPreparedMessageVersion | null>(null);
   const contentRef = useRef(content);
-  const savedRef = useRef(initialDraft);
+  const savedRef = useRef(recovery.baseline);
+  const pendingContentRef = useRef(recovery.pendingContent);
   const inFlightSave = useRef<Promise<TotalLossMessageDraft> | null>(null);
   const preparedRef = useRef(initialPreparedMessage);
   const revisionRef = useRef(workflowRevision);
@@ -101,7 +120,14 @@ export function useRequestDraft({
   const sentRequestId = useRef(globalThis.crypto.randomUUID());
   const actionRef = useRef(false);
   const mountedRef = useRef(true);
-  const dirty = !sameContent(normalizedContent(content), savedContent);
+  const sentRef = useRef(false);
+  const preservedRef = useRef(!recovery.storageError);
+  const dirty = pendingRecovery || !sameContent(normalizedContent(content), savedContent);
+  const blocker = useBlocker(({ currentLocation, nextLocation }) =>
+    !sentRef.current && !preservedRef.current &&
+    (pendingContentRef.current !== null || !sameContent(normalizedContent(contentRef.current), contentOf(savedRef.current))) &&
+    (currentLocation.pathname !== nextLocation.pathname || currentLocation.search !== nextLocation.search),
+  );
   const fieldErrors = {
     recipient:
       dirty && !EMAIL_PATTERN.test(content.recipient.trim())
@@ -122,29 +148,61 @@ export function useRequestDraft({
     revisionRef.current = Math.max(revisionRef.current, workflowRevision);
   }, [workflowRevision]);
 
+  const preserve = useCallback((failed: boolean) => {
+    const stored = preserveRequestDraft(recoveryKey, contentRef.current, savedRef.current, failed, pendingContentRef.current);
+    preservedRef.current = stored;
+    if (mountedRef.current) setStorageError(!stored);
+  }, [recoveryKey]);
+
+  const receiveSaved = useCallback((saved: TotalLossMessageDraft) => {
+    if (saved.revision < savedRef.current.revision) return;
+    savedRef.current = saved;
+    pendingContentRef.current = null;
+    if (mountedRef.current) {
+      setSavedContent(contentOf(saved));
+      setSaveError(null);
+      setConflict(false);
+      setPendingRecovery(false);
+    }
+  }, []);
+
   useEffect(() => {
+    const pending = pendingDraftSaves.get(recoveryKey);
+    if (!pending) return;
+    let active = true;
+    void pending.then((saved) => {
+      if (active) receiveSaved(saved);
+    }, () => {
+      if (active) setSaveError(SAVE_ERROR);
+    });
+    return () => { active = false; };
+  }, [receiveSaved, recoveryKey]);
+
+  useEffect(() => {
+    acknowledgeRequestDraftProjection(recoveryKey, initialDraft);
     if (
       initialDraft.revision <= savedRef.current.revision ||
-      inFlightSave.current
+      inFlightSave.current || pendingDraftSaves.has(recoveryKey)
     )
       return;
     const incoming = contentOf(initialDraft);
     const local = normalizedContent(contentRef.current);
+    const completesPending = pendingContentRef.current && sameContent(incoming, pendingContentRef.current);
+    const hasLocalWork = pendingContentRef.current !== null || !sameContent(local, contentOf(savedRef.current));
     if (
-      !sameContent(local, contentOf(savedRef.current)) &&
-      !sameContent(local, incoming)
+      hasLocalWork && !sameContent(local, incoming) && !completesPending
     ) {
       setConflict(true);
-      setSaveError(
-        "This draft changed in another tab. Load the saved draft to review those changes before editing again.",
-      );
+      setSaveError(CONFLICT_ERROR);
       return;
     }
-    const nextContent = {
+    const nextContent = completesPending && hasLocalWork ? contentRef.current : {
       ...incoming,
       body: followUpDraftId ? initialDraft.body : normalizeCustomerRequestBody(initialDraft.body, report),
     };
+    reconcileRequestDraft(recoveryKey, savedRef.current, initialDraft);
     savedRef.current = initialDraft;
+    pendingContentRef.current = null;
     contentRef.current = nextContent;
     preparedRef.current = null;
     prepareRequestId.current = globalThis.crypto.randomUUID();
@@ -152,31 +210,50 @@ export function useRequestDraft({
     setSaveError(null);
     setConflict(false);
     setSavedContent(incoming);
+    setPendingRecovery(false);
     setContent(nextContent);
     setSharedMessage(null);
     setNotice(null);
-  }, [followUpDraftId, initialDraft, report]);
+  }, [followUpDraftId, initialDraft, recoveryKey, report]);
 
   const persist = useCallback(async (): Promise<TotalLossMessageDraft> => {
     if (inFlightSave.current) return inFlightSave.current;
     const saveLatest = async () => {
       try {
         while (true) {
+          const previousPending = pendingDraftSaves.get(recoveryKey);
+          if (previousPending) receiveSaved(await previousPending);
+          if (!mountedRef.current) return savedRef.current;
           const snapshot = contentRef.current;
           const normalized = normalizedContent(snapshot);
           const invalid = validationError(normalized);
           if (invalid) throw new Error(invalid);
-          if (sameContent(normalized, contentOf(savedRef.current))) {
+          if (!pendingContentRef.current && sameContent(normalized, contentOf(savedRef.current))) {
             setSaveError(null);
+            reconcileRequestDraft(recoveryKey, savedRef.current, savedRef.current);
             return savedRef.current;
           }
           setSaving(true);
-          const saved = await saveDraft({
+          const previous = savedRef.current;
+          pendingContentRef.current = normalized;
+          setPendingRecovery(true);
+          preserve(false);
+          const pending = saveDraft({
             ...normalized,
-            expectedRevision: savedRef.current.revision,
+            expectedRevision: previous.revision,
           });
-          savedRef.current = saved;
-          setSavedContent(contentOf(saved));
+          pendingDraftSaves.set(recoveryKey, pending);
+          let saved: TotalLossMessageDraft;
+          try {
+            saved = await pending;
+          } finally {
+            if (pendingDraftSaves.get(recoveryKey) === pending) pendingDraftSaves.delete(recoveryKey);
+          }
+          const stored = reconcileRequestDraft(recoveryKey, previous, saved);
+          preservedRef.current = stored;
+          if (mountedRef.current) setStorageError(!stored);
+          receiveSaved(saved);
+          if (!mountedRef.current) return saved;
           if (sameContent(contentRef.current, snapshot)) {
             contentRef.current = contentOf(saved);
             setContent(contentOf(saved));
@@ -185,11 +262,12 @@ export function useRequestDraft({
       } catch {
         const message =
           validationError(contentRef.current) ??
-          "We couldn’t save your changes. Your last saved draft is unchanged. Retry saving before sending.";
-        setSaveError(message);
+          SAVE_ERROR;
+        recordRequestDraftFailure(recoveryKey, savedRef.current);
+        if (mountedRef.current) setSaveError(message);
         throw new Error(message);
       } finally {
-        setSaving(false);
+        if (mountedRef.current) setSaving(false);
       }
     };
     const pending = saveLatest();
@@ -199,7 +277,7 @@ export function useRequestDraft({
     } finally {
       inFlightSave.current = null;
     }
-  }, [saveDraft]);
+  }, [preserve, receiveSaved, recoveryKey, saveDraft]);
 
   useEffect(() => {
     if (!dirty || validationError(content) || saveError || conflict) return;
@@ -212,10 +290,11 @@ export function useRequestDraft({
   useEffect(() => {
     const warnUnsaved = (event: BeforeUnloadEvent) => {
       if (
-        sameContent(
+        sentRef.current ||
+        (!pendingContentRef.current && sameContent(
           normalizedContent(contentRef.current),
           contentOf(savedRef.current),
-        )
+        ))
       )
         return;
       event.preventDefault();
@@ -224,14 +303,13 @@ export function useRequestDraft({
     window.addEventListener("beforeunload", warnUnsaved);
     return () => {
       window.removeEventListener("beforeunload", warnUnsaved);
-      if (!validationError(contentRef.current))
-        void persist().catch(() => undefined);
     };
-  }, [persist]);
+  }, []);
 
   const edit = (field: keyof DraftContent, value: string) => {
     const next = { ...contentRef.current, [field]: value };
     contentRef.current = next;
+    preserve(Boolean(saveError));
     setContent(next);
     preparedRef.current = null;
     prepareRequestId.current = globalThis.crypto.randomUUID();
@@ -259,13 +337,15 @@ export function useRequestDraft({
         currentContent,
         contentOf(savedRef.current),
       );
-      if (!loadSaved && !matchesLocal && !matchesBaseline) {
+      const matchesPending = pendingContentRef.current && sameContent(currentContent, pendingContentRef.current);
+      if (!loadSaved && !matchesLocal && !matchesBaseline && !matchesPending) {
         setConflict(true);
-        setSaveError(
-          "This draft changed in another tab. Load the saved draft to review those changes before editing again.",
-        );
+        setSaveError(CONFLICT_ERROR);
         return;
       }
+      const needsFence = pendingContentRef.current !== null && current.revision <= savedRef.current.revision;
+      if (!needsFence) pendingContentRef.current = null;
+      setPendingRecovery(needsFence);
       savedRef.current = current;
       setSavedContent(currentContent);
       setSaveError(null);
@@ -281,11 +361,15 @@ export function useRequestDraft({
         prepareRequestId.current = globalThis.crypto.randomUUID();
         sentRequestId.current = globalThis.crypto.randomUUID();
         setSharedMessage(null);
+        preserve(false);
+        if (needsFence) await persist();
       } else {
+        preserve(false);
         await persist();
       }
     } catch {
       setSaveError("We couldn’t save your changes. Try again before sending.");
+      recordRequestDraftFailure(recoveryKey, savedRef.current);
     } finally {
       setSaving(false);
     }
@@ -377,6 +461,8 @@ export function useRequestDraft({
         expectedWorkflowRevision: revisionRef.current,
         messageVersionId: sharedMessage.messageVersionId,
       });
+      sentRef.current = true;
+      clearRequestDraftRecovery(recoveryKey);
       setSent(true);
       await onRefresh().catch(() => undefined);
       if (mountedRef.current) onSent?.();
@@ -393,6 +479,7 @@ export function useRequestDraft({
 
   return {
     action,
+    blocker,
     confirmSent,
     conflict,
     content,
@@ -404,10 +491,12 @@ export function useRequestDraft({
     invalid: validationError(content),
     notice,
     retrySave,
+    restored: recovery.restored,
     saveError,
     saving,
     sent,
     shareEmail,
     sharedMessage,
+    storageError,
   };
 }

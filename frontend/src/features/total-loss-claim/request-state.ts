@@ -1,6 +1,7 @@
 import type {
   TotalLossClaimSecured,
   TotalLossMessageDraft,
+  TotalLossSentCommunication,
 } from "@/features/total-loss-claim/contracts";
 
 export const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/u;
@@ -61,25 +62,17 @@ export function validationError(content: DraftContent) {
   return null;
 }
 
+export function initialSentRequest(
+  claim: TotalLossClaimSecured,
+  reportVersionId?: string,
+): TotalLossSentCommunication | null {
+  const message = claim.negotiationHistory?.find((round) => round.roundNumber === 1)?.outbound;
+  return message?.state === "sent" &&
+    (reportVersionId === undefined || message.reportVersionId === reportVersionId)
+    ? message
+    : null;
+}
+
 export function requestIsSent(claim: TotalLossClaimSecured) {
-  return (
-    Boolean(claim.followUp || claim.insurerResponse) ||
-    claim.journey?.nextState === "follow_up_preparation" ||
-    claim.workflow?.currentTask === "follow_up_preparation" ||
-    claim.journey?.nextState === "awaiting_insurer_response" ||
-    claim.journey?.nextState === "insurer_response_received" ||
-    claim.journey?.nextState === "insurer_response_reviewing" ||
-    claim.journey?.nextState === "insurer_response_reviewed" ||
-    claim.journey?.nextState === "insurer_response_review_unavailable" ||
-    claim.journey?.fulfillmentState === "awaiting_insurer_response" ||
-    claim.journey?.fulfillmentState === "insurer_response_received" ||
-    claim.journey?.fulfillmentState === "insurer_response_reviewing" ||
-    claim.journey?.fulfillmentState === "insurer_response_reviewed" ||
-    claim.journey?.fulfillmentState === "insurer_response_review_unavailable" ||
-    claim.workflow?.currentTask === "awaiting_insurer_response" ||
-    claim.workflow?.currentTask === "insurer_response_received" ||
-    claim.workflow?.currentTask === "insurer_response_reviewing" ||
-    claim.workflow?.currentTask === "insurer_response_reviewed" ||
-    claim.workflow?.currentTask === "insurer_response_review_unavailable"
-  );
+  return initialSentRequest(claim) !== null;
 }

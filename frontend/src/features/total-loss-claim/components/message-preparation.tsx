@@ -23,6 +23,7 @@ interface MessagePreparationProps extends RequestPreparationOptions {
   readonly intakeMode?: TotalLossIntakeMode;
   readonly onDraftStateChange?: (hasDraft: boolean) => void;
   readonly onSent?: () => void;
+  readonly onSentAttempt?: (messageVersionId: string) => void;
 }
 
 function RequestError({ children }: { readonly children: React.ReactNode }) {
@@ -63,7 +64,7 @@ export function DraftEditor({
   readonly initialPreparedMessage: TotalLossPreparedMessageVersion | null;
   readonly workflowRevision: number;
   readonly onSent?: () => void;
-  readonly onSentAttempt?: () => void;
+  readonly onSentAttempt?: (messageVersionId: string) => void;
   readonly followUpDraftId?: string;
 }) {
   const editor = useRequestDraft({
@@ -105,7 +106,7 @@ export function DraftEditor({
       disabled={!sentAcknowledged || editor.action !== null || editor.conflict}
       onClick={() => {
         if (sentAcknowledged) {
-          onSentAttempt?.();
+          onSentAttempt?.(editor.sharedMessage!.messageVersionId);
           void editor.confirmSent();
         }
       }}
@@ -134,6 +135,19 @@ export function DraftEditor({
         <h1>{followUpDraftId ? "Review and send your follow-up" : "Review and send your request"}</h1>
         <p>{followUpDraftId ? "This follow-up responds to the insurer’s saved response using the evidence reviewed with your Continue decision. Review and edit it before sending from your email app." : "Review the message below. When it’s ready, open it in your email app, attach the valuation report, and send it."}</p>
       </header>
+      {editor.blocker.state === "blocked" ? (
+        <div className="request-save-recovery" role="alertdialog" aria-labelledby={`${fieldId}-leave-heading`} aria-describedby={`${fieldId}-leave-description`}>
+          <h2 id={`${fieldId}-leave-heading`}>Leave your unsaved changes?</h2>
+          <p id={`${fieldId}-leave-description`}>This browser couldn’t preserve your latest edits. Leaving this page may discard them. Keep editing until your changes are saved, or leave without them.</p>
+          <button autoFocus className="request-button request-button-secondary" onClick={() => editor.blocker.state === "blocked" && editor.blocker.reset()} type="button">Keep editing</button>
+          <button className="request-button request-button-text" onClick={() => editor.blocker.state === "blocked" && editor.blocker.proceed()} type="button">Leave page</button>
+        </div>
+      ) : null}
+      {editor.dirty && editor.storageError ? (
+        <RequestError>This browser couldn’t preserve your latest edits. Keep this page open until your changes are saved.</RequestError>
+      ) : editor.dirty ? (
+        <p className="request-notice" role="status">{editor.restored ? "Your unfinished edits were restored. " : ""}Your edits are preserved in this tab until they can be saved.</p>
+      ) : null}
       <div className="request-send-layout" data-confirming={hasSharedMessage || undefined}>
         <aside className="request-evidence-panel" data-review-entrance="secondary" data-review-order="1" aria-labelledby={`${fieldId}-evidence`}>
           <h2 id={`${fieldId}-evidence`}>Evidence to attach</h2>
@@ -406,6 +420,7 @@ export function MessagePreparation({
   intakeMode = "report",
   onDraftStateChange,
   onSent,
+  onSentAttempt,
   ...props
 }: MessagePreparationProps) {
   const formId = useId();
@@ -425,6 +440,7 @@ export function MessagePreparation({
         initialPreparedMessage={preparation.preparedVersion}
         key={draft.draftId}
         onSent={onSent}
+        onSentAttempt={onSentAttempt}
         workflowRevision={preparation.workflowRevision}
       />
     );
