@@ -1,7 +1,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path=public,extensions;
-select plan(47);
+select plan(53);
 
 insert into auth.users (id, email, email_confirmed_at, is_anonymous)
 values
@@ -376,7 +376,7 @@ create function pg_temp.recommendation(recommended_state text,offer_source text 
 returns jsonb language sql stable security definer set search_path=''
 as $$
   select jsonb_build_object(
-    'schemaVersion','1','policyVersion','1','state',recommended_state,
+    'schemaVersion','1','policyVersion','2','state',recommended_state,
     'summary','The saved valuation evidence informs this recommendation.',
     'reasons',jsonb_build_array('The response is compared with the saved evidence, not a new valuation.'),
     'reasonCodes',jsonb_build_array('SAVED_EVIDENCE_REVIEWED'),
@@ -393,7 +393,10 @@ as $$
       'continuationStatus',assessment.assessment -> 'continuationStatus',
       'supportedRange',assessment.assessment -> 'supportedRange',
       'validationIssues',coalesce(assessment.assessment -> 'validationIssues','[]'::jsonb),
-      'preliminaryToFinalComparison',assessment.assessment -> 'preliminaryToFinalComparison'))
+      'preliminaryToFinalComparison',assessment.assessment -> 'preliminaryToFinalComparison',
+      'insurerValuationReviewed',assessment.assessment -> 'insurerValuationReviewed',
+      'limitations',coalesce(assessment.assessment -> 'limitations','[]'::jsonb),
+      'assumptions',coalesce(assessment.assessment -> 'assumptions','[]'::jsonb)))
   from public.total_loss_final_assessments as assessment
   where assessment.id='ba000000-0000-4000-8000-000000000001';
 $$;
@@ -448,26 +451,44 @@ select ok((select payload #> '{response,recommendation}'='null'::jsonb
   from scenario where name='first'),'pending response always projects nullable recommendation, offer, and decision');
 reset role;
 
-select throws_ok($$select pg_temp.complete_response(jsonb_set(pg_temp.recommendation('ACCEPT_OFFER'),
+select throws_ok($$select pg_temp.complete_response(jsonb_set(pg_temp.recommendation('CONTINUE_CHALLENGING'),
   '{policyInput,assessmentDigest}',to_jsonb(repeat('0',64))))$$,
   '22023','Recommendation evidence does not match its saved sources.',
   'atomic completion rejects a recommendation from different saved evidence');
 select is((select count(*) from public.total_loss_insurer_response_analysis_results where case_id='b2000000-0000-4000-8000-000000000001'),0::bigint,
   'failed recommendation persistence rolls back the analysis completion');
-select throws_ok($$select pg_temp.complete_response(jsonb_set(pg_temp.recommendation('ACCEPT_OFFER'),
+select throws_ok($$select pg_temp.complete_response(jsonb_set(pg_temp.recommendation('CONTINUE_CHALLENGING'),
   '{responseEvidenceRefs}',jsonb_build_array('response_'||repeat('f',64))))$$,
   '22023','Recommendation evidence does not match its saved sources.',
   'recommendation cannot cite evidence absent from the saved analysis index');
-select throws_ok($$select pg_temp.complete_response(jsonb_set(pg_temp.recommendation('ACCEPT_OFFER'),
+select throws_ok($$select pg_temp.complete_response(jsonb_set(pg_temp.recommendation('CONTINUE_CHALLENGING'),
   '{offer,amountMinorUnits}','2200000'::jsonb))$$,'22023',
   'Recommendation offer does not match the analyzed response.',
   'recommendation cannot change the source response offer amount');
-select is(pg_temp.complete_response(pg_temp.recommendation('ACCEPT_OFFER')) ->> 'outcome','completed',
+select throws_ok($$select pg_temp.complete_response(pg_temp.recommendation('ACCEPT_OFFER'))$$,
+  '22023','Response recommendation is invalid.',
+  'the current assessment policy cannot publish an unsupported Accept recommendation');
+select throws_ok($$select pg_temp.complete_response(jsonb_set(pg_temp.recommendation('NO_CLEAR_RECOMMENDATION'),
+  '{policyVersion}','"1"'::jsonb))$$,'22023','New response recommendations require the current assessment policy.',
+  'new recommendations cannot use the superseded policy');
+select throws_ok($$select pg_temp.complete_response(jsonb_set(pg_temp.recommendation('NO_CLEAR_RECOMMENDATION'),
+  '{policyInput,insurerValuationReviewed}','{"valueMinorUnits":2050000,"currency":"USD"}'::jsonb))$$,
+  '22023','Recommendation evidence does not match its saved sources.',
+  'recommendation cannot replace the insurer value evaluated by its saved assessment');
+select throws_ok($$select pg_temp.complete_response(jsonb_set(pg_temp.recommendation('NO_CLEAR_RECOMMENDATION'),
+  '{policyInput,limitations}','[{"code":"UNSAVED_LIMITATION"}]'::jsonb))$$,
+  '22023','Recommendation evidence does not match its saved sources.',
+  'recommendation limitations must match the immutable assessment');
+select throws_ok($$select pg_temp.complete_response(jsonb_set(pg_temp.recommendation('NO_CLEAR_RECOMMENDATION'),
+  '{policyInput,assumptions}','[{"code":"UNSAVED_ASSUMPTION"}]'::jsonb))$$,
+  '22023','Recommendation evidence does not match its saved sources.',
+  'recommendation assumptions must match the immutable assessment');
+select is(pg_temp.complete_response(pg_temp.recommendation('CONTINUE_CHALLENGING')) ->> 'outcome','completed',
   'one transaction completes the analysis and publishes its recommendation');
 set local role authenticated;
 insert into scenario select 'current',jsonb_build_object('response',insurer_response,'workflowRevision',workflow_revision)
   from public.resolve_total_loss_case_claim('b2000000-0000-4000-8000-000000000001');
-select ok((select payload #>> '{response,recommendation,state}'='ACCEPT_OFFER'
+select ok((select payload #>> '{response,recommendation,state}'='CONTINUE_CHALLENGING'
   and payload #>> '{response,usableOffer,amountMinorUnits}'='2050000'
   and payload #>> '{response,usableOffer,source}'='CUSTOMER_RECORDED'
   and payload #> '{response,decision}'='null'::jsonb
@@ -520,6 +541,22 @@ select ok((select payload #>> '{response,decision,choice}'='ACCEPT_OFFER'
   and payload #>> '{response,decision,amountMinorUnits}'='2050000'
   and payload #>> '{response,decision,recommendationId}'=payload #>> '{response,recommendation,recommendationId}'
   from scenario where name='accepted'),'Accept records the explicit choice and exact immutable offer amount/version');
+reset role;
+select ok((select
+    projected #>> '{recommendation,state}' = 'NO_CLEAR_RECOMMENDATION'
+    and (projected - 'recommendation') = ((payload -> 'response') - 'recommendation')
+    and projected #>> '{recommendation,recommendationId}' = payload #>> '{response,recommendation,recommendationId}'
+    and projected #>> '{recommendation,analysisResultId}' = payload #>> '{response,recommendation,analysisResultId}'
+    and projected #>> '{recommendation,versionNumber}' = payload #>> '{response,recommendation,versionNumber}'
+    and projected #>> '{recommendation,policyVersion}' = '1'
+    and projected #>> '{decision,choice}' = 'ACCEPT_OFFER'
+  from scenario cross join lateral (
+    select public.total_loss_response_recommendation_current_projection(
+      jsonb_set(jsonb_set(payload -> 'response','{recommendation,policyVersion}','"1"'::jsonb),
+        '{recommendation,state}','"ACCEPT_OFFER"'::jsonb)) as projected
+  ) as prior_policy where name='accepted'),
+  'prior policy direction is withheld while exact offer, source identifiers and explicit Accept choice survive unchanged');
+set local role authenticated;
 select is((select public.record_total_loss_insurer_response_decision(
   'b2000000-0000-4000-8000-000000000001','d2000000-0000-4000-8000-000000000004',
   (payload #>> '{response,responseId}')::uuid,(payload #>> '{response,recommendation,recommendationId}')::uuid,
@@ -582,18 +619,18 @@ select throws_ok($$select pg_temp.complete_response(pg_temp.recommendation('NO_C
   'unverified visual transcription cannot materialize an offer for acceptance');
 update valid_result set result=jsonb_set(result,'{revisedOffer,visualSourceInterpretation}','null');
 update valid_result set result=jsonb_set(result,'{revisedOffer,currency}','"EUR"');
-select throws_ok($$select pg_temp.complete_response(jsonb_set(pg_temp.recommendation('ACCEPT_OFFER','RESPONSE_TEXT'),
+select throws_ok($$select pg_temp.complete_response(jsonb_set(pg_temp.recommendation('NO_CLEAR_RECOMMENDATION','RESPONSE_TEXT'),
   '{offer,currency}','"EUR"'))$$,'22023','Response text cannot replace an existing or unverified offer.',
   'USD text cannot create an exact offer in a different currency');
 update valid_result set result=jsonb_set(result,'{revisedOffer,currency}','"USD"');
 update valid_evidence_index set evidence_index=jsonb_set(evidence_index,'{responseEvidence,0,content}',
   to_jsonb('The revised amount is not stated.'::text));
-select throws_ok($$select pg_temp.complete_response(pg_temp.recommendation('ACCEPT_OFFER','RESPONSE_TEXT'))$$,
+select throws_ok($$select pg_temp.complete_response(pg_temp.recommendation('NO_CLEAR_RECOMMENDATION','RESPONSE_TEXT'))$$,
   '22023','Response offer lacks literal saved text evidence.',
   'a generated amount without matching literal saved response text is rejected');
 update valid_evidence_index set evidence_index=jsonb_set(evidence_index,'{responseEvidence,0,content}',
   to_jsonb('Our revised valuation is $20,500.00.'::text));
-select is(pg_temp.complete_response(pg_temp.recommendation('ACCEPT_OFFER','RESPONSE_TEXT'))->>'outcome','completed',
+select is(pg_temp.complete_response(pg_temp.recommendation('NO_CLEAR_RECOMMENDATION','RESPONSE_TEXT'))->>'outcome','completed',
   'literal response text can publish and materialize an exact new stored offer');
 select ok((select count(*)=2 from public.total_loss_offers where case_id='b2000000-0000-4000-8000-000000000001')
   and (select supersedes_offer_id is not null from public.total_loss_offers
@@ -614,10 +651,10 @@ insert into scenario select 'continued',public.record_total_loss_insurer_respons
   (payload #>> '{response,responseId}')::uuid,(payload #>> '{response,recommendation,recommendationId}')::uuid,
   'CONTINUE_CHALLENGING',null,(payload->>'workflowRevision')::bigint)
   from scenario where name='corrected_review';
-select ok((select payload #>> '{response,recommendation,state}'='ACCEPT_OFFER'
+select ok((select payload #>> '{response,recommendation,state}'='NO_CLEAR_RECOMMENDATION'
   and payload #>> '{response,decision,choice}'='CONTINUE_CHALLENGING'
   and payload #> '{response,decision,offerId}'='null'::jsonb and payload #> '{response,decision,amountMinorUnits}'='null'::jsonb
-  from scenario where name='continued'),'customer may Continue despite an Accept recommendation without accepting any offer');
+  from scenario where name='continued'),'customer may Continue without a clear recommendation without accepting any offer');
 select is((select public.record_total_loss_insurer_response_decision(
   'b2000000-0000-4000-8000-000000000001','d2000000-0000-4000-8000-000000000007',
   (payload #>> '{response,responseId}')::uuid,(payload #>> '{response,recommendation,recommendationId}')::uuid,

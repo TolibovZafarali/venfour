@@ -481,7 +481,7 @@ export interface TotalLossResponseRecommendation extends TotalLossInsurerRespons
   readonly versionNumber: number;
   readonly analysisResultId: string;
   readonly schemaVersion: "1";
-  readonly policyVersion: "1";
+  readonly policyVersion: "1" | "2";
   readonly state: TotalLossResponseDecisionChoice | "NO_CLEAR_RECOMMENDATION";
   readonly summary: string;
   readonly reasons: readonly string[];

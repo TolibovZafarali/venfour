@@ -34,7 +34,7 @@ function recommendedResponseProjection() {
     analysis: responseAnalysis(), analysisEvidence: responseAnalysisEvidence(),
     recommendation: {
       recommendationId: RECOMMENDATION_ID, versionNumber: 1, analysisResultId: ANALYSIS_RESULT_ID,
-      schemaVersion: "1", policyVersion: "1", state: "CONTINUE_CHALLENGING",
+      schemaVersion: "1", policyVersion: "2", state: "CONTINUE_CHALLENGING",
       summary: "The evidence supports continuing to challenge.", reasons: ["The offer remains below the saved evidence range."],
       reasonCodes: ["OFFER_BELOW_SUPPORTED_RANGE"], limitations: ["Advertised prices are not guaranteed settlement values."],
       responseEvidenceRefs: [RESPONSE_REF], caseEvidenceRefs: [CASE_REF],
@@ -61,7 +61,7 @@ function acceptedDecision() {
 }
 
 describe("persisted response recommendations and decisions", () => {
-  it.each(["ACCEPT_OFFER", "CONTINUE_CHALLENGING", "NO_CLEAR_RECOMMENDATION"])("maps authoritative %s independently of the response-analysis suggestion", async (state) => {
+  it.each(["CONTINUE_CHALLENGING", "NO_CLEAR_RECOMMENDATION"])("maps authoritative %s independently of the response-analysis suggestion", async (state) => {
     const response = recommendedResponseProjection();
     response.recommendation.state = state;
     server.use(http.get("*/api/v1/appraisal-cases/:caseId/claim", () => HttpResponse.json(recommendationResolver(response))));
@@ -70,8 +70,23 @@ describe("persisted response recommendations and decisions", () => {
     } });
   });
 
+  it("preserves a recorded choice and exact offer when prior policy advice is withheld", async () => {
+    const response = recommendedResponseProjection();
+    response.recommendation.policyVersion = "1";
+    response.recommendation.state = "NO_CLEAR_RECOMMENDATION";
+    response.recommendation.reasonCodes = ["SAVED_RECOMMENDATION_POLICY_SUPERSEDED"];
+    response.recommendation.reasons = ["The saved advice predates the corrected assessment policy."];
+    response.decision = acceptedDecision();
+    server.use(http.get("*/api/v1/appraisal-cases/:caseId/claim", () => HttpResponse.json(recommendationResolver(response))));
+    await expect(getTotalLossClaim(CASE_ID, "owner-token")).resolves.toMatchObject({ insurerResponse: {
+      recommendation: response.recommendation, usableOffer: response.usableOffer, decision: response.decision,
+    } });
+  });
+
   it.each([
-    { policyVersion: "2" }, { schemaVersion: "2" }, { state: "GUARANTEED_WIN" },
+    { policyVersion: "3" }, { schemaVersion: "2" }, { state: "GUARANTEED_WIN" },
+    { policyVersion: "1", state: "ACCEPT_OFFER" }, { policyVersion: "1", state: "CONTINUE_CHALLENGING" },
+    { policyVersion: "2", state: "ACCEPT_OFFER" },
     { policyInput: { internal: true } }, { responseEvidenceRefs: [`response_${"c".repeat(64)}`] },
     { responseEvidenceRefs: [RESPONSE_REF, RESPONSE_REF] }, { reasons: Array.from({ length: 11 }, () => "A reason.") },
   ])("rejects unknown, internal or ungrounded recommendation fields: %o", async (patch) => {
@@ -143,7 +158,7 @@ describe("persisted response recommendations and decisions", () => {
     server.use(http.get("*/api/v1/appraisal-cases/:caseId/claim", () => HttpResponse.json(recommendationResolver({
       ...response, recommendation: { ...response.recommendation, state: "ACCEPT_OFFER" }, usableOffer: null,
     }))));
-    await expect(getTotalLossClaim(CASE_ID, "owner-token")).rejects.toThrow("inconsistent response recommendation or decision lineage");
+    await expect(getTotalLossClaim(CASE_ID, "owner-token")).rejects.toThrow("unsupported recommendation advice");
   });
 
   it.each(["ACCEPT_OFFER", "CONTINUE_CHALLENGING"] as const)("posts an explicit %s bound to the exact recommendation and validates the acknowledgement", async (choice) => {

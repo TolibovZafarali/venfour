@@ -74,6 +74,7 @@ class InsurerResponseRecommendationTests(
         )
         request = self._request(
             response_text=text,
+            original_offer_minor_units=self.assessment["insurerValuationReviewed"]["valueMinorUnits"],
             revised_offer_minor_units=amount if customer else None,
             revised_offer_currency="USD" if customer and amount is not None else None,
             case_evidence=(
@@ -117,53 +118,68 @@ class InsurerResponseRecommendationTests(
         )
         return build_insurer_response_recommendation_v1(**inputs)
 
-    def test_offer_inside_saved_range_recommends_accept(self):
+    def test_offer_inside_advertised_range_does_not_establish_acceptance(self):
         result = self._result(self._inputs())
-        self.assertEqual(result["state"], ACCEPT_OFFER)
-        self.assertEqual(result["reasonCodes"], ["OFFER_WITHIN_SUPPORTED_RANGE"])
+        self.assertEqual(result["state"], NO_CLEAR_RECOMMENDATION)
+        self.assertEqual(result["reasonCodes"], ["OFFER_NOT_ASSESSED"])
+        self.assertEqual(result["policyVersion"], "2")
         self.assertEqual(result["offer"], {
             "amountMinorUnits": 2_175_000, "currency": "USD", "source": "CUSTOMER_RECORDED",
         })
-        self.assertEqual(result["caseEvidenceRefs"], sorted([self.low_ref, self.high_ref]))
+        self.assertTrue({self.low_ref, self.high_ref} <= set(result["caseEvidenceRefs"]))
         self.assertNotIn("decision", result)
 
-    def test_endpoints_and_above_range_recommend_accept(self):
+    def test_endpoints_and_above_range_do_not_establish_acceptance(self):
         for amount in (2_100_000, 2_250_000, 2_500_000):
             with self.subTest(amount=amount):
-                self.assertEqual(self._result(self._inputs(amount))["state"], ACCEPT_OFFER)
+                self.assertEqual(self._result(self._inputs(amount))["state"], NO_CLEAR_RECOMMENDATION)
 
-    def test_materially_below_lower_edge_recommends_continue(self):
+    def test_large_unassessed_gap_does_not_invent_continuation(self):
         result = self._result(self._inputs(1_900_000))
+        self.assertEqual(result["state"], NO_CLEAR_RECOMMENDATION)
+        self.assertEqual(result["reasonCodes"], ["OFFER_NOT_ASSESSED"])
+
+    def test_exact_assessed_offer_reuses_saved_continuation(self):
+        amount = self.assessment["insurerValuationReviewed"]["valueMinorUnits"]
+        result = self._result(self._inputs(amount))
         self.assertEqual(result["state"], CONTINUE_CHALLENGING)
-        self.assertEqual(result["reasonCodes"], ["OFFER_MATERIALLY_BELOW_SUPPORTED_RANGE"])
+        self.assertEqual(result["reasonCodes"], ["SAVED_ASSESSMENT_SUPPORTS_CONTINUATION"])
+        self.assertEqual(result["policyInput"]["insurerValuationReviewed"], self.assessment["insurerValuationReviewed"])
+        self.assertEqual(result["policyInput"]["limitations"], self.assessment["limitations"])
+        for changed in (amount - 1, amount + 1):
+            with self.subTest(amount=changed):
+                self.assertEqual(self._result(self._inputs(changed))["state"], NO_CLEAR_RECOMMENDATION)
 
-    def test_five_percent_boundary_uses_exact_integer_arithmetic(self):
-        at_boundary = self._result(self._inputs(2_000_000))
-        self.assertEqual(at_boundary["state"], NO_CLEAR_RECOMMENDATION)
-        self.assertEqual(at_boundary["reasonCodes"], ["INTERMEDIATE_EVIDENCE_GAP"])
-        self.assertEqual(self._result(self._inputs(2_000_001))["state"], ACCEPT_OFFER)
-        self.assertEqual(self._result(self._inputs(1_999_999))["state"], NO_CLEAR_RECOMMENDATION)
-
-    def test_ten_percent_boundary_uses_exact_integer_arithmetic(self):
-        self.assessment["supportedRange"]["lowMinorUnits"] = 2_200_000
-        self.assessment["supportedRange"]["medianMinorUnits"] = 2_225_000
+    def test_range_overlap_cannot_override_saved_continuation(self):
+        self.assessment["supportedRange"]["lowMinorUnits"] = 1_900_000
         for role in ("preliminary", "final"):
-            self.assessment["preliminaryToFinalComparison"][role]["supportedRange"].update({
-                "lowMinorUnits": 2_200_000, "medianMinorUnits": 2_225_000,
-            })
+            self.assessment["preliminaryToFinalComparison"][role]["supportedRange"]["lowMinorUnits"] = 1_900_000
         self._reseal_assessment()
         self.assertEqual(self._result(self._inputs(2_000_000))["state"], CONTINUE_CHALLENGING)
-        self.assertEqual(self._result(self._inputs(2_000_001))["state"], NO_CLEAR_RECOMMENDATION)
 
-    def test_small_remaining_gap_uses_existing_screening_threshold(self):
-        result = self._result(self._inputs(2_075_000))
-        self.assertEqual(result["state"], ACCEPT_OFFER)
-        self.assertEqual(result["reasonCodes"], ["REMAINING_GAP_BELOW_SCREENING_THRESHOLD"])
+    def test_former_five_and_ten_percent_boundaries_do_not_set_direction(self):
+        for amount in (1_909_090, 1_909_091, 1_999_999, 2_000_001, 2_075_000):
+            with self.subTest(amount=amount):
+                result = self._result(self._inputs(amount))
+                self.assertEqual(result["state"], NO_CLEAR_RECOMMENDATION)
+                self.assertEqual(result["reasonCodes"], ["OFFER_NOT_ASSESSED"])
+
+    def test_no_discrepancy_is_not_an_acceptance_signal(self):
+        self.assessment.update({
+            "finalClassification": "NO_MATERIAL_DISCREPANCY",
+            "continuationStatus": "DOES_NOT_SUPPORT_CONTINUATION",
+        })
+        for role in ("preliminary", "final"):
+            self.assessment["preliminaryToFinalComparison"][role]["classification"] = "NO_MATERIAL_DISCREPANCY"
+        self._reseal_assessment()
+        result = self._result(self._inputs(2_000_000))
+        self.assertEqual(result["state"], NO_CLEAR_RECOMMENDATION)
+        self.assertEqual(result["reasonCodes"], ["SAVED_ASSESSMENT_DOES_NOT_ESTABLISH_ACCEPTANCE"])
 
     def test_low_strength_or_insufficient_classification_is_neutral(self):
         for field, value in (("evidenceStrength", "LOW"), ("finalClassification", "INSUFFICIENT_EVIDENCE")):
             with self.subTest(field=field):
-                inputs = self._inputs()
+                inputs = self._inputs(2_000_000)
                 inputs["final_assessment"] = copy.deepcopy(self.assessment)
                 inputs["final_assessment"][field] = value
                 inputs["final_assessment"]["assessmentDigest"] = canonical_package_digest({
@@ -195,7 +211,7 @@ class InsurerResponseRecommendationTests(
 
     def test_uncertainty_and_low_confidence_keep_separate_customer_choice(self):
         for uncertainty in (False, True):
-            inputs = self._inputs()
+            inputs = self._inputs(2_000_000)
             if uncertainty:
                 inputs["analysis"]["uncertainties"] = [{
                     "description": "An attachment detail remains uncertain.",
@@ -206,10 +222,11 @@ class InsurerResponseRecommendationTests(
                 inputs["analysis"]["confidence"] = "LOW"
             result = self._result(inputs)
             self.assertEqual(result["state"], NO_CLEAR_RECOMMENDATION)
+            self.assertEqual(result["reasonCodes"], ["RESPONSE_UNCERTAINTY_UNRESOLVED"])
             self.assertEqual(result["offer"]["source"], "CUSTOMER_RECORDED")
 
     def test_new_insurer_arguments_withhold_numeric_recommendation(self):
-        inputs = self._inputs()
+        inputs = self._inputs(2_000_000)
         inputs["analysis"]["insurerArguments"] = [{
             "argument": "New comparable evidence was supplied.",
             "whatItReliesOn": "The insurer's new comparable selection.",
@@ -221,7 +238,7 @@ class InsurerResponseRecommendationTests(
         self.assertEqual(result["reasonCodes"], ["INSURER_ARGUMENT_REQUIRES_REVIEW"])
 
     def test_nonoffer_evidence_change_withholds_numeric_recommendation(self):
-        inputs = self._inputs()
+        inputs = self._inputs(2_000_000)
         inputs["analysis"]["importantChanges"] = [{
             "description": "The insurer supplied different market comparables.",
             "responseEvidenceRefs": inputs["analysis"]["analysisSummary"]["responseEvidenceRefs"],
@@ -232,7 +249,7 @@ class InsurerResponseRecommendationTests(
         self.assertEqual(result["reasonCodes"], ["INSURER_ARGUMENT_REQUIRES_REVIEW"])
 
     def test_pure_offer_change_does_not_hide_supported_recommendation(self):
-        inputs = self._inputs()
+        inputs = self._inputs(2_000_000)
         prior_ref = next(
             item["evidenceRef"] for item in inputs["evidence_index"]["caseEvidence"]
             if item["evidenceType"] == "INSURER_VALUATION"
@@ -242,7 +259,7 @@ class InsurerResponseRecommendationTests(
             "responseEvidenceRefs": inputs["analysis"]["analysisSummary"]["responseEvidenceRefs"],
             "caseEvidenceRefs": [prior_ref],
         }]
-        self.assertEqual(self._result(inputs)["state"], ACCEPT_OFFER)
+        self.assertEqual(self._result(inputs)["state"], CONTINUE_CHALLENGING)
 
     def test_no_revised_offer_does_not_reuse_prior_offer(self):
         result = self._result(self._inputs(None))
@@ -251,7 +268,7 @@ class InsurerResponseRecommendationTests(
 
     def test_exact_text_grounded_offer_can_be_used_without_customer_amount(self):
         result = self._result(self._inputs(customer=False))
-        self.assertEqual(result["state"], ACCEPT_OFFER)
+        self.assertEqual(result["state"], NO_CLEAR_RECOMMENDATION)
         self.assertEqual(result["offer"]["source"], "RESPONSE_TEXT")
 
     def test_text_offer_does_not_invent_currency_from_amount_only(self):
@@ -274,15 +291,20 @@ class InsurerResponseRecommendationTests(
         self.assertEqual(result["state"], NO_CLEAR_RECOMMENDATION)
         self.assertIsNone(result["offer"])
 
-    def test_real_saved_assessment_and_worker_context_can_recommend_both_directions(self):
+    def test_real_saved_assessment_and_worker_context_preserve_only_assessed_direction(self):
         assessment = copy.deepcopy(self.__class__._assessment_template)
         saved_range = assessment["supportedRange"]
         for amount, state in (
-            (saved_range["medianMinorUnits"], ACCEPT_OFFER),
-            (saved_range["lowMinorUnits"] * 100 // 111, CONTINUE_CHALLENGING),
+            (saved_range["medianMinorUnits"], NO_CLEAR_RECOMMENDATION),
+            (saved_range["lowMinorUnits"] * 100 // 111, NO_CLEAR_RECOMMENDATION),
+            (assessment["insurerValuationReviewed"]["valueMinorUnits"], CONTINUE_CHALLENGING),
         ):
             with self.subTest(state=state):
                 context = processing_fixture._analysis_context()
+                context["insurer"]["originalOffer"] = {
+                    "amountMinorUnits": assessment["insurerValuationReviewed"]["valueMinorUnits"],
+                    "currency": "USD",
+                }
                 context["venfourAssessment"].update({
                     "conclusionCode": assessment["finalClassification"],
                     "supportedRange": {key: saved_range[key] for key in (
@@ -317,7 +339,10 @@ class InsurerResponseRecommendationTests(
                     item["amountMinorUnits"] for item in index["caseEvidence"]
                     if item["evidenceRef"] in result["caseEvidenceRefs"]
                 }
-                self.assertEqual(cited, {saved_range["lowMinorUnits"], saved_range["highMinorUnits"]})
+                if state == CONTINUE_CHALLENGING:
+                    self.assertEqual(cited, {assessment["insurerValuationReviewed"]["valueMinorUnits"], None})
+                else:
+                    self.assertTrue({saved_range["lowMinorUnits"], saved_range["highMinorUnits"]} <= cited)
 
     def test_uncited_text_cannot_establish_offer(self):
         inputs = self._inputs(customer=False)
@@ -381,9 +406,11 @@ class InsurerResponseRecommendationTests(
         self.assertEqual(result["offer"]["source"], "CUSTOMER_RECORDED")
 
     def test_incomplete_response_coverage_is_neutral(self):
-        inputs = self._inputs()
+        inputs = self._inputs(2_000_000)
         inputs["analysis"]["inputCoverage"]["document"] = "UNREADABLE"
-        self.assertEqual(self._result(inputs)["state"], NO_CLEAR_RECOMMENDATION)
+        result = self._result(inputs)
+        self.assertEqual(result["state"], NO_CLEAR_RECOMMENDATION)
+        self.assertEqual(result["reasonCodes"], ["RESPONSE_UNCERTAINTY_UNRESOLVED"])
 
     def test_assessment_source_digest_change_is_rejected(self):
         inputs = self._inputs()
@@ -401,13 +428,13 @@ class InsurerResponseRecommendationTests(
         })
         after = self._result(inputs)
         self.assertEqual(before, after)
-        self.assertEqual(after["caseEvidenceRefs"], sorted([self.low_ref, self.high_ref]))
+        self.assertTrue({self.low_ref, self.high_ref} <= set(after["caseEvidenceRefs"]))
 
-    def test_missing_range_evidence_references_withholds_numeric_recommendation(self):
-        inputs = self._inputs()
+    def test_missing_reviewed_value_reference_withholds_continuation(self):
+        inputs = self._inputs(2_000_000)
         inputs["evidence_index"]["caseEvidence"] = [
             item for item in inputs["evidence_index"]["caseEvidence"]
-            if item["evidenceRef"] != self.low_ref
+            if item["evidenceType"] != "INSURER_VALUATION"
         ]
         result = self._result(inputs)
         self.assertEqual(result["state"], NO_CLEAR_RECOMMENDATION)
@@ -433,7 +460,7 @@ class InsurerResponseRecommendationTests(
             validate_insurer_response_recommendation_v1(result)
 
     def test_source_validation_problem_prevents_binary_recommendation(self):
-        inputs = self._inputs()
+        inputs = self._inputs(2_000_000)
         self.assessment["validationIssues"] = [{
             "code": "EVIDENCE_REVIEW", "description": "A source detail requires review.",
             "evidenceIds": [],
@@ -442,6 +469,60 @@ class InsurerResponseRecommendationTests(
         result = self._result(inputs)
         self.assertEqual(result["state"], NO_CLEAR_RECOMMENDATION)
         self.assertEqual(result["reasonCodes"], ["SAVED_EVIDENCE_REQUIRES_REVIEW"])
+
+    def test_saved_assumptions_and_additional_limitations_withhold_continuation(self):
+        original = copy.deepcopy(self.assessment)
+        for field, caveat in (
+            ("assumptions", {"code": "UNVERIFIED_CONDITION", "description": "Condition still needs verification.", "evidenceIds": []}),
+            ("limitations", {"code": "UNVERIFIED_CONDITION", "label": "Unverified condition", "description": "Condition still needs verification.", "evidenceIds": original["limitations"][0]["evidenceIds"]}),
+        ):
+            with self.subTest(field=field):
+                self.assessment = copy.deepcopy(original)
+                self.assessment[field].append(caveat)
+                self._reseal_assessment()
+                result = self._result(self._inputs(2_000_000))
+                self.assertEqual(result["state"], NO_CLEAR_RECOMMENDATION)
+                self.assertEqual(result["reasonCodes"], ["SAVED_EVIDENCE_REQUIRES_REVIEW"])
+
+    def test_unresolved_response_issue_withholds_saved_continuation(self):
+        inputs = self._inputs(2_000_000)
+        issue_ref = make_case_evidence_reference("condition", "unresolved-condition")
+        inputs["evidence_index"]["caseEvidence"].append({
+            "evidenceRef": issue_ref, "evidenceType": "INSURER_VALUATION",
+            "summary": "The insurer's condition deduction.",
+            "amountMinorUnits": None, "currency": None,
+        })
+        inputs["analysis"]["unresolvedIssues"] = [{
+            "description": "The condition deduction has not been explained.",
+            "responseEvidenceRefs": inputs["analysis"]["analysisSummary"]["responseEvidenceRefs"],
+            "caseEvidenceRefs": [issue_ref],
+        }]
+        result = self._result(inputs)
+        self.assertEqual(result["state"], NO_CLEAR_RECOMMENDATION)
+        self.assertEqual(result["reasonCodes"], ["RESPONSE_UNCERTAINTY_UNRESOLVED"])
+        self.assertIn(issue_ref, result["caseEvidenceRefs"])
+
+    def test_potential_conclusion_with_moderate_evidence_retains_saved_continuation(self):
+        self.assessment.update({
+            "finalClassification": "POTENTIAL_UNDERVALUE", "evidenceStrength": "MODERATE",
+        })
+        for role in ("preliminary", "final"):
+            self.assessment["preliminaryToFinalComparison"][role]["classification"] = "POTENTIAL_UNDERVALUE"
+        self._reseal_assessment()
+        result = self._result(self._inputs(2_000_000))
+        self.assertEqual(result["state"], CONTINUE_CHALLENGING)
+
+    def test_altered_canonical_limitation_requires_review(self):
+        self.assessment["limitations"][0]["description"] = "Vehicle identity requires verification."
+        self._reseal_assessment()
+        result = self._result(self._inputs(2_000_000))
+        self.assertEqual(result["reasonCodes"], ["SAVED_EVIDENCE_REQUIRES_REVIEW"])
+
+    def test_even_no_discrepancy_cannot_validate_an_acceptance_reason(self):
+        result = self._result(self._inputs())
+        result.update({"state": ACCEPT_OFFER, "reasonCodes": ["OFFER_WITHIN_SUPPORTED_RANGE"]})
+        with self.assertRaises(InsurerResponseRecommendationError):
+            validate_insurer_response_recommendation_v1(result)
 
 
 if __name__ == "__main__":

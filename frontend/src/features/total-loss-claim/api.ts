@@ -1615,8 +1615,12 @@ function mapResponseRecommendation(value: unknown): TotalLossResponseRecommendat
     "recommendationId", "versionNumber", "analysisResultId", "schemaVersion", "policyVersion",
     "state", "summary", "reasons", "reasonCodes", "limitations", "responseEvidenceRefs", "caseEvidenceRefs",
   ], "insurer-response recommendation");
-  if (item.schemaVersion !== "1" || item.policyVersion !== "1") {
+  if (item.schemaVersion !== "1" || (item.policyVersion !== "1" && item.policyVersion !== "2")) {
     throw new TotalLossClaimContractError("The claim service returned an unsupported recommendation version.");
+  }
+  if ((item.policyVersion === "1" && item.state !== "NO_CLEAR_RECOMMENDATION") ||
+    (item.policyVersion === "2" && item.state === "ACCEPT_OFFER")) {
+    throw new TotalLossClaimContractError("The claim service returned unsupported recommendation advice.");
   }
   const text = (value: unknown, field: string) => {
     const result = requiredString(value, field);
@@ -1633,7 +1637,7 @@ function mapResponseRecommendation(value: unknown): TotalLossResponseRecommendat
     versionNumber: positiveInteger(item.versionNumber, "recommendation version"),
     analysisResultId: requiredString(item.analysisResultId, "analysis result ID", UUID_PATTERN),
     schemaVersion: "1",
-    policyVersion: "1",
+    policyVersion: item.policyVersion,
     state: enumValue(item.state, new Set<TotalLossResponseRecommendation["state"]>(["ACCEPT_OFFER", "CONTINUE_CHALLENGING", "NO_CLEAR_RECOMMENDATION"]), "recommendation state"),
     summary: text(item.summary, "recommendation summary"),
     reasons: mappedList(item.reasons, "recommendation reasons", (reason) => text(reason, "recommendation reason"), 10),

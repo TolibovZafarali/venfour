@@ -491,13 +491,17 @@ def _validate_response_recommendation(value: Mapping[str, Any]) -> None:
     version = recommendation.get("versionNumber")
     if isinstance(version, bool) or not isinstance(version, int) or version < 1:
         raise SupabaseContractError("Recommendation version is invalid")
-    if recommendation.get("schemaVersion") != "1" or recommendation.get("policyVersion") != "1":
+    if recommendation.get("schemaVersion") != "1" or recommendation.get("policyVersion") not in ("1", "2"):
         raise SupabaseContractError("Recommendation policy version is invalid")
     state = recommendation.get("state")
     if not isinstance(state, str) or state not in (
         _RESPONSE_DECISION_CHOICES | {"NO_CLEAR_RECOMMENDATION"}
     ):
         raise SupabaseContractError("Recommendation state is invalid")
+    if recommendation.get("policyVersion") == "1" and state != "NO_CLEAR_RECOMMENDATION":
+        raise SupabaseContractError("Prior recommendation policy requires withheld advice")
+    if recommendation.get("policyVersion") == "2" and state == "ACCEPT_OFFER":
+        raise SupabaseContractError("Current assessment policy does not support an Accept recommendation")
     _bounded_text(recommendation.get("summary"), "Recommendation summary", 2_000)
     for key in ("reasons", "limitations", "reasonCodes"):
         items = recommendation.get(key)

@@ -1,8 +1,8 @@
 """Deterministic recommendations against a response's saved valuation evidence.
 
-This policy compares one usable response offer with the already-published
-advertised-price range. It does not recalculate value or select a customer
-decision. Interpretation can withhold a recommendation, never supply its label.
+This policy preserves a saved continuation conclusion only for the insurer
+vehicle value actually assessed. Advertised prices do not establish an offer
+acceptance target. It does not recalculate value or select a customer decision.
 """
 
 from __future__ import annotations
@@ -17,7 +17,7 @@ from typing import Any
 
 from jsonschema import Draft202012Validator
 
-from venfour.discrepancy import MAX_SAFE_MONEY_CENTS, ValuationDiscrepancyPolicy
+from venfour.discrepancy import MAX_SAFE_MONEY_CENTS
 from venfour.insurer_response_analysis import (
     _MONEY_TEXT_PATTERN,
     _derived_reference,
@@ -28,26 +28,23 @@ from venfour.package_assessment import (
     PackageAssessmentError,
     validate_final_valuation_assessment_v1,
 )
+from venfour.presentation import LIMITATION_DESCRIPTIONS
 
 
 INSURER_RESPONSE_RECOMMENDATION_SCHEMA_VERSION = "1"
-INSURER_RESPONSE_RECOMMENDATION_POLICY_VERSION = "1"
+INSURER_RESPONSE_RECOMMENDATION_POLICY_VERSION = "2"
 ACCEPT_OFFER = "ACCEPT_OFFER"
 CONTINUE_CHALLENGING = "CONTINUE_CHALLENGING"
 NO_CLEAR_RECOMMENDATION = "NO_CLEAR_RECOMMENDATION"
 
-# Use the existing named policy thresholds, with a deliberately conservative
-# lower-range-edge comparison instead of repeating its median classification.
-_POLICY = ValuationDiscrepancyPolicy(
-    potential_gap_basis_points=500, material_gap_basis_points=1000
-)
 _TEXT_OFFER_PATTERN = re.compile(
     _MONEY_TEXT_PATTERN.pattern, re.IGNORECASE | re.ASCII
 )
 _RANGE_SEMANTICS = "SELECTED_ADVERTISED_PRICE_RANGE"
 _BASE_LIMITATION = (
-    "This compares the offer with saved advertised-price evidence, not a "
-    "guaranteed settlement amount or legal entitlement."
+    "The saved assessment's evidence limitations still apply. Advertised listing "
+    "prices are not verified sale prices, an assessed settlement target, or legal "
+    "entitlement. No revised vehicle valuation is calculated here."
 )
 _STATE_SUMMARIES = {
     ACCEPT_OFFER: "Venfour recommends accepting this offer.",
@@ -55,25 +52,17 @@ _STATE_SUMMARIES = {
     NO_CLEAR_RECOMMENDATION: "Venfour has no clear recommendation yet.",
 }
 _REASON_DETAILS = {
-    "OFFER_WITHIN_SUPPORTED_RANGE": (
-        ACCEPT_OFFER,
-        "The offer falls within the advertised-price range supported by the saved evidence.",
-    ),
-    "OFFER_ABOVE_SUPPORTED_RANGE": (
-        ACCEPT_OFFER,
-        "The offer is above the saved advertised-price range; this evidence does not support challenging for a higher vehicle valuation.",
-    ),
-    "REMAINING_GAP_BELOW_SCREENING_THRESHOLD": (
-        ACCEPT_OFFER,
-        "The offer is just below the saved advertised-price range. The remaining difference is below Venfour's 5% screening threshold for this comparison.",
-    ),
-    "OFFER_MATERIALLY_BELOW_SUPPORTED_RANGE": (
+    "SAVED_ASSESSMENT_SUPPORTS_CONTINUATION": (
         CONTINUE_CHALLENGING,
-        "Even the lower end of the saved advertised-price range is at least 10% above this offer. The remaining difference supports continuing to challenge the vehicle valuation.",
+        "This offer matches the insurer vehicle value reviewed in the saved assessment. That assessment supports continuing to question the valuation, subject to its evidence limitations.",
     ),
-    "INTERMEDIATE_EVIDENCE_GAP": (
+    "OFFER_NOT_ASSESSED": (
         NO_CLEAR_RECOMMENDATION,
-        "The lower end of the saved advertised-price range is 5% to less than 10% above this offer. That difference does not clearly support either recommendation under this conservative policy.",
+        "The saved conclusion assessed a different insurer vehicle value. Its advertised-price range alone does not establish whether to accept or continue challenging this offer.",
+    ),
+    "SAVED_ASSESSMENT_DOES_NOT_ESTABLISH_ACCEPTANCE": (
+        NO_CLEAR_RECOMMENDATION,
+        "The saved assessment does not support continuing the valuation challenge, but that does not establish that this offer should be accepted.",
     ),
     "NO_USABLE_REVISED_OFFER": (
         NO_CLEAR_RECOMMENDATION,
@@ -93,11 +82,11 @@ _REASON_DETAILS = {
     ),
     "SAVED_EVIDENCE_INSUFFICIENT": (
         NO_CLEAR_RECOMMENDATION,
-        "The saved assessment does not provide a sufficiently clear, qualified advertised-price range for this recommendation.",
+        "The saved assessment does not provide a sufficiently clear, qualified conclusion for this offer.",
     ),
     "SAVED_EVIDENCE_REQUIRES_REVIEW": (
         NO_CLEAR_RECOMMENDATION,
-        "The saved assessment contains unresolved validation or source-evidence changes that need review before recommending a direction.",
+        "The saved assessment contains assumptions, additional limitations, validation issues, or source-evidence changes that need review before recommending a direction.",
     ),
     "RESPONSE_UNCERTAINTY_UNRESOLVED": (
         NO_CLEAR_RECOMMENDATION,
@@ -105,11 +94,11 @@ _REASON_DETAILS = {
     ),
     "INSURER_ARGUMENT_REQUIRES_REVIEW": (
         NO_CLEAR_RECOMMENDATION,
-        "The insurer presents reasoning or questions that have not been reassessed by the saved valuation evidence. A simple offer-to-range comparison is not enough.",
+        "The insurer presents reasoning or questions that have not been reassessed by the saved valuation evidence.",
     ),
     "OFFER_CURRENCY_DIFFERS": (
         NO_CLEAR_RECOMMENDATION,
-        "The offer and the saved advertised-price range use different currencies and cannot be compared here.",
+        "The offer and the insurer vehicle value in the saved assessment use different currencies and cannot be compared here.",
     ),
 }
 _SCHEMA_PATH = (
@@ -150,10 +139,13 @@ def _policy_input(
                 "evidenceBasis",
                 "continuationStatus",
                 "supportedRange",
+                "insurerValuationReviewed",
                 "preliminaryToFinalComparison",
             )
         },
         "validationIssues": copy.deepcopy(assessment.get("validationIssues", [])),
+        "limitations": copy.deepcopy(assessment.get("limitations", [])),
+        "assumptions": copy.deepcopy(assessment.get("assumptions", [])),
     }
 
 
@@ -304,11 +296,23 @@ def _assessment_gate(policy_input: Mapping[str, Any]) -> str | None:
     comparison = policy_input["preliminaryToFinalComparison"]
     if (
         policy_input["validationIssues"]
+        or policy_input["assumptions"]
+        or any(
+            limitation.get("description") != LIMITATION_DESCRIPTIONS.get(limitation.get("code"))
+            for limitation in policy_input["limitations"]
+        )
         or not isinstance(comparison, Mapping)
         or comparison.get("materialChange") is not False
         or comparison.get("reasonCodes") != ["UNCHANGED_EVIDENCE"]
     ):
         return "SAVED_EVIDENCE_REQUIRES_REVIEW"
+    reviewed = policy_input["insurerValuationReviewed"]
+    if (
+        not isinstance(reviewed, Mapping)
+        or not _money(reviewed.get("valueMinorUnits"))
+        or reviewed.get("currency") != supported_range["currency"]
+    ):
+        return "SAVED_EVIDENCE_INSUFFICIENT"
     return None
 
 
@@ -340,6 +344,7 @@ def _recommendation_code(
     if (
         analysis["confidence"] == "LOW"
         or analysis["uncertainties"]
+        or analysis["unresolvedIssues"]
         or analysis["untrustedInstructionDetected"]
         or analysis["insurerPosition"]["category"] == "UNCLEAR"
         or coverage["document"] in {"UNREADABLE", "UNSUPPORTED"}
@@ -360,22 +365,14 @@ def _recommendation_code(
         return "INSURER_ARGUMENT_REQUIRES_REVIEW"
     if offer is None:
         return "NO_USABLE_REVISED_OFFER"
-    supported_range = policy_input["supportedRange"]
-    if offer["currency"] != supported_range["currency"]:
+    reviewed = policy_input["insurerValuationReviewed"]
+    if offer["currency"] != reviewed["currency"]:
         return "OFFER_CURRENCY_DIFFERS"
-    amount = offer["amountMinorUnits"]
-    low = supported_range["lowMinorUnits"]
-    high = supported_range["highMinorUnits"]
-    if amount > high:
-        return "OFFER_ABOVE_SUPPORTED_RANGE"
-    if amount >= low:
-        return "OFFER_WITHIN_SUPPORTED_RANGE"
-    gap = low - amount
-    if gap * 10_000 >= _POLICY.material_gap_basis_points * amount:
-        return "OFFER_MATERIALLY_BELOW_SUPPORTED_RANGE"
-    if gap * 10_000 < _POLICY.potential_gap_basis_points * amount:
-        return "REMAINING_GAP_BELOW_SCREENING_THRESHOLD"
-    return "INTERMEDIATE_EVIDENCE_GAP"
+    if offer["amountMinorUnits"] != reviewed["valueMinorUnits"]:
+        return "OFFER_NOT_ASSESSED"
+    if policy_input["continuationStatus"] == "SUPPORTS_CONTINUATION":
+        return "SAVED_ASSESSMENT_SUPPORTS_CONTINUATION"
+    return "SAVED_ASSESSMENT_DOES_NOT_ESTABLISH_ACCEPTANCE"
 
 
 def _recommendation_references(
@@ -395,10 +392,24 @@ def _recommendation_references(
     }
     response_refs = set(analysis["revisedOffer"]["responseEvidenceRefs"])
     case_refs = range_refs
+    if code == "SAVED_ASSESSMENT_SUPPORTS_CONTINUATION":
+        reviewed = policy_input["insurerValuationReviewed"]
+        case_refs = {
+            reference for reference, item in case_evidence.items()
+            if (
+                item.get("evidenceType") == "INSURER_VALUATION"
+                and item.get("amountMinorUnits") == reviewed["valueMinorUnits"]
+                and item.get("currency") == reviewed["currency"]
+            ) or (
+                item.get("evidenceType") == "VENFOUR_FINDING"
+                and item.get("amountMinorUnits") is None
+            )
+        }
     if _REASON_DETAILS[code][0] == NO_CLEAR_RECOMMENDATION:
         sections = [analysis["analysisSummary"]]
         if code == "RESPONSE_UNCERTAINTY_UNRESOLVED":
             sections.extend(analysis["uncertainties"])
+            sections.extend(analysis["unresolvedIssues"])
         if code == "INSURER_ARGUMENT_REQUIRES_REVIEW":
             sections.extend(analysis["insurerArguments"])
             sections.extend(analysis["responsePoints"])
@@ -461,19 +472,12 @@ def build_insurer_response_recommendation_v1(
     selected_response_refs, selected_case_refs = _recommendation_references(
         analysis, policy_input, case_evidence, code
     )
-    if code in {
-        "OFFER_WITHIN_SUPPORTED_RANGE", "OFFER_ABOVE_SUPPORTED_RANGE",
-        "REMAINING_GAP_BELOW_SCREENING_THRESHOLD",
-        "OFFER_MATERIALLY_BELOW_SUPPORTED_RANGE", "INTERMEDIATE_EVIDENCE_GAP",
-    }:
-        range_value = policy_input["supportedRange"]
-        cited_amounts = {
-            case_evidence[reference].get("amountMinorUnits")
+    if code == "SAVED_ASSESSMENT_SUPPORTS_CONTINUATION":
+        cited_types = {
+            case_evidence[reference].get("evidenceType")
             for reference in selected_case_refs
         }
-        if not {
-            range_value["lowMinorUnits"], range_value["highMinorUnits"]
-        } <= cited_amounts:
+        if not {"INSURER_VALUATION", "VENFOUR_FINDING"} <= cited_types:
             code = "SAVED_EVIDENCE_INSUFFICIENT"
             selected_response_refs, selected_case_refs = _recommendation_references(
                 analysis, policy_input, case_evidence, code

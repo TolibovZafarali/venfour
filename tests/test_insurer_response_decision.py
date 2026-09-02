@@ -133,6 +133,31 @@ class ResponseDecisionContractTests(unittest.TestCase):
         self.assertEqual(result["response"]["decision"]["amountMinorUnits"], 2_010_000)
         self.assertEqual(gateway.calls, [("authenticate", ACCESS_TOKEN), ("decision", (CASE_ID, COMMUNICATION_ID, decision_request(), ACCESS_TOKEN))])
 
+    def test_prior_policy_neutral_projection_preserves_recorded_choice_and_offer(self):
+        gateway = DecisionGateway()
+        response = gateway.record_total_loss_insurer_response_decision(
+            CASE_ID, COMMUNICATION_ID, decision_request(), ACCESS_TOKEN,
+        )["response"]
+        response["recommendation"].update({
+            "policyVersion": "1", "state": "NO_CLEAR_RECOMMENDATION",
+            "reasonCodes": ["SAVED_RECOMMENDATION_POLICY_SUPERSEDED"],
+            "reasons": ["The saved advice predates the corrected assessment policy."],
+        })
+        before = copy.deepcopy(response)
+        actual = validate_insurer_response_projection(response)
+        self.assertEqual(actual["recommendation"]["state"], "NO_CLEAR_RECOMMENDATION")
+        self.assertEqual(actual["decision"]["choice"], "ACCEPT_OFFER")
+        self.assertEqual(actual["usableOffer"]["offerId"], OFFER_ID)
+        self.assertEqual(response, before)
+
+    def test_unsupported_strong_advice_fails_closed_at_public_projection(self):
+        for version, state in (("1", "ACCEPT_OFFER"), ("1", "CONTINUE_CHALLENGING"), ("2", "ACCEPT_OFFER")):
+            with self.subTest(version=version, state=state):
+                response, _ = completed_response()
+                response["recommendation"].update({"policyVersion": version, "state": state})
+                with self.assertRaises(SupabaseContractError):
+                    validate_insurer_response_projection(response)
+
     def test_continue_is_explicit_and_does_not_accept_or_advance(self):
         gateway = DecisionGateway()
         result = CustomerDeliveryService(gateway).record_response_decision(CASE_ID, COMMUNICATION_ID, decision_request("CONTINUE_CHALLENGING"), ACCESS_TOKEN)
@@ -181,7 +206,7 @@ class ResponseDecisionContractTests(unittest.TestCase):
             ("decision", "recommendationId", OTHER_ID),
             ("usableOffer", "amountMinorUnits", 1),
             ("recommendation", "policyInput", {}),
-            ("recommendation", "policyVersion", "2"),
+            ("recommendation", "policyVersion", "3"),
             ("recommendation", "responseEvidenceRefs", ["response_" + "f" * 64]),
         ):
             with self.subTest(scope=scope, key=key):

@@ -7,7 +7,7 @@
   "required": ["schemaVersion", "policyVersion", "state", "summary", "reasons", "reasonCodes", "limitations", "responseEvidenceRefs", "caseEvidenceRefs", "offer", "policyInput"],
   "properties": {
     "schemaVersion": { "const": "1" },
-    "policyVersion": { "const": "1" },
+    "policyVersion": { "const": "2" },
     "state": { "enum": ["ACCEPT_OFFER", "CONTINUE_CHALLENGING", "NO_CLEAR_RECOMMENDATION"] },
     "summary": { "$ref": "#/$defs/text" },
     "reasons": { "$ref": "#/$defs/texts" },
@@ -27,7 +27,7 @@
     },
     "policyInput": {
       "type": "object", "additionalProperties": false,
-      "required": ["assessmentDigest", "finalClassification", "evidenceStrength", "evidenceBasis", "continuationStatus", "supportedRange", "validationIssues", "preliminaryToFinalComparison"],
+      "required": ["assessmentDigest", "finalClassification", "evidenceStrength", "evidenceBasis", "continuationStatus", "supportedRange", "validationIssues", "preliminaryToFinalComparison", "insurerValuationReviewed", "limitations", "assumptions"],
       "properties": {
         "assessmentDigest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
         "finalClassification": { "type": ["string", "null"] },
@@ -36,7 +36,10 @@
         "continuationStatus": { "type": ["string", "null"] },
         "supportedRange": { "type": ["object", "null"] },
         "validationIssues": { "type": "array", "items": { "type": "object" } },
-        "preliminaryToFinalComparison": { "type": ["object", "null"] }
+        "preliminaryToFinalComparison": { "type": ["object", "null"] },
+        "insurerValuationReviewed": { "type": ["object", "null"] },
+        "limitations": { "type": "array", "items": { "type": "object" } },
+        "assumptions": { "type": "array", "items": { "type": "object" } }
       }
     }
   },
