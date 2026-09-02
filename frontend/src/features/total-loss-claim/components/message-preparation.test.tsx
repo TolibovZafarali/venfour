@@ -515,6 +515,56 @@ describe("request edits across section navigation", () => {
     expect(window.sessionStorage.length).toBe(0);
   });
 
+  it.each([false, true])("preserves edits that could not be stored before an in-flight save completes (follow-up: %s)", async (followUp) => {
+    const current = followUp ? followUpClaim() : claim();
+    const currentDraft = followUp ? current.followUp!.draft! : current.messageDraft!;
+    let release!: () => void;
+    let started = false;
+    const held = new Promise<void>((resolve) => { release = resolve; });
+    server.use(http.patch(`${API}/${followUp ? "follow-up/draft" : "message-draft"}`, async ({ request }) => {
+      const input = await request.json() as { recipient: string; subject: string; body: string };
+      started = true;
+      await held;
+      return HttpResponse.json({ ...currentDraft, ...input, revision: 2 });
+    }));
+    const view = renderRequest(current, undefined, { followUp });
+    fireEvent.change(screen.getByRole("textbox", { name: "Subject" }), { target: { value: "Earlier saved subject" } });
+    await waitFor(() => expect(started).toBe(true), { timeout: 2000 });
+    const storage = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("Storage unavailable"); });
+    fireEvent.change(screen.getByRole("textbox", { name: "Subject" }), { target: { value: "" } });
+    fireEvent.change(screen.getByRole("textbox", { name: "Message" }), { target: { value: "Latest rewrite during the storage interruption" } });
+    expect(screen.getByText(/This browser couldn’t preserve your latest edits/u)).toBeVisible();
+    storage.mockRestore();
+    await act(async () => release());
+    await waitFor(() => expect(screen.queryByText("Saving…")).not.toBeInTheDocument());
+    await view.navigate("/section");
+    expect(screen.getByRole("heading", { name: "Another review section" })).toBeVisible();
+    await view.navigate("/request");
+    expect(screen.getByRole("textbox", { name: "Subject" })).toHaveValue("");
+    expect(screen.getByRole("textbox", { name: "Message" })).toHaveValue("Latest rewrite during the storage interruption");
+    expect(screen.queryByRole("button", { name: "Load saved draft" })).not.toBeInTheDocument();
+  });
+
+  it.each([false, true])("retains acknowledged work after undoing edits while the resolver is stale (follow-up: %s)", async (followUp) => {
+    const current = followUp ? followUpClaim() : claim();
+    const currentDraft = followUp ? current.followUp!.draft! : current.messageDraft!;
+    const saved = { ...currentDraft, subject: "Acknowledged customer subject", revision: 2 };
+    server.use(http.patch(`${API}/${followUp ? "follow-up/draft" : "message-draft"}`, () => HttpResponse.json(saved)));
+    const view = renderRequest(current, undefined, { followUp });
+    fireEvent.change(screen.getByRole("textbox", { name: "Subject" }), { target: { value: saved.subject } });
+    await screen.findByText("Saved", {}, { timeout: 2000 });
+    fireEvent.change(screen.getByRole("textbox", { name: "Subject" }), { target: { value: "" } });
+    fireEvent.change(screen.getByRole("textbox", { name: "Subject" }), { target: { value: saved.subject } });
+    await view.navigate("/section");
+    expect(screen.getByRole("heading", { name: "Another review section" })).toBeVisible();
+    await view.navigate("/request");
+    expect(screen.getByRole("textbox", { name: "Subject" })).toHaveValue(saved.subject);
+    view.refresh(followUp
+      ? { ...current, followUp: { ...current.followUp!, draft: saved } }
+      : claim({ messageDraft: saved }));
+    expect(window.sessionStorage.length).toBe(0);
+  });
+
   it("persists a reversion made while an older save is pending", async () => {
     let release!: () => void;
     let writes = 0;

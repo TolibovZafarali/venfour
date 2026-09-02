@@ -901,6 +901,42 @@ describe("completed-analysis guided progression", () => {
     expect(saved.claim().negotiationHistory).toHaveLength(1);
   });
 
+  it.each([false, true])("recovers a lost sent response from the durable claim without submitting twice (follow-up: %s)", async (followUp) => {
+    request.useRealEditor = true;
+    const saved = installClaim(followUp ? followUpJourneyClaim() : claimProjection(BEFORE_REQUEST));
+    const sent = followUp ? followUpJourneyClaim(true) : waitingClaim();
+    const message = followUp ? sent.followUp!.sentMessage! : sent.negotiationHistory![0]!.outbound;
+    const sentWrites = vi.fn();
+    server.use(
+      http.post(`${API}/${followUp ? "follow-up" : "message"}/prepare`, () => HttpResponse.json({
+        draft: followUp ? saved.claim().followUp!.draft : saved.claim().messageDraft,
+        messageVersion: { ...message, state: "prepared" },
+        workflowRevision: saved.claim().workflow!.revision,
+      })),
+      http.post(`${API}/${followUp ? "follow-up" : "message"}/sent`, async ({ request: update }) => {
+        sentWrites(await update.json());
+        saved.setClaim(sent);
+        return HttpResponse.error();
+      }),
+    );
+    const view = renderJourney("report", followUp ? "follow-up" : "request");
+    const user = userEvent.setup();
+    vi.spyOn(navigator.clipboard, "writeText").mockResolvedValue(undefined);
+    await user.click(await screen.findByRole("button", { name: "Copy email" }));
+    await user.click(await screen.findByRole("checkbox", { name: "I sent the email with this PDF attached." }));
+    await user.click(screen.getByRole("button", { name: "Mark as sent" }));
+
+    expect(await screen.findByRole("heading", { name: "Waiting for the insurer’s response" })).toBeVisible();
+    expect(view.router.state.location.pathname).toBe(`${BASE}/review/waiting`);
+    expect(sentWrites).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ messageVersionId: message.messageVersionId }));
+    expect(screen.queryByRole("button", { name: "Mark as sent" })).not.toBeInTheDocument();
+    view.unmount();
+    const refreshed = renderJourney("report", "waiting");
+    expect(await screen.findByRole("heading", { name: "Waiting for the insurer’s response" })).toBeVisible();
+    expect(refreshed.router.state.location.pathname).toBe(`${BASE}/review/waiting`);
+    expect(sentWrites).toHaveBeenCalledTimes(1);
+  });
+
   it("uses the resolver's latest state if the case progresses before initial sent refresh completes", async () => {
     request.useRealEditor = true;
     const saved = installClaim(claimProjection(BEFORE_REQUEST));

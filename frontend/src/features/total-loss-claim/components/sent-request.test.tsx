@@ -184,6 +184,59 @@ describe("SentRequest", () => {
     expect(container.querySelector("time")).toBeNull();
   });
 
+  it("keeps the initial communication distinct from later sent follow-ups after closure", () => {
+    const laterMessage = {
+      ...sentMessage,
+      body: "A later follow-up with different wording",
+      communicationId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      customerReportedSentAt: "2026-09-02T09:15:00.000Z",
+      messageVersionId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+      negotiationRoundId: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+      subject: "Follow-up after the insurer response",
+      versionNumber: 7,
+    };
+    const { container } = render(
+      <SentRequest
+        claim={claim({
+          journey: { fulfillmentState: "resolved", nextState: "resolved", retryable: false },
+          workflow: { currentTask: "resolved", phase: "resolution", revision: 20 },
+          negotiationHistory: [
+            { negotiationRoundId: laterMessage.negotiationRoundId, roundNumber: 2, outbound: laterMessage, responses: [], followUp: null },
+            { negotiationRoundId: sentMessage.negotiationRoundId, roundNumber: 1, outbound: sentMessage, responses: [], followUp: laterMessage },
+          ],
+        })}
+        report={report}
+      />,
+    );
+
+    expect(screen.getByLabelText("Request message").textContent).toBe(BODY);
+    expect(screen.getByText(/Sent · Recorded/u)).toHaveTextContent("Version 3");
+    expect(container.querySelector("time")).toHaveAttribute("dateTime", RECORDED_AT);
+    expect(screen.queryByText(laterMessage.body)).not.toBeInTheDocument();
+    expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
+  });
+
+  it("does not treat a follow-up communication as confirmation of an absent initial request", () => {
+    render(
+      <SentRequest
+        claim={claim({
+          negotiationHistory: [{
+            negotiationRoundId: sentMessage.negotiationRoundId,
+            roundNumber: 2,
+            outbound: sentMessage,
+            responses: [],
+            followUp: null,
+          }],
+        })}
+        report={report}
+      />,
+    );
+
+    expect(screen.getByText(/not confirmed as sent/u)).toBeVisible();
+    expect(screen.queryByLabelText("Request message")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Sent · Recorded/u)).not.toBeInTheDocument();
+  });
+
   it.each(["prepare_request", "awaiting_insurer_response", "resolved"] as const)("does not infer Sent from the %s workflow or completed education", (nextState) => {
     const { container } = render(
       <SentRequest

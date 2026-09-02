@@ -112,6 +112,7 @@ export function useRequestDraft({
     useState<TotalLossPreparedMessageVersion | null>(null);
   const contentRef = useRef(content);
   const savedRef = useRef(recovery.baseline);
+  const projectedRevisionRef = useRef(initialDraft.revision);
   const pendingContentRef = useRef(recovery.pendingContent);
   const inFlightSave = useRef<Promise<TotalLossMessageDraft> | null>(null);
   const preparedRef = useRef(initialPreparedMessage);
@@ -149,7 +150,14 @@ export function useRequestDraft({
   }, [workflowRevision]);
 
   const preserve = useCallback((failed: boolean) => {
-    const stored = preserveRequestDraft(recoveryKey, contentRef.current, savedRef.current, failed, pendingContentRef.current);
+    const stored = preserveRequestDraft(
+      recoveryKey,
+      contentRef.current,
+      savedRef.current,
+      failed,
+      pendingContentRef.current,
+      savedRef.current.revision > projectedRevisionRef.current,
+    );
     preservedRef.current = stored;
     if (mountedRef.current) setStorageError(!stored);
   }, [recoveryKey]);
@@ -159,12 +167,14 @@ export function useRequestDraft({
     savedRef.current = saved;
     pendingContentRef.current = null;
     if (mountedRef.current) {
+      // An interrupted storage write may have left a snapshot behind the editor.
+      preserve(false);
       setSavedContent(contentOf(saved));
       setSaveError(null);
       setConflict(false);
       setPendingRecovery(false);
     }
-  }, []);
+  }, [preserve]);
 
   useEffect(() => {
     const pending = pendingDraftSaves.get(recoveryKey);
@@ -179,6 +189,7 @@ export function useRequestDraft({
   }, [receiveSaved, recoveryKey]);
 
   useEffect(() => {
+    projectedRevisionRef.current = Math.max(projectedRevisionRef.current, initialDraft.revision);
     acknowledgeRequestDraftProjection(recoveryKey, initialDraft);
     if (
       initialDraft.revision <= savedRef.current.revision ||

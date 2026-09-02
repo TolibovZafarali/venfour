@@ -256,6 +256,25 @@ describe("persistent case workspace projection", () => {
     expect(saved).toEqual(before);
   });
 
+  it.each([
+    ["awaiting_insurer_response", "waiting"],
+    ["insurer_response_reviewed", "response_reviewed"],
+    ["follow_up_preparation", "follow_up"],
+    ["resolved", "resolution"],
+  ] as const)("uses the authoritative %s journey when the saved response and legacy task describe another step", (nextState, currentStage) => {
+    const saved: TotalLossClaimSecured = {
+      ...claim(nextState, TOTAL_LOSS_EDUCATION_STEPS),
+      insurerResponse: response("completed"),
+      workflow: { phase: "negotiation", currentTask: "insurer_response_reviewed", revision: 20 },
+    };
+    const before = structuredClone(saved);
+    const result = workspace(saved);
+
+    expect(result.currentStage).toBe(currentStage);
+    expect(result.currentPath).toBe(`${BASE}/${currentStage.replaceAll("_", "-")}`);
+    expect(saved).toEqual(before);
+  });
+
   it("distinguishes preparing and sending at the authoritative request stage", () => {
     const saved = claim("prepare_request", TOTAL_LOSS_EDUCATION_STEPS.filter((step) => step !== "send"));
     expect(workspace(saved).currentLabel).toBe("Prepare request");
