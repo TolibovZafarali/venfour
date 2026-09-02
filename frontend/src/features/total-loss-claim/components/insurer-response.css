@@ -7,17 +7,11 @@
 .completed-analysis .response-heading > p:last-child { font-size: 1.0625rem; line-height: 1.7; }
 .completed-analysis .response-eyebrow { margin-bottom: .65rem; color: var(--review-accent); font-size: .75rem; font-weight: 650; letter-spacing: .08em; text-transform: uppercase; }
 .completed-analysis .response-fields { display: grid; gap: 1.75rem; margin-top: 2rem; }
-.completed-analysis .response-field { display: grid; gap: .6rem; min-width: 0; }
-.completed-analysis .response-field > span,
+.completed-analysis .response-supporting-fields { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); align-items: start; gap: 2rem; padding-top: 1.4rem; border-top: 1px solid var(--review-line); }
 .completed-analysis .response-file-field h2 { color: var(--review-ink); font-size: .9rem; font-weight: 600; }
-.completed-analysis .response-field > span small { margin-left: .4rem; color: var(--review-muted); font-size: .75rem; font-weight: 450; }
-.completed-analysis .response-field textarea { width: 100%; min-height: 12rem; resize: vertical; padding: 1rem; border: 1px solid var(--review-line); border-radius: 10px; background: #fff; color: var(--review-ink); font: inherit; line-height: 1.65; }
-.completed-analysis .response-field textarea:hover:not(:disabled) { border-color: #b8c6da; }
-.completed-analysis .response-field textarea:focus-visible { border-color: var(--review-accent); }
-.completed-analysis .response-field > small,
 .completed-analysis .response-file-field > div:first-child p,
 .completed-analysis .response-field-note { color: var(--review-muted); font-size: .78rem; line-height: 1.55; }
-.completed-analysis .response-file-field { display: grid; gap: .85rem; padding-block: 1.4rem; border-block: 1px solid var(--review-line); }
+.completed-analysis .response-file-field { display: grid; gap: .85rem; min-width: 0; }
 .completed-analysis .response-file-picker { display: inline-flex; align-items: center; justify-content: center; gap: .6rem; width: fit-content; min-height: 46px; padding: .7rem 1rem; border: 1px solid var(--review-line); border-radius: 23px; background: #fff; color: var(--review-ink); font-size: .84rem; font-weight: 600; }
 .completed-analysis .response-file-picker:hover:not(:disabled) { border-color: var(--review-accent); color: var(--review-accent); }
 .completed-analysis .response-file-picker svg { width: 1rem; height: 1rem; }
@@ -31,15 +25,12 @@
 .completed-analysis .response-file-selection button { display: inline-flex; min-height: 44px; align-items: center; gap: .35rem; padding: .6rem .7rem; border-radius: 8px; color: var(--review-muted); font-size: .78rem; font-weight: 550; }
 .completed-analysis .response-file-selection button:hover:not(:disabled) { color: var(--review-accent); }
 .completed-analysis .response-file-selection button svg { width: .9rem; height: .9rem; }
-.completed-analysis .response-offer-field { max-width: 22rem; }
-.completed-analysis .response-offer-field > div { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; border: 1px solid var(--review-line); border-radius: 10px; background: #fff; }
-.completed-analysis .response-offer-field > div:focus-within { border-color: var(--review-accent); outline: 3px solid var(--review-accent); outline-offset: 4px; }
-.completed-analysis .response-offer-field > div > span { padding-left: 1rem; color: var(--review-muted); }
-.completed-analysis .response-offer-field input { width: 100%; min-height: 48px; padding: .75rem 1rem .75rem .35rem; border: 0; outline: 0; background: transparent; color: var(--review-ink); font: inherit; font-variant-numeric: tabular-nums; }
-.completed-analysis .response-submit { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1rem; margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid var(--review-line); }
-.completed-analysis .response-submit > p:first-child { max-width: 34rem; font-size: .8rem; line-height: 1.6; }
-.completed-analysis .response-submit > .request-error { flex-basis: 100%; }
-.completed-analysis .response-submit .request-button-primary { min-width: 13rem; }
+.completed-analysis .response-shared-field :is(input, textarea) { box-shadow: none; }
+.completed-analysis .response-shared-field :is(input, textarea):focus-visible { outline: none; }
+.completed-analysis .response-shared-field textarea { resize: none; }
+.completed-analysis .response-shared-field p { margin: revert-layer; color: revert-layer; }
+.completed-analysis .response-offer-field { min-width: 0; }
+.completed-analysis .response-submit-error { margin-top: 1.5rem; }
 .completed-analysis .response-summary { display: grid; gap: 1.25rem; margin-top: 2rem; }
 .completed-analysis .response-summary > div { padding: 1.2rem 0; border-top: 1px solid var(--review-line); }
 .completed-analysis .response-summary dt { margin-bottom: .55rem; color: var(--review-muted); font-size: .75rem; font-weight: 600; letter-spacing: .045em; text-transform: uppercase; }
@@ -120,11 +111,10 @@
 .completed-analysis .response-uncertainties h3 { color: var(--review-muted); font-size: .82rem; }
 
 @media (max-width: 767px) {
+  .completed-analysis .response-supporting-fields { grid-template-columns: 1fr; gap: 1.75rem; }
   .completed-analysis .response-file-selection { grid-template-columns: auto minmax(0, 1fr); }
   .completed-analysis .response-file-selection button { grid-column: 2; width: fit-content; }
-  .completed-analysis .response-submit,
   .completed-analysis .response-received-actions { align-items: stretch; flex-direction: column; }
-  .completed-analysis .response-submit .request-button-primary,
   .completed-analysis .response-received-actions .request-button { width: 100%; justify-content: center; }
   .completed-analysis .response-analysis-summary,
   .completed-analysis .response-points dl { grid-template-columns: 1fr; }
@@ -132,8 +122,6 @@
 
 @media (max-width: 540px) {
   .completed-analysis .response-fields { gap: 1.4rem; margin-top: 1.5rem; }
-  .completed-analysis .response-field textarea { min-height: 15rem; padding: .85rem; font-size: 1rem; }
-  .completed-analysis .response-offer-field { max-width: none; }
   .completed-analysis .response-file-picker { width: 100%; }
   .completed-analysis .response-review-status,
   .completed-analysis .response-reviewed-heading { grid-template-columns: 1fr; gap: .75rem; }

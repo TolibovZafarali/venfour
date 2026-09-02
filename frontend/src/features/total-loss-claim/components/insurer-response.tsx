@@ -12,12 +12,14 @@ import {
   Upload,
 } from "lucide-react";
 import { useId, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 import {
   DIMINISHED_VALUE_DOCUMENT_ACCEPT,
   validateDiminishedValueDocument,
 } from "@/features/diminished-value/local-document-files";
 import { useTotalLossDependencies } from "@/features/total-loss/dependencies";
+import { IntakeTextareaField, IntakeTextField } from "@/features/total-loss/intake-fields";
 import {
   formatCurrencyInput,
 } from "@/features/total-loss/validation";
@@ -106,12 +108,14 @@ function offerLabel(amountMinorUnits: number, currency: string) {
 
 export function InsurerResponseForm({
   accessToken,
+  actionContainer,
   caseId,
   claim,
   onRefresh,
   onRecorded,
   userId,
 }: InsurerResponseIdentity & {
+  readonly actionContainer: HTMLElement | null;
   readonly onRecorded: (state: TotalLossInsurerResponseRecorded["state"]) => void;
 }) {
   const existing = claim.insurerResponse ?? null;
@@ -271,11 +275,13 @@ export function InsurerResponseForm({
       </header>
 
       <div className="response-fields" data-review-entrance="secondary">
-        <label className="response-field" htmlFor={`${fieldId}-text`}>
-          <span>Paste the response</span>
-          <textarea
+        <div className="response-shared-field">
+          <IntakeTextareaField
             id={`${fieldId}-text`}
+            label="Paste the response"
             disabled={disabled}
+            error={textError || undefined}
+            help="Optional if you add the original file or only received a revised offer."
             onChange={(event) => {
               setResponseText(event.target.value);
               changed();
@@ -285,89 +291,90 @@ export function InsurerResponseForm({
             rows={9}
             value={responseText}
           />
-          <small>Optional if you add the original file or only received a revised offer.</small>
-          {textError ? <span className="request-field-error">{textError}</span> : null}
-        </label>
+        </div>
 
-        <section className="response-file-field" aria-labelledby={`${fieldId}-file-label`}>
-          <div>
-            <h2 id={`${fieldId}-file-label`}>Original response file</h2>
-            <p>Optional · PDF, JPEG, PNG, HEIC, or HEIF · 10 MiB maximum</p>
+        <div className="response-supporting-fields">
+          <section className="response-file-field" aria-labelledby={`${fieldId}-file-label`}>
+            <div>
+              <h2 id={`${fieldId}-file-label`}>Original response file</h2>
+              <p>Optional · PDF, JPEG, PNG, HEIC, or HEIF · 10 MiB maximum</p>
+            </div>
+            <input
+              accept={DIMINISHED_VALUE_DOCUMENT_ACCEPT}
+              className="sr-only"
+              disabled={disabled || !storage}
+              onChange={(event) => {
+                const file = event.target.files?.[0] ?? null;
+                event.target.value = "";
+                void selectFile(file);
+              }}
+              ref={fileInput}
+              type="file"
+            />
+            {selectedFile ? (
+              <div className="response-file-selection">
+                <FileText aria-hidden="true" />
+                <div><strong>{selectedFile.displayFilename}</strong><span>{readableSize(selectedFile.file.size)}</span></div>
+                <button disabled={disabled} onClick={() => fileInput.current?.click()} type="button"><RotateCcw aria-hidden="true" />Replace</button>
+                {existing?.document ? <button disabled={disabled} onClick={() => {
+                  setSelectedFile(null);
+                  setRetainDocument(true);
+                  changed();
+                }} type="button">Keep saved file</button> : <button disabled={disabled} onClick={() => {
+                  setSelectedFile(null);
+                  changed();
+                }} type="button"><Trash2 aria-hidden="true" />Remove</button>}
+              </div>
+            ) : existing?.document && retainDocument ? (
+              <div className="response-file-selection">
+                <FileText aria-hidden="true" />
+                <div><strong>{existing.document.originalFilename}</strong><span>{readableSize(existing.document.byteSize)} · Saved with the current response</span></div>
+                <button disabled={disabled || !storage} onClick={() => fileInput.current?.click()} type="button"><RotateCcw aria-hidden="true" />Replace</button>
+                <button disabled={disabled} onClick={() => {
+                  setRetainDocument(false);
+                  changed();
+                }} type="button"><Trash2 aria-hidden="true" />Remove</button>
+              </div>
+            ) : (
+              <button className="response-file-picker" disabled={disabled || !storage} onClick={() => fileInput.current?.click()} type="button">
+                {validatingFile ? <LoaderCircle className="request-spinner" aria-hidden="true" /> : <Upload aria-hidden="true" />}
+                {validatingFile ? "Checking file…" : existing?.document ? "Choose replacement file" : "Choose response file"}
+              </button>
+            )}
+            {!storage ? <p className="response-field-note">Secure file upload is temporarily unavailable. You can still save pasted text or a revised offer.</p> : null}
+            {fileError ? <p className="request-error" role="alert">{fileError}</p> : null}
+          </section>
+
+          <div className="response-shared-field response-offer-field">
+            <IntakeTextField
+              label="Revised offer"
+              optional
+              autoComplete="off"
+              disabled={disabled}
+              error={offerError || undefined}
+              help="Enter the insurer’s new dollar amount only if one was included."
+              helpAfterInput
+              id={`${fieldId}-offer`}
+              inputMode="decimal"
+              onChange={(event) => {
+                setOffer(formatCurrencyInput(event.target.value));
+                changed();
+              }}
+              placeholder="$0.00"
+              value={formatCurrencyInput(offer)}
+            />
           </div>
-          <input
-            accept={DIMINISHED_VALUE_DOCUMENT_ACCEPT}
-            className="sr-only"
-            disabled={disabled || !storage}
-            onChange={(event) => {
-              const file = event.target.files?.[0] ?? null;
-              event.target.value = "";
-              void selectFile(file);
-            }}
-            ref={fileInput}
-            type="file"
-          />
-          {selectedFile ? (
-            <div className="response-file-selection">
-              <FileText aria-hidden="true" />
-              <div><strong>{selectedFile.displayFilename}</strong><span>{readableSize(selectedFile.file.size)}</span></div>
-              <button disabled={disabled} onClick={() => fileInput.current?.click()} type="button"><RotateCcw aria-hidden="true" />Replace</button>
-              {existing?.document ? <button disabled={disabled} onClick={() => {
-                setSelectedFile(null);
-                setRetainDocument(true);
-                changed();
-              }} type="button">Keep saved file</button> : <button disabled={disabled} onClick={() => {
-                setSelectedFile(null);
-                changed();
-              }} type="button"><Trash2 aria-hidden="true" />Remove</button>}
-            </div>
-          ) : existing?.document && retainDocument ? (
-            <div className="response-file-selection">
-              <FileText aria-hidden="true" />
-              <div><strong>{existing.document.originalFilename}</strong><span>{readableSize(existing.document.byteSize)} · Saved with the current response</span></div>
-              <button disabled={disabled || !storage} onClick={() => fileInput.current?.click()} type="button"><RotateCcw aria-hidden="true" />Replace</button>
-              <button disabled={disabled} onClick={() => {
-                setRetainDocument(false);
-                changed();
-              }} type="button"><Trash2 aria-hidden="true" />Remove</button>
-            </div>
-          ) : (
-            <button className="response-file-picker" disabled={disabled || !storage} onClick={() => fileInput.current?.click()} type="button">
-              {validatingFile ? <LoaderCircle className="request-spinner" aria-hidden="true" /> : <Upload aria-hidden="true" />}
-              {validatingFile ? "Checking file…" : existing?.document ? "Choose replacement file" : "Choose response file"}
-            </button>
-          )}
-          {!storage ? <p className="response-field-note">Secure file upload is temporarily unavailable. You can still save pasted text or a revised offer.</p> : null}
-          {fileError ? <p className="request-error" role="alert">{fileError}</p> : null}
-        </section>
-
-        <label className="response-field response-offer-field" htmlFor={`${fieldId}-offer`}>
-          <span>Revised offer <small>Optional</small></span>
-          <div><span aria-hidden="true">$</span><input
-            aria-describedby={`${fieldId}-offer-help`}
-            aria-invalid={offerError ? true : undefined}
-            disabled={disabled}
-            id={`${fieldId}-offer`}
-            inputMode="decimal"
-            onChange={(event) => {
-              setOffer(formatCurrencyInput(event.target.value));
-              changed();
-            }}
-            placeholder="0.00"
-            value={offer.replace(/^\$/u, "")}
-          /></div>
-          <small id={`${fieldId}-offer-help`}>Enter the insurer’s new dollar amount only if one was included.</small>
-          {offerError ? <span className="request-field-error">{offerError}</span> : null}
-        </label>
+        </div>
       </div>
 
-      <div className="response-submit" data-review-entrance="supporting">
-        <p>The saved response becomes part of this case. It will not be analyzed or used to prepare a reply in this step.</p>
-        {error ? <p className="request-error" role="alert">{error}</p> : null}
-        <button className="request-button request-button-primary" disabled={disabled} onClick={() => void submit()} type="button">
+      {error ? <p className="response-submit-error request-error" role="alert">{error}</p> : null}
+      {actionContainer ? createPortal(
+        <button className="review-primary" disabled={disabled} onClick={() => void submit()} type="button">
           <StableActionLabel reserve="Saving response…">{pending ? "Saving response…" : existing ? "Save corrected response" : "Save response"}</StableActionLabel>
           {pending ? <LoaderCircle className="request-spinner" aria-hidden="true" /> : <ArrowRight aria-hidden="true" />}
-        </button>
-      </div>
+        </button>,
+        actionContainer,
+      ) : null}
     </section>
   );
 }

@@ -344,7 +344,7 @@ export function CompletedAnalysis(props: CompletedAnalysisProps) {
         </div>
         <ReportFileRow {...props} />
       </> : null}
-      {stage === "response" ? <InsurerResponseForm {...props} onRecorded={(state) => navigate(routeForJourneyState(caseId, state), { replace: true })} /> : null}
+      {stage === "response" ? <InsurerResponseForm {...props} actionContainer={navigationActions} onRecorded={(state) => navigate(routeForJourneyState(caseId, state), { replace: true })} /> : null}
       {stage === "response_received" && claim.insurerResponse ? <>
         <InsurerResponseReceived response={claim.insurerResponse} onCorrect={() => navigate(path("response"))} />
         <ReportFileRow {...props} />
