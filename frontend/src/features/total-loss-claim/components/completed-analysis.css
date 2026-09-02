@@ -85,12 +85,14 @@
 .completed-analysis svg { flex-shrink: 0; }
 .completed-analysis :is(input, textarea) { min-width: 0; }
 .completed-analysis .review-progress { margin-bottom: 2.75rem; }
-.completed-analysis .review-progress-caption { display: flex; justify-content: space-between; align-items: center; gap: 1rem; font-size: .8125rem; line-height: 1.5; margin-bottom: .75rem; }
+.completed-analysis .review-progress-caption { display: flex; justify-content: space-between; align-items: center; gap: 1rem; font-size: .8125rem; line-height: 1.5; }
 .completed-analysis .review-progress-caption p { color: var(--review-ink); font-weight: 600; font-variant-numeric: tabular-nums; }
 .completed-analysis .review-progress-caption > span { color: var(--review-muted); }
 .completed-analysis .review-progress[data-case-active="true"] .review-progress-caption > span { color: var(--review-accent); font-weight: 600; }
-.completed-analysis .review-progress-track { position: relative; height: 3px; background: #dce5f4; overflow: hidden; border-radius: 3px; }
-.completed-analysis .review-progress-fill { display: block; width: 100%; height: 100%; background: var(--review-accent); transform-origin: left; border-radius: inherit; }
+.completed-review-progress-host { --review-accent: var(--brand); position: absolute; right: 0; bottom: -1px; left: 0; z-index: 1; height: 3px; pointer-events: none; }
+:is(.completed-analysis, .completed-review-progress-host) .review-progress-track { position: relative; height: 3px; background: #dce5f4; overflow: hidden; }
+:is(.completed-analysis, .completed-review-progress-host) .review-progress-fill { display: block; width: 100%; height: 100%; background: var(--review-accent); transform-origin: left; }
+[data-completed-review] .completed-analysis .review-progress > .review-progress-track { visibility: hidden; }
 .completed-analysis .review-stage-content { padding-bottom: 1.5rem; }
 .completed-analysis .review-stage-content > h1 { margin-bottom: 1rem; }
 .completed-analysis .review-stage-content > p + p { margin-top: .85rem; }

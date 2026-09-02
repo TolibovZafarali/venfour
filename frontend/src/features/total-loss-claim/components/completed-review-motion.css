@@ -17,7 +17,7 @@ html:has([data-completed-review]) { scrollbar-gutter: stable; }
 
 .completed-analysis .review-progress-caption > p { min-width: 7.5rem; white-space: nowrap; }
 .completed-analysis .review-progress-count { display: inline-block; min-width: 1ch; text-align: center; font-variant-numeric: tabular-nums; }
-.completed-analysis .review-progress-fill { transition: transform 220ms cubic-bezier(.2, .75, .25, 1); }
+:is(.completed-analysis, .completed-review-progress-host) .review-progress-fill { transition: transform 220ms cubic-bezier(.2, .75, .25, 1); }
 
 .completed-analysis .review-action-label { display: grid; min-width: 0; }
 .completed-analysis .review-action-label > span { grid-area: 1 / 1; }
@@ -27,5 +27,5 @@ html:has([data-completed-review]) { scrollbar-gutter: stable; }
 .completed-analysis .review-primary:active:not(:disabled) { box-shadow: inset 0 2px 5px rgb(0 20 70 / 16%); }
 
 @media (prefers-reduced-motion: reduce) {
-  .completed-analysis .review-progress-fill { transition: none; }
+  :is(.completed-analysis, .completed-review-progress-host) .review-progress-fill { transition: none; }
 }

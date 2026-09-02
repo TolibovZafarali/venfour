@@ -10,6 +10,7 @@ import {
 } from "react-router";
 
 import { isPageMetadata, useDocumentMetadata } from "@/app/document-metadata";
+import { CompletedReviewProgressHostContext } from "@/components/completed-review-progress-host";
 import { supportEmail } from "@/config/support";
 import { useAdminDiminishedValueDependencies } from "@/features/admin/diminished-value/dependencies";
 import { useStaffAccessQuery } from "@/features/admin/diminished-value/queries";
@@ -74,6 +75,8 @@ function AppShellContent() {
   const { openPreferences } = useCookieConsent();
   const [headerDetached, setHeaderDetached] = useState(false);
   const [mobileNavigationOpen, setMobileNavigationOpen] = useState(false);
+  const [completedReviewProgressHost, setCompletedReviewProgressHost] =
+    useState<HTMLDivElement | null>(null);
   const headerSentinelRef = useRef<HTMLSpanElement>(null);
   const mobileNavigationButtonRef = useRef<HTMLButtonElement>(null);
   const previousPathnameRef = useRef(location.pathname);
@@ -411,6 +414,14 @@ function AppShellContent() {
               )}
             </div>
 
+            {completedReviewRoute ? (
+              <div
+                id="completed-review-progress-host"
+                className="completed-review-progress-host"
+                ref={setCompletedReviewProgressHost}
+              />
+            ) : null}
+
             {!startFlowRoute &&
             !adminRoute &&
             !productFlowRoute &&
@@ -490,7 +501,11 @@ function AppShellContent() {
         )}
         tabIndex={-1}
       >
-        <Outlet />
+        <CompletedReviewProgressHostContext.Provider
+          value={completedReviewProgressHost}
+        >
+          <Outlet />
+        </CompletedReviewProgressHostContext.Provider>
       </main>
       {productFlowRoute ? (
         <footer className="bg-canvas px-5 py-2 sm:px-8">

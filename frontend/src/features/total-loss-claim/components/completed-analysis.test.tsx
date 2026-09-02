@@ -6,6 +6,7 @@ import { createMemoryRouter, RouterProvider, useParams } from "react-router";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { TotalLossIntakeMode } from "@/features/total-loss/types";
+import { CompletedReviewProgressHostContext } from "@/components/completed-review-progress-host";
 import {
   TotalLossDependenciesProvider,
   type TotalLossDependencies,
@@ -477,6 +478,7 @@ function renderJourney(
   intakeMode: TotalLossIntakeMode,
   initialStage = "result",
   insurerResponseStorageService?: NonNullable<TotalLossDependencies["totalLossInsurerResponseStorageService"]>,
+  progressHost: HTMLElement | null = null,
 ) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
   const router = createMemoryRouter([{ path: `${BASE}/review/:stage`, element: <JourneyHarness intakeMode={intakeMode} /> }], {
@@ -487,7 +489,9 @@ function renderJourney(
   } as unknown as TotalLossDependencies : null;
   const result = render(
     <TotalLossDependenciesProvider dependencies={dependencies}>
-      <QueryClientProvider client={queryClient}><RouterProvider router={router} /></QueryClientProvider>
+      <CompletedReviewProgressHostContext.Provider value={progressHost}>
+        <QueryClientProvider client={queryClient}><RouterProvider router={router} /></QueryClientProvider>
+      </CompletedReviewProgressHostContext.Provider>
     </TotalLossDependenciesProvider>,
   );
   return { ...result, router, queryClient };
@@ -499,6 +503,27 @@ function backControl() {
 
 describe("completed-analysis guided progression", () => {
   beforeEach(() => request.render.mockClear());
+
+  it("mounts the journey progress line into the header surface when its host is available", async () => {
+    const headerHost = document.createElement("div");
+    installClaim(claimProjection());
+    const user = userEvent.setup();
+    const view = renderJourney("report", "result", undefined, headerHost);
+
+    try {
+      const progress = await within(headerHost).findByRole("progressbar", { name: "Case journey" });
+      expect(progress.parentElement).toBe(headerHost);
+      expect(screen.getByLabelText("Case journey progress")).toBeVisible();
+      expect(document.querySelector(".review-progress")?.contains(progress)).toBe(false);
+
+      await user.click(screen.getByRole("button", { name: "See how the insurer reached its value" }));
+      expect(await screen.findByRole("heading", { name: "How your insurer reached its value" })).toBeVisible();
+      expect(within(headerHost).getByRole("progressbar", { name: "Case journey" })).toBe(progress);
+      expect(progress).toHaveAttribute("aria-valuenow", "2");
+    } finally {
+      view.unmount();
+    }
+  });
 
   it("waits for the acknowledgement but never for animations when moving between stable review stages", async () => {
     const originalAnimate = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "animate");

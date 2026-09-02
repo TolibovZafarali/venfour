@@ -1,6 +1,8 @@
 import { ArrowRight } from "lucide-react";
 import type { CSSProperties } from "react";
+import { createPortal } from "react-dom";
 
+import { useCompletedReviewProgressHost } from "@/components/completed-review-progress-host";
 import type { TotalLossCaseJourneyProgress } from "../case-journey";
 import type { TotalLossMoney, TotalLossPublishedReport } from "../contracts";
 import { displayed, moneyLabel, numeric, roleLabel } from "../report-format";
@@ -14,12 +16,18 @@ export function CaseJourneyProgress({
 }: {
   readonly progress: TotalLossCaseJourneyProgress;
 }) {
+  const headerHost = useCompletedReviewProgressHost();
   const progressValue = progress.isCaseActive
     ? progress.position - 0.5
     : progress.position;
   const valueText = progress.isCaseActive
     ? `Current stage: ${progress.current.label}. Case active.`
     : `Step ${progress.position} of ${progress.total}: ${progress.current.label}`;
+  const progressBar = (
+    <div className="review-progress-track" role="progressbar" aria-label="Case journey" aria-valuemin={1} aria-valuemax={progress.total} aria-valuenow={progressValue} aria-valuetext={valueText}>
+      <span className="review-progress-fill" style={{ transform: `scaleX(${progressValue / progress.total})` }} />
+    </div>
+  );
   return (
     <div
       className="review-progress"
@@ -27,9 +35,7 @@ export function CaseJourneyProgress({
       data-current-step={progress.current.id}
     >
       <div className="review-progress-caption"><p aria-label="Case journey progress">{progress.isCaseActive ? "Current stage" : <>Step <span className="review-progress-count">{progress.position}</span> of {progress.total}</>}</p><span>{progress.current.label}</span></div>
-      <div className="review-progress-track" role="progressbar" aria-label="Case journey" aria-valuemin={1} aria-valuemax={progress.total} aria-valuenow={progressValue} aria-valuetext={valueText}>
-        <span className="review-progress-fill" style={{ transform: `scaleX(${progressValue / progress.total})` }} />
-      </div>
+      {headerHost ? createPortal(progressBar, headerHost) : progressBar}
     </div>
   );
 }
