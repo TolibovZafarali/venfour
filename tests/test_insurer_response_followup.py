@@ -96,6 +96,9 @@ class InsurerResponseFollowupTests(
                     "finalAssessmentId", "initialCommunicationId", "initialPreparedMessageId",
                 ))},
                 "decision": "CONTINUE_CHALLENGING", "assessmentDigest": assessment["assessmentDigest"],
+                "negotiationRoundId": _uuid(110),
+                "outboundCommunicationId": _uuid(106),
+                "outboundPreparedMessageId": _uuid(107),
             },
             "analysis": analysis, "evidence_index": evidence_index, "final_assessment": assessment,
             "initial_request": {
@@ -334,7 +337,7 @@ class InsurerResponseFollowupTests(
     def test_changed_source_identity_or_content_changes_generation_digest(self):
         inputs = self._inputs()
         initial = build_insurer_response_followup_v1(**inputs)["generationDigest"]
-        for key in ("responseId", "analysisResultId", "recommendationId", "decisionId", "reportId", "finalAssessmentId", "initialCommunicationId", "initialPreparedMessageId"):
+        for key in ("responseId", "analysisResultId", "recommendationId", "decisionId", "reportId", "finalAssessmentId", "initialCommunicationId", "initialPreparedMessageId", "negotiationRoundId", "outboundCommunicationId", "outboundPreparedMessageId"):
             modified = copy.deepcopy(inputs)
             modified["source_identity"][key] = _uuid(999)
             self.assertNotEqual(build_insurer_response_followup_v1(**modified)["generationDigest"], initial)
@@ -346,6 +349,53 @@ class InsurerResponseFollowupTests(
         modified = copy.deepcopy(inputs)
         modified["report"]["contentDigest"] = "b" * 64
         self.assertNotEqual(build_insurer_response_followup_v1(**modified)["generationDigest"], initial)
+
+    def test_round_and_answered_outbound_identity_are_required(self):
+        for key in ("negotiationRoundId", "outboundCommunicationId", "outboundPreparedMessageId"):
+            with self.subTest(key=key):
+                inputs = self._inputs()
+                del inputs["source_identity"][key]
+                result = build_insurer_response_followup_v1(**inputs)
+                self.assertEqual(result["status"], "BLOCKED")
+                self.assertEqual(result["blockedReasonCode"], "SOURCE_INFORMATION_UNAVAILABLE")
+        inputs = self._inputs()
+        inputs["source_identity"]["outboundCommunicationId"] = _uuid(999)
+        self.assertEqual(
+            build_insurer_response_followup_v1(**inputs)["blockedReasonCode"],
+            "SOURCE_INFORMATION_UNAVAILABLE",
+        )
+
+    def test_three_cycles_ground_each_followup_in_its_answered_request(self):
+        digests = set()
+        last_body = None
+        last_subject = None
+        for round_number in range(1, 4):
+            inputs = self._inputs()
+            identity = inputs["source_identity"]
+            for offset, key in enumerate(("responseId", "analysisResultId", "recommendationId", "decisionId", "negotiationRoundId")):
+                identity[key] = _uuid(round_number * 1000 + offset)
+            identity["initialCommunicationId"] = identity["outboundCommunicationId"] = _uuid(round_number * 1000 + 10)
+            identity["initialPreparedMessageId"] = identity["outboundPreparedMessageId"] = _uuid(round_number * 1000 + 11)
+            if last_body is not None:
+                context = copy.deepcopy(self.worker_context)
+                context["journey"]["negotiationRoundNumber"] = round_number
+                context["customerRequest"]["body"] = last_body
+                context["customerRequest"]["subject"] = last_subject
+                request = _analysis_input(_allowlisted_context(context), None)
+                inputs["initial_request"]["body"] = last_body
+                inputs["initial_request"]["subject"] = last_subject
+                inputs["analysis"] = self._valid_payload(request)
+                inputs["evidence_index"] = _analysis_evidence_index(request)
+                self._recommend(inputs)
+            before = copy.deepcopy(inputs)
+            result = build_insurer_response_followup_v1(**inputs)
+            self.assertEqual(result["status"], "READY")
+            self.assertNotIn("Follow-up: Follow-up:", result["subject"])
+            self.assertEqual(inputs, before)
+            digests.add(result["generationDigest"])
+            last_body = result["body"]
+            last_subject = result["subject"]
+        self.assertEqual(len(digests), 3)
 
     def test_grounding_references_are_subsets_of_saved_case_sources(self):
         inputs = self._inputs()

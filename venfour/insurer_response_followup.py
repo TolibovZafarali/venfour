@@ -38,6 +38,7 @@ _IDENTITIES = (
     "caseId", "responseId", "analysisResultId", "recommendationId", "decisionId",
     "reportId", "finalAssessmentId", "initialCommunicationId",
     "initialPreparedMessageId",
+    "negotiationRoundId", "outboundCommunicationId", "outboundPreparedMessageId",
 )
 _REASONS = {
     "CONTINUE_DECISION_REQUIRED": "Choose Continue challenging before preparing a follow-up.",
@@ -90,6 +91,12 @@ def _valid_identity(source: Mapping[str, Any]) -> bool:
             if not isinstance(value, str) or str(UUID(value)) != value:
                 return False
     except (KeyError, ValueError, TypeError, AttributeError):
+        return False
+    # Historical field names carry the exact sent outbound answered this round.
+    if (
+        source["outboundCommunicationId"] != source["initialCommunicationId"]
+        or source["outboundPreparedMessageId"] != source["initialPreparedMessageId"]
+    ):
         return False
     return bool(re.fullmatch(r"[0-9a-f]{64}", str(source.get("assessmentDigest", ""))))
 
@@ -350,7 +357,8 @@ def build_insurer_response_followup_v1(
         "The report's advertised prices are supporting evidence, not verified sale prices or a settlement target.",
         "Thank you.",
     ])
-    followup_subject = f"Follow-up: {subject}"
+    request_subject = re.sub(r"^(?:Follow-up:\s*)+", "", subject, flags=re.I)
+    followup_subject = f"Follow-up: {request_subject}"
     if claim and claim not in followup_subject:
         followup_subject = f"Follow-up on vehicle valuation — claim {claim}"
     return {

@@ -524,6 +524,9 @@ class CaseClaimAccessServiceTests(unittest.TestCase):
         service, gateway, _verifier = claim_service()
         response = {
             "responseId": "80000000-0000-4000-8000-000000000008",
+            "canCorrect": True,
+            "negotiationRoundId": "90000000-0000-4000-8000-000000000009",
+            "outboundCommunicationId": "82000000-0000-4000-8000-000000000008",
             "clientRequestId": "60000000-0000-4000-8000-000000000006",
             "receivedAt": "2026-09-01T12:00:00Z",
             "sourceType": "pasted_message",

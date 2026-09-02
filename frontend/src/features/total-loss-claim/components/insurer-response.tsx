@@ -128,11 +128,12 @@ function offerLabel(amountMinorUnits: number, currency: string) {
 type InsurerResponseFormProps = InsurerResponseIdentity & {
   readonly actionContainer: HTMLElement | null;
   readonly onRecorded: (state: TotalLossClaimJourneyState) => void;
+  readonly correction?: TotalLossInsurerResponse | null;
 };
 
 export function InsurerResponseForm(props: InsurerResponseFormProps) {
   return <InsurerResponseEditor
-    key={`${props.userId}:${props.caseId}:${props.claim.insurerResponse?.responseId ?? "new"}`}
+    key={`${props.userId}:${props.caseId}:${props.claim.responseIntake?.negotiationRoundId ?? props.correction?.negotiationRoundId}:${props.claim.responseIntake?.outboundCommunicationId ?? props.correction?.outboundCommunicationId}:${props.correction?.responseId ?? "new"}`}
     {...props}
   />;
 }
@@ -144,9 +145,12 @@ function InsurerResponseEditor({
   claim,
   onRefresh,
   onRecorded,
+  correction,
   userId,
 }: InsurerResponseFormProps) {
-  const existing = claim.insurerResponse ?? null;
+  const existing = correction ?? null;
+  const outboundCommunicationId = existing?.outboundCommunicationId ?? claim.responseIntake?.outboundCommunicationId;
+  const negotiationRoundId = existing?.negotiationRoundId ?? claim.responseIntake?.negotiationRoundId;
   const queryClient = useQueryClient();
   const dependencies = useTotalLossDependencies();
   const storage = dependencies?.totalLossInsurerResponseStorageService ?? null;
@@ -174,6 +178,8 @@ function InsurerResponseEditor({
     userId,
     caseId,
     supersedesResponseId: existing?.responseId ?? null,
+    negotiationRoundId: negotiationRoundId ?? "unavailable",
+    outboundCommunicationId: outboundCommunicationId ?? "unavailable",
     initial: {
       responseText: existing?.text ?? "",
       offer: initialOffer(existing),
@@ -245,7 +251,7 @@ function InsurerResponseEditor({
   const submit = async () => {
     if (actionLocked.current || pending || validatingFile) return;
     const expectedWorkflowRevision = claim.workflow?.revision;
-    if (!expectedWorkflowRevision) {
+    if (!expectedWorkflowRevision || !outboundCommunicationId || !negotiationRoundId) {
       setError("We couldn’t verify the current case revision. Refresh the case and try again.");
       return;
     }
@@ -286,6 +292,8 @@ function InsurerResponseEditor({
           clientRequestId,
           contentDigest,
           expectedWorkflowRevision,
+          outboundCommunicationId,
+          supersedesResponseId: existing?.responseId ?? null,
           mediaType: validation.mimeType,
           originalFilename: validation.displayFilename,
         });
@@ -302,6 +310,7 @@ function InsurerResponseEditor({
         clientRequestId,
         documentId,
         expectedWorkflowRevision,
+        outboundCommunicationId,
         responseText: responseText.trim() ? responseText : null,
         retainedDocumentId:
           !selectedFile && retainDocument ? existing?.document?.documentId ?? null : null,
@@ -699,14 +708,15 @@ function recommendationLabel(
   }
 }
 
-function ResponseDecisionArea({ accessToken, caseId, claim, onRefresh, response, userId }: InsurerResponseIdentity & {
+function ResponseDecisionArea({ accessToken, caseId, claim, onRefresh, response, userId, readOnly = false }: InsurerResponseIdentity & {
   readonly response: TotalLossInsurerResponse & { readonly recommendation: TotalLossResponseRecommendation };
+  readonly readOnly?: boolean;
 }) {
   const { recommendation, usableOffer } = response;
   const key = responseDecisionAttemptKey(userId, caseId, response.responseId, recommendation.recommendationId);
   const queryClient = useQueryClient();
   const mutation = useTotalLossInsurerResponseDecisionMutation({ accessToken, caseId, userId, responseId: response.responseId });
-  const [attempt, setAttempt] = useState(() => response.decision ? null : readResponseDecisionAttempt(key, recommendation.recommendationId, usableOffer));
+  const [attempt, setAttempt] = useState(() => readOnly || response.decision ? null : readResponseDecisionAttempt(key, recommendation.recommendationId, usableOffer));
   const attemptRef = useRef(attempt);
   const [acknowledged, setAcknowledged] = useState<TotalLossResponseDecision | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -717,10 +727,10 @@ function ResponseDecisionArea({ accessToken, caseId, claim, onRefresh, response,
   const decision = response.decision ?? acknowledged;
 
   useEffect(() => {
-    if (!response.decision) return;
+    if (readOnly || !response.decision) return;
     confirmed.current = true;
     clearResponseDecisionAttempt(key);
-  }, [key, response.decision]);
+  }, [key, readOnly, response.decision]);
 
   useEffect(() => {
     const warn = (event: BeforeUnloadEvent) => {
@@ -740,7 +750,7 @@ function ResponseDecisionArea({ accessToken, caseId, claim, onRefresh, response,
   };
 
   const choose = async (choice: TotalLossResponseDecisionChoice) => {
-    if (locked.current || decision || (attemptRef.current && attemptRef.current.choice !== choice)) return;
+    if (readOnly || locked.current || decision || (attemptRef.current && attemptRef.current.choice !== choice)) return;
     if (!claim.workflow || (choice === "ACCEPT_OFFER" && !usableOffer)) return;
     const input: TotalLossResponseDecisionInput = {
       ...(attemptRef.current ?? {
@@ -797,12 +807,12 @@ function ResponseDecisionArea({ accessToken, caseId, claim, onRefresh, response,
               : "You chose to continue challenging"}</strong>
             <p>Recorded <RecordedTime value={decision.recordedAt} />.</p>
             <p>{decision.choice === "ACCEPT_OFFER"
-              ? "Your choice is saved for this exact insurer offer. Nothing has been sent to the insurer, and your case remains open."
-              : claim.followUp?.state === "sent" ? "You confirmed sending your follow-up. Your case remains open while you wait for the insurer." : "Your choice is saved. Review and send a focused follow-up based on the saved response and supporting evidence."}</p>
-            {decision.choice === "CONTINUE_CHALLENGING" ? <Link className="request-button request-button-primary" to={totalLossClaimViewPath(caseId, "review_follow_up")}>{claim.followUp?.state === "sent" ? "View sent follow-up" : claim.followUp?.draft ? "Review my follow-up" : "Prepare my follow-up"}</Link> : null}
+              ? readOnly ? "This saved choice applies to the exact insurer offer in this response version. Your current case step is shown above." : "Your choice is saved for this exact insurer offer. Your case is awaiting finalization and remains open. Nothing has been sent to the insurer."
+              : readOnly ? "This decision is preserved with this saved response. Any resulting follow-up is available in case history." : claim.followUp?.state === "sent" ? "You confirmed sending your follow-up. Your case remains open while you wait for the insurer." : "Your choice is saved. Review and send a focused follow-up based on the saved response and supporting evidence."}</p>
+            {decision.choice === "CONTINUE_CHALLENGING" && !readOnly ? <Link className="request-button request-button-primary" to={totalLossClaimViewPath(caseId, "review_follow_up")}>{claim.followUp?.state === "sent" ? "View sent follow-up" : claim.followUp?.draft ? "Review my follow-up" : "Prepare my follow-up"}</Link> : null}
           </div>
         </div>
-      ) : (
+      ) : readOnly ? <p>No decision was recorded for this saved response version.</p> : (
         <>
           <p>The decision is yours, even if you choose differently from Venfour’s recommendation. Saving a choice does not contact the insurer or close your case.</p>
           {usableOffer ? <p className="response-decision-offer">Insurer offer: <strong>{offerLabel(usableOffer.amountMinorUnits, usableOffer.currency)}</strong></p>
@@ -1078,11 +1088,13 @@ export function InsurerResponseReviewed({
   onCorrect,
   onRefresh,
   priorValuation,
+  readOnly = false,
   response,
   userId,
 }: InsurerResponseIdentity & {
   readonly onCorrect?: () => void;
   readonly priorValuation: TotalLossMoney;
+  readonly readOnly?: boolean;
   readonly response: TotalLossInsurerResponse & {
     readonly analysis: TotalLossInsurerResponseAnalysis;
     readonly analysisEvidence: TotalLossInsurerResponseAnalysisEvidence;
@@ -1106,7 +1118,7 @@ export function InsurerResponseReviewed({
     >
       <p className="waiting-case-status" data-review-entrance="supporting">
         <span aria-hidden="true" />
-        Response reviewed
+        {!readOnly && response.decision?.choice === "ACCEPT_OFFER" ? "Awaiting finalization" : "Response reviewed"}
       </p>
       <div className="response-reviewed-heading" data-review-entrance="primary">
         <div className="response-review-status-mark" data-state="complete" aria-hidden="true">
@@ -1261,9 +1273,10 @@ export function InsurerResponseReviewed({
           <BasisReferences evidence={analysisEvidence} {...response.recommendation} />
           {response.recommendation.limitations.length ? <ul className="response-recommendation-limitations">{response.recommendation.limitations.map((limitation, index) => <li key={`${index}:${limitation}`}>{limitation}</li>)}</ul> : null}
           <ResponseDecisionArea
-            key={`${userId}:${caseId}:${response.responseId}:${response.recommendation.recommendationId}`}
+            key={`${userId}:${caseId}:${response.responseId}:${response.recommendation.recommendationId}:${readOnly}`}
             accessToken={accessToken} caseId={caseId} claim={claim} onRefresh={onRefresh} userId={userId}
             response={{ ...response, recommendation: response.recommendation }}
+            readOnly={readOnly}
           />
         </> : <>
           <strong>Recommendation unavailable</strong>

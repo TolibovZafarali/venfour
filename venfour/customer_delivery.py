@@ -589,6 +589,9 @@ def validate_insurer_response_projection(value: Any) -> dict[str, Any]:
 
     base_keys = {
         "responseId",
+        "negotiationRoundId",
+        "outboundCommunicationId",
+        "canCorrect",
         "clientRequestId",
         "receivedAt",
         "sourceType",
@@ -614,6 +617,12 @@ def validate_insurer_response_projection(value: Any) -> dict[str, Any]:
         raise SupabaseContractError("Insurer response is invalid")
 
     response_id = _uuid(value.get("responseId"), "Insurer response ID")
+    _uuid(value.get("negotiationRoundId"), "Insurer response negotiation round ID")
+    outbound_id = _uuid(value.get("outboundCommunicationId"), "Insurer response outbound communication ID")
+    if outbound_id == response_id:
+        raise SupabaseContractError("Insurer response outbound lineage is invalid")
+    if not isinstance(value.get("canCorrect"), bool):
+        raise SupabaseContractError("Insurer response correction eligibility is invalid")
     _uuid(value.get("clientRequestId"), "Insurer response client request ID")
     _timestamp(value.get("receivedAt"), "Insurer response receipt time")
     source_type = value.get("sourceType")
@@ -1274,6 +1283,85 @@ def validate_follow_up_projection(value: Any) -> dict[str, Any] | None:
     return dict(value)
 
 
+def validate_sent_message_projection(value: Any) -> dict[str, Any]:
+    """Validate an immutable sent message when revisiting a negotiation round."""
+    if not isinstance(value, Mapping) or set(value) != {
+        "messageVersionId", "versionNumber", "state", "reportVersionId",
+        "recipient", "subject", "body", "createdAt", "customerReportedSentAt",
+        "communicationId", "negotiationRoundId",
+    }:
+        raise SupabaseContractError("Sent message history is invalid")
+    for key in ("messageVersionId", "reportVersionId", "communicationId", "negotiationRoundId"):
+        _uuid(value.get(key), key)
+    if value.get("state") != "sent" or type(value.get("versionNumber")) is not int or value["versionNumber"] < 1:
+        raise SupabaseContractError("Sent message history state is invalid")
+    recipient = _bounded_text(value.get("recipient"), "Sent message recipient", 320)
+    if _EMAIL.fullmatch(recipient) is None:
+        raise SupabaseContractError("Sent message recipient is invalid")
+    _bounded_text(value.get("subject"), "Sent message subject", 998)
+    _bounded_text(value.get("body"), "Sent message body", 50_000)
+    for key in ("createdAt", "customerReportedSentAt"):
+        _timestamp(value.get(key), "Sent message time")
+    return dict(value)
+
+
+def validate_negotiation_history(value: Any) -> list[dict[str, Any]]:
+    """Retain response corrections within their round and validate the outbound chain."""
+    if not isinstance(value, list):
+        raise SupabaseContractError("Negotiation history is invalid")
+    history: list[dict[str, Any]] = []
+    round_ids: set[str] = set()
+    response_ids: set[str] = set()
+    last_number = 0
+    for item in value:
+        if not isinstance(item, Mapping) or set(item) != {
+            "negotiationRoundId", "roundNumber", "outbound", "responses", "followUp",
+        }:
+            raise SupabaseContractError("Negotiation history round is invalid")
+        round_id = _uuid(item.get("negotiationRoundId"), "Negotiation history round ID")
+        number = item.get("roundNumber")
+        if round_id in round_ids or type(number) is not int or number != last_number + 1:
+            raise SupabaseContractError("Negotiation history round sequence is invalid")
+        outbound = validate_sent_message_projection(item.get("outbound"))
+        if history:
+            if history[-1]["followUp"] != outbound:
+                raise SupabaseContractError("Negotiation history outbound chain is invalid")
+        elif outbound["negotiationRoundId"] != round_id:
+            raise SupabaseContractError("Initial request round lineage is invalid")
+        responses = item.get("responses")
+        if not isinstance(responses, list):
+            raise SupabaseContractError("Negotiation history responses are invalid")
+        previous_response: str | None = None
+        projected_responses = []
+        for response_value in responses:
+            response = validate_insurer_response_projection(response_value)
+            if (
+                response["responseId"] in response_ids
+                or response["negotiationRoundId"] != round_id
+                or response["outboundCommunicationId"] != outbound["communicationId"]
+                or response["supersedesResponseId"] != previous_response
+            ):
+                raise SupabaseContractError("Negotiation history response lineage is invalid")
+            previous_response = response["responseId"]
+            response_ids.add(previous_response)
+            projected_responses.append(response)
+        follow_up = (
+            validate_sent_message_projection(item["followUp"])
+            if item["followUp"] is not None else None
+        )
+        if follow_up is not None and (
+            follow_up["negotiationRoundId"] != round_id
+            or follow_up["communicationId"] == outbound["communicationId"]
+            or not projected_responses
+            or (projected_responses[-1].get("decision") or {}).get("choice") != "CONTINUE_CHALLENGING"
+        ):
+            raise SupabaseContractError("Negotiation history follow-up lineage is invalid")
+        round_ids.add(round_id)
+        last_number = number
+        history.append({**item, "outbound": outbound, "responses": projected_responses, "followUp": follow_up})
+    return history
+
+
 @runtime_checkable
 class CustomerDeliveryGateway(Protocol):
     def authenticate(self, access_token: str) -> str: ...
@@ -1807,12 +1895,19 @@ class CustomerDeliveryService:
             "mediaType",
             "byteSize",
             "contentDigest",
+            "outboundCommunicationId",
+            "supersedesResponseId",
         }:
             raise CustomerDeliveryInputError(
                 "Insurer response upload request is invalid"
             )
         canonical_request = _request_uuid(
             values.get("clientRequestId"), "Client request ID"
+        )
+        outbound_id = _request_uuid(values.get("outboundCommunicationId"), "Outbound communication ID")
+        supersedes_id = (
+            _request_uuid(values.get("supersedesResponseId"), "Superseded insurer response ID")
+            if values.get("supersedesResponseId") is not None else None
         )
         _positive_revision(
             values.get("expectedWorkflowRevision"), "Workflow revision"
@@ -1836,6 +1931,8 @@ class CustomerDeliveryService:
             )
         normalized = dict(values)
         normalized["clientRequestId"] = canonical_request
+        normalized["outboundCommunicationId"] = outbound_id
+        normalized["supersedesResponseId"] = supersedes_id
         normalized["originalFilename"] = original_filename
         normalized["byteSize"] = byte_size
         self.gateway.authenticate(access_token)
@@ -1863,11 +1960,13 @@ class CustomerDeliveryService:
             "documentId",
             "retainedDocumentId",
             "supersedesResponseId",
+            "outboundCommunicationId",
         }:
             raise CustomerDeliveryInputError("Insurer response request is invalid")
         canonical_request = _request_uuid(
             values.get("clientRequestId"), "Client request ID"
         )
+        outbound_id = _request_uuid(values.get("outboundCommunicationId"), "Outbound communication ID")
         _positive_revision(
             values.get("expectedWorkflowRevision"), "Workflow revision"
         )
@@ -1928,6 +2027,7 @@ class CustomerDeliveryService:
                 "documentId": document_id,
                 "retainedDocumentId": retained_document_id,
                 "supersedesResponseId": supersedes_response_id,
+                "outboundCommunicationId": outbound_id,
             }
         )
         self.gateway.authenticate(access_token)
@@ -1947,6 +2047,7 @@ class CustomerDeliveryService:
             response.get("clientRequestId") != canonical_request
             or response.get("text") != response_text
             or response.get("supersedesResponseId") != supersedes_response_id
+            or response.get("outboundCommunicationId") != outbound_id
         ):
             raise SupabaseContractError("Insurer response result is invalid")
         projected_document = response.get("document")

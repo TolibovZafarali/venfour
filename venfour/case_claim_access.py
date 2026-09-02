@@ -26,6 +26,7 @@ from venfour.customer_delivery import (
     validate_education_projection,
     validate_follow_up_projection,
     validate_insurer_response_projection,
+    validate_negotiation_history,
     validate_message_draft,
     validate_report_projection,
     validate_sending_details,
@@ -410,6 +411,8 @@ class ClaimResumeState:
     message_draft: Mapping[str, Any] | None = None
     insurer_response: Mapping[str, Any] | None = None
     follow_up: Mapping[str, Any] | None = None
+    response_intake: Mapping[str, Any] | None = None
+    negotiation_history: tuple[Mapping[str, Any], ...] = ()
     extended: bool = False
 
     def to_dict(self) -> dict[str, Any]:
@@ -439,6 +442,8 @@ class ClaimResumeState:
                         if self.insurer_response
                         else None
                     ),
+                    "responseIntake": dict(self.response_intake) if self.response_intake else None,
+                    "negotiationHistory": [dict(item) for item in self.negotiation_history],
                 }
             )
             if self.follow_up is not None:
@@ -669,6 +674,8 @@ class CaseClaimAccessService:
                 "message_draft",
                 "insurer_response",
                 "follow_up",
+                "response_intake",
+                "negotiation_history",
                 "commerce_amount_minor_units",
                 "commerce_currency",
             )
@@ -692,6 +699,8 @@ class CaseClaimAccessService:
                         "message_draft",
                         "insurer_response",
                         "follow_up",
+                        "response_intake",
+                        "negotiation_history",
                     )
                 )
             ):
@@ -732,11 +741,23 @@ class CaseClaimAccessService:
             else None
         )
         follow_up = validate_follow_up_projection(row.get("follow_up"))
+        history_value = row.get("negotiation_history")
+        history = validate_negotiation_history(history_value) if history_value is not None else []
+        intake = row.get("response_intake")
+        if intake is not None:
+            if not isinstance(intake, Mapping) or set(intake) != {"negotiationRoundId", "outboundCommunicationId"}:
+                raise SupabaseContractError("Response intake identity is invalid")
+            for key in ("negotiationRoundId", "outboundCommunicationId"):
+                _canonical_uuid(intake[key], "Response intake identity")
+            if not workflow or workflow.current_task != "awaiting_insurer_response":
+                raise SupabaseContractError("Response intake workflow is invalid")
         if state != "secured" and any(
             value is not None
-            for value in (report, education, sending, draft, insurer_response, follow_up)
+            for value in (report, education, sending, draft, insurer_response, follow_up, intake)
         ):
             raise SupabaseContractError("Claim delivery response is invalid")
+        if state != "secured" and history:
+            raise SupabaseContractError("Claim negotiation history is invalid")
         if report is None and any(
             value is not None
             for value in (education, sending, draft, follow_up)
@@ -769,6 +790,19 @@ class CaseClaimAccessService:
                 response_state = True
         if response_state != (insurer_response is not None):
             raise SupabaseContractError("Claim delivery response is invalid")
+        if history:
+            current_round = history[-1]
+            responses = current_round["responses"]
+            if insurer_response is not None and (not responses or insurer_response != responses[-1]):
+                raise SupabaseContractError("Current response history lineage is invalid")
+            if intake is not None:
+                outbound = current_round["followUp"] or current_round["outbound"]
+                if (
+                    intake["negotiationRoundId"] != current_round["negotiationRoundId"]
+                    or intake["outboundCommunicationId"] != outbound["communicationId"]
+                    or (responses and current_round["followUp"] is None)
+                ):
+                    raise SupabaseContractError("Current response intake lineage is invalid")
         return ClaimResumeState(
             state=state,
             case_id=case_id,
@@ -782,6 +816,8 @@ class CaseClaimAccessService:
             message_draft=draft,
             insurer_response=insurer_response,
             follow_up=follow_up,
+            response_intake=dict(intake) if intake is not None else None,
+            negotiation_history=tuple(history),
             extended=extended,
         )
 

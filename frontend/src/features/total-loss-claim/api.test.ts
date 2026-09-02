@@ -111,6 +111,34 @@ function acceptedDecision() {
   };
 }
 
+describe("repeatable response round projection", () => {
+  function historyProjection() {
+    const response = { ...recommendedResponseProjection(), negotiationRoundId: RECOMMENDATION_ID, outboundCommunicationId: OFFER_ID, canCorrect: true };
+    const outbound = { ...savedFollowUpProjection().draft, state: "sent", messageVersionId: CASE_ID, createdAt: "2026-09-02T12:01:00Z", versionNumber: 1, customerReportedSentAt: "2026-09-02T12:02:00Z", communicationId: OFFER_ID, negotiationRoundId: RECOMMENDATION_ID };
+    return { ...recommendationResolver(response), responseIntake: null, negotiationHistory: [{ negotiationRoundId: RECOMMENDATION_ID, roundNumber: 1, outbound, responses: [response], followUp: null }] };
+  }
+
+  it("preserves exact round and outbound identities for historical review", async () => {
+    const projection = historyProjection();
+    server.use(http.get("*/api/v1/appraisal-cases/:caseId/claim", () => HttpResponse.json(projection)));
+    await expect(getTotalLossClaim(CASE_ID, "owner-token")).resolves.toMatchObject({ responseIntake: null, negotiationHistory: [{ negotiationRoundId: RECOMMENDATION_ID, roundNumber: 1, outbound: { communicationId: OFFER_ID, body: projection.negotiationHistory[0]!.outbound.body }, responses: projection.negotiationHistory[0]!.responses, followUp: null }] });
+  });
+
+  it.each(["negotiationRoundId", "outboundCommunicationId"] as const)("rejects a historical response bound to the wrong %s", async (field) => {
+    const projection = historyProjection();
+    projection.negotiationHistory[0]!.responses[0]![field] = OTHER_CASE_ID;
+    server.use(http.get("*/api/v1/appraisal-cases/:caseId/claim", () => HttpResponse.json(projection)));
+    await expect(getTotalLossClaim(CASE_ID, "owner-token")).rejects.toThrow("does not match its round and outbound");
+  });
+
+  it("rejects new response intake after an Accept decision", async () => {
+    const response = { ...recommendedResponseProjection(), decision: acceptedDecision() };
+    const projection = { ...recommendationResolver(response), responseIntake: { negotiationRoundId: RECOMMENDATION_ID, outboundCommunicationId: OFFER_ID } };
+    server.use(http.get("*/api/v1/appraisal-cases/:caseId/claim", () => HttpResponse.json(projection)));
+    await expect(getTotalLossClaim(CASE_ID, "owner-token")).rejects.toThrow("outside insurer waiting");
+  });
+});
+
 describe("persisted response recommendations and decisions", () => {
   it.each(["CONTINUE_CHALLENGING", "NO_CLEAR_RECOMMENDATION"])("maps authoritative %s independently of the response-analysis suggestion", async (state) => {
     const response = recommendedResponseProjection();
@@ -798,6 +826,8 @@ describe("total-loss claim API", () => {
       clientRequestId: requestId,
       contentDigest: digest,
       expectedWorkflowRevision: 9,
+      outboundCommunicationId: OTHER_CASE_ID,
+      supersedesResponseId: null,
       mediaType: "image/png",
       originalFilename: "reply.png",
     })).resolves.toMatchObject({ documentId: requestId, contentDigest: digest });
@@ -805,6 +835,7 @@ describe("total-loss claim API", () => {
       clientRequestId: requestId,
       documentId: requestId,
       expectedWorkflowRevision: 9,
+      outboundCommunicationId: OTHER_CASE_ID,
       responseText: "  Preserve this text exactly.\n",
       retainedDocumentId: null,
       revisedOfferMinorUnits: null,
@@ -816,6 +847,8 @@ describe("total-loss claim API", () => {
         clientRequestId: requestId,
         contentDigest: digest,
         expectedWorkflowRevision: 9,
+        outboundCommunicationId: OTHER_CASE_ID,
+        supersedesResponseId: null,
         mediaType: "image/png",
         originalFilename: "reply.png",
       },
@@ -823,6 +856,7 @@ describe("total-loss claim API", () => {
         clientRequestId: requestId,
         documentId: requestId,
         expectedWorkflowRevision: 9,
+        outboundCommunicationId: OTHER_CASE_ID,
         responseText: "  Preserve this text exactly.\n",
         retainedDocumentId: null,
         revisedOfferMinorUnits: null,
@@ -901,6 +935,8 @@ describe("total-loss claim API", () => {
       clientRequestId: OTHER_CASE_ID,
       contentDigest: digest,
       expectedWorkflowRevision: 9,
+      outboundCommunicationId: OTHER_CASE_ID,
+      supersedesResponseId: null,
       mediaType: "image/png" as const,
       originalFilename: acceptedFilename,
     };

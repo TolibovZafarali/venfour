@@ -44,6 +44,7 @@ REPORT_SERIES_ID = "f0000000-0000-4000-8000-00000000000f"
 REPORT_VERSION_ID = "11000000-0000-4000-8000-000000000011"
 CLIENT_REQUEST_ID = "12000000-0000-4000-8000-000000000012"
 RETAINED_DOCUMENT_ID = "13000000-0000-4000-8000-000000000013"
+OUTBOUND_ID = "15000000-0000-4000-8000-000000000015"
 SUPERSEDED_RESPONSE_ID = "14000000-0000-4000-8000-000000000014"
 PDF_BYTES = b"%PDF-1.7\nsynthetic private report\n%%EOF\n"
 
@@ -558,14 +559,17 @@ class SupabaseHttpGatewayTests(unittest.TestCase):
         upload_values = {
             "clientRequestId": CLIENT_REQUEST_ID,
             "expectedWorkflowRevision": 4,
+            "outboundCommunicationId": OUTBOUND_ID,
             "originalFilename": "response.pdf",
             "mediaType": "application/pdf",
             "byteSize": 1024,
             "contentDigest": "a" * 64,
+            "supersedesResponseId": None,
         }
         record_values = {
             "clientRequestId": CLIENT_REQUEST_ID,
             "expectedWorkflowRevision": 4,
+            "outboundCommunicationId": OUTBOUND_ID,
             "responseText": "Please see the revised offer.",
             "revisedOfferMinorUnits": 2_100_000,
             "documentId": None,
@@ -591,15 +595,18 @@ class SupabaseHttpGatewayTests(unittest.TestCase):
                 "requested_case_id": CASE_ID,
                 "requested_client_request_id": CLIENT_REQUEST_ID,
                 "expected_workflow_revision": 4,
+                "requested_outbound_communication_id": OUTBOUND_ID,
                 "requested_original_filename": "response.pdf",
                 "requested_media_type": "application/pdf",
                 "requested_byte_size": 1024,
                 "requested_content_digest": "a" * 64,
+                "requested_supersedes_response_id": None,
             },
             "record_total_loss_insurer_response": {
                 "requested_case_id": CASE_ID,
                 "requested_client_request_id": CLIENT_REQUEST_ID,
                 "expected_workflow_revision": 4,
+                "requested_outbound_communication_id": OUTBOUND_ID,
                 "requested_response_text": "Please see the revised offer.",
                 "requested_revised_offer_minor_units": 2_100_000,
                 "requested_document_id": None,
@@ -629,14 +636,17 @@ class SupabaseHttpGatewayTests(unittest.TestCase):
         upload_values = {
             "clientRequestId": CLIENT_REQUEST_ID,
             "expectedWorkflowRevision": 4,
+            "outboundCommunicationId": OUTBOUND_ID,
             "originalFilename": "response.pdf",
             "mediaType": "application/pdf",
             "byteSize": 1024,
             "contentDigest": "a" * 64,
+            "supersedesResponseId": None,
         }
         record_values = {
             "clientRequestId": CLIENT_REQUEST_ID,
             "expectedWorkflowRevision": 4,
+            "outboundCommunicationId": OUTBOUND_ID,
             "responseText": "Please see the response.",
             "revisedOfferMinorUnits": None,
             "documentId": None,

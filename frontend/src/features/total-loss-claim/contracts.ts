@@ -290,6 +290,26 @@ export interface TotalLossSentMessage {
   readonly workflowRevision: number;
 }
 
+export interface TotalLossSentCommunication extends Omit<TotalLossPreparedMessageVersion, "state"> {
+  readonly state: "sent";
+  readonly customerReportedSentAt: string;
+  readonly communicationId: string;
+  readonly negotiationRoundId: string;
+}
+
+export interface TotalLossResponseIntake {
+  readonly negotiationRoundId: string;
+  readonly outboundCommunicationId: string;
+}
+
+export interface TotalLossNegotiationHistoryRound {
+  readonly negotiationRoundId: string;
+  readonly roundNumber: number;
+  readonly outbound: TotalLossSentCommunication;
+  readonly responses: readonly TotalLossInsurerResponse[];
+  readonly followUp: TotalLossSentCommunication | null;
+}
+
 export interface TotalLossFollowUp {
   readonly draft: TotalLossMessageDraft | null;
   readonly responseId: string;
@@ -298,12 +318,7 @@ export interface TotalLossFollowUp {
   readonly reportVersionId: string;
   readonly state: "available" | "draft" | "sent" | "unavailable";
   readonly preparedMessage: TotalLossPreparedMessageVersion | null;
-  readonly sentMessage: (Omit<TotalLossPreparedMessageVersion, "state"> & {
-    readonly state: "sent";
-    readonly customerReportedSentAt: string;
-    readonly communicationId: string;
-    readonly negotiationRoundId: string;
-  }) | null;
+  readonly sentMessage: TotalLossSentCommunication | null;
   readonly reasonCode: string | null;
 }
 
@@ -540,6 +555,9 @@ export interface TotalLossResponseDecisionRecorded {
 }
 
 export interface TotalLossInsurerResponse {
+  readonly negotiationRoundId?: string;
+  readonly outboundCommunicationId?: string;
+  readonly canCorrect?: boolean;
   readonly analysis: TotalLossInsurerResponseAnalysis | null;
   readonly analysisEvidence: TotalLossInsurerResponseAnalysisEvidence | null;
   readonly clientRequestId: string;
@@ -623,6 +641,8 @@ interface TotalLossClaimResolverBase {
   readonly education?: TotalLossEducationProjection | null;
   readonly insurerResponse?: TotalLossInsurerResponse | null;
   readonly followUp?: TotalLossFollowUp | null;
+  readonly responseIntake?: TotalLossResponseIntake | null;
+  readonly negotiationHistory?: readonly TotalLossNegotiationHistoryRound[];
   readonly journey?: TotalLossClaimJourneyProjection | null;
   readonly messageDraft?: TotalLossMessageDraft | null;
   readonly report?: TotalLossPublishedReport | null;

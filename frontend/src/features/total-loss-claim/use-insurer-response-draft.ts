@@ -25,6 +25,8 @@ interface ResponseDraftOptions {
   readonly userId: string;
   readonly caseId: string;
   readonly supersedesResponseId: string | null;
+  readonly negotiationRoundId: string;
+  readonly outboundCommunicationId: string;
   readonly initial: ResponseDraftContent;
   readonly pending: boolean;
 }
@@ -110,10 +112,12 @@ export function useInsurerResponseDraft({
   userId,
   caseId,
   supersedesResponseId,
+  negotiationRoundId,
+  outboundCommunicationId,
   initial,
   pending,
 }: ResponseDraftOptions) {
-  const key = `venfour:insurer-response-draft:v1:${encodeURIComponent(userId)}:${encodeURIComponent(caseId)}:${supersedesResponseId ?? "new"}`;
+  const key = `venfour:insurer-response-draft:v2:${[userId, caseId, negotiationRoundId, outboundCommunicationId, supersedesResponseId ?? "new"].map(encodeURIComponent).join(":")}`;
   const [state, setState] = useState(() => readDraft(key, initial));
   const contentRef = useRef(state.content);
   const dirtyRef = useRef(!sameContent(state.content, initial));

@@ -41,7 +41,7 @@ export function SentFollowUp({ followUp }: { readonly followUp: TotalLossFollowU
     <section className="sent-request" aria-labelledby="sent-follow-up-heading">
       <header className="request-heading" data-review-entrance="primary">
         <h1 id="sent-follow-up-heading">Your sent follow-up</h1>
-        <p>Follow-up request #1, responding to the insurer’s first saved response.</p>
+        <p>The follow-up you confirmed sending in response to the saved insurer reply.</p>
       </header>
       <p className="sent-request-recorded" data-review-entrance="supporting">You confirmed sending this message on <RecordedTime value={message.customerReportedSentAt} />.</p>
       <div className="sent-request-content" data-review-entrance="secondary">
@@ -108,7 +108,7 @@ export function FollowUpPreparation({ actionContainer, onSent, ...props }: Reque
       <h1>Prepare your follow-up</h1>
       <p>You chose to continue challenging. Venfour will prepare an editable response focused on the remaining issues supported by your saved case evidence.</p>
     </header>
-    <p className="request-package-intro" data-review-entrance="secondary">Your follow-up uses the original report and sent request, the insurer’s saved response, and the response analysis. You control the final wording and send it from your email app.</p>
+    <p className="request-package-intro" data-review-entrance="secondary">Your follow-up uses the saved report, the request being answered, the latest insurer response, and its response analysis. You control the final wording and send it from your email app.</p>
     {followUp?.state === "unavailable" ? <p className="request-error" role="status">{unavailableExplanation(followUp.reasonCode)}</p> : null}
     {error ? <p className="request-error" role="alert">{error}</p> : null}
     <p className="review-note"><Link to={totalLossClaimViewPath(caseId, "review_response_reviewed")}>Review the response analysis and your decision</Link></p>

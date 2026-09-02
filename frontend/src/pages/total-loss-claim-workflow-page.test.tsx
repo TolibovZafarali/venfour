@@ -299,6 +299,7 @@ function claimProjection({
       nextState: journey,
       retryable: false,
     },
+    responseIntake: journey === "awaiting_insurer_response" ? { negotiationRoundId: "12121212-1212-4212-8212-121212121212", outboundCommunicationId: "13131313-1313-4313-8313-131313131313" } : null,
     messageDraft: withDraft ? draft() : null,
     report: journey === "checkout" ? null : report(continuingSupported),
     sendingDetails:

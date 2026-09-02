@@ -1053,6 +1053,8 @@ class SupabaseHttpGateway:
                 "requested_media_type": values.get("mediaType"),
                 "requested_byte_size": values.get("byteSize"),
                 "requested_content_digest": values.get("contentDigest"),
+                "requested_outbound_communication_id": values.get("outboundCommunicationId"),
+                "requested_supersedes_response_id": values.get("supersedesResponseId"),
             },
             access_token,
             permission_denied_as_conflict=True,
@@ -1084,6 +1086,7 @@ class SupabaseHttpGateway:
                 "requested_supersedes_response_id": values.get(
                     "supersedesResponseId"
                 ),
+                "requested_outbound_communication_id": values.get("outboundCommunicationId"),
             },
             access_token,
             permission_denied_as_conflict=True,

@@ -468,6 +468,9 @@ class InsurerResponseProcessorTests(unittest.TestCase):
         )
         projection = {
             "responseId": "80000000-0000-4000-8000-000000000008",
+            "negotiationRoundId": "90000000-0000-4000-8000-000000000009",
+            "outboundCommunicationId": "82000000-0000-4000-8000-000000000008",
+            "canCorrect": True,
             "clientRequestId": CLIENT_REQUEST_ID,
             "receivedAt": "2026-09-01T14:00:00Z",
             "sourceType": "pasted_message",

@@ -1,0 +1,42 @@
+.case-history {
+  margin: 0 0 2rem;
+  border-block: 1px solid var(--color-border, #dfe5ec);
+  color: #23354b;
+  font-size: 0.9rem;
+}
+
+.case-history > summary {
+  padding: 1rem 0;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.case-history > summary > span {
+  display: block;
+  margin-top: 0.25rem;
+  color: #657386;
+  font-size: 0.8rem;
+  font-weight: 400;
+}
+
+.case-history ol {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 1rem 1rem;
+  border-left: 2px solid #e4eaf1;
+}
+
+.case-history li + li { margin-top: 1.5rem; }
+.case-history-message, .case-history-response { padding-block: 0.65rem; }
+.case-history-message > summary { min-height: 44px; cursor: pointer; font-weight: 600; }
+.case-history-message > summary > span { display: block; font-weight: 400; font-size: 0.8rem; color: #657386; margin-top: 0.2rem; }
+.case-history-message > dl { margin-block: 1rem; }
+.case-history h3 { font-size: 0.9rem; margin: 0; font-weight: 600; }
+.case-history p { margin-block: 0.35rem; overflow-wrap: anywhere; }
+.case-history-response > p { font-size: 0.8rem; color: #657386; }
+.case-history-links { display: flex; flex-wrap: wrap; gap: 0.5rem 1.2rem; margin-block: 0.5rem; }
+.case-history-links a { display: inline-flex; align-items: center; min-height: 44px; text-decoration: underline; text-underline-offset: 0.2em; }
+.case-history-links a:focus-visible, .case-history summary:focus-visible { outline: 2px solid #246be4; outline-offset: 4px; }
+.case-history .case-history-decision { color: #23354b; }
+.case-history-view-notice { margin-bottom: 1.5rem; padding: 1rem; background: #f3f6fa; border-radius: 0.75rem; font-size: 0.9rem; }
+.case-history-view-notice a { display: inline-block; margin-top: 0.5rem; text-decoration: underline; text-underline-offset: 0.2em; }

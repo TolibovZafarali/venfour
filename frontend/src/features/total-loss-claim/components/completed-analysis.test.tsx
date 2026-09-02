@@ -23,6 +23,7 @@ import {
   type TotalLossPublishedReport,
   type TotalLossResponseDecisionInput,
   type TotalLossResponseRecommendation,
+  type TotalLossNegotiationHistoryRound,
 } from "@/features/total-loss-claim/contracts";
 import { totalLossClaimQueryKeys, useTotalLossClaimQuery } from "@/features/total-loss-claim/queries";
 import type { TotalLossClaimWorkflowView } from "@/features/total-loss-claim/workflow-route";
@@ -40,6 +41,8 @@ vi.mock("@/features/total-loss-claim/components/message-preparation", async (imp
 const CASE_ID = "33333333-3333-4333-8333-333333333333";
 const REPORT_ID = "44444444-4444-4444-8444-444444444444";
 const USER_ID = "22222222-2222-4222-8222-222222222222";
+const ROUND_ID = "12121212-1212-4212-8212-121212121212";
+const OUTBOUND_ID = "13131313-1313-4313-8313-131313131313";
 const NOW = "2026-08-29T18:00:00.000Z";
 const BASE = `/total-loss/cases/${CASE_ID}/claim`;
 const API = "*/api/v1/appraisal-cases/:caseId";
@@ -176,6 +179,9 @@ function savedInsurerResponse(
         : null,
 ): TotalLossInsurerResponse {
   return {
+    negotiationRoundId: ROUND_ID,
+    outboundCommunicationId: OUTBOUND_ID,
+    canCorrect: true,
     analysis,
     analysisEvidence: analysis ? reviewedResponseEvidence() : null,
     clientRequestId: "88888888-8888-4888-8888-888888888888",
@@ -197,6 +203,7 @@ function savedInsurerResponse(
 function waitingClaim(): TotalLossClaimSecured {
   return {
     ...claimProjection([...BEFORE_REQUEST, "send"]),
+    responseIntake: { negotiationRoundId: ROUND_ID, outboundCommunicationId: OUTBOUND_ID },
     journey: { fulfillmentState: "awaiting_insurer_response", nextState: "awaiting_insurer_response", retryable: false },
     workflow: { currentTask: "awaiting_insurer_response", phase: "initial_request", revision: 13 },
   };
@@ -206,6 +213,7 @@ function responseClaim(response = savedInsurerResponse("pending")): TotalLossCla
   return {
     ...waitingClaim(),
     insurerResponse: response,
+    responseIntake: null,
     journey: { fulfillmentState: "insurer_response_reviewing", nextState: "insurer_response_reviewing", retryable: false },
     workflow: { currentTask: "insurer_response_reviewing", phase: "negotiation", revision: 14 },
   };
@@ -261,16 +269,33 @@ function followUpJourneyClaim(sent = false): TotalLossClaimSecured {
   };
   const message = { ...draft, recipient: draft.recipient!, messageVersionId: "ffffffff-ffff-4fff-8fff-ffffffffffff", versionNumber: 1, state: "prepared" as const, createdAt: NOW };
   return {
-    ...reviewedClaim(selected),
+    ...reviewedClaim({ ...selected, canCorrect: !sent }),
+    responseIntake: sent ? { negotiationRoundId: ROUND_ID, outboundCommunicationId: "14141414-1414-4414-8414-141414141414" } : null,
     workflow: { phase: "negotiation", currentTask: sent ? "awaiting_insurer_response" : "follow_up_preparation", revision: 16 },
     journey: { fulfillmentState: sent ? "awaiting_insurer_response" : "follow_up_preparation", nextState: sent ? "awaiting_insurer_response" : "follow_up_preparation", retryable: false },
     followUp: {
       state: sent ? "sent" : "draft", decisionId: selected.decision!.decisionId, responseId: selected.responseId,
       analysisResultId: selected.decision!.analysisResultId, reportVersionId: REPORT_ID, draft,
-      preparedMessage: message, sentMessage: sent ? { ...message, state: "sent", customerReportedSentAt: NOW, communicationId: "12121212-1212-4212-8212-121212121212", negotiationRoundId: "13131313-1313-4313-8313-131313131313" } : null,
+      preparedMessage: message, sentMessage: sent ? { ...message, state: "sent", customerReportedSentAt: NOW, communicationId: "14141414-1414-4414-8414-141414141414", negotiationRoundId: ROUND_ID } : null,
       reasonCode: null,
     },
   };
+}
+
+function threeResponseHistory(): TotalLossNegotiationHistoryRound[] {
+  const id = (value: number) => `${String(value).padStart(8, "0")}-1515-4515-8515-151515151515`;
+  const message = followUpJourneyClaim(true).followUp!.sentMessage!;
+  const requestFor = (value: number) => ({ ...message, communicationId: id(100 + value), negotiationRoundId: id(Math.max(1, value - 1)), body: `Saved outbound request ${value}` });
+  return [1, 2, 3].map((number) => {
+    const original = recommendedResponse();
+    const response = {
+      ...original, responseId: id(200 + number), negotiationRoundId: id(number), outboundCommunicationId: requestFor(number).communicationId,
+      canCorrect: number === 3, text: `Saved insurer response ${number}`,
+      recommendation: { ...original.recommendation!, recommendationId: id(300 + number), analysisResultId: id(400 + number) },
+    };
+    const decided = number < 3 ? decisionResponse(response, { clientRequestId: id(500 + number), recommendationId: response.recommendation.recommendationId, choice: "CONTINUE_CHALLENGING", offerId: null, workflowRevision: number }) : response;
+    return { negotiationRoundId: id(number), roundNumber: number, outbound: requestFor(number), responses: [decided], followUp: number < 3 ? { ...requestFor(number + 1), negotiationRoundId: id(number) } : null };
+  });
 }
 
 function responseWithDocument(processingState: TotalLossInsurerResponse["processingState"] = "pending") {
@@ -448,6 +473,7 @@ interface InsurerResponseWrite {
   readonly clientRequestId: string;
   readonly documentId: string | null;
   readonly expectedWorkflowRevision: number;
+  readonly outboundCommunicationId: string;
   readonly responseText: string | null;
   readonly retainedDocumentId: string | null;
   readonly revisedOfferMinorUnits: number | null;
@@ -459,6 +485,8 @@ interface InsurerResponseUploadWrite {
   readonly clientRequestId: string;
   readonly contentDigest: string;
   readonly expectedWorkflowRevision: number;
+  readonly outboundCommunicationId: string;
+  readonly supersedesResponseId: string | null;
   readonly mediaType: string;
   readonly originalFilename: string;
 }
@@ -509,6 +537,9 @@ function installClaim(initialClaim = claimProjection(), failOnce?: TotalLossEduc
       const body = await update.json() as InsurerResponseWrite;
       responseWrites.push(body);
       const response: TotalLossInsurerResponse = {
+        negotiationRoundId: claim.responseIntake?.negotiationRoundId ?? claim.insurerResponse?.negotiationRoundId ?? ROUND_ID,
+        outboundCommunicationId: body.outboundCommunicationId,
+        canCorrect: true,
         analysis: null,
         analysisEvidence: null,
         responseId: body.supersedesResponseId ? body.clientRequestId : "99999999-9999-4999-8999-999999999999",
@@ -533,6 +564,8 @@ function installClaim(initialClaim = claimProjection(), failOnce?: TotalLossEduc
       claim = {
         ...claim,
         insurerResponse: response,
+        responseIntake: null,
+        followUp: null,
         journey: { fulfillmentState: "insurer_response_reviewing", nextState: "insurer_response_reviewing", retryable: false },
         workflow: { ...claim.workflow!, currentTask: "insurer_response_reviewing", revision: claim.workflow!.revision + 1 },
       };
@@ -688,17 +721,90 @@ describe("completed-analysis guided progression", () => {
     expect(view.router.state.location.pathname).toBe(`${BASE}/review/follow-up`);
   });
 
-  it("resumes waiting after the follow-up is sent and blocks another response intake route", async () => {
-    installClaim(followUpJourneyClaim(true));
+  it("records a distinct response against the sent follow-up without using correction lineage", async () => {
+    const original = followUpJourneyClaim(true);
+    const installed = installClaim(original);
+    const user = userEvent.setup();
+    const view = renderJourney("report", "waiting");
+    expect(await screen.findByRole("heading", { name: "Waiting for the insurer’s response" })).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "I received a response" }));
+    expect(await screen.findByRole("textbox", { name: /^Paste the response/iu })).toHaveValue("");
+    expect(screen.queryByRole("button", { name: "Save corrected response" })).not.toBeInTheDocument();
+    await user.type(screen.getByRole("textbox", { name: /^Paste the response/iu }), "The insurer has replied again.");
+    await user.click(screen.getByRole("button", { name: "Save response" }));
+    expect(await screen.findByRole("heading", { name: "Venfour is reviewing the insurer’s response" })).toBeVisible();
+    expect(installed.responseWrites[0]).toMatchObject({ outboundCommunicationId: original.followUp!.sentMessage!.communicationId, supersedesResponseId: null });
+    expect(original.insurerResponse!.text).toBe("We can revise the offer to $20,100.");
+    expect(view.router.state.location.pathname).toBe(`${BASE}/review/response-reviewing`);
+  });
+  it("keeps three insurer responses, sent messages, reviews, and decisions reachable without changing the current step", async () => {
+    const history = threeResponseHistory();
+    const current = { ...reviewedClaim(history[2]!.responses[0]!), negotiationHistory: history };
+    const installed = installClaim(current);
+    const user = userEvent.setup();
+    const view = renderJourney("report", "response-reviewed");
+    await screen.findByRole("heading", { name: "What the insurer’s response means" });
+    await user.click(screen.getByText("Case history"));
+    expect(screen.getAllByRole("link", { name: "View response" })).toHaveLength(3);
+    expect(screen.getAllByText("Follow-up", { selector: "summary" })).toHaveLength(2);
+    for (const [index, round] of history.entries()) {
+      const responseLink = screen.getAllByRole("link", { name: "View response" })[index]!;
+      await user.click(responseLink);
+      expect(await screen.findByText(`Saved insurer response ${index + 1}`)).toBeVisible();
+      expect(screen.getByText(/current case step has not changed/u)).toBeVisible();
+      expect(screen.queryByRole("button", { name: "Correct this response" })).not.toBeInTheDocument();
+      expect(view.router.state.location.search).toContain(round.responses[0]!.responseId);
+      await user.click(screen.getByText("Case history"));
+    }
+    await user.click(screen.getAllByRole("link", { name: "Venfour review and decision" })[0]!);
+    expect(await screen.findByText("You chose to continue challenging")).toBeVisible();
+    expect(screen.queryByRole("link", { name: /Prepare my follow-up|View sent follow-up/u })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Continue challenging" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("link", { name: "Return to response reviewed" }));
+    expect(await screen.findByRole("button", { name: "Continue challenging" })).toBeVisible();
+    expect(installed.claim()).toEqual(current);
+    expect(installed.responseWrites).toEqual([]);
+    expect(installed.writes).toEqual([]);
+  });
+
+  it("does not restore a new response draft into a different round or outbound message", async () => {
+    const installed = installClaim(waitingClaim());
+    const user = userEvent.setup();
+    const first = renderJourney("report", "response");
+    await user.type(await screen.findByRole("textbox", { name: /^Paste the response/iu }), "Draft for initial request");
+    first.unmount();
+    installed.setClaim(followUpJourneyClaim(true));
+    const second = renderJourney("report", "response");
+    expect(await screen.findByRole("textbox", { name: /^Paste the response/iu })).toHaveValue("");
+    await user.type(screen.getByRole("textbox", { name: /^Paste the response/iu }), "Draft for follow-up");
+    second.unmount();
+    installed.setClaim({ ...followUpJourneyClaim(true), responseIntake: { ...followUpJourneyClaim(true).responseIntake!, negotiationRoundId: "16161616-1616-4616-8616-161616161616" } });
+    const third = renderJourney("report", "response");
+    expect(await screen.findByRole("textbox", { name: /^Paste the response/iu })).toHaveValue("");
+    third.unmount();
+    installed.setClaim(waitingClaim());
+    renderJourney("report", "response");
+    expect(await screen.findByRole("textbox", { name: /^Paste the response/iu })).toHaveValue("Draft for initial request");
+  });
+
+  it("resumes an accepted offer as awaiting finalization and suppresses new response intake", async () => {
+    const response = recommendedResponse();
+    const decided = decisionResponse(response, { clientRequestId: USER_ID, recommendationId: response.recommendation!.recommendationId, choice: "ACCEPT_OFFER", offerId: response.usableOffer!.offerId, workflowRevision: 15 });
+    installClaim(reviewedClaim(decided));
+    const view = renderJourney("report", "waiting");
+    expect(await screen.findByRole("heading", { name: "What the insurer’s response means" })).toBeVisible();
+    expect(screen.getByText(/case is awaiting finalization and remains open/u)).toBeVisible();
+    expect(screen.queryByRole("button", { name: "I received a response" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Correct this response" })).toBeVisible();
+    expect(view.router.state.location.pathname).toBe(`${BASE}/review/response-reviewed`);
+  });
+
+  it("does not expose new response intake without the resolver's applicable sent outbound", async () => {
+    installClaim({ ...waitingClaim(), responseIntake: null });
     const view = renderJourney("report", "response");
     expect(await screen.findByRole("heading", { name: "Waiting for the insurer’s response" })).toBeVisible();
-    expect(view.router.state.location.pathname).toBe(`${BASE}/review/waiting`);
     expect(screen.queryByRole("button", { name: "I received a response" })).not.toBeInTheDocument();
-    expect(screen.getByText(/adding another insurer response is not available yet/u)).toBeVisible();
-    await userEvent.click(screen.getByRole("link", { name: "View your sent follow-up" }));
-    expect(await screen.findByRole("heading", { name: "Your sent follow-up" })).toBeVisible();
-    expect(screen.getByLabelText("Follow-up message")).toHaveTextContent(followUpJourneyClaim(true).followUp!.sentMessage!.body);
-    expect(screen.queryByRole("textbox", { name: "Message" })).not.toBeInTheDocument();
+    expect(view.router.state.location.pathname).toBe(`${BASE}/review/waiting`);
   });
   beforeEach(() => {
     request.render.mockClear();
@@ -1174,7 +1280,7 @@ describe("completed-analysis guided progression", () => {
   });
 
   it("shows a persisted customer-reported sent state without mounting the editor or claiming delivery", async () => {
-    const projection = claimProjection([...BEFORE_REQUEST, "send"]);
+    const projection = waitingClaim();
     installClaim({ ...projection, journey: { fulfillmentState: "awaiting_insurer_response", nextState: "awaiting_insurer_response", retryable: false }, workflow: { currentTask: "awaiting_insurer_response", phase: "initial_request", revision: 13 } });
     renderJourney("report", "waiting");
     expect(await screen.findByRole("heading", { name: "Waiting for the insurer’s response" })).toBeVisible();
@@ -1193,7 +1299,7 @@ describe("completed-analysis guided progression", () => {
   });
 
   it("records an offer-only insurer response once and advances to the reviewing state", async () => {
-    const projection = claimProjection([...BEFORE_REQUEST, "send"]);
+    const projection = waitingClaim();
     const installed = installClaim({
       ...projection,
       journey: { fulfillmentState: "awaiting_insurer_response", nextState: "awaiting_insurer_response", retryable: false },
@@ -1508,7 +1614,7 @@ describe("completed-analysis guided progression", () => {
   });
 
   it("prepares, privately uploads, and records an original response file", async () => {
-    const projection = claimProjection([...BEFORE_REQUEST, "send"]);
+    const projection = waitingClaim();
     const installed = installClaim({
       ...projection,
       journey: { fulfillmentState: "awaiting_insurer_response", nextState: "awaiting_insurer_response", retryable: false },
@@ -1837,7 +1943,7 @@ describe("completed-analysis guided progression", () => {
     expect(screen.queryByRole("button", { name: "Accept offer" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Continue challenging" })).not.toBeInTheDocument();
     expect(window.sessionStorage.length).toBe(0);
-    expect(screen.getByText(choice === "ACCEPT_OFFER" ? /case remains open/u : /Your choice is saved\. Review and send/u)).toBeVisible();
+    expect(screen.getByText(choice === "ACCEPT_OFFER" ? /case is awaiting finalization and remains open/u : /Your choice is saved\. Review and send/u)).toBeVisible();
     expect(screen.queryByRole("link", { name: "Prepare my follow-up" })).toBe(choice === "ACCEPT_OFFER" ? null : screen.getByRole("link", { name: "Prepare my follow-up" }));
     first.unmount();
     renderJourney("report", "response-reviewed");

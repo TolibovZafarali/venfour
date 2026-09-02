@@ -125,13 +125,14 @@ export function createCaseWorkspace({
     add("follow_up", claim.followUp?.state === "sent" ? "Sent follow-up" : "Follow-up request", true, claim.followUp?.state === "sent");
   }
 
+  const awaitingFinalization = response?.decision?.choice === "ACCEPT_OFFER";
   return {
     currentStage,
     currentPath,
-    currentLabel: resolvedTotalLossClaimJourneyState(claim) === "insurer_response_review_unavailable"
+    currentLabel: awaitingFinalization ? "Awaiting finalization" : resolvedTotalLossClaimJourneyState(claim) === "insurer_response_review_unavailable"
       ? "Response review needs attention"
       : progress.current.label,
-    progress,
+    progress: awaitingFinalization ? { ...progress, current: { ...progress.current, label: "Awaiting finalization" } } : progress,
     sections,
   };
 }

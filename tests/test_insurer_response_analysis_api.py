@@ -46,6 +46,9 @@ DISPATCH_SECRET = "insurer-response-dispatch-test-secret-123456"
 def _insurer_response(processing_state: str) -> dict[str, Any]:
     return {
         "responseId": RESPONSE_ID,
+        "canCorrect": True,
+        "negotiationRoundId": "90000000-0000-4000-8000-000000000009",
+        "outboundCommunicationId": "82000000-0000-4000-8000-000000000008",
         "clientRequestId": CLIENT_REQUEST_ID,
         "receivedAt": NOW,
         "sourceType": "pasted_message",
@@ -330,6 +333,7 @@ class InsurerResponseAnalysisApiTests(unittest.TestCase):
             "documentId": None,
             "retainedDocumentId": None,
             "supersedesResponseId": None,
+            "outboundCommunicationId": "82000000-0000-4000-8000-000000000008",
         }
 
     @staticmethod

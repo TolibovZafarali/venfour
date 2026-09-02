@@ -52,6 +52,9 @@ import type {
   TotalLossReportDownload,
   TotalLossSendingDetails,
   TotalLossSentMessage,
+  TotalLossSentCommunication,
+  TotalLossResponseIntake,
+  TotalLossNegotiationHistoryRound,
   TotalLossSupportedRange,
 } from "@/features/total-loss-claim/contracts";
 import {
@@ -1715,6 +1718,9 @@ function mapInsurerResponse(value: unknown): TotalLossInsurerResponse | null {
       "failureReason",
       "supersedesResponseId",
       "recommendation", "usableOffer", "decision",
+      ...(value.negotiationRoundId !== undefined ? ["negotiationRoundId"] : []),
+      ...(value.outboundCommunicationId !== undefined ? ["outboundCommunicationId"] : []),
+      ...(value.canCorrect !== undefined ? ["canCorrect"] : []),
       ...(value.processingState === "completed"
         ? ["analysis", "analysisEvidence"]
         : []),
@@ -1816,6 +1822,9 @@ function mapInsurerResponse(value: unknown): TotalLossInsurerResponse | null {
     throw new TotalLossClaimContractError("The claim service returned an inconsistent usable insurer offer.");
   }
   return {
+    ...(value.negotiationRoundId !== undefined ? { negotiationRoundId: requiredString(value.negotiationRoundId, "response round ID", UUID_PATTERN) } : {}),
+    ...(value.outboundCommunicationId !== undefined ? { outboundCommunicationId: requiredString(value.outboundCommunicationId, "response outbound ID", UUID_PATTERN) } : {}),
+    ...(value.canCorrect !== undefined ? { canCorrect: requiredBoolean(value.canCorrect, "response correction availability") } : {}),
     analysis,
     analysisEvidence,
     recommendation,
@@ -1928,6 +1937,53 @@ function mapInsurerResponseRecorded(
   };
 }
 
+function mapResponseIntake(value: unknown): TotalLossResponseIntake | null {
+  if (value == null) return null;
+  if (!isRecord(value)) throw new TotalLossClaimContractError("The claim service returned invalid response intake.");
+  return {
+    negotiationRoundId: requiredString(value.negotiationRoundId, "response intake round ID", UUID_PATTERN),
+    outboundCommunicationId: requiredString(value.outboundCommunicationId, "response intake outbound ID", UUID_PATTERN),
+  };
+}
+
+function mapSentCommunication(value: unknown): TotalLossSentCommunication {
+  if (!isRecord(value) || value.state !== "sent") throw new TotalLossClaimContractError("The claim service returned an invalid sent message.");
+  return {
+    ...mapPreparedMessageVersion({ ...value, state: "prepared" }),
+    state: "sent",
+    customerReportedSentAt: requiredString(value.customerReportedSentAt, "message sent time", ISO_TIMESTAMP_PATTERN),
+    communicationId: requiredString(value.communicationId, "message communication ID", UUID_PATTERN),
+    negotiationRoundId: requiredString(value.negotiationRoundId, "message round ID", UUID_PATTERN),
+  };
+}
+
+function mapNegotiationHistory(value: unknown): readonly TotalLossNegotiationHistoryRound[] {
+  if (value === undefined) return [];
+  if (!Array.isArray(value)) throw new TotalLossClaimContractError("The claim service returned invalid case history.");
+  const roundIds = new Set<string>();
+  const responseIds = new Set<string>();
+  return value.map((item: unknown) => {
+    if (!isRecord(item) || !Array.isArray(item.responses) || !Number.isSafeInteger(item.roundNumber) || Number(item.roundNumber) < 1) {
+      throw new TotalLossClaimContractError("The claim service returned invalid round history.");
+    }
+    const negotiationRoundId = requiredString(item.negotiationRoundId, "history round ID", UUID_PATTERN);
+    if (roundIds.has(negotiationRoundId)) throw new TotalLossClaimContractError("The claim service returned duplicate history rounds.");
+    roundIds.add(negotiationRoundId);
+    const outbound = mapSentCommunication(item.outbound);
+    const followUp = item.followUp == null ? null : mapSentCommunication(item.followUp);
+    const responses = item.responses.map((raw: unknown) => {
+      const response = mapInsurerResponse(raw);
+      if (!response || response.negotiationRoundId !== negotiationRoundId || response.outboundCommunicationId !== outbound.communicationId || responseIds.has(response.responseId)) {
+        throw new TotalLossClaimContractError("The saved response does not match its round and outbound message.");
+      }
+      responseIds.add(response.responseId);
+      return response;
+    });
+    if (followUp && followUp.negotiationRoundId !== negotiationRoundId) throw new TotalLossClaimContractError("The saved follow-up does not match its round.");
+    return { negotiationRoundId, roundNumber: Number(item.roundNumber), outbound, responses, followUp };
+  });
+}
+
 function mapResolver(value: unknown): TotalLossClaimResolver {
   if (!isRecord(value)) {
     throw new TotalLossClaimContractError(
@@ -1939,6 +1995,8 @@ function mapResolver(value: unknown): TotalLossClaimResolver {
   const education = mapEducation(value.education);
   const insurerResponse = mapInsurerResponse(value.insurerResponse);
   const followUp = mapFollowUp(value.followUp);
+  const responseIntake = mapResponseIntake(value.responseIntake);
+  const negotiationHistory = mapNegotiationHistory(value.negotiationHistory);
   const journey = mapJourney(value.journey);
   const messageDraft = mapMessageDraft(value.messageDraft);
   const report = mapReport(value.report);
@@ -1948,6 +2006,8 @@ function mapResolver(value: unknown): TotalLossClaimResolver {
     ...(value.education !== undefined ? { education } : {}),
     ...(value.insurerResponse !== undefined ? { insurerResponse } : {}),
     ...(value.followUp !== undefined ? { followUp } : {}),
+    ...(value.responseIntake !== undefined ? { responseIntake } : {}),
+    ...(value.negotiationHistory !== undefined ? { negotiationHistory } : {}),
     ...(value.journey !== undefined ? { journey } : {}),
     ...(value.messageDraft !== undefined ? { messageDraft } : {}),
     ...(value.report !== undefined ? { report } : {}),
@@ -1956,7 +2016,7 @@ function mapResolver(value: unknown): TotalLossClaimResolver {
 
   if (
     value.state !== "secured" &&
-    (education || insurerResponse || followUp || messageDraft || report || sendingDetails)
+    (education || insurerResponse || followUp || responseIntake || negotiationHistory.length || messageDraft || report || sendingDetails)
   ) {
     throw new TotalLossClaimContractError(
       "The claim service exposed delivery details before permanent ownership.",
@@ -1980,6 +2040,9 @@ function mapResolver(value: unknown): TotalLossClaimResolver {
     throw new TotalLossClaimContractError(
       "The claim service returned an inconsistent insurer-response state.",
     );
+  }
+  if (responseIntake && (journey?.nextState !== "awaiting_insurer_response" || insurerResponse?.decision?.choice === "ACCEPT_OFFER")) {
+    throw new TotalLossClaimContractError("The claim service exposed response intake outside insurer waiting.");
   }
   if (followUp && (
     insurerResponse?.decision?.choice !== "CONTINUE_CHALLENGING" ||
@@ -2766,6 +2829,8 @@ export async function prepareTotalLossInsurerResponseUpload(
     readonly clientRequestId: string;
     readonly contentDigest: string;
     readonly expectedWorkflowRevision: number;
+    readonly outboundCommunicationId: string;
+    readonly supersedesResponseId: string | null;
     readonly mediaType: TotalLossInsurerResponseMediaType;
     readonly originalFilename: string;
   },
@@ -2787,6 +2852,7 @@ export async function recordTotalLossInsurerResponse(
     readonly clientRequestId: string;
     readonly documentId: string | null;
     readonly expectedWorkflowRevision: number;
+    readonly outboundCommunicationId: string;
     readonly responseText: string | null;
     readonly retainedDocumentId: string | null;
     readonly revisedOfferMinorUnits: number | null;

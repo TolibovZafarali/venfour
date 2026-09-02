@@ -46,6 +46,9 @@ def completed_response() -> tuple[dict[str, Any], dict[str, Any]]:
     recommendation = completion[14]
     response = {
         "responseId": COMMUNICATION_ID,
+        "canCorrect": True,
+        "negotiationRoundId": "90000000-0000-4000-8000-000000000009",
+        "outboundCommunicationId": "82000000-0000-4000-8000-000000000008",
         "clientRequestId": CLIENT_REQUEST_ID,
         "receivedAt": NOW,
         "sourceType": "pasted_message",

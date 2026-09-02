@@ -428,6 +428,8 @@ export function useTotalLossInsurerResponseUploadPreparationMutation({
       readonly clientRequestId: string;
       readonly contentDigest: string;
       readonly expectedWorkflowRevision: number;
+      readonly outboundCommunicationId: string;
+      readonly supersedesResponseId: string | null;
       readonly mediaType: TotalLossInsurerResponseMediaType;
       readonly originalFilename: string;
     }) => {
@@ -456,6 +458,7 @@ export function useTotalLossInsurerResponseMutation({
       readonly clientRequestId: string;
       readonly documentId: string | null;
       readonly expectedWorkflowRevision: number;
+      readonly outboundCommunicationId: string;
       readonly responseText: string | null;
       readonly retainedDocumentId: string | null;
       readonly revisedOfferMinorUnits: number | null;

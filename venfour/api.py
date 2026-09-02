@@ -1416,6 +1416,8 @@ async def _insurer_response_upload(request: Request) -> JSONResponse:
                 "mediaType",
                 "byteSize",
                 "contentDigest",
+                "outboundCommunicationId",
+                "supersedesResponseId",
             },
         )
         result = await run_in_threadpool(
@@ -1592,6 +1594,7 @@ async def _insurer_response_record(request: Request) -> JSONResponse:
                 "documentId",
                 "retainedDocumentId",
                 "supersedesResponseId",
+                "outboundCommunicationId",
             },
         )
         result = await run_in_threadpool(

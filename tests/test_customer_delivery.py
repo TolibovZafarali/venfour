@@ -34,6 +34,7 @@ SENT_VERSION_ID = "51000000-0000-4000-8000-000000000005"
 CLIENT_REQUEST_ID = "60000000-0000-4000-8000-000000000006"
 EVENT_ID = "70000000-0000-4000-8000-000000000007"
 COMMUNICATION_ID = "80000000-0000-4000-8000-000000000008"
+OUTBOUND_ID = "82000000-0000-4000-8000-000000000008"
 ROUND_ID = "90000000-0000-4000-8000-000000000009"
 SUPERSEDED_RESPONSE_ID = "91000000-0000-4000-8000-000000000009"
 USER_ID = "10000000-0000-4000-8000-000000000001"
@@ -231,6 +232,9 @@ def insurer_response_projection(
         "state": "insurer_response_received",
         "response": {
             "responseId": COMMUNICATION_ID,
+            "canCorrect": True,
+            "negotiationRoundId": ROUND_ID,
+            "outboundCommunicationId": OUTBOUND_ID,
             "clientRequestId": CLIENT_REQUEST_ID,
             "receivedAt": NOW,
             "sourceType": (
@@ -497,10 +501,12 @@ class CustomerDeliveryServiceTests(unittest.TestCase):
         values = {
             "clientRequestId": CLIENT_REQUEST_ID,
             "expectedWorkflowRevision": 4,
+            "outboundCommunicationId": OUTBOUND_ID,
             "originalFilename": "adjuster-response.jpeg",
             "mediaType": "image/jpeg",
             "byteSize": 4096,
             "contentDigest": CONTENT_DIGEST,
+            "supersedesResponseId": None,
         }
 
         result = service.prepare_response_upload(
@@ -520,12 +526,16 @@ class CustomerDeliveryServiceTests(unittest.TestCase):
         valid = {
             "clientRequestId": CLIENT_REQUEST_ID,
             "expectedWorkflowRevision": 4,
+            "outboundCommunicationId": OUTBOUND_ID,
             "originalFilename": "adjuster-response.jpeg",
             "mediaType": "image/jpeg",
             "byteSize": 4096,
             "contentDigest": CONTENT_DIGEST,
+            "supersedesResponseId": None,
         }
         invalid_values = (
+            {**valid, "outboundCommunicationId": None},
+            {**valid, "supersedesResponseId": "not-a-response"},
             {**valid, "mediaType": []},
             {**valid, "mediaType": "image/gif"},
             {**valid, "originalFilename": "adjuster-response.png"},
@@ -568,10 +578,12 @@ class CustomerDeliveryServiceTests(unittest.TestCase):
                 {
                     "clientRequestId": CLIENT_REQUEST_ID,
                     "expectedWorkflowRevision": 4,
+                    "outboundCommunicationId": OUTBOUND_ID,
                     "originalFilename": "adjuster-response.jpeg",
                     "mediaType": "image/jpeg",
                     "byteSize": 4096,
                     "contentDigest": CONTENT_DIGEST,
+                    "supersedesResponseId": None,
                 },
                 ACCESS_TOKEN,
             )
@@ -585,6 +597,7 @@ class CustomerDeliveryServiceTests(unittest.TestCase):
         values = {
             "clientRequestId": CLIENT_REQUEST_ID,
             "expectedWorkflowRevision": 4,
+            "outboundCommunicationId": OUTBOUND_ID,
             "responseText": text,
             "revisedOfferMinorUnits": 2_100_000,
             "documentId": CLIENT_REQUEST_ID,
@@ -615,6 +628,7 @@ class CustomerDeliveryServiceTests(unittest.TestCase):
         valid = {
             "clientRequestId": CLIENT_REQUEST_ID,
             "expectedWorkflowRevision": 4,
+            "outboundCommunicationId": OUTBOUND_ID,
             "responseText": "Received response",
             "revisedOfferMinorUnits": None,
             "documentId": None,
@@ -622,6 +636,8 @@ class CustomerDeliveryServiceTests(unittest.TestCase):
             "supersedesResponseId": None,
         }
         invalid_values = (
+            {**valid, "outboundCommunicationId": None},
+            {**valid, "outboundCommunicationId": "not-an-outbound"},
             {**valid, "responseText": " \n\t"},
             {**valid, "responseText": "unsafe\u0000text"},
             {**valid, "responseText": "unsafe\u0085text"},
@@ -651,6 +667,22 @@ class CustomerDeliveryServiceTests(unittest.TestCase):
                         CASE_ID, values, ACCESS_TOKEN
                     )
                 self.assertEqual(gateway.calls, [])
+
+    def test_record_response_rejects_a_different_answered_outbound(self) -> None:
+        values = {
+            "clientRequestId": CLIENT_REQUEST_ID,
+            "expectedWorkflowRevision": 4,
+            "outboundCommunicationId": MESSAGE_VERSION_ID,
+            "responseText": "The insurer contacted me again.",
+            "revisedOfferMinorUnits": None,
+            "documentId": None,
+            "retainedDocumentId": None,
+            "supersedesResponseId": None,
+        }
+        with self.assertRaisesRegex(SupabaseContractError, "result is invalid"):
+            CustomerDeliveryService(RecordingGateway()).record_insurer_response(
+                CASE_ID, values, ACCESS_TOKEN,
+            )
 
     def test_insurer_response_projection_is_strict_and_idempotency_visible(
         self,
@@ -867,10 +899,12 @@ class CustomerDeliveryApiTests(unittest.TestCase):
             json={
                 "clientRequestId": CLIENT_REQUEST_ID,
                 "expectedWorkflowRevision": 4,
+                "outboundCommunicationId": OUTBOUND_ID,
                 "originalFilename": "adjuster-response.jpeg",
                 "mediaType": "image/jpeg",
                 "byteSize": 4096,
                 "contentDigest": CONTENT_DIGEST,
+                "supersedesResponseId": None,
             },
         )
 
@@ -887,6 +921,7 @@ class CustomerDeliveryApiTests(unittest.TestCase):
             json={
                 "clientRequestId": CLIENT_REQUEST_ID,
                 "expectedWorkflowRevision": 4,
+                "outboundCommunicationId": OUTBOUND_ID,
                 "responseText": response_text,
                 "revisedOfferMinorUnits": None,
                 "documentId": None,
@@ -909,6 +944,7 @@ class CustomerDeliveryApiTests(unittest.TestCase):
             json={
                 "clientRequestId": CLIENT_REQUEST_ID,
                 "expectedWorkflowRevision": 4,
+                "outboundCommunicationId": OUTBOUND_ID,
                 "responseText": "x" * 100_001,
                 "revisedOfferMinorUnits": None,
                 "documentId": None,
@@ -927,6 +963,7 @@ class CustomerDeliveryApiTests(unittest.TestCase):
         payload = {
             "clientRequestId": CLIENT_REQUEST_ID,
             "expectedWorkflowRevision": 4,
+            "outboundCommunicationId": OUTBOUND_ID,
             "responseText": "Response received",
             "revisedOfferMinorUnits": None,
             "documentId": None,

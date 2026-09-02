@@ -464,7 +464,8 @@ select ok(
   'a failed upload leaves the durable workflow waiting and creates no response'
 );
 
-delete from public.total_loss_claim_documents
+update public.total_loss_claim_documents
+set insurer_response_upload_expires_at=statement_timestamp()-interval '1 minute'
 where id = 'a1000000-0000-4000-8000-000000000001';
 set local role authenticated;
 
@@ -704,7 +705,7 @@ select ok(
       and insurer_response -> 'usableOffer' = 'null'::jsonb
       and insurer_response -> 'decision' = 'null'::jsonb
       and (
-        select count(*) = 13
+        select count(*) = 16
         from jsonb_object_keys(insurer_response)
       )
       and not (insurer_response -> 'document' ? 'uploadPath')
@@ -765,7 +766,7 @@ select ok(
     where case_id = 'e2000000-0000-4000-8000-000000000001'
   )
   and (
-    select count(*) = 1 and bool_and(status = 'ready')
+    select count(*) filter(where status='ready') = 1 and count(*) filter(where status='pending')=1
     from public.total_loss_claim_documents
     where case_id = 'e2000000-0000-4000-8000-000000000001'
       and document_kind = 'insurer_response'
@@ -872,7 +873,7 @@ select ok(
     from public.total_loss_claim_documents
     where case_id = 'e2000000-0000-4000-8000-000000000001'
       and document_kind = 'insurer_response'
-      and status = 'pending'
+      and status = 'pending' and insurer_response_upload_expires_at>statement_timestamp()
   ),
   'the exact ten MiB boundary is accepted while the case remains capped at five pending permits'
 );
@@ -953,7 +954,7 @@ select lives_ok(
 reset role;
 select ok(
   (
-    select count(*) = 6
+    select count(*) = 7
       and count(*) filter (
         where insurer_response_upload_expires_at > statement_timestamp()
       ) = 2
@@ -1041,7 +1042,7 @@ select throws_ok(
       'pending-1.pdf', 'application/pdf', 10485760, repeat('d', 64), 1
     )
   $$,
-  '40001', 'Claim workflow changed before insurer-response upload preparation.',
+  '55000', 'The insurer response source is no longer current.',
   'exact pending retries do not renew after the workflow leaves response intake'
 );
 reset role;
@@ -1072,7 +1073,7 @@ select lives_ok(
 );
 
 select ok(
-  (select count(*) = 21 from public.total_loss_claim_documents
+  (select count(*) = 22 from public.total_loss_claim_documents
    where case_id = 'e2000000-0000-4000-8000-000000000001'
      and document_kind = 'insurer_response' and status = 'pending')
   and (select count(*) = 1 from public.total_loss_claim_documents
