@@ -850,7 +850,6 @@ describe("completed-analysis guided progression", () => {
     installClaim({ ...projection, journey: { fulfillmentState: "awaiting_insurer_response", nextState: "awaiting_insurer_response", retryable: false }, workflow: { currentTask: "awaiting_insurer_response", phase: "initial_request", revision: 13 } });
     renderJourney("report", "waiting");
     expect(await screen.findByRole("heading", { name: "Waiting for the insurer’s response" })).toBeVisible();
-    expect(screen.getByText("Case active")).toBeVisible();
     expect(screen.getByText(/Based on your confirmation.*recorded.*sent/iu)).toBeVisible();
     expect(screen.getByRole("progressbar", { name: "Case journey" })).toHaveAttribute(
       "aria-valuetext",

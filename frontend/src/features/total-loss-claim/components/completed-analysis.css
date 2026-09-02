@@ -166,8 +166,6 @@
 .completed-analysis .meaning-limitations ul { margin-bottom: 1rem; }
 .completed-analysis .waiting-case-status { display: inline-flex; align-items: center; gap: .55rem; width: fit-content; margin-bottom: 1.25rem; color: var(--review-accent); font-size: .75rem; line-height: 1.4; font-weight: 650; letter-spacing: .08em; text-transform: uppercase; }
 .completed-analysis .waiting-case-status span { width: .5rem; height: .5rem; border-radius: 50%; background: currentColor; box-shadow: 0 0 0 4px rgb(21 94 239 / 10%); }
-.completed-analysis .sent-confirmation-mark { display: grid; place-items: center; width: 3rem; height: 3rem; margin: 0 0 1.5rem; border: 1px solid #cedeff; border-radius: 50%; background: #eaf1ff; color: var(--review-accent); }
-.completed-analysis .sent-confirmation-mark svg { width: 1.4rem; height: 1.4rem; }
 .completed-analysis .sent-heading { max-width: 39rem; }
 .completed-analysis .sent-heading h1 { margin-bottom: 1rem; }
 .completed-analysis .sent-recorded { font-size: .8125rem; margin-top: 1rem; }

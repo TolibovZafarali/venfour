@@ -1,4 +1,4 @@
-import { ArrowLeft, ArrowRight, Check, LoaderCircle } from "lucide-react";
+import { ArrowLeft, ArrowRight, LoaderCircle } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Link, Navigate, useLocation, useNavigate, useSearchParams } from "react-router";
 
@@ -333,8 +333,6 @@ export function CompletedAnalysis(props: CompletedAnalysisProps) {
         </>
       ) : null}
       {stage === "waiting" ? <>
-        <p className="waiting-case-status" data-review-entrance="supporting"><span aria-hidden="true" />Case active</p>
-        <div className="sent-confirmation-mark" data-review-entrance="supporting" aria-hidden="true"><Check /></div>
         <div className="sent-heading" data-review-entrance="primary"><h1>Waiting for the insurer’s response</h1>
         <p className="review-lead" role="status">Based on your confirmation, Venfour recorded that you sent your reconsideration request with the valuation report attached.</p>
         </div>
