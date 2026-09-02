@@ -3,7 +3,7 @@ import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import { createMemoryRouter, RouterProvider, useParams } from "react-router";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { TotalLossIntakeMode } from "@/features/total-loss/types";
 import { CompletedReviewNavigationHostContext, CompletedReviewProgressHostContext } from "@/components/completed-review-progress-host";
@@ -185,6 +185,44 @@ function savedInsurerResponse(
     supersedesResponseId: null,
     text: "We can revise the offer to $20,100.",
   };
+}
+
+function waitingClaim(): TotalLossClaimSecured {
+  return {
+    ...claimProjection([...BEFORE_REQUEST, "send"]),
+    journey: { fulfillmentState: "awaiting_insurer_response", nextState: "awaiting_insurer_response", retryable: false },
+    workflow: { currentTask: "awaiting_insurer_response", phase: "initial_request", revision: 13 },
+  };
+}
+
+function responseClaim(response = savedInsurerResponse("pending")): TotalLossClaimSecured {
+  return {
+    ...waitingClaim(),
+    insurerResponse: response,
+    journey: { fulfillmentState: "insurer_response_reviewing", nextState: "insurer_response_reviewing", retryable: false },
+    workflow: { currentTask: "insurer_response_reviewing", phase: "negotiation", revision: 14 },
+  };
+}
+
+function responseWithDocument(processingState: TotalLossInsurerResponse["processingState"] = "pending") {
+  return {
+    ...savedInsurerResponse(processingState, processingState === "completed" ? reviewedResponseAnalysis() : null),
+    document: {
+      byteSize: 11,
+      documentId: "77777777-7777-4777-8777-777777777777",
+      mediaType: "image/png" as const,
+      originalFilename: "insurer-response.png",
+    },
+    sourceType: "uploaded_document" as const,
+  };
+}
+
+function responseFile(lastByte = 3) {
+  return new File(
+    [new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, lastByte])],
+    "insurer-response.png",
+    { type: "image/png" },
+  );
 }
 
 function publicInsurerResponseProjection(
@@ -404,17 +442,17 @@ function installClaim(initialClaim = claimProjection(), failOnce?: TotalLossEduc
       const response: TotalLossInsurerResponse = {
         analysis: null,
         analysisEvidence: null,
-        responseId: "99999999-9999-4999-8999-999999999999",
+        responseId: body.supersedesResponseId ? body.clientRequestId : "99999999-9999-4999-8999-999999999999",
         clientRequestId: body.clientRequestId,
         receivedAt: NOW,
-        sourceType: body.documentId ? "uploaded_document" as const : "pasted_message" as const,
+        sourceType: body.documentId || body.retainedDocumentId ? "uploaded_document" as const : "pasted_message" as const,
         text: body.responseText,
         document: body.documentId ? {
           documentId: body.documentId,
           originalFilename: "insurer-response.png",
           mediaType: "image/png" as const,
           byteSize: 11,
-        } : null,
+        } : body.retainedDocumentId ? claim.insurerResponse?.document ?? null : null,
         revisedOffer: body.revisedOfferMinorUnits ? { amountMinorUnits: body.revisedOfferMinorUnits, currency: "USD" } : null,
         processingState: "pending" as const,
         failureReason: null,
@@ -457,19 +495,19 @@ function installClaim(initialClaim = claimProjection(), failOnce?: TotalLossEduc
   };
 }
 
-function JourneyHarness({ intakeMode }: { readonly intakeMode: TotalLossIntakeMode }) {
-  const { stage = "result" } = useParams();
-  const query = useTotalLossClaimQuery({ accessToken: "completed-access-token", caseId: CASE_ID, userId: USER_ID });
+function JourneyHarness({ intakeMode, userId }: { readonly intakeMode: TotalLossIntakeMode; readonly userId: string }) {
+  const { stage = "result", caseId = CASE_ID } = useParams();
+  const query = useTotalLossClaimQuery({ accessToken: "completed-access-token", caseId, userId });
   if (query.isError) return <p role="alert">{query.error.message}</p>;
   if (!query.data || query.data.state !== "secured" || !query.data.report) return <p>Loading saved report</p>;
   return <CompletedAnalysis
     accessToken="completed-access-token"
-    caseId={CASE_ID}
+    caseId={caseId}
     claim={query.data}
     intakeMode={intakeMode}
     onRefresh={query.refetch}
     report={query.data.report}
-    userId={USER_ID}
+    userId={userId}
     view={`review_${stage.replaceAll("-", "_")}` as TotalLossClaimWorkflowView}
   />;
 }
@@ -480,10 +518,11 @@ function renderJourney(
   insurerResponseStorageService?: NonNullable<TotalLossDependencies["totalLossInsurerResponseStorageService"]>,
   progressHost: HTMLElement | null = null,
   navigationHost: HTMLElement | null = null,
+  identity = { caseId: CASE_ID, userId: USER_ID },
 ) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
-  const router = createMemoryRouter([{ path: `${BASE}/review/:stage`, element: <JourneyHarness intakeMode={intakeMode} /> }], {
-    initialEntries: [`${BASE}/review/${initialStage}`],
+  const router = createMemoryRouter([{ path: "/total-loss/cases/:caseId/claim/review/:stage", element: <JourneyHarness intakeMode={intakeMode} userId={identity.userId} /> }], {
+    initialEntries: [`/total-loss/cases/${identity.caseId}/claim/review/${initialStage}`],
   });
   const dependencies = insurerResponseStorageService ? {
     totalLossInsurerResponseStorageService: insurerResponseStorageService,
@@ -505,7 +544,11 @@ function backControl() {
 }
 
 describe("completed-analysis guided progression", () => {
-  beforeEach(() => request.render.mockClear());
+  beforeEach(() => {
+    request.render.mockClear();
+    window.sessionStorage.clear();
+  });
+  afterEach(() => vi.restoreAllMocks());
 
   it("mounts progress and case navigation in their shell hosts with the same current step", async () => {
     const headerHost = document.createElement("div");
@@ -1043,6 +1086,271 @@ describe("completed-analysis guided progression", () => {
     expect(installed.responseWrites[1].clientRequestId).not.toBe(installed.responseWrites[0].clientRequestId);
   });
 
+  it("restores unsaved response text and offer after a remount and protected navigation", async () => {
+    const installed = installClaim(waitingClaim());
+    const user = userEvent.setup();
+    const first = renderJourney("report", "response");
+    const text = "  Please preserve this exact reply.\nSecond line. ";
+    await user.type(await screen.findByRole("textbox", { name: /^Paste the response/iu }), text);
+    await user.type(screen.getByRole("textbox", { name: /^Revised offer/iu }), "21456.78");
+
+    const reload = new Event("beforeunload", { cancelable: true });
+    window.dispatchEvent(reload);
+    expect(reload.defaultPrevented).toBe(true);
+    first.unmount();
+    const resumed = renderJourney("report", "response");
+    expect(await screen.findByRole("textbox", { name: /^Paste the response/iu })).toHaveValue(text);
+    expect(screen.getByRole("textbox", { name: /^Revised offer/iu })).toHaveValue("$21,456.78");
+
+    const navigation = screen.getByRole("navigation", { name: "Case sections" });
+    await user.click(within(navigation).getByRole("link", { name: /^Your result/u }));
+    expect(resumed.router.state.location.pathname).toBe(`${BASE}/review/response`);
+    await user.click(screen.getByRole("button", { name: "Keep editing" }));
+    expect(screen.getByRole("heading", { name: "Add the insurer’s response" })).toHaveFocus();
+    expect(screen.getByRole("textbox", { name: /^Paste the response/iu })).toHaveValue(text);
+    await user.click(within(navigation).getByRole("link", { name: /^Your result/u }));
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Add the insurer’s response" })).toHaveFocus();
+    await user.click(within(navigation).getByRole("link", { name: /^Your result/u }));
+    await user.click(screen.getByRole("button", { name: "Leave page" }));
+    expect(await screen.findByRole("heading", { name: "Your result" })).toBeVisible();
+    await act(() => resumed.router.navigate(`${BASE}/review/response`));
+    expect(await screen.findByRole("textbox", { name: /^Paste the response/iu })).toHaveValue(text);
+    expect(screen.getByRole("textbox", { name: /^Revised offer/iu })).toHaveValue("$21,456.78");
+    expect(installed.responseWrites).toEqual([]);
+    expect(installed.responseUploadWrites).toEqual([]);
+  });
+
+  it("clears submitted drafts and starts each correction from the saved response", async () => {
+    const installed = installClaim(waitingClaim());
+    const user = userEvent.setup();
+    renderJourney("report", "response");
+    await user.type(await screen.findByRole("textbox", { name: /^Paste the response/iu }), "Original submitted reply");
+    expect(window.sessionStorage.length).toBeGreaterThan(0);
+    await user.click(screen.getByRole("button", { name: "Save response" }));
+    await screen.findByRole("heading", { name: "Venfour is reviewing the insurer’s response" });
+    expect(window.sessionStorage.length).toBe(0);
+    const afterSubmit = new Event("beforeunload", { cancelable: true });
+    window.dispatchEvent(afterSubmit);
+    expect(afterSubmit.defaultPrevented).toBe(false);
+
+    await user.click(screen.getByRole("button", { name: "Correct this response" }));
+    expect(await screen.findByRole("textbox", { name: /^Paste the response/iu })).toHaveValue("Original submitted reply");
+    await user.clear(screen.getByRole("textbox", { name: /^Paste the response/iu }));
+    await user.type(screen.getByRole("textbox", { name: /^Paste the response/iu }), "Corrected saved reply");
+    expect(window.sessionStorage.length).toBeGreaterThan(0);
+    await user.click(screen.getByRole("button", { name: "Save corrected response" }));
+    await screen.findByRole("heading", { name: "Venfour is reviewing the insurer’s response" });
+    expect(window.sessionStorage.length).toBe(0);
+    expect(installed.responseWrites).toHaveLength(2);
+    expect(installed.responseWrites[1].supersedesResponseId).toBe("99999999-9999-4999-8999-999999999999");
+
+    await user.click(screen.getByRole("button", { name: "Correct this response" }));
+    expect(await screen.findByRole("textbox", { name: /^Paste the response/iu })).toHaveValue("Corrected saved reply");
+    expect(window.sessionStorage.length).toBe(0);
+  });
+
+  it("recognizes an already-recorded response after its submission acknowledgement is interrupted", async () => {
+    const installed = installClaim(waitingClaim());
+    const writes: InsurerResponseWrite[] = [];
+    server.use(http.post(`${API}/insurer-response`, async ({ request }) => {
+      const body = await request.json() as InsurerResponseWrite;
+      writes.push(body);
+      installed.setClaim(responseClaim({
+        ...savedInsurerResponse("pending"),
+        clientRequestId: body.clientRequestId,
+        revisedOffer: null,
+        text: body.responseText,
+      }));
+      return HttpResponse.json({ error: { code: "SERVICE_UNAVAILABLE", message: "Submission acknowledgement interrupted." } }, { status: 503 });
+    }));
+    const user = userEvent.setup();
+    renderJourney("report", "response");
+    await user.type(await screen.findByRole("textbox", { name: /^Paste the response/iu }), "Already saved despite an interrupted acknowledgement.");
+    await user.click(screen.getByRole("button", { name: "Save response" }));
+    expect(await screen.findByRole("heading", { name: "Venfour is reviewing the insurer’s response" })).toBeVisible();
+    expect(window.sessionStorage.length).toBe(0);
+    expect(writes).toHaveLength(1);
+  });
+
+  it("isolates response drafts by case and signed-in owner", async () => {
+    const otherCaseId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+    const otherUserId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+    const installed = installClaim(waitingClaim());
+    const user = userEvent.setup();
+    const first = renderJourney("report", "response");
+    await user.type(await screen.findByRole("textbox", { name: /^Paste the response/iu }), "Only this owner and case");
+    first.unmount();
+
+    installed.setClaim({ ...waitingClaim(), caseId: otherCaseId });
+    const otherCase = renderJourney("report", "response", undefined, null, null, { caseId: otherCaseId, userId: USER_ID });
+    expect(await screen.findByRole("textbox", { name: /^Paste the response/iu })).toHaveValue("");
+    otherCase.unmount();
+    installed.setClaim(waitingClaim());
+    const otherOwner = renderJourney("report", "response", undefined, null, null, { caseId: CASE_ID, userId: otherUserId });
+    expect(await screen.findByRole("textbox", { name: /^Paste the response/iu })).toHaveValue("");
+    otherOwner.unmount();
+
+    renderJourney("report", "response");
+    expect(await screen.findByRole("textbox", { name: /^Paste the response/iu })).toHaveValue("Only this owner and case");
+    expect(installed.responseWrites).toEqual([]);
+  });
+
+  it("keeps an unfinished new response separate from a correction of the same case", async () => {
+    const installed = installClaim(waitingClaim());
+    const user = userEvent.setup();
+    const newResponse = renderJourney("report", "response");
+    await user.type(await screen.findByRole("textbox", { name: /^Paste the response/iu }), "Unsubmitted new response");
+    newResponse.unmount();
+    installed.setClaim(responseClaim());
+    const correction = renderJourney("report", "response");
+    expect(await screen.findByRole("textbox", { name: /^Paste the response/iu })).toHaveValue("We can revise the offer to $20,100.");
+    await user.clear(screen.getByRole("textbox", { name: /^Paste the response/iu }));
+    await user.type(screen.getByRole("textbox", { name: /^Paste the response/iu }), "Unsubmitted correction");
+    correction.unmount();
+
+    installed.setClaim(waitingClaim());
+    const restoredNew = renderJourney("report", "response");
+    expect(await screen.findByRole("textbox", { name: /^Paste the response/iu })).toHaveValue("Unsubmitted new response");
+    restoredNew.unmount();
+    installed.setClaim(responseClaim());
+    renderJourney("report", "response");
+    expect(await screen.findByRole("textbox", { name: /^Paste the response/iu })).toHaveValue("Unsubmitted correction");
+    expect(installed.responseWrites).toEqual([]);
+  });
+
+  it.each([true, false])("preserves correction retain-file intent %s after remount", async (retain) => {
+    const original = responseWithDocument();
+    const installed = installClaim(responseClaim(original));
+    const user = userEvent.setup();
+    const first = renderJourney("report", "response");
+    await user.type(await screen.findByRole("textbox", { name: /^Paste the response/iu }), " Additional clarification.");
+    if (!retain) await user.click(screen.getByRole("button", { name: "Remove" }));
+    first.unmount();
+    renderJourney("report", "response");
+    await screen.findByRole("textbox", { name: /^Paste the response/iu });
+    if (retain) expect(screen.getByText("insurer-response.png")).toBeVisible();
+    else expect(screen.queryByText("insurer-response.png")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Save corrected response" }));
+    await screen.findByRole("heading", { name: "Venfour is reviewing the insurer’s response" });
+    expect(installed.responseWrites).toHaveLength(1);
+    expect(installed.responseWrites[0]).toMatchObject({
+      documentId: null,
+      retainedDocumentId: retain ? original.document.documentId : null,
+      supersedesResponseId: original.responseId,
+    });
+    expect(installed.responseUploadWrites).toEqual([]);
+    expect(window.sessionStorage.length).toBe(0);
+  });
+
+  it("isolates a correction draft when a different saved response arrives in the mounted case", async () => {
+    const original = savedInsurerResponse("pending");
+    const installed = installClaim(responseClaim(original));
+    const user = userEvent.setup();
+    const view = renderJourney("report", "response");
+    await user.clear(await screen.findByRole("textbox", { name: /^Paste the response/iu }));
+    await user.type(screen.getByRole("textbox", { name: /^Paste the response/iu }), "Unsubmitted correction of the original");
+    installed.setClaim(responseClaim({
+      ...original,
+      responseId: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+      supersedesResponseId: original.responseId,
+      text: "A newer saved correction",
+    }));
+    await act(() => view.queryClient.refetchQueries({ type: "active" }));
+    await waitFor(() => expect(screen.getByRole("textbox", { name: /^Paste the response/iu })).toHaveValue("A newer saved correction"));
+
+    installed.setClaim(responseClaim(original));
+    await act(() => view.queryClient.refetchQueries({ type: "active" }));
+    await waitFor(() => expect(screen.getByRole("textbox", { name: /^Paste the response/iu })).toHaveValue("Unsubmitted correction of the original"));
+    expect(installed.responseWrites).toEqual([]);
+  });
+
+  it.each([false, true])("restores an interrupted upload and preserves replay identity only for unchanged bytes (changed: %s)", async (changedBytes) => {
+    const installed = installClaim(waitingClaim());
+    const uploadPreparedResponse = vi.fn().mockRejectedValueOnce(new Error("Upload interrupted")).mockResolvedValue(undefined);
+    const user = userEvent.setup();
+    const first = renderJourney("report", "response", { uploadPreparedResponse });
+    await screen.findByRole("heading", { name: "Add the insurer’s response" });
+    await user.upload(document.querySelector<HTMLInputElement>('input[type="file"]')!, responseFile());
+    await screen.findByText("insurer-response.png");
+    await user.click(screen.getByRole("button", { name: "Save response" }));
+    await screen.findByText(/Your entries are still here/iu);
+    expect(installed.responseUploadWrites).toHaveLength(1);
+    const originalAttempt = installed.responseUploadWrites[0];
+    expect(installed.responseWrites).toEqual([]);
+    expect(window.sessionStorage.getItem(window.sessionStorage.key(0)!)).not.toContain("completed-access-token");
+    first.unmount();
+
+    renderJourney("report", "response", { uploadPreparedResponse });
+    expect(await screen.findByRole("button", { name: "Choose file again" })).toBeVisible();
+    expect(screen.getByText("insurer-response.png")).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Save response" }));
+    expect(installed.responseWrites).toEqual([]);
+    expect(installed.responseUploadWrites).toHaveLength(1);
+    await user.upload(document.querySelector<HTMLInputElement>('input[type="file"]')!, responseFile(changedBytes ? 4 : 3));
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Choose file again" })).not.toBeInTheDocument());
+    await user.click(screen.getByRole("button", { name: "Save response" }));
+    await screen.findByRole("heading", { name: "Venfour is reviewing the insurer’s response" });
+
+    expect(installed.responseUploadWrites).toHaveLength(2);
+    const retry = installed.responseUploadWrites[1];
+    if (changedBytes) {
+      expect(retry.clientRequestId).not.toBe(originalAttempt.clientRequestId);
+      expect(retry.contentDigest).not.toBe(originalAttempt.contentDigest);
+    } else {
+      expect(retry).toEqual(originalAttempt);
+    }
+    expect(installed.responseWrites[0].clientRequestId).toBe(retry.clientRequestId);
+    expect(window.sessionStorage.length).toBe(0);
+  });
+
+  it("requires an explicit removal to submit restored text without its missing attachment", async () => {
+    const installed = installClaim(waitingClaim());
+    const uploadPreparedResponse = vi.fn(async () => undefined);
+    const user = userEvent.setup();
+    const first = renderJourney("report", "response", { uploadPreparedResponse });
+    await user.type(await screen.findByRole("textbox", { name: /^Paste the response/iu }), "The pasted reply is sufficient.");
+    await user.upload(document.querySelector<HTMLInputElement>('input[type="file"]')!, responseFile());
+    await screen.findByText("insurer-response.png");
+    first.unmount();
+    renderJourney("report", "response", { uploadPreparedResponse });
+    await screen.findByRole("button", { name: "Choose file again" });
+    await user.click(screen.getByRole("button", { name: "Save response" }));
+    expect(installed.responseWrites).toEqual([]);
+    expect(screen.getByRole("alert")).toHaveTextContent(/choose.*file again|remove it/iu);
+    await user.click(screen.getByRole("button", { name: "Remove" }));
+    await user.click(screen.getByRole("button", { name: "Save response" }));
+    await screen.findByRole("heading", { name: "Venfour is reviewing the insurer’s response" });
+    expect(installed.responseWrites).toHaveLength(1);
+    expect(installed.responseWrites[0]).toMatchObject({
+      documentId: null,
+      retainedDocumentId: null,
+      responseText: "The pasted reply is sufficient.",
+    });
+    expect(installed.responseUploadWrites).toEqual([]);
+    expect(uploadPreparedResponse).not.toHaveBeenCalled();
+    expect(window.sessionStorage.length).toBe(0);
+  });
+
+  it("keeps unload and navigation protection usable when browser draft storage is blocked", async () => {
+    installClaim(waitingClaim());
+    vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => { throw new DOMException("Storage blocked", "SecurityError"); });
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new DOMException("Storage blocked", "QuotaExceededError"); });
+    const user = userEvent.setup();
+    const view = renderJourney("report", "response");
+    await user.type(await screen.findByRole("textbox", { name: /^Paste the response/iu }), "Keep this unsaved response");
+    const reload = new Event("beforeunload", { cancelable: true });
+    window.dispatchEvent(reload);
+    expect(reload.defaultPrevented).toBe(true);
+    await user.click(within(screen.getByRole("navigation", { name: "Case sections" })).getByRole("link", { name: /^Your result/u }));
+    expect(view.router.state.location.pathname).toBe(`${BASE}/review/response`);
+    await user.click(screen.getByRole("button", { name: "Keep editing" }));
+    expect(screen.getByRole("textbox", { name: /^Paste the response/iu })).toHaveValue("Keep this unsaved response");
+    await user.click(screen.getByRole("button", { name: "Save response" }));
+    expect(await screen.findByRole("heading", { name: "Venfour is reviewing the insurer’s response" })).toBeVisible();
+  });
+
   it("prepares, privately uploads, and records an original response file", async () => {
     const projection = claimProjection([...BEFORE_REQUEST, "send"]);
     const installed = installClaim({
@@ -1090,6 +1398,106 @@ describe("completed-analysis guided progression", () => {
       retainedDocumentId: null,
       revisedOfferMinorUnits: null,
     });
+  });
+
+  it.each([
+    ["insurer_response_received", "pending", "response-received?view=saved"],
+    ["insurer_response_reviewing", "processing", "response-reviewing"],
+    ["insurer_response_reviewed", "completed", "response-reviewed"],
+  ] as const)("securely views and downloads the same-case saved original while %s", async (state, processingState, stage) => {
+    const response = responseWithDocument(processingState);
+    const installed = installClaim({
+      ...responseClaim(response),
+      journey: { fulfillmentState: state, nextState: state, retryable: false },
+      workflow: { currentTask: state, phase: "negotiation", revision: 15 },
+    });
+    const accesses: { caseId: string; responseId: string; authorization: string | null }[] = [];
+    const downloadUrl = "https://storage.example.test/original.png?token=signed&download=Insurer_Response_Original.png";
+    server.use(http.post(`${API}/claim/insurer-responses/:responseId/original/download`, ({ params, request }) => {
+      accesses.push({ caseId: String(params.caseId), responseId: String(params.responseId), authorization: request.headers.get("Authorization") });
+      return HttpResponse.json({ downloadUrl, expiresAt: "2099-01-01T00:00:00Z", suggestedFilename: "Insurer_Response_Original.png" });
+    }));
+    const replace = vi.fn();
+    const previewWindow = { closed: false, close: vi.fn(), location: { replace }, opener: window } as unknown as Window;
+    const opened = vi.spyOn(window, "open").mockReturnValue(previewWindow);
+    const clicked = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => undefined);
+    const user = userEvent.setup();
+    renderJourney("report", stage);
+    await screen.findByRole("navigation", { name: "Case sections" });
+    if (stage !== "response-received?view=saved") {
+      await user.click(screen.getByText("View the saved insurer response"));
+    }
+    expect(accesses).toEqual([]);
+
+    await user.click(screen.getByRole("button", { name: "View original" }));
+    await waitFor(() => expect(replace).toHaveBeenCalledWith("https://storage.example.test/original.png?token=signed"));
+    expect(opened).toHaveBeenCalledWith("about:blank", "_blank");
+    expect(previewWindow.opener).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Download original" }));
+    await waitFor(() => expect(clicked).toHaveBeenCalledTimes(1));
+    const anchor = clicked.mock.instances[0] as HTMLAnchorElement;
+    expect(anchor.href).toBe(downloadUrl);
+    expect(anchor.download).toBe("Insurer_Response_Original.png");
+    expect(accesses).toEqual(Array.from({ length: 2 }, () => ({
+      caseId: CASE_ID,
+      responseId: response.responseId,
+      authorization: "Bearer completed-access-token",
+    })));
+    expect(installed.responseWrites).toEqual([]);
+    expect(installed.responseUploadWrites).toEqual([]);
+  });
+
+  it("closes a reserved preview after denied original access and allows a fresh retry", async () => {
+    installClaim(responseClaim(responseWithDocument()));
+    let releaseDenied: (() => void) | undefined;
+    const denied = new Promise<void>((resolve) => { releaseDenied = resolve; });
+    const access = vi.fn();
+    server.use(http.post(`${API}/claim/insurer-responses/:responseId/original/download`, async () => {
+      access();
+      if (access.mock.calls.length === 1) {
+        await denied;
+        return HttpResponse.json({ error: { code: "CUSTOMER_DELIVERY_NOT_FOUND", message: "Original unavailable." } }, { status: 404 });
+      }
+      return HttpResponse.json({
+        downloadUrl: "https://storage.example.test/original.png?token=retry",
+        expiresAt: "2099-01-01T00:00:00Z",
+        suggestedFilename: "Insurer_Response_Original.png",
+      });
+    }));
+    const replace = vi.fn();
+    const close = vi.fn();
+    const previewWindow = { closed: false, close, location: { replace }, opener: window } as unknown as Window;
+    vi.spyOn(window, "open").mockReturnValue(previewWindow);
+    const user = userEvent.setup();
+    renderJourney("report", "response-received?view=saved");
+    await user.click(await screen.findByRole("button", { name: "View original" }));
+    await waitFor(() => expect(access).toHaveBeenCalledTimes(1));
+    expect(screen.getByRole("button", { name: "Download original" })).toBeDisabled();
+    expect(replace).not.toHaveBeenCalled();
+    await act(async () => releaseDenied?.());
+    await waitFor(() => expect(close).toHaveBeenCalledTimes(1));
+    expect(screen.getByRole("alert")).toHaveTextContent(/original|file/iu);
+    expect(screen.getByRole("button", { name: "View original" })).toBeEnabled();
+    expect(screen.getByText("We can revise the offer to $20,100.")).toBeVisible();
+
+    await user.click(screen.getByRole("button", { name: "View original" }));
+    await waitFor(() => expect(replace).toHaveBeenCalledWith("https://storage.example.test/original.png?token=retry"));
+    expect(access).toHaveBeenCalledTimes(2);
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("keeps text-only responses readable without requesting original access", async () => {
+    installClaim(responseClaim());
+    const access = vi.fn();
+    server.use(http.post(`${API}/claim/insurer-responses/:responseId/original/download`, () => {
+      access();
+      return new HttpResponse(null, { status: 404 });
+    }));
+    renderJourney("report", "response-received?view=saved");
+    expect(await screen.findByText("We can revise the offer to $20,100.")).toBeVisible();
+    expect(screen.queryByRole("button", { name: "View original" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Download original" })).not.toBeInTheDocument();
+    expect(access).not.toHaveBeenCalled();
   });
 
   it("renders a completed response review as a grounded guided step without negotiation controls", async () => {

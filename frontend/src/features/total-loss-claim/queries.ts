@@ -8,6 +8,7 @@ import {
   getTotalLossClaim,
   getTotalLossCheckoutQuote,
   getTotalLossReportDownload,
+  getTotalLossInsurerResponseDownload,
   prepareTotalLossMessage,
   prepareTotalLossInsurerResponseUpload,
   reconcileTotalLossCheckout,
@@ -217,6 +218,27 @@ export function useTotalLossReportDownloadMutation({
         throw new Error("An authenticated session is required.");
       }
       return getTotalLossReportDownload(caseId, reportVersionId, accessToken);
+    },
+    retry: false,
+  });
+}
+
+export function useTotalLossInsurerResponseDownloadMutation({
+  accessToken,
+  caseId,
+  userId,
+}: ClaimIdentityOptions) {
+  return useMutation({
+    gcTime: 0,
+    mutationKey: [
+      ...totalLossClaimQueryKeys.detail(userId, caseId),
+      "insurerResponseOriginalDownload",
+    ],
+    mutationFn: ({ responseId }: { readonly responseId: string }) => {
+      if (!accessToken || !userId) {
+        throw new Error("An authenticated session is required.");
+      }
+      return getTotalLossInsurerResponseDownload(caseId, responseId, accessToken);
     },
     retry: false,
   });

@@ -14,6 +14,7 @@ from starlette.testclient import TestClient
 from venfour.api import create_app
 from venfour.customer_delivery import (
     CustomerDeliveryInputError,
+    CustomerDeliveryNotFoundError,
     CustomerDeliveryService,
     validate_insurer_response_projection,
     validate_report_projection,
@@ -21,6 +22,7 @@ from venfour.customer_delivery import (
 from venfour.supabase_gateway import (
     CUSTOMER_TOTAL_LOSS_REPORT_FILENAME,
     SupabaseContractError,
+    SupabaseAuthenticationError,
 )
 
 
@@ -295,6 +297,16 @@ class RecordingGateway:
         return {
             "downloadUrl": "https://storage.example.test/signed-report?token=one",
             "suggestedFilename": CUSTOMER_TOTAL_LOSS_REPORT_FILENAME,
+            "expiresAt": NOW,
+        }
+
+    def create_total_loss_insurer_response_original_download(
+        self, case_id: str, response_id: str, user_id: str,
+    ) -> Mapping[str, Any] | None:
+        self.calls.append(("response_original", (case_id, response_id, user_id)))
+        return {
+            "downloadUrl": "https://storage.example.test/original?token=one",
+            "suggestedFilename": "Insurer_Response_Original.png",
             "expiresAt": NOW,
         }
 
@@ -690,6 +702,38 @@ class CustomerDeliveryServiceTests(unittest.TestCase):
                     }
                 )
 
+    def test_response_original_authenticates_and_returns_only_download_details(self) -> None:
+        gateway = RecordingGateway()
+        result = CustomerDeliveryService(gateway).download_response_original(
+            CASE_ID, COMMUNICATION_ID, ACCESS_TOKEN
+        )
+        self.assertEqual(set(result), {"downloadUrl", "suggestedFilename", "expiresAt"})
+        self.assertEqual(result["suggestedFilename"], "Insurer_Response_Original.png")
+        self.assertEqual(gateway.calls, [
+            ("authenticate", ACCESS_TOKEN),
+            ("response_original", (CASE_ID, COMMUNICATION_ID, USER_ID)),
+        ])
+
+    def test_response_original_denied_and_invalid_authorizations_fail_closed(self) -> None:
+        invalid_results = [
+            None,
+            {"storage_object_name": "private/path"},
+            {"downloadUrl": "javascript:alert(1)", "suggestedFilename": "Insurer_Response_Original.pdf", "expiresAt": NOW},
+            {"downloadUrl": "https://user:password@storage.example.test/file", "suggestedFilename": "Insurer_Response_Original.pdf", "expiresAt": NOW},
+            {"downloadUrl": "https://storage.example.test/file", "suggestedFilename": "../unsafe.pdf", "expiresAt": NOW},
+        ]
+        for result in invalid_results:
+            with self.subTest(result=result):
+                gateway = RecordingGateway()
+                with patch.object(gateway, "create_total_loss_insurer_response_original_download", return_value=result):
+                    with self.assertRaises(CustomerDeliveryNotFoundError if result is None else SupabaseContractError):
+                        CustomerDeliveryService(gateway).download_response_original(CASE_ID, COMMUNICATION_ID, ACCESS_TOKEN)
+        gateway = RecordingGateway()
+        with patch.object(gateway, "authenticate", side_effect=SupabaseAuthenticationError("expired")):
+            with self.assertRaises(SupabaseAuthenticationError):
+                CustomerDeliveryService(gateway).download_response_original(CASE_ID, COMMUNICATION_ID, ACCESS_TOKEN)
+        self.assertEqual(gateway.calls, [])
+
     def test_report_download_uses_the_neutral_customer_filename(self) -> None:
         gateway = RecordingGateway()
         service = CustomerDeliveryService(gateway)
@@ -900,6 +944,22 @@ class CustomerDeliveryApiTests(unittest.TestCase):
             "INVALID_CUSTOMER_DELIVERY_REQUEST",
         )
         self.assertEqual(self.gateway.calls, [])
+
+    def test_response_original_endpoint_requires_auth_and_is_private(self) -> None:
+        path = f"/api/v1/appraisal-cases/{CASE_ID}/claim/insurer-responses/{COMMUNICATION_ID}/original/download"
+        self.assertEqual(self.client.post(path).status_code, 401)
+        self.assertEqual(self.gateway.calls, [])
+        response = self.client.post(path, headers={"Authorization": f"Bearer {ACCESS_TOKEN}"})
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("no-store", response.headers["cache-control"])
+        self.assertEqual(response.json()["suggestedFilename"], "Insurer_Response_Original.png")
+        self.assertEqual(set(response.json()), {"downloadUrl", "suggestedFilename", "expiresAt"})
+        with patch.object(self.gateway, "create_total_loss_insurer_response_original_download", return_value=None):
+            denied = self.client.post(path, headers={"Authorization": f"Bearer {ACCESS_TOKEN}"})
+        self.assertEqual(denied.status_code, 404)
+        self.assertIn("no-store", denied.headers["cache-control"])
+        invalid = self.client.post(path.replace(COMMUNICATION_ID, "invalid"), headers={"Authorization": f"Bearer {ACCESS_TOKEN}"})
+        self.assertEqual(invalid.status_code, 400)
 
     def test_report_download_endpoint_returns_the_neutral_customer_filename(self) -> None:
         response = self.client.get(

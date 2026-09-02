@@ -909,6 +909,82 @@ class SupabaseHttpGatewayTests(unittest.TestCase):
             request.headers["authorization"], "Bearer service-role-test-key"
         )
 
+    def test_response_original_signing_uses_exact_authorized_locator_and_safe_name(self) -> None:
+        for media_type, extension in {"application/pdf": "pdf", "image/jpeg": "jpg", "image/png": "png", "image/heic": "heic", "image/heif": "heif"}.items():
+            with self.subTest(media_type=media_type):
+                requests: list[httpx.Request] = []
+                object_path = f"{USER_ID}/{CASE_ID}/insurer-responses/{RETAINED_DOCUMENT_ID}.{extension}"
+                def handler(request: httpx.Request) -> httpx.Response:
+                    requests.append(request)
+                    if request.url.path.endswith("/authorize_total_loss_insurer_response_original_download"):
+                        return httpx.Response(200, json=[{
+                            "case_id": CASE_ID, "response_id": SUPERSEDED_RESPONSE_ID,
+                            "document_id": RETAINED_DOCUMENT_ID, "storage_owner_id": USER_ID,
+                            "media_type": media_type, "storage_bucket_id": "case-files",
+                            "storage_object_name": object_path,
+                        }])
+                    self.assertEqual(request.url.path, f"/storage/v1/object/sign/case-files/{object_path}")
+                    self.assertEqual(json.loads(request.content), {"expiresIn": 120})
+                    return httpx.Response(200, json={"signedURL": f"/object/sign/case-files/{object_path}?token=private%2Btoken&download=unsafe.pdf"})
+                gateway, _ = self.gateway(handler)
+                result = gateway.create_total_loss_insurer_response_original_download(CASE_ID, SUPERSEDED_RESPONSE_ID, USER_ID)
+                assert result is not None
+                self.assertEqual(set(result), {"downloadUrl", "suggestedFilename", "expiresAt"})
+                self.assertEqual(result["suggestedFilename"], f"Insurer_Response_Original.{extension}")
+                self.assertEqual(httpx.URL(result["downloadUrl"]).params["download"], result["suggestedFilename"])
+                self.assertEqual(httpx.URL(result["downloadUrl"]).params["token"], "private+token")
+                self.assertEqual(json.loads(requests[0].content), {
+                    "requested_case_id": CASE_ID,
+                    "requested_response_id": SUPERSEDED_RESPONSE_ID,
+                    "requested_user_id": USER_ID,
+                })
+                self.assertEqual(requests[0].headers["authorization"], "Bearer service-role-test-key")
+                self.assertEqual(len(requests), 2)
+
+    def test_response_original_denied_or_invalid_authorization_never_signs(self) -> None:
+        row = {
+            "case_id": CASE_ID, "response_id": SUPERSEDED_RESPONSE_ID,
+            "document_id": RETAINED_DOCUMENT_ID, "storage_owner_id": USER_ID,
+            "media_type": "application/pdf", "storage_bucket_id": "case-files",
+            "storage_object_name": f"{USER_ID}/{CASE_ID}/insurer-responses/{RETAINED_DOCUMENT_ID}.pdf",
+        }
+        for mutation in [
+            None, {"case_id": USER_ID}, {"response_id": USER_ID},
+            {"storage_owner_id": CASE_ID}, {"document_id": CASE_ID},
+            {"storage_bucket_id": "public"}, {"media_type": "text/html"},
+            {"storage_object_name": f"{USER_ID}/{CASE_ID}/insurer-responses/../report.pdf"},
+        ]:
+            with self.subTest(mutation=mutation):
+                requests: list[httpx.Request] = []
+                def handler(request: httpx.Request) -> httpx.Response:
+                    requests.append(request)
+                    self.assertTrue(request.url.path.endswith("/authorize_total_loss_insurer_response_original_download"))
+                    return httpx.Response(200, json=[] if mutation is None else [{**row, **mutation}])
+                gateway, _ = self.gateway(handler)
+                if mutation is None:
+                    self.assertIsNone(gateway.create_total_loss_insurer_response_original_download(CASE_ID, SUPERSEDED_RESPONSE_ID, USER_ID))
+                else:
+                    with self.assertRaises(SupabaseContractError):
+                        gateway.create_total_loss_insurer_response_original_download(CASE_ID, SUPERSEDED_RESPONSE_ID, USER_ID)
+                self.assertEqual(len(requests), 1)
+
+    def test_response_original_rejects_unsafe_or_failed_signing(self) -> None:
+        object_path = f"{USER_ID}/{CASE_ID}/insurer-responses/{RETAINED_DOCUMENT_ID}.pdf"
+        for signed_url in ["https://attacker.example/file?token=x", f"/object/sign/case-files/{object_path}?token=", f"/object/sign/case-files/{object_path}?token=x&token=y", None]:
+            with self.subTest(signed_url=signed_url):
+                def handler(request: httpx.Request) -> httpx.Response:
+                    if request.url.path.endswith("/authorize_total_loss_insurer_response_original_download"):
+                        return httpx.Response(200, json=[{
+                            "case_id": CASE_ID, "response_id": SUPERSEDED_RESPONSE_ID,
+                            "document_id": RETAINED_DOCUMENT_ID, "storage_owner_id": USER_ID,
+                            "media_type": "application/pdf", "storage_bucket_id": "case-files",
+                            "storage_object_name": object_path,
+                        }])
+                    return httpx.Response(503 if signed_url is None else 200, json={"signedURL": signed_url})
+                gateway, _ = self.gateway(handler)
+                with self.assertRaises(SupabaseUnavailableError if signed_url is None else SupabaseContractError):
+                    gateway.create_total_loss_insurer_response_original_download(CASE_ID, SUPERSEDED_RESPONSE_ID, USER_ID)
+
     def test_customer_report_download_uses_neutral_name_without_changing_storage_identity(self) -> None:
         requests: list[httpx.Request] = []
         object_path = self.deliverable_locator()["storage_object_name"]

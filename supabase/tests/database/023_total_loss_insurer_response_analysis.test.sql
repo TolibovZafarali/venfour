@@ -3,7 +3,32 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
 
-select plan(54);
+select plan(63);
+
+-- Compare every field, not only nextState, so response analysis cannot replace
+-- access, commerce, attention or retry metadata chosen by the base resolver.
+create function pg_temp.response_resume_preserves_base(
+  expected_next_task text,
+  expected_next_state text,
+  expected_fulfillment_state text
+)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select to_jsonb(actual) = to_jsonb(authoritative)
+    and actual.next_task = $1
+    and actual.customer_journey ->> 'nextState' = $2
+    and actual.customer_journey ->> 'fulfillmentState' = $3
+  from public.resolve_total_loss_case_claim(
+    'b2000000-0000-4000-8000-000000000001'
+  ) as actual
+  cross join public.resolve_total_loss_case_claim_before_response_analysis(
+    'b2000000-0000-4000-8000-000000000001'
+  ) as authoritative;
+$$;
 
 insert into auth.users (id, email, email_confirmed_at, is_anonymous)
 values
@@ -542,6 +567,79 @@ select ok(
 );
 
 reset role;
+update public.case_entitlements set status = 'suspended'
+where id = 'b8000000-0000-4000-8000-000000000001';
+set local role authenticated;
+select ok(
+  pg_temp.response_resume_preserves_base('payment_review', 'needs_attention', 'needs_attention'),
+  'suspended access retains the entire authoritative attention projection while response analysis is pending'
+);
+
+reset role;
+update public.case_entitlements
+set status = 'revoked', revoked_at = statement_timestamp(), reason_code = 'PAYMENT_REVERSED'
+where id = 'b8000000-0000-4000-8000-000000000001';
+set local role authenticated;
+select ok(
+  pg_temp.response_resume_preserves_base('purchase_unavailable', 'needs_attention', 'needs_attention'),
+  'revoked access retains the entire authoritative attention projection while response analysis is pending'
+);
+
+reset role;
+update public.case_entitlements
+set status = 'active', revoked_at = null, reason_code = null
+where id = 'b8000000-0000-4000-8000-000000000001';
+
+-- The resolver's latest-order commerce branch also has precedence even though
+-- the durable response task and prior paid package still exist.
+insert into public.commerce_orders (
+  id, case_id, purchaser_user_id, preliminary_snapshot_id,
+  product_identifier, product_version, amount_minor_units, currency,
+  payment_provider, external_price_identifier, provider_livemode,
+  purchaser_email, status, terms_version, refund_policy_version, created_at
+) values (
+  'b7000000-0000-4000-8000-000000000002',
+  'b2000000-0000-4000-8000-000000000001',
+  'b1000000-0000-4000-8000-000000000001',
+  'b6000000-0000-4000-8000-000000000001',
+  'total-loss-package', '2', 9900, 'USD', 'stripe',
+  'price_test_analysis_v2', false, 'analysis-owner@example.test',
+  'pending', 'terms-1', 'refund-1', statement_timestamp() + interval '1 second'
+);
+set local role authenticated;
+select ok(
+  pg_temp.response_resume_preserves_base('insurer_response_received', 'checkout', 'payment_pending'),
+  'pending commerce retains checkout precedence instead of resuming response analysis'
+);
+
+reset role;
+update public.commerce_orders set status = 'void'
+where id = 'b7000000-0000-4000-8000-000000000002';
+set local role authenticated;
+select ok(
+  pg_temp.response_resume_preserves_base('purchase_unavailable', 'needs_attention', 'needs_attention'),
+  'a void order without entitlement retains attention precedence over pending response analysis'
+);
+
+reset role;
+delete from public.commerce_orders
+where id = 'b7000000-0000-4000-8000-000000000002';
+set local role authenticated;
+select ok(
+  (
+    select workflow_current_task = 'insurer_response_reviewing'
+      and next_task = 'insurer_response_reviewing'
+      and customer_journey ->> 'nextState' = 'insurer_response_reviewing'
+      and customer_journey ->> 'fulfillmentState' = 'insurer_response_reviewing'
+      and insurer_response ->> 'processingState' = 'pending'
+    from public.resolve_total_loss_case_claim(
+      'b2000000-0000-4000-8000-000000000001'
+    )
+  ),
+  'normal pending response resume is restored when authoritative access and commerce are unblocked'
+);
+
+reset role;
 delete from vault.secrets
 where name in (
   'venfour_insurer_response_api_origin',
@@ -667,6 +765,18 @@ select ok(
   ),
   'reload during an active lease resumes at Reviewing response without partial output'
 );
+
+reset role;
+update public.case_entitlements set status = 'suspended'
+where id = 'b8000000-0000-4000-8000-000000000001';
+set local role authenticated;
+select ok(
+  pg_temp.response_resume_preserves_base('payment_review', 'needs_attention', 'needs_attention'),
+  'active response processing cannot override a newly suspended entitlement'
+);
+reset role;
+update public.case_entitlements set status = 'active'
+where id = 'b8000000-0000-4000-8000-000000000001';
 
 reset role;
 update public.total_loss_insurer_response_analysis_jobs
@@ -1213,6 +1323,44 @@ select ok(
     )
   ),
   'completed resume reaches Response reviewed with structured customer output and no internal metadata'
+);
+
+reset role;
+update public.case_entitlements set status = 'suspended'
+where id = 'b8000000-0000-4000-8000-000000000001';
+set local role authenticated;
+select ok(
+  pg_temp.response_resume_preserves_base('payment_review', 'needs_attention', 'needs_attention'),
+  'completed response analysis cannot replace the suspended payment-review projection'
+);
+
+reset role;
+update public.case_entitlements
+set status = 'revoked', revoked_at = statement_timestamp(), reason_code = 'PAYMENT_REVERSED'
+where id = 'b8000000-0000-4000-8000-000000000001';
+set local role authenticated;
+select ok(
+  pg_temp.response_resume_preserves_base('purchase_unavailable', 'needs_attention', 'needs_attention'),
+  'completed response analysis cannot replace the revoked purchase-unavailable projection'
+);
+
+reset role;
+update public.case_entitlements
+set status = 'active', revoked_at = null, reason_code = null
+where id = 'b8000000-0000-4000-8000-000000000001';
+set local role authenticated;
+select ok(
+  (
+    select workflow_current_task = 'insurer_response_reviewed'
+      and next_task = 'insurer_response_reviewed'
+      and customer_journey ->> 'nextState' = 'insurer_response_reviewed'
+      and customer_journey ->> 'fulfillmentState' = 'insurer_response_reviewed'
+      and insurer_response -> 'analysis' = (select result from valid_result)
+    from public.resolve_total_loss_case_claim(
+      'b2000000-0000-4000-8000-000000000001'
+    )
+  ),
+  'restored access resumes the same immutable completed analysis normally'
 );
 
 reset role;

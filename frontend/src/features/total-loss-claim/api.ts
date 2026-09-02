@@ -27,6 +27,7 @@ import type {
   TotalLossInsurerResponseAnalysis,
   TotalLossInsurerResponseAnalysisEvidence,
   TotalLossInsurerResponseDocument,
+  TotalLossInsurerResponseDownload,
   TotalLossInsurerResponseMediaType,
   TotalLossInsurerResponseRecorded,
   TotalLossInsurerResponseUploadPreparation,
@@ -2087,7 +2088,10 @@ function mapReportList(value: unknown): readonly TotalLossPublishedReport[] {
   });
 }
 
-function mapReportDownload(value: unknown): TotalLossReportDownload {
+function mapReportDownload(
+  value: unknown,
+  filenamePattern = SAFE_FILENAME_PATTERN,
+): TotalLossReportDownload {
   if (!isRecord(value)) {
     throw new TotalLossClaimContractError(
       "The claim service returned invalid report-download details.",
@@ -2120,7 +2124,7 @@ function mapReportDownload(value: unknown): TotalLossReportDownload {
     suggestedFilename: requiredString(
       value.suggestedFilename,
       "report filename",
-      SAFE_FILENAME_PATTERN,
+      filenamePattern,
     ),
   };
 }
@@ -2392,6 +2396,42 @@ export async function getTotalLossReportDownload(
     { accessToken, signal },
   );
   return mapReportDownload(response);
+}
+
+export async function getTotalLossInsurerResponseDownload(
+  caseId: string,
+  responseId: string,
+  accessToken: string,
+  signal?: AbortSignal,
+): Promise<TotalLossInsurerResponseDownload> {
+  ensureCaseId(caseId);
+  if (!UUID_PATTERN.test(responseId)) {
+    throw new TotalLossClaimContractError("The insurer response ID is invalid.");
+  }
+  const response = await apiClient.postAuthenticated<unknown>(
+    `/api/v1/appraisal-cases/${encodeURIComponent(caseId)}/claim/insurer-responses/${encodeURIComponent(responseId)}/original/download`,
+    { accessToken, cache: "no-store", signal },
+  );
+  if (
+    !isRecord(response) ||
+    Object.keys(response).sort().join(",") !== "downloadUrl,expiresAt,suggestedFilename" ||
+    typeof response.suggestedFilename !== "string" ||
+    !/^Insurer_Response_Original\.(pdf|jpg|png|heic|heif)$/u.test(response.suggestedFilename)
+  ) {
+    throw new TotalLossClaimContractError(
+      "The claim service returned invalid response-original download details.",
+    );
+  }
+  const mapped = mapReportDownload(
+    response, /^Insurer_Response_Original\.(pdf|jpg|png|heic|heif)$/u,
+  );
+  const url = new URL(mapped.downloadUrl);
+  if (url.username || url.password || url.hash) {
+    throw new TotalLossClaimContractError(
+      "The claim service returned an invalid response-original download URL.",
+    );
+  }
+  return mapped;
 }
 
 export async function updateTotalLossSendingDetails(

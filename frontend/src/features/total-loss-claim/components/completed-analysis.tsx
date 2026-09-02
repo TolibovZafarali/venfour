@@ -348,7 +348,7 @@ export function CompletedAnalysis(props: CompletedAnalysisProps) {
       </> : null}
       {stage === "response" ? <InsurerResponseForm {...props} actionContainer={navigationActions} onRecorded={(state) => navigate(routeForJourneyState(caseId, state), { replace: true })} /> : null}
       {stage === "response_received" && claim.insurerResponse ? <>
-        <InsurerResponseReceived response={claim.insurerResponse} onCorrect={() => navigate(path("response"))} />
+        <InsurerResponseReceived {...props} response={claim.insurerResponse} onCorrect={() => navigate(path("response"))} />
         <ReportFileRow {...props} />
       </> : null}
       {stage === "response_reviewing" && claim.insurerResponse ? <>
@@ -357,6 +357,7 @@ export function CompletedAnalysis(props: CompletedAnalysisProps) {
       </> : null}
       {stage === "response_reviewed" && claim.insurerResponse?.analysis && claim.insurerResponse.analysisEvidence ? <>
         <InsurerResponseReviewed
+          {...props}
           onCorrect={() => navigate(path("response"))}
           priorValuation={report.conclusion.insurerValuation}
           response={{

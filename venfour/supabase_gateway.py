@@ -767,6 +767,63 @@ class SupabaseHttpGateway:
             (parsed.scheme, parsed.netloc, parsed.path, urlencode(query), "")
         )
 
+    def create_total_loss_insurer_response_original_download(
+        self, case_id: str, response_id: str, user_id: str
+    ) -> Mapping[str, Any] | None:
+        canonical_case = _canonical_uuid(case_id, "Case ID")
+        canonical_response = _canonical_uuid(response_id, "Response ID")
+        canonical_user = _canonical_uuid(user_id, "User ID")
+        row = self._optional_rpc_row(
+            self._rpc(
+                "authorize_total_loss_insurer_response_original_download",
+                {
+                    "requested_case_id": canonical_case,
+                    "requested_response_id": canonical_response,
+                    "requested_user_id": canonical_user,
+                },
+            ),
+            "Insurer response original authorization",
+        )
+        if row is None:
+            return None
+        if (
+            set(row) != {
+                "case_id", "response_id", "document_id", "storage_owner_id",
+                "media_type", "storage_bucket_id", "storage_object_name",
+            }
+            or row.get("case_id") != canonical_case
+            or row.get("response_id") != canonical_response
+        ):
+            raise SupabaseContractError("Insurer response original authorization is invalid")
+        document_id = _canonical_uuid(row.get("document_id"), "Response document ID")
+        storage_owner_id = _canonical_uuid(row.get("storage_owner_id"), "Storage owner ID")
+        media_type = row.get("media_type")
+        extension = (
+            INSURER_RESPONSE_DOCUMENT_EXTENSIONS.get(media_type)
+            if isinstance(media_type, str) else None
+        )
+        if extension is None:
+            raise SupabaseContractError("Insurer response original media type is invalid")
+        object_path = (
+            f"{storage_owner_id}/{canonical_case}/insurer-responses/"
+            f"{document_id}.{extension}"
+        )
+        if (
+            row.get("storage_bucket_id") != CASE_FILES_BUCKET
+            or row.get("storage_object_name") != object_path
+        ):
+            raise SupabaseContractError("Insurer response original locator is invalid")
+        filename = f"Insurer_Response_Original.{extension}"
+        signed_url = self._signed_private_download_url(
+            CASE_FILES_BUCKET, object_path, filename, expires_in_seconds=120
+        )
+        return {
+            "downloadUrl": signed_url,
+            "suggestedFilename": filename,
+            "expiresAt": (datetime.now(UTC) + timedelta(seconds=120))
+                .isoformat().replace("+00:00", "Z"),
+        }
+
     def put_total_loss_sending_details(
         self,
         case_id: str,

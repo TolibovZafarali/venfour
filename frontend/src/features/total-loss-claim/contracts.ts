@@ -519,6 +519,12 @@ export interface TotalLossReportDownload {
   readonly suggestedFilename: string;
 }
 
+export interface TotalLossInsurerResponseDownload {
+  readonly downloadUrl: string;
+  readonly expiresAt: string;
+  readonly suggestedFilename: string;
+}
+
 export type TotalLossCheckoutState =
   | "already_fulfilled"
   | "checkout_ready"

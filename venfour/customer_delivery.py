@@ -14,6 +14,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Protocol, runtime_checkable
+from urllib.parse import urlsplit
 from uuid import UUID
 
 from venfour.supabase_gateway import (
@@ -1116,6 +1117,10 @@ class CustomerDeliveryGateway(Protocol):
         self, case_id: str, report_version_id: str, user_id: str
     ) -> Mapping[str, Any] | None: ...
 
+    def create_total_loss_insurer_response_original_download(
+        self, case_id: str, response_id: str, user_id: str
+    ) -> Mapping[str, Any] | None: ...
+
     def put_total_loss_sending_details(
         self, case_id: str, values: Mapping[str, Any], access_token: str
     ) -> Mapping[str, Any]: ...
@@ -1219,6 +1224,44 @@ class CustomerDeliveryService:
         if filename != CUSTOMER_TOTAL_LOSS_REPORT_FILENAME:
             raise SupabaseContractError("Report filename is invalid")
         _timestamp(result.get("expiresAt"), "Report download expiry")
+        return dict(result)
+
+    def download_response_original(
+        self, case_id: str, response_id: str, access_token: str
+    ) -> dict[str, Any]:
+        canonical_case = _request_uuid(case_id, "Case ID")
+        canonical_response = _request_uuid(response_id, "Response ID")
+        user_id = self.gateway.authenticate(access_token)
+        result = self.gateway.create_total_loss_insurer_response_original_download(
+            canonical_case, canonical_response, user_id
+        )
+        if result is None:
+            raise CustomerDeliveryNotFoundError("Insurer response original was not found")
+        if not isinstance(result, Mapping) or set(result) != {
+            "downloadUrl", "suggestedFilename", "expiresAt",
+        }:
+            raise SupabaseContractError("Insurer response original download is invalid")
+        url = result.get("downloadUrl")
+        if not isinstance(url, str):
+            raise SupabaseContractError("Insurer response original download URL is invalid")
+        try:
+            parsed = urlsplit(url)
+        except ValueError as exc:
+            raise SupabaseContractError(
+                "Insurer response original download URL is invalid"
+            ) from exc
+        local_http = parsed.scheme == "http" and parsed.hostname in {"localhost", "127.0.0.1"}
+        if (
+            (parsed.scheme != "https" and not local_http)
+            or not parsed.hostname or parsed.username or parsed.password or parsed.fragment
+        ):
+            raise SupabaseContractError("Insurer response original download URL is invalid")
+        filename = result.get("suggestedFilename")
+        if not isinstance(filename, str) or re.fullmatch(
+            r"Insurer_Response_Original\.(pdf|jpg|png|heic|heif)", filename
+        ) is None:
+            raise SupabaseContractError("Insurer response original filename is invalid")
+        _timestamp(result.get("expiresAt"), "Insurer response original download expiry")
         return dict(result)
 
     def save_sending_details(

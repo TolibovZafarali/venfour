@@ -5,6 +5,7 @@ import {
   createTotalLossCheckout,
   getTotalLossCheckoutQuote,
   getTotalLossClaim,
+  getTotalLossInsurerResponseDownload,
   initializeTotalLossClaim,
   prepareTotalLossInsurerResponseUpload,
   recordTotalLossInsurerResponse,
@@ -19,6 +20,46 @@ const OTHER_CASE_ID = "55555555-5555-4555-8555-555555555555";
 const CLAIM_ID = "44444444-4444-4444-8444-444444444444";
 const RESPONSE_REF = `response_${"a".repeat(64)}`;
 const CASE_REF = `case_${"b".repeat(64)}`;
+
+describe("submitted insurer response original access", () => {
+  const path = `/api/v1/appraisal-cases/${CASE_ID}/claim/insurer-responses/${OTHER_CASE_ID}/original/download`;
+
+  it.each(["pdf", "jpg", "png", "heic", "heif"])("requests a private authorized %s original without a raw locator", async (extension) => {
+    const projection = {
+      downloadUrl: "https://storage.example.test/original?token=signed",
+      suggestedFilename: `Insurer_Response_Original.${extension}`,
+      expiresAt: "2026-09-02T13:02:00Z",
+    };
+    server.use(http.post(path, ({ request }) => {
+      expect(request.headers.get("Authorization")).toBe("Bearer browser-token");
+      expect(request.cache).toBe("no-store");
+      return HttpResponse.json(projection);
+    }));
+    await expect(getTotalLossInsurerResponseDownload(CASE_ID, OTHER_CASE_ID, "browser-token")).resolves.toEqual(projection);
+  });
+
+  it.each([
+    { suggestedFilename: "../../unsafe.pdf" },
+    { suggestedFilename: "Insurer_Response_Original.html" },
+    { downloadUrl: "javascript:alert(1)" },
+    { downloadUrl: "http://storage.example.test/file" },
+    { downloadUrl: "https://user:secret@storage.example.test/file" },
+    { storage_object_name: "private/path" },
+  ])("rejects unsafe or overexposed download projections: %o", async (mutation) => {
+    server.use(http.post(path, () => HttpResponse.json({
+      downloadUrl: "https://storage.example.test/original?token=signed",
+      suggestedFilename: "Insurer_Response_Original.pdf",
+      expiresAt: "2026-09-02T13:02:00Z",
+      ...mutation,
+    })));
+    await expect(getTotalLossInsurerResponseDownload(CASE_ID, OTHER_CASE_ID, "browser-token")).rejects.toThrow();
+  });
+
+  it("does not turn a denied original into a download", async () => {
+    server.use(http.post(path, () => HttpResponse.json({ error: { code: "CUSTOMER_DELIVERY_NOT_FOUND", message: "Original unavailable." } }, { status: 404 })));
+    await expect(getTotalLossInsurerResponseDownload(CASE_ID, OTHER_CASE_ID, "browser-token")).rejects.toMatchObject({ status: 404 });
+  });
+});
 
 function responseAnalysis() {
   return {

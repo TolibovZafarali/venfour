@@ -1,7 +1,10 @@
+import { useQueryClient } from "@tanstack/react-query";
 import {
   ArrowRight,
   CheckCircle2,
   CircleAlert,
+  Download,
+  Eye,
   FileText,
   LoaderCircle,
   Paperclip,
@@ -11,7 +14,7 @@ import {
   Trash2,
   Upload,
 } from "lucide-react";
-import { useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 import {
@@ -24,16 +27,19 @@ import {
   formatCurrencyInput,
 } from "@/features/total-loss/validation";
 import type {
+  TotalLossClaimJourneyState,
+  TotalLossClaimResolver,
   TotalLossClaimSecured,
   TotalLossInsurerResponse,
   TotalLossInsurerResponseAnalysis,
   TotalLossInsurerResponseAnalysisEvidence,
   TotalLossInsurerResponseMediaType,
-  TotalLossInsurerResponseRecorded,
   TotalLossMoney,
 } from "../contracts";
 import {
+  totalLossClaimQueryKeys,
   useTotalLossInsurerResponseAnalysisRetryMutation,
+  useTotalLossInsurerResponseDownloadMutation,
   useTotalLossInsurerResponseMutation,
   useTotalLossInsurerResponseUploadPreparationMutation,
 } from "../queries";
@@ -44,6 +50,9 @@ import {
 import { RecordedTime } from "./completed-analysis-visuals";
 import { StableActionLabel } from "./stable-action-label";
 import { displayed } from "../report-format";
+import { openPublishedReport, reservePublishedReportPreview } from "../browser-actions";
+import { useInsurerResponseDraft } from "../use-insurer-response-draft";
+import { resolvedTotalLossClaimJourneyState } from "../workflow-route";
 import "./insurer-response.css";
 
 interface InsurerResponseIdentity {
@@ -53,6 +62,8 @@ interface InsurerResponseIdentity {
   readonly onRefresh: () => Promise<unknown>;
   readonly userId: string;
 }
+
+type InsurerResponseAccess = Pick<InsurerResponseIdentity, "accessToken" | "caseId" | "userId">;
 
 interface SelectedResponseFile {
   readonly displayFilename: string;
@@ -106,7 +117,19 @@ function offerLabel(amountMinorUnits: number, currency: string) {
   }).format(amountMinorUnits / 100);
 }
 
-export function InsurerResponseForm({
+type InsurerResponseFormProps = InsurerResponseIdentity & {
+  readonly actionContainer: HTMLElement | null;
+  readonly onRecorded: (state: TotalLossClaimJourneyState) => void;
+};
+
+export function InsurerResponseForm(props: InsurerResponseFormProps) {
+  return <InsurerResponseEditor
+    key={`${props.userId}:${props.caseId}:${props.claim.insurerResponse?.responseId ?? "new"}`}
+    {...props}
+  />;
+}
+
+function InsurerResponseEditor({
   accessToken,
   actionContainer,
   caseId,
@@ -114,11 +137,9 @@ export function InsurerResponseForm({
   onRefresh,
   onRecorded,
   userId,
-}: InsurerResponseIdentity & {
-  readonly actionContainer: HTMLElement | null;
-  readonly onRecorded: (state: TotalLossInsurerResponseRecorded["state"]) => void;
-}) {
+}: InsurerResponseFormProps) {
   const existing = claim.insurerResponse ?? null;
+  const queryClient = useQueryClient();
   const dependencies = useTotalLossDependencies();
   const storage = dependencies?.totalLossInsurerResponseStorageService ?? null;
   const prepareUpload = useTotalLossInsurerResponseUploadPreparationMutation({
@@ -132,21 +153,33 @@ export function InsurerResponseForm({
     userId,
   });
   const fieldId = useId();
+  const responseHeading = useRef<HTMLHeadingElement>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const selectionEpoch = useRef(0);
-  const requestId = useRef(globalThis.crypto.randomUUID());
   const actionLocked = useRef(false);
-  const [responseText, setResponseText] = useState(existing?.text ?? "");
-  const [offer, setOffer] = useState(() => initialOffer(existing));
-  const [retainDocument, setRetainDocument] = useState(Boolean(existing?.document));
   const [selectedFile, setSelectedFile] = useState<SelectedResponseFile | null>(null);
   const [validatingFile, setValidatingFile] = useState(false);
   const [fileError, setFileError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const draft = useInsurerResponseDraft({
+    userId,
+    caseId,
+    supersedesResponseId: existing?.responseId ?? null,
+    initial: {
+      responseText: existing?.text ?? "",
+      offer: initialOffer(existing),
+      retainDocument: Boolean(existing?.document),
+      attachment: null,
+    },
+    pending: pending || validatingFile,
+  });
+  const { responseText, offer, retainDocument, attachment, clientRequestId } = draft.content;
 
-  const changed = () => {
-    requestId.current = globalThis.crypto.randomUUID();
+  useEffect(() => () => { selectionEpoch.current += 1; }, []);
+
+  const changed = (patch: Parameters<typeof draft.edit>[0]) => {
+    draft.edit(patch);
     setError(null);
   };
   const parsedOffer = offer.trim() ? parseResponseOffer(offer) : null;
@@ -160,7 +193,7 @@ export function InsurerResponseForm({
       : responseText && !responseText.trim()
         ? "The pasted response cannot contain only spaces."
         : null;
-  const effectiveDocument = selectedFile || retainDocument && existing?.document;
+  const effectiveDocument = attachment || retainDocument && existing?.document;
   const hasMaterial = Boolean(responseText.trim() || effectiveDocument || parsedOffer);
 
   const selectFile = async (file: File | null) => {
@@ -172,17 +205,30 @@ export function InsurerResponseForm({
       const validation = await validateDiminishedValueDocument(file);
       if (epoch !== selectionEpoch.current) return;
       if (!validation.valid) {
-        setSelectedFile(null);
         setFileError(validation.error.replace(/supporting document/giu, "insurer response file"));
         return;
       }
+      const contentDigest = await sha256Hex(file);
+      if (epoch !== selectionEpoch.current) return;
       setSelectedFile({
         displayFilename: validation.displayFilename,
         file,
         mediaType: validation.mimeType,
       });
-      setRetainDocument(false);
-      changed();
+      changed({
+        retainDocument: false,
+        attachment: {
+          displayFilename: validation.displayFilename,
+          mediaType: validation.mimeType,
+          byteSize: file.size,
+          contentDigest,
+        },
+      });
+    } catch (caught) {
+      if (epoch !== selectionEpoch.current) return;
+      setFileError(caught instanceof TotalLossInsurerResponseStorageError
+        ? caught.message
+        : "We couldn’t check this response file. Please choose it again.");
     } finally {
       if (epoch === selectionEpoch.current) setValidatingFile(false);
     }
@@ -207,6 +253,10 @@ export function InsurerResponseForm({
       setError("Paste the insurer’s response, add its file, or enter the revised offer.");
       return;
     }
+    if (attachment && !selectedFile) {
+      setError("Choose the response file again before saving, or remove it from this draft.");
+      return;
+    }
     if (selectedFile && !storage) {
       setError("Secure response upload is unavailable right now. Keep this page open and try again.");
       return;
@@ -225,7 +275,7 @@ export function InsurerResponseForm({
         const contentDigest = await sha256Hex(selectedFile.file);
         const preparation = await prepareUpload.mutateAsync({
           byteSize: selectedFile.file.size,
-          clientRequestId: requestId.current,
+          clientRequestId,
           contentDigest,
           expectedWorkflowRevision,
           mediaType: validation.mimeType,
@@ -233,7 +283,7 @@ export function InsurerResponseForm({
         });
         await storage.uploadPreparedResponse({
           caseId,
-          clientRequestId: requestId.current,
+          clientRequestId,
           file: selectedFile.file,
           preparation,
         });
@@ -241,7 +291,7 @@ export function InsurerResponseForm({
       }
 
       const recorded = await recordResponse.mutateAsync({
-        clientRequestId: requestId.current,
+        clientRequestId,
         documentId,
         expectedWorkflowRevision,
         responseText: responseText.trim() ? responseText : null,
@@ -250,10 +300,24 @@ export function InsurerResponseForm({
         revisedOfferMinorUnits: parsedOffer,
         supersedesResponseId: existing?.responseId ?? null,
       });
+      draft.submitted();
       await onRefresh().catch(() => undefined);
       onRecorded(recorded.state);
     } catch (caught) {
       await onRefresh().catch(() => undefined);
+      const refreshedQuery = queryClient.getQueryState<TotalLossClaimResolver>(
+        totalLossClaimQueryKeys.detail(userId, caseId),
+      );
+      const refreshed = refreshedQuery?.status === "success" ? refreshedQuery.data : null;
+      if (
+        refreshed?.state === "secured" && refreshed.caseId === caseId &&
+        refreshed.insurerResponse?.clientRequestId === clientRequestId
+      ) {
+        draft.submitted();
+        const resumedState = resolvedTotalLossClaimJourneyState(refreshed);
+        if (resumedState) onRecorded(resumedState);
+        return;
+      }
       setError(
         caught instanceof TotalLossInsurerResponseStorageError
           ? caught.message.replace(/supporting document/giu, "insurer response file")
@@ -265,14 +329,54 @@ export function InsurerResponseForm({
     }
   };
 
+  const keepEditing = () => {
+    if (draft.blocker.state !== "blocked") return;
+    draft.blocker.reset();
+    responseHeading.current?.focus({ preventScroll: true });
+  };
+
   const disabled = pending || validatingFile;
   return (
     <section className="insurer-response-form" aria-labelledby={`${fieldId}-heading`}>
       <header className="response-heading" data-review-entrance="primary">
         <p className="response-eyebrow">{existing ? "Correct saved response" : "Insurer response"}</p>
-        <h1 id={`${fieldId}-heading`}>Add the insurer’s response</h1>
-        <p>Save what the insurer sent. Venfour will add it to this case without analyzing it yet.</p>
+        <h1 id={`${fieldId}-heading`} ref={responseHeading} tabIndex={-1}>Add the insurer’s response</h1>
+        <p>Save what the insurer sent. Venfour will review it against the request and evidence in this case.</p>
       </header>
+
+      {draft.blocker.state === "blocked" ? (
+        <div className="response-draft-notice" role="alertdialog" aria-labelledby={`${fieldId}-leave-heading`} aria-describedby={`${fieldId}-leave-description`} onKeyDown={(event) => {
+          if (event.key === "Escape") {
+            event.preventDefault();
+            event.stopPropagation();
+            keepEditing();
+          }
+        }}>
+          <h2 id={`${fieldId}-leave-heading`}>{pending ? "Your response is still saving" : "Leave this response?"}</h2>
+          <p id={`${fieldId}-leave-description`}>
+            {pending
+              ? "Wait for saving to finish before leaving this page."
+              : draft.storageError
+                ? "This browser couldn’t save your draft. Leaving will discard your unsaved entries."
+                : attachment
+                  ? "Your text and offer are saved in this tab. Choose the file again when you return."
+                  : "Your entries are saved in this tab. The response has not been submitted."}
+          </p>
+          <div className="response-draft-actions">
+            <button autoFocus className="request-button request-button-secondary" onClick={keepEditing} type="button">Keep editing</button>
+            {!pending ? <button className="request-button request-button-utility" onClick={() => draft.blocker.state === "blocked" && draft.blocker.proceed()} type="button">Leave page</button> : null}
+          </div>
+        </div>
+      ) : null}
+      {draft.storageError ? (
+        <p className="response-draft-status request-error" role="alert">This browser couldn’t save your draft. Keep this page open until you submit the response.</p>
+      ) : (
+        <p className="response-draft-status" role="status">
+          {draft.restored ? "Your unfinished response was restored. " : ""}
+          {draft.dirty ? "Draft saved in this tab, not submitted. " : "Text and offer changes are saved in this tab until you submit. "}
+          Files need to be chosen again after leaving or refreshing.
+        </p>
+      )}
 
       <div className="response-fields" data-review-entrance="secondary">
         <div className="response-shared-field">
@@ -283,8 +387,7 @@ export function InsurerResponseForm({
             error={textError || undefined}
             help="Optional if you add the original file or only received a revised offer."
             onChange={(event) => {
-              setResponseText(event.target.value);
-              changed();
+              changed({ responseText: event.target.value });
             }}
             placeholder="Paste the insurer’s email or written response here"
             maxLength={MAX_RESPONSE_TEXT_CHARACTERS}
@@ -318,12 +421,19 @@ export function InsurerResponseForm({
                 <button disabled={disabled} onClick={() => fileInput.current?.click()} type="button"><RotateCcw aria-hidden="true" />Replace</button>
                 {existing?.document ? <button disabled={disabled} onClick={() => {
                   setSelectedFile(null);
-                  setRetainDocument(true);
-                  changed();
+                  changed({ retainDocument: true, attachment: null });
                 }} type="button">Keep saved file</button> : <button disabled={disabled} onClick={() => {
                   setSelectedFile(null);
-                  changed();
+                  changed({ attachment: null });
                 }} type="button"><Trash2 aria-hidden="true" />Remove</button>}
+              </div>
+            ) : attachment ? (
+              <div className="response-file-selection">
+                <FileText aria-hidden="true" />
+                <div><strong>{attachment.displayFilename}</strong><span>Choose this file again before saving, or remove it.</span></div>
+                <button disabled={disabled || !storage} onClick={() => fileInput.current?.click()} type="button"><Upload aria-hidden="true" />Choose file again</button>
+                <button disabled={disabled} onClick={() => changed({ attachment: null })} type="button"><Trash2 aria-hidden="true" />Remove</button>
+                {existing?.document ? <button disabled={disabled} onClick={() => changed({ attachment: null, retainDocument: true })} type="button">Keep saved file</button> : null}
               </div>
             ) : existing?.document && retainDocument ? (
               <div className="response-file-selection">
@@ -331,8 +441,7 @@ export function InsurerResponseForm({
                 <div><strong>{existing.document.originalFilename}</strong><span>{readableSize(existing.document.byteSize)} · Saved with the current response</span></div>
                 <button disabled={disabled || !storage} onClick={() => fileInput.current?.click()} type="button"><RotateCcw aria-hidden="true" />Replace</button>
                 <button disabled={disabled} onClick={() => {
-                  setRetainDocument(false);
-                  changed();
+                  changed({ retainDocument: false });
                 }} type="button"><Trash2 aria-hidden="true" />Remove</button>
               </div>
             ) : (
@@ -357,8 +466,7 @@ export function InsurerResponseForm({
               id={`${fieldId}-offer`}
               inputMode="decimal"
               onChange={(event) => {
-                setOffer(formatCurrencyInput(event.target.value));
-                changed();
+                changed({ offer: formatCurrencyInput(event.target.value) });
               }}
               placeholder="$0.00"
               value={formatCurrencyInput(offer)}
@@ -379,9 +487,54 @@ export function InsurerResponseForm({
   );
 }
 
+function SavedResponseOriginal({
+  accessToken,
+  caseId,
+  responseId,
+  userId,
+}: InsurerResponseAccess & { readonly responseId: string }) {
+  const download = useTotalLossInsurerResponseDownloadMutation({ accessToken, caseId, userId });
+  const locked = useRef(false);
+  const [pendingAction, setPendingAction] = useState<"view" | "download" | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const open = async (preview: boolean) => {
+    if (locked.current) return;
+    locked.current = true;
+    const previewWindow = preview ? reservePublishedReportPreview() : null;
+    setPendingAction(preview ? "view" : "download");
+    setError(null);
+    try {
+      const original = await download.mutateAsync({ responseId });
+      openPublishedReport(original.downloadUrl, original.suggestedFilename, preview, previewWindow);
+    } catch {
+      previewWindow?.close();
+      setError(`We couldn’t ${preview ? "open" : "download"} the original response file. Please try again.`);
+    } finally {
+      locked.current = false;
+      setPendingAction(null);
+    }
+  };
+
+  return <div className="response-original-actions">
+    <button className="request-button request-button-secondary" disabled={pendingAction !== null} onClick={() => void open(true)} type="button">
+      {pendingAction === "view" ? <LoaderCircle className="request-spinner" aria-hidden="true" /> : <Eye aria-hidden="true" />}
+      <StableActionLabel reserve="Opening original…">{pendingAction === "view" ? "Opening original…" : "View original"}</StableActionLabel>
+    </button>
+    <button className="request-button request-button-utility" disabled={pendingAction !== null} onClick={() => void open(false)} type="button">
+      {pendingAction === "download" ? <LoaderCircle className="request-spinner" aria-hidden="true" /> : <Download aria-hidden="true" />}
+      <StableActionLabel reserve="Preparing original…">{pendingAction === "download" ? "Preparing original…" : "Download original"}</StableActionLabel>
+    </button>
+    {error ? <p className="request-error" role="alert">{error}</p> : null}
+  </div>;
+}
+
 function SavedResponseMaterial({
+  accessToken,
+  caseId,
   response,
-}: {
+  userId,
+}: InsurerResponseAccess & {
   readonly response: TotalLossInsurerResponse;
 }) {
   return (
@@ -395,10 +548,11 @@ function SavedResponseMaterial({
       {response.document ? (
         <div>
           <dt>Original file</dt>
-          <dd>
+          <dd className="response-summary-file">
             <Paperclip aria-hidden="true" />
-            {response.document.originalFilename}
+            <strong>{response.document.originalFilename}</strong>
             <span>{readableSize(response.document.byteSize)}</span>
+            <SavedResponseOriginal key={response.responseId} accessToken={accessToken} caseId={caseId} responseId={response.responseId} userId={userId} />
           </dd>
         </div>
       ) : null}
@@ -439,9 +593,12 @@ function CorrectionAction({ onCorrect }: { readonly onCorrect: () => void }) {
 }
 
 export function InsurerResponseReceived({
+  accessToken,
+  caseId,
   response,
   onCorrect,
-}: {
+  userId,
+}: InsurerResponseAccess & {
   readonly onCorrect: () => void;
   readonly response: TotalLossInsurerResponse;
 }) {
@@ -468,7 +625,7 @@ export function InsurerResponseReceived({
         Response recorded: <RecordedTime value={response.receivedAt} />
       </p>
       <div data-review-entrance="secondary">
-        <SavedResponseMaterial response={response} />
+        <SavedResponseMaterial accessToken={accessToken} caseId={caseId} response={response} userId={userId} />
       </div>
       <div data-review-entrance="supporting">
         <CorrectionAction onCorrect={onCorrect} />
@@ -769,7 +926,7 @@ export function InsurerResponseReviewing({
       ) : null}
       <details className="response-original-material" data-review-entrance="secondary">
         <summary>View the saved insurer response</summary>
-        <SavedResponseMaterial response={response} />
+        <SavedResponseMaterial accessToken={accessToken} caseId={caseId} response={response} userId={userId} />
       </details>
       <div data-review-entrance="supporting">
         <CorrectionAction onCorrect={onCorrect} />
@@ -784,10 +941,13 @@ export function InsurerResponseReviewing({
 }
 
 export function InsurerResponseReviewed({
+  accessToken,
+  caseId,
   onCorrect,
   priorValuation,
   response,
-}: {
+  userId,
+}: InsurerResponseAccess & {
   readonly onCorrect: () => void;
   readonly priorValuation: TotalLossMoney;
   readonly response: TotalLossInsurerResponse & {
@@ -1005,7 +1165,7 @@ export function InsurerResponseReviewed({
 
       <details className="response-original-material" data-review-entrance="supporting">
         <summary>View the saved insurer response</summary>
-        <SavedResponseMaterial response={response} />
+        <SavedResponseMaterial accessToken={accessToken} caseId={caseId} response={response} userId={userId} />
       </details>
       <div data-review-entrance="supporting">
         <CorrectionAction onCorrect={onCorrect} />

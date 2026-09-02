@@ -31,6 +31,11 @@
 .completed-analysis .response-shared-field p { margin: revert-layer; color: revert-layer; }
 .completed-analysis .response-offer-field { min-width: 0; }
 .completed-analysis .response-submit-error { margin-top: 1.5rem; }
+.completed-analysis .response-draft-status { max-width: 42rem; margin-top: 1rem; font-size: .8rem; line-height: 1.6; }
+.completed-analysis .response-draft-notice { margin-top: 1.25rem; padding: 1rem 1.2rem; border: 1px solid #e6d5b4; border-radius: 10px; background: #fbf5e9; }
+.completed-analysis .response-draft-notice h2 { margin-bottom: .45rem; font-size: 1rem; }
+.completed-analysis .response-draft-notice p { font-size: .875rem; }
+.completed-analysis .response-draft-actions { display: flex; flex-wrap: wrap; gap: .75rem; margin-top: .8rem; }
 .completed-analysis .response-summary { display: grid; gap: 1.25rem; margin-top: 2rem; }
 .completed-analysis .response-summary > div { padding: 1.2rem 0; border-top: 1px solid var(--review-line); }
 .completed-analysis .response-summary dt { margin-bottom: .55rem; color: var(--review-muted); font-size: .75rem; font-weight: 600; letter-spacing: .045em; text-transform: uppercase; }
@@ -38,6 +43,10 @@
 .completed-analysis .response-summary dd:not(.response-summary-text) { display: flex; align-items: center; gap: .55rem; min-width: 0; }
 .completed-analysis .response-summary dd svg { width: 1rem; color: var(--review-accent); }
 .completed-analysis .response-summary dd span { color: var(--review-muted); font-size: .75rem; }
+.completed-analysis .response-summary-file { flex-wrap: wrap; }
+.completed-analysis .response-summary-file > strong { min-width: 0; overflow-wrap: anywhere; font-size: .9rem; font-weight: 500; }
+.completed-analysis .response-original-actions { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem; flex-basis: 100%; margin-top: .5rem; }
+.completed-analysis .response-original-actions .request-error { flex-basis: 100%; }
 .completed-analysis .response-summary-text { max-height: 18rem; overflow: auto; padding: 1rem; border-radius: 8px; background: #f7f9fc; font-size: .9rem; line-height: 1.65; white-space: pre-wrap; }
 .completed-analysis .response-received-actions { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-top: 1.5rem; }
 .completed-analysis .response-received-actions p { max-width: 36rem; font-size: .8rem; }

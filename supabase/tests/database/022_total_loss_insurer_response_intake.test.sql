@@ -3,7 +3,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
 
-select plan(32);
+select plan(46);
 
 insert into auth.users (id, email, email_confirmed_at, is_anonymous)
 values
@@ -580,6 +580,14 @@ select lives_ok(
   'the exact pending row, path, object metadata, and user metadata authorize one upload'
 );
 
+-- A completed object remains safe to submit if the browser was interrupted
+-- after upload and the write lease expired before finalization.
+reset role;
+update public.total_loss_claim_documents
+set insurer_response_upload_expires_at = statement_timestamp() - interval '1 second'
+where id = 'a3000000-0000-4000-8000-000000000001';
+set local role authenticated;
+
 create temporary table uploaded_correction on commit drop as
 select public.record_total_loss_insurer_response(
   'e2000000-0000-4000-8000-000000000001',
@@ -632,10 +640,20 @@ select ok(
     from public.total_loss_claim_workflows
     where case_id = 'e2000000-0000-4000-8000-000000000001'
   ),
-  'uploaded correction seals the document and preserves both response versions with one current offer'
+  'uploaded correction seals after lease expiry and preserves both response versions with one current offer'
 );
 
 set local role authenticated;
+select is(
+  public.prepare_total_loss_insurer_response_upload(
+    'e2000000-0000-4000-8000-000000000001',
+    'a3000000-0000-4000-8000-000000000001',
+    'revised-offer.pdf', 'application/pdf', 654, repeat('c', 64), 1
+  ),
+  (select response from correction_prepare),
+  'a sealed exact upload replay remains read-only after its lease has expired'
+);
+
 create temporary table response_update_attempt on commit drop as
 with changed as (
   update storage.objects
@@ -856,8 +874,228 @@ select ok(
   'the exact ten MiB boundary is accepted while the case remains capped at five pending permits'
 );
 
+update public.total_loss_claim_documents
+set insurer_response_upload_expires_at = statement_timestamp() - interval '1 second'
+where case_id = 'e2000000-0000-4000-8000-000000000001'
+  and document_kind = 'insurer_response' and status = 'pending';
+set local role authenticated;
+
+select throws_ok(
+  $$
+    insert into storage.objects (bucket_id, name, metadata, user_metadata)
+    values (
+      'case-files',
+      'e1000000-0000-4000-8000-000000000001/e2000000-0000-4000-8000-000000000001/insurer-responses/a6000000-0000-4000-8000-000000000001.pdf',
+      jsonb_build_object('mimetype', 'application/pdf', 'size', 10485760),
+      jsonb_build_object(
+        'clientRequestId', 'a6000000-0000-4000-8000-000000000001',
+        'originalName', 'pending-1.pdf', 'contentDigest', repeat('d', 64)
+      )
+    )
+  $$,
+  '42501', null,
+  'an expired permit cannot authorize an object insert even with exact metadata'
+);
+
+select throws_ok(
+  $$
+    select public.prepare_total_loss_insurer_response_upload(
+      'e2000000-0000-4000-8000-000000000001',
+      'a6000000-0000-4000-8000-000000000001',
+      'pending-1.pdf', 'application/pdf', 10485760, repeat('e', 64), 6
+    )
+  $$,
+  '55000', 'Client request identity was already used.',
+  'expiry retains the request tombstone and rejects a changed content digest'
+);
+
+select lives_ok(
+  $$
+    select public.prepare_total_loss_insurer_response_upload(
+      'e2000000-0000-4000-8000-000000000001',
+      'ab000000-0000-4000-8000-000000000001',
+      'pending-6.pdf', 'application/pdf', 10, repeat('d', 64), 6
+    )
+  $$,
+  'five abandoned expired permits no longer block preparation of a new request'
+);
+
+select is(
+  public.prepare_total_loss_insurer_response_upload(
+    'e2000000-0000-4000-8000-000000000001',
+    'a6000000-0000-4000-8000-000000000001',
+    'pending-1.pdf', 'application/pdf', 10485760, repeat('d', 64), 1
+  ),
+  (select response from bounded_pending_prepares
+   where response ->> 'documentId' = 'a6000000-0000-4000-8000-000000000001'),
+  'an interrupted exact retry renews its original request and preserves stale-revision replay'
+);
+
+select lives_ok(
+  $$
+    insert into storage.objects (bucket_id, name, metadata, user_metadata)
+    values (
+      'case-files',
+      'e1000000-0000-4000-8000-000000000001/e2000000-0000-4000-8000-000000000001/insurer-responses/a6000000-0000-4000-8000-000000000001.pdf',
+      jsonb_build_object('mimetype', 'application/pdf', 'size', 10485760),
+      jsonb_build_object(
+        'clientRequestId', 'a6000000-0000-4000-8000-000000000001',
+        'originalName', 'pending-1.pdf', 'contentDigest', repeat('d', 64)
+      )
+    )
+  $$,
+  'a renewed interrupted request can upload under the same exact storage identity'
+);
+
+reset role;
+select ok(
+  (
+    select count(*) = 6
+      and count(*) filter (
+        where insurer_response_upload_expires_at > statement_timestamp()
+      ) = 2
+    from public.total_loss_claim_documents
+    where case_id = 'e2000000-0000-4000-8000-000000000001'
+      and document_kind = 'insurer_response' and status = 'pending'
+  )
+  and (
+    select status = 'ready' and sealed_at is not null
+      and insurer_response_upload_expires_at < statement_timestamp()
+    from public.total_loss_claim_documents
+    where id = 'a3000000-0000-4000-8000-000000000001'
+  ),
+  'recovery retains expired identities and sealed submitted originals while bounding active leases'
+);
+
+set local role authenticated;
+select public.prepare_total_loss_insurer_response_upload(
+  'e2000000-0000-4000-8000-000000000001',
+  'a7000000-0000-4000-8000-000000000001',
+  'pending-2.pdf', 'application/pdf', 10, repeat('d', 64), 6
+);
+select public.prepare_total_loss_insurer_response_upload(
+  'e2000000-0000-4000-8000-000000000001',
+  'a8000000-0000-4000-8000-000000000001',
+  'pending-3.pdf', 'application/pdf', 10, repeat('d', 64), 6
+);
+select public.prepare_total_loss_insurer_response_upload(
+  'e2000000-0000-4000-8000-000000000001',
+  'a9000000-0000-4000-8000-000000000001',
+  'pending-4.pdf', 'application/pdf', 10, repeat('d', 64), 6
+);
+
+select lives_ok(
+  $$
+    select public.prepare_total_loss_insurer_response_upload(
+      'e2000000-0000-4000-8000-000000000001',
+      'a6000000-0000-4000-8000-000000000001',
+      'pending-1.pdf', 'application/pdf', 10485760, repeat('d', 64), 1
+    )
+  $$,
+  'an already-active exact request can replay when five permits are active'
+);
+
+select throws_ok(
+  $$
+    select public.prepare_total_loss_insurer_response_upload(
+      'e2000000-0000-4000-8000-000000000001',
+      'aa000000-0000-4000-8000-000000000001',
+      'pending-5.pdf', 'application/pdf', 10, repeat('d', 64), 6
+    )
+  $$,
+  '55000', 'Too many insurer-response uploads are incomplete.',
+  'an expired request cannot renew into a sixth active permit'
+);
+
+reset role;
+update public.case_entitlements set status = 'suspended'
+where id = 'e8000000-0000-4000-8000-000000000001';
+set local role authenticated;
+select throws_ok(
+  $$
+    select public.prepare_total_loss_insurer_response_upload(
+      'e2000000-0000-4000-8000-000000000001',
+      'a6000000-0000-4000-8000-000000000001',
+      'pending-1.pdf', 'application/pdf', 10485760, repeat('d', 64), 1
+    )
+  $$,
+  '42501', 'Insurer-response upload is unavailable.',
+  'exact pending retries recheck current entitlement before extending authorization'
+);
+reset role;
+update public.case_entitlements set status = 'active'
+where id = 'e8000000-0000-4000-8000-000000000001';
+
+update public.total_loss_claim_workflows
+set current_task = 'exception_review', revision = revision + 1
+where case_id = 'e2000000-0000-4000-8000-000000000001';
+set local role authenticated;
+select throws_ok(
+  $$
+    select public.prepare_total_loss_insurer_response_upload(
+      'e2000000-0000-4000-8000-000000000001',
+      'a6000000-0000-4000-8000-000000000001',
+      'pending-1.pdf', 'application/pdf', 10485760, repeat('d', 64), 1
+    )
+  $$,
+  '40001', 'Claim workflow changed before insurer-response upload preparation.',
+  'exact pending retries do not renew after the workflow leaves response intake'
+);
+reset role;
+update public.total_loss_claim_workflows
+set current_task = 'insurer_response_received', revision = revision + 1
+where case_id = 'e2000000-0000-4000-8000-000000000001';
+
+select lives_ok(
+  $$
+    do $recovery$
+    declare
+      attempt_number integer;
+    begin
+      for attempt_number in 1..15 loop
+        update public.total_loss_claim_documents
+        set insurer_response_upload_expires_at = statement_timestamp() - interval '1 second'
+        where case_id = 'e2000000-0000-4000-8000-000000000001'
+          and document_kind = 'insurer_response' and status = 'pending';
+        perform public.prepare_total_loss_insurer_response_upload(
+          'e2000000-0000-4000-8000-000000000001', gen_random_uuid(),
+          'interrupted.pdf', 'application/pdf', 10, repeat('f', 64), 8
+        );
+      end loop;
+    end;
+    $recovery$;
+  $$,
+  'repeated abandonment across expiry windows never permanently exhausts upload capacity'
+);
+
+select ok(
+  (select count(*) = 21 from public.total_loss_claim_documents
+   where case_id = 'e2000000-0000-4000-8000-000000000001'
+     and document_kind = 'insurer_response' and status = 'pending')
+  and (select count(*) = 1 from public.total_loss_claim_documents
+   where case_id = 'e2000000-0000-4000-8000-000000000001'
+     and document_kind = 'insurer_response' and status = 'ready')
+  and exists (select 1 from storage.objects
+   where name like '%/a3000000-0000-4000-8000-000000000001.pdf')
+  and exists (select 1 from storage.objects
+   where name like '%/a6000000-0000-4000-8000-000000000001.pdf'),
+  'repeated recovery never deletes submitted originals or incomplete uploaded objects'
+);
+
 set local role authenticated;
 select set_config('request.jwt.claim.sub', 'e1000000-0000-4000-8000-000000000002', true);
+
+select throws_ok(
+  $$
+    select public.prepare_total_loss_insurer_response_upload(
+      'e2000000-0000-4000-8000-000000000001',
+      'a6000000-0000-4000-8000-000000000001',
+      'pending-1.pdf', 'application/pdf', 10485760, repeat('d', 64), 8
+    )
+  $$,
+  '42501', 'Insurer-response upload is unavailable.',
+  'another owner cannot renew an expired exact request identity'
+);
 
 select throws_ok(
   $$

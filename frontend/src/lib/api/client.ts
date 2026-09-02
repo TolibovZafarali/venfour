@@ -7,6 +7,7 @@ interface ApiClientOptions {
 
 interface AuthenticatedRequestOptions {
   readonly accessToken: string;
+  readonly cache?: RequestCache;
   readonly signal?: AbortSignal;
 }
 
@@ -101,11 +102,12 @@ export function createApiClient({
 
     async postAuthenticated<T>(
       path: string,
-      { accessToken, signal }: AuthenticatedRequestOptions,
+      { accessToken, cache, signal }: AuthenticatedRequestOptions,
     ): Promise<T> {
       return request<T>(path, {
         method: "POST",
         headers: authenticatedHeaders(accessToken),
+        cache,
         signal,
       });
     },
