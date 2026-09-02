@@ -741,6 +741,41 @@ describe("Venfour application", () => {
     }
   });
 
+  test("returns directly to the public homepage without scrolling through its entrance reveals", async () => {
+    const user = userEvent.setup();
+    const scrollYDescriptor = Object.getOwnPropertyDescriptor(window, "scrollY");
+    const scrollTo = vi.spyOn(window, "scrollTo").mockImplementation(() => {
+      Object.defineProperty(window, "scrollY", { configurable: true, value: 0 });
+    });
+
+    try {
+      const { router } = renderTestApp(["/methodology"], { authService: null });
+      Object.defineProperty(window, "scrollY", { configurable: true, value: 1979 });
+      expect(scrollTo).not.toHaveBeenCalled();
+
+      const homeLink = screen.getAllByRole("link", { name: "Venfour home" })
+        .find((link) => link.closest("header"));
+      if (!homeLink) throw new Error("The header home link was not rendered.");
+      await user.click(homeLink);
+
+      await waitFor(() => expect(router.state.location.pathname).toBe("/"));
+      expect(screen.getByRole("heading", { name: "Your Vehicle’s Value, Made Clear." })).toBeVisible();
+      expect(scrollTo).toHaveBeenCalledWith({
+        top: 0,
+        left: 0,
+        behavior: "instant",
+      });
+      expect(scrollTo).not.toHaveBeenCalledWith({ top: 0, left: 0, behavior: "auto" });
+    } finally {
+      scrollTo.mockRestore();
+      if (scrollYDescriptor) {
+        Object.defineProperty(window, "scrollY", scrollYDescriptor);
+      } else {
+        Reflect.deleteProperty(window, "scrollY");
+      }
+    }
+  });
+
   test("does not override native scroll restoration on an initial page load", () => {
     const scrollTo = vi.spyOn(window, "scrollTo").mockImplementation(() => {});
 

@@ -105,7 +105,12 @@ function AppShellContent() {
       if (isPageNavigation) {
         if (document.querySelector("[data-completed-review] .completed-analysis")) return;
         const resetScroll = () => {
-          window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+          // A smooth homepage reset would trigger every entrance along the way.
+          window.scrollTo({
+            top: 0,
+            left: 0,
+            behavior: document.querySelector("[data-home-motion]") ? "instant" : "auto",
+          });
         };
 
         resetScroll();

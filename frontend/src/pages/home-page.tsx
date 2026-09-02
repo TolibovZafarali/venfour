@@ -1,4 +1,5 @@
 import { ArrowRight, Check } from "lucide-react";
+import { useRef } from "react";
 import { Link } from "react-router";
 
 import heroRoadsideAssistanceAvif from "@/assets/hero-roadside-assistance.avif";
@@ -14,6 +15,7 @@ import {
   TotalLossServiceVisual,
 } from "@/pages/home-visuals";
 import { SignedInJourneyEntry } from "@/pages/signed-in-journey-entry";
+import { useHomeEntranceMotion } from "@/pages/use-home-entrance-motion";
 
 const primaryActionClassName =
   "inline-flex min-h-12 items-center justify-center gap-2 rounded-lg bg-brand px-5 text-sm font-semibold whitespace-nowrap text-white transition-colors hover:bg-brand-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 motion-reduce:transition-none";
@@ -67,8 +69,10 @@ const processSteps = [
 
 export function PublicHomePage() {
   const guestReturn = useGuestAnalysisReturn();
+  const motionRoot = useRef<HTMLDivElement>(null);
+  useHomeEntranceMotion(motionRoot);
   return (
-    <div className="-mt-16 w-full overflow-clip bg-white text-ink">
+    <div ref={motionRoot} data-home-motion className="-mt-16 w-full overflow-clip bg-white text-ink">
       <section className="home-hero-gradient relative isolate overflow-hidden border-b border-slate-200 bg-canvas pt-16">
         <div
           className="pointer-events-none absolute inset-y-0 right-0 hidden w-[64%] max-w-[72rem] xl:block"
@@ -106,6 +110,7 @@ export function PublicHomePage() {
         >
           <div className="max-w-2xl xl:max-w-[42rem]">
             <h1
+              data-home-entrance="heading"
               aria-label="Your Vehicle’s Value, Made Clear."
               className="font-hero text-[2.875rem] leading-[0.98] font-semibold tracking-[-0.035em] text-ink sm:text-[3.25rem] lg:text-[4rem] xl:text-[4.75rem] 2xl:text-[5rem]"
             >
@@ -114,12 +119,12 @@ export function PublicHomePage() {
               </span>
               <span className="block">Made Clear.</span>
             </h1>
-            <p className="mt-6 max-w-xl text-base leading-7 text-ink/80 sm:text-lg sm:leading-8">
+            <p data-home-entrance="copy" data-home-order="1" className="mt-6 max-w-xl text-base leading-7 text-ink/80 sm:text-lg sm:leading-8">
               Understand a total-loss vehicle valuation with or without an
               insurer report. Diminished Value customer intake is currently
               paused.
             </p>
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+            <div data-home-entrance="supporting" data-home-order="2" className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
               {guestReturn.pending ? (
                 <span className={`${primaryActionClassName} pointer-events-none min-w-52 shrink-0 opacity-60`} role="status">
                   Checking your saved review…
@@ -138,7 +143,7 @@ export function PublicHomePage() {
                 View Diminished Value update
               </Link>
             </div>
-            <p className="mt-5 min-h-11 text-sm text-copy">
+            <p data-home-entrance="supporting" data-home-order="3" className="mt-5 min-h-11 text-sm text-copy">
               {!guestReturn.pending && !guestReturn.action ? <>
                 Already started?{" "}
                 <Link to="/find-review" className="inline-flex min-h-11 items-center rounded-sm font-semibold text-brand underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand">
@@ -160,6 +165,7 @@ export function PublicHomePage() {
           <div className="max-w-3xl">
             <h2
               id="services-title"
+              data-home-entrance="heading"
               data-anchor-heading
               aria-label="Two services. Two different situations."
               className={sectionHeadingClassName}
@@ -167,7 +173,7 @@ export function PublicHomePage() {
               <span className="block">Two services.</span>
               <span className="block">Two different situations.</span>
             </h2>
-            <p className="mt-4 max-w-2xl text-base leading-7 text-copy sm:text-lg">
+            <p data-home-entrance="copy" data-home-order="1" className="mt-4 max-w-2xl text-base leading-7 text-copy sm:text-lg">
               Choose what happened to your vehicle. Each service answers a different question after an accident.
             </p>
           </div>
@@ -180,23 +186,27 @@ export function PublicHomePage() {
               tabIndex={-1}
             >
               <div className="flex flex-col justify-center p-6 sm:p-9 lg:p-12">
-                <p className="text-xs font-semibold tracking-[0.12em] text-brand uppercase">
+                <p data-home-entrance="supporting" className="text-xs font-semibold tracking-[0.12em] text-brand uppercase">
                   Total Loss Valuation Review
                 </p>
                 <h3
                   id="total-loss-title"
+                  data-home-entrance="heading"
+                  data-home-order="1"
                   data-anchor-heading
                   className="mt-3 text-3xl leading-tight font-semibold tracking-[-0.04em] text-ink sm:text-4xl"
                 >
                   Your vehicle was totaled
                 </h3>
-                <p className="mt-4 max-w-md text-base leading-7 text-copy">
+                <p data-home-entrance="copy" data-home-order="2" className="mt-4 max-w-md text-base leading-7 text-copy">
                   Upload your insurer’s valuation report from any provider, or
                   enter the vehicle and claim details yourself. Venfour will
                   compare the available valuation with relevant market evidence.
                 </p>
                 <Link
                   to="/start?service=total-loss"
+                  data-home-entrance="supporting"
+                  data-home-order="3"
                   className={`${primaryActionClassName} mt-7 self-start`}
                 >
                   Start Total Loss review
@@ -213,19 +223,21 @@ export function PublicHomePage() {
                 <RepairedVehicleServiceVisual />
               </div>
               <div className="flex flex-col justify-center p-6 sm:p-9 lg:order-2 lg:p-12">
-                <p className="text-xs font-semibold tracking-[0.12em] text-brand uppercase">
+                <p data-home-entrance="supporting" className="text-xs font-semibold tracking-[0.12em] text-brand uppercase">
                   Diminished Value · Intake paused
                 </p>
-                <h3 className="mt-3 text-3xl leading-tight font-semibold tracking-[-0.04em] text-ink sm:text-4xl">
+                <h3 data-home-entrance="heading" data-home-order="1" className="mt-3 text-3xl leading-tight font-semibold tracking-[-0.04em] text-ink sm:text-4xl">
                   Your vehicle was repaired
                 </h3>
-                <p className="mt-4 max-w-md text-base leading-7 text-copy">
+                <p data-home-entrance="copy" data-home-order="2" className="mt-4 max-w-md text-base leading-7 text-copy">
                   Customer intake is currently paused while Venfour focuses on
                   the Total Loss experience. The service remains part of
                   Venfour’s planned customer experience.
                 </p>
                 <Link
                   to="/start?service=diminished-value"
+                  data-home-entrance="supporting"
+                  data-home-order="3"
                   className={`${secondaryActionClassName} mt-7 self-start`}
                 >
                   View service update
@@ -247,18 +259,21 @@ export function PublicHomePage() {
             <div>
               <h2
                 id="process-title"
+                data-home-entrance="heading"
                 data-anchor-heading
                 className={sectionHeadingClassName}
               >
                 Start online in a few steps
               </h2>
-              <p className="mt-4 max-w-2xl text-base leading-7 text-copy sm:text-lg">
+              <p data-home-entrance="copy" data-home-order="1" className="mt-4 max-w-2xl text-base leading-7 text-copy sm:text-lg">
                 Start with an insurer valuation report or enter the details
                 yourself. No visible account setup is required first.
               </p>
             </div>
             <Link
               to="/start?service=total-loss"
+              data-home-entrance="supporting"
+              data-home-order="2"
               className={`${secondaryActionClassName} shrink-0 self-start lg:self-auto`}
             >
               Start Total Loss review
@@ -267,13 +282,13 @@ export function PublicHomePage() {
           </div>
 
           <ol className="mt-10 grid overflow-hidden rounded-2xl border border-slate-300 bg-white md:grid-cols-3 lg:mt-14">
-            {processSteps.map((step) => (
+            {processSteps.map((step, index) => (
               <li
                 key={step.number}
                 className="border-b border-slate-300 last:border-b-0 md:border-r md:border-b-0 md:last:border-r-0"
               >
-                <ProcessIllustration step={step.visual} />
-                <div className="p-5 sm:p-6 lg:p-7">
+                <ProcessIllustration step={step.visual} entranceOrder={index} />
+                <div data-home-entrance="copy" data-home-order={index} className="p-5 sm:p-6 lg:p-7">
                   <span className="text-xs font-semibold text-brand tabular-nums">
                     {step.number}
                   </span>
@@ -296,13 +311,13 @@ export function PublicHomePage() {
       >
         <div className="mx-auto grid w-full max-w-[84rem] gap-9 px-5 py-16 sm:px-8 sm:py-20 lg:grid-cols-[minmax(16rem,0.58fr)_minmax(34rem,1.42fr)] lg:items-center lg:gap-14 lg:px-10 lg:py-28">
           <div className="max-w-xl">
-            <h2 id="report-gaps-title" className={sectionHeadingClassName}>
+            <h2 id="report-gaps-title" data-home-entrance="heading" className={sectionHeadingClassName}>
               The insurance report may not tell the whole story.
             </h2>
-            <p className="mt-4 text-base leading-7 text-copy sm:text-lg">
+            <p data-home-entrance="copy" data-home-order="1" className="mt-4 text-base leading-7 text-copy sm:text-lg">
               Mileage, equipment, adjustments, distance, and local prices can sometimes make one vehicle a weaker comparison than another.
             </p>
-            <p className="mt-5 border-l-2 border-amber pl-4 text-sm leading-6 text-copy">
+            <p data-home-entrance="supporting" data-home-order="2" className="mt-5 border-l-2 border-amber pl-4 text-sm leading-6 text-copy">
               These are details to check—not assumptions that every insurance report is wrong.
             </p>
           </div>
@@ -318,25 +333,29 @@ export function PublicHomePage() {
       >
         <div className="mx-auto grid w-full max-w-[84rem] gap-10 px-5 py-16 sm:px-8 sm:py-20 lg:grid-cols-[minmax(0,0.72fr)_minmax(34rem,1.28fr)] lg:items-center lg:gap-14 lg:px-10 lg:py-28">
           <div className="max-w-xl">
-            <p className="text-xs font-semibold tracking-[0.12em] text-brand uppercase">
+            <p data-home-entrance="supporting" className="text-xs font-semibold tracking-[0.12em] text-brand uppercase">
               Diminished value — customer intake paused
             </p>
             <h2
               id="diminished-value-title"
+              data-home-entrance="heading"
+              data-home-order="1"
               data-anchor-heading
               className={`${sectionHeadingClassName} mt-3`}
             >
               Repairs can fix the vehicle—not its history.
             </h2>
-            <p className="mt-4 text-base leading-7 text-copy sm:text-lg">
+            <p data-home-entrance="copy" data-home-order="2" className="mt-4 text-base leading-7 text-copy sm:text-lg">
               A repaired vehicle may sell for less because buyers can see that it was in an accident.
             </p>
-            <p className="mt-4 text-sm leading-6 text-copy">
+            <p data-home-entrance="supporting" data-home-order="3" className="mt-4 text-sm leading-6 text-copy">
               Venfour is completing the Total Loss experience before opening
               this service to customers.
             </p>
             <Link
               to="/start?service=diminished-value"
+              data-home-entrance="supporting"
+              data-home-order="3"
               className={`${primaryActionClassName} mt-7 self-start`}
             >
               View Diminished Value update
@@ -353,10 +372,10 @@ export function PublicHomePage() {
       >
         <div className="mx-auto w-full max-w-[84rem] px-5 py-16 sm:px-8 sm:py-20 lg:px-10 lg:py-28">
           <div className="max-w-3xl">
-            <h2 id="deliverable-title" className={sectionHeadingClassName}>
+            <h2 id="deliverable-title" data-home-entrance="heading" className={sectionHeadingClassName}>
               An analysis that makes the evidence clear.
             </h2>
-            <p className="mt-4 max-w-2xl text-base leading-7 text-copy sm:text-lg">
+            <p data-home-entrance="copy" data-home-order="1" className="mt-4 max-w-2xl text-base leading-7 text-copy sm:text-lg">
               See the insurer value, market range, similar vehicles, and
               important limits together in one organized on-screen review.
             </p>
@@ -376,17 +395,18 @@ export function PublicHomePage() {
             <div>
               <h2
                 id="trust-title"
+                data-home-entrance="heading"
                 className="text-3xl leading-tight font-semibold tracking-[-0.035em] text-balance sm:text-4xl"
               >
                 Built for a careful second look.
               </h2>
-              <p className="mt-4 max-w-md text-sm leading-6 text-slate-300 sm:text-base sm:leading-7">
+              <p data-home-entrance="copy" data-home-order="1" className="mt-4 max-w-md text-sm leading-6 text-slate-300 sm:text-base sm:leading-7">
                 Product proof and transparent limits matter more than promises when thousands of dollars may be involved.
               </p>
             </div>
             <ul className="grid gap-x-8 gap-y-6 sm:grid-cols-2">
-              {trustItems.map((item) => (
-                <li key={item.title} className="border-t border-white/20 pt-4">
+              {trustItems.map((item, index) => (
+                <li key={item.title} data-home-entrance="supporting" data-home-order={index} className="border-t border-white/20 pt-4">
                   <div className="flex items-center gap-2">
                     <Check className="size-4 text-market-light" aria-hidden />
                     <h3 className="text-sm font-semibold text-white">
