@@ -84,7 +84,7 @@ function ResolvedSignedInJourneyEntry({
       <JourneyEntryState
         error
         heading="We couldn’t open your guided valuation review"
-        description="Venfour could not verify an owner-scoped active case for this account. No case information has been changed."
+        description="Venfour couldn’t confirm an active case for this account. No case information has been changed."
       />
     );
   }
@@ -126,7 +126,7 @@ export function SignedInJourneyEntry({
       <JourneyEntryState
         error
         heading="Your guided valuation review is temporarily unavailable"
-        description="Venfour could not securely check your saved cases in this environment. No case information has been changed."
+        description="Venfour couldn’t check your saved cases right now. No case information has been changed."
       />
     );
   }

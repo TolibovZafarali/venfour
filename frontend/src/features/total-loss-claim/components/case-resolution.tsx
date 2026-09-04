@@ -34,7 +34,7 @@ export function CaseResolutionBanner({ resolution }: { readonly resolution: Tota
     {resolution.amountMinorUnits !== null && resolution.currency ? <p className="case-resolution-amount">
       {resolutionAmount(resolution.amountMinorUnits, resolution.currency)} {resolution.currency}
       <span>{acceptedOfferSource
-        ? `${insurerOfferProvenanceLabel(acceptedOfferSource)} · exact saved offer record · acceptance confirmed by you`
+        ? `${insurerOfferProvenanceLabel(acceptedOfferSource)} · exact saved offer · acceptance confirmed by you`
         : "Final amount reported by you"}</span>
     </p> : null}
     <p>{resolution.code === "CUSTOMER_STOPPED_PURSUING" ? "You confirmed that you are no longer pursuing this case. This does not record a settlement with your insurer." : resolution.customerConfirmed ? "You confirmed this outcome. Closing the Venfour case did not contact your insurer." : "The completed review did not support a valuation dispute."} Your report and saved case history remain available to review.</p>
@@ -140,9 +140,9 @@ export function AcceptedOfferFinalization(props: ResolutionIdentity) {
   if (!acceptedOffer) return null;
   return <section className="case-finalization" aria-label="Complete acceptance with your insurer">
     <h1>Complete acceptance with your insurer</h1>
-    <p className="review-lead">Your Accept decision is saved. Complete the acceptance with your insurer first, then confirm the outcome here.</p>
+    <p className="review-lead">Your decision to accept is saved. Complete the acceptance with your insurer first, then confirm the outcome here.</p>
     <dl className="case-finalization-offer"><dt>{insurerOfferProvenanceLabel(acceptedOffer.offer.source)}</dt><dd>{resolutionAmount(acceptedOffer.offer.amountMinorUnits, acceptedOffer.offer.currency)} {acceptedOffer.offer.currency}</dd></dl>
-    <p>Your saved decision is bound to this exact offer record. Your case remains open until you explicitly confirm. Venfour does not communicate acceptance to your insurer.</p>
+    <p>Your saved decision applies to this exact offer. Your case remains open until you explicitly confirm. Venfour does not communicate acceptance to your insurer.</p>
     <Link to={totalLossClaimViewPath(props.caseId, "review_response_reviewed")}>Review the offer, recommendation, and your decision</Link>
     {confirming ? <ClosureConfirmation {...props} accepted /> : <button className="request-button request-button-primary" type="button" disabled={!canCloseCase(props.claim)} onClick={() => setConfirming(true)}>I accepted this offer with my insurer</button>}
     {confirming ? <button className="case-close-trigger" type="button" onClick={() => setConfirming(false)}>Back to acceptance instructions</button> : null}

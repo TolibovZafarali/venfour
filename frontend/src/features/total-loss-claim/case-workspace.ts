@@ -130,14 +130,14 @@ export function createCaseWorkspace({
   }
 
   const awaitingFinalization = !closed && Boolean(currentAcceptedOffer(claim));
-  if (closed || awaitingFinalization) add("resolution", closed ? "Resolution" : "Confirm outcome", true, closed);
+  if (closed || awaitingFinalization) add("resolution", closed ? "Case outcome" : "Confirm acceptance", true, closed);
   return {
     currentStage,
     currentPath,
-    currentLabel: closed ? "Case closed" : awaitingFinalization ? "Awaiting finalization" : resolvedTotalLossClaimJourneyState(claim) === "insurer_response_review_unavailable"
+    currentLabel: closed ? "Case complete" : awaitingFinalization ? "Confirm acceptance" : resolvedTotalLossClaimJourneyState(claim) === "insurer_response_review_unavailable"
       ? "Response review needs attention"
       : progress.current.label,
-    progress: awaitingFinalization ? { ...progress, current: { ...progress.current, label: "Awaiting finalization" } } : progress,
+    progress: awaitingFinalization ? { ...progress, current: { ...progress.current, label: "Confirm acceptance" } } : progress,
     sections,
   };
 }

@@ -52,7 +52,7 @@ function AuthenticatedClaimPage({
       <ClaimStateCard
         kind="loading"
         heading="Checking your claim access…"
-        description="Venfour is securely confirming the current owner and saved claim state."
+        description="Venfour is confirming that this claim belongs to your account and loading its saved information."
       />
     );
   }
@@ -65,7 +65,7 @@ function AuthenticatedClaimPage({
       <ClaimStateCard
         kind="error"
         heading="We couldn’t open this claim"
-        description="Venfour could not verify the current claim state. No claim information has been changed."
+        description="Venfour couldn’t load the latest saved claim information. No claim information has been changed."
       >
         <div className="flex flex-wrap gap-3">
           <Button type="button" onClick={() => void claimQuery.refetch()}>
@@ -102,7 +102,7 @@ function AuthenticatedClaimPage({
       return (
         <ClaimStateCard
           kind="error"
-          heading="We couldn’t verify permanent claim access"
+          heading="We couldn’t verify access to this claim"
           description="Refresh this page after signing in through your secure claim link."
         >
           <Button type="button" onClick={() => void claimQuery.refetch()}>

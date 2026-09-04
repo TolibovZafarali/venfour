@@ -164,8 +164,11 @@ describe("persistent case workspace projection", () => {
     };
     const result = workspace(saved);
     expect(result.currentPath).toBe(`${BASE}/resolution`);
-    expect(result.currentLabel).toBe("Case closed");
+    expect(result.currentLabel).toBe("Case complete");
     expect(result.progress.isCaseClosed).toBe(true);
+    expect(result.sections.find((section) => section.stage === "resolution")?.label).toBe("Case outcome");
+    expect(result.sections.map((section) => section.label)).not.toContain("Resolution");
+    expect(result.currentLabel).not.toBe("Case closed");
     expect(result.sections.filter((section) => ["result", "insurer", "market", "meaning", "response_received", "response_reviewed", "resolution"].includes(section.stage)).every((section) => section.available)).toBe(true);
     expect(result.sections.some((section) => section.stage === "waiting")).toBe(false);
     expect(result.sections.find((section) => section.stage === "result")?.complete).toBe(false);
@@ -186,6 +189,60 @@ describe("persistent case workspace projection", () => {
     expect(result.sections.find((section) => section.stage === "response_reviewed")).toMatchObject({ available: true, complete: true });
     const accepted = workspace({ ...saved, insurerResponse: { ...continued, decision: { ...continued.decision, choice: "ACCEPT_OFFER" } } }, intakeMode);
     expect(accepted.sections.some((section) => section.stage === "follow_up")).toBe(false);
+  });
+
+  it("labels an accepted current offer as confirmation rather than finalization", () => {
+    const acceptedResponse: TotalLossInsurerResponse = {
+      ...response("completed"),
+      recommendation: {
+        recommendationId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        versionNumber: 1,
+        analysisResultId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+        schemaVersion: "1",
+        policyVersion: "2",
+        state: "CONTINUE_CHALLENGING",
+        summary: "Continue reviewing this response.",
+        reasons: [],
+        reasonCodes: [],
+        limitations: [],
+        caseEvidenceRefs: [],
+        responseEvidenceRefs: [],
+      },
+      usableOffer: {
+        offerId: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+        amountMinorUnits: 2010000,
+        currency: "USD",
+        source: "RESPONSE_TEXT",
+      },
+      decision: {
+        decisionId: "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+        clientRequestId: "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee",
+        recommendationId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        analysisResultId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+        choice: "ACCEPT_OFFER",
+        offerId: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+        amountMinorUnits: 2010000,
+        currency: "USD",
+        recordedAt: NOW,
+      },
+    };
+    const result = workspace({
+      ...claim("insurer_response_reviewed", TOTAL_LOSS_EDUCATION_STEPS),
+      insurerResponse: acceptedResponse,
+      workflow: { phase: "negotiation", currentTask: "insurer_response_reviewed", revision: 20 },
+    });
+
+    expect(result.currentPath).toBe(`${BASE}/resolution`);
+    expect(result.currentLabel).toBe("Confirm acceptance");
+    expect(result.progress.current.label).toBe("Confirm acceptance");
+    expect(result.sections.find((section) => section.stage === "resolution")).toMatchObject({
+      label: "Confirm acceptance",
+      available: true,
+      complete: false,
+      current: true,
+    });
+    expect(result.sections.map((section) => section.label)).not.toContain("Confirm outcome");
+    expect(result.currentLabel).not.toBe("Awaiting finalization");
   });
   it("starts with only the result reachable and no implied completed sections", () => {
     const result = workspace();

@@ -203,8 +203,11 @@ describe("signed-in guided valuation review entry", () => {
       }),
     ).toBeVisible();
     expect(
-      screen.getByText(/could not verify an owner-scoped active case/iu),
+      screen.getByText(
+        "Venfour couldn’t confirm an active case for this account. No case information has been changed.",
+      ),
     ).toBeVisible();
+    expect(screen.queryByText(/owner-scoped active case/iu)).not.toBeInTheDocument();
   });
 
   it("shows a truthful configuration error without creating a case", async () => {
@@ -218,5 +221,11 @@ describe("signed-in guided valuation review entry", () => {
         name: "Your guided valuation review is temporarily unavailable",
       }),
     ).toBeVisible();
+    expect(
+      screen.getByText(
+        "Venfour couldn’t check your saved cases right now. No case information has been changed.",
+      ),
+    ).toBeVisible();
+    expect(screen.queryByText(/in this environment/iu)).not.toBeInTheDocument();
   });
 });

@@ -135,7 +135,7 @@ export const appRoutes: RouteObject[] = [
         element: <TotalLossClaimWorkflowPage view="checkout" />,
         handle: metadata(
           "Secure Checkout | Venfour",
-          "Review the customer-safe purchase terms and continue to hosted secure checkout.",
+          "Review the purchase terms and continue to secure checkout.",
         ),
       },
       {
@@ -143,7 +143,7 @@ export const appRoutes: RouteObject[] = [
         element: <TotalLossClaimWorkflowPage view="checkout_return" />,
         handle: metadata(
           "Confirming Payment | Venfour",
-          "Resume a saved total-loss claim while Venfour confirms the authoritative payment state.",
+          "Resume your saved total-loss claim while Venfour confirms your payment.",
         ),
       },
       {
@@ -151,7 +151,7 @@ export const appRoutes: RouteObject[] = [
         element: <TotalLossClaimWorkflowPage view="processing" />,
         handle: metadata(
           "Preparing Your Valuation Package | Venfour",
-          "Follow the customer-safe preparation status for a total-loss valuation evidence package.",
+          "Follow the preparation status for your total-loss valuation evidence package.",
         ),
       },
       {
@@ -313,7 +313,7 @@ export const appRoutes: RouteObject[] = [
         element: <TotalLossClaimWorkflowPage view="send" />,
         handle: metadata(
           "Prepare Your Reconsideration Request | Venfour",
-          "Review, copy, and open a deterministic valuation reconsideration email request.",
+          "Review, copy, and open your valuation reconsideration email request.",
         ),
       },
       {

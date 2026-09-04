@@ -93,8 +93,8 @@ const journeySteps = {
     id: "waiting_for_follow_up_response",
     label: "Waiting for insurer",
   },
-  finalize_case: { id: "finalize_case", label: "Confirm the outcome" },
-  case_closed: { id: "case_closed", label: "Case closed" },
+  finalize_case: { id: "finalize_case", label: "Confirm acceptance" },
+  case_closed: { id: "case_closed", label: "Case complete" },
 } as const satisfies Record<
   TotalLossCaseJourneyStepId,
   TotalLossCaseJourneyStep

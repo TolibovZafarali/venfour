@@ -17,20 +17,20 @@ function unavailableExplanation(reasonCode: string | null) {
     case "NO_SUPPORTED_UNRESOLVED_ISSUE":
     case "NO_GROUNDED_CONTINUATION":
     case "NO_SUPPORTED_FOLLOWUP":
-      return "The saved review does not identify a remaining issue that Venfour can support in a follow-up. Your Continue decision is saved. Review the response analysis and its limitations before deciding how to contact your insurer.";
+      return "The saved review does not identify a remaining issue that Venfour can support in a follow-up. Your decision to continue is saved. Review the response analysis and its limitations before deciding how to contact your insurer.";
     case "SOURCE_LINEAGE_CONFLICT":
     case "STALE_SOURCE":
       return "The saved report, response, or analysis has changed. Refresh your case so Venfour can verify the evidence before preparing a follow-up.";
     case "SOURCE_INFORMATION_UNAVAILABLE":
-      return "The saved report, original sent request, response, or validated analysis is incomplete. Your Continue decision is saved. Return to the response review to check the available information before retrying.";
+      return "The saved report, original sent request, response, or review is incomplete. Your decision to continue is saved. Return to the response review to check the available information before retrying.";
     case "SOURCE_EVIDENCE_UNAVAILABLE":
-      return "The response analysis cannot be matched to its saved supporting evidence. Your Continue decision is saved. Review the response analysis and refresh your case before retrying.";
+      return "The response analysis cannot be matched to its saved supporting evidence. Your decision to continue is saved. Review the response analysis and refresh your case before retrying.";
     case "RECOMMENDATION_REQUIRES_REFRESH":
-      return "The saved recommendation does not match the current evidence policy. Venfour cannot safely prepare a follow-up from it. Your Continue decision and original records are preserved.";
+      return "The saved recommendation needs to be refreshed before Venfour can safely prepare a follow-up. Your decision to continue and original records are preserved. Return to the response review, refresh your case, and try again.";
     case "RESPONSE_REQUIRES_CLARIFICATION":
-      return "The saved response is too unclear to support a focused follow-up. Your Continue decision is saved. Review the original response and analysis, and correct the saved response if information is missing or unreadable.";
+      return "The saved response is too unclear to support a focused follow-up. Your decision to continue is saved. Review the original response and analysis, and correct the saved response if information is missing or unreadable.";
     default:
-      return "Venfour could not verify all the saved evidence needed to prepare a supported follow-up. Your Continue decision is saved. Refresh your case and retry preparation; your original request and saved response remain available.";
+      return "Venfour could not verify all the saved evidence needed to prepare a supported follow-up. Your decision to continue is saved. Refresh your case and retry preparation; your original request and saved response remain available.";
   }
 }
 
@@ -92,7 +92,7 @@ export function FollowUpPreparation({ actionContainer, onSent, onSentAttempt, ..
       await props.onRefresh().catch(() => undefined);
     } catch {
       await props.onRefresh().catch(() => undefined);
-      setError("We couldn’t prepare your follow-up. Your Continue decision is saved. Refresh your case and retry; an existing draft will be resumed without replacing your edits.");
+      setError("We couldn’t prepare your follow-up. Your decision to continue is saved. Refresh your case and retry; an existing draft will be resumed without replacing your edits.");
     } finally {
       locked.current = false;
     }

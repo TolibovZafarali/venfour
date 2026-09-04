@@ -253,7 +253,7 @@ function InsurerResponseEditor({
     if (actionLocked.current || pending || validatingFile) return;
     const expectedWorkflowRevision = claim.workflow?.revision;
     if (!expectedWorkflowRevision || !outboundCommunicationId || !negotiationRoundId) {
-      setError("We couldn’t verify the current case revision. Refresh the case and try again.");
+      setError("We couldn’t confirm that this case is ready to save the response. Refresh the case and try again.");
       return;
     }
     if (offerError) {
@@ -808,7 +808,7 @@ function ResponseDecisionArea({ accessToken, caseId, claim, onRefresh, response,
               : "You chose to continue challenging"}</strong>
             <p>Recorded <RecordedTime value={decision.recordedAt} />.</p>
             <p>{decision.choice === "ACCEPT_OFFER"
-              ? `${insurerOfferProvenanceLabel(usableOffer!.source)}. ${readOnly ? "This saved choice applies to the exact offer record in this response version. Your current case step is shown above." : "Your choice is saved for this exact offer record. Your case is awaiting finalization and remains open. Nothing has been sent to the insurer."}`
+              ? `${insurerOfferProvenanceLabel(usableOffer!.source)}. ${readOnly ? "This saved choice applies to the exact offer in this response. Your current case step is shown above." : "Your choice is saved for this exact offer. Your case is ready for confirmation and remains open. Nothing has been sent to the insurer."}`
               : readOnly ? "This decision is preserved with this saved response. Any resulting follow-up is available in case history." : claim.followUp?.state === "sent" ? "You confirmed sending your follow-up. Your case remains open while you wait for the insurer." : "Your choice is saved. Review and send a focused follow-up based on the saved response and supporting evidence."}</p>
             {decision.choice === "CONTINUE_CHALLENGING" && !readOnly ? <Link className="request-button request-button-primary" to={totalLossClaimViewPath(caseId, "review_follow_up")}>{claim.followUp?.state === "sent" ? "View sent follow-up" : claim.followUp?.draft ? "Review my follow-up" : "Prepare my follow-up"}</Link> : null}
             {decision.choice === "ACCEPT_OFFER" && !readOnly ? <Link className="request-button request-button-primary" to={totalLossClaimViewPath(caseId, "review_resolution")}>Complete acceptance with insurer</Link> : null}
@@ -818,7 +818,7 @@ function ResponseDecisionArea({ accessToken, caseId, claim, onRefresh, response,
         <>
           <p>The decision is yours, even if you choose differently from Venfour’s recommendation. Saving a choice does not contact the insurer or close your case.</p>
           {usableOffer ? <p className="response-decision-offer">{insurerOfferProvenanceLabel(usableOffer.source)}: <strong>{offerLabel(usableOffer.amountMinorUnits, usableOffer.currency)}</strong></p>
-            : <p>No exact offer with sufficient saved support is available to accept.</p>}
+            : <p>There isn’t a clearly supported offer amount available to accept from this response.</p>}
           {attempt && !pending ? <p className="response-decision-notice" role="status">Your {attempt.choice === "ACCEPT_OFFER" ? "Accept offer" : "Continue challenging"} choice still needs confirmation. Retry saving that same choice.</p> : null}
           {storageUnavailable ? <p className="response-decision-notice">This browser could not preserve the pending choice. Keep this page open until saving is confirmed.</p> : null}
           {error ? <p className="request-error" role="alert">{error}</p> : null}
@@ -908,7 +908,7 @@ function BasisReferences({
               {item.evidenceType === "CUSTOMER_REQUEST"
                 ? "Your request"
                 : item.evidenceType === "INSURER_VALUATION"
-                  ? "Saved insurer valuation"
+                  ? "Original insurer valuation"
                   : item.evidenceType === "VENFOUR_COMPARABLE"
                     ? "Saved comparable evidence"
                     : "Saved case evidence"}
@@ -926,16 +926,16 @@ function analysisOfferSourceLabel(
 ) {
   if (offer.visualSourceInterpretation) {
     return offer.source === "BOTH"
-      ? "Amount derived from the insurer document and matched to your entry"
-      : "Amount derived from the insurer document";
+      ? "Revised offer from the insurer document — matched to your entry"
+      : "Revised offer from the insurer document";
   }
   switch (offer.source) {
     case "CUSTOMER_SUPPLIED":
-      return "Amount you entered";
+      return "Revised offer you entered";
     case "INSURER_RESPONSE":
-      return "Amount identified in the insurer response";
+      return "Revised offer in the insurer response";
     case "BOTH":
-      return "Amount supported by the response and your entry";
+      return "Revised offer in the response — matched to your entry";
     case null:
       return "Revised offer";
   }
@@ -1091,13 +1091,15 @@ export function InsurerResponseReviewed({
   claim,
   onCorrect,
   onRefresh,
-  priorValuation,
+  originalInsurerValue,
+  originalInsurerValueLabel,
   readOnly = false,
   response,
   userId,
 }: InsurerResponseIdentity & {
   readonly onCorrect?: () => void;
-  readonly priorValuation: TotalLossMoney;
+  readonly originalInsurerValue: TotalLossMoney;
+  readonly originalInsurerValueLabel: "Original insurer offer" | "Original insurer valuation";
   readonly readOnly?: boolean;
   readonly response: TotalLossInsurerResponse & {
     readonly analysis: TotalLossInsurerResponseAnalysis;
@@ -1106,7 +1108,7 @@ export function InsurerResponseReviewed({
 }) {
   const { analysis, analysisEvidence } = response;
   const newOffer = analysis.revisedOffer;
-  const priorOffer = supportedPriorValue(priorValuation, newOffer.currency);
+  const originalValue = supportedPriorValue(originalInsurerValue, newOffer.currency);
   const hasOffer =
     newOffer.status === "PRESENT" &&
     newOffer.amountMinorUnits !== null &&
@@ -1122,7 +1124,7 @@ export function InsurerResponseReviewed({
     >
       <p className="waiting-case-status" data-review-entrance="supporting">
         <span aria-hidden="true" />
-        {!readOnly && response.decision?.choice === "ACCEPT_OFFER" ? "Awaiting finalization" : "Response reviewed"}
+        {!readOnly && response.decision?.choice === "ACCEPT_OFFER" ? "Confirm acceptance" : "Response reviewed"}
       </p>
       <div className="response-reviewed-heading" data-review-entrance="primary">
         <div className="response-review-status-mark" data-state="complete" aria-hidden="true">
@@ -1161,10 +1163,10 @@ export function InsurerResponseReviewed({
         <h2>What changed</h2>
         {hasOffer ? (
           <dl className="response-offer-change">
-            {priorOffer ? (
+            {originalValue ? (
               <div>
-                <dt>Previous insurer valuation</dt>
-                <dd>{priorOffer}</dd>
+                <dt>{originalInsurerValueLabel}</dt>
+                <dd>{originalValue}</dd>
               </div>
             ) : null}
             <div>
@@ -1177,12 +1179,12 @@ export function InsurerResponseReviewed({
         ) : null}
         {newOffer.visualSourceInterpretation ? (
           <div className="response-visual-transcription">
-            <strong>Derived visual transcription</strong>
+            <strong>Amount read from the document</strong>
             <p>“{newOffer.visualSourceInterpretation.derivedText}”</p>
             <small>
-              This text was derived from a visual reading. It does not replace
-              the saved insurer document, which remains the authoritative
-              source. Check the original before relying on the amount.
+              This text was read from the document image. It does not replace
+              the saved insurer document. Check the original before relying on
+              the amount.
             </small>
           </div>
         ) : null}

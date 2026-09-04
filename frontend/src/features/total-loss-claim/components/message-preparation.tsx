@@ -133,7 +133,7 @@ export function DraftEditor({
     <section className="request-review" aria-label={followUpDraftId ? "Follow-up draft" : "Request draft"}>
       <header className="request-heading" data-review-entrance="primary" data-review-order="0">
         <h1>{followUpDraftId ? "Review and send your follow-up" : "Review and send your request"}</h1>
-        <p>{followUpDraftId ? "This follow-up responds to the insurer’s saved response using the evidence reviewed with your Continue decision. Review and edit it before sending from your email app." : "Review the message below. When it’s ready, open it in your email app, attach the valuation report, and send it."}</p>
+        <p>{followUpDraftId ? "This follow-up responds to the insurer’s saved response using the evidence reviewed when you chose to continue. Review and edit it before sending from your email app." : "Review the message below. When it’s ready, open it in your email app, attach the valuation report, and send it."}</p>
       </header>
       {editor.blocker.state === "blocked" ? (
         <div className="request-save-recovery" role="alertdialog" aria-labelledby={`${fieldId}-leave-heading`} aria-describedby={`${fieldId}-leave-description`}>

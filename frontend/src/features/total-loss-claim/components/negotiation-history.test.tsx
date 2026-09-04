@@ -139,11 +139,12 @@ describe("immutable negotiation history", () => {
       expect(record.querySelector(".sent-request-body")?.textContent).toBe(message.body);
     });
     expect(container.querySelector("input, textarea, button, [contenteditable]")).toBeNull();
-    expect(container).not.toHaveTextContent("Draft follow-up — superseded");
+    expect(container).not.toHaveTextContent("Earlier follow-up draft — kept for reference");
+    expect(container).not.toHaveTextContent(/superseded/iu);
     expect(history).toEqual(before);
   });
 
-  it("shows the exact saved superseded draft beside its source response without actions", () => {
+  it("shows the exact earlier saved draft beside its source response without actions", () => {
     const { draft, history } = supersededHistory();
     const before = structuredClone(history);
     const { container } = render(
@@ -154,7 +155,8 @@ describe("immutable negotiation history", () => {
 
     fireEvent.click(container.querySelector(".case-history > summary")!);
     const record = container.querySelector(".case-history-superseded-draft") as HTMLElement;
-    expect(record).toHaveTextContent("Draft follow-up — superseded");
+    expect(record).toHaveTextContent("Earlier follow-up draft — kept for reference");
+    expect(record).not.toHaveTextContent(/superseded/iu);
     expect(record).toHaveTextContent("insurer response this draft was based on was corrected");
     fireEvent.click(record.querySelector("summary")!);
     expect(within(record).getByRole("region", { name: "Last saved draft" })).toBeVisible();

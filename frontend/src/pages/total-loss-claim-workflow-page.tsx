@@ -119,7 +119,7 @@ function WorkflowContent({
       <ClaimStateCard
         kind="error"
         heading="This part of your claim is not ready"
-        description="Venfour could not verify a released report and valid access for this route. No case information has been changed."
+        description="Venfour couldn’t confirm that your completed report is available on this page. No case information has been changed."
       >
         <Button asChild variant="outline">
           <Link to="/appraisals">View my appraisals</Link>
@@ -279,7 +279,7 @@ function AuthenticatedWorkflowPage({
       <ClaimStateCard
         kind="error"
         heading="We couldn’t open this claim"
-        description="Venfour could not verify the current claim state. No payment, report, or message information has been changed."
+        description="Venfour couldn’t load the latest saved case details. No payment, report, or message information has been changed."
       >
         <Button onClick={() => void claimQuery.refetch()} type="button">
           Try again

@@ -851,9 +851,11 @@ describe("completed-analysis guided progression", () => {
     expect(await screen.findByRole("heading", { name: "Case resolved" })).toBeVisible();
     expect(writes).toEqual([{ clientRequestId: expect.any(String), workflowRevision: 15, resolutionCode: "ACCEPTED_VERIFIED_OFFER", decisionId: decided.decision!.decisionId, offerId: decided.usableOffer!.offerId, amountMinorUnits: null, currency: null }]);
     expect(saved.claim().resolution?.amountSource).toBe(offerSource);
-    expect(screen.getByText(`${provenanceLabel} · exact saved offer record · acceptance confirmed by you`)).toBeVisible();
+    expect(screen.getByText(`${provenanceLabel} · exact saved offer · acceptance confirmed by you`)).toBeVisible();
+    expect(document.querySelector(".review-actions")).toBeNull();
     const bar = screen.getByRole("progressbar", { name: "Case journey" });
     expect(bar.getAttribute("aria-valuenow")).toBe(bar.getAttribute("aria-valuemax"));
+    expect(bar).toHaveAttribute("aria-valuetext", "Case complete.");
     expect(saved.claim().negotiationHistory).toHaveLength(3);
     await user.click(screen.getByText("Case history", { exact: false, selector: "summary" }));
     const sentMessages = document.querySelectorAll(".case-history-message > summary");
@@ -923,6 +925,7 @@ describe("completed-analysis guided progression", () => {
     expect(screen.queryByRole("textbox", { name: /Final amount/u })).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Confirm and close case" }));
     expect(await screen.findByRole("heading", { name: "Case closed" })).toBeVisible();
+    expect(document.querySelector(".review-actions")).toBeNull();
     expect(screen.getByText(/This does not record a settlement with your insurer/u)).toBeVisible();
     await act(() => view.router.navigate(`${BASE}/review/follow-up`));
     expect(await screen.findByRole("heading", { name: "Your saved follow-up" })).toBeVisible();
@@ -1218,7 +1221,7 @@ describe("completed-analysis guided progression", () => {
     expect(installed.claim().insurerResponse?.supersedesResponseId).toBe(current.insurerResponse!.responseId);
     await user.click(screen.getByText("Case history"));
     const historical = document.querySelector(".case-history-superseded-draft") as HTMLElement;
-    expect(historical).toHaveTextContent("Draft follow-up — superseded");
+    expect(historical).toHaveTextContent("Earlier follow-up draft — kept for reference");
     await user.click(historical.querySelector("summary")!);
     const versions = historical.querySelectorAll(".case-history-draft-version");
     expect(versions).toHaveLength(2);
@@ -1297,7 +1300,7 @@ describe("completed-analysis guided progression", () => {
     expect(await screen.findByText("You chose to continue challenging")).toBeVisible();
     expect(screen.queryByRole("link", { name: /Prepare my follow-up|View sent follow-up/u })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Continue challenging" })).not.toBeInTheDocument();
-    await user.click(screen.getByRole("link", { name: "Return to response reviewed" }));
+    await user.click(screen.getByRole("link", { name: "Return to current case step" }));
     expect(await screen.findByRole("button", { name: "Continue challenging" })).toBeVisible();
     expect(installed.claim()).toEqual(current);
     expect(installed.responseWrites).toEqual([]);
@@ -1346,7 +1349,7 @@ describe("completed-analysis guided progression", () => {
     const historicalReviews = screen.getAllByRole("link", { name: "Venfour review and decision" });
     await user.click(historicalReviews.at(-1)!);
     expect(await screen.findByText("You chose to accept $20,100.00")).toBeVisible();
-    expect(screen.getByText(/Customer-reported insurer offer\. This saved choice applies to the exact offer record/u)).toBeVisible();
+    expect(screen.getByText(/Customer-reported insurer offer\. This saved choice applies to the exact offer in this response/u)).toBeVisible();
     expect(screen.getByText(/current case step has not changed/u)).toBeVisible();
     expect(installed.responseWrites).toEqual([]);
     expect(installed.writes).toEqual([]);
@@ -1381,6 +1384,7 @@ describe("completed-analysis guided progression", () => {
     expect(screen.getByText(/Your case remains open until you explicitly confirm/u)).toBeVisible();
     expect(screen.queryByRole("button", { name: "I received a response" })).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Review the offer, recommendation, and your decision" })).toHaveAttribute("href", `${BASE}/review/response-reviewed`);
+    expect(document.querySelector(".review-actions")).toBeNull();
     expect(view.router.state.location.pathname).toBe(`${BASE}/review/resolution`);
   });
 
@@ -1389,6 +1393,9 @@ describe("completed-analysis guided progression", () => {
     const view = renderJourney("report", "response");
     expect(await screen.findByRole("heading", { name: "Waiting for the insurer’s response" })).toBeVisible();
     expect(screen.queryByRole("button", { name: "I received a response" })).not.toBeInTheDocument();
+    const reviewNavigation = screen.getByRole("navigation", { name: "Review navigation" });
+    expect(within(reviewNavigation).getByRole("link", { name: "Back" })).toBeVisible();
+    expect(reviewNavigation.children).toHaveLength(1);
     expect(view.router.state.location.pathname).toBe(`${BASE}/review/waiting`);
   });
   beforeEach(() => {
@@ -1658,7 +1665,7 @@ describe("completed-analysis guided progression", () => {
 
     expect(await screen.findByRole("heading", { name: "Your result" })).toBeVisible();
     expect(screen.getByText("$20,490")).toBeVisible();
-    expect(screen.getByText("Your insurer’s valuation appears low compared with the selected market listings.")).toBeVisible();
+    expect(screen.getByText("The original insurer valuation appears low compared with the selected market listings.")).toBeVisible();
     expect(screen.getByText("$1,444 below the selected median")).toBeVisible();
     expect(screen.queryByText(/stored difference|completed evidence/iu)).not.toBeInTheDocument();
     expect(screen.queryByText(/midpoint|evidence strength|percentage difference/iu)).not.toBeInTheDocument();
@@ -1689,10 +1696,10 @@ describe("completed-analysis guided progression", () => {
 
     await user.click(screen.getByRole("button", { name: "Compare the values" }));
     expect(await screen.findByRole("heading", { name: "What the comparison means" })).toBeVisible();
-    expect(screen.getByText("Your insurer’s valuation is below the selected advertised-price range. Even the lowest listing used for this comparison, at $19,800, was $754 higher.")).toBeVisible();
-    expect(screen.getByText("The valuation is $1,444 below the selected median of $20,490.")).toBeVisible();
+    expect(screen.getByText("The original insurer valuation is below the selected advertised-price range. Even the lowest listing used for this comparison, at $19,800, was $754 higher.")).toBeVisible();
+    expect(screen.getByText("The original valuation is $1,444 below the selected median of $20,490.")).toBeVisible();
     expect(screen.getByText("This comparison does not add dollar adjustments for differences in condition.")).toBeVisible();
-    expect(screen.queryByText("Your insurer’s valuation appears low compared with the selected market listings.")).not.toBeInTheDocument();
+    expect(screen.queryByText("The original insurer valuation appears low compared with the selected market listings.")).not.toBeInTheDocument();
     expect(request.render).not.toHaveBeenCalled();
     expect(screen.queryByText("The full package records additional provider coverage limitations.")).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Review my request" }));
@@ -1708,9 +1715,9 @@ describe("completed-analysis guided progression", () => {
     const user = userEvent.setup();
     const { router } = renderJourney("manual");
     expect(await screen.findByRole("heading", { name: "Your result" })).toBeVisible();
-    expect(screen.getByText("Insurer offer you entered")).toBeVisible();
-    expect(screen.getByText("Offer")).toBeVisible();
-    expect(screen.getByText("The offer you entered appears low compared with the selected market listings.")).toBeVisible();
+    expect(screen.getByText("Original insurer offer")).toBeVisible();
+    expect(screen.getByText("Original offer")).toBeVisible();
+    expect(screen.getByText("The original offer you entered appears low compared with the selected market listings.")).toBeVisible();
     expect(screen.getByText(/did not provide the insurer.s valuation report/iu)).toBeVisible();
     expect(screen.queryByRole("button", { name: "See how the insurer reached its value" })).not.toBeInTheDocument();
 
@@ -1728,8 +1735,8 @@ describe("completed-analysis guided progression", () => {
     await user.click(screen.getByRole("button", { name: "Compare the values" }));
     expect(await screen.findByRole("heading", { name: "What the comparison means" })).toBeVisible();
     expect(saved.writes.map(({ step }) => step)).toEqual(BEFORE_MEANING);
-    expect(screen.getByText("The offer you entered is below the selected advertised-price range. Even the lowest listing used for this comparison, at $19,800, was $754 higher.")).toBeVisible();
-    expect(screen.getByText("The offer is $1,444 below the selected median of $20,490.")).toBeVisible();
+    expect(screen.getByText("The original offer you entered is below the selected advertised-price range. Even the lowest listing used for this comparison, at $19,800, was $754 higher.")).toBeVisible();
+    expect(screen.getByText("The original offer is $1,444 below the selected median of $20,490.")).toBeVisible();
     expect(screen.queryByText(/Your insurer valued|Your insurer’s valuation is below/u)).not.toBeInTheDocument();
     expect(screen.getByText(/cannot review which comparable vehicles or adjustments/iu)).toBeVisible();
     await user.click(screen.getByRole("button", { name: "Review my request" }));
@@ -1880,6 +1887,9 @@ describe("completed-analysis guided progression", () => {
     expect(screen.getByText(/return to this case.*I received a response/iu)).toBeVisible();
     expect(screen.queryByText(/delivery confirmed|insurer received|response.*within \d/iu)).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "I received a response" })).toBeVisible();
+    const reviewNavigation = screen.getByRole("navigation", { name: "Review navigation" });
+    expect(within(reviewNavigation).getByRole("link", { name: "Back" })).toBeVisible();
+    expect(within(reviewNavigation).getByRole("button", { name: "I received a response" })).toBeVisible();
     expect(screen.queryByRole("button", { name: /offer|negotiat|close/iu })).not.toBeInTheDocument();
     expect(request.render).not.toHaveBeenCalled();
   });
@@ -2387,11 +2397,15 @@ describe("completed-analysis guided progression", () => {
     ).toBeVisible();
     expect(screen.getByText("$19,046")).toBeVisible();
     expect(screen.getAllByText("$20,100.00").length).toBeGreaterThan(0);
+    expect(screen.getByText("Original insurer valuation")).toBeVisible();
+    expect(screen.getByText("Revised offer in the response — matched to your entry")).toBeVisible();
+    expect(screen.queryByText("Previous insurer valuation")).not.toBeInTheDocument();
     expect(screen.getByText("Partially accepted")).toBeVisible();
     expect(screen.getByText("Recommendation unavailable")).toBeVisible();
     expect(screen.queryByText("Review their revised offer")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Accept offer" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Continue challenging" })).not.toBeInTheDocument();
+    expect(document.querySelector(".review-actions")).toBeNull();
     const basisControls = screen.getAllByText(/^Basis:/u);
     expect(basisControls.length).toBeGreaterThan(0);
     await user.click(basisControls[0]);
@@ -2424,6 +2438,17 @@ describe("completed-analysis guided progression", () => {
     expect(
       screen.queryByRole("button", { name: /reply|send|negotiate/iu }),
     ).not.toBeInTheDocument();
+  });
+
+  it("labels the starting manual amount as the original offer during response review", async () => {
+    installClaim(reviewedClaim());
+    renderJourney("manual", "response-reviewed");
+
+    expect(await screen.findByRole("heading", { name: "What the insurer’s response means" })).toBeVisible();
+    expect(screen.getByText("Original insurer offer")).toBeVisible();
+    expect(screen.getByText("Revised offer in the response — matched to your entry")).toBeVisible();
+    expect(screen.queryByText("Previous insurer valuation")).not.toBeInTheDocument();
+    expect(document.querySelector(".review-actions")).toBeNull();
   });
 
   it("labels a customer-recorded offer separately from insurer-authored response evidence", async () => {
@@ -2530,7 +2555,7 @@ describe("completed-analysis guided progression", () => {
     expect(screen.queryByRole("button", { name: "Accept offer" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Continue challenging" })).not.toBeInTheDocument();
     expect(window.sessionStorage.length).toBe(0);
-    expect(screen.getByText(choice === "ACCEPT_OFFER" ? /case is awaiting finalization and remains open/u : /Your choice is saved\. Review and send/u)).toBeVisible();
+    expect(screen.getByText(choice === "ACCEPT_OFFER" ? /case is ready for confirmation and remains open/u : /Your choice is saved\. Review and send/u)).toBeVisible();
     expect(screen.queryByRole("link", { name: "Prepare my follow-up" })).toBe(choice === "ACCEPT_OFFER" ? null : screen.getByRole("link", { name: "Prepare my follow-up" }));
     first.unmount();
     renderJourney("report", "response-reviewed");
@@ -2546,7 +2571,7 @@ describe("completed-analysis guided progression", () => {
     expect(screen.getAllByText("$20,100.00").length).toBeGreaterThan(0);
     expect(screen.queryByRole("button", { name: "Accept offer" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Continue challenging" })).toBeEnabled();
-    expect(screen.getByText("No exact offer with sufficient saved support is available to accept.")).toBeVisible();
+    expect(screen.getByText("There isn’t a clearly supported offer amount available to accept from this response.")).toBeVisible();
     expect(screen.queryByText("Customer-reported insurer offer", { exact: false })).not.toBeInTheDocument();
     expect(screen.queryByText("Offer shown in insurer response", { exact: false })).not.toBeInTheDocument();
   });
@@ -2727,15 +2752,15 @@ describe("completed-analysis guided progression", () => {
     await screen.findByRole("heading", {
       name: "What the insurer’s response means",
     });
-    expect(screen.getByText("Derived visual transcription")).toBeVisible();
+    expect(screen.getByText("Amount read from the document")).toBeVisible();
     expect(
       screen.getByText("“Revised settlement offer: $20,100.00”"),
     ).toBeVisible();
     expect(
-      screen.getByText(/saved insurer document.*authoritative source/iu),
+      screen.getByText(/does not replace.*saved insurer document.*check the original/iu),
     ).toBeVisible();
     expect(
-      screen.getByText("Amount derived from the insurer document"),
+      screen.getByText("Revised offer from the insurer document"),
     ).toBeVisible();
     expect(screen.queryByRole("button", { name: "Accept offer" })).not.toBeInTheDocument();
     expect(screen.queryByText("Customer-reported insurer offer", { exact: false })).not.toBeInTheDocument();
@@ -2985,6 +3010,7 @@ describe("completed-analysis guided progression", () => {
     const navigation = await screen.findByRole("navigation", { name: "Case sections" });
     const progress = screen.getByRole("progressbar", { name: "Case journey" });
     const progressLabel = progress.getAttribute("aria-valuetext");
+    expect(document.querySelector(".review-actions")).toBeNull();
 
     await user.click(within(navigation).getByRole("link", { name: /^Your result/u }));
     expect(await screen.findByRole("heading", { name: "Your result" })).toBeVisible();
@@ -3110,8 +3136,8 @@ describe("completed-analysis guided progression", () => {
   });
 
   it.each([
-    { insurer: 2300000, insurerLabel: "$23,000", difference: -251000, differenceLabel: "-$2,510", result: "$2,510 above the selected median", meaning: "The valuation is $2,510 above the selected median of $20,490.", position: "above" },
-    { insurer: 2049000, insurerLabel: "$20,490", difference: 0, differenceLabel: "$0", result: "Matches the selected median", meaning: "The valuation matches the selected median of $20,490.", position: "within" },
+    { insurer: 2300000, insurerLabel: "$23,000", difference: -251000, differenceLabel: "-$2,510", result: "$2,510 above the selected median", meaning: "The original valuation is $2,510 above the selected median of $20,490.", position: "above" },
+    { insurer: 2049000, insurerLabel: "$20,490", difference: 0, differenceLabel: "$0", result: "Matches the selected median", meaning: "The original valuation matches the selected median of $20,490.", position: "within" },
   ])("describes the signed median comparison and $position range position without implying an increase", async ({ insurer, insurerLabel, difference, differenceLabel, result, meaning, position }) => {
     const projection = claimProjection(BEFORE_MEANING);
     const report = projection.report!;
@@ -3126,7 +3152,7 @@ describe("completed-analysis guided progression", () => {
     await act(() => router.navigate(`${BASE}/review/meaning`));
     expect(await screen.findByRole("heading", { name: "What the comparison means" })).toBeVisible();
     expect(screen.getByText(meaning)).toBeVisible();
-    expect(screen.getByText(`Your insurer’s valuation is ${position} the selected advertised-price range.`)).toBeVisible();
+    expect(screen.getByText(`The original insurer valuation is ${position} the selected advertised-price range.`)).toBeVisible();
     expect(screen.queryByText(/Even the lowest listing|reasonable basis to ask/u)).not.toBeInTheDocument();
     expect(saved.writes).toEqual([]);
   });

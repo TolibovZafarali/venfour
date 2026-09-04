@@ -57,7 +57,7 @@ function SupersededDraftHistory({ caseId, draftRecord, userId }: {
   });
   const recovered = readRequestDraftRecoveryForHistory(recoveryKey, draft);
   return <details className="case-history-message case-history-superseded-draft">
-    <summary>Draft follow-up — superseded <span>Read-only · Saved <RecordedTime value={draft.updatedAt} /></span></summary>
+    <summary>Earlier follow-up draft — kept for reference <span>Read-only · Saved <RecordedTime value={draft.updatedAt} /></span></summary>
     <p className="case-history-superseded-explanation">The insurer response this draft was based on was corrected. We kept the draft for reference, but it can’t be sent or used as your current follow-up.</p>
     <DraftContentRecord content={draft} label="Last saved draft" />
     {recovered?.status === "storage_unavailable" ? (

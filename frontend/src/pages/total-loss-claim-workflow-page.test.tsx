@@ -1109,7 +1109,8 @@ describe("total-loss customer workflow", () => {
     vi.mocked(guest.getSession).mockResolvedValue(guestSession);
     useClaimHandler(() => claimProjection());
     const { router } = renderTestApp([`${CLAIM_BASE}/guide/report`], { authService: guest });
-    expect(await screen.findByRole("heading", { name: "We couldn’t verify permanent claim access" })).toBeVisible();
+    expect(await screen.findByRole("heading", { name: "We couldn’t verify access to this claim" })).toBeVisible();
+    expect(screen.queryByText(/permanent claim access/iu)).not.toBeInTheDocument();
     expect(router.state.location.pathname).toBe(CLAIM_BASE);
     expect(screen.queryByText("2022 Example Sedan")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Download report" })).not.toBeInTheDocument();
@@ -1124,10 +1125,32 @@ describe("total-loss customer workflow", () => {
     }));
     const { router } = renderTestApp([`${CLAIM_BASE}/review/result`], { authService: authService() });
     expect(await screen.findByRole("heading", { name: "This part of your claim is not ready" })).toBeVisible();
+    expect(
+      screen.getByText(
+        "Venfour couldn’t confirm that your completed report is available on this page. No case information has been changed.",
+      ),
+    ).toBeVisible();
+    expect(screen.queryByText(/released report|valid access for this route/iu)).not.toBeInTheDocument();
     expect(router.state.location.pathname).toBe(`${CLAIM_BASE}/review/result`);
     expect(screen.queryByRole("region", { name: "Completed analysis" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Create request draft" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Download report" })).not.toBeInTheDocument();
+  });
+
+  it.each([
+    [CLAIM_BASE, "Venfour couldn’t load the latest saved claim information. No claim information has been changed."],
+    [`${CLAIM_BASE}/review/result`, "Venfour couldn’t load the latest saved case details. No payment, report, or message information has been changed."],
+  ])("uses customer-facing copy when the claim resolver fails at %s", async (path, description) => {
+    server.use(
+      http.get("*/api/v1/appraisal-cases/:caseId/claim", () =>
+        HttpResponse.json({ detail: "Temporarily unavailable" }, { status: 503 }),
+      ),
+    );
+    renderTestApp([path], { authService: authService() });
+
+    expect(await screen.findByRole("heading", { name: "We couldn’t open this claim" })).toBeVisible();
+    expect(screen.getByText(description)).toBeVisible();
+    expect(screen.queryByText(/current claim state/iu)).not.toBeInTheDocument();
   });
 
   it("uses the existing owner-authorized download endpoint for viewing and downloading the report", async () => {

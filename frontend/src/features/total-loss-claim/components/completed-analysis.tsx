@@ -87,20 +87,21 @@ function ValueSummary({ report, intakeMode, marketOnly = false }: {
   const showOffer = !marketOnly && hasMoney(report.conclusion.insurerValuation);
   const showRange = Boolean(range && hasMoney(range.low) && hasMoney(range.high));
   const showMedian = hasMoney(range?.median);
+  const originalValueLabel = intakeMode === "manual" ? "Original insurer offer" : "Original insurer valuation";
   if (!showOffer && !showRange && !showMedian) return null;
   return (
     <div className={`value-summary${marketOnly ? " value-summary-market" : ""}`} data-has-offer={showOffer} data-has-range={showRange} data-has-median={showMedian}>
       <dl className="value-summary-grid">
-        {!marketOnly && hasMoney(report.conclusion.insurerValuation) ? <div className="value-summary-offer" data-review-entrance="secondary" data-review-order="0"><dt>{intakeMode === "manual" ? "Insurer offer you entered" : "Insurer valuation"}</dt><dd>{moneyLabel(report.conclusion.insurerValuation)}</dd></div> : null}
+        {!marketOnly && hasMoney(report.conclusion.insurerValuation) ? <div className="value-summary-offer" data-review-entrance="secondary" data-review-order="0"><dt>{originalValueLabel}</dt><dd>{moneyLabel(report.conclusion.insurerValuation)}</dd></div> : null}
         {range && hasMoney(range.low) && hasMoney(range.high) ? <div className="value-summary-range" data-review-entrance="secondary" data-review-order="1">
           <dt>Selected advertised-price range</dt><dd>{range.low.currency === range.high.currency && range.low.amountMinorUnits === range.high.amountMinorUnits ? moneyLabel(range.low) : `${moneyLabel(range.low)} to ${moneyLabel(range.high)}`}</dd>
         </div> : null}
         {hasMoney(range?.median) ? <div className="value-summary-median" data-review-entrance="secondary" data-review-order="2"><dt>Selected median</dt><dd>{moneyLabel(range?.median)}</dd></div> : null}
         {!marketOnly && comparison ? <div className="value-summary-comparison" data-review-entrance="secondary" data-review-order="3">
-          <dt>{intakeMode === "manual" ? "How your offer compares" : "How the insurer’s value compares"}</dt><dd>{comparison}</dd>
+          <dt>{intakeMode === "manual" ? "How your original offer compares" : "How the original insurer valuation compares"}</dt><dd>{comparison}</dd>
         </div> : null}
       </dl>
-      {!marketOnly ? <ValueRangeTrack report={report} valueLabel={intakeMode === "manual" ? "Offer" : "Insurer"} /> : null}
+      {!marketOnly ? <ValueRangeTrack report={report} valueLabel={intakeMode === "manual" ? "Original offer" : "Original value"} /> : null}
     </div>
   );
 }
@@ -124,7 +125,7 @@ function rangePosition(report: TotalLossPublishedReport, intakeMode: TotalLossIn
   if (!range || !hasMoney(value) || !hasMoney(range.low) || !hasMoney(range.high)) return null;
   if (![value, range.low, range.high].every((money) => Number.isSafeInteger(money.amountMinorUnits) && money.currency === value.currency)) return null;
   if (range.low.amountMinorUnits > range.high.amountMinorUnits) return null;
-  const subject = intakeMode === "manual" ? "The offer you entered" : "Your insurer’s valuation";
+  const subject = intakeMode === "manual" ? "The original offer you entered" : "The original insurer valuation";
   if (value.amountMinorUnits < range.low.amountMinorUnits) {
     const gap = amountLabel(range.low.amountMinorUnits - value.amountMinorUnits, value.currency);
     return `${subject} is below the selected advertised-price range.${gap ? ` Even the lowest listing used for this comparison, at ${moneyLabel(range.low)}, was ${gap} higher.` : ""}`;
@@ -220,9 +221,12 @@ export function CompletedAnalysis(props: CompletedAnalysisProps) {
   const nextPath = stage === "meaning" && sent ? workspace.currentPath : path(next);
   const requestAction = sent ? "Return to case status" : hasDraft ? "Review my request" : "Prepare my request";
   const action = stage === "result" && !manual ? "See how the insurer reached its value" : stage === "result" || stage === "insurer" ? "See the market evidence" : stage === "market" ? "Compare the values" : requestAction;
+  const showWaitingAction = stage === "waiting" && canRecordResponse;
+  const showContinueAction = stage !== "resolution" && stage !== "request" && stage !== "follow_up" && stage !== "waiting" && stage !== "response" && stage !== "response_received" && stage !== "response_reviewing" && stage !== "response_reviewed" && (stage !== "meaning" || sent || (!closed && report.conclusion.continuingSupported));
+  const showReviewNavigation = Boolean(previous) || showWaitingAction || showContinueAction;
   const classification = reportText(report.conclusion.classificationLabel).replace(/^Potential undervaluation signal$/iu, "Potential undervaluation");
   const resultExplanation = report.conclusion.continuingSupported
-    ? `${manual ? "The offer you entered" : "Your insurer’s valuation"} appears low compared with the selected market listings.`
+    ? `${manual ? "The original offer you entered" : "The original insurer valuation"} appears low compared with the selected market listings.`
     : /no material discrepancy/iu.test(classification)
       ? "The available market listings do not show a clear basis for a higher valuation."
       : /insufficient evidence/iu.test(classification)
@@ -321,7 +325,7 @@ export function CompletedAnalysis(props: CompletedAnalysisProps) {
       <CaseJourneyProgress progress={workspace.progress} sections={workspace.sections} />
       <CaseWorkspaceNavigation workspace={workspace} stage={stage} pending={progression.pending} />
       <NegotiationHistory key={`${location.pathname}:${location.search}`} caseId={caseId} history={claim.negotiationHistory ?? []} userId={userId} />
-      {historical ? <p className="case-history-view-notice">You are viewing a saved response and its review. Your current case step has not changed.<br /><Link to={workspace.currentPath}>Return to {workspace.currentLabel.toLowerCase()}</Link></p> : null}
+      {historical ? <p className="case-history-view-notice">You are viewing a saved response and its review. Your current case step has not changed.<br /><Link to={workspace.currentPath}>Return to current case step</Link></p> : null}
       <div className="review-stage-content" data-view={stage}>
       {stage === "resolution" ? closed ? <>
         <h1>Your case record</h1>
@@ -344,7 +348,7 @@ export function CompletedAnalysis(props: CompletedAnalysisProps) {
       {stage === "insurer" ? <>
         <h1 data-review-entrance="primary">How your insurer reached its value</h1>
         <p className="review-lead" data-review-entrance="primary" data-review-order="1">Insurers may start with prices for similar vehicles, then adjust those values for differences such as mileage or equipment. Venfour shows only the adjustments disclosed in your report.</p>
-        {hasMoney(report.conclusion.insurerValuation) ? <dl className="insurer-reference" data-review-entrance="secondary"><dt>Insurer valuation</dt><dd>{moneyLabel(report.conclusion.insurerValuation)}</dd></dl> : null}
+        {hasMoney(report.conclusion.insurerValuation) ? <dl className="insurer-reference" data-review-entrance="secondary"><dt>Original insurer valuation</dt><dd>{moneyLabel(report.conclusion.insurerValuation)}</dd></dl> : null}
         <InsurerValueBridge report={report} />
         <div className="insurer-explanation">
         <p data-review-entrance="supporting" data-review-order="0">{insurerCount ? `Your insurer’s report includes ${insurerCount.toLocaleString("en-US")} comparable ${insurerCount === 1 ? "vehicle" : "vehicles"}.` : "No insurer comparables were available in the report for this review."}</p>
@@ -373,9 +377,9 @@ export function CompletedAnalysis(props: CompletedAnalysisProps) {
       {stage === "meaning" ? <>
         <h1 data-review-entrance="secondary">What the comparison means</h1>
         <div className="meaning-interpretation">
-        {hasMoney(report.conclusion.insurerValuation) ? <p className="meaning-value" data-review-entrance="primary" data-review-order="0">{manual ? "The insurer offer you entered was" : "Your insurer valued the vehicle at"} {moneyLabel(report.conclusion.insurerValuation)}.</p> : null}
+        {hasMoney(report.conclusion.insurerValuation) ? <p className="meaning-value" data-review-entrance="primary" data-review-order="0">{manual ? "The original insurer offer you entered was" : "Your insurer’s original valuation was"} {moneyLabel(report.conclusion.insurerValuation)}.</p> : null}
         {position ? <p className="meaning-position" data-review-entrance="primary" data-review-order="1">{position}</p> : null}
-        {comparison ? <p className="meaning-comparison" data-review-entrance="primary" data-review-order="2">{manual ? "The offer" : "The valuation"} {comparison.startsWith("Matches") ? "matches the selected median" : `is ${comparison}`}{hasMoney(report.conclusion.supportedRange?.median) ? ` of ${moneyLabel(report.conclusion.supportedRange?.median)}` : ""}.</p> : null}
+        {comparison ? <p className="meaning-comparison" data-review-entrance="primary" data-review-order="2">{manual ? "The original offer" : "The original valuation"} {comparison.startsWith("Matches") ? "matches the selected median" : `is ${comparison}`}{hasMoney(report.conclusion.supportedRange?.median) ? ` of ${moneyLabel(report.conclusion.supportedRange?.median)}` : ""}.</p> : null}
         </div>
         {report.conclusion.continuingSupported ? <p className="meaning-takeaway" data-review-entrance="secondary">Based on the available evidence, you have a reasonable basis to ask the insurer to review {manual ? "the offer" : "its valuation"}.</p> : <p data-review-entrance="secondary">The result does not support a higher valuation request. Your valuation report remains available.</p>}
         <div className="meaning-limitations">
@@ -429,7 +433,8 @@ export function CompletedAnalysis(props: CompletedAnalysisProps) {
           {...props}
           onCorrect={correctResponse}
           readOnly={historical || closed}
-          priorValuation={report.conclusion.insurerValuation}
+          originalInsurerValue={report.conclusion.insurerValuation}
+          originalInsurerValueLabel={manual ? "Original insurer offer" : "Original insurer valuation"}
           response={{
             ...response,
             analysis: response.analysis,
@@ -440,13 +445,13 @@ export function CompletedAnalysis(props: CompletedAnalysisProps) {
       </> : null}
         {prerequisite ? <p className="review-prerequisite"><Link to={path(prerequisite)}>Continue your review</Link> before proceeding from this stage.</p> : null}
         {progression.error ? <p className="review-error" role="alert">{progression.error}</p> : null}
-        <nav className="review-actions" aria-label="Review navigation" ref={setNavigationActions}>
+        {showReviewNavigation ? <nav className="review-actions" aria-label="Review navigation" ref={setNavigationActions}>
           {previous ? <Link aria-disabled={progression.pending || undefined} className="review-back" data-review-entrance="supporting" data-review-order="0" to={previous} onClick={(event) => {
             if (progression.pending) event.preventDefault();
           }}><ArrowLeft aria-hidden="true" />Back</Link> : null}
-          {stage === "waiting" && canRecordResponse ? <button className="review-primary" data-review-entrance="secondary" data-review-order="1" type="button" onClick={() => navigate(path("response"))}><span className="review-action-label"><span className="review-action-reserve" aria-hidden="true">I received a response</span><span>I received a response</span></span><span className="review-action-icon"><ArrowRight aria-hidden="true" /></span></button> : null}
-          {stage !== "resolution" && stage !== "request" && stage !== "follow_up" && stage !== "waiting" && stage !== "response" && stage !== "response_received" && stage !== "response_reviewing" && stage !== "response_reviewed" && (stage !== "meaning" || sent || (!closed && report.conclusion.continuingSupported)) ? <button className="review-primary" data-review-entrance="secondary" data-review-order="1" type="button" disabled={progression.pending || Boolean(prerequisite)} onClick={() => void continueReview()}><span className="review-action-label"><span className="review-action-reserve" aria-hidden="true">{action}</span><span>{progression.pending ? "Saving progress…" : action}</span></span><span className="review-action-icon">{progression.pending ? <LoaderCircle className="review-spinner" aria-hidden="true" /> : <ArrowRight aria-hidden="true" />}</span></button> : null}
-        </nav>
+          {showWaitingAction ? <button className="review-primary" data-review-entrance="secondary" data-review-order="1" type="button" onClick={() => navigate(path("response"))}><span className="review-action-label"><span className="review-action-reserve" aria-hidden="true">I received a response</span><span>I received a response</span></span><span className="review-action-icon"><ArrowRight aria-hidden="true" /></span></button> : null}
+          {showContinueAction ? <button className="review-primary" data-review-entrance="secondary" data-review-order="1" type="button" disabled={progression.pending || Boolean(prerequisite)} onClick={() => void continueReview()}><span className="review-action-label"><span className="review-action-reserve" aria-hidden="true">{action}</span><span>{progression.pending ? "Saving progress…" : action}</span></span><span className="review-action-icon">{progression.pending ? <LoaderCircle className="review-spinner" aria-hidden="true" /> : <ArrowRight aria-hidden="true" />}</span></button> : null}
+        </nav> : null}
         {!historical && !closed && stage !== "response" && stage !== "follow_up" ? <ManualCaseClosure key={`${stage}:${claim.workflow?.revision}`} {...props} onClosed={() => navigate(path("resolution"), { replace: true })} /> : null}
       </div>
     </section>

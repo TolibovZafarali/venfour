@@ -21,3 +21,7 @@
   .case-workspace-mobile { display: block; }
   .case-workspace-mobile select { display: block; width: 100%; min-height: 2.75rem; padding-block: .5rem; border: 0; background: transparent; color: var(--review-ink); font: inherit; font-size: .875rem; line-height: 1.4; }
 }
+@media (max-width: 359px) {
+  .case-workspace-navigation { padding-inline: 1rem; }
+  .case-workspace-mobile select { font-size: .8125rem; }
+}
