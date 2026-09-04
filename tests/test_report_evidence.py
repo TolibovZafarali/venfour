@@ -1,9 +1,12 @@
 """Deferred report evidence survives analysis and remains source-grounded."""
 import copy
+import hashlib
 import unittest
 from datetime import date, datetime, timezone
 from pathlib import Path
 from unittest.mock import Mock, patch
+
+import pymupdf
 
 from tests.test_analysis_runs import (
     TemporaryRepositoryTestCase, make_orchestrator, RecordingCurrentProvider,
@@ -17,8 +20,17 @@ from venfour.analysis_runs import AnalysisRunWriteError
 from venfour.package_processing import DeterministicPackageAssessmentBuilder, PackageProcessingContractError
 from venfour.report_evidence import validate_report_evidence_for_artifact
 from venfour.report_ingestion import ReportIngestionResult
+from venfour.report_review import (
+    build_report_review_input_v1,
+    validate_report_review_input_v1,
+)
 from venfour.supabase_gateway import SupabaseUnavailableError
-from venfour.valuation_evidence_report import build_valuation_evidence_report_v1, INSURER_EXTRACTED
+from venfour.valuation_evidence_report import (
+    INSURER_EXTRACTED,
+    build_valuation_evidence_report_v1,
+    render_valuation_evidence_report_pdf_v1,
+    validate_valuation_evidence_report_pdf_v1,
+)
 from scripts.recover_local_report_package import local_status
 
 
@@ -63,6 +75,29 @@ class ReportEvidenceTests(TemporaryRepositoryTestCase):
             "preliminary_snapshot_schema_version": "1",
         }
 
+    def extracted_insurer_package(self):
+        context = self.context()
+        context["normalized_extraction"]["normalizedReport"]["report"][
+            "insurer"
+        ] = "Example Insurance"
+        builder = DeterministicPackageAssessmentBuilder(
+            clock=lambda: datetime(2026, 8, 26, tzinfo=timezone.utc)
+        )
+        source = builder.build_source_snapshot(
+            context, self.source["sourceDocument"]
+        )
+        assessment = builder.build_final_assessment(source)
+        report = build_valuation_evidence_report_v1(
+            source_snapshot=source,
+            final_assessment=assessment,
+            report_series_id="00000000-0000-4000-8000-000000000131",
+            report_version_id="00000000-0000-4000-8000-000000000132",
+            final_assessment_id="00000000-0000-4000-8000-000000000133",
+            version_number=1,
+            generated_at="2026-08-26T20:00:00Z",
+        )
+        return source, assessment, report
+
     def test_deferred_report_builds_without_fabricating_customer_facts(self):
         context = self.context()
         original = copy.deepcopy(context["confirmed_facts"])
@@ -85,21 +120,56 @@ class ReportEvidenceTests(TemporaryRepositoryTestCase):
                 validate_report_evidence_for_artifact(ReportIngestionResult.from_dict(changed), self.artifact.to_dict())
 
     def test_report_insurer_is_not_labeled_as_customer_supplied(self):
-        context = self.context()
-        context["normalized_extraction"]["normalizedReport"]["report"]["insurer"] = "Example Insurance"
-        builder = DeterministicPackageAssessmentBuilder(clock=lambda: datetime(2026, 8, 26, tzinfo=timezone.utc))
-        source = builder.build_source_snapshot(context, self.source["sourceDocument"])
-        report = build_valuation_evidence_report_v1(
-            source_snapshot=source, final_assessment=builder.build_final_assessment(source),
-            report_series_id="00000000-0000-4000-8000-000000000131",
-            report_version_id="00000000-0000-4000-8000-000000000132",
-            final_assessment_id="00000000-0000-4000-8000-000000000133",
-            version_number=1, generated_at="2026-08-26T20:00:00Z",
-        ).to_dict()
-        name = report["insurerValuationReviewed"]["insurerName"]
+        source, _, report = self.extracted_insurer_package()
+        report_payload = report.to_dict()
+        name = report_payload["insurerValuationReviewed"]["insurerName"]
+        self.assertIsNone(source.to_dict()["input"]["confirmedFacts"]["insurerName"])
         self.assertEqual(name["value"], "Example Insurance")
         self.assertEqual(name["evidenceLabel"], INSURER_EXTRACTED)
         self.assertTrue(name["evidenceIds"])
+
+    def test_deferred_extracted_insurer_reaches_report_review_input(self):
+        source, assessment, report = self.extracted_insurer_package()
+        pdf = render_valuation_evidence_report_pdf_v1(report)
+        pdf_manifest = validate_valuation_evidence_report_pdf_v1(
+            pdf, report
+        ).to_dict()
+        with pymupdf.open(stream=pdf, filetype="pdf") as document:
+            pdf_text = "\n".join(page.get_text("text") for page in document)
+        source_payload = source.to_dict()
+        report_payload = report.to_dict()
+
+        request = build_report_review_input_v1(
+            case_id=source_payload["lineage"]["caseId"],
+            source_snapshot_id=source_payload["lineage"]["sourceSnapshotId"],
+            final_assessment_id="00000000-0000-4000-8000-000000000133",
+            report_version_id="00000000-0000-4000-8000-000000000132",
+            source_snapshot=source_payload,
+            final_assessment=assessment.to_dict(),
+            report=report_payload,
+            report_digest=report_payload["reportDigest"],
+            pdf_digest=hashlib.sha256(pdf).hexdigest(),
+            pdf_extracted_text=pdf_text,
+            deterministic_validation_manifest={
+                "schemaVersion": "1",
+                "status": "PASS",
+                "checks": [
+                    {"code": "REPORT_SCHEMA", "status": "PASS"},
+                    {"code": "SOURCE_REPLAY", "status": "PASS"},
+                ],
+            },
+            pdf_validation_manifest=pdf_manifest,
+        )
+
+        validate_report_review_input_v1(request)
+        reference = next(
+            row
+            for row in request.report["sourceEvidenceIndex"]
+            if row["jsonPointer"]
+            == "/extraction/normalizedReport/report/insurer"
+        )
+        self.assertEqual(reference["evidenceLabel"], INSURER_EXTRACTED)
+        self.assertIn(reference["evidenceId"], request.available_evidence_ids)
 
     def test_owned_repository_saves_analysis_and_evidence_atomically(self):
         gateway = FakeCaseGateway()

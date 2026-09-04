@@ -36,6 +36,10 @@ from venfour.report_ingestion import (
     ReportDocumentInvalidError,
     validate_canonical_pdf,
 )
+from venfour.report_evidence import (
+    REPORT_LOCAL_SOURCE_ARTIFACT,
+    resolve_report_local_evidence_source,
+)
 
 
 REPORT_REVIEW_PROVIDER_IDENTIFIER = "openai"
@@ -564,16 +568,6 @@ def _available_evidence_ids(
         "locationPrecision",
         "pageNumber",
     }
-    allowed_local_fields = {
-        "insurerName",
-        "priorTitleStatus",
-        "condition",
-        "existingDamageDescription",
-        "optionsPackages",
-    }
-    facts = source_snapshot.get("input", {}).get("confirmedFacts")
-    if not isinstance(facts, Mapping):
-        raise ReportReviewInputError("Confirmed source facts are invalid")
     for row in report_index:
         if not isinstance(row, Mapping) or set(row) != expected_row_keys:
             raise ReportReviewInputError("Report evidence reference is invalid")
@@ -605,18 +599,14 @@ def _available_evidence_ids(
         if _REPORT_REFERENCE_ID_PATTERN.fullmatch(identifier) is None:
             raise ReportReviewInputError("Report evidence identifier is invalid")
         pointer = row.get("jsonPointer")
-        prefix = "/input/confirmedFacts/"
-        field = pointer.removeprefix(prefix) if isinstance(pointer, str) else ""
+        resolved = resolve_report_local_evidence_source(source_snapshot, pointer)
         if (
-            not isinstance(pointer, str)
-            or not pointer.startswith(prefix)
-            or field not in allowed_local_fields
-            or row.get("sourceArtifact") != "SOURCE_SNAPSHOT"
-            or row.get("sourceIdentity") != field
-            or row.get("evidenceLabel") != "CUSTOMER_SUPPLIED"
+            resolved is None
+            or row.get("sourceArtifact") != REPORT_LOCAL_SOURCE_ARTIFACT
+            or row.get("sourceIdentity") != resolved.source_identity
+            or row.get("evidenceLabel") != resolved.evidence_label
             or row.get("locationPrecision") != "JSON_POINTER"
             or row.get("pageNumber") is not None
-            or facts.get(field) is None
         ):
             raise ReportReviewInputError(
                 "Report-local evidence reference is invalid"

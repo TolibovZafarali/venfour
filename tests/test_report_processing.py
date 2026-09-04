@@ -55,6 +55,8 @@ from venfour.report_review_evals import (
 )
 from venfour.supabase_gateway import SupabaseUnavailableError
 from venfour.valuation_evidence_report import (
+    INSURER_EXTRACTED,
+    ValuationEvidenceReportV1,
     ValuationEvidenceReportError,
     render_valuation_evidence_report_pdf_v1,
     validate_valuation_evidence_report_pdf_v1,
@@ -672,6 +674,17 @@ class ReportProcessingTests(unittest.TestCase):
         cls.source, cls.assessment, cls.report = helper._report()
         cls.pdf = render_valuation_evidence_report_pdf_v1(cls.report)
         (
+            cls.extracted_insurer_source,
+            cls.extracted_insurer_assessment,
+            cls.extracted_insurer_report,
+        ) = helper._report(
+            confirmed_insurer_name=None,
+            extracted_insurer_name="Extracted Insurance",
+        )
+        cls.extracted_insurer_pdf = render_valuation_evidence_report_pdf_v1(
+            cls.extracted_insurer_report
+        )
+        (
             cls.no_dispute_source,
             cls.no_dispute_assessment,
             cls.no_dispute_report,
@@ -703,8 +716,22 @@ class ReportProcessingTests(unittest.TestCase):
         cls.fixture_helper.doCleanups()
         super().tearDownClass()
 
-    def _database(self, *, no_dispute: bool = False) -> _FakeReportDatabase:
-        if no_dispute:
+    def _database(
+        self,
+        *,
+        no_dispute: bool = False,
+        extracted_insurer: bool = False,
+    ) -> _FakeReportDatabase:
+        if no_dispute and extracted_insurer:
+            raise ValueError("Fixture variants are mutually exclusive")
+        if extracted_insurer:
+            database = _FakeReportDatabase(
+                source=self.extracted_insurer_source,
+                assessment=self.extracted_insurer_assessment,
+                report=self.extracted_insurer_report,
+                pdf=self.extracted_insurer_pdf,
+            )
+        elif no_dispute:
             database = _FakeReportDatabase(
                 source=self.no_dispute_source,
                 assessment=self.no_dispute_assessment,
@@ -845,6 +872,65 @@ class ReportProcessingTests(unittest.TestCase):
             completion["report"]["identity"]["suggestedFilename"],
             completion["validation_manifest"]["filename"],
         )
+
+    def test_extracted_insurer_package_generation_reaches_report_review(
+        self,
+    ) -> None:
+        database = self._database(extracted_insurer=True)
+        reviewer = _FakeReviewer()
+        package_result = PackageExecutionResult(
+            state="completed",
+            work_item_id=PACKAGE_WORK_ITEM_ID,
+            package_job_id=database.package_job_id,
+            package_status="assessment_ready",
+            attempt_count=1,
+            source_snapshot_id=database.source_snapshot_id,
+            final_assessment_id=database.final_assessment_id,
+        )
+        package_processor = _StaticPackageProcessor(package_result)
+        report_processor = self._review_processor(
+            database,
+            reviewer=reviewer,
+        )
+        processor = TotalLossWorkItemProcessor(
+            database,
+            package_processor,  # type: ignore[arg-type]
+            report_processor,
+        )
+
+        completed_package = processor.execute(PACKAGE_WORK_ITEM_ID)
+        database.work_kind = (
+            REPORT_GENERATION_WORK_TYPE,
+            REPORT_WORK_VERSION,
+        )
+        generated = processor.execute(GENERATION_WORK_ITEM_ID)
+        completion = database.generation_completions[0]
+        database.report = ValuationEvidenceReportV1.from_dict(
+            completion["report"]
+        )
+        database.pdf = database.uploads[0]["pdf"]
+        database.pdf_manifest = completion["validation_manifest"]
+        database.work_kind = (REPORT_REVIEW_WORK_TYPE, REPORT_WORK_VERSION)
+        reviewed = processor.execute(REVIEW_WORK_ITEM_ID)
+
+        self.assertIs(completed_package, package_result)
+        self.assertEqual(generated.package_status, "waiting_ai_review")
+        self.assertEqual(reviewed.package_status, "ready")
+        self.assertEqual(reviewed.release_disposition, AUTO_RELEASE_SUPPORTABLE)
+        self.assertEqual(database.work_failures, [])
+        self.assertEqual(len(reviewer.requests), 1)
+        request = reviewer.requests[0]
+        self.assertIsNone(
+            request.source_snapshot["input"]["confirmedFacts"]["insurerName"]
+        )
+        reference = next(
+            row
+            for row in request.report["sourceEvidenceIndex"]
+            if row["jsonPointer"]
+            == "/extraction/normalizedReport/report/insurer"
+        )
+        self.assertEqual(reference["evidenceLabel"], INSURER_EXTRACTED)
+        self.assertIn(reference["evidenceId"], request.available_evidence_ids)
 
     def test_generation_rejects_claim_and_context_locator_disagreement(
         self,

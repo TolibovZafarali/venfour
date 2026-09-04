@@ -70,6 +70,8 @@ class ValuationEvidenceReportTests(TemporaryRepositoryTestCase):
         prices: tuple[int, ...] = MATERIAL_PRICES,
         mode: str = "REPORT",
         source_document_instruction: str | None = None,
+        confirmed_insurer_name: str | None = "Synthetic Insurance",
+        extracted_insurer_name: str | None = None,
     ) -> tuple[Any, Any]:
         self.fixture_number += 1
         report = make_report()
@@ -136,7 +138,7 @@ class ValuationEvidenceReportTests(TemporaryRepositoryTestCase):
             "mileage": vehicle["mileage"],
             "postalCode": vehicle["postalCode"],
             "lossDate": vehicle["lossDate"],
-            "insurerName": "Synthetic Insurance",
+            "insurerName": confirmed_insurer_name,
             "insurerVehicleValuationMinorUnits": visible["insurerValuation"][
                 "value"
             ]["cents"],
@@ -172,6 +174,8 @@ class ValuationEvidenceReportTests(TemporaryRepositoryTestCase):
                 "pageCount": 12,
                 "sha256": "a" * 64,
             }
+            normalized_report = normalize_ccc_report(report)
+            normalized_report["report"]["insurer"] = extracted_insurer_name
             extraction = {
                 "rowSchemaVersion": "1",
                 "wrapperSchemaVersion": "1",
@@ -184,7 +188,7 @@ class ValuationEvidenceReportTests(TemporaryRepositoryTestCase):
                 "missingRequiredFields": [],
                 "model": "fixture-extractor-1",
                 "extractedAt": "2026-08-20T10:01:00Z",
-                "normalizedReport": normalize_ccc_report(report),
+                "normalizedReport": normalized_report,
                 "documentSha256": "a" * 64,
             }
         source = build_total_loss_source_snapshot_v1(
@@ -218,11 +222,15 @@ class ValuationEvidenceReportTests(TemporaryRepositoryTestCase):
         version: int = 1,
         report_version_id: str = REPORT_VERSION_ID,
         source_document_instruction: str | None = None,
+        confirmed_insurer_name: str | None = "Synthetic Insurance",
+        extracted_insurer_name: str | None = None,
     ) -> tuple[Any, Any, ValuationEvidenceReportV1]:
         source, assessment = self._source(
             prices=prices,
             mode=mode,
             source_document_instruction=source_document_instruction,
+            confirmed_insurer_name=confirmed_insurer_name,
+            extracted_insurer_name=extracted_insurer_name,
         )
         report = build_valuation_evidence_report_v1(
             source_snapshot=source,
@@ -332,6 +340,50 @@ class ValuationEvidenceReportTests(TemporaryRepositoryTestCase):
         self.assertEqual(year["evidenceLabel"], CUSTOMER_SUPPLIED)
         pdf = render_valuation_evidence_report_pdf_v1(report)
         validate_valuation_evidence_report_pdf_v1(pdf, report)
+
+    def test_extracted_insurer_name_has_distinct_frozen_provenance(self) -> None:
+        source, assessment, report = self._report(
+            confirmed_insurer_name=None,
+            extracted_insurer_name="Extracted Insurance",
+        )
+        payload = report.to_dict()
+        name = payload["insurerValuationReviewed"]["insurerName"]
+
+        self.assertIsNone(source.input["confirmedFacts"]["insurerName"])
+        self.assertEqual(name["value"], "Extracted Insurance")
+        self.assertEqual(name["evidenceLabel"], INSURER_EXTRACTED)
+        reference = next(
+            row
+            for row in payload["sourceEvidenceIndex"]
+            if row["evidenceId"] == name["evidenceIds"][0]
+        )
+        self.assertEqual(
+            reference["jsonPointer"],
+            "/extraction/normalizedReport/report/insurer",
+        )
+        self.assertEqual(reference["sourceIdentity"], "insurerName")
+        self.assertEqual(reference["evidenceLabel"], INSURER_EXTRACTED)
+        validate_valuation_evidence_report_v1(
+            report,
+            source_snapshot=source,
+            final_assessment=assessment,
+        )
+
+    def test_missing_insurer_name_cannot_mint_report_local_evidence(self) -> None:
+        _, _, report = self._report(
+            confirmed_insurer_name=None,
+            extracted_insurer_name=None,
+        )
+        payload = report.to_dict()
+        name = payload["insurerValuationReviewed"]["insurerName"]
+
+        self.assertIsNone(name["value"])
+        self.assertEqual(name["evidenceLabel"], UNAVAILABLE)
+        self.assertEqual(name["evidenceIds"], [])
+        self.assertNotIn(
+            "/extraction/normalizedReport/report/insurer",
+            {row["jsonPointer"] for row in payload["sourceEvidenceIndex"]},
+        )
 
     def test_non_supportable_and_review_required_results_are_truthful(self) -> None:
         _, _, no_dispute = self._report(prices=CONSISTENT_PRICES)

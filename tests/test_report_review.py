@@ -39,6 +39,8 @@ from venfour.report_review import (
     validate_report_review_input_v1,
 )
 from venfour.valuation_evidence_report import (
+    CUSTOMER_SUPPLIED,
+    INSURER_EXTRACTED,
     render_valuation_evidence_report_pdf_v1,
     validate_valuation_evidence_report_pdf_v1,
 )
@@ -157,21 +159,47 @@ class ReportReviewFixture(unittest.TestCase):
         pdf_text: str | None = None,
         source_document_included: bool = False,
     ):
-        source = cls.source.to_dict()
-        report = cls.report.to_dict()
+        return cls._build_request_for(
+            cls.source,
+            cls.assessment,
+            cls.report,
+            cls.pdf,
+            pdf_text=pdf_text,
+            source_document_included=source_document_included,
+        )
+
+    @classmethod
+    def _build_request_for(
+        cls,
+        source_value,
+        assessment_value,
+        report_value,
+        pdf: bytes,
+        *,
+        pdf_text: str | None = None,
+        source_document_included: bool = False,
+    ):
+        source = source_value.to_dict()
+        report = report_value.to_dict()
+        pdf_manifest = validate_valuation_evidence_report_pdf_v1(
+            pdf, report_value
+        ).to_dict()
+        if pdf_text is None:
+            with pymupdf.open(stream=pdf, filetype="pdf") as document:
+                pdf_text = "\n".join(page.get_text("text") for page in document)
         return build_report_review_input_v1(
             case_id=source["lineage"]["caseId"],
             source_snapshot_id=source["lineage"]["sourceSnapshotId"],
             final_assessment_id=_report_fixture.FINAL_ASSESSMENT_ID,
             report_version_id=_report_fixture.REPORT_VERSION_ID,
             source_snapshot=source,
-            final_assessment=cls.assessment.to_dict(),
+            final_assessment=assessment_value.to_dict(),
             report=report,
             report_digest=report["reportDigest"],
-            pdf_digest=hashlib.sha256(cls.pdf).hexdigest(),
-            pdf_extracted_text=pdf_text or cls.pdf_text,
+            pdf_digest=hashlib.sha256(pdf).hexdigest(),
+            pdf_extracted_text=pdf_text,
             deterministic_validation_manifest=cls.deterministic_manifest,
-            pdf_validation_manifest=cls.pdf_manifest,
+            pdf_validation_manifest=pdf_manifest,
             source_document_included=source_document_included,
         )
 
@@ -424,6 +452,146 @@ class ReportReviewContractTests(ReportReviewFixture):
                 deterministic_validation_manifest=self.deterministic_manifest,
                 pdf_validation_manifest=self.pdf_manifest,
             )
+
+    def test_extracted_insurer_reference_crosses_the_review_input_boundary(
+        self,
+    ) -> None:
+        source, assessment, report = self._fixture_helper._report(
+            confirmed_insurer_name=None,
+            extracted_insurer_name="Extracted Insurance",
+        )
+        pdf = render_valuation_evidence_report_pdf_v1(report)
+
+        request = self._build_request_for(source, assessment, report, pdf)
+        validate_report_review_input_v1(request)
+
+        source_payload = source.to_dict()
+        self.assertIsNone(
+            source_payload["input"]["confirmedFacts"]["insurerName"]
+        )
+        extracted_reference = next(
+            row
+            for row in request.report["sourceEvidenceIndex"]
+            if row["jsonPointer"]
+            == "/extraction/normalizedReport/report/insurer"
+        )
+        self.assertEqual(
+            extracted_reference["evidenceLabel"], INSURER_EXTRACTED
+        )
+        self.assertIn(
+            extracted_reference["evidenceId"], request.available_evidence_ids
+        )
+
+    def test_extracted_report_local_reference_remains_strictly_allowlisted(
+        self,
+    ) -> None:
+        source, assessment, generated = self._fixture_helper._report(
+            confirmed_insurer_name=None,
+            extracted_insurer_name="Extracted Insurance",
+        )
+        pdf = render_valuation_evidence_report_pdf_v1(generated)
+        source_payload = source.to_dict()
+
+        def rebind_reference(row: dict) -> None:
+            payload = {
+                "sourceSnapshotDigest": source_payload["snapshotDigest"],
+                "sourceArtifact": row["sourceArtifact"],
+                "jsonPointer": row["jsonPointer"],
+                "sourceIdentity": row["sourceIdentity"],
+                "evidenceLabel": row["evidenceLabel"],
+                "locationPrecision": row["locationPrecision"],
+                "pageNumber": row["pageNumber"],
+            }
+            row["evidenceId"] = f"ref_{canonical_package_digest(payload)}"
+
+        for name, mutate in (
+            (
+                "wrong-label",
+                lambda row: row.update(evidenceLabel=CUSTOMER_SUPPLIED),
+            ),
+            (
+                "wrong-identity",
+                lambda row: row.update(sourceIdentity="insurer"),
+            ),
+            (
+                "unsupported-extraction-path",
+                lambda row: row.update(
+                    jsonPointer="/extraction/normalizedReport/report/provider"
+                ),
+            ),
+        ):
+            with self.subTest(name=name):
+                report = generated.to_dict()
+                reference = next(
+                    row
+                    for row in report["sourceEvidenceIndex"]
+                    if row["jsonPointer"]
+                    == "/extraction/normalizedReport/report/insurer"
+                )
+                mutate(reference)
+                rebind_reference(reference)
+                report["insurerValuationReviewed"]["insurerName"][
+                    "evidenceIds"
+                ] = [reference["evidenceId"]]
+                unsigned = {
+                    key: value
+                    for key, value in report.items()
+                    if key != "reportDigest"
+                }
+                report["reportDigest"] = canonical_package_digest(unsigned)
+
+                with self.assertRaisesRegex(
+                    ReportReviewInputError,
+                    "Report-local evidence reference is invalid",
+                ) as raised:
+                    build_report_review_input_v1(
+                        case_id=source_payload["lineage"]["caseId"],
+                        source_snapshot_id=source_payload["lineage"][
+                            "sourceSnapshotId"
+                        ],
+                        final_assessment_id=_report_fixture.FINAL_ASSESSMENT_ID,
+                        report_version_id=_report_fixture.REPORT_VERSION_ID,
+                        source_snapshot=source_payload,
+                        final_assessment=assessment.to_dict(),
+                        report=report,
+                        report_digest=report["reportDigest"],
+                        pdf_digest=hashlib.sha256(pdf).hexdigest(),
+                        pdf_extracted_text="Rendered report text",
+                        deterministic_validation_manifest=(
+                            self.deterministic_manifest
+                        ),
+                        pdf_validation_manifest=(
+                            validate_valuation_evidence_report_pdf_v1(
+                                pdf, generated
+                            ).to_dict()
+                        ),
+                    )
+                self.assertEqual(raised.exception.code, "REPORT_REVIEW_INPUT_INVALID")
+
+    def test_confirmed_and_manual_insurer_references_remain_customer_supplied(
+        self,
+    ) -> None:
+        validate_report_review_input_v1(self.request)
+        confirmed_reference = next(
+            row
+            for row in self.request.report["sourceEvidenceIndex"]
+            if row["jsonPointer"] == "/input/confirmedFacts/insurerName"
+        )
+        self.assertEqual(
+            confirmed_reference["evidenceLabel"], CUSTOMER_SUPPLIED
+        )
+
+        source, assessment, report = self._fixture_helper._report(mode="MANUAL")
+        pdf = render_valuation_evidence_report_pdf_v1(report)
+        manual_request = self._build_request_for(source, assessment, report, pdf)
+
+        validate_report_review_input_v1(manual_request)
+        manual_reference = next(
+            row
+            for row in manual_request.report["sourceEvidenceIndex"]
+            if row["jsonPointer"] == "/input/confirmedFacts/insurerName"
+        )
+        self.assertEqual(manual_reference["evidenceLabel"], CUSTOMER_SUPPLIED)
 
 
 class _FakeResponses:

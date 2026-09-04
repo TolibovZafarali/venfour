@@ -53,6 +53,12 @@ from venfour.package_assessment import (
     validate_final_valuation_assessment_v1,
     validate_total_loss_source_snapshot_v1,
 )
+from venfour.report_evidence import (
+    CUSTOMER_SUPPLIED,
+    INSURER_EXTRACTED,
+    REPORT_LOCAL_SOURCE_ARTIFACT,
+    resolve_report_local_evidence_source,
+)
 
 
 REPORT_SCHEMA_VERSION = "1"
@@ -63,8 +69,6 @@ REPORT_TITLE = "Venfour Total-Loss Valuation Evidence Package"
 REPORT_STORAGE_FILENAME = "valuation-evidence-package.pdf"
 
 VERIFIED_FACT = "VERIFIED_FACT"
-CUSTOMER_SUPPLIED = "CUSTOMER_SUPPLIED"
-INSURER_EXTRACTED = "INSURER_EXTRACTED"
 MARKET_EVIDENCE = "MARKET_EVIDENCE"
 AUTOMATED_CALCULATION = "AUTOMATED_CALCULATION"
 ASSUMPTION = "ASSUMPTION"
@@ -373,36 +377,43 @@ def _local_reference(
     source: Mapping[str, Any],
     *,
     pointer: str,
-    identity: str,
-    evidence_label: str,
 ) -> dict[str, Any]:
+    resolved = resolve_report_local_evidence_source(source, pointer)
+    if resolved is None:
+        raise _failure(
+            "Report-local provenance is unsupported",
+            "REPORT_PROVENANCE_INVALID",
+            (pointer,),
+        )
     payload = {
         "sourceSnapshotDigest": source["snapshotDigest"],
-        "sourceArtifact": "SOURCE_SNAPSHOT",
+        "sourceArtifact": REPORT_LOCAL_SOURCE_ARTIFACT,
         "jsonPointer": pointer,
-        "sourceIdentity": identity,
-        "evidenceLabel": evidence_label,
+        "sourceIdentity": resolved.source_identity,
+        "evidenceLabel": resolved.evidence_label,
         "locationPrecision": "JSON_POINTER",
         "pageNumber": None,
     }
     return {
         "evidenceId": f"ref_{canonical_package_digest(payload)}",
-        "evidenceLabel": evidence_label,
-        "sourceArtifact": "SOURCE_SNAPSHOT",
+        "evidenceLabel": resolved.evidence_label,
+        "sourceArtifact": REPORT_LOCAL_SOURCE_ARTIFACT,
         "jsonPointer": pointer,
-        "sourceIdentity": identity,
+        "sourceIdentity": resolved.source_identity,
         "locationPrecision": "JSON_POINTER",
         "pageNumber": None,
     }
 
 
 def _insurer_name_evidence(source: Mapping[str, Any]):
-    name = source["input"]["confirmedFacts"].get("insurerName")
-    if name is not None:
-        return name, "/input/confirmedFacts/insurerName", CUSTOMER_SUPPLIED
-    extraction = source.get("extraction")
-    name = extraction["normalizedReport"]["report"].get("insurer") if extraction else None
-    return name, "/extraction/normalizedReport/report/insurer", INSURER_EXTRACTED
+    for pointer in (
+        "/input/confirmedFacts/insurerName",
+        "/extraction/normalizedReport/report/insurer",
+    ):
+        resolved = resolve_report_local_evidence_source(source, pointer)
+        if resolved is not None:
+            return resolved.value, pointer, resolved.evidence_label
+    return None, "/extraction/normalizedReport/report/insurer", INSURER_EXTRACTED
 
 
 def _evidence_index(source: Mapping[str, Any]) -> list[dict[str, Any]]:
@@ -420,25 +431,23 @@ def _evidence_index(source: Mapping[str, Any]) -> list[dict[str, Any]]:
         for reference in source["evidenceManifest"]
     ]
     facts = source["input"]["confirmedFacts"]
-    for field, label in (
-        ("insurerName", CUSTOMER_SUPPLIED),
-        ("priorTitleStatus", CUSTOMER_SUPPLIED),
-        ("condition", CUSTOMER_SUPPLIED),
-        ("existingDamageDescription", CUSTOMER_SUPPLIED),
-        ("optionsPackages", CUSTOMER_SUPPLIED),
+    for field in (
+        "insurerName",
+        "priorTitleStatus",
+        "condition",
+        "existingDamageDescription",
+        "optionsPackages",
     ):
         if facts.get(field) is not None:
             rows.append(
                 _local_reference(
                     source,
                     pointer=f"/input/confirmedFacts/{field}",
-                    identity=field,
-                    evidence_label=label,
                 )
             )
     name, pointer, label = _insurer_name_evidence(source)
     if name is not None and label == INSURER_EXTRACTED:
-        rows.append(_local_reference(source, pointer=pointer, identity="insurerName", evidence_label=label))
+        rows.append(_local_reference(source, pointer=pointer))
     unique = {row["evidenceId"]: row for row in rows}
     return sorted(unique.values(), key=lambda row: row["evidenceId"])
 
