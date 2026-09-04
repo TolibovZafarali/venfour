@@ -5,7 +5,8 @@ import type { Session } from "@supabase/supabase-js";
 import { describe, expect, it, vi } from "vitest";
 
 import type { AuthService } from "@/features/auth";
-import { representativeRunId } from "@/test/fixtures/analysis-presentation";
+import type { AnalysisPresentationBase } from "@/features/analyses/analysis-presentation.generated";
+import { materialUndervalueAnalysis, representativeRunId } from "@/test/fixtures/analysis-presentation";
 import { server } from "@/test/mocks/server";
 import { renderTestApp } from "@/test/render";
 
@@ -285,6 +286,7 @@ describe("total-loss case analysis page", () => {
   });
 
   it("offers intake review for a nonretryable failure", async () => {
+    let postCount = 0;
     server.use(
       http.get("*/api/v1/appraisal-cases/:caseId/analysis", () =>
         HttpResponse.json({
@@ -297,6 +299,10 @@ describe("total-loss case analysis page", () => {
           retryable: false,
         }),
       ),
+      http.post("*/api/v1/appraisal-cases/:caseId/analysis", () => {
+        postCount += 1;
+        return HttpResponse.json({ status: "not_submitted" });
+      }),
     );
 
     renderTestApp([casePath], {
@@ -307,11 +313,59 @@ describe("total-loss case analysis page", () => {
       await screen.findByRole("link", { name: "Review intake" }),
     ).toHaveAttribute(
       "href",
-      `/start?service=total-loss&caseId=${CASE_ID}`,
+      `/start?service=total-loss&caseId=${CASE_ID}&intent=correct-intake`,
     );
     expect(
       screen.queryByRole("button", { name: "Retry value check" }),
     ).not.toBeInTheDocument();
+    expect(postCount).toBe(0);
+  });
+
+  it("links a missing manual offer to correction of the same case without starting analysis", async () => {
+    const analysis: AnalysisPresentationBase = structuredClone(materialUndervalueAnalysis);
+    analysis.assessment.classification = "INSUFFICIENT_EVIDENCE";
+    analysis.analysisScope = {
+      ...analysis.analysisScope,
+      inputMode: "MANUAL",
+      reportAvailable: false,
+      insurerValuationAvailable: false,
+      insurerValuationComparisonPerformed: false,
+      offerComparisonPerformed: false,
+    };
+    analysis.insurerValuation = {
+      ...analysis.insurerValuation,
+      source: "NONE",
+      value: { cents: null, display: null },
+      comparisonToPrimaryEvidence: null,
+    };
+    analysis.findings = [{
+      code: "MISSING_CCC_VEHICLE_VALUATION",
+      label: "Insurer valuation or offer unavailable",
+      description: "No insurer valuation or stated offer is available.",
+    }];
+    let postCount = 0;
+    server.use(
+      http.get("*/api/v1/appraisal-cases/:caseId/analysis", () =>
+        HttpResponse.json({
+          status: "completed",
+          attemptCount: 1,
+          runId: representativeRunId,
+        }),
+      ),
+      http.get("*/api/v1/analyses/:runId", () => HttpResponse.json(analysis)),
+      http.post("*/api/v1/appraisal-cases/:caseId/analysis", () => {
+        postCount += 1;
+        return HttpResponse.json({ status: "not_submitted" });
+      }),
+    );
+
+    renderTestApp([casePath], { authService: authService(sessionFor()) });
+
+    expect(await screen.findByRole("link", { name: "Add insurer offer" })).toHaveAttribute(
+      "href",
+      `/start?service=total-loss&caseId=${CASE_ID}&intent=correct-intake&focus=insurer-offer`,
+    );
+    expect(postCount).toBe(0);
   });
 
   it("returns to appraisals for a nonretryable provider failure", async () => {
@@ -472,7 +526,7 @@ describe("total-loss case analysis page", () => {
       screen.getByRole("link", { name: "Replace report" }),
     ).toHaveAttribute(
       "href",
-      `/start?service=total-loss&caseId=${CASE_ID}`,
+      `/start?service=total-loss&caseId=${CASE_ID}&intent=correct-intake`,
     );
   });
 });

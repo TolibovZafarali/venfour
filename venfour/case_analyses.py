@@ -689,6 +689,144 @@ class CaseAnalysisService:
         canonical_user_id = _canonical_uuid(user_id, "User ID")
         return self._read_status(canonical_case_id, canonical_user_id)
 
+    def prepare_intake_correction(
+        self, case_id: str, user_id: str, analysis_input_id: str
+    ) -> Mapping[str, str]:
+        canonical_case_id = _path_uuid(case_id, "INVALID_CASE_ID")
+        canonical_user_id = _canonical_uuid(user_id, "User ID")
+        expected_input_id = _path_uuid(
+            analysis_input_id, "INVALID_INTAKE_CORRECTION_REQUEST"
+        )
+        read_context = getattr(
+            self._gateway, "get_total_loss_intake_correction_context", None
+        )
+        reopen = getattr(
+            self._gateway, "reopen_total_loss_intake_for_correction", None
+        )
+        if not callable(read_context) or not callable(reopen):
+            raise CaseAnalysisUnavailableError("Intake correction is unavailable")
+        try:
+            context = read_context(canonical_case_id, canonical_user_id)
+            if context is None:
+                raise CaseAnalysisNotFoundError("Case was not found")
+            if (
+                not isinstance(context, Mapping)
+                or context.get("case_id") != canonical_case_id
+                or context.get("user_id") != canonical_user_id
+            ):
+                raise CaseAnalysisContractError("Intake correction context is invalid")
+            if (
+                context.get("has_workflow") is not False
+                or context.get("status") not in {"draft", "check_complete"}
+                or context.get("analysis_input_id") != expected_input_id
+                or not context.get("intake_completed_at")
+            ):
+                raise CaseAnalysisConflictError("INTAKE_CORRECTION_UNAVAILABLE")
+            row = self._gateway.get_total_loss_analysis_status(
+                canonical_case_id, canonical_user_id
+            )
+            if (
+                not isinstance(row, Mapping)
+                or row.get("analysis_input_id") != expected_input_id
+                or row.get("analysis_input_revision")
+                != context.get("analysis_input_revision")
+            ):
+                raise CaseAnalysisConflictError("INTAKE_CORRECTION_UNAVAILABLE")
+            status = self._status_from_row(row)
+            if status.status == "failed":
+                if context.get("status") != "draft" or status.retryable is not False:
+                    raise CaseAnalysisConflictError("INTAKE_CORRECTION_UNAVAILABLE")
+            elif (
+                status.status == "not_submitted"
+                and context.get("status") == "draft"
+                and context.get("intake_mode") in {"manual", "report"}
+                and row.get("intake_mode") == context.get("intake_mode")
+            ):
+                # Confirmation can commit before the analysis request arrives;
+                # report replacement leases can also retain confirmed input.
+                # Preparation preserves those drafts without claiming work.
+                pass
+            elif status.status == "completed":
+                snapshot = row.get("input_snapshot")
+                if (
+                    context.get("intake_mode") != "manual"
+                    or context.get("insurer_vehicle_valuation") is not None
+                    or row.get("intake_mode") != "manual"
+                    or not isinstance(snapshot, Mapping)
+                    or snapshot.get("case_id") != canonical_case_id
+                    or snapshot.get("analysis_input_id") != expected_input_id
+                    or snapshot.get("analysis_input_revision")
+                    != context.get("analysis_input_revision")
+                    or snapshot.get("intake_mode") != "manual"
+                    or "insurer_vehicle_valuation" not in snapshot
+                    or snapshot.get("insurer_vehicle_valuation") is not None
+                ):
+                    raise CaseAnalysisConflictError("INTAKE_CORRECTION_UNAVAILABLE")
+                presentation = self.get_presentation(status.run_id, canonical_user_id)
+                assessment = presentation.get("assessment")
+                scope = presentation.get("analysisScope")
+                findings = presentation.get("findings")
+                insurer_value = presentation.get("insurerValuation")
+                primary = presentation.get("primaryExternalEvidence")
+                prices = primary.get("prices") if isinstance(primary, Mapping) else None
+                range_available = (
+                    isinstance(prices, Mapping)
+                    and all(
+                        isinstance(prices.get(key), Mapping)
+                        and isinstance(prices[key].get("cents"), int)
+                        and not isinstance(prices[key].get("cents"), bool)
+                        and prices[key]["cents"] >= 0
+                        for key in ("minimumPrice", "medianPrice", "maximumPrice")
+                    )
+                    and prices["medianPrice"]["cents"] > 0
+                )
+                if (
+                    not isinstance(assessment, Mapping)
+                    or assessment.get("classification") != "INSUFFICIENT_EVIDENCE"
+                    or not isinstance(scope, Mapping)
+                    or scope.get("inputMode") != "MANUAL"
+                    or scope.get("reportAvailable") is not False
+                    or scope.get("insurerValuationAvailable") is not False
+                    or scope.get("insurerValuationComparisonPerformed") is not False
+                    or scope.get("marketEvidenceAvailable") is not True
+                    or not range_available
+                    or not isinstance(insurer_value, Mapping)
+                    or insurer_value.get("source") != "NONE"
+                    or not isinstance(insurer_value.get("value"), Mapping)
+                    or insurer_value["value"].get("cents") is not None
+                    or not isinstance(findings, list)
+                    or not any(
+                        isinstance(finding, Mapping)
+                        and finding.get("code") == "MISSING_CCC_VEHICLE_VALUATION"
+                        for finding in findings
+                    )
+                    or any(
+                        isinstance(finding, Mapping)
+                        and finding.get("code") in {
+                            "INSUFFICIENT_RESOLVED_EXTERNAL_EVIDENCE", "EXTERNAL_MEDIAN_ZERO"
+                        }
+                        for finding in findings
+                    )
+                ):
+                    raise CaseAnalysisConflictError("INTAKE_CORRECTION_UNAVAILABLE")
+                if context.get("status") == "check_complete":
+                    # Completed inputs are immutable. The parent version fence
+                    # rejects ownership/state changes while this exact result is
+                    # checked; insufficient results cannot initialize claim work.
+                    if not reopen(
+                        canonical_case_id, canonical_user_id, context.get("updated_at")
+                    ):
+                        raise CaseAnalysisConflictError("INTAKE_CORRECTION_UNAVAILABLE")
+            else:
+                raise CaseAnalysisConflictError("INTAKE_CORRECTION_UNAVAILABLE")
+        except SupabaseGatewayError as exc:
+            raise CaseAnalysisUnavailableError("Intake correction is unavailable") from exc
+        except AnalysisRunRepositoryError as exc:
+            raise CaseAnalysisUnavailableError("Intake correction is unavailable") from exc
+        except AnalysisRunContractError as exc:
+            raise CaseAnalysisContractError("Intake correction result is invalid") from exc
+        return {"caseId": canonical_case_id, "analysisInputId": expected_input_id}
+
     @staticmethod
     def _claimed_field(row: Mapping[str, Any], key: str, label: str) -> str:
         return _canonical_uuid(row.get(key), label, version_four=True)

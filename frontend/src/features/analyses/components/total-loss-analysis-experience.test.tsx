@@ -1,5 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { MemoryRouter } from "react-router";
 import { describe, expect, it } from "vitest";
 
 import type {
@@ -23,6 +24,32 @@ function analysisFor(
       classification,
     },
   } as AnalysisPresentation;
+}
+
+function manualAnalysisWithoutOffer(): AnalysisPresentationBase {
+  const analysis: AnalysisPresentationBase = structuredClone(
+    analysisFor("INSUFFICIENT_EVIDENCE"),
+  );
+  analysis.analysisScope = {
+    ...analysis.analysisScope,
+    inputMode: "MANUAL",
+    reportAvailable: false,
+    insurerValuationAvailable: false,
+    insurerValuationComparisonPerformed: false,
+    offerComparisonPerformed: false,
+  };
+  analysis.insurerValuation = {
+    ...analysis.insurerValuation,
+    source: "NONE",
+    value: { cents: null, display: null },
+    comparisonToPrimaryEvidence: null,
+  };
+  analysis.findings = [{
+    code: "MISSING_CCC_VEHICLE_VALUATION",
+    label: "Insurer valuation or offer unavailable",
+    description: "No insurer valuation or stated offer is available.",
+  }];
+  return analysis;
 }
 
 describe("total-loss analysis experience", () => {
@@ -205,6 +232,83 @@ describe("total-loss analysis experience", () => {
     ).toBeVisible();
     expect(screen.getByText("Based on current advertised prices.")).toBeVisible();
     expect(screen.queryByText("Insurer’s valuation")).not.toBeInTheDocument();
+  });
+
+  it("offers intake correction when the missing manual offer alone blocks comparison", () => {
+    const correctionPath = "/start?service=total-loss&caseId=saved-case&intent=correct-intake&focus=insurer-offer";
+    render(
+      <MemoryRouter>
+        <TotalLossAnalysisResult
+          analysis={manualAnalysisWithoutOffer() as AnalysisPresentation}
+          addInsurerOfferPath={correctionPath}
+        />
+      </MemoryRouter>,
+    );
+
+    expect(
+      screen.getByRole("heading", { name: "Your insurer’s offer completes the picture." }),
+    ).toBeVisible();
+    expect(screen.getByRole("link", { name: "Add insurer offer" })).toHaveAttribute(
+      "href",
+      correctionPath,
+    );
+    expect(screen.queryByRole("button", { name: "Continue my review" })).not.toBeInTheDocument();
+  });
+
+  it.each([
+    "report intake",
+    "existing offer",
+    "missing market range",
+    "unavailable market evidence",
+    "insufficient independent evidence",
+    "zero market median",
+    "missing authoritative reason",
+    "unrelated classification",
+  ])("does not offer missing-offer recovery for %s", (scenario) => {
+    const analysis = manualAnalysisWithoutOffer();
+    if (scenario === "report intake") {
+      analysis.analysisScope.inputMode = "REPORT";
+      analysis.analysisScope.reportAvailable = true;
+    } else if (scenario === "existing offer") {
+      analysis.analysisScope.insurerValuationAvailable = true;
+      analysis.insurerValuation.source = "CUSTOMER_ENTERED";
+      analysis.insurerValuation.value = { cents: 2_000_000, display: "$20,000.00" };
+    } else if (scenario === "missing market range") {
+      analysis.primaryExternalEvidence = null;
+    } else if (scenario === "unavailable market evidence") {
+      analysis.analysisScope.marketEvidenceAvailable = false;
+    } else if (scenario === "insufficient independent evidence" || scenario === "zero market median") {
+      analysis.findings.push({
+        code: scenario === "insufficient independent evidence"
+          ? "INSUFFICIENT_RESOLVED_EXTERNAL_EVIDENCE"
+          : "EXTERNAL_MEDIAN_ZERO",
+        label: "External evidence is not sufficient",
+        description: "The available market evidence cannot support a comparison.",
+      });
+    } else if (scenario === "missing authoritative reason") {
+      analysis.findings = [];
+    } else {
+      analysis.assessment.classification = "CONFLICTING_EVIDENCE";
+    }
+
+    render(
+      <MemoryRouter>
+        <TotalLossAnalysisResult
+          analysis={analysis as AnalysisPresentation}
+          addInsurerOfferPath="/start?service=total-loss&caseId=saved-case&intent=correct-intake&focus=insurer-offer"
+        />
+      </MemoryRouter>,
+    );
+
+    expect(screen.queryByRole("link", { name: "Add insurer offer" })).not.toBeInTheDocument();
+  });
+
+  it("does not invent an intake destination without the saved case context", () => {
+    render(
+      <TotalLossAnalysisResult analysis={manualAnalysisWithoutOffer() as AnalysisPresentation} />,
+    );
+
+    expect(screen.queryByRole("link", { name: "Add insurer offer" })).not.toBeInTheDocument();
   });
 
   it.each([

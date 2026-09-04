@@ -11,6 +11,10 @@ import {
   type AppraisalServiceSlug,
 } from "@/features/intake";
 import { NEW_TOTAL_LOSS_CASE_QUERY_PARAMETER } from "@/features/total-loss/new-appraisal";
+import {
+  readTotalLossIntakeCorrectionIntent,
+  TOTAL_LOSS_INTAKE_CORRECTION_INTENT,
+} from "@/features/total-loss/intake-correction";
 import { TotalLossIntakeFlow } from "@/pages/total-loss-start-page";
 
 const DEFAULT_SERVICE: AppraisalServiceSlug = "total-loss";
@@ -22,9 +26,12 @@ function serviceFromSearch(search: string): AppraisalServiceSlug {
 }
 
 function mobileViewFromSearch(search: string): MobileStartView {
-  return new URLSearchParams(search).get("view") === "intake"
-    ? "intake"
-    : "overview";
+  const view = new URLSearchParams(search).get("view");
+  if (view === "intake") return "intake";
+  if (view !== "overview" && readTotalLossIntakeCorrectionIntent(search)) {
+    return "intake";
+  }
+  return "overview";
 }
 
 export function AppraisalStartPage() {
@@ -32,6 +39,9 @@ export function AppraisalStartPage() {
   const navigate = useNavigate();
   const service = serviceFromSearch(location.search);
   const mobileView = mobileViewFromSearch(location.search);
+  const correctingTotalLossIntake =
+    service === "total-loss" &&
+    Boolean(readTotalLossIntakeCorrectionIntent(location.search));
   const [totalLossBusy, setTotalLossBusy] = useState(false);
   const [diminishedValueBusy, setDiminishedValueBusy] = useState(false);
 
@@ -75,6 +85,10 @@ export function AppraisalStartPage() {
     params.delete("view");
     params.delete("caseId");
     params.delete(NEW_TOTAL_LOSS_CASE_QUERY_PARAMETER);
+    if (params.get("intent") === TOTAL_LOSS_INTAKE_CORRECTION_INTENT) {
+      params.delete("intent");
+      params.delete("focus");
+    }
 
     void navigate(
       {
@@ -101,7 +115,11 @@ export function AppraisalStartPage() {
     if (mobileView === "overview") return;
 
     const params = new URLSearchParams(location.search);
-    params.delete("view");
+    if (correctingTotalLossIntake) {
+      params.set("view", "overview");
+    } else {
+      params.delete("view");
+    }
 
     void navigate(
       {
@@ -132,21 +150,23 @@ export function AppraisalStartPage() {
       }
       eyebrow={
         totalLossSelected
-          ? "Total Loss valuation"
+          ? correctingTotalLossIntake ? "Total Loss · Intake correction" : "Total Loss valuation"
           : diminishedValueIntakeAvailable
             ? "Manual diminished-value review"
             : "Diminished Value · Intake paused"
       }
       title={
         totalLossSelected
-          ? "Start your Total Loss review"
+          ? correctingTotalLossIntake ? "Review your saved Total Loss intake" : "Start your Total Loss review"
           : diminishedValueIntakeAvailable
             ? "Submit a diminished-value review request"
             : "Diminished Value intake is currently paused"
       }
       description={
         totalLossSelected
-          ? "Upload your insurer’s valuation report from any provider, or continue without one. Venfour will gather the facts needed for independent market research and a truthful evidence review."
+          ? correctingTotalLossIntake
+            ? "Review and correct the saved information for this same case, then resubmit when you’re ready."
+            : "Upload your insurer’s valuation report from any provider, or continue without one. Venfour will gather the facts needed for independent market research and a truthful evidence review."
           : diminishedValueIntakeAvailable
             ? "We’ll securely gather accident, repair, vehicle, and contact details for a future manual review. Submission does not create an automated appraisal or schedule an appointment."
             : "Diminished Value remains part of Venfour, but customer intake is not open. Venfour is completing the Total Loss experience first."

@@ -219,6 +219,10 @@ _ERROR_MESSAGES = {
     "ANALYSIS_CREATION_UNAVAILABLE": "Analysis creation is unavailable.",
     "ANALYSIS_CREATION_FAILED": "Analysis could not be created.",
     "INVALID_ANALYSIS_REQUEST": "Analysis request must not contain a body.",
+    "INVALID_INTAKE_CORRECTION_REQUEST": "Intake correction request is invalid.",
+    "INTAKE_CORRECTION_UNAVAILABLE": (
+        "This intake changed or is not available for correction. Refresh and try again."
+    ),
     "REPORT_INTAKE_REQUIRED": "Complete report intake before starting analysis.",
     "REPORT_INTAKE_NOT_READY": "Report intake is not ready for analysis.",
     "CASE_NOT_READY": "Appraisal case is not ready for analysis.",
@@ -1790,6 +1794,32 @@ async def _case_analysis_status(request: Request) -> JSONResponse:
     return _private_response(JSONResponse(status.to_dict()))
 
 
+async def _case_intake_correction(request: Request) -> JSONResponse:
+    identity = await _owned_identity(request)
+    if isinstance(identity, JSONResponse):
+        return _private_response(identity)
+    try:
+        payload = await _strict_json_object(
+            request, expected_keys={"analysisInputId"}, maximum_bytes=128
+        )
+    except CommerceInputError:
+        return _private_response(
+            _error_response(400, "INVALID_INTAKE_CORRECTION_REQUEST")
+        )
+    prepare = getattr(
+        request.app.state.case_analysis_service, "prepare_intake_correction", None
+    )
+    if not callable(prepare):
+        return _private_response(_error_response(503, "ANALYSIS_CREATION_UNAVAILABLE"))
+    try:
+        result = await run_in_threadpool(
+            prepare, request.path_params["case_id"], identity, payload["analysisInputId"]
+        )
+    except Exception as exc:
+        return _private_response(_case_analysis_error(exc))
+    return _private_response(JSONResponse(result))
+
+
 async def _case_analysis_submit(request: Request) -> JSONResponse:
     identity = await _owned_identity(request)
     if isinstance(identity, JSONResponse):
@@ -3039,6 +3069,11 @@ def create_app(
         Route(
             "/api/v1/appraisal-cases/{case_id}/report-ingestion",
             _case_report_ingestion,
+            methods=["POST"],
+        ),
+        Route(
+            "/api/v1/appraisal-cases/{case_id}/intake-correction",
+            _case_intake_correction,
             methods=["POST"],
         ),
         Route(

@@ -59,6 +59,93 @@ def configuration() -> SupabaseServerConfiguration:
 
 class SupabaseHttpGatewayTests(unittest.TestCase):
     @staticmethod
+    def intake_correction_row():
+        return {
+            "id": CASE_ID, "user_id": USER_ID, "status": "check_complete",
+            "updated_at": "2026-09-02T12:00:00.123456+00:00",
+            "total_loss_case_details": {
+                "analysis_input_id": TRIM_TOKEN_ID,
+                "analysis_input_revision": 2,
+                "intake_mode": "manual",
+                "insurer_vehicle_valuation": None,
+                "intake_completed_at": "2026-09-02T11:00:00+00:00",
+            },
+            "total_loss_claim_workflows": None,
+        }
+
+    def test_intake_correction_context_is_one_owner_scoped_read_without_contact_or_artifact(self):
+        requests = []
+        gateway, _ = self.gateway(lambda request: requests.append(request)
+            or httpx.Response(200, json=[self.intake_correction_row()]))
+        context = gateway.get_total_loss_intake_correction_context(CASE_ID, USER_ID)
+        self.assertEqual(context["analysis_input_id"], TRIM_TOKEN_ID)
+        self.assertFalse(context["has_workflow"])
+        self.assertEqual(len(requests), 1)
+        request = requests[0]
+        self.assertEqual(request.method, "GET")
+        self.assertEqual(request.url.path, "/rest/v1/appraisal_cases")
+        self.assertEqual(request.url.params["id"], f"eq.{CASE_ID}")
+        self.assertEqual(request.url.params["user_id"], f"eq.{USER_ID}")
+        self.assertEqual(request.url.params["service_type"], "eq.total_loss")
+        self.assertNotIn("email", request.url.params["select"])
+        self.assertNotIn("artifact", request.url.params["select"])
+        self.assertEqual(request.headers["authorization"], "Bearer service-role-test-key")
+
+    def test_intake_correction_context_treats_absent_owner_as_missing_and_rejects_wrong_response(self):
+        gateway, _ = self.gateway(lambda _request: httpx.Response(200, json=[]))
+        self.assertIsNone(gateway.get_total_loss_intake_correction_context(CASE_ID, USER_ID))
+        for change in ({"user_id": TOKEN_ID}, {"id": TOKEN_ID},
+                       {"total_loss_case_details": None},
+                       {"total_loss_claim_workflows": "bad"}):
+            with self.subTest(change=change):
+                gateway, _ = self.gateway(lambda _request: httpx.Response(200,
+                    json=[{**self.intake_correction_row(), **change}]))
+                with self.assertRaises(SupabaseContractError):
+                    gateway.get_total_loss_intake_correction_context(CASE_ID, USER_ID)
+
+    def test_intake_correction_reopen_changes_only_parent_status_with_exact_owner_and_version(self):
+        requests = []
+        gateway, _ = self.gateway(lambda request: requests.append(request)
+            or httpx.Response(200, json=[{"id": CASE_ID, "user_id": USER_ID, "status": "draft"}]))
+        version = "2026-09-02T12:00:00.123456+00:00"
+        self.assertTrue(gateway.reopen_total_loss_intake_for_correction(CASE_ID, USER_ID, version))
+        self.assertEqual(len(requests), 1)
+        request = requests[0]
+        self.assertEqual(request.method, "PATCH")
+        self.assertEqual(dict(request.url.params), {
+            "id": f"eq.{CASE_ID}", "user_id": f"eq.{USER_ID}",
+            "service_type": "eq.total_loss", "status": "eq.check_complete",
+            "updated_at": f"eq.{version}", "select": "id,user_id,status",
+        })
+        self.assertEqual(json.loads(request.content), {"status": "draft"})
+        self.assertEqual(request.headers["prefer"], "return=representation")
+        self.assertEqual(request.headers["authorization"], "Bearer service-role-test-key")
+
+    def test_intake_correction_reopen_conflict_is_not_retried_or_weakened(self):
+        requests = []
+        gateway, _ = self.gateway(lambda request: requests.append(request)
+            or httpx.Response(200, json=[]))
+        self.assertFalse(gateway.reopen_total_loss_intake_for_correction(
+            CASE_ID, USER_ID, "2026-09-02T12:00:00Z"))
+        self.assertEqual(len(requests), 1)
+        for version in (None, "", "2026-09-02T12:00:00", "invalid"):
+            with self.subTest(version=version):
+                with self.assertRaises(SupabaseContractError):
+                    gateway.reopen_total_loss_intake_for_correction(CASE_ID, USER_ID, version)
+        self.assertEqual(len(requests), 1)
+
+    def test_intake_correction_reopen_uncertain_write_remains_unavailable_without_replay(self):
+        requests = []
+        def handler(request):
+            requests.append(request)
+            raise httpx.ReadTimeout("uncertain", request=request)
+        gateway, _ = self.gateway(handler)
+        with self.assertRaises(SupabaseUnavailableError):
+            gateway.reopen_total_loss_intake_for_correction(
+                CASE_ID, USER_ID, "2026-09-02T12:00:00Z")
+        self.assertEqual(len(requests), 1)
+
+    @staticmethod
     def deliverable_locator() -> dict[str, str]:
         return {
             "storage_bucket_id": "case-deliverables",

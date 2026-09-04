@@ -1,6 +1,6 @@
 import { AlertCircle, CloudOff, RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useIsMutating, useQueryClient } from "@tanstack/react-query";
+import { useIsMutating, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useLocation, useNavigate } from "react-router";
 
 import { environment } from "@/config/env";
@@ -15,6 +15,7 @@ import {
   CURRENT_SERVICE_TERMS_VERSION,
 } from "@/features/customer-profile/types";
 import { TotalLossAnalysisProgress } from "@/features/analyses/components/total-loss-analysis-experience";
+import { caseAnalysisQueryKeys } from "@/features/analyses/case-analysis-queries";
 import { useCreateOrGetAppraisalCaseMutation } from "@/features/cases/mutations";
 import {
   appraisalCaseQueryKeys,
@@ -35,6 +36,7 @@ import {
 import type {
   CreateTotalLossDetailsValues,
   TotalLossCaseDetails,
+  TotalLossContact,
 } from "@/features/total-loss/data-types";
 import {
   hasUnpersistedTotalLossManualValues,
@@ -102,6 +104,12 @@ import {
   isNewTotalLossAppraisalIntentId,
   NEW_TOTAL_LOSS_CASE_QUERY_PARAMETER,
 } from "@/features/total-loss/new-appraisal";
+import {
+  readTotalLossIntakeCorrectionIntent,
+  TOTAL_LOSS_INTAKE_CORRECTION_INTENT,
+  type TotalLossIntakeCorrectionIntent,
+} from "@/features/total-loss/intake-correction";
+import { prepareTotalLossIntakeCorrection } from "@/features/total-loss/intake-correction-api";
 
 const AUTOSAVE_DELAY_MS = 600;
 const REPORT_EXTRACTION_FAILURE_WARNING =
@@ -147,6 +155,12 @@ interface InitialDraftState {
   readonly storageError: boolean;
 }
 
+interface IntakeCorrectionSnapshot {
+  readonly intent: TotalLossIntakeCorrectionIntent;
+  readonly details: TotalLossCaseDetails;
+  readonly contact: TotalLossContact | null;
+}
+
 interface TotalLossIntakeFlowProps {
   onBusyChange?: (busy: boolean) => void;
 }
@@ -189,6 +203,14 @@ function TotalLossDraftBootstrapGate({
       ),
     [location.search],
   );
+  const correctionIntent = useMemo(
+    () => readTotalLossIntakeCorrectionIntent(location.search),
+    [location.search],
+  );
+  const correctionRequested =
+    new URLSearchParams(location.search).get("intent") ===
+    TOTAL_LOSS_INTAKE_CORRECTION_INTENT;
+  const invalidCorrectionIntent = correctionRequested && !correctionIntent;
   const conflictingCaseIntents = Boolean(explicitCaseId && newCaseId);
   const invalidExplicitCaseId = Boolean(
     explicitCaseId && !UUID_PATTERN.test(explicitCaseId),
@@ -216,6 +238,7 @@ function TotalLossDraftBootstrapGate({
       dependencies &&
       newCaseId &&
       !explicitCaseId &&
+      !correctionRequested &&
       !invalidNewCaseId
         ? userId
         : null,
@@ -223,7 +246,9 @@ function TotalLossDraftBootstrapGate({
   const bootstrapQuery = useTotalLossDraftQuery({
     service: caseService,
     userId:
-      dependencies && !explicitCaseId && !newCaseId ? userId : null,
+      dependencies && !explicitCaseId && !newCaseId && !correctionRequested
+        ? userId
+        : null,
   });
   const explicitAppraisalCase = explicitCaseQuery.data;
   const reservedAppraisalCase = reservedCaseQuery.data;
@@ -233,7 +258,8 @@ function TotalLossDraftBootstrapGate({
     explicitAppraisalCase &&
     explicitAppraisalCase.userId === auth.user.id &&
     explicitAppraisalCase.serviceType === "total_loss" &&
-    explicitAppraisalCase.status === "draft",
+    (explicitAppraisalCase.status === "draft" ||
+      (correctionIntent && explicitAppraisalCase.status === "check_complete")),
   );
   const reservedCaseIsOwnedTotalLossDraft = Boolean(
     auth.status === "signedIn" &&
@@ -249,6 +275,7 @@ function TotalLossDraftBootstrapGate({
       : canonicalAppraisalCase;
   const showStartupChoice =
     !explicitCaseId &&
+    !correctionRequested &&
     !(storedDraft && (storedDraft.mode || hasMeaningfulManualDraft(storedDraft)));
   const startupDetailsQuery = useTotalLossDetailsQuery({
     service: dependencies?.totalLossDetailsService ?? null,
@@ -260,6 +287,36 @@ function TotalLossDraftBootstrapGate({
       appraisalCase?.status === "draft"
         ? appraisalCase.id
         : null,
+  });
+  const correctionCaseId =
+    correctionIntent && explicitCaseIsOwnedTotalLossDraft
+      ? correctionIntent.caseId
+      : null;
+  const correctionDetailsQuery = useTotalLossDetailsQuery({
+    service: dependencies?.totalLossDetailsService ?? null,
+    userId,
+    caseId: correctionCaseId,
+  });
+  const correctionContactQuery = useQuery({
+    queryKey: [
+      ...totalLossQueryKeys.user(userId),
+      "intakeCorrectionContact",
+      correctionCaseId,
+    ],
+    queryFn: async () => {
+      if (!correctionCaseId || !dependencies?.totalLossIdentityService) {
+        throw new Error("Saved contact details are unavailable.");
+      }
+      const contact = await dependencies.totalLossIdentityService.getContact(
+        correctionCaseId,
+      );
+      if (contact && contact.caseId !== correctionCaseId) {
+        throw new Error("Saved contact details did not match this appraisal.");
+      }
+      return contact;
+    },
+    enabled: Boolean(correctionCaseId),
+    retry: false,
   });
   const pendingContent = showStartupChoice ? (
     <IntakeStepTransition transitionKey="choice" direction="forward">
@@ -372,7 +429,8 @@ function TotalLossDraftBootstrapGate({
   if (
     invalidExplicitCaseId ||
     invalidNewCaseId ||
-    conflictingCaseIntents
+    conflictingCaseIntents ||
+    invalidCorrectionIntent
   ) {
     return <UnavailableCaseCard />;
   }
@@ -416,7 +474,8 @@ function TotalLossDraftBootstrapGate({
     !appraisalCase ||
     appraisalCase.userId !== auth.user.id ||
     appraisalCase.serviceType !== "total_loss" ||
-    appraisalCase.status !== "draft"
+    (appraisalCase.status !== "draft" &&
+      !(correctionIntent && appraisalCase.status === "check_complete"))
   ) {
     return <UnavailableCaseCard />;
   }
@@ -439,10 +498,38 @@ function TotalLossDraftBootstrapGate({
     return pendingContent;
   }
 
+  if (correctionIntent) {
+    if (correctionDetailsQuery.isError || correctionContactQuery.isError) {
+      return (
+        <SavedDetailsLoadErrorCard
+          onRetry={() => {
+            void correctionDetailsQuery.refetch();
+            void correctionContactQuery.refetch();
+          }}
+        />
+      );
+    }
+    if (correctionDetailsQuery.isPending || correctionContactQuery.isPending) {
+      return <LoadingCard />;
+    }
+    if (correctionDetailsQuery.data?.caseId !== appraisalCase.id) {
+      return <UnavailableCaseCard />;
+    }
+  }
+
   return (
     <TotalLossIntakeFlowContent
-      key={appraisalCase.id}
+      key={`${auth.user.id}:${appraisalCase.id}:${correctionIntent?.focus ?? (correctionIntent ? "correction" : "resume")}`}
       bootstrapCase={appraisalCase}
+      correction={
+        correctionIntent && correctionDetailsQuery.data
+          ? {
+              intent: correctionIntent,
+              details: correctionDetailsQuery.data,
+              contact: correctionContactQuery.data ?? null,
+            }
+          : null
+      }
       startupChoice={startupDetailsQuery.data === null ? startupChoice : null}
       startNewCase={Boolean(newCaseId)}
       onBusyChange={onBusyChange}
@@ -452,12 +539,14 @@ function TotalLossDraftBootstrapGate({
 
 interface TotalLossIntakeFlowContentProps extends TotalLossIntakeFlowProps {
   readonly bootstrapCase: AppraisalCase;
+  readonly correction: IntakeCorrectionSnapshot | null;
   readonly startNewCase: boolean;
   readonly startupChoice: StartupChoice | null;
 }
 
 function TotalLossIntakeFlowContent({
   bootstrapCase,
+  correction,
   onBusyChange,
   startNewCase,
   startupChoice,
@@ -473,6 +562,7 @@ function TotalLossIntakeFlowContent({
       bootstrapCase.userId,
       startNewCase,
       startupChoice,
+      correction,
     ),
   );
   const [draft, setDraft] = useState(initialDraft.draft);
@@ -678,13 +768,25 @@ function TotalLossIntakeFlowContent({
   const uploadReport = uploadReportMutation.mutateAsync;
 
   const caseCreationPromiseRef = useRef<Promise<AppraisalCase> | null>(null);
-  const serverUpdatedAtRef = useRef<string | null>(null);
+  const serverUpdatedAtRef = useRef<string | null>(correction?.details.updatedAt ?? null);
   const pendingSaveRef = useRef<SaveSnapshot | null>(null);
   const saveLoopRef = useRef<Promise<void> | null>(null);
   const autosaveTimerRef = useRef<number | null>(null);
-  const hydratedDetailsRef = useRef<string | null>(null);
+  const hydratedDetailsRef = useRef<string | null>(
+    correction ? `${correction.details.caseId}:${correction.details.updatedAt}` : null,
+  );
   const explicitCaseRef = useRef<string | null>(null);
   const analysisPreparationStartedRef = useRef(false);
+  const correctionPreparedRef = useRef(!correction?.details.intakeCompletedAt);
+  const correctionSubmissionRequestedRef = useRef(false);
+  const correctionSourceInputIdRef = useRef(correction?.details.analysisInputId ?? null);
+  const savedCorrectionContactRef = useRef(
+    normalizeTotalLossContactForm(
+      correction?.contact
+        ? contactValuesForCorrection(correction.contact)
+        : initialDraft.draft.contact,
+    ),
+  );
   const ensureCase = useCallback(async () => {
     if (!userId || !dependencies) {
       throw new Error("Sign in before saving this appraisal.");
@@ -775,6 +877,25 @@ function TotalLossIntakeFlowContent({
       }
       const expectedUpdatedAt = serverUpdatedAtRef.current;
       try {
+        if (correction && !correctionPreparedRef.current) {
+          const analysisInputId = correctionSourceInputIdRef.current;
+          if (!analysisInputId || auth.status !== "signedIn") {
+            throw new Error("The saved intake could not be verified. Reload it before correcting it.");
+          }
+          await prepareTotalLossIntakeCorrection({
+            accessToken: auth.session.access_token,
+            analysisInputId,
+            caseId: snapshot.caseId,
+          });
+          if (
+            !mountedRef.current ||
+            identityRef.current.generation !== snapshot.identityGeneration ||
+            identityRef.current.userId !== snapshot.userId
+          ) {
+            throw new StaleIdentityOperationError();
+          }
+          correctionPreparedRef.current = true;
+        }
         const details =
           expectedUpdatedAt === null
             ? await saveDetails({
@@ -797,6 +918,12 @@ function TotalLossIntakeFlowContent({
         }
         serverUpdatedAtRef.current = details.updatedAt;
         hydratedDetailsRef.current = `${details.caseId}:${details.updatedAt}`;
+        if (correction && details.analysisInputId !== correctionSourceInputIdRef.current) {
+          const queryKey = caseAnalysisQueryKeys.detail(snapshot.userId, snapshot.caseId);
+          await queryClient.cancelQueries({ queryKey, exact: true });
+          queryClient.removeQueries({ queryKey, exact: true });
+          correctionSourceInputIdRef.current = details.analysisInputId ?? null;
+        }
         setConflict(null);
         setConflictWithoutRow(false);
         setFlowError(null);
@@ -830,7 +957,7 @@ function TotalLossIntakeFlowContent({
         throw error;
       }
     },
-    [applyDraft, clearStaleUserCache, saveDetails],
+    [applyDraft, auth, clearStaleUserCache, correction, queryClient, saveDetails],
   );
 
   const enqueueSnapshot = useCallback(
@@ -885,12 +1012,18 @@ function TotalLossIntakeFlowContent({
         caseId,
         identityGeneration: identityRef.current.generation,
         revision: current.revision,
-        retainLocalDirty: hasUnpersistedTotalLossManualValues(current.manual),
+        retainLocalDirty:
+          hasUnpersistedTotalLossManualValues(current.manual) ||
+          Boolean(
+            correction &&
+              JSON.stringify(normalizeTotalLossContactForm(current.contact)) !==
+                JSON.stringify(savedCorrectionContactRef.current),
+          ),
         userId,
         values,
       });
     },
-    [enqueueSnapshot, userId],
+    [correction, enqueueSnapshot, userId],
   );
 
   useEffect(() => {
@@ -992,13 +1125,15 @@ function TotalLossIntakeFlowContent({
           details,
           current,
         ),
-        step: stepForDetails(details, current.step),
+        step: correction?.intent && correctionSubmissionRequestedRef.current
+          ? current.step
+          : stepForDetails(details, current.step, correction?.intent),
         dirty: false,
         pendingAuthAction: null,
       }),
       { bumpRevision: false },
     );
-  }, [applyDraft, detailsQuery.data]);
+  }, [applyDraft, correction?.intent, detailsQuery.data]);
 
   useEffect(() => {
     const details = detailsQuery.data;
@@ -1238,18 +1373,21 @@ function TotalLossIntakeFlowContent({
     explicitCaseId && (invalidExplicitCaseId || explicitCaseError),
   );
   const readyStateVerified = Boolean(
+    !correction &&
     draft.step === "ready" &&
     confirmedCaseId &&
     detailsQuery.data?.caseId === confirmedCaseId &&
     detailsQuery.data.intakeCompletedAt,
   );
   const readyStateLoadError = Boolean(
+    !correction &&
     draft.step === "ready" &&
     !readyStateVerified &&
     auth.status !== "loading" &&
     (!userId || !confirmedCaseId || !detailsService || detailsQuery.isError),
   );
   const readyStateVerificationPending = Boolean(
+    !correction &&
     draft.step === "ready" && !readyStateVerified && !readyStateLoadError,
   );
   const draftIdentityUnverified = Boolean(
@@ -1275,6 +1413,18 @@ function TotalLossIntakeFlowContent({
   useEffect(() => {
     onBusyChange?.(serviceSwitchDisabled);
   }, [onBusyChange, serviceSwitchDisabled]);
+
+  useEffect(() => {
+    if (correction?.intent.focus !== "insurer-offer" || draft.step !== "claim") {
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      const field = document.getElementById("total-loss-valuation");
+      field?.focus({ preventScroll: true });
+      field?.scrollIntoView({ behavior: "auto", block: "center" });
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [correction?.intent.focus, draft.step]);
 
   const handleModeContinue = async () => {
     if (!draft.mode) return;
@@ -1526,6 +1676,7 @@ function TotalLossIntakeFlowContent({
     applyDraft((current) => ({
       ...current,
       contact: { ...current.contact, [field]: value },
+      dirty: correction ? true : current.dirty,
     }));
   };
 
@@ -1554,6 +1705,7 @@ function TotalLossIntakeFlowContent({
       return;
     }
 
+    correctionSubmissionRequestedRef.current = true;
     setCompletionBusy(true);
     setFlowError(null);
     setAccessLinkError(null);
@@ -1571,6 +1723,16 @@ function TotalLossIntakeFlowContent({
         privacyNoticeVersion: CURRENT_PRIVACY_NOTICE_VERSION,
         operationalFollowUpAllowed: normalized.operationalFollowUpAllowed,
       });
+      savedCorrectionContactRef.current = normalized;
+      if (correction) {
+        const queryKey = [
+          ...totalLossQueryKeys.user(userId),
+          "intakeCorrectionContact",
+          caseId,
+        ];
+        await queryClient.cancelQueries({ queryKey, exact: true });
+        queryClient.setQueryData(queryKey, claim.contact);
+      }
       let accessClaimId = claim.claimId;
       let accessClaimExpiresAt = claim.expiresAt;
       if (
@@ -1628,6 +1790,7 @@ function TotalLossIntakeFlowContent({
 
   const handleStartAnalysis = useCallback(async () => {
     if (!draftRef.current.mode) return;
+    if (correction && !correctionSubmissionRequestedRef.current) return;
     setCompletionBusy(true);
     setFlowError(null);
     try {
@@ -1650,6 +1813,11 @@ function TotalLossIntakeFlowContent({
         totalLossQueryKeys.details(userId, caseId),
         confirmed,
       );
+      if (correction) {
+        const queryKey = caseAnalysisQueryKeys.detail(userId, caseId);
+        await queryClient.cancelQueries({ queryKey, exact: true });
+        queryClient.removeQueries({ queryKey, exact: true });
+      }
       applyDraft(
         (current) => ({
           ...current,
@@ -1668,6 +1836,7 @@ function TotalLossIntakeFlowContent({
     }
   }, [
     applyDraft,
+    correction,
     detailsService,
     ensureCase,
     flushDraft,
@@ -2010,7 +2179,7 @@ function TotalLossIntakeFlowContent({
         conflict,
         current,
       ),
-      step: stepForDetails(conflict, current.step),
+      step: stepForDetails(conflict, current.step, correction?.intent),
       dirty: false,
     }));
     setConflict(null);
@@ -2230,6 +2399,15 @@ function TotalLossIntakeFlowContent({
 
   return (
     <>
+      {correction ? (
+        <div className="mb-6 rounded-xl border border-brand/15 bg-brand-soft/50 px-4 py-4 sm:px-5" role="status">
+          <p className="text-sm font-semibold text-ink">Review your saved intake</p>
+          <p className="mt-1 text-sm leading-6 text-copy">
+            You’re updating this same case. Your saved vehicle and contact details
+            are below. Changes will be used when you resubmit for analysis.
+          </p>
+        </div>
+      ) : null}
       {storageError ? (
         <Notice
           icon={<CloudOff className="size-5" aria-hidden />}
@@ -2307,8 +2485,43 @@ function loadInitialDraft(
   userId: string,
   startNewCase: boolean,
   startupChoice: StartupChoice | null,
+  correction: IntakeCorrectionSnapshot | null = null,
 ): InitialDraftState {
   const stored = readTotalLossDraft();
+  if (correction) {
+    const { details, contact, intent } = correction;
+    const local = stored.draft;
+    const sameCaseDraft =
+      local?.ownerUserId === userId && local.confirmedCaseId === bootstrapCase.id
+        ? local
+        : null;
+    const base = sameCaseDraft ?? createEmptyTotalLossDraft();
+    const preserveEdits = Boolean(sameCaseDraft?.dirty);
+    const draft: TotalLossDraft = {
+      ...base,
+      confirmedCaseId: bootstrapCase.id,
+      reservedCaseId: bootstrapCase.id,
+      ownerUserId: userId,
+      dismissedResumeCaseId: null,
+      mode: preserveEdits ? base.mode ?? details.intakeMode : details.intakeMode,
+      manual: preserveEdits ? base.manual : manualValuesForDetails(details),
+      vehicleConfiguration: preserveEdits
+        ? base.vehicleConfiguration
+        : details.vehicleConfiguration ?? null,
+      contact: contact && (!preserveEdits || sameCaseDraft?.step === "ready" || sameCaseDraft?.step === "review")
+        ? contactValuesForCorrection(contact)
+        : base.contact,
+      reportProvider: details.reportProvider ?? null,
+      reportExtractionStatus: extractionStateForDetails(details),
+      reportExtractionWarnings: extractionWarningsForDetails(details, base),
+      step: intent.focus === "insurer-offer" && details.intakeMode === "manual"
+        ? "claim"
+        : correctionStepForDetails(details, intent, base.step),
+      pendingAuthAction: null,
+      dirty: preserveEdits,
+    };
+    return { draft, storageError: !writeTotalLossDraft(draft).ok };
+  }
   if (stored.ok) {
     const storedDraft = stored.draft ?? createEmptyTotalLossDraft();
     const storedCaseMatchesBootstrap =
@@ -2359,6 +2572,18 @@ function applyStartupChoice(
         : "vehicle"
       : "choice",
     dirty: true,
+  };
+}
+
+function contactValuesForCorrection(contact: TotalLossContact): TotalLossDraft["contact"] {
+  return {
+    firstName: contact.firstName,
+    lastName: contact.lastName,
+    email: contact.email,
+    phoneNumber: contact.phoneNumber ?? "",
+    termsAccepted: contact.serviceTermsVersion === CURRENT_SERVICE_TERMS_VERSION,
+    privacyAccepted: contact.privacyNoticeVersion === CURRENT_PRIVACY_NOTICE_VERSION,
+    operationalFollowUpAllowed: contact.operationalFollowUpAllowed,
   };
 }
 
@@ -2438,8 +2663,10 @@ function extractionWarningsForDetails(
 function stepForDetails(
   details: TotalLossCaseDetails,
   currentStep: TotalLossDraft["step"],
+  correction?: TotalLossIntakeCorrectionIntent,
 ): TotalLossDraft["step"] {
   if (details.reportUploadRecoveryRequired) return "report";
+  if (correction) return correctionStepForDetails(details, correction, currentStep);
   if (details.intakeCompletedAt) return "ready";
   if (
     details.intakeMode === "report" &&
@@ -2453,6 +2680,22 @@ function stepForDetails(
   return intakeStepPosition(currentStep) >= intakeStepPosition(serverMinimumStep)
     ? currentStep
     : serverMinimumStep;
+}
+
+function correctionStepForDetails(
+  details: TotalLossCaseDetails,
+  intent: TotalLossIntakeCorrectionIntent,
+  currentStep: TotalLossDraft["step"],
+): TotalLossDraft["step"] {
+  if (details.reportUploadRecoveryRequired) return "report";
+  if (currentStep !== "ready" && currentStep !== "review" && currentStep !== "choice") {
+    return currentStep;
+  }
+  return details.intakeMode === "report"
+    ? "report"
+    : intent.focus === "insurer-offer"
+      ? "claim"
+      : "vehicle";
 }
 
 function hasMeaningfulManualDraft(draft: TotalLossDraft) {

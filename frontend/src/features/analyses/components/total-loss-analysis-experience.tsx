@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { useId } from "react";
 import type { ReactNode } from "react";
+import { Link } from "react-router";
 
 import { Button } from "@/components/ui/button";
 import type {
@@ -226,12 +227,14 @@ const resultPresentationByClassification: Record<
 };
 
 export interface TotalLossAnalysisResultProps {
+  readonly addInsurerOfferPath?: string;
   readonly analysis: AnalysisPresentation;
   readonly className?: string;
   readonly continueAction?: ReactNode;
 }
 
 export function TotalLossAnalysisResult({
+  addInsurerOfferPath,
   analysis,
   className,
   continueAction,
@@ -248,6 +251,24 @@ export function TotalLossAnalysisResult({
     analysis.analysisScope.insurerValuationAvailable &&
     analysis.insurerValuation.source !== "NONE" &&
     insurerValue.cents !== null;
+  const missingOfferBlocksComparison =
+    analysis.analysisScope.inputMode === "MANUAL" &&
+    !analysis.analysisScope.reportAvailable &&
+    !analysis.analysisScope.insurerValuationAvailable &&
+    !analysis.analysisScope.insurerValuationComparisonPerformed &&
+    analysis.insurerValuation.source === "NONE" &&
+    insurerValue.cents === null &&
+    analysis.analysisScope.marketEvidenceAvailable &&
+    rangeAvailable &&
+    analysis.assessment.classification === "INSUFFICIENT_EVIDENCE" &&
+    analysis.findings.some(
+      ({ code }) => code === "MISSING_CCC_VEHICLE_VALUATION",
+    ) &&
+    !analysis.findings.some(
+      ({ code }) =>
+        code === "INSUFFICIENT_RESOLVED_EXTERNAL_EVIDENCE" ||
+        code === "EXTERNAL_MEDIAN_ZERO",
+    );
   const insurerLabel =
     analysis.insurerValuation.source === "CUSTOMER_ENTERED"
       ? "Insurer’s offer"
@@ -397,6 +418,19 @@ export function TotalLossAnalysisResult({
           >
             Continue my review
             <ArrowRight className="size-5" aria-hidden />
+          </Button>
+        ) : null}
+
+        {missingOfferBlocksComparison && addInsurerOfferPath ? (
+          <Button
+            asChild
+            size="lg"
+            className="report-action-focus mt-6 min-h-13 w-full gap-3 rounded-xl px-7 text-base font-semibold sm:w-auto sm:min-w-72"
+          >
+            <Link to={addInsurerOfferPath}>
+              Add insurer offer
+              <ArrowRight className="size-5" aria-hidden />
+            </Link>
           </Button>
         ) : null}
 

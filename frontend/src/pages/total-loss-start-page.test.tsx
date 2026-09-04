@@ -20,6 +20,8 @@ import type {
 } from "@/features/auth/turnstile-controller";
 import type { AppraisalCaseService } from "@/features/cases/service";
 import { appraisalCaseQueryKeys } from "@/features/cases/queries";
+import { caseAnalysisQueryKeys } from "@/features/analyses/case-analysis-queries";
+import { analysisQueryKeys } from "@/features/analyses/queries";
 import type { AppraisalCase } from "@/features/cases/types";
 import type {
   CustomerProfile,
@@ -29,6 +31,7 @@ import type {
   SaveTotalLossDetailsInput,
   TotalLossCaseDetails,
   TotalLossCaseDetailsValues,
+  TotalLossContact,
   TotalLossReportUploadLease,
 } from "@/features/total-loss/data-types";
 import type { TotalLossDependencies } from "@/features/total-loss/dependencies";
@@ -49,13 +52,19 @@ import {
   type VehicleTrimOption,
 } from "@/features/total-loss/vehicle-lookup-service";
 import { renderTestApp as renderBaseTestApp } from "@/test/render";
+import { materialUndervalueAnalysis } from "@/test/fixtures/analysis-presentation";
 
-const { ingestReportMock } = vi.hoisted(() => ({
+const { ingestReportMock, prepareIntakeCorrectionMock } = vi.hoisted(() => ({
   ingestReportMock: vi.fn(),
+  prepareIntakeCorrectionMock: vi.fn(),
 }));
 
 vi.mock("@/features/analyses/api/report-ingestion", () => ({
   ingestTotalLossReport: ingestReportMock,
+}));
+
+vi.mock("@/features/total-loss/intake-correction-api", () => ({
+  prepareTotalLossIntakeCorrection: prepareIntakeCorrectionMock,
 }));
 
 vi.mock("@/config/product-availability", () => ({
@@ -347,6 +356,20 @@ function createDependencyHarness({
         caseId: input.caseId,
         updatedAt,
       };
+      if (
+        current?.analysisInputId &&
+        Object.entries(input.values).some(
+          ([key, value]) =>
+            JSON.stringify(current[key as keyof TotalLossCaseDetails] ?? null) !==
+            JSON.stringify(value ?? null),
+        )
+      ) {
+        Object.assign(next, {
+          analysisInputId: crypto.randomUUID(),
+          analysisInputRevision: (current.analysisInputRevision ?? 0) + 1,
+          intakeCompletedAt: null,
+        });
+      }
       detailRows.set(input.caseId, next);
       return next;
     },
@@ -612,6 +635,87 @@ function vehicleTrimOption(trim: string): VehicleTrimOption {
   };
 }
 
+const RECOVERY_INPUT_ID = "abababab-abab-4bab-8bab-abababababab";
+
+function completedRecoveryDetails(
+  overrides: Partial<TotalLossCaseDetailsValues> = {},
+  caseId = CASE_ID,
+) {
+  return detailsFor(caseId, {
+    intakeMode: "manual",
+    vin: "1HGCM82633A004352",
+    vehicleYear: 2003,
+    vehicleMake: "Honda",
+    vehicleModel: "Accord",
+    vehicleTrim: "EX-V6",
+    mileageAtLoss: 48250,
+    postalCode: "60611",
+    dateOfLoss: "2026-08-10",
+    insurerName: "Example Insurance",
+    insurerVehicleValuation: 18750,
+    vehicleCondition: "Good",
+    optionsPackages: "Factory equipment",
+    analysisInputId: RECOVERY_INPUT_ID,
+    analysisInputRevision: 7,
+    intakeCompletedAt: CREATED_AT,
+    ...overrides,
+  });
+}
+
+function recoveryContact(caseId = CASE_ID): TotalLossContact {
+  return {
+    caseId,
+    firstName: "Taylor",
+    lastName: "Recovery",
+    fullName: "Taylor Recovery",
+    email: "owner@example.com",
+    phoneNumber: "+13125550142",
+    emailVerifiedAt: CREATED_AT,
+    serviceTermsVersion: "2026-08-23",
+    serviceTermsAcknowledgedAt: CREATED_AT,
+    privacyNoticeVersion: "2026-08-23",
+    privacyNoticeAcknowledgedAt: CREATED_AT,
+    operationalFollowUpAllowed: false,
+    operationalFollowUpUpdatedAt: CREATED_AT,
+    createdAt: CREATED_AT,
+    updatedAt: CREATED_AT,
+  };
+}
+
+function recoveryPath(caseId = CASE_ID, focusOffer = false) {
+  return `/start?service=total-loss&caseId=${caseId}&intent=correct-intake${focusOffer ? "&focus=insurer-offer" : ""}`;
+}
+
+function recoveryHarness({
+  details = completedRecoveryDetails(),
+  status = "draft",
+}: {
+  details?: TotalLossCaseDetails;
+  status?: AppraisalCase["status"];
+} = {}) {
+  const harness = createDependencyHarness({
+    details: [details],
+    recentCase: { ...appraisalCase(details.caseId), status },
+  });
+  harness.getContact.mockResolvedValue(recoveryContact(details.caseId));
+  return harness;
+}
+
+async function settleRecoveryAutosave() {
+  await act(async () => {
+    await new Promise((resolve) => window.setTimeout(resolve, 700));
+  });
+}
+
+function expectNoRecoveryWrites(harness: ReturnType<typeof recoveryHarness>) {
+  expect(prepareIntakeCorrectionMock).not.toHaveBeenCalled();
+  expect(harness.saveDetails).not.toHaveBeenCalled();
+  expect(harness.saveContactAndBeginClaim).not.toHaveBeenCalled();
+  expect(harness.confirmIntake).not.toHaveBeenCalled();
+  expect(harness.createOrGetAppraisalCase).not.toHaveBeenCalled();
+  expect(harness.getOrCreateTotalLossDraft).not.toHaveBeenCalled();
+}
+
 async function chooseMode(
   user: ReturnType<typeof userEvent.setup>,
   label: "I have my valuation report" | "I don’t have the report",
@@ -643,6 +747,7 @@ afterEach(() => {
 });
 
 beforeEach(() => {
+  prepareIntakeCorrectionMock.mockReset().mockResolvedValue(undefined);
   ingestReportMock.mockReset().mockResolvedValue({
     status: "partial",
     provider: null,
@@ -664,6 +769,424 @@ beforeEach(() => {
       vehicleCondition: "Good",
       optionsPackages: "None known",
     },
+  });
+});
+
+describe("explicit Total Loss intake correction", () => {
+  const originalScrollIntoView = HTMLElement.prototype.scrollIntoView;
+  beforeEach(() => {
+    Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
+      configurable: true,
+      value: vi.fn(),
+    });
+  });
+  afterEach(() => {
+    Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
+      configurable: true,
+      value: originalScrollIntoView,
+    });
+  });
+
+  it.each(["manual", "report"] as const)(
+    "keeps ordinary completed %s intake resume unchanged with a local ready draft",
+    async (mode) => {
+      const details = completedRecoveryDetails(mode === "report" ? {
+        intakeMode: "report",
+        reportOriginalFilename: "saved-valuation.pdf",
+        reportUploadedAt: CREATED_AT,
+      } : {});
+      const harness = recoveryHarness({ details });
+      writeTotalLossDraft(createSensitiveManualDraft({
+        mode,
+        step: "ready",
+        confirmedCaseId: CASE_ID,
+        reservedCaseId: CASE_ID,
+        dirty: false,
+      }));
+      const { router } = renderTestApp([`/start?service=total-loss&caseId=${CASE_ID}`], {
+        authService: createAuthHarness(sessionFor()).service,
+        totalLossDependencies: harness.dependencies,
+      });
+      await waitFor(() => expect(router.state.location.pathname).toBe(`/total-loss/cases/${CASE_ID}/analysis`));
+      expect(screen.queryByText("Review your saved intake")).not.toBeInTheDocument();
+      expectNoRecoveryWrites(harness);
+    },
+  );
+
+  it("opens a completed ready intake for same-case review and stays editable after refresh without writes", async () => {
+    const harness = recoveryHarness();
+    const auth = createAuthHarness(sessionFor());
+    writeTotalLossDraft(createSensitiveManualDraft({
+      step: "ready", confirmedCaseId: CASE_ID, reservedCaseId: CASE_ID, dirty: false,
+    }));
+    const first = renderTestApp([recoveryPath()], {
+      authService: auth.service, totalLossDependencies: harness.dependencies,
+    });
+    expect(await screen.findByRole("heading", { name: "Tell us about your vehicle" })).toBeVisible();
+    expect(screen.getByLabelText("VIN")).toHaveValue("1HGCM82633A004352");
+    expect(screen.getByText("2003")).toBeVisible();
+    expect(screen.getByText("Honda")).toBeVisible();
+    expect(screen.getByText("Accord")).toBeVisible();
+    expect(readTotalLossDraft()).toMatchObject({ draft: {
+      confirmedCaseId: CASE_ID, ownerUserId: USER_ID, step: "vehicle",
+      contact: { firstName: "Taylor", lastName: "Recovery", email: "owner@example.com", phoneNumber: "+13125550142" },
+    } });
+    await settleRecoveryAutosave();
+    expectNoRecoveryWrites(harness);
+    expect(first.router.state.location.pathname).toBe("/start");
+    first.unmount();
+    const refreshed = renderTestApp([recoveryPath()], {
+      authService: auth.service, totalLossDependencies: harness.dependencies,
+    });
+    expect(await screen.findByRole("heading", { name: "Tell us about your vehicle" })).toBeVisible();
+    await settleRecoveryAutosave();
+    expectNoRecoveryWrites(harness);
+    expect(refreshed.router.state.location.search).toContain("intent=correct-intake");
+    expect(harness.detailRows.get(CASE_ID)).toMatchObject({ analysisInputId: RECOVERY_INPUT_ID, analysisInputRevision: 7, intakeCompletedAt: CREATED_AT });
+  });
+
+  it("restores a check-complete missing-offer case without browser data, saves the offer, and confirms the same case", async () => {
+    const original = completedRecoveryDetails({ insurerVehicleValuation: null });
+    const harness = recoveryHarness({ details: original, status: "check_complete" });
+    const user = userEvent.setup();
+    const { router } = renderTestApp([recoveryPath(CASE_ID, true)], {
+      authService: createAuthHarness(sessionFor()).service,
+      totalLossDependencies: harness.dependencies,
+    });
+    expect(await screen.findByRole("heading", { name: "Add the claim details" })).toBeVisible();
+    const offer = screen.getByLabelText("Insurer’s vehicle valuation");
+    await waitFor(() => expect(offer).toHaveFocus());
+    expect(offer).toHaveValue("");
+    expect(screen.getByLabelText("Mileage at time of loss")).toHaveValue("48,250");
+    expect(screen.getByLabelText("ZIP code")).toHaveValue("60611");
+    expectNoRecoveryWrites(harness);
+    await user.type(offer, "20100");
+    await user.click(withinIntakeFlow().getByRole("button", { name: "Continue" }));
+    expect(await screen.findByRole("heading", { name: "Contact details" })).toBeVisible();
+    expect(screen.getByLabelText("First name")).toHaveValue("Taylor");
+    expect(screen.getByLabelText("Last name")).toHaveValue("Recovery");
+    expect(screen.getByLabelText("Email address")).toHaveValue("owner@example.com");
+    expect(screen.getByRole("checkbox", { name: /Terms of Use/i })).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: /Privacy Policy/i })).toBeChecked();
+    await user.click(screen.getByRole("button", { name: "Review & analyze" }));
+    await waitFor(() => expect(router.state.location.pathname).toBe(`/total-loss/cases/${CASE_ID}/analysis`));
+    expect(prepareIntakeCorrectionMock).toHaveBeenCalledOnce();
+    expect(prepareIntakeCorrectionMock).toHaveBeenCalledWith({ accessToken: `access-${USER_ID}`, analysisInputId: RECOVERY_INPUT_ID, caseId: CASE_ID });
+    expect(prepareIntakeCorrectionMock.mock.invocationCallOrder[0]).toBeLessThan(harness.saveDetails.mock.invocationCallOrder[0]);
+    expect(harness.saveDetails).toHaveBeenCalledWith(expect.objectContaining({ caseId: CASE_ID, userId: USER_ID, values: expect.objectContaining({ insurerVehicleValuation: 20100, vin: original.vin, vehicleYear: 2003, postalCode: "60611" }) }));
+    expect(harness.saveContactAndBeginClaim).toHaveBeenCalledOnce();
+    expect(harness.saveContactAndBeginClaim).toHaveBeenCalledWith(expect.objectContaining({ caseId: CASE_ID, firstName: "Taylor", lastName: "Recovery", email: "owner@example.com", phoneNumber: "(312) 555-0142" }));
+    expect(harness.confirmIntake).toHaveBeenCalledOnce();
+    expect(harness.confirmIntake).toHaveBeenCalledWith({ caseId: CASE_ID, userId: USER_ID, expectedUpdatedAt: expect.any(String) });
+    expect(harness.createOrGetAppraisalCase).not.toHaveBeenCalled();
+    expect(harness.getOrCreateTotalLossDraft).not.toHaveBeenCalled();
+    const corrected = harness.detailRows.get(CASE_ID)!;
+    expect(corrected.analysisInputId).not.toBe(RECOVERY_INPUT_ID);
+    expect(corrected.analysisInputRevision).toBe(8);
+    expect(corrected.insurerVehicleValuation).toBe(20100);
+    expect(original).toMatchObject({ analysisInputId: RECOVERY_INPUT_ID, analysisInputRevision: 7, insurerVehicleValuation: null });
+    expect(router.state.location.search).not.toContain("correct-intake");
+  });
+
+  it("prepares only on the first save before resubmitting corrected failed-draft mileage", async () => {
+    const original = completedRecoveryDetails();
+    const harness = recoveryHarness({ details: original });
+    const user = userEvent.setup();
+    const { router } = renderTestApp([recoveryPath()], {
+      authService: createAuthHarness(sessionFor()).service,
+      totalLossDependencies: harness.dependencies,
+    });
+    await screen.findByRole("heading", { name: "Tell us about your vehicle" });
+    expect(prepareIntakeCorrectionMock).not.toHaveBeenCalled();
+    await user.click(withinIntakeFlow().getByRole("button", { name: "Confirm vehicle & continue" }));
+    const mileage = await screen.findByLabelText("Mileage at time of loss");
+    await user.clear(mileage);
+    await user.type(mileage, "50000");
+    await user.click(withinIntakeFlow().getByRole("button", { name: "Continue" }));
+    expect(await screen.findByLabelText("First name")).toHaveValue("Taylor");
+    await user.click(screen.getByRole("button", { name: "Review & analyze" }));
+    await waitFor(() => expect(router.state.location.pathname).toBe(`/total-loss/cases/${CASE_ID}/analysis`));
+    expect(prepareIntakeCorrectionMock).toHaveBeenCalledOnce();
+    expect(prepareIntakeCorrectionMock.mock.invocationCallOrder[0]).toBeLessThan(harness.saveDetails.mock.invocationCallOrder[0]);
+    expect(harness.confirmIntake).toHaveBeenCalledOnce();
+    expect(harness.detailRows.get(CASE_ID)).toMatchObject({ mileageAtLoss: 50000, insurerVehicleValuation: 18750, analysisInputRevision: 8 });
+    expect(harness.detailRows.get(CASE_ID)?.analysisInputId).not.toBe(RECOVERY_INPUT_ID);
+    expect(original.mileageAtLoss).toBe(48250);
+    expect(harness.createOrGetAppraisalCase).not.toHaveBeenCalled();
+  });
+
+  it("prepares a completed no-offer intake before writing even when the cached parent still says draft", async () => {
+    const completed = completedRecoveryDetails({ insurerVehicleValuation: null });
+    const harness = recoveryHarness({ details: completed, status: "check_complete" });
+    const user = userEvent.setup();
+    let prepared = false;
+    prepareIntakeCorrectionMock.mockImplementation(async () => {
+      prepared = true;
+    });
+    const ordinarySave = harness.saveDetails.getMockImplementation()!;
+    harness.saveDetails.mockImplementation(async (input) => {
+      if (!prepared) throw new Error("The completed case must be reopened before saving.");
+      return ordinarySave(input);
+    });
+    const { queryClient, router } = renderTestApp(["/privacy"], {
+      authService: createAuthHarness(sessionFor()).service,
+      totalLossDependencies: harness.dependencies,
+    });
+    await waitFor(() => expect(screen.queryAllByRole("button", {
+      name: "Account for owner@example.com",
+    }).length).toBeGreaterThan(0));
+    queryClient.setQueryData(appraisalCaseQueryKeys.detail(USER_ID, CASE_ID), appraisalCase(CASE_ID));
+    queryClient.setQueryData(totalLossQueryKeys.details(USER_ID, CASE_ID), completed);
+    await act(async () => router.navigate(recoveryPath(CASE_ID, true)));
+    const offer = await screen.findByLabelText("Insurer’s vehicle valuation");
+    expect(prepareIntakeCorrectionMock).not.toHaveBeenCalled();
+    expect(queryClient.getQueryData(appraisalCaseQueryKeys.detail(USER_ID, CASE_ID))).toMatchObject({ status: "draft" });
+    await user.type(offer, "20400");
+    await user.click(withinIntakeFlow().getByRole("button", { name: "Continue" }));
+    await user.click(await screen.findByRole("button", { name: "Review & analyze" }));
+    await waitFor(() => expect(router.state.location.pathname).toBe(`/total-loss/cases/${CASE_ID}/analysis`));
+    expect(prepareIntakeCorrectionMock).toHaveBeenCalledOnce();
+    expect(prepareIntakeCorrectionMock).toHaveBeenCalledWith({
+      accessToken: `access-${USER_ID}`,
+      analysisInputId: RECOVERY_INPUT_ID,
+      caseId: CASE_ID,
+    });
+    expect(prepareIntakeCorrectionMock.mock.invocationCallOrder[0]).toBeLessThan(harness.saveDetails.mock.invocationCallOrder[0]);
+    expect(harness.detailRows.get(CASE_ID)?.insurerVehicleValuation).toBe(20400);
+    expect(harness.confirmIntake).toHaveBeenCalledOnce();
+    expect(harness.createOrGetAppraisalCase).not.toHaveBeenCalled();
+  });
+
+  it("restores the newly saved contact from the case-scoped cache on repeat correction", async () => {
+    const harness = recoveryHarness();
+    const user = userEvent.setup();
+    const { queryClient, router } = renderTestApp([recoveryPath()], {
+      authService: createAuthHarness(sessionFor()).service,
+      totalLossDependencies: harness.dependencies,
+    });
+    await screen.findByRole("heading", { name: "Tell us about your vehicle" });
+    await user.click(withinIntakeFlow().getByRole("button", { name: "Confirm vehicle & continue" }));
+    await user.click(withinIntakeFlow().getByRole("button", { name: "Continue" }));
+    const name = await screen.findByLabelText("First name");
+    const phone = screen.getByLabelText("Phone number");
+    await user.clear(name);
+    await user.type(name, "Morgan");
+    await user.clear(phone);
+    await user.type(phone, "7735550199");
+    const contactKey = [...totalLossQueryKeys.user(USER_ID), "intakeCorrectionContact", CASE_ID];
+    const unrelatedKey = [...totalLossQueryKeys.user(USER_ID), "intakeCorrectionContact", OTHER_CASE_ID];
+    queryClient.setQueryData(unrelatedKey, { ...recoveryContact(OTHER_CASE_ID), firstName: "Unrelated" });
+    expect(queryClient.getQueryData(contactKey)).toMatchObject({ firstName: "Taylor", phoneNumber: "+13125550142" });
+    await user.click(screen.getByRole("button", { name: "Review & analyze" }));
+    await waitFor(() => expect(router.state.location.pathname).toBe(`/total-loss/cases/${CASE_ID}/analysis`));
+    expect(queryClient.getQueryData(contactKey)).toMatchObject({ firstName: "Morgan", phoneNumber: "(773) 555-0199" });
+    expect(queryClient.getQueryData(unrelatedKey)).toMatchObject({ firstName: "Unrelated" });
+    const readsBeforeReturn = harness.getContact.mock.calls.length;
+    await act(async () => router.navigate(recoveryPath()));
+    await screen.findByRole("heading", { name: "Tell us about your vehicle" });
+    await user.click(withinIntakeFlow().getByRole("button", { name: "Confirm vehicle & continue" }));
+    await user.click(withinIntakeFlow().getByRole("button", { name: "Continue" }));
+    expect(await screen.findByLabelText("First name")).toHaveValue("Morgan");
+    expect(screen.getByLabelText("Phone number")).toHaveValue("(773) 555-0199");
+    expect(harness.getContact).toHaveBeenCalledTimes(readsBeforeReturn);
+    expect(harness.saveContactAndBeginClaim).toHaveBeenCalledOnce();
+  });
+
+  it("focuses the insurer offer even when a same-case local editable draft was left on contact", async () => {
+    const harness = recoveryHarness({ details: completedRecoveryDetails({ insurerVehicleValuation: null }), status: "check_complete" });
+    writeTotalLossDraft(createSensitiveManualDraft({ step: "contact", confirmedCaseId: CASE_ID, reservedCaseId: CASE_ID, dirty: false }));
+    renderTestApp([recoveryPath(CASE_ID, true)], { authService: createAuthHarness(sessionFor()).service, totalLossDependencies: harness.dependencies });
+    expect(await screen.findByRole("heading", { name: "Add the claim details" })).toBeVisible();
+    await waitFor(() => expect(screen.getByLabelText("Insurer’s vehicle valuation")).toHaveFocus());
+    expect(readTotalLossDraft()).toMatchObject({ draft: { contact: { firstName: "Taylor", lastName: "Recovery", email: "owner@example.com" } } });
+    expectNoRecoveryWrites(harness);
+  });
+
+  it("persists corrected inputs and remains editable on refresh before resubmission", async () => {
+    const harness = recoveryHarness({ details: completedRecoveryDetails({ insurerVehicleValuation: null }), status: "check_complete" });
+    const auth = createAuthHarness(sessionFor());
+    const user = userEvent.setup();
+    const first = renderTestApp([recoveryPath(CASE_ID, true)], { authService: auth.service, totalLossDependencies: harness.dependencies });
+    const offer = await screen.findByLabelText("Insurer’s vehicle valuation");
+    await user.type(offer, "20500");
+    await waitFor(() => expect(harness.detailRows.get(CASE_ID)?.insurerVehicleValuation).toBe(20500));
+    expect(harness.confirmIntake).not.toHaveBeenCalled();
+    const inputId = harness.detailRows.get(CASE_ID)?.analysisInputId;
+    first.unmount();
+    const second = renderTestApp([recoveryPath(CASE_ID, true)], { authService: auth.service, totalLossDependencies: harness.dependencies });
+    expect(await screen.findByLabelText("Insurer’s vehicle valuation")).toHaveValue("$20,500.00");
+    await settleRecoveryAutosave();
+    expect(second.router.state.location.pathname).toBe("/start");
+    expect(harness.detailRows.get(CASE_ID)?.analysisInputId).toBe(inputId);
+    expect(harness.confirmIntake).not.toHaveBeenCalled();
+    expect(prepareIntakeCorrectionMock).toHaveBeenCalledOnce();
+  });
+
+  it("preserves unsaved correction contact edits through details autosave and refresh", async () => {
+    const harness = recoveryHarness();
+    const auth = createAuthHarness(sessionFor());
+    const user = userEvent.setup();
+    const first = renderTestApp([recoveryPath()], {
+      authService: auth.service,
+      totalLossDependencies: harness.dependencies,
+    });
+    await screen.findByRole("heading", { name: "Tell us about your vehicle" });
+    await user.click(withinIntakeFlow().getByRole("button", {
+      name: "Confirm vehicle & continue",
+    }));
+    await user.click(withinIntakeFlow().getByRole("button", { name: "Continue" }));
+    const firstName = await screen.findByLabelText("First name");
+    expect(firstName).toHaveValue("Taylor");
+    const savesBeforeContactEdit = harness.saveDetails.mock.calls.length;
+    await user.clear(firstName);
+    await user.type(firstName, "Morgan");
+    await user.click(screen.getByLabelText("Last name"));
+    await waitFor(() => expect(harness.saveDetails.mock.calls.length).toBeGreaterThan(savesBeforeContactEdit));
+    await settleRecoveryAutosave();
+    expect(readTotalLossDraft()).toMatchObject({
+      draft: {
+        dirty: true,
+        step: "contact",
+        contact: { firstName: "Morgan", lastName: "Recovery" },
+      },
+    });
+    expect(harness.saveContactAndBeginClaim).not.toHaveBeenCalled();
+    expect(harness.confirmIntake).not.toHaveBeenCalled();
+    first.unmount();
+
+    const refreshed = renderTestApp([recoveryPath()], {
+      authService: auth.service,
+      totalLossDependencies: harness.dependencies,
+    });
+    expect(await screen.findByLabelText("First name")).toHaveValue("Morgan");
+    expect(screen.getByLabelText("Last name")).toHaveValue("Recovery");
+    expect(screen.getByLabelText("Email address")).toHaveValue("owner@example.com");
+    expect(refreshed.router.state.location.pathname).toBe("/start");
+    expect(harness.saveContactAndBeginClaim).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "Review & analyze" }));
+    await waitFor(() => expect(refreshed.router.state.location.pathname).toBe(`/total-loss/cases/${CASE_ID}/analysis`));
+    expect(harness.saveContactAndBeginClaim).toHaveBeenCalledWith(expect.objectContaining({
+      caseId: CASE_ID,
+      firstName: "Morgan",
+      lastName: "Recovery",
+    }));
+    expect(harness.confirmIntake).toHaveBeenCalledOnce();
+    expect(harness.createOrGetAppraisalCase).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    "/start?service=total-loss&intent=correct-intake",
+    "/start?service=total-loss&caseId=invalid&intent=correct-intake",
+    `/start?service=total-loss&newCaseId=${NEW_CASE_INTENT_ID}&intent=correct-intake`,
+    `/start?service=total-loss&caseId=${CASE_ID}&newCaseId=${NEW_CASE_INTENT_ID}&intent=correct-intake`,
+  ])("rejects invalid correction intent without creating a draft: %s", async (path) => {
+    const harness = recoveryHarness();
+    renderTestApp([path], { authService: createAuthHarness(sessionFor()).service, totalLossDependencies: harness.dependencies });
+    expect(await screen.findByText("This saved appraisal cannot be opened from this link.")).toBeVisible();
+    expectNoRecoveryWrites(harness);
+  });
+
+  it("rejects an unavailable correction case without reserving a replacement", async () => {
+    const harness = recoveryHarness();
+    renderTestApp([recoveryPath(OTHER_CASE_ID)], { authService: createAuthHarness(sessionFor()).service, totalLossDependencies: harness.dependencies });
+    expect(await screen.findByText("This saved appraisal cannot be opened from this link.")).toBeVisible();
+    expect(harness.getContact).not.toHaveBeenCalled();
+    expectNoRecoveryWrites(harness);
+  });
+
+  it("does not carry correction into a different completed case opened normally in the same session", async () => {
+    const harness = recoveryHarness();
+    const otherDetails = completedRecoveryDetails({ vin: "1HGCM82633A004353" }, OTHER_CASE_ID);
+    harness.detailRows.set(OTHER_CASE_ID, otherDetails);
+    harness.caseService.getAppraisalCase = vi.fn(async ({ caseId }) => appraisalCase(caseId));
+    const { router } = renderTestApp([recoveryPath()], { authService: createAuthHarness(sessionFor()).service, totalLossDependencies: harness.dependencies });
+    expect(await screen.findByLabelText("VIN")).toHaveValue("1HGCM82633A004352");
+    await act(async () => router.navigate(`/start?service=total-loss&caseId=${OTHER_CASE_ID}`));
+    await waitFor(() => expect(router.state.location.pathname).toBe(`/total-loss/cases/${OTHER_CASE_ID}/analysis`));
+    expect(screen.queryByText("Review your saved intake")).not.toBeInTheDocument();
+    expect(router.state.location.search).not.toContain("correct-intake");
+    expectNoRecoveryWrites(harness);
+  });
+
+  it.each(["other case", "other owner"])("does not restore unrelated local %s data into correction", async (scope) => {
+    writeTotalLossDraft(createSensitiveManualDraft({
+      confirmedCaseId: scope === "other case" ? OTHER_CASE_ID : CASE_ID,
+      reservedCaseId: scope === "other case" ? OTHER_CASE_ID : CASE_ID,
+      ownerUserId: scope === "other owner" ? OTHER_USER_ID : USER_ID,
+      dirty: true,
+      contact: { firstName: "Private", lastName: "Person", email: "private@example.com", phoneNumber: "", termsAccepted: false, privacyAccepted: false, operationalFollowUpAllowed: false },
+    }));
+    const harness = recoveryHarness();
+    renderTestApp([recoveryPath()], { authService: createAuthHarness(sessionFor()).service, totalLossDependencies: harness.dependencies });
+    expect(await screen.findByLabelText("VIN")).toHaveValue("1HGCM82633A004352");
+    expect(screen.queryByText(/Sensitive Make/)).not.toBeInTheDocument();
+    expect(readTotalLossDraft()).toMatchObject({ draft: { confirmedCaseId: CASE_ID, ownerUserId: USER_ID, dirty: false, contact: { firstName: "Taylor", email: "owner@example.com" } } });
+    expectNoRecoveryWrites(harness);
+  });
+
+  it("rejects correction of another owner's case without restoring any fields", async () => {
+    const harness = recoveryHarness();
+    harness.caseService.getAppraisalCase = vi.fn(async () => appraisalCase(CASE_ID, OTHER_USER_ID));
+    renderTestApp([recoveryPath()], { authService: createAuthHarness(sessionFor()).service, totalLossDependencies: harness.dependencies });
+    expect(await screen.findByText("This saved appraisal cannot be opened from this link.")).toBeVisible();
+    expect(harness.getContact).not.toHaveBeenCalled();
+    expect(screen.queryByLabelText("VIN")).not.toBeInTheDocument();
+    expectNoRecoveryWrites(harness);
+  });
+
+  it("keeps report correction editable without replacing the retained upload or starting extraction", async () => {
+    const harness = recoveryHarness({ details: completedRecoveryDetails({ intakeMode: "report", reportOriginalFilename: "retained-valuation.pdf", reportUploadedAt: CREATED_AT, reportExtractionStatus: "confirmed" }) });
+    const { router } = renderTestApp([recoveryPath()], { authService: createAuthHarness(sessionFor()).service, totalLossDependencies: harness.dependencies });
+    expect(await screen.findByRole("heading", { name: "Upload your valuation report" })).toBeVisible();
+    expect(screen.getByText("retained-valuation.pdf")).toBeVisible();
+    expect(screen.getByLabelText("Market ZIP code")).toHaveValue("60611");
+    await settleRecoveryAutosave();
+    expect(router.state.location.pathname).toBe("/start");
+    expectNoRecoveryWrites(harness);
+    expect(harness.uploadReport).not.toHaveBeenCalled();
+    expect(ingestReportMock).not.toHaveBeenCalled();
+  });
+
+  it("blocks saving and confirmation when the correction contract fails while retaining the entered offer", async () => {
+    const harness = recoveryHarness({ details: completedRecoveryDetails({ insurerVehicleValuation: null }), status: "check_complete" });
+    prepareIntakeCorrectionMock.mockRejectedValue(new Error("The saved intake changed. Reload it before correcting it."));
+    const user = userEvent.setup();
+    const { router } = renderTestApp([recoveryPath(CASE_ID, true)], { authService: createAuthHarness(sessionFor()).service, totalLossDependencies: harness.dependencies });
+    await user.type(await screen.findByLabelText("Insurer’s vehicle valuation"), "21000");
+    await user.click(withinIntakeFlow().getByRole("button", { name: "Continue" }));
+    expect(await screen.findByText("The saved intake changed. Reload it before correcting it.")).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Review & analyze" }));
+    expect(await screen.findByText("The saved intake changed. Reload it before correcting it.")).toBeVisible();
+    await user.click(withinIntakeFlow().getByRole("button", { name: "Back" }));
+    expect(await screen.findByLabelText("Insurer’s vehicle valuation")).toHaveValue("$21,000.00");
+    expect(harness.saveDetails).not.toHaveBeenCalled();
+    expect(harness.saveContactAndBeginClaim).not.toHaveBeenCalled();
+    expect(harness.confirmIntake).not.toHaveBeenCalled();
+    expect(harness.detailRows.get(CASE_ID)?.analysisInputId).toBe(RECOVERY_INPUT_ID);
+    expect(router.state.location.pathname).toBe("/start");
+  });
+
+  it.each(["completed", "failed"] as const)("clears stale %s case analysis after changed inputs while preserving immutable run cache", async (status) => {
+    const harness = recoveryHarness({ details: completedRecoveryDetails({ insurerVehicleValuation: null }) });
+    const user = userEvent.setup();
+    const { queryClient, router } = renderTestApp([recoveryPath(CASE_ID, true)], { authService: createAuthHarness(sessionFor()).service, totalLossDependencies: harness.dependencies });
+    await screen.findByRole("heading", { name: "Add the claim details" });
+    const caseKey = caseAnalysisQueryKeys.detail(USER_ID, CASE_ID);
+    const runKey = analysisQueryKeys.detail(USER_ID, materialUndervalueAnalysis.runId);
+    const unrelatedCaseKey = caseAnalysisQueryKeys.detail(USER_ID, OTHER_CASE_ID);
+    queryClient.setQueryData(caseKey, status === "completed" ? { status, attemptCount: 1, runId: materialUndervalueAnalysis.runId } : { status, attemptCount: 1, retryable: false, error: { code: "UNSUPPORTED", message: "Correct the intake." } });
+    queryClient.setQueryData(runKey, materialUndervalueAnalysis);
+    queryClient.setQueryData(unrelatedCaseKey, { status: "completed", attemptCount: 2, runId: materialUndervalueAnalysis.runId });
+    await user.type(screen.getByLabelText("Insurer’s vehicle valuation"), "20000");
+    await waitFor(() => expect(harness.detailRows.get(CASE_ID)?.insurerVehicleValuation).toBe(20000));
+    await waitFor(() => expect(queryClient.getQueryData(caseKey)).toBeUndefined());
+    expect(queryClient.getQueryData(runKey)).toEqual(materialUndervalueAnalysis);
+    expect(queryClient.getQueryData(unrelatedCaseKey)).toMatchObject({ status: "completed", attemptCount: 2 });
+    await user.click(withinIntakeFlow().getByRole("button", { name: "Continue" }));
+    await user.click(await screen.findByRole("button", { name: "Review & analyze" }));
+    await waitFor(() => expect(router.state.location.pathname).toBe(`/total-loss/cases/${CASE_ID}/analysis`));
+    await waitFor(() => expect(queryClient.getQueryData(caseKey)).toMatchObject({ status: "processing" }));
+    expect(queryClient.getQueryData(runKey)).toEqual(materialUndervalueAnalysis);
   });
 });
 

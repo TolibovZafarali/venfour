@@ -22,6 +22,7 @@ import { useAnalysisQuery } from "@/features/analyses/queries";
 import { ApiError } from "@/lib/api/client";
 import { environment } from "@/config/env";
 import { LocalContinueAction } from "@/features/total-loss-claim/components/local-continue-action";
+import { totalLossIntakeCorrectionPath } from "@/features/total-loss/intake-correction";
 
 const canonicalUuid4Pattern =
   /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
@@ -166,11 +167,17 @@ function CompletedTotalLossAnalysis({
 
   return (
     <AnalysisExperienceFrame>
-      <TotalLossAnalysisResult analysis={resultQuery.data} continueAction={
-        import.meta.env.DEV && environment.localPostContinueEnabled && caseId
-          ? <LocalContinueAction accessToken={accessToken} caseId={caseId} userId={userId} />
-          : undefined
-      } />
+      <TotalLossAnalysisResult
+        analysis={resultQuery.data}
+        addInsurerOfferPath={
+          caseId ? totalLossIntakeCorrectionPath(caseId, "insurer-offer") : undefined
+        }
+        continueAction={
+          import.meta.env.DEV && environment.localPostContinueEnabled && caseId
+            ? <LocalContinueAction accessToken={accessToken} caseId={caseId} userId={userId} />
+            : undefined
+        }
+      />
     </AnalysisExperienceFrame>
   );
 }
@@ -349,7 +356,7 @@ function AuthenticatedTotalLossAnalysisPage({
         {errorMessage && replaceReportRequired ? (
           <Button asChild>
             <Link
-              to={`/start?service=total-loss&caseId=${encodeURIComponent(caseId)}`}
+              to={totalLossIntakeCorrectionPath(caseId)}
             >
               Replace report
             </Link>
@@ -402,7 +409,7 @@ function AuthenticatedTotalLossAnalysisPage({
         ) : (
           <Button asChild>
             <Link
-              to={`/start?service=total-loss&caseId=${encodeURIComponent(caseId)}`}
+              to={totalLossIntakeCorrectionPath(caseId)}
             >
               Review intake
             </Link>

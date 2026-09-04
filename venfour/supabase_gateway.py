@@ -3129,6 +3129,108 @@ class SupabaseHttpGateway:
         )
         return self._single_rpc_row(payload, "Analysis status")
 
+    def get_total_loss_intake_correction_context(
+        self, case_id: str, user_id: str
+    ) -> Mapping[str, Any] | None:
+        canonical_case_id = _canonical_uuid(case_id, "Case ID")
+        canonical_user_id = _canonical_uuid(user_id, "User ID")
+        try:
+            response = self._client.get(
+                f"{self._configuration.url}/rest/v1/appraisal_cases",
+                headers=self._admin_headers(),
+                params={
+                    "id": f"eq.{canonical_case_id}",
+                    "user_id": f"eq.{canonical_user_id}",
+                    "service_type": "eq.total_loss",
+                    "select": (
+                        "id,user_id,status,updated_at,"
+                        "total_loss_case_details(analysis_input_id,"
+                        "analysis_input_revision,intake_mode,"
+                        "insurer_vehicle_valuation,intake_completed_at),"
+                        "total_loss_claim_workflows(case_id)"
+                    ),
+                },
+            )
+        except httpx.HTTPError as exc:
+            raise SupabaseUnavailableError("Intake correction is unavailable") from exc
+        if response.status_code != 200:
+            raise SupabaseUnavailableError("Intake correction is unavailable")
+        try:
+            payload = response.json()
+        except (ValueError, json.JSONDecodeError) as exc:
+            raise SupabaseContractError("Intake correction response is invalid") from exc
+        if payload == []:
+            return None
+        row = self._single_rpc_row(payload, "Intake correction")
+        if row.get("id") != canonical_case_id or row.get("user_id") != canonical_user_id:
+            raise SupabaseContractError("Intake correction owner is invalid")
+        details = row.get("total_loss_case_details")
+        workflow = row.get("total_loss_claim_workflows")
+        if not isinstance(details, Mapping) or not (
+            workflow is None or isinstance(workflow, Mapping)
+        ):
+            raise SupabaseContractError("Intake correction state is invalid")
+        return {
+            "case_id": canonical_case_id,
+            "user_id": canonical_user_id,
+            "status": row.get("status"),
+            "updated_at": row.get("updated_at"),
+            "has_workflow": workflow is not None,
+            **dict(details),
+        }
+
+    def reopen_total_loss_intake_for_correction(
+        self, case_id: str, user_id: str, expected_case_updated_at: str
+    ) -> bool:
+        canonical_case_id = _canonical_uuid(case_id, "Case ID")
+        canonical_user_id = _canonical_uuid(user_id, "User ID")
+        if not isinstance(expected_case_updated_at, str):
+            raise SupabaseContractError("Case version is invalid")
+        try:
+            parsed_version = datetime.fromisoformat(
+                expected_case_updated_at.replace("Z", "+00:00")
+            )
+        except ValueError as exc:
+            raise SupabaseContractError("Case version is invalid") from exc
+        if parsed_version.tzinfo is None:
+            raise SupabaseContractError("Case version is invalid")
+        expected_version = expected_case_updated_at
+        try:
+            response = self._client.patch(
+                f"{self._configuration.url}/rest/v1/appraisal_cases",
+                headers={
+                    **self._admin_headers(json_body=True),
+                    "Prefer": "return=representation",
+                },
+                params={
+                    "id": f"eq.{canonical_case_id}",
+                    "user_id": f"eq.{canonical_user_id}",
+                    "service_type": "eq.total_loss",
+                    "status": "eq.check_complete",
+                    "updated_at": f"eq.{expected_version}",
+                    "select": "id,user_id,status",
+                },
+                json={"status": "draft"},
+            )
+        except httpx.HTTPError as exc:
+            raise SupabaseUnavailableError("Intake correction is unavailable") from exc
+        if response.status_code != 200:
+            raise SupabaseUnavailableError("Intake correction is unavailable")
+        try:
+            payload = response.json()
+        except (ValueError, json.JSONDecodeError) as exc:
+            raise SupabaseContractError("Intake correction response is invalid") from exc
+        if payload == []:
+            return False
+        row = self._single_rpc_row(payload, "Intake correction")
+        if (
+            row.get("id") != canonical_case_id
+            or row.get("user_id") != canonical_user_id
+            or row.get("status") != "draft"
+        ):
+            raise SupabaseContractError("Intake correction transition is invalid")
+        return True
+
     def claim_vehicle_trim_cache(
         self,
         lookup_key: str,
