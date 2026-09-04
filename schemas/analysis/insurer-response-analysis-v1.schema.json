@@ -165,7 +165,7 @@
     "importantChanges": {
       "type": "array",
       "maxItems": 50,
-      "items": { "$ref": "#/$defs/groundedObservation" }
+      "items": { "$ref": "#/$defs/importantChange" }
     },
     "unresolvedIssues": {
       "type": "array",
@@ -315,6 +315,32 @@
         "caseEvidenceRefs": { "$ref": "#/$defs/caseEvidenceRefs" }
       }
     },
+    "importantChange": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "description",
+        "responseEvidenceRefs",
+        "caseEvidenceRefs"
+      ],
+      "properties": {
+        "description": { "$ref": "#/$defs/description" },
+        "responseEvidenceRefs": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 100,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/responseEvidenceRef" }
+        },
+        "caseEvidenceRefs": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 100,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/caseEvidenceRef" }
+        }
+      }
+    },
     "groundedObservation": {
       "type": "object",
       "additionalProperties": false,
@@ -330,13 +356,43 @@
       },
       "anyOf": [
         {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "description",
+            "responseEvidenceRefs",
+            "caseEvidenceRefs"
+          ],
           "properties": {
-            "responseEvidenceRefs": { "minItems": 1 }
+            "description": { "$ref": "#/$defs/description" },
+            "responseEvidenceRefs": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 100,
+              "uniqueItems": true,
+              "items": { "$ref": "#/$defs/responseEvidenceRef" }
+            },
+            "caseEvidenceRefs": { "$ref": "#/$defs/caseEvidenceRefs" }
           }
         },
         {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "description",
+            "responseEvidenceRefs",
+            "caseEvidenceRefs"
+          ],
           "properties": {
-            "caseEvidenceRefs": { "minItems": 1 }
+            "description": { "$ref": "#/$defs/description" },
+            "responseEvidenceRefs": { "$ref": "#/$defs/responseEvidenceRefs" },
+            "caseEvidenceRefs": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 100,
+              "uniqueItems": true,
+              "items": { "$ref": "#/$defs/caseEvidenceRef" }
+            }
           }
         }
       ]

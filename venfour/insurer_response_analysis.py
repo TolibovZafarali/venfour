@@ -28,6 +28,11 @@ from jsonschema import Draft202012Validator
 from jsonschema.exceptions import SchemaError
 from openai import OpenAI
 
+from venfour.strict_structured_output import (
+    StrictStructuredOutputSchemaError,
+    validate_strict_structured_output_schema,
+)
+
 
 INSURER_RESPONSE_ANALYSIS_PROVIDER_IDENTIFIER = "openai"
 INSURER_RESPONSE_ANALYSIS_INPUT_SCHEMA_VERSION = "1"
@@ -1821,7 +1826,9 @@ def read_insurer_response_analysis_schema() -> dict[str, Any]:
     return data
 
 
-def insurer_response_analysis_api_schema() -> dict[str, Any]:
+def insurer_response_analysis_api_schema(
+    *, model_identifier: str | None = None
+) -> dict[str, Any]:
     """Return the strict provider schema without unsupported annotations."""
 
     schema = copy.deepcopy(read_insurer_response_analysis_schema())
@@ -1838,14 +1845,32 @@ def insurer_response_analysis_api_schema() -> dict[str, Any]:
                 remove_unsupported(child)
 
     remove_unsupported(schema)
+    try:
+        validate_strict_structured_output_schema(
+            schema,
+            fine_tuned=(
+                isinstance(model_identifier, str)
+                and model_identifier.startswith("ft:")
+            ),
+        )
+    except StrictStructuredOutputSchemaError as exc:
+        raise InsurerResponseAnalysisUnavailableError(
+            "Insurer response analysis provider schema is incompatible",
+            code="INSURER_RESPONSE_ANALYSIS_SCHEMA_UNAVAILABLE",
+            retryable=False,
+        ) from exc
     return schema
 
 
-def insurer_response_analysis_api_format() -> dict[str, Any]:
+def insurer_response_analysis_api_format(
+    *, model_identifier: str | None = None
+) -> dict[str, Any]:
     return {
         "type": "json_schema",
         "name": INSURER_RESPONSE_ANALYSIS_SCHEMA_NAME,
-        "schema": insurer_response_analysis_api_schema(),
+        "schema": insurer_response_analysis_api_schema(
+            model_identifier=model_identifier
+        ),
         "strict": True,
     }
 
@@ -2732,12 +2757,18 @@ class OpenAIInsurerResponseAnalyzer:
                 model=model,
                 instructions=INSURER_RESPONSE_ANALYSIS_INSTRUCTIONS,
                 input=[{"role": "user", "content": content}],
-                text={"format": insurer_response_analysis_api_format()},
+                text={
+                    "format": insurer_response_analysis_api_format(
+                        model_identifier=model
+                    )
+                },
                 max_output_tokens=MAX_INSURER_RESPONSE_OUTPUT_TOKENS,
                 tools=[],
                 store=False,
                 safety_identifier=self._safety_identifier(request),
             )
+        except InsurerResponseAnalysisError:
+            raise
         except TimeoutError as exc:
             raise InsurerResponseAnalysisTimeoutError() from exc
         except Exception as exc:

@@ -7,8 +7,10 @@ import json
 import unittest
 from dataclasses import replace
 from types import SimpleNamespace
+from unittest.mock import patch
 
 import pymupdf
+from jsonschema import Draft202012Validator
 
 from venfour.insurer_response_analysis import (
     INSURER_RESPONSE_ANALYSIS_INSTRUCTIONS,
@@ -34,6 +36,10 @@ from venfour.insurer_response_analysis import (
     understand_insurer_response_document,
     validate_insurer_response_analysis_input_v1,
     validate_insurer_response_analysis_v1,
+)
+from venfour.strict_structured_output import (
+    StrictStructuredOutputSchemaError,
+    validate_strict_structured_output_schema,
 )
 
 
@@ -590,6 +596,172 @@ class InsurerResponseOutputContractTests(InsurerResponseAnalysisFixture):
 
         self.assertTrue(contains_unique(schema))
         self.assertFalse(contains_unique(provider_schema))
+
+    def test_provider_schema_recursively_enforces_the_strict_object_subset(
+        self,
+    ) -> None:
+        provider_schema = insurer_response_analysis_api_schema()
+        validate_strict_structured_output_schema(provider_schema)
+
+        def object_paths(value, path=()):
+            if not isinstance(value, dict):
+                return
+            node_type = value.get("type")
+            if node_type == "object" or (
+                isinstance(node_type, list) and "object" in node_type
+            ):
+                yield path
+            properties = value.get("properties")
+            if isinstance(properties, dict):
+                for name, child in properties.items():
+                    yield from object_paths(
+                        child, (*path, "properties", name)
+                    )
+            if isinstance(value.get("items"), dict):
+                yield from object_paths(value["items"], (*path, "items"))
+            for keyword in ("anyOf",):
+                branches = value.get(keyword)
+                if isinstance(branches, list):
+                    for index, child in enumerate(branches):
+                        yield from object_paths(
+                            child, (*path, keyword, index)
+                        )
+            for keyword in ("$defs", "definitions"):
+                definitions = value.get(keyword)
+                if isinstance(definitions, dict):
+                    for name, child in definitions.items():
+                        yield from object_paths(
+                            child, (*path, keyword, name)
+                        )
+
+        def select(value, path):
+            selected = value
+            for part in path:
+                selected = selected[part]
+            return selected
+
+        paths = tuple(object_paths(provider_schema))
+        self.assertTrue(paths)
+        for path in paths:
+            with self.subTest(path=path, invariant="closed"):
+                malformed = copy.deepcopy(provider_schema)
+                select(malformed, path).pop("additionalProperties")
+                with self.assertRaises(StrictStructuredOutputSchemaError):
+                    validate_strict_structured_output_schema(malformed)
+
+            with self.subTest(path=path, invariant="required"):
+                malformed = copy.deepcopy(provider_schema)
+                node = select(malformed, path)
+                node["required"] = node["required"][:-1]
+                with self.assertRaises(StrictStructuredOutputSchemaError):
+                    validate_strict_structured_output_schema(malformed)
+
+        unsupported = copy.deepcopy(provider_schema)
+        unsupported["properties"]["responsePoints"]["items"]["oneOf"] = [
+            {"type": "string"}
+        ]
+        with self.assertRaises(StrictStructuredOutputSchemaError):
+            validate_strict_structured_output_schema(unsupported)
+
+        unresolved = copy.deepcopy(provider_schema)
+        unresolved["properties"]["responsePoints"]["items"]["$ref"] = (
+            "#/$defs/missing"
+        )
+        with self.assertRaises(StrictStructuredOutputSchemaError):
+            validate_strict_structured_output_schema(unresolved)
+
+        property_only_branch = copy.deepcopy(provider_schema)
+        property_only_branch["properties"]["responsePoints"]["items"][
+            "anyOf"
+        ] = [
+            {
+                "properties": {
+                    "syntheticNestedValue": {"type": "string"}
+                }
+            }
+        ]
+        with self.assertRaises(StrictStructuredOutputSchemaError):
+            validate_strict_structured_output_schema(property_only_branch)
+
+        unsupported_format = copy.deepcopy(provider_schema)
+        unsupported_format["properties"]["schemaVersion"]["format"] = (
+            "totally-custom"
+        )
+        with self.assertRaises(StrictStructuredOutputSchemaError):
+            validate_strict_structured_output_schema(unsupported_format)
+
+        excessive_properties = {
+            "type": "object",
+            "additionalProperties": False,
+            "required": [f"field{index}" for index in range(5_001)],
+            "properties": {
+                f"field{index}": {"type": "string"}
+                for index in range(5_001)
+            },
+        }
+        with self.assertRaises(StrictStructuredOutputSchemaError):
+            validate_strict_structured_output_schema(excessive_properties)
+
+        excessive_enum = copy.deepcopy(provider_schema)
+        excessive_enum["properties"]["schemaVersion"]["enum"] = [
+            str(index) for index in range(1_001)
+        ]
+        with self.assertRaises(StrictStructuredOutputSchemaError):
+            validate_strict_structured_output_schema(excessive_enum)
+
+        excessive_depth = {"type": "string"}
+        for _ in range(11):
+            excessive_depth = {
+                "type": "object",
+                "additionalProperties": False,
+                "required": ["value"],
+                "properties": {"value": excessive_depth},
+            }
+        with self.assertRaises(StrictStructuredOutputSchemaError):
+            validate_strict_structured_output_schema(excessive_depth)
+
+        with self.assertRaises(StrictStructuredOutputSchemaError):
+            validate_strict_structured_output_schema(
+                provider_schema, fine_tuned=True
+            )
+
+    def test_provider_schema_matches_the_grounding_evidence_contract(
+        self,
+    ) -> None:
+        provider_schema = insurer_response_analysis_api_schema()
+        validator = Draft202012Validator(provider_schema)
+        payload = self._valid_payload()
+        validator.validate(payload)
+
+        for missing_key in ("responseEvidenceRefs", "caseEvidenceRefs"):
+            with self.subTest(collection="importantChanges", missing=missing_key):
+                one_sided_change = copy.deepcopy(payload)
+                one_sided_change["importantChanges"][0][missing_key] = []
+                self.assertTrue(tuple(validator.iter_errors(one_sided_change)))
+
+        response_ref = self._material_ref(self.request, "PASTED_TEXT")
+        for collection, observation in (
+            (
+                "unresolvedIssues",
+                {
+                    "description": "The insurer response leaves this unresolved.",
+                    "responseEvidenceRefs": [response_ref],
+                    "caseEvidenceRefs": [],
+                },
+            ),
+            (
+                "uncertainties",
+                {
+                    "description": "The saved case evidence leaves this uncertain.",
+                    "responseEvidenceRefs": [],
+                    "caseEvidenceRefs": [self.finding_ref],
+                },
+            ),
+        ):
+            with self.subTest(collection=collection):
+                one_sided_observation = copy.deepcopy(payload)
+                one_sided_observation[collection] = [observation]
+                validator.validate(one_sided_observation)
 
     def test_unknown_or_missing_evidence_references_are_rejected(self) -> None:
         unknown = self._valid_payload()
@@ -1178,6 +1350,40 @@ class InsurerResponseOutputContractTests(InsurerResponseAnalysisFixture):
 
 
 class OpenAIInsurerResponseAnalyzerTests(InsurerResponseAnalysisFixture):
+    def test_incompatible_provider_schema_fails_before_network_request(self) -> None:
+        malformed = copy.deepcopy(read_insurer_response_analysis_schema())
+        malformed["$defs"]["responsePoint"].pop("additionalProperties")
+        client = _FakeClient(self._response(self._valid_payload()))
+
+        with patch(
+            "venfour.insurer_response_analysis.read_insurer_response_analysis_schema",
+            return_value=malformed,
+        ), self.assertRaises(InsurerResponseAnalysisUnavailableError) as caught:
+            OpenAIInsurerResponseAnalyzer(
+                self._configuration(), client=client
+            ).analyze(self.request)
+
+        self.assertEqual(
+            caught.exception.code, "INSURER_RESPONSE_ANALYSIS_SCHEMA_UNAVAILABLE"
+        )
+        self.assertFalse(caught.exception.retryable)
+        self.assertEqual(client.responses.calls, [])
+
+        fine_tuned_client = _FakeClient(self._response(self._valid_payload()))
+        with self.assertRaises(
+            InsurerResponseAnalysisUnavailableError
+        ) as fine_tuned_caught:
+            OpenAIInsurerResponseAnalyzer(
+                InsurerResponseAnalysisConfiguration("ft:gpt-response-test"),
+                client=fine_tuned_client,
+            ).analyze(self.request)
+        self.assertEqual(
+            fine_tuned_caught.exception.code,
+            "INSURER_RESPONSE_ANALYSIS_SCHEMA_UNAVAILABLE",
+        )
+        self.assertFalse(fine_tuned_caught.exception.retryable)
+        self.assertEqual(fine_tuned_client.responses.calls, [])
+
     def test_text_request_is_private_strict_tool_free_and_auditable(self) -> None:
         payload = self._valid_payload()
         client = _FakeClient(self._response(payload))
