@@ -1491,8 +1491,10 @@ def validate_case_resolution(value: Any) -> dict[str, Any]:
     if code == "ACCEPTED_VERIFIED_OFFER":
         for key in references:
             _uuid(value.get(key), "Resolution " + key)
-        if amount is None or source != "VERIFIED_INSURER_OFFER":
-            raise SupabaseContractError("Accepted resolution requires a verified insurer offer")
+        if amount is None or source not in {"CUSTOMER_RECORDED", "RESPONSE_TEXT"}:
+            raise SupabaseContractError(
+                "Accepted resolution requires an insurer offer with saved provenance"
+            )
     else:
         if any(value.get(key) is not None for key in references):
             raise SupabaseContractError("Manual resolution cannot bind an insurer offer")

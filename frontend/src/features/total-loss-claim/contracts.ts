@@ -521,6 +521,10 @@ export type TotalLossInsurerResponseFailureReason =
 
 export type TotalLossResponseDecisionChoice = "ACCEPT_OFFER" | "CONTINUE_CHALLENGING";
 
+export type TotalLossInsurerOfferProvenance =
+  | "CUSTOMER_RECORDED"
+  | "RESPONSE_TEXT";
+
 export interface TotalLossResponseRecommendation extends TotalLossInsurerResponseAnalysisReferenceSet {
   readonly recommendationId: string;
   readonly versionNumber: number;
@@ -536,7 +540,7 @@ export interface TotalLossResponseRecommendation extends TotalLossInsurerRespons
 
 export interface TotalLossResponseUsableOffer extends TotalLossInsurerResponseOffer {
   readonly offerId: string;
-  readonly source: "CUSTOMER_RECORDED" | "RESPONSE_TEXT";
+  readonly source: TotalLossInsurerOfferProvenance;
 }
 
 export interface TotalLossResponseDecision {
@@ -573,7 +577,7 @@ export interface TotalLossCaseResolution {
   readonly offerId: string | null;
   readonly amountMinorUnits: number | null;
   readonly currency: string | null;
-  readonly amountSource: "VERIFIED_INSURER_OFFER" | "CUSTOMER_REPORTED" | null;
+  readonly amountSource: TotalLossInsurerOfferProvenance | "CUSTOMER_REPORTED" | null;
   readonly recommendationId: string | null;
   readonly decisionId: string | null;
   readonly responseId: string | null;

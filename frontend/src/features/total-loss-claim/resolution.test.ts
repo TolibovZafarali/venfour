@@ -1,7 +1,16 @@
 import { describe, expect, it } from "vitest";
 
-import type { TotalLossClaimSecured, TotalLossInsurerResponse } from "./contracts";
-import { canCloseCase, caseIsClosed, currentAcceptedOffer } from "./resolution";
+import type {
+  TotalLossClaimSecured,
+  TotalLossInsurerOfferProvenance,
+  TotalLossInsurerResponse,
+} from "./contracts";
+import {
+  canCloseCase,
+  caseIsClosed,
+  currentAcceptedOffer,
+  insurerOfferProvenanceLabel,
+} from "./resolution";
 
 const response: TotalLossInsurerResponse = {
   responseId: "response", clientRequestId: "response-request", receivedAt: "2026-09-02T12:00:00Z", sourceType: "pasted_message", text: "Offer",
@@ -10,18 +19,28 @@ const response: TotalLossInsurerResponse = {
   usableOffer: { offerId: "offer", amountMinorUnits: 2010000, currency: "USD", source: "RESPONSE_TEXT" },
   decision: { decisionId: "decision", clientRequestId: "decision-request", recommendationId: "recommendation", analysisResultId: "analysis", choice: "ACCEPT_OFFER", offerId: "offer", amountMinorUnits: 2010000, currency: "USD", recordedAt: "2026-09-02T12:00:00Z" },
 };
-function claim(): TotalLossClaimSecured {
-  return { state: "secured", caseId: "case", contactEmail: null, insurerResponse: response,
+function claim(source: TotalLossInsurerOfferProvenance = "RESPONSE_TEXT"): TotalLossClaimSecured {
+  return { state: "secured", caseId: "case", contactEmail: null, insurerResponse: {
+    ...response,
+    usableOffer: { ...response.usableOffer!, source },
+  },
     workflow: { phase: "negotiation", currentTask: "insurer_response_received", revision: 15 },
     commerce: { checkoutAvailable: false, entitlementStatus: "active", nextTask: "insurer_response_reviewed", orderStatus: "paid", paymentStatus: "succeeded" },
   };
 }
 
 describe("customer closure availability", () => {
-  it("keeps an Accept decision open and binds finalization to its exact saved offer", () => {
-    expect(caseIsClosed(claim())).toBe(false);
-    expect(canCloseCase(claim())).toBe(true);
-    expect(currentAcceptedOffer(claim())).toMatchObject({ decision: { decisionId: "decision" }, offer: { offerId: "offer", amountMinorUnits: 2010000, currency: "USD" } });
+  it.each([
+    ["CUSTOMER_RECORDED", "Customer-reported insurer offer"],
+    ["RESPONSE_TEXT", "Offer shown in insurer response"],
+  ] as const)("keeps an Accept decision open and binds %s provenance to its exact saved offer", (source, label) => {
+    expect(caseIsClosed(claim(source))).toBe(false);
+    expect(canCloseCase(claim(source))).toBe(true);
+    expect(currentAcceptedOffer(claim(source))).toMatchObject({
+      decision: { decisionId: "decision" },
+      offer: { offerId: "offer", amountMinorUnits: 2010000, currency: "USD", source },
+    });
+    expect(insurerOfferProvenanceLabel(source)).toBe(label);
   });
   it.each([
     { offerId: "superseded" }, { amountMinorUnits: 1990000 }, { currency: "CAD" },

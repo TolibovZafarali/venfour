@@ -61,6 +61,7 @@ import { openPublishedReport, reservePublishedReportPreview } from "../browser-a
 import { useInsurerResponseDraft } from "../use-insurer-response-draft";
 import { resolvedTotalLossClaimJourneyState } from "../workflow-route";
 import { clearResponseDecisionAttempt, readResponseDecisionAttempt, responseDecisionAttemptKey, writeResponseDecisionAttempt } from "../response-decision-attempt";
+import { insurerOfferProvenanceLabel } from "../resolution";
 import "./insurer-response.css";
 
 interface InsurerResponseIdentity {
@@ -807,7 +808,7 @@ function ResponseDecisionArea({ accessToken, caseId, claim, onRefresh, response,
               : "You chose to continue challenging"}</strong>
             <p>Recorded <RecordedTime value={decision.recordedAt} />.</p>
             <p>{decision.choice === "ACCEPT_OFFER"
-              ? readOnly ? "This saved choice applies to the exact insurer offer in this response version. Your current case step is shown above." : "Your choice is saved for this exact insurer offer. Your case is awaiting finalization and remains open. Nothing has been sent to the insurer."
+              ? `${insurerOfferProvenanceLabel(usableOffer!.source)}. ${readOnly ? "This saved choice applies to the exact offer record in this response version. Your current case step is shown above." : "Your choice is saved for this exact offer record. Your case is awaiting finalization and remains open. Nothing has been sent to the insurer."}`
               : readOnly ? "This decision is preserved with this saved response. Any resulting follow-up is available in case history." : claim.followUp?.state === "sent" ? "You confirmed sending your follow-up. Your case remains open while you wait for the insurer." : "Your choice is saved. Review and send a focused follow-up based on the saved response and supporting evidence."}</p>
             {decision.choice === "CONTINUE_CHALLENGING" && !readOnly ? <Link className="request-button request-button-primary" to={totalLossClaimViewPath(caseId, "review_follow_up")}>{claim.followUp?.state === "sent" ? "View sent follow-up" : claim.followUp?.draft ? "Review my follow-up" : "Prepare my follow-up"}</Link> : null}
             {decision.choice === "ACCEPT_OFFER" && !readOnly ? <Link className="request-button request-button-primary" to={totalLossClaimViewPath(caseId, "review_resolution")}>Complete acceptance with insurer</Link> : null}
@@ -816,8 +817,8 @@ function ResponseDecisionArea({ accessToken, caseId, claim, onRefresh, response,
       ) : readOnly ? <p>No decision was recorded for this saved response version.</p> : (
         <>
           <p>The decision is yours, even if you choose differently from Venfour’s recommendation. Saving a choice does not contact the insurer or close your case.</p>
-          {usableOffer ? <p className="response-decision-offer">Insurer offer: <strong>{offerLabel(usableOffer.amountMinorUnits, usableOffer.currency)}</strong></p>
-            : <p>No verified revised offer is available to accept.</p>}
+          {usableOffer ? <p className="response-decision-offer">{insurerOfferProvenanceLabel(usableOffer.source)}: <strong>{offerLabel(usableOffer.amountMinorUnits, usableOffer.currency)}</strong></p>
+            : <p>No exact offer with sufficient saved support is available to accept.</p>}
           {attempt && !pending ? <p className="response-decision-notice" role="status">Your {attempt.choice === "ACCEPT_OFFER" ? "Accept offer" : "Continue challenging"} choice still needs confirmation. Retry saving that same choice.</p> : null}
           {storageUnavailable ? <p className="response-decision-notice">This browser could not preserve the pending choice. Keep this page open until saving is confirmed.</p> : null}
           {error ? <p className="request-error" role="alert">{error}</p> : null}

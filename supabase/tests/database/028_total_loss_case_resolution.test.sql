@@ -543,6 +543,38 @@ select ok((select case_status='closed' and case_stage='closed' from public.list_
   where case_id='b2000000-0000-4000-8000-000000000001'),'legacy no-dispute resolution is historical in the lightweight owned list');
 rollback to no_dispute_outcome;
 
+-- A literal amount in saved response text keeps response-material provenance.
+savepoint response_text_acceptance;
+create temporary table response_text_source as select public.record_total_loss_insurer_response(
+  'b2000000-0000-4000-8000-000000000001',gen_random_uuid(),'The revised insurer offer is $20,500.00.',null,
+  null,null,null,(select revision from public.total_loss_claim_workflows where case_id='b2000000-0000-4000-8000-000000000001'),
+  'be300000-0000-4000-8000-000000000001') as response;
+update pg_temp.valid_result set result=jsonb_set(result,'{revisedOffer}',jsonb_build_object(
+  'status','PRESENT','amountMinorUnits',2050000,'currency','USD','source','INSURER_RESPONSE','visualSourceInterpretation',null,
+  'responseEvidenceRefs',jsonb_build_array('response_'||repeat('a',64))));
+update pg_temp.valid_evidence_index set evidence_index=jsonb_set(evidence_index,'{responseEvidence,0,content}',
+  to_jsonb('The revised insurer offer is $20,500.00.'::text));
+select pg_temp.complete_response(pg_temp.recommendation('NO_CLEAR_RECOMMENDATION','RESPONSE_TEXT'));
+create temporary table response_text_decision as select public.record_total_loss_insurer_response_decision(
+  'b2000000-0000-4000-8000-000000000001',gen_random_uuid(),
+  (select response#>>'{response,responseId}' from response_text_source)::uuid,
+  workflow.current_recommendation_id,'ACCEPT_OFFER',workflow.current_offer_id,workflow.revision) as decision
+  from public.total_loss_claim_workflows workflow where case_id='b2000000-0000-4000-8000-000000000001';
+create temporary table response_text_confirmation as select gen_random_uuid() as request_id,revision as expected_revision,
+  (select decision#>>'{response,decision,decisionId}' from response_text_decision)::uuid as decision_id,current_offer_id as offer_id
+  from public.total_loss_claim_workflows where case_id='b2000000-0000-4000-8000-000000000001';
+select public.confirm_total_loss_case_resolution('b2000000-0000-4000-8000-000000000001',
+  (select request_id from response_text_confirmation),'ACCEPTED_VERIFIED_OFFER',
+  (select expected_revision from response_text_confirmation),(select decision_id from response_text_confirmation),
+  (select offer_id from response_text_confirmation));
+select ok((select case_resolution ->> 'amountSource'='RESPONSE_TEXT'
+  and case_resolution ->> 'offerId'=(select offer_id::text from response_text_confirmation)
+  and case_resolution ->> 'decisionId'=(select decision_id::text from response_text_confirmation)
+  and insurer_response#>>'{usableOffer,source}'='RESPONSE_TEXT'
+  from public.resolve_total_loss_case_claim('b2000000-0000-4000-8000-000000000001')),
+  'accepted literal response-text offer preserves its source and exact identity through closure');
+rollback to response_text_acceptance;
+
 -- The exact accepted offer is available only after a current analyzed response.
 create temporary table accepted_source as select public.record_total_loss_insurer_response(
   'b2000000-0000-4000-8000-000000000001',gen_random_uuid(),'The revised insurer offer is $20,500.00.',2050000,
@@ -572,14 +604,26 @@ select throws_ok($$select public.confirm_total_loss_case_resolution('b2000000-00
 
 savepoint correction;
 select public.record_total_loss_insurer_response('b2000000-0000-4000-8000-000000000001',gen_random_uuid(),
-  'Corrected response: the revised insurer offer is $20,500.00.',2050000,null,null,
+  'Corrected response: the revised insurer offer is $20,500.00.',null,null,null,
   (select response#>>'{response,responseId}' from accepted_source)::uuid,
   (select expected_revision from accepted_confirmation),'be300000-0000-4000-8000-000000000001');
 select throws_ok($$select public.confirm_total_loss_case_resolution('b2000000-0000-4000-8000-000000000001',
   (select request_id from accepted_confirmation),'ACCEPTED_VERIFIED_OFFER',(select expected_revision from accepted_confirmation),
   (select decision_id from accepted_confirmation),(select offer_id from accepted_confirmation))$$,
   '40001','Claim workflow changed before case resolution.','stale tab cannot close after correction supersedes Accept');
-select pg_temp.complete_response(pg_temp.recommendation('NO_CLEAR_RECOMMENDATION'));
+update pg_temp.valid_result set result=jsonb_set(result,'{revisedOffer}',jsonb_build_object(
+  'status','PRESENT','amountMinorUnits',2050000,'currency','USD','source','INSURER_RESPONSE','visualSourceInterpretation',null,
+  'responseEvidenceRefs',jsonb_build_array('response_'||repeat('a',64))));
+update pg_temp.valid_evidence_index set evidence_index=jsonb_set(evidence_index,'{responseEvidence,0,content}',
+  to_jsonb('Corrected response: the revised insurer offer is $20,500.00.'::text));
+select pg_temp.complete_response(pg_temp.recommendation('NO_CLEAR_RECOMMENDATION','RESPONSE_TEXT'));
+select ok((select insurer_response#>>'{usableOffer,source}'='RESPONSE_TEXT'
+  and exists(select 1 from jsonb_array_elements(negotiation_history) round(value)
+    cross join lateral jsonb_array_elements(round.value -> 'responses') response(value)
+    where response.value ->> 'responseId'=(select response#>>'{response,responseId}' from accepted_source)
+      and response.value#>>'{usableOffer,source}'='CUSTOMER_RECORDED')
+  from public.resolve_total_loss_case_claim('b2000000-0000-4000-8000-000000000001')),
+  'corrected response uses its current source while historical offer provenance remains unchanged');
 select throws_ok($$select public.confirm_total_loss_case_resolution('b2000000-0000-4000-8000-000000000001',gen_random_uuid(),
   'ACCEPTED_VERIFIED_OFFER',(select revision from public.total_loss_claim_workflows where case_id='b2000000-0000-4000-8000-000000000001'),
   (select decision_id from accepted_confirmation),(select offer_id from accepted_confirmation))$$,
@@ -595,7 +639,7 @@ select ok((select case_resolution ->> 'code'='ACCEPTED_VERIFIED_OFFER'
   and case_resolution ->> 'recommendationId'=insurer_response#>>'{decision,recommendationId}'
   and case_resolution ->> 'responseId'=insurer_response ->> 'responseId'
   and case_resolution ->> 'amountMinorUnits'='2050000' and case_resolution ->> 'currency'='USD'
-  and case_resolution ->> 'amountSource'='VERIFIED_INSURER_OFFER'
+  and case_resolution ->> 'amountSource'='CUSTOMER_RECORDED'
   and case_resolution ->> 'customerConfirmed'='true'
   and insurer_response ->> 'canCorrect'='false' and jsonb_array_length(negotiation_history)=1
   from public.resolve_total_loss_case_claim('b2000000-0000-4000-8000-000000000001')),

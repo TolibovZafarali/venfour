@@ -19,7 +19,11 @@ import {
   requestTotalLossClaimRecovery,
 } from "@/features/total-loss-claim/api";
 import { server } from "@/test/mocks/server";
-import type { TotalLossCaseResolution, TotalLossCaseResolutionInput } from "./contracts";
+import type {
+  TotalLossCaseResolution,
+  TotalLossCaseResolutionInput,
+  TotalLossInsurerOfferProvenance,
+} from "./contracts";
 
 const CASE_ID = "33333333-3333-4333-8333-333333333333";
 const OTHER_CASE_ID = "55555555-5555-4555-8555-555555555555";
@@ -78,11 +82,12 @@ describe("follow-up API contracts", () => {
   });
 });
 
-function recommendedResponseProjection() {
+function recommendedResponseProjection(source: TotalLossInsurerOfferProvenance = "CUSTOMER_RECORDED") {
   return {
     responseId: CLAIM_ID, clientRequestId: OTHER_CASE_ID,
-    receivedAt: "2026-09-01T12:00:00.000Z", sourceType: "pasted_message", text: "The insurer revised the offer.",
-    document: null, revisedOffer: { amountMinorUnits: 2_010_000, currency: "USD" },
+    receivedAt: "2026-09-01T12:00:00.000Z", sourceType: "pasted_message",
+    text: source === "RESPONSE_TEXT" ? "The insurer revised the offer to $20,100." : "The insurer revised the offer.",
+    document: null, revisedOffer: source === "CUSTOMER_RECORDED" ? { amountMinorUnits: 2_010_000, currency: "USD" } : null,
     processingState: "completed", failureReason: null, supersedesResponseId: null,
     analysis: responseAnalysis(), analysisEvidence: responseAnalysisEvidence(),
     recommendation: {
@@ -92,7 +97,7 @@ function recommendedResponseProjection() {
       reasonCodes: ["OFFER_BELOW_SUPPORTED_RANGE"], limitations: ["Advertised prices are not guaranteed settlement values."],
       responseEvidenceRefs: [RESPONSE_REF], caseEvidenceRefs: [CASE_REF],
     },
-    usableOffer: { offerId: OFFER_ID, amountMinorUnits: 2_010_000, currency: "USD", source: "CUSTOMER_RECORDED" },
+    usableOffer: { offerId: OFFER_ID, amountMinorUnits: 2_010_000, currency: "USD", source },
     decision: null as Record<string, unknown> | null,
   };
 }
@@ -124,33 +129,36 @@ function continuedDecision() {
 }
 
 describe("case resolution contracts", () => {
-  function acceptedResolution(): TotalLossCaseResolution {
+  function acceptedResolution(source: TotalLossInsurerOfferProvenance = "CUSTOMER_RECORDED"): TotalLossCaseResolution {
     return { code: "ACCEPTED_VERIFIED_OFFER", resolvedAt: "2026-09-02T12:00:00Z", customerConfirmed: true,
-      clientRequestId: OTHER_CASE_ID, offerId: OFFER_ID, amountMinorUnits: 2010000, currency: "USD", amountSource: "VERIFIED_INSURER_OFFER",
+      clientRequestId: OTHER_CASE_ID, offerId: OFFER_ID, amountMinorUnits: 2010000, currency: "USD", amountSource: source,
       recommendationId: RECOMMENDATION_ID, decisionId: acceptedDecision().decisionId, responseId: CLAIM_ID };
   }
   const input: TotalLossCaseResolutionInput = { clientRequestId: OTHER_CASE_ID, workflowRevision: 15, resolutionCode: "ACCEPTED_VERIFIED_OFFER", decisionId: acceptedDecision().decisionId, offerId: OFFER_ID, amountMinorUnits: null, currency: null };
 
-  it("posts explicit current revision and exact identity while the server supplies the verified amount", async () => {
+  it.each(["CUSTOMER_RECORDED", "RESPONSE_TEXT"] as const)("posts explicit current revision and exact identity while the server supplies the %s amount source", async (source) => {
     server.use(http.post("*/api/v1/appraisal-cases/:caseId/claim/resolution", async ({ request }) => {
       expect(request.headers.get("authorization")).toBe("Bearer owner-token");
       expect(await request.json()).toEqual(input);
-      return HttpResponse.json({ state: "resolved", resolution: acceptedResolution(), workflowRevision: 16 });
+      return HttpResponse.json({ state: "resolved", resolution: acceptedResolution(source), workflowRevision: 16 });
     }));
-    await expect(resolveTotalLossCase(CASE_ID, "owner-token", input)).resolves.toEqual({ state: "resolved", resolution: acceptedResolution(), workflowRevision: 16 });
+    await expect(resolveTotalLossCase(CASE_ID, "owner-token", input)).resolves.toEqual({ state: "resolved", resolution: acceptedResolution(source), workflowRevision: 16 });
   });
 
-  it("maps an accepted terminal resolver retaining the complete exact offer and decision", async () => {
-    const response = { ...recommendedResponseProjection(), decision: acceptedDecision() };
-    const projection = { ...recommendationResolver(response), resolution: acceptedResolution(),
+  it.each(["CUSTOMER_RECORDED", "RESPONSE_TEXT"] as const)("maps an accepted terminal resolver retaining the complete exact %s offer and decision", async (source) => {
+    const response = { ...recommendedResponseProjection(source), decision: acceptedDecision() };
+    const projection = { ...recommendationResolver(response), resolution: acceptedResolution(source),
       workflow: { phase: "resolution", currentTask: "resolved", revision: 16 },
       journey: { nextState: "resolved", fulfillmentState: "resolved", retryable: false } };
     server.use(http.get("*/api/v1/appraisal-cases/:caseId/claim", () => HttpResponse.json(projection)));
-    await expect(getTotalLossClaim(CASE_ID, "owner-token")).resolves.toMatchObject({ resolution: acceptedResolution(), insurerResponse: { decision: acceptedDecision() } });
+    await expect(getTotalLossClaim(CASE_ID, "owner-token")).resolves.toMatchObject({
+      resolution: acceptedResolution(source),
+      insurerResponse: { usableOffer: { offerId: OFFER_ID, source }, decision: acceptedDecision() },
+    });
   });
 
   it.each([
-    { amountSource: "CUSTOMER_REPORTED" }, { offerId: null }, { decisionId: null },
+    { amountSource: "CUSTOMER_REPORTED" }, { amountSource: "VERIFIED_INSURER_OFFER" }, { offerId: null }, { decisionId: null },
     { recommendationId: null }, { customerConfirmed: false }, { currency: null },
   ])("rejects inconsistent accepted resolution provenance %o", async (patch) => {
     server.use(http.post("*/api/v1/appraisal-cases/:caseId/claim/resolution", () => HttpResponse.json({ state: "resolved", resolution: { ...acceptedResolution(), ...patch }, workflowRevision: 16 })));
@@ -165,6 +173,19 @@ describe("case resolution contracts", () => {
       journey: { nextState: "resolved", fulfillmentState: "resolved", retryable: false },
     })));
     await expect(getTotalLossClaim(CASE_ID, "owner-token")).rejects.toThrow("does not match its saved insurer offer");
+  });
+
+  it.each([
+    ["CUSTOMER_RECORDED", "RESPONSE_TEXT"],
+    ["RESPONSE_TEXT", "CUSTOMER_RECORDED"],
+  ] as const)("rejects accepted %s resolution provenance when the exact saved offer is %s", async (amountSource, offerSource) => {
+    const response = { ...recommendedResponseProjection(offerSource), decision: acceptedDecision() };
+    server.use(http.get("*/api/v1/appraisal-cases/:caseId/claim", () => HttpResponse.json({
+      ...recommendationResolver(response), resolution: acceptedResolution(amountSource),
+      workflow: { phase: "resolution", currentTask: "resolved", revision: 16 },
+      journey: { nextState: "resolved", fulfillmentState: "resolved", retryable: false },
+    })));
+    await expect(getTotalLossClaim(CASE_ID, "owner-token")).rejects.toThrow("does not match its saved insurer offer and decision");
   });
 
   it.each([null, 2100025])("retains optional manual amount %s only as customer-reported", async (amount) => {
@@ -202,7 +223,7 @@ describe("repeatable response round projection", () => {
       decision: continuedDecision(),
     };
     const corrected = {
-      ...recommendedResponseProjection(),
+      ...recommendedResponseProjection("RESPONSE_TEXT"),
       responseId: "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
       clientRequestId: "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee",
       negotiationRoundId: RECOMMENDATION_ID,
@@ -258,8 +279,12 @@ describe("repeatable response round projection", () => {
     server.use(http.get("*/api/v1/appraisal-cases/:caseId/claim", () => HttpResponse.json(projection)));
 
     await expect(getTotalLossClaim(CASE_ID, "owner-token")).resolves.toMatchObject({
-      insurerResponse: { responseId: "dddddddd-dddd-4ddd-8ddd-dddddddddddd" },
+      insurerResponse: { responseId: "dddddddd-dddd-4ddd-8ddd-dddddddddddd", usableOffer: { source: "RESPONSE_TEXT" } },
       negotiationHistory: [{
+        responses: [
+          { usableOffer: { source: "CUSTOMER_RECORDED" } },
+          { usableOffer: { source: "RESPONSE_TEXT" } },
+        ],
         supersededFollowUpDrafts: [{
           state: "superseded",
           sourceResponseId: projection.negotiationHistory[0]!.responses[0]!.responseId,

@@ -850,6 +850,7 @@ class CaseClaimAccessService:
                 or resolution["recommendationId"] != decision["recommendationId"]
                 or resolution["decisionId"] != decision["decisionId"]
                 or any(resolution[key] != offer[key] for key in ("offerId", "amountMinorUnits", "currency"))
+                or resolution["amountSource"] != offer["source"]
                 or not history
             ):
                 raise SupabaseContractError("Accepted resolution offer lineage is invalid")

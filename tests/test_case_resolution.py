@@ -44,7 +44,9 @@ def resolution_request(code="ACCEPTED_VERIFIED_OFFER", amount=None):
     }
 
 
-def resolution_projection(code="ACCEPTED_VERIFIED_OFFER", amount=None):
+def resolution_projection(
+    code="ACCEPTED_VERIFIED_OFFER", amount=None, offer_source="CUSTOMER_RECORDED"
+):
     accepted = code == "ACCEPTED_VERIFIED_OFFER"
     amount = 2_010_000 if accepted else amount
     return {
@@ -54,7 +56,7 @@ def resolution_projection(code="ACCEPTED_VERIFIED_OFFER", amount=None):
         "offerId": OFFER_ID if accepted else None,
         "amountMinorUnits": amount,
         "currency": "USD" if amount is not None else None,
-        "amountSource": "VERIFIED_INSURER_OFFER" if accepted else "CUSTOMER_REPORTED" if amount is not None else None,
+        "amountSource": offer_source if accepted else "CUSTOMER_REPORTED" if amount is not None else None,
         "recommendationId": RECOMMENDATION_ID if accepted else None,
         "decisionId": DECISION_ID if accepted else None,
         "responseId": COMMUNICATION_ID if accepted else None,
@@ -65,6 +67,7 @@ class ResolutionGateway(RecordingGateway):
     def __init__(self):
         super().__init__()
         self.error = None
+        self.offer_source = "CUSTOMER_RECORDED"
 
     def confirm_total_loss_case_resolution(self, case_id, values, token):
         self.calls.append(("resolution", (case_id, dict(values), token)))
@@ -72,7 +75,9 @@ class ResolutionGateway(RecordingGateway):
             raise self.error
         return {
             "state": "resolved",
-            "resolution": resolution_projection(values["resolutionCode"], values["amountMinorUnits"]),
+            "resolution": resolution_projection(
+                values["resolutionCode"], values["amountMinorUnits"], self.offer_source
+            ),
             "workflowRevision": 14,
         }
 
@@ -92,7 +97,7 @@ class CaseResolutionContractTests(unittest.TestCase):
         for key in ("offerId", "amountMinorUnits", "currency", "decisionId", "recommendationId"):
             self.assertEqual(resolution[key], decision["response"]["decision"][key])
         self.assertTrue(resolution["customerConfirmed"])
-        self.assertEqual(resolution["amountSource"], "VERIFIED_INSURER_OFFER")
+        self.assertEqual(resolution["amountSource"], "CUSTOMER_RECORDED")
         self.assertEqual(gateway.calls, [("authenticate", ACCESS_TOKEN), ("resolution", (CASE_ID, resolution_request(), ACCESS_TOKEN))])
 
     def test_manual_resolution_amount_is_optional_and_customer_reported(self):
@@ -105,6 +110,16 @@ class CaseResolutionContractTests(unittest.TestCase):
                 self.assertEqual(result["amountSource"], "CUSTOMER_REPORTED" if amount else None)
                 for key in ("offerId", "decisionId", "recommendationId", "responseId"):
                     self.assertIsNone(result[key])
+
+    def test_response_text_offer_retains_its_saved_source(self):
+        gateway = ResolutionGateway()
+        gateway.offer_source = "RESPONSE_TEXT"
+        resolution = CustomerDeliveryService(gateway).confirm_resolution(
+            CASE_ID, resolution_request(), ACCESS_TOKEN,
+        )["resolution"]
+        self.assertEqual(resolution["amountSource"], "RESPONSE_TEXT")
+        self.assertEqual(resolution["offerId"], OFFER_ID)
+        self.assertEqual(resolution["decisionId"], DECISION_ID)
 
     def test_stopping_requires_neither_decision_nor_offer_and_preserves_outcome(self):
         result = CustomerDeliveryService(ResolutionGateway()).confirm_resolution(
@@ -168,11 +183,12 @@ class CaseResolutionContractTests(unittest.TestCase):
         self.assertEqual(validate_case_resolution(original), original)
         for code, fields in (
             ("ACCEPTED_VERIFIED_OFFER", {"amountSource": "CUSTOMER_REPORTED"}),
+            ("ACCEPTED_VERIFIED_OFFER", {"amountSource": "VERIFIED_INSURER_OFFER"}),
             ("ACCEPTED_VERIFIED_OFFER", {"customerConfirmed": False}),
             ("ACCEPTED_VERIFIED_OFFER", {"offerId": None}),
             ("ACCEPTED_VERIFIED_OFFER", {"resolvedAt": "yesterday"}),
             ("ACCEPTED_VERIFIED_OFFER", {"unknown": True}),
-            ("RESOLVED_WITH_INSURER", {"amountMinorUnits": 1, "currency": "USD", "amountSource": "VERIFIED_INSURER_OFFER"}),
+            ("RESOLVED_WITH_INSURER", {"amountMinorUnits": 1, "currency": "USD", "amountSource": "CUSTOMER_RECORDED"}),
             ("CUSTOMER_STOPPED_PURSUING", {"offerId": OFFER_ID}),
             ("NO_DISPUTE_SUPPORTED", {"customerConfirmed": True}),
         ):
@@ -242,6 +258,11 @@ class CaseResolutionResumeTests(unittest.TestCase):
                 CaseClaimAccessService._resume_state({**self.closed_row(), **fields}, CASE_ID)
         row = self.closed_row()
         row["negotiation_history"][0]["responses"][0]["canCorrect"] = True
+        with self.assertRaises(SupabaseContractError):
+            CaseClaimAccessService._resume_state(row, CASE_ID)
+
+        row = self.closed_row()
+        row["case_resolution"]["amountSource"] = "RESPONSE_TEXT"
         with self.assertRaises(SupabaseContractError):
             CaseClaimAccessService._resume_state(row, CASE_ID)
 

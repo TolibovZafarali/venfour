@@ -677,7 +677,7 @@ begin
       return next extensions.ok(after_claim.response_intake is null and after_claim.next_task='insurer_response_reviewed'
         and after_claim.insurer_response #>> '{decision,choice}'='ACCEPT_OFFER'
         and after_claim.insurer_response #>> '{decision,offerId}'=after_claim.insurer_response #>> '{usableOffer,offerId}',
-        'third-round Accept binds its exact verified offer and leaves no next-response continuation');
+        'third-round Accept binds its exact saved offer and leaves no next-response continuation');
       return next extensions.ok((select phase='negotiation' and current_task='insurer_response_received' from public.total_loss_claim_workflows where case_id=current_claim.case_id),
         'Accept awaits later finalization without closing the case or inventing settlement outcome');
       rejected:=false;

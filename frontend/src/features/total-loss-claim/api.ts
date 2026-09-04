@@ -2070,7 +2070,7 @@ function mapResolution(value: unknown): TotalLossCaseResolution | null {
     responseId: id("responseId"),
     amountMinorUnits: item.amountMinorUnits === null ? null : positiveInteger(item.amountMinorUnits, "resolution amount"),
     currency: item.currency === null ? null : requiredString(item.currency, "resolution currency", CURRENCY_PATTERN),
-    amountSource: item.amountSource === null ? null : enumValue(item.amountSource, new Set<NonNullable<TotalLossCaseResolution["amountSource"]>>(["VERIFIED_INSURER_OFFER", "CUSTOMER_REPORTED"]), "resolution amount source"),
+    amountSource: item.amountSource === null ? null : enumValue(item.amountSource, new Set<NonNullable<TotalLossCaseResolution["amountSource"]>>(["CUSTOMER_RECORDED", "RESPONSE_TEXT", "CUSTOMER_REPORTED"]), "resolution amount source"),
   };
   const accepted = result.code === "ACCEPTED_VERIFIED_OFFER";
   const hasAmount = result.amountMinorUnits !== null;
@@ -2078,7 +2078,8 @@ function mapResolution(value: unknown): TotalLossCaseResolution | null {
     result.customerConfirmed !== (result.code !== "NO_DISPUTE_SUPPORTED") ||
     Boolean(result.clientRequestId) !== result.customerConfirmed ||
     hasAmount !== Boolean(result.currency) ||
-    (accepted ? !result.offerId || !result.decisionId || !result.responseId || !result.recommendationId || !hasAmount || result.amountSource !== "VERIFIED_INSURER_OFFER"
+    (accepted ? !result.offerId || !result.decisionId || !result.responseId || !result.recommendationId || !hasAmount ||
+      (result.amountSource !== "CUSTOMER_RECORDED" && result.amountSource !== "RESPONSE_TEXT")
       : result.offerId || result.decisionId || result.responseId || result.recommendationId ||
         (result.code === "RESOLVED_WITH_INSURER" ? result.amountSource !== (hasAmount ? "CUSTOMER_REPORTED" : null) : hasAmount || result.amountSource !== null))) {
     throw new TotalLossClaimContractError("The claim service returned inconsistent resolution provenance.");
@@ -2159,7 +2160,8 @@ function mapResolver(value: unknown): TotalLossClaimResolver {
     insurerResponse.decision.recommendationId !== resolution.recommendationId ||
     insurerResponse.decision.offerId !== resolution.offerId ||
     insurerResponse.decision.amountMinorUnits !== resolution.amountMinorUnits ||
-    insurerResponse.decision.currency !== resolution.currency
+    insurerResponse.decision.currency !== resolution.currency ||
+    insurerResponse.usableOffer?.source !== resolution.amountSource
   )) throw new TotalLossClaimContractError("The accepted resolution does not match its saved insurer offer and decision.");
   if (followUp && (
     insurerResponse?.decision?.choice !== "CONTINUE_CHALLENGING" ||

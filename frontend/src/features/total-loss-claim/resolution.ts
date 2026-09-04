@@ -1,4 +1,9 @@
-import type { TotalLossClaimResolver, TotalLossClaimSecured, TotalLossResolutionCode } from "./contracts";
+import type {
+  TotalLossClaimResolver,
+  TotalLossClaimSecured,
+  TotalLossInsurerOfferProvenance,
+  TotalLossResolutionCode,
+} from "./contracts";
 
 export function caseIsClosed(claim: TotalLossClaimResolver) {
   return Boolean(claim.resolution) || claim.journey?.nextState === "resolved" ||
@@ -30,6 +35,12 @@ export function resolutionOutcome(code: TotalLossResolutionCode) {
     case "CUSTOMER_STOPPED_PURSUING": return "No longer pursuing this case";
     case "NO_DISPUTE_SUPPORTED": return "No supported valuation dispute";
   }
+}
+
+export function insurerOfferProvenanceLabel(source: TotalLossInsurerOfferProvenance) {
+  return source === "CUSTOMER_RECORDED"
+    ? "Customer-reported insurer offer"
+    : "Offer shown in insurer response";
 }
 
 export function resolutionAmount(amountMinorUnits: number, currency: string) {

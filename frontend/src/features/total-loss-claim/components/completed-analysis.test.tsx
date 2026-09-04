@@ -18,6 +18,7 @@ import {
   type TotalLossClaimJourneyState,
   type TotalLossClaimSecured,
   type TotalLossEducationStep,
+  type TotalLossInsurerOfferProvenance,
   type TotalLossInsurerResponse,
   type TotalLossInsurerResponseAnalysis,
   type TotalLossPublishedReport,
@@ -225,9 +226,24 @@ function responseClaim(response = savedInsurerResponse("pending")): TotalLossCla
   };
 }
 
-function recommendedResponse(state: TotalLossResponseRecommendation["state"] = "CONTINUE_CHALLENGING", usable = true): TotalLossInsurerResponse {
+function recommendedResponse(
+  state: TotalLossResponseRecommendation["state"] = "CONTINUE_CHALLENGING",
+  usable = true,
+  offerSource: TotalLossInsurerOfferProvenance = "CUSTOMER_RECORDED",
+): TotalLossInsurerResponse {
+  const analysis = reviewedResponseAnalysis();
+  const sourceConsistentAnalysis = offerSource === "RESPONSE_TEXT"
+    ? { ...analysis, revisedOffer: { ...analysis.revisedOffer, source: "INSURER_RESPONSE" as const } }
+    : analysis;
+  const base = savedInsurerResponse("completed", sourceConsistentAnalysis);
   return {
-    ...savedInsurerResponse("completed", reviewedResponseAnalysis()),
+    ...base,
+    analysisEvidence: offerSource === "RESPONSE_TEXT" ? {
+      ...base.analysisEvidence!,
+      responseEvidence: base.analysisEvidence!.responseEvidence.filter((item) => item.sourceType !== "CUSTOMER_SUPPLIED_OFFER"),
+    } : base.analysisEvidence,
+    revisedOffer: offerSource === "RESPONSE_TEXT" ? null : base.revisedOffer,
+    text: offerSource === "RESPONSE_TEXT" ? "The insurer revised the offer to $20,100." : base.text,
     recommendation: {
       recommendationId: "11111111-1111-4111-8111-111111111111",
       versionNumber: 1,
@@ -239,7 +255,7 @@ function recommendedResponse(state: TotalLossResponseRecommendation["state"] = "
       limitations: ["Advertised prices do not guarantee a settlement."],
       responseEvidenceRefs: [RESPONSE_EVIDENCE_REF], caseEvidenceRefs: [CASE_EVIDENCE_REF],
     },
-    usableOffer: usable ? { offerId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb", amountMinorUnits: 2_010_000, currency: "USD", source: "CUSTOMER_RECORDED" } : null,
+    usableOffer: usable ? { offerId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb", amountMinorUnits: 2_010_000, currency: "USD", source: offerSource } : null,
   };
 }
 
@@ -793,14 +809,24 @@ describe("completed-analysis guided progression", () => {
         responseId: accepted ? claim.insurerResponse!.responseId : null,
         amountMinorUnits: accepted ? claim.insurerResponse!.usableOffer!.amountMinorUnits : input.amountMinorUnits,
         currency: accepted ? claim.insurerResponse!.usableOffer!.currency : input.currency,
-        amountSource: accepted ? "VERIFIED_INSURER_OFFER" : input.amountMinorUnits !== null ? "CUSTOMER_REPORTED" : null,
+        amountSource: accepted ? claim.insurerResponse!.usableOffer!.source : input.amountMinorUnits !== null ? "CUSTOMER_REPORTED" : null,
       },
     };
   }
 
-  it("keeps Accept open, then closes only after confirming the exact offer and preserves three rounds", async () => {
+  it.each([
+    ["CUSTOMER_RECORDED", "Customer-reported insurer offer"],
+    ["RESPONSE_TEXT", "Offer shown in insurer response"],
+  ] as const)("keeps Accept open for a %s offer, then closes only after exact confirmation", async (offerSource, provenanceLabel) => {
     const history = threeResponseHistory();
-    const response = history[2]!.responses[0]!;
+    const savedResponse = history[2]!.responses[0]!;
+    const sourceFixture = recommendedResponse("CONTINUE_CHALLENGING", true, offerSource);
+    const response = {
+      ...savedResponse,
+      analysis: sourceFixture.analysis,
+      analysisEvidence: sourceFixture.analysisEvidence,
+      usableOffer: sourceFixture.usableOffer,
+    };
     const decided = decisionResponse(response, { clientRequestId: USER_ID, recommendationId: response.recommendation!.recommendationId, choice: "ACCEPT_OFFER", offerId: response.usableOffer!.offerId, workflowRevision: 15 });
     history[2] = { ...history[2]!, responses: [decided] };
     const saved = installClaim({ ...reviewedClaim(decided), negotiationHistory: history });
@@ -817,13 +843,15 @@ describe("completed-analysis guided progression", () => {
     await screen.findByRole("heading", { name: "Complete acceptance with your insurer" });
     expect(saved.claim().resolution).toBeUndefined();
     expect(writes).toHaveLength(0);
+    expect(screen.getByText(provenanceLabel)).toBeVisible();
     expect(screen.getByText("$20,100.00 USD")).toBeVisible();
     await user.click(screen.getByRole("button", { name: "I accepted this offer with my insurer" }));
     expect(writes).toHaveLength(0);
     await user.click(screen.getByRole("button", { name: "Confirm accepted and resolve case" }));
     expect(await screen.findByRole("heading", { name: "Case resolved" })).toBeVisible();
     expect(writes).toEqual([{ clientRequestId: expect.any(String), workflowRevision: 15, resolutionCode: "ACCEPTED_VERIFIED_OFFER", decisionId: decided.decision!.decisionId, offerId: decided.usableOffer!.offerId, amountMinorUnits: null, currency: null }]);
-    expect(screen.getByText("Exact verified insurer offer · acceptance confirmed by you")).toBeVisible();
+    expect(saved.claim().resolution?.amountSource).toBe(offerSource);
+    expect(screen.getByText(`${provenanceLabel} · exact saved offer record · acceptance confirmed by you`)).toBeVisible();
     const bar = screen.getByRole("progressbar", { name: "Case journey" });
     expect(bar.getAttribute("aria-valuenow")).toBe(bar.getAttribute("aria-valuemax"));
     expect(saved.claim().negotiationHistory).toHaveLength(3);
@@ -871,7 +899,10 @@ describe("completed-analysis guided progression", () => {
     await user.click(screen.getByRole("button", { name: "Confirm and close case" }));
     expect(await screen.findByRole("heading", { name: "Case resolved" })).toBeVisible();
     expect(writes[0]).toMatchObject({ resolutionCode: "RESOLVED_WITH_INSURER", decisionId: null, offerId: null, amountMinorUnits: withAmount ? 2150025 : null, currency: withAmount ? "USD" : null });
+    expect(saved.claim().resolution?.amountSource).toBe(withAmount ? "CUSTOMER_REPORTED" : null);
     if (withAmount) expect(screen.getByText("Final amount reported by you")).toBeVisible();
+    expect(screen.queryByText("Customer-reported insurer offer", { exact: false })).not.toBeInTheDocument();
+    expect(screen.queryByText("Offer shown in insurer response", { exact: false })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Accept offer" })).not.toBeInTheDocument();
   });
 
@@ -1269,6 +1300,54 @@ describe("completed-analysis guided progression", () => {
     await user.click(screen.getByRole("link", { name: "Return to response reviewed" }));
     expect(await screen.findByRole("button", { name: "Continue challenging" })).toBeVisible();
     expect(installed.claim()).toEqual(current);
+    expect(installed.responseWrites).toEqual([]);
+    expect(installed.writes).toEqual([]);
+  });
+
+  it("keeps corrected current response-text provenance separate from the historical customer-recorded offer", async () => {
+    const history = threeResponseHistory();
+    const previous = history[2]!.responses[0]!;
+    const historical = decisionResponse(previous, {
+      clientRequestId: "27272727-2727-4727-8727-272727272727",
+      recommendationId: previous.recommendation!.recommendationId,
+      choice: "ACCEPT_OFFER",
+      offerId: previous.usableOffer!.offerId,
+      workflowRevision: 14,
+    });
+    const sourceFixture = recommendedResponse("CONTINUE_CHALLENGING", true, "RESPONSE_TEXT");
+    const corrected: TotalLossInsurerResponse = {
+      ...previous,
+      analysis: sourceFixture.analysis,
+      analysisEvidence: sourceFixture.analysisEvidence,
+      canCorrect: true,
+      clientRequestId: "28282828-2828-4828-8828-282828282828",
+      decision: null,
+      recommendation: {
+        ...previous.recommendation!,
+        recommendationId: "29292929-2929-4929-8929-292929292929",
+        analysisResultId: "30303030-3030-4030-8030-303030303030",
+      },
+      responseId: "31313131-3131-4131-8131-313131313131",
+      supersedesResponseId: historical.responseId,
+      text: "Corrected insurer response: the offer is $20,100.",
+      usableOffer: {
+        ...sourceFixture.usableOffer!,
+        offerId: "32323232-3232-4232-8232-323232323232",
+      },
+    };
+    history[2] = { ...history[2]!, responses: [historical, corrected] };
+    const installed = installClaim({ ...reviewedClaim(corrected), negotiationHistory: history });
+    const user = userEvent.setup();
+
+    renderJourney("report", "response-reviewed");
+    await screen.findByRole("heading", { name: "What the insurer’s response means" });
+    expect(screen.getByText(/Offer shown in insurer response:/u, { selector: ".response-decision-offer" })).toBeVisible();
+    await user.click(screen.getByText("Case history"));
+    const historicalReviews = screen.getAllByRole("link", { name: "Venfour review and decision" });
+    await user.click(historicalReviews.at(-1)!);
+    expect(await screen.findByText("You chose to accept $20,100.00")).toBeVisible();
+    expect(screen.getByText(/Customer-reported insurer offer\. This saved choice applies to the exact offer record/u)).toBeVisible();
+    expect(screen.getByText(/current case step has not changed/u)).toBeVisible();
     expect(installed.responseWrites).toEqual([]);
     expect(installed.writes).toEqual([]);
   });
@@ -2406,6 +2485,7 @@ describe("completed-analysis guided progression", () => {
     expect(within(card).getByText(label, { selector: "strong" })).toBeVisible();
     expect(screen.getByRole("button", { name: "Accept offer" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "Continue challenging" })).toBeEnabled();
+    expect(screen.getByText(/Customer-reported insurer offer:/u, { selector: ".response-decision-offer" })).toBeVisible();
     expect(screen.queryByText("Review their revised offer")).not.toBeInTheDocument();
     expect(screen.getByText("The revised amount was compared with the saved evidence range.")).toBeVisible();
     expect(writes).not.toHaveBeenCalled();
@@ -2466,7 +2546,9 @@ describe("completed-analysis guided progression", () => {
     expect(screen.getAllByText("$20,100.00").length).toBeGreaterThan(0);
     expect(screen.queryByRole("button", { name: "Accept offer" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Continue challenging" })).toBeEnabled();
-    expect(screen.getByText("No verified revised offer is available to accept.")).toBeVisible();
+    expect(screen.getByText("No exact offer with sufficient saved support is available to accept.")).toBeVisible();
+    expect(screen.queryByText("Customer-reported insurer offer", { exact: false })).not.toBeInTheDocument();
+    expect(screen.queryByText("Offer shown in insurer response", { exact: false })).not.toBeInTheDocument();
   });
 
   it("restores an interrupted explicit choice and retries the identical request after refresh", async () => {
@@ -2655,6 +2737,9 @@ describe("completed-analysis guided progression", () => {
     expect(
       screen.getByText("Amount derived from the insurer document"),
     ).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Accept offer" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Customer-reported insurer offer", { exact: false })).not.toBeInTheDocument();
+    expect(screen.queryByText("Offer shown in insurer response", { exact: false })).not.toBeInTheDocument();
   });
 
   it("offers an owner-authorized retry only for a retryable response-review failure", async () => {
