@@ -1414,13 +1414,27 @@ select public.prepare_total_loss_insurer_response_upload(
 insert into storage.objects (bucket_id, name, metadata, user_metadata)
 select
   'case-files', response ->> 'uploadPath',
-  jsonb_build_object('mimetype', 'application/pdf', 'size', 654),
+  jsonb_build_object('mimetype', 'application/pdf', 'contentLength', 654),
   jsonb_build_object(
     'clientRequestId', 'c4000000-0000-4000-8000-000000000001',
     'originalName', 'insurer-response.pdf',
     'contentDigest', repeat('c', 64)
   )
 from correction_prepare;
+
+reset role;
+update storage.objects
+set metadata = jsonb_build_object(
+  'mimetype', 'application/pdf',
+  'contentLength', 654,
+  'size', 654
+)
+where bucket_id = 'case-files'
+  and name = (
+    select response ->> 'uploadPath'
+    from correction_prepare
+  );
+set local role authenticated;
 
 create temporary table document_correction on commit drop as
 select public.record_total_loss_insurer_response(
@@ -1695,13 +1709,28 @@ select public.prepare_total_loss_insurer_response_upload(
 insert into storage.objects (bucket_id, name, metadata, user_metadata)
 select
   'case-files', response ->> 'uploadPath',
-  jsonb_build_object('mimetype', 'application/pdf', 'size', 789),
+  jsonb_build_object('mimetype', 'application/pdf', 'contentLength', 789),
   jsonb_build_object(
     'clientRequestId', 'c6000000-0000-4000-8000-000000000001',
     'originalName', 'unreadable-response.pdf',
     'contentDigest', repeat('d', 64)
   )
 from unreadable_prepare;
+
+reset role;
+update storage.objects
+set metadata = jsonb_build_object(
+  'mimetype', 'application/pdf',
+  'contentLength', 789,
+  'size', 789
+)
+where bucket_id = 'case-files'
+  and name = (
+    select response ->> 'uploadPath'
+    from unreadable_prepare
+  );
+set local role authenticated;
+select set_config('request.jwt.claim.sub', 'b1000000-0000-4000-8000-000000000001', true);
 
 create temporary table unreadable_response on commit drop as
 select public.record_total_loss_insurer_response(

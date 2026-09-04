@@ -3,7 +3,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
 
-select plan(46);
+select plan(55);
 
 insert into auth.users (id, email, email_confirmed_at, is_anonymous)
 values
@@ -371,7 +371,7 @@ select throws_ok(
     values (
       'case-files',
       'e1000000-0000-4000-8000-000000000001/e2000000-0000-4000-8000-000000000001/insurer-responses/a1000000-0000-4000-8000-000000000001.pdf',
-      jsonb_build_object('mimetype', 'application/pdf', 'size', 321),
+      jsonb_build_object('mimetype', 'application/pdf', 'contentLength', 321),
       jsonb_build_object(
         'clientRequestId', 'a1000000-0000-4000-8000-000000000001',
         'originalName', 'insurer-letter.pdf',
@@ -564,7 +564,79 @@ select ok(
   'a correction can prepare one new attachment while the response remains unprocessed'
 );
 
-select lives_ok(
+select throws_ok(
+  $$
+    insert into storage.objects (bucket_id, name, metadata, user_metadata)
+    values (
+      'case-files',
+      'e1000000-0000-4000-8000-000000000001/e2000000-0000-4000-8000-000000000001/insurer-responses/a3000000-0000-4000-8000-000000000001.pdf',
+      jsonb_build_object('mimetype', 'application/pdf', 'contentLength', 653),
+      jsonb_build_object(
+        'clientRequestId', 'a3000000-0000-4000-8000-000000000001',
+        'originalName', 'revised-offer.pdf',
+        'contentDigest', repeat('c', 64)
+      )
+    )
+  $$,
+  '42501', null,
+  'preflight rejects a declared content length that differs from the exact permit'
+);
+
+select throws_ok(
+  $$
+    insert into storage.objects (bucket_id, name, metadata, user_metadata)
+    values (
+      'case-files',
+      'e1000000-0000-4000-8000-000000000001/e2000000-0000-4000-8000-000000000001/insurer-responses/a3000000-0000-4000-8000-000000000001.pdf',
+      jsonb_build_object('mimetype', 'image/png', 'contentLength', 654),
+      jsonb_build_object(
+        'clientRequestId', 'a3000000-0000-4000-8000-000000000001',
+        'originalName', 'revised-offer.pdf',
+        'contentDigest', repeat('c', 64)
+      )
+    )
+  $$,
+  '42501', null,
+  'preflight rejects a request MIME type that differs from the exact permit'
+);
+
+select throws_ok(
+  $$
+    insert into storage.objects (bucket_id, name, metadata, user_metadata)
+    values (
+      'case-files',
+      'e1000000-0000-4000-8000-000000000001/e2000000-0000-4000-8000-000000000001/insurer-responses/a3000000-0000-4000-8000-000000000001.pdf',
+      jsonb_build_object('mimetype', 'application/pdf'),
+      jsonb_build_object(
+        'clientRequestId', 'a3000000-0000-4000-8000-000000000001',
+        'originalName', 'revised-offer.pdf',
+        'contentDigest', repeat('c', 64)
+      )
+    )
+  $$,
+  '42501', null,
+  'preflight rejects missing content length metadata'
+);
+
+select throws_ok(
+  $$
+    insert into storage.objects (bucket_id, name, metadata, user_metadata)
+    values (
+      'case-files',
+      'e1000000-0000-4000-8000-000000000001/e2000000-0000-4000-8000-000000000001/insurer-responses/a3000000-0000-4000-8000-000000000001.pdf',
+      jsonb_build_object('mimetype', 'application/pdf', 'contentLength', '654'),
+      jsonb_build_object(
+        'clientRequestId', 'a3000000-0000-4000-8000-000000000001',
+        'originalName', 'revised-offer.pdf',
+        'contentDigest', repeat('c', 64)
+      )
+    )
+  $$,
+  '42501', null,
+  'preflight rejects a text content length instead of coercing it to a number'
+);
+
+select throws_ok(
   $$
     insert into storage.objects (bucket_id, name, metadata, user_metadata)
     values (
@@ -578,12 +650,137 @@ select lives_ok(
       )
     )
   $$,
-  'the exact pending row, path, object metadata, and user metadata authorize one upload'
+  '42501', null,
+  'completed-object size metadata cannot stand in for preflight content length'
+);
+
+select throws_ok(
+  $$
+    insert into storage.objects (bucket_id, name, metadata, user_metadata)
+    values (
+      'case-files',
+      'e1000000-0000-4000-8000-000000000001/e2000000-0000-4000-8000-000000000001/insurer-responses/a3000000-0000-4000-8000-000000000002.pdf',
+      jsonb_build_object('mimetype', 'application/pdf', 'contentLength', 654),
+      jsonb_build_object(
+        'clientRequestId', 'a3000000-0000-4000-8000-000000000001',
+        'originalName', 'revised-offer.pdf',
+        'contentDigest', repeat('c', 64)
+      )
+    )
+  $$,
+  '42501', null,
+  'preflight rejects a path and document identity outside the exact permit'
+);
+
+select set_config('request.jwt.claim.sub', 'e1000000-0000-4000-8000-000000000002', true);
+select throws_ok(
+  $$
+    insert into storage.objects (bucket_id, name, metadata, user_metadata)
+    values (
+      'case-files',
+      'e1000000-0000-4000-8000-000000000001/e2000000-0000-4000-8000-000000000001/insurer-responses/a3000000-0000-4000-8000-000000000001.pdf',
+      jsonb_build_object('mimetype', 'application/pdf', 'contentLength', 654),
+      jsonb_build_object(
+        'clientRequestId', 'a3000000-0000-4000-8000-000000000001',
+        'originalName', 'revised-offer.pdf',
+        'contentDigest', repeat('c', 64)
+      )
+    )
+  $$,
+  '42501', null,
+  'another authenticated owner cannot use an exact preflight permit'
+);
+select set_config('request.jwt.claim.sub', 'e1000000-0000-4000-8000-000000000001', true);
+
+select lives_ok(
+  $$
+    insert into storage.objects (bucket_id, name, metadata, user_metadata)
+    values (
+      'case-files',
+      'e1000000-0000-4000-8000-000000000001/e2000000-0000-4000-8000-000000000001/insurer-responses/a3000000-0000-4000-8000-000000000001.pdf',
+      jsonb_build_object('mimetype', 'application/pdf', 'contentLength', 654),
+      jsonb_build_object(
+        'clientRequestId', 'a3000000-0000-4000-8000-000000000001',
+        'originalName', 'revised-offer.pdf',
+        'contentDigest', repeat('c', 64)
+      )
+    )
+  $$,
+  'the exact pending row, path, preflight content length, and user metadata authorize one upload'
+);
+
+reset role;
+update storage.objects
+set metadata = jsonb_build_object(
+  'mimetype', 'application/pdf',
+  'contentLength', 654,
+  'size', 653
+)
+where bucket_id = 'case-files'
+  and name = 'e1000000-0000-4000-8000-000000000001/e2000000-0000-4000-8000-000000000001/insurer-responses/a3000000-0000-4000-8000-000000000001.pdf';
+set local role authenticated;
+select set_config('request.jwt.claim.sub', 'e1000000-0000-4000-8000-000000000001', true);
+
+select throws_ok(
+  $$
+    select public.record_total_loss_insurer_response(
+      'e2000000-0000-4000-8000-000000000001',
+      'a3000000-0000-4000-8000-000000000001',
+      'The insurer supplied a revised written offer.', 1950000,
+      'a3000000-0000-4000-8000-000000000001', null,
+      (select (response #>> '{response,responseId}')::uuid from initial_response),
+      4
+    )
+  $$,
+  '55000',
+  'The insurer-response upload is incomplete or does not match its permit.',
+  'preflight success cannot bypass the completed object size check at sealing'
+);
+
+reset role;
+update storage.objects
+set metadata = jsonb_build_object(
+      'mimetype', 'application/pdf',
+      'contentLength', 654,
+      'size', 654
+    ),
+    user_metadata = jsonb_build_object(
+      'clientRequestId', 'a3000000-0000-4000-8000-000000000001',
+      'originalName', 'revised-offer.pdf',
+      'contentDigest', repeat('d', 64)
+    )
+where bucket_id = 'case-files'
+  and name = 'e1000000-0000-4000-8000-000000000001/e2000000-0000-4000-8000-000000000001/insurer-responses/a3000000-0000-4000-8000-000000000001.pdf';
+set local role authenticated;
+select set_config('request.jwt.claim.sub', 'e1000000-0000-4000-8000-000000000001', true);
+
+select throws_ok(
+  $$
+    select public.record_total_loss_insurer_response(
+      'e2000000-0000-4000-8000-000000000001',
+      'a3000000-0000-4000-8000-000000000001',
+      'The insurer supplied a revised written offer.', 1950000,
+      'a3000000-0000-4000-8000-000000000001', null,
+      (select (response #>> '{response,responseId}')::uuid from initial_response),
+      4
+    )
+  $$,
+  '55000',
+  'The insurer-response upload is incomplete or does not match its permit.',
+  'completed object metadata with a changed digest remains blocked at sealing'
 );
 
 -- A completed object remains safe to submit if the browser was interrupted
 -- after upload and the write lease expired before finalization.
 reset role;
+update storage.objects
+set user_metadata = jsonb_build_object(
+  'clientRequestId', 'a3000000-0000-4000-8000-000000000001',
+  'originalName', 'revised-offer.pdf',
+  'contentDigest', repeat('c', 64)
+)
+where bucket_id = 'case-files'
+  and name = 'e1000000-0000-4000-8000-000000000001/e2000000-0000-4000-8000-000000000001/insurer-responses/a3000000-0000-4000-8000-000000000001.pdf';
 update public.total_loss_claim_documents
 set insurer_response_upload_expires_at = statement_timestamp() - interval '1 second'
 where id = 'a3000000-0000-4000-8000-000000000001';
@@ -890,7 +1087,7 @@ select throws_ok(
     values (
       'case-files',
       'e1000000-0000-4000-8000-000000000001/e2000000-0000-4000-8000-000000000001/insurer-responses/a6000000-0000-4000-8000-000000000001.pdf',
-      jsonb_build_object('mimetype', 'application/pdf', 'size', 10485760),
+      jsonb_build_object('mimetype', 'application/pdf', 'contentLength', 10485760),
       jsonb_build_object(
         'clientRequestId', 'a6000000-0000-4000-8000-000000000001',
         'originalName', 'pending-1.pdf', 'contentDigest', repeat('d', 64)
@@ -941,7 +1138,7 @@ select lives_ok(
     values (
       'case-files',
       'e1000000-0000-4000-8000-000000000001/e2000000-0000-4000-8000-000000000001/insurer-responses/a6000000-0000-4000-8000-000000000001.pdf',
-      jsonb_build_object('mimetype', 'application/pdf', 'size', 10485760),
+      jsonb_build_object('mimetype', 'application/pdf', 'contentLength', 10485760),
       jsonb_build_object(
         'clientRequestId', 'a6000000-0000-4000-8000-000000000001',
         'originalName', 'pending-1.pdf', 'contentDigest', repeat('d', 64)
@@ -952,6 +1149,14 @@ select lives_ok(
 );
 
 reset role;
+update storage.objects
+set metadata = jsonb_build_object(
+  'mimetype', 'application/pdf',
+  'contentLength', 10485760,
+  'size', 10485760
+)
+where bucket_id = 'case-files'
+  and name = 'e1000000-0000-4000-8000-000000000001/e2000000-0000-4000-8000-000000000001/insurer-responses/a6000000-0000-4000-8000-000000000001.pdf';
 select ok(
   (
     select count(*) = 7
