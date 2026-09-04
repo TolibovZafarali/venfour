@@ -360,6 +360,45 @@ describe("follow-up preparation with the shared request editor", () => {
     expect(current.messageDraft).toEqual(original);
   });
 
+  it.each(["copy", "open"] as const)("revalidates stale follow-up authority before every %s action", async (kind) => {
+    const current = followUpClaim();
+    const draftId = current.followUp!.draft!.draftId;
+    const prepareInputs: Array<Record<string, unknown>> = [];
+    let currentAuthority = true;
+    server.use(
+      http.post(`${API}/follow-up/prepare`, async ({ request }) => {
+        prepareInputs.push((await request.json()) as Record<string, unknown>);
+        return currentAuthority
+          ? HttpResponse.json(prepared(current.followUp!.draft!))
+          : HttpResponse.json({ error: { code: "FOLLOW_UP_NOT_CURRENT", message: "The follow-up draft is no longer current." } }, { status: 409 });
+      }),
+      http.post(`${API}/follow-up/opened`, () => HttpResponse.json({ accepted: true })),
+    );
+    const user = userEvent.setup();
+    const clipboard = vi.spyOn(navigator.clipboard, "writeText").mockResolvedValue(undefined);
+    renderRequest(current, undefined, { followUp: true });
+    const actionName = kind === "copy" ? "Copy email" : "Open email app";
+
+    await user.click(screen.getByRole("button", { name: actionName }));
+    await screen.findByRole("checkbox", { name: SENT_ACKNOWLEDGEMENT });
+    expect(prepareInputs).toHaveLength(1);
+    expect(prepareInputs[0]).toMatchObject({ draftId, expectedDraftRevision: 1 });
+    if (kind === "copy") expect(clipboard).toHaveBeenCalledTimes(1);
+    else expect(openDefaultEmailApp).toHaveBeenCalledTimes(1);
+    await user.click(screen.getByRole("button", { name: "Not yet" }));
+
+    currentAuthority = false;
+    await user.click(screen.getByRole("button", { name: actionName }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(kind === "copy" ? "We couldn’t copy the email" : "We couldn’t open your email app");
+    expect(prepareInputs).toHaveLength(2);
+    expect(prepareInputs[1]).toMatchObject({ draftId, expectedDraftRevision: 1 });
+    expect(prepareInputs[1]!.clientRequestId).toBe(prepareInputs[0]!.clientRequestId);
+    if (kind === "copy") expect(clipboard).toHaveBeenCalledTimes(1);
+    else expect(openDefaultEmailApp).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("button", { name: "Mark as sent" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("checkbox", { name: SENT_ACKNOWLEDGEMENT })).not.toBeInTheDocument();
+  });
+
   it("autosaves follow-up edits and restores them after returning", async () => {
     let current = followUpClaim();
     const writes = vi.fn();
@@ -1396,7 +1435,7 @@ describe("case request preparation", () => {
     const confirmAction = within(actionContainer).getByRole("button", { name: "Mark as sent" });
     expect(confirmAction).toBeDisabled();
     await user.click(confirmAction);
-    expect(prepareCalls).toBe(1);
+    expect(prepareCalls).toBe(2);
     expect(sentCalls).toBe(0);
   });
 
@@ -1629,7 +1668,7 @@ describe("case request preparation", () => {
             negotiationRoundId: sentResult().negotiationRoundId,
             roundNumber: 1,
             outbound: { ...prepared(draft()).messageVersion, recipient: draft().recipient!, ...sentResult(), state: "sent" },
-            responses: [], followUp: null,
+            responses: [], followUp: null, supersededFollowUpDrafts: [],
           }],
           journey: {
             nextState: "awaiting_insurer_response",

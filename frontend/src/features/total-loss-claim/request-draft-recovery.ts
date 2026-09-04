@@ -48,6 +48,32 @@ function readRecovery(key: string): RequestDraftRecovery | null {
   return recovery as unknown as RequestDraftRecovery;
 }
 
+export type HistoricalRequestDraftRecovery =
+  | { readonly content: DraftContent; readonly status: "same_baseline" | "uncertain" }
+  | { readonly content: null; readonly status: "storage_unavailable" };
+
+export function readRequestDraftRecoveryForHistory(
+  key: string,
+  draft: TotalLossMessageDraft,
+): HistoricalRequestDraftRecovery | null {
+  try {
+    const recovery = readRecovery(key);
+    const saved = contentOf(draft);
+    if (!recovery || sameContent(recovery.content, saved)) return null;
+    const baselineMatches = recovery.baselineRevision === draft.revision &&
+      sameContent(recovery.baseline, saved);
+    if (baselineMatches) {
+      return { content: recovery.content, status: "same_baseline" };
+    }
+    const hasLocalWork = recovery.failed || recovery.pendingContent !== null ||
+      !sameContent(recovery.content, recovery.baseline);
+    if (recovery.baselineRevision < draft.revision && !hasLocalWork) return null;
+    return { content: recovery.content, status: "uncertain" };
+  } catch {
+    return { content: null, status: "storage_unavailable" };
+  }
+}
+
 export function clearRequestDraftRecovery(key: string) {
   try {
     window.sessionStorage.removeItem(key);

@@ -433,7 +433,9 @@ select set_config('request.jwt.claims','{"sub":"b1000000-0000-4000-8000-00000000
 
 create temporary table rounds_snapshot(round_number integer primary key,claim_row jsonb) on commit drop;
 create temporary table sources_snapshot(round_number integer primary key,response_id uuid,job_id uuid,result_id uuid,recommendation_id uuid,
-  decision_id uuid,outbound_id uuid,followup_id uuid,prepared_id uuid,sent_request_id uuid,original_request_id uuid,correction_id uuid) on commit drop;
+  decision_id uuid,outbound_id uuid,followup_id uuid,prepared_id uuid,sent_request_id uuid,original_request_id uuid,correction_id uuid,
+  superseded_draft_id uuid,superseded_response_id uuid,superseded_decision_id uuid,
+  superseded_subject text,superseded_body text) on commit drop;
 
 grant select on rounds_snapshot,sources_snapshot to authenticated;
 
@@ -444,6 +446,7 @@ declare current_claim public.total_loss_case_claim_resume_result; after_claim pu
   earlier_job_id uuid; earlier_recommendation_id uuid; earlier_decision_id uuid; corrected_response_id uuid;
   analysis_claim record; analysis_context record; n integer; prior_rounds integer; rejected boolean; event_revision bigint;
   upload_id uuid; abandoned_upload_id uuid; permit_number integer;
+  superseded_draft_id uuid; superseded_subject text; superseded_body text; current_snapshot jsonb;
 begin
   generation:=jsonb_build_object('schemaVersion','1','templateVersion','1','status','READY','generationDigest',repeat('a',64),
     'recipientEmail','adjuster@example.test','subject','Follow-up valuation review',
@@ -563,6 +566,16 @@ begin
       context:=public.resolve_total_loss_follow_up_generation_context(current_claim.case_id,'b1000000-0000-4000-8000-000000000001',earlier_decision_id);
       draft:=public.store_total_loss_follow_up_draft(current_claim.case_id,'b1000000-0000-4000-8000-000000000001',earlier_decision_id,
         context ->> 'contextDigest',generation);
+      superseded_draft_id:=(draft #>> '{draft,draftId}')::uuid;
+      if n=1 then
+        superseded_subject:=generation ->> 'subject';
+        superseded_body:=generation ->> 'body';
+      else
+        superseded_subject:=format('Round %s exact edited follow-up subject',n);
+        superseded_body:=format(E'Round %s exact authored follow-up body.\n\nPreserve only this round.',n);
+        draft:=public.patch_total_loss_customer_follow_up_draft(current_claim.case_id,superseded_draft_id,
+          format('round-%s-adjuster@example.test',n),superseded_subject,superseded_body,1);
+      end if;
       -- Correct the same response in each of the first two rounds, before send.
       select * into after_claim from public.resolve_total_loss_case_claim(current_claim.case_id);
       upload_id:=gen_random_uuid();
@@ -577,6 +590,22 @@ begin
         and response #>> '{response,supersedesResponseId}'=response_id::text
         and response #> '{response,decision}'='null'::jsonb,
         'cycle '||n||' correction stays in the same round and invalidates only current decision lineage');
+      select * into after_claim from public.resolve_total_loss_case_claim(current_claim.case_id);
+      return next extensions.ok(after_claim.follow_up is null
+        and jsonb_array_length(after_claim.negotiation_history -> (n-1) -> 'supersededFollowUpDrafts')=1
+        and after_claim.negotiation_history -> (n-1) #>> '{supersededFollowUpDrafts,0,state}'='superseded'
+        and after_claim.negotiation_history -> (n-1) #>> '{supersededFollowUpDrafts,0,sourceResponseId}'=response_id::text
+        and after_claim.negotiation_history -> (n-1) #>> '{supersededFollowUpDrafts,0,sourceDecisionId}'=earlier_decision_id::text
+        and after_claim.negotiation_history -> (n-1) #>> '{supersededFollowUpDrafts,0,draft,draftId}'=superseded_draft_id::text
+        and after_claim.negotiation_history -> (n-1) #>> '{supersededFollowUpDrafts,0,draft,subject}'=superseded_subject
+        and after_claim.negotiation_history -> (n-1) #>> '{supersededFollowUpDrafts,0,draft,body}'=superseded_body
+        and after_claim.negotiation_history -> (n-1) #>> '{supersededFollowUpDrafts,0,draft,revision}'=
+          case when n=1 then '1' else '2' end,
+        'cycle '||n||' correction exposes only its exact unsent draft while current follow-up is absent');
+      current_snapshot:=to_jsonb(after_claim);
+      perform public.total_loss_negotiation_history_projection_internal(current_claim.case_id);
+      return next extensions.is((select to_jsonb(claim) from public.resolve_total_loss_case_claim(current_claim.case_id) as claim),
+        current_snapshot,'cycle '||n||' reading superseded draft history does not alter current workflow state');
       return next extensions.ok(public.resolve_total_loss_follow_up_generation_context(current_claim.case_id,
         'b1000000-0000-4000-8000-000000000001',earlier_decision_id) is null,
         'cycle '||n||' correction makes the previous follow-up source unavailable');
@@ -603,6 +632,11 @@ begin
         'cycle '||n||' follow-up generation answers the latest corrected response and its exact outbound source');
       draft:=public.store_total_loss_follow_up_draft(current_claim.case_id,'b1000000-0000-4000-8000-000000000001',
         (decision #>> '{response,decision,decisionId}')::uuid,context ->> 'contextDigest',generation);
+      return next extensions.ok((draft #>> '{draft,draftId}')::uuid<>superseded_draft_id
+        and draft #>> '{draft,subject}'=generation ->> 'subject'
+        and draft #>> '{draft,body}'=generation ->> 'body'
+        and (n=1 or (draft #>> '{draft,subject}'<>superseded_subject and draft #>> '{draft,body}'<>superseded_body)),
+        'cycle '||n||' corrected response creates a distinct generated draft without superseded edits');
       return next extensions.is(public.store_total_loss_follow_up_draft(current_claim.case_id,'b1000000-0000-4000-8000-000000000001',
         (decision #>> '{response,decision,decisionId}')::uuid,context ->> 'contextDigest',generation),draft,
         'cycle '||n||' duplicate follow-up generation reuses its draft');
@@ -627,13 +661,17 @@ begin
         'cycle '||n||' sends a distinct follow-up without overwriting its source request');
       select * into after_claim from public.resolve_total_loss_case_claim(current_claim.case_id);
       return next extensions.ok(after_claim.next_task='awaiting_insurer_response'
-        and after_claim.response_intake ->> 'outboundCommunicationId'=sent ->> 'communicationId',
-        'cycle '||n||' sent follow-up returns waiting with the exact next intake source');
+        and after_claim.response_intake ->> 'outboundCommunicationId'=sent ->> 'communicationId'
+        and after_claim.negotiation_history -> (n-1) #>> '{followUp,state}'='sent'
+        and jsonb_array_length(after_claim.negotiation_history -> (n-1) -> 'supersededFollowUpDrafts')=1
+        and after_claim.negotiation_history -> (n-1) #>> '{supersededFollowUpDrafts,0,sourceDecisionId}'=earlier_decision_id::text,
+        'cycle '||n||' sent current follow-up remains sent while only the older draft is labeled superseded');
       insert into pg_temp.sources_snapshot values(n,response_id,
         (select id from public.total_loss_insurer_response_analysis_jobs where response_communication_id=response_id),
         (decision #>> '{response,recommendation,analysisResultId}')::uuid,
         (decision #>> '{response,recommendation,recommendationId}')::uuid,(decision #>> '{response,decision,decisionId}')::uuid,
-        outbound_id,(sent ->> 'communicationId')::uuid,(prepared #>> '{messageVersion,messageVersionId}')::uuid,token,original_request_id,initial_response_id);
+        outbound_id,(sent ->> 'communicationId')::uuid,(prepared #>> '{messageVersion,messageVersionId}')::uuid,token,original_request_id,initial_response_id,
+        superseded_draft_id,initial_response_id,earlier_decision_id,superseded_subject,superseded_body);
     else
       select * into after_claim from public.resolve_total_loss_case_claim(current_claim.case_id);
       return next extensions.ok(after_claim.response_intake is null and after_claim.next_task='insurer_response_reviewed'
@@ -674,8 +712,32 @@ select ok((select jsonb_array_length(claim_row->'negotiation_history')=3
   and jsonb_array_length(claim_row#>'{negotiation_history,0,responses}')=2
   and jsonb_array_length(claim_row#>'{negotiation_history,1,responses}')=2
   and claim_row#>'{negotiation_history,0,followUp}'=claim_row#>'{negotiation_history,1,outbound}'
-  and claim_row#>'{negotiation_history,1,followUp}'=claim_row#>'{negotiation_history,2,outbound}' from rounds_snapshot where round_number=3),
-  'grouped history retains originals corrections reviews decisions and exact outbound links across all rounds');
+  and claim_row#>'{negotiation_history,1,followUp}'=claim_row#>'{negotiation_history,2,outbound}'
+  and claim_row#>>'{negotiation_history,0,followUp,state}'='sent'
+  and claim_row#>>'{negotiation_history,1,followUp,state}'='sent'
+  and jsonb_array_length(claim_row#>'{negotiation_history,0,supersededFollowUpDrafts}')=1
+  and jsonb_array_length(claim_row#>'{negotiation_history,1,supersededFollowUpDrafts}')=1
+  and claim_row#>'{negotiation_history,2,supersededFollowUpDrafts}'='[]'::jsonb
+  from rounds_snapshot where round_number=3),
+  'grouped history retains sent links and only the two corrected-response drafts as superseded');
+select ok((select claim_row#>>'{negotiation_history,0,supersededFollowUpDrafts,0,draft,draftId}'=
+    (select superseded_draft_id::text from sources_snapshot where round_number=1)
+  and claim_row#>>'{negotiation_history,0,supersededFollowUpDrafts,0,sourceResponseId}'=
+    (select superseded_response_id::text from sources_snapshot where round_number=1)
+  and claim_row#>>'{negotiation_history,0,supersededFollowUpDrafts,0,draft,subject}'=
+    (select superseded_subject from sources_snapshot where round_number=1)
+  and claim_row#>>'{negotiation_history,0,supersededFollowUpDrafts,0,draft,body}'=
+    (select superseded_body from sources_snapshot where round_number=1)
+  and claim_row#>>'{negotiation_history,1,supersededFollowUpDrafts,0,draft,draftId}'=
+    (select superseded_draft_id::text from sources_snapshot where round_number=2)
+  and claim_row#>>'{negotiation_history,1,supersededFollowUpDrafts,0,sourceResponseId}'=
+    (select superseded_response_id::text from sources_snapshot where round_number=2)
+  and claim_row#>>'{negotiation_history,1,supersededFollowUpDrafts,0,draft,subject}'=
+    (select superseded_subject from sources_snapshot where round_number=2)
+  and claim_row#>>'{negotiation_history,1,supersededFollowUpDrafts,0,draft,body}'=
+    (select superseded_body from sources_snapshot where round_number=2)
+  from rounds_snapshot where round_number=3),
+  'superseded drafts retain exact per-round content and never cross response or round lineage');
 select ok((select bool_and((value->>'canCorrect')::boolean=false) from rounds_snapshot,
   lateral jsonb_array_elements(claim_row#>'{negotiation_history,0,responses}') where round_number=3),
   'historical closed rounds expose read-only responses');
@@ -691,8 +753,9 @@ select is((select to_jsonb(resumed) from public.resolve_total_loss_case_claim('b
 select throws_ok($$update public.total_loss_negotiation_rounds set originating_communication_id=gen_random_uuid(),revision=revision+1
   where case_id='b2000000-0000-4000-8000-000000000001' and round_number=3$$,'55000',null,'round outbound identity is immutable');
 select ok(not has_table_privilege('authenticated','public.total_loss_insurer_response_upload_sources','SELECT,INSERT,UPDATE,DELETE')
-  and not has_function_privilege('authenticated','public.prepare_total_loss_insurer_response_upload_internal(uuid,uuid,text,text,bigint,text,bigint)','EXECUTE'),
-  'upload source bindings and bypass helpers remain private');
+  and not has_function_privilege('authenticated','public.prepare_total_loss_insurer_response_upload_internal(uuid,uuid,text,text,bigint,text,bigint)','EXECUTE')
+  and not has_function_privilege('authenticated','public.total_loss_superseded_follow_up_drafts_projection_internal(uuid,uuid)','EXECUTE'),
+  'upload and superseded-draft source bindings and bypass helpers remain private');
 set local role authenticated;
 select set_config('request.jwt.claim.sub','b1000000-0000-4000-8000-000000000002',true);
 select throws_ok($$select public.record_total_loss_insurer_response('b2000000-0000-4000-8000-000000000001',gen_random_uuid(),'Other account',null,null,null,null,1,
@@ -715,8 +778,12 @@ select ok((select customer_journey ->> 'nextState'='resolved' and jsonb_array_le
   and jsonb_array_length(negotiation_history#>'{1,responses}')=2
   and negotiation_history#>'{0,followUp}'=negotiation_history#>'{1,outbound}'
   and negotiation_history#>'{1,followUp}'=negotiation_history#>'{2,outbound}'
+  and negotiation_history#>>'{0,followUp,state}'='sent' and negotiation_history#>>'{1,followUp,state}'='sent'
+  and jsonb_array_length(negotiation_history#>'{0,supersededFollowUpDrafts}')=1
+  and jsonb_array_length(negotiation_history#>'{1,supersededFollowUpDrafts}')=1
+  and negotiation_history#>'{2,supersededFollowUpDrafts}'='[]'::jsonb
   from public.resolve_total_loss_case_claim('b2000000-0000-4000-8000-000000000001')),
-  'closure preserves every completed round original correction decision and follow-up link');
+  'closure preserves sent follow-ups and exact superseded drafts without relabeling either');
 select ok((select bool_and(response ->> 'canCorrect'='false')
   from public.resolve_total_loss_case_claim('b2000000-0000-4000-8000-000000000001') claim,
   lateral jsonb_array_elements(claim.negotiation_history) round,

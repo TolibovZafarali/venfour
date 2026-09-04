@@ -113,6 +113,16 @@ function acceptedDecision() {
   };
 }
 
+function continuedDecision() {
+  return {
+    ...acceptedDecision(),
+    choice: "CONTINUE_CHALLENGING",
+    offerId: null,
+    amountMinorUnits: null,
+    currency: null,
+  };
+}
+
 describe("case resolution contracts", () => {
   function acceptedResolution(): TotalLossCaseResolution {
     return { code: "ACCEPTED_VERIFIED_OFFER", resolvedAt: "2026-09-02T12:00:00Z", customerConfirmed: true,
@@ -180,13 +190,179 @@ describe("repeatable response round projection", () => {
   function historyProjection() {
     const response = { ...recommendedResponseProjection(), negotiationRoundId: RECOMMENDATION_ID, outboundCommunicationId: OFFER_ID, canCorrect: true };
     const outbound = { ...savedFollowUpProjection().draft, state: "sent", messageVersionId: CASE_ID, createdAt: "2026-09-02T12:01:00Z", versionNumber: 1, customerReportedSentAt: "2026-09-02T12:02:00Z", communicationId: OFFER_ID, negotiationRoundId: RECOMMENDATION_ID };
-    return { ...recommendationResolver(response), responseIntake: null, negotiationHistory: [{ negotiationRoundId: RECOMMENDATION_ID, roundNumber: 1, outbound, responses: [response], followUp: null }] };
+    return { ...recommendationResolver(response), responseIntake: null, negotiationHistory: [{ negotiationRoundId: RECOMMENDATION_ID, roundNumber: 1, outbound, responses: [response], followUp: null, supersededFollowUpDrafts: [] }] };
+  }
+
+  function supersededDraftHistoryProjection() {
+    const original = {
+      ...recommendedResponseProjection(),
+      negotiationRoundId: RECOMMENDATION_ID,
+      outboundCommunicationId: OFFER_ID,
+      canCorrect: false,
+      decision: continuedDecision(),
+    };
+    const corrected = {
+      ...recommendedResponseProjection(),
+      responseId: "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+      clientRequestId: "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee",
+      negotiationRoundId: RECOMMENDATION_ID,
+      outboundCommunicationId: OFFER_ID,
+      supersedesResponseId: original.responseId,
+      canCorrect: true,
+    };
+    const outbound = {
+      ...savedFollowUpProjection().draft,
+      state: "sent",
+      messageVersionId: CASE_ID,
+      createdAt: "2026-09-02T12:01:00Z",
+      versionNumber: 1,
+      customerReportedSentAt: "2026-09-02T12:02:00Z",
+      communicationId: OFFER_ID,
+      negotiationRoundId: RECOMMENDATION_ID,
+    };
+    const draft = {
+      ...savedFollowUpProjection().draft,
+      draftId: "ffffffff-ffff-4fff-8fff-ffffffffffff",
+      subject: "Exact retained subject ",
+      body: "Exact retained body\n\nwith spacing. ",
+      revision: 9,
+    };
+    return {
+      ...recommendationResolver(corrected),
+      responseIntake: null,
+      negotiationHistory: [{
+        negotiationRoundId: RECOMMENDATION_ID,
+        roundNumber: 1,
+        outbound,
+        responses: [original, corrected],
+        followUp: null,
+        supersededFollowUpDrafts: [{
+          state: "superseded",
+          sourceResponseId: original.responseId,
+          sourceAnalysisResultId: ANALYSIS_RESULT_ID,
+          sourceDecisionId: continuedDecision().decisionId,
+          draft,
+        }],
+      }],
+    };
   }
 
   it("preserves exact round and outbound identities for historical review", async () => {
     const projection = historyProjection();
     server.use(http.get("*/api/v1/appraisal-cases/:caseId/claim", () => HttpResponse.json(projection)));
-    await expect(getTotalLossClaim(CASE_ID, "owner-token")).resolves.toMatchObject({ responseIntake: null, negotiationHistory: [{ negotiationRoundId: RECOMMENDATION_ID, roundNumber: 1, outbound: { communicationId: OFFER_ID, body: projection.negotiationHistory[0]!.outbound.body }, responses: projection.negotiationHistory[0]!.responses, followUp: null }] });
+    await expect(getTotalLossClaim(CASE_ID, "owner-token")).resolves.toMatchObject({ responseIntake: null, negotiationHistory: [{ negotiationRoundId: RECOMMENDATION_ID, roundNumber: 1, outbound: { communicationId: OFFER_ID, body: projection.negotiationHistory[0]!.outbound.body }, responses: projection.negotiationHistory[0]!.responses, followUp: null, supersededFollowUpDrafts: [] }] });
+  });
+
+  it("maps the exact superseded draft and its response-analysis-decision lineage", async () => {
+    const projection = supersededDraftHistoryProjection();
+    server.use(http.get("*/api/v1/appraisal-cases/:caseId/claim", () => HttpResponse.json(projection)));
+
+    await expect(getTotalLossClaim(CASE_ID, "owner-token")).resolves.toMatchObject({
+      insurerResponse: { responseId: "dddddddd-dddd-4ddd-8ddd-dddddddddddd" },
+      negotiationHistory: [{
+        supersededFollowUpDrafts: [{
+          state: "superseded",
+          sourceResponseId: projection.negotiationHistory[0]!.responses[0]!.responseId,
+          sourceAnalysisResultId: ANALYSIS_RESULT_ID,
+          sourceDecisionId: continuedDecision().decisionId,
+          draft: {
+            draftId: projection.negotiationHistory[0]!.supersededFollowUpDrafts[0]!.draft.draftId,
+            subject: "Exact retained subject ",
+            body: "Exact retained body\n\nwith spacing. ",
+            revision: 9,
+          },
+        }],
+      }],
+    });
+  });
+
+  it("retains a distinct superseded draft for each corrected response in one round", async () => {
+    const projection = supersededDraftHistoryProjection();
+    const round = projection.negotiationHistory[0]!;
+    const middle = round.responses[1]!;
+    const secondRecommendationId = "12121212-1212-4212-8212-121212121212";
+    const secondAnalysisResultId = "13131313-1313-4313-8313-131313131313";
+    const secondDecisionId = "14141414-1414-4414-8414-141414141414";
+    middle.recommendation = {
+      ...middle.recommendation,
+      recommendationId: secondRecommendationId,
+      analysisResultId: secondAnalysisResultId,
+    };
+    middle.decision = {
+      ...continuedDecision(),
+      decisionId: secondDecisionId,
+      recommendationId: secondRecommendationId,
+      analysisResultId: secondAnalysisResultId,
+    };
+    const latest = {
+      ...recommendedResponseProjection(),
+      responseId: "15151515-1515-4515-8515-151515151515",
+      clientRequestId: "16161616-1616-4616-8616-161616161616",
+      negotiationRoundId: RECOMMENDATION_ID,
+      outboundCommunicationId: OFFER_ID,
+      supersedesResponseId: middle.responseId,
+      canCorrect: true,
+      recommendation: {
+        ...recommendedResponseProjection().recommendation,
+        recommendationId: "17171717-1717-4717-8717-171717171717",
+        analysisResultId: "18181818-1818-4818-8818-181818181818",
+      },
+    };
+    round.responses.push(latest);
+    round.supersededFollowUpDrafts.push({
+      state: "superseded",
+      sourceResponseId: middle.responseId,
+      sourceAnalysisResultId: secondAnalysisResultId,
+      sourceDecisionId: secondDecisionId,
+      draft: {
+        ...savedFollowUpProjection().draft,
+        draftId: "19191919-1919-4919-8919-191919191919",
+        subject: "Second retained draft",
+        body: "Draft based on the first correction.",
+      },
+    });
+    projection.insurerResponse = latest;
+    server.use(http.get("*/api/v1/appraisal-cases/:caseId/claim", () => HttpResponse.json(projection)));
+
+    const claim = await getTotalLossClaim(CASE_ID, "owner-token");
+    expect(claim.negotiationHistory?.[0]?.supersededFollowUpDrafts).toHaveLength(2);
+    expect(claim.negotiationHistory?.[0]?.supersededFollowUpDrafts.map((item) => item.draft.subject)).toEqual([
+      "Exact retained subject ",
+      "Second retained draft",
+    ]);
+  });
+
+  it("rejects superseded drafts outside their exact corrected response lineage", async () => {
+    const mutations: Array<(item: Record<string, unknown>) => void> = [
+      (item) => { item.state = "draft"; },
+      (item) => { item.sourceResponseId = "dddddddd-dddd-4ddd-8ddd-dddddddddddd"; },
+      (item) => { item.sourceResponseId = OTHER_CASE_ID; },
+      (item) => { item.sourceAnalysisResultId = OTHER_CASE_ID; },
+      (item) => { item.sourceDecisionId = OTHER_CASE_ID; },
+      (item) => { item.draft = { ...(item.draft as Record<string, unknown>), purpose: "initial_reconsideration" }; },
+      (item) => { item.preparedMessage = null; },
+    ];
+    for (const mutate of mutations) {
+      const projection = supersededDraftHistoryProjection();
+      const item = projection.negotiationHistory[0]!.supersededFollowUpDrafts[0]! as Record<string, unknown>;
+      mutate(item);
+      server.use(http.get("*/api/v1/appraisal-cases/:caseId/claim", () => HttpResponse.json(projection)));
+      await expect(getTotalLossClaim(CASE_ID, "owner-token")).rejects.toThrow();
+    }
+  });
+
+  it("requires the superseded-draft list and rejects duplicate historical draft identity", async () => {
+    const missing = historyProjection();
+    delete (missing.negotiationHistory[0] as Partial<typeof missing.negotiationHistory[0]>).supersededFollowUpDrafts;
+    server.use(http.get("*/api/v1/appraisal-cases/:caseId/claim", () => HttpResponse.json(missing)));
+    await expect(getTotalLossClaim(CASE_ID, "owner-token")).rejects.toThrow("invalid round history");
+
+    const duplicate = supersededDraftHistoryProjection();
+    duplicate.negotiationHistory[0]!.supersededFollowUpDrafts.push({
+      ...duplicate.negotiationHistory[0]!.supersededFollowUpDrafts[0]!,
+    });
+    server.use(http.get("*/api/v1/appraisal-cases/:caseId/claim", () => HttpResponse.json(duplicate)));
+    await expect(getTotalLossClaim(CASE_ID, "owner-token")).rejects.toThrow("does not match its saved response and decision");
   });
 
   it.each(["negotiationRoundId", "outboundCommunicationId"] as const)("rejects a historical response bound to the wrong %s", async (field) => {

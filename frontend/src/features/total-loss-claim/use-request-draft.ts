@@ -58,7 +58,6 @@ export function useRequestDraft({
   accessToken,
   caseId,
   draft: initialDraft,
-  initialPreparedMessage,
   onRefresh,
   onSent,
   report,
@@ -115,7 +114,6 @@ export function useRequestDraft({
   const projectedRevisionRef = useRef(initialDraft.revision);
   const pendingContentRef = useRef(recovery.pendingContent);
   const inFlightSave = useRef<Promise<TotalLossMessageDraft> | null>(null);
-  const preparedRef = useRef(initialPreparedMessage);
   const revisionRef = useRef(workflowRevision);
   const prepareRequestId = useRef(globalThis.crypto.randomUUID());
   const sentRequestId = useRef(globalThis.crypto.randomUUID());
@@ -215,7 +213,6 @@ export function useRequestDraft({
     savedRef.current = initialDraft;
     pendingContentRef.current = null;
     contentRef.current = nextContent;
-    preparedRef.current = null;
     prepareRequestId.current = globalThis.crypto.randomUUID();
     sentRequestId.current = globalThis.crypto.randomUUID();
     setSaveError(null);
@@ -322,7 +319,6 @@ export function useRequestDraft({
     contentRef.current = next;
     preserve(Boolean(saveError));
     setContent(next);
-    preparedRef.current = null;
     prepareRequestId.current = globalThis.crypto.randomUUID();
     sentRequestId.current = globalThis.crypto.randomUUID();
     setSharedMessage(null);
@@ -368,7 +364,6 @@ export function useRequestDraft({
         };
         contentRef.current = displayContent;
         setContent(displayContent);
-        preparedRef.current = null;
         prepareRequestId.current = globalThis.crypto.randomUUID();
         sentRequestId.current = globalThis.crypto.randomUUID();
         setSharedMessage(null);
@@ -388,12 +383,6 @@ export function useRequestDraft({
 
   const prepareExact = async () => {
     const saved = await persist();
-    if (
-      preparedRef.current &&
-      preparedRef.current.reportVersionId === saved.reportVersionId &&
-      sameContent(preparedRef.current, contentOf(saved))
-    )
-      return preparedRef.current;
     const prepared = await prepare({
       clientRequestId: prepareRequestId.current,
       expectedWorkflowRevision: revisionRef.current,
@@ -417,7 +406,6 @@ export function useRequestDraft({
         "The saved request changed. Review it before continuing.",
       );
     }
-    preparedRef.current = prepared.messageVersion;
     return prepared.messageVersion;
   };
 
@@ -427,6 +415,7 @@ export function useRequestDraft({
     setAction(kind);
     setError(null);
     setNotice(null);
+    setSharedMessage(null);
     try {
       const exact = await prepareExact();
       if (kind === "copy") {

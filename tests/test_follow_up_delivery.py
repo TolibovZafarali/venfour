@@ -190,6 +190,7 @@ class FollowUpDeliveryTests(unittest.TestCase):
         for change in (
             {"reportVersionId": DRAFT_ID}, {"state": "sent"},
             {"reasonCode": "INVENTED_REASON"}, {"storagePath": "private"},
+            {"supersededFollowUpDrafts": []},
         ):
             with self.subTest(change=change), self.assertRaises(SupabaseContractError):
                 validate_follow_up_projection({**follow_up_projection(), **change})

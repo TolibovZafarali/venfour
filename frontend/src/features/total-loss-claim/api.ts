@@ -56,6 +56,7 @@ import type {
   TotalLossSendingDetails,
   TotalLossSentMessage,
   TotalLossSentCommunication,
+  TotalLossSupersededFollowUpDraft,
   TotalLossResponseIntake,
   TotalLossNegotiationHistoryRound,
   TotalLossSupportedRange,
@@ -1967,16 +1968,25 @@ function mapNegotiationHistory(value: unknown): readonly TotalLossNegotiationHis
   if (!Array.isArray(value)) throw new TotalLossClaimContractError("The claim service returned invalid case history.");
   const roundIds = new Set<string>();
   const responseIds = new Set<string>();
+  const supersededDraftIds = new Set<string>();
   return value.map((item: unknown) => {
-    if (!isRecord(item) || !Array.isArray(item.responses) || !Number.isSafeInteger(item.roundNumber) || Number(item.roundNumber) < 1) {
+    const round = exactRecord(item, [
+      "negotiationRoundId",
+      "roundNumber",
+      "outbound",
+      "responses",
+      "followUp",
+      "supersededFollowUpDrafts",
+    ], "round history");
+    if (!Array.isArray(round.responses) || !Array.isArray(round.supersededFollowUpDrafts) || !Number.isSafeInteger(round.roundNumber) || Number(round.roundNumber) < 1) {
       throw new TotalLossClaimContractError("The claim service returned invalid round history.");
     }
-    const negotiationRoundId = requiredString(item.negotiationRoundId, "history round ID", UUID_PATTERN);
+    const negotiationRoundId = requiredString(round.negotiationRoundId, "history round ID", UUID_PATTERN);
     if (roundIds.has(negotiationRoundId)) throw new TotalLossClaimContractError("The claim service returned duplicate history rounds.");
     roundIds.add(negotiationRoundId);
-    const outbound = mapSentCommunication(item.outbound);
-    const followUp = item.followUp == null ? null : mapSentCommunication(item.followUp);
-    const responses = item.responses.map((raw: unknown) => {
+    const outbound = mapSentCommunication(round.outbound);
+    const followUp = round.followUp == null ? null : mapSentCommunication(round.followUp);
+    const responses = round.responses.map((raw: unknown) => {
       const response = mapInsurerResponse(raw);
       if (!response || response.negotiationRoundId !== negotiationRoundId || response.outboundCommunicationId !== outbound.communicationId || responseIds.has(response.responseId)) {
         throw new TotalLossClaimContractError("The saved response does not match its round and outbound message.");
@@ -1985,7 +1995,63 @@ function mapNegotiationHistory(value: unknown): readonly TotalLossNegotiationHis
       return response;
     });
     if (followUp && followUp.negotiationRoundId !== negotiationRoundId) throw new TotalLossClaimContractError("The saved follow-up does not match its round.");
-    return { negotiationRoundId, roundNumber: Number(item.roundNumber), outbound, responses, followUp };
+    const correctedResponseIds = new Set(responses.map((response) => response.supersedesResponseId).filter((id): id is string => id !== null));
+    const supersededSourceIds = new Set<string>();
+    const supersededFollowUpDrafts = round.supersededFollowUpDrafts.map((raw: unknown): TotalLossSupersededFollowUpDraft => {
+      const historical = exactRecord(raw, [
+        "state",
+        "sourceResponseId",
+        "sourceAnalysisResultId",
+        "sourceDecisionId",
+        "draft",
+      ], "superseded follow-up draft");
+      const rawDraft = exactRecord(historical.draft, [
+        "body",
+        "draftId",
+        "purpose",
+        "recipient",
+        "reportVersionId",
+        "revision",
+        "subject",
+        "updatedAt",
+      ], "superseded follow-up draft content");
+      const draft = mapMessageDraft(rawDraft, "follow_up_reconsideration");
+      const sourceResponseId = requiredString(historical.sourceResponseId, "superseded draft response ID", UUID_PATTERN);
+      const sourceAnalysisResultId = requiredString(historical.sourceAnalysisResultId, "superseded draft analysis result ID", UUID_PATTERN);
+      const sourceDecisionId = requiredString(historical.sourceDecisionId, "superseded draft decision ID", UUID_PATTERN);
+      const sourceResponse = responses.find((response) => response.responseId === sourceResponseId);
+      if (
+        historical.state !== "superseded" ||
+        !draft ||
+        draft.reportVersionId !== outbound.reportVersionId ||
+        !sourceResponse ||
+        !correctedResponseIds.has(sourceResponseId) ||
+        sourceResponse.decision?.choice !== "CONTINUE_CHALLENGING" ||
+        sourceResponse.decision.decisionId !== sourceDecisionId ||
+        sourceResponse.decision.analysisResultId !== sourceAnalysisResultId ||
+        supersededSourceIds.has(sourceResponseId) ||
+        supersededDraftIds.has(draft.draftId)
+      ) {
+        throw new TotalLossClaimContractError("The superseded follow-up draft does not match its saved response and decision.");
+      }
+      supersededSourceIds.add(sourceResponseId);
+      supersededDraftIds.add(draft.draftId);
+      return {
+        state: "superseded",
+        sourceResponseId,
+        sourceAnalysisResultId,
+        sourceDecisionId,
+        draft,
+      };
+    });
+    return {
+      negotiationRoundId,
+      roundNumber: Number(round.roundNumber),
+      outbound,
+      responses,
+      followUp,
+      supersededFollowUpDrafts,
+    };
   });
 }
 

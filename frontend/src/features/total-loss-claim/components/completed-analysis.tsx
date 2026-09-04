@@ -153,7 +153,7 @@ function decisionLimitations(report: TotalLossPublishedReport) {
 }
 
 export function CompletedAnalysis(props: CompletedAnalysisProps) {
-  const { claim, report, view, intakeMode, caseId } = props;
+  const { claim, report, view, intakeMode, caseId, userId } = props;
   const [search] = useSearchParams();
   const navigate = useNavigate();
   const location = useLocation();
@@ -320,7 +320,7 @@ export function CompletedAnalysis(props: CompletedAnalysisProps) {
       {claim.resolution ? <CaseResolutionBanner resolution={claim.resolution} /> : null}
       <CaseJourneyProgress progress={workspace.progress} sections={workspace.sections} />
       <CaseWorkspaceNavigation workspace={workspace} stage={stage} pending={progression.pending} />
-      <NegotiationHistory key={`${location.pathname}:${location.search}`} caseId={caseId} history={claim.negotiationHistory ?? []} />
+      <NegotiationHistory key={`${location.pathname}:${location.search}`} caseId={caseId} history={claim.negotiationHistory ?? []} userId={userId} />
       {historical ? <p className="case-history-view-notice">You are viewing a saved response and its review. Your current case step has not changed.<br /><Link to={workspace.currentPath}>Return to {workspace.currentLabel.toLowerCase()}</Link></p> : null}
       <div className="review-stage-content" data-view={stage}>
       {stage === "resolution" ? closed ? <>

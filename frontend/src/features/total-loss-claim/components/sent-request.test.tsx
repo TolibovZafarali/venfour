@@ -68,6 +68,7 @@ function claim(overrides: Partial<TotalLossClaimSecured> = {}): TotalLossClaimSe
       outbound: sentMessage,
       responses: [],
       followUp: null,
+      supersededFollowUpDrafts: [],
     }],
     state: "secured",
     workflow: {
@@ -201,8 +202,8 @@ describe("SentRequest", () => {
           journey: { fulfillmentState: "resolved", nextState: "resolved", retryable: false },
           workflow: { currentTask: "resolved", phase: "resolution", revision: 20 },
           negotiationHistory: [
-            { negotiationRoundId: laterMessage.negotiationRoundId, roundNumber: 2, outbound: laterMessage, responses: [], followUp: null },
-            { negotiationRoundId: sentMessage.negotiationRoundId, roundNumber: 1, outbound: sentMessage, responses: [], followUp: laterMessage },
+            { negotiationRoundId: laterMessage.negotiationRoundId, roundNumber: 2, outbound: laterMessage, responses: [], followUp: null, supersededFollowUpDrafts: [] },
+            { negotiationRoundId: sentMessage.negotiationRoundId, roundNumber: 1, outbound: sentMessage, responses: [], followUp: laterMessage, supersededFollowUpDrafts: [] },
           ],
         })}
         report={report}
@@ -226,6 +227,7 @@ describe("SentRequest", () => {
             outbound: sentMessage,
             responses: [],
             followUp: null,
+            supersededFollowUpDrafts: [],
           }],
         })}
         report={report}

@@ -305,7 +305,7 @@ function claimProjection({
       outbound: { ...draft(), state: "sent", messageVersionId: "66666666-6666-4666-8666-666666666666",
         versionNumber: 1, createdAt: NOW, customerReportedSentAt: progress.send.completedAt,
         communicationId: "13131313-1313-4313-8313-131313131313", negotiationRoundId: "12121212-1212-4212-8212-121212121212" },
-      responses: [], followUp: null,
+      responses: [], followUp: null, supersededFollowUpDrafts: [],
     }] : [],
     messageDraft: withDraft ? draft() : null,
     report: journey === "checkout" ? null : report(continuingSupported),

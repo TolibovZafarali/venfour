@@ -27,6 +27,7 @@ import {
   type TotalLossNegotiationHistoryRound,
 } from "@/features/total-loss-claim/contracts";
 import { totalLossClaimQueryKeys, useTotalLossClaimQuery } from "@/features/total-loss-claim/queries";
+import { preserveRequestDraft, requestDraftRecoveryKey } from "@/features/total-loss-claim/request-draft-recovery";
 import type { TotalLossClaimWorkflowView } from "@/features/total-loss-claim/workflow-route";
 import { server } from "@/test/mocks/server";
 
@@ -287,6 +288,75 @@ function followUpJourneyClaim(sent = false): TotalLossClaimSecured {
   };
 }
 
+function replacementFollowUpClaimWithHistory(): TotalLossClaimSecured {
+  const previous = followUpJourneyClaim();
+  const sourceResponse = previous.insurerResponse!;
+  const sourceFollowUp = previous.followUp!;
+  const nextAnalysisResultId = "20202020-2020-4020-8020-202020202020";
+  const nextRecommendationId = "21212121-2121-4121-8121-212121212121";
+  const nextDecisionId = "22222222-2121-4221-8221-212121212121";
+  const correctedBase = recommendedResponse();
+  const correctedResponse: TotalLossInsurerResponse = {
+    ...correctedBase,
+    negotiationRoundId: ROUND_ID,
+    outboundCommunicationId: OUTBOUND_ID,
+    clientRequestId: "23232323-2323-4323-8323-232323232323",
+    responseId: "24242424-2424-4424-8424-242424242424",
+    supersedesResponseId: sourceResponse.responseId,
+    recommendation: {
+      ...correctedBase.recommendation!,
+      recommendationId: nextRecommendationId,
+      analysisResultId: nextAnalysisResultId,
+    },
+    decision: {
+      decisionId: nextDecisionId,
+      clientRequestId: "25252525-2525-4525-8525-252525252525",
+      recommendationId: nextRecommendationId,
+      analysisResultId: nextAnalysisResultId,
+      choice: "CONTINUE_CHALLENGING",
+      offerId: null,
+      amountMinorUnits: null,
+      currency: null,
+      recordedAt: NOW,
+    },
+  };
+  const currentDraft = {
+    ...sourceFollowUp.draft!,
+    draftId: "26262626-2626-4626-8626-262626262626",
+    subject: "Current corrected-response follow-up",
+    body: "This is the separate current draft based only on the corrected response.",
+    revision: 1,
+  };
+  const round = previous.negotiationHistory![0]!;
+  return {
+    ...previous,
+    insurerResponse: correctedResponse,
+    followUp: {
+      state: "draft",
+      decisionId: nextDecisionId,
+      responseId: correctedResponse.responseId,
+      analysisResultId: nextAnalysisResultId,
+      reportVersionId: REPORT_ID,
+      draft: currentDraft,
+      preparedMessage: null,
+      sentMessage: null,
+      reasonCode: null,
+    },
+    negotiationHistory: [{
+      ...round,
+      responses: [sourceResponse, correctedResponse],
+      supersededFollowUpDrafts: [{
+        state: "superseded",
+        sourceResponseId: sourceResponse.responseId,
+        sourceAnalysisResultId: sourceFollowUp.analysisResultId,
+        sourceDecisionId: sourceFollowUp.decisionId,
+        draft: sourceFollowUp.draft!,
+      }],
+    }],
+    workflow: { ...previous.workflow!, revision: 17 },
+  };
+}
+
 function threeResponseHistory(): TotalLossNegotiationHistoryRound[] {
   const id = (value: number) => `${String(value).padStart(8, "0")}-1515-4515-8515-151515151515`;
   const message = followUpJourneyClaim(true).followUp!.sentMessage!;
@@ -299,7 +369,7 @@ function threeResponseHistory(): TotalLossNegotiationHistoryRound[] {
       recommendation: { ...original.recommendation!, recommendationId: id(300 + number), analysisResultId: id(400 + number) },
     };
     const decided = number < 3 ? decisionResponse(response, { clientRequestId: id(500 + number), recommendationId: response.recommendation.recommendationId, choice: "CONTINUE_CHALLENGING", offerId: null, workflowRevision: number }) : response;
-    return { negotiationRoundId: id(number), roundNumber: number, outbound: requestFor(number), responses: [decided], followUp: number < 3 ? { ...requestFor(number + 1), negotiationRoundId: id(number) } : null };
+    return { negotiationRoundId: id(number), roundNumber: number, outbound: requestFor(number), responses: [decided], followUp: number < 3 ? { ...requestFor(number + 1), negotiationRoundId: id(number) } : null, supersededFollowUpDrafts: [] };
   });
 }
 
@@ -334,15 +404,19 @@ function publicInsurerResponseProjection(
 }
 
 function publicClaimProjection(claim: TotalLossClaimSecured) {
-  if (
-    !claim.insurerResponse ||
-    claim.insurerResponse.processingState === "completed"
-  ) {
-    return claim;
-  }
   return {
     ...claim,
-    insurerResponse: publicInsurerResponseProjection(claim.insurerResponse),
+    ...(claim.insurerResponse && claim.insurerResponse.processingState !== "completed"
+      ? { insurerResponse: publicInsurerResponseProjection(claim.insurerResponse) }
+      : {}),
+    ...(claim.negotiationHistory ? {
+      negotiationHistory: claim.negotiationHistory.map((round) => ({
+        ...round,
+        responses: round.responses.map((response) => response.processingState === "completed"
+          ? response
+          : publicInsurerResponseProjection(response)),
+      })),
+    } : {}),
   };
 }
 
@@ -471,7 +545,7 @@ function claimProjection(completed: readonly TotalLossEducationStep[] = []): Tot
         versionNumber: 1, createdAt: NOW, customerReportedSentAt: NOW,
         communicationId: OUTBOUND_ID, negotiationRoundId: ROUND_ID,
       },
-      responses: [], followUp: null,
+      responses: [], followUp: null, supersededFollowUpDrafts: [],
     }] : [],
     report: publishedReport(),
     sendingDetails: null,
@@ -549,9 +623,22 @@ function installClaim(initialClaim = claimProjection(), failOnce?: TotalLossEduc
       draftWrites();
       return HttpResponse.json({ error: { code: "UNEXPECTED_WRITE", message: "An evidence visit must not update a draft." } }, { status: 500 });
     }),
+    http.post(`${API}/follow-up/prepare`, () => {
+      const followUp = claim.followUp;
+      if (followUp?.state !== "draft" || !followUp.draft || !followUp.preparedMessage) {
+        return HttpResponse.json({ error: { code: "FOLLOW_UP_NOT_CURRENT", message: "The follow-up draft is no longer current." } }, { status: 409 });
+      }
+      return HttpResponse.json({
+        draft: followUp.draft,
+        messageVersion: followUp.preparedMessage,
+        workflowRevision: claim.workflow?.revision ?? 1,
+      });
+    }),
     http.post(`${API}/insurer-response`, async ({ request: update }) => {
       const body = await update.json() as InsurerResponseWrite;
       responseWrites.push(body);
+      const previousResponse = claim.insurerResponse;
+      const previousFollowUp = claim.followUp;
       const response: TotalLossInsurerResponse = {
         negotiationRoundId: claim.responseIntake?.negotiationRoundId ?? claim.insurerResponse?.negotiationRoundId ?? ROUND_ID,
         outboundCommunicationId: body.outboundCommunicationId,
@@ -577,11 +664,41 @@ function installClaim(initialClaim = claimProjection(), failOnce?: TotalLossEduc
         decision: null,
         supersedesResponseId: body.supersedesResponseId,
       };
+      const retainsSupersededFollowUp = Boolean(
+        body.supersedesResponseId &&
+        previousResponse &&
+        previousFollowUp?.state === "draft" &&
+        previousFollowUp.draft &&
+        previousFollowUp.responseId === previousResponse.responseId &&
+        previousFollowUp.responseId === body.supersedesResponseId,
+      );
+      const negotiationHistory = retainsSupersededFollowUp
+        ? (claim.negotiationHistory ?? []).map((round) => {
+          if (round.negotiationRoundId !== previousResponse?.negotiationRoundId) return round;
+          const retainedResponses = round.responses.some((item) => item.responseId === previousResponse.responseId)
+            ? round.responses
+            : [...round.responses, previousResponse];
+          const responses = retainedResponses.some((item) => item.responseId === response.responseId)
+            ? retainedResponses
+            : [...retainedResponses, response];
+          const supersededFollowUpDrafts = round.supersededFollowUpDrafts.some((item) => item.draft.draftId === previousFollowUp!.draft!.draftId)
+            ? round.supersededFollowUpDrafts
+            : [...round.supersededFollowUpDrafts, {
+              state: "superseded" as const,
+              sourceResponseId: previousFollowUp!.responseId,
+              sourceAnalysisResultId: previousFollowUp!.analysisResultId,
+              sourceDecisionId: previousFollowUp!.decisionId,
+              draft: previousFollowUp!.draft!,
+            }];
+          return { ...round, responses, supersededFollowUpDrafts };
+        })
+        : claim.negotiationHistory;
       claim = {
         ...claim,
         insurerResponse: response,
         responseIntake: null,
         followUp: null,
+        negotiationHistory,
         journey: { fulfillmentState: "insurer_response_reviewing", nextState: "insurer_response_reviewing", retryable: false },
         workflow: { ...claim.workflow!, currentTask: "insurer_response_reviewing", revision: claim.workflow!.revision + 1 },
       };
@@ -1036,6 +1153,78 @@ describe("completed-analysis guided progression", () => {
     expect(installed.draftWrites).not.toHaveBeenCalled();
     expect(installed.responseWrites).toHaveLength(0);
     expect(view.router.state.location.pathname).toBe(`${BASE}/review/follow-up`);
+  });
+
+  it("keeps an unsent follow-up read-only after correction while the corrected response stays authoritative", async () => {
+    const current = followUpJourneyClaim();
+    const draft = current.followUp!.draft!;
+    const browserOnly = {
+      recipient: draft.recipient!,
+      subject: "Browser-only heavily edited subject",
+      body: "Browser-only heavily edited message.\n\nThis was not confirmed saved. ",
+    };
+    const recoveryKey = requestDraftRecoveryKey({
+      userId: USER_ID,
+      caseId: CASE_ID,
+      draft,
+      followUpDraftId: draft.draftId,
+    });
+    preserveRequestDraft(recoveryKey, browserOnly, draft, false);
+    const installed = installClaim(current);
+    const view = renderJourney("report", "response-reviewed");
+    const user = userEvent.setup();
+
+    expect(await screen.findByText("You chose to continue challenging")).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Correct this response" }));
+    const responseText = screen.getByRole("textbox", { name: /^Paste the response/iu });
+    await user.clear(responseText);
+    await user.type(responseText, "Corrected insurer response for the current review.");
+    await user.click(screen.getByRole("button", { name: "Save corrected response" }));
+
+    expect(await screen.findByRole("heading", { name: "Venfour is reviewing the insurer’s response" })).toBeVisible();
+    expect(view.router.state.location.pathname).toBe(`${BASE}/review/response-reviewing`);
+    expect(installed.claim().followUp).toBeNull();
+    expect(installed.claim().insurerResponse?.supersedesResponseId).toBe(current.insurerResponse!.responseId);
+    await user.click(screen.getByText("Case history"));
+    const historical = document.querySelector(".case-history-superseded-draft") as HTMLElement;
+    expect(historical).toHaveTextContent("Draft follow-up — superseded");
+    await user.click(historical.querySelector("summary")!);
+    const versions = historical.querySelectorAll(".case-history-draft-version");
+    expect(versions).toHaveLength(2);
+    expect(versions[0]).toHaveTextContent(draft.subject);
+    expect(versions[0]?.querySelector(".case-history-draft-body")?.textContent).toBe(draft.body);
+    expect(versions[1]).toHaveTextContent(browserOnly.subject);
+    expect(versions[1]?.querySelector(".case-history-draft-body")?.textContent).toBe(browserOnly.body);
+    expect(historical).toHaveTextContent(/recovered from this browser.*may not have finished saving/iu);
+    expect(historical.querySelector("input, textarea, button, a, [contenteditable]")).toBeNull();
+
+    await act(() => view.router.navigate(`${BASE}/review/follow-up`));
+    await waitFor(() => expect(view.router.state.location.pathname).toBe(`${BASE}/review/response-reviewing`));
+    expect(await screen.findByRole("heading", { name: "Venfour is reviewing the insurer’s response" })).toBeVisible();
+  });
+
+  it("keeps an untouched superseded draft separate from the corrected response’s new current editor", async () => {
+    const current = replacementFollowUpClaimWithHistory();
+    const historicalDraft = current.negotiationHistory![0]!.supersededFollowUpDrafts[0]!.draft;
+    const activeDraft = current.followUp!.draft!;
+    installClaim(current);
+    renderJourney("report", "follow-up");
+    const user = userEvent.setup();
+
+    expect(await screen.findByRole("heading", { name: "Review and send your follow-up" })).toBeVisible();
+    expect(screen.getByRole("textbox", { name: "Subject" })).toHaveValue(activeDraft.subject);
+    expect(screen.getByRole("textbox", { name: "Message" })).toHaveValue(activeDraft.body);
+    expect(screen.getByRole("textbox", { name: "Subject" })).not.toHaveValue(historicalDraft.subject);
+    expect(screen.getByRole("textbox", { name: "Message" })).not.toHaveValue(historicalDraft.body);
+
+    await user.click(screen.getByText("Case history"));
+    const historical = document.querySelector(".case-history-superseded-draft") as HTMLElement;
+    await user.click(historical.querySelector("summary")!);
+    expect(historical.querySelector(".case-history-draft-body")?.textContent).toBe(historicalDraft.body);
+    expect(historical).toHaveTextContent(historicalDraft.subject);
+    expect(historical).not.toHaveTextContent(activeDraft.subject);
+    expect(historical.querySelector("input, textarea, button, a, [contenteditable]")).toBeNull();
+    expect(current.followUp!.draft!.draftId).not.toBe(historicalDraft.draftId);
   });
 
   it("records a distinct response against the sent follow-up without using correction lineage", async () => {

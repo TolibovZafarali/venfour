@@ -32,6 +32,51 @@ def sent_message(round_number: int, number: int) -> dict:
     }
 
 
+def corrected_response(source: dict, number: int) -> dict:
+    corrected = copy.deepcopy(source)
+    corrected.update({
+        "responseId": identity(number),
+        "clientRequestId": identity(number + 1),
+        "supersedesResponseId": source["responseId"],
+    })
+    corrected["recommendation"].update({
+        "recommendationId": identity(number + 2),
+        "analysisResultId": identity(number + 3),
+    })
+    corrected["usableOffer"]["offerId"] = identity(number + 4)
+    corrected["decision"] = {
+        "decisionId": identity(number + 5),
+        "clientRequestId": identity(number + 6),
+        "recommendationId": corrected["recommendation"]["recommendationId"],
+        "analysisResultId": corrected["recommendation"]["analysisResultId"],
+        "choice": "CONTINUE_CHALLENGING",
+        "offerId": None,
+        "amountMinorUnits": None,
+        "currency": None,
+        "recordedAt": NOW,
+    }
+    return corrected
+
+
+def superseded_follow_up_draft(source: dict, number: int) -> dict:
+    return {
+        "state": "superseded",
+        "sourceResponseId": source["responseId"],
+        "sourceAnalysisResultId": source["decision"]["analysisResultId"],
+        "sourceDecisionId": source["decision"]["decisionId"],
+        "draft": {
+            "draftId": identity(number),
+            "reportVersionId": REPORT_ID,
+            "purpose": "follow_up_reconsideration",
+            "recipient": "adjuster@example.test",
+            "subject": f"Saved follow-up subject {number}",
+            "body": f"Exact customer-edited follow-up body {number}.\nThank you.",
+            "revision": 7,
+            "updatedAt": NOW,
+        },
+    }
+
+
 class RepeatableResponseRoundTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -67,6 +112,7 @@ class RepeatableResponseRoundTests(unittest.TestCase):
             history.append({
                 "negotiationRoundId": identity(number), "roundNumber": number,
                 "outbound": outbound, "responses": [response], "followUp": follow_up,
+                "supersededFollowUpDrafts": [],
             })
             outbound = follow_up
         return history
@@ -114,6 +160,97 @@ class RepeatableResponseRoundTests(unittest.TestCase):
                 self.assertEqual(len(validated), 3)
                 self.assertEqual(validated[round_index]["responses"][1]["outboundCommunicationId"], response["outboundCommunicationId"])
                 corrected["negotiationRoundId"] = history[2]["negotiationRoundId"]
+                with self.assertRaises(SupabaseContractError):
+                    validate_negotiation_history(history)
+
+    def test_superseded_drafts_preserve_exact_content_and_sent_follow_up(self):
+        history = self.history()
+        first_round = history[0]
+        source = first_round["responses"][0]
+        corrected = corrected_response(source, 8000)
+        first_round["responses"].append(corrected)
+        archived = superseded_follow_up_draft(source, 8100)
+        first_round["supersededFollowUpDrafts"].append(archived)
+
+        validated = validate_negotiation_history(history)
+        self.assertEqual(validated[0]["supersededFollowUpDrafts"], [archived])
+        self.assertEqual(validated[0]["followUp"], first_round["followUp"])
+        self.assertEqual(
+            validated[0]["supersededFollowUpDrafts"][0]["draft"]["body"],
+            archived["draft"]["body"],
+        )
+
+        resumed = CaseClaimAccessService._resume_state(
+            self.resume(history), CASE_ID
+        ).to_dict()
+        self.assertEqual(
+            resumed["negotiationHistory"][0]["supersededFollowUpDrafts"],
+            [archived],
+        )
+        self.assertEqual(
+            resumed["negotiationHistory"][0]["followUp"],
+            first_round["followUp"],
+        )
+
+    def test_multiple_superseded_drafts_in_one_round_are_distinct(self):
+        history = self.history()
+        first_round = history[0]
+        first_source = first_round["responses"][0]
+        second_source = corrected_response(first_source, 8200)
+        latest = corrected_response(second_source, 8300)
+        first_round["responses"].extend((second_source, latest))
+        expected = [
+            superseded_follow_up_draft(first_source, 8400),
+            superseded_follow_up_draft(second_source, 8500),
+        ]
+        first_round["supersededFollowUpDrafts"].extend(expected)
+
+        validated = validate_negotiation_history(history)
+        self.assertEqual(validated[0]["supersededFollowUpDrafts"], expected)
+
+    def test_superseded_draft_rejects_wrong_state_lineage_report_and_duplicates(self):
+        mutations = (
+            lambda history, archived: archived.update({"state": "draft"}),
+            lambda history, archived: archived.update({
+                "sourceResponseId": history[1]["responses"][0]["responseId"],
+            }),
+            lambda history, archived: archived.update({
+                "sourceAnalysisResultId": identity(8800),
+            }),
+            lambda history, archived: archived.update({
+                "sourceDecisionId": identity(8801),
+            }),
+            lambda history, archived: archived["draft"].update({
+                "reportVersionId": identity(8802),
+            }),
+            lambda history, archived: history[0]["supersededFollowUpDrafts"].append(
+                copy.deepcopy(archived)
+            ),
+        )
+        for mutate in mutations:
+            with self.subTest(mutation=mutate):
+                history = self.history()
+                source = history[0]["responses"][0]
+                history[0]["responses"].append(corrected_response(source, 8600))
+                archived = superseded_follow_up_draft(source, 8700)
+                history[0]["supersededFollowUpDrafts"].append(archived)
+                mutate(history, archived)
+                with self.assertRaises(SupabaseContractError):
+                    validate_negotiation_history(history)
+
+    def test_superseded_draft_requires_a_corrected_source_with_continue_decision(self):
+        for mutation in ("latest", "missing_decision"):
+            with self.subTest(mutation=mutation):
+                history = self.history()
+                source = history[0]["responses"][0]
+                latest = corrected_response(source, 8900)
+                history[0]["responses"].append(latest)
+                if mutation == "latest":
+                    archived = superseded_follow_up_draft(latest, 8910)
+                else:
+                    archived = superseded_follow_up_draft(source, 8910)
+                    source["decision"] = None
+                history[0]["supersededFollowUpDrafts"].append(archived)
                 with self.assertRaises(SupabaseContractError):
                     validate_negotiation_history(history)
 

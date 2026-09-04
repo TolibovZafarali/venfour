@@ -32,6 +32,7 @@
 .case-history-message > summary > span { display: block; font-weight: 400; font-size: 0.8rem; color: #657386; margin-top: 0.2rem; }
 .case-history-message > dl { margin-block: 1rem; }
 .case-history h3 { font-size: 0.9rem; margin: 0; font-weight: 600; }
+.case-history h4 { font-size: 0.8rem; margin: 0; font-weight: 600; }
 .case-history p { margin-block: 0.35rem; overflow-wrap: anywhere; }
 .case-history-response > p { font-size: 0.8rem; color: #657386; }
 .case-history-links { display: flex; flex-wrap: wrap; gap: 0.5rem 1.2rem; margin-block: 0.5rem; }
@@ -40,3 +41,78 @@
 .case-history .case-history-decision { color: #23354b; }
 .case-history-view-notice { margin-bottom: 1.5rem; padding: 1rem; background: #f3f6fa; border-radius: 0.75rem; font-size: 0.9rem; }
 .case-history-view-notice a { display: inline-block; margin-top: 0.5rem; text-decoration: underline; text-underline-offset: 0.2em; }
+
+.case-history-superseded-draft {
+  margin-block: 0.25rem 0.75rem;
+  padding: 0.75rem;
+  border: 1px solid #dfe5ec;
+  border-radius: 0.75rem;
+  background: #f7f9fc;
+}
+
+.case-history-superseded-explanation,
+.case-history-recovery-note {
+  color: #526176;
+  font-size: 0.8rem;
+  line-height: 1.55;
+}
+
+.case-history-recovery-note {
+  margin-top: 1rem;
+  padding: 0.75rem;
+  border-left: 3px solid #b67718;
+  background: #fff8e8;
+  color: #614510;
+}
+
+.case-history-draft-version {
+  min-width: 0;
+  margin-top: 1rem;
+}
+
+.case-history-draft-details {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0.75rem 0 0;
+  padding-block: 0.75rem;
+  border-block: 1px solid #dfe5ec;
+}
+
+.case-history-draft-details > div {
+  display: grid;
+  grid-template-columns: 4rem minmax(0, 1fr);
+  gap: 0.75rem;
+}
+
+.case-history-draft-details dt {
+  color: #657386;
+  font-size: 0.8rem;
+}
+
+.case-history-draft-details dd {
+  min-width: 0;
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.case-history .case-history-draft-body {
+  margin: 0;
+  padding-block: 0.75rem 0.25rem;
+  line-height: 1.65;
+  white-space: pre-wrap;
+}
+
+.case-history-empty-value {
+  color: #657386;
+  font-style: italic;
+}
+
+@media (max-width: 480px) {
+  .case-history ol { padding-left: 0.75rem; }
+  .case-history-superseded-draft { padding: 0.65rem; }
+  .case-history-draft-details > div {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.2rem;
+  }
+}

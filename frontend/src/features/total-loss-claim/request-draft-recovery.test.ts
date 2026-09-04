@@ -1,8 +1,9 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { TotalLossMessageDraft } from "./contracts";
 import {
   preserveRequestDraft,
+  readRequestDraftRecoveryForHistory,
   reconcileRequestDraft,
   requestDraftRecoveryKey,
   restoreRequestDraft,
@@ -26,6 +27,45 @@ describe("request draft recovery", () => {
     expect(restoreRequestDraft(key, draft, contentOf(draft))).toMatchObject({
       content: authored, baseline: draft, failed: true, restored: true, conflict: false,
     });
+  });
+
+  it("reads differing browser-only content for read-only history without clearing it", () => {
+    const authored = {
+      ...contentOf(draft),
+      subject: "Locally revised subject",
+      body: "Exact browser-only rewrite\nwith another line. ",
+    };
+    preserveRequestDraft(key, authored, draft, false);
+
+    expect(readRequestDraftRecoveryForHistory(key, draft)).toEqual({ content: authored, status: "same_baseline" });
+    expect(window.sessionStorage.getItem(key)).not.toBeNull();
+    expect(readRequestDraftRecoveryForHistory(key, { ...draft, ...authored })).toBeNull();
+    expect(window.sessionStorage.getItem(key)).not.toBeNull();
+  });
+
+  it("labels local work from a different saved baseline as uncertain and hides stale snapshots without edits", () => {
+    const local = { ...contentOf(draft), body: "Local work from the earlier saved draft" };
+    preserveRequestDraft(key, local, draft, false);
+    const newer = { ...draft, subject: "Saved in another tab", revision: 2 };
+    expect(readRequestDraftRecoveryForHistory(key, newer)).toEqual({ content: local, status: "uncertain" });
+
+    window.sessionStorage.clear();
+    preserveRequestDraft(key, contentOf(draft), draft, false, null, true);
+    expect(readRequestDraftRecoveryForHistory(key, newer)).toBeNull();
+  });
+
+  it("reports unavailable browser recovery storage without replacing the saved draft", () => {
+    const read = vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
+      throw new DOMException("Storage disabled", "SecurityError");
+    });
+    try {
+      expect(readRequestDraftRecoveryForHistory(key, draft)).toEqual({
+        content: null,
+        status: "storage_unavailable",
+      });
+    } finally {
+      read.mockRestore();
+    }
   });
 
   it("isolates owners, cases, reports, exact initial messages and follow-up rounds", () => {

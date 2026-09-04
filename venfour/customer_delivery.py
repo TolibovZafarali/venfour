@@ -1308,6 +1308,31 @@ def validate_sent_message_projection(value: Any) -> dict[str, Any]:
     return dict(value)
 
 
+def validate_superseded_follow_up_draft_projection(value: Any) -> dict[str, Any]:
+    """Validate one read-only draft whose exact response source was corrected."""
+    if not isinstance(value, Mapping) or set(value) != {
+        "state",
+        "sourceResponseId",
+        "sourceAnalysisResultId",
+        "sourceDecisionId",
+        "draft",
+    }:
+        raise SupabaseContractError("Superseded follow-up draft is invalid")
+    if value.get("state") != "superseded":
+        raise SupabaseContractError("Superseded follow-up draft state is invalid")
+    for key in (
+        "sourceResponseId",
+        "sourceAnalysisResultId",
+        "sourceDecisionId",
+    ):
+        _uuid(value.get(key), key)
+    draft = validate_message_draft(
+        value.get("draft"), purpose="follow_up_reconsideration"
+    )
+    assert draft is not None
+    return {**value, "draft": draft}
+
+
 def validate_negotiation_history(value: Any) -> list[dict[str, Any]]:
     """Retain response corrections within their round and validate the outbound chain."""
     if not isinstance(value, list):
@@ -1315,10 +1340,15 @@ def validate_negotiation_history(value: Any) -> list[dict[str, Any]]:
     history: list[dict[str, Any]] = []
     round_ids: set[str] = set()
     response_ids: set[str] = set()
+    superseded_source_response_ids: set[str] = set()
+    superseded_source_analysis_ids: set[str] = set()
+    superseded_source_decision_ids: set[str] = set()
+    superseded_draft_ids: set[str] = set()
     last_number = 0
     for item in value:
         if not isinstance(item, Mapping) or set(item) != {
             "negotiationRoundId", "roundNumber", "outbound", "responses", "followUp",
+            "supersededFollowUpDrafts",
         }:
             raise SupabaseContractError("Negotiation history round is invalid")
         round_id = _uuid(item.get("negotiationRoundId"), "Negotiation history round ID")
@@ -1359,9 +1389,75 @@ def validate_negotiation_history(value: Any) -> list[dict[str, Any]]:
             or (projected_responses[-1].get("decision") or {}).get("choice") != "CONTINUE_CHALLENGING"
         ):
             raise SupabaseContractError("Negotiation history follow-up lineage is invalid")
+        superseded_values = item.get("supersededFollowUpDrafts")
+        if not isinstance(superseded_values, list):
+            raise SupabaseContractError("Negotiation history superseded drafts are invalid")
+        responses_by_id = {
+            response["responseId"]: response for response in projected_responses
+        }
+        corrected_response_ids = {
+            response["supersedesResponseId"]
+            for response in projected_responses
+            if response["supersedesResponseId"] is not None
+        }
+        projected_superseded = []
+        for superseded_value in superseded_values:
+            superseded = validate_superseded_follow_up_draft_projection(
+                superseded_value
+            )
+            source_response_id = superseded["sourceResponseId"]
+            source_response = responses_by_id.get(source_response_id)
+            source_decision = (
+                source_response.get("decision")
+                if source_response is not None
+                else None
+            )
+            if (
+                source_response_id not in corrected_response_ids
+                or not isinstance(source_decision, Mapping)
+                or source_decision.get("choice") != "CONTINUE_CHALLENGING"
+                or superseded["sourceAnalysisResultId"]
+                != source_decision.get("analysisResultId")
+                or superseded["sourceAnalysisResultId"]
+                != (source_response.get("recommendation") or {}).get(
+                    "analysisResultId"
+                )
+                or superseded["sourceDecisionId"]
+                != source_decision.get("decisionId")
+            ):
+                raise SupabaseContractError(
+                    "Negotiation history superseded draft lineage is invalid"
+                )
+            draft = superseded["draft"]
+            if draft["reportVersionId"] != outbound["reportVersionId"]:
+                raise SupabaseContractError(
+                    "Negotiation history superseded draft report lineage is invalid"
+                )
+            identities = (
+                (source_response_id, superseded_source_response_ids),
+                (
+                    superseded["sourceAnalysisResultId"],
+                    superseded_source_analysis_ids,
+                ),
+                (superseded["sourceDecisionId"], superseded_source_decision_ids),
+                (draft["draftId"], superseded_draft_ids),
+            )
+            if any(identifier in seen for identifier, seen in identities):
+                raise SupabaseContractError(
+                    "Negotiation history superseded draft identity is duplicated"
+                )
+            for identifier, seen in identities:
+                seen.add(identifier)
+            projected_superseded.append(superseded)
         round_ids.add(round_id)
         last_number = number
-        history.append({**item, "outbound": outbound, "responses": projected_responses, "followUp": follow_up})
+        history.append({
+            **item,
+            "outbound": outbound,
+            "responses": projected_responses,
+            "followUp": follow_up,
+            "supersededFollowUpDrafts": projected_superseded,
+        })
     return history
 
 

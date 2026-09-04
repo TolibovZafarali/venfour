@@ -299,6 +299,14 @@ export interface TotalLossSentCommunication extends Omit<TotalLossPreparedMessag
   readonly negotiationRoundId: string;
 }
 
+export interface TotalLossSupersededFollowUpDraft {
+  readonly state: "superseded";
+  readonly sourceResponseId: string;
+  readonly sourceAnalysisResultId: string;
+  readonly sourceDecisionId: string;
+  readonly draft: TotalLossMessageDraft;
+}
+
 export interface TotalLossResponseIntake {
   readonly negotiationRoundId: string;
   readonly outboundCommunicationId: string;
@@ -310,6 +318,7 @@ export interface TotalLossNegotiationHistoryRound {
   readonly outbound: TotalLossSentCommunication;
   readonly responses: readonly TotalLossInsurerResponse[];
   readonly followUp: TotalLossSentCommunication | null;
+  readonly supersededFollowUpDrafts: readonly TotalLossSupersededFollowUpDraft[];
 }
 
 export interface TotalLossFollowUp {

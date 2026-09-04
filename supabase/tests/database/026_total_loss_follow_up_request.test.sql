@@ -428,6 +428,9 @@ $$;
 select ok(has_function_privilege('service_role','public.resolve_total_loss_follow_up_generation_context(uuid,uuid,uuid)','EXECUTE')
   and has_function_privilege('service_role','public.store_total_loss_follow_up_draft(uuid,uuid,uuid,text,jsonb)','EXECUTE')
   and not has_function_privilege('authenticated','public.store_total_loss_follow_up_draft(uuid,uuid,uuid,text,jsonb)','EXECUTE')
+  and not has_function_privilege('authenticated','public.total_loss_superseded_follow_up_drafts_projection_internal(uuid,uuid)','EXECUTE')
+  and not has_function_privilege('anon','public.total_loss_superseded_follow_up_drafts_projection_internal(uuid,uuid)','EXECUTE')
+  and not has_function_privilege('service_role','public.total_loss_superseded_follow_up_drafts_projection_internal(uuid,uuid)','EXECUTE')
   and not has_function_privilege('anon','public.get_total_loss_customer_follow_up(uuid)','EXECUTE')
   and not has_table_privilege('authenticated','public.total_loss_follow_up_sources','SELECT')
   and not has_table_privilege('authenticated','public.total_loss_follow_up_generation_blocks','SELECT'),
@@ -522,20 +525,48 @@ select is((select original_content from public.total_loss_communications where i
 -- can verify both stale-source failure and the original intact history.
 create function pg_temp.probe_follow_up_correction() returns jsonb
 language plpgsql security definer set search_path='' as $$
-declare old_context jsonb; old_draft uuid; correction jsonb; resumed record; new_context jsonb;
-  old_source_rejected boolean:=false; old_edit_rejected boolean:=false; current_hidden boolean:=false;
+declare old_context jsonb; old_draft uuid; old_prepared jsonb; correction jsonb; resumed record; new_context jsonb;
+  historical_draft jsonb; claim_before_view jsonb; claim_after_view jsonb; replacement jsonb;
+  old_source_rejected boolean:=false; old_edit_rejected boolean:=false; old_prepare_rejected boolean:=false;
+  old_open_rejected boolean:=false; old_send_rejected boolean:=false; current_hidden boolean:=false; history_exact boolean:=false;
+  history_read_stable boolean:=false; replacement_clean boolean:=false; current_isolated boolean:=false;
   replacement_draft uuid; old_source_stale boolean:=false; draft_count integer;
+  exact_subject text:='My exact edited follow-up subject';
+  exact_body text:=E'My exact authored follow-up body.\n\nPreserve this final saved revision.';
 begin
   select payload into old_context from pg_temp.scenario where name='context';
   select (payload #>> '{draft,draftId}')::uuid into old_draft from pg_temp.scenario where name='generated';
   begin
+    perform public.patch_total_loss_customer_follow_up_draft('b2000000-0000-4000-8000-000000000001',old_draft,
+      'authored-adjuster@example.test',exact_subject,exact_body,1);
+    old_prepared:=public.prepare_total_loss_customer_follow_up('b2000000-0000-4000-8000-000000000001',old_draft,
+      'e3000000-0000-4000-8000-000000000001',2,
+      (select revision from public.total_loss_claim_workflows where case_id='b2000000-0000-4000-8000-000000000001'));
     correction:=public.record_total_loss_insurer_response('b2000000-0000-4000-8000-000000000001',
       'e1000000-0000-4000-8000-000000000001','The original offer is unchanged. Corrected saved text.',null,null,null,
       (old_context #>> '{sourceIdentity,responseId}')::uuid,
       (select revision from public.total_loss_claim_workflows where case_id='b2000000-0000-4000-8000-000000000001'));
     old_source_stale:=public.resolve_total_loss_follow_up_generation_context('b2000000-0000-4000-8000-000000000001',
       'b1000000-0000-4000-8000-000000000001',(old_context #>> '{sourceIdentity,decisionId}')::uuid) is null;
-    current_hidden:=public.get_total_loss_customer_follow_up('b2000000-0000-4000-8000-000000000001') is null;
+    select * into resumed from public.resolve_total_loss_case_claim('b2000000-0000-4000-8000-000000000001');
+    current_hidden:=public.get_total_loss_customer_follow_up('b2000000-0000-4000-8000-000000000001') is null
+      and resumed.follow_up is null;
+    historical_draft:=resumed.negotiation_history #> '{0,supersededFollowUpDrafts,0}';
+    history_exact:=jsonb_array_length(resumed.negotiation_history #> '{0,supersededFollowUpDrafts}')=1
+      and historical_draft ->> 'state'='superseded'
+      and historical_draft ->> 'sourceResponseId'=old_context #>> '{sourceIdentity,responseId}'
+      and historical_draft ->> 'sourceAnalysisResultId'=old_context #>> '{sourceIdentity,analysisResultId}'
+      and historical_draft ->> 'sourceDecisionId'=old_context #>> '{sourceIdentity,decisionId}'
+      and historical_draft #>> '{draft,draftId}'=old_draft::text
+      and historical_draft #>> '{draft,recipient}'='authored-adjuster@example.test'
+      and historical_draft #>> '{draft,subject}'=exact_subject
+      and historical_draft #>> '{draft,body}'=exact_body
+      and historical_draft #>> '{draft,revision}'='2';
+    claim_before_view:=to_jsonb(resumed);
+    perform public.total_loss_negotiation_history_projection_internal('b2000000-0000-4000-8000-000000000001');
+    select to_jsonb(claim) into claim_after_view from public.resolve_total_loss_case_claim(
+      'b2000000-0000-4000-8000-000000000001') as claim;
+    history_read_stable:=claim_after_view=claim_before_view;
     begin
       perform public.store_total_loss_follow_up_draft('b2000000-0000-4000-8000-000000000001','b1000000-0000-4000-8000-000000000001',
         (old_context #>> '{sourceIdentity,decisionId}')::uuid,old_context ->> 'contextDigest',
@@ -543,8 +574,22 @@ begin
     exception when insufficient_privilege then old_source_rejected:=true; end;
     begin
       perform public.patch_total_loss_customer_follow_up_draft('b2000000-0000-4000-8000-000000000001',old_draft,
-        'adjuster@example.test','Stale','Stale',1);
+        'adjuster@example.test','Stale','Stale',2);
     exception when insufficient_privilege then old_edit_rejected:=true; end;
+    begin
+      perform public.prepare_total_loss_customer_follow_up('b2000000-0000-4000-8000-000000000001',old_draft,
+        'e3000000-0000-4000-8000-000000000002',2,
+        (select revision from public.total_loss_claim_workflows where case_id='b2000000-0000-4000-8000-000000000001'));
+    exception when insufficient_privilege then old_prepare_rejected:=true; end;
+    begin
+      perform public.record_total_loss_customer_email_opened('b2000000-0000-4000-8000-000000000001',
+        (old_prepared #>> '{messageVersion,messageVersionId}')::uuid,'e3500000-0000-4000-8000-000000000001');
+    exception when insufficient_privilege then old_open_rejected:=true; end;
+    begin
+      perform public.confirm_total_loss_customer_follow_up_sent('b2000000-0000-4000-8000-000000000001',
+        (old_prepared #>> '{messageVersion,messageVersionId}')::uuid,'e4000000-0000-4000-8000-000000000001',
+        (select revision from public.total_loss_claim_workflows where case_id='b2000000-0000-4000-8000-000000000001'),true);
+    exception when insufficient_privilege then old_send_rejected:=true; end;
     perform pg_temp.complete_response(pg_temp.recommendation('CONTINUE_CHALLENGING',null));
     select * into resumed from public.resolve_total_loss_case_claim('b2000000-0000-4000-8000-000000000001');
     correction:=public.record_total_loss_insurer_response_decision('b2000000-0000-4000-8000-000000000001',
@@ -552,23 +597,42 @@ begin
       (resumed.insurer_response #>> '{recommendation,recommendationId}')::uuid,'CONTINUE_CHALLENGING',null,resumed.workflow_revision);
     new_context:=public.resolve_total_loss_follow_up_generation_context('b2000000-0000-4000-8000-000000000001',
       'b1000000-0000-4000-8000-000000000001',(correction #>> '{response,decision,decisionId}')::uuid);
-    replacement_draft:=(public.store_total_loss_follow_up_draft('b2000000-0000-4000-8000-000000000001',
+    replacement:=public.store_total_loss_follow_up_draft('b2000000-0000-4000-8000-000000000001',
       'b1000000-0000-4000-8000-000000000001',(new_context #>> '{sourceIdentity,decisionId}')::uuid,
-      new_context ->> 'contextDigest',(select payload from pg_temp.scenario where name='generation')) #>> '{draft,draftId}')::uuid;
+      new_context ->> 'contextDigest',(select payload from pg_temp.scenario where name='generation'));
+    replacement_draft:=(replacement #>> '{draft,draftId}')::uuid;
+    replacement_clean:=replacement #>> '{draft,subject}'='Follow-up valuation review'
+      and replacement #>> '{draft,body}'='Thank you for your response. Please explain how the previously supplied valuation evidence was considered.'
+      and replacement #>> '{draft,subject}'<>exact_subject and replacement #>> '{draft,body}'<>exact_body;
+    select * into resumed from public.resolve_total_loss_case_claim('b2000000-0000-4000-8000-000000000001');
+    current_isolated:=resumed.follow_up #>> '{draft,draftId}'=replacement_draft::text
+      and resumed.follow_up ->> 'responseId'=new_context #>> '{sourceIdentity,responseId}'
+      and resumed.negotiation_history #>> '{0,supersededFollowUpDrafts,0,draft,draftId}'=old_draft::text;
     select count(*) into draft_count from public.total_loss_follow_up_sources where case_id='b2000000-0000-4000-8000-000000000001';
     raise exception using errcode='ZX001',message='Rollback correction probe';
   exception when sqlstate 'ZX001' then null; end;
   return jsonb_build_object('staleContext',old_source_stale,'oldGenerationRejected',old_source_rejected,
-    'oldEditRejected',old_edit_rejected,'hiddenUntilNewDecision',current_hidden,
-    'newDraftIsDistinct',replacement_draft is not null and replacement_draft<>old_draft,'retainedDrafts',draft_count);
+    'oldEditRejected',old_edit_rejected,'oldPrepareRejected',old_prepare_rejected,'oldOpenRejected',old_open_rejected,
+    'oldSendRejected',old_send_rejected,
+    'hiddenUntilNewDecision',current_hidden,'historyExact',history_exact,'historyReadStable',history_read_stable,
+    'newDraftIsDistinct',replacement_draft is not null and replacement_draft<>old_draft,
+    'replacementClean',replacement_clean,'currentIsolated',current_isolated,'retainedDrafts',draft_count);
 end;
 $$;
 insert into scenario values('correction_probe',pg_temp.probe_follow_up_correction());
 select ok((select (payload ->> 'staleContext')::boolean and (payload ->> 'oldGenerationRejected')::boolean
-  and (payload ->> 'oldEditRejected')::boolean and (payload ->> 'hiddenUntilNewDecision')::boolean from scenario where name='correction_probe'),
-  'corrected response invalidates old analysis generation and editing until a new decision');
-select ok((select (payload ->> 'newDraftIsDistinct')::boolean and payload ->> 'retainedDrafts'='2' from scenario where name='correction_probe'),
-  'corrected response with its own analysis and Continue creates a distinct draft while preserving prior lineage');
+  and (payload ->> 'oldEditRejected')::boolean and (payload ->> 'oldPrepareRejected')::boolean
+  and (payload ->> 'oldOpenRejected')::boolean and (payload ->> 'oldSendRejected')::boolean
+  and (payload ->> 'hiddenUntilNewDecision')::boolean
+  from scenario where name='correction_probe'),
+  'corrected response invalidates old generation editing preparation opening and sent confirmation');
+select ok((select (payload ->> 'historyExact')::boolean and (payload ->> 'historyReadStable')::boolean
+  from scenario where name='correction_probe'),
+  'corrected response exposes the exact edited draft as read-only history without changing current workflow');
+select ok((select (payload ->> 'newDraftIsDistinct')::boolean and (payload ->> 'replacementClean')::boolean
+  and (payload ->> 'currentIsolated')::boolean and payload ->> 'retainedDrafts'='2'
+  from scenario where name='correction_probe'),
+  'corrected response Continue creates an uncontaminated current draft while retaining superseded history');
 
 set local role authenticated;
 select set_config('request.jwt.claim.sub','b1000000-0000-4000-8000-000000000002',true);
@@ -636,9 +700,10 @@ select is(public.confirm_total_loss_customer_follow_up_sent('b2000000-0000-4000-
   'duplicate sent confirmation with a fresh identity still reuses the same communication');
 select ok((select next_task='awaiting_insurer_response' and customer_journey ->> 'nextState'='awaiting_insurer_response'
   and follow_up ->> 'state'='sent' and follow_up #>> '{sentMessage,state}'='sent' and follow_up #>> '{sentMessage,body}'='My final reviewed follow-up.'
+  and negotiation_history #> '{0,supersededFollowUpDrafts}'='[]'::jsonb
   and insurer_response #>> '{decision,choice}'='CONTINUE_CHALLENGING'
   from public.resolve_total_loss_case_claim('b2000000-0000-4000-8000-000000000001')),
-  'waiting resolver retains the original response decision and sent follow-up history');
+  'waiting resolver retains sent follow-up history without mislabeling it as a superseded draft');
 select throws_ok($$select public.patch_total_loss_customer_follow_up_draft('b2000000-0000-4000-8000-000000000001',
   (select (payload ->> 'draftId')::uuid from scenario where name='edited'),'adjuster@example.test','After send','No',3)$$,
   '42501','Follow-up draft is unavailable.','sent follow-up is no longer editable');
@@ -671,7 +736,9 @@ update public.case_entitlements set status='suspended'
   where id='b8000000-0000-4000-8000-000000000001';
 set local role authenticated;
 select is(public.get_total_loss_customer_follow_up('b2000000-0000-4000-8000-000000000001'),null::jsonb,'suspended entitlement hides even sent follow-up content');
-select ok((select follow_up is null and next_task='payment_review' and customer_journey ->> 'nextState'='needs_attention' from public.resolve_total_loss_case_claim('b2000000-0000-4000-8000-000000000001')),
+select ok((select follow_up is null and negotiation_history is null and next_task='payment_review'
+  and customer_journey ->> 'nextState'='needs_attention'
+  from public.resolve_total_loss_case_claim('b2000000-0000-4000-8000-000000000001')),
   'follow-up projection preserves authoritative entitlement attention');
 reset role;
 select * from finish();

@@ -88,7 +88,7 @@ function claim(
     workflow: { phase: "initial_request", currentTask: nextState, revision: 8 },
     journey: { nextState, fulfillmentState: "report_ready", retryable: false },
     negotiationHistory: ["awaiting_insurer_response", "insurer_response_received", "insurer_response_reviewing", "insurer_response_reviewed", "insurer_response_review_unavailable", "follow_up_preparation"].includes(nextState)
-      ? [{ negotiationRoundId: sentMessage.negotiationRoundId, roundNumber: 1, outbound: sentMessage, responses: [], followUp: null }]
+      ? [{ negotiationRoundId: sentMessage.negotiationRoundId, roundNumber: 1, outbound: sentMessage, responses: [], followUp: null, supersededFollowUpDrafts: [] }]
       : [],
     education: {
       reportVersionId: REPORT_ID,
