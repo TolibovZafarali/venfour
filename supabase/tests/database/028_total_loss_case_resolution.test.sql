@@ -3,6 +3,63 @@ create extension if not exists pgtap with schema extensions;
 set local search_path=public,extensions;
 select no_plan();
 
+-- Shared paid claim fixture; every test owns its surrounding rollback transaction.
+create temporary table response_vehicle_fixture on commit drop as
+select coalesce(nullif(current_setting('venfour.test.response_intake_mode', true), ''), 'manual')::public.total_loss_intake_mode as mode,
+  jsonb_build_object('year',2022,'make','Honda','model','Accord','trim','EX-L',
+    'mileage',32000,'postalCode','60601','lossDate','2026-08-20') as vehicle;
+alter table response_vehicle_fixture add column facts jsonb, add column artifact jsonb,
+  add column presentation jsonb, add column preliminary jsonb, add column normalized jsonb,
+  add column source jsonb, add column assessment jsonb;
+update response_vehicle_fixture set facts = vehicle || jsonb_build_object(
+  'vin',case when mode='manual' then '1HGCM82633A004352' end,
+  'vehicleConfiguration',null,'insurerName',case when mode='manual' then 'Example Insurance' end,
+  'insurerVehicleValuationMinorUnits',1800000);
+update response_vehicle_fixture set artifact=jsonb_build_object(
+  'runId','b5000000-0000-4000-8000-000000000001','requestDigest',repeat('1',64),
+  'request',jsonb_build_object('baseDiscrepancyRequest',jsonb_build_object(
+    'lossVehicle',vehicle-'lossDate','lossDate','2026-08-20')),
+  'result',jsonb_build_object('discrepancyRequest',jsonb_build_object(
+    'lossVehicle',vehicle-'lossDate','lossDate','2026-08-20'),
+    'discrepancyResult',jsonb_build_object('classification','MATERIAL_UNDERVALUE_SIGNAL'))),
+  presentation=jsonb_build_object('runId','b5000000-0000-4000-8000-000000000001',
+    'vehicle',vehicle,'analysisScope',jsonb_build_object('inputMode',upper(mode::text))),
+  normalized='{"schemaVersion":"1","report":{"provider":"CCC","providerId":"CCC","insurer":"Example Insurance","reportReferenceNumber":"SYNTHETIC-REPORT-001","claimReferenceNumber":"SYNTHETIC-CLAIM-001","lossDate":"2026-08-20","reportDate":"2026-05-21","effectiveDate":null},"vehicle":{"year":2022,"make":"Honda","model":"Accord","trim":"EX-L","vin":"1HGCM82633A004352","mileage":32000,"location":"60601","bodyStyle":"Sedan","engine":"Synthetic 2.0L","transmission":"Automatic","fuelType":"Gasoline","equipment":["Synthetic Safety Package","Synthetic Audio"]},"valuation":{"baseVehicleValue":20100,"conditionAdjustment":-100,"adjustedVehicleValue":18000,"insurerOffer":null,"taxes":[],"fees":[],"priorDamageAdjustment":null,"otherAdjustments":[],"total":20000},"condition":{"preLossCondition":null,"totalAdjustment":-100,"items":[{"category":"Exterior","component":"Synthetic panel","rating":"Synthetic rating","notes":"Fictional test condition only.","valueImpact":-100}]},"comparables":[{"number":1,"year":2024,"make":"Synthetic","model":"Sedan","trim":"SEL","vin":"SYNTHETICCCCVIN01","dealer":"Synthetic CCC Dealer 1","location":"Test City, MO 63026","distanceMiles":11,"mileage":49500,"listPrice":19800,"adjustments":{"package":100,"options":50,"mileage":25,"condition":25,"priorDamage":null,"other":null},"adjustedValue":20000,"contributionPercent":34},{"number":2,"year":2024,"make":"Synthetic","model":"Sedan","trim":"SEL","vin":"SYNTHETICCCCVIN02","dealer":"Synthetic CCC Dealer 2","location":"Test City, MO 63026","distanceMiles":12,"mileage":50000,"listPrice":20100,"adjustments":{"package":-50,"options":-25,"mileage":-25,"condition":0,"priorDamage":null,"other":null},"adjustedValue":20000,"contributionPercent":33},{"number":3,"year":2024,"make":"Synthetic","model":"Sedan","trim":"SEL","vin":"SYNTHETICCCCVIN03","dealer":"Synthetic CCC Dealer 3","location":"Test City, MO 63026","distanceMiles":13,"mileage":50500,"listPrice":20400,"adjustments":{"package":-100,"options":-100,"mileage":-100,"condition":-100,"priorDamage":null,"other":null},"adjustedValue":20000,"contributionPercent":33}],"valuationNotes":["Fictional CCC note used only for testing."],"supplementalInformation":{"historyChecks":["Synthetic history check"],"historyEvents":["Synthetic history event"],"recalls":["Synthetic recall entry"]}}'::jsonb;
+update response_vehicle_fixture set preliminary=jsonb_build_object(
+  'classification','MATERIAL_UNDERVALUE_SIGNAL','presentation',presentation);
+update response_vehicle_fixture set source=jsonb_build_object(
+  'schemaVersion','1',
+  'lineage',jsonb_build_object('caseId','b2000000-0000-4000-8000-000000000001',
+    'packageJobId','b9000000-0000-4000-8000-000000000001',
+    'entitlementId','b8000000-0000-4000-8000-000000000001',
+    'preliminarySnapshotId','b6000000-0000-4000-8000-000000000001',
+    'sourceSnapshotId','bf000000-0000-4000-8000-000000000001',
+    'analysisJobId','b4000000-0000-4000-8000-000000000001',
+    'analysisRunId','b5000000-0000-4000-8000-000000000001'),
+  'input',jsonb_build_object('intakeMode',upper(mode::text),'analysisInputRevision',1,
+    'analysisInputId','b3000000-0000-4000-8000-000000000001',
+    'reportUploadId',case when mode='report' then 'bf100000-0000-4000-8000-000000000001' end,
+    'confirmedFacts',facts,'inputDigest',public.total_loss_canonical_jsonb_digest(facts)),
+  'analysis',jsonb_build_object('artifact',artifact,
+    'artifactDigest',public.total_loss_canonical_jsonb_digest(artifact),'requestDigest',repeat('1',64)),
+  'preliminary',jsonb_build_object('presentation',presentation,'snapshot',preliminary,
+    'snapshotDigest',public.total_loss_canonical_jsonb_digest(preliminary),
+    'presentationDigest',public.total_loss_canonical_jsonb_digest(presentation)),
+  'sourceDocument',case when mode='report' then jsonb_build_object(
+    'uploadId','bf100000-0000-4000-8000-000000000001','sha256',repeat('a',64)) end,
+  'extraction',case when mode='report' then jsonb_build_object(
+    'normalizedReport',normalized,'normalizedReportDigest',public.total_loss_canonical_jsonb_digest(normalized),
+    'documentSha256',repeat('a',64)) end);
+update response_vehicle_fixture set source=source || jsonb_build_object(
+  'snapshotDigest',public.total_loss_canonical_jsonb_digest(source));
+update response_vehicle_fixture set assessment=jsonb_build_object('schemaVersion','1',
+  'lineage',(source->'lineage')-'analysisJobId','sourceSnapshotDigest',source->>'snapshotDigest',
+  'analysisArtifactDigest',source#>>'{analysis,artifactDigest}',
+  'subjectVehicle',vehicle || jsonb_build_object('vin',facts->'vin',
+    'vehicleConfiguration',facts->'vehicleConfiguration','evidenceIds','[]'::jsonb));
+update response_vehicle_fixture set assessment=assessment || jsonb_build_object(
+  'assessmentDigest',public.total_loss_canonical_jsonb_digest(assessment));
+
 insert into auth.users (id, email, email_confirmed_at, is_anonymous)
 values
   ('b1000000-0000-4000-8000-000000000001', 'analysis-owner@example.test', statement_timestamp(), false),
@@ -19,12 +76,20 @@ insert into public.total_loss_case_details (
   case_id, intake_mode, vin, vehicle_year, vehicle_make, vehicle_model,
   vehicle_trim, mileage_at_loss, postal_code, date_of_loss, insurer_name,
   insurer_vehicle_valuation, intake_completed_at, analysis_input_revision,
-  analysis_input_id
+  analysis_input_id, report_last_upload_id, report_original_filename, report_uploaded_at
 ) values (
-  'b2000000-0000-4000-8000-000000000001', 'manual',
-  '1HGCM82633A004352', 2022, 'Honda', 'Accord', 'EX-L', 32000,
+  'b2000000-0000-4000-8000-000000000001', (select mode from response_vehicle_fixture),
+  (select facts->>'vin' from response_vehicle_fixture),
+  (select case when mode='manual' then 2022 end from response_vehicle_fixture),
+  (select case when mode='manual' then 'Honda' end from response_vehicle_fixture),
+  (select case when mode='manual' then 'Accord' end from response_vehicle_fixture),
+  (select case when mode='manual' then 'EX-L' end from response_vehicle_fixture),
+  (select case when mode='manual' then 32000 end from response_vehicle_fixture),
   '60601', '2026-08-20', 'Example Insurance', 18000,
-  statement_timestamp(), 1, 'b3000000-0000-4000-8000-000000000001'
+  statement_timestamp(), 1, 'b3000000-0000-4000-8000-000000000001',
+  (select case when mode='report' then 'bf100000-0000-4000-8000-000000000001'::uuid end from response_vehicle_fixture),
+  (select case when mode='report' then 'valuation.pdf' end from response_vehicle_fixture),
+  (select case when mode='report' then statement_timestamp() end from response_vehicle_fixture)
 );
 
 insert into public.total_loss_case_contacts (
@@ -41,13 +106,14 @@ insert into public.total_loss_case_contacts (
 insert into public.total_loss_analysis_jobs (
   id, case_id, source_details_updated_at, status, attempt_count,
   processing_token, run_id, finished_at, source_intake_mode,
-  source_analysis_input_revision, source_analysis_input_id
+  source_analysis_input_revision, source_analysis_input_id, source_report_upload_id
 ) values (
   'b4000000-0000-4000-8000-000000000001',
   'b2000000-0000-4000-8000-000000000001', statement_timestamp(),
   'completed', 1, gen_random_uuid(),
   'b5000000-0000-4000-8000-000000000001', statement_timestamp(),
-  'manual', 1, 'b3000000-0000-4000-8000-000000000001'
+  (select mode from response_vehicle_fixture), 1, 'b3000000-0000-4000-8000-000000000001',
+  (select case when mode='report' then 'bf100000-0000-4000-8000-000000000001'::uuid end from response_vehicle_fixture)
 );
 
 insert into public.analysis_runs (
@@ -58,14 +124,7 @@ insert into public.analysis_runs (
   'b5000000-0000-4000-8000-000000000001',
   'b4000000-0000-4000-8000-000000000001',
   'b2000000-0000-4000-8000-000000000001',
-  jsonb_build_object(
-    'runId', 'b5000000-0000-4000-8000-000000000001',
-    'result', jsonb_build_object(
-      'discrepancyResult', jsonb_build_object(
-        'classification', 'MATERIAL_UNDERVALUE_SIGNAL'
-      )
-    )
-  ),
+  (select artifact from response_vehicle_fixture),
   repeat('1', 64), '4', '4', '1', '1'
 );
 
@@ -77,19 +136,20 @@ insert into public.total_loss_preliminary_snapshots (
   supported_range_high_minor_units, currency, analysis_run_schema_version,
   analysis_version, discrepancy_analysis_version, comparable_scoring_version,
   presentation_schema_version, snapshot_schema_version, source_references,
-  snapshot, snapshot_digest
+  snapshot, snapshot_digest, source_report_upload_id
 ) values (
   'b6000000-0000-4000-8000-000000000001',
   'b2000000-0000-4000-8000-000000000001',
   'b4000000-0000-4000-8000-000000000001',
   'b5000000-0000-4000-8000-000000000001',
-  'b1000000-0000-4000-8000-000000000001', 'manual', 1,
+  'b1000000-0000-4000-8000-000000000001', (select mode from response_vehicle_fixture), 1,
   'b3000000-0000-4000-8000-000000000001',
   'MATERIAL_UNDERVALUE_SIGNAL', 1800000, 2000000, 2100000, 2200000,
   'USD', '4', '4', '1', '1', '1', '1',
   jsonb_build_object('analysisRunId', 'b5000000-0000-4000-8000-000000000001'),
-  jsonb_build_object('classification', 'MATERIAL_UNDERVALUE_SIGNAL'),
-  repeat('2', 64)
+  (select preliminary from response_vehicle_fixture),
+  (select public.total_loss_canonical_jsonb_digest(preliminary) from response_vehicle_fixture),
+  (select case when mode='report' then 'bf100000-0000-4000-8000-000000000001'::uuid end from response_vehicle_fixture)
 );
 
 insert into public.total_loss_claim_workflows (
@@ -142,13 +202,41 @@ set current_package_job_id = 'b9000000-0000-4000-8000-000000000001',
     revision = revision + 1
 where case_id = 'b2000000-0000-4000-8000-000000000001';
 
+insert into public.total_loss_source_snapshots (
+  id,case_id,package_job_id,entitlement_id,preliminary_snapshot_id,analysis_job_id,analysis_run_id,
+  owner_user_id_at_creation,source_intake_mode,source_report_upload_id,source_analysis_input_revision,source_analysis_input_id,
+  source_document_bucket_id,source_document_object_name,source_document_media_type,source_document_byte_size,source_document_sha256,
+  extraction_available,extraction_provider_name,extraction_schema_version,normalized_extraction_digest,
+  analysis_artifact_digest,preliminary_snapshot_digest,request_digest,evidence_cutoff,snapshot_created_at,
+  analysis_run_schema_version,analysis_version,discrepancy_analysis_version,comparable_scoring_version,
+  presentation_schema_version,preliminary_snapshot_schema_version,snapshot_schema_version,source_snapshot,snapshot_digest
+) select 'bf000000-0000-4000-8000-000000000001','b2000000-0000-4000-8000-000000000001',
+  'b9000000-0000-4000-8000-000000000001','b8000000-0000-4000-8000-000000000001',
+  'b6000000-0000-4000-8000-000000000001','b4000000-0000-4000-8000-000000000001',
+  'b5000000-0000-4000-8000-000000000001','b1000000-0000-4000-8000-000000000001',mode,
+  case when mode='report' then 'bf100000-0000-4000-8000-000000000001'::uuid end,1,'b3000000-0000-4000-8000-000000000001',
+  case when mode='report' then 'case-files' end,
+  case when mode='report' then 'b1000000-0000-4000-8000-000000000001/b2000000-0000-4000-8000-000000000001/valuation-report.pdf' end,
+  case when mode='report' then 'application/pdf' end,case when mode='report' then 1234 end,
+  case when mode='report' then repeat('a',64) end,mode='report',
+  case when mode='report' then 'fixture-extractor' end,case when mode='report' then '1' end,
+  case when mode='report' then public.total_loss_canonical_jsonb_digest(normalized) end,
+  public.total_loss_canonical_jsonb_digest(artifact),public.total_loss_canonical_jsonb_digest(preliminary),
+  repeat('1',64),'2026-08-20',statement_timestamp(),'4','4','1','1','1','1','1',source,source->>'snapshotDigest'
+from response_vehicle_fixture;
+
+insert into public.workflow_work_items (
+  id,case_id,package_job_id,work_type,work_version,status
+) values ('bf200000-0000-4000-8000-000000000001','b2000000-0000-4000-8000-000000000001',
+  'b9000000-0000-4000-8000-000000000001','total_loss_report_generate','1','queued');
+
 insert into public.total_loss_final_assessments (
   id, case_id, package_job_id, preliminary_snapshot_id,
   version_number, conclusion_code, currency,
   supported_range_low_minor_units, supported_range_median_minor_units,
   supported_range_high_minor_units, findings, limitations, reason_codes,
   preliminary_to_final_comparison, assessment, methodology_version,
-  schema_version, assessment_digest
+  schema_version, assessment_digest, source_snapshot_id
 ) values (
   'ba000000-0000-4000-8000-000000000001',
   'b2000000-0000-4000-8000-000000000001',
@@ -159,8 +247,9 @@ insert into public.total_loss_final_assessments (
   jsonb_build_array('Advertised prices are not guaranteed transaction prices.'),
   jsonb_build_array('SUPPORTED_RANGE_ABOVE_ORIGINAL_OFFER'),
   jsonb_build_object('materialChange', false),
-  jsonb_build_object('schemaVersion', '1'),
-  '1', '1', repeat('6', 64)
+  (select assessment from response_vehicle_fixture),
+  '1', '1', (select assessment->>'assessmentDigest' from response_vehicle_fixture),
+  'bf000000-0000-4000-8000-000000000001'
 );
 
 insert into public.total_loss_report_series (
@@ -186,7 +275,9 @@ insert into public.total_loss_claim_documents (
 insert into public.total_loss_report_versions (
   id, case_id, report_series_id, version_number, final_assessment_id,
   preliminary_snapshot_id, document_id, renderer_version, template_version,
-  schema_version, report, report_digest, status, published_at, package_job_id
+  schema_version, report, report_digest, status, published_at, package_job_id,
+  source_snapshot_id,source_snapshot_digest,assessment_digest,generation_work_item_id,
+  validation_version,validation_manifest,pdf_digest,pdf_byte_size,generated_at
 ) values (
   'bd000000-0000-4000-8000-000000000001',
   'b2000000-0000-4000-8000-000000000001',
@@ -222,7 +313,11 @@ insert into public.total_loss_report_versions (
     )
   ),
   repeat('7', 64), 'published', statement_timestamp(),
-  'b9000000-0000-4000-8000-000000000001'
+  'b9000000-0000-4000-8000-000000000001',
+  'bf000000-0000-4000-8000-000000000001',
+  (select source->>'snapshotDigest' from response_vehicle_fixture),
+  (select assessment->>'assessmentDigest' from response_vehicle_fixture),
+  'bf200000-0000-4000-8000-000000000001','1','{}'::jsonb,repeat('8',64),321,statement_timestamp()
 );
 
 update public.total_loss_report_series

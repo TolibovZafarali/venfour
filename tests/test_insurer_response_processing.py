@@ -10,6 +10,8 @@ from typing import Any
 
 import pymupdf
 
+from tests import test_report_evidence as report_evidence_fixtures
+from tests import test_valuation_evidence_report as report_fixtures
 from venfour.insurer_response_analysis import (
     INSURER_RESPONSE_ANALYSIS_INPUT_SCHEMA_VERSION,
     INSURER_RESPONSE_ANALYSIS_PROMPT_VERSION,
@@ -21,9 +23,12 @@ from venfour.insurer_response_analysis import (
     InsurerResponseAnalysisV1,
 )
 from venfour.insurer_response_processing import (
+    INSURER_RESPONSE_CONTEXT_VERSION,
     TotalLossInsurerResponseProcessor,
+    _allowlisted_context,
 )
 from venfour.customer_delivery import validate_insurer_response_projection
+from venfour.package_processing import DeterministicPackageAssessmentBuilder
 from venfour.supabase_gateway import SupabaseContractError
 
 
@@ -42,7 +47,7 @@ def _analysis_context(
     document: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     return {
-        "contextVersion": "1",
+        "contextVersion": INSURER_RESPONSE_CONTEXT_VERSION,
         "vehicle": {
             "vin": "1ABCDEFGH23456789",
             "year": 2021,
@@ -386,6 +391,188 @@ def _processor(database: _Database, analyzer: _Analyzer):
 
 
 class InsurerResponseProcessorTests(unittest.TestCase):
+    def _frozen_subject_vehicle(self, mode: str) -> dict[str, Any]:
+        if mode == "REPORT":
+            fixture = report_evidence_fixtures.ReportEvidenceTests()
+            fixture.setUp()
+            self.addCleanup(fixture.doCleanups)
+            package_context = fixture.context()
+            manual_columns = (
+                "vehicle_year", "vehicle_make", "vehicle_model", "vehicle_trim",
+                "vin", "mileage_at_loss", "vehicle_configuration",
+            )
+            package_context["confirmed_facts"].update(
+                {field: None for field in manual_columns}
+            )
+            builder = DeterministicPackageAssessmentBuilder()
+            source = builder.build_source_snapshot(
+                package_context, fixture.source["sourceDocument"]
+            )
+            assessment = builder.build_final_assessment(source)
+            for field in manual_columns:
+                self.assertIsNone(package_context["confirmed_facts"][field])
+        else:
+            fixture = report_fixtures.ValuationEvidenceReportTests()
+            fixture.setUp()
+            self.addCleanup(fixture.doCleanups)
+            source, assessment = fixture._source(mode="MANUAL")
+
+        frozen_source = source.to_dict()
+        self.assertEqual(frozen_source["input"]["intakeMode"], mode)
+        vehicle = assessment.to_dict()["subjectVehicle"]
+        facts = frozen_source["input"]["confirmedFacts"]
+        for field in ("year", "make", "model", "trim", "mileage"):
+            self.assertEqual(vehicle[field], facts[field])
+        if mode == "REPORT":
+            extracted = frozen_source["extraction"]["normalizedReport"]["vehicle"]
+            for field in ("year", "make", "model", "trim", "mileage"):
+                self.assertEqual(vehicle[field], extracted[field])
+            self.assertIn(
+                "REPORT_INPUT_FACTS_DERIVED_FROM_IMMUTABLE_ANALYSIS",
+                frozen_source["validationManifest"]["limitations"],
+            )
+        else:
+            self.assertIsNone(frozen_source["sourceDocument"])
+            self.assertIsNone(frozen_source["extraction"])
+        return vehicle
+
+    @staticmethod
+    def _context_with_frozen_vehicle(vehicle: dict[str, Any]) -> dict[str, Any]:
+        context = _analysis_context()
+        context["vehicle"] = {
+            "vin": vehicle["vin"],
+            "year": vehicle["year"],
+            "make": vehicle["make"],
+            "model": vehicle["model"],
+            "trim": vehicle["trim"],
+            "mileageAtLoss": vehicle["mileage"],
+        }
+        return context
+
+    def test_frozen_report_vehicle_with_empty_manual_fields_reaches_analyzer(self) -> None:
+        vehicle = self._frozen_subject_vehicle("REPORT")
+        context = self._context_with_frozen_vehicle(vehicle)
+        validated = _allowlisted_context(context)
+        self.assertEqual(validated.vehicle_year, vehicle["year"])
+        self.assertEqual(validated.vehicle_make, vehicle["make"])
+        self.assertEqual(validated.vehicle_model, vehicle["model"])
+        self.assertEqual(validated.vehicle_trim, vehicle["trim"])
+        self.assertEqual(validated.vehicle_mileage, vehicle["mileage"])
+        database = _Database(context=context)
+        analyzer = _Analyzer()
+
+        result = _processor(database, analyzer).execute(CASE_ID)
+
+        self.assertEqual(result.state, "completed")
+        self.assertEqual(len(analyzer.requests), 1)
+        self.assertEqual(
+            dict(analyzer.requests[0][0].vehicle),
+            {field: vehicle[field] for field in ("year", "make", "model", "trim", "mileage")},
+        )
+        self.assertIsNotNone(database.completed)
+        self.assertIsNone(database.failed)
+
+    def test_frozen_manual_vehicle_retains_values_and_existing_model_allowlist(self) -> None:
+        vehicle = self._frozen_subject_vehicle("MANUAL")
+        self.assertIsNotNone(vehicle["vin"])
+        self.assertIsNotNone(vehicle["vehicleConfiguration"])
+        database = _Database(context=self._context_with_frozen_vehicle(vehicle))
+        analyzer = _Analyzer()
+
+        result = _processor(database, analyzer).execute(CASE_ID)
+
+        self.assertEqual(result.state, "completed")
+        self.assertEqual(len(analyzer.requests), 1)
+        self.assertEqual(
+            dict(analyzer.requests[0][0].vehicle),
+            {field: vehicle[field] for field in ("year", "make", "model", "trim", "mileage")},
+        )
+        self.assertNotIn(vehicle["vin"], json.dumps(analyzer.requests[0][0].to_dict()))
+
+    def test_missing_required_frozen_vehicle_facts_still_fail_before_analyzer(self) -> None:
+        vehicle = self._frozen_subject_vehicle("REPORT")
+        for field in ("year", "make", "model"):
+            with self.subTest(field=field):
+                context = self._context_with_frozen_vehicle(vehicle)
+                context["vehicle"][field] = None
+                database = _Database(context=context)
+                analyzer = _Analyzer()
+
+                result = _processor(database, analyzer).execute(CASE_ID)
+
+                self.assertEqual(result.state, "terminal_failed")
+                self.assertEqual(analyzer.requests, [])
+                self.assertIsNone(database.completed)
+                assert database.failed is not None
+                self.assertEqual(database.failed[3:5], (
+                    "INSURER_RESPONSE_ANALYSIS_CONTEXT_INVALID", "terminal",
+                ))
+
+    def test_invalid_frozen_vehicle_mileage_still_fails_before_analyzer(self) -> None:
+        for value in (-1, True, "50000"):
+            with self.subTest(mileage=value):
+                context = _analysis_context()
+                context["vehicle"]["mileageAtLoss"] = value
+                database = _Database(context=context)
+                analyzer = _Analyzer()
+
+                result = _processor(database, analyzer).execute(CASE_ID)
+
+                self.assertEqual(result.state, "terminal_failed")
+                self.assertEqual(analyzer.requests, [])
+                assert database.failed is not None
+                self.assertEqual(database.failed[3], "INSURER_RESPONSE_ANALYSIS_CONTEXT_INVALID")
+
+    def test_optional_frozen_vehicle_fields_are_not_invented(self) -> None:
+        context = _analysis_context()
+        context["vehicle"].update(vin=None, trim=None, mileageAtLoss=None)
+        analyzer = _Analyzer()
+
+        result = _processor(_Database(context=context), analyzer).execute(CASE_ID)
+
+        self.assertEqual(result.state, "completed")
+        self.assertIsNone(analyzer.requests[0][0].vehicle["trim"])
+        self.assertIsNone(analyzer.requests[0][0].vehicle["mileage"])
+
+    def test_response_corrections_and_later_rounds_preserve_frozen_model_vehicle(self) -> None:
+        vehicle = self._frozen_subject_vehicle("REPORT")
+        digests = set()
+        for round_number, response_text in (
+            (1, "We revised the offer to $20,100.00."),
+            (1, "Correction: the revised offer is $20,100.00 before deductible."),
+            (2, "We reviewed your follow-up and maintain the $20,100.00 offer."),
+        ):
+            with self.subTest(round=round_number, response=response_text):
+                context = self._context_with_frozen_vehicle(vehicle)
+                context["journey"]["negotiationRoundNumber"] = round_number
+                context["insurerResponse"]["text"] = response_text
+                analyzer = _Analyzer()
+
+                result = _processor(_Database(context=context), analyzer).execute(CASE_ID)
+
+                self.assertEqual(result.state, "completed")
+                request = analyzer.requests[0][0]
+                self.assertEqual(
+                    dict(request.vehicle),
+                    {field: vehicle[field] for field in ("year", "make", "model", "trim", "mileage")},
+                )
+                digests.add(request.input_digest)
+        self.assertEqual(len(digests), 3)
+
+    def test_previous_context_version_cannot_reach_analyzer(self) -> None:
+        context = _analysis_context()
+        context["contextVersion"] = "1"
+        database = _Database(context=context)
+        analyzer = _Analyzer()
+
+        result = _processor(database, analyzer).execute(CASE_ID)
+
+        self.assertEqual(result.state, "terminal_failed")
+        self.assertEqual(analyzer.requests, [])
+        self.assertIsNone(database.completed)
+        assert database.failed is not None
+        self.assertEqual(database.failed[3], "INSURER_RESPONSE_ANALYSIS_CONTEXT_INVALID")
+
     def test_success_uses_only_allowlisted_model_context_and_persists_result(self) -> None:
         database = _Database()
         analyzer = _Analyzer()
