@@ -236,10 +236,10 @@ contracts and tests are authoritative. Before changing an existing boundary,
 inspect and reuse it instead of creating a parallel implementation. Do not
 casually replace or duplicate domain logic in another layer.
 
-## Frontend direction
+## Frontend implementation
 
-Venfour is planned as a responsive web product first. The current frontend
-direction is:
+Venfour has an implemented responsive web frontend in `frontend/`. Its current
+stack includes:
 
 - React;
 - TypeScript;
@@ -249,12 +249,11 @@ direction is:
 - Tailwind CSS; and
 - carefully customized accessible UI primitives where useful.
 
-This is direction, not evidence that the frontend has been implemented. Product
-pages are intended to be designed and reviewed individually before
-implementation. Do not assume the entire frontend should be generated from this
-context.
+Inspect the existing routes, pages, components, and contracts before changing
+the frontend. Keep changes focused on the requested page or workflow and
+preserve the working architecture.
 
-The Python backend remains authoritative for analysis. A frontend should consume
+The Python backend remains authoritative for analysis. The frontend must consume
 structured presentation JSON and must not reproduce:
 
 - valuation calculations;
