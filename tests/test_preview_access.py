@@ -203,7 +203,12 @@ class PreviewAccessApiTests(unittest.TestCase):
             response = client.post(f"/api/v1/appraisal-cases/{CASE_ID}/analysis",
                 headers={"Authorization": "Bearer valid-session"})
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json(), {"status": "completed", "attemptCount": 1, "runId": LEASE_ID})
+        self.assertEqual(response.json(), {
+            "status": "completed",
+            "attemptCount": 1,
+            "runId": LEASE_ID,
+            "intakeCorrectionAllowed": False,
+        })
         self.assertEqual(response.headers["location"], f"/api/v1/analyses/{LEASE_ID}")
         preview.dispatch.assert_called_once_with(CASE_ID)
 

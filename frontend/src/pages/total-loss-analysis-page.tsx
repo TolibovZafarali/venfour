@@ -115,15 +115,21 @@ function AnalysisExperienceFrame({ children }: { readonly children: ReactNode })
 
 function CompletedTotalLossAnalysis({
   accessToken,
+  intakeCorrectionAllowed,
   runId,
   userId,
 }: {
   readonly accessToken: string;
+  readonly intakeCorrectionAllowed: boolean;
   readonly runId: string;
   readonly userId: string;
 }) {
   const resultQuery = useAnalysisQuery({ accessToken, runId, userId });
   const { caseId } = useParams();
+  const reviewIntakePath =
+    intakeCorrectionAllowed === true && caseId
+      ? totalLossIntakeCorrectionPath(caseId)
+      : undefined;
 
   if (resultQuery.isPending) {
     return (
@@ -170,13 +176,16 @@ function CompletedTotalLossAnalysis({
       <TotalLossAnalysisResult
         analysis={resultQuery.data}
         addInsurerOfferPath={
-          caseId ? totalLossIntakeCorrectionPath(caseId, "insurer-offer") : undefined
+          reviewIntakePath && caseId
+            ? totalLossIntakeCorrectionPath(caseId, "insurer-offer")
+            : undefined
         }
         continueAction={
           import.meta.env.DEV && environment.localPostContinueEnabled && caseId
             ? <LocalContinueAction accessToken={accessToken} caseId={caseId} userId={userId} />
             : undefined
         }
+        reviewIntakePath={reviewIntakePath}
       />
     </AnalysisExperienceFrame>
   );
@@ -438,6 +447,7 @@ function AuthenticatedTotalLossAnalysisPage({
   return (
     <CompletedTotalLossAnalysis
       accessToken={accessToken}
+      intakeCorrectionAllowed={analysis.intakeCorrectionAllowed === true}
       runId={analysis.runId}
       userId={userId}
     />

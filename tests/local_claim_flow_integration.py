@@ -2,6 +2,7 @@
 import socket
 import unittest
 from concurrent.futures import ThreadPoolExecutor
+from threading import Barrier
 from uuid import uuid4
 
 import httpx
@@ -78,6 +79,75 @@ class LocalInitializationIntegration(unittest.TestCase):
             self.assertEqual(before,db.execute("select artifact from public.analysis_runs where case_id=%s",(case,)).fetchone()["artifact"])
             self.assertEqual(db.execute("select count(*) n from public.total_loss_preliminary_snapshots where case_id=%s",(case,)).fetchone()["n"],0)
         self.assertEqual(self.request(case,token).json()["journey"]["nextState"],"checkout")
+
+    def test_correction_and_continuation_race_has_exactly_one_winner(self):
+        case,token=self.new_case()
+        owner=self.gateway.authenticate(token)
+        authorization={"Authorization":f"Bearer {token}"}
+        try:
+            status=self.client.get(
+                f"/api/v1/appraisal-cases/{case}/analysis",headers=authorization)
+            self.assertEqual(status.status_code,200)
+            self.assertEqual(status.json()["status"],"completed")
+            self.assertTrue(status.json()["intakeCorrectionAllowed"])
+            with local_database() as db:
+                input_id=str(db.execute(
+                    "select analysis_input_id from public.total_loss_case_details where case_id=%s",
+                    (case,),
+                ).fetchone()["analysis_input_id"])
+            gate=Barrier(2)
+
+            def prepare_correction():
+                gate.wait()
+                return self.client.post(
+                    f"/api/v1/appraisal-cases/{case}/intake-correction",
+                    headers=authorization,json={"analysisInputId":input_id})
+
+            def initialize_continuation():
+                gate.wait()
+                return self.request(case,token)
+
+            with ThreadPoolExecutor(max_workers=2) as pool:
+                correction=pool.submit(prepare_correction)
+                continuation=pool.submit(initialize_continuation)
+                correction_response=correction.result()
+                continuation_response=continuation.result()
+
+            self.assertEqual(
+                sorted((correction_response.status_code,continuation_response.status_code)),
+                [200,409],
+            )
+            with local_database() as db:
+                row=db.execute("""select c.status::text,
+                    (select count(*) from public.total_loss_preliminary_snapshots s
+                      where s.case_id=c.id) snapshot_count,
+                    (select count(*) from public.total_loss_claim_workflows w
+                      where w.case_id=c.id) workflow_count
+                    from public.appraisal_cases c where c.id=%s and c.user_id=%s""",
+                    (case,owner)).fetchone()
+            if correction_response.status_code == 200:
+                self.assertEqual(
+                    (row["status"],row["snapshot_count"],row["workflow_count"]),
+                    ("draft",0,0),
+                )
+            else:
+                self.assertEqual(
+                    (row["status"],row["snapshot_count"],row["workflow_count"]),
+                    ("check_complete",1,1),
+                )
+        finally:
+            with local_database() as db:
+                db.execute("set local session_replication_role = replica")
+                for table in (
+                    "total_loss_claim_workflows","total_loss_preliminary_snapshots",
+                    "analysis_runs","total_loss_analysis_jobs",
+                    "total_loss_case_identity_claims","total_loss_case_contacts",
+                    "total_loss_case_details",
+                ):
+                    db.execute(f"delete from public.{table} where case_id=%s",(case,))
+                db.execute("delete from local_claim_testing.cases where case_id=%s",(case,))
+                db.execute("delete from public.appraisal_cases where id=%s",(case,))
+                db.execute("delete from auth.users where id=%s",(owner,))
 
     def test_wrong_owner_missing_auth_body_and_remote_host(self):
         case,token=self.new_case()

@@ -128,8 +128,36 @@ describe("total-loss analysis experience", () => {
           screen.queryByRole("button", { name: "Continue my review" }),
         ).not.toBeInTheDocument();
       }
+      expect(
+        screen.queryByRole("link", { name: "Review intake" }),
+      ).not.toBeInTheDocument();
     },
   );
+
+  it("keeps intake correction secondary to the existing continuation action", () => {
+    const reviewIntakePath =
+      "/start?service=total-loss&caseId=saved-case&intent=correct-intake";
+    render(
+      <MemoryRouter>
+        <TotalLossAnalysisResult
+          analysis={materialUndervalueAnalysis}
+          reviewIntakePath={reviewIntakePath}
+        />
+      </MemoryRouter>,
+    );
+
+    expect(
+      screen.getByRole("button", { name: "Continue my review" }),
+    ).toHaveAttribute("data-variant", "default");
+    expect(screen.getByRole("link", { name: "Review intake" })).toHaveAttribute(
+      "href",
+      reviewIntakePath,
+    );
+    expect(screen.getByRole("link", { name: "Review intake" })).toHaveAttribute(
+      "data-variant",
+      "link",
+    );
+  });
 
   it("shows the saved range and insurer valuation without technical detail or changing the action", async () => {
     const user = userEvent.setup();
@@ -236,11 +264,14 @@ describe("total-loss analysis experience", () => {
 
   it("offers intake correction when the missing manual offer alone blocks comparison", () => {
     const correctionPath = "/start?service=total-loss&caseId=saved-case&intent=correct-intake&focus=insurer-offer";
+    const reviewIntakePath =
+      "/start?service=total-loss&caseId=saved-case&intent=correct-intake";
     render(
       <MemoryRouter>
         <TotalLossAnalysisResult
           analysis={manualAnalysisWithoutOffer() as AnalysisPresentation}
           addInsurerOfferPath={correctionPath}
+          reviewIntakePath={reviewIntakePath}
         />
       </MemoryRouter>,
     );
@@ -251,6 +282,10 @@ describe("total-loss analysis experience", () => {
     expect(screen.getByRole("link", { name: "Add insurer offer" })).toHaveAttribute(
       "href",
       correctionPath,
+    );
+    expect(screen.getByRole("link", { name: "Review intake" })).toHaveAttribute(
+      "href",
+      reviewIntakePath,
     );
     expect(screen.queryByRole("button", { name: "Continue my review" })).not.toBeInTheDocument();
   });

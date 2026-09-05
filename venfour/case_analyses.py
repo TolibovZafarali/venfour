@@ -13,7 +13,7 @@ import math
 import sys
 import time
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime
 from typing import Any
 from uuid import UUID, uuid4
@@ -374,6 +374,7 @@ class CaseAnalysisStatus:
     run_id: str | None = None
     failure_code: str | None = None
     retryable: bool | None = None
+    intake_correction_allowed: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         if self.status == "not_submitted":
@@ -389,6 +390,7 @@ class CaseAnalysisStatus:
                 "status": "completed",
                 "attemptCount": self.attempt_count,
                 "runId": self.run_id,
+                "intakeCorrectionAllowed": self.intake_correction_allowed,
             }
         if self.status == "failed":
             failure_code = self.failure_code or "ANALYSIS_CREATION_FAILED"
@@ -673,10 +675,98 @@ class CaseAnalysisService:
             retryable=retryable,
         )
 
+    @staticmethod
+    def _intake_correction_allowed(
+        context: Mapping[str, Any],
+        row: Mapping[str, Any],
+        status: CaseAnalysisStatus,
+        case_id: str,
+        user_id: str,
+        expected_input_id: str,
+    ) -> bool:
+        revision = context.get("analysis_input_revision")
+        mode = context.get("intake_mode")
+        if (
+            context.get("case_id") != case_id
+            or context.get("user_id") != user_id
+            or context.get("has_workflow") is not False
+            or context.get("has_preliminary_snapshot") is not False
+            or context.get("status") not in {"draft", "check_complete"}
+            or context.get("analysis_input_id") != expected_input_id
+            or isinstance(revision, bool)
+            or not isinstance(revision, int)
+            or revision < 1
+            or not context.get("intake_completed_at")
+            or mode not in {"manual", "report"}
+            or row.get("analysis_input_id") != expected_input_id
+            or row.get("analysis_input_revision") != revision
+            or row.get("intake_mode") != mode
+        ):
+            return False
+
+        source_report_upload_id = row.get("source_report_upload_id")
+        if (
+            mode == "manual" and source_report_upload_id is not None
+        ) or (
+            mode == "report"
+            and (
+                not isinstance(context.get("report_last_upload_id"), str)
+                or source_report_upload_id != context.get("report_last_upload_id")
+            )
+        ):
+            return False
+
+        if status.status == "failed":
+            return context.get("status") == "draft" and status.retryable is False
+        if status.status == "not_submitted":
+            return context.get("status") == "draft"
+        if status.status != "completed":
+            return False
+
+        snapshot = row.get("input_snapshot")
+        return bool(
+            isinstance(snapshot, Mapping)
+            and snapshot.get("case_id") == case_id
+            and snapshot.get("analysis_input_id") == expected_input_id
+            and snapshot.get("analysis_input_revision") == revision
+            and snapshot.get("intake_mode") == mode
+        )
+
+    def _with_intake_correction_eligibility(
+        self,
+        status: CaseAnalysisStatus,
+        case_id: str,
+        user_id: str,
+        row: Mapping[str, Any],
+    ) -> CaseAnalysisStatus:
+        if status.status != "completed":
+            return status
+        read_context = getattr(
+            self._gateway, "get_total_loss_intake_correction_context", None
+        )
+        if not callable(read_context):
+            return status
+        try:
+            context = read_context(case_id, user_id)
+        except SupabaseGatewayError:
+            return status
+        if not isinstance(context, Mapping):
+            return status
+        expected_input_id = context.get("analysis_input_id")
+        if not isinstance(expected_input_id, str):
+            return status
+        allowed = self._intake_correction_allowed(
+            context, row, status, case_id, user_id, expected_input_id
+        )
+        return replace(status, intake_correction_allowed=allowed)
+
     def _read_status(self, case_id: str, user_id: str) -> CaseAnalysisStatus:
         try:
             row = self._gateway.get_total_loss_analysis_status(case_id, user_id)
-            return self._status_from_row(row)
+            status = self._status_from_row(row)
+            return self._with_intake_correction_eligibility(
+                status, case_id, user_id, row
+            )
         except CaseAnalysisError:
             raise
         except SupabaseGatewayError as exc:
@@ -715,109 +805,28 @@ class CaseAnalysisService:
                 or context.get("user_id") != canonical_user_id
             ):
                 raise CaseAnalysisContractError("Intake correction context is invalid")
-            if (
-                context.get("has_workflow") is not False
-                or context.get("status") not in {"draft", "check_complete"}
-                or context.get("analysis_input_id") != expected_input_id
-                or not context.get("intake_completed_at")
-            ):
-                raise CaseAnalysisConflictError("INTAKE_CORRECTION_UNAVAILABLE")
             row = self._gateway.get_total_loss_analysis_status(
                 canonical_case_id, canonical_user_id
             )
-            if (
-                not isinstance(row, Mapping)
-                or row.get("analysis_input_id") != expected_input_id
-                or row.get("analysis_input_revision")
-                != context.get("analysis_input_revision")
-            ):
+            if not isinstance(row, Mapping):
                 raise CaseAnalysisConflictError("INTAKE_CORRECTION_UNAVAILABLE")
             status = self._status_from_row(row)
-            if status.status == "failed":
-                if context.get("status") != "draft" or status.retryable is not False:
-                    raise CaseAnalysisConflictError("INTAKE_CORRECTION_UNAVAILABLE")
-            elif (
-                status.status == "not_submitted"
-                and context.get("status") == "draft"
-                and context.get("intake_mode") in {"manual", "report"}
-                and row.get("intake_mode") == context.get("intake_mode")
+            if not self._intake_correction_allowed(
+                context,
+                row,
+                status,
+                canonical_case_id,
+                canonical_user_id,
+                expected_input_id,
             ):
-                # Confirmation can commit before the analysis request arrives;
-                # report replacement leases can also retain confirmed input.
-                # Preparation preserves those drafts without claiming work.
-                pass
-            elif status.status == "completed":
-                snapshot = row.get("input_snapshot")
-                if (
-                    context.get("intake_mode") != "manual"
-                    or context.get("insurer_vehicle_valuation") is not None
-                    or row.get("intake_mode") != "manual"
-                    or not isinstance(snapshot, Mapping)
-                    or snapshot.get("case_id") != canonical_case_id
-                    or snapshot.get("analysis_input_id") != expected_input_id
-                    or snapshot.get("analysis_input_revision")
-                    != context.get("analysis_input_revision")
-                    or snapshot.get("intake_mode") != "manual"
-                    or "insurer_vehicle_valuation" not in snapshot
-                    or snapshot.get("insurer_vehicle_valuation") is not None
-                ):
-                    raise CaseAnalysisConflictError("INTAKE_CORRECTION_UNAVAILABLE")
-                presentation = self.get_presentation(status.run_id, canonical_user_id)
-                assessment = presentation.get("assessment")
-                scope = presentation.get("analysisScope")
-                findings = presentation.get("findings")
-                insurer_value = presentation.get("insurerValuation")
-                primary = presentation.get("primaryExternalEvidence")
-                prices = primary.get("prices") if isinstance(primary, Mapping) else None
-                range_available = (
-                    isinstance(prices, Mapping)
-                    and all(
-                        isinstance(prices.get(key), Mapping)
-                        and isinstance(prices[key].get("cents"), int)
-                        and not isinstance(prices[key].get("cents"), bool)
-                        and prices[key]["cents"] >= 0
-                        for key in ("minimumPrice", "medianPrice", "maximumPrice")
-                    )
-                    and prices["medianPrice"]["cents"] > 0
-                )
-                if (
-                    not isinstance(assessment, Mapping)
-                    or assessment.get("classification") != "INSUFFICIENT_EVIDENCE"
-                    or not isinstance(scope, Mapping)
-                    or scope.get("inputMode") != "MANUAL"
-                    or scope.get("reportAvailable") is not False
-                    or scope.get("insurerValuationAvailable") is not False
-                    or scope.get("insurerValuationComparisonPerformed") is not False
-                    or scope.get("marketEvidenceAvailable") is not True
-                    or not range_available
-                    or not isinstance(insurer_value, Mapping)
-                    or insurer_value.get("source") != "NONE"
-                    or not isinstance(insurer_value.get("value"), Mapping)
-                    or insurer_value["value"].get("cents") is not None
-                    or not isinstance(findings, list)
-                    or not any(
-                        isinstance(finding, Mapping)
-                        and finding.get("code") == "MISSING_CCC_VEHICLE_VALUATION"
-                        for finding in findings
-                    )
-                    or any(
-                        isinstance(finding, Mapping)
-                        and finding.get("code") in {
-                            "INSUFFICIENT_RESOLVED_EXTERNAL_EVIDENCE", "EXTERNAL_MEDIAN_ZERO"
-                        }
-                        for finding in findings
-                    )
-                ):
-                    raise CaseAnalysisConflictError("INTAKE_CORRECTION_UNAVAILABLE")
-                if context.get("status") == "check_complete":
-                    # Completed inputs are immutable. The parent version fence
-                    # rejects ownership/state changes while this exact result is
-                    # checked; insufficient results cannot initialize claim work.
-                    if not reopen(
-                        canonical_case_id, canonical_user_id, context.get("updated_at")
-                    ):
-                        raise CaseAnalysisConflictError("INTAKE_CORRECTION_UNAVAILABLE")
-            else:
+                raise CaseAnalysisConflictError("INTAKE_CORRECTION_UNAVAILABLE")
+            if not reopen(
+                canonical_case_id,
+                canonical_user_id,
+                expected_input_id,
+                context.get("analysis_input_revision"),
+                context.get("updated_at"),
+            ):
                 raise CaseAnalysisConflictError("INTAKE_CORRECTION_UNAVAILABLE")
         except SupabaseGatewayError as exc:
             raise CaseAnalysisUnavailableError("Intake correction is unavailable") from exc
@@ -1345,13 +1354,22 @@ class CaseAnalysisService:
             raise CaseAnalysisContractError("Analysis claim is invalid")
         outcome = row.get("outcome")
         if outcome == "claimed":
-            return self._execute_claim(
+            status = self._execute_claim(
                 case_id=canonical_case_id,
                 user_id=canonical_user_id,
                 row=row,
                 processing_token=processing_token,
             )
-        return self._status_from_row(row)
+            if status.status == "completed":
+                try:
+                    return self._read_status(canonical_case_id, canonical_user_id)
+                except CaseAnalysisError:
+                    return status
+            return status
+        status = self._status_from_row(row)
+        return self._with_intake_correction_eligibility(
+            status, canonical_case_id, canonical_user_id, row
+        )
 
     def get_presentation(
         self, run_id: str, user_id: str

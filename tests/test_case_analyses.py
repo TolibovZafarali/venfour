@@ -181,7 +181,7 @@ class FakeCaseGateway:
         self.extraction_requests: list[tuple[str, str, int]] = []
         self.persisted_extractions: list[tuple[Any, ...]] = []
         self.correction_context: dict[str, Any] | None = None
-        self.correction_reopens: list[tuple[str, str, str]] = []
+        self.correction_reopens: list[tuple[str, str, str, int, str]] = []
         self.correction_reopen_result = True
         self.locator = {
             "case_id": CASE_ID,
@@ -224,8 +224,12 @@ class FakeCaseGateway:
             return None
         return copy.deepcopy(self.correction_context)
 
-    def reopen_total_loss_intake_for_correction(self, case_id, user_id, version):
-        self.correction_reopens.append((case_id, user_id, version))
+    def reopen_total_loss_intake_for_correction(
+        self, case_id, user_id, analysis_input_id, analysis_input_revision, version
+    ):
+        self.correction_reopens.append(
+            (case_id, user_id, analysis_input_id, analysis_input_revision, version)
+        )
         if self.correction_reopen_result:
             self.correction_context["status"] = "draft"
         return self.correction_reopen_result
@@ -434,87 +438,87 @@ class SequenceClock:
 
 class CaseAnalysisServiceTests(unittest.TestCase):
     @staticmethod
-    def correction_gateway(*, failed: bool = False) -> FakeCaseGateway:
+    def correction_gateway(
+        *, failed: bool = False, intake_mode: str = "manual"
+    ) -> FakeCaseGateway:
         gateway = FakeCaseGateway()
+        report_upload_id = REPORT_UPLOAD_ID if intake_mode == "report" else None
         gateway.correction_context = {
             "case_id": CASE_ID,
             "user_id": USER_ID,
             "status": "draft" if failed else "check_complete",
             "updated_at": "2026-09-02T12:00:00+00:00",
             "has_workflow": False,
+            "has_preliminary_snapshot": False,
             "analysis_input_id": INPUT_ID,
             "analysis_input_revision": 2,
-            "intake_mode": "manual",
-            "insurer_vehicle_valuation": None,
+            "intake_mode": intake_mode,
+            "insurer_vehicle_valuation": 17_750,
             "intake_completed_at": "2026-09-02T11:00:00+00:00",
+            "report_last_upload_id": report_upload_id,
         }
-        snapshot = confirmed_snapshot("manual")
-        snapshot["insurer_vehicle_valuation"] = None
+        snapshot = confirmed_snapshot(intake_mode)
         gateway.status_row.update({
             "outcome": "failed" if failed else "completed",
             "status": "failed" if failed else "completed",
             "failure_code": "ANALYSIS_INPUT_INVALID" if failed else None,
             "retryable": False if failed else None,
-            "intake_mode": "manual",
+            "intake_mode": intake_mode,
+            "source_report_upload_id": report_upload_id,
             "analysis_input_id": INPUT_ID,
             "analysis_input_revision": 2,
             "input_snapshot": snapshot,
         })
         return gateway
 
-    @staticmethod
-    def missing_offer_presentation() -> dict[str, Any]:
-        return {
-            "assessment": {"classification": "INSUFFICIENT_EVIDENCE"},
-            "analysisScope": {
-                "inputMode": "MANUAL", "insurerValuationAvailable": False,
-                "reportAvailable": False,
-                "insurerValuationComparisonPerformed": False,
-                "marketEvidenceAvailable": True,
-            },
-            "insurerValuation": {"source": "NONE", "value": {"cents": None}},
-            "primaryExternalEvidence": {"prices": {
-                "minimumPrice": {"cents": 2000000},
-                "medianPrice": {"cents": 2100000},
-                "maximumPrice": {"cents": 2200000},
-            }},
-            "findings": [{"code": "MISSING_CCC_VEHICLE_VALUATION"}],
-        }
-
-    def test_missing_offer_correction_reopens_once_without_changing_input_or_running(self):
+    def test_completed_manual_correction_is_idempotent_without_changing_lineage(self):
         gateway = self.correction_gateway()
         before = copy.deepcopy(gateway.status_row)
         factory = ConfirmedCreationFactory()
         service = self.make_service(gateway, factory)
-        with unittest.mock.patch.object(
-            service, "get_presentation", return_value=self.missing_offer_presentation()
-        ) as presentation:
+        with unittest.mock.patch.object(service, "get_presentation") as presentation:
             first = service.prepare_intake_correction(CASE_ID, USER_ID, INPUT_ID)
             second = service.prepare_intake_correction(CASE_ID, USER_ID, INPUT_ID)
         self.assertEqual(first, {"caseId": CASE_ID, "analysisInputId": INPUT_ID})
         self.assertEqual(second, first)
-        self.assertEqual(gateway.correction_reopens, [
-            (CASE_ID, USER_ID, "2026-09-02T12:00:00+00:00")
-        ])
+        expected_prepare = (
+            CASE_ID,
+            USER_ID,
+            INPUT_ID,
+            2,
+            "2026-09-02T12:00:00+00:00",
+        )
+        self.assertEqual(gateway.correction_reopens, [expected_prepare, expected_prepare])
         self.assertEqual(gateway.status_row, before)
-        self.assertEqual(presentation.call_args.args, (RUN_ID, USER_ID))
+        presentation.assert_not_called()
         self.assertEqual(factory.calls, [])
         self.assertEqual(gateway.claims, [])
         self.assertEqual(gateway.completions, [])
 
-    def test_nonretryable_failure_correction_needs_no_parent_transition(self):
+    def test_nonretryable_failure_correction_uses_idempotent_atomic_prepare(self):
         gateway = self.correction_gateway(failed=True)
         service = self.make_service(gateway)
         with unittest.mock.patch.object(service, "get_presentation") as presentation:
             result = service.prepare_intake_correction(CASE_ID, USER_ID, INPUT_ID)
         self.assertEqual(result["analysisInputId"], INPUT_ID)
         presentation.assert_not_called()
-        self.assertEqual(gateway.correction_reopens, [])
+        self.assertEqual(
+            gateway.correction_reopens,
+            [
+                (
+                    CASE_ID,
+                    USER_ID,
+                    INPUT_ID,
+                    2,
+                    "2026-09-02T12:00:00+00:00",
+                )
+            ],
+        )
         self.assertEqual(gateway.claims, [])
 
     def test_confirmed_report_without_current_job_prepares_without_mutation(self):
-        gateway = self.correction_gateway()
-        gateway.correction_context.update(status="draft", intake_mode="report")
+        gateway = self.correction_gateway(intake_mode="report")
+        gateway.correction_context.update(status="draft")
         gateway.status_row.update(
             outcome="not_submitted", status=None, intake_mode="report",
             input_snapshot=confirmed_snapshot("report"),
@@ -527,7 +531,7 @@ class CaseAnalysisServiceTests(unittest.TestCase):
         self.assertEqual(result, {"caseId": CASE_ID, "analysisInputId": INPUT_ID})
         self.assertEqual(gateway.correction_context, before_context)
         self.assertEqual(gateway.status_row, before_status)
-        self.assertEqual(gateway.correction_reopens, [])
+        self.assertEqual(len(gateway.correction_reopens), 1)
         self.assertEqual(gateway.claims, [])
         self.assertEqual(gateway.completions, [])
         presentation.assert_not_called()
@@ -561,7 +565,7 @@ class CaseAnalysisServiceTests(unittest.TestCase):
             service.prepare_intake_correction(CASE_ID, USER_ID, INPUT_ID)
         self.assertEqual(gateway.correction_context, before_context)
         self.assertEqual(gateway.status_row, before_status)
-        self.assertEqual(gateway.correction_reopens, [])
+        self.assertEqual(len(gateway.correction_reopens), 2)
         self.assertEqual(gateway.claims, [])
         self.assertEqual(gateway.completions, [])
         presentation.assert_not_called()
@@ -571,13 +575,15 @@ class CaseAnalysisServiceTests(unittest.TestCase):
             {"status": "check_complete"},
             {"intake_mode": "manual"},
             {"has_workflow": True},
+            {"has_preliminary_snapshot": True},
             {"intake_completed_at": None},
             {"analysis_input_id": TOKEN_ID},
             {"analysis_input_revision": 3},
+            {"report_last_upload_id": TOKEN_ID},
         ):
             with self.subTest(changes=changes):
-                gateway = self.correction_gateway()
-                gateway.correction_context.update(status="draft", intake_mode="report")
+                gateway = self.correction_gateway(intake_mode="report")
+                gateway.correction_context.update(status="draft")
                 gateway.correction_context.update(changes)
                 gateway.status_row.update(
                     outcome="not_submitted", status=None, intake_mode="report",
@@ -588,58 +594,75 @@ class CaseAnalysisServiceTests(unittest.TestCase):
                 self.assertEqual(gateway.correction_reopens, [])
                 self.assertEqual(gateway.claims, [])
 
-    def test_missing_offer_correction_allows_zero_minimum_with_usable_median(self):
-        gateway = self.correction_gateway()
+    def test_completed_report_result_is_eligible_before_freeze(self):
+        gateway = self.correction_gateway(intake_mode="report")
         service = self.make_service(gateway)
-        presentation = self.missing_offer_presentation()
-        presentation["primaryExternalEvidence"]["prices"] = {
-            "minimumPrice": {"cents": 0},
-            "medianPrice": {"cents": 2000000},
-            "maximumPrice": {"cents": 2100000},
-        }
-        presentation["findings"].append({"code": "CURRENT_PRIMARY_EVIDENCE"})
-        with unittest.mock.patch.object(
-            service, "get_presentation", return_value=presentation
-        ):
+        with unittest.mock.patch.object(service, "get_presentation") as presentation:
             result = service.prepare_intake_correction(CASE_ID, USER_ID, INPUT_ID)
         self.assertEqual(result, {"caseId": CASE_ID, "analysisInputId": INPUT_ID})
         self.assertEqual(len(gateway.correction_reopens), 1)
+        self.assertEqual(gateway.correction_reopens[0][2:4], (INPUT_ID, 2))
         self.assertEqual(gateway.claims, [])
+        presentation.assert_not_called()
 
-    def test_missing_offer_correction_rejects_zero_median_or_unavailable_range(self):
+    def test_completed_correction_rejects_inconsistent_current_lineage(self):
         cases = (
-            {"medianPrice": {"cents": 0}},
-            {"minimumPrice": {"cents": None}},
-            {"medianPrice": {"cents": None}},
-            {"maximumPrice": {"cents": None}},
-            {"minimumPrice": None},
-            {"maximumPrice": None},
-            {"minimumPrice": {"cents": -1}},
+            ({"analysis_input_id": TOKEN_ID}, {}, {}),
+            ({"analysis_input_revision": 3}, {}, {}),
+            ({}, {"analysis_input_id": TOKEN_ID}, {}),
+            ({}, {"analysis_input_revision": 3}, {}),
+            ({}, {"source_report_upload_id": REPORT_UPLOAD_ID}, {}),
+            ({}, {}, {"case_id": TOKEN_ID}),
+            ({}, {}, {"analysis_input_id": TOKEN_ID}),
+            ({}, {}, {"analysis_input_revision": 3}),
+            ({}, {}, {"intake_mode": "report"}),
         )
-        for changes in cases:
-            with self.subTest(changes=changes):
+        for context_changes, row_changes, snapshot_changes in cases:
+            with self.subTest(
+                context=context_changes, row=row_changes, snapshot=snapshot_changes
+            ):
                 gateway = self.correction_gateway()
+                gateway.correction_context.update(context_changes)
+                gateway.status_row.update(row_changes)
+                gateway.status_row["input_snapshot"].update(snapshot_changes)
                 service = self.make_service(gateway)
-                presentation = self.missing_offer_presentation()
-                presentation["primaryExternalEvidence"]["prices"].update(changes)
-                with unittest.mock.patch.object(
-                    service, "get_presentation", return_value=presentation
-                ):
-                    with self.assertRaises(CaseAnalysisConflictError):
-                        service.prepare_intake_correction(CASE_ID, USER_ID, INPUT_ID)
+                with self.assertRaises(CaseAnalysisConflictError):
+                    service.prepare_intake_correction(CASE_ID, USER_ID, INPUT_ID)
                 self.assertEqual(gateway.correction_reopens, [])
                 self.assertEqual(gateway.claims, [])
 
-    def test_intake_correction_rejects_stale_identity_active_work_and_existing_workflow(self):
+    def test_completed_status_and_submit_expose_server_derived_correction_eligibility(self):
+        gateway = self.correction_gateway()
+        service = self.make_service(gateway)
+
+        status = service.status(CASE_ID, USER_ID)
+        submitted = service.submit(CASE_ID, USER_ID)
+
+        self.assertTrue(status.intake_correction_allowed)
+        self.assertTrue(submitted.intake_correction_allowed)
+        self.assertEqual(status.to_dict()["intakeCorrectionAllowed"], True)
+        self.assertEqual(submitted.to_dict()["intakeCorrectionAllowed"], True)
+
+    def test_intake_correction_is_hidden_and_denied_after_any_freeze(self):
+        for freeze in ({"has_preliminary_snapshot": True}, {"has_workflow": True}):
+            with self.subTest(freeze=freeze):
+                gateway = self.correction_gateway()
+                gateway.correction_context.update(freeze)
+                service = self.make_service(gateway)
+
+                self.assertFalse(service.status(CASE_ID, USER_ID).intake_correction_allowed)
+                with self.assertRaises(CaseAnalysisConflictError):
+                    service.prepare_intake_correction(CASE_ID, USER_ID, INPUT_ID)
+                self.assertEqual(gateway.correction_reopens, [])
+
+    def test_intake_correction_rejects_stale_identity_and_active_work(self):
         cases = (
-            {"has_workflow": True},
             {"status": "checking"},
             {"status": "paid"},
             {"analysis_input_id": TOKEN_ID},
             {"analysis_input_revision": 3},
             {"intake_completed_at": None},
             {"intake_mode": "report"},
-            {"insurer_vehicle_valuation": 18500},
         )
         for changes in cases:
             with self.subTest(changes=changes):
@@ -664,38 +687,26 @@ class CaseAnalysisServiceTests(unittest.TestCase):
                     self.make_service(gateway).prepare_intake_correction(CASE_ID, USER_ID, INPUT_ID)
                 self.assertEqual(gateway.correction_reopens, [])
 
-    def test_intake_correction_rejects_unrelated_or_inconsistent_completed_results(self):
-        for changes in (
-            {"assessment": {"classification": "POTENTIAL_UNDERVALUE"}},
-            {"findings": [{"code": "INSUFFICIENT_RESOLVED_EXTERNAL_EVIDENCE"}]},
-            {"analysisScope": {"inputMode": "REPORT", "insurerValuationAvailable": False}},
-            {"analysisScope": {"inputMode": "MANUAL", "insurerValuationAvailable": True}},
-            {"findings": [{"code": "MISSING_CCC_VEHICLE_VALUATION"},
-                          {"code": "INSUFFICIENT_RESOLVED_EXTERNAL_EVIDENCE"}]},
-            {"findings": [{"code": "MISSING_CCC_VEHICLE_VALUATION"},
-                          {"code": "EXTERNAL_MEDIAN_ZERO"}]},
-            {"primaryExternalEvidence": None},
-            {"insurerValuation": {"source": "CUSTOMER_ENTERED", "value": {"cents": 1850000}}},
-        ):
-            with self.subTest(changes=changes):
-                gateway = self.correction_gateway()
-                service = self.make_service(gateway)
-                presentation = {**self.missing_offer_presentation(), **changes}
-                with unittest.mock.patch.object(service, "get_presentation", return_value=presentation):
-                    with self.assertRaises(CaseAnalysisConflictError):
-                        service.prepare_intake_correction(CASE_ID, USER_ID, INPUT_ID)
-                self.assertEqual(gateway.correction_reopens, [])
+    def test_completed_result_eligibility_does_not_depend_on_presentation_classification(self):
+        gateway = self.correction_gateway()
+        service = self.make_service(gateway)
+        with unittest.mock.patch.object(
+            service,
+            "get_presentation",
+            side_effect=AssertionError("presentation must not gate correction"),
+        ) as presentation:
+            result = service.prepare_intake_correction(CASE_ID, USER_ID, INPUT_ID)
+        self.assertEqual(result, {"caseId": CASE_ID, "analysisInputId": INPUT_ID})
+        presentation.assert_not_called()
 
     def test_intake_correction_parent_compare_and_swap_conflict_does_not_claim(self):
         gateway = self.correction_gateway()
         gateway.correction_reopen_result = False
         service = self.make_service(gateway)
-        with unittest.mock.patch.object(
-            service, "get_presentation", return_value=self.missing_offer_presentation()
-        ):
-            with self.assertRaises(CaseAnalysisConflictError):
-                service.prepare_intake_correction(CASE_ID, USER_ID, INPUT_ID)
+        with self.assertRaises(CaseAnalysisConflictError):
+            service.prepare_intake_correction(CASE_ID, USER_ID, INPUT_ID)
         self.assertEqual(gateway.correction_context["status"], "check_complete")
+        self.assertEqual(len(gateway.correction_reopens), 1)
         self.assertEqual(gateway.claims, [])
 
     def make_service(
@@ -1242,6 +1253,7 @@ class CaseAnalysisServiceTests(unittest.TestCase):
                 "status": "completed",
                 "attemptCount": 1,
                 "runId": RUN_ID,
+                "intakeCorrectionAllowed": False,
             },
         )
         self.assertEqual(second.to_dict(), first.to_dict())
@@ -1456,7 +1468,7 @@ class OwnedCaseAnalysisApiTests(unittest.TestCase):
         self.assertEqual(response.json(), {"caseId": CASE_ID, "analysisInputId": INPUT_ID})
         self.assertEqual(response.headers["cache-control"], "private, no-store")
         self.assertEqual(gateway.claims, [])
-        self.assertEqual(gateway.correction_reopens, [])
+        self.assertEqual(len(gateway.correction_reopens), 1)
 
     def test_case_routes_require_a_valid_supabase_bearer(self) -> None:
         with TestClient(self.app) as client:

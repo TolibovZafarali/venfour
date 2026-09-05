@@ -780,12 +780,42 @@ function TotalLossIntakeFlowContent({
   const correctionPreparedRef = useRef(!correction?.details.intakeCompletedAt);
   const correctionSubmissionRequestedRef = useRef(false);
   const correctionSourceInputIdRef = useRef(correction?.details.analysisInputId ?? null);
+  const correctionBaselineDetailsValuesRef = useRef(
+    correction ? correctionDetailsValues(correction.details) : null,
+  );
   const savedCorrectionContactRef = useRef(
     normalizeTotalLossContactForm(
       correction?.contact
         ? contactValuesForCorrection(correction.contact)
         : initialDraft.draft.contact,
     ),
+  );
+  const correctionSubmissionIsUnchanged = useCallback(
+    (
+      candidateDraft: TotalLossDraft,
+      candidateContact = normalizeTotalLossContactForm(candidateDraft.contact),
+    ) => {
+      const baselineDetails = correctionBaselineDetailsValuesRef.current;
+      if (!correction || !baselineDetails) return false;
+
+      const currentDetails = detailsQuery.data;
+      if (
+        currentDetails?.caseId === correction.details.caseId &&
+        (currentDetails.analysisInputId !== correction.details.analysisInputId ||
+          currentDetails.analysisInputRevision !==
+            correction.details.analysisInputRevision)
+      ) {
+        return false;
+      }
+
+      return (
+        JSON.stringify(detailsValuesForDraft(candidateDraft)) ===
+          JSON.stringify(baselineDetails) &&
+        JSON.stringify(candidateContact) ===
+          JSON.stringify(savedCorrectionContactRef.current)
+      );
+    },
+    [correction, detailsQuery.data],
   );
   const ensureCase = useCallback(async () => {
     if (!userId || !dependencies) {
@@ -1002,6 +1032,10 @@ function TotalLossIntakeFlowContent({
         }
         return;
       }
+      if (correctionSubmissionIsUnchanged(current)) {
+        if (saveLoopRef.current) await saveLoopRef.current;
+        return;
+      }
       if (!force && !current.dirty) {
         if (saveLoopRef.current) await saveLoopRef.current;
         return;
@@ -1023,7 +1057,7 @@ function TotalLossIntakeFlowContent({
         values,
       });
     },
-    [correction, enqueueSnapshot, userId],
+    [correction, correctionSubmissionIsUnchanged, enqueueSnapshot, userId],
   );
 
   useEffect(() => {
@@ -1698,6 +1732,24 @@ function TotalLossIntakeFlowContent({
                 : null;
         if (target) document.getElementById(target)?.focus();
       }, 0);
+      return;
+    }
+    if (
+      correction &&
+      correctionSubmissionIsUnchanged(draftRef.current, normalized)
+    ) {
+      applyDraft(
+        (current) => ({
+          ...current,
+          contact: normalized,
+          step: "ready",
+          dirty: false,
+        }),
+        { bumpRevision: false },
+      );
+      void navigate(`/total-loss/cases/${correction.details.caseId}/analysis`, {
+        replace: true,
+      });
       return;
     }
     if (!identityService || !userId) {
@@ -2612,6 +2664,24 @@ function detailsValuesForDraft(
     draft.manual,
     new Date(),
     draft.vehicleConfiguration,
+  );
+}
+
+function correctionDetailsValues(
+  details: TotalLossCaseDetails,
+): CreateTotalLossDetailsValues {
+  const manual = manualValuesForDetails(details);
+  if (details.intakeMode === "manual") {
+    return totalLossManualFormToDetailsValues(
+      manual,
+      new Date(),
+      details.vehicleConfiguration ?? null,
+    );
+  }
+  return totalLossReportFormToDetailsValues(
+    manual,
+    new Date(),
+    details.vehicleConfiguration ?? null,
   );
 }
 

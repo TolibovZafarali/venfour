@@ -4,6 +4,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router";
 
 import { Button } from "@/components/ui/button";
+import type { CaseAnalysisStatus } from "@/features/analyses/api/case-analysis";
+import { caseAnalysisQueryKeys } from "@/features/analyses/case-analysis-queries";
 import { appraisalCaseQueryKeys } from "@/features/cases/queries";
 import { initializeTotalLossClaim } from "@/features/total-loss-claim/api";
 import { totalLossClaimQueryKeys } from "@/features/total-loss-claim/queries";
@@ -32,6 +34,12 @@ export function LocalContinueAction({ accessToken, caseId, userId }: {
     try {
       const claim = await initializeTotalLossClaim(caseId, accessToken);
       queryClient.setQueryData(totalLossClaimQueryKeys.detail(userId, caseId), claim);
+      queryClient.setQueryData<CaseAnalysisStatus>(
+        caseAnalysisQueryKeys.detail(userId, caseId),
+        (current) => current?.status === "completed"
+          ? { ...current, intakeCorrectionAllowed: false }
+          : current,
+      );
       void queryClient.invalidateQueries({ queryKey: appraisalCaseQueryKeys.list(userId) });
       void navigate(`/total-loss/cases/${caseId}/claim/checkout`);
     } catch {

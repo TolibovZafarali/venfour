@@ -1,7 +1,9 @@
-"""Disposable loopback-only integration probe for intake correction.
+"""Disposable loopback-only integration probe for successful-result correction.
 
-Run with PYTHONPATH=. .venv/bin/python tests/local_intake_correction_integration.py.
-Requires the local Supabase container; creates and removes only its own fixture.
+Run with VENFOUR_LOCAL_POST_CONTINUE=1 PYTHONPATH=. .venv/bin/python
+tests/local_intake_correction_integration.py. Requires the local Supabase
+container and installed local continuation helper; creates and removes only its
+own fixture.
 """
 from __future__ import annotations
 
@@ -26,6 +28,7 @@ from tests.test_analysis_runs import (
 from venfour.api import create_app
 from venfour.case_analyses import CaseAnalysisService
 from venfour.creation import AnalysisCreationService
+from venfour.package_assessment import canonical_package_digest
 from venfour.supabase_gateway import SupabaseHttpGateway, SupabaseServerConfiguration
 
 
@@ -102,7 +105,7 @@ try:
             json={"case_id": case_id, "intake_mode": "manual", "vehicle_year": 2024,
                 "vehicle_make": "Synthetic", "vehicle_model": "Sedan", "vehicle_trim": "SEL",
                 "mileage_at_loss": 50000, "postal_code": "63026", "date_of_loss": "2026-05-19",
-                "insurer_name": "Synthetic Insurer", "insurer_vehicle_valuation": None}))[0]
+                "insurer_name": "Synthetic Insurer", "insurer_vehicle_valuation": 10000}))[0]
         require_success(client.post("/rest/v1/rpc/save_total_loss_contact_and_begin_claim",
             headers=user_headers, json={"case_id": case_id, "full_name": "Synthetic Recovery",
                 "email": email, "service_terms_version": "2026-08-23",
@@ -115,18 +118,25 @@ try:
         first = service.submit(case_id, owner_id)
         assert first.status == "completed"
         presentation = service.get_presentation(first.run_id, owner_id)
-        assert presentation["assessment"]["classification"] == "INSUFFICIENT_EVIDENCE"
+        assert presentation["assessment"]["classification"] in {
+            "MATERIAL_UNDERVALUE_SIGNAL", "POTENTIAL_UNDERVALUE",
+        }
         assert presentation["analysisScope"]["inputMode"] == "MANUAL"
-        assert any(row["code"] == "MISSING_CCC_VEHICLE_VALUATION" for row in presentation["findings"])
+        assert presentation["analysisScope"]["insurerValuationAvailable"] is True
         before = gateway.get_total_loss_intake_correction_context(case_id, owner_id)
-        assert before["status"] == "check_complete" and before["has_workflow"] is False
+        assert before["status"] == "check_complete"
+        assert before["has_workflow"] is False
+        assert before["has_preliminary_snapshot"] is False
         assert before["analysis_input_id"] == initial["analysis_input_id"]
+        assert service.status(case_id, owner_id).intake_correction_allowed is True
         assert gateway.get_total_loss_intake_correction_context(case_id, str(uuid4())) is None
         assert gateway.reopen_total_loss_intake_for_correction(
-            case_id, owner_id, "2026-01-01T00:00:00Z") is False
+            case_id, owner_id, before["analysis_input_id"],
+            before["analysis_input_revision"], "2026-01-01T00:00:00Z") is False
         assert gateway.reopen_total_loss_intake_for_correction(
-            case_id, str(uuid4()), before["updated_at"]) is False
-        print("PASS: real local Auth, owner-scoped PostgREST context, stale/other-owner CAS rejection")
+            case_id, str(uuid4()), before["analysis_input_id"],
+            before["analysis_input_revision"], before["updated_at"]) is False
+        print("PASS: successful local result, owner-scoped context, stale/other-owner rejection")
         app = create_app(case_analysis_service=service, enable_legacy_api=False)
         with TestClient(app) as api:
             response = api.post(f"/api/v1/appraisal-cases/{case_id}/intake-correction",
@@ -149,7 +159,7 @@ try:
         corrected = require_success(client.patch("/rest/v1/total_loss_case_details",
             headers=user_headers, params={"case_id": f"eq.{case_id}",
                 "updated_at": f"eq.{current_details['updated_at']}", "select": details_columns},
-            json={"insurer_vehicle_valuation": 18500}))[0]
+            json={"mileage_at_loss": 51000}))[0]
         assert corrected["intake_completed_at"] is None
         assert corrected["analysis_input_id"] != before["analysis_input_id"]
         assert service.status(case_id, owner_id).status == "not_submitted"
@@ -170,7 +180,8 @@ try:
         print("PASS: actual correction endpoint resumes newly confirmed manual inputs without creating another job or run")
         second = service.submit(case_id, owner_id)
         assert second.status == "completed" and second.run_id != first.run_id
-        assert service.get_presentation(second.run_id, owner_id)["insurerValuation"]["value"]["cents"] == 1850000
+        second_presentation = service.get_presentation(second.run_id, owner_id)
+        assert second_presentation["insurerValuation"]["value"]["cents"] == 1000000
         assert service.submit(case_id, owner_id).run_id == second.run_id
         with psycopg.connect(configuration["DB_URL"]) as db:
             assert db.execute("select count(*) from public.appraisal_cases where user_id=%s", (owner_id,)).fetchone()[0] == 1
@@ -178,12 +189,43 @@ try:
             assert db.execute("select count(*) from public.analysis_runs where case_id=%s", (case_id,)).fetchone()[0] == 2
         print("PASS: owner RLS update + existing confirm RPC produce a new current run; both immutable histories retained")
         print("PASS: normal completed resume returns the corrected run idempotently; exactly one case and two runs")
+        frozen_snapshot = {"schemaVersion": "1", "presentation": second_presentation}
+        freeze_outcome = gateway._rpc("local_initialize_post_continue", {
+            "requested_case_id": case_id,
+            "requested_user_id": owner_id,
+            "expected_run_id": second.run_id,
+            "frozen_presentation": second_presentation,
+            "frozen_digest": canonical_package_digest(frozen_snapshot),
+        })
+        assert freeze_outcome == "created"
+        frozen = gateway.get_total_loss_intake_correction_context(case_id, owner_id)
+        assert frozen["has_preliminary_snapshot"] is True
+        assert frozen["has_workflow"] is True
+        assert service.status(case_id, owner_id).intake_correction_allowed is False
+        with TestClient(app) as api:
+            response = api.post(f"/api/v1/appraisal-cases/{case_id}/intake-correction",
+                headers={"Authorization": f"Bearer {token}"},
+                json={"analysisInputId": confirmed["analysis_input_id"]})
+            assert response.status_code == 409, response.text
+        with psycopg.connect(configuration["DB_URL"]) as db:
+            row = db.execute("""select d.analysis_input_id, d.analysis_input_revision,
+                d.mileage_at_loss, s.analysis_run_id, s.source_analysis_input_id,
+                s.source_analysis_input_revision
+                from public.total_loss_case_details d
+                join public.total_loss_preliminary_snapshots s using (case_id)
+                where d.case_id=%s""", (case_id,)).fetchone()
+            assert str(row[0]) == confirmed["analysis_input_id"]
+            assert row[2] == 51000 and str(row[3]) == second.run_id
+            assert str(row[4]) == confirmed["analysis_input_id"]
+            assert row[5] == row[1]
+        print("PASS: current corrected run freezes continuation; stale correction is denied without input mutation")
 finally:
     gateway.close()
     with psycopg.connect(configuration["DB_URL"]) as db:
         db.execute("select 1 from public.appraisal_cases where id=%s and user_id=%s for update", (case_id, owner_id))
         db.execute("set local session_replication_role = replica")
-        for table in ("analysis_runs", "total_loss_analysis_jobs", "total_loss_case_identity_claims",
+        for table in ("total_loss_claim_workflows", "total_loss_preliminary_snapshots",
+                      "analysis_runs", "total_loss_analysis_jobs", "total_loss_case_identity_claims",
                       "total_loss_case_contacts", "total_loss_case_details"):
             db.execute(sql.SQL("delete from public.{} where case_id=%s").format(sql.Identifier(table)), (case_id,))
         db.execute("delete from public.appraisal_cases where id=%s and user_id=%s", (case_id, owner_id))

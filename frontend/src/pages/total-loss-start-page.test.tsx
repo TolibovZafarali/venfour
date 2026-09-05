@@ -6,6 +6,7 @@ import {
   within,
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { http, HttpResponse } from "msw";
 import { PDFDocument } from "pdf-lib";
 import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -53,6 +54,7 @@ import {
 } from "@/features/total-loss/vehicle-lookup-service";
 import { renderTestApp as renderBaseTestApp } from "@/test/render";
 import { materialUndervalueAnalysis } from "@/test/fixtures/analysis-presentation";
+import { server } from "@/test/mocks/server";
 
 const { ingestReportMock, prepareIntakeCorrectionMock } = vi.hoisted(() => ({
   ingestReportMock: vi.fn(),
@@ -843,6 +845,59 @@ describe("explicit Total Loss intake correction", () => {
     expectNoRecoveryWrites(harness);
     expect(refreshed.router.state.location.search).toContain("intent=correct-intake");
     expect(harness.detailRows.get(CASE_ID)).toMatchObject({ analysisInputId: RECOVERY_INPUT_ID, analysisInputRevision: 7, intakeCompletedAt: CREATED_AT });
+  });
+
+  it("returns an unchanged completed correction to the same result without reopening or reanalysis", async () => {
+    let analysisPostCount = 0;
+    server.use(
+      http.get("*/api/v1/appraisal-cases/:caseId/analysis", () =>
+        HttpResponse.json({
+          status: "completed",
+          attemptCount: 1,
+          intakeCorrectionAllowed: true,
+          runId: materialUndervalueAnalysis.runId,
+        }),
+      ),
+      http.post("*/api/v1/appraisal-cases/:caseId/analysis", () => {
+        analysisPostCount += 1;
+        return HttpResponse.json({
+          status: "completed",
+          attemptCount: 1,
+          intakeCorrectionAllowed: true,
+          runId: materialUndervalueAnalysis.runId,
+        });
+      }),
+    );
+    const harness = recoveryHarness({ status: "check_complete" });
+    const user = userEvent.setup();
+    const { router } = renderTestApp([recoveryPath()], {
+      authService: createAuthHarness(sessionFor()).service,
+      totalLossDependencies: harness.dependencies,
+    });
+
+    await screen.findByRole("heading", { name: "Tell us about your vehicle" });
+    await user.click(
+      withinIntakeFlow().getByRole("button", {
+        name: "Confirm vehicle & continue",
+      }),
+    );
+    await user.click(withinIntakeFlow().getByRole("button", { name: "Continue" }));
+    expect(await screen.findByLabelText("First name")).toHaveValue("Taylor");
+    await user.click(screen.getByRole("button", { name: "Review & analyze" }));
+
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe(
+        `/total-loss/cases/${CASE_ID}/analysis`,
+      ),
+    );
+    await settleRecoveryAutosave();
+    expectNoRecoveryWrites(harness);
+    expect(analysisPostCount).toBe(0);
+    expect(harness.detailRows.get(CASE_ID)).toMatchObject({
+      analysisInputId: RECOVERY_INPUT_ID,
+      analysisInputRevision: 7,
+      intakeCompletedAt: CREATED_AT,
+    });
   });
 
   it("restores a check-complete missing-offer case without browser data, saves the offer, and confirms the same case", async () => {

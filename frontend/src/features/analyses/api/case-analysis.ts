@@ -20,6 +20,7 @@ export interface ProcessingCaseAnalysis extends CaseAnalysisBase {
 export interface CompletedCaseAnalysis extends CaseAnalysisBase {
   readonly status: "completed";
   readonly attemptCount: number;
+  readonly intakeCorrectionAllowed: boolean;
   readonly runId: string;
 }
 

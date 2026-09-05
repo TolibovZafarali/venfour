@@ -101,6 +101,7 @@ describe("total-loss case analysis page", () => {
         return HttpResponse.json({
           status: "completed",
           attemptCount: 1,
+          intakeCorrectionAllowed: true,
           runId: representativeRunId,
         });
       }),
@@ -133,6 +134,10 @@ describe("total-loss case analysis page", () => {
     expect(router.state.location.pathname).toBe(casePath);
     expect(getCount).toBeGreaterThanOrEqual(2);
     expect(postCount).toBe(0);
+    expect(screen.getByRole("link", { name: "Review intake" })).toHaveAttribute(
+      "href",
+      `/start?service=total-loss&caseId=${CASE_ID}&intent=correct-intake`,
+    );
     const header = within(screen.getByRole("banner"));
     expect(header.getAllByRole("link")).toHaveLength(1);
     expect(header.getByRole("link", { name: "Venfour home" })).toBeVisible();
@@ -143,6 +148,33 @@ describe("total-loss case analysis page", () => {
     expect(screen.getByRole("navigation", { name: "Legal" })).toBeVisible();
     expect(
       screen.queryByRole("navigation", { name: "Footer navigation" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("does not offer completed-result correction when the server denies it", async () => {
+    server.use(
+      http.get("*/api/v1/appraisal-cases/:caseId/analysis", () =>
+        HttpResponse.json({
+          status: "completed",
+          attemptCount: 1,
+          intakeCorrectionAllowed: false,
+          runId: representativeRunId,
+        }),
+      ),
+    );
+
+    renderTestApp([casePath], {
+      authService: authService(sessionFor()),
+    });
+
+    expect(
+      await screen.findByRole("heading", { name: materialResultHeading }),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("button", { name: "Continue my review" }),
+    ).toBeVisible();
+    expect(
+      screen.queryByRole("link", { name: "Review intake" }),
     ).not.toBeInTheDocument();
   });
 
@@ -349,6 +381,7 @@ describe("total-loss case analysis page", () => {
         HttpResponse.json({
           status: "completed",
           attemptCount: 1,
+          intakeCorrectionAllowed: true,
           runId: representativeRunId,
         }),
       ),
@@ -364,6 +397,10 @@ describe("total-loss case analysis page", () => {
     expect(await screen.findByRole("link", { name: "Add insurer offer" })).toHaveAttribute(
       "href",
       `/start?service=total-loss&caseId=${CASE_ID}&intent=correct-intake&focus=insurer-offer`,
+    );
+    expect(screen.getByRole("link", { name: "Review intake" })).toHaveAttribute(
+      "href",
+      `/start?service=total-loss&caseId=${CASE_ID}&intent=correct-intake`,
     );
     expect(postCount).toBe(0);
   });

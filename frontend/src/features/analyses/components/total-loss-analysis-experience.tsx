@@ -231,6 +231,7 @@ export interface TotalLossAnalysisResultProps {
   readonly analysis: AnalysisPresentation;
   readonly className?: string;
   readonly continueAction?: ReactNode;
+  readonly reviewIntakePath?: string;
 }
 
 export function TotalLossAnalysisResult({
@@ -238,6 +239,7 @@ export function TotalLossAnalysisResult({
   analysis,
   className,
   continueAction,
+  reviewIntakePath,
 }: TotalLossAnalysisResultProps) {
   const headingId = useId();
   const primaryEvidence = analysis.primaryExternalEvidence;
@@ -432,6 +434,18 @@ export function TotalLossAnalysisResult({
               <ArrowRight className="size-5" aria-hidden />
             </Link>
           </Button>
+        ) : null}
+
+        {reviewIntakePath ? (
+          <div className="mt-3">
+            <Button
+              asChild
+              variant="link"
+              className="min-h-11 px-3 font-semibold text-copy hover:text-ink"
+            >
+              <Link to={reviewIntakePath}>Review intake</Link>
+            </Button>
+          </div>
         ) : null}
 
         <p className="mx-auto mt-5 max-w-lg text-xs leading-5 text-copy">
