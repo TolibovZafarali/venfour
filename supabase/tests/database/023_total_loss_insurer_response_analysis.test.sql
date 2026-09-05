@@ -517,7 +517,8 @@ select ok(
 set local role service_role;
 create temporary table initial_due_job on commit drop as
 select *
-from public.list_due_total_loss_insurer_response_analysis_jobs(10);
+from public.list_due_total_loss_insurer_response_analysis_jobs(10)
+where case_id = 'b2000000-0000-4000-8000-000000000001';
 
 select ok(
   (
@@ -704,6 +705,7 @@ select is(
   (
     select count(*)
     from public.list_due_total_loss_insurer_response_analysis_jobs(10)
+    where case_id = 'b2000000-0000-4000-8000-000000000001'
   ),
   0::bigint,
   'dispatch reconciliation does not reschedule an unexpired active lease'
@@ -786,7 +788,8 @@ where id = (select job_id from first_claim);
 set local role service_role;
 create temporary table expired_due_job on commit drop as
 select *
-from public.list_due_total_loss_insurer_response_analysis_jobs(10);
+from public.list_due_total_loss_insurer_response_analysis_jobs(10)
+where case_id = 'b2000000-0000-4000-8000-000000000001';
 
 select ok(
   (
@@ -911,6 +914,7 @@ select ok(
   and not exists (
     select 1
     from public.list_due_total_loss_insurer_response_analysis_jobs(10)
+    where case_id = 'b2000000-0000-4000-8000-000000000001'
   ),
   'retryable failure remains inert after its old backoff time until the owner explicitly retries'
 );
@@ -975,6 +979,7 @@ select ok(
       and bool_and(job_id = (select job_id from first_claim))
       and bool_and(attempt_count = 2)
     from public.list_due_total_loss_insurer_response_analysis_jobs(10)
+    where case_id = 'b2000000-0000-4000-8000-000000000001'
   ),
   'explicit owner retry creates one fresh bounded dispatch generation'
 );

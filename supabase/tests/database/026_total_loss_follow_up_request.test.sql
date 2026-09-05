@@ -518,7 +518,8 @@ select is(public.store_total_loss_follow_up_draft(
   'b2000000-0000-4000-8000-000000000001','b1000000-0000-4000-8000-000000000001',
   (payload #>> '{sourceIdentity,decisionId}')::uuid,payload ->> 'contextDigest',(select payload from scenario where name='generation')),
   (select payload from scenario where name='generated'),'duplicate generation resumes the same draft') from scenario where name='context';
-select is((select count(*)::integer from public.total_loss_message_drafts where purpose='follow_up_reconsideration'),1,'generation retries create one follow-up');
+select is((select count(*)::integer from public.total_loss_message_drafts
+  where case_id='b2000000-0000-4000-8000-000000000001' and purpose='follow_up_reconsideration'),1,'generation retries create one follow-up');
 select is((select original_content from public.total_loss_communications where id='be300000-0000-4000-8000-000000000001'),
   'Please review the attached evidence and reconsider the vehicle valuation.','original sent request remains unchanged');
 -- Probe corrections in a rolled-back subtransaction so the main send scenario
@@ -730,7 +731,8 @@ select is((select message_version_id from public.total_loss_communications where
   'be200000-0000-4000-8000-000000000001'::uuid,'original outbound version identity remains untouched');
 select ok((select details ->> 'responseId'=(select payload #>> '{response,responseId}' from scenario where name='response')
   and details ->> 'decisionId'=(select payload #>> '{response,decision,decisionId}' from scenario where name='decision')
-  from public.total_loss_workflow_events where event_type='follow_up.customer_reported_sent'),
+  from public.total_loss_workflow_events
+  where case_id='b2000000-0000-4000-8000-000000000001' and event_type='follow_up.customer_reported_sent'),
   'sent event retains the exact response and Continue decision lineage');
 update public.case_entitlements set status='suspended'
   where id='b8000000-0000-4000-8000-000000000001';

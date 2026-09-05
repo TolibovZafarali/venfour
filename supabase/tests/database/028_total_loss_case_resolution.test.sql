@@ -455,7 +455,8 @@ select is(public.confirm_total_loss_case_resolution('b2000000-0000-4000-8000-000
   (select request_id from resolution_request),'RESOLVED_WITH_INSURER',(select expected_revision from resolution_request))->'resolution',
   (select case_resolution from public.resolve_total_loss_case_claim('b2000000-0000-4000-8000-000000000001')),
   'exact confirmation retry is idempotent');
-select is((select count(*) from public.total_loss_workflow_events where event_type='case.customer_resolution_confirmed'),1::bigint,
+select is((select count(*) from public.total_loss_workflow_events
+  where case_id='b2000000-0000-4000-8000-000000000001' and event_type='case.customer_resolution_confirmed'),1::bigint,
   'duplicate closure leaves one immutable resolution event');
 select throws_ok($$select public.confirm_total_loss_case_resolution('b2000000-0000-4000-8000-000000000001',
   (select request_id from resolution_request),'CUSTOMER_STOPPED_PURSUING',(select expected_revision from resolution_request))$$,
@@ -502,7 +503,8 @@ select ok((select case_resolution ->> 'amountMinorUnits'='2134567' and case_reso
   and case_resolution ->> 'amountSource'='CUSTOMER_REPORTED' and case_resolution ->> 'offerId' is null
   from public.resolve_total_loss_case_claim('b2000000-0000-4000-8000-000000000001')),
   'optional final amount retains customer-reported provenance without an insurer offer');
-select is((select count(*) from public.total_loss_offers),0::bigint,'manual amount does not create insurer evidence');
+select is((select count(*) from public.total_loss_offers
+  where case_id='b2000000-0000-4000-8000-000000000001'),0::bigint,'manual amount does not create insurer evidence');
 rollback to manual_amount;
 
 savepoint stopped;
