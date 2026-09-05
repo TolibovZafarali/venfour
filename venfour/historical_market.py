@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date, datetime, time, timedelta, timezone
 from functools import lru_cache
 from pathlib import Path
@@ -78,6 +78,8 @@ class HistoricalMarketSearchRequest:
     radius_miles: int = 50
     result_limit: int = 25
     configuration: VehicleConfigurationIdentity | None = None
+    drivetrain: str | None = None
+    drivetrain_recorded: bool = field(default=False, compare=False, repr=False)
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "evidence_date", _trim_required(self.evidence_date))
@@ -108,6 +110,8 @@ class HistoricalMarketSearchRequest:
         }
         if self.configuration is not None:
             data["configuration"] = self.configuration.to_dict()
+        if self.drivetrain_recorded or self.drivetrain is not None:
+            data["drivetrain"] = self.drivetrain
         return data
 
     def to_market_search_request(self) -> MarketSearchRequest:
@@ -119,6 +123,8 @@ class HistoricalMarketSearchRequest:
             model=self.model,
             trim=self.trim,
             configuration=self.configuration,
+            drivetrain=self.drivetrain,
+            drivetrain_recorded=self.drivetrain_recorded,
             loss_vehicle_mileage=self.loss_vehicle_mileage,
             postal_code=self.postal_code,
             radius_miles=self.radius_miles,
@@ -616,6 +622,8 @@ def normalize_historical_market_search_request(
         postal_code=request.postal_code,
         trim=request.trim,
         configuration=request.configuration,
+        drivetrain=request.drivetrain,
+        drivetrain_recorded=request.drivetrain_recorded,
         loss_vehicle_mileage=request.loss_vehicle_mileage,
         radius_miles=request.radius_miles,
         result_limit=request.result_limit,

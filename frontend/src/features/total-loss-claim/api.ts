@@ -423,7 +423,25 @@ function mapInsurerComparable(
     );
   }
   const field = `insurer comparable ${index + 1}`;
+  let sourcePrice: TotalLossInsurerComparable["sourcePrice"];
+  if (value.sourcePrice !== undefined) {
+    const labels = {
+      ADVERTISED: "Advertised price", TAKE: "Take Price", SOLD: "Sold price",
+      OTHER: "Other source price", UNKNOWN: "Source price (type unavailable)",
+    } as const;
+    const source = value.sourcePrice;
+    if (!isRecord(source) || typeof source.type !== "string" || !(source.type in labels)) {
+      throw new TotalLossClaimContractError("The claim service returned an invalid insurer source price.");
+    }
+    const type = source.type as keyof typeof labels;
+    const amount = nullableString(source.amount, `${field} source price`);
+    if (source.typeLabel !== labels[type] || value.advertisedPrice !== (type === "ADVERTISED" ? amount : null)) {
+      throw new TotalLossClaimContractError("The claim service returned inconsistent insurer price types.");
+    }
+    sourcePrice = { amount, type, typeLabel: labels[type], label: nullableString(source.label, `${field} source label`) };
+  }
   return {
+    ...(sourcePrice ? { sourcePrice } : {}),
     adjustedValue: nullableString(value.adjustedValue, `${field} adjusted value`),
     adjustmentDisclosure: nullableString(
       value.adjustmentDisclosure,

@@ -73,6 +73,7 @@ class EvidenceContextPresentationTests(AnalysisCreationTestCase):
         self.assertTrue(historical.requests)
         for request in (*current.requests, *historical.requests):
             self.assertEqual(request.trim, "SEL")
+            self.assertEqual(request.drivetrain, "FWD")
             self.assertIsNotNone(request.configuration)
             assert request.configuration is not None
             self.assertEqual(request.configuration.source, "marketcheck")
@@ -86,8 +87,8 @@ class EvidenceContextPresentationTests(AnalysisCreationTestCase):
             )
 
         artifact = result.artifact.to_dict()
-        self.assertEqual(artifact["analysisRunSchemaVersion"], "6")
-        self.assertEqual(artifact["analysisVersion"], "6")
+        self.assertEqual(artifact["analysisRunSchemaVersion"], "7")
+        self.assertEqual(artifact["analysisVersion"], "7")
         for field in ("currentSearchRequest", "historicalSearchRequest"):
             self.assertEqual(
                 artifact["request"][field]["configuration"],
@@ -104,8 +105,8 @@ class EvidenceContextPresentationTests(AnalysisCreationTestCase):
             result.run_id
         ).to_dict()
 
-        self.assertEqual(result.artifact.to_dict()["analysisRunSchemaVersion"], "6")
-        self.assertEqual(result.artifact.to_dict()["analysisVersion"], "6")
+        self.assertEqual(result.artifact.to_dict()["analysisRunSchemaVersion"], "7")
+        self.assertEqual(result.artifact.to_dict()["analysisVersion"], "7")
         self.assertEqual(
             result.artifact.to_dict()["evidenceContext"]["inputMode"], "MANUAL"
         )

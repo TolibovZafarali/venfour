@@ -359,15 +359,21 @@ class AnalysisOrchestrator:
             from scripts.extract_report_ai import (
                 OutputValidationError,
                 PrototypeError,
-                read_canonical_schema,
-                validate_extraction,
+            )
+            from venfour.report_ingestion import (
+                NormalizedReportContractError,
+                validate_effective_report,
             )
         except ImportError as exc:
             raise AnalysisExecutionError(
                 "Canonical CCC validation support is unavailable"
             ) from exc
         try:
-            validate_extraction(report, read_canonical_schema())
+            validate_effective_report(report)
+        except NormalizedReportContractError as exc:
+            raise AnalysisInputError(
+                "Normalized report failed validation", tuple(exc.details)
+            ) from exc
         except OutputValidationError as exc:
             raise AnalysisInputError(
                 "Normalized CCC report failed validation", tuple(exc.errors)
@@ -435,6 +441,8 @@ class AnalysisOrchestrator:
                 make=base.loss_vehicle.make,
                 model=base.loss_vehicle.model,
                 trim=base.loss_vehicle.trim,
+                drivetrain=base.loss_vehicle.drivetrain,
+                drivetrain_recorded=base.loss_vehicle.drivetrain_recorded,
                 configuration=configuration,
                 loss_vehicle_mileage=base.loss_vehicle.mileage,
                 postal_code=base.loss_vehicle.postal_code,
@@ -467,6 +475,8 @@ class AnalysisOrchestrator:
                 make=base.loss_vehicle.make,
                 model=base.loss_vehicle.model,
                 trim=base.loss_vehicle.trim,
+                drivetrain=base.loss_vehicle.drivetrain,
+                drivetrain_recorded=base.loss_vehicle.drivetrain_recorded,
                 configuration=configuration,
                 loss_vehicle_mileage=base.loss_vehicle.mileage,
                 postal_code=base.loss_vehicle.postal_code,
@@ -767,6 +777,7 @@ class AnalysisOrchestrator:
                 "searchDiagnostics": search_diagnostics_data,
             },
             evidence_context=request.evidence_context,
+            discrepancy_analysis_version=discrepancy_result.analysis_version,
         )
         try:
             validate_analysis_run_artifact(artifact)

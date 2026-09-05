@@ -47,6 +47,7 @@ from venfour.market import (
     MarketSearchRequest,
     MarketSearchResult,
     VehicleConfigurationIdentity,
+    normalize_drivetrain,
     validate_market_listing,
 )
 from venfour.vehicle_catalog import (
@@ -54,6 +55,7 @@ from venfour.vehicle_catalog import (
     VehicleTrimCatalogRequest,
     VehicleTrimOption,
     VehicleTrimQueryValuesLimitError,
+    explicit_version_drivetrain,
     normalize_vehicle_trim_catalog,
     normalize_vehicle_trim_options,
 )
@@ -82,6 +84,22 @@ MARKETCHECK_TRANSIENT_RETRY_DELAY_SECONDS = 0.25
 MARKETCHECK_MAX_REQUEST_ATTEMPTS = 2
 
 QueryValue = str | int
+
+
+def configuration_drivetrain(
+    configuration: VehicleConfigurationIdentity | None,
+) -> str | None:
+    """Interpret only this provider's explicit version drivetrain facets."""
+
+    if (
+        configuration is None
+        or configuration.source != "marketcheck"
+        or configuration.field != "version"
+    ):
+        return None
+    return explicit_version_drivetrain(configuration.values)
+
+
 _HISTORY_PAGE_EXHAUSTED = object()
 _HISTORY_RECORD_MATCHED = "MATCHED"
 _HISTORY_RECORD_IRRELEVANT = "IRRELEVANT"
@@ -638,6 +656,8 @@ class MarketCheckProvider:
             price=record.get("price"),
             dealer=dealer,
             distance_miles=record.get("dist"),
+            drivetrain=normalize_drivetrain(build.get("drivetrain")),
+            drivetrain_recorded=True,
         )
 
         contract_error: MarketContractError | None = None
@@ -1536,6 +1556,7 @@ class MarketCheckHistoricalProvider(MarketCheckProvider):
                 "make": candidate.listing.make,
                 "model": candidate.listing.model,
                 "trim": candidate.listing.trim,
+                "drivetrain": candidate.listing.drivetrain,
             },
             "dist": candidate.listing.distance_miles,
         }

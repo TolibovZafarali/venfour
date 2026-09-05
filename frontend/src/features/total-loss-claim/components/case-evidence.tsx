@@ -74,7 +74,7 @@ export function InsurerEvidenceDetails({ report, open }: ReportProps) {
             <caption>Insurer comparables</caption>
             <thead role="rowgroup"><tr role="row">
               <th scope="col">Vehicle</th><th scope="col">Mileage</th>
-              <th scope="col">Advertised price</th><th scope="col">Adjusted value</th>
+              <th scope="col">{rows.some((row) => row.sourcePrice) ? "Source price" : "Advertised price"}</th><th scope="col">Adjusted value</th>
               <th scope="col">Net adjustment</th><th scope="col">Disclosure status</th>
               <th scope="col">Condition adjustment</th><th scope="col">Mileage adjustment</th>
               <th scope="col">Options adjustment</th><th scope="col">Package adjustment</th>
@@ -84,7 +84,7 @@ export function InsurerEvidenceDetails({ report, open }: ReportProps) {
               <tr role="row" key={`${index}:${row.vehicle}`}>
                 <th role="rowheader" scope="row">{displayed(row.vehicle, `Insurer comparable ${index + 1}`)}</th>
                 <EvidenceCell label="Mileage">{numeric(row.mileage, " mi")}</EvidenceCell>
-                <EvidenceCell label="Advertised price">{displayed(row.advertisedPrice)}</EvidenceCell>
+                <EvidenceCell label={row.sourcePrice?.typeLabel ?? "Advertised price"}>{displayed(row.sourcePrice?.amount ?? row.advertisedPrice)}{row.sourcePrice ? <span className="block text-xs">{row.sourcePrice.typeLabel}</span> : null}</EvidenceCell>
                 <EvidenceCell label="Adjusted value">{displayed(row.adjustedValue)}</EvidenceCell>
                 <EvidenceCell label="Net adjustment">{displayed(row.netAdjustment, "Not disclosed")}</EvidenceCell>
                 <EvidenceCell label="Disclosure status">{disclosureLabel(row.adjustmentDisclosure)}</EvidenceCell>

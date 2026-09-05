@@ -35,6 +35,10 @@ from venfour.discrepancy import (
 
 
 ANALYSIS_PRESENTATION_VERSION = "2"
+SOURCE_PRICE_TYPE_LABELS = MappingProxyType({
+    "ADVERTISED": "Advertised price", "TAKE": "Take Price",
+    "SOLD": "Sold price", "OTHER": "Other source price", "UNKNOWN": "Source price (type unavailable)",
+})
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 ANALYSIS_PRESENTATION_SCHEMA_PATH = (
@@ -1024,6 +1028,15 @@ def _semantic_presentation_errors(data: Mapping[str, Any]) -> list[str]:
             "$.cccComparables.summary: adjustment disclosure counts must match totalCount"
         )
     for index, row in enumerate(ccc["rows"]):
+        source_price = row.get("sourcePrice")
+        if source_price is not None:
+            if data["presentationVersion"] != "3":
+                errors.append(f"$.cccComparables.rows[{index}].sourcePrice: requires presentation v3")
+            if source_price["typeLabel"] != SOURCE_PRICE_TYPE_LABELS[source_price["type"]]:
+                errors.append(f"$.cccComparables.rows[{index}].sourcePrice.typeLabel: does not match source type")
+            expected_advertised = source_price["amount"] if source_price["type"] == "ADVERTISED" else _money(None)
+            if row["advertisedPrice"] != expected_advertised:
+                errors.append(f"$.cccComparables.rows[{index}].advertisedPrice: must contain only advertised source prices")
         disclosure = row["adjustmentDisclosure"]
         if row["adjustmentDisclosureLabel"] != CCC_DISCLOSURE_LABELS[disclosure]:
             errors.append(
@@ -1552,6 +1565,17 @@ def _ccc_row(data: Mapping[str, Any]) -> dict[str, Any]:
     adjustments = data["adjustments"]
     disclosure = data["adjustmentDisclosure"]
     return {
+        **({
+            **{key: copy.deepcopy(data[key]) for key in (
+                "drivetrain", "source", "sourceReferences", "contributionBinding",
+            )},
+            "sourcePrice": {
+                "amount": _money(data["sourcePrice"]["amountCents"]),
+                "type": data["sourcePrice"]["type"],
+                "label": data["sourcePrice"]["label"],
+                "typeLabel": SOURCE_PRICE_TYPE_LABELS[data["sourcePrice"]["type"]],
+            },
+        } if "sourcePrice" in data else {}),
         "index": data["index"],
         "comparableNumber": data["comparableNumber"],
         "year": data["year"],
@@ -1766,6 +1790,8 @@ def _used_comparable(
         else None
     )
     return {
+        **({key: selected[key] for key in ("drivetrain", "lossVehicleDrivetrain")}
+           if "drivetrain" in selected else {}),
         "evidenceRole": role,
         "evidenceBasis": evidence_basis,
         "source": selected["source"],
@@ -1952,7 +1978,7 @@ def _provenance(artifact_data: Mapping[str, Any]) -> dict[str, Any]:
     }
     return {
         "runId": artifact_data["runId"],
-        "presentationVersion": ANALYSIS_PRESENTATION_VERSION,
+        "presentationVersion": "3" if artifact_data["discrepancyAnalysisVersion"] == "2" else ANALYSIS_PRESENTATION_VERSION,
         "analysisRunSchemaVersion": artifact_data["analysisRunSchemaVersion"],
         "orchestrationAnalysisVersion": artifact_data["analysisVersion"],
         "discrepancyAnalysisVersion": artifact_data["discrepancyAnalysisVersion"],
@@ -2148,7 +2174,7 @@ class AnalysisPresentationProjector:
                     exclusions.extend(_summary_exclusions(summary))
 
             presentation_data = {
-                "presentationVersion": ANALYSIS_PRESENTATION_VERSION,
+                "presentationVersion": "3" if result["analysisVersion"] == "2" else ANALYSIS_PRESENTATION_VERSION,
                 "runId": artifact_data["runId"],
                 "analysisCreatedAt": artifact_data["createdAt"],
                 "assessment": {
@@ -2167,6 +2193,7 @@ class AnalysisPresentationProjector:
                     ),
                 },
                 "vehicle": {
+                    **({"drivetrain": vehicle["drivetrain"]} if "drivetrain" in vehicle else {}),
                     "year": vehicle["year"],
                     "make": vehicle["make"],
                     "model": vehicle["model"],

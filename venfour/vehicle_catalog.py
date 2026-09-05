@@ -632,6 +632,31 @@ def _clarify_trim_fallback(
     return trim_option
 
 
+def explicit_version_drivetrain(values: tuple[str, ...]) -> str | None:
+    """Read a unanimous explicit drive facet from provider version aliases.
+
+    Callers must establish that these are version fields, not display trims.
+    An absent or conflicting facet remains unknown; no vehicle-specific
+    equipment inference is made from the remaining version text.
+    """
+    if not isinstance(values, (tuple, list)) or not values:
+        return None
+    selected: set[str] = set()
+    for value in values:
+        try:
+            parsed = _parse_configuration(value, query_field="version")
+        except (TypeError, ValueError):
+            return None
+        facets = {
+            qualifier for qualifier in parsed.signature[1]
+            if qualifier.startswith("drivetrain:")
+        }
+        if len(facets) != 1:
+            return None
+        selected.add(_QUALIFIER_DISPLAY[next(iter(facets))])
+    return next(iter(selected)) if len(selected) == 1 else None
+
+
 @dataclass(frozen=True)
 class VehicleTrimCatalogRequest:
     """One exact year/make/model taxonomy lookup."""
@@ -671,6 +696,7 @@ __all__ = [
     "VehicleTrimCatalogRequest",
     "VehicleTrimOption",
     "VehicleTrimQueryValuesLimitError",
+    "explicit_version_drivetrain",
     "maximum_vehicle_catalog_year",
     "normalize_generated_vehicle_trim_options",
     "normalize_vehicle_trim_catalog",

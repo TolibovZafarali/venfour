@@ -1,0 +1,206 @@
+{
+  "report": {
+    "provider": "CCC",
+    "reportReferenceNumber": "SYNTHETIC-REPORT-001",
+    "claimReferenceNumber": "SYNTHETIC-CLAIM-001",
+    "lossDate": "05/19/2026",
+    "reportDate": "05/21/2026",
+    "insurer": "Example Insurance",
+    "effectiveDate": null
+  },
+  "vehicle": {
+    "year": 2026,
+    "make": "Hyundai",
+    "model": "Kona",
+    "trim": "SE",
+    "vin": "KM8HB3AB0TU000001",
+    "mileage": 2908,
+    "location": "Test City, MO 63026",
+    "bodyStyle": "Sedan",
+    "engine": "Synthetic 2.0L",
+    "transmission": "Automatic",
+    "fuelType": "Gasoline",
+    "equipment": [
+      "Synthetic Safety Package",
+      "Synthetic Audio"
+    ],
+    "drivetrain": "FWD",
+    "drivetrainSource": {
+      "page": 3,
+      "section": "Vehicle Information",
+      "label": "Body Style",
+      "text": "FWD"
+    }
+  },
+  "valuation": {
+    "baseVehicleValue": 25704,
+    "conditionAdjustment": 0,
+    "adjustedVehicleValue": 25704,
+    "total": 25704
+  },
+  "condition": {
+    "totalAdjustment": -100,
+    "items": [
+      {
+        "category": "Exterior",
+        "component": "Synthetic panel",
+        "rating": "Synthetic rating",
+        "notes": "Fictional test condition only.",
+        "valueImpact": -100
+      }
+    ]
+  },
+  "comparables": [
+    {
+      "number": 7,
+      "year": 2026,
+      "make": "Hyundai",
+      "model": "Kona",
+      "trim": "SE",
+      "vin": "KM8HB3AB0TU000007",
+      "dealer": "Inspected Dealer",
+      "location": "Example City, TN",
+      "distanceMiles": 32,
+      "mileage": 5869,
+      "adjustments": {
+        "package": null,
+        "options": null,
+        "mileage": null,
+        "condition": null
+      },
+      "adjustedValue": 25867,
+      "drivetrain": "FWD",
+      "sourcePrice": {
+        "amount": 25541,
+        "type": "TAKE",
+        "label": "Take Price"
+      },
+      "source": {
+        "type": "INSPECTED",
+        "label": "Inspected inventory",
+        "stockNumber": "STOCK-7",
+        "sourceDate": "2026-06-12",
+        "updateDate": "2026-06-13"
+      },
+      "sourceReferences": [
+        {
+          "page": 12,
+          "section": "Comparable Vehicles",
+          "label": "Comp 7",
+          "text": "Inspected Dealer, 25541, adjusted 25867"
+        },
+        {
+          "page": 12,
+          "section": "Comparable Vehicles",
+          "label": "Source and Updated Dates",
+          "text": "Source Date: 06/12/2026; Updated Date: 06/13/2026"
+        }
+      ]
+    },
+    {
+      "number": 11,
+      "year": 2026,
+      "make": "Hyundai",
+      "model": "Kona",
+      "trim": "SE",
+      "vin": "KM8HB3AB0TU000011",
+      "dealer": "Advertised Dealer",
+      "location": "Example City, TN",
+      "distanceMiles": 32,
+      "mileage": 4426,
+      "adjustments": {
+        "package": null,
+        "options": null,
+        "mileage": null,
+        "condition": null
+      },
+      "adjustedValue": 26701,
+      "drivetrain": "FWD",
+      "sourcePrice": {
+        "amount": 26558,
+        "type": "ADVERTISED",
+        "label": "List Price"
+      },
+      "source": {
+        "type": "INTERNET",
+        "label": "Dealer listing",
+        "stockNumber": "STOCK-11",
+        "sourceDate": "2026-06-12",
+        "updateDate": "2026-06-13"
+      },
+      "sourceReferences": [
+        {
+          "page": 12,
+          "section": "Comparable Vehicles",
+          "label": "Comp 11",
+          "text": "Advertised Dealer, 26558, adjusted 26701"
+        },
+        {
+          "page": 12,
+          "section": "Comparable Vehicles",
+          "label": "Source and Updated Dates",
+          "text": "Source Date: 06/12/2026; Updated Date: 06/13/2026"
+        }
+      ]
+    }
+  ],
+  "valuationNotes": [
+    "Fictional CCC note used only for testing."
+  ],
+  "supplementalInformation": {
+    "historyChecks": [
+      "Synthetic history check"
+    ],
+    "historyEvents": [
+      "Synthetic history event"
+    ],
+    "recalls": [
+      "Synthetic recall entry"
+    ]
+  },
+  "schemaVersion": "2",
+  "contributionRows": [
+    {
+      "number": 7,
+      "vin": null,
+      "dealer": null,
+      "stockNumber": null,
+      "sourcePrice": {
+        "amount": 26558,
+        "type": "ADVERTISED",
+        "label": "List Price"
+      },
+      "adjustedValue": 26701,
+      "contributionPercent": 39,
+      "sourceReferences": [
+        {
+          "page": 14,
+          "section": "Comparable Contributions",
+          "label": "7",
+          "text": "Advertised Dealer, 26558, 26701, 39%"
+        }
+      ]
+    },
+    {
+      "number": 11,
+      "vin": null,
+      "dealer": null,
+      "stockNumber": null,
+      "sourcePrice": {
+        "amount": 25541,
+        "type": "TAKE",
+        "label": "Take Price"
+      },
+      "adjustedValue": 25867,
+      "contributionPercent": 61,
+      "sourceReferences": [
+        {
+          "page": 14,
+          "section": "Comparable Contributions",
+          "label": "11",
+          "text": "Inspected Dealer, 25541, 25867, 61%"
+        }
+      ]
+    }
+  ]
+}

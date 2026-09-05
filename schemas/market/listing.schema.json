@@ -81,6 +81,15 @@
     "distanceMiles": {
       "type": ["number", "null"],
       "minimum": 0
+    },
+    "drivetrain": {
+      "enum": [
+        "FWD",
+        "RWD",
+        "AWD",
+        "4WD",
+        null
+      ]
     }
   }
 }

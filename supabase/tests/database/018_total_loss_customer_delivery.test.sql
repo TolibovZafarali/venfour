@@ -3,7 +3,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
 
-select plan(48);
+select plan(50);
 
 insert into auth.users (id, email, email_confirmed_at, is_anonymous)
 values
@@ -626,6 +626,13 @@ select ok(
   'published report metadata uses an exact customer-safe top-level allowlist'
 );
 
+select ok(
+  (select not (report #> '{insurerEvidence,comparables,0}' ? 'sourcePrice')
+   from public.get_total_loss_customer_reports(
+     'f2000000-0000-4000-8000-000000000001', null)),
+  'legacy report rows do not acquire invented source-price semantics'
+);
+
 select is(
   (
     select report #> '{marketEvidence,secondary}'
@@ -984,7 +991,16 @@ insert into public.total_loss_report_versions (
   'fb000000-0000-4000-8000-000000000001',
   'f6000000-0000-4000-8000-000000000001',
   'fd000000-0000-4000-8000-000000000002', '1', '1', '1',
-  (report - 'identity') || jsonb_build_object(
+  (jsonb_set(
+    report,
+    '{insurerComparableReview,comparables,0}',
+    (report #> '{insurerComparableReview,comparables,0}') || jsonb_build_object(
+      'advertisedPrice', null,
+      'sourcePrice', jsonb_build_object(
+        'amount', '$19,800.00', 'type', 'TAKE', 'typeLabel', 'Take Price', 'label', 'Take'
+      )
+    )
+  ) - 'identity') || jsonb_build_object(
     'identity', (report -> 'identity') || jsonb_build_object(
       'reportVersionId', 'fe000000-0000-4000-8000-000000000002',
       'versionNumber', 2, 'versionLabel', 'v2',
@@ -1039,6 +1055,15 @@ select is(
   )),
   0::bigint,
   'the customer report RPC hides a superseded published version'
+);
+
+select ok(
+  (select report #>> '{insurerEvidence,comparables,0,sourcePrice,type}' = 'TAKE'
+      and report #>> '{insurerEvidence,comparables,0,sourcePrice,amount}' = '$19,800.00'
+      and report #> '{insurerEvidence,comparables,0,advertisedPrice}' = 'null'::jsonb
+   from public.get_total_loss_customer_reports(
+     'f2000000-0000-4000-8000-000000000001', null)),
+  'typed Take Price survives the authorized customer projection without becoming advertised'
 );
 
 select throws_ok(

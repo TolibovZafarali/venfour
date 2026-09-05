@@ -11,7 +11,7 @@ from __future__ import annotations
 import json
 import math
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from decimal import Decimal, ROUND_HALF_UP
 from functools import lru_cache
 from pathlib import Path
@@ -31,7 +31,7 @@ from venfour.market import (
 )
 
 
-COMPARABLE_SCORING_VERSION = "1"
+COMPARABLE_SCORING_VERSION = "2"
 
 YEAR_MAX_SCORE = 20
 TRIM_MAX_SCORE = 20
@@ -102,6 +102,8 @@ class ComparableTarget:
     trim: str | None = None
     mileage: int | None = None
     postal_code: str | None = None
+    drivetrain: str | None = None
+    drivetrain_recorded: bool = field(default=False, compare=False, repr=False)
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "make", _trim_required(self.make))
@@ -110,7 +112,7 @@ class ComparableTarget:
         object.__setattr__(self, "postal_code", _trim_optional(self.postal_code))
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        data = {
             "year": self.year,
             "make": self.make,
             "model": self.model,
@@ -118,6 +120,9 @@ class ComparableTarget:
             "mileage": self.mileage,
             "postalCode": self.postal_code,
         }
+        if self.drivetrain_recorded or self.drivetrain is not None:
+            data["drivetrain"] = self.drivetrain
+        return data
 
 
 @dataclass(frozen=True)
@@ -274,6 +279,8 @@ def comparable_target_from_report(
         make=vehicle.get("make"),
         model=vehicle.get("model"),
         trim=vehicle.get("trim"),
+        drivetrain=vehicle.get("drivetrain"),
+        drivetrain_recorded="drivetrain" in vehicle,
         mileage=vehicle.get("mileage"),
         postal_code=postal_code,
     )
@@ -302,6 +309,8 @@ def comparable_target_from_search_request(
         make=request.make,
         model=request.model,
         trim=request.trim,
+        drivetrain=request.drivetrain,
+        drivetrain_recorded=request.drivetrain_recorded,
         mileage=request.loss_vehicle_mileage,
         postal_code=request.postal_code,
     )
@@ -446,7 +455,8 @@ def _tier_for_score(score: int | float) -> str:
 
 
 def _score_listing(
-    target: ComparableTarget, listing: MarketListing
+    target: ComparableTarget, listing: MarketListing,
+    scoring_version: str = COMPARABLE_SCORING_VERSION,
 ) -> ComparableCandidate:
     reasons: list[str] = []
     eligible = True
@@ -469,6 +479,16 @@ def _score_listing(
     distance = _distance_component(target, listing, reasons)
     if listing.vin is None:
         reasons.append("VIN_UNAVAILABLE")
+    drivetrain_unresolved = False
+    if scoring_version == "2" and target.drivetrain is not None:
+        if listing.drivetrain is None:
+            reasons.append("LISTING_DRIVETRAIN_UNAVAILABLE")
+            drivetrain_unresolved = True
+        elif listing.drivetrain != target.drivetrain:
+            reasons.append("DRIVETRAIN_MISMATCH")
+            eligible = False
+        else:
+            reasons.append("EXACT_DRIVETRAIN")
 
     components = ComparableScoreComponents(
         year=year,
@@ -497,11 +517,14 @@ def _score_listing(
         Decimal("0"),
     )
     score = _json_score(component_score)
+    tier = _tier_for_score(score)
+    if drivetrain_unresolved and tier == "STRONG":
+        tier = "GOOD"
     return ComparableCandidate(
         listing=listing,
         eligible=True,
         score=score,
-        tier=_tier_for_score(score),
+        tier=tier,
         rank=None,
         components=components,
         reasons=tuple(reasons),
@@ -527,16 +550,19 @@ def _candidate_sort_key(
 
 
 def rank_market_comparables(
-    target: ComparableTarget, market_result: MarketSearchResult
+    target: ComparableTarget, market_result: MarketSearchResult, *,
+    scoring_version: str = COMPARABLE_SCORING_VERSION,
 ) -> ComparableRankingResult:
     """Score and deterministically rank an already-discovered market result.
 
-    Only exact normalized make/model matches are eligible. Eligible listings
-    sort by score, mileage difference, distance, and finally original provider
-    order. Ineligible listings are retained after them in original provider
-    order. Price is not read by the scoring or sorting rules.
+    Exact normalized make/model matches are required. Version 2 also excludes
+    known drivetrain conflicts and caps unverified drivetrain matches at GOOD.
+    Eligible listings sort by score, mileage difference, distance, and original
+    provider order. Price is not read by the scoring or sorting rules.
     """
 
+    if scoring_version not in {"1", "2"}:
+        raise ComparableContractError("Unsupported comparable scoring version")
     if not isinstance(target, ComparableTarget):
         raise ComparableContractError(
             "Comparable target failed contract validation",
@@ -575,7 +601,7 @@ def rank_market_comparables(
         )
 
     indexed = [
-        (index, _score_listing(target, listing))
+        (index, _score_listing(target, listing, scoring_version))
         for index, listing in enumerate(market_result.listings)
     ]
     eligible = sorted(
@@ -602,6 +628,7 @@ def rank_market_comparables(
         ineligible_count=len(ineligible),
         tier_counts=tier_counts,
         candidates=candidates,
+        scoring_version=scoring_version,
     )
     validate_comparable_ranking_result(result)
     return result
@@ -743,10 +770,11 @@ def _candidate_semantic_errors(data: Mapping[str, Any], path: str = "$") -> list
         )
     expected_eligibility = (
         "MAKE_MISMATCH" not in reasons and "MODEL_MISMATCH" not in reasons
+        and "DRIVETRAIN_MISMATCH" not in reasons
     )
     if eligible != expected_eligibility:
         errors.append(
-            f"{path}.eligible: does not match the make/model eligibility reasons"
+            f"{path}.eligible: does not match the configuration eligibility reasons"
         )
     if eligible:
         component_sum = sum(
@@ -759,6 +787,8 @@ def _candidate_semantic_errors(data: Mapping[str, Any], path: str = "$") -> list
         if Decimal(str(score)) != component_sum:
             errors.append(f"{path}.score: does not equal the component score sum")
         expected_tier = _tier_for_score(score)
+        if "LISTING_DRIVETRAIN_UNAVAILABLE" in reasons and expected_tier == "STRONG":
+            expected_tier = "GOOD"
         if tier != expected_tier:
             errors.append(
                 f"{path}.tier: expected {expected_tier!r} for score {score!r}"
@@ -937,6 +967,8 @@ def _target_from_data(data: Mapping[str, Any]) -> ComparableTarget:
         make=data["make"],
         model=data["model"],
         trim=data["trim"],
+        drivetrain=data.get("drivetrain"),
+        drivetrain_recorded="drivetrain" in data,
         mileage=data["mileage"],
         postal_code=data["postalCode"],
     )
@@ -962,6 +994,8 @@ def _listing_from_data(data: Mapping[str, Any]) -> MarketListing:
         make=data["make"],
         model=data["model"],
         trim=data.get("trim"),
+        drivetrain=data.get("drivetrain"),
+        drivetrain_recorded="drivetrain" in data,
         vin=data.get("vin"),
         mileage=data.get("mileage"),
         price=data["price"],
@@ -974,14 +1008,17 @@ def _candidate_scoring_errors(
     target: ComparableTarget,
     data: Mapping[str, Any],
     path: str,
+    scoring_version: str,
 ) -> list[str]:
-    expected = _score_listing(target, _listing_from_data(data["listing"])).to_dict()
+    expected = _score_listing(
+        target, _listing_from_data(data["listing"]), scoring_version
+    ).to_dict()
     errors: list[str] = []
     for field in ("eligible", "score", "tier", "components", "reasons"):
         if data[field] != expected[field]:
             errors.append(
                 f"{path}.{field}: does not match scoring version "
-                f"{COMPARABLE_SCORING_VERSION}"
+                f"{scoring_version}"
             )
     return errors
 
@@ -1027,7 +1064,7 @@ def validate_comparable_ranking_result(
         error
         for index, candidate in enumerate(candidates)
         for error in _candidate_scoring_errors(
-            target, candidate, f"$.candidates[{index}]"
+            target, candidate, f"$.candidates[{index}]", data["scoringVersion"]
         )
     )
     eligible_candidates = [

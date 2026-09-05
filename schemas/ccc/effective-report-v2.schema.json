@@ -1,0 +1,1290 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Venfour effective CCC evidence input V2",
+  "type": "object",
+  "properties": {
+    "report": {
+      "type": "object",
+      "properties": {
+        "provider": {
+          "type": "string"
+        },
+        "reportReferenceNumber": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "claimReferenceNumber": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "lossDate": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "reportDate": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "insurer": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "effectiveDate": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date"
+        }
+      },
+      "required": [
+        "provider",
+        "reportReferenceNumber",
+        "claimReferenceNumber",
+        "lossDate",
+        "reportDate",
+        "insurer",
+        "effectiveDate"
+      ],
+      "additionalProperties": false
+    },
+    "vehicle": {
+      "type": "object",
+      "properties": {
+        "year": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "make": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "model": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "trim": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "vin": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "mileage": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "location": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "bodyStyle": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "engine": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "transmission": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "fuelType": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "equipment": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "drivetrain": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "FWD",
+            "RWD",
+            "AWD",
+            "4WD",
+            null
+          ]
+        },
+        "drivetrainSource": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "page",
+            "section",
+            "label",
+            "text"
+          ],
+          "properties": {
+            "page": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 1,
+              "maximum": 250
+            },
+            "section": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "label": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "text": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        }
+      },
+      "required": [
+        "year",
+        "make",
+        "model",
+        "trim",
+        "vin",
+        "mileage",
+        "location",
+        "bodyStyle",
+        "engine",
+        "transmission",
+        "fuelType",
+        "equipment",
+        "drivetrain",
+        "drivetrainSource"
+      ],
+      "additionalProperties": false
+    },
+    "valuation": {
+      "type": "object",
+      "properties": {
+        "baseVehicleValue": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "conditionAdjustment": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "adjustedVehicleValue": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "total": {
+          "type": [
+            "number",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "baseVehicleValue",
+        "conditionAdjustment",
+        "adjustedVehicleValue",
+        "total"
+      ],
+      "additionalProperties": false
+    },
+    "condition": {
+      "type": "object",
+      "properties": {
+        "totalAdjustment": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "category": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "component": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "rating": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "notes": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "valueImpact": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "category",
+              "component",
+              "rating",
+              "notes",
+              "valueImpact"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "totalAdjustment",
+        "items"
+      ],
+      "additionalProperties": false
+    },
+    "comparables": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "number": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "year": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "make": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "model": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "trim": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "vin": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "dealer": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "location": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "distanceMiles": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "mileage": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "listPrice": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "adjustments": {
+            "type": "object",
+            "properties": {
+              "package": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "options": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "mileage": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "condition": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "package",
+              "options",
+              "mileage",
+              "condition"
+            ],
+            "additionalProperties": false
+          },
+          "adjustedValue": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "contributionPercent": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "drivetrain": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "FWD",
+              "RWD",
+              "AWD",
+              "4WD",
+              null
+            ]
+          },
+          "sourcePrice": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "amount",
+              "type",
+              "label"
+            ],
+            "properties": {
+              "amount": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "ADVERTISED",
+                  "TAKE",
+                  "SOLD",
+                  "OTHER",
+                  "UNKNOWN"
+                ]
+              },
+              "label": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            }
+          },
+          "source": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "type",
+              "label",
+              "stockNumber",
+              "sourceDate",
+              "updateDate"
+            ],
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "DEALER",
+                  "INSPECTED",
+                  "INTERNET",
+                  "OTHER",
+                  "UNKNOWN"
+                ]
+              },
+              "label": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "stockNumber": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "sourceDate": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "date"
+              },
+              "updateDate": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "date"
+              }
+            }
+          },
+          "sourceReferences": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "page",
+                "section",
+                "label",
+                "text"
+              ],
+              "properties": {
+                "page": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ],
+                  "minimum": 1,
+                  "maximum": 250
+                },
+                "section": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "label": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "text": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              }
+            },
+            "maxItems": 500
+          },
+          "contributionBinding": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "status",
+              "rowIndexes",
+              "reasonCodes"
+            ],
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": [
+                  "BOUND",
+                  "UNBOUND",
+                  "AMBIGUOUS",
+                  "UNAVAILABLE"
+                ]
+              },
+              "rowIndexes": {
+                "type": "array",
+                "items": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "maxItems": 500
+              },
+              "reasonCodes": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 500
+              }
+            }
+          }
+        },
+        "required": [
+          "number",
+          "year",
+          "make",
+          "model",
+          "trim",
+          "vin",
+          "dealer",
+          "location",
+          "distanceMiles",
+          "mileage",
+          "listPrice",
+          "adjustments",
+          "adjustedValue",
+          "contributionPercent",
+          "drivetrain",
+          "sourcePrice",
+          "source",
+          "sourceReferences",
+          "contributionBinding"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "valuationNotes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "supplementalInformation": {
+      "type": "object",
+      "properties": {
+        "historyChecks": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "historyEvents": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "recalls": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "historyChecks",
+        "historyEvents",
+        "recalls"
+      ],
+      "additionalProperties": false
+    },
+    "schemaVersion": {
+      "type": "string",
+      "const": "2"
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "fieldChecks",
+        "contributionRows",
+        "contributionBindings",
+        "comparableAppearances",
+        "appearanceLinks",
+        "duplicateIdentities"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "type": "string",
+          "const": "1"
+        },
+        "fieldChecks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "path",
+              "status",
+              "materiality",
+              "reasonCodes",
+              "sourceReferences"
+            ],
+            "properties": {
+              "path": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "CAPTURED",
+                  "UNAVAILABLE",
+                  "AMBIGUOUS"
+                ]
+              },
+              "materiality": {
+                "type": "string",
+                "enum": [
+                  "MATERIAL",
+                  "OPTIONAL"
+                ]
+              },
+              "reasonCodes": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 500
+              },
+              "sourceReferences": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "page",
+                    "section",
+                    "label",
+                    "text"
+                  ],
+                  "properties": {
+                    "page": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ],
+                      "minimum": 1,
+                      "maximum": 250
+                    },
+                    "section": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "label": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "text": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  }
+                },
+                "maxItems": 500
+              }
+            }
+          },
+          "maxItems": 500
+        },
+        "contributionRows": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "number",
+              "vin",
+              "dealer",
+              "stockNumber",
+              "sourcePrice",
+              "adjustedValue",
+              "contributionPercent",
+              "sourceReferences"
+            ],
+            "properties": {
+              "number": {
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "vin": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "dealer": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "stockNumber": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "sourcePrice": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "amount",
+                  "type",
+                  "label"
+                ],
+                "properties": {
+                  "amount": {
+                    "type": [
+                      "number",
+                      "null"
+                    ]
+                  },
+                  "type": {
+                    "type": "string",
+                    "enum": [
+                      "ADVERTISED",
+                      "TAKE",
+                      "SOLD",
+                      "OTHER",
+                      "UNKNOWN"
+                    ]
+                  },
+                  "label": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                }
+              },
+              "adjustedValue": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "contributionPercent": {
+                "type": [
+                  "number",
+                  "null"
+                ],
+                "minimum": 0,
+                "maximum": 100
+              },
+              "sourceReferences": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "page",
+                    "section",
+                    "label",
+                    "text"
+                  ],
+                  "properties": {
+                    "page": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ],
+                      "minimum": 1,
+                      "maximum": 250
+                    },
+                    "section": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "label": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "text": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  }
+                },
+                "maxItems": 500
+              }
+            }
+          },
+          "maxItems": 500
+        },
+        "contributionBindings": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "rowIndex",
+              "status",
+              "comparableIndex",
+              "candidateIndexes",
+              "reasonCodes"
+            ],
+            "properties": {
+              "rowIndex": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "BOUND",
+                  "UNBOUND",
+                  "AMBIGUOUS"
+                ]
+              },
+              "comparableIndex": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "minimum": 0
+              },
+              "candidateIndexes": {
+                "type": "array",
+                "items": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "maxItems": 500
+              },
+              "reasonCodes": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 500
+              }
+            }
+          },
+          "maxItems": 500
+        },
+        "comparableAppearances": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "number": {
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "year": {
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "make": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "model": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "trim": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "vin": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "dealer": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "location": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "distanceMiles": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "mileage": {
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "adjustments": {
+                "type": "object",
+                "properties": {
+                  "package": {
+                    "type": [
+                      "number",
+                      "null"
+                    ]
+                  },
+                  "options": {
+                    "type": [
+                      "number",
+                      "null"
+                    ]
+                  },
+                  "mileage": {
+                    "type": [
+                      "number",
+                      "null"
+                    ]
+                  },
+                  "condition": {
+                    "type": [
+                      "number",
+                      "null"
+                    ]
+                  }
+                },
+                "required": [
+                  "package",
+                  "options",
+                  "mileage",
+                  "condition"
+                ],
+                "additionalProperties": false
+              },
+              "adjustedValue": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "drivetrain": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "enum": [
+                  "FWD",
+                  "RWD",
+                  "AWD",
+                  "4WD",
+                  null
+                ]
+              },
+              "sourcePrice": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "amount",
+                  "type",
+                  "label"
+                ],
+                "properties": {
+                  "amount": {
+                    "type": [
+                      "number",
+                      "null"
+                    ]
+                  },
+                  "type": {
+                    "type": "string",
+                    "enum": [
+                      "ADVERTISED",
+                      "TAKE",
+                      "SOLD",
+                      "OTHER",
+                      "UNKNOWN"
+                    ]
+                  },
+                  "label": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                }
+              },
+              "source": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "type",
+                  "label",
+                  "stockNumber",
+                  "sourceDate",
+                  "updateDate"
+                ],
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "enum": [
+                      "DEALER",
+                      "INSPECTED",
+                      "INTERNET",
+                      "OTHER",
+                      "UNKNOWN"
+                    ]
+                  },
+                  "label": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "stockNumber": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "sourceDate": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "format": "date"
+                  },
+                  "updateDate": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "format": "date"
+                  }
+                }
+              },
+              "sourceReferences": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "page",
+                    "section",
+                    "label",
+                    "text"
+                  ],
+                  "properties": {
+                    "page": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ],
+                      "minimum": 1,
+                      "maximum": 250
+                    },
+                    "section": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "label": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "text": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  }
+                },
+                "maxItems": 500
+              }
+            },
+            "required": [
+              "number",
+              "year",
+              "make",
+              "model",
+              "trim",
+              "vin",
+              "dealer",
+              "location",
+              "distanceMiles",
+              "mileage",
+              "adjustments",
+              "adjustedValue",
+              "drivetrain",
+              "sourcePrice",
+              "source",
+              "sourceReferences"
+            ],
+            "additionalProperties": false
+          },
+          "maxItems": 500
+        },
+        "appearanceLinks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "appearanceIndex",
+              "comparableIndex"
+            ],
+            "properties": {
+              "appearanceIndex": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "comparableIndex": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          },
+          "maxItems": 500
+        },
+        "duplicateIdentities": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "identityType",
+              "identityValues",
+              "comparableIndexes",
+              "status"
+            ],
+            "properties": {
+              "identityType": {
+                "type": "string",
+                "enum": [
+                  "VIN",
+                  "DEALER_STOCK"
+                ]
+              },
+              "identityValues": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 500
+              },
+              "comparableIndexes": {
+                "type": "array",
+                "items": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "maxItems": 500
+              },
+              "status": {
+                "type": "string",
+                "const": "REVIEW"
+              }
+            }
+          },
+          "maxItems": 500
+        }
+      }
+    }
+  },
+  "required": [
+    "report",
+    "vehicle",
+    "valuation",
+    "condition",
+    "comparables",
+    "valuationNotes",
+    "supplementalInformation",
+    "schemaVersion",
+    "evidence"
+  ],
+  "additionalProperties": false
+}

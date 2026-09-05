@@ -80,8 +80,8 @@ from venfour.market import (
 )
 
 
-ANALYSIS_RUN_SCHEMA_VERSION = "6"
-ANALYSIS_RUN_ANALYSIS_VERSION = "6"
+ANALYSIS_RUN_SCHEMA_VERSION = "7"
+ANALYSIS_RUN_ANALYSIS_VERSION = "7"
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 ANALYSIS_RUN_SCHEMA_PATH = (
@@ -240,6 +240,7 @@ class AnalysisRunArtifact:
         if selected_context is None and self.analysis_run_schema_version in {
             "5",
             "6",
+            "7",
         }:
             base_request = self.request.get("baseDiscrepancyRequest", {})
             valuation = (
@@ -544,6 +545,8 @@ def _market_request_from_data(data: Mapping[str, Any]) -> MarketSearchRequest:
         make=data["make"],
         model=data["model"],
         trim=data["trim"],
+        drivetrain=data.get("drivetrain"),
+        drivetrain_recorded="drivetrain" in data,
         configuration=_configuration_from_data(data.get("configuration")),
         loss_vehicle_mileage=data["lossVehicleMileage"],
         postal_code=data["postalCode"],
@@ -584,6 +587,8 @@ def _listing_from_data(data: Mapping[str, Any]) -> MarketListing:
         make=data["make"],
         model=data["model"],
         trim=data["trim"],
+        drivetrain=data.get("drivetrain"),
+        drivetrain_recorded="drivetrain" in data,
         vin=data["vin"],
         mileage=data["mileage"],
         price=data["price"],
@@ -609,6 +614,8 @@ def _historical_request_from_data(
         make=data["make"],
         model=data["model"],
         trim=data["trim"],
+        drivetrain=data.get("drivetrain"),
+        drivetrain_recorded="drivetrain" in data,
         configuration=_configuration_from_data(data.get("configuration")),
         loss_vehicle_mileage=data["lossVehicleMileage"],
         postal_code=data["postalCode"],
@@ -667,6 +674,8 @@ def _target_from_data(data: Mapping[str, Any]) -> ComparableTarget:
         make=data["make"],
         model=data["model"],
         trim=data["trim"],
+        drivetrain=data.get("drivetrain"),
+        drivetrain_recorded="drivetrain" in data,
         mileage=data["mileage"],
         postal_code=data["postalCode"],
     )
@@ -692,6 +701,7 @@ def _base_request_from_data(data: Mapping[str, Any]) -> ValuationDiscrepancyRequ
         historical_evidence=None,
         current_evidence=None,
         policy=_policy_from_data(data["policy"]),
+        report_evidence_version=data.get("reportEvidenceVersion"),
     )
 
 
@@ -847,7 +857,7 @@ def _adaptive_semantic_validation_errors(
     """Replay adaptive diagnostics against their versioned effective policies."""
 
     artifact_version = data["analysisRunSchemaVersion"]
-    if artifact_version not in {"2", "3", "4", "5", "6"}:
+    if artifact_version not in {"2", "3", "4", "5", "6", "7"}:
         return []
 
     errors: list[str] = []
@@ -887,7 +897,7 @@ def _adaptive_semantic_validation_errors(
         current_policy = policies.current
         historical_policy = policies.historical
         configured_policies = None
-        if artifact_version in {"4", "5", "6"}:
+        if artifact_version in {"4", "5", "6", "7"}:
             try:
                 configured_policies = adaptive_search_policies_from_dict(
                     request_snapshot["configuredSearchPolicies"]
@@ -935,7 +945,7 @@ def _adaptive_semantic_validation_errors(
         policy_field=policy_field,
         configured_policy=(
             request_snapshot["configuredSearchPolicies"]
-            if artifact_version in {"4", "5", "6"}
+            if artifact_version in {"4", "5", "6", "7"}
             else None
         ),
     )
@@ -961,7 +971,7 @@ def _adaptive_semantic_validation_errors(
     else:
         current_ceiling_reason = (
             CURRENT_SEARCH_CEILING_REACHED
-            if artifact_version in {"4", "5", "6"}
+            if artifact_version in {"4", "5", "6", "7"}
             and configured_policies is not None
             and configured_policies.current != current_policy
             else MAX_SCOPE_REACHED
@@ -972,6 +982,7 @@ def _adaptive_semantic_validation_errors(
                 current_diagnostics,
                 policy=current_policy,
                 target=base_request.loss_vehicle,
+                scoring_version=data["comparableScoringVersion"],
                 ceiling_stop_reason=current_ceiling_reason,
             )
         except AdaptiveSearchContractError as exc:
@@ -1013,6 +1024,7 @@ def _adaptive_semantic_validation_errors(
                 historical_diagnostics,
                 policy=historical_policy,
                 target=base_request.loss_vehicle,
+                scoring_version=data["comparableScoringVersion"],
                 ceiling_stop_reason=historical_ceiling_reason,
             )
         except AdaptiveSearchContractError as exc:
@@ -1049,6 +1061,13 @@ def _semantic_validation_errors(data: Mapping[str, Any]) -> list[str]:
     errors: list[str] = []
     request_snapshot = data["request"]
     stage_result = data["result"]
+    if (
+        data["discrepancyAnalysisVersion"]
+        != stage_result["discrepancyResult"]["analysisVersion"]
+    ):
+        errors.append(
+            "$.discrepancyAnalysisVersion: must match the stored result version"
+        )
     providers = data["providers"]
     for stream in ("current", "historical"):
         provider_data = providers[stream]
@@ -1151,6 +1170,8 @@ def _semantic_validation_errors(data: Mapping[str, Any]) -> list[str]:
             make=current_request.make,
             model=current_request.model,
             trim=current_request.trim,
+            drivetrain=current_request.drivetrain,
+            drivetrain_recorded=current_request.drivetrain_recorded,
             mileage=current_request.loss_vehicle_mileage,
             postal_code=current_request.postal_code,
         )
@@ -1164,7 +1185,8 @@ def _semantic_validation_errors(data: Mapping[str, Any]) -> list[str]:
                 "$.providers.current.name: must match the canonical current provider"
             )
         expected_current_ranking = rank_market_comparables(
-            base_request.loss_vehicle, current_result
+            base_request.loss_vehicle, current_result,
+            scoring_version=data["comparableScoringVersion"],
         )
         if expected_current_ranking.to_dict() != current_ranking_data:
             errors.append(
@@ -1226,6 +1248,8 @@ def _semantic_validation_errors(data: Mapping[str, Any]) -> list[str]:
             make=historical_request.make,
             model=historical_request.model,
             trim=historical_request.trim,
+            drivetrain=historical_request.drivetrain,
+            drivetrain_recorded=historical_request.drivetrain_recorded,
             mileage=historical_request.loss_vehicle_mileage,
             postal_code=historical_request.postal_code,
         )
@@ -1251,7 +1275,8 @@ def _semantic_validation_errors(data: Mapping[str, Any]) -> list[str]:
         ):
             projected = historical_evidence_to_market_search_result(historical_result)
             expected_historical_ranking = rank_market_comparables(
-                base_request.loss_vehicle, projected
+                base_request.loss_vehicle, projected,
+                scoring_version=data["comparableScoringVersion"],
             )
         if (
             expected_historical_ranking.to_dict()
@@ -1286,6 +1311,7 @@ def _semantic_validation_errors(data: Mapping[str, Any]) -> list[str]:
         historical_evidence=historical_input,
         current_evidence=current_input,
         policy=base_request.policy,
+        report_evidence_version=base_request.report_evidence_version,
     )
     try:
         validate_valuation_discrepancy_request(expected_final_request)

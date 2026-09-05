@@ -17,6 +17,7 @@ from venfour.analysis_runs import (
     AnalysisRunArtifact,
     AnalysisRunContractError,
     FileAnalysisRunRepository,
+    discrepancy_request_digest,
     search_diagnostics_digest,
     validate_analysis_run_artifact,
 )
@@ -67,7 +68,19 @@ class AdaptiveAnalysisRunIntegrityTests(unittest.TestCase):
     def test_v5_and_earlier_artifacts_remain_readable(self) -> None:
         validate_analysis_run_artifact(self.artifact)
 
+        def pin_legacy_scoring(artifact):
+            artifact["comparableScoringVersion"] = "1"
+            for stream in ("current", "historical"):
+                artifact["result"][f"{stream}Ranking"]["scoringVersion"] = "1"
+                artifact["result"]["discrepancyRequest"][f"{stream}Evidence"][
+                    "ranking"
+                ]["scoringVersion"] = "1"
+            artifact["requestDigest"] = discrepancy_request_digest(
+                artifact["result"]["discrepancyRequest"]
+            )
+
         v5_artifact = copy.deepcopy(self.artifact)
+        pin_legacy_scoring(v5_artifact)
         v5_artifact["analysisRunSchemaVersion"] = "5"
         v5_artifact["analysisVersion"] = "5"
         validate_analysis_run_artifact(v5_artifact)
@@ -119,6 +132,7 @@ class AdaptiveAnalysisRunIntegrityTests(unittest.TestCase):
             current_provider=RecordingCurrentProvider(),
             historical_provider=RecordingHistoricalProvider(),
         ).run(legacy_request).artifact.to_dict()
+        pin_legacy_scoring(v2_artifact)
         v2_artifact["analysisRunSchemaVersion"] = "2"
         v2_artifact["analysisVersion"] = "2"
         del v2_artifact["evidenceContext"]

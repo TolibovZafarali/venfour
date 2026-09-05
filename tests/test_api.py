@@ -728,6 +728,11 @@ class AnalysisPresentationApiTests(TemporaryRepositoryTestCase):
         expected["provenance"]["orchestrationAnalysisVersion"] = (
             artifact.analysis_version
         )
+        self.assertEqual(expected["provenance"]["comparableScoringVersion"], "1")
+        expected["provenance"]["comparableScoringVersion"] = (
+            artifact.comparable_scoring_version
+        )
+        expected["provenance"]["requestDigest"]["value"] = artifact.request_digest
         validate_analysis_presentation(expected)
         self.assertEqual(expected["runId"], artifact.run_id)
         self.assertEqual(

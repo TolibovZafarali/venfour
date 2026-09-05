@@ -693,6 +693,7 @@ class MarketCheckNormalizationTests(unittest.TestCase):
                     "postalCode": "63128",
                 },
                 "distanceMiles": 2.45,
+                "drivetrain": None,
             },
         )
         self.assertEqual(

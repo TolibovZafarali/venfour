@@ -25,7 +25,10 @@
   ],
   "properties": {
     "presentationVersion": {
-      "const": "2"
+      "enum": [
+        "2",
+        "3"
+      ]
     },
     "runId": {
       "$ref": "#/$defs/runId"
@@ -810,6 +813,15 @@
         },
         "postalCode": {
           "$ref": "#/$defs/nullableNonBlankString"
+        },
+        "drivetrain": {
+          "enum": [
+            "FWD",
+            "RWD",
+            "AWD",
+            "4WD",
+            null
+          ]
         }
       }
     },
@@ -1208,7 +1220,174 @@
             "number",
             "null"
           ]
+        },
+        "drivetrain": {
+          "enum": [
+            "FWD",
+            "RWD",
+            "AWD",
+            "4WD",
+            null
+          ]
+        },
+        "sourcePrice": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "amount",
+            "type",
+            "label",
+            "typeLabel"
+          ],
+          "properties": {
+            "amount": {
+              "$ref": "#/$defs/nonnegativeMoney"
+            },
+            "type": {
+              "enum": [
+                "ADVERTISED",
+                "TAKE",
+                "SOLD",
+                "OTHER",
+                "UNKNOWN"
+              ]
+            },
+            "label": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "typeLabel": {
+              "type": "string"
+            }
+          }
+        },
+        "source": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "label",
+            "stockNumber",
+            "sourceDate",
+            "updateDate"
+          ],
+          "properties": {
+            "type": {
+              "enum": [
+                "DEALER",
+                "INSPECTED",
+                "INTERNET",
+                "OTHER",
+                "UNKNOWN"
+              ]
+            },
+            "label": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "stockNumber": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "sourceDate": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "format": "date"
+            },
+            "updateDate": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "format": "date"
+            }
+          }
+        },
+        "sourceReferences": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "page",
+              "section",
+              "label",
+              "text"
+            ],
+            "properties": {
+              "page": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "minimum": 1
+              },
+              "section": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "label": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "text": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            }
+          }
+        },
+        "contributionBinding": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status",
+            "rowIndexes",
+            "reasonCodes"
+          ],
+          "properties": {
+            "status": {
+              "enum": [
+                "BOUND",
+                "UNBOUND",
+                "AMBIGUOUS",
+                "UNAVAILABLE"
+              ]
+            },
+            "rowIndexes": {
+              "type": "array",
+              "items": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "uniqueItems": true
+            },
+            "reasonCodes": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "uniqueItems": true
+            }
+          }
         }
+      },
+      "dependentRequired": {
+        "sourcePrice": ["drivetrain", "source", "sourceReferences", "contributionBinding"]
       }
     },
     "cccComparableSummary": {
@@ -1774,6 +1953,24 @@
         },
         "lifecycleEvidence": {
           "$ref": "#/$defs/nullableLifecycleEvidence"
+        },
+        "drivetrain": {
+          "enum": [
+            "FWD",
+            "RWD",
+            "AWD",
+            "4WD",
+            null
+          ]
+        },
+        "lossVehicleDrivetrain": {
+          "enum": [
+            "FWD",
+            "RWD",
+            "AWD",
+            "4WD",
+            null
+          ]
         }
       },
       "allOf": [
@@ -2231,7 +2428,10 @@
           "$ref": "#/$defs/runId"
         },
         "presentationVersion": {
-          "const": "2"
+          "enum": [
+            "2",
+            "3"
+          ]
         },
         "analysisRunSchemaVersion": {
           "$ref": "#/$defs/nonBlankString"
@@ -2240,7 +2440,10 @@
           "$ref": "#/$defs/nonBlankString"
         },
         "discrepancyAnalysisVersion": {
-          "$ref": "#/$defs/nonBlankString"
+          "enum": [
+            "1",
+            "2"
+          ]
         },
         "comparableScoringVersion": {
           "$ref": "#/$defs/nonBlankString"

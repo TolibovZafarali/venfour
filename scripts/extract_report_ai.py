@@ -107,6 +107,44 @@ Rules:
   methodology, legends, footnotes, legal boilerplate, and added analysis.
 """
 
+EXTRACTION_V2_INSTRUCTIONS = """\
+
+Version 2 source-fidelity rules supersede the comparable-row joining instructions
+above where the printed contribution table uses its own ordering:
+- Retain explicit drive type as vehicle.drivetrain (FWD, RWD, AWD, or 4WD), even
+  when printed in a Body Style field. Keep physical body style separately. Never
+  infer drivetrain from trim, equipment, model, or VIN. Copy the printed drive
+  label/value and PDF page (one-based) to drivetrainSource. Use null if absent.
+- Keep contributionRows separate from detailed comparables. The application
+  links them deterministically. Never move a percentage onto a detailed row.
+  A contribution table's row number may differ from the detail Comp number;
+  preserve its own printed number without assuming equivalence. Copy VIN,
+  stock identifier, dealer/source name, source price, and adjusted value only
+  where printed in that table. Do not copy guessed identifiers from other pages.
+- In comparables, preserve detailed and additional-summary appearances with
+  their own printed Comp number and identity. Repeated appearances of the same
+  numbered comparable may remain separate source rows; the application merges
+  compatible repeated identities. Do not invent numbers for unnumbered rows.
+- Represent every source price as sourcePrice.amount with its printed label:
+  ADVERTISED for explicit List/Advertised price, TAKE for Take Price, SOLD for
+  explicit sold price, OTHER for another named concept, UNKNOWN if the price
+  concept cannot be identified. Never call Take Price advertised or infer its
+  relative merit. Adjusted value remains separate from source price.
+- Preserve source.type (INSPECTED for inspected inventory, INTERNET for online
+  listings, DEALER for dealer-sourced inventory, OTHER or UNKNOWN otherwise),
+  source.label, stockNumber, sourceDate, and updateDate only when printed.
+  Source dates belong to the individual comparable, not the report/loss date.
+  Copy each complete date exactly into a sourceReferences entry with its date
+  label, then normalize that same date to ISO YYYY-MM-DD. Preserve all four year
+  digits: 07/18/2026 becomes 2026-07-18, never 0718-07-18. If the complete date
+  cannot be read reliably, use null; do not guess a missing year.
+- Record sourceReferences with the physical PDF page, section, printed label,
+  and concise exact identifying text for price and identity facts. Use null
+  for unavailable source metadata. Never invent page numbers or references.
+- Extract the insurance carrier in report.insurer only when explicitly named;
+  it is different from CCC. Preserve an explicitly labeled effectiveDate.
+"""
+
 
 class PrototypeError(Exception):
     """Raised for an expected, user-facing prototype failure."""
@@ -184,9 +222,12 @@ def require_dependencies() -> None:
         )
 
 
-def read_canonical_schema() -> dict[str, Any]:
+def read_canonical_schema(version: str = "1") -> dict[str, Any]:
+    if version not in {"1", "2"}:
+        raise PrototypeError("Unsupported CCC extraction schema version")
+    schema_path = SCHEMA_PATH if version == "1" else SCHEMA_PATH.with_name("report-v2.schema.json")
     try:
-        raw_schema = SCHEMA_PATH.read_text(encoding="utf-8")
+        raw_schema = schema_path.read_text(encoding="utf-8")
     except OSError as exc:
         raise PrototypeError(
             f"Schema could not be read: {SCHEMA_PATH} ({exc})"
@@ -277,7 +318,9 @@ def request_extraction(
     try:
         return client.responses.create(
             model=MODEL,
-            instructions=EXTRACTION_INSTRUCTIONS,
+            instructions=(EXTRACTION_INSTRUCTIONS + EXTRACTION_V2_INSTRUCTIONS
+                          if api_schema.get("properties", {}).get("schemaVersion", {}).get("const") == "2"
+                          else EXTRACTION_INSTRUCTIONS),
             input=[
                 {
                     "role": "user",
@@ -441,7 +484,14 @@ def validate_extraction(data: Any, canonical_schema: dict[str, Any]) -> None:
 
     validate_output(data, canonical_schema)
     validate_output(data, make_openai_schema(canonical_schema))
-    validate_comparable_numbers(data)
+    if canonical_schema.get("properties", {}).get("schemaVersion", {}).get("const") != "2":
+        validate_comparable_numbers(data)
+    else:
+        from venfour.ccc_evidence import validate_ccc_source_claims
+        try:
+            validate_ccc_source_claims(data)
+        except ValueError as exc:
+            raise OutputValidationError([str(exc)]) from exc
 
 
 def write_output(output_path: Path, data: Any) -> None:
@@ -545,6 +595,8 @@ def extract_report_with_openai(
     require_api_key()
     require_dependencies()
     api_schema = make_openai_schema(canonical_schema)
+    from venfour.strict_structured_output import validate_strict_structured_output_schema
+    validate_strict_structured_output_schema(api_schema)
 
     try:
         client = OpenAI()

@@ -26,8 +26,12 @@
     },
     "configuration": {
       "oneOf": [
-        { "$ref": "#/$defs/vehicleConfiguration" },
-        { "type": "null" }
+        {
+          "$ref": "#/$defs/vehicleConfiguration"
+        },
+        {
+          "type": "null"
+        }
       ]
     },
     "lossVehicleMileage": {
@@ -48,17 +52,34 @@
       "type": "integer",
       "minimum": 1,
       "default": 25
+    },
+    "drivetrain": {
+      "enum": [
+        "FWD",
+        "RWD",
+        "AWD",
+        "4WD",
+        null
+      ]
     }
   },
   "allOf": [
     {
       "if": {
         "required": ["configuration"],
-        "properties": { "configuration": { "type": "object" } }
+        "properties": {
+          "configuration": {
+            "type": "object"
+          }
+        }
       },
       "then": {
         "required": ["trim"],
-        "properties": { "trim": { "type": "string" } }
+        "properties": {
+          "trim": {
+            "type": "string"
+          }
+        }
       }
     }
   ],

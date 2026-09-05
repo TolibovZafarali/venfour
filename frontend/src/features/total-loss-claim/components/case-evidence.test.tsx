@@ -176,6 +176,22 @@ describe("evidence methodology", () => {
 });
 
 describe("completed case evidence", () => {
+  it("keeps a Take Price distinct from advertised evidence", () => {
+    const data = report();
+    const comparable = data.insurerEvidence.comparables[0];
+    render(<InsurerEvidenceDetails open report={{ ...data, insurerEvidence: {
+      ...data.insurerEvidence,
+      comparables: [{ ...comparable, advertisedPrice: null, sourcePrice: {
+        amount: "$25,541", type: "TAKE", typeLabel: "Take Price", label: "Take Price",
+      } }],
+    } }} />);
+    const table = screen.getByRole("table", { name: "Insurer comparables" });
+    expect(within(table).getByRole("columnheader", { name: "Source price" })).toBeVisible();
+    expect(within(table).getByText("Take Price")).toBeVisible();
+    expect(within(table).getByText("$25,541")).toBeVisible();
+    expect(within(table).queryByRole("columnheader", { name: "Advertised price" })).not.toBeInTheDocument();
+  });
+
   it("keeps every selected market listing and source detail in backend order", () => {
     render(<CaseEvidence report={report()} />);
     const table = screen.getByRole("table", { name: "Selected market listings" });

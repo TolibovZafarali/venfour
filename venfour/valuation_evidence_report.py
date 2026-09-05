@@ -59,6 +59,7 @@ from venfour.report_evidence import (
     REPORT_LOCAL_SOURCE_ARTIFACT,
     resolve_report_local_evidence_source,
 )
+from venfour.presentation import SOURCE_PRICE_TYPE_LABELS
 
 
 REPORT_SCHEMA_VERSION = "1"
@@ -575,6 +576,12 @@ def _insurer_comparables(assessment: Mapping[str, Any]) -> list[dict[str, Any]]:
         adjustments = facts.get("adjustments") or {}
         rows.append(
             {
+                **({"sourcePrice": {
+                    "amount": facts["sourcePrice"]["amount"]["display"],
+                    "type": facts["sourcePrice"]["type"],
+                    "typeLabel": facts["sourcePrice"]["typeLabel"],
+                    "label": facts["sourcePrice"]["label"],
+                }} if "sourcePrice" in facts else {}),
                 "comparableNumber": facts.get("comparableNumber"),
                 "vehicleDisplay": _vehicle_display(facts),
                 "vin": facts.get("vin"),
@@ -1102,6 +1109,15 @@ def _validate_report_semantics(report: Mapping[str, Any]) -> None:
         raise _failure("Report filename is unsafe", "REPORT_IDENTITY_INVALID")
     _canonical_utc(identity["generatedAt"], "Report generation time")
     insurer_review = report["insurerComparableReview"]
+    for comparable in insurer_review["comparables"]:
+        source_price = comparable.get("sourcePrice")
+        if source_price is not None and (
+            source_price["typeLabel"] != SOURCE_PRICE_TYPE_LABELS[source_price["type"]]
+            or comparable["advertisedPrice"] != (
+                source_price["amount"] if source_price["type"] == "ADVERTISED" else None
+            )
+        ):
+            raise _failure("Insurer source price type is inconsistent", "REPORT_METHODOLOGY_INVALID")
     if insurer_review["methodologyTreatment"] != DESCRIPTIVE_ONLY:
         raise _failure(
             "Insurer comparable methodology was overstated",
@@ -1548,14 +1564,16 @@ def _render_report_story(
             styles["body"],
         )
     )
-    insurer_rows = [["Comp", "Vehicle / VIN", "Mileage", "Advertised", "Adjusted", "Net adj.", "Dealer / location"]]
+    typed_prices = any("sourcePrice" in comp for comp in insurer_comps["comparables"])
+    insurer_rows = [["Comp", "Vehicle / VIN", "Mileage", "Source price" if typed_prices else "Advertised", "Adjusted", "Net adj.", "Dealer / location"]]
     for comp in insurer_comps["comparables"]:
         insurer_rows.append(
             [
                 comp["comparableNumber"] if comp["comparableNumber"] is not None else "-",
                 f"{comp['vehicleDisplay']}\n{comp['vin'] or 'VIN unavailable'}",
                 _display(comp["mileage"]),
-                comp["advertisedPrice"] or "Unavailable",
+                ((comp["sourcePrice"]["amount"] or "Unavailable") + "\n" + comp["sourcePrice"]["typeLabel"])
+                if "sourcePrice" in comp else comp["advertisedPrice"] or "Unavailable",
                 comp["adjustedValue"] or "Unavailable",
                 comp["netAdjustment"] or "Unavailable",
                 f"{comp['dealer'] or 'Unavailable'}\n{comp['location'] or 'Unavailable'}",

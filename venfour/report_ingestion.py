@@ -283,10 +283,13 @@ class ReportIngestionResult:
 
 
 @lru_cache(maxsize=1)
-def read_normalized_report_schema() -> dict[str, Any]:
+def read_normalized_report_schema(version: str = "1") -> dict[str, Any]:
+    if version not in {"1", "2"}:
+        raise NormalizedReportContractError(("$.schemaVersion: unsupported version",))
+    path = NORMALIZED_REPORT_SCHEMA_PATH if version == "1" else NORMALIZED_REPORT_SCHEMA_PATH.with_name("normalized-valuation-report-v2.schema.json")
     try:
         schema = json.loads(
-            NORMALIZED_REPORT_SCHEMA_PATH.read_text(encoding="utf-8")
+            path.read_text(encoding="utf-8")
         )
         Draft202012Validator.check_schema(schema)
     except (OSError, ValueError, SchemaError) as exc:
@@ -309,7 +312,7 @@ def _json_path(parts: Any) -> str:
 
 
 def validate_normalized_report(data: Any) -> None:
-    schema = read_normalized_report_schema()
+    schema = read_normalized_report_schema(data.get("schemaVersion", "1") if isinstance(data, Mapping) else "1")
     errors = sorted(
         Draft202012Validator(
             schema, format_checker=FormatChecker()
@@ -323,6 +326,49 @@ def validate_normalized_report(data: Any) -> None:
                 for error in errors
             )
         )
+    if isinstance(data, Mapping) and data.get("schemaVersion") == "2":
+        from venfour.ccc_evidence import normalize_ccc_evidence_v2, validate_ccc_source_claims
+        plain = _thaw_json(data)
+        source_data = {
+            "report": plain["report"], "vehicle": plain["vehicle"],
+            "comparables": plain["evidence"]["comparableAppearances"],
+            "contributionRows": plain["evidence"]["contributionRows"],
+        }
+        try:
+            validate_ccc_source_claims(source_data)
+        except ValueError as exc:
+            raise NormalizedReportContractError((str(exc),)) from exc
+        expected = normalize_ccc_evidence_v2(source_data, plain)
+        if any(plain[field] != expected[field] for field in ("comparables", "evidence")):
+            raise NormalizedReportContractError(("$.evidence: source relationships do not match deterministic normalization",))
+
+
+def validate_effective_report(data: Any) -> None:
+    """Validate the versioned input projection used by the live orchestrator."""
+    version = data.get("schemaVersion", "1") if isinstance(data, Mapping) else "1"
+    if version == "1":
+        legacy = _thaw_json(data)
+        vehicle = legacy.get("vehicle", {}) if isinstance(legacy, Mapping) else {}
+        if "drivetrain" in vehicle:
+            from venfour.ccc_evidence import DRIVETRAINS
+            if vehicle["drivetrain"] not in DRIVETRAINS | {None}:
+                raise NormalizedReportContractError(("$.vehicle.drivetrain: invalid explicit configuration",))
+            vehicle.pop("drivetrain")
+            vehicle.pop("drivetrainSource", None)
+        validate_extraction(legacy, read_canonical_schema())
+        return
+    if version != "2":
+        raise NormalizedReportContractError(("$.schemaVersion: unsupported effective report",))
+    schema = json.loads((REPO_ROOT / "schemas" / "ccc" / "effective-report-v2.schema.json").read_text(encoding="utf-8"))
+    errors = sorted(Draft202012Validator(schema, format_checker=FormatChecker()).iter_errors(data), key=lambda error: str(error.path))
+    if errors:
+        raise NormalizedReportContractError(tuple(f"{_json_path(error.path)}: {error.message}" for error in errors))
+    raw = _thaw_json(data)
+    raw["comparables"] = raw["evidence"]["comparableAppearances"]
+    raw["contributionRows"] = raw["evidence"]["contributionRows"]
+    expected = normalized_report_to_legacy_report(normalize_ccc_report(raw))
+    if any(data[field] != expected[field] for field in ("comparables", "evidence")):
+        raise NormalizedReportContractError(("$.evidence: effective source relationships do not match normalization",))
 
 
 def validate_canonical_pdf(path: Path | str) -> ValidatedReportDocument:
@@ -573,6 +619,9 @@ def normalize_ccc_report(data: Mapping[str, Any]) -> dict[str, Any]:
             "recalls": _string_items(supplemental.get("recalls")),
         },
     }
+    if data.get("schemaVersion") == "2":
+        from venfour.ccc_evidence import normalize_ccc_evidence_v2
+        normalized = normalize_ccc_evidence_v2(data, normalized)
     validate_normalized_report(normalized)
     return normalized
 
@@ -614,7 +663,7 @@ def normalized_report_to_legacy_report(
                 "contributionPercent": comparable.get("contributionPercent"),
             }
         )
-    return {
+    legacy = {
         "report": {
             "provider": report.get("provider") or "Unknown valuation provider",
             "reportReferenceNumber": report.get("reportReferenceNumber"),
@@ -654,6 +703,17 @@ def normalized_report_to_legacy_report(
         "valuationNotes": list(normalized.get("valuationNotes") or []),
         "supplementalInformation": dict(normalized["supplementalInformation"]),
     }
+    if normalized["schemaVersion"] == "2":
+        legacy["schemaVersion"] = "2"
+        legacy["report"]["insurer"] = report["insurer"]
+        legacy["report"]["effectiveDate"] = report["effectiveDate"]
+        legacy["vehicle"]["drivetrain"] = vehicle["drivetrain"]
+        legacy["vehicle"]["drivetrainSource"] = copy.deepcopy(vehicle["drivetrainSource"])
+        for target, source in zip(legacy["comparables"], normalized["comparables"], strict=True):
+            for field in ("drivetrain", "sourcePrice", "source", "sourceReferences", "contributionBinding"):
+                target[field] = copy.deepcopy(source[field])
+        legacy["evidence"] = copy.deepcopy(normalized["evidence"])
+    return legacy
 
 
 def _value_at_path(data: Mapping[str, Any], path: str) -> Any:
@@ -771,11 +831,15 @@ class ReportIngestionService:
         *,
         ccc_extractor: Extractor = extract_report_with_openai,
         generic_extractor: Extractor = extract_generic_report_with_openai,
+        ccc_schema_version: str | None = None,
     ) -> None:
         if not callable(ccc_extractor) or not callable(generic_extractor):
             raise TypeError("Report extractors must be callable")
         self._ccc_extractor = ccc_extractor
         self._generic_extractor = generic_extractor
+        self._ccc_schema_version = ccc_schema_version or ("2" if ccc_extractor is extract_report_with_openai else "1")
+        if self._ccc_schema_version not in {"1", "2"}:
+            raise ValueError("Unsupported CCC extraction schema version")
 
     def ingest(self, pdf_path: Path | str) -> ReportIngestionResult:
         document = validate_canonical_pdf(pdf_path)
@@ -783,13 +847,16 @@ class ReportIngestionService:
         adapter = CCC_ADAPTER if detected_id == "CCC" else GENERIC_ADAPTER
         try:
             if adapter == CCC_ADAPTER:
-                ccc_schema = read_canonical_schema()
+                ccc_schema = read_canonical_schema(self._ccc_schema_version)
                 extracted = self._ccc_extractor(document.path, ccc_schema)
                 if not isinstance(extracted, AIExtractionResult):
                     raise ReportExtractionError(
                         "Report adapter returned an invalid result"
                     )
                 validate_extraction(extracted.data, ccc_schema)
+                if self._ccc_schema_version == "2":
+                    from venfour.ccc_evidence import validate_ccc_source_claims
+                    validate_ccc_source_claims(extracted.data, page_count=document.page_count)
                 normalized = normalize_ccc_report(extracted.data)
             else:
                 normalized_schema = read_normalized_report_schema()
@@ -802,13 +869,16 @@ class ReportIngestionService:
                 validate_normalized_report(normalized)
                 extracted_report = _mapping(normalized.get("report"))
                 if extracted_report.get("providerId") == "CCC":
-                    ccc_schema = read_canonical_schema()
+                    ccc_schema = read_canonical_schema(self._ccc_schema_version)
                     extracted = self._ccc_extractor(document.path, ccc_schema)
                     if not isinstance(extracted, AIExtractionResult):
                         raise ReportExtractionError(
                             "Report adapter returned an invalid result"
                         )
                     validate_extraction(extracted.data, ccc_schema)
+                    if self._ccc_schema_version == "2":
+                        from venfour.ccc_evidence import validate_ccc_source_claims
+                        validate_ccc_source_claims(extracted.data, page_count=document.page_count)
                     normalized = normalize_ccc_report(extracted.data)
                     detected_id, detected_name = "CCC", "CCC"
                     adapter = CCC_ADAPTER
@@ -890,5 +960,6 @@ __all__ = [
     "normalized_report_to_legacy_report",
     "read_normalized_report_schema",
     "validate_canonical_pdf",
+    "validate_effective_report",
     "validate_normalized_report",
 ]

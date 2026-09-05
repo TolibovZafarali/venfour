@@ -157,7 +157,10 @@
           "DISTANCE_FAR",
           "DISTANCE_UNAVAILABLE",
           "DISTANCE_ORIGIN_UNAVAILABLE",
-          "VIN_UNAVAILABLE"
+          "VIN_UNAVAILABLE",
+          "EXACT_DRIVETRAIN",
+          "DRIVETRAIN_MISMATCH",
+          "LISTING_DRIVETRAIN_UNAVAILABLE"
         ]
       }
     }
@@ -286,6 +289,15 @@
         "distanceMiles": {
           "type": ["number", "null"],
           "minimum": 0
+        },
+        "drivetrain": {
+          "enum": [
+            "FWD",
+            "RWD",
+            "AWD",
+            "4WD",
+            null
+          ]
         }
       }
     }

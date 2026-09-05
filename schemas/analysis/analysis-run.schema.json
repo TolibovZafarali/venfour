@@ -20,6 +20,9 @@
     },
     {
       "$ref": "#/$defs/analysisRunV6"
+    },
+    {
+      "$ref": "#/$defs/analysisRunV7"
     }
   ],
   "$defs": {
@@ -255,10 +258,7 @@
           "pattern": "\\S"
         },
         "version": {
-          "type": [
-            "string",
-            "null"
-          ],
+          "type": ["string", "null"],
           "minLength": 1,
           "pattern": "\\S"
         }
@@ -471,58 +471,94 @@
         {
           "if": {
             "properties": {
-              "inputMode": { "const": "MANUAL" }
+              "inputMode": {
+                "const": "MANUAL"
+              }
             }
           },
           "then": {
             "properties": {
-              "reportAvailable": { "const": false },
-              "reportExtractionAvailable": { "const": false },
-              "reportProvider": { "type": "null" },
-              "reportAdapter": { "type": "null" },
-              "partialExtraction": { "const": false },
-              "reportComparablesAvailable": { "const": false },
-              "reportAdjustmentsAvailable": { "const": false }
+              "reportAvailable": {
+                "const": false
+              },
+              "reportExtractionAvailable": {
+                "const": false
+              },
+              "reportProvider": {
+                "type": "null"
+              },
+              "reportAdapter": {
+                "type": "null"
+              },
+              "partialExtraction": {
+                "const": false
+              },
+              "reportComparablesAvailable": {
+                "const": false
+              },
+              "reportAdjustmentsAvailable": {
+                "const": false
+              }
             }
           }
         },
         {
           "if": {
             "properties": {
-              "inputMode": { "const": "REPORT" }
+              "inputMode": {
+                "const": "REPORT"
+              }
             }
           },
           "then": {
             "properties": {
-              "reportAvailable": { "const": true }
+              "reportAvailable": {
+                "const": true
+              }
             }
           }
         },
         {
           "if": {
             "properties": {
-              "reportExtractionAvailable": { "const": false }
+              "reportExtractionAvailable": {
+                "const": false
+              }
             }
           },
           "then": {
             "properties": {
-              "reportAdapter": { "type": "null" },
-              "partialExtraction": { "const": false },
-              "reportComparablesAvailable": { "const": false },
-              "reportAdjustmentsAvailable": { "const": false }
+              "reportAdapter": {
+                "type": "null"
+              },
+              "partialExtraction": {
+                "const": false
+              },
+              "reportComparablesAvailable": {
+                "const": false
+              },
+              "reportAdjustmentsAvailable": {
+                "const": false
+              }
             }
           }
         },
         {
           "if": {
             "properties": {
-              "reportExtractionAvailable": { "const": true }
+              "reportExtractionAvailable": {
+                "const": true
+              }
             }
           },
           "then": {
             "properties": {
-              "reportAvailable": { "const": true },
-              "reportAdapter": { "type": "string" }
+              "reportAvailable": {
+                "const": true
+              },
+              "reportAdapter": {
+                "type": "string"
+              }
             }
           }
         }
@@ -550,10 +586,7 @@
           ]
         },
         "lossDateOverride": {
-          "type": [
-            "string",
-            "null"
-          ],
+          "type": ["string", "null"],
           "format": "date"
         },
         "currentSearchRequest": {
@@ -563,10 +596,7 @@
           "$ref": "#/$defs/nullableHistoricalSearchRequest"
         },
         "currentObservedDate": {
-          "type": [
-            "string",
-            "null"
-          ],
+          "type": ["string", "null"],
           "format": "date"
         }
       }
@@ -594,10 +624,7 @@
           ]
         },
         "lossDateOverride": {
-          "type": [
-            "string",
-            "null"
-          ],
+          "type": ["string", "null"],
           "format": "date"
         },
         "currentSearchRequest": {
@@ -607,10 +634,7 @@
           "$ref": "#/$defs/nullableHistoricalSearchRequest"
         },
         "currentObservedDate": {
-          "type": [
-            "string",
-            "null"
-          ],
+          "type": ["string", "null"],
           "format": "date"
         },
         "searchPolicy": {
@@ -641,10 +665,7 @@
           ]
         },
         "lossDateOverride": {
-          "type": [
-            "string",
-            "null"
-          ],
+          "type": ["string", "null"],
           "format": "date"
         },
         "currentSearchRequest": {
@@ -654,10 +675,7 @@
           "$ref": "#/$defs/nullableHistoricalSearchRequest"
         },
         "currentObservedDate": {
-          "type": [
-            "string",
-            "null"
-          ],
+          "type": ["string", "null"],
           "format": "date"
         },
         "searchPolicies": {
@@ -689,10 +707,7 @@
           ]
         },
         "lossDateOverride": {
-          "type": [
-            "string",
-            "null"
-          ],
+          "type": ["string", "null"],
           "format": "date"
         },
         "currentSearchRequest": {
@@ -702,10 +717,7 @@
           "$ref": "#/$defs/nullableHistoricalSearchRequest"
         },
         "currentObservedDate": {
-          "type": [
-            "string",
-            "null"
-          ],
+          "type": ["string", "null"],
           "format": "date"
         },
         "configuredSearchPolicies": {
@@ -1284,6 +1296,65 @@
         "CURRENT_SEARCH_CEILING_REACHED",
         "CURRENT_PROVIDER_PARTIAL_RESULTS"
       ]
+    },
+    "analysisRunV7": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "analysisRunSchemaVersion",
+        "runId",
+        "createdAt",
+        "analysisVersion",
+        "discrepancyAnalysisVersion",
+        "comparableScoringVersion",
+        "requestDigest",
+        "searchDiagnosticsDigest",
+        "providers",
+        "request",
+        "result",
+        "evidenceContext"
+      ],
+      "properties": {
+        "analysisRunSchemaVersion": {
+          "const": "7"
+        },
+        "runId": {
+          "$ref": "#/$defs/runId"
+        },
+        "createdAt": {
+          "$ref": "#/$defs/createdAt"
+        },
+        "analysisVersion": {
+          "const": "7"
+        },
+        "discrepancyAnalysisVersion": {
+          "enum": [
+            "1",
+            "2"
+          ]
+        },
+        "comparableScoringVersion": {
+          "const": "2"
+        },
+        "requestDigest": {
+          "$ref": "#/$defs/requestDigest"
+        },
+        "searchDiagnosticsDigest": {
+          "$ref": "#/$defs/requestDigest"
+        },
+        "providers": {
+          "$ref": "#/$defs/providers"
+        },
+        "request": {
+          "$ref": "#/$defs/analysisRunRequestV4"
+        },
+        "result": {
+          "$ref": "#/$defs/analysisRunResultV4"
+        },
+        "evidenceContext": {
+          "$ref": "#/$defs/evidenceContext"
+        }
+      }
     }
   }
 }

@@ -10,7 +10,7 @@ import json
 import math
 import re
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from functools import lru_cache
 from pathlib import Path
 from typing import Any, Protocol, runtime_checkable
@@ -148,6 +148,21 @@ def _trim_optional(value: Any) -> Any:
     return normalized or None
 
 
+def normalize_drivetrain(value: Any) -> str | None:
+    """Normalize an explicit drive-type field without interpreting other facts."""
+
+    if not isinstance(value, str):
+        return None
+    normalized = " ".join(value.casefold().replace("-", " ").split())
+    return {
+        "fwd": "FWD", "front wheel drive": "FWD",
+        "rwd": "RWD", "rear wheel drive": "RWD",
+        "awd": "AWD", "all wheel drive": "AWD",
+        "4wd": "4WD", "4x4": "4WD", "four wheel drive": "4WD",
+        "4 wheel drive": "4WD",
+    }.get(normalized)
+
+
 def _has_unsupported_configuration_character(value: str) -> bool:
     return any(
         ord(character) < 32
@@ -252,6 +267,8 @@ class MarketSearchRequest:
     radius_miles: int = 50
     result_limit: int = 25
     configuration: VehicleConfigurationIdentity | None = None
+    drivetrain: str | None = None
+    drivetrain_recorded: bool = field(default=False, compare=False, repr=False)
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "make", _trim_required(self.make))
@@ -282,6 +299,8 @@ class MarketSearchRequest:
         }
         if self.configuration is not None:
             data["configuration"] = self.configuration.to_dict()
+        if self.drivetrain_recorded or self.drivetrain is not None:
+            data["drivetrain"] = self.drivetrain
         return data
 
 
@@ -327,6 +346,8 @@ class MarketListing:
     mileage: int | None = None
     dealer: MarketDealer | None = None
     distance_miles: int | float | None = None
+    drivetrain: str | None = None
+    drivetrain_recorded: bool = field(default=False, compare=False, repr=False)
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "source", _trim_required(self.source))
@@ -343,7 +364,7 @@ class MarketListing:
         """Return canonical data without provider-specific payload fields."""
 
         dealer = self.dealer.to_dict() if self.dealer is not None else None
-        return {
+        data = {
             "source": self.source,
             "sourceListingId": self.source_listing_id,
             "listingUrl": self.listing_url,
@@ -357,6 +378,9 @@ class MarketListing:
             "dealer": dealer,
             "distanceMiles": self.distance_miles,
         }
+        if self.drivetrain_recorded or self.drivetrain is not None:
+            data["drivetrain"] = self.drivetrain
+        return data
 
 
 @dataclass(frozen=True)
@@ -413,6 +437,8 @@ def normalize_market_search_request(
         model=request.model,
         trim=request.trim,
         configuration=request.configuration,
+        drivetrain=request.drivetrain,
+        drivetrain_recorded=request.drivetrain_recorded,
         loss_vehicle_mileage=request.loss_vehicle_mileage,
         postal_code=request.postal_code,
         radius_miles=request.radius_miles,

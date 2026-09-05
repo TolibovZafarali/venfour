@@ -221,6 +221,7 @@ class ValuationDiscrepancyRequest:
     policy: ValuationDiscrepancyPolicy = field(
         default_factory=ValuationDiscrepancyPolicy
     )
+    report_evidence_version: str | None = None
 
     def __post_init__(self) -> None:
         object.__setattr__(
@@ -231,6 +232,10 @@ class ValuationDiscrepancyRequest:
 
     def to_dict(self) -> dict[str, Any]:
         return {
+            **(
+                {"reportEvidenceVersion": self.report_evidence_version}
+                if self.report_evidence_version is not None else {}
+            ),
             "lossVehicle": self.loss_vehicle.to_dict(),
             "lossDate": self.loss_date,
             "cccVehicleValuation": self.ccc_vehicle_valuation,
@@ -330,9 +335,11 @@ class CccComparableEvidence:
     adjustments: CccAdjustmentAmounts
     adjustment_disclosure: str
     contribution_percent: int | float | None
+    source_facts: Mapping[str, Any] | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
+            **(copy.deepcopy(dict(self.source_facts)) if self.source_facts is not None else {}),
             "index": self.index,
             "comparableNumber": self.comparable_number,
             "year": self.year,
@@ -406,9 +413,11 @@ class SelectedExternalEvidence:
     tier: str
     temporal_basis: str
     evidence_date: str | None
+    configuration: Mapping[str, Any] | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
+            **(copy.deepcopy(dict(self.configuration)) if self.configuration is not None else {}),
             "source": self.source,
             "sourceListingId": self.source_listing_id,
             "vin": self.vin,
@@ -1039,6 +1048,21 @@ def _request_semantic_errors(data: Mapping[str, Any]) -> list[str]:
         errors.extend(exc.details)
 
     for index, comparable in enumerate(data["cccComparables"]):
+        source_price = comparable.get("sourcePrice")
+        if data.get("reportEvidenceVersion") == "2" and not isinstance(source_price, Mapping):
+            errors.append(f"$.cccComparables[{index}].sourcePrice: required by report evidence v2")
+        if isinstance(source_price, Mapping):
+            if data.get("reportEvidenceVersion") != "2":
+                errors.append(f"$.cccComparables[{index}].sourcePrice: requires report evidence v2")
+            expected_list = source_price["amount"] if source_price["type"] == "ADVERTISED" else None
+            if comparable["listPrice"] != expected_list:
+                errors.append(f"$.cccComparables[{index}].listPrice: must contain only the advertised source amount")
+            if comparable["contributionPercent"] is not None and comparable["contributionBinding"]["status"] != "BOUND":
+                errors.append(f"$.cccComparables[{index}].contributionPercent: requires bound source identity")
+            try:
+                _money_to_cents(source_price["amount"], f"$.cccComparables[{index}].sourcePrice.amount", nullable=True)
+            except DiscrepancyContractError as exc:
+                errors.extend(exc.details)
         for field_name in ("listPrice", "adjustedValue"):
             try:
                 _money_to_cents(
@@ -1129,6 +1153,7 @@ def _request_semantic_errors(data: Mapping[str, Any]) -> list[str]:
                 )
         historical_request = result["request"]
         historical_target = {
+            **({"drivetrain": historical_request["drivetrain"]} if "drivetrain" in historical_request else {}),
             "year": historical_request["year"],
             "make": historical_request["make"],
             "model": historical_request["model"],
@@ -1377,6 +1402,10 @@ def valuation_discrepancy_request_from_report(
             )
         projected_comparables.append(
             {
+                **({key: copy.deepcopy(comparable.get(key)) for key in (
+                    "drivetrain", "sourcePrice", "source", "sourceReferences",
+                    "contributionBinding",
+                )} if report.get("schemaVersion") == "2" else {}),
                 "number": comparable.get("number"),
                 "year": comparable.get("year"),
                 "make": comparable.get("make"),
@@ -1404,6 +1433,7 @@ def valuation_discrepancy_request_from_report(
         historical_evidence=historical_evidence,
         current_evidence=current_evidence,
         policy=policy if policy is not None else ValuationDiscrepancyPolicy(),
+        report_evidence_version="2" if report.get("schemaVersion") == "2" else None,
     )
     validate_valuation_discrepancy_request(request)
     return request
@@ -1429,13 +1459,19 @@ def _ccc_comparable_summary(
             f"$.cccComparables[{index}].adjustedValue",
             nullable=True,
         )
+        source_price = comparable.get("sourcePrice")
+        source_amount = (
+            _money_to_cents(source_price["amount"],
+                            f"$.cccComparables[{index}].sourcePrice.amount", nullable=True)
+            if isinstance(source_price, Mapping) else list_price
+        )
         if list_price is not None:
             list_prices.append(list_price)
         if adjusted_value is not None:
             adjusted_values.append(adjusted_value)
         net_adjustment = (
-            adjusted_value - list_price
-            if adjusted_value is not None and list_price is not None
+            adjusted_value - source_amount
+            if adjusted_value is not None and source_amount is not None
             else None
         )
         if net_adjustment is not None:
@@ -1457,7 +1493,7 @@ def _ccc_comparable_summary(
             for name in ADJUSTMENT_FIELDS
         }
         disclosed_count = sum(value is not None for value in component_values.values())
-        if list_price is None or adjusted_value is None:
+        if source_amount is None or adjusted_value is None:
             disclosure = "unavailable"
         elif disclosed_count == len(ADJUSTMENT_FIELDS):
             disclosure = "full"
@@ -1497,6 +1533,18 @@ def _ccc_comparable_summary(
                 ),
                 adjustment_disclosure=disclosure,
                 contribution_percent=comparable.get("contributionPercent"),
+                source_facts=(
+                    {
+                        **{key: copy.deepcopy(comparable.get(key)) for key in (
+                            "drivetrain", "source", "sourceReferences", "contributionBinding",
+                        )},
+                        "sourcePrice": {
+                            "amountCents": source_amount,
+                            "type": source_price["type"],
+                            "label": source_price["label"],
+                        },
+                    } if isinstance(source_price, Mapping) else None
+                ),
             )
         )
 
@@ -1619,6 +1667,12 @@ def _selected_external_evidence(
                 tier=candidate["tier"],
                 temporal_basis=temporal_basis,
                 evidence_date=evidence_date,
+                configuration=(
+                    {
+                        "drivetrain": listing.get("drivetrain"),
+                        "lossVehicleDrivetrain": target.get("drivetrain"),
+                    } if "drivetrain" in target or "drivetrain" in listing else None
+                ),
             )
         )
     return tuple(results)
@@ -2412,8 +2466,18 @@ def analyze_valuation_discrepancy(
         historical_summary=historical_summary,
         current_summary=current_summary,
     )
+    source_evidence_recorded = (
+        request.report_evidence_version == "2"
+        or "drivetrain" in target_data
+        or any(
+            item.configuration is not None
+            for summary in (historical_summary, current_summary)
+            if summary is not None
+            for item in summary.selected_evidence
+        )
+    )
     result = ValuationDiscrepancyResult(
-        analysis_version=VALUATION_DISCREPANCY_ANALYSIS_VERSION,
+        analysis_version="2" if source_evidence_recorded else VALUATION_DISCREPANCY_ANALYSIS_VERSION,
         classification=classification,
         evidence_strength=strength,
         evidence_basis=evidence_basis,
@@ -2468,27 +2532,35 @@ def _ccc_result_semantic_errors(data: Mapping[str, Any]) -> list[str]:
                 "its array position"
             )
         list_price = row["listPriceCents"]
+        source_price = row.get("sourcePrice")
+        source_amount = source_price["amountCents"] if isinstance(source_price, Mapping) else list_price
+        if isinstance(source_price, Mapping):
+            expected_list = source_amount if source_price["type"] == "ADVERTISED" else None
+            if list_price != expected_list:
+                errors.append(f"$.cccComparableSummary.comparables[{index}].listPriceCents: must contain only advertised source prices")
+            if row["contributionPercent"] is not None and row["contributionBinding"]["status"] != "BOUND":
+                errors.append(f"$.cccComparableSummary.comparables[{index}].contributionPercent: requires bound source identity")
         adjusted = row["adjustedValueCents"]
         if list_price is not None:
             list_prices.append(list_price)
         if adjusted is not None:
             adjusted_values.append(adjusted)
         expected_net = (
-            adjusted - list_price
-            if adjusted is not None and list_price is not None
+            adjusted - source_amount
+            if adjusted is not None and source_amount is not None
             else None
         )
         if row["netAdjustmentCents"] != expected_net:
             errors.append(
                 f"$.cccComparableSummary.comparables[{index}].netAdjustmentCents: "
-                "must equal adjustedValueCents - listPriceCents"
+                "must equal adjustedValueCents minus the source price amount"
             )
         if expected_net is not None:
             nets.append(expected_net)
 
         component_values = list(row["adjustments"].values())
         disclosed_count = sum(value is not None for value in component_values)
-        if list_price is None or adjusted is None:
+        if source_amount is None or adjusted is None:
             expected_disclosure = "unavailable"
         elif disclosed_count == len(ADJUSTMENT_FIELDS):
             expected_disclosure = "full"
@@ -2632,6 +2704,10 @@ def _external_result_semantic_errors(
             if score >= GOOD_SCORE_MINIMUM
             else "WEAK"
         )
+        if item.get("lossVehicleDrivetrain") is not None and item.get("drivetrain") is None and expected_tier == STRONG:
+            expected_tier = "GOOD"
+        if item.get("lossVehicleDrivetrain") is not None and item.get("drivetrain") is not None and item["drivetrain"] != item["lossVehicleDrivetrain"]:
+            errors.append(f"{path}.selectedEvidence[{index}].drivetrain: known mismatches cannot be selected")
         if item["tier"] != expected_tier:
             errors.append(
                 f"{path}.selectedEvidence[{index}].tier: does not match its "
@@ -2992,6 +3068,16 @@ def _expected_result_limitation_codes(data: Mapping[str, Any]) -> tuple[str, ...
 
 def _result_semantic_errors(data: Mapping[str, Any]) -> list[str]:
     errors: list[str] = []
+    if data["analysisVersion"] == "1" and (
+        any("sourcePrice" in row for row in data["cccComparableSummary"]["comparables"])
+        or any(
+            "drivetrain" in row
+            for key in ("historicalExternalSummary", "currentExternalSummary")
+            if data[key] is not None
+            for row in data[key]["selectedEvidence"]
+        )
+    ):
+        errors.append("$.analysisVersion: richer source evidence requires version 2")
     policy = data["policy"]
     errors.extend(_policy_semantic_errors(policy))
     valuation = data["cccVehicleValuationCents"]

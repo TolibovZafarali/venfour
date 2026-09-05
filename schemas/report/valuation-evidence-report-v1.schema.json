@@ -320,7 +320,43 @@
         "adjustmentDisclosure": { "$ref": "#/$defs/nonEmptyString" },
         "contributionPercent": { "type": ["integer", "number", "null"] },
         "evidenceLabel": { "const": "INSURER_EXTRACTED" },
-        "evidenceIds": { "$ref": "#/$defs/evidenceIds" }
+        "evidenceIds": { "$ref": "#/$defs/evidenceIds" },
+        "sourcePrice": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "amount",
+            "type",
+            "typeLabel",
+            "label"
+          ],
+          "properties": {
+            "amount": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "type": {
+              "enum": [
+                "ADVERTISED",
+                "TAKE",
+                "SOLD",
+                "OTHER",
+                "UNKNOWN"
+              ]
+            },
+            "typeLabel": {
+              "type": "string"
+            },
+            "label": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        }
       }
     },
     "insurerComparableReview": {

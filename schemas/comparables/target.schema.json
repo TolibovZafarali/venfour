@@ -32,6 +32,15 @@
       "type": ["string", "null"],
       "minLength": 1,
       "pattern": "\\S"
+    },
+    "drivetrain": {
+      "enum": [
+        "FWD",
+        "RWD",
+        "AWD",
+        "4WD",
+        null
+      ]
     }
   }
 }

@@ -32,7 +32,11 @@ from venfour.market import (
     MarketProviderError,
     VehicleConfigurationIdentity,
 )
-from venfour.marketcheck import MarketCheckHistoricalProvider, MarketCheckProvider
+from venfour.marketcheck import (
+    MarketCheckHistoricalProvider,
+    MarketCheckProvider,
+    configuration_drivetrain,
+)
 from venfour.orchestration import (
     AnalysisExecutionError,
     AnalysisInputError,
@@ -466,6 +470,25 @@ class AnalysisCreationService:
                 confirmed, normalized_report
             )
             report_data = normalized_report_to_legacy_report(normalized)
+            confirmed_drivetrain = configuration_drivetrain(
+                confirmed.vehicle_configuration
+            )
+            if confirmed_drivetrain is not None:
+                report_data["vehicle"]["drivetrain"] = confirmed_drivetrain
+                report_data["vehicle"]["drivetrainSource"] = {
+                    "page": None,
+                    "section": "Customer-confirmed provider configuration",
+                    "label": "Drive type",
+                    "text": " | ".join(confirmed.vehicle_configuration.values),
+                }
+                for check in report_data.get("evidence", {}).get("fieldChecks", []):
+                    if check["path"] == "vehicle.drivetrain":
+                        check.update(
+                            status="CAPTURED",
+                            materiality="MATERIAL",
+                            reasonCodes=[],
+                            sourceReferences=[report_data["vehicle"]["drivetrainSource"]],
+                        )
             selected_adapter = report_adapter
             if normalized_report is not None and selected_adapter is None:
                 selected_adapter = "GENERIC"

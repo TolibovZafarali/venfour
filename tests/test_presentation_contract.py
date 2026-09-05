@@ -245,8 +245,8 @@ class PresentationSchemaContractTests(unittest.TestCase):
     def test_schema_declares_the_public_presentation_version(self) -> None:
         self.assertIn("presentationVersion", self.schema["required"])
         self.assertEqual(
-            self.schema["properties"]["presentationVersion"]["const"],
-            ANALYSIS_PRESENTATION_VERSION,
+            self.schema["properties"]["presentationVersion"]["enum"],
+            [ANALYSIS_PRESENTATION_VERSION, "3"],
         )
 
     def test_every_explicit_object_schema_rejects_unknown_properties(self) -> None:

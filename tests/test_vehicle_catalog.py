@@ -396,5 +396,26 @@ class VehicleTrimNormalizationTests(unittest.TestCase):
             normalized_options(aliases)
 
 
+class ExplicitVersionDrivetrainTests(unittest.TestCase):
+    def test_explicit_aliases_must_agree(self) -> None:
+        from venfour.vehicle_catalog import explicit_version_drivetrain
+
+        self.assertEqual(
+            explicit_version_drivetrain(("SE FWD", "SE Front Wheel Drive")),
+            "FWD",
+        )
+        self.assertEqual(
+            explicit_version_drivetrain(("SE 4WD", "SE 4x4")), "4WD"
+        )
+
+    def test_absent_conflicting_or_incomplete_aliases_remain_unknown(self) -> None:
+        from venfour.vehicle_catalog import explicit_version_drivetrain
+
+        for values in ((), ("SE",), ("SE AWD", "SE FWD"),
+                       ("SE AWD", "SE"), ("SE AWD FWD",), (None,)):
+            with self.subTest(values=values):
+                self.assertIsNone(explicit_version_drivetrain(values))
+
+
 if __name__ == "__main__":
     unittest.main()

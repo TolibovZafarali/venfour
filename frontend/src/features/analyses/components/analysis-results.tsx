@@ -1377,10 +1377,10 @@ function CccComparableCard({
       >
         <div className="pr-3">
           <p className="text-[0.68rem] leading-4 text-neutral-500">
-            Advertised
+            {row.sourcePrice?.typeLabel ?? "Advertised"}
           </p>
           <p className="mt-1 text-sm font-semibold text-neutral-950 tabular-nums sm:text-base">
-            {displayMoney(row.advertisedPrice)}
+            {displayMoney(row.sourcePrice?.amount ?? row.advertisedPrice)}
           </p>
         </div>
         {showAdjustments ? (
@@ -1518,7 +1518,7 @@ function CccComparables({ analysis }: AnalysisResultsProps) {
         title={`What the ${reportLabel} used in its valuation`}
         description={`The ${reportLabel} includes ${formatWholeNumber(
           summary.totalCount,
-        )} comparable vehicles. The values below show the report’s advertised prices${
+        )} comparable vehicles. The values below show the report’s source prices${
           adjustmentsAvailable
             ? " and disclosed adjustments without judging whether any individual adjustment was appropriate"
             : "; report adjustment details were not available for this review"

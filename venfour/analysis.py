@@ -132,6 +132,7 @@ def analyze_report(report: Mapping[str, Any]) -> dict[str, Any]:
     if not isinstance(report, Mapping):
         raise TypeError("report must be a JSON object")
 
+    evidence_v2 = report.get("schemaVersion") == "2"
     findings: list[dict[str, Any]] = []
 
     def add_finding(
@@ -489,7 +490,7 @@ def analyze_report(report: Mapping[str, Any]) -> dict[str, Any]:
             missing_adjusted_indexes.append(index)
         else:
             adjusted_values.append(adjusted_value)
-        if list_price is None:
+        if list_price is None and (not evidence_v2 or _decimal(_mapping(comparable.get("sourcePrice")).get("amount")) is None):
             missing_list_price_indexes.append(index)
         if mileage is None:
             missing_mileage_indexes.append(index)
@@ -591,7 +592,8 @@ def analyze_report(report: Mapping[str, Any]) -> dict[str, Any]:
             field: _json_number(value) for field, value in component_decimals.items()
         }
         disclosed_count = sum(value is not None for value in component_decimals.values())
-        list_price = _decimal(comparable.get("listPrice"))
+        source_price = _mapping(comparable.get("sourcePrice"))
+        list_price = _decimal(source_price.get("amount")) if evidence_v2 else _decimal(comparable.get("listPrice"))
         adjusted_value = _decimal(comparable.get("adjustedValue"))
         net_adjustment = (
             adjusted_value - list_price
@@ -633,7 +635,8 @@ def analyze_report(report: Mapping[str, Any]) -> dict[str, Any]:
             {
                 "index": index,
                 "comparableNumber": _comparable_number(comparable),
-                "listPrice": _json_number(list_price),
+                "listPrice": _number(comparable.get("listPrice")),
+                **({"sourcePrice": dict(source_price)} if evidence_v2 else {}),
                 "adjustedValue": _json_number(adjusted_value),
                 "netAdjustment": _json_number(net_adjustment),
                 "disclosure": disclosure,
@@ -653,8 +656,8 @@ def analyze_report(report: Mapping[str, Any]) -> dict[str, Any]:
             evidence.extend(
                 [
                     _evidence(
-                        f"$.comparables[{index}].listPrice",
-                        _number(comparable.get("listPrice")),
+                        f"$.comparables[{index}].sourcePrice.amount" if evidence_v2 else f"$.comparables[{index}].listPrice",
+                        _number(_mapping(comparable.get("sourcePrice")).get("amount")) if evidence_v2 else _number(comparable.get("listPrice")),
                     ),
                     *[
                         _evidence(
@@ -688,7 +691,7 @@ def analyze_report(report: Mapping[str, Any]) -> dict[str, Any]:
             entry = adjustment_entries[index]
             mismatch_descriptions.append(
                 f"comparable {entry['comparableNumber'] if entry['comparableNumber'] is not None else f'at index {index}'}: "
-                f"list {entry['listPrice']}, components {entry['components']}, expected "
+                f"{'source price' if evidence_v2 else 'list'} {entry['sourcePrice']['amount'] if evidence_v2 else entry['listPrice']}, components {entry['components']}, expected "
                 f"{entry['expectedAdjustedValue']}, actual {entry['adjustedValue']}, difference "
                 f"{entry['difference']}"
             )
@@ -713,8 +716,8 @@ def analyze_report(report: Mapping[str, Any]) -> dict[str, Any]:
             "REVIEW",
             "transparency",
             "Comparable adjustments cannot be reconstructed",
-            "Adjusted value differs from list price, but all component adjustment "
-            "amounts are unavailable for " + ", ".join(net_descriptions) + ".",
+            ("Adjusted value differs from the source price, but all component adjustment " if evidence_v2 else "Adjusted value differs from list price, but all component adjustment ")
+            + "amounts are unavailable for " + ", ".join(net_descriptions) + ".",
             adjustment_evidence(undisclosed_nonzero_indexes),
             _valid_numbers(comparables, undisclosed_nonzero_indexes),
         )
@@ -960,13 +963,65 @@ def analyze_report(report: Mapping[str, Any]) -> dict[str, Any]:
         "displayedSum": _json_number(contribution_sum),
     }
 
+    if evidence_v2:
+        source_evidence = _mapping(report.get("evidence"))
+        source_rows = source_evidence.get("contributionRows", [])
+        bindings = source_evidence.get("contributionBindings", [])
+        bound_rows: set[int] = set()
+        unresolved_rows: set[int] = set()
+        for row_index, source_row in enumerate(source_rows):
+            matches = [item for item in bindings if item.get("rowIndex") == row_index]
+            if len(matches) != 1 or matches[0].get("status") != "BOUND":
+                unresolved_rows.add(row_index)
+                continue
+            comparable_index = matches[0].get("comparableIndex")
+            if not isinstance(comparable_index, int) or not 0 <= comparable_index < len(comparables):
+                unresolved_rows.add(row_index)
+                continue
+            comparable = comparables[comparable_index]
+            binding = _mapping(comparable.get("contributionBinding"))
+            if (binding.get("status") != "BOUND"
+                or row_index not in binding.get("rowIndexes", [])
+                or _decimal(source_row.get("contributionPercent")) is None
+                or _decimal(source_row.get("contributionPercent")) != _decimal(comparable.get("contributionPercent"))):
+                unresolved_rows.add(row_index)
+                continue
+            bound_rows.add(row_index)
+        binding_status = (
+            "BOUND"
+            if source_rows and not unresolved_rows and not missing_contribution_indexes
+            else "UNRESOLVED" if source_rows else "UNAVAILABLE"
+        )
+        findings[:] = [finding for finding in findings if finding["code"] != "CONTRIBUTION_PERCENTAGES"]
+        complete = binding_status == "BOUND" and contribution_sum is not None
+        add_finding(
+            "CONTRIBUTION_PERCENTAGES",
+            "PASS" if complete and contribution_sum == Decimal(100) else "REVIEW",
+            "transparency",
+            "Bound contribution percentages total 100%" if complete and contribution_sum == Decimal(100) else "Contribution evidence needs review",
+            ("Contribution rows are linked to comparable identities and their logical comparable percentages total 100%. "
+             "The total alone does not prove row linkage, the vendor's weighting method, or the base vehicle value.")
+            if complete and contribution_sum == Decimal(100) else
+            ("Some contribution evidence is unavailable, unresolved, or does not total 100%. "
+             "This describes Venfour's representation and does not establish an insurer weighting error."),
+            contribution_evidence + [_evidence("$.evidence.contributionBindings", bindings)],
+            valid_numbers,
+        )
+        contribution_metric.update({
+            "availability": "complete" if complete else "partial" if contribution_values else "unavailable",
+            "bindingStatus": binding_status,
+            "sourceRowCount": len(source_rows),
+            "boundSourceRowCount": len(bound_rows),
+            "unresolvedSourceRowCount": len(unresolved_rows),
+        })
+
     finding_counts = {
         status: sum(finding["status"] == status for finding in findings)
         for status in FINDING_STATUSES
     }
 
     return {
-        "analysisVersion": ANALYSIS_VERSION,
+        "analysisVersion": "2" if evidence_v2 else ANALYSIS_VERSION,
         "summary": {
             "baseVehicleValue": _json_number(base_value),
             "conditionAdjustment": _json_number(condition_adjustment),

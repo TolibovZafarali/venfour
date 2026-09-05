@@ -994,9 +994,36 @@ def validate_report_projection(value: Any) -> dict[str, Any]:
     for comparable in insurer_comparables:
         if (
             not isinstance(comparable, Mapping)
-            or set(comparable) != insurer_comparable_keys
+            or set(comparable) not in (
+                insurer_comparable_keys,
+                insurer_comparable_keys | {"sourcePrice"},
+            )
         ):
             raise SupabaseContractError("Report insurer comparable is invalid")
+        if "sourcePrice" in comparable:
+            source_price = comparable["sourcePrice"]
+            labels = {
+                "ADVERTISED": "Advertised price",
+                "TAKE": "Take Price",
+                "SOLD": "Sold price",
+                "OTHER": "Other source price",
+                "UNKNOWN": "Source price (type unavailable)",
+            }
+            if (
+                not isinstance(source_price, Mapping)
+                or set(source_price) != {"amount", "type", "typeLabel", "label"}
+                or not isinstance(source_price.get("type"), str)
+                or source_price["type"] not in labels
+                or source_price["typeLabel"] != labels[source_price["type"]]
+            ):
+                raise SupabaseContractError("Report insurer source price is invalid")
+            for key in ("amount", "label"):
+                _bounded_text(source_price[key], "Report insurer source price", 2_000, nullable=True)
+            expected_advertised = (
+                source_price["amount"] if source_price["type"] == "ADVERTISED" else None
+            )
+            if comparable.get("advertisedPrice") != expected_advertised:
+                raise SupabaseContractError("Report insurer price type is inconsistent")
         for key in (
             "vehicle",
             "advertisedPrice",

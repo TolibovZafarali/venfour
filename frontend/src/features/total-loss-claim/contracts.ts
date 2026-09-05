@@ -152,6 +152,12 @@ export interface TotalLossInsurerEvidenceSummary {
 }
 
 export interface TotalLossInsurerComparable {
+  readonly sourcePrice?: Readonly<{
+    amount: string | null;
+    type: "ADVERTISED" | "TAKE" | "SOLD" | "OTHER" | "UNKNOWN";
+    typeLabel: string;
+    label: string | null;
+  }>;
   readonly adjustedValue: string | null;
   readonly adjustmentDisclosure: string | null;
   readonly adjustments: Readonly<{

@@ -17,6 +17,7 @@ from dataclasses import dataclass, field, replace
 from typing import Any
 
 from venfour.comparables import (
+    COMPARABLE_SCORING_VERSION,
     ComparableRankingResult,
     ComparableTarget,
     comparable_target_from_search_request,
@@ -600,6 +601,7 @@ class _CurrentState:
     request: MarketSearchRequest
     target: ComparableTarget
     policy: AdaptiveSearchPolicy
+    scoring_version: str = COMPARABLE_SCORING_VERSION
     listings: list[MarketListing] = field(default_factory=list)
     aliases: set[tuple[str, ...]] = field(default_factory=set)
     attempts: list[AdaptiveSearchAttempt] = field(default_factory=list)
@@ -649,7 +651,9 @@ class _CurrentState:
             request=expected_request,
             listings=tuple(self.listings),
         )
-        self.ranking = rank_market_comparables(self.target, aggregate)
+        self.ranking = rank_market_comparables(
+            self.target, aggregate, scoring_version=self.scoring_version
+        )
         strong = _stable_strong_count(self.ranking)
         attempt = AdaptiveSearchAttempt(
             result=result,
@@ -691,7 +695,9 @@ class _CurrentState:
             listings=tuple(self.listings),
         )
         validate_market_search_result(aggregate)
-        ranking = rank_market_comparables(self.target, aggregate)
+        ranking = rank_market_comparables(
+            self.target, aggregate, scoring_version=self.scoring_version
+        )
         return AdaptiveCurrentSearchResult(
             result=aggregate,
             ranking=ranking,
@@ -758,6 +764,7 @@ class _HistoricalState:
     request: HistoricalMarketSearchRequest
     target: ComparableTarget
     policy: AdaptiveSearchPolicy
+    scoring_version: str = COMPARABLE_SCORING_VERSION
     evidence: list[HistoricalEvidenceItem] = field(default_factory=list)
     issues: list[HistoricalEvidenceIssue] = field(default_factory=list)
     aliases: set[tuple[str, ...]] = field(default_factory=set)
@@ -914,7 +921,9 @@ class _HistoricalState:
             ).to_market_search_request(),
             listings=tuple(item.listing for item in self.evidence),
         )
-        return rank_market_comparables(self.target, projected)
+        return rank_market_comparables(
+            self.target, projected, scoring_version=self.scoring_version
+        )
 
     def finish(self, stop_reason: str) -> AdaptiveHistoricalSearchResult:
         if (
@@ -959,7 +968,8 @@ class _HistoricalState:
         validate_historical_market_search_result(aggregate)
         if ranking is not None:
             ranking = rank_market_comparables(
-                self.target, historical_evidence_to_market_search_result(aggregate)
+                self.target, historical_evidence_to_market_search_result(aggregate),
+                scoring_version=self.scoring_version,
             )
         return AdaptiveHistoricalSearchResult(
             result=aggregate,
@@ -1084,6 +1094,8 @@ def _listing_from_data(data: Mapping[str, Any]) -> MarketListing:
         make=data["make"],
         model=data["model"],
         trim=data.get("trim"),
+        drivetrain=data.get("drivetrain"),
+        drivetrain_recorded="drivetrain" in data,
         vin=data.get("vin"),
         mileage=data.get("mileage"),
         price=data["price"],
@@ -1098,6 +1110,8 @@ def _market_request_from_data(data: Mapping[str, Any]) -> MarketSearchRequest:
         make=data["make"],
         model=data["model"],
         trim=data.get("trim"),
+        drivetrain=data.get("drivetrain"),
+        drivetrain_recorded="drivetrain" in data,
         configuration=_configuration_from_data(data.get("configuration")),
         loss_vehicle_mileage=data.get("lossVehicleMileage"),
         postal_code=data.get("postalCode"),
@@ -1142,6 +1156,8 @@ def _historical_request_from_data(
         model=data["model"],
         postal_code=data["postalCode"],
         trim=data.get("trim"),
+        drivetrain=data.get("drivetrain"),
+        drivetrain_recorded="drivetrain" in data,
         configuration=_configuration_from_data(data.get("configuration")),
         loss_vehicle_mileage=data.get("lossVehicleMileage"),
         radius_miles=data.get("radiusMiles", 50),
@@ -1227,6 +1243,7 @@ def replay_current_adaptive_search(
     *,
     policy: AdaptiveSearchPolicy = DEFAULT_ADAPTIVE_SEARCH_POLICY,
     target: ComparableTarget | None = None,
+    scoring_version: str = COMPARABLE_SCORING_VERSION,
     ceiling_stop_reason: str = MAX_SCOPE_REACHED,
 ) -> AdaptiveCurrentSearchResult:
     """Replay current diagnostics and return the proven aggregate result."""
@@ -1248,7 +1265,9 @@ def replay_current_adaptive_search(
             "Adaptive search diagnostics are invalid",
             ("$.attempts: contains more attempts than policy stages",),
         )
-    state = _CurrentState(base_request, comparable_target, policy)
+    state = _CurrentState(
+        base_request, comparable_target, policy, scoring_version=scoring_version
+    )
     actual_stop: str | None = None
     for index, row in enumerate(rows):
         result_data = row["result"]
@@ -1321,6 +1340,7 @@ def replay_historical_adaptive_search(
     *,
     policy: AdaptiveSearchPolicy = DEFAULT_HISTORICAL_ADAPTIVE_SEARCH_POLICY,
     target: ComparableTarget | None = None,
+    scoring_version: str = COMPARABLE_SCORING_VERSION,
     ceiling_stop_reason: str = HISTORICAL_SEARCH_CEILING_REACHED,
 ) -> AdaptiveHistoricalSearchResult:
     """Replay historical diagnostics and return the proven aggregate result."""
@@ -1341,7 +1361,9 @@ def replay_historical_adaptive_search(
             "Adaptive search diagnostics are invalid",
             ("$.attempts: contains more attempts than policy stages",),
         )
-    state = _HistoricalState(request, comparable_target, policy)
+    state = _HistoricalState(
+        request, comparable_target, policy, scoring_version=scoring_version
+    )
     actual_stop: str | None = None
     for index, row in enumerate(rows):
         result_data = row["result"]

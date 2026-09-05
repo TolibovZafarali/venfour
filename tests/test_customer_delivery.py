@@ -830,6 +830,34 @@ class CustomerDeliveryServiceTests(unittest.TestCase):
                 with self.assertRaises(SupabaseContractError):
                     validate_report_projection(report)
 
+    def test_report_preserves_explicit_take_price_without_advertised_price(self) -> None:
+        report = valid_report()
+        row = report["insurerEvidence"]["comparables"][0]
+        row["sourcePrice"] = {
+            "amount": row["advertisedPrice"], "type": "TAKE",
+            "typeLabel": "Take Price", "label": "Take",
+        }
+        row["advertisedPrice"] = None
+        projected = validate_report_projection(report)
+        self.assertEqual(projected["insurerEvidence"]["comparables"][0], row)
+
+    def test_report_rejects_mislabeled_or_leaking_source_prices(self) -> None:
+        for mutation in ("advertised", "label", "identity"):
+            with self.subTest(mutation=mutation):
+                report = valid_report()
+                row = report["insurerEvidence"]["comparables"][0]
+                row["sourcePrice"] = {
+                    "amount": "$19,800.00", "type": "TAKE",
+                    "typeLabel": "Take Price", "label": "Take",
+                }
+                row["advertisedPrice"] = "$19,800.00" if mutation == "advertised" else None
+                if mutation == "label":
+                    row["sourcePrice"]["typeLabel"] = "Advertised price"
+                if mutation == "identity":
+                    row["sourcePrice"]["vin"] = "1HGCM82633A004352"
+                with self.assertRaises(SupabaseContractError):
+                    validate_report_projection(report)
+
 
 class CustomerDeliveryApiTests(unittest.TestCase):
     def setUp(self) -> None:
