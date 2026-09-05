@@ -1,23 +1,25 @@
 import './state';
-import {useEffect,useState} from 'react';
 import {createRoot} from 'react-dom/client';
 import {QueryClient,QueryClientProvider} from '@tanstack/react-query';
-import {createBrowserRouter,RouterProvider,Outlet} from 'react-router';
+import {createBrowserRouter,RouterProvider} from 'react-router';
 import {AppShell} from '@/components/app-shell';
 import {BlueButtonHover} from '@/components/ui/blue-button-hover';
 import {AuthContext} from '@/features/auth/auth-context';
+import type {AuthContextValue} from '@/features/auth/auth-context';
 import {CookieConsentContext} from '@/features/privacy/cookie-consent-context';
+import type {CookieConsentContextValue} from '@/features/privacy/cookie-consent-context';
 import {TotalLossDependenciesContext} from '@/features/total-loss/dependencies-context';
 import {AppraisalStartPage} from '@/pages/appraisal-start-page';
 import {TotalLossAnalysisPage} from '@/pages/total-loss-analysis-page';
-import {USER_ID,CASES,scenario,dependencies,state} from './state';
+import {USER_ID,dependencies} from './state';
+import {Evidence} from './evidence';
 import './styles.css';
 const user={id:USER_ID,email:'taylor.recovery@example.com',email_confirmed_at:'2026-09-02T12:00:00.000Z',user_metadata:{full_name:'Taylor Recovery'},app_metadata:{provider:'email'},aud:'authenticated',created_at:'2026-09-02T12:00:00.000Z'};
-const session={access_token:'local-intake-verification-token',refresh_token:'local-intake-verification-refresh',expires_in:3600,token_type:'bearer',user};
+const session={access_token:'local-intake-verification-token',refresh_token:'local-intake-verification-refresh',expires_in:3600,token_type:'bearer' as const,user};
 const noop=async()=>{};
-const auth:any={auth:{status:'signedIn',identity:'permanent',session,user},ensureGuestSession:async()=>session,restoreSession:async()=>session,runTurnstileChallenge:noop,signInWithGoogle:noop,sendMagicLink:noop,completeAuthCallback:async()=>session,completeEmailAuthCallback:async()=>session,signOut:noop};
-const consent:any={consent:null,globalPrivacyControl:false,bannerVisible:false,preferencesOpen:false,acceptAll:noop,rejectNonEssential:noop,savePreferences:noop,openPreferences:noop,setPreferencesOpen:noop};
-function Evidence(){const[,rerender]=useState(0);useEffect(()=>{const listener=()=>rerender(value=>value+1);window.addEventListener('intake-recovery-evidence',listener);return()=>window.removeEventListener('intake-recovery-evidence',listener);},[]);return <><Outlet/><details className="local-recovery-evidence" data-intake-recovery-evidence><summary>Local fixture evidence — {scenario} — submissions {state.analysisSubmissions} — new cases {state.createdCases}</summary><p>Isolated synthetic persistence, same-case revisions, and intercepted analysis API. No hosted services or provider calls. Browser proof does not establish database contract correctness.</p><pre>{JSON.stringify({activeCaseId:CASES[scenario],createdCases:state.createdCases,analysisSubmissions:state.analysisSubmissions,caseStatuses:state.caseStatuses,rows:state.rows,contacts:state.contacts,jobs:state.jobs,historicalJobs:state.historicalJobs,inputs:state.inputs,events:state.events},null,2)}</pre></details></>;}
+const auth:AuthContextValue={auth:{status:'signedIn',identity:'permanent',session,user},ensureGuestSession:async()=>session,restoreSession:async()=>session,runTurnstileChallenge:noop as AuthContextValue['runTurnstileChallenge'],signInWithGoogle:noop,sendMagicLink:noop,completeAuthCallback:async()=>session,completeEmailAuthCallback:async()=>session,signOut:noop};
+const consent:CookieConsentContextValue={consent:null,globalPrivacyControl:false,bannerVisible:false,preferencesOpen:false,acceptAll:noop,rejectNonEssential:noop,savePreferences:noop,openPreferences:noop,setPreferencesOpen:noop};
+
 const router=createBrowserRouter([{element:<Evidence/>,children:[{element:<AppShell/>,children:[{path:'/start',element:<AppraisalStartPage/>},{path:'/total-loss/start',element:<AppraisalStartPage/>},{path:'/total-loss/cases/:caseId/analysis',element:<TotalLossAnalysisPage/>}]}]}]);
 const queryClient=new QueryClient({defaultOptions:{queries:{retry:false},mutations:{retry:false}}});
 createRoot(document.getElementById('root')!).render(<QueryClientProvider client={queryClient}><BlueButtonHover/><AuthContext.Provider value={auth}><CookieConsentContext.Provider value={consent}><TotalLossDependenciesContext.Provider value={dependencies}><RouterProvider router={router}/></TotalLossDependenciesContext.Provider></CookieConsentContext.Provider></AuthContext.Provider></QueryClientProvider>);

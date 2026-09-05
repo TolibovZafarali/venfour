@@ -1,0 +1,5 @@
+import {useEffect,useState} from 'react';
+import {Outlet} from 'react-router';
+import {CASES,scenario,state} from './state';
+
+export function Evidence(){const[,rerender]=useState(0);useEffect(()=>{const listener=()=>rerender(value=>value+1);window.addEventListener('intake-recovery-evidence',listener);return()=>window.removeEventListener('intake-recovery-evidence',listener);},[]);return <><Outlet/><details className="local-recovery-evidence" data-intake-recovery-evidence><summary>Local fixture evidence — {scenario} — submissions {state.analysisSubmissions} — new cases {state.createdCases}</summary><p>Isolated synthetic persistence, same-case revisions, and intercepted analysis API. No hosted services or provider calls. Browser proof does not establish database contract correctness.</p><pre>{JSON.stringify({activeCaseId:CASES[scenario],createdCases:state.createdCases,analysisSubmissions:state.analysisSubmissions,caseStatuses:state.caseStatuses,rows:state.rows,contacts:state.contacts,jobs:state.jobs,historicalJobs:state.historicalJobs,inputs:state.inputs,events:state.events},null,2)}</pre></details></>;}

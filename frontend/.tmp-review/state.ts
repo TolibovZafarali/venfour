@@ -1,6 +1,6 @@
 import {claimProjection,CASE_ID,REPORT_ID,NOW,BASE} from './fixtures';
 import {TOTAL_LOSS_EDUCATION_STEPS} from '@/features/total-loss-claim/contracts';
-import type {TotalLossInsurerResponseRecorded} from '@/features/total-loss-claim/contracts';
+import type {TotalLossEducationStep,TotalLossClaimJourneyState,TotalLossInsurerResponseRecorded} from '@/features/total-loss-claim/contracts';
 import {materialUndervalueAnalysis} from '@/test/fixtures/analysis-presentation';
 type PreviewResponseRecord=Omit<TotalLossInsurerResponseRecorded,'response'>&{response:Omit<TotalLossInsurerResponseRecorded['response'],'analysis'|'analysisEvidence'>};
 const params=new URLSearchParams(location.search);
@@ -12,8 +12,8 @@ if(page==='review'){sessionStorage.setItem('review-mode',mode);sessionStorage.se
 export const storageKey=`venfour-synthetic-refinement-${mode}-${fixture}`;
 const stage=params.get('stage')||'result';
 const requestSent=stage==='sent'||stage==='response';
-const completed=stage==='result'?[]:stage==='insurer'?['result']:stage==='market'?['result',...(mode==='report'?['insurer_review']:[])]:stage==='meaning'?['result','insurer_review','valuation']:['result','insurer_review','valuation','report','what_next'];
-const initial=claimProjection(completed as any);
+const completed:TotalLossEducationStep[]=stage==='result'?[]:stage==='insurer'?['result']:stage==='market'?['result',...(mode==='report'?['insurer_review' as const]:[])]:stage==='meaning'?['result','insurer_review','valuation']:['result','insurer_review','valuation','report','what_next'];
+const initial=claimProjection(completed);
 const value=(amount:number)=>({amountMinorUnits:amount*100,currency:'USD',formatted:new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0}).format(amount)});
 initial.report.subjectVehicle.description=fixture==='long'?'2022 Land Rover Range Rover Sport HSE Silver Edition Sport Utility 4D':'2022 Toyota Camry SE';
 initial.report.suggestedFilename='Venfour_Valuation_Evidence_2022_Toyota_Camry_v1.pdf';
@@ -47,7 +47,7 @@ const requestBody='Hello,\n\nI am requesting reconsideration of the $19,046 valu
 initial.messageDraft=stage==='send'||requestSent?{...initial.messageDraft,body:requestBody}:null;
 initial.sendingDetails={adjusterEmail:initial.messageDraft?'adjuster@example.com':null,adjusterEmailConfirmed:Boolean(initial.messageDraft),adjusterName:null,claimReference:initial.messageDraft?'CLM-42':null,claimReferenceConfirmed:Boolean(initial.messageDraft),customerName:fixture==='long'?'Alexandra Montgomery-Richardson':'Case Owner',insurerName:initial.report.insurerEvidence.insurerName,revision:1,vehicleDescription:initial.report.subjectVehicle.description};
 if(requestSent){initial.education.steps.send={completedAt:NOW,viewedAt:NOW,skippedAt:null};initial.journey={fulfillmentState:'awaiting_insurer_response',nextState:'awaiting_insurer_response',retryable:false};initial.workflow.currentTask='awaiting_insurer_response';initial.responseIntake={negotiationRoundId:'88888888-8888-4888-8888-888888888888',outboundCommunicationId:'77777777-7777-4777-8777-777777777777'};initial.negotiationHistory=[{negotiationRoundId:'88888888-8888-4888-8888-888888888888',roundNumber:1,outbound:{body:requestBody,createdAt:NOW,messageVersionId:'66666666-6666-4666-8666-666666666666',recipient:'adjuster@example.com',reportVersionId:REPORT_ID,state:'sent',subject:initial.messageDraft.subject,versionNumber:initial.messageDraft.revision,customerReportedSentAt:NOW,communicationId:'77777777-7777-4777-8777-777777777777',negotiationRoundId:'88888888-8888-4888-8888-888888888888'},responses:[],followUp:null}];}
-export let claim=params.has('reset')||!localStorage.getItem(storageKey)?initial:JSON.parse(localStorage.getItem(storageKey)!);
+export const claim=params.has('reset')||!localStorage.getItem(storageKey)?initial:JSON.parse(localStorage.getItem(storageKey)!);
 if(claim.journey?.nextState==='awaiting_insurer_response'&&!claim.insurerResponse&&!claim.responseIntake)claim.responseIntake={negotiationRoundId:'88888888-8888-4888-8888-888888888888',outboundCommunicationId:'77777777-7777-4777-8777-777777777777'};
 const responseHistoryKey=`${storageKey}-insurer-responses`;
 if(params.has('reset'))localStorage.removeItem(responseHistoryKey);
@@ -65,7 +65,7 @@ export function simulateFailure(kind:string){failNext=kind;log(`Next ${kind} fai
 export function log(message:string){events.push(`${new Date().toISOString().slice(11,23)} ${message}`);window.dispatchEvent(new Event('synthetic-log'));}
 export function clearLog(){events.length=0;window.dispatchEvent(new Event('synthetic-log'));}
 window.addEventListener('synthetic-action',(event)=>log((event as CustomEvent).detail));
-function result(data:any,status=200){return new Response(JSON.stringify(data),{status,headers:{'Content-Type':'application/json'}});}
+function result(data:unknown,status=200){return new Response(JSON.stringify(data),{status,headers:{'Content-Type':'application/json'}});}
 function error(status:number,message:string){return result({error:{code:status===409?'CONFLICT':'SERVICE_UNAVAILABLE',message}},status);}
 const nativeFetch=globalThis.fetch;
 globalThis.fetch=async(input,init)=>{
@@ -110,7 +110,7 @@ globalThis.fetch=async(input,init)=>{
   if(body.expectedWorkflowRevision!==claim.workflow.revision)return error(409,'Progress changed');
   const step=path.split('/').pop()!;claim.education.steps[step]={completedAt:NOW,viewedAt:NOW,skippedAt:null};claim.workflow.revision++;
   const next=TOTAL_LOSS_EDUCATION_STEPS.find(s=>!claim.education.steps[s].completedAt&&!claim.education.steps[s].skippedAt);
-  const states:any={result:'guide_result',insurer_review:'guide_insurer_review',valuation:'guide_valuation',report:'guide_report',what_next:'guide_what_next',send:'prepare_request'};
+  const states:Record<TotalLossEducationStep,TotalLossClaimJourneyState>={result:'guide_result',insurer_review:'guide_insurer_review',valuation:'guide_valuation',report:'guide_report',what_next:'guide_what_next',send:'prepare_request'};
   claim.journey.nextState=next?states[next]:'awaiting_insurer_response';persist();return result({education:claim.education,workflowRevision:claim.workflow.revision});
  }
  if(path==='/sending-details'){

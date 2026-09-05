@@ -1,6 +1,38 @@
 import {materialUndervalueAnalysis} from '@/test/fixtures/analysis-presentation';
 import {TotalLossDetailsConflictError} from '@/features/total-loss/service';
 import {CURRENT_PRIVACY_NOTICE_VERSION,CURRENT_SERVICE_TERMS_VERSION} from '@/features/customer-profile/types';
+import type {AppraisalCase,AppraisalCaseStatus} from '@/features/cases/types';
+import type {TotalLossDependencies} from '@/features/total-loss/dependencies-context';
+import type {CreateTotalLossDetailsValues,TotalLossCaseDetails,TotalLossContact,TotalLossDetailsChanges,TotalLossDetailsScope} from '@/features/total-loss/data-types';
+import type {AnalysisPresentationBase} from '@/features/analyses/analysis-presentation.generated';
+
+type FixtureDetails=TotalLossCaseDetails & {analysisInputId:string;analysisInputRevision:number};
+interface FixtureJob {
+ inputId:string;
+ status:'failed'|'not_submitted'|'processing'|'completed';
+ attemptCount:number;
+ runId:string|null;
+ error?:{code:string;message:string};
+ retryable?:boolean;
+ completeAt?:number;
+}
+interface FixtureState {
+ rows:Record<string,FixtureDetails>;
+ inputs:Record<string,FixtureDetails>;
+ jobs:Record<string,FixtureJob>;
+ contacts:Record<string,TotalLossContact>;
+ caseStatuses:Record<string,AppraisalCaseStatus>;
+ reopenedInputs:Record<string,string>;
+ historicalJobs:Array<FixtureJob & {caseId:string}>;
+ events:Array<{at:string;event:string} & Record<string,unknown>>;
+ createdCases:number;
+ analysisSubmissions:number;
+}
+type FixturePresentation=Omit<AnalysisPresentationBase,'runId'|'vehicle'|'insurerValuation'> & {
+ runId:FixtureJob['runId'];
+ vehicle:Omit<AnalysisPresentationBase['vehicle'],'year'|'make'|'model'> & {year:number|null;make:string|null;model:string|null};
+ insurerValuation:Omit<AnalysisPresentationBase['insurerValuation'],'value'> & {value:{cents:number|null;display:string|null}};
+};
 
 export const USER_ID='14141414-1414-4414-8414-141414141414';
 export const CASES={failure:'21212121-2121-4121-8121-212121212121',missing:'22222222-2222-4222-8222-222222222222',offer:'23232323-2323-4323-8323-232323232323',report:'24242424-2424-4424-8424-242424242424',insufficient:'25252525-2525-4525-8525-252525252525',resumeManual:'26262626-2626-4626-8626-262626262626',resumeReport:'27272727-2727-4727-8727-272727272727'} as const;
@@ -12,8 +44,8 @@ const requested=params.get('scenario');
 export const scenario=(requested&&requested in CASES?requested:sessionStorage.getItem('intake-recovery-scenario')||'failure') as keyof typeof CASES;
 sessionStorage.setItem('intake-recovery-scenario',scenario);
 const timestamp=()=>new Date().toISOString();
-function seed(){
- const rows:any={};const inputs:any={};const jobs:any={};const contacts:any={};const caseStatuses:any={};
+function seed():FixtureState{
+ const rows:FixtureState['rows']={};const inputs:FixtureState['inputs']={};const jobs:FixtureState['jobs']={};const contacts:FixtureState['contacts']={};const caseStatuses:FixtureState['caseStatuses']={};
  for(const [name,id] of Object.entries(CASES)){
   const report=name==='report'||name==='resumeReport';const resume=name==='resumeManual'||name==='resumeReport';const offer=name==='missing'||name==='insufficient'?null:19046;
   const inputId=crypto.randomUUID();
@@ -28,25 +60,25 @@ if(params.has('reset')){
  localStorage.removeItem(STORAGE);
  localStorage.removeItem('venfour.totalLossDraft.v1');
 }
-export let state:any=JSON.parse(localStorage.getItem(STORAGE)||'null')||seed();
+export const state:FixtureState=JSON.parse(localStorage.getItem(STORAGE)||'null')||seed();
 function persist(){localStorage.setItem(STORAGE,JSON.stringify(state));window.dispatchEvent(new Event('intake-recovery-evidence'));}
-export function log(event:string,detail:any={}){state.events.push({at:timestamp(),event,...detail});persist();}
+export function log(event:string,detail:Record<string,unknown>={}){state.events.push({at:timestamp(),event,...detail});persist();}
 persist();
 if(location.pathname==='/'){
  const next=params.get('entry')==='correction'?`/start?service=total-loss&caseId=${CASES[scenario]}&intent=correct-intake`:params.get('entry')==='resume'?`/start?service=total-loss&caseId=${CASES[scenario]}&view=intake`:`/total-loss/cases/${CASES[scenario]}/analysis`;
  history.replaceState(null,'',next);
 }
-function owned(input:any){
+function owned(input:TotalLossDetailsScope){
  if(input.userId!==USER_ID||!state.rows[input.caseId])throw new Error('Synthetic ownership boundary denied the request.');
  return state.rows[input.caseId];
 }
-function caseRow(id:string){return {id,userId:USER_ID,serviceType:'total_loss',status:state.caseStatuses[id],createdAt:INITIAL_AT,updatedAt:state.rows[id].updatedAt,lastActivityAt:state.rows[id].updatedAt};}
+function caseRow(id:string):AppraisalCase{return {id,userId:USER_ID,serviceType:'total_loss',status:state.caseStatuses[id],createdAt:INITIAL_AT,updatedAt:state.rows[id].updatedAt,lastActivityAt:state.rows[id].updatedAt};}
 const blocked=async()=>{throw new Error('Operation outside intake recovery fixture scope.');};
-function saved(input:any){
+function saved(input:TotalLossDetailsScope & {expectedUpdatedAt:string|null;values?:CreateTotalLossDetailsValues|TotalLossDetailsChanges;changes?:TotalLossDetailsChanges}){
  const current=owned(input);if(current.updatedAt!==input.expectedUpdatedAt)throw new TotalLossDetailsConflictError(clone(current));
  if(state.caseStatuses[input.caseId]!=='draft')throw new Error('Only draft appraisals can be updated. Explicit authoritative recovery is required.');
- const changes=input.values??input.changes;
- const changed=Object.keys(changes).filter(key=>JSON.stringify(current[key]??null)!==JSON.stringify(changes[key]??null));
+ const changes=input.values??input.changes!;
+ const changed=(Object.keys(changes) as Array<keyof typeof changes>).filter(key=>JSON.stringify(current[key]??null)!==JSON.stringify(changes[key]??null));
  let next={...current,...changes,updatedAt:timestamp()};
  if(changed.length){
   const nextId=crypto.randomUUID();
@@ -57,25 +89,25 @@ function saved(input:any){
  log('saveDetails',{caseId:input.caseId,expectedUpdatedAt:input.expectedUpdatedAt,changed,inputId:next.analysisInputId,inputRevision:next.analysisInputRevision,offer:next.insurerVehicleValuation,mileage:next.mileageAtLoss});
  return clone(next);
 }
-export const dependencies:any={
+export const dependencies:TotalLossDependencies={
  appraisalCaseService:{
   createAppraisalCase:async()=>{state.createdCases++;persist();throw new Error('Unexpected duplicate-case creation.');},
-  createOrGetAppraisalCase:async(input:any)=>{owned(input);log('createOrGetExistingCase',{caseId:input.caseId});return caseRow(input.caseId);},
+  createOrGetAppraisalCase:async(input)=>{owned(input);log('createOrGetExistingCase',{caseId:input.caseId});return caseRow(input.caseId);},
   listAppraisalCases:async()=>Object.keys(state.rows).map(caseRow),
   getRecentDraftAppraisalCase:async()=>null,
   getOrCreateTotalLossDraft:async()=>{log('getExistingDraft',{caseId:CASES[scenario]});return caseRow(CASES[scenario]);},
-  getAppraisalCase:async(input:any)=>{owned(input);log('getCase',{caseId:input.caseId});return caseRow(input.caseId);},
-  touchAppraisalCase:async(input:any)=>{owned(input);return caseRow(input.caseId);},
+  getAppraisalCase:async(input)=>{owned(input);log('getCase',{caseId:input.caseId});return caseRow(input.caseId);},
+  touchAppraisalCase:async(input)=>{owned(input);return caseRow(input.caseId);},
  },
  totalLossDetailsService:{
-  getDetails:async(input:any)=>{const row=owned(input);log('getDetails',{caseId:input.caseId,inputId:row.analysisInputId,inputRevision:row.analysisInputRevision});return clone(row);},
-  createDetails:blocked,updateDetails:async(input:any)=>saved(input),saveDetails:async(input:any)=>saved(input),
-  confirmIntake:async(input:any)=>{const row=owned(input);if(row.updatedAt!==input.expectedUpdatedAt)throw new TotalLossDetailsConflictError(clone(row));const next={...row,intakeCompletedAt:timestamp(),updatedAt:timestamp()};state.rows[input.caseId]=next;log('confirmIntake',{caseId:input.caseId,inputId:row.analysisInputId,inputRevision:row.analysisInputRevision,offer:row.insurerVehicleValuation});return clone(next);},
+  getDetails:async(input)=>{const row=owned(input);log('getDetails',{caseId:input.caseId,inputId:row.analysisInputId,inputRevision:row.analysisInputRevision});return clone(row);},
+  createDetails:blocked,updateDetails:async(input)=>saved(input),saveDetails:async(input)=>saved(input),
+  confirmIntake:async(input)=>{const row=owned(input);if(row.updatedAt!==input.expectedUpdatedAt)throw new TotalLossDetailsConflictError(clone(row));const next={...row,intakeCompletedAt:timestamp(),updatedAt:timestamp()};state.rows[input.caseId]=next;log('confirmIntake',{caseId:input.caseId,inputId:row.analysisInputId,inputRevision:row.analysisInputRevision,offer:row.insurerVehicleValuation});return clone(next);},
   acquireReportUploadLease:blocked,reclaimReportUploadLease:blocked,renewReportUploadLease:blocked,markReportUploadReady:blocked,completeReportUploadRecovery:blocked,finalizeReportUpload:blocked,cancelReportUpload:blocked,
  },
  totalLossIdentityService:{
   getContact:async(caseId:string)=>{log('getContact',{caseId});return clone(state.contacts[caseId]);},
-  saveContactAndBeginClaim:async(input:any)=>{owned(input);const contact={...state.contacts[input.caseId],...input,fullName:`${input.firstName} ${input.lastName}`,updatedAt:timestamp()};state.contacts[input.caseId]=contact;log('saveContact',{caseId:input.caseId,email:input.email,firstName:input.firstName,lastName:input.lastName,phoneNumber:input.phoneNumber});return {claimId:null,expiresAt:null,contact:clone(contact)};},
+  saveContactAndBeginClaim:async(input)=>{owned(input);const contact={...state.contacts[input.caseId],...input,fullName:`${input.firstName} ${input.lastName}`,updatedAt:timestamp()};state.contacts[input.caseId]=contact;log('saveContact',{caseId:input.caseId,email:input.email,firstName:input.firstName,lastName:input.lastName,phoneNumber:input.phoneNumber});return {claimId:null,expiresAt:null,contact:clone(contact)};},
   completeIdentityClaim:async()=>{},
  },
  totalLossReportStorageService:{downloadReport:blocked,downloadReportBackup:blocked,storeReportBackup:blocked,restoreReport:blocked,deleteReportBackup:blocked,uploadReport:blocked},
@@ -85,8 +117,8 @@ export const dependencies:any={
   listTrims:async()=>['LE','SE','XLE'].map(label=>({source:'synthetic',id:`trim-${label}`,label,trim:label,queryField:'trim',queryValues:[label]})),
  },
 };
-function presentation(id:string,job:any){
- const input=state.inputs[job.inputId];const output:any=clone(materialUndervalueAnalysis);
+function presentation(id:string,job:FixtureJob){
+ const input=state.inputs[job.inputId];const output:FixturePresentation=clone(materialUndervalueAnalysis);
  const manual=input.intakeMode==='manual';const missing=input.insurerVehicleValuation===null;
  output.runId=job.runId;output.vehicle={...output.vehicle,year:input.vehicleYear,make:input.vehicleMake,model:input.vehicleModel,trim:input.vehicleTrim,mileage:input.mileageAtLoss,lossDate:input.dateOfLoss,postalCode:input.postalCode};
  if(manual){
@@ -101,11 +133,11 @@ function presentation(id:string,job:any){
  if(id===CASES.insufficient){output.primaryExternalEvidence=null;output.analysisScope.marketEvidenceAvailable=false;output.findings.push({code:'INSUFFICIENT_RESOLVED_EXTERNAL_EVIDENCE',label:'Not enough independent evidence',description:'The independent market evidence is insufficient.'});}
  return output;
 }
-function response(data:any,status=200){return new Response(JSON.stringify(data),{status,headers:{'Content-Type':'application/json'}});}
+function response(data:unknown,status=200){return new Response(JSON.stringify(data),{status,headers:{'Content-Type':'application/json'}});}
 function statusFor(id:string){
  const job=state.jobs[id];const row=state.rows[id];
  if(job.inputId!==row.analysisInputId||job.status==='not_submitted')return {status:'not_submitted'};
- if(job.status==='processing'&&Date.now()>=job.completeAt){job.status='completed';state.caseStatuses[id]='check_complete';log('analysisCompleted',{caseId:id,inputId:job.inputId,inputRevision:row.analysisInputRevision,runId:job.runId});}
+ if(job.status==='processing'&&Date.now()>=job.completeAt!){job.status='completed';state.caseStatuses[id]='check_complete';log('analysisCompleted',{caseId:id,inputId:job.inputId,inputRevision:row.analysisInputRevision,runId:job.runId});}
  const {status,attemptCount,runId,error,retryable}=job;
  return status==='completed'?{status,attemptCount,runId}:status==='failed'?{status,attemptCount,error,retryable}:{status,attemptCount,processingExpiresAt:new Date(Date.now()+300000).toISOString()};
 }
@@ -148,7 +180,7 @@ globalThis.fetch=async(input,init)=>{
   return response(statusFor(id));
  }
  const run=url.pathname.match(/^\/api\/v1\/analyses\/([^/]+)$/);
- if(run){const entry=Object.entries(state.jobs).find(([,job]:any)=>job.runId===run[1]);if(entry){log('getAnalysisResult',{caseId:entry[0],runId:run[1],inputId:(entry[1] as any).inputId});return response(presentation(entry[0],entry[1]));}const historical=state.historicalJobs?.find((job:any)=>job.runId===run[1]);if(historical&&historical.status==='completed')return response(presentation(historical.caseId,historical));}
+ if(run){const entry=Object.entries(state.jobs).find(([,job])=>job.runId===run[1]);if(entry){log('getAnalysisResult',{caseId:entry[0],runId:run[1],inputId:entry[1].inputId});return response(presentation(entry[0],entry[1]));}const historical=state.historicalJobs?.find((job)=>job.runId===run[1]);if(historical&&historical.status==='completed')return response(presentation(historical.caseId,historical));}
  log('unexpectedApiRequest',{method,path:url.pathname});
  return response({error:{code:'OUT_OF_SCOPE',message:`Unexpected local operation: ${method} ${url.pathname}`}},500);
 };

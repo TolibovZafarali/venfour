@@ -733,6 +733,28 @@ function TotalLossIntakeFlowContent({
         );
       },
     }) > 0;
+  const reportRecoveryDetails =
+    uploadState === "uploading" ||
+    uploadState === "queued" ||
+    reportUploadMutationPending
+      ? null
+      : detailsQuery.data;
+  const [previousReportRecoveryDetails, setPreviousReportRecoveryDetails] =
+    useState<TotalLossCaseDetails | null | undefined>(undefined);
+
+  // Reconcile local upload state before committing children when saved details
+  // change, while leaving an active upload in control of its own state.
+  if (reportRecoveryDetails !== previousReportRecoveryDetails) {
+    setPreviousReportRecoveryDetails(reportRecoveryDetails);
+    if (reportRecoveryDetails) {
+      setReportRecoveryRequired(reportRecoveryDetails.reportUploadRecoveryRequired);
+      if (reportRecoveryDetails.reportUploadRecoveryRequired) {
+        setSavedFilename(reportRecoveryDetails.reportOriginalFilename);
+        setExtractionState("idle");
+      }
+    }
+  }
+
   const resolvedSavedFilename =
     savedFilename ??
     (detailsQuery.data?.caseId === confirmedCaseId
@@ -1145,7 +1167,9 @@ function TotalLossIntakeFlowContent({
     hydratedDetailsRef.current = hydrationKey;
     serverUpdatedAtRef.current = details.updatedAt;
     setSavedFilename(details.reportOriginalFilename);
-    const hydratedExtractionState = extractionStateForDetails(details);
+    const hydratedExtractionState = reportRecoveryDetails?.reportUploadRecoveryRequired
+      ? "idle"
+      : extractionStateForDetails(details);
     setExtractionState(hydratedExtractionState);
     applyDraft(
       (current) => ({
@@ -1167,7 +1191,7 @@ function TotalLossIntakeFlowContent({
       }),
       { bumpRevision: false },
     );
-  }, [applyDraft, correction?.intent, detailsQuery.data]);
+  }, [applyDraft, correction?.intent, detailsQuery.data, reportRecoveryDetails]);
 
   useEffect(() => {
     const details = detailsQuery.data;
@@ -1179,10 +1203,7 @@ function TotalLossIntakeFlowContent({
     ) {
       return;
     }
-    setReportRecoveryRequired(details.reportUploadRecoveryRequired);
     if (!details.reportUploadRecoveryRequired) return;
-    setSavedFilename(details.reportOriginalFilename);
-    setExtractionState("idle");
     if (
       draftRef.current.mode === "report" &&
       draftRef.current.step === "report" &&

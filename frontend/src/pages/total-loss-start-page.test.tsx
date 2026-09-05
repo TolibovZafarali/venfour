@@ -3223,7 +3223,7 @@ describe("/start?service=total-loss", () => {
   });
 
 
-  it("keeps an interrupted replacement recovery-gated after remount", async () => {
+  it.each([false, true])("keeps an interrupted replacement recovery-gated after remount with dirty=%s", async (dirty) => {
     let staleReviewCommitted = false;
     const reviewObserver = new MutationObserver((records) => {
       for (const record of records) {
@@ -3244,6 +3244,7 @@ describe("/start?service=total-loss", () => {
         reservedCaseId: CASE_ID,
         ownerUserId: USER_ID,
         reportExtractionStatus: "partial",
+        dirty,
       }),
     ).toEqual({ ok: true });
     const recoveryDetails = detailsFor(CASE_ID, {
@@ -3285,12 +3286,61 @@ describe("/start?service=total-loss", () => {
     ).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Back" })).not.toBeInTheDocument();
     expect(ingestReportMock).not.toHaveBeenCalled();
+    expect(harness.confirmIntake).not.toHaveBeenCalled();
     expect(readTotalLossDraft()).toMatchObject({
       ok: true,
-      draft: { step: "report", reportExtractionStatus: "idle" },
+      draft: { mode: "report", step: "report", reportExtractionStatus: "idle", dirty },
     });
     reviewObserver.disconnect();
     expect(staleReviewCommitted).toBe(false);
+  });
+
+  it("clears interrupted report recovery when refreshed server details confirm the saved file", async () => {
+    const recoveryDetails = detailsFor(CASE_ID, {
+      intakeMode: "report",
+      postalCode: "60611",
+      reportUploadRecoveryRequired: true,
+      reportOriginalFilename: "saved-report.pdf",
+      reportUploadedAt: CREATED_AT,
+    });
+    const harness = createDependencyHarness({
+      details: [recoveryDetails],
+      recentCase: appraisalCase(CASE_ID),
+    });
+    const user = userEvent.setup();
+    const { queryClient } = renderTestApp([`/start?service=total-loss&caseId=${CASE_ID}`], {
+      authService: createAuthHarness(sessionFor()).service,
+      totalLossDependencies: harness.dependencies,
+    });
+
+    expect(await screen.findByText(
+      "Venfour could not confirm the saved report after an interrupted replacement. Choose the report again so we can securely continue.",
+    )).toBeVisible();
+    expect(screen.queryByText("saved-report.pdf")).not.toBeInTheDocument();
+
+    const confirmedDetails = {
+      ...recoveryDetails,
+      reportUploadRecoveryRequired: false,
+      updatedAt: "2026-08-18T16:00:00.000Z",
+    };
+    harness.detailRows.set(CASE_ID, confirmedDetails);
+    await act(async () => {
+      await queryClient.refetchQueries({
+        queryKey: totalLossQueryKeys.details(USER_ID, CASE_ID),
+        exact: true,
+      });
+    });
+
+    expect(await screen.findByRole("heading", { name: "Contact details" })).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Back" }));
+    expect(await screen.findByRole("heading", { name: "Upload your valuation report" })).toBeVisible();
+    expect(await screen.findByText("saved-report.pdf")).toBeVisible();
+    expect(screen.queryByText(/could not confirm the saved report/)).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Continue to contact" }));
+    expect(await screen.findByRole("heading", { name: "Contact details" })).toBeVisible();
+    expect(harness.uploadReport).not.toHaveBeenCalled();
+    expect(harness.confirmIntake).not.toHaveBeenCalled();
+    expect(ingestReportMock).not.toHaveBeenCalled();
   });
 
   it("retains a dirty browser draft and offers a choice on an optimistic save conflict", async () => {
