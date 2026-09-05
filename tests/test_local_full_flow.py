@@ -37,6 +37,7 @@ def environment():
         "VENFOUR_TOTAL_LOSS_TERMS_VERSION": commerce.terms_version,
         "VENFOUR_TOTAL_LOSS_REFUND_POLICY_VERSION": commerce.refund_policy_version,
         "OPENAI_API_KEY": "local-provider-fixture", "MARKETCHECK_API_KEY": "local-market-fixture",
+        "OPENAI_INSURER_RESPONSE_ANALYSIS_MODEL": "gpt-response-test",
         "VENFOUR_CLAIM_RECOVERY_RATE_LIMIT_SECRET": "local-recovery-fixture-not-for-production",
         "VENFOUR_TURNSTILE_SECRET": "local-challenge-fixture",
     }
@@ -114,6 +115,56 @@ class FullFlowGuards(unittest.TestCase):
 
 
 class FullFlowComposition(unittest.TestCase):
+    def test_missing_response_model_preserves_liveness_but_blocks_full_flow_readiness(self):
+        for model in (None, ""):
+            with self.subTest(model=model), ExitStack() as stack:
+                settings = environment()
+                del settings["OPENAI_INSURER_RESPONSE_ANALYSIS_MODEL"]
+                if model is not None:
+                    settings["OPENAI_INSURER_RESPONSE_ANALYSIS_MODEL"] = model
+                gateway = Mock(spec=SupabaseHttpGateway)
+                gateway.reserve_due_workflow_work_items.return_value = []
+                stack.enter_context(patch.dict(os.environ, settings, clear=True))
+                stack.enter_context(patch("scripts.local_full_flow.read_local_status", return_value={}))
+                stack.enter_context(patch("scripts.local_full_flow.gateway_from_status", return_value=gateway))
+                app = create_app()
+                self.assertIsNone(app.state.insurer_response_processor)
+                with TestClient(app, base_url="http://127.0.0.1:8000", client=("127.0.0.1", 55000)) as client:
+                    self.assertEqual(client.get("/health").json(), {"status": "ok"})
+                    self.assertTrue(app.state.local_worker.healthy)
+                    for worker_healthy in (True, False):
+                        app.state.local_worker.healthy = worker_healthy
+                        response = client.get("/ready")
+                        self.assertEqual(response.status_code, 503)
+                        self.assertEqual(response.json(), {
+                            "status": "not_ready",
+                            "reasons": ["INSURER_RESPONSE_ANALYSIS_MODEL_REQUIRED"],
+                        })
+                        self.assertEqual(response.headers["cache-control"], "no-store")
+                        for name, secret in settings.items():
+                            if "KEY" in name or "SECRET" in name:
+                                self.assertNotIn(secret, response.text)
+                    retry = client.post(
+                        f"/api/v1/appraisal-cases/{uuid4()}/insurer-response-analysis/retry",
+                        json={},
+                    )
+                    self.assertEqual(retry.status_code, 503)
+                    self.assertEqual(retry.json()["error"]["code"], "CUSTOMER_DELIVERY_UNAVAILABLE")
+
+    def test_invalid_response_model_fails_configuration_without_echoing_its_value(self):
+        for model in (" private-model", "private-model\n", "https://private.example/model"):
+            with self.subTest(model=model), ExitStack() as stack:
+                gateway = Mock(spec=SupabaseHttpGateway)
+                stack.enter_context(patch.dict(os.environ, environment() | {
+                    "OPENAI_INSURER_RESPONSE_ANALYSIS_MODEL": model,
+                }, clear=True))
+                stack.enter_context(patch("scripts.local_full_flow.read_local_status", return_value={}))
+                stack.enter_context(patch("scripts.local_full_flow.gateway_from_status", return_value=gateway))
+                with self.assertRaises(ValueError) as raised:
+                    create_app()
+                self.assertNotIn(model, str(raised.exception))
+                gateway.close.assert_called_once()
+
     def test_startup_does_not_wait_for_a_queued_report_review(self):
         gateway = Mock(spec=SupabaseHttpGateway)
         gateway.reserve_due_workflow_work_items.return_value = [{
@@ -152,12 +203,22 @@ class FullFlowComposition(unittest.TestCase):
             stack.enter_context(patch("scripts.local_full_flow.gateway_from_status", return_value=gateway))
             app = create_app()
             self.assertIsNone(app.state.package_coordinator._dispatcher)
+            self.assertIsNotNone(app.state.insurer_response_processor)
+            self.assertFalse(app.state.insurer_response_coordinator.dispatcher_configured)
+            self.assertIsNone(app.state.internal_caller_verifier)
+            self.assertIsNone(app.state.insurer_response_dispatch_secret)
+            analyze = stack.enter_context(patch(
+                "venfour.api.OpenAIInsurerResponseAnalyzer.analyze",
+                side_effect=AssertionError("readiness must not run inference"),
+            ))
             paths = {route.path for route in app.routes}
             self.assertIn("/api/v1/appraisal-cases/{case_id}/post-continue", paths)
             self.assertNotIn("/api/local/claim-fixtures", paths)
             self.assertFalse(any("/internal/" in path and "work-items" in path for path in paths))
             with TestClient(app, base_url="http://127.0.0.1:8000", client=("127.0.0.1", 55000)) as client:
-                self.assertEqual(client.get("/ready").status_code, 200)
+                ready = client.get("/ready")
+                self.assertEqual(ready.status_code, 200)
+                self.assertEqual(ready.json(), {"status": "ready"})
                 path = f"/api/v1/appraisal-cases/{uuid4()}/post-continue"
                 self.assertEqual(client.post(path).status_code, 401)
                 self.assertEqual(client.post(path, json={"value": 1}).status_code, 400)
@@ -168,6 +229,7 @@ class FullFlowComposition(unittest.TestCase):
                     self.assertEqual(client.post(path, headers={"Authorization": "Bearer other-owner"}).status_code, 404)
                 app.state.local_worker.healthy = False
                 self.assertEqual(client.get("/ready").status_code, 503)
+            analyze.assert_not_called()
         gateway.close.assert_called_once()
         self.assertIs(socket.getaddrinfo, original_dns)
 

@@ -40,6 +40,17 @@ qualification, or stale qualification fails startup. No evaluation result is
 fabricated and no qualification or release contract is changed. A report still
 requires its own successful review; uncertain or failed reviews remain held.
 
+Set `OPENAI_INSURER_RESPONSE_ANALYSIS_MODEL` explicitly in the ignored root `.env`
+to support insurer response analysis and subsequent claim rounds. There is no
+default model. Without it, the process can serve `/health` (200), but `/ready`
+returns 503 with `INSURER_RESPONSE_ANALYSIS_MODEL_REQUIRED`, so the launcher cannot
+announce full-flow readiness. Malformed model identifiers fail configuration
+validation. Readiness checks configuration only and makes no provider inference.
+The model may be omitted for intentionally partial preliminary/fixture development;
+`/health` then proves only liveness, not readiness for the paid customer lifecycle.
+The default hosted customer runtime also requires response analysis regardless of
+browser continuation flags; this does not enable production continuation.
+
 Full-flow startup rejects live payment keys, remote database origins, deployed
 process markers, remote task dispatch, the legacy API, and mixed fixture mode.
 The backend accepts only local hosts, clients, and the configured local browser
@@ -52,7 +63,11 @@ The local worker uses the existing dispatcher reservations, lease expiry,
 execution fencing, retry delays, immutable evidence, payment entitlements, and
 report processors. It does not edit ledger rows or create paid states. It handles
 one work item at a time and resumes due work after a restart. No remote queue or
-public worker endpoint is needed. `/ready` includes worker health.
+public worker endpoint is needed. `/ready` includes worker health and preserves
+the central customer-configuration failure reasons. Response analysis uses the
+existing in-process execution path locally; hosted customer readiness instead
+requires durable Cloud Tasks dispatch, worker OIDC verification, and the response
+dispatch secret described in `.env.example`.
 
 The continuation initializer authenticates the existing owner and uses the saved
 analysis. Only eligible results may continue. The browser never supplies a frozen

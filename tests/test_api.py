@@ -248,9 +248,7 @@ class RuntimeProbeApiTests(unittest.TestCase):
 
                 self.assertEqual(health.status_code, 200)
                 self.assertEqual(readiness.status_code, 503)
-                self.assertEqual(
-                    readiness.json(), {"status": "not_ready"}
-                )
+                self.assertEqual(readiness.json()["status"], "not_ready")
 
     def test_readiness_rejects_malformed_runtime_configuration(self) -> None:
         malformed_overrides = (
@@ -296,9 +294,53 @@ class RuntimeProbeApiTests(unittest.TestCase):
                 _health, readiness = self.probe(environment)
 
                 self.assertEqual(readiness.status_code, 503)
-                self.assertEqual(
-                    readiness.json(), {"status": "not_ready"}
-                )
+                self.assertEqual(readiness.json()["status"], "not_ready")
+                for secret in environment.values():
+                    self.assertNotIn(secret, readiness.text)
+
+    def test_missing_response_model_never_passes_hosted_customer_readiness(self) -> None:
+        for value in (None, ""):
+            for continuation in ("false", "true"):
+                with self.subTest(model=value, continuation=continuation):
+                    environment = {
+                        **RUNTIME_ENVIRONMENT,
+                        "K_SERVICE": "customer-api",
+                        "VITE_ENABLE_POST_CONTINUE_FLOW": continuation,
+                    }
+                    del environment["OPENAI_INSURER_RESPONSE_ANALYSIS_MODEL"]
+                    if value is not None:
+                        environment["OPENAI_INSURER_RESPONSE_ANALYSIS_MODEL"] = value
+                    health, readiness = self.probe(environment)
+
+                    self.assertEqual(health.status_code, 200)
+                    self.assertEqual(readiness.status_code, 503)
+                    self.assertEqual(readiness.json()["status"], "not_ready")
+                    self.assertIn(
+                        "INSURER_RESPONSE_ANALYSIS_MODEL_REQUIRED",
+                        readiness.json()["reasons"],
+                    )
+                    self.assertEqual(readiness.headers["cache-control"], "no-store")
+                    for name, secret in environment.items():
+                        if "KEY" in name or "SECRET" in name:
+                            self.assertNotIn(secret, readiness.text)
+
+    def test_hosted_response_model_alone_does_not_replace_durable_dispatch(self) -> None:
+        for missing_names in (
+            ("VENFOUR_INSURER_RESPONSE_DISPATCH_SECRET",),
+            tuple(name for name in RESPONSE_ANALYSIS_RUNTIME_ENVIRONMENT
+                  if name.startswith("VENFOUR_PACKAGE_")),
+        ):
+            with self.subTest(missing=missing_names):
+                environment = dict(RUNTIME_ENVIRONMENT)
+                for name in missing_names:
+                    del environment[name]
+                health, readiness = self.probe(environment)
+                self.assertEqual(health.status_code, 200)
+                self.assertEqual(readiness.status_code, 503)
+                self.assertEqual(readiness.json(), {
+                    "status": "not_ready",
+                    "reasons": ["INSURER_RESPONSE_ANALYSIS_DISPATCH_UNCONFIGURED"],
+                })
                 for secret in environment.values():
                     self.assertNotIn(secret, readiness.text)
 
@@ -321,7 +363,10 @@ class RuntimeProbeApiTests(unittest.TestCase):
             SupabaseHttpGateway,
             "list_due_total_loss_insurer_response_analysis_jobs",
             return_value=[],
-        ):
+        ), patch(
+            "venfour.api.OpenAIInsurerResponseAnalyzer.analyze",
+            side_effect=AssertionError("readiness must not run inference"),
+        ) as analyze:
             with TestClient(app) as client:
                 readiness = client.get("/ready")
 
@@ -330,6 +375,7 @@ class RuntimeProbeApiTests(unittest.TestCase):
         self.assertEqual(readiness.headers["cache-control"], "no-store")
         self.assertFalse(app.state.legacy_api_enabled)
         authenticate.assert_not_called()
+        analyze.assert_not_called()
         for secret in RUNTIME_ENVIRONMENT.values():
             self.assertNotIn(secret, readiness.text)
 
@@ -501,6 +547,28 @@ class RuntimeProbeApiTests(unittest.TestCase):
 
         self.assertEqual(readiness.status_code, 200)
         self.assertEqual(readiness.json(), {"status": "ready"})
+        self.assertIsNone(app.state.insurer_response_processor)
+        self.assertEqual(app.state.customer_readiness_reasons, ())
+
+    def test_full_flow_expectation_applies_even_to_injected_preliminary_services(self) -> None:
+        for settings, reason in (
+            ({}, "INSURER_RESPONSE_ANALYSIS_MODEL_REQUIRED"),
+            ({"OPENAI_INSURER_RESPONSE_ANALYSIS_MODEL": "gpt-response-test",
+              "OPENAI_API_KEY": "private-provider-fixture"},
+             "INSURER_RESPONSE_ANALYSIS_PROCESSOR_UNAVAILABLE"),
+        ):
+            with self.subTest(reason=reason), patch.dict(
+                os.environ, settings | {"VENFOUR_LOCAL_FULL_FLOW": "1"}, clear=True,
+            ):
+                app = create_app(
+                    case_analysis_service=InjectedCaseAnalysisService(),
+                    enable_legacy_api=False,
+                )
+                with TestClient(app) as client:
+                    self.assertEqual(client.get("/health").status_code, 200)
+                    response = client.get("/ready")
+                self.assertEqual(response.status_code, 503)
+                self.assertEqual(response.json(), {"status": "not_ready", "reasons": [reason]})
 
     def test_staging_proxy_secret_guards_api_but_not_runtime_probes(self) -> None:
         with patch.dict(os.environ, {}, clear=True):

@@ -2023,8 +2023,11 @@ def _readiness(request: Request) -> JSONResponse:
         request.app.state.accepting_customer_requests
         and request.app.state.customer_path_configured
     )
+    payload: dict[str, Any] = {"status": "ready" if ready else "not_ready"}
+    if request.app.state.customer_readiness_reasons:
+        payload["reasons"] = list(request.app.state.customer_readiness_reasons)
     return JSONResponse(
-        {"status": "ready" if ready else "not_ready"},
+        payload,
         status_code=200 if ready else 503,
         headers={"Cache-Control": "no-store"},
     )
@@ -2616,6 +2619,7 @@ def create_app(
                 "customer_delivery_service must expose customer delivery methods"
             )
 
+    response_analysis_configuration = None
     selected_insurer_response_processor = insurer_response_processor
     if selected_insurer_response_processor is None:
         response_analysis_configuration = (
@@ -2917,6 +2921,33 @@ def create_app(
             and insurer_response_dispatch_secret is not None
         )
     )
+    # The local full-flow composition injects delivery services to use in-process
+    # execution, but still needs the configured response-analysis capability.
+    response_analysis_required = (
+        default_supabase_customer_runtime
+        or os.environ.get("VENFOUR_LOCAL_FULL_FLOW") == "1"
+    )
+    customer_readiness_reasons: list[str] = []
+    if response_analysis_required:
+        if response_analysis_configuration is None:
+            response_analysis_configuration = (
+                InsurerResponseAnalysisConfiguration.from_environment(os.environ)
+            )
+        if not response_analysis_configuration.analysis_available:
+            customer_readiness_reasons.append(
+                "INSURER_RESPONSE_ANALYSIS_MODEL_REQUIRED"
+            )
+        elif selected_insurer_response_processor is None:
+            customer_readiness_reasons.append(
+                "INSURER_RESPONSE_ANALYSIS_PROCESSOR_UNAVAILABLE"
+            )
+        elif (
+            default_supabase_customer_runtime
+            and not insurer_response_customer_path_configured
+        ):
+            customer_readiness_reasons.append(
+                "INSURER_RESPONSE_ANALYSIS_DISPATCH_UNCONFIGURED"
+            )
     customer_path_configured = (
         selected_case_service is not None and not legacy_enabled
     )
@@ -2934,6 +2965,9 @@ def create_app(
             customer_path_configured
             and insurer_response_customer_path_configured
         )
+    customer_path_configured = (
+        customer_path_configured and not customer_readiness_reasons
+    )
 
     routes = [
         Route("/api/v1/vehicle-trims", _vehicle_trims, methods=["GET"]),
@@ -3225,6 +3259,7 @@ def create_app(
     app.state.insurer_response_customer_path_configured = (
         insurer_response_customer_path_configured
     )
+    app.state.customer_readiness_reasons = tuple(customer_readiness_reasons)
     app.state.internal_caller_verifier = selected_internal_caller_verifier
     app.state.staff_release_review_service = (
         selected_staff_release_review_service

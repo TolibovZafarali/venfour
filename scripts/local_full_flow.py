@@ -258,11 +258,14 @@ def create_app():
                 gateway.close()
                 restore_network()
 
+        customer_readiness = next(route.endpoint for route in app.routes if route.path == "/ready")
+
         def readiness(request):
-            ready = (request.app.state.accepting_customer_requests
-                     and request.app.state.customer_path_configured and worker.healthy)
-            return JSONResponse({"status": "ready" if ready else "not_ready"},
-                                200 if ready else 503, headers={"Cache-Control": "no-store"})
+            response = customer_readiness(request)
+            if response.status_code != 200 or worker.healthy:
+                return response
+            return JSONResponse({"status": "not_ready"}, 503,
+                                headers={"Cache-Control": "no-store"})
 
         app.router.lifespan_context = local_lifespan
         app.router.routes = [Route("/ready", readiness) if route.path == "/ready" else route
