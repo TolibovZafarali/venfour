@@ -14,13 +14,16 @@ import math
 import os
 import re
 import tempfile
+import time
 import unicodedata
 from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from ipaddress import ip_address
 from pathlib import Path
+from threading import Event
 from typing import Any, Protocol, runtime_checkable
 from urllib.parse import parse_qsl, quote, urlencode, urlsplit, urlunsplit
 from uuid import UUID, uuid4
@@ -54,6 +57,9 @@ INSURER_RESPONSE_DOCUMENT_EXTENSIONS = {
 COMMERCE_CODE_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}")
 COMMERCE_PRODUCT_PATTERN = re.compile(r"[a-z][a-z0-9_-]{0,63}")
 REPORT_FAILURE_CODE_PATTERN = re.compile(r"[A-Z][A-Z0-9_]{0,63}")
+CASE_RESOLUTION_TIMEOUT_SECONDS = 7.0
+CASE_RESOLUTION_MAX_ATTEMPTS = 3
+CASE_RESOLUTION_RETRY_DELAYS_SECONDS = (0.1, 0.2)
 STRIPE_DISPUTE_EVENT_TYPES = frozenset(
     {
         "charge.dispute.created",
@@ -87,6 +93,53 @@ class SupabaseContractError(SupabaseGatewayError):
 
 class SupabaseConflictError(SupabaseGatewayError):
     """A database optimistic-concurrency or immutable-state fence rejected a write."""
+
+
+class SupabaseCaseResolutionConflictError(SupabaseConflictError):
+    """The case already has a different immutable terminal outcome."""
+
+
+class _SupabaseCaseResolutionTransientError(SupabaseUnavailableError):
+    """The closure transaction rolled back after a serialization or deadlock conflict."""
+
+
+@dataclass(frozen=True)
+class _CaseResolutionRequest:
+    cancel_event: Event
+    deadline: float
+
+    def remaining_seconds(self) -> float:
+        if self.cancel_event.is_set():
+            raise SupabaseUnavailableError("Case resolution request was canceled")
+        remaining = self.deadline - time.monotonic()
+        if remaining <= 0:
+            raise SupabaseUnavailableError("Case resolution request deadline exceeded")
+        return remaining
+
+
+_case_resolution_request: ContextVar[_CaseResolutionRequest | None] = ContextVar(
+    "case_resolution_request", default=None,
+)
+
+
+@contextmanager
+def resolution_request_scope(
+    cancel_event: Event, deadline: float | None = None,
+) -> Iterator[None]:
+    """Carry a finite closure deadline and disconnect signal into the worker thread."""
+
+    maximum_deadline = time.monotonic() + CASE_RESOLUTION_TIMEOUT_SECONDS
+    if deadline is not None and not math.isfinite(deadline):
+        raise ValueError("Case resolution deadline must be finite")
+    request = _CaseResolutionRequest(
+        cancel_event,
+        min(deadline, maximum_deadline) if deadline is not None else maximum_deadline,
+    )
+    token = _case_resolution_request.set(request)
+    try:
+        yield
+    finally:
+        _case_resolution_request.reset(token)
 
 
 class SupabaseReportNotFoundError(SupabaseGatewayError):
@@ -412,15 +465,25 @@ class SupabaseHttpGateway:
         if not isinstance(access_token, str) or not access_token.strip():
             raise SupabaseAuthenticationError("Authentication is required")
         token = access_token.strip()
+        resolution_request = _case_resolution_request.get()
+        request_options = (
+            {"timeout": min(
+                self._configuration.timeout_seconds, resolution_request.remaining_seconds(),
+            )}
+            if resolution_request is not None else {}
+        )
         try:
             response = self._client.get(
                 f"{self._configuration.url}/auth/v1/user",
                 headers=self._user_headers(token),
+                **request_options,
             )
         except httpx.HTTPError as exc:
             raise SupabaseUnavailableError(
                 "Authentication service is unavailable"
             ) from exc
+        if resolution_request is not None:
+            resolution_request.remaining_seconds()
         if response.status_code in {401, 403}:
             raise SupabaseAuthenticationError("Authentication is invalid")
         if response.status_code != 200:
@@ -508,6 +571,7 @@ class SupabaseHttpGateway:
         access_token: str,
         *,
         permission_denied_as_conflict: bool = False,
+        resolution_timeout_seconds: float | None = None,
     ) -> Any:
         if not isinstance(access_token, str) or not access_token.strip():
             raise SupabaseAuthenticationError("Authentication is required")
@@ -519,6 +583,8 @@ class SupabaseHttpGateway:
                     "Content-Type": "application/json",
                 },
                 json=dict(arguments),
+                **({"timeout": resolution_timeout_seconds}
+                   if resolution_timeout_seconds is not None else {}),
             )
         except httpx.HTTPError as exc:
             raise SupabaseUnavailableError("Supabase RPC is unavailable") from exc
@@ -541,6 +607,21 @@ class SupabaseHttpGateway:
                 error_payload = response.json()
             except (ValueError, json.JSONDecodeError):
                 error_payload = None
+            if (
+                resolution_timeout_seconds is not None
+                and isinstance(error_payload, Mapping)
+            ):
+                if error_payload.get("code") == "PVR01":
+                    raise _SupabaseCaseResolutionTransientError(
+                        "Case resolution transaction must be retried"
+                    )
+                if (
+                    error_payload.get("code") == "55000"
+                    and error_payload.get("details") == "CASE_ALREADY_RESOLVED"
+                ):
+                    raise SupabaseCaseResolutionConflictError(
+                        "This case has already been closed with a different outcome."
+                    )
             if isinstance(error_payload, Mapping) and error_payload.get("code") in {
                 "40001",
                 "55000",
@@ -551,6 +632,36 @@ class SupabaseHttpGateway:
             return response.json()
         except (ValueError, json.JSONDecodeError) as exc:
             raise SupabaseContractError("Supabase RPC response is invalid") from exc
+
+    def _case_resolution_rpc(
+        self, arguments: Mapping[str, Any], access_token: str,
+    ) -> Any:
+        request = _case_resolution_request.get() or _CaseResolutionRequest(
+            Event(), time.monotonic() + CASE_RESOLUTION_TIMEOUT_SECONDS,
+        )
+        for attempt in range(CASE_RESOLUTION_MAX_ATTEMPTS):
+            remaining = request.remaining_seconds()
+            try:
+                payload = self._user_rpc(
+                    "confirm_total_loss_case_resolution", arguments, access_token,
+                    permission_denied_as_conflict=True,
+                    resolution_timeout_seconds=min(
+                        self._configuration.timeout_seconds, remaining,
+                    ),
+                )
+            except _SupabaseCaseResolutionTransientError as exc:
+                remaining = request.remaining_seconds()
+                if attempt + 1 == CASE_RESOLUTION_MAX_ATTEMPTS:
+                    raise SupabaseUnavailableError(
+                        "Case resolution service is temporarily unavailable"
+                    ) from exc
+                request.cancel_event.wait(min(
+                    CASE_RESOLUTION_RETRY_DELAYS_SECONDS[attempt], remaining,
+                ))
+                continue
+            request.remaining_seconds()
+            return payload
+        raise SupabaseUnavailableError("Case resolution service is temporarily unavailable")
 
     def claim_total_loss_analysis(
         self, case_id: str, user_id: str, processing_token: str
@@ -1140,8 +1251,7 @@ class SupabaseHttpGateway:
     def confirm_total_loss_case_resolution(
         self, case_id: str, values: Mapping[str, Any], access_token: str,
     ) -> Mapping[str, Any]:
-        payload = self._user_rpc(
-            "confirm_total_loss_case_resolution",
+        payload = self._case_resolution_rpc(
             {
                 "requested_case_id": _canonical_uuid(case_id, "Case ID"),
                 "requested_client_request_id": values.get("clientRequestId"),
@@ -1153,7 +1263,6 @@ class SupabaseHttpGateway:
                 "requested_currency": values.get("currency"),
             },
             access_token,
-            permission_denied_as_conflict=True,
         )
         return self._single_rpc_row(payload, "Case resolution")
 

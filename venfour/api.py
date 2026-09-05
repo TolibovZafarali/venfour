@@ -17,6 +17,7 @@ from contextlib import asynccontextmanager
 from hmac import compare_digest
 from ipaddress import ip_address
 from pathlib import Path
+from threading import Event
 from typing import Any, Awaitable, Callable
 from uuid import UUID
 
@@ -160,14 +161,17 @@ from venfour.presentation import (
 )
 from venfour.postal_codes import normalize_us_zip_code
 from venfour.supabase_gateway import (
+    CASE_RESOLUTION_TIMEOUT_SECONDS,
     CaseAnalysisGateway,
     SupabaseAuthenticationError,
+    SupabaseCaseResolutionConflictError,
     SupabaseConfigurationError,
     SupabaseConflictError,
     SupabaseContractError,
     SupabaseHttpGateway,
     SupabaseServerConfiguration,
     SupabaseUnavailableError,
+    resolution_request_scope,
 )
 from venfour.vehicle_catalog import (
     MAX_VEHICLE_TRIM_OPTIONS,
@@ -247,6 +251,9 @@ _ERROR_MESSAGES = {
     "INVALID_CUSTOMER_DELIVERY_REQUEST": "Customer delivery request is invalid.",
     "CUSTOMER_DELIVERY_CONFLICT": (
         "This claim changed in another tab. Refresh before trying again."
+    ),
+    "CASE_ALREADY_RESOLVED": (
+        "This case has already been closed. Review its saved outcome."
     ),
     "CUSTOMER_DELIVERY_UNAVAILABLE": (
         "Customer delivery is temporarily unavailable."
@@ -1070,6 +1077,8 @@ def _customer_delivery_error(error: Exception) -> JSONResponse:
         return _error_response(404, "REPORT_NOT_FOUND")
     if isinstance(error, (CustomerDeliveryInputError, CommerceInputError)):
         return _error_response(400, "INVALID_CUSTOMER_DELIVERY_REQUEST")
+    if isinstance(error, SupabaseCaseResolutionConflictError):
+        return _error_response(409, "CASE_ALREADY_RESOLVED")
     if isinstance(
         error,
         (
@@ -1402,6 +1411,41 @@ async def _insurer_response_decision(request: Request) -> JSONResponse:
         return _private_response(_customer_delivery_error(exc))
 
 
+async def _confirm_resolution_for_request(
+    request: Request, payload: Mapping[str, Any]
+) -> Any:
+    service = _customer_delivery_service(request)
+    token = _customer_delivery_token(request)
+    cancelled = Event()
+
+    async def watch_disconnect() -> None:
+        while not cancelled.is_set():
+            if await request.is_disconnected():
+                return
+            if not cancelled.is_set():
+                await asyncio.sleep(0.05)
+
+    with resolution_request_scope(cancelled):
+        operation = asyncio.create_task(run_in_threadpool(
+            service.confirm_resolution, request.path_params["case_id"], payload, token,
+        ))
+        disconnected = asyncio.create_task(watch_disconnect())
+        try:
+            done, _ = await asyncio.wait(
+                {operation, disconnected}, timeout=CASE_RESOLUTION_TIMEOUT_SECONDS,
+                return_when=asyncio.FIRST_COMPLETED,
+            )
+            if operation in done:
+                return operation.result()
+            raise SupabaseUnavailableError("Case resolution request did not complete")
+        finally:
+            # A worker may finish its bounded in-flight call, but cannot retry.
+            cancelled.set()
+            operation.cancel()
+            disconnected.cancel()
+            await asyncio.gather(operation, disconnected, return_exceptions=True)
+
+
 async def _case_resolution(request: Request) -> JSONResponse:
     case_id = request.path_params["case_id"]
     if not _is_canonical_uuid4(case_id):
@@ -1412,12 +1456,7 @@ async def _case_resolution(request: Request) -> JSONResponse:
             {"clientRequestId", "workflowRevision", "resolutionCode", "decisionId",
              "offerId", "amountMinorUnits", "currency"},
         )
-        result = await run_in_threadpool(
-            _customer_delivery_service(request).confirm_resolution,
-            case_id,
-            payload,
-            _customer_delivery_token(request),
-        )
+        result = await _confirm_resolution_for_request(request, payload)
         return _private_response(JSONResponse(result))
     except Exception as exc:
         return _private_response(_customer_delivery_error(exc))

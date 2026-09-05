@@ -526,6 +526,19 @@ $$;
 select set_config('request.jwt.claim.sub','b1000000-0000-4000-8000-000000000001',true);
 select set_config('request.jwt.claims','{"sub":"b1000000-0000-4000-8000-000000000001","role":"authenticated","is_anonymous":false}',true);
 
+create function pg_temp.resolution_error(request_id uuid, code text, expected_revision bigint,
+  decision_id uuid default null, offer_id uuid default null, amount bigint default null, currency text default null)
+returns jsonb language plpgsql as $$
+declare error_detail text;
+begin
+  perform public.confirm_total_loss_case_resolution('b2000000-0000-4000-8000-000000000001',
+    request_id,code,expected_revision,decision_id,offer_id,amount,currency);
+  return null;
+exception when others then
+  get stacked diagnostics error_detail = pg_exception_detail;
+  return jsonb_build_object('code',sqlstate,'message',sqlerrm,'detail',error_detail);
+end;
+$$;
 
 -- Manual closure deliberately requires no recommendation, decision, or offer.
 savepoint manual_resolution;
@@ -533,6 +546,11 @@ create temporary table resolution_request as select gen_random_uuid() as request
   revision as expected_revision from public.total_loss_claim_workflows where case_id='b2000000-0000-4000-8000-000000000001';
 select public.confirm_total_loss_case_resolution('b2000000-0000-4000-8000-000000000001',
   (select request_id from resolution_request),'RESOLVED_WITH_INSURER',(select expected_revision from resolution_request));
+create temporary table original_closed_state as select
+  (select to_jsonb(workflow) from public.total_loss_claim_workflows workflow
+    where case_id='b2000000-0000-4000-8000-000000000001') as workflow,
+  (select jsonb_agg(to_jsonb(event) order by id) from public.total_loss_workflow_events event
+    where case_id='b2000000-0000-4000-8000-000000000001') as events;
 select ok((select resolution_code='RESOLVED_WITH_INSURER' and resolved_at is not null and phase='resolution'
   and current_task='resolved' and resolution_details ->> 'amountMinorUnits' is null
   and resolution_details ->> 'amountSource' is null from public.total_loss_claim_workflows
@@ -558,7 +576,22 @@ select throws_ok($$select public.confirm_total_loss_case_resolution('b2000000-00
   '55000','Client request identity was already used.','same request cannot change the resolution outcome');
 select throws_ok($$select public.confirm_total_loss_case_resolution('b2000000-0000-4000-8000-000000000001',
   gen_random_uuid(),'CUSTOMER_STOPPED_PURSUING',(select expected_revision from resolution_request))$$,
-  '40001','Claim workflow changed before case resolution.','competing closure cannot overwrite the first outcome');
+  '55000','This case has already been closed. Review its saved outcome.','competing closure is a non-retriable conflict');
+select is(pg_temp.resolution_error(gen_random_uuid(),'CUSTOMER_STOPPED_PURSUING',
+  (select expected_revision from resolution_request)),
+  jsonb_build_object('code','55000','message','This case has already been closed. Review its saved outcome.',
+    'detail','CASE_ALREADY_RESOLVED'),'terminal conflict retains its stable application tag despite stale revision');
+select is(pg_temp.resolution_error(gen_random_uuid(),'RESOLVED_WITH_INSURER',
+  (select expected_revision+1 from resolution_request))->>'detail','CASE_ALREADY_RESOLVED',
+  'same outcome with a different request identity is not an exact replay');
+select is(pg_temp.resolution_error(gen_random_uuid(),'ACCEPTED_VERIFIED_OFFER',
+  (select expected_revision from resolution_request),gen_random_uuid(),gen_random_uuid())->>'detail','CASE_ALREADY_RESOLVED',
+  'stale Accept after another terminal outcome receives the terminal conflict');
+select ok((select to_jsonb(workflow)=(select original.workflow from original_closed_state original)
+  from public.total_loss_claim_workflows workflow where case_id='b2000000-0000-4000-8000-000000000001')
+  and (select jsonb_agg(to_jsonb(event) order by id)=(select original.events from original_closed_state original)
+    from public.total_loss_workflow_events event where case_id='b2000000-0000-4000-8000-000000000001'),
+  'exact replay and rejected terminal requests preserve resolved timestamp revision details and all prior events');
 select throws_ok($$select public.record_total_loss_insurer_response('b2000000-0000-4000-8000-000000000001',
   gen_random_uuid(),'A new response',null,null,null,null,1,'be300000-0000-4000-8000-000000000001')$$,
   '55000','This case is closed and read-only.','closed case rejects response mutation endpoint');
@@ -591,8 +624,10 @@ select ok((select case_resolution is null and published_report is null and negot
 rollback to manual_resolution;
 
 savepoint manual_amount;
-select public.confirm_total_loss_case_resolution('b2000000-0000-4000-8000-000000000001',gen_random_uuid(),
-  'RESOLVED_WITH_INSURER',(select revision from public.total_loss_claim_workflows where case_id='b2000000-0000-4000-8000-000000000001'),
+create temporary table manual_amount_request as select gen_random_uuid() as request_id,
+  revision as expected_revision from public.total_loss_claim_workflows where case_id='b2000000-0000-4000-8000-000000000001';
+select public.confirm_total_loss_case_resolution('b2000000-0000-4000-8000-000000000001',(select request_id from manual_amount_request),
+  'RESOLVED_WITH_INSURER',(select expected_revision from manual_amount_request),
   null,null,2134567,'USD');
 select ok((select case_resolution ->> 'amountMinorUnits'='2134567' and case_resolution ->> 'currency'='USD'
   and case_resolution ->> 'amountSource'='CUSTOMER_REPORTED' and case_resolution ->> 'offerId' is null
@@ -600,6 +635,17 @@ select ok((select case_resolution ->> 'amountMinorUnits'='2134567' and case_reso
   'optional final amount retains customer-reported provenance without an insurer offer');
 select is((select count(*) from public.total_loss_offers
   where case_id='b2000000-0000-4000-8000-000000000001'),0::bigint,'manual amount does not create insurer evidence');
+select is(public.confirm_total_loss_case_resolution('b2000000-0000-4000-8000-000000000001',
+  (select request_id from manual_amount_request),'RESOLVED_WITH_INSURER',(select expected_revision from manual_amount_request),
+  null,null,2134567,'USD')->'resolution',
+  (select case_resolution from public.resolve_total_loss_case_claim('b2000000-0000-4000-8000-000000000001')),
+  'exact manual amount and currency replay retains its original customer-reported provenance');
+select is(pg_temp.resolution_error((select request_id from manual_amount_request),'RESOLVED_WITH_INSURER',
+  (select expected_revision from manual_amount_request),null,null,2134568,'USD')->>'message',
+  'Client request identity was already used.','reused request cannot change the manual amount');
+select is(pg_temp.resolution_error((select request_id from manual_amount_request),'RESOLVED_WITH_INSURER',
+  (select expected_revision from manual_amount_request),null,null,2134567,'CAD')->>'message',
+  'Client request identity was already used.','reused request cannot change the manual currency');
 rollback to manual_amount;
 
 savepoint stopped;
@@ -622,7 +668,7 @@ select throws_ok($$select public.confirm_total_loss_case_resolution('b2000000-00
 rollback to closure_authorization;
 
 select throws_ok($$select public.confirm_total_loss_case_resolution('b2000000-0000-4000-8000-000000000001',gen_random_uuid(),
-  'RESOLVED_WITH_INSURER',1)$$,'40001','Claim workflow changed before case resolution.','stale workflow revision is rejected');
+  'RESOLVED_WITH_INSURER',1)$$,'55000','Claim workflow changed before case resolution.','stale workflow revision is a non-retriable conflict');
 select throws_ok($$select public.confirm_total_loss_case_resolution('b2000000-0000-4000-8000-000000000001',gen_random_uuid(),
   'CUSTOMER_STOPPED_PURSUING',4,null,null,2000000,'USD')$$,'22023','Case resolution confirmation is invalid.',
   'stopped pursuit cannot silently carry a settlement amount');
@@ -638,6 +684,8 @@ select ok((select customer_journey ->> 'nextState'='no_dispute'
   'existing no-dispute resolution keeps its established journey and distinct system provenance');
 select ok((select case_status='closed' and case_stage='closed' from public.list_owned_case_operations()
   where case_id='b2000000-0000-4000-8000-000000000001'),'legacy no-dispute resolution is historical in the lightweight owned list');
+select is(pg_temp.resolution_error(gen_random_uuid(),'RESOLVED_WITH_INSURER',1)->>'detail','CASE_ALREADY_RESOLVED',
+  'customer closure cannot replace the distinct system no-dispute outcome');
 rollback to no_dispute_outcome;
 
 -- A literal amount in saved response text keeps response-material provenance.
@@ -696,7 +744,7 @@ create temporary table accepted_confirmation as select gen_random_uuid() as requ
   from public.total_loss_claim_workflows where case_id='b2000000-0000-4000-8000-000000000001';
 select throws_ok($$select public.confirm_total_loss_case_resolution('b2000000-0000-4000-8000-000000000001',gen_random_uuid(),
   'ACCEPTED_VERIFIED_OFFER',(select expected_revision from accepted_confirmation),gen_random_uuid(),
-  (select offer_id from accepted_confirmation))$$,'40001','The accepted offer or customer decision is no longer current.',
+  (select offer_id from accepted_confirmation))$$,'55000','The accepted offer or customer decision is no longer current.',
   'unrelated Accept identity cannot close the current case');
 
 savepoint correction;
@@ -707,7 +755,7 @@ select public.record_total_loss_insurer_response('b2000000-0000-4000-8000-000000
 select throws_ok($$select public.confirm_total_loss_case_resolution('b2000000-0000-4000-8000-000000000001',
   (select request_id from accepted_confirmation),'ACCEPTED_VERIFIED_OFFER',(select expected_revision from accepted_confirmation),
   (select decision_id from accepted_confirmation),(select offer_id from accepted_confirmation))$$,
-  '40001','Claim workflow changed before case resolution.','stale tab cannot close after correction supersedes Accept');
+  '55000','Claim workflow changed before case resolution.','stale tab cannot close after correction supersedes Accept');
 update pg_temp.valid_result set result=jsonb_set(result,'{revisedOffer}',jsonb_build_object(
   'status','PRESENT','amountMinorUnits',2050000,'currency','USD','source','INSURER_RESPONSE','visualSourceInterpretation',null,
   'responseEvidenceRefs',jsonb_build_array('response_'||repeat('a',64))));
@@ -724,7 +772,7 @@ select ok((select insurer_response#>>'{usableOffer,source}'='RESPONSE_TEXT'
 select throws_ok($$select public.confirm_total_loss_case_resolution('b2000000-0000-4000-8000-000000000001',gen_random_uuid(),
   'ACCEPTED_VERIFIED_OFFER',(select revision from public.total_loss_claim_workflows where case_id='b2000000-0000-4000-8000-000000000001'),
   (select decision_id from accepted_confirmation),(select offer_id from accepted_confirmation))$$,
-  '40001','The accepted offer or customer decision is no longer current.','superseded Accept cannot close even with refreshed revision');
+  '55000','The accepted offer or customer decision is no longer current.','superseded Accept cannot close even with refreshed revision');
 rollback to correction;
 
 select public.confirm_total_loss_case_resolution('b2000000-0000-4000-8000-000000000001',
@@ -749,6 +797,15 @@ select throws_ok($$select public.confirm_total_loss_case_resolution('b2000000-00
   (select request_id from accepted_confirmation),'ACCEPTED_VERIFIED_OFFER',(select expected_revision+1 from accepted_confirmation),
   (select decision_id from accepted_confirmation),(select offer_id from accepted_confirmation))$$,
   '55000','Client request identity was already used.','idempotency identity includes exact submitted revision');
+select is(pg_temp.resolution_error((select request_id from accepted_confirmation),'ACCEPTED_VERIFIED_OFFER',
+  (select expected_revision from accepted_confirmation),gen_random_uuid(),(select offer_id from accepted_confirmation))->>'message',
+  'Client request identity was already used.','accepted replay cannot substitute a different decision');
+select is(pg_temp.resolution_error((select request_id from accepted_confirmation),'ACCEPTED_VERIFIED_OFFER',
+  (select expected_revision from accepted_confirmation),(select decision_id from accepted_confirmation),gen_random_uuid())->>'message',
+  'Client request identity was already used.','accepted replay cannot substitute a different offer');
+select is(pg_temp.resolution_error(gen_random_uuid(),'CUSTOMER_STOPPED_PURSUING',
+  (select expected_revision+1 from accepted_confirmation))->>'detail','CASE_ALREADY_RESOLVED',
+  'another terminal request cannot overwrite accepted offer closure');
 select ok(not has_function_privilege('anon','public.confirm_total_loss_case_resolution(uuid,uuid,text,bigint,uuid,uuid,bigint,text)','EXECUTE')
   and not has_function_privilege('service_role','public.confirm_total_loss_case_resolution(uuid,uuid,text,bigint,uuid,uuid,bigint,text)','EXECUTE')
   and has_function_privilege('authenticated','public.confirm_total_loss_case_resolution(uuid,uuid,text,bigint,uuid,uuid,bigint,text)','EXECUTE'),

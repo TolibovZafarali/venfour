@@ -27,7 +27,8 @@ from venfour.customer_delivery import (
     CustomerDeliveryInputError, CustomerDeliveryService, validate_case_resolution,
 )
 from venfour.supabase_gateway import (
-    SupabaseAuthenticationError, SupabaseConflictError, SupabaseContractError,
+    SupabaseAuthenticationError, SupabaseCaseResolutionConflictError,
+    SupabaseConflictError, SupabaseContractError,
     SupabaseHttpGateway, SupabaseServerConfiguration,
 )
 
@@ -347,6 +348,54 @@ class CaseResolutionHttpTests(unittest.TestCase):
             response = self.client.post(self.path, json=resolution_request(), headers=self.headers)
             self.assertEqual(response.status_code, status)
             self.assertIn("no-store", response.headers["cache-control"])
+
+    def test_already_closed_conflict_is_distinct_private_and_not_retried(self):
+        self.gateway.error = SupabaseCaseResolutionConflictError(
+            "55000 CASE_ALREADY_RESOLVED internal database details"
+        )
+        response = self.client.post(self.path, json=resolution_request(), headers=self.headers)
+        self.assertEqual(response.status_code, 409)
+        self.assertEqual(response.json()["error"], {
+            "code": "CASE_ALREADY_RESOLVED",
+            "message": "This case has already been closed. Review its saved outcome.",
+        })
+        self.assertIn("no-store", response.headers["cache-control"])
+        self.assertEqual(self.gateway.calls, [
+            ("authenticate", ACCESS_TOKEN),
+            ("resolution", (CASE_ID, resolution_request(), ACCESS_TOKEN)),
+        ])
+
+    def test_actual_gateway_domain_error_completes_http_after_one_rpc_attempt(self):
+        for detail, code in (
+            ("CASE_ALREADY_RESOLVED", "CASE_ALREADY_RESOLVED"),
+            (None, "CUSTOMER_DELIVERY_CONFLICT"),
+        ):
+            requests = []
+
+            def handler(request):
+                requests.append(request)
+                if request.url.path == "/auth/v1/user":
+                    return httpx.Response(200, json={"id": OTHER_ID})
+                return httpx.Response(400, json={
+                    "code": "55000", "details": detail,
+                    "message": "Private function and workflow details", "hint": None,
+                })
+
+            with self.subTest(detail=detail), httpx.Client(transport=httpx.MockTransport(handler)) as transport:
+                gateway = SupabaseHttpGateway(SupabaseServerConfiguration(
+                    "http://127.0.0.1:54321", "publishable-test", "service-test"
+                ), client=transport)
+                with patch.dict(os.environ, {}, clear=True):
+                    app = create_app(customer_delivery_service=CustomerDeliveryService(gateway), enable_legacy_api=False)
+                with TestClient(app) as client:
+                    response = client.post(self.path, json=resolution_request(), headers=self.headers)
+                self.assertEqual(response.status_code, 409)
+                self.assertEqual(response.json()["error"]["code"], code)
+                self.assertNotIn("Private", response.text)
+                self.assertNotIn("55000", response.text)
+                self.assertEqual([request.url.path for request in requests], [
+                    "/auth/v1/user", "/rest/v1/rpc/confirm_total_loss_case_resolution",
+                ])
 
     def test_closure_keeps_authorized_report_and_original_download_routes(self):
         self.assertEqual(self.client.post(self.path, json=resolution_request(), headers=self.headers).status_code, 200)
