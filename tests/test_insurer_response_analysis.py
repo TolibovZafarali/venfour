@@ -966,6 +966,195 @@ class InsurerResponseOutputContractTests(InsurerResponseAnalysisFixture):
         )
         validate_insurer_response_analysis_v1(neutral_range, request=self.request)
 
+    def test_saved_evidence_comparisons_are_allowed_across_prose_fields(self) -> None:
+        allowed = (
+            "The revised offer is within Venfour's saved advertised-price evidence range.",
+            "The revised offer remains below the range shown in Venfour's existing report.",
+            "The insurer's new offer narrows the difference identified in the saved assessment.",
+            "Venfour's published assessment remains unchanged.",
+            "The original insurer valuation is compared with Venfour's published evidence.",
+            "Venfour’s existing evidence remains relevant to the revised offer.",
+            "The updated offer is still below Venfour’s saved market evidence range.",
+            "Venfour's saved range is $21,000–$22,500; the insurer revised its offer.",
+            "Venfour has not recalculated the vehicle value.",
+            "Venfour's revised assessment is unchanged by the insurer response.",
+            "The revised offer narrows the difference without changing Venfour’s published assessment.",
+            "The insurer response does not change Venfour's valuation.",
+            "This compares the offer without recalculating Venfour's supported range.",
+            "This narrows the difference without changing Venfour's assessment or recalculating Venfour's range.",
+            "The revised offer does not materially change Venfour's valuation.",
+        )
+        for text in allowed:
+            for field in ("summary", "point", "change", "next_step"):
+                with self.subTest(text=text, field=field):
+                    payload = self._valid_payload()
+                    nodes = {
+                        "summary": (payload["analysisSummary"], "whatThisMeans"),
+                        "point": (payload["responsePoints"][0], "whatThisMeans"),
+                        "change": (payload["importantChanges"][0], "description"),
+                        "next_step": (payload["recommendedNextStep"], "explanation"),
+                    }
+                    node, key = nodes[field]
+                    node[key] = text
+                    node["caseEvidenceRefs"] = [self.request.venfour_assessment["evidenceRef"]]
+                    validate_insurer_response_analysis_v1(payload, request=self.request)
+
+    def test_saved_comparison_does_not_whitelist_a_new_valuation(self) -> None:
+        prohibited = (
+            "Venfour now values the vehicle at $21,900.",
+            "Based on this response, the vehicle's new market value is $21,900.",
+            "Venfour recalculated the supported range to $21,000–$22,500.",
+            "The insurer response changes Venfour's valuation to $21,900.",
+            "Venfour’s updated ACV is $21,900.",
+            "Venfour has now revised its vehicle valuation to $21,900.",
+            "Venfour's valuation has been recalculated to $21,900.",
+            "The vehicle is now worth $21,900.",
+            "We now estimate the market value at $21,900.",
+            "Venfour independently recalculated the supported range to $21,000–$22,500.",
+            "Venfour valued the vehicle at $21,900 based on this response.",
+            "Venfour revised the vehicle's valuation to $21,900.",
+            "We recalculated the supported range to $21,000–$22,500.",
+            "Venfour's new ACV: $21,900.",
+            "The updated Venfour range is $21,000–$22,500.",
+            "Venfour’s recalculated range is $21,000–$22,500.",
+        )
+        for text in prohibited:
+            with self.subTest(text=text):
+                payload = self._valid_payload()
+                payload["analysisSummary"]["whatThisMeans"] = (
+                    "Venfour's published assessment remains unchanged. " + text
+                )
+                payload["analysisSummary"]["caseEvidenceRefs"].append(self.comparable_ref)
+                with self.assertRaises(InsurerResponseAnalysisOutputError) as caught:
+                    validate_insurer_response_analysis_v1(payload, request=self.request)
+                self.assertTrue(any("claims that Venfour" in reason for reason in caught.exception.details))
+                self.assertTrue(caught.exception.retryable)
+
+    def test_saved_advertised_range_cannot_become_acv_or_settlement(self) -> None:
+        for text in (
+            "The insurer owes the saved advertised range of $21,000–$22,500.",
+            "The correct settlement value is the saved advertised-price range.",
+            "Venfour's ACV is the published $21,000–$22,500 range.",
+            "The listing range establishes the settlement value.",
+            "The advertised-price evidence range is the actual cash value.",
+            "The advertised-price range represents the correct settlement value.",
+            "The saved advertised-price evidence range is Venfour's ACV.",
+            "The correct settlement value: $21,000–$22,500.",
+            "The correct settlement is $21,000.",
+        ):
+            with self.subTest(text=text):
+                payload = self._valid_payload()
+                payload["analysisSummary"]["whatThisMeans"] = text
+                with self.assertRaises(InsurerResponseAnalysisOutputError):
+                    validate_insurer_response_analysis_v1(payload, request=self.request)
+
+    def test_negated_change_does_not_whitelist_a_separate_positive_assertion(self) -> None:
+        for positive in (
+            "but Venfour now values the vehicle at $21,900.",
+            "and Venfour now values the vehicle at $21,900.",
+            "but instead recalculating Venfour's range to $21,000–$22,500.",
+        ):
+            with self.subTest(positive=positive):
+                payload = self._valid_payload()
+                payload["analysisSummary"]["caseEvidenceRefs"].append(self.comparable_ref)
+                payload["analysisSummary"]["whatThisMeans"] = (
+                    "The offer narrows the difference without changing Venfour's published assessment, "
+                    + positive
+                )
+                with self.assertRaises(InsurerResponseAnalysisOutputError) as caught:
+                    validate_insurer_response_analysis_v1(payload, request=self.request)
+                self.assertTrue(any("claims that Venfour" in reason for reason in caught.exception.details))
+
+    def test_saved_range_comparison_requires_its_own_assessment_reference(self) -> None:
+        payload = self._valid_payload()
+        payload["analysisSummary"]["whatThisMeans"] = (
+            "The revised offer is within Venfour's saved advertised-price evidence range."
+        )
+        payload["analysisSummary"]["caseEvidenceRefs"] = [self.comparable_ref]
+        with self.assertRaises(InsurerResponseAnalysisOutputError) as caught:
+            validate_insurer_response_analysis_v1(payload, request=self.request)
+        self.assertTrue(any("exact saved assessment" in reason for reason in caught.exception.details))
+
+    def test_missing_saved_range_cannot_support_a_range_comparison(self) -> None:
+        request = self._request(supported_range_low_minor_units=None,
+                                supported_range_high_minor_units=None,
+                                supported_range_currency=None)
+        payload = self._valid_payload(request)
+        payload["analysisSummary"]["whatThisMeans"] = "The offer remains below the saved range."
+        with self.assertRaises(InsurerResponseAnalysisOutputError):
+            validate_insurer_response_analysis_v1(payload, request=request)
+        for text in ("No saved range is available.", "The saved range is not available."):
+            payload["analysisSummary"]["whatThisMeans"] = text
+            validate_insurer_response_analysis_v1(payload, request=request)
+
+    def test_exact_published_bound_finding_supports_saved_range_comparison(self) -> None:
+        for amount, currency, evidence_type, accepted in (
+            (2_100_000, "USD", "VENFOUR_FINDING", True),
+            (2_250_000, "USD", "VENFOUR_FINDING", True),
+            (2_190_000, "USD", "VENFOUR_FINDING", False),
+            (2_100_000, "EUR", "VENFOUR_FINDING", False),
+            (2_100_000, "USD", "VENFOUR_COMPARABLE", False),
+        ):
+            with self.subTest(amount=amount, currency=currency, kind=evidence_type):
+                request = self._request(case_evidence=(CaseEvidenceContext(
+                    self.finding_ref, evidence_type,
+                    "Venfour's deterministic evidence supports the saved advertised-price range.",
+                    amount, currency,
+                ),))
+                payload = self._valid_payload(request)
+                payload["analysisSummary"]["whatThisMeans"] = (
+                    "The revised offer remains below the saved advertised-price evidence range."
+                )
+                payload["analysisSummary"]["caseEvidenceRefs"] = [self.finding_ref]
+                if accepted:
+                    validate_insurer_response_analysis_v1(payload, request=request)
+                else:
+                    with self.assertRaises(InsurerResponseAnalysisOutputError):
+                        validate_insurer_response_analysis_v1(payload, request=request)
+    def test_insurer_first_person_statement_is_not_a_venfour_valuation(self) -> None:
+        request = self._request(response_text="We revised the valuation after reviewing mileage to $20,100.")
+        payload = self._valid_payload(request)
+        payload["analysisSummary"]["whatInsurerSaid"] = (
+            'The insurer wrote: "We revised the valuation after reviewing mileage."'
+        )
+        validate_insurer_response_analysis_v1(payload, request=request)
+        payload["analysisSummary"]["whatThisMeans"] = "We revised the valuation to $20,100."
+        with self.assertRaises(InsurerResponseAnalysisOutputError):
+            validate_insurer_response_analysis_v1(payload, request=request)
+
+    def test_new_numeric_comparison_is_rejected_even_with_saved_range_language(self) -> None:
+        payload = self._valid_payload()
+        payload["analysisSummary"]["whatThisMeans"] = (
+            "The revised offer narrows the saved evidence difference to $900."
+        )
+        with self.assertRaises(InsurerResponseAnalysisOutputError) as caught:
+            validate_insurer_response_analysis_v1(payload, request=self.request)
+        self.assertTrue(any("monetary amount 90000" in reason for reason in caught.exception.details))
+
+    def test_semantic_output_retry_requires_valid_source_and_schema(self) -> None:
+        payload = self._valid_payload()
+        payload["inputCoverage"]["pastedText"] = "NOT_PROVIDED"
+        with self.assertRaises(InsurerResponseAnalysisOutputError) as caught:
+            validate_insurer_response_analysis_v1(payload, request=self.request)
+        self.assertTrue(caught.exception.retryable)
+        self.assertEqual(caught.exception.validation_reason, "PROVIDER_SEMANTIC_INVALID")
+        with self.assertRaises(InsurerResponseAnalysisOutputError) as schema_error:
+            validate_insurer_response_analysis_v1({**payload, "unknown": True}, request=self.request)
+        self.assertFalse(schema_error.exception.retryable)
+        invalid_input = self.request.to_dict()
+        invalid_input["inputDigest"] = "0" * 64
+        with self.assertRaises(InsurerResponseAnalysisInputError) as source_error:
+            validate_insurer_response_analysis_v1(payload, request=invalid_input)
+        self.assertFalse(source_error.exception.retryable)
+        self.assertFalse(InsurerResponseAnalysisOutputError("Unknown failure").retryable)
+
+    def test_semantic_output_without_authoritative_input_is_not_retryable(self) -> None:
+        payload = self._valid_payload()
+        payload["analysisSummary"]["whatThisMeans"] = "Venfour now values the vehicle at $21,900."
+        with self.assertRaises(InsurerResponseAnalysisOutputError) as caught:
+            validate_insurer_response_analysis_v1(payload)
+        self.assertFalse(caught.exception.retryable)
+
     def test_unresolved_issues_and_uncertainties_require_applicable_evidence(
         self,
     ) -> None:

@@ -19,6 +19,8 @@ from venfour.insurer_response_analysis import (
     INSURER_RESPONSE_ANALYSIS_SCHEMA_VERSION,
     CompletedInsurerResponseAnalysis,
     InsurerResponseAnalysisConfiguration,
+    InsurerResponseAnalysisInputError,
+    InsurerResponseAnalysisOutputError,
     InsurerResponseAnalysisTimeoutError,
     InsurerResponseAnalysisV1,
 )
@@ -850,6 +852,44 @@ class InsurerResponseProcessorTests(unittest.TestCase):
             next(value for name, value in database.calls if name == "retry"),
             (CASE_ID, CLIENT_REQUEST_ID, 12, "browser-token"),
         )
+
+    def test_only_classified_semantic_output_failure_records_same_response_retry(self) -> None:
+        for error, expected_code, expected_kind in (
+            (
+                InsurerResponseAnalysisOutputError(
+                    "Output coverage does not match the saved input",
+                    validation_reason="PROVIDER_SEMANTIC_INVALID",
+                ),
+                "INSURER_RESPONSE_OUTPUT_SEMANTIC_INVALID",
+                "retryable",
+            ),
+            (
+                InsurerResponseAnalysisOutputError("Unclassified output failure"),
+                "INSURER_RESPONSE_ANALYSIS_OUTPUT_INVALID",
+                "terminal",
+            ),
+            (
+                InsurerResponseAnalysisInputError("Source context is invalid"),
+                "INSURER_RESPONSE_ANALYSIS_INPUT_INVALID",
+                "terminal",
+            ),
+        ):
+            with self.subTest(code=expected_code):
+                database = _Database()
+                analyzer = _Analyzer(error)
+                result = _processor(database, analyzer).execute(CASE_ID)
+                self.assertEqual(result.state, f"{expected_kind}_failed")
+                self.assertIsNone(database.completed)
+                self.assertEqual(len(analyzer.requests), 1)
+                assert database.failed is not None
+                self.assertEqual(database.failed[:3], (JOB_ID, TOKEN_ID, RUN_ID))
+                self.assertEqual(database.failed[3:6], (
+                    expected_code, expected_kind, 30 if expected_kind == "retryable" else 0,
+                ))
+                self.assertEqual(
+                    database.context["insurerResponse"]["text"],
+                    "We revised the offer to $20,100.00.",
+                )
 
 
 if __name__ == "__main__":

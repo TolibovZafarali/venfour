@@ -512,7 +512,7 @@ select throws_ok($q$select public.retry_total_loss_insurer_response_analysis(
 select set_config('request.jwt.claim.sub','b1000000-0000-4000-8000-000000000001',true);
 select throws_ok($q$select public.retry_total_loss_insurer_response_analysis(
   'b2000000-0000-4000-8000-000000000001','c3000000-0000-4000-8000-000000000001',1)$q$,
-  '40001','Claim workflow changed before response-analysis retry.','a stale owner revision cannot retry');
+  '55000','Claim workflow changed before response-analysis retry.','a stale owner revision cannot retry');
 create temporary table owner_retry as select public.retry_total_loss_insurer_response_analysis(
   'b2000000-0000-4000-8000-000000000001','c3000000-0000-4000-8000-000000000001',
   (select workflow_revision from public.resolve_total_loss_case_claim('b2000000-0000-4000-8000-000000000001'))
@@ -628,6 +628,175 @@ select ok(not public.recover_total_loss_legacy_response_context((select job_id f
 select throws_ok($q$update public.total_loss_insurer_response_analysis_jobs
   set status='retryable_failed',retryable=true where id=(select job_id from manual_claim)$q$,
   '55000','Terminal insurer-response analysis jobs are immutable.','manual terminal jobs keep their existing guard');
+
+rollback to before_fixture;
+select pg_temp.response_context_recovery_fixture('report');
+select pg_temp.record_recovery_response();
+savepoint output_pending;
+
+create temporary table output_claim as
+  select * from pg_temp.fail_recovery_response('INSURER_RESPONSE_ANALYSIS_OUTPUT_INVALID','2');
+create temporary table failed_output_snapshot as select to_jsonb(run) value
+  from public.total_loss_insurer_response_analysis_runs run where id=(select run_id from output_claim);
+select ok(public.total_loss_legacy_response_output_retry_eligible(
+  (select job_id from output_claim),(select run_id from output_claim)),
+  'an open unchanged legacy output failure is eligible for classified maintenance recovery');
+select throws_ok($q$select public.retry_total_loss_insurer_response_analysis(
+  'b2000000-0000-4000-8000-000000000001',gen_random_uuid(),
+  (select revision from public.total_loss_claim_workflows where case_id='b2000000-0000-4000-8000-000000000001'))$q$,
+  '55000','Response analysis is not retryable.','unknown historical output never exposes ordinary Retry');
+select ok(not public.recover_total_loss_legacy_response_output((select job_id from output_claim),
+  gen_random_uuid(),'PROVIDER_SEMANTIC_INVALID',repeat('a',64),repeat('b',64)),
+  'maintenance recovery rejects a different failed run identity');
+select throws_ok($q$select public.recover_total_loss_legacy_response_output((select job_id from output_claim),
+  (select run_id from output_claim),'UNKNOWN',repeat('a',64),repeat('b',64))$q$,
+  '22023','Output recovery evidence is required.','unclassified ordinary output recovery is rejected');
+select ok(not exists(select 1 from unnest(array['anon','authenticated','service_role']) role_name
+  where has_function_privilege(role_name,'public.recover_total_loss_legacy_response_output(uuid,uuid,text,text,text)','execute')),
+  'legacy diagnostic recovery requires the maintenance owner and cannot be invoked by customers or workers');
+select ok(public.recover_total_loss_legacy_response_output((select job_id from output_claim),
+  (select run_id from output_claim),'LEGACY_OUTPUT_DIAGNOSTIC',repeat('a',64),repeat('b',64)),
+  'explicit verified-input diagnostic recovery permits one new inference for the exact failed run');
+select ok(not public.recover_total_loss_legacy_response_output((select job_id from output_claim),
+  (select run_id from output_claim),'LEGACY_OUTPUT_DIAGNOSTIC',repeat('a',64),repeat('b',64)),
+  'diagnostic recovery is limited to one durable availability event');
+select ok((select count(*)=1 and bool_and(details->>'validationReason'='LEGACY_OUTPUT_DIAGNOSTIC'
+  and details->>'verifiedInputDigest'=repeat('a',64) and details->>'classificationEvidenceDigest'=repeat('b',64)
+  and details->>'failedRunId'=(select run_id::text from output_claim)
+  and details->>'retryPolicyVersion'='1') from public.total_loss_workflow_events
+  where associated_entity_id=(select job_id from output_claim) and event_type='insurer_response.output_retry_available'),
+  'diagnostic history records unknown historical classification separately from new semantic failures');
+select is((select to_jsonb(run) from public.total_loss_insurer_response_analysis_runs run
+  where id=(select run_id from output_claim)),(select value from failed_output_snapshot),
+  'maintenance recovery preserves the failed run byte for byte');
+select ok((select insurer_response->>'processingState'='retryable_failed'
+  and insurer_response->>'failureReason'='generic'
+  from public.resolve_total_loss_case_claim('b2000000-0000-4000-8000-000000000001')),
+  'a recovered job uses the existing customer-safe retry projection');
+create temporary table output_retry as select public.retry_total_loss_insurer_response_analysis(
+  'b2000000-0000-4000-8000-000000000001','c3000000-0000-4000-8000-000000000090',
+  (select revision from public.total_loss_claim_workflows where case_id='b2000000-0000-4000-8000-000000000001')) value;
+select is(public.retry_total_loss_insurer_response_analysis(
+  'b2000000-0000-4000-8000-000000000001','c3000000-0000-4000-8000-000000000090',1),
+  (select value from output_retry),'duplicate Retry request is an inert replay of the same request');
+select throws_ok($q$select public.retry_total_loss_insurer_response_analysis(
+  'b2000000-0000-4000-8000-000000000001',gen_random_uuid(),1)$q$,
+  '55000','Claim workflow changed before response-analysis retry.','another tab with the old revision cannot enqueue another attempt');
+create temporary table new_output_claim as select * from public.claim_current_total_loss_insurer_response_analysis(
+  'b2000000-0000-4000-8000-000000000001','c2000000-0000-4000-8000-000000000090',
+  'analysis-provider','response-context-test','3','1','2');
+select ok((select new.run_id<>old.run_id and new.job_id=old.job_id and new.attempt_count=2
+  from new_output_claim new cross join output_claim old),
+  'owner Retry creates a new immutable run on the same response job without correction');
+select ok((select outcome='processing' and run_id=(select run_id from new_output_claim)
+  from public.claim_current_total_loss_insurer_response_analysis(
+    'b2000000-0000-4000-8000-000000000001',gen_random_uuid(),
+    'analysis-provider','response-context-test','3','1','2')),
+  'competing worker tokens cannot create concurrent provider attempts');
+select is((select to_jsonb(run) from public.total_loss_insurer_response_analysis_runs run
+  where id=(select run_id from output_claim)),(select value from failed_output_snapshot),
+  'new inference leaves the historical failed run unchanged');
+rollback to output_pending;
+
+-- Three classified semantic failures exhaust only the new output retry policy.
+create temporary table semantic_attempts(run_id uuid, snapshot jsonb);
+do $$
+declare attempt integer; claimed record; token uuid; result record; requested_revision bigint;
+begin
+  for attempt in 1..3 loop
+    token:=gen_random_uuid();
+    select * into claimed from public.claim_current_total_loss_insurer_response_analysis(
+      'b2000000-0000-4000-8000-000000000001',token,'analysis-provider','response-context-test','3','1','2');
+    select * into result from public.fail_total_loss_insurer_response_analysis(claimed.job_id,token,claimed.run_id,
+      'INSURER_RESPONSE_OUTPUT_SEMANTIC_INVALID','retryable',case when attempt=1 then 3600 else 0 end);
+    insert into semantic_attempts select run.id,to_jsonb(run) from public.total_loss_insurer_response_analysis_runs run where run.id=claimed.run_id;
+    if attempt=1 then
+      begin
+        perform public.retry_total_loss_insurer_response_analysis('b2000000-0000-4000-8000-000000000001',
+          gen_random_uuid(),result.workflow_revision);
+        raise exception 'Backoff was bypassed';
+      exception when sqlstate '55000' then
+        if sqlerrm <> 'Response-analysis retry is not due yet.' then raise; end if;
+      end;
+      update public.total_loss_insurer_response_analysis_jobs set next_attempt_at=statement_timestamp() where id=claimed.job_id;
+    end if;
+    if attempt<3 then
+      if result.status<>'retryable_failed' then raise exception 'Early output retry exhaustion'; end if;
+      perform public.retry_total_loss_insurer_response_analysis('b2000000-0000-4000-8000-000000000001',
+        gen_random_uuid(),result.workflow_revision);
+    elsif result.status<>'terminal_failed' then raise exception 'Output retry limit was not enforced';
+    else
+      select * into result from public.fail_total_loss_insurer_response_analysis(claimed.job_id,token,claimed.run_id,
+        'INSURER_RESPONSE_OUTPUT_SEMANTIC_INVALID','retryable',0);
+      if result.outcome<>'duplicate' then raise exception 'Final failure replay is not idempotent'; end if;
+    end if;
+  end loop;
+end;
+$$;
+select ok((select count(*)=3 and bool_and(snapshot=to_jsonb(run))
+  from semantic_attempts saved join public.total_loss_insurer_response_analysis_runs run on run.id=saved.run_id),
+  'three distinct semantic attempts retain immutable failure snapshots through backoff, retries, and exhaustion');
+select ok((select count(*)=1 and bool_and(status='terminal_failed' and retryable=false and attempt_count=3
+  and source_document_id='c4000000-0000-4000-8000-000000000001'
+  and negotiation_round_id='be000000-0000-4000-8000-000000000001')
+  from public.total_loss_insurer_response_analysis_jobs where case_id='b2000000-0000-4000-8000-000000000001'),
+  'new-policy output attempts are bounded while retaining the response, document, and round');
+select throws_ok($q$select public.retry_total_loss_insurer_response_analysis(
+  'b2000000-0000-4000-8000-000000000001',gen_random_uuid(),
+  (select revision from public.total_loss_claim_workflows where case_id='b2000000-0000-4000-8000-000000000001'))$q$,
+  '55000','Response analysis is not retryable.','exhausted output failures cannot create an endless retry loop');
+rollback to output_pending;
+
+create temporary table excluded_output as select * from pg_temp.fail_recovery_response('INSURER_RESPONSE_ANALYSIS_INPUT_INVALID','2');
+select ok(not public.recover_total_loss_legacy_response_output((select job_id from excluded_output),
+  (select run_id from excluded_output),'LEGACY_OUTPUT_DIAGNOSTIC',repeat('a',64),repeat('b',64)),
+  'source input failures cannot be reclassified as output recovery');
+rollback to output_pending;
+
+create temporary table excluded_output as select * from pg_temp.fail_recovery_response('INSURER_RESPONSE_ANALYSIS_OUTPUT_INVALID','2');
+select public.record_total_loss_insurer_response('b2000000-0000-4000-8000-000000000001',gen_random_uuid(),
+  'Corrected insurer source.',null,null,'c4000000-0000-4000-8000-000000000001',
+  (select response_communication_id from public.total_loss_insurer_response_analysis_jobs where id=(select job_id from excluded_output)),
+  (select revision from public.total_loss_claim_workflows where case_id='b2000000-0000-4000-8000-000000000001'));
+select ok(not public.recover_total_loss_legacy_response_output((select job_id from excluded_output),
+  (select run_id from excluded_output),'LEGACY_OUTPUT_DIAGNOSTIC',repeat('a',64),repeat('b',64)),
+  'customer correction supersedes the old output job and denies stale recovery');
+rollback to output_pending;
+
+create temporary table excluded_output as select * from pg_temp.fail_recovery_response('INSURER_RESPONSE_ANALYSIS_OUTPUT_INVALID','2');
+select public.confirm_total_loss_case_resolution('b2000000-0000-4000-8000-000000000001',gen_random_uuid(),
+  'CUSTOMER_STOPPED_PURSUING',(select revision from public.total_loss_claim_workflows where case_id='b2000000-0000-4000-8000-000000000001'));
+select ok(not public.recover_total_loss_legacy_response_output((select job_id from excluded_output),
+  (select run_id from excluded_output),'LEGACY_OUTPUT_DIAGNOSTIC',repeat('a',64),repeat('b',64)),
+  'case closure denies even a classified or diagnostic recovery');
+select throws_ok($q$select public.retry_total_loss_insurer_response_analysis(
+  'b2000000-0000-4000-8000-000000000001',gen_random_uuid(),
+  (select revision from public.total_loss_claim_workflows where case_id='b2000000-0000-4000-8000-000000000001'))$q$,
+  '55000','This case is closed and read-only.','ordinary retry preserves the existing closure fence');
+rollback to output_pending;
+
+create temporary table excluded_output as select * from pg_temp.fail_recovery_response('INSURER_RESPONSE_ANALYSIS_OUTPUT_INVALID','2');
+update public.case_entitlements set status='revoked',revoked_at=statement_timestamp(),reason_code='TEST_REVOKED'
+  where case_id='b2000000-0000-4000-8000-000000000001';
+select ok(not public.recover_total_loss_legacy_response_output((select job_id from excluded_output),
+  (select run_id from excluded_output),'LEGACY_OUTPUT_DIAGNOSTIC',repeat('a',64),repeat('b',64)),
+  'revoked entitlement denies unchanged-output recovery');
+rollback to output_pending;
+
+create temporary table complete_output as select * from public.claim_current_total_loss_insurer_response_analysis(
+  'b2000000-0000-4000-8000-000000000001',gen_random_uuid(),'analysis-provider','response-context-test','3','1','2');
+update public.total_loss_insurer_response_analysis_runs set status='completed',returned_model_identifier='response-context-test',
+  input_digest=repeat('d',64),output_digest=repeat('e',64),completed_at=statement_timestamp()
+  where id=(select run_id from complete_output);
+update public.total_loss_insurer_response_analysis_jobs set status='completed',processing_expires_at=null,
+  completed_at=statement_timestamp() where id=(select job_id from complete_output);
+select ok(not public.recover_total_loss_legacy_response_output((select job_id from complete_output),
+  (select run_id from complete_output),'LEGACY_OUTPUT_DIAGNOSTIC',repeat('a',64),repeat('b',64)),
+  'completed output history cannot be reopened by maintenance recovery');
+select throws_ok($q$select public.retry_total_loss_insurer_response_analysis(
+  'b2000000-0000-4000-8000-000000000001',gen_random_uuid(),
+  (select revision from public.total_loss_claim_workflows where case_id='b2000000-0000-4000-8000-000000000001'))$q$,
+  '55000','Response analysis is not retryable.','completed analysis denies ordinary retry');
 
 select * from finish();
 rollback;

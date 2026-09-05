@@ -26,6 +26,7 @@ from venfour.insurer_response_analysis import (
     InsurerResponseAnalysisConfiguration,
     InsurerResponseAnalysisError,
     InsurerResponseAnalysisInputV1,
+    InsurerResponseAnalysisOutputError,
     InsurerResponseAnalysisUnavailableError,
     InsurerResponseAnalysisUnsupportedError,
     InsurerResponseDocumentUnderstanding,
@@ -1526,6 +1527,17 @@ class TotalLossInsurerResponseProcessor:
     def _failure(error: Exception) -> tuple[str, str, int]:
         if isinstance(error, InsurerResponseAnalysisUnsupportedError):
             return error.code, "unsupported", 0
+        if isinstance(error, InsurerResponseAnalysisOutputError):
+            if (
+                error.validation_reason == "PROVIDER_SEMANTIC_INVALID"
+                and error.retryable
+            ):
+                return (
+                    "INSURER_RESPONSE_OUTPUT_SEMANTIC_INVALID",
+                    "retryable",
+                    DEFAULT_RESPONSE_ANALYSIS_RETRY_DELAY_SECONDS,
+                )
+            return error.code, "terminal", 0
         if isinstance(error, InsurerResponseAnalysisError):
             return (
                 error.code,
