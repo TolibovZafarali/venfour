@@ -32,6 +32,10 @@ from venfour.discrepancy import (
     MAX_SAFE_MONEY_CENTS,
     NO_PRIMARY_EVIDENCE,
 )
+from venfour.preliminary_qualification import (
+    PreliminaryQualificationContractError,
+    validate_preliminary_qualification,
+)
 
 
 ANALYSIS_PRESENTATION_VERSION = "2"
@@ -698,6 +702,7 @@ class AnalysisPresentation:
     limitations: tuple[Mapping[str, Any], ...]
     provenance: Mapping[str, Any]
     presentation_version: str = ANALYSIS_PRESENTATION_VERSION
+    preliminary_qualification: Mapping[str, Any] | None = None
 
     def __post_init__(self) -> None:
         for field_name in (
@@ -716,6 +721,7 @@ class AnalysisPresentation:
             "report_review",
             "primary_external_evidence",
             "secondary_external_evidence",
+            "preliminary_qualification",
         ):
             value = getattr(self, field_name)
             object.__setattr__(
@@ -727,7 +733,7 @@ class AnalysisPresentation:
         )
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        data = {
             "presentationVersion": self.presentation_version,
             "runId": self.run_id,
             "analysisCreatedAt": self.analysis_created_at,
@@ -746,6 +752,11 @@ class AnalysisPresentation:
             "limitations": _thaw_json(self.limitations),
             "provenance": _thaw_json(self.provenance),
         }
+        if self.preliminary_qualification is not None:
+            data["preliminaryQualification"] = _thaw_json(
+                self.preliminary_qualification
+            )
+        return data
 
     @classmethod
     def from_dict(cls, data: Mapping[str, Any]) -> AnalysisPresentation:
@@ -768,6 +779,7 @@ class AnalysisPresentation:
             limitations=tuple(data["limitations"]),
             provenance=data["provenance"],
             presentation_version=data["presentationVersion"],
+            preliminary_qualification=data.get("preliminaryQualification"),
         )
 
 
@@ -1030,8 +1042,8 @@ def _semantic_presentation_errors(data: Mapping[str, Any]) -> list[str]:
     for index, row in enumerate(ccc["rows"]):
         source_price = row.get("sourcePrice")
         if source_price is not None:
-            if data["presentationVersion"] != "3":
-                errors.append(f"$.cccComparables.rows[{index}].sourcePrice: requires presentation v3")
+            if data["presentationVersion"] not in ("3", "4"):
+                errors.append(f"$.cccComparables.rows[{index}].sourcePrice: requires presentation v3 or v4")
             if source_price["typeLabel"] != SOURCE_PRICE_TYPE_LABELS[source_price["type"]]:
                 errors.append(f"$.cccComparables.rows[{index}].sourcePrice.typeLabel: does not match source type")
             expected_advertised = source_price["amount"] if source_price["type"] == "ADVERTISED" else _money(None)
@@ -1432,6 +1444,28 @@ def _semantic_presentation_errors(data: Mapping[str, Any]) -> list[str]:
     if provenance["presentationVersion"] != data["presentationVersion"]:
         errors.append(
             "$.provenance.presentationVersion: must match top-level presentationVersion"
+        )
+    qualification = data.get("preliminaryQualification")
+    if qualification is not None:
+        try:
+            validate_preliminary_qualification(qualification)
+        except PreliminaryQualificationContractError as exc:
+            errors.append(f"$.preliminaryQualification: {exc}")
+        if qualification["marketClassification"] != data["assessment"]["classification"]:
+            errors.append(
+                "$.preliminaryQualification.marketClassification: must match assessment.classification"
+            )
+        if qualification["reportReviewApplicable"] != (
+            data["analysisScope"]["inputMode"] == "REPORT"
+        ):
+            errors.append(
+                "$.preliminaryQualification.reportReviewApplicable: must match analysisScope.inputMode"
+            )
+    if (data["presentationVersion"] == "4") != (
+        provenance["analysisRunSchemaVersion"] == "8"
+    ):
+        errors.append(
+            "$.provenance.analysisRunSchemaVersion: presentation v4 requires analysis run v8"
         )
     digest = provenance["requestDigest"]
     if digest["label"] != _REQUEST_DIGEST_LABEL:
@@ -1963,6 +1997,15 @@ def _message_projection(
     ]
 
 
+def _presentation_version(artifact_data: Mapping[str, Any]) -> str:
+    if artifact_data["analysisRunSchemaVersion"] == "8":
+        return "4"
+    return (
+        "3" if artifact_data["discrepancyAnalysisVersion"] == "2"
+        else ANALYSIS_PRESENTATION_VERSION
+    )
+
+
 def _provenance(artifact_data: Mapping[str, Any]) -> dict[str, Any]:
     def provider(stream: str) -> dict[str, Any] | None:
         metadata = artifact_data["providers"][stream]
@@ -1978,7 +2021,7 @@ def _provenance(artifact_data: Mapping[str, Any]) -> dict[str, Any]:
     }
     return {
         "runId": artifact_data["runId"],
-        "presentationVersion": "3" if artifact_data["discrepancyAnalysisVersion"] == "2" else ANALYSIS_PRESENTATION_VERSION,
+        "presentationVersion": _presentation_version(artifact_data),
         "analysisRunSchemaVersion": artifact_data["analysisRunSchemaVersion"],
         "orchestrationAnalysisVersion": artifact_data["analysisVersion"],
         "discrepancyAnalysisVersion": artifact_data["discrepancyAnalysisVersion"],
@@ -2174,7 +2217,7 @@ class AnalysisPresentationProjector:
                     exclusions.extend(_summary_exclusions(summary))
 
             presentation_data = {
-                "presentationVersion": "3" if result["analysisVersion"] == "2" else ANALYSIS_PRESENTATION_VERSION,
+                "presentationVersion": _presentation_version(artifact_data),
                 "runId": artifact_data["runId"],
                 "analysisCreatedAt": artifact_data["createdAt"],
                 "assessment": {
@@ -2254,6 +2297,10 @@ class AnalysisPresentationProjector:
                 ),
                 "provenance": _provenance(artifact_data),
             }
+            if artifact_data["analysisRunSchemaVersion"] == "8":
+                presentation_data["preliminaryQualification"] = copy.deepcopy(
+                    artifact_data["result"]["preliminaryQualification"]
+                )
             return AnalysisPresentation.from_dict(presentation_data)
         except AnalysisPresentationContractError:
             raise

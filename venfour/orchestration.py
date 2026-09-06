@@ -12,7 +12,7 @@ import json
 import logging
 import os
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import date, datetime, timezone
 from typing import Any
 from uuid import UUID, uuid4
@@ -66,10 +66,18 @@ from venfour.market import (
     VehicleConfigurationIdentity,
     normalize_market_search_request,
 )
+from venfour.preliminary_qualification import qualify_preliminary
 
 
 RunIdFactory = Callable[[], UUID | str]
 Clock = Callable[[], datetime]
+
+
+class _UnspecifiedQualificationSource:
+    """Keep direct report calls distinct from explicitly unavailable sources."""
+
+
+_UNSPECIFIED_QUALIFICATION_SOURCE = _UnspecifiedQualificationSource()
 
 _PROVIDER_DIAGNOSTICS_ENV = "VENFOUR_PROVIDER_DIAGNOSTICS"
 _PROVIDER_DIAGNOSTICS_LOGGER = logging.getLogger("venfour.provider_diagnostics")
@@ -209,6 +217,10 @@ class AnalysisRunRequest:
 
     Presence of a search configuration enables that temporal stream. The
     server-owned adaptive policy controls every bounded search attempt.
+
+    ``qualification_source_report`` preserves printed report facts separately
+    from customer-confirmed analysis inputs. Direct report callers default to
+    ``ccc_report``; callers with an unavailable source must pass ``None``.
     """
 
     ccc_report: Mapping[str, Any]
@@ -217,6 +229,9 @@ class AnalysisRunRequest:
     current_search: CurrentMarketSearchConfiguration | None = None
     historical_search: HistoricalMarketSearchConfiguration | None = None
     evidence_context: Mapping[str, Any] | None = None
+    qualification_source_report: (
+        Mapping[str, Any] | None | _UnspecifiedQualificationSource
+    ) = _UNSPECIFIED_QUALIFICATION_SOURCE
     vehicle_configuration: VehicleConfigurationIdentity | None = None
     search_policies: AdaptiveSearchPolicies = field(
         default_factory=lambda: DEFAULT_ADAPTIVE_SEARCH_POLICIES
@@ -243,6 +258,24 @@ class AnalysisRunRequest:
                 "evidence_context",
                 copy.deepcopy(dict(self.evidence_context)),
             )
+        source_report = self.qualification_source_report
+        if source_report is _UNSPECIFIED_QUALIFICATION_SOURCE:
+            source_report = (
+                self.ccc_report
+                if self.evidence_context is None
+                or self.evidence_context.get("inputMode") == "REPORT"
+                else None
+            )
+        if source_report is not None and not isinstance(source_report, Mapping):
+            raise AnalysisInputError(
+                "Qualification source report must be a JSON object or null",
+                ("$.qualificationSourceReport: expected an object or null",),
+            )
+        object.__setattr__(
+            self,
+            "qualification_source_report",
+            copy.deepcopy(dict(source_report)) if source_report is not None else None,
+        )
         normalized_postal = (
             self.postal_code.strip()
             if isinstance(self.postal_code, str)
@@ -507,6 +540,8 @@ class AnalysisOrchestrator:
         if not isinstance(request, AnalysisRunRequest):
             raise AnalysisInputError("request must be AnalysisRunRequest")
         self._validate_normalized_report(request.ccc_report)
+        if request.qualification_source_report is not None:
+            self._validate_normalized_report(request.qualification_source_report)
         try:
             base_request = valuation_discrepancy_request_from_report(
                 request.ccc_report,
@@ -754,6 +789,7 @@ class AnalysisOrchestrator:
                 ),
                 "configuredSearchPolicies": configured_search_policies_data,
                 "searchPolicies": search_policies_data,
+                "qualificationSourceReport": request.qualification_source_report,
             },
             result={
                 "currentMarketResult": (
@@ -779,6 +815,27 @@ class AnalysisOrchestrator:
             evidence_context=request.evidence_context,
             discrepancy_analysis_version=discrepancy_result.analysis_version,
         )
+        try:
+            artifact_data = artifact.to_dict()
+            qualification = qualify_preliminary(
+                source_report=artifact_data["request"]["qualificationSourceReport"],
+                evidence_context=artifact_data["evidenceContext"],
+                discrepancy_request=discrepancy_request_data,
+                discrepancy_result=artifact_data["result"]["discrepancyResult"],
+                current_ranking=artifact_data["result"]["currentRanking"],
+                historical_ranking=artifact_data["result"]["historicalRanking"],
+            )
+            artifact = replace(
+                artifact,
+                result={
+                    **artifact_data["result"],
+                    "preliminaryQualification": qualification,
+                },
+            )
+        except Exception as exc:
+            raise AnalysisExecutionError(
+                "Deterministic preliminary qualification failed"
+            ) from exc
         try:
             validate_analysis_run_artifact(artifact)
         except (

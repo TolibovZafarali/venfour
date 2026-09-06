@@ -1,0 +1,309 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.venfour.local/analysis/preliminary-qualification.schema.json",
+  "title": "Preliminary qualification",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "qualificationVersion",
+    "inputDigest",
+    "outcome",
+    "marketClassification",
+    "reportReviewApplicable",
+    "applicableMaterialReviewComplete",
+    "reportAnalysisVersion",
+    "qualifyingReportFindings",
+    "unresolvedMaterialChecks",
+    "reasonCodes",
+    "checkCoverage"
+  ],
+  "properties": {
+    "qualificationVersion": {
+      "const": "1"
+    },
+    "inputDigest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "outcome": {
+      "enum": [
+        "CLEAR_MARKET_VALUE_GAP",
+        "MATERIAL_INSURER_REPORT_ISSUE",
+        "IMPORTANT_INFORMATION_NEEDED",
+        "NO_SUPPORTED_ISSUE_AFTER_ADEQUATE_REVIEW"
+      ]
+    },
+    "marketClassification": {
+      "enum": [
+        "POTENTIAL_UNDERVALUE",
+        "MATERIAL_UNDERVALUE_SIGNAL",
+        "NO_MATERIAL_DISCREPANCY",
+        "INSUFFICIENT_EVIDENCE",
+        "CONFLICTING_EVIDENCE"
+      ]
+    },
+    "reportReviewApplicable": {
+      "type": "boolean"
+    },
+    "applicableMaterialReviewComplete": {
+      "type": "boolean"
+    },
+    "reportAnalysisVersion": {
+      "enum": [
+        "1",
+        "2",
+        null
+      ]
+    },
+    "qualifyingReportFindings": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/qualifyingReportFinding"
+      }
+    },
+    "unresolvedMaterialChecks": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/unresolvedMaterialCheck"
+      }
+    },
+    "reasonCodes": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true
+    },
+    "checkCoverage": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/checkCoverage"
+      }
+    }
+  },
+  "$defs": {
+    "sourceEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "value"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "pattern": "^\\$\\."
+        },
+        "value": {}
+      }
+    },
+    "sourceReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "page",
+        "section",
+        "label",
+        "text"
+      ],
+      "properties": {
+        "page": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "section": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "label": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "text": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "financialImpact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "amountCents",
+        "scope",
+        "roundingAllowanceCents"
+      ],
+      "properties": {
+        "amountCents": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "scope": {
+          "enum": [
+            "VALUATION_ARITHMETIC",
+            "CONDITION_ARITHMETIC",
+            "COMPARABLE_ARITHMETIC"
+          ]
+        },
+        "roundingAllowanceCents": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "qualifyingReportFinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "findingCode",
+        "comparableIndexes",
+        "sourceEvidence",
+        "sourceReferences",
+        "reasonCode",
+        "financialImpact",
+        "materialityBasis"
+      ],
+      "properties": {
+        "findingCode": {
+          "enum": [
+            "VALUATION_ARITHMETIC",
+            "CONDITION_ADJUSTMENT_RECONCILIATION",
+            "COMPARABLE_ADJUSTMENT_RECONCILIATION"
+          ]
+        },
+        "comparableIndexes": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "sourceEvidence": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/sourceEvidence"
+          }
+        },
+        "sourceReferences": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/sourceReference"
+          }
+        },
+        "reasonCode": {
+          "type": "string",
+          "minLength": 1
+        },
+        "financialImpact": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/financialImpact"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "materialityBasis": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "unresolvedMaterialCheck": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "checkCode",
+        "reasonCode",
+        "resolution",
+        "sourceEvidence",
+        "sourceReferences",
+        "materialityBasis"
+      ],
+      "properties": {
+        "checkCode": {
+          "type": "string",
+          "minLength": 1
+        },
+        "reasonCode": {
+          "type": "string",
+          "minLength": 1
+        },
+        "resolution": {
+          "enum": [
+            "CUSTOMER_RESOLVABLE",
+            "DOCUMENT_SOURCE_RESOLVABLE",
+            "PROVIDER_MARKET_DATA",
+            "NOT_CURRENTLY_RESOLVABLE"
+          ]
+        },
+        "sourceEvidence": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/sourceEvidence"
+          }
+        },
+        "sourceReferences": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/sourceReference"
+          }
+        },
+        "materialityBasis": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "checkCoverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "checkCode",
+        "scope",
+        "status",
+        "reasonCodes"
+      ],
+      "properties": {
+        "checkCode": {
+          "type": "string",
+          "minLength": 1
+        },
+        "scope": {
+          "enum": [
+            "MARKET",
+            "REPORT",
+            "SUBJECT"
+          ]
+        },
+        "status": {
+          "enum": [
+            "COMPLETE",
+            "UNRESOLVED",
+            "NOT_APPLICABLE",
+            "NOT_ASSESSED"
+          ]
+        },
+        "reasonCodes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        }
+      }
+    }
+  }
+}

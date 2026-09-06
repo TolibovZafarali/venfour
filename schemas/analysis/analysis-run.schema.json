@@ -23,6 +23,9 @@
     },
     {
       "$ref": "#/$defs/analysisRunV7"
+    },
+    {
+      "$ref": "#/$defs/analysisRunV8"
     }
   ],
   "$defs": {
@@ -1350,6 +1353,164 @@
         },
         "result": {
           "$ref": "#/$defs/analysisRunResultV4"
+        },
+        "evidenceContext": {
+          "$ref": "#/$defs/evidenceContext"
+        }
+      }
+    },
+    "analysisRunRequestV8": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "baseDiscrepancyRequest",
+        "lossDateSource",
+        "lossDateOverride",
+        "currentSearchRequest",
+        "historicalSearchRequest",
+        "currentObservedDate",
+        "configuredSearchPolicies",
+        "searchPolicies",
+        "qualificationSourceReport"
+      ],
+      "properties": {
+        "baseDiscrepancyRequest": {
+          "$ref": "https://schemas.venfour.local/analysis/valuation-discrepancy-request.schema.json"
+        },
+        "lossDateSource": {
+          "enum": [
+            "CCC_REPORT",
+            "OVERRIDE"
+          ]
+        },
+        "lossDateOverride": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date"
+        },
+        "currentSearchRequest": {
+          "$ref": "#/$defs/nullableCurrentSearchRequest"
+        },
+        "historicalSearchRequest": {
+          "$ref": "#/$defs/nullableHistoricalSearchRequest"
+        },
+        "currentObservedDate": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date"
+        },
+        "configuredSearchPolicies": {
+          "$ref": "#/$defs/searchPolicies"
+        },
+        "searchPolicies": {
+          "$ref": "#/$defs/searchPolicies"
+        },
+        "qualificationSourceReport": {
+          "description": "Original effective insurer-report source, validated against its versioned report contract; null when unavailable or not applicable. Customer-confirmed analysis overrides are retained separately in baseDiscrepancyRequest.",
+          "type": [
+            "object",
+            "null"
+          ]
+        }
+      }
+    },
+    "analysisRunResultV8": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "currentMarketResult",
+        "historicalMarketResult",
+        "currentRanking",
+        "historicalRanking",
+        "discrepancyRequest",
+        "discrepancyResult",
+        "searchDiagnostics",
+        "preliminaryQualification"
+      ],
+      "properties": {
+        "currentMarketResult": {
+          "$ref": "#/$defs/nullableCurrentMarketResult"
+        },
+        "historicalMarketResult": {
+          "$ref": "#/$defs/nullableHistoricalMarketResult"
+        },
+        "currentRanking": {
+          "$ref": "#/$defs/nullableRankingResult"
+        },
+        "historicalRanking": {
+          "$ref": "#/$defs/nullableRankingResult"
+        },
+        "discrepancyRequest": {
+          "$ref": "https://schemas.venfour.local/analysis/valuation-discrepancy-request.schema.json"
+        },
+        "discrepancyResult": {
+          "$ref": "https://schemas.venfour.local/analysis/valuation-discrepancy-result.schema.json"
+        },
+        "searchDiagnostics": {
+          "$ref": "#/$defs/searchDiagnosticsV4"
+        },
+        "preliminaryQualification": {
+          "$ref": "https://schemas.venfour.local/analysis/preliminary-qualification.schema.json"
+        }
+      }
+    },
+    "analysisRunV8": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "analysisRunSchemaVersion",
+        "runId",
+        "createdAt",
+        "analysisVersion",
+        "discrepancyAnalysisVersion",
+        "comparableScoringVersion",
+        "requestDigest",
+        "searchDiagnosticsDigest",
+        "providers",
+        "request",
+        "result",
+        "evidenceContext"
+      ],
+      "properties": {
+        "analysisRunSchemaVersion": {
+          "const": "8"
+        },
+        "runId": {
+          "$ref": "#/$defs/runId"
+        },
+        "createdAt": {
+          "$ref": "#/$defs/createdAt"
+        },
+        "analysisVersion": {
+          "const": "8"
+        },
+        "discrepancyAnalysisVersion": {
+          "enum": [
+            "1",
+            "2"
+          ]
+        },
+        "comparableScoringVersion": {
+          "const": "2"
+        },
+        "requestDigest": {
+          "$ref": "#/$defs/requestDigest"
+        },
+        "searchDiagnosticsDigest": {
+          "$ref": "#/$defs/requestDigest"
+        },
+        "providers": {
+          "$ref": "#/$defs/providers"
+        },
+        "request": {
+          "$ref": "#/$defs/analysisRunRequestV8"
+        },
+        "result": {
+          "$ref": "#/$defs/analysisRunResultV8"
         },
         "evidenceContext": {
           "$ref": "#/$defs/evidenceContext"

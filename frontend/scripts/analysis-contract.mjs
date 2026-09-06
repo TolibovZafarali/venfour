@@ -14,7 +14,7 @@ const outputPath = path.resolve(
   "src/features/analyses/analysis-presentation.generated.ts",
 );
 const supportedConditionalSchemaDigest =
-  "3e8a502280a41196fcf8924d533d0853c5a4bb1e0b9d019384bac879ed32ff16";
+  "dccb7d97a6d1d355e2268fd71186e3db7c3782f5230111fb0735916b7b0bbcec";
 
 function collectConditionalConstraints(value, currentPath = "$", result = []) {
   if (Array.isArray(value)) {
@@ -300,6 +300,9 @@ type RefinedInputEvidence =
 type AnalysisPresentationCommonBase = Omit<
   AnalysisPresentationBase,
   | "assessment"
+  | "presentationVersion"
+  | "preliminaryQualification"
+  | "provenance"
   | "primaryExternalEvidence"
   | "secondaryExternalEvidence"
   | "comparablesUsed"
@@ -313,8 +316,25 @@ type AnalysisPresentationCommonBase = Omit<
   };
 };
 
+type PresentationQualificationVersion =
+  | {
+      presentationVersion: "2" | "3";
+      preliminaryQualification?: never;
+      provenance: Omit<Provenance, "presentationVersion"> & {
+        presentationVersion: "2" | "3";
+      };
+    }
+  | {
+      presentationVersion: "4";
+      preliminaryQualification: PreliminaryQualification;
+      provenance: Omit<Provenance, "presentationVersion" | "analysisRunSchemaVersion"> & {
+        presentationVersion: "4";
+        analysisRunSchemaVersion: "8";
+      };
+    };
+
 type AnalysisPresentationCommon = AnalysisPresentationCommonBase &
-  RefinedInputEvidence;
+  RefinedInputEvidence & PresentationQualificationVersion;
 
 type AnalysisPresentationWithoutPrimaryEvidence =
   AnalysisPresentationCommon & {

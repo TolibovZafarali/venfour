@@ -574,8 +574,8 @@ class AnalysisOrchestrationScenarioTests(TemporaryRepositoryTestCase):
             },
         )
         artifact_data = loaded.to_dict()
-        self.assertEqual(artifact_data["analysisRunSchemaVersion"], "7")
-        self.assertEqual(artifact_data["analysisVersion"], "7")
+        self.assertEqual(artifact_data["analysisRunSchemaVersion"], "8")
+        self.assertEqual(artifact_data["analysisVersion"], "8")
         self.assertEqual(artifact_data["comparableScoringVersion"], "2")
         self.assertEqual(artifact_data["evidenceContext"]["inputMode"], "REPORT")
         self.assertEqual(len(artifact_data["searchDiagnosticsDigest"]), 64)

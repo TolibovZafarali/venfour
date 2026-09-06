@@ -71,6 +71,18 @@ SchemaLoader = Callable[[], dict[str, Any]]
 DateFactory = Callable[[], date]
 AvailabilityCheck = Callable[[], None]
 OrchestratorFactory = Callable[[date], AnalysisOrchestrator]
+_QUALIFICATION_SOURCE_UNSET = object()
+
+
+def _qualification_source_from_normalized(
+    normalized: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Keep printed report arithmetic separate from the comparison offer."""
+    source = normalized_report_to_legacy_report(normalized)
+    source["valuation"]["adjustedVehicleValue"] = normalized["valuation"][
+        "adjustedVehicleValue"
+    ]
+    return source
 
 
 class AnalysisCreationError(Exception):
@@ -299,6 +311,7 @@ class AnalysisCreationService:
         loss_date_override: str | None = None,
         selected_evidence_context: Mapping[str, Any] | None = None,
         vehicle_configuration: VehicleConfigurationIdentity | None = None,
+        qualification_source_report: Mapping[str, Any] | None | object = _QUALIFICATION_SOURCE_UNSET,
     ) -> AnalysisRunResult:
         normalized_postal = _normalized_postal_code(postal_code)
         self._require_availability()
@@ -329,6 +342,8 @@ class AnalysisCreationService:
             else None
         )
         request = AnalysisRunRequest(
+            **({"qualification_source_report": qualification_source_report}
+               if qualification_source_report is not _QUALIFICATION_SOURCE_UNSET else {}),
             ccc_report=report_data,
             postal_code=normalized_postal,
             loss_date_override=loss_date_override,
@@ -413,6 +428,9 @@ class AnalysisCreationService:
                 report_data,
                 postal_code,
                 selected_evidence_context=context,
+                qualification_source_report=_qualification_source_from_normalized(
+                    ingestion.to_dict()["normalizedReport"]
+                ),
             )
 
         try:
@@ -513,6 +531,11 @@ class AnalysisCreationService:
             loss_date_override=confirmed.loss_date,
             selected_evidence_context=context,
             vehicle_configuration=confirmed.vehicle_configuration,
+            qualification_source_report=(
+                _qualification_source_from_normalized(normalized_report)
+                if confirmed.intake_mode == "REPORT" and normalized_report is not None
+                else None
+            ),
         )
 
 

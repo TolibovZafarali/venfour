@@ -41,6 +41,7 @@ from venfour.presentation import (
     AnalysisPresentationService,
     validate_analysis_presentation,
 )
+from venfour.preliminary_qualification import validate_preliminary_qualification
 from venfour.supabase_gateway import (
     SupabaseHttpGateway,
     SupabaseServerConfiguration,
@@ -718,6 +719,7 @@ class AnalysisPresentationApiTests(TemporaryRepositoryTestCase):
             current_prices=CONSISTENT_PRICES,
         )
         expected = json.loads(FIXTURE_PATH.read_text(encoding="utf-8"))
+        self.assertEqual(expected["presentationVersion"], "2")
         self.assertEqual(expected["provenance"]["analysisRunSchemaVersion"], "5")
         self.assertEqual(
             expected["provenance"]["orchestrationAnalysisVersion"], "5"
@@ -733,6 +735,18 @@ class AnalysisPresentationApiTests(TemporaryRepositoryTestCase):
             artifact.comparable_scoring_version
         )
         expected["provenance"]["requestDigest"]["value"] = artifact.request_digest
+        expected["presentationVersion"] = "4"
+        expected["provenance"]["presentationVersion"] = "4"
+        expected["preliminaryQualification"] = validate_preliminary_qualification(
+            artifact.to_dict()["result"]["preliminaryQualification"]
+        )
+        self.assertEqual(
+            expected["preliminaryQualification"]["outcome"], "CLEAR_MARKET_VALUE_GAP"
+        )
+        self.assertEqual(
+            expected["preliminaryQualification"]["marketClassification"],
+            MATERIAL_UNDERVALUE_SIGNAL,
+        )
         validate_analysis_presentation(expected)
         self.assertEqual(expected["runId"], artifact.run_id)
         self.assertEqual(
