@@ -8,219 +8,265 @@ import {
   createSignalMotion,
   recordPointerMove,
   resetSignalMotion,
+  type SignalMotion,
 } from "./valuation-pointer-motion";
 
 const STEP = 1 / 60;
 
-function followingSignal() {
+type Dot = { motion: SignalMotion; x: number; y: number };
+
+function createScene(positions: readonly (readonly [number, number])[], x = -60, y = 0) {
   const pointer = createPointerMotion();
-  const signal = createSignalMotion(37);
-  recordPointerMove(pointer, 100, 0, 0);
-  advanceSignalMotion(signal, pointer, 100, 25, 0);
-  for (let frame = 1; frame <= 90; frame += 1) {
-    const time = frame * STEP;
-    recordPointerMove(pointer, 100 + time * 120, 0, time);
-    advancePointerMotion(pointer, STEP, time);
-    advanceSignalMotion(signal, pointer, 100, 25, STEP);
-  }
-  return { pointer, signal, time: 90 * STEP };
+  const dots: Dot[] = positions.map(([normalX, normalY], index) => ({
+    motion: createSignalMotion(index), x: normalX, y: normalY,
+  }));
+  const motions = dots.map((dot) => dot.motion);
+  recordPointerMove(pointer, x, y, 0);
+  for (const dot of dots) advanceSignalMotion(dot.motion, pointer, dot.x, dot.y, 0);
+  const tick = (time: number, nextX?: number, nextY?: number, delta = STEP) => {
+    if (nextX !== undefined && nextY !== undefined) recordPointerMove(pointer, nextX, nextY, time);
+    advancePointerMotion(pointer, delta, time, motions);
+    for (const dot of dots) advanceSignalMotion(dot.motion, pointer, dot.x, dot.y, delta);
+  };
+  return { pointer, dots, motions, tick };
 }
 
-function displacement(signal: ReturnType<typeof createSignalMotion>) {
+function expectUntouched(signal: SignalMotion) {
+  expect([signal.shiftX, signal.shiftY, signal.velocityX, signal.velocityY, signal.followWeight])
+    .toEqual([0, 0, 0, 0, 0]);
+  expect(signal.captured).toBe(false);
+}
+
+function displacement(signal: SignalMotion) {
   return Math.hypot(signal.shiftX, signal.shiftY);
 }
 
-function expectSameMotion(
-  actual: ReturnType<typeof createSignalMotion>,
-  expected: ReturnType<typeof createSignalMotion>,
-) {
-  expect(actual.shiftX).toBeCloseTo(expected.shiftX, 10);
-  expect(actual.shiftY).toBeCloseTo(expected.shiftY, 10);
-  expect(actual.velocityX).toBeCloseTo(expected.velocityX, 10);
-  expect(actual.velocityY).toBeCloseTo(expected.velocityY, 10);
-}
-
-describe("valuation pointer motion", () => {
-  it("leaves the changing normal path exactly intact without pointer movement", () => {
+describe("valuation cursor wake", () => {
+  it("leaves an evolving normal path exactly intact without pointer movement", () => {
     const pointer = createPointerMotion();
     const signal = createSignalMotion(37);
     for (let frame = 0; frame <= 600; frame += 1) {
       const time = frame * STEP;
-      advancePointerMotion(pointer, STEP, time);
+      advancePointerMotion(pointer, STEP, time, [signal]);
       advanceSignalMotion(signal, pointer, 500 + Math.cos(time) * 280, 400 + Math.sin(time * 2) * 160, STEP);
-      expect([signal.shiftX, signal.shiftY, signal.velocityX, signal.velocityY, signal.followWeight])
-        .toEqual([0, 0, 0, 0, 0]);
+      expectUntouched(signal);
     }
   });
 
-  it("does not attract a particle under a stationary pointer or duplicate coordinate events", () => {
-    const pointer = createPointerMotion();
-    const signal = createSignalMotion(37);
-    recordPointerMove(pointer, 100, 100, 0);
-    const firstMoveTime = pointer.lastMoveTime;
-    for (let frame = 1; frame <= 120; frame += 1) {
+  it("keeps every dot in a horizontal row exactly untouched until the pointer passes it", () => {
+    const scene = createScene(Array.from({ length: 12 }, (_, index) => [index * 50, 0] as const));
+    const captured = new Set<SignalMotion>();
+    let followersBehind = 0;
+    for (let frame = 1; frame <= 330; frame += 1) {
       const time = frame * STEP;
-      recordPointerMove(pointer, 100, 100, time);
-      advancePointerMotion(pointer, STEP, time);
-      advanceSignalMotion(signal, pointer, 120, 110, STEP);
+      const cursorX = -60 + time * 100;
+      scene.tick(time, cursorX, 0);
+      for (const dot of scene.dots) {
+        if (dot.x > cursorX) expectUntouched(dot.motion);
+        if (dot.motion.captured) {
+          captured.add(dot.motion);
+          if (dot.motion.shiftX > 1 && dot.x + dot.motion.shiftX < cursorX) followersBehind += 1;
+        }
+      }
     }
-    expect(pointer.lastMoveTime).toBe(firstMoveTime);
-    expect(pointer.activity).toBe(0);
-    expect(displacement(signal)).toBe(0);
-    expect(signal.followWeight).toBe(0);
+    expect(captured.size).toBeGreaterThanOrEqual(6);
+    expect(followersBehind).toBeGreaterThan(10);
   });
 
-  it("does not manufacture velocity when the pointer enters or reenters elsewhere", () => {
-    const pointer = createPointerMotion();
-    for (const [x, y, time] of [[1000, 900, 1], [-2000, 3000, 2]]) {
-      recordPointerMove(pointer, x, y, time);
-      advancePointerMotion(pointer, STEP, time);
-      expect([pointer.x, pointer.y]).toEqual([x, y]);
-      expect([pointer.velocityX, pointer.velocityY, pointer.activity]).toEqual([0, 0, 0]);
-      clearPointerMotion(pointer);
+  it("captures a crossed narrow lane while leaving adjacent untraversed dots alone", () => {
+    const scene = createScene([[100, 20], [100, 90], [100, -90]]);
+    let closeCaptured = false;
+    for (let frame = 1; frame <= 180; frame += 1) {
+      scene.tick(frame * STEP, -60 + frame * STEP * 120, 0);
+      closeCaptured ||= scene.dots[0].motion.captured;
+      expectUntouched(scene.dots[1].motion);
+      expectUntouched(scene.dots[2].motion);
     }
+    expect(closeCaptured).toBe(true);
   });
 
-  it("carries a nearby particle with lag while distant particles remain untouched", () => {
-    const { pointer, signal } = followingSignal();
-    expect(signal.shiftX).toBeGreaterThan(40);
-    expect(signal.velocityX).toBeGreaterThan(10);
-    expect(signal.followWeight).toBeGreaterThan(0.1);
-    expect(100 + signal.shiftX).toBeLessThan(pointer.x);
-
-    const distant = createSignalMotion(72);
-    for (let frame = 0; frame < 60; frame += 1) {
-      advanceSignalMotion(distant, pointer, 900, 600, STEP);
+  it("bounds the combined following and releasing population during repeated passes", () => {
+    const positions = Array.from({ length: 120 }, (_, index) => [100 + Math.floor(index / 40) * 55, (index % 40) - 20] as const);
+    const scene = createScene(positions);
+    let peak = 0;
+    let sawRelease = false;
+    for (let frame = 1; frame <= 300; frame += 1) {
+      const time = frame * STEP;
+      scene.tick(time, -60 + time * 180, 0);
+      const active = scene.motions.filter((signal) => signal.captured || signal.followWeight > 0).length;
+      peak = Math.max(peak, active);
+      sawRelease ||= scene.motions.some((signal) => !signal.captured && signal.followWeight > 0);
+      expect(active).toBeLessThanOrEqual(36);
     }
-    expect([distant.shiftX, distant.shiftY, distant.followWeight]).toEqual([0, 0, 0]);
+    expect(peak).toBeGreaterThan(0);
+    expect(sawRelease).toBe(true);
   });
 
-  it("follows slow pointer motion while sub-threshold drift stays inactive", () => {
-    const simulate = (speed: number) => {
-      const pointer = createPointerMotion();
-      const signal = createSignalMotion(37);
-      recordPointerMove(pointer, 100, 0, 0);
-      advanceSignalMotion(signal, pointer, 100, 25, 0);
+  it("does not capture under a stationary pointer or through duplicate coordinate events", () => {
+    const scene = createScene([[110, 10]], 100, 0);
+    const initialLastMove = scene.pointer.lastMoveTime;
+    for (let frame = 1; frame <= 120; frame += 1) {
+      scene.tick(frame * STEP, 100, 0);
+      expectUntouched(scene.dots[0].motion);
+    }
+    expect(scene.pointer.lastMoveTime).toBe(initialLastMove);
+    expect(scene.pointer.captureAllowed).toBe(false);
+  });
+
+  it("does not bridge the field when the cursor leaves and reenters elsewhere", () => {
+    const scene = createScene([[200, 0], [500, 0], [800, 0]], 0, 0);
+    for (let frame = 1; frame <= 15; frame += 1) scene.tick(frame * STEP, frame, 0);
+    clearPointerMotion(scene.pointer);
+    recordPointerMove(scene.pointer, 1000, 0, 1);
+    scene.tick(1);
+    for (const signal of scene.motions) expectUntouched(signal);
+    for (let frame = 1; frame <= 30; frame += 1) scene.tick(1 + frame * STEP, 1000 + frame, 0);
+    for (const signal of scene.motions) expectUntouched(signal);
+  });
+
+  it("keeps follower movement restrained while fast movement outruns the wake", () => {
+    const run = (speed: number) => {
+      const scene = createScene([[0, 0]], -25, 0);
+      let peakSpeed = 0;
+      let maximumLag = 0;
+      let wasCaptured = false;
+      let maximumShift = 0;
       for (let frame = 1; frame <= 120; frame += 1) {
         const time = frame * STEP;
-        recordPointerMove(pointer, 100 + speed * time, 0, time);
-        advancePointerMotion(pointer, STEP, time);
-        advanceSignalMotion(signal, pointer, 100, 25, STEP);
+        scene.tick(time, -25 + speed * time, 0);
+        const signal = scene.dots[0].motion;
+        if (signal.captured) {
+          wasCaptured = true;
+          peakSpeed = Math.max(peakSpeed, Math.hypot(signal.velocityX, signal.velocityY));
+          maximumLag = Math.max(maximumLag, scene.pointer.rawX - signal.shiftX);
+          maximumShift = Math.max(maximumShift, signal.shiftX);
+          expect(Math.hypot(signal.velocityX, signal.velocityY)).toBeLessThanOrEqual(181);
+        }
       }
-      return { pointer, signal };
+      return { peakSpeed, maximumLag, maximumShift, wasCaptured };
     };
-    const slow = simulate(40);
-    expect(slow.pointer.activity).toBeGreaterThan(0);
-    expect(slow.pointer.activity).toBeLessThan(1);
-    expect(slow.signal.shiftX).toBeGreaterThan(8);
-    for (const speed of [5, 9]) {
-      const drift = simulate(speed);
-      expect(drift.pointer.activity).toBe(0);
-      expect([drift.signal.shiftX, drift.signal.shiftY, drift.signal.followWeight]).toEqual([0, 0, 0]);
+    const slow = run(100);
+    const fast = run(1200);
+    expect(slow.wasCaptured).toBe(true);
+    expect(fast.wasCaptured).toBe(true);
+    expect(slow.maximumShift).toBeGreaterThan(2);
+    expect(fast.maximumLag).toBeGreaterThan(slow.maximumLag);
+    expect(fast.peakSpeed).toBeLessThanOrEqual(181);
+  });
+
+  it("visits a turn in order before advancing along its outgoing trail segment", () => {
+    const scene = createScene([[20, 0]], 0, 0);
+    const signal = scene.motions[0];
+    signal.sideOffset = 0;
+    signal.followDelay = 0.07;
+    signal.responseTime = 0.2;
+    signal.maxSpeed = 140;
+    signal.lifetime = 0.65;
+    let visitedCorner = false;
+    let followedOutgoingSegment = false;
+    let previousTrailTime = -Infinity;
+    for (let frame = 1; frame <= 72; frame += 1) {
+      const time = frame * STEP;
+      scene.tick(time, Math.min(30, time * 100), Math.max(0, time * 100 - 30));
+      if (!signal.captured) continue;
+      expect(signal.trailTime).toBeGreaterThanOrEqual(previousTrailTime);
+      previousTrailTime = signal.trailTime;
+      visitedCorner ||= Math.hypot(signal.pathX - 30, signal.pathY) < 6;
+      if (signal.pathY > 6) {
+        expect(visitedCorner).toBe(true);
+        expect(signal.pathX).toBeGreaterThan(26);
+        followedOutgoingSegment = true;
+      }
+    }
+    expect(visitedCorner).toBe(true);
+    expect(followedOutgoingSegment).toBe(true);
+  });
+
+  it("does not create new followers after actual movement stops", () => {
+    const scene = createScene([[0, 0], [80, 0], [35, 30]], -30, 0);
+    for (let frame = 1; frame <= 30; frame += 1) scene.tick(frame * STEP, -30 + frame * 2, 0);
+    const capturedBeforeStop = new Set(scene.motions.filter((signal) => signal.captured));
+    expect(capturedBeforeStop.size).toBeGreaterThan(0);
+    const lastMove = scene.pointer.lastMoveTime;
+    for (let frame = 1; frame <= 90; frame += 1) {
+      scene.tick(0.5 + frame * STEP, 30, 0);
+      for (const signal of scene.motions) {
+        if (!capturedBeforeStop.has(signal)) expectUntouched(signal);
+      }
+    }
+    expect(scene.pointer.lastMoveTime).toBe(lastMove);
+    expect(scene.motions.every((signal) => !signal.captured)).toBe(true);
+  });
+
+  it("does not pick up a normally moving dot that enters old trail geometry after the cursor stops", () => {
+    const scene = createScene([[15, 90]], -30, 0);
+    for (let frame = 1; frame <= 30; frame += 1) scene.tick(frame * STEP, -30 + frame * 2, 0);
+    expectUntouched(scene.motions[0]);
+    scene.dots[0].y = 15;
+    for (let frame = 1; frame <= 30; frame += 1) {
+      scene.tick(0.5 + frame * STEP);
+      expectUntouched(scene.motions[0]);
     }
   });
 
-  it("applies no cursor force outside the release radius, even while follow weight decays", () => {
-    const { pointer, signal } = followingSignal();
-    expect(signal.followWeight).toBeGreaterThan(0.1);
-    const leftPointer = { ...pointer, x: -1000, y: 0 };
-    const rightPointer = { ...pointer, x: 1000, y: 500 };
-    const leftSignal = { ...signal };
-    const rightSignal = { ...signal };
-    advanceSignalMotion(leftSignal, leftPointer, 100, 25, STEP);
-    advanceSignalMotion(rightSignal, rightPointer, 100, 25, STEP);
-    expectSameMotion(leftSignal, rightSignal);
-    expect(leftSignal.followWeight).toBeLessThan(signal.followWeight);
-  });
-
-  it("ignores settling and duplicate events after the actual pointer movement stops", () => {
-    const { pointer, signal, time: stoppedAt } = followingSignal();
-    const lastMovement = pointer.lastMoveTime;
-    for (let frame = 1; frame <= 18; frame += 1) {
-      const time = stoppedAt + frame * STEP;
-      recordPointerMove(pointer, pointer.rawX, pointer.rawY, time);
-      advancePointerMotion(pointer, STEP, time);
-      advanceSignalMotion(signal, pointer, 100, 25, STEP);
-    }
-    expect(pointer.lastMoveTime).toBe(lastMovement);
-    expect(pointer.activity).toBe(0);
-  });
-
-  it("returns to normal motion independently of the stopped pointer position", () => {
-    const { pointer, signal, time: stoppedAt } = followingSignal();
-    for (let frame = 1; frame <= 18; frame += 1) {
-      advancePointerMotion(pointer, STEP, stoppedAt + frame * STEP);
-      advanceSignalMotion(signal, pointer, 100, 25, STEP);
-    }
-    expect(pointer.activity).toBe(0);
-    const stoppedDisplacement = displacement(signal);
-    const firstSignal = { ...signal };
-    const secondSignal = { ...signal };
-    const secondPointer = { ...pointer, x: 100, y: 25, rawX: 100, rawY: 25 };
+  it("releases expired followers even while the cursor continues moving and returns them to normal", () => {
+    const scene = createScene([[0, 0]], -20, 0);
+    let capturedAt: number | undefined;
+    let releasedAt: number | undefined;
+    let releaseShift = 0;
+    let sawPartialRelease = false;
     for (let frame = 1; frame <= 240; frame += 1) {
-      const time = stoppedAt + 0.3 + frame * STEP;
-      advancePointerMotion(pointer, STEP, time);
-      advancePointerMotion(secondPointer, STEP, time);
-      advanceSignalMotion(firstSignal, pointer, 100, 25, STEP);
-      advanceSignalMotion(secondSignal, secondPointer, 100, 25, STEP);
-      expectSameMotion(firstSignal, secondSignal);
+      const time = frame * STEP;
+      scene.tick(time, -20 + time * 90, 0);
+      const signal = scene.motions[0];
+      if (signal.captured && capturedAt === undefined) capturedAt = time;
+      if (capturedAt !== undefined && !signal.captured && releasedAt === undefined) {
+        releasedAt = time;
+        releaseShift = displacement(signal);
+      }
+      sawPartialRelease ||= signal.releaseProgress > 0 && signal.releaseProgress < 1;
     }
-    expect(displacement(firstSignal)).toBeLessThan(stoppedDisplacement);
-    expect(displacement(firstSignal)).toBeLessThan(0.1);
-    expect(firstSignal.followWeight).toBeLessThan(0.001);
+    expect(capturedAt).toBeDefined();
+    expect(releasedAt).toBeDefined();
+    expect(releasedAt! - capturedAt!).toBeLessThanOrEqual(0.75);
+    expect(releaseShift).toBeGreaterThan(0);
+    expect(sawPartialRelease).toBe(true);
+    expect(displacement(scene.motions[0])).toBeLessThan(0.05);
+    expect(scene.motions[0].followWeight).toBe(0);
   });
 
   it("keeps comparable trajectories at 30, 60, and 120 frames per second", () => {
-    const simulate = (rate: number) => {
-      const pointer = createPointerMotion();
-      const signal = createSignalMotion(37);
-      recordPointerMove(pointer, 100, 70, 0);
-      advanceSignalMotion(signal, pointer, 100, 104, 0);
-      for (let frame = 1; frame <= rate * 2; frame += 1) {
+    const run = (rate: number) => {
+      const scene = createScene([[0, 15]], -20, 0);
+      const samples: number[][] = [];
+      for (let frame = 1; frame <= rate; frame += 1) {
         const time = frame / rate;
-        recordPointerMove(pointer, 100 + 100 * time, 70 + Math.sin(time * 2) * 20, time);
-        advancePointerMotion(pointer, 1 / rate, time);
-        advanceSignalMotion(signal, pointer, 100 + Math.sin(time * 0.7) * 6, 100 + Math.cos(time * 0.5) * 4, 1 / rate);
+        scene.dots[0].x = Math.sin(time * 0.7) * 4;
+        scene.dots[0].y = 15 + Math.sin(time * 0.5) * 3;
+        scene.tick(time, -20 + time * 110, Math.sin(time * 2) * 5, 1 / rate);
+        const signal = scene.motions[0];
         expect([signal.shiftX, signal.shiftY, signal.velocityX, signal.velocityY].every(Number.isFinite)).toBe(true);
+        if (frame % (rate / 10) === 0) samples.push([signal.shiftX, signal.shiftY]);
       }
-      return signal;
+      return samples;
     };
-    const reference = simulate(120);
+    const reference = run(120);
     for (const rate of [30, 60]) {
-      const signal = simulate(rate);
-      expect(Math.hypot(signal.shiftX - reference.shiftX, signal.shiftY - reference.shiftY)).toBeLessThan(6);
-      expect(Math.hypot(signal.velocityX - reference.velocityX, signal.velocityY - reference.velocityY)).toBeLessThan(20);
+      run(rate).forEach((sample, index) => {
+        expect(Math.hypot(sample[0] - reference[index][0], sample[1] - reference[index][1])).toBeLessThan(8);
+      });
     }
   });
 
-  it("clamps a stalled frame instead of integrating the entire elapsed interval", () => {
-    const { pointer, signal, time } = followingSignal();
-    const boundedPointer = { ...pointer };
-    const boundedSignal = { ...signal };
-    for (const cursor of [pointer, boundedPointer]) {
-      recordPointerMove(cursor, cursor.rawX + 80, cursor.rawY + 20, time + 0.1);
-    }
-    advancePointerMotion(pointer, 10, time + 0.1);
-    advancePointerMotion(boundedPointer, 1 / 30, time + 0.1);
-    advanceSignalMotion(signal, pointer, 100, 25, 10);
-    advanceSignalMotion(boundedSignal, boundedPointer, 100, 25, 1 / 30);
-    expect([pointer.x, pointer.y, pointer.velocityX, pointer.velocityY, pointer.activity])
-      .toEqual([boundedPointer.x, boundedPointer.y, boundedPointer.velocityX, boundedPointer.velocityY, boundedPointer.activity]);
-    expectSameMotion(signal, boundedSignal);
-  });
-
-  it("preserves inertia through a reversal and clears only interaction state on reset", () => {
-    const { pointer, signal, time } = followingSignal();
-    const previousVelocity = signal.velocityX;
-    expect(previousVelocity).toBeGreaterThan(0);
-    recordPointerMove(pointer, pointer.rawX - 15, pointer.rawY, time + STEP);
-    advancePointerMotion(pointer, STEP, time + STEP);
-    advanceSignalMotion(signal, pointer, 100, 25, STEP);
-    expect(signal.velocityX).toBeGreaterThan(0);
-    const offsets = [signal.trailOffset, signal.sideOffset, signal.strength];
+  it("resets interaction state while retaining authored per-particle variation", () => {
+    const scene = createScene([[0, 0]], -20, 0);
+    const signal = scene.motions[0];
+    const variation = [signal.followDelay, signal.responseTime, signal.maxSpeed, signal.lifetime, signal.sideOffset, signal.strength];
+    for (let frame = 1; frame <= 30; frame += 1) scene.tick(frame * STEP, -20 + frame * 2, 0);
+    expect(displacement(signal)).toBeGreaterThan(0);
     resetSignalMotion(signal);
-    expect([signal.shiftX, signal.shiftY, signal.velocityX, signal.velocityY, signal.followWeight])
-      .toEqual([0, 0, 0, 0, 0]);
-    expect([signal.trailOffset, signal.sideOffset, signal.strength]).toEqual(offsets);
+    expectUntouched(signal);
+    expect([signal.followDelay, signal.responseTime, signal.maxSpeed, signal.lifetime, signal.sideOffset, signal.strength])
+      .toEqual(variation);
   });
 });

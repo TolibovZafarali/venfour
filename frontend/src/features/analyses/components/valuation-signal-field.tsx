@@ -89,7 +89,7 @@ export function ValuationSignalField() {
       const quietHeight = width < 640 ? 46 : 32;
       const orbitWidth = Math.min(430, width * (width < 640 ? 0.57 : 0.34));
       const orbitHeight = Math.min(220, height * 0.24);
-      advancePointerMotion(pointer, delta, performance.now() / 1000);
+      advancePointerMotion(pointer, delta, performance.now() / 1000, signals);
 
       for (const signal of signals) {
         const time = elapsed;
