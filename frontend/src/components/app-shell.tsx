@@ -26,6 +26,7 @@ import { CookieConsent } from "@/features/privacy/cookie-consent";
 import { useCookieConsent } from "@/features/privacy/cookie-consent-context";
 import { cn } from "@/lib/utils";
 import { appRouteGradientClassName } from "@/pages/page-gradients";
+import { FreeValuationProcessingProvider } from "@/features/analyses/components/free-valuation-processing";
 import venfourMark from "../../../assets/brand/venfour-mark.svg";
 
 const primaryLinkClassName =
@@ -40,7 +41,9 @@ const mobileLinkClassName =
 export function AppShell() {
   return (
     <SignInDialogProvider>
-      <AppShellContent />
+      <FreeValuationProcessingProvider>
+        <AppShellContent />
+      </FreeValuationProcessingProvider>
     </SignInDialogProvider>
   );
 }

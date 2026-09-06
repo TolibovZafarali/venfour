@@ -50,6 +50,11 @@ export const appRoutes: RouteObject[] = [
     element: <AppShell />,
     errorElement: <RouteErrorPage />,
     children: [
+      ...(import.meta.env.DEV ? [{
+        path: "_local/valuation-processing",
+        lazy: async () => ({ Component: (await import("@/pages/local-valuation-processing-page")).LocalValuationProcessingPage }),
+        handle: metadata("Valuation Processing Preview | Venfour", "Development-only continuous processing preview with synthetic vehicle details."),
+      }] : []),
       ...(import.meta.env.DEV && environment.localClaimFixturesEnabled ? [{
         path: "_local/claims",
         lazy: async () => ({ Component: (await import("@/pages/local-claim-testing-page")).LocalClaimTestingPage }),

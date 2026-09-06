@@ -10,10 +10,14 @@ import { materialUndervalueAnalysis, representativeRunId } from "@/test/fixtures
 import { server } from "@/test/mocks/server";
 import { renderTestApp } from "@/test/render";
 
+vi.mock("@/features/analyses/components/valuation-signal-field", () => ({
+  ValuationSignalField: () => <canvas aria-hidden="true" data-testid="valuation-signals" />,
+}));
+
 const USER_ID = "11111111-1111-4111-8111-111111111111";
 const CASE_ID = "22222222-2222-4222-8222-222222222222";
 const casePath = `/total-loss/cases/${CASE_ID}/analysis`;
-const progressHeading = "We’re reviewing and analyzing your claim.";
+const progressHeading = "Preparing your valuation";
 const materialResultHeading =
   "Your insurer may be undervaluing your vehicle.";
 
@@ -83,6 +87,11 @@ describe("total-loss case analysis page", () => {
     ).toBeVisible();
     await waitFor(() => expect(postCount).toBe(1));
     expect(authorization).toBe(`Bearer access-${USER_ID}`);
+    expect(screen.queryByRole("banner")).not.toBeInTheDocument();
+    expect(screen.queryByRole("navigation")).not.toBeInTheDocument();
+    expect(screen.queryByRole("contentinfo")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Account for/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Venfour home" })).toBeVisible();
   });
 
   it("polls without duplicate submission and renders the result on the same route", async () => {
@@ -124,6 +133,7 @@ describe("total-loss case analysis page", () => {
         name: progressHeading,
       }),
     ).toBeVisible();
+    expect(screen.queryByRole("navigation", { name: "Legal" })).not.toBeInTheDocument();
     expect(
       await screen.findByRole(
         "heading",
@@ -132,6 +142,7 @@ describe("total-loss case analysis page", () => {
       ),
     ).toBeVisible();
     expect(router.state.location.pathname).toBe(casePath);
+    expect(screen.queryByRole("heading", { name: progressHeading })).not.toBeInTheDocument();
     expect(getCount).toBeGreaterThanOrEqual(2);
     expect(postCount).toBe(0);
     expect(screen.getByRole("link", { name: "Review intake" })).toHaveAttribute(
@@ -259,6 +270,9 @@ describe("total-loss case analysis page", () => {
       await act(async () => {
         await vi.advanceTimersByTimeAsync(1_100);
       });
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(500);
+      });
 
       expect(
         screen.getByRole("heading", {
@@ -302,9 +316,8 @@ describe("total-loss case analysis page", () => {
       authService: authService(sessionFor()),
     });
 
-    expect(
-      await screen.findByText("Market evidence is temporarily unavailable."),
-    ).toBeVisible();
+    expect(await screen.findByRole("button", { name: "Retry value check" })).toBeVisible();
+    expect(screen.getByText("Market evidence is temporarily unavailable.")).toBeVisible();
     expect(postCount).toBe(0);
     await user.click(
       screen.getByRole("button", { name: "Retry value check" }),
@@ -556,9 +569,8 @@ describe("total-loss case analysis page", () => {
       authService: authService(sessionFor()),
     });
 
-    expect(
-      await screen.findByText("The saved report intake is not ready."),
-    ).toBeVisible();
+    expect(await screen.findByRole("link", { name: "Replace report" })).toBeVisible();
+    expect(screen.getByText("The saved report intake is not ready.")).toBeVisible();
     expect(
       screen.getByRole("link", { name: "Replace report" }),
     ).toHaveAttribute(

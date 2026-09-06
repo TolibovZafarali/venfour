@@ -14,7 +14,7 @@ import {
   CURRENT_PRIVACY_NOTICE_VERSION,
   CURRENT_SERVICE_TERMS_VERSION,
 } from "@/features/customer-profile/types";
-import { TotalLossAnalysisProgress } from "@/features/analyses/components/total-loss-analysis-experience";
+import { FreeValuationProcessing } from "@/features/analyses/components/free-valuation-processing";
 import { caseAnalysisQueryKeys } from "@/features/analyses/case-analysis-queries";
 import { useCreateOrGetAppraisalCaseMutation } from "@/features/cases/mutations";
 import {
@@ -2410,40 +2410,20 @@ function TotalLossIntakeFlowContent({
           />
         );
       case "review":
+        if (conflict || conflictWithoutRow) return null;
         return (
-          <div className="mx-auto w-full max-w-6xl">
-            <TotalLossAnalysisProgress
-              headingLevel="h2"
-              description={
-                draft.mode === "report"
-                  ? "Venfour is securely preparing your saved information. Report reading and market analysis begin only after this handoff completes."
-                  : "Venfour is securely preparing your saved claim information. Vehicle and market analysis begin only after this handoff completes."
-              }
-            />
-            {flowError ? (
-              <div className="mt-5 flex flex-col items-start gap-3 rounded-xl border border-amber/25 bg-amber-soft/70 p-4 sm:flex-row sm:items-center sm:justify-between">
-                <p className="text-sm leading-6 text-amber-strong" role="alert">
-                  {flowError}
-                </p>
-                <button
-                  type="button"
-                  className={primaryFlowButtonClassName}
-                  disabled={completionBusy}
-                  onClick={() => void handleStartAnalysis()}
-                >
-                  <RefreshCw className="size-4" aria-hidden />
-                  Try again
-                </button>
-              </div>
-            ) : null}
-          </div>
+          <FreeValuationProcessing
+            reviewKey={confirmedCaseId ?? undefined}
+            phase="preparing"
+            vehicle={draft.mode === "manual" ? [draft.manual.vehicleYear, draft.manual.make, draft.manual.model, draft.manual.trim].filter(Boolean).join(" ") : undefined}
+            notice={accessLinkError || (storageError ? "Browser draft storage is unavailable. Keep this page open while we save your details." : undefined)}
+            error={flowError}
+            onRetry={handleStartAnalysis}
+            retryDisabled={completionBusy}
+          />
         );
       case "ready":
-        return (
-          <div className="mx-auto w-full max-w-6xl">
-            <TotalLossAnalysisProgress headingLevel="h2" />
-          </div>
-        );
+        return <FreeValuationProcessing reviewKey={confirmedCaseId ?? undefined} phase="connecting" />;
       case "choice":
       default:
         return (
@@ -2472,6 +2452,13 @@ function TotalLossIntakeFlowContent({
 
   return (
     <>
+      {completionBusy && draft.step === "contact" ? (
+        <FreeValuationProcessing
+          reviewKey={confirmedCaseId ?? undefined}
+          phase="preparing"
+          vehicle={draft.mode === "manual" ? [draft.manual.vehicleYear, draft.manual.make, draft.manual.model, draft.manual.trim].filter(Boolean).join(" ") : undefined}
+        />
+      ) : null}
       {correction ? (
         <div className="mb-6 rounded-xl border border-brand/15 bg-brand-soft/50 px-4 py-4 sm:px-5" role="status">
           <p className="text-sm font-semibold text-ink">Review your saved intake</p>
@@ -2534,6 +2521,8 @@ function TotalLossIntakeFlowContent({
         <SavedDetailsLoadErrorCard
           onRetry={() => void detailsQuery.refetch()}
         />
+      ) : renderedStepKey === "review" || renderedStepKey === "ready" ? (
+        renderStep()
       ) : (
         <IntakeStepTransition
           transitionKey={renderedStepKey}

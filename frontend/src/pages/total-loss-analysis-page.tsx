@@ -15,9 +15,9 @@ import {
   useSubmitCaseAnalysisMutation,
 } from "@/features/analyses/case-analysis-queries";
 import {
-  TotalLossAnalysisProgress,
   TotalLossAnalysisResult,
 } from "@/features/analyses/components/total-loss-analysis-experience";
+import { FreeValuationProcessing } from "@/features/analyses/components/free-valuation-processing";
 import { useAnalysisQuery } from "@/features/analyses/queries";
 import { ApiError } from "@/lib/api/client";
 import { environment } from "@/config/env";
@@ -132,11 +132,7 @@ function CompletedTotalLossAnalysis({
       : undefined;
 
   if (resultQuery.isPending) {
-    return (
-      <AnalysisExperienceFrame>
-        <TotalLossAnalysisProgress />
-      </AnalysisExperienceFrame>
-    );
+    return <FreeValuationProcessing reviewKey={caseId} phase="opening" />;
   }
 
   if (resultQuery.isError) {
@@ -240,11 +236,7 @@ function AuthenticatedTotalLossAnalysisPage({
   }, [analysis?.status, caseId, submitMutation]);
 
   if (analysisQuery.isPending) {
-    return (
-      <AnalysisExperienceFrame>
-        <TotalLossAnalysisProgress />
-      </AnalysisExperienceFrame>
-    );
+    return <FreeValuationProcessing reviewKey={caseId} phase="connecting" />;
   }
 
   if (analysisQuery.isError) {
@@ -300,11 +292,7 @@ function AuthenticatedTotalLossAnalysisPage({
   }
 
   if (!analysis) {
-    return (
-      <AnalysisExperienceFrame>
-        <TotalLossAnalysisProgress />
-      </AnalysisExperienceFrame>
-    );
+    return <FreeValuationProcessing reviewKey={caseId} phase="connecting" />;
   }
 
   if (
@@ -333,11 +321,7 @@ function AuthenticatedTotalLossAnalysisPage({
       );
 
     if (!errorMessage && !needsResume) {
-      return (
-        <AnalysisExperienceFrame>
-          <TotalLossAnalysisProgress />
-        </AnalysisExperienceFrame>
-      );
+      return <FreeValuationProcessing reviewKey={caseId} phase={analysis.status === "processing" ? "reviewing" : "connecting"} />;
     }
 
     return (

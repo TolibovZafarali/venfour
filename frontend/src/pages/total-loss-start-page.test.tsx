@@ -65,6 +65,10 @@ vi.mock("@/features/analyses/api/report-ingestion", () => ({
   ingestTotalLossReport: ingestReportMock,
 }));
 
+vi.mock("@/features/analyses/components/valuation-signal-field", () => ({
+  ValuationSignalField: () => <canvas aria-hidden="true" data-testid="valuation-signals" />,
+}));
+
 vi.mock("@/features/total-loss/intake-correction-api", () => ({
   prepareTotalLossIntakeCorrection: prepareIntakeCorrectionMock,
 }));
@@ -1212,7 +1216,7 @@ describe("explicit Total Loss intake correction", () => {
     expect(await screen.findByText("The saved intake changed. Reload it before correcting it.")).toBeVisible();
     await user.click(screen.getByRole("button", { name: "Review & analyze" }));
     expect(await screen.findByText("The saved intake changed. Reload it before correcting it.")).toBeVisible();
-    await user.click(withinIntakeFlow().getByRole("button", { name: "Back" }));
+    await user.click(await withinIntakeFlow().findByRole("button", { name: "Back" }));
     expect(await screen.findByLabelText("Insurer’s vehicle valuation")).toHaveValue("$21,000.00");
     expect(harness.saveDetails).not.toHaveBeenCalled();
     expect(harness.saveContactAndBeginClaim).not.toHaveBeenCalled();
@@ -2121,6 +2125,12 @@ describe("/start?service=total-loss", () => {
   it("collects report ZIP during upload and goes directly to analysis through contact", async () => {
     const auth = createAuthHarness(null, anonymousSessionFor(USER_ID));
     const harness = createDependencyHarness();
+    const confirmationGate = createDeferred<void>();
+    const confirmIntake = harness.confirmIntake.getMockImplementation()!;
+    harness.confirmIntake.mockImplementation(async (input) => {
+      await confirmationGate.promise;
+      return confirmIntake(input);
+    });
     const user = userEvent.setup();
     vi.spyOn(crypto, "randomUUID").mockReturnValue(CASE_ID);
 
@@ -2203,11 +2213,23 @@ describe("/start?service=total-loss", () => {
       screen.getByRole("button", { name: "Review & analyze" }),
     );
 
+    expect(await screen.findByRole("heading", { name: "Preparing your valuation" })).toBeVisible();
+    expect(router.state.location.pathname).toBe("/start");
+    expect(screen.queryByRole("banner")).not.toBeInTheDocument();
+    expect(screen.queryByRole("navigation")).not.toBeInTheDocument();
+    expect(screen.queryByRole("contentinfo")).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Contact details" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Review & analyze" })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Venfour home" })).toBeVisible();
+    const signals = screen.getByTestId("valuation-signals");
+    await act(async () => confirmationGate.resolve());
+
     await waitFor(() =>
       expect(router.state.location.pathname).toBe(
         `/total-loss/cases/${CASE_ID}/analysis`,
       ),
     );
+    expect(screen.getByTestId("valuation-signals")).toBe(signals);
     expect(harness.saveContactAndBeginClaim).toHaveBeenCalledOnce();
     expect(harness.confirmIntake).toHaveBeenCalledWith({
       caseId: CASE_ID,
@@ -2420,7 +2442,7 @@ describe("/start?service=total-loss", () => {
     expect(
       await screen.findByRole("heading", {
         level: 1,
-        name: "We’re reviewing and analyzing your claim.",
+        name: "Preparing your valuation",
       }),
     ).toBeVisible();
     expect(screen.queryByText("Your information is ready")).not.toBeInTheDocument();
