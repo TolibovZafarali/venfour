@@ -121,12 +121,12 @@ export function ValuationSignalField() {
         const quietDistance = ((Math.abs(drawX - centerX) / quietWidth) ** 4
           + (Math.abs(drawY - centerY) / quietHeight) ** 4) ** 0.25;
         const centerFade = smoothStep(0.8, 1.35, quietDistance);
-        const opacity = signal.opacity * centerFade * (signal.gathers ? 1 : 0.7);
+        const opacity = signal.opacity * centerFade * (signal.gathers ? 1 : 0.7) * (1 + signal.emphasis * 0.28);
         if (opacity < 0.008) continue;
 
         context.beginPath();
         context.fillStyle = `rgba(${signal.color}, ${opacity})`;
-        context.arc(drawX, drawY, signal.radius, 0, TAU);
+        context.arc(drawX, drawY, signal.radius * (1 + signal.emphasis * 0.16), 0, TAU);
         context.fill();
       }
     };

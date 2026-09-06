@@ -74,7 +74,7 @@ describe("valuation cursor wake", () => {
   });
 
   it("captures a crossed narrow lane while leaving adjacent untraversed dots alone", () => {
-    const scene = createScene([[100, 20], [100, 90], [100, -90]]);
+    const scene = createScene([[100, 15], [100, 70], [100, -90]]);
     let closeCaptured = false;
     for (let frame = 1; frame <= 180; frame += 1) {
       scene.tick(frame * STEP, -60 + frame * STEP * 120, 0);
@@ -140,7 +140,8 @@ describe("valuation cursor wake", () => {
           peakSpeed = Math.max(peakSpeed, Math.hypot(signal.velocityX, signal.velocityY));
           maximumLag = Math.max(maximumLag, scene.pointer.rawX - signal.shiftX);
           maximumShift = Math.max(maximumShift, signal.shiftX);
-          expect(Math.hypot(signal.velocityX, signal.velocityY)).toBeLessThanOrEqual(181);
+          expect(Math.hypot(signal.velocityX, signal.velocityY)).toBeLessThanOrEqual(280);
+          expect(signal.shiftX).toBeLessThanOrEqual(scene.pointer.rawX + 1);
         }
       }
       return { peakSpeed, maximumLag, maximumShift, wasCaptured };
@@ -149,9 +150,71 @@ describe("valuation cursor wake", () => {
     const fast = run(1200);
     expect(slow.wasCaptured).toBe(true);
     expect(fast.wasCaptured).toBe(true);
-    expect(slow.maximumShift).toBeGreaterThan(2);
+    expect(slow.maximumShift).toBeGreaterThan(15);
     expect(fast.maximumLag).toBeGreaterThan(slow.maximumLag);
-    expect(fast.peakSpeed).toBeLessThanOrEqual(181);
+    expect(fast.peakSpeed).toBeLessThanOrEqual(280);
+    expect(fast.maximumShift).toBeGreaterThan(15);
+  });
+
+  it("recognizes an actual crossing in the next frame without waiting for path smoothing", () => {
+    for (const rate of [30, 60, 120, 144]) {
+      const scene = createScene([[0, 12], [3, 12]], -10, 0);
+      scene.tick(1 / rate, 1, 0, 1 / rate);
+      expect(scene.motions[0].captured).toBe(true);
+      expect(scene.motions[0].followWeight).toBeGreaterThan(0);
+      expectUntouched(scene.motions[1]);
+    }
+  });
+
+  it("picks up the first stroke after a pause immediately without bridging old timestamps", () => {
+    const scene = createScene([[0, 12]], -10, 0);
+    for (let frame = 1; frame <= 120; frame += 1) scene.tick(frame * STEP);
+    scene.tick(2 + STEP, 1, 0);
+    expect(scene.motions[0].captured).toBe(true);
+    expect(scene.motions[0].trailTime).toBeGreaterThan(2 - STEP);
+  });
+
+  it("engages close passes quickly and carries them visibly along the stroke", () => {
+    for (const speed of [100, 250]) {
+      const scene = createScene([[0, 12]], -speed * STEP, 0);
+      for (let frame = 1; frame <= 16; frame += 1) {
+        scene.tick(frame * STEP, speed * (frame - 1) * STEP, 0);
+        const signal = scene.motions[0];
+        if (frame === 4) {
+          expect(signal.captured).toBe(true);
+          expect(signal.followWeight).toBeGreaterThan(0.8);
+          expect(displacement(signal)).toBeGreaterThan(0.5);
+        }
+        if (frame === 7) expect(displacement(signal)).toBeGreaterThan(2);
+      }
+      expect(scene.motions[0].shiftX).toBeGreaterThan(speed === 100 ? 10 : 22);
+    }
+  });
+
+  it("does not recruit a dot from an old segment when a later stroke is elsewhere", () => {
+    const scene = createScene([[10, 90]], 0, 0);
+    for (let frame = 1; frame <= 12; frame += 1) scene.tick(frame * STEP, frame * 3, 0);
+    scene.dots[0].y = 10;
+    for (let frame = 13; frame <= 30; frame += 1) {
+      scene.tick(frame * STEP, frame * 3, 0);
+      expectUntouched(scene.motions[0]);
+    }
+  });
+
+  it("gives a quickly crossed dot a bounded directional pickup before releasing it", () => {
+    const scene = createScene([[0, 8], [610, 8]], -20, 0);
+    scene.tick(STEP, 600, 0);
+    expect(scene.motions[0].captured).toBe(true);
+    for (let frame = 2; frame <= 5; frame += 1) {
+      scene.tick(frame * STEP);
+      expectUntouched(scene.motions[1]);
+    }
+    expect(scene.motions[0].shiftX).toBeGreaterThan(2);
+    expect(Math.hypot(scene.motions[0].velocityX, scene.motions[0].velocityY)).toBeLessThan(280);
+    for (let frame = 6; frame <= 90; frame += 1) scene.tick(frame * STEP);
+    expect(scene.motions[0].captured).toBe(false);
+    expect(scene.motions[0].followWeight).toBe(0);
+    expect(scene.motions[0].emphasis).toBeLessThan(0.001);
   });
 
   it("visits a turn in order before advancing along its outgoing trail segment", () => {
