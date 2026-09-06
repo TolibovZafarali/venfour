@@ -103,7 +103,7 @@ class MaterialConfigurationTests(unittest.TestCase):
 
     def test_new_artifact_preserves_configuration_through_adaptive_replay(self):
         from venfour.analysis_runs import validate_analysis_run_artifact
-        from tests.test_analysis_runs import make_orchestrator, make_run_request, RecordingCurrentProvider
+        from tests.test_analysis_runs import make_orchestrator, make_run_request, RecordingCurrentProvider, remove_discovery_provenance
 
         class Repository:
             def save(self, artifact):
@@ -120,14 +120,14 @@ class MaterialConfigurationTests(unittest.TestCase):
             replace(request, ccc_report=report)
         ).artifact.to_dict()
         validate_analysis_run_artifact(outcome, include_environment_secrets=False)
-        self.assertEqual(outcome["analysisRunSchemaVersion"], "9")
+        self.assertEqual(outcome["analysisRunSchemaVersion"], "10")
         self.assertEqual(outcome["request"]["currentSearchRequest"]["drivetrain"], "FWD")
         self.assertEqual(outcome["result"]["currentRanking"]["tierCounts"]["STRONG"], 0)
         self.assertEqual(outcome["discrepancyAnalysisVersion"], "2")
 
     def test_old_artifact_shape_replays_without_rewriting_version_or_digest(self):
         from venfour.analysis_runs import canonical_json_bytes, discrepancy_request_digest, validate_analysis_run_artifact
-        from tests.test_analysis_runs import make_orchestrator, make_run_request, RecordingCurrentProvider
+        from tests.test_analysis_runs import make_orchestrator, make_run_request, RecordingCurrentProvider, remove_discovery_provenance
 
         class Repository:
             def save(self, artifact):
@@ -140,6 +140,7 @@ class MaterialConfigurationTests(unittest.TestCase):
         outcome = make_orchestrator(repository, current_provider=RecordingCurrentProvider(), historical_provider=None).run(
             make_run_request(historical=False)
         ).artifact.to_dict()
+        remove_discovery_provenance(outcome)
         outcome.update(analysisRunSchemaVersion="6", analysisVersion="6", comparableScoringVersion="1")
         outcome["request"].pop("qualificationSourceReport")
         outcome["result"].pop("preliminaryQualification")

@@ -250,6 +250,46 @@ class VehicleConfigurationIdentity:
 
 
 @dataclass(frozen=True)
+class DrivetrainDiscovery:
+    """Record whether a provider can apply an exact drivetrain search filter."""
+
+    status: str
+    filter_value: str | None = None
+    version: str = "1"
+
+    def __post_init__(self) -> None:
+        if self.version != "1":
+            raise ValueError("Unsupported drivetrain discovery version")
+        if self.status not in {
+            "EXACT_FILTER", "SUBJECT_DRIVETRAIN_UNKNOWN", "PROVIDER_MAPPING_UNVERIFIED"
+        }:
+            raise ValueError("Unsupported drivetrain discovery status")
+        if self.status == "EXACT_FILTER":
+            if self.filter_value not in {"FWD", "RWD", "AWD", "4WD"}:
+                raise ValueError("An exact drivetrain filter requires a canonical value")
+        elif self.filter_value is not None:
+            raise ValueError("Unavailable drivetrain filters must remain null")
+
+    def to_dict(self) -> dict[str, Any]:
+        return {"version": self.version, "status": self.status, "filterValue": self.filter_value}
+
+    @classmethod
+    def from_dict(cls, data: Mapping[str, Any]) -> DrivetrainDiscovery:
+        if not isinstance(data, Mapping) or set(data) != {"version", "status", "filterValue"}:
+            raise ValueError("Invalid drivetrain discovery fields")
+        return cls(version=data["version"], status=data["status"], filter_value=data["filterValue"])
+
+
+def unfiltered_drivetrain_discovery(drivetrain: str | None) -> DrivetrainDiscovery:
+    """Preserve uncertainty when no exact provider mapping has been established."""
+
+    if drivetrain is not None and drivetrain not in {"FWD", "RWD", "AWD", "4WD"}:
+        raise ValueError("Drivetrain must be canonical or null")
+    return DrivetrainDiscovery(status=("SUBJECT_DRIVETRAIN_UNKNOWN" if drivetrain is None
+                                      else "PROVIDER_MAPPING_UNVERIFIED"))
+
+
+@dataclass(frozen=True)
 class MarketSearchRequest:
     """The vehicle and search bounds Venfour wants a provider to search for.
 
@@ -269,6 +309,7 @@ class MarketSearchRequest:
     configuration: VehicleConfigurationIdentity | None = None
     drivetrain: str | None = None
     drivetrain_recorded: bool = field(default=False, compare=False, repr=False)
+    drivetrain_discovery: DrivetrainDiscovery | None = None
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "make", _trim_required(self.make))
@@ -282,6 +323,8 @@ class MarketSearchRequest:
             )
         if self.configuration is not None and self.trim is None:
             raise ValueError("configuration requires a canonical trim")
+        if self.drivetrain_discovery is not None and not isinstance(self.drivetrain_discovery, DrivetrainDiscovery):
+            raise TypeError("drivetrain_discovery must be DrivetrainDiscovery or None")
         object.__setattr__(self, "postal_code", _trim_optional(self.postal_code))
 
     def to_dict(self) -> dict[str, Any]:
@@ -301,6 +344,8 @@ class MarketSearchRequest:
             data["configuration"] = self.configuration.to_dict()
         if self.drivetrain_recorded or self.drivetrain is not None:
             data["drivetrain"] = self.drivetrain
+        if self.drivetrain_discovery is not None:
+            data["drivetrainDiscovery"] = self.drivetrain_discovery.to_dict()
         return data
 
 
@@ -439,6 +484,7 @@ def normalize_market_search_request(
         configuration=request.configuration,
         drivetrain=request.drivetrain,
         drivetrain_recorded=request.drivetrain_recorded,
+        drivetrain_discovery=request.drivetrain_discovery,
         loss_vehicle_mileage=request.loss_vehicle_mileage,
         postal_code=request.postal_code,
         radius_miles=request.radius_miles,
@@ -692,6 +738,7 @@ __all__ = [
     "SEARCH_REQUEST_SCHEMA_PATH",
     "SEARCH_RESULT_SCHEMA_PATH",
     "MarketContractError",
+    "DrivetrainDiscovery",
     "MarketDealer",
     "MarketDiscoveryError",
     "MarketListing",
@@ -707,6 +754,7 @@ __all__ = [
     "VehicleConfigurationIdentity",
     "discover_market_listings",
     "normalize_market_search_request",
+    "unfiltered_drivetrain_discovery",
     "validate_market_listing",
     "validate_market_search_request",
     "validate_market_search_result",

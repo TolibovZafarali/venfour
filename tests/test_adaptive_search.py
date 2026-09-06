@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import copy
+from dataclasses import replace
 import unittest
 from typing import Callable
 
@@ -43,6 +44,7 @@ from venfour.historical_market import (
     TemporalEvidence,
 )
 from venfour.market import (
+    DrivetrainDiscovery,
     MarketListing,
     MarketProviderUnavailableError,
     MarketSearchRequest,
@@ -765,6 +767,50 @@ class AdaptiveHistoricalSearchTests(unittest.TestCase):
         self.assertEqual(
             [request.radius_miles for request in provider.requests], [50, 100]
         )
+
+
+class AdaptiveDrivetrainDiscoveryTests(unittest.TestCase):
+    def test_current_stages_and_replay_preserve_filter_without_filling_missing_facts(self) -> None:
+        marker = DrivetrainDiscovery("EXACT_FILTER", "FWD")
+        request = current_request(drivetrain="FWD", drivetrain_discovery=marker)
+        provider = CurrentProvider({50: (replace(listing(1), drivetrain="4WD"), listing(2)),
+                                    100: (replace(listing(3), drivetrain="FWD"),)})
+        policy = AdaptiveSearchPolicy(stages=(SearchStage(50, 25), SearchStage(100, 50)))
+        result = adaptive_discover_market_listings(request, provider, policy)
+        self.assertEqual([row.radius_miles for row in provider.requests], [50, 100])
+        self.assertTrue(all(row.drivetrain_discovery == marker for row in provider.requests))
+        self.assertEqual(result.result.request.drivetrain_discovery, marker)
+        candidates = {row.listing.source_listing_id: row for row in result.ranking.candidates}
+        self.assertFalse(candidates["listing-001"].eligible)
+        self.assertEqual(candidates["listing-002"].tier, "GOOD")
+        self.assertIsNone(candidates["listing-002"].listing.drivetrain)
+        replay = replay_current_adaptive_search(request, result.diagnostics.to_dict(), policy=policy)
+        self.assertEqual(replay.result.to_dict(), result.result.to_dict())
+        self.assertEqual(replay.ranking, result.ranking)
+
+    def test_historical_stages_and_replay_preserve_filter(self) -> None:
+        marker = DrivetrainDiscovery("EXACT_FILTER", "4WD")
+        request = historical_request(drivetrain="4WD", drivetrain_discovery=marker)
+        provider = HistoricalProvider(lambda requested: historical_result(requested, evidence_rows=(
+            replace(evidence(requested.radius_miles), listing=replace(listing(requested.radius_miles), drivetrain="4WD")),
+        )))
+        result = adaptive_discover_historical_market_evidence(request, provider)
+        self.assertEqual([row.radius_miles for row in provider.requests], [50, 100])
+        self.assertTrue(all(row.drivetrain_discovery == marker for row in provider.requests))
+        replay = replay_historical_adaptive_search(request, result.diagnostics.to_dict())
+        self.assertEqual(replay.result.to_dict(), result.result.to_dict())
+        self.assertEqual(replay.ranking, result.ranking)
+
+    def test_filtered_attempts_cannot_replay_as_legacy_unfiltered(self) -> None:
+        marker = DrivetrainDiscovery("EXACT_FILTER", "FWD")
+        request = current_request(drivetrain="FWD", drivetrain_discovery=marker)
+        result = adaptive_discover_market_listings(request, CurrentProvider({}))
+        with self.assertRaises(AdaptiveSearchContractError):
+            replay_current_adaptive_search(replace(request, drivetrain_discovery=None), result.diagnostics.to_dict())
+        tampered = result.diagnostics.to_dict()
+        tampered["attempts"][0]["result"]["request"]["drivetrainDiscovery"]["filterValue"] = "4WD"
+        with self.assertRaises(AdaptiveSearchContractError):
+            replay_current_adaptive_search(request, tampered)
 
 
 if __name__ == "__main__":

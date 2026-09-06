@@ -736,8 +736,12 @@ class AnalysisPresentationApiTests(TemporaryRepositoryTestCase):
             artifact.comparable_scoring_version
         )
         expected["provenance"]["requestDigest"]["value"] = artifact.request_digest
-        expected["presentationVersion"] = "5"
-        expected["provenance"]["presentationVersion"] = "5"
+        expected["presentationVersion"] = "6"
+        expected["provenance"]["presentationVersion"] = "6"
+        expected["provenance"]["drivetrainDiscovery"] = {
+            stream: artifact.to_dict()["request"][f"{stream}SearchRequest"]["drivetrainDiscovery"]
+            for stream in ("current", "historical")
+        }
         expected["preliminaryQualification"] = validate_preliminary_qualification(
             artifact.to_dict()["result"]["preliminaryQualification"]
         )

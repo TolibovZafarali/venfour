@@ -3,7 +3,12 @@
   "title": "Venfour Market Search Result",
   "type": "object",
   "additionalProperties": false,
-  "required": ["provider", "request", "listings", "listingCount"],
+  "required": [
+    "provider",
+    "request",
+    "listings",
+    "listingCount"
+  ],
   "properties": {
     "provider": {
       "type": "string",
@@ -28,7 +33,11 @@
     "searchRequest": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["year", "make", "model"],
+      "required": [
+        "year",
+        "make",
+        "model"
+      ],
       "properties": {
         "year": {
           "type": "integer",
@@ -45,7 +54,10 @@
           "pattern": "\\S"
         },
         "trim": {
-          "type": ["string", "null"],
+          "type": [
+            "string",
+            "null"
+          ],
           "minLength": 1,
           "pattern": "\\S"
         },
@@ -60,11 +72,17 @@
           ]
         },
         "lossVehicleMileage": {
-          "type": ["integer", "null"],
+          "type": [
+            "integer",
+            "null"
+          ],
           "minimum": 0
         },
         "postalCode": {
-          "type": ["string", "null"],
+          "type": [
+            "string",
+            "null"
+          ],
           "minLength": 1,
           "pattern": "\\S"
         },
@@ -86,12 +104,17 @@
             "4WD",
             null
           ]
+        },
+        "drivetrainDiscovery": {
+          "$ref": "#/$defs/drivetrainDiscovery"
         }
       },
       "allOf": [
         {
           "if": {
-            "required": ["configuration"],
+            "required": [
+              "configuration"
+            ],
             "properties": {
               "configuration": {
                 "type": "object"
@@ -99,12 +122,141 @@
             }
           },
           "then": {
-            "required": ["trim"],
+            "required": [
+              "trim"
+            ],
             "properties": {
               "trim": {
                 "type": "string"
               }
             }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "drivetrainDiscovery"
+            ]
+          },
+          "then": {
+            "oneOf": [
+              {
+                "properties": {
+                  "drivetrain": {
+                    "type": "null"
+                  },
+                  "drivetrainDiscovery": {
+                    "properties": {
+                      "status": {
+                        "const": "SUBJECT_DRIVETRAIN_UNKNOWN"
+                      }
+                    }
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "drivetrain": {
+                    "enum": [
+                      "FWD",
+                      "RWD",
+                      "AWD",
+                      "4WD"
+                    ]
+                  },
+                  "drivetrainDiscovery": {
+                    "properties": {
+                      "status": {
+                        "const": "PROVIDER_MAPPING_UNVERIFIED"
+                      }
+                    }
+                  }
+                },
+                "required": [
+                  "drivetrain"
+                ]
+              },
+              {
+                "properties": {
+                  "drivetrain": {
+                    "const": "FWD"
+                  },
+                  "drivetrainDiscovery": {
+                    "properties": {
+                      "status": {
+                        "const": "EXACT_FILTER"
+                      },
+                      "filterValue": {
+                        "const": "FWD"
+                      }
+                    }
+                  }
+                },
+                "required": [
+                  "drivetrain"
+                ]
+              },
+              {
+                "properties": {
+                  "drivetrain": {
+                    "const": "RWD"
+                  },
+                  "drivetrainDiscovery": {
+                    "properties": {
+                      "status": {
+                        "const": "EXACT_FILTER"
+                      },
+                      "filterValue": {
+                        "const": "RWD"
+                      }
+                    }
+                  }
+                },
+                "required": [
+                  "drivetrain"
+                ]
+              },
+              {
+                "properties": {
+                  "drivetrain": {
+                    "const": "AWD"
+                  },
+                  "drivetrainDiscovery": {
+                    "properties": {
+                      "status": {
+                        "const": "EXACT_FILTER"
+                      },
+                      "filterValue": {
+                        "const": "AWD"
+                      }
+                    }
+                  }
+                },
+                "required": [
+                  "drivetrain"
+                ]
+              },
+              {
+                "properties": {
+                  "drivetrain": {
+                    "const": "4WD"
+                  },
+                  "drivetrainDiscovery": {
+                    "properties": {
+                      "status": {
+                        "const": "EXACT_FILTER"
+                      },
+                      "filterValue": {
+                        "const": "4WD"
+                      }
+                    }
+                  }
+                },
+                "required": [
+                  "drivetrain"
+                ]
+              }
+            ]
           }
         }
       ]
@@ -112,14 +264,21 @@
     "vehicleConfiguration": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["source", "field", "values"],
+      "required": [
+        "source",
+        "field",
+        "values"
+      ],
       "properties": {
         "source": {
           "type": "string",
           "pattern": "^[a-z0-9][a-z0-9._-]{0,49}$"
         },
         "field": {
-          "enum": ["trim", "version"]
+          "enum": [
+            "trim",
+            "version"
+          ]
         },
         "values": {
           "type": "array",
@@ -138,7 +297,13 @@
     "listing": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["source", "year", "make", "model", "price"],
+      "required": [
+        "source",
+        "year",
+        "make",
+        "model",
+        "price"
+      ],
       "properties": {
         "source": {
           "type": "string",
@@ -146,12 +311,18 @@
           "pattern": "^[a-z0-9][a-z0-9._-]*$"
         },
         "sourceListingId": {
-          "type": ["string", "null"],
+          "type": [
+            "string",
+            "null"
+          ],
           "minLength": 1,
           "pattern": "\\S"
         },
         "listingUrl": {
-          "type": ["string", "null"],
+          "type": [
+            "string",
+            "null"
+          ],
           "minLength": 1,
           "pattern": "\\S"
         },
@@ -170,17 +341,26 @@
           "pattern": "\\S"
         },
         "trim": {
-          "type": ["string", "null"],
+          "type": [
+            "string",
+            "null"
+          ],
           "minLength": 1,
           "pattern": "\\S"
         },
         "vin": {
-          "type": ["string", "null"],
+          "type": [
+            "string",
+            "null"
+          ],
           "minLength": 1,
           "pattern": "\\S"
         },
         "mileage": {
-          "type": ["integer", "null"],
+          "type": [
+            "integer",
+            "null"
+          ],
           "minimum": 0
         },
         "price": {
@@ -188,33 +368,51 @@
           "minimum": 0
         },
         "dealer": {
-          "type": ["object", "null"],
+          "type": [
+            "object",
+            "null"
+          ],
           "additionalProperties": false,
           "properties": {
             "name": {
-              "type": ["string", "null"],
+              "type": [
+                "string",
+                "null"
+              ],
               "minLength": 1,
               "pattern": "\\S"
             },
             "city": {
-              "type": ["string", "null"],
+              "type": [
+                "string",
+                "null"
+              ],
               "minLength": 1,
               "pattern": "\\S"
             },
             "state": {
-              "type": ["string", "null"],
+              "type": [
+                "string",
+                "null"
+              ],
               "minLength": 1,
               "pattern": "\\S"
             },
             "postalCode": {
-              "type": ["string", "null"],
+              "type": [
+                "string",
+                "null"
+              ],
               "minLength": 1,
               "pattern": "\\S"
             }
           }
         },
         "distanceMiles": {
-          "type": ["number", "null"],
+          "type": [
+            "number",
+            "null"
+          ],
           "minimum": 0
         },
         "drivetrain": {
@@ -227,6 +425,66 @@
           ]
         }
       }
+    },
+    "drivetrainDiscovery": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "status",
+        "filterValue"
+      ],
+      "properties": {
+        "version": {
+          "const": "1"
+        },
+        "status": {
+          "enum": [
+            "EXACT_FILTER",
+            "SUBJECT_DRIVETRAIN_UNKNOWN",
+            "PROVIDER_MAPPING_UNVERIFIED"
+          ]
+        },
+        "filterValue": {
+          "enum": [
+            "FWD",
+            "RWD",
+            "AWD",
+            "4WD",
+            null
+          ]
+        }
+      },
+      "oneOf": [
+        {
+          "properties": {
+            "status": {
+              "const": "EXACT_FILTER"
+            },
+            "filterValue": {
+              "enum": [
+                "FWD",
+                "RWD",
+                "AWD",
+                "4WD"
+              ]
+            }
+          }
+        },
+        {
+          "properties": {
+            "status": {
+              "enum": [
+                "SUBJECT_DRIVETRAIN_UNKNOWN",
+                "PROVIDER_MAPPING_UNVERIFIED"
+              ]
+            },
+            "filterValue": {
+              "type": "null"
+            }
+          }
+        }
+      ]
     }
   }
 }

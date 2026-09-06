@@ -29,7 +29,8 @@
         "2",
         "3",
         "4",
-        "5"
+        "5",
+        "6"
       ]
     },
     "runId": {
@@ -378,7 +379,8 @@
           "presentationVersion": {
             "enum": [
               "4",
-              "5"
+              "5",
+              "6"
             ]
           }
         },
@@ -400,7 +402,8 @@
                 "not": {
                   "enum": [
                     "8",
-                    "9"
+                    "9",
+                    "10"
                   ]
                 }
               }
@@ -439,7 +442,10 @@
       "if": {
         "properties": {
           "presentationVersion": {
-            "const": "5"
+            "enum": [
+              "5",
+              "6"
+            ]
           }
         },
         "required": [
@@ -449,7 +455,26 @@
       "then": {
         "required": [
           "preliminaryResolution"
-        ],
+        ]
+      },
+      "else": {
+        "properties": {
+          "preliminaryResolution": false
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "presentationVersion": {
+            "const": "5"
+          }
+        },
+        "required": [
+          "presentationVersion"
+        ]
+      },
+      "then": {
         "properties": {
           "provenance": {
             "properties": {
@@ -462,10 +487,43 @@
             }
           }
         }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "presentationVersion": {
+            "const": "6"
+          }
+        },
+        "required": [
+          "presentationVersion"
+        ]
+      },
+      "then": {
+        "properties": {
+          "provenance": {
+            "required": [
+              "drivetrainDiscovery"
+            ],
+            "properties": {
+              "presentationVersion": {
+                "const": "6"
+              },
+              "analysisRunSchemaVersion": {
+                "const": "10"
+              }
+            }
+          }
+        }
       },
       "else": {
         "properties": {
-          "preliminaryResolution": false
+          "provenance": {
+            "properties": {
+              "drivetrainDiscovery": false
+            }
+          }
         }
       }
     }
@@ -2342,7 +2400,8 @@
             "MULTIPLE_SOURCE_RECORDS_ON_EVIDENCE_DATE",
             "PAGINATION_SAFETY_LIMIT_REACHED",
             "INCOMPLETE_PROVIDER_PAGINATION",
-            "CANDIDATE_VERIFICATION_LIMIT_REACHED"
+            "CANDIDATE_VERIFICATION_LIMIT_REACHED",
+            "VEHICLE_CONFIGURATION_CONFLICT"
           ]
         },
         "reasonLabel": {
@@ -2537,7 +2596,8 @@
             "2",
             "3",
             "4",
-            "5"
+            "5",
+            "6"
           ]
         },
         "analysisRunSchemaVersion": {
@@ -2563,6 +2623,9 @@
         },
         "providers": {
           "$ref": "#/$defs/providers"
+        },
+        "drivetrainDiscovery": {
+          "$ref": "#/$defs/streamDrivetrainDiscovery"
         }
       }
     },
@@ -3469,6 +3532,97 @@
             "type": "string",
             "minLength": 1
           }
+        }
+      }
+    },
+    "drivetrainDiscovery": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "status",
+        "filterValue"
+      ],
+      "properties": {
+        "version": {
+          "const": "1"
+        },
+        "status": {
+          "enum": [
+            "EXACT_FILTER",
+            "SUBJECT_DRIVETRAIN_UNKNOWN",
+            "PROVIDER_MAPPING_UNVERIFIED"
+          ]
+        },
+        "filterValue": {
+          "enum": [
+            "FWD",
+            "RWD",
+            "AWD",
+            "4WD",
+            null
+          ]
+        }
+      },
+      "oneOf": [
+        {
+          "properties": {
+            "status": {
+              "const": "EXACT_FILTER"
+            },
+            "filterValue": {
+              "enum": [
+                "FWD",
+                "RWD",
+                "AWD",
+                "4WD"
+              ]
+            }
+          }
+        },
+        {
+          "properties": {
+            "status": {
+              "enum": [
+                "SUBJECT_DRIVETRAIN_UNKNOWN",
+                "PROVIDER_MAPPING_UNVERIFIED"
+              ]
+            },
+            "filterValue": {
+              "type": "null"
+            }
+          }
+        }
+      ],
+      "title": "DrivetrainDiscovery"
+    },
+    "streamDrivetrainDiscovery": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "current",
+        "historical"
+      ],
+      "properties": {
+        "current": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/drivetrainDiscovery"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "historical": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/drivetrainDiscovery"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       }
     }

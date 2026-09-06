@@ -53,6 +53,7 @@ from venfour.historical_market import (
     normalize_historical_market_search_request,
 )
 from venfour.market import (
+    DrivetrainDiscovery,
     MarketContractError,
     MarketProvider,
     MarketProviderAuthenticationError,
@@ -64,6 +65,7 @@ from venfour.market import (
     MarketSearchRequest,
     VehicleConfigurationIdentity,
     normalize_market_search_request,
+    unfiltered_drivetrain_discovery,
 )
 from venfour.preliminary_resolution import resolve_preliminary_evidence
 
@@ -469,6 +471,7 @@ class AnalysisOrchestrator:
         base: Any,
         policy: AdaptiveSearchPolicy,
         configuration: VehicleConfigurationIdentity | None = None,
+        drivetrain_discovery: DrivetrainDiscovery | None = None,
     ) -> MarketSearchRequest:
         first_stage = policy.stages[0]
         return normalize_market_search_request(
@@ -479,6 +482,7 @@ class AnalysisOrchestrator:
                 trim=base.loss_vehicle.trim,
                 drivetrain=base.loss_vehicle.drivetrain,
                 drivetrain_recorded=base.loss_vehicle.drivetrain_recorded,
+                drivetrain_discovery=drivetrain_discovery,
                 configuration=configuration,
                 loss_vehicle_mileage=base.loss_vehicle.mileage,
                 postal_code=base.loss_vehicle.postal_code,
@@ -492,6 +496,7 @@ class AnalysisOrchestrator:
         base: Any,
         policy: AdaptiveSearchPolicy,
         configuration: VehicleConfigurationIdentity | None = None,
+        drivetrain_discovery: DrivetrainDiscovery | None = None,
     ) -> HistoricalMarketSearchRequest:
         if base.loss_date is None:
             raise AnalysisInputError(
@@ -513,6 +518,7 @@ class AnalysisOrchestrator:
                 trim=base.loss_vehicle.trim,
                 drivetrain=base.loss_vehicle.drivetrain,
                 drivetrain_recorded=base.loss_vehicle.drivetrain_recorded,
+                drivetrain_discovery=drivetrain_discovery,
                 configuration=configuration,
                 loss_vehicle_mileage=base.loss_vehicle.mileage,
                 postal_code=base.loss_vehicle.postal_code,
@@ -520,6 +526,21 @@ class AnalysisOrchestrator:
                 result_limit=first_stage.result_limit,
             )
         )
+
+    @staticmethod
+    def _drivetrain_discovery(provider: object, drivetrain: str | None) -> DrivetrainDiscovery:
+        capability = getattr(provider, "drivetrain_discovery", None)
+        if capability is None:
+            return unfiltered_drivetrain_discovery(drivetrain)
+        if not callable(capability):
+            raise AnalysisInputError("Provider drivetrain discovery capability is invalid")
+        try:
+            discovery = capability(drivetrain)
+            if not isinstance(discovery, DrivetrainDiscovery):
+                raise TypeError("Provider discovery must return DrivetrainDiscovery")
+        except (TypeError, ValueError) as exc:
+            raise AnalysisInputError("Provider drivetrain discovery capability is invalid") from exc
+        return discovery
 
     @staticmethod
     def _effective_policy_for_provider(
@@ -593,6 +614,7 @@ class AnalysisOrchestrator:
                     base_request,
                     current_policy,
                     request.vehicle_configuration,
+                    self._drivetrain_discovery(self._current_provider, base_request.loss_vehicle.drivetrain),
                 )
                 if request.current_search is not None
                 else None
@@ -602,6 +624,7 @@ class AnalysisOrchestrator:
                     base_request,
                     historical_policy,
                     request.vehicle_configuration,
+                    self._drivetrain_discovery(self._historical_provider, base_request.loss_vehicle.drivetrain),
                 )
                 if request.historical_search is not None
                 else None

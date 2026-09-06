@@ -9,6 +9,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from tests.test_analysis_runs import (
+    remove_discovery_provenance,
     RecordingCurrentProvider,
     TemporaryRepositoryTestCase,
     make_orchestrator,
@@ -42,8 +43,8 @@ class PreliminaryQualificationPresentationTests(TemporaryRepositoryTestCase):
             projected = AnalysisPresentationProjector().project(artifact)
         data = projected.to_dict()
         self.assertEqual(data, presentation.to_dict())
-        self.assertEqual(data["presentationVersion"], "5")
-        self.assertEqual(data["provenance"]["analysisRunSchemaVersion"], "9")
+        self.assertEqual(data["presentationVersion"], "6")
+        self.assertEqual(data["provenance"]["analysisRunSchemaVersion"], "10")
         self.assertEqual(
             data["preliminaryQualification"],
             artifact.to_dict()["result"]["preliminaryQualification"],
@@ -119,6 +120,7 @@ class PreliminaryQualificationPresentationTests(TemporaryRepositoryTestCase):
     def test_legacy_run_keeps_original_projection_and_market_copy(self):
         artifact, presentation = self.new_presentation()
         legacy_data = artifact.to_dict()
+        remove_discovery_provenance(legacy_data)
         legacy_data["analysisRunSchemaVersion"] = "7"
         legacy_data["analysisVersion"] = "7"
         del legacy_data["request"]["qualificationSourceReport"]
@@ -159,6 +161,7 @@ class PreliminaryQualificationPresentationTests(TemporaryRepositoryTestCase):
             historical_provider=None,
         ).run(request).artifact
         data = artifact.to_dict()
+        remove_discovery_provenance(data)
         data["analysisRunSchemaVersion"] = "7"
         data["analysisVersion"] = "7"
         del data["request"]["qualificationSourceReport"]

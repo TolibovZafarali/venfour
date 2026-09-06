@@ -426,6 +426,45 @@ def write_artifact(path: Path, data: dict[str, Any]) -> None:
     )
 
 
+def remove_discovery_provenance(data: dict[str, Any]) -> None:
+    """Build an unfiltered legacy fixture with its original input digests."""
+    from venfour.analysis_runs import (
+        _base_request_from_data, _historical_result_from_data,
+        _market_result_from_data, search_diagnostics_digest,
+    )
+    from venfour.preliminary_resolution import resolve_preliminary_evidence
+
+    def strip(value):
+        if isinstance(value, dict):
+            value.pop("drivetrainDiscovery", None)
+            for child in value.values():
+                strip(child)
+        elif isinstance(value, list):
+            for child in value:
+                strip(child)
+
+    strip(data)
+    request, result = data["request"], data["result"]
+    if "preliminaryQualification" in result:
+        if result.get("preliminaryResolution", {}).get("attempts"):
+            raise ValueError("Legacy fixture conversion requires no enrichment attempts")
+        resolved = resolve_preliminary_evidence(
+            base_request=_base_request_from_data(request["baseDiscrepancyRequest"]),
+            current_result=_market_result_from_data(result["currentMarketResult"]) if result["currentMarketResult"] else None,
+            historical_result=_historical_result_from_data(result["historicalMarketResult"]) if result["historicalMarketResult"] else None,
+            current_observed_date=request["currentObservedDate"],
+            source_report=request["qualificationSourceReport"], evidence_context=data["evidenceContext"],
+        )
+        result["preliminaryQualification"] = resolved.preliminary_qualification
+        if "preliminaryResolution" in result:
+            result["preliminaryResolution"] = resolved.resolution
+    data["requestDigest"] = discrepancy_request_digest(result["discrepancyRequest"])
+    data["searchDiagnosticsDigest"] = search_diagnostics_digest(
+        request["searchPolicies"], result["searchDiagnostics"],
+        policy_field="searchPolicies", configured_policy=request["configuredSearchPolicies"],
+    )
+
+
 class TemporaryRepositoryTestCase(unittest.TestCase):
     def setUp(self) -> None:
         self.temporary_directory = tempfile.TemporaryDirectory()
@@ -551,6 +590,7 @@ class AnalysisOrchestrationScenarioTests(TemporaryRepositoryTestCase):
         self.assertEqual(
             current_provider.requests[0].to_dict(),
             {
+                "drivetrainDiscovery": {"version": "1", "status": "SUBJECT_DRIVETRAIN_UNKNOWN", "filterValue": None},
                 "year": 2024,
                 "make": "Synthetic",
                 "model": "Sedan",
@@ -564,6 +604,7 @@ class AnalysisOrchestrationScenarioTests(TemporaryRepositoryTestCase):
         self.assertEqual(
             historical_provider.requests[0].to_dict(),
             {
+                "drivetrainDiscovery": {"version": "1", "status": "SUBJECT_DRIVETRAIN_UNKNOWN", "filterValue": None},
                 "evidenceDate": LOSS_DATE,
                 "year": 2024,
                 "make": "Synthetic",
@@ -576,8 +617,8 @@ class AnalysisOrchestrationScenarioTests(TemporaryRepositoryTestCase):
             },
         )
         artifact_data = loaded.to_dict()
-        self.assertEqual(artifact_data["analysisRunSchemaVersion"], "9")
-        self.assertEqual(artifact_data["analysisVersion"], "9")
+        self.assertEqual(artifact_data["analysisRunSchemaVersion"], "10")
+        self.assertEqual(artifact_data["analysisVersion"], "10")
         self.assertEqual(artifact_data["comparableScoringVersion"], "2")
         self.assertEqual(artifact_data["evidenceContext"]["inputMode"], "REPORT")
         self.assertEqual(len(artifact_data["searchDiagnosticsDigest"]), 64)

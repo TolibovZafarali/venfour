@@ -28,6 +28,7 @@ from venfour.orchestration import (
 )
 
 from tests.test_analysis_runs import (
+    remove_discovery_provenance,
     CURRENT_OBSERVED_DATE,
     POSTAL_CODE,
     RecordingCurrentProvider,
@@ -69,6 +70,7 @@ class AdaptiveAnalysisRunIntegrityTests(unittest.TestCase):
         validate_analysis_run_artifact(self.artifact)
 
         def pin_legacy_scoring(artifact):
+            remove_discovery_provenance(artifact)
             artifact["request"].pop("qualificationSourceReport")
             artifact["result"].pop("preliminaryQualification")
             artifact["result"].pop("preliminaryResolution")

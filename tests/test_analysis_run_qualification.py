@@ -7,6 +7,7 @@ import unittest
 from dataclasses import replace
 
 from tests.test_analysis_runs import (
+    remove_discovery_provenance,
     RecordingCurrentProvider,
     RecordingHistoricalProvider,
     TemporaryRepositoryTestCase,
@@ -39,7 +40,7 @@ class AnalysisRunQualificationTests(TemporaryRepositoryTestCase):
         artifact = self.run_request(request)
         stored_source = artifact["request"]["qualificationSourceReport"]
         self.assertEqual(stored_source, make_report())
-        self.assertEqual(artifact["analysisRunSchemaVersion"], "9")
+        self.assertEqual(artifact["analysisRunSchemaVersion"], "10")
         qualification = artifact["result"]["preliminaryQualification"]
         self.assertEqual(qualification["qualificationVersion"], "1")
         self.assertEqual(
@@ -135,6 +136,7 @@ class AnalysisRunQualificationTests(TemporaryRepositoryTestCase):
     def test_legacy_seven_round_trip_keeps_original_bytes_and_omits_qualification(self):
         artifact = self.run_request(make_run_request())
         legacy = copy.deepcopy(artifact)
+        remove_discovery_provenance(legacy)
         legacy["analysisRunSchemaVersion"] = "7"
         legacy["analysisVersion"] = "7"
         del legacy["result"]["preliminaryResolution"]
@@ -143,9 +145,9 @@ class AnalysisRunQualificationTests(TemporaryRepositoryTestCase):
         before = canonical_json_bytes(legacy)
         replayed = AnalysisRunArtifact.from_dict(legacy).to_dict()
         self.assertEqual(canonical_json_bytes(replayed), before)
-        self.assertEqual(replayed["requestDigest"], artifact["requestDigest"])
+        self.assertEqual(replayed["requestDigest"], legacy["requestDigest"])
         self.assertEqual(
-            replayed["searchDiagnosticsDigest"], artifact["searchDiagnosticsDigest"]
+            replayed["searchDiagnosticsDigest"], legacy["searchDiagnosticsDigest"]
         )
         self.assertNotIn("preliminaryQualification", replayed["result"])
         legacy["result"]["preliminaryQualification"] = artifact["result"][

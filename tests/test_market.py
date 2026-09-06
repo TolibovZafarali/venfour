@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import copy
+import hashlib
 import json
 import math
 import os
@@ -20,6 +21,7 @@ from jsonschema import Draft202012Validator
 
 from venfour.fixture_market import FixtureMarketProvider
 from venfour.market import (
+    DrivetrainDiscovery,
     LISTING_SCHEMA_PATH,
     SEARCH_REQUEST_SCHEMA_PATH,
     SEARCH_RESULT_SCHEMA_PATH,
@@ -34,6 +36,8 @@ from venfour.market import (
     MarketSearchResult,
     VehicleConfigurationIdentity,
     discover_market_listings,
+    normalize_market_search_request,
+    unfiltered_drivetrain_discovery,
     validate_market_listing,
     validate_market_search_request,
     validate_market_search_result,
@@ -200,10 +204,10 @@ class MarketSchemaContractTests(unittest.TestCase):
                 standalone.pop("$schema")
                 standalone.pop("title")
                 definitions = standalone.pop("$defs", {})
-                if definitions:
+                for definition_name, definition in definitions.items():
                     self.assertEqual(
-                        result_schema["$defs"]["vehicleConfiguration"],
-                        definitions["vehicleConfiguration"],
+                        result_schema["$defs"][definition_name],
+                        definition,
                     )
                 self.assertEqual(result_schema["$defs"][name], standalone)
 
@@ -803,6 +807,55 @@ class MarketNormalizationTests(unittest.TestCase):
         canonical = listing.to_dict()
         for field in ("trim", "vin", "mileage", "dealer", "distanceMiles"):
             self.assertIsNone(canonical[field])
+
+
+class DrivetrainDiscoveryContractTests(unittest.TestCase):
+    def test_filtered_and_legacy_requests_have_distinct_identity(self) -> None:
+        legacy = make_request(drivetrain="FWD")
+        filtered = make_request(drivetrain="FWD", drivetrain_discovery=DrivetrainDiscovery("EXACT_FILTER", "FWD"))
+        other = make_request(drivetrain="4WD", drivetrain_discovery=DrivetrainDiscovery("EXACT_FILTER", "4WD"))
+        self.assertNotIn("drivetrainDiscovery", legacy.to_dict())
+        self.assertEqual(normalize_market_search_request(filtered), filtered)
+        self.assertNotEqual(legacy, filtered)
+        digests = {hashlib.sha256(json.dumps(request.to_dict(), sort_keys=True).encode()).hexdigest()
+                   for request in (legacy, filtered, other)}
+        self.assertEqual(len(digests), 3)
+        for request in (legacy, filtered, other):
+            validate_market_search_request(request)
+
+    def test_unknown_and_unverified_preserve_distinct_limitations(self) -> None:
+        for drivetrain, expected in ((None, "SUBJECT_DRIVETRAIN_UNKNOWN"), ("AWD", "PROVIDER_MAPPING_UNVERIFIED")):
+            with self.subTest(drivetrain=drivetrain):
+                marker = unfiltered_drivetrain_discovery(drivetrain)
+                request = make_request(drivetrain=drivetrain, drivetrain_discovery=marker)
+                validate_market_search_request(request)
+                self.assertEqual(marker.status, expected)
+                self.assertIsNone(marker.filter_value)
+                self.assertEqual(request.to_dict().get("drivetrain"), drivetrain)
+                if drivetrain is None:
+                    self.assertNotIn("drivetrain", request.to_dict())
+                self.assertEqual(DrivetrainDiscovery.from_dict(marker.to_dict()), marker)
+
+    def test_filter_claim_must_match_the_actual_subject(self) -> None:
+        for drivetrain, marker in (
+            ("FWD", DrivetrainDiscovery("EXACT_FILTER", "4WD")),
+            (None, DrivetrainDiscovery("EXACT_FILTER", "FWD")),
+            ("FWD", unfiltered_drivetrain_discovery(None)),
+            (None, unfiltered_drivetrain_discovery("AWD")),
+        ):
+            with self.subTest(drivetrain=drivetrain, marker=marker):
+                with self.assertRaises(MarketContractError):
+                    validate_market_search_request(make_request(drivetrain=drivetrain, drivetrain_discovery=marker))
+
+    def test_marker_is_strict_and_cannot_hide_filter_uncertainty(self) -> None:
+        valid = DrivetrainDiscovery("EXACT_FILTER", "FWD").to_dict()
+        for changes in ({"version": "2"}, {"status": "FILTERED"}, {"filterValue": None}, {"unexpected": True}):
+            with self.subTest(changes=changes), self.assertRaises(ValueError):
+                DrivetrainDiscovery.from_dict({**valid, **changes})
+        with self.assertRaises(ValueError):
+            DrivetrainDiscovery("PROVIDER_MAPPING_UNVERIFIED", "AWD")
+        with self.assertRaises(ValueError):
+            unfiltered_drivetrain_discovery("All-wheel drive")
 
 
 if __name__ == "__main__":

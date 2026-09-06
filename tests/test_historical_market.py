@@ -49,6 +49,7 @@ from venfour.historical_market import (
     validate_historical_market_search_result,
 )
 from venfour.market import (
+    DrivetrainDiscovery,
     LISTING_SCHEMA_PATH,
     MarketContractError,
     MarketDealer,
@@ -58,6 +59,7 @@ from venfour.market import (
     MarketProviderResponseError,
     MarketSearchRequest,
     MarketSearchResult,
+    unfiltered_drivetrain_discovery,
     validate_market_search_result,
 )
 
@@ -232,10 +234,8 @@ class HistoricalSchemaContractTests(unittest.TestCase):
         request_schema.pop("$schema")
         request_schema.pop("title")
         definitions = request_schema.pop("$defs")
-        self.assertEqual(
-            result_schema["$defs"]["vehicleConfiguration"],
-            definitions["vehicleConfiguration"],
-        )
+        for name, definition in definitions.items():
+            self.assertEqual(result_schema["$defs"][name], definition)
         self.assertEqual(
             result_schema["$defs"]["historicalSearchRequest"], request_schema
         )
@@ -1220,6 +1220,77 @@ class HistoricalProjectionAndScorerTests(unittest.TestCase):
             }
 
         self.assertEqual(similarity(base), similarity(prices_reversed))
+
+
+class HistoricalDrivetrainDiscoveryTests(unittest.TestCase):
+    def test_source_configuration_conflict_is_versioned_identified_and_excluded(self) -> None:
+        marker = DrivetrainDiscovery("EXACT_FILTER", "FWD")
+        request = make_request(drivetrain="FWD", drivetrain_discovery=marker)
+        conflict = HistoricalEvidenceIssue(
+            status=UNRESOLVED, reason="VEHICLE_CONFIGURATION_CONFLICT",
+            vin="SYNTHETIC-CONFLICT-VIN", source_listing_id="conflicting-history-record",
+        )
+        result = make_result(request=request, issues=(conflict,))
+        validate_historical_market_search_result(result)
+        self.assertEqual(result.unresolved_count, 1)
+        self.assertEqual(result.listing_count, 0)
+        invalid = [
+            dataclasses.replace(result, request=make_request(drivetrain="FWD")),
+            dataclasses.replace(result, issues=(dataclasses.replace(conflict, vin=None),)),
+            dataclasses.replace(result, issues=(dataclasses.replace(conflict, source_listing_id=None),)),
+            dataclasses.replace(result, issues=(dataclasses.replace(conflict, status=AMBIGUOUS),)),
+            dataclasses.replace(result, evidence=(make_evidence(vin=conflict.vin),)),
+            dataclasses.replace(result, evidence=(make_evidence(source_listing_id=conflict.source_listing_id),)),
+        ]
+        for invalid_result in invalid:
+            with self.subTest(result=invalid_result), self.assertRaises(MarketContractError):
+                validate_historical_market_search_result(invalid_result)
+
+    def test_discrepancy_boundary_preserves_historical_filter_provenance(self) -> None:
+        from venfour.discrepancy import (
+            HistoricalEvidenceInput, ValuationDiscrepancyRequest,
+            validate_valuation_discrepancy_request,
+        )
+
+        for drive, marker in (("FWD", DrivetrainDiscovery("EXACT_FILTER", "FWD")),
+                              (None, unfiltered_drivetrain_discovery(None))):
+            with self.subTest(drivetrain=drive):
+                search = make_request(drivetrain=drive, drivetrain_discovery=marker)
+                target = comparable_target_from_search_request(search.to_market_search_request())
+                historical = make_result(request=search)
+                request = ValuationDiscrepancyRequest(
+                    loss_vehicle=target, ccc_vehicle_valuation=20000, ccc_comparables=(),
+                    loss_date=EVIDENCE_DATE, historical_evidence=HistoricalEvidenceInput(historical, None),
+                )
+                validate_valuation_discrepancy_request(request)
+                self.assertEqual(request.to_dict()["historicalEvidence"]["result"]["request"]["drivetrainDiscovery"], marker.to_dict())
+                if drive is None:
+                    self.assertNotIn("drivetrain", request.to_dict()["lossVehicle"])
+
+    def test_filter_identity_survives_normalization_and_market_projection(self) -> None:
+        marker = DrivetrainDiscovery("EXACT_FILTER", "FWD")
+        request = make_request(drivetrain="FWD", drivetrain_discovery=marker)
+        normalized = normalize_historical_market_search_request(request)
+        self.assertEqual(normalized.to_dict(), request.to_dict())
+        projected = normalized.to_market_search_request()
+        self.assertEqual(projected.drivetrain_discovery, marker)
+        self.assertEqual(projected.to_dict()["drivetrainDiscovery"], marker.to_dict())
+        validate_historical_market_search_request(request.to_dict())
+
+    def test_historical_serialized_request_rejects_inconsistent_filter_claim(self) -> None:
+        request = make_request(drivetrain="FWD", drivetrain_discovery=DrivetrainDiscovery("EXACT_FILTER", "FWD")).to_dict()
+        request["drivetrainDiscovery"]["filterValue"] = "4WD"
+        with self.assertRaises(MarketContractError):
+            validate_historical_market_search_request(request)
+
+    def test_legacy_and_unknown_historical_requests_are_not_relabelled(self) -> None:
+        legacy = make_request()
+        self.assertNotIn("drivetrainDiscovery", normalize_historical_market_search_request(legacy).to_dict())
+        self.assertNotIn("drivetrainDiscovery", legacy.to_market_search_request().to_dict())
+        unknown = make_request(drivetrain_discovery=unfiltered_drivetrain_discovery(None))
+        validate_historical_market_search_request(unknown)
+        self.assertNotIn("drivetrain", unknown.to_dict())
+        self.assertEqual(unknown.to_market_search_request().drivetrain_discovery.status, "SUBJECT_DRIVETRAIN_UNKNOWN")
 
 
 if __name__ == "__main__":

@@ -19,6 +19,7 @@ from jsonschema import Draft202012Validator, FormatChecker
 from jsonschema.exceptions import SchemaError
 
 from venfour.market import (
+    DrivetrainDiscovery,
     MarketContractError,
     MarketListing,
     MarketProviderError,
@@ -80,6 +81,7 @@ class HistoricalMarketSearchRequest:
     configuration: VehicleConfigurationIdentity | None = None
     drivetrain: str | None = None
     drivetrain_recorded: bool = field(default=False, compare=False, repr=False)
+    drivetrain_discovery: DrivetrainDiscovery | None = None
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "evidence_date", _trim_required(self.evidence_date))
@@ -95,6 +97,8 @@ class HistoricalMarketSearchRequest:
             )
         if self.configuration is not None and self.trim is None:
             raise ValueError("configuration requires a canonical trim")
+        if self.drivetrain_discovery is not None and not isinstance(self.drivetrain_discovery, DrivetrainDiscovery):
+            raise TypeError("drivetrain_discovery must be DrivetrainDiscovery or None")
 
     def to_dict(self) -> dict[str, Any]:
         data = {
@@ -112,6 +116,8 @@ class HistoricalMarketSearchRequest:
             data["configuration"] = self.configuration.to_dict()
         if self.drivetrain_recorded or self.drivetrain is not None:
             data["drivetrain"] = self.drivetrain
+        if self.drivetrain_discovery is not None:
+            data["drivetrainDiscovery"] = self.drivetrain_discovery.to_dict()
         return data
 
     def to_market_search_request(self) -> MarketSearchRequest:
@@ -125,6 +131,7 @@ class HistoricalMarketSearchRequest:
             configuration=self.configuration,
             drivetrain=self.drivetrain,
             drivetrain_recorded=self.drivetrain_recorded,
+            drivetrain_discovery=self.drivetrain_discovery,
             loss_vehicle_mileage=self.loss_vehicle_mileage,
             postal_code=self.postal_code,
             radius_miles=self.radius_miles,
@@ -531,6 +538,23 @@ def validate_historical_market_search_result(
         has_identity = (
             issue["vin"] is not None or issue["sourceListingId"] is not None
         )
+        if issue["reason"] == "VEHICLE_CONFIGURATION_CONFLICT":
+            if "drivetrainDiscovery" not in data["request"]:
+                details.append(
+                    f"$.issues[{index}]: configuration conflicts require versioned discovery provenance"
+                )
+            if issue["vin"] is None or issue["sourceListingId"] is None:
+                details.append(
+                    f"$.issues[{index}]: configuration conflicts require VIN and source listing identity"
+                )
+            if (
+                issue["vin"] is not None
+                and ("vin", issue["vin"].casefold()) in seen_identities
+                or issue["sourceListingId"] in seen_listing_ids
+            ):
+                details.append(
+                    f"$.issues[{index}]: conflicting configuration cannot also appear as resolved evidence"
+                )
         if (
             issue["reason"] == "MISSING_LISTING_IDENTITY"
             and issue["sourceListingId"] is not None
@@ -624,6 +648,7 @@ def normalize_historical_market_search_request(
         configuration=request.configuration,
         drivetrain=request.drivetrain,
         drivetrain_recorded=request.drivetrain_recorded,
+        drivetrain_discovery=request.drivetrain_discovery,
         loss_vehicle_mileage=request.loss_vehicle_mileage,
         radius_miles=request.radius_miles,
         result_limit=request.result_limit,

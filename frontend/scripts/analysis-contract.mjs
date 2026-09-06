@@ -14,7 +14,7 @@ const outputPath = path.resolve(
   "src/features/analyses/analysis-presentation.generated.ts",
 );
 const supportedConditionalSchemaDigest =
-  "87f3ea352b0ac145980a46eea4072a34a98c36cf93c5ff182d0840dcea3d3763";
+  "c1b8c62eb81b4cf0b3cdae770958250567c960d086a9ba55814323c5941c1aa9";
 
 function collectConditionalConstraints(value, currentPath = "$", result = []) {
   if (Array.isArray(value)) {
@@ -322,26 +322,39 @@ type PresentationQualificationVersion =
       presentationVersion: "2" | "3";
       preliminaryQualification?: never;
       preliminaryResolution?: never;
-      provenance: Omit<Provenance, "presentationVersion"> & {
+      provenance: Omit<Provenance, "presentationVersion" | "drivetrainDiscovery"> & {
         presentationVersion: "2" | "3";
+        drivetrainDiscovery?: never;
       };
     }
   | {
       presentationVersion: "4";
       preliminaryQualification: PreliminaryQualification;
       preliminaryResolution?: never;
-      provenance: Omit<Provenance, "presentationVersion" | "analysisRunSchemaVersion"> & {
+      provenance: Omit<Provenance, "presentationVersion" | "analysisRunSchemaVersion" | "drivetrainDiscovery"> & {
         presentationVersion: "4";
         analysisRunSchemaVersion: "8";
+        drivetrainDiscovery?: never;
       };
     }
   | {
       presentationVersion: "5";
       preliminaryQualification: PreliminaryQualification;
       preliminaryResolution: PreliminaryResolution;
-      provenance: Omit<Provenance, "presentationVersion" | "analysisRunSchemaVersion"> & {
+      provenance: Omit<Provenance, "presentationVersion" | "analysisRunSchemaVersion" | "drivetrainDiscovery"> & {
         presentationVersion: "5";
         analysisRunSchemaVersion: "9";
+        drivetrainDiscovery?: never;
+      };
+    }
+  | {
+      presentationVersion: "6";
+      preliminaryQualification: PreliminaryQualification;
+      preliminaryResolution: PreliminaryResolution;
+      provenance: Omit<Provenance, "presentationVersion" | "analysisRunSchemaVersion" | "drivetrainDiscovery"> & {
+        presentationVersion: "6";
+        analysisRunSchemaVersion: "10";
+        drivetrainDiscovery: StreamDrivetrainDiscovery;
       };
     };
 

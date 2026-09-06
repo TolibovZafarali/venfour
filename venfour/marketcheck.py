@@ -38,6 +38,7 @@ from venfour.historical_market import (
     validate_historical_market_search_result,
 )
 from venfour.market import (
+    DrivetrainDiscovery,
     MarketContractError,
     MarketDealer,
     MarketListing,
@@ -443,6 +444,27 @@ class MarketCheckProvider:
                 return True
         return False
 
+    @staticmethod
+    def drivetrain_discovery(subject_drive: str | None) -> DrivetrainDiscovery:
+        """Describe the exact drivetrain filter supported by the REST inventory API."""
+        if subject_drive in {"FWD", "RWD", "4WD"}:
+            return DrivetrainDiscovery(version="1", status="EXACT_FILTER", filter_value=subject_drive)
+        if subject_drive is None:
+            return DrivetrainDiscovery(version="1", status="SUBJECT_DRIVETRAIN_UNKNOWN", filter_value=None)
+        if subject_drive == "AWD":
+            return DrivetrainDiscovery(version="1", status="PROVIDER_MAPPING_UNVERIFIED", filter_value=None)
+        raise MarketContractError("Drivetrain discovery requires a canonical subject drivetrain")
+
+    def _discovery_drivetrain_filter(
+        self, request: MarketSearchRequest | HistoricalMarketSearchRequest,
+    ) -> str | None:
+        marker = request.drivetrain_discovery
+        if marker is None:
+            return None
+        if marker.to_dict() != self.drivetrain_discovery(request.drivetrain).to_dict():
+            raise MarketContractError("Drivetrain discovery does not match the MarketCheck mapping")
+        return marker.filter_value
+
     def _params(
         self,
         request: MarketSearchRequest,
@@ -475,6 +497,9 @@ class MarketCheckProvider:
             )
         elif request.trim is not None:
             params["trim"] = request.trim
+        drivetrain_filter = self._discovery_drivetrain_filter(request)
+        if drivetrain_filter is not None:
+            params["drivetrain"] = drivetrain_filter
         if request.postal_code is not None:
             params["zip"] = request.postal_code
             params["radius"] = request.radius_miles
@@ -1434,6 +1459,9 @@ class MarketCheckHistoricalProvider(MarketCheckProvider):
             )
         elif request.trim is not None:
             params["trim"] = request.trim
+        drivetrain_filter = self._discovery_drivetrain_filter(request)
+        if drivetrain_filter is not None:
+            params["drivetrain"] = drivetrain_filter
         return params
 
     def _vin_history_params(self, *, page: int) -> dict[str, QueryValue]:
@@ -1796,6 +1824,8 @@ class MarketCheckHistoricalProvider(MarketCheckProvider):
         record: Mapping[str, Any],
         response_index: int,
         candidate: _HistoricalCandidate,
+        *,
+        history_drivetrain: str | None = None,
     ) -> MarketListing:
         dealer_fields = {
             "name": record.get("seller_name"),
@@ -1820,7 +1850,7 @@ class MarketCheckHistoricalProvider(MarketCheckProvider):
                 "make": candidate.listing.make,
                 "model": candidate.listing.model,
                 "trim": candidate.listing.trim,
-                "drivetrain": candidate.listing.drivetrain,
+                "drivetrain": history_drivetrain or candidate.listing.drivetrain,
             },
             "dist": candidate.listing.distance_miles,
         }
@@ -1972,10 +2002,30 @@ class MarketCheckHistoricalProvider(MarketCheckProvider):
             raise MarketProviderResponseError(
                 "MarketCheck response could not be safely normalized"
             )
+        history_drivetrain = None
+        if request.drivetrain_discovery is not None:
+            build = record.get("build")
+            history_drivetrain = (
+                normalize_drivetrain(build.get("drivetrain"))
+                if isinstance(build, Mapping)
+                else None
+            )
+            if (
+                history_drivetrain is not None
+                and candidate.listing.drivetrain is not None
+                and history_drivetrain != candidate.listing.drivetrain
+            ):
+                return None, HistoricalEvidenceIssue(
+                    status=UNRESOLVED,
+                    reason="VEHICLE_CONFIGURATION_CONFLICT",
+                    vin=candidate.vin,
+                    source_listing_id=listing_id,
+                )
         listing = self._normalize_vin_history_listing(
             record,
             selected_index,
             candidate,
+            history_drivetrain=history_drivetrain,
         )
         return (
             HistoricalEvidenceItem(

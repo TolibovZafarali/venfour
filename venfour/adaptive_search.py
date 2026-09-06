@@ -39,6 +39,7 @@ from venfour.historical_market import (
     validate_historical_market_search_result,
 )
 from venfour.market import (
+    DrivetrainDiscovery,
     MarketContractError,
     MarketDealer,
     MarketListing,
@@ -1112,6 +1113,8 @@ def _market_request_from_data(data: Mapping[str, Any]) -> MarketSearchRequest:
         trim=data.get("trim"),
         drivetrain=data.get("drivetrain"),
         drivetrain_recorded="drivetrain" in data,
+        drivetrain_discovery=(DrivetrainDiscovery.from_dict(data["drivetrainDiscovery"])
+                              if "drivetrainDiscovery" in data else None),
         configuration=_configuration_from_data(data.get("configuration")),
         loss_vehicle_mileage=data.get("lossVehicleMileage"),
         postal_code=data.get("postalCode"),
@@ -1158,6 +1161,8 @@ def _historical_request_from_data(
         trim=data.get("trim"),
         drivetrain=data.get("drivetrain"),
         drivetrain_recorded="drivetrain" in data,
+        drivetrain_discovery=(DrivetrainDiscovery.from_dict(data["drivetrainDiscovery"])
+                              if "drivetrainDiscovery" in data else None),
         configuration=_configuration_from_data(data.get("configuration")),
         loss_vehicle_mileage=data.get("lossVehicleMileage"),
         radius_miles=data.get("radiusMiles", 50),

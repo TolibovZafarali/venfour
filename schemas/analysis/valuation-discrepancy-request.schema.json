@@ -31,7 +31,7 @@
         "null"
       ],
       "minimum": 0,
-      "maximum": 90071992547409.91
+      "maximum": 90071992547409.9
     },
     "cccComparables": {
       "type": "array",
@@ -158,32 +158,32 @@
             "number",
             "null"
           ],
-          "minimum": -90071992547409.91,
-          "maximum": 90071992547409.91
+          "minimum": -90071992547409.9,
+          "maximum": 90071992547409.9
         },
         "options": {
           "type": [
             "number",
             "null"
           ],
-          "minimum": -90071992547409.91,
-          "maximum": 90071992547409.91
+          "minimum": -90071992547409.9,
+          "maximum": 90071992547409.9
         },
         "mileage": {
           "type": [
             "number",
             "null"
           ],
-          "minimum": -90071992547409.91,
-          "maximum": 90071992547409.91
+          "minimum": -90071992547409.9,
+          "maximum": 90071992547409.9
         },
         "condition": {
           "type": [
             "number",
             "null"
           ],
-          "minimum": -90071992547409.91,
-          "maximum": 90071992547409.91
+          "minimum": -90071992547409.9,
+          "maximum": 90071992547409.9
         }
       }
     },
@@ -275,7 +275,7 @@
             "null"
           ],
           "minimum": 0,
-          "maximum": 90071992547409.91
+          "maximum": 90071992547409.9
         },
         "adjustments": {
           "$ref": "#/$defs/cccAdjustments"
@@ -286,7 +286,7 @@
             "null"
           ],
           "minimum": 0,
-          "maximum": 90071992547409.91
+          "maximum": 90071992547409.9
         },
         "contributionPercent": {
           "type": [
@@ -460,7 +460,12 @@
         }
       },
       "dependentRequired": {
-        "sourcePrice": ["drivetrain", "source", "sourceReferences", "contributionBinding"]
+        "sourcePrice": [
+          "drivetrain",
+          "source",
+          "sourceReferences",
+          "contributionBinding"
+        ]
       }
     },
     "target": {
@@ -1195,6 +1200,9 @@
             "4WD",
             null
           ]
+        },
+        "drivetrainDiscovery": {
+          "$ref": "#/$defs/drivetrainDiscovery"
         }
       },
       "allOf": [
@@ -1218,6 +1226,133 @@
                 "type": "string"
               }
             }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "drivetrainDiscovery"
+            ]
+          },
+          "then": {
+            "oneOf": [
+              {
+                "properties": {
+                  "drivetrain": {
+                    "type": "null"
+                  },
+                  "drivetrainDiscovery": {
+                    "properties": {
+                      "status": {
+                        "const": "SUBJECT_DRIVETRAIN_UNKNOWN"
+                      }
+                    }
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "drivetrain": {
+                    "enum": [
+                      "FWD",
+                      "RWD",
+                      "AWD",
+                      "4WD"
+                    ]
+                  },
+                  "drivetrainDiscovery": {
+                    "properties": {
+                      "status": {
+                        "const": "PROVIDER_MAPPING_UNVERIFIED"
+                      }
+                    }
+                  }
+                },
+                "required": [
+                  "drivetrain"
+                ]
+              },
+              {
+                "properties": {
+                  "drivetrain": {
+                    "const": "FWD"
+                  },
+                  "drivetrainDiscovery": {
+                    "properties": {
+                      "status": {
+                        "const": "EXACT_FILTER"
+                      },
+                      "filterValue": {
+                        "const": "FWD"
+                      }
+                    }
+                  }
+                },
+                "required": [
+                  "drivetrain"
+                ]
+              },
+              {
+                "properties": {
+                  "drivetrain": {
+                    "const": "RWD"
+                  },
+                  "drivetrainDiscovery": {
+                    "properties": {
+                      "status": {
+                        "const": "EXACT_FILTER"
+                      },
+                      "filterValue": {
+                        "const": "RWD"
+                      }
+                    }
+                  }
+                },
+                "required": [
+                  "drivetrain"
+                ]
+              },
+              {
+                "properties": {
+                  "drivetrain": {
+                    "const": "AWD"
+                  },
+                  "drivetrainDiscovery": {
+                    "properties": {
+                      "status": {
+                        "const": "EXACT_FILTER"
+                      },
+                      "filterValue": {
+                        "const": "AWD"
+                      }
+                    }
+                  }
+                },
+                "required": [
+                  "drivetrain"
+                ]
+              },
+              {
+                "properties": {
+                  "drivetrain": {
+                    "const": "4WD"
+                  },
+                  "drivetrainDiscovery": {
+                    "properties": {
+                      "status": {
+                        "const": "EXACT_FILTER"
+                      },
+                      "filterValue": {
+                        "const": "4WD"
+                      }
+                    }
+                  }
+                },
+                "required": [
+                  "drivetrain"
+                ]
+              }
+            ]
           }
         }
       ]
@@ -1346,6 +1481,7 @@
             "NO_RECORD_ACTIVE_ON_EVIDENCE_DATE",
             "MISSING_LISTING_IDENTITY",
             "UNVERIFIABLE_RECORD_CONTEXT",
+            "VEHICLE_CONFIGURATION_CONFLICT",
             "MULTIPLE_SOURCE_RECORDS_ON_EVIDENCE_DATE",
             "PAGINATION_SAFETY_LIMIT_REACHED",
             "INCOMPLETE_PROVIDER_PAGINATION",
@@ -1447,6 +1583,66 @@
           "minimum": 0
         }
       }
+    },
+    "drivetrainDiscovery": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "status",
+        "filterValue"
+      ],
+      "properties": {
+        "version": {
+          "const": "1"
+        },
+        "status": {
+          "enum": [
+            "EXACT_FILTER",
+            "SUBJECT_DRIVETRAIN_UNKNOWN",
+            "PROVIDER_MAPPING_UNVERIFIED"
+          ]
+        },
+        "filterValue": {
+          "enum": [
+            "FWD",
+            "RWD",
+            "AWD",
+            "4WD",
+            null
+          ]
+        }
+      },
+      "oneOf": [
+        {
+          "properties": {
+            "status": {
+              "const": "EXACT_FILTER"
+            },
+            "filterValue": {
+              "enum": [
+                "FWD",
+                "RWD",
+                "AWD",
+                "4WD"
+              ]
+            }
+          }
+        },
+        {
+          "properties": {
+            "status": {
+              "enum": [
+                "SUBJECT_DRIVETRAIN_UNKNOWN",
+                "PROVIDER_MAPPING_UNVERIFIED"
+              ]
+            },
+            "filterValue": {
+              "type": "null"
+            }
+          }
+        }
+      ]
     }
   }
 }

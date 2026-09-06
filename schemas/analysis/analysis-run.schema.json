@@ -29,6 +29,9 @@
     },
     {
       "$ref": "#/$defs/analysisRunV9"
+    },
+    {
+      "$ref": "#/$defs/analysisRunV10"
     }
   ],
   "$defs": {
@@ -1620,6 +1623,65 @@
         },
         "preliminaryResolution": {
           "$ref": "https://schemas.venfour.local/analysis/preliminary-evidence-resolution.schema.json"
+        }
+      }
+    },
+    "analysisRunV10": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "analysisRunSchemaVersion",
+        "runId",
+        "createdAt",
+        "analysisVersion",
+        "discrepancyAnalysisVersion",
+        "comparableScoringVersion",
+        "requestDigest",
+        "searchDiagnosticsDigest",
+        "providers",
+        "request",
+        "result",
+        "evidenceContext"
+      ],
+      "properties": {
+        "analysisRunSchemaVersion": {
+          "const": "10"
+        },
+        "runId": {
+          "$ref": "#/$defs/runId"
+        },
+        "createdAt": {
+          "$ref": "#/$defs/createdAt"
+        },
+        "analysisVersion": {
+          "const": "10"
+        },
+        "discrepancyAnalysisVersion": {
+          "enum": [
+            "1",
+            "2"
+          ]
+        },
+        "comparableScoringVersion": {
+          "const": "2"
+        },
+        "requestDigest": {
+          "$ref": "#/$defs/requestDigest"
+        },
+        "searchDiagnosticsDigest": {
+          "$ref": "#/$defs/requestDigest"
+        },
+        "providers": {
+          "$ref": "#/$defs/providers"
+        },
+        "request": {
+          "$ref": "#/$defs/analysisRunRequestV8"
+        },
+        "result": {
+          "$ref": "#/$defs/analysisRunResultV9"
+        },
+        "evidenceContext": {
+          "$ref": "#/$defs/evidenceContext"
         }
       }
     }

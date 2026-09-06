@@ -8,6 +8,7 @@ from dataclasses import replace
 from unittest.mock import patch
 
 from tests.test_analysis_runs import (
+    remove_discovery_provenance,
     RecordingCurrentProvider,
     RecordingHistoricalProvider,
     TemporaryRepositoryTestCase,
@@ -80,7 +81,7 @@ class AnalysisRunResolutionTests(TemporaryRepositoryTestCase):
     def test_enrichment_preserves_raw_search_and_projects_resolved_historical_lifecycle(self):
         repository, current, historical, transport, artifact = self.resolved_run()
         data = artifact.to_dict()
-        self.assertEqual(data["analysisRunSchemaVersion"], "9")
+        self.assertEqual(data["analysisRunSchemaVersion"], "10")
         for row in data["result"]["currentMarketResult"]["listings"]:
             self.assertIsNone(row["drivetrain"])
         for item in data["result"]["historicalMarketResult"]["evidence"]:
@@ -95,7 +96,7 @@ class AnalysisRunResolutionTests(TemporaryRepositoryTestCase):
             restored = repository.get(artifact.run_id)
             presentation = AnalysisPresentationService(repository).get(artifact.run_id).to_dict()
         self.assertEqual(restored.to_dict(), data)
-        self.assertEqual(presentation["presentationVersion"], "5")
+        self.assertEqual(presentation["presentationVersion"], "6")
         self.assertEqual(presentation["preliminaryResolution"], data["result"]["preliminaryResolution"])
         self.assertTrue(all(row["lifecycleEvidence"] is not None for row in presentation["comparablesUsed"]["primary"]))
         self.assertEqual(counts, (len(current.requests), len(historical.requests), len(transport.calls)))
@@ -147,6 +148,7 @@ class AnalysisRunResolutionTests(TemporaryRepositoryTestCase):
     def test_legacy_eight_remains_byte_identical_and_projects_version_four(self):
         _, _, _, artifact = self.run_saved()
         legacy = artifact.to_dict()
+        remove_discovery_provenance(legacy)
         legacy["analysisRunSchemaVersion"] = "8"
         legacy["analysisVersion"] = "8"
         del legacy["result"]["preliminaryResolution"]

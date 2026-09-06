@@ -453,6 +453,10 @@ HISTORICAL_ISSUE_REASON_COPY = MappingProxyType(
             "Historical verification limit reached",
             "Historical verification reached the bounded candidate limit for this analysis.",
         ),
+        "VEHICLE_CONFIGURATION_CONFLICT": (
+            "Vehicle configuration conflict",
+            "Provider records disagree about this vehicle’s drivetrain, so this dated listing was excluded.",
+        ),
     }
 )
 
@@ -1051,7 +1055,7 @@ def _semantic_presentation_errors(data: Mapping[str, Any]) -> list[str]:
     for index, row in enumerate(ccc["rows"]):
         source_price = row.get("sourcePrice")
         if source_price is not None:
-            if data["presentationVersion"] not in ("3", "4", "5"):
+            if data["presentationVersion"] not in ("3", "4", "5", "6"):
                 errors.append(f"$.cccComparables.rows[{index}].sourcePrice: requires presentation v3 or later")
             if source_price["typeLabel"] != SOURCE_PRICE_TYPE_LABELS[source_price["type"]]:
                 errors.append(f"$.cccComparables.rows[{index}].sourcePrice.typeLabel: does not match source type")
@@ -1419,6 +1423,10 @@ def _semantic_presentation_errors(data: Mapping[str, Any]) -> list[str]:
                 "cannot be labeled current"
             )
     for index, issue in enumerate(diagnostics["historicalIssues"]):
+        if issue["reason"] == "VEHICLE_CONFIGURATION_CONFLICT" and data["presentationVersion"] != "6":
+            errors.append(
+                f"$.evidenceDiagnostics.historicalIssues[{index}]: configuration conflicts require discovery provenance"
+            )
         if issue["statusLabel"] != HISTORICAL_ISSUE_STATUS_LABELS[issue["status"]]:
             errors.append(
                 f"$.evidenceDiagnostics.historicalIssues[{index}].statusLabel: "
@@ -1482,6 +1490,18 @@ def _semantic_presentation_errors(data: Mapping[str, Any]) -> list[str]:
         errors.append(
             "$.provenance.analysisRunSchemaVersion: presentation v5 requires analysis run v9"
         )
+    if (data["presentationVersion"] == "6") != (
+        provenance["analysisRunSchemaVersion"] == "10"
+    ):
+        errors.append(
+            "$.provenance.analysisRunSchemaVersion: presentation v6 requires analysis run v10"
+        )
+    if data["presentationVersion"] == "6":
+        for stream in ("current", "historical"):
+            if (provenance["drivetrainDiscovery"][stream] is None) != (provenance["providers"][stream] is None):
+                errors.append(
+                    f"$.provenance.drivetrainDiscovery.{stream}: must match configured provider availability"
+                )
     resolution = data.get("preliminaryResolution")
     if resolution is not None:
         try:
@@ -1804,7 +1824,7 @@ def _historical_lifecycle(
     artifact_data: Mapping[str, Any], listing: Mapping[str, Any]
 ) -> dict[str, Any]:
     historical_result = artifact_data["result"]["historicalMarketResult"]
-    if artifact_data["analysisRunSchemaVersion"] == "9":
+    if artifact_data["analysisRunSchemaVersion"] in {"9", "10"}:
         historical_input = artifact_data["result"]["discrepancyRequest"]["historicalEvidence"]
         historical_result = historical_input["result"] if historical_input is not None else None
     if historical_result is None:
@@ -2026,6 +2046,8 @@ def _message_projection(
 
 
 def _presentation_version(artifact_data: Mapping[str, Any]) -> str:
+    if artifact_data["analysisRunSchemaVersion"] == "10":
+        return "6"
     if artifact_data["analysisRunSchemaVersion"] == "9":
         return "5"
     if artifact_data["analysisRunSchemaVersion"] == "8":
@@ -2049,7 +2071,7 @@ def _provenance(artifact_data: Mapping[str, Any]) -> dict[str, Any]:
         "historical": provider("historical"),
         "current": provider("current"),
     }
-    return {
+    data = {
         "runId": artifact_data["runId"],
         "presentationVersion": _presentation_version(artifact_data),
         "analysisRunSchemaVersion": artifact_data["analysisRunSchemaVersion"],
@@ -2065,6 +2087,14 @@ def _provenance(artifact_data: Mapping[str, Any]) -> dict[str, Any]:
             "description": _REQUEST_DIGEST_DESCRIPTION,
         },
     }
+
+    if artifact_data["analysisRunSchemaVersion"] == "10":
+        data["drivetrainDiscovery"] = {
+            stream: copy.deepcopy(request["drivetrainDiscovery"]) if request else None
+            for stream in ("current", "historical")
+            for request in (artifact_data["request"][f"{stream}SearchRequest"],)
+        }
+    return data
 
 
 def _artifact_evidence_context(
@@ -2327,11 +2357,11 @@ class AnalysisPresentationProjector:
                 ),
                 "provenance": _provenance(artifact_data),
             }
-            if artifact_data["analysisRunSchemaVersion"] in {"8", "9"}:
+            if artifact_data["analysisRunSchemaVersion"] in {"8", "9", "10"}:
                 presentation_data["preliminaryQualification"] = copy.deepcopy(
                     artifact_data["result"]["preliminaryQualification"]
                 )
-            if artifact_data["analysisRunSchemaVersion"] == "9":
+            if artifact_data["analysisRunSchemaVersion"] in {"9", "10"}:
                 presentation_data["preliminaryResolution"] = copy.deepcopy(
                     artifact_data["result"]["preliminaryResolution"]
                 )
