@@ -5,7 +5,6 @@ export function LocalValuationProcessingPage() {
     <FreeValuationProcessing
       reviewKey="development-preview"
       phase="reviewing"
-      vehicle="2021 Toyota Camry SE · 42,800 miles"
       development
     />
   );

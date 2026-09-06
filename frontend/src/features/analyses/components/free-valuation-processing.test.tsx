@@ -47,7 +47,7 @@ afterEach(() => {
 });
 
 describe("free valuation processing environment", () => {
-  it("keeps the same signal field and vehicle context through an intake-to-analysis handoff", async () => {
+  it("keeps the same signal field through an intake-to-analysis handoff", async () => {
     const rendered = render(<Harness />);
     const trigger = screen.getByRole("button", { name: "Review and analyze" });
     trigger.focus();
@@ -65,7 +65,7 @@ describe("free valuation processing environment", () => {
     await act(async () => vi.advanceTimersByTimeAsync(500));
 
     expect(screen.getByTestId("valuation-signals")).toBe(signals);
-    expect(screen.getByText("2020 Toyota Camry SE")).toBeVisible();
+    expect(screen.queryByText("2020 Toyota Camry SE")).not.toBeInTheDocument();
     expect(screen.queryByRole("navigation")).not.toBeInTheDocument();
     expect(screen.getByRole("status")).toHaveTextContent("The displayed activities describe the checks included in your review.");
 
@@ -80,23 +80,24 @@ describe("free valuation processing environment", () => {
     rendered.unmount();
   });
 
-  it("clears vehicle context when a different case replaces a synthetic preview", async () => {
+  it("clears preview controls and shows the current phase when a saved case replaces the preview", async () => {
     const rendered = render(<Harness registration={{ phase: "reviewing", reviewKey: "synthetic-preview", development: true, vehicle: "2020 Toyota Camry SE" }} />);
-    expect(screen.getByText("2020 Toyota Camry SE")).toBeVisible();
+    expect(screen.getByText("Synthetic preview")).toBeVisible();
+    expect(screen.getByRole("button", { name: "Replay gathering" })).toBeVisible();
 
     rendered.rerender(<Harness registrationKey="saved-case" registration={{ phase: "connecting", reviewKey: "saved-case" }} />);
     await act(async () => vi.advanceTimersByTimeAsync(500));
 
     expect(screen.getByText("Connecting to your review")).toBeVisible();
     expect(screen.queryByText("2020 Toyota Camry SE")).not.toBeInTheDocument();
-    expect(screen.queryByText("Development preview")).not.toBeInTheDocument();
+    expect(screen.queryByText("Synthetic preview")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Replay gathering" })).not.toBeInTheDocument();
   });
 
   it("keeps a synthetic review running through repeated message cycles until its owner leaves", async () => {
     const rendered = render(<Harness registration={{ phase: "reviewing", development: true }} />);
     const signals = screen.getByTestId("valuation-signals");
-    expect(screen.getByText("Development preview")).toBeVisible();
-    expect(screen.getByText("Continuous · Synthetic data")).toBeVisible();
+    expect(screen.getByText("Synthetic preview")).toBeVisible();
 
     const messages = new Set<string>();
     for (let iteration = 0; iteration < 12; iteration += 1) {
@@ -146,7 +147,7 @@ describe("free valuation processing environment", () => {
     };
     const rendered = render(<Harness registration={registration} />);
     expect(screen.getByRole("alert")).toHaveTextContent(registration.error);
-    expect(screen.getByText("Your saved details are still here.")).toBeVisible();
+    expect(screen.getByText("Let’s try again")).toBeVisible();
     fireEvent.click(screen.getByRole("button", { name: "Try again" }));
     expect(onRetry).toHaveBeenCalledOnce();
 
@@ -154,6 +155,6 @@ describe("free valuation processing environment", () => {
     expect(screen.getByRole("button", { name: "Try again" })).toBeDisabled();
     await act(async () => vi.advanceTimersByTimeAsync(30_000));
     expect(screen.getByRole("alert")).toHaveTextContent(registration.error);
-    expect(screen.queryByText("Finding relevant market listings")).not.toBeInTheDocument();
+    expect(screen.queryByText("Finding comparables")).not.toBeInTheDocument();
   });
 });

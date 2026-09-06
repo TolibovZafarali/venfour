@@ -9,10 +9,10 @@ import venfourMark from "../../../../../assets/brand/venfour-mark.svg";
 import "./free-valuation-processing.css";
 
 const reviewActivities = [
-  "Finding relevant market listings",
-  "Reviewing vehicle details",
-  "Comparing mileage and trim",
-  "Evaluating comparable evidence",
+  "Finding comparables",
+  "Checking vehicle details",
+  "Comparing mileage & trim",
+  "Reviewing market evidence",
   "Preparing your valuation",
 ];
 
@@ -89,8 +89,9 @@ export function FreeValuationProcessing({ reviewKey, phase = "reviewing", vehicl
 }
 
 function ProcessingEnvironment({ options, exiting }: { options: FreeValuationProcessingOptions; exiting: boolean }) {
-  const { phase = "reviewing", vehicle, notice, error, onRetry, retryDisabled, development } = options;
+  const { phase = "reviewing", notice, error, onRetry, retryDisabled, development } = options;
   const [activity, setActivity] = useState(0);
+  const [gatheringReplay, setGatheringReplay] = useState(0);
   const surfaceRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -112,16 +113,11 @@ function ProcessingEnvironment({ options, exiting }: { options: FreeValuationPro
     return () => window.clearInterval(timer);
   }, [phase, error]);
 
-  const message = error ? "Let’s get your review moving" : phase === "preparing"
-    ? "Preparing your saved information"
+  const message = error ? "Let’s try again" : phase === "preparing"
+    ? "Preparing your details"
     : phase === "connecting" ? "Connecting to your review"
     : phase === "opening" ? "Opening your valuation"
     : reviewActivities[activity];
-  const description = error ? error : phase === "reviewing"
-    ? "A careful look at your vehicle, comparable listings, and the evidence behind them."
-    : phase === "preparing" ? "Securely saving the details for your market review."
-    : phase === "opening" ? "Your review is complete. Bringing the findings together."
-    : "Checking the latest status of your saved valuation.";
 
   return (
     <div
@@ -129,34 +125,31 @@ function ProcessingEnvironment({ options, exiting }: { options: FreeValuationPro
       className="free-valuation-processing"
       data-free-valuation-processing
       data-phase={phase}
+      data-needs-action={Boolean(error || notice) || undefined}
       data-exiting={exiting || undefined}
       tabIndex={-1}
     >
-      <ValuationSignalField />
+      <ValuationSignalField key={gatheringReplay} />
       <div className="free-valuation-processing__masthead">
         <a className="free-valuation-processing__brand notranslate" href="/" aria-label="Venfour home" translate="no">
           <img src={venfourMark} alt="" aria-hidden />
           <span className="font-brand">Venfour</span>
         </a>
-        {development ? <span className="free-valuation-processing__development">Development preview<span>Continuous · Synthetic data</span></span> : null}
+        {development ? <div className="free-valuation-processing__development">
+          <span>Synthetic preview</span>
+          <button type="button" onClick={() => setGatheringReplay((current) => current + 1)}>Replay gathering</button>
+        </div> : null}
       </div>
       <main className="free-valuation-processing__center">
-        <p className="free-valuation-processing__eyebrow">Your market review</p>
         <h1 className="sr-only">Preparing your valuation</h1>
         <div className="free-valuation-processing__message-space" aria-hidden="true">
           <p key={message} className="free-valuation-processing__message">{message}</p>
         </div>
-        <p className="free-valuation-processing__description" role={error ? "alert" : undefined}>{description}</p>
+        {error ? <p className="free-valuation-processing__error" role="alert">{error}</p> : null}
         {phase === "reviewing" && !error ? <span className="sr-only" role="status">Venfour is reviewing your vehicle and market evidence. The displayed activities describe the checks included in your review. Your result will appear when it is ready.</span> : null}
-        {vehicle ? <p className="free-valuation-processing__vehicle">{vehicle}</p> : null}
         {error && onRetry ? <button className="free-valuation-processing__retry" type="button" onClick={onRetry} disabled={retryDisabled}>Try again</button> : null}
         {notice ? <p className="free-valuation-processing__notice" role="status">{notice}</p> : null}
       </main>
-      <div className="free-valuation-processing__note">
-        <span className="free-valuation-processing__note-dot" aria-hidden />
-        <p>{error ? "Your saved details are still here." : phase === "preparing" ? "Keep this page open while we save your details." : "Your result will appear here when it’s ready."}</p>
-        {phase === "reviewing" && !error ? <span className="free-valuation-processing__checks-note">The checks behind your valuation</span> : null}
-      </div>
     </div>
   );
 }
