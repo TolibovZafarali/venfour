@@ -37,6 +37,9 @@ from venfour.marketcheck import (
     MarketCheckProvider,
     configuration_drivetrain,
 )
+from venfour.market_fact_cache import (
+    CachedDrivetrainLookup, MarketFactCacheGateway, MemoryMarketFactCache, saved_drivetrain_lookup,
+)
 from venfour.orchestration import (
     AnalysisExecutionError,
     AnalysisInputError,
@@ -546,11 +549,13 @@ def create_live_analysis_creation_service(
     date_factory: DateFactory = _utc_today,
     run_id_factory: RunIdFactory | None = None,
     report_ingestion_recorder: Callable[[ReportIngestionResult], None] | None = None,
+    resolution_cache: MarketFactCacheGateway | None = None,
 ) -> AnalysisCreationService:
     """Build the default runtime composition without eager credential checks."""
 
     if not isinstance(repository, AnalysisRunRepository):
         raise TypeError("repository must implement AnalysisRunRepository save/get")
+    selected_resolution_cache = resolution_cache if resolution_cache is not None else MemoryMarketFactCache()
 
     def require_configuration() -> None:
         configured = isinstance(os.environ.get("MARKETCHECK_API_KEY"), str) and bool(
@@ -578,6 +583,10 @@ def create_live_analysis_creation_service(
             current_provider=current_provider,
             historical_provider=historical_provider,
             run_id_factory=run_id_factory,
+            resolution_lookup=(CachedDrivetrainLookup(
+                current_provider.lookup_drivetrain, selected_resolution_cache,
+                saved_lookup=saved_drivetrain_lookup(current_provider, historical_provider),
+            ) if callable(getattr(current_provider, "lookup_drivetrain", None)) else None),
         )
 
     return AnalysisCreationService(

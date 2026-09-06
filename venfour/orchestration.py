@@ -12,7 +12,7 @@ import json
 import logging
 import os
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, field
 from datetime import date, datetime, timezone
 from typing import Any
 from uuid import UUID, uuid4
@@ -32,15 +32,14 @@ from venfour.analysis_runs import (
     AnalysisRunRepository,
     AnalysisRunValidationUnavailableError,
     ProviderMetadata,
+    default_report_evidence_context,
     discrepancy_request_digest,
     search_diagnostics_digest,
     validate_analysis_run_artifact,
 )
 from venfour.comparables import ComparableContractError
 from venfour.discrepancy import (
-    CurrentEvidenceInput,
     DiscrepancyContractError,
-    HistoricalEvidenceInput,
     ValuationDiscrepancyAnalyzer,
     ValuationDiscrepancyPolicy,
     ValuationDiscrepancyResult,
@@ -66,7 +65,7 @@ from venfour.market import (
     VehicleConfigurationIdentity,
     normalize_market_search_request,
 )
-from venfour.preliminary_qualification import qualify_preliminary
+from venfour.preliminary_resolution import resolve_preliminary_evidence
 
 
 RunIdFactory = Callable[[], UUID | str]
@@ -353,6 +352,7 @@ class AnalysisOrchestrator:
         current_provider_version: str | None = None,
         historical_provider_version: str | None = None,
         analyzer: ValuationDiscrepancyAnalyzer | None = None,
+        resolution_lookup: Callable[..., Mapping[str, Any]] | None = None,
         run_id_factory: RunIdFactory | None = None,
         clock: Clock | None = None,
     ) -> None:
@@ -372,6 +372,9 @@ class AnalysisOrchestrator:
         self._analyzer = analyzer if analyzer is not None else ValuationDiscrepancyAnalyzer()
         if not callable(getattr(self._analyzer, "analyze", None)):
             raise AnalysisInputError("Discrepancy analyzer must expose analyze(request)")
+        if resolution_lookup is not None and not callable(resolution_lookup):
+            raise AnalysisInputError("Resolution lookup must be callable or null")
+        self._resolution_lookup = resolution_lookup
         self._run_id_factory = run_id_factory if run_id_factory is not None else uuid4
         self._clock = clock if clock is not None else lambda: datetime.now(timezone.utc)
 
@@ -610,8 +613,6 @@ class AnalysisOrchestrator:
             ) from exc
 
         historical_result = None
-        historical_ranking = None
-        historical_input = None
         historical_diagnostics = None
         if historical_search_request is not None:
             try:
@@ -622,7 +623,6 @@ class AnalysisOrchestrator:
                     target=base_request.loss_vehicle,
                 )
                 historical_result = adaptive_historical.result
-                historical_ranking = adaptive_historical.ranking
                 historical_diagnostics = adaptive_historical.diagnostics
             except MarketProviderError as exc:
                 _emit_local_provider_diagnostic("historical", exc)
@@ -637,22 +637,7 @@ class AnalysisOrchestrator:
                 raise AnalysisExecutionError(
                     "Historical evidence search could not complete"
                 ) from exc
-            try:
-                historical_input = HistoricalEvidenceInput(
-                    result=historical_result, ranking=historical_ranking
-                )
-            except (
-                AdaptiveSearchContractError,
-                MarketContractError,
-                ComparableContractError,
-            ) as exc:
-                raise AnalysisExecutionError(
-                    "Historical evidence could not be ranked"
-                ) from exc
-
         current_result = None
-        current_ranking = None
-        current_input = None
         current_diagnostics = None
         if current_search_request is not None:
             try:
@@ -667,7 +652,6 @@ class AnalysisOrchestrator:
                         "current", adaptive_current.provider_failure
                     )
                 current_result = adaptive_current.result
-                current_ranking = adaptive_current.ranking
                 current_diagnostics = adaptive_current.diagnostics
             except MarketProviderError as exc:
                 _emit_local_provider_diagnostic("current", exc)
@@ -682,29 +666,29 @@ class AnalysisOrchestrator:
                 raise AnalysisExecutionError(
                     "Current evidence search could not complete"
                 ) from exc
-            try:
-                current_input = CurrentEvidenceInput(
-                    ranking=current_ranking,
-                    observed_date=request.current_search.observed_date,
-                )
-            except (AdaptiveSearchContractError, ComparableContractError) as exc:
-                raise AnalysisExecutionError(
-                    "Current evidence could not be ranked"
-                ) from exc
-
+        evidence_context = (
+            request.evidence_context if request.evidence_context is not None
+            else default_report_evidence_context(base_request.to_dict())
+        )
         try:
-            discrepancy_request = valuation_discrepancy_request_from_report(
-                request.ccc_report,
-                postal_code=request.postal_code,
-                loss_date_override=base_request.loss_date,
-                historical_evidence=historical_input,
-                current_evidence=current_input,
-                policy=request.discrepancy_policy,
+            resolved = resolve_preliminary_evidence(
+                base_request=base_request,
+                current_result=current_result,
+                historical_result=historical_result,
+                current_observed_date=(
+                    request.current_search.observed_date
+                    if request.current_search is not None else None
+                ),
+                source_report=request.qualification_source_report,
+                evidence_context=evidence_context,
+                lookup=self._resolution_lookup,
+                analyzer=self._analyzer,
             )
+            discrepancy_request = resolved.discrepancy_request
+            discrepancy_result = resolved.discrepancy_result
+            current_ranking = resolved.current_ranking
+            historical_ranking = resolved.historical_ranking
             validate_valuation_discrepancy_request(discrepancy_request)
-            discrepancy_result: ValuationDiscrepancyResult = self._analyzer.analyze(
-                discrepancy_request
-            )
             if not isinstance(discrepancy_result, ValuationDiscrepancyResult):
                 raise TypeError(
                     "discrepancy analyzer did not return ValuationDiscrepancyResult"
@@ -811,31 +795,12 @@ class AnalysisOrchestrator:
                 "discrepancyRequest": discrepancy_request_data,
                 "discrepancyResult": discrepancy_result.to_dict(),
                 "searchDiagnostics": search_diagnostics_data,
+                "preliminaryQualification": resolved.preliminary_qualification,
+                "preliminaryResolution": resolved.resolution,
             },
-            evidence_context=request.evidence_context,
+            evidence_context=evidence_context,
             discrepancy_analysis_version=discrepancy_result.analysis_version,
         )
-        try:
-            artifact_data = artifact.to_dict()
-            qualification = qualify_preliminary(
-                source_report=artifact_data["request"]["qualificationSourceReport"],
-                evidence_context=artifact_data["evidenceContext"],
-                discrepancy_request=discrepancy_request_data,
-                discrepancy_result=artifact_data["result"]["discrepancyResult"],
-                current_ranking=artifact_data["result"]["currentRanking"],
-                historical_ranking=artifact_data["result"]["historicalRanking"],
-            )
-            artifact = replace(
-                artifact,
-                result={
-                    **artifact_data["result"],
-                    "preliminaryQualification": qualification,
-                },
-            )
-        except Exception as exc:
-            raise AnalysisExecutionError(
-                "Deterministic preliminary qualification failed"
-            ) from exc
         try:
             validate_analysis_run_artifact(artifact)
         except (

@@ -42,6 +42,7 @@ from venfour.presentation import (
     validate_analysis_presentation,
 )
 from venfour.preliminary_qualification import validate_preliminary_qualification
+from venfour.preliminary_resolution import validate_preliminary_resolution
 from venfour.supabase_gateway import (
     SupabaseHttpGateway,
     SupabaseServerConfiguration,
@@ -735,10 +736,13 @@ class AnalysisPresentationApiTests(TemporaryRepositoryTestCase):
             artifact.comparable_scoring_version
         )
         expected["provenance"]["requestDigest"]["value"] = artifact.request_digest
-        expected["presentationVersion"] = "4"
-        expected["provenance"]["presentationVersion"] = "4"
+        expected["presentationVersion"] = "5"
+        expected["provenance"]["presentationVersion"] = "5"
         expected["preliminaryQualification"] = validate_preliminary_qualification(
             artifact.to_dict()["result"]["preliminaryQualification"]
+        )
+        expected["preliminaryResolution"] = validate_preliminary_resolution(
+            artifact.to_dict()["result"]["preliminaryResolution"]
         )
         self.assertEqual(
             expected["preliminaryQualification"]["outcome"], "CLEAR_MARKET_VALUE_GAP"

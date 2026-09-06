@@ -36,6 +36,10 @@ from venfour.preliminary_qualification import (
     PreliminaryQualificationContractError,
     validate_preliminary_qualification,
 )
+from venfour.preliminary_resolution import (
+    PreliminaryResolutionContractError,
+    validate_preliminary_resolution,
+)
 
 
 ANALYSIS_PRESENTATION_VERSION = "2"
@@ -703,6 +707,7 @@ class AnalysisPresentation:
     provenance: Mapping[str, Any]
     presentation_version: str = ANALYSIS_PRESENTATION_VERSION
     preliminary_qualification: Mapping[str, Any] | None = None
+    preliminary_resolution: Mapping[str, Any] | None = None
 
     def __post_init__(self) -> None:
         for field_name in (
@@ -722,6 +727,7 @@ class AnalysisPresentation:
             "primary_external_evidence",
             "secondary_external_evidence",
             "preliminary_qualification",
+            "preliminary_resolution",
         ):
             value = getattr(self, field_name)
             object.__setattr__(
@@ -756,6 +762,8 @@ class AnalysisPresentation:
             data["preliminaryQualification"] = _thaw_json(
                 self.preliminary_qualification
             )
+        if self.preliminary_resolution is not None:
+            data["preliminaryResolution"] = _thaw_json(self.preliminary_resolution)
         return data
 
     @classmethod
@@ -780,6 +788,7 @@ class AnalysisPresentation:
             provenance=data["provenance"],
             presentation_version=data["presentationVersion"],
             preliminary_qualification=data.get("preliminaryQualification"),
+            preliminary_resolution=data.get("preliminaryResolution"),
         )
 
 
@@ -1042,8 +1051,8 @@ def _semantic_presentation_errors(data: Mapping[str, Any]) -> list[str]:
     for index, row in enumerate(ccc["rows"]):
         source_price = row.get("sourcePrice")
         if source_price is not None:
-            if data["presentationVersion"] not in ("3", "4"):
-                errors.append(f"$.cccComparables.rows[{index}].sourcePrice: requires presentation v3 or v4")
+            if data["presentationVersion"] not in ("3", "4", "5"):
+                errors.append(f"$.cccComparables.rows[{index}].sourcePrice: requires presentation v3 or later")
             if source_price["typeLabel"] != SOURCE_PRICE_TYPE_LABELS[source_price["type"]]:
                 errors.append(f"$.cccComparables.rows[{index}].sourcePrice.typeLabel: does not match source type")
             expected_advertised = source_price["amount"] if source_price["type"] == "ADVERTISED" else _money(None)
@@ -1467,6 +1476,22 @@ def _semantic_presentation_errors(data: Mapping[str, Any]) -> list[str]:
         errors.append(
             "$.provenance.analysisRunSchemaVersion: presentation v4 requires analysis run v8"
         )
+    if (data["presentationVersion"] == "5") != (
+        provenance["analysisRunSchemaVersion"] == "9"
+    ):
+        errors.append(
+            "$.provenance.analysisRunSchemaVersion: presentation v5 requires analysis run v9"
+        )
+    resolution = data.get("preliminaryResolution")
+    if resolution is not None:
+        try:
+            validate_preliminary_resolution(resolution)
+        except PreliminaryResolutionContractError as exc:
+            errors.append(f"$.preliminaryResolution: {exc}")
+        if resolution["finalQualificationDigest"] != qualification["inputDigest"]:
+            errors.append(
+                "$.preliminaryResolution.finalQualificationDigest: must match preliminary qualification"
+            )
     digest = provenance["requestDigest"]
     if digest["label"] != _REQUEST_DIGEST_LABEL:
         errors.append("$.provenance.requestDigest.label: does not match digest role")
@@ -1779,6 +1804,9 @@ def _historical_lifecycle(
     artifact_data: Mapping[str, Any], listing: Mapping[str, Any]
 ) -> dict[str, Any]:
     historical_result = artifact_data["result"]["historicalMarketResult"]
+    if artifact_data["analysisRunSchemaVersion"] == "9":
+        historical_input = artifact_data["result"]["discrepancyRequest"]["historicalEvidence"]
+        historical_result = historical_input["result"] if historical_input is not None else None
     if historical_result is None:
         raise AnalysisPresentationContractError(
             "Analysis artifact could not be projected",
@@ -1998,6 +2026,8 @@ def _message_projection(
 
 
 def _presentation_version(artifact_data: Mapping[str, Any]) -> str:
+    if artifact_data["analysisRunSchemaVersion"] == "9":
+        return "5"
     if artifact_data["analysisRunSchemaVersion"] == "8":
         return "4"
     return (
@@ -2297,9 +2327,13 @@ class AnalysisPresentationProjector:
                 ),
                 "provenance": _provenance(artifact_data),
             }
-            if artifact_data["analysisRunSchemaVersion"] == "8":
+            if artifact_data["analysisRunSchemaVersion"] in {"8", "9"}:
                 presentation_data["preliminaryQualification"] = copy.deepcopy(
                     artifact_data["result"]["preliminaryQualification"]
+                )
+            if artifact_data["analysisRunSchemaVersion"] == "9":
+                presentation_data["preliminaryResolution"] = copy.deepcopy(
+                    artifact_data["result"]["preliminaryResolution"]
                 )
             return AnalysisPresentation.from_dict(presentation_data)
         except AnalysisPresentationContractError:

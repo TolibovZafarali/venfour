@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import copy
+import hashlib
 import json
 import math
+import re
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta, timezone
@@ -82,8 +85,129 @@ MARKETCHECK_VIN_HISTORY_MAX_VERIFICATIONS = 100
 DEFAULT_TIMEOUT_SECONDS = 15.0
 MARKETCHECK_TRANSIENT_RETRY_DELAY_SECONDS = 0.25
 MARKETCHECK_MAX_REQUEST_ATTEMPTS = 2
+MARKETCHECK_DRIVETRAIN_LOOKUP_VERSION = "1"
+MARKETCHECK_DRIVETRAIN_LOOKUP_MAX_ROWS = 50
+MARKETCHECK_SAVED_BUILD_MAX_IDENTITIES = 1000
 
 QueryValue = str | int
+
+
+def _lookup_time() -> str:
+    return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+def _lookup_text(value: Any, maximum: int = 100) -> str:
+    if (not isinstance(value, str) or not value.strip() or len(value) > maximum
+            or _has_unsupported_provider_text_character(value)):
+        raise ValueError("Invalid drivetrain lookup text")
+    return " ".join(value.split())
+
+
+def _lookup_identity(vin: str, year: int, make: str, model: str) -> tuple[str, dict[str, Any]]:
+    normalized_vin = _lookup_text(vin, 17).upper()
+    if not re.fullmatch(r"[A-HJ-NPR-Z0-9]{17}", normalized_vin):
+        raise ValueError("Drivetrain lookup requires a full VIN")
+    if isinstance(year, bool) or not isinstance(year, int) or not 1886 <= year <= 9999:
+        raise ValueError("Invalid drivetrain lookup year")
+    return normalized_vin, {"year": year, "make": _lookup_text(make), "model": _lookup_text(model)}
+
+
+def _drivetrain_evidence_digest(evidence: list[dict[str, Any]]) -> str:
+    return hashlib.sha256(json.dumps(evidence, sort_keys=True, ensure_ascii=False,
+                                     separators=(",", ":"), allow_nan=False).encode()).hexdigest()
+
+
+def validate_drivetrain_lookup_result(data: Mapping[str, Any]) -> dict[str, Any]:
+    """Validate a safe, identity-bound provider specification observation."""
+    required = {"provider", "resolverVersion", "vin", "vehicle", "status", "drivetrain",
+                "reasonCode", "evidence", "evidenceDigest", "retrievedAt", "lookupSource",
+                "cacheHit", "providerRequestCount"}
+    if not isinstance(data, Mapping) or set(data) != required:
+        raise ValueError("Invalid drivetrain lookup result fields")
+    vehicle = data["vehicle"]
+    if not isinstance(vehicle, Mapping) or set(vehicle) != {"year", "make", "model"}:
+        raise ValueError("Invalid drivetrain lookup vehicle")
+    vin, normalized_vehicle = _lookup_identity(data["vin"], **dict(vehicle))
+    if vin != data["vin"] or normalized_vehicle != vehicle:
+        raise ValueError("Noncanonical drivetrain lookup identity")
+    if data["provider"] != "marketcheck" or data["resolverVersion"] != "1":
+        raise ValueError("Unsupported drivetrain lookup version")
+    if data["status"] not in {"RESOLVED", "UNAVAILABLE", "CONFLICT", "FAILED"}:
+        raise ValueError("Invalid drivetrain lookup status")
+    if data["lookupSource"] not in {"SAVED_PROVIDER_EVIDENCE", "ACTIVE_VIN_LOOKUP"}:
+        raise ValueError("Invalid drivetrain lookup source")
+    if not isinstance(data["cacheHit"], bool):
+        raise ValueError("Invalid drivetrain lookup cache status")
+    count = data["providerRequestCount"]
+    if isinstance(count, bool) or not isinstance(count, int) or not 0 <= count <= MARKETCHECK_MAX_REQUEST_ATTEMPTS:
+        raise ValueError("Invalid drivetrain lookup request count")
+    if (data["cacheHit"] or data["lookupSource"] == "SAVED_PROVIDER_EVIDENCE") and count:
+        raise ValueError("Saved drivetrain evidence cannot add provider requests")
+    if not isinstance(data["reasonCode"], str) or not re.fullmatch(r"[A-Z][A-Z0-9_]{0,99}", data["reasonCode"]):
+        raise ValueError("Invalid drivetrain lookup reason")
+    def timestamp(value: Any) -> None:
+        if not isinstance(value, str) or not value.endswith("Z"):
+            raise ValueError("Drivetrain lookup time must be UTC")
+        datetime.fromisoformat(value[:-1] + "+00:00")
+    timestamp(data["retrievedAt"])
+    evidence = data["evidence"]
+    if not isinstance(evidence, list) or len(evidence) > MARKETCHECK_DRIVETRAIN_LOOKUP_MAX_ROWS:
+        raise ValueError("Invalid drivetrain evidence collection")
+    values: set[str] = set()
+    for row in evidence:
+        if not isinstance(row, Mapping) or set(row) != {"listingId", "vin", "year", "make", "model", "rawDrivetrain", "drivetrain", "sourcePath", "endpointCategory", "retrievedAt"}:
+            raise ValueError("Invalid drivetrain evidence fields")
+        _lookup_text(row["listingId"], 512)
+        row_vin, row_vehicle = _lookup_identity(row["vin"], row["year"], row["make"], row["model"])
+        if row_vin != vin or row_vehicle["year"] != vehicle["year"] or any(row_vehicle[key].casefold() != vehicle[key].casefold() for key in ("make", "model")):
+            raise ValueError("Drivetrain evidence identity does not match the request")
+        if row["rawDrivetrain"] is not None:
+            _lookup_text(row["rawDrivetrain"], 128)
+        if row["drivetrain"] != normalize_drivetrain(row["rawDrivetrain"]):
+            raise ValueError("Drivetrain evidence differs from its explicit source")
+        if row["endpointCategory"] not in {"active", "recents", "history"}:
+            raise ValueError("Invalid drivetrain evidence endpoint")
+        if not isinstance(row["sourcePath"], str) or not re.fullmatch(r"\$(?:\.listings)?\[\d+\]\.build\.drivetrain", row["sourcePath"]):
+            raise ValueError("Invalid drivetrain evidence source path")
+        timestamp(row["retrievedAt"])
+        if row["drivetrain"] is not None:
+            values.add(row["drivetrain"])
+    if data["evidenceDigest"] != _drivetrain_evidence_digest(evidence):
+        raise ValueError("Drivetrain evidence digest does not match")
+    if data["status"] == "RESOLVED":
+        if len(values) != 1 or data["drivetrain"] != next(iter(values)):
+            raise ValueError("Resolved drivetrain requires unanimous explicit evidence")
+    elif data["drivetrain"] is not None:
+        raise ValueError("Unresolved drivetrain must remain unknown")
+    if data["status"] == "CONFLICT" and len(values) < 2:
+        raise ValueError("Conflicting drivetrain requires contradictory explicit values")
+    if data["status"] in {"UNAVAILABLE", "FAILED"} and values:
+        raise ValueError("Unresolved lookup cannot discard an explicit value")
+    return copy.deepcopy(dict(data))
+
+
+def _drivetrain_lookup_result(vin: str, vehicle: dict[str, Any], *, status: str,
+                             reason: str, evidence: list[dict[str, Any]],
+                             lookup_source: str, request_count: int,
+                             retrieved_at: str | None = None) -> dict[str, Any]:
+    values = {row["drivetrain"] for row in evidence if row["drivetrain"] is not None}
+    return validate_drivetrain_lookup_result({
+        "provider": "marketcheck", "resolverVersion": MARKETCHECK_DRIVETRAIN_LOOKUP_VERSION,
+        "vin": vin, "vehicle": vehicle, "status": status,
+        "drivetrain": next(iter(values)) if status == "RESOLVED" and len(values) == 1 else None,
+        "reasonCode": reason, "evidence": evidence,
+        "evidenceDigest": _drivetrain_evidence_digest(evidence),
+        "retrievedAt": retrieved_at or _lookup_time(), "lookupSource": lookup_source,
+        "cacheHit": False, "providerRequestCount": request_count,
+    })
+
+
+def drivetrain_lookup_failure(vin: str, *, year: int, make: str, model: str,
+                              reason_code: str, retrieved_at: str | None = None) -> dict[str, Any]:
+    canonical_vin, vehicle = _lookup_identity(vin, year, make, model)
+    return _drivetrain_lookup_result(canonical_vin, vehicle, status="FAILED", reason=reason_code,
+                                    evidence=[], lookup_source="ACTIVE_VIN_LOOKUP", request_count=0,
+                                    retrieved_at=retrieved_at)
 
 
 def configuration_drivetrain(
@@ -263,6 +387,8 @@ class MarketCheckProvider:
             transport if transport is not None else _UrllibMarketCheckTransport()
         )
         self._trim_catalog_cache: dict[str, tuple[VehicleTrimOption, ...]] = {}
+        self._saved_drivetrain_evidence: dict[str, list[dict[str, Any]]] = {}
+        self._drivetrain_lookup_cache: dict[tuple[Any, ...], dict[str, Any]] = {}
         if self._api_key is None:
             self._secret_variants = ()
         else:
@@ -438,6 +564,7 @@ class MarketCheckProvider:
         *,
         endpoint: str = MARKETCHECK_ACTIVE_INVENTORY_URL,
         allow_history_page_exhaustion: bool = False,
+        request_counter: list[int] | None = None,
     ) -> Any:
         body: bytes | None = None
         for attempt in range(MARKETCHECK_MAX_REQUEST_ATTEMPTS):
@@ -445,6 +572,8 @@ class MarketCheckProvider:
             failure_status: int | None = None
             transient = False
             try:
+                if request_counter is not None:
+                    request_counter[0] += 1
                 body = self._transport.get(
                     endpoint,
                     params,
@@ -594,6 +723,7 @@ class MarketCheckProvider:
         path_prefix: str = "$.listings",
         canonical_trim: str | None = None,
         configuration: VehicleConfigurationIdentity | None = None,
+        source_endpoint_category: str | None = "active",
     ) -> MarketListing:
         path = f"{path_prefix}[{response_index}]"
         record = _mapping(
@@ -679,7 +809,137 @@ class MarketCheckProvider:
             raise MarketProviderResponseError(
                 "MarketCheck response could not be safely normalized"
             )
+        if source_endpoint_category is not None:
+            self._remember_drivetrain_record(record, response_index, source_endpoint_category)
         return listing
+
+    def _drivetrain_record(self, record: Mapping[str, Any], index: int,
+                           endpoint_category: str, retrieved_at: str) -> dict[str, Any]:
+        build = record.get("build")
+        if not isinstance(build, Mapping):
+            raise ValueError("Missing explicit build record")
+        vin, vehicle = _lookup_identity(record.get("vin"), build.get("year"), build.get("make"), build.get("model"))
+        raw = build.get("drivetrain")
+        if raw is not None:
+            _lookup_text(raw, 128)
+        evidence = {
+            "listingId": _lookup_text(record.get("id"), 512), "vin": vin,
+            **vehicle, "rawDrivetrain": raw, "drivetrain": normalize_drivetrain(raw),
+            "sourcePath": (f"$[{index}]" if endpoint_category == "history" else f"$.listings[{index}]") + ".build.drivetrain",
+            "endpointCategory": endpoint_category, "retrievedAt": retrieved_at,
+        }
+        if self._contains_secret(evidence):
+            raise ValueError("Unsafe provider specification evidence")
+        return evidence
+
+    def _remember_drivetrain_record(self, record: Mapping[str, Any], index: int,
+                                    endpoint_category: str) -> None:
+        """Retain only explicit safe build evidence without changing search output."""
+        try:
+            row = self._drivetrain_record(record, index, endpoint_category, _lookup_time())
+        except (ValueError, TypeError):
+            return
+        if row["drivetrain"] is None:
+            return
+        if row["vin"] not in self._saved_drivetrain_evidence and len(self._saved_drivetrain_evidence) >= MARKETCHECK_SAVED_BUILD_MAX_IDENTITIES:
+            self._saved_drivetrain_evidence.pop(next(iter(self._saved_drivetrain_evidence)))
+        rows = self._saved_drivetrain_evidence.setdefault(row["vin"], [])
+        if any(all(prior[key] == row[key] for key in row if key != "retrievedAt") for prior in rows):
+            return
+        if len(rows) < MARKETCHECK_DRIVETRAIN_LOOKUP_MAX_ROWS:
+            rows.append(row)
+        elif not any(all(prior[key] == row[key] for key in ("year", "make", "model", "drivetrain")) for prior in rows):
+            rows[-1] = row
+
+    def saved_drivetrain(self, vin: str, *, year: int, make: str, model: str) -> dict[str, Any] | None:
+        """Resolve cached raw build evidence without making a provider request."""
+        vin, vehicle = _lookup_identity(vin, year, make, model)
+        evidence = copy.deepcopy(self._saved_drivetrain_evidence.get(vin, []))
+        if not evidence:
+            return None
+        key = (vin, year, vehicle["make"].casefold(), vehicle["model"].casefold())
+        prior_lookup = self._drivetrain_lookup_cache.get(key)
+        if prior_lookup is not None:
+            for row in prior_lookup["evidence"]:
+                if row["drivetrain"] is not None and not any(
+                    all(prior[field] == row[field] for field in ("year", "make", "model", "drivetrain"))
+                    for prior in evidence
+                ):
+                    if len(evidence) == MARKETCHECK_DRIVETRAIN_LOOKUP_MAX_ROWS:
+                        evidence.pop()
+                    evidence.append(copy.deepcopy(row))
+        if any(row["year"] != year or any(row[key].casefold() != vehicle[key].casefold() for key in ("make", "model")) for row in evidence):
+            return _drivetrain_lookup_result(vin, vehicle, status="FAILED", reason="PROVIDER_IDENTITY_MISMATCH",
+                                            evidence=[], lookup_source="SAVED_PROVIDER_EVIDENCE", request_count=0)
+        values = {row["drivetrain"] for row in evidence}
+        return _drivetrain_lookup_result(vin, vehicle,
+            status="RESOLVED" if len(values) == 1 else "CONFLICT",
+            reason="EXPLICIT_SAVED_PROVIDER_DRIVETRAIN" if len(values) == 1 else "CONFLICTING_EXPLICIT_DRIVETRAIN",
+            evidence=evidence, lookup_source="SAVED_PROVIDER_EVIDENCE", request_count=0,
+            retrieved_at=max(row["retrievedAt"] for row in evidence))
+
+    def lookup_drivetrain(self, vin: str, *, year: int, make: str, model: str) -> dict[str, Any]:
+        """Bounded exact-VIN specification lookup, independent of valuation inputs."""
+        vin, vehicle = _lookup_identity(vin, year, make, model)
+        key = (vin, year, vehicle["make"].casefold(), vehicle["model"].casefold())
+        saved = self.saved_drivetrain(vin, **vehicle)
+        if saved is not None:
+            return saved
+        if key in self._drivetrain_lookup_cache:
+            cached = copy.deepcopy(self._drivetrain_lookup_cache[key])
+            cached.update(cacheHit=True, providerRequestCount=0)
+            return validate_drivetrain_lookup_result(cached)
+        count = [0]
+        evidence: list[dict[str, Any]] = []
+        status, reason = "UNAVAILABLE", "NO_ACTIVE_LISTING_FOR_VIN"
+        retrieved_at = _lookup_time()
+        try:
+            if self._api_key is None:
+                raise MarketProviderAuthenticationError("MarketCheck API key is required")
+            payload = self._request_json({
+                "api_key": self._api_key, "append_api_key": "false", "vin": vin,
+                "start": 0, "rows": MARKETCHECK_DRIVETRAIN_LOOKUP_MAX_ROWS,
+            }, request_counter=count)
+            if not isinstance(payload, Mapping):
+                raise ValueError("Invalid specification lookup response")
+            records = payload.get("listings")
+            total = self._num_found(payload)
+            if (not isinstance(records, list) or len(records) > MARKETCHECK_DRIVETRAIN_LOOKUP_MAX_ROWS
+                    or total is None or total != len(records)):
+                raise ValueError("Incomplete specification lookup response")
+            retrieved_at = _lookup_time()
+            for index, record in enumerate(records):
+                if not isinstance(record, Mapping):
+                    raise ValueError("Invalid specification record")
+                row = self._drivetrain_record(record, index, "active", retrieved_at)
+                if row["vin"] != vin or row["year"] != year or any(row[field].casefold() != vehicle[field].casefold() for field in ("make", "model")):
+                    status, reason = "FAILED", "PROVIDER_IDENTITY_MISMATCH"
+                    evidence = []
+                    break
+                evidence.append(row)
+            else:
+                values = {row["drivetrain"] for row in evidence if row["drivetrain"] is not None}
+                if len(values) == 1:
+                    status, reason = "RESOLVED", "EXPLICIT_ACTIVE_VIN_DRIVETRAIN"
+                elif len(values) > 1:
+                    status, reason = "CONFLICT", "CONFLICTING_EXPLICIT_DRIVETRAIN"
+                elif records:
+                    reason = "EXPLICIT_DRIVETRAIN_UNAVAILABLE"
+        except MarketProviderAuthenticationError:
+            status, reason, evidence = "FAILED", "PROVIDER_ACCESS_UNAVAILABLE", []
+        except MarketProviderRateLimitError:
+            status, reason, evidence = "FAILED", "PROVIDER_RATE_LIMITED", []
+        except MarketProviderUnavailableError:
+            status, reason, evidence = "FAILED", "PROVIDER_TEMPORARILY_UNAVAILABLE", []
+        except (MarketProviderResponseError, ValueError, TypeError):
+            status, reason, evidence = "FAILED", "PROVIDER_RESPONSE_INVALID", []
+        result = _drivetrain_lookup_result(vin, vehicle, status=status, reason=reason,
+                                          evidence=evidence, lookup_source="ACTIVE_VIN_LOOKUP",
+                                          request_count=count[0], retrieved_at=retrieved_at)
+        if len(self._drivetrain_lookup_cache) >= MARKETCHECK_SAVED_BUILD_MAX_IDENTITIES:
+            self._drivetrain_lookup_cache.pop(next(iter(self._drivetrain_lookup_cache)))
+        self._drivetrain_lookup_cache[key] = copy.deepcopy(result)
+        return result
 
     def list_trims(
         self, request: VehicleTrimCatalogRequest
@@ -1230,6 +1490,7 @@ class MarketCheckHistoricalProvider(MarketCheckProvider):
             response_index,
             canonical_trim=canonical_trim,
             configuration=configuration,
+            source_endpoint_category="recents",
         )
         if listing.vin is None:
             raise MarketProviderResponseError(
@@ -1400,6 +1661,9 @@ class MarketCheckHistoricalProvider(MarketCheckProvider):
             if page is _HISTORY_PAGE_EXHAUSTED:
                 return records, None
             assert isinstance(page, list)
+            for index, record in enumerate(page):
+                if isinstance(record, Mapping):
+                    self._remember_drivetrain_record(record, len(records) + index, "history")
             records.extend(page)
 
             if len(page) < MARKETCHECK_VIN_HISTORY_PAGE_SIZE:
@@ -1564,6 +1828,7 @@ class MarketCheckHistoricalProvider(MarketCheckProvider):
             adapted,
             response_index,
             path_prefix="$",
+            source_endpoint_category=None,
         )
 
     def _resolve_vin_history(
@@ -1873,5 +2138,7 @@ __all__ = [
     "MarketCheckHistoricalProvider",
     "MarketCheckProvider",
     "MarketCheckTransport",
+    "drivetrain_lookup_failure",
     "marketcheck_historical_coverage",
+    "validate_drivetrain_lookup_result",
 ]

@@ -403,6 +403,7 @@ def make_orchestrator(
     historical_provider: RecordingHistoricalProvider | None,
     run_id: str = RUN_ID_1,
     created_at: datetime = FIXED_CREATED_AT,
+    resolution_lookup: Any = None,
 ) -> AnalysisOrchestrator:
     return AnalysisOrchestrator(
         repository,
@@ -414,6 +415,7 @@ def make_orchestrator(
         ),
         run_id_factory=lambda: run_id,
         clock=lambda: created_at,
+        resolution_lookup=resolution_lookup,
     )
 
 
@@ -574,8 +576,8 @@ class AnalysisOrchestrationScenarioTests(TemporaryRepositoryTestCase):
             },
         )
         artifact_data = loaded.to_dict()
-        self.assertEqual(artifact_data["analysisRunSchemaVersion"], "8")
-        self.assertEqual(artifact_data["analysisVersion"], "8")
+        self.assertEqual(artifact_data["analysisRunSchemaVersion"], "9")
+        self.assertEqual(artifact_data["analysisVersion"], "9")
         self.assertEqual(artifact_data["comparableScoringVersion"], "2")
         self.assertEqual(artifact_data["evidenceContext"]["inputMode"], "REPORT")
         self.assertEqual(len(artifact_data["searchDiagnosticsDigest"]), 64)

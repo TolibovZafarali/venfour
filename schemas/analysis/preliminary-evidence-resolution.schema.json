@@ -1,0 +1,605 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.venfour.local/analysis/preliminary-evidence-resolution.schema.json",
+  "title": "Preliminary evidence resolution",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "resolutionVersion",
+    "inputDigest",
+    "initialQualificationDigest",
+    "finalQualificationDigest",
+    "budget",
+    "checks",
+    "attempts",
+    "evidenceUpdates",
+    "savedEvidence"
+  ],
+  "properties": {
+    "resolutionVersion": {
+      "const": "1"
+    },
+    "inputDigest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "initialQualificationDigest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "finalQualificationDigest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "budget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "maxDistinctProviderVins",
+        "providerVinsAttempted",
+        "providerRequestCount"
+      ],
+      "properties": {
+        "maxDistinctProviderVins": {
+          "const": 9
+        },
+        "providerVinsAttempted": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9
+        },
+        "providerRequestCount": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18
+        }
+      }
+    },
+    "checks": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/check"
+      }
+    },
+    "attempts": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/attempt"
+      }
+    },
+    "evidenceUpdates": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/update"
+      }
+    },
+    "savedEvidence": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/savedEvidence"
+      }
+    }
+  },
+  "$defs": {
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "vin",
+        "year",
+        "make",
+        "model"
+      ],
+      "properties": {
+        "vin": {
+          "type": "string",
+          "pattern": "^[A-HJ-NPR-Z0-9]{17}$"
+        },
+        "year": {
+          "type": "integer",
+          "minimum": 1886,
+          "maximum": 9999
+        },
+        "make": {
+          "type": "string",
+          "minLength": 1
+        },
+        "model": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "sourceReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "page",
+        "section",
+        "label",
+        "text"
+      ],
+      "properties": {
+        "page": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "section": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "label": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "text": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "lookupEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "listingId",
+        "vin",
+        "year",
+        "make",
+        "model",
+        "rawDrivetrain",
+        "drivetrain",
+        "sourcePath",
+        "endpointCategory",
+        "retrievedAt"
+      ],
+      "properties": {
+        "listingId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "vin": {
+          "type": "string",
+          "pattern": "^[A-HJ-NPR-Z0-9]{17}$"
+        },
+        "year": {
+          "type": "integer",
+          "minimum": 1886,
+          "maximum": 9999
+        },
+        "make": {
+          "type": "string",
+          "minLength": 1
+        },
+        "model": {
+          "type": "string",
+          "minLength": 1
+        },
+        "rawDrivetrain": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "drivetrain": {
+          "enum": [
+            "FWD",
+            "RWD",
+            "AWD",
+            "4WD",
+            null
+          ]
+        },
+        "sourcePath": {
+          "type": "string",
+          "minLength": 1
+        },
+        "endpointCategory": {
+          "enum": [
+            "active",
+            "recents",
+            "history"
+          ]
+        },
+        "retrievedAt": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "lookupResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "provider",
+        "resolverVersion",
+        "vin",
+        "vehicle",
+        "status",
+        "drivetrain",
+        "reasonCode",
+        "evidence",
+        "evidenceDigest",
+        "retrievedAt",
+        "lookupSource",
+        "cacheHit",
+        "providerRequestCount"
+      ],
+      "properties": {
+        "provider": {
+          "const": "marketcheck"
+        },
+        "resolverVersion": {
+          "const": "1"
+        },
+        "vin": {
+          "type": "string",
+          "pattern": "^[A-HJ-NPR-Z0-9]{17}$"
+        },
+        "vehicle": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "year",
+            "make",
+            "model"
+          ],
+          "properties": {
+            "year": {
+              "type": "integer",
+              "minimum": 1886,
+              "maximum": 9999
+            },
+            "make": {
+              "type": "string",
+              "minLength": 1
+            },
+            "model": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "status": {
+          "enum": [
+            "RESOLVED",
+            "UNAVAILABLE",
+            "CONFLICT",
+            "FAILED"
+          ]
+        },
+        "drivetrain": {
+          "enum": [
+            "FWD",
+            "RWD",
+            "AWD",
+            "4WD",
+            null
+          ]
+        },
+        "reasonCode": {
+          "type": "string",
+          "minLength": 1
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/lookupEvidence"
+          }
+        },
+        "evidenceDigest": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "retrievedAt": {
+          "type": "string",
+          "minLength": 1
+        },
+        "lookupSource": {
+          "enum": [
+            "SAVED_PROVIDER_EVIDENCE",
+            "ACTIVE_VIN_LOOKUP"
+          ]
+        },
+        "cacheHit": {
+          "type": "boolean"
+        },
+        "providerRequestCount": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2
+        }
+      }
+    },
+    "savedFact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sourceKind",
+        "sourcePath",
+        "vin",
+        "year",
+        "make",
+        "model",
+        "drivetrain"
+      ],
+      "properties": {
+        "sourceKind": {
+          "enum": [
+            "CURRENT_MARKET_EVIDENCE",
+            "HISTORICAL_MARKET_EVIDENCE",
+            "SOURCE_REPORT",
+            "SAVED_EXPLICIT_EVIDENCE"
+          ]
+        },
+        "sourcePath": {
+          "type": "string",
+          "minLength": 1
+        },
+        "vin": {
+          "type": "string",
+          "pattern": "^[A-HJ-NPR-Z0-9]{17}$"
+        },
+        "year": {
+          "type": "integer",
+          "minimum": 1886,
+          "maximum": 9999
+        },
+        "make": {
+          "type": "string",
+          "minLength": 1
+        },
+        "model": {
+          "type": "string",
+          "minLength": 1
+        },
+        "drivetrain": {
+          "enum": [
+            "FWD",
+            "RWD",
+            "AWD",
+            "4WD"
+          ]
+        }
+      }
+    },
+    "savedEvidence": {
+      "$ref": "#/$defs/lookupResult"
+    },
+    "attempt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "attemptId",
+        "capability",
+        "identity",
+        "sourceKind",
+        "status",
+        "reasonCode",
+        "drivetrain",
+        "savedFacts",
+        "lookupResult",
+        "evidenceIdentity"
+      ],
+      "properties": {
+        "attemptId": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "capability": {
+          "const": "COMPARABLE_DRIVETRAIN"
+        },
+        "identity": {
+          "$ref": "#/$defs/identity"
+        },
+        "sourceKind": {
+          "enum": [
+            "SAVED_EVIDENCE",
+            "EXISTING_PROVIDER",
+            "RESOLUTION_POLICY"
+          ]
+        },
+        "status": {
+          "enum": [
+            "RESOLVED",
+            "UNAVAILABLE",
+            "CONFLICT",
+            "FAILED"
+          ]
+        },
+        "reasonCode": {
+          "type": "string",
+          "minLength": 1
+        },
+        "drivetrain": {
+          "enum": [
+            "FWD",
+            "RWD",
+            "AWD",
+            "4WD",
+            null
+          ]
+        },
+        "savedFacts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/savedFact"
+          }
+        },
+        "lookupResult": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/lookupResult"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "evidenceIdentity": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "check": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "checkId",
+        "checkCode",
+        "reasonCode",
+        "resolution",
+        "sourceEvidence",
+        "sourceReferences",
+        "materialityBasis",
+        "action",
+        "status",
+        "attemptIds",
+        "reasonCodes",
+        "qualificationInputDigest"
+      ],
+      "properties": {
+        "checkId": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "checkCode": {
+          "type": "string",
+          "minLength": 1
+        },
+        "reasonCode": {
+          "type": "string",
+          "minLength": 1
+        },
+        "resolution": {
+          "enum": [
+            "CUSTOMER_RESOLVABLE",
+            "DOCUMENT_SOURCE_RESOLVABLE",
+            "PROVIDER_MARKET_DATA",
+            "NOT_CURRENTLY_RESOLVABLE"
+          ]
+        },
+        "sourceEvidence": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "path",
+              "value"
+            ],
+            "properties": {
+              "path": {
+                "type": "string",
+                "minLength": 1
+              },
+              "value": {}
+            }
+          }
+        },
+        "sourceReferences": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/sourceReference"
+          }
+        },
+        "materialityBasis": {
+          "type": "string",
+          "minLength": 1
+        },
+        "action": {
+          "enum": [
+            "BOUNDED_EXISTING_PROVIDER_ENRICHMENT",
+            "EXISTING_CUSTOMER_CONFIRMATION",
+            "EXISTING_SOURCE_RECOVERY",
+            "NO_SUPPORTED_AUTOMATIC_RESOLVER"
+          ]
+        },
+        "status": {
+          "enum": [
+            "RESOLVED",
+            "UNRESOLVED"
+          ]
+        },
+        "attemptIds": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          }
+        },
+        "reasonCodes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "qualificationInputDigest": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      }
+    },
+    "update": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "identity",
+        "field",
+        "drivetrain",
+        "sourceAttemptId",
+        "evidenceIdentity",
+        "targetPaths"
+      ],
+      "properties": {
+        "identity": {
+          "$ref": "#/$defs/identity"
+        },
+        "field": {
+          "const": "drivetrain"
+        },
+        "drivetrain": {
+          "enum": [
+            "FWD",
+            "RWD",
+            "AWD",
+            "4WD"
+          ]
+        },
+        "sourceAttemptId": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "evidenceIdentity": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "targetPaths": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    }
+  }
+}

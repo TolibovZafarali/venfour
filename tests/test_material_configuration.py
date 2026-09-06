@@ -120,7 +120,7 @@ class MaterialConfigurationTests(unittest.TestCase):
             replace(request, ccc_report=report)
         ).artifact.to_dict()
         validate_analysis_run_artifact(outcome, include_environment_secrets=False)
-        self.assertEqual(outcome["analysisRunSchemaVersion"], "8")
+        self.assertEqual(outcome["analysisRunSchemaVersion"], "9")
         self.assertEqual(outcome["request"]["currentSearchRequest"]["drivetrain"], "FWD")
         self.assertEqual(outcome["result"]["currentRanking"]["tierCounts"]["STRONG"], 0)
         self.assertEqual(outcome["discrepancyAnalysisVersion"], "2")
@@ -143,6 +143,7 @@ class MaterialConfigurationTests(unittest.TestCase):
         outcome.update(analysisRunSchemaVersion="6", analysisVersion="6", comparableScoringVersion="1")
         outcome["request"].pop("qualificationSourceReport")
         outcome["result"].pop("preliminaryQualification")
+        outcome["result"].pop("preliminaryResolution")
         outcome["result"]["currentRanking"]["scoringVersion"] = "1"
         outcome["result"]["discrepancyRequest"]["currentEvidence"]["ranking"]["scoringVersion"] = "1"
         outcome["requestDigest"] = discrepancy_request_digest(outcome["result"]["discrepancyRequest"])

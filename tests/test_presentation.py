@@ -82,6 +82,7 @@ EXPECTED_TOP_LEVEL_SECTIONS = {
     "limitations",
     "provenance",
     "preliminaryQualification",
+    "preliminaryResolution",
 }
 
 
@@ -118,7 +119,7 @@ class AnalysisPresentationIntegrationTests(TemporaryRepositoryTestCase):
         data = AnalysisPresentationService(repository).get(artifact.run_id).to_dict()
 
         self.assertEqual(set(data), EXPECTED_TOP_LEVEL_SECTIONS)
-        self.assertEqual(data["presentationVersion"], "4")
+        self.assertEqual(data["presentationVersion"], "5")
         self.assertEqual(data["runId"], artifact.run_id)
         self.assertEqual(data["analysisCreatedAt"], artifact.created_at)
         self.assertEqual(
@@ -611,7 +612,7 @@ class AnalysisPresentationIntegrationTests(TemporaryRepositoryTestCase):
         provenance = data["provenance"]
 
         self.assertEqual(provenance["runId"], artifact.run_id)
-        self.assertEqual(provenance["presentationVersion"], "4")
+        self.assertEqual(provenance["presentationVersion"], "5")
         self.assertEqual(provenance["createdAt"], artifact.created_at)
         self.assertEqual(
             provenance["analysisRunSchemaVersion"],

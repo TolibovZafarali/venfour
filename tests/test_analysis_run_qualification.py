@@ -39,7 +39,7 @@ class AnalysisRunQualificationTests(TemporaryRepositoryTestCase):
         artifact = self.run_request(request)
         stored_source = artifact["request"]["qualificationSourceReport"]
         self.assertEqual(stored_source, make_report())
-        self.assertEqual(artifact["analysisRunSchemaVersion"], "8")
+        self.assertEqual(artifact["analysisRunSchemaVersion"], "9")
         qualification = artifact["result"]["preliminaryQualification"]
         self.assertEqual(qualification["qualificationVersion"], "1")
         self.assertEqual(
@@ -137,6 +137,7 @@ class AnalysisRunQualificationTests(TemporaryRepositoryTestCase):
         legacy = copy.deepcopy(artifact)
         legacy["analysisRunSchemaVersion"] = "7"
         legacy["analysisVersion"] = "7"
+        del legacy["result"]["preliminaryResolution"]
         del legacy["request"]["qualificationSourceReport"]
         del legacy["result"]["preliminaryQualification"]
         before = canonical_json_bytes(legacy)

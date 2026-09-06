@@ -42,8 +42,8 @@ class PreliminaryQualificationPresentationTests(TemporaryRepositoryTestCase):
             projected = AnalysisPresentationProjector().project(artifact)
         data = projected.to_dict()
         self.assertEqual(data, presentation.to_dict())
-        self.assertEqual(data["presentationVersion"], "4")
-        self.assertEqual(data["provenance"]["analysisRunSchemaVersion"], "8")
+        self.assertEqual(data["presentationVersion"], "5")
+        self.assertEqual(data["provenance"]["analysisRunSchemaVersion"], "9")
         self.assertEqual(
             data["preliminaryQualification"],
             artifact.to_dict()["result"]["preliminaryQualification"],
@@ -63,6 +63,29 @@ class PreliminaryQualificationPresentationTests(TemporaryRepositoryTestCase):
         self.assertEqual(presentation.to_dict(), original)
         with self.assertRaises(TypeError):
             restored.preliminary_qualification["outcome"] = "ALTERED"
+
+    def test_resolution_is_immutable_required_and_bound_to_final_qualification(self):
+        _, presentation = self.new_presentation()
+        data = presentation.to_dict()
+        restored = AnalysisPresentation.from_dict(data)
+        original = copy.deepcopy(data)
+        data["preliminaryResolution"]["attempts"].append({"altered": True})
+        self.assertEqual(restored.to_dict(), original)
+        with self.assertRaises(TypeError):
+            restored.preliminary_resolution["resolutionVersion"] = "ALTERED"
+        for mutation in ("missing", "digest", "legacy"):
+            data = copy.deepcopy(original)
+            if mutation == "missing":
+                del data["preliminaryResolution"]
+            elif mutation == "digest":
+                data["preliminaryResolution"]["finalQualificationDigest"] = "0" * 64
+            else:
+                data["presentationVersion"] = "4"
+                data["provenance"]["presentationVersion"] = "4"
+                data["provenance"]["analysisRunSchemaVersion"] = "8"
+            with self.subTest(mutation=mutation):
+                with self.assertRaises(AnalysisPresentationContractError):
+                    validate_analysis_presentation(data)
 
     def test_qualification_version_presence_and_market_agreement_are_enforced(self):
         _, presentation = self.new_presentation()
@@ -100,13 +123,15 @@ class PreliminaryQualificationPresentationTests(TemporaryRepositoryTestCase):
         legacy_data["analysisVersion"] = "7"
         del legacy_data["request"]["qualificationSourceReport"]
         del legacy_data["result"]["preliminaryQualification"]
+        del legacy_data["result"]["preliminaryResolution"]
         legacy = AnalysisRunArtifact.from_dict(legacy_data)
         old = AnalysisPresentationProjector().project(legacy).to_dict()
         self.assertEqual(old["presentationVersion"], "2")
         self.assertNotIn("preliminaryQualification", old)
         current = presentation.to_dict()
         for key in current.keys() - {
-            "presentationVersion", "provenance", "preliminaryQualification"
+            "presentationVersion", "provenance", "preliminaryQualification",
+            "preliminaryResolution",
         }:
             with self.subTest(section=key):
                 self.assertEqual(current[key], old[key])
@@ -138,6 +163,7 @@ class PreliminaryQualificationPresentationTests(TemporaryRepositoryTestCase):
         data["analysisVersion"] = "7"
         del data["request"]["qualificationSourceReport"]
         del data["result"]["preliminaryQualification"]
+        del data["result"]["preliminaryResolution"]
         legacy = AnalysisRunArtifact.from_dict(data)
         presentation = AnalysisPresentationProjector().project(legacy).to_dict()
         self.assertEqual(presentation["presentationVersion"], "3")
@@ -148,12 +174,18 @@ class PreliminaryQualificationPresentationTests(TemporaryRepositoryTestCase):
         self.assertEqual(AnalysisPresentation.from_dict(presentation).to_dict(), presentation)
 
     def test_embedded_qualification_schema_matches_authoritative_contract(self):
+        self.assert_embedded_schema_matches("qualification", "PreliminaryQualification", "preliminary-qualification")
+
+    def test_embedded_resolution_schema_matches_authoritative_contract(self):
+        self.assert_embedded_schema_matches("resolution", "PreliminaryResolution", "preliminary-evidence-resolution")
+
+    def assert_embedded_schema_matches(self, prefix, title, filename):
         schemas = Path(__file__).parents[1] / "schemas/analysis"
-        source = json.loads((schemas / "preliminary-qualification.schema.json").read_text())
+        source = json.loads((schemas / f"{filename}.schema.json").read_text())
         presentation = json.loads((schemas / "analysis-presentation.schema.json").read_text())
 
         def definition_name(name):
-            return "qualification" + name[0].upper() + name[1:]
+            return prefix + name[0].upper() + name[1:]
 
         def rewrite(value):
             if isinstance(value, list):
@@ -171,8 +203,8 @@ class PreliminaryQualificationPresentationTests(TemporaryRepositoryTestCase):
             key: value for key, value in source.items()
             if key not in {"$schema", "$id", "$defs", "title"}
         })
-        expected["title"] = "PreliminaryQualification"
-        self.assertEqual(presentation["$defs"]["preliminaryQualification"], expected)
+        expected["title"] = title
+        self.assertEqual(presentation["$defs"][title[0].lower() + title[1:]], expected)
         for name, definition in source["$defs"].items():
             with self.subTest(definition=name):
                 self.assertEqual(

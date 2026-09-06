@@ -3332,6 +3332,48 @@ class SupabaseHttpGateway:
             raise SupabaseContractError("Intake correction response is invalid")
         return payload
 
+    def claim_market_fact_cache(self, lookup_key: str, token: str) -> Mapping[str, Any]:
+        if not isinstance(lookup_key, str) or re.fullmatch(r"[0-9a-f]{64}", lookup_key) is None:
+            raise SupabaseContractError("Market fact cache key is invalid")
+        payload = self._rpc(
+            "claim_market_fact_cache",
+            {"requested_lookup_key": lookup_key,
+             "requested_generation_token": _canonical_uuid(token, "Market fact cache token")},
+            retry_ambiguous_claim=True,
+        )
+        return self._single_rpc_row(payload, "Market fact cache claim")
+
+    def complete_market_fact_cache(self, lookup_key: str, token: str, result: Mapping[str, Any]) -> bool:
+        from venfour.marketcheck import validate_drivetrain_lookup_result
+        if not isinstance(lookup_key, str) or re.fullmatch(r"[0-9a-f]{64}", lookup_key) is None:
+            raise SupabaseContractError("Market fact cache key is invalid")
+        validated = validate_drivetrain_lookup_result(result)
+        payload = self._rpc(
+            "complete_market_fact_cache",
+            {"requested_lookup_key": lookup_key,
+             "requested_generation_token": _canonical_uuid(token, "Market fact cache token"),
+             "requested_result": validated},
+        )
+        return self._rpc_boolean(payload, "Market fact cache completion")
+
+    def preserve_market_fact_cache_conflict(
+        self, lookup_key: str, expected_evidence_digest: str, result: Mapping[str, Any]
+    ) -> bool:
+        from venfour.marketcheck import validate_drivetrain_lookup_result
+        if any(not isinstance(value, str) or re.fullmatch(r"[0-9a-f]{64}", value) is None
+               for value in (lookup_key, expected_evidence_digest)):
+            raise SupabaseContractError("Market fact cache conflict identity is invalid")
+        validated = validate_drivetrain_lookup_result(result)
+        if validated["status"] != "CONFLICT" or validated["providerRequestCount"] != 0:
+            raise SupabaseContractError("Market fact cache conflict result is invalid")
+        payload = self._rpc(
+            "preserve_market_fact_cache_conflict",
+            {"requested_lookup_key": lookup_key,
+             "expected_evidence_digest": expected_evidence_digest,
+             "requested_result": validated},
+        )
+        return self._rpc_boolean(payload, "Market fact cache conflict preservation")
+
     def claim_vehicle_trim_cache(
         self,
         lookup_key: str,

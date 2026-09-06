@@ -83,10 +83,15 @@ from venfour.preliminary_qualification import (
     qualify_preliminary,
     validate_preliminary_qualification,
 )
+from venfour.preliminary_resolution import (
+    PreliminaryResolutionContractError,
+    replay_preliminary_resolution,
+    validate_preliminary_resolution,
+)
 
 
-ANALYSIS_RUN_SCHEMA_VERSION = "8"
-ANALYSIS_RUN_ANALYSIS_VERSION = "8"
+ANALYSIS_RUN_SCHEMA_VERSION = "9"
+ANALYSIS_RUN_ANALYSIS_VERSION = "9"
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 ANALYSIS_RUN_SCHEMA_PATH = (
@@ -220,6 +225,25 @@ def _thaw_json(value: Any) -> Any:
     return copy.deepcopy(value)
 
 
+def default_report_evidence_context(base_request: Mapping[str, Any]) -> dict[str, Any]:
+    """Preserve the established context for direct report-analysis callers."""
+    return {
+        "inputMode": "REPORT",
+        "reportAvailable": True,
+        "reportExtractionAvailable": True,
+        "reportProvider": "CCC",
+        "reportAdapter": "CCC",
+        "partialExtraction": False,
+        "offerAvailable": False,
+        "insurerValuationAvailable": base_request.get("cccVehicleValuation") is not None,
+        "reportComparablesAvailable": bool(base_request.get("cccComparables", [])),
+        "reportAdjustmentsAvailable": bool(base_request.get("cccComparables", [])),
+        "conditionInformationAvailable": False,
+        "optionsInformationAvailable": False,
+        "conditionAndOptionsDollarAdjusted": False,
+    }
+
+
 @dataclass(frozen=True)
 class AnalysisRunArtifact:
     """One immutable, complete audit record ready for later presentation."""
@@ -247,33 +271,12 @@ class AnalysisRunArtifact:
             "6",
             "7",
             "8",
+            "9",
         }:
             base_request = self.request.get("baseDiscrepancyRequest", {})
-            valuation = (
-                base_request.get("cccVehicleValuation")
-                if isinstance(base_request, Mapping)
-                else None
+            selected_context = default_report_evidence_context(
+                base_request if isinstance(base_request, Mapping) else {}
             )
-            comparables = (
-                base_request.get("cccComparables", [])
-                if isinstance(base_request, Mapping)
-                else []
-            )
-            selected_context = {
-                "inputMode": "REPORT",
-                "reportAvailable": True,
-                "reportExtractionAvailable": True,
-                "reportProvider": "CCC",
-                "reportAdapter": "CCC",
-                "partialExtraction": False,
-                "offerAvailable": False,
-                "insurerValuationAvailable": valuation is not None,
-                "reportComparablesAvailable": bool(comparables),
-                "reportAdjustmentsAvailable": bool(comparables),
-                "conditionInformationAvailable": False,
-                "optionsInformationAvailable": False,
-                "conditionAndOptionsDollarAdjusted": False,
-            }
         if selected_context is not None:
             object.__setattr__(self, "evidence_context", _freeze_json(selected_context))
 
@@ -539,6 +542,7 @@ def _validate_nested(
         ComparableContractError,
         DiscrepancyContractError,
         PreliminaryQualificationContractError,
+        PreliminaryResolutionContractError,
     ) as exc:
         raise AnalysisRunContractError(
             "Analysis run contains an invalid nested contract",
@@ -864,7 +868,7 @@ def _adaptive_semantic_validation_errors(
     """Replay adaptive diagnostics against their versioned effective policies."""
 
     artifact_version = data["analysisRunSchemaVersion"]
-    if artifact_version not in {"2", "3", "4", "5", "6", "7", "8"}:
+    if artifact_version not in {"2", "3", "4", "5", "6", "7", "8", "9"}:
         return []
 
     errors: list[str] = []
@@ -904,7 +908,7 @@ def _adaptive_semantic_validation_errors(
         current_policy = policies.current
         historical_policy = policies.historical
         configured_policies = None
-        if artifact_version in {"4", "5", "6", "7", "8"}:
+        if artifact_version in {"4", "5", "6", "7", "8", "9"}:
             try:
                 configured_policies = adaptive_search_policies_from_dict(
                     request_snapshot["configuredSearchPolicies"]
@@ -952,7 +956,7 @@ def _adaptive_semantic_validation_errors(
         policy_field=policy_field,
         configured_policy=(
             request_snapshot["configuredSearchPolicies"]
-            if artifact_version in {"4", "5", "6", "7", "8"}
+            if artifact_version in {"4", "5", "6", "7", "8", "9"}
             else None
         ),
     )
@@ -978,7 +982,7 @@ def _adaptive_semantic_validation_errors(
     else:
         current_ceiling_reason = (
             CURRENT_SEARCH_CEILING_REACHED
-            if artifact_version in {"4", "5", "6", "7", "8"}
+            if artifact_version in {"4", "5", "6", "7", "8", "9"}
             and configured_policies is not None
             and configured_policies.current != current_policy
             else MAX_SCOPE_REACHED
@@ -1005,7 +1009,7 @@ def _adaptive_semantic_validation_errors(
                     "$.result.currentMarketResult: does not match replay of the "
                     "stored current search diagnostics"
                 )
-            if current_replay.ranking.to_dict() != stage_result["currentRanking"]:
+            if artifact_version != "9" and current_replay.ranking.to_dict() != stage_result["currentRanking"]:
                 errors.append(
                     "$.result.currentRanking: does not match replay of the stored "
                     "current search diagnostics"
@@ -1055,7 +1059,7 @@ def _adaptive_semantic_validation_errors(
                 if historical_replay.ranking is not None
                 else None
             )
-            if replayed_ranking != stage_result["historicalRanking"]:
+            if artifact_version != "9" and replayed_ranking != stage_result["historicalRanking"]:
                 errors.append(
                     "$.result.historicalRanking: does not match replay of the "
                     "stored historical search diagnostics"
@@ -1129,7 +1133,40 @@ def _semantic_validation_errors(data: Mapping[str, Any]) -> list[str]:
             )
 
     base_request = _base_request_from_data(base_data)
+    if data["analysisRunSchemaVersion"] == "9":
+        for field, reconstruct in (
+            ("currentMarketResult", _market_result_from_data),
+            ("historicalMarketResult", _historical_result_from_data),
+        ):
+            raw_result = stage_result[field]
+            if raw_result is not None and reconstruct(raw_result).to_dict() != raw_result:
+                errors.append(
+                    f"$.result.{field}: must be exact canonical normalized market data"
+                )
     errors.extend(_adaptive_semantic_validation_errors(data, base_request))
+    if data["analysisRunSchemaVersion"] == "9" and errors:
+        return errors
+    resolution_result = None
+    if data["analysisRunSchemaVersion"] == "9":
+        resolution_result = replay_preliminary_resolution(
+            base_request=base_request,
+            current_result=(
+                _market_result_from_data(stage_result["currentMarketResult"])
+                if stage_result["currentMarketResult"] is not None else None
+            ),
+            historical_result=(
+                _historical_result_from_data(stage_result["historicalMarketResult"])
+                if stage_result["historicalMarketResult"] is not None else None
+            ),
+            current_observed_date=request_snapshot["currentObservedDate"],
+            source_report=request_snapshot["qualificationSourceReport"],
+            evidence_context=data["evidenceContext"],
+            resolution=stage_result["preliminaryResolution"],
+        )
+        if resolution_result.resolution != stage_result["preliminaryResolution"]:
+            errors.append(
+                "$.result.preliminaryResolution: does not match deterministic resolution replay"
+            )
     current_search_data = request_snapshot["currentSearchRequest"]
     current_observed_date = request_snapshot["currentObservedDate"]
     current_result_data = stage_result["currentMarketResult"]
@@ -1191,9 +1228,12 @@ def _semantic_validation_errors(data: Mapping[str, Any]) -> list[str]:
             errors.append(
                 "$.providers.current.name: must match the canonical current provider"
             )
-        expected_current_ranking = rank_market_comparables(
-            base_request.loss_vehicle, current_result,
-            scoring_version=data["comparableScoringVersion"],
+        expected_current_ranking = (
+            resolution_result.current_ranking if resolution_result is not None
+            else rank_market_comparables(
+                base_request.loss_vehicle, current_result,
+                scoring_version=data["comparableScoringVersion"],
+            )
         )
         if expected_current_ranking.to_dict() != current_ranking_data:
             errors.append(
@@ -1275,8 +1315,13 @@ def _semantic_validation_errors(data: Mapping[str, Any]) -> list[str]:
                 "$.providers.historical.name: must match the canonical historical "
                 "provider"
             )
-        expected_historical_ranking = None
-        if (
+        expected_historical_ranking = (
+            resolution_result.historical_ranking
+            if resolution_result is not None else None
+        )
+        if resolution_result is not None:
+            historical_result = resolution_result.historical_result
+        elif (
             historical_result.coverage.status == SUPPORTED
             and historical_result.listing_count > 0
         ):
@@ -1339,22 +1384,28 @@ def _semantic_validation_errors(data: Mapping[str, Any]) -> list[str]:
         )
 
     if not errors:
-        expected_result = ValuationDiscrepancyAnalyzer().analyze(
-            expected_final_request
-        ).to_dict()
+        expected_result = (
+            resolution_result.discrepancy_result.to_dict()
+            if resolution_result is not None
+            else ValuationDiscrepancyAnalyzer().analyze(expected_final_request).to_dict()
+        )
         if stage_result["discrepancyResult"] != expected_result:
             errors.append(
                 "$.result.discrepancyResult: does not correspond to the stored "
                 "discrepancy request"
             )
-    if not errors and data["analysisRunSchemaVersion"] == "8":
-        expected_qualification = qualify_preliminary(
-            source_report=request_snapshot["qualificationSourceReport"],
-            evidence_context=data["evidenceContext"],
-            discrepancy_request=final_data,
-            discrepancy_result=stage_result["discrepancyResult"],
-            current_ranking=stage_result["currentRanking"],
-            historical_ranking=stage_result["historicalRanking"],
+    if not errors and data["analysisRunSchemaVersion"] in {"8", "9"}:
+        expected_qualification = (
+            resolution_result.preliminary_qualification
+            if resolution_result is not None
+            else qualify_preliminary(
+                source_report=request_snapshot["qualificationSourceReport"],
+                evidence_context=data["evidenceContext"],
+                discrepancy_request=final_data,
+                discrepancy_result=stage_result["discrepancyResult"],
+                current_ranking=stage_result["currentRanking"],
+                historical_ranking=stage_result["historicalRanking"],
+            )
         )
         if stage_result["preliminaryQualification"] != expected_qualification:
             errors.append(
@@ -1458,7 +1509,7 @@ def validate_analysis_run_artifact(
         "$.result.discrepancyResult",
         validate_valuation_discrepancy_result,
     )
-    if data["analysisRunSchemaVersion"] == "8":
+    if data["analysisRunSchemaVersion"] in {"8", "9"}:
         source_report = request_snapshot["qualificationSourceReport"]
         if source_report is not None:
             from scripts.extract_report_ai import OutputValidationError
@@ -1482,6 +1533,12 @@ def validate_analysis_run_artifact(
             "$.result.preliminaryQualification",
             validate_preliminary_qualification,
         )
+    if data["analysisRunSchemaVersion"] == "9":
+        _validate_nested(
+            stage_result["preliminaryResolution"],
+            "$.result.preliminaryResolution",
+            validate_preliminary_resolution,
+        )
 
     try:
         semantic_errors = _semantic_validation_errors(data)
@@ -1492,6 +1549,7 @@ def validate_analysis_run_artifact(
         MarketContractError,
         ComparableContractError,
         PreliminaryQualificationContractError,
+        PreliminaryResolutionContractError,
     ) as exc:
         raise AnalysisRunContractError(
             "Analysis run failed semantic validation",
@@ -1733,6 +1791,7 @@ __all__ = [
     "InvalidAnalysisRunArtifactError",
     "ProviderMetadata",
     "canonical_json_bytes",
+    "default_report_evidence_context",
     "discrepancy_request_digest",
     "search_diagnostics_digest",
     "validate_analysis_run_artifact",

@@ -71,6 +71,7 @@ class AdaptiveAnalysisRunIntegrityTests(unittest.TestCase):
         def pin_legacy_scoring(artifact):
             artifact["request"].pop("qualificationSourceReport")
             artifact["result"].pop("preliminaryQualification")
+            artifact["result"].pop("preliminaryResolution")
             artifact["comparableScoringVersion"] = "1"
             for stream in ("current", "historical"):
                 artifact["result"][f"{stream}Ranking"]["scoringVersion"] = "1"

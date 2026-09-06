@@ -255,6 +255,11 @@ class SupabaseAnalysisRunRepository:
         self._report_ingestion = ReportIngestionResult.from_dict(ingestion.to_dict())
 
     @property
+    def resolution_cache_gateway(self) -> Any:
+        from venfour.market_fact_cache import MarketFactCacheGateway
+        return self._gateway if isinstance(self._gateway, MarketFactCacheGateway) else None
+
+    @property
     def completed_run_id(self) -> str | None:
         return self._completed_run_id
 
@@ -451,6 +456,8 @@ def _live_creation_factory(
         run_id_factory=lambda: run_id,
         report_ingestion_recorder=(repository.record_report_ingestion
                                    if isinstance(repository, SupabaseAnalysisRunRepository) else None),
+        resolution_cache=(repository.resolution_cache_gateway
+                          if isinstance(repository, SupabaseAnalysisRunRepository) else None),
     )
 
 

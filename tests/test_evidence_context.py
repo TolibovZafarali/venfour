@@ -87,8 +87,8 @@ class EvidenceContextPresentationTests(AnalysisCreationTestCase):
             )
 
         artifact = result.artifact.to_dict()
-        self.assertEqual(artifact["analysisRunSchemaVersion"], "8")
-        self.assertEqual(artifact["analysisVersion"], "8")
+        self.assertEqual(artifact["analysisRunSchemaVersion"], "9")
+        self.assertEqual(artifact["analysisVersion"], "9")
         for field in ("currentSearchRequest", "historicalSearchRequest"):
             self.assertEqual(
                 artifact["request"][field]["configuration"],
@@ -105,12 +105,12 @@ class EvidenceContextPresentationTests(AnalysisCreationTestCase):
             result.run_id
         ).to_dict()
 
-        self.assertEqual(result.artifact.to_dict()["analysisRunSchemaVersion"], "8")
-        self.assertEqual(result.artifact.to_dict()["analysisVersion"], "8")
+        self.assertEqual(result.artifact.to_dict()["analysisRunSchemaVersion"], "9")
+        self.assertEqual(result.artifact.to_dict()["analysisVersion"], "9")
         self.assertEqual(
             result.artifact.to_dict()["evidenceContext"]["inputMode"], "MANUAL"
         )
-        self.assertEqual(presentation["presentationVersion"], "4")
+        self.assertEqual(presentation["presentationVersion"], "5")
         self.assertEqual(presentation["analysisScope"]["inputMode"], "MANUAL")
         self.assertTrue(presentation["analysisScope"]["marketEvidenceAvailable"])
         self.assertFalse(presentation["analysisScope"]["reportReviewPerformed"])
