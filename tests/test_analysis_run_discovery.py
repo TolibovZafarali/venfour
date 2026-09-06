@@ -25,6 +25,7 @@ from venfour.presentation import (
 
 
 class FilteredCurrentProvider(RecordingCurrentProvider):
+    maximum_search_radius_miles = 250
     drivetrain_discovery = staticmethod(MarketCheckProvider.drivetrain_discovery)
 
     def __init__(self):
@@ -32,7 +33,10 @@ class FilteredCurrentProvider(RecordingCurrentProvider):
         self.queries = []
 
     def search(self, request):
-        params = MarketCheckProvider("discovery-fixture-key")._params(request, start=0, rows=50)
+        params = MarketCheckProvider(
+            "discovery-fixture-key",
+            maximum_search_radius_miles=self.maximum_search_radius_miles,
+        )._params(request, start=0, rows=50)
         self.queries.append({key: value for key, value in params.items() if key != "api_key"})
         result = super().search(request)
         return replace(result, listings=tuple(replace(row, drivetrain="FWD", drivetrain_recorded=True) for row in result.listings))

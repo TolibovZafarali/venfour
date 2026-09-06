@@ -93,6 +93,25 @@ MARKETCHECK_SAVED_BUILD_MAX_IDENTITIES = 1000
 QueryValue = str | int
 
 
+def marketcheck_account_radius_from_environment(
+    environment: Mapping[str, str],
+) -> int:
+    """Read an operator-verified account limit without detecting capabilities."""
+
+    key = "MARKETCHECK_ACCOUNT_MAX_RADIUS_MILES"
+    value = environment.get(key, "")
+    if isinstance(value, str) and not value.strip():
+        return MARKETCHECK_ACTIVE_MAX_RADIUS_MILES
+    if (
+        not isinstance(value, str)
+        or len(value) > 10
+        or re.fullmatch(r"[1-9][0-9]*", value) is None
+        or int(value) > 2**31 - 1
+    ):
+        raise ValueError(f"{key} must be a canonical positive 32-bit integer")
+    return int(value)
+
+
 def _lookup_time() -> str:
     return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
@@ -465,6 +484,19 @@ class MarketCheckProvider:
             raise MarketContractError("Drivetrain discovery does not match the MarketCheck mapping")
         return marker.filter_value
 
+    def _enforce_search_radius(
+        self, radius_miles: int, *, maximum_radius_miles: int | None = None,
+    ) -> None:
+        maximum = (
+            self.maximum_search_radius_miles
+            if maximum_radius_miles is None
+            else maximum_radius_miles
+        )
+        if radius_miles > maximum:
+            raise MarketContractError(
+                "Requested search radius exceeds the configured provider maximum"
+            )
+
     def _params(
         self,
         request: MarketSearchRequest,
@@ -501,6 +533,7 @@ class MarketCheckProvider:
         if drivetrain_filter is not None:
             params["drivetrain"] = drivetrain_filter
         if request.postal_code is not None:
+            self._enforce_search_radius(request.radius_miles)
             params["zip"] = request.postal_code
             params["radius"] = request.radius_miles
         return params
@@ -1386,6 +1419,7 @@ class MarketCheckHistoricalProvider(MarketCheckProvider):
         timeout: float = DEFAULT_TIMEOUT_SECONDS,
         transport: MarketCheckTransport | None = None,
         max_vin_verifications: int = MARKETCHECK_VIN_HISTORY_MAX_VERIFICATIONS,
+        maximum_search_radius_miles: int | None = None,
     ) -> None:
         if (
             isinstance(max_vin_verifications, bool)
@@ -1400,7 +1434,11 @@ class MarketCheckHistoricalProvider(MarketCheckProvider):
             api_key,
             timeout=timeout,
             transport=transport,
+            maximum_search_radius_miles=maximum_search_radius_miles,
             _allow_missing_api_key=True,
+        )
+        self.maximum_search_radius_miles = min(
+            self.maximum_search_radius_miles, MARKETCHECK_PAST_MAX_RADIUS_MILES
         )
         self._as_of_date = (
             datetime.now(timezone.utc).date()
@@ -1434,6 +1472,12 @@ class MarketCheckHistoricalProvider(MarketCheckProvider):
             raise MarketProviderAuthenticationError(
                 "MarketCheck API key is required"
             )
+        self._enforce_search_radius(
+            request.radius_miles,
+            maximum_radius_miles=min(
+                self.maximum_search_radius_miles, MARKETCHECK_PAST_MAX_RADIUS_MILES
+            ),
+        )
         compact_date = request.evidence_date.replace("-", "")
         params: dict[str, QueryValue] = {
             "api_key": self._api_key,
@@ -2189,6 +2233,7 @@ __all__ = [
     "MarketCheckProvider",
     "MarketCheckTransport",
     "drivetrain_lookup_failure",
+    "marketcheck_account_radius_from_environment",
     "marketcheck_historical_coverage",
     "validate_drivetrain_lookup_result",
 ]

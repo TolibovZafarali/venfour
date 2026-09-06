@@ -20,7 +20,10 @@ from venfour.market import (  # noqa: E402
     MarketSearchRequest,
     discover_market_listings,
 )
-from venfour.marketcheck import MarketCheckProvider  # noqa: E402
+from venfour.marketcheck import (  # noqa: E402
+    MarketCheckProvider,
+    marketcheck_account_radius_from_environment,
+)
 
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
@@ -54,9 +57,12 @@ def main(argv: Sequence[str] | None = None) -> int:
             radius_miles=args.radius,
             result_limit=args.limit,
         )
-        provider = MarketCheckProvider(os.environ.get("MARKETCHECK_API_KEY", ""))
+        provider = MarketCheckProvider(
+            os.environ.get("MARKETCHECK_API_KEY", ""),
+            maximum_search_radius_miles=marketcheck_account_radius_from_environment(os.environ),
+        )
         result = discover_market_listings(request, provider)
-    except MarketDiscoveryError as exc:
+    except (MarketDiscoveryError, ValueError) as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return 1
 

@@ -18,7 +18,7 @@ from venfour.adaptive_search import (
 from venfour.comparables import comparable_target_from_search_request, rank_market_comparables
 from venfour.discrepancy import ValuationDiscrepancyRequest
 from venfour.historical_market import historical_evidence_to_market_search_result
-from venfour.market import DrivetrainDiscovery, MarketContractError
+from venfour.market import DrivetrainDiscovery, MarketContractError, VehicleConfigurationIdentity
 from venfour.marketcheck import (
     MARKETCHECK_ACTIVE_INVENTORY_URL,
     MarketCheckHistoricalProvider, MarketCheckProvider,
@@ -149,6 +149,35 @@ class MarketCheckDiscoveryTests(unittest.TestCase):
                 self.assertTrue(all(call["params"]["drivetrain"] == "FWD" for call in transport.calls))
                 self.assertEqual(len(result.diagnostics.attempts), 2)
                 self.assertTrue(all(item.result.request.drivetrain_discovery.filter_value == "FWD" for item in result.diagnostics.attempts))
+
+    def test_broader_active_capability_preserves_exact_filters_and_historical_ceiling(self):
+        policy = AdaptiveSearchPolicy(stages=(
+            SearchStage(50, 25), SearchStage(100, 50),
+            SearchStage(200, 75), SearchStage(250, 100),
+        ))
+        for historical, radii in ((False, [50, 100, 200, 250]), (True, [50, 100])):
+            with self.subTest(historical=historical):
+                transport = RecordingTransport([{"num_found": 0, "listings": []}] * len(radii))
+                configuration = VehicleConfigurationIdentity(source="marketcheck", field="version", values=("SE FWD",))
+                if historical:
+                    provider = MarketCheckHistoricalProvider(
+                        SYNTHETIC_KEY, as_of_date=AS_OF_DATE, transport=transport,
+                        maximum_search_radius_miles=250,
+                    )
+                    request = replace(configured(make_historical_request(), "FWD"), configuration=configuration)
+                    result = adaptive_discover_historical_market_evidence(request, provider, policy)
+                else:
+                    provider = MarketCheckProvider(SYNTHETIC_KEY, transport=transport, maximum_search_radius_miles=250)
+                    request = replace(configured(make_request(), "FWD"), configuration=configuration)
+                    result = adaptive_discover_market_listings(request, provider, policy)
+                self.assertEqual([call["params"]["radius"] for call in transport.calls], radii)
+                filters = [{key: value for key, value in call["params"].items() if key not in {"radius", "rows"}} for call in transport.calls]
+                self.assertTrue(all(item == filters[0] for item in filters))
+                self.assertEqual(filters[0]["version"], "SE FWD")
+                self.assertEqual(filters[0]["drivetrain"], "FWD")
+                self.assertEqual(filters[0]["car_type"], "used")
+                self.assertEqual(filters[0]["has_price"], "true")
+                self.assertTrue(all(item.result.request.configuration == configuration for item in result.diagnostics.attempts))
 
     def test_marked_history_excludes_conflicting_explicit_drivetrain(self):
         for candidate_drive, history_drive in (("FWD", "4WD"), ("4WD", "FWD"), ("AWD", "4WD")):

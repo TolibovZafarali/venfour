@@ -41,6 +41,7 @@ from venfour.creation import (
     AnalysisCreationInputError,
     AnalysisCreationProviderError,
     AnalysisCreationService,
+    AnalysisCreationUnavailableError,
     AnalysisSearchSettings,
     create_live_analysis_creation_service,
 )
@@ -655,6 +656,46 @@ class AnalysisCreationApiValidationTests(AnalysisCreationTestCase):
 
 
 class AnalysisCreationLiveCompositionTests(AnalysisCreationTestCase):
+    def test_verified_account_radius_is_used_by_live_runtime_composition(self) -> None:
+        observed_date = date.fromisoformat(CURRENT_OBSERVED_DATE)
+        for maximum in (50, 100, 175, 200, 250, 500):
+            with self.subTest(maximum=maximum), patch.dict(
+                os.environ,
+                {
+                    "MARKETCHECK_API_KEY": "fixture-market-key",
+                    "MARKETCHECK_ACCOUNT_MAX_RADIUS_MILES": str(maximum),
+                },
+                clear=True,
+            ):
+                service = create_live_analysis_creation_service(self.repository)
+                orchestrator = service._orchestrator_factory(observed_date)
+                self.assertEqual(
+                    orchestrator._current_provider.maximum_search_radius_miles, maximum,
+                )
+                self.assertEqual(
+                    orchestrator._historical_provider.maximum_search_radius_miles,
+                    min(maximum, 100),
+                )
+
+    def test_invalid_account_radius_fails_before_report_ingestion(self) -> None:
+        report_path = self.root / "report.pdf"
+        report_path.write_bytes(PDF_BYTES)
+        for invalid in ("0", "-1", "250.0", "untrusted-radius-value"):
+            with self.subTest(invalid=invalid), patch.dict(
+                os.environ,
+                {
+                    "MARKETCHECK_API_KEY": "fixture-market-key",
+                    "MARKETCHECK_ACCOUNT_MAX_RADIUS_MILES": invalid,
+                },
+                clear=True,
+            ):
+                service = create_live_analysis_creation_service(self.repository)
+                with patch.object(service, "_ingestion_service") as ingestion:
+                    with self.assertRaises(AnalysisCreationUnavailableError) as raised:
+                        service.create(report_path, POSTAL_CODE)
+                ingestion.ingest.assert_not_called()
+                self.assertNotIn(invalid, str(raised.exception))
+
     def test_live_factory_builds_providers_with_server_configuration(self) -> None:
         extractor = RecordingExtractor(make_report())
         current = RecordingCurrentProvider()
@@ -663,7 +704,10 @@ class AnalysisCreationLiveCompositionTests(AnalysisCreationTestCase):
         current_keys: list[str | None] = []
         historical_arguments: list[tuple[str | None, date | None]] = []
 
-        def current_factory(api_key: str | None) -> RecordingCurrentProvider:
+        def current_factory(
+            api_key: str | None, *, maximum_search_radius_miles: int,
+        ) -> RecordingCurrentProvider:
+            self.assertEqual(maximum_search_radius_miles, 100)
             current_keys.append(api_key)
             return current
 
@@ -671,7 +715,9 @@ class AnalysisCreationLiveCompositionTests(AnalysisCreationTestCase):
             api_key: str | None,
             *,
             as_of_date: date | None = None,
+            maximum_search_radius_miles: int,
         ) -> RecordingHistoricalProvider:
+            self.assertEqual(maximum_search_radius_miles, 100)
             historical_arguments.append((api_key, as_of_date))
             return historical
 
@@ -689,6 +735,7 @@ class AnalysisCreationLiveCompositionTests(AnalysisCreationTestCase):
                 {
                     "OPENAI_API_KEY": "fixture-extraction-key",
                     "MARKETCHECK_API_KEY": "fixture-market-key",
+                    "MARKETCHECK_ACCOUNT_MAX_RADIUS_MILES": "100",
                 },
                 clear=False,
             ),

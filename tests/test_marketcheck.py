@@ -39,6 +39,7 @@ from venfour.marketcheck import (
     MARKETCHECK_CAR_TERMS_URL,
     MARKETCHECK_TRANSIENT_RETRY_DELAY_SECONDS,
     MarketCheckProvider,
+    marketcheck_account_radius_from_environment,
 )
 from venfour.vehicle_catalog import VehicleTrimCatalogRequest
 
@@ -144,6 +145,38 @@ def search_with(
     return result, transport
 
 
+class MarketCheckAccountRadiusEnvironmentTests(unittest.TestCase):
+    def test_absent_or_blank_value_uses_conservative_default(self) -> None:
+        for environment in ({}, {"MARKETCHECK_ACCOUNT_MAX_RADIUS_MILES": ""},
+                            {"MARKETCHECK_ACCOUNT_MAX_RADIUS_MILES": " \t\n"}):
+            with self.subTest(environment=environment):
+                self.assertEqual(marketcheck_account_radius_from_environment(environment), 100)
+
+    def test_verified_capability_is_distinct_from_the_adaptive_policy_limit(self) -> None:
+        for value in ("1", "50", "100", "250", "500", "2147483647"):
+            with self.subTest(value=value):
+                self.assertEqual(marketcheck_account_radius_from_environment({
+                    "MARKETCHECK_ACCOUNT_MAX_RADIUS_MILES": value,
+                }), int(value))
+
+    def test_noncanonical_or_oversized_values_fail_without_echoing_values(self) -> None:
+        for value in (None, True, False, 100, 100.0, b"100", [], {}, "0", "00", "0100",
+                      "+100", "-1", "100.0", "1e2", "100 ", " 100", "100\n",
+                      "１００", "2147483648", "9" * 5000, "private-invalid-value"):
+            with self.subTest(value_type=type(value).__name__):
+                with self.assertRaises(ValueError) as raised:
+                    marketcheck_account_radius_from_environment({
+                        "MARKETCHECK_ACCOUNT_MAX_RADIUS_MILES": value,
+                    })
+                self.assertEqual(str(raised.exception),
+                                 "MARKETCHECK_ACCOUNT_MAX_RADIUS_MILES must be a canonical positive 32-bit integer")
+
+    def test_provider_constructor_does_not_read_process_environment(self) -> None:
+        with patch.dict(os.environ, {"MARKETCHECK_ACCOUNT_MAX_RADIUS_MILES": "250"}):
+            provider = MarketCheckProvider(SYNTHETIC_KEY, transport=RecordingTransport([]))
+        self.assertEqual(provider.maximum_search_radius_miles, 100)
+
+
 class MarketCheckConstructionTests(unittest.TestCase):
     def test_provider_satisfies_market_provider_protocol(self) -> None:
         provider = MarketCheckProvider(
@@ -226,6 +259,29 @@ class MarketCheckConstructionTests(unittest.TestCase):
             [50, 100, 200, 250],
         )
         self.assertEqual(adaptive.diagnostics.stop_reason, MAX_SCOPE_REACHED)
+
+    def test_direct_search_respects_configured_geographic_ceiling(self) -> None:
+        for maximum in (50, 100, 200, 250):
+            with self.subTest(maximum=maximum):
+                transport = RecordingTransport([{"num_found": 0, "listings": []}])
+                provider = MarketCheckProvider(
+                    SYNTHETIC_KEY,
+                    transport=transport,
+                    maximum_search_radius_miles=maximum,
+                )
+                result = provider.search(make_request(radius_miles=maximum))
+                self.assertEqual(result.listing_count, 0)
+                self.assertEqual(transport.calls[0]["params"]["radius"], maximum)
+                with self.assertRaises(MarketContractError):
+                    provider.search(make_request(radius_miles=maximum + 1))
+                self.assertEqual(len(transport.calls), 1)
+
+    def test_default_ceiling_rejects_direct_200_mile_search_without_a_call(self) -> None:
+        transport = RecordingTransport([])
+        provider = MarketCheckProvider(SYNTHETIC_KEY, transport=transport)
+        with self.assertRaises(MarketContractError):
+            provider.search(make_request(radius_miles=200))
+        self.assertEqual(transport.calls, [])
 
     def test_falsy_injected_transport_is_still_used(self) -> None:
         class FalsyTransport(RecordingTransport):
@@ -1346,7 +1402,10 @@ class MarketCheckCliAndFixtureTests(unittest.TestCase):
         stderr = io.StringIO()
 
         with patch.dict(
-            os.environ, {"MARKETCHECK_API_KEY": SYNTHETIC_KEY}
+            os.environ, {
+                "MARKETCHECK_API_KEY": SYNTHETIC_KEY,
+                "MARKETCHECK_ACCOUNT_MAX_RADIUS_MILES": "100",
+            }
         ), patch.object(
             search_marketcheck,
             "MarketCheckProvider",
@@ -1360,7 +1419,9 @@ class MarketCheckCliAndFixtureTests(unittest.TestCase):
         self.assertEqual(document["provider"], "marketcheck")
         self.assertEqual(document["listingCount"], 0)
         self.assertNotIn(SYNTHETIC_KEY, stdout.getvalue())
-        provider_class.assert_called_once_with(SYNTHETIC_KEY)
+        provider_class.assert_called_once_with(
+            SYNTHETIC_KEY, maximum_search_radius_miles=100,
+        )
 
     def test_cli_error_does_not_print_authenticated_url(self) -> None:
         authenticated_url = (

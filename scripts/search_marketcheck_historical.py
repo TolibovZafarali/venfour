@@ -26,6 +26,7 @@ from venfour.historical_market import (  # noqa: E402
 from venfour.market import MarketDiscoveryError  # noqa: E402
 from venfour.marketcheck import (  # noqa: E402
     MarketCheckHistoricalProvider,
+    marketcheck_account_radius_from_environment,
     marketcheck_historical_coverage,
 )
 
@@ -101,15 +102,17 @@ def main(argv: Sequence[str] | None = None) -> int:
             provider = MarketCheckHistoricalProvider(
                 None,
                 as_of_date=as_of_date,
+                maximum_search_radius_miles=marketcheck_account_radius_from_environment(os.environ),
             )
         else:
             api_key = _read_api_key()
             provider = MarketCheckHistoricalProvider(
                 api_key,
                 as_of_date=as_of_date,
+                maximum_search_radius_miles=marketcheck_account_radius_from_environment(os.environ),
             )
         result = discover_historical_market_evidence(request, provider)
-    except MarketDiscoveryError as exc:
+    except (MarketDiscoveryError, ValueError) as exc:
         message = _redact_secret(str(exc), api_key)
         print(f"Error: {message}", file=sys.stderr)
         return 1

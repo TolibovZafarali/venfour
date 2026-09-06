@@ -62,10 +62,13 @@ class LiveCanonicalAnalysisTests(unittest.TestCase):
             )
 
         extractor.assert_not_called()
-        current_factory.assert_called_once_with("synthetic-market-key")
+        current_factory.assert_called_once_with(
+            "synthetic-market-key", maximum_search_radius_miles=100,
+        )
         historical_factory.assert_called_once_with(
             "synthetic-market-key",
             as_of_date=observed_date,
+            maximum_search_radius_miles=100,
         )
         self.assertTrue((repository_root / f"{result.run_id}.json").is_file())
         loaded = FileAnalysisRunRepository(repository_root).get(result.run_id)

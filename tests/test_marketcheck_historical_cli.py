@@ -250,6 +250,7 @@ class MarketCheckHistoricalCliTests(unittest.TestCase):
         provider_class.assert_called_once_with(
             SYNTHETIC_KEY,
             as_of_date=AS_OF_DATE,
+            maximum_search_radius_miles=100,
         )
         self.assertEqual(len(transport.calls), 1)
         self.assertEqual(

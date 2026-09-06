@@ -157,6 +157,31 @@ def _emit_local_provider_diagnostic(
     )
 
 
+def _emit_local_search_scope(
+    stream: str, provider: object,
+    configured_policy: AdaptiveSearchPolicy, effective_policy: AdaptiveSearchPolicy,
+) -> None:
+    """Separate the declared provider capability from the bounded search tiers."""
+    if os.environ.get(_PROVIDER_DIAGNOSTICS_ENV) != "1":
+        return
+    try:
+        maximum = getattr(provider, "maximum_search_radius_miles", None)
+    except Exception:
+        maximum = None
+    if type(maximum) is not int or maximum < 0:
+        maximum = None
+    payload = {
+        "event": "market_search_scope",
+        "stream": stream,
+        "declaredProviderMaximumRadiusMiles": maximum,
+        "configuredRadiiMiles": [stage.radius_miles for stage in configured_policy.stages],
+        "effectiveRadiiMiles": [stage.radius_miles for stage in effective_policy.stages],
+    }
+    _PROVIDER_DIAGNOSTICS_LOGGER.warning(
+        "%s", json.dumps(payload, sort_keys=True, separators=(",", ":"))
+    )
+
+
 class AnalysisExecutionError(AnalysisOrchestrationError):
     """Canonical pipeline stages could not produce a valid deterministic result."""
 
@@ -607,6 +632,15 @@ class AnalysisOrchestrator:
             current=current_policy,
             historical=historical_policy,
         )
+        if request.current_search is not None:
+            _emit_local_search_scope(
+                "current", self._current_provider, configured_current_policy, current_policy
+            )
+        if request.historical_search is not None:
+            _emit_local_search_scope(
+                "historical", self._historical_provider,
+                request.search_policies.historical, historical_policy,
+            )
 
         try:
             current_search_request = (

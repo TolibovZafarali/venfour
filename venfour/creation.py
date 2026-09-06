@@ -36,6 +36,7 @@ from venfour.marketcheck import (
     MarketCheckHistoricalProvider,
     MarketCheckProvider,
     configuration_drivetrain,
+    marketcheck_account_radius_from_environment,
 )
 from venfour.market_fact_cache import (
     CachedDrivetrainLookup, MarketFactCacheGateway, MemoryMarketFactCache, saved_drivetrain_lookup,
@@ -565,14 +566,24 @@ def create_live_analysis_creation_service(
             raise AnalysisCreationUnavailableError(
                 "Analysis creation dependencies are unavailable"
             )
+        try:
+            marketcheck_account_radius_from_environment(os.environ)
+        except ValueError as exc:
+            raise AnalysisCreationUnavailableError(
+                "Analysis creation dependencies are unavailable"
+            ) from exc
 
     def orchestrator_factory(as_of_date: date) -> AnalysisOrchestrator:
         api_key = os.environ.get("MARKETCHECK_API_KEY")
         try:
-            current_provider = MarketCheckProvider(api_key)
+            account_radius = marketcheck_account_radius_from_environment(os.environ)
+            current_provider = MarketCheckProvider(
+                api_key, maximum_search_radius_miles=account_radius,
+            )
             historical_provider = MarketCheckHistoricalProvider(
                 api_key,
                 as_of_date=as_of_date,
+                maximum_search_radius_miles=account_radius,
             )
         except (MarketProviderError, TypeError, ValueError) as exc:
             raise AnalysisCreationUnavailableError(

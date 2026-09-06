@@ -918,7 +918,8 @@ class AnalysisOrchestrationScenarioTests(TemporaryRepositoryTestCase):
         ):
             orchestrator.run(make_run_request(current=False))
 
-        payload = json.loads(logs.records[0].getMessage())
+        failure_log = next(record for record in logs.records if json.loads(record.getMessage())["event"] == "market_provider_failure")
+        payload = json.loads(failure_log.getMessage())
         self.assertEqual(
             payload,
             {
@@ -933,7 +934,7 @@ class AnalysisOrchestrationScenarioTests(TemporaryRepositoryTestCase):
                 "stream": "historical",
             },
         )
-        rendered = logs.records[0].getMessage()
+        rendered = "\n".join(record.getMessage() for record in logs.records)
         self.assertNotIn(secret, rendered)
         self.assertNotIn(authenticated_url, rendered)
 
@@ -1006,7 +1007,7 @@ class AnalysisOrchestrationScenarioTests(TemporaryRepositoryTestCase):
         self.assertEqual(artifact["result"]["currentRanking"]["eligibleCount"], 5)
         validate_analysis_run_artifact(artifact)
         self.assertEqual(
-            json.loads(logs.records[0].getMessage()),
+            next(json.loads(record.getMessage()) for record in logs.records if json.loads(record.getMessage())["event"] == "market_provider_failure"),
             {
                 "endpointCategory": "active",
                 "event": "market_provider_failure",

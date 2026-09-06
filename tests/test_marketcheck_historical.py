@@ -286,6 +286,37 @@ class MarketCheckHistoricalCoverageTests(unittest.TestCase):
         )
         self.assertEqual(MARKETCHECK_PAST_MAX_RADIUS_MILES, 100)
 
+    def test_account_radius_is_clamped_to_the_historical_endpoint_limit(self) -> None:
+        for maximum, expected in ((0, 0), (50, 50), (75, 75), (100, 100), (250, 100)):
+            with self.subTest(maximum=maximum):
+                provider = MarketCheckHistoricalProvider(
+                    SYNTHETIC_KEY, as_of_date=AS_OF_DATE,
+                    maximum_search_radius_miles=maximum,
+                )
+                self.assertEqual(provider.maximum_search_radius_miles, expected)
+
+    def test_invalid_account_radius_is_rejected(self) -> None:
+        for maximum in (-1, True, 100.0, "100"):
+            with self.subTest(maximum=maximum), self.assertRaises(ValueError):
+                MarketCheckHistoricalProvider(
+                    SYNTHETIC_KEY, maximum_search_radius_miles=maximum,
+                )
+
+    def test_direct_historical_search_respects_account_and_endpoint_limits(self) -> None:
+        for maximum, expected in ((50, 50), (100, 100), (250, 100)):
+            with self.subTest(maximum=maximum):
+                transport = RecordingTransport([make_candidate_page([], 0)])
+                provider = MarketCheckHistoricalProvider(
+                    SYNTHETIC_KEY, as_of_date=AS_OF_DATE, transport=transport,
+                    maximum_search_radius_miles=maximum,
+                )
+                result = provider.search_historical(make_request(radius_miles=expected))
+                self.assertEqual(result.listing_count, 0)
+                self.assertEqual(candidate_calls(transport)[0]["params"]["radius"], expected)
+                with self.assertRaises(MarketContractError):
+                    provider.search_historical(make_request(radius_miles=expected + 1))
+                self.assertEqual(len(transport.calls), 1)
+
     def test_today_thirty_days_and_exactly_ninety_days_are_supported(self) -> None:
         for evidence_date in ("2026-08-10", "2026-07-11", "2026-05-12"):
             with self.subTest(evidence_date=evidence_date):
@@ -956,7 +987,7 @@ class MarketCheckHistoricalVerificationBudgetTests(unittest.TestCase):
             provider,
         )
         expanded_result = discover_historical_market_evidence(
-            make_request(radius_miles=200, result_limit=2),
+            make_request(radius_miles=100, result_limit=2),
             provider,
         )
 

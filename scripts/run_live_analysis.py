@@ -35,6 +35,7 @@ from venfour.market import MarketProviderError  # noqa: E402
 from venfour.marketcheck import (  # noqa: E402
     MarketCheckHistoricalProvider,
     MarketCheckProvider,
+    marketcheck_account_radius_from_environment,
 )
 from venfour.orchestration import (  # noqa: E402
     AnalysisOrchestrationError,
@@ -167,11 +168,15 @@ def run_live_analysis(
     if not isinstance(api_key, str) or not api_key.strip():
         raise LiveAnalysisError("MARKETCHECK_API_KEY is not set")
     try:
-        current_provider = MarketCheckProvider(api_key)
+        account_radius = marketcheck_account_radius_from_environment(os.environ)
+        current_provider = MarketCheckProvider(
+            api_key, maximum_search_radius_miles=account_radius,
+        )
         historical_provider = (
             MarketCheckHistoricalProvider(
                 api_key,
                 as_of_date=effective_observed_date,
+                maximum_search_radius_miles=account_radius,
             )
             if base_request.loss_date is not None
             else None

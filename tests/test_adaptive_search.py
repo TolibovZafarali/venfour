@@ -49,6 +49,7 @@ from venfour.market import (
     MarketProviderUnavailableError,
     MarketSearchRequest,
     MarketSearchResult,
+    VehicleConfigurationIdentity,
 )
 
 
@@ -811,6 +812,131 @@ class AdaptiveDrivetrainDiscoveryTests(unittest.TestCase):
         tampered["attempts"][0]["result"]["request"]["drivetrainDiscovery"]["filterValue"] = "4WD"
         with self.assertRaises(AdaptiveSearchContractError):
             replay_current_adaptive_search(request, tampered)
+
+
+class SparseMarketGeographicExpansionTests(unittest.TestCase):
+    @staticmethod
+    def request() -> MarketSearchRequest:
+        return current_request(
+            drivetrain="FWD",
+            drivetrain_discovery=DrivetrainDiscovery("EXACT_FILTER", "FWD"),
+            configuration=VehicleConfigurationIdentity(
+                source=PROVIDER, field="version", values=("SEL FWD",),
+            ),
+        )
+
+    @staticmethod
+    def exact_listing(index: int, radius: int) -> MarketListing:
+        return replace(listing(index, distance=radius - 1), drivetrain="FWD")
+
+    def assert_filters_retained(self, requests: list[MarketSearchRequest]) -> None:
+        expected = self.request().to_dict()
+        for key in ("radiusMiles", "resultLimit"):
+            del expected[key]
+        for request in requests:
+            fields = request.to_dict()
+            for key in ("radiusMiles", "resultLimit"):
+                del fields[key]
+            self.assertEqual(fields, expected)
+
+    def test_stops_at_first_sufficient_exact_configuration_tier(self) -> None:
+        stages = ((50, 25), (100, 50), (200, 75), (250, 100))
+        for stop_index in range(len(stages)):
+            with self.subTest(sufficient_radius=stages[stop_index][0]):
+                rows = {}
+                next_index = 0
+                for index, (radius, _) in enumerate(stages[:stop_index + 1]):
+                    count = 9 - stop_index if index == stop_index else 1
+                    rows[radius] = tuple(self.exact_listing(number, radius)
+                                         for number in range(next_index, next_index + count))
+                    next_index += count
+                provider = CurrentProvider(rows)
+                provider.maximum_search_radius_miles = 250
+                result = adaptive_discover_market_listings(self.request(), provider)
+                self.assertEqual([(row.radius_miles, row.result_limit) for row in provider.requests],
+                                 list(stages[:stop_index + 1]))
+                self.assertEqual(result.diagnostics.stop_reason, SUFFICIENT_STRONG_MATCHES)
+                self.assertEqual(result.diagnostics.attempts[-1].strong_match_count, 9)
+                self.assert_filters_retained(provider.requests)
+                replay = replay_current_adaptive_search(self.request(), result.diagnostics.to_dict())
+                self.assertEqual(replay.result.to_dict(), result.result.to_dict())
+                self.assertEqual(replay.ranking.to_dict(), result.ranking.to_dict())
+
+    def test_250_exhaustion_does_not_relax_configuration_or_unknown_facts(self) -> None:
+        provider = CurrentProvider({
+            50: (),
+            100: (),
+            200: tuple(self.exact_listing(index, 200) for index in range(8)),
+            250: (replace(self.exact_listing(8, 250), drivetrain="4WD"),
+                  replace(self.exact_listing(9, 250), drivetrain=None)),
+        })
+        provider.maximum_search_radius_miles = 250
+        result = adaptive_discover_market_listings(self.request(), provider)
+        self.assertEqual([row.radius_miles for row in provider.requests], [50, 100, 200, 250])
+        self.assertEqual(result.diagnostics.stop_reason, MAX_SCOPE_REACHED)
+        self.assertEqual(result.diagnostics.attempts[-1].strong_match_count, 8)
+        self.assertEqual(result.ranking.eligible_count, 9)
+        candidates = {row.listing.source_listing_id: row for row in result.ranking.candidates}
+        self.assertFalse(candidates["listing-008"].eligible)
+        self.assertEqual(candidates["listing-009"].tier, "GOOD")
+        self.assertIsNone(candidates["listing-009"].listing.drivetrain)
+        self.assert_filters_retained(provider.requests)
+
+    def test_intermediate_account_cap_never_rounds_up_to_unsupported_radius(self) -> None:
+        for maximum, radii in ((50, [50]), (100, [50, 100]), (199, [50, 100]),
+                               (200, [50, 100, 200]), (249, [50, 100, 200])):
+            with self.subTest(maximum=maximum):
+                provider = CurrentProvider({})
+                provider.maximum_search_radius_miles = maximum
+                result = adaptive_discover_market_listings(self.request(), provider)
+                self.assertEqual([row.radius_miles for row in provider.requests], radii)
+                self.assertEqual(result.diagnostics.stop_reason, CURRENT_SEARCH_CEILING_REACHED)
+                self.assert_filters_retained(provider.requests)
+                replay = replay_current_adaptive_search(
+                    self.request(), result.diagnostics.to_dict(),
+                    policy=adaptive_search_policy_for_provider(DEFAULT_ADAPTIVE_SEARCH_POLICY, provider),
+                    ceiling_stop_reason=CURRENT_SEARCH_CEILING_REACHED,
+                )
+                self.assertEqual(replay.result.to_dict(), result.result.to_dict())
+
+    def test_product_cap_remains_250_when_account_supports_more(self) -> None:
+        provider = CurrentProvider({})
+        provider.maximum_search_radius_miles = 500
+        result = adaptive_discover_market_listings(self.request(), provider)
+        self.assertEqual([row.radius_miles for row in provider.requests], [50, 100, 200, 250])
+        self.assertEqual(result.diagnostics.stop_reason, MAX_SCOPE_REACHED)
+        self.assertEqual(result.result.request.result_limit, 100)
+        self.assertEqual(len(set(provider.requests)), 4)
+        self.assert_filters_retained(provider.requests)
+
+    def test_existing_100_candidate_cap_stops_expansion_before_250(self) -> None:
+        def mismatches(start: int, count: int, radius: int) -> tuple[MarketListing, ...]:
+            return tuple(replace(self.exact_listing(index, radius), drivetrain="4WD")
+                         for index in range(start, start + count))
+
+        provider = CurrentProvider({50: mismatches(0, 25, 50),
+                                    100: mismatches(25, 50, 100),
+                                    200: mismatches(75, 75, 200)})
+        provider.maximum_search_radius_miles = 250
+        result = adaptive_discover_market_listings(self.request(), provider)
+        self.assertEqual([row.radius_miles for row in provider.requests], [50, 100, 200])
+        self.assertEqual(result.diagnostics.stop_reason, MAX_UNIQUE_CANDIDATES)
+        self.assertEqual([row.cumulative_unique_count for row in result.diagnostics.attempts], [25, 75, 100])
+        self.assertEqual(result.diagnostics.attempts[-1].candidate_limit_excluded_count, 50)
+        self.assertEqual(result.result.listing_count, 100)
+        self.assertEqual(result.ranking.eligible_count, 0)
+
+    def test_historical_search_keeps_100_limit_with_broader_active_capability(self) -> None:
+        for maximum, radii in ((50, [50]), (100, [50, 100]), (250, [50, 100])):
+            with self.subTest(maximum=maximum):
+                provider = HistoricalProvider(lambda request: historical_result(request))
+                provider.maximum_search_radius_miles = maximum
+                request = historical_request(drivetrain="FWD", drivetrain_discovery=DrivetrainDiscovery("EXACT_FILTER", "FWD"))
+                result = adaptive_discover_historical_market_evidence(request, provider)
+                self.assertEqual([row.radius_miles for row in provider.requests], radii)
+                self.assertTrue(all(row.drivetrain_discovery == request.drivetrain_discovery for row in provider.requests))
+                self.assertEqual(result.diagnostics.stop_reason, HISTORICAL_SEARCH_CEILING_REACHED)
+                self.assertEqual(result.result.evidence, ())
 
 
 if __name__ == "__main__":
