@@ -18,6 +18,16 @@ type Signal = {
   shiftY: number;
   velocityX: number;
   velocityY: number;
+  captured: boolean;
+  influence: number;
+  capturedAt: number;
+  lastNearPointer: number;
+  recaptureAfter: number;
+  wellX: number;
+  wellY: number;
+  wellAngle: number;
+  drawX: number;
+  drawY: number;
 };
 
 const SIGNAL_COLORS = ["64, 108, 123", "82, 118, 128", "97, 123, 132", "60, 119, 118"];
@@ -50,6 +60,16 @@ function createSignals(count: number): Signal[] {
       shiftY: 0,
       velocityX: 0,
       velocityY: 0,
+      captured: false,
+      influence: 0,
+      capturedAt: 0,
+      lastNearPointer: 0,
+      recaptureAfter: 0,
+      wellX: 0,
+      wellY: 0,
+      wellAngle: 0,
+      drawX: 0,
+      drawY: 0,
     };
   });
 }
@@ -80,7 +100,7 @@ export function ValuationSignalField() {
     let inView = true;
     let signals: Signal[] = [];
     let disposed = false;
-    const pointer = { x: 0, y: 0, followX: 0, followY: 0, active: false };
+    const pointer = { x: 0, y: 0, followX: 0, followY: 0, velocityX: 0, velocityY: 0, active: false };
 
     const draw = (delta: number) => {
       context.clearRect(0, 0, width, height);
@@ -90,10 +110,33 @@ export function ValuationSignalField() {
       const quietHeight = width < 640 ? 46 : 32;
       const orbitWidth = Math.min(430, width * (width < 640 ? 0.57 : 0.34));
       const orbitHeight = Math.min(220, height * 0.24);
-      const interactionRadius = 210;
-      const cursorEase = 1 - Math.exp(-12 * delta);
+      const interactionRadius = 245;
+      const cursorEase = 1 - Math.exp(-20 * delta);
+      const previousPointerX = pointer.followX;
+      const previousPointerY = pointer.followY;
       pointer.followX += (pointer.x - pointer.followX) * cursorEase;
       pointer.followY += (pointer.y - pointer.followY) * cursorEase;
+      if (delta > 0) {
+        const velocityEase = 1 - Math.exp(-10 * delta);
+        const speedX = (pointer.followX - previousPointerX) / delta;
+        const speedY = (pointer.followY - previousPointerY) / delta;
+        const limit = Math.min(1, 1800 / Math.max(1, Math.hypot(speedX, speedY)));
+        pointer.velocityX += (speedX * limit - pointer.velocityX) * velocityEase;
+        pointer.velocityY += (speedY * limit - pointer.velocityY) * velocityEase;
+      }
+
+      // Recruitment is local and bounded, leaving the main gathering field populated.
+      const captureLimit = Math.min(240, Math.round(signals.length * 0.11));
+      let influencedCount = signals.filter((signal) => signal.captured || signal.influence > 0.08).length;
+      const neighbors = new Map<string, { signal: Signal; x: number; y: number }[]>();
+      for (const signal of signals) {
+        if (signal.influence < 0.2) continue;
+        const key = `${Math.floor(signal.drawX / 8)},${Math.floor(signal.drawY / 8)}`;
+        const cell = neighbors.get(key);
+        const neighbor = { signal, x: signal.drawX, y: signal.drawY };
+        if (cell) cell.push(neighbor);
+        else neighbors.set(key, [neighbor]);
+      }
 
       for (const signal of signals) {
         const time = elapsed;
@@ -119,28 +162,91 @@ export function ValuationSignalField() {
         let targetX = 0;
         let targetY = 0;
 
-        if (pointer.active && !reducedMotion.matches) {
-          const dx = pointer.followX - x;
-          const dy = pointer.followY - y;
-          const separation = Math.hypot(dx, dy);
-          if (separation < interactionRadius) {
-            // Each dot retains its own orbit; the pointer only bends a local section of the field.
-            const pull = (1 - smoothStep(12, interactionRadius, separation)) * (0.72 + signal.depth * 0.18);
-            targetX = dx * pull;
-            targetY = dy * pull;
+        const currentX = x + signal.shiftX;
+        const currentY = y + signal.shiftY;
+        const pointerDistance = Math.hypot(currentX - pointer.followX, currentY - pointer.followY);
+        const pointerEnabled = pointer.active && !reducedMotion.matches;
+
+        if (signal.captured) {
+          if (pointerEnabled && pointerDistance < interactionRadius * 1.5) signal.lastNearPointer = time;
+          if (!pointerEnabled || time - signal.lastNearPointer > 0.65 || time - signal.capturedAt > 9 + signal.depth * 8) {
+            signal.captured = false;
+            signal.recaptureAfter = time + 2;
+          }
+        } else if (pointerEnabled && signal.influence < 0.08 && time > signal.recaptureAfter
+          && influencedCount < captureLimit && pointerDistance < interactionRadius * (0.72 + signal.depth * 0.28)) {
+          signal.captured = true;
+          signal.capturedAt = time;
+          signal.lastNearPointer = time;
+          signal.wellX = pointer.followX;
+          signal.wellY = pointer.followY;
+          signal.wellAngle = Math.atan2(currentY - pointer.followY, currentX - pointer.followX);
+          influencedCount += 1;
+        }
+
+        const influenceRate = signal.captured ? 7 + signal.depth * 8 : 1.5 + signal.depth * 0.7;
+        signal.influence += ((signal.captured ? 1 : 0) - signal.influence) * (1 - Math.exp(-influenceRate * delta));
+        if (signal.influence > 0.001) {
+          if (signal.captured) {
+            const follow = 1 - Math.exp(-(8 + signal.depth * 20) * delta);
+            signal.wellX += (pointer.followX - signal.wellX) * follow;
+            signal.wellY += (pointer.followY - signal.wellY) * follow;
+          }
+          const wellTime = time - signal.capturedAt;
+          const wellAngle = signal.wellAngle + wellTime * (0.18 + signal.depth * 0.2);
+          const spread = 8 + (signal.drift / TAU) ** 1.25 * 62;
+          const breathing = 1 + Math.sin(wellTime * 0.8 + signal.drift) * 0.1;
+          const localX = Math.cos(wellAngle) * spread * breathing + Math.sin(wellTime * 1.1 + signal.drift) * 3;
+          const localY = Math.sin(wellAngle) * spread * 0.8 * breathing + Math.cos(wellTime * 0.9 + signal.drift) * 3;
+          targetX = (signal.wellX + localX - x) * signal.influence;
+          targetY = (signal.wellY + localY - y) * signal.influence;
+        }
+
+        let separationX = 0;
+        let separationY = 0;
+        if (signal.influence > 0.2) {
+          const cellX = Math.floor(currentX / 8);
+          const cellY = Math.floor(currentY / 8);
+          for (let column = cellX - 1; column <= cellX + 1; column += 1) {
+            for (let row = cellY - 1; row <= cellY + 1; row += 1) {
+              for (const neighbor of neighbors.get(`${column},${row}`) ?? []) {
+                if (neighbor.signal === signal) continue;
+                const dx = currentX - neighbor.x;
+                const dy = currentY - neighbor.y;
+                const distance = Math.hypot(dx, dy);
+                const spacing = 4 + signal.radius + neighbor.signal.radius;
+                if (distance > 0.01 && distance < spacing) {
+                  const push = (1 - distance / spacing) * 180 * signal.influence;
+                  separationX += dx / distance * push;
+                  separationY += dy / distance * push;
+                }
+              }
+            }
           }
         }
 
-        if (delta > 0) {
-          const damping = Math.exp(-8 * delta);
-          signal.velocityX = (signal.velocityX + (targetX - signal.shiftX) * 42 * delta) * damping;
-          signal.velocityY = (signal.velocityY + (targetY - signal.shiftY) * 42 * delta) * damping;
-          signal.shiftX += signal.velocityX * delta;
-          signal.shiftY += signal.velocityY * delta;
+        if (delta > 0 && (signal.influence > 0.001 || Math.hypot(signal.shiftX, signal.shiftY) > 0.01)) {
+          const stiffness = 28 + signal.influence * (66 + signal.depth * 126);
+          const drag = 9 + signal.influence * (3 + signal.depth * 9);
+          const steps = Math.ceil(delta * 90);
+          const step = delta / steps;
+          const damping = Math.exp(-drag * step);
+          const inherit = signal.captured ? signal.influence * (0.06 + signal.depth * 0.22) : 0;
+          for (let iteration = 0; iteration < steps; iteration += 1) {
+            signal.velocityX = (signal.velocityX + ((targetX - signal.shiftX) * stiffness + separationX + pointer.velocityX * inherit * drag) * step) * damping;
+            signal.velocityY = (signal.velocityY + ((targetY - signal.shiftY) * stiffness + separationY + pointer.velocityY * inherit * drag) * step) * damping;
+            const speedLimit = Math.min(1, (1400 + signal.depth * 700) / Math.max(1, Math.hypot(signal.velocityX, signal.velocityY)));
+            signal.velocityX *= speedLimit;
+            signal.velocityY *= speedLimit;
+            signal.shiftX += signal.velocityX * step;
+            signal.shiftY += signal.velocityY * step;
+          }
         }
 
         const drawX = x + signal.shiftX;
         const drawY = y + signal.shiftY;
+        signal.drawX = drawX;
+        signal.drawY = drawY;
         if (drawX < -3 || drawX > width + 3 || drawY < -3 || drawY > height + 3) continue;
 
         const quietDistance = ((Math.abs(drawX - centerX) / quietWidth) ** 4
@@ -181,6 +287,8 @@ export function ValuationSignalField() {
           signal.shiftY = 0;
           signal.velocityX = 0;
           signal.velocityY = 0;
+          signal.captured = false;
+          signal.influence = 0;
         }
         draw(0);
       } else {
@@ -211,6 +319,8 @@ export function ValuationSignalField() {
       if (!pointer.active) {
         pointer.followX = pointer.x;
         pointer.followY = pointer.y;
+        pointer.velocityX = 0;
+        pointer.velocityY = 0;
       }
       pointer.active = pointer.x >= 0 && pointer.x <= width && pointer.y >= 0 && pointer.y <= height;
     };
