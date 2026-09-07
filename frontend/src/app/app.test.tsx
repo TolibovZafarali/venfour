@@ -790,8 +790,10 @@ describe("Venfour application", () => {
 
   test.each([
     ["total-loss", "Your vehicle was totaled"],
-    ["diminished-value", "Repairs can fix the vehicle—not its history."],
+    ["diminished-value", "Your vehicle was repaired"],
     ["how-it-works", "Start online in a few steps"],
+    ["example", "Two numbers. A clearer picture."],
+    ["faq", "A few things you might be wondering."],
   ])("honors the homepage #%s anchor after cross-page navigation", async (id, heading) => {
     const originalScrollIntoView = HTMLElement.prototype.scrollIntoView;
     const scrollIntoView = vi.fn();

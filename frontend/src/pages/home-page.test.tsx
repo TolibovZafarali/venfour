@@ -4,69 +4,32 @@ import { describe, expect, test } from "vitest";
 
 import { renderTestApp } from "@/test/render";
 
-describe("homepage structure", () => {
-  test("leads with an available review and a truthful paused-service update", async () => {
-    renderTestApp();
-
-    const heroHeading = await screen.findByRole("heading", {
+async function homepageHero() {
+  const hero = (
+    await screen.findByRole("heading", {
       level: 1,
       name: "Your Vehicle’s Value, Made Clear.",
-    });
-    expect(heroHeading).toBeVisible();
-    expect(heroHeading).toHaveClass(
-      "font-hero",
-      "font-bold",
-      "leading-[0.98]",
-      "tracking-[-0.035em]",
-      "text-[2.875rem]",
-      "sm:text-[3.25rem]",
-      "xl:text-[4.75rem]",
-      "2xl:text-[5rem]",
-    );
-    expect(heroHeading.children).toHaveLength(2);
-    expect(heroHeading.children[0]).toHaveTextContent("Your Vehicle’s Value,");
-    expect(heroHeading.children[0]).toHaveClass(
-      "block",
-      "sm:whitespace-nowrap",
-    );
-    expect(heroHeading.children[1]).toHaveTextContent("Made Clear.");
-    expect(heroHeading.children[1]).toHaveClass("block");
-    expect(
-      screen.getByText(
-        "Understand a total-loss vehicle valuation with or without an insurer report. Diminished Value customer intake is currently paused.",
-      ),
-    ).toBeVisible();
-    const hero = heroHeading.closest("section");
-    expect(hero).not.toBeNull();
-    if (!hero) {
-      throw new Error("The homepage hero was not rendered.");
-    }
-    expect(hero.querySelector("[data-hero-content]")).toHaveClass(
-      "min-h-[calc(100svh-4rem)]",
-    );
+    })
+  ).closest("section");
+  if (!hero) throw new Error("The homepage hero was not rendered.");
+  return hero;
+}
+
+describe("homepage structure", () => {
+  test("leads with the Total Loss review, a simple example, and saved-review recovery", async () => {
+    renderTestApp();
+    const hero = await homepageHero();
+
     expect(
       within(hero).getByRole("link", { name: "Start Total Loss review" }),
     ).toHaveAttribute("href", "/start?service=total-loss");
     expect(
-      within(hero).getByRole("link", {
-        name: "View Diminished Value update",
-      }),
-    ).toHaveAttribute("href", "/start?service=diminished-value");
-    for (const removedLabel of [
-      "Total loss",
-      "Self-service online",
-      "Diminished value",
-      "Personally handled",
-    ]) {
-      expect(within(hero).queryByText(removedLabel)).not.toBeInTheDocument();
-    }
-
+      within(hero).getByRole("link", { name: "See a simple example" }),
+    ).toHaveAttribute("href", "/#example");
     expect(
-      within(hero).queryByRole("figure", {
-        name: "Example total-loss appraisal",
-      }),
-    ).not.toBeInTheDocument();
-    expect(hero.querySelector("picture, img")).not.toBeInTheDocument();
+      within(hero).getByRole("link", { name: "Find my review" }),
+    ).toHaveAttribute("href", "/find-review");
+    expect(within(hero).queryByRole("figure")).not.toBeInTheDocument();
     expect(document.querySelector('input[type="file"]')).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Vehicle ZIP code")).not.toBeInTheDocument();
     expect(
@@ -74,176 +37,148 @@ describe("homepage structure", () => {
     ).not.toBeInTheDocument();
   });
 
-  test("presents exactly two truthful services and no general value service", async () => {
+  test("keeps an available Total Loss service and a clearly paused Diminished Value service", async () => {
     renderTestApp();
-
-    await screen.findByRole("heading", {
-      name: "Two services. Two different situations.",
-    });
-    const services = document.querySelector<HTMLElement>("#services");
-    expect(services).toBeVisible();
-    if (!services) {
-      throw new Error("The services section was not rendered.");
-    }
+    await screen.findByRole("heading", { name: "Start with your situation." });
+    const services = document.getElementById("services");
+    if (!services) throw new Error("The services section was not rendered.");
 
     expect(services.querySelectorAll("article")).toHaveLength(2);
-    const servicesHeading = within(services).getByRole("heading", {
-      name: "Two services. Two different situations.",
-    });
-    expect(servicesHeading).toBeVisible();
-    expect(servicesHeading.children).toHaveLength(2);
-    for (const line of servicesHeading.children) {
-      expect(line).toHaveClass("block");
+    for (const [id, heading] of [
+      ["total-loss", "Your vehicle was totaled"],
+      ["diminished-value", "Your vehicle was repaired"],
+    ]) {
+      const service = document.getElementById(id);
+      expect(service).toBeVisible();
+      expect(service).toHaveAttribute("tabindex", "-1");
+      expect(service).toContainElement(
+        within(services).getByRole("heading", { name: heading }),
+      );
     }
     expect(
-      within(services).getByRole("heading", {
-        name: "Your vehicle was totaled",
-      }),
-    ).toBeVisible();
-    expect(
-      within(services).getByRole("heading", {
-        name: "Your vehicle was repaired",
-      }),
-    ).toBeVisible();
-    expect(
-      within(services).getByRole("link", {
-        name: "Start Total Loss review",
-      }),
+      within(services).getByRole("link", { name: "Start Total Loss review" }),
     ).toHaveAttribute("href", "/start?service=total-loss");
+    const diminishedValue = document.getElementById("diminished-value")!;
+    expect(diminishedValue).toHaveTextContent(/intake.*paused/i);
     expect(
-      within(services).getByRole("link", {
-        name: "View service update",
-      }),
+      within(diminishedValue).getByRole("link", { name: /service update/i }),
     ).toHaveAttribute("href", "/start?service=diminished-value");
-    expect(screen.queryByText("I need my car’s value")).not.toBeInTheDocument();
-    expect(screen.queryByText("Request a value check")).not.toBeInTheDocument();
     expect(
-      document.querySelector('a[href*="vehicle-value"]'),
+      screen.queryByRole("link", { name: "Submit diminished-value request" }),
     ).not.toBeInTheDocument();
+    expect(document.querySelector('a[href*="vehicle-value"]')).not.toBeInTheDocument();
   });
 
-  test("renders the process, educational explanations, deliverable, and trust proof", async () => {
+  test("explains the three steps without repeating illustrated examples", async () => {
     renderTestApp();
-
     await screen.findByRole("heading", { name: "Start online in a few steps" });
-    for (const heading of [
-      "Start online in a few steps",
-      "The insurance report may not tell the whole story.",
-      "Repairs can fix the vehicle—not its history.",
-      "An analysis that makes the evidence clear.",
-      "Built for a careful second look.",
-    ]) {
-      expect(screen.getByRole("heading", { name: heading })).toBeVisible();
-    }
-
-    expect(
-      screen.queryByRole("heading", {
-        name: "Choose the appraisal that fits your situation.",
-      }),
-    ).not.toBeInTheDocument();
-
     const process = document.getElementById("how-it-works");
-    expect(process).toBeVisible();
-    expect(process?.querySelector("ol")?.children).toHaveLength(3);
-    const processVisuals = process?.querySelectorAll("figure") ?? [];
-    expect(processVisuals).toHaveLength(3);
-    for (const visual of processVisuals) {
-      expect(visual).toHaveClass("h-64");
-      expect(visual.firstElementChild).toHaveClass("h-44", "max-w-72");
-    }
+    if (!process) throw new Error("The process section was not rendered.");
+
+    expect(process).toHaveAttribute("tabindex", "-1");
+    expect(process.querySelector("ol")?.children).toHaveLength(3);
+    expect(within(process).queryByRole("figure")).not.toBeInTheDocument();
     for (const step of [
       "Add your valuation details",
       "Venfour checks the market",
       "See the evidence review",
     ]) {
-      expect(
-        within(process as HTMLElement).getByRole("heading", { name: step }),
-      ).toBeVisible();
+      expect(within(process).getByRole("heading", { name: step })).toBeVisible();
     }
-    expect(
-      within(process as HTMLElement).getByRole("link", {
-        name: "Start Total Loss review",
-      }),
-    ).toHaveAttribute("href", "/start?service=total-loss");
+    expect(process).toHaveTextContent(/report/i);
+    expect(process).toHaveTextContent(/enter.*details/i);
+  });
 
-    expect(
-      screen.getByText(
-        "A repaired vehicle may sell for less because buyers can see that it was in an accident.",
-      ),
-    ).toBeVisible();
-    expect(
-      screen.getByText(
-        "Venfour is completing the Total Loss experience before opening this service to customers.",
-      ),
-    ).toBeVisible();
-    const diminishedValueSection = document.getElementById("diminished-value");
-    expect(diminishedValueSection).toBeVisible();
-    expect(
-      within(diminishedValueSection as HTMLElement).getByRole("link", {
-        name: "View Diminished Value update",
-      }),
-    ).toHaveAttribute("href", "/start?service=diminished-value");
-    expect(
-      screen.queryByRole("link", { name: "Submit diminished-value request" }),
-    ).not.toBeInTheDocument();
-    expect(document.querySelector('a[href^="mailto:"]')).not.toBeInTheDocument();
-    for (const proof of [
-      "Similar vehicles reviewed",
-      "Local market considered",
-      "Clear limitations shown",
-      "Consumer-friendly explanation",
+  test("uses one clearly illustrative comparison with advertised-price limitations", async () => {
+    renderTestApp();
+    await screen.findByRole("heading", { name: "Two numbers. A clearer picture." });
+    const example = document.getElementById("example");
+    if (!example) throw new Error("The example section was not rendered.");
+    const figure = within(example).getByRole("figure", {
+      name: "Example valuation comparison",
+    });
+
+    expect(screen.getAllByRole("figure")).toEqual([figure]);
+    expect(figure).toHaveTextContent("$19,000");
+    expect(figure).toHaveTextContent("$21,000");
+    expect(figure).toHaveTextContent(/example|illustrat/i);
+    expect(example).toHaveTextContent(/asking price|advertised price/i);
+    expect(example).toHaveTextContent(/settlement/i);
+    expect(example).toHaveAttribute("tabindex", "-1");
+    for (const removedHeading of [
+      "The insurance report may not tell the whole story.",
+      "Repairs can fix the vehicle—not its history.",
+      "An analysis that makes the evidence clear.",
+      "Built for a careful second look.",
     ]) {
-      expect(screen.getByRole("heading", { name: proof })).toBeVisible();
+      expect(screen.queryByRole("heading", { name: removedHeading })).not.toBeInTheDocument();
     }
   });
 
-  test("shares the opening background and preserves the later section gradients", async () => {
+  test("places six concise native FAQ disclosures after the example and supports focus and toggling", async () => {
+    const user = userEvent.setup();
     renderTestApp();
+    await screen.findByRole("heading", { name: "A few things you might be wondering." });
+    const faq = document.getElementById("faq");
+    const example = document.getElementById("example");
+    if (!faq || !example) throw new Error("The example or FAQ section was not rendered.");
+    const disclosures = Array.from(faq.querySelectorAll<HTMLDetailsElement>("details"));
+    expect(disclosures).toHaveLength(6);
+    expect(example.compareDocumentPosition(faq) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    const summaries = disclosures.map((details) => {
+      const summary = details.querySelector("summary");
+      if (!summary) throw new Error("A FAQ answer lacks its native disclosure control.");
+      expect(details.firstElementChild).toBe(summary);
+      expect(summary).toHaveTextContent(/\?/);
+      return summary;
+    });
 
-    const hero = (await screen.findByRole("heading", {
-      name: "Your Vehicle’s Value, Made Clear.",
-    })).closest("section");
-    const services = screen.getByRole("heading", {
-      name: "Two services. Two different situations.",
-    }).closest("section");
-    expect(hero?.parentElement).toHaveClass("home-intro-gradient");
-    expect(services?.parentElement).toBe(hero?.parentElement);
+    summaries[0].focus();
+    expect(summaries[0]).toHaveFocus();
+    await user.tab();
+    expect(summaries[1]).toHaveFocus();
+    await user.tab({ shift: true });
+    expect(summaries[0]).toHaveFocus();
 
-    const sectionGradients = [
-      ["Start online in a few steps", "home-process-gradient"],
-      [
-        "The insurance report may not tell the whole story.",
-        "home-report-gradient",
-      ],
-      [
-        "Repairs can fix the vehicle—not its history.",
-        "home-diminished-gradient",
-      ],
-      [
-        "An analysis that makes the evidence clear.",
-        "home-deliverable-gradient",
-      ],
-      ["Built for a careful second look.", "home-trust-gradient"],
-    ] as const;
+    const answer = disclosures[0].children[1];
+    expect(disclosures[0]).not.toHaveAttribute("open");
+    expect(answer).not.toBeVisible();
+    await user.click(summaries[0]);
+    expect(disclosures[0]).toHaveAttribute("open");
+    expect(answer).toBeVisible();
+    await user.click(summaries[0]);
+    expect(disclosures[0]).not.toHaveAttribute("open");
+    expect(answer).not.toBeVisible();
+  });
 
-    for (const [heading, gradientClassName] of sectionGradients) {
-      const section = (
-        await screen.findByRole("heading", { name: heading })
-      ).closest("section");
-      expect(section).not.toBeNull();
-      expect(section).toHaveClass(gradientClassName);
+  test("answers common questions with current service limits and working recovery routes", async () => {
+    const user = userEvent.setup();
+    renderTestApp();
+    await homepageHero();
+    const faq = document.getElementById("faq");
+    if (!faq) throw new Error("The FAQ section was not rendered.");
+    for (const question of [
+      "Do I need an insurance report?",
+      "What does Venfour compare?",
+      "Does a higher asking price mean a higher settlement?",
+      "Will Venfour speak to my insurer?",
+      "Can I return to my review later?",
+      "Is Diminished Value available?",
+    ]) {
+      await user.click(within(faq).getByText(question));
     }
+    expect(within(faq).getByText(/You can upload your insurer’s valuation report or enter your vehicle and claim details yourself/)).toBeVisible();
+    expect(within(faq).getByText(/not a final sale price or a guaranteed settlement/)).toBeVisible();
+    expect(within(faq).getByText(/You stay in control of communicating with your insurer/)).toBeVisible();
+    expect(within(faq).getByText(/Customer intake is currently paused/)).toBeVisible();
+    expect(within(faq).getByRole("link", { name: "review recovery" })).toHaveAttribute("href", "/find-review");
+    expect(within(faq).getByRole("link", { name: "view the service update" })).toHaveAttribute("href", "/start?service=diminished-value");
   });
 
   test("avoids unsupported promises and links the current public policies", async () => {
     renderTestApp();
-
-    await screen.findByRole("heading", {
-      name: "Your Vehicle’s Value, Made Clear.",
-    });
-    expect(
-      screen.queryByRole("heading", { name: "What customers say" }),
-    ).not.toBeInTheDocument();
+    await homepageHero();
+    expect(screen.queryByRole("heading", { name: "What customers say" })).not.toBeInTheDocument();
     expect(screen.queryByText(/guaranteed increase/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/you are owed/i)).not.toBeInTheDocument();
     for (const href of ["/methodology", "/terms", "/contact"]) {
@@ -251,55 +186,27 @@ describe("homepage structure", () => {
     }
   });
 
-  test("opens the total-loss start route from the hero action", async () => {
+  test("opens the Total Loss start route from the hero action", async () => {
     const user = userEvent.setup();
     const { router } = renderTestApp();
-    const hero = (
-      await screen.findByRole("heading", {
-        name: "Your Vehicle’s Value, Made Clear.",
-      })
-    ).closest("section");
-    if (!hero) {
-      throw new Error("The homepage hero was not rendered.");
-    }
+    const hero = await homepageHero();
+    await user.click(within(hero).getByRole("link", { name: "Start Total Loss review" }));
 
-    await user.click(
-      within(hero).getByRole("link", { name: "Start Total Loss review" }),
-    );
-
-    await waitFor(() =>
-      expect(router.state.location.pathname).toBe("/start"),
-    );
+    await waitFor(() => expect(router.state.location.pathname).toBe("/start"));
     expect(router.state.location.search).toBe("?service=total-loss");
-    expect(
-      screen.getByRole("heading", { name: "Start your Total Loss review" }),
-    ).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Start your Total Loss review" })).toBeVisible();
   });
 
-  test("opens the paused diminished-value service update from the hero action", async () => {
+  test("opens the paused Diminished Value update from its service card", async () => {
     const user = userEvent.setup();
     const { router } = renderTestApp();
-    const hero = (
-      await screen.findByRole("heading", {
-        name: "Your Vehicle’s Value, Made Clear.",
-      })
-    ).closest("section");
-    if (!hero) {
-      throw new Error("The homepage hero was not rendered.");
-    }
-
-    await user.click(
-      within(hero).getByRole("link", {
-        name: "View Diminished Value update",
-      }),
-    );
+    await homepageHero();
+    const diminishedValue = document.getElementById("diminished-value");
+    if (!diminishedValue) throw new Error("The Diminished Value service was not rendered.");
+    await user.click(within(diminishedValue).getByRole("link", { name: /service update/i }));
 
     await waitFor(() => expect(router.state.location.pathname).toBe("/start"));
     expect(router.state.location.search).toBe("?service=diminished-value");
-    expect(
-      screen.getByRole("heading", {
-        name: "Diminished Value intake is currently paused",
-      }),
-    ).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Diminished Value intake is currently paused" })).toBeVisible();
   });
 });
