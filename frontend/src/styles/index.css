@@ -277,6 +277,22 @@
       linear-gradient(132deg, #f8faff 0%, #f3f6f9 48%, #f1f6f7 100%);
   }
 
+  .home-hero-gradient {
+    background-image:
+      radial-gradient(
+        ellipse 76% 88% at 0% 0%,
+        rgb(154 190 249 / 0.56) 0%,
+        rgb(188 211 251 / 0.24) 48%,
+        transparent 76%
+      ),
+      radial-gradient(
+        ellipse 62% 64% at 100% 48%,
+        rgb(170 219 207 / 0.48) 0%,
+        rgb(205 232 225 / 0.18) 48%,
+        transparent 78%
+      );
+  }
+
   .home-report-gradient {
     background-image:
       radial-gradient(

@@ -1,5 +1,5 @@
 type AuthOperation =
-  "callback" | "oauth" | "email" | "google" | "apple" | "guest" | "signout";
+  "callback" | "oauth" | "email" | "send-code" | "verify-code" | "google" | "apple" | "guest" | "signout";
 
 interface ErrorDetails {
   code?: string;
@@ -70,6 +70,10 @@ export function getFriendlyAuthError(error: unknown, operation: AuthOperation) {
   }
 
   switch (operation) {
+    case "send-code":
+      return "We couldn’t send the sign-in code. Check the address and try again.";
+    case "verify-code":
+      return "That code is incorrect or has expired. Try again or request a new code.";
     case "callback":
       return "This sign-in link is invalid or has expired. Please request a new one.";
     case "oauth":

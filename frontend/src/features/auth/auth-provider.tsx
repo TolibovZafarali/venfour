@@ -318,6 +318,30 @@ export function AuthProvider({
     [applySession, requireService],
   );
 
+  const sendEmailCode = useCallback<AuthContextValue["sendEmailCode"]>(
+    async (email, options) => {
+      storeAuthReturnLocation(options?.returnTo);
+      await turnstileController.runWithToken("magic-link", (captchaToken) =>
+        requireService().sendEmailCode(email, getAuthCallbackUrl(), captchaToken),
+      );
+    },
+    [requireService, turnstileController],
+  );
+
+  const completeEmailCode = useCallback<AuthContextValue["completeEmailCode"]>(
+    async (email, token) => {
+      if (!/^\d{6}$/u.test(token)) throw new Error("Enter the six-digit code from your email.");
+      const session = await requireService().verifyEmailCode(email, token);
+      if (isAnonymousUser(session.user) || !session.user.email_confirmed_at ||
+        session.user.email?.trim().toLowerCase() !== email.trim().toLowerCase()) {
+        throw new Error("The code did not verify the requested account.");
+      }
+      applySession(session);
+      return session;
+    },
+    [applySession, requireService],
+  );
+
   const completeEmailAuthCallback = useCallback<
     AuthContextValue["completeEmailAuthCallback"]
   >(
@@ -343,6 +367,8 @@ export function AuthProvider({
       restoreSession,
       runTurnstileChallenge,
       sendMagicLink,
+      sendEmailCode,
+      completeEmailCode,
       signInWithGoogle,
       signInWithApple,
       signOut,
@@ -355,6 +381,8 @@ export function AuthProvider({
       restoreSession,
       runTurnstileChallenge,
       sendMagicLink,
+      sendEmailCode,
+      completeEmailCode,
       signInWithGoogle,
       signInWithApple,
       signOut,

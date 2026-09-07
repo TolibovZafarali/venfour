@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { Link, useLocation, useNavigate } from "react-router";
 
+import { completeCaseClaim, completedAuthReturnLocation } from "@/features/auth/auth-completion";
 import { getFriendlyAuthError } from "@/features/auth/auth-errors";
 import { SignInDialog } from "@/features/auth/sign-in-dialog";
 import {
@@ -12,7 +13,6 @@ import {
   useAuth,
 } from "@/features/auth/auth-context";
 import {
-  consumeAuthReturnLocation,
   readAuthReturnLocation,
   readAuthCallbackParameters,
   readCaseClaimCallbackParameter,
@@ -23,10 +23,6 @@ import type { CompleteTotalLossIdentityClaimResult } from "@/features/total-loss
 interface CompletedAuthCallback {
   readonly claim: CompleteTotalLossIdentityClaimResult | null;
   readonly session: Session;
-}
-
-class CaseClaimCompletionError extends Error {
-  readonly code = "CASE_CLAIM_FAILED";
 }
 
 export function AuthCallbackPage() {
@@ -262,46 +258,4 @@ export function AuthCallbackPage() {
       ) : null}
     </section>
   );
-}
-
-function completedAuthReturnLocation(
-  caseClaim: ReturnType<typeof readCaseClaimCallbackParameter>,
-  completedClaim: CompleteTotalLossIdentityClaimResult | null,
-) {
-  const storedReturnLocation = consumeAuthReturnLocation();
-  if (caseClaim.kind !== "claim") return storedReturnLocation;
-  if (!completedClaim) {
-    throw new Error("The secure case-access link could not be completed.");
-  }
-  return completedClaim.claimPurpose === "post_continue"
-    ? `/total-loss/cases/${encodeURIComponent(completedClaim.caseId)}/claim/checkout`
-    : "/appraisals";
-}
-
-async function completeCaseClaim(
-  identityService:
-    | NonNullable<
-        ReturnType<typeof useTotalLossDependencies>
-      >["totalLossIdentityService"]
-    | undefined,
-  claimId: string,
-  expectedUserId: string,
-) {
-  if (!identityService) {
-    throw new Error("Secure case access is temporarily unavailable.");
-  }
-  let result: Awaited<ReturnType<typeof identityService.completeIdentityClaim>>;
-  try {
-    result = await identityService.completeIdentityClaim(claimId);
-  } catch {
-    throw new CaseClaimCompletionError(
-      "The secure case-access link could not be completed.",
-    );
-  }
-  if (!result || result.ownerUserId !== expectedUserId) {
-    throw new CaseClaimCompletionError(
-      "The secure case-access link could not be completed.",
-    );
-  }
-  return result;
 }

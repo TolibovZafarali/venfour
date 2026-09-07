@@ -51,6 +51,8 @@ export interface AuthContextValue {
     email: string,
     options?: AuthActionOptions,
   ) => Promise<void>;
+  sendEmailCode: AuthContextValue["sendMagicLink"];
+  completeEmailCode: (email: string, token: string) => Promise<Session>;
   completeAuthCallback: (
     code: string,
     flowId?: string,

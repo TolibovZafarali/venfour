@@ -73,7 +73,7 @@ export function PublicHomePage() {
   return (
     <div ref={motionRoot} data-home-motion className="home-page -mt-16 w-full overflow-clip bg-white text-ink">
       <div className="home-intro-gradient bg-canvas">
-        <section className="relative isolate overflow-hidden pt-16">
+        <section className="home-hero-gradient relative isolate overflow-hidden pt-16">
           <div
             className="relative z-10 mx-auto flex min-h-[calc(100svh-4rem)] w-full max-w-[90rem] items-center justify-center px-5 py-12 sm:px-8 sm:py-16 lg:px-10 lg:py-20 xl:py-24"
             data-hero-content

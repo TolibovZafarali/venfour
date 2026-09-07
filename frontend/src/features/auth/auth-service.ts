@@ -23,6 +23,8 @@ export interface AuthService {
     redirectTo: string,
     captchaToken: string,
   ) => Promise<void>;
+  sendEmailCode: AuthService["sendMagicLink"];
+  verifyEmailCode: (email: string, token: string) => Promise<Session>;
   exchangeCodeForSession: (
     code: string,
     flowId?: string,
@@ -40,6 +42,14 @@ function throwIfError(error: Error | null) {
 export function createSupabaseAuthService(
   client: SupabaseClient<Database>,
 ): AuthService {
+  const sendEmail: AuthService["sendMagicLink"] = async (email, redirectTo, captchaToken) => {
+    const { error } = await client.auth.signInWithOtp({
+      email,
+      options: { captchaToken, emailRedirectTo: redirectTo, shouldCreateUser: true },
+    });
+    throwIfError(error);
+  };
+
   return {
     async getSession() {
       const { data, error } = await client.auth.getSession();
@@ -95,16 +105,14 @@ export function createSupabaseAuthService(
       throwIfError(error);
     },
 
-    async sendMagicLink(email, redirectTo, captchaToken) {
-      const { error } = await client.auth.signInWithOtp({
-        email,
-        options: {
-          captchaToken,
-          emailRedirectTo: redirectTo,
-          shouldCreateUser: true,
-        },
-      });
+    sendMagicLink: sendEmail,
+    sendEmailCode: sendEmail,
+
+    async verifyEmailCode(email, token) {
+      const { data, error } = await client.auth.verifyOtp({ email, token, type: "email" });
       throwIfError(error);
+      if (!data.session) throw new Error("Supabase did not return a session.");
+      return data.session;
     },
 
     async exchangeCodeForSession(code, flowId) {
