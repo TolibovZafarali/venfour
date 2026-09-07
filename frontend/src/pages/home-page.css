@@ -41,12 +41,6 @@
     background: var(--brand-soft);
   }
 
-  .home-example-section {
-    background:
-      radial-gradient(ellipse at 98% 50%, rgb(218 230 253 / 0.42), transparent 65%),
-      linear-gradient(130deg, #f8fafc, #f2f6fc);
-  }
-
   .home-comparison {
     min-width: 0;
     overflow: hidden;

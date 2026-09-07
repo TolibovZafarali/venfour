@@ -177,7 +177,7 @@ describe("Venfour application", () => {
     expect(footerWordmark).toBeVisible();
     expect(within(footer).queryByText("VENFOUR")).toBeNull();
     expect(footer.querySelector("[data-footer-legal]")).toHaveTextContent(
-      `© ${new Date().getFullYear()} Venfour, LLC. All rights reserved.`,
+      `© ${new Date().getFullYear()} Venfour LLC. All rights reserved.`,
     );
 
     const renderedImageSources = Array.from(

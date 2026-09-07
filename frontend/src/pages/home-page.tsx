@@ -158,7 +158,7 @@ export function PublicHomePage() {
         </section>
       </div>
 
-      <section id="how-it-works" className="section-anchor scroll-mt-24 border-b border-line/70" aria-labelledby="process-title" tabIndex={-1}>
+      <section id="how-it-works" className="home-process-gradient section-anchor scroll-mt-24 border-b border-line/70 bg-canvas" aria-labelledby="process-title" tabIndex={-1}>
         <div className="home-section">
           <div data-home-entrance="heading" className="mx-auto max-w-2xl text-center">
             <p className="home-eyebrow">How it works</p>
@@ -180,7 +180,7 @@ export function PublicHomePage() {
         </div>
       </section>
 
-      <section id="example" className="home-example-section section-anchor scroll-mt-24" aria-labelledby="example-title" tabIndex={-1}>
+      <section id="example" className="home-report-gradient section-anchor scroll-mt-24 bg-white" aria-labelledby="example-title" tabIndex={-1}>
         <div className="home-section grid gap-10 lg:grid-cols-[0.85fr_1.15fr] lg:items-center lg:gap-16">
           <div>
             <p data-home-entrance="supporting" className="home-eyebrow">A simple example</p>

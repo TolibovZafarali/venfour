@@ -674,7 +674,7 @@ function AppShellContent() {
             >
               © {new Date().getFullYear()}{" "}
               <span className="notranslate" translate="no">
-                Venfour, LLC
+                Venfour LLC
               </span>
               . All rights reserved.
             </p>
