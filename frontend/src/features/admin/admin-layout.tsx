@@ -1,4 +1,4 @@
-import { Activity, ChevronRight, ClipboardList, CreditCard, Files, LayoutDashboard, LogOut, Menu, PanelLeftClose, PanelLeftOpen, TriangleAlert, Users, Workflow, X } from "lucide-react";
+import { Activity, ChevronLeft, ChevronRight, ClipboardList, CreditCard, Files, LayoutDashboard, LogOut, Menu, TriangleAlert, Users, Workflow, X } from "lucide-react";
 import { Dialog, Tooltip } from "radix-ui";
 import { useEffect, useRef, useState } from "react";
 import { Link, Outlet, useLocation } from "react-router";
@@ -39,6 +39,8 @@ export function AdminLayout() {
   const [signOutError, setSignOutError] = useState<string | null>(null);
   const mainRef = useRef<HTMLElement>(null);
   const menuRef = useRef<HTMLButtonElement>(null);
+  const expandRef = useRef<HTMLButtonElement>(null);
+  const collapseRef = useRef<HTMLButtonElement>(null);
   const previousPathRef = useRef(location.pathname);
   const params = new URLSearchParams(location.search);
   const returnParams = new URLSearchParams((params.get("returnTo") ?? "").split("?")[1]);
@@ -72,11 +74,12 @@ export function AdminLayout() {
     return () => media.removeEventListener("change", closeOnDesktop);
   }, []);
 
-  const toggle = () => setCollapsed((value) => {
-    const next = !value;
+  const toggle = () => {
+    const next = !collapsed;
+    setCollapsed(next);
     try { localStorage.setItem(storageKey, String(next)); } catch { /* Storage is optional for layout preferences. */ }
-    return next;
-  });
+    requestAnimationFrame(() => (next ? expandRef : collapseRef).current?.focus());
+  };
   const handleSignOut = async () => {
     setSignOutPending(true);
     setSignOutError(null);
@@ -87,15 +90,18 @@ export function AdminLayout() {
 
   const sidebarContent = (compact: boolean, mobile: boolean) => <>
     <div className="admin-sidebar-brand">
-      <Link to="/admin" aria-label="Venfour admin overview" onClick={() => setMobileOpen(false)}>
+      {compact ? <button ref={expandRef} className="admin-brand-expand" type="button" onClick={toggle} aria-label="Expand sidebar" aria-expanded={false} aria-controls="admin-desktop-navigation">
+          <img src={venfourMark} alt="" aria-hidden="true" />
+        </button> : <Link to="/admin" aria-label="Venfour admin overview" onClick={() => setMobileOpen(false)}>
         <img src={venfourMark} alt="" aria-hidden="true" />
-        <span className="admin-nav-label">Venfour<span className="admin-brand-caption">OPERATIONS</span></span>
-      </Link>
+        <span className="admin-nav-label">Venfour</span>
+      </Link>}
+      {!mobile && !compact && <button ref={collapseRef} className="admin-icon-button admin-collapse-toggle" type="button" onClick={toggle} aria-label="Collapse sidebar" aria-expanded={true} aria-controls="admin-desktop-navigation"><ChevronLeft size={20} strokeWidth={1.7} aria-hidden="true" /></button>}
       {mobile && <Dialog.Close className="admin-icon-button" aria-label="Close navigation"><X size={20} /></Dialog.Close>}
     </div>
     <div className="admin-sidebar-section-label"><span className="admin-nav-label">WORKSPACE</span></div>
     <nav aria-label="Admin navigation" className="admin-navigation">
-      {navigation.map((item, index) => <Tooltip.Root key={item.href} open={compact ? undefined : false}>
+      {navigation.map((item, index) => <Tooltip.Root key={`${item.href}:${compact}`} open={compact ? undefined : false}>
         <Tooltip.Trigger asChild>
           <Link to={item.href} aria-label={item.label} aria-current={active === item ? "page" : undefined}
             className={`admin-nav-link${index === 4 ? " admin-nav-group-start" : ""}`} onClick={() => setMobileOpen(false)}>
@@ -109,7 +115,7 @@ export function AdminLayout() {
     </nav>
     <div className="admin-sidebar-footer">
       <div className="admin-staff-identity"><span className="admin-avatar" aria-hidden="true">{user ? getUserAccountLabel(user).slice(0, 1).toUpperCase() : "V"}</span><span className="admin-nav-label"><strong>{user ? getUserAccountLabel(user) : "Staff"}</strong><span>{user ? getUserIdentityLabel(user) : ""}</span></span></div>
-      <Tooltip.Root open={compact ? undefined : false}><Tooltip.Trigger asChild><button className="admin-nav-link" type="button" aria-label="Sign out" disabled={signOutPending} onClick={() => void handleSignOut()}><LogOut size={18} aria-hidden="true" /><span className="admin-nav-label">{signOutPending ? "Signing out…" : "Sign out"}</span></button></Tooltip.Trigger><Tooltip.Portal><Tooltip.Content side="right" className="admin-tooltip">Sign out</Tooltip.Content></Tooltip.Portal></Tooltip.Root>
+      <Tooltip.Root key={`sign-out:${compact}`} open={compact ? undefined : false}><Tooltip.Trigger asChild><button className="admin-nav-link" type="button" aria-label="Sign out" disabled={signOutPending} onClick={() => void handleSignOut()}><LogOut size={18} aria-hidden="true" /><span className="admin-nav-label">{signOutPending ? "Signing out…" : "Sign out"}</span></button></Tooltip.Trigger><Tooltip.Portal><Tooltip.Content side="right" className="admin-tooltip">Sign out</Tooltip.Content></Tooltip.Portal></Tooltip.Root>
       {signOutError && <p role="alert" className="admin-signout-error">{signOutError}</p>}
     </div>
   </>;
@@ -120,12 +126,10 @@ export function AdminLayout() {
         <a className="admin-skip-link" href="#main-content" onClick={() => mainRef.current?.focus()}>Skip to content</a>
         <aside id="admin-desktop-navigation" className="admin-desktop-sidebar" aria-label="Staff workspace">{sidebarContent(collapsed, false)}</aside>
         <div className="admin-content-shell">
-          <header className="admin-topbar">
-            <button className="admin-icon-button admin-collapse-toggle" type="button" onClick={toggle} aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"} aria-expanded={!collapsed} aria-controls="admin-desktop-navigation">{collapsed ? <PanelLeftOpen size={20} /> : <PanelLeftClose size={20} />}</button>
+          <div className="admin-topbar">
             <Dialog.Trigger asChild><button ref={menuRef} className="admin-icon-button admin-mobile-toggle" type="button" aria-label="Open navigation"><Menu size={21} /></button></Dialog.Trigger>
-            <nav aria-label="Breadcrumb" className="admin-breadcrumb"><Link to="/admin">Workspace</Link>{title !== "Overview" && <><ChevronRight size={14} aria-hidden="true" /><Link to={active?.href ?? "/admin"}>{title}</Link></>}{detail && <><ChevronRight size={14} aria-hidden="true" /><span>Details</span></>}</nav>
-            <span className="admin-readonly-label"><span />Read-only access</span>
-          </header>
+            <nav aria-label="Breadcrumb" className="admin-breadcrumb"><Link to="/admin">Workspace</Link><ChevronRight size={14} aria-hidden="true" />{detail ? <><Link to={active?.href ?? "/admin"}>{title}</Link><ChevronRight size={14} aria-hidden="true" /><span aria-current="page">Details</span></> : <span aria-current="page">{title}</span>}</nav>
+          </div>
           <main id="main-content" tabIndex={-1} ref={mainRef}><Outlet /></main>
         </div>
       </div>

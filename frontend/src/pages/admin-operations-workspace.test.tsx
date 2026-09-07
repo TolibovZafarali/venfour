@@ -1,6 +1,6 @@
 import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { adminOperationsQueryKeys } from "@/features/admin/operations/queries";
 import {
@@ -23,7 +23,15 @@ function renderWorkspace(path = "/admin", dependencies = createAdminTestDependen
   return { ...renderTestApp([path], { adminCaseOperationsDependencies: dependencies, authService: auth.service }), dependencies, auth };
 }
 
-beforeEach(() => { localStorage.removeItem("venfour.admin.sidebar.collapsed"); });
+beforeEach(() => {
+  localStorage.removeItem("venfour.admin.sidebar.collapsed");
+  vi.stubGlobal("ResizeObserver", class {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  });
+});
+afterEach(() => vi.unstubAllGlobals());
 
 describe("admin operations workspace", () => {
   it("opens an overview with a working destination for every sidebar link", async () => {
@@ -31,6 +39,10 @@ describe("admin operations workspace", () => {
     const { router, dependencies } = renderWorkspace();
     expect(await screen.findByRole("heading", { name: "Overview", level: 1 })).toBeVisible();
     expect(screen.getAllByRole("main")).toHaveLength(1);
+    expect(screen.getByRole("heading", { name: "Overview", level: 1 })).not.toHaveClass("sr-only");
+    expect(screen.queryByText("Read-only access")).not.toBeInTheDocument();
+    expect(within(screen.getByRole("navigation", { name: "Breadcrumb" })).getByText("Overview")).toHaveAttribute("aria-current", "page");
+    expect(within(screen.getByRole("main")).getByRole("button", { name: "Refresh" })).toBeVisible();
     const nav = screen.getByRole("navigation", { name: "Admin navigation" });
     expect(within(nav).getAllByRole("link")).toHaveLength(8);
     for (const [label, path] of [
@@ -43,6 +55,7 @@ describe("admin operations workspace", () => {
       expect(await screen.findByRole("heading", { name: label, level: 1 })).toBeVisible();
       expect(router.state.location.pathname).toBe(path);
       expect(within(nav).getByRole("link", { name: label })).toHaveAttribute("aria-current", "page");
+      expect(within(screen.getByRole("main")).getByRole("button", { name: "Refresh" })).toBeVisible();
     }
     expect(dependencies.caseService.listCases).not.toHaveBeenCalled();
     expect(screen.queryByRole("link", { name: "Open Venfour" })).not.toBeInTheDocument();
@@ -50,20 +63,31 @@ describe("admin operations workspace", () => {
     expect(screen.queryByText("Diminished value")).not.toBeInTheDocument();
   });
 
-  it("keeps desktop sidebar preference and accessible navigation after collapsing", async () => {
+  it("collapses from inside the sidebar and reopens from its logo without navigating", async () => {
     const user = userEvent.setup();
     const view = renderWorkspace();
     await screen.findByRole("heading", { name: "Overview", level: 1 });
-    await user.click(screen.getByRole("button", { name: "Collapse sidebar" }));
+    const sidebar = screen.getByRole("complementary", { name: "Staff workspace" });
+    const collapse = within(sidebar).getByRole("button", { name: "Collapse sidebar" });
+    expect(collapse.closest(".admin-sidebar-brand")).toContainElement(within(sidebar).getByRole("link", { name: "Venfour admin overview" }));
+    await user.click(collapse);
     expect(localStorage.getItem("venfour.admin.sidebar.collapsed")).toBe("true");
-    expect(screen.getByRole("button", { name: "Expand sidebar" })).toHaveAttribute("aria-expanded", "false");
+    const expand = within(sidebar).getByRole("button", { name: "Expand sidebar" });
+    expect(expand).toHaveAttribute("aria-expanded", "false");
+    expect(expand.querySelector("img")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Collapse sidebar" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Venfour admin overview" })).not.toBeInTheDocument();
+    await waitFor(() => expect(expand).toHaveFocus());
     expect(screen.getByRole("link", { name: "Cases" })).toHaveAttribute("href", "/admin/cases");
     view.unmount();
-    renderWorkspace("/admin/reports");
+    const { router } = renderWorkspace("/admin/reports");
     await screen.findByRole("heading", { name: "Reports", level: 1 });
     expect(screen.getByRole("button", { name: "Expand sidebar" })).toHaveAttribute("aria-expanded", "false");
-    await user.click(screen.getByRole("button", { name: "Expand sidebar" }));
+    screen.getByRole("button", { name: "Expand sidebar" }).focus();
+    await user.keyboard("{Enter}");
     expect(localStorage.getItem("venfour.admin.sidebar.collapsed")).toBe("false");
+    expect(router.state.location.pathname).toBe("/admin/reports");
+    await waitFor(() => expect(screen.getByRole("button", { name: "Collapse sidebar" })).toHaveFocus());
   });
 
   it("supports the navigation drawer with Escape and restores focus to its trigger", async () => {
