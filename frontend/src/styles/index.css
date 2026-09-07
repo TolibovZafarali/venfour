@@ -264,14 +264,14 @@
   .home-intro-gradient {
     background-image:
       radial-gradient(
-        ellipse 76% 64% at -8% -10%,
-        rgb(205 222 255 / 0.72) 0%,
-        rgb(222 233 252 / 0.34) 46%,
+        ellipse 80% 68% at -4% -6%,
+        rgb(194 215 252 / 0.82) 0%,
+        rgb(216 230 252 / 0.42) 46%,
         transparent 72%
       ),
       radial-gradient(
-        ellipse 58% 52% at 82% 106%,
-        rgb(210 234 227 / 0.4) 0%,
+        ellipse 64% 58% at 88% 98%,
+        rgb(200 229 221 / 0.54) 0%,
         transparent 70%
       ),
       linear-gradient(132deg, #f8faff 0%, #f3f6f9 48%, #f1f6f7 100%);
@@ -281,12 +281,12 @@
     background-image:
       radial-gradient(
         ellipse 52% 58% at -4% 28%,
-        rgb(255 235 202 / 0.38) 0%,
+        rgb(255 232 194 / 0.5) 0%,
         transparent 68%
       ),
       radial-gradient(
         ellipse 54% 50% at 98% 82%,
-        rgb(221 232 254 / 0.4) 0%,
+        rgb(210 226 253 / 0.54) 0%,
         transparent 70%
       ),
       linear-gradient(145deg, #fffdf9 0%, #ffffff 44%, #f9fbff 100%);
@@ -326,13 +326,13 @@
   .home-trust-gradient {
     background-image:
       radial-gradient(
-        ellipse 54% 110% at 4% -24%,
-        rgb(43 108 244 / 0.2) 0%,
+        ellipse 58% 115% at 4% -12%,
+        rgb(43 108 244 / 0.29) 0%,
         transparent 68%
       ),
       radial-gradient(
-        ellipse 56% 120% at 96% 124%,
-        rgb(25 129 107 / 0.2) 0%,
+        ellipse 60% 124% at 96% 112%,
+        rgb(25 129 107 / 0.27) 0%,
         transparent 70%
       ),
       linear-gradient(135deg, #0b1f33 0%, #102a43 52%, #0a2031 100%);
