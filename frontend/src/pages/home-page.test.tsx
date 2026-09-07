@@ -16,7 +16,7 @@ async function homepageHero() {
 }
 
 describe("homepage structure", () => {
-  test("leads with the Total Loss review, a simple example, and saved-review recovery", async () => {
+  test("leads with the Total Loss review and saved-review recovery", async () => {
     renderTestApp();
     const hero = await homepageHero();
 
@@ -24,8 +24,9 @@ describe("homepage structure", () => {
       within(hero).getByRole("link", { name: "Start Total Loss review" }),
     ).toHaveAttribute("href", "/start?service=total-loss");
     expect(
-      within(hero).getByRole("link", { name: "See a simple example" }),
-    ).toHaveAttribute("href", "/#example");
+      within(hero).queryByRole("link", { name: "See a simple example" }),
+    ).not.toBeInTheDocument();
+    expect(within(hero).queryByText("Clarity after a total loss")).not.toBeInTheDocument();
     expect(
       within(hero).getByRole("link", { name: "Find my review" }),
     ).toHaveAttribute("href", "/find-review");

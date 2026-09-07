@@ -79,7 +79,6 @@ export function PublicHomePage() {
             data-hero-content
           >
             <div className="w-full max-w-4xl text-center">
-              <p data-home-entrance="supporting" className="home-eyebrow mb-6">Clarity after a total loss</p>
               <h1
                 data-home-entrance="heading"
                 aria-label="Your Vehicle’s Value, Made Clear."
@@ -103,10 +102,6 @@ export function PublicHomePage() {
                     <ArrowRight className="size-4 shrink-0" aria-hidden />
                   </Link>
                 )}
-                <Link to="/#example" className={`${textLinkClassName} justify-center text-ink`}>
-                  See a simple example
-                  <ArrowRight className="size-4" aria-hidden />
-                </Link>
               </div>
               <p data-home-entrance="supporting" data-home-order="3" className="mt-5 min-h-11 text-sm text-copy">
                 {!guestReturn.pending && !guestReturn.action ? <>
@@ -210,12 +205,10 @@ export function PublicHomePage() {
           <div data-home-entrance="heading" className="mx-auto max-w-3xl text-center">
             <p className="home-eyebrow">Frequently asked questions</p>
             <h2 id="faq-title" data-anchor-heading className={`${sectionHeadingClassName} mx-auto mt-3`}>A few things you might be wondering.</h2>
-            <p className="mt-5 text-base leading-7 text-copy">Still have a question?</p>
-            <Link to="/contact" className={textLinkClassName}>Get in touch <ArrowRight className="size-4" aria-hidden /></Link>
           </div>
-          <div data-home-entrance="supporting" data-home-order="1" className="home-faq mx-auto mt-9 max-w-3xl lg:mt-12">
+          <div className="home-faq mx-auto mt-9 max-w-3xl lg:mt-12">
             {frequentlyAskedQuestions.map(({ question, answer }) => (
-              <details key={question} className="group border-b border-line first:border-t">
+              <details key={question} data-home-entrance="supporting" className="group border-b border-line first:border-t">
                 <summary className="flex min-h-20 cursor-pointer list-none items-center justify-between gap-5 py-5 text-base leading-6 font-medium text-ink transition-colors hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-inset motion-reduce:transition-none">
                   <span>{question}</span>
                   <Plus className="size-5 shrink-0 text-copy transition-transform duration-200 group-open:rotate-45 motion-reduce:transition-none" strokeWidth={1.5} aria-hidden />
@@ -223,6 +216,10 @@ export function PublicHomePage() {
                 <div className="max-w-xl pr-7 pb-6 text-sm leading-7 text-copy sm:text-base">{answer}</div>
               </details>
             ))}
+          </div>
+          <div data-home-entrance="supporting" className="mx-auto mt-8 max-w-3xl text-center">
+            <p className="text-base leading-7 text-copy">Still have a question?</p>
+            <Link to="/contact" className={textLinkClassName}>Get in touch <ArrowRight className="size-4" aria-hidden /></Link>
           </div>
         </div>
       </section>
