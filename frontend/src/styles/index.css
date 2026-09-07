@@ -259,7 +259,7 @@
 }
 
 @layer components {
-  .home-hero-gradient {
+  .home-intro-gradient {
     background-image:
       radial-gradient(
         ellipse 76% 64% at -8% -10%,
@@ -273,21 +273,6 @@
         transparent 70%
       ),
       linear-gradient(132deg, #f8faff 0%, #f3f6f9 48%, #f1f6f7 100%);
-  }
-
-  .home-services-gradient {
-    background-image:
-      radial-gradient(
-        ellipse 62% 42% at 2% 2%,
-        rgb(226 236 255 / 0.68) 0%,
-        transparent 68%
-      ),
-      radial-gradient(
-        ellipse 56% 46% at 98% 94%,
-        rgb(218 240 233 / 0.48) 0%,
-        transparent 70%
-      ),
-      linear-gradient(180deg, #ffffff 0%, #fbfcff 48%, #ffffff 100%);
   }
 
   .home-process-gradient {
@@ -950,6 +935,13 @@
     box-shadow:
       inset 0 1px 0 rgb(255 255 255 / 0.92),
       inset 0 -1px 0 rgb(255 255 255 / 0.28);
+  }
+
+  .header-glass.home-header-joined {
+    background: transparent;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    box-shadow: none;
   }
 
   [data-header-state="detached"] .header-glass {

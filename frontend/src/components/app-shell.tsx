@@ -191,6 +191,8 @@ function AppShellContent() {
     : undefined;
   const visibleHeaderDetached =
     headerDetached && !startFlowRoute && !productFlowRoute;
+  const homeHeaderJoined =
+    onHomePage && !visibleHeaderDetached && !mobileNavigationOpen;
   const detachedHeaderMaxWidth =
     analysisRoute || adminRoute ? "max-w-[90rem]" : "max-w-7xl";
   const headerMotionClassName = visibleHeaderDetached
@@ -231,11 +233,14 @@ function AppShellContent() {
         >
           <div
             className={cn(
-              "header-glass mx-auto w-full max-w-[100vw] overflow-hidden transition-[max-width,border-color,border-radius,box-shadow] motion-reduce:transition-none",
+              "header-glass mx-auto w-full max-w-[100vw] transition-[max-width,border-color,border-radius,box-shadow] motion-reduce:transition-none",
+              homeHeaderJoined ? "overflow-visible" : "overflow-hidden",
               glassMotionClassName,
               visibleHeaderDetached
-                ? "rounded-2xl border border-white/75"
-                : "border-b border-line/60",
+                ? "rounded-2xl outline outline-1 -outline-offset-1 outline-white/75"
+                : homeHeaderJoined
+                  ? "home-header-joined"
+                  : "border-b border-line/60",
               visibleHeaderDetached && detachedHeaderMaxWidth,
             )}
           >

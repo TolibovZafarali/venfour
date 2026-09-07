@@ -15,7 +15,7 @@ describe("homepage structure", () => {
     expect(heroHeading).toBeVisible();
     expect(heroHeading).toHaveClass(
       "font-hero",
-      "font-semibold",
+      "font-bold",
       "leading-[0.98]",
       "tracking-[-0.035em]",
       "text-[2.875rem]",
@@ -66,11 +66,7 @@ describe("homepage structure", () => {
         name: "Example total-loss appraisal",
       }),
     ).not.toBeInTheDocument();
-    expect(hero.querySelector("[data-hero-photo]")).toHaveAttribute("alt", "");
-    expect(
-      hero.querySelector('source[type="image/avif"]'),
-    ).toBeInTheDocument();
-    expect(hero.querySelector("[data-hero-photo-fade]")).toBeInTheDocument();
+    expect(hero.querySelector("picture, img")).not.toBeInTheDocument();
     expect(document.querySelector('input[type="file"]')).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Vehicle ZIP code")).not.toBeInTheDocument();
     expect(
@@ -201,12 +197,19 @@ describe("homepage structure", () => {
     }
   });
 
-  test("gives every public homepage section a distinct gradient treatment", async () => {
+  test("shares the opening background and preserves the later section gradients", async () => {
     renderTestApp();
 
+    const hero = (await screen.findByRole("heading", {
+      name: "Your Vehicle’s Value, Made Clear.",
+    })).closest("section");
+    const services = screen.getByRole("heading", {
+      name: "Two services. Two different situations.",
+    }).closest("section");
+    expect(hero?.parentElement).toHaveClass("home-intro-gradient");
+    expect(services?.parentElement).toBe(hero?.parentElement);
+
     const sectionGradients = [
-      ["Your Vehicle’s Value, Made Clear.", "home-hero-gradient"],
-      ["Two services. Two different situations.", "home-services-gradient"],
       ["Start online in a few steps", "home-process-gradient"],
       [
         "The insurance report may not tell the whole story.",

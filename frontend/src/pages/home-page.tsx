@@ -2,8 +2,6 @@ import { ArrowRight, Check } from "lucide-react";
 import { useRef } from "react";
 import { Link } from "react-router";
 
-import heroRoadsideAssistanceAvif from "@/assets/hero-roadside-assistance.avif";
-import heroRoadsideAssistanceJpeg from "@/assets/hero-roadside-assistance.jpg";
 import { isPermanentAuthState, useAuth } from "@/features/auth";
 import { useGuestAnalysisReturn } from "@/features/cases/guest-analysis-return";
 import {
@@ -73,180 +71,152 @@ export function PublicHomePage() {
   useHomeEntranceMotion(motionRoot);
   return (
     <div ref={motionRoot} data-home-motion className="-mt-16 w-full overflow-clip bg-white text-ink">
-      <section className="home-hero-gradient relative isolate overflow-hidden border-b border-slate-200 bg-canvas pt-16">
-        <div
-          className="pointer-events-none absolute inset-y-0 right-0 hidden w-[64%] max-w-[72rem] xl:block"
-          aria-hidden="true"
-        >
-          <picture className="block h-full w-full">
-            <source
-              srcSet={heroRoadsideAssistanceAvif}
-              type="image/avif"
-            />
-            <img
-              src={heroRoadsideAssistanceJpeg}
-              alt=""
-              width="2400"
-              height="1600"
-              fetchPriority="high"
-              decoding="async"
-              className="h-full w-full object-cover object-[68%_70%] brightness-90 saturate-90"
-              data-hero-photo
-            />
-          </picture>
+      <div className="home-intro-gradient bg-canvas">
+        <section className="relative isolate overflow-hidden pt-16">
           <div
-            className="absolute inset-0"
-            style={{
-              background:
-                "linear-gradient(to right, var(--canvas) 0%, var(--canvas) 12%, rgb(243 246 249 / 0.72) 32%, rgb(243 246 249 / 0) 62%)",
-            }}
-            data-hero-photo-fade
-          />
-        </div>
-
-        <div
-          className="relative z-10 mx-auto flex min-h-[calc(100svh-4rem)] w-full max-w-[90rem] items-center px-5 py-12 sm:px-8 sm:py-16 lg:px-10 lg:py-20 xl:py-24"
-          data-hero-content
-        >
-          <div className="max-w-2xl xl:max-w-[42rem]">
-            <h1
-              data-home-entrance="heading"
-              aria-label="Your Vehicle’s Value, Made Clear."
-              className="font-hero text-[2.875rem] leading-[0.98] font-semibold tracking-[-0.035em] text-ink sm:text-[3.25rem] lg:text-[4rem] xl:text-[4.75rem] 2xl:text-[5rem]"
-            >
-              <span className="block sm:whitespace-nowrap">
-                Your Vehicle’s Value,
-              </span>
-              <span className="block">Made Clear.</span>
-            </h1>
-            <p data-home-entrance="copy" data-home-order="1" className="mt-6 max-w-xl text-base leading-7 text-ink/80 sm:text-lg sm:leading-8">
-              Understand a total-loss vehicle valuation with or without an
-              insurer report. Diminished Value customer intake is currently
-              paused.
-            </p>
-            <div data-home-entrance="supporting" data-home-order="2" className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-              {guestReturn.pending ? (
-                <span className={`${primaryActionClassName} pointer-events-none min-w-52 shrink-0 opacity-60`} role="status">
-                  Checking your saved review…
+            className="relative z-10 mx-auto flex min-h-[calc(100svh-4rem)] w-full max-w-[90rem] items-center justify-center px-5 py-12 sm:px-8 sm:py-16 lg:px-10 lg:py-20 xl:py-24"
+            data-hero-content
+          >
+            <div className="w-full max-w-4xl text-center">
+              <h1
+                data-home-entrance="heading"
+                aria-label="Your Vehicle’s Value, Made Clear."
+                className="font-hero text-[2.875rem] leading-[0.98] font-bold tracking-[-0.035em] text-ink sm:text-[3.25rem] lg:text-[4rem] xl:text-[4.75rem] 2xl:text-[5rem]"
+              >
+                <span className="block sm:whitespace-nowrap">
+                  Your Vehicle’s Value,
                 </span>
-              ) : <Link
-                to={guestReturn.action?.href ?? "/start?service=total-loss"}
-                className={`${primaryActionClassName} shrink-0`}
-              >
-                {guestReturn.action?.label ?? "Start Total Loss review"}
-                <ArrowRight className="size-4" aria-hidden />
-              </Link>}
-              <Link
-                to="/start?service=diminished-value"
-                className={`${secondaryActionClassName} shrink-0`}
-              >
-                View Diminished Value update
-              </Link>
-            </div>
-            <p data-home-entrance="supporting" data-home-order="3" className="mt-5 min-h-11 text-sm text-copy">
-              {!guestReturn.pending && !guestReturn.action ? <>
-                Already started?{" "}
-                <Link to="/find-review" className="inline-flex min-h-11 items-center rounded-sm font-semibold text-brand underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand">
-                  Find my review
-                </Link>
-              </> : null}
-            </p>
-          </div>
-        </div>
-      </section>
-
-      <section
-        id="services"
-        className="home-services-gradient section-anchor scroll-mt-24 bg-white"
-        aria-labelledby="services-title"
-        tabIndex={-1}
-      >
-        <div className="mx-auto w-full max-w-[84rem] px-5 py-16 sm:px-8 sm:py-20 lg:px-10 lg:py-28">
-          <div className="max-w-3xl">
-            <h2
-              id="services-title"
-              data-home-entrance="heading"
-              data-anchor-heading
-              aria-label="Two services. Two different situations."
-              className={sectionHeadingClassName}
-            >
-              <span className="block">Two services.</span>
-              <span className="block">Two different situations.</span>
-            </h2>
-            <p data-home-entrance="copy" data-home-order="1" className="mt-4 max-w-2xl text-base leading-7 text-copy sm:text-lg">
-              Choose what happened to your vehicle. Each service answers a different question after an accident.
-            </p>
-          </div>
-
-          <div className="mt-10 space-y-6 lg:mt-14 lg:space-y-8">
-            <article
-              id="total-loss"
-              className="section-anchor scroll-mt-24 grid overflow-hidden rounded-2xl border border-slate-300 bg-white lg:grid-cols-[minmax(0,0.78fr)_minmax(32rem,1.22fr)] lg:items-stretch"
-              aria-labelledby="total-loss-title"
-              tabIndex={-1}
-            >
-              <div className="flex flex-col justify-center p-6 sm:p-9 lg:p-12">
-                <p data-home-entrance="supporting" className="text-xs font-semibold tracking-[0.12em] text-brand uppercase">
-                  Total Loss Valuation Review
-                </p>
-                <h3
-                  id="total-loss-title"
-                  data-home-entrance="heading"
-                  data-home-order="1"
-                  data-anchor-heading
-                  className="mt-3 text-3xl leading-tight font-semibold tracking-[-0.04em] text-ink sm:text-4xl"
+                <span className="block">Made Clear.</span>
+              </h1>
+              <p data-home-entrance="copy" data-home-order="1" className="mx-auto mt-6 max-w-xl text-base leading-7 text-ink/80 sm:text-lg sm:leading-8">
+                Understand a total-loss vehicle valuation with or without an
+                insurer report. Diminished Value customer intake is currently
+                paused.
+              </p>
+              <div data-home-entrance="supporting" data-home-order="2" className="mt-8 flex flex-col justify-center gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+                {guestReturn.pending ? (
+                  <span className={`${primaryActionClassName} pointer-events-none min-w-52 shrink-0 opacity-60`} role="status">
+                    Checking your saved review…
+                  </span>
+                ) : <Link
+                  to={guestReturn.action?.href ?? "/start?service=total-loss"}
+                  className={`${primaryActionClassName} shrink-0`}
                 >
-                  Your vehicle was totaled
-                </h3>
-                <p data-home-entrance="copy" data-home-order="2" className="mt-4 max-w-md text-base leading-7 text-copy">
-                  Upload your insurer’s valuation report from any provider, or
-                  enter the vehicle and claim details yourself. Venfour will
-                  compare the available valuation with relevant market evidence.
-                </p>
-                <Link
-                  to="/start?service=total-loss"
-                  data-home-entrance="supporting"
-                  data-home-order="3"
-                  className={`${primaryActionClassName} mt-7 self-start`}
-                >
-                  Start Total Loss review
+                  {guestReturn.action?.label ?? "Start Total Loss review"}
                   <ArrowRight className="size-4" aria-hidden />
-                </Link>
-              </div>
-              <div className="border-t border-slate-300 bg-slate-100 p-5 sm:p-8 lg:border-t-0 lg:border-l lg:p-10">
-                <TotalLossServiceVisual />
-              </div>
-            </article>
-
-            <article className="grid overflow-hidden rounded-2xl border border-slate-300 bg-slate-50 lg:grid-cols-[minmax(32rem,1.18fr)_minmax(0,0.82fr)] lg:items-stretch">
-              <div className="border-b border-slate-300 p-5 sm:p-8 lg:order-1 lg:border-r lg:border-b-0 lg:p-10">
-                <RepairedVehicleServiceVisual />
-              </div>
-              <div className="flex flex-col justify-center p-6 sm:p-9 lg:order-2 lg:p-12">
-                <p data-home-entrance="supporting" className="text-xs font-semibold tracking-[0.12em] text-brand uppercase">
-                  Diminished Value · Intake paused
-                </p>
-                <h3 data-home-entrance="heading" data-home-order="1" className="mt-3 text-3xl leading-tight font-semibold tracking-[-0.04em] text-ink sm:text-4xl">
-                  Your vehicle was repaired
-                </h3>
-                <p data-home-entrance="copy" data-home-order="2" className="mt-4 max-w-md text-base leading-7 text-copy">
-                  Customer intake is currently paused while Venfour focuses on
-                  the Total Loss experience. The service remains part of
-                  Venfour’s planned customer experience.
-                </p>
+                </Link>}
                 <Link
                   to="/start?service=diminished-value"
-                  data-home-entrance="supporting"
-                  data-home-order="3"
-                  className={`${secondaryActionClassName} mt-7 self-start`}
+                  className={`${secondaryActionClassName} shrink-0`}
                 >
-                  View service update
+                  View Diminished Value update
                 </Link>
               </div>
-            </article>
+              <p data-home-entrance="supporting" data-home-order="3" className="mt-5 min-h-11 text-sm text-copy">
+                {!guestReturn.pending && !guestReturn.action ? <>
+                  Already started?{" "}
+                  <Link to="/find-review" className="inline-flex min-h-11 items-center rounded-sm font-semibold text-brand underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand">
+                    Find my review
+                  </Link>
+                </> : null}
+              </p>
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+
+        <section
+          id="services"
+          className="section-anchor scroll-mt-24"
+          aria-labelledby="services-title"
+          tabIndex={-1}
+        >
+          <div className="mx-auto w-full max-w-[84rem] px-5 py-16 sm:px-8 sm:py-20 lg:px-10 lg:py-28">
+            <div className="max-w-3xl">
+              <h2
+                id="services-title"
+                data-home-entrance="heading"
+                data-anchor-heading
+                aria-label="Two services. Two different situations."
+                className={sectionHeadingClassName}
+              >
+                <span className="block">Two services.</span>
+                <span className="block">Two different situations.</span>
+              </h2>
+              <p data-home-entrance="copy" data-home-order="1" className="mt-4 max-w-2xl text-base leading-7 text-copy sm:text-lg">
+                Choose what happened to your vehicle. Each service answers a different question after an accident.
+              </p>
+            </div>
+
+            <div className="mt-10 space-y-6 lg:mt-14 lg:space-y-8">
+              <article
+                id="total-loss"
+                className="section-anchor scroll-mt-24 grid overflow-hidden rounded-2xl border border-slate-300 bg-white lg:grid-cols-[minmax(0,0.78fr)_minmax(32rem,1.22fr)] lg:items-stretch"
+                aria-labelledby="total-loss-title"
+                tabIndex={-1}
+              >
+                <div className="flex flex-col justify-center p-6 sm:p-9 lg:p-12">
+                  <p data-home-entrance="supporting" className="text-xs font-semibold tracking-[0.12em] text-brand uppercase">
+                    Total Loss Valuation Review
+                  </p>
+                  <h3
+                    id="total-loss-title"
+                    data-home-entrance="heading"
+                    data-home-order="1"
+                    data-anchor-heading
+                    className="mt-3 text-3xl leading-tight font-semibold tracking-[-0.04em] text-ink sm:text-4xl"
+                  >
+                    Your vehicle was totaled
+                  </h3>
+                  <p data-home-entrance="copy" data-home-order="2" className="mt-4 max-w-md text-base leading-7 text-copy">
+                    Upload your insurer’s valuation report from any provider, or
+                    enter the vehicle and claim details yourself. Venfour will
+                    compare the available valuation with relevant market evidence.
+                  </p>
+                  <Link
+                    to="/start?service=total-loss"
+                    data-home-entrance="supporting"
+                    data-home-order="3"
+                    className={`${primaryActionClassName} mt-7 self-start`}
+                  >
+                    Start Total Loss review
+                    <ArrowRight className="size-4" aria-hidden />
+                  </Link>
+                </div>
+                <div className="border-t border-slate-300 bg-slate-100 p-5 sm:p-8 lg:border-t-0 lg:border-l lg:p-10">
+                  <TotalLossServiceVisual />
+                </div>
+              </article>
+
+              <article className="grid overflow-hidden rounded-2xl border border-slate-300 bg-slate-50 lg:grid-cols-[minmax(32rem,1.18fr)_minmax(0,0.82fr)] lg:items-stretch">
+                <div className="border-b border-slate-300 p-5 sm:p-8 lg:order-1 lg:border-r lg:border-b-0 lg:p-10">
+                  <RepairedVehicleServiceVisual />
+                </div>
+                <div className="flex flex-col justify-center p-6 sm:p-9 lg:order-2 lg:p-12">
+                  <p data-home-entrance="supporting" className="text-xs font-semibold tracking-[0.12em] text-brand uppercase">
+                    Diminished Value · Intake paused
+                  </p>
+                  <h3 data-home-entrance="heading" data-home-order="1" className="mt-3 text-3xl leading-tight font-semibold tracking-[-0.04em] text-ink sm:text-4xl">
+                    Your vehicle was repaired
+                  </h3>
+                  <p data-home-entrance="copy" data-home-order="2" className="mt-4 max-w-md text-base leading-7 text-copy">
+                    Customer intake is currently paused while Venfour focuses on
+                    the Total Loss experience. The service remains part of
+                    Venfour’s planned customer experience.
+                  </p>
+                  <Link
+                    to="/start?service=diminished-value"
+                    data-home-entrance="supporting"
+                    data-home-order="3"
+                    className={`${secondaryActionClassName} mt-7 self-start`}
+                  >
+                    View service update
+                  </Link>
+                </div>
+              </article>
+            </div>
+          </div>
+        </section>
+      </div>
 
       <section
         id="how-it-works"
