@@ -277,21 +277,6 @@
       linear-gradient(132deg, #f8faff 0%, #f3f6f9 48%, #f1f6f7 100%);
   }
 
-  .home-process-gradient {
-    background-image:
-      radial-gradient(
-        ellipse 58% 52% at 92% 4%,
-        rgb(211 226 252 / 0.52) 0%,
-        transparent 70%
-      ),
-      radial-gradient(
-        ellipse 54% 48% at 4% 96%,
-        rgb(211 235 228 / 0.42) 0%,
-        transparent 72%
-      ),
-      linear-gradient(138deg, #f2f5f9 0%, #f8fafc 52%, #f1f6f4 100%);
-  }
-
   .home-report-gradient {
     background-image:
       radial-gradient(
@@ -337,6 +322,7 @@
       linear-gradient(150deg, #fbfefd 0%, #ffffff 46%, #f8faff 100%);
   }
 
+  .home-process-gradient,
   .home-trust-gradient {
     background-image:
       radial-gradient(

@@ -158,22 +158,22 @@ export function PublicHomePage() {
         </section>
       </div>
 
-      <section id="how-it-works" className="home-process-gradient section-anchor scroll-mt-24 border-b border-line/70 bg-canvas" aria-labelledby="process-title" tabIndex={-1}>
+      <section id="how-it-works" className="home-process-gradient section-anchor scroll-mt-24 bg-ink text-white" aria-labelledby="process-title" tabIndex={-1}>
         <div className="home-section">
           <div data-home-entrance="heading" className="mx-auto max-w-2xl text-center">
-            <p className="home-eyebrow">How it works</p>
-            <h2 id="process-title" data-anchor-heading className={`${sectionHeadingClassName} mx-auto mt-3`}>Start online in a few steps</h2>
-            <p className="mt-4 text-base leading-7 text-copy sm:text-lg">From the details you have to a review you can understand.</p>
+            <p className="home-eyebrow text-blue-300">How it works</p>
+            <h2 id="process-title" data-anchor-heading className="mx-auto mt-3 text-[2rem] leading-[1.1] font-semibold tracking-[-0.04em] text-balance sm:text-[2.65rem] lg:text-[3rem]">Start online in a few steps</h2>
+            <p className="mt-4 text-base leading-7 text-slate-300 sm:text-lg">From the details you have to a review you can understand.</p>
           </div>
           <ol className="mt-10 grid gap-8 md:grid-cols-3 md:gap-10 lg:mt-12">
             {processSteps.map((step, index) => (
               <li key={step.number} data-home-entrance="copy" data-home-order={index}>
                 <div className="flex items-center gap-5" aria-hidden>
-                  <span className="text-sm font-medium text-brand tabular-nums">{step.number}</span>
-                  <span className="h-px flex-1 bg-line" />
+                  <span className="text-sm font-medium text-blue-300 tabular-nums">{step.number}</span>
+                  <span className="h-px flex-1 bg-white/20" />
                 </div>
-                <h3 className="mt-5 text-lg font-semibold tracking-[-0.025em] text-ink sm:text-xl">{step.title}</h3>
-                <p className="mt-2 max-w-sm text-sm leading-6 text-copy sm:text-base sm:leading-7">{step.description}</p>
+                <h3 className="mt-5 text-lg font-semibold tracking-[-0.025em] sm:text-xl">{step.title}</h3>
+                <p className="mt-2 max-w-sm text-sm leading-6 text-slate-300 sm:text-base sm:leading-7">{step.description}</p>
               </li>
             ))}
           </ol>
