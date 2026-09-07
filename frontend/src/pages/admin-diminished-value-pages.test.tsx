@@ -2,6 +2,7 @@ import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
 import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
+import type * as ProductAvailability from "@/config/product-availability";
 
 import type { AdminDiminishedValueDependencies } from "@/features/admin/diminished-value/dependencies";
 import { adminDiminishedValueQueryKeys } from "@/features/admin/diminished-value/queries";
@@ -14,13 +15,18 @@ import { AUTH_RETURN_LOCATION_STORAGE_KEY } from "@/features/auth/return-locatio
 import type { DiminishedValueStoredDocument } from "@/features/diminished-value/storage-service";
 import { renderTestApp } from "@/test/render";
 
+vi.mock("@/config/product-availability", async (importOriginal) => ({
+  ...await importOriginal<typeof ProductAvailability>(),
+  diminishedValueStaffReviewAvailable: true,
+}));
+
 const STAFF_USER_ID = "11111111-1111-4111-8111-111111111111";
 const OWNER_USER_ID = "22222222-2222-4222-8222-222222222222";
 const CASE_ID = "33333333-3333-4333-8333-333333333333";
 const SECOND_CASE_ID = "44444444-4444-4444-8444-444444444444";
 const DOCUMENT_ID = "55555555-5555-4555-8555-555555555555";
 
-describe("admin diminished-value review pages", () => {
+describe("admin diminished-value review pages when staff review is enabled", () => {
   it("does not render protected content while authentication is unavailable", async () => {
     const dependencies = createAdminDependencies();
     renderTestApp(["/admin/diminished-value"], {

@@ -6,6 +6,7 @@ import {
 import { Link } from "react-router";
 
 import { Button } from "@/components/ui/button";
+import { diminishedValueStaffReviewAvailable } from "@/config/product-availability";
 import { useAdminCaseOperationsDependencies } from "@/features/admin/case-operations/dependencies";
 import {
   formatCaseOperationAnalysisStatus,
@@ -27,6 +28,10 @@ export function AdminCaseOperationsPage() {
     userId,
   });
 
+  const visibleCases = casesQuery.data?.filter(
+    (item) => item.serviceType === "total_loss" || diminishedValueStaffReviewAvailable,
+  ) ?? [];
+
   return (
     <section className="mx-auto w-full max-w-[90rem] px-5 py-8 sm:px-8 sm:py-10 lg:px-10 lg:py-12">
       <div className="flex flex-col gap-4 border-b border-line pb-7 sm:flex-row sm:items-end sm:justify-between">
@@ -38,8 +43,9 @@ export function AdminCaseOperationsPage() {
             Customer and case operations
           </h1>
           <p className="mt-3 max-w-3xl leading-7 text-copy">
-            Inspect active total-loss cases and submitted diminished-value
-            requests. This workspace is read-only.
+            {diminishedValueStaffReviewAvailable
+              ? "Inspect active total-loss cases and submitted diminished-value requests."
+              : "Inspect total-loss customer cases."} This workspace is read-only.
           </p>
         </div>
         {!casesQuery.isPending ? (
@@ -65,11 +71,11 @@ export function AdminCaseOperationsPage() {
         <CasesLoadingState />
       ) : casesQuery.isError ? (
         <CasesErrorState onRetry={() => void casesQuery.refetch()} />
-      ) : casesQuery.data.length === 0 ? (
+      ) : visibleCases.length === 0 ? (
         <CasesEmptyState />
       ) : (
         <ol className="mt-7 grid gap-4" aria-label="Customer cases">
-          {casesQuery.data.map((item) => (
+          {visibleCases.map((item) => (
             <CaseCard key={item.caseId} item={item} />
           ))}
         </ol>
@@ -255,8 +261,9 @@ function CasesEmptyState() {
         No customer cases
       </h2>
       <p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-copy">
-        Total-loss cases and submitted diminished-value requests will appear
-        here. Unrelated accounts and diminished-value drafts are not included.
+        {diminishedValueStaffReviewAvailable
+          ? "Total-loss cases and submitted diminished-value requests will appear here."
+          : "Total-loss customer cases will appear here."}
       </p>
     </div>
   );

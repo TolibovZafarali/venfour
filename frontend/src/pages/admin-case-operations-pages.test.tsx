@@ -40,7 +40,7 @@ describe("admin case-operations pages", () => {
     expect(screen.queryByText("Ada Lovelace")).not.toBeInTheDocument();
   });
 
-  it("renders only the relevant mixed case list and preserves the DV detail route", async () => {
+  it("shows only total-loss cases while diminished-value staff review is disabled", async () => {
     const totalLoss = listItem();
     const diminishedValue = listItem({
       caseId: DV_CASE_ID,
@@ -74,19 +74,55 @@ describe("admin case-operations pages", () => {
     ).toBeVisible();
     const cases = await screen.findByRole("list", { name: "Customer cases" });
     const cards = within(cases).getAllByRole("listitem");
-    expect(cards).toHaveLength(2);
+    expect(cards).toHaveLength(1);
     expect(cards[0]).toHaveTextContent("Ada Lovelace");
     expect(cards[0]).toHaveTextContent("#33333333");
     expect(cards[0]).toHaveTextContent("Analysis failed");
     expect(cards[0]).toHaveTextContent("Needs attention");
-    expect(cards[1]).toHaveTextContent("Diminished value");
-    expect(
-      within(cards[1]).getByRole("link", { name: "Open request" }),
-    ).toHaveAttribute("href", `/admin/diminished-value/${DV_CASE_ID}`);
+    expect(screen.queryByText("Diminished value")).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Open request" })).not.toBeInTheDocument();
     expect(
       screen.queryByRole("navigation", { name: "Primary navigation" }),
     ).not.toBeInTheDocument();
     expect(screen.queryByRole("contentinfo")).not.toBeInTheDocument();
+  });
+
+  it.each(["/admin/diminished-value", `/admin/diminished-value/${DV_CASE_ID}`])(
+    "redirects disabled staff route %s without reading diminished-value cases",
+    async (path) => {
+      const diminishedValue = {
+        caseService: {
+          isStaff: vi.fn(async () => true),
+          listSubmittedCases: vi.fn(async () => []),
+          getSubmittedCase: vi.fn(async () => null),
+        },
+        documentService: {
+          listDocuments: vi.fn(async () => []),
+          downloadDocument: vi.fn(async () => new Blob()),
+        },
+      };
+      const { router } = renderTestApp([path], {
+        adminCaseOperationsDependencies: createAdminDependencies(),
+        adminDiminishedValueDependencies: diminishedValue,
+        authService: createAuthHarness(sessionFor()).service,
+      });
+      expect(await screen.findByRole("heading", { name: "Customer and case operations" })).toBeVisible();
+      expect(router.state.location.pathname).toBe("/admin/cases");
+      expect(diminishedValue.caseService.listSubmittedCases).not.toHaveBeenCalled();
+      expect(diminishedValue.caseService.getSubmittedCase).not.toHaveBeenCalled();
+      expect(diminishedValue.documentService.listDocuments).not.toHaveBeenCalled();
+    },
+  );
+
+  it("shows the empty state when the only stored cases are for the disabled service", async () => {
+    renderTestApp(["/admin/cases"], {
+      adminCaseOperationsDependencies: createAdminDependencies({ cases: [listItem({
+        caseId: DV_CASE_ID, serviceType: "diminished_value", caseStage: "submitted", caseStatus: "submitted",
+      })] }),
+      authService: createAuthHarness(sessionFor()).service,
+    });
+    expect(await screen.findByRole("heading", { name: "No customer cases" })).toBeVisible();
+    expect(screen.queryByRole("list", { name: "Customer cases" })).not.toBeInTheDocument();
   });
 
   it("renders bounded total-loss operational detail without mutation or PDF controls", async () => {

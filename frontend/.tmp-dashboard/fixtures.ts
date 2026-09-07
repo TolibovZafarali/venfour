@@ -1,10 +1,8 @@
 import type { StaffCaseOperationListItem, StaffTotalLossCaseOperation } from '@/features/admin/case-operations/types';
-import type { StaffDiminishedValueCase } from '@/features/admin/diminished-value/types';
 import type { Session } from '@supabase/supabase-js';
 const STAFF_USER_ID = "11111111-1111-4111-8111-111111111111";
 const OWNER_USER_ID = "22222222-2222-4222-8222-222222222222";
 const CASE_ID = "33333333-3333-4333-8333-333333333333";
-const DV_CASE_ID = "44444444-4444-4444-8444-444444444444";
 const JOB_ID = "55555555-5555-4555-8555-555555555555";
 const RUN_ID = "66666666-6666-4666-8666-666666666666";
 
@@ -111,68 +109,7 @@ function sessionFor(): Session {
   };
 }
 
-function baseQueueItem() {
-  return {
-    caseId: CASE_ID,
-    ownerUserId: OWNER_USER_ID,
-    serviceType: "diminished_value" as const,
-    status: "submitted" as const,
-    submittedAt: "2026-08-19T15:00:00.000Z",
-    fullName: "Ada Lovelace",
-    email: "ada@example.com",
-    phone: "312-555-0123",
-    preferredContactMethod: "email" as const,
-    vehicleYear: 2022,
-    vehicleMake: "Honda",
-    vehicleModel: "Accord",
-    accidentDate: "2026-07-04",
-    atFaultInsurer: "Example Mutual",
-    documentCount: 1,
-  };
-}
-
-function submittedCase(): StaffDiminishedValueCase {
-  return {
-    caseId: CASE_ID,
-    ownerUserId: OWNER_USER_ID,
-    serviceType: "diminished_value",
-    status: "submitted",
-    draftStep: "consultation",
-    accidentState: "IL",
-    accidentDate: "2026-07-04",
-    repairStatus: "complete",
-    vehicleEntryMethod: "details",
-    vin: null,
-    vehicleYear: 2022,
-    vehicleMake: "Honda",
-    vehicleModel: "Accord",
-    vehicleTrim: "EX-L",
-    mileageAtAccident: 48250,
-    currentMileage: 49100,
-    otherPartyAtFault: "yes",
-    atFaultInsurer: "Example Mutual",
-    repairCost: 12500.5,
-    repairFacility: "Example Collision",
-    structuralDamage: "no",
-    airbagDeployment: "no",
-    majorRepairDetails: "Replaced the front bumper and hood.",
-    fullName: "Ada Lovelace",
-    email: "ada@example.com",
-    phone: "312-555-0123",
-    preferredContactMethod: "email",
-    availability: "Weekdays after 4 p.m. Central Time",
-    notes: "Please review the repair invoice.",
-    submittedAt: "2026-08-19T15:00:00.000Z",
-    revision: 4,
-    createdAt: "2026-08-18T15:00:00.000Z",
-    updatedAt: "2026-08-19T15:00:00.000Z",
-  };
-}
-
-
 export const session = sessionFor();
-export const dvCase = {...submittedCase(), caseId: DV_CASE_ID, fullName: 'Grace Morgan', email: 'grace@example.com'};
-export const dvQueue = [{...baseQueueItem(),caseId:DV_CASE_ID, fullName:dvCase.fullName,email:dvCase.email, documentCount:0}];
 const stages = ['analysis_failed','analysis_processing','analysis_complete','intake_in_progress','report_required','closed'] as const;
 const names = ['Maya Chen','Daniel Brooks','Elena Rivera','James Wilson','Sofia Patel','Noah Williams'];
 export const cases = stages.map((stage,i) => listItem({
@@ -188,7 +125,6 @@ export const cases = stages.map((stage,i) => listItem({
  caseCreatedAt:'2026-09-05T13:00:00.000Z',caseUpdatedAt:`2026-09-07T${String(18-i).padStart(2,'0')}:00:00.000Z`,lastActivityAt:`2026-09-07T${String(18-i).padStart(2,'0')}:00:00.000Z`,
  ...(i===3?{ownerIsAnonymous:true,verifiedEmail:null,contactEmailVerified:false,identityClaimedAt:null}:{}),
 }));
-cases.push(listItem({caseId:DV_CASE_ID, serviceType:'diminished_value',customerFullName:dvCase.fullName,contactFullName:dvCase.fullName,verifiedEmail:dvCase.email,contactEmail:dvCase.email,caseStage:'submitted',caseStatus:'submitted',needsAttention:false,analysisStatus:null,analysisFailureCode:null,analysisAttemptCount:null,analysisRetryable:null,reportUploadedAt:null}));
 export function detail(id:string) {
  const item=cases.find(c=>c.caseId===id&&c.serviceType==='total_loss');
  if(!item)return null;

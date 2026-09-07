@@ -8,6 +8,7 @@ import {
 import type { PageMetadata } from "@/app/document-metadata";
 import { AppShell } from "@/components/app-shell";
 import { environment } from "@/config/env";
+import { diminishedValueStaffReviewAvailable } from "@/config/product-availability";
 import { AdminCaseOperationsAccessGate } from "@/features/admin/case-operations/admin-access-gate";
 import { AdminDiminishedValueAccessGate } from "@/features/admin/diminished-value/admin-access-gate";
 import { AuthCallbackPage } from "@/features/auth";
@@ -345,6 +346,7 @@ export const appRoutes: RouteObject[] = [
       },
       {
         path: "admin/diminished-value",
+        loader: () => diminishedValueStaffReviewAvailable ? null : replace("/admin/cases"),
         element: <AdminDiminishedValueAccessGate />,
         children: [
           {
