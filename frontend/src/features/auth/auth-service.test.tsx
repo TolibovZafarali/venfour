@@ -12,6 +12,7 @@ import { storeAuthReturnLocation } from "@/features/auth/return-location";
 import { createSupabaseClientState } from "@/lib/supabase/client";
 import type { Database } from "@/lib/supabase/database.types";
 import { server } from "@/test/mocks/server";
+import { appleSession } from "@/test/fixtures/apple-session";
 
 const SUPABASE_URL = "https://auth-integration.supabase.co";
 const SUPABASE_STORAGE_KEY = "sb-auth-integration-auth-token";
@@ -62,6 +63,110 @@ const anonymousAuthResponse = {
 };
 
 describe("Supabase auth service", () => {
+  test.each(["apple", "google"] as const)(
+    "starts %s through Supabase OAuth and propagates errors",
+    async (provider) => {
+      const failure = new Error("Provider unavailable");
+      const signInWithOAuth = vi
+        .fn()
+        .mockResolvedValueOnce({ error: null })
+        .mockResolvedValueOnce({ error: failure });
+      const service = createSupabaseAuthService({
+        auth: { signInWithOAuth },
+      } as unknown as SupabaseClient<Database>);
+      const signIn =
+        provider === "apple"
+          ? service.signInWithApple
+          : service.signInWithGoogle;
+      const redirectTo = `${window.location.origin}/auth/callback`;
+      await signIn(redirectTo);
+      expect(signInWithOAuth).toHaveBeenCalledWith({
+        provider,
+        options: { redirectTo },
+      });
+      await expect(signIn(redirectTo)).rejects.toBe(failure);
+    },
+  );
+
+  test.each(["owner@example.com", "private-owner@privaterelay.appleid.com"])(
+    "exchanges Apple PKCE, persists, signs out, and signs back into the same user for %s without name metadata",
+    async (email) => {
+      const response = appleSession(email);
+      const tokenBodies: unknown[] = [];
+      server.use(
+        http.post(`${SUPABASE_URL}/auth/v1/token`, async ({ request }) => {
+          expect(new URL(request.url).searchParams.get("grant_type")).toBe(
+            "pkce",
+          );
+          tokenBodies.push(await request.json());
+          return HttpResponse.json(response);
+        }),
+        http.post(
+          `${SUPABASE_URL}/auth/v1/logout`,
+          () => new HttpResponse(null, { status: 204 }),
+        ),
+      );
+      const state = createSupabaseClientState({
+        url: SUPABASE_URL,
+        publishableKey: "sb_publishable_auth_integration_test",
+      });
+      if (state.status !== "available") throw new Error(state.reason);
+      const { client } = state;
+      const service = createSupabaseAuthService(client);
+      const startOAuth = client.auth.signInWithOAuth.bind(client.auth);
+      let authorizeUrl = "";
+      vi.spyOn(client.auth, "signInWithOAuth").mockImplementation(
+        async (credentials) => {
+          const result = await startOAuth({
+            ...credentials,
+            options: { ...credentials.options, skipBrowserRedirect: true },
+          });
+          authorizeUrl = result.data.url ?? "";
+          return result;
+        },
+      );
+      try {
+        for (let attempt = 0; attempt < 2; attempt += 1) {
+          await service.signInWithApple(
+            `${window.location.origin}/auth/callback`,
+          );
+          const authorize = new URL(authorizeUrl);
+          expect(authorize.searchParams.get("provider")).toBe("apple");
+          expect(authorize.searchParams.get("code_challenge_method")).toBe(
+            "s256",
+          );
+          const redirect = new URL(
+            authorize.searchParams.get("redirect_to") ?? "",
+          );
+          expect(redirect.pathname).toBe("/auth/callback");
+          const session = await service.exchangeCodeForSession(
+            `apple-code-${attempt}`,
+            redirect.searchParams.get("sb_flow_id") ?? undefined,
+          );
+          expect(tokenBodies[attempt]).toEqual({
+            auth_code: `apple-code-${attempt}`,
+            code_verifier: expect.any(String),
+          });
+          expect(session.user.id).toBe(USER_ID);
+          expect(session.user.email).toBe(email);
+          expect(session.user.user_metadata.full_name).toBeUndefined();
+          expect(session.user.identities?.[0].provider).toBe("apple");
+          expect((await service.getSession())?.user.id).toBe(USER_ID);
+          expect(
+            JSON.parse(
+              window.localStorage.getItem(SUPABASE_STORAGE_KEY) ?? "null",
+            ).user.email,
+          ).toBe(email);
+          await service.signOut();
+          expect(await service.getSession()).toBeNull();
+          expect(window.localStorage.getItem(SUPABASE_STORAGE_KEY)).toBeNull();
+        }
+      } finally {
+        await client.auth.stopAutoRefresh();
+      }
+    },
+  );
+
   test("restores a captured session through Supabase setSession", async () => {
     const session = anonymousAuthResponse as Session;
     const setSession = vi.fn(async () => ({
@@ -123,9 +228,7 @@ describe("Supabase auth service", () => {
       expect(session.user.id).toBe(ANONYMOUS_USER_ID);
       expect(session.user.is_anonymous).toBe(true);
       expect(
-        JSON.parse(
-          window.localStorage.getItem(SUPABASE_STORAGE_KEY) ?? "null",
-        ),
+        JSON.parse(window.localStorage.getItem(SUPABASE_STORAGE_KEY) ?? "null"),
       ).toEqual(
         expect.objectContaining({ access_token: "anonymous-access-token" }),
       );
@@ -231,9 +334,7 @@ describe("Supabase auth service", () => {
       const restoredSession = await service.getSession();
       expect(restoredSession?.user.id).toBe(USER_ID);
       expect(
-        JSON.parse(
-          window.localStorage.getItem(SUPABASE_STORAGE_KEY) ?? "null",
-        ),
+        JSON.parse(window.localStorage.getItem(SUPABASE_STORAGE_KEY) ?? "null"),
       ).toEqual(expect.objectContaining({ access_token: "test-access-token" }));
     } finally {
       await client.auth.stopAutoRefresh();

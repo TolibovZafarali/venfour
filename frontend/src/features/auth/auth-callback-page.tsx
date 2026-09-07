@@ -4,6 +4,7 @@ import type { Session } from "@supabase/supabase-js";
 import { Link, useLocation, useNavigate } from "react-router";
 
 import { getFriendlyAuthError } from "@/features/auth/auth-errors";
+import { SignInDialog } from "@/features/auth/sign-in-dialog";
 import {
   isAnonymousAuthState,
   isPermanentAuthState,
@@ -12,6 +13,7 @@ import {
 } from "@/features/auth/auth-context";
 import {
   consumeAuthReturnLocation,
+  readAuthReturnLocation,
   readAuthCallbackParameters,
   readCaseClaimCallbackParameter,
 } from "@/features/auth/return-location";
@@ -21,6 +23,10 @@ import type { CompleteTotalLossIdentityClaimResult } from "@/features/total-loss
 interface CompletedAuthCallback {
   readonly claim: CompleteTotalLossIdentityClaimResult | null;
   readonly session: Session;
+}
+
+class CaseClaimCompletionError extends Error {
+  readonly code = "CASE_CLAIM_FAILED";
 }
 
 export function AuthCallbackPage() {
@@ -38,6 +44,8 @@ export function AuthCallbackPage() {
     [location],
   );
   const [completionError, setCompletionError] = useState<string | null>(null);
+  const [recoveryReturnTo] = useState(readAuthReturnLocation);
+  const [retryOpen, setRetryOpen] = useState(false);
   const caseClaim = useMemo(
     () => readCaseClaimCallbackParameter(location),
     [location],
@@ -86,9 +94,12 @@ export function AuthCallbackPage() {
           .then((completedClaim) => {
             if (navigationStartedRef.current) return;
             navigationStartedRef.current = true;
-            void navigate(completedAuthReturnLocation(caseClaim, completedClaim), {
-              replace: true,
-            });
+            void navigate(
+              completedAuthReturnLocation(caseClaim, completedClaim),
+              {
+                replace: true,
+              },
+            );
           })
           .catch((error: unknown) => {
             setCompletionError(getFriendlyAuthError(error, "callback"));
@@ -110,10 +121,7 @@ export function AuthCallbackPage() {
       const verification =
         callback.kind === "email"
           ? completeEmailAuthCallback(callback.tokenHash)
-          : completeAuthCallback(
-              callback.code,
-              callback.flowId ?? undefined,
-            );
+          : completeAuthCallback(callback.code, callback.flowId ?? undefined);
       completionRef.current = {
         key: completionKey,
         promise: verification.then(async (session) => {
@@ -158,7 +166,12 @@ export function AuthCallbackPage() {
       })
       .catch((error: unknown) => {
         if (active) {
-          setCompletionError(getFriendlyAuthError(error, "callback"));
+          setCompletionError(
+            getFriendlyAuthError(
+              error,
+              callback.kind === "code" ? "oauth" : "callback",
+            ),
+          );
         }
       });
 
@@ -178,16 +191,16 @@ export function AuthCallbackPage() {
 
   const error =
     completionError ??
-    (callback.kind === "error" ||
-    callback.kind === "invalid" ||
-    caseClaim.kind === "invalid"
-      ? "This sign-in link is invalid or has expired. Please request a new one."
-      : callback.kind === "none" &&
-          (auth.status === "signedOut" || isAnonymousAuthState(auth))
-        ? "This sign-in link is missing required information. Please request a new one."
-        : auth.status === "unavailable"
-          ? "Sign in is temporarily unavailable. Please try again later."
-          : null);
+    (callback.kind === "error"
+      ? getFriendlyAuthError({ message: callback.message }, "oauth")
+      : callback.kind === "invalid" || caseClaim.kind === "invalid"
+        ? "This sign-in link is invalid or has expired. Please request a new one."
+        : callback.kind === "none" &&
+            (auth.status === "signedOut" || isAnonymousAuthState(auth))
+          ? "This sign-in link is missing required information. Please request a new one."
+          : auth.status === "unavailable"
+            ? "Sign in is temporarily unavailable. Please try again later."
+            : null);
 
   return (
     <section className="flex w-full items-center justify-center px-5 py-16 sm:px-8">
@@ -204,11 +217,20 @@ export function AuthCallbackPage() {
             <p className="mt-2 text-sm leading-6 text-copy" role="alert">
               {error}
             </p>
+            {caseClaim.kind !== "invalid" ? (
+              <button
+                type="button"
+                className="mt-6 inline-flex min-h-11 items-center justify-center rounded-lg bg-brand px-4 text-sm font-semibold text-white hover:bg-brand-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
+                onClick={() => setRetryOpen(true)}
+              >
+                Try signing in again
+              </button>
+            ) : null}
             <Link
-              to="/"
-              className="mt-6 inline-flex min-h-11 items-center justify-center rounded-lg bg-brand px-4 text-sm font-semibold text-white transition-colors hover:bg-brand-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
+              to={recoveryReturnTo}
+              className="mt-3 flex min-h-11 items-center justify-center rounded-lg text-sm font-semibold text-ink hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
             >
-              Return home
+              {recoveryReturnTo === "/" ? "Return home" : "Return to your page"}
             </Link>
           </>
         ) : (
@@ -226,6 +248,18 @@ export function AuthCallbackPage() {
           </>
         )}
       </div>
+      {retryOpen ? (
+        <SignInDialog
+          open
+          onOpenChange={setRetryOpen}
+          returnTo={recoveryReturnTo}
+          callbackParameters={
+            caseClaim.kind === "claim"
+              ? { case_claim: caseClaim.claimId }
+              : undefined
+          }
+        />
+      ) : null}
     </section>
   );
 }
@@ -256,9 +290,18 @@ async function completeCaseClaim(
   if (!identityService) {
     throw new Error("Secure case access is temporarily unavailable.");
   }
-  const result = await identityService.completeIdentityClaim(claimId);
+  let result: Awaited<ReturnType<typeof identityService.completeIdentityClaim>>;
+  try {
+    result = await identityService.completeIdentityClaim(claimId);
+  } catch {
+    throw new CaseClaimCompletionError(
+      "The secure case-access link could not be completed.",
+    );
+  }
   if (!result || result.ownerUserId !== expectedUserId) {
-    throw new Error("The secure case-access link could not be completed.");
+    throw new CaseClaimCompletionError(
+      "The secure case-access link could not be completed.",
+    );
   }
   return result;
 }

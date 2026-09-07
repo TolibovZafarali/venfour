@@ -38,6 +38,7 @@ const authenticatedAnalysisService: AuthService = {
   onAuthStateChange: () => () => undefined,
   sendMagicLink: async () => undefined,
   signInWithGoogle: async () => undefined,
+  signInWithApple: async () => undefined,
   signOut: async () => undefined,
   verifyEmailOtp: async () => analysisSession,
 };

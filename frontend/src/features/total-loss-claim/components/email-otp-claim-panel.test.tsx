@@ -89,6 +89,7 @@ function createAuth(identity: "anonymous" | "permanent" | "signed-out" = "anonym
     },
     sendMagicLink: vi.fn(async () => undefined),
     signInWithGoogle: vi.fn(async () => undefined),
+    signInWithApple: vi.fn(async () => undefined),
     signOut: vi.fn(async () => undefined),
     verifyEmailOtp: vi.fn(async () => sessionFor("permanent")),
   } satisfies AuthService;

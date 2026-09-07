@@ -36,6 +36,7 @@ function authService(): AuthService {
     onAuthStateChange: () => () => undefined,
     sendMagicLink: vi.fn(async () => undefined),
     signInWithGoogle: vi.fn(async () => undefined),
+    signInWithApple: vi.fn(async () => undefined),
     signOut: vi.fn(async () => undefined),
     verifyEmailOtp: async () => session(),
   };

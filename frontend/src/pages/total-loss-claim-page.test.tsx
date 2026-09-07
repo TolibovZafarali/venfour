@@ -56,6 +56,7 @@ function createAuthService(
     onAuthStateChange: vi.fn(() => () => undefined),
     sendMagicLink: vi.fn(async () => undefined),
     signInWithGoogle: vi.fn(async () => undefined),
+    signInWithApple: vi.fn(async () => undefined),
     signOut: vi.fn(async () => undefined),
     verifyEmailOtp: vi.fn(async () =>
       sessionFor(PERMANENT_USER_ID, "permanent"),

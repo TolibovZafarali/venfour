@@ -46,6 +46,7 @@ export interface AuthContextValue {
   restoreSession: (session: Session) => Promise<Session>;
   runTurnstileChallenge: TurnstileController["runWithToken"];
   signInWithGoogle: (options?: AuthActionOptions) => Promise<void>;
+  signInWithApple: (options?: AuthActionOptions) => Promise<void>;
   sendMagicLink: (
     email: string,
     options?: AuthActionOptions,

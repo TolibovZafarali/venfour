@@ -39,6 +39,7 @@ function authHarness(initial: Session | null) {
     verifyEmailOtp: vi.fn(async () => sessionFor(false)),
     restoreSession: vi.fn(async (session) => session),
     sendMagicLink: vi.fn(async () => undefined), signInWithGoogle: vi.fn(async () => undefined),
+    signInWithApple: vi.fn(async () => undefined),
     signOut: vi.fn(async () => undefined),
   };
   return { service, clear: () => listeners.forEach((listener) => listener("SIGNED_OUT", null)) };

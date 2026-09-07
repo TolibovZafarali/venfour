@@ -2,11 +2,7 @@ import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { StrictMode } from "react";
 import type { Session } from "@supabase/supabase-js";
-import {
-  createMemoryRouter,
-  MemoryRouter,
-  RouterProvider,
-} from "react-router";
+import { createMemoryRouter, MemoryRouter, RouterProvider } from "react-router";
 import { describe, expect, test, vi } from "vitest";
 
 import {
@@ -25,6 +21,7 @@ import {
   type TotalLossDependencies,
 } from "@/features/total-loss/dependencies";
 import type { TotalLossIdentityService } from "@/features/total-loss/identity-service";
+import { appleSession } from "@/test/fixtures/apple-session";
 
 const CASE_CLAIM_ID = "88888888-8888-4888-8888-888888888888";
 
@@ -70,6 +67,7 @@ function createService(overrides: Partial<AuthService> = {}) {
     restoreSession: vi.fn(async (session) => session),
     sendMagicLink: vi.fn(async () => undefined),
     signInWithGoogle: vi.fn(async () => undefined),
+    signInWithApple: vi.fn(async () => undefined),
     signOut: vi.fn(async () => undefined),
     verifyEmailOtp: vi.fn(async () => sessionFor("email-user")),
     ...overrides,
@@ -131,6 +129,77 @@ function renderSignIn(service: AuthService | null = createService()) {
 }
 
 describe("sign-in dialog", () => {
+  test("starts Apple through the shared callback and restores controls after browser Back", async () => {
+    const user = userEvent.setup();
+    const service = createService();
+    renderSignIn(service);
+    await user.click(screen.getByRole("button", { name: "Open sign in" }));
+    await user.click(
+      screen.getByRole("button", { name: "Continue with Apple" }),
+    );
+    expect(service.signInWithApple).toHaveBeenCalledWith(
+      `${window.location.origin}/auth/callback`,
+    );
+    expect(
+      screen.getByRole("button", { name: "Continue with Apple" }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Continue with Google" }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Continue with Email" }),
+    ).toBeDisabled();
+    expect(screen.getByRole("status")).toHaveTextContent("Connecting to Apple");
+    act(() =>
+      window.dispatchEvent(
+        new PageTransitionEvent("pageshow", { persisted: true }),
+      ),
+    );
+    expect(
+      screen.getByRole("button", { name: "Continue with Apple" }),
+    ).toBeEnabled();
+    expect(
+      screen.getByRole("button", { name: "Continue with Google" }),
+    ).toBeEnabled();
+    expect(
+      screen.getByRole("button", { name: "Continue with Email" }),
+    ).toBeEnabled();
+    expect(window.localStorage.getItem("venfour.auth.return-location")).toBe(
+      "/cases",
+    );
+  });
+
+  test.each([
+    [new Error("provider unavailable"), "We couldn’t start Apple sign-in."],
+    [new Error("Failed to fetch"), "Check your connection"],
+    [{ status: 429 }, "Too many sign-in attempts"],
+  ])(
+    "recovers from an Apple initiation error: %s",
+    async (failure, message) => {
+      const user = userEvent.setup();
+      const service = createService({
+        signInWithApple: vi.fn(async () => {
+          throw failure;
+        }),
+      });
+      renderSignIn(service);
+      await user.click(screen.getByRole("button", { name: "Open sign in" }));
+      await user.click(
+        screen.getByRole("button", { name: "Continue with Apple" }),
+      );
+      expect(screen.getByRole("alert")).toHaveTextContent(message);
+      expect(
+        screen.getByRole("button", { name: "Continue with Apple" }),
+      ).toBeEnabled();
+      expect(
+        screen.getByRole("button", { name: "Continue with Google" }),
+      ).toBeEnabled();
+      expect(
+        screen.getByRole("button", { name: "Continue with Email" }),
+      ).toBeEnabled();
+    },
+  );
+
   test("validates email, submits normalized email, and shows success", async () => {
     const user = userEvent.setup();
     const service = createService();
@@ -207,9 +276,10 @@ describe("sign-in dialog", () => {
     ).toHaveTextContent(
       "Sign in to open a saved Total Loss case and its private valuation report.",
     );
-    expect(
-      screen.getByRole("link", { name: "Terms of Use" }),
-    ).toHaveAttribute("href", "/terms");
+    expect(screen.getByRole("link", { name: "Terms of Use" })).toHaveAttribute(
+      "href",
+      "/terms",
+    );
   });
 
   test("links the current legal pages and closes before navigating", async () => {
@@ -222,10 +292,9 @@ describe("sign-in dialog", () => {
       "href",
       "/terms",
     );
-    expect(screen.getByRole("link", { name: "Privacy Policy" })).toHaveAttribute(
-      "href",
-      "/privacy",
-    );
+    expect(
+      screen.getByRole("link", { name: "Privacy Policy" }),
+    ).toHaveAttribute("href", "/privacy");
     expect(screen.getByRole("link", { name: "Cookie Policy" })).toHaveAttribute(
       "href",
       "/cookies",
@@ -254,11 +323,22 @@ describe("sign-in dialog", () => {
       screen.getByRole("textbox", { name: "Email address" }),
       "owner@example.com",
     );
-    await user.click(screen.getByRole("button", { name: "Continue with Email" }));
+    await user.click(
+      screen.getByRole("button", { name: "Continue with Email" }),
+    );
 
-    expect(screen.getByRole("button", { name: "Sending secure link…" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Continue with Google" })).toBeDisabled();
-    expect(screen.getByRole("textbox", { name: "Email address" })).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Sending secure link…" }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Continue with Google" }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Continue with Apple" }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole("textbox", { name: "Email address" }),
+    ).toBeDisabled();
 
     finishSending();
     expect(
@@ -328,6 +408,34 @@ describe("sign-in dialog", () => {
 });
 
 describe("account control", () => {
+  test("displays a returning Apple relay account without a name and signs out normally", async () => {
+    const user = userEvent.setup();
+    const session = appleSession("private-owner@privaterelay.appleid.com");
+    const service = createService({ getSession: vi.fn(async () => session) });
+    render(
+      <MemoryRouter>
+        <AuthProvider service={service}>
+          <SignInDialogProvider>
+            <AccountControl />
+            <MobileAccountControl />
+          </SignInDialogProvider>
+        </AuthProvider>
+      </MemoryRouter>,
+    );
+    const account = await screen.findByRole("button", {
+      name: `Account for ${session.user.email}`,
+    });
+    expect(account).toHaveTextContent(session.user.email!);
+    await user.click(account);
+    await user.click(screen.getByRole("menuitem", { name: "Sign Out" }));
+    expect(service.signOut).toHaveBeenCalledOnce();
+    const triggers = await screen.findAllByRole("button", { name: "Sign In" });
+    await user.click(triggers[0]);
+    expect(
+      screen.getByRole("button", { name: "Continue with Apple" }),
+    ).toBeVisible();
+  });
+
   test("reserves loading space and opens sign in when signed out", async () => {
     const user = userEvent.setup();
     let resolveSession!: (session: Session | null) => void;
@@ -354,7 +462,9 @@ describe("account control", () => {
       expect(screen.getByRole("button", { name: "Sign In" })).toBeVisible(),
     );
     await user.click(screen.getByRole("button", { name: "Sign In" }));
-    expect(screen.getByRole("dialog", { name: "Sign in to Venfour" })).toBeVisible();
+    expect(
+      screen.getByRole("dialog", { name: "Sign in to Venfour" }),
+    ).toBeVisible();
   });
 
   test("shows first name, identity, and signs out from the account menu", async () => {
@@ -519,6 +629,153 @@ describe("account control", () => {
 });
 
 describe("auth callback", () => {
+  test.each(["new", "returning", "relay"])(
+    "restores the protected case destination for a %s Apple user",
+    async (kind) => {
+      const session = appleSession(
+        kind === "relay" ? "private-owner@privaterelay.appleid.com" : undefined,
+      );
+      const service = createService({
+        getSession: vi.fn(async () => (kind === "returning" ? session : null)),
+        exchangeCodeForSession: vi.fn(async () => session),
+      });
+      const destination =
+        "/total-loss/cases/77777777-7777-4777-8777-777777777777/claim/review?from=resume#evidence";
+      storeAuthReturnLocation(destination);
+      const router = createMemoryRouter(
+        [
+          { path: "/auth/callback", element: <AuthCallbackPage /> },
+          {
+            path: "/total-loss/cases/:caseId/claim/review",
+            element: <h1>Saved case</h1>,
+          },
+        ],
+        { initialEntries: ["/auth/callback?code=apple-code"] },
+      );
+      render(
+        <StrictMode>
+          <AuthProvider service={service}>
+            <RouterProvider router={router} />
+          </AuthProvider>
+        </StrictMode>,
+      );
+      expect(
+        await screen.findByRole("heading", { name: "Saved case" }),
+      ).toBeVisible();
+      expect(service.exchangeCodeForSession).toHaveBeenCalledOnce();
+      expect(
+        `${router.state.location.pathname}${router.state.location.search}${router.state.location.hash}`,
+      ).toBe(destination);
+      expect(
+        window.localStorage.getItem("venfour.auth.return-location"),
+      ).toBeNull();
+    },
+  );
+
+  test.each([
+    "?error=access_denied&error_description=user_cancelled_authorize",
+    "#error=server_error&error_description=provider_unavailable",
+  ])(
+    "keeps the destination and retries Apple after callback failure %s",
+    async (parameters) => {
+      const user = userEvent.setup();
+      const service = createService();
+      storeAuthReturnLocation("/cases?resume=1#saved");
+      const router = createMemoryRouter(
+        [{ path: "/auth/callback/*", element: <AuthCallbackPage /> }],
+        {
+          initialEntries: [
+            `/auth/callback/case-claim/${CASE_CLAIM_ID}${parameters}`,
+          ],
+        },
+      );
+      render(
+        <AuthProvider service={service}>
+          <RouterProvider router={router} />
+        </AuthProvider>,
+      );
+      expect(screen.getByRole("alert")).toHaveTextContent(
+        parameters.includes("cancelled")
+          ? "Sign-in was canceled"
+          : "We couldn’t finish signing you in",
+      );
+      expect(
+        screen.queryByRole("heading", { name: "Finishing your sign in" }),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.getByRole("link", { name: "Return to your page" }),
+      ).toHaveAttribute("href", "/cases?resume=1#saved");
+      expect(service.exchangeCodeForSession).not.toHaveBeenCalled();
+      await user.click(
+        screen.getByRole("button", { name: "Try signing in again" }),
+      );
+      await user.click(
+        screen.getByRole("button", { name: "Continue with Apple" }),
+      );
+      expect(service.signInWithApple).toHaveBeenCalledWith(
+        `${window.location.origin}/auth/callback/case-claim/${CASE_CLAIM_ID}`,
+      );
+      expect(window.localStorage.getItem("venfour.auth.return-location")).toBe(
+        "/cases?resume=1#saved",
+      );
+    },
+  );
+
+  test.each(["owner@example.com", "private-owner@privaterelay.appleid.com"])(
+    "completes an email-matched guest claim through Apple OAuth for %s",
+    async (email) => {
+      const session = appleSession(email);
+      const completeIdentityClaim = vi.fn<
+        TotalLossIdentityService["completeIdentityClaim"]
+      >(async () => ({
+        outcome: "claimed",
+        caseId: "77777777-7777-4777-8777-777777777777",
+        ownerUserId: session.user.id,
+        contactEmail: email,
+        emailVerifiedAt: "2026-09-07T00:00:00Z",
+        claimedAt: "2026-09-07T00:00:00Z",
+        ownershipTransferred: true,
+        claimPurpose: "post_continue",
+      }));
+      const service = createService({
+        getSession: vi.fn(async () => anonymousSessionFor("guest")),
+        exchangeCodeForSession: vi.fn(async () => session),
+      });
+      const router = createMemoryRouter(
+        [
+          { path: "/auth/callback/*", element: <AuthCallbackPage /> },
+          {
+            path: "/total-loss/cases/:caseId/claim/checkout",
+            element: <h1>Saved case checkout</h1>,
+          },
+        ],
+        {
+          initialEntries: [
+            `/auth/callback/case-claim/${CASE_CLAIM_ID}?code=apple-code`,
+          ],
+        },
+      );
+      render(
+        <StrictMode>
+          <TotalLossDependenciesProvider
+            dependencies={callbackDependencies(completeIdentityClaim)}
+          >
+            <AuthProvider service={service}>
+              <RouterProvider router={router} />
+            </AuthProvider>
+          </TotalLossDependenciesProvider>
+        </StrictMode>,
+      );
+      expect(
+        await screen.findByRole("heading", { name: "Saved case checkout" }),
+      ).toBeVisible();
+      expect(completeIdentityClaim).toHaveBeenCalledExactlyOnceWith(
+        CASE_CLAIM_ID,
+      );
+      expect(service.restoreSession).not.toHaveBeenCalled();
+    },
+  );
+
   test("exchanges the code and navigates to a stored safe location", async () => {
     const service = createService();
     storeAuthReturnLocation("/destination?from=auth");
@@ -540,8 +797,12 @@ describe("auth callback", () => {
       </AuthProvider>,
     );
 
-    expect(screen.getByRole("heading", { name: "Finishing your sign in" })).toBeVisible();
-    expect(await screen.findByRole("heading", { name: "Destination" })).toBeVisible();
+    expect(
+      screen.getByRole("heading", { name: "Finishing your sign in" }),
+    ).toBeVisible();
+    expect(
+      await screen.findByRole("heading", { name: "Destination" }),
+    ).toBeVisible();
     expect(service.exchangeCodeForSession).toHaveBeenCalledWith(
       "secure-code",
       "0123456789abcdef0123456789abcdef",
@@ -579,7 +840,9 @@ describe("auth callback", () => {
       await restoration.promise;
     });
 
-    expect(await screen.findByRole("heading", { name: "Destination" })).toBeVisible();
+    expect(
+      await screen.findByRole("heading", { name: "Destination" }),
+    ).toBeVisible();
     expect(exchangeCodeForSession).toHaveBeenCalledOnce();
     expect(exchangeCodeForSession).toHaveBeenCalledWith(
       "new-account-code",
@@ -587,54 +850,70 @@ describe("auth callback", () => {
     );
   });
 
-  test("restores a captured guest when verified case claiming fails", async () => {
-    const guestSession = anonymousSessionFor("existing-guest");
-    const permanentSession = sessionFor("claim-owner");
-    const completeIdentityClaim = vi.fn<
-      TotalLossIdentityService["completeIdentityClaim"]
-    >(async () => {
-      throw new Error("The case claim is unavailable.");
-    });
-    const dependencies = callbackDependencies(completeIdentityClaim);
-    const service = createService({
-      getSession: vi.fn(async () => guestSession),
-      verifyEmailOtp: vi.fn(async () => permanentSession),
-    });
-    storeAuthReturnLocation("/destination");
-    const router = createMemoryRouter(
-      [
-        { path: "/auth/callback/*", element: <AuthCallbackPage /> },
-        { path: "/destination", element: <h1>Destination</h1> },
-      ],
-      {
-        initialEntries: [
-          `/auth/callback/case-claim/${CASE_CLAIM_ID}?token_hash=claim-token&type=email`,
+  test.each(["email", "apple"])(
+    "restores a captured guest when %s case claiming fails",
+    async (provider) => {
+      const guestSession = anonymousSessionFor("existing-guest");
+      const permanentSession = sessionFor("claim-owner");
+      const completeIdentityClaim = vi.fn<
+        TotalLossIdentityService["completeIdentityClaim"]
+      >(async () => {
+        throw new Error("The case claim is unavailable.");
+      });
+      const dependencies = callbackDependencies(completeIdentityClaim);
+      const service = createService({
+        getSession: vi.fn(async () => guestSession),
+        verifyEmailOtp: vi.fn(async () => permanentSession),
+        exchangeCodeForSession: vi.fn(async () =>
+          appleSession("private-owner@privaterelay.appleid.com"),
+        ),
+      });
+      storeAuthReturnLocation("/destination");
+      const router = createMemoryRouter(
+        [
+          { path: "/auth/callback/*", element: <AuthCallbackPage /> },
+          { path: "/destination", element: <h1>Destination</h1> },
         ],
-      },
-    );
+        {
+          initialEntries: [
+            `/auth/callback/case-claim/${CASE_CLAIM_ID}${provider === "email" ? "?token_hash=claim-token&type=email" : "?code=apple-code"}`,
+          ],
+        },
+      );
 
-    render(
-      <StrictMode>
-        <TotalLossDependenciesProvider dependencies={dependencies}>
-          <AuthProvider service={service}>
-            <RouterProvider router={router} />
-          </AuthProvider>
-        </TotalLossDependenciesProvider>
-      </StrictMode>,
-    );
+      render(
+        <StrictMode>
+          <TotalLossDependenciesProvider dependencies={dependencies}>
+            <AuthProvider service={service}>
+              <RouterProvider router={router} />
+            </AuthProvider>
+          </TotalLossDependenciesProvider>
+        </StrictMode>,
+      );
 
-    expect(
-      await screen.findByRole("heading", { name: "We couldn’t sign you in" }),
-    ).toBeVisible();
-    expect(service.verifyEmailOtp).toHaveBeenCalledWith("claim-token");
-    expect(completeIdentityClaim).toHaveBeenCalledOnce();
-    expect(completeIdentityClaim).toHaveBeenCalledWith(CASE_CLAIM_ID);
-    expect(service.restoreSession).toHaveBeenCalledOnce();
-    expect(service.restoreSession).toHaveBeenCalledWith(guestSession);
-    expect(router.state.location.pathname).toBe(
-      `/auth/callback/case-claim/${CASE_CLAIM_ID}`,
-    );
-  });
+      expect(
+        await screen.findByRole("heading", { name: "We couldn’t sign you in" }),
+      ).toBeVisible();
+      if (provider === "email") {
+        expect(service.verifyEmailOtp).toHaveBeenCalledWith("claim-token");
+      } else {
+        expect(service.exchangeCodeForSession).toHaveBeenCalledWith(
+          "apple-code",
+          undefined,
+        );
+      }
+      expect(screen.getByRole("alert")).toHaveTextContent(
+        "same verified email",
+      );
+      expect(completeIdentityClaim).toHaveBeenCalledOnce();
+      expect(completeIdentityClaim).toHaveBeenCalledWith(CASE_CLAIM_ID);
+      expect(service.restoreSession).toHaveBeenCalledOnce();
+      expect(service.restoreSession).toHaveBeenCalledWith(guestSession);
+      expect(router.state.location.pathname).toBe(
+        `/auth/callback/case-claim/${CASE_CLAIM_ID}`,
+      );
+    },
+  );
 
   test("keeps the verified session and routes a claimed case through appraisals", async () => {
     const guestSession = anonymousSessionFor("existing-guest");
@@ -739,7 +1018,9 @@ describe("auth callback", () => {
     );
 
     expect(
-      await screen.findByRole("heading", { name: "Complete your valuation review" }),
+      await screen.findByRole("heading", {
+        name: "Complete your valuation review",
+      }),
     ).toBeVisible();
     expect(router.state.location.pathname).toBe(
       `/total-loss/cases/${trustedCaseId}/claim/checkout`,
@@ -792,7 +1073,9 @@ describe("auth callback", () => {
     );
 
     expect(
-      await screen.findByRole("heading", { name: "Complete your valuation review" }),
+      await screen.findByRole("heading", {
+        name: "Complete your valuation review",
+      }),
     ).toBeVisible();
     expect(router.state.location.pathname).toBe(
       `/total-loss/cases/${trustedCaseId}/claim/checkout`,

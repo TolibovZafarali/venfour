@@ -1226,6 +1226,7 @@ function createTestAuthService(
     sendMagicLink: async () => {},
     signInAnonymously: async () => session ?? createTestAnonymousSession(),
     signInWithGoogle: async () => {},
+    signInWithApple: async () => {},
     signOut: async () => {},
     verifyEmailOtp: async () => {
       if (!session) {

@@ -17,6 +17,7 @@ export interface AuthService {
   restoreSession?: (session: Session) => Promise<Session>;
   signInAnonymously?: (captchaToken: string) => Promise<Session>;
   signInWithGoogle: (redirectTo: string) => Promise<void>;
+  signInWithApple: (redirectTo: string) => Promise<void>;
   sendMagicLink: (
     email: string,
     redirectTo: string,
@@ -81,6 +82,14 @@ export function createSupabaseAuthService(
     async signInWithGoogle(redirectTo) {
       const { error } = await client.auth.signInWithOAuth({
         provider: "google",
+        options: { redirectTo },
+      });
+      throwIfError(error);
+    },
+
+    async signInWithApple(redirectTo) {
+      const { error } = await client.auth.signInWithOAuth({
+        provider: "apple",
         options: { redirectTo },
       });
       throwIfError(error);

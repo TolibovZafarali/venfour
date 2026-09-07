@@ -273,7 +273,19 @@ export function AuthProvider({
   const signInWithGoogle = useCallback<AuthContextValue["signInWithGoogle"]>(
     async (options) => {
       storeAuthReturnLocation(options?.returnTo);
-      await requireService().signInWithGoogle(getAuthCallbackUrl());
+      await requireService().signInWithGoogle(
+        getAuthCallbackUrl(options?.callbackParameters),
+      );
+    },
+    [requireService],
+  );
+
+  const signInWithApple = useCallback<AuthContextValue["signInWithApple"]>(
+    async (options) => {
+      storeAuthReturnLocation(options?.returnTo);
+      await requireService().signInWithApple(
+        getAuthCallbackUrl(options?.callbackParameters),
+      );
     },
     [requireService],
   );
@@ -332,6 +344,7 @@ export function AuthProvider({
       runTurnstileChallenge,
       sendMagicLink,
       signInWithGoogle,
+      signInWithApple,
       signOut,
     }),
     [
@@ -343,6 +356,7 @@ export function AuthProvider({
       runTurnstileChallenge,
       sendMagicLink,
       signInWithGoogle,
+      signInWithApple,
       signOut,
     ],
   );

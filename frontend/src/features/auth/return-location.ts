@@ -96,6 +96,13 @@ export function consumeAuthReturnLocation() {
   return sanitizeReturnLocation(stored);
 }
 
+export function readAuthReturnLocation() {
+  if (typeof window === "undefined") return DEFAULT_RETURN_LOCATION;
+  return sanitizeReturnLocation(
+    window.localStorage.getItem(AUTH_RETURN_LOCATION_STORAGE_KEY),
+  );
+}
+
 export type AuthCallbackParameters =
   | { kind: "code"; code: string; flowId: string | null }
   | { kind: "email"; tokenHash: string }

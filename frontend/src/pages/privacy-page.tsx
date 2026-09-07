@@ -58,7 +58,8 @@ export function PrivacyPage() {
           Venfour uses Supabase to authenticate customers and store limited
           account, profile, and vehicle-review case information. Depending on
           how you sign in, Supabase may process your email address and basic
-          Google account information. Your verified Supabase Auth email remains
+          Google or Apple account information, including an Apple private-relay
+          email address if you choose Hide My Email. Your verified Supabase Auth email remains
           the account email identity. The application profile stores your
           confirmed full name, the versions and times of required
           acknowledgements, and your separately recorded optional operational

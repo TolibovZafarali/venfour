@@ -19,6 +19,7 @@ import {
   CustomerProfileServiceProvider,
 } from "@/features/customer-profile";
 import { createAppQueryClient } from "@/app/query-client";
+import { appleSession } from "@/test/fixtures/apple-session";
 
 const USER_ID = "11111111-1111-4111-8111-111111111111";
 const NOW = "2026-08-23T12:00:00.000Z";
@@ -54,6 +55,7 @@ function authService(session: Session): AuthService {
     onAuthStateChange: vi.fn(() => () => undefined),
     sendMagicLink: vi.fn(async () => undefined),
     signInWithGoogle: vi.fn(async () => undefined),
+    signInWithApple: vi.fn(async () => undefined),
     signOut: vi.fn(async () => undefined),
     verifyEmailOtp: vi.fn(async () => session),
   };
@@ -98,6 +100,22 @@ function renderGate(session: Session, service: CustomerProfileService) {
 }
 
 describe("customer profile gate", () => {
+  it("accepts an Apple relay email and collects the missing name separately", async () => {
+    const user = userEvent.setup();
+    const confirmProfile = vi.fn<CustomerProfileService["confirmProfile"]>(async ({ fullName }) => customerProfile({ fullName }));
+    renderGate(appleSession("private-owner@privaterelay.appleid.com"), {
+      getProfile: vi.fn(async () => null), confirmProfile,
+    });
+    expect(await screen.findByLabelText("Full name")).toHaveValue("");
+    expect(screen.getByLabelText("Verified email")).toHaveValue("private-owner@privaterelay.appleid.com");
+    await user.type(screen.getByLabelText("Full name"), "Customer Entered Name");
+    await user.click(screen.getByRole("checkbox", { name: /Terms of Use/u }));
+    await user.click(screen.getByRole("checkbox", { name: /Privacy Policy/u }));
+    await user.click(screen.getByRole("button", { name: "Confirm and continue" }));
+    expect(await screen.findByRole("heading", { name: "Profile complete" })).toBeVisible();
+    expect(confirmProfile).toHaveBeenCalledExactlyOnceWith({ userId: USER_ID, fullName: "Customer Entered Name", operationalFollowUpAllowed: false });
+  });
+
   it("shows verified Auth email read-only and persists a corrected suggestion with separate preferences", async () => {
     const user = userEvent.setup();
     const confirmProfile = vi.fn<CustomerProfileService["confirmProfile"]>(

@@ -37,6 +37,7 @@ function createGuestAuthService(): AuthService {
     signInAnonymously: vi.fn(async () => session),
     sendMagicLink: vi.fn(async () => undefined),
     signInWithGoogle: vi.fn(async () => undefined),
+    signInWithApple: vi.fn(async () => undefined),
     signOut: vi.fn(async () => undefined),
     verifyEmailOtp: vi.fn(async () => session),
   };

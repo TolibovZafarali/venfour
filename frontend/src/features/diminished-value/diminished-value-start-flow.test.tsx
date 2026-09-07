@@ -99,6 +99,7 @@ function createAuthHarness(getSession: () => Promise<Session | null>) {
     }),
     sendMagicLink: vi.fn(async () => undefined),
     signInWithGoogle: vi.fn(async () => undefined),
+    signInWithApple: vi.fn(async () => undefined),
     signOut: vi.fn(async () => undefined),
     verifyEmailOtp: vi.fn(async () => sessionFor()),
   };

@@ -71,6 +71,7 @@ function createFakeAuthService(
       sessionFor("anonymous-user", "", "anonymous"),
     ),
     signInWithGoogle: vi.fn(async () => undefined),
+    signInWithApple: vi.fn(async () => undefined),
     signOut: vi.fn(async () => undefined),
     verifyEmailOtp: vi.fn(async () => sessionFor("email-user")),
   };

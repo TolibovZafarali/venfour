@@ -1,11 +1,13 @@
 import { Mail, ShieldCheck, X } from "lucide-react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { Link } from "react-router";
 import { Dialog } from "radix-ui";
 
+import appleLogo from "@/assets/apple-logo-white.svg";
 import { getFriendlyAuthError } from "@/features/auth/auth-errors";
-import { useAuth } from "@/features/auth/auth-context";
+import { isAnonymousAuthState, useAuth } from "@/features/auth/auth-context";
+import type { AuthActionOptions } from "@/features/auth/auth-context";
 import type { SignInIntent } from "@/features/auth/sign-in-dialog-context";
 
 const focusRingClassName =
@@ -20,13 +22,14 @@ function isValidSignInEmail(email: string) {
   return emailPattern.test(email.trim());
 }
 
-type PendingAction = "email" | "google" | null;
+type PendingAction = "email" | "google" | "apple" | null;
 
 interface SignInDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   restoreFocusElement?: HTMLElement | null;
   returnTo?: string;
+  callbackParameters?: AuthActionOptions["callbackParameters"];
   intent?: SignInIntent;
 }
 
@@ -48,9 +51,10 @@ export function SignInDialog({
   onOpenChange,
   restoreFocusElement,
   returnTo,
+  callbackParameters,
   intent = "default",
 }: SignInDialogProps) {
-  const { auth, sendMagicLink, signInWithGoogle } = useAuth();
+  const { auth, sendMagicLink, signInWithGoogle, signInWithApple } = useAuth();
   const [email, setEmail] = useState("");
   const [emailSent, setEmailSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -58,14 +62,23 @@ export function SignInDialog({
   const googleButtonRef = useRef<HTMLButtonElement>(null);
   const pending = pendingAction !== null;
 
-  const startGoogleSignIn = async () => {
+  useEffect(() => {
+    const resetOAuthPending = () => {
+      setPendingAction((action) => (action === "email" ? action : null));
+    };
+    window.addEventListener("pageshow", resetOAuthPending);
+    return () => window.removeEventListener("pageshow", resetOAuthPending);
+  }, []);
+
+  const startOAuthSignIn = async (provider: "google" | "apple") => {
     setError(null);
-    setPendingAction("google");
+    setPendingAction(provider);
 
     try {
-      await signInWithGoogle({ returnTo });
+      const signIn = provider === "apple" ? signInWithApple : signInWithGoogle;
+      await signIn({ returnTo, callbackParameters });
     } catch (signInError) {
-      setError(getFriendlyAuthError(signInError, "google"));
+      setError(getFriendlyAuthError(signInError, provider));
       setPendingAction(null);
     }
   };
@@ -83,7 +96,7 @@ export function SignInDialog({
     setPendingAction("email");
 
     try {
-      await sendMagicLink(normalizedEmail, { returnTo });
+      await sendMagicLink(normalizedEmail, { returnTo, callbackParameters });
       setEmail(normalizedEmail);
       setEmailSent(true);
       setPendingAction(null);
@@ -175,7 +188,7 @@ export function SignInDialog({
                 type="button"
                 className={`${actionClassName} ${focusRingClassName} border border-line bg-white text-ink hover:border-line-strong hover:bg-surface`}
                 disabled={pending}
-                onClick={() => void startGoogleSignIn()}
+                onClick={() => void startOAuthSignIn("google")}
               >
                 <svg
                   className="size-5 shrink-0"
@@ -203,6 +216,33 @@ export function SignInDialog({
                   ? "Connecting to Google…"
                   : "Continue with Google"}
               </button>
+
+              <button
+                type="button"
+                className={`${actionClassName} ${focusRingClassName} mt-3 h-11 gap-0 bg-black pr-6 pl-2 text-white hover:ring-2 hover:ring-black/15`}
+                disabled={pending}
+                aria-busy={pendingAction === "apple"}
+                onClick={() => void startOAuthSignIn("apple")}
+              >
+                <img
+                  src={appleLogo}
+                  className="h-11 w-auto shrink-0"
+                  alt=""
+                  aria-hidden
+                />
+                Continue with Apple
+              </button>
+              {pendingAction === "apple" ? (
+                <p className="sr-only" role="status">
+                  Connecting to Apple…
+                </p>
+              ) : null}
+              {isAnonymousAuthState(auth) ? (
+                <p className="mt-3 text-xs leading-5 text-copy">
+                  Already started a case? Open the secure link we emailed you to
+                  access it.
+                </p>
+              ) : null}
 
               <div className="my-5 flex items-center gap-3" aria-hidden>
                 <span className="h-px flex-1 bg-line" />

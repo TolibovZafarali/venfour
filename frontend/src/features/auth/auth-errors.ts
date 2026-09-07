@@ -1,4 +1,5 @@
-type AuthOperation = "callback" | "email" | "google" | "guest" | "signout";
+type AuthOperation =
+  "callback" | "oauth" | "email" | "google" | "apple" | "guest" | "signout";
 
 interface ErrorDetails {
   code?: string;
@@ -32,12 +33,18 @@ function getErrorDetails(error: unknown): ErrorDetails {
   return {};
 }
 
-export function getFriendlyAuthError(
-  error: unknown,
-  operation: AuthOperation,
-) {
+export function getFriendlyAuthError(error: unknown, operation: AuthOperation) {
   const details = getErrorDetails(error);
-  const searchable = `${details.code ?? ""} ${details.message ?? ""}`.toLowerCase();
+  const searchable =
+    `${details.code ?? ""} ${details.message ?? ""}`.toLowerCase();
+
+  if (details.code === "CASE_CLAIM_FAILED") {
+    return "We couldn’t connect this case to your account. Use the secure link sent to the case’s contact email and an account with that same verified email.";
+  }
+
+  if (/cancelled|canceled|user_denied/iu.test(searchable)) {
+    return "Sign-in was canceled. You can try again when you’re ready.";
+  }
 
   if (
     details.status === 429 ||
@@ -65,10 +72,14 @@ export function getFriendlyAuthError(
   switch (operation) {
     case "callback":
       return "This sign-in link is invalid or has expired. Please request a new one.";
+    case "oauth":
+      return "We couldn’t finish signing you in. Please try again.";
     case "email":
       return "We couldn’t send the sign-in link. Check the address and try again.";
     case "google":
       return "We couldn’t start Google sign-in. Please try again.";
+    case "apple":
+      return "We couldn’t start Apple sign-in. Please try again.";
     case "guest":
       return "Venfour could not prepare secure guest storage. Try again.";
     case "signout":
