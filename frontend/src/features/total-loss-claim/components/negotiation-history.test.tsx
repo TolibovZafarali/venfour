@@ -1,4 +1,6 @@
-import { fireEvent, render, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { CompletedReviewActionsHostContext } from "@/components/completed-review-progress-host";
 import { MemoryRouter } from "react-router";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -10,7 +12,7 @@ import type {
 } from "../contracts";
 import { preserveRequestDraft, requestDraftRecoveryKey } from "../request-draft-recovery";
 import { contentOf } from "../request-state";
-import { NegotiationHistory } from "./negotiation-history";
+import { NegotiationHistory, NegotiationHistoryDialog } from "./negotiation-history";
 
 const CASE_ID = "33333333-3333-4333-8333-333333333333";
 const REPORT_ID = "44444444-4444-4444-8444-444444444444";
@@ -106,6 +108,47 @@ function supersededHistory() {
 beforeEach(() => window.sessionStorage.clear());
 
 describe("immutable negotiation history", () => {
+  it("opens history from the header, restores focus on dismissal, and closes when a record is selected", async () => {
+    const { history } = supersededHistory();
+    const host = document.createElement("header");
+    document.body.append(host);
+    const view = render(
+      <MemoryRouter>
+        <CompletedReviewActionsHostContext.Provider value={host}>
+          <NegotiationHistoryDialog caseId={CASE_ID} history={history} userId={USER_ID} vehicleDescription="2022 Toyota Camry SE" />
+        </CompletedReviewActionsHostContext.Provider>
+      </MemoryRouter>,
+    );
+    const user = userEvent.setup();
+    try {
+      const trigger = within(host).getByRole("button", { name: "Case history" });
+      expect(view.container).toBeEmptyDOMElement();
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+      await user.click(trigger);
+      const dialog = screen.getByRole("dialog", { name: "Case history" });
+      expect(within(dialog).getByText("Your saved requests, responses, reviews, and decisions.")).toBeVisible();
+      expect(within(dialog).getByText("2022 Toyota Camry SE")).toBeVisible();
+      expect(dialog.querySelector(".case-history-timeline-heading")).toHaveTextContent("1 message · 2 responses");
+      const close = within(dialog).getByRole("button", { name: "Close case history" });
+      expect(close).toHaveFocus();
+      await user.tab({ shift: true });
+      expect(dialog).toContainElement(document.activeElement as HTMLElement);
+      await user.keyboard("{Escape}");
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+      expect(trigger).toHaveFocus();
+      await user.click(trigger);
+      await user.click(screen.getByRole("button", { name: "Close case history" }));
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+      expect(trigger).toHaveFocus();
+      await user.click(trigger);
+      await user.click(screen.getAllByRole("link", { name: "View response" })[0]!);
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    } finally {
+      view.unmount();
+      host.remove();
+    }
+  });
+
   it("retains the initial request and every follow-up with their own exact sent record", () => {
     const messages = [communication(1), communication(2), communication(3)];
     const history: TotalLossNegotiationHistoryRound[] = messages.map((outbound, index) => ({
@@ -122,7 +165,6 @@ describe("immutable negotiation history", () => {
         <NegotiationHistory caseId={CASE_ID} history={history} userId={USER_ID} />
       </MemoryRouter>,
     );
-    fireEvent.click(container.querySelector(".case-history > summary")!);
     const records = container.querySelectorAll(".case-history-message");
 
     expect(records).toHaveLength(messages.length);
@@ -134,7 +176,7 @@ describe("immutable negotiation history", () => {
       expect(summary).toHaveTextContent(`Version ${message.versionNumber}`);
       expect(summary.querySelector("time")).toHaveAttribute("dateTime", message.customerReportedSentAt);
       fireEvent.click(summary);
-      expect(within(record).getByText(message.subject)).toBeVisible();
+      expect(within(record.querySelector("dl")!).getByText(message.subject)).toBeVisible();
       expect(within(record).getByText(message.recipient)).toBeVisible();
       expect(record.querySelector(".sent-request-body")?.textContent).toBe(message.body);
     });
@@ -153,7 +195,6 @@ describe("immutable negotiation history", () => {
       </MemoryRouter>,
     );
 
-    fireEvent.click(container.querySelector(".case-history > summary")!);
     const record = container.querySelector(".case-history-superseded-draft") as HTMLElement;
     expect(record).toHaveTextContent("Earlier follow-up draft — kept for reference");
     expect(record).not.toHaveTextContent(/superseded/iu);
@@ -186,7 +227,6 @@ describe("immutable negotiation history", () => {
       </MemoryRouter>,
     );
 
-    fireEvent.click(container.querySelector(".case-history > summary")!);
     const record = container.querySelector(".case-history-superseded-draft") as HTMLElement;
     fireEvent.click(record.querySelector("summary")!);
     const versions = record.querySelectorAll(".case-history-draft-version");
@@ -221,7 +261,6 @@ describe("immutable negotiation history", () => {
       </MemoryRouter>,
     );
 
-    fireEvent.click(container.querySelector(".case-history > summary")!);
     const record = container.querySelector(".case-history-superseded-draft") as HTMLElement;
     fireEvent.click(record.querySelector("summary")!);
     expect(within(record).getByRole("region", { name: "Browser-recovered version — saved status uncertain" })).toBeVisible();
@@ -246,7 +285,6 @@ describe("immutable negotiation history", () => {
       read.mockRestore();
     }
 
-    fireEvent.click(container!.querySelector(".case-history > summary")!);
     const record = container!.querySelector(".case-history-superseded-draft") as HTMLElement;
     fireEvent.click(record.querySelector("summary")!);
     expect(within(record).getByRole("region", { name: "Last saved draft" })).toBeVisible();

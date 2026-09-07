@@ -857,7 +857,7 @@ describe("completed-analysis guided progression", () => {
     expect(bar.getAttribute("aria-valuenow")).toBe(bar.getAttribute("aria-valuemax"));
     expect(bar).toHaveAttribute("aria-valuetext", "Case complete.");
     expect(saved.claim().negotiationHistory).toHaveLength(3);
-    await user.click(screen.getByText("Case history", { exact: false, selector: "summary" }));
+    await user.click(screen.getByRole("button", { name: "Case history" }));
     const sentMessages = document.querySelectorAll(".case-history-message > summary");
     expect(sentMessages).toHaveLength(3);
     for (const message of sentMessages) {
@@ -869,6 +869,7 @@ describe("completed-analysis guided progression", () => {
     expect(reviewLinks).toHaveLength(3);
     await user.click(reviewLinks[0]!);
     expect(await screen.findByText("You chose to continue challenging")).toBeVisible();
+    expect(screen.queryByRole("dialog", { name: "Case history" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Correct this response|Accept offer|Continue challenging|Close case/u })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Prepare my follow-up" })).not.toBeInTheDocument();
     await act(() => view.router.navigate(`${BASE}/review/request`));
@@ -882,6 +883,21 @@ describe("completed-analysis guided progression", () => {
     expect(await screen.findByRole("heading", { name: "How your insurer reached its value" })).toBeVisible();
     expect(saved.writes).toEqual([]);
     expect(saved.draftWrites).not.toHaveBeenCalled();
+  });
+
+  it.each(["manual", "report"] as const)("shows closure only on the final %s workspace section", async (intakeMode) => {
+    installClaim(reviewedClaim());
+    const view = renderJourney(intakeMode, "response-reviewed");
+    expect(await screen.findByRole("button", { name: "Close case" })).toBeVisible();
+    const sections = within(screen.getByRole("navigation", { name: "Case sections" })).getAllByRole("link");
+    const earlierPaths = sections.slice(0, -1).map((link) => link.getAttribute("href")!);
+    for (const path of earlierPaths) {
+      await act(() => view.router.navigate(path));
+      expect(view.router.state.location.pathname).toBe(path.split("?")[0]);
+      expect(screen.queryByRole("button", { name: "Close case" })).not.toBeInTheDocument();
+    }
+    await act(() => view.router.navigate(`${BASE}/review/response-reviewed`));
+    expect(await screen.findByRole("button", { name: "Close case" })).toBeVisible();
   });
 
   it.each([false, true])("manually resolves without Accept and optional customer-reported amount=%s", async (withAmount) => {
@@ -920,6 +936,9 @@ describe("completed-analysis guided progression", () => {
     }));
     const view = renderJourney("report", "response-reviewed");
     const user = userEvent.setup();
+    await screen.findByText("You chose to continue challenging");
+    expect(screen.queryByRole("button", { name: "Close case" })).not.toBeInTheDocument();
+    await act(() => view.router.navigate(`${BASE}/review/follow-up`));
     await user.click(await screen.findByRole("button", { name: "Close case" }));
     await user.click(screen.getByRole("radio", { name: "I’m no longer pursuing this" }));
     expect(screen.queryByRole("textbox", { name: /Final amount/u })).not.toBeInTheDocument();
@@ -1219,7 +1238,7 @@ describe("completed-analysis guided progression", () => {
     expect(view.router.state.location.pathname).toBe(`${BASE}/review/response-reviewing`);
     expect(installed.claim().followUp).toBeNull();
     expect(installed.claim().insurerResponse?.supersedesResponseId).toBe(current.insurerResponse!.responseId);
-    await user.click(screen.getByText("Case history"));
+    await user.click(screen.getByRole("button", { name: "Case history" }));
     const historical = document.querySelector(".case-history-superseded-draft") as HTMLElement;
     expect(historical).toHaveTextContent("Earlier follow-up draft — kept for reference");
     await user.click(historical.querySelector("summary")!);
@@ -1251,7 +1270,7 @@ describe("completed-analysis guided progression", () => {
     expect(screen.getByRole("textbox", { name: "Subject" })).not.toHaveValue(historicalDraft.subject);
     expect(screen.getByRole("textbox", { name: "Message" })).not.toHaveValue(historicalDraft.body);
 
-    await user.click(screen.getByText("Case history"));
+    await user.click(screen.getByRole("button", { name: "Case history" }));
     const historical = document.querySelector(".case-history-superseded-draft") as HTMLElement;
     await user.click(historical.querySelector("summary")!);
     expect(historical.querySelector(".case-history-draft-body")?.textContent).toBe(historicalDraft.body);
@@ -1284,9 +1303,9 @@ describe("completed-analysis guided progression", () => {
     const user = userEvent.setup();
     const view = renderJourney("report", "response-reviewed");
     await screen.findByRole("heading", { name: "What the insurer’s response means" });
-    await user.click(screen.getByText("Case history"));
+    await user.click(screen.getByRole("button", { name: "Case history" }));
     expect(screen.getAllByRole("link", { name: "View response" })).toHaveLength(3);
-    expect(screen.getAllByText("Follow-up", { selector: "summary" })).toHaveLength(2);
+    expect(screen.getAllByText("Follow-up", { selector: ".case-history-entry-title" })).toHaveLength(2);
     for (const [index, round] of history.entries()) {
       const responseLink = screen.getAllByRole("link", { name: "View response" })[index]!;
       await user.click(responseLink);
@@ -1294,7 +1313,7 @@ describe("completed-analysis guided progression", () => {
       expect(screen.getByText(/current case step has not changed/u)).toBeVisible();
       expect(screen.queryByRole("button", { name: "Correct this response" })).not.toBeInTheDocument();
       expect(view.router.state.location.search).toContain(round.responses[0]!.responseId);
-      await user.click(screen.getByText("Case history"));
+      await user.click(screen.getByRole("button", { name: "Case history" }));
     }
     await user.click(screen.getAllByRole("link", { name: "Venfour review and decision" })[0]!);
     expect(await screen.findByText("You chose to continue challenging")).toBeVisible();
@@ -1345,7 +1364,7 @@ describe("completed-analysis guided progression", () => {
     renderJourney("report", "response-reviewed");
     await screen.findByRole("heading", { name: "What the insurer’s response means" });
     expect(screen.getByText(/Offer shown in insurer response:/u, { selector: ".response-decision-offer" })).toBeVisible();
-    await user.click(screen.getByText("Case history"));
+    await user.click(screen.getByRole("button", { name: "Case history" }));
     const historicalReviews = screen.getAllByRole("link", { name: "Venfour review and decision" });
     await user.click(historicalReviews.at(-1)!);
     expect(await screen.findByText("You chose to accept $20,100.00")).toBeVisible();

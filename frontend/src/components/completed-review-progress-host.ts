@@ -6,6 +6,13 @@ export const CompletedReviewProgressHostContext =
 export const CompletedReviewNavigationHostContext =
   createContext<HTMLElement | null>(null);
 
+export const CompletedReviewActionsHostContext =
+  createContext<HTMLElement | null>(null);
+
+export function useCompletedReviewActionsHost() {
+  return useContext(CompletedReviewActionsHostContext);
+}
+
 export function useCompletedReviewProgressHost() {
   return useContext(CompletedReviewProgressHostContext);
 }

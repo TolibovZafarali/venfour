@@ -22,7 +22,7 @@ import { InsurerEvidenceDetails, MarketEvidenceDetails, MethodologyDisclosure } 
 import { MessagePreparation } from "./message-preparation";
 import { FollowUpPreparation, SentFollowUp } from "./follow-up-preparation";
 import { AcceptedOfferFinalization, CaseResolutionBanner, ManualCaseClosure } from "./case-resolution";
-import { NegotiationHistory } from "./negotiation-history";
+import { NegotiationHistoryDialog } from "./negotiation-history";
 import {
   InsurerResponseForm,
   InsurerResponseReceived,
@@ -324,7 +324,7 @@ export function CompletedAnalysis(props: CompletedAnalysisProps) {
       {claim.resolution ? <CaseResolutionBanner resolution={claim.resolution} /> : null}
       <CaseJourneyProgress progress={workspace.progress} sections={workspace.sections} />
       <CaseWorkspaceNavigation workspace={workspace} stage={stage} pending={progression.pending} />
-      <NegotiationHistory key={`${location.pathname}:${location.search}`} caseId={caseId} history={claim.negotiationHistory ?? []} userId={userId} />
+      <NegotiationHistoryDialog key={`${location.pathname}:${location.search}`} caseId={caseId} history={claim.negotiationHistory ?? []} userId={userId} vehicleDescription={displayed(report.subjectVehicle.description, "Your vehicle")} />
       {historical ? <p className="case-history-view-notice">You are viewing a saved response and its review. Your current case step has not changed.<br /><Link to={workspace.currentPath}>Return to current case step</Link></p> : null}
       <div className="review-stage-content" data-view={stage}>
       {stage === "resolution" ? closed ? <>
@@ -452,7 +452,7 @@ export function CompletedAnalysis(props: CompletedAnalysisProps) {
           {showWaitingAction ? <button className="review-primary" data-review-entrance="secondary" data-review-order="1" type="button" onClick={() => navigate(path("response"))}><span className="review-action-label"><span className="review-action-reserve" aria-hidden="true">I received a response</span><span>I received a response</span></span><span className="review-action-icon"><ArrowRight aria-hidden="true" /></span></button> : null}
           {showContinueAction ? <button className="review-primary" data-review-entrance="secondary" data-review-order="1" type="button" disabled={progression.pending || Boolean(prerequisite)} onClick={() => void continueReview()}><span className="review-action-label"><span className="review-action-reserve" aria-hidden="true">{action}</span><span>{progression.pending ? "Saving progress…" : action}</span></span><span className="review-action-icon">{progression.pending ? <LoaderCircle className="review-spinner" aria-hidden="true" /> : <ArrowRight aria-hidden="true" />}</span></button> : null}
         </nav> : null}
-        {!historical && !closed && stage !== "response" && stage !== "follow_up" ? <ManualCaseClosure key={`${stage}:${claim.workflow?.revision}`} {...props} onClosed={() => navigate(path("resolution"), { replace: true })} /> : null}
+        {!historical && !closed && stage === workspace.sections.at(-1)?.stage ? <ManualCaseClosure key={`${stage}:${claim.workflow?.revision}`} {...props} onClosed={() => navigate(path("resolution"), { replace: true })} /> : null}
       </div>
     </section>
   );

@@ -10,7 +10,7 @@ import {
 } from "react-router";
 
 import { isPageMetadata, useDocumentMetadata } from "@/app/document-metadata";
-import { CompletedReviewNavigationHostContext, CompletedReviewProgressHostContext } from "@/components/completed-review-progress-host";
+import { CompletedReviewActionsHostContext, CompletedReviewNavigationHostContext, CompletedReviewProgressHostContext } from "@/components/completed-review-progress-host";
 import { supportEmail } from "@/config/support";
 import { useAdminDiminishedValueDependencies } from "@/features/admin/diminished-value/dependencies";
 import { useStaffAccessQuery } from "@/features/admin/diminished-value/queries";
@@ -82,6 +82,8 @@ function AppShellContent() {
   const [completedReviewProgressHost, setCompletedReviewProgressHost] =
     useState<HTMLDivElement | null>(null);
   const [completedReviewNavigationHost, setCompletedReviewNavigationHost] =
+    useState<HTMLDivElement | null>(null);
+  const [completedReviewActionsHost, setCompletedReviewActionsHost] =
     useState<HTMLDivElement | null>(null);
   const headerSentinelRef = useRef<HTMLSpanElement>(null);
   const mobileNavigationButtonRef = useRef<HTMLButtonElement>(null);
@@ -291,6 +293,7 @@ function AppShellContent() {
 
               {focusedCaseAccountHeader ? (
                 <div className="flex items-center gap-4">
+                  {completedReviewRoute ? <div ref={setCompletedReviewActionsHost} /> : null}
                   <AccountControl className="shrink-0" onStaffNavigationRequest={requestStaffNavigation} staffReviewHref={staffReviewHref} />
                 </div>
               ) : productFlowRoute ? null : startFlowRoute || adminRoute ? (
@@ -531,7 +534,9 @@ function AppShellContent() {
           value={completedReviewProgressHost}
         >
           <CompletedReviewNavigationHostContext.Provider value={completedReviewNavigationHost}>
-            <Outlet />
+            <CompletedReviewActionsHostContext.Provider value={completedReviewActionsHost}>
+              <Outlet />
+            </CompletedReviewActionsHostContext.Provider>
           </CompletedReviewNavigationHostContext.Provider>
         </CompletedReviewProgressHostContext.Provider>
       </main>
