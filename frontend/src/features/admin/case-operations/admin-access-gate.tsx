@@ -2,6 +2,7 @@ import { RefreshCw, ShieldCheck } from "lucide-react";
 import { Link, Outlet, useLocation } from "react-router";
 
 import { Button } from "@/components/ui/button";
+import { useAdminAuthorizationPurge } from "@/features/admin/operations/queries";
 import { AdminRouteState } from "@/features/admin/diminished-value/admin-route-state";
 import { useAuth, useSignInDialog } from "@/features/auth";
 
@@ -9,11 +10,12 @@ import { useAdminCaseOperationsDependencies } from "./dependencies";
 import { useStaffCaseOperationsAccessQuery } from "./queries";
 
 export function AdminCaseOperationsAccessGate() {
+  useAdminAuthorizationPurge();
   const { auth } = useAuth();
   const { openSignIn } = useSignInDialog();
   const dependencies = useAdminCaseOperationsDependencies();
   const location = useLocation();
-  const userId = auth.status === "signedIn" ? auth.user.id : null;
+  const userId = auth.status === "signedIn" && auth.identity === "permanent" ? auth.user.id : null;
   const accessQuery = useStaffCaseOperationsAccessQuery({
     service: dependencies?.caseService ?? null,
     userId,
@@ -30,7 +32,7 @@ export function AdminCaseOperationsAccessGate() {
     );
   }
 
-  if (auth.status === "signedOut") {
+  if (auth.status === "signedOut" || (auth.status === "signedIn" && auth.identity === "anonymous")) {
     const returnTo = `${location.pathname}${location.search}`;
     return (
       <AdminRouteState

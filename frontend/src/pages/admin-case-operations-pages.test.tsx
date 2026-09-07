@@ -1,5 +1,8 @@
 import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
 import { act, screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { createAdminRow, createAdminTestDependencies } from "@/features/admin/operations/test-fixtures";
+import { adminOperationsQueryKeys } from "@/features/admin/operations/queries";
 import { describe, expect, it, vi } from "vitest";
 
 import type { AdminCaseOperationsDependencies } from "@/features/admin/case-operations/dependencies";
@@ -69,11 +72,11 @@ describe("admin case-operations pages", () => {
 
     expect(
       await screen.findByRole("heading", {
-        name: "Customer and case operations",
+        name: "Cases",
       }),
     ).toBeVisible();
-    const cases = await screen.findByRole("list", { name: "Customer cases" });
-    const cards = within(cases).getAllByRole("listitem");
+    const cases = await screen.findByRole("table", { name: "Cases" });
+    const cards = within(cases).getAllByRole("row").slice(1);
     expect(cards).toHaveLength(1);
     expect(cards[0]).toHaveTextContent("Ada Lovelace");
     expect(cards[0]).toHaveTextContent("#33333333");
@@ -106,7 +109,7 @@ describe("admin case-operations pages", () => {
         adminDiminishedValueDependencies: diminishedValue,
         authService: createAuthHarness(sessionFor()).service,
       });
-      expect(await screen.findByRole("heading", { name: "Customer and case operations" })).toBeVisible();
+      expect(await screen.findByRole("heading", { name: "Cases" })).toBeVisible();
       expect(router.state.location.pathname).toBe("/admin/cases");
       expect(diminishedValue.caseService.listSubmittedCases).not.toHaveBeenCalled();
       expect(diminishedValue.caseService.getSubmittedCase).not.toHaveBeenCalled();
@@ -121,8 +124,8 @@ describe("admin case-operations pages", () => {
       })] }),
       authService: createAuthHarness(sessionFor()).service,
     });
-    expect(await screen.findByRole("heading", { name: "No customer cases" })).toBeVisible();
-    expect(screen.queryByRole("list", { name: "Customer cases" })).not.toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "No cases" })).toBeVisible();
+    expect(screen.queryByRole("table", { name: "Cases" })).not.toBeInTheDocument();
   });
 
   it("renders bounded total-loss operational detail without mutation or PDF controls", async () => {
@@ -137,19 +140,18 @@ describe("admin case-operations pages", () => {
         name: "Total-loss case #33333333",
       }),
     ).toBeVisible();
-    for (const heading of [
-      "Customer",
-      "Case",
-      "Total-loss intake",
-      "Valuation report",
-      "Analysis activity",
-      "Completed run summary",
-    ]) {
-      expect(screen.getByRole("heading", { name: heading })).toBeVisible();
-    }
-    expect(screen.getAllByText("Ada Lovelace").length).toBeGreaterThan(0);
+    expect(screen.getByRole("heading", { name: "Customer" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Case" })).toBeVisible();
     expect(screen.getAllByText("ada@example.com").length).toBeGreaterThan(0);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("tab", { name: "Vehicle & intake" }));
+    expect(screen.getByRole("heading", { name: "Total-loss intake" })).toBeVisible();
+    await user.click(screen.getByRole("tab", { name: "Reports" }));
+    expect(screen.getByRole("heading", { name: "Valuation report" })).toBeVisible();
     expect(screen.getByText("valuation.pdf")).toBeVisible();
+    await user.click(screen.getByRole("tab", { name: "Processing" }));
+    expect(screen.getByRole("heading", { name: "Analysis activity" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Completed run summary" })).toBeVisible();
     expect(screen.getByText("Provider Timeout")).toBeVisible();
     expect(screen.getByText("Material Undervalue Signal")).toBeVisible();
     expect(screen.getByText("Strong")).toBeVisible();
@@ -230,7 +232,7 @@ describe("admin case-operations pages", () => {
 
     expect(await screen.findByText("Ada Lovelace")).toBeVisible();
     expect(
-      queryClient.getQueryData(adminCaseOperationsQueryKeys.cases(STAFF_USER_ID)),
+      queryClient.getQueryData(adminOperationsQueryKeys.list(STAFF_USER_ID, "cases")),
     ).toBeDefined();
 
     staff = false;
@@ -249,7 +251,7 @@ describe("admin case-operations pages", () => {
     await waitFor(() =>
       expect(
         queryClient.getQueryData(
-          adminCaseOperationsQueryKeys.cases(STAFF_USER_ID),
+          adminOperationsQueryKeys.list(STAFF_USER_ID, "cases"),
         ),
       ).toBeUndefined(),
     );
@@ -270,7 +272,7 @@ describe("admin case-operations pages", () => {
     ).toBeVisible();
     expect(screen.queryByText("Ada Lovelace")).not.toBeInTheDocument();
     expect(
-      queryClient.getQueryData(adminCaseOperationsQueryKeys.cases(STAFF_USER_ID)),
+      queryClient.getQueryData(adminOperationsQueryKeys.list(STAFF_USER_ID, "cases")),
     ).toBeUndefined();
   });
 });
@@ -284,13 +286,16 @@ function createAdminDependencies({
   readonly cases?: StaffCaseOperationListItem[];
   readonly staff?: boolean;
 } = {}): AdminCaseOperationsDependencies {
-  return {
-    caseService: {
-      getTotalLossCase: vi.fn(async () => appraisalCase),
-      isStaff: vi.fn(async () => staff),
-      listCases: vi.fn(async () => cases),
-    },
-  };
+  return createAdminTestDependencies({
+    staff, legacyCase: appraisalCase,
+    rows: { cases: cases.filter(item => item.serviceType === "total_loss").map(item => createAdminRow({
+      id: item.caseId, caseId: item.caseId, customerId: item.ownerUserId,
+      title: item.customerFullName ?? "Guest", subtitle: item.verifiedEmail ?? item.contactEmail,
+      status: item.caseStage, identity: item.ownerIsAnonymous ? "guest" : "account",
+      attentionReasons: item.needsAttention ? ["PROVIDER_TIMEOUT"] : [],
+      facts: [], sections: [],
+    })) },
+  });
 }
 
 function listItem(

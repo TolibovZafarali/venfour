@@ -1,7 +1,8 @@
-import { AlertTriangle, ArrowLeft, FileText, RefreshCw } from "lucide-react";
-import { Link, useParams } from "react-router";
+import { AlertTriangle } from "lucide-react";
+import { Tabs } from "radix-ui";
+import type { ReactNode } from "react";
+import { Link, useParams, useSearchParams } from "react-router";
 
-import { Button } from "@/components/ui/button";
 import { useAdminCaseOperationsDependencies } from "@/features/admin/case-operations/dependencies";
 import {
   formatCaseOperationAnalysisStatus,
@@ -19,551 +20,160 @@ import {
 } from "@/features/admin/case-operations/format";
 import { useStaffTotalLossCaseOperationQuery } from "@/features/admin/case-operations/queries";
 import type { StaffTotalLossCaseOperation } from "@/features/admin/case-operations/types";
-import { AdminRouteState } from "@/features/admin/diminished-value/admin-route-state";
+import { AdminCollection, RecordFacts } from "@/features/admin/operations/collection";
+import { AdminBackLink, AdminBadge, AdminDetailField, AdminEmptyState, AdminErrorState, AdminLoadingState, AdminRefreshNotice, AdminPageHeader, AdminPanel } from "@/features/admin/operations/page-ui";
+import { safeAdminReturnTo, adminStatusTone, humanizeAdminCode } from "@/features/admin/operations/ui-format";
+import { useAdminCase } from "@/features/admin/operations/queries";
 import { useAuth } from "@/features/auth";
+import { paymentFilters, processingFilters, reportFilters, activityFilters } from "@/features/admin/operations/page-options";
 
-const UUID_PATTERN =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu;
+const tabs = [
+  { value: "overview", label: "Overview" },
+  { value: "intake", label: "Vehicle & intake" },
+  { value: "reports", label: "Reports" },
+  { value: "processing", label: "Processing" },
+  { value: "payments", label: "Payments" },
+  { value: "activity", label: "Activity" },
+] as const;
 
 export function AdminTotalLossCasePage() {
   const { caseId: routeCaseId = "" } = useParams();
-  const validCaseId = UUID_PATTERN.test(routeCaseId)
-    ? routeCaseId.toLowerCase()
-    : "";
+  const caseId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu.test(routeCaseId) ? routeCaseId.toLowerCase() : "";
+  const [params, setParams] = useSearchParams();
+  const tab = tabs.find(item => item.value === params.get("tab"))?.value ?? "overview";
+  const returnTo = safeAdminReturnTo(params.get("returnTo"));
   const { auth } = useAuth();
   const dependencies = useAdminCaseOperationsDependencies();
   const userId = auth.status === "signedIn" ? auth.user.id : null;
-  const caseQuery = useStaffTotalLossCaseOperationQuery({
-    caseId: validCaseId,
-    service: dependencies?.caseService ?? null,
-    userId,
+  const query = useStaffTotalLossCaseOperationQuery({ caseId, service: dependencies?.caseService ?? null, userId });
+  const operation = useAdminCase(caseId);
+  const selectTab = (value: string) => setParams(previous => {
+    const next = new URLSearchParams(previous);
+    for (const key of ["q", "page", "sort", "status", "kind", "identity", "verified", "hasCases", "attention", "view", "active", "customerId", "caseId"]) next.delete(key);
+    if (value === "overview") next.delete("tab"); else next.set("tab", value);
+    return next;
   });
 
-  if (!validCaseId) return <UnavailableCaseState />;
-
-  if (caseQuery.isPending) {
-    return (
-      <AdminRouteState
-        kind="loading"
-        eyebrow="Total-loss case"
-        heading="Loading case details…"
-        description="Venfour is securely opening the operational case record."
-      />
-    );
-  }
-
-  if (caseQuery.isError) {
-    return (
-      <AdminRouteState
-        kind="error"
-        eyebrow="Unable to load case"
-        heading="We couldn’t open this total-loss case."
-        description="A temporary connection problem prevented Venfour from retrieving the case."
-      >
-        <Button variant="outline" onClick={() => void caseQuery.refetch()}>
-          <RefreshCw className="size-4" aria-hidden />
-          Try again
-        </Button>
-        <Button asChild variant="ghost">
-          <Link to="/admin/cases">Return to cases</Link>
-        </Button>
-      </AdminRouteState>
-    );
-  }
-
-  if (!caseQuery.data) return <UnavailableCaseState />;
-
-  const appraisalCase = caseQuery.data;
-  return (
-    <article className="mx-auto w-full max-w-6xl px-5 py-8 sm:px-8 sm:py-10 lg:py-12">
-      <Link
-        to="/admin/cases"
-        className="inline-flex min-h-11 items-center gap-2 rounded-lg text-sm font-semibold text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
-      >
-        <ArrowLeft className="size-4" aria-hidden />
-        Back to customer cases
-      </Link>
-
-      <header className="mt-5 border-b border-line pb-7">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="inline-flex min-h-7 items-center rounded-full border border-brand/20 bg-brand-soft px-2.5 py-1 text-xs font-semibold text-brand">
-            {formatCaseOperationStage(appraisalCase.caseStage)}
-          </span>
-          {appraisalCase.needsAttention ? (
-            <span className="inline-flex min-h-7 items-center gap-1.5 rounded-full border border-amber-300 bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-950">
-              <AlertTriangle className="size-3.5" aria-hidden />
-              Needs attention
-            </span>
-          ) : null}
-        </div>
-        <p className="mt-5 text-sm font-semibold tracking-[0.12em] text-brand uppercase">
-          Read-only staff view
-        </p>
-        <h1 className="mt-2 text-3xl font-semibold tracking-[-0.035em] text-ink sm:text-4xl">
-          Total-loss case #{formatCaseOperationReference(appraisalCase.caseId)}
-        </h1>
-        <p className="mt-3 font-mono text-sm break-all text-copy">
-          {appraisalCase.caseId}
-        </p>
-      </header>
-
-      {appraisalCase.needsAttention ? (
-        <AttentionNotice appraisalCase={appraisalCase} />
-      ) : null}
-
-      <div className="mt-7 grid gap-6">
-        <DetailSection title="Customer">
-          <DetailField
-            label="Entered contact name"
-            value={
-              appraisalCase.contactFullName ?? appraisalCase.customerFullName
-            }
-          />
-          <DetailField
-            label="Entered contact email"
-            value={appraisalCase.contactEmail}
-          />
-          <DetailField
-            label="Verified email"
-            value={appraisalCase.verifiedEmail}
-          />
-          <DetailField
-            label="Contact email state"
-            value={
-              appraisalCase.contactEmailVerified
-                ? "Verified"
-                : appraisalCase.contactEmail
-                  ? "Entered — not verified"
-                  : null
-            }
-          />
-          <DetailField
-            label="Access state"
-            value={
-              appraisalCase.ownerIsAnonymous
-                ? "Guest session — access unclaimed"
-                : appraisalCase.identityClaimedAt
-                  ? "Access claimed"
-                  : "Account owner"
-            }
-          />
-          <DetailField
-            label="Access claimed"
-            value={formatCaseOperationDateTime(
-              appraisalCase.identityClaimedAt,
-            )}
-          />
-          <DetailField
-            label="Operational follow-up"
-            value={formatOperationalFollowUp(
-              appraisalCase.operationalFollowUpAllowed,
-            )}
-          />
-          <DetailField
-            label="Customer identifier"
-            value={appraisalCase.ownerUserId}
-            mono
-          />
-        </DetailSection>
-
-        <DetailSection title="Case">
-          <DetailField
-            label="Case reference"
-            value={appraisalCase.caseId}
-            mono
-          />
-          <DetailField
-            label="Current stage"
-            value={formatCaseOperationStage(appraisalCase.caseStage)}
-          />
-          <DetailField
-            label="Case status"
-            value={formatCaseOperationStatus(appraisalCase.caseStatus)}
-          />
-          <DetailField
-            label="Needs attention"
-            value={appraisalCase.needsAttention ? "Yes" : "No"}
-          />
-          <DetailField
-            label="Created"
-            value={formatCaseOperationDateTime(appraisalCase.caseCreatedAt)}
-          />
-          <DetailField
-            label="Updated"
-            value={formatCaseOperationDateTime(appraisalCase.caseUpdatedAt)}
-          />
-          <DetailField
-            label="Last activity"
-            value={formatCaseOperationDateTime(appraisalCase.lastActivityAt)}
-          />
-        </DetailSection>
-
-        <DetailSection title="Total-loss intake">
-          <DetailField
-            label="Intake method"
-            value={
-              appraisalCase.intakeMode === "report"
-                ? "Valuation report"
-                : appraisalCase.intakeMode === "manual"
-                  ? "Vehicle details"
-                  : null
-            }
-          />
-          <DetailField
-            label="Vehicle"
-            value={formatCaseOperationVehicle(
-              appraisalCase.vehicleYear,
-              appraisalCase.vehicleMake,
-              appraisalCase.vehicleModel,
-              appraisalCase.vehicleTrim,
-            )}
-          />
-          <DetailField label="VIN" value={appraisalCase.vin} mono />
-          <DetailField
-            label="Mileage at loss"
-            value={formatCaseOperationMileage(appraisalCase.mileageAtLoss)}
-          />
-          <DetailField
-            label="Postal code"
-            value={appraisalCase.postalCode}
-          />
-          <DetailField
-            label="Date of loss"
-            value={formatCaseOperationDate(appraisalCase.dateOfLoss)}
-          />
-          <DetailField
-            label="Insurance company"
-            value={appraisalCase.insurerName}
-          />
-          <DetailField
-            label="Insurer vehicle valuation"
-            value={formatCaseOperationCurrency(
-              appraisalCase.insurerVehicleValuation,
-            )}
-          />
-          <DetailField
-            label="Vehicle condition"
-            value={appraisalCase.vehicleCondition}
-          />
-          <DetailField
-            label="Options and packages"
-            value={appraisalCase.vehicleOptionsPackages}
-          />
-          <DetailField
-            label="Confirmed input revision"
-            value={appraisalCase.analysisInputRevision?.toString() ?? null}
-          />
-          <DetailField
-            label="Confirmed input identifier"
-            value={appraisalCase.analysisInputId}
-            mono
-          />
-          <DetailField
-            label="Intake completed"
-            value={formatCaseOperationDateTime(
-              appraisalCase.intakeCompletedAt,
-            )}
-          />
-          <DetailField
-            label="Intake record created"
-            value={formatCaseOperationDateTime(appraisalCase.detailsCreatedAt)}
-          />
-          <DetailField
-            label="Intake record updated"
-            value={formatCaseOperationDateTime(appraisalCase.detailsUpdatedAt)}
-          />
-        </DetailSection>
-
-        <ReportSection appraisalCase={appraisalCase} />
-
-        <DetailSection title="Analysis activity">
-          <DetailField
-            label="Job status"
-            value={formatCaseOperationAnalysisStatus(
-              appraisalCase.analysisStatus,
-            )}
-          />
-          <DetailField
-            label="Attempts"
-            value={appraisalCase.analysisAttemptCount?.toString() ?? null}
-          />
-          <DetailField
-            label="Job identifier"
-            value={appraisalCase.analysisJobId}
-            mono
-          />
-          <DetailField
-            label="Failure code"
-            value={formatCaseOperationCode(
-              appraisalCase.analysisFailureCode,
-            )}
-          />
-          <DetailField
-            label="Retryable"
-            value={formatCaseOperationBoolean(
-              appraisalCase.analysisRetryable,
-            )}
-          />
-          <DetailField
-            label="Processing lease expires"
-            value={formatCaseOperationDateTime(
-              appraisalCase.analysisProcessingExpiresAt,
-            )}
-          />
-          <DetailField
-            label="Job created"
-            value={formatCaseOperationDateTime(
-              appraisalCase.analysisJobCreatedAt,
-            )}
-          />
-          <DetailField
-            label="Job updated"
-            value={formatCaseOperationDateTime(
-              appraisalCase.analysisJobUpdatedAt,
-            )}
-          />
-          <DetailField
-            label="Job finished"
-            value={formatCaseOperationDateTime(
-              appraisalCase.analysisJobFinishedAt,
-            )}
-          />
-        </DetailSection>
-
-        <RunSummarySection appraisalCase={appraisalCase} />
-      </div>
-    </article>
-  );
+  if (!caseId) return <UnavailableCase returnTo={returnTo} />;
+  if (query.isPending) return <section className="admin-page"><AdminBackLink to={returnTo}>Back to cases</AdminBackLink><AdminLoadingState label="Loading case details…" /></section>;
+  if (query.isError && !query.data) return <section className="admin-page"><AdminBackLink to={returnTo}>Back to cases</AdminBackLink><AdminErrorState description="This case could not be loaded. Try refreshing its records." onRetry={() => void query.refetch()} /></section>;
+  if (!query.data) return <UnavailableCase returnTo={returnTo} />;
+  const item = query.data;
+  const name = item.contactFullName ?? item.customerFullName;
+  const vehicle = formatCaseOperationVehicle(item.vehicleYear, item.vehicleMake, item.vehicleModel, item.vehicleTrim);
+  const status = operation.data?.status ?? (dependencies?.operationsService ? operation.isPending ? "Current stage loading…" : "Current stage unavailable" : item.caseStage);
+  const attentionReasons = operation.data?.attentionReasons ?? (dependencies?.operationsService ? [] : item.needsAttention ? [item.analysisFailureCode ? formatCaseOperationCode(item.analysisFailureCode) : "This case has a recorded condition that needs staff attention."] : []);
+  return <article className="admin-page admin-case-page">
+    <AdminBackLink to={returnTo}>Back to cases</AdminBackLink>
+    {query.isError || (operation.isError && operation.data) ? <AdminRefreshNotice /> : null}
+    <AdminPageHeader title={`Total-loss case #${formatCaseOperationReference(item.caseId)}`} description={[name, vehicle === "Not provided" ? null : vehicle].filter(Boolean).join(" · ") || "Customer and case details"} eyebrow="Case record" refreshing={query.isFetching || operation.isFetching} onRefresh={() => { void query.refetch(); if (dependencies?.operationsService) void operation.refetch(); }} actions={<AdminBadge tone={adminStatusTone(status)}>{humanizeAdminCode(status)}</AdminBadge>} />
+    <div className="admin-case-summary"><span>Read-only staff view</span><span>{operation.data ? `Last activity ${formatCaseOperationDateTime(operation.data.updatedAt)}` : "Initial record activity " + formatCaseOperationDateTime(item.lastActivityAt)}</span><Link to={`/admin/customers/${encodeURIComponent(item.ownerUserId)}`} className="admin-row-link">View customer ↗</Link></div>
+    {attentionReasons.length ? <div className="admin-notice"><AlertTriangle className="size-5 shrink-0" aria-hidden /><div><strong>This case needs staff attention.</strong>{attentionReasons.map(reason => <div key={reason}><p>{humanizeAdminCode(reason)}</p><button type="button" className="admin-row-link" onClick={() => selectTab(attentionDestination(reason))}>Inspect {attentionDestination(reason)} ↗</button></div>)}</div></div> : null}
+    <Tabs.Root value={tab} onValueChange={selectTab} activationMode="manual"><Tabs.List className="admin-tabs" aria-label="Case sections">{tabs.map(item => <Tabs.Trigger key={item.value} value={item.value}>{item.label}</Tabs.Trigger>)}</Tabs.List>
+      <Tabs.Content value="overview" className="admin-tab-panel">
+        {dependencies?.operationsService ? operation.isPending ? <AdminLoadingState label="Loading current case journey…" /> : operation.isError && !operation.data ? <AdminErrorState description="The current journey could not be loaded. The original case record remains available below." onRetry={() => void operation.refetch()} /> : operation.data ? <AdminPanel title="Current journey"><RecordFacts item={operation.data} /></AdminPanel> : null : null}
+        <OverviewSections item={item} />
+      </Tabs.Content>
+      <Tabs.Content value="intake" className="admin-tab-panel"><IntakeSection item={item} /></Tabs.Content>
+      <Tabs.Content value="reports" className="admin-tab-panel"><SourceReportSection item={item} /><AdminCollection resource="reports" title="Case reports" description="Source and generated report metadata, including version and publication status." filters={reportFilters} fixedFilters={{ caseId }} embedded /></Tabs.Content>
+      <Tabs.Content value="processing" className="admin-tab-panel"><AdminCollection resource="processing" title="Case processing" description="Recorded processing across free valuation, paid review, and insurer responses." filters={processingFilters} fixedFilters={{ caseId }} embedded /><AnalysisSections item={item} /></Tabs.Content>
+      <Tabs.Content value="payments" className="admin-tab-panel"><AdminCollection resource="payments" title="Case payments" description="Recorded orders, checkout attempts, refunds, and entitlement status for this case." filters={paymentFilters} fixedFilters={{ caseId }} embedded /></Tabs.Content>
+      <Tabs.Content value="activity" className="admin-tab-panel"><AdminCollection resource="activity" title="Case activity" description="Recorded workflow events after the customer continued the review. Initial intake dates are available under Overview and Vehicle & intake." filters={activityFilters} fixedFilters={{ caseId }} embedded /></Tabs.Content>
+    </Tabs.Root>
+  </article>;
 }
 
-function AttentionNotice({
-  appraisalCase,
-}: {
-  readonly appraisalCase: StaffTotalLossCaseOperation;
-}) {
-  return (
-    <section
-      className="mt-7 rounded-2xl border border-amber-300 bg-amber-50 p-5 text-amber-950 sm:p-6"
-      aria-labelledby="attention-heading"
-    >
-      <div className="flex gap-3">
-        <AlertTriangle className="mt-0.5 size-5 shrink-0" aria-hidden />
-        <div>
-          <h2 id="attention-heading" className="font-semibold">
-            This case needs staff attention.
-          </h2>
-          <p className="mt-1 text-sm leading-6">
-            {appraisalCase.analysisFailureCode
-              ? `The latest analysis ended with ${formatCaseOperationCode(
-                  appraisalCase.analysisFailureCode,
-                )}. Review the operational details below.`
-              : "The authoritative case-stage projection found a condition that should be reviewed."}
-          </p>
-        </div>
-      </div>
-    </section>
-  );
+type Field = readonly [label: string, value: ReactNode, mono?: boolean];
+function Fields({ values }: { readonly values: readonly Field[] }) { return <dl className="admin-detail-grid">{values.map(([label, value, mono]) => <AdminDetailField key={label} label={label} value={value} mono={mono} />)}</dl>; }
+function TechnicalDetails({ values }: { readonly values: readonly Field[] }) { return <details className="admin-technical-details"><summary>Technical details</summary><Fields values={values} /></details>; }
+
+function OverviewSections({ item }: { readonly item: StaffTotalLossCaseOperation }) {
+  return <>
+    <AdminPanel title="Customer"><Fields values={[
+      ["Customer name", item.customerFullName],
+      ["Entered contact name", item.contactFullName],
+      ["Entered contact email", item.contactEmail],
+      ["Verified email", item.verifiedEmail],
+      ["Contact email state", item.contactEmailVerified ? "Verified" : item.contactEmail ? "Entered — not verified" : null],
+      ["Access state", item.ownerIsAnonymous ? "Guest session — access unclaimed" : item.identityClaimedAt ? "Access claimed" : "Account owner"],
+      ["Access claimed", formatCaseOperationDateTime(item.identityClaimedAt)],
+      ["Operational follow-up", formatOperationalFollowUp(item.operationalFollowUpAllowed)],
+    ]} /><TechnicalDetails values={[["Customer identifier", item.ownerUserId, true]]} /></AdminPanel>
+    <AdminPanel title="Case"><Fields values={[
+      ["Initial review stage", formatCaseOperationStage(item.caseStage)],
+      ["Case status", formatCaseOperationStatus(item.caseStatus)],
+      ["Initial review needs attention", item.needsAttention ? "Yes" : "No"],
+      ["Created", formatCaseOperationDateTime(item.caseCreatedAt)],
+      ["Updated", formatCaseOperationDateTime(item.caseUpdatedAt)],
+      ["Last activity", formatCaseOperationDateTime(item.lastActivityAt)],
+    ]} /><TechnicalDetails values={[["Case reference", item.caseId, true]]} /></AdminPanel>
+  </>;
 }
 
-function ReportSection({
-  appraisalCase,
-}: {
-  readonly appraisalCase: StaffTotalLossCaseOperation;
-}) {
-  return (
-    <section className="rounded-2xl border border-line bg-white p-5 shadow-sm sm:p-6">
-      <div className="flex items-start gap-3">
-        <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-brand-soft text-brand">
-          <FileText className="size-5" aria-hidden />
-        </span>
-        <div>
-          <h2 className="text-xl font-semibold tracking-[-0.025em] text-ink">
-            Valuation report
-          </h2>
-          <p className="mt-1 text-sm leading-6 text-copy">
-            Report metadata only. The private source PDF is not available from
-            this workspace.
-          </p>
-        </div>
-      </div>
-      <dl className="mt-5 grid gap-x-8 gap-y-5 sm:grid-cols-2">
-        <DetailField
-          label="Display filename"
-          value={appraisalCase.reportOriginalFilename}
-        />
-        <DetailField
-          label="Uploaded"
-          value={formatCaseOperationDateTime(appraisalCase.reportUploadedAt)}
-        />
-        <DetailField
-          label="Detected provider"
-          value={appraisalCase.reportProviderName}
-        />
-        <DetailField
-          label="Extraction status"
-          value={appraisalCase.reportExtractionStatus}
-        />
-        <DetailField
-          label="Extraction confidence"
-          value={
-            appraisalCase.reportExtractionConfidence === null
-              ? null
-              : `${Math.round(appraisalCase.reportExtractionConfidence * 100)}%`
-          }
-        />
-        <DetailField
-          label="Extracted"
-          value={formatCaseOperationDateTime(appraisalCase.reportExtractedAt)}
-        />
-        <DetailField
-          label="Customer facts confirmed"
-          value={formatCaseOperationDateTime(
-            appraisalCase.reportFactsConfirmedAt,
-          )}
-        />
-        <DetailField
-          label="Storage namespace"
-          value={appraisalCase.reportStorageOwnerId}
-          mono
-        />
-        <DetailField
-          label="Private object path"
-          value={appraisalCase.reportStorageObjectPath}
-          mono
-          wide
-        />
-      </dl>
-    </section>
-  );
+function IntakeSection({ item }: { readonly item: StaffTotalLossCaseOperation }) {
+  return <AdminPanel title="Total-loss intake"><Fields values={[
+    ["Intake method", item.intakeMode === "report" ? "Valuation report" : item.intakeMode === "manual" ? "Vehicle details" : null],
+    ["Vehicle", formatCaseOperationVehicle(item.vehicleYear, item.vehicleMake, item.vehicleModel, item.vehicleTrim)],
+    ["VIN", item.vin, true],
+    ["Mileage at loss", formatCaseOperationMileage(item.mileageAtLoss)],
+    ["Postal code", item.postalCode],
+    ["Date of loss", formatCaseOperationDate(item.dateOfLoss)],
+    ["Insurance company", item.insurerName],
+    ["Insurer vehicle valuation", formatCaseOperationCurrency(item.insurerVehicleValuation)],
+    ["Vehicle condition", item.vehicleCondition],
+    ["Options and packages", item.vehicleOptionsPackages],
+    ["Intake completed", formatCaseOperationDateTime(item.intakeCompletedAt)],
+  ]} /><TechnicalDetails values={[
+    ["Confirmed input revision", item.analysisInputRevision?.toString() ?? null],
+    ["Confirmed input identifier", item.analysisInputId, true],
+    ["Intake record created", formatCaseOperationDateTime(item.detailsCreatedAt)],
+    ["Intake record updated", formatCaseOperationDateTime(item.detailsUpdatedAt)],
+  ]} /></AdminPanel>;
 }
 
-function RunSummarySection({
-  appraisalCase,
-}: {
-  readonly appraisalCase: StaffTotalLossCaseOperation;
-}) {
-  if (!appraisalCase.analysisRunId) {
-    return (
-      <section className="rounded-2xl border border-line bg-white p-5 shadow-sm sm:p-6">
-        <h2 className="text-xl font-semibold tracking-[-0.025em] text-ink">
-          Completed run summary
-        </h2>
-        <p className="mt-3 rounded-xl bg-surface p-4 text-sm text-copy">
-          No completed analysis run is available for this case.
-        </p>
-      </section>
-    );
-  }
-
-  return (
-    <DetailSection title="Completed run summary">
-      <DetailField
-        label="Run identifier"
-        value={appraisalCase.analysisRunId}
-        mono
-      />
-      <DetailField
-        label="Run created"
-        value={formatCaseOperationDateTime(
-          appraisalCase.analysisRunCreatedAt,
-        )}
-      />
-      <DetailField
-        label="Classification"
-        value={formatCaseOperationCode(
-          appraisalCase.analysisClassification,
-        )}
-      />
-      <DetailField
-        label="Evidence strength"
-        value={formatCaseOperationCode(
-          appraisalCase.analysisEvidenceStrength,
-        )}
-      />
-      <DetailField
-        label="Evidence basis"
-        value={formatCaseOperationCode(appraisalCase.analysisEvidenceBasis)}
-        wide
-      />
-      <DetailField
-        label="Run schema version"
-        value={appraisalCase.analysisRunSchemaVersion}
-        mono
-      />
-      <DetailField
-        label="Analysis version"
-        value={appraisalCase.analysisVersion}
-        mono
-      />
-      <DetailField
-        label="Discrepancy analysis version"
-        value={appraisalCase.discrepancyAnalysisVersion}
-        mono
-      />
-      <DetailField
-        label="Comparable scoring version"
-        value={appraisalCase.comparableScoringVersion}
-        mono
-      />
-    </DetailSection>
-  );
+function SourceReportSection({ item }: { readonly item: StaffTotalLossCaseOperation }) {
+  return <AdminPanel title="Valuation report" description="Report metadata only. The private source PDF is not available from this workspace."><Fields values={[
+    ["Display filename", item.reportOriginalFilename],
+    ["Uploaded", formatCaseOperationDateTime(item.reportUploadedAt)],
+    ["Detected provider", item.reportProviderName],
+    ["Extraction status", item.reportExtractionStatus],
+    ["Extraction confidence", item.reportExtractionConfidence === null ? null : `${Math.round(item.reportExtractionConfidence * 100)}%`],
+    ["Extracted", formatCaseOperationDateTime(item.reportExtractedAt)],
+    ["Customer facts confirmed", formatCaseOperationDateTime(item.reportFactsConfirmedAt)],
+  ]} /><TechnicalDetails values={[["Storage namespace", item.reportStorageOwnerId, true], ["Private object path", item.reportStorageObjectPath, true]]} /></AdminPanel>;
 }
 
-function DetailSection({
-  children,
-  title,
-}: {
-  readonly children: React.ReactNode;
-  readonly title: string;
-}) {
-  return (
-    <section className="rounded-2xl border border-line bg-white p-5 shadow-sm sm:p-6">
-      <h2 className="text-xl font-semibold tracking-[-0.025em] text-ink">
-        {title}
-      </h2>
-      <dl className="mt-5 grid gap-x-8 gap-y-5 sm:grid-cols-2">{children}</dl>
-    </section>
-  );
+function AnalysisSections({ item }: { readonly item: StaffTotalLossCaseOperation }) {
+  return <><AdminPanel title="Analysis activity" description="The original valuation analysis record, separate from paid review and insurer-response processing."><Fields values={[
+    ["Job status", formatCaseOperationAnalysisStatus(item.analysisStatus)],
+    ["Attempts", item.analysisAttemptCount?.toString() ?? null],
+    ["Failure code", formatCaseOperationCode(item.analysisFailureCode)],
+    ["Retryable", formatCaseOperationBoolean(item.analysisRetryable)],
+    ["Processing lease expires", formatCaseOperationDateTime(item.analysisProcessingExpiresAt)],
+    ["Job finished", formatCaseOperationDateTime(item.analysisJobFinishedAt)],
+  ]} /><TechnicalDetails values={[
+    ["Job identifier", item.analysisJobId, true],
+    ["Job created", formatCaseOperationDateTime(item.analysisJobCreatedAt)],
+    ["Job updated", formatCaseOperationDateTime(item.analysisJobUpdatedAt)],
+  ]} /></AdminPanel>
+  <AdminPanel title="Completed run summary">{item.analysisRunId ? <><Fields values={[
+    ["Run created", formatCaseOperationDateTime(item.analysisRunCreatedAt)],
+    ["Classification", formatCaseOperationCode(item.analysisClassification)],
+    ["Evidence strength", formatCaseOperationCode(item.analysisEvidenceStrength)],
+    ["Evidence basis", formatCaseOperationCode(item.analysisEvidenceBasis)],
+  ]} /><TechnicalDetails values={[
+    ["Run identifier", item.analysisRunId, true],
+    ["Run schema version", item.analysisRunSchemaVersion, true],
+    ["Analysis version", item.analysisVersion, true],
+    ["Discrepancy analysis version", item.discrepancyAnalysisVersion, true],
+    ["Comparable scoring version", item.comparableScoringVersion, true],
+  ]} /></> : <p className="admin-secondary-text">No completed analysis run is available for this case.</p>}</AdminPanel></>;
 }
 
-function DetailField({
-  label,
-  mono = false,
-  value,
-  wide = false,
-}: {
-  readonly label: string;
-  readonly mono?: boolean;
-  readonly value: string | null;
-  readonly wide?: boolean;
-}) {
-  return (
-    <div className={wide ? "sm:col-span-2" : undefined}>
-      <dt className="text-xs font-semibold tracking-[0.1em] text-copy uppercase">
-        {label}
-      </dt>
-      <dd
-        className={`mt-1 whitespace-pre-wrap text-sm leading-6 text-ink ${
-          mono ? "font-mono break-all" : ""
-        }`}
-      >
-        {value || "Not provided"}
-      </dd>
-    </div>
-  );
-}
+function UnavailableCase({ returnTo }: { readonly returnTo: string }) { return <section className="admin-page"><AdminBackLink to={returnTo}>Back to cases</AdminBackLink><AdminEmptyState title="We couldn’t find this case." description="The address may be incorrect, or this case may not be available to your staff account." /></section>; }
 
-function UnavailableCaseState() {
-  return (
-    <AdminRouteState
-      kind="unavailable"
-      eyebrow="Case unavailable"
-      heading="We couldn’t find this case."
-      description="The address may be incorrect, or this case may not be available to your staff account."
-    >
-      <Button asChild variant="outline">
-        <Link to="/admin/cases">Return to customer cases</Link>
-      </Button>
-    </AdminRouteState>
-  );
+function attentionDestination(reason: string): "payments" | "reports" | "processing" {
+  if (/refund|payment|dispute|entitlement/iu.test(reason)) return "payments";
+  if (/report/iu.test(reason)) return "reports";
+  return "processing";
 }

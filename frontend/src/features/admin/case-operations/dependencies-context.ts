@@ -2,6 +2,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { createContext, useContext } from "react";
 
 import type { Database } from "@/lib/supabase/database.types";
+import { createAdminOperationsService } from "@/features/admin/operations/service";
+import type { AdminOperationsService } from "@/features/admin/operations/types";
 
 import {
   createStaffCaseOperationsService,
@@ -10,6 +12,7 @@ import {
 
 export interface AdminCaseOperationsDependencies {
   readonly caseService: StaffCaseOperationsService;
+  readonly operationsService?: AdminOperationsService;
 }
 
 export const AdminCaseOperationsDependenciesContext =
@@ -20,6 +23,7 @@ export function createAdminCaseOperationsDependencies(
 ): AdminCaseOperationsDependencies {
   return {
     caseService: createStaffCaseOperationsService(client),
+    operationsService: createAdminOperationsService(client),
   };
 }
 

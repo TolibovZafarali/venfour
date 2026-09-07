@@ -9,14 +9,12 @@ import type { PageMetadata } from "@/app/document-metadata";
 import { AppShell } from "@/components/app-shell";
 import { environment } from "@/config/env";
 import { diminishedValueStaffReviewAvailable } from "@/config/product-availability";
-import { AdminCaseOperationsAccessGate } from "@/features/admin/case-operations/admin-access-gate";
+import { adminRoute } from "@/features/admin/admin-routes";
 import { AdminDiminishedValueAccessGate } from "@/features/admin/diminished-value/admin-access-gate";
 import { AuthCallbackPage } from "@/features/auth";
 import { AnalysisPage } from "@/pages/analysis-page";
-import { AdminCaseOperationsPage } from "@/pages/admin-case-operations-page";
 import { AdminDiminishedValueCasePage } from "@/pages/admin-diminished-value-case-page";
 import { AdminDiminishedValueQueuePage } from "@/pages/admin-diminished-value-queue-page";
-import { AdminTotalLossCasePage } from "@/pages/admin-total-loss-case-page";
 import { AppraisalsPage } from "@/pages/appraisals-page";
 import { AppraisalStartPage } from "@/pages/appraisal-start-page";
 import { ContactPage } from "@/pages/contact-page";
@@ -323,28 +321,6 @@ export const appRoutes: RouteObject[] = [
         ),
       },
       {
-        path: "admin/cases",
-        element: <AdminCaseOperationsAccessGate />,
-        children: [
-          {
-            index: true,
-            element: <AdminCaseOperationsPage />,
-            handle: metadata(
-              "Customer and Case Operations | Venfour",
-              "Inspect relevant customer cases in the secure, read-only Venfour staff workspace.",
-            ),
-          },
-          {
-            path: ":caseId",
-            element: <AdminTotalLossCasePage />,
-            handle: metadata(
-              "Total-Loss Case Operations | Venfour",
-              "Inspect a total-loss customer case in the secure, read-only Venfour staff workspace.",
-            ),
-          },
-        ],
-      },
-      {
         path: "admin/diminished-value",
         loader: () => diminishedValueStaffReviewAvailable ? null : replace("/admin/cases"),
         element: <AdminDiminishedValueAccessGate />,
@@ -425,6 +401,7 @@ export const appRoutes: RouteObject[] = [
       },
     ],
   },
+  adminRoute,
 ];
 
 export function createAppRouter() {

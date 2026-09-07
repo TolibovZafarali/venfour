@@ -194,7 +194,7 @@ function AppShellContent() {
     if (permanentUserId) setStaffNavigationRequestUserId(permanentUserId);
   };
   const staffReviewHref = staffAccessQuery.data
-    ? "/admin/cases"
+    ? "/admin"
     : undefined;
   const visibleHeaderDetached =
     headerDetached && !startFlowRoute && !productFlowRoute;
