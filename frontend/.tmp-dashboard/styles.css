@@ -1,0 +1,4 @@
+@import '../src/styles/index.css';
+@source '../src';
+@source '.';
+.preview-bar{position:relative;z-index:100;background:#142c30;color:white;padding:12px 24px;display:flex;align-items:center;gap:18px;flex-wrap:wrap;font-size:13px}.preview-bar a{text-decoration:underline;text-underline-offset:4px}.preview-bar select{background:#fff;color:#142c30;padding:4px 8px;border-radius:5px}.preview-bar strong{margin-right:auto}
