@@ -4,9 +4,6 @@ html:has([data-completed-review]) { scrollbar-gutter: stable; }
   /* The document already reserves the gutter when a menu locks scrolling. */
   html:has([data-completed-review]) body[data-scroll-locked] { margin-right: 0 !important; }
 }
-@supports not (scrollbar-gutter: stable) {
-  html:has([data-completed-review]) { overflow-y: scroll; }
-}
 
 .completed-analysis .review-stage-content {
   min-width: 0;

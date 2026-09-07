@@ -4,7 +4,7 @@ export function observeScrollEntrances(
   element: HTMLElement,
   targets: HTMLElement[],
   orderForTarget: (target: HTMLElement) => number,
-  { revealAtPageEnd = false }: { revealAtPageEnd?: boolean } = {},
+  { revealAtPageEnd = false, viewportInset = 0.16 }: { revealAtPageEnd?: boolean; viewportInset?: number } = {},
 ) {
   const motion = window.matchMedia?.("(prefers-reduced-motion: reduce)");
   if (motion?.matches || !window.IntersectionObserver) return;
@@ -35,11 +35,11 @@ export function observeScrollEntrances(
   };
 
   // Use viewport-height pixels: percentage root margins are based on width.
-  const bottomInset = () => Math.round(window.innerHeight * 0.16);
+  const bottomInset = () => Math.round(window.innerHeight * viewportInset);
   let inset = bottomInset();
   const createObserver = () => new IntersectionObserver(onIntersect, {
     threshold: 0,
-    rootMargin: `0px 0px -${inset}px 0px`,
+    rootMargin: `0px 0px ${-inset}px 0px`,
   });
   let observer = createObserver();
 
@@ -53,19 +53,25 @@ export function observeScrollEntrances(
     observer.observe(target);
   });
 
+  const revealVisible = (bottom: number) => {
+    targets.filter((target) => !revealed.has(target)).forEach((target) => {
+      const bounds = target.getBoundingClientRect();
+      if (bounds.top < bottom && bounds.bottom > 0 && bounds.left < window.innerWidth && bounds.right > 0) reveal(target);
+    });
+  };
+  revealVisible(window.innerHeight - inset);
+
   // Final controls may never reach the inset when there is no more page to scroll.
   const onPageEnd = () => {
     if (window.scrollY + window.innerHeight < document.documentElement.scrollHeight - 1) return;
-    targets.filter((target) => !revealed.has(target)).forEach((target) => {
-      const bounds = target.getBoundingClientRect();
-      if (bounds.top < window.innerHeight && bounds.bottom > 0) reveal(target);
-    });
+    revealVisible(window.innerHeight);
   };
   if (revealAtPageEnd) onPageEnd();
 
   const onResize = () => {
     if (revealAtPageEnd) onPageEnd();
     const nextInset = bottomInset();
+    revealVisible(window.innerHeight - nextInset);
     if (nextInset === inset) return;
     inset = nextInset;
     observer.disconnect();

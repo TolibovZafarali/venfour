@@ -38,6 +38,6 @@ export function useReviewStageMotion({ root, stage, index, reportId }: {
     });
     const groups = candidates.filter((target) => !candidates.some((other) => other !== target && other.contains(target)));
     return observeScrollEntrances(element, groups, (target) =>
-      Number(target.dataset.reviewOrder ?? groups.indexOf(target)), { revealAtPageEnd: true });
+      Number(target.dataset.reviewOrder ?? groups.indexOf(target)), { viewportInset: 0 });
   }, [root, stage, index, reportId]);
 }

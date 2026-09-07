@@ -137,12 +137,12 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 describe("completed review scroll entrances", () => {
-  it("waits for the inset viewport boundary regardless of target height", () => {
+  it("uses the full viewport boundary regardless of target height", () => {
     render(<Review />);
     const heading = screen.getByRole("heading", { name: "request" });
     const evidence = screen.getByTestId("evidence");
     const observer = currentObserver();
-    expect(observer.rootMargin).toBe("0px 0px -160px 0px");
+    expect(observer.rootMargin).toBe("0px 0px 0px 0px");
     expect(observer.thresholds).toEqual([0]);
     expect(heading).toHaveAttribute("data-scroll-reveal", "pending");
     act(() => observer.notify(evidence, false, 0));
@@ -251,20 +251,17 @@ describe("completed review scroll entrances", () => {
     expect(commit).toHaveBeenCalledOnce();
     expect(next).not.toBeDisabled();
   });
-  it("reveals a final control at the document end even if it cannot reach the inset boundary", () => {
+  it("reveals a control entering the visible area before the document end", () => {
     render(<Review includeActions />);
     const next = screen.getByRole("button", { name: "Continue" });
     vi.spyOn(next, "getBoundingClientRect").mockReturnValue(bounds(900));
-    vi.stubGlobal("scrollY", 1900);
-    fireEvent.scroll(window);
     expect(next).toHaveAttribute("data-scroll-reveal", "pending");
-    vi.stubGlobal("scrollY", 2000);
-    fireEvent.scroll(window);
+    act(() => currentObserver().notify(next));
     expect(next).toHaveAttribute("data-scroll-reveal", "entering");
     expect(next).not.toHaveFocus();
   });
-  it("reveals visible final content immediately when the entire stage fits without scrolling", () => {
-    vi.spyOn(document.documentElement, "scrollHeight", "get").mockReturnValue(1000);
+  it.each([1000, 3000])("reveals already-visible content without scrolling on a %spx document", (pageHeight) => {
+    vi.spyOn(document.documentElement, "scrollHeight", "get").mockReturnValue(pageHeight);
     vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) { return this.textContent === "Continue" ? bounds(900) : bounds(1100); });
     render(<Review includeActions />);
     expect(screen.getByRole("button", { name: "Continue" })).toHaveAttribute("data-scroll-reveal", "entering");
@@ -282,17 +279,21 @@ describe("completed review scroll entrances", () => {
     act(() => currentObserver().notify(evidence));
     expect(evidence).not.toHaveAttribute("data-scroll-reveal");
   });
-  it("updates the viewport boundary on resize without replaying or resetting scroll", () => {
+  it("reveals content brought into view by resizing without replaying or resetting scroll", () => {
     render(<Review />);
     const heading = screen.getByRole("heading", { name: "request" });
     const observer = currentObserver();
     act(() => observer.notify(heading));
-    vi.stubGlobal("innerHeight", 600);
+    const evidence = screen.getByTestId("evidence");
+    vi.spyOn(evidence, "getBoundingClientRect").mockReturnValue(bounds(1100));
+    vi.stubGlobal("innerHeight", 1200);
     fireEvent(window, new Event("resize"));
-    expect(observer.disconnect).toHaveBeenCalled();
-    expect(currentObserver().rootMargin).toBe("0px 0px -96px 0px");
+    expect(currentObserver()).toBe(observer);
+    expect(currentObserver().rootMargin).toBe("0px 0px 0px 0px");
     expect(currentObserver().targets.has(heading)).toBe(false);
-    expect(currentObserver().targets.has(screen.getByTestId("evidence"))).toBe(true);
+    expect(evidence).toHaveAttribute("data-scroll-reveal", "entering");
+    expect(currentObserver().targets.has(evidence)).toBe(false);
+    expect(screen.getByText("Supporting limitations")).toHaveAttribute("data-scroll-reveal", "pending");
     expect(scrollIntoView).toHaveBeenCalledOnce();
   });
   it("honors initial and live reduced motion while focus and navigation remain immediate", () => {
