@@ -26,6 +26,7 @@ import { CookieConsent } from "@/features/privacy/cookie-consent";
 import { useCookieConsent } from "@/features/privacy/cookie-consent-context";
 import { cn } from "@/lib/utils";
 import { appRouteGradientClassName } from "@/pages/page-gradients";
+import { useHomeSmoothScroll } from "@/pages/use-home-smooth-scroll";
 import { FreeValuationProcessingProvider } from "@/features/analyses/components/free-valuation-processing";
 import venfourMark from "../../../assets/brand/venfour-mark.svg";
 
@@ -96,6 +97,9 @@ function AppShellContent() {
     };
 
   useDocumentMetadata(analysisRoute ? null : metadata);
+  const scrollToSection = useHomeSmoothScroll(
+    location.pathname === "/" && auth.status !== "loading" && !isPermanentAuthState(auth),
+  );
 
   useEffect(() => {
     const isPageNavigation = previousPathnameRef.current !== location.pathname;
@@ -136,7 +140,7 @@ function AppShellContent() {
       return;
     }
 
-    target.scrollIntoView?.({ block: "start" });
+    scrollToSection(target);
     target.focus({ preventScroll: true });
     clearingSectionHashRef.current = true;
     void navigate(
@@ -149,6 +153,7 @@ function AppShellContent() {
     location.pathname,
     location.search,
     navigate,
+    scrollToSection,
   ]);
 
   useEffect(() => {

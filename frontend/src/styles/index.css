@@ -140,7 +140,8 @@
   }
 
   @media (prefers-reduced-motion: reduce) {
-    html:focus-within {
+    html:focus-within,
+    html:has([data-home-motion]) {
       scroll-behavior: auto;
     }
   }
