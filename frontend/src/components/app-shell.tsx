@@ -541,7 +541,7 @@ function AppShellContent() {
         </CompletedReviewProgressHostContext.Provider>
       </main>
       {productFlowRoute ? (
-        <footer className="bg-canvas px-5 py-2 sm:px-8">
+        <footer className="relative z-10 shrink-0 bg-canvas px-5 py-2 sm:px-8">
           <nav
             aria-label="Legal"
             className="mx-auto flex w-full items-center justify-center gap-5 text-xs text-copy"
@@ -561,7 +561,7 @@ function AppShellContent() {
           </nav>
         </footer>
       ) : !startFlowRoute && !adminRoute && !signedInJourneyEntryRoute ? (
-        <footer className="site-footer-gradient border-t border-line bg-surface">
+        <footer className="site-footer-gradient relative z-10 shrink-0 border-t border-line bg-surface">
           <div className="mx-auto w-full max-w-7xl px-5 py-6 sm:px-8 sm:py-7">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex flex-col items-start gap-1 sm:flex-row sm:items-center sm:gap-5">
