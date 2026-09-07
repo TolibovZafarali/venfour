@@ -92,6 +92,8 @@ function authService(): AuthService {
     exchangeCodeForSession: vi.fn(async () => session()),
     getSession: vi.fn(async () => session()),
     onAuthStateChange: vi.fn(() => () => undefined),
+    sendEmailCode: async () => undefined,
+    verifyEmailCode: async () => { throw new Error("Unexpected email code verification."); },
     sendMagicLink: vi.fn(async () => undefined),
     signInWithGoogle: vi.fn(async () => undefined),
     signInWithApple: vi.fn(async () => undefined),

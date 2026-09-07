@@ -65,6 +65,8 @@ function createService(overrides: Partial<AuthService> = {}) {
     getSession: vi.fn(async () => null),
     onAuthStateChange: vi.fn(() => () => undefined),
     restoreSession: vi.fn(async (session) => session),
+    sendEmailCode: vi.fn(async () => undefined),
+    verifyEmailCode: async () => { throw new Error("Unexpected email code verification."); },
     sendMagicLink: vi.fn(async () => undefined),
     signInWithGoogle: vi.fn(async () => undefined),
     signInWithApple: vi.fn(async () => undefined),
@@ -232,7 +234,7 @@ describe("sign-in dialog", () => {
         screen.getByRole("dialog", { name: "Check your email" }),
       ).toBeVisible(),
     );
-    expect(service.sendMagicLink).toHaveBeenCalledWith(
+    expect(service.sendEmailCode).toHaveBeenCalledWith(
       "owner@example.com",
       `${window.location.origin}/auth/callback`,
       expect.stringMatching(/^turnstile-test-magic-link-/u),
@@ -306,16 +308,16 @@ describe("sign-in dialog", () => {
     ).not.toBeInTheDocument();
   });
 
-  test("disables competing controls while an email link is pending", async () => {
+  test("disables competing controls while an email code is pending", async () => {
     const user = userEvent.setup();
     let finishSending!: () => void;
-    const sendMagicLink = vi.fn(
+    const sendEmailCode = vi.fn(
       () =>
         new Promise<void>((resolve) => {
           finishSending = resolve;
         }),
     );
-    const service = createService({ sendMagicLink });
+    const service = createService({ sendEmailCode });
     renderSignIn(service);
 
     await user.click(screen.getByRole("button", { name: "Open sign in" }));
@@ -328,7 +330,7 @@ describe("sign-in dialog", () => {
     );
 
     expect(
-      screen.getByRole("button", { name: "Sending secure link…" }),
+      screen.getByRole("button", { name: "Sending code…" }),
     ).toBeDisabled();
     expect(
       screen.getByRole("button", { name: "Continue with Google" }),
@@ -349,7 +351,7 @@ describe("sign-in dialog", () => {
   test("shows friendly provider and rate-limit errors", async () => {
     const user = userEvent.setup();
     const service = createService({
-      sendMagicLink: vi.fn(async () => {
+      sendEmailCode: vi.fn(async () => {
         throw { message: "email rate limit exceeded", status: 429 };
       }),
       signInWithGoogle: vi.fn(async () => {

@@ -97,6 +97,8 @@ function createAuthHarness(getSession: () => Promise<Session | null>) {
       listener = nextListener;
       return () => undefined;
     }),
+    sendEmailCode: async () => undefined,
+    verifyEmailCode: async () => { throw new Error("Unexpected email code verification."); },
     sendMagicLink: vi.fn(async () => undefined),
     signInWithGoogle: vi.fn(async () => undefined),
     signInWithApple: vi.fn(async () => undefined),

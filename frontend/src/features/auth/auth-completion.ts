@@ -1,4 +1,4 @@
-import { consumeAuthReturnLocation, readCaseClaimCallbackParameter } from "@/features/auth/return-location";
+import { consumeAuthReturnLocation, type readCaseClaimCallbackParameter } from "@/features/auth/return-location";
 import type { CompleteTotalLossIdentityClaimResult } from "@/features/total-loss/data-types";
 import type { TotalLossIdentityService } from "@/features/total-loss/identity-service";
 

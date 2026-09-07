@@ -38,6 +38,8 @@ function authHarness(initial: Session | null) {
     exchangeCodeForSession: vi.fn(async () => sessionFor(false)),
     verifyEmailOtp: vi.fn(async () => sessionFor(false)),
     restoreSession: vi.fn(async (session) => session),
+    sendEmailCode: async () => undefined,
+    verifyEmailCode: async () => { throw new Error("Unexpected email code verification."); },
     sendMagicLink: vi.fn(async () => undefined), signInWithGoogle: vi.fn(async () => undefined),
     signInWithApple: vi.fn(async () => undefined),
     signOut: vi.fn(async () => undefined),

@@ -650,6 +650,8 @@ function createAuthHarness(initialSession: Session | null) {
         listener = null;
       };
     }),
+    sendEmailCode: async () => undefined,
+    verifyEmailCode: async () => { throw new Error("Unexpected email code verification."); },
     sendMagicLink: vi.fn(async () => {}),
     signInWithGoogle: vi.fn(async () => {}),
     signInWithApple: vi.fn(async () => {}),

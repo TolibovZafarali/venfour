@@ -1,10 +1,25 @@
 import { Mail, ShieldCheck, X } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
-import { Link } from "react-router";
+import { Link, useNavigate } from "react-router";
 import { Dialog } from "radix-ui";
 
 import appleLogo from "@/assets/apple-logo-white.svg";
+import {
+  completeCaseClaim,
+  completedAuthReturnLocation,
+} from "@/features/auth/auth-completion";
+import {
+  emailOtpCaretOffset,
+  formatEmailOtp,
+  rawEmailOtp,
+} from "@/features/auth/email-otp-input";
+import {
+  getAuthCallbackUrl,
+  readCaseClaimCallbackParameter,
+} from "@/features/auth/return-location";
+import { useTotalLossDependencies } from "@/features/total-loss/dependencies";
+
 import { getFriendlyAuthError } from "@/features/auth/auth-errors";
 import { isAnonymousAuthState, useAuth } from "@/features/auth/auth-context";
 import type { AuthActionOptions } from "@/features/auth/auth-context";
@@ -22,11 +37,12 @@ function isValidSignInEmail(email: string) {
   return emailPattern.test(email.trim());
 }
 
-type PendingAction = "email" | "google" | "apple" | null;
+type PendingAction = "email" | "verify" | "google" | "apple" | null;
 
 interface SignInDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onSignInComplete?: () => void;
   restoreFocusElement?: HTMLElement | null;
   returnTo?: string;
   callbackParameters?: AuthActionOptions["callbackParameters"];
@@ -49,26 +65,70 @@ const intentDescriptions: Record<SignInIntent, string> = {
 export function SignInDialog({
   open,
   onOpenChange,
+  onSignInComplete,
   restoreFocusElement,
   returnTo,
   callbackParameters,
   intent = "default",
 }: SignInDialogProps) {
-  const { auth, sendMagicLink, signInWithGoogle, signInWithApple } = useAuth();
+  const {
+    auth,
+    sendEmailCode,
+    completeEmailCode,
+    restoreSession,
+    signInWithGoogle,
+    signInWithApple,
+  } = useAuth();
+  const navigate = useNavigate();
+  const dependencies = useTotalLossDependencies();
   const [email, setEmail] = useState("");
   const [emailSent, setEmailSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pendingAction, setPendingAction] = useState<PendingAction>(null);
+  const [code, setCode] = useState("");
+  const [retryAt, setRetryAt] = useState(0);
+  const [now, setNow] = useState(Date.now);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const caretRef = useRef<number | null>(null);
+  const busyRef = useRef(false);
+  const mountedRef = useRef(true);
+  const resendSeconds = Math.max(0, Math.ceil((retryAt - now) / 1000));
   const googleButtonRef = useRef<HTMLButtonElement>(null);
   const pending = pendingAction !== null;
 
   useEffect(() => {
     const resetOAuthPending = () => {
-      setPendingAction((action) => (action === "email" ? action : null));
+      setPendingAction((action) =>
+        action === "google" || action === "apple" ? null : action,
+      );
     };
     window.addEventListener("pageshow", resetOAuthPending);
     return () => window.removeEventListener("pageshow", resetOAuthPending);
   }, []);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!retryAt) return;
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [retryAt]);
+
+  useEffect(() => {
+    if (emailSent) inputRef.current?.focus();
+  }, [emailSent]);
+
+  useLayoutEffect(() => {
+    if (caretRef.current !== null) {
+      inputRef.current?.setSelectionRange(caretRef.current, caretRef.current);
+      caretRef.current = null;
+    }
+  }, [code]);
 
   const startOAuthSignIn = async (provider: "google" | "apple") => {
     setError(null);
@@ -83,31 +143,93 @@ export function SignInDialog({
     }
   };
 
-  const submitEmail = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  const sendCode = async () => {
+    if (busyRef.current || retryAt > Date.now()) return;
     const normalizedEmail = email.trim().toLowerCase();
-
     if (!isValidSignInEmail(normalizedEmail)) {
       setError("Enter a valid email address.");
       return;
     }
-
+    busyRef.current = true;
     setError(null);
     setPendingAction("email");
-
     try {
-      await sendMagicLink(normalizedEmail, { returnTo, callbackParameters });
+      await sendEmailCode(normalizedEmail, { returnTo });
+      if (!mountedRef.current) return;
       setEmail(normalizedEmail);
       setEmailSent(true);
-      setPendingAction(null);
+      setCode("");
+      setRetryAt(Date.now() + 60_000);
+      setNow(Date.now());
     } catch (signInError) {
-      setError(getFriendlyAuthError(signInError, "email"));
-      setPendingAction(null);
+      if (mountedRef.current)
+        setError(getFriendlyAuthError(signInError, "send-code"));
+    } finally {
+      busyRef.current = false;
+      if (mountedRef.current) setPendingAction(null);
+    }
+  };
+
+  const submitCode = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (busyRef.current) return;
+    const token = rawEmailOtp(code);
+    if (token.length !== 6) {
+      setError("Enter the six-digit code from your email.");
+      return;
+    }
+    busyRef.current = true;
+    setError(null);
+    setPendingAction("verify");
+    const recoverySession = isAnonymousAuthState(auth) ? auth.session : null;
+    try {
+      const caseClaim = readCaseClaimCallbackParameter(
+        new URL(getAuthCallbackUrl(callbackParameters)),
+      );
+      const session = await completeEmailCode(email, token);
+      let completedClaim = null;
+      if (caseClaim.kind === "claim") {
+        try {
+          completedClaim = await completeCaseClaim(
+            dependencies?.totalLossIdentityService,
+            caseClaim.claimId,
+            session.user.id,
+          );
+        } catch (claimError) {
+          if (recoverySession) {
+            try {
+              await restoreSession(recoverySession);
+            } catch {
+              // Keep the original case-access error if the guest session expired.
+            }
+          }
+          throw claimError;
+        }
+      }
+      if (!mountedRef.current) return;
+      const destination = completedAuthReturnLocation(
+        caseClaim,
+        completedClaim,
+      );
+      onSignInComplete?.();
+      onOpenChange(false);
+      void navigate(destination, { replace: true });
+    } catch (signInError) {
+      if (mountedRef.current)
+        setError(getFriendlyAuthError(signInError, "verify-code"));
+    } finally {
+      busyRef.current = false;
+      if (mountedRef.current) setPendingAction(null);
     }
   };
 
   return (
-    <Dialog.Root open={open} onOpenChange={onOpenChange}>
+    <Dialog.Root
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (pendingAction !== "verify") onOpenChange(nextOpen);
+      }}
+    >
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-[70] bg-ink/32 backdrop-blur-[3px] data-[state=closed]:animate-out data-[state=closed]:fade-out data-[state=open]:animate-in data-[state=open]:fade-in motion-reduce:animate-none" />
         <Dialog.Content
@@ -131,7 +253,7 @@ export function SignInDialog({
             </Dialog.Title>
             <Dialog.Description className="mt-2 text-sm leading-6 text-copy">
               {emailSent
-                ? "Use the secure link we sent to finish signing in."
+                ? "Enter the six-digit code below to finish signing in."
                 : intentDescriptions[intent]}
             </Dialog.Description>
           </div>
@@ -141,6 +263,7 @@ export function SignInDialog({
               type="button"
               className={`absolute top-4 right-4 inline-flex size-11 items-center justify-center rounded-lg text-copy transition-colors hover:bg-surface hover:text-ink ${focusRingClassName}`}
               aria-label="Close sign in"
+              disabled={pendingAction === "verify"}
             >
               <X className="size-4" aria-hidden />
             </button>
@@ -166,20 +289,123 @@ export function SignInDialog({
                     aria-hidden
                   />
                   <p className="min-w-0 text-sm leading-6 text-ink">
-                    We sent a sign-in link to{" "}
+                    We sent a sign-in code to{" "}
                     <span className="font-semibold break-all">{email}</span>.
-                    The link expires in one hour.
                   </p>
                 </div>
               </div>
-              <Dialog.Close asChild>
+              <form
+                className="mt-5"
+                onSubmit={(event) => void submitCode(event)}
+                noValidate
+              >
+                <label
+                  htmlFor="sign-in-code"
+                  className="text-sm font-semibold text-ink"
+                >
+                  Sign-in code
+                </label>
+                <input
+                  ref={inputRef}
+                  id="sign-in-code"
+                  name="code"
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  placeholder="123-456"
+                  value={code}
+                  disabled={pending}
+                  aria-invalid={error ? true : undefined}
+                  aria-describedby={error ? "sign-in-code-error" : undefined}
+                  className={`mt-2 min-h-12 w-full rounded-lg border border-line px-3 text-center font-mono text-2xl tracking-[0.15em] text-ink disabled:bg-surface ${focusRingClassName}`}
+                  onChange={(event) => {
+                    const value = event.target.value;
+                    caretRef.current = emailOtpCaretOffset(
+                      rawEmailOtp(
+                        value.slice(
+                          0,
+                          event.target.selectionStart ?? value.length,
+                        ),
+                      ).length,
+                    );
+                    setCode(formatEmailOtp(value));
+                    setError(null);
+                  }}
+                  onKeyDown={(event) => {
+                    const input = event.currentTarget;
+                    const caret = input.selectionStart;
+                    if (
+                      event.key === "Backspace" &&
+                      caret === 4 &&
+                      input.selectionEnd === 4 &&
+                      code[3] === "-"
+                    ) {
+                      event.preventDefault();
+                      setCode(
+                        formatEmailOtp(
+                          rawEmailOtp(code).slice(0, 2) +
+                            rawEmailOtp(code).slice(3),
+                        ),
+                      );
+                      caretRef.current = 2;
+                    } else if (
+                      event.key === "Delete" &&
+                      caret === 3 &&
+                      input.selectionEnd === 3 &&
+                      code[3] === "-"
+                    ) {
+                      event.preventDefault();
+                      caretRef.current = 3;
+                      setCode(formatEmailOtp(code.slice(0, 3) + code.slice(5)));
+                    }
+                  }}
+                />
+                {error ? (
+                  <p
+                    id="sign-in-code-error"
+                    className="mt-3 text-sm leading-5 text-red-700"
+                    role="alert"
+                  >
+                    {error}
+                  </p>
+                ) : null}
+                <button
+                  type="submit"
+                  disabled={pending}
+                  className={`${actionClassName} ${focusRingClassName} mt-4 bg-brand text-white hover:bg-brand-strong`}
+                >
+                  {pendingAction === "verify"
+                    ? "Signing in…"
+                    : "Verify and sign in"}
+                </button>
+              </form>
+              <div className="mt-3 flex items-center justify-between gap-3">
                 <button
                   type="button"
-                  className={`${actionClassName} ${focusRingClassName} mt-5 bg-brand text-white hover:bg-brand-strong`}
+                  disabled={pending || resendSeconds > 0}
+                  className={`min-h-11 rounded text-sm font-medium text-brand disabled:text-copy/60 ${focusRingClassName}`}
+                  onClick={() => void sendCode()}
                 >
-                  Done
+                  {pendingAction === "email"
+                    ? "Sending code…"
+                    : resendSeconds > 0
+                      ? `Resend code in ${resendSeconds}s`
+                      : "Resend code"}
                 </button>
-              </Dialog.Close>
+                <button
+                  type="button"
+                  disabled={pending}
+                  className={`min-h-11 rounded text-sm font-medium text-copy ${focusRingClassName}`}
+                  onClick={() => {
+                    setEmailSent(false);
+                    setCode("");
+                    setError(null);
+                    setRetryAt(0);
+                  }}
+                >
+                  Change email
+                </button>
+              </div>
             </div>
           ) : (
             <div className="mt-6">
@@ -252,7 +478,13 @@ export function SignInDialog({
                 <span className="h-px flex-1 bg-line" />
               </div>
 
-              <form onSubmit={(event) => void submitEmail(event)} noValidate>
+              <form
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  void sendCode();
+                }}
+                noValidate
+              >
                 <label
                   htmlFor="sign-in-email"
                   className="text-sm font-semibold text-ink"
@@ -283,7 +515,7 @@ export function SignInDialog({
                 >
                   <Mail className="size-4" aria-hidden />
                   {pendingAction === "email"
-                    ? "Sending secure link…"
+                    ? "Sending code…"
                     : "Continue with Email"}
                 </button>
               </form>
@@ -302,7 +534,7 @@ export function SignInDialog({
                     className="mt-0.5 size-3.5 shrink-0 text-market-strong"
                     aria-hidden
                   />
-                  No password needed. We’ll email you a one-time secure link.
+                  No password needed. We’ll email you a one-time sign-in code.
                 </p>
               )}
 

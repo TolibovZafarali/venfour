@@ -237,6 +237,41 @@ describe("Supabase auth service", () => {
     }
   });
 
+  test("sends and verifies email codes for new and returning users using the existing session", async () => {
+    const sendBodies: unknown[] = [];
+    const verifyBodies: unknown[] = [];
+    server.use(
+      http.post(`${SUPABASE_URL}/auth/v1/otp`, async ({ request }) => {
+        sendBodies.push(await request.json());
+        expect(new URL(request.url).searchParams.get("redirect_to")).toBe(`${window.location.origin}/auth/callback`);
+        return HttpResponse.json({});
+      }),
+      http.post(`${SUPABASE_URL}/auth/v1/verify`, async ({ request }) => {
+        verifyBodies.push(await request.json());
+        return HttpResponse.json(authResponse);
+      }),
+      http.post(`${SUPABASE_URL}/auth/v1/logout`, () => new HttpResponse(null, { status: 204 })),
+    );
+    const state = createSupabaseClientState({ url: SUPABASE_URL, publishableKey: "sb_publishable_auth_integration_test" });
+    if (state.status !== "available") throw new Error(state.reason);
+    const service = createSupabaseAuthService(state.client);
+    try {
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        await service.sendEmailCode("owner@example.com", `${window.location.origin}/auth/callback`, "captcha-token");
+        expect(await service.getSession()).toBeNull();
+        expect(sendBodies[attempt]).toMatchObject({ email: "owner@example.com", create_user: true, gotrue_meta_security: { captcha_token: "captcha-token" } });
+        const session = await service.verifyEmailCode("owner@example.com", "123456");
+        expect(verifyBodies[attempt]).toMatchObject({ email: "owner@example.com", token: "123456", type: "email" });
+        expect(verifyBodies[attempt]).not.toHaveProperty("token_hash");
+        expect(session.user.id).toBe(USER_ID);
+        expect((await service.getSession())?.user.id).toBe(USER_ID);
+        expect(JSON.parse(window.localStorage.getItem(SUPABASE_STORAGE_KEY) ?? "null").user.id).toBe(USER_ID);
+        await service.signOut();
+        expect(await service.getSession()).toBeNull();
+      }
+    } finally { await state.client.auth.stopAutoRefresh(); }
+  });
+
   test("handles a token-hash email callback without a PKCE verifier and persists the session", async () => {
     let otpRequestBody: unknown;
     let otpRedirectTo: string | null = null;

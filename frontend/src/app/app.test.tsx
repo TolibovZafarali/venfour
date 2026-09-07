@@ -1223,6 +1223,8 @@ function createTestAuthService(
     },
     getSession: async () => session,
     onAuthStateChange: () => () => {},
+    sendEmailCode: async () => undefined,
+    verifyEmailCode: async () => { throw new Error("Unexpected email code verification."); },
     sendMagicLink: async () => {},
     signInAnonymously: async () => session ?? createTestAnonymousSession(),
     signInWithGoogle: async () => {},

@@ -34,6 +34,8 @@ function authService(): AuthService {
     exchangeCodeForSession: async () => session(),
     getSession: async () => session(),
     onAuthStateChange: () => () => undefined,
+    sendEmailCode: async () => undefined,
+    verifyEmailCode: async () => { throw new Error("Unexpected email code verification."); },
     sendMagicLink: vi.fn(async () => undefined),
     signInWithGoogle: vi.fn(async () => undefined),
     signInWithApple: vi.fn(async () => undefined),

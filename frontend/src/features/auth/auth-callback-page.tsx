@@ -58,6 +58,7 @@ export function AuthCallbackPage() {
 
   useEffect(() => {
     if (
+      retryOpen ||
       callback.kind === "error" ||
       callback.kind === "invalid" ||
       caseClaim.kind === "invalid" ||
@@ -182,6 +183,7 @@ export function AuthCallbackPage() {
     completeEmailAuthCallback,
     navigate,
     restoreSession,
+    retryOpen,
     totalLossDependencies?.totalLossIdentityService,
   ]);
 
@@ -248,6 +250,7 @@ export function AuthCallbackPage() {
         <SignInDialog
           open
           onOpenChange={setRetryOpen}
+          onSignInComplete={() => { navigationStartedRef.current = true; }}
           returnTo={recoveryReturnTo}
           callbackParameters={
             caseClaim.kind === "claim"

@@ -75,15 +75,21 @@ class LocalAuthEmailTemplateTests(unittest.TestCase):
                     "(eq (slice .RedirectTo 0 (len $localClaimPrefix)) $localClaimPrefix)) }}",
                     template,
                 )
+                self.assertIn('{{ $signIn := print .SiteURL "/auth/callback" }}', template)
+                self.assertIn('(eq .RedirectTo $signIn)', template)
+                self.assertIn('{{ $signInQuery := print $signIn "?" }}', template)
+                self.assertIn('(eq (slice .RedirectTo 0 (len $signInQuery)) $signInQuery)', template)
+                self.assertIn('(and (eq .SiteURL "http://localhost:5173") (or (eq .RedirectTo $localSignIn)', template)
                 self.assertNotIn(".Data", template)
 
     def test_otp_branch_formats_only_six_characters_and_contains_no_link(self) -> None:
         for name, template in self.templates.items():
             with self.subTest(template=name):
-                otp_branch = template.split("{{ if $claimCode }}", 1)[1].split(
+                otp_branch = template.split("{{ if or $claimCode $signInCode }}", 1)[1].split(
                     "\n      {{ else }}\n", 1
                 )[0]
                 self.assertIn(TOKEN_DISPLAY, otp_branch)
+                self.assertIn("Use this code to sign in to Venfour:", otp_branch)
                 self.assertIn("Use this code to verify your claim:", otp_branch)
                 self.assertIn(
                     "This code expires soon. If you didn't request it, "
@@ -114,7 +120,7 @@ class LocalAuthEmailTemplateTests(unittest.TestCase):
             with self.subTest(template=name):
                 self.assertIn('{{ $c := print .SiteURL "/total-loss/cases/" }}', subject)
                 self.assertIn(
-                    "{{ if or (and (ge (len .RedirectTo) (len $c)) "
+                    "{{ else if or (and (ge (len .RedirectTo) (len $c)) "
                     "(eq (slice .RedirectTo 0 (len $c)) $c)) "
                     '(and (eq .SiteURL "http://localhost:5173") '
                     "(ge (len .RedirectTo) (len $l)) "
@@ -122,6 +128,7 @@ class LocalAuthEmailTemplateTests(unittest.TestCase):
                     "Your Venfour verification code",
                     subject,
                 )
+                self.assertIn("{{ if $signInCode }}Your Venfour sign-in code", subject)
                 self.assertIn("Your Venfour valuation preview is ready", subject)
                 self.assertIn('{{ $l := "http://127.0.0.1:5173/total-loss/cases/" }}', subject)
                 self.assertIn("{{ else }}Continue your Venfour appraisal{{ end }}", subject)

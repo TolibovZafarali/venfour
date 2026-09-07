@@ -3,6 +3,7 @@
   {{ $claimPrefix := print .SiteURL "/total-loss/cases/" }}
   {{ $localClaimPrefix := "http://127.0.0.1:5173/total-loss/cases/" }}
   {{ $claimCode := or (and (ge (len .RedirectTo) (len $claimPrefix)) (eq (slice .RedirectTo 0 (len $claimPrefix)) $claimPrefix)) (and (eq .SiteURL "http://localhost:5173") (ge (len .RedirectTo) (len $localClaimPrefix)) (eq (slice .RedirectTo 0 (len $localClaimPrefix)) $localClaimPrefix)) }}
+  {{ $signIn := print .SiteURL "/auth/callback" }}{{ $signInQuery := print $signIn "?" }}{{ $localSignIn := "http://127.0.0.1:5173/auth/callback" }}{{ $localSignInQuery := print $localSignIn "?" }}{{ $signInCode := or (or (eq .RedirectTo $signIn) (and (ge (len .RedirectTo) (len $signInQuery)) (eq (slice .RedirectTo 0 (len $signInQuery)) $signInQuery))) (and (eq .SiteURL "http://localhost:5173") (or (eq .RedirectTo $localSignIn) (and (ge (len .RedirectTo) (len $localSignInQuery)) (eq (slice .RedirectTo 0 (len $localSignInQuery)) $localSignInQuery)))) }}
   {{ $previewPrefix := print .SiteURL "/auth/callback/preview-ready/" }}
   {{ $previewReady := and (ge (len .RedirectTo) (len $previewPrefix)) (eq (slice .RedirectTo 0 (len $previewPrefix)) $previewPrefix) }}
   <body style="margin: 0; background: #f7f8f6; color: #172019; font-family: Arial, sans-serif;">
@@ -10,12 +11,12 @@
       <p style="font-size: 14px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;">
         Venfour
       </p>
-      {{ if $claimCode }}
+      {{ if or $claimCode $signInCode }}
       <h1 style="font-size: 28px; line-height: 1.2; margin: 24px 0 12px;">
-        Your verification code
+        {{ if $signInCode }}Your sign-in code{{ else }}Your verification code{{ end }}
       </h1>
       <p style="font-size: 16px; line-height: 1.6; margin: 0 0 24px;">
-        Use this code to verify your claim:
+        {{ if $signInCode }}Use this code to sign in to Venfour:{{ else }}Use this code to verify your claim:{{ end }}
       </p>
       <p style="background: #edf2ed; border-radius: 12px; color: #183c2c; font-family: monospace; font-size: 36px; font-weight: 700; letter-spacing: 0.12em; margin: 0 0 24px; padding: 20px; text-align: center;">
         {{ if eq (len .Token) 6 }}{{ slice .Token 0 3 }}-{{ slice .Token 3 6 }}{{ else }}{{ .Token }}{{ end }}

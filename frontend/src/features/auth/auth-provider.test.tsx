@@ -66,6 +66,8 @@ function createFakeAuthService(
       return unsubscribe;
     }),
     restoreSession: vi.fn(async (session) => session),
+    sendEmailCode: async () => undefined,
+    verifyEmailCode: async () => { throw new Error("Unexpected email code verification."); },
     sendMagicLink: vi.fn(async () => undefined),
     signInAnonymously: vi.fn(async () =>
       sessionFor("anonymous-user", "", "anonymous"),

@@ -36,6 +36,8 @@ const authenticatedAnalysisService: AuthService = {
   exchangeCodeForSession: async () => analysisSession,
   getSession: async () => analysisSession,
   onAuthStateChange: () => () => undefined,
+  sendEmailCode: async () => undefined,
+  verifyEmailCode: async () => { throw new Error("Unexpected email code verification."); },
   sendMagicLink: async () => undefined,
   signInWithGoogle: async () => undefined,
   signInWithApple: async () => undefined,

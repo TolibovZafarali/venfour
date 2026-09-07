@@ -35,6 +35,8 @@ function createGuestAuthService(): AuthService {
     getSession: vi.fn(async () => session),
     onAuthStateChange: vi.fn(() => () => undefined),
     signInAnonymously: vi.fn(async () => session),
+    sendEmailCode: async () => undefined,
+    verifyEmailCode: async () => { throw new Error("Unexpected email code verification."); },
     sendMagicLink: vi.fn(async () => undefined),
     signInWithGoogle: vi.fn(async () => undefined),
     signInWithApple: vi.fn(async () => undefined),
