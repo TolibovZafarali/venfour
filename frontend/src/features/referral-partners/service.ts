@@ -38,6 +38,16 @@ export interface PartnerEvent { id: string; action?: string; event_type?: string
 export interface PartnerDelivery { id: string; kind: string; status: string; attempts: number; created_at: string; finished_at?: string | null; error_code?: string | null }
 export interface PartnerDetail { partner: ReferralPartner; invitations: PartnerInvitation[]; agreements: PartnerAgreement[]; events: PartnerEvent[]; deliveries?: PartnerDelivery[]; invitation_deliveries?: (PartnerDelivery & { invitation_id: string })[] }
 export interface PartnerList { items: ReferralPartner[]; total: number; page: number; page_size: number }
+export interface PartnerReferralLink { id: string; code: string; status: "active" | "paused"; revision: number; created_at: string }
+export interface PartnerReferralSummary {
+  link: PartnerReferralLink | null;
+  summary: { submitted_count: number; purchased_count: number; refunded_count: number; under_review_count: number };
+}
+export interface PartnerReferral {
+  id: string; submitted_at: string; purchased_at: string | null;
+  status: "submitted" | "purchased" | "refunded" | "under_review";
+}
+export interface PartnerReferralList { items: PartnerReferral[]; total: number; page: number; page_size: number }
 
 function record(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new ApiError("The partner service returned an invalid response.", 502);
@@ -70,6 +80,33 @@ export function parsePartnerList(value: unknown): PartnerList {
   const row = record(value);
   if (!Array.isArray(row.items) || !Number.isSafeInteger(row.total)) throw new ApiError("The partner list could not be verified.", 502);
   return { ...row, items: row.items.map(parsePartner) } as unknown as PartnerList;
+}
+function exactKeys(row: Record<string, unknown>, keys: readonly string[]) {
+  if (Object.keys(row).length !== keys.length || Object.keys(row).some((key) => !keys.includes(key))) throw new ApiError("The referral response could not be verified.", 502);
+}
+const validDate = (value: unknown): value is string => typeof value === "string" && /^\d{4}-\d{2}-\d{2}T/.test(value) && Number.isFinite(Date.parse(value));
+const validCount = (value: unknown): value is number => Number.isSafeInteger(value) && Number(value) >= 0;
+export function parsePartnerReferralSummary(value: unknown): PartnerReferralSummary {
+  const row = record(value); exactKeys(row, ["link", "summary"]);
+  const summary = record(row.summary);
+  exactKeys(summary, ["submitted_count", "purchased_count", "refunded_count", "under_review_count"]);
+  if (!Object.values(summary).every(validCount) || Number(summary.purchased_count) > Number(summary.submitted_count) || Number(summary.refunded_count) + Number(summary.under_review_count) > Number(summary.purchased_count)) throw new ApiError("The referral totals could not be verified.", 502);
+  if (row.link !== null) {
+    const link = record(row.link); exactKeys(link, ["id", "code", "status", "revision", "created_at"]);
+    if (!validId(link.id) || typeof link.code !== "string" || !/^[0-9a-f]{48}$/.test(link.code) || !["active", "paused"].includes(String(link.status)) || !Number.isSafeInteger(link.revision) || Number(link.revision) < 1 || !validDate(link.created_at)) throw new ApiError("The referral link could not be verified.", 502);
+  }
+  return row as unknown as PartnerReferralSummary;
+}
+export function parsePartnerReferralList(value: unknown): PartnerReferralList {
+  const row = record(value); exactKeys(row, ["items", "total", "page", "page_size"]);
+  if (!Array.isArray(row.items) || !validCount(row.total) || !Number.isSafeInteger(row.page) || Number(row.page) < 1 || !Number.isSafeInteger(row.page_size) || Number(row.page_size) < 1 || Number(row.page_size) > 100 || row.items.length > Number(row.page_size) || row.items.length > Number(row.total)) throw new ApiError("The referral list could not be verified.", 502);
+  const ids = new Set<string>();
+  for (const value of row.items) {
+    const item = record(value); exactKeys(item, ["id", "submitted_at", "purchased_at", "status"]);
+    if (!validId(item.id) || ids.has(item.id) || !validDate(item.submitted_at) || (item.purchased_at !== null && !validDate(item.purchased_at)) || !["submitted", "purchased", "refunded", "under_review"].includes(String(item.status)) || ((item.status === "submitted") !== (item.purchased_at === null))) throw new ApiError("The referral record could not be verified.", 502);
+    ids.add(item.id);
+  }
+  return row as unknown as PartnerReferralList;
 }
 export function partnerApiRoot(audience: PartnerAudience) { return audience === "staff" ? "/api/v1/staff/referral-partners" : "/api/v1/partners"; }
 export function referralErrorMessage(error: unknown) {

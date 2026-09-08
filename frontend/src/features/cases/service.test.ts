@@ -266,6 +266,31 @@ describe("appraisal case service", () => {
     ).rejects.toBeInstanceOf(AppraisalCaseResponseError);
   });
 
+  it("sends a referral code only through the owned draft bootstrap RPC", async () => {
+    const bodies: unknown[] = [];
+    server.use(http.post(`${SUPABASE_URL}/rest/v1/rpc/get_or_create_referred_total_loss_draft`, async ({ request }) => {
+      bodies.push(await request.json());
+      return HttpResponse.json(caseRow);
+    }));
+    await expect(createTestService().getOrCreateTotalLossDraft({ userId: USER_ID, referralCode: "a".repeat(48) })).resolves.toEqual(expectedCase);
+    expect(bodies).toEqual([{ p_referral_code: "a".repeat(48) }]);
+  });
+
+  it("does not fall back to unattributed bootstrap when referral storage fails", async () => {
+    let ordinaryCalls = 0;
+    server.use(
+      http.post(`${SUPABASE_URL}/rest/v1/rpc/get_or_create_referred_total_loss_draft`, () => HttpResponse.json({ message: "Temporarily unavailable" }, { status: 503 })),
+      http.post(`${SUPABASE_URL}/rest/v1/rpc/get_or_create_total_loss_draft`, () => { ordinaryCalls++; return HttpResponse.json(caseRow); }),
+    );
+    await expect(createTestService().getOrCreateTotalLossDraft({ userId: USER_ID, referralCode: "a".repeat(48) })).rejects.toBeDefined();
+    expect(ordinaryCalls).toBe(0);
+  });
+
+  it("rejects a referred draft returned for another owner", async () => {
+    server.use(http.post(`${SUPABASE_URL}/rest/v1/rpc/get_or_create_referred_total_loss_draft`, () => HttpResponse.json({ ...caseRow, user_id: OTHER_USER_ID })));
+    await expect(createTestService().getOrCreateTotalLossDraft({ userId: USER_ID, referralCode: "a".repeat(48) })).rejects.toBeInstanceOf(AppraisalCaseResponseError);
+  });
+
   it("server-filters and limits the most recent draft for a workflow", async () => {
     let requestUrl: URL | undefined;
 

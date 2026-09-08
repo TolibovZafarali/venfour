@@ -283,7 +283,8 @@ class PartnerDeliveryService:
                 "Your completed referral partner agreement is attached. This is the same retained PDF "
                 "available in your Venfour partner dashboard.\n\n"
                 f"{origin}/partners\n\n"
-                "Your onboarding is complete. Referral tools will be available in a later release."
+                "Your onboarding is complete. Open your partner workspace to share your referral link "
+                "and follow your referral activity."
             )
         else:
             raise _DeliveryError("PARTNER_EMAIL_KIND_INVALID", requires_review=True)

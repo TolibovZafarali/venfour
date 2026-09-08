@@ -31,6 +31,33 @@ const failure = (status: number) => HttpResponse.json({ error: { code: "REFERRAL
 beforeEach(() => sessionStorage.clear());
 
 describe("referral onboarding", () => {
+  test("uses the shared sign-in modal and returns to the exact invitation after email verification", async () => {
+    const user = userEvent.setup();
+    const service = authService(null);
+    const getInvitation = vi.fn();
+    server.use(http.post("*/api/v1/partners/operations", async ({ request }) => {
+      const { action } = await request.json() as { action: string };
+      if (action !== "invitation_get") return failure(400);
+      getInvitation();
+      return HttpResponse.json({ partner: detail().partner, invitation: { id: INVITATION, status: "pending", created_at: "2026-09-08T00:00:00Z", expires_at: "2099-09-15T00:00:00Z" } });
+    }));
+    const path = `/partners/invitations/${INVITATION}`;
+    const app = renderTestApp([`${path}?from=invitation#onboarding`], { authService: service });
+    await user.click(await screen.findByRole("button", { name: "Sign in" }));
+    const dialog = within(await screen.findByRole("dialog", { name: "Sign in to Venfour" }));
+    expect(dialog.getByRole("button", { name: "Continue with Google" })).toBeVisible();
+    expect(dialog.getByRole("button", { name: "Continue with Apple" })).toBeVisible();
+    expect(getInvitation).not.toHaveBeenCalled();
+    await user.type(dialog.getByRole("textbox", { name: "Email address" }), "partner@example.test");
+    await user.click(dialog.getByRole("button", { name: "Continue with Email" }));
+    await user.type(await screen.findByRole("textbox", { name: "Sign-in code" }), "123456");
+    await user.click(screen.getByRole("button", { name: "Verify and sign in" }));
+    await screen.findByRole("heading", { name: "You’re invited to partner with Venfour" });
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(app.router.state.location).toMatchObject({ pathname: path, search: "?from=invitation", hash: "#onboarding" });
+    expect(getInvitation).toHaveBeenCalled();
+  });
+
   test("requires explicit independent consents and preserves signing entries and request id after failure", async () => {
     const user = userEvent.setup();
     const current = detail();

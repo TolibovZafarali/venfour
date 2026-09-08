@@ -80,12 +80,24 @@ select ok(
     select procedure.prosecdef
       and procedure.provolatile = 'v'
       and 'search_path=""' = any(procedure.proconfig)
-      and pg_get_functiondef(procedure.oid) like '%pg_advisory_xact_lock%'
+      and pg_get_functiondef(procedure.oid) like '%get_or_create_total_loss_draft_internal(null)%'
+      and exists (
+        select 1
+        from pg_proc as core
+        where core.oid = 'public.get_or_create_total_loss_draft_internal(text)'::regprocedure
+          and core.prosecdef
+          and core.provolatile = 'v'
+          and 'search_path=""' = any(core.proconfig)
+          and pg_get_functiondef(core.oid) like '%pg_advisory_xact_lock%'
+          and pg_get_functiondef(core.oid) like '%auth.uid()%'
+          and pg_get_functiondef(core.oid) like '%if actor is null then%'
+          and not has_function_privilege('authenticated', core.oid, 'execute')
+      )
     from pg_proc as procedure
     where procedure.oid =
       'public.get_or_create_total_loss_draft()'::regprocedure
   ),
-  'the Total-Loss draft resolver is volatile, locked, pinned, and SECURITY DEFINER'
+  'the Total-Loss draft resolver delegates to the private authenticated, locked, pinned core'
 );
 
 select ok(

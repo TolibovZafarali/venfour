@@ -11,7 +11,7 @@ export function ReferralPartnersPage() {
     <PublicPage
       eyebrow="Referral partners"
       title="Refer customers to Venfour"
-      introduction="We’re preparing an invitation-only referral program for businesses that help vehicle owners after a total loss, beginning in Missouri."
+      introduction="An invitation-only referral program for businesses that help vehicle owners after a total loss, beginning in Missouri."
       tone="methodology"
     >
       <PublicPageSection title="Help customers understand their valuation">
@@ -19,7 +19,7 @@ export function ReferralPartnersPage() {
           Venfour helps vehicle owners understand their insurer’s total-loss
           valuation, review independent market evidence, and prepare for a more
           informed discussion with their adjuster. As a referral partner, your
-          role will be to introduce customers who could benefit from that review.
+          role is to introduce customers who could benefit from that review.
         </p>
         <p>
           <Link to="/methodology" className={publicTextLinkClassName}>
@@ -31,8 +31,8 @@ export function ReferralPartnersPage() {
 
       <PublicPageSection title="Earn on qualifying purchases">
         <p>
-          The planned program will offer a commission when a customer you refer
-          completes a qualifying purchase. Your partner agreement will specify
+          Your partner agreement provides the terms for earning a commission when a
+          customer you refer completes a qualifying purchase. It specifies
           the commission amount, eligibility, and adjustments for refunds.
         </p>
       </PublicPageSection>
@@ -51,12 +51,21 @@ export function ReferralPartnersPage() {
           provide your business details, and review your agreement.
         </p>
         <p>
-          This page previews the planned program. It is not a partner agreement.
+          Once Venfour countersigns and activates your partnership, your workspace
+          includes a referral link you can copy and share. Submitted reviews and
+          purchase status appear there using private referral references.
+        </p>
+        <p>
+          An active referral link automatically associates a newly created review
+          with your business. Existing reviews keep their original referral
+          status. A referral appears in your workspace after the customer submits
+          their review details.
         </p>
         <p><Link to="/partners" className={publicTextLinkClassName}>Partner sign in</Link></p>
       </PublicPageSection>
 
       <PublicPageSection title="Your agreement and information">
+        <p>This page explains the program. Your signed partner agreement sets the terms of your participation.</p>
         <p>Your signed agreement stays available in your partner workspace. After both parties sign, a completed PDF copy is also sent to your verified email address.</p>
         <p>Venfour uses your business and contact information to administer the partnership. Partners do not receive access to customers’ valuation reports, private documents, or claim details. Read our <Link to="/privacy" className={publicTextLinkClassName}>Privacy Policy</Link> for more information.</p>
       </PublicPageSection>

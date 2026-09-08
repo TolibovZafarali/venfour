@@ -249,10 +249,12 @@ export function createAppraisalCaseService(
       return appraisalCase;
     },
 
-    async getOrCreateTotalLossDraft({ userId }) {
-      const { data, error } = await client.rpc(
-        "get_or_create_total_loss_draft",
-      );
+    async getOrCreateTotalLossDraft({ userId, referralCode }) {
+      const { data, error } = referralCode === undefined
+        ? await client.rpc("get_or_create_total_loss_draft")
+        : await client.rpc("get_or_create_referred_total_loss_draft", {
+            p_referral_code: referralCode,
+          });
 
       if (error) throw error;
       if (!data) {

@@ -304,6 +304,8 @@ class PartnerDeliveryTests(unittest.TestCase):
         for request in requests:
             payload = json.loads(request.content)
             self.assertEqual(payload["to"], ["partner@example.test"])
+            self.assertIn("share your referral link", payload["text"])
+            self.assertNotIn("later release", payload["text"])
             self.assertEqual(base64.b64decode(payload["attachments"][0]["content"]), gateway.download_partner_document(PATH))
         self.assertNotEqual(requests[0].headers["Idempotency-Key"], requests[1].headers["Idempotency-Key"])
 

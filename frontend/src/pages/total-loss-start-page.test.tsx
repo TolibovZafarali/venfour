@@ -1615,6 +1615,79 @@ describe("/start?service=total-loss", () => {
     expect(screen.queryByText("Loading your saved appraisal…")).not.toBeInTheDocument();
   });
 
+  it("opens a referral link directly in intake and removes the code only after durable bootstrap", async () => {
+    const auth = createAuthHarness(null);
+    const harness = createDependencyHarness();
+    const bootstrap = createDeferred<AppraisalCase>();
+    const code = "a".repeat(48);
+    harness.getOrCreateTotalLossDraft.mockReturnValueOnce(bootstrap.promise);
+    const { router } = renderTestApp([`/r/${code}?caseId=${CASE_ID}&next=https://example.test`], { authService: auth.service, totalLossDependencies: harness.dependencies });
+    await waitFor(() => expect(harness.getOrCreateTotalLossDraft).toHaveBeenCalledWith({ userId: GUEST_USER_ID, referralCode: code }));
+    expect(router.state.location.pathname).toBe("/start");
+    expect(new URLSearchParams(router.state.location.search).get("ref")).toBe(code);
+    expect(new URLSearchParams(router.state.location.search).has("caseId")).toBe(false);
+    expect(screen.getByRole("group", { name: "Do you have your insurance valuation report?" })).toBeVisible();
+    await act(async () => bootstrap.resolve(appraisalCase(OTHER_CASE_ID, GUEST_USER_ID)));
+    await waitFor(() => expect(new URLSearchParams(router.state.location.search).has("ref")).toBe(false));
+    expect(harness.getOrCreateTotalLossDraft).toHaveBeenCalledTimes(1);
+    expect(harness.createOrGetAppraisalCase).not.toHaveBeenCalled();
+  });
+
+  it("keeps the referral through failed bootstrap and retries without an extra customer step", async () => {
+    const auth = createAuthHarness(sessionFor());
+    const harness = createDependencyHarness();
+    const code = "b".repeat(48);
+    harness.getOrCreateTotalLossDraft.mockRejectedValueOnce(new Error("Temporary connection failure"));
+    const { router } = renderTestApp([`/start?service=total-loss&ref=${code}`], { authService: auth.service, totalLossDependencies: harness.dependencies });
+    await screen.findByText("Your durable Total Loss draft could not be prepared. No report has been requested or uploaded.");
+    expect(new URLSearchParams(router.state.location.search).get("ref")).toBe(code);
+    await userEvent.setup().click(screen.getByRole("button", { name: "Try again" }));
+    await waitFor(() => expect(new URLSearchParams(router.state.location.search).has("ref")).toBe(false));
+    expect(harness.getOrCreateTotalLossDraft.mock.calls.map(([input]) => input)).toEqual([
+      { userId: USER_ID, referralCode: code }, { userId: USER_ID, referralCode: code },
+    ]);
+  });
+
+  it("resolves the referral with the server even when an ordinary draft is cached", async () => {
+    const auth = createAuthHarness(sessionFor());
+    const harness = createDependencyHarness();
+    const code = "d".repeat(48);
+    const { queryClient, router } = renderTestApp(["/privacy"], { authService: auth.service, totalLossDependencies: harness.dependencies });
+    queryClient.setQueryData(appraisalCaseQueryKeys.totalLossDraft(USER_ID), appraisalCase(CASE_ID));
+    await act(async () => { await router.navigate(`/r/${code}`); });
+    await waitFor(() => expect(harness.getOrCreateTotalLossDraft).toHaveBeenCalledWith({ userId: USER_ID, referralCode: code }));
+    await waitFor(() => expect(new URLSearchParams(router.state.location.search).has("ref")).toBe(false));
+    expect(harness.getOrCreateTotalLossDraft).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not apply a referral to an explicit existing case", async () => {
+    const auth = createAuthHarness(sessionFor());
+    const harness = createDependencyHarness({ recentCase: appraisalCase(CASE_ID) });
+    const { router } = renderTestApp([`/start?service=total-loss&caseId=${CASE_ID}&ref=${"c".repeat(48)}`], { authService: auth.service, totalLossDependencies: harness.dependencies });
+    await waitFor(() => expect(new URLSearchParams(router.state.location.search).has("ref")).toBe(false));
+    expect(new URLSearchParams(router.state.location.search).get("caseId")).toBe(CASE_ID);
+    expect(harness.getOrCreateTotalLossDraft).not.toHaveBeenCalled();
+    expect(harness.createOrGetAppraisalCase).not.toHaveBeenCalled();
+  });
+
+  it("rechecks a repeated referral link before using or clearing a cached referral result", async () => {
+    const auth = createAuthHarness(sessionFor());
+    const harness = createDependencyHarness();
+    const code = "e".repeat(48);
+    const bootstrap = createDeferred<AppraisalCase>();
+    harness.getOrCreateTotalLossDraft.mockReturnValueOnce(bootstrap.promise);
+    const { queryClient, router } = renderTestApp(["/privacy"], { authService: auth.service, totalLossDependencies: harness.dependencies });
+    queryClient.setQueryData(appraisalCaseQueryKeys.totalLossDraft(USER_ID, code), appraisalCase(CASE_ID));
+    await act(async () => { await router.navigate(`/r/${code}`); });
+    await waitFor(() => expect(harness.getOrCreateTotalLossDraft).toHaveBeenCalledWith({ userId: USER_ID, referralCode: code }));
+    expect(new URLSearchParams(router.state.location.search).get("ref")).toBe(code);
+    expect(queryClient.getQueryData(appraisalCaseQueryKeys.totalLossDraft(USER_ID))).toBeUndefined();
+    await act(async () => bootstrap.resolve(appraisalCase(OTHER_CASE_ID)));
+    await waitFor(() => expect(new URLSearchParams(router.state.location.search).has("ref")).toBe(false));
+    expect(queryClient.getQueryData(appraisalCaseQueryKeys.totalLossDraft(USER_ID))).toMatchObject({ id: OTHER_CASE_ID });
+    expect(harness.getOrCreateTotalLossDraft).toHaveBeenCalledTimes(1);
+  });
+
   it("starts another appraisal with one URL intent across reloads", async () => {
     const auth = createAuthHarness(sessionFor());
     const harness = createDependencyHarness({

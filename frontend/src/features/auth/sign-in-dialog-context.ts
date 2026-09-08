@@ -5,6 +5,7 @@ export type SignInIntent =
   | "secure-report-upload"
   | "continue-total-loss"
   | "continue-diminished-value"
+  | "partner-onboarding"
   | "staff-review";
 
 export interface OpenSignInOptions {

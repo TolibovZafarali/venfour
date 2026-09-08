@@ -60,6 +60,8 @@ const intentDescriptions: Record<SignInIntent, string> = {
     "Sign in to securely save your diminished-value request and supporting documents.",
   "staff-review":
     "Sign in with an authorized Venfour staff account to open the secure review workspace.",
+  "partner-onboarding":
+    "Use the email address invited by Venfour to continue your business onboarding and open your partner workspace.",
 };
 
 export function SignInDialog({

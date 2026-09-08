@@ -5983,6 +5983,16 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      get_or_create_referred_total_loss_draft: {
+        Args: { p_referral_code: string }
+        Returns: Database["public"]["Functions"]["get_or_create_total_loss_draft"]["Returns"]
+        SetofOptions: {
+          from: "*"
+          to: "appraisal_cases"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       get_or_create_total_loss_draft: {
         Args: never
         Returns: {

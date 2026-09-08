@@ -181,6 +181,12 @@ function TotalLossDraftBootstrapGate({
 }: TotalLossIntakeFlowProps) {
   const { auth, ensureGuestSession } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const referralCode = useMemo(
+    () => new URLSearchParams(location.search).get("ref") ?? undefined,
+    [location.search],
+  );
   const dependencies = useTotalLossDependencies();
   const [storedDraft] = useState(() => readTotalLossDraft().draft);
   const [startupChoice, setStartupChoice] = useState<StartupChoice>({
@@ -234,6 +240,7 @@ function TotalLossDraftBootstrapGate({
   const reservedCaseQuery = useReservedTotalLossDraftQuery({
     intentId: newCaseId ?? "",
     service: caseService,
+    referralCode,
     userId:
       dependencies &&
       newCaseId &&
@@ -245,14 +252,23 @@ function TotalLossDraftBootstrapGate({
   });
   const bootstrapQuery = useTotalLossDraftQuery({
     service: caseService,
+    referralCode,
     userId:
       dependencies && !explicitCaseId && !newCaseId && !correctionRequested
         ? userId
         : null,
   });
+  const referralQuery = newCaseId ? reservedCaseQuery : bootstrapQuery;
+  const referralResolutionRequired = referralCode !== undefined && !explicitCaseId && !correctionRequested;
+  const referralResolutionPending = referralResolutionRequired && (
+    referralQuery.isFetching || (!referralQuery.isFetchedAfterMount && !referralQuery.isError)
+  );
+  const referralResolved = !referralResolutionRequired || (
+    referralQuery.isFetchedAfterMount && referralQuery.isSuccess && !referralQuery.isFetching
+  );
   const explicitAppraisalCase = explicitCaseQuery.data;
-  const reservedAppraisalCase = reservedCaseQuery.data;
-  const canonicalAppraisalCase = bootstrapQuery.data;
+  const reservedAppraisalCase = referralResolved ? reservedCaseQuery.data : undefined;
+  const canonicalAppraisalCase = referralResolved ? bootstrapQuery.data : undefined;
   const explicitCaseIsOwnedTotalLossDraft = Boolean(
     auth.status === "signedIn" &&
     explicitAppraisalCase &&
@@ -273,6 +289,21 @@ function TotalLossDraftBootstrapGate({
     : newCaseId
       ? reservedAppraisalCase
       : canonicalAppraisalCase;
+
+  useEffect(() => {
+    if (referralCode === undefined || !appraisalCase || appraisalCase.userId !== userId) return;
+    if (invalidExplicitCaseId || invalidNewCaseId || conflictingCaseIntents || invalidCorrectionIntent) return;
+    if (!explicitCaseId && !correctionRequested) {
+      const key = newCaseId
+        ? appraisalCaseQueryKeys.reservedTotalLossDraft(userId, newCaseId)
+        : appraisalCaseQueryKeys.totalLossDraft(userId);
+      queryClient.setQueryData(key, appraisalCase);
+    }
+    const params = new URLSearchParams(location.search);
+    params.delete("ref");
+    void navigate({ pathname: location.pathname, search: params.toString(), hash: location.hash }, { replace: true });
+  }, [appraisalCase, conflictingCaseIntents, correctionRequested, explicitCaseId, invalidCorrectionIntent, invalidExplicitCaseId, invalidNewCaseId, location.hash, location.pathname, location.search, navigate, newCaseId, queryClient, referralCode, userId]);
+
   const showStartupChoice =
     !explicitCaseId &&
     !correctionRequested &&
@@ -436,6 +467,7 @@ function TotalLossDraftBootstrapGate({
   }
 
   if (
+    referralResolutionPending ||
     (!explicitCaseId && !newCaseId && bootstrapQuery.isPending) ||
     (explicitCaseId && explicitCaseQuery.isPending) ||
     (newCaseId && reservedCaseQuery.isPending)

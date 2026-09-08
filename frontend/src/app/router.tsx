@@ -45,7 +45,15 @@ function redirectToTotalLossStart({ request }: LoaderFunctionArgs) {
   return replace(`/start?${url.searchParams.toString()}`);
 }
 
+function redirectPartnerReferral({ params }: LoaderFunctionArgs) {
+  const query = new URLSearchParams({ service: "total-loss" });
+  // Invalid codes still enter ordinary intake; the database decides attribution.
+  query.set("ref", params.code && params.code.length <= 256 ? params.code : "");
+  return replace(`/start?${query.toString()}`);
+}
+
 export const appRoutes: RouteObject[] = [
+  { path: "/r/:code", loader: redirectPartnerReferral },
   {
     path: "/",
     element: <AppShell />,
@@ -374,7 +382,7 @@ export const appRoutes: RouteObject[] = [
         element: <ReferralPartnersPage />,
         handle: metadata(
           "Referral Partners | Venfour",
-          "Learn about Venfour’s planned invitation-only referral program, beginning in Missouri, with commissions on qualifying purchases and manual payouts.",
+          "Learn about Venfour’s invitation-only referral program, beginning in Missouri, with automatic case attribution, commissions on qualifying purchases, and manual payouts.",
         ),
       },
       {

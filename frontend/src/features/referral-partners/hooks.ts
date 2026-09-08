@@ -64,7 +64,7 @@ export function useReferralQuery<T>(audience: PartnerAudience, action: string, p
     queryKey: [...referralQueryRoot, userId, audience, action, payload],
     queryFn: async ({ signal }) => parse(await referralPartnerService.operation(audience, token, action, payload, signal)),
     enabled: Boolean(userId && enabled), retry: false, staleTime: 0, gcTime: 0, refetchOnWindowFocus: true,
-    refetchInterval: action === "partner_get" || action === "staff_get" ? 15_000 : false,
+    refetchInterval: ["partner_get", "staff_get", "referral_summary", "referral_list"].includes(action) ? 15_000 : false,
   });
 }
 

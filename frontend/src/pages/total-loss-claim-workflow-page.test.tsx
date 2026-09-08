@@ -599,7 +599,7 @@ describe("total-loss customer workflow", () => {
   });
 
   it("registers completed-analysis and historical deep links", () => {
-    const paths = appRoutes[0]?.children?.map((route) => route.path);
+    const paths = appRoutes.flatMap((route) => route.children?.map((child) => child.path) ?? []);
     expect(paths).toEqual(
       expect.arrayContaining([
         ...[

@@ -21,4 +21,6 @@ export const partnerEventLabel = (event: string) => ({
   "document.retry_requested": "PDF preparation retry requested",
   "document.ready": "Signed PDF prepared",
   "email.accepted": "Email accepted for delivery",
+  "referral_link.paused": "Referral link paused",
+  "referral_link.resumed": "Referral link resumed",
 })[event] ?? "Partner record updated";

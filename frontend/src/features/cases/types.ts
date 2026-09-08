@@ -48,6 +48,7 @@ export interface GetRecentDraftAppraisalCaseInput {
 
 export interface GetOrCreateTotalLossDraftInput {
   readonly userId: string;
+  readonly referralCode?: string;
 }
 
 export type TouchAppraisalCaseInput = GetAppraisalCaseInput;

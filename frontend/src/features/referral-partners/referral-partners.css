@@ -45,3 +45,18 @@
 .partner-table small { display: block; color: #6b756e; margin-top: .3rem; }
 .partner-template-section { display: grid; gap: 1rem; padding-top: 1.25rem; border-top: 1px solid #e0e7e2; }
 @media (max-width: 600px) { .partner-form-grid { grid-template-columns: 1fr; } .partner-page { padding-top: 1.75rem; } .partner-topbar { align-items: flex-start; } .partner-topbar nav { flex-wrap: wrap; justify-content: flex-end; font-size: .8rem; } }
+.partner-referral-link-row { display: flex; align-items: end; gap: .75rem; margin-block: 1.25rem; }
+.partner-referral-link-row .partner-field { flex: 1; min-width: 0; }
+.partner-referral-link-row input { font-size: .875rem; }
+.partner-referral-link-status { margin-bottom: 1rem; }
+.partner-referral-counts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1rem; margin-block: 1.5rem; }
+.partner-referral-counts div { padding: 1rem; background: #f4f7f5; border-radius: 8px; }
+.partner-referral-counts dt { color: #596a60; font-size: .8rem; }
+.partner-referral-counts dd { margin-top: .5rem; font-size: 1.75rem; font-weight: 600; letter-spacing: -.035em; }
+.partner-referral-table { margin-top: 1.25rem; }
+.partner-referral-reference { overflow-wrap: anywhere; min-width: 100px; max-width: 185px; font-variant-numeric: tabular-nums; }
+.partner-referral-status { display: inline-block; padding: .3rem .55rem; border-radius: 6px; background: #f2f4f3; color: #4d5c53; font-size: .8rem; line-height: 1.5; }
+.partner-referral-status-purchased { background: #edf5ef; color: #2d6343; }
+.partner-referral-status-under_review { background: #f8f3e9; color: #785c2f; }
+.partner-referral-status-refunded { background: #f3edf0; color: #765360; }
+@media (max-width: 600px) { .partner-referral-link-row { align-items: stretch; flex-direction: column; } .partner-referral-link-row > button { align-self: flex-start; } .partner-referral-counts { grid-template-columns: repeat(2, minmax(0, 1fr)); } .partner-referral-table th, .partner-referral-table td { padding-inline: .35rem; } }

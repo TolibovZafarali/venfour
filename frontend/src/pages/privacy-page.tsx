@@ -120,6 +120,24 @@ export function PrivacyPage() {
         </p>
       </PublicPageSection>
 
+      <PublicPageSection title="Referral links and purchase attribution">
+        <p>
+          When you use an active partner’s referral link to start a new total-loss
+          review, Venfour can associate that review with the referring partner.
+          The association stays with the review when you verify your email,
+          sign in, or make a purchase. This attribution uses the review record;
+          it does not use advertising cookies or fingerprinting.
+        </p>
+        <p>
+          After you submit your intake, the partner and designated Venfour partner
+          managers can see a private referral reference, submission and purchase
+          dates, and whether a purchase was refunded or is under review. This
+          referral view does not include your name, contact details, vehicle,
+          valuation report, or private case information. Venfour retains purchase
+          attribution with the associated commercial records.
+        </p>
+      </PublicPageSection>
+
       <PublicPageSection title="Total-loss report and analysis handling">
         <p>
           A valuation report uploaded through the secure total-loss intake is

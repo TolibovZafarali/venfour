@@ -15,19 +15,21 @@ export const appraisalCaseQueryKeys = {
     [...appraisalCaseQueryKeys.user(userId), "recentDraft"] as const,
   recentDraft: (userId: string | null, serviceType: AppraisalServiceType) =>
     [...appraisalCaseQueryKeys.recentDrafts(userId), serviceType] as const,
-  totalLossDraft: (userId: string | null) =>
-    [...appraisalCaseQueryKeys.user(userId), "totalLossDraft"] as const,
-  reservedTotalLossDraft: (userId: string | null, intentId: string) =>
+  totalLossDraft: (userId: string | null, referralCode?: string) =>
+    [...appraisalCaseQueryKeys.user(userId), "totalLossDraft", ...(referralCode === undefined ? [] : ["referral", referralCode])] as const,
+  reservedTotalLossDraft: (userId: string | null, intentId: string, referralCode?: string) =>
     [
       ...appraisalCaseQueryKeys.user(userId),
       "reservedTotalLossDraft",
       intentId,
+      ...(referralCode === undefined ? [] : ["referral", referralCode]),
     ] as const,
 };
 
 interface AppraisalCasesQueryOptions {
   readonly service: AppraisalCaseService;
   readonly userId: string | null;
+  readonly referralCode?: string;
 }
 
 interface AppraisalCaseQueryOptions extends AppraisalCasesQueryOptions {
@@ -97,19 +99,21 @@ export function recentDraftAppraisalCaseQueryOptions({
 export function totalLossDraftQueryOptions({
   service,
   userId,
+  referralCode,
 }: AppraisalCasesQueryOptions) {
   return queryOptions({
-    queryKey: appraisalCaseQueryKeys.totalLossDraft(userId),
+    queryKey: appraisalCaseQueryKeys.totalLossDraft(userId, referralCode),
     queryFn: () => {
       if (!userId) {
         throw new Error(
           "An authenticated user is required to prepare a Total Loss draft.",
         );
       }
-      return service.getOrCreateTotalLossDraft({ userId });
+      return service.getOrCreateTotalLossDraft({ userId, ...(referralCode === undefined ? {} : { referralCode }) });
     },
     enabled: Boolean(userId),
-    staleTime: 10_000,
+    staleTime: referralCode === undefined ? 10_000 : 0,
+    ...(referralCode === undefined ? {} : { gcTime: 0 }),
   });
 }
 
@@ -117,19 +121,21 @@ export function reservedTotalLossDraftQueryOptions({
   intentId,
   service,
   userId,
+  referralCode,
 }: ReservedTotalLossDraftQueryOptions) {
   return queryOptions({
-    queryKey: appraisalCaseQueryKeys.reservedTotalLossDraft(userId, intentId),
+    queryKey: appraisalCaseQueryKeys.reservedTotalLossDraft(userId, intentId, referralCode),
     queryFn: () => {
       if (!userId) {
         throw new Error(
           "An authenticated user is required to prepare a reserved Total Loss draft.",
         );
       }
-      return service.getOrCreateTotalLossDraft({ userId });
+      return service.getOrCreateTotalLossDraft({ userId, ...(referralCode === undefined ? {} : { referralCode }) });
     },
     enabled: Boolean(userId && intentId),
-    staleTime: 10_000,
+    staleTime: referralCode === undefined ? 10_000 : 0,
+    ...(referralCode === undefined ? {} : { gcTime: 0 }),
   });
 }
 
