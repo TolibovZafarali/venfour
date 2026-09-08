@@ -10,6 +10,7 @@ import { AppShell } from "@/components/app-shell";
 import { environment } from "@/config/env";
 import { diminishedValueStaffReviewAvailable } from "@/config/product-availability";
 import { adminRoute } from "@/features/admin/admin-routes";
+import { PartnerDashboardPage, PartnerDetailPage, PartnerInvitationPage, PartnerWorkspace } from "@/features/referral-partners/pages";
 import { AdminDiminishedValueAccessGate } from "@/features/admin/diminished-value/admin-access-gate";
 import { AuthCallbackPage } from "@/features/auth";
 import { AnalysisPage } from "@/pages/analysis-page";
@@ -411,6 +412,11 @@ export const appRoutes: RouteObject[] = [
     ],
   },
   adminRoute,
+  { path: "partners", element: <PartnerWorkspace />, children: [
+    { index: true, element: <PartnerDashboardPage /> },
+    { path: "invitations/:invitationId", element: <PartnerInvitationPage /> },
+    { path: ":partnerId", element: <PartnerDetailPage /> },
+  ] },
 ];
 
 export function createAppRouter() {

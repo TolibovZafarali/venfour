@@ -55,6 +55,7 @@ import {
   TotalLossDependenciesProvider,
 } from "@/features/total-loss/dependencies";
 import { supabaseClientState } from "@/lib/supabase/client";
+import { clearReferralDrafts, referralQueryRoot } from "@/features/referral-partners/hooks";
 
 const defaultTotalLossDependencies =
   supabaseClientState.status === "available"
@@ -141,6 +142,9 @@ export function AppProvider({
       queryClient.removeQueries({ queryKey: appraisalCaseQueryKeys.all });
       queryClient.removeQueries({ queryKey: customerProfileQueryKeys.all });
       queryClient.removeQueries({ queryKey: adminCaseOperationsQueryKeys.all });
+      void queryClient.cancelQueries({ queryKey: referralQueryRoot });
+      queryClient.removeQueries({ queryKey: referralQueryRoot });
+      clearReferralDrafts(nextUserId);
       queryClient.removeQueries({
         queryKey: adminDiminishedValueQueryKeys.all,
       });

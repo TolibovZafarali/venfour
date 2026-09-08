@@ -195,6 +195,12 @@ const backendEnvironment = {
   VENFOUR_PUBLIC_APP_ORIGIN: "http://localhost:5173",
   VENFOUR_PREVIEW_EMAIL_DISPATCH_SECRET:
     "local-preview-email-dispatch-secret-not-for-production",
+  VENFOUR_PARTNER_EMAIL_PROVIDER: "mailpit",
+  VENFOUR_PARTNER_EMAIL_FROM: "Venfour <partners@venfour.test>",
+  VENFOUR_PARTNER_EMAIL_REPLY_TO: "partners@venfour.test",
+  VENFOUR_PARTNER_MAILPIT_ORIGIN: "http://127.0.0.1:54324",
+  VENFOUR_PARTNER_EMAIL_DISPATCH_SECRET:
+    "local-partner-email-dispatch-secret-not-for-production",
   VENFOUR_TURNSTILE_SECRET: turnstileTestSecret,
   VENFOUR_LOCAL_FULL_FLOW: localFullFlow ? "1" : "0",
 };
@@ -253,6 +259,12 @@ for (const secretName of [
   "VENFOUR_CLAIM_RECOVERY_RATE_LIMIT_SECRET",
   "VENFOUR_PUBLIC_APP_ORIGIN",
   "VENFOUR_PREVIEW_EMAIL_DISPATCH_SECRET",
+  "RESEND_API_KEY",
+  "VENFOUR_PARTNER_EMAIL_PROVIDER",
+  "VENFOUR_PARTNER_EMAIL_FROM",
+  "VENFOUR_PARTNER_EMAIL_REPLY_TO",
+  "VENFOUR_PARTNER_MAILPIT_ORIGIN",
+  "VENFOUR_PARTNER_EMAIL_DISPATCH_SECRET",
   "VENFOUR_INSURER_RESPONSE_DISPATCH_SECRET",
   "VENFOUR_TURNSTILE_SECRET",
   "VENFOUR_TOTAL_LOSS_STRIPE_PRICE_ID",
@@ -275,6 +287,8 @@ for (const secretName of [
 
 const children = [];
 let shuttingDown = false;
+let partnerDispatchTimer;
+let partnerDispatchPending = false;
 const groupedChildren = localFullFlow && process.platform !== "win32";
 
 if (localFullFlow && !existingListener) {
@@ -286,6 +300,7 @@ if (localFullFlow && !existingListener) {
 function stopChildren(exitCode = 0) {
   if (shuttingDown) return;
   shuttingDown = true;
+  clearInterval(partnerDispatchTimer);
   for (const child of children) {
     if (child.exitCode === null && child.signalCode === null) {
       if (groupedChildren) {
@@ -379,6 +394,23 @@ try {
     console.log("Local claim testing: http://localhost:5173/_local/claims (external providers disabled)");
   }
   console.log(`Local email inbox: ${credentials.emailInboxUrl}`);
+  partnerDispatchTimer = setInterval(async () => {
+    if (shuttingDown || partnerDispatchPending) return;
+    partnerDispatchPending = true;
+    try {
+      await fetch("http://127.0.0.1:8000/internal/v1/referral-partners/dispatch", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${backendEnvironment.VENFOUR_PARTNER_EMAIL_DISPATCH_SECRET}`,
+        },
+        signal: AbortSignal.timeout(55_000),
+      });
+    } catch {
+      // Durable leases allow the next local tick to recover after a restart.
+    } finally {
+      partnerDispatchPending = false;
+    }
+  }, 15_000);
   console.log("Press Ctrl+C to stop Vite and Uvicorn.");
 } catch (error) {
   console.error(`\n${error instanceof Error ? error.message : String(error)}`);

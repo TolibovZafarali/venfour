@@ -46,12 +46,19 @@ export function ReferralPartnersPage() {
 
       <PublicPageSection title="Join by invitation">
         <p>
-          Venfour will invite selected businesses directly, beginning in
-          Missouri. Online partner onboarding is not available yet.
+          Venfour invites selected businesses directly, beginning in Missouri.
+          Open the invitation in your email to verify your contact address,
+          provide your business details, and review your agreement.
         </p>
         <p>
           This page previews the planned program. It is not a partner agreement.
         </p>
+        <p><Link to="/partners" className={publicTextLinkClassName}>Partner sign in</Link></p>
+      </PublicPageSection>
+
+      <PublicPageSection title="Your agreement and information">
+        <p>Your signed agreement stays available in your partner workspace. After both parties sign, a completed PDF copy is also sent to your verified email address.</p>
+        <p>Venfour uses your business and contact information to administer the partnership. Partners do not receive access to customers’ valuation reports, private documents, or claim details. Read our <Link to="/privacy" className={publicTextLinkClassName}>Privacy Policy</Link> for more information.</p>
       </PublicPageSection>
     </PublicPage>
   );

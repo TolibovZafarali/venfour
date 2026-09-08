@@ -8,6 +8,7 @@ import { SignInDialogProvider, useAuth } from "@/features/auth";
 import { getFriendlyAuthError } from "@/features/auth/auth-errors";
 import { getUserAccountLabel, getUserIdentityLabel } from "@/features/auth/user-display";
 import { useAdminOverview } from "@/features/admin/operations/queries";
+import { useReferralAccess } from "@/features/referral-partners/hooks";
 import venfourMark from "../../../../assets/brand/venfour-mark.svg";
 import "./admin-workspace.css";
 import "./admin-pages.css";
@@ -32,6 +33,10 @@ export function AdminLayout() {
   const { auth, signOut } = useAuth();
   const location = useLocation();
   const overview = useAdminOverview();
+  const partnerAccess = useReferralAccess("staff");
+  const visibleNavigation = partnerAccess.allowed
+    ? [...navigation, { label: "Referral partners", href: "/admin/referral-partners", icon: Users }]
+    : navigation;
   const [collapsed, setCollapsed] = useState(() => {
     try { return localStorage.getItem(storageKey) === "true"; } catch { return false; }
   });
@@ -47,7 +52,7 @@ export function AdminLayout() {
   const returnParams = new URLSearchParams((params.get("returnTo") ?? "").split("?")[1]);
   const attention = params.get("view") === "attention" || params.get("attention") === "true" ||
     (location.pathname.startsWith("/admin/cases/") && (returnParams.get("view") === "attention" || returnParams.get("attention") === "true"));
-  const active = navigation.find((item) => item.label === "Needs attention" ? location.pathname.startsWith("/admin/cases") && attention
+  const active = visibleNavigation.find((item) => item.label === "Needs attention" ? location.pathname.startsWith("/admin/cases") && attention
     : item.label === "Cases" ? location.pathname.startsWith("/admin/cases") && !attention
     : item.href === "/admin" ? location.pathname === "/admin" || location.pathname === "/admin/"
     : location.pathname.startsWith(item.href));
@@ -102,7 +107,7 @@ export function AdminLayout() {
     </div>
     <div className="admin-sidebar-section-label"><span className="admin-nav-label">WORKSPACE</span></div>
     <nav aria-label="Admin navigation" className="admin-navigation">
-      {navigation.map((item, index) => <Tooltip.Root key={`${item.href}:${compact}`} open={compact ? undefined : false}>
+      {visibleNavigation.map((item, index) => <Tooltip.Root key={`${item.href}:${compact}`} open={compact ? undefined : false}>
         <Tooltip.Trigger asChild>
           <Link to={item.href} aria-label={item.label} aria-current={active === item ? "page" : undefined}
             className={`admin-nav-link${index === 4 ? " admin-nav-group-start" : ""}`} onClick={() => setMobileOpen(false)}>

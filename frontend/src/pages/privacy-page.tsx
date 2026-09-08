@@ -11,7 +11,7 @@ export function PrivacyPage() {
       eyebrow="Privacy"
       title="How Venfour handles your information"
       introduction="This page describes the current Venfour service in practical terms: what is stored when you use an account, start a supported total-loss review, or have a previously saved diminished-value request, and what controls are not yet available."
-      updated="Last updated September 1, 2026"
+      updated="Last updated September 7, 2026"
       tone="privacy"
     >
       <PublicPageSection title="Information you provide">
@@ -94,6 +94,29 @@ export function PrivacyPage() {
           download. Authorized staff can also access submitted diminished-value
           requests and their supporting documents for manual review; unrelated
           diminished-value drafts are not included in that staff scope.
+        </p>
+      </PublicPageSection>
+
+      <PublicPageSection title="Referral partner information and agreements">
+        <p>
+          For invited referral partners, Venfour stores business and contact
+          details, the business address, proposed commission terms, and
+          onboarding activity. Electronic signing records include the signer’s
+          typed legal name and title, verified email, signing time, and
+          acknowledgements of authority, electronic records and signatures,
+          and delivery of the completed agreement by email. Venfour retains
+          signed agreement versions and their signing records, including
+          earlier versions when proposed terms change.
+        </p>
+        <p>
+          Partners and designated Venfour partner managers can access the
+          agreements available to their accounts. A transactional email
+          provider processes invitation messages and completed PDF copies sent
+          to the partner’s verified email address. Venfour stores delivery
+          status to support retries. In-progress onboarding entries may be
+          retained in browser session storage for recovery. Partner access does
+          not grant access to customers’ private case information, reports, or
+          insurer correspondence.
         </p>
       </PublicPageSection>
 

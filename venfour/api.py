@@ -74,6 +74,8 @@ from venfour.case_claim_access import (
     TurnstileRejectedError,
 )
 from venfour.preview_access import PreviewAccessGateway, PreviewAccessService
+from venfour.partner_api import partner_routes, validated_partner_dispatch_secret
+from venfour.partner_service import PartnerGateway, PartnerService
 from venfour.commerce import (
     MAX_STRIPE_WEBHOOK_BODY_BYTES,
     CommerceConflictError,
@@ -2428,6 +2430,8 @@ def create_app(
     insurer_response_coordinator: Any | None = None,
     internal_caller_verifier: Any | None = None,
     staff_release_review_service: Any | None = None,
+    partner_service: Any | None = None,
+    partner_delivery_service: Any | None = None,
     vehicle_trim_catalog_service: Any | None = None,
     supabase_gateway: CaseAnalysisGateway | None = None,
     enable_legacy_api: bool | None = None,
@@ -2545,6 +2549,31 @@ def create_app(
             raise TypeError(
                 "case_analysis_service must expose auth, case, and run methods"
             )
+
+    selected_partner_service = partner_service
+    selected_partner_delivery_service = partner_delivery_service
+    owned_partner_delivery = None
+    partner_dispatch_secret = validated_partner_dispatch_secret(
+        os.environ.get("VENFOUR_PARTNER_EMAIL_DISPATCH_SECRET")
+    )
+    partner_gateway_configuration = getattr(selected_gateway, "_configuration", None)
+    if selected_partner_service is None and isinstance(partner_gateway_configuration, SupabaseServerConfiguration):
+        from venfour.partner_delivery import PartnerDeliveryConfiguration, PartnerDeliveryService
+
+        # The existing composition retains ownership of its Supabase connection pool.
+        partner_gateway = PartnerGateway(
+            partner_gateway_configuration, client=selected_gateway._client,
+        )
+        partner_configuration = PartnerDeliveryConfiguration.from_environment(os.environ)
+        if not partner_dispatch_secret:
+            partner_configuration = PartnerDeliveryConfiguration()
+        if selected_partner_delivery_service is None:
+            owned_partner_delivery = PartnerDeliveryService(partner_gateway, partner_configuration)
+            selected_partner_delivery_service = owned_partner_delivery
+        selected_partner_service = PartnerService(
+            partner_gateway,
+            email_configured=partner_configuration.configured and bool(partner_dispatch_secret),
+        )
 
     selected_case_claim_access_service = case_claim_access_service
     recovery_configuration = None
@@ -3208,6 +3237,7 @@ def create_app(
             Route("/api/v1/analyses", _create_analysis, methods=["POST"]),
         )
 
+    routes.extend(partner_routes())
     routes.extend([
         Route("/api/v1/preview-access/recovery", _preview_access_recovery, methods=["POST"]),
         Route("/api/v1/appraisal-cases/{case_id}/preview-access/recovery",
@@ -3250,6 +3280,8 @@ def create_app(
                 await insurer_response_reconciler_task
             if owned_supabase_gateway is not None:
                 owned_supabase_gateway.close()
+            if owned_partner_delivery is not None:
+                owned_partner_delivery.close()
             if owned_case_claim_access_service is not None:
                 owned_case_claim_access_service.close()
             if owned_package_dispatcher is not None:
@@ -3281,6 +3313,9 @@ def create_app(
     app.state.case_analysis_service = selected_case_service
     app.state.case_claim_access_service = selected_case_claim_access_service
     app.state.preview_access_service = selected_preview_access_service
+    app.state.partner_service = selected_partner_service
+    app.state.partner_delivery_service = selected_partner_delivery_service
+    app.state.partner_dispatch_secret = partner_dispatch_secret
     app.state.preview_email_dispatch_secret = preview_dispatch_secret
     app.state.insurer_response_dispatch_secret = (
         insurer_response_dispatch_secret

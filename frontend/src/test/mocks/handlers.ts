@@ -7,6 +7,7 @@ import {
 } from "@/test/fixtures/analysis-presentation";
 
 export const handlers = [
+  http.get("*/api/v1/staff/referral-partners/access", () => HttpResponse.json({ is_partner_manager: false, is_partner: false, email_configured: false })),
   http.get("*/health", () =>
     HttpResponse.json<HealthResponse>({ status: "ok" }),
   ),
