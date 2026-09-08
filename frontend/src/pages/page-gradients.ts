@@ -18,6 +18,7 @@ const editorialPaths = new Set([
   "/cookies",
   "/methodology",
   "/privacy",
+  "/referral-partners",
   "/terms",
 ]);
 

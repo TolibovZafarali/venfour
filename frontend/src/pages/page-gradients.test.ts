@@ -42,6 +42,8 @@ describe("page gradient routing", () => {
     "/",
     "/start",
     "/methodology",
+    "/referral-partners",
+    "/referral-partners/",
     "/terms/",
     "/privacy",
     "/cookies",

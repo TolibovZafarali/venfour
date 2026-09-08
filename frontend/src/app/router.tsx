@@ -24,6 +24,7 @@ import { MethodologyPage } from "@/pages/methodology-page";
 import { NotFoundPage } from "@/pages/not-found-page";
 import { PrivacyPage } from "@/pages/privacy-page";
 import { FindReviewPage, PreviewReturnPage } from "@/pages/preview-return-page";
+import { ReferralPartnersPage } from "@/pages/referral-partners-page";
 import { RouteErrorPage } from "@/pages/route-error-page";
 import { TermsPage } from "@/pages/terms-page";
 import { TotalLossAnalysisPage } from "@/pages/total-loss-analysis-page";
@@ -365,6 +366,14 @@ export const appRoutes: RouteObject[] = [
         handle: metadata(
           "Terms of Use | Venfour",
           "Read the terms and current service limits for Venfour total-loss reviews and diminished-value review requests.",
+        ),
+      },
+      {
+        path: "referral-partners",
+        element: <ReferralPartnersPage />,
+        handle: metadata(
+          "Referral Partners | Venfour",
+          "Learn about Venfour’s planned invitation-only referral program, beginning in Missouri, with commissions on qualifying purchases and manual payouts.",
         ),
       },
       {

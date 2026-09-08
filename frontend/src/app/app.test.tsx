@@ -96,11 +96,16 @@ describe("Venfour application", () => {
         name: "Get Started",
       }),
     ).toHaveAttribute("href", "/start?service=total-loss");
+    expect(
+      within(primaryNavigation).queryByRole("link", {
+        name: "Referral partners",
+      }),
+    ).not.toBeInTheDocument();
 
     const footerNavigation = screen.getByRole("navigation", {
       name: "Footer navigation",
     });
-    expect(within(footerNavigation).getAllByRole("link")).toHaveLength(7);
+    expect(within(footerNavigation).getAllByRole("link")).toHaveLength(8);
     expect(
       within(footerNavigation).getByRole("link", { name: "Total Loss" }),
     ).toHaveAttribute("href", "#total-loss");
@@ -119,6 +124,9 @@ describe("Venfour application", () => {
     expect(
       within(footerNavigation).getByRole("link", { name: "Cookie Policy" }),
     ).toHaveAttribute("href", "/cookies");
+    expect(
+      within(footerNavigation).getByRole("link", { name: "Referral partners" }),
+    ).toHaveAttribute("href", "/referral-partners");
     expect(
       within(footerNavigation).getByRole("link", { name: "Contact" }),
     ).toHaveAttribute("href", "/contact");
@@ -976,6 +984,11 @@ describe("Venfour application", () => {
       "Total-Loss Review Methodology | Venfour",
     ],
     ["/terms", "Terms for using Venfour", "Terms of Use | Venfour"],
+    [
+      "/referral-partners",
+      "Refer customers to Venfour",
+      "Referral Partners | Venfour",
+    ],
     ["/contact", "Questions about Venfour", "Contact Venfour"],
     [
       "/contact?topic=diminished-value",

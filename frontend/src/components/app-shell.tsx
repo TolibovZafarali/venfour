@@ -647,6 +647,11 @@ function AppShellContent() {
                       </Link>
                     </li>
                     <li>
+                      <Link to="/referral-partners" className={footerLinkClassName}>
+                        Referral partners
+                      </Link>
+                    </li>
+                    <li>
                       <Link to="/contact" className={footerLinkClassName}>
                         Contact
                       </Link>
