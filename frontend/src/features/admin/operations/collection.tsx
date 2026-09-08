@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { SlidersHorizontal } from "lucide-react";
+import { useId, useState } from "react";
 import { Link, useLocation, useSearchParams } from "react-router";
 
 import { Button } from "@/components/ui/button";
@@ -7,8 +8,9 @@ import { formatCaseOperationDateTime, formatCaseOperationReference } from "@/fea
 
 import { useAdminList, useAdminRecord } from "./queries";
 import type { AdminRow } from "./types";
-import { AdminBadge, AdminEmptyState, AdminErrorState, AdminLoadingState, AdminRefreshNotice, AdminPageHeader, AdminPagination, AdminSearch, AdminSelect, AdminTable } from "./page-ui";
-import { adminActivityTitle, adminCaseHref, adminStatusTone, formatAdminFact, humanizeAdminCode } from "./ui-format";
+import { adminRecordColumns } from "./record-columns";
+import { AdminEmptyState, AdminErrorState, AdminLoadingState, AdminRefreshNotice, AdminPageHeader, AdminPagination, AdminSearch, AdminSelect, AdminTable } from "./page-ui";
+import { adminActivityTitle, adminCaseHref, formatAdminFact, humanizeAdminCode } from "./ui-format";
 
 export type AdminCollectionResource = "cases" | "customers" | "reports" | "processing" | "payments" | "activity";
 export interface AdminFilterDefinition { readonly key: string; readonly label: string; readonly options: readonly { readonly value: string; readonly label: string }[] }
@@ -27,6 +29,8 @@ export function AdminCollection({ resource, title, description, searchPlaceholde
   readonly embedded?: boolean;
 }) {
   const [params, setParams] = useSearchParams();
+  const filterId = useId();
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const dependencies = useAdminCaseOperationsDependencies();
   const location = useLocation();
@@ -47,6 +51,7 @@ export function AdminCollection({ resource, title, description, searchPlaceholde
   if (params.get("view") === "attention") selectedFilters.attention = "true";
   Object.assign(selectedFilters, fixedFilters);
   const query = useAdminList(resource, { search, sort, page, pageSize, filters: selectedFilters });
+  const activeFilterCount = Object.entries(selectedFilters).filter(([key, value]) => fixedFilters[key] !== value && defaultFilters[key] !== value).length;
   const hasFilters = Boolean(search || Object.entries(selectedFilters).some(([key, value]) => fixedFilters[key] !== value && defaultFilters[key] !== value));
   function setParameter(key: string, value: string) {
     setParams(previous => { const next = new URLSearchParams(previous); if (value) next.set(key, value); else next.delete(key); if (key !== "page") next.delete("page"); if (key === "attention") next.delete("view"); return next; }, { replace: key === "q" });
@@ -56,46 +61,16 @@ export function AdminCollection({ resource, title, description, searchPlaceholde
   }
   if (!dependencies?.operationsService) return <AdminEmptyState title="Operations unavailable" description="The staff operations service is not configured for this environment." />;
   const origin = `${location.pathname}${location.search}`;
-  const columns = resource === "cases" ? [
-    { key: "customer", label: "Customer", render: (item: AdminRow) => <RecordIdentity item={item} resource={resource} returnTo={origin} /> },
-    { key: "vehicle", label: "Vehicle", render: (item: AdminRow) => <span className="admin-secondary-text">{item.summary ?? "Not yet provided"}</span> },
-    { key: "case", label: "Case", render: (item: AdminRow) => item.caseId ? <Link className="admin-row-link font-mono" to={adminCaseHref(item.caseId, "overview", origin)}>#{formatCaseOperationReference(item.caseId)}</Link> : "Not recorded" },
-    { key: "stage", label: "Current stage", render: (item: AdminRow) => <AdminBadge tone={adminStatusTone(item.status)}>{humanizeAdminCode(item.status)}</AdminBadge> },
-    { key: "attention", label: "Attention", render: (item: AdminRow) => item.attentionReasons.length ? <AdminBadge tone="warning">Needs attention</AdminBadge> : <span className="admin-secondary-text">None recorded</span> },
-    { key: "updated", label: "Last activity", render: (item: AdminRow) => <span className="admin-secondary-text">{formatCaseOperationDateTime(item.updatedAt)}</span> },
-    { key: "inspect", label: "Inspect", render: (item: AdminRow) => <RecordActions item={item} resource={resource} returnTo={origin} /> },
-  ] : resource === "activity" ? [
-    { key: "event", label: "Event", render: (item: AdminRow) => <><div className="admin-primary-text">{adminActivityTitle(item.title)}</div>{item.subtitle ? <p className="admin-secondary-text">{item.subtitle}</p> : null}</> },
-    { key: "case", label: "Case", render: (item: AdminRow) => item.caseId ? <Link className="admin-row-link font-mono" to={adminCaseHref(item.caseId, "activity")}>#{formatCaseOperationReference(item.caseId)}</Link> : "Not recorded" },
-    { key: "actor", label: "Actor category", render: (item: AdminRow) => <span className="admin-secondary-text">{humanizeAdminCode(item.facts.find(fact => fact.label === "Actor category")?.value ?? item.summary)}</span> },
-    { key: "recorded", label: "Recorded", render: (item: AdminRow) => <span className="admin-secondary-text">{formatCaseOperationDateTime(item.createdAt)}</span> },
-    { key: "inspect", label: "Inspect", render: (item: AdminRow) => <RecordActions item={item} resource={resource} returnTo={origin} expanded={expandedId === item.id} onToggle={() => setExpandedId(current => current === item.id ? null : item.id)} /> },
-  ] : [
-    { key: "record", label: resource === "customers" ? "Customer" : "Record", render: (item: AdminRow) => <RecordIdentity item={item} resource={resource} returnTo={`${location.pathname}${location.search}`} /> },
-    ...(resource !== "customers" ? [{ key: "case", label: "Case", render: (item: AdminRow) => item.caseId ? <Link className="admin-row-link font-mono" to={adminCaseHref(item.caseId, resource)}>#{formatCaseOperationReference(item.caseId)}</Link> : "Not recorded" }] : []),
-    { key: "status", label: "Status", render: (item: AdminRow) => <><AdminBadge tone={adminStatusTone(item.status)}>{humanizeAdminCode(item.status)}</AdminBadge>{item.attentionReasons.length > 0 ? <p className="admin-secondary-text text-amber-800">Needs attention</p> : null}{resource === "customers" ? <p className="admin-secondary-text">{item.caseCount ?? 0} {(item.caseCount ?? 0) === 1 ? "case" : "cases"}</p> : null}</> },
-    { key: "details", label: "Details", render: (item: AdminRow) => <div>{item.facts.slice(0, 2).map((fact, index) => <p className="admin-secondary-text" key={`${fact.label}-${index}`}><span>{fact.label}: </span>{formatAdminFact(fact.label, fact.value)}</p>)}{item.facts.length === 0 ? <span className="admin-secondary-text">{humanizeAdminCode(item.kind)}</span> : null}{resource === "payments" ? <p className="admin-secondary-text">Mode: {item.facts.find(fact => fact.label === "Mode")?.value ?? "Not recorded"}</p> : null}</div> },
-    { key: "updated", label: sort === "created" ? "Created" : "Updated", render: (item: AdminRow) => <span className="admin-secondary-text">{formatCaseOperationDateTime(sort === "created" ? item.createdAt : item.updatedAt)}</span> },
-    { key: "inspect", label: "Inspect", render: (item: AdminRow) => <RecordActions item={item} resource={resource} returnTo={origin} expanded={expandedId === item.id} onToggle={() => setExpandedId(current => current === item.id ? null : item.id)} /> },
-  ];
-  return <section className={embedded ? "admin-embedded-collection" : "admin-page"} aria-label={title}>
+  const columns = adminRecordColumns({ resource, origin, sort, expandedId, onToggle: id => setExpandedId(current => current === id ? null : id) });
+  return <section className={embedded ? "admin-embedded-collection" : "admin-page"} aria-label={title} data-resource={resource}>
     {!embedded ? <AdminPageHeader title={params.get("view") === "attention" && resource === "cases" ? "Needs attention" : title} description={description} refreshing={query.isFetching} onRefresh={() => void query.refetch()} /> : <div className="admin-panel-header"><div><h2>{title}</h2><p>{description}</p></div><Button variant="outline" disabled={query.isFetching} onClick={() => void query.refetch()}>Refresh</Button></div>}
-    <div className="admin-toolbar"><AdminSearch value={search} onChange={value => setParameter("q", value)} label={`Search ${title.toLowerCase()}`} placeholder={searchPlaceholder} />{filters.map(filter => <AdminSelect key={filter.key} label={filter.label} value={filter.key === "attention" && params.get("view") === "attention" ? "true" : params.get(filter.key) ?? defaultFilters[filter.key] ?? ""} onChange={value => setParameter(filter.key, value)} options={filter.options} />)}<AdminSelect label="Sort records" value={sort} onChange={value => setParameter("sort", value)} options={[{ value: "updated", label: "Recently updated" }, { value: "created", label: "Recently created" }]} />{hasFilters ? <Button variant="ghost" onClick={clearFilters}>Clear filters</Button> : null}</div>
+    <div className="admin-collection-surface">
+    <div className="admin-toolbar"><div className="admin-search-tools"><AdminSearch value={search} onChange={value => setParameter("q", value)} label={`Search ${title.toLowerCase()}`} placeholder={searchPlaceholder} /><Button variant="outline" className="admin-filter-toggle" aria-label={activeFilterCount ? `Filters (${activeFilterCount} active)` : "Filters"} aria-expanded={filtersOpen} aria-controls={filterId} onClick={() => setFiltersOpen(open => !open)}><SlidersHorizontal size={15} aria-hidden />Filters{activeFilterCount ? <span>{activeFilterCount}</span> : null}</Button></div><div className="admin-filter-row" id={filterId} data-open={filtersOpen}>{filters.map(filter => <AdminSelect key={filter.key} label={filter.label} value={filter.key === "attention" && params.get("view") === "attention" ? "true" : params.get(filter.key) ?? defaultFilters[filter.key] ?? ""} onChange={value => setParameter(filter.key, value)} options={filter.options} />)}<AdminSelect label="Sort records" value={sort} onChange={value => setParameter("sort", value)} options={[{ value: "updated", label: "Recently updated" }, { value: "created", label: "Recently created" }]} />{hasFilters ? <Button variant="ghost" onClick={clearFilters}>Clear filters</Button> : null}</div></div>
     {query.isError && query.data ? <AdminRefreshNotice /> : null}
     {query.isPending ? <AdminLoadingState label={`Loading ${title.toLowerCase()}…`} /> : query.isError && !query.data ? <AdminErrorState onRetry={() => void query.refetch()} /> : query.data.items.length === 0 ? <AdminEmptyState title={hasFilters ? "No matching records" : resource === "payments" && fixedFilters.caseId ? "No purchase started." : `No ${title.toLowerCase()}`} description={hasFilters ? "Try a different search or clear your filters." : resource === "payments" && fixedFilters.caseId ? "No order has been recorded for this case." : "Records will appear here when there is activity to inspect."} action={hasFilters ? <Button variant="outline" onClick={clearFilters}>Clear filters</Button> : undefined} /> : <><p className="admin-results-count" role="status">{query.data.total} {query.data.total === 1 ? "record" : "records"}<span> · Updated {formatCaseOperationDateTime(query.data.asOf)}</span></p><AdminTable label={title} items={query.data.items} columns={columns} itemKey={item => item.id} expandedItemKey={expandedId} renderExpanded={item => <AdminRecordDetails resource={resource} id={item.id} />} /></>}
     {query.data ? <AdminPagination page={page} pageSize={query.data.pageSize} total={query.data.total} fetching={query.isFetching} onPageChange={value => setParameter("page", String(value))} /> : null}
+    </div>
   </section>;
-}
-
-function RecordIdentity({ item, resource }: { readonly item: AdminRow; readonly resource: AdminCollectionResource; readonly returnTo: string }) {
-  const href = (resource === "customers" || resource === "cases") && item.customerId ? `/admin/customers/${encodeURIComponent(item.customerId)}` : null;
-  return <><div className="admin-primary-text">{href ? <Link to={href}>{item.title}</Link> : resource === "activity" ? adminActivityTitle(item.title) : item.title}</div>{item.subtitle ? <p className="admin-secondary-text break-words">{item.subtitle}</p> : null}{item.summary && resource !== "cases" ? <p className="admin-secondary-text">{resource === "activity" ? humanizeAdminCode(item.summary) : item.summary}</p> : null}{item.identity && (resource === "cases" || resource === "customers") ? <p className="admin-secondary-text">{item.identity === "guest" ? "Guest · access unclaimed" : "Registered account"}{item.verified === true ? " · verified email" : item.verified === false ? " · email not verified" : ""}</p> : null}</>;
-}
-
-function RecordActions({ item, resource, returnTo, expanded = false, onToggle }: { readonly item: AdminRow; readonly resource: AdminCollectionResource; readonly returnTo: string; readonly expanded?: boolean; readonly onToggle?: () => void }) {
-  if (resource === "cases" && item.caseId) return <Link className="admin-row-link" to={adminCaseHref(item.caseId, "overview", returnTo)}>Open case<ArrowIcon /></Link>;
-  if (resource === "customers") return <Link className="admin-row-link" to={`/admin/customers/${encodeURIComponent(item.customerId ?? item.id)}`}>View customer<ArrowIcon /></Link>;
-  return <Button variant="ghost" size="sm" onClick={onToggle} aria-expanded={expanded} aria-controls={`admin-record-${resource}-${item.id}`}>{expanded ? "Hide details" : "View details"}</Button>;
 }
 
 function ArrowIcon() { return <span aria-hidden>↗</span>; }

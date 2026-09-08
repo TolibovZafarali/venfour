@@ -133,6 +133,20 @@ describe("admin operations workspace", () => {
     expect(new URLSearchParams(router.state.location.search).has("q")).toBe(false);
   });
 
+  it("opens compact filters without changing the selected URL state", async () => {
+    const user = userEvent.setup();
+    const { router } = renderWorkspace("/admin/cases?view=attention");
+    await screen.findByRole("heading", { name: "Needs attention", level: 1 });
+    const toggle = screen.getByRole("button", { name: "Filters (1 active)" });
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    await user.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("combobox", { name: "Attention filter" })).toHaveValue("true");
+    await user.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(router.state.location.search).toBe("?view=attention");
+  });
+
   it("opens case details and returns to the same attention filter and search", async () => {
     const user = userEvent.setup();
     const dependencies = createAdminTestDependencies({ rows: { cases: [createAdminRow({ attentionReasons: ["REPORT_REVIEW_HOLD"] })] } });

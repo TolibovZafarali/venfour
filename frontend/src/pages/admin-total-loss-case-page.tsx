@@ -24,6 +24,7 @@ import { AdminCollection, RecordFacts } from "@/features/admin/operations/collec
 import { AdminBackLink, AdminBadge, AdminDetailField, AdminEmptyState, AdminErrorState, AdminLoadingState, AdminRefreshNotice, AdminPageHeader, AdminPanel } from "@/features/admin/operations/page-ui";
 import { safeAdminReturnTo, adminStatusTone, humanizeAdminCode } from "@/features/admin/operations/ui-format";
 import { useAdminCase } from "@/features/admin/operations/queries";
+import type { AdminRow } from "@/features/admin/operations/types";
 import { useAuth } from "@/features/auth";
 import { paymentFilters, processingFilters, reportFilters, activityFilters } from "@/features/admin/operations/page-options";
 
@@ -71,7 +72,7 @@ export function AdminTotalLossCasePage() {
     {attentionReasons.length ? <div className="admin-notice"><AlertTriangle className="size-5 shrink-0" aria-hidden /><div><strong>This case needs staff attention.</strong>{attentionReasons.map(reason => <div key={reason}><p>{humanizeAdminCode(reason)}</p><button type="button" className="admin-row-link" onClick={() => selectTab(attentionDestination(reason))}>Inspect {attentionDestination(reason)} ↗</button></div>)}</div></div> : null}
     <Tabs.Root value={tab} onValueChange={selectTab} activationMode="manual"><Tabs.List className="admin-tabs" aria-label="Case sections">{tabs.map(item => <Tabs.Trigger key={item.value} value={item.value}>{item.label}</Tabs.Trigger>)}</Tabs.List>
       <Tabs.Content value="overview" className="admin-tab-panel">
-        {dependencies?.operationsService ? operation.isPending ? <AdminLoadingState label="Loading current case journey…" /> : operation.isError && !operation.data ? <AdminErrorState description="The current journey could not be loaded. The original case record remains available below." onRetry={() => void operation.refetch()} /> : operation.data ? <AdminPanel title="Current journey"><RecordFacts item={operation.data} /></AdminPanel> : null : null}
+        {dependencies?.operationsService ? operation.isPending ? <AdminLoadingState label="Loading current case journey…" /> : operation.isError && !operation.data ? <AdminErrorState description="The current journey could not be loaded. The original case record remains available below." onRetry={() => void operation.refetch()} /> : operation.data ? <CaseJourney item={operation.data} /> : null : null}
         <OverviewSections item={item} />
       </Tabs.Content>
       <Tabs.Content value="intake" className="admin-tab-panel"><IntakeSection item={item} /></Tabs.Content>
@@ -83,13 +84,24 @@ export function AdminTotalLossCasePage() {
   </article>;
 }
 
+function CaseJourney({ item }: { readonly item: AdminRow }) {
+  const primaryLabels = ["Workflow phase", "Current task", "Resolution"];
+  const currentFacts = item.facts.filter(fact => primaryLabels.includes(fact.label));
+  const otherFacts = item.facts.filter(fact => !primaryLabels.includes(fact.label));
+  return <AdminPanel title="Current journey" description="The latest recorded workflow, followed by the case’s recorded milestones.">
+    {currentFacts.length ? <RecordFacts item={{ ...item, attentionReasons: [], facts: currentFacts, sections: [] }} /> : <p className="admin-panel-body admin-secondary-text">No paid workflow details recorded yet.</p>}
+    <div className="admin-journey-milestones"><RecordFacts item={{ ...item, attentionReasons: [], facts: [], sections: item.sections }} /></div>
+    {otherFacts.length ? <details className="admin-additional-facts"><summary>Additional case facts</summary><RecordFacts item={{ ...item, attentionReasons: [], facts: otherFacts, sections: [] }} /></details> : null}
+  </AdminPanel>;
+}
+
 type Field = readonly [label: string, value: ReactNode, mono?: boolean];
 function Fields({ values }: { readonly values: readonly Field[] }) { return <dl className="admin-detail-grid">{values.map(([label, value, mono]) => <AdminDetailField key={label} label={label} value={value} mono={mono} />)}</dl>; }
 function TechnicalDetails({ values }: { readonly values: readonly Field[] }) { return <details className="admin-technical-details"><summary>Technical details</summary><Fields values={values} /></details>; }
 
 function OverviewSections({ item }: { readonly item: StaffTotalLossCaseOperation }) {
-  return <>
-    <AdminPanel title="Customer"><Fields values={[
+  return <div className="admin-case-information-grid">
+    <AdminPanel title="Customer" description="Account identity and the contact details entered for this case."><Fields values={[
       ["Customer name", item.customerFullName],
       ["Entered contact name", item.contactFullName],
       ["Entered contact email", item.contactEmail],
@@ -99,7 +111,7 @@ function OverviewSections({ item }: { readonly item: StaffTotalLossCaseOperation
       ["Access claimed", formatCaseOperationDateTime(item.identityClaimedAt)],
       ["Operational follow-up", formatOperationalFollowUp(item.operationalFollowUpAllowed)],
     ]} /><TechnicalDetails values={[["Customer identifier", item.ownerUserId, true]]} /></AdminPanel>
-    <AdminPanel title="Case"><Fields values={[
+    <AdminPanel title="Case" description="The original intake record. Current workflow status appears above."><Fields values={[
       ["Initial review stage", formatCaseOperationStage(item.caseStage)],
       ["Case status", formatCaseOperationStatus(item.caseStatus)],
       ["Initial review needs attention", item.needsAttention ? "Yes" : "No"],
@@ -107,7 +119,7 @@ function OverviewSections({ item }: { readonly item: StaffTotalLossCaseOperation
       ["Updated", formatCaseOperationDateTime(item.caseUpdatedAt)],
       ["Last activity", formatCaseOperationDateTime(item.lastActivityAt)],
     ]} /><TechnicalDetails values={[["Case reference", item.caseId, true]]} /></AdminPanel>
-  </>;
+  </div>;
 }
 
 function IntakeSection({ item }: { readonly item: StaffTotalLossCaseOperation }) {

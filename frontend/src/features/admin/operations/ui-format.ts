@@ -1,3 +1,5 @@
+import type { AdminRow } from "./types";
+
 import { formatCaseOperationDateTime } from "@/features/admin/case-operations/format";
 
 export function safeAdminReturnTo(value: string | null | undefined) {
@@ -15,7 +17,7 @@ export function adminCaseHref(caseId: string, tab: string = "overview", returnTo
 
 export function humanizeAdminCode(value: string | null | undefined): string {
   if (!value) return "Not recorded";
-  const labels: Record<string, string> = { "message.customer_reported_sent": "Customer reported sending", "follow_up.customer_reported_sent": "Customer reported sending a follow-up", "message.email_app_opened": "Customer opened email app", waiting_ai_review: "Automated review", ai_review: "Automated review", waiting_human_review: "Staff review", human_review_required: "Staff review required", initial_analysis: "Free valuation", paid_package: "Paid review", insurer_response: "Insurer response", uploaded: "Uploaded", generated: "Generated", refunded_access_retained: "Refunded · access retained" };
+  const labels: Record<string, string> = { "case.customer_resolution_confirmed": "Customer confirmed the case outcome", "package.processing_started": "Paid review started", "report.release_review_required": "Report release needs review", "message.customer_reported_sent": "Customer reported sending", "follow_up.customer_reported_sent": "Customer reported sending a follow-up", "message.email_app_opened": "Customer opened email app", waiting_ai_review: "Automated review", ai_review: "Automated review", waiting_human_review: "Staff review", human_review_required: "Staff review required", initial_analysis: "Free valuation", paid_package: "Paid review", insurer_response: "Insurer response", uploaded: "Uploaded", generated: "Generated", refunded_access_retained: "Refunded · access retained" };
   const display = /^[A-Z][A-Z0-9_]+$/u.test(value) ? value.toLowerCase() : value;
   return labels[value] ?? display.replace(/[_.-]+/gu, " ").replace(/^./u, character => character.toUpperCase());
 }
@@ -51,4 +53,8 @@ export function formatAdminFact(label: string, value: string | null) {
   if (money && Number.isSafeInteger(Number(money[2]))) return adminMoney(Number(money[2]), money[1]);
   if (/status|failure|reason|kind|phase|task|resolution|policy|event|category|associated entity/iu.test(label) && /^[A-Za-z][A-Za-z_.-]+$/u.test(value)) return humanizeAdminCode(value);
   return value;
+}
+
+export function adminFactValue(item: AdminRow, label: string) {
+  return item.facts.find(fact => fact.label === label)?.value;
 }

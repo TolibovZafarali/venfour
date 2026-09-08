@@ -10,6 +10,7 @@ import { getUserAccountLabel, getUserIdentityLabel } from "@/features/auth/user-
 import { useAdminOverview } from "@/features/admin/operations/queries";
 import venfourMark from "../../../../assets/brand/venfour-mark.svg";
 import "./admin-workspace.css";
+import "./admin-pages.css";
 
 const storageKey = "venfour.admin.sidebar.collapsed";
 const navigation = [

@@ -4,7 +4,7 @@ import { Link } from "react-router";
 
 import { Button } from "@/components/ui/button";
 
-export function AdminPageHeader({ title, description, eyebrow = "Staff workspace", actions, refreshing = false, onRefresh }: {
+export function AdminPageHeader({ title, description, eyebrow, actions, refreshing = false, onRefresh }: {
   readonly title: string;
   readonly description: string;
   readonly eyebrow?: string;
@@ -13,7 +13,7 @@ export function AdminPageHeader({ title, description, eyebrow = "Staff workspace
   readonly onRefresh?: () => void;
 }) {
   return <header className="admin-page-header">
-    <div><p className="admin-eyebrow">{eyebrow}</p><h1>{title}</h1><p className="admin-page-description">{description}</p></div>
+    <div>{eyebrow ? <p className="admin-eyebrow">{eyebrow}</p> : null}<h1>{title}</h1><p className="admin-page-description">{description}</p></div>
     <div className="admin-page-actions">{actions}{onRefresh ? <Button variant="outline" onClick={onRefresh} disabled={refreshing}><RefreshCw className={refreshing ? "size-4 animate-spin motion-reduce:animate-none" : "size-4"} aria-hidden />Refresh</Button> : null}</div>
   </header>;
 }
@@ -43,7 +43,7 @@ export function AdminSearch({ value, onChange, placeholder = "Search records", l
 }
 
 export function AdminSelect({ label, value, onChange, options }: { readonly label: string; readonly value: string; readonly onChange: (value: string) => void; readonly options: readonly { readonly value: string; readonly label: string }[] }) {
-  return <label className="admin-select"><span className="sr-only">{label}</span><select aria-label={label} value={value} onChange={event => onChange(event.target.value)}>{options.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>;
+  return <label className="admin-select"><span className="admin-filter-label">{label.replace(/ filter$/u, "")}</span><select aria-label={label} value={value} onChange={event => onChange(event.target.value)}>{options.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>;
 }
 
 export interface AdminTableColumn<T> {
@@ -53,7 +53,7 @@ export interface AdminTableColumn<T> {
 }
 
 export function AdminTable<T>({ label, columns, items, itemKey, expandedItemKey, renderExpanded }: { readonly label: string; readonly columns: readonly AdminTableColumn<T>[]; readonly items: readonly T[]; readonly itemKey: (item: T) => string; readonly expandedItemKey?: string | null; readonly renderExpanded?: (item: T) => ReactNode }) {
-  return <div className="admin-table-wrap"><table className="admin-table"><caption className="sr-only">{label}</caption><thead><tr>{columns.map(column => <th key={column.key} scope="col">{column.label}</th>)}</tr></thead><tbody>{items.map(item => <Fragment key={itemKey(item)}><tr>{columns.map(column => <td key={column.key} data-label={column.label}>{column.render(item)}</td>)}</tr>{expandedItemKey === itemKey(item) && renderExpanded ? <tr className="admin-expanded-row"><td colSpan={columns.length} className="admin-expanded-cell">{renderExpanded(item)}</td></tr> : null}</Fragment>)}</tbody></table></div>;
+  return <div className="admin-table-wrap"><table className="admin-table"><caption className="sr-only">{label}</caption><thead><tr>{columns.map(column => <th key={column.key} scope="col">{column.label || <span className="sr-only">Actions</span>}</th>)}</tr></thead><tbody>{items.map(item => <Fragment key={itemKey(item)}><tr data-expanded={expandedItemKey === itemKey(item)}>{columns.map(column => <td key={column.key} data-label={column.label}>{column.render(item)}</td>)}</tr>{expandedItemKey === itemKey(item) && renderExpanded ? <tr className="admin-expanded-row"><td colSpan={columns.length} className="admin-expanded-cell">{renderExpanded(item)}</td></tr> : null}</Fragment>)}</tbody></table></div>;
 }
 
 export function AdminPagination({ page, pageSize, total, onPageChange, fetching = false }: { readonly page: number; readonly pageSize: number; readonly total: number; readonly onPageChange: (page: number) => void; readonly fetching?: boolean }) {
