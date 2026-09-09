@@ -30,7 +30,7 @@ body:has([data-total-loss-analysis-result]) .header-glass {
   overflow: hidden;
   pointer-events: none;
   background-color: var(--canvas);
-  color: var(--brand);
+  --valuation-signal-color: var(--brand);
 }
 
 .valuation-result__content {

@@ -74,7 +74,7 @@ export function ValuationSignalField({ layout = "gather" }: { readonly layout?: 
     let left = 0;
     let top = 0;
     const sideLayout = layout === "sides";
-    const sideColor = sideLayout ? window.getComputedStyle(canvas).color : null;
+    const fieldColor = window.getComputedStyle(canvas).getPropertyValue("--valuation-signal-color").trim();
     let elapsed = reducedMotion.matches ? 12 : 0;
     let previousFrame = 0;
     let frame: number | null = null;
@@ -139,9 +139,9 @@ export function ValuationSignalField({ layout = "gather" }: { readonly layout?: 
         if (opacity < 0.008) continue;
 
         context.beginPath();
-        if (sideColor) {
+        if (fieldColor) {
           context.globalAlpha = opacity;
-          context.fillStyle = sideColor;
+          context.fillStyle = fieldColor;
         } else {
           context.fillStyle = `rgba(${signal.color}, ${opacity})`;
         }

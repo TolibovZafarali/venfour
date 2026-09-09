@@ -122,7 +122,7 @@ function ProcessingEnvironment({ options, exiting }: { options: FreeValuationPro
   return (
     <div
       ref={surfaceRef}
-      className="free-valuation-processing"
+      className="free-valuation-processing page-gradient-analysis"
       data-free-valuation-processing
       data-phase={phase}
       data-needs-action={Boolean(error || notice) || undefined}
