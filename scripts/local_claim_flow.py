@@ -310,9 +310,9 @@ def add_continuation_route(app, gateway):
     ))
 
 
-def create_app():
+def create_app(*, network_guard=block_provider_network):
     require_local()
-    block_provider_network()
+    network_guard()
     from venfour.api import create_app as production_app
     gateway = gateway_from_status(local_status())
     try:

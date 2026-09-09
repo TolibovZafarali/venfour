@@ -123,6 +123,7 @@ try {
 }
 const localClaimTesting = mode.fixtures;
 const localFullFlow = mode.fullFlow;
+const localMarketFixtures = mode.marketFixtures === true;
 
 if (!executableExists(pythonExecutable)) {
   fail("create .venv and install requirements-dev.txt first.");
@@ -203,14 +204,24 @@ const backendEnvironment = {
     "local-partner-email-dispatch-secret-not-for-production",
   VENFOUR_TURNSTILE_SECRET: turnstileTestSecret,
   VENFOUR_LOCAL_FULL_FLOW: localFullFlow ? "1" : "0",
+  ...(localMarketFixtures ? { VENFOUR_LOCAL_POST_CONTINUE: "1", VENFOUR_LOCAL_MARKET_FIXTURES: "1" } : {}),
 };
 delete backendEnvironment.VENFOUR_STAGING_PROXY_SECRET;
 if (localClaimTesting) {
   for (const name of Object.keys(backendEnvironment)) {
-    if (name.startsWith("OPENAI_") || name === "MARKETCHECK_API_KEY") {
+    if ((!localMarketFixtures && name.startsWith("OPENAI_")) || name.startsWith("MARKETCHECK_")) {
       delete backendEnvironment[name];
     }
   }
+}
+
+if (localMarketFixtures) {
+  const migrations = runSupabase(["migration", "up", "--local"], supabaseEnvironment);
+  if (migrations.status !== 0) fail("local migrations could not be applied.");
+  const prepared = spawnSync(pythonExecutable, ["-m", "scripts.local_market_flow", "prepare"], {
+    cwd: repositoryRoot, env: backendEnvironment, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"],
+  });
+  if (prepared.status !== 0) fail(prepared.stderr.trim() || "local market fixture preparation failed.");
 }
 
 let listenerPlan;
@@ -241,6 +252,7 @@ const frontendEnvironment = {
   VENFOUR_API_PROXY_TARGET: "http://127.0.0.1:8000",
   VITE_ENABLE_POST_CONTINUE_FLOW: mode.continuation ? "true" : "false",
   VITE_ENABLE_LOCAL_CLAIM_FIXTURES: localClaimTesting ? "true" : "false",
+  VITE_LOCAL_MARKET_FIXTURES: localMarketFixtures ? "true" : "false",
 };
 for (const secretName of [
   "API_PROXY_SECRET",
@@ -280,6 +292,7 @@ for (const secretName of [
   "VENFOUR_PACKAGE_TASKS_OIDC_AUDIENCE",
   "VENFOUR_LOCAL_FULL_FLOW",
   "VENFOUR_LOCAL_POST_CONTINUE",
+  "VENFOUR_LOCAL_MARKET_FIXTURES",
   "VENFOUR_LOCAL_STRIPE_CHECKOUT",
 ]) {
   delete frontendEnvironment[secretName];
@@ -331,7 +344,7 @@ const backend = spawn(
   [
     "-m",
     "uvicorn",
-    localFullFlow ? "scripts.local_full_flow:create_app" : localClaimTesting ? "scripts.local_claim_flow:create_app" : "venfour.api:create_app",
+    localMarketFixtures ? "scripts.local_market_flow:create_app" : localFullFlow ? "scripts.local_full_flow:create_app" : localClaimTesting ? "scripts.local_claim_flow:create_app" : "venfour.api:create_app",
     "--factory",
     "--host",
     "127.0.0.1",
@@ -391,7 +404,7 @@ try {
   }
   console.log("\nVenfour is ready: http://localhost:5173");
   if (localClaimTesting) {
-    console.log("Local claim testing: http://localhost:5173/_local/claims (external providers disabled)");
+    console.log(localMarketFixtures ? "Local market fixtures: http://localhost:5173/api/local/market-fixtures (live MarketCheck disabled)" : "Local claim testing: http://localhost:5173/_local/claims (external providers disabled)");
   }
   console.log(`Local email inbox: ${credentials.emailInboxUrl}`);
   partnerDispatchTimer = setInterval(async () => {

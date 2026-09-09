@@ -3,6 +3,7 @@ data/extracted/
 data/analyzed/
 data/analysis-runs/
 output/pdf/venfour-local-*.pdf
+output/local-market/
 .env
 .env.*
 !.env.example

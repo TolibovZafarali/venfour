@@ -123,6 +123,29 @@ class EfficientSearchTests(unittest.TestCase):
         self.assertEqual(len(old_transport.calls), 53)
         self.assertEqual((len(old_h.result.evidence), len(old_c.result.listings)), (25, 25))
 
+    def test_replay_preserves_the_final_shared_rate_window_observation(self):
+        class MovingWindowGateway(MemoryMarketRequestGateway):
+            observations = 0
+
+            def get_market_request_usage(self, request):
+                result = super().get_market_request_usage(request)
+                self.observations += 1
+                # Other cases and elapsed time can change this account-wide value.
+                result["rateWindowAttempts"] = self.observations % 7
+                return result
+
+        now = datetime(2026, 8, 10, tzinfo=UTC)
+        budget = MarketRequestBudget(MovingWindowGateway(clock=lambda: now), market_account_key("moving-window"),
+            "10000000-0000-4000-8000-000000000001", clock=lambda: now,
+            account_limits=MarketAccountLimits(monthly_allowance=1000, max_requests_per_window=1000,
+                rate_window_seconds=1, monthly_period_start="2026-08-01T00:00:00Z",
+                monthly_period_end="2026-09-01T00:00:00Z", monthly_usage_before_tracking=0))
+        rows = [candidate(index) for index in range(12)]
+        result, _ = self.run_fixture(FixtureTransport(current=rows, historical=rows), budget=budget)
+        self.assertNotEqual(result.transcript["usageAfter"]["rateWindowAttempts"],
+                            result.transcript["events"][-1]["usageAfter"]["rateWindowAttempts"])
+        self.assert_replays(result)
+
     def test_prices_do_not_change_baseline_operations_or_quality(self):
         rows = [candidate(index) for index in range(30)]
         first, _ = self.run_fixture(FixtureTransport(current=rows, historical=rows))

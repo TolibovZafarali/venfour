@@ -12,6 +12,7 @@ import {
 import { isPageMetadata, useDocumentMetadata } from "@/app/document-metadata";
 import { CompletedReviewActionsHostContext, CompletedReviewNavigationHostContext, CompletedReviewProgressHostContext } from "@/components/completed-review-progress-host";
 import { supportEmail } from "@/config/support";
+import { environment } from "@/config/env";
 import { useAdminDiminishedValueDependencies } from "@/features/admin/diminished-value/dependencies";
 import { useStaffAccessQuery } from "@/features/admin/diminished-value/queries";
 import {
@@ -516,6 +517,11 @@ function AppShellContent() {
           </div>
         </header>
       </div>
+      {environment.localMarketFixturesEnabled ? (
+        <div role="note" className="relative z-10 bg-amber-50 px-5 py-2 text-center text-sm text-amber-950">
+          Local test: upload your own report. Market listings and prices are simulated; results do not establish your vehicle’s value.
+        </div>
+      ) : null}
       {completedReviewRoute ? (
         <div
           className="completed-review-navigation-host"

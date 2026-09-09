@@ -8,4 +8,7 @@ test("only explicit local modes enable continuation", () => {
   assert.deepEqual(localDevelopmentMode([], { VENFOUR_LOCAL_POST_CONTINUE: "1" }), { fullFlow: false, fixtures: true, continuation: true });
   assert.throws(() => localDevelopmentMode(["--full-flow"], { VENFOUR_LOCAL_POST_CONTINUE: "1" }));
   assert.throws(() => localDevelopmentMode(["--unknown"], {}));
+  assert.deepEqual(localDevelopmentMode(["--mock-market"], {}), { fullFlow: false, fixtures: true, continuation: true, marketFixtures: true });
+  assert.throws(() => localDevelopmentMode(["--mock-market"], { VENFOUR_LOCAL_FULL_FLOW: "1" }));
+  assert.throws(() => localDevelopmentMode(["--mock-market"], { VENFOUR_LOCAL_STRIPE_CHECKOUT: "1" }));
 });

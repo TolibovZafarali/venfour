@@ -561,7 +561,7 @@ class EfficientMarketSearch:
                       "origin": self.origin, "centers": self.centers, "events": self.events,
                       "geography": self.geographic_snapshot, "providers": self.provider_capabilities,
                       "observations": self.observations, "stopReasons": self.stops,
-                      "branches": self.branch_state, "usageBefore": self.initial_usage, "usageAfter": self._usage(),
+                      "branches": self.branch_state, "usageBefore": self.initial_usage, "usageAfter": self.budget.snapshot(),
                       "supportingIssues": [issue.to_dict() for issue in self.supporting_issues],
                       "historicalTemplate": self.historical_template.to_dict() if self.historical_template else None,
                       "baselineIdentities": {stream: list(rows) for stream, rows in self.verified.items()},
