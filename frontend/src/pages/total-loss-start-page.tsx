@@ -834,9 +834,7 @@ function TotalLossIntakeFlowContent({
   const correctionPreparedRef = useRef(!correction?.details.intakeCompletedAt);
   const correctionSubmissionRequestedRef = useRef(false);
   const correctionSourceInputIdRef = useRef(correction?.details.analysisInputId ?? null);
-  const correctionBaselineDetailsValuesRef = useRef(
-    correction ? correctionDetailsValues(correction.details) : null,
-  );
+  const correctionBaselineDetailsRef = useRef(correction?.details ?? null);
   const savedCorrectionContactRef = useRef(
     normalizeTotalLossContactForm(
       correction?.contact
@@ -849,22 +847,22 @@ function TotalLossIntakeFlowContent({
       candidateDraft: TotalLossDraft,
       candidateContact = normalizeTotalLossContactForm(candidateDraft.contact),
     ) => {
-      const baselineDetails = correctionBaselineDetailsValuesRef.current;
+      const baselineDetails = correctionBaselineDetailsRef.current;
       if (!correction || !baselineDetails) return false;
 
       const currentDetails = detailsQuery.data;
       if (
-        currentDetails?.caseId === correction.details.caseId &&
-        (currentDetails.analysisInputId !== correction.details.analysisInputId ||
+        currentDetails?.caseId === baselineDetails.caseId &&
+        (currentDetails.analysisInputId !== baselineDetails.analysisInputId ||
           currentDetails.analysisInputRevision !==
-            correction.details.analysisInputRevision)
+            baselineDetails.analysisInputRevision)
       ) {
         return false;
       }
 
       return (
         JSON.stringify(detailsValuesForDraft(candidateDraft)) ===
-          JSON.stringify(baselineDetails) &&
+          JSON.stringify(correctionDetailsValues(baselineDetails)) &&
         JSON.stringify(candidateContact) ===
           JSON.stringify(savedCorrectionContactRef.current)
       );
@@ -1073,7 +1071,10 @@ function TotalLossIntakeFlowContent({
   );
 
   const flushDraft = useCallback(
-    async ({ force = false }: { force?: boolean } = {}) => {
+    async ({
+      force = false,
+      forReportUpload = false,
+    }: { force?: boolean; forReportUpload?: boolean } = {}) => {
       if (autosaveTimerRef.current !== null) {
         window.clearTimeout(autosaveTimerRef.current);
         autosaveTimerRef.current = null;
@@ -1086,7 +1087,8 @@ function TotalLossIntakeFlowContent({
         }
         return;
       }
-      if (correctionSubmissionIsUnchanged(current)) {
+      // A replacement report changes the intake even when form values match.
+      if (!forReportUpload && correctionSubmissionIsUnchanged(current)) {
         if (saveLoopRef.current) await saveLoopRef.current;
         return;
       }
@@ -1990,7 +1992,7 @@ function TotalLossIntakeFlowContent({
       if (!uploadIsCurrent()) throw new StaleIdentityOperationError();
       if (!uploadIsCurrent()) throw new StaleIdentityOperationError();
       setUploadState("uploading");
-      await flushDraft({ force: true });
+      await flushDraft({ force: true, forReportUpload: true });
       if (!uploadIsCurrent()) throw new StaleIdentityOperationError();
       uploadLeaseMayBeActive = true;
       const result = await uploadReport({
@@ -2110,7 +2112,7 @@ function TotalLossIntakeFlowContent({
           ? error.message
           : errorMessage(
               error,
-              "The report could not be read or saved. Replace it or try again.",
+              "The report could not be saved. Try uploading it again.",
             ),
       );
     }

@@ -782,6 +782,15 @@ beforeEach(() => {
 });
 
 describe("explicit Total Loss intake correction", () => {
+  const completedReportDetails = () => completedRecoveryDetails({
+    ...emptyDetailsValues,
+    intakeMode: "report",
+    postalCode: "60611",
+    reportOriginalFilename: "retained-valuation.pdf",
+    reportUploadedAt: CREATED_AT,
+    reportExtractionStatus: "pending",
+    intakeCompletedAt: CREATED_AT,
+  });
   const originalScrollIntoView = HTMLElement.prototype.scrollIntoView;
   beforeEach(() => {
     Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
@@ -854,7 +863,7 @@ describe("explicit Total Loss intake correction", () => {
     expect(harness.detailRows.get(CASE_ID)).toMatchObject({ analysisInputId: RECOVERY_INPUT_ID, analysisInputRevision: 7, intakeCompletedAt: CREATED_AT });
   });
 
-  it("returns an unchanged completed correction to the same result without reopening or reanalysis", async () => {
+  it.each(["manual", "report"] as const)("returns an unchanged completed %s correction to the same result without reopening or reanalysis", async (mode) => {
     let analysisPostCount = 0;
     server.use(
       http.get("*/api/v1/appraisal-cases/:caseId/analysis", () =>
@@ -875,20 +884,27 @@ describe("explicit Total Loss intake correction", () => {
         });
       }),
     );
-    const harness = recoveryHarness({ status: "check_complete" });
+    const harness = recoveryHarness({
+      status: "check_complete",
+      details: mode === "report" ? completedReportDetails() : completedRecoveryDetails(),
+    });
     const user = userEvent.setup();
     const { router } = renderTestApp([recoveryPath()], {
       authService: createAuthHarness(sessionFor()).service,
       totalLossDependencies: harness.dependencies,
     });
 
-    await screen.findByRole("heading", { name: "Tell us about your vehicle" });
-    await user.click(
-      withinIntakeFlow().getByRole("button", {
-        name: "Confirm vehicle & continue",
-      }),
-    );
-    await user.click(withinIntakeFlow().getByRole("button", { name: "Continue" }));
+    if (mode === "report") {
+      await user.click(await screen.findByRole("button", { name: "Continue to contact" }));
+    } else {
+      await screen.findByRole("heading", { name: "Tell us about your vehicle" });
+      await user.click(
+        withinIntakeFlow().getByRole("button", {
+          name: "Confirm vehicle & continue",
+        }),
+      );
+      await user.click(withinIntakeFlow().getByRole("button", { name: "Continue" }));
+    }
     expect(await screen.findByLabelText("First name")).toHaveValue("Taylor");
     await user.click(screen.getByRole("button", { name: "Review & analyze" }));
 
@@ -1207,6 +1223,133 @@ describe("explicit Total Loss intake correction", () => {
     expectNoRecoveryWrites(harness);
     expect(harness.uploadReport).not.toHaveBeenCalled();
     expect(ingestReportMock).not.toHaveBeenCalled();
+  });
+
+  it("reopens a completed case before a file-only replacement and submits the new report for analysis", async () => {
+    const harness = recoveryHarness({ details: completedReportDetails(), status: "check_complete" });
+    const preparation = createDeferred<void>();
+    let editable = false;
+    prepareIntakeCorrectionMock.mockImplementation(async () => {
+      await preparation.promise;
+      editable = true;
+    });
+    const acquire = harness.acquireReportUploadLease.getMockImplementation()!;
+    harness.acquireReportUploadLease.mockImplementation(async (input) => {
+      if (!editable) throw { code: "42501", message: "The report-upload case is unavailable for this account." };
+      return acquire(input);
+    });
+    const finalize = harness.finalizeReportUpload.getMockImplementation()!;
+    const replacementInputId = crypto.randomUUID();
+    harness.finalizeReportUpload.mockImplementation(async (input) => {
+      const details = await finalize(input);
+      const next = {
+        ...details,
+        analysisInputId: replacementInputId,
+        analysisInputRevision: 8,
+        intakeCompletedAt: null,
+      };
+      harness.detailRows.set(input.caseId, next);
+      return next;
+    });
+    let analysisPostCount = 0;
+    server.use(
+      http.get("*/api/v1/appraisal-cases/:caseId/analysis", () =>
+        HttpResponse.json({
+          status: harness.detailRows.get(CASE_ID)?.analysisInputId === replacementInputId
+            ? "not_submitted" : "completed",
+          attemptCount: 0,
+          runId: materialUndervalueAnalysis.runId,
+          intakeCorrectionAllowed: true,
+        }),
+      ),
+      http.post("*/api/v1/appraisal-cases/:caseId/analysis", () => {
+        analysisPostCount += 1;
+        return HttpResponse.json({ status: "processing", attemptCount: 1 });
+      }),
+    );
+    const user = userEvent.setup();
+    const { container, router } = renderTestApp([recoveryPath()], {
+      authService: createAuthHarness(sessionFor()).service,
+      totalLossDependencies: harness.dependencies,
+    });
+    await screen.findByRole("heading", { name: "Upload your valuation report" });
+    await settleRecoveryAutosave();
+    expectNoRecoveryWrites(harness);
+    expect(screen.getByLabelText("Market ZIP code")).toHaveValue("60611");
+    fireEvent.change(container.querySelector('input[type="file"]')!, {
+      target: { files: [await createPdfFile("replacement-valuation.pdf")] },
+    });
+
+    await waitFor(() => expect(prepareIntakeCorrectionMock).toHaveBeenCalledOnce());
+    expect(prepareIntakeCorrectionMock).toHaveBeenCalledWith({
+      accessToken: `access-${USER_ID}`, analysisInputId: RECOVERY_INPUT_ID, caseId: CASE_ID,
+    });
+    expect(harness.acquireReportUploadLease).not.toHaveBeenCalled();
+    expect(harness.uploadReport).not.toHaveBeenCalled();
+    expect(screen.queryByRole("button", { name: "Continue to contact" })).not.toBeInTheDocument();
+    expect(harness.detailRows.get(CASE_ID)?.reportOriginalFilename).toBe("retained-valuation.pdf");
+
+    await act(async () => preparation.resolve());
+    expect(await screen.findByRole("heading", { name: "Contact details" })).toBeVisible();
+    expect(harness.uploadReport).toHaveBeenCalledOnce();
+    expect(harness.uploadReport).toHaveBeenCalledWith(expect.objectContaining({
+      caseId: CASE_ID, replaceExisting: true,
+    }));
+    expect(harness.finalizeReportUpload).toHaveBeenCalledOnce();
+    expect(harness.detailRows.get(CASE_ID)).toMatchObject({
+      postalCode: "60611", reportOriginalFilename: "replacement-valuation.pdf",
+      analysisInputId: replacementInputId, analysisInputRevision: 8,
+    });
+    expect(analysisPostCount).toBe(0);
+    expect(ingestReportMock).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "Review & analyze" }));
+    await waitFor(() => expect(analysisPostCount).toBe(1));
+    expect(router.state.location.pathname).toBe(`/total-loss/cases/${CASE_ID}/analysis`);
+    expect(harness.confirmIntake).toHaveBeenCalledOnce();
+    expect(prepareIntakeCorrectionMock).toHaveBeenCalledOnce();
+    expect(harness.createOrGetAppraisalCase).not.toHaveBeenCalled();
+  });
+
+  it("preserves the saved report when file-only correction is denied and allows an explicit retry", async () => {
+    const harness = recoveryHarness({ details: completedReportDetails(), status: "check_complete" });
+    prepareIntakeCorrectionMock.mockRejectedValueOnce(new Error("The saved intake changed. Reload it before correcting it."));
+    const user = userEvent.setup();
+    const { container } = renderTestApp([recoveryPath()], {
+      authService: createAuthHarness(sessionFor()).service,
+      totalLossDependencies: harness.dependencies,
+    });
+    await screen.findByRole("heading", { name: "Upload your valuation report" });
+    fireEvent.change(container.querySelector('input[type="file"]')!, {
+      target: { files: [await createPdfFile("replacement-valuation.pdf")] },
+    });
+    expect((await screen.findAllByText("The saved intake changed. Reload it before correcting it.")).length).toBeGreaterThan(0);
+    expect(harness.saveDetails).not.toHaveBeenCalled();
+    expect(harness.acquireReportUploadLease).not.toHaveBeenCalled();
+    expect(harness.uploadReport).not.toHaveBeenCalled();
+    expect(harness.detailRows.get(CASE_ID)).toMatchObject({
+      reportOriginalFilename: "retained-valuation.pdf", analysisInputId: RECOVERY_INPUT_ID,
+    });
+    await user.click(screen.getByRole("button", { name: "Try upload again" }));
+    expect(await screen.findByRole("heading", { name: "Contact details" })).toBeVisible();
+    expect(prepareIntakeCorrectionMock).toHaveBeenCalledTimes(2);
+    expect(harness.uploadReport).toHaveBeenCalledOnce();
+  });
+
+  it("does not reopen a completed case when the replacement file is invalid", async () => {
+    const harness = recoveryHarness({ details: completedReportDetails(), status: "check_complete" });
+    const { container } = renderTestApp([recoveryPath()], {
+      authService: createAuthHarness(sessionFor()).service,
+      totalLossDependencies: harness.dependencies,
+    });
+    await screen.findByRole("heading", { name: "Upload your valuation report" });
+    fireEvent.change(container.querySelector('input[type="file"]')!, {
+      target: { files: [new File(["invalid"], "invalid.pdf", { type: "application/pdf" })] },
+    });
+    await screen.findByRole("button", { name: "Try upload again" });
+    expectNoRecoveryWrites(harness);
+    expect(harness.acquireReportUploadLease).not.toHaveBeenCalled();
+    expect(harness.uploadReport).not.toHaveBeenCalled();
+    expect(screen.getByText("retained-valuation.pdf")).toBeVisible();
   });
 
   it("blocks saving and confirmation when the correction contract fails while retaining the entered offer", async () => {
