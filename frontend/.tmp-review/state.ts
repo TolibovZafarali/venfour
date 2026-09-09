@@ -2,6 +2,7 @@ import {claimProjection,CASE_ID,REPORT_ID,NOW,BASE} from './fixtures';
 import {TOTAL_LOSS_EDUCATION_STEPS} from '@/features/total-loss-claim/contracts';
 import type {TotalLossEducationStep,TotalLossClaimJourneyState,TotalLossInsurerResponseRecorded} from '@/features/total-loss-claim/contracts';
 import {materialUndervalueAnalysis} from '@/test/fixtures/analysis-presentation';
+import {createSyntheticResponseFlow} from './response-flow';
 type PreviewResponseRecord=Omit<TotalLossInsurerResponseRecorded,'response'>&{response:Omit<TotalLossInsurerResponseRecorded['response'],'analysis'|'analysisEvidence'>};
 const params=new URLSearchParams(location.search);
 export const page=params.get('page')||(location.pathname.endsWith('/analysis')?'preview':location.pathname==='/'&&!params.has('mode')&&!params.has('stage')?'launcher':'review');
@@ -46,12 +47,13 @@ if(fixture==='sparse'){
 const requestBody='Hello,\n\nI am requesting reconsideration of the $19,046 valuation for my 2022 Toyota Camry SE under claim CLM-42.\n\nThe attached Venfour evidence package compares the insurer valuation with selected advertised vehicles. The selected prices range from $19,800 to $22,263, with a median of $20,490. This places the valuation $1,444 below that median.\n\nPlease review the attached evidence and explain whether the valuation can be revised. I understand that advertised prices do not establish final sale prices or a guaranteed settlement amount.\n\nPlease provide your response in writing.\n\nThank you,\nCase Owner';
 initial.messageDraft=stage==='send'||requestSent?{...initial.messageDraft,body:requestBody}:null;
 initial.sendingDetails={adjusterEmail:initial.messageDraft?'adjuster@example.com':null,adjusterEmailConfirmed:Boolean(initial.messageDraft),adjusterName:null,claimReference:initial.messageDraft?'CLM-42':null,claimReferenceConfirmed:Boolean(initial.messageDraft),customerName:fixture==='long'?'Alexandra Montgomery-Richardson':'Case Owner',insurerName:initial.report.insurerEvidence.insurerName,revision:1,vehicleDescription:initial.report.subjectVehicle.description};
-if(requestSent){initial.education.steps.send={completedAt:NOW,viewedAt:NOW,skippedAt:null};initial.journey={fulfillmentState:'awaiting_insurer_response',nextState:'awaiting_insurer_response',retryable:false};initial.workflow.currentTask='awaiting_insurer_response';initial.responseIntake={negotiationRoundId:'88888888-8888-4888-8888-888888888888',outboundCommunicationId:'77777777-7777-4777-8777-777777777777'};initial.negotiationHistory=[{negotiationRoundId:'88888888-8888-4888-8888-888888888888',roundNumber:1,outbound:{body:requestBody,createdAt:NOW,messageVersionId:'66666666-6666-4666-8666-666666666666',recipient:'adjuster@example.com',reportVersionId:REPORT_ID,state:'sent',subject:initial.messageDraft.subject,versionNumber:initial.messageDraft.revision,customerReportedSentAt:NOW,communicationId:'77777777-7777-4777-8777-777777777777',negotiationRoundId:'88888888-8888-4888-8888-888888888888'},responses:[],followUp:null}];}
+if(requestSent){initial.education.steps.send={completedAt:NOW,viewedAt:NOW,skippedAt:null};initial.journey={fulfillmentState:'awaiting_insurer_response',nextState:'awaiting_insurer_response',retryable:false};initial.workflow.currentTask='awaiting_insurer_response';initial.responseIntake={negotiationRoundId:'88888888-8888-4888-8888-888888888888',outboundCommunicationId:'77777777-7777-4777-8777-777777777777'};initial.negotiationHistory=[{negotiationRoundId:'88888888-8888-4888-8888-888888888888',roundNumber:1,outbound:{body:requestBody,createdAt:NOW,messageVersionId:'66666666-6666-4666-8666-666666666666',recipient:'adjuster@example.com',reportVersionId:REPORT_ID,state:'sent',subject:initial.messageDraft.subject,versionNumber:initial.messageDraft.revision,customerReportedSentAt:NOW,communicationId:'77777777-7777-4777-8777-777777777777',negotiationRoundId:'88888888-8888-4888-8888-888888888888'},responses:[],followUp:null,supersededFollowUpDrafts:[]}];}
 export const claim=params.has('reset')||!localStorage.getItem(storageKey)?initial:JSON.parse(localStorage.getItem(storageKey)!);
 if(claim.journey?.nextState==='awaiting_insurer_response'&&!claim.insurerResponse&&!claim.responseIntake)claim.responseIntake={negotiationRoundId:'88888888-8888-4888-8888-888888888888',outboundCommunicationId:'77777777-7777-4777-8777-777777777777'};
 const responseHistoryKey=`${storageKey}-insurer-responses`;
-if(params.has('reset'))localStorage.removeItem(responseHistoryKey);
+if(params.has('reset')){localStorage.removeItem(responseHistoryKey);localStorage.removeItem(`${storageKey}-operations`);}
 const persist=()=>localStorage.setItem(storageKey,JSON.stringify(claim));
+const responseFlow=createSyntheticResponseFlow(claim,persist,localStorage,`${storageKey}-operations`);
 if(page==='review')persist();
 if(location.pathname==='/'&&page==='preview')history.replaceState(null,'',`/total-loss/cases/${CASE_ID}/analysis`);
 else if(location.pathname==='/'&&page==='review'){
@@ -76,34 +78,48 @@ globalThis.fetch=async(input,init)=>{
  log(`${method} ${path}`);await new Promise(resolve=>setTimeout(resolve,delay));
  if(url.pathname.startsWith('/api/v1/analyses/'))return result(materialUndervalueAnalysis);
  if(path==='/analysis')return result({status:'completed',attemptCount:1,runId:materialUndervalueAnalysis.runId});
- if(path==='/claim')return result(claim);
+ if(path==='/claim'){responseFlow.advanceReview();return result(claim);}
+ const continuation=responseFlow.handle(path,method,body);
+ if(continuation)return result(continuation.data,continuation.status);
  if(path==='/insurer-response'&&method==='POST'){
-  const fingerprint=JSON.stringify({text:body.responseText,offer:body.revisedOfferMinorUnits,document:body.documentId,retainedDocument:body.retainedDocumentId,supersedes:body.supersedesResponseId});
+  const fingerprint=JSON.stringify({outbound:body.outboundCommunicationId,text:body.responseText,offer:body.revisedOfferMinorUnits,document:body.documentId,retainedDocument:body.retainedDocumentId,supersedes:body.supersedesResponseId});
   const history=JSON.parse(localStorage.getItem(responseHistoryKey)||'[]') as Array<{fingerprint:string;recorded:PreviewResponseRecord}>;
   const replay=history.find(entry=>entry.recorded.response.clientRequestId===body.clientRequestId);
   if(replay)return replay.fingerprint===fingerprint?result(replay.recorded):error(409,'This request was already used for a different response.');
   if(!claim.education.steps.send.completedAt)return error(409,'Record the sent request first.');
   if(body.expectedWorkflowRevision!==claim.workflow.revision)return error(409,'The workflow changed.');
-  if(body.supersedesResponseId!==(claim.insurerResponse?.responseId??null))return error(409,'The saved response changed.');
+  if(claim.resolution)return error(409,'This case is already resolved.');
+  if(body.supersedesResponseId!==(claim.responseIntake?null:claim.insurerResponse?.responseId??null))return error(409,'The saved response changed.');
   if(body.documentId||body.retainedDocumentId)return error(400,'This preview supports pasted text and revised offers only.');
   if(body.responseText!==null&&(typeof body.responseText!=='string'||!body.responseText.trim()||body.responseText.length>100_000))return error(400,'Enter valid response text.');
   if(body.revisedOfferMinorUnits!==null&&(!Number.isSafeInteger(body.revisedOfferMinorUnits)||body.revisedOfferMinorUnits<=0))return error(400,'Enter a valid revised offer.');
   if(!body.responseText&&!body.revisedOfferMinorUnits)return error(400,'Add response text or a revised offer.');
   if(failNext==='save'){failNext='';return error(503,'The response could not be saved.');}
+  const round=claim.negotiationHistory?.find((item: {outbound: {communicationId: string}})=>item.outbound.communicationId===body.outboundCommunicationId);
+  if(!round||(claim.responseIntake?claim.responseIntake.outboundCommunicationId!==body.outboundCommunicationId:claim.insurerResponse?.canCorrect===false))return error(409,'The response does not match the current sent request.');
+  const previous=claim.insurerResponse;
+  if(claim.followUp?.state==='draft'&&claim.followUp.draft&&previous?.decision){
+   round.supersededFollowUpDrafts.push({state:'superseded',sourceResponseId:previous.responseId,sourceAnalysisResultId:previous.decision.analysisResultId,sourceDecisionId:previous.decision.decisionId,draft:structuredClone(claim.followUp.draft)});
+  }
   const response={
+   negotiationRoundId:round.negotiationRoundId,outboundCommunicationId:round.outbound.communicationId,canCorrect:true,
+   recommendation:null,usableOffer:null,decision:null,
    responseId:crypto.randomUUID(),clientRequestId:body.clientRequestId,receivedAt:new Date().toISOString(),
    sourceType:'pasted_message' as const,text:body.responseText,document:null,
    revisedOffer:body.revisedOfferMinorUnits===null?null:{amountMinorUnits:body.revisedOfferMinorUnits,currency:'USD'},
    processingState:'pending' as const,failureReason:null,supersedesResponseId:body.supersedesResponseId,
   };
+  round.responses=round.responses.map((previous: {canCorrect?: boolean})=>({...previous,canCorrect:false}));
+  round.responses.push(response);
   claim.insurerResponse=response;
   claim.responseIntake=null;
+  claim.followUp=null;
   claim.journey={fulfillmentState:'insurer_response_received',nextState:'insurer_response_received',retryable:false};
   claim.workflow={...claim.workflow,currentTask:'insurer_response_received',revision:claim.workflow.revision+1};
   const recorded:PreviewResponseRecord={state:'insurer_response_received',response,workflowRevision:claim.workflow.revision};
   history.push({fingerprint,recorded});
   localStorage.setItem(responseHistoryKey,JSON.stringify(history));persist();
-  log('Response saved in this browser only. Automatic review is not running.');
+  log('Response saved in this browser. A simulated review will be ready in a few seconds.');
   return result(recorded);
  }
  if(path.startsWith('/education/')){
@@ -132,7 +148,7 @@ globalThis.fetch=async(input,init)=>{
  if(path==='/message/opened')return result({recorded:true});
  if(path==='/message/sent'){
   if(body.expectedWorkflowRevision!==claim.workflow.revision)return error(409,'The workflow changed.');
-  claim.education.steps.send={completedAt:NOW,viewedAt:NOW,skippedAt:null};claim.journey={fulfillmentState:'awaiting_insurer_response',nextState:'awaiting_insurer_response',retryable:false};claim.responseIntake={negotiationRoundId:'88888888-8888-4888-8888-888888888888',outboundCommunicationId:'77777777-7777-4777-8777-777777777777'};claim.negotiationHistory=[{negotiationRoundId:'88888888-8888-4888-8888-888888888888',roundNumber:1,outbound:{body:claim.messageDraft.body,createdAt:NOW,messageVersionId:body.messageVersionId,recipient:claim.messageDraft.recipient!,reportVersionId:REPORT_ID,state:'sent',subject:claim.messageDraft.subject,versionNumber:claim.messageDraft.revision,customerReportedSentAt:NOW,communicationId:'77777777-7777-4777-8777-777777777777',negotiationRoundId:'88888888-8888-4888-8888-888888888888'},responses:[],followUp:null}];claim.workflow.revision++;claim.workflow.currentTask='awaiting_insurer_response';persist();
+  claim.education.steps.send={completedAt:NOW,viewedAt:NOW,skippedAt:null};claim.journey={fulfillmentState:'awaiting_insurer_response',nextState:'awaiting_insurer_response',retryable:false};claim.responseIntake={negotiationRoundId:'88888888-8888-4888-8888-888888888888',outboundCommunicationId:'77777777-7777-4777-8777-777777777777'};claim.negotiationHistory=[{negotiationRoundId:'88888888-8888-4888-8888-888888888888',roundNumber:1,outbound:{body:claim.messageDraft.body,createdAt:NOW,messageVersionId:body.messageVersionId,recipient:claim.messageDraft.recipient!,reportVersionId:REPORT_ID,state:'sent',subject:claim.messageDraft.subject,versionNumber:claim.messageDraft.revision,customerReportedSentAt:NOW,communicationId:'77777777-7777-4777-8777-777777777777',negotiationRoundId:'88888888-8888-4888-8888-888888888888'},responses:[],followUp:null,supersededFollowUpDrafts:[]}];claim.workflow.revision++;claim.workflow.currentTask='awaiting_insurer_response';persist();
   return result({communicationId:'77777777-7777-4777-8777-777777777777',customerReportedSentAt:NOW,messageVersionId:body.messageVersionId,negotiationRoundId:'88888888-8888-4888-8888-888888888888',state:'awaiting_insurer_response',workflowRevision:claim.workflow.revision});
  }
  if(path.endsWith('/download')){if(failNext==='report'){failNext='';return error(503,'The report could not be opened. Try again.');}return result({downloadUrl:`${location.origin}/synthetic-report.pdf?download=evidence.pdf`,expiresAt:'2027-08-31T19:00:00.000Z',suggestedFilename:claim.report.suggestedFilename});}
