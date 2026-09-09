@@ -11,14 +11,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from scripts.run_live_analysis import LiveAnalysisError, run_live_analysis
-from tests.test_analysis_runs import (
-    CURRENT_OBSERVED_DATE,
-    POSTAL_CODE,
-    RecordingCurrentProvider,
-    RecordingHistoricalProvider,
-    make_report,
-)
-from venfour.analysis_runs import FileAnalysisRunRepository
+from tests.test_analysis_runs import CURRENT_OBSERVED_DATE, POSTAL_CODE, make_report
 
 
 class LiveCanonicalAnalysisTests(unittest.TestCase):
@@ -32,9 +25,7 @@ class LiveCanonicalAnalysisTests(unittest.TestCase):
             encoding="utf-8",
         )
 
-    def test_runs_real_orchestration_without_invoking_pdf_extraction(self) -> None:
-        current = RecordingCurrentProvider()
-        historical = RecordingHistoricalProvider()
+    def test_unscoped_live_execution_is_rejected_before_provider_requests(self) -> None:
         repository_root = self.root / "runs"
         observed_date = date.fromisoformat(CURRENT_OBSERVED_DATE)
 
@@ -44,17 +35,11 @@ class LiveCanonicalAnalysisTests(unittest.TestCase):
                 {"MARKETCHECK_API_KEY": "synthetic-market-key"},
                 clear=True,
             ),
-            patch(
-                "scripts.run_live_analysis.MarketCheckProvider",
-                return_value=current,
-            ) as current_factory,
-            patch(
-                "scripts.run_live_analysis.MarketCheckHistoricalProvider",
-                return_value=historical,
-            ) as historical_factory,
+            patch("venfour.marketcheck._UrllibMarketCheckTransport.get") as transport,
             patch("scripts.extract_report_ai.extract_report_with_openai") as extractor,
+            self.assertRaises(LiveAnalysisError) as raised,
         ):
-            result = run_live_analysis(
+            run_live_analysis(
                 self.canonical_path,
                 POSTAL_CODE,
                 repository_root=repository_root,
@@ -62,21 +47,11 @@ class LiveCanonicalAnalysisTests(unittest.TestCase):
             )
 
         extractor.assert_not_called()
-        current_factory.assert_called_once_with(
-            "synthetic-market-key", maximum_search_radius_miles=100,
-        )
-        historical_factory.assert_called_once_with(
-            "synthetic-market-key",
-            as_of_date=observed_date,
-            maximum_search_radius_miles=100,
-        )
-        self.assertTrue((repository_root / f"{result.run_id}.json").is_file())
-        loaded = FileAnalysisRunRepository(repository_root).get(result.run_id)
-        self.assertEqual(loaded.to_dict(), result.artifact.to_dict())
-        self.assertGreater(len(current.requests), 0)
-        self.assertGreater(len(historical.requests), 0)
+        transport.assert_not_called()
+        self.assertIn("Unscoped live analysis is disabled", str(raised.exception))
+        self.assertFalse(repository_root.exists())
 
-    def test_requires_marketcheck_but_not_openai_configuration(self) -> None:
+    def test_unscoped_path_cannot_create_a_fresh_allowance_without_configuration(self) -> None:
         with patch.dict(os.environ, {}, clear=True), self.assertRaises(
             LiveAnalysisError
         ) as raised:
@@ -87,7 +62,7 @@ class LiveCanonicalAnalysisTests(unittest.TestCase):
                 observed_date=date.fromisoformat(CURRENT_OBSERVED_DATE),
             )
 
-        self.assertEqual(str(raised.exception), "MARKETCHECK_API_KEY is not set")
+        self.assertIn("cumulative shared request allowance", str(raised.exception))
 
     def test_rejects_malformed_zip_before_provider_configuration(self) -> None:
         with patch.dict(os.environ, {}, clear=True), self.assertRaises(

@@ -3332,6 +3332,57 @@ class SupabaseHttpGateway:
             raise SupabaseContractError("Intake correction response is invalid")
         return payload
 
+    def get_case_market_search_progress(self, arguments: Mapping[str, Any]) -> Mapping[str, Any] | None:
+        from venfour.search_progress import CaseSearchProgress, validate_search_progress_arguments
+        try:
+            validated = validate_search_progress_arguments(arguments, save=False)
+        except (TypeError, ValueError) as exc:
+            raise SupabaseContractError("Market search checkpoint arguments are invalid") from exc
+        result = self._rpc("get_case_market_search_progress", validated)
+        if result is not None:
+            try:
+                CaseSearchProgress._validate(result)
+                if result["inputDigest"] != validated["requested_input_digest"]:
+                    raise ValueError("Market search input changed")
+            except (TypeError, ValueError) as exc:
+                raise SupabaseContractError("Market search checkpoint response is invalid") from exc
+        return result
+
+    def save_case_market_search_progress(self, arguments: Mapping[str, Any]) -> bool:
+        from venfour.search_progress import validate_search_progress_arguments
+        try:
+            validated = validate_search_progress_arguments(arguments, save=True)
+        except (TypeError, ValueError) as exc:
+            raise SupabaseContractError("Market search checkpoint arguments are invalid") from exc
+        result = self._rpc("save_case_market_search_progress", validated)
+        if not isinstance(result, bool):
+            raise SupabaseContractError("Market search checkpoint persistence response is invalid")
+        return result
+
+    def _market_request_accounting_rpc(self, name: str, request: Mapping[str, Any], operation: str) -> Mapping[str, Any]:
+        from venfour.market_request_budget import validate_market_request_payload
+        try:
+            validated = validate_market_request_payload(request, operation=operation)
+            if operation == "reserve" and "executionFence" not in validated:
+                raise ValueError("A current market search execution lease is required")
+        except (TypeError, ValueError) as exc:
+            raise SupabaseContractError("Market request accounting input is invalid") from exc
+        # An uncertain reservation remains consumed. Retrying an opaque reservation
+        # must never authorize a second physical request without counting it.
+        result = self._rpc(name, {"requested": validated})
+        if not isinstance(result, Mapping):
+            raise SupabaseContractError("Market request accounting response is invalid")
+        return result
+
+    def reserve_market_request_attempt(self, request: Mapping[str, Any]) -> Mapping[str, Any]:
+        return self._market_request_accounting_rpc("reserve_market_request_attempt", request, "reserve")
+
+    def get_market_request_usage(self, request: Mapping[str, Any]) -> Mapping[str, Any]:
+        return self._market_request_accounting_rpc("get_market_request_usage", request, "read")
+
+    def record_market_request_account_state(self, request: Mapping[str, Any]) -> Mapping[str, Any]:
+        return self._market_request_accounting_rpc("record_market_request_account_state", request, "state")
+
     def claim_market_fact_cache(self, lookup_key: str, token: str) -> Mapping[str, Any]:
         if not isinstance(lookup_key, str) or re.fullmatch(r"[0-9a-f]{64}", lookup_key) is None:
             raise SupabaseContractError("Market fact cache key is invalid")

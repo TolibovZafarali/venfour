@@ -1,3 +1,5 @@
+import type { HigherPricedComparableListings, MarketSearchContext } from "@/features/analyses/analysis-presentation.generated";
+
 export type TotalLossClaimAccessState =
   | "account_switch_required"
   | "secure_required"
@@ -205,6 +207,8 @@ export interface TotalLossMarketEvidence {
   readonly methodologyStatement: string | null;
   readonly primary: TotalLossMarketEvidenceSummary | null;
   readonly secondary: TotalLossMarketEvidenceSummary | null;
+  readonly marketSearchContext?: MarketSearchContext;
+  readonly higherPricedComparableListings?: HigherPricedComparableListings;
 }
 
 export interface TotalLossPublishedReport {

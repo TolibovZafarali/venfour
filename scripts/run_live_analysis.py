@@ -1,16 +1,15 @@
 #!/usr/bin/env python3
-"""Run and persist live market analysis from validated canonical CCC JSON."""
+"""Validate legacy canonical input while requiring the case-owned live workflow."""
 
 from __future__ import annotations
 
 import argparse
 import json
-import os
 import sys
 from collections.abc import Sequence
 from datetime import date, datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, NoReturn
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -23,27 +22,10 @@ from scripts.extract_report_ai import (  # noqa: E402
     read_canonical_schema,
     validate_extraction,
 )
-from venfour.analysis_runs import (  # noqa: E402
-    DEFAULT_ANALYSIS_RUN_DIR,
-    FileAnalysisRunRepository,
-)
+from venfour.analysis_runs import DEFAULT_ANALYSIS_RUN_DIR  # noqa: E402
 from venfour.discrepancy import (  # noqa: E402
     DiscrepancyContractError,
     valuation_discrepancy_request_from_report,
-)
-from venfour.market import MarketProviderError  # noqa: E402
-from venfour.marketcheck import (  # noqa: E402
-    MarketCheckHistoricalProvider,
-    MarketCheckProvider,
-    marketcheck_account_radius_from_environment,
-)
-from venfour.orchestration import (  # noqa: E402
-    AnalysisOrchestrationError,
-    AnalysisOrchestrator,
-    AnalysisRunRequest,
-    AnalysisRunResult,
-    CurrentMarketSearchConfiguration,
-    HistoricalMarketSearchConfiguration,
 )
 from venfour.postal_codes import normalize_us_zip_code  # noqa: E402
 
@@ -55,9 +37,9 @@ class LiveAnalysisError(Exception):
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "Run live MarketCheck analysis and immutable persistence from an "
-            "already-extracted canonical CCC JSON artifact. No PDF extraction or "
-            "OpenAI request is performed."
+            "Validate an already-extracted canonical CCC JSON artifact. Live "
+            "research must run through the existing case analysis workflow, "
+            "which owns the processing lease and shared request allowance."
         )
     )
     parser.add_argument("canonical_json", type=Path, help="Canonical CCC JSON")
@@ -130,8 +112,8 @@ def run_live_analysis(
     *,
     repository_root: Path | str = DEFAULT_ANALYSIS_RUN_DIR,
     observed_date: date | None = None,
-) -> AnalysisRunResult:
-    """Run the production orchestration path without the PDF extraction step."""
+) -> NoReturn:
+    """Reject unscoped execution before any provider or account request."""
 
     report = load_canonical_json(canonical_json)
     normalized_postal = _normalized_postal_code(postal_code)
@@ -164,56 +146,18 @@ def run_live_analysis(
     ):
         raise LiveAnalysisError("Report loss date cannot be in the future")
 
-    api_key = os.environ.get("MARKETCHECK_API_KEY")
-    if not isinstance(api_key, str) or not api_key.strip():
-        raise LiveAnalysisError("MARKETCHECK_API_KEY is not set")
-    try:
-        account_radius = marketcheck_account_radius_from_environment(os.environ)
-        current_provider = MarketCheckProvider(
-            api_key, maximum_search_radius_miles=account_radius,
-        )
-        historical_provider = (
-            MarketCheckHistoricalProvider(
-                api_key,
-                as_of_date=effective_observed_date,
-                maximum_search_radius_miles=account_radius,
-            )
-            if base_request.loss_date is not None
-            else None
-        )
-    except (MarketProviderError, TypeError, ValueError) as exc:
-        raise LiveAnalysisError(
-            "MarketCheck providers could not be configured"
-        ) from exc
-
-    repository = FileAnalysisRunRepository(repository_root)
-    orchestrator = AnalysisOrchestrator(
-        repository,
-        current_provider=current_provider,
-        historical_provider=historical_provider,
+    raise LiveAnalysisError(
+        "Unscoped live analysis is disabled. Submit or resume the existing "
+        "total-loss case analysis workflow so its processing lease, canonical "
+        "source, and cumulative shared request allowance are enforced. A local "
+        "canonical JSON file alone cannot establish that case context."
     )
-    request = AnalysisRunRequest(
-        ccc_report=report,
-        postal_code=normalized_postal,
-        current_search=CurrentMarketSearchConfiguration(
-            effective_observed_date.isoformat()
-        ),
-        historical_search=(
-            HistoricalMarketSearchConfiguration()
-            if historical_provider is not None
-            else None
-        ),
-    )
-    try:
-        return orchestrator.run(request)
-    except AnalysisOrchestrationError as exc:
-        raise LiveAnalysisError("Live analysis could not complete") from exc
 
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = parse_args(argv)
     try:
-        result = run_live_analysis(
+        run_live_analysis(
             args.canonical_json,
             args.postal_code,
             repository_root=args.repository_root,
@@ -221,23 +165,6 @@ def main(argv: Sequence[str] | None = None) -> int:
     except LiveAnalysisError as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return 1
-
-    artifact_path = Path(args.repository_root).expanduser() / f"{result.run_id}.json"
-    diagnostics = result.artifact.result["searchDiagnostics"]
-    print(f"Created live analysis {result.run_id}")
-    print(f"Artifact: {artifact_path.resolve()}")
-    print(f"Classification: {result.classification}")
-    print(
-        "Current search stop: "
-        f"{diagnostics['current']['stopReason']}"
-    )
-    if diagnostics["historical"] is not None:
-        print(
-            "Historical search stop: "
-            f"{diagnostics['historical']['stopReason']}"
-        )
-    return 0
-
 
 if __name__ == "__main__":
     raise SystemExit(main())

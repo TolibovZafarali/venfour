@@ -30,7 +30,8 @@
         "3",
         "4",
         "5",
-        "6"
+        "6",
+        "7"
       ]
     },
     "runId": {
@@ -90,6 +91,8 @@
     "provenance": {
       "$ref": "#/$defs/provenance"
     },
+    "marketSearchContext": { "$ref": "#/$defs/marketSearchContext" },
+    "higherPricedComparableListings": { "$ref": "#/$defs/higherPricedComparableListings" },
     "preliminaryQualification": {
       "$ref": "#/$defs/preliminaryQualification"
     },
@@ -380,7 +383,8 @@
             "enum": [
               "4",
               "5",
-              "6"
+              "6",
+              "7"
             ]
           }
         },
@@ -403,7 +407,8 @@
                   "enum": [
                     "8",
                     "9",
-                    "10"
+                    "10",
+                    "11"
                   ]
                 }
               }
@@ -444,7 +449,8 @@
           "presentationVersion": {
             "enum": [
               "5",
-              "6"
+              "6",
+              "7"
             ]
           }
         },
@@ -493,7 +499,10 @@
       "if": {
         "properties": {
           "presentationVersion": {
-            "const": "6"
+            "enum": [
+              "6",
+              "7"
+            ]
           }
         },
         "required": [
@@ -508,10 +517,16 @@
             ],
             "properties": {
               "presentationVersion": {
-                "const": "6"
+                "enum": [
+                  "6",
+                  "7"
+                ]
               },
               "analysisRunSchemaVersion": {
-                "const": "10"
+                "enum": [
+                  "10",
+                  "11"
+                ]
               }
             }
           }
@@ -526,9 +541,264 @@
           }
         }
       }
+    },
+    {
+      "if": {
+        "properties": {
+          "presentationVersion": {
+            "const": "7"
+          }
+        },
+        "required": [
+          "presentationVersion"
+        ]
+      },
+      "then": {
+        "required": [
+          "marketSearchContext",
+          "higherPricedComparableListings"
+        ],
+        "properties": {
+          "provenance": {
+            "properties": {
+              "presentationVersion": {
+                "const": "7"
+              },
+              "analysisRunSchemaVersion": {
+                "const": "11"
+              }
+            }
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "marketSearchContext": false,
+          "higherPricedComparableListings": false
+        }
+      }
     }
   ],
   "$defs": {
+    "marketSearchContext": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "baselineStatus",
+        "summary",
+        "stopReasons"
+      ],
+      "properties": {
+        "baselineStatus": {
+          "enum": [
+            "SUFFICIENT",
+            "LIMITED"
+          ]
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4000
+        },
+        "stopReasons": {
+          "type": "array",
+          "maxItems": 10,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "stream",
+              "code",
+              "description"
+            ],
+            "properties": {
+              "stream": {
+                "enum": [
+                  "current",
+                  "historical"
+                ]
+              },
+              "code": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4000
+              },
+              "description": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4000
+              }
+            }
+          }
+        }
+      }
+    },
+    "higherPricedComparableListings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "title",
+        "disclosure",
+        "affectsBaselineValuation",
+        "searchStatus",
+        "listings"
+      ],
+      "properties": {
+        "title": {
+          "const": "Higher-priced comparable listings"
+        },
+        "disclosure": {
+          "const": "These deliberately selected higher asking prices are supporting examples, not typical market prices or verified sale prices. They do not change the broader market valuation or establish a guaranteed increase."
+        },
+        "affectsBaselineValuation": {
+          "const": false
+        },
+        "searchStatus": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 4000
+        },
+        "listings": {
+          "type": "array",
+          "maxItems": 9,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "identity",
+              "vehicle",
+              "mileage",
+              "askingPriceCents",
+              "askingPriceDisplay",
+              "distanceMiles",
+              "relevantDate",
+              "temporalBasis",
+              "source",
+              "priceSource",
+              "listingUrl",
+              "matchingFacts",
+              "materialDifferences",
+              "limitations",
+              "reasonCodes"
+            ],
+            "properties": {
+              "identity": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4000
+              },
+              "vehicle": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4000
+              },
+              "mileage": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "minimum": 0
+              },
+              "askingPriceCents": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "askingPriceDisplay": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4000
+              },
+              "distanceMiles": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 2500
+              },
+              "relevantDate": {
+                "type": "string",
+                "format": "date"
+              },
+              "temporalBasis": {
+                "enum": [
+                  "Loss-date historical listing",
+                  "Current-market listing"
+                ]
+              },
+              "source": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4000
+              },
+              "priceSource": {
+                "enum": [
+                  "active",
+                  "history"
+                ]
+              },
+              "listingUrl": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 4000
+              },
+              "matchingFacts": {
+                "type": "array",
+                "maxItems": 20,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "label",
+                    "value"
+                  ],
+                  "properties": {
+                    "label": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 4000
+                    },
+                    "value": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 4000
+                    }
+                  }
+                }
+              },
+              "materialDifferences": {
+                "type": "array",
+                "maxItems": 30,
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 4000
+                }
+              },
+              "limitations": {
+                "type": "array",
+                "maxItems": 30,
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 4000
+                }
+              },
+              "reasonCodes": {
+                "type": "array",
+                "maxItems": 30,
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 4000
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "runId": {
       "type": "string",
       "format": "uuid",
@@ -2597,7 +2867,8 @@
             "3",
             "4",
             "5",
-            "6"
+            "6",
+            "7"
           ]
         },
         "analysisRunSchemaVersion": {
@@ -2949,6 +3220,7 @@
         "savedEvidence"
       ],
       "properties": {
+        "marketSearchStatus": { "enum": ["SUFFICIENT", "LIMITED"] },
         "resolutionVersion": {
           "const": "1"
         },

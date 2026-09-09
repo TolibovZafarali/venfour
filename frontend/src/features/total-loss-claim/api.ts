@@ -1,4 +1,5 @@
 import { environment } from "@/config/env";
+import type { HigherPricedComparableListings, MarketSearchContext } from "@/features/analyses/analysis-presentation.generated";
 import type {
   TotalLossClaimAccessLink,
   TotalLossClaimCommerceProjection,
@@ -628,6 +629,65 @@ function mapMarketEvidence(value: unknown): TotalLossMarketEvidence {
     ),
     primary: mapMarketSummary(value.primary, "primary market evidence"),
     secondary: mapMarketSummary(value.secondary, "secondary market evidence"),
+    ...(value.marketSearchContext === undefined ? {} : { marketSearchContext: mapMarketSearchContext(value.marketSearchContext) }),
+    ...(value.higherPricedComparableListings === undefined ? {} : { higherPricedComparableListings: mapSupportingListings(value.higherPricedComparableListings) }),
+  };
+}
+
+function mapMarketSearchContext(value: unknown): MarketSearchContext {
+  if (!isRecord(value) || !["SUFFICIENT", "LIMITED"].includes(String(value.baselineStatus)) || !Array.isArray(value.stopReasons) || value.stopReasons.length > 10) {
+    throw new TotalLossClaimContractError("The claim service returned invalid market search context.");
+  }
+  return {
+    baselineStatus: value.baselineStatus as "SUFFICIENT" | "LIMITED",
+    summary: requiredString(value.summary, "market search summary"),
+    stopReasons: value.stopReasons.map((reason) => {
+      if (!isRecord(reason) || (reason.stream !== "current" && reason.stream !== "historical")) throw new TotalLossClaimContractError("The claim service returned an invalid search reason.");
+      return { stream: reason.stream, code: requiredString(reason.code, "search reason"), description: requiredString(reason.description, "search limitation") };
+    }),
+  };
+}
+
+function mapSupportingListings(value: unknown): HigherPricedComparableListings {
+  const disclosure = "These deliberately selected higher asking prices are supporting examples, not typical market prices or verified sale prices. They do not change the broader market valuation or establish a guaranteed increase.";
+  if (!isRecord(value) || value.title !== "Higher-priced comparable listings" || value.disclosure !== disclosure || value.affectsBaselineValuation !== false || !Array.isArray(value.listings) || value.listings.length > 9) {
+    throw new TotalLossClaimContractError("The claim service returned invalid supporting listings.");
+  }
+  return {
+    title: "Higher-priced comparable listings",
+    disclosure,
+    affectsBaselineValuation: false,
+    searchStatus: nullableString(value.searchStatus, "supporting search status"),
+    listings: value.listings.map((item) => {
+      if (!isRecord(item) || !Array.isArray(item.matchingFacts) || item.matchingFacts.length > 20 || !["active", "history"].includes(String(item.priceSource)) || !["Loss-date historical listing", "Current-market listing"].includes(String(item.temporalBasis))) {
+        throw new TotalLossClaimContractError("The claim service returned an invalid supporting listing.");
+      }
+      if ((item.priceSource === "history") !== (item.temporalBasis === "Loss-date historical listing")) throw new TotalLossClaimContractError("The claim service returned inconsistent supporting listing dates.");
+      const listingUrl = nullableString(item.listingUrl, "supporting listing URL");
+      if (listingUrl !== null) {
+        let url: URL;
+        try { url = new URL(listingUrl); } catch { throw new TotalLossClaimContractError("The claim service returned an invalid supporting listing URL."); }
+        if (!["http:", "https:"].includes(url.protocol) || url.username || url.password) throw new TotalLossClaimContractError("The claim service returned an invalid supporting listing URL.");
+      }
+      const distance = nullableNonnegativeNumber(item.distanceMiles, "supporting listing distance");
+      if (distance === null || distance > 2500) throw new TotalLossClaimContractError("The claim service returned an invalid supporting listing distance.");
+      const cents = positiveInteger(item.askingPriceCents, "supporting asking price");
+      const display = requiredString(item.askingPriceDisplay, "supporting asking price display");
+      if (display !== new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(cents / 100)) throw new TotalLossClaimContractError("The claim service returned an inconsistent supporting asking price.");
+      return {
+        identity: requiredString(item.identity, "supporting identity"), vehicle: requiredString(item.vehicle, "supporting vehicle"),
+        mileage: nullableNonnegativeNumber(item.mileage, "supporting mileage"), askingPriceCents: cents, askingPriceDisplay: display,
+        distanceMiles: distance, relevantDate: requiredString(item.relevantDate, "supporting date", ISO_DATE_PATTERN),
+        temporalBasis: item.temporalBasis as "Loss-date historical listing" | "Current-market listing",
+        source: requiredString(item.source, "supporting source"), priceSource: item.priceSource as "active" | "history", listingUrl,
+        matchingFacts: item.matchingFacts.map((fact) => {
+          if (!isRecord(fact)) throw new TotalLossClaimContractError("The claim service returned an invalid matching fact.");
+          return { label: requiredString(fact.label, "matching fact label"), value: requiredString(fact.value, "matching fact") };
+        }),
+        materialDifferences: [...stringList(item.materialDifferences, "supporting material differences")],
+        limitations: [...stringList(item.limitations, "supporting limitations")], reasonCodes: [...stringList(item.reasonCodes, "supporting reasons")],
+      };
+    }),
   };
 }
 

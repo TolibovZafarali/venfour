@@ -1,0 +1,20 @@
+{
+  "source": "U.S. Census Bureau 2025 National Gazetteer",
+  "retrievedDate": "2026-09-09",
+  "datasets": [
+    {
+      "file": "us-zcta-2025.json.gz",
+      "sourceUrl": "https://www2.census.gov/geo/docs/maps-data/data/gazetteer/2025_Gazetteer/2025_Gaz_zcta_national.zip",
+      "sourceSha256": "51516a4283bab5cd2376eec75609ddc4b363a18297e8adeeaac7b03cf7c84dbe",
+      "sha256": "4a6cf492b5b4a1d2894596b123db2b78e259f1c0bc1f7507d1cc66bd65de7c13",
+      "count": 33791
+    },
+    {
+      "file": "us-cbsa-2025.json.gz",
+      "sourceUrl": "https://www2.census.gov/geo/docs/maps-data/data/gazetteer/2025_Gazetteer/2025_Gaz_cbsa_national.zip",
+      "sourceSha256": "1cdae76d1281b918521c8615728cc10abd001024bec4f6f3c42672da990d02f8",
+      "sha256": "9423abb5d2d8693353317307be51827a90837084d2cce5d67c1937952ca7800b",
+      "count": 935
+    }
+  ]
+}

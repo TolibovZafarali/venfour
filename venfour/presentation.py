@@ -23,7 +23,7 @@ from typing import Any
 from urllib.parse import quote, quote_plus, unquote
 
 from jsonschema import Draft202012Validator, FormatChecker
-from jsonschema.exceptions import SchemaError
+from jsonschema.exceptions import SchemaError, ValidationError
 
 from venfour.analysis_runs import AnalysisRunArtifact, AnalysisRunRepository
 from venfour.discrepancy import (
@@ -39,6 +39,12 @@ from venfour.preliminary_qualification import (
 from venfour.preliminary_resolution import (
     PreliminaryResolutionContractError,
     validate_preliminary_resolution,
+)
+from venfour.market_evidence_presentation import (
+    LIMITED_NO_INCREASE_SUMMARY,
+    project_market_search_context,
+    project_supporting_evidence,
+    validate_market_evidence_display,
 )
 
 
@@ -712,6 +718,8 @@ class AnalysisPresentation:
     presentation_version: str = ANALYSIS_PRESENTATION_VERSION
     preliminary_qualification: Mapping[str, Any] | None = None
     preliminary_resolution: Mapping[str, Any] | None = None
+    market_search_context: Mapping[str, Any] | None = None
+    higher_priced_comparable_listings: Mapping[str, Any] | None = None
 
     def __post_init__(self) -> None:
         for field_name in (
@@ -732,6 +740,8 @@ class AnalysisPresentation:
             "secondary_external_evidence",
             "preliminary_qualification",
             "preliminary_resolution",
+            "market_search_context",
+            "higher_priced_comparable_listings",
         ):
             value = getattr(self, field_name)
             object.__setattr__(
@@ -768,6 +778,10 @@ class AnalysisPresentation:
             )
         if self.preliminary_resolution is not None:
             data["preliminaryResolution"] = _thaw_json(self.preliminary_resolution)
+        if self.market_search_context is not None:
+            data["marketSearchContext"] = _thaw_json(self.market_search_context)
+        if self.higher_priced_comparable_listings is not None:
+            data["higherPricedComparableListings"] = _thaw_json(self.higher_priced_comparable_listings)
         return data
 
     @classmethod
@@ -793,6 +807,8 @@ class AnalysisPresentation:
             presentation_version=data["presentationVersion"],
             preliminary_qualification=data.get("preliminaryQualification"),
             preliminary_resolution=data.get("preliminaryResolution"),
+            market_search_context=data.get("marketSearchContext"),
+            higher_priced_comparable_listings=data.get("higherPricedComparableListings"),
         )
 
 
@@ -951,9 +967,10 @@ def _semantic_presentation_errors(data: Mapping[str, Any]) -> list[str]:
             "insurerValuationAvailable"
         ],
     }
-    if assessment["summary"] != _assessment_summary(
-        classification, basis, context_for_summary
-    ):
+    expected_summary = _assessment_summary(classification, basis, context_for_summary)
+    if data.get("marketSearchContext", {}).get("baselineStatus") == "LIMITED" and classification == "NO_MATERIAL_DISCREPANCY":
+        expected_summary = LIMITED_NO_INCREASE_SUMMARY
+    if assessment["summary"] != expected_summary:
         errors.append("$.assessment.summary: does not match classification template")
     if assessment["evidenceStrengthLabel"] != EVIDENCE_STRENGTH_LABELS[strength]:
         errors.append("$.assessment.evidenceStrengthLabel: does not match evidence strength")
@@ -1055,7 +1072,7 @@ def _semantic_presentation_errors(data: Mapping[str, Any]) -> list[str]:
     for index, row in enumerate(ccc["rows"]):
         source_price = row.get("sourcePrice")
         if source_price is not None:
-            if data["presentationVersion"] not in ("3", "4", "5", "6"):
+            if data["presentationVersion"] not in ("3", "4", "5", "6", "7"):
                 errors.append(f"$.cccComparables.rows[{index}].sourcePrice: requires presentation v3 or later")
             if source_price["typeLabel"] != SOURCE_PRICE_TYPE_LABELS[source_price["type"]]:
                 errors.append(f"$.cccComparables.rows[{index}].sourcePrice.typeLabel: does not match source type")
@@ -1423,7 +1440,7 @@ def _semantic_presentation_errors(data: Mapping[str, Any]) -> list[str]:
                 "cannot be labeled current"
             )
     for index, issue in enumerate(diagnostics["historicalIssues"]):
-        if issue["reason"] == "VEHICLE_CONFIGURATION_CONFLICT" and data["presentationVersion"] != "6":
+        if issue["reason"] == "VEHICLE_CONFIGURATION_CONFLICT" and data["presentationVersion"] not in {"6", "7"}:
             errors.append(
                 f"$.evidenceDiagnostics.historicalIssues[{index}]: configuration conflicts require discovery provenance"
             )
@@ -1496,7 +1513,9 @@ def _semantic_presentation_errors(data: Mapping[str, Any]) -> list[str]:
         errors.append(
             "$.provenance.analysisRunSchemaVersion: presentation v6 requires analysis run v10"
         )
-    if data["presentationVersion"] == "6":
+    if (data["presentationVersion"] == "7") != (provenance["analysisRunSchemaVersion"] == "11"):
+        errors.append("$.provenance.analysisRunSchemaVersion: presentation v7 requires analysis run v11")
+    if data["presentationVersion"] in {"6", "7"}:
         for stream in ("current", "historical"):
             if (provenance["drivetrainDiscovery"][stream] is None) != (provenance["providers"][stream] is None):
                 errors.append(
@@ -1519,6 +1538,12 @@ def _semantic_presentation_errors(data: Mapping[str, Any]) -> list[str]:
         errors.append(
             "$.provenance.requestDigest.description: does not match digest role"
         )
+    for key in ("marketSearchContext", "higherPricedComparableListings"):
+        if key in data:
+            try:
+                validate_market_evidence_display(data[key], key)
+            except (ValueError, ValidationError):
+                errors.append(f"$.{key}: invalid market evidence display")
     return errors
 
 
@@ -1824,7 +1849,7 @@ def _historical_lifecycle(
     artifact_data: Mapping[str, Any], listing: Mapping[str, Any]
 ) -> dict[str, Any]:
     historical_result = artifact_data["result"]["historicalMarketResult"]
-    if artifact_data["analysisRunSchemaVersion"] in {"9", "10"}:
+    if artifact_data["analysisRunSchemaVersion"] in {"9", "10", "11"}:
         historical_input = artifact_data["result"]["discrepancyRequest"]["historicalEvidence"]
         historical_result = historical_input["result"] if historical_input is not None else None
     if historical_result is None:
@@ -2046,6 +2071,8 @@ def _message_projection(
 
 
 def _presentation_version(artifact_data: Mapping[str, Any]) -> str:
+    if artifact_data["analysisRunSchemaVersion"] == "11":
+        return "7"
     if artifact_data["analysisRunSchemaVersion"] == "10":
         return "6"
     if artifact_data["analysisRunSchemaVersion"] == "9":
@@ -2088,7 +2115,7 @@ def _provenance(artifact_data: Mapping[str, Any]) -> dict[str, Any]:
         },
     }
 
-    if artifact_data["analysisRunSchemaVersion"] == "10":
+    if artifact_data["analysisRunSchemaVersion"] in {"10", "11"}:
         data["drivetrainDiscovery"] = {
             stream: copy.deepcopy(request["drivetrainDiscovery"]) if request else None
             for stream in ("current", "historical")
@@ -2357,14 +2384,23 @@ class AnalysisPresentationProjector:
                 ),
                 "provenance": _provenance(artifact_data),
             }
-            if artifact_data["analysisRunSchemaVersion"] in {"8", "9", "10"}:
+            if artifact_data["analysisRunSchemaVersion"] in {"8", "9", "10", "11"}:
                 presentation_data["preliminaryQualification"] = copy.deepcopy(
                     artifact_data["result"]["preliminaryQualification"]
                 )
-            if artifact_data["analysisRunSchemaVersion"] in {"9", "10"}:
+            if artifact_data["analysisRunSchemaVersion"] in {"9", "10", "11"}:
                 presentation_data["preliminaryResolution"] = copy.deepcopy(
                     artifact_data["result"]["preliminaryResolution"]
                 )
+            search = artifact_data["result"].get("marketSearch")
+            search_context = project_market_search_context(search)
+            supporting_listings = project_supporting_evidence(search)
+            if search_context is not None:
+                presentation_data["marketSearchContext"] = search_context
+                if search_context["baselineStatus"] == "LIMITED" and result["classification"] == "NO_MATERIAL_DISCREPANCY":
+                    presentation_data["assessment"]["summary"] = LIMITED_NO_INCREASE_SUMMARY
+            if supporting_listings is not None:
+                presentation_data["higherPricedComparableListings"] = supporting_listings
             return AnalysisPresentation.from_dict(presentation_data)
         except AnalysisPresentationContractError:
             raise

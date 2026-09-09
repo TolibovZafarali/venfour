@@ -7,9 +7,11 @@ import hashlib
 import json
 import math
 import re
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
+from contextvars import ContextVar
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta, timezone
+from email.utils import parsedate_to_datetime
 from time import sleep
 from typing import Any, Protocol
 from urllib.error import HTTPError, URLError
@@ -83,6 +85,7 @@ MARKETCHECK_HISTORICAL_MIN_ROWS = 10
 MARKETCHECK_VIN_HISTORY_MAX_PAGES = 10
 MARKETCHECK_VIN_HISTORY_PAGE_SIZE = 50
 MARKETCHECK_VIN_HISTORY_MAX_VERIFICATIONS = 100
+MARKETCHECK_BOUNDED_VIN_HISTORY_MAX_PAGES = 3
 DEFAULT_TIMEOUT_SECONDS = 15.0
 MARKETCHECK_TRANSIENT_RETRY_DELAY_SECONDS = 0.25
 MARKETCHECK_MAX_REQUEST_ATTEMPTS = 2
@@ -91,6 +94,42 @@ MARKETCHECK_DRIVETRAIN_LOOKUP_MAX_ROWS = 50
 MARKETCHECK_SAVED_BUILD_MAX_IDENTITIES = 1000
 
 QueryValue = str | int
+
+
+@dataclass(frozen=True)
+class MarketCheckDiscoveryPage:
+    """One discovery page, with normalized observations kept before screening."""
+
+    listings: tuple[MarketListing, ...]
+    observations: tuple[Mapping[str, Any], ...]
+    start: int
+    rows: int
+    num_found: int | None
+    has_more: bool
+    issues: tuple[HistoricalEvidenceIssue, ...] = ()
+
+
+@dataclass(frozen=True)
+class MarketCheckVerifiedBatch:
+    """Verified observations plus a terminal failure after any usable progress."""
+
+    result: HistoricalMarketSearchResult
+    observations: tuple[Mapping[str, Any], ...]
+    failure: MarketProviderError | None = None
+
+
+def _retry_after_seconds(value: str | None) -> float | None:
+    if not isinstance(value, str):
+        return None
+    if re.fullmatch(r"[0-9]+", value.strip()):
+        return float(value.strip())
+    try:
+        parsed = parsedate_to_datetime(value)
+        if parsed.tzinfo is None:
+            return None
+        return max(0.0, (parsed - datetime.now(timezone.utc)).total_seconds())
+    except (ValueError, TypeError, OverflowError):
+        return None
 
 
 def marketcheck_account_radius_from_environment(
@@ -370,6 +409,7 @@ class MarketCheckProvider:
         timeout: float = DEFAULT_TIMEOUT_SECONDS,
         transport: MarketCheckTransport | None = None,
         maximum_search_radius_miles: int | None = None,
+        request_budget: Any = None,
         _allow_missing_api_key: bool = False,
     ) -> None:
         missing_key = not isinstance(api_key, str) or not api_key.strip()
@@ -403,6 +443,10 @@ class MarketCheckProvider:
         self._api_key = None if missing_key else api_key.strip()
         self._timeout = float(timeout)
         self.maximum_search_radius_miles = declared_maximum_radius
+        self.request_budget = request_budget
+        self._request_phase: ContextVar[str] = ContextVar(
+            f"marketcheck_request_phase_{id(self)}", default="baseline"
+        )
         self._transport = (
             transport if transport is not None else _UrllibMarketCheckTransport()
         )
@@ -546,7 +590,7 @@ class MarketCheckProvider:
             )
         if status == 429:
             return MarketProviderRateLimitError(
-                "MarketCheck rate limit or quota was exceeded"
+                "MarketCheck temporarily rate limited the request"
             )
         if status == 408 or 500 <= status <= 599:
             return MarketProviderUnavailableError(
@@ -623,12 +667,41 @@ class MarketCheckProvider:
         endpoint: str = MARKETCHECK_ACTIVE_INVENTORY_URL,
         allow_history_page_exhaustion: bool = False,
         request_counter: list[int] | None = None,
+        request_phase: str | None = None,
     ) -> Any:
         body: bytes | None = None
         for attempt in range(MARKETCHECK_MAX_REQUEST_ATTEMPTS):
             failure: MarketProviderError | None = None
             failure_status: int | None = None
             transient = False
+            retry_delay = MARKETCHECK_TRANSIENT_RETRY_DELAY_SECONDS
+            if self.request_budget is not None:
+                vin = (
+                    endpoint.rsplit("/", 1)[-1]
+                    if endpoint.startswith(f"{MARKETCHECK_VIN_HISTORY_URL}/")
+                    else params.get("vin")
+                )
+                paced_seconds = 0.0
+                for _ in range(100):
+                    try:
+                        self.request_budget.reserve_attempt(
+                            endpoint, phase=request_phase or self._request_phase.get(),
+                            vin=vin if isinstance(vin, str) else None,
+                        )
+                        break
+                    except MarketProviderError as exc:
+                        reason = getattr(exc, "reason_code", None)
+                        delay = getattr(exc, "retry_after_seconds", None)
+                        if (reason not in {"MARKET_ACCOUNT_RATE_LIMIT_REACHED", "MARKET_ACCOUNT_THROTTLED"}
+                                or isinstance(delay, bool) or not isinstance(delay, (int, float))
+                                or not math.isfinite(delay) or delay < 0
+                                or paced_seconds + max(0.01, delay) > 60):
+                            raise
+                        delay = max(0.01, delay)
+                        sleep(delay)
+                        paced_seconds += delay
+                else:
+                    raise MarketProviderUnavailableError("MarketCheck account pacing could not obtain capacity")
             try:
                 if request_counter is not None:
                     request_counter[0] += 1
@@ -640,6 +713,15 @@ class MarketCheckProvider:
                 )
             except HTTPError as exc:
                 status = exc.code
+                retry_after = exc.headers.get("Retry-After") if exc.headers else None
+                if self.request_budget is not None:
+                    self.request_budget.report_response(
+                        status_code=status, retry_after=retry_after,
+                        quota_exhausted=False,
+                    )
+                parsed_retry = _retry_after_seconds(retry_after)
+                if parsed_retry is not None:
+                    retry_delay = max(retry_delay, parsed_retry)
                 try:
                     exc.close()
                 except Exception:
@@ -670,8 +752,9 @@ class MarketCheckProvider:
                 endpoint,
                 http_status=failure_status,
             )
-            if transient and attempt + 1 < MARKETCHECK_MAX_REQUEST_ATTEMPTS:
-                sleep(MARKETCHECK_TRANSIENT_RETRY_DELAY_SECONDS)
+            if (transient and attempt + 1 < MARKETCHECK_MAX_REQUEST_ATTEMPTS
+                    and retry_delay <= 60):
+                sleep(retry_delay)
                 continue
             raise annotated
 
@@ -909,6 +992,158 @@ class MarketCheckProvider:
         elif not any(all(prior[key] == row[key] for key in ("year", "make", "model", "drivetrain")) for prior in rows):
             rows[-1] = row
 
+    @staticmethod
+    def _observation_text(value: Any) -> str | None:
+        if not isinstance(value, str) or len(value) > 512:
+            return None
+        text = " ".join(value.split())
+        if not text or _has_unsupported_provider_text_character(text):
+            return None
+        return text
+
+    def _observation(
+        self, listing: MarketListing, record: Mapping[str, Any], *,
+        endpoint: str, relevant_date: str, supporting: bool,
+        verified: bool, material_facts: Mapping[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Project bounded facts; retain no unrestricted provider response."""
+
+        build = record.get("build")
+        build = build if isinstance(build, Mapping) else {}
+        facts: dict[str, Any] = {}
+        for public, raw in (
+            ("bodyType", "body_type"), ("bodySubtype", "body_subtype"),
+            ("powertrain", "powertrain_type"), ("engine", "engine"),
+            ("fuelType", "fuel_type"), ("transmission", "transmission"),
+            ("cylinders", "cylinders"), ("doors", "doors"),
+            ("bedLength", "bed_length"), ("cabType", "cab_type"),
+        ):
+            value = build.get(raw)
+            if isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value):
+                value = str(value)
+            facts[public] = self._observation_text(value)
+        certified = record.get("is_certified")
+        facts["certified"] = True if certified == 1 else False if certified == 0 else None
+        facts["warranty"] = record.get("warranty") if isinstance(record.get("warranty"), bool) else None
+        equipment = build.get("options_packages")
+        if isinstance(equipment, str):
+            equipment = [equipment]
+        normalized_equipment = (
+            [self._observation_text(item) for item in equipment]
+            if isinstance(equipment, list) and len(equipment) <= 100 else None
+        )
+        facts["equipment"] = (
+            sorted(set(normalized_equipment))
+            if normalized_equipment is not None and all(value is not None for value in normalized_equipment)
+            else None
+        )
+        if material_facts is not None:
+            # VIN build facts may be retained; dated selling benefits and
+            # changing market facts must come from the history record.
+            for key in ("bodyType", "bodySubtype", "powertrain", "engine", "fuelType",
+                        "transmission", "cylinders", "doors", "bedLength", "cabType"):
+                if facts[key] is None:
+                    facts[key] = material_facts.get(key)
+        dealer = record.get("dealer") if endpoint != "history" else record
+        dealer = dealer if isinstance(dealer, Mapping) else {}
+
+        def coordinate(names: tuple[str, ...], maximum: int) -> float | None:
+            value = next((dealer[name] for name in names if name in dealer), None)
+            if isinstance(value, str):
+                try:
+                    value = float(value)
+                except ValueError:
+                    return None
+            if (isinstance(value, bool) or not isinstance(value, (int, float))
+                    or not math.isfinite(value) or abs(value) > maximum):
+                return None
+            return float(value)
+
+        observation = {
+            "listing": listing.to_dict(), "materialFacts": facts,
+            "location": {
+                "latitude": coordinate(("latitude", "lat"), 90),
+                "longitude": coordinate(("longitude", "lng", "lon"), 180),
+                "postalCode": self._observation_text(dealer.get("zip")),
+                "city": self._observation_text(dealer.get("city")),
+                "state": self._observation_text(dealer.get("state")),
+                "source": "HISTORY_RECORD" if endpoint == "history" else "DISCOVERY_RECORD",
+                "verified": False,
+            },
+            "sourceEndpoint": endpoint, "relevantDate": relevant_date,
+            "stream": "current" if endpoint == "active" else "historical",
+            "purpose": "supporting" if supporting else "baseline",
+            "dateVerified": verified, "priceVerified": verified,
+            "materialFactsSource": ("HISTORY_AND_VIN_BUILD" if material_facts is not None
+                                    else "HISTORY_RECORD" if endpoint == "history" else "DISCOVERY_RECORD"),
+        }
+        if self._contains_secret(observation):
+            raise MarketProviderResponseError("MarketCheck observation could not be safely normalized")
+        return observation
+
+    def discover_page(
+        self, request: MarketSearchRequest, *, start: int = 0,
+        rows: int = MARKETCHECK_MAX_ROWS, supporting: bool = False,
+        center: Mapping[str, Any] | None = None,
+    ) -> MarketCheckDiscoveryPage:
+        """Fetch one explicitly sorted page without candidate or VIN fan-out."""
+
+        return self._discover_page(request, start=start, rows=rows, supporting=supporting, center=center)
+
+    def _discover_page(
+        self, request: MarketSearchRequest | HistoricalMarketSearchRequest, *,
+        start: int, rows: int, supporting: bool, historical: bool = False,
+        center: Mapping[str, Any] | None = None,
+    ) -> MarketCheckDiscoveryPage:
+        if isinstance(start, bool) or not isinstance(start, int) or not 0 <= start < 10000:
+            raise MarketContractError("Discovery offset must be between 0 and 9999")
+        if isinstance(rows, bool) or not isinstance(rows, int) or not 1 <= rows <= MARKETCHECK_MAX_ROWS:
+            raise MarketContractError("Discovery page size must be between 1 and 50")
+        if not isinstance(supporting, bool):
+            raise MarketContractError("Discovery purpose must be explicit")
+        if historical:
+            params = self._historical_params(request, start=start, rows=rows)
+            endpoint = MARKETCHECK_PAST_INVENTORY_URL
+            category = "recents"
+        else:
+            params = self._params(request, start=start, rows=rows)
+            endpoint = MARKETCHECK_ACTIVE_INVENTORY_URL
+            category = "active"
+        if center is not None:
+            for field, maximum in (("latitude", 90), ("longitude", 180)):
+                value = center.get(field)
+                if (isinstance(value, bool) or not isinstance(value, (int, float))
+                        or not math.isfinite(value) or abs(value) > maximum):
+                    raise MarketContractError("Discovery center requires valid coordinates")
+                params[field] = str(value)
+            params.pop("zip", None)
+            self._enforce_search_radius(request.radius_miles)
+            params["radius"] = request.radius_miles
+        # Both endpoint references explicitly support dist/price sorting.
+        params.update(sort_by="price" if supporting else "dist", sort_order="desc" if supporting else "asc")
+        token = self._request_phase.set("supporting" if supporting else "baseline")
+        try:
+            payload = self._request_page(params, endpoint=endpoint)
+        finally:
+            self._request_phase.reset(token)
+        records, total = self._listing_page(payload, start=start, rows=rows)
+        listings: list[MarketListing] = []
+        observations: list[Mapping[str, Any]] = []
+        for offset, record in enumerate(records):
+            listing = self._normalize_listing(
+                record, start + offset,
+                canonical_trim=request.trim if request.configuration is not None else None,
+                configuration=request.configuration, source_endpoint_category=category,
+            )
+            listings.append(listing)
+            observations.append(self._observation(
+                listing, record, endpoint=category,
+                relevant_date=request.evidence_date if historical else datetime.now(timezone.utc).date().isoformat(),
+                supporting=supporting, verified=not historical,
+            ))
+        more = bool(records) and (start + len(records) < total if total is not None else len(records) == rows)
+        return MarketCheckDiscoveryPage(tuple(listings), tuple(observations), start, rows, total, more)
+
     def saved_drivetrain(self, vin: str, *, year: int, make: str, model: str) -> dict[str, Any] | None:
         """Resolve cached raw build evidence without making a provider request."""
         vin, vehicle = _lookup_identity(vin, year, make, model)
@@ -957,7 +1192,7 @@ class MarketCheckProvider:
             payload = self._request_json({
                 "api_key": self._api_key, "append_api_key": "false", "vin": vin,
                 "start": 0, "rows": MARKETCHECK_DRIVETRAIN_LOOKUP_MAX_ROWS,
-            }, request_counter=count)
+            }, request_counter=count, request_phase="enrichment")
             if not isinstance(payload, Mapping):
                 raise ValueError("Invalid specification lookup response")
             records = payload.get("listings")
@@ -1420,6 +1655,7 @@ class MarketCheckHistoricalProvider(MarketCheckProvider):
         transport: MarketCheckTransport | None = None,
         max_vin_verifications: int = MARKETCHECK_VIN_HISTORY_MAX_VERIFICATIONS,
         maximum_search_radius_miles: int | None = None,
+        request_budget: Any = None,
     ) -> None:
         if (
             isinstance(max_vin_verifications, bool)
@@ -1435,6 +1671,7 @@ class MarketCheckHistoricalProvider(MarketCheckProvider):
             timeout=timeout,
             transport=transport,
             maximum_search_radius_miles=maximum_search_radius_miles,
+            request_budget=request_budget,
             _allow_missing_api_key=True,
         )
         self.maximum_search_radius_miles = min(
@@ -1447,6 +1684,9 @@ class MarketCheckHistoricalProvider(MarketCheckProvider):
         )
         self._max_vin_verifications = max_vin_verifications
         self._vin_history_cache: dict[str, _VinHistoryFetchOutcome] = {}
+        self._bounded_history: ContextVar[bool] = ContextVar(
+            f"marketcheck_bounded_history_{id(self)}", default=False
+        )
 
     def __repr__(self) -> str:
         return (
@@ -1460,6 +1700,88 @@ class MarketCheckHistoricalProvider(MarketCheckProvider):
         """Start one analysis-scoped VIN cache and verification budget."""
 
         self._vin_history_cache.clear()
+
+    def discover_page(
+        self, request: HistoricalMarketSearchRequest, *, start: int = 0,
+        rows: int = MARKETCHECK_MAX_ROWS, supporting: bool = False,
+        center: Mapping[str, Any] | None = None,
+    ) -> MarketCheckDiscoveryPage:
+        """Discover dated candidates without fetching any VIN histories."""
+
+        request.to_market_search_request()
+        coverage = marketcheck_historical_coverage(request.evidence_date, as_of_date=self._as_of_date)
+        if coverage.status == OUT_OF_PROVIDER_RANGE:
+            return MarketCheckDiscoveryPage((), (), start, rows, 0, False)
+        return self._discover_page(
+            request, start=start, rows=rows, supporting=supporting,
+            center=center, historical=True,
+        )
+
+    def verify_historical_candidates(
+        self, request: HistoricalMarketSearchRequest,
+        listings: Sequence[MarketListing], *,
+        max_history_pages: int = MARKETCHECK_BOUNDED_VIN_HISTORY_MAX_PAGES,
+        observations: Sequence[Mapping[str, Any]] = (), supporting: bool = False,
+    ) -> MarketCheckVerifiedBatch:
+        """Verify a caller-ranked batch while preserving earlier valid evidence."""
+
+        if (isinstance(max_history_pages, bool) or not isinstance(max_history_pages, int)
+                or not 1 <= max_history_pages <= MARKETCHECK_VIN_HISTORY_MAX_PAGES):
+            raise MarketContractError("VIN history pages must be between 1 and 10")
+        request.to_market_search_request()
+        coverage = marketcheck_historical_coverage(request.evidence_date, as_of_date=self._as_of_date)
+        if coverage.status == OUT_OF_PROVIDER_RANGE:
+            return MarketCheckVerifiedBatch(self._result(request, coverage), ())
+        facts_by_identity = {
+            (row["listing"].get("vin"), row["listing"].get("sourceListingId")): row.get("materialFacts", {})
+            for row in observations if isinstance(row.get("listing"), Mapping)
+        }
+        evidence: list[HistoricalEvidenceItem] = []
+        issues: list[HistoricalEvidenceIssue] = []
+        verified_observations: list[Mapping[str, Any]] = []
+        failure: MarketProviderError | None = None
+        seen: set[str] = set()
+        token = self._request_phase.set("supporting" if supporting else "baseline")
+        bounded_token = self._bounded_history.set(True)
+        try:
+            for index, listing in enumerate(listings):
+                validate_market_listing(listing)
+                if listing.vin is None:
+                    issues.append(HistoricalEvidenceIssue(status=UNRESOLVED, reason="MISSING_LISTING_IDENTITY"))
+                    continue
+                identity = listing.vin.casefold()
+                if identity in seen:
+                    continue
+                seen.add(identity)
+                candidate = _HistoricalCandidate(index, listing.vin, listing)
+                try:
+                    outcome = self._vin_history_outcome(candidate, max_history_pages=max_history_pages)
+                    if outcome is None:
+                        issues.append(HistoricalEvidenceIssue(status=UNRESOLVED, reason="CANDIDATE_VERIFICATION_LIMIT_REACHED"))
+                        break
+                    if outcome.issue is not None:
+                        issues.append(outcome.issue)
+                        continue
+                    item, issue = self._resolve_vin_history(
+                        candidate, list(outcome.records), request,
+                        strict_location=True, observation_output=verified_observations,
+                        material_facts=facts_by_identity.get((listing.vin, listing.source_listing_id)),
+                        supporting=supporting,
+                    )
+                    if item is not None:
+                        evidence.append(item)
+                    if issue is not None:
+                        issues.append(issue)
+                except MarketProviderError as exc:
+                    failure = exc
+                    break
+        finally:
+            self._request_phase.reset(token)
+            self._bounded_history.reset(bounded_token)
+        return MarketCheckVerifiedBatch(
+            self._result(request, coverage, evidence, issues),
+            tuple(verified_observations), failure,
+        )
 
     def _historical_params(
         self,
@@ -1513,11 +1835,18 @@ class MarketCheckHistoricalProvider(MarketCheckProvider):
             raise MarketProviderAuthenticationError(
                 "MarketCheck API key is required"
             )
-        return {
+        params: dict[str, QueryValue] = {
             "api_key": self._api_key,
             "page": page,
             "sort_order": "desc",
         }
+        if self._bounded_history.get():
+            params["fields"] = (
+                "id,vin,price,miles,vdp_url,seller_type,inventory_type,status_date,"
+                "last_seen_at,last_seen_at_date,first_seen_at,first_seen_at_date,"
+                "source,seller_name,city,state,zip,is_certified,latitude,longitude"
+            )
+        return params
 
     @staticmethod
     def _safe_identity_value(value: Any) -> str | None:
@@ -1722,10 +2051,11 @@ class MarketCheckHistoricalProvider(MarketCheckProvider):
     def _fetch_vin_history(
         self,
         candidate: _HistoricalCandidate,
+        *, max_history_pages: int = MARKETCHECK_VIN_HISTORY_MAX_PAGES,
     ) -> tuple[list[Mapping[str, Any]], HistoricalEvidenceIssue | None]:
         records: list[Mapping[str, Any]] = []
 
-        for page_number in range(1, MARKETCHECK_VIN_HISTORY_MAX_PAGES + 1):
+        for page_number in range(1, max_history_pages + 1):
             page = self._request_vin_history_page(
                 candidate.vin,
                 page=page_number,
@@ -1750,6 +2080,7 @@ class MarketCheckHistoricalProvider(MarketCheckProvider):
     def _vin_history_outcome(
         self,
         candidate: _HistoricalCandidate,
+        *, max_history_pages: int = MARKETCHECK_VIN_HISTORY_MAX_PAGES,
     ) -> _VinHistoryFetchOutcome | None:
         """Reuse one VIN fetch or decline a new fetch after the hard budget."""
 
@@ -1760,7 +2091,7 @@ class MarketCheckHistoricalProvider(MarketCheckProvider):
         if len(self._vin_history_cache) >= self._max_vin_verifications:
             return None
 
-        records, issue = self._fetch_vin_history(candidate)
+        records, issue = self._fetch_vin_history(candidate, max_history_pages=max_history_pages)
         outcome = _VinHistoryFetchOutcome(tuple(records), issue)
         self._vin_history_cache[identity] = outcome
         return outcome
@@ -1870,6 +2201,7 @@ class MarketCheckHistoricalProvider(MarketCheckProvider):
         candidate: _HistoricalCandidate,
         *,
         history_drivetrain: str | None = None,
+        strict_location: bool = False,
     ) -> MarketListing:
         dealer_fields = {
             "name": record.get("seller_name"),
@@ -1896,7 +2228,7 @@ class MarketCheckHistoricalProvider(MarketCheckProvider):
                 "trim": candidate.listing.trim,
                 "drivetrain": history_drivetrain or candidate.listing.drivetrain,
             },
-            "dist": candidate.listing.distance_miles,
+            "dist": None if strict_location else candidate.listing.distance_miles,
         }
         return self._normalize_listing(
             adapted,
@@ -1910,6 +2242,10 @@ class MarketCheckHistoricalProvider(MarketCheckProvider):
         candidate: _HistoricalCandidate,
         raw_records: list[Mapping[str, Any]],
         request: HistoricalMarketSearchRequest,
+        *, strict_location: bool = False,
+        observation_output: list[Mapping[str, Any]] | None = None,
+        material_facts: Mapping[str, Any] | None = None,
+        supporting: bool = False,
     ) -> tuple[HistoricalEvidenceItem | None, HistoricalEvidenceIssue | None]:
         evidence_day = date.fromisoformat(request.evidence_date)
         day_start = datetime.combine(evidence_day, time.min, tzinfo=timezone.utc)
@@ -2070,28 +2406,34 @@ class MarketCheckHistoricalProvider(MarketCheckProvider):
             selected_index,
             candidate,
             history_drivetrain=history_drivetrain,
+            strict_location=strict_location,
         )
-        return (
-            HistoricalEvidenceItem(
-                listing=listing,
-                temporal_evidence=TemporalEvidence(
-                    evidence_date=request.evidence_date,
-                    record_first_seen_at=_normalized_timestamp(interval.first),
-                    record_last_seen_at=_normalized_timestamp(interval.last),
-                    source_first_seen_at=(
-                        _normalized_timestamp(interval.source_first)
-                        if interval.source_first is not None
-                        else None
-                    ),
-                    source_last_seen_at=(
-                        _normalized_timestamp(interval.source_last)
-                        if interval.source_last is not None
-                        else None
-                    ),
+        item = HistoricalEvidenceItem(
+            listing=listing,
+            temporal_evidence=TemporalEvidence(
+                evidence_date=request.evidence_date,
+                record_first_seen_at=_normalized_timestamp(interval.first),
+                record_last_seen_at=_normalized_timestamp(interval.last),
+                source_first_seen_at=(
+                    _normalized_timestamp(interval.source_first)
+                    if interval.source_first is not None
+                    else None
+                ),
+                source_last_seen_at=(
+                    _normalized_timestamp(interval.source_last)
+                    if interval.source_last is not None
+                    else None
                 ),
             ),
-            None,
         )
+        if observation_output is not None:
+            observation = self._observation(
+                listing, record, endpoint="history", relevant_date=request.evidence_date,
+                supporting=supporting, verified=True, material_facts=material_facts,
+            )
+            observation["historicalEvidence"] = item.to_dict()
+            observation_output.append(observation)
+        return item, None
 
     def _result(
         self,
@@ -2227,9 +2569,12 @@ __all__ = [
     "MARKETCHECK_TRANSIENT_RETRY_DELAY_SECONDS",
     "MARKETCHECK_VIN_HISTORY_MAX_PAGES",
     "MARKETCHECK_VIN_HISTORY_MAX_VERIFICATIONS",
+    "MARKETCHECK_BOUNDED_VIN_HISTORY_MAX_PAGES",
     "MARKETCHECK_VIN_HISTORY_PAGE_SIZE",
     "MARKETCHECK_VIN_HISTORY_URL",
     "MarketCheckHistoricalProvider",
+    "MarketCheckDiscoveryPage",
+    "MarketCheckVerifiedBatch",
     "MarketCheckProvider",
     "MarketCheckTransport",
     "drivetrain_lookup_failure",

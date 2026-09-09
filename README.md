@@ -209,26 +209,12 @@ are available. It never logs credentials, authenticated URLs, VINs, response
 bodies, or raw provider parameters. Public API error payloads remain unchanged,
 and the diagnostic flag is explicitly removed from the frontend environment.
 
-For live market and orchestration debugging after a report has already been
-extracted, use the local canonical-analysis command. It revalidates canonical
-CCC JSON and runs the real MarketCheck retrieval, adaptive ranking, discrepancy
-analysis, audit validation, and immutable persistence path without reading a PDF
-or making another OpenAI request:
-
-```sh
-set -a
-source .env
-set +a
-VENFOUR_PROVIDER_DIAGNOSTICS=1 \
-  .venv/bin/python scripts/run_live_analysis.py \
-  data/extracted/benchmarks/elantra.json \
-  --postal-code 63123
-```
-
-Only `MARKETCHECK_API_KEY` is required by this command. New artifacts are saved
-under `data/analysis-runs/` by default. This is a local development tool and is
-separate from the authenticated case-owned HTTP creation path. There is no API
-for submitting canonical analysis data.
+Live market research must run through the existing owned case-analysis job,
+which supplies the case identity, current processing lease and shared request
+ledger. The former file-only `scripts/run_live_analysis.py` entry now fails
+closed because it cannot establish that context. Offline replay remains
+available for saved runs. See [bounded comparable research](docs/engineering/market-search.md)
+for required account configuration, retention permissions and fixture results.
 
 Vite serves the application at `http://localhost:5173` and proxies `/api` and
 `/health` to `http://127.0.0.1:8000`. This avoids a cross-origin request because
@@ -856,42 +842,21 @@ boundaries and are supplied by dependency injection together with an
 `AnalysisRunRepository`. Tests can therefore use fully offline fake providers
 without changing orchestration behavior.
 
-When historical retrieval is configured, it runs first for the normalized loss
-date. Supported resolved evidence is projected into the unchanged Phase 3C
-ranker, while `OUT_OF_PROVIDER_RANGE`, ambiguous, and unresolved provenance is
-preserved exactly. Current inventory is retrieved only when explicitly
-configured and remains a separate temporal evidence stream. The orchestrator
-uses explicit server-owned policies for each stream and constrains them by the
-selected provider adapter's declared geographic capability. Current-market
-search attempts `(50 miles, 25 results)`, `(100, 50)`, `(200, 75)`, and
-`(250, 100)` in order when the selected provider supports them. This deployment's
-MarketCheck current-inventory capability limits its effective sequence to
-`(50, 25)` and `(100, 50)`; if evidence is still sparse there, the successful
-result is retained with `CURRENT_SEARCH_CEILING_REACHED` instead of attempting
-an unsupported wider radius. MarketCheck loss-date search likewise attempts
-`(50, 25)` and `(100, 50)`, then ends normally at its independently declared
-100-mile capability ceiling. After each response, adaptive search merges
-first-seen vehicles by VIN and then provider listing identity, reruns the
-unchanged Phase 3C ranker, and stops when it has nine independently identified
-`STRONG` matches, reaches 100 unique candidate outcomes, or completes the
-effective stream policy. The provider-neutral policy contract itself still caps
-configuration at four stages, 250 miles, 100 results per attempt, and 100 unique
-candidates.
+The default case-owned MarketCheck composition uses paged discovery, cheap
+strict-quality screening and batched historical verification. It begins with
+one nearest-first local search, then visits at most four additional nearby
+centers only while evidence is insufficient. Current evidence remains separate
+from loss-date evidence, and sufficient historical evidence limits the current
+search to one context page. Baseline decisions are price-independent.
 
-Adaptive search broadens only geography and candidate depth. It does not relax
-year, make, model, trim, loss date, eligibility, or scoring, and price amount is
-not read by merge, ranking, or stop logic. Historical stages repeat candidate
-discovery at the exact loss date. If otherwise identical active historical
-records carry conflicting prices, the provider adapter treats the source
-evidence as ambiguous instead of choosing either price; it never favors the
-higher or lower record. The MarketCheck adapter caches raw VIN-history outcomes
-across those stages and permits at most 100 unique VIN-history fetches per
-adaptive analysis, so overlapping radii do not repeat that expensive work.
-Out-of-range coverage, incomplete pagination, and the VIN-verification limit are
-explicit terminal outcomes. Reaching the configured historical ceiling is
-persisted as `HISTORICAL_SEARCH_CEILING_REACHED` and retains all valid evidence
-gathered at 50 and 100 miles. Phase 3D alone applies the established
-historical/current precedence and classification rules.
+After freezing a sufficient baseline, an optional pass can collect a small
+separate shortlist of **Higher-priced comparable listings**. It cannot change
+baseline statistics, the headline increase or purchase qualification. All
+transport attempts share a durable case ceiling and account quota/rate ledger.
+Version 11 stores and deterministically replays the complete bounded search
+transcript. Versions 1–10 retain their original adaptive-search replay rules.
+See [bounded comparable research](docs/engineering/market-search.md) for the
+sequence, stopping rules, exact settings, data limitations and offline proof.
 
 Completed runs are stored as strict, immutable JSON under
 `data/analysis-runs/<run-id>.json` by the default file repository. Each artifact
@@ -904,7 +869,7 @@ the search-diagnostics digest, so replay derives a capability-ceiling stop from
 the persisted policy difference rather than trusting the stored reason alone.
 Files are validated before an atomic create-only save and are parsed,
 schema-validated, and semantically validated again on read. Versions 1 through
-3 remain readable. Corrupt, unknown, or internally inconsistent artifacts are
+10 remain readable. Corrupt, unknown, or internally inconsistent artifacts are
 rejected rather than repaired or silently migrated.
 
 Run metadata is separate from the deterministic calculation: `runId` is a

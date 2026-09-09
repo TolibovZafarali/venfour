@@ -321,3 +321,25 @@
     transition: none;
   }
 }
+.completed-analysis .supporting-listings,
+.completed-analysis .market-search-limitations {
+  padding: 1.5rem;
+  margin-top: 1.5rem;
+}
+
+.completed-analysis .supporting-listings h2,
+.completed-analysis .market-search-limitations h2 {
+  margin-bottom: 0.75rem;
+}
+
+.completed-analysis .supporting-listing {
+  border-top: 1px solid var(--border);
+  padding-top: 1.25rem;
+  margin-top: 1.25rem;
+  overflow-wrap: anywhere;
+}
+
+.completed-analysis .supporting-listing p,
+.completed-analysis .supporting-listing ul {
+  margin-top: 0.5rem;
+}

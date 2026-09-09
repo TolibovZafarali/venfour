@@ -248,6 +248,7 @@ function AnalysisScopeDisclosure({ analysis }: AnalysisResultsProps) {
 }
 
 function assessmentSummary(analysis: AnalysisPresentation) {
+  if (analysis.marketSearchContext?.baselineStatus === "LIMITED" && analysis.assessment.classification === "NO_MATERIAL_DISCREPANCY") return analysis.assessment.summary;
   const primary = analysis.primaryExternalEvidence;
   const comparison = analysis.insurerValuation.comparisonToPrimaryEvidence;
   if (!primary) {
@@ -1770,6 +1771,30 @@ function NextSteps({ analysis }: AnalysisResultsProps) {
   );
 }
 
+function SupportingMarketEvidence({ analysis }: AnalysisResultsProps) {
+  const context = analysis.marketSearchContext;
+  const support = analysis.higherPricedComparableListings;
+  return <>
+    {context?.baselineStatus === "LIMITED" ? <aside className="mt-8 rounded-xl border border-neutral-200 p-5" aria-label="Comparable search limitations">
+      <h2 className="font-semibold">Comparable search limitations</h2>
+      <p className="mt-2 text-sm">{context.summary}</p>
+      <ul className="mt-2 space-y-1 text-sm">{context.stopReasons.map((reason) => <li key={`${reason.stream}:${reason.code}`}>{reason.description}</li>)}</ul>
+    </aside> : null}
+    {support?.listings.length ? <section className="mt-10 border-t border-neutral-200 pt-8" aria-labelledby="higher-priced-heading">
+      <h2 id="higher-priced-heading" className="text-xl font-semibold">{support.title}</h2>
+      <p className="mt-3 max-w-3xl text-sm text-neutral-600">{support.disclosure}</p>
+      {support.listings.map((listing) => <article key={listing.identity} className="mt-5 rounded-xl border border-neutral-200 p-5">
+        <h3 className="font-semibold">{listing.vehicle} - {listing.askingPriceDisplay} asking</h3>
+        <p className="mt-2 text-sm">{formatMileage(listing.mileage)} · {formatDistance(listing.distanceMiles)} from the customer · {formatDate(listing.relevantDate)}</p>
+        <p className="mt-2 text-sm">{listing.temporalBasis} · Source: {listing.source} ({listing.priceSource === "history" ? "verified history record" : "active listing"})</p>
+        <dl className="mt-3 grid gap-3 text-sm sm:grid-cols-3">{listing.matchingFacts.map((fact) => <div key={fact.label}><dt className="text-neutral-500">{fact.label}</dt><dd>{fact.value}</dd></div>)}</dl>
+        <ul className="mt-3 space-y-1 text-sm text-neutral-600">{[...listing.materialDifferences, ...listing.limitations].map((limitation) => <li key={limitation}>{limitation}</li>)}</ul>
+        {listing.listingUrl ? <a className="mt-3 inline-block text-sm underline" href={listing.listingUrl} target="_blank" rel="noopener noreferrer">View listing source</a> : null}
+      </article>)}
+    </section> : null}
+  </>;
+}
+
 export function AnalysisResults({ analysis }: AnalysisResultsProps) {
   const vehicle = [
     analysis.vehicle.year,
@@ -1819,6 +1844,7 @@ export function AnalysisResults({ analysis }: AnalysisResultsProps) {
         <AssessmentReadingGuide analysis={analysis} />
         <WhyFlagged analysis={analysis} />
         <PrimaryComparables analysis={analysis} />
+        <SupportingMarketEvidence analysis={analysis} />
         <MarketContext analysis={analysis} />
         <CccComparables analysis={analysis} />
         <ImportantLimitations analysis={analysis} />

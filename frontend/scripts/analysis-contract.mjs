@@ -14,7 +14,7 @@ const outputPath = path.resolve(
   "src/features/analyses/analysis-presentation.generated.ts",
 );
 const supportedConditionalSchemaDigest =
-  "c1b8c62eb81b4cf0b3cdae770958250567c960d086a9ba55814323c5941c1aa9";
+  "14f49cca9ec9c57cd6f9cb099b4309801eef353df808f5521a87ff67db2bdca8";
 
 function collectConditionalConstraints(value, currentPath = "$", result = []) {
   if (Array.isArray(value)) {
@@ -134,6 +134,18 @@ parsedSchema.$defs.basisPointValue = synchronizeNullablePair(
 
 const schema = removeConditionalConstraints(parsedSchema);
 schema.title = "AnalysisPresentationBase";
+// Runtime validators retain these list bounds; emitting every permitted tuple
+// length would duplicate nested listing fields thousands of times.
+function omitDisplayArrayMaximums(value) {
+  if (Array.isArray(value)) return value.map(omitDisplayArrayMaximums);
+  if (!value || typeof value !== "object") return value;
+  return Object.fromEntries(Object.entries(value)
+    .filter(([key]) => key !== "maxItems")
+    .map(([key, child]) => [key, omitDisplayArrayMaximums(child)]));
+}
+for (const name of ["marketSearchContext", "higherPricedComparableListings"]) {
+  schema.$defs[name] = omitDisplayArrayMaximums(schema.$defs[name]);
+}
 
 const structuralContract = await compile(schema, "AnalysisPresentationBase", {
   additionalProperties: false,
@@ -320,6 +332,8 @@ type AnalysisPresentationCommonBase = Omit<
 type PresentationQualificationVersion =
   | {
       presentationVersion: "2" | "3";
+      marketSearchContext?: never;
+      higherPricedComparableListings?: never;
       preliminaryQualification?: never;
       preliminaryResolution?: never;
       provenance: Omit<Provenance, "presentationVersion" | "drivetrainDiscovery"> & {
@@ -329,6 +343,8 @@ type PresentationQualificationVersion =
     }
   | {
       presentationVersion: "4";
+      marketSearchContext?: never;
+      higherPricedComparableListings?: never;
       preliminaryQualification: PreliminaryQualification;
       preliminaryResolution?: never;
       provenance: Omit<Provenance, "presentationVersion" | "analysisRunSchemaVersion" | "drivetrainDiscovery"> & {
@@ -339,6 +355,8 @@ type PresentationQualificationVersion =
     }
   | {
       presentationVersion: "5";
+      marketSearchContext?: never;
+      higherPricedComparableListings?: never;
       preliminaryQualification: PreliminaryQualification;
       preliminaryResolution: PreliminaryResolution;
       provenance: Omit<Provenance, "presentationVersion" | "analysisRunSchemaVersion" | "drivetrainDiscovery"> & {
@@ -349,11 +367,25 @@ type PresentationQualificationVersion =
     }
   | {
       presentationVersion: "6";
+      marketSearchContext?: never;
+      higherPricedComparableListings?: never;
       preliminaryQualification: PreliminaryQualification;
       preliminaryResolution: PreliminaryResolution;
       provenance: Omit<Provenance, "presentationVersion" | "analysisRunSchemaVersion" | "drivetrainDiscovery"> & {
         presentationVersion: "6";
         analysisRunSchemaVersion: "10";
+        drivetrainDiscovery: StreamDrivetrainDiscovery;
+      };
+    }
+  | {
+      presentationVersion: "7";
+      preliminaryQualification: PreliminaryQualification;
+      preliminaryResolution: PreliminaryResolution;
+      marketSearchContext: MarketSearchContext;
+      higherPricedComparableListings: HigherPricedComparableListings;
+      provenance: Omit<Provenance, "presentationVersion" | "analysisRunSchemaVersion" | "drivetrainDiscovery"> & {
+        presentationVersion: "7";
+        analysisRunSchemaVersion: "11";
         drivetrainDiscovery: StreamDrivetrainDiscovery;
       };
     };

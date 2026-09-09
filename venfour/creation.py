@@ -41,6 +41,12 @@ from venfour.marketcheck import (
 from venfour.market_fact_cache import (
     CachedDrivetrainLookup, MarketFactCacheGateway, MemoryMarketFactCache, saved_drivetrain_lookup,
 )
+from venfour.efficient_search import EfficientMarketSearch
+from venfour.market_request_budget import (
+    MarketAccountLimits, MarketRequestBudget, MarketRequestGateway,
+    MarketRequestPolicy, market_account_key,
+)
+from venfour.market_search_runtime import case_evidence_retention_days, search_policy_from_environment
 from venfour.orchestration import (
     AnalysisExecutionError,
     AnalysisInputError,
@@ -551,6 +557,12 @@ def create_live_analysis_creation_service(
     run_id_factory: RunIdFactory | None = None,
     report_ingestion_recorder: Callable[[ReportIngestionResult], None] | None = None,
     resolution_cache: MarketFactCacheGateway | None = None,
+    market_request_gateway: MarketRequestGateway | None = None,
+    market_case_id: str | None = None,
+    market_job_id: str | None = None,
+    market_processing_token: str | None = None,
+    market_progress_factory: Callable[[int | None], Any] | None = None,
+    case_maximum_distance_miles: int | None = None,
 ) -> AnalysisCreationService:
     """Build the default runtime composition without eager credential checks."""
 
@@ -568,7 +580,21 @@ def create_live_analysis_creation_service(
             )
         try:
             marketcheck_account_radius_from_environment(os.environ)
-        except ValueError as exc:
+            policy = MarketRequestPolicy.from_environment(os.environ)
+            account = MarketAccountLimits.from_environment(os.environ)
+            search_policy_from_environment(os.environ, policy,
+                                           case_maximum_distance_miles=case_maximum_distance_miles)
+            case_evidence_retention_days(os.environ)
+            if account.configuration_reason(datetime.now(timezone.utc)) is not None:
+                raise ValueError("Confirmed account allowances are required")
+            identifier = os.environ.get("MARKETCHECK_ACCOUNT_IDENTIFIER", "").strip()
+            if (not identifier or market_request_gateway is None or market_case_id is None
+                    or market_job_id is None or market_processing_token is None):
+                raise ValueError("Shared account accounting and a current case job are required")
+            MarketRequestBudget(market_request_gateway, market_account_key(identifier), market_case_id,
+                                policy=policy, account_limits=account,
+                                job_id=market_job_id, processing_token=market_processing_token)
+        except (TypeError, ValueError) as exc:
             raise AnalysisCreationUnavailableError(
                 "Analysis creation dependencies are unavailable"
             ) from exc
@@ -577,13 +603,27 @@ def create_live_analysis_creation_service(
         api_key = os.environ.get("MARKETCHECK_API_KEY")
         try:
             account_radius = marketcheck_account_radius_from_environment(os.environ)
+            request_policy = MarketRequestPolicy.from_environment(os.environ)
+            budget = MarketRequestBudget(
+                market_request_gateway, market_account_key(os.environ["MARKETCHECK_ACCOUNT_IDENTIFIER"]),
+                market_case_id, policy=request_policy,
+                account_limits=MarketAccountLimits.from_environment(os.environ),
+                job_id=market_job_id, processing_token=market_processing_token,
+            )
+            search_policy = search_policy_from_environment(os.environ, request_policy,
+                                                         case_maximum_distance_miles=case_maximum_distance_miles)
+            retention = case_evidence_retention_days(os.environ)
+            progress = market_progress_factory(retention) if market_progress_factory is not None else None
+            if retention is not None and progress is None:
+                raise ValueError("Confirmed checkpoint retention requires durable case storage")
             current_provider = MarketCheckProvider(
-                api_key, maximum_search_radius_miles=account_radius,
+                api_key, maximum_search_radius_miles=account_radius, request_budget=budget,
             )
             historical_provider = MarketCheckHistoricalProvider(
                 api_key,
                 as_of_date=as_of_date,
                 maximum_search_radius_miles=account_radius,
+                request_budget=budget,
             )
         except (MarketProviderError, TypeError, ValueError) as exc:
             raise AnalysisCreationUnavailableError(
@@ -598,6 +638,12 @@ def create_live_analysis_creation_service(
                 current_provider.lookup_drivetrain, selected_resolution_cache,
                 saved_lookup=saved_drivetrain_lookup(current_provider, historical_provider),
             ) if callable(getattr(current_provider, "lookup_drivetrain", None)) else None),
+            market_search=EfficientMarketSearch(
+                current_provider=current_provider, historical_provider=historical_provider,
+                budget=budget, policy=search_policy,
+                checkpoint=progress.save if progress is not None else None,
+                resume_loader=progress.load if progress is not None else None,
+            ),
         )
 
     return AnalysisCreationService(

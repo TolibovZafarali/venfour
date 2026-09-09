@@ -23,7 +23,7 @@ from typing import Any
 
 import pymupdf
 from jsonschema import Draft202012Validator, FormatChecker
-from jsonschema.exceptions import SchemaError
+from jsonschema.exceptions import SchemaError, ValidationError
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER, TA_LEFT
 from reportlab.lib.pagesizes import LETTER
@@ -60,6 +60,10 @@ from venfour.report_evidence import (
     resolve_report_local_evidence_source,
 )
 from venfour.presentation import SOURCE_PRICE_TYPE_LABELS
+from venfour.market_evidence_presentation import (
+    LIMITED_NO_INCREASE_SUMMARY, project_market_search_context,
+    project_supporting_evidence, validate_market_evidence_display,
+)
 
 
 REPORT_SCHEMA_VERSION = "1"
@@ -975,6 +979,20 @@ def _project_report_data(
         "sourceEvidenceIndex": index,
         "exhibits": [],
     }
+    search = source["analysis"]["artifact"]["result"].get("marketSearch")
+    search_context = project_market_search_context(search)
+    supporting_listings = project_supporting_evidence(search)
+    if search_context is not None:
+        report["independentMarketEvidence"]["marketSearchContext"] = search_context
+        if search_context["baselineStatus"] == "LIMITED":
+            if report["executiveConclusion"]["classification"] == "NO_MATERIAL_DISCREPANCY":
+                report["executiveConclusion"]["summary"] = LIMITED_NO_INCREASE_SUMMARY
+            report["assumptionsAndLimitations"]["limitations"].append(_message({
+                "code": "MARKET_SEARCH_LIMITED", "description": search_context["summary"],
+                "evidenceIds": [],
+            }, ASSUMPTION))
+    if supporting_listings is not None:
+        report["independentMarketEvidence"]["higherPricedComparableListings"] = supporting_listings
     return report
 
 
@@ -1089,6 +1107,12 @@ def _referenced_evidence_ids(report: Mapping[str, Any]) -> set[str]:
 
 
 def _validate_report_semantics(report: Mapping[str, Any]) -> None:
+    for key in ("marketSearchContext", "higherPricedComparableListings"):
+        if key in report["independentMarketEvidence"]:
+            try:
+                validate_market_evidence_display(report["independentMarketEvidence"][key], key)
+            except (ValueError, ValidationError) as exc:
+                raise _failure("Market evidence display is invalid", "REPORT_SCHEMA_INVALID") from exc
     unsigned = {
         key: copy.deepcopy(value) for key, value in report.items() if key != "reportDigest"
     }
@@ -1601,6 +1625,12 @@ def _render_report_story(
 
     market = report["independentMarketEvidence"]
     story.append(_section("Independent market evidence", styles))
+    search_context = market.get("marketSearchContext")
+    if search_context is not None:
+        story.append(_paragraph(search_context["summary"], styles["body"]))
+        if search_context["baselineStatus"] == "LIMITED":
+            for reason in search_context["stopReasons"]:
+                story.append(_paragraph(f"{reason['stream'].title()}: {reason['description']}", styles["small"]))
     for role in ("primary", "secondary"):
         summary = market[role]
         if summary is not None:
@@ -1629,6 +1659,27 @@ def _render_report_story(
         story.append(_paragraph("No selected independent market comparables were available.", styles["body"]))
     else:
         story.append(_table(market_rows, [0.62 * inch, 1.24 * inch, 0.6 * inch, 0.76 * inch, 1.45 * inch, 0.62 * inch, 1.31 * inch], styles, font_style="tiny"))
+
+    supporting_listings = market.get("higherPricedComparableListings")
+    if supporting_listings is not None and supporting_listings["listings"]:
+        story.append(PageBreak())
+        story.append(_section(supporting_listings["title"], styles))
+        story.append(_paragraph(supporting_listings["disclosure"], styles["body"]))
+        for number, listing in enumerate(supporting_listings["listings"], start=1):
+            story.append(_paragraph(f"{number}. {listing['vehicle']} - asking {listing['askingPriceDisplay']}", styles["subsection"]))
+            rows = [["Source and date", "Mileage and location"], [
+                f"{listing['source']} / {listing['priceSource']}\n{listing['temporalBasis']}\n{listing['relevantDate']}",
+                f"{_display(listing['mileage'])} miles\n{_display(listing['distanceMiles'])} miles from the customer",
+            ]]
+            story.append(_table(rows, [3.3 * inch, 3.3 * inch], styles, font_style="small"))
+            if listing["matchingFacts"]:
+                story.append(_paragraph("; ".join(f"{fact['label']}: {fact['value']}" for fact in listing["matchingFacts"]), styles["small"]))
+            if listing["listingUrl"]:
+                story.append(_paragraph(f"Listing source: {listing['listingUrl']}", styles["small"]))
+            for limitation in listing["limitations"]:
+                story.append(_paragraph(limitation, styles["small"]))
+            for difference in listing["materialDifferences"]:
+                story.append(_paragraph(difference, styles["small"]))
 
     calculations = report["adjustmentsAndCalculations"]
     story.append(_section("Adjustments and calculations", styles))
@@ -1892,6 +1943,11 @@ def _required_pdf_content(report: Mapping[str, Any]) -> list[tuple[str, str]]:
                 ("SUPPORTED_RANGE_HIGH", supported["high"]["display"]),
             ]
         )
+    supporting = report["independentMarketEvidence"].get("higherPricedComparableListings")
+    if supporting is not None and supporting["listings"]:
+        result.append(("SUPPORTING_LISTINGS_TITLE", supporting["title"]))
+        result.append(("SUPPORTING_LISTINGS_DISCLOSURE", supporting["disclosure"]))
+        result.extend((f"SUPPORTING_ASKING_PRICE_{index}", listing["askingPriceDisplay"]) for index, listing in enumerate(supporting["listings"]))
     return result
 
 
@@ -1943,15 +1999,16 @@ def validate_valuation_evidence_report_pdf_v1(
     missing_sections = [
         heading for _, heading in MANDATORY_PDF_SECTIONS if heading not in extracted_text
     ]
+    normalized_extracted_text = " ".join(extracted_text.split())
     content_checks = [
         {"code": code, "status": "PASS"}
         for code, expected in _required_pdf_content(value)
-        if expected in extracted_text
+        if " ".join(expected.split()) in normalized_extracted_text
     ]
     missing_content = [
         code
         for code, expected in _required_pdf_content(value)
-        if expected not in extracted_text
+        if " ".join(expected.split()) not in normalized_extracted_text
     ]
     metadata_errors: list[str] = []
     if metadata.get("title") != REPORT_TITLE:

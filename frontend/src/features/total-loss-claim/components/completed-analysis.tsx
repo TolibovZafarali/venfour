@@ -18,7 +18,7 @@ import {
   totalLossClaimBasePath,
   type TotalLossClaimWorkflowView,
 } from "../workflow-route";
-import { InsurerEvidenceDetails, MarketEvidenceDetails, MethodologyDisclosure } from "./case-evidence";
+import { HigherPricedListings, InsurerEvidenceDetails, MarketEvidenceDetails, MarketSearchLimitations, MethodologyDisclosure } from "./case-evidence";
 import { MessagePreparation } from "./message-preparation";
 import { FollowUpPreparation, SentFollowUp } from "./follow-up-preparation";
 import { AcceptedOfferFinalization, CaseResolutionBanner, ManualCaseClosure } from "./case-resolution";
@@ -225,7 +225,10 @@ export function CompletedAnalysis(props: CompletedAnalysisProps) {
   const showContinueAction = stage !== "resolution" && stage !== "request" && stage !== "follow_up" && stage !== "waiting" && stage !== "response" && stage !== "response_received" && stage !== "response_reviewing" && stage !== "response_reviewed" && (stage !== "meaning" || sent || (!closed && report.conclusion.continuingSupported));
   const showReviewNavigation = Boolean(previous) || showWaitingAction || showContinueAction;
   const classification = reportText(report.conclusion.classificationLabel).replace(/^Potential undervaluation signal$/iu, "Potential undervaluation");
-  const resultExplanation = report.conclusion.continuingSupported
+  const searchLimited = report.marketEvidence.marketSearchContext?.baselineStatus === "LIMITED";
+  const resultExplanation = searchLimited && !report.conclusion.continuingSupported
+    ? "No increase is supported by the evidence found; the comparable search was limited."
+    : report.conclusion.continuingSupported
     ? `${manual ? "The original offer you entered" : "The original insurer valuation"} appears low compared with the selected market listings.`
     : /no material discrepancy/iu.test(classification)
       ? "The available market listings do not show a clear basis for a higher valuation."
@@ -372,6 +375,8 @@ export function CompletedAnalysis(props: CompletedAnalysisProps) {
         </div>
         <RepresentativeListings report={report} />
         <MarketEvidenceDetails report={report} open={search.get("details") === "market"} />
+        <MarketSearchLimitations report={report} />
+        <HigherPricedListings report={report} />
         <MethodologyDisclosure report={report} intakeMode={intakeMode} />
       </> : null}
       {stage === "meaning" ? <>
@@ -381,7 +386,7 @@ export function CompletedAnalysis(props: CompletedAnalysisProps) {
         {position ? <p className="meaning-position" data-review-entrance="primary" data-review-order="1">{position}</p> : null}
         {comparison ? <p className="meaning-comparison" data-review-entrance="primary" data-review-order="2">{manual ? "The original offer" : "The original valuation"} {comparison.startsWith("Matches") ? "matches the selected median" : `is ${comparison}`}{hasMoney(report.conclusion.supportedRange?.median) ? ` of ${moneyLabel(report.conclusion.supportedRange?.median)}` : ""}.</p> : null}
         </div>
-        {report.conclusion.continuingSupported ? <p className="meaning-takeaway" data-review-entrance="secondary">Based on the available evidence, you have a reasonable basis to ask the insurer to review {manual ? "the offer" : "its valuation"}.</p> : <p data-review-entrance="secondary">The result does not support a higher valuation request. Your valuation report remains available.</p>}
+        {report.conclusion.continuingSupported ? <p className="meaning-takeaway" data-review-entrance="secondary">Based on the available evidence, you have a reasonable basis to ask the insurer to review {manual ? "the offer" : "its valuation"}.</p> : <p data-review-entrance="secondary">{searchLimited ? "No increase is supported by the evidence found; the search was limited. This does not establish that the insurer’s value is fair." : "The result does not support a higher valuation request."} Your valuation report remains available.</p>}
         <div className="meaning-limitations">
         <p data-review-entrance="secondary" data-review-order="0">{hasMarketListings ? "This does not mean you are automatically owed the selected median or another specific amount. These are advertised listings, not confirmed sale prices, and the insurer may respond with additional evidence." : "This result does not establish that you are owed a higher amount. The insurer may respond with additional evidence."}</p>
         {manual ? <p data-review-entrance="secondary" data-review-order="1">Without the insurer’s valuation report, Venfour cannot review which comparable vehicles or adjustments the insurer used.</p> : null}

@@ -1,0 +1,224 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "marketSearchContext": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "baselineStatus",
+        "summary",
+        "stopReasons"
+      ],
+      "properties": {
+        "baselineStatus": {
+          "enum": [
+            "SUFFICIENT",
+            "LIMITED"
+          ]
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4000
+        },
+        "stopReasons": {
+          "type": "array",
+          "maxItems": 10,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "stream",
+              "code",
+              "description"
+            ],
+            "properties": {
+              "stream": {
+                "enum": [
+                  "current",
+                  "historical"
+                ]
+              },
+              "code": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4000
+              },
+              "description": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4000
+              }
+            }
+          }
+        }
+      }
+    },
+    "higherPricedComparableListings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "title",
+        "disclosure",
+        "affectsBaselineValuation",
+        "searchStatus",
+        "listings"
+      ],
+      "properties": {
+        "title": {
+          "const": "Higher-priced comparable listings"
+        },
+        "disclosure": {
+          "const": "These deliberately selected higher asking prices are supporting examples, not typical market prices or verified sale prices. They do not change the broader market valuation or establish a guaranteed increase."
+        },
+        "affectsBaselineValuation": {
+          "const": false
+        },
+        "searchStatus": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 4000
+        },
+        "listings": {
+          "type": "array",
+          "maxItems": 9,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "identity",
+              "vehicle",
+              "mileage",
+              "askingPriceCents",
+              "askingPriceDisplay",
+              "distanceMiles",
+              "relevantDate",
+              "temporalBasis",
+              "source",
+              "priceSource",
+              "listingUrl",
+              "matchingFacts",
+              "materialDifferences",
+              "limitations",
+              "reasonCodes"
+            ],
+            "properties": {
+              "identity": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4000
+              },
+              "vehicle": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4000
+              },
+              "mileage": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "minimum": 0
+              },
+              "askingPriceCents": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "askingPriceDisplay": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4000
+              },
+              "distanceMiles": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 2500
+              },
+              "relevantDate": {
+                "type": "string",
+                "format": "date"
+              },
+              "temporalBasis": {
+                "enum": [
+                  "Loss-date historical listing",
+                  "Current-market listing"
+                ]
+              },
+              "source": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4000
+              },
+              "priceSource": {
+                "enum": [
+                  "active",
+                  "history"
+                ]
+              },
+              "listingUrl": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 4000
+              },
+              "matchingFacts": {
+                "type": "array",
+                "maxItems": 20,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "label",
+                    "value"
+                  ],
+                  "properties": {
+                    "label": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 4000
+                    },
+                    "value": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 4000
+                    }
+                  }
+                }
+              },
+              "materialDifferences": {
+                "type": "array",
+                "maxItems": 30,
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 4000
+                }
+              },
+              "limitations": {
+                "type": "array",
+                "maxItems": 30,
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 4000
+                }
+              },
+              "reasonCodes": {
+                "type": "array",
+                "maxItems": 30,
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 4000
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

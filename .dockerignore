@@ -8,5 +8,8 @@
 !scripts/**
 !venfour/
 !venfour/**
+!data/
+!data/geography/
+!data/geography/**
 **/__pycache__/
 **/*.py[cod]

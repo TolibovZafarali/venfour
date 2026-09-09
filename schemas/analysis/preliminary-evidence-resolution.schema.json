@@ -16,6 +16,7 @@
     "savedEvidence"
   ],
   "properties": {
+    "marketSearchStatus": { "enum": ["SUFFICIENT", "LIMITED"] },
     "resolutionVersion": {
       "const": "1"
     },

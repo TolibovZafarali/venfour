@@ -274,6 +274,7 @@ class AnalysisRunArtifact:
             "8",
             "9",
             "10",
+            "11",
         }:
             base_request = self.request.get("baseDiscrepancyRequest", {})
             selected_context = default_report_evidence_context(
@@ -878,6 +879,8 @@ def _adaptive_semantic_validation_errors(
     """Replay adaptive diagnostics against their versioned effective policies."""
 
     artifact_version = data["analysisRunSchemaVersion"]
+    if artifact_version == "11":
+        return _efficient_semantic_validation_errors(data, base_request)
     if artifact_version not in {"2", "3", "4", "5", "6", "7", "8", "9", "10"}:
         return []
 
@@ -1019,7 +1022,7 @@ def _adaptive_semantic_validation_errors(
                     "$.result.currentMarketResult: does not match replay of the "
                     "stored current search diagnostics"
                 )
-            if artifact_version not in {"9", "10"} and current_replay.ranking.to_dict() != stage_result["currentRanking"]:
+            if artifact_version not in {"9", "10", "11"} and current_replay.ranking.to_dict() != stage_result["currentRanking"]:
                 errors.append(
                     "$.result.currentRanking: does not match replay of the stored "
                     "current search diagnostics"
@@ -1069,7 +1072,7 @@ def _adaptive_semantic_validation_errors(
                 if historical_replay.ranking is not None
                 else None
             )
-            if artifact_version not in {"9", "10"} and replayed_ranking != stage_result["historicalRanking"]:
+            if artifact_version not in {"9", "10", "11"} and replayed_ranking != stage_result["historicalRanking"]:
                 errors.append(
                     "$.result.historicalRanking: does not match replay of the "
                     "stored historical search diagnostics"
@@ -1078,9 +1081,60 @@ def _adaptive_semantic_validation_errors(
     return errors
 
 
+def _efficient_semantic_validation_errors(
+    data: Mapping[str, Any], base_request: ValuationDiscrepancyRequest,
+) -> list[str]:
+    from venfour.efficient_search import replay_efficient_search
+
+    request, result = data["request"], data["result"]
+    errors: list[str] = []
+    transcript = result["marketSearch"]
+    inputs = transcript["input"]
+    if inputs["target"] != base_request.loss_vehicle.to_dict():
+        errors.append("$.result.marketSearch.input.target: must match the base vehicle")
+    if inputs["subjectFacts"] != request["marketSubjectFacts"]:
+        errors.append("$.result.marketSearch.input.subjectFacts: must match recorded subject facts")
+    if inputs["subjectVin"] != request["marketSubjectFacts"].get("vin"):
+        errors.append("$.result.marketSearch.input.subjectVin: must match the recorded subject VIN")
+    # Effective subject facts include confirmed corrections. The qualification
+    # source intentionally retains the insurer's original uncorrected report.
+    if request["currentObservedDate"] is not None and inputs["observedDate"] != request["currentObservedDate"]:
+        errors.append("$.result.marketSearch.input.observedDate: must match the current observation date")
+    if result["preliminaryResolution"].get("marketSearchStatus") != transcript["baselineStatus"]:
+        errors.append("$.result.preliminaryResolution.marketSearchStatus: must match completed search sufficiency")
+    if result["searchDiagnostics"] != {"current": None, "historical": None}:
+        errors.append("$.result.searchDiagnostics: paged research uses the versioned market search transcript")
+    expected_digest = search_diagnostics_digest(
+        request["searchPolicies"], result["searchDiagnostics"], policy_field="searchPolicies",
+        configured_policy=request["configuredSearchPolicies"],
+    )
+    if data["searchDiagnosticsDigest"] != expected_digest:
+        errors.append("$.searchDiagnosticsDigest: does not match policy provenance")
+    replayed = replay_efficient_search(transcript)
+    for stream in ("current", "historical"):
+        value = getattr(replayed, stream)
+        if (value.to_dict() if value is not None else None) != result[f"{stream}MarketResult"]:
+            errors.append(f"$.result.{stream}MarketResult: does not match deterministic search replay")
+        seed = inputs[f"{stream}Request"]
+        final = request[f"{stream}SearchRequest"]
+        if (seed is None) != (final is None):
+            errors.append(f"$.request.{stream}SearchRequest: must match configured search stream")
+        elif seed is not None:
+            if {key: value for key, value in seed.items() if key not in {"radiusMiles", "resultLimit"}} != {
+                key: value for key, value in final.items() if key not in {"radiusMiles", "resultLimit"}
+            }:
+                errors.append(f"$.result.marketSearch.input.{stream}Request: must match the canonical vehicle and date")
+            capability = transcript["providers"][stream]
+            if capability is None or capability["name"] != data["providers"][stream]["name"]:
+                errors.append(f"$.result.marketSearch.providers.{stream}: must match the recorded provider")
+    return errors
+
+
 def _discovery_version_errors(data: Mapping[str, Any]) -> list[str]:
     errors: list[str] = []
-    current_version = data["analysisRunSchemaVersion"] == "10"
+    if data["analysisRunSchemaVersion"] != "11" and "marketSearchStatus" in data["result"].get("preliminaryResolution", {}):
+        errors.append("$.result.preliminaryResolution.marketSearchStatus: requires analysis run v11")
+    current_version = data["analysisRunSchemaVersion"] in {"10", "11"}
     stack = [("$.request", data["request"]), ("$.result", data["result"])]
     while stack:
         path, value = stack.pop()
@@ -1162,7 +1216,7 @@ def _semantic_validation_errors(data: Mapping[str, Any]) -> list[str]:
             )
 
     base_request = _base_request_from_data(base_data)
-    if data["analysisRunSchemaVersion"] in {"9", "10"}:
+    if data["analysisRunSchemaVersion"] in {"9", "10", "11"}:
         for field, reconstruct in (
             ("currentMarketResult", _market_result_from_data),
             ("historicalMarketResult", _historical_result_from_data),
@@ -1173,10 +1227,10 @@ def _semantic_validation_errors(data: Mapping[str, Any]) -> list[str]:
                     f"$.result.{field}: must be exact canonical normalized market data"
                 )
     errors.extend(_adaptive_semantic_validation_errors(data, base_request))
-    if data["analysisRunSchemaVersion"] in {"9", "10"} and errors:
+    if data["analysisRunSchemaVersion"] in {"9", "10", "11"} and errors:
         return errors
     resolution_result = None
-    if data["analysisRunSchemaVersion"] in {"9", "10"}:
+    if data["analysisRunSchemaVersion"] in {"9", "10", "11"}:
         resolution_result = replay_preliminary_resolution(
             base_request=base_request,
             current_result=(
@@ -1423,7 +1477,7 @@ def _semantic_validation_errors(data: Mapping[str, Any]) -> list[str]:
                 "$.result.discrepancyResult: does not correspond to the stored "
                 "discrepancy request"
             )
-    if not errors and data["analysisRunSchemaVersion"] in {"8", "9", "10"}:
+    if not errors and data["analysisRunSchemaVersion"] in {"8", "9", "10", "11"}:
         expected_qualification = (
             resolution_result.preliminary_qualification
             if resolution_result is not None
@@ -1538,7 +1592,7 @@ def validate_analysis_run_artifact(
         "$.result.discrepancyResult",
         validate_valuation_discrepancy_result,
     )
-    if data["analysisRunSchemaVersion"] in {"8", "9", "10"}:
+    if data["analysisRunSchemaVersion"] in {"8", "9", "10", "11"}:
         source_report = request_snapshot["qualificationSourceReport"]
         if source_report is not None:
             from scripts.extract_report_ai import OutputValidationError
@@ -1562,7 +1616,7 @@ def validate_analysis_run_artifact(
             "$.result.preliminaryQualification",
             validate_preliminary_qualification,
         )
-    if data["analysisRunSchemaVersion"] in {"9", "10"}:
+    if data["analysisRunSchemaVersion"] in {"9", "10", "11"}:
         _validate_nested(
             stage_result["preliminaryResolution"],
             "$.result.preliminaryResolution",

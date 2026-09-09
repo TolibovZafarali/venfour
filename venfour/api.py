@@ -162,6 +162,7 @@ from venfour.presentation import (
     AnalysisPresentationService,
 )
 from venfour.postal_codes import normalize_us_zip_code
+from venfour.market_search_runtime import market_search_configuration_reason
 from venfour.supabase_gateway import (
     CASE_RESOLUTION_TIMEOUT_SECONDS,
     CaseAnalysisGateway,
@@ -2060,13 +2061,20 @@ def _health(_request: Request) -> JSONResponse:
 
 
 def _readiness(request: Request) -> JSONResponse:
+    reasons = list(request.app.state.customer_readiness_reasons)
+    market_probe = request.app.state.market_search_readiness_probe
+    if market_probe is not None:
+        market_reason = market_probe()
+        if market_reason is not None:
+            reasons.append(market_reason)
     ready = bool(
         request.app.state.accepting_customer_requests
         and request.app.state.customer_path_configured
+        and not reasons
     )
     payload: dict[str, Any] = {"status": "ready" if ready else "not_ready"}
-    if request.app.state.customer_readiness_reasons:
-        payload["reasons"] = list(request.app.state.customer_readiness_reasons)
+    if reasons:
+        payload["reasons"] = list(dict.fromkeys(reasons))
     return JSONResponse(
         payload,
         status_code=200 if ready else 503,
@@ -2979,6 +2987,13 @@ def create_app(
         and insurer_response_processor is None
         and insurer_response_coordinator is None
     )
+    market_search_readiness_probe = None
+    if case_analysis_service is None and selected_gateway is not None:
+        # Keep the worker's configured non-secret settings stable, but recheck
+        # the quota period on each probe so expiry cannot remain ready forever.
+        market_readiness_settings = {name: value for name, value in os.environ.items()
+                                     if name.startswith("MARKETCHECK_") and name != "MARKETCHECK_API_KEY"}
+        market_search_readiness_probe = lambda: market_search_configuration_reason(market_readiness_settings)
     insurer_response_customer_path_configured = (
         not default_supabase_customer_runtime
         or (
@@ -3343,6 +3358,7 @@ def create_app(
     )
     app.state.legacy_api_enabled = legacy_enabled
     app.state.customer_path_configured = customer_path_configured
+    app.state.market_search_readiness_probe = market_search_readiness_probe
     app.state.accepting_customer_requests = False
     app.state.staging_proxy_required = selected_staging_proxy_secret is not None
     return app

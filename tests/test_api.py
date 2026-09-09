@@ -11,6 +11,7 @@ import json
 import os
 import socket
 import unittest
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 from unittest.mock import patch
@@ -132,6 +133,13 @@ RESPONSE_ANALYSIS_RUNTIME_ENVIRONMENT = {
 RUNTIME_ENVIRONMENT = {
     **BASE_RUNTIME_ENVIRONMENT,
     **RESPONSE_ANALYSIS_RUNTIME_ENVIRONMENT,
+    "MARKETCHECK_ACCOUNT_IDENTIFIER": "runtime-fixture-account",
+    "MARKETCHECK_MONTHLY_REQUEST_ALLOWANCE": "1000",
+    "MARKETCHECK_RATE_LIMIT_REQUESTS": "100",
+    "MARKETCHECK_RATE_LIMIT_WINDOW_SECONDS": "60",
+    "MARKETCHECK_QUOTA_PERIOD_START": (datetime.now(UTC) - timedelta(days=1)).isoformat(),
+    "MARKETCHECK_QUOTA_PERIOD_END": (datetime.now(UTC) + timedelta(days=29)).isoformat(),
+    "MARKETCHECK_MONTHLY_USAGE_BEFORE_TRACKING": "0",
 }
 
 
@@ -251,6 +259,69 @@ class RuntimeProbeApiTests(unittest.TestCase):
                 self.assertEqual(health.status_code, 200)
                 self.assertEqual(readiness.status_code, 503)
                 self.assertEqual(readiness.json()["status"], "not_ready")
+
+    def test_market_readiness_requires_explicit_account_facts(self) -> None:
+        cases = (
+            ("MARKETCHECK_ACCOUNT_IDENTIFIER", "MARKET_ACCOUNT_IDENTIFIER_REQUIRED"),
+            ("MARKETCHECK_RATE_LIMIT_REQUESTS", "MARKET_ACCOUNT_RATE_LIMIT_UNCONFIGURED"),
+            ("MARKETCHECK_RATE_LIMIT_WINDOW_SECONDS", "MARKET_ACCOUNT_RATE_LIMIT_UNCONFIGURED"),
+            ("MARKETCHECK_MONTHLY_REQUEST_ALLOWANCE", "MARKET_ACCOUNT_MONTHLY_ALLOWANCE_UNCONFIGURED"),
+            ("MARKETCHECK_QUOTA_PERIOD_START", "MARKET_ACCOUNT_QUOTA_PERIOD_UNCONFIGURED"),
+            ("MARKETCHECK_QUOTA_PERIOD_END", "MARKET_ACCOUNT_QUOTA_PERIOD_UNCONFIGURED"),
+            ("MARKETCHECK_MONTHLY_USAGE_BEFORE_TRACKING", "MARKET_ACCOUNT_PRIOR_USAGE_UNCONFIGURED"),
+        )
+        for missing, reason in cases:
+            environment = dict(RUNTIME_ENVIRONMENT)
+            del environment[missing]
+            with self.subTest(missing=missing):
+                health, readiness = self.probe(environment)
+                self.assertEqual(health.status_code, 200)
+                self.assertEqual(readiness.status_code, 503)
+                self.assertEqual(readiness.json(), {"status": "not_ready", "reasons": [reason]})
+
+    def test_market_readiness_rejects_malformed_limits_without_echoing_values(self) -> None:
+        cases = (
+            ({"MARKETCHECK_ACCOUNT_IDENTIFIER": "x" * 201}, "MARKET_ACCOUNT_IDENTIFIER_INVALID"),
+            ({"MARKETCHECK_RATE_LIMIT_REQUESTS": "0"}, "MARKET_ACCOUNT_RATE_LIMIT_INVALID"),
+            ({"MARKETCHECK_MONTHLY_REQUEST_ALLOWANCE": "unknown"}, "MARKET_ACCOUNT_MONTHLY_ALLOWANCE_INVALID"),
+            ({"MARKETCHECK_MONTHLY_USAGE_BEFORE_TRACKING": "-1"}, "MARKET_ACCOUNT_PRIOR_USAGE_INVALID"),
+            ({"MARKETCHECK_QUOTA_PERIOD_END": "unknown"}, "MARKET_ACCOUNT_QUOTA_PERIOD_INVALID"),
+            ({"MARKETCHECK_CONFIRMED_TARIFF_USD_PER_ATTEMPT": "unknown"}, "MARKET_ACCOUNT_TARIFF_INVALID"),
+            ({"MARKETCHECK_BUDGET_TOTAL_ATTEMPTS": "0"}, "MARKET_REQUEST_POLICY_INVALID"),
+            ({"MARKETCHECK_SEARCH_PAGE_SIZE": "51"}, "MARKET_SEARCH_POLICY_INVALID"),
+            ({"MARKETCHECK_ACCOUNT_MAX_RADIUS_MILES": "100.5"}, "MARKET_SEARCH_POLICY_INVALID"),
+            ({"MARKETCHECK_CASE_EVIDENCE_RETENTION_DAYS": "31"}, "MARKET_CASE_EVIDENCE_RETENTION_INVALID"),
+        )
+        for overrides, reason in cases:
+            with self.subTest(reason=reason):
+                _health, readiness = self.probe(RUNTIME_ENVIRONMENT | overrides)
+                self.assertEqual(readiness.status_code, 503)
+                self.assertEqual(readiness.json(), {"status": "not_ready", "reasons": [reason]})
+                self.assertNotIn("unknown", readiness.text)
+
+    def test_market_readiness_accepts_explicit_metered_plan_without_assumed_quota(self) -> None:
+        environment = {key: value for key, value in RUNTIME_ENVIRONMENT.items()
+                       if key not in {"MARKETCHECK_MONTHLY_REQUEST_ALLOWANCE", "MARKETCHECK_QUOTA_PERIOD_START",
+                                      "MARKETCHECK_QUOTA_PERIOD_END", "MARKETCHECK_MONTHLY_USAGE_BEFORE_TRACKING"}}
+        environment["MARKETCHECK_ACCOUNT_METERED"] = "true"
+        _health, readiness = self.probe(environment)
+        self.assertEqual(readiness.status_code, 200)
+
+    def test_market_readiness_rechecks_quota_expiry_without_provider_requests(self) -> None:
+        with patch.dict(os.environ, RUNTIME_ENVIRONMENT, clear=True), patch(
+            "venfour.api.CloudTasksInsurerResponseJobDispatcher", return_value=RuntimeProbeResponseDispatcher(),
+        ), patch("venfour.api.CloudTasksWorkItemDispatcher", return_value=RuntimeProbePackageDispatcher()), patch.object(
+            SupabaseHttpGateway, "list_due_total_loss_insurer_response_analysis_jobs", return_value=[],
+        ), patch("venfour.market_search_runtime.datetime") as market_clock, patch.object(
+            socket.socket, "connect", side_effect=AssertionError("readiness must not make network requests"),
+        ):
+            market_clock.now.return_value = datetime.now(UTC)
+            with TestClient(create_app(enable_legacy_api=False)) as client:
+                self.assertEqual(client.get("/ready").status_code, 200)
+                market_clock.now.return_value = datetime.now(UTC) + timedelta(days=30)
+                response = client.get("/ready")
+                self.assertEqual(response.status_code, 503)
+                self.assertEqual(response.json(), {"status": "not_ready", "reasons": ["MARKET_ACCOUNT_QUOTA_PERIOD_INACTIVE"]})
 
     def test_readiness_rejects_malformed_runtime_configuration(self) -> None:
         malformed_overrides = (

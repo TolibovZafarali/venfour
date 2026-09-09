@@ -22,6 +22,7 @@ from venfour.adaptive_search import (
     AdaptiveSearchContractError,
     AdaptiveSearchPolicies,
     AdaptiveSearchPolicy,
+    SearchStage,
     adaptive_discover_historical_market_evidence,
     adaptive_discover_market_listings,
     adaptive_search_policy_for_provider,
@@ -68,6 +69,7 @@ from venfour.market import (
     unfiltered_drivetrain_discovery,
 )
 from venfour.preliminary_resolution import resolve_preliminary_evidence
+from venfour.efficient_search import EfficientMarketSearch, subject_material_facts
 
 
 RunIdFactory = Callable[[], UUID | str]
@@ -382,6 +384,7 @@ class AnalysisOrchestrator:
         resolution_lookup: Callable[..., Mapping[str, Any]] | None = None,
         run_id_factory: RunIdFactory | None = None,
         clock: Clock | None = None,
+        market_search: EfficientMarketSearch | None = None,
     ) -> None:
         if not isinstance(repository, AnalysisRunRepository):
             raise AnalysisInputError(
@@ -404,6 +407,7 @@ class AnalysisOrchestrator:
         self._resolution_lookup = resolution_lookup
         self._run_id_factory = run_id_factory if run_id_factory is not None else uuid4
         self._clock = clock if clock is not None else lambda: datetime.now(timezone.utc)
+        self._market_search = market_search
 
     @staticmethod
     def _normalize_provider_version(value: str | None, path: str) -> str | None:
@@ -628,6 +632,15 @@ class AnalysisOrchestrator:
             historical_policy = self._effective_policy_for_provider(
                 historical_policy, self._historical_provider, "historical"
             )
+        if self._market_search is not None:
+            def initial_policy(provider: Any) -> AdaptiveSearchPolicy:
+                radius = min(self._market_search.policy.local_radius_miles,
+                             self._market_search.policy.boundary, provider.maximum_search_radius_miles)
+                return AdaptiveSearchPolicy(stages=(SearchStage(radius, self._market_search.policy.page_size),))
+            if request.current_search is not None:
+                current_policy = initial_policy(self._current_provider)
+            if request.historical_search is not None:
+                historical_policy = initial_policy(self._historical_provider)
         effective_search_policies = AdaptiveSearchPolicies(
             current=current_policy,
             historical=historical_policy,
@@ -671,7 +684,21 @@ class AnalysisOrchestrator:
 
         historical_result = None
         historical_diagnostics = None
-        if historical_search_request is not None:
+        current_result = None
+        current_diagnostics = None
+        market_search_result = None
+        market_facts = None
+        if self._market_search is not None:
+            market_facts = subject_material_facts(request.ccc_report)
+            market_search_result = self._market_search.run(
+                target=base_request.loss_vehicle, current_request=current_search_request,
+                historical_request=historical_search_request,
+                observed_date=request.current_search.observed_date if request.current_search else self._created_at(self._clock)[:10],
+                subject_facts=market_facts, subject_vin=request.ccc_report.get("vehicle", {}).get("vin"),
+            )
+            historical_result = market_search_result.historical
+            current_result = market_search_result.current
+        if historical_search_request is not None and self._market_search is None:
             try:
                 adaptive_historical = adaptive_discover_historical_market_evidence(
                     historical_search_request,
@@ -694,9 +721,7 @@ class AnalysisOrchestrator:
                 raise AnalysisExecutionError(
                     "Historical evidence search could not complete"
                 ) from exc
-        current_result = None
-        current_diagnostics = None
-        if current_search_request is not None:
+        if current_search_request is not None and self._market_search is None:
             try:
                 adaptive_current = adaptive_discover_market_listings(
                     current_search_request,
@@ -740,6 +765,7 @@ class AnalysisOrchestrator:
                 evidence_context=evidence_context,
                 lookup=self._resolution_lookup,
                 analyzer=self._analyzer,
+                market_search_status=(market_search_result.transcript["baselineStatus"] if market_search_result else None),
             )
             discrepancy_request = resolved.discrepancy_request
             discrepancy_result = resolved.discrepancy_result
@@ -788,6 +814,8 @@ class AnalysisOrchestrator:
             ),
         }
         artifact = AnalysisRunArtifact(
+            analysis_run_schema_version="11" if market_search_result else "10",
+            analysis_version="11" if market_search_result else "10",
             run_id=run_id,
             created_at=created_at,
             request_digest=discrepancy_request_digest(discrepancy_request_data),
@@ -802,6 +830,7 @@ class AnalysisOrchestrator:
                 "historical": historical_metadata,
             },
             request={
+                **({"marketSubjectFacts": market_facts} if market_search_result else {}),
                 "baseDiscrepancyRequest": base_request.to_dict(),
                 "lossDateSource": (
                     "OVERRIDE"
@@ -833,6 +862,7 @@ class AnalysisOrchestrator:
                 "qualificationSourceReport": request.qualification_source_report,
             },
             result={
+                **({"marketSearch": market_search_result.transcript} if market_search_result else {}),
                 "currentMarketResult": (
                     current_result.to_dict() if current_result is not None else None
                 ),

@@ -16,6 +16,8 @@ from datetime import datetime
 from typing import Any, Protocol, runtime_checkable
 from urllib.parse import urlsplit
 from uuid import UUID
+from jsonschema.exceptions import ValidationError
+from venfour.market_evidence_presentation import validate_market_evidence_display
 
 from venfour.supabase_gateway import (
     CUSTOMER_TOTAL_LOSS_REPORT_FILENAME,
@@ -1069,7 +1071,8 @@ def validate_report_projection(value: Any) -> dict[str, Any]:
     market = _bounded_json_mapping(
         report.get("marketEvidence"), "Report market evidence"
     )
-    if set(market) != {
+    optional_market_fields = {"marketSearchContext", "higherPricedComparableListings"}
+    if set(market) - optional_market_fields != {
         "primary",
         "secondary",
         "comparables",
@@ -1077,6 +1080,11 @@ def validate_report_projection(value: Any) -> dict[str, Any]:
         "evidenceDateContext",
     }:
         raise SupabaseContractError("Report market evidence is invalid")
+    for key in optional_market_fields & set(market):
+        try:
+            validate_market_evidence_display(market[key], key)
+        except (ValueError, TypeError, ValidationError) as exc:
+            raise SupabaseContractError("Report supporting market evidence is invalid") from exc
     for role in ("primary", "secondary"):
         summary = market.get(role)
         if summary is None:

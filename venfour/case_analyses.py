@@ -225,6 +225,7 @@ class SupabaseAnalysisRunRepository:
         gateway: CaseAnalysisGateway,
         user_id: str,
         *,
+        case_id: str | None = None,
         job_id: str | None = None,
         processing_token: str | None = None,
     ) -> None:
@@ -232,6 +233,7 @@ class SupabaseAnalysisRunRepository:
             raise TypeError("gateway must implement CaseAnalysisGateway")
         self._gateway = gateway
         self._user_id = _canonical_uuid(user_id, "User ID")
+        self._case_id = _canonical_uuid(case_id, "Case ID") if case_id is not None else None
         if (job_id is None) != (processing_token is None):
             raise ValueError("job_id and processing_token must be supplied together")
         self._job_id = (
@@ -258,6 +260,34 @@ class SupabaseAnalysisRunRepository:
     def resolution_cache_gateway(self) -> Any:
         from venfour.market_fact_cache import MarketFactCacheGateway
         return self._gateway if isinstance(self._gateway, MarketFactCacheGateway) else None
+
+    @property
+    def market_request_gateway(self) -> Any:
+        from venfour.market_request_budget import MarketRequestGateway
+        return self._gateway if isinstance(self._gateway, MarketRequestGateway) else None
+
+    @property
+    def market_case_id(self) -> str | None:
+        return self._case_id
+
+    @property
+    def market_job_id(self) -> str | None:
+        return self._job_id
+
+    @property
+    def market_processing_token(self) -> str | None:
+        return self._processing_token
+
+    def market_search_progress(self, retention_days: int | None) -> Any:
+        from venfour.search_progress import CaseSearchProgress
+        if retention_days is None:
+            return None
+        if self._case_id is None or self._job_id is None or self._processing_token is None:
+            raise ValueError("Resumable market research requires an active case job")
+        return CaseSearchProgress(
+            self._gateway, case_id=self._case_id, job_id=self._job_id,
+            processing_token=self._processing_token, retention_days=retention_days,
+        )
 
     @property
     def completed_run_id(self) -> str | None:
@@ -458,6 +488,16 @@ def _live_creation_factory(
                                    if isinstance(repository, SupabaseAnalysisRunRepository) else None),
         resolution_cache=(repository.resolution_cache_gateway
                           if isinstance(repository, SupabaseAnalysisRunRepository) else None),
+        market_request_gateway=(repository.market_request_gateway
+                                if isinstance(repository, SupabaseAnalysisRunRepository) else None),
+        market_case_id=(repository.market_case_id
+                        if isinstance(repository, SupabaseAnalysisRunRepository) else None),
+        market_job_id=(repository.market_job_id
+                       if isinstance(repository, SupabaseAnalysisRunRepository) else None),
+        market_processing_token=(repository.market_processing_token
+                                 if isinstance(repository, SupabaseAnalysisRunRepository) else None),
+        market_progress_factory=(repository.market_search_progress
+                                 if isinstance(repository, SupabaseAnalysisRunRepository) else None),
     )
 
 
@@ -1169,6 +1209,7 @@ class CaseAnalysisService:
         repository = SupabaseAnalysisRunRepository(
             self._gateway,
             user_id,
+            case_id=case_id,
             job_id=job_id,
             processing_token=processing_token,
         )

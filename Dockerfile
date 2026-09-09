@@ -14,6 +14,7 @@ RUN python -m pip install --no-cache-dir --requirement requirements.txt
 COPY schemas/ ./schemas/
 COPY scripts/ ./scripts/
 COPY venfour/ ./venfour/
+COPY data/geography/ ./data/geography/
 
 USER 65534:65534
 

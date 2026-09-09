@@ -1322,6 +1322,24 @@ describe("total-loss claim API", () => {
             },
             issueDate: "2026-08-29",
             marketEvidence: {
+              marketSearchContext: {
+                baselineStatus: "LIMITED",
+                summary: "The comparable search was limited.",
+                stopReasons: [{ stream: "current", code: "GEOGRAPHIC_SCOPE_LIMITED", description: "The available locations were searched." }],
+              },
+              higherPricedComparableListings: {
+                title: "Higher-priced comparable listings",
+                disclosure: "These deliberately selected higher asking prices are supporting examples, not typical market prices or verified sale prices. They do not change the broader market valuation or establish a guaranteed increase.",
+                affectsBaselineValuation: false,
+                searchStatus: "REUSED_VERIFIED_EVIDENCE",
+                listings: [{
+                  identity: "supporting-example-1", vehicle: "2022 Example Sedan", mileage: 31500,
+                  askingPriceCents: 2400000, askingPriceDisplay: "$24,000.00", distanceMiles: 12.5,
+                  relevantDate: "2026-08-28", temporalBasis: "Current-market listing", source: "Example provider", priceSource: "active",
+                  listingUrl: "https://example.invalid/listing", matchingFacts: [{ label: "Engine", value: "2.0L" }],
+                  materialDifferences: [], limitations: ["The asking price is not a verified completed-sale price."], reasonCodes: ["STRICT_VERIFIED_MATCH"],
+                }],
+              },
               comparables: [
                 {
                   advertisedPrice: "$21,000.00",
@@ -1386,6 +1404,11 @@ describe("total-loss claim API", () => {
         summary: { fullyDisclosedAdjustmentCount: 2 },
       },
       marketEvidence: {
+        marketSearchContext: { baselineStatus: "LIMITED" },
+        higherPricedComparableListings: {
+          affectsBaselineValuation: false,
+          listings: [{ askingPriceDisplay: "$24,000.00", priceSource: "active" }],
+        },
         comparables: [
           {
             advertisedPrice: "$21,000.00",

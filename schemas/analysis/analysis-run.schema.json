@@ -32,6 +32,9 @@
     },
     {
       "$ref": "#/$defs/analysisRunV10"
+    },
+    {
+      "$ref": "#/$defs/analysisRunV11"
     }
   ],
   "$defs": {
@@ -267,7 +270,10 @@
           "pattern": "\\S"
         },
         "version": {
-          "type": ["string", "null"],
+          "type": [
+            "string",
+            "null"
+          ],
           "minLength": 1,
           "pattern": "\\S"
         }
@@ -434,7 +440,10 @@
       ],
       "properties": {
         "inputMode": {
-          "enum": ["REPORT", "MANUAL"]
+          "enum": [
+            "REPORT",
+            "MANUAL"
+          ]
         },
         "reportAvailable": {
           "type": "boolean"
@@ -443,13 +452,23 @@
           "type": "boolean"
         },
         "reportProvider": {
-          "type": ["string", "null"],
+          "type": [
+            "string",
+            "null"
+          ],
           "minLength": 1,
           "maxLength": 500
         },
         "reportAdapter": {
-          "type": ["string", "null"],
-          "enum": ["CCC", "GENERIC", null]
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "CCC",
+            "GENERIC",
+            null
+          ]
         },
         "partialExtraction": {
           "type": "boolean"
@@ -595,7 +614,10 @@
           ]
         },
         "lossDateOverride": {
-          "type": ["string", "null"],
+          "type": [
+            "string",
+            "null"
+          ],
           "format": "date"
         },
         "currentSearchRequest": {
@@ -605,7 +627,10 @@
           "$ref": "#/$defs/nullableHistoricalSearchRequest"
         },
         "currentObservedDate": {
-          "type": ["string", "null"],
+          "type": [
+            "string",
+            "null"
+          ],
           "format": "date"
         }
       }
@@ -633,7 +658,10 @@
           ]
         },
         "lossDateOverride": {
-          "type": ["string", "null"],
+          "type": [
+            "string",
+            "null"
+          ],
           "format": "date"
         },
         "currentSearchRequest": {
@@ -643,7 +671,10 @@
           "$ref": "#/$defs/nullableHistoricalSearchRequest"
         },
         "currentObservedDate": {
-          "type": ["string", "null"],
+          "type": [
+            "string",
+            "null"
+          ],
           "format": "date"
         },
         "searchPolicy": {
@@ -674,7 +705,10 @@
           ]
         },
         "lossDateOverride": {
-          "type": ["string", "null"],
+          "type": [
+            "string",
+            "null"
+          ],
           "format": "date"
         },
         "currentSearchRequest": {
@@ -684,7 +718,10 @@
           "$ref": "#/$defs/nullableHistoricalSearchRequest"
         },
         "currentObservedDate": {
-          "type": ["string", "null"],
+          "type": [
+            "string",
+            "null"
+          ],
           "format": "date"
         },
         "searchPolicies": {
@@ -716,7 +753,10 @@
           ]
         },
         "lossDateOverride": {
-          "type": ["string", "null"],
+          "type": [
+            "string",
+            "null"
+          ],
           "format": "date"
         },
         "currentSearchRequest": {
@@ -726,7 +766,10 @@
           "$ref": "#/$defs/nullableHistoricalSearchRequest"
         },
         "currentObservedDate": {
-          "type": ["string", "null"],
+          "type": [
+            "string",
+            "null"
+          ],
           "format": "date"
         },
         "configuredSearchPolicies": {
@@ -1682,6 +1725,435 @@
         },
         "evidenceContext": {
           "$ref": "#/$defs/evidenceContext"
+        }
+      }
+    },
+    "analysisRunV11": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "analysisRunSchemaVersion",
+        "runId",
+        "createdAt",
+        "analysisVersion",
+        "discrepancyAnalysisVersion",
+        "comparableScoringVersion",
+        "requestDigest",
+        "searchDiagnosticsDigest",
+        "providers",
+        "request",
+        "result",
+        "evidenceContext"
+      ],
+      "properties": {
+        "analysisRunSchemaVersion": {
+          "const": "11"
+        },
+        "runId": {
+          "$ref": "#/$defs/runId"
+        },
+        "createdAt": {
+          "$ref": "#/$defs/createdAt"
+        },
+        "analysisVersion": {
+          "const": "11"
+        },
+        "discrepancyAnalysisVersion": {
+          "enum": [
+            "1",
+            "2"
+          ]
+        },
+        "comparableScoringVersion": {
+          "const": "2"
+        },
+        "requestDigest": {
+          "$ref": "#/$defs/requestDigest"
+        },
+        "searchDiagnosticsDigest": {
+          "$ref": "#/$defs/requestDigest"
+        },
+        "providers": {
+          "$ref": "#/$defs/providers"
+        },
+        "request": {
+          "$ref": "#/$defs/analysisRunRequestV11"
+        },
+        "result": {
+          "$ref": "#/$defs/analysisRunResultV11"
+        },
+        "evidenceContext": {
+          "$ref": "#/$defs/evidenceContext"
+        }
+      }
+    },
+    "analysisRunRequestV11": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "baseDiscrepancyRequest",
+        "lossDateSource",
+        "lossDateOverride",
+        "currentSearchRequest",
+        "historicalSearchRequest",
+        "currentObservedDate",
+        "configuredSearchPolicies",
+        "searchPolicies",
+        "qualificationSourceReport",
+        "marketSubjectFacts"
+      ],
+      "properties": {
+        "baseDiscrepancyRequest": {
+          "$ref": "https://schemas.venfour.local/analysis/valuation-discrepancy-request.schema.json"
+        },
+        "lossDateSource": {
+          "enum": [
+            "CCC_REPORT",
+            "OVERRIDE"
+          ]
+        },
+        "lossDateOverride": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date"
+        },
+        "currentSearchRequest": {
+          "$ref": "#/$defs/nullableCurrentSearchRequest"
+        },
+        "historicalSearchRequest": {
+          "$ref": "#/$defs/nullableHistoricalSearchRequest"
+        },
+        "currentObservedDate": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date"
+        },
+        "configuredSearchPolicies": {
+          "$ref": "#/$defs/searchPolicies"
+        },
+        "searchPolicies": {
+          "$ref": "#/$defs/searchPolicies"
+        },
+        "qualificationSourceReport": {
+          "description": "Original effective insurer-report source, validated against its versioned report contract; null when unavailable or not applicable. Customer-confirmed analysis overrides are retained separately in baseDiscrepancyRequest.",
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "marketSubjectFacts": {
+          "description": "Material facts projected from the validated effective report, including customer-confirmed corrections; distinct from the original qualification source.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "bodyType",
+            "engine",
+            "fuelType",
+            "transmission",
+            "equipment",
+            "certified",
+            "warranty",
+            "vin",
+            "powertrain",
+            "cylinders",
+            "bodySubtype",
+            "cabType",
+            "bedLength",
+            "doors"
+          ],
+          "properties": {
+            "bodyType": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "maxLength": 2000
+            },
+            "engine": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "maxLength": 2000
+            },
+            "fuelType": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "maxLength": 2000
+            },
+            "transmission": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "maxLength": 2000
+            },
+            "equipment": {
+              "type": [
+                "array",
+                "null"
+              ],
+              "maxItems": 500,
+              "items": {
+                "type": "string",
+                "maxLength": 2000
+              }
+            },
+            "certified": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            },
+            "warranty": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            },
+            "vin": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "maxLength": 2000
+            },
+            "powertrain": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "maxLength": 2000
+            },
+            "cylinders": {
+              "type": [
+                "string",
+                "number",
+                "null"
+              ]
+            },
+            "bodySubtype": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "maxLength": 2000
+            },
+            "cabType": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "maxLength": 2000
+            },
+            "bedLength": {
+              "type": [
+                "string",
+                "number",
+                "null"
+              ]
+            },
+            "doors": {
+              "type": [
+                "string",
+                "number",
+                "null"
+              ]
+            }
+          }
+        }
+      }
+    },
+    "analysisRunResultV11": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "currentMarketResult",
+        "historicalMarketResult",
+        "currentRanking",
+        "historicalRanking",
+        "discrepancyRequest",
+        "discrepancyResult",
+        "searchDiagnostics",
+        "preliminaryQualification",
+        "preliminaryResolution",
+        "marketSearch"
+      ],
+      "properties": {
+        "currentMarketResult": {
+          "$ref": "#/$defs/nullableCurrentMarketResult"
+        },
+        "historicalMarketResult": {
+          "$ref": "#/$defs/nullableHistoricalMarketResult"
+        },
+        "currentRanking": {
+          "$ref": "#/$defs/nullableRankingResult"
+        },
+        "historicalRanking": {
+          "$ref": "#/$defs/nullableRankingResult"
+        },
+        "discrepancyRequest": {
+          "$ref": "https://schemas.venfour.local/analysis/valuation-discrepancy-request.schema.json"
+        },
+        "discrepancyResult": {
+          "$ref": "https://schemas.venfour.local/analysis/valuation-discrepancy-result.schema.json"
+        },
+        "searchDiagnostics": {
+          "$ref": "#/$defs/searchDiagnosticsV4"
+        },
+        "preliminaryQualification": {
+          "$ref": "https://schemas.venfour.local/analysis/preliminary-qualification.schema.json"
+        },
+        "preliminaryResolution": {
+          "$ref": "https://schemas.venfour.local/analysis/preliminary-evidence-resolution.schema.json"
+        },
+        "marketSearch": {
+          "$ref": "#/$defs/marketSearchTranscript"
+        }
+      }
+    },
+    "marketSearchTranscript": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "input",
+        "inputDigest",
+        "origin",
+        "centers",
+        "geography",
+        "providers",
+        "events",
+        "observations",
+        "stopReasons",
+        "branches",
+        "usageBefore",
+        "usageAfter",
+        "historicalTemplate",
+        "baselineIdentities",
+        "baselineStatus",
+        "supportingEvidence",
+        "digest",
+        "supportingIssues"
+      ],
+      "properties": {
+        "version": {
+          "const": "1"
+        },
+        "input": {
+          "type": "object"
+        },
+        "inputDigest": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "origin": {
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "centers": {
+          "type": "array",
+          "maxItems": 5,
+          "items": {
+            "type": "object"
+          }
+        },
+        "geography": {
+          "type": "object"
+        },
+        "providers": {
+          "type": "object"
+        },
+        "events": {
+          "type": "array",
+          "maxItems": 200,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "operation",
+              "payload",
+              "usageBefore",
+              "usageAfter"
+            ],
+            "properties": {
+              "operation": {
+                "type": "object"
+              },
+              "payload": {
+                "type": "object"
+              },
+              "usageBefore": {
+                "type": "object"
+              },
+              "usageAfter": {
+                "type": "object"
+              },
+              "priorAttempts": {
+                "type": "array",
+                "maxItems": 60,
+                "items": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "observations": {
+          "type": "array",
+          "maxItems": 1000,
+          "items": {
+            "type": "object"
+          }
+        },
+        "stopReasons": {
+          "type": "object"
+        },
+        "branches": {
+          "type": "object"
+        },
+        "usageBefore": {
+          "type": "object"
+        },
+        "usageAfter": {
+          "type": "object"
+        },
+        "historicalTemplate": {
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "baselineIdentities": {
+          "type": "object"
+        },
+        "baselineStatus": {
+          "enum": [
+            "SUFFICIENT",
+            "LIMITED"
+          ]
+        },
+        "supportingEvidence": {
+          "type": "object"
+        },
+        "digest": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "supportingIssues": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "type": "object"
+          }
         }
       }
     }

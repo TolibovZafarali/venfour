@@ -3,7 +3,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
 
-select plan(50);
+select plan(53);
 
 insert into auth.users (id, email, email_confirmed_at, is_anonymous)
 values
@@ -628,9 +628,11 @@ select ok(
 
 select ok(
   (select not (report #> '{insurerEvidence,comparables,0}' ? 'sourcePrice')
+      and not (report -> 'marketEvidence' ? 'marketSearchContext')
+      and not (report -> 'marketEvidence' ? 'higherPricedComparableListings')
    from public.get_total_loss_customer_reports(
      'f2000000-0000-4000-8000-000000000001', null)),
-  'legacy report rows do not acquire invented source-price semantics'
+  'legacy report rows do not acquire invented source-price or supporting-listing semantics'
 );
 
 select is(
@@ -979,6 +981,36 @@ values (
   jsonb_build_object('sha256', repeat('a', 64))
 );
 
+update m6_report_payload set report = jsonb_set(
+  report, '{independentMarketEvidence}',
+  (report -> 'independentMarketEvidence') || jsonb_build_object(
+    'marketSearchContext', jsonb_build_object(
+      'baselineStatus', 'LIMITED',
+      'summary', 'The comparable search was limited.',
+      'stopReasons', jsonb_build_array(jsonb_build_object(
+        'stream', 'current', 'code', 'BUDGET_OR_QUOTA_LIMITED',
+        'description', 'The search stopped at its available request allowance.'
+      ))
+    ),
+    'higherPricedComparableListings', jsonb_build_object(
+      'title', 'Higher-priced comparable listings',
+      'disclosure', 'These deliberately selected higher asking prices are supporting examples, not typical market prices or verified sale prices. They do not change the broader market valuation or establish a guaranteed increase.',
+      'affectsBaselineValuation', false, 'searchStatus', 'REUSED_VERIFIED_EVIDENCE',
+      'listings', jsonb_build_array(jsonb_build_object(
+        'identity', 'supporting-example-1', 'vehicle', '2022 Fictional Sedan Touring',
+        'mileage', 32000, 'askingPriceCents', 2400000, 'askingPriceDisplay', '$24,000.00',
+        'distanceMiles', 20, 'relevantDate', '2026-08-20',
+        'temporalBasis', 'Loss-date historical listing', 'source', 'Fictional market source',
+        'priceSource', 'history', 'listingUrl', 'https://fictional.invalid/listing',
+        'matchingFacts', jsonb_build_array(jsonb_build_object('label', 'Engine', 'value', '2.0L I4')),
+        'materialDifferences', '[]'::jsonb,
+        'limitations', jsonb_build_array('The asking price is not a verified completed-sale price.'),
+        'reasonCodes', jsonb_build_array('STRICT_VERIFIED_MATCH')
+      ))
+    )
+  )
+);
+
 insert into public.total_loss_report_versions (
   id, case_id, report_series_id, version_number, final_assessment_id,
   preliminary_snapshot_id, document_id, renderer_version, template_version,
@@ -1065,6 +1097,34 @@ select ok(
      'f2000000-0000-4000-8000-000000000001', null)),
   'typed Take Price survives the authorized customer projection without becoming advertised'
 );
+
+select ok(
+  (select report #>> '{marketEvidence,marketSearchContext,baselineStatus}' = 'LIMITED'
+      and report #>> '{marketEvidence,higherPricedComparableListings,title}' = 'Higher-priced comparable listings'
+      and report #> '{marketEvidence,higherPricedComparableListings,affectsBaselineValuation}' = 'false'::jsonb
+      and report #>> '{marketEvidence,higherPricedComparableListings,listings,0,askingPriceDisplay}' = '$24,000.00'
+      and report #>> '{marketEvidence,higherPricedComparableListings,listings,0,priceSource}' = 'history'
+      and report #>> '{conclusion,classificationLabel}' = 'Material undervalue signal'
+   from public.get_total_loss_customer_reports(
+     'f2000000-0000-4000-8000-000000000001', null)),
+  'the owned report RPC preserves separate supporting facts and limited-search context without changing the conclusion'
+);
+
+select set_config('request.jwt.claim.sub', 'f1000000-0000-4000-8000-000000000002', true);
+select is(
+  (select count(*) from public.get_total_loss_customer_reports(
+    'f2000000-0000-4000-8000-000000000001', 'fe000000-0000-4000-8000-000000000002')),
+  0::bigint,
+  'a different owner cannot read a report containing supporting examples'
+);
+select set_config('request.jwt.claim.sub', 'f1000000-0000-4000-8000-000000000003', true);
+select is(
+  (select count(*) from public.get_total_loss_customer_reports(
+    'f2000000-0000-4000-8000-000000000001', 'fe000000-0000-4000-8000-000000000002')),
+  0::bigint,
+  'an anonymous customer cannot read a report containing supporting examples'
+);
+select set_config('request.jwt.claim.sub', 'f1000000-0000-4000-8000-000000000001', true);
 
 select throws_ok(
   $$

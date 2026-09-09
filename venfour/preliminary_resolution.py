@@ -234,6 +234,7 @@ def resolve_preliminary_evidence(
     lookup: Lookup | None = None,
     saved_evidence: Sequence[Mapping[str, Any]] = (),
     analyzer: ValuationDiscrepancyAnalyzer | None = None,
+    market_search_status: str | None = None,
 ) -> PreliminaryResolutionResult:
     """Resolve supported missing facts with fixed identity and request budgets.
 
@@ -250,6 +251,8 @@ def resolve_preliminary_evidence(
               "historicalMarketResult": historical_result.to_dict() if historical_result else None,
               "currentObservedDate": current_observed_date, "sourceReport": source_report,
               "evidenceContext": evidence_context, "savedEvidence": saved}
+    if market_search_status is not None:
+        inputs["marketSearchStatus"] = market_search_status
     original_current, original_historical = current_result, historical_result
     attempts: list[dict[str, Any]] = []
     updates: list[dict[str, Any]] = []
@@ -273,7 +276,8 @@ def resolve_preliminary_evidence(
         qualification = qualify_preliminary(source_report=source_report, evidence_context=evidence_context,
                                             discrepancy_request=request.to_dict(), discrepancy_result=result.to_dict(),
                                             current_ranking=current_ranking.to_dict() if current_ranking else None,
-                                            historical_ranking=historical_ranking.to_dict() if historical_ranking else None)
+                                            historical_ranking=historical_ranking.to_dict() if historical_ranking else None,
+                                            market_search_status=market_search_status)
         return current_ranking, historical_ranking, request, result, qualification
 
     state = evaluate()
@@ -368,6 +372,7 @@ def resolve_preliminary_evidence(
             check["reasonCodes"].append("EXISTING_SOURCE_OR_CUSTOMER_ROUTE_RETAINED" if check["resolution"] in {"CUSTOMER_RESOLVABLE", "DOCUMENT_SOURCE_RESOLVABLE"}
                                       else "NO_SUPPORTED_AUTOMATIC_RESOLVER_FOR_CHECK")
     resolution = validate_preliminary_resolution({
+        **({"marketSearchStatus": market_search_status} if market_search_status is not None else {}),
         "resolutionVersion": PRELIMINARY_RESOLUTION_VERSION, "inputDigest": _digest(inputs),
         "initialQualificationDigest": initial_qualification_digest, "finalQualificationDigest": state[4]["inputDigest"],
         "budget": {"maxDistinctProviderVins": MAX_DISTINCT_PROVIDER_VINS, "providerVinsAttempted": len(provider_vins),
@@ -401,7 +406,8 @@ def replay_preliminary_resolution(
     replay = resolve_preliminary_evidence(base_request=base_request, current_result=current_result,
                                          historical_result=historical_result, current_observed_date=current_observed_date,
                                          source_report=source_report, evidence_context=evidence_context,
-                                         lookup=lookup if resolver_available else None, saved_evidence=ledger["savedEvidence"])
+                                         lookup=lookup if resolver_available else None, saved_evidence=ledger["savedEvidence"],
+                                         market_search_status=ledger.get("marketSearchStatus"))
     if consumed != len(expected) or replay.resolution != ledger:
         raise PreliminaryResolutionContractError("resolution transcript does not match deterministic replay")
     return replay

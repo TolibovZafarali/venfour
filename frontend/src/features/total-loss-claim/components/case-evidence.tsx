@@ -56,6 +56,35 @@ export function MethodologyDisclosure({ report, intakeMode = "report" }: ReportP
   );
 }
 
+export function HigherPricedListings({ report }: { report: Pick<TotalLossPublishedReport, "marketEvidence"> }) {
+  const evidence = report.marketEvidence.higherPricedComparableListings;
+  if (!evidence?.listings.length) return null;
+  return <section className="completed-evidence supporting-listings" aria-labelledby="supporting-listings-title">
+    <h2 id="supporting-listings-title">{evidence.title}</h2>
+    <p>{evidence.disclosure}</p>
+    {evidence.listings.map((listing) => <article key={listing.identity} className="supporting-listing">
+      <h3>{listing.vehicle}</h3>
+      <p><strong>{listing.askingPriceDisplay}</strong> asking price</p>
+      <p>{numeric(listing.mileage, " miles")} · {numeric(listing.distanceMiles, " miles from you")} · {dateLabel(listing.relevantDate)}</p>
+      <p>{listing.temporalBasis} · Source: {listing.source} ({listing.priceSource === "history" ? "verified history record" : "active listing"})</p>
+      {listing.matchingFacts.length ? <dl className="completed-evidence__dates">{listing.matchingFacts.map((fact) => <div key={fact.label}><dt>{fact.label}</dt><dd>{fact.value}</dd></div>)}</dl> : null}
+      {listing.materialDifferences.length ? <ul>{listing.materialDifferences.map((difference) => <li key={difference}>{difference}</li>)}</ul> : null}
+      <ul>{listing.limitations.map((limitation) => <li key={limitation}>{limitation}</li>)}</ul>
+      {listing.listingUrl ? <a href={listing.listingUrl} target="_blank" rel="noopener noreferrer">View listing source</a> : null}
+    </article>)}
+  </section>;
+}
+
+export function MarketSearchLimitations({ report }: { report: Pick<TotalLossPublishedReport, "marketEvidence"> }) {
+  const context = report.marketEvidence.marketSearchContext;
+  if (context?.baselineStatus !== "LIMITED") return null;
+  return <aside className="completed-evidence market-search-limitations" aria-label="Comparable search limitations">
+    <h2>Comparable search limitations</h2>
+    <p>{context.summary}</p>
+    <ul>{context.stopReasons.map((reason) => <li key={`${reason.stream}:${reason.code}`}>{reason.stream === "historical" ? "Loss-date evidence" : "Current evidence"}: {reason.description}</li>)}</ul>
+  </aside>;
+}
+
 export function InsurerEvidenceDetails({ report, open }: ReportProps) {
   const rows = report.insurerEvidence.comparables;
   return (

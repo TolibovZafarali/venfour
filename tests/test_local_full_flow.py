@@ -37,6 +37,10 @@ def environment():
         "VENFOUR_TOTAL_LOSS_TERMS_VERSION": commerce.terms_version,
         "VENFOUR_TOTAL_LOSS_REFUND_POLICY_VERSION": commerce.refund_policy_version,
         "OPENAI_API_KEY": "local-provider-fixture", "MARKETCHECK_API_KEY": "local-market-fixture",
+        "MARKETCHECK_ACCOUNT_IDENTIFIER": "local-full-flow-fixture-account",
+        "MARKETCHECK_ACCOUNT_METERED": "true",
+        "MARKETCHECK_RATE_LIMIT_REQUESTS": "100",
+        "MARKETCHECK_RATE_LIMIT_WINDOW_SECONDS": "60",
         "OPENAI_INSURER_RESPONSE_ANALYSIS_MODEL": "gpt-response-test",
         "VENFOUR_CLAIM_RECOVERY_RATE_LIMIT_SECRET": "local-recovery-fixture-not-for-production",
         "VENFOUR_TURNSTILE_SECRET": "local-challenge-fixture",
@@ -115,6 +119,28 @@ class FullFlowGuards(unittest.TestCase):
 
 
 class FullFlowComposition(unittest.TestCase):
+    def test_missing_market_account_plan_preserves_liveness_but_blocks_readiness(self):
+        settings = environment()
+        del settings["MARKETCHECK_ACCOUNT_METERED"]
+        gateway = Mock(spec=SupabaseHttpGateway)
+        gateway.reserve_due_workflow_work_items.return_value = []
+        with ExitStack() as stack:
+            stack.enter_context(patch.dict(os.environ, settings, clear=True))
+            stack.enter_context(patch("scripts.local_full_flow.read_local_status", return_value={}))
+            stack.enter_context(patch("scripts.local_full_flow.gateway_from_status", return_value=gateway))
+            stack.enter_context(patch.object(socket.socket, "connect", side_effect=AssertionError("readiness must not make network calls")))
+            app = create_app()
+            with TestClient(app, base_url="http://127.0.0.1:8000", client=("127.0.0.1", 55000)) as client:
+                self.assertEqual(client.get("/health").json(), {"status": "ok"})
+                self.assertTrue(app.state.local_worker.healthy)
+                response = client.get("/ready")
+                self.assertEqual(response.status_code, 503)
+                self.assertEqual(response.json(), {
+                    "status": "not_ready", "reasons": ["MARKET_ACCOUNT_MONTHLY_ALLOWANCE_UNCONFIGURED"],
+                })
+                self.assertEqual(response.headers["cache-control"], "no-store")
+        gateway.reserve_market_request_attempt.assert_not_called()
+
     def test_missing_response_model_preserves_liveness_but_blocks_full_flow_readiness(self):
         for model in (None, ""):
             with self.subTest(model=model), ExitStack() as stack:

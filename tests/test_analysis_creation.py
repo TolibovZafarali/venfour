@@ -48,6 +48,7 @@ from venfour.creation import (
 from venfour.discrepancy import CURRENT_MARKET
 from venfour.market import MarketProviderDiagnostic, MarketProviderRateLimitError
 from venfour.marketcheck import MARKETCHECK_ACTIVE_MAX_RADIUS_MILES
+from venfour.market_request_budget import MemoryMarketRequestGateway
 from venfour.orchestration import AnalysisOrchestrator
 from venfour.presentation import validate_analysis_presentation
 
@@ -664,10 +665,18 @@ class AnalysisCreationLiveCompositionTests(AnalysisCreationTestCase):
                 {
                     "MARKETCHECK_API_KEY": "fixture-market-key",
                     "MARKETCHECK_ACCOUNT_MAX_RADIUS_MILES": str(maximum),
+                    "MARKETCHECK_ACCOUNT_IDENTIFIER": "fixture-account",
+                    "MARKETCHECK_ACCOUNT_METERED": "true",
+                    "MARKETCHECK_RATE_LIMIT_REQUESTS": "1000",
+                    "MARKETCHECK_RATE_LIMIT_WINDOW_SECONDS": "1",
                 },
                 clear=True,
             ):
                 service = create_live_analysis_creation_service(self.repository)
+                service = create_live_analysis_creation_service(
+                    self.repository, market_request_gateway=MemoryMarketRequestGateway(),
+                    market_case_id="10000000-0000-4000-8000-000000000001",
+                )
                 orchestrator = service._orchestrator_factory(observed_date)
                 self.assertEqual(
                     orchestrator._current_provider.maximum_search_radius_miles, maximum,
@@ -696,88 +705,56 @@ class AnalysisCreationLiveCompositionTests(AnalysisCreationTestCase):
                 ingestion.ingest.assert_not_called()
                 self.assertNotIn(invalid, str(raised.exception))
 
-    def test_live_factory_builds_providers_with_server_configuration(self) -> None:
-        extractor = RecordingExtractor(make_report())
-        current = RecordingCurrentProvider()
-        current.maximum_search_radius_miles = MARKETCHECK_ACTIVE_MAX_RADIUS_MILES
-        historical = RecordingHistoricalProvider()
-        current_keys: list[str | None] = []
-        historical_arguments: list[tuple[str | None, date | None]] = []
-
-        def current_factory(
-            api_key: str | None, *, maximum_search_radius_miles: int,
-        ) -> RecordingCurrentProvider:
-            self.assertEqual(maximum_search_radius_miles, 100)
-            current_keys.append(api_key)
-            return current
-
-        def historical_factory(
-            api_key: str | None,
-            *,
-            as_of_date: date | None = None,
-            maximum_search_radius_miles: int,
-        ) -> RecordingHistoricalProvider:
-            self.assertEqual(maximum_search_radius_miles, 100)
-            historical_arguments.append((api_key, as_of_date))
-            return historical
-
-        observed_date = date.fromisoformat(CURRENT_OBSERVED_DATE)
+    def test_live_factory_builds_providers_with_shared_case_budget(self) -> None:
+        gateway = MemoryMarketRequestGateway()
         service = create_live_analysis_creation_service(
-            self.repository,
-            date_factory=lambda: observed_date,
+            self.repository, market_request_gateway=gateway,
+            market_case_id="10000000-0000-4000-8000-000000000001",
+            market_job_id="10000000-0000-4000-8000-000000000002",
+            market_processing_token="10000000-0000-4000-8000-000000000003",
         )
+        environment = {
+            "MARKETCHECK_API_KEY": "fixture-market-key",
+            "MARKETCHECK_ACCOUNT_IDENTIFIER": "fixture-account",
+            "MARKETCHECK_ACCOUNT_METERED": "true",
+            "MARKETCHECK_RATE_LIMIT_REQUESTS": "1000",
+            "MARKETCHECK_RATE_LIMIT_WINDOW_SECONDS": "1",
+            "MARKETCHECK_ACCOUNT_MAX_RADIUS_MILES": "100",
+        }
+        with patch.dict(os.environ, environment, clear=True):
+            service._availability_check()
+            orchestrator = service._orchestrator_factory(date.fromisoformat(CURRENT_OBSERVED_DATE))
+        engine = orchestrator._market_search
+        self.assertIs(engine.providers["current"], orchestrator._current_provider)
+        self.assertIs(engine.providers["historical"], orchestrator._historical_provider)
+        self.assertIs(engine.budget, orchestrator._current_provider.request_budget)
+        self.assertIs(engine.budget, orchestrator._historical_provider.request_budget)
+        self.assertEqual(engine.budget.policy.total_attempts, 60)
+        self.assertEqual(engine.budget.snapshot()["totalAttempts"], 0)
+        self.assertEqual(engine.policy.local_radius_miles, 100)
+        self.assertEqual(engine.policy.additional_centers, 4)
+
+    def test_owned_factory_preserves_job_fence_and_case_identity(self) -> None:
+        from tests.test_case_analyses import FakeCaseGateway, USER_ID, CASE_ID, JOB_ID, TOKEN_ID
+        from venfour.case_analyses import SupabaseAnalysisRunRepository, _live_creation_factory
+        repository = SupabaseAnalysisRunRepository(FakeCaseGateway(), USER_ID, case_id=CASE_ID,
+                                                    job_id=JOB_ID, processing_token=TOKEN_ID)
+        with patch("venfour.case_analyses.create_live_analysis_creation_service") as factory:
+            _live_creation_factory(repository, RUN_ID_1)
+        self.assertEqual(factory.call_args.kwargs["market_case_id"], CASE_ID)
+        self.assertEqual(factory.call_args.kwargs["market_job_id"], JOB_ID)
+        self.assertEqual(factory.call_args.kwargs["market_processing_token"], TOKEN_ID)
+        self.assertIsNone(repository.market_search_progress(None))
+
+    def test_live_factory_requires_account_and_case_before_ingestion(self) -> None:
         report_path = self.root / "report.pdf"
         report_path.write_bytes(PDF_BYTES)
-
-        with (
-            patch.dict(
-                os.environ,
-                {
-                    "OPENAI_API_KEY": "fixture-extraction-key",
-                    "MARKETCHECK_API_KEY": "fixture-market-key",
-                    "MARKETCHECK_ACCOUNT_MAX_RADIUS_MILES": "100",
-                },
-                clear=False,
-            ),
-            patch.object(service, "_extractor", extractor),
-            patch.object(service, "_ingestion_service", None),
-            patch("venfour.creation.MarketCheckProvider", side_effect=current_factory),
-            patch(
-                "venfour.creation.MarketCheckHistoricalProvider",
-                side_effect=historical_factory,
-            ),
-        ):
-            result = service.create(report_path, POSTAL_CODE)
-
-        self.assertEqual(current_keys, ["fixture-market-key"])
-        self.assertEqual(
-            historical_arguments,
-            [("fixture-market-key", observed_date)],
-        )
-        expected_current_stages = [
-            (stage.radius_miles, stage.result_limit)
-            for stage in DEFAULT_SEARCH_STAGES
-            if stage.radius_miles <= MARKETCHECK_ACTIVE_MAX_RADIUS_MILES
-        ]
-        expected_historical_stages = [
-            (stage.radius_miles, stage.result_limit)
-            for stage in HISTORICAL_SEARCH_STAGES
-        ]
-        self.assertEqual(
-            [
-                (request.radius_miles, request.result_limit)
-                for request in current.requests
-            ],
-            expected_current_stages,
-        )
-        self.assertEqual(
-            [
-                (request.radius_miles, request.result_limit)
-                for request in historical.requests
-            ],
-            expected_historical_stages,
-        )
-        self.assertEqual(self.repository.get(result.run_id).run_id, result.run_id)
+        with patch.dict(os.environ, {"MARKETCHECK_API_KEY": "fixture-market-key"}, clear=True):
+            service = create_live_analysis_creation_service(self.repository)
+            with patch.object(service, "_ingestion_service") as ingestion:
+                with self.assertRaises(AnalysisCreationUnavailableError):
+                    service.create(report_path, POSTAL_CODE)
+            ingestion.ingest.assert_not_called()
 
 
 if __name__ == "__main__":

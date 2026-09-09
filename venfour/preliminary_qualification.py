@@ -175,6 +175,7 @@ def qualify_preliminary(
     discrepancy_result: Mapping[str, Any],
     current_ranking: Mapping[str, Any] | None,
     historical_ranking: Mapping[str, Any] | None,
+    market_search_status: str | None = None,
 ) -> dict[str, Any]:
     """Qualify frozen evidence without modifying the market decision or inputs.
 
@@ -187,6 +188,10 @@ def qualify_preliminary(
         "discrepancyRequest": discrepancy_request, "discrepancyResult": discrepancy_result,
         "currentRanking": current_ranking, "historicalRanking": historical_ranking,
     }
+    if market_search_status is not None:
+        if market_search_status not in {"SUFFICIENT", "LIMITED"}:
+            raise PreliminaryQualificationContractError("Unknown market search completeness")
+        inputs["marketSearchStatus"] = market_search_status
     digest = hashlib.sha256(json.dumps(inputs, ensure_ascii=False, sort_keys=True,
                                        separators=(",", ":"), allow_nan=False).encode()).hexdigest()
     market_classification = discrepancy_result.get("classification")
@@ -227,6 +232,10 @@ def qualify_preliminary(
         })
         return True
 
+    if market_search_status == "LIMITED":
+        need("INDEPENDENT_MARKET_EVIDENCE", "MARKET_SEARCH_LIMITED", "PROVIDER_MARKET_DATA",
+             "LIMITED_SEARCH_CANNOT_ESTABLISH_AN_ADEQUATE_NEGATIVE_REVIEW",
+             [_evidence("$.marketSearch.baselineStatus", market_search_status)])
     if market_classification in {"INSUFFICIENT_EVIDENCE", "CONFLICTING_EVIDENCE"} or discrepancy_result.get("evidenceStrength") == "LOW":
         need("INDEPENDENT_MARKET_EVIDENCE", "MARKET_EVIDENCE_INCOMPLETE_OR_CONFLICTING", "PROVIDER_MARKET_DATA",
              "MARKET_EVIDENCE_CANNOT_SUPPORT_ADEQUATE_NEGATIVE_REVIEW",
