@@ -698,6 +698,22 @@ select ok(
   'an active report-upload lease is explicitly protected regardless of old detail timestamps'
 );
 
+-- Retain the global no-mutation/count guarantees when committed rehearsal or
+-- unrelated local QA rows are present beside this suite's three eligible users.
+create temporary table cleanup_test_baseline as
+select
+  (select coalesce(jsonb_agg(to_jsonb(c) order by c.user_id), '[]'::jsonb)
+   from public.anonymous_guest_cleanup_candidates c) as queue,
+  count(*)::integer as other_eligible,
+  count(*) filter (where not exists (
+    select 1 from public.anonymous_guest_cleanup_candidates c
+    where c.user_id=u.id and c.state<>'cancelled'
+  ))::integer as other_markable
+from auth.users u
+where public.is_abandoned_anonymous_guest_eligible(u.id)
+  and u.id not in ('a1111111-1111-4111-8111-111111111111',
+    'a2222222-2222-4222-8222-222222222222','af111111-1111-4111-8111-111111111111');
+
 create temporary table cleanup_test_runs (
   phase text primary key,
   run_id uuid,
@@ -729,13 +745,14 @@ select results_eq(
     from cleanup_test_runs
     where phase = 'dry'
   $$,
-  $$values ('completed'::text, 3, 0)$$,
+  $$select 'completed'::text, 3+other_eligible, 0 from cleanup_test_baseline$$,
   'dry-run reports eligible users without marking them'
 );
 
 select is(
-  (select count(*) from public.anonymous_guest_cleanup_candidates),
-  0::bigint,
+  (select coalesce(jsonb_agg(to_jsonb(c) order by c.user_id), '[]'::jsonb)
+   from public.anonymous_guest_cleanup_candidates c),
+  (select queue from cleanup_test_baseline),
   'dry-run leaves the durable candidate queue untouched'
 );
 
@@ -770,7 +787,7 @@ select results_eq(
     from cleanup_test_runs
     where phase = 'real'
   $$,
-  $$values ('running'::text, 3, 3)$$,
+  $$select 'running'::text, 3+other_eligible, least(25,3+other_markable) from cleanup_test_baseline$$,
   'a real run marks the bounded eligible set'
 );
 
@@ -780,8 +797,9 @@ select is(
     from public.anonymous_guest_cleanup_candidates
     where state = 'grace'
       and delete_after >= first_marked_at + interval '24 hours'
+      and last_run_id = (select run_id from cleanup_test_runs where phase='real')
   ),
-  3::bigint,
+  (select least(25,3+other_markable)::bigint from cleanup_test_baseline),
   'every newly marked candidate receives at least 24 hours of grace'
 );
 

@@ -771,6 +771,13 @@ comment on function public.total_loss_enqueue_response_analysis_on_workflow_upda
 revoke execute on function public.total_loss_enqueue_response_analysis_on_workflow_update()
   from public, anon, authenticated, service_role;
 
+-- Enable RLS before the backfill queues deferred constraint checks. PostgreSQL
+-- cannot ALTER a populated table with pending trigger events in this transaction.
+alter table public.total_loss_insurer_response_analysis_jobs enable row level security;
+alter table public.total_loss_insurer_response_analysis_runs enable row level security;
+alter table public.total_loss_insurer_response_document_extractions enable row level security;
+alter table public.total_loss_insurer_response_analysis_results enable row level security;
+
 -- Backfill any response that was recorded before this migration. The trigger is
 -- installed afterward so the pointer update cannot recursively enqueue work.
 insert into public.total_loss_insurer_response_analysis_jobs (
@@ -835,7 +842,8 @@ where workflow.current_task = 'insurer_response_received'
 on conflict on constraint total_loss_response_analysis_jobs_response_key do nothing;
 
 update public.total_loss_claim_workflows as workflow
-set current_response_analysis_job_id = job.id
+set current_response_analysis_job_id = job.id,
+    revision = workflow.revision + 1
 from public.total_loss_insurer_response_analysis_jobs as job
 where workflow.current_task = 'insurer_response_received'
   and workflow.current_response_analysis_job_id is null
@@ -2127,11 +2135,6 @@ revoke execute on function public.resolve_total_loss_case_claim(uuid)
   from public, anon, service_role;
 grant execute on function public.resolve_total_loss_case_claim(uuid)
   to authenticated;
-
-alter table public.total_loss_insurer_response_analysis_jobs enable row level security;
-alter table public.total_loss_insurer_response_analysis_runs enable row level security;
-alter table public.total_loss_insurer_response_document_extractions enable row level security;
-alter table public.total_loss_insurer_response_analysis_results enable row level security;
 
 revoke all on table
   public.total_loss_insurer_response_analysis_jobs,

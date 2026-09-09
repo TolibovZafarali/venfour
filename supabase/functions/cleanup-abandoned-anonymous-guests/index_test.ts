@@ -360,6 +360,44 @@ Deno.test("storage cleanup enumerates the whole user root and deletes exact snap
   );
 });
 
+Deno.test("a protected pre-migration lease cannot delete files or the user", async () => {
+  const backend = new FakeCleanupBackend();
+  const candidate = deleteStorageCandidate(1);
+  backend.candidates.push(candidate);
+  const files = new Map(candidate.storage_object_paths.map((path) =>
+    [path, new TextEncoder().encode("unchanged protected file")] as const
+  ));
+  backend.listImplementation = (path) => ({
+    data: path === USER_ID
+      ? candidate.case_ids.map((name) => ({ name, id: null }))
+      : ["valuation-report-backup.pdf", "valuation-report.pdf"].map((name) =>
+        ({ name, id: name })
+      ),
+    error: null,
+  });
+  backend.removeImplementation = (paths) => {
+    for (const path of paths) files.delete(path);
+    return { data: [], error: null };
+  };
+  backend.rpcOverrides.set("start_abandoned_anonymous_guest_storage_deletion", () => ({
+    data: null,
+    error: { code: "55000", message: "Submitted referral history prevents anonymous guest cleanup." },
+  }));
+  const { handler } = createTestHandler(backend);
+  const response = await handler(cleanupRequest("{}"));
+  assert.equal(response.status, 200);
+  assert.equal(backend.removeCalls.length, 0);
+  assert.equal(backend.deleteUserCalls.length, 0);
+  assert.equal(files.size, candidate.storage_object_paths.length);
+  assert.ok([...files.values()].every((bytes) =>
+    new TextDecoder().decode(bytes) === "unchanged protected file"
+  ));
+  assert.ok(!backend.rpcCalls.some((call) =>
+    call.name === "mark_abandoned_anonymous_guest_storage_deleted"
+      || call.name === "complete_abandoned_anonymous_guest_cleanup_candidate"
+  ));
+});
+
 Deno.test("storage cleanup blocks an unexpected root entry found after the first page", async () => {
   const backend = new FakeCleanupBackend();
   const candidate = deleteStorageCandidate(100);
