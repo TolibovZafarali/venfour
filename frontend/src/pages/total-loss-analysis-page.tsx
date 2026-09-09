@@ -97,22 +97,6 @@ function StateCard({
   );
 }
 
-function AnalysisExperienceFrame({ children }: { readonly children: ReactNode }) {
-  return (
-    <div className="page-gradient-analysis relative isolate flex w-full items-center overflow-hidden bg-canvas px-5 py-10 sm:px-8 sm:py-14 lg:px-10 lg:py-16">
-      <span
-        className="pointer-events-none absolute -top-40 -left-44 size-[32rem] rounded-full bg-brand-subtle/65 blur-3xl"
-        aria-hidden
-      />
-      <span
-        className="pointer-events-none absolute -right-48 -bottom-52 size-[36rem] rounded-full bg-market-soft/80 blur-3xl"
-        aria-hidden
-      />
-      <div className="relative mx-auto w-full max-w-6xl">{children}</div>
-    </div>
-  );
-}
-
 function CompletedTotalLossAnalysis({
   accessToken,
   intakeCorrectionAllowed,
@@ -168,22 +152,20 @@ function CompletedTotalLossAnalysis({
   }
 
   return (
-    <AnalysisExperienceFrame>
-      <TotalLossAnalysisResult
-        analysis={resultQuery.data}
-        addInsurerOfferPath={
-          reviewIntakePath && caseId
-            ? totalLossIntakeCorrectionPath(caseId, "insurer-offer")
-            : undefined
-        }
-        continueAction={
-          import.meta.env.DEV && environment.localPostContinueEnabled && caseId
-            ? <LocalContinueAction accessToken={accessToken} caseId={caseId} userId={userId} />
-            : undefined
-        }
-        reviewIntakePath={reviewIntakePath}
-      />
-    </AnalysisExperienceFrame>
+    <TotalLossAnalysisResult
+      analysis={resultQuery.data}
+      addInsurerOfferPath={
+        reviewIntakePath && caseId
+          ? totalLossIntakeCorrectionPath(caseId, "insurer-offer")
+          : undefined
+      }
+      continueAction={
+        import.meta.env.DEV && environment.localPostContinueEnabled && caseId
+          ? <LocalContinueAction accessToken={accessToken} caseId={caseId} userId={userId} />
+          : undefined
+      }
+      reviewIntakePath={reviewIntakePath}
+    />
   );
 }
 

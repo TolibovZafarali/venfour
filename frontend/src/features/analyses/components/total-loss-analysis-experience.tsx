@@ -21,6 +21,9 @@ import type {
 } from "@/features/analyses/analysis-presentation.generated";
 import { cn } from "@/lib/utils";
 
+import { ValuationSignalField } from "./valuation-signal-field";
+import "./total-loss-analysis-result.css";
+
 const analysisActivities = [
   {
     title: "Reviewing the insurer’s valuation information",
@@ -303,27 +306,23 @@ export function TotalLossAnalysisResult({
 
   return (
     <section
-      className={cn(
-        "relative mx-auto max-w-4xl overflow-hidden rounded-[1.75rem] border border-line/70 bg-white shadow-[0_24px_80px_-48px_rgba(11,31,51,0.25)]",
-        className,
-      )}
+      className={cn("valuation-result", className)}
       aria-labelledby={headingId}
       data-analysis-classification={analysis.assessment.classification}
       data-total-loss-analysis-result
+      data-supports-continuation={presentation.showContinue || undefined}
     >
+      <div className="valuation-result__environment page-gradient-analysis" aria-hidden="true">
+        <ValuationSignalField layout="sides" />
+      </div>
       <p className="sr-only" role="status" aria-live="polite" aria-atomic="true">
         Analysis complete. {presentation.heading}
       </p>
 
-      <span
-        className="pointer-events-none absolute inset-x-0 top-0 h-64 bg-linear-to-b from-brand-soft/50 to-transparent"
-        aria-hidden
-      />
-
-      <div className="relative px-4 py-7 text-center sm:px-10 sm:py-10 lg:px-16">
-        <div className="mx-auto flex max-w-xl items-center justify-center gap-2.5 text-copy">
-          <CarFront className="size-5 shrink-0 text-brand" aria-hidden />
-          <p className="text-sm font-medium text-pretty [overflow-wrap:anywhere]">
+      <div className="valuation-result__content">
+        <div className="valuation-result__vehicle">
+          <CarFront aria-hidden />
+          <p>
             <span className="sr-only">Vehicle reviewed: </span>
             {vehicle}
           </p>
@@ -331,41 +330,36 @@ export function TotalLossAnalysisResult({
 
         <h1
           id={headingId}
-          className="mx-auto mt-5 max-w-2xl text-[1.9rem] leading-[1.13] font-semibold tracking-[-0.045em] text-balance text-ink sm:text-[2.6rem] lg:text-[2.8rem]"
+          className="valuation-result__heading"
         >
           {presentation.heading}
         </h1>
-        <p className="mx-auto mt-3 max-w-lg text-[0.9375rem] leading-6 text-pretty text-copy sm:text-base sm:leading-7">
+        <p className="valuation-result__summary">
           {presentation.summary}
         </p>
 
         <section
-          className={cn(
-            "mx-auto mt-7 max-w-xl rounded-2xl border px-3 py-5 sm:mt-8 sm:px-8 sm:py-6",
-            presentation.showContinue
-              ? "border-market/15 bg-linear-to-br from-market-soft/80 via-market-soft/45 to-brand-soft/50"
-              : "border-line/70 bg-linear-to-br from-surface to-brand-soft/35",
-          )}
+          className="valuation-result__range"
           aria-labelledby={`${headingId}-range`}
         >
           <h2
             id={`${headingId}-range`}
-            className="text-sm font-medium text-copy"
+            className="valuation-result__range-label"
           >
             Estimated market range
           </h2>
           {rangeAvailable ? (
-            <p className="mt-2 flex flex-wrap items-baseline justify-center gap-x-2 text-[clamp(1.35rem,7vw,2.75rem)] leading-tight font-semibold tracking-[-0.05em] text-ink tabular-nums sm:gap-x-3">
+            <p className="valuation-result__amounts">
               <span>{minimum}</span>
-              <span className="font-normal text-copy">–</span>
+              <span className="valuation-result__range-separator">–</span>
               <span>{maximum}</span>
             </p>
           ) : (
-            <p className="mt-2 text-2xl font-semibold tracking-[-0.03em] text-ink">
+            <p className="valuation-result__unavailable">
               Not enough information yet
             </p>
           )}
-          <p className="mt-2 text-xs leading-5 text-copy">
+          <p className="valuation-result__basis">
             {rangeAvailable
               ? primaryEvidence?.evidenceBasis === "LOSS_DATE_HISTORICAL"
                 ? "Based on advertised prices around your date of loss."
@@ -382,7 +376,7 @@ export function TotalLossAnalysisResult({
               optimistic={presentation.showContinue}
             />
           ) : insurerValueAvailable ? (
-            <p className="mt-4 border-t border-line/70 pt-4 text-sm text-copy">
+            <p className="valuation-result__standalone-offer">
               {insurerLabel}{" "}
               <strong className="ml-2 font-semibold text-ink tabular-nums">
                 {displayMoney(insurerValue)}
@@ -392,63 +386,65 @@ export function TotalLossAnalysisResult({
         </section>
 
         <section
-          className="mx-auto mt-7 max-w-lg sm:mt-8"
+          className="valuation-result__conclusion"
           aria-labelledby={`${headingId}-worthwhile`}
         >
-          <div className="flex items-center justify-center gap-2">
+          <div className="valuation-result__conclusion-heading">
             {presentation.showContinue ? (
               <CheckCircle2 className="size-5 shrink-0 text-market" aria-hidden />
             ) : null}
             <h2
               id={`${headingId}-worthwhile`}
-              className="text-lg font-semibold tracking-[-0.025em] text-ink sm:text-xl"
+              className="valuation-result__next-heading"
             >
               {presentation.worthwhileHeading}
             </h2>
           </div>
-          <p className="mt-2 text-sm leading-6 text-pretty text-copy">
+          <p className="valuation-result__next-description">
             {presentation.worthwhileSummary}
           </p>
         </section>
 
-        {presentation.showContinue ? continueAction ?? (
-          <Button
-            type="button"
-            size="lg"
-            className="report-action-focus mt-6 min-h-13 w-full gap-3 rounded-xl bg-brand px-7 text-base font-semibold text-white shadow-[0_8px_20px_-10px_rgba(21,94,239,0.55)] hover:bg-brand-strong sm:w-auto sm:min-w-72"
-            data-future-next-step
-          >
-            Continue my review
-            <ArrowRight className="size-5" aria-hidden />
-          </Button>
-        ) : null}
-
-        {missingOfferBlocksComparison && addInsurerOfferPath ? (
-          <Button
-            asChild
-            size="lg"
-            className="report-action-focus mt-6 min-h-13 w-full gap-3 rounded-xl px-7 text-base font-semibold sm:w-auto sm:min-w-72"
-          >
-            <Link to={addInsurerOfferPath}>
-              Add insurer offer
+        <div className="valuation-result__actions">
+          {presentation.showContinue ? continueAction ?? (
+            <Button
+              type="button"
+              size="lg"
+              className="report-action-focus mt-6 min-h-13 w-full gap-3 rounded-xl bg-brand px-7 text-base font-semibold text-white shadow-[0_8px_20px_-10px_rgba(21,94,239,0.55)] hover:bg-brand-strong sm:w-auto sm:min-w-72"
+              data-future-next-step
+            >
+              Continue my review
               <ArrowRight className="size-5" aria-hidden />
-            </Link>
-          </Button>
-        ) : null}
+            </Button>
+          ) : null}
 
-        {reviewIntakePath ? (
-          <div className="mt-3">
+          {missingOfferBlocksComparison && addInsurerOfferPath ? (
             <Button
               asChild
-              variant="link"
-              className="min-h-11 px-3 font-semibold text-copy hover:text-ink"
+              size="lg"
+              className="report-action-focus mt-6 min-h-13 w-full gap-3 rounded-xl px-7 text-base font-semibold sm:w-auto sm:min-w-72"
             >
-              <Link to={reviewIntakePath}>Review intake</Link>
+              <Link to={addInsurerOfferPath}>
+                Add insurer offer
+                <ArrowRight className="size-5" aria-hidden />
+              </Link>
             </Button>
-          </div>
-        ) : null}
+          ) : null}
 
-        <p className="mx-auto mt-5 max-w-lg text-xs leading-5 text-copy">
+          {reviewIntakePath ? (
+            <div className="valuation-result__intake-action">
+              <Button
+                asChild
+                variant="link"
+                className="min-h-11 px-3 font-semibold text-copy hover:text-ink"
+              >
+                <Link to={reviewIntakePath}>Review intake</Link>
+              </Button>
+            </div>
+          ) : null}
+        </div>
+
+        <p className="valuation-result__disclaimer">
           Advertised prices aren’t guaranteed sale prices or settlement amounts.
           This review does not determine what your insurer owes.
         </p>
@@ -488,7 +484,7 @@ function MarketRangeComparison({
 
   return (
     <figure
-      className="mt-5"
+      className="valuation-result__comparison"
       aria-label={`${insurerLabel}: ${displayMoney(insurerValue)}. Estimated market range: ${displayMoney(minimum)} to ${displayMoney(maximum)}.`}
     >
       <div className="relative h-6" aria-hidden>

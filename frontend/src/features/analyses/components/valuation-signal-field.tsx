@@ -58,7 +58,7 @@ function smoothStep(start: number, end: number, value: number) {
   return amount * amount * (3 - 2 * amount);
 }
 
-export function ValuationSignalField() {
+export function ValuationSignalField({ layout = "gather" }: { readonly layout?: "gather" | "sides" }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -73,6 +73,8 @@ export function ValuationSignalField() {
     let height = 0;
     let left = 0;
     let top = 0;
+    const sideLayout = layout === "sides";
+    const sideColor = sideLayout ? window.getComputedStyle(canvas).color : null;
     let elapsed = reducedMotion.matches ? 12 : 0;
     let previousFrame = 0;
     let frame: number | null = null;
@@ -89,10 +91,13 @@ export function ValuationSignalField() {
       const quietHeight = width < 640 ? 46 : 32;
       const orbitWidth = Math.min(430, width * (width < 640 ? 0.57 : 0.34));
       const orbitHeight = Math.min(220, height * 0.24);
+      const opening = sideLayout ? reducedMotion.matches ? 1 : smoothStep(0, 2.4, elapsed) : 0;
+      const contentHalfWidth = Math.min(390, Math.max(0, width / 2 - 28));
+      const sideWidth = width / 2 - contentHalfWidth;
       advancePointerMotion(pointer, delta, performance.now() / 1000, signals);
 
       for (const signal of signals) {
-        const time = elapsed;
+        const time = elapsed + (sideLayout ? 12 : 0);
         const angle = signal.angle + time * (0.027 + signal.depth * 0.026)
           + Math.sin(time * 0.075 + signal.drift) * 0.12;
         const breathe = Math.sin(time * 0.09 + signal.drift) * 0.08;
@@ -110,8 +115,14 @@ export function ValuationSignalField() {
         const curve = Math.sin(gather * Math.PI);
         const backgroundX = startX + Math.sin(time * 0.04 + signal.drift) * 16 - Math.sin(signal.drift) * 16;
         const backgroundY = startY + Math.cos(time * 0.035 + signal.drift) * 20 - Math.cos(signal.drift) * 20;
-        const x = backgroundX * (1 - gather) + orbitX * gather - (startY - centerY) * 0.13 * curve;
-        const y = backgroundY * (1 - gather) + orbitY * gather + (startX - centerX) * 0.085 * curve;
+        const gatheredX = backgroundX * (1 - gather) + orbitX * gather - (startY - centerY) * 0.13 * curve;
+        const gatheredY = backgroundY * (1 - gather) + orbitY * gather + (startX - centerX) * 0.085 * curve;
+        const sideCenter = signal.startX < 0.5 ? sideWidth * 0.4 : width - sideWidth * 0.4;
+        const sideX = sideCenter + Math.cos(angle) * sideWidth * 0.63 * orbit * signal.stretch;
+        const sideY = centerY + Math.sin(angle) * height * 0.43 * orbit / signal.stretch
+          + Math.cos(angle * 3 + signal.drift) * 14;
+        const x = gatheredX + (sideX - gatheredX) * opening;
+        const y = gatheredY + (sideY - gatheredY) * opening;
         advanceSignalMotion(signal, pointer, x, y, delta);
 
         const drawX = x + signal.shiftX;
@@ -120,12 +131,20 @@ export function ValuationSignalField() {
 
         const quietDistance = ((Math.abs(drawX - centerX) / quietWidth) ** 4
           + (Math.abs(drawY - centerY) / quietHeight) ** 4) ** 0.25;
-        const centerFade = smoothStep(0.8, 1.35, quietDistance);
-        const opacity = signal.opacity * centerFade * (signal.gathers ? 1 : 0.7) * (1 + signal.emphasis * 0.28);
+        const gatheredFade = smoothStep(0.8, 1.35, quietDistance);
+        const sideFade = smoothStep(contentHalfWidth, contentHalfWidth + Math.min(90, sideWidth * 0.65), Math.abs(drawX - centerX));
+        const centerFade = sideLayout ? gatheredFade + (sideFade - gatheredFade) * opening : gatheredFade;
+        const opacity = signal.opacity * centerFade * (signal.gathers ? 1 : 0.7)
+          * (sideLayout ? 0.85 : 1) * (1 + signal.emphasis * 0.28);
         if (opacity < 0.008) continue;
 
         context.beginPath();
-        context.fillStyle = `rgba(${signal.color}, ${opacity})`;
+        if (sideColor) {
+          context.globalAlpha = opacity;
+          context.fillStyle = sideColor;
+        } else {
+          context.fillStyle = `rgba(${signal.color}, ${opacity})`;
+        }
         context.arc(drawX, drawY, signal.radius * (1 + signal.emphasis * 0.16), 0, TAU);
         context.fill();
       }
@@ -230,8 +249,8 @@ export function ValuationSignalField() {
       reducedMotion.removeEventListener("change", changeMotion);
       finePointer.removeEventListener("change", clearPointer);
     };
-  }, []);
+  }, [layout]);
 
-  return <canvas ref={canvasRef} className="valuation-signal-field" aria-hidden="true"
+  return <canvas ref={canvasRef} className="valuation-signal-field" data-signal-layout={layout} aria-hidden="true"
     style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none" }} />;
 }

@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import type {
   AnalysisPresentation,
@@ -13,6 +13,10 @@ import {
   TotalLossAnalysisResult,
 } from "@/features/analyses/components/total-loss-analysis-experience";
 import { materialUndervalueAnalysis } from "@/test/fixtures/analysis-presentation";
+
+vi.mock("./valuation-signal-field", () => ({
+  ValuationSignalField: () => <canvas aria-hidden="true" />,
+}));
 
 function analysisFor(
   classification: Assessment["classification"],
