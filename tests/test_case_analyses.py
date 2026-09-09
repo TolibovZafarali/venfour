@@ -10,15 +10,18 @@ import tempfile
 import unittest
 import unittest.mock
 from contextlib import contextmanager, redirect_stdout
+from functools import lru_cache
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
 from starlette.testclient import TestClient
 
+from tests import test_analysis_runs as analysis_fixtures
 from venfour.analysis_runs import (
     AnalysisRunArtifact,
     AnalysisRunNotFoundError,
+    FileAnalysisRunRepository,
     InvalidAnalysisRunArtifactError,
 )
 from venfour.api import create_app
@@ -52,16 +55,23 @@ RUN_ID = "50000000-0000-4000-8000-000000000005"
 REPORT_UPLOAD_ID = "60000000-0000-4000-8000-000000000006"
 POSTAL_CODE = "60611"
 PDF_BYTES = b"%PDF-1.7\nsynthetic report\n%%EOF\n"
-SOURCE_ARTIFACT = (
-    Path(__file__).resolve().parents[1]
-    / "data"
-    / "analysis-runs"
-    / "00000000-0000-4000-8000-000000000001.json"
-)
+
+
+@lru_cache(maxsize=1)
+def synthetic_artifact_payload() -> dict[str, Any]:
+    """Build owned-case evidence from tracked fictional providers and reports."""
+    with tempfile.TemporaryDirectory() as directory:
+        orchestrator = analysis_fixtures.make_orchestrator(
+            FileAnalysisRunRepository(directory),
+            current_provider=analysis_fixtures.RecordingCurrentProvider(),
+            historical_provider=analysis_fixtures.RecordingHistoricalProvider(),
+            run_id=RUN_ID,
+        )
+        return orchestrator.run(analysis_fixtures.make_run_request()).artifact.to_dict()
 
 
 def valid_artifact(run_id: str = RUN_ID) -> AnalysisRunArtifact:
-    payload = json.loads(SOURCE_ARTIFACT.read_text(encoding="utf-8"))
+    payload = copy.deepcopy(synthetic_artifact_payload())
     payload["runId"] = run_id
     return AnalysisRunArtifact.from_dict(payload)
 

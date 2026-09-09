@@ -47,7 +47,15 @@ begin
   select * into job from public.total_loss_analysis_jobs j
     where j.id = requested_job_id and j.case_id = requested_case_id for update;
   if not found or job.processing_token is distinct from requested_processing_token
-    or job.status <> 'processing' or job.processing_expires_at <= clock_timestamp() then
+    or job.status <> 'processing' or job.processing_expires_at is null
+    or job.processing_expires_at <= clock_timestamp()
+    or not exists(select 1 from public.total_loss_case_details d
+      join public.appraisal_cases c on c.id=d.case_id
+      where d.case_id=job.case_id and c.status='checking'
+        and d.intake_mode is not distinct from job.source_intake_mode
+        and d.analysis_input_revision is not distinct from job.source_analysis_input_revision
+        and d.analysis_input_id is not distinct from job.source_analysis_input_id
+        and (d.intake_mode='manual' or d.report_last_upload_id is not distinct from job.source_report_upload_id)) then
     raise exception 'Market search processing lease is unavailable' using errcode = '42501';
   end if;
   delete from public.total_loss_market_search_progress p
@@ -80,7 +88,15 @@ begin
   select * into job from public.total_loss_analysis_jobs j
     where j.id = requested_job_id and j.case_id = requested_case_id for update;
   if not found or job.processing_token is distinct from requested_processing_token
-    or job.status <> 'processing' or job.processing_expires_at <= clock_timestamp() then
+    or job.status <> 'processing' or job.processing_expires_at is null
+    or job.processing_expires_at <= clock_timestamp()
+    or not exists(select 1 from public.total_loss_case_details d
+      join public.appraisal_cases c on c.id=d.case_id
+      where d.case_id=job.case_id and c.status='checking'
+        and d.intake_mode is not distinct from job.source_intake_mode
+        and d.analysis_input_revision is not distinct from job.source_analysis_input_revision
+        and d.analysis_input_id is not distinct from job.source_analysis_input_id
+        and (d.intake_mode='manual' or d.report_last_upload_id is not distinct from job.source_report_upload_id)) then
     return false;
   end if;
   delete from public.total_loss_market_search_progress p

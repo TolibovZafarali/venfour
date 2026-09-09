@@ -215,6 +215,12 @@ ledger. The former file-only `scripts/run_live_analysis.py` entry now fails
 closed because it cannot establish that context. Offline replay remains
 available for saved runs. See [bounded comparable research](docs/engineering/market-search.md)
 for required account configuration, retention permissions and fixture results.
+The standalone inventory-search CLIs also fail before built-in HTTP transport
+when they lack owned request accounting; their input syntax remains documented
+below for offline fixtures.
+Monthly request ceiling, billing period, prior usage, rate limit, and account
+radius permission must all be explicit; a metered billing declaration does not
+bypass them. Missing retention permission disables resumable evidence storage.
 
 Vite serves the application at `http://localhost:5173` and proxies `/api` and
 `/health` to `http://127.0.0.1:8000`. This avoids a cross-origin request because
@@ -1181,8 +1187,10 @@ changing its provider-neutral, price-neutral rules. Phase 3D consumes that ranke
 evidence only after retrieval and scoring are complete; the historical retrieval
 architecture and current-market search remain unchanged.
 
-As of 2026-08-10, the Elantra loss date is inside the rolling coverage window
-and requires `MARKETCHECK_API_KEY` for the live query:
+As of 2026-08-10, the Elantra loss date is inside the rolling coverage window.
+The historical CLI retains the following input syntax for offline injected
+fixtures. Its default live transport fails closed; actual research must use
+the owned case workflow:
 
 ```sh
 .venv/bin/python scripts/search_marketcheck_historical.py \
@@ -1197,8 +1205,9 @@ and requires `MARKETCHECK_API_KEY` for the live query:
   --limit 10
 ```
 
-The Camry loss date is outside the window. This command prints a canonical
-`OUT_OF_PROVIDER_RANGE` result without reading an API key or making a request:
+The Camry loss date is outside the window. With confirmed account radius
+configuration, this command prints a canonical `OUT_OF_PROVIDER_RANGE` result
+without reading an API key or making a request:
 
 ```sh
 .venv/bin/python scripts/search_marketcheck_historical.py \
@@ -1223,8 +1232,9 @@ MarketSearchRequest -> MarketProvider adapter -> canonical MarketSearchResult
 ```
 
 `MarketCheckProvider` is the first live adapter for that boundary. It searches
-MarketCheck's active used dealer inventory only when explicitly constructed or
-when `scripts/search_marketcheck.py` is run. The API key is supplied from the
+MarketCheck's active used dealer inventory through the owned case workflow.
+The standalone `scripts/search_marketcheck.py` live transport is disabled
+because it has no owned request accounting. The API key is supplied from the
 `MARKETCHECK_API_KEY` environment variable by the CLI; it is never placed in a
 `MarketSearchRequest` or returned result. Every request explicitly sends
 `append_api_key=false` so MarketCheck does not append the credential to response
@@ -1237,8 +1247,8 @@ remain null, malformed required fields fail normalization, provider order is
 preserved, and searches larger than MarketCheck's 50-row page limit are
 paginated only until Venfour's requested limit is satisfied.
 
-For a manual live Camry search, first make `MARKETCHECK_API_KEY` available in the
-shell environment, then run:
+The legacy Camry search syntax remains available for offline injected fixtures;
+default live execution is rejected before HTTP:
 
 ```sh
 .venv/bin/python scripts/search_marketcheck.py \
@@ -1252,8 +1262,9 @@ shell environment, then run:
   --limit 10
 ```
 
-The command prints only canonical `MarketSearchResult` JSON and does not save
-the live response. Inventory, prices, listing identifiers, and counts change
+With an injected offline transport, the command prints only canonical
+`MarketSearchResult` JSON and does not save the response. Actual inventory,
+prices, listing identifiers, and counts change
 over time and should not be treated as deterministic fixtures.
 
 `FixtureMarketProvider` remains available for deterministic development. Its

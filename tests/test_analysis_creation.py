@@ -6,7 +6,7 @@ import copy
 import os
 import tempfile
 import unittest
-from datetime import date
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import Any
 from unittest.mock import patch
@@ -666,7 +666,10 @@ class AnalysisCreationLiveCompositionTests(AnalysisCreationTestCase):
                     "MARKETCHECK_API_KEY": "fixture-market-key",
                     "MARKETCHECK_ACCOUNT_MAX_RADIUS_MILES": str(maximum),
                     "MARKETCHECK_ACCOUNT_IDENTIFIER": "fixture-account",
-                    "MARKETCHECK_ACCOUNT_METERED": "true",
+                    "MARKETCHECK_MONTHLY_REQUEST_ALLOWANCE": "1000",
+                    "MARKETCHECK_QUOTA_PERIOD_START": (datetime.now(UTC) - timedelta(days=1)).isoformat(),
+                    "MARKETCHECK_QUOTA_PERIOD_END": (datetime.now(UTC) + timedelta(days=29)).isoformat(),
+                    "MARKETCHECK_MONTHLY_USAGE_BEFORE_TRACKING": "0",
                     "MARKETCHECK_RATE_LIMIT_REQUESTS": "1000",
                     "MARKETCHECK_RATE_LIMIT_WINDOW_SECONDS": "1",
                 },
@@ -716,7 +719,10 @@ class AnalysisCreationLiveCompositionTests(AnalysisCreationTestCase):
         environment = {
             "MARKETCHECK_API_KEY": "fixture-market-key",
             "MARKETCHECK_ACCOUNT_IDENTIFIER": "fixture-account",
-            "MARKETCHECK_ACCOUNT_METERED": "true",
+            "MARKETCHECK_MONTHLY_REQUEST_ALLOWANCE": "1000",
+            "MARKETCHECK_QUOTA_PERIOD_START": (datetime.now(UTC) - timedelta(days=1)).isoformat(),
+            "MARKETCHECK_QUOTA_PERIOD_END": (datetime.now(UTC) + timedelta(days=29)).isoformat(),
+            "MARKETCHECK_MONTHLY_USAGE_BEFORE_TRACKING": "0",
             "MARKETCHECK_RATE_LIMIT_REQUESTS": "1000",
             "MARKETCHECK_RATE_LIMIT_WINDOW_SECONDS": "1",
             "MARKETCHECK_ACCOUNT_MAX_RADIUS_MILES": "100",

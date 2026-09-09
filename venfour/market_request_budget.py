@@ -163,7 +163,7 @@ class MarketAccountLimits:
         if self.max_requests_per_window is None or self.rate_window_seconds is None:
             return "MARKET_ACCOUNT_RATE_LIMIT_UNCONFIGURED"
         if self.monthly_allowance is None:
-            return None if self.metered else "MARKET_ACCOUNT_MONTHLY_ALLOWANCE_UNCONFIGURED"
+            return "MARKET_ACCOUNT_MONTHLY_ALLOWANCE_UNCONFIGURED"
         if self.monthly_period_start is None or self.monthly_period_end is None:
             return "MARKET_ACCOUNT_QUOTA_PERIOD_UNCONFIGURED"
         if self.monthly_usage_before_tracking is None:

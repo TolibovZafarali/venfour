@@ -1,7 +1,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
-select plan(34);
+select plan(37);
 
 select has_table('public','total_loss_market_search_progress','normalized case checkpoints exist');
 select ok((select relrowsecurity from pg_class where oid='public.total_loss_market_search_progress'::regclass),'checkpoints use RLS');
@@ -105,6 +105,14 @@ update search_progress_fixture set checkpoint=jsonb_set(checkpoint,'{inputDigest
 select is(pg_temp.save_progress(),true,'different input stores a separate current checkpoint');
 select is(pg_temp.load_progress(input_hash=>encode(sha256(convert_to('{"scope":"current"}','UTF8')),'hex')),null::jsonb,
   'new input checkpoint removes obsolete prior-input evidence');
+
+update public.total_loss_case_details set mileage_at_loss=33000
+  where case_id='39100000-0000-4000-8000-000000000001';
+select is(pg_temp.save_progress(),false,'old input job cannot overwrite progress after intake changes');
+select throws_ok($$select pg_temp.load_progress()$$,'42501','Market search processing lease is unavailable',
+  'old input job cannot resume progress after intake changes');
+select is((select count(*)::integer from public.total_loss_market_search_progress
+  where case_id='39100000-0000-4000-8000-000000000001'),1,'stale input denial preserves the saved checkpoint');
 
 select * from finish();
 rollback;

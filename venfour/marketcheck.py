@@ -140,7 +140,7 @@ def marketcheck_account_radius_from_environment(
     key = "MARKETCHECK_ACCOUNT_MAX_RADIUS_MILES"
     value = environment.get(key, "")
     if isinstance(value, str) and not value.strip():
-        return MARKETCHECK_ACTIVE_MAX_RADIUS_MILES
+        raise ValueError(f"{key} requires a confirmed account entitlement")
     if (
         not isinstance(value, str)
         or len(value) > 10
@@ -447,6 +447,7 @@ class MarketCheckProvider:
         self._request_phase: ContextVar[str] = ContextVar(
             f"marketcheck_request_phase_{id(self)}", default="baseline"
         )
+        self._uses_default_transport = transport is None or isinstance(transport, _UrllibMarketCheckTransport)
         self._transport = (
             transport if transport is not None else _UrllibMarketCheckTransport()
         )
@@ -669,6 +670,11 @@ class MarketCheckProvider:
         request_counter: list[int] | None = None,
         request_phase: str | None = None,
     ) -> Any:
+        if self._uses_default_transport and self.request_budget is None:
+            raise MarketProviderUnavailableError(
+                "Live market requests require shared request accounting. "
+                "Submit or resume the owned case analysis workflow."
+            )
         body: bytes | None = None
         for attempt in range(MARKETCHECK_MAX_REQUEST_ATTEMPTS):
             failure: MarketProviderError | None = None

@@ -146,11 +146,11 @@ def search_with(
 
 
 class MarketCheckAccountRadiusEnvironmentTests(unittest.TestCase):
-    def test_absent_or_blank_value_uses_conservative_default(self) -> None:
+    def test_absent_or_blank_account_radius_fails_closed(self) -> None:
         for environment in ({}, {"MARKETCHECK_ACCOUNT_MAX_RADIUS_MILES": ""},
                             {"MARKETCHECK_ACCOUNT_MAX_RADIUS_MILES": " \t\n"}):
-            with self.subTest(environment=environment):
-                self.assertEqual(marketcheck_account_radius_from_environment(environment), 100)
+            with self.subTest(environment=environment), self.assertRaises(ValueError):
+                marketcheck_account_radius_from_environment(environment)
 
     def test_verified_capability_is_distinct_from_the_adaptive_policy_limit(self) -> None:
         for value in ("1", "50", "100", "250", "500", "2147483647"):
@@ -353,7 +353,11 @@ class MarketCheckRequestMappingTests(unittest.TestCase):
         self.assertEqual(transport.calls[0]["params"]["trim"], "SE")
 
     def test_default_transport_encodes_key_and_uses_https_get(self) -> None:
+        from tests.test_market_request_budget import ACCOUNT, CASE, NOW, limits
+        from venfour.market_request_budget import MarketRequestBudget, MemoryMarketRequestGateway
         injected_key = "synthetic&append_api_key=true value"
+        budget = MarketRequestBudget(MemoryMarketRequestGateway(clock=lambda: NOW), ACCOUNT, CASE,
+                                     account_limits=limits(), clock=lambda: NOW)
 
         class FakeResponse:
             def __enter__(self) -> FakeResponse:
@@ -377,7 +381,7 @@ class MarketCheckRequestMappingTests(unittest.TestCase):
 
         opener = FakeOpener()
         with patch("venfour.marketcheck.build_opener", return_value=opener):
-            provider = MarketCheckProvider(injected_key, timeout=7.5)
+            provider = MarketCheckProvider(injected_key, timeout=7.5, request_budget=budget)
             result = discover_market_listings(make_request(), provider)
 
         self.assertEqual(result.listing_count, 0)
@@ -391,6 +395,7 @@ class MarketCheckRequestMappingTests(unittest.TestCase):
         self.assertEqual(opener.timeouts, [7.5])
         self.assertEqual(query["api_key"], [injected_key])
         self.assertEqual(query["append_api_key"], ["false"])
+        self.assertEqual(budget.snapshot()["totalAttempts"], 1)
 
 
 class MarketCheckTrimCatalogTests(unittest.TestCase):
@@ -1364,6 +1369,11 @@ class MarketCheckPaginationTests(unittest.TestCase):
 
 
 class MarketCheckCliAndFixtureTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.fixture_environment = patch.dict(os.environ, {"MARKETCHECK_ACCOUNT_MAX_RADIUS_MILES": "100"}, clear=True)
+        self.fixture_environment.start()
+        self.addCleanup(self.fixture_environment.stop)
+
     CLI_ARGS = [
         "--year",
         "2025",
@@ -1386,7 +1396,7 @@ class MarketCheckCliAndFixtureTests(unittest.TestCase):
     def test_cli_requires_environment_key_without_stdout_output(self) -> None:
         stdout = io.StringIO()
         stderr = io.StringIO()
-        with patch.dict(os.environ, {}, clear=True), redirect_stdout(
+        with patch.dict(os.environ, {"MARKETCHECK_ACCOUNT_MAX_RADIUS_MILES": "100"}, clear=True), redirect_stdout(
             stdout
         ), redirect_stderr(stderr):
             status = search_marketcheck.main(self.CLI_ARGS)
@@ -1394,6 +1404,17 @@ class MarketCheckCliAndFixtureTests(unittest.TestCase):
         self.assertEqual(status, 1)
         self.assertEqual(stdout.getvalue(), "")
         self.assertIn("API key is required", stderr.getvalue())
+
+    def test_cli_cannot_use_real_transport_without_owned_request_accounting(self) -> None:
+        stdout, stderr = io.StringIO(), io.StringIO()
+        with patch.dict(os.environ, {"MARKETCHECK_API_KEY": SYNTHETIC_KEY}), patch(
+            "venfour.marketcheck._UrllibMarketCheckTransport.get",
+        ) as transport, redirect_stdout(stdout), redirect_stderr(stderr):
+            status = search_marketcheck.main(self.CLI_ARGS)
+        self.assertEqual(status, 1)
+        self.assertEqual(stdout.getvalue(), "")
+        self.assertIn("owned case analysis workflow", stderr.getvalue())
+        transport.assert_not_called()
 
     def test_cli_prints_only_canonical_json_on_success(self) -> None:
         transport = RecordingTransport([{"num_found": 0, "listings": []}])

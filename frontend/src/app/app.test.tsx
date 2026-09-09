@@ -883,29 +883,20 @@ describe("Venfour application", () => {
       globalThis,
       "IntersectionObserver",
     );
-    const observe = vi.fn<(target: Element) => void>();
-    const disconnect = vi.fn<() => void>();
-    let observerCallback: IntersectionObserverCallback | undefined;
-
     class ControlledIntersectionObserver implements IntersectionObserver {
-      static current: ControlledIntersectionObserver | undefined;
+      static instances: ControlledIntersectionObserver[] = [];
 
       readonly root = null;
       readonly rootMargin = "0px";
       readonly scrollMargin = "0px";
       readonly thresholds = [0];
+      readonly observe = vi.fn<(target: Element) => void>();
+      readonly disconnect = vi.fn<() => void>();
+      readonly callback: IntersectionObserverCallback;
 
       constructor(callback: IntersectionObserverCallback) {
-        observerCallback = callback;
-        ControlledIntersectionObserver.current = this;
-      }
-
-      disconnect(): void {
-        disconnect();
-      }
-
-      observe(target: Element): void {
-        observe(target);
+        this.callback = callback;
+        ControlledIntersectionObserver.instances.push(this);
       }
 
       takeRecords(): IntersectionObserverEntry[] {
@@ -929,16 +920,19 @@ describe("Venfour application", () => {
       const header = screen.getByRole("banner");
       expect(header).toHaveAttribute("data-header-state", "integrated");
       expect(header).toHaveClass("motion-reduce:transition-none");
-      expect(observe).toHaveBeenCalledOnce();
-
-      const sentinel = observe.mock.calls[0]?.[0];
+      const headerObservers = ControlledIntersectionObserver.instances.filter(
+        (observer) => observer.observe.mock.calls.some(
+          ([target]) => target.matches('span[aria-hidden="true"]'),
+        ),
+      );
+      expect(headerObservers).toHaveLength(1);
+      const observer = headerObservers[0];
+      expect(observer.observe).toHaveBeenCalledOnce();
+      const sentinel = observer.observe.mock.calls[0]?.[0];
       expect(sentinel).toBeInstanceOf(HTMLSpanElement);
       expect(sentinel).toHaveAttribute("aria-hidden", "true");
-      expect(observerCallback).toBeDefined();
-      expect(ControlledIntersectionObserver.current).toBeDefined();
-      const callback = observerCallback;
-      const observer = ControlledIntersectionObserver.current;
-      if (!sentinel || !callback || !observer) {
+      const callback = observer.callback;
+      if (!sentinel) {
         throw new Error("The header intersection observer was not initialized.");
       }
 
@@ -961,7 +955,7 @@ describe("Venfour application", () => {
 
       unmount();
       unmount = undefined;
-      expect(disconnect).toHaveBeenCalledOnce();
+      expect(observer.disconnect).toHaveBeenCalledOnce();
 
     } finally {
       unmount?.();

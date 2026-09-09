@@ -35,7 +35,9 @@ def run_analysis(directory, rows, *, offer=20000, supporting=5, request_policy=N
     budget = MarketRequestBudget(
         MemoryMarketRequestGateway(clock=lambda: NOW), market_account_key('fixture-account'), CASE_ID,
         policy=request_policy,
-        account_limits=MarketAccountLimits(metered=True, max_requests_per_window=1000, rate_window_seconds=1), clock=lambda: NOW)
+        account_limits=MarketAccountLimits(monthly_allowance=1000, max_requests_per_window=1000, rate_window_seconds=1,
+            monthly_period_start="2026-08-01T00:00:00Z", monthly_period_end="2026-09-01T00:00:00Z",
+            monthly_usage_before_tracking=0), clock=lambda: NOW)
     transport = FixtureTransport(current=rows, historical=rows)
     current = MarketCheckProvider('fixture-key', transport=transport, request_budget=budget)
     historical = MarketCheckHistoricalProvider('fixture-key', as_of_date=NOW.date(), transport=transport, request_budget=budget)
@@ -102,12 +104,39 @@ class EfficientAnalysisTests(unittest.TestCase):
             baseline, _, _, _ = run_analysis(Path(directory) / 'baseline', rows, supporting=0)
             self.assertEqual(first.result['discrepancyResult'], baseline.result['discrepancyResult'])
             self.assertEqual(first.result['preliminaryQualification'], baseline.result['preliminaryQualification'])
+            for key in ('currentMarketResult', 'historicalMarketResult', 'currentRanking',
+                        'historicalRanking', 'discrepancyRequest', 'preliminaryResolution'):
+                self.assertEqual(first.result[key], baseline.result[key], key)
+            baseline_operations = lambda artifact: [
+                event['operation'] for event in artifact.result['marketSearch']['events']
+                if event['operation']['purpose'] == 'baseline'
+            ]
+            self.assertEqual(baseline_operations(first), baseline_operations(baseline))
+            first_view = AnalysisPresentationProjector().project(first).to_dict()
+            baseline_view = AnalysisPresentationProjector().project(baseline).to_dict()
+            for key in ('assessment', 'insurerValuation', 'cccValuation', 'primaryExternalEvidence',
+                        'secondaryExternalEvidence', 'comparablesUsed', 'preliminaryQualification'):
+                self.assertEqual(first_view[key], baseline_view[key], key)
             self.assertEqual(first.result['discrepancyResult']['classification'], 'NO_MATERIAL_DISCREPANCY')
             self.assertEqual(first.result['discrepancyResult']['primaryComparison']['externalMedianPriceCents'], 2000000)
             supporting = first.to_dict()['result']['marketSearch']['supportingEvidence']
             self.assertTrue(supporting['listings'])
             self.assertTrue(all(row['verifiedAskingPrice'] > 20000 for row in supporting['listings']))
             self.assertFalse(supporting['affectsBaselineValuation'])
+
+    def test_supporting_pass_does_not_inflate_supported_increase_or_purchase_qualification(self):
+        rows = [candidate(i, price=20000 if i < 47 else 23000) for i in range(50)]
+        with tempfile.TemporaryDirectory() as directory:
+            with_support, _, _, _ = run_analysis(Path(directory) / 'support', rows, offer=15000)
+            baseline, _, _, _ = run_analysis(Path(directory) / 'baseline', rows, offer=15000, supporting=0)
+            supported = AnalysisPresentationProjector().project(with_support).to_dict()
+            original = AnalysisPresentationProjector().project(baseline).to_dict()
+            self.assertTrue(supported['higherPricedComparableListings']['listings'])
+            self.assertGreater(supported['insurerValuation']['comparisonToPrimaryEvidence']['difference']['cents'], 0)
+            self.assertEqual(supported['insurerValuation'], original['insurerValuation'])
+            self.assertEqual(supported['assessment'], original['assessment'])
+            self.assertEqual(supported['preliminaryQualification'], original['preliminaryQualification'])
+            self.assertEqual(with_support.result['discrepancyResult'], baseline.result['discrepancyResult'])
 
     def test_offer_does_not_change_discovery_or_independent_value(self):
         rows = [candidate(i) for i in range(15)]

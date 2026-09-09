@@ -395,9 +395,6 @@ def immutable_material_conflicts(observations: Sequence[Mapping[str, Any]]) -> b
     )
 
 
-_immutable_material_conflicts = immutable_material_conflicts
-
-
 def build_supporting_shortlist(
     target: ComparableTarget,
     observations: Sequence[Mapping[str, Any]],

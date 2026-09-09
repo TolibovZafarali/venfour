@@ -1,7 +1,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
-select plan(42);
+select plan(48);
 
 select has_table('public','market_request_accounts','account accounting exists');
 select has_table('public','market_request_cases','case accounting survives new runs');
@@ -31,6 +31,19 @@ insert into market_budget_fixture select jsonb_build_object(
     'periodEnd',date_trunc('month',clock_timestamp())+interval '1 month','priorMonthlyAttempts',3,'reserveBasisPoints',2000),
   'reservationId','10000000-0000-4000-8000-000000000001','endpoint','vin_history',
   'phase','baseline','vinKey',repeat('b',64),'estimatedCostMicros',null);
+
+select is(public.reserve_market_request_attempt((select jsonb_set(request,'{accountLimits,monthlyAllowance}','null') from market_budget_fixture))->>'reasonCode',
+  'MARKET_ACCOUNT_MONTHLY_ALLOWANCE_UNCONFIGURED','missing monthly allowance fails closed');
+select is(public.reserve_market_request_attempt((select jsonb_set(jsonb_set(request,'{accountLimits,monthlyAllowance}','null'),'{accountLimits,metered}','true') from market_budget_fixture))->>'reasonCode',
+  'MARKET_ACCOUNT_MONTHLY_ALLOWANCE_UNCONFIGURED','metered billing does not bypass the monthly request ceiling');
+select is(public.reserve_market_request_attempt((select jsonb_set(request,'{accountLimits,periodStart}','null') from market_budget_fixture))->>'reasonCode',
+  'MARKET_ACCOUNT_QUOTA_PERIOD_UNCONFIGURED','missing billing period start fails closed');
+select is(public.reserve_market_request_attempt((select jsonb_set(request,'{accountLimits,periodEnd}','null') from market_budget_fixture))->>'reasonCode',
+  'MARKET_ACCOUNT_QUOTA_PERIOD_UNCONFIGURED','missing billing period end fails closed');
+select is(public.reserve_market_request_attempt((select jsonb_set(request,'{accountLimits,priorMonthlyAttempts}','null') from market_budget_fixture))->>'reasonCode',
+  'MARKET_ACCOUNT_PRIOR_USAGE_UNCONFIGURED','missing prior usage fails closed');
+select is((select count(*)::integer from public.market_request_attempts where account_key=repeat('e',64)),
+  0,'missing account facts authorize no physical requests');
 
 select is((public.reserve_market_request_attempt((select request from market_budget_fixture))->>'allowed')::boolean,true,'first request is reserved');
 select is(public.reserve_market_request_attempt((select request from market_budget_fixture))->>'reasonCode',

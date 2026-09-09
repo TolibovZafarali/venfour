@@ -174,21 +174,23 @@ class MarketRequestBudgetTests(unittest.TestCase):
         self.denied(self.budget(case=str(uuid4())), "MARKET_ACCOUNT_QUOTA_EXHAUSTED")
         self.assertEqual(budget.snapshot()["totalAttempts"], 2)
 
-    def test_unknown_plan_fails_closed_and_metered_must_be_explicit(self):
+    def test_unknown_plan_fails_closed_including_metered_accounts(self):
         for config, reason in (
             (MarketAccountLimits(), "MARKET_ACCOUNT_RATE_LIMIT_UNCONFIGURED"),
             (MarketAccountLimits(max_requests_per_window=3, rate_window_seconds=10), "MARKET_ACCOUNT_MONTHLY_ALLOWANCE_UNCONFIGURED"),
             (limits(monthly_period_start=None), "MARKET_ACCOUNT_QUOTA_PERIOD_UNCONFIGURED"),
             (limits(monthly_usage_before_tracking=None), "MARKET_ACCOUNT_PRIOR_USAGE_UNCONFIGURED"),
+            (limits(metered=True, monthly_allowance=None), "MARKET_ACCOUNT_MONTHLY_ALLOWANCE_UNCONFIGURED"),
+            (limits(metered=True, monthly_period_start=None), "MARKET_ACCOUNT_QUOTA_PERIOD_UNCONFIGURED"),
+            (limits(metered=True, monthly_usage_before_tracking=None), "MARKET_ACCOUNT_PRIOR_USAGE_UNCONFIGURED"),
         ):
             with self.subTest(reason=reason):
                 budget = self.budget(account_limits=config, account=market_account_key(reason), case=str(uuid4()))
                 self.denied(budget, reason)
                 self.assertEqual(budget.snapshot()["totalAttempts"], 0)
-        metered = self.budget(account=market_account_key("metered"), case=str(uuid4()), account_limits=MarketAccountLimits(
-            metered=True, max_requests_per_window=2, rate_window_seconds=10))
+        metered = self.budget(account=market_account_key("metered"), case=str(uuid4()), account_limits=limits(metered=True))
         metered.reserve_attempt("active_inventory")
-        self.assertIsNone(metered.snapshot()["monthlyRoutineLimit"])
+        self.assertEqual(metered.snapshot()["monthlyRoutineLimit"], 800)
 
     def test_duplicate_reservation_cannot_authorize_an_uncounted_http_attempt(self):
         budget = self.budget()

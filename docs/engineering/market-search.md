@@ -117,8 +117,11 @@ allowances. Supporting execution also has strategy ceilings of five attempts
 and two discovery attempts. The 20–30 target records the optimization goal; it
 never causes unnecessary calls or an otherwise premature stop. The monthly
 reserve conservatively protects all routine reservations, including resumed
-work. An explicit provider monthly-exhaustion response blocks the account;
-a generic 429 is temporary throttling. Short Retry-After or configured rate-window
+work. Configured monthly usage and the shared ledger enforce that limit. The
+adapter treats 429 responses as temporary throttling; provider-specific
+monthly-exhaustion payload classification is not wired or confirmed. The ledger
+supports an explicit exhaustion flag, but the adapter does not currently set it.
+Short Retry-After or configured rate-window
 delays are respected; delays over 60 seconds stop the operation with a recorded
 limitation for a subsequent permitted resume.
 
@@ -135,10 +138,11 @@ account limits must be confirmed and configured:
   `MARKETCHECK_QUOTA_PERIOD_END`, and `MARKETCHECK_MONTHLY_USAGE_BEFORE_TRACKING`.
   Period timestamps are timezone-aware; use the provider's actual billing period.
   Reconcile untracked prior usage upward, including usage by other applications.
-- Alternatively `MARKETCHECK_ACCOUNT_METERED=true` only when the account really
-  has no shared physical-request monthly quota. Rate limits still apply.
+- `MARKETCHECK_ACCOUNT_METERED` describes billing only; it never bypasses the
+  required monthly request ceiling, billing period, prior usage, or rate limits.
 - `MARKETCHECK_ACCOUNT_MAX_RADIUS_MILES` must reflect confirmed access. Discovery
-  still caps local requests at 100 miles and past inventory at 100 miles.
+  still caps local requests at 100 miles and past inventory at 100 miles. Missing
+  radius permission fails closed; 100 miles is not an assumed entitlement.
 
 A billable allowance, monetary credits, rate limit and request quota are
 separate concepts. The ledger currently models one shared physical-attempt
@@ -148,6 +152,12 @@ Accounts with separate endpoint quotas require explicit corresponding accounting
 before those entitlements can safely be enabled. External callers sharing the
 subscription must participate in this accounting or their usage must be
 reconciled; this application cannot observe their requests automatically.
+
+The built-in HTTP transport refuses unbudgeted requests, including when it is
+explicitly injected. The old `search_marketcheck.py` and
+`search_marketcheck_historical.py` diagnostics therefore cannot initiate live
+searches; use the owned case workflow. Explicit offline recording transports
+remain available to fixtures, and out-of-coverage results require no HTTP.
 
 `MARKETCHECK_CONFIRMED_TARIFF_USD_PER_ATTEMPT` is an optional JSON mapping of
 `active_inventory`, `historical_inventory`, `vin_history`, and `vehicle_terms`

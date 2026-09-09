@@ -175,54 +175,56 @@ export function PublicHomePage() {
         </div>
       </section>
 
-      <section id="example" className="home-report-gradient section-anchor scroll-mt-24 bg-white" aria-labelledby="example-title" tabIndex={-1}>
-        <div className="home-section grid gap-10 lg:grid-cols-[0.85fr_1.15fr] lg:items-center lg:gap-16">
-          <div>
-            <p data-home-entrance="supporting" className="home-eyebrow">A simple example</p>
-            <h2 id="example-title" data-home-entrance="heading" data-anchor-heading aria-label="Two numbers. A clearer picture." className={`${sectionHeadingClassName} mt-3`}>
-              <span className="block">Two numbers.</span>
-              <span className="block">A clearer picture.</span>
-            </h2>
-            <p data-home-entrance="copy" data-home-order="1" className="mt-5 max-w-md text-base leading-7 text-copy sm:text-lg sm:leading-8">
-              See the insurer’s valuation alongside a similar vehicle’s asking price.
-              We put the difference in context.
-            </p>
-            <ul data-home-entrance="supporting" data-home-order="2" className="mt-6 space-y-3 text-sm text-ink">
-              {["Relevant vehicle comparisons", "Findings in plain language", "The limitations, clearly explained"].map((item) => (
-                <li key={item} className="flex items-center gap-3"><Check className="size-4 shrink-0 text-market" aria-hidden />{item}</li>
-              ))}
-            </ul>
-            <Link to="/methodology" data-home-entrance="supporting" data-home-order="3" className={`${textLinkClassName} mt-6`}>
-              How we review the evidence <ArrowRight className="size-4" aria-hidden />
-            </Link>
+      <div className="home-report-gradient bg-white">
+        <section id="example" className="section-anchor scroll-mt-24" aria-labelledby="example-title" tabIndex={-1}>
+          <div className="home-section grid gap-10 lg:grid-cols-[0.85fr_1.15fr] lg:items-center lg:gap-16">
+            <div>
+              <p data-home-entrance="supporting" className="home-eyebrow">A simple example</p>
+              <h2 id="example-title" data-home-entrance="heading" data-anchor-heading aria-label="Two numbers. A clearer picture." className={`${sectionHeadingClassName} mt-3`}>
+                <span className="block">Two numbers.</span>
+                <span className="block">A clearer picture.</span>
+              </h2>
+              <p data-home-entrance="copy" data-home-order="1" className="mt-5 max-w-md text-base leading-7 text-copy sm:text-lg sm:leading-8">
+                See the insurer’s valuation alongside a similar vehicle’s asking price.
+                We put the difference in context.
+              </p>
+              <ul data-home-entrance="supporting" data-home-order="2" className="mt-6 space-y-3 text-sm text-ink">
+                {["Relevant vehicle comparisons", "Findings in plain language", "The limitations, clearly explained"].map((item) => (
+                  <li key={item} className="flex items-center gap-3"><Check className="size-4 shrink-0 text-market" aria-hidden />{item}</li>
+                ))}
+              </ul>
+              <Link to="/methodology" data-home-entrance="supporting" data-home-order="3" className={`${textLinkClassName} mt-6`}>
+                How we review the evidence <ArrowRight className="size-4" aria-hidden />
+              </Link>
+            </div>
+            <ValuationComparisonVisual />
           </div>
-          <ValuationComparisonVisual />
-        </div>
-      </section>
+        </section>
 
-      <section id="faq" className="section-anchor scroll-mt-24 border-t border-line/70 bg-white" aria-labelledby="faq-title" tabIndex={-1}>
-        <div className="home-section">
-          <div data-home-entrance="heading" className="mx-auto max-w-3xl text-center">
-            <p className="home-eyebrow">Frequently asked questions</p>
-            <h2 id="faq-title" data-anchor-heading className={`${sectionHeadingClassName} mx-auto mt-3`}>A few things you might be wondering.</h2>
+        <section id="faq" className="section-anchor scroll-mt-24" aria-labelledby="faq-title" tabIndex={-1}>
+          <div className="home-section">
+            <div data-home-entrance="heading" className="mx-auto max-w-3xl text-center">
+              <p className="home-eyebrow">Frequently asked questions</p>
+              <h2 id="faq-title" data-anchor-heading className={`${sectionHeadingClassName} mx-auto mt-3`}>A few things you might be wondering.</h2>
+            </div>
+            <div className="home-faq mx-auto mt-9 max-w-3xl lg:mt-12">
+              {frequentlyAskedQuestions.map(({ question, answer }) => (
+                <details key={question} data-home-entrance="supporting" className="group border-b border-line first:border-t">
+                  <summary className="flex min-h-20 cursor-pointer list-none items-center justify-between gap-5 py-5 text-base leading-6 font-medium text-ink transition-colors hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-inset motion-reduce:transition-none">
+                    <span>{question}</span>
+                    <Plus className="size-5 shrink-0 text-copy transition-transform duration-200 group-open:rotate-45 motion-reduce:transition-none" strokeWidth={1.5} aria-hidden />
+                  </summary>
+                  <div className="max-w-xl pr-7 pb-6 text-sm leading-7 text-copy sm:text-base">{answer}</div>
+                </details>
+              ))}
+            </div>
+            <div data-home-entrance="supporting" className="mx-auto mt-8 max-w-3xl text-center">
+              <p className="text-base leading-7 text-copy">Still have a question?</p>
+              <Link to="/contact" className={textLinkClassName}>Get in touch <ArrowRight className="size-4" aria-hidden /></Link>
+            </div>
           </div>
-          <div className="home-faq mx-auto mt-9 max-w-3xl lg:mt-12">
-            {frequentlyAskedQuestions.map(({ question, answer }) => (
-              <details key={question} data-home-entrance="supporting" className="group border-b border-line first:border-t">
-                <summary className="flex min-h-20 cursor-pointer list-none items-center justify-between gap-5 py-5 text-base leading-6 font-medium text-ink transition-colors hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-inset motion-reduce:transition-none">
-                  <span>{question}</span>
-                  <Plus className="size-5 shrink-0 text-copy transition-transform duration-200 group-open:rotate-45 motion-reduce:transition-none" strokeWidth={1.5} aria-hidden />
-                </summary>
-                <div className="max-w-xl pr-7 pb-6 text-sm leading-7 text-copy sm:text-base">{answer}</div>
-              </details>
-            ))}
-          </div>
-          <div data-home-entrance="supporting" className="mx-auto mt-8 max-w-3xl text-center">
-            <p className="text-base leading-7 text-copy">Still have a question?</p>
-            <Link to="/contact" className={textLinkClassName}>Get in touch <ArrowRight className="size-4" aria-hidden /></Link>
-          </div>
-        </div>
-      </section>
+        </section>
+      </div>
 
       <section className="home-trust-gradient bg-ink text-white" aria-labelledby="get-started-title">
         <div className="home-section flex flex-col items-center gap-7 text-center">

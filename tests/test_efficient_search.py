@@ -79,7 +79,9 @@ class EfficientSearchTests(unittest.TestCase):
         budget = budget or MarketRequestBudget(
             MemoryMarketRequestGateway(clock=clock), market_account_key("fixture-account"),
             "10000000-0000-4000-8000-000000000001", policy=request_policy,
-            account_limits=MarketAccountLimits(metered=True, max_requests_per_window=1000, rate_window_seconds=1), clock=clock)
+            account_limits=MarketAccountLimits(monthly_allowance=1000, max_requests_per_window=1000, rate_window_seconds=1,
+                monthly_period_start="2026-08-01T00:00:00Z", monthly_period_end="2026-09-01T00:00:00Z",
+                monthly_usage_before_tracking=0), clock=clock)
         current = MarketCheckProvider("fixture-key", transport=transport, request_budget=budget) if "current" in streams else None
         historical = MarketCheckHistoricalProvider("fixture-key", as_of_date=AS_OF_DATE, transport=transport, request_budget=budget) if "historical" in streams else None
         request = make_request(drivetrain="FWD", drivetrain_recorded=True, loss_vehicle_mileage=50000,

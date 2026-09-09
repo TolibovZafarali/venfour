@@ -50,6 +50,43 @@
     box-shadow: 0 18px 54px -32px rgb(11 31 51 / 0.28);
   }
 
+  .home-comparison-row {
+    --comparison-delay: 140ms;
+  }
+
+  .home-comparison-row + .home-comparison-row {
+    --comparison-delay: 240ms;
+  }
+
+  .home-comparison-intro {
+    --comparison-delay: 80ms;
+  }
+
+  .home-comparison-note {
+    --comparison-delay: 360ms;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .home-comparison[data-scroll-reveal="entering"] :is(.home-comparison-intro, .home-comparison-row, .home-comparison-note) {
+      animation: home-comparison-open 520ms cubic-bezier(.2, .7, .2, 1) var(--comparison-delay) backwards;
+    }
+
+    .home-comparison[data-scroll-reveal="entering"] .home-comparison-bar {
+      transform-origin: left center;
+      animation: home-comparison-bar-open 520ms cubic-bezier(.2, .7, .2, 1) calc(var(--comparison-delay) + 100ms) backwards;
+    }
+  }
+
+  @keyframes home-comparison-open {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes home-comparison-bar-open {
+    from { transform: scaleX(0); }
+    to { transform: scaleX(1); }
+  }
+
   .home-faq summary::-webkit-details-marker {
     display: none;
   }

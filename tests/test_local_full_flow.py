@@ -7,6 +7,7 @@ import tempfile
 import threading
 import unittest
 from contextlib import ExitStack
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
@@ -38,7 +39,11 @@ def environment():
         "VENFOUR_TOTAL_LOSS_REFUND_POLICY_VERSION": commerce.refund_policy_version,
         "OPENAI_API_KEY": "local-provider-fixture", "MARKETCHECK_API_KEY": "local-market-fixture",
         "MARKETCHECK_ACCOUNT_IDENTIFIER": "local-full-flow-fixture-account",
-        "MARKETCHECK_ACCOUNT_METERED": "true",
+        "MARKETCHECK_ACCOUNT_MAX_RADIUS_MILES": "100",
+        "MARKETCHECK_MONTHLY_REQUEST_ALLOWANCE": "1000",
+        "MARKETCHECK_QUOTA_PERIOD_START": (datetime.now(UTC) - timedelta(days=1)).isoformat(),
+        "MARKETCHECK_QUOTA_PERIOD_END": (datetime.now(UTC) + timedelta(days=29)).isoformat(),
+        "MARKETCHECK_MONTHLY_USAGE_BEFORE_TRACKING": "0",
         "MARKETCHECK_RATE_LIMIT_REQUESTS": "100",
         "MARKETCHECK_RATE_LIMIT_WINDOW_SECONDS": "60",
         "OPENAI_INSURER_RESPONSE_ANALYSIS_MODEL": "gpt-response-test",
@@ -121,7 +126,7 @@ class FullFlowGuards(unittest.TestCase):
 class FullFlowComposition(unittest.TestCase):
     def test_missing_market_account_plan_preserves_liveness_but_blocks_readiness(self):
         settings = environment()
-        del settings["MARKETCHECK_ACCOUNT_METERED"]
+        del settings["MARKETCHECK_MONTHLY_REQUEST_ALLOWANCE"]
         gateway = Mock(spec=SupabaseHttpGateway)
         gateway.reserve_due_workflow_work_items.return_value = []
         with ExitStack() as stack:

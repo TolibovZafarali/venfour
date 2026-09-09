@@ -79,6 +79,8 @@ def market_search_configuration_reason(environment: Mapping[str, str], *, now: d
         request_policy = MarketRequestPolicy.from_environment(environment)
     except (TypeError, ValueError):
         return "MARKET_REQUEST_POLICY_INVALID"
+    if not environment.get("MARKETCHECK_ACCOUNT_MAX_RADIUS_MILES", "").strip():
+        return "MARKET_ACCOUNT_RADIUS_UNCONFIGURED"
     try:
         from venfour.marketcheck import marketcheck_account_radius_from_environment
         marketcheck_account_radius_from_environment(environment)

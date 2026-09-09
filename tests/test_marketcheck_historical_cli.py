@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import io
 import json
+import os
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
 from datetime import date
@@ -97,6 +98,11 @@ class RecordingTransport:
 
 
 class MarketCheckHistoricalCliTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.fixture_environment = patch.dict(os.environ, {"MARKETCHECK_ACCOUNT_MAX_RADIUS_MILES": "100"}, clear=True)
+        self.fixture_environment.start()
+        self.addCleanup(self.fixture_environment.stop)
+
     ELANTRA_ARGS = [
         "--date",
         "2026-05-19",
@@ -195,6 +201,17 @@ class MarketCheckHistoricalCliTests(unittest.TestCase):
         self.assertEqual(document["evidence"], [])
         self.assertEqual(document["listingCount"], 0)
         self.assertEqual(document["issues"], [])
+
+    def test_cli_cannot_use_real_transport_without_owned_request_accounting(self) -> None:
+        stdout, stderr = io.StringIO(), io.StringIO()
+        with patch.object(search_marketcheck_historical, "_utc_today", return_value=AS_OF_DATE), patch.object(
+            search_marketcheck_historical, "_read_api_key", return_value=SYNTHETIC_KEY,
+        ), patch("venfour.marketcheck._UrllibMarketCheckTransport.get") as transport, redirect_stdout(stdout), redirect_stderr(stderr):
+            status = search_marketcheck_historical.main(self.ELANTRA_ARGS)
+        self.assertEqual(status, 1)
+        self.assertEqual(stdout.getvalue(), "")
+        self.assertIn("owned case analysis workflow", stderr.getvalue())
+        transport.assert_not_called()
 
     def test_supported_date_requires_environment_key(self) -> None:
         stdout = io.StringIO()

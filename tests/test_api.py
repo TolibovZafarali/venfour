@@ -134,6 +134,7 @@ RUNTIME_ENVIRONMENT = {
     **BASE_RUNTIME_ENVIRONMENT,
     **RESPONSE_ANALYSIS_RUNTIME_ENVIRONMENT,
     "MARKETCHECK_ACCOUNT_IDENTIFIER": "runtime-fixture-account",
+    "MARKETCHECK_ACCOUNT_MAX_RADIUS_MILES": "100",
     "MARKETCHECK_MONTHLY_REQUEST_ALLOWANCE": "1000",
     "MARKETCHECK_RATE_LIMIT_REQUESTS": "100",
     "MARKETCHECK_RATE_LIMIT_WINDOW_SECONDS": "60",
@@ -269,6 +270,7 @@ class RuntimeProbeApiTests(unittest.TestCase):
             ("MARKETCHECK_QUOTA_PERIOD_START", "MARKET_ACCOUNT_QUOTA_PERIOD_UNCONFIGURED"),
             ("MARKETCHECK_QUOTA_PERIOD_END", "MARKET_ACCOUNT_QUOTA_PERIOD_UNCONFIGURED"),
             ("MARKETCHECK_MONTHLY_USAGE_BEFORE_TRACKING", "MARKET_ACCOUNT_PRIOR_USAGE_UNCONFIGURED"),
+            ("MARKETCHECK_ACCOUNT_MAX_RADIUS_MILES", "MARKET_ACCOUNT_RADIUS_UNCONFIGURED"),
         )
         for missing, reason in cases:
             environment = dict(RUNTIME_ENVIRONMENT)
@@ -299,12 +301,19 @@ class RuntimeProbeApiTests(unittest.TestCase):
                 self.assertEqual(readiness.json(), {"status": "not_ready", "reasons": [reason]})
                 self.assertNotIn("unknown", readiness.text)
 
-    def test_market_readiness_accepts_explicit_metered_plan_without_assumed_quota(self) -> None:
-        environment = {key: value for key, value in RUNTIME_ENVIRONMENT.items()
-                       if key not in {"MARKETCHECK_MONTHLY_REQUEST_ALLOWANCE", "MARKETCHECK_QUOTA_PERIOD_START",
-                                      "MARKETCHECK_QUOTA_PERIOD_END", "MARKETCHECK_MONTHLY_USAGE_BEFORE_TRACKING"}}
-        environment["MARKETCHECK_ACCOUNT_METERED"] = "true"
-        _health, readiness = self.probe(environment)
+    def test_market_readiness_requires_monthly_facts_even_when_metered(self) -> None:
+        for missing in ("MARKETCHECK_MONTHLY_REQUEST_ALLOWANCE", "MARKETCHECK_QUOTA_PERIOD_START",
+                        "MARKETCHECK_QUOTA_PERIOD_END", "MARKETCHECK_MONTHLY_USAGE_BEFORE_TRACKING"):
+            environment = RUNTIME_ENVIRONMENT | {"MARKETCHECK_ACCOUNT_METERED": "true"}
+            del environment[missing]
+            with self.subTest(missing=missing):
+                _health, readiness = self.probe(environment)
+                self.assertEqual(readiness.status_code, 503)
+
+    def test_market_retention_stays_disabled_without_explicit_permission(self) -> None:
+        from venfour.market_search_runtime import case_evidence_retention_days
+        self.assertIsNone(case_evidence_retention_days(RUNTIME_ENVIRONMENT))
+        _health, readiness = self.probe(RUNTIME_ENVIRONMENT)
         self.assertEqual(readiness.status_code, 200)
 
     def test_market_readiness_rechecks_quota_expiry_without_provider_requests(self) -> None:

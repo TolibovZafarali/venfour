@@ -238,7 +238,7 @@ begin
   end if;
   if a->>'requestsPerWindow' is null or a->>'rateWindowSeconds' is null then
     reason := 'MARKET_ACCOUNT_RATE_LIMIT_UNCONFIGURED';
-  elsif a->>'monthlyAllowance' is null and not (a->>'metered')::boolean then
+  elsif a->>'monthlyAllowance' is null then
     reason := 'MARKET_ACCOUNT_MONTHLY_ALLOWANCE_UNCONFIGURED';
   elsif a->>'monthlyAllowance' is not null and (a->>'periodStart' is null or a->>'periodEnd' is null) then
     reason := 'MARKET_ACCOUNT_QUOTA_PERIOD_UNCONFIGURED';
