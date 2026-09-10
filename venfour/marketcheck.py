@@ -326,6 +326,12 @@ def _battery_electric_only(raw_values: Any) -> bool:
     )
 
 
+@dataclass(frozen=True)
+class MarketCheckHttpResponse:
+    body: bytes
+    headers: Mapping[str, str]
+
+
 class MarketCheckTransport(Protocol):
     """Injectable byte-oriented HTTP boundary used by ``MarketCheckProvider``."""
 
@@ -335,8 +341,8 @@ class MarketCheckTransport(Protocol):
         params: Mapping[str, QueryValue],
         headers: Mapping[str, str],
         timeout: float,
-    ) -> bytes:
-        """Perform one GET request and return the response body."""
+    ) -> bytes | MarketCheckHttpResponse:
+        """Return a response; byte-only offline fixtures remain supported."""
 
         ...
 
@@ -368,7 +374,7 @@ class _UrllibMarketCheckTransport:
         params: Mapping[str, QueryValue],
         headers: Mapping[str, str],
         timeout: float,
-    ) -> bytes:
+    ) -> MarketCheckHttpResponse:
         query = urlencode(params)
         request = Request(
             f"{endpoint}?{query}",
@@ -376,7 +382,7 @@ class _UrllibMarketCheckTransport:
             method="GET",
         )
         with self._opener.open(request, timeout=timeout) as response:
-            return response.read()
+            return MarketCheckHttpResponse(response.read(), response.headers)
 
 
 def _mapping(value: Any, path: str, label: str) -> Mapping[str, Any]:
@@ -711,19 +717,20 @@ class MarketCheckProvider:
             try:
                 if request_counter is not None:
                     request_counter[0] += 1
-                body = self._transport.get(
+                response = self._transport.get(
                     endpoint,
                     params,
                     {"Accept": "application/json"},
                     self._timeout,
                 )
+                body = response.body if isinstance(response, MarketCheckHttpResponse) else response
             except HTTPError as exc:
                 status = exc.code
                 retry_after = exc.headers.get("Retry-After") if exc.headers else None
                 if self.request_budget is not None:
                     self.request_budget.report_response(
                         status_code=status, retry_after=retry_after,
-                        quota_exhausted=False,
+                        headers=exc.headers,
                     )
                 parsed_retry = _retry_after_seconds(retry_after)
                 if parsed_retry is not None:
@@ -751,6 +758,10 @@ class MarketCheckProvider:
                 )
 
             if failure is None:
+                if self.request_budget is not None and isinstance(response, MarketCheckHttpResponse):
+                    self.request_budget.report_response(
+                        200, retry_after=response.headers.get("Retry-After"), headers=response.headers,
+                    )
                 break
             annotated = self._annotate_provider_failure(
                 failure,

@@ -118,9 +118,18 @@ and two discovery attempts. The 20–30 target records the optimization goal; it
 never causes unnecessary calls or an otherwise premature stop. The monthly
 reserve conservatively protects all routine reservations, including resumed
 work. Configured monthly usage and the shared ledger enforce that limit. The
-adapter treats 429 responses as temporary throttling; provider-specific
-monthly-exhaustion payload classification is not wired or confirmed. The ledger
-supports an explicit exhaustion flag, but the adapter does not currently set it.
+adapter treats a bare 429 as temporary throttling. Successful and error responses
+also reconcile documented quota/rate headers. Larger limits or remaining counts
+never increase the operator-configured capacity. A lower monthly limit, less
+remaining quota than conservative tracked usage predicts, or a conflicting quota
+reset stops the shared account for the current period. The existing ledger pins
+account configuration, so this deliberately requires operator reconciliation
+instead of silently rebasing usage. The durable stop survives worker restarts.
+A lower rate contract blocks until period end for review; depleted rate-window
+capacity uses a shared cooldown. Only absolute epoch seconds or explicitly zoned
+ISO reset times are interpreted. Missing, malformed, or duplicate fields cannot
+relax the configured limits. Provider-specific response-body classification
+remains unchanged.
 Short Retry-After or configured rate-window
 delays are respected; delays over 60 seconds stop the operation with a recorded
 limitation for a subsequent permitted resume.

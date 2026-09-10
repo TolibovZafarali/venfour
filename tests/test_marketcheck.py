@@ -360,6 +360,8 @@ class MarketCheckRequestMappingTests(unittest.TestCase):
                                      account_limits=limits(), clock=lambda: NOW)
 
         class FakeResponse:
+            headers: dict[str, str] = {}
+
             def __enter__(self) -> FakeResponse:
                 return self
 

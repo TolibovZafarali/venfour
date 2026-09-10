@@ -379,9 +379,24 @@ class MarketRequestBudget:
         return AttemptReservation(payload["reservationId"], copy.deepcopy(result["usage"]))
 
     def report_response(self, status_code: int, retry_after: str | int | float | None = None,
-                        quota_exhausted: bool = False) -> None:
+                        quota_exhausted: bool = False,
+                        *, headers: Mapping[str, str] | None = None) -> None:
+        """Tighten shared state without rebasing usage or trusting a larger plan.
+
+        The installed ledger supports durable cooldowns and a period stop, not
+        arbitrary changes to pinned account limits. A stricter monthly header
+        therefore stops this period for operator reconciliation. A lower rate
+        contract also stops until period end; a depleted rate window only waits.
+        """
+        observed_delay, observed_stop = self._response_constraints(headers)
+        quota_exhausted = quota_exhausted or observed_stop
+        if retry_after is None and headers is not None:
+            retries = [v for k, v in headers.items() if isinstance(k, str) and k.lower() == "retry-after"]
+            if len(retries) == 1:
+                retry_after = retries[0]
         if not quota_exhausted and status_code != 429 and retry_after is None:
-            return
+            if observed_delay is None:
+                return
         delay: float | None = None
         if retry_after is not None:
             try:
@@ -396,12 +411,80 @@ class MarketRequestBudget:
                 delay = None
         if status_code == 429 and delay is None:
             delay = float(self.account_limits.rate_window_seconds or 1)
+        if observed_delay is not None:
+            delay = max(delay or 0, observed_delay)
         payload = validate_market_request_payload({**self._identity, "retryAfterSeconds": delay,
                                                    "quotaExhausted": quota_exhausted}, operation="state")
         try:
-            self._gateway.record_market_request_account_state(payload)
+            result = self._gateway.record_market_request_account_state(payload)
         except Exception as exc:
             raise MarketRequestBudgetExceeded("MARKET_REQUEST_ACCOUNTING_UNAVAILABLE") from exc
+        if not isinstance(result, Mapping) or result.get("recorded") is not True:
+            raise MarketRequestBudgetExceeded("MARKET_REQUEST_ACCOUNTING_INVALID")
+
+    def _response_constraints(self, headers: Mapping[str, str] | None) -> tuple[float | None, bool]:
+        if headers is None:
+            return None, False
+        values: dict[str, list[str]] = {}
+        for name, value in headers.items():
+            if isinstance(name, str) and isinstance(value, str):
+                values.setdefault(name.lower(), []).append(value.strip())
+
+        def value(name: str) -> str | None:
+            items = values.get(name, [])
+            return items[0] if len(items) == 1 and len(items[0]) <= 64 else None
+
+        def integer(name: str) -> int | None:
+            raw = value(name)
+            if raw is not None and re.fullmatch(r"0|[1-9][0-9]{0,9}", raw):
+                number = int(raw)
+                return number if number <= 2**31 - 1 else None
+            return None
+
+        def reset_time(name: str) -> datetime | None:
+            raw = value(name)
+            if raw is None:
+                return None
+            try:
+                # Accept absolute epoch seconds or explicitly zoned ISO times.
+                # A bare wall time or relative count cannot establish a period.
+                if re.fullmatch(r"[1-9][0-9]{9}", raw):
+                    return datetime.fromtimestamp(int(raw), UTC)
+                return _timestamp(raw)
+            except (TypeError, ValueError, OverflowError, OSError):
+                return None
+
+        now = self._clock().astimezone(UTC)
+        limits = self.account_limits
+        quota_limit, quota_remaining = integer("quota-limit"), integer("quota-remaining")
+        rate_limit, rate_remaining = integer("ratelimit-limit"), integer("ratelimit-remaining")
+        quota_reset, rate_reset = reset_time("quota-reset-time"), reset_time("ratelimit-reset-time")
+        usage = self.snapshot() if quota_remaining is not None or rate_remaining is not None else None
+        stop = False
+        delay = None
+        if limits.monthly_allowance is not None:
+            stop = quota_limit is not None and quota_limit < limits.monthly_allowance
+            if quota_remaining is not None and usage is not None:
+                expected = max(0, limits.monthly_allowance - usage["monthlyAttempts"])
+                stop = stop or quota_remaining < expected
+            if quota_reset is not None and limits.monthly_period_end is not None:
+                stop = stop or quota_reset != _timestamp(limits.monthly_period_end)
+        if (rate_limit is not None and limits.max_requests_per_window is not None
+                and rate_limit < limits.max_requests_per_window):
+            # The fixed rate contract needs operator review; a worker restart
+            # must not silently restore the looser configured rate.
+            if limits.monthly_period_end is not None:
+                delay = max(0, (_timestamp(limits.monthly_period_end) - now).total_seconds())
+            else:
+                stop = True
+        if rate_remaining is not None and usage is not None:
+            expected_rate = max(0, (limits.max_requests_per_window or 0) - usage["rateWindowAttempts"])
+            if rate_remaining == 0 or rate_remaining < expected_rate:
+                cooldown = float(limits.rate_window_seconds or 1)
+                if rate_reset is not None:
+                    cooldown = max(cooldown, (rate_reset - now).total_seconds())
+                delay = max(delay or 0, cooldown)
+        return delay, stop
 
     def snapshot(self) -> dict[str, Any]:
         try:
