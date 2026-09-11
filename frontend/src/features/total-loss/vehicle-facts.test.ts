@@ -1,12 +1,22 @@
 import { describe, expect, it } from "vitest";
 import { createEmptyTotalLossManualForm } from "./types";
-import { factsFromForm, vehicleFactErrors, clearVehicleFacts, vehicleFacts, sameVehicleFacts } from "./vehicle-facts";
+import { factsFromForm, vehicleFactErrors, clearVehicleFacts, vehicleFacts, sameVehicleFacts, fillConfigurationFacts } from "./vehicle-facts";
 import { createEmptyTotalLossDraft, writeTotalLossDraft, readTotalLossDraft } from "./draft";
 import { totalLossDetailsToManualForm, totalLossManualFormToDetailsValues } from "./data-mappers";
 
 const facts = { bodyType: "Sedan", drivetrain: "FWD", engine: "2.0L I4", fuelType: "Unleaded", transmission: "Automatic" };
 
 describe("confirmed subject vehicle facts", () => {
+  it("fills only unanimous explicit catalog drive facts and preserves customer corrections", () => {
+    const values = createEmptyTotalLossManualForm();
+    const configuration = { source: "marketcheck" as const, field: "version" as const, values: ["SEL All Wheel Drive", "SEL AWD"] };
+    expect(fillConfigurationFacts(values, configuration).drivetrain).toBe("AWD");
+    expect(fillConfigurationFacts({ ...values, drivetrain: "FWD" }, configuration).drivetrain).toBe("FWD");
+    for (const versions of [["SEL"], ["SEL AWD", "SEL FWD"], ["AWD/FWD"], ["SEL AWD", "SEL"], []]) {
+      expect(fillConfigurationFacts(values, { ...configuration, values: versions })).toEqual(values);
+    }
+    expect(fillConfigurationFacts(values, { ...configuration, field: "trim" })).toEqual(values);
+  });
   it("blocks the incomplete canary with named corrections", () => {
     expect(vehicleFactErrors({ ...createEmptyTotalLossManualForm(), vehicleYear: "2025", make: "Hyundai", model: "Elantra", trim: "SEL" }))
       .toEqual({ bodyType: "Confirm body style.", drivetrain: "Confirm drive type.", engine: "Confirm engine.", fuelType: "Confirm fuel type.", transmission: "Confirm transmission." });

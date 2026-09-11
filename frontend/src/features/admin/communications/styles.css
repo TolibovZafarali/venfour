@@ -1,0 +1,211 @@
+.communications-page {
+  max-width: 1400px;
+}
+.communications-header,
+.communications-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+.communications-header {
+  justify-content: space-between;
+  margin-bottom: 26px;
+}
+.communications-header h1 {
+  font-size: 30px;
+  letter-spacing: -1px;
+  margin: 0 0 8px;
+}
+.communications-header p {
+  color: #65758b;
+}
+.communications-eyebrow {
+  font-size: 11px;
+  letter-spacing: 2px;
+  font-weight: 600;
+}
+.communications-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+.communications-summary article {
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  background: #fff;
+  padding: 22px;
+}
+.communications-summary span,
+.communications-summary strong,
+.communications-summary small {
+  display: block;
+}
+.communications-summary span {
+  color: #65758b;
+  font-size: 13px;
+}
+.communications-summary strong {
+  font-size: 22px;
+  margin: 8px 0;
+  text-transform: capitalize;
+}
+.communications-summary small {
+  color: #65758b;
+  line-height: 1.5;
+}
+.communications-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  border-bottom: 1px solid #e2e8f0;
+  gap: 24px;
+  margin-bottom: 24px;
+}
+.communications-tabs button {
+  padding: 12px 0;
+  border-bottom: 2px solid transparent;
+  color: #65758b;
+  font-size: 14px;
+}
+.communications-tabs button[aria-pressed="true"] {
+  border-color: #234ee6;
+  color: #17379b;
+}
+.communications-card {
+  min-width: 0;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 24px;
+  background: #fff;
+}
+.communications-card h2 {
+  font-size: 17px;
+  font-weight: 600;
+  margin: 0 0 12px;
+}
+.communications-card p {
+  font-size: 14px;
+  color: #627088;
+  line-height: 1.7;
+  margin: 12px 0;
+}
+.communications-identities {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+.communications-identities h2 {
+  text-transform: capitalize;
+}
+.communications-identities dt {
+  color: #627088;
+  font-size: 12px;
+  margin-top: 14px;
+}
+.communications-identities dd {
+  font-size: 14px;
+  overflow-wrap: anywhere;
+  margin-top: 3px;
+}
+.communications-note {
+  color: #627088;
+  font-size: 13px;
+  line-height: 1.7;
+  margin: 20px 0;
+}
+.communications-preview-layout {
+  display: grid;
+  grid-template-columns: minmax(230px, 0.8fr) minmax(0, 1.5fr);
+  gap: 20px;
+  align-items: start;
+}
+.communications-page select,
+.communications-page input[type="number"] {
+  width: 100%;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 10px;
+  margin-top: 6px;
+  color: #172741;
+  background: white;
+}
+.communications-page label {
+  font-size: 13px;
+}
+.communications-page input[type="number"] {
+  display: block;
+  width: 150px;
+}
+.communications-email-frame {
+  width: 100%;
+  height: 780px;
+  border: 0;
+  margin-top: 16px;
+  border-radius: 10px;
+}
+.communications-plain {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 14px;
+  line-height: 1.7;
+  background: #f4f6fa;
+  padding: 20px;
+  margin-top: 16px;
+}
+.communications-automation-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+.communications-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-right: 12px;
+}
+.communications-table-wrap {
+  overflow: auto;
+}
+.communications-table-wrap table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 13px;
+}
+.communications-table-wrap th,
+.communications-table-wrap td {
+  padding: 15px 12px;
+  border-bottom: 1px solid #e2e8f0;
+}
+.communications-table-wrap small {
+  display: block;
+  color: #94633c;
+}
+.communications-page button:focus-visible,
+.communications-page select:focus-visible,
+.communications-page input:focus-visible {
+  outline: 2px solid #234ee6;
+  outline-offset: 3px;
+}
+@media (max-width: 900px) {
+  .communications-summary,
+  .communications-identities {
+    grid-template-columns: 1fr;
+  }
+  .communications-preview-layout,
+  .communications-automation-list {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 480px) {
+  .communications-card {
+    padding: 18px;
+  }
+  .communications-tabs {
+    gap: 18px;
+  }
+  .communications-email-frame {
+    height: 870px;
+  }
+}

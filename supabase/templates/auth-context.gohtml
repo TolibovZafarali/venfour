@@ -1,0 +1,6 @@
+{{ $claimPrefix := print .SiteURL "/total-loss/cases/" }}
+  {{ $localClaimPrefix := "http://127.0.0.1:5173/total-loss/cases/" }}
+  {{ $claimCode := or (and (ge (len .RedirectTo) (len $claimPrefix)) (eq (slice .RedirectTo 0 (len $claimPrefix)) $claimPrefix)) (and (eq .SiteURL "http://localhost:5173") (ge (len .RedirectTo) (len $localClaimPrefix)) (eq (slice .RedirectTo 0 (len $localClaimPrefix)) $localClaimPrefix)) }}
+  {{ $signIn := print .SiteURL "/auth/callback" }}{{ $signInQuery := print $signIn "?" }}{{ $localSignIn := "http://127.0.0.1:5173/auth/callback" }}{{ $localSignInQuery := print $localSignIn "?" }}{{ $signInCode := or (or (eq .RedirectTo $signIn) (and (ge (len .RedirectTo) (len $signInQuery)) (eq (slice .RedirectTo 0 (len $signInQuery)) $signInQuery))) (and (eq .SiteURL "http://localhost:5173") (or (eq .RedirectTo $localSignIn) (and (ge (len .RedirectTo) (len $localSignInQuery)) (eq (slice .RedirectTo 0 (len $localSignInQuery)) $localSignInQuery)))) }}
+  {{ $previewPrefix := print .SiteURL "/auth/callback/preview-ready/" }}
+  {{ $previewReady := and (ge (len .RedirectTo) (len $previewPrefix)) (eq (slice .RedirectTo 0 (len $previewPrefix)) $previewPrefix) }}

@@ -388,7 +388,7 @@ function AuthenticatedTotalLossAnalysisPage({
           <Button asChild>
             <Link
               to={analysis.subjectReadiness?.correctionMode === "resume"
-                ? `/start?service=total-loss&caseId=${encodeURIComponent(caseId)}`
+                ? `/start?service=total-loss&caseId=${encodeURIComponent(caseId)}&focus=${analysis.subjectReadiness.issues[0]?.correctionStep ?? "vehicle"}`
                 : totalLossIntakeCorrectionPath(caseId, analysis.subjectReadiness?.issues[0]?.correctionStep)}
             >
               Review intake

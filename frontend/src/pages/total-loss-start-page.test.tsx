@@ -936,6 +936,32 @@ describe("explicit Total Loss intake correction", () => {
     });
   });
 
+  it("preserves corrected vehicle facts through refresh and resubmits the same case", async () => {
+    const original = completedRecoveryDetails({ vehicleFacts: { ...SUBJECT_VEHICLE_FACTS, transmission: "" } });
+    const harness = recoveryHarness({ details: original });
+    const auth = createAuthHarness(sessionFor());
+    const user = userEvent.setup();
+    const path = `${recoveryPath()}&focus=vehicle`;
+    const first = renderTestApp([path], { authService: auth.service, totalLossDependencies: harness.dependencies });
+    await screen.findByRole("heading", { name: "Tell us about your vehicle" });
+    expect(screen.getByLabelText("Engine")).toHaveValue(SUBJECT_VEHICLE_FACTS.engine);
+    expectNoRecoveryWrites(harness);
+    await user.type(screen.getByLabelText("Transmission"), "Automatic");
+    first.unmount();
+    const second = renderTestApp([path], { authService: auth.service, totalLossDependencies: harness.dependencies });
+    expect(await screen.findByLabelText("Transmission")).toHaveValue("Automatic");
+    await user.click(screen.getByRole("button", { name: "Confirm vehicle & continue" }));
+    expect(await screen.findByLabelText("Mileage at time of loss")).toHaveValue("48,250");
+    await user.click(withinIntakeFlow().getByRole("button", { name: "Continue" }));
+    await screen.findByRole("heading", { name: "Contact details" });
+    await user.click(screen.getByRole("button", { name: "Review & analyze" }));
+    await waitFor(() => expect(second.router.state.location.pathname).toBe(`/total-loss/cases/${CASE_ID}/analysis`));
+    expect(harness.confirmIntake).toHaveBeenCalledOnce();
+    expect(harness.saveDetails).toHaveBeenCalledWith(expect.objectContaining({ caseId: CASE_ID, values: expect.objectContaining({ vehicleFacts: expect.objectContaining({ transmission: "Automatic", engine: SUBJECT_VEHICLE_FACTS.engine }) }) }));
+    expect(harness.getOrCreateTotalLossDraft).not.toHaveBeenCalled();
+    expect(original.vehicleFacts?.transmission).toBe("");
+  });
+
   it("restores a check-complete missing-offer case without browser data, saves the offer, and confirms the same case", async () => {
     const original = completedRecoveryDetails({ insurerVehicleValuation: null });
     const harness = recoveryHarness({ details: original, status: "check_complete" });
@@ -2002,6 +2028,50 @@ describe("/start?service=total-loss", () => {
     expect(await screen.findByRole("heading", { name: "Add the claim details" })).toBeVisible();
   });
 
+  it.each(["authenticated", "guest"] as const)("retains complete VIN facts without manual re-entry for %s intake", async (identity) => {
+    const session = identity === "guest" ? anonymousSessionFor(USER_ID) : sessionFor();
+    const harness = createDependencyHarness();
+    harness.decodeVin.mockResolvedValue({ vin: "1HGCM82633A004352", year: 2003, make: "Honda", model: "Accord", trim: "EX-V6", vehicleFacts: SUBJECT_VEHICLE_FACTS });
+    const user = userEvent.setup();
+    renderTestApp(["/start?service=total-loss"], { authService: createAuthHarness(session).service, totalLossDependencies: harness.dependencies });
+    await chooseMode(user, "I don’t have the report");
+    await user.type(screen.getByLabelText("VIN"), "1HGCM82633A004352");
+    await user.click(screen.getByRole("button", { name: "Find vehicle" }));
+    await screen.findByRole("region", { name: "Confirmed vehicle details" });
+    expect(screen.getByLabelText("Engine")).toHaveValue(SUBJECT_VEHICLE_FACTS.engine);
+    expect(screen.getByLabelText("Drive type")).toHaveValue(SUBJECT_VEHICLE_FACTS.drivetrain);
+    await user.click(screen.getByRole("button", { name: "Confirm vehicle & continue" }));
+    expect(await screen.findByRole("heading", { name: "Add the claim details" })).toBeVisible();
+    expect(readTotalLossDraft()).toMatchObject({ ok: true, draft: { manual: SUBJECT_VEHICLE_FACTS } });
+    expect(harness.confirmIntake).not.toHaveBeenCalled();
+  });
+
+  it.each(["transmission", "pickup"] as const)("requires only unresolved VIN %s details before continuing", async (missing) => {
+    const harness = createDependencyHarness();
+    const vehicleFacts = { ...SUBJECT_VEHICLE_FACTS, ...(missing === "pickup" ? { bodyType: "Pickup" } : { transmission: "" }) };
+    harness.decodeVin.mockResolvedValue({ vin: "1HGCM82633A004352", year: 2003, make: "Honda", model: "Accord", trim: "EX-V6", vehicleFacts });
+    const user = userEvent.setup();
+    renderTestApp(["/start?service=total-loss"], { authService: createAuthHarness(sessionFor()).service, totalLossDependencies: harness.dependencies });
+    await chooseMode(user, "I don’t have the report");
+    await user.type(screen.getByLabelText("VIN"), "1HGCM82633A004352");
+    await user.click(screen.getByRole("button", { name: "Find vehicle" }));
+    await screen.findByRole("region", { name: "Confirmed vehicle details" });
+    await user.click(screen.getByRole("button", { name: "Confirm vehicle & continue" }));
+    expect(harness.confirmIntake).not.toHaveBeenCalled();
+    expect(screen.queryByText("Confirm engine.")).not.toBeInTheDocument();
+    if (missing === "pickup") {
+      expect(await screen.findByText("Confirm cab style.")).toBeVisible();
+      expect(screen.getByText("Confirm bed length.")).toBeVisible();
+      await user.type(screen.getByLabelText("Cab style"), "Crew Cab");
+      await user.type(screen.getByLabelText("Bed length"), "67 in");
+    } else {
+      expect(await screen.findByText("Confirm transmission.")).toBeVisible();
+      await user.type(screen.getByLabelText("Transmission"), "Automatic");
+    }
+    await user.click(screen.getByRole("button", { name: "Confirm vehicle & continue" }));
+    expect(await screen.findByRole("heading", { name: "Add the claim details" })).toBeVisible();
+  });
+
   it("finds a vehicle by VIN before moving smoothly to claim details", async () => {
     const auth = createAuthHarness(sessionFor());
     const harness = createDependencyHarness();
@@ -2743,6 +2813,18 @@ describe("/start?service=total-loss", () => {
     expect(
       screen.queryByRole("heading", { name: "Your information is saved" }),
     ).not.toBeInTheDocument();
+  });
+
+  it.each(["vehicle", "claim"] as const)("opens the requested %s correction step instead of a later saved step", async (focus) => {
+    const explicitDetails = completedRecoveryDetails({ intakeCompletedAt: null });
+    const harness = createDependencyHarness({ details: [explicitDetails], recentCase: appraisalCase(CASE_ID) });
+    const saved = createSensitiveManualDraft({ step: "contact", confirmedCaseId: CASE_ID, reservedCaseId: CASE_ID });
+    writeTotalLossDraft(saved);
+    renderTestApp([`/start?service=total-loss&caseId=${CASE_ID}&focus=${focus}`], { authService: createAuthHarness(sessionFor()).service, totalLossDependencies: harness.dependencies });
+    expect(await screen.findByRole("heading", { name: focus === "vehicle" ? "Tell us about your vehicle" : "Add the claim details" })).toBeVisible();
+    expect(readTotalLossDraft()).toMatchObject({ ok: true, draft: { step: focus, manual: saved.manual, confirmedCaseId: CASE_ID } });
+    expect(harness.confirmIntake).not.toHaveBeenCalled();
+    expect(harness.getOrCreateTotalLossDraft).not.toHaveBeenCalled();
   });
 
   it("automatically resumes an explicitly referenced owned total-loss draft", async () => {

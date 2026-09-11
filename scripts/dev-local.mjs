@@ -196,6 +196,14 @@ const backendEnvironment = {
   VENFOUR_PUBLIC_APP_ORIGIN: "http://localhost:5173",
   VENFOUR_PREVIEW_EMAIL_DISPATCH_SECRET:
     "local-preview-email-dispatch-secret-not-for-production",
+  VENFOUR_EMAIL_PROVIDER: "mailpit",
+  VENFOUR_EMAIL_MODE: "live",
+  VENFOUR_EMAIL_FROM: "Venfour <updates@venfour.test>",
+  VENFOUR_EMAIL_REPLY_TO: "support@venfour.test",
+  VENFOUR_AUTH_EMAIL_FROM: "Venfour <auth@venfour.test>",
+  VENFOUR_EMAIL_PUBLIC_API_ORIGIN: "http://127.0.0.1:8000",
+  VENFOUR_EMAIL_DISPATCH_SECRET: "local-communications-dispatch-secret-not-for-production",
+  VENFOUR_AUTH_EMAIL_HOOK_ENABLED: "0",
   VENFOUR_PARTNER_EMAIL_PROVIDER: "mailpit",
   VENFOUR_PARTNER_EMAIL_FROM: "Venfour <partners@venfour.test>",
   VENFOUR_PARTNER_EMAIL_REPLY_TO: "partners@venfour.test",
@@ -272,6 +280,10 @@ for (const secretName of [
   "VENFOUR_PUBLIC_APP_ORIGIN",
   "VENFOUR_PREVIEW_EMAIL_DISPATCH_SECRET",
   "RESEND_API_KEY",
+  "RESEND_WEBHOOK_SECRET",
+  "VENFOUR_EMAIL_DISPATCH_SECRET",
+  "VENFOUR_AUTH_EMAIL_HOOK_SECRET",
+  "VENFOUR_EMAIL_TEST_RECIPIENTS",
   "VENFOUR_PARTNER_EMAIL_PROVIDER",
   "VENFOUR_PARTNER_EMAIL_FROM",
   "VENFOUR_PARTNER_EMAIL_REPLY_TO",
@@ -416,6 +428,11 @@ try {
         headers: {
           Authorization: `Bearer ${backendEnvironment.VENFOUR_PARTNER_EMAIL_DISPATCH_SECRET}`,
         },
+        signal: AbortSignal.timeout(55_000),
+      });
+      await fetch("http://127.0.0.1:8000/internal/v1/communications/dispatch", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${backendEnvironment.VENFOUR_EMAIL_DISPATCH_SECRET}` },
         signal: AbortSignal.timeout(55_000),
       });
     } catch {

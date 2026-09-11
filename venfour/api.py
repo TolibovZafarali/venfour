@@ -74,6 +74,9 @@ from venfour.case_claim_access import (
     TurnstileRejectedError,
 )
 from venfour.preview_access import PreviewAccessGateway, PreviewAccessService
+from venfour.communications import CommunicationGateway, CommunicationService
+from venfour.communications_api import communication_routes
+from venfour.email_delivery import EmailConfiguration
 from venfour.partner_api import partner_routes, validated_partner_dispatch_secret
 from venfour.partner_service import PartnerGateway, PartnerService
 from venfour.commerce import (
@@ -2558,6 +2561,13 @@ def create_app(
                 "case_analysis_service must expose auth, case, and run methods"
             )
 
+    communication_service = None
+    communication_gateway_configuration = getattr(selected_gateway, "_configuration", None)
+    if isinstance(communication_gateway_configuration, SupabaseServerConfiguration):
+        communication_gateway = CommunicationGateway(communication_gateway_configuration, client=selected_gateway._client)
+        communication_service = CommunicationService(communication_gateway, EmailConfiguration.from_environment(os.environ),
+            supabase_origin=communication_gateway_configuration.url)
+
     selected_partner_service = partner_service
     selected_partner_delivery_service = partner_delivery_service
     owned_partner_delivery = None
@@ -3295,6 +3305,8 @@ def create_app(
                 await insurer_response_reconciler_task
             if owned_supabase_gateway is not None:
                 owned_supabase_gateway.close()
+            if communication_service is not None:
+                communication_service.close()
             if owned_partner_delivery is not None:
                 owned_partner_delivery.close()
             if owned_case_claim_access_service is not None:
@@ -3313,6 +3325,7 @@ def create_app(
             )
         )
 
+    routes.extend(communication_routes())
     app = Starlette(
         routes=routes,
         exception_handlers={
@@ -3328,6 +3341,7 @@ def create_app(
     app.state.case_analysis_service = selected_case_service
     app.state.case_claim_access_service = selected_case_claim_access_service
     app.state.preview_access_service = selected_preview_access_service
+    app.state.communication_service = communication_service
     app.state.partner_service = selected_partner_service
     app.state.partner_delivery_service = selected_partner_delivery_service
     app.state.partner_dispatch_secret = partner_dispatch_secret

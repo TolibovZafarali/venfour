@@ -15,6 +15,8 @@ from uuid import uuid4
 
 import httpx
 
+from venfour.email_delivery import EmailDeliveryError, send_prepared
+from venfour.email_templates import render_email
 from venfour.partner_documents import (
     PARTNER_DOCUMENT_BUCKET,
     PARTNER_DOCUMENT_FILENAME,
@@ -61,23 +63,29 @@ class PartnerDeliveryConfiguration:
     reply_to: str = ""
     resend_api_key: str = field(default="", repr=False)
     mailpit_origin: str = "http://127.0.0.1:54324"
+    delivery_mode: str = "live"
+    test_recipients: tuple[str, ...] = field(default=(), repr=False)
 
     @classmethod
     def from_environment(cls, environment: Mapping[str, str]) -> PartnerDeliveryConfiguration:
         return cls(
-            provider=environment.get("VENFOUR_PARTNER_EMAIL_PROVIDER", "disabled").strip().lower(),
+            provider=environment.get("VENFOUR_PARTNER_EMAIL_PROVIDER", environment.get("VENFOUR_EMAIL_PROVIDER", "disabled")).strip().lower(),
+            delivery_mode=environment.get("VENFOUR_EMAIL_MODE", "disabled") if "VENFOUR_EMAIL_PROVIDER" in environment else "live",
+            test_recipients=tuple(x.strip().lower() for x in environment.get("VENFOUR_EMAIL_TEST_RECIPIENTS", "").split(",") if x.strip()),
             public_app_origin=environment.get("VENFOUR_PUBLIC_APP_ORIGIN", "").strip(),
-            sender=environment.get("VENFOUR_PARTNER_EMAIL_FROM", "").strip(),
-            reply_to=environment.get("VENFOUR_PARTNER_EMAIL_REPLY_TO", "").strip(),
+            sender=environment.get("VENFOUR_PARTNER_EMAIL_FROM", environment.get("VENFOUR_EMAIL_FROM", "")).strip(),
+            reply_to=environment.get("VENFOUR_PARTNER_EMAIL_REPLY_TO", environment.get("VENFOUR_EMAIL_REPLY_TO", "")).strip(),
             resend_api_key=environment.get("RESEND_API_KEY", "").strip(),
             mailpit_origin=environment.get("VENFOUR_PARTNER_MAILPIT_ORIGIN", "http://127.0.0.1:54324").strip(),
         )
 
     @property
     def configuration_error(self) -> str | None:
-        if self.provider == "disabled":
+        if self.provider == "disabled" or self.delivery_mode in {"disabled", "dry_run"}:
             return "PARTNER_EMAIL_DISABLED"
         try:
+            if self.delivery_mode not in {"live", "allowlist"}:
+                raise ValueError("Unknown delivery mode")
             if self.provider not in {"resend", "mailpit"}:
                 raise ValueError("Unknown provider")
             _origin(self.public_app_origin)
@@ -215,43 +223,14 @@ class PartnerDeliveryService:
         if provider != self._configuration.provider or not isinstance(request_payload, Mapping):
             raise _DeliveryError("PARTNER_EMAIL_PROVIDER_CHANGED", requires_review=True)
         self._validate_prepared_email(job["payload"], request_payload, provider)
-        key = f"partner-email/{lease['job_id']}"
+        if self._configuration.delivery_mode == "allowlist" and job["payload"]["recipient_email"].lower() not in self._configuration.test_recipients:
+            raise _DeliveryError("PARTNER_EMAIL_RECIPIENT_NOT_ALLOWED", requires_review=True)
         try:
-            if provider == "resend":
-                response = self._client.post("https://api.resend.com/emails", json=dict(request_payload), headers={
-                    "Authorization": f"Bearer {self._configuration.resend_api_key}",
-                    "Idempotency-Key": key,
-                })
-            else:
-                message_id = f"partner-{lease['job_id']}@venfour.local"
-                search = self._client.get(f"{_origin(self._configuration.mailpit_origin, local_only=True)}/api/v1/search",
-                                          params={"query": f"message-id:{message_id}", "limit": 2})
-                search.raise_for_status()
-                messages = search.json().get("messages", [])
-                if messages:
-                    return {"provider_message_id": str(messages[0]["ID"])}
-                response = self._client.post(
-                    f"{_origin(self._configuration.mailpit_origin, local_only=True)}/api/v1/send",
-                    json=dict(request_payload),
-                )
-        except (httpx.HTTPError, ValueError, KeyError):
-            raise _DeliveryError("PARTNER_EMAIL_PROVIDER_UNCERTAIN") from None
-        if not 200 <= response.status_code < 300:
-            error_name = ""
-            try:
-                error_name = response.json().get("name", "")
-            except (ValueError, AttributeError):
-                pass
-            retryable = response.status_code >= 500 or response.status_code in {408, 425, 429} or (
-                response.status_code == 409 and error_name == "concurrent_idempotent_requests")
-            raise _DeliveryError("PARTNER_EMAIL_PROVIDER_REJECTED", requires_review=not retryable)
-        try:
-            body = response.json()
-            message_id = body.get("id") if provider == "resend" else body.get("ID")
-            if not isinstance(message_id, str) or not 0 < len(message_id) <= 256:
-                raise ValueError("Invalid provider acknowledgement")
-        except (ValueError, AttributeError):
-            raise _DeliveryError("PARTNER_EMAIL_PROVIDER_UNCERTAIN") from None
+            message_id = send_prepared(self._client, provider=provider, payload=request_payload,
+                key=f"partner-email/{lease['job_id']}", api_key=self._configuration.resend_api_key,
+                mailpit_origin=self._configuration.mailpit_origin)
+        except EmailDeliveryError as error:
+            raise _DeliveryError("PARTNER_" + error.code, requires_review=error.requires_review) from None
         return {"provider_message_id": message_id}
 
     def _email_payload(self, payload: Mapping[str, Any], job_id: str, provider: str) -> dict[str, Any]:
@@ -261,15 +240,7 @@ class PartnerDeliveryService:
         attachment = None
         if kind == "invitation":
             invitation_id = canonical_uuid(payload.get("invitation_id"))
-            subject = "Your invitation to become a Venfour referral partner"
-            text = (
-                "Venfour has invited your business to join its referral partner program.\n\n"
-                "Use this invitation to verify your email, complete your business details, and review "
-                "the agreement before deciding whether to sign.\n\n"
-                f"{origin}/partners/invitations/{invitation_id}\n\n"
-                "This invitation expires seven days after it was issued. Opening the link does not "
-                "accept the invitation or sign an agreement."
-            )
+            action_url = f"{origin}/partners/invitations/{invitation_id}"
         elif kind == "agreement_copy":
             canonical_uuid(payload.get("agreement_id"))
             path = self._artifact_path(payload)
@@ -278,26 +249,21 @@ class PartnerDeliveryService:
                 raise _DeliveryError("PARTNER_DOCUMENT_INTEGRITY_FAILED", requires_review=True)
             attachment = {"filename": PARTNER_DOCUMENT_FILENAME,
                           "content": base64.b64encode(content).decode("ascii")}
-            subject = "Your completed Venfour referral partner agreement"
-            text = (
-                "Your completed referral partner agreement is attached. This is the same retained PDF "
-                "available in your Venfour partner dashboard.\n\n"
-                f"{origin}/partners\n\n"
-                "Your onboarding is complete. Open your partner workspace to share your referral link "
-                "and follow your referral activity."
-            )
+            action_url = f"{origin}/partners"
         else:
             raise _DeliveryError("PARTNER_EMAIL_KIND_INVALID", requires_review=True)
+        rendered = render_email("partner_" + kind, action_url=action_url, reply_to=self._configuration.reply_to)
+        subject, text = rendered.subject, rendered.text
         if provider == "resend":
             result: dict[str, Any] = {"from": self._configuration.sender, "to": [recipient],
-                                      "reply_to": self._configuration.reply_to, "subject": subject, "text": text}
+                                      "reply_to": self._configuration.reply_to, "subject": subject, "text": text, "html": rendered.html}
             if attachment:
                 result["attachments"] = [attachment]
             return result
         sender_name, sender_email = parseaddr(self._configuration.sender)
         reply_name, reply_email = parseaddr(self._configuration.reply_to)
         result = {"From": {"Name": sender_name, "Email": sender_email}, "To": [{"Email": recipient}],
-                  "ReplyTo": [{"Name": reply_name, "Email": reply_email}], "Subject": subject, "Text": text,
+                  "ReplyTo": [{"Name": reply_name, "Email": reply_email}], "Subject": subject, "Text": text, "HTML": rendered.html,
                   "Headers": {"Message-ID": f"<partner-{job_id}@venfour.local>"}}
         if attachment:
             result["Attachments"] = [{"Filename": attachment["filename"], "Content": attachment["content"],

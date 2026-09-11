@@ -44,7 +44,7 @@ describe("admin operations workspace", () => {
     expect(within(screen.getByRole("navigation", { name: "Breadcrumb" })).getByText("Overview")).toHaveAttribute("aria-current", "page");
     expect(within(screen.getByRole("main")).getByRole("button", { name: "Refresh" })).toBeVisible();
     const nav = screen.getByRole("navigation", { name: "Admin navigation" });
-    expect(within(nav).getAllByRole("link")).toHaveLength(8);
+    expect(within(nav).getAllByRole("link")).toHaveLength(9);
     for (const [label, path] of [
       ["Cases", "/admin/cases"], ["Needs attention", "/admin/cases"],
       ["Customers", "/admin/customers"], ["Reports", "/admin/reports"],

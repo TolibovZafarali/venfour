@@ -1,4 +1,4 @@
-import { Activity, ChevronLeft, ChevronRight, ClipboardList, CreditCard, Files, LayoutDashboard, LogOut, Menu, TriangleAlert, Users, Workflow, X } from "lucide-react";
+import { Activity, ChevronLeft, ChevronRight, ClipboardList, CreditCard, Files, LayoutDashboard, LogOut, Mail, Menu, TriangleAlert, Users, Workflow, X } from "lucide-react";
 import { Dialog, Tooltip } from "radix-ui";
 import { useEffect, useRef, useState } from "react";
 import { Link, Outlet, useLocation } from "react-router";
@@ -22,6 +22,7 @@ const navigation = [
   { label: "Reports", href: "/admin/reports", icon: Files },
   { label: "Processing", href: "/admin/processing", icon: Workflow },
   { label: "Payments", href: "/admin/payments", icon: CreditCard },
+  { label: "Communications", href: "/admin/communications", icon: Mail },
   { label: "Activity", href: "/admin/activity", icon: Activity },
 ];
 

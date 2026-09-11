@@ -12,7 +12,7 @@ export function VehicleFactFields({ values, errors, onChange, disabled }: {
     onChange={event => onChange(field, event.target.value)} error={errors[field]} disabled={disabled}
     maxLength={200} placeholder={placeholder} optional={optional} />;
   return <section className="mt-6 space-y-4" aria-label="Vehicle details for matching">
-    <p className="text-sm text-copy">Confirm these details from your valuation report, window sticker, or vehicle documents so we can find comparable vehicles. Your VIN alone may not identify every detail.</p>
+    <p className="text-sm text-copy">Available vehicle details are filled in for you. Add anything missing from your valuation report, window sticker, or vehicle documents, and correct anything that looks wrong.</p>
     <div className="grid gap-4 sm:grid-cols-2">
       {text("bodyType", "For example, Sedan or SUV")}
       <IntakeSelectField id="total-loss-drivetrain" label="Drive type" value={values.drivetrain ?? ""}

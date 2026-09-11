@@ -6,6 +6,7 @@ import {
   type VehicleLookupService,
   type VehicleTrimOption,
 } from "@/features/total-loss/vehicle-lookup-service";
+import { decodedVehicleFacts } from "./nhtsa-vehicle-facts";
 
 const NHTSA_VPIC_VEHICLES_URL =
   "https://vpic.nhtsa.dot.gov/api/vehicles";
@@ -251,12 +252,14 @@ function decodeVehicle(payload: unknown, expectedVin: string): DecodedVehicle {
     );
   }
 
+  const vehicleFacts = decodedVehicleFacts(row);
   return Object.freeze({
     vin: expectedVin,
     year,
     make,
     model,
     trim: trim || null,
+    ...(Object.keys(vehicleFacts).length ? { vehicleFacts: Object.freeze(vehicleFacts) } : {}),
   });
 }
 

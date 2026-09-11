@@ -1,9 +1,12 @@
+import type { SubjectVehicleFacts } from "@/features/total-loss/vehicle-facts";
+
 export interface DecodedVehicle {
   readonly vin: string;
   readonly year: number;
   readonly make: string;
   readonly model: string;
   readonly trim: string | null;
+  readonly vehicleFacts?: SubjectVehicleFacts;
 }
 
 export interface ListVehicleModelsInput {

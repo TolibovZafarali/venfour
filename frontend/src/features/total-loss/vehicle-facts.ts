@@ -1,4 +1,5 @@
 import type { TotalLossManualFormErrors, TotalLossManualFormValues } from "./types";
+import type { VehicleConfigurationIdentity } from "@/features/intake/vehicle-lookup-types";
 
 export const VEHICLE_FACT_LABELS = {
   bodyType: "Body style", drivetrain: "Drive type", engine: "Engine",
@@ -41,6 +42,22 @@ export function clearVehicleFacts<T extends TotalLossManualFormValues>(values: T
   const result = { ...values };
   for (const field of VEHICLE_FACT_FIELDS) delete result[field];
   return result;
+}
+
+export function fillConfigurationFacts<T extends TotalLossManualFormValues>(values: T, configuration?: VehicleConfigurationIdentity | null): T {
+  if (values.drivetrain || configuration?.source !== "marketcheck" || configuration.field !== "version" || !configuration.values.length) return values;
+  const drives = configuration.values.map(value => {
+    const text = value.toLowerCase().replace(/[^a-z0-9]+/gu, " ");
+    const matches = [
+      [/\b(?:awd|all (?:wheel|whel|whl) (?:drive|drv))\b/u, "AWD"],
+      [/\b(?:fwd|front wheel drive)\b/u, "FWD"],
+      [/\b(?:rwd|rear wheel drive)\b/u, "RWD"],
+      [/\b(?:4wd|4x4|(?:four|4) wheel drive|four by four|4 by 4)\b/u, "4WD"],
+    ] as const;
+    const found = matches.filter(([pattern]) => pattern.test(text));
+    return found.length === 1 ? found[0][1] : null;
+  });
+  return drives[0] && drives.every(drive => drive === drives[0]) ? { ...values, drivetrain: drives[0] } : values;
 }
 
 export function vehicleFactErrors(values: TotalLossManualFormValues): TotalLossManualFormErrors {

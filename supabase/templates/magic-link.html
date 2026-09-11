@@ -1,52 +1,20 @@
-<!doctype html>
-<html lang="en">
-  {{ $claimPrefix := print .SiteURL "/total-loss/cases/" }}
+{{ $claimPrefix := print .SiteURL "/total-loss/cases/" }}
   {{ $localClaimPrefix := "http://127.0.0.1:5173/total-loss/cases/" }}
   {{ $claimCode := or (and (ge (len .RedirectTo) (len $claimPrefix)) (eq (slice .RedirectTo 0 (len $claimPrefix)) $claimPrefix)) (and (eq .SiteURL "http://localhost:5173") (ge (len .RedirectTo) (len $localClaimPrefix)) (eq (slice .RedirectTo 0 (len $localClaimPrefix)) $localClaimPrefix)) }}
   {{ $signIn := print .SiteURL "/auth/callback" }}{{ $signInQuery := print $signIn "?" }}{{ $localSignIn := "http://127.0.0.1:5173/auth/callback" }}{{ $localSignInQuery := print $localSignIn "?" }}{{ $signInCode := or (or (eq .RedirectTo $signIn) (and (ge (len .RedirectTo) (len $signInQuery)) (eq (slice .RedirectTo 0 (len $signInQuery)) $signInQuery))) (and (eq .SiteURL "http://localhost:5173") (or (eq .RedirectTo $localSignIn) (and (ge (len .RedirectTo) (len $localSignInQuery)) (eq (slice .RedirectTo 0 (len $localSignInQuery)) $localSignInQuery)))) }}
   {{ $previewPrefix := print .SiteURL "/auth/callback/preview-ready/" }}
   {{ $previewReady := and (ge (len .RedirectTo) (len $previewPrefix)) (eq (slice .RedirectTo 0 (len $previewPrefix)) $previewPrefix) }}
-  <body style="margin: 0; background: #f7f8f6; color: #172019; font-family: Arial, sans-serif;">
-    <div style="margin: 0 auto; max-width: 560px; padding: 40px 24px;">
-      <p style="font-size: 14px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;">
-        Venfour
-      </p>
-      {{ if or $claimCode $signInCode }}
-      <h1 style="font-size: 28px; line-height: 1.2; margin: 24px 0 12px;">
-        {{ if $signInCode }}Your sign-in code{{ else }}Your verification code{{ end }}
-      </h1>
-      <p style="font-size: 16px; line-height: 1.6; margin: 0 0 24px;">
-        {{ if $signInCode }}Use this code to sign in to Venfour:{{ else }}Use this code to verify your claim:{{ end }}
-      </p>
-      <p style="background: #edf2ed; border-radius: 12px; color: #183c2c; font-family: monospace; font-size: 36px; font-weight: 700; letter-spacing: 0.12em; margin: 0 0 24px; padding: 20px; text-align: center;">
-        {{ if eq (len .Token) 6 }}{{ slice .Token 0 3 }}-{{ slice .Token 3 6 }}{{ else }}{{ .Token }}{{ end }}
-      </p>
-      <p style="color: #526057; font-size: 14px; line-height: 1.6; margin: 0;">
-        This code expires soon. If you didn't request it, you can ignore this email.
-      </p>
+
+{{ if or $claimCode $signInCode }}
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light"><title>{{ if $signInCode }}Your Venfour sign-in code{{ else }}Your Venfour verification code{{ end }}</title></head>
+<body style="margin:0;background:#f4f6fa;font-family:Arial,Helvetica,sans-serif;color:#172741"><div style="display:none;max-height:0;overflow:hidden">{{ if $signInCode }}Use this code to sign in to Venfour:{{ else }}Use this code to verify your claim:{{ end }}</div>
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td align="center" style="padding:32px 16px"><table role="presentation" width="560" cellspacing="0" cellpadding="0" style="width:100%;max-width:560px"><tr><td style="padding:8px 4px 28px;font-size:25px;font-weight:bold;letter-spacing:-1px">venfour<span style="color:#234ee6">.</span></td></tr>
+<tr><td style="background:white;border:1px solid #e3e8f0;border-radius:16px;padding:32px 24px"><p style="font-size:11px;letter-spacing:2px;color:#53647b;margin:0 0 20px">CLARITY FOR YOUR NEXT STEP</p><h1 style="font-size:28px;line-height:1.25;letter-spacing:-.6px;margin:0 0 24px">{{ if $signInCode }}Your Venfour sign-in code{{ else }}Your Venfour verification code{{ end }}</h1><p style="margin:0 0 20px;font-size:16px;line-height:1.65;color:#41516a">{{ if $signInCode }}Use this code to sign in to Venfour:{{ else }}Use this code to verify your claim:{{ end }}</p><p style="margin:0 0 20px;font-size:16px;line-height:1.65;color:#41516a">If you did not request this code, you can ignore this email.</p><p style="padding:22px 8px;background:#f0f4fb;border-radius:8px;text-align:center;font-family:monospace;font-size:30px;letter-spacing:4px;color:#172741">{{ if eq (len .Token) 6 }}{{ slice .Token 0 3 }}-{{ slice .Token 3 6 }}{{ else }}{{ .Token }}{{ end }}</p><p style="font-size:13px;color:#59687d">This code expires soon. If you didn't request it, you can ignore this email.</p><p style="font-size:13px;line-height:1.6;color:#59687d;margin:28px 0 0">Questions? Contact Venfour support.</p></td></tr>
+<tr><td style="padding:24px 8px;font-size:12px;line-height:1.7;color:#69788c">You received this email about your Venfour account or a service you requested.<p style="margin-bottom:0">Venfour · Independent vehicle valuation guidance</p></td></tr></table></td></tr></table></body></html>
       {{ else }}
-      <h1 style="font-size: 28px; line-height: 1.2; margin: 24px 0 12px;">
-        {{ if $previewReady }}Your valuation preview is ready{{ else }}Continue your appraisal{{ end }}
-      </h1>
-      <p style="font-size: 16px; line-height: 1.6; margin: 0 0 24px;">
-        {{ if $previewReady }}Your preview is ready. Return to see your result and what to do next.
-        {{ else }}Use this secure, one-time link to return to your Total Loss appraisal.{{ end }}
-      </p>
-      <p style="margin: 0 0 24px;">
-        <a
-          href="{{ .RedirectTo }}?token_hash={{ .TokenHash }}&amp;type=email"
-          style="background: #183c2c; border-radius: 999px; color: #ffffff; display: inline-block; font-size: 16px; font-weight: 700; padding: 13px 22px; text-decoration: none;"
-        >{{ if $previewReady }}View my result{{ else }}Continue securely{{ end }}</a>
-      </p>
-      {{ if $previewReady }}
-      <p style="color: #526057; font-size: 14px; line-height: 1.6; margin: 0 0 16px;">
-        Keep this email to return later. If verification expires, you can request a fresh link from the same page.
-      </p>
-      {{ end }}
-      <p style="color: #526057; font-size: 14px; line-height: 1.6; margin: 0;">
-        If you did not request this email, you can ignore it.
-      </p>
-      {{ end }}
-    </div>
-  </body>
-</html>
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light"><title>{{ if $previewReady }}Your Venfour valuation preview is ready{{ else }}Continue your Venfour appraisal{{ end }}</title></head>
+<body style="margin:0;background:#f4f6fa;font-family:Arial,Helvetica,sans-serif;color:#172741"><div style="display:none;max-height:0;overflow:hidden">{{ if $previewReady }}Your preview is ready. Return to see your result and what to do next.{{ else }}Use this secure, one-time link to verify your email and return to your saved appraisal.{{ end }}</div>
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td align="center" style="padding:32px 16px"><table role="presentation" width="560" cellspacing="0" cellpadding="0" style="width:100%;max-width:560px"><tr><td style="padding:8px 4px 28px;font-size:25px;font-weight:bold;letter-spacing:-1px">venfour<span style="color:#234ee6">.</span></td></tr>
+<tr><td style="background:white;border:1px solid #e3e8f0;border-radius:16px;padding:32px 24px"><p style="font-size:11px;letter-spacing:2px;color:#53647b;margin:0 0 20px">CLARITY FOR YOUR NEXT STEP</p><h1 style="font-size:28px;line-height:1.25;letter-spacing:-.6px;margin:0 0 24px">{{ if $previewReady }}Your Venfour valuation preview is ready{{ else }}Continue your Venfour appraisal{{ end }}</h1><p style="margin:0 0 20px;font-size:16px;line-height:1.65;color:#41516a">{{ if $previewReady }}Your preview is ready. Return to see your result and what to do next.{{ else }}Use this secure, one-time link to verify your email and return to your saved appraisal.{{ end }}</p><p style="margin:0 0 20px;font-size:16px;line-height:1.65;color:#41516a">If the link expires, request a fresh link from the same page. If you did not request access, you can ignore this email.</p><p style="margin:30px 0"><a href="{{ .RedirectTo }}?token_hash={{ .TokenHash }}&amp;type=email" style="display:inline-block;background:#234ee6;color:#fff;border-radius:8px;padding:16px 24px;font-size:16px;font-weight:bold;text-decoration:none">{{ if $previewReady }}View my result{{ else }}Continue securely{{ end }}</a></p><p style="font-size:13px;line-height:1.6;color:#59687d;margin:28px 0 0">Questions? Contact Venfour support.</p></td></tr>
+<tr><td style="padding:24px 8px;font-size:12px;line-height:1.7;color:#69788c">You received this email about your Venfour account or a service you requested.<p style="margin-bottom:0">Venfour · Independent vehicle valuation guidance</p></td></tr></table></td></tr></table></body></html>
+{{ end }}

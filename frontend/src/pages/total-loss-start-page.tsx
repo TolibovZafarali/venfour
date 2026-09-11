@@ -1,4 +1,4 @@
-import { VEHICLE_FACT_FIELDS, vehicleFactErrors, clearVehicleFacts } from "@/features/total-loss/vehicle-facts";
+import { VEHICLE_FACT_FIELDS, vehicleFactErrors, clearVehicleFacts, fillConfigurationFacts } from "@/features/total-loss/vehicle-facts";
 import { AlertCircle, CloudOff, RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useIsMutating, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -589,15 +589,21 @@ function TotalLossIntakeFlowContent({
   const { auth, sendMagicLink } = useAuth();
   const queryClient = useQueryClient();
   const dependencies = useTotalLossDependencies();
-  const [initialDraft] = useState(() =>
-    loadInitialDraft(
+  const [initialDraft] = useState<InitialDraftState>(() => {
+    const initial = loadInitialDraft(
       bootstrapCase,
       bootstrapCase.userId,
       startNewCase,
       startupChoice,
       correction,
-    ),
-  );
+    );
+    const parameters = new URLSearchParams(location.search);
+    const focus = parameters.get("focus");
+    if (!correction && parameters.get("caseId") === bootstrapCase.id && (focus === "vehicle" || focus === "claim")) {
+      return { ...initial, draft: { ...initial.draft, step: focus } };
+    }
+    return initial;
+  });
   const [draft, setDraft] = useState(initialDraft.draft);
   const [stepTransitionDirection, setStepTransitionDirection] = useState<
     "forward" | "backward"
@@ -1616,7 +1622,7 @@ function TotalLossIntakeFlowContent({
     setFlowError(null);
     applyDraft((current) => ({
       ...current,
-      manual: { ...clearVehicleFacts(current.manual), trim: option.trim },
+      manual: fillConfigurationFacts({ ...(current.manual.vin ? current.manual : clearVehicleFacts(current.manual)), trim: option.trim }, vehicleConfigurationFromTrimOption(option)),
       vehicleConfiguration: vehicleConfigurationFromTrimOption(option),
       dirty: true,
     }));
@@ -1641,7 +1647,7 @@ function TotalLossIntakeFlowContent({
         method === "details"
           ? { ...current.manual, vin: "" }
           : {
-              ...current.manual,
+              ...clearVehicleFacts(current.manual),
               vehicleYear: "",
               make: "",
               model: "",
@@ -1681,6 +1687,7 @@ function TotalLossIntakeFlowContent({
         ...current,
         manual: {
           ...current.manual,
+          ...decoded.vehicleFacts,
           vin: decoded.vin,
           vehicleYear: String(decoded.year),
           make: decoded.make,
@@ -1709,7 +1716,7 @@ function TotalLossIntakeFlowContent({
       draftRef.current.vehicleConfiguration,
     );
     const configuredManual = selectedTrimOption
-      ? { ...normalized, trim: selectedTrimOption.trim }
+      ? fillConfigurationFacts({ ...normalized, trim: selectedTrimOption.trim }, vehicleConfigurationFromTrimOption(selectedTrimOption))
       : normalized;
     const errors = { ...vehicleErrors(validateTotalLossManualForm(configuredManual)),
       ...(correctionSubmissionIsUnchanged(draftRef.current) ? {} : vehicleFactErrors(configuredManual)) };
@@ -2750,7 +2757,7 @@ function correctionDetailsValues(
 function manualValuesForDetails(
   details: TotalLossCaseDetails,
 ): TotalLossManualFormValues {
-  return totalLossDetailsToManualForm(details);
+  return fillConfigurationFacts(totalLossDetailsToManualForm(details), details.vehicleConfiguration);
 }
 
 function extractionStateForDetails(

@@ -354,7 +354,7 @@ describe("total-loss case analysis page", () => {
     expect(screen.getByText("Confirm drive type.")).toBeVisible();
     expect(screen.getByText("Confirm engine.")).toBeVisible();
     expect(screen.getByRole("link", { name: "Review intake" })).toHaveAttribute("href",
-      `/start?service=total-loss&caseId=${CASE_ID}${correctionMode === "correct" ? "&intent=correct-intake&focus=vehicle" : ""}`);
+      `/start?service=total-loss&caseId=${CASE_ID}${correctionMode === "correct" ? "&intent=correct-intake" : ""}&focus=vehicle`);
     expect(screen.queryByRole("button", { name: "Retry value check" })).not.toBeInTheDocument();
     expect(postCount).toBe(0);
   });
