@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { vehicleFacts, sameVehicleFacts } from "./vehicle-facts";
 
 import type { AppraisalCaseService } from "@/features/cases/service";
 import {
@@ -29,7 +30,7 @@ import type {
 } from "@/lib/supabase/database.types";
 
 const TOTAL_LOSS_DETAILS_COLUMNS =
-  "case_id,intake_mode,vin,vehicle_year,vehicle_make,vehicle_model,vehicle_trim,vehicle_configuration,mileage_at_loss,postal_code,date_of_loss,insurer_name,insurer_vehicle_valuation,vehicle_condition,vehicle_options_packages,report_provider_name,report_extraction_status,report_extraction_confidence,report_extracted_at,report_facts_confirmed_at,analysis_input_revision,analysis_input_id,report_storage_owner_id,report_upload_recovery_required,report_original_filename,report_uploaded_at,intake_completed_at,created_at,updated_at" as const;
+  "case_id,intake_mode,vin,vehicle_year,vehicle_make,vehicle_model,vehicle_trim,vehicle_configuration,vehicle_facts,mileage_at_loss,postal_code,date_of_loss,insurer_name,insurer_vehicle_valuation,vehicle_condition,vehicle_options_packages,report_provider_name,report_extraction_status,report_extraction_confidence,report_extracted_at,report_facts_confirmed_at,analysis_input_revision,analysis_input_id,report_storage_owner_id,report_upload_recovery_required,report_original_filename,report_uploaded_at,intake_completed_at,created_at,updated_at" as const;
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -54,6 +55,7 @@ type TotalLossLegacyDetailsTableRow = Pick<
   | "updated_at"
 >;
 interface TotalLossAdditionalDetailsRow {
+  readonly vehicle_facts?: unknown;
   readonly vehicle_configuration?: unknown;
   readonly vehicle_condition?: string | null;
   readonly vehicle_options_packages?: string | null;
@@ -197,6 +199,7 @@ function mapTotalLossDetails(row: TotalLossDetailsRow): TotalLossCaseDetails {
     vehicleMake: row.vehicle_make,
     vehicleModel: row.vehicle_model,
     vehicleTrim: row.vehicle_trim,
+    vehicleFacts: vehicleFacts(row.vehicle_facts),
     vehicleConfiguration: optionalVehicleConfiguration(
       row.vehicle_configuration,
     ),
@@ -330,6 +333,7 @@ function assignWritableValues(
   if (values.vehicleMake !== undefined) target.vehicle_make = values.vehicleMake;
   if (values.vehicleModel !== undefined) target.vehicle_model = values.vehicleModel;
   if (values.vehicleTrim !== undefined) target.vehicle_trim = values.vehicleTrim;
+  if (values.vehicleFacts !== undefined) (target as Record<string, unknown>).vehicle_facts = values.vehicleFacts;
   if (values.vehicleConfiguration !== undefined) {
     (target as Record<string, unknown>).vehicle_configuration =
       values.vehicleConfiguration;
@@ -361,6 +365,7 @@ function matchesWritableValues(
     details.vehicleMake === (values.vehicleMake ?? null) &&
     details.vehicleModel === (values.vehicleModel ?? null) &&
     details.vehicleTrim === (values.vehicleTrim ?? null) &&
+    sameVehicleFacts(details.vehicleFacts, values.vehicleFacts) &&
     sameVehicleConfiguration(
       details.vehicleConfiguration ?? null,
       values.vehicleConfiguration ?? null,

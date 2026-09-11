@@ -1,3 +1,4 @@
+import { VEHICLE_FACT_FIELDS, vehicleFactErrors, clearVehicleFacts } from "@/features/total-loss/vehicle-facts";
 import { AlertCircle, CloudOff, RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useIsMutating, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -1601,7 +1602,7 @@ function TotalLossIntakeFlowContent({
       }
       return {
         ...current,
-        manual,
+        manual: changesVehicleIdentity ? clearVehicleFacts(manual) : manual,
         vehicleConfiguration: changesVehicleIdentity
           ? null
           : current.vehicleConfiguration,
@@ -1615,7 +1616,7 @@ function TotalLossIntakeFlowContent({
     setFlowError(null);
     applyDraft((current) => ({
       ...current,
-      manual: { ...current.manual, trim: option.trim },
+      manual: { ...clearVehicleFacts(current.manual), trim: option.trim },
       vehicleConfiguration: vehicleConfigurationFromTrimOption(option),
       dirty: true,
     }));
@@ -1710,7 +1711,8 @@ function TotalLossIntakeFlowContent({
     const configuredManual = selectedTrimOption
       ? { ...normalized, trim: selectedTrimOption.trim }
       : normalized;
-    const errors = vehicleErrors(validateTotalLossManualForm(configuredManual));
+    const errors = { ...vehicleErrors(validateTotalLossManualForm(configuredManual)),
+      ...(correctionSubmissionIsUnchanged(draftRef.current) ? {} : vehicleFactErrors(configuredManual)) };
     if (
       vehicleResolved &&
       trimsState !== "idle" &&
@@ -1817,6 +1819,14 @@ function TotalLossIntakeFlowContent({
     setFlowError(null);
     setAccessLinkError(null);
     try {
+      const errors = draftRef.current.mode === "manual" ? vehicleFactErrors(draftRef.current.manual) : {};
+      if (Object.keys(errors).length) {
+        setManualErrors(errors);
+        applyDraft(current => ({ ...current, step: "vehicle" }), { bumpRevision: false });
+        setFlowError("Confirm the highlighted vehicle details before starting your review. Your information is saved.");
+        focusFirstManualError(errors);
+        return;
+      }
       const caseId = await ensureCase();
       await flushDraft({ force: true });
       const claim = await identityService.saveContactAndBeginClaim({
@@ -1901,6 +1911,14 @@ function TotalLossIntakeFlowContent({
     setCompletionBusy(true);
     setFlowError(null);
     try {
+      const errors = draftRef.current.mode === "manual" ? vehicleFactErrors(draftRef.current.manual) : {};
+      if (Object.keys(errors).length) {
+        setManualErrors(errors);
+        applyDraft(current => ({ ...current, step: "vehicle" }), { bumpRevision: false });
+        setFlowError("Confirm the highlighted vehicle details before starting your review. Your information is saved.");
+        focusFirstManualError(errors);
+        return;
+      }
       const caseId = await ensureCase();
       await flushDraft({ force: true });
       if (
@@ -2802,6 +2820,9 @@ function correctionStepForDetails(
   currentStep: TotalLossDraft["step"],
 ): TotalLossDraft["step"] {
   if (details.reportUploadRecoveryRequired) return "report";
+  if ((currentStep === "ready" || currentStep === "review" || currentStep === "choice") &&
+      (intent.focus === "vehicle" || intent.focus === "claim")) return intent.focus;
+
   if (currentStep !== "ready" && currentStep !== "review" && currentStep !== "choice") {
     return currentStep;
   }
@@ -2841,6 +2862,7 @@ function recentCandidateVisible(
 
 function vehicleErrors(errors: TotalLossManualFormErrors) {
   const vehicleFields: (keyof TotalLossManualFormValues)[] = [
+    ...VEHICLE_FACT_FIELDS,
     "vin",
     "vehicleYear",
     "make",
@@ -2855,6 +2877,18 @@ function vehicleErrors(errors: TotalLossManualFormErrors) {
 }
 
 const fieldIds: Record<keyof TotalLossManualFormValues, string> = {
+  bodyType: "total-loss-bodyType",
+  drivetrain: "total-loss-drivetrain",
+  engine: "total-loss-engine",
+  fuelType: "total-loss-fuelType",
+  transmission: "total-loss-transmission",
+  powertrain: "total-loss-powertrain",
+  cabType: "total-loss-cabType",
+  bedLength: "total-loss-bedLength",
+  doors: "total-loss-doors",
+  cylinders: "total-loss-cylinders",
+  bodySubtype: "total-loss-bodySubtype",
+
   vin: "total-loss-vin",
   vehicleYear: "total-loss-year",
   make: "total-loss-make",

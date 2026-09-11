@@ -3,6 +3,67 @@
   "title": "Venfour effective CCC evidence input V2",
   "type": "object",
   "properties": {
+    "confirmedVehicleFacts": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "bodyType": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "drivetrain": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "engine": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "fuelType": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "transmission": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "powertrain": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "cabType": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "bedLength": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "doors": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "cylinders": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "bodySubtype": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        }
+      }
+    },
     "report": {
       "type": "object",
       "properties": {

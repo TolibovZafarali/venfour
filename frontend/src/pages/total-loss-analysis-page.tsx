@@ -359,9 +359,12 @@ function AuthenticatedTotalLossAnalysisPage({
       <StateCard
         kind="error"
         eyebrow="Value check needs attention"
-        heading="We couldn’t complete this value check."
-        description={analysis.error.message}
+        heading={analysis.subjectReadiness ? "Confirm a few details before we start." : "We couldn’t complete this value check."}
+        description={analysis.subjectReadiness ? "Your information is saved. Update the details below so we can find comparable vehicles." : analysis.error.message}
       >
+        {analysis.subjectReadiness ? <ul className="mb-4 list-disc space-y-1 pl-5 text-sm text-copy">
+          {analysis.subjectReadiness.issues.map(issue => <li key={`${issue.field}-${issue.code}`}>{issue.message}</li>)}
+        </ul> : null}
         {analysis.retryable ? (
           <Button
             disabled={submitMutation.isPending}
@@ -384,7 +387,9 @@ function AuthenticatedTotalLossAnalysisPage({
         ) : (
           <Button asChild>
             <Link
-              to={totalLossIntakeCorrectionPath(caseId)}
+              to={analysis.subjectReadiness?.correctionMode === "resume"
+                ? `/start?service=total-loss&caseId=${encodeURIComponent(caseId)}`
+                : totalLossIntakeCorrectionPath(caseId, analysis.subjectReadiness?.issues[0]?.correctionStep)}
             >
               Review intake
             </Link>

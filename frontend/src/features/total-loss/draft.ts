@@ -1,3 +1,4 @@
+import { VEHICLE_FACT_FIELDS, factsFromForm } from "./vehicle-facts";
 import {
   createEmptyTotalLossContactForm,
   createEmptyTotalLossManualForm,
@@ -395,7 +396,8 @@ function toTotalLossDraft(value: unknown): TotalLossDraft | null {
 function isManualFormValues(value: unknown): value is TotalLossManualFormValues {
   return (
     isRecord(value) &&
-    hasExactKeys(value, MANUAL_FORM_KEYS) &&
+    Object.keys(value).every(key => [...MANUAL_FORM_KEYS, ...VEHICLE_FACT_FIELDS].includes(key as typeof MANUAL_FORM_KEYS[number])) &&
+    VEHICLE_FACT_FIELDS.every(key => value[key] === undefined || typeof value[key] === "string") &&
     MANUAL_FORM_KEYS.every((key) => typeof value[key] === "string")
   );
 }
@@ -420,6 +422,7 @@ function copyManualForm(
   value: TotalLossManualFormValues,
 ): TotalLossManualFormValues {
   return {
+    ...factsFromForm(value),
     vin: value.vin,
     vehicleYear: value.vehicleYear,
     make: value.make,

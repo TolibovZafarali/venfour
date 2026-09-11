@@ -118,6 +118,7 @@ def subject_material_facts(report: Mapping[str, Any]) -> dict[str, Any]:
         ("bodySubtype", "bodySubtype"), ("cabType", "cabType"),
         ("bedLength", "bedLength"), ("doors", "doors"),
     )}
+    facts.update(report.get("confirmedVehicleFacts") or {})
     # An absent certification, warranty, or equipment disclosure is unknown.
     return facts
 
@@ -491,6 +492,15 @@ class EfficientMarketSearch:
     def run(self, *, target: ComparableTarget, current_request: MarketSearchRequest | None,
             historical_request: HistoricalMarketSearchRequest | None, observed_date: str,
             subject_facts: Mapping[str, Any], subject_vin: str | None = None) -> EfficientSearchResult:
+        if not self.replay_only:
+            from venfour.subject_readiness import SubjectReadinessError, subject_readiness
+            issues = subject_readiness(
+                target, subject_facts,
+                loss_date=historical_request.evidence_date if historical_request else observed_date,
+                location_resolved=self.geography.origin(target.postal_code) is not None,
+            )
+            if issues:
+                raise SubjectReadinessError(issues)
         self.target, self.subject_facts, self.observed_date = target, copy.deepcopy(dict(subject_facts)), observed_date
         if subject_vin is not None:
             self.subject_facts["vin"] = subject_vin

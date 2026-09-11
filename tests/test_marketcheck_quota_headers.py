@@ -1,7 +1,9 @@
 """Provider response observations can only tighten shared request accounting."""
-from datetime import timedelta
+import json
+from datetime import UTC, datetime, timedelta
 from email.message import Message
 from io import BytesIO
+from pathlib import Path
 from unittest import TestCase
 from unittest.mock import Mock, patch
 from urllib.error import HTTPError
@@ -11,8 +13,40 @@ from tests.test_market_request_budget import NOW, ACCOUNT, CASE, limits
 from venfour.market_request_budget import (
     MarketRequestBudget, MarketRequestBudgetExceeded, MemoryMarketRequestGateway,
     MarketRequestPolicy,
+    _provider_reset_timestamp,
 )
 from venfour.marketcheck import MarketCheckHttpResponse, MarketCheckProvider, _UrllibMarketCheckTransport
+
+
+CANARY_HEADERS = json.loads((Path(__file__).parent / "fixtures" / "marketcheck_canary_headers.json").read_text())
+
+
+class ProviderResetTimestampTests(TestCase):
+    def test_observed_utc_text_and_equivalent_iso_forms(self):
+        for utc_text, iso in (
+            (CANARY_HEADERS['Quota-Reset-Time'], '2026-10-01T00:00:00Z'),
+            (CANARY_HEADERS['RateLimit-Reset-Time'], '2026-09-11T16:54:46+00:00'),
+            ('2027-01-01 00:00:00 UTC', '2026-12-31T19:00:00-05:00'),
+            ('2028-02-29 23:59:59 UTC', '2028-03-01T00:59:59+01:00'),
+            ('2026-09-30 23:59:59 UTC', '2026-09-30T23:59:59Z'),
+        ):
+            with self.subTest(utc_text=utc_text):
+                parsed = _provider_reset_timestamp(utc_text)
+                self.assertIs(parsed.tzinfo, UTC)
+                self.assertEqual(parsed, _provider_reset_timestamp(iso))
+        self.assertEqual(_provider_reset_timestamp('1790812800'), datetime(2026, 10, 1, tzinfo=UTC))
+
+    def test_malformed_ambiguous_and_unzoned_resets_are_rejected(self):
+        for bad in (
+            '', '2026-10-01 00:00:00', '2026-10-01 00:00:00 CST',
+            '2026-10-01 00:00:00 utc', '2026-10-01 00:00:00 UTC extra',
+            '2026-10-01 24:00:00 UTC', '2026-02-29 00:00:00 UTC',
+            '2026-13-01 00:00:00 UTC', '0000-01-01 00:00:00 UTC',
+            '2026-10-01 00:00:60 UTC', '2026-1-01 00:00:00 UTC', '1',
+            'nan', 'inf', '9' * 65,
+        ):
+            with self.subTest(bad=bad), self.assertRaises((ValueError, OverflowError)):
+                _provider_reset_timestamp(bad)
 
 
 class QuotaHeaderTests(TestCase):
@@ -66,6 +100,43 @@ class QuotaHeaderTests(TestCase):
         self.budget.report_response(200, headers={'Quota-Reset-Time': '1790812800'})
         self.worker().reserve_attempt('active_inventory')
         self.assertEqual(self.worker().snapshot()['monthlyAttempts'], 202)
+
+    def test_actual_canary_headers_preserve_operator_limits_and_usage(self):
+        self.now = datetime(2026, 9, 11, 16, 54, 46, tzinfo=UTC)
+        before = self.budget.snapshot()
+        self.budget.report_response(200, headers=CANARY_HEADERS)
+        self.assertEqual(self.worker().snapshot(), before)
+        self.assertEqual(self.worker().account_limits.monthly_usage_before_tracking, 200)
+        self.assertEqual(self.worker().account_limits.monthly_allowance, 500)
+        self.assertEqual(self.worker().account_limits.max_requests_per_window, 5)
+
+    def test_utc_text_quota_reset_mismatch_persists_a_monthly_stop(self):
+        self.budget.report_response(200, headers={
+            **CANARY_HEADERS, 'Quota-Reset-Time': '2027-01-01 00:00:00 UTC',
+        })
+        self.now += timedelta(seconds=60)
+        self.denied('MARKET_ACCOUNT_QUOTA_EXHAUSTED', str(uuid4()))
+        self.budget.report_response(200, headers=CANARY_HEADERS)
+        self.denied('MARKET_ACCOUNT_QUOTA_EXHAUSTED')
+        self.assertEqual(self.worker().snapshot()['monthlyAttempts'], 201)
+
+    def test_actual_rate_reset_format_tightens_only_the_rate_window(self):
+        self.now = datetime(2026, 9, 11, 16, 54, 43, tzinfo=UTC)
+        self.budget.report_response(200, headers={**CANARY_HEADERS, 'RateLimit-Remaining': '0'})
+        self.assertEqual(self.denied('MARKET_ACCOUNT_THROTTLED', str(uuid4())).retry_after_seconds, 3)
+        self.now += timedelta(seconds=3)
+        self.worker().reserve_attempt('active_inventory')
+        self.assertEqual(self.worker().snapshot()['monthlyAttempts'], 202)
+
+    def test_malformed_reset_does_not_erase_persisted_protection(self):
+        self.budget.report_response(200, headers={**CANARY_HEADERS, 'Quota-Remaining': '0'})
+        self.budget.report_response(200, headers={
+            'Quota-Limit': '5000', 'Quota-Remaining': '4999',
+            'Quota-Reset-Time': '2027-01-01 00:00:00',
+            'RateLimit-Reset-Time': 'tomorrow',
+        })
+        self.denied('MARKET_ACCOUNT_QUOTA_EXHAUSTED', str(uuid4()))
+        self.assertEqual(self.worker().snapshot()['monthlyAttempts'], 201)
 
     def test_rate_exhaustion_is_shared_cooldown_not_monthly_exhaustion(self):
         self.budget.report_response(429, headers={

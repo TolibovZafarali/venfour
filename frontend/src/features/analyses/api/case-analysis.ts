@@ -32,6 +32,11 @@ export interface FailedCaseAnalysis extends CaseAnalysisBase {
     readonly message: string;
   };
   readonly retryable: boolean;
+  readonly subjectReadiness?: {
+    readonly ready: false;
+    readonly correctionMode?: "correct" | "resume";
+    readonly issues: readonly { field: string; code: string; message: string; correctionStep: "vehicle" | "claim" }[];
+  };
 }
 
 export type CaseAnalysisStatus =

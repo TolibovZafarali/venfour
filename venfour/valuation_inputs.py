@@ -13,6 +13,7 @@ from venfour.market import VehicleConfigurationIdentity
 from venfour.vehicle_catalog import OTHER_VEHICLE_TRIM_LABEL
 from venfour.postal_codes import normalize_us_zip_code
 from venfour.report_ingestion import validate_normalized_report
+from venfour.subject_readiness import validate_vehicle_facts
 
 
 class ValuationInputError(ValueError):
@@ -141,7 +142,7 @@ def _equipment(value: Any) -> tuple[str, ...]:
     for value_text in values:
         text = " ".join(value_text.split())[:4000]
         key = text.casefold()
-        if text and key not in seen:
+        if text and key not in {"no", "none", "no options", "no additional options"} and key not in seen:
             seen.add(key)
             normalized.append(text)
     return tuple(normalized[:500])
@@ -166,6 +167,7 @@ class ConfirmedValuationInput:
     condition_summary: str | None = None
     equipment: tuple[str, ...] = ()
     report_provider: str | None = None
+    vehicle_facts: Mapping[str, str] | None = None
 
     @classmethod
     def from_snapshot(
@@ -206,6 +208,7 @@ class ConfirmedValuationInput:
         if trim.casefold() == OTHER_VEHICLE_TRIM_LABEL.casefold():
             vehicle_configuration = None
         return cls(
+            vehicle_facts=validate_vehicle_facts(_first(snapshot, "vehicle_facts", "vehicleFacts")),
             intake_mode=mode.upper(),
             vin=_optional_text(_first(snapshot, "vin"), "vin"),
             year=_required_integer(
@@ -250,6 +253,53 @@ class ConfirmedValuationInput:
                 "report_provider_name",
             ),
         )
+
+
+def snapshot_with_report_defaults(snapshot: Mapping[str, Any], normalized: Mapping[str, Any] | None) -> dict[str, Any]:
+    """Fill absent report-intake facts from its fenced extraction; keep edits."""
+    result = dict(snapshot)
+    if snapshot.get("intake_mode") != "report" or normalized is None:
+        return result
+    vehicle, report, valuation = normalized["vehicle"], normalized["report"], normalized["valuation"]
+    defaults = {
+        "vehicle_year": vehicle.get("year"), "vehicle_make": vehicle.get("make"),
+        "vehicle_model": vehicle.get("model"), "vehicle_trim": vehicle.get("trim"),
+        "vin": vehicle.get("vin"), "mileage_at_loss": vehicle.get("mileage"),
+        "date_of_loss": report.get("lossDate"), "insurer_name": report.get("insurer"),
+    }
+    if snapshot.get("vehicle_year") is None:
+        defaults["insurer_vehicle_valuation"] = valuation.get("insurerOffer")
+        defaults["vehicle_options_packages"] = vehicle.get("equipment")
+        defaults["vehicle_condition"] = normalized["condition"].get("preLossCondition")
+    for field, value in defaults.items():
+        if result.get(field) is None:
+            result[field] = value
+    return result
+
+
+def apply_confirmed_vehicle_facts(report: dict[str, Any], confirmed: ConfirmedValuationInput) -> None:
+    """Retain explicit customer facts separately from immutable report extraction."""
+    from venfour.marketcheck import configuration_drivetrain
+    from venfour.subject_readiness import SubjectReadinessError, readiness_issue
+
+    facts = dict(confirmed.vehicle_facts or {})
+    configured_drive = configuration_drivetrain(confirmed.vehicle_configuration)
+    if facts.get("drivetrain") and configured_drive and facts["drivetrain"] != configured_drive:
+        raise SubjectReadinessError([readiness_issue("drivetrain", conflict=True)])
+    if facts:
+        report["confirmedVehicleFacts"] = facts
+    for source, destination in (("bodyType", "bodyStyle"), ("engine", "engine"),
+                                ("fuelType", "fuelType"), ("transmission", "transmission")):
+        if source in facts:
+            report["vehicle"][destination] = facts[source]
+    drive = facts.get("drivetrain")
+    if drive:
+        report["vehicle"]["drivetrain"] = drive
+        source = {"page": None, "section": "Customer-confirmed vehicle details", "label": "Drive type", "text": drive}
+        report["vehicle"]["drivetrainSource"] = source
+        for check in report.get("evidence", {}).get("fieldChecks", []):
+            if check["path"] == "vehicle.drivetrain":
+                check.update(status="CAPTURED", materiality="MATERIAL", reasonCodes=[], sourceReferences=[source])
 
 
 def empty_normalized_report() -> dict[str, Any]:

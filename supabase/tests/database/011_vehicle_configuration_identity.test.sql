@@ -544,6 +544,7 @@ select is(
     'report_provider_name',
     'vehicle_condition',
     'vehicle_configuration',
+    'vehicle_facts',
     'vehicle_make',
     'vehicle_model',
     'vehicle_options_packages',

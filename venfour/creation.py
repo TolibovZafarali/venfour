@@ -71,6 +71,8 @@ from venfour.report_ingestion import (
 from venfour.valuation_inputs import (
     ConfirmedValuationInput,
     ValuationInputError,
+    apply_confirmed_vehicle_facts,
+    snapshot_with_report_defaults,
     confirmed_normalized_report,
     evidence_context,
 )
@@ -481,6 +483,19 @@ class AnalysisCreationService:
 
         return self._run_legacy_report(extraction.data, postal_code)
 
+    def create_from_confirmed_report(self, pdf_path: Path | str, input_snapshot: Mapping[str, Any]) -> AnalysisRunResult:
+        """Re-extract the fenced upload while preserving confirmed corrections."""
+        if self._ingestion_service is None:
+            raise AnalysisCreationUnavailableError("Report ingestion is unavailable")
+        ingestion = self._ingestion_service.ingest(Path(pdf_path))
+        if self._report_ingestion_recorder is not None:
+            self._report_ingestion_recorder(ingestion)
+        return self.create_from_confirmed_input(
+            input_snapshot, normalized_report=ingestion.to_dict()["normalizedReport"],
+            report_adapter=ingestion.adapter, partial_extraction=ingestion.partial,
+            report_extraction_available=True,
+        )
+
     def create_from_confirmed_input(
         self,
         input_snapshot: Mapping[str, Any],
@@ -493,7 +508,7 @@ class AnalysisCreationService:
         """Create a report or manual run from a trusted immutable DB snapshot."""
 
         try:
-            confirmed = ConfirmedValuationInput.from_snapshot(input_snapshot)
+            confirmed = ConfirmedValuationInput.from_snapshot(snapshot_with_report_defaults(input_snapshot, normalized_report))
             normalized = confirmed_normalized_report(
                 confirmed, normalized_report
             )
@@ -517,6 +532,7 @@ class AnalysisCreationService:
                             reasonCodes=[],
                             sourceReferences=[report_data["vehicle"]["drivetrainSource"]],
                         )
+            apply_confirmed_vehicle_facts(report_data, confirmed)
             selected_adapter = report_adapter
             if normalized_report is not None and selected_adapter is None:
                 selected_adapter = "GENERIC"
@@ -531,7 +547,12 @@ class AnalysisCreationService:
                     else report_extraction_available
                 ),
             )
-        except (ValuationInputError, NormalizedReportContractError) as exc:
+        except ValuationInputError as exc:
+            from venfour.subject_readiness import SubjectReadinessError, readiness_issue
+            field = {"vehicle_year": "year", "vehicle_make": "make", "vehicle_model": "model", "vehicle_trim": "trim",
+                     "mileage_at_loss": "mileage", "postal_code": "postalCode", "date_of_loss": "lossDate"}.get(exc.field, exc.field)
+            raise SubjectReadinessError([readiness_issue(field)]) from exc
+        except NormalizedReportContractError as exc:
             raise AnalysisConfirmedInputError(
                 "Confirmed valuation information is incomplete"
             ) from exc

@@ -1,0 +1,16 @@
+{
+  "intake_mode": "manual",
+  "vin": null,
+  "vehicle_year": 2025,
+  "vehicle_make": "Hyundai",
+  "vehicle_model": "Elantra",
+  "vehicle_trim": "SEL",
+  "vehicle_configuration": null,
+  "mileage_at_loss": 32000,
+  "postal_code": "63123",
+  "date_of_loss": "2026-08-03",
+  "insurer_name": "Example Insurance",
+  "insurer_vehicle_valuation": 19400,
+  "vehicle_condition": "Excellent",
+  "vehicle_options_packages": "No"
+}

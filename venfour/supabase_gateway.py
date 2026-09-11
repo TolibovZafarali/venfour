@@ -3806,6 +3806,14 @@ class SupabaseHttpGateway:
         )
         return self._rpc_boolean(payload, "Analysis failure")
 
+    def fail_total_loss_analysis_subject_readiness(self, job_id: str, processing_token: str, subject_readiness: Mapping[str, Any]) -> bool:
+        payload = self._rpc("fail_total_loss_analysis_subject_readiness", {
+            "job_id": _canonical_uuid(job_id, "Job ID"),
+            "processing_token": _canonical_uuid(processing_token, "Processing token"),
+            "subject_readiness": dict(subject_readiness),
+        })
+        return self._rpc_boolean(payload, "Subject readiness failure")
+
     def get_owned_analysis_run(
         self, run_id: str, user_id: str
     ) -> Mapping[str, Any] | str | None:

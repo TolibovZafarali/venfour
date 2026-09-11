@@ -1,4 +1,5 @@
 import type { VehicleConfigurationIdentity } from "@/features/intake/vehicle-lookup-types";
+import type { SubjectVehicleFacts } from "./vehicle-facts";
 
 export const TOTAL_LOSS_INTAKE_MODES = ["report", "manual"] as const;
 
@@ -24,7 +25,7 @@ export const TOTAL_LOSS_PENDING_AUTH_ACTIONS = [
 export type TotalLossPendingAuthAction =
   (typeof TOTAL_LOSS_PENDING_AUTH_ACTIONS)[number];
 
-export interface TotalLossManualFormValues {
+export interface TotalLossManualFormValues extends SubjectVehicleFacts {
   readonly vin: string;
   readonly vehicleYear: string;
   readonly make: string;

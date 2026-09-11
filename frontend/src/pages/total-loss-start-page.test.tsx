@@ -114,6 +114,7 @@ function createSensitiveManualDraft(
     mode: "manual",
     step: "vehicle",
     manual: {
+      ...SUBJECT_VEHICLE_FACTS,
       vin: "1HGCM82633A004352",
       vehicleYear: "2020",
       make: "Sensitive Make",
@@ -646,6 +647,17 @@ function vehicleTrimOption(trim: string): VehicleTrimOption {
 
 const RECOVERY_INPUT_ID = "abababab-abab-4bab-8bab-abababababab";
 
+const SUBJECT_VEHICLE_FACTS = { bodyType: "Sedan", drivetrain: "FWD", engine: "3.0L V6", fuelType: "Unleaded", transmission: "Automatic" };
+
+async function confirmSubjectFacts(user: ReturnType<typeof userEvent.setup>) {
+  for (const [label, value] of [["Body style", "Sedan"], ["Engine", "3.0L V6"], ["Fuel type", "Unleaded"], ["Transmission", "Automatic"]]) {
+    const input = screen.getByLabelText(label);
+    await user.clear(input);
+    await user.type(input, value);
+  }
+  await user.selectOptions(screen.getByLabelText("Drive type"), "FWD");
+}
+
 function completedRecoveryDetails(
   overrides: Partial<TotalLossCaseDetailsValues> = {},
   caseId = CASE_ID,
@@ -657,6 +669,7 @@ function completedRecoveryDetails(
     vehicleMake: "Honda",
     vehicleModel: "Accord",
     vehicleTrim: "EX-V6",
+    vehicleFacts: SUBJECT_VEHICLE_FACTS,
     mileageAtLoss: 48250,
     postalCode: "60611",
     dateOfLoss: "2026-08-10",
@@ -1969,6 +1982,26 @@ describe("/start?service=total-loss", () => {
     ).toBeVisible();
   });
 
+  it("keeps incomplete manual vehicle details editable before any analysis starts", async () => {
+    const auth = createAuthHarness(sessionFor());
+    const harness = createDependencyHarness();
+    const user = userEvent.setup();
+    renderTestApp(["/start?service=total-loss"], { authService: auth.service, totalLossDependencies: harness.dependencies });
+    await chooseMode(user, "I don’t have the report");
+    await user.type(screen.getByLabelText("VIN"), "1HGCM82633A004352");
+    await user.click(screen.getByRole("button", { name: "Find vehicle" }));
+    await screen.findByRole("region", { name: "Confirmed vehicle details" });
+    await user.click(screen.getByRole("button", { name: "Confirm vehicle & continue" }));
+    expect(await screen.findByText("Confirm body style.")).toBeVisible();
+    expect(screen.getByText("Confirm engine.")).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Tell us about your vehicle" })).toBeVisible();
+    expect(readTotalLossDraft()).toMatchObject({ ok: true, draft: { manual: { vin: "1HGCM82633A004352" } } });
+    expect(harness.confirmIntake).not.toHaveBeenCalled();
+    await confirmSubjectFacts(user);
+    await user.click(screen.getByRole("button", { name: "Confirm vehicle & continue" }));
+    expect(await screen.findByRole("heading", { name: "Add the claim details" })).toBeVisible();
+  });
+
   it("finds a vehicle by VIN before moving smoothly to claim details", async () => {
     const auth = createAuthHarness(sessionFor());
     const harness = createDependencyHarness();
@@ -2009,6 +2042,7 @@ describe("/start?service=total-loss", () => {
     expect(
       screen.queryByRole("heading", { name: "Add the claim details" }),
     ).not.toBeInTheDocument();
+    await confirmSubjectFacts(user);
     await user.click(
       screen.getByRole("button", { name: "Confirm vehicle & continue" }),
     );
@@ -2088,6 +2122,7 @@ describe("/start?service=total-loss", () => {
       expect(screen.getByLabelText("Trim")).toHaveValue(
         "marketcheck-trim-ex-l",
       );
+      await confirmSubjectFacts(user);
       await user.click(
         screen.getByRole("button", { name: "Confirm vehicle & continue" }),
       );
@@ -2127,6 +2162,7 @@ describe("/start?service=total-loss", () => {
       await user.click(screen.getByRole("button", { name: "Find vehicle" }));
       await screen.findByRole("region", { name: "Confirmed vehicle details" });
       expect(harness.listTrims).not.toHaveBeenCalled();
+      await confirmSubjectFacts(user);
       await user.click(
         screen.getByRole("button", { name: "Confirm vehicle & continue" }),
       );
@@ -2182,6 +2218,7 @@ describe("/start?service=total-loss", () => {
       model: "Accord",
     });
     await user.selectOptions(screen.getByLabelText("Trim"), "openai-trim-ex");
+    await confirmSubjectFacts(user);
     await user.click(
       screen.getByRole("button", { name: "Confirm vehicle & continue" }),
     );
@@ -2239,6 +2276,7 @@ describe("/start?service=total-loss", () => {
     await user.selectOptions(screen.getByLabelText("Model"), "Camry");
     await waitFor(() => expect(screen.getByLabelText("Trim")).toBeEnabled());
     await user.selectOptions(screen.getByLabelText("Trim"), "XLE");
+    await confirmSubjectFacts(user);
     await user.click(
       withinIntakeFlow().getByRole("button", {
         name: "Confirm vehicle & continue",

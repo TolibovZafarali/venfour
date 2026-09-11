@@ -690,6 +690,9 @@ class AnalysisOrchestrator:
         market_facts = None
         if self._market_search is not None:
             market_facts = subject_material_facts(request.ccc_report)
+            if base_request.loss_date is None:
+                from venfour.subject_readiness import SubjectReadinessError, readiness_issue
+                raise SubjectReadinessError([readiness_issue("lossDate")])
             market_search_result = self._market_search.run(
                 target=base_request.loss_vehicle, current_request=current_search_request,
                 historical_request=historical_search_request,

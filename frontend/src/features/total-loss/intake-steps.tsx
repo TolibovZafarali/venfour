@@ -1,3 +1,4 @@
+import { VehicleFactFields } from "./vehicle-fact-fields";
 import {
   ArrowLeft,
   ArrowRight,
@@ -299,6 +300,7 @@ export function VehicleStep({
         onRetryTrims={onRetryTrims}
         onTrimSelectionChange={onTrimSelectionChange}
       />
+      <VehicleFactFields values={values} errors={errors} onChange={onChange} disabled={fieldsDisabled} />
       {error ? <InlineError message={error} /> : null}
       <StepActions
         onBack={onBack}

@@ -7,12 +7,12 @@ const caseIdPattern =
 
 export interface TotalLossIntakeCorrectionIntent {
   readonly caseId: string;
-  readonly focus: "insurer-offer" | null;
+  readonly focus: "insurer-offer" | "vehicle" | "claim" | null;
 }
 
 export function totalLossIntakeCorrectionPath(
   caseId: string,
-  focus?: "insurer-offer",
+  focus?: "insurer-offer" | "vehicle" | "claim",
 ) {
   const search = new URLSearchParams({
     service: "total-loss",
@@ -38,6 +38,7 @@ export function readTotalLossIntakeCorrectionIntent(
   }
   return {
     caseId,
-    focus: parameters.get("focus") === "insurer-offer" ? "insurer-offer" : null,
+    focus: ["insurer-offer", "vehicle", "claim"].includes(parameters.get("focus") ?? "")
+      ? parameters.get("focus") as TotalLossIntakeCorrectionIntent["focus"] : null,
   };
 }

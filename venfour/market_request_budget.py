@@ -46,6 +46,21 @@ def _timestamp(value: str) -> datetime:
     return parsed.astimezone(UTC)
 
 
+def _provider_reset_timestamp(value: str) -> datetime:
+    """Parse absolute provider reset times without relying on locale names."""
+    if not isinstance(value, str) or len(value) > 64:
+        raise ValueError("Provider reset timestamp is invalid")
+    if re.fullmatch(r"[1-9][0-9]{9}", value):
+        return datetime.fromtimestamp(int(value), UTC)
+    match = re.fullmatch(
+        r"([0-9]{4})-([0-9]{2})-([0-9]{2}) ([0-9]{2}):([0-9]{2}):([0-9]{2}) UTC",
+        value,
+    )
+    if match:
+        return datetime(*(int(part) for part in match.groups()), tzinfo=UTC)
+    return _timestamp(value)
+
+
 def market_account_key(identifier: str) -> str:
     """Hash a configured non-secret account identifier shared by all workers."""
     if not isinstance(identifier, str) or not identifier.strip() or len(identifier) > 200:
@@ -446,11 +461,7 @@ class MarketRequestBudget:
             if raw is None:
                 return None
             try:
-                # Accept absolute epoch seconds or explicitly zoned ISO times.
-                # A bare wall time or relative count cannot establish a period.
-                if re.fullmatch(r"[1-9][0-9]{9}", raw):
-                    return datetime.fromtimestamp(int(raw), UTC)
-                return _timestamp(raw)
+                return _provider_reset_timestamp(raw)
             except (TypeError, ValueError, OverflowError, OSError):
                 return None
 

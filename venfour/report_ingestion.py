@@ -345,9 +345,13 @@ def validate_normalized_report(data: Any) -> None:
 
 def validate_effective_report(data: Any) -> None:
     """Validate the versioned input projection used by the live orchestrator."""
+    if isinstance(data, Mapping) and "confirmedVehicleFacts" in data:
+        from venfour.subject_readiness import validate_vehicle_facts
+        validate_vehicle_facts(data["confirmedVehicleFacts"])
     version = data.get("schemaVersion", "1") if isinstance(data, Mapping) else "1"
     if version == "1":
         legacy = _thaw_json(data)
+        legacy.pop("confirmedVehicleFacts", None)
         vehicle = legacy.get("vehicle", {}) if isinstance(legacy, Mapping) else {}
         if "drivetrain" in vehicle:
             from venfour.ccc_evidence import DRIVETRAINS

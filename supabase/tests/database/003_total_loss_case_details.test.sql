@@ -146,7 +146,8 @@ select is(
     'prior_title_status',
     'existing_damage_description',
     'report_upload_recovery_required',
-    'vehicle_configuration'
+    'vehicle_configuration',
+    'vehicle_facts'
   ]::text[],
   'the details table contains the public intake fields and internal upload coordination fields'
 );
@@ -198,6 +199,7 @@ select is(
     'text',
     'text',
     'bool',
+    'jsonb',
     'jsonb'
   ]::text[],
   'all details and lease columns use the intended PostgreSQL types'

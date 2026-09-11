@@ -4,6 +4,7 @@ import type {
   TotalLossManualFormErrors,
   TotalLossManualFormValues,
 } from "@/features/total-loss/types";
+import { factsFromForm } from "./vehicle-facts";
 
 export const MIN_TOTAL_LOSS_VEHICLE_YEAR = 1981;
 export const MAX_TOTAL_LOSS_PDF_BYTES = 50 * 1024 * 1024;
@@ -177,6 +178,7 @@ export function normalizeTotalLossManualForm(
 
   return {
     vin: normalizeVin(values.vin),
+    ...factsFromForm(values),
     vehicleYear: values.vehicleYear.trim(),
     make: normalizeWhitespace(values.make),
     model: normalizeWhitespace(values.model),

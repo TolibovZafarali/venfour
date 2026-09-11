@@ -3,6 +3,7 @@ import type {
   TotalLossCaseDetails,
 } from "@/features/total-loss/data-types";
 import type { VehicleConfigurationIdentity } from "@/features/intake/vehicle-lookup-types";
+import { factsFromForm } from "./vehicle-facts";
 import {
   createEmptyTotalLossManualForm,
   type TotalLossManualFormValues,
@@ -60,6 +61,7 @@ export function totalLossManualFormToDetailsValues(
     vehicleModel: nullable(normalized.model),
     vehicleTrim: nullable(normalized.trim),
     vehicleConfiguration,
+    vehicleFacts: factsFromForm(normalized),
     mileageAtLoss,
     postalCode: nullable(normalized.zipCode),
     dateOfLoss,
@@ -106,6 +108,7 @@ export function totalLossDetailsToManualForm(
 ): TotalLossManualFormValues {
   return {
     ...createEmptyTotalLossManualForm(),
+    ...details.vehicleFacts,
     vin: details.vin ?? "",
     vehicleYear:
       details.vehicleYear === null ? "" : String(details.vehicleYear),

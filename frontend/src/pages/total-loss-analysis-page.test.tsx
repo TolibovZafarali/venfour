@@ -333,6 +333,32 @@ describe("total-loss case analysis page", () => {
     expect(postCount).toBe(1);
   });
 
+  it.each(["resume", "correct"] as const)("shows missing subject details and preserves the %s path without submission", async (correctionMode) => {
+    let postCount = 0;
+    server.use(
+      http.get("*/api/v1/appraisal-cases/:caseId/analysis", () => HttpResponse.json({
+        status: "failed", attemptCount: 0, retryable: false,
+        error: { code: "ANALYSIS_INPUT_INVALID", message: "Confirm vehicle details." },
+        subjectReadiness: { ready: false, correctionMode, issues: [
+          { field: "drivetrain", code: "SUBJECT_FACT_REQUIRED", message: "Confirm drive type.", correctionStep: "vehicle" },
+          { field: "engine", code: "SUBJECT_FACT_REQUIRED", message: "Confirm engine.", correctionStep: "vehicle" },
+        ] },
+      })),
+      http.post("*/api/v1/appraisal-cases/:caseId/analysis", () => {
+        postCount += 1;
+        return HttpResponse.json({ status: "not_submitted" });
+      }),
+    );
+    renderTestApp([casePath], { authService: authService(sessionFor()), strictMode: true });
+    expect(await screen.findByRole("heading", { name: "Confirm a few details before we start." })).toBeVisible();
+    expect(screen.getByText("Confirm drive type.")).toBeVisible();
+    expect(screen.getByText("Confirm engine.")).toBeVisible();
+    expect(screen.getByRole("link", { name: "Review intake" })).toHaveAttribute("href",
+      `/start?service=total-loss&caseId=${CASE_ID}${correctionMode === "correct" ? "&intent=correct-intake&focus=vehicle" : ""}`);
+    expect(screen.queryByRole("button", { name: "Retry value check" })).not.toBeInTheDocument();
+    expect(postCount).toBe(0);
+  });
+
   it("offers intake review for a nonretryable failure", async () => {
     let postCount = 0;
     server.use(

@@ -66,7 +66,8 @@ select is(
     'storage_bucket',
     'storage_owner_id',
     'storage_object_path',
-    'report_extraction_available'
+    'report_extraction_available',
+    'subject_readiness'
   ]::text[],
   'claim and status expose exactly the contracted row keys'
 );

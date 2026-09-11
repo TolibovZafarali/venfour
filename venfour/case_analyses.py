@@ -41,6 +41,7 @@ from venfour.creation import (
     create_live_analysis_creation_service,
 )
 from venfour.market import MarketProviderDiagnostic
+from venfour.subject_readiness import SubjectReadinessError, confirmed_subject_readiness
 from venfour.presentation import AnalysisPresentationService
 from venfour.postal_codes import normalize_us_zip_code
 from venfour.report_ingestion import (
@@ -410,6 +411,7 @@ class CaseAnalysisStatus:
     failure_code: str | None = None
     retryable: bool | None = None
     intake_correction_allowed: bool = False
+    subject_readiness: Mapping[str, Any] | None = None
 
     def to_dict(self) -> dict[str, Any]:
         if self.status == "not_submitted":
@@ -431,6 +433,7 @@ class CaseAnalysisStatus:
             failure_code = self.failure_code or "ANALYSIS_CREATION_FAILED"
             return {
                 "status": "failed",
+                **({"subjectReadiness": dict(self.subject_readiness)} if self.subject_readiness is not None else {}),
                 "error": {
                     "code": failure_code,
                     "message": FAILURE_MESSAGES[failure_code],
@@ -720,6 +723,7 @@ class CaseAnalysisService:
             attempt_count=CaseAnalysisService._attempt_count(row),
             failure_code=failure_code,
             retryable=retryable,
+            subject_readiness=row.get("subject_readiness") if failure_code == "ANALYSIS_INPUT_INVALID" else None,
         )
 
     @staticmethod
@@ -811,6 +815,7 @@ class CaseAnalysisService:
         try:
             row = self._gateway.get_total_loss_analysis_status(case_id, user_id)
             status = self._status_from_row(row)
+            status = self._with_subject_readiness(status, row, case_id)
             return self._with_intake_correction_eligibility(
                 status, case_id, user_id, row
             )
@@ -820,6 +825,30 @@ class CaseAnalysisService:
             raise CaseAnalysisUnavailableError(
                 "Analysis status is unavailable"
             ) from exc
+
+    def _with_subject_readiness(self, status: CaseAnalysisStatus, row: Mapping[str, Any], case_id: str) -> CaseAnalysisStatus:
+        if status.status != "not_submitted" and not (
+            status.status == "failed" and status.failure_code == "ANALYSIS_INPUT_INVALID" and status.subject_readiness is None
+        ):
+            return status
+        snapshot = row.get("input_snapshot")
+        if not isinstance(snapshot, Mapping):
+            return status
+        normalized = None
+        if snapshot.get("intake_mode") == "report":
+            if row.get("report_extraction_available") is not True or not isinstance(self._gateway, ReportIngestionGateway):
+                return status
+            cached = self._gateway.get_total_loss_report_extraction(
+                case_id, row["source_report_upload_id"], row["analysis_input_revision"])
+            if cached is None or cached.get("extraction_status") != "confirmed":
+                return status
+            normalized = self._cache_result(cached).to_dict()["normalizedReport"]
+        readiness = confirmed_subject_readiness(snapshot, normalized)
+        if readiness["ready"]:
+            return status
+        readiness["correctionMode"] = "correct" if snapshot.get("intake_completed_at") else "resume"
+        return CaseAnalysisStatus(status="failed", attempt_count=status.attempt_count or 0,
+                                  failure_code="ANALYSIS_INPUT_INVALID", retryable=False, subject_readiness=readiness)
 
     def status(self, case_id: str, user_id: str) -> CaseAnalysisStatus:
         canonical_case_id = _path_uuid(case_id, "INVALID_CASE_ID")
@@ -889,6 +918,8 @@ class CaseAnalysisService:
 
     @staticmethod
     def _failure_for(error: Exception) -> tuple[str, bool]:
+        if isinstance(error, SubjectReadinessError):
+            return "ANALYSIS_INPUT_INVALID", False
         if isinstance(error, SupabaseReportNotFoundError):
             return "REPORT_UNAVAILABLE", True
         if isinstance(error, SupabaseReportInvalidError):
@@ -1127,6 +1158,7 @@ class CaseAnalysisService:
         failure_code: str,
         retryable: bool,
         attempt_count: int,
+        subject_readiness: Mapping[str, Any] | None = None,
     ) -> CaseAnalysisStatus:
         try:
             current = self._read_status(case_id, user_id)
@@ -1137,12 +1169,10 @@ class CaseAnalysisService:
 
         recorded = False
         try:
-            recorded = self._gateway.fail_total_loss_analysis(
-                job_id,
-                processing_token,
-                failure_code,
-                retryable,
-            )
+            if subject_readiness is not None:
+                recorded = self._gateway.fail_total_loss_analysis_subject_readiness(job_id, processing_token, subject_readiness)
+            else:
+                recorded = self._gateway.fail_total_loss_analysis(job_id, processing_token, failure_code, retryable)
         except SupabaseGatewayError:
             recorded = False
         if recorded:
@@ -1151,6 +1181,7 @@ class CaseAnalysisService:
                 attempt_count=attempt_count,
                 failure_code=failure_code,
                 retryable=retryable,
+                subject_readiness=subject_readiness,
             )
         try:
             current = self._read_status(case_id, user_id)
@@ -1308,9 +1339,9 @@ class CaseAnalysisService:
                         with materialize_report(
                             case_id, row, job_id
                         ) as report_path:
-                            result = create_report(
-                                report_path, normalized_postal_code
-                            )
+                            confirmed_report = getattr(creation_service, "create_from_confirmed_report", None)
+                            result = (confirmed_report(report_path, input_snapshot) if callable(confirmed_report)
+                                      else create_report(report_path, normalized_postal_code))
                 else:
                     raise AnalysisConfirmedInputError("Intake mode is invalid")
             else:
@@ -1364,6 +1395,7 @@ class CaseAnalysisService:
                     failure_code=failure_code,
                     retryable=retryable,
                     attempt_count=attempt_count,
+                    subject_readiness=exc.to_dict() if isinstance(exc, SubjectReadinessError) else None,
                 )
             self._emit_claim_terminal(
                 status,
@@ -1378,6 +1410,9 @@ class CaseAnalysisService:
     def submit(self, case_id: str, user_id: str) -> CaseAnalysisStatus:
         canonical_case_id = _path_uuid(case_id, "INVALID_CASE_ID")
         canonical_user_id = _canonical_uuid(user_id, "User ID")
+        before = self._read_status(canonical_case_id, canonical_user_id)
+        if before.subject_readiness is not None:
+            return before
         try:
             processing_token = _canonical_uuid(
                 str(self._token_factory()),
