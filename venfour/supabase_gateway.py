@@ -663,6 +663,74 @@ class SupabaseHttpGateway:
             return payload
         raise SupabaseUnavailableError("Case resolution service is temporarily unavailable")
 
+    def get_full_review_context(self, case_id: str, user_id: str) -> Mapping[str, Any] | None:
+        return self._rpc("get_total_loss_full_review_context", {
+            "requested_case_id": _canonical_uuid(case_id, "Case ID"),
+            "requested_user_id": _canonical_uuid(user_id, "User ID"),
+        })
+
+    def full_review_ready(self, case_id: str, user_id: str) -> bool:
+        result = self._rpc("total_loss_full_review_ready", {
+            "requested_case_id": _canonical_uuid(case_id, "Case ID"),
+            "requested_user_id": _canonical_uuid(user_id, "User ID"),
+        })
+        if not isinstance(result, bool):
+            raise SupabaseContractError("Full review readiness response is invalid")
+        return result
+
+    def begin_full_review_report(self, case_id, user_id, report_id, filename, digest, byte_size):
+        return self._rpc("begin_total_loss_full_review_report", {
+            "requested_case_id": _canonical_uuid(case_id, "Case ID"), "requested_user_id": _canonical_uuid(user_id, "User ID"),
+            "requested_report_id": _canonical_uuid(report_id, "Report ID"), "requested_filename": filename,
+            "requested_sha256": digest, "requested_byte_size": byte_size,
+        })
+
+    def transition_full_review_report(self, case_id, user_id, row, status, *, token=None, extraction=None, readiness=None):
+        return self._rpc("transition_total_loss_full_review_report", {
+            "requested_case_id": _canonical_uuid(case_id, "Case ID"), "requested_user_id": _canonical_uuid(user_id, "User ID"),
+            "requested_report_id": _canonical_uuid(row["id"], "Report ID"), "expected_revision": row["revision"],
+            "requested_status": status, "requested_token": token, "requested_extraction": extraction,
+            "requested_readiness": readiness,
+        })
+
+    @staticmethod
+    def _full_review_path(case_id, row):
+        owner = _canonical_uuid(row["storage_owner_id"], "Storage owner")
+        report = _canonical_uuid(row["id"], "Report ID")
+        case = _canonical_uuid(case_id, "Case ID")
+        path = f"{owner}/{case}/review-reports/{report}.pdf"
+        if row["case_id"] != case or row["storage_bucket"] != CASE_FILES_BUCKET or row["storage_object_name"] != path:
+            raise SupabaseContractError("Full review storage locator is invalid")
+        return path
+
+    def upload_full_review_report(self, case_id, row, pdf):
+        path = self._full_review_path(case_id, row)
+        if len(pdf) != row["byte_size"] or hashlib.sha256(pdf).hexdigest() != row["document_sha256"]:
+            raise SupabaseContractError("Full review document digest is invalid")
+        try:
+            response = self._client.post(f"{self._configuration.url}/storage/v1/object/{CASE_FILES_BUCKET}/{path}",
+                headers={**self._admin_headers(), "Content-Type": "application/pdf", "x-upsert": "false",
+                         "Cache-Control": "private, no-store"}, content=pdf)
+        except httpx.HTTPError as exc:
+            raise SupabaseUnavailableError("Private report storage is unavailable") from exc
+        if not 200 <= response.status_code < 300:
+            raise SupabaseUnavailableError("Private report storage is unavailable")
+
+    @contextmanager
+    def materialize_full_review_report(self, case_id, row):
+        with self._materialize_report_object(CASE_FILES_BUCKET, self._full_review_path(case_id, row), str(uuid4())) as path:
+            yield path
+
+    @contextmanager
+    def materialize_existing_full_review_report(self, case_id, row):
+        owner = _canonical_uuid(row["storage_owner_id"], "Storage owner")
+        case = _canonical_uuid(case_id, "Case ID")
+        expected = f"{owner}/{case}/valuation-report.pdf"
+        if row["storage_bucket"] != CASE_FILES_BUCKET or row["storage_object_name"] != expected:
+            raise SupabaseContractError("Existing report storage locator is invalid")
+        with self._materialize_report_object(CASE_FILES_BUCKET, expected, str(uuid4())) as path:
+            yield path
+
     def claim_total_loss_analysis(
         self, case_id: str, user_id: str, processing_token: str
     ) -> Mapping[str, Any]:
@@ -2935,7 +3003,12 @@ class SupabaseHttpGateway:
                 ),
             },
         )
-        return self._single_rpc_row(payload, "Package source context")
+        row = dict(self._single_rpc_row(payload, "Package source context"))
+        row["full_review_report"] = self._rpc("get_total_loss_package_review_report", {
+            "requested_work_item_id": _canonical_uuid(work_item_id, "Work item ID"),
+            "requested_processing_token": _canonical_uuid(processing_token, "Processing token"),
+        })
+        return row
 
     @staticmethod
     def _package_digest(value: Any, label: str) -> str:

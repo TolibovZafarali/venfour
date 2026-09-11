@@ -794,6 +794,8 @@ def _project_report_data(
     generated_at: str,
 ) -> dict[str, Any]:
     generated_at, issue_date = _canonical_utc(generated_at, "Report generation time")
+    from venfour.full_review_package import review_source_view
+    source = review_source_view(source)
     for label, value in (
         ("Report series ID", report_series_id),
         ("Report version ID", report_version_id),

@@ -248,6 +248,7 @@ returns void
 language plpgsql
 as $$
 declare
+  review_report_id uuid := gen_random_uuid();
   details_input_id uuid := gen_random_uuid();
   analysis_job_id uuid := gen_random_uuid();
   analysis_run_id uuid := gen_random_uuid();
@@ -331,6 +332,17 @@ begin
   insert into public.total_loss_claim_workflows (
     case_id, preliminary_snapshot_id, phase, current_task
   ) values (requested_case_id, snapshot_id, 'review', 'secure_claim');
+  -- New checkout fixtures include a stored, validated full-review report.
+  insert into public.total_loss_full_review_reports(
+    id,case_id,source_run_id,source_input_id,storage_owner_id,storage_object_name,
+    original_filename,document_sha256,byte_size,status,extraction,readiness,extracted_at)
+  values (review_report_id,requested_case_id,analysis_run_id,details_input_id,requested_owner_id,
+    requested_owner_id::text || '/' || requested_case_id::text || '/review-reports/' || review_report_id::text || '.pdf',
+    'fixture.pdf',repeat('a',64),123,'ready',jsonb_build_object('documentSha256',repeat('a',64)),
+    '{"stage":"full_review","ready":true,"issues":[]}'::jsonb,statement_timestamp());
+  insert into storage.objects(bucket_id,name,metadata) select storage_bucket,storage_object_name,
+    '{"mimetype":"application/pdf","size":123}'::jsonb from public.total_loss_full_review_reports where id=review_report_id;
+
 end;
 $$;
 

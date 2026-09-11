@@ -1,14 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useRef, useState } from "react";
+import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { isPermanentAuthState, useAuth } from "@/features/auth";
 import {
   communicationsService,
   type EmailAutomation,
-  type EmailPreview,
   type EmailTemplate,
 } from "./service";
+import { TemplateGallery } from "./template-gallery";
 import "./styles.css";
 
 function label(value: string) {
@@ -44,7 +44,6 @@ function CommunicationsContent({
   token: string;
 }) {
   const client = useQueryClient();
-  const [selection, setSelection] = useState("paid_review_ready");
   const [tab, setTab] = useState<"designs" | "automations" | "activity">(
     "designs",
   );
@@ -56,7 +55,6 @@ function CommunicationsContent({
     staleTime: 0,
     gcTime: 0,
     retry: false,
-    refetchInterval: 30000,
   });
   const mutation = useMutation({
     mutationFn: ({
@@ -81,7 +79,7 @@ function CommunicationsContent({
     return (
       <section className="admin-page">
         <h1>Communications</h1>
-        <p role="status">Loading email settings…</p>
+        <p role="status">Loading email templates…</p>
       </section>
     );
   if (query.isError || !query.data)
@@ -95,8 +93,6 @@ function CommunicationsContent({
       </section>
     );
   const data = query.data;
-  const selected =
-    data.templates.find((item) => item.key === selection) ?? data.templates[0];
   const activity = [
     ...data.activity,
     ...data.partner_activity,
@@ -108,53 +104,12 @@ function CommunicationsContent({
         <div>
           <p className="communications-eyebrow">CUSTOMER CARE</p>
           <h1>Communications</h1>
-          <p>Thoughtful emails, tied to real customer progress.</p>
+          <p>The Venfour email library.</p>
         </div>
         <Button variant="outline" onClick={() => void query.refetch()}>
           Refresh
         </Button>
       </header>
-      <div className="communications-summary">
-        <article>
-          <span>Customer automations</span>
-          <strong>
-            {data.settings.mode === "live"
-              ? "Enabled"
-              : data.settings.mode === "dry_run"
-                ? "Dry run"
-                : "Paused"}
-          </strong>
-          <small>
-            Sending also requires an active transport and scheduler.
-          </small>
-        </article>
-        <article>
-          <span>Delivery transport</span>
-          <strong>{label(data.configuration.provider)}</strong>
-          <small>
-            {data.configuration.mode === "allowlist"
-              ? "Approved test recipients only"
-              : `Environment: ${label(data.configuration.mode)}`}
-          </small>
-        </article>
-        <article>
-          <span>Auth hook endpoint</span>
-          <strong>
-            {data.configuration.auth_hook_enabled ? "Enabled" : "Disabled"}
-          </strong>
-          <small>
-            {data.configuration.auth_hook_enabled
-              ? "Delivery also requires enabling this hook in Supabase."
-              : "Supabase Auth settings choose the active sending route."}
-          </small>
-        </article>
-      </div>
-      {data.configuration.error && (
-        <p className="communications-note" role="alert">
-          Sender configuration needs attention before shared email delivery can
-          run.
-        </p>
-      )}
       <div className="communications-tabs" aria-label="Communications views">
         {(["designs", "automations", "activity"] as const).map((value) => (
           <button
@@ -164,15 +119,57 @@ function CommunicationsContent({
             onClick={() => setTab(value)}
           >
             {value === "designs"
-              ? "Designs & senders"
+              ? "Email templates"
               : value === "automations"
-                ? "Automations"
+                ? "Delivery settings"
                 : "Delivery activity"}
           </button>
         ))}
       </div>
-      {tab === "designs" && (
+      {tab === "designs" && <TemplateGallery data={data} token={token} />}
+      {tab === "automations" && (
         <>
+          <div className="communications-summary">
+            <article>
+              <span>Customer automations</span>
+              <strong>
+                {data.settings.mode === "live"
+                  ? "Enabled"
+                  : data.settings.mode === "dry_run"
+                    ? "Dry run"
+                    : "Paused"}
+              </strong>
+              <small>
+                Sending also requires an active transport and scheduler.
+              </small>
+            </article>
+            <article>
+              <span>Delivery transport</span>
+              <strong>{label(data.configuration.provider)}</strong>
+              <small>
+                {data.configuration.mode === "allowlist"
+                  ? "Approved test recipients only"
+                  : `Environment: ${label(data.configuration.mode)}`}
+              </small>
+            </article>
+            <article>
+              <span>Auth hook endpoint</span>
+              <strong>
+                {data.configuration.auth_hook_enabled ? "Enabled" : "Disabled"}
+              </strong>
+              <small>
+                {data.configuration.auth_hook_enabled
+                  ? "Delivery also requires enabling this hook in Supabase."
+                  : "Supabase Auth settings choose the active sending route."}
+              </small>
+            </article>
+          </div>
+          {data.configuration.error && (
+            <p className="communications-note" role="alert">
+              Sender configuration needs attention before shared email delivery
+              can run.
+            </p>
+          )}
           <div className="communications-identities">
             {data.configuration.identities.map((identity) => (
               <article className="communications-card" key={identity.name}>
@@ -192,49 +189,7 @@ function CommunicationsContent({
             application releases. The SMTP fallback uses the templates saved in
             Supabase.
           </p>
-          <div className="communications-preview-layout">
-            <div className="communications-card">
-              <h2>Email library</h2>
-              <label htmlFor="email-template">Choose an email</label>
-              <select
-                id="email-template"
-                value={selected?.key ?? ""}
-                onChange={(event) => setSelection(event.target.value)}
-              >
-                {data.templates.map((template) => (
-                  <option value={template.key} key={template.key}>
-                    {template.subject} · {label(template.key)}
-                  </option>
-                ))}
-              </select>
-              {selected && (
-                <>
-                  <p>{selected.trigger}</p>
-                  <p className="communications-meta">
-                    {label(selected.category)} · Layout {selected.version}
-                  </p>
-                  <p>
-                    Previews use fictional data. Test sends go only to your
-                    verified staff email when it is on the environment’s
-                    approved test list.
-                  </p>
-                </>
-              )}
-            </div>
-            {selected && (
-              <TemplatePreview
-                key={`${selected.key}:${userId}`}
-                template={selected}
-                token={token}
-                userId={userId}
-                testConfigured={data.configuration.test_send_configured}
-              />
-            )}
-          </div>
-        </>
-      )}
-      {tab === "automations" && (
-        <>
+
           <article className="communications-card">
             <h2>Rollout controls</h2>
             <p>
@@ -434,79 +389,6 @@ function AutomationCard({
           Save timing
         </Button>
       </div>
-    </article>
-  );
-}
-
-function TemplatePreview({
-  template,
-  token,
-  userId,
-  testConfigured,
-}: {
-  template: EmailTemplate;
-  token: string;
-  userId: string;
-  testConfigured: boolean;
-}) {
-  const [plain, setPlain] = useState(false);
-  const request = useRef(crypto.randomUUID());
-  const query = useQuery({
-    queryKey: ["communications-preview", userId, template.key],
-    queryFn: ({ signal }) =>
-      communicationsService.operation<EmailPreview>(
-        token,
-        "preview",
-        { template_key: template.key },
-        signal,
-      ),
-    retry: false,
-    gcTime: 0,
-  });
-  const test = useMutation({
-    mutationFn: () =>
-      communicationsService.operation(token, "test_send", {
-        template_key: template.key,
-        request_id: request.current,
-      }),
-  });
-  return (
-    <article className="communications-card">
-      <div className="communications-actions">
-        <Button variant="outline" onClick={() => setPlain((value) => !value)}>
-          {plain ? "Show HTML" : "Show plain text"}
-        </Button>
-        <Button
-          variant="outline"
-          disabled={!testConfigured || test.isPending || test.isSuccess}
-          onClick={() => test.mutate()}
-        >
-          Send preview to myself
-        </Button>
-      </div>
-      {test.isSuccess && (
-        <p role="status">Preview accepted by the configured provider.</p>
-      )}
-      {test.isError && (
-        <p role="alert">
-          Preview was not confirmed. Check that your staff email is on the
-          approved test list, then retry.
-        </p>
-      )}
-      {query.isPending ? (
-        <p role="status">Preparing preview…</p>
-      ) : query.isError || !query.data ? (
-        <p role="alert">Preview unavailable.</p>
-      ) : plain ? (
-        <pre className="communications-plain">{query.data.text}</pre>
-      ) : (
-        <iframe
-          title={`Email preview: ${template.subject}`}
-          sandbox=""
-          srcDoc={query.data.html}
-          className="communications-email-frame"
-        />
-      )}
     </article>
   );
 }

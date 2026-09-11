@@ -10,8 +10,9 @@ import { appraisalCaseQueryKeys } from "@/features/cases/queries";
 import { initializeTotalLossClaim } from "@/features/total-loss-claim/api";
 import { totalLossClaimQueryKeys } from "@/features/total-loss-claim/queries";
 
-export function LocalContinueAction({ accessToken, caseId, userId }: {
+export function LocalContinueAction({ accessToken, caseId, userId, label = "Continue my review" }: {
   readonly accessToken: string;
+  readonly label?: string;
   readonly caseId: string;
   readonly userId: string;
 }) {
@@ -59,7 +60,7 @@ export function LocalContinueAction({ accessToken, caseId, userId }: {
       aria-busy={pending}
       onClick={() => void initialize()}
     >
-      {pending ? "Opening your claim…" : "Continue my review"}
+      {pending ? "Opening your claim…" : label}
       {pending ? <LoaderCircle className="size-5 animate-spin motion-reduce:animate-none" aria-hidden /> : <ArrowRight className="size-5" aria-hidden />}
     </Button>
     {failed ? <div ref={failureRef} tabIndex={-1} role="alert" className="report-action-focus mx-auto mt-4 max-w-lg rounded-lg border border-line p-4 text-sm text-copy">

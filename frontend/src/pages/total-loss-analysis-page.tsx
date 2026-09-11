@@ -20,8 +20,6 @@ import {
 import { FreeValuationProcessing } from "@/features/analyses/components/free-valuation-processing";
 import { useAnalysisQuery } from "@/features/analyses/queries";
 import { ApiError } from "@/lib/api/client";
-import { environment } from "@/config/env";
-import { LocalContinueAction } from "@/features/total-loss-claim/components/local-continue-action";
 import { totalLossIntakeCorrectionPath } from "@/features/total-loss/intake-correction";
 
 const canonicalUuid4Pattern =
@@ -160,8 +158,8 @@ function CompletedTotalLossAnalysis({
           : undefined
       }
       continueAction={
-        import.meta.env.DEV && environment.localPostContinueEnabled && caseId
-          ? <LocalContinueAction accessToken={accessToken} caseId={caseId} userId={userId} />
+        caseId
+          ? <Button asChild size="lg" className="mt-6"><Link to={`/total-loss/cases/${caseId}/review-report`}>Upload your insurer’s report to continue</Link></Button>
           : undefined
       }
       reviewIntakePath={reviewIntakePath}

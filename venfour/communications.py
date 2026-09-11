@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
+from dataclasses import asdict
 from collections.abc import Mapping
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
@@ -14,7 +15,7 @@ import httpx
 from standardwebhooks.webhooks import Webhook
 
 from venfour.email_delivery import EmailConfiguration, EmailDeliveryError, email_address, email_payload, send_prepared, trusted_origin
-from venfour.email_templates import LAYOUT_VERSION, TEMPLATES, render_email, template_catalogue
+from venfour.email_templates import LAYOUT_VERSION, TEMPLATES, render_email, render_preview, template_catalogue
 from venfour.supabase_gateway import SupabaseHttpGateway
 
 logger = logging.getLogger(__name__)
@@ -166,23 +167,21 @@ class CommunicationService:
             "identities": [{"name": name, "from": getattr(self.config, f"{name}_sender", "") or self.config.sender,
                             "reply_to": getattr(self.config, f"{name}_reply_to", "") or self.config.reply_to}
                            for name in ("customer", "auth", "partner")]}
-        result["templates"] = template_catalogue()
+        result["templates"] = [template | {"preview": asdict(self._preview(template["key"]))}
+                               for template in template_catalogue()]
         return result
 
     def preview(self, key, token):
         self.gateway.staff("overview", {}, token)
         rendered = self._preview(key)
-        return {"html": rendered.html, "text": rendered.text, "subject": rendered.subject, "version": rendered.version}
+        return asdict(rendered)
 
     def _preview(self, key):
         if key not in TEMPLATES:
             raise CommunicationError(404, "EMAIL_TEMPLATE_NOT_FOUND")
         template = TEMPLATES[key]
         reply = (getattr(self.config, f"{template.identity}_reply_to", "") or self.config.reply_to)
-        return render_email(key, action_url="https://example.test/preview" if key not in {"auth_sign_in", "auth_claim", "auth_reauthentication"} else "",
-            code="123456" if key in {"auth_sign_in", "auth_claim", "auth_reauthentication", "auth_email_change"} else "",
-            reply_to=reply, preview=True,
-            unsubscribe_url="https://example.test/preferences" if template.category == "follow_up" else "")
+        return render_preview(key, reply_to=reply)
 
     def test_send(self, key, request_id, token):
         identity = self.gateway.staff("test_access", {}, token)

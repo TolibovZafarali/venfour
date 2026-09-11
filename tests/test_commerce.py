@@ -367,6 +367,9 @@ class RecordingProvider:
 
 
 class RecordingDatabase:
+    def full_review_ready(self, case_id: str, user_id: str) -> bool:
+        return getattr(self, "report_ready", True)
+
     def __init__(self) -> None:
         self.calls: list[tuple[str, Any]] = []
         self.reserve_row: Mapping[str, Any] | None = context_row()
@@ -795,6 +798,15 @@ class CommerceCheckoutServiceTests(unittest.TestCase):
             ],
         )
         self.assertEqual(provider.calls, [("retrieve_price", PRICE_ID)])
+
+    def test_missing_full_report_blocks_quote_and_payment_before_provider_work(self):
+        commerce, database, provider = service()
+        database.report_ready = False
+        self.assertEqual(commerce.quote(CASE_ID, ACCESS_TOKEN).availability, "unavailable")
+        with self.assertRaises(CommerceConflictError):
+            commerce.create_checkout(CASE_ID, ACCESS_TOKEN, CLIENT_REQUEST_ID)
+        self.assertEqual(provider.calls, [])
+        self.assertFalse(any(name == "reserve_total_loss_checkout" for name, _ in database.calls))
 
     def test_unavailable_checkout_quote_never_calls_the_price_provider(self) -> None:
         database = RecordingDatabase()

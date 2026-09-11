@@ -97,7 +97,7 @@ export function CheckoutScreen({
               ) : paymentReady ? (
                 <EmbeddedPayment key={`${caseId}:${userId}`} accessToken={accessToken} caseId={caseId} onConfirm={onConfirm} userId={userId} />
               ) : quote.isPending ? <p className="py-5 text-sm text-copy" role="status">Loading your purchase details…</p> : (
-                <div><WorkflowError>Payment is not available right now. Your claim is saved, and no payment has been taken on this page.</WorkflowError><Button className="mt-4" variant="outline" type="button" onClick={() => { void quote.refetch(); void onRefresh(); }}>Check availability</Button></div>
+                <div><Button asChild className="mb-4" variant="outline"><Link to={`/total-loss/cases/${caseId}/review-report`}>Check your insurer valuation report</Link></Button><WorkflowError>Payment is not available right now. Your claim is saved, and no payment has been taken on this page.</WorkflowError><Button className="mt-4" variant="outline" type="button" onClick={() => { void quote.refetch(); void onRefresh(); }}>Check availability</Button></div>
               )}
               <p className="mt-4 flex items-center justify-center gap-1.5 text-xs text-copy"><ShieldCheck className="size-3.5" aria-hidden />Secure payment powered by Stripe</p>
               <p className="mt-2 text-center text-xs text-copy">Fair-result refund policy</p>

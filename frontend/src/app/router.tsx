@@ -29,6 +29,7 @@ import { ReferralPartnersPage } from "@/pages/referral-partners-page";
 import { RouteErrorPage } from "@/pages/route-error-page";
 import { TermsPage } from "@/pages/terms-page";
 import { TotalLossAnalysisPage } from "@/pages/total-loss-analysis-page";
+import { TotalLossFullReviewPage } from "@/pages/total-loss-full-review-page";
 import { TotalLossClaimPage } from "@/pages/total-loss-claim-page";
 import { TotalLossClaimWorkflowPage } from "@/pages/total-loss-claim-workflow-page";
 
@@ -135,6 +136,11 @@ export const appRoutes: RouteObject[] = [
           "Total-Loss Value Check | Venfour",
           "Track your total-loss value check and open the completed vehicle valuation analysis.",
         ),
+      },
+      {
+        path: "total-loss/cases/:caseId/review-report",
+        element: <TotalLossFullReviewPage />,
+        handle: metadata("Your Insurer Report | Venfour", "Prepare your saved valuation report for the full review."),
       },
       {
         path: "total-loss/cases/:caseId/claim",

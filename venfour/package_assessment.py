@@ -968,6 +968,7 @@ class TotalLossSourceSnapshotV1:
     validation_manifest: Mapping[str, Any]
     snapshot_digest: str
     schema_version: str = SOURCE_SNAPSHOT_SCHEMA_VERSION
+    full_review: Mapping[str, Any] | None = None
 
     def __post_init__(self) -> None:
         for field_name in (
@@ -979,7 +980,7 @@ class TotalLossSourceSnapshotV1:
             "validation_manifest",
         ):
             object.__setattr__(self, field_name, _freeze_json(getattr(self, field_name)))
-        for field_name in ("source_document", "extraction"):
+        for field_name in ("source_document", "extraction", "full_review"):
             value = getattr(self, field_name)
             object.__setattr__(
                 self, field_name, _freeze_json(value) if value is not None else None
@@ -991,7 +992,7 @@ class TotalLossSourceSnapshotV1:
         )
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        result = {
             "schemaVersion": self.schema_version,
             "lineage": _thaw_json(self.lineage),
             "createdAt": self.created_at,
@@ -1005,6 +1006,9 @@ class TotalLossSourceSnapshotV1:
             "validationManifest": _thaw_json(self.validation_manifest),
             "snapshotDigest": self.snapshot_digest,
         }
+        if self.full_review is not None:
+            result["fullReview"] = _thaw_json(self.full_review)
+        return result
 
     @classmethod
     def from_dict(cls, data: Mapping[str, Any]) -> TotalLossSourceSnapshotV1:
@@ -1022,6 +1026,7 @@ class TotalLossSourceSnapshotV1:
             validation_manifest=data["validationManifest"],
             snapshot_digest=data["snapshotDigest"],
             schema_version=data["schemaVersion"],
+            full_review=data.get("fullReview"),
         )
 
 
@@ -1029,8 +1034,16 @@ def validate_total_loss_source_snapshot_v1(
     value: TotalLossSourceSnapshotV1 | Mapping[str, Any],
 ) -> None:
     data = value.to_dict() if isinstance(value, TotalLossSourceSnapshotV1) else value
-    _validate_schema(data, SOURCE_SNAPSHOT_SCHEMA_PATH, "SOURCE_SNAPSHOT_INVALID")
-    _validate_source_semantics(data)
+    if data.get("schemaVersion") == "2":
+        _validate_schema(data, SOURCE_SNAPSHOT_SCHEMA_PATH.with_name("total-loss-source-snapshot-v2.schema.json"), "SOURCE_SNAPSHOT_INVALID")
+        from venfour.full_review_package import validate_full_review_source
+        try:
+            validate_full_review_source(data)
+        except (KeyError, TypeError, ValueError) as exc:
+            raise _failure("Full review source failed validation", "SOURCE_SNAPSHOT_INVALID") from exc
+    else:
+        _validate_schema(data, SOURCE_SNAPSHOT_SCHEMA_PATH, "SOURCE_SNAPSHOT_INVALID")
+        _validate_source_semantics(data)
 
 
 def _cutoff(artifact: Mapping[str, Any]) -> dict[str, Any]:
@@ -1274,6 +1287,8 @@ class FinalValuationAssessmentV1:
     assessment_digest: str
     schema_version: str = FINAL_ASSESSMENT_SCHEMA_VERSION
     methodology_version: str = FINAL_ASSESSMENT_METHODOLOGY_VERSION
+    review_analysis_artifact_digest: str | None = None
+    review_run_id: str | None = None
 
     def __post_init__(self) -> None:
         for field_name in (
@@ -1301,7 +1316,7 @@ class FinalValuationAssessmentV1:
             )
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        result = {
             "schemaVersion": self.schema_version,
             "methodologyVersion": self.methodology_version,
             "lineage": _thaw_json(self.lineage),
@@ -1327,6 +1342,9 @@ class FinalValuationAssessmentV1:
             ),
             "assessmentDigest": self.assessment_digest,
         }
+        if self.schema_version == "2":
+            result.update(reviewAnalysisArtifactDigest=self.review_analysis_artifact_digest, reviewRunId=self.review_run_id)
+        return result
 
     @classmethod
     def from_dict(cls, data: Mapping[str, Any]) -> FinalValuationAssessmentV1:
@@ -1354,6 +1372,8 @@ class FinalValuationAssessmentV1:
             assessment_digest=data["assessmentDigest"],
             schema_version=data["schemaVersion"],
             methodology_version=data["methodologyVersion"],
+            review_analysis_artifact_digest=data.get("reviewAnalysisArtifactDigest"),
+            review_run_id=data.get("reviewRunId"),
         )
 
 
@@ -1363,7 +1383,8 @@ def validate_final_valuation_assessment_v1(
     source_snapshot: TotalLossSourceSnapshotV1 | Mapping[str, Any] | None = None,
 ) -> None:
     data = value.to_dict() if isinstance(value, FinalValuationAssessmentV1) else value
-    _validate_schema(data, FINAL_ASSESSMENT_SCHEMA_PATH, "FINAL_ASSESSMENT_INVALID")
+    path = FINAL_ASSESSMENT_SCHEMA_PATH.with_name("final-valuation-assessment-v2.schema.json") if data.get("schemaVersion") == "2" else FINAL_ASSESSMENT_SCHEMA_PATH
+    _validate_schema(data, path, "FINAL_ASSESSMENT_INVALID")
     errors = _assessment_semantic_errors(data)
     if source_snapshot is not None:
         source = (
@@ -1372,6 +1393,14 @@ def validate_final_valuation_assessment_v1(
             else source_snapshot
         )
         validate_total_loss_source_snapshot_v1(source)
+        stored_source = source
+        from venfour.full_review_package import review_source_view
+        source = review_source_view(source)
+        if stored_source.get("fullReview"):
+            if data.get("reviewAnalysisArtifactDigest") != source["analysis"]["artifactDigest"] or data.get("reviewRunId") != source["analysis"]["artifact"]["runId"]:
+                errors.append("$.reviewAnalysisArtifactDigest: does not match the report review calculation")
+        elif data.get("schemaVersion") == "2":
+            errors.append("$.schemaVersion: report review source is required")
         source_ids = {item["evidenceId"] for item in source["evidenceManifest"]}
         referenced: list[str] = []
         referenced.extend(data["subjectVehicle"]["evidenceIds"])
@@ -1388,7 +1417,7 @@ def validate_final_valuation_assessment_v1(
             errors.append("$.evidenceIds: contains references absent from source snapshot")
         if data["sourceSnapshotDigest"] != source["snapshotDigest"]:
             errors.append("$.sourceSnapshotDigest: does not match source snapshot")
-        if data["analysisArtifactDigest"] != source["analysis"]["artifactDigest"]:
+        if data["analysisArtifactDigest"] != stored_source["analysis"]["artifactDigest"]:
             errors.append("$.analysisArtifactDigest: does not match source snapshot")
         presentation = source["preliminary"]["presentation"]
         artifact_result = source["analysis"]["artifact"]["result"][
@@ -1495,8 +1524,8 @@ def validate_final_valuation_assessment_v1(
             if data["supportedRange"]["semantics"] != SELECTED_ADVERTISED_PRICE_RANGE:
                 errors.append("$.supportedRange.semantics: is invalid")
         expected_preliminary_values = {
-            "classification": source["preliminary"]["classification"],
-            "supportedRange": copy.deepcopy(expected_range),
+            "classification": stored_source["preliminary"]["classification"],
+            "supportedRange": copy.deepcopy(stored_source["preliminary"]["supportedRange"]),
         }
         expected_final_values = {
             "classification": presentation["assessment"]["classification"],
@@ -1571,6 +1600,9 @@ def build_final_valuation_assessment_v1(
         else copy.deepcopy(dict(source_snapshot))
     )
     validate_total_loss_source_snapshot_v1(source)
+    stored_source = source
+    from venfour.full_review_package import review_source_view
+    source = review_source_view(source)
     presentation = source["preliminary"]["presentation"]
     artifact = source["analysis"]["artifact"]
     manifest = source["evidenceManifest"]
@@ -1691,8 +1723,8 @@ def build_final_valuation_assessment_v1(
 
     classification = presentation["assessment"]["classification"]
     preliminary_values = {
-        "classification": source["preliminary"]["classification"],
-        "supportedRange": copy.deepcopy(source["preliminary"]["supportedRange"]),
+        "classification": stored_source["preliminary"]["classification"],
+        "supportedRange": copy.deepcopy(stored_source["preliminary"]["supportedRange"]),
     }
     final_values = {
         "classification": classification,
@@ -1721,7 +1753,7 @@ def build_final_valuation_assessment_v1(
         "methodologyVersion": FINAL_ASSESSMENT_METHODOLOGY_VERSION,
         "lineage": lineage,
         "sourceSnapshotDigest": source["snapshotDigest"],
-        "analysisArtifactDigest": source["analysis"]["artifactDigest"],
+        "analysisArtifactDigest": stored_source["analysis"]["artifactDigest"],
         "subjectVehicle": subject_vehicle,
         "insurerValuationReviewed": insurer_valuation,
         "insurerComparables": insurer_comparables,
@@ -1739,9 +1771,12 @@ def build_final_valuation_assessment_v1(
         "validationIssues": [],
         "preliminaryToFinalComparison": comparison,
     }
+    if stored_source.get("fullReview"):
+        unsigned.update(schemaVersion="2", reviewAnalysisArtifactDigest=source["analysis"]["artifactDigest"],
+                        reviewRunId=source["analysis"]["artifact"]["runId"])
     data = {**unsigned, "assessmentDigest": canonical_package_digest(unsigned)}
     assessment = FinalValuationAssessmentV1.from_dict(data)
-    validate_final_valuation_assessment_v1(assessment, source_snapshot=source)
+    validate_final_valuation_assessment_v1(assessment, source_snapshot=stored_source)
     return assessment
 
 

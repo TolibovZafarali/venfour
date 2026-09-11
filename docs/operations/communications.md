@@ -6,8 +6,10 @@ See [the observed hosted baseline](email-audit-2026-09-11.md) before changing se
 
 ## Architecture and ownership
 
-`venfour/email_templates.py` owns the 27 email definitions, subjects, shared layout,
-HTML, plain text and layout version. `venfour/email_delivery.py` owns validated
+`venfour/email_design.py` owns the single master layout, design tokens, shared
+components, responsive rules, HTML/plain-text composition and layout version.
+`venfour/email_templates.py` owns the 27 content-only definitions and subjects.
+`venfour/email_delivery.py` owns validated
 sender identities and Resend/Mailpit transport. `venfour/communications.py` owns
 signed Auth delivery, lifecycle dispatch, safe previews and delivery events.
 The API extends the existing Python application and Supabase gateway.
@@ -93,9 +95,18 @@ insurer on a customer's behalf.
 ## Design, preview and administration
 
 Use `/admin/communications` with an existing verified database-authorized staff
-account. The page provides all 27 HTML/plain-text previews, effective sender
-identities, editable automation delays/enabled flags, pause/dry-run/first-activation
-controls, aggregate eligible counts and recent activity from all three queues.
+account. The primary view is a searchable gallery of all 27 emails, grouped by
+customer journey, account access, account security and referral partners. Each
+thumbnail uses the actual delivery HTML. Open a card for a 640px desktop or 375px
+mobile viewport, plain text, sender/reply-to, trigger and attachment information.
+The preview frame scales to fit its container without changing its internal
+viewport, so it exercises the email's own responsive rules. Sample labels live
+outside the email; preview and test-send use identical renderer output with inert
+links and codes. The gallery loads in one authorized read, with no sends or writes.
+
+Delivery settings and activity are secondary views. They retain sender identities,
+editable automation delays/enabled flags, pause/dry-run/first-activation controls,
+aggregate eligible counts and recent activity from all three queues.
 Changes are revision-fenced and recorded in an append-only staff audit table.
 Activity omits customer addresses, case identifiers, content, tokens and secrets.
 Sender and template edits are deployment-managed, reviewed changes; the browser
@@ -107,11 +118,49 @@ never becomes an arbitrary email composer or secret editor.
 .venv/bin/python scripts/preview_emails.py --check-smtp
 ```
 
-Edit the central renderer/catalogue and increment `LAYOUT_VERSION` for a released
-change. `supabase/templates/auth-context.gohtml` retains the original exact OTP vs
-case-link selectors. The generation command writes `confirmation.html` and
-`magic-link.html`; it does not update hosted templates. SMTP cannot provide every
+Change global appearance only in `venfour/email_design.py`; increment its
+`LAYOUT_VERSION` for a released change. Do not author per-email HTML or CSS.
+Change specific copy only in `venfour/email_templates.py`. Every entry inherits
+the logo, palette, typography, spacing, card, button, code block, detail rows,
+support/footer treatment and mobile rules. Six-digit codes use the same grouped
+display in the hook and SMTP; token values and verification remain unchanged.
+
+To add a future email, add one content entry to `TEMPLATES`, for example:
+
+```python
+_template(
+    "saved_update",
+    "An update to your saved case",
+    ["An update is available in your private case workspace."],
+    heading="Your case has an update",
+    action="View my case",
+    trigger="Describe the existing durable event that permits this email",
+)
+```
+
+The default interaction is a link. Use `code`, `code_and_link` or `notice` only
+where the sending contract requires it. `details` accepts escaped text pairs and
+`attachment` describes an attachment supplied by the existing delivery workflow.
+No styling fields are accepted. The gallery, export and test preview discover the
+new entry automatically. Wire its real trigger to the existing durable workflow
+separately; adding a design never enables an automation or sends a message.
+
+`supabase/templates/auth-context.gohtml` retains the original exact OTP vs
+case-link selectors. Generation writes all 13 SMTP provider slots from the same
+catalogue (the signup/magic-link slots select among four contextual designs).
+It also synchronizes local subjects/paths in `supabase/config.toml`, preserving
+existing notification switches and defaulting newly added ones to disabled.
+These HTML files are generated artifacts, never standalone design sources.
+`--check-smtp` and the Auth template tests detect design/copy/subject drift.
+Generation does not update hosted templates. SMTP cannot provide every
 hook capability (including explicit Reply-To and application delivery metadata).
+Supabase documents the separate local configuration and hosted publication steps
+in its [template guide](https://supabase.com/docs/guides/local-development/customizing-email-templates).
+While SMTP remains active, its published template and sender are controlled in
+Supabase; the gallery shows the repository's shared design, not a fetched copy of
+hosted settings. Apply generated templates deliberately, or complete the hook
+cutover below, before treating the gallery as proof of current hosted mail.
+Already prepared durable jobs retain their frozen original body and version.
 Review real received MIME, Gmail/Outlook/mobile rendering and spam placement during
 staging canaries; browser previews alone are not inbox proof.
 
@@ -121,6 +170,14 @@ recipient, arbitrary subject or content. Five new previews per hour per staff
 recipient; durable reservation and stable request ID prevent duplicate retries.
 Test content is fictional and contains no usable auth or customer links. Dry-run
 mode sends nothing, including test previews; use allowlist mode for provider tests.
+
+The design/gallery refactor passed 53 focused backend, template and partner tests,
+six Communications workspace tests, scoped frontend lint, TypeScript and the
+production frontend build. Generated SMTP subjects and HTML match the catalogue.
+Browser checks covered all 27 emails at 640px and 375px with no horizontal
+overflow, plus gallery filtering, Auth/partner previews and the phone-sized dialog.
+These checks used fictional content; they did not send external mail, change
+hosted Auth settings, or verify rendering in a real mailbox client.
 
 ## Sender configuration
 

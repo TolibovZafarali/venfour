@@ -166,10 +166,11 @@ export function createApiClient({
       });
     },
 
-    async postForm<T>(path: string, body: FormData): Promise<T> {
+    async postForm<T>(path: string, body: FormData, options: JsonRequestOptions = {}): Promise<T> {
       return request<T>(path, {
         method: "POST",
-        headers: { Accept: "application/json" },
+        headers: options.accessToken ? authenticatedHeaders(options.accessToken) : { Accept: "application/json" },
+        signal: options.signal,
         body,
       });
     },

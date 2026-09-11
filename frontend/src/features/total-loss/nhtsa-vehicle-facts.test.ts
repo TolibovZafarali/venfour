@@ -16,13 +16,13 @@ describe("decoded vehicle specifications", () => {
     expect(vehicleFacts(facts)).toEqual(facts);
     expect(vehicleFactErrors({ ...createEmptyTotalLossManualForm(), ...facts, trim: "EX-V6" })).toEqual({});
   });
-  it("requires only the unresolved fact and never infers an axle from 4x2", () => {
+  it("tolerates an unresolved axle in the free estimate without inferring it", () => {
     const facts = decodedVehicleFacts({ ...sedan, DriveType: "4x2" });
-    expect(vehicleFactErrors({ ...createEmptyTotalLossManualForm(), ...facts, trim: "EX-V6" })).toEqual({ drivetrain: "Confirm drive type." });
+    expect(vehicleFactErrors({ ...createEmptyTotalLossManualForm(), ...facts, trim: "EX-V6" })).toEqual({});
   });
   it("retains explicit pickup dimensions and leaves absent cab and bed unresolved", () => {
     const pickup = { ...sedan, BodyClass: "Pickup", DriveType: "4WD/4-Wheel Drive/4x4" };
-    expect(vehicleFactErrors({ ...createEmptyTotalLossManualForm(), ...decodedVehicleFacts(pickup), trim: "XL" })).toEqual({ cabType: "Confirm cab style.", bedLength: "Confirm bed length." });
+    expect(vehicleFactErrors({ ...createEmptyTotalLossManualForm(), ...decodedVehicleFacts(pickup), trim: "XL" })).toEqual({});
     expect(decodedVehicleFacts({ ...pickup, BodyCabType: "Crew Cab", BedLengthIN: "67.0" })).toMatchObject({ cabType: "Crew Cab", bedLength: "67 in", drivetrain: "4WD" });
   });
   it("does not turn ambiguous, unsupported, invalid or empty decoded values into confirmed facts", () => {

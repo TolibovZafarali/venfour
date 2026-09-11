@@ -533,6 +533,8 @@ def _available_evidence_ids(
     source_snapshot: Mapping[str, Any],
     report: Mapping[str, Any],
 ) -> tuple[str, ...]:
+    from venfour.full_review_package import review_source_view
+    source_snapshot = review_source_view(source_snapshot)
     manifest = source_snapshot.get("evidenceManifest")
     if not isinstance(manifest, Sequence) or isinstance(
         manifest, (str, bytes, bytearray)
@@ -1458,7 +1460,8 @@ class OpenAIReportReviewer:
             validated = validate_canonical_pdf(source_pdf)
         except (OSError, ReportDocumentInvalidError) as exc:
             raise ReportReviewInputError("Source report PDF is invalid") from exc
-        source_document = request.source_snapshot.get("sourceDocument")
+        from venfour.full_review_package import review_source_view
+        source_document = review_source_view(request.to_dict()["sourceSnapshot"]).get("sourceDocument")
         if not isinstance(source_document, Mapping):
             raise ReportReviewInputError(
                 "Source PDF was supplied for a source without a document"

@@ -649,13 +649,10 @@ const RECOVERY_INPUT_ID = "abababab-abab-4bab-8bab-abababababab";
 
 const SUBJECT_VEHICLE_FACTS = { bodyType: "Sedan", drivetrain: "FWD", engine: "3.0L V6", fuelType: "Unleaded", transmission: "Automatic" };
 
-async function confirmSubjectFacts(user: ReturnType<typeof userEvent.setup>) {
-  for (const [label, value] of [["Body style", "Sedan"], ["Engine", "3.0L V6"], ["Fuel type", "Unleaded"], ["Transmission", "Automatic"]]) {
-    const input = screen.getByLabelText(label);
-    await user.clear(input);
-    await user.type(input, value);
+async function confirmSubjectFacts(_user: ReturnType<typeof userEvent.setup>) {
+  for (const label of ["Body style", "Engine", "Fuel type", "Transmission", "Drive type"]) {
+    expect(screen.queryByLabelText(label)).not.toBeInTheDocument();
   }
-  await user.selectOptions(screen.getByLabelText("Drive type"), "FWD");
 }
 
 function completedRecoveryDetails(
@@ -941,10 +938,10 @@ describe("explicit Total Loss intake correction", () => {
     const harness = recoveryHarness({ details: original });
     const auth = createAuthHarness(sessionFor());
     const user = userEvent.setup();
-    const path = `${recoveryPath()}&focus=vehicle`;
+    const path = `${recoveryPath()}&focus=vehicle&vehicleFact=transmission`;
     const first = renderTestApp([path], { authService: auth.service, totalLossDependencies: harness.dependencies });
     await screen.findByRole("heading", { name: "Tell us about your vehicle" });
-    expect(screen.getByLabelText("Engine")).toHaveValue(SUBJECT_VEHICLE_FACTS.engine);
+    expect(screen.queryByLabelText("Engine")).not.toBeInTheDocument();
     expectNoRecoveryWrites(harness);
     await user.type(screen.getByLabelText("Transmission"), "Automatic");
     first.unmount();
@@ -2008,7 +2005,7 @@ describe("/start?service=total-loss", () => {
     ).toBeVisible();
   });
 
-  it("keeps incomplete manual vehicle details editable before any analysis starts", async () => {
+  it("continues the free estimate with unknown technical details without a questionnaire", async () => {
     const auth = createAuthHarness(sessionFor());
     const harness = createDependencyHarness();
     const user = userEvent.setup();
@@ -2018,13 +2015,9 @@ describe("/start?service=total-loss", () => {
     await user.click(screen.getByRole("button", { name: "Find vehicle" }));
     await screen.findByRole("region", { name: "Confirmed vehicle details" });
     await user.click(screen.getByRole("button", { name: "Confirm vehicle & continue" }));
-    expect(await screen.findByText("Confirm body style.")).toBeVisible();
-    expect(screen.getByText("Confirm engine.")).toBeVisible();
-    expect(screen.getByRole("heading", { name: "Tell us about your vehicle" })).toBeVisible();
+    expect(screen.queryByText("Confirm engine.")).not.toBeInTheDocument();
     expect(readTotalLossDraft()).toMatchObject({ ok: true, draft: { manual: { vin: "1HGCM82633A004352" } } });
     expect(harness.confirmIntake).not.toHaveBeenCalled();
-    await confirmSubjectFacts(user);
-    await user.click(screen.getByRole("button", { name: "Confirm vehicle & continue" }));
     expect(await screen.findByRole("heading", { name: "Add the claim details" })).toBeVisible();
   });
 
@@ -2038,15 +2031,15 @@ describe("/start?service=total-loss", () => {
     await user.type(screen.getByLabelText("VIN"), "1HGCM82633A004352");
     await user.click(screen.getByRole("button", { name: "Find vehicle" }));
     await screen.findByRole("region", { name: "Confirmed vehicle details" });
-    expect(screen.getByLabelText("Engine")).toHaveValue(SUBJECT_VEHICLE_FACTS.engine);
-    expect(screen.getByLabelText("Drive type")).toHaveValue(SUBJECT_VEHICLE_FACTS.drivetrain);
+    expect(screen.queryByLabelText("Engine")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Drive type")).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Confirm vehicle & continue" }));
     expect(await screen.findByRole("heading", { name: "Add the claim details" })).toBeVisible();
     expect(readTotalLossDraft()).toMatchObject({ ok: true, draft: { manual: SUBJECT_VEHICLE_FACTS } });
     expect(harness.confirmIntake).not.toHaveBeenCalled();
   });
 
-  it.each(["transmission", "pickup"] as const)("requires only unresolved VIN %s details before continuing", async (missing) => {
+  it.each(["transmission", "pickup"] as const)("preserves unresolved VIN %s details while allowing the approximate estimate", async (missing) => {
     const harness = createDependencyHarness();
     const vehicleFacts = { ...SUBJECT_VEHICLE_FACTS, ...(missing === "pickup" ? { bodyType: "Pickup" } : { transmission: "" }) };
     harness.decodeVin.mockResolvedValue({ vin: "1HGCM82633A004352", year: 2003, make: "Honda", model: "Accord", trim: "EX-V6", vehicleFacts });
@@ -2059,16 +2052,9 @@ describe("/start?service=total-loss", () => {
     await user.click(screen.getByRole("button", { name: "Confirm vehicle & continue" }));
     expect(harness.confirmIntake).not.toHaveBeenCalled();
     expect(screen.queryByText("Confirm engine.")).not.toBeInTheDocument();
-    if (missing === "pickup") {
-      expect(await screen.findByText("Confirm cab style.")).toBeVisible();
-      expect(screen.getByText("Confirm bed length.")).toBeVisible();
-      await user.type(screen.getByLabelText("Cab style"), "Crew Cab");
-      await user.type(screen.getByLabelText("Bed length"), "67 in");
-    } else {
-      expect(await screen.findByText("Confirm transmission.")).toBeVisible();
-      await user.type(screen.getByLabelText("Transmission"), "Automatic");
-    }
-    await user.click(screen.getByRole("button", { name: "Confirm vehicle & continue" }));
+    expect(screen.queryByLabelText("Transmission")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Cab style")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Bed length")).not.toBeInTheDocument();
     expect(await screen.findByRole("heading", { name: "Add the claim details" })).toBeVisible();
   });
 

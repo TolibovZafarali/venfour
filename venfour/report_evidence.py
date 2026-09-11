@@ -39,7 +39,8 @@ def resolve_report_local_evidence_source(
     source_snapshot: Mapping[str, Any], json_pointer: str
 ) -> ReportLocalEvidenceSource | None:
     """Resolve only the source-snapshot paths a report may cite locally."""
-
+    from venfour.full_review_package import review_source_view
+    source_snapshot = review_source_view(source_snapshot)
     if not isinstance(json_pointer, str):
         return None
     source_input = source_snapshot.get("input")

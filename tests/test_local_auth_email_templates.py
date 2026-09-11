@@ -4,6 +4,9 @@ from pathlib import Path
 import tomllib
 import unittest
 
+from venfour.email_templates import TEMPLATES, render_auth_smtp_subject, smtp_templates
+from scripts.preview_emails import configure_smtp
+
 
 ROOT = Path(__file__).resolve().parents[1]
 TOKEN_DISPLAY = (
@@ -89,11 +92,10 @@ class LocalAuthEmailTemplateTests(unittest.TestCase):
                     "\n      {{ else }}\n", 1
                 )[0]
                 self.assertIn(TOKEN_DISPLAY, otp_branch)
-                self.assertIn("Use this code to sign in to Venfour:", otp_branch)
-                self.assertIn("Use this code to verify your claim:", otp_branch)
+                self.assertIn(TEMPLATES["auth_sign_in"].paragraphs[0], otp_branch)
+                self.assertIn(TEMPLATES["auth_claim"].paragraphs[0], otp_branch)
                 self.assertIn(
-                    "This code expires soon. If you didn't request it, "
-                    "you can ignore this email.",
+                    "This code expires soon. Never share it with anyone.",
                     otp_branch,
                 )
                 for link_marker in ("<a", "href=", ".TokenHash", ".ConfirmationURL"):
@@ -107,32 +109,52 @@ class LocalAuthEmailTemplateTests(unittest.TestCase):
                     'href="{{ .RedirectTo }}?token_hash={{ .TokenHash }}&amp;type=email"',
                     fallback,
                 )
-                self.assertIn("{{ if $previewReady }}View my result", fallback)
-                self.assertIn("{{ else }}Continue securely{{ end }}", fallback)
+                self.assertIn("{{ if $previewReady }}", fallback)
+                self.assertIn("View my result", fallback)
+                self.assertIn("Continue securely", fallback)
                 self.assertNotIn(".Token }}", fallback)
                 self.assertNotIn("verification code", fallback)
 
     def test_subject_preserves_preview_and_default_subjects(self) -> None:
         subjects = self.config["auth"]["email"]["template"]
-        self.assertEqual(subjects["confirmation"]["subject"], subjects["magic_link"]["subject"])
+        context = (ROOT / "supabase/templates/auth-context.gohtml").read_text()
         for name in self.templates:
             subject = subjects[name]["subject"]
-            with self.subTest(template=name):
-                self.assertIn('{{ $c := print .SiteURL "/total-loss/cases/" }}', subject)
-                self.assertIn(
-                    "{{ else if or (and (ge (len .RedirectTo) (len $c)) "
-                    "(eq (slice .RedirectTo 0 (len $c)) $c)) "
-                    '(and (eq .SiteURL "http://localhost:5173") '
-                    "(ge (len .RedirectTo) (len $l)) "
-                    "(eq (slice .RedirectTo 0 (len $l)) $l)) }}"
-                    "Your Venfour verification code",
-                    subject,
-                )
-                self.assertIn("{{ if $signInCode }}Your Venfour sign-in code", subject)
-                self.assertIn("Your Venfour valuation preview is ready", subject)
-                self.assertIn('{{ $l := "http://127.0.0.1:5173/total-loss/cases/" }}', subject)
-                self.assertIn("{{ else }}Continue your Venfour appraisal{{ end }}", subject)
-                self.assertNotIn(".Token", subject)
+            self.assertEqual(subject, render_auth_smtp_subject(context))
+            for key in ("auth_sign_in", "auth_claim", "auth_preview_ready", "auth_access"):
+                self.assertIn(TEMPLATES[key].subject, subject)
+            self.assertIn('{{ $claimPrefix := print .SiteURL "/total-loss/cases/" }}', subject)
+            self.assertIn('(eq .SiteURL "http://localhost:5173")', subject)
+            self.assertNotIn('.Token', subject)
+
+    def test_all_smtp_slots_are_generated_and_keep_notification_switches_off(self):
+        context = (ROOT / "supabase/templates/auth-context.gohtml").read_text()
+        entries = smtp_templates(context)
+        self.assertEqual(len(entries), 13)
+        for name, entry in entries.items():
+            self.assertEqual((ROOT / f"supabase/templates/{name}.html").read_text(), entry['html'])
+            section = self.config
+            for part in entry['section'].split('.'):
+                section = section[part]
+            self.assertEqual(section['subject'], entry['subject'])
+            self.assertEqual(section['content_path'], f'./supabase/templates/{name}.html')
+            if '.notification.' in entry['section']:
+                self.assertFalse(section['enabled'])
+                self.assertNotIn('href=', entry['html'])
+        for name in ('invite', 'recovery', 'email_change'):
+            self.assertIn('href="{{ .ConfirmationURL }}"', entries[name]['html'])
+        self.assertNotIn('href=', entries['reauthentication']['html'])
+
+    def test_generation_preserves_runtime_configuration_and_enabled_switches(self):
+        config = (ROOT / 'supabase/config.toml').read_text()
+        entries = smtp_templates((ROOT / 'supabase/templates/auth-context.gohtml').read_text())
+        self.assertEqual(configure_smtp(config, entries), config)
+        modified = config.replace('[auth.email.notification.password_changed]\nenabled = false',
+                                  '[auth.email.notification.password_changed]\nenabled = true')
+        result = tomllib.loads(configure_smtp(modified, entries))
+        self.assertTrue(result['auth']['email']['notification']['password_changed']['enabled'])
+        for section in ('api', 'db', 'storage', 'local_smtp'):
+            self.assertEqual(result[section], self.config[section])
 
 
 if __name__ == "__main__":

@@ -2,22 +2,46 @@
 from __future__ import annotations
 import argparse
 import json
+import re
+import tomllib
 from html import escape
 from pathlib import Path
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from venfour.email_templates import TEMPLATES, render_auth_smtp, render_email, template_catalogue
+from venfour.email_templates import TEMPLATES, render_preview, smtp_templates, template_catalogue
+
+
+def configure_smtp(config: str, entries: dict) -> str:
+    """Update only generated subjects/paths. Preserve all Auth and notification toggles."""
+    for name, entry in entries.items():
+        section = entry['section']
+        fields = {'subject': entry['subject'], 'content_path': f'./supabase/templates/{name}.html'}
+        match = re.search(r'^\[' + re.escape(section) + r'\]\n.*?(?=^\[|\Z)', config, re.MULTILINE | re.DOTALL)
+        if match:
+            block = match[0].rstrip()
+            for key, value in fields.items():
+                line = f'{key} = {json.dumps(value, ensure_ascii=False)}'
+                if re.search(r'^' + key + r'\s*=', block, re.MULTILINE):
+                    block = re.sub(r'^' + key + r'\s*=.*$', lambda _: line, block, flags=re.MULTILINE)
+                else:
+                    block += '\n' + line
+            config = config[:match.start()] + block + '\n\n' + config[match.end():]
+        else:
+            block = f'\n[{section}]\n'
+            if '.notification.' in section:
+                block += 'enabled = false\n'
+            config += block + '\n'.join(f'{key} = {json.dumps(value, ensure_ascii=False)}' for key, value in fields.items()) + '\n'
+    tomllib.loads(config)
+    return config.rstrip() + '\n'
 
 
 def export(destination: Path):
     destination.mkdir(parents=True, exist_ok=True)
     previews = {}
     for key, template in TEMPLATES.items():
-        code = "123456" if key in {"auth_sign_in", "auth_claim", "auth_reauthentication", "auth_email_change"} else ""
-        rendered = render_email(key, code=code, action_url="" if code and key != "auth_email_change" else "https://example.test/preview",
-            reply_to="support@venfour.test", unsubscribe_url="https://example.test/preferences" if template.category == "follow_up" else "", preview=True)
+        rendered = render_preview(key, reply_to="support@venfour.test")
         (destination / f"{key}.html").write_text(rendered.html)
         (destination / f"{key}.txt").write_text(rendered.text)
         previews[key] = {"html": rendered.html, "text": rendered.text, "subject": rendered.subject, "version": rendered.version}
@@ -36,13 +60,19 @@ if __name__ == "__main__":
     args = parser.parse_args()
     if args.write_smtp or args.check_smtp:
         context = (ROOT / "supabase/templates/auth-context.gohtml").read_text()
-        compiled = render_auth_smtp(context)
-        for name in ("confirmation", "magic-link"):
+        entries = smtp_templates(context)
+        for name, entry in entries.items():
             target = ROOT / f"supabase/templates/{name}.html"
             if args.write_smtp:
-                target.write_text(compiled)
-            elif target.read_text() != compiled:
+                target.write_text(entry['html'])
+            elif not target.exists() or target.read_text() != entry['html']:
                 raise SystemExit("SMTP fallback templates need regeneration")
+        target = ROOT / 'supabase/config.toml'
+        configured = configure_smtp(target.read_text(), entries)
+        if args.write_smtp:
+            target.write_text(configured)
+        elif target.read_text() != configured:
+            raise SystemExit('SMTP subjects and paths need regeneration')
     if args.output:
         export(args.output)
     elif not (args.write_smtp or args.check_smtp):

@@ -1420,6 +1420,7 @@ class SupabaseHttpGatewayTests(unittest.TestCase):
                 "resolve_total_loss_package_source_context": [
                     {"work_item_id": WORK_ITEM_ID}
                 ],
+                "get_total_loss_package_review_report": None,
                 "seal_total_loss_source_snapshot": [
                     {
                         "outcome": "created",
@@ -1503,6 +1504,10 @@ class SupabaseHttpGatewayTests(unittest.TestCase):
                 "requested_processing_token": TOKEN_ID,
             },
             "resolve_total_loss_package_source_context": {
+                "requested_work_item_id": WORK_ITEM_ID,
+                "requested_processing_token": TOKEN_ID,
+            },
+            "get_total_loss_package_review_report": {
                 "requested_work_item_id": WORK_ITEM_ID,
                 "requested_processing_token": TOKEN_ID,
             },

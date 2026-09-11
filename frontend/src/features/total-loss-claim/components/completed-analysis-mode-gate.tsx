@@ -1,4 +1,7 @@
 import type { ReactNode } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useAuth } from "@/features/auth";
+import { fullReviewKey, getFullReview } from "@/features/full-review/api";
 
 import { Button } from "@/components/ui/button";
 import { useTotalLossDependencies } from "@/features/total-loss/dependencies";
@@ -18,7 +21,12 @@ export function CompletedAnalysisModeGate({
   const dependencies = useTotalLossDependencies();
   const service = dependencies?.totalLossDetailsService ?? null;
   const detailsQuery = useTotalLossDetailsQuery({ service, userId, caseId });
-  if (service && detailsQuery.isPending) {
+  const { auth } = useAuth();
+  const token = auth.status === "signedIn" ? auth.session.access_token : null;
+  const reportQuery = useQuery({ queryKey: fullReviewKey(userId, caseId),
+    queryFn: () => getFullReview(caseId, token!), enabled: Boolean(token && detailsQuery.data?.intakeMode === "manual"), retry: false });
+  const checkingReport = Boolean(token && detailsQuery.data?.intakeMode === "manual");
+  if (service && (detailsQuery.isPending || (checkingReport && reportQuery.isPending))) {
     return (
       <ClaimStateCard
         kind="loading"
@@ -31,6 +39,7 @@ export function CompletedAnalysisModeGate({
   if (
     !service ||
     detailsQuery.isError ||
+    (checkingReport && reportQuery.isError) ||
     details?.caseId !== caseId ||
     (details.intakeMode !== "report" && details.intakeMode !== "manual")
   ) {
@@ -40,11 +49,11 @@ export function CompletedAnalysisModeGate({
         heading="We couldn’t load your review details"
         description="Your saved intake information is needed to open the right review. No payment, report, or message information has been changed."
       >
-        <Button type="button" onClick={() => void detailsQuery.refetch()}>
+        <Button type="button" onClick={() => { void detailsQuery.refetch(); if (checkingReport) void reportQuery.refetch(); }}>
           Try again
         </Button>
       </ClaimStateCard>
     );
   }
-  return children(details.intakeMode);
+  return children(reportQuery.data?.ready && reportQuery.data.locked ? "report" : details.intakeMode);
 }

@@ -1267,6 +1267,24 @@ class TotalLossPackageProcessor:
         *,
         work_item_id: str,
     ) -> Any:
+        source = self._build_original_source_snapshot(context, work_item_id=work_item_id)
+        binding = context.get("full_review_report")
+        if not binding:
+            return source
+        from venfour.full_review_package import attach_full_review
+        from venfour.package_assessment import TotalLossSourceSnapshotV1
+        case_id = _canonical_uuid(context.get("case_id"), "Case ID")
+        with self._database.materialize_full_review_report(case_id, binding["report"]) as path:
+            validated = validate_canonical_pdf(path)
+            payload = attach_full_review(
+                source.to_dict(), binding, byte_size=path.stat().st_size,
+                digest=validated.sha256, page_count=validated.page_count,
+            )
+        return TotalLossSourceSnapshotV1.from_dict(payload)
+
+    def _build_original_source_snapshot(
+        self, context: Mapping[str, Any], *, work_item_id: str,
+    ) -> Any:
         mode = context.get("source_intake_mode")
         if mode == "manual":
             return self._assessment_builder.build_source_snapshot(context, None)

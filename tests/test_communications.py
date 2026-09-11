@@ -5,7 +5,7 @@ import hashlib
 import json
 import unittest
 from datetime import datetime, timedelta, timezone
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 from urllib.parse import parse_qs, urlsplit
 
 import httpx
@@ -16,7 +16,8 @@ from starlette.testclient import TestClient
 from venfour.communications import CommunicationError, CommunicationService, auth_messages, verify_email_signature
 from venfour.communications_api import communication_routes
 from venfour.email_delivery import EmailConfiguration, EmailDeliveryError, email_payload, send_prepared
-from venfour.email_templates import TEMPLATES, render_email
+from venfour.email_templates import EmailTemplate, TEMPLATES, render_email, render_preview
+from venfour.email_design import DESIGN
 
 NOW = datetime.now(timezone.utc)
 SECRET = 'whsec_' + 'c2lnbmF0dXJlLXRlc3Qtc2VjcmV0LW9ubHktbm90LXJlYWw='
@@ -50,14 +51,39 @@ class EmailTemplateTests(unittest.TestCase):
     def test_every_template_has_accessible_html_plain_text_and_no_tracking(self):
         for key in TEMPLATES:
             with self.subTest(key=key):
-                result=render_email(key,action_url='https://example.test/?x=1&y=2',reply_to='support@example.test',preview=True)
+                result=render_preview(key,reply_to='support@example.test')
                 self.assertIn('role="presentation"',result.html)
                 self.assertIn('lang="en"',result.html)
-                self.assertIn('SAMPLE PREVIEW',result.html)
-                self.assertIn('https://example.test/?x=1&y=2',result.text)
+                self.assertNotIn('SAMPLE PREVIEW',result.html)
+                self.assertIn('Venfour · Independent vehicle valuation guidance',result.text)
                 self.assertNotIn('<script',result.html)
                 self.assertNotIn('<img',result.html)
-                self.assertIn('&amp;y=2',result.html)
+
+    def test_future_content_automatically_inherits_master_and_preview(self):
+        template = EmailTemplate('future_email', 'A saved update', 'Your update', ('An update <script>literal</script>.',),
+                                 details=(('Reference', '<private>'),))
+        with patch.dict(TEMPLATES, {template.key: template}), patch.dict(DESIGN, {'brand': '#abc123'}):
+            rendered = render_preview(template.key)
+            self.assertEqual(rendered, render_email(template.key, action_url='https://example.test/preview'))
+            self.assertIn('#abc123', rendered.html)
+            self.assertIn('max-width:560px', rendered.html)
+            self.assertIn('@media only screen and (max-width:480px)', rendered.html)
+            self.assertIn('Reference: <private>', rendered.text)
+            self.assertIn('&lt;private&gt;', rendered.html)
+            self.assertNotIn('<script>', rendered.html)
+
+    def test_preview_interactions_match_delivery_and_cannot_add_auth_links(self):
+        for key, template in TEMPLATES.items():
+            with self.subTest(key=key):
+                rendered = render_preview(key)
+                self.assertEqual('123-456' in rendered.html, template.interaction in {'code', 'code_and_link'})
+                self.assertEqual('https://example.test/preview' in rendered.html, template.interaction in {'link', 'code_and_link'})
+                self.assertEqual('Stop optional case reminders' in rendered.html, template.category == 'follow_up')
+        for key in ('auth_sign_in', 'auth_password_changed_notification'):
+            with self.assertRaises(ValueError):render_email(key, action_url='https://example.test/')
+        result = render_email('auth_access', action_url='https://example.test/?x=1&y=2')
+        self.assertIn('&amp;y=2', result.html)
+        self.assertIn('?x=1&y=2', result.text)
 
     def test_header_injection_unsafe_links_and_untrusted_content(self):
         with self.assertRaises(ValueError):render_email('auth_sign_in',code='<script>')
@@ -70,7 +96,7 @@ class EmailTemplateTests(unittest.TestCase):
     def test_six_and_eight_digit_codes_do_not_offer_auto_consumed_links(self):
         for code in ('123456','12345678'):
             result=render_email('auth_sign_in',code=code)
-            self.assertIn(code,result.html)
+            self.assertIn(code[:3]+'-'+code[3:] if len(code)==6 else code,result.html)
             self.assertNotIn('href=',result.html)
 
     def test_configuration_fails_closed_and_never_exposes_secrets(self):
@@ -260,6 +286,34 @@ class EmailApiTests(unittest.TestCase):
         response=self.client.get('/api/v1/staff/communications',headers={'Authorization':'Bearer fake-caller-token'})
         self.assertEqual(response.status_code,403)
         self.assertEqual(self.gateway.staff.call_args.args[-1],'fake-caller-token')
+
+    def test_gallery_uses_one_authorized_read_and_the_delivery_preview_bytes(self):
+        self.gateway.staff.return_value = {}
+        response = self.client.get('/api/v1/staff/communications', headers={'Authorization': 'Bearer staff-token'})
+        self.assertEqual(response.status_code, 200)
+        self.gateway.staff.assert_called_once_with('overview', {}, 'staff-token')
+        self.assertFalse(self.gateway.worker.called)
+        templates = response.json()['templates']
+        self.assertEqual({t['key'] for t in templates}, set(TEMPLATES))
+        for template in templates:
+            expected = render_preview(template['key'], reply_to='support@example.test')
+            self.assertEqual(template['preview']['html'], expected.html)
+            self.assertEqual(template['preview']['text'], expected.text)
+        self.assertNotIn(SECRET, response.text)
+        self.assertNotIn('private-test-key', response.text)
+
+    def test_test_send_matches_gallery_html_and_plain_text(self):
+        self.instance.config = configuration(allowlist=('staff@example.test',))
+        self.gateway.staff.return_value = {'email': 'staff@example.test'}
+        self.gateway.worker.side_effect = [{'status': 'reserved'}, True]
+        with patch('venfour.communications.send_prepared', return_value='message-example') as send:
+            result = self.instance.test_send('auth_password_changed_notification', CASE, 'staff-token')
+        self.assertEqual(result['status'], 'accepted')
+        sent = send.call_args.kwargs['payload']
+        expected = self.instance._preview('auth_password_changed_notification')
+        self.assertEqual(sent['html'], expected.html)
+        self.assertEqual(sent['text'], expected.text)
+        self.assertNotIn('href=', sent['html'])
 
     def test_unsubscribe_get_never_mutates_post_is_neutral(self):
         path='/emails/preferences/'+'d'*64

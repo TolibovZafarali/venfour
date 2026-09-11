@@ -173,6 +173,7 @@ from venfour.supabase_gateway import (
     SupabaseCaseResolutionConflictError,
     SupabaseConfigurationError,
     SupabaseConflictError,
+    SupabaseGatewayError,
     SupabaseContractError,
     SupabaseHttpGateway,
     SupabaseServerConfiguration,
@@ -187,6 +188,10 @@ from venfour.vehicle_catalog import (
 
 
 _ERROR_MESSAGES = {
+    "FULL_REVIEW_UNAVAILABLE": "Your saved report details are temporarily unavailable.",
+    "FULL_REVIEW_NOT_FOUND": "This valuation review was not found.",
+    "FULL_REVIEW_CHANGED": "The saved report changed. Reload it before continuing.",
+    "FULL_REVIEW_REPORT_INVALID": "Check the PDF or report detail and try again.",
     "AUTHENTICATION_REQUIRED": "Authentication is required.",
     "AUTHENTICATION_INVALID": "Authentication is invalid.",
     "AUTHENTICATION_UNAVAILABLE": "Authentication is temporarily unavailable.",
@@ -1273,7 +1278,7 @@ async def _follow_up(request: Request) -> JSONResponse:
             payload = await _customer_json_payload(request, {"messageVersionId", "clientRequestId", "expectedWorkflowRevision", "confirmedReportAttached"})
             result = await run_in_threadpool(service.sent, case_id, payload, token, follow_up=True)
         else:
-            return _private_response(_error_response(404, "NOT_FOUND"))
+            return _private_response(_error_response(404, "ROUTE_NOT_FOUND"))
         return _private_response(JSONResponse(result))
     except Exception as exc:
         return _private_response(_customer_delivery_error(exc))
@@ -1917,6 +1922,70 @@ async def _case_analysis_submit(request: Request) -> JSONResponse:
     return _private_response(response)
 
 
+async def _full_review(request: Request) -> JSONResponse:
+    from venfour.full_review import FullReviewConflict
+    from venfour.report_ingestion import ReportDocumentInvalidError
+
+    identity = await _owned_identity(request)
+    if isinstance(identity, JSONResponse):
+        return _private_response(identity)
+    service = request.app.state.full_review_service
+    if service is None:
+        return _private_response(_error_response(503, "FULL_REVIEW_UNAVAILABLE"))
+    case_id = request.path_params["case_id"]
+    operation = request.path_params.get("operation")
+    try:
+        if request.method == "GET" and operation is None:
+            result = await run_in_threadpool(service.status, case_id, identity)
+        elif request.method == "POST" and operation == "report-upload":
+            body = await Request(request.scope, receive=_bounded_receive(request.receive, 2048)).json()
+            if (not isinstance(body, dict) or set(body) != {"filename", "sha256", "byteSize"}
+                    or not isinstance(body["filename"], str) or not body["filename"].casefold().endswith(".pdf")
+                    or not isinstance(body["sha256"], str) or len(body["sha256"]) != 64
+                    or isinstance(body["byteSize"], bool) or not isinstance(body["byteSize"], int)
+                    or not 0 < body["byteSize"] <= MAX_PDF_BYTES):
+                raise ValueError("Invalid PDF upload metadata")
+            result = await run_in_threadpool(service.prepare_upload, case_id, identity, body["filename"], body["sha256"], body["byteSize"])
+        elif request.method == "POST" and operation == "report":
+            bounded = Request(request.scope, receive=_bounded_receive(request.receive, MAX_UPLOAD_BODY_BYTES))
+            async with bounded.form(max_files=1, max_fields=0, max_part_size=MAX_PDF_BYTES) as form:
+                items = list(form.multi_items())
+                if len(items) != 1 or items[0][0] != "report" or not isinstance(items[0][1], UploadFile):
+                    raise ValueError("One PDF is required")
+                upload = items[0][1]
+                filename = upload.filename or "valuation-report.pdf"
+                if len(filename) > 255 or any(ord(c) < 32 for c in filename) or not filename.casefold().endswith(".pdf"):
+                    raise ValueError("A PDF filename is required")
+                with tempfile.TemporaryDirectory(prefix="venfour-review-upload-") as root:
+                    path = Path(root) / "report.pdf"
+                    await run_in_threadpool(_copy_uploaded_report, upload, path)
+                    result = await run_in_threadpool(service.upload, case_id, identity, path, filename)
+        elif request.method == "POST" and operation == "extract":
+            if await Request(request.scope, receive=_bounded_receive(request.receive, 1)).body():
+                raise ValueError("Unexpected request body")
+            result = await run_in_threadpool(service.extract, case_id, identity)
+        elif request.method == "PATCH" and operation == "confirmation":
+            body = await Request(request.scope, receive=_bounded_receive(request.receive, 8192)).json()
+            if (not isinstance(body, dict) or set(body) != {"reportId", "revision", "resolutions"}
+                    or isinstance(body["revision"], bool) or not isinstance(body["revision"], int)
+                    or not isinstance(body["resolutions"], dict) or len(body["resolutions"]) > 16):
+                raise ValueError("Invalid confirmation")
+            result = await run_in_threadpool(service.confirm, case_id, identity, body["reportId"], body["revision"], body["resolutions"])
+        else:
+            return _private_response(_error_response(404, "NOT_FOUND"))
+    except LookupError:
+        return _private_response(_error_response(404, "FULL_REVIEW_NOT_FOUND"))
+    except (FullReviewConflict, SupabaseConflictError):
+        return _private_response(_error_response(409, "FULL_REVIEW_CHANGED"))
+    except (_RequestBodyTooLarge, _UploadedReportTooLarge):
+        return _private_response(_error_response(413, "REPORT_TOO_LARGE"))
+    except (ValueError, ReportDocumentInvalidError, _InvalidUploadedReport):
+        return _private_response(_error_response(400, "FULL_REVIEW_REPORT_INVALID"))
+    except SupabaseGatewayError:
+        return _private_response(_error_response(503, "FULL_REVIEW_UNAVAILABLE"))
+    return _private_response(JSONResponse(result))
+
+
 async def _case_report_ingestion(request: Request) -> JSONResponse:
     identity = await _owned_identity(request)
     if isinstance(identity, JSONResponse):
@@ -2431,6 +2500,7 @@ def create_app(
     repository: AnalysisRunRepository | None = None,
     repository_root: Path | str | None = None,
     case_analysis_service: Any | None = None,
+    full_review_service: Any | None = None,
     case_claim_access_service: Any | None = None,
     preview_access_service: Any | None = None,
     customer_delivery_service: Any | None = None,
@@ -3063,6 +3133,8 @@ def create_app(
     )
 
     routes = [
+        Route("/api/v1/appraisal-cases/{case_id}/full-review", _full_review, methods=["GET"]),
+        Route("/api/v1/appraisal-cases/{case_id}/full-review/{operation}", _full_review, methods=["POST", "PATCH"]),
         Route("/api/v1/vehicle-trims", _vehicle_trims, methods=["GET"]),
         Route(
             "/api/v1/appraisal-cases/{case_id}/checkout-quote",
@@ -3339,6 +3411,10 @@ def create_app(
     app.state.presentation_service = selected_service
     app.state.creation_service = selected_creation_service
     app.state.case_analysis_service = selected_case_service
+    from venfour.full_review import FullReviewService
+    app.state.full_review_service = full_review_service or (
+        FullReviewService(selected_gateway) if callable(getattr(selected_gateway, "get_full_review_context", None)) else None
+    )
     app.state.case_claim_access_service = selected_case_claim_access_service
     app.state.preview_access_service = selected_preview_access_service
     app.state.communication_service = communication_service

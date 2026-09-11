@@ -11,6 +11,10 @@ export interface EmailTemplate {
   identity: string;
   trigger: string;
   version: string;
+  interaction: "link" | "code" | "code_and_link" | "notice";
+  details: [string, string][];
+  attachment: string;
+  preview: EmailPreview;
 }
 export interface EmailAutomation {
   template_key: string;

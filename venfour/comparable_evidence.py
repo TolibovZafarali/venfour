@@ -135,6 +135,9 @@ def assess_observation(
     """
 
     subject = _mapping(subject_material_facts)
+    if free_estimate:
+        from venfour.subject_readiness import known
+        subject = {key: value if not isinstance(value, str) or known(value) else None for key, value in subject.items()}
     facts = _mapping(observation.get("materialFacts"))
     raw = _mapping(observation.get("listing"))
     reasons: list[str] = []
