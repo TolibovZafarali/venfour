@@ -37,7 +37,7 @@ class SubjectReadinessTests(unittest.TestCase):
         gateway.claim_total_loss_analysis = Mock()
         gateway.fail_total_loss_analysis = Mock()
         gateway.get_total_loss_analysis_status.return_value = {
-            "outcome": "not_submitted", "input_snapshot": {**CANARY, "analysis_input_id": INPUT_ID},
+            "outcome": "not_submitted", "input_snapshot": {**CANARY, "vehicle_trim": "Other/Not sure", "analysis_input_id": INPUT_ID},
         }
         factory = Mock(side_effect=AssertionError("No provider construction"))
         service = CaseAnalysisService(gateway, creation_service_factory=factory)
@@ -70,6 +70,22 @@ class SubjectReadinessTests(unittest.TestCase):
         result = confirmed_subject_readiness({**COMPLETE, "vin": None, "insurer_vehicle_valuation": None,
                                               "vehicle_condition": None, "vehicle_options_packages": None})
         self.assertEqual(result, {"ready": True, "issues": []})
+
+    def test_free_estimate_accepts_unknown_specs_and_keeps_full_review_strict(self):
+        self.assertEqual(confirmed_subject_readiness(CANARY, stage="free_estimate"), {"ready": True, "issues": []})
+        self.assertFalse(confirmed_subject_readiness(CANARY)["ready"])
+        conflict = {**COMPLETE, "vehicle_facts": {**COMPLETE["vehicle_facts"], "doors": "2"}}
+        self.assertEqual([i["field"] for i in confirmed_subject_readiness(conflict, stage="free_estimate")["issues"]], ["doors"])
+
+    def test_discovered_material_variants_require_one_targeted_fact(self):
+        from venfour.subject_readiness import free_estimate_ambiguity
+        from tests.test_comparable_evidence import observation
+        rows = [observation(i) for i in range(4)]
+        for row in rows[2:]:
+            row["materialFacts"]["fuelType"] = "Electric"
+        self.assertEqual([i["field"] for i in free_estimate_ambiguity({}, rows)], ["fuelType"])
+        self.assertEqual(free_estimate_ambiguity({}, rows[:3]), [])
+        self.assertEqual(free_estimate_ambiguity({"fuelType": "Gasoline"}, rows), [])
 
     def test_truck_needs_cab_and_bed_but_a_sedan_does_not(self):
         value = {**COMPLETE, "vehicle_facts": {**COMPLETE["vehicle_facts"], "bodyType": "Pickup"}}

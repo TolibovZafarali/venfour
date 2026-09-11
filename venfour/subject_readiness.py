@@ -104,7 +104,49 @@ def subject_readiness(target: ComparableTarget, facts: Mapping[str, Any], *,
     return issues
 
 
-def confirmed_subject_readiness(snapshot: Mapping[str, Any], normalized_report: Mapping[str, Any] | None = None) -> dict[str, Any]:
+def free_estimate_readiness(target: ComparableTarget, facts: Mapping[str, Any], *,
+                            loss_date: str | None, location_resolved: bool) -> list[dict[str, str]]:
+    """Require identity and claim context, retaining only specific fact conflicts.
+
+    Missing technical configuration affects estimate precision. It does not
+    establish a mismatch or require a customer to complete a specification form.
+    """
+    return [issue for issue in subject_readiness(
+        target, facts, loss_date=loss_date, location_resolved=location_resolved,
+    ) if issue["field"] in {"year", "make", "model", "trim", "mileage", "postalCode", "lossDate"}
+        or issue["code"] == "CONFLICTING_SUBJECT_FACT"]
+
+
+def free_estimate_ambiguity(facts: Mapping[str, Any], observations: list[Mapping[str, Any]]) -> list[dict[str, str]]:
+    """Ask one material question when independent candidates expose variants.
+
+    Require two distinct vehicles per variant; an isolated provider record is
+    insufficient to turn a normal estimate into a customer correction.
+    """
+    from venfour.comparable_evidence import observation_identity
+    fuel_classes = {"gasoline": "gas", "unleaded": "gas", "gas": "gas", "petrol": "gas",
+                    "diesel": "diesel", "electric": "electric", "electric fuel system": "electric",
+                    "hybrid": "hybrid", "gas/electric hybrid": "hybrid", "plug-in hybrid": "hybrid"}
+    for field in ("fuelType", "bodyType", "cabType", "bedLength"):
+        if known(facts.get(field)):
+            continue
+        variants: dict[str, set[str]] = {}
+        for row in observations:
+            value = _fact((row.get("materialFacts") or {}).get(field))
+            identity = observation_identity(row)
+            if field == "fuelType":
+                value = fuel_classes.get(value)
+            if value and identity:
+                variants.setdefault(value, set()).add(identity)
+        if sum(len(identities) >= 2 for identities in variants.values()) >= 2:
+            issue = readiness_issue(field)
+            issue["message"] = f"Confirm {FIELD_LABELS[field].lower()}; this vehicle has materially different versions."
+            return [issue]
+    return []
+
+
+def confirmed_subject_readiness(snapshot: Mapping[str, Any], normalized_report: Mapping[str, Any] | None = None,
+                                *, stage: str = "full_review") -> dict[str, Any]:
     """Read-only preflight of the same immutable facts used by creation."""
     from venfour.valuation_inputs import ConfirmedValuationInput, ValuationInputError, confirmed_normalized_report, apply_confirmed_vehicle_facts, snapshot_with_report_defaults
     from venfour.report_ingestion import normalized_report_to_legacy_report
@@ -113,6 +155,9 @@ def confirmed_subject_readiness(snapshot: Mapping[str, Any], normalized_report: 
     from venfour.efficient_search import subject_material_facts
     from venfour.search_geography import SearchGeography
 
+    if stage not in {"free_estimate", "full_review"}:
+        raise ValueError("Unsupported readiness stage")
+    check = free_estimate_readiness if stage == "free_estimate" else subject_readiness
     try:
         confirmed = ConfirmedValuationInput.from_snapshot(snapshot_with_report_defaults(snapshot, normalized_report))
         report = normalized_report_to_legacy_report(confirmed_normalized_report(confirmed, normalized_report))
@@ -121,7 +166,7 @@ def confirmed_subject_readiness(snapshot: Mapping[str, Any], normalized_report: 
             report["vehicle"]["drivetrain"] = drive
         apply_confirmed_vehicle_facts(report, confirmed)
         target = valuation_discrepancy_request_from_report(report, postal_code=confirmed.postal_code).loss_vehicle
-        issues = subject_readiness(target, subject_material_facts(report), loss_date=confirmed.loss_date,
+        issues = check(target, subject_material_facts(report), loss_date=confirmed.loss_date,
                                    location_resolved=SearchGeography().origin(confirmed.postal_code) is not None)
     except ValuationInputError as exc:
         field = {"vehicle_year": "year", "vehicle_make": "make", "vehicle_model": "model", "vehicle_trim": "trim",

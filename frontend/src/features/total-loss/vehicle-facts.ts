@@ -62,9 +62,6 @@ export function fillConfigurationFacts<T extends TotalLossManualFormValues>(valu
 
 export function vehicleFactErrors(values: TotalLossManualFormValues): TotalLossManualFormErrors {
   const errors: TotalLossManualFormErrors = {};
-  const required: VehicleFactField[] = ["bodyType", "drivetrain", "engine", "fuelType", "transmission"];
-  if (["truck", "pickup", "pickup truck"].includes(values.bodyType?.trim().toLowerCase() ?? "")) required.push("cabType", "bedLength");
-  for (const field of required) if (!known(values[field])) errors[field] = `Confirm ${VEHICLE_FACT_LABELS[field].toLowerCase()}.`;
   for (const field of VEHICLE_FACT_FIELDS) {
     if (values[field] && (!known(values[field]) || values[field]!.length > 200)) errors[field] = `Check ${VEHICLE_FACT_LABELS[field].toLowerCase()}.`;
   }

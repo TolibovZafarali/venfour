@@ -201,6 +201,8 @@ const backendEnvironment = {
   VENFOUR_EMAIL_FROM: "Venfour <updates@venfour.test>",
   VENFOUR_EMAIL_REPLY_TO: "support@venfour.test",
   VENFOUR_AUTH_EMAIL_FROM: "Venfour <auth@venfour.test>",
+  VENFOUR_AUTH_EMAIL_REPLY_TO: "support@venfour.test",
+  VENFOUR_EMAIL_MAILPIT_ORIGIN: "http://127.0.0.1:54324",
   VENFOUR_EMAIL_PUBLIC_API_ORIGIN: "http://127.0.0.1:8000",
   VENFOUR_EMAIL_DISPATCH_SECRET: "local-communications-dispatch-secret-not-for-production",
   VENFOUR_AUTH_EMAIL_HOOK_ENABLED: "0",

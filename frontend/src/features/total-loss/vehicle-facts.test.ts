@@ -17,16 +17,16 @@ describe("confirmed subject vehicle facts", () => {
     }
     expect(fillConfigurationFacts(values, { ...configuration, field: "trim" })).toEqual(values);
   });
-  it("blocks the incomplete canary with named corrections", () => {
+  it("allows a normal manual estimate without technical specifications", () => {
     expect(vehicleFactErrors({ ...createEmptyTotalLossManualForm(), vehicleYear: "2025", make: "Hyundai", model: "Elantra", trim: "SEL" }))
-      .toEqual({ bodyType: "Confirm body style.", drivetrain: "Confirm drive type.", engine: "Confirm engine.", fuelType: "Confirm fuel type.", transmission: "Confirm transmission." });
+      .toEqual({});
   });
   it("accepts complete facts without a VIN, offer, or optional specifications", () => {
     expect(vehicleFactErrors({ ...createEmptyTotalLossManualForm(), ...facts, trim: "SEL" })).toEqual({});
   });
-  it("requires a pickup cab and bed, and refuses unknown identity", () => {
+  it("allows unknown truck details but refuses unknown trim identity", () => {
     expect(vehicleFactErrors({ ...createEmptyTotalLossManualForm(), ...facts, bodyType: "Pickup", trim: "Other/Not sure" }))
-      .toEqual({ cabType: "Confirm cab style.", bedLength: "Confirm bed length.", trim: "Confirm the trim or version shown on your vehicle documents." });
+      .toEqual({ trim: "Confirm the trim or version shown on your vehicle documents." });
   });
   it("preserves authored facts through draft recovery and database mapping", () => {
     const manual = { ...createEmptyTotalLossManualForm(), ...facts, trim: "SEL" };

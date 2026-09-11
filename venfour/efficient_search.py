@@ -131,7 +131,11 @@ class EfficientMarketSearch:
                  resumed_events: Sequence[Mapping[str, Any]] = (),
                  resumed_transcript: Mapping[str, Any] | None = None,
                  resume_loader: Callable[[str], Mapping[str, Any] | None] | None = None,
+                 readiness_stage: str = "full_review",
                  _replay_only: bool = False) -> None:
+        if readiness_stage not in {"free_estimate", "full_review"}:
+            raise ValueError("Unsupported readiness stage")
+        self.readiness_stage = readiness_stage
         self.providers = {"current": current_provider, "historical": historical_provider}
         self.budget = budget
         self.policy = policy or EfficientSearchPolicy()
@@ -203,7 +207,8 @@ class EfficientMarketSearch:
 
     def _assessment(self, observation: Mapping[str, Any]) -> dict[str, Any]:
         return assess_observation(self.target, observation, subject_material_facts=self.subject_facts,
-                                  evidence_date=self.evidence_date, max_distance_miles=self.policy.boundary)
+                                  evidence_date=self.evidence_date, max_distance_miles=self.policy.boundary,
+                                  free_estimate=self.readiness_stage == "free_estimate")
 
     def _locate(self, observation: Mapping[str, Any], provenance: Mapping[str, Any]) -> dict[str, Any]:
         item = copy.deepcopy(dict(observation))
@@ -263,6 +268,10 @@ class EfficientMarketSearch:
         return not same
 
     def _strong(self, stream: str) -> int:
+        key = "estimateStrong" if self.readiness_stage == "free_estimate" else "strong"
+        return sum(self._assessment(row).get(key, False) for row in self.verified[stream].values())
+
+    def _strict_strong(self, stream: str) -> int:
         return sum(self._assessment(row)["strong"] for row in self.verified[stream].values())
 
     def _failure_stop(self, reason: str) -> str:
@@ -305,6 +314,14 @@ class EfficientMarketSearch:
                 row["relevantDate"] = self.observed_date
             row["newIdentity"] = self._record(row)
             rows.append(row)
+        if self.readiness_stage == "free_estimate" and not supporting:
+            from venfour.subject_readiness import SubjectReadinessError, free_estimate_ambiguity
+            issues = free_estimate_ambiguity(self.subject_facts, [
+                row for row in self.observations if row.get("purpose") == "baseline"
+                and self._assessment(row)["verificationEligible"]
+            ])
+            if issues:
+                raise SubjectReadinessError(issues)
         return rows, payload.get("hasMore", False), payload.get("failure")
 
     def _verify(self, candidates: Sequence[dict[str, Any]], *, supporting: bool = False) -> str | None:
@@ -432,7 +449,7 @@ class EfficientMarketSearch:
                 evidence_date=self.evidence_date, max_distance_miles=self.policy.boundary,
                 policy=SupportingShortlistPolicy(maximum_listings=self.policy.supporting_maximum_listings))
         result = shortlist()
-        sufficient = [stream for stream in ("historical", "current") if self._strong(stream) >= self.policy.minimum_strong_matches]
+        sufficient = [stream for stream in ("historical", "current") if self._strict_strong(stream) >= self.policy.minimum_strong_matches]
         if not sufficient:
             result["listings"] = []
             result["searchStatus"] = "SKIPPED_INSUFFICIENT_BASELINE"
@@ -493,8 +510,9 @@ class EfficientMarketSearch:
             historical_request: HistoricalMarketSearchRequest | None, observed_date: str,
             subject_facts: Mapping[str, Any], subject_vin: str | None = None) -> EfficientSearchResult:
         if not self.replay_only:
-            from venfour.subject_readiness import SubjectReadinessError, subject_readiness
-            issues = subject_readiness(
+            from venfour.subject_readiness import SubjectReadinessError, subject_readiness, free_estimate_readiness
+            check = free_estimate_readiness if self.readiness_stage == "free_estimate" else subject_readiness
+            issues = check(
                 target, subject_facts,
                 loss_date=historical_request.evidence_date if historical_request else observed_date,
                 location_resolved=self.geography.origin(target.postal_code) is not None,
@@ -510,6 +528,8 @@ class EfficientMarketSearch:
                   "currentRequest": current_request.to_dict() if current_request else None,
                   "historicalRequest": historical_request.to_dict() if historical_request else None,
                   "observedDate": observed_date, "policy": asdict(self.policy)}
+        if self.readiness_stage == "free_estimate":
+            inputs["readinessStage"] = self.readiness_stage
         self.input_digest = _digest(inputs)
         self.inputs = inputs
         saved = self.resumed_transcript
@@ -575,7 +595,7 @@ class EfficientMarketSearch:
                       "supportingIssues": [issue.to_dict() for issue in self.supporting_issues],
                       "historicalTemplate": self.historical_template.to_dict() if self.historical_template else None,
                       "baselineIdentities": {stream: list(rows) for stream, rows in self.verified.items()},
-                      "baselineStatus": "SUFFICIENT" if self._strong("historical") >= 9 or self._strong("current") >= 9 else "LIMITED",
+                      "baselineStatus": "SUFFICIENT" if self._strict_strong("historical") >= 9 or self._strict_strong("current") >= 9 else "LIMITED",
                       "supportingEvidence": supporting}
         transcript["digest"] = _digest(transcript)
         if self.replay_only and len(self.events) != len(self.resumed_events):
@@ -622,6 +642,7 @@ def replay_efficient_search(transcript: Mapping[str, Any]) -> EfficientSearchRes
         current_provider=providers["current"], historical_provider=providers["historical"],
         budget=ReplayBudget(), policy=EfficientSearchPolicy(**inputs["policy"]),
         geography=SearchGeography(postal_centroids={}, market_centers=[]),
+        readiness_stage=inputs.get("readinessStage", "full_review"),
         resumed_transcript=transcript, _replay_only=True,
     ).run(
         target=_target_from_data(inputs["target"]),

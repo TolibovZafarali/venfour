@@ -54,6 +54,17 @@ def shortlist(items, **kwargs):
 
 
 class EvidenceQualificationTests(unittest.TestCase):
+    def test_estimate_unknowns_never_become_strict_supporting_evidence(self):
+        result = assess_observation(replace(TARGET, drivetrain=None), observation(), free_estimate=True)
+        self.assertTrue(result["baselineEligible"])
+        self.assertTrue(result["estimateStrong"])
+        self.assertFalse(result["strong"])
+        self.assertFalse(result["supportingEligible"])
+        self.assertIn("bodyType", result["unresolvedEstimateFacts"])
+        self.assertFalse(assess_observation(TARGET, observation(), subject_material_facts={"bodyType": "SUV"}, free_estimate=True)["baselineEligible"])
+        for changed in ({"dateVerified": False}, {"priceVerified": False}, {"purpose": "supporting"}, {"conflicted": True}, {"location": {}}):
+            self.assertFalse(assess_observation(TARGET, {**observation(), **changed}, free_estimate=True)["baselineEligible"])
+
     def test_complete_facts_qualify_without_changing_legacy_score(self):
         result = assess(observation())
         self.assertTrue(result["baselineEligible"])

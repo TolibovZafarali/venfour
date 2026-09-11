@@ -138,16 +138,14 @@ function CommunicationsContent({
           </small>
         </article>
         <article>
-          <span>Authentication emails</span>
+          <span>Auth hook endpoint</span>
           <strong>
-            {data.configuration.auth_hook_enabled
-              ? "Hook endpoint enabled"
-              : "Supabase SMTP"}
+            {data.configuration.auth_hook_enabled ? "Enabled" : "Disabled"}
           </strong>
           <small>
             {data.configuration.auth_hook_enabled
               ? "Delivery also requires enabling this hook in Supabase."
-              : "Hosted templates and SMTP remain separately configured."}
+              : "Supabase Auth settings choose the active sending route."}
           </small>
         </article>
       </div>

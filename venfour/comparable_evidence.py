@@ -124,6 +124,7 @@ def assess_observation(
     subject_material_facts: Mapping[str, Any] | None = None,
     evidence_date: str | None = None,
     max_distance_miles: int | float = 250,
+    free_estimate: bool = False,
 ) -> dict[str, Any]:
     """Assess similarity independently of price, offer, and discovery purpose.
 
@@ -140,6 +141,7 @@ def assess_observation(
     differences: list[dict[str, Any]] = []
     material_ok = True
     uncorroborated_metadata: list[str] = []
+    estimate_unknowns: list[str] = []
     identity = observation_identity(observation)
 
     def reject(code: str, field: str | None = None, left: Any = None, right: Any = None) -> None:
@@ -158,6 +160,10 @@ def assess_observation(
             return True
         if covered:
             return True
+        if free_estimate and left is None:
+            estimate_unknowns.append(field)
+            reasons.append(f"{field.upper()}_ESTIMATE_UNRESOLVED")
+            return False
         if required or left is not None or right is not None:
             reject(f"{field.upper()}_UNKNOWN", field, subject.get(field), facts.get(field))
         return False
@@ -194,7 +200,10 @@ def assess_observation(
         ("model", target.model, listing.model), ("trim", target.trim, listing.trim),
         ("drivetrain", target.drivetrain, listing.drivetrain),
     ):
-        if _fact(left) is None or _fact(right) is None:
+        if free_estimate and field == "drivetrain" and _fact(left) is None:
+            estimate_unknowns.append(field)
+            reasons.append("DRIVETRAIN_ESTIMATE_UNRESOLVED")
+        elif _fact(left) is None or _fact(right) is None:
             reject(f"{field.upper()}_UNKNOWN", field, left, right)
         elif _fact(left) != _fact(right):
             reject(f"{field.upper()}_MISMATCH", field, left, right)
@@ -243,7 +252,10 @@ def assess_observation(
     # Empty arrays in report contracts can mean no packages were recorded.
     # They are not proof that the vehicle has no optional equipment.
     if equipment_subject or equipment_listing:
-        if equipment_subject is None or equipment_listing is None:
+        if free_estimate and not equipment_subject:
+            estimate_unknowns.append("equipment")
+            reasons.append("EQUIPMENT_ESTIMATE_UNRESOLVED")
+        elif equipment_subject is None or equipment_listing is None:
             reject("MATERIAL_EQUIPMENT_UNKNOWN", "equipment", subject.get("equipment"), facts.get("equipment"))
         elif equipment_subject != equipment_listing:
             reject("MATERIAL_EQUIPMENT_MISMATCH", "equipment", subject.get("equipment"), facts.get("equipment"))
@@ -339,7 +351,7 @@ def assess_observation(
     ]
     if not reasons:
         reasons.append("VERIFIED_COMPARABLE_MATCH")
-    return {
+    result = {
         "version": EVIDENCE_QUALIFICATION_VERSION, "identity": identity,
         "eligible": matched, "verificationEligible": verification_eligible,
         "supportingVerificationEligible": supporting_verification_eligible,
@@ -352,6 +364,17 @@ def assess_observation(
         "optionalBenefitLimitations": optional_benefit_limitations,
         "supportingLimitations": supporting_limitations,
     }
+    if free_estimate:
+        strict = assess_observation(target, observation, subject_material_facts=subject_material_facts,
+                                    evidence_date=evidence_date, max_distance_miles=max_distance_miles)
+        result.update({
+            "readinessStage": "free_estimate", "unresolvedEstimateFacts": sorted(set(estimate_unknowns)),
+            "estimateStrong": baseline_eligible and legacy_tier == "STRONG",
+            "strong": strict["strong"],
+            "supportingEligible": strict["supportingEligible"],
+            "supportingVerificationEligible": strict["supportingVerificationEligible"],
+        })
+    return result
 
 
 @dataclass(frozen=True)

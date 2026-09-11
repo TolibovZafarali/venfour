@@ -387,9 +387,10 @@ function AuthenticatedTotalLossAnalysisPage({
         ) : (
           <Button asChild>
             <Link
-              to={analysis.subjectReadiness?.correctionMode === "resume"
+              to={(analysis.subjectReadiness?.correctionMode === "resume"
                 ? `/start?service=total-loss&caseId=${encodeURIComponent(caseId)}&focus=${analysis.subjectReadiness.issues[0]?.correctionStep ?? "vehicle"}`
-                : totalLossIntakeCorrectionPath(caseId, analysis.subjectReadiness?.issues[0]?.correctionStep)}
+                : totalLossIntakeCorrectionPath(caseId, analysis.subjectReadiness?.issues[0]?.correctionStep))
+                + (analysis.subjectReadiness?.issues[0]?.field ? `&vehicleFact=${encodeURIComponent(analysis.subjectReadiness.issues[0].field)}` : "")}
             >
               Review intake
             </Link>

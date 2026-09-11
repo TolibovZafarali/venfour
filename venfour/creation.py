@@ -584,6 +584,7 @@ def create_live_analysis_creation_service(
     market_processing_token: str | None = None,
     market_progress_factory: Callable[[int | None], Any] | None = None,
     case_maximum_distance_miles: int | None = None,
+    readiness_stage: str = "full_review",
 ) -> AnalysisCreationService:
     """Build the default runtime composition without eager credential checks."""
 
@@ -662,6 +663,7 @@ def create_live_analysis_creation_service(
             market_search=EfficientMarketSearch(
                 current_provider=current_provider, historical_provider=historical_provider,
                 budget=budget, policy=search_policy,
+                readiness_stage=readiness_stage,
                 checkpoint=progress.save if progress is not None else None,
                 resume_loader=progress.load if progress is not None else None,
             ),

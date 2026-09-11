@@ -242,7 +242,7 @@ as part of the initial rollout. Do not disable SMTP before a successful canary.
 ```sh
 .venv/bin/python -m unittest tests.test_local_auth_email_templates tests.test_communications tests.test_partner_delivery tests.test_partner_api
 .venv/bin/python scripts/preview_emails.py --check-smtp
-.venv/bin/python scripts/run_isolated_database_tests.py --container venfour-migration-rehearsal-email --output /tmp/venfour-email-database
+.venv/bin/python scripts/run_isolated_database_tests.py --container venfour-migration-rehearsal-email-final --output /tmp/venfour-email-database
 ```
 
 The last command requires a dedicated network-isolated rehearsal database with all
@@ -250,3 +250,24 @@ migrations applied; it never targets the linked hosted project. Frontend checks
 run from `frontend/`: `npm run typecheck`, focused Communications/admin tests,
 `npm run build` and scoped ESLint. Run the existing complete suites for regression
 coverage and distinguish unrelated working-tree failures from this change.
+
+### September 11 implementation validation
+
+- Fresh network-isolated database: all 65 migrations applied successfully.
+- All 44 database suites passed; 2,319 assertions across their latest versions,
+  including 94 new communications/control/milestone checks. Current response
+  completion and correction were exercised through the actual database functions.
+- Complete offline backend run: 1,912 tests passed, no unexpected network attempts.
+  A final focused run of the updated email/Auth/partner code passed all 66 tests.
+- TypeScript, production frontend build, scoped ESLint and 15 Communications/admin
+  tests passed. The complete frontend run passed 1,769 tests and failed one existing
+  offer-only insurer-response test; that test passed immediately in isolation.
+  Full ESLint remains blocked by two pre-existing Fast Refresh errors in
+  `frontend/.tmp-valuation-result/main.tsx`; that unrelated preview was not edited.
+- All 27 HTML/plain-text templates exported; shared SMTP fallback consistency passed.
+  Browser checks covered desktop/mobile layout, Auth code, plain text, automation
+  controls and delivery activity using explicitly fictional data.
+- A synthetic signed Auth hook delivered into real local Mailpit, with HTML/text,
+  From/Reply-To and duplicate-request reuse checked. This is not a hosted Auth or
+  real inbox canary. No external email, production migration, DNS or hosted setting
+  was changed by this implementation task.

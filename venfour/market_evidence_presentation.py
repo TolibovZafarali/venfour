@@ -87,6 +87,16 @@ def project_market_search_context(search: Mapping[str, Any] | None) -> dict[str,
             for stream, code in sorted(reasons.items())
         ],
     }
+    if search.get("input", {}).get("readinessStage") == "free_estimate":
+        result["summary"] = (
+            "This approximate market range is an early signal from comparable asking prices. "
+            "It does not account for every option, condition adjustment, or detail in the insurer's report. "
+            + ("Some vehicle details or comparable evidence remain unverified, which limits precision. " if status == "LIMITED" else "")
+            + "The full review requires your complete insurer valuation report."
+        )
+        for reason in result["stopReasons"]:
+            if reason["code"] == "SUFFICIENT_STRONG_EVIDENCE":
+                reason["description"] = "Enough comparable observations were found for the approximate estimate."
     validate_market_evidence_display(result, "marketSearchContext")
     return result
 

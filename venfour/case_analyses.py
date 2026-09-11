@@ -487,6 +487,7 @@ def _live_creation_factory(
     return create_live_analysis_creation_service(
         repository,
         run_id_factory=lambda: run_id,
+        readiness_stage="free_estimate",
         report_ingestion_recorder=(repository.record_report_ingestion
                                    if isinstance(repository, SupabaseAnalysisRunRepository) else None),
         resolution_cache=(repository.resolution_cache_gateway
@@ -843,7 +844,7 @@ class CaseAnalysisService:
             if cached is None or cached.get("extraction_status") != "confirmed":
                 return status
             normalized = self._cache_result(cached).to_dict()["normalizedReport"]
-        readiness = confirmed_subject_readiness(snapshot, normalized)
+        readiness = confirmed_subject_readiness(snapshot, normalized, stage="free_estimate")
         if readiness["ready"]:
             return status
         readiness["correctionMode"] = "correct" if snapshot.get("intake_completed_at") else "resume"

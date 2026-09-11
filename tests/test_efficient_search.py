@@ -73,7 +73,7 @@ class FixtureTransport:
 
 class EfficientSearchTests(unittest.TestCase):
     def run_fixture(self, transport, *, policy=None, request_policy=None, streams=("historical", "current"),
-                    markets=(), budget=None, checkpoint=None, saved=None, subject_vin=None, subject_facts=None):
+                    markets=(), budget=None, checkpoint=None, saved=None, subject_vin=None, subject_facts=None, readiness_stage="full_review"):
         now = datetime(2026, 8, 10, tzinfo=UTC)
         clock = lambda: now
         budget = budget or MarketRequestBudget(
@@ -89,12 +89,12 @@ class EfficientSearchTests(unittest.TestCase):
         geography = SearchGeography(postal_centroids={"63026": ORIGIN}, market_centers=markets)
         engine = EfficientMarketSearch(current_provider=current, historical_provider=historical, budget=budget,
                                        policy=policy, geography=geography, checkpoint=checkpoint,
-                                       resumed_transcript=saved)
+                                       resumed_transcript=saved, readiness_stage=readiness_stage)
         with patch("venfour.marketcheck.sleep"):
             result = engine.run(target=comparable_target_from_search_request(request.to_market_search_request()),
                                 current_request=request.to_market_search_request() if current else None,
                                 historical_request=request if historical else None, observed_date=AS_OF_DATE,
-                                subject_facts=subject_facts or SUBJECT_FACTS, subject_vin=subject_vin)
+                                subject_facts=SUBJECT_FACTS if subject_facts is None else subject_facts, subject_vin=subject_vin)
         return result, budget
 
     def assert_replays(self, result):
@@ -102,6 +102,17 @@ class EfficientSearchTests(unittest.TestCase):
         self.assertEqual(replayed.transcript, result.transcript)
         self.assertEqual(replayed.current, result.current)
         self.assertEqual(replayed.historical, result.historical)
+
+    def test_free_estimate_uses_unknown_specs_with_limited_precision_and_replay(self):
+        result, budget = self.run_fixture(FixtureTransport(current=[candidate(i) for i in range(15)]),
+            streams=("current",), subject_facts={}, readiness_stage="free_estimate")
+        self.assertGreaterEqual(len(result.current.listings), 9)
+        self.assertEqual(result.transcript["baselineStatus"], "LIMITED")
+        self.assertEqual(result.supporting["listings"], [])
+        self.assertEqual(budget.snapshot()["totalAttempts"], 1)
+        self.assert_replays(result)
+        from venfour.market_evidence_presentation import project_market_search_context
+        self.assertIn("approximate", project_market_search_context(result.transcript)["summary"])
 
     def test_dense_fixture_reduces_53_requests_to_16_with_separate_support(self):
         rows = [candidate(index) for index in range(50)]
