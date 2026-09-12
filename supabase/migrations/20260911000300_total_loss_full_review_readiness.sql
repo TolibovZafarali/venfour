@@ -77,9 +77,11 @@ returns jsonb language sql stable security definer set search_path='' as $$
     'existing_report',case when d.intake_mode='report' then jsonb_build_object(
       'storage_bucket','case-files','storage_object_name',d.report_storage_owner_id::text || '/' || c.id::text || '/valuation-report.pdf',
       'storage_owner_id',d.report_storage_owner_id,'original_filename',d.report_original_filename,
-      'extraction',(select e.normalized_report from public.total_loss_report_extractions e
+      'extraction',coalesce((select e.normalized_report from public.total_loss_report_extractions e
         where e.case_id=c.id and e.report_upload_id=d.report_last_upload_id
-        and e.analysis_input_revision=d.analysis_input_revision limit 1)) else null end,
+        and e.analysis_input_revision=d.analysis_input_revision and e.extraction_status='confirmed' limit 1),
+        (select e.ingestion from public.total_loss_analysis_report_evidence e where e.analysis_run_id=j.run_id
+          and e.case_id=c.id and e.report_upload_id=d.report_last_upload_id limit 1))) else null end,
     'locked',exists(select 1 from public.commerce_orders o where o.case_id=c.id and o.status <> 'void'))
   from public.appraisal_cases c join public.total_loss_case_details d on d.case_id=c.id
   join public.total_loss_analysis_jobs j on j.case_id=c.id and j.status='completed'

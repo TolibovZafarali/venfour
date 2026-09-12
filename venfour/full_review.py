@@ -84,6 +84,8 @@ def full_review_readiness(snapshot: Mapping[str, Any], extraction: Mapping[str, 
         effective[saved_key] = reconcile(field, snapshot.get(saved_key), printed)
     for field in VEHICLE_FACT_FIELDS:
         printed = vehicle.get("bodyStyle" if field == "bodyType" else field)
+        if field == "fuelType" and isinstance(printed, str):
+            printed = {"gasoline": "Unleaded", "petrol": "Unleaded", "gas": "Unleaded"}.get(printed.strip().casefold(), printed)
         value = reconcile(field, facts.get(field), printed)
         if known(value):
             facts[field] = str(value)

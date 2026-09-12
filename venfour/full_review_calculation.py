@@ -70,7 +70,7 @@ def calculate_report_review(free_artifact, extraction, readiness, *, report_id: 
         return replace(template, request=request, evidence=tuple(rows[:request.result_limit]))
 
     current = SimpleNamespace(name=current_template["provider"], search=current_search, maximum_search_radius_miles=250) if current_template else None
-    historical = (SimpleNamespace(name=historical_template["provider"], search=historical_search, maximum_search_radius_miles=250)
+    historical = (SimpleNamespace(name=historical_template["provider"], search_historical=historical_search, maximum_search_radius_miles=250)
                   if historical_template and historical_template["evidenceDate"] == confirmed.loss_date else None)
     observed = free_artifact["request"]["currentObservedDate"]
     run_id = str(UUID(bytes=uuid5(NAMESPACE_URL, f"venfour-report-review:{free_artifact['runId']}:{report_id}").bytes, version=4))

@@ -60,12 +60,15 @@ export function FullReviewReport({ caseId, userId, accessToken }: { caseId: stri
           <fieldset disabled={busy}><legend className="font-medium text-ink">{issue.message}</legend>
             {issue.code === "REPORT_FACT_CONFLICT" ? <div className="mt-4 grid gap-3 sm:grid-cols-2">
               {([ ["report", "In the report", issue.reportValue], ["saved", "Saved in this case", issue.savedValue] ] as const).map(([value,label,fact]) => <label key={value} className="flex cursor-pointer gap-3 rounded-lg border border-line p-4 text-sm"><input type="radio" name="fact" value={value} checked={answer === value} onChange={() => setAnswer(value)} /><span>{label}<strong className="mt-1 block">{fact}</strong></span></label>)}
-            </div> : <label className="mt-4 block text-sm">Vehicle detail<input className="mt-2 block min-h-11 w-full rounded-lg border border-line bg-surface px-3" aria-label="Vehicle detail" value={answer} maxLength={200} required onChange={event => setAnswer(event.target.value)} /></label>}
+            </div> : issue.field === "drivetrain" ? <label className="mt-4 block text-sm">Drive type<select className="mt-2 block min-h-11 w-full rounded-lg border border-line bg-surface px-3" aria-label="Drive type" value={answer} required onChange={event => setAnswer(event.target.value)}>
+              <option value="">Choose drive type</option><option value="FWD">Front-wheel drive</option><option value="RWD">Rear-wheel drive</option><option value="AWD">All-wheel drive</option><option value="4WD">Four-wheel drive</option>
+            </select></label> : <label className="mt-4 block text-sm">Vehicle detail<input className="mt-2 block min-h-11 w-full rounded-lg border border-line bg-surface px-3" aria-label="Vehicle detail" value={answer} maxLength={200} required onChange={event => setAnswer(event.target.value)} /></label>}
             <p className="mt-3 text-xs leading-5 text-copy">This choice applies to the full review. The original report and your free estimate remain in your case history.</p>
             <Button className="mt-4" disabled={busy || !answer.trim()} type="submit">Confirm and continue</Button>
           </fieldset>
         </form> : null}
         {state.ready ? <LocalContinueAction accessToken={accessToken} caseId={caseId} userId={userId} label="Continue to secure checkout" /> : null}
+        {state.locked && !state.ready ? <Button asChild className="mt-5"><Link to={`/total-loss/cases/${caseId}/claim`}>Return to your saved review</Link></Button> : null}
         {busy ? <LoaderCircle className="mt-4 size-5 animate-spin motion-reduce:animate-none" aria-label="Checking report" /> : null}
       </> : null}
       {error ? <p className="mt-4 text-sm text-danger" role="alert">{error}</p> : null}

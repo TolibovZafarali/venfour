@@ -1278,7 +1278,7 @@ async def _follow_up(request: Request) -> JSONResponse:
             payload = await _customer_json_payload(request, {"messageVersionId", "clientRequestId", "expectedWorkflowRevision", "confirmedReportAttached"})
             result = await run_in_threadpool(service.sent, case_id, payload, token, follow_up=True)
         else:
-            return _private_response(_error_response(404, "ROUTE_NOT_FOUND"))
+            return _private_response(_error_response(404, "NOT_FOUND"))
         return _private_response(JSONResponse(result))
     except Exception as exc:
         return _private_response(_customer_delivery_error(exc))
@@ -1941,7 +1941,9 @@ async def _full_review(request: Request) -> JSONResponse:
             body = await Request(request.scope, receive=_bounded_receive(request.receive, 2048)).json()
             if (not isinstance(body, dict) or set(body) != {"filename", "sha256", "byteSize"}
                     or not isinstance(body["filename"], str) or not body["filename"].casefold().endswith(".pdf")
+                    or not 1 <= len(body["filename"]) <= 255 or any(ord(c) < 32 for c in body["filename"])
                     or not isinstance(body["sha256"], str) or len(body["sha256"]) != 64
+                    or any(c not in "0123456789abcdef" for c in body["sha256"])
                     or isinstance(body["byteSize"], bool) or not isinstance(body["byteSize"], int)
                     or not 0 < body["byteSize"] <= MAX_PDF_BYTES):
                 raise ValueError("Invalid PDF upload metadata")
@@ -1972,7 +1974,7 @@ async def _full_review(request: Request) -> JSONResponse:
                 raise ValueError("Invalid confirmation")
             result = await run_in_threadpool(service.confirm, case_id, identity, body["reportId"], body["revision"], body["resolutions"])
         else:
-            return _private_response(_error_response(404, "NOT_FOUND"))
+            return _private_response(_error_response(404, "ROUTE_NOT_FOUND"))
     except LookupError:
         return _private_response(_error_response(404, "FULL_REVIEW_NOT_FOUND"))
     except (FullReviewConflict, SupabaseConflictError):

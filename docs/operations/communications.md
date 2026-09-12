@@ -113,7 +113,14 @@ Sender and template edits are deployment-managed, reviewed changes; the browser
 never becomes an arbitrary email composer or secret editor.
 
 ```sh
-.venv/bin/python scripts/preview_emails.py --output /tmp/venfour-email-preview
+.venv/bin/python scripts/preview_emails.py --output /tmp/venfour-email-preview --asset-origin http://127.0.0.1:4188
+.venv/bin/python -m http.server 4188 --bind 127.0.0.1 --directory /tmp/venfour-email-preview
+```
+
+The export includes the logo. Open `http://127.0.0.1:4188` to inspect it without
+using a hosted asset or sending email. Regenerate/check the SMTP files separately:
+
+```sh
 .venv/bin/python scripts/preview_emails.py --write-smtp
 .venv/bin/python scripts/preview_emails.py --check-smtp
 ```
@@ -121,9 +128,38 @@ never becomes an arbitrary email composer or secret editor.
 Change global appearance only in `venfour/email_design.py`; increment its
 `LAYOUT_VERSION` for a released change. Do not author per-email HTML or CSS.
 Change specific copy only in `venfour/email_templates.py`. Every entry inherits
-the logo, palette, typography, spacing, card, button, code block, detail rows,
+the logo, palette, typography, spacing, document layout, button, code block, detail rows,
 support/footer treatment and mobile rules. Six-digit codes use the same grouped
 display in the hook and SMTP; token values and verification remain unchanged.
+
+The master follows `frontend/src/components/app-shell.tsx` and the website theme:
+the original 28px symbol, mixed-case 20px Venfour wordmark, Avenir-style local font
+fallbacks, navy `#0b1f33`, body `#506277`, and solid `#155eef` action buttons.
+Headings are 22px (21px on mobile), body copy is 16px, and buttons are 48px high.
+The footer identifies Venfour LLC and uses the configured Reply-To address as the
+support contact. SMTP falls back to the website Contact page instruction because
+its sender/Reply-To is controlled by Supabase. No unverified mailbox is invented.
+
+`frontend/public/email/venfour-mark-v1.png` is a 112px raster export of the existing
+`assets/brand/venfour-mark.svg`, displayed at 28px. Its source digest is recorded
+in the master and checked in tests. The original SVG is unchanged. The PNG has a
+white backing to retain the black mark when an email client changes surrounding
+colors. Live wordmark text remains readable if images are blocked. This avoids
+the uneven [SVG email support](https://www.caniemail.com/features/image-svg/);
+[PNG support](https://www.caniemail.com/features/image-png/) is broader.
+The master uses presentation tables, inline base styles, system font fallbacks,
+and a fixed-width conditional table for classic Outlook. Rounded buttons may
+render with square corners there. Responsive overrides enhance the fluid base.
+There are no remote fonts, decorative images or recipient-specific image URLs.
+
+The one logo URL uses `VENFOUR_PUBLIC_APP_ORIGIN` for application mail and
+`{{ .SiteURL }}` for generated SMTP. **Before publishing these templates**, serve
+`/email/venfour-mark-v1.png` publicly on the configured website origin (including
+staging); mail clients cannot pass a website access gate. Deploy the frontend
+asset before activating the new backend or SMTP design. Keep this versioned
+asset available for previously sent messages; use a new path for a future mark.
+Asset origins must be bare HTTPS origins, except loopback HTTP for local preview.
+Normal deployment of the frontend includes the PNG; no provider upload is needed.
 
 To add a future email, add one content entry to `TEMPLATES`, for example:
 
@@ -178,6 +214,15 @@ Browser checks covered all 27 emails at 640px and 375px with no horizontal
 overflow, plus gallery filtering, Auth/partner previews and the phone-sized dialog.
 These checks used fictional content; they did not send external mail, change
 hosted Auth settings, or verify rendering in a real mailbox client.
+
+The subsequent website-aligned master redesign passed 55 focused backend/Auth/
+partner tests, all six gallery tests, SMTP generation checks, and the frontend
+build (including TypeScript). The built logo matches the source asset. Visual
+checks covered completed review, sign-in code, email change, security notice,
+insurer reminder and partner invitation at both 640px and 375px, plus the gallery
+at phone width. Inspection used the actual frontend header locally: the root
+hosted domain did not resolve and staging required an access login. All data was
+fictional; no hosted templates, settings or production assets were published.
 
 ## Sender configuration
 

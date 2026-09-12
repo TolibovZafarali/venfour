@@ -7,7 +7,7 @@ import re
 from typing import Literal
 from urllib.parse import urlsplit
 
-from venfour.email_design import LAYOUT_VERSION, RenderedEmail, render_master
+from venfour.email_design import LAYOUT_VERSION, LOGO_PATH, RenderedEmail, render_master
 
 
 @dataclass(frozen=True)
@@ -273,8 +273,13 @@ def _safe_url(value: str) -> str:
 
 
 def render_email(key: str, *, action_url: str = "", code: str = "",
-                 reply_to: str = "", unsubscribe_url: str = "") -> RenderedEmail:
+                 reply_to: str = "", unsubscribe_url: str = "",
+                 brand_origin: str = "https://venfour.com") -> RenderedEmail:
     template = TEMPLATES[key]
+    _safe_url(brand_origin)
+    origin_parts = urlsplit(brand_origin)
+    if origin_parts.path not in {"", "/"} or origin_parts.query or origin_parts.fragment:
+        raise ValueError("Email brand origin is invalid")
     if code and (not code.isascii() or not code.isdigit() or not 6 <= len(code) <= 10):
         raise ValueError("Email code is invalid")
     if action_url:
@@ -292,16 +297,17 @@ def render_email(key: str, *, action_url: str = "", code: str = "",
     return render_master(subject=template.subject, heading=template.heading,
         paragraphs=template.paragraphs, action=template.action, action_url=action_url,
         code=display_code, reply_to=reply_to, optional=template.category == "follow_up",
-        unsubscribe_url=unsubscribe_url, details=template.details)
+        unsubscribe_url=unsubscribe_url, details=template.details, brand_origin=brand_origin.rstrip('/'))
 
 
-def render_preview(key: str, *, reply_to: str = "") -> RenderedEmail:
+def render_preview(key: str, *, reply_to: str = "", brand_origin: str = "https://venfour.com") -> RenderedEmail:
     """Exact delivery renderer with inert sample values; labels belong outside the email."""
     template = TEMPLATES[key]
     return render_email(key,
         action_url="https://example.test/preview" if template.interaction in {"link", "code_and_link"} else "",
         code="123456" if template.interaction in {"code", "code_and_link"} else "",
         reply_to=reply_to,
+        brand_origin=brand_origin,
         unsubscribe_url="https://example.test/preferences" if template.category == "follow_up" else "")
 
 
@@ -310,10 +316,12 @@ def render_auth_smtp_template(key: str, *, case_link: bool = False) -> str:
     token = "{{ if eq (len .Token) 6 }}{{ slice .Token 0 3 }}-{{ slice .Token 3 6 }}{{ else }}{{ .Token }}{{ end }}"
     template = TEMPLATES[key]
     rendered = render_email(key,
+        brand_origin="https://example.test",
         code="9876543210" if template.interaction in {"code", "code_and_link"} else "",
         action_url="https://example.test/smtp-action" if template.interaction in {"link", "code_and_link"} else "")
     url = '{{ .RedirectTo }}?token_hash={{ .TokenHash }}&amp;type=email' if case_link else '{{ .ConfirmationURL }}'
-    return rendered.html.replace("9876543210", token).replace("https://example.test/smtp-action", url)
+    return (rendered.html.replace("9876543210", token).replace("https://example.test/smtp-action", url)
+            .replace("https://example.test" + LOGO_PATH, '{{ .SiteURL }}' + LOGO_PATH))
 
 
 def render_auth_smtp_subject(context: str) -> str:

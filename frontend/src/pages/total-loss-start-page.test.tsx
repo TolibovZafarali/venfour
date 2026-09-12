@@ -650,6 +650,7 @@ const RECOVERY_INPUT_ID = "abababab-abab-4bab-8bab-abababababab";
 const SUBJECT_VEHICLE_FACTS = { bodyType: "Sedan", drivetrain: "FWD", engine: "3.0L V6", fuelType: "Unleaded", transmission: "Automatic" };
 
 async function confirmSubjectFacts(_user: ReturnType<typeof userEvent.setup>) {
+  void _user;
   for (const label of ["Body style", "Engine", "Fuel type", "Transmission", "Drive type"]) {
     expect(screen.queryByLabelText(label)).not.toBeInTheDocument();
   }

@@ -20,8 +20,9 @@ def review_source_view(source: Mapping) -> dict:
                      "confirmedFacts": copy.deepcopy(review["confirmedFacts"])}
     view["analysis"] = copy.deepcopy(review["analysis"])
     view["preliminary"]["presentation"] = copy.deepcopy(review["presentation"])
-    from venfour.package_assessment import _presentation_range
+    from venfour.package_assessment import _presentation_range, _cutoff
     view["preliminary"]["supportedRange"] = _presentation_range(review["presentation"], source["preliminary"]["supportedRange"]["currency"])
+    view["evidenceCutoff"] = _cutoff(review["analysis"]["artifact"])
     view["evidenceManifest"] = copy.deepcopy(review["evidenceManifest"])
     view["validationManifest"] = copy.deepcopy(review["validationManifest"])
     return view

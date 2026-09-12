@@ -134,6 +134,30 @@ class RetainedCalculationTests(unittest.TestCase):
         self.assertEqual(result['retainedEligibleIdentities'],{'current':[],'historical':[]})
         self.assertEqual(result['presentation']['analysisScope']['inputMode'],'REPORT')
 
+    def test_requalifies_verified_baseline_against_report_and_excludes_changed_loss_date(self):
+        from tests.test_efficient_analysis import run_analysis
+        from tests.test_efficient_search import candidate
+        from venfour.full_review_calculation import calculate_report_review
+        with tempfile.TemporaryDirectory() as directory:
+            original, _, transport, _ = run_analysis(directory,[candidate(i) for i in range(12)])
+            artifact=original.to_dict();calls=len(transport.calls)
+            normalized=normalize_ccc_report(artifact['request']['qualificationSourceReport'])
+            normalized['report']['insurer']='Example Insurance'
+            extracted=ReportIngestionResult(normalized,'CCC','CCC','CCC','HIGH',False,(),(),'a'*64).to_dict()
+            vehicle=normalized['vehicle']
+            saved={**snapshot(),'vehicle_make':vehicle['make'],'vehicle_model':vehicle['model'],
+                   'date_of_loss':normalized['report']['lossDate'],'postal_code':'63026'}
+            ready=full_review_readiness(saved,extracted)
+            self.assertTrue(ready['ready'],ready)
+            result=calculate_report_review(artifact,extracted,ready,report_id='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',created_at='2026-09-11T20:00:00Z')
+            self.assertGreater(len(result['retainedEligibleIdentities']['current']),0)
+            self.assertGreater(len(result['retainedEligibleIdentities']['historical']),0)
+            self.assertEqual(len(transport.calls),calls)
+            changed=copy.deepcopy(ready);changed['effectiveInput']['date_of_loss']='2026-05-20'
+            again=calculate_report_review(artifact,extracted,changed,report_id='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',created_at='2026-09-11T20:00:00Z')
+            self.assertEqual(again['retainedEligibleIdentities']['historical'],[])
+            self.assertEqual(len(transport.calls),calls)
+
 class FullReviewPackageTests(unittest.TestCase):
     def setUp(self):
         from tests.test_package_assessment import PackageAssessmentTests
@@ -163,8 +187,46 @@ class FullReviewPackageTests(unittest.TestCase):
         self.assertEqual(final['analysisArtifactDigest'],before['analysis']['artifactDigest'])
         self.assertNotEqual(final['reviewRunId'],before['lineage']['analysisRunId'])
         self.assertGreater(len(final['insurerComparables']['rows']),0)
+        from venfour.valuation_evidence_report import build_valuation_evidence_report_v1
+        from venfour.package_assessment import PackageAssessmentError
+        report = build_valuation_evidence_report_v1(source_snapshot=source, final_assessment=final, report_series_id='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+            report_version_id='cccccccc-cccc-4ccc-8ccc-cccccccccccc', final_assessment_id='dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+            version_number=1,generated_at='2026-09-11T20:00:00Z').to_dict()
+        self.assertGreater(len(report['insurerComparableReview']['comparables']),0)
+        tampered=copy.deepcopy(source);tampered['fullReview']['newProviderRequests']=1
+        with self.assertRaises(PackageAssessmentError): validate_total_loss_source_snapshot_v1(tampered)
+
         self.assertEqual(final['preliminaryToFinalComparison']['preliminary'],{
             'classification':before['preliminary']['classification'],'supportedRange':before['preliminary']['supportedRange']})
+
+    def test_manual_free_source_enters_paid_processing_with_the_accepted_pdf(self):
+        from tests.test_valuation_evidence_report import ValuationEvidenceReportTests
+        from venfour.package_processing import TotalLossPackageProcessor
+        from venfour.package_assessment import build_final_valuation_assessment_v1
+        fixture=ValuationEvidenceReportTests();fixture.setUp();self.addCleanup(fixture.doCleanups)
+        original=fixture._source(mode='MANUAL')[0]
+        with tempfile.TemporaryDirectory() as directory:
+            path=Path(directory)/'report.pdf';write_pdf(path,'SIMULATED insurer report')
+            row=copy.deepcopy(self.row);row['document_sha256']=hashlib.sha256(path.read_bytes()).hexdigest()
+            row['byte_size']=path.stat().st_size;row['extraction']['documentSha256']=row['document_sha256']
+            row['readiness']['documentSha256']=row['document_sha256']
+            from tests.test_package_processing import FakeDatabase
+            class Database(FakeDatabase):
+                @contextmanager
+                def materialize_full_review_report(self,case_id,report):
+                    assert report['id']==row['id'];yield path
+            from tests.test_package_processing import FakeAssessmentBuilder
+            class Builder(FakeAssessmentBuilder):
+                def build_source_snapshot(self, context, document): return original
+            builder=Builder()
+            processor=TotalLossPackageProcessor(Database(),assessment_builder=builder)
+            source=processor._build_source_snapshot({'source_intake_mode':'manual','case_id':CASE,
+                'full_review_report':{'report':row,'readiness':row['readiness']}},work_item_id='eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee')
+            self.assertIsNone(source.to_dict()['sourceDocument'])
+            self.assertEqual(source.to_dict()['analysis'],original.to_dict()['analysis'])
+            self.assertEqual(source.to_dict()['fullReview']['sourceDocument']['sha256'],row['document_sha256'])
+            final=build_final_valuation_assessment_v1(source).to_dict()
+            self.assertGreater(len(final['insurerComparables']['rows']),0)
 
 class FullReviewApiTests(unittest.TestCase):
     def test_authenticated_status_is_read_only_and_mutations_are_bounded(self):

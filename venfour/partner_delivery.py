@@ -252,7 +252,8 @@ class PartnerDeliveryService:
             action_url = f"{origin}/partners"
         else:
             raise _DeliveryError("PARTNER_EMAIL_KIND_INVALID", requires_review=True)
-        rendered = render_email("partner_" + kind, action_url=action_url, reply_to=self._configuration.reply_to)
+        rendered = render_email("partner_" + kind, action_url=action_url, reply_to=self._configuration.reply_to,
+                                brand_origin=origin)
         subject, text = rendered.subject, rendered.text
         if provider == "resend":
             result: dict[str, Any] = {"from": self._configuration.sender, "to": [recipient],

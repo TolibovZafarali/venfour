@@ -1436,7 +1436,7 @@ class SupabaseHttpGatewayTests(unittest.TestCase):
                 "complete_total_loss_package_work_item": True,
                 "fail_total_loss_package_work_item": True,
             }
-            return httpx.Response(200, json=responses[name])
+            return httpx.Response(200, content=b"null") if name == "get_total_loss_package_review_report" else httpx.Response(200, json=responses[name])
 
         gateway, _ = self.gateway(handler)
         gateway.enqueue_total_loss_package_job(ENTITLEMENT_ID)

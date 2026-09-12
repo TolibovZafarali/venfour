@@ -4,6 +4,9 @@ import copy
 import hashlib
 import json
 import unittest
+from pathlib import Path
+from html.parser import HTMLParser
+import struct
 from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch
 from urllib.parse import parse_qs, urlsplit
@@ -17,7 +20,7 @@ from venfour.communications import CommunicationError, CommunicationService, aut
 from venfour.communications_api import communication_routes
 from venfour.email_delivery import EmailConfiguration, EmailDeliveryError, email_payload, send_prepared
 from venfour.email_templates import EmailTemplate, TEMPLATES, render_email, render_preview
-from venfour.email_design import DESIGN
+from venfour.email_design import BRAND_LINE, DESIGN, LOGO_PATH, LOGO_SOURCE_SHA256
 
 NOW = datetime.now(timezone.utc)
 SECRET = 'whsec_' + 'c2lnbmF0dXJlLXRlc3Qtc2VjcmV0LW9ubHktbm90LXJlYWw='
@@ -55,9 +58,42 @@ class EmailTemplateTests(unittest.TestCase):
                 self.assertIn('role="presentation"',result.html)
                 self.assertIn('lang="en"',result.html)
                 self.assertNotIn('SAMPLE PREVIEW',result.html)
-                self.assertIn('Venfour · Independent vehicle valuation guidance',result.text)
+                self.assertIn(BRAND_LINE,result.text)
                 self.assertNotIn('<script',result.html)
-                self.assertNotIn('<img',result.html)
+                self.assertEqual(result.html.count('<img '), 1)
+                self.assertIn('https://venfour.com' + LOGO_PATH, result.html)
+                self.assertNotIn('CLARITY FOR YOUR NEXT STEP', result.html)
+
+    def test_shared_brand_matches_the_website_and_keeps_live_wordmark_text(self):
+        root = Path(__file__).resolve().parents[1]
+        theme = (root / 'frontend/src/styles/index.css').read_text()
+        for email_token, site_token in [('brand', 'brand'), ('ink', 'ink'), ('body', 'copy'), ('border', 'line')]:
+            self.assertIn(f'--{site_token}: {DESIGN[email_token]};', theme)
+        self.assertEqual(hashlib.sha256((root / 'assets/brand/venfour-mark.svg').read_bytes()).hexdigest(), LOGO_SOURCE_SHA256)
+        png = (root / 'frontend/public' / LOGO_PATH.lstrip('/')).read_bytes()
+        self.assertEqual(png[:8], b'\x89PNG\r\n\x1a\n')
+        self.assertEqual(struct.unpack('>II', png[16:24]), (112, 112))
+        result = render_preview('paid_review_ready')
+        self.assertIn('font-size:20px;line-height:28px;font-weight:600;letter-spacing:-.7px', result.html)
+        self.assertIn('>Venfour</span>', result.html)
+        self.assertNotIn('gradient', result.html)
+        self.assertNotIn('box-shadow', result.html)
+        self.assertIn('font-size:22px', result.html)
+        self.assertIn('font-size:14px;line-height:20px;font-weight:600', result.html)
+
+    def test_brand_origin_is_validated_and_never_contains_customer_identifiers(self):
+        for origin in ('javascript:alert(1)', 'http://remote.example', 'https://user:pass@example.test',
+                       'https://example.test/path', 'https://example.test?case=private', 'https://example.test/#private'):
+            with self.subTest(origin=origin), self.assertRaises(ValueError):
+                render_preview('auth_sign_in', brand_origin=origin)
+        class Images(HTMLParser):
+            def __init__(self):
+                super().__init__(); self.sources = []
+            def handle_starttag(self, tag, attrs):
+                if tag == 'img': self.sources.append(dict(attrs)['src'])
+        images = Images()
+        images.feed(render_preview('auth_sign_in', brand_origin='http://127.0.0.1:4186/').html)
+        self.assertEqual(images.sources, ['http://127.0.0.1:4186' + LOGO_PATH])
 
     def test_future_content_automatically_inherits_master_and_preview(self):
         template = EmailTemplate('future_email', 'A saved update', 'Your update', ('An update <script>literal</script>.',),
@@ -296,7 +332,7 @@ class EmailApiTests(unittest.TestCase):
         templates = response.json()['templates']
         self.assertEqual({t['key'] for t in templates}, set(TEMPLATES))
         for template in templates:
-            expected = render_preview(template['key'], reply_to='support@example.test')
+            expected = render_preview(template['key'], reply_to='support@example.test', brand_origin='https://venfour.example')
             self.assertEqual(template['preview']['html'], expected.html)
             self.assertEqual(template['preview']['text'], expected.text)
         self.assertNotIn(SECRET, response.text)

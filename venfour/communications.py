@@ -181,7 +181,7 @@ class CommunicationService:
             raise CommunicationError(404, "EMAIL_TEMPLATE_NOT_FOUND")
         template = TEMPLATES[key]
         reply = (getattr(self.config, f"{template.identity}_reply_to", "") or self.config.reply_to)
-        return render_preview(key, reply_to=reply)
+        return render_preview(key, reply_to=reply, brand_origin=self.config.app_origin or "https://venfour.com")
 
     def test_send(self, key, request_id, token):
         identity = self.gateway.staff("test_access", {}, token)
@@ -237,7 +237,8 @@ class CommunicationService:
                     action_url = trusted_origin(self.config.app_origin) + "/total-loss/start?" + urlencode({"caseId": case_id})
                 unsubscribe = (trusted_origin(self.config.api_origin) + "/emails/preferences/" + job["unsubscribe_token"] if job["category"] == "follow_up" else "")
                 sender, reply = self.config.identity()
-                rendered = render_email(key, action_url=action_url, reply_to=reply, unsubscribe_url=unsubscribe)
+                rendered = render_email(key, action_url=action_url, reply_to=reply, unsubscribe_url=unsubscribe,
+                    brand_origin=self.config.app_origin)
                 prepared = job.get("prepared_payload") or email_payload(rendered, recipient=job["recipient_email"], sender=sender, reply_to=reply,
                     provider=self.config.provider, message_key=f"communication/{job['id']}", unsubscribe_url=unsubscribe)
                 current = self.gateway.worker("prepare", {**lease, "prepared_payload": prepared,
@@ -277,7 +278,7 @@ class CommunicationService:
         def deliver(message):
             recipient, key, code, url = message
             sender, reply = self.config.identity("auth")
-            rendered = render_email(key, code=code, action_url=url, reply_to=reply)
+            rendered = render_email(key, code=code, action_url=url, reply_to=reply, brand_origin=self.config.app_origin)
             # Stable across hook retries, including partial secure-email-change delivery.
             digest = hashlib.sha256((headers["webhook-id"] + "\x00" + recipient).encode()).hexdigest()
             message_key = "auth-email/" + digest

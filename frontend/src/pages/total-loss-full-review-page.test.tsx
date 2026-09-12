@@ -6,9 +6,10 @@ import { FullReviewReport } from "./total-loss-full-review-page";
 import { getFullReview, uploadFullReview, extractFullReview, confirmFullReview, type FullReviewState } from "@/features/full-review/api";
 import { VehicleFactFields } from "@/features/total-loss/vehicle-fact-fields";
 import { createEmptyTotalLossManualForm } from "@/features/total-loss/types";
+import type * as FullReviewApi from "@/features/full-review/api";
 
 vi.mock("@/features/full-review/api", async importOriginal => ({
-  ...await importOriginal<typeof import("@/features/full-review/api")>(),
+  ...await importOriginal<typeof FullReviewApi>(),
   getFullReview: vi.fn(), uploadFullReview: vi.fn(), extractFullReview: vi.fn(), confirmFullReview: vi.fn(),
 }));
 vi.mock("@/features/total-loss-claim/components/local-continue-action", () => ({ LocalContinueAction: ({ label }: { label: string }) => <button>{label}</button> }));
