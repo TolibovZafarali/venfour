@@ -66,7 +66,13 @@ def full_review_readiness(snapshot: Mapping[str, Any], extraction: Mapping[str, 
     def reconcile(field: str, saved: Any, printed: Any) -> Any:
         if not known(printed):
             return saved
-        if known(saved) and not _same(saved, printed):
+        from venfour.vehicle_specs import comparison
+        same = _same(saved, printed)
+        if field in VEHICLE_FACT_FIELDS:
+            same = comparison(field, saved, printed, subject=facts, candidate={
+                **vehicle, "bodyType": vehicle.get("bodyStyle"),
+            })["status"] == "MATCH"
+        if known(saved) and not same:
             applicable.add(field)
             choice = choices.get(field)
             if choice not in (None, "report", "saved"):

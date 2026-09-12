@@ -48,6 +48,38 @@ _FACT_LABELS = {
 }
 
 
+def search_recovery(search: Mapping[str, Any]) -> dict[str, Any]:
+    """Explain the first actionable limitation without recalculating valuation."""
+    from venfour.subject_readiness import free_estimate_ambiguity, FIELD_LABELS
+    facts = search.get("input", {}).get("subjectFacts", {})
+    rows = search.get("observations", [])
+    ambiguity = free_estimate_ambiguity(facts, rows)
+    field = ambiguity[0]["field"] if ambiguity else None
+    # Older saved searches can expose the observed family-label defect. This
+    # explains retained evidence; it does not requalify or rewrite that run.
+    if field is None and rows:
+        from venfour.vehicle_specs import comparison
+        for candidate_field in ("engine", "bodyType", "fuelType", "transmission", "cabType", "bedLength"):
+            affected = [row for row in rows if comparison(candidate_field, facts.get(candidate_field), (row.get("materialFacts") or {}).get(candidate_field),
+                        subject=facts, candidate=row.get("materialFacts") or {})["status"] == "UNRESOLVED"
+                        and any(code in row.get("assessment", {}).get("reasonCodes", []) for code in (candidate_field.upper() + "_MISMATCH", candidate_field.upper() + "_UNKNOWN", candidate_field.upper() + "_ESTIMATE_UNRESOLVED"))]
+            if facts.get(candidate_field) and len(affected) == len(rows):
+                field = candidate_field
+                break
+    if field:
+        return {"kind": "UNRESOLVED_CONFIGURATION", "field": field, "correctionStep": "vehicle",
+                "message": f"We couldn’t confirm the {FIELD_LABELS[field].lower()} well enough to match comparable vehicles. Confirm this detail or add your insurer’s valuation report. Your saved information is preserved."}
+    reasons = set(search.get("stopReasons", {}).values())
+    if "CUSTOMER_LOCATION_UNAVAILABLE" in reasons:
+        return {"kind": "MISSING_INFORMATION", "field": "postalCode", "correctionStep": "claim",
+                "message": "Confirm your vehicle ZIP code so we can compare evidence from the right area. Your other information is saved."}
+    if reasons & {"BUDGET_OR_QUOTA_LIMITED", "PROVIDER_FAILURE", "OBSERVATION_LIMIT"}:
+        return {"kind": "SEARCH_INTERRUPTED", "field": None, "correctionStep": None,
+                "message": "The market search ended before enough evidence could be verified. This does not tell us whether your insurer’s offer is fair. You can add the insurer’s valuation report for a closer review."}
+    return {"kind": "SPARSE_EVIDENCE", "field": None, "correctionStep": None,
+            "message": "We couldn’t establish a reliable estimate from the available comparable evidence. This does not tell us whether your insurer’s offer is fair. Your insurer’s valuation report can help us review the details."}
+
+
 @lru_cache(maxsize=1)
 def _schemas() -> dict[str, Any]:
     path = Path(__file__).resolve().parents[1] / "schemas" / "analysis" / "market-evidence-display.schema.json"
@@ -72,7 +104,7 @@ def validate_market_evidence_display(value: Mapping[str, Any], kind: str) -> Non
                     raise ValueError("Supporting listing URL is invalid")
 
 
-def project_market_search_context(search: Mapping[str, Any] | None) -> dict[str, Any] | None:
+def project_market_search_context(search: Mapping[str, Any] | None, *, customer_recovery: bool = True) -> dict[str, Any] | None:
     if not isinstance(search, Mapping):
         return None
     status = search["baselineStatus"]
@@ -97,6 +129,12 @@ def project_market_search_context(search: Mapping[str, Any] | None) -> dict[str,
         for reason in result["stopReasons"]:
             if reason["code"] == "SUFFICIENT_STRONG_EVIDENCE":
                 reason["description"] = "Enough comparable observations were found for the approximate estimate."
+        if status == "LIMITED" and customer_recovery:
+            result["recovery"] = search_recovery(search)
+            result["summary"] = (
+                "The available comparable evidence is limited. Some vehicle details or market records remain unverified. "
+                "The full review requires your complete insurer valuation report; payment is available only after its readiness checks pass."
+            )
     validate_market_evidence_display(result, "marketSearchContext")
     return result
 

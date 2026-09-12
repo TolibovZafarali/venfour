@@ -630,6 +630,66 @@
               }
             }
           }
+        },
+        "recovery": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "message",
+            "field",
+            "correctionStep"
+          ],
+          "properties": {
+            "kind": {
+              "enum": [
+                "MISSING_INFORMATION",
+                "UNRESOLVED_CONFIGURATION",
+                "SPARSE_EVIDENCE",
+                "SEARCH_INTERRUPTED"
+              ]
+            },
+            "message": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2000
+            },
+            "field": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                null,
+                "engine",
+                "bodyType",
+                "fuelType",
+                "drivetrain",
+                "transmission",
+                "powertrain",
+                "cabType",
+                "bedLength",
+                "doors",
+                "cylinders",
+                "bodySubtype",
+                "mileage",
+                "postalCode",
+                "lossDate",
+                "insurer_vehicle_valuation"
+              ]
+            },
+            "correctionStep": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                null,
+                "vehicle",
+                "claim"
+              ]
+            }
+          }
         }
       }
     },

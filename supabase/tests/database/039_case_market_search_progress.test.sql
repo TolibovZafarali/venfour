@@ -1,7 +1,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
-select plan(37);
+select plan(39);
 
 select has_table('public','total_loss_market_search_progress','normalized case checkpoints exist');
 select ok((select relrowsecurity from pg_class where oid='public.total_loss_market_search_progress'::regclass),'checkpoints use RLS');
@@ -32,8 +32,8 @@ insert into public.total_loss_analysis_jobs(id,case_id,source_details_updated_at
     '39300000-0000-4000-8000-000000000001',clock_timestamp()+interval '1 hour','manual',1,'39400000-0000-4000-8000-000000000001');
 
 create temporary table search_progress_fixture as select jsonb_build_object('version','1',
-  'inputDigest',encode(sha256(convert_to('{"scope":"current"}','UTF8')),'hex'),
-  'input','{"scope":"current"}'::jsonb,'events','[]'::jsonb,'geography','{}'::jsonb,
+  'inputDigest',encode(sha256(convert_to('{"normalizationVersion":"2","scope":"current"}','UTF8')),'hex'),
+  'input','{"normalizationVersion":"2","scope":"current"}'::jsonb,'events','[]'::jsonb,'geography','{}'::jsonb,
   'origin',null,'providers','{}'::jsonb,'usageBefore','{"totalAttempts":0}'::jsonb,'historicalTemplate',null) as checkpoint;
 create function pg_temp.save_progress(payload jsonb default null,
   lease_token uuid default '39300000-0000-4000-8000-000000000001', days integer default 7,
@@ -53,6 +53,8 @@ $$;
 select is(pg_temp.load_progress(),null::jsonb,'no checkpoint means new bounded work');
 select is(pg_temp.save_progress(),true,'lease owner persists normalized evidence');
 select is(pg_temp.load_progress(),(select checkpoint from search_progress_fixture),'same input resumes saved work exactly');
+select is(pg_temp.load_progress()->>'version','1','new comparisons preserve the installed checkpoint envelope');
+select is(pg_temp.load_progress()->'input'->>'normalizationVersion','2','comparison rules are bound inside the immutable search input');
 select is(pg_temp.save_progress(case_identity=>'39100000-0000-4000-8000-000000000002'),false,'job cannot save another case');
 select is(pg_temp.save_progress(lease_token=>'39300000-0000-4000-8000-000000000009'),false,'other token cannot save');
 select is(pg_temp.save_progress(lease_token=>null),false,'null token cannot bypass the processing fence');
@@ -103,7 +105,7 @@ select is(pg_temp.load_progress(),null::jsonb,'naturally expired checkpoints can
 select is(pg_temp.save_progress(),true,'fresh work can start after natural expiry');
 update search_progress_fixture set checkpoint=jsonb_set(checkpoint,'{inputDigest}',to_jsonb(repeat('b',64)));
 select is(pg_temp.save_progress(),true,'different input stores a separate current checkpoint');
-select is(pg_temp.load_progress(input_hash=>encode(sha256(convert_to('{"scope":"current"}','UTF8')),'hex')),null::jsonb,
+select is(pg_temp.load_progress(input_hash=>encode(sha256(convert_to('{"normalizationVersion":"2","scope":"current"}','UTF8')),'hex')),null::jsonb,
   'new input checkpoint removes obsolete prior-input evidence');
 
 update public.total_loss_case_details set mileage_at_loss=33000

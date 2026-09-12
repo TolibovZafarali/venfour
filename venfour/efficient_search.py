@@ -29,7 +29,8 @@ from venfour.market import MarketContractError, MarketProviderError, MarketSearc
 from venfour.search_geography import SearchGeography, coordinates, distance_miles
 
 
-SEARCH_STRATEGY_VERSION = "1"
+SEARCH_STRATEGY_VERSION = "2"
+CHECKPOINT_FORMAT_VERSION = "1"
 
 
 def _digest(value: Any) -> str:
@@ -132,9 +133,11 @@ class EfficientMarketSearch:
                  resumed_transcript: Mapping[str, Any] | None = None,
                  resume_loader: Callable[[str], Mapping[str, Any] | None] | None = None,
                  readiness_stage: str = "full_review",
-                 _replay_only: bool = False) -> None:
+                 _replay_only: bool = False,
+                 _strategy_version: str = SEARCH_STRATEGY_VERSION) -> None:
         if readiness_stage not in {"free_estimate", "full_review"}:
             raise ValueError("Unsupported readiness stage")
+        self.strategy_version = _strategy_version
         self.readiness_stage = readiness_stage
         self.providers = {"current": current_provider, "historical": historical_provider}
         self.budget = budget
@@ -167,7 +170,7 @@ class EfficientMarketSearch:
 
     def _save(self) -> None:
         if self.checkpoint is not None:
-            self.checkpoint({"version": SEARCH_STRATEGY_VERSION, "inputDigest": self.input_digest,
+            self.checkpoint({"version": CHECKPOINT_FORMAT_VERSION, "inputDigest": self.input_digest,
                              "input": copy.deepcopy(self.inputs), "events": copy.deepcopy(self.events),
                              "geography": copy.deepcopy(self.geographic_snapshot), "origin": copy.deepcopy(self.origin),
                              "providers": copy.deepcopy(self.provider_capabilities),
@@ -208,7 +211,7 @@ class EfficientMarketSearch:
     def _assessment(self, observation: Mapping[str, Any]) -> dict[str, Any]:
         return assess_observation(self.target, observation, subject_material_facts=self.subject_facts,
                                   evidence_date=self.evidence_date, max_distance_miles=self.policy.boundary,
-                                  free_estimate=self.readiness_stage == "free_estimate")
+                                  free_estimate=self.readiness_stage == "free_estimate", normalization_version=self.strategy_version)
 
     def _locate(self, observation: Mapping[str, Any], provenance: Mapping[str, Any]) -> dict[str, Any]:
         item = copy.deepcopy(dict(observation))
@@ -226,8 +229,7 @@ class EfficientMarketSearch:
         item["provenance"] = copy.deepcopy(dict(provenance))
         return item
 
-    @staticmethod
-    def _observation_conflicts(left: Mapping[str, Any], right: Mapping[str, Any]) -> bool:
+    def _observation_conflicts(self, left: Mapping[str, Any], right: Mapping[str, Any]) -> bool:
         if left.get("stream") != right.get("stream") or left.get("relevantDate") != right.get("relevantDate"):
             return False
         # Discovery prices/mileage are not competing historical observations.
@@ -236,8 +238,14 @@ class EfficientMarketSearch:
         fields = ("year", "make", "model", "trim", "drivetrain")
         if left.get("stream") != "historical" or left.get("dateVerified") is True:
             fields += ("mileage", "price")
-        if any(left["listing"].get(key) != right["listing"].get(key) for key in fields):
+        from venfour.vehicle_specs import comparison
+        if any((comparison(key, left["listing"].get(key), right["listing"].get(key))["status"] == "CONFLICT"
+                if self.strategy_version == "2" and key in {"year", "make", "model", "trim", "drivetrain"}
+                else left["listing"].get(key) != right["listing"].get(key)) for key in fields):
             return True
+        if self.strategy_version == "2":
+            from venfour.vehicle_specs import material_conflicts
+            return material_conflicts([left, right]) or left.get("location") != right.get("location")
         return any(left.get(key) != right.get(key) for key in ("materialFacts", "location"))
 
     def _record(self, observation: dict[str, Any]) -> bool:
@@ -247,7 +255,9 @@ class EfficientMarketSearch:
         same_vehicle = [row for row in self.observations if identity is not None and observation_identity(row) == identity]
         same = [row for row in same_vehicle
                 if row.get("stream") == observation.get("stream") and row.get("relevantDate") == observation.get("relevantDate")]
-        material_conflict = immutable_material_conflicts([*same_vehicle, observation])
+        from venfour.vehicle_specs import material_conflicts
+        conflict_check = material_conflicts if self.strategy_version == "2" else immutable_material_conflicts
+        material_conflict = conflict_check([*same_vehicle, observation])
         conflicts = [row for row in same if self._observation_conflicts(row, observation)]
         if material_conflict:
             conflicts = same_vehicle
@@ -445,7 +455,7 @@ class EfficientMarketSearch:
         baseline = [copy.deepcopy(row) for stream in self.verified.values() for row in stream.values()]
         def shortlist():
             extras = [row for row in self.observations if row.get("purpose") == "supporting" and row.get("dateVerified")]
-            return build_supporting_shortlist(self.target, baseline + extras, subject_material_facts=self.subject_facts,
+            return build_supporting_shortlist(self.target, baseline + extras, normalization_version=self.strategy_version, subject_material_facts=self.subject_facts,
                 evidence_date=self.evidence_date, max_distance_miles=self.policy.boundary,
                 policy=SupportingShortlistPolicy(maximum_listings=self.policy.supporting_maximum_listings))
         result = shortlist()
@@ -528,6 +538,8 @@ class EfficientMarketSearch:
                   "currentRequest": current_request.to_dict() if current_request else None,
                   "historicalRequest": historical_request.to_dict() if historical_request else None,
                   "observedDate": observed_date, "policy": asdict(self.policy)}
+        if self.strategy_version == "2":
+            inputs["normalizationVersion"] = "2"
         if self.readiness_stage == "free_estimate":
             inputs["readinessStage"] = self.readiness_stage
         self.input_digest = _digest(inputs)
@@ -536,7 +548,11 @@ class EfficientMarketSearch:
         if saved is None and self.resume_loader is not None:
             saved = self.resume_loader(self.input_digest)
         if saved is not None:
-            if saved.get("version") != SEARCH_STRATEGY_VERSION or saved.get("inputDigest") != self.input_digest:
+            # Storage envelope v1 is unchanged. The bound input identifies
+            # the comparison strategy independently of its storage format.
+            saved_strategy = saved.get("input", {}).get("normalizationVersion", "1")
+            if (saved.get("version") not in {CHECKPOINT_FORMAT_VERSION, self.strategy_version}
+                    or saved_strategy != self.strategy_version or saved.get("inputDigest") != self.input_digest):
                 raise ValueError("Saved search work has different valuation inputs")
             self.resumed_events = copy.deepcopy(list(saved["events"]))
         self.provider_capabilities = {
@@ -587,7 +603,7 @@ class EfficientMarketSearch:
             validate_historical_market_search_result(historical)
         for row in self.observations:
             row["assessment"] = self._assessment(row)
-        transcript = {"version": SEARCH_STRATEGY_VERSION, "input": inputs, "inputDigest": self.input_digest,
+        transcript = {"version": self.strategy_version, "input": inputs, "inputDigest": self.input_digest,
                       "origin": self.origin, "centers": self.centers, "events": self.events,
                       "geography": self.geographic_snapshot, "providers": self.provider_capabilities,
                       "observations": self.observations, "stopReasons": self.stops,
@@ -608,7 +624,7 @@ def replay_efficient_search(transcript: Mapping[str, Any]) -> EfficientSearchRes
 
     from venfour.analysis_runs import _historical_request_from_data, _market_request_from_data, _target_from_data
 
-    if not isinstance(transcript, Mapping) or transcript.get("version") != SEARCH_STRATEGY_VERSION:
+    if not isinstance(transcript, Mapping) or transcript.get("version") not in {"1", "2"}:
         raise ValueError("Unsupported efficient-search transcript")
     supplied = copy.deepcopy(dict(transcript))
     digest = supplied.pop("digest", None)
@@ -643,7 +659,7 @@ def replay_efficient_search(transcript: Mapping[str, Any]) -> EfficientSearchRes
         budget=ReplayBudget(), policy=EfficientSearchPolicy(**inputs["policy"]),
         geography=SearchGeography(postal_centroids={}, market_centers=[]),
         readiness_stage=inputs.get("readinessStage", "full_review"),
-        resumed_transcript=transcript, _replay_only=True,
+        resumed_transcript=transcript, _replay_only=True, _strategy_version=transcript["version"],
     ).run(
         target=_target_from_data(inputs["target"]),
         current_request=_market_request_from_data(inputs["currentRequest"]) if inputs["currentRequest"] else None,

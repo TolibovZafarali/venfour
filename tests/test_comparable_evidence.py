@@ -57,7 +57,8 @@ class EvidenceQualificationTests(unittest.TestCase):
     def test_estimate_unknowns_never_become_strict_supporting_evidence(self):
         result = assess_observation(replace(TARGET, drivetrain=None), observation(), free_estimate=True)
         self.assertTrue(result["baselineEligible"])
-        self.assertTrue(result["estimateStrong"])
+        self.assertFalse(result["estimateStrong"])
+        self.assertEqual(result["tier"], "GOOD")
         self.assertFalse(result["strong"])
         self.assertFalse(result["supportingEligible"])
         self.assertIn("bodyType", result["unresolvedEstimateFacts"])

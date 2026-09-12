@@ -65,6 +65,7 @@ def validate_vehicle_facts(value: Any) -> dict[str, str]:
 
 def subject_readiness(target: ComparableTarget, facts: Mapping[str, Any], *,
                       loss_date: str | None, location_resolved: bool) -> list[dict[str, str]]:
+    from venfour.vehicle_specs import canonical, engine_attributes
     issues = []
     for field in ("year", "make", "model", "trim", "drivetrain"):
         if not known(getattr(target, field)):
@@ -82,10 +83,16 @@ def subject_readiness(target: ComparableTarget, facts: Mapping[str, Any], *,
     # fingerprint. The adapter's engine/fuel/transmission facts still need a
     # subject-side match under comparable qualification.
     required = ["bodyType", "engine", "fuelType", "transmission"]
-    if _fact(facts.get("bodyType")) in _TRUCK_BODY_TYPES:
+    if canonical("bodyType", facts.get("bodyType")) == "pickup":
         required.extend(("cabType", "bedLength"))
     for field in required:
-        if not known(facts.get(field)):
+        established = known(facts.get(field))
+        if field == "engine":
+            parsed = engine_attributes(facts)
+            established = established and (bool(parsed["displacementLiters"] and parsed["cylinders"]) or parsed["electrification"] == "electric")
+        elif field in {"bodyType", "fuelType", "transmission", "cabType", "bedLength"}:
+            established = established and canonical(field, facts.get(field)) is not None
+        if not established:
             issues.append(readiness_issue(field))
     for field in VEHICLE_FACT_FIELDS:
         if facts.get(field) is not None and not known(facts[field]) and field not in required:
@@ -93,7 +100,7 @@ def subject_readiness(target: ComparableTarget, facts: Mapping[str, Any], *,
     drive = facts.get("drivetrain")
     if drive and known(target.drivetrain) and _fact(drive) != _fact(target.drivetrain):
         issues.append(readiness_issue("drivetrain", conflict=True))
-    doors = _REDUNDANT_DOOR_COUNTS.get(_fact(facts.get("bodyType")))
+    doors = _REDUNDANT_DOOR_COUNTS.get(canonical("bodyType", facts.get("bodyType")))
     if doors and facts.get("doors") is not None and _fact(facts["doors"]) != doors:
         issues.append(readiness_issue("doors", conflict=True))
     encoded = re.search(r"\b(?:[ivhlw][ -]?(\d{1,2})|(\d{1,2})[ -]?(?:cylinders?|cyl))\b", _fact(facts.get("engine")) or "")

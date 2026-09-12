@@ -982,7 +982,7 @@ def _project_report_data(
         "exhibits": [],
     }
     search = source["analysis"]["artifact"]["result"].get("marketSearch")
-    search_context = project_market_search_context(search)
+    search_context = project_market_search_context(search, customer_recovery=False)
     supporting_listings = project_supporting_evidence(search)
     if search_context is not None:
         report["independentMarketEvidence"]["marketSearchContext"] = search_context

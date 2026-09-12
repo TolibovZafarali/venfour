@@ -129,3 +129,30 @@ class MarketEvidenceDisplayTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class InconclusiveRecoveryTests(unittest.TestCase):
+    def test_saved_family_label_explains_targeted_engine_correction_without_mutation(self):
+        from pathlib import Path
+        import json
+        from venfour.market_evidence_presentation import search_recovery
+        fixture = json.loads((Path(__file__).parent / 'fixtures/vehicle-specs/kona-discovery.json').read_text())
+        search = {'input': {'subjectFacts': fixture['subjectFacts'], 'readinessStage':'free_estimate'},
+                  'observations': copy.deepcopy(fixture['observations']), 'stopReasons':{'current':'BUDGET_OR_QUOTA_LIMITED'}, 'baselineStatus':'LIMITED'}
+        for row in search['observations']:
+            row['assessment']={'verificationEligible':False, 'reasonCodes':['ENGINE_MISMATCH']}
+        before=copy.deepcopy(search)
+        recovery=search_recovery(search)
+        self.assertEqual(recovery['kind'],'UNRESOLVED_CONFIGURATION')
+        self.assertEqual(recovery['field'],'engine')
+        self.assertEqual(recovery['correctionStep'],'vehicle')
+        context=project_market_search_context(search)
+        self.assertNotIn('This approximate market range',context['summary'])
+        self.assertEqual(search,before)
+
+    def test_market_limit_provider_failure_sparse_market_and_missing_zip_are_distinct(self):
+        from venfour.market_evidence_presentation import search_recovery
+        for reason,kind in [('BUDGET_OR_QUOTA_LIMITED','SEARCH_INTERRUPTED'),('PROVIDER_FAILURE','SEARCH_INTERRUPTED'),('GEOGRAPHIC_SCOPE_LIMITED','SPARSE_EVIDENCE'),('CUSTOMER_LOCATION_UNAVAILABLE','MISSING_INFORMATION')]:
+            result=search_recovery({'input':{},'observations':[], 'stopReasons':{'current':reason}})
+            self.assertEqual(result['kind'],kind)
+            self.assertEqual(result['field'],'postalCode' if kind=='MISSING_INFORMATION' else None)

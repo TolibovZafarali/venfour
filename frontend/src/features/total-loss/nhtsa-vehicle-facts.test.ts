@@ -10,6 +10,17 @@ const sedan = {
 };
 
 describe("decoded vehicle specifications", () => {
+  it("preserves partial displacement and the recorded family in the Kona decoder pattern", () => {
+    const facts = decodedVehicleFacts({ BodyClass: "Sport Utility Vehicle [SUV]/Multipurpose Vehicle [MPV]", DriveType: "4x2", DisplacementL: "2", EngineModel: "MPI NU PE", FuelTypePrimary: "Gasoline", Doors: "5" });
+    expect(facts).toEqual({ bodyType: "SUV", engine: "2.0L (family: MPI NU PE)", fuelType: "Unleaded", doors: "5" });
+    expect(facts.drivetrain).toBeUndefined();
+    expect(facts.cylinders).toBeUndefined();
+    expect(vehicleFacts(facts)).toEqual(facts);
+  });
+  it("keeps partial cylinder and aspiration evidence without inventing a layout", () => {
+    expect(decodedVehicleFacts({ DisplacementL: "1.6", EngineCylinders: "4", Turbo: "Yes" })).toMatchObject({ engine: "1.6L 4 cylinders Turbo", cylinders: "4" });
+    expect(decodedVehicleFacts({ DisplacementL: "2", Turbo: "No" })).toMatchObject({ engine: "2.0L Naturally aspirated" });
+  });
   it("fills complete explicit facts in the persisted subject contract", () => {
     const facts = decodedVehicleFacts(sedan);
     expect(facts).toEqual({ bodyType: "Sedan", drivetrain: "FWD", fuelType: "Unleaded", transmission: "Automatic", engine: "3.0L V6", cylinders: "6", doors: "4" });

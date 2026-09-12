@@ -395,3 +395,29 @@ describe("total-loss analysis experience", () => {
     },
   );
 });
+
+describe("inconclusive free-result recovery", () => {
+  it("routes the known vehicle detail and keeps the report upload available", () => {
+    const analysis = { ...analysisFor("INSUFFICIENT_EVIDENCE"), marketSearchContext: {
+      baselineStatus: "LIMITED", summary: "Limited evidence", stopReasons: [],
+      recovery: { kind: "UNRESOLVED_CONFIGURATION", field: "engine", correctionStep: "vehicle", message: "Confirm the engine shown in your vehicle documents." },
+    } } as AnalysisPresentation;
+    render(<MemoryRouter><TotalLossAnalysisResult analysis={analysis} reviewIntakePath="/start?caseId=saved&intent=correct-intake" insurerReportPath="/total-loss/cases/saved/review-report" /></MemoryRouter>);
+    expect(screen.getByRole("link", { name: "Confirm vehicle detail" })).toHaveAttribute("href", "/start?caseId=saved&intent=correct-intake&focus=vehicle&vehicleFact=engine");
+    expect(screen.getByText("Confirm the engine shown in your vehicle documents.")).toBeVisible();
+    expect(screen.getByRole("link", { name: "Upload insurer valuation PDF" })).toHaveAttribute("href", "/total-loss/cases/saved/review-report");
+    expect(screen.queryByRole("link", { name: "Review intake" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /checkout|pay now/i })).not.toBeInTheDocument();
+  });
+  it.each(["SPARSE_EVIDENCE", "SEARCH_INTERRUPTED"] as const)("explains %s without asking for irrelevant intake edits", kind => {
+    const analysis = { ...analysisFor("INSUFFICIENT_EVIDENCE"), marketSearchContext: { baselineStatus: "LIMITED", summary: "Limited evidence", stopReasons: [], recovery: { kind, field: null, correctionStep: null, message: "A reliable estimate could not be established. This does not tell us whether the offer is fair." } } } as AnalysisPresentation;
+    render(<MemoryRouter><TotalLossAnalysisResult analysis={analysis} reviewIntakePath="/start?caseId=saved" insurerReportPath="/total-loss/cases/saved/review-report" /></MemoryRouter>);
+    expect(screen.getByText(/A reliable estimate could not be established/)).toBeVisible();
+    expect(screen.getByRole("link", { name: "Upload insurer valuation PDF" })).toBeVisible();
+    expect(screen.queryByRole("link", { name: "Review intake" })).not.toBeInTheDocument();
+  });
+  it("allows the insurer-report next step on a saved result without recovery metadata", () => {
+    render(<MemoryRouter><TotalLossAnalysisResult analysis={analysisFor("INSUFFICIENT_EVIDENCE")} insurerReportPath="/total-loss/cases/saved/review-report" /></MemoryRouter>);
+    expect(screen.getByRole("link", { name: "Upload insurer valuation PDF" })).toBeVisible();
+  });
+});

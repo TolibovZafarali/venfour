@@ -112,7 +112,22 @@ class EfficientSearchTests(unittest.TestCase):
         self.assertEqual(budget.snapshot()["totalAttempts"], 1)
         self.assert_replays(result)
         from venfour.market_evidence_presentation import project_market_search_context
-        self.assertIn("approximate", project_market_search_context(result.transcript)["summary"])
+        self.assertIn("limited", project_market_search_context(result.transcript)["summary"])
+
+    def test_new_strategy_preserves_the_installed_checkpoint_storage_envelope(self):
+        checkpoints = []
+        result, budget = self.run_fixture(FixtureTransport(current=[candidate(i) for i in range(15)]),
+            streams=("current",), checkpoint=checkpoints.append)
+        self.assertTrue(checkpoints)
+        self.assertTrue(all(c["version"] == "1" and c["input"]["normalizationVersion"] == "2" for c in checkpoints))
+        before = budget.snapshot()["totalAttempts"]
+        transport = FixtureTransport(current=[candidate(i) for i in range(15)])
+        resumed, _ = self.run_fixture(transport, streams=("current",), saved=checkpoints[-1], budget=budget)
+        self.assertEqual(resumed.transcript["version"], "2")
+        self.assertEqual(resumed.current, result.current)
+        self.assertEqual(transport.calls, [])
+        self.assertEqual(budget.snapshot()["totalAttempts"], before)
+        self.assert_replays(resumed)
 
     def test_dense_fixture_reduces_53_requests_to_16_with_separate_support(self):
         rows = [candidate(index) for index in range(50)]

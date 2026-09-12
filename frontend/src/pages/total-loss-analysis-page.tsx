@@ -163,6 +163,7 @@ function CompletedTotalLossAnalysis({
           : undefined
       }
       reviewIntakePath={reviewIntakePath}
+      insurerReportPath={caseId ? `/total-loss/cases/${caseId}/review-report` : undefined}
     />
   );
 }

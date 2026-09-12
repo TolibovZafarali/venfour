@@ -15,7 +15,9 @@ export function decodedVehicleFacts(row: Record<string, unknown>): SubjectVehicl
     "Hatchback/Liftback/Notchback": "Hatchback", "Convertible/Cabriolet": "Convertible",
     Coupe: "Coupe", Pickup: "Pickup", Wagon: "Wagon", Minivan: "Minivan", Van: "Van",
   };
-  if (bodyNames[body]) facts.bodyType = bodyNames[body];
+  const bodyKey = (value: string) => value.toLowerCase().replace(/[^a-z0-9]+/gu, " ").trim().replace(/multi purpose/gu, "multipurpose");
+  const canonicalBody = Object.entries(bodyNames).find(([name]) => bodyKey(name) === bodyKey(body))?.[1];
+  if (canonicalBody) facts.bodyType = canonicalBody;
   const driveNames: Record<string, string> = {
     "FWD/Front-Wheel Drive": "FWD", "RWD/Rear-Wheel Drive": "RWD",
     "AWD/All-Wheel Drive": "AWD", "4WD/4-Wheel Drive/4x4": "4WD",
@@ -37,12 +39,20 @@ export function decodedVehicleFacts(row: Record<string, unknown>): SubjectVehicl
   const displacement = text("DisplacementL");
   const layout = ({ "In-Line": "I", "V-Shaped": "V", "Horizontally opposed (boxer)": "H" } as Record<string, string>)[text("EngineConfiguration")];
   if (/^[1-9][0-9]?$/u.test(cylinders)) facts.cylinders = cylinders;
-  if (layout && facts.cylinders && /^\d+(?:\.\d+)?$/u.test(displacement) && Number(displacement) > 0 && Number(displacement) < 20) {
+  const engineParts: string[] = [];
+  if (/^\d+(?:\.\d+)?$/u.test(displacement) && Number(displacement) > 0 && Number(displacement) < 20) {
     const litres = Number.isInteger(Number(displacement)) ? Number(displacement).toFixed(1) : String(Number(displacement));
-    facts.engine = `${litres}L ${layout}${cylinders}${text("Turbo") === "Yes" ? " Turbo" : ""}`;
-  } else if (text("EngineModel") && !/[/;]/u.test(text("EngineModel"))) {
-    facts.engine = text("EngineModel");
+    engineParts.push(`${litres}L`);
   }
+  if (facts.cylinders) engineParts.push(layout ? `${layout}${cylinders}` : `${cylinders} cylinders`);
+  if (text("Turbo") === "Yes") engineParts.push("Turbo");
+  if (text("Turbo") === "No") engineParts.push("Naturally aspirated");
+  const family = text("EngineModel");
+  // Preserve a recorded family name without discarding partial specifications
+  // or presenting the name as a complete technical configuration.
+  if (family && !/[/;]/u.test(family)) engineParts.push(engineParts.length ? `(family: ${family})` : family);
+  const engine = engineParts.join(" ");
+  if (engine && engine.length <= 200) facts.engine = engine;
   const doors = text("Doors");
   if (/^[1-9]$/u.test(doors)) facts.doors = doors;
   const cab = text("BodyCabType");

@@ -235,6 +235,7 @@ export interface TotalLossAnalysisResultProps {
   readonly className?: string;
   readonly continueAction?: ReactNode;
   readonly reviewIntakePath?: string;
+  readonly insurerReportPath?: string;
 }
 
 export function TotalLossAnalysisResult({
@@ -243,6 +244,7 @@ export function TotalLossAnalysisResult({
   className,
   continueAction,
   reviewIntakePath,
+  insurerReportPath,
 }: TotalLossAnalysisResultProps) {
   const headingId = useId();
   const primaryEvidence = analysis.primaryExternalEvidence;
@@ -274,11 +276,16 @@ export function TotalLossAnalysisResult({
         code === "INSUFFICIENT_RESOLVED_EXTERNAL_EVIDENCE" ||
         code === "EXTERNAL_MEDIAN_ZERO",
     );
+  const inconclusive = analysis.assessment.classification === "INSUFFICIENT_EVIDENCE" || analysis.assessment.classification === "CONFLICTING_EVIDENCE";
+  const recovery = inconclusive && !missingOfferBlocksComparison ? analysis.marketSearchContext?.recovery : undefined;
+  const targetedCorrectionPath = recovery?.field && recovery.correctionStep && reviewIntakePath
+    ? `${reviewIntakePath}&focus=${encodeURIComponent(recovery.correctionStep)}&vehicleFact=${encodeURIComponent(recovery.field)}` : undefined;
+  const correctionLabel = recovery?.kind === "UNRESOLVED_CONFIGURATION" ? "Confirm vehicle detail" : "Confirm missing information";
   const insurerLabel =
     analysis.insurerValuation.source === "CUSTOMER_ENTERED"
       ? "Insurer’s offer"
       : "Insurer’s valuation";
-  const presentation: ResultPresentation = insurerValueAvailable
+  const basePresentation: ResultPresentation = insurerValueAvailable
     ? resultPresentationByClassification[analysis.assessment.classification]
     : {
         heading: rangeAvailable
@@ -303,6 +310,15 @@ export function TotalLossAnalysisResult({
   ]
     .filter(Boolean)
     .join(" ");
+
+  const presentation: ResultPresentation = recovery ? {
+    ...basePresentation,
+    heading: recovery.kind === "UNRESOLVED_CONFIGURATION" ? "One vehicle detail needs confirmation."
+      : recovery.kind === "SEARCH_INTERRUPTED" ? "We couldn’t complete a reliable estimate." : "We need more evidence to be sure.",
+    summary: recovery.message,
+    worthwhileHeading: "Your case is saved.",
+    worthwhileSummary: "You can add your insurer’s valuation report for a closer review. We’ll check the report and vehicle details before payment is available.",
+  } : basePresentation;
 
   return (
     <section
@@ -431,7 +447,11 @@ export function TotalLossAnalysisResult({
             </Button>
           ) : null}
 
-          {reviewIntakePath ? (
+          {targetedCorrectionPath ? <Button asChild size="lg" className="mt-6"><Link to={targetedCorrectionPath}>{correctionLabel}<ArrowRight className="size-5" aria-hidden /></Link></Button> : null}
+
+          {insurerReportPath && !presentation.showContinue ? <div className="mt-6"><Button asChild size="lg" variant={targetedCorrectionPath ? "outline" : "default"}><Link to={insurerReportPath}>Upload insurer valuation PDF<ArrowRight className="size-5" aria-hidden /></Link></Button><p className="mt-3 text-sm text-copy">We’ll check the report and vehicle details before payment is available.</p></div> : null}
+
+          {reviewIntakePath && !targetedCorrectionPath && (!recovery || recovery.kind === "MISSING_INFORMATION") ? (
             <div className="valuation-result__intake-action">
               <Button
                 asChild

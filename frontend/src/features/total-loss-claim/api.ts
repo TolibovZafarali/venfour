@@ -641,11 +641,20 @@ function mapMarketSearchContext(value: unknown): MarketSearchContext {
   return {
     baselineStatus: value.baselineStatus as "SUFFICIENT" | "LIMITED",
     summary: requiredString(value.summary, "market search summary"),
+    ...(value.recovery === undefined ? {} : { recovery: mapSearchRecovery(value.recovery) }),
     stopReasons: value.stopReasons.map((reason) => {
       if (!isRecord(reason) || (reason.stream !== "current" && reason.stream !== "historical")) throw new TotalLossClaimContractError("The claim service returned an invalid search reason.");
       return { stream: reason.stream, code: requiredString(reason.code, "search reason"), description: requiredString(reason.description, "search limitation") };
     }),
   };
+}
+
+function mapSearchRecovery(value: unknown): NonNullable<MarketSearchContext["recovery"]> {
+  const fields = [null, "engine", "bodyType", "fuelType", "drivetrain", "transmission", "powertrain", "cabType", "bedLength", "doors", "cylinders", "bodySubtype", "mileage", "postalCode", "lossDate", "insurer_vehicle_valuation"];
+  if (!isRecord(value) || !["MISSING_INFORMATION", "UNRESOLVED_CONFIGURATION", "SPARSE_EVIDENCE", "SEARCH_INTERRUPTED"].includes(String(value.kind)) || !fields.includes(value.field as string | null) || ![null, "vehicle", "claim"].includes(value.correctionStep as string | null)) {
+    throw new TotalLossClaimContractError("The claim service returned invalid recovery details.");
+  }
+  return { kind: value.kind, message: requiredString(value.message, "recovery message"), field: value.field, correctionStep: value.correctionStep } as NonNullable<MarketSearchContext["recovery"]>;
 }
 
 function mapSupportingListings(value: unknown): HigherPricedComparableListings {

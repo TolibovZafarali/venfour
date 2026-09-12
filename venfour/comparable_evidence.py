@@ -11,7 +11,7 @@ import copy
 import math
 import re
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date
 from decimal import Decimal
 from statistics import median
@@ -125,6 +125,7 @@ def assess_observation(
     evidence_date: str | None = None,
     max_distance_miles: int | float = 250,
     free_estimate: bool = False,
+    normalization_version: str = "2",
 ) -> dict[str, Any]:
     """Assess similarity independently of price, offer, and discovery purpose.
 
@@ -134,6 +135,9 @@ def assess_observation(
     remain visible as unknown facts, known mismatches, or other explicit reasons.
     """
 
+    from venfour.vehicle_specs import canonical, comparison
+    canonical_mode = normalization_version == "2"
+    comparisons: list[dict[str, Any]] = []
     subject = _mapping(subject_material_facts)
     if free_estimate:
         from venfour.subject_readiness import known
@@ -156,6 +160,27 @@ def assess_observation(
 
     def compare(field: str, *, required: bool = False, covered: bool = False) -> bool:
         left, right = _fact(subject.get(field)), _fact(facts.get(field))
+        if canonical_mode:
+            detail = comparison(field, subject.get(field), facts.get(field), subject=subject, candidate=facts)
+            detail["subjectSource"] = "CONFIRMED_SUBJECT_FACTS"
+            detail["listingSource"] = observation.get("materialFactsSource", "RECORDED_LISTING_FACTS")
+            comparisons.append(detail)
+            if detail["status"] == "CONFLICT":
+                reject(f"{field.upper()}_MISMATCH", field, subject.get(field), facts.get(field))
+                return False
+            if detail["status"] == "MATCH":
+                return True
+            if covered:
+                return True
+            if not required and left is None and right is None:
+                return False
+            if free_estimate:
+                estimate_unknowns.append(field)
+                reasons.append(f"{field.upper()}_ESTIMATE_UNRESOLVED")
+                differences.append({"field": field, "subject": subject.get(field), "listing": facts.get(field), "reason": f"{field.upper()}_UNRESOLVED"})
+            elif required or left is not None or right is not None:
+                reject(f"{field.upper()}_UNKNOWN", field, subject.get(field), facts.get(field))
+            return False
         if left is not None and right is not None:
             if left != right:
                 reject(f"{field.upper()}_MISMATCH", field, subject.get(field), facts.get(field))
@@ -179,8 +204,15 @@ def assess_observation(
             loss_vehicle_mileage=target.mileage, postal_code=target.postal_code,
             radius_miles=max(0, min(250, math.ceil(max_distance_miles))), result_limit=1,
         )
-        ranked = rank_market_comparables(target, MarketSearchResult(
-            provider=listing.source, request=request, listings=(listing,),
+        # Use normalized identity spelling only within this versioned
+        # qualification. The saved listing and immutable scorer are unchanged.
+        scoring_target, scoring_listing = target, listing
+        if canonical_mode:
+            from venfour.vehicle_specs import words
+            scoring_target = replace(target, **{field: words(getattr(target, field)) or None for field in ("make", "model", "trim")})
+            scoring_listing = replace(listing, **{field: words(getattr(listing, field)) or None for field in ("make", "model", "trim")})
+        ranked = rank_market_comparables(scoring_target, MarketSearchResult(
+            provider=listing.source, request=request, listings=(scoring_listing,),
         )).candidates[0]
         score = ranked.score if ranked.score is not None else 0
         legacy_tier = ranked.tier
@@ -203,7 +235,17 @@ def assess_observation(
         ("model", target.model, listing.model), ("trim", target.trim, listing.trim),
         ("drivetrain", target.drivetrain, listing.drivetrain),
     ):
-        if free_estimate and field == "drivetrain" and _fact(left) is None:
+        detail = comparison(field, left, right) if canonical_mode else None
+        if detail is not None:
+            comparisons.append({**detail, "subjectSource": "CONFIRMED_TARGET", "listingSource": "CANONICAL_LISTING"})
+        if canonical_mode and field == "drivetrain" and detail["status"] == "UNRESOLVED" and free_estimate:
+            estimate_unknowns.append(field)
+            reasons.append("DRIVETRAIN_ESTIMATE_UNRESOLVED")
+        elif canonical_mode and detail["status"] == "MATCH":
+            continue
+        elif canonical_mode and detail["status"] == "UNRESOLVED":
+            reject(f"{field.upper()}_UNKNOWN", field, left, right)
+        elif free_estimate and field == "drivetrain" and _fact(left) is None:
             estimate_unknowns.append(field)
             reasons.append("DRIVETRAIN_ESTIMATE_UNRESOLVED")
         elif _fact(left) is None or _fact(right) is None:
@@ -214,12 +256,12 @@ def assess_observation(
     body_covered = _configuration_covers(subject, facts, "bodyType")
     powertrain_covered = _configuration_covers(subject, facts, "powertrain")
     body_matched = compare("bodyType", required=True, covered=body_covered)
-    truck_configuration = bool({_fact(subject.get("bodyType")), _fact(facts.get("bodyType"))} & _TRUCK_BODY_TYPES)
+    truck_configuration = (any(canonical("bodyType", side.get("bodyType")) == "pickup" for side in (subject, facts)) if canonical_mode else bool({_fact(subject.get("bodyType")), _fact(facts.get("bodyType"))} & _TRUCK_BODY_TYPES))
     for field in ("cabType", "bedLength"):
         compare(field, required=truck_configuration, covered=_configuration_covers(subject, facts, field))
     for field, label in (("bodySubtype", "body-size category"), ("doors", "door count")):
         values = {_fact(subject.get(field)), _fact(facts.get(field))} - {None}
-        expected_doors = _REDUNDANT_DOOR_COUNTS.get(_fact(subject.get("bodyType")))
+        expected_doors = _REDUNDANT_DOOR_COUNTS.get(canonical("bodyType", subject.get("bodyType")) if canonical_mode else _fact(subject.get("bodyType")))
         redundant = body_matched and (
             values <= _SIZE_CATEGORIES if field == "bodySubtype"
             else bool(expected_doors and values <= {expected_doors})
@@ -230,16 +272,19 @@ def assess_observation(
     explicit_powertrain = _fact(subject.get("powertrain")) is not None and _fact(facts.get("powertrain")) is not None
     if explicit_powertrain:
         compare("powertrain", required=True)
-    elif not powertrain_covered:
+    if not powertrain_covered and (not explicit_powertrain or canonical_mode):
         # Engine, fuel, and transmission together provide a reproducible match;
         # fuel alone or the drive axle alone is insufficient.
         for field in ("engine", "fuelType", "transmission"):
             compare(field, required=True)
-    engine_matched = all(_fact(subject.get(field)) is not None and _fact(subject.get(field)) == _fact(facts.get(field)) for field in ("engine", "fuelType", "transmission"))
+    engine_matched = all(comparison(field, subject.get(field), facts.get(field), subject=subject, candidate=facts)["status"] == "MATCH" for field in ("engine", "fuelType", "transmission")) if canonical_mode else all(_fact(subject.get(field)) is not None and _fact(subject.get(field)) == _fact(facts.get(field)) for field in ("engine", "fuelType", "transmission"))
     engine_cylinders = re.search(r"\b(?:[ivhlw][ -]?(\d{1,2})|(\d{1,2})[ -]?(?:cylinders?|cyl))\b", _fact(subject.get("engine")) or "")
     encoded_cylinders = next((value for value in engine_cylinders.groups() if value), None) if engine_cylinders else None
+    if canonical_mode:
+        from venfour.vehicle_specs import engine_attributes
+        encoded_cylinders = str(engine_attributes(subject)["cylinders"]) if engine_attributes(subject)["cylinders"] else None
     for field in _POWERTRAIN_FIELDS:
-        if field in {"engine", "fuelType", "transmission"} and not explicit_powertrain and not powertrain_covered:
+        if field in {"engine", "fuelType", "transmission"} and not powertrain_covered and (not explicit_powertrain or canonical_mode):
             continue
         cylinder_values = {_fact(subject.get("cylinders")), _fact(facts.get("cylinders"))} - {None}
         if field == "cylinders" and engine_matched and encoded_cylinders and cylinder_values - {encoded_cylinders}:
@@ -249,6 +294,11 @@ def assess_observation(
             uncorroborated_metadata.append("cylinder count")
         compare(field, covered=powertrain_covered or redundant)
 
+    # Recorded fingerprints cannot hide a contradictory explicit engine detail.
+    if canonical_mode:
+        from venfour.vehicle_specs import engine_attributes
+        if any(engine_attributes(side)["internalConflict"] for side in (subject, facts)):
+            reject("CYLINDERS_ENGINE_CONFLICT")
     equipment_subject, equipment_listing = _equipment(subject.get("equipment")), _equipment(facts.get("equipment"))
     if subject.get("materialEquipmentUnresolved") is True or facts.get("materialEquipmentUnresolved") is True:
         reject("MATERIAL_EQUIPMENT_UNKNOWN")
@@ -261,7 +311,12 @@ def assess_observation(
         elif equipment_subject is None or equipment_listing is None:
             reject("MATERIAL_EQUIPMENT_UNKNOWN", "equipment", subject.get("equipment"), facts.get("equipment"))
         elif equipment_subject != equipment_listing:
-            reject("MATERIAL_EQUIPMENT_MISMATCH", "equipment", subject.get("equipment"), facts.get("equipment"))
+            if canonical_mode:
+                from venfour.vehicle_specs import words
+                if {words(v) for v in equipment_subject} != {words(v) for v in equipment_listing}:
+                    reject("MATERIAL_EQUIPMENT_UNKNOWN", "equipment", subject.get("equipment"), facts.get("equipment"))
+            else:
+                reject("MATERIAL_EQUIPMENT_MISMATCH", "equipment", subject.get("equipment"), facts.get("equipment"))
     for field in _PREMIUM_FIELDS:
         left, right = subject.get(field), facts.get(field)
         if left is True or right is True:
@@ -367,12 +422,19 @@ def assess_observation(
         "optionalBenefitLimitations": optional_benefit_limitations,
         "supportingLimitations": supporting_limitations,
     }
+    if canonical_mode:
+        result["version"] = "2"
+        result["configurationComparisons"] = comparisons
+        # Missing specifications remain usable for a limited free estimate,
+        # but never receive the tier of a fully confirmed configuration.
+        if estimate_unknowns and result["tier"] == "STRONG":
+            result["tier"] = "GOOD"
     if free_estimate:
         strict = assess_observation(target, observation, subject_material_facts=subject_material_facts,
-                                    evidence_date=evidence_date, max_distance_miles=max_distance_miles)
+                                    evidence_date=evidence_date, max_distance_miles=max_distance_miles, normalization_version=normalization_version)
         result.update({
             "readinessStage": "free_estimate", "unresolvedEstimateFacts": sorted(set(estimate_unknowns)),
-            "estimateStrong": baseline_eligible and legacy_tier == "STRONG",
+            "estimateStrong": baseline_eligible and legacy_tier == "STRONG" and (not canonical_mode or not estimate_unknowns),
             "strong": strict["strong"],
             "supportingEligible": strict["supportingEligible"],
             "supportingVerificationEligible": strict["supportingVerificationEligible"],
@@ -397,11 +459,22 @@ class SupportingShortlistPolicy:
                 raise ValueError("Supporting outlier parameters must be positive finite numbers")
 
 
-def _observation_signature(observation: Mapping[str, Any]) -> tuple[Any, ...]:
+def _observation_signature(observation: Mapping[str, Any], normalization_version: str = "1") -> tuple[Any, ...]:
     """Conflicting prices, mileage, dates, or material/location facts are retained."""
 
     import json
 
+    if normalization_version == "2":
+        from venfour.vehicle_specs import canonical, engine_attributes
+        observation = copy.deepcopy(dict(observation))
+        facts = dict(_mapping(observation.get("materialFacts")))
+        for field in ("bodyType", *_BODY_FIELDS, "powertrain", *_POWERTRAIN_FIELDS):
+            facts[field] = engine_attributes(observation.get("materialFacts") or {}) if field == "engine" else canonical(field, facts.get(field))
+        observation["materialFacts"] = facts
+        listing = dict(_mapping(observation.get("listing")))
+        for field in ("make", "model", "trim", "drivetrain"):
+            listing[field] = canonical(field, listing.get(field))
+        observation["listing"] = listing
     return tuple(json.dumps(observation.get(field), sort_keys=True, separators=(",", ":"), default=str) for field in (
         "listing", "materialFacts", "location", "stream", "relevantDate", "dateVerified", "priceVerified",
     ))
@@ -429,6 +502,7 @@ def build_supporting_shortlist(
     evidence_date: str | None = None,
     max_distance_miles: int | float = 250,
     policy: SupportingShortlistPolicy | None = None,
+    normalization_version: str = "2",
 ) -> dict[str, Any]:
     """Produce explicitly nonrepresentative examples without changing valuation.
 
@@ -441,7 +515,7 @@ def build_supporting_shortlist(
     policy = policy or SupportingShortlistPolicy()
     assessments = [assess_observation(
         target, observation, subject_material_facts=subject_material_facts,
-        evidence_date=evidence_date, max_distance_miles=max_distance_miles,
+        evidence_date=evidence_date, max_distance_miles=max_distance_miles, normalization_version=normalization_version,
     ) for observation in observations]
     def context(observation: Mapping[str, Any]) -> tuple[str, Any]:
         stream = observation.get("stream") or ("historical" if observation.get("sourceEndpoint") in {"history", "recents"} else "current")
@@ -453,13 +527,15 @@ def build_supporting_shortlist(
         if assessment["identity"] is not None:
             grouped.setdefault((assessment["identity"], context(observations[index])), []).append(index)
             vehicle_indexes.setdefault(assessment["identity"], []).append(index)
+    from venfour.vehicle_specs import material_conflicts, comparison
+    conflict_check = material_conflicts if normalization_version == "2" else immutable_material_conflicts
     material_conflict_ids = {
         identity for identity, indexes in vehicle_indexes.items()
-        if immutable_material_conflicts([observations[index] for index in indexes])
+        if conflict_check([observations[index] for index in indexes])
     }
     conflict_contexts = {
         key for key, indexes in grouped.items()
-        if len({_observation_signature(observations[index]) for index in indexes}) > 1
+        if len({_observation_signature(observations[index], normalization_version) for index in indexes}) > 1
     }
     unique_indexes = [
         indexes[0] for key, indexes in grouped.items()
@@ -533,7 +609,8 @@ def build_supporting_shortlist(
             "matchingFacts": {
                 field: copy.deepcopy(value) for field, value in _mapping(observation.get("materialFacts")).items()
                 if value is not None and not (field == "equipment" and not _equipment(value)) and (
-                    value == _mapping(subject_material_facts).get(field)
+                    (normalization_version == "2" and comparison(field, _mapping(subject_material_facts).get(field), value, subject=_mapping(subject_material_facts), candidate=_mapping(observation.get("materialFacts")))["status"] == "MATCH")
+                    or value == _mapping(subject_material_facts).get(field)
                     or (_fact(value) is not None and _fact(value) == _fact(_mapping(subject_material_facts).get(field)))
                     or (field == "equipment" and _equipment(value) is not None and _equipment(value) == _equipment(_mapping(subject_material_facts).get(field)))
                 )
