@@ -360,6 +360,8 @@ class MarketRequestBudget:
                           "accountLimits": self.account_limits.to_dict(self.policy)}
         validate_market_request_payload(self._identity, operation="read")
         self._execution_fence = None
+        self.last_confirmed_usage: dict[str, Any] | None = None
+        self.pending_interruption: MarketProviderUnavailableError | None = None
         if job_id is not None or processing_token is not None:
             for value in (job_id, processing_token):
                 if not isinstance(value, str) or str(UUID(value)) != value:
@@ -368,6 +370,8 @@ class MarketRequestBudget:
 
     def reserve_attempt(self, endpoint: str, phase: str = "baseline", vin: str | None = None,
                         *, reservation_id: str | None = None) -> AttemptReservation:
+        if self.pending_interruption is not None:
+            raise self.pending_interruption
         reason = self.account_limits.configuration_reason(self._clock().astimezone(UTC))
         if reason is not None:
             raise MarketRequestBudgetExceeded(reason)
@@ -391,6 +395,7 @@ class MarketRequestBudget:
             raise MarketRequestBudgetExceeded(str(result.get("reasonCode", "MARKET_REQUEST_ACCOUNTING_INVALID")), result.get("retryAfterSeconds"))
         if result.get("reservationId") != payload["reservationId"] or not isinstance(result.get("usage"), Mapping):
             raise MarketRequestBudgetExceeded("MARKET_REQUEST_ACCOUNTING_INVALID")
+        self.last_confirmed_usage = copy.deepcopy(dict(result["usage"]))
         return AttemptReservation(payload["reservationId"], copy.deepcopy(result["usage"]))
 
     def report_response(self, status_code: int, retry_after: str | int | float | None = None,
@@ -504,6 +509,7 @@ class MarketRequestBudget:
             raise MarketRequestBudgetExceeded("MARKET_REQUEST_ACCOUNTING_UNAVAILABLE") from exc
         if not isinstance(result, Mapping) or not isinstance(result.get("totalAttempts"), int):
             raise MarketRequestBudgetExceeded("MARKET_REQUEST_ACCOUNTING_INVALID")
+        self.last_confirmed_usage = copy.deepcopy(dict(result))
         return copy.deepcopy(dict(result))
 
     @property

@@ -759,9 +759,15 @@ class MarketCheckProvider:
 
             if failure is None:
                 if self.request_budget is not None and isinstance(response, MarketCheckHttpResponse):
-                    self.request_budget.report_response(
-                        200, retry_after=response.headers.get("Retry-After"), headers=response.headers,
-                    )
+                    try:
+                        self.request_budget.report_response(
+                            200, retry_after=response.headers.get("Retry-After"), headers=response.headers,
+                        )
+                    except MarketProviderError as exc:
+                        # Let the caller checkpoint this successful response.
+                        # The budget blocks all subsequent transport until the
+                        # processing interruption is resolved by a new lease.
+                        self.request_budget.pending_interruption = exc
                 break
             annotated = self._annotate_provider_failure(
                 failure,

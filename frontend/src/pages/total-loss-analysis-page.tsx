@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useParams } from "react-router";
 
 import { Button } from "@/components/ui/button";
+import { supportEmail } from "@/config/support";
 import { useAuth, useSignInDialog } from "@/features/auth";
 import {
   useCaseAnalysisQuery,
@@ -295,6 +296,8 @@ function AuthenticatedTotalLossAnalysisPage({
   }
 
   if (analysis.status === "failed") {
+    const recoveryRequired = analysis.error.code === "ANALYSIS_RECOVERY_REQUIRED";
+    const processingInterrupted = analysis.error.code === "ANALYSIS_PROCESSING_INTERRUPTED";
     const ordinaryFields: Record<string, string> = { postalCode: "ZIP code", mileage: "mileage", lossDate: "date of loss", year: "vehicle year", make: "make", model: "model", insurerOffer: "insurer offer" };
     const issue = analysis.subjectReadiness?.issues.find(item => ordinaryFields[item.field]);
     const reportNeeded = Boolean(analysis.subjectReadiness && !issue) || analysis.error.code === "REPORT_NOT_ANALYZABLE";
@@ -302,11 +305,12 @@ function AuthenticatedTotalLossAnalysisPage({
       ? `/start?service=total-loss&caseId=${encodeURIComponent(caseId)}&focus=${issue.correctionStep}`
       : totalLossIntakeCorrectionPath(caseId, issue.correctionStep)) + `&vehicleFact=${encodeURIComponent(issue.field)}` : null;
     return <StateCard kind="error" eyebrow={reportNeeded ? "Your review is saved" : "Value check paused"}
-      heading={issue ? "Check your review details." : reportNeeded ? "Your insurer’s report can help." : "We couldn’t complete this value check."}
-      description={issue ? `Check the ${ordinaryFields[issue.field]} you entered so we can continue.` : reportNeeded ? "We need the information in your insurer’s valuation report to take this review further. Your saved details are still here." : "We couldn’t finish the check right now. Your information is saved."}>
+      heading={recoveryRequired || processingInterrupted ? "Your value check was interrupted." : issue ? "Check your review details." : reportNeeded ? "Your insurer’s report can help." : "We couldn’t complete this value check."}
+      description={recoveryRequired ? "Your case information is saved. We need to recover the interrupted check before continuing. Please contact support for help." : processingInterrupted ? "A temporary processing problem interrupted the check. Your case information is saved. You can try to continue from the saved progress." : issue ? `Check the ${ordinaryFields[issue.field]} you entered so we can continue.` : reportNeeded ? "We need the information in your insurer’s valuation report to take this review further. Your saved details are still here." : "We couldn’t finish the check right now. Your information is saved."}>
       {correctionPath ? <Button asChild><Link to={correctionPath}>Review your details</Link></Button>
         : reportNeeded ? <Button asChild><Link to={`/total-loss/cases/${caseId}/review-report`}>Upload insurer valuation PDF</Link></Button>
-        : analysis.retryable ? <Button disabled={submitMutation.isPending} onClick={() => submitMutation.mutate({})}><RefreshCw className="size-4" aria-hidden />Retry value check</Button>
+        : recoveryRequired ? (supportEmail ? <Button asChild><a href={`mailto:${supportEmail}?subject=Interrupted%20value%20check`}>Contact support</a></Button> : null)
+        : analysis.retryable ? <Button disabled={submitMutation.isPending} onClick={() => submitMutation.mutate({})}><RefreshCw className="size-4" aria-hidden />{processingInterrupted ? "Continue value check" : "Retry value check"}</Button>
         : <Button onClick={() => void analysisQuery.refetch()}>Try again</Button>}
       {!issue && !reportNeeded ? <Button asChild variant="outline"><Link to="/appraisals">Return to appraisals</Link></Button> : null}
     </StateCard>;

@@ -8,7 +8,109 @@ import json
 import re
 from collections.abc import Mapping
 from typing import Any
-from uuid import UUID
+from uuid import UUID, uuid4
+
+from venfour.market import MarketProviderUnavailableError
+
+
+class MarketSearchInterrupted(MarketProviderUnavailableError):
+    def __init__(self, *, recovery_required: bool = False) -> None:
+        super().__init__("The value check was interrupted; saved case information is preserved")
+        self.recovery_required = recovery_required
+
+
+def operation_digest(operation: Mapping[str, Any]) -> str:
+    return hashlib.sha256(json.dumps(operation, sort_keys=True, separators=(",", ":"), allow_nan=False).encode()).hexdigest()
+
+
+def validate_journal_arguments(arguments: Mapping[str, Any]) -> dict[str, Any]:
+    keys = {"requested_case_id", "requested_job_id", "requested_processing_token", "requested_input_digest",
+            "requested_action", "requested_event_index", "requested_operation_digest", "requested_execution_id"}
+    if not isinstance(arguments, Mapping) or set(arguments) != keys:
+        raise ValueError("Invalid search journal arguments")
+    result = dict(arguments)
+    for key in ("requested_case_id", "requested_job_id", "requested_processing_token", "requested_execution_id"):
+        _identity(result[key])
+    for key in ("requested_input_digest", "requested_operation_digest"):
+        if key == "requested_operation_digest" and result["requested_action"] == "read" and result[key] is None:
+            continue
+        if not isinstance(result[key], str) or not re.fullmatch(r"[0-9a-f]{64}", result[key]):
+            raise ValueError("Invalid search journal digest")
+    action, index = result["requested_action"], result["requested_event_index"]
+    if action not in {"read", "begin", "resume", "complete", "halt"} or (action == "read" and index is not None) or (
+        action != "read" and (type(index) is not int or not 0 <= index < 200)
+    ):
+        raise ValueError("Invalid search journal operation")
+    return result
+
+
+class CaseSearchRecovery:
+    """Keep operational progress without granting permission to retain evidence."""
+
+    def __init__(self, gateway: Any, *, case_id: str, job_id: str, processing_token: str,
+                 retention_days: int | None) -> None:
+        self.gateway = gateway
+        for value in (case_id, job_id, processing_token):
+            _identity(value)
+        self.identity = {"requested_case_id": case_id, "requested_job_id": job_id,
+                         "requested_processing_token": processing_token, "requested_execution_id": str(uuid4())}
+        self.evidence = CaseSearchProgress(gateway, case_id=case_id, job_id=job_id,
+            processing_token=processing_token, retention_days=retention_days) if retention_days is not None else None
+
+    def _journal(self, action: str, index: int | None = None, operation: Mapping[str, Any] | None = None) -> Mapping[str, Any]:
+        try:
+            return self.gateway.access_case_market_search_journal(validate_journal_arguments({**self.identity,
+                "requested_input_digest": self.input_digest, "requested_action": action,
+                "requested_event_index": index,
+                "requested_operation_digest": operation_digest(operation) if operation is not None else None}))
+        except Exception as exc:
+            raise MarketSearchInterrupted() from exc
+
+    def load(self, input_digest: str) -> Mapping[str, Any] | None:
+        self.input_digest = input_digest
+        try:
+            saved = self.evidence.load(input_digest) if self.evidence else None
+            journal = self._journal("read")
+            events = saved["events"] if saved else []
+            self.saved_events = events
+            covered = events[-1]["usageAfter"]["totalAttempts"] if events else 0
+            for entry in journal["events"]:
+                if entry["requiresReconciliation"]:
+                    raise MarketSearchInterrupted(recovery_required=True)
+                index = entry["index"]
+                if index < len(events) and operation_digest(events[index]["operation"]) == entry["operationDigest"]:
+                    event_usage = events[index]["usageAfter"]["totalAttempts"]
+                    if ((entry["status"] == "started" and journal["totalAttempts"] > max(entry["attemptsBefore"], event_usage))
+                            or (entry["status"] == "completed" and entry["attemptsAfter"] > event_usage)):
+                        raise MarketSearchInterrupted(recovery_required=True)
+                    continue
+                if journal["totalAttempts"] > entry["attemptsBefore"]:
+                    raise MarketSearchInterrupted(recovery_required=True)
+            if journal["totalAttempts"] > max(journal["knownAttempts"], covered):
+                # Includes pre-journal cases and ambiguous unacknowledged work.
+                raise MarketSearchInterrupted(recovery_required=True)
+            return saved
+        except MarketSearchInterrupted:
+            raise
+        except Exception as exc:
+            raise MarketSearchInterrupted() from exc
+
+    def begin(self, index: int, operation: Mapping[str, Any]) -> None:
+        saved = self.saved_events[index] if index < len(self.saved_events) else None
+        self._journal("resume" if saved is not None and saved["payload"].get("failure") else "begin", index, operation)
+
+    def save(self, checkpoint: Mapping[str, Any]) -> None:
+        try:
+            CaseSearchProgress._validate(checkpoint)
+            if self.evidence:
+                self.evidence.save(checkpoint)
+            index = len(checkpoint["events"]) - 1
+            event = checkpoint["events"][index]
+            self._journal("halt" if event.get("accountStateUncertain") else "complete", index, event["operation"])
+        except MarketSearchInterrupted:
+            raise
+        except Exception as exc:
+            raise MarketSearchInterrupted() from exc
 
 
 def _identity(value: Any) -> str:

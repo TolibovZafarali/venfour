@@ -247,7 +247,7 @@ class MarketRequestBudgetTests(unittest.TestCase):
 
 
 class MarketAccountingGatewayTests(unittest.TestCase):
-    def test_rpc_is_service_only_and_uncertain_reservation_is_not_retried(self):
+    def test_rpc_retries_only_the_identical_reservation_once(self):
         recorded = []
         def handle(request):
             recorded.append(request)
@@ -260,7 +260,8 @@ class MarketAccountingGatewayTests(unittest.TestCase):
                                      job_id=JOB, processing_token=PROCESSING_TOKEN)
         with self.assertRaises(MarketRequestBudgetExceeded):
             budget.reserve_attempt("active_inventory")
-        self.assertEqual(len(recorded), 1)
+        self.assertEqual(len(recorded), 2)
+        self.assertEqual(recorded[0].content, recorded[1].content)
         self.assertEqual(recorded[0].url.path, "/rest/v1/rpc/reserve_market_request_attempt")
         self.assertEqual(recorded[0].headers["authorization"], "Bearer fixture-service-key")
         self.assertEqual(set(json.loads(recorded[0].content)), {"requested"})

@@ -90,6 +90,8 @@ _PROVIDER_LIFECYCLE_STAGES = {
 }
 
 FAILURE_MESSAGES = {
+    "ANALYSIS_PROCESSING_INTERRUPTED": "Your value check was interrupted. Your case information is saved.",
+    "ANALYSIS_RECOVERY_REQUIRED": "Your case is saved. We need to recover the interrupted check before continuing.",
     "REPORT_UNAVAILABLE": "The valuation report is temporarily unavailable.",
     "INVALID_REPORT": "The valuation report is invalid.",
     "REPORT_EXTRACTION_FAILED": "The valuation report could not be extracted.",
@@ -280,12 +282,10 @@ class SupabaseAnalysisRunRepository:
         return self._processing_token
 
     def market_search_progress(self, retention_days: int | None) -> Any:
-        from venfour.search_progress import CaseSearchProgress
-        if retention_days is None:
-            return None
+        from venfour.search_progress import CaseSearchRecovery
         if self._case_id is None or self._job_id is None or self._processing_token is None:
             raise ValueError("Resumable market research requires an active case job")
-        return CaseSearchProgress(
+        return CaseSearchRecovery(
             self._gateway, case_id=self._case_id, job_id=self._job_id,
             processing_token=self._processing_token, retention_days=retention_days,
         )
@@ -919,6 +919,19 @@ class CaseAnalysisService:
 
     @staticmethod
     def _failure_for(error: Exception) -> tuple[str, bool]:
+        from venfour.search_progress import MarketSearchInterrupted
+        from venfour.market_request_budget import MarketRequestBudgetExceeded
+        cause = error
+        for _ in range(8):
+            if isinstance(cause, MarketSearchInterrupted):
+                return ("ANALYSIS_RECOVERY_REQUIRED", False) if cause.recovery_required else ("ANALYSIS_PROCESSING_INTERRUPTED", True)
+            if isinstance(cause, MarketRequestBudgetExceeded) and (
+                "ACCOUNTING" in cause.reason_code or cause.reason_code == "MARKET_ATTEMPT_ALREADY_RESERVED"
+            ):
+                return "ANALYSIS_PROCESSING_INTERRUPTED", True
+            cause = cause.__cause__
+            if cause is None:
+                break
         if isinstance(error, SubjectReadinessError):
             return "ANALYSIS_INPUT_INVALID", False
         if isinstance(error, SupabaseReportNotFoundError):

@@ -750,7 +750,11 @@ class AnalysisCreationLiveCompositionTests(AnalysisCreationTestCase):
         self.assertEqual(factory.call_args.kwargs["market_case_id"], CASE_ID)
         self.assertEqual(factory.call_args.kwargs["market_job_id"], JOB_ID)
         self.assertEqual(factory.call_args.kwargs["market_processing_token"], TOKEN_ID)
-        self.assertIsNone(repository.market_search_progress(None))
+        progress = repository.market_search_progress(None)
+        self.assertIsNone(progress.evidence)
+        self.assertEqual(progress.identity["requested_case_id"], CASE_ID)
+        self.assertEqual(progress.identity["requested_job_id"], JOB_ID)
+        self.assertEqual(progress.identity["requested_processing_token"], TOKEN_ID)
 
     def test_live_factory_requires_account_and_case_before_ingestion(self) -> None:
         report_path = self.root / "report.pdf"

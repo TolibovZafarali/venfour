@@ -27,6 +27,7 @@ from venfour.historical_market import (
 )
 from venfour.market import MarketContractError, MarketProviderError, MarketSearchRequest, MarketSearchResult, validate_market_search_result
 from venfour.search_geography import SearchGeography, coordinates, distance_miles
+from venfour.search_progress import MarketSearchInterrupted
 
 
 SEARCH_STRATEGY_VERSION = "2"
@@ -132,6 +133,8 @@ class EfficientMarketSearch:
                  resumed_events: Sequence[Mapping[str, Any]] = (),
                  resumed_transcript: Mapping[str, Any] | None = None,
                  resume_loader: Callable[[str], Mapping[str, Any] | None] | None = None,
+                 operation_begin: Callable[[int, Mapping[str, Any]], None] | None = None,
+                 resumable_evidence: bool = True,
                  readiness_stage: str = "full_review",
                  _replay_only: bool = False,
                  _strategy_version: str = SEARCH_STRATEGY_VERSION) -> None:
@@ -145,6 +148,8 @@ class EfficientMarketSearch:
         self.geography = geography or SearchGeography()
         self.checkpoint = checkpoint
         self.resume_loader = resume_loader
+        self.operation_begin = operation_begin
+        self.resumable_evidence = resumable_evidence
         self.resumed_transcript = copy.deepcopy(resumed_transcript)
         self.replay_only = _replay_only
         self.recorded_usage: dict[str, Any] | None = None
@@ -184,7 +189,11 @@ class EfficientMarketSearch:
             event = copy.deepcopy(self.resumed_events[index])
             if event["operation"] != operation:
                 raise ValueError("Saved search work does not match its deterministic request")
-            if self.replay_only or not event["payload"].get("failure"):
+            if self.replay_only or not event["payload"].get("failure") or event["payload"].get("failure") in {
+                "MARKET_CASE_BUDGET_EXHAUSTED", "MARKET_ENDPOINT_BUDGET_EXHAUSTED",
+                "MARKET_VIN_HISTORY_BUDGET_EXHAUSTED", "MARKET_SUPPORTING_BUDGET_EXHAUSTED",
+                "MARKET_SUPPORTING_DISCOVERY_BUDGET_EXHAUSTED",
+            }:
                 self.events.append(event)
                 self.recorded_usage = copy.deepcopy(event["usageAfter"])
                 return event
@@ -192,20 +201,38 @@ class EfficientMarketSearch:
         elif self.replay_only:
             raise ValueError("Search replay requires an unrecorded provider operation")
         before = self.budget.snapshot()
+        if self.operation_begin is not None:
+            self.operation_begin(index, operation)
+        interruption = None
         try:
             payload = invoke(prior["payload"] if prior else None)
         except MarketProviderError as exc:
             payload = copy.deepcopy(prior["payload"]) if prior else {}
             payload["failure"] = getattr(exc, "reason_code", type(exc).__name__)
-        after = self.budget.snapshot()
+            if "ACCOUNTING" in payload["failure"] or payload["failure"] == "MARKET_ATTEMPT_ALREADY_RESERVED":
+                interruption = exc
+        try:
+            after = self.budget.snapshot()
+        except MarketProviderError as exc:
+            # Preserve the returned batch before propagating a later accounting
+            # outage. This lower-bound usage never authorizes another request.
+            after = copy.deepcopy(getattr(self.budget, "last_confirmed_usage", None) or before)
+            interruption = exc
         event = {"operation": copy.deepcopy(operation), "payload": payload,
                  "usageBefore": prior["usageBefore"] if prior else before, "usageAfter": after}
+        if getattr(self.budget, "pending_interruption", None) is not None:
+            event["accountStateUncertain"] = True
         if prior is not None:
             event["priorAttempts"] = [*prior.get("priorAttempts", []),
                                        {key: value for key, value in prior.items() if key != "priorAttempts"}]
         self.recorded_usage = copy.deepcopy(after)
         self.events.append(event)
         self._save()
+        if interruption is not None or getattr(self.budget, "pending_interruption", None) is not None:
+            raise MarketSearchInterrupted(recovery_required=(
+                getattr(self.budget, "pending_interruption", None) is not None
+                or (not self.resumable_evidence and after["totalAttempts"] > 0)
+            )) from interruption
         return event
 
     def _assessment(self, observation: Mapping[str, Any]) -> dict[str, Any]:
@@ -287,7 +314,9 @@ class EfficientMarketSearch:
     def _failure_stop(self, reason: str) -> str:
         if reason == "OBSERVATION_LIMIT":
             return reason
-        if any(word in reason for word in ("BUDGET", "LIMIT", "RESERVE", "QUOTA", "ACCOUNTING", "CONFIGURATION", "THROTTL")):
+        if "ACCOUNTING" in reason:
+            raise MarketSearchInterrupted()
+        if any(word in reason for word in ("BUDGET", "LIMIT", "RESERVE", "QUOTA", "CONFIGURATION", "THROTTL")):
             return "BUDGET_OR_QUOTA_LIMITED"
         return "PROVIDER_FAILURE"
 

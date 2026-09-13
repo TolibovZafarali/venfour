@@ -472,6 +472,33 @@ describe("total-loss case analysis page", () => {
     expect(postCount).toBe(0);
   });
 
+  it.each([
+    ["ANALYSIS_PROCESSING_INTERRUPTED", true],
+    ["ANALYSIS_RECOVERY_REQUIRED", false],
+  ])("preserves the case after %s without automatic resubmission", async (code, retryable) => {
+    let submissions = 0;
+    server.use(
+      http.get("*/api/v1/appraisal-cases/:caseId/analysis", () => HttpResponse.json({
+        status: "failed", attemptCount: 1, error: { code, message: "Your case is saved." }, retryable,
+      })),
+      http.post("*/api/v1/appraisal-cases/:caseId/analysis", () => {
+        submissions += 1;
+        return HttpResponse.json({ status: "processing", attemptCount: 2, processingExpiresAt: null });
+      }),
+    );
+    renderTestApp([casePath], { authService: authService(sessionFor()) });
+    expect(await screen.findByRole("heading", { name: "Your value check was interrupted." })).toBeInTheDocument();
+    expect(screen.queryByText(/insufficient market evidence|no comparables/i)).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Return to appraisals" })).toHaveAttribute("href", "/appraisals");
+    expect(submissions).toBe(0);
+    if (retryable) {
+      expect(screen.getByRole("button", { name: "Continue value check" })).toBeInTheDocument();
+    } else {
+      expect(screen.queryByRole("button", { name: /Continue|Retry|Try again/i })).not.toBeInTheDocument();
+      expect(screen.getByText(/recover the interrupted check before continuing/)).toBeInTheDocument();
+    }
+  });
+
   it("returns to appraisals for a nonretryable provider failure", async () => {
     server.use(
       http.get("*/api/v1/appraisal-cases/:caseId/analysis", () =>

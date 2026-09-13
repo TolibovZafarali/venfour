@@ -10,6 +10,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
+import logging
 import math
 import os
 import re
@@ -3442,13 +3443,88 @@ class SupabaseHttpGateway:
             raise SupabaseContractError("Market request accounting input is invalid") from exc
         # An uncertain reservation remains consumed. Retrying an opaque reservation
         # must never authorize a second physical request without counting it.
-        result = self._rpc(name, {"requested": validated})
+        result = self._bounded_market_rpc(name, {"requested": validated})
         if not isinstance(result, Mapping):
             raise SupabaseContractError("Market request accounting response is invalid")
         return result
 
+    def _bounded_market_rpc(self, name: str, arguments: Mapping[str, Any]) -> Any:
+        """Retry the identical accounting message once, never a provider call.
+
+        A committed but unacknowledged reservation is rejected as a duplicate by
+        SQL. It remains consumed and cannot authorize transport on this retry.
+        Diagnostics deliberately exclude arguments, URLs, bodies and headers.
+        """
+        for attempt in range(2):
+            started = time.monotonic()
+            response = None
+            failure = None
+            code = None
+            request_id = None
+            try:
+                response = self._client.post(
+                    f"{self._configuration.url}/rest/v1/rpc/{name}",
+                    headers=self._admin_headers(json_body=True), json=dict(arguments),
+                    timeout=6.0,
+                )
+                try:
+                    body = response.json()
+                except ValueError:
+                    body = None
+                if isinstance(body, Mapping) and isinstance(body.get("code"), str) and body.get("code") in {
+                    "55P03", "57014", "40P01", "40001", "PGRST003", "PGRST000", "PGRST001",
+                }:
+                    code = body["code"]
+                candidate = response.headers.get("sb-request-id", "")
+                if re.fullmatch(r"[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}", candidate):
+                    request_id = candidate
+            except httpx.HTTPError as exc:
+                failure = exc
+            status = response.status_code if response is not None else None
+            logger = logging.getLogger("venfour.market_accounting")
+            (logger.info if status is not None and 200 <= status < 300 else logger.warning)("%s", json.dumps({
+                "event": "market_accounting_rpc", "rpc": name, "attempt": attempt + 1,
+                "durationMs": round((time.monotonic() - started) * 1000),
+                "httpStatus": status, "databaseCode": code, "requestId": request_id,
+                "transportFailure": failure is not None,
+            }, sort_keys=True))
+            if response is not None and 200 <= response.status_code < 300:
+                if body is None:
+                    raise SupabaseContractError("Market accounting response is invalid")
+                return body
+            if attempt == 0 and (failure is not None or status in {502, 503, 504} or code == "55P03"):
+                time.sleep(0.1)
+                continue
+            raise SupabaseUnavailableError("Market accounting is temporarily unavailable") from failure
+        raise SupabaseUnavailableError("Market accounting is temporarily unavailable")
+
     def reserve_market_request_attempt(self, request: Mapping[str, Any]) -> Mapping[str, Any]:
         return self._market_request_accounting_rpc("reserve_market_request_attempt", request, "reserve")
+
+    def access_case_market_search_journal(self, arguments: Mapping[str, Any]) -> Mapping[str, Any]:
+        from venfour.search_progress import validate_journal_arguments
+        try:
+            validated = validate_journal_arguments(arguments)
+        except (TypeError, ValueError) as exc:
+            raise SupabaseContractError("Market search journal arguments are invalid") from exc
+        result = self._bounded_market_rpc("access_case_market_search_journal", validated)
+        if (not isinstance(result, Mapping) or set(result) != {"totalAttempts", "knownAttempts", "events"}
+                or type(result["totalAttempts"]) is not int or result["totalAttempts"] < 0
+                or type(result["knownAttempts"]) is not int or result["knownAttempts"] < 0
+                or not isinstance(result["events"], list) or len(result["events"]) > 200):
+            raise SupabaseContractError("Market search journal response is invalid")
+        for entry in result["events"]:
+            if (not isinstance(entry, Mapping) or set(entry) != {"index", "operationDigest", "status", "attemptsBefore", "attemptsAfter", "requiresReconciliation"}
+                    or type(entry["requiresReconciliation"]) is not bool
+                    or type(entry["index"]) is not int or not 0 <= entry["index"] < 200
+                    or not isinstance(entry["operationDigest"], str) or not re.fullmatch(r"[0-9a-f]{64}", entry["operationDigest"])
+                    or entry["status"] not in {"started", "completed"}
+                    or type(entry["attemptsBefore"]) is not int or entry["attemptsBefore"] < 0
+                    or (entry["status"] == "started" and entry["attemptsAfter"] is not None)
+                    or (entry["status"] == "completed" and (type(entry["attemptsAfter"]) is not int
+                        or entry["attemptsAfter"] < entry["attemptsBefore"]))):
+                raise SupabaseContractError("Market search journal event is invalid")
+        return result
 
     def get_market_request_usage(self, request: Mapping[str, Any]) -> Mapping[str, Any]:
         return self._market_request_accounting_rpc("get_market_request_usage", request, "read")

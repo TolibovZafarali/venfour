@@ -666,6 +666,8 @@ def create_live_analysis_creation_service(
                 readiness_stage=readiness_stage,
                 checkpoint=progress.save if progress is not None else None,
                 resume_loader=progress.load if progress is not None else None,
+                operation_begin=getattr(progress, "begin", None),
+                resumable_evidence=retention is not None,
             ),
         )
 
