@@ -84,7 +84,7 @@ export const TOTAL_LOSS_CONTACT_FORM_DEFAULTS = {
   phoneNumber: "",
   termsAccepted: false,
   privacyAccepted: false,
-  operationalFollowUpAllowed: false,
+  operationalFollowUpAllowed: true,
 } as const satisfies TotalLossContactFormValues;
 
 export function createEmptyTotalLossContactForm(): TotalLossContactFormValues {

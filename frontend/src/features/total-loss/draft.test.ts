@@ -58,7 +58,7 @@ describe("total-loss browser draft", () => {
         phoneNumber: "",
         termsAccepted: false,
         privacyAccepted: false,
-        operationalFollowUpAllowed: false,
+        operationalFollowUpAllowed: true,
       },
       reportProvider: null,
       reportExtractionStatus: "idle",

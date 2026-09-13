@@ -85,11 +85,11 @@ describe("total-loss intake step presentation", () => {
     expect(screen.queryByText("Required unless marked optional")).not.toBeInTheDocument();
     expect(screen.getAllByText("Optional")).toHaveLength(2);
     expect(
-      screen.getByRole("heading", { name: "Consent and preferences" }),
+      screen.getByRole("heading", { name: "Consent" }),
     ).toBeVisible();
     expect(screen.getByRole("checkbox", { name: /Terms of Use/i })).toBeVisible();
     expect(screen.getByRole("checkbox", { name: /Privacy Policy/i })).toBeVisible();
-    expect(screen.getByRole("checkbox", { name: /Case follow-up/i })).toBeVisible();
+    expect(screen.getByRole("switch", { name: "Case follow-up" })).toBeVisible();
     expect(screen.queryByLabelText("Full name")).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Your contact details" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Review & analyze" })).toBeVisible();

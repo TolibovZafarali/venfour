@@ -13,6 +13,7 @@ import {
 import { useId, useLayoutEffect, useRef } from "react";
 import type { ChangeEvent, KeyboardEvent, ReactNode } from "react";
 import { Link } from "react-router";
+import { Switch } from "radix-ui";
 
 import { InsuranceCompanyField } from "@/features/total-loss/insurance-company-field";
 import {
@@ -846,10 +847,10 @@ export function ContactStep({
       <section className="mt-7 border-t border-line pt-6" aria-labelledby="consent-heading">
         <div>
           <h3 id="consent-heading" className="text-base font-semibold text-ink">
-            Consent and preferences
+            Consent
           </h3>
           <p className="mt-1 text-sm leading-6 text-copy">
-            Review the required acknowledgements and choose whether you want optional follow-up.
+            Review the required acknowledgements.
           </p>
         </div>
         <div className="mt-4 divide-y divide-line overflow-hidden rounded-xl border border-line bg-white">
@@ -867,32 +868,45 @@ export function ContactStep({
           >
             I acknowledge Venfour’s <PolicyLink to="/privacy">Privacy Policy</PolicyLink>.
           </Acknowledgement>
-          <label className="flex cursor-pointer items-start gap-3 bg-surface/45 px-4 py-3.5 transition-colors hover:bg-surface/70 focus-within:bg-surface/70 motion-reduce:transition-none">
-            <input
-              type="checkbox"
-              className="mt-1 size-4 shrink-0 accent-brand"
-              checked={values.operationalFollowUpAllowed}
-              disabled={busy}
-              onChange={(event) =>
-                onChange("operationalFollowUpAllowed", event.target.checked)
-              }
-            />
-            <span className="min-w-0">
-              <span className="flex flex-wrap items-center gap-2 text-sm font-semibold text-ink">
-                Case follow-up
-                <span className="rounded-full bg-white px-2 py-0.5 text-[0.6875rem] font-medium text-copy ring-1 ring-inset ring-line">
-                  Optional
-                </span>
-              </span>
-              <span className="mt-1 block text-xs leading-5 text-copy">
-                Venfour may contact me about this case or related service follow-up. This is optional and separate from essential messages I request.
-              </span>
-            </span>
-          </label>
         </div>
       </section>
 
       {errors.legal ? <InlineError message={errors.legal} /> : null}
+
+      <section
+        className="mt-6 rounded-xl border border-line bg-surface/45 p-4"
+        aria-labelledby="case-follow-up-heading"
+      >
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 id="case-follow-up-heading" className="text-sm font-semibold text-ink">
+              <label htmlFor="total-loss-case-follow-up" className="cursor-pointer">
+                Case follow-up
+              </label>
+            </h3>
+            <span className="rounded-full bg-white px-2 py-0.5 text-[0.6875rem] font-medium text-copy ring-1 ring-inset ring-line">
+              Optional
+            </span>
+          </div>
+          <Switch.Root
+            id="total-loss-case-follow-up"
+            checked={values.operationalFollowUpAllowed}
+            disabled={busy}
+            onCheckedChange={(checked) =>
+              onChange("operationalFollowUpAllowed", checked)
+            }
+            aria-labelledby="case-follow-up-heading"
+            aria-describedby="case-follow-up-description"
+            className="relative h-6 w-11 shrink-0 cursor-pointer rounded-full bg-line-strong transition-colors after:absolute after:inset-x-0 after:-inset-y-2.5 focus-visible:shadow-[0_0_0_3px_#155eef33] disabled:cursor-not-allowed disabled:opacity-60 data-[state=checked]:bg-brand motion-reduce:transition-none"
+          >
+            <Switch.Thumb className="block size-5 translate-x-0.5 rounded-full bg-white shadow-sm transition-transform data-[state=checked]:translate-x-[1.375rem] motion-reduce:transition-none" />
+          </Switch.Root>
+        </div>
+        <p id="case-follow-up-description" className="mt-2 text-xs leading-5 text-copy">
+          Venfour may contact me about this case or related service follow-up. This is optional and separate from essential messages I request.
+        </p>
+      </section>
+
       {accessLinkSent ? (
         <p className="mt-4 text-sm font-semibold text-market-strong" role="status">
           Secure access link sent. You do not need to open it to continue here.
