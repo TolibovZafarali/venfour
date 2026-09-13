@@ -6,10 +6,6 @@ body:has([data-total-loss-analysis-result]) .header-glass {
   box-shadow: none;
 }
 
-#main-content:has(> .valuation-result) + footer {
-  background: transparent;
-}
-
 .valuation-result {
   --result-ink: var(--ink);
   --result-copy: var(--copy);

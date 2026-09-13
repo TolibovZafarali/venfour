@@ -13,6 +13,14 @@
 .valuation-status--compact .valuation-status__heading { font-size: 28px; }
 body:has([data-valuation-status]) .header-glass { background: transparent; border-color: transparent; box-shadow: none; backdrop-filter: none; }
 #main-content:has([data-valuation-status]) + footer { background: var(--canvas); }
+#main-content:has(.valuation-surface:not(.valuation-status--compact)) + footer {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+}
+#main-content:has(.valuation-surface:not(.valuation-status--compact)) + footer [data-footer-legal] {
+  border: 0;
+}
 @keyframes valuation-status-arrive { from { opacity: 0; } to { opacity: 1; } }
 @media (max-width: 639px) {
   .valuation-status { padding-inline: 24px; }
