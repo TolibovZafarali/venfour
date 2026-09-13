@@ -1,3 +1,4 @@
+import { applicationHref } from "@/app/site-boundary";
 import { Link } from "react-router";
 
 import { Button } from "@/components/ui/button";
@@ -111,7 +112,7 @@ export function MethodologyPage() {
           advice from a qualified appraiser or attorney when one is needed.
         </p>
         <Button asChild className="mt-2" size="lg">
-          <Link to="/start?service=total-loss">Start a Total Loss review</Link>
+          <Link to={applicationHref("/start?service=total-loss")}>Start a Total Loss review</Link>
         </Button>
       </PublicPageSection>
     </PublicPage>

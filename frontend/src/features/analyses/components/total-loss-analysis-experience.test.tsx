@@ -57,32 +57,12 @@ function manualAnalysisWithoutOffer(): AnalysisPresentationBase {
 }
 
 describe("total-loss analysis experience", () => {
-  it("presents one truthful indeterminate state with all analysis activities", () => {
+  it("presents an open loading state without invented stages or a progress percentage", () => {
     const { container } = render(<TotalLossAnalysisProgress />);
-
-    const progress = screen.getByRole("region", {
-      name: "We’re reviewing and analyzing your claim.",
-    });
-    expect(progress).toHaveAttribute("aria-busy", "true");
+    expect(screen.getByRole("region", {name: "We’re reviewing and analyzing your claim."})).toHaveAttribute("aria-busy", "true");
     expect(screen.getByText("Reviewing & analyzing")).toBeVisible();
-    expect(
-      screen.getByText("Reviewing the insurer’s valuation information"),
-    ).toBeVisible();
-    expect(
-      screen.getByText("Analyzing the vehicle and market evidence"),
-    ).toBeVisible();
-    expect(
-      screen.getByText(
-        "Determining whether the insurer’s valuation appears fair",
-      ),
-    ).toBeVisible();
-    expect(screen.getByRole("status")).toHaveTextContent(
-      "insurer valuation information available for this case",
-    );
-    expect(screen.queryByText(/\d+%/u)).not.toBeInTheDocument();
-    expect(container.querySelector(".animate-spin")).toHaveClass(
-      "motion-reduce:animate-none",
-    );
+    expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
+    expect(container.querySelector("[data-valuation-status]")).not.toHaveClass("border");
   });
 
   it.each([
@@ -133,7 +113,7 @@ describe("total-loss analysis experience", () => {
         ).not.toBeInTheDocument();
       }
       expect(
-        screen.queryByRole("link", { name: "Review intake" }),
+        screen.queryByRole("link", { name: "Review your details" }),
       ).not.toBeInTheDocument();
     },
   );
@@ -153,11 +133,11 @@ describe("total-loss analysis experience", () => {
     expect(
       screen.getByRole("button", { name: "Continue my review" }),
     ).toHaveAttribute("data-variant", "default");
-    expect(screen.getByRole("link", { name: "Review intake" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Review your details" })).toHaveAttribute(
       "href",
       reviewIntakePath,
     );
-    expect(screen.getByRole("link", { name: "Review intake" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Review your details" })).toHaveAttribute(
       "data-variant",
       "link",
     );
@@ -287,7 +267,7 @@ describe("total-loss analysis experience", () => {
       "href",
       correctionPath,
     );
-    expect(screen.getByRole("link", { name: "Review intake" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Review your details" })).toHaveAttribute(
       "href",
       reviewIntakePath,
     );
@@ -397,24 +377,25 @@ describe("total-loss analysis experience", () => {
 });
 
 describe("inconclusive free-result recovery", () => {
-  it("routes the known vehicle detail and keeps the report upload available", () => {
+  it("keeps technical ambiguity in the report stage without customer engine homework", () => {
     const analysis = { ...analysisFor("INSUFFICIENT_EVIDENCE"), marketSearchContext: {
       baselineStatus: "LIMITED", summary: "Limited evidence", stopReasons: [],
       recovery: { kind: "UNRESOLVED_CONFIGURATION", field: "engine", correctionStep: "vehicle", message: "Confirm the engine shown in your vehicle documents." },
     } } as AnalysisPresentation;
     render(<MemoryRouter><TotalLossAnalysisResult analysis={analysis} reviewIntakePath="/start?caseId=saved&intent=correct-intake" insurerReportPath="/total-loss/cases/saved/review-report" /></MemoryRouter>);
-    expect(screen.getByRole("link", { name: "Confirm vehicle detail" })).toHaveAttribute("href", "/start?caseId=saved&intent=correct-intake&focus=vehicle&vehicleFact=engine");
-    expect(screen.getByText("Confirm the engine shown in your vehicle documents.")).toBeVisible();
+    expect(screen.queryByRole("link", { name: "Confirm vehicle detail" })).not.toBeInTheDocument();
+    expect(screen.queryByText(/Confirm the engine/)).not.toBeInTheDocument();
+    expect(screen.getByText(/reliable preliminary range/)).toBeVisible();
     expect(screen.getByRole("link", { name: "Upload insurer valuation PDF" })).toHaveAttribute("href", "/total-loss/cases/saved/review-report");
-    expect(screen.queryByRole("link", { name: "Review intake" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Review your details" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /checkout|pay now/i })).not.toBeInTheDocument();
   });
   it.each(["SPARSE_EVIDENCE", "SEARCH_INTERRUPTED"] as const)("explains %s without asking for irrelevant intake edits", kind => {
     const analysis = { ...analysisFor("INSUFFICIENT_EVIDENCE"), marketSearchContext: { baselineStatus: "LIMITED", summary: "Limited evidence", stopReasons: [], recovery: { kind, field: null, correctionStep: null, message: "A reliable estimate could not be established. This does not tell us whether the offer is fair." } } } as AnalysisPresentation;
     render(<MemoryRouter><TotalLossAnalysisResult analysis={analysis} reviewIntakePath="/start?caseId=saved" insurerReportPath="/total-loss/cases/saved/review-report" /></MemoryRouter>);
-    expect(screen.getByText(/A reliable estimate could not be established/)).toBeVisible();
+    expect(screen.getByText(kind === "SEARCH_INTERRUPTED" ? /couldn’t complete the check right now/ : /reliable preliminary range/)).toBeVisible();
     expect(screen.getByRole("link", { name: "Upload insurer valuation PDF" })).toBeVisible();
-    expect(screen.queryByRole("link", { name: "Review intake" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Review your details" })).not.toBeInTheDocument();
   });
   it("allows the insurer-report next step on a saved result without recovery metadata", () => {
     render(<MemoryRouter><TotalLossAnalysisResult analysis={analysisFor("INSUFFICIENT_EVIDENCE")} insurerReportPath="/total-loss/cases/saved/review-report" /></MemoryRouter>);

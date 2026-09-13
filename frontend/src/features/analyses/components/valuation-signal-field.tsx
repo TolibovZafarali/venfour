@@ -7,6 +7,8 @@ import {
 import type { SignalMotion } from "./valuation-pointer-motion";
 
 type Signal = SignalMotion & {
+  releaseX?: number;
+  releaseY?: number;
   startX: number;
   startY: number;
   angle: number;
@@ -58,8 +60,11 @@ function smoothStep(start: number, end: number, value: number) {
   return amount * amount * (3 - 2 * amount);
 }
 
-export function ValuationSignalField({ layout = "gather" }: { readonly layout?: "gather" | "sides" }) {
+export function ValuationSignalField({ layout = "gather", exiting = false }: { readonly layout?: "gather" | "sides"; readonly exiting?: boolean }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const exitingRef = useRef(exiting);
+  const resyncRef = useRef<(() => void) | null>(null);
+  useEffect(() => { exitingRef.current = exiting; resyncRef.current?.(); }, [exiting]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -76,6 +81,7 @@ export function ValuationSignalField({ layout = "gather" }: { readonly layout?: 
     const sideLayout = layout === "sides";
     const fieldColor = window.getComputedStyle(canvas).getPropertyValue("--valuation-signal-color").trim();
     let elapsed = reducedMotion.matches ? 12 : 0;
+    let releaseStarted: number | null = null;
     let previousFrame = 0;
     let frame: number | null = null;
     let inView = true;
@@ -85,6 +91,11 @@ export function ValuationSignalField({ layout = "gather" }: { readonly layout?: 
 
     const draw = (delta: number) => {
       context.clearRect(0, 0, width, height);
+      if (exitingRef.current && releaseStarted === null) releaseStarted = elapsed;
+      if (!exitingRef.current && releaseStarted !== null) {
+        releaseStarted = null;
+        for (const signal of signals) { signal.releaseX = undefined; signal.releaseY = undefined; }
+      }
       const centerX = width * 0.5;
       const centerY = height * 0.48;
       const quietWidth = Math.min(260, width * 0.36);
@@ -125,8 +136,19 @@ export function ValuationSignalField({ layout = "gather" }: { readonly layout?: 
         const y = gatheredY + (sideY - gatheredY) * opening;
         advanceSignalMotion(signal, pointer, x, y, delta);
 
-        const drawX = x + signal.shiftX;
-        const drawY = y + signal.shiftY;
+        let drawX = x + signal.shiftX;
+        let drawY = y + signal.shiftY;
+        let releaseOpacity = 1;
+        if (releaseStarted !== null) {
+          signal.releaseX ??= drawX;
+          signal.releaseY ??= drawY;
+          const progress = reducedMotion.matches ? 1 : smoothStep(signal.depth * .18, 1.25 + signal.depth * .25, elapsed - releaseStarted);
+          const side = signal.releaseX < centerX ? -1 : 1;
+          const edge = side < 0 ? -36 : width + 36;
+          drawX = signal.releaseX + (edge - signal.releaseX) * progress;
+          drawY = signal.releaseY + Math.sin(progress * Math.PI) * Math.sin(signal.drift) * Math.min(height * .1, 70);
+          releaseOpacity = 1 - smoothStep(.2, .95, progress);
+        }
         if (drawX < -3 || drawX > width + 3 || drawY < -3 || drawY > height + 3) continue;
 
         const quietDistance = ((Math.abs(drawX - centerX) / quietWidth) ** 4
@@ -134,7 +156,7 @@ export function ValuationSignalField({ layout = "gather" }: { readonly layout?: 
         const gatheredFade = smoothStep(0.8, 1.35, quietDistance);
         const sideFade = smoothStep(contentHalfWidth, contentHalfWidth + Math.min(90, sideWidth * 0.65), Math.abs(drawX - centerX));
         const centerFade = sideLayout ? gatheredFade + (sideFade - gatheredFade) * opening : gatheredFade;
-        const opacity = signal.opacity * centerFade * (signal.gathers ? 1 : 0.7)
+        const opacity = releaseOpacity * signal.opacity * centerFade * (signal.gathers ? 1 : 0.7)
           * (sideLayout ? 0.85 : 1) * (1 + signal.emphasis * 0.28);
         if (opacity < 0.008) continue;
 
@@ -163,7 +185,7 @@ export function ValuationSignalField({ layout = "gather" }: { readonly layout?: 
       previousFrame = timestamp;
       elapsed += delta;
       draw(delta);
-      frame = window.requestAnimationFrame(animate);
+      if (releaseStarted === null || elapsed - releaseStarted < 1.6) frame = window.requestAnimationFrame(animate);
     };
 
     const syncAnimation = () => {
@@ -178,6 +200,8 @@ export function ValuationSignalField({ layout = "gather" }: { readonly layout?: 
         frame = window.requestAnimationFrame(animate);
       }
     };
+
+    resyncRef.current = syncAnimation;
 
     const resize = () => {
       const bounds = canvas.getBoundingClientRect();
@@ -237,6 +261,7 @@ export function ValuationSignalField({ layout = "gather" }: { readonly layout?: 
 
     return () => {
       disposed = true;
+      resyncRef.current = null;
       stop();
       resizeObserver?.disconnect();
       intersectionObserver?.disconnect();
@@ -251,6 +276,6 @@ export function ValuationSignalField({ layout = "gather" }: { readonly layout?: 
     };
   }, [layout]);
 
-  return <canvas ref={canvasRef} className="valuation-signal-field" data-signal-layout={layout} aria-hidden="true"
+  return <canvas ref={canvasRef} className="valuation-signal-field" data-signal-layout={layout} data-signal-phase={exiting ? "exiting" : "processing"} aria-hidden="true"
     style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none" }} />;
 }

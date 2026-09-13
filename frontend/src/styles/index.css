@@ -355,7 +355,6 @@
   }
 
   .public-page-gradient,
-  .page-gradient-account-home,
   .page-gradient-appraisals,
   .page-gradient-analysis,
   .page-gradient-analysis-report,
@@ -469,25 +468,6 @@
       linear-gradient(150deg, #f8faff 0%, #ffffff 44%, #fffcf8 70%, #f8fcfa 100%);
   }
 
-  .page-gradient-account-home {
-    background-image:
-      radial-gradient(
-        ellipse 68% 58% at -8% -10%,
-        rgb(205 223 255 / 0.62) 0%,
-        transparent 72%
-      ),
-      radial-gradient(
-        ellipse 62% 56% at 104% 94%,
-        rgb(204 234 225 / 0.5) 0%,
-        transparent 72%
-      ),
-      radial-gradient(
-        ellipse 44% 40% at 52% 50%,
-        rgb(255 241 218 / 0.2) 0%,
-        transparent 72%
-      ),
-      linear-gradient(140deg, #f1f6fd 0%, #f8fafc 50%, #f1f8f5 100%);
-  }
 
   .page-gradient-appraisals {
     background-image:

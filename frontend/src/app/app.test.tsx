@@ -197,27 +197,29 @@ describe("Venfour application", () => {
 
   });
 
-  test("keeps the permanent signed-in journey entry focused on the current review", async () => {
-    renderTestApp(["/"], {
-      authService: createTestAuthService(createTestSession()),
-    });
+  test("keeps the public homepage and navigation when signed in", async () => {
+    const {router} = renderTestApp(["/"], {authService: createTestAuthService(createTestSession())});
+    expect(await screen.findByRole("button", {name: "Account for ada@example.com"})).toBeVisible();
+    expect(screen.getByRole("heading", {name: "Your Vehicle’s Value, Made Clear."})).toBeVisible();
+    const navigation = screen.getByRole("navigation", {name: "Primary navigation"});
+    expect(within(navigation).getByRole("link", {name: "Open app"})).toHaveAttribute("href", "/app");
+    expect(within(navigation).getByRole("link", {name: "Total Loss"})).toBeVisible();
+    expect(screen.getByRole("contentinfo")).toBeVisible();
+    expect(router.state.location.pathname).toBe("/");
+  });
 
-    const header = screen.getByRole("banner");
-    expect(
-      await within(header).findByRole("button", {
-        name: "Account for ada@example.com",
-      }),
-    ).toBeVisible();
-    expect(
-      within(header).queryByRole("navigation", { name: "Primary navigation" }),
-    ).not.toBeInTheDocument();
-    expect(
-      within(header).queryByRole("button", { name: "Open navigation" }),
-    ).not.toBeInTheDocument();
-    expect(
-      within(header).queryByRole("link", { name: "Get Started" }),
-    ).not.toBeInTheDocument();
-    expect(screen.queryByRole("contentinfo")).not.toBeInTheDocument();
+  test("keeps the same public content structure before and after sign-in", async () => {
+    const publicStructure = () => Array.from(document.querySelectorAll("#main-content section, #main-content h1, #main-content h2, #main-content a"), element => ({
+      tag: element.tagName, id: element.id, text: element.matches("h1, h2, a") ? element.textContent : undefined,
+      href: element.getAttribute("href"),
+    }));
+    const loggedOut = renderTestApp(["/"], { authService: null });
+    const expected = publicStructure();
+    loggedOut.unmount();
+    const { router } = renderTestApp(["/"], { authService: createTestAuthService(createTestSession()) });
+    await screen.findByRole("button", { name: "Account for ada@example.com" });
+    expect(publicStructure()).toEqual(expected);
+    expect(router.state.location.pathname).toBe("/");
   });
 
   test("uses the account portal navigation on permanent signed-in appraisals", async () => {
@@ -233,7 +235,7 @@ describe("Venfour application", () => {
       within(primaryNavigation).getByRole("link", {
         name: "Guided valuation review",
       }),
-    ).toHaveAttribute("href", "/");
+    ).toHaveAttribute("href", "/app");
     expect(
       within(primaryNavigation).queryByRole("link", { name: "My appraisals" }),
     ).not.toBeInTheDocument();
@@ -263,7 +265,7 @@ describe("Venfour application", () => {
       within(footerNavigation).getByRole("link", {
         name: "Guided valuation review",
       }),
-    ).toHaveAttribute("href", "/");
+    ).toHaveAttribute("href", "/app");
     expect(
       within(footerNavigation).queryByRole("link", { name: "My appraisals" }),
     ).not.toBeInTheDocument();
@@ -281,7 +283,7 @@ describe("Venfour application", () => {
       within(mobileNavigation).getByRole("link", {
         name: "Guided valuation review",
       }),
-    ).toHaveAttribute("href", "/");
+    ).toHaveAttribute("href", "/app");
     expect(
       within(mobileNavigation).getByRole("link", {
         name: "Start a new appraisal",
@@ -311,7 +313,7 @@ describe("Venfour application", () => {
       screen.queryByRole("navigation", { name: "Primary navigation" }),
     ).not.toBeInTheDocument();
     expect(
-      within(screen.getByRole("banner")).queryByRole("link", {
+      within(screen.getByRole("banner", {hidden: true})).queryByRole("link", {
         name: "Get Started",
       }),
     ).not.toBeInTheDocument();
@@ -436,22 +438,12 @@ describe("Venfour application", () => {
     expect(screen.getByRole("button", { name: "Open navigation" })).toHaveFocus();
   });
 
-  test("does not add a competing mobile navigation to the signed-in journey entry", async () => {
-    renderTestApp(["/"], {
-      authService: createTestAuthService(createTestSession()),
-    });
-
-    expect(
-      await screen.findByRole("button", {
-        name: "Account for ada@example.com",
-      }),
-    ).toBeVisible();
-    expect(
-      screen.queryByRole("button", { name: "Open navigation" }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole("navigation", { name: "Mobile navigation" }),
-    ).not.toBeInTheDocument();
+  test("keeps public mobile navigation available to signed-in visitors", async () => {
+    const user = userEvent.setup();
+    renderTestApp(["/"], {authService: createTestAuthService(createTestSession())});
+    await screen.findByRole("button", {name: "Account for ada@example.com"});
+    await user.click(screen.getByRole("button", {name: "Open navigation"}));
+    expect(within(screen.getByRole("navigation", {name: "Mobile navigation"})).getByRole("link", {name: "Total Loss"})).toBeVisible();
   });
 
   test("keeps the account control stable while restoring a signed-out session", async () => {
@@ -470,7 +462,7 @@ describe("Venfour application", () => {
       within(screen.getByRole("banner")).queryByRole("navigation", {
         name: "Primary navigation",
       }),
-    ).not.toBeInTheDocument();
+    ).toBeInTheDocument();
     expect(
       within(screen.getByRole("banner")).queryByRole("link", {
         name: "Get Started",
@@ -478,10 +470,10 @@ describe("Venfour application", () => {
     ).not.toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "Open navigation" }),
-    ).not.toBeInTheDocument();
+    ).toBeInTheDocument();
     expect(
       screen.queryByRole("navigation", { name: "Footer navigation" }),
-    ).not.toBeInTheDocument();
+    ).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "Sign In" }),
     ).not.toBeInTheDocument();
@@ -717,8 +709,8 @@ describe("Venfour application", () => {
       within(primaryNavigation).getByRole("link", { name: "How It Works" }),
     ).toHaveAttribute("href", "/#how-it-works");
     expect(
-      within(primaryNavigation).getByRole("link", { name: "Get Started" }),
-    ).toHaveAttribute("href", "/start?service=total-loss");
+      within(primaryNavigation).getByRole("link", { name: "Open app" }),
+    ).toHaveAttribute("href", "/app");
   });
 
   test("resets scroll when internal navigation opens a different page", async () => {
@@ -834,7 +826,7 @@ describe("Venfour application", () => {
     }
   });
 
-  test("honors a homepage anchor after asynchronous home content loads", async () => {
+  test("honors a homepage anchor without waiting for authentication", async () => {
     const originalScrollIntoView = HTMLElement.prototype.scrollIntoView;
     const scrollIntoView = vi.fn();
     Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
@@ -854,8 +846,7 @@ describe("Venfour application", () => {
         authService: createTestAuthService(null, { getSession }),
       });
 
-      expect(document.getElementById("total-loss")).not.toBeInTheDocument();
-      expect(scrollIntoView).not.toHaveBeenCalled();
+      expect(document.getElementById("total-loss")).toBeInTheDocument();
       if (!resolveSession) {
         throw new Error("The test auth session was not requested.");
       }
@@ -1058,7 +1049,7 @@ describe("Venfour application", () => {
       authService: createTestAuthService(createTestSession()),
     });
 
-    expect(await screen.findByText("Valuation analysis loaded.")).toBeVisible();
+    await waitFor(() => expect(screen.getByText("Valuation analysis loaded.")).toBeVisible());
     expect(document.title).toBe("Vehicle Valuation Analysis | Venfour");
     const header = within(
       screen.getByRole("link", { name: "Venfour home" }).closest("header")!,

@@ -1,4 +1,5 @@
-import { AlertCircle, FileQuestion, RotateCw } from "lucide-react";
+import { ValuationStatus } from "@/components/valuation-status";
+import { RotateCw } from "lucide-react";
 import { Link, useLocation, useParams } from "react-router";
 
 import {
@@ -12,30 +13,7 @@ import { useAnalysisQuery } from "@/features/analyses/queries";
 import { ApiError } from "@/lib/api/client";
 
 function AnalysisLoadingState() {
-  return (
-    <section
-      className="mx-auto w-full max-w-[90rem] animate-pulse px-5 py-8 motion-reduce:animate-none sm:px-8 sm:py-10 lg:px-10 lg:py-12"
-      aria-label="Loading analysis"
-      aria-live="polite"
-      aria-busy="true"
-    >
-      <span className="sr-only">Loading your valuation analysis…</span>
-      <div className="h-4 w-48 rounded-full bg-muted" />
-      <div className="mt-4 h-10 w-full max-w-2xl rounded-lg bg-muted" />
-      <div className="mt-3 h-5 w-72 max-w-full rounded-full bg-muted" />
-      <div className="mt-8 rounded-2xl border bg-card p-6 sm:p-8 lg:p-10">
-        <div className="h-5 w-36 rounded-full bg-muted" />
-        <div className="mt-5 h-9 w-full max-w-3xl rounded-lg bg-muted" />
-        <div className="mt-4 h-5 w-full max-w-2xl rounded-full bg-muted" />
-        <div className="mt-10 grid gap-4 sm:grid-cols-3">
-          {[0, 1, 2].map((item) => (
-            <div key={item} className="h-24 rounded-xl bg-muted" />
-          ))}
-        </div>
-      </div>
-      <div className="mt-8 h-72 rounded-2xl border bg-card" />
-    </section>
-  );
+  return <ValuationStatus kind="loading" heading="Opening your valuation" description="Retrieving your saved review." />;
 }
 
 interface AnalysisErrorStateProps {
@@ -78,7 +56,6 @@ function AnalysisDocumentMetadata({
 function AnalysisErrorState({ kind, onRetry }: AnalysisErrorStateProps) {
   const permanent = kind !== "temporary";
   const invalid = kind === "invalid";
-  const Icon = permanent ? FileQuestion : AlertCircle;
   const eyebrow = invalid
     ? "Invalid analysis link"
     : kind === "not-found"
@@ -90,31 +67,15 @@ function AnalysisErrorState({ kind, onRetry }: AnalysisErrorStateProps) {
       ? "We couldn’t find this analysis."
       : "We couldn’t load your analysis.";
   const description = invalid
-    ? "Analysis links include a complete identifier. Check the address you received, or start a new appraisal."
+    ? "Check the link you received, or return to your saved appraisals."
     : kind === "not-found"
-      ? "The analysis may no longer be available, or the link may be incorrect. Retrying will not restore a missing analysis."
-      : "A network or service interruption prevented Venfour from retrieving the analysis. The saved analysis has not been changed.";
+      ? "The link may be incorrect, or this review may belong to a different account."
+      : "We couldn’t open your saved review right now. Try again in a moment.";
 
   return (
     <>
       <AnalysisDocumentMetadata kind={kind} />
-      <section
-        className="mx-auto flex w-full max-w-[90rem] items-center px-5 py-20 sm:px-8 sm:py-28 lg:px-10"
-        role="alert"
-      >
-        <div className="max-w-xl">
-          <div className="flex size-11 items-center justify-center rounded-full bg-muted text-muted-foreground">
-            <Icon className="size-5" aria-hidden="true" />
-          </div>
-          <p className="mt-6 text-sm font-semibold tracking-[0.12em] text-muted-foreground uppercase">
-            {eyebrow}
-          </p>
-          <h1 className="mt-3 text-3xl font-semibold tracking-tight text-balance sm:text-4xl">
-            {heading}
-          </h1>
-          <p className="mt-4 max-w-lg leading-7 text-muted-foreground">
-            {description}
-          </p>
+      <ValuationStatus kind="error" heading={heading} description={description} eyebrow={eyebrow}>
           <div className="mt-7 flex flex-wrap gap-3">
             {kind === "temporary" && onRetry ? (
               <Button variant="outline" onClick={onRetry}>
@@ -128,8 +89,7 @@ function AnalysisErrorState({ kind, onRetry }: AnalysisErrorStateProps) {
               </Link>
             </Button>
           </div>
-        </div>
-      </section>
+      </ValuationStatus>
     </>
   );
 }
@@ -208,23 +168,11 @@ export function AnalysisPage() {
     return (
       <>
         <AnalysisDocumentMetadata kind="success" />
-        <section className="mx-auto flex min-h-[60vh] w-full max-w-[90rem] items-center px-5 py-20 sm:px-8 sm:py-28 lg:px-10">
-          <div className="max-w-xl">
-            <p className="text-sm font-semibold tracking-[0.12em] text-brand uppercase">
-              Secure analysis
-            </p>
-            <h1 className="mt-3 text-3xl font-semibold tracking-tight text-balance sm:text-4xl">
-              Sign in to view this analysis.
-            </h1>
-            <p className="mt-4 max-w-lg leading-7 text-muted-foreground">
-              Vehicle valuation analyses are private. Sign in with the account
-              that owns this appraisal to continue.
-            </p>
+        <ValuationStatus heading="Sign in to view this analysis." description="Sign in with the account that owns this appraisal to continue." eyebrow="Secure analysis">
             <Button className="mt-7" onClick={() => openSignIn({ returnTo })}>
               Sign in
             </Button>
-          </div>
-        </section>
+        </ValuationStatus>
       </>
     );
   }

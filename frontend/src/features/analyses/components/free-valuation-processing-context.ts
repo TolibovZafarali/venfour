@@ -2,6 +2,8 @@ import { createContext } from "react";
 
 export interface FreeValuationProcessingOptions {
   readonly reviewKey?: string;
+  readonly heading?: string;
+  readonly description?: string;
   readonly phase?: "preparing" | "connecting" | "reviewing" | "opening";
   readonly vehicle?: string;
   readonly notice?: string | null;

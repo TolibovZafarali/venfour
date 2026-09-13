@@ -1107,7 +1107,7 @@ describe("analysis results page", () => {
     ).toBeVisible();
   });
 
-  test("shows a report-shaped loading state", () => {
+  test("uses the shared processing environment while retrieving a saved analysis", () => {
     server.use(
       http.get("*/api/v1/analyses/:runId", async () => {
         await delay("infinite");
@@ -1117,12 +1117,9 @@ describe("analysis results page", () => {
 
     renderTestApp([analysisPath]);
 
-    expect(
-      screen.getByRole("region", { name: "Loading analysis" }),
-    ).toHaveAttribute("aria-busy", "true");
-    expect(
-      screen.getByText("Loading your valuation analysis…"),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Opening your valuation" })).toBeVisible();
+    expect(document.querySelector("[data-free-valuation-processing] canvas")).toBeInTheDocument();
+    expect(screen.queryByRole("navigation")).not.toBeInTheDocument();
   });
 
   test("shows a specific not-found state for an unknown analysis", async () => {

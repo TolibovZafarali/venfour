@@ -1,11 +1,9 @@
+import { ValuationStatus as StateCard } from "@/components/valuation-status";
 import {
-  AlertCircle,
-  LoaderCircle,
-  RefreshCw,
   ShieldCheck,
+  RefreshCw,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import type { ReactNode } from "react";
 import { Link, useLocation, useParams } from "react-router";
 
 import { Button } from "@/components/ui/button";
@@ -36,63 +34,6 @@ function processingLeaseExpired(expiresAt: string | null, currentTime: number) {
   if (!expiresAt) return false;
   const expiration = Date.parse(expiresAt);
   return Number.isFinite(expiration) && expiration <= currentTime;
-}
-
-interface StateCardProps {
-  readonly description: string;
-  readonly eyebrow: string;
-  readonly heading: string;
-  readonly kind?: "error" | "loading" | "secure";
-  readonly children?: ReactNode;
-}
-
-function StateCard({
-  children,
-  description,
-  eyebrow,
-  heading,
-  kind = "secure",
-}: StateCardProps) {
-  const Icon =
-    kind === "loading"
-      ? LoaderCircle
-      : kind === "error"
-        ? AlertCircle
-        : ShieldCheck;
-
-  return (
-    <section className="mx-auto flex min-h-[60vh] w-full max-w-3xl items-center px-5 py-16 sm:px-8 sm:py-24">
-      <div
-        className="w-full rounded-2xl border border-line bg-white p-6 shadow-sm sm:p-8"
-        role={kind === "error" ? "alert" : undefined}
-        aria-live={kind === "loading" ? "polite" : undefined}
-        aria-busy={kind === "loading" ? true : undefined}
-      >
-        <span className="flex size-12 items-center justify-center rounded-full bg-brand-soft text-brand">
-          <Icon
-            className={
-              kind === "loading"
-                ? "size-6 animate-spin motion-reduce:animate-none"
-                : "size-6"
-            }
-            aria-hidden
-          />
-        </span>
-        <p className="mt-6 text-sm font-semibold tracking-[0.12em] text-brand uppercase">
-          {eyebrow}
-        </p>
-        <h1 className="mt-3 text-3xl font-semibold tracking-[-0.035em] text-ink sm:text-4xl">
-          {heading}
-        </h1>
-        <p className="mt-4 max-w-2xl text-base leading-7 text-copy">
-          {description}
-        </p>
-        {children ? (
-          <div className="mt-7 flex flex-wrap gap-3">{children}</div>
-        ) : null}
-      </div>
-    </section>
-  );
 }
 
 function CompletedTotalLossAnalysis({
@@ -290,7 +231,7 @@ function AuthenticatedTotalLossAnalysisPage({
       : null;
     const errorMessage =
       submissionError instanceof ApiError
-        ? submissionError.message
+        ? "We couldn’t start the check right now. Your information is saved."
         : submissionError
           ? "Venfour couldn’t start the value check."
           : null;
@@ -324,7 +265,7 @@ function AuthenticatedTotalLossAnalysisPage({
         }
         description={
           errorMessage ??
-          "The previous processing attempt did not finish. Venfour can safely resume this saved appraisal without creating a second analysis."
+          "Your review is saved. Resume it when you’re ready."
         }
       >
         {errorMessage && replaceReportRequired ? (
@@ -354,49 +295,21 @@ function AuthenticatedTotalLossAnalysisPage({
   }
 
   if (analysis.status === "failed") {
-    return (
-      <StateCard
-        kind="error"
-        eyebrow="Value check needs attention"
-        heading={analysis.subjectReadiness ? "Confirm a few details before we start." : "We couldn’t complete this value check."}
-        description={analysis.subjectReadiness ? "Your information is saved. Update the details below so we can find comparable vehicles." : analysis.error.message}
-      >
-        {analysis.subjectReadiness ? <ul className="mb-4 list-disc space-y-1 pl-5 text-sm text-copy">
-          {analysis.subjectReadiness.issues.map(issue => <li key={`${issue.field}-${issue.code}`}>{issue.message}</li>)}
-        </ul> : null}
-        {analysis.retryable ? (
-          <Button
-            disabled={submitMutation.isPending}
-            onClick={() => submitMutation.mutate({})}
-          >
-            {submitMutation.isPending ? (
-              <LoaderCircle
-                className="size-4 animate-spin motion-reduce:animate-none"
-                aria-hidden
-              />
-            ) : (
-              <RefreshCw className="size-4" aria-hidden />
-            )}
-            Retry value check
-          </Button>
-        ) : analysis.error.code === "MARKET_PROVIDER_UNAVAILABLE" ? (
-          <Button variant="outline" asChild>
-            <Link to="/appraisals">Return to appraisals</Link>
-          </Button>
-        ) : (
-          <Button asChild>
-            <Link
-              to={(analysis.subjectReadiness?.correctionMode === "resume"
-                ? `/start?service=total-loss&caseId=${encodeURIComponent(caseId)}&focus=${analysis.subjectReadiness.issues[0]?.correctionStep ?? "vehicle"}`
-                : totalLossIntakeCorrectionPath(caseId, analysis.subjectReadiness?.issues[0]?.correctionStep))
-                + (analysis.subjectReadiness?.issues[0]?.field ? `&vehicleFact=${encodeURIComponent(analysis.subjectReadiness.issues[0].field)}` : "")}
-            >
-              Review intake
-            </Link>
-          </Button>
-        )}
-      </StateCard>
-    );
+    const ordinaryFields: Record<string, string> = { postalCode: "ZIP code", mileage: "mileage", lossDate: "date of loss", year: "vehicle year", make: "make", model: "model", insurerOffer: "insurer offer" };
+    const issue = analysis.subjectReadiness?.issues.find(item => ordinaryFields[item.field]);
+    const reportNeeded = Boolean(analysis.subjectReadiness && !issue) || analysis.error.code === "REPORT_NOT_ANALYZABLE";
+    const correctionPath = issue ? (analysis.subjectReadiness?.correctionMode === "resume"
+      ? `/start?service=total-loss&caseId=${encodeURIComponent(caseId)}&focus=${issue.correctionStep}`
+      : totalLossIntakeCorrectionPath(caseId, issue.correctionStep)) + `&vehicleFact=${encodeURIComponent(issue.field)}` : null;
+    return <StateCard kind="error" eyebrow={reportNeeded ? "Your review is saved" : "Value check paused"}
+      heading={issue ? "Check your review details." : reportNeeded ? "Your insurer’s report can help." : "We couldn’t complete this value check."}
+      description={issue ? `Check the ${ordinaryFields[issue.field]} you entered so we can continue.` : reportNeeded ? "We need the information in your insurer’s valuation report to take this review further. Your saved details are still here." : "We couldn’t finish the check right now. Your information is saved."}>
+      {correctionPath ? <Button asChild><Link to={correctionPath}>Review your details</Link></Button>
+        : reportNeeded ? <Button asChild><Link to={`/total-loss/cases/${caseId}/review-report`}>Upload insurer valuation PDF</Link></Button>
+        : analysis.retryable ? <Button disabled={submitMutation.isPending} onClick={() => submitMutation.mutate({})}><RefreshCw className="size-4" aria-hidden />Retry value check</Button>
+        : <Button onClick={() => void analysisQuery.refetch()}>Try again</Button>}
+      {!issue && !reportNeeded ? <Button asChild variant="outline"><Link to="/appraisals">Return to appraisals</Link></Button> : null}
+    </StateCard>;
   }
 
   if (!canonicalUuid4Pattern.test(analysis.runId)) {

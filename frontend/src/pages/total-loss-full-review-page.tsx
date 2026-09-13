@@ -1,3 +1,4 @@
+import { ValuationStatus } from "@/components/valuation-status";
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useLocation, useParams } from "react-router";
@@ -29,6 +30,8 @@ export function FullReviewReport({ caseId, userId, accessToken }: { caseId: stri
       setError("We couldn’t finish this step. Your case and saved report are preserved. Please try again.");
     } finally { setBusy(false); }
   }
+  if (query.isPending) return <ValuationStatus kind="loading" heading="Opening your saved report" description="Retrieving your review details." />;
+  if (query.isError && !state) return <ValuationStatus kind="error" heading="We couldn’t open your report." description="Your review is saved. Try opening it again."><Button onClick={() => void query.refetch()}>Try again</Button><Button asChild variant="outline"><Link to="/appraisals">Return to appraisals</Link></Button></ValuationStatus>;
   return <ClaimWorkflowFrame>
     <Link className="mb-6 inline-flex min-h-11 items-center gap-2 text-sm font-medium text-copy" to={`/total-loss/cases/${caseId}/analysis`}><ArrowLeft className="size-4" aria-hidden />Back to your free estimate</Link>
     <ClaimWorkflowCard>
@@ -80,5 +83,5 @@ export function FullReviewReport({ caseId, userId, accessToken }: { caseId: stri
 export function TotalLossFullReviewPage() {
   const { caseId = "" } = useParams(); const { auth } = useAuth(); const { openSignIn } = useSignInDialog(); const location = useLocation();
   if (auth.status === "signedIn") return <FullReviewReport key={`${auth.user.id}:${caseId}`} caseId={caseId} userId={auth.user.id} accessToken={auth.session.access_token} />;
-  return <ClaimWorkflowFrame><ClaimWorkflowCard><h1 className="text-2xl font-semibold">Your saved valuation review</h1><p className="mt-4 text-copy">{auth.status === "loading" ? "Checking secure access…" : "Sign in to open this private case and its report."}</p>{auth.status === "signedOut" ? <Button className="mt-5" onClick={() => openSignIn({ returnTo: location.pathname })}>Sign in</Button> : null}</ClaimWorkflowCard></ClaimWorkflowFrame>;
+  return <ValuationStatus kind={auth.status === "loading" ? "loading" : "secure"} heading="Your saved valuation review" description={auth.status === "loading" ? "Checking secure access…" : "Sign in to open this private case and its report."}>{auth.status === "signedOut" ? <Button onClick={() => openSignIn({ returnTo: location.pathname })}>Sign in</Button> : null}</ValuationStatus>;
 }

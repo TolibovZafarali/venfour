@@ -1,3 +1,6 @@
+import { ValuationStatus } from "@/components/valuation-status";
+import { publicHref } from "@/app/site-boundary";
+import venfourMark from "../../../assets/brand/venfour-mark.svg";
 import { Link, isRouteErrorResponse, useRouteError } from "react-router";
 
 import { useDocumentMetadata } from "@/app/document-metadata";
@@ -14,49 +17,11 @@ export function RouteErrorPage() {
       : "Venfour could not display the requested page.",
   });
 
-  return (
-    <div className="page-gradient-route-error flex min-h-svh flex-col bg-white">
-      <header className="border-b border-neutral-200">
-        <div className="mx-auto flex min-h-16 w-full max-w-6xl items-center px-5 py-3 sm:px-8">
-          <Link
-            to="/"
-            className="inline-flex min-h-11 items-center rounded-sm text-[1.05rem] font-semibold tracking-[-0.035em] text-neutral-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-500 focus-visible:ring-offset-2"
-            aria-label="Venfour home"
-          >
-            Venfour
-          </Link>
-        </div>
-      </header>
-
-      <main className="flex flex-1">
-        <section
-          className="mx-auto flex w-full max-w-6xl flex-col items-start justify-center px-5 py-20 sm:px-8 sm:py-28"
-          role="alert"
-        >
-          <p className="text-xs font-semibold tracking-[0.14em] text-neutral-500 uppercase">
-            {isNotFound ? "Page unavailable" : "Unexpected page error"}
-          </p>
-          <h1 className="mt-4 max-w-2xl text-3xl font-semibold tracking-[-0.035em] text-balance text-neutral-950 sm:text-4xl">
-            {isNotFound
-              ? "We couldn’t find this page."
-              : "We couldn’t display this page."}
-          </h1>
-          <p className="mt-4 max-w-lg leading-7 text-neutral-600">
-            {isNotFound
-              ? "The address may be incorrect, or the page may have moved."
-              : "An unexpected problem interrupted the page. No technical details have been displayed."}
-          </p>
-          <Button asChild className="mt-7" size="lg">
-            <Link to="/">Return to Venfour</Link>
-          </Button>
-        </section>
-      </main>
-
-      <footer className="site-footer-gradient border-t border-neutral-200 bg-neutral-50/70">
-        <div className="mx-auto w-full max-w-6xl px-5 py-6 text-sm text-neutral-600 sm:px-8">
-          Independent vehicle-valuation guidance for total-loss claims.
-        </div>
-      </footer>
-    </div>
-  );
+  return <div className="min-h-svh bg-canvas">
+    <header className="mx-auto flex min-h-16 max-w-7xl items-center px-5 sm:px-8"><Link to={publicHref()} className="inline-flex min-h-11 items-center gap-2 text-xl font-semibold tracking-tight" aria-label="Venfour home"><img src={venfourMark} className="size-7" alt="" />Venfour</Link></header>
+    <main><ValuationStatus kind="error" heading={isNotFound ? "We couldn’t find this page." : "We couldn’t display this page."} description={isNotFound ? "The address may be incorrect, or the page may have moved." : "Something interrupted this page. Try opening it again."}>
+      {!isNotFound ? <Button onClick={() => window.location.reload()}>Try again</Button> : null}
+      <Button asChild variant={isNotFound ? "default" : "outline"}><Link to={publicHref()}>Return to Venfour</Link></Button>
+    </ValuationStatus></main>
+  </div>;
 }

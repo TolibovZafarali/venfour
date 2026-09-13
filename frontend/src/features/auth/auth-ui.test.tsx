@@ -492,7 +492,7 @@ describe("account control", () => {
     expect(screen.getByText("owner@example.com")).toBeVisible();
     expect(
       screen.getByRole("menuitem", { name: "Guided valuation review" }),
-    ).toHaveAttribute("href", "/");
+    ).toHaveAttribute("href", "/app");
     const newAppraisal = screen.getByRole("menuitem", {
       name: "Start a new appraisal",
     });
@@ -610,7 +610,7 @@ describe("account control", () => {
     const guidedReview = await screen.findByRole("link", {
       name: "Guided valuation review",
     });
-    expect(guidedReview).toHaveAttribute("href", "/");
+    expect(guidedReview).toHaveAttribute("href", "/app");
     const newAppraisal = screen.getByRole("link", {
       name: "Start a new appraisal",
     });

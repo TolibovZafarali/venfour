@@ -208,7 +208,7 @@ describe("local purchase email verification", () => {
     const user = userEvent.setup();
     const { router, auth } = renderPurchase();
 
-    expect(await screen.findByText("ow••••@example.com")).toBeVisible();
+    await waitFor(() => expect(screen.getByText("ow••••@example.com")).toBeVisible());
     expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Complete purchase" })).toBeDisabled();
     expect(otp.sendCode).not.toHaveBeenCalled();
@@ -323,7 +323,7 @@ describe("local purchase email verification", () => {
     const input = await requestCode(user);
     await user.type(input, "123456");
     await user.click(screen.getByRole("button", { name: "Verify" }));
-    expect(await screen.findByText("Verified")).toBeVisible();
+    await waitFor(() => expect(screen.getByText("Verified")).toBeVisible());
     expect(screen.queryByRole("textbox", { name: CODE_LABEL })).not.toBeInTheDocument();
     expect(screen.queryByText("Verify your email above to continue with payment.")).not.toBeInTheDocument();
     expect(router.state.location.pathname).toBe(CHECKOUT_PATH);
@@ -362,7 +362,7 @@ describe("local purchase email verification", () => {
     const input = await requestCode(user);
     await user.type(input, "123");
     await act(async () => { auth.signInPermanent(); });
-    expect(await screen.findByText("Verified")).toBeVisible();
+    await waitFor(() => expect(screen.getByText("Verified")).toBeVisible());
     expect(screen.queryByRole("textbox", { name: CODE_LABEL })).not.toBeInTheDocument();
     expect(otp.verifyCodeAndClaim).not.toHaveBeenCalled();
     expect(otp.sendCode).toHaveBeenCalledOnce();
@@ -384,7 +384,7 @@ describe("local purchase email verification", () => {
     expect(input).toBeDisabled();
     await user.click(screen.getByRole("button", { name: "Verify" }));
     expect(otp.verifyCodeAndClaim).toHaveBeenNthCalledWith(2, expect.objectContaining({ token: "", claimId: CLAIM_ID }));
-    expect(await screen.findByText("Verified")).toBeVisible();
+    await waitFor(() => expect(screen.getByText("Verified")).toBeVisible());
     expect(otp.sendCode).toHaveBeenCalledOnce();
     expect(router.state.location.pathname).toBe(CHECKOUT_PATH);
   });
@@ -437,7 +437,7 @@ describe("local purchase email verification", () => {
       expect(paymentInitialization).not.toHaveBeenCalled();
 
       await user.click(screen.getByRole("button", { name: "Verify" }));
-      expect(await screen.findByText("Verified")).toBeVisible();
+      await waitFor(() => expect(screen.getByText("Verified")).toBeVisible());
       expect(otp.verifyCodeAndClaim).toHaveBeenNthCalledWith(2, expect.objectContaining({ token: "", claimId: CLAIM_ID }));
       expect(result.router.state.location.pathname).toBe(CHECKOUT_PATH);
       expect(otp.sendCode).toHaveBeenCalledOnce();
@@ -500,7 +500,7 @@ describe("local purchase email verification", () => {
     expect(paymentInitialization).not.toHaveBeenCalled();
 
     await user.click(screen.getByRole("button", { name: "Verify" }));
-    expect(await screen.findByText("Verified")).toBeVisible();
+    await waitFor(() => expect(screen.getByText("Verified")).toBeVisible());
     expect(result.router.state.location.pathname).toBe(CHECKOUT_PATH);
     expect(otp.verifyCodeAndClaim).toHaveBeenCalledTimes(2);
     expect(otp.sendCode).toHaveBeenCalledOnce();
@@ -509,7 +509,7 @@ describe("local purchase email verification", () => {
   it("skips OTP entirely for a matching verified permanent owner", async () => {
     installClaimHandlers();
     renderPurchase("permanent");
-    expect(await screen.findByText("Verified")).toBeVisible();
+    await waitFor(() => expect(screen.getByText("Verified")).toBeVisible());
     expect(screen.getByText("ow••••@example.com")).toBeVisible();
     expect(screen.queryByRole("button", { name: "Send verification code" })).not.toBeInTheDocument();
     expect(otp.sendCode).not.toHaveBeenCalled();

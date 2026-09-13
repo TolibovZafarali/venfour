@@ -1,3 +1,4 @@
+import { applicationHref } from "@/app/site-boundary";
 import { Link, useSearchParams } from "react-router";
 
 import { Button } from "@/components/ui/button";
@@ -103,14 +104,14 @@ export function ContactPage() {
           Start a Total Loss review with or without an insurer valuation report
           through the{" "}
           <Link
-            to="/start?service=total-loss"
+            to={applicationHref("/start?service=total-loss")}
             className={publicTextLinkClassName}
           >
             Total Loss intake
           </Link>
           . If your vehicle was repaired after an accident, you can submit a{" "}
           <Link
-            to="/start?service=diminished-value"
+            to={applicationHref("/start?service=diminished-value")}
             className={publicTextLinkClassName}
           >
             diminished-value request for future manual review

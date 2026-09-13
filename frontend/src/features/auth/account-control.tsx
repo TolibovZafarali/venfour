@@ -1,3 +1,4 @@
+import { applicationHref, hostAudience } from "@/app/site-boundary";
 import {
   CarFront,
   CircleUserRound,
@@ -60,6 +61,7 @@ export function AccountControl({
   }
 
   if (!isPermanentAuthState(auth)) {
+    if (hostAudience() === "public") return <a href={applicationHref("/app")} className={cn("inline-flex min-h-11 items-center px-3 text-sm text-ink", focusRingClassName, className)}>Sign In</a>;
     const signInButton = (
       <button
         type="button"
@@ -136,7 +138,7 @@ export function AccountControl({
             </DropdownMenu.Label>
             <DropdownMenu.Item asChild>
               <Link
-                to="/"
+                to={applicationHref("/app")}
                 className="flex min-h-10 w-full items-center gap-2 rounded-lg px-2.5 text-sm font-medium text-ink outline-none transition-colors hover:bg-surface focus:bg-surface"
               >
                 <CarFront className="size-4" aria-hidden />
@@ -145,7 +147,7 @@ export function AccountControl({
             </DropdownMenu.Item>
             <DropdownMenu.Item asChild>
               <Link
-                to={newAppraisalHref}
+                to={applicationHref(newAppraisalHref)}
                 className="flex min-h-10 w-full items-center gap-2 rounded-lg px-2.5 text-sm font-medium text-ink outline-none transition-colors hover:bg-surface focus:bg-surface"
               >
                 <Plus className="size-4" aria-hidden />
@@ -222,6 +224,7 @@ export function MobileAccountControl({
   }
 
   if (!isPermanentAuthState(auth)) {
+    if (hostAudience() === "public") return <a href={applicationHref("/app")} className={cn("inline-flex min-h-11 items-center px-3 text-sm text-ink", focusRingClassName, className)}>Sign In</a>;
     return (
       <button
         type="button"
@@ -259,7 +262,7 @@ export function MobileAccountControl({
         <span className="font-semibold text-ink">{identityLabel}</span>
       </p>
       <Link
-        to="/"
+        to={applicationHref("/app")}
         className="mt-1 inline-flex min-h-11 w-full items-center gap-2 rounded-lg px-1 text-sm font-medium text-ink/75 transition-colors hover:bg-white/35 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand/60"
         onClick={onAction}
       >
@@ -267,7 +270,7 @@ export function MobileAccountControl({
         Guided valuation review
       </Link>
       <Link
-        to={newAppraisalHref}
+        to={applicationHref(newAppraisalHref)}
         className="mt-1 inline-flex min-h-11 w-full items-center gap-2 rounded-lg px-1 text-sm font-medium text-ink/75 transition-colors hover:bg-white/35 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand/60"
         onClick={onAction}
       >

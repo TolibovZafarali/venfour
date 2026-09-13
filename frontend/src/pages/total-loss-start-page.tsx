@@ -1,3 +1,4 @@
+import { ValuationStatus } from "@/components/valuation-status";
 import { VEHICLE_FACT_FIELDS, vehicleFactErrors, clearVehicleFacts, fillConfigurationFacts } from "@/features/total-loss/vehicle-facts";
 import { AlertCircle, CloudOff, RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -52,7 +53,6 @@ import {
   writeTotalLossDraft,
 } from "@/features/total-loss/draft";
 import {
-  FlowCard,
   primaryFlowButtonClassName,
 } from "@/features/total-loss/intake-fields";
 import {
@@ -447,7 +447,7 @@ function TotalLossDraftBootstrapGate({
   }
   if (auth.status === "unavailable") {
     return (
-      <DraftBootstrapErrorCard message="Secure guest storage is temporarily unavailable." />
+      <DraftBootstrapErrorCard message="We couldn’t open your review right now." />
     );
   }
   if (auth.status !== "signedIn") {
@@ -455,7 +455,7 @@ function TotalLossDraftBootstrapGate({
   }
   if (!dependencies) {
     return (
-      <DraftBootstrapErrorCard message="Venfour could not connect to secure case storage." />
+      <DraftBootstrapErrorCard message="We couldn’t open your review right now." />
     );
   }
   if (
@@ -482,7 +482,7 @@ function TotalLossDraftBootstrapGate({
   ) {
     return (
       <DraftBootstrapErrorCard
-        message="Your durable Total Loss draft could not be prepared. No report has been requested or uploaded."
+        message="We couldn’t open your saved review right now. Please try again."
         onRetry={() => {
           if (explicitCaseId) {
             void explicitCaseQuery.refetch();
@@ -3066,84 +3066,23 @@ function ConflictNotice({
 }
 
 function LoadingCard() {
-  return (
-    <FlowCard className="text-center" busy>
-      <RefreshCw
-        className="mx-auto size-6 animate-spin text-brand motion-reduce:animate-none"
-        aria-hidden
-      />
-      <p className="mt-3 text-sm font-semibold text-ink" role="status">
-        Loading your saved appraisal…
-      </p>
-    </FlowCard>
-  );
+  return <ValuationStatus compact headingLevel="h2" kind="loading" heading="Loading your saved appraisal…" description="Finding your saved details." />;
 }
 
 function UnavailableCaseCard() {
-  return (
-    <FlowCard className="text-center">
-      <p className="text-sm font-semibold text-ink">
-        This saved appraisal cannot be opened from this link.
-      </p>
-      <p className="mt-2 text-sm leading-6 text-copy">
-        Open your appraisals to continue from the case’s current stage.
-      </p>
-      <Link
-        className={`${primaryFlowButtonClassName} mt-6`}
-        to="/appraisals"
-      >
-        View my appraisals
-      </Link>
-    </FlowCard>
-  );
+  return <ValuationStatus compact headingLevel="h2" kind="error" heading="This saved appraisal cannot be opened from this link." description="Open your appraisals to continue from the case’s current stage.">
+    <Link className={primaryFlowButtonClassName} to="/appraisals">View my appraisals</Link>
+  </ValuationStatus>;
 }
 
-function DraftBootstrapErrorCard({
-  message,
-  onRetry,
-}: {
-  readonly message: string;
-  readonly onRetry?: () => void;
-}) {
-  return (
-    <FlowCard className="text-center">
-      <AlertCircle className="mx-auto size-7 text-red-700" aria-hidden />
-      <h2 className="mt-4 text-2xl font-semibold tracking-[-0.03em] text-ink">
-        We couldn’t prepare your Total Loss draft
-      </h2>
-      <p className="mx-auto mt-3 max-w-lg text-sm leading-6 text-copy">
-        {message}
-      </p>
-      {onRetry ? (
-        <button
-          type="button"
-          className={`${primaryFlowButtonClassName} mt-6`}
-          onClick={onRetry}
-        >
-          Try again
-        </button>
-      ) : null}
-    </FlowCard>
-  );
+function DraftBootstrapErrorCard({ message, onRetry }: { readonly message: string; readonly onRetry?: () => void }) {
+  return <ValuationStatus compact headingLevel="h2" kind="error" heading="We couldn’t prepare your Total Loss draft" description={message}>
+    {onRetry ? <button type="button" className={primaryFlowButtonClassName} onClick={onRetry}>Try again</button> : <Link className={primaryFlowButtonClassName} to="/find-review">Find my review</Link>}
+  </ValuationStatus>;
 }
 
 function SavedDetailsLoadErrorCard({ onRetry }: { onRetry: () => void }) {
-  return (
-    <FlowCard className="text-center">
-      <h2 className="text-2xl font-semibold tracking-[-0.03em] text-ink">
-        We couldn’t load this saved appraisal
-      </h2>
-      <p className="mx-auto mt-3 max-w-lg text-sm leading-6 text-copy">
-        Your browser draft is still here, but Venfour must confirm the saved
-        case before showing a completed intake.
-      </p>
-      <button
-        type="button"
-        className={`${primaryFlowButtonClassName} mt-6`}
-        onClick={onRetry}
-      >
-        Try again
-      </button>
-    </FlowCard>
-  );
+  return <ValuationStatus compact headingLevel="h2" kind="error" heading="We couldn’t load this saved appraisal" description="Your edits on this device are still here. Try opening the saved review again.">
+    <button type="button" className={primaryFlowButtonClassName} onClick={onRetry}>Try again</button>
+  </ValuationStatus>;
 }

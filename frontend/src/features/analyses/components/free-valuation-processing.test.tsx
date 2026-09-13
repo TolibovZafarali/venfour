@@ -70,14 +70,30 @@ describe("free valuation processing environment", () => {
     expect(screen.getByRole("status")).toHaveTextContent("The displayed activities describe the checks included in your review.");
 
     rendered.rerender(<Harness />);
-    await act(async () => vi.advanceTimersByTimeAsync(500));
+    await act(async () => vi.advanceTimersByTimeAsync(1900));
 
     expect(screen.queryByRole("heading", { name: "Preparing your valuation" })).not.toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Your valuation result" })).toBeVisible();
     expect(screen.getByRole("navigation", { name: "Main navigation" })).toBeVisible();
     expect(screen.getByRole("contentinfo")).toBeVisible();
-    expect(trigger).toHaveFocus();
+    expect(screen.getByRole("main")).toHaveFocus();
+    expect(screen.queryByTestId("valuation-signals")).not.toBeInTheDocument();
     rendered.unmount();
+  });
+
+  it("releases result actions during the finite exit and does not steal their focus", async () => {
+    const rendered = render(<Harness registration={{ phase: "reviewing" }} />);
+    const canvas = screen.getByTestId("valuation-signals");
+    rendered.rerender(<Harness />);
+    await act(async () => vi.advanceTimersByTimeAsync(100));
+    expect(screen.getByRole("heading", { name: "Your valuation result" })).toBeVisible();
+    expect(screen.getByTestId("valuation-signals")).toBe(canvas);
+    expect(document.querySelector("[data-exiting]")).toHaveAttribute("aria-hidden", "true");
+    const action = screen.getByRole("button", { name: "Review and analyze" });
+    action.focus();
+    await act(async () => vi.advanceTimersByTimeAsync(1800));
+    expect(action).toHaveFocus();
+    expect(screen.queryByTestId("valuation-signals")).not.toBeInTheDocument();
   });
 
   it("clears preview controls and shows the current phase when a saved case replaces the preview", async () => {
@@ -147,7 +163,7 @@ describe("free valuation processing environment", () => {
     };
     const rendered = render(<Harness registration={registration} />);
     expect(screen.getByRole("alert")).toHaveTextContent(registration.error);
-    expect(screen.getByText("Let’s try again")).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Let’s try again" })).toBeVisible();
     fireEvent.click(screen.getByRole("button", { name: "Try again" }));
     expect(onRetry).toHaveBeenCalledOnce();
 

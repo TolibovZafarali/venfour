@@ -1,3 +1,5 @@
+import { applicationHref, publicHref, routeAudience } from "@/app/site-boundary";
+import { useWorkspaceEntryAction } from "@/features/cases/workspace-entry";
 import { Menu, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -51,13 +53,14 @@ export function AppShell() {
 }
 
 function AppShellContent() {
+  const localStatusRoute = useMatch("/_local/status-experience");
   const analysisRoute = useMatch("/analyses/:runId");
   const totalLossCaseRoute = useMatch("/total-loss/cases/:caseId/*");
   const appraisalsRoute = useMatch("/appraisals");
   const previewReturnRoute = useMatch("/auth/callback/preview/:caseId/:claimId");
   const previewReadyRoute = useMatch("/auth/callback/preview-ready/:caseId/:claimId");
   const findReviewRoute = useMatch("/find-review");
-  const productFlowRoute = Boolean(analysisRoute || totalLossCaseRoute || previewReturnRoute || previewReadyRoute || findReviewRoute);
+  const productFlowRoute = Boolean(localStatusRoute || analysisRoute || totalLossCaseRoute || previewReturnRoute || previewReadyRoute || findReviewRoute);
   const location = useLocation();
   const completedReviewRoute = /^\/total-loss\/cases\/[^/]+\/claim\/(overview|evidence|request|activity|guide(?:\/.*)?|review(?:\/.*)?)\/?$/.test(location.pathname);
   const adminRoute = location.pathname.startsWith("/admin/");
@@ -101,7 +104,7 @@ function AppShellContent() {
 
   useDocumentMetadata(analysisRoute ? null : metadata);
   const scrollToSection = useHomeSmoothScroll(
-    location.pathname === "/" && auth.status !== "loading" && !isPermanentAuthState(auth),
+    location.pathname === "/",
   );
 
   useEffect(() => {
@@ -175,27 +178,29 @@ function AppShellContent() {
 
   const onHomePage = location.pathname === "/";
   const guestReturn = useGuestAnalysisReturn(onHomePage);
-  const accountPortalRoute = onHomePage || Boolean(appraisalsRoute);
+  const publicSite = routeAudience(location.pathname) === "public";
+  const workspaceAction = useWorkspaceEntryAction(publicSite);
+  const accountPortalRoute = Boolean(appraisalsRoute);
   const resolvingPortalAudience =
     accountPortalRoute && auth.status === "loading";
   const permanentPortal =
     Boolean(appraisalsRoute) && isPermanentAuthState(auth);
-  const signedInJourneyEntryRoute =
-    onHomePage && isPermanentAuthState(auth);
   const focusedCaseAccountHeader =
+    location.pathname === "/app" || location.pathname.startsWith("/partners") ||
     completedReviewRoute ||
     (Boolean(totalLossCaseRoute) && isPermanentAuthState(auth));
-  const totalLossHref = onHomePage ? "#total-loss" : "/#total-loss";
+  const totalLossHref = onHomePage ? "#total-loss" : publicHref("/#total-loss");
   const diminishedValueHref = onHomePage
     ? "#diminished-value"
-    : "/#diminished-value";
-  const howItWorksHref = onHomePage ? "#how-it-works" : "/#how-it-works";
-  const primaryActionHref = guestReturn.action?.href ?? "/start?service=total-loss";
+    : publicHref("/#diminished-value");
+  const howItWorksHref = onHomePage ? "#how-it-works" : publicHref("/#how-it-works");
+  const primaryActionHref = isPermanentAuthState(auth) ? workspaceAction.href : guestReturn.action?.href ?? applicationHref("/start?service=total-loss");
+  const primaryActionLabel = isPermanentAuthState(auth) ? workspaceAction.label : guestReturn.action?.label ?? "Get Started";
   const requestStaffNavigation = () => {
     if (permanentUserId) setStaffNavigationRequestUserId(permanentUserId);
   };
   const staffReviewHref = staffAccessQuery.data
-    ? "/admin"
+    ? applicationHref("/admin")
     : undefined;
   const visibleHeaderDetached =
     headerDetached && !startFlowRoute && !productFlowRoute;
@@ -262,7 +267,7 @@ function AppShellContent() {
             >
               <div className="flex min-w-0 items-center gap-3 sm:gap-4">
                 <Link
-                  to="/"
+                  to={publicHref()}
                   className="notranslate inline-flex min-h-11 select-none items-center gap-[0.5625rem] rounded-md text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
                   aria-label="Venfour home"
                   translate="no"
@@ -322,12 +327,6 @@ function AppShellContent() {
                     aria-hidden
                   />
                 </div>
-              ) : signedInJourneyEntryRoute ? (
-                <AccountControl
-                  className="shrink-0"
-                  onStaffNavigationRequest={requestStaffNavigation}
-                  staffReviewHref={staffReviewHref}
-                />
               ) : (
                 <>
                   <nav
@@ -337,7 +336,7 @@ function AppShellContent() {
                     {permanentPortal ? (
                       <>
                         <Link
-                          to="/"
+                          to={applicationHref("/app")}
                           className={primaryLinkClassName}
                           aria-current={onHomePage ? "page" : undefined}
                         >
@@ -387,7 +386,7 @@ function AppShellContent() {
                           to={primaryActionHref}
                           className="ml-1 inline-flex min-h-11 items-center rounded-lg border border-blue-300/20 bg-brand px-4 text-[0.8125rem] font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.2),0_8px_20px_-12px_rgba(21,94,239,0.95)] transition-colors hover:bg-[#2b6cf4] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 focus-visible:ring-offset-2 motion-reduce:transition-none"
                         >
-                          {guestReturn.action?.label ?? "Get Started"}
+                          {primaryActionLabel}
                         </Link>}
                       </>
                     )}
@@ -406,7 +405,7 @@ function AppShellContent() {
                         className="inline-flex min-h-11 max-w-30 items-center justify-center rounded-lg border border-blue-300/20 bg-brand px-2 text-center text-[0.6875rem] font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.2),0_8px_20px_-12px_rgba(21,94,239,0.95)] transition-colors hover:bg-[#2b6cf4] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 focus-visible:ring-offset-2 sm:px-3 sm:text-xs motion-reduce:transition-none"
                         onClick={() => setMobileNavigationOpen(false)}
                       >
-                        {guestReturn.action?.compactLabel ?? "Get Started"}
+                        {primaryActionLabel}
                       </Link>
                     ) : null}
                     <button
@@ -566,13 +565,13 @@ function AppShellContent() {
             </Link>
           </nav>
         </footer>
-      ) : !startFlowRoute && !adminRoute && !signedInJourneyEntryRoute ? (
+      ) : !startFlowRoute && !adminRoute ? (
         <footer className="site-footer-gradient relative z-10 shrink-0 border-t border-line bg-surface">
           <div className="mx-auto w-full max-w-7xl px-5 py-6 sm:px-8 sm:py-7">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex flex-col items-start gap-1 sm:flex-row sm:items-center sm:gap-5">
                 <Link
-                  to="/"
+                  to={publicHref()}
                   className="notranslate inline-flex min-h-11 select-none items-center gap-2 rounded-sm text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
                   aria-label="Venfour home"
                   translate="no"
@@ -607,7 +606,7 @@ function AppShellContent() {
                     {permanentPortal ? (
                       <>
                         <li>
-                          <Link to="/" className={footerLinkClassName}>
+                          <Link to={applicationHref("/app")} className={footerLinkClassName}>
                             Guided valuation review
                           </Link>
                         </li>

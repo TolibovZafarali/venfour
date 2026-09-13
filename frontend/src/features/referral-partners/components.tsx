@@ -1,3 +1,4 @@
+import { ValuationStatus } from "@/components/valuation-status";
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -9,7 +10,7 @@ import "./referral-partners.css";
 import { formatPartnerDate, formatPartnerMoney, partnerDeliveryLabel, partnerEventLabel, partnerStatusLabel } from "./presentation";
 
 export function PartnerState({ title, children }: { title: string; children?: ReactNode }) {
-  return <div className="partner-state"><h1>{title}</h1>{children}</div>;
+  return <ValuationStatus heading={title} description={children} />;
 }
 export function PartnerError({ error }: { error: unknown }) {
   return error ? <p role="alert" className="partner-error">{referralErrorMessage(error)}</p> : null;

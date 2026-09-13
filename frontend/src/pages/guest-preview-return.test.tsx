@@ -78,7 +78,7 @@ function identityDependencies(completeIdentityClaim = vi.fn(async () => claimedR
 }
 
 describe("guest homepage return", () => {
-  it("replaces the header and hero actions with the saved guest result, ignoring a newer draft", async () => {
+  it("keeps the public hero and offers the saved guest result in the header, ignoring a newer draft", async () => {
     const list = vi.fn(async () => [caseFor({ id: CLAIM_ID, status: "draft", caseStage: "intake_not_started",
       lastActivityAt: "2026-08-29T13:00:00Z" }), caseFor()]);
     server.use(http.get("*/api/v1/appraisal-cases/:caseId/analysis", completedResponse));
@@ -86,7 +86,7 @@ describe("guest homepage return", () => {
     const { router } = renderTestApp(["/"], { authService: authHarness(sessionFor()).service,
       appraisalCaseService: caseService(list) });
     const links = await screen.findAllByRole("link", { name: "View my result" });
-    expect(links).toHaveLength(3);
+    expect(links).toHaveLength(2);
     for (const link of links) expect(link).toHaveAttribute("href", ANALYSIS_PATH);
     expect(screen.queryByRole("link", { name: "Get Started" })).not.toBeInTheDocument();
     expect(list).toHaveBeenCalledWith(GUEST_ID);
@@ -104,7 +104,7 @@ describe("guest homepage return", () => {
     expect(screen.queryByRole("link", { name: "Get Started" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "View my result" })).not.toBeInTheDocument();
     await act(async () => resolve([caseFor()]));
-    expect((await screen.findAllByRole("link", { name: "View my result" }))).toHaveLength(3);
+    expect((await screen.findAllByRole("link", { name: "View my result" }))).toHaveLength(2);
   });
 
   it("labels an active analysis as progress and removes guest links when its session is cleared", async () => {
@@ -112,7 +112,7 @@ describe("guest homepage return", () => {
     renderTestApp(["/"], { authService: auth.service, appraisalCaseService: caseService(vi.fn(async () => [
       caseFor({ caseStage: "analysis_processing", status: "checking", analysisStatus: "processing" }),
     ])) });
-    expect((await screen.findAllByRole("link", { name: "View analysis progress" }))).toHaveLength(3);
+    expect((await screen.findAllByRole("link", { name: "View analysis progress" }))).toHaveLength(2);
     await act(async () => auth.clear());
     expect((await screen.findAllByRole("link", { name: "Get Started" }))).toHaveLength(2);
     expect(screen.queryByRole("link", { name: "View analysis progress" })).not.toBeInTheDocument();
@@ -132,7 +132,7 @@ describe("guest homepage return", () => {
         caseStage: "analysis_failed", analysisStatus: "failed", status: "checking",
       })])) });
     const links = await screen.findAllByRole("link", { name: "Return to my review" });
-    expect(links).toHaveLength(3);
+    expect(links).toHaveLength(2);
     for (const link of links) expect(link).toHaveAttribute("href", ANALYSIS_PATH);
     expect(screen.queryByRole("link", { name: "Get Started" })).not.toBeInTheDocument();
   });
@@ -168,7 +168,7 @@ describe("secure preview return", () => {
     const auth = authHarness(null);
     auth.service.verifyEmailOtp = vi.fn(async () => { throw new Error("Expired token"); });
     renderTestApp([EMAIL_PATH], { authService: auth.service, totalLossDependencies: identityDependencies(), strictMode: true });
-    expect(await screen.findByText(/This verification link can’t be used anymore/u)).toBeVisible();
+    await waitFor(() => expect(screen.getByText(/This verification link can’t be used anymore/u)).toBeVisible());
     expect(screen.getByRole("button", { name: "Email me a return link" })).toBeVisible();
     expect(auth.service.verifyEmailOtp).toHaveBeenCalledOnce();
   });
@@ -179,7 +179,7 @@ describe("secure preview return", () => {
     server.use(http.get("*/api/v1/appraisal-cases/:caseId/analysis", deniedResponse));
     const { router } = renderTestApp([EMAIL_PATH], { authService: auth.service,
       totalLossDependencies: identityDependencies(complete), strictMode: true });
-    expect(await screen.findByText(/This verification link can’t be used anymore/u)).toBeVisible();
+    await waitFor(() => expect(screen.getByText(/This verification link can’t be used anymore/u)).toBeVisible());
     expect(auth.service.restoreSession).toHaveBeenCalledExactlyOnceWith(sessionFor());
     expect(router.state.location.pathname).toContain("/auth/callback/preview-ready/");
   });
@@ -189,7 +189,7 @@ describe("secure preview return", () => {
     server.use(http.get("*/api/v1/appraisal-cases/:caseId/analysis", deniedResponse));
     renderTestApp([EMAIL_PATH], { authService: authHarness(null).service,
       totalLossDependencies: identityDependencies(complete) });
-    expect(await screen.findByText(/This verification link can’t be used anymore/u)).toBeVisible();
+    await waitFor(() => expect(screen.getByText(/This verification link can’t be used anymore/u)).toBeVisible());
   });
 
   it("keeps the result private when only a case URL remains and uses the minimal product shell", async () => {

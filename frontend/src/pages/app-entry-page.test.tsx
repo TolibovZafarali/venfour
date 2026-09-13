@@ -72,9 +72,9 @@ function caseService(cases: readonly AppraisalCase[]): AppraisalCaseService {
   };
 }
 
-describe("signed-in guided valuation review entry", () => {
+describe("application workspace entry", () => {
   it("keeps an empty account in appraisal history without creating a case", async () => {
-    const { router } = renderTestApp(["/"], {
+    const { router } = renderTestApp(["/app"], {
       appraisalCaseService: caseService([]),
       authService: authService(),
     });
@@ -88,7 +88,7 @@ describe("signed-in guided valuation review entry", () => {
   });
 
   it("resumes an active claim through its authoritative resolver", async () => {
-    const { router } = renderTestApp(["/"], {
+    const { router } = renderTestApp(["/app"], {
       appraisalCaseService: caseService([
         appraisalCase({
           hasTotalLossClaimWorkflow: true,
@@ -108,7 +108,7 @@ describe("signed-in guided valuation review entry", () => {
   });
 
   it("skips an unsupported attention summary when a resumable claim exists", async () => {
-    const { router } = renderTestApp(["/"], {
+    const { router } = renderTestApp(["/app"], {
       appraisalCaseService: caseService([
         appraisalCase({
           needsAttention: true,
@@ -132,7 +132,7 @@ describe("signed-in guided valuation review entry", () => {
   });
 
   it("resumes a pre-claim case at its current intake or analysis route", async () => {
-    const { router } = renderTestApp(["/"], {
+    const { router } = renderTestApp(["/app"], {
       appraisalCaseService: caseService([appraisalCase()]),
       authService: authService(),
     });
@@ -145,7 +145,7 @@ describe("signed-in guided valuation review entry", () => {
   });
 
   it("sends an all-closed account to appraisal history", async () => {
-    const { router } = renderTestApp(["/"], {
+    const { router } = renderTestApp(["/app"], {
       appraisalCaseService: caseService([
         appraisalCase({ status: "closed", caseStage: "closed", hasTotalLossClaimWorkflow: true }),
       ]),
@@ -163,7 +163,7 @@ describe("signed-in guided valuation review entry", () => {
   });
 
   it("prioritizes an active claim over a more recently closed claim", async () => {
-    const { router } = renderTestApp(["/"], {
+    const { router } = renderTestApp(["/app"], {
       appraisalCaseService: caseService([
         appraisalCase({ status: "closed", caseStage: "closed", hasTotalLossClaimWorkflow: true, needsAttention: true }),
         appraisalCase({ id: OTHER_CASE_ID, status: "paid", caseStage: "analysis_complete", hasTotalLossClaimWorkflow: true }),
@@ -176,7 +176,7 @@ describe("signed-in guided valuation review entry", () => {
   });
 
   it("does not treat a paused diminished-value case as the guided review", async () => {
-    const { router } = renderTestApp(["/"], {
+    const { router } = renderTestApp(["/app"], {
       appraisalCaseService: caseService([
         appraisalCase({
           serviceType: "diminished_value",
@@ -193,7 +193,7 @@ describe("signed-in guided valuation review entry", () => {
   });
 
   it("fails closed when the owner-scoped list exposes another account", async () => {
-    renderTestApp(["/"], {
+    renderTestApp(["/app"], {
       appraisalCaseService: caseService([
         appraisalCase({ userId: OTHER_USER_ID }),
       ]),
@@ -207,14 +207,14 @@ describe("signed-in guided valuation review entry", () => {
     ).toBeVisible();
     expect(
       screen.getByText(
-        "Venfour couldn’t confirm an active case for this account. No case information has been changed.",
+        "We couldn’t open your saved reviews right now.",
       ),
     ).toBeVisible();
     expect(screen.queryByText(/owner-scoped active case/iu)).not.toBeInTheDocument();
   });
 
   it("shows a truthful configuration error without creating a case", async () => {
-    renderTestApp(["/"], {
+    renderTestApp(["/app"], {
       appraisalCaseService: null,
       authService: authService(),
     });
@@ -226,7 +226,7 @@ describe("signed-in guided valuation review entry", () => {
     ).toBeVisible();
     expect(
       screen.getByText(
-        "Venfour couldn’t check your saved cases right now. No case information has been changed.",
+        "We couldn’t open your saved reviews right now.",
       ),
     ).toBeVisible();
     expect(screen.queryByText(/in this environment/iu)).not.toBeInTheDocument();

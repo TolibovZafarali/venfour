@@ -1,4 +1,4 @@
-import { CircleAlert, LoaderCircle } from "lucide-react";
+import { ValuationStatus } from "@/components/valuation-status";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { Link, useLocation, useNavigate } from "react-router";
@@ -201,20 +201,9 @@ export function AuthCallbackPage() {
             : null);
 
   return (
-    <section className="flex w-full items-center justify-center px-5 py-16 sm:px-8">
-      <div className="w-full max-w-md rounded-2xl border border-line bg-white p-6 text-center shadow-[0_20px_60px_-36px_rgba(11,31,51,0.48)] sm:p-8">
-        {error ? (
-          <>
-            <CircleAlert
-              className="mx-auto size-9 text-red-700"
-              aria-hidden
-            />
-            <h1 className="mt-4 text-xl font-semibold tracking-[-0.025em] text-ink">
-              We couldn’t sign you in
-            </h1>
-            <p className="mt-2 text-sm leading-6 text-copy" role="alert">
-              {error}
-            </p>
+    <>
+      <ValuationStatus kind={error ? "error" : "loading"} heading={error ? "We couldn’t sign you in" : "Finishing your sign in"} description={error ?? "Verifying your secure link…"}>
+        {error ? <>
             {caseClaim.kind !== "invalid" ? (
               <button
                 type="button"
@@ -231,21 +220,8 @@ export function AuthCallbackPage() {
               {recoveryReturnTo === "/" ? "Return home" : "Return to your page"}
             </Link>
           </>
-        ) : (
-          <>
-            <LoaderCircle
-              className="mx-auto size-9 animate-spin text-brand motion-reduce:animate-none"
-              aria-hidden
-            />
-            <h1 className="mt-4 text-xl font-semibold tracking-[-0.025em] text-ink">
-              Finishing your sign in
-            </h1>
-            <p className="mt-2 text-sm leading-6 text-copy" aria-live="polite">
-              Verifying your secure link…
-            </p>
-          </>
-        )}
-      </div>
+        : null}
+      </ValuationStatus>
       {retryOpen ? (
         <SignInDialog
           open
@@ -259,6 +235,6 @@ export function AuthCallbackPage() {
           }
         />
       ) : null}
-    </section>
+    </>
   );
 }

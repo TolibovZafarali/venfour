@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { selectSignedInHomepageCases } from "@/features/cases/homepage-selection";
+import { selectWorkspaceCases } from "@/features/cases/workspace-selection";
 import type { AppraisalCase } from "@/features/cases/types";
 
 const USER_ID = "11111111-1111-4111-8111-111111111111";
@@ -48,7 +48,7 @@ describe("signed-in homepage case selection", () => {
     (priorityIndex) => {
       const candidates = priorityCases.slice(priorityIndex).toReversed();
 
-      expect(selectSignedInHomepageCases(candidates).focalCase?.id).toBe(
+      expect(selectWorkspaceCases(candidates).focalCase?.id).toBe(
         priorityCases[priorityIndex]?.id,
       );
     },
@@ -60,10 +60,10 @@ describe("signed-in homepage case selection", () => {
     const preliminaryResult = priorityCases[2];
 
     expect(
-      selectSignedInHomepageCases([preliminaryResult, postContinue]).focalCase,
+      selectWorkspaceCases([preliminaryResult, postContinue]).focalCase,
     ).toBe(postContinue);
     expect(
-      selectSignedInHomepageCases([preliminaryResult, postContinue, attention])
+      selectWorkspaceCases([preliminaryResult, postContinue, attention])
         .focalCase,
     ).toBe(attention);
   });
@@ -81,7 +81,7 @@ describe("signed-in homepage case selection", () => {
     });
 
     expect(
-      selectSignedInHomepageCases([newerWaiting, olderAttention]).focalCase,
+      selectWorkspaceCases([newerWaiting, olderAttention]).focalCase,
     ).toBe(olderAttention);
   });
 
@@ -98,7 +98,7 @@ describe("signed-in homepage case selection", () => {
     });
 
     expect(
-      selectSignedInHomepageCases([
+      selectWorkspaceCases([
         explicitNeedsAttention,
         analysisFailed,
         flagged,
@@ -118,7 +118,7 @@ describe("signed-in homepage case selection", () => {
     });
 
     expect(
-      selectSignedInHomepageCases([
+      selectWorkspaceCases([
         newerReportUploaded,
         olderReportRequired,
         intakeNotStarted,
@@ -138,7 +138,7 @@ describe("signed-in homepage case selection", () => {
     });
 
     expect(
-      selectSignedInHomepageCases([
+      selectWorkspaceCases([
         diminishedValueUpdate,
         totalLossProcessing,
       ]).focalCase,
@@ -155,7 +155,7 @@ describe("signed-in homepage case selection", () => {
       status: "checking",
     });
 
-    expect(selectSignedInHomepageCases([submitted, processing]).focalCase).toBe(
+    expect(selectWorkspaceCases([submitted, processing]).focalCase).toBe(
       processing,
     );
   });
@@ -167,7 +167,7 @@ describe("signed-in homepage case selection", () => {
       status: "closed",
     });
 
-    const selection = selectSignedInHomepageCases([closed]);
+    const selection = selectWorkspaceCases([closed]);
 
     expect(selection.focalCase).toBe(closed);
     expect(selection.allCasesClosed).toBe(true);
@@ -179,9 +179,9 @@ describe("signed-in homepage case selection", () => {
       status: "closed", caseStage: "closed", hasTotalLossClaimWorkflow: true, needsAttention: true,
     });
     const active = appraisalCase("active", { status: "draft", caseStage: "intake_in_progress" });
-    expect(selectSignedInHomepageCases([closed, active]).focalCase).toBe(active);
-    expect(selectSignedInHomepageCases([closed, active]).allCasesClosed).toBe(false);
-    expect(selectSignedInHomepageCases([appraisalCase("closed-draft", {
+    expect(selectWorkspaceCases([closed, active]).focalCase).toBe(active);
+    expect(selectWorkspaceCases([closed, active]).allCasesClosed).toBe(false);
+    expect(selectWorkspaceCases([appraisalCase("closed-draft", {
       status: "draft", caseStage: "closed",
     })]).hasActiveTotalLossDraft).toBe(false);
   });
@@ -191,7 +191,7 @@ describe("signed-in homepage case selection", () => {
     const historicalA = appraisalCase("historical-a", { status: "closed" });
     const historicalB = appraisalCase("historical-b", { status: "closed" });
 
-    const selection = selectSignedInHomepageCases([
+    const selection = selectWorkspaceCases([
       historicalA,
       focal,
       historicalA,
@@ -214,19 +214,19 @@ describe("signed-in homepage case selection", () => {
     const totalLossDraft = appraisalCase("tl-draft", { status: "draft" });
 
     expect(
-      selectSignedInHomepageCases([
+      selectWorkspaceCases([
         diminishedValueDraft,
         totalLossSubmitted,
       ]).hasActiveTotalLossDraft,
     ).toBe(false);
     expect(
-      selectSignedInHomepageCases([diminishedValueDraft, totalLossDraft])
+      selectWorkspaceCases([diminishedValueDraft, totalLossDraft])
         .hasActiveTotalLossDraft,
     ).toBe(true);
   });
 
   it("does not report an empty account as all closed", () => {
-    expect(selectSignedInHomepageCases([])).toEqual({
+    expect(selectWorkspaceCases([])).toEqual({
       focalCase: null,
       hasActiveTotalLossDraft: false,
       allCasesClosed: false,

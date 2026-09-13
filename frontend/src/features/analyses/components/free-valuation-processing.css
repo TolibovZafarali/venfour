@@ -1,4 +1,4 @@
-html:has([data-free-valuation-processing]) { overflow: hidden; scrollbar-gutter: auto; }
+html:has([data-free-valuation-processing]:not([data-exiting])) { overflow: hidden; scrollbar-gutter: auto; }
 .free-valuation-processing {
   --valuation-signal-color: var(--brand);
   position: fixed;
@@ -12,9 +12,10 @@ html:has([data-free-valuation-processing]) { overflow: hidden; scrollbar-gutter:
   isolation: isolate;
   outline: none;
   opacity: 1;
-  transition: opacity 440ms ease;
+  transition: opacity 1800ms ease;
 }
 .free-valuation-processing[data-exiting] { opacity: 0; pointer-events: none; }
+.free-valuation-processing[data-exiting] :is(.free-valuation-processing__center, .free-valuation-processing__masthead) { animation: none; opacity: 0; transition: opacity 220ms ease; }
 .free-valuation-processing__masthead {
   position: relative;
   z-index: 2;

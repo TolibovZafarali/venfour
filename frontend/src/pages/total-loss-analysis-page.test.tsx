@@ -148,7 +148,7 @@ describe("total-loss case analysis page", () => {
     expect(screen.queryByRole("heading", { name: progressHeading })).not.toBeInTheDocument();
     expect(getCount).toBeGreaterThanOrEqual(2);
     expect(postCount).toBe(0);
-    expect(screen.getByRole("link", { name: "Review intake" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Review your details" })).toHaveAttribute(
       "href",
       `/start?service=total-loss&caseId=${CASE_ID}&intent=correct-intake`,
     );
@@ -188,7 +188,7 @@ describe("total-loss case analysis page", () => {
       screen.getByRole("link", { name: "Upload your insurer’s report to continue" }),
     ).toBeVisible();
     expect(
-      screen.queryByRole("link", { name: "Review intake" }),
+      screen.queryByRole("link", { name: "Review your details" }),
     ).not.toBeInTheDocument();
   });
 
@@ -320,7 +320,7 @@ describe("total-loss case analysis page", () => {
     });
 
     expect(await screen.findByRole("button", { name: "Retry value check" })).toBeVisible();
-    expect(screen.getByText("Market evidence is temporarily unavailable.")).toBeVisible();
+    expect(screen.getByText("We couldn’t finish the check right now. Your information is saved.")).toBeVisible();
     expect(postCount).toBe(0);
     await user.click(
       screen.getByRole("button", { name: "Retry value check" }),
@@ -350,16 +350,41 @@ describe("total-loss case analysis page", () => {
       }),
     );
     renderTestApp([casePath], { authService: authService(sessionFor()), strictMode: true });
-    expect(await screen.findByRole("heading", { name: "Confirm a few details before we start." })).toBeVisible();
-    expect(screen.getByText("Confirm drive type.")).toBeVisible();
-    expect(screen.getByText("Confirm engine.")).toBeVisible();
-    expect(screen.getByRole("link", { name: "Review intake" })).toHaveAttribute("href",
-      `/start?service=total-loss&caseId=${CASE_ID}${correctionMode === "correct" ? "&intent=correct-intake" : ""}&focus=vehicle&vehicleFact=drivetrain`);
+    expect(await screen.findByRole("heading", { name: "Your insurer’s report can help." })).toBeVisible();
+    expect(screen.queryByText("Confirm drive type.")).not.toBeInTheDocument();
+    expect(screen.queryByText("Confirm engine.")).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Upload insurer valuation PDF" })).toHaveAttribute("href", `/total-loss/cases/${CASE_ID}/review-report`);
     expect(screen.queryByRole("button", { name: "Retry value check" })).not.toBeInTheDocument();
     expect(postCount).toBe(0);
   });
 
-  it("offers intake review for a nonretryable failure", async () => {
+  it.each(["resume", "correct"] as const)("asks only for a missing ZIP and preserves the %s case correction path", async (correctionMode) => {
+    const submit = vi.fn();
+    server.use(
+      http.get("*/api/v1/appraisal-cases/:caseId/analysis", () => HttpResponse.json({
+        status: "failed", attemptCount: 0, retryable: false,
+        error: { code: "ANALYSIS_INPUT_INVALID", message: "Internal normalization diagnostic." },
+        subjectReadiness: { ready: false, correctionMode, issues: [
+          { field: "postalCode", code: "SUBJECT_FACT_REQUIRED", message: "ZIP missing", correctionStep: "vehicle" },
+          { field: "engine", code: "SUBJECT_FACT_REQUIRED", message: "Confirm engine.", correctionStep: "vehicle" },
+        ] },
+      })),
+      http.post("*/api/v1/appraisal-cases/:caseId/analysis", () => { submit(); return HttpResponse.json({}); }),
+    );
+    renderTestApp([casePath], { authService: authService(sessionFor()) });
+    await screen.findByRole("heading", { name: "Check your review details." });
+    const link = screen.getByRole("link", { name: "Review your details" });
+    const url = new URL(link.getAttribute("href")!, "http://localhost");
+    expect(url.searchParams.get("caseId")).toBe(CASE_ID);
+    expect(url.searchParams.get("vehicleFact")).toBe("postalCode");
+    expect(url.searchParams.get("focus")).toBe("vehicle");
+    expect(url.searchParams.get("intent")).toBe(correctionMode === "correct" ? "correct-intake" : null);
+    expect(screen.getByText(/Check the ZIP code you entered/)).toBeVisible();
+    expect(screen.queryByText(/Confirm engine|normalization diagnostic/)).not.toBeInTheDocument();
+    expect(submit).not.toHaveBeenCalled();
+  });
+
+  it("offers report replacement for a nonretryable report failure", async () => {
     let postCount = 0;
     server.use(
       http.get("*/api/v1/appraisal-cases/:caseId/analysis", () =>
@@ -384,10 +409,10 @@ describe("total-loss case analysis page", () => {
     });
 
     expect(
-      await screen.findByRole("link", { name: "Review intake" }),
+      await screen.findByRole("link", { name: "Upload insurer valuation PDF" }),
     ).toHaveAttribute(
       "href",
-      `/start?service=total-loss&caseId=${CASE_ID}&intent=correct-intake`,
+      `/total-loss/cases/${CASE_ID}/review-report`,
     );
     expect(
       screen.queryByRole("button", { name: "Retry value check" }),
@@ -440,7 +465,7 @@ describe("total-loss case analysis page", () => {
       "href",
       `/start?service=total-loss&caseId=${CASE_ID}&intent=correct-intake&focus=insurer-offer`,
     );
-    expect(screen.getByRole("link", { name: "Review intake" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Review your details" })).toHaveAttribute(
       "href",
       `/start?service=total-loss&caseId=${CASE_ID}&intent=correct-intake`,
     );
@@ -473,7 +498,7 @@ describe("total-loss case analysis page", () => {
       screen.queryByRole("button", { name: "Retry value check" }),
     ).not.toBeInTheDocument();
     expect(
-      screen.queryByRole("link", { name: "Review intake" }),
+      screen.queryByRole("link", { name: "Review your details" }),
     ).not.toBeInTheDocument();
   });
 
@@ -599,7 +624,7 @@ describe("total-loss case analysis page", () => {
     });
 
     expect(await screen.findByRole("link", { name: "Replace report" })).toBeVisible();
-    expect(screen.getByText("The saved report intake is not ready.")).toBeVisible();
+    expect(screen.getByText("We couldn’t start the check right now. Your information is saved.")).toBeVisible();
     expect(
       screen.getByRole("link", { name: "Replace report" }),
     ).toHaveAttribute(

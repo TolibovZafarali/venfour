@@ -1467,7 +1467,7 @@ describe("/start?service=total-loss", () => {
     const assertOpeningChoice = () => {
       expect(screen.getByRole("radio", { name: label })).toBe(choice);
       expect(choice).toBeEnabled();
-      expect(screen.queryByText("Loading your saved appraisal…")).not.toBeInTheDocument();
+      expect(screen.queryByRole("heading", { name: "Loading your saved appraisal…" })).not.toBeInTheDocument();
       expect(document.querySelector("[data-appraisal-start-flow] .animate-spin")).toBeNull();
       expect(harness.saveDetails).not.toHaveBeenCalled();
       expect(harness.uploadReport).not.toHaveBeenCalled();
@@ -1488,7 +1488,7 @@ describe("/start?service=total-loss", () => {
 
     fireEvent.click(withinIntakeFlow().getByRole("button", { name: "Continue" }));
     expect(withinIntakeFlow().getByRole("button", { name: "Continue" })).toBeDisabled();
-    expect(screen.queryByText("Loading your saved appraisal…")).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Loading your saved appraisal…" })).not.toBeInTheDocument();
     expect(harness.saveDetails).not.toHaveBeenCalled();
 
     await act(async () => details.resolve(null));
@@ -1764,7 +1764,7 @@ describe("/start?service=total-loss", () => {
     );
     const choice = screen.getByRole("radio", { name: /I don’t have the report/i });
     expect(choice).toBeEnabled();
-    expect(screen.queryByText("Loading your saved appraisal…")).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Loading your saved appraisal…" })).not.toBeInTheDocument();
     fireEvent.click(choice);
     expect(choice).toBeChecked();
     expect(harness.createOrGetAppraisalCase).not.toHaveBeenCalled();
@@ -1792,7 +1792,7 @@ describe("/start?service=total-loss", () => {
     expect(screen.getByRole("radio", { name: /I don’t have the report/i })).toBe(choice);
     expect(choice).toBeChecked();
     expect(choice).toBeEnabled();
-    expect(screen.queryByText("Loading your saved appraisal…")).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Loading your saved appraisal…" })).not.toBeInTheDocument();
   });
 
   it("opens a referral link directly in intake and removes the code only after durable bootstrap", async () => {
@@ -1819,7 +1819,7 @@ describe("/start?service=total-loss", () => {
     const code = "b".repeat(48);
     harness.getOrCreateTotalLossDraft.mockRejectedValueOnce(new Error("Temporary connection failure"));
     const { router } = renderTestApp([`/start?service=total-loss&ref=${code}`], { authService: auth.service, totalLossDependencies: harness.dependencies });
-    await screen.findByText("Your durable Total Loss draft could not be prepared. No report has been requested or uploaded.");
+    await screen.findByText("We couldn’t open your saved review right now. Please try again.");
     expect(new URLSearchParams(router.state.location.search).get("ref")).toBe(code);
     await userEvent.setup().click(screen.getByRole("button", { name: "Try again" }));
     await waitFor(() => expect(new URLSearchParams(router.state.location.search).has("ref")).toBe(false));
@@ -1950,7 +1950,7 @@ describe("/start?service=total-loss", () => {
 
     expect(
       await screen.findByText(
-        "Your durable Total Loss draft could not be prepared. No report has been requested or uploaded.",
+        "We couldn’t open your saved review right now. Please try again.",
       ),
     ).toBeVisible();
     await user.click(screen.getByRole("button", { name: "Try again" }));
@@ -2942,7 +2942,7 @@ describe("/start?service=total-loss", () => {
     });
     await waitFor(() => expect(auth.getSession).toHaveBeenCalledOnce());
 
-    expect(screen.getByText("Loading your saved appraisal…")).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Loading your saved appraisal…" })).toBeVisible();
     expect(screen.queryByLabelText("VIN")).not.toBeInTheDocument();
     expect(
       screen.queryByDisplayValue("1HGCM82633A004352"),
@@ -2992,7 +2992,7 @@ describe("/start?service=total-loss", () => {
       }),
     );
 
-    expect(screen.getByText("Loading your saved appraisal…")).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Loading your saved appraisal…" })).toBeVisible();
     expect(
       screen.queryByLabelText("Insurance company"),
     ).not.toBeInTheDocument();

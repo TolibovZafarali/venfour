@@ -417,7 +417,7 @@ describe("total-loss customer workflow", () => {
       authService: authService(),
       strictMode: true,
     });
-    expect(await screen.findByText("Verified")).toBeVisible();
+    await waitFor(() => expect(screen.getByText("Verified")).toBeVisible());
     await waitFor(() =>
       expect(
         screen.getByRole("button", { name: "Complete purchase" }),
@@ -683,7 +683,7 @@ describe("total-loss customer workflow", () => {
       authService: authService(),
     });
 
-    expect(await screen.findByText(/Checkout was canceled/u)).toBeVisible();
+    await waitFor(() => expect(screen.getByText(/Checkout was canceled/u)).toBeVisible());
     await waitFor(() =>
       expect(
         screen.getByRole("button", { name: "Complete purchase" }),

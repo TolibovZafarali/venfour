@@ -1,6 +1,6 @@
 import type { AppraisalCase } from "@/features/cases/types";
 
-export interface SignedInHomepageCaseSelection {
+export interface WorkspaceCaseSelection {
   readonly focalCase: AppraisalCase | null;
   readonly hasActiveTotalLossDraft: boolean;
   readonly allCasesClosed: boolean;
@@ -48,9 +48,9 @@ function focalCasePriority(appraisalCase: AppraisalCase): number {
   return 7;
 }
 
-export function selectSignedInHomepageCases(
+export function selectWorkspaceCases(
   cases: readonly AppraisalCase[],
-): SignedInHomepageCaseSelection {
+): WorkspaceCaseSelection {
   let focalCase: AppraisalCase | null = null;
   let bestPriority = Number.POSITIVE_INFINITY;
 

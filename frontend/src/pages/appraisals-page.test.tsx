@@ -240,10 +240,9 @@ describe("customer appraisals page", () => {
       authService: createAuthHarness(sessionFor()).service,
     });
 
-    expect(
-      await screen.findByRole("heading", { name: "My appraisals" }),
-    ).toBeVisible();
-    expect(screen.getByLabelText("Loading appraisals")).toBeVisible();
+    expect(await screen.findByRole("heading", { name: "Opening your appraisals" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "My appraisals" })).toBeVisible();
+    expect(screen.getByLabelText("Loading appraisals")).toHaveAttribute("aria-busy", "true");
     expect(screen.queryAllByRole("article")).toHaveLength(0);
 
     resolveCases([]);

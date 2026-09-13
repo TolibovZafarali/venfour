@@ -1,12 +1,7 @@
 import {
   ArrowRight,
   CarFront,
-  ChartNoAxesCombined,
   CheckCircle2,
-  FileSearch,
-  LoaderCircle,
-  Scale,
-  ShieldCheck,
 } from "lucide-react";
 import { useId } from "react";
 import type { ReactNode } from "react";
@@ -21,29 +16,8 @@ import type {
 } from "@/features/analyses/analysis-presentation.generated";
 import { cn } from "@/lib/utils";
 
-import { ValuationSignalField } from "./valuation-signal-field";
+import { ValuationStatus, ValuationSurface } from "@/components/valuation-status";
 import "./total-loss-analysis-result.css";
-
-const analysisActivities = [
-  {
-    title: "Reviewing the insurer’s valuation information",
-    description:
-      "Checking the insurer’s stated valuation when available, together with the saved claim information.",
-    icon: FileSearch,
-  },
-  {
-    title: "Analyzing the vehicle and market evidence",
-    description:
-      "Comparing the vehicle with relevant, defensible market evidence.",
-    icon: ChartNoAxesCombined,
-  },
-  {
-    title: "Determining whether the insurer’s valuation appears fair",
-    description:
-      "Weighing the available evidence without overstating what it proves.",
-    icon: Scale,
-  },
-] as const;
 
 export interface TotalLossAnalysisProgressProps {
   readonly className?: string;
@@ -54,121 +28,13 @@ export interface TotalLossAnalysisProgressProps {
 }
 
 export function TotalLossAnalysisProgress({
-  className,
   description =
     "Venfour is examining the saved information now. You can safely leave this page and return later.",
   eyebrow = "Reviewing & analyzing",
   heading = "We’re reviewing and analyzing your claim.",
   headingLevel = "h1",
 }: TotalLossAnalysisProgressProps = {}) {
-  const headingId = useId();
-  const Heading = headingLevel;
-
-  return (
-    <section
-      className={cn(
-        "relative overflow-hidden rounded-[1.75rem] border border-line/80 bg-white shadow-[0_32px_90px_-56px_rgba(11,31,51,0.55)]",
-        className,
-      )}
-      aria-labelledby={headingId}
-      aria-busy="true"
-      data-total-loss-analysis-progress
-    >
-      <p className="sr-only" role="status" aria-live="polite" aria-atomic="true">
-        Venfour is reviewing the insurer valuation information available for
-        this case, analyzing the vehicle and market evidence, and determining
-        whether the valuation appears fair.
-      </p>
-
-      <span
-        className="pointer-events-none absolute -top-24 -right-20 size-72 rounded-full bg-brand-soft/80 blur-3xl"
-        aria-hidden
-      />
-      <span
-        className="pointer-events-none absolute -bottom-28 -left-24 size-72 rounded-full bg-market-soft/75 blur-3xl"
-        aria-hidden
-      />
-
-      <div className="relative grid lg:grid-cols-[minmax(0,0.9fr)_minmax(22rem,1.1fr)]">
-        <div className="flex flex-col justify-between border-b border-line/80 p-6 sm:p-8 lg:border-r lg:border-b-0 lg:p-10 xl:p-12">
-          <div>
-            <p className="text-xs font-semibold tracking-[0.14em] text-brand uppercase">
-              {eyebrow}
-            </p>
-            <Heading
-              id={headingId}
-              className="mt-3 max-w-xl text-3xl leading-[1.08] font-semibold tracking-[-0.045em] text-balance text-ink sm:text-4xl xl:text-[2.8rem]"
-            >
-              {heading}
-            </Heading>
-            <p className="mt-5 max-w-xl text-base leading-7 text-copy">
-              {description}
-            </p>
-          </div>
-
-          <div className="mt-9 flex items-center gap-4 sm:mt-12">
-            <div
-              className="relative flex size-24 shrink-0 items-center justify-center sm:size-28"
-              aria-hidden
-            >
-              <span className="absolute inset-0 rounded-full border border-brand/15 bg-brand-soft/35" />
-              <span className="absolute inset-2 animate-spin rounded-full border border-transparent border-t-brand/80 border-r-brand/20 [animation-duration:2.8s] motion-reduce:animate-none" />
-              <span className="absolute inset-4 animate-pulse rounded-full border border-brand/15 bg-white/90 shadow-[0_18px_46px_-24px_rgba(21,94,239,0.65)] motion-reduce:animate-none" />
-              <span className="relative flex size-12 items-center justify-center rounded-full bg-brand text-white shadow-sm">
-                <LoaderCircle className="size-6 animate-spin [animation-duration:1.8s] motion-reduce:animate-none" />
-              </span>
-            </div>
-            <div className="min-w-0">
-              <p className="text-sm font-semibold text-ink">Analysis in progress</p>
-              <p className="mt-1 text-sm leading-6 text-copy">
-                This page updates automatically when the review is complete.
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-surface/45 p-6 sm:p-8 lg:p-10 xl:p-12">
-          <p className="text-xs font-semibold tracking-[0.13em] text-copy uppercase">
-            What Venfour is checking
-          </p>
-          <ol className="mt-5 space-y-3" aria-label="Analysis activities">
-            {analysisActivities.map((activity) => {
-              const Icon = activity.icon;
-              return (
-                <li
-                  key={activity.title}
-                  className="group flex items-start gap-4 rounded-2xl border border-line/80 bg-white/90 p-4 shadow-[0_14px_36px_-30px_rgba(11,31,51,0.52)] transition-colors motion-reduce:transition-none"
-                >
-                  <span className="relative flex size-11 shrink-0 items-center justify-center rounded-xl bg-brand-soft text-brand">
-                    <span className="absolute top-1.5 right-1.5 size-1.5 animate-pulse rounded-full bg-brand motion-reduce:animate-none" />
-                    <Icon className="size-5" aria-hidden />
-                  </span>
-                  <span className="min-w-0">
-                    <span className="block text-sm font-semibold leading-6 text-ink">
-                      {activity.title}
-                    </span>
-                    <span className="mt-0.5 block text-xs leading-5 text-copy">
-                      {activity.description}
-                    </span>
-                  </span>
-                </li>
-              );
-            })}
-          </ol>
-
-          <div className="mt-5 flex items-start gap-3 rounded-xl bg-brand-soft/75 px-4 py-3.5">
-            <ShieldCheck
-              className="mt-0.5 size-4 shrink-0 text-brand"
-              aria-hidden
-            />
-            <p className="text-xs leading-5 text-copy">
-              Your appraisal remains private and saved while the review runs.
-            </p>
-          </div>
-        </div>
-      </div>
-    </section>
-  );
+  return <ValuationStatus kind="loading" heading={heading} description={description} eyebrow={eyebrow} headingLevel={headingLevel} />;
 }
 
 interface ResultPresentation {
@@ -278,9 +144,9 @@ export function TotalLossAnalysisResult({
     );
   const inconclusive = analysis.assessment.classification === "INSUFFICIENT_EVIDENCE" || analysis.assessment.classification === "CONFLICTING_EVIDENCE";
   const recovery = inconclusive && !missingOfferBlocksComparison ? analysis.marketSearchContext?.recovery : undefined;
-  const targetedCorrectionPath = recovery?.field && recovery.correctionStep && reviewIntakePath
+  const targetedCorrectionPath = recovery?.kind === "MISSING_INFORMATION" && recovery.field && ["postalCode", "lossDate", "mileage", "year", "make", "model", "insurerOffer"].includes(recovery.field) && recovery.correctionStep && reviewIntakePath
     ? `${reviewIntakePath}&focus=${encodeURIComponent(recovery.correctionStep)}&vehicleFact=${encodeURIComponent(recovery.field)}` : undefined;
-  const correctionLabel = recovery?.kind === "UNRESOLVED_CONFIGURATION" ? "Confirm vehicle detail" : "Confirm missing information";
+  const correctionLabel = "Review your details";
   const insurerLabel =
     analysis.insurerValuation.source === "CUSTOMER_ENTERED"
       ? "Insurer’s offer"
@@ -313,24 +179,23 @@ export function TotalLossAnalysisResult({
 
   const presentation: ResultPresentation = recovery ? {
     ...basePresentation,
-    heading: recovery.kind === "UNRESOLVED_CONFIGURATION" ? "One vehicle detail needs confirmation."
-      : recovery.kind === "SEARCH_INTERRUPTED" ? "We couldn’t complete a reliable estimate." : "We need more evidence to be sure.",
-    summary: recovery.message,
+    heading: recovery.kind === "MISSING_INFORMATION" ? "A few details are missing."
+      : recovery.kind === "SEARCH_INTERRUPTED" ? "We couldn’t finish your estimate." : "We need more evidence to be sure.",
+    summary: recovery.kind === "MISSING_INFORMATION" ? "Check the details you entered so we can continue your review."
+      : recovery.kind === "SEARCH_INTERRUPTED" ? "We couldn’t complete the check right now. Your information is saved."
+      : "We couldn’t establish a reliable preliminary range from the available evidence. Your insurer’s report can help us take a closer look.",
     worthwhileHeading: "Your case is saved.",
-    worthwhileSummary: "You can add your insurer’s valuation report for a closer review. We’ll check the report and vehicle details before payment is available.",
+    worthwhileSummary: "You can add your insurer’s valuation report for a closer review.",
   } : basePresentation;
 
   return (
-    <section
+    <ValuationSurface
       className={cn("valuation-result", className)}
       aria-labelledby={headingId}
       data-analysis-classification={analysis.assessment.classification}
       data-total-loss-analysis-result
       data-supports-continuation={presentation.showContinue || undefined}
     >
-      <div className="valuation-result__environment page-gradient-analysis" aria-hidden="true">
-        <ValuationSignalField layout="sides" />
-      </div>
       <p className="sr-only" role="status" aria-live="polite" aria-atomic="true">
         Analysis complete. {presentation.heading}
       </p>
@@ -458,7 +323,7 @@ export function TotalLossAnalysisResult({
                 variant="link"
                 className="min-h-11 px-3 font-semibold text-copy hover:text-ink"
               >
-                <Link to={reviewIntakePath}>Review intake</Link>
+                <Link to={reviewIntakePath}>Review your details</Link>
               </Button>
             </div>
           ) : null}
@@ -469,7 +334,7 @@ export function TotalLossAnalysisResult({
           This review does not determine what your insurer owes.
         </p>
       </div>
-    </section>
+    </ValuationSurface>
   );
 }
 

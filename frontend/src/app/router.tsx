@@ -20,6 +20,7 @@ import { AppraisalsPage } from "@/pages/appraisals-page";
 import { AppraisalStartPage } from "@/pages/appraisal-start-page";
 import { ContactPage } from "@/pages/contact-page";
 import { CookiePolicyPage } from "@/pages/cookie-policy-page";
+import { AppEntryPage } from "@/pages/app-entry-page";
 import { HomePage } from "@/pages/home-page";
 import { MethodologyPage } from "@/pages/methodology-page";
 import { NotFoundPage } from "@/pages/not-found-page";
@@ -60,6 +61,12 @@ export const appRoutes: RouteObject[] = [
     element: <AppShell />,
     errorElement: <RouteErrorPage />,
     children: [
+      { path: "app", element: <AppEntryPage />, handle: metadata("Your Workspace | Venfour", "Resume your saved review or open your appraisal history.") },
+      ...(import.meta.env.DEV ? [{
+        path: "_local/status-experience",
+        lazy: async () => ({ Component: (await import("@/pages/local-status-experience-page")).LocalStatusExperiencePage }),
+        handle: metadata("Status Experience Preview | Venfour", "Synthetic status transitions with no provider requests."),
+      }] : []),
       ...(import.meta.env.DEV ? [{
         path: "_local/valuation-processing",
         lazy: async () => ({ Component: (await import("@/pages/local-valuation-processing-page")).LocalValuationProcessingPage }),

@@ -26,10 +26,8 @@ interface Presentation {
 export function FreeValuationProcessingProvider({ children }: { children: ReactNode }) {
   const [presentation, setPresentation] = useState<Presentation | null>(null);
   const ownerRef = useRef<symbol | null>(null);
-  const releaseTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const exitTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const clearTimers = useCallback(() => {
-    clearTimeout(releaseTimer.current);
     clearTimeout(exitTimer.current);
   }, []);
   const show = useCallback((owner: symbol, options: FreeValuationProcessingOptions) => {
@@ -47,16 +45,15 @@ export function FreeValuationProcessingProvider({ children }: { children: ReactN
   const hide = useCallback((owner: symbol) => {
     if (ownerRef.current !== owner) return;
     clearTimers();
-    // A route handoff registers its next phase before this release runs.
-    releaseTimer.current = setTimeout(() => {
+    // Layout-phase handoffs replace this state in the same commit. A settled
+    // page becomes accessible immediately while the decorative exit continues.
+    setPresentation((current) => current?.owner === owner ? { ...current, exiting: true } : current);
+    const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    exitTimer.current = setTimeout(() => {
       if (ownerRef.current !== owner) return;
-      setPresentation((current) => current ? { ...current, exiting: true } : null);
-      const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-      exitTimer.current = setTimeout(() => {
-        ownerRef.current = null;
-        setPresentation(null);
-      }, reduced ? 0 : 460);
-    }, 0);
+      ownerRef.current = null;
+      setPresentation(null);
+    }, reduced ? 0 : 1800);
   }, [clearTimers]);
   useEffect(() => clearTimers, [clearTimers]);
   const context = useMemo(() => ({ show, hide }), [show, hide]);
@@ -64,8 +61,8 @@ export function FreeValuationProcessingProvider({ children }: { children: ReactN
   return (
     <FreeValuationProcessingContext.Provider value={context}>
       <div
-        inert={Boolean(presentation)}
-        aria-hidden={presentation ? true : undefined}
+        inert={Boolean(presentation && !presentation.exiting)}
+        aria-hidden={presentation && !presentation.exiting ? true : undefined}
         style={{ visibility: presentation && !presentation.exiting ? "hidden" : undefined }}
       >
         {children}
@@ -78,26 +75,34 @@ export function FreeValuationProcessingProvider({ children }: { children: ReactN
   );
 }
 
-export function FreeValuationProcessing({ reviewKey, phase = "reviewing", vehicle, notice, error, onRetry, retryDisabled, development }: FreeValuationProcessingOptions) {
+export function FreeValuationProcessing({ reviewKey, heading, description, phase = "reviewing", vehicle, notice, error, onRetry, retryDisabled, development }: FreeValuationProcessingOptions) {
   const context = useContext(FreeValuationProcessingContext);
   const [owner] = useState(() => Symbol("valuation-processing"));
   useLayoutEffect(() => {
-    context?.show(owner, { reviewKey, phase, vehicle, notice, error, onRetry, retryDisabled, development });
-  }, [context, owner, reviewKey, phase, vehicle, notice, error, onRetry, retryDisabled, development]);
+    context?.show(owner, { reviewKey, heading, description, phase, vehicle, notice, error, onRetry, retryDisabled, development });
+  }, [context, owner, reviewKey, heading, description, phase, vehicle, notice, error, onRetry, retryDisabled, development]);
   useLayoutEffect(() => () => context?.hide(owner), [context, owner]);
   return null;
 }
 
 function ProcessingEnvironment({ options, exiting }: { options: FreeValuationProcessingOptions; exiting: boolean }) {
-  const { phase = "reviewing", notice, error, onRetry, retryDisabled, development } = options;
+  const { heading, description, phase = "reviewing", notice, error, onRetry, retryDisabled, development } = options;
+  const [particlesSettled, setParticlesSettled] = useState(Boolean(error));
+  useEffect(() => {
+    const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    const timer = window.setTimeout(() => setParticlesSettled(Boolean(error)), error && !reduced ? 1800 : 0);
+    return () => window.clearTimeout(timer);
+  }, [error]);
   const [activity, setActivity] = useState(0);
   const [gatheringReplay, setGatheringReplay] = useState(0);
   const surfaceRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const priorFocus = document.activeElement;
-    surfaceRef.current?.focus({ preventScroll: true });
+    const surface = surfaceRef.current;
+    surface?.focus({ preventScroll: true });
     return () => {
+      if (document.activeElement !== document.body && !surface?.contains(document.activeElement)) return;
       const target = priorFocus instanceof HTMLElement && priorFocus !== document.body && priorFocus.isConnected
         ? priorFocus
         : document.getElementById("main-content");
@@ -106,18 +111,24 @@ function ProcessingEnvironment({ options, exiting }: { options: FreeValuationPro
   }, []);
 
   useEffect(() => {
-    if (phase !== "reviewing" || error) return;
+    if (exiting && (document.activeElement === document.body || surfaceRef.current?.contains(document.activeElement))) {
+      document.getElementById("main-content")?.focus({ preventScroll: true });
+    }
+  }, [exiting]);
+
+  useEffect(() => {
+    if (phase !== "reviewing" || error || exiting) return;
     const timer = window.setInterval(() => {
       if (!document.hidden) setActivity((current) => (current + 1) % reviewActivities.length);
     }, 6800);
     return () => window.clearInterval(timer);
-  }, [phase, error]);
+  }, [phase, error, exiting]);
 
-  const message = error ? "Let’s try again" : phase === "preparing"
+  const message = error ? "Let’s try again" : heading ?? (phase === "preparing"
     ? "Preparing your details"
     : phase === "connecting" ? "Connecting to your review"
     : phase === "opening" ? "Opening your valuation"
-    : reviewActivities[activity];
+    : reviewActivities[activity]);
 
   return (
     <div
@@ -127,9 +138,10 @@ function ProcessingEnvironment({ options, exiting }: { options: FreeValuationPro
       data-phase={phase}
       data-needs-action={Boolean(error || notice) || undefined}
       data-exiting={exiting || undefined}
+      aria-hidden={exiting || undefined}
       tabIndex={-1}
     >
-      <ValuationSignalField key={gatheringReplay} />
+      {!error || !particlesSettled ? <ValuationSignalField key={gatheringReplay} exiting={exiting || Boolean(error)} /> : null}
       <div className="free-valuation-processing__masthead">
         <a className="free-valuation-processing__brand notranslate" href="/" aria-label="Venfour home" translate="no">
           <img src={venfourMark} alt="" aria-hidden />
@@ -141,10 +153,11 @@ function ProcessingEnvironment({ options, exiting }: { options: FreeValuationPro
         </div> : null}
       </div>
       <main className="free-valuation-processing__center">
-        <h1 className="sr-only">Preparing your valuation</h1>
+        <h1 className="sr-only">{error ? "Let’s try again" : heading ?? "Preparing your valuation"}</h1>
         <div className="free-valuation-processing__message-space" aria-hidden="true">
           <p key={message} className="free-valuation-processing__message">{message}</p>
         </div>
+        {description && !error ? <p className="free-valuation-processing__error">{description}</p> : null}
         {error ? <p className="free-valuation-processing__error" role="alert">{error}</p> : null}
         {phase === "reviewing" && !error ? <span className="sr-only" role="status">Venfour is reviewing your vehicle and market evidence. The displayed activities describe the checks included in your review. Your result will appear when it is ready.</span> : null}
         {error && onRetry ? <button className="free-valuation-processing__retry" type="button" onClick={onRetry} disabled={retryDisabled}>Try again</button> : null}
