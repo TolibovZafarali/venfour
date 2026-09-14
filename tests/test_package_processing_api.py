@@ -233,11 +233,9 @@ class PackageProcessingApiTests(unittest.TestCase):
                 headers={"Authorization": "Bearer valid-oidc-token"},
             )
 
-        self.assertEqual(busy.status_code, 503)
-        self.assertEqual(busy.headers["retry-after"], "60")
-        self.assertEqual(
-            busy.json()["error"]["code"], "PACKAGE_PROCESSING_UNAVAILABLE"
-        )
+        self.assertEqual(busy.status_code, 200)
+        self.assertNotIn("retry-after", busy.headers)
+        self.assertEqual(busy.json()["state"], "already_processing")
         self.assertEqual(failed.status_code, 500)
         self.assertEqual(
             failed.json()["error"]["code"], "PACKAGE_PROCESSING_FAILED"

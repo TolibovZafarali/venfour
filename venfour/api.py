@@ -276,6 +276,8 @@ _ERROR_MESSAGES = {
     "INTERNAL_AUTHENTICATION_REQUIRED": (
         "Internal caller authentication is required."
     ),
+    "PAID_RECOVERY_NOT_CONFIGURED": "Paid processing recovery is not configured.",
+    "PAID_RECOVERY_UNAVAILABLE": "Paid processing recovery is temporarily unavailable.",
     "PACKAGE_PROCESSING_UNAVAILABLE": (
         "Package processing is temporarily unavailable."
     ),
@@ -2181,6 +2183,40 @@ def _readiness(request: Request) -> JSONResponse:
     )
 
 
+async def _internal_paid_work_recovery(request: Request) -> JSONResponse:
+    """Reconcile a fixed, small batch; never accept case IDs or operator overrides."""
+    if not await _require_empty_request_body(request):
+        return _private_response(_error_response(400, "INVALID_INTERNAL_WORK_REQUEST"))
+    verifier = request.app.state.internal_caller_verifier
+    try:
+        if verifier is None:
+            raise InternalCallerAuthenticationError("Internal identity is unavailable")
+        await run_in_threadpool(verifier.verify, _internal_bearer_token(request))
+    except InternalCallerAuthenticationError:
+        return _private_response(_error_response(401, "INTERNAL_AUTHENTICATION_REQUIRED",
+            headers={"WWW-Authenticate": "Bearer"}))
+    status = request.app.state.paid_release_status
+    if request.method == "GET":
+        print(json.dumps({"severity": "INFO", "event": "paid_work_configuration",
+            "configured": status["configured"], "qualificationDigest":
+            status.get("qualification", {}).get("artifactDigest")}), flush=True)
+        return _private_response(JSONResponse(status, status_code=200 if status["configured"] else 503))
+    coordinator = request.app.state.package_coordinator
+    if coordinator is None or not status["configured"]:
+        return _private_response(_error_response(503, "PAID_RECOVERY_NOT_CONFIGURED"))
+    try:
+        result = await run_in_threadpool(coordinator.reconcile_due, limit=1)
+        payload = {"reserved": result.reserved, "dispatched": result.dispatched,
+            "failed": result.failed, "dispatcherConfigured": result.dispatcher_configured}
+        print(json.dumps({"severity": "INFO", "event": "paid_work_recovery", **payload}), flush=True)
+        return _private_response(JSONResponse(payload,
+            status_code=200 if result.dispatcher_configured and result.failed == 0 else 503))
+    except Exception:
+        print(json.dumps({"severity": "ERROR", "event": "paid_work_recovery_failed",
+            "code": "PAID_RECOVERY_UNAVAILABLE"}), flush=True)
+        return _private_response(_error_response(503, "PAID_RECOVERY_UNAVAILABLE"))
+
+
 def _runtime_secret_is_configured(name: str) -> bool:
     value = os.environ.get(name)
     if not isinstance(value, str):
@@ -2404,8 +2440,11 @@ async def _internal_work_item_execute(request: Request) -> JSONResponse:
         )
     except PackageProcessingInputError:
         return _private_response(_error_response(400, "INVALID_WORK_ITEM_ID"))
+    except PackageWorkBusyError:
+        # A durable owner already holds the work. Independent recovery handles
+        # abandonment after expiry; an immediate delivery retry adds no progress.
+        return _private_response(JSONResponse({"state": "already_processing", "workItemId": work_item_id}))
     except (
-        PackageWorkBusyError,
         PackageRetryLaterError,
         PackageStaleFenceError,
         PackageProcessingUnavailableError,
@@ -2890,6 +2929,7 @@ def create_app(
     selected_package_coordinator = package_coordinator
     selected_package_processor = package_processor
     selected_report_processor: TotalLossReportProcessor | None = None
+    paid_report_reviewer_available = False
     selected_internal_caller_verifier = internal_caller_verifier
     owned_package_dispatcher: CloudTasksWorkItemDispatcher | None = None
 
@@ -3035,6 +3075,7 @@ def create_app(
                 ),
                 commerce_service=selected_commerce_service,
             )
+            paid_report_reviewer_available = report_reviewer is not None
             selected_package_processor = TotalLossWorkItemProcessor(
                 selected_gateway,
                 base_package_processor,
@@ -3119,6 +3160,14 @@ def create_app(
         or os.environ.get("VENFOUR_LOCAL_FULL_FLOW") == "1"
     )
     customer_readiness_reasons: list[str] = []
+    from venfour.paid_runtime import paid_release_configuration_status
+    paid_release_status = paid_release_configuration_status(os.environ)
+    if os.environ.get("OPENAI_REPORT_RELEASE_GATE_ENABLED") not in (None, "", "false"):
+        if not paid_release_status["configured"]:
+            customer_readiness_reasons.append(paid_release_status["reason"])
+        elif selected_report_processor is None or not paid_report_reviewer_available:
+            paid_release_status = {"configured": False, "reason": "REPORT_REVIEW_PROCESSOR_UNAVAILABLE"}
+            customer_readiness_reasons.append("REPORT_REVIEW_PROCESSOR_UNAVAILABLE")
     if response_analysis_required:
         if response_analysis_configuration is None:
             response_analysis_configuration = (
@@ -3332,6 +3381,7 @@ def create_app(
         ),
         Route("/health", _health, methods=["GET"]),
         Route("/ready", _readiness, methods=["GET"]),
+        Route("/internal/v1/paid-work/reconcile", _internal_paid_work_recovery, methods=["GET", "POST"]),
         Route("/webhooks/stripe", _stripe_webhook, methods=["POST"]),
     ]
     if (
@@ -3474,6 +3524,7 @@ def create_app(
         insurer_response_customer_path_configured
     )
     app.state.customer_readiness_reasons = tuple(customer_readiness_reasons)
+    app.state.paid_release_status = paid_release_status
     app.state.internal_caller_verifier = selected_internal_caller_verifier
     app.state.staff_release_review_service = (
         selected_staff_release_review_service

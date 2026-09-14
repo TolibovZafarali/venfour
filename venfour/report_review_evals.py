@@ -603,11 +603,9 @@ def load_report_review_eval_attestation(
     if not selected_path.exists():
         return None
     payload = _strict_json_object(selected_path)
-    expected_suite = (
-        expected_eval_suite_digest
-        if expected_eval_suite_digest is not None
-        else report_review_eval_suite_digest()
-    )
+    expected_suite = report_review_eval_suite_digest()
+    if expected_eval_suite_digest is not None and expected_eval_suite_digest != expected_suite:
+        raise ReportReviewEvalError("Configured evaluation suite does not match packaged content")
     attestation = ReportReviewEvalAttestationV1.from_dict(
         payload,
         expected_model_identifier=expected_model_identifier,

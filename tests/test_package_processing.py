@@ -405,8 +405,11 @@ class FakeCloudTasksClient:
         self.error = error
         self.calls: list[tuple[Mapping[str, object], float]] = []
 
+    def get_task(self, *, request, timeout, retry=None):
+        return self.calls[-1][0]["task"]
+
     def create_task(
-        self, *, request: Mapping[str, object], timeout: float
+        self, *, request: Mapping[str, object], timeout: float, retry=None
     ) -> SimpleNamespace:
         self.calls.append((request, timeout))
         if self.error is not None:
@@ -467,9 +470,9 @@ class CloudTasksDispatcherTests(unittest.TestCase):
             cloud_tasks_configuration(), client=client
         )
 
-        task_name = dispatcher.dispatch(WORK_ITEM_ID)
+        task_name = dispatcher.dispatch(WORK_ITEM_ID, 1)
 
-        digest = hashlib.sha256(WORK_ITEM_ID.encode("ascii")).hexdigest()
+        digest = hashlib.sha256(f"{WORK_ITEM_ID}:1".encode("ascii")).hexdigest()
         expected_name = (
             "projects/venfour-test/locations/us-central1/queues/"
             f"package-finalization/tasks/wi-{digest}"
@@ -480,6 +483,7 @@ class CloudTasksDispatcherTests(unittest.TestCase):
         self.assertEqual(request["parent"], cloud_tasks_configuration().queue_path)
         task = request["task"]
         assert isinstance(task, Mapping)
+        self.assertEqual(task["dispatch_deadline"], {"seconds": 960})
         self.assertEqual(task["name"], expected_name)
         http_request = task["http_request"]
         assert isinstance(http_request, Mapping)
@@ -500,7 +504,7 @@ class CloudTasksDispatcherTests(unittest.TestCase):
             },
         )
 
-    def test_already_existing_deterministic_task_is_success(self) -> None:
+    def test_already_existing_task_requires_verified_active_delivery(self) -> None:
         class AlreadyExists(Exception):
             pass
 
@@ -511,7 +515,7 @@ class CloudTasksDispatcherTests(unittest.TestCase):
             already_exists_errors=(AlreadyExists,),
         )
 
-        self.assertIn(WORK_ITEM_ID[:0], dispatcher.dispatch(WORK_ITEM_ID))
+        self.assertIn("/tasks/wi-", dispatcher.dispatch(WORK_ITEM_ID, 1))
 
     def test_dispatch_rejects_invalid_work_identity(self) -> None:
         dispatcher = CloudTasksWorkItemDispatcher(
@@ -673,7 +677,7 @@ class PackageCoordinatorTests(unittest.TestCase):
         self.assertEqual((result.reserved, result.dispatched, result.failed), (1, 0, 1))
         self.assertEqual(
             database.released,
-            [(WORK_ITEM_ID, DISPATCH_TOKEN, "TASK_DISPATCH_UNAVAILABLE", 8)],
+            [(WORK_ITEM_ID, DISPATCH_TOKEN, "TASK_DISPATCH_UNAVAILABLE", 60)],
         )
 
     def test_dispatcher_accepts_report_generation_and_review_work(self) -> None:

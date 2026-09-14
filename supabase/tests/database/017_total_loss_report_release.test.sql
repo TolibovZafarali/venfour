@@ -3,7 +3,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
 
-select plan(62);
+select plan(66);
 
 select ok(
   to_regclass('public.total_loss_report_versions') is not null
@@ -577,6 +577,22 @@ select ok(
      and pdf_digest = repeat('8', 64) from m5_review_claim),
   'review claim establishes the second package/work dual fence'
 );
+
+savepoint review_crash;
+reset role;
+update public.workflow_work_items set attempt_count=3,processing_expires_at=statement_timestamp()-interval '1 second'
+where id=(select work_item_id from m5_review_claim);
+update public.total_loss_package_jobs set processing_expires_at=statement_timestamp()-interval '1 second'
+where id=(select package_job_id from m5_review_claim);
+set local role service_role;
+select outcome='terminal_failed' and attempt_count=3 and package_status='waiting_human_review' as exhausted
+from public.claim_total_loss_report_review_work_item((select work_item_id from m5_review_claim),gen_random_uuid()) \gset review_crash_
+reset role;
+select count(*)=1 as held from public.total_loss_release_reviews
+where report_version_id=(select report_version_id from m5_review_claim) \gset review_crash_
+rollback to review_crash;
+select ok(:'review_crash_exhausted'::boolean,'expired third review cannot invoke a fourth quality review');
+select ok(:'review_crash_held'::boolean,'crashed report review enters one staff hold');
 
 create temporary table m5_ai_begin on commit drop as
 select * from public.begin_total_loss_ai_review(
@@ -2288,6 +2304,23 @@ select * from public.claim_total_loss_report_generation_work_item(
   (select work_item_id from m5_retry_claim),
   'ad000000-0000-4000-8000-000000000004'
 );
+
+-- Crash recovery must count an expired third execution, including generation work.
+savepoint generation_crash;
+reset role;
+update public.workflow_work_items set processing_expires_at=statement_timestamp()-interval '1 second'
+where id=(select work_item_id from m5_retry_final_claim);
+update public.total_loss_package_jobs set processing_expires_at=statement_timestamp()-interval '1 second'
+where id=(select package_job_id from m5_retry_final_claim);
+set local role service_role;
+select outcome='terminal_failed' and attempt_count=3 and package_status='waiting_human_review' as exhausted
+from public.claim_total_loss_report_generation_work_item((select work_item_id from m5_retry_final_claim),gen_random_uuid()) \gset generation_crash_
+reset role;
+select count(*)=1 as held from public.total_loss_release_reviews
+where report_version_id=(select report_version_id from m5_retry_final_claim) \gset generation_crash_
+rollback to generation_crash;
+select ok(:'generation_crash_exhausted'::boolean,'expired third generation execution is terminal without a fourth claim');
+select ok(:'generation_crash_held'::boolean,'crashed generation routes one report to staff recovery');
 
 select ok(
   (

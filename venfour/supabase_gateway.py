@@ -2958,6 +2958,27 @@ class SupabaseHttpGateway:
             )
         return payload
 
+    def workflow_work_item_delivery_generation(self, work_item_id: str, dispatch_token: str) -> int:
+        value = self._rpc("workflow_work_item_delivery_generation", {
+            "requested_work_item_id": _canonical_uuid(work_item_id, "Work item ID"),
+            "requested_dispatch_token": _canonical_uuid(dispatch_token, "Dispatch token"),
+        })
+        if isinstance(value, bool) or not isinstance(value, int) or not 0 <= value <= 5:
+            raise SupabaseContractError("Delivery generation is invalid")
+        return value
+
+    def advance_workflow_work_item_delivery(self, work_item_id: str, dispatch_token: str, generation: int) -> int | None:
+        if isinstance(generation, bool) or not isinstance(generation, int) or not 0 <= generation <= 5:
+            raise SupabaseContractError("Delivery generation is invalid")
+        value = self._rpc("advance_workflow_work_item_delivery", {
+            "requested_work_item_id": _canonical_uuid(work_item_id, "Work item ID"),
+            "requested_dispatch_token": _canonical_uuid(dispatch_token, "Dispatch token"),
+            "requested_generation": generation,
+        })
+        if value is not None and (isinstance(value, bool) or not isinstance(value, int) or value != generation + 1):
+            raise SupabaseContractError("Delivery generation advancement is invalid")
+        return value
+
     def mark_workflow_work_item_dispatched(
         self, work_item_id: str, dispatch_token: str
     ) -> bool:

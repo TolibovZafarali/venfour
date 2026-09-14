@@ -51,7 +51,8 @@ SHA256_PATTERN = re.compile(r"[0-9a-f]{64}")
 GOOGLE_ISSUERS = frozenset({"accounts.google.com", "https://accounts.google.com"})
 MAX_INTERNAL_TOKEN_CHARACTERS = 16_384
 MAX_RECONCILIATION_LIMIT = 100
-DEFAULT_RECONCILIATION_LIMIT = 25
+DEFAULT_RECONCILIATION_LIMIT = 5
+TASK_DISPATCH_DEADLINE_SECONDS = 960
 MAX_DISPATCH_RETRY_DELAY_SECONDS = 3600
 
 
@@ -457,12 +458,13 @@ class CloudTasksWorkItemDispatcher:
         *,
         client: Any | None = None,
         already_exists_errors: tuple[type[BaseException], ...] | None = None,
+        not_found_errors: tuple[type[BaseException], ...] | None = None,
     ) -> None:
         if not isinstance(configuration, CloudTasksConfiguration):
             raise TypeError("configuration must be CloudTasksConfiguration")
         if client is None:
             try:
-                from google.api_core.exceptions import AlreadyExists
+                from google.api_core.exceptions import AlreadyExists, NotFound
                 from google.cloud import tasks_v2
             except ImportError as exc:  # pragma: no cover - optional prod dep
                 raise PackageDispatchUnavailableError(
@@ -475,22 +477,48 @@ class CloudTasksWorkItemDispatcher:
                     "Cloud Tasks support is unavailable"
                 ) from exc
             selected_already_exists = (AlreadyExists,)
+            selected_not_found = (NotFound,)
         else:
             selected_already_exists = already_exists_errors or ()
-        if not callable(getattr(client, "create_task", None)):
-            raise TypeError("Cloud Tasks client must expose create_task")
+            selected_not_found = not_found_errors or ()
+        if any(not callable(getattr(client, name, None)) for name in ("create_task", "get_task")):
+            raise TypeError("Cloud Tasks client must expose create_task and get_task")
         self._configuration = configuration
         self._client = client
         self._already_exists_errors = selected_already_exists
+        self._not_found_errors = selected_not_found
 
     @staticmethod
-    def _task_id(work_item_id: str) -> str:
+    def _task_id(work_item_id: str, generation: int = 0) -> str:
         canonical = _request_uuid(work_item_id, "Work item ID")
+        if isinstance(generation, bool) or not isinstance(generation, int) or not 0 <= generation <= 5:
+            raise PackageProcessingInputError("Delivery generation is invalid")
+        if generation:
+            canonical = f"{canonical}:{generation}"
         digest = hashlib.sha256(canonical.encode("ascii")).hexdigest()
         return f"wi-{digest}"
 
-    def _task_name(self, work_item_id: str) -> str:
-        return f"{self._configuration.queue_path}/tasks/{self._task_id(work_item_id)}"
+    def _task_name(self, work_item_id: str, generation: int = 0) -> str:
+        return f"{self._configuration.queue_path}/tasks/{self._task_id(work_item_id, generation)}"
+
+    def find_active(self, work_item_id: str, generation: int) -> str | None:
+        name = self._task_name(work_item_id, generation)
+        try:
+            task = self._client.get_task(request={"name": name}, timeout=self._configuration.request_timeout_seconds, retry=None)
+        except self._not_found_errors:
+            return None
+        except Exception as exc:
+            raise PackageDispatchUnavailableError("Task existence could not be verified") from exc
+        field = lambda obj, key: obj.get(key) if isinstance(obj, Mapping) else getattr(obj, key, None)
+        request = field(task, "http_request")
+        oidc = field(request, "oidc_token")
+        if (field(task, "name") != name
+            or field(request, "url") != self._target_url(work_item_id)
+            or field(request, "http_method") not in ("POST", 1)
+            or field(oidc, "audience") != self._configuration.oidc_audience
+            or field(oidc, "service_account_email") != self._configuration.oidc_service_account):
+            raise PackageDispatchUnavailableError("Existing task has unexpected delivery configuration")
+        return name
 
     def _target_url(self, work_item_id: str) -> str:
         canonical = _request_uuid(work_item_id, "Work item ID")
@@ -499,10 +527,13 @@ class CloudTasksWorkItemDispatcher:
             f"{quote(canonical, safe='')}/execute"
         )
 
-    def dispatch(self, work_item_id: str) -> str:
-        task_name = self._task_name(work_item_id)
+    def dispatch(self, work_item_id: str, generation: int = 0) -> str:
+        task_name = self._task_name(work_item_id, generation)
+        if generation == 0:
+            raise PackageDispatchUnavailableError("A persisted delivery generation is required")
         task = {
             "name": task_name,
+            "dispatch_deadline": {"seconds": TASK_DISPATCH_DEADLINE_SECONDS},
             "http_request": {
                 "http_method": "POST",
                 "url": self._target_url(work_item_id),
@@ -521,9 +552,13 @@ class CloudTasksWorkItemDispatcher:
                     "task": task,
                 },
                 timeout=self._configuration.request_timeout_seconds,
+                retry=None,
             )
         except self._already_exists_errors:
-            return task_name
+            active = self.find_active(work_item_id, generation)
+            if active is None:
+                raise PackageDispatchUnavailableError("Task name is tombstoned; recovery must advance its generation")
+            return active
         except Exception as exc:
             raise PackageDispatchUnavailableError(
                 "Work-item dispatch is unavailable"
@@ -750,7 +785,7 @@ class TotalLossPackageCoordinator:
         _positive_attempt(attempt_count, "Dispatch attempt count")
         return min(
             MAX_DISPATCH_RETRY_DELAY_SECONDS,
-            2 ** min(attempt_count, 10),
+            max(60, 2 ** min(attempt_count, 12)),
         )
 
     def reconcile_due(
@@ -784,7 +819,21 @@ class TotalLossPackageCoordinator:
                 row.get("dispatch_attempt_count"), "Dispatch attempt count"
             )
             try:
-                task_name = self._dispatcher.dispatch(work_item_id)
+                if isinstance(self._dispatcher, CloudTasksWorkItemDispatcher):
+                    generation = self._database.workflow_work_item_delivery_generation(
+                        work_item_id, dispatch_token
+                    )
+                    task_name = self._dispatcher.find_active(work_item_id, generation)
+                    if task_name is None:
+                        generation = self._database.advance_workflow_work_item_delivery(
+                            work_item_id, dispatch_token, generation
+                        )
+                        if generation is None:
+                            failed += 1  # Persisted terminal delivery hold.
+                            continue
+                        task_name = self._dispatcher.dispatch(work_item_id, generation)
+                else:
+                    task_name = self._dispatcher.dispatch(work_item_id)
                 if not isinstance(task_name, str) or not task_name:
                     raise PackageDispatchUnavailableError(
                         "Dispatcher returned an invalid task identity"
@@ -1216,6 +1265,8 @@ class TotalLossPackageProcessor:
                 raise PackageProcessingContractError(
                     "Package work claim changed processing fence"
                 )
+        elif outcome == "terminal_failed" and attempt_count == 0 and not isinstance(attempt_count, bool):
+            pass  # Delivery can fail before execution ever starts.
         elif attempt_count is not None:
             _positive_attempt(attempt_count, "Package attempt count")
         return PackageExecutionResult(
