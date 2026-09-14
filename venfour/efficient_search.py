@@ -32,7 +32,7 @@ from venfour.analysis_diagnostics import execution, phase, progress, step
 from venfour.search_summary import discovery_summary, validate_summary
 
 
-SEARCH_STRATEGY_VERSION = "2"
+SEARCH_STRATEGY_VERSION = "3"
 CHECKPOINT_FORMAT_VERSION = "1"
 
 
@@ -147,6 +147,7 @@ class EfficientMarketSearch:
         if readiness_stage not in {"free_estimate", "full_review"}:
             raise ValueError("Unsupported readiness stage")
         self.strategy_version = _strategy_version
+        self.normalization_version = "1" if _strategy_version == "1" else "2"
         self.readiness_stage = readiness_stage
         self.providers = {"current": current_provider, "historical": historical_provider}
         self.budget = budget
@@ -252,7 +253,7 @@ class EfficientMarketSearch:
     def _assessment(self, observation: Mapping[str, Any]) -> dict[str, Any]:
         return assess_observation(self.target, observation, subject_material_facts=self.subject_facts,
                                   evidence_date=self.evidence_date, max_distance_miles=self.policy.boundary,
-                                  free_estimate=self.readiness_stage == "free_estimate", normalization_version=self.strategy_version)
+                                  free_estimate=self.readiness_stage == "free_estimate", normalization_version=self.normalization_version)
 
     @step("search", "customer_distance")
     def _locate(self, observation: Mapping[str, Any], provenance: Mapping[str, Any]) -> dict[str, Any]:
@@ -282,10 +283,10 @@ class EfficientMarketSearch:
             fields += ("mileage", "price")
         from venfour.vehicle_specs import comparison
         if any((comparison(key, left["listing"].get(key), right["listing"].get(key))["status"] == "CONFLICT"
-                if self.strategy_version == "2" and key in {"year", "make", "model", "trim", "drivetrain"}
+                if self.normalization_version == "2" and key in {"year", "make", "model", "trim", "drivetrain"}
                 else left["listing"].get(key) != right["listing"].get(key)) for key in fields):
             return True
-        if self.strategy_version == "2":
+        if self.normalization_version == "2":
             from venfour.vehicle_specs import material_conflicts
             return material_conflicts([left, right]) or left.get("location") != right.get("location")
         return any(left.get(key) != right.get(key) for key in ("materialFacts", "location"))
@@ -299,7 +300,7 @@ class EfficientMarketSearch:
         same = [row for row in same_vehicle
                 if row.get("stream") == observation.get("stream") and row.get("relevantDate") == observation.get("relevantDate")]
         from venfour.vehicle_specs import material_conflicts
-        conflict_check = material_conflicts if self.strategy_version == "2" else immutable_material_conflicts
+        conflict_check = material_conflicts if self.normalization_version == "2" else immutable_material_conflicts
         material_conflict = conflict_check([*same_vehicle, observation])
         conflicts = [row for row in same if self._observation_conflicts(row, observation)]
         if material_conflict:
@@ -473,16 +474,177 @@ class EfficientMarketSearch:
         if self.origin is None:
             return None
         radius = min(self.policy.local_radius_miles, self.providers[stream].maximum_search_radius_miles)
-        for existing in self.centers[1:]:
+        existing_centers = self.centers[1:]
+        if self.strategy_version == "3":
+            other = "current" if stream == "historical" else "historical"
+            # A productive market in the other date stream is worth probing,
+            # but its evidence and identity counts stay in their own stream.
+            totals: dict[str, list[int]] = {}
+            for branch in self.branch_state[other]:
+                aggregate = totals.setdefault(branch["centerId"], [0, 0])
+                aggregate[0] += branch.get("newEligibleCandidates", 0)
+                aggregate[1] += branch.get("physicalAttempts", 0)
+            yields = {identity: eligible / max(1, attempts)
+                      for identity, (eligible, attempts) in totals.items()}
+            existing_centers = sorted(existing_centers,
+                key=lambda row: (-yields.get(row["id"], 0), self.centers.index(row)))
+        for existing in existing_centers:
             if existing["id"] not in self.stream_centers_used[stream]:
                 return {**existing, "radiusMiles": min(existing["radiusMiles"], radius)}
         if len(self.centers) - 1 >= self.policy.additional_centers:
             return None
         chosen = self.market_geography.next_center(self.origin, self.centers, endpoint_radius_miles=radius,
-                                            outer_boundary_miles=self.policy.boundary)
+                                            outer_boundary_miles=self.policy.boundary,
+                                            selector_version="coverage-v2" if self.strategy_version == "3" else "legacy-v1")
         if chosen is not None:
             self.centers.append(chosen)
         return chosen
+
+    def _discovery_available(self, stream: str) -> bool:
+        """Plan inside the immutable, atomically enforced endpoint ceilings.
+
+        The deployed 20-attempt policy caps each discovery endpoint at six,
+        leaving eight attempts that discovery cannot spend. The normal policy
+        retains eight per endpoint and sixty total. This additional planning
+        fraction can only stop earlier; it never raises a reservation limit.
+        """
+        usage = self._usage()
+        policy = usage["policy"]
+        operations = usage["operationAttempts"]
+        endpoint = "historical_discovery" if stream == "historical" else "active_discovery"
+        limits = policy["operationLimits"]
+        discovery_used = operations["historical_discovery"] + operations["active_discovery"]
+        ceiling = min(limits["historical_discovery"] + limits["active_discovery"],
+                      max(1, policy["totalAttempts"] * 3 // 5))
+        return (usage["remainingAttempts"] > 0 and discovery_used < ceiling
+                and operations[endpoint] < limits[endpoint])
+
+    def _adaptive_stream(self, stream: str):
+        """Yield after discovery and bounded history batches, never by price."""
+        provider = self.providers[stream]
+        if provider is None or self.requests[stream] is None:
+            self.stops[stream] = "NOT_CONFIGURED"
+            return
+        if stream == "historical" and self.historical_template.coverage.status != "SUPPORTED":
+            self.stops[stream] = "OUT_OF_PROVIDER_RANGE"
+            return
+        radius = min(self.policy.local_radius_miles, provider.maximum_search_radius_miles, self.policy.boundary)
+        center = {**self.centers[0], "radiusMiles": radius}
+        while center is not None:
+            from venfour.search_geography import coverage_metrics
+            searched = [row for row in self.centers if row["id"] in self.stream_centers_used[stream]]
+            novelty = (coverage_metrics(self.origin, center, searched, endpoint_radius_miles=radius)
+                       if self.origin else None)
+            self.stream_centers_used[stream].add(center["id"])
+            progress(stageIndex=len(self.stream_centers_used[stream]) - 1, stream=stream, centerId=center["id"])
+            for page_index in range(self.policy.pages_per_center):
+                if len(self.observations) >= self.policy.max_observations:
+                    self._stop(stream, "OBSERVATION_LIMIT")
+                    return
+                if not self._discovery_available(stream):
+                    self._stop(stream, "BUDGET_OR_QUOTA_LIMITED")
+                    return
+                event_count = len(self.events)
+                rows, more, failure = self._discover(stream, center, page_index * self.policy.page_size)
+                if len(self.events) == event_count:
+                    self._stop(stream, self._failure_stop(failure))
+                    return
+                event = self.events[-1]
+                attempts = event["usageAfter"]["totalAttempts"] - event["usageBefore"]["totalAttempts"]
+                identified = {observation_identity(row): row for row in rows
+                              if row["newIdentity"] and observation_identity(row) is not None}
+                eligible = [row for row in identified.values() if self._assessment(row)["verificationEligible"]]
+                promising = sorted((row for row in eligible if stream == "current"
+                                    or observation_identity(row) not in self.attempted_vins),
+                                   key=lambda row: self._assessment(row)["qualityKey"])
+                duplicates = sum(not row["newIdentity"] and observation_identity(row) is not None for row in rows)
+                duplicate_fraction = duplicates / len(rows) if rows else 0
+                productive_page = bool(more and eligible and duplicate_fraction < self.policy.duplicate_branch_fraction
+                                       and (len(eligible) >= self.policy.verification_batch_size
+                                            or len(eligible) / max(1, len(rows)) >= .1))
+                branch = {"centerId": center["id"], "page": page_index, "returned": len(rows),
+                          "newIdentities": len(identified), "promising": len(promising), "hasMore": more,
+                          "newEligibleCandidates": len(eligible), "duplicateObservations": duplicates,
+                          "identityOverlapFraction": round(duplicate_fraction, 6),
+                          "geographicNovelty": novelty if page_index == 0 else None,
+                          "physicalAttempts": attempts,
+                          "usefulCandidatesPerAttempt": round(len(eligible) / max(1, attempts), 6),
+                          "nextDiscoveryAction": "PAGE" if productive_page else "CENTER"}
+                self.branch_state[stream].append(branch)
+                if stream == "historical":
+                    for offset in range(0, len(promising), self.policy.verification_batch_size):
+                        batch = promising[offset:offset + self.policy.verification_batch_size]
+                        failure = self._verify(batch) or failure
+                        if failure or self._strong(stream) >= self.policy.minimum_strong_matches:
+                            break
+                        pending = offset + len(batch) < len(promising)
+                        # Let the cheap local current probe run before a second
+                        # history batch. The next batch retains priority later.
+                        yield {"pendingHistory": pending, "productivePage": productive_page,
+                               "yield": branch["usefulCandidatesPerAttempt"]}
+                if failure:
+                    self._stop(stream, self._failure_stop(failure))
+                    return
+                if self._strong(stream) >= self.policy.minimum_strong_matches:
+                    self._stop(stream, "SUFFICIENT_STRONG_EVIDENCE")
+                    return
+                if len(self.observations) >= self.policy.max_observations:
+                    self._stop(stream, "OBSERVATION_LIMIT")
+                    return
+                if not productive_page:
+                    branch["stopReason"] = ("DUPLICATE_HEAVY" if duplicate_fraction >= self.policy.duplicate_branch_fraction
+                                            else "UNPRODUCTIVE" if not eligible else "EXHAUSTED")
+                    self._publish_summary(self.last_discovery[stream], branch["stopReason"])
+                yield {"pendingHistory": False, "productivePage": productive_page,
+                       "yield": branch["usefulCandidatesPerAttempt"]}
+                if not productive_page:
+                    break
+            center = self._next_center(stream)
+        self._stop(stream, "GEOGRAPHIC_SCOPE_LIMITED" if self.origin else "CUSTOMER_LOCATION_UNAVAILABLE")
+
+    def _search_adaptively(self) -> None:
+        iterators = {stream: self._adaptive_stream(stream) for stream in ("historical", "current")}
+        hints: dict[str, dict[str, Any]] = {}
+
+        def advance(stream: str) -> None:
+            try:
+                hints[stream] = next(iterators[stream])
+            except StopIteration:
+                iterators.pop(stream, None)
+                hints.pop(stream, None)
+
+        advance("historical")
+        if self._strong("historical") >= self.policy.minimum_strong_matches:
+            if self.policy.current_context_pages_after_historical:
+                self._search_stream("current", context_only=True)
+            else:
+                self.stops["current"] = "HISTORICAL_BASELINE_SUFFICIENT"
+            return
+        advance("current")
+        while iterators:
+            historical_sufficient = self._strong("historical") >= self.policy.minimum_strong_matches
+            current_sufficient = self._strong("current") >= self.policy.minimum_strong_matches
+            pending_history = hints.get("historical", {}).get("pendingHistory", False)
+            if historical_sufficient or (current_sufficient and not pending_history):
+                for stream in iterators:
+                    if self._strong(stream) >= self.policy.minimum_strong_matches:
+                        self._stop(stream, "SUFFICIENT_STRONG_EVIDENCE")
+                    else:
+                        # Preserve the last batch's actual outcome; sufficiency
+                        # belongs to the other date stream, not this batch.
+                        self.stops[stream] = "OTHER_STREAM_SUFFICIENT"
+                return
+            # Productive history is already paid-for discovery; productive pages
+            # come next. Lower spent streams break ties so sparse local probes
+            # expand together instead of draining one endpoint first.
+            counts = self._usage()["operationAttempts"]
+            stream = max(iterators, key=lambda item: (
+                hints.get(item, {}).get("pendingHistory", False),
+                hints.get(item, {}).get("productivePage", False),
+                hints.get(item, {}).get("yield", 0),
+                -counts["historical_discovery" if item == "historical" else "active_discovery"],
+                item == "historical"))
+            advance(stream)
 
     @step("search", "adaptive_stage")
     def _search_stream(self, stream: str, *, context_only: bool = False) -> None:
@@ -540,7 +702,7 @@ class EfficientMarketSearch:
         baseline = [copy.deepcopy(row) for stream in self.verified.values() for row in stream.values()]
         def shortlist():
             extras = [row for row in self.observations if row.get("purpose") == "supporting" and row.get("dateVerified")]
-            return build_supporting_shortlist(self.target, baseline + extras, normalization_version=self.strategy_version, subject_material_facts=self.subject_facts,
+            return build_supporting_shortlist(self.target, baseline + extras, normalization_version=self.normalization_version, subject_material_facts=self.subject_facts,
                 evidence_date=self.evidence_date, max_distance_miles=self.policy.boundary,
                 policy=SupportingShortlistPolicy(maximum_listings=self.policy.supporting_maximum_listings))
         result = shortlist()
@@ -625,8 +787,10 @@ class EfficientMarketSearch:
                   "currentRequest": current_request.to_dict() if current_request else None,
                   "historicalRequest": historical_request.to_dict() if historical_request else None,
                   "observedDate": observed_date, "policy": asdict(self.policy)}
-        if self.strategy_version == "2":
+        if self.normalization_version == "2":
             inputs["normalizationVersion"] = "2"
+        if self.strategy_version == "3":
+            inputs["discoveryStrategyVersion"] = "3"
         if self.readiness_stage == "free_estimate":
             inputs["readinessStage"] = self.readiness_stage
         self.input_digest = _digest(inputs)
@@ -637,7 +801,7 @@ class EfficientMarketSearch:
         if saved is not None:
             # Storage envelope v1 is unchanged. The bound input identifies
             # the comparison strategy independently of its storage format.
-            saved_strategy = saved.get("input", {}).get("normalizationVersion", "1")
+            saved_strategy = saved.get("input", {}).get("discoveryStrategyVersion", saved.get("input", {}).get("normalizationVersion", "1"))
             if (saved.get("version") not in {CHECKPOINT_FORMAT_VERSION, self.strategy_version}
                     or saved_strategy != self.strategy_version or saved.get("inputDigest") != self.input_digest):
                 raise ValueError("Saved search work has different valuation inputs")
@@ -663,12 +827,15 @@ class EfficientMarketSearch:
             self.historical_template = _historical_result(saved["historicalTemplate"])
         elif historical_request is not None and self.providers["historical"] is not None:
             self.historical_template = self.providers["historical"].verify_historical_candidates(historical_request, []).result
-        self._search_stream("historical")
-        historical_sufficient = self._strong("historical") >= self.policy.minimum_strong_matches
-        if historical_sufficient and self.policy.current_context_pages_after_historical == 0:
-            self.stops["current"] = "HISTORICAL_BASELINE_SUFFICIENT"
+        if self.strategy_version == "3":
+            self._search_adaptively()
         else:
-            self._search_stream("current", context_only=historical_sufficient)
+            self._search_stream("historical")
+            historical_sufficient = self._strong("historical") >= self.policy.minimum_strong_matches
+            if historical_sufficient and self.policy.current_context_pages_after_historical == 0:
+                self.stops["current"] = "HISTORICAL_BASELINE_SUFFICIENT"
+            else:
+                self._search_stream("current", context_only=historical_sufficient)
         for stream, candidates in self.verified.items():
             progress(phase="search", operation="baseline_ranking", stream=stream)
             ranked = sorted(candidates.values(), key=lambda row: self._assessment(row)["qualityKey"])
@@ -715,7 +882,7 @@ def replay_efficient_search(transcript: Mapping[str, Any]) -> EfficientSearchRes
 
     from venfour.analysis_runs import _historical_request_from_data, _market_request_from_data, _target_from_data
 
-    if not isinstance(transcript, Mapping) or transcript.get("version") not in {"1", "2"}:
+    if not isinstance(transcript, Mapping) or transcript.get("version") not in {"1", "2", "3"}:
         raise ValueError("Unsupported efficient-search transcript")
     supplied = copy.deepcopy(dict(transcript))
     digest = supplied.pop("digest", None)

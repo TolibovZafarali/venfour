@@ -73,7 +73,8 @@ class FixtureTransport:
 
 class EfficientSearchTests(unittest.TestCase):
     def run_fixture(self, transport, *, policy=None, request_policy=None, streams=("historical", "current"),
-                    markets=(), budget=None, checkpoint=None, saved=None, subject_vin=None, subject_facts=None, readiness_stage="full_review"):
+                    markets=(), budget=None, checkpoint=None, saved=None, subject_vin=None, subject_facts=None, readiness_stage="full_review",
+                    strategy_version="3"):
         now = datetime(2026, 8, 10, tzinfo=UTC)
         clock = lambda: now
         budget = budget or MarketRequestBudget(
@@ -89,7 +90,7 @@ class EfficientSearchTests(unittest.TestCase):
         geography = SearchGeography(postal_centroids={"63026": ORIGIN}, market_centers=markets)
         engine = EfficientMarketSearch(current_provider=current, historical_provider=historical, budget=budget,
                                        policy=policy, geography=geography, checkpoint=checkpoint,
-                                       resumed_transcript=saved, readiness_stage=readiness_stage)
+                                       resumed_transcript=saved, readiness_stage=readiness_stage, _strategy_version=strategy_version)
         with patch("venfour.marketcheck.sleep"):
             result = engine.run(target=comparable_target_from_search_request(request.to_market_search_request()),
                                 current_request=request.to_market_search_request() if current else None,
@@ -123,7 +124,8 @@ class EfficientSearchTests(unittest.TestCase):
         before = budget.snapshot()["totalAttempts"]
         transport = FixtureTransport(current=[candidate(i) for i in range(15)])
         resumed, _ = self.run_fixture(transport, streams=("current",), saved=checkpoints[-1], budget=budget)
-        self.assertEqual(resumed.transcript["version"], "2")
+        self.assertEqual(resumed.transcript["version"], "3")
+        self.assertEqual(resumed.transcript["input"]["discoveryStrategyVersion"], "3")
         self.assertEqual(resumed.current, result.current)
         self.assertEqual(transport.calls, [])
         self.assertEqual(budget.snapshot()["totalAttempts"], before)
@@ -302,7 +304,7 @@ class EfficientSearchTests(unittest.TestCase):
 
     def test_global_four_center_budget_is_shared_and_existing_centers_reused(self):
         markets = [{"id": str(index), "label": f"Nearby market {index}", "latitude": lat, "longitude": lon}
-                   for index, (lat, lon) in enumerate(((39.8, -90.5), (37.2, -90.5), (38.5, -88.8), (38.5, -92.2), (40.3, -89)))]
+                   for index, (lat, lon) in enumerate(((40.5, -90.5), (36.5, -90.5), (38.5, -87.9), (38.5, -93.1), (40.3, -89)))]
         result, budget = self.run_fixture(FixtureTransport(), markets=markets)
         self.assertLessEqual(len(result.transcript["centers"]), 5)
         centers = {stream: {event["operation"]["center"]["id"] for event in result.transcript["events"] if event["operation"]["stream"] == stream}
@@ -311,6 +313,16 @@ class EfficientSearchTests(unittest.TestCase):
         self.assertEqual(budget.snapshot()["totalAttempts"], 10)
         self.assertEqual(result.transcript["baselineStatus"], "LIMITED")
         self.assert_replays(result)
+
+    def test_previous_strategies_keep_legacy_center_order_and_replay(self):
+        markets = [{"id": str(index), "label": f"Nearby market {index}", "latitude": lat, "longitude": lon}
+                   for index, (lat, lon) in enumerate(((39.8, -90.5), (37.2, -90.5), (38.5, -88.8), (38.5, -92.2)))]
+        for version in ("1", "2"):
+            result, budget = self.run_fixture(FixtureTransport(), markets=markets, strategy_version=version)
+            self.assertEqual(result.transcript["version"], version)
+            self.assertNotIn("discoveryStrategyVersion", result.transcript["input"])
+            self.assertEqual(budget.snapshot()["totalAttempts"], 10)
+            self.assert_replays(result)
 
     def test_alternate_center_distance_is_measured_from_customer(self):
         market = {"id": "nearby", "label": "Nearby market", "latitude": 39.8, "longitude": -90.5}

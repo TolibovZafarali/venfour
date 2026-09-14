@@ -122,9 +122,9 @@ class KonaPostDiscoveryTests(unittest.TestCase):
         self.assertTrue(artifact)
         self.assertNotIn("drivetrain", replay.engine.subject_facts)
         self.assertEqual(replay.engine.target.drivetrain, "FWD")
-        self.assertEqual([c["id"] for c in replay.engine.centers[:3]], ["customer", "cbsa:16060", "cbsa:27620"])
+        self.assertEqual([c["id"] for c in replay.engine.centers[:3]], ["customer", "cbsa:21780", "cbsa:14010"])
+        self.assertEqual(sorted(c["params"]["radius"] for c in replay.calls), [93, 93, 97, 97, 100, 100])
         for call in replay.calls:
-            self.assertEqual(call["params"]["radius"], 100)
             self.assertEqual(call["params"]["rows"], 50)
             self.assertEqual(call["params"]["start"], 0)
         batches = [s for s in replay.summaries.values() if s["returnedRows"]]

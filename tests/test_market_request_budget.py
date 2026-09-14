@@ -36,6 +36,15 @@ def limits(**changes):
 
 
 class MarketRequestBudgetTests(unittest.TestCase):
+    def test_environment_discovery_caps_scale_without_overriding_explicit_limits(self):
+        normal = MarketRequestPolicy.from_environment({})
+        canary = MarketRequestPolicy.from_environment({"MARKETCHECK_BUDGET_TOTAL_ATTEMPTS": "20"})
+        self.assertEqual((normal.total_attempts, normal.active_discovery_attempts, normal.historical_discovery_attempts), (60, 8, 8))
+        self.assertEqual((canary.total_attempts, canary.active_discovery_attempts, canary.historical_discovery_attempts), (20, 6, 6))
+        explicit = MarketRequestPolicy.from_environment({"MARKETCHECK_BUDGET_TOTAL_ATTEMPTS": "20",
+            "MARKETCHECK_BUDGET_ACTIVE_DISCOVERY_ATTEMPTS": "3", "MARKETCHECK_BUDGET_HISTORICAL_DISCOVERY_ATTEMPTS": "2"})
+        self.assertEqual((explicit.active_discovery_attempts, explicit.historical_discovery_attempts), (3, 2))
+
     def setUp(self):
         self.now = NOW
         self.gateway = MemoryMarketRequestGateway(clock=lambda: self.now)

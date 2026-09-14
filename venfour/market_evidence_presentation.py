@@ -25,6 +25,7 @@ LIMITED_SEARCH_SUMMARY = (
 LIMITED_NO_INCREASE_SUMMARY = "No increase is supported by the evidence found; the comparable search was limited."
 _STOP_COPY = {
     "SUFFICIENT_STRONG_EVIDENCE": "Enough strong matches were verified for the search target.",
+    "OTHER_STREAM_SUFFICIENT": "Further searching stopped after the other evidence stream reached its match target.",
     "NOT_CONFIGURED": "This evidence source was not included in the search.",
     "OUT_OF_PROVIDER_RANGE": "The loss date was outside the provider's available history window.",
     "HISTORICAL_BASELINE_SUFFICIENT_CURRENT_CONTEXT_ONLY": "Current listings were checked as context after sufficient loss-date evidence was found.",

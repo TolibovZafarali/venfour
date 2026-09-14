@@ -20,7 +20,7 @@ from venfour.discrepancy import ValuationDiscrepancyRequest
 from venfour.historical_market import historical_evidence_to_market_search_result
 from venfour.market import DrivetrainDiscovery, MarketContractError, VehicleConfigurationIdentity
 from venfour.marketcheck import (
-    MARKETCHECK_ACTIVE_INVENTORY_URL,
+    MARKETCHECK_ACTIVE_INVENTORY_URL, MARKETCHECK_PAST_INVENTORY_URL,
     MarketCheckHistoricalProvider, MarketCheckProvider,
 )
 from venfour.preliminary_resolution import resolve_preliminary_evidence
@@ -41,6 +41,81 @@ def configured(request, drivetrain):
 
 
 class MarketCheckDiscoveryTests(unittest.TestCase):
+    def test_sparse_discovery_filters_keep_exact_identity_without_material_vocabulary_filters(self):
+        expected = {
+            "api_key": SYNTHETIC_KEY, "append_api_key": "false", "car_type": "used",
+            "year": 2026, "make": "HYUNDAI", "model": "Kona", "trim": "SE",
+            "drivetrain": "FWD", "has_price": "true", "zip": "63123", "radius": 100,
+            "start": 0, "rows": 50, "sort_by": "dist", "sort_order": "asc",
+        }
+        for historical in (False, True):
+            with self.subTest(historical=historical):
+                transport = RecordingTransport([{"num_found": 0, "listings": []}] * 2)
+                values = dict(year=2026, make="HYUNDAI", model="Kona", trim="SE",
+                              loss_vehicle_mileage=2908, postal_code="63123", radius_miles=100)
+                if historical:
+                    provider = MarketCheckHistoricalProvider(
+                        SYNTHETIC_KEY, as_of_date="2026-09-14", transport=transport,
+                    )
+                    request = make_historical_request(evidence_date="2026-08-11", **values)
+                else:
+                    provider = MarketCheckProvider(SYNTHETIC_KEY, transport=transport)
+                    request = make_request(**values)
+                request = configured(request, "FWD")
+                before = request.to_dict()
+                provider.discover_page(request)
+                wanted = dict(expected)
+                if historical:
+                    wanted["active_inventory_date_range"] = "20260811-20260811"
+                self.assertEqual(transport.calls[0]["params"], wanted)
+                self.assertEqual(transport.calls[0]["endpoint"],
+                                 MARKETCHECK_PAST_INVENTORY_URL if historical else MARKETCHECK_ACTIVE_INVENTORY_URL)
+
+                provider.discover_page(request, start=50, center={"latitude": 38.5, "longitude": -92.5})
+                wanted.pop("zip")
+                wanted.update(start=50, latitude="38.5", longitude="-92.5")
+                self.assertEqual(transport.calls[1]["params"], wanted)
+                self.assertEqual(request.to_dict(), before)
+
+    def test_discovery_retains_vocabulary_mileage_and_certification_for_post_fetch_screening(self):
+        records = []
+        for index, (engine, transmission, drive, certified) in enumerate((
+            ("2.0L (family: MPI NU PE)", "Automatic", "FWD", 0),
+            ("2.0L I4", "CVT", "FWD", 1),
+            ("1.6L I4", "DCT", "AWD", 0),
+        )):
+            record = make_raw_listing(index, vin=VINS[index], miles=2908 + index * 11817,
+                                      is_certified=certified)
+            record["build"].update(year=2026, make="HYUNDAI", model="Kona", trim="SE",
+                                   drivetrain=drive, body_type="SUV", engine=engine,
+                                   fuel_type="Unleaded", cylinders=4, transmission=transmission)
+            records.append(record)
+        before = copy.deepcopy(records)
+        for historical in (False, True):
+            with self.subTest(historical=historical):
+                transport = RecordingTransport([{"num_found": 3, "listings": records}])
+                values = dict(year=2026, make="HYUNDAI", model="Kona", trim="SE", loss_vehicle_mileage=2908)
+                if historical:
+                    provider = MarketCheckHistoricalProvider(SYNTHETIC_KEY, as_of_date=AS_OF_DATE, transport=transport)
+                    request = make_historical_request(**values)
+                else:
+                    provider = MarketCheckProvider(SYNTHETIC_KEY, transport=transport)
+                    request = make_request(**values)
+                page = provider.discover_page(configured(request, "FWD"))
+                self.assertEqual(len(page.observations), 3)
+                self.assertEqual([row["materialFacts"]["engine"] for row in page.observations],
+                                 [row["build"]["engine"] for row in records])
+                self.assertEqual([row["materialFacts"]["transmission"] for row in page.observations],
+                                 ["Automatic", "CVT", "DCT"])
+                self.assertEqual([row["materialFacts"]["certified"] for row in page.observations],
+                                 [False, True, False])
+                self.assertEqual([row.mileage for row in page.listings], [2908, 14725, 26542])
+                self.assertEqual([row.drivetrain for row in page.listings], ["FWD", "FWD", "AWD"])
+                self.assertEqual(len(transport.calls), 1)
+                self.assertTrue({"engine", "transmission", "body_type", "fuel_type", "miles_range", "is_certified"}
+                                .isdisjoint(transport.calls[0]["params"]))
+                self.assertEqual(records, before)
+
     def test_provider_mapping_keeps_exact_values_and_awd_uncertainty(self):
         expected = {
             "FWD": ("EXACT_FILTER", "FWD"), "RWD": ("EXACT_FILTER", "RWD"),

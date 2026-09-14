@@ -138,6 +138,12 @@ class MarketRequestPolicy:
         reserve = environment.get("MARKETCHECK_MONTHLY_RESERVE_FRACTION", "").strip()
         if reserve:
             values["monthly_reserve_fraction"] = float(reserve)
+        # Discovery gets at most 30% per stream unless the operator explicitly
+        # sets a lower/different hard cap. Normal 60-attempt defaults stay 8+8;
+        # a 20-attempt profile defaults to 6+6, preserving eight other attempts.
+        total = values.get("total_attempts", cls.total_attempts)
+        for field_name in ("active_discovery_attempts", "historical_discovery_attempts"):
+            values.setdefault(field_name, min(getattr(cls, field_name), total * 3 // 10))
         return cls(**values)
 
 
