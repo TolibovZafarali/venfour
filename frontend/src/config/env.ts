@@ -1,3 +1,5 @@
+import { publicSiteOnly } from "./public-site";
+
 function normalizeBaseUrl(value: string | undefined) {
   return value?.trim().replace(/\/+$/, "") ?? "";
 }
@@ -32,12 +34,12 @@ export const environment = {
     import.meta.env.VITE_ENABLE_POST_CONTINUE_FLOW === "true" &&
     typeof window !== "undefined" &&
     ["localhost", "127.0.0.1", "[::1]"].includes(window.location.hostname),
-  apiBaseUrl: normalizeBaseUrl(import.meta.env.VITE_API_BASE_URL),
-  supabaseUrl: normalizeBaseUrl(import.meta.env.VITE_SUPABASE_URL),
-  supabasePublishableKey: normalizeValue(
+  apiBaseUrl: publicSiteOnly ? "" : normalizeBaseUrl(import.meta.env.VITE_API_BASE_URL),
+  supabaseUrl: publicSiteOnly ? "" : normalizeBaseUrl(import.meta.env.VITE_SUPABASE_URL),
+  supabasePublishableKey: publicSiteOnly ? "" : normalizeValue(
     import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
   ),
-  turnstileSiteKey: turnstileSiteKey(
+  turnstileSiteKey: publicSiteOnly ? "" : turnstileSiteKey(
     import.meta.env.VITE_TURNSTILE_SITE_KEY,
   ),
 } as const;

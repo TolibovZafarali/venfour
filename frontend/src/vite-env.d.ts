@@ -1,6 +1,7 @@
 /// <reference types="vite/client" />
 
 interface ImportMetaEnv {
+  readonly VITE_PUBLIC_SITE_ONLY?: string;
   readonly VITE_ENABLE_POST_CONTINUE_FLOW?: string;
   readonly VITE_ENABLE_LOCAL_CLAIM_FIXTURES?: string;
   readonly VITE_LOCAL_MARKET_FIXTURES?: string;

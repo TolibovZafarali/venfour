@@ -1,4 +1,5 @@
 import { applicationHref } from "@/app/site-boundary";
+import { publicSiteOnly } from "@/config/public-site";
 import { Link, useSearchParams } from "react-router";
 
 import { Button } from "@/components/ui/button";
@@ -99,7 +100,8 @@ export function ContactPage() {
         )}
       </PublicPageSection>
 
-      <PublicPageSection title="Current service entry points">
+      <PublicPageSection title={publicSiteOnly ? "Current service availability" : "Current service entry points"}>
+        {publicSiteOnly ? <p>Online Total Loss reviews are opening soon. Contact Venfour with questions about availability or an existing review. Diminished Value intake remains paused.</p> :
         <p>
           Start a Total Loss review with or without an insurer valuation report
           through the{" "}
@@ -117,7 +119,7 @@ export function ContactPage() {
             diminished-value request for future manual review
           </Link>
           .
-        </p>
+        </p>}
       </PublicPageSection>
 
       <PublicPageSection title="Before you rely on a result">

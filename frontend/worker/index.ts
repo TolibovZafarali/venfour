@@ -56,7 +56,9 @@ const CONTENT_SECURITY_POLICY = [
   "worker-src 'self' blob:",
 ].join("; ");
 
-export interface Env extends ProductionWorkerEnvironment {
+export interface Env extends Omit<ProductionWorkerEnvironment, "API_ORIGIN" | "API_PROXY_SECRET"> {
+  API_ORIGIN?: string;
+  API_PROXY_SECRET?: string;
   STAGING_HOSTNAME?: string;
 }
 
@@ -374,6 +376,9 @@ export async function handleRequest(
   env: Env,
   dependencies: WorkerDependencies = defaultDependencies,
 ) {
+  if (env.DEPLOYMENT_ENVIRONMENT === "public-site") {
+    return handlePublicSiteRequest(request, env);
+  }
   let configuration: RuntimeConfiguration;
   try {
     configuration = runtimeConfiguration(env);
@@ -409,6 +414,36 @@ export async function handleRequest(
     return proxyToApi(request, configuration, dependencies);
   }
   return serveAsset(request, env);
+}
+
+async function handlePublicSiteRequest(request: Request, env: Env) {
+  const url = new URL(request.url);
+  if (![PUBLIC_ORIGIN, "https://www.venfour.com", "http://venfour.com", "http://www.venfour.com"].includes(url.origin)) {
+    return jsonResponse(421, "PUBLIC_HOST_REQUIRED", "This request is not addressed to the public website.");
+  }
+  if (request.method !== "GET" && request.method !== "HEAD") {
+    return jsonResponse(405, "METHOD_NOT_ALLOWED", "This website accepts GET and HEAD requests only.");
+  }
+  if (url.protocol === "http:" || url.hostname === "www.venfour.com") return redirectToOrigin(url, PUBLIC_ORIGIN);
+  if (url.pathname === "/robots.txt") {
+    return securedResponse(new Response("User-agent: *\nAllow: /\n", {
+      headers: { "Content-Type": "text/plain; charset=utf-8" },
+    }), "public, max-age=3600, must-revalidate", { indexable: true });
+  }
+  const publicPage = PUBLIC_PATHS.has(url.pathname.replace(/\/+$/, "") || "/");
+  const asset = url.pathname.startsWith("/assets/") || url.pathname === "/favicon.svg";
+  if (!publicPage && !asset) {
+    return noStoreResponse(new Response('<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Page not found | Venfour</title><body><h1>Page not found</h1><p>This page is not available on the Venfour public website.</p><a href="/">Return to Venfour</a></body></html>', {
+      status: 404, headers: { "Content-Type": "text/html; charset=utf-8" },
+    }));
+  }
+  const response = await serveAsset(request, env, publicPage || asset);
+  response.headers.set("Content-Security-Policy", [
+    "default-src 'self'", "base-uri 'self'", "connect-src 'self'", "font-src 'self' data:",
+    "form-action 'self'", "frame-ancestors 'none'", "frame-src 'none'", "img-src 'self' data: blob:",
+    "object-src 'none'", "script-src 'self'", "style-src 'self' 'unsafe-inline'", "upgrade-insecure-requests",
+  ].join("; "));
+  return response;
 }
 
 export default {

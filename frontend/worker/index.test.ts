@@ -40,6 +40,54 @@ function dependencies(fetchImplementation: WorkerDependencies["fetch"]) {
   return { fetch: fetchImplementation } satisfies WorkerDependencies;
 }
 
+describe("public website boundary", () => {
+  const publicEnv = (fetch: Fetcher["fetch"]): Env => ({
+    DEPLOYMENT_ENVIRONMENT: "public-site", ASSETS: { fetch } as Fetcher,
+  });
+
+  it.each(["/", "/terms", "/privacy", "/contact", "/methodology", "/cookies", "/referral-partners"])("serves %s without backend configuration or transport", async path => {
+    const assets = vi.fn(async () => new Response("Venfour", { headers: { "Content-Type": "text/html" } }));
+    const transport = vi.fn();
+    const response = await handleRequest(new Request(`https://venfour.com${path}`), publicEnv(assets), dependencies(transport));
+    expect(response.status).toBe(200);
+    expect(response.headers.get("x-robots-tag")).toBeNull();
+    expect(response.headers.get("content-security-policy")).toContain("connect-src 'self';");
+    expect(response.headers.get("content-security-policy")).not.toContain("stripe.com");
+    expect(transport).not.toHaveBeenCalled();
+  });
+
+  it.each(["/api/cases", "/app", "/admin/cases", "/partners", "/start", "/auth/callback", "/total-loss/cases/example/analysis", "/webhooks/stripe", "/internal/execute"])("does not expose %s", async path => {
+    const assets = vi.fn();
+    const transport = vi.fn();
+    const response = await handleRequest(new Request(`https://venfour.com${path}`), publicEnv(assets), dependencies(transport));
+    expect(response.status).toBe(404);
+    expect(response.headers.get("location")).toBeNull();
+    expect(assets).not.toHaveBeenCalled();
+    expect(transport).not.toHaveBeenCalled();
+  });
+
+  it("permanently redirects www once and rejects the app host and mutations", async () => {
+    const assets = vi.fn();
+    const env = publicEnv(assets);
+    const redirected = await handleRequest(new Request("https://www.venfour.com/terms?source=footer"), env);
+    expect(redirected.status).toBe(308);
+    expect(redirected.headers.get("location")).toBe("https://venfour.com/terms?source=footer");
+    expect((await handleRequest(new Request("https://app.venfour.com/"), env)).status).toBe(421);
+    expect((await handleRequest(new Request("https://venfour.com/webhooks/stripe", { method: "POST", body: "{}" }), env)).status).toBe(405);
+    expect(assets).not.toHaveBeenCalled();
+  });
+
+  it.each(["http://venfour.com", "http://www.venfour.com"])("redirects %s directly to the HTTPS canonical page", async origin => {
+    const assets = vi.fn();
+    const transport = vi.fn();
+    const response = await handleRequest(new Request(`${origin}/terms?source=footer`), publicEnv(assets), dependencies(transport));
+    expect(response.status).toBe(308);
+    expect(response.headers.get("location")).toBe("https://venfour.com/terms?source=footer");
+    expect(assets).not.toHaveBeenCalled();
+    expect(transport).not.toHaveBeenCalled();
+  });
+});
+
 describe("staging Worker boundary", () => {
   it("allows reviewed Stripe payment sources without broadening script or frame access", async () => {
     const response = await handleRequest(new Request(`${STAGING_ORIGIN}/total-loss/cases/example/claim/checkout`), createEnv());

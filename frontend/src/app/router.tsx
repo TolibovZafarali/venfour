@@ -8,6 +8,8 @@ import {
 import type { PageMetadata } from "@/app/document-metadata";
 import { AppShell } from "@/components/app-shell";
 import { environment } from "@/config/env";
+import { publicSiteOnly } from "@/config/public-site";
+import { routeAudience } from "@/app/site-boundary";
 import { diminishedValueStaffReviewAvailable } from "@/config/product-availability";
 import { adminRoute } from "@/features/admin/admin-routes";
 import { PartnerDashboardPage, PartnerDetailPage, PartnerInvitationPage, PartnerWorkspace } from "@/features/referral-partners/pages";
@@ -54,7 +56,7 @@ function redirectPartnerReferral({ params }: LoaderFunctionArgs) {
   return replace(`/start?${query.toString()}`);
 }
 
-export const appRoutes: RouteObject[] = [
+const combinedRoutes: RouteObject[] = [
   { path: "/r/:code", loader: redirectPartnerReferral },
   {
     path: "/",
@@ -439,6 +441,17 @@ export const appRoutes: RouteObject[] = [
     { path: ":partnerId", element: <PartnerDetailPage /> },
   ] },
 ];
+
+export const publicRoutes: RouteObject[] = combinedRoutes.flatMap((route): RouteObject[] => {
+  if (route.path !== "/" || route.index) return [];
+  return [{
+    ...route,
+    children: route.children?.filter(child => child.index || child.path === "*" ||
+      (child.path !== undefined && routeAudience(`/${child.path}`) === "public")),
+  }];
+});
+
+export const appRoutes = publicSiteOnly ? publicRoutes : combinedRoutes;
 
 export function createAppRouter() {
   return createBrowserRouter(appRoutes);

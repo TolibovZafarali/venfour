@@ -23,7 +23,9 @@
     "test:worker": "vitest run worker/index.test.ts scripts/staging-environment.test.mjs scripts/production-environment.test.mjs",
     "worker:dry-run": "wrangler deploy --env staging --dry-run",
     "worker:production-dry-run": "wrangler deploy --env production --dry-run",
-    "deploy:staging": "wrangler deploy --env staging"
+    "deploy:staging": "wrangler deploy --env staging",
+    "validate:public-site-env": "node scripts/validate-public-site-env.mjs",
+    "build:public-site": "npm run validate:public-site-env && npm run check:contracts && tsc -b --pretty false && vite build --mode public-site"
   },
   "dependencies": {
     "@stripe/react-stripe-js": "6.8.2",

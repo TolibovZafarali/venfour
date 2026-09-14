@@ -1,4 +1,5 @@
 import { applicationHref, hostAudience, publicHref, routeAudience } from "@/app/site-boundary";
+import { publicSiteOnly } from "@/config/public-site";
 import { useWorkspaceEntryAction } from "@/features/cases/workspace-entry";
 import { Menu, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -64,7 +65,7 @@ function AppShellContent() {
   const productFlowRoute = Boolean(localStatusRoute || analysisRoute || totalLossCaseRoute || previewReturnRoute || previewReadyRoute || findReviewRoute);
   const location = useLocation();
   const publicSite = routeAudience(location.pathname) === "public";
-  const productionPublicPage = publicSite && hostAudience() === "public";
+  const productionPublicPage = publicSiteOnly || (publicSite && hostAudience() === "public");
   const publicSessionHint = usePublicSessionHint();
   const completedReviewRoute = /^\/total-loss\/cases\/[^/]+\/claim\/(overview|evidence|request|activity|guide(?:\/.*)?|review(?:\/.*)?)\/?$/.test(location.pathname);
   const adminRoute = location.pathname.startsWith("/admin/");
@@ -197,10 +198,10 @@ function AppShellContent() {
     ? "#diminished-value"
     : publicHref("/#diminished-value");
   const howItWorksHref = onHomePage ? "#how-it-works" : publicHref("/#how-it-works");
-  const primaryActionHref = productionPublicPage
+  const primaryActionHref = publicSiteOnly ? "/contact" : productionPublicPage
     ? applicationHref(publicSessionHint ? "/app" : "/start?service=total-loss")
     : isPermanentAuthState(auth) ? workspaceAction.href : guestReturn.action?.href ?? applicationHref("/start?service=total-loss");
-  const primaryActionLabel = productionPublicPage
+  const primaryActionLabel = publicSiteOnly ? "Contact Venfour" : productionPublicPage
     ? publicSessionHint ? "Open app" : "Get Started"
     : isPermanentAuthState(auth) ? workspaceAction.label : guestReturn.action?.label ?? "Get Started";
   const requestStaffNavigation = () => {

@@ -1,4 +1,5 @@
 import { applicationHref, hostAudience } from "@/app/site-boundary";
+import { publicSiteOnly } from "@/config/public-site";
 import {
   CarFront,
   CircleUserRound,
@@ -47,6 +48,7 @@ export function AccountControl({
   const [signOutError, setSignOutError] = useState<string | null>(null);
   const newAppraisalHref = useNewTotalLossAppraisalHref();
 
+  if (publicSiteOnly) return null;
   if (publicSessionHint !== undefined) {
     return publicSessionHint ? null : <a href={applicationHref("/app")} className={cn("inline-flex min-h-11 items-center px-3 text-sm text-ink", focusRingClassName, className)}>Sign In</a>;
   }
@@ -220,6 +222,7 @@ export function MobileAccountControl({
   const [signOutError, setSignOutError] = useState<string | null>(null);
   const newAppraisalHref = useNewTotalLossAppraisalHref();
 
+  if (publicSiteOnly) return null;
   if (publicSessionHint !== undefined) {
     return <a href={applicationHref("/app")} onClick={onAction} className={cn("inline-flex min-h-12 items-center border-t border-ink/10 py-2 text-sm font-medium text-ink/75", focusRingClassName, className)}>{publicSessionHint ? "Open app" : "Sign In"}</a>;
   }

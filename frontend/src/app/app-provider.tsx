@@ -5,6 +5,7 @@ import { RouterProvider } from "react-router";
 import type { RouterProviderProps } from "react-router";
 
 import { BlueButtonHover } from "@/components/ui/blue-button-hover";
+import { publicSiteOnly } from "@/config/public-site";
 
 import {
   AdminCaseOperationsDependenciesProvider,
@@ -137,6 +138,7 @@ export function AppProvider({
   const identityInitializedRef = useRef(false);
   const handleIdentityResolved = useCallback(
     (nextUserId: string | null) => {
+      if (publicSiteOnly) return;
       const previousUserId = resolvedUserIdRef.current;
       resolvedUserIdRef.current = nextUserId;
       queryClient.removeQueries({ queryKey: appraisalCaseQueryKeys.all });

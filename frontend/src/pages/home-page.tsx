@@ -6,6 +6,9 @@ import { ValuationComparisonVisual } from "@/pages/home-visuals";
 import { applicationHref, hostAudience } from "@/app/site-boundary";
 import { Navigate } from "react-router";
 import { useHomeEntranceMotion } from "@/pages/use-home-entrance-motion";
+import { publicSiteOnly } from "@/config/public-site";
+
+const reviewLabel = publicSiteOnly ? "Contact Venfour" : "Start Total Loss review";
 
 const primaryActionClassName =
   "inline-flex min-h-12 items-center justify-center gap-2 rounded-lg bg-brand px-5 text-sm font-semibold text-white transition-colors hover:bg-brand-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 motion-reduce:transition-none";
@@ -56,15 +59,16 @@ const frequentlyAskedQuestions = [
   },
   {
     question: "Can I return to my review later?",
-    answer: <>Yes. Return from the same browser, or use <Link to={applicationHref("/find-review")} className="font-semibold text-brand underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand">review recovery</Link> with the email you supplied.</>,
+    answer: publicSiteOnly ? <>Online reviews are opening soon. For help with an existing review, <Link to="/contact" className="font-semibold text-brand underline underline-offset-4">contact Venfour</Link>.</> : <>Yes. Return from the same browser, or use <Link to={applicationHref("/find-review")} className="font-semibold text-brand underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand">review recovery</Link> with the email you supplied.</>,
   },
   {
     question: "Is Diminished Value available?",
-    answer: <>Customer intake is currently paused while we complete the Total Loss experience. You can <Link to={applicationHref("/start?service=diminished-value")} className="font-semibold text-brand underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand">view the service update</Link> for its current availability.</>,
+    answer: publicSiteOnly ? "Diminished Value intake is currently paused while we prepare the Total Loss experience." : <>Customer intake is currently paused while we complete the Total Loss experience. You can <Link to={applicationHref("/start?service=diminished-value")} className="font-semibold text-brand underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand">view the service update</Link> for its current availability.</>,
   },
 ];
 
 export function PublicHomePage() {
+  const reviewHref = publicSiteOnly ? "/contact" : applicationHref("/start?service=total-loss");
   const motionRoot = useRef<HTMLDivElement>(null);
   useHomeEntranceMotion(motionRoot);
 
@@ -90,15 +94,15 @@ export function PublicHomePage() {
                 and know what to discuss with your adjuster.
               </p>
               <div data-home-entrance="supporting" data-home-order="2" className="mt-8 flex flex-col justify-center gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-6">
-                <Link to={applicationHref("/start?service=total-loss")} className={primaryActionClassName}>
-                  Start Total Loss review <ArrowRight className="size-4 shrink-0" aria-hidden />
+                <Link to={reviewHref} className={primaryActionClassName}>
+                  {reviewLabel} <ArrowRight className="size-4 shrink-0" aria-hidden />
                 </Link>
               </div>
               <p data-home-entrance="supporting" data-home-order="3" className="mt-5 min-h-11 text-sm text-copy">
-                <>
+                {publicSiteOnly ? "Online reviews are opening soon." : <>
                   Already started?{" "}
                   <Link to={applicationHref("/find-review")} className={textLinkClassName}>Find my review</Link>
-                </>
+                </>}
               </p>
             </div>
           </div>
@@ -114,15 +118,15 @@ export function PublicHomePage() {
               <article id="total-loss" className="home-service home-service-active section-anchor scroll-mt-24" aria-labelledby="total-loss-title" tabIndex={-1}>
                 <div data-home-entrance="supporting" className="flex items-center justify-between gap-4">
                   <span className="home-service-icon"><CarFront className="size-6" strokeWidth={1.5} aria-hidden /></span>
-                  <span className="flex items-center gap-2 text-xs font-medium text-market-strong"><span className="size-1.5 rounded-full bg-market" aria-hidden />Available now</span>
+                  <span className="flex items-center gap-2 text-xs font-medium text-market-strong"><span className="size-1.5 rounded-full bg-market" aria-hidden />{publicSiteOnly ? "Opening soon" : "Available now"}</span>
                 </div>
                 <div data-home-entrance="copy" data-home-order="1" className="mt-6">
                   <p className="home-eyebrow">Total Loss Valuation Review</p>
                   <h3 id="total-loss-title" data-anchor-heading className="mt-2 text-2xl font-semibold tracking-[-0.035em] sm:text-[1.75rem]">Your vehicle was totaled</h3>
                   <p className="mt-3 max-w-md text-base leading-7 text-copy">Get a clearer view of your vehicle’s valuation and the market evidence behind it. Start with or without an insurer report.</p>
                 </div>
-                <Link to={applicationHref("/start?service=total-loss")} data-home-entrance="supporting" data-home-order="2" className={`${textLinkClassName} mt-5 self-start`}>
-                  Start Total Loss review <ArrowRight className="size-4" aria-hidden />
+                <Link to={reviewHref} data-home-entrance="supporting" data-home-order="2" className={`${textLinkClassName} mt-5 self-start`}>
+                  {reviewLabel} <ArrowRight className="size-4" aria-hidden />
                 </Link>
               </article>
               <article id="diminished-value" className="home-service section-anchor scroll-mt-24 border-ink/10 bg-white/45" aria-labelledby="diminished-value-title" tabIndex={-1}>
@@ -135,8 +139,8 @@ export function PublicHomePage() {
                   <h3 id="diminished-value-title" data-anchor-heading className="mt-2 text-2xl font-semibold tracking-[-0.035em] sm:text-[1.75rem]">Your vehicle was repaired</h3>
                   <p className="mt-3 max-w-md text-base leading-7 text-copy">Accident history can affect resale value, even after repairs. Customer intake is paused while we focus on Total Loss.</p>
                 </div>
-                <Link to={applicationHref("/start?service=diminished-value")} data-home-entrance="supporting" data-home-order="2" className={`${textLinkClassName} mt-5 self-start text-copy`}>
-                  View service update <ArrowRight className="size-4" aria-hidden />
+                <Link to={publicSiteOnly ? "/contact" : applicationHref("/start?service=diminished-value")} data-home-entrance="supporting" data-home-order="2" className={`${textLinkClassName} mt-5 self-start text-copy`}>
+                  {publicSiteOnly ? "Ask about availability" : "View service update"} <ArrowRight className="size-4" aria-hidden />
                 </Link>
               </article>
             </div>
@@ -221,10 +225,10 @@ export function PublicHomePage() {
         <div className="home-section flex flex-col items-center gap-7 text-center">
           <div data-home-entrance="copy" className="max-w-2xl">
             <h2 id="get-started-title" className="text-3xl leading-[1.15] font-semibold tracking-[-0.035em] text-balance sm:text-4xl">Go into the conversation informed.</h2>
-            <p className="mt-4 text-base leading-7 text-slate-300">Start with your vehicle details. We’ll help make sense of the evidence.</p>
+            <p className="mt-4 text-base leading-7 text-slate-300">{publicSiteOnly ? "Online reviews are opening soon. Contact us with questions." : "Start with your vehicle details. We’ll help make sense of the evidence."}</p>
           </div>
-          <Link to={applicationHref("/start?service=total-loss")} data-home-entrance="supporting" data-home-order="1" className={`${primaryActionClassName} shrink-0 focus-visible:ring-offset-ink`}>
-            Start Total Loss review <ArrowRight className="size-4" aria-hidden />
+          <Link to={reviewHref} data-home-entrance="supporting" data-home-order="1" className={`${primaryActionClassName} shrink-0 focus-visible:ring-offset-ink`}>
+            {reviewLabel} <ArrowRight className="size-4" aria-hidden />
           </Link>
         </div>
       </section>
