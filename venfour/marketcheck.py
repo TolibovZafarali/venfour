@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from venfour.analysis_diagnostics import phase, progress, step, inherit_sanitized_failure
+
 import copy
 import hashlib
 import json
@@ -667,6 +669,7 @@ class MarketCheckProvider:
             failure.with_diagnostic(diagnostic)
         return failure
 
+    @step("provider", "request")
     def _request_json(
         self,
         params: Mapping[str, QueryValue],
@@ -717,12 +720,11 @@ class MarketCheckProvider:
             try:
                 if request_counter is not None:
                     request_counter[0] += 1
-                response = self._transport.get(
-                    endpoint,
-                    params,
-                    {"Accept": "application/json"},
-                    self._timeout,
-                )
+                with phase("provider", "transport"):
+                    response = self._transport.get(
+                        endpoint, params, {"Accept": "application/json"}, self._timeout,
+                    )
+                progress(providerTransportCompleted=True)
                 body = response.body if isinstance(response, MarketCheckHttpResponse) else response
             except HTTPError as exc:
                 status = exc.code
@@ -742,20 +744,23 @@ class MarketCheckProvider:
                 if allow_history_page_exhaustion and status == 422:
                     return _HISTORY_PAGE_EXHAUSTED
                 failure = self._http_error(status)
+                inherit_sanitized_failure(failure, exc)
                 failure_status = status
                 transient = isinstance(
                     failure,
                     (MarketProviderRateLimitError, MarketProviderUnavailableError),
                 )
-            except (URLError, TimeoutError, ConnectionError, OSError):
+            except (URLError, TimeoutError, ConnectionError, OSError) as exc:
                 failure = MarketProviderUnavailableError(
                     "MarketCheck is temporarily unavailable"
                 )
+                inherit_sanitized_failure(failure, exc)
                 transient = True
-            except Exception:
+            except Exception as exc:
                 failure = MarketProviderUnavailableError(
                     "MarketCheck is temporarily unavailable"
                 )
+                inherit_sanitized_failure(failure, exc)
 
             if failure is None:
                 if self.request_budget is not None and isinstance(response, MarketCheckHttpResponse):
@@ -788,7 +793,9 @@ class MarketCheckProvider:
             )
 
         parse_failed = False
+        parse_error = None
         payload: Any = None
+        progress(phase="provider", operation="response_parsing")
         try:
             payload = json.loads(
                 body.decode("utf-8"),
@@ -799,13 +806,17 @@ class MarketCheckProvider:
             json.JSONDecodeError,
             ValueError,
             RecursionError,
-        ):
+        ) as exc:
             parse_failed = True
+            parse_error = exc
         if parse_failed:
-            raise MarketProviderResponseError(
+            failure = MarketProviderResponseError(
                 "MarketCheck returned malformed JSON",
                 diagnostic=self._provider_diagnostic(params, endpoint),
             )
+            if parse_error is not None:
+                inherit_sanitized_failure(failure, parse_error)
+            raise failure
         return payload
 
     def _request_page(
@@ -1113,6 +1124,7 @@ class MarketCheckProvider:
 
         return self._discover_page(request, start=start, rows=rows, supporting=supporting, center=center)
 
+    @step("provider", "discovery_page")
     def _discover_page(
         self, request: MarketSearchRequest | HistoricalMarketSearchRequest, *,
         start: int, rows: int, supporting: bool, historical: bool = False,
@@ -1149,7 +1161,9 @@ class MarketCheckProvider:
             payload = self._request_page(params, endpoint=endpoint)
         finally:
             self._request_phase.reset(token)
+        progress(phase="provider", operation="response_shape")
         records, total = self._listing_page(payload, start=start, rows=rows)
+        progress(phase="provider", operation="observation_normalization", returnedRows=len(records), parseableObservations=0)
         listings: list[MarketListing] = []
         observations: list[Mapping[str, Any]] = []
         for offset, record in enumerate(records):
@@ -1164,6 +1178,8 @@ class MarketCheckProvider:
                 relevant_date=request.evidence_date if historical else datetime.now(timezone.utc).date().isoformat(),
                 supporting=supporting, verified=not historical,
             ))
+            progress(parseableObservations=len(observations))
+        progress(evidenceNormalized=True)
         more = bool(records) and (start + len(records) < total if total is not None else len(records) == rows)
         return MarketCheckDiscoveryPage(tuple(listings), tuple(observations), start, rows, total, more)
 

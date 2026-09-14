@@ -28,6 +28,8 @@ from venfour.historical_market import (
 from venfour.market import MarketContractError, MarketProviderError, MarketSearchRequest, MarketSearchResult, validate_market_search_result
 from venfour.search_geography import SearchGeography, coordinates, distance_miles
 from venfour.search_progress import MarketSearchInterrupted
+from venfour.analysis_diagnostics import execution, phase, progress, step
+from venfour.search_summary import discovery_summary, validate_summary
 
 
 SEARCH_STRATEGY_VERSION = "2"
@@ -120,7 +122,10 @@ def subject_material_facts(report: Mapping[str, Any]) -> dict[str, Any]:
         ("bodySubtype", "bodySubtype"), ("cabType", "cabType"),
         ("bedLength", "bedLength"), ("doors", "doors"),
     )}
-    facts.update(report.get("confirmedVehicleFacts") or {})
+    # Drive type already belongs to the canonical target and query filters.
+    # Keep the supplemental facts inside the existing audit contract.
+    confirmed = report.get("confirmedVehicleFacts") or {}
+    facts.update({key: value for key, value in confirmed.items() if key in facts})
     # An absent certification, warranty, or equipment disclosure is unknown.
     return facts
 
@@ -134,6 +139,7 @@ class EfficientMarketSearch:
                  resumed_transcript: Mapping[str, Any] | None = None,
                  resume_loader: Callable[[str], Mapping[str, Any] | None] | None = None,
                  operation_begin: Callable[[int, Mapping[str, Any]], None] | None = None,
+                 summary_callback: Callable[[int, Mapping[str, Any], Mapping[str, Any]], None] | None = None,
                  resumable_evidence: bool = True,
                  readiness_stage: str = "full_review",
                  _replay_only: bool = False,
@@ -149,6 +155,9 @@ class EfficientMarketSearch:
         self.checkpoint = checkpoint
         self.resume_loader = resume_loader
         self.operation_begin = operation_begin
+        self.summary_callback = summary_callback
+        self.batch_summaries: dict[int, dict[str, Any]] = {}
+        self.last_discovery: dict[str, int] = {}
         self.resumable_evidence = resumable_evidence
         self.resumed_transcript = copy.deepcopy(resumed_transcript)
         self.replay_only = _replay_only
@@ -173,6 +182,7 @@ class EfficientMarketSearch:
             return copy.deepcopy(self.recorded_usage)
         return self.budget.snapshot()
 
+    @step("search", "checkpoint_save")
     def _save(self) -> None:
         if self.checkpoint is not None:
             self.checkpoint({"version": CHECKPOINT_FORMAT_VERSION, "inputDigest": self.input_digest,
@@ -184,6 +194,8 @@ class EfficientMarketSearch:
 
     def _event(self, operation: dict[str, Any], invoke: Callable[[Mapping[str, Any] | None], dict[str, Any]]) -> dict[str, Any]:
         index = len(self.events)
+        progress(eventIndex=index, stream=operation["stream"], centerId=operation.get("center", {}).get("id"),
+                 pageStart=operation.get("start"))
         prior = None
         if index < len(self.resumed_events):
             event = copy.deepcopy(self.resumed_events[index])
@@ -202,7 +214,8 @@ class EfficientMarketSearch:
             raise ValueError("Search replay requires an unrecorded provider operation")
         before = self.budget.snapshot()
         if self.operation_begin is not None:
-            self.operation_begin(index, operation)
+            with phase("search", "journal_begin"):
+                self.operation_begin(index, operation)
         interruption = None
         try:
             payload = invoke(prior["payload"] if prior else None)
@@ -235,11 +248,13 @@ class EfficientMarketSearch:
             )) from interruption
         return event
 
+    @step("search", "candidate_scoring")
     def _assessment(self, observation: Mapping[str, Any]) -> dict[str, Any]:
         return assess_observation(self.target, observation, subject_material_facts=self.subject_facts,
                                   evidence_date=self.evidence_date, max_distance_miles=self.policy.boundary,
                                   free_estimate=self.readiness_stage == "free_estimate", normalization_version=self.strategy_version)
 
+    @step("search", "customer_distance")
     def _locate(self, observation: Mapping[str, Any], provenance: Mapping[str, Any]) -> dict[str, Any]:
         item = copy.deepcopy(dict(observation))
         if "resolvedLocation" not in item:
@@ -275,6 +290,7 @@ class EfficientMarketSearch:
             return material_conflicts([left, right]) or left.get("location") != right.get("location")
         return any(left.get(key) != right.get(key) for key in ("materialFacts", "location"))
 
+    @step("search", "identity_merge")
     def _record(self, observation: dict[str, Any]) -> bool:
         if len(self.observations) >= self.policy.max_observations:
             return False
@@ -304,10 +320,12 @@ class EfficientMarketSearch:
             self.verified[observation["stream"]].setdefault(identity, observation)
         return not same
 
+    @step("search", "sufficiency")
     def _strong(self, stream: str) -> int:
         key = "estimateStrong" if self.readiness_stage == "free_estimate" else "strong"
         return sum(self._assessment(row).get(key, False) for row in self.verified[stream].values())
 
+    @step("search", "strict_sufficiency")
     def _strict_strong(self, stream: str) -> int:
         return sum(self._assessment(row)["strong"] for row in self.verified[stream].values())
 
@@ -320,6 +338,7 @@ class EfficientMarketSearch:
             return "BUDGET_OR_QUOTA_LIMITED"
         return "PROVIDER_FAILURE"
 
+    @step("search", "discovery")
     def _discover(self, stream: str, center: dict[str, Any], start: int, *, supporting: bool = False) -> tuple[list[dict[str, Any]], bool, str | None]:
         remaining = self.policy.max_observations - len(self.observations)
         rows_allowed = min(self.policy.page_size, remaining // 2 if stream == "historical" else remaining)
@@ -344,6 +363,13 @@ class EfficientMarketSearch:
         rows = []
         if not isinstance(payload.get("observations", []), list) or len(payload.get("observations", [])) > rows_allowed:
             raise ValueError("Discovery response exceeds its bounded observation count")
+        index = len(self.events) - 1
+        # Keep batch counts even if later distance, merge, or scoring fails.
+        self.batch_summaries[index] = discovery_summary(operation, [],
+            returned_rows=len(payload.get("observations", [])), parseable_observations=len(payload.get("observations", [])),
+            request_attempts=event["usageAfter"]["totalAttempts"], scoring_completed=False)
+        self.last_discovery[stream] = index
+        self._publish_summary(index)
         for raw in payload.get("observations", []):
             if raw.get("stream") != stream or raw.get("sourceEndpoint") != ("active" if stream == "current" else "recents"):
                 raise ValueError("Discovery observation has an inconsistent evidence stream")
@@ -353,6 +379,14 @@ class EfficientMarketSearch:
                 row["relevantDate"] = self.observed_date
             row["newIdentity"] = self._record(row)
             rows.append(row)
+        progress(evidenceNormalized=True)
+        index = len(self.events) - 1
+        with phase("search", "summary_construction"):
+            self.batch_summaries[index] = discovery_summary(operation, rows,
+                returned_rows=len(payload.get("observations", [])), parseable_observations=len(payload.get("observations", [])),
+                request_attempts=event["usageAfter"]["totalAttempts"])
+        self.last_discovery[stream] = index
+        self._publish_summary(index)
         if self.readiness_stage == "free_estimate" and not supporting:
             from venfour.subject_readiness import SubjectReadinessError, free_estimate_ambiguity
             issues = free_estimate_ambiguity(self.subject_facts, [
@@ -363,12 +397,29 @@ class EfficientMarketSearch:
                 raise SubjectReadinessError(issues)
         return rows, payload.get("hasMore", False), payload.get("failure")
 
+    @step("search", "summary_persistence")
+    def _publish_summary(self, index: int, stop_reason: str | None = None) -> None:
+        summary = self.batch_summaries[index]
+        if stop_reason is not None:
+            summary["stopReason"] = stop_reason
+        if self.summary_callback is not None and not self.replay_only and not (
+            index < len(self.resumed_events) and not self.resumed_events[index]["payload"].get("failure")
+        ):
+            self.summary_callback(index, self.events[index]["operation"], validate_summary(summary))
+
+    def _stop(self, stream: str, reason: str) -> None:
+        self.stops[stream] = reason
+        if stream in self.last_discovery:
+            self._publish_summary(self.last_discovery[stream], reason)
+
+    @step("search", "history_verification")
     def _verify(self, candidates: Sequence[dict[str, Any]], *, supporting: bool = False) -> str | None:
         if not candidates:
             return None
         candidates = candidates[:self.policy.max_observations - len(self.observations)]
         if not candidates:
             return "OBSERVATION_LIMIT"
+        progress(historyVerificationBegun=True)
         identities = [observation_identity(row) for row in candidates]
         self.attempted_vins.update(identities)
         operation = {"kind": "verification", "stream": "historical", "purpose": "supporting" if supporting else "baseline",
@@ -433,6 +484,7 @@ class EfficientMarketSearch:
             self.centers.append(chosen)
         return chosen
 
+    @step("search", "adaptive_stage")
     def _search_stream(self, stream: str, *, context_only: bool = False) -> None:
         provider = self.providers[stream]
         if provider is None or self.requests[stream] is None:
@@ -445,9 +497,11 @@ class EfficientMarketSearch:
         center = {**self.centers[0], "radiusMiles": radius}
         while center is not None:
             self.stream_centers_used[stream].add(center["id"])
+            progress(stageIndex=len(self.stream_centers_used[stream]) - 1, stream=stream, centerId=center["id"])
             for page_index in range(self.policy.pages_per_center):
                 rows, more, failure = self._discover(stream, center, page_index * self.policy.page_size)
                 fresh = [row for row in rows if row["newIdentity"]]
+                progress(phase="search", operation="history_selection", stream=stream)
                 promising = sorted((row for row in fresh if self._assessment(row)["verificationEligible"]
                                     and (stream == "current" or observation_identity(row) not in self.attempted_vins)),
                                    key=lambda row: self._assessment(row)["qualityKey"])
@@ -461,24 +515,26 @@ class EfficientMarketSearch:
                         if failure or self._strong(stream) >= self.policy.minimum_strong_matches:
                             break
                 if failure:
-                    self.stops[stream] = self._failure_stop(failure)
+                    self._stop(stream, self._failure_stop(failure))
                     return
                 if self._strong(stream) >= self.policy.minimum_strong_matches:
-                    self.stops[stream] = "SUFFICIENT_STRONG_EVIDENCE"
+                    self._stop(stream, "SUFFICIENT_STRONG_EVIDENCE")
                     return
                 if context_only:
-                    self.stops[stream] = "HISTORICAL_BASELINE_SUFFICIENT_CURRENT_CONTEXT_ONLY"
+                    self._stop(stream, "HISTORICAL_BASELINE_SUFFICIENT_CURRENT_CONTEXT_ONLY")
                     return
                 if len(self.observations) >= self.policy.max_observations:
-                    self.stops[stream] = "OBSERVATION_LIMIT"
+                    self._stop(stream, "OBSERVATION_LIMIT")
                     return
                 duplicate_heavy = bool(rows) and 1 - len(fresh) / len(rows) >= self.policy.duplicate_branch_fraction
                 if not more or not promising or duplicate_heavy:
                     branch["stopReason"] = "DUPLICATE_HEAVY" if duplicate_heavy else "UNPRODUCTIVE" if not promising else "EXHAUSTED"
+                    self._publish_summary(self.last_discovery[stream], branch["stopReason"])
                     break
             center = self._next_center(stream)
-        self.stops[stream] = "GEOGRAPHIC_SCOPE_LIMITED" if self.origin else "CUSTOMER_LOCATION_UNAVAILABLE"
+        self._stop(stream, "GEOGRAPHIC_SCOPE_LIMITED" if self.origin else "CUSTOMER_LOCATION_UNAVAILABLE")
 
+    @step("search", "supporting_selection")
     def _supporting(self) -> dict[str, Any]:
         self.baseline_frozen = True
         baseline = [copy.deepcopy(row) for stream in self.verified.values() for row in stream.values()]
@@ -545,6 +601,8 @@ class EfficientMarketSearch:
         result["searchStatus"] = self._failure_stop(failure) if failure else "COMPLETE_BOUNDED_PASS"
         return result
 
+    @execution
+    @step("search", "initialize")
     def run(self, *, target: ComparableTarget, current_request: MarketSearchRequest | None,
             historical_request: HistoricalMarketSearchRequest | None, observed_date: str,
             subject_facts: Mapping[str, Any], subject_vin: str | None = None) -> EfficientSearchResult:
@@ -612,18 +670,21 @@ class EfficientMarketSearch:
         else:
             self._search_stream("current", context_only=historical_sufficient)
         for stream, candidates in self.verified.items():
+            progress(phase="search", operation="baseline_ranking", stream=stream)
             ranked = sorted(candidates.values(), key=lambda row: self._assessment(row)["qualityKey"])
             for index, row in enumerate(ranked):
                 row["baselineSelection"] = "SELECTED" if index < 100 else "BASELINE_CANDIDATE_LIMIT"
             self.verified[stream] = {observation_identity(row): row for row in ranked[:100]}
         supporting = self._supporting()
         current = None
+        progress(phase="search", operation="current_result", stream="current")
         if current_request is not None and self.providers["current"] is not None:
             current = MarketSearchResult(provider=self.providers["current"].name,
                                          request=replace(current_request, radius_miles=self.policy.boundary, result_limit=100),
                                          listings=tuple(listing_from_observation(row) for row in self.verified["current"].values()))
             validate_market_search_result(current)
         historical = None
+        progress(phase="search", operation="historical_result", stream="historical")
         if self.historical_template is not None:
             historical = replace(self.historical_template,
                                 request=replace(historical_request, radius_miles=self.policy.boundary, result_limit=100),
@@ -632,6 +693,7 @@ class EfficientMarketSearch:
             validate_historical_market_search_result(historical)
         for row in self.observations:
             row["assessment"] = self._assessment(row)
+        progress(phase="search", operation="transcript_construction", stream=None, centerId=None, pageStart=None)
         transcript = {"version": self.strategy_version, "input": inputs, "inputDigest": self.input_digest,
                       "origin": self.origin, "centers": self.centers, "events": self.events,
                       "geography": self.geographic_snapshot, "providers": self.provider_capabilities,

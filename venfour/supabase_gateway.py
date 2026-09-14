@@ -3529,6 +3529,24 @@ class SupabaseHttpGateway:
     def get_market_request_usage(self, request: Mapping[str, Any]) -> Mapping[str, Any]:
         return self._market_request_accounting_rpc("get_market_request_usage", request, "read")
 
+    def record_case_market_search_summary(self, arguments: Mapping[str, Any]) -> bool:
+        from venfour.search_progress import validate_journal_arguments
+        from venfour.search_summary import validate_summary
+        try:
+            if set(arguments) != {"requested_case_id", "requested_job_id", "requested_processing_token",
+                "requested_execution_id", "requested_input_digest", "requested_event_index",
+                "requested_operation_digest", "requested_summary"}:
+                raise ValueError("Invalid search summary arguments")
+            validated = validate_journal_arguments({key: value for key, value in arguments.items() if key != "requested_summary"} | {"requested_action": "complete"})
+            validated.pop("requested_action")
+            validated["requested_summary"] = validate_summary(arguments["requested_summary"])
+        except (TypeError, ValueError) as exc:
+            raise SupabaseContractError("Market search summary arguments are invalid") from exc
+        result = self._bounded_market_rpc("record_case_market_search_summary", validated)
+        if result is not True:
+            raise SupabaseContractError("Market search summary was not acknowledged")
+        return True
+
     def record_market_request_account_state(self, request: Mapping[str, Any]) -> Mapping[str, Any]:
         return self._market_request_accounting_rpc("record_market_request_account_state", request, "state")
 

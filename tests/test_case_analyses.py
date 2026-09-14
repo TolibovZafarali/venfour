@@ -1039,7 +1039,7 @@ class CaseAnalysisServiceTests(unittest.TestCase):
 
         self.assertEqual(status.status, "failed")
         self.assertEqual(
-            [json.loads(line) for line in event_lines],
+            [{key: value for key, value in json.loads(line).items() if key != "diagnostic"} for line in event_lines],
             [
                 {
                     "severity": "INFO",
@@ -1068,6 +1068,7 @@ class CaseAnalysisServiceTests(unittest.TestCase):
                 },
             ],
         )
+        self.assertEqual(json.loads(event_lines[-1])["diagnostic"]["exceptionType"], "AnalysisCreationProviderError")
         serialized = "\n".join(event_lines)
         for prohibited_value in (
             exception_text,
@@ -1105,6 +1106,7 @@ class CaseAnalysisServiceTests(unittest.TestCase):
             self.assertTrue(
                 set(event)
                 <= {
+                    "diagnostic",
                     "severity",
                     "event",
                     "jobId",

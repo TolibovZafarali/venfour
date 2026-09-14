@@ -99,6 +99,17 @@ class CaseSearchRecovery:
         saved = self.saved_events[index] if index < len(self.saved_events) else None
         self._journal("resume" if saved is not None and saved["payload"].get("failure") else "begin", index, operation)
 
+    def summary(self, index: int, operation: Mapping[str, Any], summary: Mapping[str, Any]) -> None:
+        from venfour.search_summary import validate_summary
+        try:
+            result = self.gateway.record_case_market_search_summary({**self.identity,
+                "requested_input_digest": self.input_digest, "requested_event_index": index,
+                "requested_operation_digest": operation_digest(operation), "requested_summary": validate_summary(summary)})
+            if result is not True:
+                raise ValueError("Search summary was not acknowledged")
+        except Exception as exc:
+            raise MarketSearchInterrupted(recovery_required=self.evidence is None) from exc
+
     def save(self, checkpoint: Mapping[str, Any]) -> None:
         try:
             CaseSearchProgress._validate(checkpoint)

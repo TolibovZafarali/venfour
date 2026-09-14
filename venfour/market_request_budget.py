@@ -7,6 +7,8 @@ metadata only; it is not a cache of customer or provider evidence.
 
 from __future__ import annotations
 
+from venfour.analysis_diagnostics import progress
+
 import copy
 import hashlib
 import json
@@ -396,6 +398,7 @@ class MarketRequestBudget:
         if result.get("reservationId") != payload["reservationId"] or not isinstance(result.get("usage"), Mapping):
             raise MarketRequestBudgetExceeded("MARKET_REQUEST_ACCOUNTING_INVALID")
         self.last_confirmed_usage = copy.deepcopy(dict(result["usage"]))
+        progress(requestAttemptsConsumed=result["usage"]["totalAttempts"])
         return AttemptReservation(payload["reservationId"], copy.deepcopy(result["usage"]))
 
     def report_response(self, status_code: int, retry_after: str | int | float | None = None,
@@ -510,6 +513,7 @@ class MarketRequestBudget:
         if not isinstance(result, Mapping) or not isinstance(result.get("totalAttempts"), int):
             raise MarketRequestBudgetExceeded("MARKET_REQUEST_ACCOUNTING_INVALID")
         self.last_confirmed_usage = copy.deepcopy(dict(result))
+        progress(requestAttemptsConsumed=result["totalAttempts"])
         return copy.deepcopy(dict(result))
 
     @property

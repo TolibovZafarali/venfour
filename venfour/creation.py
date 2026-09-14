@@ -667,6 +667,7 @@ def create_live_analysis_creation_service(
                 checkpoint=progress.save if progress is not None else None,
                 resume_loader=progress.load if progress is not None else None,
                 operation_begin=getattr(progress, "begin", None),
+                summary_callback=getattr(progress, "summary", None),
                 resumable_evidence=retention is not None,
             ),
         )

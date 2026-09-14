@@ -8,6 +8,8 @@ cross the public HTTP boundary.
 
 from __future__ import annotations
 
+from venfour.analysis_diagnostics import execution, step, capture_failure, failure_diagnostic
+
 import json
 import math
 import sys
@@ -626,6 +628,8 @@ class CaseAnalysisService:
                 "retryable": bool(status.retryable),
             }
             event.update(self._provider_failure_lifecycle_fields(failure))
+            if failure is not None:
+                event["diagnostic"] = failure_diagnostic(failure)
             self._emit_lifecycle_event(event)
 
     @staticmethod
@@ -1162,6 +1166,7 @@ class CaseAnalysisService:
                 "Report ingestion is unavailable"
             ) from exc
 
+    @step("analysis", "failure_state_persistence")
     def _record_failure(
         self,
         *,
@@ -1209,6 +1214,8 @@ class CaseAnalysisService:
             "Analysis failure could not be durably recorded"
         )
 
+    @execution
+    @step("analysis", "creation")
     def _execute_claim(
         self,
         *,
@@ -1400,6 +1407,7 @@ class CaseAnalysisService:
                     run_id=run_id,
                 )
             else:
+                capture_failure(exc)
                 failure_code, retryable = self._failure_for(exc)
                 status = self._record_failure(
                     case_id=case_id,

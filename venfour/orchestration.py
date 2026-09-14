@@ -7,6 +7,8 @@ matching, ranking, historical-resolution, or discrepancy business rules.
 
 from __future__ import annotations
 
+from venfour.analysis_diagnostics import execution, phase, progress, step
+
 import copy
 import json
 import logging
@@ -587,6 +589,8 @@ class AnalysisOrchestrator:
                 tuple(exc.details),
             ) from exc
 
+    @execution
+    @step("analysis", "input_validation")
     def run(self, request: AnalysisRunRequest) -> AnalysisRunResult:
         """Execute one complete run, returning only after its artifact is saved."""
 
@@ -755,6 +759,7 @@ class AnalysisOrchestrator:
             request.evidence_context if request.evidence_context is not None
             else default_report_evidence_context(base_request.to_dict())
         )
+        progress(phase="analysis", operation="evidence_resolution", stream=None, centerId=None, pageStart=None)
         try:
             resolved = resolve_preliminary_evidence(
                 base_request=base_request,
@@ -786,6 +791,7 @@ class AnalysisOrchestrator:
             ) from exc
 
         run_id = self._new_run_id(self._run_id_factory)
+        progress(phase="analysis", operation="artifact_construction")
         created_at = self._created_at(self._clock)
         current_metadata = (
             ProviderMetadata(
@@ -892,7 +898,8 @@ class AnalysisOrchestrator:
             discrepancy_analysis_version=discrepancy_result.analysis_version,
         )
         try:
-            validate_analysis_run_artifact(artifact)
+            with phase("analysis", "artifact_validation"):
+                validate_analysis_run_artifact(artifact)
         except (
             AnalysisRunContractError,
             AnalysisRunValidationUnavailableError,
@@ -902,7 +909,8 @@ class AnalysisOrchestrator:
             ) from exc
 
         try:
-            self._repository.save(artifact)
+            with phase("analysis", "artifact_persistence"):
+                self._repository.save(artifact)
         except Exception as exc:
             raise AnalysisPersistenceError(run_id) from exc
         return AnalysisRunResult(artifact=artifact)
