@@ -14,7 +14,7 @@ const outputPath = path.resolve(
   "src/features/analyses/analysis-presentation.generated.ts",
 );
 const supportedConditionalSchemaDigest =
-  "14f49cca9ec9c57cd6f9cb099b4309801eef353df808f5521a87ff67db2bdca8";
+  "369e4cbc85599a44c9fcdc76fb59ceca311f9dc2904a5f6dca001826756a2730";
 
 function collectConditionalConstraints(value, currentPath = "$", result = []) {
   if (Array.isArray(value)) {
@@ -143,7 +143,7 @@ function omitDisplayArrayMaximums(value) {
     .filter(([key]) => key !== "maxItems")
     .map(([key, child]) => [key, omitDisplayArrayMaximums(child)]));
 }
-for (const name of ["marketSearchContext", "higherPricedComparableListings"]) {
+for (const name of ["marketSearchContext", "higherPricedComparableListings", "preliminaryResult"]) {
   schema.$defs[name] = omitDisplayArrayMaximums(schema.$defs[name]);
 }
 
@@ -314,6 +314,7 @@ type AnalysisPresentationCommonBase = Omit<
   | "assessment"
   | "presentationVersion"
   | "preliminaryQualification"
+  | "preliminaryResult"
   | "preliminaryResolution"
   | "provenance"
   | "primaryExternalEvidence"
@@ -332,6 +333,7 @@ type AnalysisPresentationCommonBase = Omit<
 type PresentationQualificationVersion =
   | {
       presentationVersion: "2" | "3";
+      preliminaryResult?: never;
       marketSearchContext?: never;
       higherPricedComparableListings?: never;
       preliminaryQualification?: never;
@@ -343,6 +345,7 @@ type PresentationQualificationVersion =
     }
   | {
       presentationVersion: "4";
+      preliminaryResult?: never;
       marketSearchContext?: never;
       higherPricedComparableListings?: never;
       preliminaryQualification: PreliminaryQualification;
@@ -355,6 +358,7 @@ type PresentationQualificationVersion =
     }
   | {
       presentationVersion: "5";
+      preliminaryResult?: never;
       marketSearchContext?: never;
       higherPricedComparableListings?: never;
       preliminaryQualification: PreliminaryQualification;
@@ -367,6 +371,7 @@ type PresentationQualificationVersion =
     }
   | {
       presentationVersion: "6";
+      preliminaryResult?: never;
       marketSearchContext?: never;
       higherPricedComparableListings?: never;
       preliminaryQualification: PreliminaryQualification;
@@ -379,6 +384,7 @@ type PresentationQualificationVersion =
     }
   | {
       presentationVersion: "7";
+      preliminaryResult?: never;
       preliminaryQualification: PreliminaryQualification;
       preliminaryResolution: PreliminaryResolution;
       marketSearchContext: MarketSearchContext;
@@ -386,6 +392,19 @@ type PresentationQualificationVersion =
       provenance: Omit<Provenance, "presentationVersion" | "analysisRunSchemaVersion" | "drivetrainDiscovery"> & {
         presentationVersion: "7";
         analysisRunSchemaVersion: "11";
+        drivetrainDiscovery: StreamDrivetrainDiscovery;
+      };
+    }
+  | {
+      presentationVersion: "8";
+      preliminaryResult: PreliminaryResult | null;
+      preliminaryQualification: PreliminaryQualification;
+      preliminaryResolution: PreliminaryResolution;
+      marketSearchContext: MarketSearchContext;
+      higherPricedComparableListings: HigherPricedComparableListings;
+      provenance: Omit<Provenance, "presentationVersion" | "analysisRunSchemaVersion" | "drivetrainDiscovery"> & {
+        presentationVersion: "8";
+        analysisRunSchemaVersion: "12";
         drivetrainDiscovery: StreamDrivetrainDiscovery;
       };
     };

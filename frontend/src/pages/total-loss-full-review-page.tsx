@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useLocation, useParams } from "react-router";
 import { ArrowLeft, FileText, LoaderCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { environment } from "@/config/env";
 import { useAuth, useSignInDialog } from "@/features/auth";
 import { validateTotalLossPdf } from "@/features/total-loss/validation";
 import { LocalContinueAction } from "@/features/total-loss-claim/components/local-continue-action";
@@ -33,11 +34,11 @@ export function FullReviewReport({ caseId, userId, accessToken }: { caseId: stri
   if (query.isPending) return <ValuationStatus kind="loading" heading="Opening your saved report" description="Retrieving your review details." />;
   if (query.isError && !state) return <ValuationStatus kind="error" heading="We couldn’t open your report." description="Your review is saved. Try opening it again."><Button onClick={() => void query.refetch()}>Try again</Button><Button asChild variant="outline"><Link to="/appraisals">Return to appraisals</Link></Button></ValuationStatus>;
   return <ClaimWorkflowFrame>
-    <Link className="mb-6 inline-flex min-h-11 items-center gap-2 text-sm font-medium text-copy" to={`/total-loss/cases/${caseId}/analysis`}><ArrowLeft className="size-4" aria-hidden />Back to your free estimate</Link>
+    <Link className="mb-6 inline-flex min-h-11 items-center gap-2 text-sm font-medium text-copy" to={`/total-loss/cases/${caseId}/analysis`}><ArrowLeft className="size-4" aria-hidden />Back to your free result</Link>
     <ClaimWorkflowCard>
       <p className="text-sm font-medium text-brand">Your full valuation review</p>
       <h1 className="mt-3 text-3xl font-semibold tracking-tight text-ink">Add your insurer’s valuation report</h1>
-      <p className="mt-4 max-w-2xl text-sm leading-6 text-copy">Your free estimate is saved. We’ll use the complete report to review the vehicle details, comparable vehicles, and valuation adjustments before payment becomes available.</p>
+      <p className="mt-4 max-w-2xl text-sm leading-6 text-copy">Your free result is saved. We’ll use the complete report to review the vehicle details, comparable vehicles, and valuation adjustments before payment becomes available.</p>
       {query.isPending ? <p className="mt-6" role="status">Opening your saved report details…</p> : null}
       {query.isError ? <div className="mt-6" role="alert"><p>We couldn’t open the report details.</p><Button className="mt-3" variant="outline" onClick={() => void query.refetch()}>Try again</Button></div> : null}
       {state ? <>
@@ -66,11 +67,14 @@ export function FullReviewReport({ caseId, userId, accessToken }: { caseId: stri
             </div> : issue.field === "drivetrain" ? <label className="mt-4 block text-sm">Drive type<select className="mt-2 block min-h-11 w-full rounded-lg border border-line bg-surface px-3" aria-label="Drive type" value={answer} required onChange={event => setAnswer(event.target.value)}>
               <option value="">Choose drive type</option><option value="FWD">Front-wheel drive</option><option value="RWD">Rear-wheel drive</option><option value="AWD">All-wheel drive</option><option value="4WD">Four-wheel drive</option>
             </select></label> : <label className="mt-4 block text-sm">Vehicle detail<input className="mt-2 block min-h-11 w-full rounded-lg border border-line bg-surface px-3" aria-label="Vehicle detail" value={answer} maxLength={200} required onChange={event => setAnswer(event.target.value)} /></label>}
-            <p className="mt-3 text-xs leading-5 text-copy">This choice applies to the full review. The original report and your free estimate remain in your case history.</p>
+            <p className="mt-3 text-xs leading-5 text-copy">This choice applies to the full review. The original report and your free result remain in your case history.</p>
             <Button className="mt-4" disabled={busy || !answer.trim()} type="submit">Confirm and continue</Button>
           </fieldset>
         </form> : null}
-        {state.ready ? <LocalContinueAction accessToken={accessToken} caseId={caseId} userId={userId} label="Continue to secure checkout" /> : null}
+        {state.ready ? environment.localPostContinueEnabled
+          ? <LocalContinueAction accessToken={accessToken} caseId={caseId} userId={userId} label="Continue to secure checkout" />
+          : <p className="mt-6 rounded-xl border border-line p-4 text-sm leading-6 text-copy" role="status">Payment is not available right now. Your report and free result are saved, and no payment has been taken.</p>
+          : null}
         {state.locked && !state.ready ? <Button asChild className="mt-5"><Link to={`/total-loss/cases/${caseId}/claim`}>Return to your saved review</Link></Button> : null}
         {busy ? <LoaderCircle className="mt-4 size-5 animate-spin motion-reduce:animate-none" aria-label="Checking report" /> : null}
       </> : null}

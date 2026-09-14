@@ -9,6 +9,9 @@ export function decodedVehicleFacts(row: Record<string, unknown>): SubjectVehicl
     return /^(unknown|not applicable|not available|n\/a|other)$/iu.test(normalized) ? "" : normalized;
   };
   const facts: SubjectVehicleFacts = {};
+  const specificationKey = (value: string) => value.toLowerCase().replace(/[^a-z0-9]+/gu, " ").trim();
+  const explicitSpecification = (value: string, names: Record<string, string>) =>
+    Object.entries(names).find(([name]) => specificationKey(name) === specificationKey(value))?.[1];
   const body = text("BodyClass");
   const bodyNames: Record<string, string> = {
     "Sedan/Saloon": "Sedan", "Sport Utility Vehicle (SUV)/Multi-Purpose Vehicle (MPV)": "SUV",
@@ -21,8 +24,11 @@ export function decodedVehicleFacts(row: Record<string, unknown>): SubjectVehicl
   const driveNames: Record<string, string> = {
     "FWD/Front-Wheel Drive": "FWD", "RWD/Rear-Wheel Drive": "RWD",
     "AWD/All-Wheel Drive": "AWD", "4WD/4-Wheel Drive/4x4": "4WD",
+    FWD: "FWD", "Front-Wheel Drive": "FWD", RWD: "RWD", "Rear-Wheel Drive": "RWD",
+    AWD: "AWD", "All-Wheel Drive": "AWD", "4WD": "4WD", "4-Wheel Drive": "4WD", "4x4": "4WD",
   };
-  if (driveNames[text("DriveType")]) facts.drivetrain = driveNames[text("DriveType")];
+  const drivetrain = explicitSpecification(text("DriveType"), driveNames);
+  if (drivetrain) facts.drivetrain = drivetrain;
 
   const primary = text("FuelTypePrimary");
   const secondary = text("FuelTypeSecondary");
@@ -34,7 +40,8 @@ export function decodedVehicleFacts(row: Record<string, unknown>): SubjectVehicl
     Automatic: "Automatic", "Manual/Standard": "Manual", "Continuously Variable Transmission (CVT)": "CVT",
     "Automated Manual Transmission (AMT)": "Automated Manual", "Dual-Clutch Transmission (DCT)": "Dual Clutch",
   };
-  if (transmissions[text("TransmissionStyle")]) facts.transmission = transmissions[text("TransmissionStyle")];
+  const transmission = explicitSpecification(text("TransmissionStyle"), transmissions);
+  if (transmission) facts.transmission = transmission;
   const cylinders = text("EngineCylinders");
   const displacement = text("DisplacementL");
   const layout = ({ "In-Line": "I", "V-Shaped": "V", "Horizontally opposed (boxer)": "H" } as Record<string, string>)[text("EngineConfiguration")];

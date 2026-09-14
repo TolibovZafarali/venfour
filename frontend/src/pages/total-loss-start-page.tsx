@@ -1,5 +1,5 @@
 import { ValuationStatus } from "@/components/valuation-status";
-import { VEHICLE_FACT_FIELDS, vehicleFactErrors, clearVehicleFacts, fillConfigurationFacts } from "@/features/total-loss/vehicle-facts";
+import { VEHICLE_FACT_FIELDS, clearVehicleFacts, fillConfigurationFacts } from "@/features/total-loss/vehicle-facts";
 import { AlertCircle, CloudOff, RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useIsMutating, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -18,6 +18,7 @@ import {
 } from "@/features/customer-profile/types";
 import { FreeValuationProcessing } from "@/features/analyses/components/free-valuation-processing";
 import { caseAnalysisQueryKeys } from "@/features/analyses/case-analysis-queries";
+import { getCaseAnalysis } from "@/features/analyses/api/case-analysis";
 import { useCreateOrGetAppraisalCaseMutation } from "@/features/cases/mutations";
 import {
   appraisalCaseQueryKeys,
@@ -838,6 +839,8 @@ function TotalLossIntakeFlowContent({
   );
   const explicitCaseRef = useRef<string | null>(null);
   const analysisPreparationStartedRef = useRef(false);
+  const contactSaveInFlightRef = useRef(false);
+  const analysisPreparationInFlightRef = useRef(false);
   const correctionPreparedRef = useRef(!correction?.details.intakeCompletedAt);
   const correctionSubmissionRequestedRef = useRef(false);
   const correctionSourceInputIdRef = useRef(correction?.details.analysisInputId ?? null);
@@ -1104,21 +1107,29 @@ function TotalLossIntakeFlowContent({
         return;
       }
 
-      const values = detailsValuesForDraft(current);
-      await enqueueSnapshot({
-        caseId,
-        identityGeneration: identityRef.current.generation,
-        revision: current.revision,
-        retainLocalDirty:
-          hasUnpersistedTotalLossManualValues(current.manual) ||
-          Boolean(
-            correction &&
-              JSON.stringify(normalizeTotalLossContactForm(current.contact)) !==
-                JSON.stringify(savedCorrectionContactRef.current),
-          ),
-        userId,
-        values,
-      });
+      let snapshot = current;
+      do {
+        const revision = snapshot.revision;
+        await enqueueSnapshot({
+          caseId,
+          identityGeneration: identityRef.current.generation,
+          revision,
+          retainLocalDirty:
+            hasUnpersistedTotalLossManualValues(snapshot.manual) ||
+            Boolean(
+              correction &&
+                JSON.stringify(normalizeTotalLossContactForm(snapshot.contact)) !==
+                  JSON.stringify(savedCorrectionContactRef.current),
+            ),
+          userId,
+          values: detailsValuesForDraft(snapshot),
+        });
+        snapshot = draftRef.current;
+        if (!force || snapshot.revision === revision) break;
+        if (snapshot.confirmedCaseId !== caseId || snapshot.ownerUserId !== userId) {
+          throw new StaleIdentityOperationError();
+        }
+      } while (snapshot.dirty);
     },
     [correction, correctionSubmissionIsUnchanged, enqueueSnapshot, userId],
   );
@@ -1470,6 +1481,8 @@ function TotalLossIntakeFlowContent({
   );
   const readyStateVerified = Boolean(
     !correction &&
+    !completionBusy &&
+    !draft.dirty &&
     draft.step === "ready" &&
     confirmedCaseId &&
     detailsQuery.data?.caseId === confirmedCaseId &&
@@ -1608,7 +1621,8 @@ function TotalLossIntakeFlowContent({
       }
       return {
         ...current,
-        manual: changesVehicleIdentity ? clearVehicleFacts(manual) : manual,
+        manual: changesVehicleIdentity && !(field === "trim" && current.manual.vin)
+          ? clearVehicleFacts(manual) : manual,
         vehicleConfiguration: changesVehicleIdentity
           ? null
           : current.vehicleConfiguration,
@@ -1683,6 +1697,7 @@ function TotalLossIntakeFlowContent({
       }
       const decoded = await decodeVin(normalized.vin);
       if (!decoded) return;
+      if (normalizeTotalLossManualForm(draftRef.current.manual).vin !== normalized.vin) return;
       applyDraft((current) => ({
         ...current,
         manual: {
@@ -1718,8 +1733,7 @@ function TotalLossIntakeFlowContent({
     const configuredManual = selectedTrimOption
       ? fillConfigurationFacts({ ...normalized, trim: selectedTrimOption.trim }, vehicleConfigurationFromTrimOption(selectedTrimOption))
       : normalized;
-    const errors = { ...vehicleErrors(validateTotalLossManualForm(configuredManual)),
-      ...(correctionSubmissionIsUnchanged(draftRef.current) ? {} : vehicleFactErrors(configuredManual)) };
+    const errors = vehicleErrors(validateTotalLossManualForm(configuredManual));
     if (
       vehicleResolved &&
       trimsState !== "idle" &&
@@ -1779,6 +1793,7 @@ function TotalLossIntakeFlowContent({
   };
 
   const handleContactContinue = async () => {
+    if (contactSaveInFlightRef.current || analysisPreparationInFlightRef.current) return;
     const normalized = normalizeTotalLossContactForm(draftRef.current.contact);
     const errors = validateTotalLossContactForm(normalized);
     setContactErrors(errors);
@@ -1822,18 +1837,11 @@ function TotalLossIntakeFlowContent({
     }
 
     correctionSubmissionRequestedRef.current = true;
+    contactSaveInFlightRef.current = true;
     setCompletionBusy(true);
     setFlowError(null);
     setAccessLinkError(null);
     try {
-      const errors = draftRef.current.mode === "manual" ? vehicleFactErrors(draftRef.current.manual) : {};
-      if (Object.keys(errors).length) {
-        setManualErrors(errors);
-        applyDraft(current => ({ ...current, step: "vehicle" }), { bumpRevision: false });
-        setFlowError("Confirm the highlighted vehicle details before starting your review. Your information is saved.");
-        focusFirstManualError(errors);
-        return;
-      }
       const caseId = await ensureCase();
       await flushDraft({ force: true });
       const claim = await identityService.saveContactAndBeginClaim({
@@ -1908,26 +1916,28 @@ function TotalLossIntakeFlowContent({
         ),
       );
     } finally {
+      contactSaveInFlightRef.current = false;
       setCompletionBusy(false);
     }
   };
 
   const handleStartAnalysis = useCallback(async () => {
     if (!draftRef.current.mode) return;
+    if (contactSaveInFlightRef.current || analysisPreparationInFlightRef.current) return;
     if (correction && !correctionSubmissionRequestedRef.current) return;
+    analysisPreparationInFlightRef.current = true;
     setCompletionBusy(true);
     setFlowError(null);
     try {
-      const errors = draftRef.current.mode === "manual" ? vehicleFactErrors(draftRef.current.manual) : {};
-      if (Object.keys(errors).length) {
-        setManualErrors(errors);
-        applyDraft(current => ({ ...current, step: "vehicle" }), { bumpRevision: false });
-        setFlowError("Confirm the highlighted vehicle details before starting your review. Your information is saved.");
-        focusFirstManualError(errors);
-        return;
-      }
       const caseId = await ensureCase();
       await flushDraft({ force: true });
+      if (auth.status !== "signedIn") {
+        throw new Error("Your details are saved. Sign in again to continue this review.");
+      }
+      const availability = await getCaseAnalysis(caseId, auth.session.access_token);
+      if (availability.submissionAvailability?.available === false) {
+        throw new Error("Your details are saved. The value check is temporarily unavailable. Please try again later.");
+      }
       if (
         !detailsService?.confirmIntake ||
         !userId ||
@@ -1945,11 +1955,9 @@ function TotalLossIntakeFlowContent({
         totalLossQueryKeys.details(userId, caseId),
         confirmed,
       );
-      if (correction) {
-        const queryKey = caseAnalysisQueryKeys.detail(userId, caseId);
-        await queryClient.cancelQueries({ queryKey, exact: true });
-        queryClient.removeQueries({ queryKey, exact: true });
-      }
+      const queryKey = caseAnalysisQueryKeys.detail(userId, caseId);
+      await queryClient.cancelQueries({ queryKey, exact: true });
+      queryClient.removeQueries({ queryKey, exact: true });
       applyDraft(
         (current) => ({
           ...current,
@@ -1964,10 +1972,12 @@ function TotalLossIntakeFlowContent({
         errorMessage(error, "We couldn’t start the analysis. Try again."),
       );
     } finally {
+      analysisPreparationInFlightRef.current = false;
       setCompletionBusy(false);
     }
   }, [
     applyDraft,
+    auth,
     correction,
     detailsService,
     ensureCase,

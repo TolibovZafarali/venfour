@@ -29,6 +29,7 @@ from venfour.case_analyses import (
     CaseAnalysisConflictError,
     CaseAnalysisContractError,
     CaseAnalysisService,
+    CaseAnalysisUnavailableError,
     SupabaseAnalysisRunRepository,
 )
 from venfour.creation import (
@@ -178,6 +179,7 @@ class FakeCaseGateway:
             "processing_expires_at": "2026-08-19T17:00:00+00:00",
         }
         self.claims: list[tuple[str, str, str]] = []
+        self.input_claims: list[tuple[str, str, str, str, int]] = []
         self.completions: list[tuple[str, str, str, dict[str, Any]]] = []
         self.failures: list[tuple[str, str, str, bool]] = []
         self.report_requests: list[tuple[str, str, str]] = []
@@ -229,6 +231,19 @@ class FakeCaseGateway:
             return {"outcome": "not_found"}
         return copy.deepcopy(self.status_row)
 
+    def claim_total_loss_analysis_input(
+        self, case_id, user_id, processing_token, analysis_input_id, analysis_input_revision
+    ):
+        self.input_claims.append((case_id, user_id, processing_token, analysis_input_id, analysis_input_revision))
+        if case_id != CASE_ID or user_id != USER_ID:
+            return {"outcome": "not_found"}
+        if (self.status_row.get("analysis_input_id") != analysis_input_id
+                or self.status_row.get("analysis_input_revision") != analysis_input_revision):
+            return {"outcome": "case_not_ready",
+                "analysis_input_id": self.status_row.get("analysis_input_id"),
+                "analysis_input_revision": self.status_row.get("analysis_input_revision")}
+        return self.claim_total_loss_analysis(case_id, user_id, processing_token)
+
     def get_total_loss_intake_correction_context(self, case_id, user_id):
         if case_id != CASE_ID or user_id != USER_ID:
             return None
@@ -255,6 +270,8 @@ class FakeCaseGateway:
         self.completions.append((job_id, processing_token, run_id, payload))
         if self.complete_result:
             self.artifacts[(self.creation_owner, run_id)] = payload
+            input_context = {key: self.status_row[key] for key in
+                ("analysis_input_id", "analysis_input_revision") if key in self.status_row}
             self.status_row = {
                 "outcome": "completed",
                 "job_id": job_id,
@@ -265,6 +282,7 @@ class FakeCaseGateway:
                 "failure_code": None,
                 "retryable": None,
                 "processing_expires_at": None,
+                **input_context,
             }
         return self.complete_result
 
@@ -1273,7 +1291,7 @@ class CaseAnalysisServiceTests(unittest.TestCase):
         self.assertEqual(len(gateway.completions), 1)
         self.assertEqual(
             gateway.claims,
-            [(CASE_ID, USER_ID, TOKEN_ID), (CASE_ID, USER_ID, TOKEN_ID)],
+            [(CASE_ID, USER_ID, TOKEN_ID)],
         )
         self.assertEqual(
             gateway.report_requests, [(USER_ID, CASE_ID, JOB_ID)]
@@ -1441,9 +1459,118 @@ class CaseAnalysisServiceTests(unittest.TestCase):
             owner_repository.get(RUN_ID)
 
 
+class ExpectedInputSubmissionTests(unittest.TestCase):
+    def setUp(self):
+        self.gateway = FakeCaseGateway()
+        self.gateway.status_row.update(outcome="not_submitted", status=None,
+            analysis_input_id=INPUT_ID, analysis_input_revision=2)
+        self.gateway.claim_row.update(intake_mode="manual", source_report_upload_id=None,
+            analysis_input_id=INPUT_ID, analysis_input_revision=2,
+            input_snapshot=confirmed_snapshot("manual"), storage_bucket=None,
+            storage_owner_id=None, storage_object_path=None, report_extraction_available=False)
+        self.factory = ConfirmedCreationFactory()
+
+    def service(self, readiness=lambda: True):
+        return CaseAnalysisService(self.gateway, creation_service_factory=self.factory,
+            token_factory=lambda: TOKEN_ID, lifecycle_event_sink=lambda _line: None,
+            submission_readiness=readiness)
+
+    def submit(self, service, *, input_id=INPUT_ID, revision=2):
+        return service.submit(CASE_ID, USER_ID,
+            expected_analysis_input_id=input_id, expected_analysis_input_revision=revision)
+
+    def assert_no_work(self):
+        self.assertEqual(self.gateway.claims, [])
+        self.assertEqual(self.factory.calls, [])
+        self.assertEqual(self.gateway.completions, [])
+        self.assertEqual(self.gateway.failures, [])
+        self.assertEqual(self.gateway.report_requests, [])
+
+    def test_status_exposes_current_input_and_read_only_disabled_availability(self):
+        before = copy.deepcopy(self.gateway.status_row)
+        service = self.service(lambda: False)
+        for _ in range(2):
+            status = service.status(CASE_ID, USER_ID).to_dict()
+            self.assertEqual(status["status"], "not_submitted")
+            self.assertEqual(status["analysisInputId"], INPUT_ID)
+            self.assertEqual(status["analysisInputRevision"], 2)
+            self.assertEqual(status["submissionAvailability"], {"available": False,
+                "code": "ANALYSIS_CREATION_UNAVAILABLE",
+                "message": "Your case is saved. Market research is temporarily unavailable."})
+        self.assertEqual(self.gateway.status_row, before)
+        self.assertEqual(self.gateway.input_claims, [])
+        self.assert_no_work()
+
+    def test_unavailable_provider_or_failed_readiness_creates_no_job(self):
+        def broken_readiness():
+            raise RuntimeError("fixture configuration unavailable")
+        for readiness in (lambda: False, broken_readiness):
+            with self.subTest(readiness=readiness):
+                service = self.service(readiness)
+                with self.assertRaises(CaseAnalysisUnavailableError):
+                    self.submit(service)
+                self.assertEqual(self.gateway.input_claims, [])
+                self.assert_no_work()
+
+    def test_stale_id_or_revision_is_rejected_before_any_claim(self):
+        for input_id, revision in ((TOKEN_ID, 2), (INPUT_ID, 1), (INPUT_ID, 3)):
+            with self.subTest(input_id=input_id, revision=revision):
+                with self.assertRaises(CaseAnalysisConflictError) as raised:
+                    self.submit(self.service(), input_id=input_id, revision=revision)
+                self.assertEqual(raised.exception.code, "CASE_INPUT_CHANGED")
+                self.assertEqual(self.gateway.input_claims, [])
+                self.assert_no_work()
+
+    def test_rpc_race_is_rejected_before_claim_execution(self):
+        original = self.gateway.claim_total_loss_analysis_input
+        def race(*args):
+            self.gateway.status_row.update(analysis_input_id=TOKEN_ID, analysis_input_revision=3)
+            return original(*args)
+        self.gateway.claim_total_loss_analysis_input = race
+        with self.assertRaises(CaseAnalysisConflictError) as raised:
+            self.submit(self.service())
+        self.assertEqual(raised.exception.code, "CASE_INPUT_CHANGED")
+        self.assertEqual(self.gateway.input_claims, [(CASE_ID, USER_ID, TOKEN_ID, INPUT_ID, 2)])
+        self.assert_no_work()
+
+    def test_expected_input_is_used_once_and_completed_reopen_never_calls_provider(self):
+        service = self.service()
+        completed = self.submit(service)
+        self.assertEqual(completed.status, "completed")
+        self.assertEqual(self.gateway.input_claims, [(CASE_ID, USER_ID, TOKEN_ID, INPUT_ID, 2)])
+        self.assertEqual(len(self.factory.calls), 1)
+        self.assertEqual(self.factory.calls[0][0]["analysis_input_id"], INPUT_ID)
+        self.assertEqual(self.factory.calls[0][0]["analysis_input_revision"], 2)
+        self.assertEqual(self.gateway.report_requests, [])
+        with unittest.mock.patch.object(service, "_submission_readiness", side_effect=AssertionError("completed results do not check providers")):
+            first = service.get_presentation(RUN_ID, USER_ID)
+            for _ in range(2):
+                self.assertEqual(service.status(CASE_ID, USER_ID).status, "completed")
+                self.assertEqual(self.submit(service).status, "completed")
+                self.assertEqual(service.get_presentation(RUN_ID, USER_ID), first)
+        self.assertEqual(len(self.factory.calls), 1)
+        self.assertEqual(len(self.gateway.claims), 1)
+        self.assertEqual(len(self.gateway.input_claims), 1)
+
+    def test_disabled_provider_preserves_an_existing_processing_job(self):
+        self.gateway.status_row.update(outcome="processing", status="processing")
+        result = self.submit(self.service(lambda: False))
+        self.assertEqual(result.status, "processing")
+        self.assertEqual(self.gateway.input_claims, [])
+        self.assert_no_work()
+
+    def test_missing_expected_input_rpc_fails_closed_before_creation(self):
+        self.gateway.claim_total_loss_analysis_input = None
+        with self.assertRaises(CaseAnalysisUnavailableError):
+            self.submit(self.service())
+        self.assert_no_work()
+
+
 class OwnedCaseAnalysisApiTests(unittest.TestCase):
     def setUp(self) -> None:
         self.gateway = FakeCaseGateway()
+        for row in (self.gateway.status_row, self.gateway.claim_row):
+            row.update(analysis_input_id=INPUT_ID, analysis_input_revision=2)
         self.factory = PersistingCreationFactory()
         self.service = CaseAnalysisService(
             self.gateway,
@@ -1579,6 +1706,7 @@ class OwnedCaseAnalysisApiTests(unittest.TestCase):
             submitted = client.post(
                 f"/api/v1/appraisal-cases/{CASE_ID}/analysis",
                 headers=self.authorization(),
+                json={"expectedAnalysisInputId": INPUT_ID, "expectedAnalysisInputRevision": 2},
             )
 
         self.assertEqual(
@@ -1587,6 +1715,9 @@ class OwnedCaseAnalysisApiTests(unittest.TestCase):
                 "status": "processing",
                 "attemptCount": 1,
                 "processingExpiresAt": "2026-08-19T17:00:00+00:00",
+                "analysisInputId": INPUT_ID,
+                "analysisInputRevision": 2,
+                "submissionAvailability": {"available": True},
             },
         )
         self.assertEqual(submitted.status_code, 200)
@@ -1599,6 +1730,7 @@ class OwnedCaseAnalysisApiTests(unittest.TestCase):
                 response.headers["cache-control"], "private, no-store"
             )
         self.assertEqual(self.gateway.claims[0][0:2], (CASE_ID, USER_ID))
+        self.assertEqual(self.gateway.input_claims, [(CASE_ID, USER_ID, TOKEN_ID, INPUT_ID, 2)])
 
     def test_submit_rejects_client_controlled_body_before_claiming(self) -> None:
         with TestClient(self.app) as client:
@@ -1619,6 +1751,56 @@ class OwnedCaseAnalysisApiTests(unittest.TestCase):
         self.assertEqual(self.gateway.claims, [])
         self.assertEqual(self.gateway.report_requests, [])
 
+    def test_submit_requires_exact_bounded_input_identity_payload(self):
+        valid = {"expectedAnalysisInputId": INPUT_ID, "expectedAnalysisInputRevision": 2}
+        payloads = [None, {}, [], {"expectedAnalysisInputId": INPUT_ID},
+            {**valid, "userId": USER_ID}, {**valid, "postalCode": POSTAL_CODE},
+            {**valid, "expectedAnalysisInputId": "invalid"},
+            {**valid, "expectedAnalysisInputId": " " + INPUT_ID},
+            {**valid, "expectedAnalysisInputId": "x" * 300},
+            *({**valid, "expectedAnalysisInputRevision": value} for value in (None, True, False, 0, -1, 2.5, "2"))]
+        endpoint = f"/api/v1/appraisal-cases/{CASE_ID}/analysis"
+        with TestClient(self.app) as client:
+            for payload in payloads:
+                with self.subTest(payload=payload):
+                    response = client.post(endpoint, headers=self.authorization(), json=payload)
+                    self.assertEqual(response.status_code, 400)
+                    self.assertEqual(response.json()["error"]["code"], "INVALID_ANALYSIS_REQUEST")
+                    self.assertEqual(response.headers["cache-control"], "private, no-store")
+            for body in ("", "not-json", '{"expectedAnalysisInputId":'):
+                response = client.post(endpoint, headers={**self.authorization(), "Content-Type": "application/json"}, content=body)
+                self.assertEqual(response.status_code, 400)
+        self.assertEqual(self.gateway.claims, [])
+        self.assertEqual(self.gateway.input_claims, [])
+        self.assertEqual(self.factory.calls, [])
+
+    def test_stale_expected_input_is_safe_private_conflict(self):
+        with TestClient(self.app) as client:
+            response = client.post(f"/api/v1/appraisal-cases/{CASE_ID}/analysis",
+                headers=self.authorization(), json={"expectedAnalysisInputId": INPUT_ID, "expectedAnalysisInputRevision": 1})
+        self.assertEqual(response.status_code, 409)
+        self.assertEqual(response.json()["error"]["code"], "CASE_INPUT_CHANGED")
+        self.assertEqual(response.headers["cache-control"], "private, no-store")
+        self.assertEqual(self.gateway.input_claims, [])
+        self.assertEqual(self.factory.calls, [])
+
+    def test_disabled_provider_status_and_submit_leave_job_uncreated(self):
+        self.gateway.status_row.update(outcome="not_submitted", status=None)
+        service = CaseAnalysisService(self.gateway, creation_service_factory=self.factory,
+            submission_readiness=lambda: False, lifecycle_event_sink=lambda _line: None)
+        with TestClient(create_app(case_analysis_service=service)) as client:
+            status = client.get(f"/api/v1/appraisal-cases/{CASE_ID}/analysis", headers=self.authorization())
+            response = client.post(f"/api/v1/appraisal-cases/{CASE_ID}/analysis",
+                headers=self.authorization(), json={"expectedAnalysisInputId": INPUT_ID, "expectedAnalysisInputRevision": 2})
+        self.assertEqual(status.status_code, 200)
+        self.assertEqual(status.json()["status"], "not_submitted")
+        self.assertFalse(status.json()["submissionAvailability"]["available"])
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response.json()["error"]["code"], "ANALYSIS_CREATION_UNAVAILABLE")
+        self.assertEqual(self.gateway.input_claims, [])
+        self.assertEqual(self.gateway.failures, [])
+        self.assertEqual(self.factory.calls, [])
+
     def test_case_routes_return_not_found_for_a_non_owner(self) -> None:
         with TestClient(self.app) as client:
             status = client.get(
@@ -1628,6 +1810,7 @@ class OwnedCaseAnalysisApiTests(unittest.TestCase):
             submitted = client.post(
                 f"/api/v1/appraisal-cases/{CASE_ID}/analysis",
                 headers=self.authorization("other-token"),
+                json={"expectedAnalysisInputId": INPUT_ID, "expectedAnalysisInputRevision": 2},
             )
 
         for response in (status, submitted):
@@ -1649,10 +1832,13 @@ class OwnedCaseAnalysisApiTests(unittest.TestCase):
                     self.gateway.claim_row = {
                         "outcome": outcome,
                         "status": "not_submitted",
+                        "analysis_input_id": INPUT_ID,
+                        "analysis_input_revision": 2,
                     }
                     response = client.post(
                         f"/api/v1/appraisal-cases/{CASE_ID}/analysis",
                         headers=self.authorization(),
+                        json={"expectedAnalysisInputId": INPUT_ID, "expectedAnalysisInputRevision": 2},
                     )
                     self.assertEqual(response.status_code, 409)
                     self.assertEqual(response.json()["error"]["code"], code)

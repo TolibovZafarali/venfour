@@ -25,6 +25,7 @@ from venfour.supabase_gateway import (
 )
 
 CASE_ID = "20000000-0000-4000-8000-000000000002"
+INPUT_ID = "60000000-0000-4000-8000-000000000006"
 CLAIM_ID = "30000000-0000-4000-8000-000000000003"
 EMAIL_ID = "40000000-0000-4000-8000-000000000004"
 LEASE_ID = "50000000-0000-4000-8000-000000000005"
@@ -201,7 +202,8 @@ class PreviewAccessApiTests(unittest.TestCase):
             app = create_app(case_analysis_service=analysis, preview_access_service=preview, enable_legacy_api=False)
         with TestClient(app) as client:
             response = client.post(f"/api/v1/appraisal-cases/{CASE_ID}/analysis",
-                headers={"Authorization": "Bearer valid-session"})
+                headers={"Authorization": "Bearer valid-session"},
+                json={"expectedAnalysisInputId": INPUT_ID, "expectedAnalysisInputRevision": 2})
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), {
             "status": "completed",
@@ -210,6 +212,10 @@ class PreviewAccessApiTests(unittest.TestCase):
             "intakeCorrectionAllowed": False,
         })
         self.assertEqual(response.headers["location"], f"/api/v1/analyses/{LEASE_ID}")
+        analysis.submit.assert_called_once_with(
+            CASE_ID, "10000000-0000-4000-8000-000000000001",
+            expected_analysis_input_id=INPUT_ID, expected_analysis_input_revision=2,
+        )
         preview.dispatch.assert_called_once_with(CASE_ID)
 
 

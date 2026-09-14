@@ -23,12 +23,20 @@ CASE_ID = '10000000-0000-4000-8000-000000000001'
 
 
 def run_analysis(directory, rows, *, offer=20000, supporting=5, request_policy=None, source_report=True,
-                 source_vehicle_overrides=None):
+                 source_vehicle_overrides=None, free_estimate=False):
     report = make_report()
     report['vehicle'].update(make='Hyundai', model='Elantra', engine='2.0L I4', fuelType='Unleaded', drivetrain='FWD', equipment=[])
     report['valuation']['adjustedVehicleValue'] = offer
     for comparable in report['comparables']:
         comparable.update(make='Hyundai', model='Elantra')
+    evidence_context = None
+    if free_estimate:
+        report['comparables'] = []
+        from venfour.analysis_runs import default_report_evidence_context
+        evidence_context = default_report_evidence_context({})
+        evidence_context.update(inputMode='MANUAL', reportAvailable=False, reportExtractionAvailable=False,
+                                reportProvider=None, reportAdapter=None, insurerValuationAvailable=offer is not None,
+                                offerAvailable=offer is not None)
     qualification_report = copy.deepcopy(report) if source_report else None
     if source_vehicle_overrides is not None:
         qualification_report['vehicle'].update(source_vehicle_overrides)
@@ -44,13 +52,15 @@ def run_analysis(directory, rows, *, offer=20000, supporting=5, request_policy=N
     engine = EfficientMarketSearch(
         current_provider=current, historical_provider=historical, budget=budget,
         geography=SearchGeography(postal_centroids={'63026': ORIGIN}, market_centers=[]),
-        policy=EfficientSearchPolicy(supporting_attempts=supporting))
+        policy=EfficientSearchPolicy(supporting_attempts=supporting),
+        readiness_stage='free_estimate' if free_estimate else 'full_review')
     repository = FileAnalysisRunRepository(directory)
     orchestrator = AnalysisOrchestrator(repository, current_provider=current, historical_provider=historical,
                                         market_search=engine, run_id_factory=lambda: RUN_ID_1, clock=lambda: NOW)
     with patch('socket.create_connection', side_effect=AssertionError('Offline fixture must not use network')):
         artifact = orchestrator.run(AnalysisRunRequest(
             ccc_report=report, qualification_source_report=qualification_report, postal_code='63026',
+            evidence_context=evidence_context,
             current_search=CurrentMarketSearchConfiguration(observed_date=NOW.date().isoformat()),
             historical_search=HistoricalMarketSearchConfiguration())).artifact
     return artifact, repository, transport, budget
@@ -60,6 +70,26 @@ from venfour.search_geography import SearchGeography
 
 
 class EfficientAnalysisTests(unittest.TestCase):
+    def test_new_free_result_is_frozen_versioned_and_reopens_without_transport(self):
+        with tempfile.TemporaryDirectory() as directory:
+            artifact, repository, transport, _ = run_analysis(directory, [candidate(i) for i in range(4)],
+                                                              source_report=False, free_estimate=True)
+            self.assertEqual(artifact.analysis_run_schema_version, '12')
+            data = artifact.to_dict()
+            self.assertEqual(data['result']['preliminaryResult']['outcome'], 'ESTIMATE')
+            self.assertEqual(data['result']['preliminaryResult']['evidenceBasis'], 'LOSS_DATE_HISTORICAL')
+            self.assertEqual(data['result']['preliminaryResult']['insurerComparison'],
+                             {'insurerValueCents': 2000000, 'position': 'WITHIN_RANGE'})
+            before = len(transport.calls)
+            loaded = repository.get(artifact.run_id)
+            view = AnalysisPresentationProjector().project(loaded).to_dict()
+            self.assertEqual(view['presentationVersion'], '8')
+            self.assertEqual(view['preliminaryResult'], data['result']['preliminaryResult'])
+            self.assertEqual(len(transport.calls), before)
+            data['result']['preliminaryResult']['estimatedRange']['lowCents'] -= 100
+            with self.assertRaises(AnalysisRunContractError):
+                validate_analysis_run_artifact(data)
+
     def test_confirmed_vin_and_equipment_can_differ_from_original_report(self):
         original_vin = '1HGCM82633A000099'
         original_equipment = ['Power sunroof']

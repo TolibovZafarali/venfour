@@ -12,6 +12,7 @@ from venfour.analysis_diagnostics import execution, step, capture_failure, failu
 
 import json
 import math
+import os
 import sys
 import time
 from collections.abc import Callable, Mapping
@@ -414,19 +415,30 @@ class CaseAnalysisStatus:
     retryable: bool | None = None
     intake_correction_allowed: bool = False
     subject_readiness: Mapping[str, Any] | None = None
+    analysis_input_id: str | None = None
+    analysis_input_revision: int | None = None
+    submission_availability: Mapping[str, Any] | None = None
 
     def to_dict(self) -> dict[str, Any]:
+        context = {}
+        if self.analysis_input_id is not None:
+            context.update(analysisInputId=self.analysis_input_id,
+                           analysisInputRevision=self.analysis_input_revision)
+        if self.submission_availability is not None:
+            context["submissionAvailability"] = dict(self.submission_availability)
         if self.status == "not_submitted":
-            return {"status": "not_submitted"}
+            return {"status": "not_submitted", **context}
         if self.status == "processing":
             return {
                 "status": "processing",
+                **context,
                 "attemptCount": self.attempt_count,
                 "processingExpiresAt": self.processing_expires_at,
             }
         if self.status == "completed":
             return {
                 "status": "completed",
+                **context,
                 "attemptCount": self.attempt_count,
                 "runId": self.run_id,
                 "intakeCorrectionAllowed": self.intake_correction_allowed,
@@ -435,6 +447,7 @@ class CaseAnalysisStatus:
             failure_code = self.failure_code or "ANALYSIS_CREATION_FAILED"
             return {
                 "status": "failed",
+                **context,
                 **({"subjectReadiness": dict(self.subject_readiness)} if self.subject_readiness is not None else {}),
                 "error": {
                     "code": failure_code,
@@ -507,6 +520,13 @@ def _live_creation_factory(
     )
 
 
+def _live_submission_available() -> bool:
+    """Check configuration only; never construct a provider or reserve a call."""
+    from venfour.market_search_runtime import market_search_configuration_reason
+    key = os.environ.get("MARKETCHECK_API_KEY", "").strip()
+    return bool(key) and market_search_configuration_reason(os.environ) is None
+
+
 class CaseAnalysisService:
     """Authenticate, claim, execute, and retrieve user-owned analyses."""
 
@@ -519,6 +539,7 @@ class CaseAnalysisService:
         monotonic_clock: MonotonicClock = time.monotonic,
         lifecycle_event_sink: LifecycleEventSink = _stdout_lifecycle_event_sink,
         report_ingestion_service: ReportIngestionService | None = None,
+        submission_readiness: Callable[[], bool] | None = None,
     ) -> None:
         if not isinstance(gateway, CaseAnalysisGateway):
             raise TypeError("gateway must implement CaseAnalysisGateway")
@@ -543,6 +564,10 @@ class CaseAnalysisService:
         self._monotonic_clock = monotonic_clock
         self._lifecycle_event_sink = lifecycle_event_sink
         self._report_ingestion_service = selected_ingestion_service
+        self._submission_readiness = submission_readiness or (
+            _live_submission_available if creation_service_factory is _live_creation_factory
+            else lambda: True
+        )
 
     def _monotonic_time(self) -> float | None:
         try:
@@ -821,9 +846,25 @@ class CaseAnalysisService:
             row = self._gateway.get_total_loss_analysis_status(case_id, user_id)
             status = self._status_from_row(row)
             status = self._with_subject_readiness(status, row, case_id)
-            return self._with_intake_correction_eligibility(
+            status = self._with_intake_correction_eligibility(
                 status, case_id, user_id, row
             )
+            input_id, revision = row.get("analysis_input_id"), row.get("analysis_input_revision")
+            if input_id is not None or revision is not None:
+                status = replace(status,
+                    analysis_input_id=_canonical_uuid(input_id, "Analysis input ID"),
+                    analysis_input_revision=self._input_revision(revision))
+            if status.status != "completed":
+                try:
+                    available = self._submission_readiness() is True
+                except Exception:
+                    available = False
+                status = replace(status, submission_availability={"available": available,
+                    **({} if available else {
+                        "code": "ANALYSIS_CREATION_UNAVAILABLE",
+                        "message": "Your case is saved. Market research is temporarily unavailable.",
+                    })})
+            return status
         except CaseAnalysisError:
             raise
         except SupabaseGatewayError as exc:
@@ -1429,12 +1470,30 @@ class CaseAnalysisService:
             )
             return status
 
-    def submit(self, case_id: str, user_id: str) -> CaseAnalysisStatus:
+    def submit(self, case_id: str, user_id: str, *,
+               expected_analysis_input_id: str | None = None,
+               expected_analysis_input_revision: int | None = None) -> CaseAnalysisStatus:
         canonical_case_id = _path_uuid(case_id, "INVALID_CASE_ID")
         canonical_user_id = _canonical_uuid(user_id, "User ID")
+        expected = None
+        if expected_analysis_input_id is not None or expected_analysis_input_revision is not None:
+            expected = _path_uuid(expected_analysis_input_id, "INVALID_ANALYSIS_REQUEST")
+            if (isinstance(expected_analysis_input_revision, bool)
+                    or not isinstance(expected_analysis_input_revision, int)
+                    or expected_analysis_input_revision < 1):
+                raise CaseAnalysisInputError("INVALID_ANALYSIS_REQUEST")
         before = self._read_status(canonical_case_id, canonical_user_id)
+        if expected is not None and (before.analysis_input_id != expected
+                or before.analysis_input_revision != expected_analysis_input_revision):
+            raise CaseAnalysisConflictError("CASE_INPUT_CHANGED")
         if before.subject_readiness is not None:
             return before
+        if before.status == "completed":
+            return before
+        if before.submission_availability and not before.submission_availability["available"]:
+            if before.status == "processing":
+                return before
+            raise CaseAnalysisUnavailableError("Analysis dependencies are unavailable before claim")
         try:
             processing_token = _canonical_uuid(
                 str(self._token_factory()),
@@ -1446,11 +1505,15 @@ class CaseAnalysisService:
                 "Analysis processing token is unavailable"
             ) from exc
         try:
-            row = self._gateway.claim_total_loss_analysis(
-                canonical_case_id,
-                canonical_user_id,
-                processing_token,
-            )
+            if expected is None:
+                row = self._gateway.claim_total_loss_analysis(
+                    canonical_case_id, canonical_user_id, processing_token)
+            else:
+                claim = getattr(self._gateway, "claim_total_loss_analysis_input", None)
+                if not callable(claim):
+                    raise CaseAnalysisUnavailableError("Revision-fenced claiming is unavailable")
+                row = claim(canonical_case_id, canonical_user_id, processing_token,
+                            expected, expected_analysis_input_revision)
         except SupabaseGatewayError as exc:
             raise CaseAnalysisUnavailableError(
                 "Analysis could not be claimed"
@@ -1458,6 +1521,11 @@ class CaseAnalysisService:
         if not isinstance(row, Mapping):
             raise CaseAnalysisContractError("Analysis claim is invalid")
         outcome = row.get("outcome")
+        if expected is not None and (outcome in {"claimed", "processing", "completed", "failed"}
+                or row.get("analysis_input_id") is not None) and (
+                row.get("analysis_input_id") != expected
+                or row.get("analysis_input_revision") != expected_analysis_input_revision):
+            raise CaseAnalysisConflictError("CASE_INPUT_CHANGED")
         if outcome == "claimed":
             status = self._execute_claim(
                 case_id=canonical_case_id,

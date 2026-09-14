@@ -48,6 +48,7 @@ interface InsuranceCompanyFieldProps {
   readonly value: string;
   readonly error?: string;
   readonly disabled?: boolean;
+  readonly optional?: boolean;
   readonly onChange: (value: string) => void;
   readonly onBlur: () => void;
 }
@@ -71,6 +72,7 @@ export function InsuranceCompanyField({
   value,
   error,
   disabled,
+  optional = false,
   onChange,
   onBlur,
 }: InsuranceCompanyFieldProps) {
@@ -177,6 +179,7 @@ export function InsuranceCompanyField({
         <label htmlFor={id} className="text-sm font-semibold text-ink">
           Insurance company
         </label>
+        {optional ? <span className="text-xs text-muted">Optional</span> : null}
       </div>
       <Popover.Root
         open={open && !disabled}

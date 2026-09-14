@@ -160,7 +160,7 @@ class ConfirmedValuationInput:
     mileage: int
     postal_code: str
     loss_date: str
-    insurer: str
+    insurer: str | None
     vehicle_configuration: VehicleConfigurationIdentity | None = None
     vin: str | None = None
     insurer_offer: float | int | None = None
@@ -235,7 +235,7 @@ class ConfirmedValuationInput:
             loss_date=_required_date(
                 _first(snapshot, "date_of_loss", "dateOfLoss"), "date_of_loss"
             ),
-            insurer=_required_text(
+            insurer=(_optional_text if mode == "manual" else _required_text)(
                 _first(snapshot, "insurer_name", "insurerName"), "insurer_name"
             ),
             insurer_offer=_optional_money(

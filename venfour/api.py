@@ -233,7 +233,8 @@ _ERROR_MESSAGES = {
     "MARKET_PROVIDER_UNAVAILABLE": "Market evidence is temporarily unavailable.",
     "ANALYSIS_CREATION_UNAVAILABLE": "Analysis creation is unavailable.",
     "ANALYSIS_CREATION_FAILED": "Analysis could not be created.",
-    "INVALID_ANALYSIS_REQUEST": "Analysis request must not contain a body.",
+    "INVALID_ANALYSIS_REQUEST": "Analysis request must identify the saved input revision.",
+    "CASE_INPUT_CHANGED": "Your saved case changed. Refresh to continue with the latest details.",
     "INVALID_INTAKE_CORRECTION_REQUEST": "Intake correction request is invalid.",
     "INTAKE_CORRECTION_UNAVAILABLE": (
         "This intake changed or is not available for correction. Refresh and try again."
@@ -1875,27 +1876,17 @@ async def _case_analysis_submit(request: Request) -> JSONResponse:
     if isinstance(identity, JSONResponse):
         return _private_response(identity)
 
-    content_length = request.headers.get("content-length")
-    if content_length is not None:
-        try:
-            if int(content_length) != 0:
-                return _private_response(
-                    _error_response(400, "INVALID_ANALYSIS_REQUEST")
-                )
-        except ValueError:
-            return _private_response(
-                _error_response(400, "INVALID_ANALYSIS_REQUEST")
-            )
-    body_request = Request(
-        request.scope,
-        receive=_bounded_receive(request.receive, 1),
-    )
     try:
-        if await body_request.body():
-            return _private_response(
-                _error_response(400, "INVALID_ANALYSIS_REQUEST")
-            )
-    except _RequestBodyTooLarge:
+        payload = await _strict_json_object(request,
+            expected_keys={"expectedAnalysisInputId", "expectedAnalysisInputRevision"},
+            maximum_bytes=256)
+        if (not isinstance(payload["expectedAnalysisInputId"], str)
+                or not payload["expectedAnalysisInputId"]
+                or isinstance(payload["expectedAnalysisInputRevision"], bool)
+                or not isinstance(payload["expectedAnalysisInputRevision"], int)
+                or payload["expectedAnalysisInputRevision"] < 1):
+            raise CommerceInputError("INVALID_ANALYSIS_REQUEST")
+    except CommerceInputError:
         return _private_response(
             _error_response(400, "INVALID_ANALYSIS_REQUEST")
         )
@@ -1906,6 +1897,8 @@ async def _case_analysis_submit(request: Request) -> JSONResponse:
             request.app.state.case_analysis_service.submit,
             case_id,
             identity,
+            expected_analysis_input_id=payload["expectedAnalysisInputId"],
+            expected_analysis_input_revision=payload["expectedAnalysisInputRevision"],
         )
     except Exception as exc:
         return _private_response(_case_analysis_error(exc))

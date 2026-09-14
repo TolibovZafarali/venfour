@@ -388,14 +388,9 @@ class EfficientMarketSearch:
                 request_attempts=event["usageAfter"]["totalAttempts"])
         self.last_discovery[stream] = index
         self._publish_summary(index)
-        if self.readiness_stage == "free_estimate" and not supporting:
-            from venfour.subject_readiness import SubjectReadinessError, free_estimate_ambiguity
-            issues = free_estimate_ambiguity(self.subject_facts, [
-                row for row in self.observations if row.get("purpose") == "baseline"
-                and self._assessment(row)["verificationEligible"]
-            ])
-            if issues:
-                raise SubjectReadinessError(issues)
+        # Unknown subject variants limit the preliminary result; discovery does
+        # not send the customer into a technical confirmation loop. The result
+        # policy independently rejects ambiguous cohorts for a subject estimate.
         return rows, payload.get("hasMore", False), payload.get("failure")
 
     @step("search", "summary_persistence")

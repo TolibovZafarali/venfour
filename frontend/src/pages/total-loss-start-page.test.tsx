@@ -934,8 +934,8 @@ describe("explicit Total Loss intake correction", () => {
     });
   });
 
-  it("preserves corrected vehicle facts through refresh and resubmits the same case", async () => {
-    const original = completedRecoveryDetails({ vehicleFacts: { ...SUBJECT_VEHICLE_FACTS, transmission: "" } });
+  it("preserves known vehicle facts through ordinary correction and refresh without a technical screen", async () => {
+    const original = completedRecoveryDetails();
     const harness = recoveryHarness({ details: original });
     const auth = createAuthHarness(sessionFor());
     const user = userEvent.setup();
@@ -944,12 +944,15 @@ describe("explicit Total Loss intake correction", () => {
     await screen.findByRole("heading", { name: "Tell us about your vehicle" });
     expect(screen.queryByLabelText("Engine")).not.toBeInTheDocument();
     expectNoRecoveryWrites(harness);
-    await user.type(screen.getByLabelText("Transmission"), "Automatic");
+    expect(screen.queryByLabelText("Transmission")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Confirm vehicle & continue" }));
+    await user.clear(screen.getByLabelText("Mileage at time of loss"));
+    await user.type(screen.getByLabelText("Mileage at time of loss"), "48251");
     first.unmount();
     const second = renderTestApp([path], { authService: auth.service, totalLossDependencies: harness.dependencies });
-    expect(await screen.findByLabelText("Transmission")).toHaveValue("Automatic");
-    await user.click(screen.getByRole("button", { name: "Confirm vehicle & continue" }));
-    expect(await screen.findByLabelText("Mileage at time of loss")).toHaveValue("48,250");
+    expect(await screen.findByLabelText("Mileage at time of loss")).toHaveValue("48,251");
+    expect(screen.queryByLabelText("Transmission")).not.toBeInTheDocument();
+    expect(readTotalLossDraft()).toMatchObject({ draft: { manual: SUBJECT_VEHICLE_FACTS } });
     await user.click(withinIntakeFlow().getByRole("button", { name: "Continue" }));
     await screen.findByRole("heading", { name: "Contact details" });
     await user.click(screen.getByRole("button", { name: "Review & analyze" }));
@@ -957,7 +960,7 @@ describe("explicit Total Loss intake correction", () => {
     expect(harness.confirmIntake).toHaveBeenCalledOnce();
     expect(harness.saveDetails).toHaveBeenCalledWith(expect.objectContaining({ caseId: CASE_ID, values: expect.objectContaining({ vehicleFacts: expect.objectContaining({ transmission: "Automatic", engine: SUBJECT_VEHICLE_FACTS.engine }) }) }));
     expect(harness.getOrCreateTotalLossDraft).not.toHaveBeenCalled();
-    expect(original.vehicleFacts?.transmission).toBe("");
+    expect(original.vehicleFacts?.transmission).toBe("Automatic");
   });
 
   it("restores a check-complete missing-offer case without browser data, saves the offer, and confirms the same case", async () => {
@@ -1292,6 +1295,8 @@ describe("explicit Total Loss intake correction", () => {
     server.use(
       http.get("*/api/v1/appraisal-cases/:caseId/analysis", () =>
         HttpResponse.json({
+          analysisInputId: harness.detailRows.get(CASE_ID)?.analysisInputId,
+          analysisInputRevision: harness.detailRows.get(CASE_ID)?.analysisInputRevision,
           status: harness.detailRows.get(CASE_ID)?.analysisInputId === replacementInputId
             ? "not_submitted" : "completed",
           attemptCount: 0,
@@ -2616,6 +2621,60 @@ describe("/start?service=total-loss", () => {
       screen.queryByRole("heading", { name: "Review your details" }),
     ).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Start analysis" })).not.toBeInTheDocument();
+  });
+
+  it("saves an intake without insurer details and checks provider availability before confirmation", async () => {
+    const savedDraft = createSensitiveManualDraft({ step: "claim", confirmedCaseId: CASE_ID, reservedCaseId: CASE_ID });
+    const draft = {
+      ...savedDraft,
+      manual: { ...savedDraft.manual, insurerName: "", insurerVehicleValuation: "" },
+    };
+    writeTotalLossDraft(draft);
+    const auth = createAuthHarness(anonymousSessionFor(USER_ID));
+    const harness = createDependencyHarness();
+    const user = userEvent.setup();
+    let available = false;
+    let reads = 0;
+    let submissions = 0;
+    server.use(
+      http.get(`*/api/v1/appraisal-cases/${CASE_ID}/analysis`, ({ request }) => {
+        reads += 1;
+        expect(request.headers.get("authorization")).toBe(`Bearer access-${USER_ID}`);
+        const details = harness.detailRows.get(CASE_ID);
+        return HttpResponse.json({ status: "not_submitted",
+          analysisInputId: details?.analysisInputId ?? RECOVERY_INPUT_ID,
+          analysisInputRevision: details?.analysisInputRevision ?? 1,
+          submissionAvailability: { available } });
+      }),
+      http.post(`*/api/v1/appraisal-cases/${CASE_ID}/analysis`, () => {
+        submissions += 1;
+        return HttpResponse.json({ status: "processing", attemptCount: 1, processingExpiresAt: null });
+      }),
+    );
+    const { router } = renderTestApp(["/start?service=total-loss"], {
+      authService: auth.service, totalLossDependencies: harness.dependencies,
+    });
+    expect(await screen.findByRole("heading", { name: "Add the claim details" })).toBeVisible();
+    await user.click(withinIntakeFlow().getByRole("button", { name: "Continue" }));
+    await user.type(await screen.findByLabelText("First name"), "Guest");
+    await user.type(screen.getByLabelText("Last name"), "Customer");
+    await user.type(screen.getByLabelText("Email address"), "guest@example.com");
+    await user.click(screen.getByRole("checkbox", { name: /Terms of Use/i }));
+    await user.click(screen.getByRole("checkbox", { name: /Privacy Policy/i }));
+    await user.click(screen.getByRole("button", { name: "Review & analyze" }));
+    expect(await screen.findByText("Your details are saved. The value check is temporarily unavailable. Please try again later.")).toBeVisible();
+    expect(reads).toBe(1);
+    expect(submissions).toBe(0);
+    expect(harness.confirmIntake).not.toHaveBeenCalled();
+    expect(harness.saveContactAndBeginClaim).toHaveBeenCalledOnce();
+    expect(harness.detailRows.get(CASE_ID)).toMatchObject({ insurerName: null, insurerVehicleValuation: null, intakeCompletedAt: null });
+    expect(readTotalLossDraft()).toMatchObject({ ok: true, draft: { step: "review", confirmedCaseId: CASE_ID } });
+    expect(router.state.location.pathname).toBe("/start");
+    available = true;
+    await user.click(screen.getByRole("button", { name: "Try again" }));
+    await waitFor(() => expect(router.state.location.pathname).toBe(`/total-loss/cases/${CASE_ID}/analysis`));
+    expect(harness.confirmIntake).toHaveBeenCalledOnce();
+    await waitFor(() => expect(submissions).toBe(1));
   });
 
   it("bounds a late access-email security error after preserving the intake", async () => {

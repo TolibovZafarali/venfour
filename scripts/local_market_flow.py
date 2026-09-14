@@ -20,6 +20,7 @@ from scripts.local_market_fixtures import OUTPUT, SCENARIOS, SUBJECT_VINS, Fixtu
 from venfour.case_analyses import CaseAnalysisService
 from venfour.creation import AnalysisCreationService
 from venfour.efficient_search import EfficientMarketSearch, EfficientSearchPolicy
+from venfour.full_review import FullReviewService
 from venfour.market_request_budget import MarketAccountLimits, MarketRequestBudget, MarketRequestPolicy, market_account_key
 from venfour.marketcheck import MarketCheckHistoricalProvider, MarketCheckProvider
 from venfour.orchestration import AnalysisOrchestrator
@@ -157,7 +158,9 @@ def creation_factory(repository, run_id):
         return AnalysisOrchestrator(repository, current_provider=current, historical_provider=historical,
             run_id_factory=lambda: run_id,
             market_search=EfficientMarketSearch(current_provider=current, historical_provider=historical,
-                budget=budget, policy=EfficientSearchPolicy(), checkpoint=checkpoint, resume_loader=progress.load))
+                budget=budget, policy=EfficientSearchPolicy(), checkpoint=checkpoint,
+                resume_loader=progress.load, operation_begin=progress.begin,
+                summary_callback=progress.summary, readiness_stage="free_estimate"))
 
     class FixtureCreationService(AnalysisCreationService):
         def _run_legacy_report(self, report_data, postal_code, **kwargs):
@@ -231,6 +234,7 @@ def create_app():
     gateway = app.state.case_analysis_service._gateway
     app.state.case_analysis_service = CaseAnalysisService(gateway, creation_service_factory=creation_factory,
                                                          report_ingestion_service=ingestion_service())
+    app.state.full_review_service = FullReviewService(gateway, ingestion_service=ingestion_service())
     app.state.vehicle_trim_catalog_service = FixtureCatalog()
     if app.state.case_claim_access_service:
         app.state.case_claim_access_service._turnstile_verifier = FixtureChallenge()

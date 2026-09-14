@@ -1,4 +1,3 @@
-import { VehicleFactFields } from "./vehicle-fact-fields";
 import {
   ArrowLeft,
   ArrowRight,
@@ -301,7 +300,6 @@ export function VehicleStep({
         onRetryTrims={onRetryTrims}
         onTrimSelectionChange={onTrimSelectionChange}
       />
-      <VehicleFactFields values={values} errors={errors} onChange={onChange} disabled={fieldsDisabled} />
       {error ? <InlineError message={error} /> : null}
       <StepActions
         onBack={onBack}
@@ -419,6 +417,7 @@ export function ClaimStep({
         <div className="mt-5 grid items-start gap-5 sm:grid-cols-2">
           <InsuranceCompanyField
             id="total-loss-insurer"
+            optional
             value={values.insurerName}
             error={errors.insurerName}
             disabled={fieldsDisabled}

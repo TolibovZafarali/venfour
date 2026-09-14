@@ -36,12 +36,30 @@ def report_data(scenario, loss_date):
     }
 
 
+def full_review_report_data(loss_date):
+    data = report_data("dense", loss_date)
+    data["report"]["reportReferenceNumber"] = "LOCAL-FULL-REVIEW"
+    data["comparables"] = [{
+        "number": number, "year": 2024, "make": "Hyundai", "model": "Elantra", "trim": "SEL",
+        "vin": f"KMHLM4AG0RU8{number:05d}", "dealer": f"Fictional Dealer {number}",
+        "location": "Fenton, MO 63026", "distanceMiles": 10 + number, "mileage": 50000,
+        "drivetrain": "FWD", "sourcePrice": {"amount": 17000, "type": "ADVERTISED", "label": "List price"},
+        "source": {"type": "DEALER", "label": "Dealer", "stockNumber": None, "sourceDate": None, "updateDate": None},
+        "sourceReferences": [], "adjustments": {"package": 0, "options": 0, "mileage": 0, "condition": 0},
+        "adjustedValue": 17000,
+    } for number in (1, 2, 3)]
+    return data
+
+
 def extract_fixture(path, schema):
     text = validate_canonical_pdf(path).provider_text
+    import re
+    found = re.search(r"Loss date: (\d{4}-\d{2}-\d{2})", text)
+    if "LOCAL-FULL-REVIEW" in text and found:
+        return AIExtractionResult(data=full_review_report_data(found[1]),
+                                  model="local-fixture", usage={"input_tokens": 0, "output_tokens": 0})
     for scenario in SCENARIOS:
         if f"LOCAL-MARKET-{scenario}" in text:
-            import re
-            found = re.search(r"Loss date: (\d{4}-\d{2}-\d{2})", text)
             if found:
                 return AIExtractionResult(data=report_data(scenario, found[1]),
                                           model="local-fixture", usage={"input_tokens": 0, "output_tokens": 0})
@@ -65,6 +83,23 @@ def generate_reports():
                 ("Condition", "Good; no adjustments")]))],
             "Fictional data for localhost only. Dealer URLs use reserved .invalid domains. "
             "No live provider request or actual valuation is represented.")
+    complete = full_review_report_data(loss_date)
+    build_fixture("full-review.pdf", "Complete valuation review test", "CCC ONE synthetic report fixture",
+        [("Vehicle Information", key_value_table([
+            ("Fixture reference", "LOCAL-FULL-REVIEW"), ("Vehicle", "2024 Hyundai Elantra SEL"),
+            ("VIN", SUBJECT_VINS["dense"]), ("Mileage", "50,000"), ("Drive type", "FWD"),
+            ("Body", "Sedan"), ("Engine / transmission", "2.0L I4 / Automatic"),
+            ("Fuel", "Unleaded"), ("Location", "Fenton, MO 63026"),
+            ("Insurer", "Example Insurance"), ("Loss date", f"Loss date: {loss_date}"),
+            ("Base / adjusted vehicle value", "$17,000 / $17,000"), ("Condition", "Good; no adjustments"),
+        ])), *[(f"Comparable {row['number']}", key_value_table([
+            ("Vehicle", "2024 Hyundai Elantra SEL"), ("VIN", row["vin"]),
+            ("Dealer", row["dealer"]), ("Location", row["location"]), ("Drive type", "FWD"),
+            ("Distance", f"{row['distanceMiles']} miles"), ("Mileage", "50,000"),
+            ("List / adjusted price", "$17,000 / $17,000"),
+            ("Package / options / mileage / condition adjustments", "$0 / $0 / $0 / $0"),
+        ])) for row in complete["comparables"]]],
+        "Fictional full-review report for localhost only. No live provider request or actual insurer evidence.")
 
 
 class FixtureTransport:

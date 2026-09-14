@@ -748,6 +748,20 @@ class SupabaseHttpGateway:
         )
         return self._single_rpc_row(payload, "Analysis claim")
 
+    def claim_total_loss_analysis_input(
+        self, case_id: str, user_id: str, processing_token: str,
+        analysis_input_id: str, analysis_input_revision: int,
+    ) -> Mapping[str, Any]:
+        payload = self._rpc("claim_total_loss_analysis_input", {
+            "requested_case_id": _canonical_uuid(case_id, "Case ID"),
+            "requested_user_id": _canonical_uuid(user_id, "User ID"),
+            "requested_processing_token": _canonical_uuid(processing_token, "Processing token"),
+            "expected_analysis_input_id": _canonical_uuid(analysis_input_id, "Analysis input ID"),
+            "expected_analysis_input_revision": self._canonical_positive_integer(
+                analysis_input_revision, "Analysis input revision"),
+        }, retry_ambiguous_claim=True)
+        return self._single_rpc_row(payload, "Analysis claim")
+
     def resolve_total_loss_case_claim(
         self, case_id: str, access_token: str
     ) -> Mapping[str, Any] | None:

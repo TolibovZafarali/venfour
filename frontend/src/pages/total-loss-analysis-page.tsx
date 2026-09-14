@@ -12,7 +12,10 @@ import { useAuth, useSignInDialog } from "@/features/auth";
 import {
   useCaseAnalysisQuery,
   useSubmitCaseAnalysisMutation,
+  hasAttemptedAutomaticSubmission,
+  markAutomaticSubmission,
 } from "@/features/analyses/case-analysis-queries";
+import { caseAnalysisInput } from "@/features/analyses/api/case-analysis";
 import {
   TotalLossAnalysisResult,
 } from "@/features/analyses/components/total-loss-analysis-experience";
@@ -127,6 +130,11 @@ function AuthenticatedTotalLossAnalysisPage({
     userId,
   });
   const analysis = analysisQuery.data;
+  const input = analysis ? caseAnalysisInput(analysis) : null;
+  const submitCurrentInput = () => {
+    if (input) submitMutation.mutate({ input });
+    else void analysisQuery.refetch();
+  };
   const processingExpiresAt =
     analysis?.status === "processing"
       ? analysis.processingExpiresAt
@@ -148,15 +156,19 @@ function AuthenticatedTotalLossAnalysisPage({
   useEffect(() => {
     if (
       analysis?.status !== "not_submitted" ||
+      analysis.submissionAvailability?.available === false ||
+      !input ||
       submitMutation.isPending ||
-      autoSubmittedCaseRef.current === caseId
+      autoSubmittedCaseRef.current === input.expectedAnalysisInputId ||
+      hasAttemptedAutomaticSubmission(userId, caseId, input)
     ) {
       return;
     }
 
-    autoSubmittedCaseRef.current = caseId;
-    submitMutation.mutate({});
-  }, [analysis?.status, caseId, submitMutation]);
+    autoSubmittedCaseRef.current = input.expectedAnalysisInputId;
+    markAutomaticSubmission(userId, caseId, input);
+    submitMutation.mutate({ input });
+  }, [analysis, caseId, input, submitMutation, userId]);
 
   if (analysisQuery.isPending) {
     return <FreeValuationProcessing reviewKey={caseId} phase="connecting" />;
@@ -218,13 +230,24 @@ function AuthenticatedTotalLossAnalysisPage({
     return <FreeValuationProcessing reviewKey={caseId} phase="connecting" />;
   }
 
+  if (analysis.status === "not_submitted" && analysis.submissionAvailability?.available === false) {
+    return <StateCard kind="error" eyebrow="Your information is saved"
+      heading="The value check is temporarily unavailable."
+      description="Your vehicle details are safe. You can add your insurer’s valuation report or return to this case later.">
+      <Button asChild><Link to={`/total-loss/cases/${caseId}/review-report`}>Upload insurer valuation report</Link></Button>
+      <Button variant="outline" onClick={() => void analysisQuery.refetch()}>Check availability</Button>
+    </StateCard>;
+  }
+
   if (
     analysis.status === "not_submitted" ||
     analysis.status === "processing"
   ) {
     const needsResume =
-      analysis.status === "processing" &&
-      processingLeaseExpired(analysis.processingExpiresAt, leaseClock);
+      (analysis.status === "processing" &&
+        processingLeaseExpired(analysis.processingExpiresAt, leaseClock)) ||
+      (analysis.status === "not_submitted" && !submitMutation.isPending &&
+        (!input || hasAttemptedAutomaticSubmission(userId, caseId, input)));
     const submissionError =
       (analysis.status === "not_submitted" || needsResume) &&
       submitMutation.isError
@@ -278,14 +301,14 @@ function AuthenticatedTotalLossAnalysisPage({
             </Link>
           </Button>
         ) : errorMessage ? (
-          <Button onClick={() => submitMutation.mutate({})}>
+          <Button disabled={submitMutation.isPending} onClick={submitCurrentInput}>
             <RefreshCw className="size-4" aria-hidden />
             Try again
           </Button>
         ) : needsResume ? (
           <Button
             disabled={submitMutation.isPending}
-            onClick={() => submitMutation.mutate({})}
+            onClick={submitCurrentInput}
           >
             <RefreshCw className="size-4" aria-hidden />
             Resume value check
@@ -310,7 +333,7 @@ function AuthenticatedTotalLossAnalysisPage({
       {correctionPath ? <Button asChild><Link to={correctionPath}>Review your details</Link></Button>
         : reportNeeded ? <Button asChild><Link to={`/total-loss/cases/${caseId}/review-report`}>Upload insurer valuation PDF</Link></Button>
         : recoveryRequired ? (supportEmail ? <Button asChild><a href={`mailto:${supportEmail}?subject=Interrupted%20value%20check`}>Contact support</a></Button> : null)
-        : analysis.retryable ? <Button disabled={submitMutation.isPending} onClick={() => submitMutation.mutate({})}><RefreshCw className="size-4" aria-hidden />{processingInterrupted ? "Continue value check" : "Retry value check"}</Button>
+        : analysis.retryable ? <Button disabled={submitMutation.isPending} onClick={submitCurrentInput}><RefreshCw className="size-4" aria-hidden />{processingInterrupted ? "Continue value check" : "Retry value check"}</Button>
         : <Button onClick={() => void analysisQuery.refetch()}>Try again</Button>}
       {!issue && !reportNeeded ? <Button asChild variant="outline"><Link to="/appraisals">Return to appraisals</Link></Button> : null}
     </StateCard>;

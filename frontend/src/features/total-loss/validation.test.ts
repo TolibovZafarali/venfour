@@ -129,9 +129,9 @@ describe("total-loss manual validation", () => {
       "mileageAtLoss",
       "zipCode",
       "dateOfLoss",
-      "insurerName",
     ]);
     expect(errors).not.toHaveProperty("insurerVehicleValuation");
+    expect(errors).not.toHaveProperty("insurerName");
     expect(errors).not.toHaveProperty("vehicleCondition");
     expect(errors).not.toHaveProperty("optionsPackages");
   });

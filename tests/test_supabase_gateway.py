@@ -1369,6 +1369,42 @@ class SupabaseHttpGatewayTests(unittest.TestCase):
                 "Bearer service-role-test-key",
             )
 
+    def test_expected_input_claim_uses_service_only_rpc_with_exact_identity_and_retry_token(self):
+        requests = []
+        def handler(request):
+            requests.append(request)
+            if len(requests) == 1:
+                raise httpx.ReadTimeout("ambiguous fixture claim", request=request)
+            return httpx.Response(200, json=[{"outcome": "processing",
+                "analysis_input_id": TRIM_TOKEN_ID, "analysis_input_revision": 2}])
+        gateway, _ = self.gateway(handler)
+        row = gateway.claim_total_loss_analysis_input(CASE_ID, USER_ID, TOKEN_ID, TRIM_TOKEN_ID, 2)
+        self.assertEqual(row["analysis_input_id"], TRIM_TOKEN_ID)
+        self.assertEqual(row["analysis_input_revision"], 2)
+        self.assertEqual(len(requests), 2)
+        expected = {"requested_case_id": CASE_ID, "requested_user_id": USER_ID,
+            "requested_processing_token": TOKEN_ID, "expected_analysis_input_id": TRIM_TOKEN_ID,
+            "expected_analysis_input_revision": 2}
+        for request in requests:
+            self.assertEqual(request.url.path, "/rest/v1/rpc/claim_total_loss_analysis_input")
+            self.assertEqual(json.loads(request.content), expected)
+            self.assertEqual(request.headers["authorization"], "Bearer service-role-test-key")
+            self.assertEqual(request.headers["apikey"], "service-role-test-key")
+
+    def test_expected_input_claim_rejects_invalid_inputs_without_transport(self):
+        requests = []
+        gateway, _ = self.gateway(lambda request: requests.append(request) or httpx.Response(200, json=[]))
+        valid = [CASE_ID, USER_ID, TOKEN_ID, TRIM_TOKEN_ID, 2]
+        invalid = [(0, "invalid"), (1, None), (2, ""), (3, "invalid"),
+            (4, True), (4, False), (4, 0), (4, -1), (4, 1.5), (4, "2")]
+        for index, value in invalid:
+            with self.subTest(index=index, value=value):
+                arguments = list(valid)
+                arguments[index] = value
+                with self.assertRaises(SupabaseContractError):
+                    gateway.claim_total_loss_analysis_input(*arguments)
+        self.assertEqual(requests, [])
+
     def test_package_processing_rpcs_preserve_exact_fenced_contracts(self) -> None:
         requests: list[httpx.Request] = []
         digest = "a" * 64

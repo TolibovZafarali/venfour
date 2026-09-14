@@ -27,6 +27,13 @@ describe("decoded vehicle specifications", () => {
     expect(vehicleFacts(facts)).toEqual(facts);
     expect(vehicleFactErrors({ ...createEmptyTotalLossManualForm(), ...facts, trim: "EX-V6" })).toEqual({});
   });
+  it("normalizes explicit drivetrain and transmission formatting without guessing an axle", () => {
+    expect(decodedVehicleFacts({ ...sedan, DriveType: "fwd / front wheel drive", TransmissionStyle: "automatic" }))
+      .toMatchObject({ drivetrain: "FWD", transmission: "Automatic", cylinders: "6" });
+    expect(decodedVehicleFacts({ DriveType: "Front-wheel drive" })).toEqual({ drivetrain: "FWD" });
+    expect(decodedVehicleFacts({ DriveType: "4x2" })).toEqual({});
+    expect(decodedVehicleFacts({ DriveType: "FWD / AWD" })).toEqual({});
+  });
   it("tolerates an unresolved axle in the free estimate without inferring it", () => {
     const facts = decodedVehicleFacts({ ...sedan, DriveType: "4x2" });
     expect(vehicleFactErrors({ ...createEmptyTotalLossManualForm(), ...facts, trim: "EX-V6" })).toEqual({});

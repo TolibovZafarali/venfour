@@ -402,3 +402,117 @@ describe("inconclusive free-result recovery", () => {
     expect(screen.getByRole("link", { name: "Upload insurer valuation PDF" })).toBeVisible();
   });
 });
+
+describe("versioned preliminary results", () => {
+  const reportPath = "/total-loss/cases/saved-case/review-report";
+  const contextListings = [
+    { identity: "captured-jefferson-city", year: 2026, make: "Hyundai", model: "Kona", trim: "SE", askingPriceCents: 2_307_700, mileage: 14_725, distanceMiles: 103.21, certified: true, source: "MARKETCHECK", listingUrl: null, limitations: ["Certification differs or is unresolved."] },
+    { identity: "captured-danville", year: 2026, make: "Hyundai", model: "Kona", trim: "SE", askingPriceCents: 2_533_300, mileage: 18_812, distanceMiles: 183.53, certified: null, source: "MARKETCHECK", listingUrl: null, limitations: ["Mileage differences limit comparability."] },
+  ];
+
+  function preliminaryAnalysis(overrides: Partial<NonNullable<AnalysisPresentation["preliminaryResult"]>> = {}): AnalysisPresentation {
+    return {
+      ...analysisFor("NO_MATERIAL_DISCREPANCY"),
+      presentationVersion: "8",
+      preliminaryResult: {
+        version: "1",
+        outcome: "LISTING_CONTEXT",
+        evidenceBasis: "CURRENT_MARKET",
+        evidenceDate: "2026-09-14",
+        sampleSize: 2,
+        estimatedRange: null,
+        listingPriceSpan: { lowCents: 2_307_700, highCents: 2_533_300 },
+        listings: contextListings,
+        limitations: ["These vehicles have substantially more miles than yours.", "One listing is certified; a certification premium has not been adjusted."],
+        reasonCodes: ["CERTIFIED_PREMIUM_UNKNOWN", "WEAK_MATCH"],
+        insurerComparison: null,
+        ...overrides,
+      },
+    } as AnalysisPresentation;
+  }
+
+  function show(analysis: AnalysisPresentation) {
+    return render(<MemoryRouter><TotalLossAnalysisResult
+      analysis={analysis}
+      insurerReportPath={reportPath}
+      addInsurerOfferPath="/start?focus=insurer-offer"
+      reviewIntakePath="/start?intent=correct-intake"
+      continueAction={<button>Pay for review</button>}
+    /></MemoryRouter>);
+  }
+
+  it("shows asking-price context without translating the strict verdict into a vehicle value or fairness claim", () => {
+    const analysis = preliminaryAnalysis();
+    const saved = structuredClone(analysis);
+    const { container } = show(analysis);
+    expect(screen.getByRole("heading", { name: "Comparable listing prices" })).toBeVisible();
+    expect(screen.getByRole("region", { name: "Observed asking-price span" })).toHaveTextContent("$23,077–$25,333");
+    expect(screen.getByText(/don’t yet establish the value of your vehicle/)).toBeVisible();
+    expect(screen.getByText(/2 listings in current advertised inventory as of September 14, 2026/)).toBeVisible();
+    expect(screen.getByText(/14,725 miles · 103.2 miles away · Certified listing/)).toBeVisible();
+    expect(screen.getByText(/18,812 miles · 183.5 miles away/)).toBeVisible();
+    expect(screen.getByText(/certification premium has not been adjusted/)).toBeVisible();
+    expect(screen.queryByRole("figure")).not.toBeInTheDocument();
+    expect(screen.queryByText(/appears fair|worth pursuing|savings|recoverable|GOOD|WEAK|CERTIFIED_PREMIUM_UNKNOWN/)).not.toBeInTheDocument();
+    expect(screen.queryByText("$20,000")).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /Add insurer offer|Review your details/ })).not.toBeInTheDocument();
+    expect(container.querySelector("[data-preliminary-result]")).toHaveAttribute("data-preliminary-result", "LISTING_CONTEXT");
+    expect(analysis).toEqual(saved);
+  });
+
+  it("labels a single usable listing as one asking price, not a manufactured range", () => {
+    show(preliminaryAnalysis({ sampleSize: 1, listingPriceSpan: { lowCents: 2_307_700, highCents: 2_307_700 }, listings: contextListings.slice(0, 1) }));
+    const price = screen.getByRole("region", { name: "Observed asking price" });
+    expect(price).toHaveTextContent("$23,077");
+    expect(price).not.toHaveTextContent("–");
+    expect(screen.getByText(/1 listing in current advertised inventory/)).toBeVisible();
+  });
+
+  it("shows a supported current estimate without implying a comparable insurer shortfall", () => {
+    show(preliminaryAnalysis({ outcome: "ESTIMATE", sampleSize: 4, estimatedRange: { lowCents: 2_180_000, highCents: 2_260_000 }, listingPriceSpan: null, limitations: [], insurerComparison: { insurerValueCents: 2_000_000, position: "BELOW_RANGE" } }));
+    expect(screen.getByRole("heading", { name: "Your preliminary vehicle-value range." })).toBeVisible();
+    expect(screen.getByRole("region", { name: "Preliminary estimated range" })).toHaveTextContent("$21,800–$22,600");
+    expect(screen.getByText(/This is not a loss-date valuation/)).toBeVisible();
+    expect(screen.queryByRole("figure")).not.toBeInTheDocument();
+    expect(screen.queryByText("$20,000")).not.toBeInTheDocument();
+    expect(screen.queryByText(/undervaluing|appears fair|worth pursuing/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("list", { name: "Comparable listing examples" })).not.toBeInTheDocument();
+  });
+
+  it("shows only the backend-authorized insurer comparison for a verified loss-date estimate", () => {
+    show(preliminaryAnalysis({ outcome: "ESTIMATE", evidenceBasis: "LOSS_DATE_HISTORICAL", evidenceDate: "2026-08-11", sampleSize: 4, estimatedRange: { lowCents: 2_180_000, highCents: 2_260_000 }, listingPriceSpan: null, limitations: [], insurerComparison: { insurerValueCents: 2_000_000, position: "BELOW_RANGE" } }));
+    expect(screen.getByText(/advertised prices verified around your date of loss, August 11, 2026/)).toBeVisible();
+    expect(screen.getByRole("figure", { name: "Insurer’s valuation: $20,000. Estimated market range: $21,800 to $22,600." })).toBeVisible();
+    expect(screen.getByText(/is below this preliminary range/)).toBeVisible();
+    expect(screen.getByText(/does not establish a settlement difference/)).toBeVisible();
+    expect(screen.queryByText(/\$1,800|\$2,600|appears fair/)).not.toBeInTheDocument();
+  });
+
+  it("does not reuse saved strict prices when the preliminary outcome is insufficient", () => {
+    show(preliminaryAnalysis({ outcome: "INSUFFICIENT", evidenceBasis: "NONE", evidenceDate: null, sampleSize: 0, estimatedRange: null, listingPriceSpan: null, listings: [], limitations: [] }));
+    expect(screen.getByRole("heading", { name: "We need more market evidence." })).toBeVisible();
+    expect(screen.getByText(/Your details are saved/)).toBeVisible();
+    expect(screen.queryByText(/\$21,800|\$22,600|Estimated market range|Observed asking/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("figure")).not.toBeInTheDocument();
+    expect(screen.queryByText(/technical|engine|transmission|drivetrain|certification/)).not.toBeInTheDocument();
+  });
+
+  it.each(["ESTIMATE", "LISTING_CONTEXT", "INSUFFICIENT"] as const)("keeps PDF continuation available for %s without bypassing payment readiness", outcome => {
+    show(preliminaryAnalysis({ outcome }));
+    expect(screen.getByRole("link", { name: "Upload insurer valuation report" })).toHaveAttribute("href", reportPath);
+    expect(screen.getByText(/check the report and review readiness before payment is available/)).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Pay for review" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Continue my review" })).not.toBeInTheDocument();
+  });
+
+  it("keeps a provider interruption distinct from insufficient evidence", () => {
+    const analysis = { ...analysisFor("NO_MATERIAL_DISCREPANCY"), presentationVersion: "8", preliminaryResult: null, marketSearchContext: { baselineStatus: "LIMITED", summary: "Interrupted", stopReasons: [], recovery: { kind: "SEARCH_INTERRUPTED", field: null, correctionStep: null, message: "Search interrupted" } } } as AnalysisPresentation;
+    show(analysis);
+    expect(screen.getByRole("heading", { name: "We couldn’t finish your estimate." })).toBeVisible();
+    expect(screen.queryByRole("heading", { name: "We need more market evidence." })).not.toBeInTheDocument();
+    expect(screen.queryByText(/no suitable vehicles/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/\$21,800|\$22,600|\$20,000|appears fair|Estimated market range/)).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Upload insurer valuation report" })).toHaveAttribute("href", reportPath);
+    expect(screen.queryByRole("link", { name: "Review your details" })).not.toBeInTheDocument();
+  });
+});

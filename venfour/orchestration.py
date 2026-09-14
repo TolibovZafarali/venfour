@@ -71,6 +71,7 @@ from venfour.market import (
     unfiltered_drivetrain_discovery,
 )
 from venfour.preliminary_resolution import resolve_preliminary_evidence
+from venfour.preliminary_result import build_preliminary_result
 from venfour.efficient_search import EfficientMarketSearch, subject_material_facts
 
 
@@ -822,9 +823,17 @@ class AnalysisOrchestrator:
                 else None
             ),
         }
+        preliminary_result = (
+            build_preliminary_result(
+                market_search=market_search_result.transcript,
+                discrepancy_result=discrepancy_result.to_dict(),
+                discrepancy_request=discrepancy_request_data,
+            ) if market_search_result and evidence_context["inputMode"] == "MANUAL" else None
+        )
+        artifact_version = "12" if market_search_result and evidence_context["inputMode"] == "MANUAL" else "11" if market_search_result else "10"
         artifact = AnalysisRunArtifact(
-            analysis_run_schema_version="11" if market_search_result else "10",
-            analysis_version="11" if market_search_result else "10",
+            analysis_run_schema_version=artifact_version,
+            analysis_version=artifact_version,
             run_id=run_id,
             created_at=created_at,
             request_digest=discrepancy_request_digest(discrepancy_request_data),
@@ -871,6 +880,7 @@ class AnalysisOrchestrator:
                 "qualificationSourceReport": request.qualification_source_report,
             },
             result={
+                **({"preliminaryResult": preliminary_result} if artifact_version == "12" else {}),
                 **({"marketSearch": market_search_result.transcript} if market_search_result else {}),
                 "currentMarketResult": (
                     current_result.to_dict() if current_result is not None else None

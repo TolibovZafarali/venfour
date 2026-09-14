@@ -31,12 +31,12 @@ export const handlers = [
     );
   }),
   http.get("*/api/v1/appraisal-cases/:caseId/analysis", () =>
-    HttpResponse.json({ status: "not_submitted" as const }),
+    HttpResponse.json({ analysisInputId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", analysisInputRevision: 1, status: "not_submitted" as const }),
   ),
   http.post("*/api/v1/appraisal-cases/:caseId/analysis", () =>
     HttpResponse.json(
       {
-        status: "processing" as const,
+        analysisInputId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", analysisInputRevision: 1, status: "processing" as const,
         attemptCount: 1,
         processingExpiresAt: null,
       },

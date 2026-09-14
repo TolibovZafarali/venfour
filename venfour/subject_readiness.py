@@ -125,10 +125,10 @@ def free_estimate_readiness(target: ComparableTarget, facts: Mapping[str, Any], 
 
 
 def free_estimate_ambiguity(facts: Mapping[str, Any], observations: list[Mapping[str, Any]]) -> list[dict[str, str]]:
-    """Ask one material question when independent candidates expose variants.
+    """Identify material variants that prevent a preliminary vehicle estimate.
 
     Require two distinct vehicles per variant; an isolated provider record is
-    insufficient to turn a normal estimate into a customer correction.
+    insufficient to establish a materially different evidence cohort.
     """
     from venfour.comparable_evidence import observation_identity
     fuel_classes = {"gasoline": "gas", "unleaded": "gas", "gas": "gas", "petrol": "gas",

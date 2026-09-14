@@ -5,6 +5,27 @@ const apiClient = createApiClient({ baseUrl: environment.apiBaseUrl });
 
 interface CaseAnalysisBase {
   readonly status: "not_submitted" | "processing" | "completed" | "failed";
+  readonly analysisInputId?: string;
+  readonly analysisInputRevision?: number;
+  readonly submissionAvailability?: {
+    readonly available: boolean;
+    readonly code?: string;
+    readonly message?: string;
+  };
+}
+
+export interface CaseAnalysisInput {
+  readonly expectedAnalysisInputId: string;
+  readonly expectedAnalysisInputRevision: number;
+}
+
+export function caseAnalysisInput(status: CaseAnalysisStatus): CaseAnalysisInput | null {
+  return typeof status.analysisInputId === "string" &&
+    Number.isSafeInteger(status.analysisInputRevision) &&
+    status.analysisInputRevision! > 0
+    ? { expectedAnalysisInputId: status.analysisInputId,
+        expectedAnalysisInputRevision: status.analysisInputRevision! }
+    : null;
 }
 
 export interface NotSubmittedCaseAnalysis extends CaseAnalysisBase {
@@ -63,10 +84,12 @@ export function getCaseAnalysis(
 export function submitCaseAnalysis(
   caseId: string,
   accessToken: string,
+  input: CaseAnalysisInput,
   signal?: AbortSignal,
 ) {
-  return apiClient.postAuthenticated<CaseAnalysisStatus>(
+  return apiClient.postJson<CaseAnalysisStatus>(
     caseAnalysisPath(caseId),
+    input,
     { accessToken, signal },
   );
 }

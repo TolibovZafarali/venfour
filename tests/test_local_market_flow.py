@@ -10,13 +10,32 @@ from unittest.mock import patch
 
 import pymupdf
 
-from scripts.local_market_fixtures import FixtureTransport, SCENARIOS, SUBJECT_VINS, report_data
+from scripts.local_market_fixtures import FixtureTransport, SCENARIOS, SUBJECT_VINS, report_data, generate_reports
 from scripts.local_market_flow import DOCUMENT_CONNECTIONS, ingestion_service, network_audit, require_mock
 from scripts.extract_report_ai import AIExtractionResult
 from venfour.report_ingestion import ReportExtractionError
 
 
 class LocalMarketConfigurationTests(unittest.TestCase):
+    def test_complete_report_fixture_prints_strict_readiness_facts_while_dense_stays_incomplete(self):
+        from venfour.full_review import full_review_readiness
+        from venfour.report_ingestion import validate_canonical_pdf
+        with tempfile.TemporaryDirectory() as folder, patch("scripts.local_market_fixtures.OUTPUT", Path(folder)), \
+                patch("scripts.generate_local_report_fixtures.OUTPUT_DIRECTORY", Path(folder)):
+            generate_reports()
+            complete = Path(folder) / "full-review.pdf"
+            printed = validate_canonical_pdf(complete).provider_text
+            self.assertIn("Fictional Dealer 3", printed)
+            self.assertIn("KMHLM4AG0RU800003", printed)
+            extracted = ingestion_service().ingest(complete).to_dict()
+            saved = {"intake_mode": "manual", "vehicle_year": 2024, "vehicle_make": "Hyundai",
+                     "vehicle_model": "Elantra", "vehicle_trim": "SEL", "mileage_at_loss": 50000,
+                     "postal_code": "63026", "date_of_loss": extracted["normalizedReport"]["report"]["lossDate"]}
+            self.assertTrue(full_review_readiness(saved, extracted)["ready"])
+            self.assertEqual(len(extracted["normalizedReport"]["comparables"]), 3)
+            incomplete = ingestion_service().ingest(Path(folder) / "dense.pdf").to_dict()
+            self.assertEqual(full_review_readiness(saved, incomplete)["status"], "report_invalid")
+
     def test_requires_explicit_mode_and_rejects_hosted_or_live_modes(self):
         base = {"VENFOUR_LOCAL_POST_CONTINUE": "1", "VENFOUR_LOCAL_MARKET_FIXTURES": "1"}
         with patch.dict(os.environ, base, clear=True):

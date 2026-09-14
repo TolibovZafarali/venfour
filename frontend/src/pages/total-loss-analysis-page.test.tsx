@@ -57,18 +57,20 @@ describe("total-loss case analysis page", () => {
   it("auto-submits only a not-submitted case and sends the bearer token", async () => {
     let postCount = 0;
     let authorization: string | null = null;
+    let submittedInput: unknown;
     server.use(
       http.get("*/api/v1/appraisal-cases/:caseId/analysis", () =>
-        HttpResponse.json({ status: "not_submitted" }),
+        HttpResponse.json({ analysisInputId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", analysisInputRevision: 1, status: "not_submitted" }),
       ),
       http.post(
         "*/api/v1/appraisal-cases/:caseId/analysis",
-        ({ request }) => {
+        async ({ request }) => {
           postCount += 1;
           authorization = request.headers.get("Authorization");
+          submittedInput = await request.json();
           return HttpResponse.json(
             {
-              status: "processing",
+              analysisInputId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", analysisInputRevision: 1, status: "processing",
               attemptCount: 1,
               processingExpiresAt: null,
             },
@@ -90,11 +92,48 @@ describe("total-loss case analysis page", () => {
     ).toBeVisible();
     await waitFor(() => expect(postCount).toBe(1));
     expect(authorization).toBe(`Bearer access-${USER_ID}`);
+    expect(submittedInput).toEqual({ expectedAnalysisInputId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", expectedAnalysisInputRevision: 1 });
     expect(screen.queryByRole("banner")).not.toBeInTheDocument();
     expect(screen.queryByRole("navigation")).not.toBeInTheDocument();
     expect(screen.queryByRole("contentinfo")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Account for/ })).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Venfour home" })).toBeVisible();
+  });
+
+  it("keeps disabled provider readiness separate from evidence and never submits a job", async () => {
+    const post = vi.fn();
+    server.use(
+      http.get("*/api/v1/appraisal-cases/:caseId/analysis", () => HttpResponse.json({
+        status: "not_submitted", analysisInputId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", analysisInputRevision: 7,
+        submissionAvailability: { available: false, code: "ANALYSIS_CREATION_UNAVAILABLE", message: "Unavailable" },
+      })),
+      http.post("*/api/v1/appraisal-cases/:caseId/analysis", () => { post(); return HttpResponse.json({}); }),
+    );
+    const view = renderTestApp([casePath], { authService: authService(sessionFor()), strictMode: true });
+    expect(await screen.findByRole("heading", { name: "The value check is temporarily unavailable." })).toBeVisible();
+    expect(screen.getByRole("link", { name: "Upload insurer valuation report" })).toHaveAttribute("href", `/total-loss/cases/${CASE_ID}/review-report`);
+    expect(screen.queryByText(/no suitable vehicles/i)).not.toBeInTheDocument();
+    view.unmount();
+    renderTestApp([casePath], { authService: authService(sessionFor()) });
+    expect(await screen.findByRole("heading", { name: "The value check is temporarily unavailable." })).toBeVisible();
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  it("does not automatically resubmit an uncertain request after remount", async () => {
+    const post = vi.fn();
+    server.use(
+      http.get("*/api/v1/appraisal-cases/:caseId/analysis", () => HttpResponse.json({
+        status: "not_submitted", analysisInputId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", analysisInputRevision: 7,
+      })),
+      http.post("*/api/v1/appraisal-cases/:caseId/analysis", () => { post(); return HttpResponse.error(); }),
+    );
+    const view = renderTestApp([casePath], { authService: authService(sessionFor()), strictMode: true });
+    await waitFor(() => expect(post).toHaveBeenCalledOnce());
+    await screen.findByRole("button", { name: "Try again" });
+    view.unmount();
+    renderTestApp([casePath], { authService: authService(sessionFor()) });
+    expect(await screen.findByRole("button", { name: "Resume value check" })).toBeVisible();
+    expect(post).toHaveBeenCalledOnce();
   });
 
   it("polls without duplicate submission and renders the result on the same route", async () => {
@@ -105,7 +144,7 @@ describe("total-loss case analysis page", () => {
         getCount += 1;
         if (getCount === 1) {
           return HttpResponse.json({
-            status: "processing",
+            analysisInputId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", analysisInputRevision: 1, status: "processing",
             attemptCount: 1,
             processingExpiresAt: null,
           });
@@ -120,7 +159,7 @@ describe("total-loss case analysis page", () => {
       http.post("*/api/v1/appraisal-cases/:caseId/analysis", () => {
         postCount += 1;
         return HttpResponse.json({
-          status: "processing",
+          analysisInputId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", analysisInputRevision: 1, status: "processing",
           attemptCount: 1,
           processingExpiresAt: null,
         });
@@ -198,7 +237,7 @@ describe("total-loss case analysis page", () => {
     server.use(
       http.get("*/api/v1/appraisal-cases/:caseId/analysis", () =>
         HttpResponse.json({
-          status: "processing",
+          analysisInputId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", analysisInputRevision: 1, status: "processing",
           attemptCount: 1,
           processingExpiresAt,
         }),
@@ -208,7 +247,7 @@ describe("total-loss case analysis page", () => {
         processingExpiresAt = new Date(Date.now() + 60_000).toISOString();
         return HttpResponse.json(
           {
-            status: "processing",
+            analysisInputId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", analysisInputRevision: 1, status: "processing",
             attemptCount: 2,
             processingExpiresAt,
           },
@@ -247,7 +286,7 @@ describe("total-loss case analysis page", () => {
     server.use(
       http.get("*/api/v1/appraisal-cases/:caseId/analysis", () =>
         HttpResponse.json({
-          status: "processing",
+          analysisInputId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", analysisInputRevision: 1, status: "processing",
           attemptCount: 1,
           processingExpiresAt: "2026-08-19T17:00:01.000Z",
         }),
@@ -296,7 +335,7 @@ describe("total-loss case analysis page", () => {
     server.use(
       http.get("*/api/v1/appraisal-cases/:caseId/analysis", () =>
         HttpResponse.json({
-          status: "failed",
+          analysisInputId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", analysisInputRevision: 1, status: "failed",
           attemptCount: 1,
           error: {
             code: "MARKET_PROVIDER_UNAVAILABLE",
@@ -337,7 +376,7 @@ describe("total-loss case analysis page", () => {
     let postCount = 0;
     server.use(
       http.get("*/api/v1/appraisal-cases/:caseId/analysis", () => HttpResponse.json({
-        status: "failed", attemptCount: 0, retryable: false,
+        analysisInputId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", analysisInputRevision: 1, status: "failed", attemptCount: 0, retryable: false,
         error: { code: "ANALYSIS_INPUT_INVALID", message: "Confirm vehicle details." },
         subjectReadiness: { ready: false, correctionMode, issues: [
           { field: "drivetrain", code: "SUBJECT_FACT_REQUIRED", message: "Confirm drive type.", correctionStep: "vehicle" },
@@ -346,7 +385,7 @@ describe("total-loss case analysis page", () => {
       })),
       http.post("*/api/v1/appraisal-cases/:caseId/analysis", () => {
         postCount += 1;
-        return HttpResponse.json({ status: "not_submitted" });
+        return HttpResponse.json({ analysisInputId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", analysisInputRevision: 1, status: "not_submitted" });
       }),
     );
     renderTestApp([casePath], { authService: authService(sessionFor()), strictMode: true });
@@ -362,7 +401,7 @@ describe("total-loss case analysis page", () => {
     const submit = vi.fn();
     server.use(
       http.get("*/api/v1/appraisal-cases/:caseId/analysis", () => HttpResponse.json({
-        status: "failed", attemptCount: 0, retryable: false,
+        analysisInputId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", analysisInputRevision: 1, status: "failed", attemptCount: 0, retryable: false,
         error: { code: "ANALYSIS_INPUT_INVALID", message: "Internal normalization diagnostic." },
         subjectReadiness: { ready: false, correctionMode, issues: [
           { field: "postalCode", code: "SUBJECT_FACT_REQUIRED", message: "ZIP missing", correctionStep: "vehicle" },
@@ -389,7 +428,7 @@ describe("total-loss case analysis page", () => {
     server.use(
       http.get("*/api/v1/appraisal-cases/:caseId/analysis", () =>
         HttpResponse.json({
-          status: "failed",
+          analysisInputId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", analysisInputRevision: 1, status: "failed",
           attemptCount: 1,
           error: {
             code: "REPORT_NOT_ANALYZABLE",
@@ -400,7 +439,7 @@ describe("total-loss case analysis page", () => {
       ),
       http.post("*/api/v1/appraisal-cases/:caseId/analysis", () => {
         postCount += 1;
-        return HttpResponse.json({ status: "not_submitted" });
+        return HttpResponse.json({ analysisInputId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", analysisInputRevision: 1, status: "not_submitted" });
       }),
     );
 
@@ -455,7 +494,7 @@ describe("total-loss case analysis page", () => {
       http.get("*/api/v1/analyses/:runId", () => HttpResponse.json(analysis)),
       http.post("*/api/v1/appraisal-cases/:caseId/analysis", () => {
         postCount += 1;
-        return HttpResponse.json({ status: "not_submitted" });
+        return HttpResponse.json({ analysisInputId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", analysisInputRevision: 1, status: "not_submitted" });
       }),
     );
 
@@ -479,11 +518,11 @@ describe("total-loss case analysis page", () => {
     let submissions = 0;
     server.use(
       http.get("*/api/v1/appraisal-cases/:caseId/analysis", () => HttpResponse.json({
-        status: "failed", attemptCount: 1, error: { code, message: "Your case is saved." }, retryable,
+        analysisInputId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", analysisInputRevision: 1, status: "failed", attemptCount: 1, error: { code, message: "Your case is saved." }, retryable,
       })),
       http.post("*/api/v1/appraisal-cases/:caseId/analysis", () => {
         submissions += 1;
-        return HttpResponse.json({ status: "processing", attemptCount: 2, processingExpiresAt: null });
+        return HttpResponse.json({ analysisInputId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", analysisInputRevision: 1, status: "processing", attemptCount: 2, processingExpiresAt: null });
       }),
     );
     renderTestApp([casePath], { authService: authService(sessionFor()) });
@@ -503,7 +542,7 @@ describe("total-loss case analysis page", () => {
     server.use(
       http.get("*/api/v1/appraisal-cases/:caseId/analysis", () =>
         HttpResponse.json({
-          status: "failed",
+          analysisInputId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", analysisInputRevision: 1, status: "failed",
           attemptCount: 1,
           error: {
             code: "MARKET_PROVIDER_UNAVAILABLE",
@@ -534,7 +573,7 @@ describe("total-loss case analysis page", () => {
     server.use(
       http.get("*/api/v1/appraisal-cases/:caseId/analysis", () => {
         requestCount += 1;
-        return HttpResponse.json({ status: "not_submitted" });
+        return HttpResponse.json({ analysisInputId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", analysisInputRevision: 1, status: "not_submitted" });
       }),
     );
 
@@ -588,9 +627,9 @@ describe("total-loss case analysis page", () => {
         getCount += 1;
         return HttpResponse.json(
           getCount === 1
-            ? { status: "not_submitted" }
+            ? { analysisInputId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", analysisInputRevision: 1, status: "not_submitted" }
             : {
-                status: "processing",
+                analysisInputId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", analysisInputRevision: 1, status: "processing",
                 attemptCount: 1,
                 processingExpiresAt: null,
               },
@@ -631,7 +670,7 @@ describe("total-loss case analysis page", () => {
   it("turns report-intake API errors into a replace-report action", async () => {
     server.use(
       http.get("*/api/v1/appraisal-cases/:caseId/analysis", () =>
-        HttpResponse.json({ status: "not_submitted" }),
+        HttpResponse.json({ analysisInputId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", analysisInputRevision: 1, status: "not_submitted" }),
       ),
       http.post("*/api/v1/appraisal-cases/:caseId/analysis", () =>
         HttpResponse.json(

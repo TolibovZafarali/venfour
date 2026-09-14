@@ -332,6 +332,35 @@ class RuntimeProbeApiTests(unittest.TestCase):
                 self.assertEqual(response.status_code, 503)
                 self.assertEqual(response.json(), {"status": "not_ready", "reasons": ["MARKET_ACCOUNT_QUOTA_PERIOD_INACTIVE"]})
 
+    def test_case_submission_readiness_checks_configuration_without_initializing_provider(self):
+        from tests.test_case_analyses import FakeCaseGateway, CASE_ID, USER_ID, INPUT_ID
+        from venfour.case_analyses import CaseAnalysisService, CaseAnalysisUnavailableError
+        scenarios = [
+            (RUNTIME_ENVIRONMENT, True),
+            ({key: value for key, value in RUNTIME_ENVIRONMENT.items() if key != "MARKETCHECK_API_KEY"}, False),
+            ({key: value for key, value in RUNTIME_ENVIRONMENT.items() if key != "MARKETCHECK_ACCOUNT_IDENTIFIER"}, False),
+            (RUNTIME_ENVIRONMENT | {"MARKETCHECK_BUDGET_TOTAL_ATTEMPTS": "0"}, False),
+        ]
+        for environment, expected in scenarios:
+            with self.subTest(available=expected), patch.dict(os.environ, environment, clear=True), patch(
+                "venfour.case_analyses.create_live_analysis_creation_service",
+                side_effect=AssertionError("configuration status must never construct a provider"),
+            ) as provider_factory:
+                gateway = FakeCaseGateway()
+                gateway.status_row.update(outcome="not_submitted", status=None,
+                    analysis_input_id=INPUT_ID, analysis_input_revision=2)
+                service = CaseAnalysisService(gateway)
+                status = service.status(CASE_ID, USER_ID).to_dict()
+                self.assertEqual(status["submissionAvailability"]["available"], expected)
+                if not expected:
+                    with self.assertRaises(CaseAnalysisUnavailableError):
+                        service.submit(CASE_ID, USER_ID,
+                            expected_analysis_input_id=INPUT_ID, expected_analysis_input_revision=2)
+                provider_factory.assert_not_called()
+                self.assertEqual(gateway.input_claims, [])
+                self.assertEqual(gateway.claims, [])
+                self.assertEqual(gateway.failures, [])
+
     def test_readiness_rejects_malformed_runtime_configuration(self) -> None:
         malformed_overrides = (
             {"SUPABASE_URL": "http://runtime-test.supabase.co"},

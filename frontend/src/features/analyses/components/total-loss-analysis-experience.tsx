@@ -14,6 +14,12 @@ import type {
   Money,
   NonnegativeMoney,
 } from "@/features/analyses/analysis-presentation.generated";
+import {
+  formatDate,
+  formatDistance,
+  formatMileage,
+  formatMoneyCents,
+} from "@/features/analyses/format";
 import { cn } from "@/lib/utils";
 
 import { ValuationStatus, ValuationSurface } from "@/components/valuation-status";
@@ -104,7 +110,104 @@ export interface TotalLossAnalysisResultProps {
   readonly insurerReportPath?: string;
 }
 
-export function TotalLossAnalysisResult({
+export function TotalLossAnalysisResult(props: TotalLossAnalysisResultProps) {
+  if (props.analysis.preliminaryResult) {
+    return <PreliminaryAnalysisResult {...props} result={props.analysis.preliminaryResult} />;
+  }
+  if (props.analysis.presentationVersion === "8") {
+    return <ValuationStatus kind="error" eyebrow="Your review is saved" heading="We couldn’t finish your estimate." description="We couldn’t complete the market check. Your details are saved, and you can continue with your insurer’s valuation report.">
+      {props.insurerReportPath ? <><Button asChild size="lg"><Link to={props.insurerReportPath}>Upload insurer valuation report<ArrowRight className="size-5" aria-hidden /></Link></Button><p className="text-sm text-copy">We’ll check the report and review readiness before payment is available.</p></> : null}
+    </ValuationStatus>;
+  }
+
+  return <SavedAnalysisResult {...props} />;
+}
+
+function PreliminaryAnalysisResult({
+  analysis,
+  className,
+  insurerReportPath,
+  result,
+}: TotalLossAnalysisResultProps & {
+  readonly result: NonNullable<AnalysisPresentation["preliminaryResult"]>;
+}) {
+  const headingId = useId();
+  const estimate = result.outcome === "ESTIMATE";
+  const context = result.outcome === "LISTING_CONTEXT";
+  const range = estimate ? result.estimatedRange : context ? result.listingPriceSpan : null;
+  const heading = estimate
+    ? "Your preliminary vehicle-value range."
+    : context
+      ? "Comparable listing prices"
+      : "We need more market evidence.";
+  const summary = estimate
+    ? "Similar vehicles provide a starting estimate. Your insurer’s report will help us review the details."
+    : context
+      ? "These asking prices offer useful context, but they don’t yet establish the value of your vehicle."
+      : "Your details are saved. The usable market evidence doesn’t yet support an estimate or a helpful price comparison.";
+  const vehicle = [analysis.vehicle.year, analysis.vehicle.make, analysis.vehicle.model, analysis.vehicle.trim].filter(Boolean).join(" ");
+  const insurerLabel = analysis.insurerValuation.source === "CUSTOMER_ENTERED" ? "Insurer’s offer" : "Insurer’s valuation";
+  const comparison = estimate && result.evidenceBasis === "LOSS_DATE_HISTORICAL" ? result.insurerComparison : null;
+  const onePrice = range?.lowCents === range?.highCents;
+  const sampleLabel = estimate
+    ? `${result.sampleSize} independent ${result.sampleSize === 1 ? "vehicle" : "vehicles"}`
+    : `${result.sampleSize} ${result.sampleSize === 1 ? "listing" : "listings"}`;
+
+  return <ValuationSurface
+    className={cn("valuation-result", className)}
+    aria-labelledby={headingId}
+    data-total-loss-analysis-result
+    data-preliminary-result={result.outcome}
+    data-preliminary-result-version={result.version}
+  >
+    <p className="sr-only" role="status" aria-live="polite" aria-atomic="true">Analysis complete. {heading}</p>
+    <div className="valuation-result__content">
+      <div className="valuation-result__vehicle"><CarFront aria-hidden /><p><span className="sr-only">Vehicle reviewed: </span>{vehicle}</p></div>
+      <h1 id={headingId} className="valuation-result__heading">{heading}</h1>
+      <p className="valuation-result__summary">{summary}</p>
+
+      {range ? <section className="valuation-result__range" aria-labelledby={`${headingId}-range`}>
+        <h2 id={`${headingId}-range`} className="valuation-result__range-label">{estimate ? "Preliminary estimated range" : onePrice ? "Observed asking price" : "Observed asking-price span"}</h2>
+        <p className="valuation-result__amounts"><span>{formatMoneyCents(range.lowCents)}</span>{!onePrice ? <><span className="valuation-result__range-separator">–</span><span>{formatMoneyCents(range.highCents)}</span></> : null}</p>
+        <p className="valuation-result__basis">
+          {result.evidenceBasis === "LOSS_DATE_HISTORICAL"
+            ? `Based on ${sampleLabel} with advertised prices verified around your date of loss${result.evidenceDate ? `, ${formatDate(result.evidenceDate)}` : ""}.`
+            : `Based on ${sampleLabel} in current advertised inventory${result.evidenceDate ? ` as of ${formatDate(result.evidenceDate)}` : ""}. This is not a loss-date valuation.`}
+        </p>
+        {comparison ? <>
+          <MarketRangeComparison
+            minimum={{ cents: range.lowCents, display: formatMoneyCents(range.lowCents) }}
+            maximum={{ cents: range.highCents, display: formatMoneyCents(range.highCents) }}
+            insurerValue={{ cents: comparison.insurerValueCents, display: formatMoneyCents(comparison.insurerValueCents) }}
+            insurerLabel={insurerLabel}
+            optimistic={false}
+          />
+          <p className="valuation-result__basis">{insurerLabel} is {comparison.position === "BELOW_RANGE" ? "below" : comparison.position === "ABOVE_RANGE" ? "above" : "within"} this preliminary range. This alone does not establish a settlement difference.</p>
+        </> : null}
+        {context && result.listings.length > 0 ? <ul className="valuation-result__listing-context" aria-label="Comparable listing examples">
+          {result.listings.slice(0, 3).map(listing => <li key={listing.identity}>
+            <strong>{formatMoneyCents(listing.askingPriceCents)} asking</strong>
+            <span>{formatMileage(listing.mileage)} · {formatDistance(listing.distanceMiles)} away{listing.certified === true ? " · Certified listing" : ""}</span>
+          </li>)}
+        </ul> : null}
+      </section> : null}
+
+      {result.limitations.length > 0 ? <ul className="valuation-result__limitations" aria-label="What limits this result">{result.limitations.map(limitation => <li key={limitation}>{limitation}</li>)}</ul> : null}
+
+      <section className="valuation-result__conclusion" aria-labelledby={`${headingId}-next`}>
+        <h2 id={`${headingId}-next`} className="valuation-result__next-heading">Take a closer look with your report.</h2>
+        <p className="valuation-result__next-description">Your insurer’s valuation report helps us check the vehicle details and how the valuation was calculated.</p>
+      </section>
+      {insurerReportPath ? <div className="valuation-result__actions">
+        <Button asChild size="lg" className="min-h-13 w-full gap-3 px-7 sm:w-auto"><Link to={insurerReportPath}>Upload insurer valuation report<ArrowRight className="size-5" aria-hidden /></Link></Button>
+        <p className="mt-3 text-sm text-copy">We’ll check the report and review readiness before payment is available.</p>
+      </div> : null}
+      <p className="valuation-result__disclaimer">Advertised prices aren’t guaranteed sale prices or settlement amounts. This review does not determine what your insurer owes.</p>
+    </div>
+  </ValuationSurface>;
+}
+
+function SavedAnalysisResult({
   addInsurerOfferPath,
   analysis,
   className,

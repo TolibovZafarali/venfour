@@ -1,0 +1,234 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "outcome",
+    "evidenceBasis",
+    "evidenceDate",
+    "sampleSize",
+    "estimatedRange",
+    "listingPriceSpan",
+    "listings",
+    "limitations",
+    "reasonCodes",
+    "insurerComparison"
+  ],
+  "properties": {
+    "version": {
+      "const": "1"
+    },
+    "outcome": {
+      "enum": [
+        "ESTIMATE",
+        "LISTING_CONTEXT",
+        "INSUFFICIENT"
+      ]
+    },
+    "evidenceBasis": {
+      "enum": [
+        "CURRENT_MARKET",
+        "LOSS_DATE_HISTORICAL",
+        "NONE"
+      ]
+    },
+    "evidenceDate": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date"
+    },
+    "sampleSize": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9
+    },
+    "estimatedRange": {
+      "anyOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "lowCents",
+            "highCents"
+          ],
+          "properties": {
+            "lowCents": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            },
+            "highCents": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            }
+          },
+          "title": "PreliminaryPriceSpan"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "listingPriceSpan": {
+      "anyOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "lowCents",
+            "highCents"
+          ],
+          "properties": {
+            "lowCents": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            },
+            "highCents": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            }
+          },
+          "title": "PreliminaryPriceSpan"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "listings": {
+      "type": "array",
+      "maxItems": 9,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "identity",
+          "year",
+          "make",
+          "model",
+          "trim",
+          "askingPriceCents",
+          "mileage",
+          "distanceMiles",
+          "certified",
+          "source",
+          "listingUrl",
+          "limitations"
+        ],
+        "properties": {
+          "identity": {
+            "type": "string",
+            "minLength": 1
+          },
+          "year": {
+            "type": "integer"
+          },
+          "make": {
+            "type": "string",
+            "minLength": 1
+          },
+          "model": {
+            "type": "string",
+            "minLength": 1
+          },
+          "trim": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "askingPriceCents": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "mileage": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "distanceMiles": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 250
+          },
+          "certified": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "source": {
+            "type": "string",
+            "minLength": 1
+          },
+          "listingUrl": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "limitations": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "title": "PreliminaryListing"
+      }
+    },
+    "limitations": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "reasonCodes": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "insurerComparison": {
+      "anyOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "insurerValueCents",
+            "position"
+          ],
+          "properties": {
+            "insurerValueCents": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            },
+            "position": {
+              "enum": [
+                "BELOW_RANGE",
+                "WITHIN_RANGE",
+                "ABOVE_RANGE"
+              ]
+            }
+          },
+          "title": "PreliminaryInsurerComparison"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "title": "PreliminaryResult",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.venfour.local/analysis/preliminary-result.schema.json"
+}

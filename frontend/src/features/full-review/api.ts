@@ -1,5 +1,4 @@
 import { environment } from "@/config/env";
-import { supabaseClientState } from "@/lib/supabase/client";
 import { sanitizeDisplayFilename, validateTotalLossPdf } from "@/features/total-loss/validation";
 import { createApiClient } from "@/lib/api/client";
 
@@ -30,18 +29,9 @@ export async function getFullReview(caseId: string, accessToken: string) {
 export async function uploadFullReview(caseId: string, accessToken: string, file: File) {
   const validation = validateTotalLossPdf(file);
   if (!validation.valid) throw new Error(validation.error);
-  if (supabaseClientState.status !== "available") throw new Error("Private file storage is unavailable.");
-  const digest = await crypto.subtle.digest("SHA-256", await file.arrayBuffer());
-  const sha256 = Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, "0")).join("");
-  const upload = await client.postJson<{ reportId: string; bucket: string; path: string }>(`${path(caseId)}/report-upload`, {
-    filename: sanitizeDisplayFilename(file.name), sha256, byteSize: file.size,
-  }, { accessToken });
-  if (upload.bucket !== "case-files" || !upload.path.endsWith(`/${caseId}/review-reports/${upload.reportId}.pdf`)) {
-    throw new Error("The private upload destination is invalid.");
-  }
-  const result = await supabaseClientState.client.storage.from(upload.bucket).upload(upload.path, file, { contentType: "application/pdf", upsert: false, cacheControl: "0" });
-  if (result.error) throw new Error("Your file upload did not finish. Please try again.");
-  return extractFullReview(caseId, accessToken);
+  const body = new FormData();
+  body.append("report", file, sanitizeDisplayFilename(file.name));
+  return checked(await client.postForm<FullReviewState>(`${path(caseId)}/report`, body, { accessToken }), caseId);
 }
 export async function extractFullReview(caseId: string, accessToken: string) {
   return checked(await client.postAuthenticated<FullReviewState>(`${path(caseId)}/extract`, { accessToken }), caseId);

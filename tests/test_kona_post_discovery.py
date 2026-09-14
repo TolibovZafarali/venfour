@@ -302,8 +302,17 @@ class FailureDiagnosticTests(unittest.TestCase):
         self.assertEqual(first.status, "failed")
         self.assertEqual(first.failure_code, "ANALYSIS_CREATION_FAILED")
         self.assertTrue(first.retryable)
-        self.assertEqual(service.status(CASE_ID, USER_ID), first)
-        self.assertEqual(service.submit(CASE_ID, USER_ID), first)
+        reopened = service.status(CASE_ID, USER_ID)
+        repeated = service.submit(CASE_ID, USER_ID)
+        failure_fields = ("status", "attemptCount", "error", "retryable")
+        expected_failure = {key: first.to_dict()[key] for key in failure_fields}
+        for response in (reopened, repeated):
+            self.assertEqual(
+                {key: response.to_dict()[key] for key in failure_fields},
+                expected_failure,
+            )
+        self.assertNotIn("submissionAvailability", first.to_dict())
+        self.assertEqual(reopened.to_dict()["submissionAvailability"], {"available": True})
         self.assertEqual(len(gateway.failures), 1)
         self.assertEqual(len(events), 2)
         self.assertNotIn("secret-internal", json.dumps(events))

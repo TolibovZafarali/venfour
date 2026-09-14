@@ -1,34 +1,41 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-const mock = vi.hoisted(() => ({ postJson: vi.fn(), postAuthenticated: vi.fn(), upload: vi.fn(), from: vi.fn() }));
+
+const mock = vi.hoisted(() => ({ postForm: vi.fn() }));
 vi.mock("@/lib/api/client", () => ({ createApiClient: () => mock }));
-vi.mock("@/lib/supabase/client", () => ({ supabaseClientState: { status: "available", client: { storage: { from: mock.from } } } }));
 import { uploadFullReview } from "./api";
-const caseId="22222222-2222-4222-8222-222222222222", reportId="33333333-3333-4333-8333-333333333333";
-function file() {
-  const bytes=new TextEncoder().encode("%PDF-simulated");
-  const value=new File([bytes],"report.pdf",{type:"application/pdf"});
-  Object.defineProperty(value,"arrayBuffer",{value:async()=>bytes.buffer});
-  return value;
-}
-beforeEach(() => {
-  vi.clearAllMocks();vi.stubGlobal("crypto",{subtle:{digest:vi.fn().mockResolvedValue(new Uint8Array(32).buffer)}});
-  mock.from.mockReturnValue({upload:mock.upload});mock.upload.mockResolvedValue({error:null});
-  mock.postJson.mockResolvedValue({reportId,bucket:"case-files",path:`11111111-1111-4111-8111-111111111111/${caseId}/review-reports/${reportId}.pdf`});
-  mock.postAuthenticated.mockResolvedValue({caseId,stage:"full_review",status:"ready",ready:true,issues:[],message:"Ready",locked:false,canReuseReport:false,report:{id:reportId,filename:"report.pdf",revision:4}});
-});
-describe("private report upload",()=>{
-  it("hashes the PDF, uses a prepared path without overwrite, then extracts",async()=>{
-    const pdf=file();expect((await uploadFullReview(caseId,"fixture-token",pdf)).ready).toBe(true);
-    expect(mock.postJson).toHaveBeenCalledWith(expect.stringContaining("/report-upload"),expect.objectContaining({byteSize:pdf.size,sha256:expect.stringMatching(/^[a-f0-9]{64}$/)}),{accessToken:"fixture-token"});
-    expect(mock.upload).toHaveBeenCalledWith(expect.stringContaining(`/review-reports/${reportId}.pdf`),pdf,{contentType:"application/pdf",upsert:false,cacheControl:"0"});
-    expect(mock.postAuthenticated).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("/extract"),{accessToken:"fixture-token"});
+
+const caseId = "22222222-2222-4222-8222-222222222222";
+const reportId = "33333333-3333-4333-8333-333333333333";
+const ready = { caseId, stage: "full_review", status: "ready", ready: true, issues: [], message: "Ready",
+  locked: false, canReuseReport: false, report: { id: reportId, filename: "report.pdf", revision: 4 } };
+const pdf = () => new File(["%PDF-simulated"], "report.pdf", { type: "application/pdf" });
+
+beforeEach(() => { vi.clearAllMocks(); mock.postForm.mockResolvedValue(ready); });
+
+describe("private report upload", () => {
+  it("sends one authenticated PDF to the owner-checked server upload and extraction boundary", async () => {
+    const file = pdf();
+    expect(await uploadFullReview(caseId, "fixture-token", file)).toEqual(ready);
+    expect(mock.postForm).toHaveBeenCalledOnce();
+    const [path, form, options] = mock.postForm.mock.calls[0];
+    expect(path).toBe(`/api/v1/appraisal-cases/${caseId}/full-review/report`);
+    expect([...form.keys()]).toEqual(["report"]);
+    expect(form.get("report")).toMatchObject({ name: "report.pdf", type: "application/pdf", size: file.size });
+    expect(options).toEqual({ accessToken: "fixture-token" });
   });
-  it("does not extract when storage fails or the destination belongs to another case",async()=>{
-    mock.upload.mockResolvedValueOnce({error:new Error("failed")});
-    await expect(uploadFullReview(caseId,"fixture-token",file())).rejects.toThrow("upload did not finish");
-    expect(mock.postAuthenticated).not.toHaveBeenCalled();
-    mock.postJson.mockResolvedValueOnce({reportId,bucket:"case-files",path:"another-case/report.pdf"});
-    await expect(uploadFullReview(caseId,"fixture-token",file())).rejects.toThrow("destination is invalid");
-    expect(mock.upload).toHaveBeenCalledTimes(1);
+
+  it("rejects invalid files before transport and preserves server upload failure", async () => {
+    await expect(uploadFullReview(caseId, "fixture-token", new File(["text"], "report.txt", { type: "text/plain" }))).rejects.toThrow();
+    expect(mock.postForm).not.toHaveBeenCalled();
+    mock.postForm.mockRejectedValueOnce(new Error("Upload unavailable"));
+    await expect(uploadFullReview(caseId, "fixture-token", pdf())).rejects.toThrow("Upload unavailable");
+    expect(mock.postForm).toHaveBeenCalledOnce();
+  });
+
+  it("does not accept a response for another case or premature readiness", async () => {
+    mock.postForm.mockResolvedValueOnce({ ...ready, caseId: reportId });
+    await expect(uploadFullReview(caseId, "fixture-token", pdf())).rejects.toThrow("verify the saved report");
+    mock.postForm.mockResolvedValueOnce({ ...ready, status: "uploaded", report: null });
+    await expect(uploadFullReview(caseId, "fixture-token", pdf())).rejects.toThrow("verify the saved report");
   });
 });

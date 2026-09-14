@@ -325,10 +325,6 @@ export function validateTotalLossManualForm(
     validateDateOfLoss(values.dateOfLoss, referenceDate),
   );
   assignError(
-    "insurerName",
-    requiredTextError(values.insurerName, "Insurance company"),
-  );
-  assignError(
     "insurerVehicleValuation",
     validateInsurerVehicleValuation(values.insurerVehicleValuation),
   );

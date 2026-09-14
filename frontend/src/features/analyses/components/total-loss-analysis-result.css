@@ -120,6 +120,11 @@ body:has([data-total-loss-analysis-result]) .header-glass {
 .valuation-result__intake-action a { color: var(--brand); font-size: 12px; font-weight: 500; text-decoration-line: underline; text-decoration-color: var(--brand-subtle); text-underline-offset: 5px; }
 .valuation-result__intake-action a:hover { color: var(--brand-strong); text-decoration-color: currentColor; }
 .valuation-result__disclaimer { max-width: 470px; margin: 22px auto 0; color: var(--result-copy); font-size: 11px; line-height: 1.8; text-wrap: pretty; }
+.valuation-result__listing-context { display: grid; gap: 12px; margin-top: 22px; text-align: left; }
+.valuation-result__listing-context li { display: grid; gap: 3px; padding-top: 12px; border-top: 1px solid var(--line); }
+.valuation-result__listing-context strong { font-size: 14px; font-weight: 550; font-variant-numeric: tabular-nums; }
+.valuation-result__listing-context span { color: var(--result-copy); font-size: 12px; line-height: 1.65; }
+.valuation-result__limitations { display: grid; gap: 7px; max-width: 550px; margin: 20px auto 0; color: var(--result-copy); font-size: 12px; line-height: 1.7; text-wrap: pretty; }
 
 @keyframes valuation-result-arrive {
   from { opacity: 0; }

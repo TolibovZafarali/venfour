@@ -1,13 +1,14 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { act, renderHook } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { getCaseAnalysis } from "@/features/analyses/api/case-analysis";
+import { getCaseAnalysis, submitCaseAnalysis, type CaseAnalysisStatus } from "@/features/analyses/api/case-analysis";
 import {
   caseAnalysisQueryKeys,
   caseAnalysisPollingInterval,
   useCaseAnalysisQuery,
+  useSubmitCaseAnalysisMutation,
 } from "@/features/analyses/case-analysis-queries";
 
 vi.mock("@/features/analyses/api/case-analysis", () => ({
@@ -39,6 +40,28 @@ function processingStatus(attemptCount = 1) {
 afterEach(() => {
   vi.useRealTimers();
   vi.mocked(getCaseAnalysis).mockReset();
+  vi.mocked(submitCaseAnalysis).mockReset();
+});
+
+describe("case-analysis input submission", () => {
+  it("shares one in-flight request for the same saved input across mounted callers", async () => {
+    let finish!: (status: CaseAnalysisStatus) => void;
+    vi.mocked(submitCaseAnalysis).mockReturnValue(new Promise(resolve => { finish = resolve; }));
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const options = { accessToken: "access-token", caseId: CASE_ID, userId: USER_ID };
+    const input = { expectedAnalysisInputId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", expectedAnalysisInputRevision: 9 };
+    const first = renderHook(() => useSubmitCaseAnalysisMutation(options), { wrapper: wrapperFor(queryClient) });
+    const second = renderHook(() => useSubmitCaseAnalysisMutation(options), { wrapper: wrapperFor(queryClient) });
+    act(() => {
+      first.result.current.mutate({ input });
+      second.result.current.mutate({ input });
+    });
+    await waitFor(() => expect(submitCaseAnalysis).toHaveBeenCalledOnce());
+    expect(submitCaseAnalysis).toHaveBeenCalledWith(CASE_ID, "access-token", input, undefined);
+    await act(async () => finish(processingStatus()));
+    await waitFor(() => expect(first.result.current.isSuccess && second.result.current.isSuccess).toBe(true));
+    first.unmount(); second.unmount();
+  });
 });
 
 describe("case-analysis polling", () => {

@@ -35,6 +35,9 @@
     },
     {
       "$ref": "#/$defs/analysisRunV11"
+    },
+    {
+      "$ref": "#/$defs/analysisRunV12"
     }
   ],
   "$defs": {
@@ -2158,6 +2161,124 @@
           "items": {
             "type": "object"
           }
+        }
+      }
+    },
+    "analysisRunV12": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "analysisRunSchemaVersion",
+        "runId",
+        "createdAt",
+        "analysisVersion",
+        "discrepancyAnalysisVersion",
+        "comparableScoringVersion",
+        "requestDigest",
+        "searchDiagnosticsDigest",
+        "providers",
+        "request",
+        "result",
+        "evidenceContext"
+      ],
+      "properties": {
+        "analysisRunSchemaVersion": {
+          "const": "12"
+        },
+        "runId": {
+          "$ref": "#/$defs/runId"
+        },
+        "createdAt": {
+          "$ref": "#/$defs/createdAt"
+        },
+        "analysisVersion": {
+          "const": "12"
+        },
+        "discrepancyAnalysisVersion": {
+          "enum": [
+            "1",
+            "2"
+          ]
+        },
+        "comparableScoringVersion": {
+          "const": "2"
+        },
+        "requestDigest": {
+          "$ref": "#/$defs/requestDigest"
+        },
+        "searchDiagnosticsDigest": {
+          "$ref": "#/$defs/requestDigest"
+        },
+        "providers": {
+          "$ref": "#/$defs/providers"
+        },
+        "request": {
+          "$ref": "#/$defs/analysisRunRequestV11"
+        },
+        "result": {
+          "$ref": "#/$defs/analysisRunResultV12"
+        },
+        "evidenceContext": {
+          "$ref": "#/$defs/evidenceContext"
+        }
+      }
+    },
+    "analysisRunResultV12": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "currentMarketResult",
+        "historicalMarketResult",
+        "currentRanking",
+        "historicalRanking",
+        "discrepancyRequest",
+        "discrepancyResult",
+        "searchDiagnostics",
+        "preliminaryQualification",
+        "preliminaryResolution",
+        "marketSearch",
+        "preliminaryResult"
+      ],
+      "properties": {
+        "currentMarketResult": {
+          "$ref": "#/$defs/nullableCurrentMarketResult"
+        },
+        "historicalMarketResult": {
+          "$ref": "#/$defs/nullableHistoricalMarketResult"
+        },
+        "currentRanking": {
+          "$ref": "#/$defs/nullableRankingResult"
+        },
+        "historicalRanking": {
+          "$ref": "#/$defs/nullableRankingResult"
+        },
+        "discrepancyRequest": {
+          "$ref": "https://schemas.venfour.local/analysis/valuation-discrepancy-request.schema.json"
+        },
+        "discrepancyResult": {
+          "$ref": "https://schemas.venfour.local/analysis/valuation-discrepancy-result.schema.json"
+        },
+        "searchDiagnostics": {
+          "$ref": "#/$defs/searchDiagnosticsV4"
+        },
+        "preliminaryQualification": {
+          "$ref": "https://schemas.venfour.local/analysis/preliminary-qualification.schema.json"
+        },
+        "preliminaryResolution": {
+          "$ref": "https://schemas.venfour.local/analysis/preliminary-evidence-resolution.schema.json"
+        },
+        "marketSearch": {
+          "$ref": "#/$defs/marketSearchTranscript"
+        },
+        "preliminaryResult": {
+          "anyOf": [
+            {
+              "$ref": "https://schemas.venfour.local/analysis/preliminary-result.schema.json"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       }
     }
