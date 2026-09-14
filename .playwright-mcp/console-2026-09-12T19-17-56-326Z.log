@@ -22,3 +22,9 @@
 [79820752ms] [LOG] [vite] server connection lost. Polling for restart... @ http://127.0.0.1:4187/@vite/client:998
 [79821475ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://127.0.0.1:4187/node_modules/.vite/deps/react-dom_client.js?v=0b2af173:14333
 [79821566ms] [WARNING] No `HydrateFallback` element provided to render during initial hydration @ http://127.0.0.1:4187/@vite/client:528
+[96211208ms] [LOG] [vite] server connection lost. Polling for restart... @ http://127.0.0.1:4187/@vite/client:998
+[96211678ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://127.0.0.1:4187/node_modules/.vite/deps/react-dom_client.js?v=0b2af173:14333
+[96211663ms] [WARNING] No `HydrateFallback` element provided to render during initial hydration @ http://127.0.0.1:4187/@vite/client:528
+[102499520ms] [LOG] [vite] server connection lost. Polling for restart... @ http://127.0.0.1:4187/@vite/client:998
+[102499934ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://127.0.0.1:4187/node_modules/.vite/deps/react-dom_client.js?v=0b2af173:14333
+[102499964ms] [WARNING] No `HydrateFallback` element provided to render during initial hydration @ http://127.0.0.1:4187/@vite/client:528
