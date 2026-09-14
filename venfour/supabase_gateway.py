@@ -679,6 +679,25 @@ class SupabaseHttpGateway:
             raise SupabaseContractError("Full review readiness response is invalid")
         return result
 
+    def initialize_total_loss_post_continue(
+        self, case_id: str, user_id: str, run_id: str, input_id: str,
+        input_revision: int, report_id: str, report_revision: int,
+        presentation: Mapping[str, Any], digest: str,
+    ) -> str:
+        result = self._rpc("initialize_total_loss_post_continue", {
+            "requested_case_id": _canonical_uuid(case_id, "Case ID"),
+            "requested_user_id": _canonical_uuid(user_id, "User ID"),
+            "expected_run_id": _canonical_uuid(run_id, "Run ID"),
+            "expected_analysis_input_id": _canonical_uuid(input_id, "Analysis input ID"),
+            "expected_analysis_input_revision": input_revision,
+            "expected_report_id": _canonical_uuid(report_id, "Report ID"),
+            "expected_report_revision": report_revision,
+            "frozen_presentation": dict(presentation), "frozen_digest": digest,
+        })
+        if not isinstance(result, str) or result not in {"created", "existing", "not_found", "stale", "not_ready"}:
+            raise SupabaseContractError("Claim initialization response is invalid")
+        return result
+
     def begin_full_review_report(self, case_id, user_id, report_id, filename, digest, byte_size):
         return self._rpc("begin_total_loss_full_review_report", {
             "requested_case_id": _canonical_uuid(case_id, "Case ID"), "requested_user_id": _canonical_uuid(user_id, "User ID"),

@@ -33,6 +33,10 @@ const CASE_REF = `case_${"b".repeat(64)}`;
 const RECOMMENDATION_ID = "11111111-1111-4111-8111-111111111111";
 const ANALYSIS_RESULT_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const OFFER_ID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+const continuationInput = {
+  expectedAnalysisInputId: ANALYSIS_RESULT_ID, expectedAnalysisInputRevision: 3,
+  expectedReportId: OTHER_CASE_ID, expectedReportRevision: 4,
+};
 
 function savedFollowUpProjection() {
   return {
@@ -661,6 +665,11 @@ describe("total-loss claim API", () => {
     { state: "payment_pending" },
     { checkoutSessionId: "cs_test_different_case" },
     { publishableKey: "pk_live_" + "fixture" },
+    { publishableKey: "pk_test_" },
+    { checkoutSessionId: "cs_test_" },
+    { clientSecret: "cs_test_owned_session_secret_" },
+    { checkoutSessionId: "cs_live_owned_session", clientSecret: "cs_live_owned_session_secret_fixture" },
+    { checkoutUrl: "https://checkout.stripe.com.evil.test/pay" },
     { uiMode: "hosted" },
   ])("rejects unsafe Payment Element initialization %o", async (override) => {
     server.use(http.post("*/api/v1/appraisal-cases/:caseId/checkout-sessions", () => HttpResponse.json({
@@ -668,18 +677,62 @@ describe("total-loss claim API", () => {
       checkoutSessionId: "cs_test_owned_session", clientSecret: "cs_test_owned_session" + "_secret_fixture",
       publishableKey: "pk_test_" + "fixture", uiMode: "elements", entitlementStatus: null, orderStatus: "pending", ...override,
     })));
-    await expect(createTotalLossCheckout(CASE_ID, "owner-token", "request-id")).rejects.toThrow("invalid payment initialization");
+    await expect(createTotalLossCheckout(CASE_ID, "owner-token", "request-id")).rejects.toThrow("invalid");
   });
 
-  it("does not issue an initialization request when the flag is off", async () => {
+  it.each(["test", "live"])("accepts only consistent %s payment initialization", async mode => {
+    const sessionId = `cs_${mode}_owned_session`;
+    server.use(http.post("*/api/v1/appraisal-cases/:caseId/checkout-sessions", () => HttpResponse.json({
+      state: "checkout_ready", checkoutStatus: "open", checkoutUrl: null,
+      checkoutSessionId: sessionId, clientSecret: `${sessionId}_secret_fixture`,
+      publishableKey: `pk_${mode}_fixture`, uiMode: "elements", entitlementStatus: null, orderStatus: "pending",
+    })));
+    await expect(createTotalLossCheckout(CASE_ID, "owner-token", "request-id")).resolves.toMatchObject({ checkoutSessionId: sessionId });
+  });
+
+  it("initializes production continuation with owner authorization and the exact saved versions", async () => {
+    server.use(http.post("*/api/v1/appraisal-cases/:caseId/post-continue", async ({ request, params }) => {
+      expect(params.caseId).toBe(CASE_ID);
+      expect(request.headers.get("authorization")).toBe("Bearer owner-token");
+      expect(await request.json()).toEqual(continuationInput);
+      return HttpResponse.json({ state: "secure_required", caseId: CASE_ID, commerce: null, workflow: null, contactEmail: "owner@example.com" });
+    }));
+    await expect(initializeTotalLossClaim(CASE_ID, "owner-token", continuationInput)).resolves.toMatchObject({ caseId: CASE_ID });
+  });
+
+  it.each([
+    { expectedAnalysisInputId: "bad" }, { expectedReportId: "bad" },
+    { expectedAnalysisInputRevision: 0 }, { expectedAnalysisInputRevision: true },
+    { expectedReportRevision: 0 }, { expectedReportRevision: 1.5 },
+    { expectedReportRevision: Number.MAX_SAFE_INTEGER + 1 },
+    { amountMinorUnits: 1 }, { caseId: OTHER_CASE_ID },
+  ])("rejects malformed or browser-added continuation input before transport %o", async override => {
     let requests = 0;
     server.use(http.post("*/api/v1/appraisal-cases/:caseId/post-continue", () => {
       requests += 1;
       return HttpResponse.json({});
     }));
-    await expect(initializeTotalLossClaim(CASE_ID, "owner-token")).rejects.toThrow("unavailable");
+    const input = { ...continuationInput, ...override } as Parameters<typeof initializeTotalLossClaim>[2];
+    await expect(initializeTotalLossClaim(CASE_ID, "owner-token", input)).rejects.toThrow("revision could not be verified");
     expect(requests).toBe(0);
   });
+
+  it("rejects invalid case paths and does not accept a different returned case", async () => {
+    await expect(initializeTotalLossClaim("bad/case", "owner-token", continuationInput)).rejects.toThrow("valid case ID");
+    server.use(http.post("*/api/v1/appraisal-cases/:caseId/post-continue", () => HttpResponse.json({
+      state: "secure_required", caseId: OTHER_CASE_ID, commerce: null, workflow: null, contactEmail: "owner@example.com",
+    })));
+    await expect(initializeTotalLossClaim(CASE_ID, "owner-token", continuationInput)).rejects.toThrow("different case");
+  });
+
+  it.each([[409, "POST_CONTINUE_INPUT_CHANGED"], [503, "COMMERCE_UNAVAILABLE"], [404, "CASE_NOT_FOUND"]])(
+    "preserves the server's %s continuation denial", async (status, code) => {
+      server.use(http.post("*/api/v1/appraisal-cases/:caseId/post-continue", () => HttpResponse.json({
+        error: { code, message: "Your saved review cannot continue yet." },
+      }, { status: Number(status) })));
+      await expect(initializeTotalLossClaim(CASE_ID, "owner-token", continuationInput)).rejects.toMatchObject({ status, code });
+    },
+  );
   it("accepts the authoritative empty price before the first order exists", async () => {
     server.use(http.get("*/api/v1/appraisal-cases/:caseId/claim", () => HttpResponse.json({
       caseId: CASE_ID, state: "secured", contactEmail: "owner@example.test",

@@ -8,6 +8,7 @@ import socket
 import subprocess
 import time
 from contextlib import asynccontextmanager, contextmanager
+from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
 from urllib.parse import urlsplit
@@ -24,7 +25,7 @@ from starlette.routing import Route
 from venfour.analysis_runs import AnalysisRunArtifact
 from venfour.commerce import (
     CheckoutContext, CommerceUnavailableError, StripeCommerceConfiguration,
-    StripePrice, TotalLossCommerceService,
+    StripeCheckoutSession, StripePrice, TotalLossCommerceService,
 )
 from venfour.package_assessment import canonical_package_digest
 from venfour.package_processing import TotalLossPackageCoordinator, TotalLossPackageProcessor
@@ -52,6 +53,8 @@ def require_local(environment=None):
     if (env.get("STRIPE_SECRET_KEY", "").startswith(("sk_live_", "rk_live_"))
         or env.get("STRIPE_PUBLISHABLE_KEY", "").startswith("pk_live_")):
         raise RuntimeError("Live payment credentials are forbidden in local testing.")
+    if env.get("VENFOUR_LOCAL_CHECKOUT_TEST") == "1" and env.get("VENFOUR_LOCAL_STRIPE_CHECKOUT") == "1":
+        raise RuntimeError("Mock checkout and sandbox network access cannot be combined.")
 
 
 def local_status():
@@ -240,6 +243,46 @@ class LocalPriceProvider:
     retrieve_dispute = unavailable
 
 
+class LocalCheckoutProvider(LocalPriceProvider):
+    """In-memory unpaid sessions for the guarded normal-workflow rehearsal."""
+
+    def __init__(self):
+        self.sessions = {}
+        self.idempotency = {}
+
+    def retrieve_price(self, price_id):
+        return StripePrice(price_id, 19900, "USD", False, True, "one_time", "prod_local_fixture", True)
+
+    def create_checkout_session(self, **kwargs):
+        token = kwargs["idempotency_key"]
+        if token in self.idempotency:
+            return self.sessions[self.idempotency[token]]
+        session_id = "cs_test_local_" + uuid4().hex
+        session = StripeCheckoutSession(
+            id=session_id, url=None, status="open", payment_status="unpaid", mode="payment",
+            expires_at=int(time.time()) + 3600, livemode=False,
+            client_reference_id=kwargs["order_id"], customer_id=None,
+            customer_email=kwargs["customer_email"], payment_intent_id=None,
+            amount_total=19900, currency="USD",
+            metadata={"venfour_order_id": kwargs["order_id"], "venfour_checkout_attempt_id": kwargs["checkout_attempt_id"]},
+            line_item_price_id=kwargs["price_id"], line_item_quantity=1,
+            ui_mode="elements", client_secret=session_id + "_secret_local_fixture_only",
+        )
+        self.sessions[session_id] = session
+        self.idempotency[token] = session_id
+        return session
+
+    def retrieve_checkout_session(self, session_id):
+        if session_id not in self.sessions:
+            raise CommerceUnavailableError("The local checkout fixture is unavailable")
+        return self.sessions[session_id]
+
+    def expire_checkout_session(self, session_id):
+        session = replace(self.retrieve_checkout_session(session_id), status="expired", client_secret=None)
+        self.sessions[session_id] = session
+        return session
+
+
 def pay_fixture(case_id):
     require_local()
     with local_database() as db:
@@ -285,6 +328,9 @@ def pay_fixture(case_id):
 def add_continuation_route(app, gateway):
     """Attach the shared owner-scoped initializer to a guarded local app."""
     async def post_continue(request):
+        if request.headers.get("content-type", "").split(";", 1)[0].strip().lower() == "application/json":
+            from venfour.api import _post_continue
+            return await _post_continue(request)
         if await request.body():
             return JSONResponse({"error":{"code":"INVALID_INPUT","message":"No request body is accepted."}},400)
         try:
@@ -305,6 +351,8 @@ def add_continuation_route(app, gateway):
         return JSONResponse({"error":{"code":"POST_CONTINUE_UNAVAILABLE","message":"Unable to initialize this claim."}},status,
             headers={"Cache-Control":"no-store"})
 
+    app.router.routes = [route for route in app.router.routes
+                         if getattr(route, "path", None) != "/api/v1/appraisal-cases/{case_id}/post-continue"]
     app.router.routes.append(Route(
         "/api/v1/appraisal-cases/{case_id}/post-continue", post_continue, methods=["POST"],
     ))
@@ -318,6 +366,10 @@ def create_app(*, network_guard=block_provider_network):
     try:
         configuration = test_commerce_configuration()
         provider = LocalPriceProvider()
+        if os.environ.get("VENFOUR_LOCAL_CHECKOUT_TEST") == "1":
+            configuration = replace(configuration, publishable_key="pk_test_local_fixture_only",
+                                    expected_amount_minor_units=19900, expected_currency="USD")
+            provider = LocalCheckoutProvider()
         if os.environ.get("VENFOUR_LOCAL_STRIPE_CHECKOUT") == "1":
             from venfour.commerce import StripeSdkGateway
             configuration = StripeCommerceConfiguration.from_environment(os.environ)

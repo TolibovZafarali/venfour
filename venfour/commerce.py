@@ -295,6 +295,8 @@ class StripeCommerceConfiguration:
     refund_policy_version: str
     public_app_origin: str
     publishable_key: str | None = field(default=None, repr=False)
+    expected_amount_minor_units: int | None = None
+    expected_currency: str | None = None
 
     def __post_init__(self) -> None:
         secret = self.secret_key
@@ -351,6 +353,15 @@ class StripeCommerceConfiguration:
                     "Stripe publishable key",
                 ),
             )
+        if (self.expected_amount_minor_units is None) != (self.expected_currency is None):
+            raise ValueError("Expected checkout amount and currency must be configured together")
+        if self.expected_amount_minor_units is not None:
+            if (isinstance(self.expected_amount_minor_units, bool)
+                    or not isinstance(self.expected_amount_minor_units, int)
+                    or not 0 < self.expected_amount_minor_units <= 99999999
+                    or not isinstance(self.expected_currency, str)
+                    or re.fullmatch(r"[A-Z]{3}", self.expected_currency) is None):
+                raise ValueError("Expected checkout price configuration is invalid")
 
     @property
     def livemode(self) -> bool:
@@ -371,9 +382,14 @@ class StripeCommerceConfiguration:
         values = {field: environment.get(name, "") for field, name in names.items()}
         if not all(isinstance(value, str) and value for value in values.values()):
             raise ValueError("Stripe commerce configuration is unavailable")
+        amount = environment.get("VENFOUR_TOTAL_LOSS_EXPECTED_AMOUNT_MINOR_UNITS")
+        if amount is not None and re.fullmatch(r"[1-9][0-9]{0,7}", amount) is None:
+            raise ValueError("Expected checkout amount configuration is invalid")
         return cls(
             **values,
             publishable_key=environment.get("STRIPE_PUBLISHABLE_KEY") or None,
+            expected_amount_minor_units=int(amount) if amount is not None else None,
+            expected_currency=environment.get("VENFOUR_TOTAL_LOSS_EXPECTED_CURRENCY"),
         )
 
 
@@ -1474,6 +1490,11 @@ class TotalLossCommerceService:
         self._configuration = configuration
         self._entitlement_fulfillment_hook = entitlement_fulfillment_hook
 
+    @property
+    def checkout_configured(self) -> bool:
+        """Configuration-only availability; never contacts the payment provider."""
+        return self._configuration.publishable_key is not None
+
     def authenticate(self, access_token: str) -> str:
         return self._database.authenticate(access_token)
 
@@ -2567,6 +2588,9 @@ class TotalLossCommerceService:
             or not price.product_active
             or price.price_type != "one_time"
             or price.livemode != self._configuration.livemode
+            or (self._configuration.expected_amount_minor_units is not None
+                and (price.unit_amount != self._configuration.expected_amount_minor_units
+                     or price.currency != self._configuration.expected_currency))
         ):
             raise CommerceConflictError("Configured Stripe Price is unavailable")
 

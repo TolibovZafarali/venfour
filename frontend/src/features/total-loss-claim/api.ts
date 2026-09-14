@@ -2390,10 +2390,13 @@ function mapCheckout(value: unknown): TotalLossCheckoutProjection {
   const clientSecret = value.clientSecret == null ? null : requiredString(value.clientSecret, "payment initialization");
   const publishableKey = value.publishableKey == null ? null : requiredString(value.publishableKey, "payment configuration");
   const uiMode = value.uiMode == null ? null : value.uiMode;
+  const sessionMode = checkoutSessionId?.match(/^cs_(test|live)_[A-Za-z0-9_]+$/u)?.[1];
+  const keyMode = publishableKey?.match(/^pk_(test|live)_[A-Za-z0-9_]+$/u)?.[1];
   if (
-    (clientSecret && (!checkoutSessionId || !clientSecret.startsWith(`${checkoutSessionId}_secret_`) || !publishableKey?.startsWith("pk_test_") || uiMode !== "elements" || state !== "checkout_ready")) ||
+    (clientSecret && (!checkoutSessionId || !clientSecret.startsWith(`${checkoutSessionId}_secret_`) || clientSecret.length <= `${checkoutSessionId}_secret_`.length || !keyMode || keyMode !== sessionMode || uiMode !== "elements" || state !== "checkout_ready")) ||
     (uiMode !== null && uiMode !== "elements") ||
-    (checkoutSessionId !== null && !/^cs_test_[A-Za-z0-9_]+$/u.test(checkoutSessionId))
+    (checkoutSessionId !== null && !sessionMode) ||
+    (publishableKey !== null && (!keyMode || keyMode !== sessionMode))
   ) {
     throw new TotalLossClaimContractError("The checkout service returned invalid payment initialization.");
   }
@@ -2657,14 +2660,34 @@ function ensureCaseId(caseId: string) {
   }
 }
 
-export async function initializeTotalLossClaim(caseId: string, accessToken: string) {
-  if (!environment.localPostContinueEnabled) {
-    throw new Error("Local continuation is unavailable.");
+export interface TotalLossContinuationInput {
+  readonly expectedAnalysisInputId: string;
+  readonly expectedAnalysisInputRevision: number;
+  readonly expectedReportId: string;
+  readonly expectedReportRevision: number;
+}
+
+export async function initializeTotalLossClaim(
+  caseId: string, accessToken: string, input: TotalLossContinuationInput,
+) {
+  ensureCaseId(caseId);
+  const fields = ["expectedAnalysisInputId", "expectedAnalysisInputRevision", "expectedReportId", "expectedReportRevision"];
+  if (!isRecord(input) || Object.keys(input).length !== fields.length || fields.some(field => !Object.hasOwn(input, field))
+      || typeof input.expectedAnalysisInputId !== "string" || typeof input.expectedReportId !== "string"
+      || !UUID_PATTERN.test(input.expectedAnalysisInputId) || !UUID_PATTERN.test(input.expectedReportId)
+      || !Number.isSafeInteger(input.expectedAnalysisInputRevision) || input.expectedAnalysisInputRevision < 1
+      || !Number.isSafeInteger(input.expectedReportRevision) || input.expectedReportRevision < 1) {
+    throw new TotalLossClaimContractError("The saved review revision could not be verified. Refresh before continuing.");
   }
-  return mapResolver(await apiClient.postAuthenticated<unknown>(
+  const result = mapResolver(await apiClient.postJson<unknown>(
     `/api/v1/appraisal-cases/${encodeURIComponent(caseId)}/post-continue`,
+    input,
     { accessToken },
   ));
+  if (result.caseId !== caseId) {
+    throw new TotalLossClaimContractError("The claim service returned a different case.");
+  }
+  return result;
 }
 
 export async function getTotalLossClaim(

@@ -7,14 +7,15 @@ import { Button } from "@/components/ui/button";
 import type { CaseAnalysisStatus } from "@/features/analyses/api/case-analysis";
 import { caseAnalysisQueryKeys } from "@/features/analyses/case-analysis-queries";
 import { appraisalCaseQueryKeys } from "@/features/cases/queries";
-import { initializeTotalLossClaim } from "@/features/total-loss-claim/api";
+import { initializeTotalLossClaim, type TotalLossContinuationInput } from "@/features/total-loss-claim/api";
 import { totalLossClaimQueryKeys } from "@/features/total-loss-claim/queries";
 
-export function LocalContinueAction({ accessToken, caseId, userId, label = "Continue my review" }: {
+export function ContinueReviewAction({ accessToken, caseId, userId, input, label = "Continue my review" }: {
   readonly accessToken: string;
   readonly label?: string;
   readonly caseId: string;
   readonly userId: string;
+  readonly input: TotalLossContinuationInput;
 }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -33,7 +34,7 @@ export function LocalContinueAction({ accessToken, caseId, userId, label = "Cont
     setPending(true);
     setFailed(false);
     try {
-      const claim = await initializeTotalLossClaim(caseId, accessToken);
+      const claim = await initializeTotalLossClaim(caseId, accessToken, input);
       queryClient.setQueryData(totalLossClaimQueryKeys.detail(userId, caseId), claim);
       queryClient.setQueryData<CaseAnalysisStatus>(
         caseAnalysisQueryKeys.detail(userId, caseId),

@@ -154,6 +154,8 @@ class FullReviewService:
         if status == "extraction_failed":
             readiness = report_failure("REPORT_EXTRACTION_FAILED")
         return {"caseId": context["case_id"], "stage": "full_review", "status": status,
+                "analysisInputId": context.get("source_input_id"),
+                "analysisInputRevision": context.get("source_input_revision", (context.get("input") or {}).get("analysis_input_revision")),
                 "ready": status == "ready" and readiness.get("ready") is True,
                 "issues": copy.deepcopy(readiness.get("issues", [])), "message": readiness["message"],
                 "report": {"id": report["id"], "filename": report["original_filename"], "revision": report["revision"]} if report else None,

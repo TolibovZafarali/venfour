@@ -602,6 +602,34 @@ def service(
 
 
 class CommerceConfigurationTests(unittest.TestCase):
+    def test_expected_price_pins_are_optional_and_must_be_an_exact_pair(self) -> None:
+        self.assertIsNone(configuration().expected_amount_minor_units)
+        checked = configuration(expected_amount_minor_units=19900, expected_currency="USD")
+        self.assertEqual(checked.expected_amount_minor_units, 19900)
+        for overrides in (
+            {"expected_amount_minor_units": 19900}, {"expected_currency": "USD"},
+            {"expected_amount_minor_units": True, "expected_currency": "USD"},
+            {"expected_amount_minor_units": 0, "expected_currency": "USD"},
+            {"expected_amount_minor_units": "19900", "expected_currency": "USD"},
+            {"expected_amount_minor_units": 19900, "expected_currency": "usd"},
+        ):
+            with self.subTest(overrides=overrides), self.assertRaises(ValueError):
+                configuration(**overrides)
+
+    def test_environment_price_pins_reject_guessed_or_malformed_formats(self) -> None:
+        environment = {
+            "STRIPE_SECRET_KEY": SECRET_KEY, "STRIPE_WEBHOOK_SECRET": WEBHOOK_SECRET,
+            "VENFOUR_TOTAL_LOSS_STRIPE_PRICE_ID": PRICE_ID,
+            "VENFOUR_TOTAL_LOSS_PRODUCT_IDENTIFIER": "total_loss_claim_package",
+            "VENFOUR_TOTAL_LOSS_PRODUCT_VERSION": "v1", "VENFOUR_TOTAL_LOSS_TERMS_VERSION": "v1",
+            "VENFOUR_TOTAL_LOSS_REFUND_POLICY_VERSION": "v1", "VENFOUR_PUBLIC_APP_ORIGIN": "https://app.venfour.example",
+            "VENFOUR_TOTAL_LOSS_EXPECTED_AMOUNT_MINOR_UNITS": "19900", "VENFOUR_TOTAL_LOSS_EXPECTED_CURRENCY": "USD",
+        }
+        self.assertEqual(StripeCommerceConfiguration.from_environment(environment).expected_amount_minor_units, 19900)
+        for value in ("", "199.00", "019900", "-1", "19900 "):
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                StripeCommerceConfiguration.from_environment({**environment, "VENFOUR_TOTAL_LOSS_EXPECTED_AMOUNT_MINOR_UNITS": value})
+
     def test_configuration_is_server_owned_and_mode_is_derived_from_key(self) -> None:
         test = configuration(public_app_origin="http://localhost:5173/")
         live = configuration(
@@ -654,6 +682,27 @@ class CommerceConfigurationTests(unittest.TestCase):
 
 
 class CommerceCheckoutServiceTests(unittest.TestCase):
+    def test_configured_availability_does_not_contact_provider_and_price_pins_precede_reservation(self) -> None:
+        for amount, currency in ((100, "USD"), (19900, "CAD")):
+            database, provider = RecordingDatabase(), RecordingProvider()
+            commerce = TotalLossCommerceService(database, provider, configuration(
+                expected_amount_minor_units=19900, expected_currency="USD"))
+            self.assertTrue(commerce.checkout_configured)
+            self.assertEqual(provider.calls, [])
+            provider.price = stripe_price(unit_amount=amount, currency=currency)
+            with self.subTest(amount=amount, currency=currency), self.assertRaises(CommerceConflictError):
+                commerce.create_checkout(CASE_ID, "owner-token", CLIENT_REQUEST_ID)
+            self.assertFalse(any(name == "reserve_total_loss_checkout" for name, _ in database.calls))
+            self.assertFalse(any(name == "create_checkout_session" for name, _ in provider.calls))
+        commerce = TotalLossCommerceService(RecordingDatabase(), RecordingProvider(), configuration(publishable_key=None))
+        self.assertFalse(commerce.checkout_configured)
+        database, provider = RecordingDatabase(), RecordingProvider()
+        provider.price = stripe_price(unit_amount=19900, currency="USD")
+        commerce = TotalLossCommerceService(database, provider, configuration(
+            expected_amount_minor_units=19900, expected_currency="USD"))
+        self.assertEqual(commerce.quote(CASE_ID, "owner-token").to_dict(), {
+            "availability": "available", "amountMinorUnits": 19900, "currency": "USD"})
+
     def test_recognized_anonymous_owner_can_read_price_but_cannot_initialize_payment(self) -> None:
         database = RecordingDatabase()
         database.preflight_row = None

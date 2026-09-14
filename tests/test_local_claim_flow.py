@@ -31,13 +31,29 @@ class LocalClaimFlowTests(unittest.TestCase):
             with self.subTest(environment=tuple(environment)), self.assertRaises(RuntimeError):
                 require_local(environment)
         require_local({"VENFOUR_LOCAL_POST_CONTINUE":"1","SUPABASE_URL":"http://127.0.0.1:54321"})
+        with self.assertRaises(RuntimeError):
+            require_local({"VENFOUR_LOCAL_POST_CONTINUE": "1", "VENFOUR_LOCAL_CHECKOUT_TEST": "1", "VENFOUR_LOCAL_STRIPE_CHECKOUT": "1"})
+
+    def test_mock_checkout_is_idempotent_unpaid_and_cannot_fulfill(self):
+        from scripts.local_claim_flow import LocalCheckoutProvider
+        from venfour.commerce import CommerceUnavailableError
+        provider = LocalCheckoutProvider()
+        args = dict(order_id=str(uuid4()), checkout_attempt_id=str(uuid4()), customer_email="fixture@example.com",
+                    price_id="price_local_fixture", idempotency_key="same-attempt")
+        first = provider.create_checkout_session(**args)
+        self.assertEqual(provider.create_checkout_session(**args), first)
+        self.assertEqual(provider.retrieve_checkout_session(first.id), first)
+        self.assertEqual((first.amount_total, first.currency, first.payment_status), (19900, "USD", "unpaid"))
+        self.assertFalse(first.livemode)
+        with self.assertRaises(CommerceUnavailableError): provider.retrieve_payment_intent("pi_fake")
 
     def test_ordinary_application_has_no_local_endpoints(self):
         from venfour.api import create_app
         with patch.dict(os.environ, {}, clear=True):
             app = create_app(enable_legacy_api=False)
         paths = {route.path for route in app.routes}
-        self.assertFalse(any("post-continue" in path or "/api/local/" in path for path in paths))
+        self.assertFalse(any("/api/local/" in path for path in paths))
+        self.assertIn("/api/v1/appraisal-cases/{case_id}/post-continue", paths)
 
     def test_no_provider_network_or_secret_available(self):
         with patch.dict(os.environ, {"OPENAI_API_KEY":"synthetic-local-sentinel"}), patch.object(socket,"getaddrinfo",Mock()) as original:

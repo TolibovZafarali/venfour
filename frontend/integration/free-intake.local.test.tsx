@@ -1,6 +1,6 @@
 import { execFileSync } from "node:child_process";
 import path from "node:path";
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { Blob as NativeBlob, File as NativeFile } from "node:buffer";
 import { FormData as NativeFormData } from "undici";
 import { createClient } from "@supabase/supabase-js";
@@ -8,6 +8,7 @@ import { cleanup, fireEvent, screen, waitFor, within } from "@testing-library/re
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse, passthrough } from "msw";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type { ReactNode } from "react";
 
 import { createSupabaseAuthService } from "@/features/auth/auth-service";
 import { createTotalLossDependencies } from "@/features/total-loss/dependencies-context";
@@ -16,6 +17,7 @@ import { readTotalLossDraft } from "@/features/total-loss/draft";
 import type { Database } from "@/lib/supabase/database.types";
 import type * as EnvironmentModule from "@/config/env";
 import * as fullReviewApi from "@/features/full-review/api";
+import * as claimApi from "@/features/total-loss-claim/api";
 import { renderTestApp } from "@/test/render";
 import { server } from "@/test/mocks/server";
 
@@ -27,8 +29,22 @@ vi.mock("@/config/product-availability", () => ({ totalLossManualIntakeAvailable
 vi.mock("@/features/analyses/components/valuation-signal-field", () => ({
   ValuationSignalField: () => <canvas aria-hidden="true" />,
 }));
+const paymentFixture = vi.hoisted(() => ({ confirm: vi.fn(() => { throw new Error("Payment confirmation is outside this fixture."); }) }));
+vi.mock("@stripe/stripe-js/pure", () => ({ loadStripe: vi.fn(async () => ({})) }));
+vi.mock("@stripe/react-stripe-js/checkout", async () => {
+  const { useEffect } = await import("react");
+  return {
+    CheckoutElementsProvider: ({ children }: { children: ReactNode }) => children,
+    PaymentElement: ({ onReady }: { onReady: () => void }) => {
+      useEffect(() => { onReady(); }, [onReady]);
+      return <div>Fixture payment fields — no payment provider connection</div>;
+    },
+    useCheckoutElements: () => ({ type: "success", checkout: { confirm: paymentFixture.confirm } }),
+  };
+});
 
 const enabled = process.env.VENFOUR_LOCAL_INTAKE_TEST === "1";
+const checkoutEnabled = process.env.VENFOUR_LOCAL_CHECKOUT_TEST === "1";
 const origin = "http://127.0.0.1:54321";
 const backend = "http://127.0.0.1:8000";
 const vin = "KMHLM4AG0RU900001";
@@ -67,6 +83,23 @@ describe.skipIf(!enabled)("normal free intake against local database and fixture
     const dependencies = createTotalLossDependencies(client);
     const auth = createSupabaseAuthService(client);
     let submissions = 0;
+    const continuationBodies: unknown[] = [];
+    const checkoutBodies: unknown[] = [];
+    const checkoutReceipts: Array<{ state: string; checkoutSessionId: string | null; checkoutStatus: string | null; orderStatus: string | null }> = [];
+    const checkoutQuotes: Array<{ availability: string; amountMinorUnits: number | null; currency: string | null }> = [];
+    const createCheckout = claimApi.createTotalLossCheckout;
+    vi.spyOn(claimApi, "createTotalLossCheckout").mockImplementation(async (...args) => {
+      const result = await createCheckout(...args);
+      checkoutReceipts.push({ state: result.state, checkoutSessionId: result.checkoutSessionId,
+        checkoutStatus: result.checkoutStatus, orderStatus: result.orderStatus });
+      return result;
+    });
+    const getQuote = claimApi.getTotalLossCheckoutQuote;
+    vi.spyOn(claimApi, "getTotalLossCheckoutQuote").mockImplementation(async (...args) => {
+      const result = await getQuote(...args);
+      checkoutQuotes.push(result);
+      return result;
+    });
     let savedInput: { id: string | null | undefined; revision: number | null | undefined } | undefined;
     server.use(
       http.all(`${origin}/*`, () => passthrough()),
@@ -96,6 +129,19 @@ describe.skipIf(!enabled)("normal free intake against local database and fixture
       expect(details?.vehicleFacts ?? null).toEqual(method === "VIN" ? decodedFacts : null);
       return passthrough();
     }));
+    server.use(
+      http.post(`${backend}/api/v1/appraisal-cases/:caseId/post-continue`, async ({ request }) => {
+        continuationBodies.push(await request.clone().json());
+        return passthrough();
+      }),
+      http.post(`${backend}/api/v1/appraisal-cases/:caseId/checkout-sessions`, async ({ request }) => {
+        const body = await request.clone().json();
+        expect(Object.keys(body)).toEqual(["clientRequestId"]);
+        expect(body.clientRequestId).toMatch(/^[0-9a-f-]{36}$/u);
+        checkoutBodies.push(body);
+        return passthrough();
+      }),
+    );
     const before = await (await fetch(`${backend}/api/local/market-fixtures/status`)).json();
     expect(before.liveMarketCheckRequests).toBe(0);
     const options = {
@@ -218,16 +264,47 @@ describe.skipIf(!enabled)("normal free intake against local database and fixture
       fullReview = await (await fetch(`${backend}/api/v1/appraisal-cases/${caseId}/full-review`, { headers: { Authorization: `Bearer ${token}` } })).json();
     }
     expect(fullReview.ready).toBe(true);
-    expect(await screen.findByText(/Payment is not available right now/)).toBeVisible();
-    expect(screen.queryByRole("button", { name: "Continue to secure checkout" })).not.toBeInTheDocument();
+    if (checkoutEnabled) {
+      expect(fullReview.checkoutAvailable).toBe(true);
+      const continueButton = await screen.findByRole("button", { name: "Continue to secure checkout" });
+      fireEvent.click(continueButton);
+      fireEvent.click(continueButton);
+      await screen.findByText("Fixture payment fields — no payment provider connection", {}, { timeout: 15000 });
+      expect(continuationBodies).toEqual([{
+        expectedAnalysisInputId: savedInput?.id, expectedAnalysisInputRevision: savedInput?.revision,
+        expectedReportId: fullReview.report.id, expectedReportRevision: fullReview.report.revision,
+      }]);
+      expect(checkoutBodies).toHaveLength(1);
+      expect(checkoutReceipts).toHaveLength(1);
+      expect(checkoutReceipts[0]).toMatchObject({ state: "checkout_ready", checkoutStatus: "open", orderStatus: "pending" });
+      expect(checkoutQuotes.at(-1)).toEqual({ availability: "available", amountMinorUnits: 19900, currency: "USD" });
+      expect(checkoutReceipts[0].checkoutSessionId).toMatch(/^cs_test_/u);
+      expect(screen.getAllByText("$199.00").length).toBeGreaterThan(0);
+      expect(paymentFixture.confirm).not.toHaveBeenCalled();
+      view.unmount();
+      view = renderTestApp([`/total-loss/cases/${caseId}/claim/checkout?checkout=canceled`], options);
+      await screen.findByText("Fixture payment fields — no payment provider connection", {}, { timeout: 15000 });
+      expect(screen.getByText(/Checkout was canceled. Your claim and purchase progress are saved/)).toBeVisible();
+      expect(continuationBodies).toHaveLength(1);
+      expect(checkoutBodies).toHaveLength(2);
+      expect(checkoutReceipts).toEqual([checkoutReceipts[0], checkoutReceipts[0]]);
+      expect(paymentFixture.confirm).not.toHaveBeenCalled();
+    } else {
+      expect(await screen.findByText(/Payment is not available right now/)).toBeVisible();
+      expect(screen.queryByRole("button", { name: "Continue to secure checkout" })).not.toBeInTheDocument();
+    }
     const afterReport = await (await fetch(`${backend}/api/local/market-fixtures/status`)).json();
     expect(afterReport.fixtureAttempts).toBe(afterRun.fixtureAttempts);
     const stillSaved = await dependencies.totalLossDetailsService.getDetails({ caseId, userId: ownerId });
     expect(stillSaved?.analysisInputId).toBe(savedInput?.id);
-    console.info(JSON.stringify({ scenario: method, caseId, input: savedInput, submissions,
+    const evidence = { scenario: method, caseId, input: savedInput, submissions,
       fixtureAttempts: afterRun.fixtureAttempts - before.fixtureAttempts, liveMarketCheckRequests: 0,
       claimed: true, factsPreserved: true, reopenExtraAttempts: 0, reportStorageAndExtraction: true,
-      checkoutHiddenBeforeReadiness: true, paymentUnavailableAfterReadiness: true, fullReviewReady: fullReview.ready }));
+      checkoutHiddenBeforeReadiness: true, paymentUnavailableAfterReadiness: !checkoutEnabled, fullReviewReady: fullReview.ready,
+      checkoutInitialization: checkoutEnabled, continuationRequests: continuationBodies.length,
+      checkoutRequestsIncludingRefresh: checkoutBodies.length, checkoutReceipts, checkoutQuotes, realPaymentCharges: 0 };
+    writeFileSync(`/tmp/venfour-local-checkout-${method.toLowerCase()}.json`, JSON.stringify(evidence, null, 2) + "\n");
+    console.info(JSON.stringify(evidence));
     cleanup();
     await client.auth.signOut({ scope: "local" });
   }, 90000);

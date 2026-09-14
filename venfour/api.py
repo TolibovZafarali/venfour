@@ -1035,6 +1035,36 @@ async def _checkout_quote(request: Request) -> JSONResponse:
         return _private_response(_commerce_error(exc))
 
 
+async def _post_continue(request: Request) -> JSONResponse:
+    case_id = request.path_params["case_id"]
+    if not _is_canonical_uuid4(case_id):
+        return _private_response(_error_response(400, "INVALID_CASE_ID"))
+    try:
+        token = _bearer_token(request)
+    except SupabaseAuthenticationError:
+        return _private_response(_error_response(401, "AUTHENTICATION_REQUIRED", headers={"WWW-Authenticate": "Bearer"}))
+    service = request.app.state.claim_initialization_service
+    if service is None:
+        return _private_response(_error_response(503, "COMMERCE_UNAVAILABLE"))
+    try:
+        body = await _strict_json_object(request, expected_keys={
+            "expectedAnalysisInputId", "expectedAnalysisInputRevision",
+            "expectedReportId", "expectedReportRevision",
+        }, maximum_bytes=MAX_COMMERCE_REQUEST_BODY_BYTES)
+        result = await run_in_threadpool(
+            service.initialize, case_id, token,
+            expected_analysis_input_id=body["expectedAnalysisInputId"],
+            expected_analysis_input_revision=body["expectedAnalysisInputRevision"],
+            expected_report_id=body["expectedReportId"],
+            expected_report_revision=body["expectedReportRevision"],
+        )
+        return _private_response(JSONResponse(result))
+    except CaseClaimAccessError as exc:
+        return _private_response(_claim_access_error(exc))
+    except Exception as exc:
+        return _private_response(_commerce_error(exc))
+
+
 async def _checkout_reconciliation(request: Request) -> JSONResponse:
     case_id = request.path_params["case_id"]
     if not _is_canonical_uuid4(case_id):
@@ -1978,6 +2008,8 @@ async def _full_review(request: Request) -> JSONResponse:
         return _private_response(_error_response(400, "FULL_REVIEW_REPORT_INVALID"))
     except SupabaseGatewayError:
         return _private_response(_error_response(503, "FULL_REVIEW_UNAVAILABLE"))
+    if isinstance(result, dict) and result.get("stage") == "full_review":
+        result = {**result, "checkoutAvailable": getattr(request.app.state.claim_initialization_service, "checkout_available", False) is True}
     return _private_response(JSONResponse(result))
 
 
@@ -2496,6 +2528,7 @@ def create_app(
     repository_root: Path | str | None = None,
     case_analysis_service: Any | None = None,
     full_review_service: Any | None = None,
+    claim_initialization_service: Any | None = None,
     case_claim_access_service: Any | None = None,
     preview_access_service: Any | None = None,
     customer_delivery_service: Any | None = None,
@@ -3129,6 +3162,7 @@ def create_app(
 
     routes = [
         Route("/api/v1/appraisal-cases/{case_id}/full-review", _full_review, methods=["GET"]),
+        Route("/api/v1/appraisal-cases/{case_id}/post-continue", _post_continue, methods=["POST"]),
         Route("/api/v1/appraisal-cases/{case_id}/full-review/{operation}", _full_review, methods=["POST", "PATCH"]),
         Route("/api/v1/vehicle-trims", _vehicle_trims, methods=["GET"]),
         Route(
@@ -3422,6 +3456,12 @@ def create_app(
     )
     app.state.customer_delivery_service = selected_customer_delivery_service
     app.state.commerce_service = selected_commerce_service
+    from venfour.claim_initialization import TotalLossClaimInitializationService
+    app.state.claim_initialization_service = claim_initialization_service or (
+        TotalLossClaimInitializationService(selected_gateway, selected_case_claim_access_service, selected_commerce_service)
+        if selected_case_claim_access_service is not None
+        and callable(getattr(selected_gateway, "initialize_total_loss_post_continue", None)) else None
+    )
     app.state.package_coordinator = selected_package_coordinator
     app.state.package_processor = selected_package_processor
     app.state.insurer_response_processor = (

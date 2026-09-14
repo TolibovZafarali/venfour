@@ -252,7 +252,9 @@ class FullFlowComposition(unittest.TestCase):
                 self.assertEqual(ready.json(), {"status": "ready"})
                 path = f"/api/v1/appraisal-cases/{uuid4()}/post-continue"
                 self.assertEqual(client.post(path).status_code, 401)
-                self.assertEqual(client.post(path, json={"value": 1}).status_code, 400)
+                self.assertEqual(client.post(path, json={"value": 1}).status_code, 401)
+                self.assertEqual(client.post(path, json={"value": 1},
+                    headers={"Authorization": "Bearer owner-token"}).status_code, 400)
                 for headers in ({"Host": "staging.venfour.com"}, {"Origin": "https://venfour.com"},
                                 {"Origin": "http://localhost:9999"}):
                     self.assertEqual(client.post(path, headers=headers).status_code, 404)

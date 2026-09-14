@@ -165,13 +165,20 @@ def creation_factory(repository, run_id):
     class FixtureCreationService(AnalysisCreationService):
         def _run_legacy_report(self, report_data, postal_code, **kwargs):
             vehicle = report_data["vehicle"]
-            scenario = next((key for key, value in SUBJECT_VINS.items() if value == vehicle.get("vin")), "expansion")
+            scenario = fixture_scenario(vehicle)
             context.update(scenario=scenario, vehicle=vehicle, postal_code=postal_code,
                 loss_date=kwargs.get("loss_date_override") or report_data["report"].get("lossDate") or self._observed_date().isoformat())
             return super()._run_legacy_report(report_data, postal_code, **kwargs)
 
     return FixtureCreationService(orchestrator, ingestion_service=ingestion_service(),
         report_ingestion_recorder=repository.record_report_ingestion)
+
+
+def fixture_scenario(vehicle):
+    """Choose finite fictional inventory for the explicit manual checkout rehearsal."""
+    if os.environ.get("VENFOUR_LOCAL_CHECKOUT_TEST") == "1" and not vehicle.get("vin"):
+        return "limited"
+    return next((key for key, value in SUBJECT_VINS.items() if value == vehicle.get("vin")), "expansion")
 
 
 def extract_document(path, schema, *, generic=False):

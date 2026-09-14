@@ -2,19 +2,25 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, Route, Routes } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { LocalContinueAction } from "./local-continue-action";
+import { ContinueReviewAction } from "./continue-review-action";
 import { caseAnalysisQueryKeys } from "@/features/analyses/case-analysis-queries";
 import { initializeTotalLossClaim } from "@/features/total-loss-claim/api";
 
 vi.mock("@/features/total-loss-claim/api", async (original) => ({
   ...await original<object>(), initializeTotalLossClaim: vi.fn(),
 }));
+const input = {
+  expectedAnalysisInputId: "22222222-2222-4222-8222-222222222222",
+  expectedAnalysisInputRevision: 3,
+  expectedReportId: "33333333-3333-4333-8333-333333333333",
+  expectedReportRevision: 4,
+};
 
 function setup() {
   const queryClient = new QueryClient();
   const rendered = render(<QueryClientProvider client={queryClient}>
     <MemoryRouter initialEntries={["/preview"]}><Routes>
-      <Route path="/preview" element={<LocalContinueAction accessToken="test-token" caseId="case-id" userId="owner-id" />} />
+      <Route path="/preview" element={<ContinueReviewAction accessToken="test-token" caseId="case-id" userId="owner-id" input={input} />} />
       <Route path="/total-loss/cases/case-id/claim/checkout" element={<h1>Combined purchase page</h1>} />
     </Routes></MemoryRouter>
   </QueryClientProvider>);
@@ -22,7 +28,7 @@ function setup() {
 }
 
 afterEach(() => vi.resetAllMocks());
-describe("local continuation", () => {
+describe("full-review continuation", () => {
   it("disables duplicate clicks while pending and goes directly to the combined purchase page", async () => {
     let finish!: (value: Awaited<ReturnType<typeof initializeTotalLossClaim>>) => void;
     vi.mocked(initializeTotalLossClaim).mockImplementation(() => new Promise(resolve => { finish = resolve; }));
@@ -40,6 +46,7 @@ describe("local continuation", () => {
     expect(button).toBeDisabled();
     expect(button).toHaveAttribute("aria-busy", "true");
     expect(initializeTotalLossClaim).toHaveBeenCalledTimes(1);
+    expect(initializeTotalLossClaim).toHaveBeenCalledWith("case-id", "test-token", input);
     finish({ state: "secure_required", caseId: "case-id", contactEmail: "test@example.test", commerce: null, workflow: null });
     expect(await screen.findByRole("heading", { name: "Combined purchase page" })).toBeVisible();
     expect(queryClient.getQueryData(analysisKey)).toMatchObject({
@@ -70,6 +77,8 @@ describe("local continuation", () => {
     fireEvent.click(screen.getByRole("button", { name: "Retry" }));
     expect(await screen.findByRole("heading")).toHaveTextContent("Combined purchase page");
     expect(initializeTotalLossClaim).toHaveBeenCalledTimes(2);
+    expect(initializeTotalLossClaim).toHaveBeenNthCalledWith(1, "case-id", "test-token", input);
+    expect(initializeTotalLossClaim).toHaveBeenNthCalledWith(2, "case-id", "test-token", input);
     expect(queryClient.getQueryData(analysisKey)).toMatchObject({
       intakeCorrectionAllowed: false,
     });

@@ -7,6 +7,7 @@ import { uploadFullReview } from "./api";
 const caseId = "22222222-2222-4222-8222-222222222222";
 const reportId = "33333333-3333-4333-8333-333333333333";
 const ready = { caseId, stage: "full_review", status: "ready", ready: true, issues: [], message: "Ready",
+  analysisInputId: "44444444-4444-4444-8444-444444444444", analysisInputRevision: 2, checkoutAvailable: true,
   locked: false, canReuseReport: false, report: { id: reportId, filename: "report.pdf", revision: 4 } };
 const pdf = () => new File(["%PDF-simulated"], "report.pdf", { type: "application/pdf" });
 
@@ -37,5 +38,20 @@ describe("private report upload", () => {
     await expect(uploadFullReview(caseId, "fixture-token", pdf())).rejects.toThrow("verify the saved report");
     mock.postForm.mockResolvedValueOnce({ ...ready, status: "uploaded", report: null });
     await expect(uploadFullReview(caseId, "fixture-token", pdf())).rejects.toThrow("verify the saved report");
+  });
+
+  it.each([
+    { analysisInputId: undefined }, { analysisInputId: "wrong" }, { analysisInputRevision: 0 },
+    { analysisInputRevision: true }, { analysisInputRevision: 1.5 }, { checkoutAvailable: undefined },
+    { checkoutAvailable: "true" }, { report: { ...ready.report, revision: 0 } },
+  ])("fails closed on malformed continuation metadata %o", async override => {
+    mock.postForm.mockResolvedValueOnce({ ...ready, ...override });
+    await expect(uploadFullReview(caseId, "fixture-token", pdf())).rejects.toThrow("verify the saved report");
+  });
+
+  it("preserves a saved legacy review with unavailable input identity", async () => {
+    const legacy = { ...ready, analysisInputId: null, analysisInputRevision: null, checkoutAvailable: false };
+    mock.postForm.mockResolvedValueOnce(legacy);
+    await expect(uploadFullReview(caseId, "fixture-token", pdf())).resolves.toEqual(legacy);
   });
 });

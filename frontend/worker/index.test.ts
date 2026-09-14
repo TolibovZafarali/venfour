@@ -41,6 +41,19 @@ function dependencies(fetchImplementation: WorkerDependencies["fetch"]) {
 }
 
 describe("staging Worker boundary", () => {
+  it("allows reviewed Stripe payment sources without broadening script or frame access", async () => {
+    const response = await handleRequest(new Request(`${STAGING_ORIGIN}/total-loss/cases/example/claim/checkout`), createEnv());
+    const directives = Object.fromEntries(response.headers.get("content-security-policy")!.split(";").map(item => {
+      const [name, ...sources] = item.trim().split(/\s+/u);
+      return [name, sources];
+    }));
+    expect(directives["script-src"]).toEqual(["'self'", "https://challenges.cloudflare.com", "https://js.stripe.com", "https://*.js.stripe.com"]);
+    expect(directives["frame-src"]).toEqual(["'self'", "https://challenges.cloudflare.com", "https://js.stripe.com", "https://*.js.stripe.com", "https://hooks.stripe.com"]);
+    expect(directives["form-action"]).toEqual(["'self'"]);
+    expect(directives["frame-ancestors"]).toEqual(["'none'"]);
+    expect(directives["object-src"]).toEqual(["'none'"]);
+  });
+
   it("fails closed for invalid configuration and an unexpected host", async () => {
     const invalid = await handleRequest(new Request(`${STAGING_ORIGIN}/`), {
       ...createEnv(),
@@ -279,6 +292,26 @@ describe("staging Worker boundary", () => {
     );
     expect(assets).not.toHaveBeenCalled();
     expect(upstreamFetch).not.toHaveBeenCalled();
+  });
+
+  it("preserves a rejected webhook signature response and never turns it into SPA success", async () => {
+    const assets = vi.fn(async () => new Response("asset"));
+    let capturedRequest: Request | undefined;
+    const upstreamFetch = vi.fn(async (request: Request) => {
+      capturedRequest = request;
+      return new Response(JSON.stringify({ error: { code: "INVALID_STRIPE_WEBHOOK" } }), {
+        status: 400, headers: { "Content-Type": "application/json" },
+      });
+    });
+    const response = await handleRequest(new Request(`${STAGING_ORIGIN}/webhooks/stripe`, {
+      method: "POST", body: "{}", headers: { "Content-Type": "application/json", "Stripe-Signature": "invalid-signature" },
+    }), createEnv(assets), dependencies(upstreamFetch as unknown as typeof fetch));
+    expect(capturedRequest?.headers.get("stripe-signature")).toBe("invalid-signature");
+    expect(capturedRequest?.headers.get("x-venfour-staging-proxy")).toBe(API_PROXY_SECRET);
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ error: { code: "INVALID_STRIPE_WEBHOOK" } });
+    expect(response.headers.get("cache-control")).toContain("no-store");
+    expect(assets).not.toHaveBeenCalled();
   });
 
   it.each([

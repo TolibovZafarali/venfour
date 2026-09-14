@@ -4,10 +4,9 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useLocation, useParams } from "react-router";
 import { ArrowLeft, FileText, LoaderCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { environment } from "@/config/env";
 import { useAuth, useSignInDialog } from "@/features/auth";
 import { validateTotalLossPdf } from "@/features/total-loss/validation";
-import { LocalContinueAction } from "@/features/total-loss-claim/components/local-continue-action";
+import { ContinueReviewAction } from "@/features/total-loss-claim/components/continue-review-action";
 import { ClaimWorkflowCard, ClaimWorkflowFrame } from "@/features/total-loss-claim/components/claim-workflow-shell";
 import { confirmFullReview, extractFullReview, fullReviewKey, getFullReview, uploadFullReview, type FullReviewState } from "@/features/full-review/api";
 
@@ -71,8 +70,10 @@ export function FullReviewReport({ caseId, userId, accessToken }: { caseId: stri
             <Button className="mt-4" disabled={busy || !answer.trim()} type="submit">Confirm and continue</Button>
           </fieldset>
         </form> : null}
-        {state.ready ? environment.localPostContinueEnabled
-          ? <LocalContinueAction accessToken={accessToken} caseId={caseId} userId={userId} label="Continue to secure checkout" />
+        {state.ready ? state.checkoutAvailable && state.report && state.analysisInputId && state.analysisInputRevision
+          ? <ContinueReviewAction accessToken={accessToken} caseId={caseId} userId={userId} label="Continue to secure checkout"
+              input={{ expectedAnalysisInputId: state.analysisInputId, expectedAnalysisInputRevision: state.analysisInputRevision,
+                expectedReportId: state.report.id, expectedReportRevision: state.report.revision }} />
           : <p className="mt-6 rounded-xl border border-line p-4 text-sm leading-6 text-copy" role="status">Payment is not available right now. Your report and free result are saved, and no payment has been taken.</p>
           : null}
         {state.locked && !state.ready ? <Button asChild className="mt-5"><Link to={`/total-loss/cases/${caseId}/claim`}>Return to your saved review</Link></Button> : null}

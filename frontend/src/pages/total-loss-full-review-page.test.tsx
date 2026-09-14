@@ -7,28 +7,43 @@ import { getFullReview, uploadFullReview, extractFullReview, confirmFullReview, 
 import { VehicleFactFields } from "@/features/total-loss/vehicle-fact-fields";
 import { createEmptyTotalLossManualForm } from "@/features/total-loss/types";
 import type * as FullReviewApi from "@/features/full-review/api";
-const availability = vi.hoisted(() => ({ localPostContinueEnabled: true }));
-vi.mock("@/config/env", () => ({ environment: availability }));
+const continuation = vi.hoisted(() => vi.fn());
 
 vi.mock("@/features/full-review/api", async importOriginal => ({
   ...await importOriginal<typeof FullReviewApi>(),
   getFullReview: vi.fn(), uploadFullReview: vi.fn(), extractFullReview: vi.fn(), confirmFullReview: vi.fn(),
 }));
-vi.mock("@/features/total-loss-claim/components/local-continue-action", () => ({ LocalContinueAction: ({ label }: { label: string }) => <button>{label}</button> }));
-const initial: FullReviewState = { caseId: "case", stage: "full_review", status: "report_required", ready: false, issues: [], message: "Upload your complete report. Your estimate is saved.", report: null, canReuseReport: false, locked: false };
+vi.mock("@/features/total-loss-claim/components/continue-review-action", () => ({ ContinueReviewAction: (props: { label: string }) => { continuation(props); return <button>{props.label}</button>; } }));
+const initial: FullReviewState = { caseId: "case", stage: "full_review", status: "report_required", ready: false, issues: [], message: "Upload your complete report. Your estimate is saved.", report: null, canReuseReport: false, locked: false,
+  analysisInputId: "22222222-2222-4222-8222-222222222222", analysisInputRevision: 3, checkoutAvailable: true };
 const ready: FullReviewState = { ...initial, status: "ready", ready: true, message: "Your report is ready.", report: { id: "report", filename: "insurer.pdf", revision: 4 } };
 function show(value = initial) {
   vi.mocked(getFullReview).mockResolvedValue(value);
   return render(<MemoryRouter><QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><FullReviewReport caseId="case" userId="owner" accessToken="mock-token" /></QueryClientProvider></MemoryRouter>);
 }
-beforeEach(() => { vi.clearAllMocks(); availability.localPostContinueEnabled = true; });
+beforeEach(() => { vi.clearAllMocks(); });
 describe("report before payment", () => {
   it("keeps a ready report saved without offering an unavailable production checkout", async () => {
-    availability.localPostContinueEnabled = false;
-    show(ready);
+    show({ ...ready, checkoutAvailable: false });
     expect(await screen.findByText(/Payment is not available right now/)).toBeVisible();
     expect(screen.getByText("insurer.pdf")).toBeVisible();
     expect(screen.queryByRole("button", { name: "Continue to secure checkout" })).not.toBeInTheDocument();
+    expect(continuation).not.toHaveBeenCalled();
+  });
+  it("passes the current input and report versions to production continuation only when ready", async () => {
+    show(ready);
+    expect(await screen.findByRole("button", { name: "Continue to secure checkout" })).toBeVisible();
+    expect(continuation).toHaveBeenLastCalledWith(expect.objectContaining({
+      accessToken: "mock-token", caseId: "case", userId: "owner",
+      input: { expectedAnalysisInputId: initial.analysisInputId, expectedAnalysisInputRevision: 3,
+        expectedReportId: "report", expectedReportRevision: 4 },
+    }));
+  });
+  it.each([{ analysisInputId: null }, { analysisInputRevision: null }])("preserves a ready legacy report without offering unfenced continuation %o", async missing => {
+    show({ ...ready, ...missing });
+    expect(await screen.findByText(/Payment is not available right now/)).toBeVisible();
+    expect(screen.getByText("insurer.pdf")).toBeVisible();
+    expect(continuation).not.toHaveBeenCalled();
   });
   it("preserves the free result and offers leave/resume without payment", async () => {
     show();

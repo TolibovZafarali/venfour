@@ -11,12 +11,28 @@ from unittest.mock import patch
 import pymupdf
 
 from scripts.local_market_fixtures import FixtureTransport, SCENARIOS, SUBJECT_VINS, report_data, generate_reports
-from scripts.local_market_flow import DOCUMENT_CONNECTIONS, ingestion_service, network_audit, require_mock
+from scripts.local_market_flow import DOCUMENT_CONNECTIONS, fixture_scenario, ingestion_service, network_audit, require_mock
 from scripts.extract_report_ai import AIExtractionResult
 from venfour.report_ingestion import ReportExtractionError
 
 
 class LocalMarketConfigurationTests(unittest.TestCase):
+    def test_manual_checkout_fixture_is_finite_without_inventing_subject_facts(self):
+        vehicle = {"year": 2024, "make": "Hyundai", "model": "Elantra", "trim": "SEL", "mileage": 50000}
+        original = dict(vehicle)
+        with patch.dict(os.environ, {}, clear=True):
+            self.assertEqual(fixture_scenario(vehicle), "expansion")
+        with patch.dict(os.environ, {"VENFOUR_LOCAL_CHECKOUT_TEST": "1"}, clear=True):
+            self.assertEqual(fixture_scenario(vehicle), "limited")
+            self.assertEqual(fixture_scenario({**vehicle, "vin": SUBJECT_VINS["dense"]}), "dense")
+            transport = FixtureTransport(fixture_scenario(vehicle), loss_date="2026-08-26", record=lambda event: None,
+                                         vehicle=vehicle, postal_code="63026")
+            page = json.loads(transport.get("/search", {"start": 0, "rows": 50}, {}, 1))
+            self.assertEqual(page["num_found"], 1)
+            self.assertIsNone(page["listings"][0]["build"]["drivetrain"])
+            self.assertEqual(json.loads(transport.get("/search", {"start": 50, "rows": 50}, {}, 1))["listings"], [])
+        self.assertEqual(vehicle, original)
+
     def test_complete_report_fixture_prints_strict_readiness_facts_while_dense_stays_incomplete(self):
         from venfour.full_review import full_review_readiness
         from venfour.report_ingestion import validate_canonical_pdf
