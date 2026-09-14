@@ -14,6 +14,7 @@ import type { TotalLossCheckoutProjection } from "@/features/total-loss-claim/co
 import { useTotalLossCheckoutMutation } from "@/features/total-loss-claim/queries";
 
 const stripeInstances = new Map<string, Promise<Stripe | null>>();
+const PAYMENT_LOADING_TIMEOUT_MS = 20_000;
 
 function stripeFor(publishableKey: string) {
   let instance = stripeInstances.get(publishableKey);
@@ -34,8 +35,15 @@ function PaymentForm({
   const checkout = useCheckoutElements();
   const [submitting, setSubmitting] = useState(false);
   const [ready, setReady] = useState(false);
+  const [loadingDelayed, setLoadingDelayed] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const submittingRef = useRef(false);
+
+  useEffect(() => {
+    if (checkout.type !== "loading") return;
+    const timeout = setTimeout(() => setLoadingDelayed(true), PAYMENT_LOADING_TIMEOUT_MS);
+    return () => clearTimeout(timeout);
+  }, [checkout.type]);
 
   const confirm = async () => {
     if (checkout.type !== "success" || submittingRef.current || !ready) return;
@@ -60,7 +68,12 @@ function PaymentForm({
   return (
     <form onSubmit={(event) => { event.preventDefault(); void confirm(); }}>
       {checkout.type === "loading" ? (
-        <p className="py-5 text-sm text-copy" role="status">Loading secure payment fields…</p>
+        loadingDelayed ? (
+          <div>
+            <WorkflowError>Payment fields are taking longer than expected. No payment has been taken on this page. Reload to reopen your saved checkout.</WorkflowError>
+            <Button className="mt-4" variant="outline" type="button" onClick={() => globalThis.location.reload()}>Reload secure payment</Button>
+          </div>
+        ) : <p className="py-5 text-sm text-copy" role="status">Loading secure payment fields…</p>
       ) : checkout.type === "error" ? (
         <WorkflowError>Payment fields could not load. Refresh to reopen your saved checkout.</WorkflowError>
       ) : (

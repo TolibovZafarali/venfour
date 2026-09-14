@@ -14,6 +14,9 @@ export class ProductionEnvironmentValidationError extends Error {
 
 export function validateProductionEnvironment(environment) {
   const issues = [];
+  if (environment.VITE_PUBLIC_SITE_ONLY === "true") {
+    issues.push("VITE_PUBLIC_SITE_ONLY must not enable public-site mode in a production application build.");
+  }
   for (const [name, expected] of [
     ["VITE_PUBLIC_ORIGIN", EXPECTED_PUBLIC_ORIGIN],
     ["VITE_APPLICATION_ORIGIN", EXPECTED_APPLICATION_ORIGIN],

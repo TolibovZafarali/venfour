@@ -60,14 +60,6 @@
       },
       "routes": [
         {
-          "pattern": "venfour.com",
-          "custom_domain": true
-        },
-        {
-          "pattern": "www.venfour.com",
-          "custom_domain": true
-        },
-        {
           "pattern": "app.venfour.com",
           "custom_domain": true
         }

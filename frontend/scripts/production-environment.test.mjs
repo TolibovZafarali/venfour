@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { ProductionEnvironmentValidationError, validateProductionEnvironment } from "./production-environment.mjs";
 
@@ -20,7 +22,28 @@ describe("production browser configuration", () => {
     });
   });
 
+  it("allows explicitly disabled public-site mode", () => {
+    expect(validateProductionEnvironment({ ...environment, VITE_PUBLIC_SITE_ONLY: "false" })).toEqual(
+      validateProductionEnvironment(environment),
+    );
+  });
+
+  it("keeps application, public website, and staging deployments on separate hosts", () => {
+    const { env } = JSON.parse(readFileSync(resolve(import.meta.dirname, "../wrangler.jsonc"), "utf8"));
+    expect(env.production.routes).toEqual([{ pattern: "app.venfour.com", custom_domain: true }]);
+    expect(env["public-site"].routes).toEqual([
+      { pattern: "venfour.com", custom_domain: true },
+      { pattern: "www.venfour.com", custom_domain: true },
+    ]);
+    expect(env.staging.routes).toEqual([{ pattern: "staging.venfour.com", custom_domain: true }]);
+    for (const deployment of [env.production, env["public-site"], env.staging]) {
+      expect(deployment.workers_dev).toBe(false);
+      expect(deployment.preview_urls).toBe(false);
+    }
+  });
+
   it.each([
+    ["VITE_PUBLIC_SITE_ONLY", "true"],
     ["VITE_PUBLIC_ORIGIN", "https://staging.venfour.com"],
     ["VITE_PUBLIC_ORIGIN", "https://www.venfour.com"],
     ["VITE_APPLICATION_ORIGIN", "https://venfour.com"],

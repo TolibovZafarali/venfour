@@ -524,48 +524,48 @@ function productionEnv(assetFetch?: (request: Request) => Promise<Response>): En
 }
 
 describe("production Worker boundary", () => {
-  it.each(["https://preview.venfour.com", "https://staging.venfour.com", "https://app.venfour.com:8443", "http://venfour.com", "https://venfour.com.attacker.test"])("rejects the unconfigured origin %s", async (origin) => {
+  it.each(["https://venfour.com", "https://www.venfour.com", "https://preview.venfour.com", "https://staging.venfour.com", "https://app.venfour.com:8443", "http://app.venfour.com", "http://venfour.com", "https://app.venfour.com.attacker.test"])("rejects the unconfigured origin %s before assets or transport", async (origin) => {
     const assets = vi.fn(async () => new Response("asset"));
-    const response = await handleRequest(new Request(`${origin}/`), productionEnv(assets));
-    expect(response.status).toBe(421);
+    const upstreamFetch = vi.fn(async () => Response.json({ ok: true }));
+    for (const [path, method] of [["/", "GET"], ["/assets/index-AbCd1234.js", "GET"], ["/auth/callback?code=proof", "GET"], ["/health", "GET"], ["/api/v1/cases", "POST"], ["/webhooks/stripe", "POST"]]) {
+      const response = await handleRequest(new Request(`${origin}${path}`, { method }), productionEnv(assets), dependencies(upstreamFetch as unknown as typeof fetch));
+      expect(response.status).toBe(421);
+      expect(response.headers.has("location")).toBe(false);
+      expect(response.headers.get("cache-control")).toContain("no-store");
+      expect(response.headers.get("x-robots-tag")).toContain("noindex");
+    }
     expect(assets).not.toHaveBeenCalled();
+    expect(upstreamFetch).not.toHaveBeenCalled();
   });
 
-  it.each(["", API_ORIGIN, "https://app.venfour.com"])("fails closed for a missing, staging, or recursive production API origin", async (apiOrigin) => {
-    const response = await handleRequest(new Request("https://venfour.com/"), { ...productionEnv(), API_ORIGIN: apiOrigin });
+  it.each(["", API_ORIGIN, "https://app.venfour.com", "https://venfour.com", "https://www.venfour.com"])("fails closed for a missing, staging, or recursive production API origin", async (apiOrigin) => {
+    const response = await handleRequest(new Request("https://app.venfour.com/"), { ...productionEnv(), API_ORIGIN: apiOrigin });
     expect(response.status).toBe(503);
     expect(response.headers.get("cache-control")).toContain("no-store");
   });
 
-  it.each(["/", "/contact", "/cookies", "/methodology", "/privacy", "/terms/", "/referral-partners"])("serves canonical public page %s without noindex", async (path) => {
-    const response = await handleRequest(new Request(`https://venfour.com${path}`), productionEnv(async () => new Response("public", { headers: { "Content-Type": "text/html", "X-Robots-Tag": "noindex" } })));
-    expect(response.status).toBe(200);
-    expect(response.headers.has("x-robots-tag")).toBe(false);
-    expect(response.headers.get("cache-control")).toContain("no-store");
-  });
-
-  it.each(["/app", "/history", "/admin", "/business", "/start?service=total-loss", "/total-loss/cases/case-id/claim/checkout?checkout=success&session_id=session-id"])("moves application path %s from public to app without serving it", async (path) => {
+  it.each(["/contact", "/cookies", "/methodology", "/privacy", "/terms/", "/referral-partners"])("directs public page %s to the canonical public website", async (path) => {
     const assets = vi.fn(async () => new Response("asset"));
-    const response = await handleRequest(new Request(`https://venfour.com${path}`), productionEnv(assets));
+    const response = await handleRequest(new Request(`https://app.venfour.com${path}?from=app`), productionEnv(assets));
     expect(response.status).toBe(308);
-    expect(response.headers.get("location")).toBe(`https://app.venfour.com${path}`);
+    expect(response.headers.get("location")).toBe(`https://venfour.com${path}?from=app`);
     expect(response.headers.get("cache-control")).toContain("no-store");
     expect(assets).not.toHaveBeenCalled();
   });
 
-  it("canonicalizes www while preserving the query and retains app root for workspace routing", async () => {
-    const response = await handleRequest(new Request("https://www.venfour.com/?source=referral"), productionEnv());
-    expect(response.headers.get("location")).toBe("https://venfour.com/?source=referral");
-    const app = await handleRequest(new Request("https://app.venfour.com/"), productionEnv());
-    expect(app.status).toBe(200);
-    expect(app.headers.get("x-robots-tag")).toContain("noindex");
-    const terms = await handleRequest(new Request("https://app.venfour.com/terms?from=checkout"), productionEnv());
-    expect(terms.headers.get("location")).toBe("https://venfour.com/terms?from=checkout");
+  it.each(["/", "/app", "/history", "/admin", "/partners", "/start?service=total-loss", "/total-loss/cases/case-id/claim/checkout?checkout=success&session_id=session-id"])("retains application path %s for private workspace routing", async (path) => {
+    const assets = vi.fn(async () => new Response("app", { headers: { "Content-Type": "text/html" } }));
+    const response = await handleRequest(new Request(`https://app.venfour.com${path}`), productionEnv(assets));
+    expect(response.status).toBe(200);
+    expect(response.headers.has("location")).toBe(false);
+    expect(response.headers.get("x-robots-tag")).toContain("noindex");
+    expect(response.headers.get("cache-control")).toContain("no-store");
+    expect(assets).toHaveBeenCalledWith(expect.objectContaining({ url: `https://app.venfour.com${path}` }));
   });
 
-  it.each(["https://venfour.com", "https://www.venfour.com", "https://app.venfour.com"])("keeps PKCE callback on its issuing host %s", async (origin) => {
+  it("keeps the application PKCE callback on its issuing host", async () => {
     const assets = vi.fn(async () => new Response("callback", { headers: { "Content-Type": "text/html" } }));
-    const response = await handleRequest(new Request(`${origin}/auth/callback?code=proof&next=%2Fapp`), productionEnv(assets));
+    const response = await handleRequest(new Request("https://app.venfour.com/auth/callback?code=proof&next=%2Fapp"), productionEnv(assets));
     expect(response.status).toBe(200);
     expect(response.headers.has("location")).toBe(false);
     expect(response.headers.get("referrer-policy")).toBe("no-referrer");
@@ -574,10 +574,10 @@ describe("production Worker boundary", () => {
     expect(assets).toHaveBeenCalledOnce();
   });
 
-  it.each(["https://venfour.com", "https://www.venfour.com", "https://app.venfour.com"])("preserves same-origin authenticated API requests on %s", async (origin) => {
+  it("preserves same-origin authenticated application API requests", async () => {
     let captured: Request | undefined;
     const upstreamFetch = vi.fn(async (request: Request) => { captured = request; return Response.json({ ok: true }); });
-    const request = new Request(`${origin}/api/v1/cases?limit=1`, { method: "POST", body: "{}", headers: { "Content-Type": "application/json", Origin: origin, Authorization: "Bearer owner", "X-Venfour-Staging-Proxy": "untrusted" } });
+    const request = new Request("https://app.venfour.com/api/v1/cases?limit=1", { method: "POST", body: "{}", headers: { "Content-Type": "application/json", Origin: "https://app.venfour.com", Authorization: "Bearer owner", "X-Venfour-Staging-Proxy": "untrusted" } });
     const response = await handleRequest(request, productionEnv(), dependencies(upstreamFetch as unknown as typeof fetch));
     expect(response.status).toBe(200);
     expect(captured?.url).toBe("https://production-api.example.test/api/v1/cases?limit=1");
@@ -600,7 +600,7 @@ describe("production Worker boundary", () => {
     expect(response.status).toBe(400);
     expect(await captured?.text()).toBe('{"id":"evt_fixture"}\n');
     expect(captured?.headers.get("stripe-signature")).toBe("invalid");
-    for (const url of ["https://venfour.com/webhooks/stripe", "https://www.venfour.com/webhooks/stripe", "https://app.venfour.com/webhooks/stripe/", "https://app.venfour.com/webhooks/stripe-extra", "https://app.venfour.com/internal/v1/work-items/id/execute"]) {
+    for (const url of ["https://app.venfour.com/webhooks/stripe/", "https://app.venfour.com/webhooks/stripe/child", "https://app.venfour.com/webhooks/stripe-extra", "https://app.venfour.com/internal/v1/work-items/id/execute"]) {
       const blocked = await handleRequest(new Request(url, { method: "POST" }), productionEnv(), dependencies(upstreamFetch as unknown as typeof fetch));
       expect(blocked.status).toBe(404);
     }
@@ -608,14 +608,14 @@ describe("production Worker boundary", () => {
     expect((await handleRequest(new Request("https://app.venfour.com/webhooks/stripe"), productionEnv())).status).toBe(405);
   });
 
-  it("serves public assets and keeps app robots private", async () => {
+  it("serves application assets and keeps app robots private", async () => {
     const assets = vi.fn(async () => new Response("asset", { headers: { "Content-Type": "text/javascript" } }));
-    const asset = await handleRequest(new Request("https://venfour.com/assets/index-AbCd1234.js"), productionEnv(assets));
+    const asset = await handleRequest(new Request("https://app.venfour.com/assets/index-AbCd1234.js"), productionEnv(assets));
     expect(asset.status).toBe(200);
     expect(asset.headers.get("cache-control")).toContain("immutable");
     const robots = await handleRequest(new Request("https://app.venfour.com/robots.txt"), productionEnv());
     expect(await robots.text()).toContain("Disallow: /");
-    const invalidMethod = await handleRequest(new Request("https://venfour.com/start", { method: "POST" }), productionEnv());
+    const invalidMethod = await handleRequest(new Request("https://app.venfour.com/start", { method: "POST" }), productionEnv());
     expect(invalidMethod.status).toBe(405);
   });
 });

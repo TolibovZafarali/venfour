@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { EmbeddedPayment } from "./embedded-payment";
 
@@ -8,6 +8,7 @@ const payment = vi.hoisted(() => ({
   confirm: vi.fn(),
   initialize: vi.fn(),
   loadStripe: vi.fn(async () => ({})),
+  checkoutType: "success" as "loading" | "success",
 }));
 
 vi.mock("@stripe/stripe-js/pure", () => ({ loadStripe: payment.loadStripe }));
@@ -20,7 +21,7 @@ vi.mock("@stripe/react-stripe-js/checkout", async () => {
       return <div>Secure payment fields</div>;
     },
     useCheckoutElements: () => ({
-      type: "success",
+      type: payment.checkoutType,
       checkout: { confirm: payment.confirm },
     }),
   };
@@ -45,6 +46,7 @@ function pendingConfirmation() {
 
 describe("embedded payment confirmation", () => {
   beforeEach(() => {
+    payment.checkoutType = "success";
     payment.confirm.mockReset();
     payment.initialize.mockReset();
     payment.initialize.mockResolvedValue({
@@ -53,6 +55,78 @@ describe("embedded payment confirmation", () => {
       clientSecret: "cs_test_duplicate_submit" + "_secret_local_fixture",
       publishableKey: "pk_test_" + "local_duplicate_fixture",
     });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+
+  const loadingPayment = () => (
+    <EmbeddedPayment
+      accessToken="local-fixture-access"
+      caseId="33333333-3333-4333-8333-333333333333"
+      onConfirm={vi.fn()}
+      userId="22222222-2222-4222-8222-222222222222"
+    />
+  );
+
+  it("offers an explicit same-page reload after persistent loading without retrying or confirming payment", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    const reload = vi.fn();
+    vi.stubGlobal("location", { reload });
+    payment.checkoutType = "loading";
+    render(loadingPayment());
+    await act(async () => {});
+
+    expect(screen.getByRole("status")).toHaveTextContent("Loading secure payment fields");
+    await act(async () => { vi.advanceTimersByTime(19_999); });
+    expect(screen.queryByRole("button", { name: "Reload secure payment" })).not.toBeInTheDocument();
+    await act(async () => { vi.advanceTimersByTime(1); });
+    expect(screen.getByRole("alert")).toHaveTextContent("No payment has been taken on this page");
+    expect(screen.getByRole("button", { name: "Complete purchase" })).toBeDisabled();
+    await act(async () => { vi.advanceTimersByTime(60_000); });
+    expect(payment.initialize).toHaveBeenCalledTimes(1);
+    expect(payment.confirm).not.toHaveBeenCalled();
+    expect(reload).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Reload secure payment" }));
+    expect(reload).toHaveBeenCalledTimes(1);
+    expect(payment.initialize).toHaveBeenCalledTimes(1);
+    expect(payment.confirm).not.toHaveBeenCalled();
+  });
+
+  it("cancels delayed-loading recovery when payment fields become ready before the deadline", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    payment.checkoutType = "loading";
+    const view = render(loadingPayment());
+    await act(async () => {});
+    await act(async () => { vi.advanceTimersByTime(19_999); });
+
+    payment.checkoutType = "success";
+    view.rerender(loadingPayment());
+    await act(async () => {});
+    expect(vi.getTimerCount()).toBe(0);
+    await act(async () => { vi.advanceTimersByTime(60_000); });
+    expect(screen.getByText("Secure payment fields")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Complete purchase" })).toBeEnabled();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Reload secure payment" })).not.toBeInTheDocument();
+    expect(payment.initialize).toHaveBeenCalledTimes(1);
+    expect(payment.confirm).not.toHaveBeenCalled();
+  });
+
+  it("clears the initialization timer when checkout unmounts", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    payment.checkoutType = "loading";
+    const view = render(loadingPayment());
+    await act(async () => {});
+    expect(vi.getTimerCount()).toBe(1);
+    view.unmount();
+    expect(vi.getTimerCount()).toBe(0);
+    await act(async () => { vi.advanceTimersByTime(60_000); });
+    expect(payment.initialize).toHaveBeenCalledTimes(1);
+    expect(payment.confirm).not.toHaveBeenCalled();
   });
 
   it.each(["decline", "network"] as const)(

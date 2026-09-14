@@ -330,11 +330,10 @@ function productionRequestOriginAllowed(request: Request, url: URL) {
 
 async function handleProductionRequest(request: Request, env: Env, configuration: RuntimeConfiguration, dependencies: WorkerDependencies) {
   const url = new URL(request.url);
-  if (!PRODUCTION_ORIGINS.has(url.origin)) {
-    return jsonResponse(421, "PRODUCTION_HOST_REQUIRED", "This request is not addressed to a production host.");
+  if (url.origin !== APP_ORIGIN) {
+    return jsonResponse(421, "PRODUCTION_HOST_REQUIRED", "This request is not addressed to the production application host.");
   }
   if (url.pathname === STRIPE_WEBHOOK_PATH) {
-    if (url.origin !== APP_ORIGIN) return jsonResponse(404, "NOT_FOUND", "This endpoint was not found.");
     if (request.method !== "POST") return stripeWebhookMethodNotAllowedResponse();
     return proxyToApi(request, configuration, dependencies);
   }
@@ -352,23 +351,20 @@ async function handleProductionRequest(request: Request, env: Env, configuration
     response.headers.set("Allow", "GET, HEAD");
     return response;
   }
-  // Complete legacy callbacks where their browser proof was created.
+  // Complete callbacks on the application origin where browser proof was created.
   if (url.pathname.replace(/\/+$/, "") === "/auth/callback") {
     const response = await serveAsset(request, env);
     response.headers.set("Referrer-Policy", "no-referrer");
     return response;
   }
-  if (url.hostname === "www.venfour.com") return redirectToOrigin(url, PUBLIC_ORIGIN);
   if (url.pathname === "/robots.txt") {
-    return securedResponse(new Response(`User-agent: *\n${url.origin === APP_ORIGIN ? "Disallow: /" : "Allow: /"}\n`, {
+    return securedResponse(new Response("User-agent: *\nDisallow: /\n", {
       headers: { "Content-Type": "text/plain; charset=utf-8" },
-    }), "public, max-age=3600, must-revalidate", { indexable: url.origin === PUBLIC_ORIGIN });
+    }), "public, max-age=3600, must-revalidate");
   }
   const publicPage = PUBLIC_PATHS.has(url.pathname.replace(/\/+$/, "") || "/");
-  const asset = url.pathname.startsWith("/assets/") || url.pathname.startsWith("/email/") || url.pathname === "/favicon.svg";
-  if (url.origin === PUBLIC_ORIGIN && !publicPage && !asset) return redirectToOrigin(url, APP_ORIGIN);
-  if (url.origin === APP_ORIGIN && publicPage && url.pathname !== "/") return redirectToOrigin(url, PUBLIC_ORIGIN);
-  return serveAsset(request, env, url.origin === PUBLIC_ORIGIN && (publicPage || asset));
+  if (publicPage && url.pathname !== "/") return redirectToOrigin(url, PUBLIC_ORIGIN);
+  return serveAsset(request, env);
 }
 
 export async function handleRequest(
