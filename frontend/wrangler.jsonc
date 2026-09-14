@@ -50,6 +50,33 @@
         "not_found_handling": "single-page-application",
         "run_worker_first": true
       }
+    },
+    "production": {
+      "name": "venfour-frontend-production",
+      "workers_dev": false,
+      "preview_urls": false,
+      "build": {
+        "command": "npm run build:production"
+      },
+      "routes": [
+        { "pattern": "venfour.com", "custom_domain": true },
+        { "pattern": "www.venfour.com", "custom_domain": true },
+        { "pattern": "app.venfour.com", "custom_domain": true }
+      ],
+      "vars": {
+        "API_ORIGIN": "https://venfour-api-production-usmgwdpgqq-uk.a.run.app",
+        "DEPLOYMENT_ENVIRONMENT": "production"
+      },
+      "secrets": {
+        "required": ["API_PROXY_SECRET"]
+      },
+      "assets": {
+        "directory": "./dist",
+        "binding": "ASSETS",
+        "html_handling": "none",
+        "not_found_handling": "single-page-application",
+        "run_worker_first": true
+      }
     }
   }
 }

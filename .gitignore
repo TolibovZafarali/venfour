@@ -21,6 +21,7 @@ coverage/
 
 !frontend/.env.example
 !frontend/.env.staging.example
+!frontend/.env.production.example
 
 supabase/.temp/
 supabase/.branches/

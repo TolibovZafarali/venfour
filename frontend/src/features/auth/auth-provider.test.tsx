@@ -174,6 +174,32 @@ function AuthProbe() {
 }
 
 describe("AuthProvider", () => {
+  test("updates the public hint only from resolved app auth events", async () => {
+    const originalUrl = window.location.href;
+    const browserEnvironment = globalThis as typeof globalThis & { jsdom: { reconfigure(options: { url: string }): void; cookieJar: { removeAllCookiesSync(): void } } };
+    browserEnvironment.jsdom.reconfigure({ url: "https://app.venfour.com/app" });
+    const restored = createDeferred<Session | null>();
+    const fake = createFakeAuthService(() => restored.promise);
+    const writeCookie = vi.spyOn(document, "cookie", "set");
+    try {
+      render(<AuthProvider service={fake.service}><AuthProbe /></AuthProvider>);
+      expect(writeCookie).not.toHaveBeenCalled();
+      await act(async () => restored.resolve(sessionFor("owner")));
+      expect(document.cookie).toBe("venfour.app-session=1");
+      act(() => fake.emit(sessionFor("owner"), "TOKEN_REFRESHED"));
+      expect(document.cookie).toBe("venfour.app-session=1");
+      act(() => fake.emit(sessionFor("guest", "", "anonymous")));
+      expect(document.cookie).toBe("");
+      act(() => fake.emit(sessionFor("owner")));
+      await act(async () => screen.getByRole("button", { name: "Sign out" }).click());
+      expect(document.cookie).toBe("");
+      expect(writeCookie.mock.calls.every(([value]) => /^venfour\.app-session=(?:1)?; Domain=venfour\.com; Path=\/; Secure; SameSite=Lax; Max-Age=(?:900|0)$/.test(value))).toBe(true);
+    } finally {
+      browserEnvironment.jsdom.cookieJar.removeAllCookiesSync();
+      browserEnvironment.jsdom.reconfigure({ url: originalUrl });
+    }
+  });
+
   test("restores a persisted signed-out session and unsubscribes", async () => {
     const fake = createFakeAuthService();
     const { unmount } = render(

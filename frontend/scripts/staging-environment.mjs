@@ -35,7 +35,7 @@ function isTrimmedPrintable(value) {
   );
 }
 
-function httpsOrigin(value) {
+export function httpsOrigin(value) {
   if (!isTrimmedPrintable(value) || !value) return null;
   try {
     const parsed = new URL(value);
@@ -69,7 +69,7 @@ function decodeJwtPayload(value) {
   }
 }
 
-function isPublishableSupabaseKey(value) {
+export function isPublishableSupabaseKey(value) {
   if (!isTrimmedPrintable(value) || value.length > 4_096) return false;
   if (/^sb_publishable_[A-Za-z0-9_-]{20,}$/u.test(value)) return true;
   const payload = decodeJwtPayload(value);
@@ -81,7 +81,7 @@ function isPublishableSupabaseKey(value) {
   );
 }
 
-function isEmail(value) {
+export function isEmail(value) {
   return (
     isTrimmedPrintable(value) &&
     value.length <= 254 &&

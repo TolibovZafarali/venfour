@@ -1,4 +1,4 @@
-import { applicationHref, publicHref, routeAudience } from "@/app/site-boundary";
+import { applicationHref, hostAudience, publicHref, routeAudience } from "@/app/site-boundary";
 import { useWorkspaceEntryAction } from "@/features/cases/workspace-entry";
 import { Menu, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -25,6 +25,7 @@ import {
   useAuth,
 } from "@/features/auth";
 import { useGuestAnalysisReturn } from "@/features/cases/guest-analysis-return";
+import { usePublicSessionHint } from "@/features/auth/public-session-hint";
 import { CookieConsent } from "@/features/privacy/cookie-consent";
 import { useCookieConsent } from "@/features/privacy/cookie-consent-context";
 import { cn } from "@/lib/utils";
@@ -62,6 +63,9 @@ function AppShellContent() {
   const findReviewRoute = useMatch("/find-review");
   const productFlowRoute = Boolean(localStatusRoute || analysisRoute || totalLossCaseRoute || previewReturnRoute || previewReadyRoute || findReviewRoute);
   const location = useLocation();
+  const publicSite = routeAudience(location.pathname) === "public";
+  const productionPublicPage = publicSite && hostAudience() === "public";
+  const publicSessionHint = usePublicSessionHint();
   const completedReviewRoute = /^\/total-loss\/cases\/[^/]+\/claim\/(overview|evidence|request|activity|guide(?:\/.*)?|review(?:\/.*)?)\/?$/.test(location.pathname);
   const adminRoute = location.pathname.startsWith("/admin/");
   const startFlowRoute =
@@ -70,7 +74,7 @@ function AppShellContent() {
   const navigate = useNavigate();
   const { auth } = useAuth();
   const adminDependencies = useAdminDiminishedValueDependencies();
-  const permanentUserId = isPermanentAuthState(auth) ? auth.user.id : null;
+  const permanentUserId = !productionPublicPage && isPermanentAuthState(auth) ? auth.user.id : null;
   const [staffNavigationRequestUserId, setStaffNavigationRequestUserId] =
     useState<string | null>(null);
   const staffAccessRequested =
@@ -177,9 +181,8 @@ function AppShellContent() {
   }, []);
 
   const onHomePage = location.pathname === "/";
-  const guestReturn = useGuestAnalysisReturn(onHomePage);
-  const publicSite = routeAudience(location.pathname) === "public";
-  const workspaceAction = useWorkspaceEntryAction(publicSite);
+  const guestReturn = useGuestAnalysisReturn(onHomePage && !productionPublicPage);
+  const workspaceAction = useWorkspaceEntryAction(publicSite && !productionPublicPage);
   const accountPortalRoute = Boolean(appraisalsRoute);
   const resolvingPortalAudience =
     accountPortalRoute && auth.status === "loading";
@@ -194,8 +197,12 @@ function AppShellContent() {
     ? "#diminished-value"
     : publicHref("/#diminished-value");
   const howItWorksHref = onHomePage ? "#how-it-works" : publicHref("/#how-it-works");
-  const primaryActionHref = isPermanentAuthState(auth) ? workspaceAction.href : guestReturn.action?.href ?? applicationHref("/start?service=total-loss");
-  const primaryActionLabel = isPermanentAuthState(auth) ? workspaceAction.label : guestReturn.action?.label ?? "Get Started";
+  const primaryActionHref = productionPublicPage
+    ? applicationHref(publicSessionHint ? "/app" : "/start?service=total-loss")
+    : isPermanentAuthState(auth) ? workspaceAction.href : guestReturn.action?.href ?? applicationHref("/start?service=total-loss");
+  const primaryActionLabel = productionPublicPage
+    ? publicSessionHint ? "Open app" : "Get Started"
+    : isPermanentAuthState(auth) ? workspaceAction.label : guestReturn.action?.label ?? "Get Started";
   const requestStaffNavigation = () => {
     if (permanentUserId) setStaffNavigationRequestUserId(permanentUserId);
   };
@@ -374,6 +381,7 @@ function AppShellContent() {
                           How It Works
                         </a>
                         <AccountControl
+                          publicSessionHint={productionPublicPage ? publicSessionHint : undefined}
                           onStaffNavigationRequest={requestStaffNavigation}
                           staffReviewHref={staffReviewHref}
                         />
@@ -505,6 +513,7 @@ function AppShellContent() {
                       </a>
                       <MobileAccountControl
                         className="border-t-0"
+                        publicSessionHint={productionPublicPage ? publicSessionHint : undefined}
                         onAction={() => setMobileNavigationOpen(false)}
                         staffReviewHref={staffReviewHref}
                       />

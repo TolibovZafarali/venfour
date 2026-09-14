@@ -34,6 +34,10 @@ const PROXY_REQUEST_HEADERS_TO_REMOVE = [
 
 const STAGING_PROXY_HEADER_NAME = "X-Venfour-Staging-Proxy";
 const STRIPE_WEBHOOK_PATH = "/webhooks/stripe";
+const PUBLIC_ORIGIN = "https://venfour.com";
+const APP_ORIGIN = "https://app.venfour.com";
+const PRODUCTION_ORIGINS = new Set([PUBLIC_ORIGIN, APP_ORIGIN, "https://www.venfour.com"]);
+const PUBLIC_PATHS = new Set(["/", "/contact", "/cookies", "/methodology", "/privacy", "/terms", "/referral-partners"]);
 
 const CONTENT_SECURITY_POLICY = [
   "default-src 'self'",
@@ -52,18 +56,15 @@ const CONTENT_SECURITY_POLICY = [
   "worker-src 'self' blob:",
 ].join("; ");
 
-export interface Env {
-  API_PROXY_SECRET: string;
-  ASSETS: Fetcher;
-  API_ORIGIN: string;
-  DEPLOYMENT_ENVIRONMENT: string;
-  STAGING_HOSTNAME: string;
+export interface Env extends ProductionWorkerEnvironment {
+  STAGING_HOSTNAME?: string;
 }
 
 interface RuntimeConfiguration {
   readonly apiOrigin: URL;
   readonly apiProxySecret: string;
-  readonly stagingHostname: string;
+  readonly stagingHostname?: string;
+  readonly environment: "staging" | "production";
 }
 
 export interface WorkerDependencies {
@@ -119,6 +120,14 @@ function requiredProxySecret(value: unknown) {
 }
 
 function runtimeConfiguration(env: Env): RuntimeConfiguration {
+  if (env.DEPLOYMENT_ENVIRONMENT === "production") {
+    const apiOrigin = originOnlyHttpsUrl(env.API_ORIGIN, "The production API origin");
+    if (env.STAGING_HOSTNAME || apiOrigin.hostname.includes("staging") ||
+      PRODUCTION_ORIGINS.has(apiOrigin.origin)) {
+      throw new RuntimeConfigurationError("The production API boundary is invalid.");
+    }
+    return { apiOrigin, apiProxySecret: requiredProxySecret(env.API_PROXY_SECRET), environment: "production" };
+  }
   if (env.DEPLOYMENT_ENVIRONMENT !== "staging") {
     throw new RuntimeConfigurationError(
       "The staging deployment environment is unavailable.",
@@ -139,10 +148,11 @@ function runtimeConfiguration(env: Env): RuntimeConfiguration {
     apiOrigin: originOnlyHttpsUrl(env.API_ORIGIN, "The staging API origin"),
     apiProxySecret: requiredProxySecret(env.API_PROXY_SECRET),
     stagingHostname,
+    environment: "staging",
   };
 }
 
-function securityHeaders(headers: Headers) {
+function securityHeaders(headers: Headers, indexable = false) {
   headers.set("Content-Security-Policy", CONTENT_SECURITY_POLICY);
   headers.set("Permissions-Policy", "camera=(), geolocation=(), microphone=()");
   headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
@@ -152,7 +162,8 @@ function securityHeaders(headers: Headers) {
   );
   headers.set("X-Content-Type-Options", "nosniff");
   headers.set("X-Frame-Options", "DENY");
-  headers.set("X-Robots-Tag", "noindex, nofollow, noarchive");
+  if (indexable) headers.delete("X-Robots-Tag");
+  else headers.set("X-Robots-Tag", "noindex, nofollow, noarchive");
 }
 
 function securedResponse(
@@ -162,10 +173,12 @@ function securedResponse(
     encodedBody = false,
     noStore = false,
     responseHeaders = response.headers,
+    indexable = false,
   }: {
     readonly encodedBody?: boolean;
     readonly noStore?: boolean;
     readonly responseHeaders?: Headers;
+    readonly indexable?: boolean;
   } = {},
 ) {
   const headers = new Headers(responseHeaders);
@@ -175,7 +188,7 @@ function securedResponse(
     headers.set("Expires", "0");
     headers.set("Pragma", "no-cache");
   }
-  securityHeaders(headers);
+  securityHeaders(headers, indexable);
   const responseInit: ResponseInit = {
     headers,
     status: response.status,
@@ -265,8 +278,8 @@ async function proxyToApi(
   } catch {
     return jsonResponse(
       502,
-      "STAGING_API_UNAVAILABLE",
-      "The staging API is temporarily unavailable.",
+      configuration.environment === "staging" ? "STAGING_API_UNAVAILABLE" : "API_UNAVAILABLE",
+      configuration.environment === "staging" ? "The staging API is temporarily unavailable." : "The API is temporarily unavailable.",
     );
   }
 
@@ -292,12 +305,68 @@ function assetCacheControl(request: Request, response: Response) {
   return "public, max-age=3600, must-revalidate";
 }
 
-async function serveAsset(request: Request, env: Env) {
+async function serveAsset(request: Request, env: Env, indexable = false) {
   const response = await env.ASSETS.fetch(request);
   const cacheControl = assetCacheControl(request, response);
   return securedResponse(response, cacheControl, {
     noStore: cacheControl.includes("no-store"),
+    indexable: indexable && response.ok,
   });
+}
+
+function redirectToOrigin(url: URL, origin: string) {
+  const target = new URL(origin);
+  target.pathname = url.pathname;
+  target.search = url.search;
+  return noStoreResponse(new Response(null, { status: 308, headers: { Location: target.href } }));
+}
+
+function productionRequestOriginAllowed(request: Request, url: URL) {
+  const origin = request.headers.get("origin");
+  return (origin === null || origin === url.origin) && request.headers.get("sec-fetch-site") !== "cross-site";
+}
+
+async function handleProductionRequest(request: Request, env: Env, configuration: RuntimeConfiguration, dependencies: WorkerDependencies) {
+  const url = new URL(request.url);
+  if (!PRODUCTION_ORIGINS.has(url.origin)) {
+    return jsonResponse(421, "PRODUCTION_HOST_REQUIRED", "This request is not addressed to a production host.");
+  }
+  if (url.pathname === STRIPE_WEBHOOK_PATH) {
+    if (url.origin !== APP_ORIGIN) return jsonResponse(404, "NOT_FOUND", "This endpoint was not found.");
+    if (request.method !== "POST") return stripeWebhookMethodNotAllowedResponse();
+    return proxyToApi(request, configuration, dependencies);
+  }
+  if (url.pathname.startsWith("/webhooks/") || url.pathname === "/internal" || url.pathname.startsWith("/internal/")) {
+    return jsonResponse(404, "NOT_FOUND", "This endpoint was not found.");
+  }
+  if (isApiRequest(url.pathname) || url.pathname === "/health") {
+    if (!productionRequestOriginAllowed(request, url)) {
+      return jsonResponse(403, "ORIGIN_NOT_ALLOWED", "This request origin is not allowed.");
+    }
+    return proxyToApi(request, configuration, dependencies);
+  }
+  if (request.method !== "GET" && request.method !== "HEAD") {
+    const response = jsonResponse(405, "METHOD_NOT_ALLOWED", "This page requires GET or HEAD.");
+    response.headers.set("Allow", "GET, HEAD");
+    return response;
+  }
+  // Complete legacy callbacks where their browser proof was created.
+  if (url.pathname.replace(/\/+$/, "") === "/auth/callback") {
+    const response = await serveAsset(request, env);
+    response.headers.set("Referrer-Policy", "no-referrer");
+    return response;
+  }
+  if (url.hostname === "www.venfour.com") return redirectToOrigin(url, PUBLIC_ORIGIN);
+  if (url.pathname === "/robots.txt") {
+    return securedResponse(new Response(`User-agent: *\n${url.origin === APP_ORIGIN ? "Disallow: /" : "Allow: /"}\n`, {
+      headers: { "Content-Type": "text/plain; charset=utf-8" },
+    }), "public, max-age=3600, must-revalidate", { indexable: url.origin === PUBLIC_ORIGIN });
+  }
+  const publicPage = PUBLIC_PATHS.has(url.pathname.replace(/\/+$/, "") || "/");
+  const asset = url.pathname.startsWith("/assets/") || url.pathname.startsWith("/email/") || url.pathname === "/favicon.svg";
+  if (url.origin === PUBLIC_ORIGIN && !publicPage && !asset) return redirectToOrigin(url, APP_ORIGIN);
+  if (url.origin === APP_ORIGIN && publicPage && url.pathname !== "/") return redirectToOrigin(url, PUBLIC_ORIGIN);
+  return serveAsset(request, env, url.origin === PUBLIC_ORIGIN && (publicPage || asset));
 }
 
 export async function handleRequest(
@@ -312,9 +381,13 @@ export async function handleRequest(
     if (!(error instanceof RuntimeConfigurationError)) throw error;
     return jsonResponse(
       503,
-      "STAGING_CONFIGURATION_UNAVAILABLE",
-      "The staging boundary is unavailable.",
+      env.DEPLOYMENT_ENVIRONMENT === "production" ? "PRODUCTION_CONFIGURATION_UNAVAILABLE" : "STAGING_CONFIGURATION_UNAVAILABLE",
+      env.DEPLOYMENT_ENVIRONMENT === "production" ? "The production boundary is unavailable." : "The staging boundary is unavailable.",
     );
+  }
+
+  if (configuration.environment === "production") {
+    return handleProductionRequest(request, env, configuration, dependencies);
   }
 
   const url = new URL(request.url);

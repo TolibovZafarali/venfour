@@ -23,6 +23,7 @@ import {
   getAuthCallbackUrl,
   storeAuthReturnLocation,
 } from "@/features/auth/return-location";
+import { updatePublicSessionHint } from "@/features/auth/public-session-hint";
 import {
   defaultTurnstileController,
   type TurnstileController,
@@ -99,6 +100,7 @@ export function AuthProvider({
       const previousUserId = currentUserIdRef.current;
       currentUserIdRef.current = nextUserId;
       currentSessionRef.current = session;
+      updatePublicSessionHint(Boolean(session && !isAnonymousUser(session.user)));
       setAuth(stateFromSession(session));
 
       if (

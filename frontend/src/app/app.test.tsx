@@ -8,6 +8,7 @@ import venfourMark from "../../../assets/brand/venfour-mark.svg";
 import type { AdminDiminishedValueDependencies } from "@/features/admin/diminished-value/dependencies";
 import type { AuthService } from "@/features/auth";
 import { appraisalCaseQueryKeys } from "@/features/cases/queries";
+import type { AppraisalCaseService } from "@/features/cases/service";
 import type { CustomerProfileService } from "@/features/customer-profile";
 import {
   createEmptyTotalLossDraft,
@@ -220,6 +221,76 @@ describe("Venfour application", () => {
     await screen.findByRole("button", { name: "Account for ada@example.com" });
     expect(publicStructure()).toEqual(expected);
     expect(router.state.location.pathname).toBe("/");
+  });
+
+  test("uses the public hint only for app navigation and preserves the homepage", async () => {
+    const originalUrl = window.location.href;
+    const browserEnvironment = globalThis as typeof globalThis & { jsdom: { reconfigure(options: { url: string }): void; cookieJar: { removeAllCookiesSync(): void } } };
+    browserEnvironment.jsdom.reconfigure({ url: "https://venfour.com" });
+    try {
+      renderTestApp(["/"], { authService: null });
+      const navigation = screen.getByRole("navigation", { name: "Primary navigation" });
+      const publicContent = document.querySelector("#main-content")?.innerHTML;
+      expect(within(navigation).getByRole("link", { name: "Sign In" })).toHaveAttribute("href", "https://app.venfour.com/app");
+      expect(within(navigation).getByRole("link", { name: "Get Started" })).toHaveAttribute("href", "https://app.venfour.com/start?service=total-loss");
+
+      document.cookie = "venfour.app-session=1; Domain=venfour.com; Path=/; Secure; SameSite=Lax";
+      act(() => window.dispatchEvent(new Event("focus")));
+      expect(within(navigation).getByRole("link", { name: "Open app" })).toHaveAttribute("href", "https://app.venfour.com/app");
+      expect(within(navigation).queryByRole("link", { name: "Sign In" })).not.toBeInTheDocument();
+      expect(document.querySelector("#main-content")?.innerHTML).toBe(publicContent);
+      expect(screen.queryByRole("button", { name: /^Account for/ })).not.toBeInTheDocument();
+      await userEvent.setup().click(screen.getByRole("button", { name: "Open navigation" }));
+      expect(within(screen.getByRole("navigation", { name: "Mobile navigation" })).getByRole("link", { name: "Open app" })).toHaveAttribute("href", "https://app.venfour.com/app");
+
+      document.cookie = "venfour.app-session=; Domain=venfour.com; Path=/; Secure; Max-Age=0";
+      act(() => window.dispatchEvent(new Event("pageshow")));
+      expect(within(navigation).getByRole("link", { name: "Sign In" })).toHaveAttribute("href", "https://app.venfour.com/app");
+    } finally {
+      browserEnvironment.jsdom.cookieJar.removeAllCookiesSync();
+      browserEnvironment.jsdom.reconfigure({ url: originalUrl });
+    }
+  });
+
+  test.each(["permanent", "anonymous"])("keeps public header account queries disabled with a legacy %s session", async identity => {
+    const originalUrl = window.location.href;
+    const browserEnvironment = globalThis as typeof globalThis & { jsdom: { reconfigure(options: { url: string }): void; cookieJar: { removeAllCookiesSync(): void } } };
+    browserEnvironment.jsdom.reconfigure({ url: "https://www.venfour.com" });
+    const listAppraisalCases = vi.fn(async () => []);
+    const isStaff = vi.fn(async () => true);
+    const session = identity === "permanent" ? createTestSession() : createTestAnonymousSession();
+    try {
+      renderTestApp(["/"], {
+        authService: createTestAuthService(session),
+        appraisalCaseService: { listAppraisalCases } as unknown as AppraisalCaseService,
+        adminDiminishedValueDependencies: { caseService: { isStaff } } as unknown as AdminDiminishedValueDependencies,
+      });
+      await userEvent.setup().click(screen.getByRole("button", { name: "Open navigation" }));
+      expect(screen.getByRole("navigation", { name: "Primary navigation" })).toHaveTextContent("Sign In");
+      expect(screen.queryByRole("button", { name: /^Account for/ })).not.toBeInTheDocument();
+      expect(screen.queryByText("Signed in as")).not.toBeInTheDocument();
+      expect(listAppraisalCases).not.toHaveBeenCalled();
+      expect(isStaff).not.toHaveBeenCalled();
+    } finally {
+      browserEnvironment.jsdom.cookieJar.removeAllCookiesSync();
+      browserEnvironment.jsdom.reconfigure({ url: originalUrl });
+    }
+  });
+
+  test("does not authorize application access from a forged public hint", async () => {
+    const originalUrl = window.location.href;
+    const browserEnvironment = globalThis as typeof globalThis & { jsdom: { reconfigure(options: { url: string }): void; cookieJar: { removeAllCookiesSync(): void } } };
+    browserEnvironment.jsdom.reconfigure({ url: "https://app.venfour.com/app" });
+    document.cookie = "venfour.app-session=1; Domain=venfour.com; Path=/; Secure";
+    try {
+      const { router } = renderTestApp(["/app"], { authService: createTestAuthService(null) });
+      expect(await screen.findByRole("heading", { name: "Your reviews, in one place." })).toBeVisible();
+      expect(screen.getByRole("button", { name: "Sign in" })).toBeVisible();
+      expect(router.state.location.pathname).toBe("/app");
+    } finally {
+      browserEnvironment.jsdom.cookieJar.removeAllCookiesSync();
+      browserEnvironment.jsdom.reconfigure({ url: originalUrl });
+    }
   });
 
   test("uses the account portal navigation on permanent signed-in appraisals", async () => {

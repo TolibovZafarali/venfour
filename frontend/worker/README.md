@@ -1,5 +1,34 @@
 # Staging Worker boundary
 
+## Production boundary
+
+The separate `production` environment deploys `venfour-frontend-production`.
+It uses the same build for `venfour.com`, `www.venfour.com`, and
+`app.venfour.com`. The apex serves the public pages; application paths redirect
+to the app host with their query intact. `www` redirects to the apex. Existing
+`/auth/callback` requests complete on the issuing host before any application
+transition. Public HTML is indexable; app pages, callbacks, API responses, and
+redirects remain private and are not indexed.
+
+Production requires the public build inputs in `.env.production.example`.
+`VENFOUR_PRODUCTION_SUPABASE_ORIGIN` pins the explicitly reviewed project during
+build validation. The Worker has a separate `API_PROXY_SECRET`; its value must
+match the production backend's proxy secret. The production API origin must
+refer to the verified production backend, and that backend must permit the
+Worker's proxy request under its deployed ingress and IAM policy.
+
+The production webhook is only `POST https://app.venfour.com/webhooks/stripe`.
+Other webhook paths and internal execution paths are never proxied. Regular
+API requests keep bearer authentication and the same-origin proxy; a supplied
+Origin must equal the receiving origin, and cross-site Fetch Metadata is
+rejected. Production deployment does not change the staging environment.
+
+Use `npm run build:production` and `npm run worker:production-dry-run` after
+providing reviewed public configuration. Deployment and traffic activation are
+separate operations. Logs and traces remain disabled to protect callback URLs.
+
+## Staging configuration
+
 The staging frontend is a Cloudflare Worker with Static Assets at the exact
 custom hostname `staging.venfour.com`. It serves the Vite SPA and proxies only
 `/api/*`, `/health`, and the exact `POST /webhooks/stripe` route to the current
