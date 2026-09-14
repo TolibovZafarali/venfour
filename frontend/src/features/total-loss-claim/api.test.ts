@@ -36,6 +36,7 @@ const OFFER_ID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 const continuationInput = {
   expectedAnalysisInputId: ANALYSIS_RESULT_ID, expectedAnalysisInputRevision: 3,
   expectedReportId: OTHER_CASE_ID, expectedReportRevision: 4,
+  expectedStrictReviewId: "55555555-5555-4555-8555-555555555555", expectedStrictReviewVersion: "1", expectedStrictReviewDigest: "a".repeat(64),
 };
 
 function savedFollowUpProjection() {

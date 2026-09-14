@@ -4,7 +4,26 @@ create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
 set local storage.allow_delete_query = 'true';
 
-select plan(30);
+select plan(31);
+
+-- Synthetic trusted calculation fixture; full calculated evidence is covered by offline application tests.
+create function pg_temp.strict_review_fixture(c uuid,u uuid,classification text default 'POTENTIAL_UNDERVALUE',strength text default 'MODERATE') returns jsonb
+language plpgsql as $$
+declare ctx jsonb; w uuid; token uuid:=gen_random_uuid(); calc jsonb; result jsonb; reviewed uuid:=gen_random_uuid();
+begin
+ ctx:=public.get_total_loss_full_review_context(c,u);
+ w:=public.enqueue_total_loss_full_review(c,u,(ctx->'report'->>'id')::uuid,(ctx->'report'->>'revision')::bigint);
+ result:=public.claim_total_loss_full_review_work(w,token);
+ if result->>'state'<>'claimed' then raise exception 'Fixture work not claimed'; end if;
+ calc:=jsonb_build_object('newProviderRequests',0,'artifact',jsonb_build_object('runId',reviewed,
+   'result',jsonb_build_object('discrepancyResult',jsonb_build_object('classification',classification,'evidenceStrength',strength),
+    'preliminaryQualification',jsonb_build_object('qualificationVersion','1','marketClassification',classification,
+      'outcome','CLEAR_MARKET_VALUE_GAP','unresolvedMaterialChecks','[]'::jsonb,'applicableMaterialReviewComplete',true))),
+   'presentation',jsonb_build_object('runId',reviewed,'assessment',jsonb_build_object('classification',classification,'evidenceStrength',strength)));
+ if not public.complete_total_loss_full_review_work(w,token,(ctx->'report'->>'revision')::bigint,calc,repeat('e',64)) then raise exception 'Fixture review not completed'; end if;
+ return public.get_total_loss_full_review_context(c,u)->'strict_review';
+end $$;
+
 
 insert into auth.users (id, email, email_confirmed_at, is_anonymous)
 values
@@ -136,7 +155,9 @@ update review_document set doc=public.transition_total_loss_full_review_report('
 select ok(not public.total_loss_full_review_ready('44200000-0000-4000-8000-000000000001','44100000-0000-4000-8000-000000000001'),'unresolved conflict prevents payment');
 select throws_ok($$update public.total_loss_full_review_reports set extraction='{}'$$,'P0001','FULL_REVIEW_SOURCE_IMMUTABLE','printed extraction cannot be rewritten');
 update review_document set doc=public.transition_total_loss_full_review_report('44200000-0000-4000-8000-000000000001','44100000-0000-4000-8000-000000000001','44a00000-0000-4000-8000-000000000001',4,'ready',null,null,'{"stage":"full_review","ready":true,"issues":[]}'::jsonb);
-select ok(public.total_loss_full_review_ready('44200000-0000-4000-8000-000000000001','44100000-0000-4000-8000-000000000001'),'resolved stored report becomes ready');
+select ok(not public.total_loss_full_review_ready('44200000-0000-4000-8000-000000000001','44100000-0000-4000-8000-000000000001'),'report facts alone do not permit payment');
+select pg_temp.strict_review_fixture('44200000-0000-4000-8000-000000000001','44100000-0000-4000-8000-000000000001');
+select ok(public.total_loss_full_review_ready('44200000-0000-4000-8000-000000000001','44100000-0000-4000-8000-000000000001'),'report and strict evidence become ready');
 select is((select to_jsonb(d) from public.total_loss_case_details d where d.case_id='44200000-0000-4000-8000-000000000001'),(select details from review_original),'free input is unchanged');
 select is((select artifact from public.analysis_runs where case_id='44200000-0000-4000-8000-000000000001'),(select artifact from review_original),'free result is unchanged');
 create temp table review_order as select * from public.reserve_total_loss_checkout('44200000-0000-4000-8000-000000000001','44100000-0000-4000-8000-000000000001','44c00000-0000-4000-8000-000000000001','total-loss-package','1','price_test_total_loss_v1',9900,'USD','terms-1','refund-1',false);

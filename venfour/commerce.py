@@ -1552,8 +1552,7 @@ class TotalLossCommerceService:
             or workflow_revision < 1
         ):
             raise SupabaseContractError("Checkout preflight response is invalid")
-        if not checkout_available or (not preflight["has_pending_order"]
-                                     and not self._database.full_review_ready(canonical_case_id, purchaser_id)):
+        if not checkout_available or not self._database.full_review_ready(canonical_case_id, purchaser_id):
             return CheckoutQuoteProjection("unavailable", None, None)
         price = self._provider.retrieve_price(self._configuration.price_id)
         self._validate_price(price)
@@ -1596,8 +1595,7 @@ class TotalLossCommerceService:
             or workflow_revision < 1
         ):
             raise SupabaseContractError("Checkout preflight response is invalid")
-        if not checkout_available or (not preflight["has_pending_order"]
-                                     and not self._database.full_review_ready(canonical_case_id, purchaser_id)):
+        if not checkout_available or not self._database.full_review_ready(canonical_case_id, purchaser_id):
             raise CommerceConflictError("Checkout is unavailable")
         if self._configuration.publishable_key is None:
             raise CommerceUnavailableError("Embedded payment is unavailable")

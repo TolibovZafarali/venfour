@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import os
 import tempfile
 from collections.abc import Mapping
@@ -1052,6 +1053,7 @@ async def _post_continue(request: Request) -> JSONResponse:
         body = await _strict_json_object(request, expected_keys={
             "expectedAnalysisInputId", "expectedAnalysisInputRevision",
             "expectedReportId", "expectedReportRevision",
+            "expectedStrictReviewId", "expectedStrictReviewVersion", "expectedStrictReviewDigest",
         }, maximum_bytes=MAX_COMMERCE_REQUEST_BODY_BYTES)
         result = await run_in_threadpool(
             service.initialize, case_id, token,
@@ -1059,6 +1061,9 @@ async def _post_continue(request: Request) -> JSONResponse:
             expected_analysis_input_revision=body["expectedAnalysisInputRevision"],
             expected_report_id=body["expectedReportId"],
             expected_report_revision=body["expectedReportRevision"],
+            expected_strict_review_id=body["expectedStrictReviewId"],
+            expected_strict_review_version=body["expectedStrictReviewVersion"],
+            expected_strict_review_digest=body["expectedStrictReviewDigest"],
         )
         return _private_response(JSONResponse(result))
     except CaseClaimAccessError as exc:
@@ -2011,8 +2016,17 @@ async def _full_review(request: Request) -> JSONResponse:
     except SupabaseGatewayError:
         return _private_response(_error_response(503, "FULL_REVIEW_UNAVAILABLE"))
     if isinstance(result, dict) and result.get("stage") == "full_review":
-        result = {**result, "checkoutAvailable": getattr(request.app.state.claim_initialization_service, "checkout_available", False) is True}
-    return _private_response(JSONResponse(result))
+        pending = (result.get("paymentReadiness") or {}).get("status") == "processing"
+        if request.method != "GET" and pending and request.app.state.package_coordinator is not None:
+            try:
+                await run_in_threadpool(request.app.state.package_coordinator.reconcile_due, limit=1)
+            except Exception:
+                logging.getLogger(__name__).warning("Saved report preparation awaits durable dispatch recovery")
+        result = {**result, "checkoutAvailable": (
+            getattr(request.app.state.claim_initialization_service, "checkout_available", False) is True
+            and (result.get("paymentReadiness") or {}).get("eligible") is True
+        )}
+        return _private_response(JSONResponse(result, status_code=202 if pending and request.method != "GET" else 200))
 
 
 async def _case_report_ingestion(request: Request) -> JSONResponse:
@@ -2419,7 +2433,8 @@ async def _internal_work_item_execute(request: Request) -> JSONResponse:
 
     try:
         result = await run_in_threadpool(processor.execute, work_item_id)
-        if isinstance(result, ReportWorkExecutionResult):
+        from venfour.full_review_processing import FullReviewWorkExecutionResult
+        if isinstance(result, (ReportWorkExecutionResult, FullReviewWorkExecutionResult)):
             return _private_response(JSONResponse(result.to_dict()))
         if not isinstance(result, PackageExecutionResult):
             raise PackageProcessingContractError(
@@ -3076,11 +3091,13 @@ def create_app(
                 commerce_service=selected_commerce_service,
             )
             paid_report_reviewer_available = report_reviewer is not None
+            from venfour.full_review_processing import FullReviewWorkProcessor
             selected_package_processor = TotalLossWorkItemProcessor(
                 selected_gateway,
                 base_package_processor,
                 selected_report_processor,
                 selected_package_coordinator,
+                full_review_processor=FullReviewWorkProcessor(selected_gateway),
             )
         else:
             selected_package_processor = base_package_processor

@@ -6,6 +6,7 @@ import unittest
 from contextlib import contextmanager
 from pathlib import Path
 from unittest.mock import Mock
+from uuid import uuid4
 
 from venfour.full_review import FullReviewService, FullReviewConflict, full_review_readiness
 from venfour.report_ingestion import ReportIngestionResult, normalize_ccc_report
@@ -72,12 +73,20 @@ class ReadinessTests(unittest.TestCase):
 
 
 class MemoryGateway:
-    def __init__(self, root):
+    def __init__(self, root, *, artifact=None):
+        if artifact is None:
+            from scripts.local_claim_flow import synthetic_artifact
+            artifact = synthetic_artifact(str(uuid4())).to_dict()
         self.root=root; self.context={'case_id':CASE,'user_id':USER,'input':snapshot(),'report':None,'locked':False,'existing_report':None}
+        self.context.update(artifact=artifact,source_run_id=artifact['runId'],source_input_id=str(uuid4()),source_input_revision=1)
+        self.work = None
     def get_full_review_context(self,case,user):
         return copy.deepcopy(self.context) if (case,user)==(CASE,USER) else None
     def begin_full_review_report(self,case,user,report_id,filename,digest,size):
-        row={'id':report_id,'case_id':case,'original_filename':filename,'document_sha256':digest,'byte_size':size,'status':'uploading','revision':1,'readiness':None,'extraction':None}
+        existing=self.context['report']
+        if existing and existing['document_sha256']==digest:return copy.deepcopy(existing)
+        row={'id':report_id,'case_id':case,'original_filename':filename,'document_sha256':digest,'byte_size':size,'status':'uploading','revision':1,'readiness':None,'extraction':None,
+             'source_run_id':self.context['source_run_id'],'source_input_id':self.context['source_input_id']}
         self.context['report']=row;return copy.deepcopy(row)
     def upload_full_review_report(self,case,row,pdf): (self.root/row['id']).write_bytes(pdf)
     @contextmanager
@@ -89,6 +98,33 @@ class MemoryGateway:
         for key in ('extraction','readiness'):
             if kwargs.get(key) is not None:current[key]=copy.deepcopy(kwargs[key])
         return copy.deepcopy(current)
+    def enqueue_full_review(self,case,user,row):
+        if self.work and (self.work['status']!='completed' or self.work['revision']==row['revision']):return self.work['id']
+        if row['status'] in ('needs_confirmation','report_invalid'):return None
+        if row['status']=='uploading':self.transition_full_review_report(case,user,row,'uploaded')
+        self.work={'id':str(uuid4()),'status':'queued','revision':self.context['report']['revision']}
+        self.context['review_work']=self.work
+        return self.work['id']
+    def claim_full_review_work(self,work,token):
+        if self.work['status']=='completed':return {'state':'completed'}
+        if self.work['status']=='processing':return {'state':'already_processing'}
+        self.work.update(status='processing',token=token)
+        row=self.context['report']
+        if row['extraction'] is None:self.transition_full_review_report(CASE,USER,copy.deepcopy(row),'extracting')
+        return {'state':'claimed','context':copy.deepcopy(self.context)}
+    def complete_full_review_work(self,work,token,revision,calculation,digest):
+        if self.work['token']!=token or revision!=self.context['report']['revision']:return False
+        if calculation:
+            row=self.context['report']
+            self.context['strict_review']={'id':str(uuid4()),'case_id':CASE,'report_id':row['id'],'report_revision':revision,
+                'source_run_id':row['source_run_id'],'source_input_id':row['source_input_id'],'source_input_revision':1,
+                'document_sha256':row['document_sha256'],'review_version':'1','calculation':calculation,'calculation_digest':digest}
+        self.work.update(status='completed',revision=revision)
+        return True
+    def fail_full_review_work(self,work,token):
+        self.work['status']='retryable_failed'
+        self.context['report']['status']='extraction_failed'
+        return True
 
 
 class ServiceTests(unittest.TestCase):
@@ -99,27 +135,50 @@ class ServiceTests(unittest.TestCase):
         extraction=report_result().to_dict();extraction['documentSha256']=hashlib.sha256(self.path.read_bytes()).hexdigest()
         self.ingestion=Mock();self.ingestion.ingest.return_value=ReportIngestionResult.from_dict(extraction)
         self.service=FullReviewService(self.gateway,ingestion_service=self.ingestion)
+        from venfour.full_review_processing import FullReviewWorkProcessor
+        self.processor=FullReviewWorkProcessor(self.gateway,ingestion_service=self.ingestion)
+    def process(self):
+        self.processor.execute(self.gateway.work['id'])
+        return self.service.status(CASE,USER)
     def test_upload_extract_resume_and_owner_boundary(self):
         before=copy.deepcopy(self.gateway.context['input'])
         result=self.service.upload(CASE,USER,self.path,'report.pdf')
+        self.assertFalse(result['ready']);self.ingestion.ingest.assert_not_called()
+        self.assertEqual(result['paymentReadiness']['status'],'processing')
+        result=self.process()
         self.assertTrue(result['ready'],result)
         self.assertEqual(self.service.status(CASE,USER),result)
         self.assertEqual(self.gateway.context['input'],before)
         self.assertNotIn('effectiveInput',str(result));self.assertNotIn('storage_object_name',str(result))
-        self.service.extract(CASE,USER);self.ingestion.ingest.assert_called_once()
+        self.service.extract(CASE,USER);self.process();self.ingestion.ingest.assert_called_once()
         with self.assertRaises(LookupError):self.service.status(CASE,'another-owner')
     def test_extraction_failure_preserves_file_and_retry(self):
         self.ingestion.ingest.side_effect=RuntimeError('mock extraction failure')
         result=self.service.upload(CASE,USER,self.path,'report.pdf')
+        from venfour.package_processing import PackageRetryLaterError
+        with self.assertRaises(PackageRetryLaterError):self.process()
+        result=self.service.status(CASE,USER)
         self.assertEqual(result['status'],'extraction_failed')
         self.assertEqual((self.root/result['report']['id']).read_bytes(),self.path.read_bytes())
         self.ingestion.ingest.side_effect=None
-        self.assertTrue(self.service.extract(CASE,USER)['ready'])
+        self.service.extract(CASE,USER)
+        self.assertTrue(self.process()['ready'])
     def test_revision_fencing_and_one_question_correction(self):
         self.gateway.context['input']['mileage_at_loss']+=1000
-        result=self.service.upload(CASE,USER,self.path,'report.pdf');doc=result['report']
+        self.service.upload(CASE,USER,self.path,'report.pdf');result=self.process();doc=result['report']
         with self.assertRaises(FullReviewConflict):self.service.confirm(CASE,USER,doc['id'],doc['revision']-1,{'mileage':'report'})
         self.assertTrue(self.service.confirm(CASE,USER,doc['id'],doc['revision'],{'mileage':'report'})['ready'])
+        self.process();self.ingestion.ingest.assert_called_once()
+
+    def test_duplicate_upload_and_refresh_reuse_one_preparation(self):
+        first=self.service.upload(CASE,USER,self.path,'report.pdf')
+        work=self.gateway.work['id']
+        self.assertEqual(self.service.upload(CASE,USER,self.path,'same-file.pdf')['report'],first['report'])
+        self.assertEqual(self.gateway.work['id'],work)
+        self.process();before=copy.deepcopy(self.gateway.context)
+        self.service.upload(CASE,USER,self.path,'retry.pdf');self.process()
+        self.assertEqual(self.gateway.context,before)
+        self.ingestion.ingest.assert_called_once()
 
 class RetainedCalculationTests(unittest.TestCase):
     def test_legacy_evidence_without_material_proof_is_not_promoted_to_full_evidence(self):

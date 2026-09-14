@@ -17,6 +17,7 @@ from venfour.full_review import FullReviewService
 from venfour.package_assessment import canonical_package_digest
 from venfour.presentation import AnalysisPresentationProjector
 from venfour.supabase_gateway import SupabaseAuthenticationError, SupabaseContractError, SupabaseHttpGateway
+from tests.full_review_fixtures import strict_fixture
 
 
 class ClaimInitializationTests(unittest.TestCase):
@@ -35,6 +36,13 @@ class ClaimInitializationTests(unittest.TestCase):
                        "source_input_id": self.input_id, "status": "ready", "original_filename": "insurer.pdf",
                        "readiness": {"ready": True, "message": "Ready", "issues": []}},
         }
+        calculation = strict_fixture()["calculation"]
+        self.review_id = str(uuid4())
+        self.context["report"]["document_sha256"] = "a"*64
+        self.context["strict_review"] = {"id": self.review_id, "review_version": "1", "case_id": self.case,
+            "report_id": self.report_id, "report_revision": 5, "source_run_id": self.artifact.run_id,
+            "source_input_id": self.input_id, "source_input_revision": 2, "document_sha256": "a"*64,
+            "calculation": calculation, "calculation_digest": canonical_package_digest(calculation)}
         self.gateway = Mock(spec=SupabaseHttpGateway)
         self.gateway.authenticate.return_value = self.user
         self.gateway.get_full_review_context.return_value = self.context
@@ -45,7 +53,9 @@ class ClaimInitializationTests(unittest.TestCase):
         self.commerce = SimpleNamespace(checkout_configured=True)
         self.service = TotalLossClaimInitializationService(self.gateway, self.claim, self.commerce)
         self.expected = dict(expected_analysis_input_id=self.input_id, expected_analysis_input_revision=2,
-                             expected_report_id=self.report_id, expected_report_revision=5)
+                             expected_report_id=self.report_id, expected_report_revision=5,
+                             expected_strict_review_id=self.review_id, expected_strict_review_version="1",
+                             expected_strict_review_digest=self.context["strict_review"]["calculation_digest"])
 
     def initialize(self, **changes):
         return self.service.initialize(self.case, "owner-token", **{**self.expected, **changes})
@@ -112,7 +122,7 @@ class ClaimInitializationTests(unittest.TestCase):
             if alteration == "report_source": context["report"]["source_run_id"] = str(uuid4())
             if alteration == "report_input": context["report"]["source_input_id"] = str(uuid4())
             self.gateway.get_full_review_context.return_value = context
-            with self.subTest(alteration=alteration), self.assertRaises(SupabaseContractError): self.initialize()
+            with self.subTest(alteration=alteration), self.assertRaises((SupabaseContractError, CommerceConflictError)): self.initialize()
         self.gateway.initialize_total_loss_post_continue.assert_not_called()
 
     def test_atomic_database_recheck_failure_never_resolves_claim(self):
@@ -132,7 +142,9 @@ class ClaimInitializationTests(unittest.TestCase):
 
     def test_api_requires_exact_body_and_routes_checked_service_errors(self):
         body = {"expectedAnalysisInputId": self.input_id, "expectedAnalysisInputRevision": 2,
-                "expectedReportId": self.report_id, "expectedReportRevision": 5}
+                "expectedReportId": self.report_id, "expectedReportRevision": 5,
+                "expectedStrictReviewId": self.review_id, "expectedStrictReviewVersion": "1",
+                "expectedStrictReviewDigest": self.expected["expected_strict_review_digest"]}
         with patch.dict(os.environ, {}, clear=True):
             app = create_app(claim_initialization_service=self.service, enable_legacy_api=False)
         with TestClient(app) as client:
@@ -153,7 +165,7 @@ class ClaimInitializationTests(unittest.TestCase):
             self.commerce.checkout_configured = False
             self.assertEqual(client.post(url, json=body, headers=headers).status_code, 503)
 
-    def test_full_review_availability_is_configuration_only_and_preserves_ready_state(self):
+    def test_full_review_availability_requires_strict_evidence_and_configuration(self):
         case_service = Mock()
         case_service.authenticate.return_value = self.user
         review = FullReviewService(self.gateway)
@@ -166,6 +178,9 @@ class ClaimInitializationTests(unittest.TestCase):
             self.assertEqual(response.status_code, 200, response.text)
             self.assertTrue(response.json()["checkoutAvailable"])
             self.assertTrue(response.json()["ready"])
+            saved_review = self.context.pop("strict_review")
+            self.assertFalse(client.get(url, headers={"Authorization": "Bearer owner-token"}).json()["checkoutAvailable"])
+            self.context["strict_review"] = saved_review
             self.commerce.checkout_configured = False
             response = client.get(url, headers={"Authorization": "Bearer owner-token"})
             self.assertFalse(response.json()["checkoutAvailable"])
@@ -176,7 +191,7 @@ class ClaimInitializationTests(unittest.TestCase):
         gateway = object.__new__(SupabaseHttpGateway)
         gateway._rpc = Mock(return_value="created")
         gateway.initialize_total_loss_post_continue(self.case, self.user, self.artifact.run_id,
-            self.input_id, 2, self.report_id, 5, {"saved": "presentation"}, "a" * 64)
+            self.input_id, 2, self.report_id, 5, {"saved": "presentation"}, "a" * 64, self.review_id, "1", "b"*64)
         name, args = gateway._rpc.call_args.args
         self.assertEqual(name, "initialize_total_loss_post_continue")
         self.assertEqual(args["expected_analysis_input_revision"], 2)
@@ -185,4 +200,23 @@ class ClaimInitializationTests(unittest.TestCase):
         gateway._rpc.return_value = {"outcome": "created"}
         with self.assertRaises(SupabaseContractError):
             gateway.initialize_total_loss_post_continue(self.case, self.user, self.artifact.run_id,
-                self.input_id, 2, self.report_id, 5, {}, "a" * 64)
+                self.input_id, 2, self.report_id, 5, {}, "a" * 64, self.review_id, "1", "b"*64)
+
+    def test_missing_pending_failed_stale_and_insufficient_strict_reviews_reject_before_writes(self):
+        for state in ("missing", "processing", "terminal_failed", "stale", "insufficient", "low", "unresolved", "digest"):
+            context = copy.deepcopy(self.context)
+            review = context["strict_review"]
+            if state in {"missing", "processing", "terminal_failed"}:
+                context.pop("strict_review")
+                context["review_work"] = {"status": state}
+            if state == "stale": review["source_input_revision"] += 1
+            if state == "digest": review["calculation_digest"] = "c"*64
+            if state in {"insufficient", "low", "unresolved"}:
+                calculation = review["calculation"]
+                if state == "insufficient": calculation["artifact"]["result"]["discrepancyResult"]["classification"] = "INSUFFICIENT_EVIDENCE"
+                if state == "low": calculation["artifact"]["result"]["discrepancyResult"]["evidenceStrength"] = "LOW"
+                if state == "unresolved": calculation["artifact"]["result"]["preliminaryQualification"]["unresolvedMaterialChecks"] = [{"reasonCode": "UNRESOLVED"}]
+                review["calculation_digest"] = canonical_package_digest(calculation)
+            self.gateway.get_full_review_context.return_value = context
+            with self.subTest(state=state), self.assertRaises(CommerceConflictError): self.initialize()
+        self.gateway.initialize_total_loss_post_continue.assert_not_called()

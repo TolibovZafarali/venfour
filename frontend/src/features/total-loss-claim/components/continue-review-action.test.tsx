@@ -14,6 +14,7 @@ const input = {
   expectedAnalysisInputRevision: 3,
   expectedReportId: "33333333-3333-4333-8333-333333333333",
   expectedReportRevision: 4,
+  expectedStrictReviewId: "55555555-5555-4555-8555-555555555555", expectedStrictReviewVersion: "1", expectedStrictReviewDigest: "a".repeat(64),
 };
 
 function setup() {

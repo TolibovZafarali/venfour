@@ -1576,6 +1576,7 @@ class TotalLossWorkItemProcessor:
         package_processor: TotalLossPackageProcessor,
         report_processor: TotalLossReportProcessor,
         work_coordinator: Any | None = None,
+        full_review_processor: Any | None = None,
     ) -> None:
         if not isinstance(database, ReportProcessingDatabaseGateway):
             raise TypeError("database must expose report-processing methods")
@@ -1591,6 +1592,7 @@ class TotalLossWorkItemProcessor:
         self._package_processor = package_processor
         self._report_processor = report_processor
         self._work_coordinator = work_coordinator
+        self._full_review_processor = full_review_processor
 
     def _dispatch_due_work(self) -> None:
         if self._work_coordinator is not None:
@@ -1619,6 +1621,8 @@ class TotalLossWorkItemProcessor:
             raise PackageProcessingContractError("Work-item identity changed")
         work_type = row.get("work_type")
         work_version = row.get("work_version")
+        if work_type == "total_loss_full_review_prepare" and work_version == "1" and self._full_review_processor is not None:
+            return self._full_review_processor.execute(selected_work_item_id)
         if work_type == PACKAGE_WORK_TYPE and work_version == PACKAGE_WORK_VERSION:
             package_result = self._package_processor.execute(selected_work_item_id)
             if (

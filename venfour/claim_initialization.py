@@ -14,6 +14,7 @@ from venfour.commerce import (
 from venfour.package_assessment import canonical_package_digest
 from venfour.presentation import AnalysisPresentationProjector
 from venfour.supabase_gateway import SupabaseContractError
+from venfour.full_review_payment import matched_strict_review, strict_result_eligible
 
 
 def _uuid(value: Any) -> str:
@@ -46,12 +47,19 @@ class TotalLossClaimInitializationService:
         self, case_id: str, access_token: str, *, expected_analysis_input_id: str,
         expected_analysis_input_revision: int, expected_report_id: str,
         expected_report_revision: int,
+        expected_strict_review_id: str, expected_strict_review_version: str,
+        expected_strict_review_digest: str,
     ) -> dict[str, Any]:
         case_id = _uuid(case_id)
         input_id = _uuid(expected_analysis_input_id)
         input_revision = _revision(expected_analysis_input_revision)
         report_id = _uuid(expected_report_id)
         report_revision = _revision(expected_report_revision)
+        strict_review_id = _uuid(expected_strict_review_id)
+        if (expected_strict_review_version != "1" or not isinstance(expected_strict_review_digest, str)
+                or len(expected_strict_review_digest) != 64
+                or any(c not in "0123456789abcdef" for c in expected_strict_review_digest)):
+            raise CommerceInputError("Strict review identity is invalid")
         if not self.checkout_available:
             raise CommerceUnavailableError("Checkout configuration is unavailable")
         user_id = self._gateway.authenticate(access_token)
@@ -68,6 +76,12 @@ class TotalLossClaimInitializationService:
         if (not isinstance(report, Mapping) or report.get("id") != report_id
                 or report.get("revision") != report_revision):
             raise CommerceConflictError("The saved report changed; reopen the full review")
+        review = matched_strict_review(context)
+        if (review is None or review.get("id") != strict_review_id
+                or review.get("review_version") != expected_strict_review_version
+                or review.get("calculation_digest") != expected_strict_review_digest
+                or not strict_result_eligible(review["calculation"])):
+            raise CommerceConflictError("The saved review is not eligible for continuation")
         if (report.get("status") != "ready" or not isinstance(report.get("readiness"), Mapping)
                 or report["readiness"].get("ready") is not True
                 or self._gateway.full_review_ready(case_id, user_id) is not True):
@@ -85,6 +99,7 @@ class TotalLossClaimInitializationService:
         outcome = self._gateway.initialize_total_loss_post_continue(
             case_id, user_id, artifact.run_id, input_id, input_revision,
             report_id, report_revision, presentation, digest,
+            strict_review_id, expected_strict_review_version, expected_strict_review_digest,
         )
         if outcome == "not_found":
             raise CommerceNotFoundError("Full review was not found")

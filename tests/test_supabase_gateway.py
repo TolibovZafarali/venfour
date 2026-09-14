@@ -2065,5 +2065,50 @@ class SupabaseHttpGatewayTests(unittest.TestCase):
                 self.assertEqual(path.stat().st_size, len(PDF_BYTES))
 
 
+class FullReviewUploadRecoveryTests(unittest.TestCase):
+    def row(self):
+        return {
+            "id": REPORT_UPLOAD_ID, "case_id": CASE_ID,
+            "storage_owner_id": USER_ID, "storage_bucket": "case-files",
+            "storage_object_name": f"{USER_ID}/{CASE_ID}/review-reports/{REPORT_UPLOAD_ID}.pdf",
+            "byte_size": len(PDF_BYTES), "document_sha256": hashlib.sha256(PDF_BYTES).hexdigest(),
+        }
+
+    def run_upload(self, *, timeout=False, saved=PDF_BYTES, missing=False):
+        requests = []
+
+        def handler(request):
+            requests.append(request)
+            if request.method == "POST":
+                self.assertEqual(request.headers["x-upsert"], "false")
+                self.assertEqual(request.content, PDF_BYTES)
+                if timeout:
+                    raise httpx.ReadTimeout("Saved upload acknowledgement lost", request=request)
+                return httpx.Response(409, json={"message": "The resource already exists"})
+            self.assertEqual(request.method, "GET")
+            self.assertEqual(
+                request.url.path,
+                requests[0].url.path.replace("/object/", "/object/authenticated/", 1),
+            )
+            return httpx.Response(404) if missing else httpx.Response(200, content=saved)
+
+        with httpx.Client(transport=httpx.MockTransport(handler)) as client:
+            gateway = SupabaseHttpGateway(configuration(), client=client)
+            gateway.upload_full_review_report(CASE_ID, self.row(), PDF_BYTES)
+        self.assertEqual([r.method for r in requests], ["POST", "GET"])
+
+    def test_ambiguous_saved_upload_recovers_only_after_reading_matching_bytes(self):
+        self.run_upload(timeout=True)
+
+    def test_duplicate_upload_reuses_matching_immutable_object_without_upsert(self):
+        self.run_upload()
+
+    def test_duplicate_mismatched_or_missing_object_remains_failed(self):
+        with self.assertRaises(SupabaseContractError):
+            self.run_upload(saved=PDF_BYTES.replace(b"private", b"changed"))
+        with self.assertRaises(SupabaseReportNotFoundError):
+            self.run_upload(missing=True)
+
+
 if __name__ == "__main__":
     unittest.main()

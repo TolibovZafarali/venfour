@@ -11,6 +11,7 @@ from uuid import uuid4
 
 from venfour.report_ingestion import ReportIngestionResult, ReportIngestionService, validate_canonical_pdf
 from venfour.subject_readiness import FIELD_LABELS, VEHICLE_FACT_FIELDS, confirmed_subject_readiness, known, validate_vehicle_facts
+from venfour.full_review_payment import payment_readiness
 
 
 REPORT_RECOVERY = {
@@ -157,6 +158,7 @@ class FullReviewService:
                 "analysisInputId": context.get("source_input_id"),
                 "analysisInputRevision": context.get("source_input_revision", (context.get("input") or {}).get("analysis_input_revision")),
                 "ready": status == "ready" and readiness.get("ready") is True,
+                "paymentReadiness": payment_readiness(context),
                 "issues": copy.deepcopy(readiness.get("issues", [])), "message": readiness["message"],
                 "report": {"id": report["id"], "filename": report["original_filename"], "revision": report["revision"]} if report else None,
                 "canReuseReport": bool(context.get("existing_report")) and report is None,
@@ -178,9 +180,10 @@ class FullReviewService:
             raise FullReviewConflict("The report for this review is already locked")
         document = validate_canonical_pdf(path)
         row = self.gateway.begin_full_review_report(case_id, user_id, str(uuid4()), filename, document.sha256, path.stat().st_size)
-        self.gateway.upload_full_review_report(case_id, row, path.read_bytes())
-        row = self.gateway.transition_full_review_report(case_id, user_id, row, "uploaded")
-        return self.extract(case_id, user_id, expected_report_id=row["id"], cached_extraction=cached_extraction)
+        if row["status"] == "uploading":
+            self.gateway.upload_full_review_report(case_id, row, path.read_bytes())
+        self.gateway.enqueue_full_review(case_id, user_id, row)
+        return self.status(case_id, user_id)
 
     def reuse(self, case_id: str, user_id: str) -> dict[str, Any]:
         context = self._context(case_id, user_id)
@@ -200,27 +203,7 @@ class FullReviewService:
             return self.reuse(case_id, user_id)
         if expected_report_id and row["id"] != expected_report_id:
             raise FullReviewConflict("The uploaded report changed")
-        if row["status"] in {"ready", "needs_confirmation", "report_invalid"}:
-            return self._public(context)
-        if row["status"] == "uploading":
-            row = self.gateway.transition_full_review_report(case_id, user_id, row, "uploaded")
-        token = str(uuid4())
-        row = self.gateway.transition_full_review_report(case_id, user_id, row, "extracting", token=token)
-        try:
-            with self.gateway.materialize_full_review_report(case_id, row) as path:
-                if hashlib.sha256(path.read_bytes()).hexdigest() != row["document_sha256"]:
-                    raise FullReviewConflict("The stored report failed its integrity check")
-                if isinstance(cached_extraction, Mapping) and cached_extraction.get("documentSha256") == row["document_sha256"]:
-                    extraction = ReportIngestionResult.from_dict(cached_extraction).to_dict()
-                else:
-                    extraction = self.ingestion.ingest(path).to_dict()
-                readiness = full_review_readiness(context["input"], extraction)
-        except Exception:
-            self.gateway.transition_full_review_report(case_id, user_id, row, "extraction_failed", token=token,
-                                                       readiness=report_failure("REPORT_EXTRACTION_FAILED"))
-        else:
-            self.gateway.transition_full_review_report(case_id, user_id, row, readiness["status"], token=token,
-                                                       extraction=extraction, readiness=readiness)
+        self.gateway.enqueue_full_review(case_id, user_id, row)
         return self.status(case_id, user_id)
 
     def confirm(self, case_id: str, user_id: str, report_id: str, revision: int,
@@ -231,5 +214,7 @@ class FullReviewService:
             raise FullReviewConflict("The report changed; reload it before confirming")
         previous = row["readiness"].get("resolutions", {})
         readiness = full_review_readiness(context["input"], row["extraction"], {**previous, **resolutions})
-        self.gateway.transition_full_review_report(case_id, user_id, row, readiness["status"], readiness=readiness)
+        row = self.gateway.transition_full_review_report(case_id, user_id, row, readiness["status"], readiness=readiness)
+        if readiness["ready"]:
+            self.gateway.enqueue_full_review(case_id, user_id, row)
         return self.status(case_id, user_id)

@@ -8,6 +8,7 @@ const caseId = "22222222-2222-4222-8222-222222222222";
 const reportId = "33333333-3333-4333-8333-333333333333";
 const ready = { caseId, stage: "full_review", status: "ready", ready: true, issues: [], message: "Ready",
   analysisInputId: "44444444-4444-4444-8444-444444444444", analysisInputRevision: 2, checkoutAvailable: true,
+  paymentReadiness: { status: "eligible", eligible: true, reviewId: reportId, version: "1", digest: "a".repeat(64) },
   locked: false, canReuseReport: false, report: { id: reportId, filename: "report.pdf", revision: 4 } };
 const pdf = () => new File(["%PDF-simulated"], "report.pdf", { type: "application/pdf" });
 

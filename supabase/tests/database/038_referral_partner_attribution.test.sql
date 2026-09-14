@@ -1,4 +1,23 @@
 begin;
+
+-- Synthetic trusted calculation fixture; full calculated evidence is covered by offline application tests.
+create function pg_temp.strict_review_fixture(c uuid,u uuid,classification text default 'POTENTIAL_UNDERVALUE',strength text default 'MODERATE') returns jsonb
+language plpgsql as $$
+declare ctx jsonb; w uuid; token uuid:=gen_random_uuid(); calc jsonb; result jsonb; reviewed uuid:=gen_random_uuid();
+begin
+ ctx:=public.get_total_loss_full_review_context(c,u);
+ w:=public.enqueue_total_loss_full_review(c,u,(ctx->'report'->>'id')::uuid,(ctx->'report'->>'revision')::bigint);
+ result:=public.claim_total_loss_full_review_work(w,token);
+ if result->>'state'<>'claimed' then raise exception 'Fixture work not claimed'; end if;
+ calc:=jsonb_build_object('newProviderRequests',0,'artifact',jsonb_build_object('runId',reviewed,
+   'result',jsonb_build_object('discrepancyResult',jsonb_build_object('classification',classification,'evidenceStrength',strength),
+    'preliminaryQualification',jsonb_build_object('qualificationVersion','1','marketClassification',classification,
+      'outcome','CLEAR_MARKET_VALUE_GAP','unresolvedMaterialChecks','[]'::jsonb,'applicableMaterialReviewComplete',true))),
+   'presentation',jsonb_build_object('runId',reviewed,'assessment',jsonb_build_object('classification',classification,'evidenceStrength',strength)));
+ if not public.complete_total_loss_full_review_work(w,token,(ctx->'report'->>'revision')::bigint,calc,repeat('e',64)) then raise exception 'Fixture review not completed'; end if;
+ return public.get_total_loss_full_review_context(c,u)->'strict_review';
+end $$;
+
 create extension if not exists pgtap with schema extensions;
 set local search_path=public,extensions;
 select no_plan();
@@ -230,6 +249,7 @@ begin
     '{"stage":"full_review","ready":true,"issues":[]}'::jsonb,statement_timestamp());
   insert into storage.objects(bucket_id,name,metadata) select storage_bucket,storage_object_name,
     '{"mimetype":"application/pdf","size":123}'::jsonb from public.total_loss_full_review_reports where id=review_report_id;
+  perform pg_temp.strict_review_fixture(requested_case_id,requested_owner_id);
 
 end;
 $$;

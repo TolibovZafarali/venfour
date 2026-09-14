@@ -1,5 +1,5 @@
 import { ValuationStatus } from "@/components/valuation-status";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useLocation, useParams } from "react-router";
 import { ArrowLeft, FileText, LoaderCircle } from "lucide-react";
@@ -12,23 +12,46 @@ import { confirmFullReview, extractFullReview, fullReviewKey, getFullReview, upl
 
 export function FullReviewReport({ caseId, userId, accessToken }: { caseId: string; userId: string; accessToken: string }) {
   const client = useQueryClient();
-  const query = useQuery({ queryKey: fullReviewKey(userId, caseId), queryFn: () => getFullReview(caseId, accessToken),
-    refetchInterval: (q) => q.state.data?.status === "extracting" ? 3000 : false });
   const [busy, setBusy] = useState(false);
+  const inFlight = useRef(false);
+  const [recovering, setRecovering] = useState(false);
+  const query = useQuery({ queryKey: fullReviewKey(userId, caseId), queryFn: ({ signal }) => getFullReview(caseId, accessToken, signal),
+    enabled: !busy,
+    refetchInterval: (q) => (recovering && !q.state.data?.report) || ["uploading", "uploaded", "extracting"].includes(q.state.data?.status ?? "") || q.state.data?.paymentReadiness.status === "processing" ? 3000 : false });
   const [error, setError] = useState<string | null>(null);
   const [answer, setAnswer] = useState("");
   const state = query.data;
   const issue = state?.issues[0];
+  const preparing = state?.status === "extracting" || state?.paymentReadiness.status === "processing";
+  useEffect(() => {
+    if (!recovering || state?.report) return;
+    const timer = window.setTimeout(() => {
+      setRecovering(false);
+      setError("We couldn’t confirm the upload. Try uploading the same PDF again; any saved copy will be reused.");
+    }, 30000);
+    return () => window.clearTimeout(timer);
+  }, [recovering, state?.report]);
   async function run(action: () => Promise<FullReviewState>) {
-    if (busy) return;
-    setBusy(true); setError(null);
+    if (inFlight.current) return;
+    inFlight.current = true;
+    setBusy(true); setError(null); setRecovering(false);
+    const before = state;
+    await client.cancelQueries({ queryKey: fullReviewKey(userId, caseId) });
     try {
-      const result = await action();
-      client.setQueryData(fullReviewKey(userId, caseId), result);
+      await action();
+      // Read persisted state after acknowledgement; mutation responses cannot
+      // overwrite a newer report or a completed background preparation.
+      await query.refetch();
       setAnswer("");
     } catch {
-      setError("We couldn’t finish this step. Your case and saved report are preserved. Please try again.");
-    } finally { setBusy(false); }
+      const recovered = await query.refetch();
+      const saved = recovered.data;
+      if (!before?.report && !saved?.report) setRecovering(true);
+      else if (!saved || (saved.report?.id === before?.report?.id && saved.report?.revision === before?.report?.revision
+          && saved.paymentReadiness.status === before?.paymentReadiness.status)) {
+        setError("We couldn’t finish this step. Your case and saved report are preserved. Please try again.");
+      }
+    } finally { inFlight.current = false; setBusy(false); }
   }
   if (query.isPending) return <ValuationStatus kind="loading" heading="Opening your saved report" description="Retrieving your review details." />;
   if (query.isError && !state) return <ValuationStatus kind="error" heading="We couldn’t open your report." description="Your review is saved. Try opening it again."><Button onClick={() => void query.refetch()}>Try again</Button><Button asChild variant="outline"><Link to="/appraisals">Return to appraisals</Link></Button></ValuationStatus>;
@@ -37,15 +60,15 @@ export function FullReviewReport({ caseId, userId, accessToken }: { caseId: stri
     <ClaimWorkflowCard>
       <p className="text-sm font-medium text-brand">Your full valuation review</p>
       <h1 className="mt-3 text-3xl font-semibold tracking-tight text-ink">Add your insurer’s valuation report</h1>
-      <p className="mt-4 max-w-2xl text-sm leading-6 text-copy">Your free result is saved. We’ll use the complete report to review the vehicle details, comparable vehicles, and valuation adjustments before payment becomes available.</p>
+      <p className="mt-4 max-w-2xl text-sm leading-6 text-copy">Your free result is saved. We’ll check the report details and saved market evidence to see whether we can offer a full review.</p>
       {query.isPending ? <p className="mt-6" role="status">Opening your saved report details…</p> : null}
       {query.isError ? <div className="mt-6" role="alert"><p>We couldn’t open the report details.</p><Button className="mt-3" variant="outline" onClick={() => void query.refetch()}>Try again</Button></div> : null}
       {state ? <>
         {state.report ? <div className="mt-6 flex gap-3 rounded-xl border border-line bg-surface p-4"><FileText className="size-5 shrink-0" aria-hidden /><div><p className="break-all text-sm font-medium">{state.report.filename}</p><p className="mt-1 text-sm text-copy">Saved securely to this case</p></div></div> : null}
-        <p className="mt-5 text-sm leading-6 text-copy" role="status">{busy ? "Saving and checking your report…" : state.status === "extracting" ? "Reading your report. You can leave and return to this case." : state.message}</p>
-        {!state.ready && !state.locked && state.status !== "extracting" && !issue ? <>
+        <p className="mt-5 text-sm leading-6 text-copy" role="status">{busy ? "Saving your report…" : recovering && !state.report ? "Checking for your saved upload…" : preparing ? "Checking your report and saved evidence. You can leave and return to this case." : state.ready ? "Your report details are saved." : state.message}</p>
+        {!state.ready && !state.locked && !preparing && !issue ? <>
           {state.canReuseReport ? <Button className="mt-5" disabled={busy} onClick={() => void run(() => extractFullReview(caseId, accessToken))}>Use my saved valuation report</Button> : null}
-          {state.status === "extraction_failed" || state.status === "uploaded" || state.status === "uploading" ? <Button className="mt-5 mr-3" disabled={busy} variant="outline" onClick={() => void run(() => extractFullReview(caseId, accessToken))}>Try reading the saved report again</Button> : null}
+          {state.paymentReadiness.status !== "failed" && (state.status === "extraction_failed" || state.status === "uploaded" || state.status === "uploading") ? <Button className="mt-5 mr-3" disabled={busy} variant="outline" onClick={() => void run(() => extractFullReview(caseId, accessToken))}>Try reading the saved report again</Button> : null}
           <div className="mt-6 rounded-xl border border-dashed border-line p-5">
             <label htmlFor="full-review-report" className="block text-sm font-medium">{state.report ? "Upload a replacement PDF" : "Choose the complete valuation PDF"}</label>
             <input id="full-review-report" className="mt-3 block w-full text-sm" type="file" accept="application/pdf,.pdf" disabled={busy}
@@ -70,11 +93,17 @@ export function FullReviewReport({ caseId, userId, accessToken }: { caseId: stri
             <Button className="mt-4" disabled={busy || !answer.trim()} type="submit">Confirm and continue</Button>
           </fieldset>
         </form> : null}
-        {state.ready ? state.checkoutAvailable && state.report && state.analysisInputId && state.analysisInputRevision
+        {state.ready ? state.checkoutAvailable && state.paymentReadiness.eligible && state.paymentReadiness.reviewId && state.paymentReadiness.version && state.paymentReadiness.digest && state.report && state.analysisInputId && state.analysisInputRevision
           ? <ContinueReviewAction accessToken={accessToken} caseId={caseId} userId={userId} label="Continue to secure checkout"
               input={{ expectedAnalysisInputId: state.analysisInputId, expectedAnalysisInputRevision: state.analysisInputRevision,
-                expectedReportId: state.report.id, expectedReportRevision: state.report.revision }} />
-          : <p className="mt-6 rounded-xl border border-line p-4 text-sm leading-6 text-copy" role="status">Payment is not available right now. Your report and free result are saved, and no payment has been taken.</p>
+                expectedReportId: state.report.id, expectedReportRevision: state.report.revision,
+                expectedStrictReviewId: state.paymentReadiness.reviewId, expectedStrictReviewVersion: state.paymentReadiness.version,
+                expectedStrictReviewDigest: state.paymentReadiness.digest }} />
+          : state.paymentReadiness.status === "insufficient"
+            ? <p className="mt-6 rounded-xl border border-line p-4 text-sm leading-6 text-copy" role="status">We don’t yet have enough reliable market evidence to offer the full review. Your report and free result are saved.</p>
+            : state.paymentReadiness.status === "not_evaluated" && !state.locked
+              ? <Button className="mt-5" disabled={busy} onClick={() => void run(() => extractFullReview(caseId, accessToken))}>Check review availability</Button>
+              : !preparing ? <p className="mt-6 rounded-xl border border-line p-4 text-sm leading-6 text-copy" role="status">The full review is not available right now. Your report and free result are saved.</p> : null
           : null}
         {state.locked && !state.ready ? <Button asChild className="mt-5"><Link to={`/total-loss/cases/${caseId}/claim`}>Return to your saved review</Link></Button> : null}
         {busy ? <LoaderCircle className="mt-4 size-5 animate-spin motion-reduce:animate-none" aria-label="Checking report" /> : null}

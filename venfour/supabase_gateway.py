@@ -683,6 +683,7 @@ class SupabaseHttpGateway:
         self, case_id: str, user_id: str, run_id: str, input_id: str,
         input_revision: int, report_id: str, report_revision: int,
         presentation: Mapping[str, Any], digest: str,
+        strict_review_id: str, strict_review_version: str, strict_review_digest: str,
     ) -> str:
         result = self._rpc("initialize_total_loss_post_continue", {
             "requested_case_id": _canonical_uuid(case_id, "Case ID"),
@@ -693,6 +694,9 @@ class SupabaseHttpGateway:
             "expected_report_id": _canonical_uuid(report_id, "Report ID"),
             "expected_report_revision": report_revision,
             "frozen_presentation": dict(presentation), "frozen_digest": digest,
+            "expected_strict_review_id": _canonical_uuid(strict_review_id, "Strict review ID"),
+            "expected_strict_review_version": strict_review_version,
+            "expected_strict_review_digest": strict_review_digest,
         })
         if not isinstance(result, str) or result not in {"created", "existing", "not_found", "stale", "not_ready"}:
             raise SupabaseContractError("Claim initialization response is invalid")
@@ -713,6 +717,40 @@ class SupabaseHttpGateway:
             "requested_readiness": readiness,
         })
 
+    def enqueue_full_review(self, case_id, user_id, row):
+        return self._rpc("enqueue_total_loss_full_review", {
+            "requested_case_id": _canonical_uuid(case_id, "Case ID"),
+            "requested_user_id": _canonical_uuid(user_id, "User ID"),
+            "requested_report_id": _canonical_uuid(row["id"], "Report ID"),
+            "expected_revision": row["revision"],
+        })
+
+    def claim_full_review_work(self, work_item_id, token):
+        return self._rpc("claim_total_loss_full_review_work", {
+            "requested_work_item_id": _canonical_uuid(work_item_id, "Work item ID"),
+            "requested_processing_token": _canonical_uuid(token, "Processing token"),
+        }, retry_ambiguous_claim=True)
+
+    def complete_full_review_work(self, work_item_id, token, revision, calculation, digest):
+        result = self._rpc("complete_total_loss_full_review_work", {
+            "requested_work_item_id": _canonical_uuid(work_item_id, "Work item ID"),
+            "requested_processing_token": _canonical_uuid(token, "Processing token"),
+            "expected_report_revision": revision, "requested_calculation": calculation,
+            "requested_digest": digest,
+        })
+        if not isinstance(result, bool):
+            raise SupabaseContractError("Full review completion response is invalid")
+        return result
+
+    def fail_full_review_work(self, work_item_id, token):
+        result = self._rpc("fail_total_loss_full_review_work", {
+            "requested_work_item_id": _canonical_uuid(work_item_id, "Work item ID"),
+            "requested_processing_token": _canonical_uuid(token, "Processing token"),
+        })
+        if not isinstance(result, bool):
+            raise SupabaseContractError("Full review failure response is invalid")
+        return result
+
     @staticmethod
     def _full_review_path(case_id, row):
         owner = _canonical_uuid(row["storage_owner_id"], "Storage owner")
@@ -731,10 +769,16 @@ class SupabaseHttpGateway:
             response = self._client.post(f"{self._configuration.url}/storage/v1/object/{CASE_FILES_BUCKET}/{path}",
                 headers={**self._admin_headers(), "Content-Type": "application/pdf", "x-upsert": "false",
                          "Cache-Control": "private, no-store"}, content=pdf)
-        except httpx.HTTPError as exc:
-            raise SupabaseUnavailableError("Private report storage is unavailable") from exc
-        if not 200 <= response.status_code < 300:
-            raise SupabaseUnavailableError("Private report storage is unavailable")
+        except httpx.HTTPError:
+            response = None
+        if response is not None and 200 <= response.status_code < 300:
+            return
+        # A duplicate object or lost upload response is recoverable only after
+        # reading the immutable path and verifying the originally accepted bytes.
+        with self.materialize_full_review_report(case_id, row) as stored:
+            saved = stored.read_bytes()
+            if len(saved) != len(pdf) or hashlib.sha256(saved).hexdigest() != row["document_sha256"]:
+                raise SupabaseContractError("Saved report integrity check failed")
 
     @contextmanager
     def materialize_full_review_report(self, case_id, row):

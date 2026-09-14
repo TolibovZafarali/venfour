@@ -44,6 +44,7 @@ SUPPORTED_WORK_ITEM_VERSIONS = {
     PACKAGE_WORK_TYPE: PACKAGE_WORK_VERSION,
     "total_loss_report_generate": "1",
     "total_loss_report_review": "1",
+    "total_loss_full_review_prepare": "1",
 }
 PACKAGE_FAILURE_CODE_PATTERN = re.compile(r"[A-Z][A-Z0-9_]{0,63}")
 PACKAGE_CODE_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}")
@@ -808,8 +809,12 @@ class TotalLossPackageCoordinator:
         for value in rows:
             row = _mapping(value, "Work-item dispatch reservation")
             work_item_id = _canonical_uuid(row.get("work_item_id"), "Work item ID")
-            _canonical_uuid(row.get("package_job_id"), "Package job ID")
             work_type = row.get("work_type")
+            if work_type == "total_loss_full_review_prepare":
+                if row.get("package_job_id") is not None:
+                    raise PackageProcessingContractError("Unpaid preparation has a package identity")
+            else:
+                _canonical_uuid(row.get("package_job_id"), "Package job ID")
             expected_version = SUPPORTED_WORK_ITEM_VERSIONS.get(work_type)
             if expected_version is None:
                 raise PackageProcessingContractError("Work item type is invalid")

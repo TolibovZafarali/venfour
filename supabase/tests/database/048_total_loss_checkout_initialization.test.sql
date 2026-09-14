@@ -4,6 +4,25 @@ set local search_path=public,extensions;
 set local storage.allow_delete_query='true';
 select no_plan();
 
+-- Synthetic trusted calculation fixture; full calculated evidence is covered by offline application tests.
+create function pg_temp.strict_review_fixture(c uuid,u uuid,classification text default 'POTENTIAL_UNDERVALUE',strength text default 'MODERATE') returns jsonb
+language plpgsql as $$
+declare ctx jsonb; w uuid; token uuid:=gen_random_uuid(); calc jsonb; result jsonb; reviewed uuid:=gen_random_uuid();
+begin
+ ctx:=public.get_total_loss_full_review_context(c,u);
+ w:=public.enqueue_total_loss_full_review(c,u,(ctx->'report'->>'id')::uuid,(ctx->'report'->>'revision')::bigint);
+ result:=public.claim_total_loss_full_review_work(w,token);
+ if result->>'state'<>'claimed' then raise exception 'Fixture work not claimed'; end if;
+ calc:=jsonb_build_object('newProviderRequests',0,'artifact',jsonb_build_object('runId',reviewed,
+   'result',jsonb_build_object('discrepancyResult',jsonb_build_object('classification',classification,'evidenceStrength',strength),
+    'preliminaryQualification',jsonb_build_object('qualificationVersion','1','marketClassification',classification,
+      'outcome','CLEAR_MARKET_VALUE_GAP','unresolvedMaterialChecks','[]'::jsonb,'applicableMaterialReviewComplete',true))),
+   'presentation',jsonb_build_object('runId',reviewed,'assessment',jsonb_build_object('classification',classification,'evidenceStrength',strength)));
+ if not public.complete_total_loss_full_review_work(w,token,(ctx->'report'->>'revision')::bigint,calc,repeat('e',64)) then raise exception 'Fixture review not completed'; end if;
+ return public.get_total_loss_full_review_context(c,u)->'strict_review';
+end $$;
+
+
 -- Synthetic completed analysis and trusted extraction boundary for SQL tests.
 create function pg_temp.checkout_initialization_fixture(case_uuid uuid, owner_uuid uuid,
   result_outcome text default 'LISTING_CONTEXT', make_ready boolean default true,
@@ -12,7 +31,7 @@ returns jsonb language plpgsql as $$
 declare
   input_uuid uuid := gen_random_uuid(); job_uuid uuid := gen_random_uuid();
   run_uuid uuid := gen_random_uuid(); report_uuid uuid := gen_random_uuid();
-  token_uuid uuid := gen_random_uuid(); report jsonb; presentation jsonb;
+  token_uuid uuid := gen_random_uuid(); report jsonb; presentation jsonb; strict_review jsonb;
 begin
   insert into auth.users(id,email,email_confirmed_at,is_anonymous)
     values(owner_uuid,'checkout-'||owner_uuid::text||'@example.test',now(),false) on conflict(id) do nothing;
@@ -44,7 +63,8 @@ begin
     report := public.transition_total_loss_full_review_report(case_uuid,owner_uuid,report_uuid,3,'ready',token_uuid,
       jsonb_build_object('documentSha256',repeat('a',64)),'{"stage":"full_review","ready":true,"issues":[]}');
   end if;
-  return jsonb_build_object('case',case_uuid,'owner',owner_uuid,'input',input_uuid,'revision',1,'run',run_uuid,
+  if make_ready then strict_review:=pg_temp.strict_review_fixture(case_uuid,owner_uuid); end if;
+  return jsonb_build_object('strictReview',coalesce(strict_review->>'id',gen_random_uuid()::text),'strictDigest',repeat('e',64),'case',case_uuid,'owner',owner_uuid,'input',input_uuid,'revision',1,'run',run_uuid,
     'report',report_uuid,'reportRevision',report->'revision','presentation',presentation,'digest',repeat('b',64));
 end;
 $$;
@@ -52,7 +72,8 @@ $$;
 create function pg_temp.initialize_checkout(f jsonb) returns text language sql as $$
   select public.initialize_total_loss_post_continue((f->>'case')::uuid,(f->>'owner')::uuid,
     (f->>'run')::uuid,(f->>'input')::uuid,(f->>'revision')::bigint,
-    (f->>'report')::uuid,(f->>'reportRevision')::bigint,f->'presentation',f->>'digest');
+    (f->>'report')::uuid,(f->>'reportRevision')::bigint,f->'presentation',f->>'digest',
+    (f->>'strictReview')::uuid,'1',f->>'strictDigest');
 $$;
 create temp table initialization_fixtures(name text primary key,f jsonb);
 insert into initialization_fixtures values
@@ -63,12 +84,12 @@ insert into initialization_fixtures values
  ('signal',pg_temp.checkout_initialization_fixture('48100000-0000-4000-8000-000000000005','48200000-0000-4000-8000-000000000005','ESTIMATE',true,'MATERIAL_UNDERVALUE_SIGNAL'));
 
 select ok(has_function_privilege('service_role',
-  'public.initialize_total_loss_post_continue(uuid,uuid,uuid,uuid,bigint,uuid,bigint,jsonb,text)','EXECUTE'),'initializer is available to service workers');
+  'public.initialize_total_loss_post_continue(uuid,uuid,uuid,uuid,bigint,uuid,bigint,jsonb,text,uuid,text,text)','EXECUTE'),'initializer is available to service workers');
 select ok(not has_function_privilege(role,
-  'public.initialize_total_loss_post_continue(uuid,uuid,uuid,uuid,bigint,uuid,bigint,jsonb,text)','EXECUTE'),'initializer denies '||role)
+  'public.initialize_total_loss_post_continue(uuid,uuid,uuid,uuid,bigint,uuid,bigint,jsonb,text,uuid,text,text)','EXECUTE'),'initializer denies '||role)
   from unnest(array['anon','authenticated']) role;
 select ok((select prosecdef and 'search_path=""'=any(proconfig) from pg_proc
-  where oid='public.initialize_total_loss_post_continue(uuid,uuid,uuid,uuid,bigint,uuid,bigint,jsonb,text)'::regprocedure),'initializer has definer isolation');
+  where oid='public.initialize_total_loss_post_continue(uuid,uuid,uuid,uuid,bigint,uuid,bigint,jsonb,text,uuid,text,text)'::regprocedure),'initializer has definer isolation');
 select ok(not has_function_privilege(role,'public.total_loss_preliminary_checkout_eligible_internal(uuid)','EXECUTE'),'eligibility helper is private for '||role)
   from unnest(array['anon','authenticated','service_role']) role;
 select ok((select relrowsecurity from pg_class where oid='public.total_loss_preliminary_snapshots'::regclass)
@@ -150,7 +171,7 @@ create temp table replaced_initialization as select f from initialization_fixtur
 create temp table replacement_document as select public.begin_total_loss_full_review_report(
   '48100000-0000-4000-8000-000000000002','48200000-0000-4000-8000-000000000002',
   '48500000-0000-4000-8000-000000000002','replacement.pdf',repeat('c',64),124) doc;
-select is(pg_temp.initialize_checkout(f),'stale','old prepared report cannot be silently reused') from replaced_initialization;
+select is(pg_temp.initialize_checkout(f),'not_ready','old prepared report cannot be silently reused') from replaced_initialization;
 insert into storage.objects(bucket_id,name,metadata)
   select 'case-files',doc->>'storage_object_name','{"size":124,"mimetype":"application/pdf"}'::jsonb from replacement_document;
 update replacement_document set doc=public.transition_total_loss_full_review_report(
@@ -167,6 +188,7 @@ select is((select count(*) from public.authorize_total_loss_checkout_preflight(
   '48100000-0000-4000-8000-000000000002','48200000-0000-4000-8000-000000000002')),0::bigint,
   'new ready report requires explicit new preparation');
 update replaced_initialization set f=f||jsonb_build_object('report',doc->>'id','reportRevision',doc->'revision') from replacement_document;
+update replaced_initialization set f=f||jsonb_build_object('strictReview',pg_temp.strict_review_fixture((f->>'case')::uuid,(f->>'owner')::uuid)->>'id');
 select is(pg_temp.initialize_checkout(f),'created','explicit current replacement gets a new preparation generation') from replaced_initialization;
 select is(pg_temp.initialize_checkout(f),'existing','replacement preparation repeats idempotently') from replaced_initialization;
 select ok((select checkout_available from public.authorize_total_loss_checkout_preflight(

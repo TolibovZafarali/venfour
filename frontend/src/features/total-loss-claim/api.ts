@@ -2665,18 +2665,25 @@ export interface TotalLossContinuationInput {
   readonly expectedAnalysisInputRevision: number;
   readonly expectedReportId: string;
   readonly expectedReportRevision: number;
+  readonly expectedStrictReviewId: string;
+  readonly expectedStrictReviewVersion: string;
+  readonly expectedStrictReviewDigest: string;
 }
 
 export async function initializeTotalLossClaim(
   caseId: string, accessToken: string, input: TotalLossContinuationInput,
 ) {
   ensureCaseId(caseId);
-  const fields = ["expectedAnalysisInputId", "expectedAnalysisInputRevision", "expectedReportId", "expectedReportRevision"];
+  const fields = ["expectedAnalysisInputId", "expectedAnalysisInputRevision", "expectedReportId", "expectedReportRevision",
+    "expectedStrictReviewId", "expectedStrictReviewVersion", "expectedStrictReviewDigest"];
   if (!isRecord(input) || Object.keys(input).length !== fields.length || fields.some(field => !Object.hasOwn(input, field))
       || typeof input.expectedAnalysisInputId !== "string" || typeof input.expectedReportId !== "string"
       || !UUID_PATTERN.test(input.expectedAnalysisInputId) || !UUID_PATTERN.test(input.expectedReportId)
       || !Number.isSafeInteger(input.expectedAnalysisInputRevision) || input.expectedAnalysisInputRevision < 1
-      || !Number.isSafeInteger(input.expectedReportRevision) || input.expectedReportRevision < 1) {
+      || !Number.isSafeInteger(input.expectedReportRevision) || input.expectedReportRevision < 1
+      || typeof input.expectedStrictReviewId !== "string" || !UUID_PATTERN.test(input.expectedStrictReviewId)
+      || input.expectedStrictReviewVersion !== "1" || typeof input.expectedStrictReviewDigest !== "string"
+      || !/^[a-f0-9]{64}$/u.test(input.expectedStrictReviewDigest)) {
     throw new TotalLossClaimContractError("The saved review revision could not be verified. Refresh before continuing.");
   }
   const result = mapResolver(await apiClient.postJson<unknown>(

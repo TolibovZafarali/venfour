@@ -10,6 +10,8 @@ export interface FullReviewState {
   analysisInputId: string | null; analysisInputRevision: number | null; checkoutAvailable: boolean;
   status: "report_required" | "uploading" | "uploaded" | "extracting" | "needs_confirmation" | "ready" | "report_invalid" | "extraction_failed";
   ready: boolean; issues: FullReviewIssue[]; message: string;
+  paymentReadiness: { status: "not_evaluated" | "processing" | "eligible" | "insufficient" | "failed";
+    eligible: boolean; reviewId: string | null; version: string | null; digest: string | null };
   report: { id: string; filename: string; revision: number } | null;
   canReuseReport: boolean; locked: boolean;
 }
@@ -21,18 +23,25 @@ function positiveRevision(value: unknown): value is number {
   return Number.isSafeInteger(value) && Number(value) > 0;
 }
 function checked(value: FullReviewState, caseId: string): FullReviewState {
+  const payment = value?.paymentReadiness;
   if (value?.caseId !== caseId || value.stage !== "full_review" || typeof value.ready !== "boolean"
       || (value.analysisInputId !== null && (typeof value.analysisInputId !== "string" || !uuidPattern.test(value.analysisInputId)))
       || (value.analysisInputRevision !== null && !positiveRevision(value.analysisInputRevision)) || typeof value.checkoutAvailable !== "boolean"
       || !Array.isArray(value.issues) || typeof value.message !== "string" || typeof value.locked !== "boolean"
       || (value.report && (!uuidPattern.test(value.report.id) || !positiveRevision(value.report.revision)))
-      || (value.ready && (value.status !== "ready" || !value.report || value.issues.length))) {
+      || (value.ready && (value.status !== "ready" || !value.report || value.issues.length))
+      || !payment || !["not_evaluated", "processing", "eligible", "insufficient", "failed"].includes(payment.status)
+      || typeof payment.eligible !== "boolean"
+      || payment.eligible !== (payment.status === "eligible")
+      || (payment.eligible && (!value.ready || typeof payment.reviewId !== "string" || !uuidPattern.test(payment.reviewId)
+        || payment.version !== "1" || typeof payment.digest !== "string" || !/^[a-f0-9]{64}$/u.test(payment.digest)))
+      || (value.checkoutAvailable && !payment.eligible)) {
     throw new Error("We couldn’t verify the saved report status. Please reload.");
   }
   return value;
 }
-export async function getFullReview(caseId: string, accessToken: string) {
-  return checked(await client.getAuthenticated<FullReviewState>(path(caseId), { accessToken, cache: "no-store" }), caseId);
+export async function getFullReview(caseId: string, accessToken: string, signal?: AbortSignal) {
+  return checked(await client.getAuthenticated<FullReviewState>(path(caseId), { accessToken, cache: "no-store", signal }), caseId);
 }
 export async function uploadFullReview(caseId: string, accessToken: string, file: File) {
   const validation = validateTotalLossPdf(file);
