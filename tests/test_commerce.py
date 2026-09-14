@@ -1714,6 +1714,71 @@ class CommerceWebhookTests(unittest.TestCase):
             )
         )
 
+    def test_expiration_uses_signed_event_time_when_schedule_is_still_future(self) -> None:
+        for scheduled_expiry, event_created, expected_expiry in (
+            (NOW + 86400, NOW, NOW),
+            (NOW - 60, NOW, NOW - 60),
+        ):
+            with self.subTest(scheduled_expiry=scheduled_expiry):
+                provider = RecordingProvider()
+                provider.event = stripe_event(
+                    "checkout.session.expired", created=event_created
+                )
+                provider.session = checkout_session(
+                    status="expired",
+                    payment_status="unpaid",
+                    url=None,
+                    payment_intent_id=None,
+                    expires_at=scheduled_expiry,
+                )
+                database = RecordingDatabase()
+                database.checkout_context = context_row(
+                    external_checkout_session_id=SESSION_ID,
+                    external_payment_intent_id=None,
+                )
+                commerce, database, _ = service(database, provider)
+
+                self.assertEqual(commerce.handle_webhook(b"raw", "valid"), "processed")
+
+                expiration = next(
+                    args for name, args in database.calls
+                    if name == "expire_total_loss_checkout_attempt_from_webhook"
+                )
+                self.assertEqual(expiration[-1], expected_expiry)
+                self.assertFalse(any(
+                    name == "fulfill_total_loss_checkout_payment"
+                    for name, _ in database.calls
+                ))
+
+    def test_expiration_after_owner_reconciliation_preserves_terminal_record(self) -> None:
+        for payment_status in ("unpaid", "paid"):
+            with self.subTest(payment_status=payment_status):
+                provider = RecordingProvider()
+                provider.event = stripe_event("checkout.session.expired")
+                provider.session = checkout_session(
+                    status="expired", payment_status=payment_status,
+                    expires_at=NOW + 86400, payment_intent_id=None, url=None,
+                )
+                database = RecordingDatabase()
+                database.checkout_context = context_row(
+                    attempt_status="expired",
+                    external_checkout_session_id=SESSION_ID,
+                    external_payment_intent_id=None,
+                )
+                commerce, database, _ = service(database, provider)
+
+                if payment_status == "unpaid":
+                    self.assertEqual(commerce.handle_webhook(b"raw", "valid"), "processed")
+                else:
+                    with self.assertRaises(CommerceProviderContractError):
+                        commerce.handle_webhook(b"raw", "valid")
+
+                self.assertFalse(any(
+                    name in {"expire_total_loss_checkout_attempt_from_webhook",
+                             "fulfill_total_loss_checkout_payment"}
+                    for name, _ in database.calls
+                ))
+
     def test_delayed_terminal_events_acknowledge_coherent_later_financial_states(
         self,
     ) -> None:

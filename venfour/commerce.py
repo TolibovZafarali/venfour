@@ -2078,13 +2078,19 @@ class TotalLossCommerceService:
                 raise CommerceProviderContractError(
                     "Expired Checkout contract is invalid"
                 )
+            if context_row.get("attempt_status") == "expired":
+                # Owner reconciliation may have observed expiration first.
+                # Preserve that immutable terminal record after provider validation.
+                return context.case_id, context.order_id
             result = self._database.expire_total_loss_checkout_attempt_from_webhook(
                 context.order_id,
                 context.checkout_attempt_id,
                 session.id,
                 event.id,
                 processing_token,
-                session.expires_at,
+                # Early expiration retains Stripe's future scheduled expiry.
+                # The signed event bounds when expiration actually occurred.
+                min(session.expires_at, event.created),
             )
             self._validate_terminal_checkout_result(
                 result, context, "expired"
