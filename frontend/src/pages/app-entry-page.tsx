@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useEffect } from "react";
 
 import { hostAudience } from "@/app/site-boundary";
+import { AppEntryLoading, AppEntryLoadingScope } from "@/components/app-entry-loading";
 import { Button } from "@/components/ui/button";
 import { ValuationStatus } from "@/components/valuation-status";
 import { clearAutomaticSubmissionRequests } from "@/features/analyses/case-analysis-queries";
@@ -33,18 +34,12 @@ function ResolvedWorkspaceEntry({
   });
 
   if (roleQuery.isError) return <ValuationStatus kind="error" heading="We couldn’t open your workspace" description="Try again to securely check your account."><Button onClick={() => void roleQuery.refetch()}>Try again</Button></ValuationStatus>;
-  if (roleQuery.isPending || roleQuery.isFetching) return <ValuationStatus kind="loading" heading="Opening your appraisal…" description="Checking secure access." />;
+  if (roleQuery.isPending || roleQuery.isFetching) return <AppEntryLoading />;
   if (roleQuery.data === "staff") return <Navigate replace to="/admin" />;
   if (roleQuery.data === "partner") return <Navigate replace to="/partners" />;
 
   if (appraisalsQuery.isPending || appraisalsQuery.isFetching) {
-    return (
-      <ValuationStatus
-        kind="loading"
-        heading="Opening your appraisal…"
-        description="Finding where you left off."
-      />
-    );
+    return <AppEntryLoading />;
   }
 
   const cases = appraisalsQuery.data ?? [];
@@ -90,10 +85,14 @@ export function WorkspaceEntry({
 }
 
 export function AppEntryPage() {
+  return <AppEntryLoadingScope><AppEntryContent /></AppEntryLoadingScope>;
+}
+
+function AppEntryContent() {
   useEffect(clearAutomaticSubmissionRequests, []);
   const { auth } = useAuth();
   const { openSignIn } = useSignInDialog();
-  if (auth.status === "loading") return <ValuationStatus kind="loading" heading="Opening your workspace" description="Finding your saved reviews." />;
+  if (auth.status === "loading") return <AppEntryLoading />;
   if (auth.status === "unavailable") return <ValuationStatus kind="error" heading="We couldn’t open your workspace" description={auth.reason}><Button asChild variant="outline"><Link to="/contact">Contact support</Link></Button></ValuationStatus>;
   if (!isPermanentAuthState(auth) && hostAudience() === "application") return <Navigate replace to="/start" />;
   if (!isPermanentAuthState(auth)) return <ValuationStatus heading="Continue your appraisal" description="Sign in to pick up where you left off."><Button onClick={() => openSignIn({ returnTo: "/app" })}>Sign in</Button><Button asChild variant="outline"><Link to="/start?service=total-loss">Start new appraisal</Link></Button></ValuationStatus>;

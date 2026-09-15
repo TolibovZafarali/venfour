@@ -9,6 +9,7 @@ import type { TotalLossDependencies } from "@/features/total-loss/dependencies";
 import type { TotalLossCaseDetails } from "@/features/total-loss/data-types";
 import { materialUndervalueAnalysis } from "@/test/fixtures/analysis-presentation";
 import { CASE_ID, OTHER_CASE_ID, USER_ID, REPORT_ID, RUN_ID, NOW, claimProjection, completedEducationSteps } from "./claim-fixtures";
+import { waitForEntryPreview } from "./entry-preview";
 
 export const scenarios = [
   ["free", "Free result", "A focused result with report upload in a modal."],
@@ -144,7 +145,10 @@ const listeners = new Set<AuthStateChangeListener>();
 const signedIn = async () => { localStorage.removeItem("venfour-workspace-preview-signed-out"); listeners.forEach(listener => listener("SIGNED_IN", session)); return session; };
 const simulatedSignIn = async (redirectTo: string) => { const url = new URL(redirectTo); url.searchParams.set("code", "simulated-login"); location.assign(url); };
 export const previewAuth: AuthService = {
-  getSession: async () => localStorage.getItem("venfour-workspace-preview-signed-out") ? null : session,
+  getSession: async () => {
+    await waitForEntryPreview();
+    return localStorage.getItem("venfour-workspace-preview-signed-out") ? null : session;
+  },
   onAuthStateChange: listener => { listeners.add(listener); return () => { listeners.delete(listener); }; },
   exchangeCodeForSession: signedIn, verifyEmailOtp: signedIn, verifyEmailCode: signedIn,
   signInWithGoogle: simulatedSignIn, signInWithApple: simulatedSignIn,

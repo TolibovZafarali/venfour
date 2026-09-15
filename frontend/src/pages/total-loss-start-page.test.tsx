@@ -3025,7 +3025,7 @@ describe("/start?service=total-loss", () => {
     });
     await waitFor(() => expect(auth.getSession).toHaveBeenCalledOnce());
 
-    expect(screen.getByRole("heading", { name: "Loading your saved appraisal…" })).toBeVisible();
+    expect(screen.getByText("Opening your workspace…")).toBeInTheDocument();
     expect(screen.queryByLabelText("VIN")).not.toBeInTheDocument();
     expect(
       screen.queryByDisplayValue("1HGCM82633A004352"),
@@ -3075,7 +3075,7 @@ describe("/start?service=total-loss", () => {
       }),
     );
 
-    expect(screen.getByRole("heading", { name: "Loading your saved appraisal…" })).toBeVisible();
+    expect(screen.getByText("Opening your workspace…")).toBeInTheDocument();
     expect(
       screen.queryByLabelText("Insurance company"),
     ).not.toBeInTheDocument();

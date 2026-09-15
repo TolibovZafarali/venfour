@@ -136,7 +136,9 @@ describe("specific appraisal returns", () => {
     const input = { expectedAnalysisInputId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", expectedAnalysisInputRevision: 1 };
     requestAutomaticSubmission(USER_ID, CASE_ID, input);
     await act(async () => { await router.navigate(entry); });
-    await screen.findByRole("heading", { name: "Opening your appraisal…" });
+    await waitFor(() => expect(screen.getByText("Opening your workspace…").closest('[role="status"]')).toHaveAttribute("data-visible"));
+    expect(document.querySelector("[data-free-valuation-processing]")).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Venfour home" })).toBeVisible();
     expect(automaticSubmissionRequested(USER_ID, CASE_ID, input)).toBe(false);
     expect(router.state.location.pathname).toBe(entry);
     await waitFor(() => expect(finish).toBeTypeOf("function"));

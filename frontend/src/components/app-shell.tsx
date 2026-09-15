@@ -473,7 +473,7 @@ function AppShellContent({ workspace, workspaceCaseId }: { workspace: boolean; w
       ) : null}
       <main
         id="main-content"
-        className="flex flex-1"
+        className="app-entry-main flex flex-1"
         tabIndex={-1}
       >
         <CompletedReviewProgressHostContext.Provider

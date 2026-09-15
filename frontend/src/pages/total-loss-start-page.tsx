@@ -1,4 +1,5 @@
 import { ValuationStatus } from "@/components/valuation-status";
+import { AppEntryLoading } from "@/components/app-entry-loading";
 import { VEHICLE_FACT_FIELDS, clearVehicleFacts, fillConfigurationFacts } from "@/features/total-loss/vehicle-facts";
 import { AlertCircle, CloudOff, RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -3081,7 +3082,7 @@ function ConflictNotice({
 }
 
 function LoadingCard() {
-  return <ValuationStatus compact headingLevel="h2" kind="loading" heading="Loading your saved appraisal…" description="Finding your saved details." />;
+  return <AppEntryLoading compact />;
 }
 
 function UnavailableCaseCard() {

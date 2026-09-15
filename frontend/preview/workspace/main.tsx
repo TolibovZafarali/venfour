@@ -7,6 +7,7 @@ import { LocalValuationProcessingPage } from "@/pages/local-valuation-processing
 import { scenarios, resetScenario, installPreviewFetch, previewAuth, previewCaseService, previewDetails, previewProfileService } from "./state";
 import { Launcher } from "./launcher";
 import { PreviewShell } from "./preview-shell";
+import { entryPreviewMode } from "./entry-preview";
 import "./preview.css";
 
 installPreviewFetch();
@@ -14,6 +15,7 @@ const requested = new URLSearchParams(location.search).get("state");
 const scenario = scenarios.find(item => item[0] === (requested === "approval" ? "ready" : requested));
 if (location.pathname === "/_local/workspace" && scenario) resetScenario(scenario[0]);
 if (location.pathname === "/_local/valuation-processing") resetScenario("free");
+if (entryPreviewMode) resetScenario(entryPreviewMode === "new" ? "zero" : "free");
 
 const router = createBrowserRouter([{ element: <PreviewShell />, children: [
   { path: "/_local/workspace", element: <Launcher scenario={scenario} /> },
