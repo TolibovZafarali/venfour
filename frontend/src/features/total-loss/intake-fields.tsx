@@ -260,6 +260,7 @@ export function IntakeDatePicker({
               <div className="flex min-w-0 flex-1 gap-2">
                 <select
                   aria-label="Calendar month"
+                  data-compact-select
                   className="min-h-10 min-w-0 flex-1 rounded-lg border border-line bg-white px-2 text-sm font-semibold text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
                   value={visibleMonth.getMonth()}
                   onChange={(event) =>
@@ -287,7 +288,8 @@ export function IntakeDatePicker({
                 </select>
                 <select
                   aria-label="Calendar year"
-                  className="min-h-10 w-24 rounded-lg border border-line bg-white px-2 text-sm font-semibold text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                  data-compact-select
+                  className="min-h-10 w-20 rounded-lg border border-line bg-white px-2 text-sm font-semibold text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
                   value={visibleMonth.getFullYear()}
                   onChange={(event) => {
                     const nextYear = Number(event.target.value);

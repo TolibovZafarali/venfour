@@ -16,6 +16,8 @@ Start with **Free result** and choose **Upload insurer valuation report**. The b
 
 Saved-intake and insurer-response screens support visual inspection. Their live write and document-delivery services are intentionally not connected. The payment example uses a fictional $199 price.
 
+Choose [**Payment · unverified account**](http://127.0.0.1:4186/_local/workspace?state=payment-unverified) for checkout with a guest account and no payment details entered. Payment stays locked until email verification. **Send verification code** simulates delivery; enter **123-456** to reveal billing and card fields. The **Country** dropdown defaults to **United States**, and the **State** dropdown lets you select any U.S. state or the District of Columbia. The remaining payment fields are empty and read-only. No email is sent and no payment can be submitted. Refresh preserves verification but resets country and state selections; opening the launcher tile again resets verification and payment details.
+
 Completed review is a fixed saved-state preview: its reading checkpoints are already complete and its journey remains at the result stage. Navigating between sections demonstrates the real page transitions, but does not advance the progress line. In the application, the line advances when a new checkpoint is saved; revisiting completed sections does not move it backward.
 
 See [the visual review and verification notes](../../../output/persistent-workspace/REVIEW.md).

@@ -1,11 +1,12 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { Link, Outlet, useLocation } from "react-router";
 import { FreeValuationProcessingProvider } from "@/features/analyses/components/free-valuation-processing";
-import { AccountControl, SignInDialogProvider } from "@/features/auth";
+import { AccountControl, SignInDialogProvider, useAuth } from "@/features/auth";
 import { resetScenario, scenarioPath, snapshot } from "./state";
 import { continueEntryPreview, entryPreviewHref, entryPreviewMode } from "./entry-preview";
 
 export function PreviewShell() {
+  const { auth } = useAuth();
   const pathname = useLocation().pathname;
   const loading = pathname === "/_local/valuation-processing";
   const confirmingPayment = pathname.endsWith("/claim/checkout") && snapshot().phase === "confirming";
@@ -30,6 +31,7 @@ export function PreviewShell() {
     </nav> : null}
     <aside className="workspace-preview-note" aria-label="Preview notice">
       <span>Local preview · Fictional data</span>
+      {snapshot().phase === "payment-unverified" && auth.status === "signedIn" && auth.identity === "anonymous" ? <span>Demo code: 123-456</span> : null}
       {loading ? <Link to={scenarioPath("free")} onClick={() => {
         resetScenario("free");
         queryClient.clear();

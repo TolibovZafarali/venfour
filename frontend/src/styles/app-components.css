@@ -54,6 +54,29 @@
     scale: none;
   }
 
+  /* Custom intake indicators already have an inset; normalize native dropdowns. */
+  select:not([multiple], .appearance-none):is(:not([size]), [size="1"]) {
+    -webkit-appearance: none;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23737373' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-position: right var(--select-indicator-inset, 12px) center;
+    background-repeat: no-repeat;
+    background-size: var(--select-indicator-size, 16px) var(--select-indicator-size, 16px);
+    padding-right: var(--select-text-padding, 40px);
+
+    @media (forced-colors: active) {
+      -webkit-appearance: auto;
+      appearance: auto;
+      background-image: none;
+    }
+  }
+
+  select[data-compact-select] {
+    --select-indicator-inset: 8px;
+    --select-indicator-size: 12px;
+    --select-text-padding: 28px;
+  }
+
   /* Keep every button stationary; feedback changes only its existing colors. */
   :is(button, [role="button"], [data-slot="button"], input[type="button"], input[type="submit"], input[type="reset"]) {
     &, &:is(:hover, :active, :focus, :focus-visible) {

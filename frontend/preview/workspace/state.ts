@@ -20,6 +20,7 @@ export const scenarios = [
   ["confirmation", "Confirm a fact", "Resolve one mileage difference."],
   ["strict", "Strict review", "Review of saved report and market evidence."],
   ["ready", "Ready for payment", "Review complete; explicit continuation."],
+  ["payment-unverified", "Payment · unverified account", "Guest checkout before email verification, with no payment details entered."],
   ["payment", "Payment", "Simulated fields and example price; no charge."],
   ["confirming", "Payment processing", "Payment confirmation at checkout, followed by report preparation."],
   ["paid", "Preparing valuation report", "Full-screen stars while the paid report is checked and prepared."],
@@ -30,8 +31,9 @@ export const scenarios = [
   ["zero", "Zero-case customer", "Passive start without creating a case."],
 ] as const;
 export type Scenario = typeof scenarios[number][0];
-type Snapshot = { phase: Scenario; changed: number; transition: boolean; filename?: string };
+type Snapshot = { phase: Scenario; changed: number; transition: boolean; filename?: string; paymentFieldsEmpty?: boolean };
 const storageKey = "venfour-workspace-visual-preview-v1";
+export const GUEST_USER_ID = "99999999-9999-4999-8999-999999999999";
 export function snapshot(): Snapshot {
   try {
     const saved = JSON.parse(localStorage.getItem(storageKey) ?? "null");
@@ -41,16 +43,17 @@ export function snapshot(): Snapshot {
   catch { return { phase: "free", changed: Date.now(), transition: false }; }
 }
 function save(value: Snapshot) { localStorage.setItem(storageKey, JSON.stringify(value)); }
-function setPhase(phase: Scenario, transition = false, filename = snapshot().filename) { save({ phase, transition, filename, changed: Date.now() }); }
+function setPhase(phase: Scenario, transition = false, filename = snapshot().filename) { save({ ...snapshot(), phase, transition, filename, changed: Date.now() }); }
 export function resetScenario(phase: Scenario) {
-  save({ phase, transition: false, changed: Date.now() });
+  save({ phase, transition: false, changed: Date.now(), paymentFieldsEmpty: phase === "payment-unverified" });
   localStorage.removeItem("venfour-workspace-preview-signed-out");
+  localStorage.removeItem(`venfour:claim-email-code-cooldown:${GUEST_USER_ID}`);
   sessionStorage.removeItem("venfour-workspace-preview-requests");
 }
 export function scenarioPath(phase: Scenario) {
   const base = `/total-loss/cases/${CASE_ID}`;
   return phase === "zero" ? "/app" : phase === "intake" ? `/start?service=total-loss&caseId=${CASE_ID}` : phase === "upload" ? `${base}/analysis?upload=report` : ["free", "listing", "insufficient", "processing"].includes(phase) ? `${base}/analysis`
-    : phase === "payment" || phase === "confirming" ? `${base}/claim/checkout` : phase === "paid" ? `${base}/claim/processing`
+    : phase === "payment-unverified" || phase === "payment" || phase === "confirming" ? `${base}/claim/checkout` : phase === "paid" ? `${base}/claim/processing`
     : phase === "completed" ? `${base}/claim/review/result` : phase === "waiting" ? `${base}/claim/review/waiting` : `${base}/review-report`;
 }
 function record(method: string, path: string) {
@@ -68,23 +71,26 @@ function reportState(caseId: string): FullReviewState {
   }
   if (caseId === OTHER_CASE_ID) phase = "ready";
   const hasReport = !["free", "upload", "listing", "insufficient", "processing", "zero"].includes(phase);
-  const ready = ["strict", "ready", "payment", "confirming", "paid", "completed", "waiting"].includes(phase);
+  const ready = ["strict", "ready", "payment-unverified", "payment", "confirming", "paid", "completed", "waiting"].includes(phase);
   return {
     caseId, stage: "full_review", analysisInputId: RUN_ID, analysisInputRevision: 3,
     status: ready ? "ready" : phase === "confirmation" ? "needs_confirmation" : phase === "extracting" || phase === "strict" ? "extracting" : "report_required",
-    ready, checkoutAvailable: phase === "ready", locked: ["payment", "confirming", "paid", "completed", "waiting"].includes(phase), canReuseReport: false,
+    ready, checkoutAvailable: phase === "ready", locked: ["payment-unverified", "payment", "confirming", "paid", "completed", "waiting"].includes(phase), canReuseReport: false,
     report: hasReport ? { id: REPORT_ID, revision: 1, filename: snapshot().filename ?? "Insurer_valuation_report.pdf" } : null,
     message: phase === "confirmation" ? "Confirm this detail so we can finish your review." : "Your report is saved.",
     issues: phase === "confirmation" ? [{ field: "mileage", code: "REPORT_FACT_CONFLICT", message: "Which mileage should the full review use?", reportValue: 32000, savedValue: 30000 }] : [],
     paymentReadiness: {
-      status: ["ready", "payment", "confirming", "paid", "completed", "waiting"].includes(phase) ? "eligible" : phase === "strict" ? "processing" : "not_evaluated",
-      eligible: ["ready", "payment", "confirming", "paid", "completed", "waiting"].includes(phase),
+      status: ["ready", "payment-unverified", "payment", "confirming", "paid", "completed", "waiting"].includes(phase) ? "eligible" : phase === "strict" ? "processing" : "not_evaluated",
+      eligible: ["ready", "payment-unverified", "payment", "confirming", "paid", "completed", "waiting"].includes(phase),
       reviewId: "88888888-8888-4888-8888-888888888888", version: "1", digest: "a".repeat(64),
     },
   };
 }
 function claim(caseId: string) {
   const phase = snapshot().phase;
+  if (phase === "payment-unverified") return {
+    caseId, state: "secure_required", contactEmail: "preview@example.com", commerce: null, workflow: null,
+  };
   const progress = completedEducationSteps();
   if (phase === "waiting") progress.send = { completedAt: NOW, viewedAt: NOW, skippedAt: null };
   const value = claimProjection({ journey: phase === "payment" || phase === "confirming" ? "checkout" : phase === "paid" ? "processing" : phase === "waiting" ? "awaiting_insurer_response" : "guide_result", progress, fulfillmentState: phase === "paid" ? "finalizing" : undefined });
@@ -121,16 +127,24 @@ export function installPreviewFetch() {
     if (url.pathname.endsWith("/full-review") && method === "GET") return Response.json(reportState(caseId));
     if (url.pathname.endsWith("/post-continue") && method === "POST") { setPhase("payment"); return Response.json(claim(caseId)); }
     if (url.pathname.endsWith("/claim") && method === "GET") return Response.json(claim(caseId));
+    if (url.pathname.endsWith("/claim/access-link") && method === "POST") return Response.json({
+      state: "secure_required", caseId, contactEmail: "preview@example.com",
+      claimId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", expiresAt: new Date(Date.now() + 600000).toISOString(),
+    });
     if (url.pathname.endsWith("/analysis") && method === "GET") return Response.json(snapshot().phase === "processing"
       ? { status: "processing", attemptCount: 1, processingExpiresAt: new Date(Date.now() + 600000).toISOString(), analysisInputId: RUN_ID, analysisInputRevision: 3 }
       : { status: "completed", attemptCount: 1, intakeCorrectionAllowed: true, runId: RUN_ID, analysisInputId: RUN_ID, analysisInputRevision: 3 });
     if (url.pathname.includes("/analyses/") && method === "GET") return Response.json(freeResult());
     if (url.pathname.endsWith("/checkout-quote") && method === "GET") return Response.json({ amountMinorUnits: 19900, availability: "available", currency: "USD" });
-    if (url.pathname.endsWith("/checkout-sessions") && method === "POST") return Response.json({ checkoutStatus: "open", checkoutUrl: null, checkoutSessionId: "cs_test_workspace_preview", clientSecret: "cs_test_workspace_preview_secret_fixture", publishableKey: "pk_test_visual_fixture", uiMode: "elements", entitlementStatus: null, orderStatus: "pending", state: "checkout_ready" });
+    if (url.pathname.endsWith("/checkout-sessions") && method === "POST") {
+      if (snapshot().phase === "payment-unverified") return Response.json({ message: "Verify the preview account before payment." }, { status: 403 });
+      return Response.json({ checkoutStatus: "open", checkoutUrl: null, checkoutSessionId: "cs_test_workspace_preview", clientSecret: "cs_test_workspace_preview_secret_fixture", publishableKey: "pk_test_visual_fixture", uiMode: "elements", entitlementStatus: null, orderStatus: "pending", state: "checkout_ready" });
+    }
     throw new Error(`Unimplemented preview request: ${method} ${url.pathname}`);
   };
 }
 const session = { access_token: "workspace-preview", refresh_token: "workspace-preview", expires_in: 3600, token_type: "bearer", user: { id: USER_ID, aud: "authenticated", created_at: NOW, email: "preview@example.com", app_metadata: {}, user_metadata: {}, is_anonymous: false } } as Session;
+const guestSession: Session = { ...session, access_token: "workspace-preview-guest", user: { ...session.user, id: GUEST_USER_ID, email: undefined, is_anonymous: true } };
 export const previewProfileService: CustomerProfileService = {
   getProfile: async userId => userId === USER_ID ? {
     userId, fullName: "Jordan Rivera", fullNameConfirmedAt: NOW,
@@ -142,12 +156,17 @@ export const previewProfileService: CustomerProfileService = {
   confirmProfile: async () => { throw new Error("Profile writes are disabled in this preview."); },
 };
 const listeners = new Set<AuthStateChangeListener>();
-const signedIn = async () => { localStorage.removeItem("venfour-workspace-preview-signed-out"); listeners.forEach(listener => listener("SIGNED_IN", session)); return session; };
+const signedIn = async () => {
+  if (snapshot().phase === "payment-unverified") setPhase("payment");
+  localStorage.removeItem("venfour-workspace-preview-signed-out");
+  listeners.forEach(listener => listener("SIGNED_IN", session));
+  return session;
+};
 const simulatedSignIn = async (redirectTo: string) => { const url = new URL(redirectTo); url.searchParams.set("code", "simulated-login"); location.assign(url); };
 export const previewAuth: AuthService = {
   getSession: async () => {
     await waitForEntryPreview();
-    return localStorage.getItem("venfour-workspace-preview-signed-out") ? null : session;
+    return localStorage.getItem("venfour-workspace-preview-signed-out") ? null : snapshot().phase === "payment-unverified" ? guestSession : session;
   },
   onAuthStateChange: listener => { listeners.add(listener); return () => { listeners.delete(listener); }; },
   exchangeCodeForSession: signedIn, verifyEmailOtp: signedIn, verifyEmailCode: signedIn,
@@ -158,7 +177,7 @@ export const previewAuth: AuthService = {
 export function previewCases(): AppraisalCase[] {
   const phase = snapshot().phase;
   if (phase === "zero") return [];
-  const base: AppraisalCase = { id: CASE_ID, userId: USER_ID, serviceType: "total_loss", status: "check_complete", createdAt: NOW, updatedAt: NOW, lastActivityAt: NOW, caseStage: "analysis_complete", analysisStatus: "completed", vehicleLabel: "2026 Hyundai Kona SE", hasFullReviewReport: !["free", "upload", "listing", "insufficient", "processing"].includes(phase), hasTotalLossClaimWorkflow: ["payment", "confirming", "paid", "completed", "waiting"].includes(phase), workspaceStatus: phase === "waiting" ? "awaiting_insurer_response" : phase === "completed" ? "report_ready" : undefined };
+  const base: AppraisalCase = { id: CASE_ID, userId: phase === "payment-unverified" ? GUEST_USER_ID : USER_ID, serviceType: "total_loss", status: "check_complete", createdAt: NOW, updatedAt: NOW, lastActivityAt: NOW, caseStage: "analysis_complete", analysisStatus: "completed", vehicleLabel: "2026 Hyundai Kona SE", hasFullReviewReport: !["free", "upload", "listing", "insufficient", "processing"].includes(phase), hasTotalLossClaimWorkflow: ["payment-unverified", "payment", "confirming", "paid", "completed", "waiting"].includes(phase), workspaceStatus: phase === "waiting" ? "awaiting_insurer_response" : phase === "completed" ? "report_ready" : undefined };
   return [{ ...base, ...(phase === "intake" ? { status: "draft" as const, hasFullReviewReport: false, analysisStatus: null, caseStage: undefined } : {}) }, { ...base, id: OTHER_CASE_ID, vehicleLabel: "2024 Hyundai Elantra Limited", lastActivityAt: "2026-09-12T12:00:00Z", hasFullReviewReport: true, hasTotalLossClaimWorkflow: false, workspaceStatus: "review_prepared" }];
 }
 const unexpectedWrite = async () => { record("BLOCKED", "case-write"); throw new Error("Case writes are disabled in this preview."); };

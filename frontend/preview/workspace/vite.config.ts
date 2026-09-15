@@ -9,6 +9,7 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
   resolve: { alias: [
     { find: "@/app/site-boundary", replacement: path.resolve(import.meta.dirname, "site-boundary.ts") },
+    { find: "@/features/total-loss-claim/email-otp-service", replacement: path.resolve(import.meta.dirname, "verification-preview.ts") },
     { find: "@stripe/stripe-js/pure", replacement: path.resolve(import.meta.dirname, "payment-preview.ts") },
     { find: "@stripe/react-stripe-js/checkout", replacement: path.resolve(import.meta.dirname, "payment-preview.ts") },
     { find: "@", replacement: path.resolve(import.meta.dirname, "../../src") },
