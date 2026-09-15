@@ -121,7 +121,7 @@
 .completed-analysis .meaning-value { font-size: .9375rem; margin-bottom: .75rem; }
 .completed-analysis .meaning-position { font-size: 1.25rem; line-height: 1.6; font-weight: 500; color: var(--review-ink); letter-spacing: -.015em; }
 .completed-analysis .meaning-comparison { margin-top: .875rem; font-size: 1.0625rem; }
-.completed-analysis .meaning-takeaway { margin-top: 1.75rem; color: var(--review-accent); font-size: 1.3rem; font-weight: 550; line-height: 1.55; letter-spacing: -.02em; max-width: 40rem; }
+.completed-analysis .meaning-takeaway { margin-top: 1.75rem; color: var(--review-ink); font-size: 1.3rem; font-weight: 550; line-height: 1.55; letter-spacing: -.02em; max-width: 40rem; }
 .completed-analysis .meaning-limitations { border-top: 1px solid var(--review-line); padding-top: 1.25rem; margin-top: 1.75rem; font-size: .875rem; line-height: 1.65; color: var(--review-muted); }
 .completed-analysis .meaning-limitations p + p { margin-top: .8rem; }
 .completed-analysis .meaning-limitations h2 { font-size: .875rem; margin: 1.1rem 0 .5rem; color: var(--review-muted); }

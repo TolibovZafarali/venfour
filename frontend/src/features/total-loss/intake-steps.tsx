@@ -896,7 +896,7 @@ export function ContactStep({
             }
             aria-labelledby="case-follow-up-heading"
             aria-describedby="case-follow-up-description"
-            className="relative h-6 w-11 shrink-0 cursor-pointer rounded-full bg-line-strong transition-colors after:absolute after:inset-x-0 after:-inset-y-2.5 focus-visible:shadow-[0_0_0_3px_#155eef33] disabled:cursor-not-allowed disabled:opacity-60 data-[state=checked]:bg-brand motion-reduce:transition-none"
+            className="relative h-6 w-11 shrink-0 cursor-pointer rounded-full bg-line-strong transition-colors after:absolute after:inset-x-0 after:-inset-y-2.5 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 data-[state=checked]:bg-brand motion-reduce:transition-none"
           >
             <Switch.Thumb className="block size-5 translate-x-0.5 rounded-full bg-white shadow-sm transition-transform data-[state=checked]:translate-x-[1.375rem] motion-reduce:transition-none" />
           </Switch.Root>

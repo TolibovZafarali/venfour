@@ -1,4 +1,4 @@
-/* Workspace surfaces use white or equal-channel grayscale. Accent is functional. */
+/* White and grayscale form the foundation; blue identifies actions and state. */
 :root[data-visual-system="app"] {
   --background: #ffffff;
   --foreground: #171717;
@@ -6,7 +6,7 @@
   --card-foreground: #171717;
   --popover: #ffffff;
   --popover-foreground: #171717;
-  --primary: #171717;
+  --primary: var(--brand);
   --primary-foreground: #ffffff;
   --secondary: #f5f5f5;
   --secondary-foreground: #262626;
@@ -15,8 +15,9 @@
   --accent: #f5f5f5;
   --accent-foreground: #171717;
   --destructive: #b91c1c;
-  --brand: #171717;
-  --brand-strong: #000000;
+  --brand: #2563eb;
+  --brand-strong: #1d4ed8;
+  /* General supporting surfaces stay neutral, including legacy brand-soft uses. */
   --brand-soft: #f5f5f5;
   --brand-subtle: #e5e5e5;
   --ink: #171717;
@@ -36,9 +37,11 @@
   --report-canvas: #ffffff;
   --border: #e5e5e5;
   --input: #737373;
-  --ring: var(--brand-blue);
-  --link: var(--brand-blue-strong);
-  --selection: var(--brand-blue);
+  --ring: var(--brand);
+  --link: var(--brand);
+  --link-hover: var(--brand-strong);
+  --selection: var(--brand);
+  --selection-surface: color-mix(in srgb, var(--selection) 5%, #ffffff);
   --radius: 0.375rem;
   --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.04);
   --shadow-md: 0 2px 8px rgb(0 0 0 / 0.06);

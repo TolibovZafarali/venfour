@@ -169,6 +169,8 @@ export function EmbeddedPayment({
   if (!checkout?.clientSecret || !checkout.publishableKey || !checkout.checkoutSessionId) {
     return <p className="flex items-center gap-2 py-6 text-sm text-copy" role="status"><LoaderCircle className="size-4 animate-spin motion-reduce:animate-none" aria-hidden />Preparing secure payment…</p>;
   }
+  // Provider frames need the resolved document color rather than a CSS reference.
+  const accentColor = getComputedStyle(document.documentElement).getPropertyValue("--primary").trim() || "#2563eb";
   return (
     <CheckoutElementsProvider
       key={checkout.checkoutSessionId}
@@ -180,14 +182,14 @@ export function EmbeddedPayment({
           appearance: {
             theme: "stripe",
             variables: {
-              colorPrimary: "#191919", colorText: "#1a1a1a", colorTextSecondary: "#626262",
+              colorPrimary: accentColor, colorText: "#1a1a1a", colorTextSecondary: "#626262",
               colorDanger: "#b91c1c", colorBackground: "#ffffff", borderRadius: "4px",
               fontFamily: "-apple-system, BlinkMacSystemFont, Segoe UI, system-ui, sans-serif",
               fontSizeBase: "16px", fontSizeSm: "13px", spacingUnit: "4px", gridRowSpacing: "20px",
             },
             rules: {
               ".Input": { border: "1px solid #bfbfbf", boxShadow: "none", padding: "12px" },
-              ".Input:focus": { borderColor: "#155eef", boxShadow: "0 0 0 1px #155eef" },
+              ".Input:focus": { borderColor: accentColor, boxShadow: `0 0 0 1px ${accentColor}` },
               ".Input--invalid": { borderColor: "#b91c1c" },
               ".Input--invalid:focus": { borderColor: "#b91c1c", boxShadow: "0 0 0 1px #b91c1c" },
               ".Label": { marginBottom: "8px", color: "#626262", fontWeight: "400" },

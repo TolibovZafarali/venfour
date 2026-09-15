@@ -5,10 +5,9 @@ presentations:
 
 - `venfour.com`: public marketing and acquisition, with the existing colors,
   gradients, glass header, and editorial layouts.
-- `app.venfour.com`: a professional appraisal and claims workspace, with black
-  typography and primary controls, neutral component surfaces, text, and borders.
-  Customer workspace pages retain a subtle gradient background; other app pages
-  use white backgrounds.
+- `app.venfour.com`: a professional appraisal and claims workspace, with dark
+  typography, pure white backgrounds, neutral surfaces and borders, and a
+  restrained blue accent for primary actions and selected states.
 
 ## Document boundary
 
@@ -38,23 +37,37 @@ workflow authorities.
 | `AppShell` | Fixed white app header and existing compact workspace chrome; public navigation, detached glass header, and marketing footer remain public |
 | Auth, cookie preferences, and intake popovers | Shared markup with `data-product-overlay`; only app documents receive the crisp white panel treatment |
 | Button hover controller | Decorative fluid hover remains available only in the public presentation |
-| `components/customer-workspace.css` | Subtle customer workspace gradient and full-width case steps directly below the header progress line |
+| `components/customer-workspace.css` | White customer workspace and full-width case steps directly below the header progress line |
 | Workflow, admin, and partner CSS | White page backgrounds and neutral component colors, with restrained geometry |
-| Embedded payment appearance | Explicit neutral colors for payment fields rendered inside the payment provider's iframe |
+| Embedded payment appearance | Neutral payment fields with the resolved document primary color for selection and focus inside the provider iframe |
 
 ## Rules for future app pages
 
 Use semantic tokens such as `bg-background`, `text-ink`, `text-copy`, `border-line`,
 and `bg-surface`. Page backgrounds use `--background` or `--canvas`, both pure
 white. Secondary surfaces may use `--surface` (`#f5f5f5`). Every neutral color has
-equal red, green, and blue channels. The customer workspace has an explicit,
-scoped gradient background in `customer-workspace.css`. Keep that background
-separate from cards, controls, and overlays. Do not spread gradient treatments
-to those components, or introduce glass effects, decorative illustrations, or
-colored card backgrounds.
+equal red, green, and blue channels. Keep page backgrounds, cards, controls, and
+overlays free of gradients, glass effects, decorative illustrations, and large
+colored surfaces.
 
-Default primary actions are black. Blue is reserved for functional accents using
-`--link`, `--ring`, or `--selection`; it is not a heading or background decoration.
+The app defines its accent in `app-tokens.css`; public brand tokens stay separate.
+
+| Token | App value | Use |
+| --- | --- | --- |
+| `--brand`, `--primary` | `#2563EB` | Main action, progress fill, small evidence or status emphasis |
+| `--brand-strong`, `--link-hover` | `#1D4ED8` | Hover and pressed primary actions and important links |
+| `--link`, `--ring`, `--selection` | Primary accent | Important links, visible keyboard focus, selected controls |
+| `--selection-surface` | 5% primary accent on white | Selected radio choices and the current appraisal in a menu |
+| `--brand-soft`, `--accent`, `--surface` | Neutral gray | General supporting surfaces and secondary controls |
+
+Use the shared Button for primary actions. Its app hover and pressed treatment
+also covers existing intake, review, request, and authentication actions. Keep
+secondary actions neutral and disabled primary actions gray. Preserve dark
+headings, body text, prices, and large conclusions; use blue only where it
+clarifies an action, state, or small data mark.
+Do not turn every label, icon, link, or border blue. The selected control tint is
+an exception for small interactive surfaces, not a general card background.
+
 Small warning/error/success indicators may retain a semantic color when their
 text or icon communicates the same meaning. Their surrounding surfaces remain
 neutral. Never make color the only status signal.
@@ -72,7 +85,8 @@ recolor their contents.
 
 The visual-boundary tests cover production hosts, future app routes, combined
 builds, navigation, portals, errors, and decorative hover isolation. The palette
-contract test checks white primary backgrounds, equal-channel grayscale tokens,
+contract test checks white primary backgrounds, the two allowed accent values,
+equal-channel grayscale neutral tokens,
 public-only background selectors, and rejects gradients or tinted literal
 background colors in app feature stylesheets.
 
@@ -110,8 +124,8 @@ as the application, because it does not use `AppProvider`.
 
 ## Customer workspace refinement
 
-The customer workspace restores its previous subtle blue-gray gradient while
-keeping the neutral component palette and shared public/app boundary. Case steps
+The customer workspace uses the shared white background, neutral component
+palette, and controlled blue accent within the public/app boundary. Case steps
 now appear immediately below the header progress line without a bottom divider.
 The vehicle name is centered between the Venfour logo and account controls in the
 header, without a secondary review label.
@@ -125,3 +139,21 @@ animation lifecycle with a 240ms fade and no blur, so completed animations clean
 up and replay on later section visits. Reduced-motion preferences remain honored.
 The progress line represents saved case progress, not the section currently being
 viewed; visiting an earlier section does not move saved progress backward.
+
+## Blue accent review, September 15, 2026
+
+- Reviewed customer results, report-upload and confirmation dialogs, checkout,
+  completed review, waiting state, intake, and processing in the local fictional
+  workspace preview at desktop and mobile sizes. Page backgrounds remain white;
+  the checked layouts have no horizontal overflow. Expanded market evidence also
+  fits at 320px.
+- Verified primary hover and pressed colors, neutral secondary and disabled
+  actions, selected radios and appraisal menus, and keyboard focus. Checkbox and
+  switch Space interaction remain intact. Blue on white has a 5.17:1 contrast
+  ratio; the hover color has a 6.70:1 ratio.
+- The palette contract, visual boundary, shared intake, switch, payment, and
+  decorative-hover checks pass: 88 tests. Typecheck, contract validation,
+  production build, changed-file lint, and whitespace checks pass. The existing
+  build warning about large bundles remains.
+- Payment fields were simulated; their provider appearance now receives the
+  resolved primary token. No hosted deployment or live payment was performed.

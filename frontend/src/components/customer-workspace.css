@@ -7,15 +7,10 @@ html:has([data-customer-workspace])::-webkit-scrollbar { display: revert; }
   --workspace-width: 55rem;
   --workspace-gutter: clamp(20px, 4vw, 40px);
   isolation: isolate;
-  background: #f8fafd;
+  background: var(--background);
 }
 [data-customer-workspace]::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-  background: radial-gradient(ellipse 85% 65% at 85% 0%, #eaf1fd80, transparent 75%), linear-gradient(160deg, #fbfcfe, #f6f8fc);
+  content: none;
 }
 [data-customer-workspace] .header-glass {
   background: var(--surface);
@@ -83,6 +78,7 @@ html:has([data-customer-workspace])::-webkit-scrollbar { display: revert; }
 .workspace-upload__title { font-size: 15px; font-weight: 550; color: var(--ink); }
 .workspace-upload__hint { color: var(--copy); font-size: 12px; line-height: 1.6; }
 .workspace-upload__button { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; margin-top: 8px; padding: 10px 18px; border-radius: 8px; background: var(--brand); color: white; font-size: 13px; font-weight: 550; }
+.workspace-upload:is(:hover, :active):not(:has(input:disabled)) .workspace-upload__button { background: var(--brand-strong); }
 .workspace-upload input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
 .workspace-upload:has(input:disabled) { opacity: .6; cursor: wait; }
 .workspace-upload input:disabled { cursor: wait; }

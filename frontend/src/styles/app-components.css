@@ -2,7 +2,7 @@
 :root[data-visual-system="app"] {
   color-scheme: light;
 
-  ::selection { background: #e5e5e5; color: #171717; }
+  ::selection { background: color-mix(in srgb, var(--selection) 18%, #ffffff); color: var(--ink); }
 
   .header-glass,
   [data-customer-workspace] .header-glass {
@@ -35,6 +35,34 @@
 
   [data-slot="button"] { border-radius: 4px; }
   [data-slot="button"][data-variant="link"] { color: var(--link); }
+  /* Solid primary actions share the same hover and pressed color in every flow. */
+  :is(button, a[href], [role="button"]):is(.bg-brand, .bg-primary, [data-slot="button"][data-variant="default"], .review-primary, .request-button-primary, .free-valuation-processing__retry) {
+    box-shadow: var(--shadow-sm);
+    &:is(:hover, :active):not(:disabled):not([aria-disabled="true"]):not([aria-busy="true"]) {
+      background-color: var(--brand-strong);
+      border-color: var(--brand-strong);
+    }
+    &:is(:disabled, [aria-disabled="true"]) {
+      background-color: var(--line);
+      border-color: var(--line);
+      color: var(--copy);
+      opacity: 1;
+      box-shadow: none;
+    }
+  }
+  :is(a[href], button):is(.text-brand, .text-primary, [data-slot="button"][data-variant="link"]):is(:hover, :active):not(:disabled):not([aria-disabled="true"]) {
+    color: var(--link-hover);
+  }
+
+  /* Selection gets a small marker and a faint tint, while labels stay dark. */
+  label.border:not(.bg-brand):has(> input[type="radio"]:checked:not(:disabled)) {
+    background-color: var(--selection-surface);
+    box-shadow: inset 2px 0 0 var(--selection);
+  }
+  :is(input[type="checkbox"], input[type="radio"]) { accent-color: var(--selection); }
+  [role="switch"][data-state="checked"]:is(:hover, :active):not(:disabled) { background-color: var(--brand-strong); }
+  [role="menuitem"][aria-current="page"] { background-color: var(--selection-surface); }
+
   [data-slot="button"][data-variant="destructive"] { background: var(--surface); }
   [data-slot="button"][data-variant="destructive"]:hover { background: #eeeeee; }
   [data-slot="button"]:active { transform: none; }
