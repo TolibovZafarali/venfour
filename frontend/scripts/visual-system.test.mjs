@@ -29,7 +29,7 @@ describe("workspace palette contract", () => {
     for (const selector of selectors) expect(selector).toContain(':root:not([data-visual-system="app"])');
   });
 
-  it("keeps app feature backgrounds free of gradients and tinted literal colors", () => {
+  it("keeps feature surfaces neutral and limits gradients to the glass header", () => {
     const files = [
       ...readdirSync("src/features", { recursive: true }).filter(file => file.endsWith(".css")).map(file => `src/features/${file}`),
       "src/components/customer-workspace.css",
@@ -37,7 +37,11 @@ describe("workspace palette contract", () => {
     ];
     for (const file of files) {
       const css = readFileSync(file, "utf8");
-      expect(css, file).not.toMatch(/(?:linear|radial|conic)-gradient\(/);
+      for (const gradient of css.matchAll(/(?:linear|radial|conic)-gradient\(/g)) {
+        expect(file).toBe("src/styles/app-components.css");
+        expect(gradient.index).toBeGreaterThan(css.indexOf("  .header-glass,"));
+        expect(gradient.index).toBeLessThan(css.indexOf("  .appraisal-start-gradient,"));
+      }
       for (const [, background] of css.matchAll(/background(?:-color)?:\s*([^;}]+)/g)) {
         for (const [, hex] of background.matchAll(/#([\da-f]{6,8})\b/gi)) {
           expect(hex.slice(0, 2), `${file}: ${background}`).toBe(hex.slice(2, 4));

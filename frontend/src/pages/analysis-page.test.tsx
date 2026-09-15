@@ -1120,7 +1120,7 @@ describe("analysis results page", () => {
     expect(screen.getByRole("heading", { name: "Opening your valuation" })).toBeVisible();
     expect(document.querySelector("[data-free-valuation-processing]")).not.toBeInTheDocument();
     expect(document.querySelector(".customer-workspace")).toBeInTheDocument();
-    expect(screen.getByRole("navigation", { name: "Legal" })).toBeVisible();
+    expect(screen.queryByRole("navigation", { name: "Legal" })).not.toBeInTheDocument();
   });
 
   test("shows a specific not-found state for an unknown analysis", async () => {

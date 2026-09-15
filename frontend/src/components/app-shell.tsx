@@ -274,7 +274,7 @@ function AppShellContent({ workspace, workspaceCaseId }: { workspace: boolean; w
               className={cn(
                 "mx-auto flex min-h-16 w-full items-center justify-between gap-4 px-5 py-2.5 sm:px-8",
                 workspace && "workspace-header-content",
-                analysisRoute || adminRoute
+                !appVisualSystem && (analysisRoute || adminRoute)
                   ? "max-w-[90rem] lg:px-10"
                   : "max-w-7xl",
               )}

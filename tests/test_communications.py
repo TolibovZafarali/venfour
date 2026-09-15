@@ -66,8 +66,11 @@ class EmailTemplateTests(unittest.TestCase):
 
     def test_shared_brand_matches_the_website_and_keeps_live_wordmark_text(self):
         root = Path(__file__).resolve().parents[1]
-        theme = (root / 'frontend/src/styles/index.css').read_text()
-        for email_token, site_token in [('brand', 'brand'), ('ink', 'ink'), ('body', 'copy'), ('border', 'line')]:
+        theme = (root / 'frontend/src/styles/public-tokens.css').read_text()
+        foundations = (root / 'frontend/src/styles/brand-foundations.css').read_text()
+        self.assertIn('--brand: var(--brand-blue);', theme)
+        self.assertIn(f'--brand-blue: {DESIGN["brand"]};', foundations)
+        for email_token, site_token in [('ink', 'ink'), ('body', 'copy'), ('border', 'line')]:
             self.assertIn(f'--{site_token}: {DESIGN[email_token]};', theme)
         self.assertEqual(hashlib.sha256((root / 'assets/brand/venfour-mark.svg').read_bytes()).hexdigest(), LOGO_SOURCE_SHA256)
         png = (root / 'frontend/public' / LOGO_PATH.lstrip('/')).read_bytes()

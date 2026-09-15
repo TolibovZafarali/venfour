@@ -96,8 +96,8 @@ describe("total-loss case analysis page", () => {
     expect(authorization).toBe(`Bearer access-${USER_ID}`);
     expect(submittedInput).toEqual({ expectedAnalysisInputId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", expectedAnalysisInputRevision: 1 });
     expect(screen.getByRole("banner")).toBeVisible();
-    expect(screen.getByRole("navigation", { name: "Legal" })).toBeVisible();
-    expect(screen.getByRole("contentinfo")).toBeVisible();
+    expect(screen.queryByRole("navigation", { name: "Legal" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("contentinfo")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Account for/ })).toBeVisible();
     expect(screen.getByRole("link", { name: "Venfour home" })).toBeVisible();
   });
@@ -178,7 +178,7 @@ describe("total-loss case analysis page", () => {
         name: progressHeading,
       }),
     ).toBeVisible();
-    expect(screen.getByRole("navigation", { name: "Legal" })).toBeVisible();
+    expect(screen.queryByRole("navigation", { name: "Legal" })).not.toBeInTheDocument();
     expect(
       await screen.findByRole(
         "heading",
@@ -201,7 +201,7 @@ describe("total-loss case analysis page", () => {
     expect(
       header.getByRole("button", { name: "Account for owner@example.com" }),
     ).toBeVisible();
-    expect(screen.getByRole("navigation", { name: "Legal" })).toBeVisible();
+    expect(screen.queryByRole("navigation", { name: "Legal" })).not.toBeInTheDocument();
     expect(
       screen.queryByRole("navigation", { name: "Footer navigation" }),
     ).not.toBeInTheDocument();

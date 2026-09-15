@@ -20,10 +20,6 @@ html:has([data-customer-workspace])::-webkit-scrollbar { display: revert; }
   box-shadow: none;
   backdrop-filter: none;
 }
-[data-customer-workspace] .workspace-header-content {
-  max-width: var(--workspace-width);
-  padding-inline: var(--workspace-gutter);
-}
 [data-customer-workspace] #main-content { background: transparent; }
 .customer-workspace { width: 100%; min-width: 0; max-width: var(--workspace-width); margin-inline: auto; padding: 28px var(--workspace-gutter) 40px; }
 .customer-workspace__context { flex: 1; min-width: 0; text-align: center; }

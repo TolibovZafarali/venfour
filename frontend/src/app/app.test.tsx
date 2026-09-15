@@ -1068,16 +1068,8 @@ describe("Venfour application", () => {
     expect(header.getByRole("link", { name: "Venfour home" })).toBeVisible();
     expect(header.getByRole("button", { name: "Account for ada@example.com" })).toBeVisible();
     expect(header.queryByRole("navigation")).not.toBeInTheDocument();
-    const legal = within(screen.getByRole("navigation", { name: "Legal" }));
-    expect(legal.getAllByRole("link")).toHaveLength(2);
-    expect(legal.getByRole("link", { name: "Terms" })).toHaveAttribute(
-      "href",
-      "/terms",
-    );
-    expect(legal.getByRole("link", { name: "Privacy" })).toHaveAttribute(
-      "href",
-      "/privacy",
-    );
+    expect(screen.queryByRole("navigation", { name: "Legal" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("contentinfo")).not.toBeInTheDocument();
     expect(
       screen.queryByRole("navigation", { name: "Footer navigation" }),
     ).not.toBeInTheDocument();
