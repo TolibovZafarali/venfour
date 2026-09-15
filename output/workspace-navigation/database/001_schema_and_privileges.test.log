@@ -1,0 +1,41 @@
+BEGIN
+CREATE EXTENSION
+SET
+1..36
+ok 1 - appraisal_service_type exists
+ok 2 - appraisal_service_type has the intended values
+ok 3 - appraisal_case_status exists
+ok 4 - appraisal_case_status has the intended workflow values
+ok 5 - profiles table exists
+ok 6 - appraisal_cases table exists
+ok 7 - profiles has row-level security enabled
+ok 8 - appraisal_cases has row-level security enabled
+ok 9 - cases are indexed by owner and recent activity
+ok 10 - new cases default to draft status
+ok 11 - authenticated users may update display_name
+ok 12 - authenticated users may not update profile ownership
+ok 13 - authenticated users may read case status
+ok 14 - authenticated users may not provide case status during insert
+ok 15 - authenticated users may not update case status
+ok 16 - authenticated users may provide their owner ID when creating a case
+ok 17 - authenticated users may provide service type when creating a case
+ok 18 - authenticated users may update case activity
+ok 19 - authenticated users may not transfer case ownership
+ok 20 - anonymous clients cannot read profiles
+ok 21 - anonymous clients cannot read appraisal cases
+ok 22 - the trusted service role may perform future status transitions
+ok 23 - case-files storage bucket exists
+ok 24 - case-files storage bucket is private
+ok 25 - case-files storage bucket has a 50 MiB limit
+ok 26 - case-files storage bucket accepts supported private case documents
+ok 27 - touch_appraisal_case is SECURITY INVOKER
+ok 28 - the auth user trigger is SECURITY DEFINER
+ok 29 - PUBLIC has no EXECUTE privilege on any application function
+ok 30 - anon has no EXECUTE privilege on any application function
+ok 31 - authenticated clients cannot call trigger-only functions
+ok 32 - authenticated clients may execute touch_appraisal_case
+ok 33 - the trusted service role may execute touch_appraisal_case
+ok 34 - profiles has a server timestamp trigger
+ok 35 - appraisal_cases has a server timestamp trigger
+ok 36 - new auth users receive an application profile
+ROLLBACK

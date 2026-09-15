@@ -47,6 +47,17 @@ afterEach(() => {
 });
 
 describe("free valuation processing environment", () => {
+  it("keeps account switching interactive while the underlying workspace is hidden", () => {
+    const openAccount = vi.fn();
+    render(<FreeValuationProcessingProvider accountControl={<button onClick={openAccount}>Open account</button>}>
+      <main><button>Underlying action</button><FreeValuationProcessing phase="reviewing" /></main>
+    </FreeValuationProcessingProvider>);
+    const account = screen.getByRole("button", { name: "Open account" });
+    expect(account).toBeVisible();
+    fireEvent.click(account);
+    expect(openAccount).toHaveBeenCalledOnce();
+    expect(screen.queryByRole("button", { name: "Underlying action" })).not.toBeInTheDocument();
+  });
   it("keeps the same signal field through an intake-to-analysis handoff", async () => {
     const rendered = render(<Harness />);
     const trigger = screen.getByRole("button", { name: "Review and analyze" });

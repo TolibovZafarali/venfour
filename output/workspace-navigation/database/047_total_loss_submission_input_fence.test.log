@@ -1,0 +1,34 @@
+BEGIN
+CREATE EXTENSION
+SET
+ok 1 - service worker can claim an exact input
+ok 2 - untrusted role cannot claim: anon
+ok 3 - untrusted role cannot claim: authenticated
+ok 4 - definer has empty search path
+ok 5 - confirmation permissions unchanged
+ok 6 - job RLS and direct write restriction preserved
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+{"sub":"47000000-0000-4000-8000-000000000001","role":"authenticated","is_anonymous":true}
+SET
+ok 7 - normal guest contact saves without technical facts
+ok 8 - manual basics confirm without insurer name or offer
+RESET
+ok 9 - no hidden technical or insurer facts needed
+CREATE FUNCTION
+ok 10 - stale input ID is fenced
+ok 11 - stale revision is fenced
+ok 12 - another owner cannot inspect or claim
+ok 13 - invalid revision rejected
+ok 14 - invalid and stale submissions create no job
+ok 15 - stale submissions do not mutate case
+ok 16 - exact saved input claims normally
+ok 17 - same-token ambiguous response retry is idempotent
+ok 18 - concurrent other-token caller reuses in-flight job
+ok 19 - only one job exists for input
+ok 20 - duplicate submissions do not retry analysis
+ok 21 - job uses exact confirmed input
+ok 22 - stale request cannot reenter running analysis
+1..22
+ROLLBACK

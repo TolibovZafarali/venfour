@@ -1,0 +1,127 @@
+BEGIN
+CREATE EXTENSION
+SET
+1..53
+ok 1 - private cleanup audit and scheduler-destination tables exist
+ok 2 - all cleanup and scheduler-config tables have RLS enabled
+ok 3 - the cleanup lifecycle RPC signatures are stable
+ok 4 - service_role can use only the bounded cleanup RPC surface
+ok 5 - browser roles and service_role cannot invoke internal eligibility helpers
+ok 6 - cleanup queue, audit, and scheduler config have no direct API table surface
+ok 7 - one named UTC daily cron job invokes the Vault-backed dispatcher
+ok 8 - the cron dispatcher keeps credentials in Vault and contains no service-role key
+ok 9 - the non-secret scheduler fence is pinned to the exact linked Supabase origin
+DELETE 0
+DO
+ok 10 - the scheduler rejects the correct function path on every off-project host
+DELETE 1
+DO
+ok 11 - the scheduler rejects every non-canonical path on the linked project host
+DELETE 1
+INSERT 0 14
+ALTER TABLE
+UPDATE 13
+ALTER TABLE
+INSERT 0 1
+INSERT 0 8
+INSERT 0 5
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+UPDATE 1
+ok 12 - an old anonymous user with no valuable state is eligible
+ok 13 - an old anonymous user with only an inactive Total-Loss draft is eligible
+INSERT 0 1
+ok 14 - recent private Storage activity protects an otherwise old guest draft
+SET
+DELETE 1
+SET
+ok 15 - recent Auth activity protects an anonymous user
+ok 16 - a permanent user is never eligible even when old
+ok 17 - database-authorized staff are never eligible
+ok 18 - a submitted case is never eligible
+ok 19 - a completed intake is protected even while its parent remains draft
+ok 20 - any analysis job, including processing, protects its case owner
+ok 21 - an active case-claim flow protects its guest owner
+ok 22 - a consumed ownership claim protects the source guest audit identity
+ok 23 - a transferred case retaining the guest report namespace protects that source guest
+ok 24 - an active report-upload lease is explicitly protected regardless of old detail timestamps
+SELECT 1
+CREATE TABLE
+GRANT
+SET
+INSERT 0 1
+RESET
+ok 25 - dry-run reports eligible users without marking them
+ok 26 - dry-run leaves the durable candidate queue untouched
+ok 27 - dry-run writes one bounded audit event
+SET
+INSERT 0 1
+RESET
+ok 28 - a real run marks the bounded eligible set
+ok 29 - every newly marked candidate receives at least 24 hours of grace
+UPDATE 1
+UPDATE 1
+SET
+ok 30 - claim-time revalidation returns no work after eligibility changes during grace
+RESET
+ok 31 - claim-time eligibility loss is durably cancelled and journaled
+SET
+ok 32 - no candidate can be claimed before its grace period expires
+RESET
+UPDATE 1
+CREATE TABLE AS
+GRANT
+SET
+INSERT 0 1
+RESET
+ok 33 - claim snapshots only exact canonical and backup paths in the immutable owned namespace
+ok 34 - an executing candidate is frozen against concurrent mutation
+SET
+SET
+ok 35 - the cleanup fence blocks a customer profile mutation after claim
+RESET
+ok 36 - the cleanup fence blocks permanent-identity conversion after claim
+INSERT 0 2
+SET
+ok 37 - the leased Edge workflow can durably mark Storage deletion as started
+ok 38 - Storage completion cannot advance while snapshotted or orphan objects remain
+RESET
+SET
+DELETE 1
+SET
+SET
+ok 39 - an unexpected root folder independently blocks Auth-deletion readiness
+RESET
+SET
+DELETE 1
+SET
+SET
+ok 40 - Storage can be marked deleted only after the entire candidate root is empty
+ok 41 - database completion refuses to run before Auth deletion
+RESET
+DELETE 1
+SET
+ok 42 - the audit can complete after Storage verification and Auth hard deletion
+RESET
+ok 43 - the candidate audit survives Auth and case cascades in completed state
+ok 44 - successful retirement writes exactly one completion event
+UPDATE 1
+SET
+ok 45 - an orphan Auth-only candidate enters the same Storage-first state machine
+ok 46 - an empty namespace still records the Storage phase before Auth deletion
+ok 47 - an interrupted Storage phase transitions to a durable retry state
+RESET
+ok 48 - an interrupted candidate remains frozen and safely reclaimable
+UPDATE 1
+SET
+ok 49 - a retry is reclaimed with a fresh fencing token
+ok 50 - the reclaimed lease can idempotently finish the empty Storage phase
+RESET
+DELETE 1
+SET
+ok 51 - an interrupted candidate completes normally after retry and Auth deletion
+ok 52 - the bounded cleanup run closes from its immutable event journal
+RESET
+ok 53 - finish recomputes cancellations and all terminal counters from the journal
+ROLLBACK

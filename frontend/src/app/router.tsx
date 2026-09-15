@@ -18,11 +18,11 @@ import { AuthCallbackPage } from "@/features/auth";
 import { AnalysisPage } from "@/pages/analysis-page";
 import { AdminDiminishedValueCasePage } from "@/pages/admin-diminished-value-case-page";
 import { AdminDiminishedValueQueuePage } from "@/pages/admin-diminished-value-queue-page";
-import { AppraisalsPage } from "@/pages/appraisals-page";
 import { AppraisalStartPage } from "@/pages/appraisal-start-page";
 import { ContactPage } from "@/pages/contact-page";
 import { CookiePolicyPage } from "@/pages/cookie-policy-page";
 import { AppEntryPage } from "@/pages/app-entry-page";
+import { AppraisalResumePage } from "@/pages/appraisal-resume-page";
 import { HomePage } from "@/pages/home-page";
 import { MethodologyPage } from "@/pages/methodology-page";
 import { NotFoundPage } from "@/pages/not-found-page";
@@ -63,7 +63,8 @@ const combinedRoutes: RouteObject[] = [
     element: <AppShell />,
     errorElement: <RouteErrorPage />,
     children: [
-      { path: "app", element: <AppEntryPage />, handle: metadata("Your Workspace | Venfour", "Resume your saved review or open your appraisal history.") },
+      { path: "app", element: <AppEntryPage />, handle: metadata("Your Workspace | Venfour", "Resume your saved appraisal.") },
+      { path: "total-loss/cases/:caseId", element: <AppraisalResumePage />, handle: metadata("Your Appraisal | Venfour", "Resume your saved appraisal.") },
       ...(import.meta.env.DEV ? [{
         path: "_local/status-experience",
         lazy: async () => ({ Component: (await import("@/pages/local-status-experience-page")).LocalStatusExperiencePage }),
@@ -104,9 +105,9 @@ const combinedRoutes: RouteObject[] = [
       },
       {
         path: "appraisals",
-        element: <AppraisalsPage />,
+        element: <AppEntryPage />,
         handle: metadata(
-          "My Appraisals | Venfour",
+          "Your Appraisal | Venfour",
           "Continue saved vehicle-review requests, follow total-loss value checks, and reopen completed results.",
         ),
       },

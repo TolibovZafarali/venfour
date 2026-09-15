@@ -1,0 +1,41 @@
+BEGIN
+CREATE EXTENSION
+SET
+SET
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+INSERT 0 2
+54100000-0000-4000-8000-000000000001
+ok 1 - an ordinary owner remains a customer
+ok 2 - zero cases remain empty after navigation
+ok 3 - internal list is not browser callable
+ok 4 - unauthenticated list access is denied
+ok 5 - unauthenticated role lookup is denied
+CREATE TABLE
+INSERT 0 3
+ok 6 - all owned appraisals are available to the switcher
+ok 7 - other owners are excluded
+ok 8 - vehicle identity and report continuation are projected
+ok 9 - prepared review remains a report workspace before checkout
+ok 10 - unfinished upload is resumed
+ok 11 - navigation never grants manual payment approval
+CREATE FUNCTION
+SELECT 1
+2
+2
+customer
+ok 12 - opening and reopening leaves every public table byte-identical
+ok 13 - manual first-payment supervision remains required
+ok 14 - no checkout or payment created
+INSERT 0 1
+ok 15 - database membership selects staff destination
+DELETE 1
+ok 16 - revocation takes effect with the same token
+UPDATE 1
+ok 17 - browser metadata cannot select staff access
+54100000-0000-4000-8000-000000000002
+ok 18 - switching owner exposes only the new account
+ok 19 - previous owner data cannot be fetched
+1..19
+ROLLBACK

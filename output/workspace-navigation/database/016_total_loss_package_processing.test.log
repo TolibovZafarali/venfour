@@ -1,0 +1,67 @@
+BEGIN
+CREATE EXTENSION
+SET
+1..50
+ok 1 - durable work items and immutable commercial source snapshots exist
+ok 2 - final assessments carry frozen-source lineage and package jobs expose M4 states
+ok 3 - both private processing tables have RLS enabled
+ok 4 - private processing tables expose no browser policy
+ok 5 - workers can inspect private rows but all processing writes remain RPC-only
+ok 6 - the exact narrow package-processing RPC surface exists
+ok 7 - all package-processing RPCs are security-definer functions with empty search paths
+ok 8 - only service_role can execute authoritative package mutations
+ok 9 - durable terminal state and frozen evidence are trigger-protected
+INSERT 0 1
+CREATE FUNCTION
+
+
+
+
+UPDATE 1
+UPDATE 1
+SET
+ok 10 - an unknown entitlement creates no package or work item
+ok 11 - a suspended entitlement cannot create package work
+ok 12 - suspended entitlement rejection leaves no package job
+ok 13 - a revoked entitlement cannot create package work
+ok 14 - revoked entitlement rejection leaves no package job
+ok 15 - eligible paid entitlement atomically enqueues one package and work item
+ok 16 - enqueue commits the package, outbox work, and dedicated workflow pointer together
+ok 17 - enqueue replay returns the existing identities without duplicate work
+ok 18 - dispatcher reserves one due item under a bounded dispatch token
+ok 19 - dispatch acknowledgement releases only the winning dispatch fence
+ok 20 - claim atomically establishes matching work-item and package-job leases
+ok 21 - same-token claim replay preserves the existing lease and attempt number
+ok 22 - a competing claim observes busy state and the winning processing token
+ok 23 - stale workers cannot resolve source context
+ok 24 - source context returns the exact product and current analysis-input lineage
+ok 25 - manual source context contains confirmed facts but no report or prior freeze
+ok 26 - worker-selected stable source UUID and full canonical JSON are sealed together
+ok 27 - sealed source preserves its embedded identity and advances only the package lease
+ok 28 - crash-after-source replay reloads the exact immutable canonical source object
+ok 29 - exact source-seal replay returns the existing row
+ok 30 - conflicting source replay fails closed
+ok 31 - one assessment is persisted under the current source and worker fences
+ok 32 - assessment relational and embedded source lineage agree
+ok 33 - exact assessment replay returns the existing immutable assessment
+ok 34 - conflicting assessment replay fails closed
+ok 35 - winning worker atomically completes the assessed package
+ok 36 - completion terminalizes both records, advances workflow, and audits one event
+ok 37 - exact terminal completion replay succeeds without another transition
+ok 38 - a stale token cannot overwrite completed terminal state
+ok 39 - a second paid entitlement gets an independent durable work item
+ok 40 - worker can directly claim an independently delivered queued task
+ok 41 - bounded review-required failure is durably recorded under the winning fence
+ok 42 - review failure terminalizes execution and advances only the dedicated workflow
+ok 43 - exact failure replay is idempotent
+ok 44 - stale worker cannot replay another worker terminal failure
+ok 45 - service role cannot bypass source-snapshot RPC mutations
+RESET
+ok 46 - frozen source JSON cannot be rewritten even by a table owner
+ok 47 - final assessment JSON cannot be rewritten even by a table owner
+SET
+SET
+ok 48 - owner-safe resume projection follows completed M4 workflow instead of regressing to purchase_complete
+ok 49 - owner-safe resume projection exposes the package review boundary without work internals
+ok 50 - authenticated customers cannot read private orchestration rows
+ROLLBACK

@@ -1,0 +1,52 @@
+BEGIN
+CREATE EXTENSION
+SET
+ok 1 - analysis evidence has RLS
+ok 2 - no browser evidence policy exists
+ok 3 - customers cannot read raw evidence
+ok 4 - workers cannot bypass evidence RPCs
+ok 5 - customers cannot complete report analysis
+ok 6 - trusted workers can complete report analysis
+SELECT 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+CREATE FUNCTION
+CREATE FUNCTION
+ok 7 - stale worker cannot persist evidence
+ok 8 - stale attempt creates no evidence
+ok 9 - invalid evidence rolls back the entire completion
+ok 10 - failed evidence leaves analysis processing
+ok 11 - failed evidence creates no orphan analysis
+ok 12 - valid analysis and evidence commit together
+ok 13 - analysis completed
+ok 14 - evidence provenance is explicit
+ok 15 - report evidence does not fabricate customer confirmation
+ok 16 - identical completion replay is idempotent
+ok 17 - changed evidence cannot overwrite a completed run
+ok 18 - evidence is immutable
+ok 19 - evidence cannot be deleted
+ok 20 - owned read returns exact evidence
+ok 21 - wrong owner cannot read evidence
+SELECT 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+CREATE FUNCTION
+ok 22 - a second original cannot duplicate a paid package
+ok 23 - unrelated failed packages cannot authorize recovery
+ok 24 - verified report evidence permits a successor
+ok 25 - only one successor can replace a failed attempt
+ok 26 - the original failure remains immutable
+ok 27 - successor identity is immutable
+UPDATE 1
+ok 28 - duplicate enqueue resumes the current successor
+ok 29 - successor has exactly one durable work item
+ok 30 - recovery does not create another payment
+ok 31 - recovery reuses the existing entitlement
+1..31
+ROLLBACK

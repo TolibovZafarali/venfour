@@ -1,0 +1,107 @@
+BEGIN
+CREATE EXTENSION
+SET
+INSERT 0 1
+INSERT 0 2
+INSERT 0 2
+INSERT 0 1
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+ok 1 - aggregate column exists
+ok 2 - RLS preserved
+ok 3 - no direct journal access for anon
+ok 4 - no direct journal access for authenticated
+ok 5 - no direct journal access for service_role
+ok 6 - worker RPC enabled
+ok 7 - RPC denied for anon
+ok 8 - RPC denied for authenticated
+ok 9 - definer search path and lock timeout hardened
+ok 10 - closed summary accepted
+ok 11 - malformed outer structure rejected
+ok 12 - malformed outer structure rejected
+ok 13 - malformed outer structure rejected
+ok 14 - malformed outer structure rejected
+ok 15 - malformed outer structure rejected
+ok 16 - unknown content key rejected: vin
+ok 17 - unknown content key rejected: price
+ok 18 - unknown content key rejected: dealer
+ok 19 - unknown content key rejected: payload
+ok 20 - unknown content key rejected: headers
+ok 21 - unknown content key rejected: rawResponse
+ok 22 - unknown content key rejected: listing
+ok 23 - required field rejected when missing: kind
+ok 24 - required field rejected when missing: stream
+ok 25 - required field rejected when missing: purpose
+ok 26 - required field rejected when missing: version
+ok 27 - required field rejected when missing: centerId
+ok 28 - required field rejected when missing: pageStart
+ok 29 - required field rejected when missing: stopReason
+ok 30 - required field rejected when missing: tierCounts
+ok 31 - required field rejected when missing: returnedRows
+ok 32 - required field rejected when missing: newIdentities
+ok 33 - required field rejected when missing: requestedRows
+ok 34 - required field rejected when missing: scoringCompleted
+ok 35 - required field rejected when missing: baselineCandidates
+ok 36 - required field rejected when missing: distinctIdentities
+ok 37 - required field rejected when missing: rejectedByCategory
+ok 38 - required field rejected when missing: screenedCandidates
+ok 39 - required field rejected when missing: recordedObservations
+ok 40 - required field rejected when missing: duplicateObservations
+ok 41 - required field rejected when missing: parseableObservations
+ok 42 - required field rejected when missing: requestAttemptsConsumed
+ok 43 - required field rejected when missing: unidentifiedObservations
+ok 44 - required field rejected when missing: historyVerificationNecessary
+ok 45 - null field rejected: kind
+ok 46 - null field rejected: stream
+ok 47 - null field rejected: purpose
+ok 48 - null field rejected: version
+ok 49 - null field rejected: centerId
+ok 50 - null field rejected: pageStart
+ok 51 - null field rejected: stopReason
+ok 52 - null field rejected: tierCounts
+ok 53 - null field rejected: returnedRows
+ok 54 - null field rejected: newIdentities
+ok 55 - null field rejected: requestedRows
+ok 56 - null field rejected: scoringCompleted
+ok 57 - null field rejected: baselineCandidates
+ok 58 - null field rejected: distinctIdentities
+ok 59 - null field rejected: rejectedByCategory
+ok 60 - null field rejected: screenedCandidates
+ok 61 - null field rejected: recordedObservations
+ok 62 - null field rejected: duplicateObservations
+ok 63 - null field rejected: parseableObservations
+ok 64 - null field rejected: requestAttemptsConsumed
+ok 65 - null field rejected: unidentifiedObservations
+ok 66 - null field rejected: historyVerificationNecessary
+ok 67 - invalid bounds and categories rejected
+ok 68 - invalid bounds and categories rejected
+ok 69 - invalid bounds and categories rejected
+ok 70 - invalid bounds and categories rejected
+ok 71 - invalid bounds and categories rejected
+ok 72 - invalid bounds and categories rejected
+ok 73 - invalid bounds and categories rejected
+ok 74 - invalid bounds and categories rejected
+ok 75 - invalid bounds and categories rejected
+ok 76 - invalid bounds and categories rejected
+ok 77 - invalid bounds and categories rejected
+ok 78 - no unexecuted batch summary
+ok 79 - batch begins
+ok 80 - incomplete batch cannot receive summary
+ok 81 - batch completion acknowledged
+ok 82 - aggregate save succeeds
+ok 83 - identical aggregate write is idempotent
+ok 84 - only reviewed aggregate persisted
+ok 85 - raw evidence rejected by RPC
+ok 86 - summary accounting must equal operation ledger snapshot
+ok 87 - other executor fenced
+ok 88 - stale token fenced
+ok 89 - operation identity fenced
+ok 90 - final stage reason can be recorded
+ok 91 - summary never authorizes repeating completed provider work
+ok 92 - no retained provider checkpoint
+UPDATE 1
+ok 93 - journal survives terminal failure
+ok 94 - terminal job cannot overwrite journal
+1..94
+ROLLBACK

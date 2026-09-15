@@ -1,0 +1,64 @@
+BEGIN
+CREATE EXTENSION
+SET
+SET
+1..29
+INSERT 0 2
+INSERT 0 2
+ok 1 - the auth trigger creates one profile per new user
+SET
+SET
+ok 2 - user one can read only their own cases
+SET
+ok 3 - user two can read only their own cases
+SET
+ok 4 - an authenticated customer can create their own case
+ok 5 - a browser-created case receives the server default draft status
+ok 6 - a customer cannot create a case for another user
+ok 7 - a browser client cannot provide status during case creation
+ok 8 - a browser client cannot update case status
+ok 9 - a browser client cannot transfer case ownership
+ok 10 - a customer can update their own display name
+ok 11 - a cross-user profile update is safely reduced to no rows
+RESET
+ok 12 - a customer cannot alter another customer profile
+SET
+SET
+ok 13 - touch_appraisal_case accepts an owned case
+RESET
+ok 14 - touch_appraisal_case uses database time for the owned case
+SET
+SET
+ok 15 - touch_appraisal_case does not return or update an unowned case
+RESET
+SET
+ok 16 - a trusted service workflow can transition status
+RESET
+ok 17 - the trusted status transition is persisted
+SET
+ok 18 - anonymous clients cannot query customer cases
+RESET
+INSERT 0 1
+SET
+SET
+ok 19 - a customer cannot add an arbitrary file below an owned Total-Loss case path
+RESET
+INSERT 0 1
+SET
+SET
+ok 20 - a customer can read their owned case file
+ok 21 - a customer cannot write into another user namespace
+ok 22 - a customer cannot write below a case they do not own
+ok 23 - a storage object path must include an owned case ID
+ok 24 - a cross-boundary move attempt against a non-reserved legacy object safely affects no rows
+SET
+ok 25 - another customer cannot see the first customer file
+ok 26 - another customer delete attempt is safely reduced to no rows
+RESET
+ok 27 - another customer cannot delete the first customer file
+SET
+SET
+ok 28 - an owner delete attempt against a non-reserved legacy object safely affects no rows
+RESET
+ok 29 - non-reserved legacy Total-Loss objects are immutable to browser clients
+ROLLBACK

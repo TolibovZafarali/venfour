@@ -1,0 +1,147 @@
+BEGIN
+CREATE EXTENSION
+SET
+1..55
+INSERT 0 2
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+UPDATE 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+UPDATE 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+UPDATE 1
+UPDATE 1
+ok 1 - only authenticated customers receive the insurer-response RPC surface
+SET
+e1000000-0000-4000-8000-000000000001
+authenticated
+ok 2 - response uploads are capped at ten MiB
+SELECT 1
+ok 3 - prepare returns an exact owner namespace permit and creates one pending document
+ok 4 - prepare replays before applying a stale workflow revision fence
+ok 5 - storage rejects metadata that differs from the exact pending permit
+ok 6 - recording rejects a prepared upload whose object never completed
+ok 7 - recording rejects multiline whitespace without response material
+ok 8 - recording rejects vertical-tab and form-feed controls even when an offer is present
+ok 9 - recording rejects revised offers outside the shared JSON safe-integer boundary
+RESET
+ok 10 - a failed upload leaves the durable workflow waiting and creates no response
+UPDATE 1
+SET
+SELECT 1
+ok 11 - text-only intake returns the exact pending response projection without an offer
+RESET
+ok 12 - text intake atomically confirms communication, advances round and workflow, and records a digest event
+SET
+ok 13 - an identical finalization replays before applying a stale revision fence
+ok 14 - the same client request identity rejects a different normalized payload
+SELECT 1
+ok 15 - a correction can prepare one new attachment while the response remains unprocessed
+ok 16 - preflight rejects a declared content length that differs from the exact permit
+ok 17 - preflight rejects a request MIME type that differs from the exact permit
+ok 18 - preflight rejects missing content length metadata
+ok 19 - preflight rejects a text content length instead of coercing it to a number
+ok 20 - completed-object size metadata cannot stand in for preflight content length
+ok 21 - preflight rejects a path and document identity outside the exact permit
+e1000000-0000-4000-8000-000000000002
+ok 22 - another authenticated owner cannot use an exact preflight permit
+e1000000-0000-4000-8000-000000000001
+ok 23 - the exact pending row, path, preflight content length, and user metadata authorize one upload
+RESET
+UPDATE 1
+SET
+e1000000-0000-4000-8000-000000000001
+ok 24 - preflight success cannot bypass the completed object size check at sealing
+RESET
+UPDATE 1
+SET
+e1000000-0000-4000-8000-000000000001
+ok 25 - completed object metadata with a changed digest remains blocked at sealing
+RESET
+UPDATE 1
+UPDATE 1
+SET
+SELECT 1
+ok 26 - an uploaded correction returns its sealed document, report-derived USD offer, and response lineage
+RESET
+ok 27 - uploaded correction seals after lease expiry and preserves both response versions with one current offer
+SET
+ok 28 - a sealed exact upload replay remains read-only after its lease has expired
+SELECT 1
+ok 29 - response objects cannot be updated after upload
+SET
+SELECT 1
+ok 30 - a ready insurer-response object cannot be deleted
+ok 31 - the secured resolver exposes the exact current owner-safe response and resumes pending work at Reviewing response
+SELECT 1
+ok 32 - a later correction can retain the prior ready document while removing a wrongly recorded offer
+RESET
+ok 33 - correction history retains all communications, attachment evidence, and the superseded offer fact
+SET
+ok 34 - the resolver selects the unsuperseded correction rather than stale response material
+ok 35 - an older accepted request replays its immutable response identity and original workflow revision after later corrections
+CREATE TABLE
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+ok 36 - a case owner cannot reserve unbounded incomplete response upload paths
+RESET
+ok 37 - the exact ten MiB boundary is accepted while the case remains capped at five pending permits
+UPDATE 6
+SET
+ok 38 - an expired permit cannot authorize an object insert even with exact metadata
+ok 39 - expiry retains the request tombstone and rejects a changed content digest
+ok 40 - five abandoned expired permits no longer block preparation of a new request
+ok 41 - an interrupted exact retry renews its original request and preserves stale-revision replay
+ok 42 - a renewed interrupted request can upload under the same exact storage identity
+RESET
+UPDATE 1
+ok 43 - recovery retains expired identities and sealed submitted originals while bounding active leases
+SET
+{"byteSize": 10, "mediaType": "application/pdf", "documentId": "a7000000-0000-4000-8000-000000000001", "uploadPath": "e1000000-0000-4000-8000-000000000001/e2000000-0000-4000-8000-000000000001/insurer-responses/a7000000-0000-4000-8000-000000000001.pdf", "contentDigest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd", "originalFilename": "pending-2.pdf"}
+{"byteSize": 10, "mediaType": "application/pdf", "documentId": "a8000000-0000-4000-8000-000000000001", "uploadPath": "e1000000-0000-4000-8000-000000000001/e2000000-0000-4000-8000-000000000001/insurer-responses/a8000000-0000-4000-8000-000000000001.pdf", "contentDigest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd", "originalFilename": "pending-3.pdf"}
+{"byteSize": 10, "mediaType": "application/pdf", "documentId": "a9000000-0000-4000-8000-000000000001", "uploadPath": "e1000000-0000-4000-8000-000000000001/e2000000-0000-4000-8000-000000000001/insurer-responses/a9000000-0000-4000-8000-000000000001.pdf", "contentDigest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd", "originalFilename": "pending-4.pdf"}
+ok 44 - an already-active exact request can replay when five permits are active
+ok 45 - an expired request cannot renew into a sixth active permit
+RESET
+UPDATE 1
+SET
+ok 46 - exact pending retries recheck current entitlement before extending authorization
+RESET
+UPDATE 1
+UPDATE 1
+SET
+ok 47 - exact pending retries do not renew after the workflow leaves response intake
+RESET
+UPDATE 1
+ok 48 - repeated abandonment across expiry windows never permanently exhausts upload capacity
+ok 49 - repeated recovery never deletes submitted originals or incomplete uploaded objects
+SET
+e1000000-0000-4000-8000-000000000002
+ok 50 - another owner cannot renew an expired exact request identity
+ok 51 - another authenticated account cannot prepare an owner response upload
+ok 52 - another authenticated account cannot append a correction
+ok 53 - another account cannot resolve the owner case or response identity
+ok 54 - another account cannot read the owner response object
+RESET
+UPDATE 1
+SET
+e1000000-0000-4000-8000-000000000001
+ok 55 - account-mismatch recovery remains neutral and withholds response identity and saved email
+ROLLBACK

@@ -1,0 +1,417 @@
+[
+  {
+    "digest": "a34f493e2263d40a7ffdee0771749a03",
+    "rows": 9,
+    "table": "auth.identities"
+  },
+  {
+    "digest": "8b754dad5e6f44dfe02010d45c42e85c",
+    "rows": 24,
+    "table": "auth.users"
+  },
+  {
+    "digest": "8fbfa2642d9187d6aeb6b8d28311179a",
+    "rows": 13,
+    "table": "public.analysis_runs"
+  },
+  {
+    "digest": "d41d8cd98f00b204e9800998ecf8427e",
+    "rows": 0,
+    "table": "public.anonymous_guest_cleanup_candidates"
+  },
+  {
+    "digest": "4158b536854bd261eaa80b89d64dc4a0",
+    "rows": 26,
+    "table": "public.anonymous_guest_cleanup_events"
+  },
+  {
+    "digest": "68fe5cd0c1f82e55a196d24c339b0a25",
+    "rows": 26,
+    "table": "public.anonymous_guest_cleanup_runs"
+  },
+  {
+    "digest": "644a9dbd04f678220ab1a1d79a344df5",
+    "rows": 1,
+    "table": "public.anonymous_guest_cleanup_scheduler_config"
+  },
+  {
+    "digest": "6e8a6493389a3283292d4d1d7873165f",
+    "rows": 24,
+    "table": "public.appraisal_cases"
+  },
+  {
+    "digest": "d41d8cd98f00b204e9800998ecf8427e",
+    "rows": 0,
+    "table": "public.case_entitlements"
+  },
+  {
+    "digest": "15dd80d2a4d6b7181e00efcba02552c0",
+    "rows": 3,
+    "table": "public.checkout_attempts"
+  },
+  {
+    "digest": "d41d8cd98f00b204e9800998ecf8427e",
+    "rows": 0,
+    "table": "public.commerce_disputes"
+  },
+  {
+    "digest": "caeb8482f4d67a5907529cd066a9b2f2",
+    "rows": 3,
+    "table": "public.commerce_orders"
+  },
+  {
+    "digest": "d41d8cd98f00b204e9800998ecf8427e",
+    "rows": 0,
+    "table": "public.commerce_refund_requests"
+  },
+  {
+    "digest": "0cff3b8873d24dbf5c67776580ee246d",
+    "rows": 1,
+    "table": "public.diminished_value_case_details"
+  },
+  {
+    "digest": "d41d8cd98f00b204e9800998ecf8427e",
+    "rows": 0,
+    "table": "public.market_fact_cache"
+  },
+  {
+    "digest": "c29c528bdebe019062288c3237a82b30",
+    "rows": 1,
+    "table": "public.market_request_accounts"
+  },
+  {
+    "digest": "c32c4a0bfa2199d26227bb994803a23f",
+    "rows": 63,
+    "table": "public.market_request_attempts"
+  },
+  {
+    "digest": "00ad27a408df152f3cf6ead3e2004f34",
+    "rows": 9,
+    "table": "public.market_request_cases"
+  },
+  {
+    "digest": "d41d8cd98f00b204e9800998ecf8427e",
+    "rows": 0,
+    "table": "public.payment_transactions"
+  },
+  {
+    "digest": "f78b4b9c7b32fb3cd50f7675775610da",
+    "rows": 24,
+    "table": "public.profiles"
+  },
+  {
+    "digest": "d41d8cd98f00b204e9800998ecf8427e",
+    "rows": 0,
+    "table": "public.referral_case_attributions"
+  },
+  {
+    "digest": "d41d8cd98f00b204e9800998ecf8427e",
+    "rows": 0,
+    "table": "public.referral_order_attributions"
+  },
+  {
+    "digest": "d41d8cd98f00b204e9800998ecf8427e",
+    "rows": 0,
+    "table": "public.referral_partner_agreements"
+  },
+  {
+    "digest": "d41d8cd98f00b204e9800998ecf8427e",
+    "rows": 0,
+    "table": "public.referral_partner_events"
+  },
+  {
+    "digest": "d41d8cd98f00b204e9800998ecf8427e",
+    "rows": 0,
+    "table": "public.referral_partner_invitations"
+  },
+  {
+    "digest": "d41d8cd98f00b204e9800998ecf8427e",
+    "rows": 0,
+    "table": "public.referral_partner_jobs"
+  },
+  {
+    "digest": "d41d8cd98f00b204e9800998ecf8427e",
+    "rows": 0,
+    "table": "public.referral_partner_links"
+  },
+  {
+    "digest": "d41d8cd98f00b204e9800998ecf8427e",
+    "rows": 0,
+    "table": "public.referral_partner_managers"
+  },
+  {
+    "digest": "d41d8cd98f00b204e9800998ecf8427e",
+    "rows": 0,
+    "table": "public.referral_partner_requests"
+  },
+  {
+    "digest": "d41d8cd98f00b204e9800998ecf8427e",
+    "rows": 0,
+    "table": "public.referral_partner_signatures"
+  },
+  {
+    "digest": "d41d8cd98f00b204e9800998ecf8427e",
+    "rows": 0,
+    "table": "public.referral_partner_templates"
+  },
+  {
+    "digest": "d41d8cd98f00b204e9800998ecf8427e",
+    "rows": 0,
+    "table": "public.referral_partners"
+  },
+  {
+    "digest": "d41d8cd98f00b204e9800998ecf8427e",
+    "rows": 0,
+    "table": "public.referral_purchase_conversions"
+  },
+  {
+    "digest": "e707aa68c1b7a2cc382ec21ed199b48b",
+    "rows": 1,
+    "table": "public.staff_members"
+  },
+  {
+    "digest": "85783fba8057d71269c12201926bc66f",
+    "rows": 3,
+    "table": "public.stripe_webhook_events"
+  },
+  {
+    "digest": "d41d8cd98f00b204e9800998ecf8427e",
+    "rows": 0,
+    "table": "public.total_loss_ai_review_runs"
+  },
+  {
+    "digest": "5c7445b4907d9c1500af888fb839f1f3",
+    "rows": 20,
+    "table": "public.total_loss_analysis_jobs"
+  },
+  {
+    "digest": "d41d8cd98f00b204e9800998ecf8427e",
+    "rows": 0,
+    "table": "public.total_loss_analysis_report_evidence"
+  },
+  {
+    "digest": "6e47d4b39bd2b01c9a88ce19469127ba",
+    "rows": 3,
+    "table": "public.total_loss_case_access_recovery_rate_limits"
+  },
+  {
+    "digest": "d3aec7cf3ec4ce2a7b4227b39529b36f",
+    "rows": 16,
+    "table": "public.total_loss_case_contacts"
+  },
+  {
+    "digest": "fa0979a7dea2f3587514e447ab7d22a5",
+    "rows": 19,
+    "table": "public.total_loss_case_details"
+  },
+  {
+    "digest": "e323c705cc43456803bc398330e9e360",
+    "rows": 18,
+    "table": "public.total_loss_case_identity_claims"
+  },
+  {
+    "digest": "ba5d139b46bbfddcf5f0b3ba58544eae",
+    "rows": 3,
+    "table": "public.total_loss_checkout_review_reports"
+  },
+  {
+    "digest": "d41d8cd98f00b204e9800998ecf8427e",
+    "rows": 0,
+    "table": "public.total_loss_claim_documents"
+  },
+  {
+    "digest": "ce2eaf89b9503873c0c3f5cac89b3333",
+    "rows": 3,
+    "table": "public.total_loss_claim_workflows"
+  },
+  {
+    "digest": "d41d8cd98f00b204e9800998ecf8427e",
+    "rows": 0,
+    "table": "public.total_loss_communication_documents"
+  },
+  {
+    "digest": "d41d8cd98f00b204e9800998ecf8427e",
+    "rows": 0,
+    "table": "public.total_loss_communications"
+  },
+  {
+    "digest": "d41d8cd98f00b204e9800998ecf8427e",
+    "rows": 0,
+    "table": "public.total_loss_education_progress"
+  },
+  {
+    "digest": "d41d8cd98f00b204e9800998ecf8427e",
+    "rows": 0,
+    "table": "public.total_loss_fact_assertions"
+  },
+  {
+    "digest": "d41d8cd98f00b204e9800998ecf8427e",
+    "rows": 0,
+    "table": "public.total_loss_final_assessments"
+  },
+  {
+    "digest": "d41d8cd98f00b204e9800998ecf8427e",
+    "rows": 0,
+    "table": "public.total_loss_follow_up_generation_blocks"
+  },
+  {
+    "digest": "d41d8cd98f00b204e9800998ecf8427e",
+    "rows": 0,
+    "table": "public.total_loss_follow_up_sources"
+  },
+  {
+    "digest": "d41d8cd98f00b204e9800998ecf8427e",
+    "rows": 0,
+    "table": "public.total_loss_full_review_assessments"
+  },
+  {
+    "digest": "8240cd05c1835d435f1a850411f62989",
+    "rows": 5,
+    "table": "public.total_loss_full_review_reports"
+  },
+  {
+    "digest": "d41d8cd98f00b204e9800998ecf8427e",
+    "rows": 0,
+    "table": "public.total_loss_insurer_response_analysis_jobs"
+  },
+  {
+    "digest": "d41d8cd98f00b204e9800998ecf8427e",
+    "rows": 0,
+    "table": "public.total_loss_insurer_response_analysis_results"
+  },
+  {
+    "digest": "d41d8cd98f00b204e9800998ecf8427e",
+    "rows": 0,
+    "table": "public.total_loss_insurer_response_analysis_runs"
+  },
+  {
+    "digest": "d41d8cd98f00b204e9800998ecf8427e",
+    "rows": 0,
+    "table": "public.total_loss_insurer_response_decisions"
+  },
+  {
+    "digest": "d41d8cd98f00b204e9800998ecf8427e",
+    "rows": 0,
+    "table": "public.total_loss_insurer_response_document_extractions"
+  },
+  {
+    "digest": "d41d8cd98f00b204e9800998ecf8427e",
+    "rows": 0,
+    "table": "public.total_loss_insurer_response_upload_sources"
+  },
+  {
+    "digest": "4b12c9c925a30754b95bff23608ea469",
+    "rows": 51,
+    "table": "public.total_loss_market_search_journal"
+  },
+  {
+    "digest": "d41d8cd98f00b204e9800998ecf8427e",
+    "rows": 0,
+    "table": "public.total_loss_market_search_progress"
+  },
+  {
+    "digest": "d41d8cd98f00b204e9800998ecf8427e",
+    "rows": 0,
+    "table": "public.total_loss_message_drafts"
+  },
+  {
+    "digest": "d41d8cd98f00b204e9800998ecf8427e",
+    "rows": 0,
+    "table": "public.total_loss_message_versions"
+  },
+  {
+    "digest": "d41d8cd98f00b204e9800998ecf8427e",
+    "rows": 0,
+    "table": "public.total_loss_negotiation_rounds"
+  },
+  {
+    "digest": "d41d8cd98f00b204e9800998ecf8427e",
+    "rows": 0,
+    "table": "public.total_loss_offers"
+  },
+  {
+    "digest": "d41d8cd98f00b204e9800998ecf8427e",
+    "rows": 0,
+    "table": "public.total_loss_package_jobs"
+  },
+  {
+    "digest": "d41d8cd98f00b204e9800998ecf8427e",
+    "rows": 0,
+    "table": "public.total_loss_payment_approval_decisions"
+  },
+  {
+    "digest": "bc226def78d4660a6274e7028aefd815",
+    "rows": 1,
+    "table": "public.total_loss_payment_approval_settings"
+  },
+  {
+    "digest": "d11395620bc128e1391233a3693c2900",
+    "rows": 3,
+    "table": "public.total_loss_preliminary_snapshots"
+  },
+  {
+    "digest": "47bb68d72df24376134e157e012c23ab",
+    "rows": 3,
+    "table": "public.total_loss_preview_emails"
+  },
+  {
+    "digest": "d41d8cd98f00b204e9800998ecf8427e",
+    "rows": 0,
+    "table": "public.total_loss_recommendations"
+  },
+  {
+    "digest": "d41d8cd98f00b204e9800998ecf8427e",
+    "rows": 0,
+    "table": "public.total_loss_release_reviews"
+  },
+  {
+    "digest": "f422909bcfe2058022e984e263f02b16",
+    "rows": 2,
+    "table": "public.total_loss_report_extractions"
+  },
+  {
+    "digest": "d41d8cd98f00b204e9800998ecf8427e",
+    "rows": 0,
+    "table": "public.total_loss_report_series"
+  },
+  {
+    "digest": "d41d8cd98f00b204e9800998ecf8427e",
+    "rows": 0,
+    "table": "public.total_loss_report_versions"
+  },
+  {
+    "digest": "d41d8cd98f00b204e9800998ecf8427e",
+    "rows": 0,
+    "table": "public.total_loss_sending_details"
+  },
+  {
+    "digest": "d41d8cd98f00b204e9800998ecf8427e",
+    "rows": 0,
+    "table": "public.total_loss_source_snapshots"
+  },
+  {
+    "digest": "90b44a21f1692c16b96e90e40d69ff73",
+    "rows": 3,
+    "table": "public.total_loss_workflow_events"
+  },
+  {
+    "digest": "19837de316a7f9f07a188512935bb81d",
+    "rows": 2,
+    "table": "public.vehicle_trim_cache"
+  },
+  {
+    "digest": "01ec0917b1fc5228410ba49c652b39b7",
+    "rows": 1,
+    "table": "public.workflow_work_items"
+  },
+  {
+    "digest": "2b222015f9401ac070f0b27c8c7abc78",
+    "rows": 3,
+    "table": "storage.buckets"
+  },
+  {
+    "digest": "f30c45c458b2a7f8578ae546b6a2c0f4",
+    "rows": 6,
+    "table": "storage.objects"
+  }
+]

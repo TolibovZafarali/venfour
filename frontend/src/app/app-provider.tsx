@@ -6,6 +6,7 @@ import type { RouterProviderProps } from "react-router";
 
 import { BlueButtonHover } from "@/components/ui/blue-button-hover";
 import { publicSiteOnly } from "@/config/public-site";
+import { clearAutomaticSubmissionRequests } from "@/features/analyses/case-analysis-queries";
 
 import {
   AdminCaseOperationsDependenciesProvider,
@@ -174,6 +175,7 @@ export function AppProvider({
         previousUserId &&
         previousUserId !== nextUserId
       ) {
+        clearAutomaticSubmissionRequests();
         queueMicrotask(() => {
           queryClient.removeQueries({
             queryKey: appraisalCaseQueryKeys.user(previousUserId),

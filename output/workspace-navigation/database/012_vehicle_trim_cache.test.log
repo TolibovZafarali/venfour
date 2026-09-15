@@ -1,0 +1,38 @@
+BEGIN
+CREATE EXTENSION
+SET
+1..26
+ok 1 - the persistent vehicle trim cache exists
+ok 2 - the cache stores only its bounded lookup, result, claim, and timestamp fields
+ok 3 - row level security is enabled on the private cache
+ok 4 - the private cache has no browser-facing RLS policies
+ok 5 - all application roles are fenced away from direct cache table access
+ok 6 - the race-safe cache claim RPC exists
+ok 7 - the token-bound cache completion RPC exists
+ok 8 - the token-bound cache release RPC exists
+ok 9 - cache RPCs are security-definer functions with an empty search path
+ok 10 - only the server service role can invoke the cache RPC surface
+TRUNCATE TABLE
+SET
+ok 11 - the first request atomically claims an unseen vehicle
+ok 12 - an ambiguous retry with the same token remains idempotently claimed
+ok 13 - a concurrent token cannot start duplicate generation
+ok 14 - a non-owner token cannot complete another request claim
+ok 15 - the claim owner can persist the generated trim list
+ok 16 - completion is idempotent after an ambiguous response
+ok 17 - later requests receive the stored result immediately
+RESET
+ok 18 - the normalized primary key prevents duplicate cache rows
+SET
+ok 19 - an unknown lineup can be claimed normally
+ok 20 - an empty high-confidence result is persistently cached
+ok 21 - cached empty results also prevent repeat generation
+ok 22 - a separate vehicle receives its own claim
+ok 23 - a non-owner token cannot release a claim
+ok 24 - a failed generator can release its own pending claim
+ok 25 - a released failed claim can be retried later
+RESET
+UPDATE 1
+SET
+ok 26 - an expired abandoned claim can be recovered without a duplicate row
+ROLLBACK

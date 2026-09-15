@@ -19,6 +19,7 @@ type OwnedCaseOperationRow =
   Database["public"]["Functions"]["list_owned_case_operations"]["Returns"][number];
 
 export interface AppraisalCaseService {
+  getWorkspaceRole?(): Promise<"customer" | "staff" | "partner">;
   createAppraisalCase(input: CreateAppraisalCaseInput): Promise<AppraisalCase>;
   createOrGetAppraisalCase(
     input: CreateOrGetAppraisalCaseInput,
@@ -66,6 +67,9 @@ function mapOwnedCaseOperation(
     caseStage: row.case_stage,
     hasTotalLossClaimWorkflow: row.has_total_loss_claim_workflow,
     needsAttention: row.needs_attention,
+    vehicleLabel: row.vehicle_label,
+    hasFullReviewReport: row.has_full_review_report,
+    workspaceStatus: row.workspace_status,
     createdAt: row.case_created_at,
     updatedAt: row.case_updated_at,
     lastActivityAt: row.last_activity_at,
@@ -140,6 +144,14 @@ export function createAppraisalCaseService(
   client: SupabaseClient<Database>,
 ): AppraisalCaseService {
   return {
+    async getWorkspaceRole() {
+      const { data, error } = await client.rpc("get_account_workspace_role");
+      if (error) throw error;
+      if (data !== "customer" && data !== "staff" && data !== "partner") {
+        throw new AppraisalCaseResponseError("Your workspace could not be verified.");
+      }
+      return data;
+    },
     async createAppraisalCase({ userId, serviceType }) {
       const { data, error } = await client
         .from("appraisal_cases")

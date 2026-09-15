@@ -1,0 +1,19 @@
+{
+  "tables_checked": 83,
+  "identical_table_fingerprints": 79,
+  "changed_tables": [
+    "auth.identities",
+    "auth.users",
+    "public.checkout_attempts",
+    "public.stripe_webhook_events"
+  ],
+  "auth_account_and_identity_counts_unchanged": true,
+  "existing_cases": 24,
+  "market_requests": 63,
+  "payments": 0,
+  "orders": 3,
+  "checkouts": 3,
+  "manual_approval_unchanged": true,
+  "external_event": "Existing test checkout expired at 2026-09-15T15:59:34Z before deployment; its webhook arrived at 15:59:55Z.",
+  "auth_change": "Existing Google account and identity records refreshed during production sign-in verification."
+}

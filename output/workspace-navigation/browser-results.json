@@ -1,0 +1,240 @@
+[
+  {
+    "label": "multiple-1440-switch-back-forward",
+    "url": "http://127.0.0.1:4199/total-loss/cases/22222222-2222-4222-8222-000000000002/analysis",
+    "proof": {
+      "reads": 3,
+      "roles": 1,
+      "writes": [],
+      "requests": [
+        {
+          "path": "/api/v1/appraisal-cases/22222222-2222-4222-8222-000000000001/full-review",
+          "method": "GET"
+        },
+        {
+          "path": "/api/v1/appraisal-cases/22222222-2222-4222-8222-000000000002/analysis",
+          "method": "GET"
+        },
+        {
+          "path": "/api/v1/analyses/00000000-0000-4000-8000-000000000001",
+          "method": "GET"
+        },
+        {
+          "path": "/api/v1/appraisal-cases/22222222-2222-4222-8222-000000000002/analysis",
+          "method": "GET"
+        }
+      ]
+    },
+    "errors": []
+  },
+  {
+    "label": "multiple-1440-refresh",
+    "url": "http://127.0.0.1:4199/total-loss/cases/22222222-2222-4222-8222-000000000002/analysis",
+    "proof": {
+      "reads": 0,
+      "roles": 0,
+      "writes": [],
+      "requests": [
+        {
+          "path": "/api/v1/appraisal-cases/22222222-2222-4222-8222-000000000002/analysis",
+          "method": "GET"
+        },
+        {
+          "path": "/api/v1/analyses/00000000-0000-4000-8000-000000000001",
+          "method": "GET"
+        }
+      ]
+    },
+    "errors": []
+  },
+  {
+    "label": "multiple-390-switch-back-forward",
+    "url": "http://127.0.0.1:4199/total-loss/cases/22222222-2222-4222-8222-000000000002/analysis",
+    "proof": {
+      "reads": 3,
+      "roles": 1,
+      "writes": [],
+      "requests": [
+        {
+          "path": "/api/v1/appraisal-cases/22222222-2222-4222-8222-000000000001/full-review",
+          "method": "GET"
+        },
+        {
+          "path": "/api/v1/appraisal-cases/22222222-2222-4222-8222-000000000002/analysis",
+          "method": "GET"
+        },
+        {
+          "path": "/api/v1/analyses/00000000-0000-4000-8000-000000000001",
+          "method": "GET"
+        },
+        {
+          "path": "/api/v1/appraisal-cases/22222222-2222-4222-8222-000000000002/analysis",
+          "method": "GET"
+        }
+      ]
+    },
+    "errors": []
+  },
+  {
+    "label": "multiple-390-refresh",
+    "url": "http://127.0.0.1:4199/total-loss/cases/22222222-2222-4222-8222-000000000002/analysis",
+    "proof": {
+      "reads": 0,
+      "roles": 0,
+      "writes": [],
+      "requests": [
+        {
+          "path": "/api/v1/appraisal-cases/22222222-2222-4222-8222-000000000002/analysis",
+          "method": "GET"
+        },
+        {
+          "path": "/api/v1/analyses/00000000-0000-4000-8000-000000000001",
+          "method": "GET"
+        }
+      ]
+    },
+    "errors": []
+  },
+  {
+    "label": "multiple-320-switch-back-forward",
+    "url": "http://127.0.0.1:4199/total-loss/cases/22222222-2222-4222-8222-000000000002/analysis",
+    "proof": {
+      "reads": 3,
+      "roles": 1,
+      "writes": [],
+      "requests": [
+        {
+          "path": "/api/v1/appraisal-cases/22222222-2222-4222-8222-000000000001/full-review",
+          "method": "GET"
+        },
+        {
+          "path": "/api/v1/appraisal-cases/22222222-2222-4222-8222-000000000002/analysis",
+          "method": "GET"
+        },
+        {
+          "path": "/api/v1/analyses/00000000-0000-4000-8000-000000000001",
+          "method": "GET"
+        },
+        {
+          "path": "/api/v1/appraisal-cases/22222222-2222-4222-8222-000000000002/analysis",
+          "method": "GET"
+        }
+      ]
+    },
+    "errors": []
+  },
+  {
+    "label": "multiple-320-refresh",
+    "url": "http://127.0.0.1:4199/total-loss/cases/22222222-2222-4222-8222-000000000002/analysis",
+    "proof": {
+      "reads": 0,
+      "roles": 0,
+      "writes": [],
+      "requests": [
+        {
+          "path": "/api/v1/appraisal-cases/22222222-2222-4222-8222-000000000002/analysis",
+          "method": "GET"
+        },
+        {
+          "path": "/api/v1/analyses/00000000-0000-4000-8000-000000000001",
+          "method": "GET"
+        }
+      ]
+    },
+    "errors": []
+  },
+  {
+    "label": "empty-legacy-entry",
+    "url": "http://127.0.0.1:4199/start?service=total-loss&entry=resume",
+    "proof": {
+      "reads": 2,
+      "roles": 1,
+      "writes": [],
+      "requests": []
+    },
+    "errors": []
+  },
+  {
+    "label": "empty-refresh",
+    "url": "http://127.0.0.1:4199/start?service=total-loss&entry=resume",
+    "proof": {
+      "reads": 0,
+      "roles": 0,
+      "writes": [],
+      "requests": []
+    },
+    "errors": []
+  },
+  {
+    "label": "one-legacy-entry",
+    "url": "http://127.0.0.1:4199/total-loss/cases/22222222-2222-4222-8222-000000000001/review-report",
+    "proof": {
+      "reads": 2,
+      "roles": 1,
+      "writes": [],
+      "requests": [
+        {
+          "path": "/api/v1/appraisal-cases/22222222-2222-4222-8222-000000000001/full-review",
+          "method": "GET"
+        }
+      ]
+    },
+    "errors": []
+  },
+  {
+    "label": "one-refresh",
+    "url": "http://127.0.0.1:4199/total-loss/cases/22222222-2222-4222-8222-000000000001/review-report",
+    "proof": {
+      "reads": 0,
+      "roles": 0,
+      "writes": [],
+      "requests": [
+        {
+          "path": "/api/v1/appraisal-cases/22222222-2222-4222-8222-000000000001/full-review",
+          "method": "GET"
+        }
+      ]
+    },
+    "errors": []
+  },
+  {
+    "label": "processing-switch",
+    "url": "http://127.0.0.1:4199/total-loss/cases/22222222-2222-4222-8222-000000000002/analysis",
+    "proof": {
+      "reads": 2,
+      "roles": 1,
+      "writes": [],
+      "requests": [
+        {
+          "path": "/api/v1/appraisal-cases/22222222-2222-4222-8222-000000000001/analysis",
+          "method": "GET"
+        },
+        {
+          "path": "/api/v1/appraisal-cases/22222222-2222-4222-8222-000000000002/analysis",
+          "method": "GET"
+        },
+        {
+          "path": "/api/v1/analyses/00000000-0000-4000-8000-000000000001",
+          "method": "GET"
+        }
+      ]
+    },
+    "errors": []
+  },
+  {
+    "label": "synthetic-google-logout-login-resume",
+    "url": "http://127.0.0.1:4199/total-loss/cases/22222222-2222-4222-8222-000000000001/review-report",
+    "proof": {
+      "reads": 1,
+      "roles": 1,
+      "writes": [],
+      "requests": [
+        {
+          "path": "/api/v1/appraisal-cases/22222222-2222-4222-8222-000000000001/full-review",
+          "method": "GET"
+        }
+      ]
+    },
+    "errors": []
+  }
+]

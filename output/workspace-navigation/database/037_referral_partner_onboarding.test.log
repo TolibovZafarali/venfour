@@ -1,0 +1,156 @@
+BEGIN
+CREATE EXTENSION
+SET
+SET
+INSERT 0 6
+INSERT 0 3
+INSERT 0 3
+CREATE TABLE
+GRANT
+ok 1 - anonymous cannot call referral operations
+ok 2 - browser cannot call job worker
+ok 3 - service credentials do not act as a partner manager
+ok 4 - browser cannot grant manager permission
+ok 5 - partner data is exposed only by bounded projections
+ok 6 - prepared email requests stay private
+ok 7 - internal projections are not public
+ok 8 - agreement bucket is private and limited to 10MiB
+ok 9 - unconfigured scheduler is inert
+SET
+e8100000-0000-4000-8000-000000000002
+ok 10 - ordinary staff cannot manage partners
+ok 11 - staff-only manager request denied
+e8100000-0000-4000-8000-000000000004
+ok 12 - manager permission alone cannot replace staff membership
+e8100000-0000-4000-8000-000000000006
+ok 13 - anonymous identity cannot manage partners even with both rows
+e8100000-0000-4000-8000-000000000005
+ok 14 - unverified identity denied
+e8100000-0000-4000-8000-000000000001
+ok 15 - verified designated staff manager authorized
+ok 16 - unbounded page denied
+ok 17 - zero commission denied
+INSERT 0 1
+INSERT 0 1
+ok 18 - new business begins onboarding
+ok 19 - exact create replay returns original result
+ok 20 - same request with changed content conflicts
+INSERT 0 1
+RESET
+ok 21 - migration seeds no template for test manager
+SET
+INSERT 0 1
+ok 22 - template editor saves a draft
+UPDATE 1
+ok 23 - manager publishes immutable template
+ok 24 - published template cannot be edited
+UPDATE 1
+INSERT 0 1
+ok 25 - invitation is persisted
+UPDATE 1
+INSERT 0 1
+ok 26 - resend revokes prior invitation credential
+e8100000-0000-4000-8000-000000000004
+ok 27 - invitation UUID alone does not authorize another email
+ok 28 - other account cannot read partner profile
+e8100000-0000-4000-8000-000000000003
+ok 29 - revoked invite cannot be accepted
+ok 30 - verified intended contact can review invite
+RESET
+UPDATE 1
+SET
+ok 31 - expired invitation cannot be accepted
+RESET
+UPDATE 1
+SET
+UPDATE 1
+ok 32 - explicit acceptance binds exact verified identity
+ok 33 - accepted contact has partner access
+ok 34 - incomplete profile cannot reach signing
+UPDATE 1
+UPDATE 1
+INSERT 0 1
+ok 35 - issued agreement freezes USD commission
+ok 36 - issued agreement freezes legal identity
+INSERT 0 1
+ok 37 - electronic consent is required
+ok 38 - stale agreement content cannot be signed
+UPDATE 1
+ok 39 - partner signature awaits manager approval
+ok 40 - sign replay preserves exact timestamp and evidence
+RESET
+ok 41 - partner acceptance creates one immutable signature record
+UPDATE 1
+SET
+ok 42 - changed verified email cannot replay prior signing request
+RESET
+UPDATE 1
+SET
+e8100000-0000-4000-8000-000000000001
+UPDATE 1
+ok 43 - pre-activation change returns partner to onboarding
+ok 44 - old signed agreement is superseded
+ok 45 - superseded agreement preserves original signature
+e8100000-0000-4000-8000-000000000003
+UPDATE 1
+UPDATE 1
+UPDATE 1
+UPDATE 1
+e8100000-0000-4000-8000-000000000001
+UPDATE 1
+INSERT 0 1
+UPDATE 1
+ok 46 - manager countersign atomically activates partner before PDF completion
+ok 47 - partner detail does not expose worker delivery internals
+ok 48 - final PDF is queued separately
+ok 49 - exact countersign replay does not enqueue twice
+ok 50 - active contract editing is outside this release
+RESET
+ok 51 - countersign stores second separate immutable signature
+ok 52 - stored signature cannot be overwritten
+ok 53 - frozen signed snapshot cannot be overwritten
+SET
+INSERT 0 1
+ok 54 - worker leases frozen final document
+ok 55 - first lease records stable attempt start
+ok 56 - wrong fencing token cannot finish work
+{"status": "failed"}
+SET
+ok 57 - failed PDF leaves prior signatures and active account intact
+UPDATE 1
+UPDATE 1
+{"events": [{"id": "e92bfdb8-d86c-4e19-8a02-3e2cabe61685", "metadata": {}, "created_at": "2026-09-15T15:45:28.574226+00:00", "event_type": "document.retry_requested", "partner_id": "d14cc64c-5a6d-4233-b605-8fae4f0f55d0", "agreement_id": "7bfa73fa-2f95-49a5-97cc-69f4a84b8f2c", "actor_user_id": "e8100000-0000-4000-8000-000000000001"}, {"id": "15bf7fc5-64d9-42c1-8fd1-372dc722342d", "metadata": {}, "created_at": "2026-09-15T15:45:28.564504+00:00", "event_type": "partner.activated", "partner_id": "d14cc64c-5a6d-4233-b605-8fae4f0f55d0", "agreement_id": "7bfa73fa-2f95-49a5-97cc-69f4a84b8f2c", "actor_user_id": "e8100000-0000-4000-8000-000000000001"}, {"id": "7e979cb3-b16e-431c-b50a-4441a6c2c612", "metadata": {}, "created_at": "2026-09-15T15:45:28.564504+00:00", "event_type": "agreement.countersigned", "partner_id": "d14cc64c-5a6d-4233-b605-8fae4f0f55d0", "agreement_id": "7bfa73fa-2f95-49a5-97cc-69f4a84b8f2c", "actor_user_id": "e8100000-0000-4000-8000-000000000001"}, {"id": "688adbcc-9cda-44aa-a996-14096435bf26", "metadata": {}, "created_at": "2026-09-15T15:45:28.562887+00:00", "event_type": "agreement.partner_signed", "partner_id": "d14cc64c-5a6d-4233-b605-8fae4f0f55d0", "agreement_id": "7bfa73fa-2f95-49a5-97cc-69f4a84b8f2c", "actor_user_id": "e8100000-0000-4000-8000-000000000003"}, {"id": "25f03e65-ba7a-4f42-883f-cd10f865fade", "metadata": {}, "created_at": "2026-09-15T15:45:28.560867+00:00", "event_type": "agreement.prepared", "partner_id": "d14cc64c-5a6d-4233-b605-8fae4f0f55d0", "agreement_id": "7bfa73fa-2f95-49a5-97cc-69f4a84b8f2c", "actor_user_id": "e8100000-0000-4000-8000-000000000003"}, {"id": "ee2696ed-c88a-451a-b700-f9f9531de1e1", "metadata": {}, "created_at": "2026-09-15T15:45:28.558605+00:00", "event_type": "agreement.superseded", "partner_id": "d14cc64c-5a6d-4233-b605-8fae4f0f55d0", "agreement_id": "4d622aa8-9b6d-4537-9503-e964a195cbc2", "actor_user_id": "e8100000-0000-4000-8000-000000000001"}, {"id": "17bd81dc-7e57-435c-9ad6-ce2a03e77a09", "metadata": {}, "created_at": "2026-09-15T15:45:28.558605+00:00", "event_type": "partner.edited", "partner_id": "d14cc64c-5a6d-4233-b605-8fae4f0f55d0", "agreement_id": null, "actor_user_id": "e8100000-0000-4000-8000-000000000001"}, {"id": "a8a5b9dc-fc89-4426-8cc8-502de2bbd21b", "metadata": {}, "created_at": "2026-09-15T15:45:28.554326+00:00", "event_type": "agreement.partner_signed", "partner_id": "d14cc64c-5a6d-4233-b605-8fae4f0f55d0", "agreement_id": "4d622aa8-9b6d-4537-9503-e964a195cbc2", "actor_user_id": "e8100000-0000-4000-8000-000000000003"}, {"id": "49911c19-bb79-42a6-b432-71acb23ae028", "metadata": {}, "created_at": "2026-09-15T15:45:28.549889+00:00", "event_type": "agreement.prepared", "partner_id": "d14cc64c-5a6d-4233-b605-8fae4f0f55d0", "agreement_id": "4d622aa8-9b6d-4537-9503-e964a195cbc2", "actor_user_id": "e8100000-0000-4000-8000-000000000003"}, {"id": "4d5e8c58-6d83-400f-9fff-85db31235b92", "metadata": {}, "created_at": "2026-09-15T15:45:28.548997+00:00", "event_type": "partner.profile_saved", "partner_id": "d14cc64c-5a6d-4233-b605-8fae4f0f55d0", "agreement_id": null, "actor_user_id": "e8100000-0000-4000-8000-000000000003"}, {"id": "68879305-9043-4879-9d80-eef9f2f44148", "metadata": {}, "created_at": "2026-09-15T15:45:28.546702+00:00", "event_type": "invitation.accepted", "partner_id": "d14cc64c-5a6d-4233-b605-8fae4f0f55d0", "agreement_id": null, "actor_user_id": "e8100000-0000-4000-8000-000000000003"}, {"id": "2ab31564-9a7a-47fc-a833-91b46ff0a4c6", "metadata": {}, "created_at": "2026-09-15T15:45:28.541585+00:00", "event_type": "invitation.resend", "partner_id": "d14cc64c-5a6d-4233-b605-8fae4f0f55d0", "agreement_id": null, "actor_user_id": "e8100000-0000-4000-8000-000000000001"}, {"id": "bfff999e-dba9-48ca-995b-821f5e9023ef", "metadata": {}, "created_at": "2026-09-15T15:45:28.539606+00:00", "event_type": "invitation.invite", "partner_id": "d14cc64c-5a6d-4233-b605-8fae4f0f55d0", "agreement_id": null, "actor_user_id": "e8100000-0000-4000-8000-000000000001"}, {"id": "7397721b-1a6f-475a-bf7c-ca38ba1baed4", "metadata": {}, "created_at": "2026-09-15T15:45:28.531179+00:00", "event_type": "partner.created", "partner_id": "d14cc64c-5a6d-4233-b605-8fae4f0f55d0", "agreement_id": null, "actor_user_id": "e8100000-0000-4000-8000-000000000001"}], "partner": {"id": "d14cc64c-5a6d-4233-b605-8fae4f0f55d0", "city": "Test City", "state": "MO", "status": "active", "country": "US", "user_id": "e8100000-0000-4000-8000-000000000003", "currency": "USD", "revision": 11, "created_at": "2026-09-15T15:45:28.531179+00:00", "updated_at": "2026-09-15T15:45:28.564504+00:00", "postal_code": "63101", "activated_at": "2026-09-15T15:45:28.564504+00:00", "contact_name": "Test Contact", "address_line1": "100 Test Street", "address_line2": null, "business_name": "Fixture Shop", "contact_email": "referral-contact@example.test", "contact_title": "Owner", "created_by_user_id": "e8100000-0000-4000-8000-000000000001", "legal_business_name": "Fixture Shop LLC", "current_agreement_id": "7bfa73fa-2f95-49a5-97cc-69f4a84b8f2c", "commission_amount_minor_units": 3000}, "agreements": [{"id": "7bfa73fa-2f95-49a5-97cc-69f4a84b8f2c", "status": "countersigned", "revision": 3, "snapshot": {"city": "Test City", "state": "MO", "title": "Fixture referral agreement", "country": "US", "currency": "USD", "sections": [{"body": "Fictional test terms. Commission applies only to qualified purchases.", "heading": "Program terms"}], "postal_code": "63101", "template_id": "a79dffd1-41f1-4664-9e0c-d6ea47fb9b6a", "contact_name": "Test Contact", "address_line1": "100 Test Street", "address_line2": null, "business_name": "Fixture Shop", "contact_email": "referral-contact@example.test", "contact_title": "Owner", "template_version": 1, "signing_statement": "Your signature records acceptance of this exact agreement. Venfour will review and countersign before activating the referral partner account.", "legal_business_name": "Fixture Shop LLC", "commission_amount_minor_units": 3000}, "created_at": "2026-09-15T15:45:28.560867+00:00", "deliveries": [], "partner_id": "d14cc64c-5a6d-4233-b605-8fae4f0f55d0", "updated_at": "2026-09-15T15:45:28.574226+00:00", "template_id": "a79dffd1-41f1-4664-9e0c-d6ea47fb9b6a", "storage_bucket": "partner-agreements", "document_sha256": null, "document_status": "queued", "agreement_digest": "29309cd8ddfabea10b6b5a2b4100138a217381c8d85261ec5626273d4e4be552", "document_ready_at": null, "manager_signature": {"user_id": "e8100000-0000-4000-8000-000000000001", "signed_at": "2026-09-15T15:45:28.564504+00:00", "typed_title": "Director", "verified_email": "referral-manager@example.test", "typed_legal_name": "Test Manager", "pdf_email_consent": true, "electronic_consent": true, "authority_confirmed": true}, "partner_signature": {"user_id": "e8100000-0000-4000-8000-000000000003", "signed_at": "2026-09-15T15:45:28.562887+00:00", "typed_title": "Owner", "verified_email": "referral-contact@example.test", "typed_legal_name": "Test Contact", "pdf_email_consent": true, "electronic_consent": true, "authority_confirmed": true}, "document_byte_size": null, "storage_object_path": "partners/d14cc64c-5a6d-4233-b605-8fae4f0f55d0/agreements/7bfa73fa-2f95-49a5-97cc-69f4a84b8f2c/signed.pdf"}, {"id": "4d622aa8-9b6d-4537-9503-e964a195cbc2", "status": "superseded", "revision": 3, "snapshot": {"city": "Test City", "state": "MO", "title": "Fixture referral agreement", "country": "US", "currency": "USD", "sections": [{"body": "Fictional test terms. Commission applies only to qualified purchases.", "heading": "Program terms"}], "postal_code": "63101", "template_id": "a79dffd1-41f1-4664-9e0c-d6ea47fb9b6a", "contact_name": "Test Contact", "address_line1": "100 Test Street", "address_line2": null, "business_name": "Fixture Shop", "contact_email": "referral-contact@example.test", "contact_title": "Owner", "template_version": 1, "signing_statement": "Your signature records acceptance of this exact agreement. Venfour will review and countersign before activating the referral partner account.", "legal_business_name": "Fixture Shop LLC", "commission_amount_minor_units": 2500}, "created_at": "2026-09-15T15:45:28.549889+00:00", "deliveries": [], "partner_id": "d14cc64c-5a6d-4233-b605-8fae4f0f55d0", "updated_at": "2026-09-15T15:45:28.558605+00:00", "template_id": "a79dffd1-41f1-4664-9e0c-d6ea47fb9b6a", "storage_bucket": "partner-agreements", "document_sha256": null, "document_status": "not_requested", "agreement_digest": "6c0ef9296c12108ea5de92ea56b3f3b9e54847540ba9667321778b9dbf075c62", "document_ready_at": null, "manager_signature": null, "partner_signature": {"user_id": "e8100000-0000-4000-8000-000000000003", "signed_at": "2026-09-15T15:45:28.554326+00:00", "typed_title": "Owner", "verified_email": "referral-contact@example.test", "typed_legal_name": "Test Contact", "pdf_email_consent": true, "electronic_consent": true, "authority_confirmed": true}, "document_byte_size": null, "storage_object_path": "partners/d14cc64c-5a6d-4233-b605-8fae4f0f55d0/agreements/4d622aa8-9b6d-4537-9503-e964a195cbc2/signed.pdf"}], "invitations": [{"id": "598a4ea2-3f19-48a2-a99b-8aa0744be8ba", "status": "accepted", "created_at": "2026-09-15T15:45:28.541585+00:00", "expires_at": "2026-09-22T15:45:28.546401+00:00", "partner_id": "d14cc64c-5a6d-4233-b605-8fae4f0f55d0", "revoked_at": null, "accepted_at": "2026-09-15T15:45:28.546702+00:00", "contact_email": "referral-contact@example.test", "created_by_user_id": "e8100000-0000-4000-8000-000000000001", "accepted_by_user_id": "e8100000-0000-4000-8000-000000000003"}, {"id": "510aeeb0-8aa8-48c8-8090-2b24d568afa7", "status": "revoked", "created_at": "2026-09-15T15:45:28.539606+00:00", "expires_at": "2026-09-22T15:45:28.539606+00:00", "partner_id": "d14cc64c-5a6d-4233-b605-8fae4f0f55d0", "revoked_at": "2026-09-15T15:45:28.541585+00:00", "accepted_at": null, "contact_email": "referral-contact@example.test", "created_by_user_id": "e8100000-0000-4000-8000-000000000001", "accepted_by_user_id": null}], "invitation_deliveries": [{"id": "97361948-c2fc-45e6-a32c-2388983855ca", "status": "canceled", "attempts": 0, "created_at": "2026-09-15T15:45:28.541585+00:00", "error_code": null, "finished_at": null, "invitation_id": "598a4ea2-3f19-48a2-a99b-8aa0744be8ba"}, {"id": "9c5dbf42-99dd-4685-9cc1-b59a48db0dc6", "status": "canceled", "attempts": 0, "created_at": "2026-09-15T15:45:28.539606+00:00", "error_code": null, "finished_at": null, "invitation_id": "510aeeb0-8aa8-48c8-8090-2b24d568afa7"}]}
+SET
+UPDATE 1
+ok 58 - cannot seal PDF before exact private object exists
+RESET
+INSERT 0 1
+SET
+{"status": "completed", "agreement_id": "7bfa73fa-2f95-49a5-97cc-69f4a84b8f2c"}
+ok 59 - completed document lease cannot finalize twice
+INSERT 0 1
+ok 60 - sealed PDF queues copy only for the partner
+ok 61 - copy recipient comes from immutable verified snapshot
+{"prepared_payload": {"to": "referral-contact@example.test", "subject": "Fixture agreement"}, "prepared_provider": "resend"}
+ok 62 - prepared provider request is frozen across retries
+{"status": "completed"}
+RESET
+ok 63 - sealed agreement cannot be deleted
+ok 64 - sealed agreement cannot be overwritten
+SET
+e8100000-0000-4000-8000-000000000003
+ok 65 - partner can authorize own sealed PDF
+ok 66 - owner cannot use staff document endpoint without manager permission
+e8100000-0000-4000-8000-000000000004
+ok 67 - other account cannot access sealed agreement
+e8100000-0000-4000-8000-000000000001
+ok 68 - current designated manager can authorize sealed PDF
+RESET
+DELETE 1
+SET
+ok 69 - same-token permission revocation blocks staff read
+ok 70 - same-token permission revocation blocks mutation replay
+ok 71 - same-token permission revocation blocks fresh download authorization
+RESET
+1..71
+ROLLBACK

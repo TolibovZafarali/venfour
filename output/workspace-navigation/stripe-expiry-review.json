@@ -1,0 +1,57 @@
+{
+  "checkouts": [
+    {
+      "created_at": "2026-09-14T15:41:10.133987+00:00",
+      "expires_at": "2026-09-14T15:47:54+00:00",
+      "finished_at": "2026-09-14T16:06:39.175596+00:00",
+      "status": "expired",
+      "updated_at": "2026-09-14T16:06:39.175596+00:00"
+    },
+    {
+      "created_at": "2026-09-14T15:59:34.712805+00:00",
+      "expires_at": "2026-09-15T15:59:34+00:00",
+      "finished_at": "2026-09-15T15:59:55.428687+00:00",
+      "status": "expired",
+      "updated_at": "2026-09-15T15:59:55.428687+00:00"
+    },
+    {
+      "created_at": "2026-09-14T19:13:35.856613+00:00",
+      "expires_at": "2026-09-14T19:24:13+00:00",
+      "finished_at": "2026-09-14T19:24:14.460104+00:00",
+      "status": "expired",
+      "updated_at": "2026-09-14T19:24:14.460104+00:00"
+    }
+  ],
+  "events": [
+    {
+      "livemode": false,
+      "provider_created_at": "2026-09-14T15:28:13+00:00",
+      "received_at": "2026-09-14T15:28:15.277473+00:00",
+      "status": "ignored",
+      "type": "product.updated"
+    },
+    {
+      "livemode": false,
+      "provider_created_at": "2026-09-14T15:47:54+00:00",
+      "received_at": "2026-09-14T15:47:55.531872+00:00",
+      "status": "processed",
+      "type": "checkout.session.expired"
+    },
+    {
+      "livemode": true,
+      "provider_created_at": "2026-09-14T19:24:13+00:00",
+      "received_at": "2026-09-14T19:24:14.275996+00:00",
+      "status": "processed",
+      "type": "checkout.session.expired"
+    },
+    {
+      "livemode": false,
+      "provider_created_at": "2026-09-15T15:59:34+00:00",
+      "received_at": "2026-09-15T15:59:55.102465+00:00",
+      "status": "processed",
+      "type": "checkout.session.expired"
+    }
+  ],
+  "market_requests": 63,
+  "payments": 0
+}

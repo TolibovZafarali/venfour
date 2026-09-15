@@ -1,0 +1,227 @@
+BEGIN
+CREATE EXTENSION
+SET
+1..64
+CREATE FUNCTION
+SELECT 1
+ALTER TABLE
+UPDATE 1
+UPDATE 1
+UPDATE 1
+UPDATE 1
+UPDATE 1
+UPDATE 1
+UPDATE 1
+INSERT 0 2
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+UPDATE 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+UPDATE 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+UPDATE 1
+UPDATE 1
+ok 1 - worker RPCs are service-only, owner retry is authenticated-only, and lifecycle tables stay private
+ok 2 - one named minute cron job invokes the Vault-backed response-analysis dispatcher
+ok 3 - the cron dispatcher reads only its Vault origin and secret and targets the private reconcile endpoint
+SET
+b1000000-0000-4000-8000-000000000001
+authenticated
+SELECT 1
+ok 4 - response intake returns one pending customer-safe response without analysis
+RESET
+ok 5 - intake atomically creates one current pending job while the round remains response_received
+SET
+SELECT 1
+ok 6 - service dispatch lists the current pending generation and callback resolution accepts only its current job identity
+ok 7 - dispatch reconciliation is bounded to one hundred current jobs
+RESET
+SET
+ok 8 - owner resume enters Reviewing response while pending work awaits a worker
+RESET
+UPDATE 1
+SET
+ok 9 - suspended access retains the entire authoritative attention projection while response analysis is pending
+RESET
+UPDATE 1
+SET
+ok 10 - revoked access retains the entire authoritative attention projection while response analysis is pending
+RESET
+UPDATE 1
+INSERT 0 1
+SET
+ok 11 - pending commerce retains checkout precedence instead of resuming response analysis
+RESET
+UPDATE 1
+SET
+ok 12 - a void order without entitlement retains attention precedence over pending response analysis
+RESET
+DELETE 1
+SET
+ok 13 - normal pending response resume is restored when authoritative access and commerce are unblocked
+RESET
+DELETE 0
+ok 14 - the durable wake remains inert without both explicit Vault values even when work is due
+SET
+SELECT 1
+ok 15 - service worker claims one pending job with a bounded first-attempt lease
+ok 16 - same-token claim is idempotent and a competing token cannot duplicate provider work
+ok 17 - dispatch reconciliation does not reschedule an unexpired active lease
+SELECT 1
+ok 18 - active context is exact, useful, and excludes database, provider, and storage identities
+ok 19 - manual response context preserves the exact paid frozen vehicle fields
+RESET
+SET
+ok 20 - customers cannot invoke the private worker context assembler
+ok 21 - reload during an active lease resumes at Reviewing response without partial output
+RESET
+UPDATE 1
+SET
+ok 22 - active response processing cannot override a newly suspended entitlement
+RESET
+UPDATE 1
+RESET
+UPDATE 1
+SET
+SELECT 1
+ok 23 - dispatch reconciliation exposes the new generation for an expired current lease
+SELECT 1
+ok 24 - claiming an expired lease fences its run and starts one fresh recovery attempt
+SELECT 1
+RESET
+ok 25 - retryable failure records a safe code and a bounded backoff without rerunning work
+SET
+ok 26 - replaying the same worker failure is idempotent
+RESET
+SET
+ok 27 - retryable failure stays in the reviewing journey and exposes only retry eligibility
+RESET
+UPDATE 1
+SET
+ok 28 - retryable failure remains inert after its old backoff time until the owner explicitly retries
+RESET
+SET
+b1000000-0000-4000-8000-000000000002
+ok 29 - another authenticated account cannot retry the owner analysis
+b1000000-0000-4000-8000-000000000001
+SELECT 1
+RESET
+ok 30 - permanent owner retry clears backoff and requeues only the current job
+SET
+b1000000-0000-4000-8000-000000000001
+ok 31 - owner retry replays before its stale revision fence
+RESET
+SET
+ok 32 - explicit owner retry creates one fresh bounded dispatch generation
+SELECT 1
+RESET
+ok 33 - a requeued job creates a distinct immutable post-retry attempt
+SELECT 1
+SELECT 1
+ok 34 - structured result rejects an analysis summary without response evidence
+ok 35 - customer evidence projection rejects more than 250 response evidence items
+GRANT
+SET
+ok 36 - completion rejects arbitrary model-created workflow fields
+ok 37 - completion rejects evidence projections with private or arbitrary fields
+ok 38 - completion rejects an evidence projection whose canonical digest does not match
+ok 39 - completion rejects a structured-result citation missing from the evidence projection
+SELECT 1
+RESET
+ok 40 - valid strict result completes once and advances only the analysis revision
+SET
+ok 41 - ambiguous completion replay returns the existing durable result
+ok 42 - completed result identity cannot be replayed with a different evidence projection
+RESET
+SET
+ok 43 - completed resume reaches Response reviewed with structured customer output and no internal metadata
+RESET
+UPDATE 1
+SET
+ok 44 - completed response analysis cannot replace the suspended payment-review projection
+RESET
+UPDATE 1
+SET
+ok 45 - completed response analysis cannot replace the revoked purchase-unavailable projection
+RESET
+UPDATE 1
+SET
+ok 46 - restored access resumes the same immutable completed analysis normally
+RESET
+ok 47 - analysis does not mutate authoritative valuation, report, payment, or entitlement state
+ok 48 - completed structured results and their evidence projections are immutable even to privileged writes
+SET
+SELECT 1
+INSERT 0 1
+RESET
+UPDATE 1
+SET
+SELECT 1
+ok 49 - uploaded correction creates a fresh pending lineage with the supported customer offer fact
+RESET
+ok 50 - correction atomically supersedes the reviewed job and points the workflow at one new pending job
+SET
+ok 51 - task callback resolution rejects a corrected response job after the workflow pointer advances
+SELECT 1
+SELECT 1
+ok 52 - worker locator fields are separated from the document description supplied to analysis
+ok 53 - service credentials cannot update sealed response bytes or metadata
+ok 54 - service credentials cannot delete a sealed response object
+RESET
+SET
+SELECT 1
+RESET
+ok 55 - a correction during processing fences the old lease and creates a new current job
+SET
+ok 56 - stale completion after correction cannot publish or advance the customer journey
+SELECT 1
+SELECT 1
+ok 57 - unsupported material reaches a durable non-retryable state without guessing
+ok 58 - claiming an unsupported terminal job returns its durable outcome without provider work
+RESET
+SET
+ok 59 - unsupported resume is explicitly unavailable without exposing partial analysis
+RESET
+ok 60 - terminal analysis state does not advance the authoritative negotiation round
+SET
+b1000000-0000-4000-8000-000000000002
+ok 61 - another account cannot resolve the owner analysis, response, or journey state
+ok 62 - another account cannot probe terminal state through the owner retry RPC
+RESET
+SET
+b1000000-0000-4000-8000-000000000001
+SELECT 1
+INSERT 0 1
+RESET
+UPDATE 1
+SET
+b1000000-0000-4000-8000-000000000001
+SELECT 1
+RESET
+SET
+SELECT 1
+SELECT 1
+GRANT
+RESET
+SET
+b1000000-0000-4000-8000-000000000001
+ok 63 - document-only unreadable failure projects a stable customer reason without technical metadata
+RESET
+ok 64 - analysis creates no follow-up communication, autonomous negotiation action, or inferred insurer offer
+ROLLBACK

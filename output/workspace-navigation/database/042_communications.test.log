@@ -1,0 +1,97 @@
+BEGIN
+CREATE EXTENSION
+SET
+ok 1 - migration defaults to disabled
+ok 2 - no historical enrollment
+ok 3 - scheduler starts inactive
+ok 4 - migration creates no deliveries
+ok 5 - browser cannot read recipients or prepared messages
+ok 6 - service uses narrow functions
+ok 7 - worker is private
+ok 8 - staff actions require caller identity
+INSERT 0 3
+INSERT 0 3
+INSERT 0 3
+UPDATE 3
+ok 9 - disabled enrollment excludes all cases
+ok 10 - disabled discovery is inert
+UPDATE 1
+ok 11 - verified recent owner eligible; historical and anonymous excluded
+ok 12 - dry run observes real intake stage
+ok 13 - dry run writes no jobs
+ok 14 - dry run has no delivery side effects
+UPDATE 1
+ok 15 - test allowlist does not redirect recipients
+ok 16 - live discovery queues eligible case
+ok 17 - discovery is idempotent
+ok 18 - one logical delivery
+ok 19 - accepted or queued logical messages are not counted again
+CREATE TABLE
+INSERT 0 1
+ok 20 - job leased
+ok 21 - concurrent worker cannot lease in-flight job
+ok 22 - wrong lease cannot acknowledge
+UPDATE 1
+ok 23 - withdrawn consent cancels before send
+ok 24 - cancelled state durable
+UPDATE 1
+ok 25 - reconsent does not recreate same reminder
+ok 26 - email never changes case owner
+INSERT 0 1
+INSERT 0 1
+UPDATE 1
+ok 27 - new case has separate logical milestone
+TRUNCATE TABLE
+INSERT 0 1
+ok 28 - first payload frozen
+ok 29 - retry cannot change payload
+ok 30 - ambiguous failure recorded safely
+ok 31 - retry backs off
+UPDATE 1
+ok 32 - never retry outside provider dedupe window
+ok 33 - uncertain delivery held for review
+INSERT 0 1
+INSERT 0 1
+UPDATE 1
+ok 34 - another case shares recipient limits
+true
+ok 35 - recent transactional email defers optional mail
+UPDATE 1
+INSERT 0 3
+ok 36 - three weekly reminders prevent a fourth across cases
+UPDATE 1
+ok 37 - eligible reminder resumes when rolling limit permits
+ok 38 - verified bounce event accepted
+ok 39 - duplicate webhook acknowledged
+ok 40 - event is stored once
+ok 41 - bounce suppresses future customer mail
+ok 42 - suppression retained without plain email
+ok 43 - delivery events are immutable
+SET
+{"sub":"a1000000-0000-4000-8000-000000000002","role":"authenticated"}
+ok 44 - nonstaff cannot inspect metadata
+RESET
+INSERT 0 1
+SET
+{"sub":"a1000000-0000-4000-8000-000000000001","role":"authenticated"}
+ok 45 - staff can inspect controls
+ok 46 - staff activity has no customer addresses
+ok 47 - staff activity has no prepared content
+ok 48 - stale settings fenced
+ok 49 - staff can pause
+RESET
+ok 50 - configuration change audited
+ok 51 - pause stops leases
+ok 52 - unknown unsubscribe neutral
+ok 53 - test send reserved before provider call
+ok 54 - concurrent test send fenced
+ok 55 - test acceptance recorded
+ok 56 - test replay returns acceptance without resending
+SET
+{"sub":"a1000000-0000-4000-8000-000000000001","role":"authenticated"}
+ok 57 - first operator activation succeeds
+RESET
+ok 58 - first activation resets boundary beyond pre-existing cases
+ok 59 - first activation never backfills previous customers
+1..59
+ROLLBACK

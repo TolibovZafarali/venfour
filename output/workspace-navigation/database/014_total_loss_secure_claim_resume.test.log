@@ -1,0 +1,123 @@
+BEGIN
+CREATE EXTENSION
+SET
+1..51
+ok 1 - identity claims use an explicit stable purpose enum
+ok 2 - claim-purpose type usage is limited to trusted API roles
+ok 3 - purpose is required and historical inserts default to intake
+ok 4 - one live capability is allowed per case and purpose
+ok 5 - the keyed-fingerprint throttle table has RLS and no direct API surface
+ok 6 - the secure/resume RPC signatures are stable
+ok 7 - authenticated identities alone receive the owner-scoped secure/resume RPCs
+ok 8 - only service_role can prepare enumeration-safe lost-session recovery
+ok 9 - all four exposed contracts are SECURITY DEFINER with a pinned empty search path
+ok 10 - internal eligibility, completion, and throttle helpers are not API-callable
+INSERT 0 10
+CREATE FUNCTION
+
+
+
+
+
+
+
+
+
+UPDATE 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+ok 11 - legacy-shaped claim inserts retain intake purpose
+ok 12 - one live intake and one live post-Continue claim can coexist
+ok 13 - a second live claim for the same case and purpose is rejected
+SET
+SET
+ok 14 - the existing intake save RPC reuses only the live intake-purpose claim
+RESET
+ok 15 - intake save leaves a distinct live post-Continue claim untouched
+SET
+SET
+ok 16 - the legacy completion RPC still consumes and transfers an intake claim
+ok 17 - the purpose-aware completion projection reports trusted intake context on replay
+SET
+ok 18 - the eligible anonymous owner receives authoritative secure-required state
+ok 19 - anonymous owners remain denied direct post-Continue workflow records
+SET
+ok 20 - another anonymous user receives owner-safe absence
+ok 21 - a lost-session visitor cannot retrieve the saved email or verification capability
+SET
+ok 22 - a wrong permanent account cannot discover the saved email or request its access link
+SET
+ok 23 - eligible anonymous renewal issues a bounded post-Continue capability
+RESET
+ok 24 - anonymous renewal stores the trusted post-Continue purpose
+dc758065-af6d-4207-9f0b-74411883e8b9
+SET
+SET
+ok 25 - renewal preserves an already-live valid magic-link capability
+SET
+ok 26 - a permanent exact-email owner is secured without relying on contact verification state
+ok 27 - a permanent exact-email owner is not asked to verify again
+SET
+ok 28 - a permanent owner with a mismatched verified Auth email receives no saved email
+ok 29 - a mismatched permanent owner cannot retrieve the saved email or mint a replacement transfer claim
+SET
+ok 30 - non-worthwhile results and legacy null-identity snapshots cannot bypass the exact current input fence
+ok 31 - an anonymous case whose workflow crossed secure-claim is unavailable
+ok 32 - workflow advancement also prevents post-Continue capability renewal
+RESET
+SET
+ok 33 - a recovery non-match returns the same bounded non-sending shape
+ok 34 - an exact eligible recovery match returns service-only delivery material
+ok 35 - the second target-window recovery request remains allowed
+ok 36 - the third target-window recovery request remains allowed
+ok 37 - the fourth target-window request is neutrally throttled
+RESET
+ok 38 - recovery throttles persist only opaque keyed fingerprints, never raw target data
+SET
+SET
+ok 39 - a verified wrong email cannot consume the case-bound capability
+RESET
+UPDATE 1
+SET
+SET
+ok 40 - an exact but unverified destination cannot consume the capability
+RESET
+UPDATE 1
+SET
+SET
+ok 41 - a valid live post-Continue link transfers ownership without the old anonymous JWT
+ok 42 - an exact completed-link replay is idempotent and retains trusted purpose
+SET
+ok 43 - a completed verification capability cannot be replayed by another permanent account
+SET
+ok 44 - the former anonymous session loses email and verification-link access after ownership transfer
+RESET
+ok 45 - successful completion atomically changes case ownership and verifies case contact
+SET
+SET
+ok 46 - the new permanent owner resumes through the resolver, not the raw workflow table
+RESET
+INSERT 0 1
+SET
+SET
+ok 47 - an expired post-Continue claim remains unusable
+RESET
+INSERT 0 1
+UPDATE 1
+SET
+SET
+ok 48 - a source-owner change invalidates an otherwise live exact-email claim
+RESET
+INSERT 0 1
+UPDATE 1
+INSERT 0 1
+SET
+SET
+ok 49 - any existing commerce order permanently fences ordinary ownership transfer
+RESET
+ok 50 - commerce creation rejects a stale or non-owner permanent purchaser
+ok 51 - unrecognized claim purposes cannot enter the trusted identity table
+ROLLBACK

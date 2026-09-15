@@ -433,6 +433,7 @@ describe("appraisal case service", () => {
       | "getRecentDraftAppraisalCase"
       | "getAppraisalCase"
       | "touchAppraisalCase"
+      | "getWorkspaceRole"
     >();
   });
 });

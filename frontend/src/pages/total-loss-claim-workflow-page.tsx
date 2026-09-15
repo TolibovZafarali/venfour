@@ -122,7 +122,7 @@ function WorkflowContent({
         description="Venfour couldn’t confirm that your completed report is available on this page. No case information has been changed."
       >
         <Button asChild variant="outline">
-          <Link to="/appraisals">View my appraisals</Link>
+          <Link to="/contact">Contact support</Link>
         </Button>
       </ClaimStateCard>
     );

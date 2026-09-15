@@ -54,7 +54,7 @@ export function FullReviewReport({ caseId, userId, accessToken }: { caseId: stri
     } finally { inFlight.current = false; setBusy(false); }
   }
   if (query.isPending) return <ValuationStatus kind="loading" heading="Opening your saved report" description="Retrieving your review details." />;
-  if (query.isError && !state) return <ValuationStatus kind="error" heading="We couldn’t open your report." description="Your review is saved. Try opening it again."><Button onClick={() => void query.refetch()}>Try again</Button><Button asChild variant="outline"><Link to="/appraisals">Return to appraisals</Link></Button></ValuationStatus>;
+  if (query.isError && !state) return <ValuationStatus kind="error" heading="We couldn’t open your report." description="Your review is saved. Try opening it again."><Button onClick={() => void query.refetch()}>Try again</Button><Button asChild variant="outline"><Link to="/contact">Contact support</Link></Button></ValuationStatus>;
   return <ClaimWorkflowFrame>
     <Link className="mb-6 inline-flex min-h-11 items-center gap-2 text-sm font-medium text-copy" to={`/total-loss/cases/${caseId}/analysis`}><ArrowLeft className="size-4" aria-hidden />Back to your free result</Link>
     <ClaimWorkflowCard>
@@ -111,7 +111,7 @@ export function FullReviewReport({ caseId, userId, accessToken }: { caseId: stri
         {busy ? <LoaderCircle className="mt-4 size-5 animate-spin motion-reduce:animate-none" aria-label="Checking report" /> : null}
       </> : null}
       {error ? <p className="mt-4 text-sm text-danger" role="alert">{error}</p> : null}
-      <div className="mt-8 border-t border-line pt-5"><h2 className="font-medium text-ink">Don’t have the report yet?</h2><p className="mt-2 text-sm leading-6 text-copy">Ask your insurer for the complete total-loss vehicle valuation report, including the comparable vehicles and adjustment pages. You can return here when it’s available.</p><Button asChild className="mt-4" variant="outline"><Link to="/appraisals">Return to my appraisals</Link></Button></div>
+      <div className="mt-8 border-t border-line pt-5"><h2 className="font-medium text-ink">Don’t have the report yet?</h2><p className="mt-2 text-sm leading-6 text-copy">Ask your insurer for the complete total-loss vehicle valuation report, including the comparable vehicles and adjustment pages. You can return here when it’s available.</p></div>
     </ClaimWorkflowCard>
   </ClaimWorkflowFrame>;
 }

@@ -475,6 +475,8 @@ function createDependencyHarness({
     updateSequence += 1;
     const next: TotalLossCaseDetails = {
       ...current,
+      analysisInputId: current.analysisInputId ?? RECOVERY_INPUT_ID,
+      analysisInputRevision: current.analysisInputRevision ?? 1,
       intakeCompletedAt: CREATED_AT,
       updatedAt: `2026-08-18T18:${String(updateSequence).padStart(2, "0")}:00.000Z`,
     };
@@ -1415,6 +1417,10 @@ describe("explicit Total Loss intake correction", () => {
 
   it.each(["completed", "failed"] as const)("clears stale %s case analysis after changed inputs while preserving immutable run cache", async (status) => {
     const harness = recoveryHarness({ details: completedRecoveryDetails({ insurerVehicleValuation: null }) });
+    server.use(http.get("*/api/v1/appraisal-cases/:caseId/analysis", () => HttpResponse.json({
+      status: "not_submitted", analysisInputId: harness.detailRows.get(CASE_ID)?.analysisInputId,
+      analysisInputRevision: harness.detailRows.get(CASE_ID)?.analysisInputRevision,
+    })));
     const user = userEvent.setup();
     const { queryClient, router } = renderTestApp([recoveryPath(CASE_ID, true)], { authService: createAuthHarness(sessionFor()).service, totalLossDependencies: harness.dependencies });
     await screen.findByRole("heading", { name: "Add the claim details" });
@@ -1438,6 +1444,23 @@ describe("explicit Total Loss intake correction", () => {
 });
 
 describe("/start?service=total-loss", () => {
+  it("does not bootstrap a new case from an empty-account resume visit or refresh", async () => {
+    const harness = createDependencyHarness();
+    const auth = createAuthHarness(sessionFor());
+    const path = "/start?service=total-loss&entry=resume";
+    const first = renderTestApp([path], { authService: auth.service, totalLossDependencies: harness.dependencies });
+    expect(await screen.findByRole("radio", { name: /I don’t have the report/i })).toBeVisible();
+    expect(harness.getOrCreateTotalLossDraft).not.toHaveBeenCalled();
+    expect(await harness.caseService.listAppraisalCases(USER_ID)).toEqual([]);
+    first.unmount();
+    renderTestApp([path], { authService: auth.service, totalLossDependencies: harness.dependencies });
+    expect(await screen.findByRole("radio", { name: /I don’t have the report/i })).toBeVisible();
+    expect(harness.getOrCreateTotalLossDraft).not.toHaveBeenCalled();
+    const user = userEvent.setup();
+    await chooseMode(user, "I don’t have the report");
+    await waitFor(() => expect(harness.getOrCreateTotalLossDraft).toHaveBeenCalledOnce());
+  });
+
   it.each([
     {
       path: "/start?service=total-loss",
@@ -2938,8 +2961,8 @@ describe("/start?service=total-loss", () => {
         userId: USER_ID,
       });
       expect(
-        screen.getByRole("link", { name: "View my appraisals" }),
-      ).toHaveAttribute("href", "/appraisals");
+        screen.getByRole("link", { name: "Return to your appraisal" }),
+      ).toHaveAttribute("href", "/app");
       expect(harness.getOrCreateTotalLossDraft).not.toHaveBeenCalled();
       expect(harness.createOrGetAppraisalCase).not.toHaveBeenCalled();
     },

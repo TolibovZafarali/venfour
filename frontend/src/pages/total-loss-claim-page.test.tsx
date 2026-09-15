@@ -288,9 +288,9 @@ describe("total-loss claim page", () => {
         name: "Your claim is saved to your account",
       });
     expect(securedHeading).toBeVisible();
-    expect(screen.getByRole("link", { name: "View my appraisals" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Contact support" })).toHaveAttribute(
       "href",
-      "/appraisals",
+      "/contact",
     );
     const securedCard = securedHeading.closest("section");
     expect(securedCard).not.toBeNull();

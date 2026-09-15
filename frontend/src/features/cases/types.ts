@@ -19,6 +19,9 @@ export interface AppraisalCase {
   readonly caseStage?: CaseOperationStage;
   readonly hasTotalLossClaimWorkflow?: boolean;
   readonly needsAttention?: boolean;
+  readonly vehicleLabel?: string | null;
+  readonly hasFullReviewReport?: boolean;
+  readonly workspaceStatus?: string | null;
   readonly reportUploadedAt?: string | null;
   readonly analysisStatus?: TotalLossAnalysisStatus | null;
   readonly analysisAttemptCount?: number | null;

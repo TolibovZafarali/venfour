@@ -1,0 +1,33 @@
+BEGIN
+CREATE EXTENSION
+SET
+INSERT 0 1
+INSERT 0 2
+INSERT 0 2
+INSERT 0 1
+ok 1 - operational journal exists
+ok 2 - journal enables RLS
+ok 3 - no direct table access
+ok 4 - only workers can access the journal
+ok 5 - journal uses restricted definer search path
+ok 6 - reservation lock waits are bounded
+ok 7 - journal cannot contain provider evidence
+CREATE FUNCTION
+ok 8 - new case has no recorded operations
+ok 9 - operation is journaled before provider transport
+ok 10 - identical begin retry is idempotent
+ok 11 - duplicate worker cannot execute same operation
+ok 12 - operation digest cannot change
+ok 13 - batch completion is durable
+ok 14 - completion retry keeps exact ledger count
+ok 15 - completed discovery cannot start over
+ok 16 - resume requires retained incomplete evidence
+ok 17 - stale worker cannot read journal
+ok 18 - journal stays bounded
+ok 19 - null token is rejected
+ok 20 - next operation can begin
+ok 21 - unpersisted account constraints require reconciliation
+UPDATE 1
+ok 22 - expired lease cannot inspect or change progress
+1..22
+ROLLBACK

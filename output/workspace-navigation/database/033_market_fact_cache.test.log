@@ -1,0 +1,32 @@
+BEGIN
+CREATE EXTENSION
+SET
+1..22
+ok 1 - provider fact cache exists
+ok 2 - cache uses RLS
+ok 3 - table is not directly readable
+ok 4 - browser roles cannot use cache RPCs
+ok 5 - service role can use cache RPCs
+ok 6 - first worker claims
+ok 7 - claim retry is idempotent
+ok 8 - concurrent worker does not duplicate provider work
+ok 9 - invalid identity fails
+SELECT 1
+ok 10 - other worker cannot complete
+ok 11 - claim owner completes
+ok 12 - completion retry is idempotent
+ok 13 - completed source fact cannot be replaced
+ok 14 - different analysis reuses result
+ok 15 - cached evidence remains exact
+ok 16 - explicit specs expire in seven days
+UPDATE 1
+ok 17 - expired result permits bounded refresh
+ok 18 - superseded token is fenced
+UPDATE 1
+ok 19 - failed lookup is cached too
+ok 20 - failures have a short retry window
+claimed|
+UPDATE 1
+ok 21 - expired lease cannot publish
+ok 22 - malformed provider result is rejected
+ROLLBACK

@@ -1,0 +1,67 @@
+BEGIN
+CREATE EXTENSION
+SET
+INSERT 0 11
+ALTER TABLE
+UPDATE 11
+ALTER TABLE
+INSERT 0 9
+INSERT 0 9
+INSERT 0 9
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+UPDATE 1
+INSERT 0 7
+ok 1 - ordinary old guest remains eligible
+ok 2 - unsubmitted referral draft remains eligible
+ok 3 - submitted referral excludes an otherwise eligible old guest
+ok 4 - submission cannot be undone
+ok 5 - frozen attribution cannot change
+ok 6 - submitted attribution remains immutable
+ok 7 - protected case deletion rolls back atomically
+ok 8 - protected Auth deletion rolls back atomically
+ok 9 - protected file metadata survives case/user delete rejection
+ok 10 - protected identity and case remain intact
+UPDATE 0
+INSERT 0 1
+INSERT 0 6
+SET
+ok 11 - a pre-migration lease cannot start deleting protected files
+RESET
+ok 12 - rejected storage start has no partial transition
+SELECT 1
+INSERT 0 1
+ok 13 - only ordinary and unsubmitted guests are handed to the destructive worker
+ok 14 - protected queued/retried/Auth-only candidates yield no destructive action
+ok 15 - unstarted work is cancelled and previously started work is quarantined
+ok 16 - protection discovery has not deleted any protected file
+ok 17 - submission cannot race an already leased cleanup
+SET
+ok 18 - ordinary storage deletion still starts
+RESET
+SET
+DELETE 1
+SET
+ok 19 - ordinary storage deletion completes
+RESET
+ok 20 - ordinary abandoned Auth and case cascade succeeds
+SET
+ok 21 - ordinary cleanup completion remains compatible
+RESET
+ok 22 - ordinary guest cleanup finishes
+ok 23 - unsubmitted referral case deletion remains allowed
+ok 24 - unsubmitted attribution cascades without dangling history
+ok 25 - ordinary case deletion remains allowed
+UPDATE 1
+ok 26 - retained report-owner association is protected
+ok 27 - current owner association is protected
+ok 28 - RLS remains enabled
+ok 29 - protection lookup remains private
+ok 30 - trigger helper has no callable API grant
+ok 31 - bounded service-only cleanup RPC grants are preserved
+ok 32 - raw immutable attribution and cleanup state remain inaccessible
+1..32
+ROLLBACK

@@ -5999,6 +5999,10 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      get_account_workspace_role: {
+        Args: never
+        Returns: string
+      }
       get_or_create_total_loss_draft: {
         Args: never
         Returns: {
@@ -6200,6 +6204,9 @@ export type Database = {
           case_status: Database["public"]["Enums"]["appraisal_case_status"]
           case_updated_at: string
           has_total_loss_claim_workflow: boolean
+          vehicle_label: string | null
+          has_full_review_report: boolean
+          workspace_status: string | null
           last_activity_at: string
           needs_attention: boolean
           owner_user_id: string

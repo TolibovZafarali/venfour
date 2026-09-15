@@ -1,0 +1,130 @@
+BEGIN
+CREATE EXTENSION
+SET
+SET
+1..96
+ok 1 - staff membership table exists
+ok 2 - staff membership has row-level security enabled
+ok 3 - staff membership is unique by auth user
+ok 4 - staff membership references an auth identity
+ok 5 - staff membership is removed when its auth identity is deleted
+ok 6 - submitted diminished-value cases have a newest-first queue index
+ok 7 - the staff membership check is stable, search-path-pinned, and SECURITY DEFINER
+ok 8 - staff document authorization is stable, search-path-pinned, and SECURITY DEFINER
+ok 9 - the staff queue RPC is a stable search-path-pinned SECURITY INVOKER set function
+ok 10 - the staff detail RPC is a stable search-path-pinned SECURITY INVOKER set function
+ok 11 - PUBLIC cannot execute any staff function
+ok 12 - anonymous clients cannot execute staff functions
+ok 13 - authenticated clients receive the staff check and read-only review RPC surface
+ok 14 - service credentials cannot impersonate the browser staff review surface
+ok 15 - PUBLIC and anonymous clients have no staff membership table surface
+ok 16 - authenticated clients cannot inspect or mutate staff membership
+ok 17 - the service role receives only the grant, inspect, and revoke membership operations
+ok 18 - the staff policy catalog contains only the exact intended SELECT tuples
+ok 19 - staff authorization adds no insert, update, or delete policy
+ok 20 - staff receives no arbitrary customer profile policy
+ok 21 - staff receives no Total-Loss or analysis-artifact policy
+INSERT 0 4
+UPDATE 1
+INSERT 0 4
+INSERT 0 3
+INSERT 0 1
+INSERT 0 1
+INSERT 0 9
+SET
+SET
+SET
+ok 22 - a Venfour-looking email and staff-shaped auth metadata do not grant staff access
+ok 23 - spoofed email and auth metadata cannot open the submitted-DV queue
+ok 24 - spoofed email and auth metadata cannot open a submitted-DV detail
+ok 25 - spoofed email and auth metadata cannot authorize a submitted document path
+ok 26 - spoofed email and auth metadata cannot read submitted Storage objects
+SET
+SET
+ok 27 - an ordinary authenticated customer is not staff
+ok 28 - a nonstaff customer cannot list the submitted-DV staff queue
+ok 29 - a nonstaff owner cannot use the staff detail RPC for their own submission
+ok 30 - a nonstaff customer cannot use the staff detail RPC for another submission
+ok 31 - existing case RLS hides another customer submitted DV parent from nonstaff
+ok 32 - existing details RLS hides another customer submitted DV intake from nonstaff
+ok 33 - existing Storage RLS hides another customer submitted documents from nonstaff
+ok 34 - a customer cannot self-create staff authorization
+ok 35 - a customer cannot revoke or inspect another staff authorization
+RESET
+SET
+ok 36 - the service role can grant staff access by auth user ID
+ok 37 - the service role can verify the durable staff grant
+RESET
+SET
+SET
+SET
+ok 38 - the granted identity is authorized immediately
+ok 39 - the staff queue is newest-first and counts only canonical submitted DV documents
+ok 40 - the queue exposes only the practical submitted review summary fields
+ok 41 - the queue excludes draft DV and submitted Total-Loss cases
+ok 42 - the staff detail RPC returns every persisted DV detail plus its parent review identity
+ok 43 - a nonexistent case returns no row without leaking identifiers
+ok 44 - a draft DV case is unavailable through the staff detail RPC
+ok 45 - a submitted Total-Loss case is unavailable through the staff detail RPC
+ok 46 - staff table RLS exposes only submitted DV parent cases
+ok 47 - staff table RLS exposes only submitted DV details
+ok 48 - staff cannot read arbitrary customer profiles
+ok 49 - staff retains ordinary owner access to their own profile
+ok 50 - staff gains no read access to another customer Total-Loss details
+ok 51 - staff Storage RLS exposes only exact canonical submitted DV objects
+ok 52 - the exact canonical submitted DV path is authorized for staff
+ok 53 - a draft DV document path is denied to staff
+ok 54 - a Total-Loss case cannot be disguised as a staff DV document path
+ok 55 - a mismatched owner and case namespace is denied to staff
+ok 56 - an extra nested path segment is denied to staff
+ok 57 - a noncanonical document filename is denied to staff
+ok 58 - a literal traversal segment is denied to staff
+ok 59 - an encoded traversal segment is denied to staff
+ok 60 - a canonical UUID with an unsupported extension is denied to staff
+ok 61 - staff cannot read an identical-looking path from another private bucket
+ok 62 - staff can read safe submitted document display metadata
+ok 63 - staff cannot update activity on a reviewed customer case
+ok 64 - staff cannot change a reviewed case status
+ok 65 - staff cannot delete a reviewed customer case
+ok 66 - staff cannot update submitted DV details
+ok 67 - staff cannot create details below another customer case
+ok 68 - staff cannot delete submitted DV details
+ok 69 - staff cannot invoke the customer submission RPC for a reviewed case
+ok 70 - staff cannot mutate a reviewed case through the customer activity RPC
+ok 71 - staff cannot add a document to a submitted customer case
+ok 72 - staff cannot change submitted document metadata
+ok 73 - staff cannot rename or move a submitted document
+ok 74 - staff cannot delete a submitted document
+ok 75 - staff cannot revoke its own database authorization
+RESET
+SET
+ok 76 - the service role can revoke staff access by auth user ID
+ok 77 - the staff revocation is durable immediately
+RESET
+SET
+SET
+SET
+ok 78 - the revoked identity immediately fails the staff check
+ok 79 - revoked staff immediately loses queue access
+ok 80 - revoked staff immediately loses detail RPC access
+ok 81 - revoked staff immediately loses submitted parent visibility
+ok 82 - revoked staff immediately loses submitted detail visibility
+ok 83 - revoked staff immediately loses submitted document visibility
+ok 84 - revoked staff immediately fails document authorization
+RESET
+ok 85 - staff mutation attempts leave the submitted document intact
+SET
+SET
+SET
+ok 86 - the ordinary owner can still read their submitted DV parent
+ok 87 - the ordinary owner can still read their submitted DV details
+ok 88 - the ordinary owner can still read canonical submitted documents
+ok 89 - existing submitted-detail immutability remains intact for the owner
+ok 90 - the ordinary owner can still edit their DV draft
+ok 91 - the owner draft edit is persisted
+ok 92 - the ordinary owner can still read their private draft document
+ok 93 - existing cross-user parent isolation remains intact
+ok 94 - existing cross-user detail isolation remains intact
+ok 95 - existing cross-user document isolation remains intact
+ok 96 - an ordinary owner cannot self-grant staff access
+ROLLBACK

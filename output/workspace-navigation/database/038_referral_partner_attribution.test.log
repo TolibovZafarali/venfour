@@ -1,0 +1,174 @@
+BEGIN
+CREATE FUNCTION
+CREATE EXTENSION
+SET
+INSERT 0 12
+INSERT 0 2
+INSERT 0 1
+INSERT 0 1
+INSERT 0 3
+INSERT 0 2
+INSERT 0 1
+UPDATE 2
+CREATE TABLE
+GRANT
+INSERT 0 2
+ok 1 - activation creates one stable link and preserves an existing link
+ok 2 - links use 192-bit random opaque codes
+ok 3 - onboarding does not enable a referral link
+ok 4 - all attribution tables have RLS
+ok 5 - raw attribution facts cannot be read or assigned directly by API roles
+ok 6 - only authenticated identities can use the public referred draft boundary
+ok 7 - internal wrappers cannot bypass attribution or authorization
+SET
+f8100000-0000-4000-8000-000000000005
+INSERT 0 1
+ok 8 - replay through a competing link resumes the exact existing draft
+RESET
+ok 9 - competing referral calls keep one attribution
+ok 10 - first new-case binding freezes the signed agreement commission, not mutable partner fields
+ok 11 - an unsubmitted draft is not a submitted lead
+ok 12 - an old link has no expiry cutoff
+ok 13 - attribution cannot be replaced
+SET
+f8100000-0000-4000-8000-000000000007
+INSERT 0 1
+ok 14 - existing ordinary draft resumes without a duplicate
+RESET
+ok 15 - resuming never retrofits attribution
+SET
+f8100000-0000-4000-8000-000000000010
+INSERT 0 1
+RESET
+ok 16 - malformed referral does not block ordinary draft creation
+SET
+f8100000-0000-4000-8000-000000000001
+INSERT 0 1
+INSERT 0 1
+ok 17 - manager can pause future referrals
+ok 18 - exact manager replay preserves revision and audit
+ok 19 - stale link revision cannot change state
+f8100000-0000-4000-8000-000000000011
+INSERT 0 1
+RESET
+ok 20 - paused link creates an ordinary unattributed draft
+ok 21 - pausing retains historical attribution
+SET
+f8100000-0000-4000-8000-000000000001
+ok 22 - resuming preserves the stable shared URL
+f8100000-0000-4000-8000-000000000003
+ok 23 - partner sees no rows until contact submission
+ok 24 - partner cannot read another business referrals
+ok 25 - owning a partner never grants manager endpoint access
+ok 26 - pagination is bounded
+ok 27 - unknown projection fields are rejected
+f8100000-0000-4000-8000-000000000006
+ok 28 - unverified identity cannot read partner tracking
+f8100000-0000-4000-8000-000000000002
+ok 29 - ordinary staff cannot read referral tracking
+RESET
+DELETE 1
+SET
+f8100000-0000-4000-8000-000000000001
+ok 30 - revoked manager cannot replay a previously successful mutation
+ok 31 - same-token permission revocation blocks fresh reads
+RESET
+INSERT 0 1
+DELETE 1
+SET
+ok 32 - staff membership revocation independently removes manager access
+RESET
+INSERT 0 1
+INSERT 0 1
+SET
+f8100000-0000-4000-8000-000000000004
+ok 33 - wrong owner cannot submit someone else referral
+f8100000-0000-4000-8000-000000000005
+ok 34 - failed contact save creates no lead
+RESET
+ok 35 - failed save preserves hidden draft state
+SET
+f8100000-0000-4000-8000-000000000005
+ok 36 - successful existing contact boundary submits the referral
+RESET
+INSERT 0 1
+SET
+ok 37 - contact retry remains valid
+RESET
+ok 38 - contact retry does not rewrite submitted timestamp
+SET
+f8100000-0000-4000-8000-000000000003
+INSERT 0 1
+ok 39 - submitted lead appears exactly once
+ok 40 - new submitted lead has no invented purchase
+ok 41 - tracking rows contain only opaque reference, dates and status
+f8100000-0000-4000-8000-000000000008
+INSERT 0 1
+RESET
+ok 42 - unsubmitted draft cleanup can cascade attribution
+ok 43 - draft cleanup leaves no dangling referral
+CREATE FUNCTION
+SET
+f8100000-0000-4000-8000-000000000009
+INSERT 0 1
+RESET
+
+SET
+INSERT 0 1
+RESET
+ok 44 - checkout freezes one attribution on the logical order
+ok 45 - order preserves the signed commission snapshot
+SET
+ok 46 - checkout reservation replay remains valid
+RESET
+ok 47 - reservation replay does not duplicate order attribution
+INSERT 0 1
+CREATE FUNCTION
+SET
+ok 48 - purchase conversion requires a claimed signed webhook
+(claimed,5a5b8512-7eae-45d2-aa58-f90c39689820,f8600000-0000-4000-8000-000000000001,processing,1)
+INSERT 0 1
+ok 49 - verified fulfillment succeeds with referral conversion
+ok 50 - exact payment replay remains idempotent
+RESET
+ok 51 - payment replay records one historical conversion
+ok 52 - conversion points to immutable first successful payment evidence
+ok 53 - historical conversion cannot be rewritten
+SET
+f8100000-0000-4000-8000-000000000003
+ok 54 - submitted and historical purchase counts reflect actual events
+ok 55 - pagination retains exact total
+SET
+INSERT 0 1
+(succeeded,9c0a2b58-92d5-4748-b745-c04f3a3e64d2,a2872092-3695-4e55-a944-157fe80ac4fd,2ad2788e-6519-460b-8fd3-c590bf7abeeb,succeeded,succeeded,fb4af190-c8ea-4860-9aff-f090ab579472,,refunded,refunded_access_retained)
+SET
+ok 56 - full refund changes current state while retaining the historical purchase count
+RESET
+ok 57 - retained report access does not erase refunded referral status
+SET
+(failed,9c0a2b58-92d5-4748-b745-c04f3a3e64d2,a2872092-3695-4e55-a944-157fe80ac4fd,2ad2788e-6519-460b-8fd3-c590bf7abeeb,failed,failed,fb4af190-c8ea-4860-9aff-f090ab579472,d4441bf8-14b4-458b-af60-31ade29dc2c3,paid,active)
+SET
+ok 58 - authoritative refund reversal restores current purchase status
+SET
+(applied,9c0a2b58-92d5-4748-b745-c04f3a3e64d2,a2872092-3695-4e55-a944-157fe80ac4fd,8a2ccba6-05ce-4dde-b572-43c5b0575671,active,,disputed,suspended)
+SET
+ok 59 - adverse dispute appears under review without erasing the purchase
+SET
+(applied,9c0a2b58-92d5-4748-b745-c04f3a3e64d2,a2872092-3695-4e55-a944-157fe80ac4fd,8a2ccba6-05ce-4dde-b572-43c5b0575671,won,,paid,active)
+(stale,9c0a2b58-92d5-4748-b745-c04f3a3e64d2,a2872092-3695-4e55-a944-157fe80ac4fd,8a2ccba6-05ce-4dde-b572-43c5b0575671,won,,paid,active)
+SET
+ok 60 - a favorable dispute and later stale event preserve the current paid projection
+RESET
+INSERT 0 1
+SET
+(claimed,39a1183d-b71c-4689-a250-37a62d779eb7,f8600000-0000-4000-8000-000000000002,processing,1)
+ok 61 - second successful charge remains explicit duplicate payment
+RESET
+ok 62 - both successful charges retain material financial evidence
+ok 63 - duplicate charge does not create another conversion
+ok 64 - duplicate charge never changes original conversion identity
+SET
+ok 65 - partner purchase count does not inflate from duplicate charges
+RESET
+1..65
+ROLLBACK

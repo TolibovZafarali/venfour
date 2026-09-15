@@ -1,0 +1,191 @@
+BEGIN
+CREATE EXTENSION
+SET
+1..78
+ok 1 - guest contact, opaque claim, and private extraction tables exist
+ok 2 - every guest identity and extraction table has RLS enabled
+ok 3 - guest contact, claim, confirmation, and storage-locator RPCs have stable signatures
+ok 4 - trusted extraction persistence and retrieval RPCs have stable signatures
+ok 5 - only authenticated identities receive the customer guest-lifecycle RPCs
+ok 6 - only service_role receives the extraction cache RPC surface
+ok 7 - opaque capabilities and extraction payloads have no direct table surface
+ok 8 - browser clients cannot author the intake completion timestamp
+ok 9 - browser clients can supply the trigger-validated storage owner only during insert
+INSERT 0 5
+INSERT 0 1
+SET
+ok 10 - unauthenticated anon cannot resolve or create a Total-Loss draft
+RESET
+SET
+SET
+ok 11 - an authenticated Supabase anonymous identity can resolve a secure Total-Loss draft
+ok 12 - the anonymous resolver creates exactly one owned draft
+ok 13 - an anonymous identity cannot bypass the locked Total-Loss draft resolver with direct inserts
+ok 14 - an anonymous Auth identity cannot enter the flagged Diminished Value workflow
+RESET
+SELECT 1
+GRANT
+INSERT 0 1
+SET
+SET
+ok 15 - one guest cannot read another guest case
+ok 16 - the trigger rejects a browser-supplied storage owner outside the owned parent
+ok 17 - the guest can save a complete manual input without a report or insurer offer
+ok 18 - the guest cannot forge intake completion with a client timestamp
+ok 19 - contact save normalizes input, database-stamps legal facts, preserves optional false, and leaves email unverified
+ok 20 - split contact save normalizes required names and optional phone without changing follow-up consent
+ok 21 - the guest can resume only their case-scoped contact projection
+RESET
+UPDATE 1
+INSERT 0 1
+SET
+SET
+ok 22 - another anonymous identity cannot read guest contact PII
+SET
+UPDATE 1
+ok 23 - manual confirmation still rejects a missing required vehicle fact
+UPDATE 1
+ok 24 - confirmation rejects a stale details version
+ok 25 - manual confirmation validates required facts, keeps offer nullable, database-stamps completion, and rotates both input fences
+RESET
+SET
+ok 26 - manual intake claims analysis with a bounded confirmed snapshot and no fake report locator
+ok 27 - manual analysis status is current-source aware
+RESET
+UPDATE 1
+ok 28 - manual jobs persist both current server-owned input fences
+SET
+SET
+ok 29 - a verified but wrong email cannot take over the guest case
+RESET
+UPDATE 1
+UPDATE 1
+SET
+SET
+ok 30 - an anonymous Auth identity cannot consume an exact-email case claim
+RESET
+UPDATE 1
+UPDATE 1
+UPDATE 1
+SET
+SET
+ok 31 - an exact but unverified destination email cannot claim the case
+RESET
+UPDATE 1
+SET
+SET
+ok 32 - the existing-account collision path atomically transfers the guest case to the exact verified destination
+ok 33 - an exact destination replay is idempotent
+ok 34 - the destination cannot mutate contact and legal facts after analysis submission
+ok 35 - an RLS-filtered submitted-input update reveals no row-existence error
+ok 36 - submitted/processing Total-Loss inputs remain immutable to the current owner
+ok 37 - the permanent destination immediately owns the transferred case
+ok 38 - the transferred owner reads the now-verified case contact
+ok 39 - the destination reads the report object without moving the anonymous namespace
+ok 40 - the bounded locator preserves the immutable anonymous storage owner after transfer
+RESET
+SET
+SET
+ok 41 - a consumed claim cannot be replayed by another permanent account
+SET
+ok 42 - the source anonymous JWT immediately loses case access after transfer
+ok 43 - the source anonymous JWT immediately loses storage access after transfer
+ok 44 - the former guest cannot mutate submitted/processing contact state
+RESET
+ok 45 - ownership transfer preserves the in-flight analysis job by case ID
+INSERT 0 1
+INSERT 0 1
+SET
+SET
+ok 46 - staff projections distinguish an anonymous owner and unverified entered contact
+ok 47 - staff projections distinguish the claimed permanent identity
+RESET
+INSERT 0 1
+UPDATE 1
+SET
+SET
+ok 48 - claim completion locks and rejects a case whose source owner changed
+RESET
+INSERT 0 1
+INSERT 0 1
+SET
+SET
+ok 49 - expired opaque claims cannot transfer a case
+RESET
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+SET
+SET
+ok 50 - an anonymous owner can confirm a finalized report and market ZIP without pre-reading report facts
+RESET
+SET
+ok 51 - report analysis remains runnable from the finalized private report when extraction is deferred
+RESET
+SET
+SET
+ok 52 - a transferred draft owner receives the original guest report namespace
+ok 53 - the transferred draft owner can acquire the existing fenced upload protocol
+ok 54 - the transferred draft owner can advance the upload lease in the old namespace
+ok 55 - Storage RLS lets only the current owner write the token-fenced canonical object at the immutable guest path
+ok 56 - the transferred owner finalizes through the unchanged canonical/backup PDF protocol
+RESET
+SET
+ok 57 - a generic extraction failure is persisted against the exact current report fence
+RESET
+CREATE TABLE
+GRANT
+SET
+SET
+INSERT 0 1
+RESET
+ok 58 - report intake completion does not customer-confirm or refence a failed extraction cache
+SET
+ok 59 - report analysis preserves finalized report availability when an unconfirmed extraction failed
+RESET
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+SET
+ok 60 - service role persists a bounded provider-neutral extraction for the exact current report source
+ok 61 - service role retrieves extraction only through the current upload/revision fence
+ok 62 - stale extraction persistence is rejected
+RESET
+UPDATE 1
+SET
+SET
+ok 63 - report confirmation ignores a mismatched unconfirmed cache and defers to the finalized report
+RESET
+UPDATE 1
+SET
+SET
+INSERT 0 1
+RESET
+ok 64 - report confirmation leaves unreviewed extraction metadata unconfirmed and does not re-fence it as customer-approved
+SET
+ok 65 - the unreviewed cache remains retrievable to trusted services but is not promoted for analysis reuse
+ok 66 - report analysis retains the immutable locator while unreviewed extraction data remains unavailable
+ok 67 - report status remains fenced to the finalized upload and exposes only the bounded locator
+RESET
+UPDATE 1
+SET
+SET
+ok 68 - a permanent authenticated customer retains the Diminished Value create contract
+ok 69 - the exact Diminished Value draft document authorizer is unchanged
+SET
+ok 70 - database-backed staff membership still authorizes the Total-Loss operations list
+RESET
+DELETE 1
+SET
+SET
+ok 71 - same-token staff revocation remains immediate
+RESET
+ok 72 - claim completion safely fills an otherwise unconfirmed permanent profile
+ok 73 - case ownership transfer cannot rewrite the authoritative report storage namespace
+ok 74 - identity claim preserves the in-flight case lifecycle state
+ok 75 - identity lifecycle RPCs are SECURITY DEFINER with an empty search path
+ok 76 - confirmation and extraction RPCs are SECURITY DEFINER with an empty search path
+ok 77 - manual analysis has a dedicated current-revision idempotency key
+ok 78 - report analysis keys idempotency to the finalized upload and current input revision
+ROLLBACK

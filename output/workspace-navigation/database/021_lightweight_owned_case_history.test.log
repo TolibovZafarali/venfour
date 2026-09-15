@@ -1,0 +1,15 @@
+BEGIN
+CREATE EXTENSION
+SET
+1..5
+INSERT 0 2
+INSERT 0 3
+ok 1 - the lightweight owner list remains stable, pinned, and SECURITY DEFINER
+ok 2 - the list uses a direct workflow-existence check without rich resolution or draft suppression
+SET
+21000000-0000-4000-8000-000000000001
+authenticated
+ok 3 - the owner list returns both an older legitimate draft and a newer owned draft
+ok 4 - the owner list does not leak another customer case
+ok 5 - complete history retains newest-first activity ordering
+ROLLBACK

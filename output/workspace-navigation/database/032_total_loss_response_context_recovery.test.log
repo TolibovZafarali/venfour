@@ -1,0 +1,127 @@
+BEGIN
+CREATE EXTENSION
+SET
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+SAVEPOINT
+
+
+SAVEPOINT
+SELECT 1
+SELECT 1
+SELECT 1
+SELECT 1
+ok 1 - valid frozen report with a legacy pre-inference context failure is eligible
+ok 2 - reclassification cannot change attempt count or other immutable job fields
+ok 3 - scoped repair makes the existing response job retryable
+ok 4 - repair preserves original response, document, report, run, lease and failure identities
+ok 5 - repair leaves the complete terminal attempt byte-for-byte unchanged
+ok 6 - repair increments revision and records one auditable recovery-available event
+ok 7 - reapplying the repair is inert
+ok 8 - reapplying the repair does not duplicate its event
+ok 9 - repair does not start provider work before an explicit owner retry
+ok 10 - old context-version audit metadata stays immutable
+ok 11 - recovery and eligibility helpers are private to the migration owner
+SET
+b1000000-0000-4000-8000-000000000001
+ok 12 - existing customer projection truthfully exposes its ordinary Retry action
+b1000000-0000-4000-8000-000000000002
+ok 13 - another owner cannot retry the repaired case
+b1000000-0000-4000-8000-000000000001
+ok 14 - a stale owner revision cannot retry
+SELECT 1
+ok 15 - normal owner retry remains idempotent
+RESET
+ok 16 - normal Retry requeues the same job with the original submitted response document
+SELECT 1
+ok 17 - worker claim creates a distinct second immutable attempt under context version 2
+ok 18 - retry and new claim do not rewrite the original terminal run
+ok 19 - retried context has correct frozen report vehicle and retained response document
+ROLLBACK
+SELECT 1
+ok 20 - the separate provider-output validation failure remains terminal
+ok 21 - job guard does not make provider-output failures retryable
+ROLLBACK
+SELECT 1
+ok 22 - a new-context failure does not qualify as the legacy defect
+ROLLBACK
+SELECT 1
+{"state": "insurer_response_received", "response": {"text": "Corrected response material.", "decision": null, "document": {"byteSize": 654, "mediaType": "application/pdf", "documentId": "c4000000-0000-4000-8000-000000000001", "originalFilename": "response.pdf"}, "canCorrect": true, "receivedAt": "2026-09-15T15:45:27.181305+00:00", "responseId": "f5542473-1ff2-49df-83d4-28542360c2d0", "sourceType": "uploaded_document", "usableOffer": null, "revisedOffer": null, "failureReason": null, "recommendation": null, "clientRequestId": "3a4d04f2-b8fc-40d2-89aa-940ffa3b3a44", "processingState": "pending", "negotiationRoundId": "be000000-0000-4000-8000-000000000001", "supersedesResponseId": "52bcd687-e82f-4c32-b9ac-747fece7fe8a", "outboundCommunicationId": "be300000-0000-4000-8000-000000000001"}, "workflowRevision": 7}
+ok 23 - superseded response jobs are excluded from legacy recovery
+ok 24 - superseded job history stays immutable
+ROLLBACK
+SELECT 1
+{"state": "resolved", "resolution": {"code": "CUSTOMER_STOPPED_PURSUING", "offerId": null, "currency": null, "decisionId": null, "resolvedAt": "2026-09-15T15:45:27.193795+00:00", "responseId": null, "amountSource": null, "clientRequestId": "e63c0fb2-8610-4c64-9d69-fb155c936c89", "amountMinorUnits": null, "recommendationId": null, "customerConfirmed": true}, "workflowRevision": 7}
+ok 25 - closed cases are not reopened by legacy recovery
+ROLLBACK
+SELECT 1
+UPDATE 1
+UPDATE 1
+ok 26 - completed jobs are excluded from the recovery path
+ok 27 - completed job history cannot be reclassified
+ROLLBACK
+
+
+SELECT 1
+ok 28 - a report whose legacy required vehicle fields were valid is not treated as the pre-inference defect
+ok 29 - context failure after valid legacy vehicle fields keeps the terminal guard
+ROLLBACK
+
+
+SELECT 1
+ok 30 - valid frozen manual cases are outside the legacy report-only repair
+ok 31 - manual terminal jobs keep their existing guard
+ROLLBACK
+
+
+SAVEPOINT
+SELECT 1
+SELECT 1
+ok 32 - an open unchanged legacy output failure is eligible for classified maintenance recovery
+ok 33 - unknown historical output never exposes ordinary Retry
+ok 34 - maintenance recovery rejects a different failed run identity
+ok 35 - unclassified ordinary output recovery is rejected
+ok 36 - legacy diagnostic recovery requires the maintenance owner and cannot be invoked by customers or workers
+ok 37 - explicit verified-input diagnostic recovery permits one new inference for the exact failed run
+ok 38 - diagnostic recovery is limited to one durable availability event
+ok 39 - diagnostic history records unknown historical classification separately from new semantic failures
+ok 40 - maintenance recovery preserves the failed run byte for byte
+ok 41 - a recovered job uses the existing customer-safe retry projection
+SELECT 1
+ok 42 - duplicate Retry request is an inert replay of the same request
+ok 43 - another tab with the old revision cannot enqueue another attempt
+SELECT 1
+ok 44 - owner Retry creates a new immutable run on the same response job without correction
+ok 45 - competing worker tokens cannot create concurrent provider attempts
+ok 46 - new inference leaves the historical failed run unchanged
+ROLLBACK
+CREATE TABLE
+DO
+ok 47 - three distinct semantic attempts retain immutable failure snapshots through backoff, retries, and exhaustion
+ok 48 - new-policy output attempts are bounded while retaining the response, document, and round
+ok 49 - exhausted output failures cannot create an endless retry loop
+ROLLBACK
+SELECT 1
+ok 50 - source input failures cannot be reclassified as output recovery
+ROLLBACK
+SELECT 1
+{"state": "insurer_response_received", "response": {"text": "Corrected insurer source.", "decision": null, "document": {"byteSize": 654, "mediaType": "application/pdf", "documentId": "c4000000-0000-4000-8000-000000000001", "originalFilename": "response.pdf"}, "canCorrect": true, "receivedAt": "2026-09-15T15:45:27.656459+00:00", "responseId": "47c679c8-8804-48bb-8d4d-759b05f1567f", "sourceType": "uploaded_document", "usableOffer": null, "revisedOffer": null, "failureReason": null, "recommendation": null, "clientRequestId": "4fb906f3-974e-411c-ac1c-7f385d536a8e", "processingState": "pending", "negotiationRoundId": "be000000-0000-4000-8000-000000000001", "supersedesResponseId": "3ee03fb2-66cc-4ffa-b892-125dc9f4034a", "outboundCommunicationId": "be300000-0000-4000-8000-000000000001"}, "workflowRevision": 7}
+ok 51 - customer correction supersedes the old output job and denies stale recovery
+ROLLBACK
+SELECT 1
+{"state": "resolved", "resolution": {"code": "CUSTOMER_STOPPED_PURSUING", "offerId": null, "currency": null, "decisionId": null, "resolvedAt": "2026-09-15T15:45:27.666206+00:00", "responseId": null, "amountSource": null, "clientRequestId": "3662a5e1-5564-4ca8-a64e-81aa83b34fa2", "amountMinorUnits": null, "recommendationId": null, "customerConfirmed": true}, "workflowRevision": 7}
+ok 52 - case closure denies even a classified or diagnostic recovery
+ok 53 - ordinary retry preserves the existing closure fence
+ROLLBACK
+SELECT 1
+UPDATE 1
+ok 54 - revoked entitlement denies unchanged-output recovery
+ROLLBACK
+SELECT 1
+UPDATE 1
+UPDATE 1
+ok 55 - completed output history cannot be reopened by maintenance recovery
+ok 56 - completed analysis denies ordinary retry
+1..56
+ROLLBACK

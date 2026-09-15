@@ -1,0 +1,70 @@
+BEGIN
+CREATE EXTENSION
+SET
+SET
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE TABLE
+INSERT 0 4
+ok 1 - strict results have RLS
+ok 2 - strict results forbid direct writes for anon
+ok 3 - strict results forbid direct writes for authenticated
+ok 4 - strict results forbid direct writes for service_role
+ok 5 - preparation RPC denies anon: claim_total_loss_full_review_work
+ok 6 - preparation RPC denies authenticated: claim_total_loss_full_review_work
+ok 7 - preparation RPC denies anon: complete_total_loss_full_review_work
+ok 8 - preparation RPC denies authenticated: complete_total_loss_full_review_work
+ok 9 - preparation RPC denies anon: enqueue_total_loss_full_review
+ok 10 - preparation RPC denies authenticated: enqueue_total_loss_full_review
+ok 11 - preparation RPC denies anon: fail_total_loss_full_review_work
+ok 12 - preparation RPC denies authenticated: fail_total_loss_full_review_work
+ok 13 - renamed bypass is private: begin_full_review_before_dedup_internal for anon
+ok 14 - renamed bypass is private: begin_full_review_before_dedup_internal for authenticated
+ok 15 - renamed bypass is private: begin_full_review_before_dedup_internal for service_role
+ok 16 - renamed bypass is private: full_review_facts_ready_internal for anon
+ok 17 - renamed bypass is private: full_review_facts_ready_internal for authenticated
+ok 18 - renamed bypass is private: full_review_facts_ready_internal for service_role
+ok 19 - renamed bypass is private: initialize_post_continue_before_strict_internal for anon
+ok 20 - renamed bypass is private: initialize_post_continue_before_strict_internal for authenticated
+ok 21 - renamed bypass is private: initialize_post_continue_before_strict_internal for service_role
+ok 22 - completed strict result is immutable
+ok 23 - completed strict result cannot be deleted
+ok 24 - tampered strict identity cannot initialize
+ok 25 - tampered strict digest cannot initialize
+ok 26 - low strength never opens payment
+ok 27 - materially unresolved result never opens payment
+ok 28 - different PDF cannot overtake an accepted upload before Storage acknowledgement
+SELECT 1
+ok 29 - durable acknowledgement precedes extraction
+ok 30 - lost acknowledgement retry reuses one work identity
+ok 31 - same accepted PDF reuses report revision
+ok 32 - durable worker claims once
+ok 33 - concurrent delivery cannot duplicate extraction
+ok 34 - processing upload cannot initialize checkout
+ok 35 - wrong worker token cannot complete
+ok 36 - reopen observes persisted extraction
+{"id": "addaecc5-a90a-43b8-af8a-c60a8995db7f", "status": "ready", "case_id": "50100000-0000-4000-8000-000000000001", "revision": 4, "byte_size": 123, "readiness": {"ready": true, "stage": "full_review", "issues": []}, "created_at": "2026-09-15T15:45:42.105696+00:00", "extraction": {"documentSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}, "updated_at": "2026-09-15T15:45:42.423329+00:00", "extracted_at": "2026-09-15T15:45:42.423297+00:00", "source_run_id": "ffc9a904-c294-44db-8158-0316c09e731b", "storage_bucket": "case-files", "document_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "source_input_id": "6faa49ba-4715-4422-9ffa-56e751fd3b25", "processing_token": null, "storage_owner_id": "50200000-0000-4000-8000-000000000001", "original_filename": "fixture.pdf", "storage_object_name": "50200000-0000-4000-8000-000000000001/50100000-0000-4000-8000-000000000001/review-reports/addaecc5-a90a-43b8-af8a-c60a8995db7f.pdf", "processing_expires_at": null}
+ok 37 - ready facts await strict evaluation
+UPDATE 1
+ok 38 - expired worker cannot persist strict result
+(ed17fac0-d0e8-4eb4-ab7c-17eaf80d2dc7,,total_loss_full_review_prepare,1,1)
+UPDATE 1
+ok 39 - recovery claims interrupted preparation
+ok 40 - persisted extraction survives worker interruption
+ok 41 - insufficient strict outcome is saved, not promoted
+ok 42 - completed delivery is a read-only reuse
+ok 43 - insufficient saved result blocks payment
+ok 44 - insufficient report cannot initialize directly
+ok 45 - accepted PDF remains intact
+SELECT 1
+DO
+ok 46 - extraction retries are bounded at three
+ok 47 - same PDF cannot reset exhausted retries
+SELECT 1
+UPDATE 1
+ok 48 - delivery exhaustion persists terminal state without a paid package
+ok 49 - unpaid preparation creates no package
+ok 50 - unpaid preparation creates no entitlement
+1..50
+ROLLBACK

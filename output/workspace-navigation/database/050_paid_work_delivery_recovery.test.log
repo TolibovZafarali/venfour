@@ -1,0 +1,52 @@
+BEGIN
+CREATE EXTENSION
+SET
+INSERT 0 1
+CREATE FUNCTION
+
+
+
+
+SELECT 1
+SELECT 1
+ok 1 - initial reservation
+ok 2 - legacy generation has no replacement yet
+ok 3 - generation persisted before transport
+ok 4 - ambiguous RPC replay cannot advance twice
+ok 5 - stale dispatcher cannot advance
+ok 6 - dispatch acknowledged
+ok 7 - worker claims stable identity
+ok 8 - lease is 17 minutes
+ok 9 - duplicate cannot execute concurrently
+ok 10 - scheduler never reclaims healthy lease
+UPDATE 1
+UPDATE 1
+UPDATE 1
+ok 11 - scheduler recovers dead worker
+ok 12 - replacement gets new task generation
+ok 13 - replacement claims same work
+ok 14 - late worker cannot commit failure
+UPDATE 1
+UPDATE 1
+ok 15 - execution exhaustion creates no replacement task
+ok 16 - dead third worker becomes terminal
+ok 17 - late delivery cannot restart exhausted work
+ok 18 - one durable package
+ok 19 - one fixture entitlement
+SELECT 1
+UPDATE 1
+ok 20 - new untouched fixture reserved
+1
+2
+3
+4
+5
+ok 21 - five lost deliveries stop further task creation
+ok 22 - dispatch failure never pretends worker execution
+ok 23 - tombstoned late task cannot execute after delivery limit
+ok 24 - anonymous cannot dispatch
+ok 25 - customer cannot inspect internal dispatch
+ok 26 - only backend can advance delivery
+ok 27 - internal terminal transition not exposed
+1..27
+ROLLBACK

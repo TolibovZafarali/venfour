@@ -23,7 +23,7 @@ interface Presentation {
 }
 
 // The shell owns this surface so intake and analysis can hand it off without remounting.
-export function FreeValuationProcessingProvider({ children }: { children: ReactNode }) {
+export function FreeValuationProcessingProvider({ children, accountControl }: { children: ReactNode; accountControl?: ReactNode }) {
   const [presentation, setPresentation] = useState<Presentation | null>(null);
   const ownerRef = useRef<symbol | null>(null);
   const exitTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -68,7 +68,7 @@ export function FreeValuationProcessingProvider({ children }: { children: ReactN
         {children}
       </div>
       {presentation ? createPortal(
-        <ProcessingEnvironment options={presentation.options} exiting={presentation.exiting} />,
+        <ProcessingEnvironment options={presentation.options} exiting={presentation.exiting} accountControl={accountControl} />,
         document.body,
       ) : null}
     </FreeValuationProcessingContext.Provider>
@@ -85,7 +85,7 @@ export function FreeValuationProcessing({ reviewKey, heading, description, phase
   return null;
 }
 
-function ProcessingEnvironment({ options, exiting }: { options: FreeValuationProcessingOptions; exiting: boolean }) {
+function ProcessingEnvironment({ options, exiting, accountControl }: { options: FreeValuationProcessingOptions; exiting: boolean; accountControl?: ReactNode }) {
   const { heading, description, phase = "reviewing", notice, error, onRetry, retryDisabled, development } = options;
   const [particlesSettled, setParticlesSettled] = useState(Boolean(error));
   useEffect(() => {
@@ -151,6 +151,7 @@ function ProcessingEnvironment({ options, exiting }: { options: FreeValuationPro
           <span>Synthetic preview</span>
           <button type="button" onClick={() => setGatheringReplay((current) => current + 1)}>Replay gathering</button>
         </div> : null}
+        {!exiting ? accountControl : null}
       </div>
       <main className="free-valuation-processing__center">
         <h1 className="sr-only">{error ? "Let’s try again" : heading ?? "Preparing your valuation"}</h1>

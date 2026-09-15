@@ -1,0 +1,113 @@
+BEGIN
+CREATE EXTENSION
+SET
+INSERT 0 2
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+UPDATE 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+UPDATE 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+UPDATE 1
+UPDATE 1
+SELECT 1
+SELECT 1
+CREATE TABLE
+GRANT
+CREATE FUNCTION
+CREATE FUNCTION
+ok 1 - generation is service-only and source records stay private
+SET
+b1000000-0000-4000-8000-000000000001
+authenticated
+ok 2 - a sent initial request alone does not expose follow-up
+INSERT 0 1
+RESET
+ok 3 - saved response analysis and corrected recommendation are available
+SET
+INSERT 0 1
+ok 4 - analysis without an explicit Continue decision creates no draft
+INSERT 0 1
+ok 5 - Continue resumes follow-up preparation before generation
+ok 6 - explicit Continue exposes a resumable available state
+ok 7 - Continue confirmation remains idempotent after resolver advances
+RESET
+INSERT 0 1
+ok 8 - generation context binds exact response analysis report assessment and original sent message
+ok 9 - another owner cannot obtain follow-up generation sources
+INSERT 0 1
+ok 10 - generation commit rejects a stale source digest
+INSERT 0 1
+ok 11 - unsupported generation is a saved recoverable state
+SET
+ok 12 - refresh preserves the clear generation blocker
+RESET
+ok 13 - unknown evidence citations cannot be persisted by the generation gate
+INSERT 0 1
+ok 14 - successful retry creates the distinct draft
+ok 15 - duplicate generation resumes the same draft
+ok 16 - generation retries create one follow-up
+ok 17 - original sent request remains unchanged
+CREATE FUNCTION
+INSERT 0 1
+ok 18 - corrected response invalidates old generation editing preparation opening and sent confirmation
+ok 19 - corrected response exposes the exact edited draft as read-only history without changing current workflow
+ok 20 - corrected response Continue creates an uncontaminated current draft while retaining superseded history
+SET
+b1000000-0000-4000-8000-000000000002
+ok 21 - non-owner follow-up read is hidden
+ok 22 - non-owner cannot edit the follow-up
+b1000000-0000-4000-8000-000000000001
+INSERT 0 1
+ok 23 - customer recipient subject and body edits persist with serialized revision
+ok 24 - refresh returns the exact saved customer edits
+ok 25 - stale autosave cannot overwrite the newer revision
+ok 26 - Copy/Open preparation requires the exact latest saved draft revision
+INSERT 0 1
+ok 27 - prepared immutable version contains the exact customer edits
+ok 28 - duplicate preparation reuses its exact immutable version
+ok 29 - opening email retains the existing non-authoritative event model
+INSERT 0 1
+ok 30 - sent confirmation rejects a prepared version before the latest edit
+RESET
+ok 31 - prepared history cannot be mutated
+ok 32 - generation retries never overwrite customer edits
+SET
+INSERT 0 1
+ok 33 - customer must confirm attaching the report
+INSERT 0 1
+ok 34 - explicit sent confirmation returns waiting
+ok 35 - same sent request retries are idempotent
+ok 36 - duplicate sent confirmation with a fresh identity still reuses the same communication
+ok 37 - waiting resolver retains sent follow-up history without mislabeling it as a superseded draft
+ok 38 - sent follow-up is no longer editable
+ok 39 - the first response cannot be corrected after follow-up sent
+ok 40 - Response 2 cannot enter the first-response intake
+ok 41 - no next-response upload permit is created after follow-up sent
+RESET
+ok 42 - one initial and one distinct follow-up outbound communication exist
+ok 43 - no additional response round is created
+ok 44 - original request projection still resolves its own original draft after follow-up send
+ok 45 - original outbound version identity remains untouched
+ok 46 - sent event retains the exact response and Continue decision lineage
+UPDATE 1
+SET
+ok 47 - suspended entitlement hides even sent follow-up content
+ok 48 - follow-up projection preserves authoritative entitlement attention
+RESET
+1..48
+ROLLBACK

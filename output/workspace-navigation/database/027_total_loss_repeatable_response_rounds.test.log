@@ -1,0 +1,149 @@
+BEGIN
+CREATE EXTENSION
+SET
+SELECT 1
+ALTER TABLE
+UPDATE 1
+UPDATE 1
+UPDATE 1
+UPDATE 1
+UPDATE 1
+UPDATE 1
+UPDATE 1
+INSERT 0 2
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+UPDATE 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+UPDATE 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+UPDATE 1
+UPDATE 1
+SELECT 1
+SELECT 1
+CREATE TABLE
+CREATE TABLE
+GRANT
+CREATE FUNCTION
+CREATE FUNCTION
+b1000000-0000-4000-8000-000000000001
+{"sub":"b1000000-0000-4000-8000-000000000001","role":"authenticated","is_anonymous":false}
+CREATE TABLE
+CREATE TABLE
+GRANT
+CREATE FUNCTION
+ok 1 - cycle 1 exposes the authoritative waiting intake source
+ok 2 - active intake retains the five-permit upload capacity limit
+ok 3 - cycle 1 binds a distinct inbound to the exact sent outbound and appropriate round
+ok 4 - cycle 1 new response has no correction or inherited decision
+ok 5 - cycle 1 identical submission retries return the same immutable response
+ok 6 - cycle 1 request identity cannot be reused with changed material
+ok 7 - cycle 1 concurrent stale-tab revision cannot create a second inbound
+ok 8 - cycle 1 resolver resumes reviewing with no next inbound intake
+ok 9 - cycle 1 durable analysis has exact round outbound message and existing report sources
+ok 10 - cycle 1 produces an independent recommendation requiring an explicit decision
+ok 11 - correction upload targets the exact same-round source without stale permits consuming capacity
+ok 12 - cycle 1 correction stays in the same round and invalidates only current decision lineage
+ok 13 - cycle 1 correction exposes only its exact unsent draft while current follow-up is absent
+ok 14 - cycle 1 reading superseded draft history does not alter current workflow state
+ok 15 - cycle 1 correction makes the previous follow-up source unavailable
+ok 16 - cycle 1 superseded original keeps its completed review and explicit decision in history
+ok 17 - cycle 1 stale recommendation cannot receive another current decision
+ok 18 - cycle 1 follow-up generation answers the latest corrected response and its exact outbound source
+ok 19 - cycle 1 corrected response creates a distinct generated draft without superseded edits
+ok 20 - cycle 1 duplicate follow-up generation reuses its draft
+ok 21 - cycle 1 Continue resolves follow-up preparation without enabling an unsent next response
+ok 22 - cycle 1 refuses next inbound until follow-up is actually confirmed sent
+ok 23 - cycle 1 repeated sent confirmation creates one outbound
+ok 24 - cycle 1 sends a distinct follow-up without overwriting its source request
+ok 25 - cycle 1 sent current follow-up remains sent while only the older draft is labeled superseded
+ok 26 - cycle 2 exposes the authoritative waiting intake source
+ok 27 - cycle 2 rejects a stale initial outbound even with current workflow revision
+ok 28 - rejected stale source cannot create a round
+ok 29 - later-round upload permit binds its exact outbound despite older unusable permits
+ok 30 - an earlier upload identity cannot be renewed into the next round
+ok 31 - a prior-round document cannot be attached to the current outbound response
+ok 32 - rejected cross-round attachment rolls back round creation and leaves workflow history unchanged
+ok 33 - rejected cross-round attachment creates no additional negotiation round
+ok 34 - cycle 2 binds a distinct inbound to the exact sent outbound and appropriate round
+ok 35 - cycle 2 new response has no correction or inherited decision
+ok 36 - cycle 2 identical submission retries return the same immutable response
+ok 37 - cycle 2 request identity cannot be reused with changed material
+ok 38 - cycle 2 concurrent stale-tab revision cannot create a second inbound
+ok 39 - cycle 2 resolver resumes reviewing with no next inbound intake
+ok 40 - cycle 2 durable analysis has exact round outbound message and existing report sources
+ok 41 - cycle 2 produces an independent recommendation requiring an explicit decision
+ok 42 - correction upload targets the exact same-round source without stale permits consuming capacity
+ok 43 - cycle 2 correction stays in the same round and invalidates only current decision lineage
+ok 44 - cycle 2 correction exposes only its exact unsent draft while current follow-up is absent
+ok 45 - cycle 2 reading superseded draft history does not alter current workflow state
+ok 46 - cycle 2 correction makes the previous follow-up source unavailable
+ok 47 - cycle 2 superseded original keeps its completed review and explicit decision in history
+ok 48 - cycle 2 stale recommendation cannot receive another current decision
+ok 49 - cycle 2 follow-up generation answers the latest corrected response and its exact outbound source
+ok 50 - cycle 2 corrected response creates a distinct generated draft without superseded edits
+ok 51 - cycle 2 duplicate follow-up generation reuses its draft
+ok 52 - cycle 2 Continue resolves follow-up preparation without enabling an unsent next response
+ok 53 - cycle 2 refuses next inbound until follow-up is actually confirmed sent
+ok 54 - cycle 2 repeated sent confirmation creates one outbound
+ok 55 - cycle 2 sends a distinct follow-up without overwriting its source request
+ok 56 - cycle 2 sent current follow-up remains sent while only the older draft is labeled superseded
+ok 57 - cycle 3 exposes the authoritative waiting intake source
+ok 58 - cycle 3 rejects a stale initial outbound even with current workflow revision
+ok 59 - rejected stale source cannot create a round
+ok 60 - cycle 3 binds a distinct inbound to the exact sent outbound and appropriate round
+ok 61 - cycle 3 new response has no correction or inherited decision
+ok 62 - cycle 3 identical submission retries return the same immutable response
+ok 63 - cycle 3 request identity cannot be reused with changed material
+ok 64 - cycle 3 concurrent stale-tab revision cannot create a second inbound
+ok 65 - cycle 3 resolver resumes reviewing with no next inbound intake
+ok 66 - cycle 3 durable analysis has exact round outbound message and existing report sources
+ok 67 - cycle 3 produces an independent recommendation requiring an explicit decision
+ok 68 - third-round Accept binds its exact saved offer and leaves no next-response continuation
+ok 69 - Accept awaits later finalization without closing the case or inventing settlement outcome
+ok 70 - Accept prevents a new inbound continuation from the accepted response
+ok 71 - all five original/corrected analyses assembled the exact answered request and their own round context
+ok 72 - three inbound responses create exactly three negotiation rounds
+ok 73 - three distinct inbound communications are not represented as corrections
+ok 74 - later rounds preserve earlier completed jobs instead of superseding their history
+ok 75 - each completed Continue round has distinct recommendation decision and sent follow-up identities
+ok 76 - grouped history retains sent links and only the two corrected-response drafts as superseded
+ok 77 - superseded drafts retain exact per-round content and never cross response or round lineage
+ok 78 - historical closed rounds expose read-only responses
+ok 79 - historical sent retry replays its exact outbound after later rounds
+ok 80 - historical response retry returns original material without changing the current round
+ok 81 - reading history and replaying old requests leaves the authoritative current workflow unchanged
+ok 82 - round outbound identity is immutable
+ok 83 - upload and superseded-draft source bindings and bypass helpers remain private
+SET
+b1000000-0000-4000-8000-000000000002
+ok 84 - another owner cannot append to any round
+ok 85 - another account cannot read negotiation history
+RESET
+b1000000-0000-4000-8000-000000000001
+UPDATE 1
+ok 86 - suspended entitlement hides history and intake while preserving resolver attention
+UPDATE 1
+{"state": "resolved", "resolution": {"code": "ACCEPTED_VERIFIED_OFFER", "offerId": "3a991a15-5d98-4eef-88d4-6dde2996d27c", "currency": "USD", "decisionId": "724493f5-b1a1-4298-b558-10c7351ff3ce", "resolvedAt": "2026-09-15T15:45:24.877163+00:00", "responseId": "5727e12e-1433-4119-8fe9-7957decd1858", "amountSource": "CUSTOMER_RECORDED", "clientRequestId": "52f83c87-bc03-4c37-8b01-2907a7e39d6a", "amountMinorUnits": 2050000, "recommendationId": "bc1960ea-1a7d-4f8a-be60-0eb04b576e49", "customerConfirmed": true}, "workflowRevision": 31}
+ok 87 - closure preserves sent follow-ups and exact superseded drafts without relabeling either
+ok 88 - all retained response rounds are read-only after closure
+ok 89 - even exact historical sent confirmations reject after case closure
+ok 90 - even exact historical response retries reject after case closure
+1..90
+ROLLBACK

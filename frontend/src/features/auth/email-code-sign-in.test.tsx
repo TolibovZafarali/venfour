@@ -132,7 +132,7 @@ describe("email code sign-in", () => {
     );
     await act(async () => finish());
     await screen.findByRole("heading", { name: "Signed in destination" });
-    expect(router.state.location.pathname).toBe("/appraisals");
+    expect(router.state.location.pathname).toBe("/total-loss/cases/case-one");
     expect(claim).toHaveBeenCalledOnce();
   });
 
@@ -316,9 +316,7 @@ describe("email code sign-in", () => {
       await screen.findByRole("heading", { name: "Signed in destination" });
       expect(claim).toHaveBeenCalledExactlyOnceWith(CLAIM);
       expect(router.state.location.pathname).toBe(
-        claimPurpose === "post_continue"
-          ? "/total-loss/cases/case-one/claim/checkout"
-          : "/appraisals",
+        "/total-loss/cases/case-one",
       );
     },
   );

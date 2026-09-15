@@ -1,0 +1,108 @@
+BEGIN
+CREATE EXTENSION
+SET
+1..64
+ok 1 - analysis jobs have the three contracted states
+ok 2 - analysis RPC outcomes are closed and typed
+ok 3 - claim and status expose exactly the contracted row keys
+ok 4 - analysis jobs table exists
+ok 5 - immutable analysis runs table exists
+ok 6 - analysis jobs have RLS enabled
+ok 7 - analysis runs have RLS enabled
+ok 8 - case, finalized report upload, and input revision form the report idempotency key
+ok 9 - only one processing job is permitted per case
+ok 10 - browser roles have no analysis-job table surface
+ok 11 - browser roles cannot read or mutate raw analysis artifacts
+ok 12 - the service role can inspect coordination state but cannot update immutable runs
+ok 13 - all five trusted analysis RPCs exist with the contracted signatures
+ok 14 - analysis RPCs are SECURITY DEFINER
+ok 15 - analysis RPCs pin an empty search path
+ok 16 - PUBLIC has no EXECUTE privilege on analysis RPCs
+ok 17 - browser roles cannot invoke analysis coordination or artifact RPCs
+ok 18 - only the trusted service role receives the analysis RPC surface
+INSERT 0 2
+INSERT 0 10
+INSERT 0 8
+INSERT 0 1
+INSERT 0 3
+SET
+ok 19 - claim treats absent details as a report-intake conflict, not an unsubmitted job
+ok 20 - claim recognizes manual intake and requires its complete provider-neutral input set
+ok 21 - claim requires the persisted intake completion marker
+ok 22 - claim requires a ZIP code
+ok 23 - claim validates five-digit and ZIP+4 formats
+ok 24 - claim requires finalized report metadata and the canonical object
+ok 25 - claim rejects a non-draft case with no reusable job
+ok 26 - claim does not expose a diminished-value case through the total-loss surface
+ok 27 - claim verifies the explicit trusted owner ID
+ok 28 - a valid report claim reserves a stable run and a two-hour processing lease
+RESET
+ok 29 - claim atomically advances the case to checking
+ok 30 - the job snapshots the finalized upload identity and details version
+SET
+ok 31 - replaying the same live processing token is idempotent
+ok 32 - a competing token observes active work without stealing its lease
+ok 33 - status returns the owned current-source processing job
+ok 34 - status does not expose a job to another owner
+ok 35 - status reserves not_submitted for an owned case without a current-source job
+RESET
+SET
+SET
+ok 36 - authenticated code cannot bypass RPCs to inspect processing tokens
+ok 37 - authenticated code cannot call the raw artifact RPC
+ok 38 - customer intake writes are blocked while the case is checking
+RESET
+SET
+ok 39 - failure transition rejects free-form error text
+ok 40 - a wrong processing token cannot fail a job
+ok 41 - the active token records a safe retryable failure
+ok 42 - an exact failure replay is idempotent
+ok 43 - status exposes only the safe failure contract
+ok 44 - a retryable failed job is reclaimed as its next attempt
+RESET
+ok 45 - retry atomically restores checking state
+SELECT 1
+GRANT
+UPDATE 1
+SET
+ok 46 - an expired lease rotates its token while preserving the reserved run ID
+ok 47 - lease takeover fences the prior worker token
+RESET
+SELECT 1
+GRANT
+UPDATE 1
+SET
+ok 48 - an un-reclaimed current token may finish after expiry under the row lock
+ok 49 - exact completion replay is idempotent
+ok 50 - a conflicting terminal replay is rejected
+ok 51 - status reports completed for the current source
+ok 52 - the trusted backend can retrieve an artifact for its verified owner
+ok 53 - artifact retrieval returns null for a different owner
+RESET
+ok 54 - completion extracts digest and version metadata from the artifact
+ok 55 - completion atomically advances the case
+ok 56 - even a privileged direct update is blocked by the immutable-run trigger
+SET
+SET
+ok 57 - reserved report backup writes are not authorized after draft state
+RESET
+CREATE TABLE
+GRANT
+SET
+ok 58 - claim reuses the completed current-source job and stable run ID
+INSERT 0 1
+ok 59 - a second valid case can be claimed for replacement-source coverage
+ok 60 - a non-retryable report failure releases the case to draft
+RESET
+UPDATE 1
+UPDATE 1
+SET
+SET
+ok 61 - the owner can reconfirm complete facts after finalizing a replacement report
+RESET
+SET
+ok 62 - status ignores an old failed job after the finalized report source changes
+ok 63 - a replacement finalized report receives a new natural-keyed job
+RESET
+ok 64 - replacement history retains the prior failed job without blocking new work
+ROLLBACK

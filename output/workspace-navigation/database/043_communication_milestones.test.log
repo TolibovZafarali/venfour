@@ -1,0 +1,110 @@
+BEGIN
+CREATE EXTENSION
+SET
+SET
+SELECT 1
+ALTER TABLE
+UPDATE 1
+UPDATE 1
+UPDATE 1
+UPDATE 1
+UPDATE 1
+UPDATE 1
+UPDATE 1
+INSERT 0 2
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+UPDATE 1
+ok 1 - verified non-guest free result eligible
+UPDATE 1
+ok 2 - guest-origin result excluded from duplicate ready producer
+UPDATE 1
+ok 3 - optional free reminder needs consent
+UPDATE 1
+ok 4 - free reminder becomes eligible with explicit consent
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+UPDATE 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+UPDATE 1
+INSERT 0 1
+INSERT 0 1
+UPDATE 1
+UPDATE 1
+UPDATE 1
+ok 5 - confirmed payment with entitlement creates preparation milestone
+ok 6 - payment start coalesces for five minutes
+ok 7 - purchase cancels free-review reminders
+UPDATE 1
+ok 8 - fixture retains real published-report access
+ok 9 - published accessible current report creates ready milestone
+ok 10 - completed report cancels pending preparation message
+ok 11 - ready report queues once
+ok 12 - same report cannot queue twice
+UPDATE 1
+ok 13 - older published report alone does not authorize ready mail
+{"queued": 0}
+ok 14 - current report removal cancels queued message
+UPDATE 1
+INSERT 0 1
+INSERT 0 1
+UPDATE 1
+ok 15 - initial request without a round is eligible using stable draft identity
+ok 16 - initial prepared request becomes due after 48 hours
+ok 17 - initial unsent request queued
+UPDATE 1
+ok 18 - editing initial draft cancels old prepared content
+{"queued": 0}
+ok 19 - unsent request cancellation durable
+INSERT 0 1
+INSERT 0 1
+UPDATE 1
+UPDATE 1
+ok 20 - waiting round has seven and fourteen day milestones
+ok 21 - final check-in is a week after first check-in
+ok 22 - sent initial request is no longer an unsent candidate
+ok 23 - outage skips stale seven-day reminder and queues only current fourteen-day reminder
+SELECT 1
+ok 24 - only current no-response reminder leased
+{"sub":"b1000000-0000-4000-8000-000000000001","role":"authenticated"}
+7
+SET
+{"state": "insurer_response_received", "response": {"text": "The insurer sent a new response.", "decision": null, "document": null, "canCorrect": true, "receivedAt": "2026-09-15T15:45:31.217139+00:00", "responseId": "c5d0f58d-9ee0-4f54-8e47-652cd3c70735", "sourceType": "pasted_message", "usableOffer": null, "revisedOffer": null, "failureReason": null, "recommendation": null, "clientRequestId": "1dcbce8d-513e-429b-bb07-fcdbfebb6a5d", "processingState": "pending", "negotiationRoundId": "be000000-0000-4000-8000-000000000001", "supersedesResponseId": null, "outboundCommunicationId": "be300000-0000-4000-8000-000000000001"}, "workflowRevision": 8}
+RESET
+ok 25 - actual response recording cancels both waiting reminders
+ok 26 - progress after lease cancels immediately before provider send
+ok 27 - pending response analysis cannot announce ready
+SELECT 1
+SELECT 1
+SELECT 1
+5b587318-365d-430b-a8cf-cf2b0e893b0e|c90873db-0a4d-434c-95d7-2786cc4a331b|b2000000-0000-4000-8000-000000000001|{"insurer": {"name": "Example Insurance", "originalOffer": {"display": "$18,000.00", "currency": "USD", "minorUnits": 1800000}}, "journey": {"phase": "negotiation", "currentTask": "insurer_response_received", "negotiationRoundNumber": 1}, "vehicle": {"vin": "1HGCM82633A004352", "make": "Honda", "trim": "EX-L", "year": 2022, "model": "Accord", "mileageAtLoss": 32000}, "contextVersion": "1", "customerRequest": {"body": "Please review the attached evidence and reconsider the vehicle valuation.", "subject": "Valuation review request", "customerReportedSentAt": "2026-08-31T15:45:31.155148+00:00"}, "insurerResponse": {"text": "The insurer sent a new response.", "document": null, "receivedAt": "2026-09-15T15:45:31.217139+00:00", "customerRecordedRevisedOffer": null}, "venfourAssessment": {"findings": ["The saved market evidence remains above the original offer."], "limitations": ["Advertised prices are not guaranteed transaction prices."], "reasonCodes": ["SUPPORTED_RANGE_ABOVE_ORIGINAL_OFFER"], "conclusionCode": "MATERIAL_UNDERVALUE_SIGNAL", "supportedRange": {"currency": "USD", "lowMinorUnits": 2000000, "highMinorUnits": 2200000, "medianMinorUnits": 2100000}, "insurerComparableReview": {"summary": {"count": 1}, "comparables": [{"vehicle": "2022 Honda Accord EX-L", "adjustedValue": "$20,900.00", "advertisedPrice": "$20,500.00"}]}, "independentMarketEvidence": {"primary": {"count": 1, "label": "Primary current market evidence", "description": "One approved current-market summary.", "evidenceBasis": "CURRENT_MARKET"}}}}|||||||||
+completed|completed|10
+ok 28 - completed current response analysis announces ready
+ok 29 - response ready queued once
+ok 30 - completed job cannot announce twice
+c5d0f58d-9ee0-4f54-8e47-652cd3c70735
+10
+SET
+{"state": "insurer_response_received", "response": {"text": "The corrected insurer response.", "decision": null, "document": null, "canCorrect": true, "receivedAt": "2026-09-15T15:45:31.655027+00:00", "responseId": "96bc4b9a-9257-49b0-9c28-15c9109d719f", "sourceType": "pasted_message", "usableOffer": null, "revisedOffer": null, "failureReason": null, "recommendation": null, "clientRequestId": "a8fa0125-af47-4d92-bd35-a783cae61160", "processingState": "pending", "negotiationRoundId": "be000000-0000-4000-8000-000000000001", "supersedesResponseId": "c5d0f58d-9ee0-4f54-8e47-652cd3c70735", "outboundCommunicationId": "be300000-0000-4000-8000-000000000001"}, "workflowRevision": 11}
+RESET
+ok 31 - superseding the response removes old completion candidate
+{"queued": 0}
+ok 32 - response correction cancels queued ready email
+UPDATE 1
+ok 33 - offer acceptance task is not case closure
+UPDATE 1
+ok 34 - explicit resolved state has one closure milestone
+ok 35 - resolved case has no pending progress or reminder candidates
+1..35
+ROLLBACK

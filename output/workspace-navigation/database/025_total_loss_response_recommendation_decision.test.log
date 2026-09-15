@@ -1,0 +1,135 @@
+BEGIN
+CREATE EXTENSION
+SET
+1..54
+INSERT 0 2
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+UPDATE 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+UPDATE 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+UPDATE 1
+UPDATE 1
+SELECT 1
+SELECT 1
+CREATE TABLE
+GRANT
+CREATE FUNCTION
+CREATE FUNCTION
+ok 1 - recommendation writes are service-only, explicit decisions are owner RPC-only, raw decisions remain private
+UPDATE 1
+UPDATE 1
+SET
+b1000000-0000-4000-8000-000000000001
+authenticated
+INSERT 0 1
+ok 2 - pending response always projects nullable recommendation, offer, and decision
+RESET
+ok 3 - atomic completion rejects a recommendation from different saved evidence
+ok 4 - failed recommendation persistence rolls back the analysis completion
+ok 5 - recommendation cannot cite evidence absent from the saved analysis index
+ok 6 - recommendation cannot change the source response offer amount
+ok 7 - the current assessment policy cannot publish an unsupported Accept recommendation
+ok 8 - new recommendations cannot use the superseded policy
+ok 9 - recommendation cannot replace the insurer value evaluated by its saved assessment
+ok 10 - recommendation limitations must match the immutable assessment
+ok 11 - recommendation assumptions must match the immutable assessment
+ok 12 - one transaction completes the analysis and publishes its recommendation
+SET
+INSERT 0 1
+ok 13 - reviewed response exposes persisted recommendation and exact offer without internal policy inputs
+ok 14 - refresh returns the same stored recommendation and no decision
+RESET
+ok 15 - viewing the response never creates a decision
+ok 16 - recommendation preserves exact analysis, report, assessment and payload digests
+ok 17 - exact recommendation publication retry is idempotent
+ok 18 - published recommendation cannot be changed
+ok 19 - the exact customer-entered offer is reused without changing its recorded status
+SET
+b1000000-0000-4000-8000-000000000002
+ok 20 - another account cannot record a choice
+b1000000-0000-4000-8000-000000000001
+ok 21 - Accept cannot bind a different offer identity
+ok 22 - new decisions reject a stale workflow revision
+INSERT 0 1
+ok 23 - Accept records the explicit choice and exact immutable offer amount/version
+ok 24 - Accept does not expose or generate a follow-up request
+RESET
+ok 25 - prior policy direction is withheld while exact offer, source identifiers and explicit Accept choice survive unchanged
+SET
+ok 26 - exact Accept retry replays after the old revision fence
+ok 27 - reusing a decision request identity for the opposite choice is rejected
+ok 28 - a new request cannot overwrite the first explicit decision
+RESET
+ok 29 - Accept neither closes the case nor resolves the offer or round
+ok 30 - recorded customer decisions are immutable
+UPDATE 1
+SET
+ok 31 - suspended entitlement blocks even an exact decision replay
+RESET
+UPDATE 1
+SET
+INSERT 0 1
+ok 32 - a correction begins without inheriting the old recommendation or decision
+RESET
+ok 33 - correction clears the authoritative current recommendation pointer
+ok 34 - old accepted-choice history survives while its old offer is superseded
+SET
+ok 35 - old exact decision retries cannot replace a corrected current response projection
+RESET
+UPDATE 1
+ok 36 - unverified visual transcription cannot materialize an offer for acceptance
+UPDATE 1
+UPDATE 1
+ok 37 - USD text cannot create an exact offer in a different currency
+UPDATE 1
+UPDATE 1
+ok 38 - a generated amount without matching literal saved response text is rejected
+UPDATE 1
+ok 39 - literal response text can publish and materialize an exact new stored offer
+ok 40 - corrected recommendation has coherent lineage and a distinct offer identity
+SET
+INSERT 0 1
+ok 41 - old recommendation cannot receive a new choice after corrected evidence is reviewed
+INSERT 0 1
+ok 42 - customer may Continue without a clear recommendation without accepting any offer
+ok 43 - explicit Continue is idempotent
+ok 44 - refresh resumes the separate recorded Continue choice
+RESET
+ok 45 - corrected analyses retain distinct explicit decisions without inheriting the old choice
+SET
+INSERT 0 1
+RESET
+UPDATE 1
+ok 46 - pre-milestone completion remains compatible and immutable
+SET
+ok 47 - viewing an older completed result does not synthesize recommendation or decision
+RESET
+ok 48 - legacy read leaves the persisted recommendation count unchanged
+SET
+ok 49 - explicit backfill context returns the exact saved assessment and current analysis only
+RESET
+ok 50 - explicit service backfill publishes a neutral recommendation for a legacy completed result
+SET
+INSERT 0 1
+ok 51 - a no-offer recommendation never presents a usable Accept target
+ok 52 - Accept without an exact usable offer fails closed
+ok 53 - customer can explicitly Continue without a revised offer or clear recommendation
+RESET
+ok 54 - decisions create neither follow-up requests, additional rounds, nor final case closure
+ROLLBACK

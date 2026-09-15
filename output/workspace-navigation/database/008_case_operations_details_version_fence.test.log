@@ -1,0 +1,27 @@
+BEGIN
+CREATE EXTENSION
+SET
+1..8
+ok 1 - the operations join fences every stage to the exact current server-owned input revision
+ok 2 - the replaced internal operations view remains security-invoker
+ok 3 - the replaced internal view retains its bounded RPC-only access boundary
+ok 4 - the follow-up preserves all owner and staff RPC signatures, security, and grants
+INSERT 0 2
+INSERT 0 4
+INSERT 0 4
+INSERT 0 4
+INSERT 0 4
+INSERT 0 2
+SET
+SET
+ok 5 - owner stages ignore stale input-fenced jobs while preserving a fresh completion
+RESET
+SET
+INSERT 0 1
+RESET
+SET
+SET
+ok 6 - staff list uses the same current-input-fenced stage projection
+ok 7 - staff detail omits stale job and run history from the current-input projection
+ok 8 - an exact current details version still produces analysis_complete
+ROLLBACK

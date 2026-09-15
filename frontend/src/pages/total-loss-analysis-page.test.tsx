@@ -9,6 +9,7 @@ import type { AnalysisPresentationBase } from "@/features/analyses/analysis-pres
 import { materialUndervalueAnalysis, representativeRunId } from "@/test/fixtures/analysis-presentation";
 import { server } from "@/test/mocks/server";
 import { renderTestApp } from "@/test/render";
+import { requestAutomaticSubmission } from "@/features/analyses/case-analysis-queries";
 
 vi.mock("@/features/analyses/components/valuation-signal-field", () => ({
   ValuationSignalField: () => <canvas aria-hidden="true" data-testid="valuation-signals" />,
@@ -54,7 +55,8 @@ function authService(session: Session | null): AuthService {
 }
 
 describe("total-loss case analysis page", () => {
-  it("auto-submits only a not-submitted case and sends the bearer token", async () => {
+  it("submits a just-confirmed intake once and sends the bearer token", async () => {
+    requestAutomaticSubmission(USER_ID, CASE_ID, { expectedAnalysisInputId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", expectedAnalysisInputRevision: 1 });
     let postCount = 0;
     let authorization: string | null = null;
     let submittedInput: unknown;
@@ -96,7 +98,7 @@ describe("total-loss case analysis page", () => {
     expect(screen.queryByRole("banner")).not.toBeInTheDocument();
     expect(screen.queryByRole("navigation")).not.toBeInTheDocument();
     expect(screen.queryByRole("contentinfo")).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /Account for/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Account for/ })).toBeVisible();
     expect(screen.getByRole("link", { name: "Venfour home" })).toBeVisible();
   });
 
@@ -120,6 +122,7 @@ describe("total-loss case analysis page", () => {
   });
 
   it("does not automatically resubmit an uncertain request after remount", async () => {
+    requestAutomaticSubmission(USER_ID, CASE_ID, { expectedAnalysisInputId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", expectedAnalysisInputRevision: 7 });
     const post = vi.fn();
     server.use(
       http.get("*/api/v1/appraisal-cases/:caseId/analysis", () => HttpResponse.json({
@@ -528,7 +531,7 @@ describe("total-loss case analysis page", () => {
     renderTestApp([casePath], { authService: authService(sessionFor()) });
     expect(await screen.findByRole("heading", { name: "Your value check was interrupted." })).toBeInTheDocument();
     expect(screen.queryByText(/insufficient market evidence|no comparables/i)).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Return to appraisals" })).toHaveAttribute("href", "/appraisals");
+    expect(screen.getByRole("link", { name: "Contact support" })).toHaveAttribute("href", "/contact");
     expect(submissions).toBe(0);
     if (retryable) {
       expect(screen.getByRole("button", { name: "Continue value check" })).toBeInTheDocument();
@@ -538,7 +541,7 @@ describe("total-loss case analysis page", () => {
     }
   });
 
-  it("returns to appraisals for a nonretryable provider failure", async () => {
+  it("offers support for a nonretryable provider failure", async () => {
     server.use(
       http.get("*/api/v1/appraisal-cases/:caseId/analysis", () =>
         HttpResponse.json({
@@ -558,8 +561,8 @@ describe("total-loss case analysis page", () => {
     });
 
     expect(
-      await screen.findByRole("link", { name: "Return to appraisals" }),
-    ).toHaveAttribute("href", "/appraisals");
+      await screen.findByRole("link", { name: "Contact support" }),
+    ).toHaveAttribute("href", "/contact");
     expect(
       screen.queryByRole("button", { name: "Retry value check" }),
     ).not.toBeInTheDocument();
@@ -612,14 +615,15 @@ describe("total-loss case analysis page", () => {
       }),
     ).toBeVisible();
     expect(
-      screen.getByRole("link", { name: "Return to appraisals" }),
-    ).toHaveAttribute("href", "/appraisals");
+      screen.getByRole("link", { name: "Contact support" }),
+    ).toHaveAttribute("href", "/contact");
     expect(
       screen.getByText(/may not exist, or it may belong to a different account/),
     ).toBeVisible();
   });
 
   it("prefers the authoritative processing status after a submit conflict", async () => {
+    requestAutomaticSubmission(USER_ID, CASE_ID, { expectedAnalysisInputId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", expectedAnalysisInputRevision: 1 });
     let getCount = 0;
     let postCount = 0;
     server.use(
@@ -668,6 +672,7 @@ describe("total-loss case analysis page", () => {
   });
 
   it("turns report-intake API errors into a replace-report action", async () => {
+    requestAutomaticSubmission(USER_ID, CASE_ID, { expectedAnalysisInputId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", expectedAnalysisInputRevision: 1 });
     server.use(
       http.get("*/api/v1/appraisal-cases/:caseId/analysis", () =>
         HttpResponse.json({ analysisInputId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", analysisInputRevision: 1, status: "not_submitted" }),
@@ -698,4 +703,17 @@ describe("total-loss case analysis page", () => {
       `/start?service=total-loss&caseId=${CASE_ID}&intent=correct-intake`,
     );
   });
+});
+
+ it("never submits a value check by opening or refreshing a saved ready case", async () => {
+  const post = vi.fn();
+  server.use(http.get("*/api/v1/appraisal-cases/:caseId/analysis", () => HttpResponse.json({ status: "not_submitted", analysisInputId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb", analysisInputRevision: 4 })),
+    http.post("*/api/v1/appraisal-cases/:caseId/analysis", () => { post(); return HttpResponse.error(); }));
+  const first = renderTestApp([casePath], { authService: authService(sessionFor()), strictMode: true });
+  expect(await screen.findByRole("button", { name: "Resume value check" })).toBeVisible();
+  expect(post).not.toHaveBeenCalled();
+  first.unmount();
+  renderTestApp([casePath], { authService: authService(sessionFor()) });
+  expect(await screen.findByRole("button", { name: "Resume value check" })).toBeVisible();
+  expect(post).not.toHaveBeenCalled();
 });

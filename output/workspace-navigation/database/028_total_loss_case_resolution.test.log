@@ -1,0 +1,141 @@
+BEGIN
+CREATE EXTENSION
+SET
+SELECT 1
+ALTER TABLE
+UPDATE 1
+UPDATE 1
+UPDATE 1
+UPDATE 1
+UPDATE 1
+UPDATE 1
+UPDATE 1
+INSERT 0 2
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+UPDATE 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+UPDATE 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+UPDATE 1
+UPDATE 1
+SELECT 1
+SELECT 1
+CREATE TABLE
+CREATE TABLE
+GRANT
+CREATE FUNCTION
+CREATE FUNCTION
+b1000000-0000-4000-8000-000000000001
+{"sub":"b1000000-0000-4000-8000-000000000001","role":"authenticated","is_anonymous":false}
+CREATE FUNCTION
+SAVEPOINT
+SELECT 1
+{"state": "resolved", "resolution": {"code": "RESOLVED_WITH_INSURER", "offerId": null, "currency": null, "decisionId": null, "resolvedAt": "2026-09-15T15:45:25.154815+00:00", "responseId": null, "amountSource": null, "clientRequestId": "a9e9501e-a20d-4a64-accd-cf901e0ec78e", "amountMinorUnits": null, "recommendationId": null, "customerConfirmed": true}, "workflowRevision": 4}
+SELECT 1
+ok 1 - manual resolution closes without amount or Accept
+ok 2 - owned history projects workflow closure while retaining its claim route
+ok 3 - closed claim resumes as entitled read-only workspace with prior outbound history
+ok 4 - closure preserves existing paid report download authorization
+ok 5 - exact confirmation retry is idempotent
+ok 6 - duplicate closure leaves one immutable resolution event
+ok 7 - same request cannot change the resolution outcome
+ok 8 - competing closure is a non-retriable conflict
+ok 9 - terminal conflict retains its stable application tag despite stale revision
+ok 10 - same outcome with a different request identity is not an exact replay
+ok 11 - stale Accept after another terminal outcome receives the terminal conflict
+ok 12 - exact replay and rejected terminal requests preserve resolved timestamp revision details and all prior events
+ok 13 - closed case rejects response mutation endpoint
+ok 14 - closed case rejects upload permits
+ok 15 - closed case rejects further decisions
+ok 16 - closed case rejects initial message preparation
+ok 17 - closed case rejects sent confirmation
+ok 18 - closed case rejects follow-up sent confirmation
+ok 19 - closed case rejects analysis retry
+ok 20 - database guard rejects even trusted draft writes
+ok 21 - terminal workflow cannot progress or reopen
+UPDATE 1
+ok 22 - financial access revocation still applies after closure
+ok 23 - closed workspace does not bypass a revoked entitlement
+ROLLBACK
+SAVEPOINT
+SELECT 1
+{"state": "resolved", "resolution": {"code": "RESOLVED_WITH_INSURER", "offerId": null, "currency": "USD", "decisionId": null, "resolvedAt": "2026-09-15T15:45:25.431214+00:00", "responseId": null, "amountSource": "CUSTOMER_REPORTED", "clientRequestId": "5f296a08-b785-424d-8d7c-863fb32cdd8b", "amountMinorUnits": 2134567, "recommendationId": null, "customerConfirmed": true}, "workflowRevision": 4}
+ok 24 - optional final amount retains customer-reported provenance without an insurer offer
+ok 25 - manual amount does not create insurer evidence
+ok 26 - exact manual amount and currency replay retains its original customer-reported provenance
+ok 27 - reused request cannot change the manual amount
+ok 28 - reused request cannot change the manual currency
+ROLLBACK
+SAVEPOINT
+{"state": "resolved", "resolution": {"code": "CUSTOMER_STOPPED_PURSUING", "offerId": null, "currency": null, "decisionId": null, "resolvedAt": "2026-09-15T15:45:25.533896+00:00", "responseId": null, "amountSource": null, "clientRequestId": "2e153859-93e0-4cb6-beb6-d830ba0de66a", "amountMinorUnits": null, "recommendationId": null, "customerConfirmed": true}, "workflowRevision": 4}
+ok 29 - stopping pursuit records a separate terminal outcome without settlement evidence
+ROLLBACK
+SAVEPOINT
+b1000000-0000-4000-8000-000000000002
+ok 30 - another owner cannot close a case
+b1000000-0000-4000-8000-000000000001
+UPDATE 1
+ok 31 - suspended entitlement cannot close a case
+ROLLBACK
+ok 32 - stale workflow revision is a non-retriable conflict
+ok 33 - stopped pursuit cannot silently carry a settlement amount
+SAVEPOINT
+UPDATE 1
+ok 34 - existing no-dispute resolution keeps its established journey and distinct system provenance
+ok 35 - legacy no-dispute resolution is historical in the lightweight owned list
+ok 36 - customer closure cannot replace the distinct system no-dispute outcome
+ROLLBACK
+SAVEPOINT
+SELECT 1
+UPDATE 1
+UPDATE 1
+{"status": "completed", "outcome": "completed", "workflow_revision": 7}
+SELECT 1
+SELECT 1
+{"state": "resolved", "resolution": {"code": "ACCEPTED_VERIFIED_OFFER", "offerId": "41fd18d8-bcb9-482b-9a69-0e90fc6da3bf", "currency": "USD", "decisionId": "ea3bfd62-3926-43b3-afbb-752d53dc9bdb", "resolvedAt": "2026-09-15T15:45:25.694647+00:00", "responseId": "dc102ed7-3ae4-47b7-81a3-5e94b9d3fdc3", "amountSource": "RESPONSE_TEXT", "clientRequestId": "9de187d9-1b0f-4890-8e83-150799becfd1", "amountMinorUnits": 2050000, "recommendationId": "a2780c1e-8690-43aa-83d0-9ab62aef1544", "customerConfirmed": true}, "workflowRevision": 9}
+ok 37 - accepted literal response-text offer preserves its source and exact identity through closure
+ROLLBACK
+SELECT 1
+ok 38 - pending analysis prevents inconsistent closure
+UPDATE 1
+{"status": "completed", "outcome": "completed", "workflow_revision": 7}
+SELECT 1
+ok 39 - clicking Accept records only a decision and does not close
+SELECT 1
+ok 40 - unrelated Accept identity cannot close the current case
+SAVEPOINT
+{"state": "insurer_response_received", "response": {"text": "Corrected response: the revised insurer offer is $20,500.00.", "decision": null, "document": null, "canCorrect": true, "receivedAt": "2026-09-15T15:45:25.829446+00:00", "responseId": "ff433084-6109-4508-aa7c-0935b89bbe94", "sourceType": "pasted_message", "usableOffer": null, "revisedOffer": null, "failureReason": null, "recommendation": null, "clientRequestId": "a3722017-bce9-456a-91eb-3530ab8f8e37", "processingState": "pending", "negotiationRoundId": "be000000-0000-4000-8000-000000000001", "supersedesResponseId": "ed71a4fb-ae93-4d60-a671-2889b8b67e92", "outboundCommunicationId": "be300000-0000-4000-8000-000000000001"}, "workflowRevision": 9}
+ok 41 - stale tab cannot close after correction supersedes Accept
+UPDATE 1
+UPDATE 1
+{"status": "completed", "outcome": "completed", "workflow_revision": 12}
+ok 42 - corrected response uses its current source while historical offer provenance remains unchanged
+ok 43 - superseded Accept cannot close even with refreshed revision
+ROLLBACK
+{"state": "resolved", "resolution": {"code": "ACCEPTED_VERIFIED_OFFER", "offerId": "8f9f8a37-1595-4893-922d-9ba9fb9e348c", "currency": "USD", "decisionId": "bd29eaa7-88f8-43ac-be2a-e026e30d8b26", "resolvedAt": "2026-09-15T15:45:25.922106+00:00", "responseId": "ed71a4fb-ae93-4d60-a671-2889b8b67e92", "amountSource": "CUSTOMER_RECORDED", "clientRequestId": "8f4981b3-2753-4167-ac1b-4a558f6c6c29", "amountMinorUnits": 2050000, "recommendationId": "b0519bd3-e8c5-43e3-9573-cb58d6ecedf5", "customerConfirmed": true}, "workflowRevision": 9}
+ok 44 - explicit accepted confirmation retains exact offer decision recommendation response and amount provenance
+ok 45 - accepted duplicate confirmation does not increment terminal revision
+ok 46 - idempotency identity includes exact submitted revision
+ok 47 - accepted replay cannot substitute a different decision
+ok 48 - accepted replay cannot substitute a different offer
+ok 49 - another terminal request cannot overwrite accepted offer closure
+ok 50 - closure is a customer RPC with no anonymous or worker execution grant
+1..50
+ROLLBACK

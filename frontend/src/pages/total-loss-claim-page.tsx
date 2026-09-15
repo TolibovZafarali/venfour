@@ -160,7 +160,7 @@ function AuthenticatedClaimPage({
         description="This claim is connected to your verified Venfour account. You can safely leave and return later."
       >
         <Button asChild variant="outline">
-          <Link to="/appraisals">View my appraisals</Link>
+          <Link to="/contact">Contact support</Link>
         </Button>
       </ClaimStateCard>
     );

@@ -1,0 +1,42 @@
+{
+  "checkedAt": "2026-09-15T16:14:32.506Z",
+  "assets": [
+    {
+      "path": "/assets/index-JIVphtfh.js",
+      "status": 200,
+      "sha256": "e76a374b62f3697d8b4aacea4dcb413d9eb741c8435ed80510fd9dee492e1812"
+    },
+    {
+      "path": "/assets/index-CpJWFmsW.css",
+      "status": 200,
+      "sha256": "64e758444d816bba42ec2ac3346a0d7967a5fcc58cfe3fa47f6aa93a26e7eca5"
+    }
+  ],
+  "routes": [
+    {
+      "path": "/",
+      "status": 200,
+      "contentType": "text/html"
+    },
+    {
+      "path": "/app",
+      "status": 200,
+      "contentType": "text/html"
+    },
+    {
+      "path": "/appraisals",
+      "status": 200,
+      "contentType": "text/html"
+    },
+    {
+      "path": "/auth/callback",
+      "status": 200,
+      "contentType": "text/html"
+    },
+    {
+      "path": "/health",
+      "status": 200,
+      "contentType": "application/json"
+    }
+  ]
+}

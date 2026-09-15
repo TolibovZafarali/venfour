@@ -1,0 +1,10 @@
+{
+  "cases_verified": 24,
+  "owner_isolation_passed": true,
+  "owners_checked": 24,
+  "read_only": true,
+  "roles": {
+    "customer": 23,
+    "staff": 1
+  }
+}

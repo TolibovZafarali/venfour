@@ -1,0 +1,101 @@
+BEGIN
+CREATE EXTENSION
+SET
+1..54
+ok 1 - case_operation_stage exists
+ok 2 - case_operation_stage contains only the current computed read-model stages
+ok 3 - profiles contains the minimal confirmed-name, acknowledgement, and follow-up fields
+ok 4 - profile confirmation is a volatile search-path-pinned SECURITY DEFINER function
+ok 5 - profile readiness is a stable search-path-pinned SECURITY DEFINER check
+ok 6 - the Total-Loss draft resolver delegates to the private authenticated, locked, pinned core
+ok 7 - the owner caseStage projection is stable, pinned, and SECURITY DEFINER
+ok 8 - both staff projections are stable, pinned, and SECURITY DEFINER
+ok 9 - the broad internal operation view is not browser- or service-role-readable
+ok 10 - PUBLIC cannot execute any customer-operations function
+ok 11 - authenticated clients receive only the intended RPC surface
+ok 12 - service credentials cannot impersonate the customer or browser staff RPC surface
+ok 13 - direct inserts are permanent-user Diminished Value only while Total-Loss creation stays RPC-bound
+ok 14 - new staff projections add no broad direct-table RLS policy
+ok 15 - staff detail exposes no raw artifact, report token, or worker lease token
+INSERT 0 4
+SET
+SET
+ok 16 - Auth metadata alone does not silently confirm a customer profile
+ok 17 - profile confirmation rejects a stale service-terms version
+ok 18 - a verified customer can confirm their full name, acknowledgements, and explicit opt-out
+ok 19 - the completed current profile is immediately recognized
+ok 20 - the profile stores normalized confirmed identity and separately timestamped policy/preference facts
+ok 21 - a confirmed name cannot be silently replaced through the old direct profile column grant
+RESET
+UPDATE 1
+ok 22 - later OAuth metadata cannot override the persisted confirmed name
+SET
+SET
+ok 23 - an unverified Auth email cannot complete a customer profile
+SET
+SELECT 1
+ok 24 - the atomic resolver creates one owned Total-Loss draft before intake or upload
+ok 25 - refresh or re-entry resolves the same server draft
+ok 26 - repeated resolution does not create duplicate drafts
+ok 27 - even a permanent owner cannot bypass the locked Total-Loss draft resolver with a direct insert
+ok 28 - the resolver remains the only customer path to the same recoverable draft
+ok 29 - the owner read model exposes only the RPC-created recoverable draft and states its owner explicitly
+ok 30 - direct-insert denial and resolver reuse prevent duplicate customer drafts
+ok 31 - the existing owned Diminished Value direct-insert contract remains available
+SET
+ok 32 - authenticated anonymous/profileless identities can resolve a securely owned Total-Loss draft
+RESET
+DELETE 1
+DELETE 1
+INSERT 0 18
+INSERT 0 14
+INSERT 0 9
+INSERT 0 7
+INSERT 0 1
+INSERT 0 2
+SET
+INSERT 0 1
+RESET
+SET
+SET
+ok 33 - pre-analysis facts and incomplete confirmed manual intake map deterministically
+ok 34 - processing, expired processing, failure, completion, and completed-without-run map safely
+ok 35 - caseStage follows only the job for the current finalized replacement upload
+ok 36 - missing canonical report, invalid postal, expired upload, and incomplete finalized triples surface attention
+ok 37 - staff retains visibility of every preexisting duplicate Total-Loss draft
+ok 38 - the owner projection never leaks another customer case identifier
+ok 39 - the owner projection preserves submitted and draft DV read behavior
+RESET
+SET
+DELETE 1
+RESET
+SET
+SET
+ok 40 - an ordinary customer cannot invoke the staff list projection
+ok 41 - an ordinary customer cannot invoke staff detail even for their own case
+RESET
+SET
+INSERT 0 1
+RESET
+SET
+SET
+ok 42 - the database membership grants staff access
+ok 43 - the combined staff list preserves submitted-only DV scope and excludes DV drafts
+ok 44 - the staff list uses confirmed profile name and verified Auth email rather than the DV email copy
+ok 45 - staff detail returns bounded identity, preference, job, run, and analysis-summary facts
+ok 46 - the Total-Loss staff detail returns no row for a DV identifier
+ok 47 - the staff detail returns no row for a nonexistent identifier
+ok 48 - staff receives no direct customer profile table access
+ok 49 - staff receives no direct Total-Loss details table access
+ok 50 - staff receives no direct analysis-job table grant
+ok 51 - staff receives no direct immutable analysis-artifact table grant
+RESET
+SET
+DELETE 1
+RESET
+SET
+SET
+ok 52 - same-token staff revocation is immediately authoritative
+ok 53 - revoked staff immediately loses the combined case list
+ok 54 - revoked staff immediately loses Total-Loss detail using the same token
+ROLLBACK

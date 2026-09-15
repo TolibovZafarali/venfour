@@ -11,13 +11,11 @@ export function completedAuthReturnLocation(
   completedClaim: CompleteTotalLossIdentityClaimResult | null,
 ) {
   const storedReturnLocation = consumeAuthReturnLocation();
-  if (caseClaim.kind !== "claim") return storedReturnLocation;
+  if (caseClaim.kind !== "claim") return ["/", "/appraisals"].includes(storedReturnLocation) ? "/app" : storedReturnLocation;
   if (!completedClaim) {
     throw new Error("The secure case-access link could not be completed.");
   }
-  return completedClaim.claimPurpose === "post_continue"
-    ? `/total-loss/cases/${encodeURIComponent(completedClaim.caseId)}/claim/checkout`
-    : "/appraisals";
+  return `/total-loss/cases/${encodeURIComponent(completedClaim.caseId)}`;
 }
 
 export async function completeCaseClaim(

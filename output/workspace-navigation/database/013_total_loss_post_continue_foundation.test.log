@@ -1,0 +1,172 @@
+BEGIN
+CREATE EXTENSION
+SET
+1..123
+ok 1 - the complete additive post-Continue table catalog exists
+ok 2 - claim phases are stable and intentionally small
+ok 3 - commerce order states preserve payment outcomes without overloading case status
+ok 4 - entitlement states remain independent from payment state
+ok 5 - communication direction is typed
+ok 6 - communication channels are typed
+ok 7 - RLS is enabled on every new table
+ok 8 - PUBLIC and anon receive no table privileges
+ok 9 - authenticated browser clients receive no direct write privilege
+ok 10 - authenticated SELECT grants contain only owner and staff-readable surfaces
+ok 11 - the service role can read and create every server-owned foundation record
+ok 12 - service UPDATE is absent from fully immutable records
+ok 13 - service DELETE is limited to mutable draft attachment links
+ok 14 - the permanent-owner predicate is stable, pinned, and SECURITY DEFINER
+ok 15 - only authenticated browser sessions can invoke the ownership predicate
+ok 16 - all post-Continue trigger guards are pinned SECURITY INVOKER functions
+ok 17 - trigger-only guards have no callable API role surface
+ok 18 - the post-Continue policy catalog is exact
+ok 19 - every new browser policy is authenticated SELECT-only
+ok 20 - financial, worker-lease, and raw audit tables have no browser policy
+ok 21 - same-case and lineage foreign keys cover every high-risk boundary
+ok 22 - all current-workflow pointers are same-case and initially deferred
+ok 23 - idempotency and one-active-record indexes all exist
+ok 24 - the pre-existing appraisal case status contract is unchanged
+ok 25 - the existing raw analysis boundary remains read-only and browser-inaccessible
+INSERT 0 4
+INSERT 0 1
+INSERT 0 3
+INSERT 0 2
+INSERT 0 2
+INSERT 0 2
+INSERT 0 2
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 2
+INSERT 0 2
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 2
+INSERT 0 1
+UPDATE 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 2
+INSERT 0 1
+SET
+SET
+ok 26 - a permanent authenticated Total-Loss owner satisfies the owner predicate
+ok 27 - the permanent owner cannot bypass the safe resolver with a workflow table read
+ok 28 - the permanent owner cannot bypass the safe commerce projection with an entitlement table read
+ok 29 - the permanent owner cannot read internal report-series lineage
+ok 30 - browser owners have no direct claim-document metadata grant
+ok 31 - browser owners have no direct raw-report grant
+ok 32 - a pending-order owner cannot bypass entitlement to read education progress
+ok 33 - a pending-order owner cannot bypass entitlement to read negotiation rounds
+ok 34 - a pending-order owner cannot bypass entitlement to read message drafts
+ok 35 - a pending-order owner cannot bypass entitlement to read message versions
+ok 36 - a pending-order owner cannot bypass entitlement to read communications
+ok 37 - a pending-order owner cannot bypass entitlement to read communication attachments
+ok 38 - the permanent owner cannot bypass bounded projections with raw facts
+ok 39 - the permanent owner cannot bypass bounded projections with raw offers
+ok 40 - the permanent owner cannot bypass bounded projections with recommendations
+ok 41 - owners cannot directly read raw preliminary snapshots
+ok 42 - owners cannot directly read raw final assessments
+ok 43 - owners cannot directly read raw AI reviews
+ok 44 - owners cannot directly read the human exception queue
+ok 45 - owners have no direct financial-order surface
+ok 46 - owners cannot read trusted package-job leases
+ok 47 - owners cannot read the raw workflow event journal
+ok 48 - the owner cannot author authoritative workflow events directly
+SET
+ok 49 - a permanent but different customer fails the owner predicate
+ok 50 - a wrong owner cannot read any customer post-Continue record
+SET
+ok 51 - an authenticated anonymous owner is explicitly denied
+ok 52 - an authenticated anonymous owner cannot read their own post-Continue workflow
+SET
+ok 53 - database-authorized staff can inspect non-customer release-review surfaces while report artifacts remain service-backed
+ok 54 - staff membership does not imply customer-workspace ownership
+ok 55 - staff has no direct exception-queue write authority
+RESET
+SET
+ok 56 - the unauthenticated anon role has no post-Continue read surface
+RESET
+DELETE 1
+ok 57 - a workflow cannot consume a snapshot from another case
+ok 58 - a preliminary snapshot cannot cross analysis job and case identity
+ok 59 - a preliminary snapshot must preserve the exact analysis-job source identity
+ok 60 - an order cannot cross its case and preliminary snapshot
+UPDATE 1
+ok 61 - a checkout attempt must preserve its order amount and currency snapshot
+ok 62 - checkout creation is idempotent per order and client request
+INSERT 0 1
+ok 63 - only one creating or open checkout attempt may exist per order
+ok 64 - provider payment objects cannot be recorded twice
+ok 65 - financial transactions must use the order currency
+ok 66 - financial transactions cannot relate to themselves
+ok 67 - financial transactions must match their checkout provider identity
+INSERT 0 1
+ok 68 - financial transaction lineage cannot cross logical orders
+ok 69 - one non-revoked entitlement is enforced per case and product across versions
+ok 70 - an entitlement must exactly match its order product identity
+ok 71 - a package job cannot cross entitlement and case identity
+ok 72 - a terminal package job retains its idempotency token
+ok 73 - a final assessment cannot cross its job, snapshot, and case
+ok 74 - final assessments are uniquely versioned per case and snapshot
+ok 75 - one logical report series exists per case, product, and kind
+ok 76 - report version numbers are unique within a series
+ok 77 - education completion cannot precede viewing
+ok 78 - only one non-closed negotiation round may exist per case
+ok 79 - one current message draft exists per case, purpose, round, and report
+ok 80 - message version numbers are unique per draft
+ok 81 - outbound email communications require an exact message version
+ok 82 - communication attachments cannot cross their case identity
+ok 83 - a fact assertion requires exactly one authoritative source
+ok 84 - offers require positive integer minor units
+ok 85 - recommendations are uniquely versioned per negotiation round
+ok 86 - workflow events are idempotent per case and client request
+ok 87 - paid commerce state requires its paid timestamp
+ok 88 - ready documents require complete storage and content metadata
+ok 89 - published report versions require a generated document
+ok 90 - published report versions reject pending document metadata
+ok 91 - a report and final assessment must reference the same preliminary snapshot
+ok 92 - completed AI review state requires structured output and a decision
+ok 93 - an AI review can enter the human exception queue only once
+ok 94 - preliminary supported ranges must be complete and ordered
+ok 95 - preliminary snapshots reject updates
+ok 96 - preliminary snapshots reject deletion
+SET
+ok 97 - immutable financial movements have no service UPDATE grant
+ok 98 - immutable final assessments have no service UPDATE grant
+ok 99 - immutable prepared messages have no service UPDATE grant
+ok 100 - append-only workflow events have no service DELETE grant
+ok 101 - published reports reject mutation
+ok 102 - ready document metadata rejects mutation
+ok 103 - terminal AI review output rejects mutation
+ok 104 - resolved human release decisions reject mutation
+ok 105 - confirmed communications reject mutation
+ok 106 - attachments freeze with their confirmed communication
+ok 107 - a confirmed attachment cannot be moved onto a mutable communication
+ok 108 - confirmed facts reject mutation
+ok 109 - decided offers reject mutation
+ok 110 - published recommendations reject mutation
+ok 111 - workflow updates require an exact optimistic revision increment
+ok 112 - workflow state can advance with the expected revision fence
+ok 113 - mutable workflow rows cannot change stable source identity
+ok 114 - message drafts require optimistic revision advancement
+ok 115 - message drafts remain mutable with the required revision fence
+INSERT 0 1
+ok 116 - queued AI reviews may begin processing without rewriting their input identity
+ok 117 - in-flight AI reviews cannot change model or input identity
+ok 118 - pending document metadata may transition to a terminal failure
+ok 119 - failed document metadata freezes after terminalization
+ok 120 - an open negotiation round may close with an exact revision increment
+ok 121 - closed negotiation rounds reject later mutation
+RESET
+ok 122 - the existing owned-case operation RPC exposes no new workflow contract
+ok 123 - post-Continue state does not leak into the existing appraisal case record
+ROLLBACK

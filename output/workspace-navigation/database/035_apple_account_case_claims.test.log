@@ -1,0 +1,39 @@
+BEGIN
+CREATE EXTENSION
+SET
+1..17
+INSERT 0 4
+ok 1 - Apple and linked-provider users each receive one UUID-keyed profile
+ok 2 - profile creation does not require Apple name metadata
+INSERT 0 2
+INSERT 0 2
+CREATE TABLE
+GRANT
+SET
+SET
+INSERT 0 1
+SET
+INSERT 0 1
+SET
+ok 3 - a relay email cannot claim a case bound to a different contact email
+SET
+ok 4 - failed Apple claiming leaves the guest owner access intact
+SET
+ok 5 - an existing email-and-Apple account receives its email-matched guest case
+ok 6 - the matched Apple account can read its transferred case through RLS
+ok 7 - transferred case details remain accessible to the Apple account
+ok 8 - returning Apple claim replay is idempotent
+ok 9 - the real-email account cannot claim another relay-bound case
+SET
+ok 10 - Hide My Email can claim a guest case bound to the same verified relay email
+ok 11 - the relay account can read its transferred case through RLS
+ok 12 - relay account claim replay is idempotent
+SET
+ok 13 - the former guest loses case access after transfer
+SET
+ok 14 - the former relay-case guest loses access after transfer
+RESET
+ok 15 - claiming uses the separately collected customer name
+ok 16 - relay identity metadata does not replace the intake name
+ok 17 - claiming and replay preserve one profile per account
+ROLLBACK

@@ -1,0 +1,59 @@
+BEGIN
+CREATE EXTENSION
+SET
+1..39
+ok 1 - normalized case checkpoints exist
+ok 2 - checkpoints use RLS
+ok 3 - checkpoint table is not directly readable
+ok 4 - only service workers load checkpoints
+ok 5 - only service workers save checkpoints
+ok 6 - checkpoint safety helper remains internal
+INSERT 0 1
+INSERT 0 2
+INSERT 0 2
+INSERT 0 1
+SELECT 1
+CREATE FUNCTION
+CREATE FUNCTION
+ok 7 - no checkpoint means new bounded work
+ok 8 - lease owner persists normalized evidence
+ok 9 - same input resumes saved work exactly
+ok 10 - new comparisons preserve the installed checkpoint envelope
+ok 11 - comparison rules are bound inside the immutable search input
+ok 12 - job cannot save another case
+ok 13 - other token cannot save
+ok 14 - null token cannot bypass the processing fence
+ok 15 - other token cannot load
+ok 16 - null token cannot load
+ok 17 - changed input cannot reuse the old search
+ok 18 - checkpoint input must match the requested identity
+ok 19 - retention above the confirmed bound fails
+ok 20 - raw provider responses are not checkpoints
+ok 21 - nested credentials cannot be persisted through the RPC
+ok 22 - credential-bearing URLs cannot be persisted through the RPC
+SELECT 1
+ok 23 - same lease can checkpoint more completed work
+ok 24 - repeated saves cannot renew the original retention period
+UPDATE 1
+ok 25 - superseded worker cannot resume
+ok 26 - superseded worker cannot overwrite progress
+ok 27 - new lease owner reuses the existing case evidence
+UPDATE 1
+ok 28 - expired lease cannot save
+ok 29 - expired lease cannot resume
+UPDATE 1
+UPDATE 1
+ok 30 - shorter confirmed retention immediately prevents old evidence reuse
+ok 31 - expired normalized evidence is purged within the case
+ok 32 - fresh bounded work can be checkpointed after expiry
+UPDATE 1
+ok 33 - naturally expired checkpoints cannot resume
+ok 34 - fresh work can start after natural expiry
+UPDATE 1
+ok 35 - different input stores a separate current checkpoint
+ok 36 - new input checkpoint removes obsolete prior-input evidence
+UPDATE 1
+ok 37 - old input job cannot overwrite progress after intake changes
+ok 38 - old input job cannot resume progress after intake changes
+ok 39 - stale input denial preserves the saved checkpoint
+ROLLBACK

@@ -1,0 +1,145 @@
+BEGIN
+CREATE EXTENSION
+SET
+1..53
+INSERT 0 3
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+UPDATE 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+CREATE TABLE
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+UPDATE 1
+UPDATE 1
+ok 1 - the bounded M6 customer RPC surface exists
+ok 2 - browser roles cannot read raw reports, document paths, or list deliverable objects
+SET
+ok 3 - the service-only download seam authorizes exactly the current entitled object and friendly filename
+RESET
+SET
+f1000000-0000-4000-8000-000000000001
+authenticated
+ok 4 - an eligible legacy secured case without a workflow keeps its pre-M6 projection and cannot enter checkout
+ok 5 - the owned-case list exposes only direct post-Continue workflow existence
+RESET
+UPDATE 1
+2026-09-15 15:45:14.912734+00
+SET
+f1000000-0000-4000-8000-000000000001
+authenticated
+ok 6 - the owned-case list orders post-Continue work by effective workflow activity
+ok 7 - the resolver projects paid report-ready state, server price, and a non-null false retry flag
+ok 8 - published report metadata uses an exact customer-safe top-level allowlist
+ok 9 - legacy report rows do not acquire invented source-price or supporting-listing semantics
+ok 10 - a missing secondary evidence source remains JSON null instead of an all-null object
+ok 11 - the report projection strips provider identity, model identity, VINs, source listing IDs, storage paths, and lineage
+ok 12 - real report evidence codes are mapped to customer language and preliminary comparison exposes only status and summary
+ok 13 - market and insurer comparables contain only explicitly allowlisted customer facts
+ok 14 - a tampered optional skip cannot bypass required Screen 1
+ok 15 - the owner cannot query raw published report JSON directly
+ok 16 - the owner cannot query raw document metadata or object paths directly
+ok 17 - the owner cannot list deliverable object names through Storage RLS
+ok 18 - the customer cannot bypass resolver and message RPC projections through internal tables
+f1000000-0000-4000-8000-000000000002
+ok 19 - a wrong permanent owner receives owner-safe resolver absence
+ok 20 - a wrong permanent owner cannot read a cross-owner report ID through the RPC
+RESET
+UPDATE 1
+2026-09-15 15:45:14.984923+00
+SET
+f1000000-0000-4000-8000-000000000001
+ok 21 - suspended entitlement forces both resolver states to needs-attention and removes report/message projections
+ok 22 - the owner list exposes direct post-Continue entitlement attention without invoking the rich resolver
+ok 23 - the owner list includes entitlement changes in effective lifecycle activity
+ok 24 - suspended entitlement denies the customer report RPC
+RESET
+UPDATE 1
+SET
+f1000000-0000-4000-8000-000000000001
+ok 25 - revoked entitlement forces both resolver states to needs-attention and removes report/message projections
+RESET
+UPDATE 1
+SET
+f1000000-0000-4000-8000-000000000001
+ok 26 - sending-detail confirmation normalizes bounded customer input without rewriting source insurer facts
+ok 27 - message preparation is server-gated on required Screen 1 completion
+ok 28 - required result progress persists against the exact current report
+ok 29 - direct prepare cannot bypass both completion and explicit optional-screen skip records
+ok 30 - an explicit optional-screen skip persists after required Screen 1 completion
+SELECT 1
+ok 31 - deterministic preparation uses the confirmed claim, insurer, report, and filename facts
+ok 32 - an exact prepare client-request replay returns the same immutable version
+ok 33 - even an active entitled owner cannot bypass bounded message RPCs with direct table reads
+RESET
+INSERT 0 1
+INSERT 0 1
+UPDATE 1
+INSERT 0 1
+UPDATE 1
+UPDATE 1
+SET
+ok 34 - download authorization follows the exact current report and rejects a superseded publication
+RESET
+SET
+f1000000-0000-4000-8000-000000000001
+ok 35 - the customer report RPC hides a superseded published version
+ok 36 - typed Take Price survives the authorized customer projection without becoming advertised
+ok 37 - the owned report RPC preserves separate supporting facts and limited-search context without changing the conclusion
+f1000000-0000-4000-8000-000000000002
+ok 38 - a different owner cannot read a report containing supporting examples
+f1000000-0000-4000-8000-000000000003
+ok 39 - an anonymous customer cannot read a report containing supporting examples
+f1000000-0000-4000-8000-000000000001
+ok 40 - an idempotency replay cannot revive a prepared version from a superseded report
+ok 41 - a superseded report draft cannot be edited after the workflow current-report pointer changes
+ok 42 - a newly current report receives its own required guided-progress state
+{"steps": {"send": {"viewedAt": null, "skippedAt": null, "completedAt": null}, "report": {"viewedAt": null, "skippedAt": null, "completedAt": null}, "result": {"viewedAt": "2026-09-15T15:45:15.142816+00:00", "skippedAt": null, "completedAt": "2026-09-15T15:45:15.142816+00:00"}, "valuation": {"viewedAt": null, "skippedAt": null, "completedAt": null}, "what_next": {"viewedAt": null, "skippedAt": null, "completedAt": null}, "insurer_review": {"viewedAt": null, "skippedAt": null, "completedAt": null}}, "reportVersionId": "fe000000-0000-4000-8000-000000000002"}
+{"steps": {"send": {"viewedAt": null, "skippedAt": null, "completedAt": null}, "report": {"viewedAt": null, "skippedAt": null, "completedAt": null}, "result": {"viewedAt": "2026-09-15T15:45:15.142816+00:00", "skippedAt": null, "completedAt": "2026-09-15T15:45:15.142816+00:00"}, "valuation": {"viewedAt": null, "skippedAt": null, "completedAt": null}, "what_next": {"viewedAt": null, "skippedAt": null, "completedAt": null}, "insurer_review": {"viewedAt": "2026-09-15T15:45:15.152494+00:00", "skippedAt": "2026-09-15T15:45:15.152494+00:00", "completedAt": null}}, "reportVersionId": "fe000000-0000-4000-8000-000000000002"}
+SELECT 1
+ok 43 - the report-aware draft identity creates a fresh deterministic draft for a newly current report
+SELECT 1
+ok 44 - optimistic draft editing persists only customer-editable fields and increments its revision
+SELECT 1
+ok 45 - preparing after an edit snapshots the exact current draft into a new immutable version
+SELECT 1
+ok 46 - opening an email app records a non-authoritative event without advancing the workflow
+SELECT 1
+ok 47 - explicit attached-report confirmation advances atomically to waiting for insurer
+RESET
+ok 48 - sent confirmation preserves generated baseline, attaches the exact report, and creates one immutable snapshot, communication, and Round 1
+SET
+f1000000-0000-4000-8000-000000000001
+ok 49 - an exact sent-confirmation replay returns the same identities without duplicate authority
+ok 50 - a fresh post-send prepare request cannot roll the waiting workflow backward
+ok 51 - the exact current-report prepare replay remains read-only after send
+RESET
+UPDATE 1
+SET
+f1000000-0000-4000-8000-000000000001
+ok 52 - post-send suspended entitlement removes all report/message projections and direct reads
+RESET
+UPDATE 1
+SET
+f1000000-0000-4000-8000-000000000001
+ok 53 - post-send revoked entitlement denies the resolver, report RPC, draft RPC, and direct message reads
+ROLLBACK

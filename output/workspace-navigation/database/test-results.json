@@ -1,0 +1,320 @@
+[
+  {
+    "file": "001_schema_and_privileges.test.sql",
+    "exit": 0,
+    "assertions": 36,
+    "failures": []
+  },
+  {
+    "file": "002_rls_and_storage.test.sql",
+    "exit": 0,
+    "assertions": 29,
+    "failures": []
+  },
+  {
+    "file": "003_total_loss_case_details.test.sql",
+    "exit": 0,
+    "assertions": 166,
+    "failures": []
+  },
+  {
+    "file": "004_total_loss_analysis_jobs.test.sql",
+    "exit": 0,
+    "assertions": 64,
+    "failures": []
+  },
+  {
+    "file": "005_diminished_value_case_submission.test.sql",
+    "exit": 0,
+    "assertions": 73,
+    "failures": []
+  },
+  {
+    "file": "006_admin_diminished_value_review.test.sql",
+    "exit": 0,
+    "assertions": 96,
+    "failures": []
+  },
+  {
+    "file": "007_customer_case_operations_foundation.test.sql",
+    "exit": 0,
+    "assertions": 54,
+    "failures": []
+  },
+  {
+    "file": "008_case_operations_details_version_fence.test.sql",
+    "exit": 0,
+    "assertions": 8,
+    "failures": []
+  },
+  {
+    "file": "009_guest_first_total_loss_identity.test.sql",
+    "exit": 0,
+    "assertions": 78,
+    "failures": []
+  },
+  {
+    "file": "010_abandoned_anonymous_guest_cleanup.test.sql",
+    "exit": 0,
+    "assertions": 53,
+    "failures": []
+  },
+  {
+    "file": "011_vehicle_configuration_identity.test.sql",
+    "exit": 0,
+    "assertions": 37,
+    "failures": []
+  },
+  {
+    "file": "012_vehicle_trim_cache.test.sql",
+    "exit": 0,
+    "assertions": 26,
+    "failures": []
+  },
+  {
+    "file": "013_total_loss_post_continue_foundation.test.sql",
+    "exit": 0,
+    "assertions": 123,
+    "failures": []
+  },
+  {
+    "file": "014_total_loss_secure_claim_resume.test.sql",
+    "exit": 0,
+    "assertions": 51,
+    "failures": []
+  },
+  {
+    "file": "015_total_loss_stripe_commerce.test.sql",
+    "exit": 0,
+    "assertions": 152,
+    "failures": []
+  },
+  {
+    "file": "016_total_loss_package_processing.test.sql",
+    "exit": 0,
+    "assertions": 50,
+    "failures": []
+  },
+  {
+    "file": "017_total_loss_report_release.test.sql",
+    "exit": 0,
+    "assertions": 66,
+    "failures": []
+  },
+  {
+    "file": "018_total_loss_customer_delivery.test.sql",
+    "exit": 0,
+    "assertions": 53,
+    "failures": []
+  },
+  {
+    "file": "019_total_loss_preview_return.test.sql",
+    "exit": 0,
+    "assertions": 51,
+    "failures": []
+  },
+  {
+    "file": "020_report_analysis_evidence.test.sql",
+    "exit": 0,
+    "assertions": 31,
+    "failures": []
+  },
+  {
+    "file": "021_lightweight_owned_case_history.test.sql",
+    "exit": 0,
+    "assertions": 5,
+    "failures": []
+  },
+  {
+    "file": "022_total_loss_insurer_response_intake.test.sql",
+    "exit": 0,
+    "assertions": 55,
+    "failures": []
+  },
+  {
+    "file": "023_total_loss_insurer_response_analysis.test.sql",
+    "exit": 0,
+    "assertions": 64,
+    "failures": []
+  },
+  {
+    "file": "024_total_loss_insurer_response_original_access.test.sql",
+    "exit": 0,
+    "assertions": 18,
+    "failures": []
+  },
+  {
+    "file": "025_total_loss_response_recommendation_decision.test.sql",
+    "exit": 0,
+    "assertions": 54,
+    "failures": []
+  },
+  {
+    "file": "026_total_loss_follow_up_request.test.sql",
+    "exit": 0,
+    "assertions": 48,
+    "failures": []
+  },
+  {
+    "file": "027_total_loss_repeatable_response_rounds.test.sql",
+    "exit": 0,
+    "assertions": 90,
+    "failures": []
+  },
+  {
+    "file": "028_total_loss_case_resolution.test.sql",
+    "exit": 0,
+    "assertions": 50,
+    "failures": []
+  },
+  {
+    "file": "029_total_loss_intake_recovery_lineage.test.sql",
+    "exit": 0,
+    "assertions": 27,
+    "failures": []
+  },
+  {
+    "file": "030_total_loss_successful_intake_correction.test.sql",
+    "exit": 0,
+    "assertions": 18,
+    "failures": []
+  },
+  {
+    "file": "031_total_loss_response_vehicle_context.test.sql",
+    "exit": 0,
+    "assertions": 26,
+    "failures": []
+  },
+  {
+    "file": "032_total_loss_response_context_recovery.test.sql",
+    "exit": 0,
+    "assertions": 56,
+    "failures": []
+  },
+  {
+    "file": "033_market_fact_cache.test.sql",
+    "exit": 0,
+    "assertions": 22,
+    "failures": []
+  },
+  {
+    "file": "034_market_fact_cache_conflicts.test.sql",
+    "exit": 0,
+    "assertions": 18,
+    "failures": []
+  },
+  {
+    "file": "035_apple_account_case_claims.test.sql",
+    "exit": 0,
+    "assertions": 17,
+    "failures": []
+  },
+  {
+    "file": "036_staff_admin_workspace.test.sql",
+    "exit": 0,
+    "assertions": 87,
+    "failures": []
+  },
+  {
+    "file": "037_market_request_budgets.test.sql",
+    "exit": 0,
+    "assertions": 48,
+    "failures": []
+  },
+  {
+    "file": "037_referral_partner_onboarding.test.sql",
+    "exit": 0,
+    "assertions": 71,
+    "failures": []
+  },
+  {
+    "file": "038_referral_partner_attribution.test.sql",
+    "exit": 0,
+    "assertions": 65,
+    "failures": []
+  },
+  {
+    "file": "039_case_market_search_progress.test.sql",
+    "exit": 0,
+    "assertions": 39,
+    "failures": []
+  },
+  {
+    "file": "040_referral_guest_cleanup_protection.test.sql",
+    "exit": 0,
+    "assertions": 32,
+    "failures": []
+  },
+  {
+    "file": "041_total_loss_subject_vehicle_facts.test.sql",
+    "exit": 0,
+    "assertions": 24,
+    "failures": []
+  },
+  {
+    "file": "042_communications.test.sql",
+    "exit": 0,
+    "assertions": 59,
+    "failures": []
+  },
+  {
+    "file": "043_communication_milestones.test.sql",
+    "exit": 0,
+    "assertions": 35,
+    "failures": []
+  },
+  {
+    "file": "044_total_loss_full_review_readiness.test.sql",
+    "exit": 0,
+    "assertions": 31,
+    "failures": []
+  },
+  {
+    "file": "045_market_accounting_recovery.test.sql",
+    "exit": 0,
+    "assertions": 22,
+    "failures": []
+  },
+  {
+    "file": "046_market_search_diagnostics.test.sql",
+    "exit": 0,
+    "assertions": 94,
+    "failures": []
+  },
+  {
+    "file": "047_total_loss_submission_input_fence.test.sql",
+    "exit": 0,
+    "assertions": 22,
+    "failures": []
+  },
+  {
+    "file": "048_total_loss_checkout_initialization.test.sql",
+    "exit": 0,
+    "assertions": 50,
+    "failures": []
+  },
+  {
+    "file": "050_paid_work_delivery_recovery.test.sql",
+    "exit": 0,
+    "assertions": 27,
+    "failures": []
+  },
+  {
+    "file": "051_full_review_payment_gate.test.sql",
+    "exit": 0,
+    "assertions": 50,
+    "failures": []
+  },
+  {
+    "file": "052_manual_payment_approval.test.sql",
+    "exit": 0,
+    "assertions": 73,
+    "failures": []
+  },
+  {
+    "file": "053_customer_workspace_navigation.test.sql",
+    "exit": 0,
+    "assertions": 19,
+    "failures": []
+  }
+]

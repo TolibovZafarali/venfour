@@ -1,0 +1,233 @@
+BEGIN
+CREATE EXTENSION
+SET
+1..66
+ok 1 - M5 reuses report versions and provisions one private deliverables bucket
+ok 2 - database canonical JSON digest matches the backend UTF-8 sorted compact contract
+ok 3 - the complete report generation, review, release, refund recovery, and failure RPC surface exists
+ok 4 - all internal report lifecycle RPCs are pinned SECURITY DEFINER functions
+ok 5 - internal report lifecycle execution is service-only
+ok 6 - only authenticated staff JWTs receive the staff decision RPC grants
+ok 7 - browser roles cannot mutate reports or private deliverable objects
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+CREATE FUNCTION
+
+
+
+
+
+SET
+SELECT 1
+ok 8 - assessment-ready package enqueues report generation version 1
+SELECT 1
+ok 9 - generation claim reserves the exact canonical bucket, internal filename, path, and identities
+ok 10 - same-token generation replay preserves every stable reserved identity
+RESET
+INSERT 0 1
+SET
+SELECT 1
+SELECT 1
+ok 11 - generation completion keeps the friendly filename separate while sealing the canonical PDF and enqueuing review
+ok 12 - the full PDF validation-manifest digest is explicitly distinct from its unsigned self-digest
+ok 13 - the document metadata is sealed only after exact Storage metadata validation
+GRANT
+RESET
+SET
+a1000000-0000-4000-8000-000000000001
+authenticated
+ok 14 - owners have no direct grant for validated, reviewing, or published report rows
+ok 15 - owners have no direct grant for raw document metadata or storage paths
+ok 16 - owners cannot read the private deliverable object before publication
+RESET
+SET
+SELECT 1
+ok 17 - review claim establishes the second package/work dual fence
+SAVEPOINT
+RESET
+UPDATE 1
+UPDATE 1
+SET
+RESET
+ROLLBACK
+ok 18 - expired third review cannot invoke a fourth quality review
+ok 19 - crashed report review enters one staff hold
+SELECT 1
+ok 20 - AI review begins with one immutable configured-model attempt
+ok 21 - pre-completion release context reloads current authoritative validation and lineage state
+SELECT 1
+ok 22 - AI completion persists immutable provider terminal facts without publishing
+ok 23 - AI terminal completion alone cannot publish the report
+RESET
+UPDATE 1
+UPDATE 1
+SET
+SELECT 1
+ok 24 - an expired post-AI lease is reclaimed with terminal review identity and disposition projected
+SELECT 1
+ok 25 - a logically identical completed AI run is reused across a rotated lease with its full immutable payload
+SELECT 1
+ok 26 - independent gate publishes the no-dispute report and returns stable refund identities
+GRANT
+RESET
+SET
+a1000000-0000-4000-8000-000000000001
+authenticated
+ok 27 - an entitled published no-dispute result remains reviewable while its refund is pending
+RESET
+SET
+ok 28 - crash after publication can recover the exact pending refund identity
+SELECT 1
+succeeded|a2000000-0000-4000-8000-000000000001|a7000000-0000-4000-8000-000000000001|b45bb88c-ec78-4397-8ae6-85962c034190|succeeded|succeeded|88c36fd7-3341-490c-8ed6-4e44573294d7||refunded|refunded_access_retained
+ok 29 - refund-success crash recovery advances to the idempotent completion seam
+ok 30 - succeeded retained-access refund completes the no-dispute resolution
+ok 31 - duplicate no-dispute refund completion is a read-only success
+ok 32 - duplicate terminal review claims retain the AI run and release disposition needed for convergence
+GRANT
+RESET
+SET
+a1000000-0000-4000-8000-000000000001
+authenticated
+ok 33 - the retained-access owner receives the published report only through the safe RPC
+ok 34 - the retained-access owner cannot read raw deliverable metadata
+ok 35 - the owner cannot list private object names even after publication
+RESET
+SELECT 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+UPDATE 1
+UPDATE 1
+UPDATE 1
+UPDATE 1
+SET
+SELECT 1
+SELECT 1
+RESET
+UPDATE 1
+UPDATE 1
+UPDATE 1
+SET
+ok 36 - post-provider context exposes authoritative supersession for a deterministic NO_ACTION decision
+SELECT 1
+ok 37 - AI terminal facts can be sealed with a digest-bound NO_ACTION after authoritative supersession
+SELECT 1
+ok 38 - NO_ACTION completes only the obsolete review work while preserving superseded report and current workflow state
+ok 39 - duplicate NO_ACTION release is a read-only convergence success
+ok 40 - a different worker token cannot converge an obsolete NO_ACTION review
+SELECT 1
+RESET
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+UPDATE 1
+UPDATE 1
+UPDATE 1
+UPDATE 1
+SET
+SELECT 1
+SELECT 1
+RESET
+UPDATE 1
+UPDATE 1
+SET
+SELECT 1
+SELECT 1
+ok 41 - an expired processing AI attempt is terminalized before a new fenced attempt is created
+completed|c5000000-0000-4000-8000-000000000005|retryable_failed|a9000000-0000-4000-8000-000000000005|retryable_failed|c4000000-0000-4000-8000-000000000005|reviewing||finalizing|2026-09-15 15:46:14.675236+00
+ok 42 - review work also enforces its persisted retry delay before a new lease
+RESET
+UPDATE 1
+UPDATE 1
+UPDATE 1
+UPDATE 1
+UPDATE 1
+SET
+SELECT 1
+failed|a2000000-0000-4000-8000-000000000005|a7000000-0000-4000-8000-000000000005|02003ece-8d9c-48bd-adb5-8da6650ffe06|failed|failed|||paid|active
+ok 43 - a terminal failed refund is projected as human remediation without revoking access
+ok 44 - terminal refund remediation durably holds the package while preserving the published report and access
+ok 45 - duplicate remediation derives the same refund identity and converges read-only
+SET
+SELECT 1
+SELECT 1
+SELECT 1
+ok 46 - deterministic generation validation failure preserves the draft lineage in a staff-review hold
+RESET
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+UPDATE 1
+ok 47 - a resolved revision cannot point at a same-case report from another report series
+GRANT
+SET
+a1000000-0000-4000-8000-000000000001
+authenticated
+ok 48 - an authenticated nonstaff owner cannot read a release-review packet
+ok 49 - an authenticated nonstaff owner cannot decide a release review
+a1000000-0000-4000-8000-000000000002
+authenticated
+SELECT 1
+ok 50 - staff GET truthfully projects a generation failure with null artifacts and no fabricated availability
+SELECT 1
+ok 51 - a staff revision atomically returns the exact pre-reserved replacement report and generation work
+SELECT 1
+ok 52 - an identical staff decision replay returns the existing report and work identities
+ok 53 - a non-identical replay cannot rewrite a resolved staff decision
+GRANT
+RESET
+ok 54 - the original failed report remains immutable after its replacement is reserved
+ok 55 - revision and replay preserve direct lineage, original failure, canonical storage, and exact current pointers without duplicate rows
+SET
+SELECT 1
+ok 56 - claiming revision work reuses the exact report, document, version, and canonical path reserved by the staff decision
+RESET
+INSERT 0 1
+SET
+SELECT 1
+SELECT 1
+SELECT 1
+SELECT 1
+SELECT 1
+SELECT 1
+SELECT 1
+ok 57 - PASS/HIGH supportable release publishes the exact sealed PDF, advances to report-ready, and creates no refund or dispute
+RESET
+SET
+a1000000-0000-4000-8000-000000000001
+authenticated
+ok 58 - the supportable publication projects the dormant future education boundary to the owner
+RESET
+SET
+SELECT 1
+SELECT 1
+ok 59 - retryable operational failure releases both fences under bounded policy
+ok 60 - retryable report work cannot be reclaimed before its durable retry delay elapses
+RESET
+UPDATE 1
+SET
+SELECT 1
+ok 61 - retry claim rotates both fences while preserving stable report/document identities
+ok 62 - a second operational failure remains retryable while the bounded attempt budget remains
+RESET
+UPDATE 1
+SET
+SELECT 1
+SAVEPOINT
+RESET
+UPDATE 1
+UPDATE 1
+SET
+RESET
+ROLLBACK
+ok 63 - expired third generation execution is terminal without a fourth claim
+ok 64 - crashed generation routes one report to staff recovery
+ok 65 - the third failed generation attempt deterministically exhausts into a staff hold
+ok 66 - the stale pre-retry worker cannot complete against the rotated dual fence
+ROLLBACK

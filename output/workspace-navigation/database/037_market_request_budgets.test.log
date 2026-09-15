@@ -1,0 +1,67 @@
+BEGIN
+CREATE EXTENSION
+SET
+1..48
+ok 1 - account accounting exists
+ok 2 - case accounting survives new runs
+ok 3 - physical reservations are durable
+ok 4 - all accounting tables use RLS
+ok 5 - accounting rows cannot be read directly
+ok 6 - browser roles cannot spend or inspect account quotas
+ok 7 - service role uses only checked RPCs
+CREATE TABLE
+INSERT 0 1
+ok 8 - missing monthly allowance fails closed
+ok 9 - metered billing does not bypass the monthly request ceiling
+ok 10 - missing billing period start fails closed
+ok 11 - missing billing period end fails closed
+ok 12 - missing prior usage fails closed
+ok 13 - missing account facts authorize no physical requests
+ok 14 - first request is reserved
+ok 15 - replaying a reservation cannot authorize uncounted work
+ok 16 - duplicate reservation does not increment usage
+ok 17 - failed request retry consumes a second attempt
+ok 18 - third physical VIN attempt is allowed
+ok 19 - one VIN cannot consume the history allowance
+UPDATE 1
+ok 20 - new case shares account headroom
+ok 21 - last routine request preserves monthly reserve
+ok 22 - prior provider usage plus current cases cannot spend the reserved twenty percent
+ok 23 - monthly usage includes the configured pre-ledger consumption
+ok 24 - optional discovery is independently bounded
+ok 25 - restarting with a larger limit cannot reset the case policy
+ok 26 - changing account identity cannot reset a case allowance
+UPDATE 1
+ok 27 - separate account has its own configured headroom
+ok 28 - case headroom is based on cumulative physical attempts
+UPDATE 1
+ok 29 - monotonic reconciliation includes newly reported outside usage
+ok 30 - stale workers cannot undo reconciled usage
+ok 31 - reconciliation does not refund already counted requests
+ok 32 - temporary throttle is shared durably
+ok 33 - another request respects Retry-After
+ok 34 - explicit exhausted quota is recorded separately
+ok 35 - quota exhaustion is not treated as a short throttle
+ok 36 - missing plan facts fail closed
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+UPDATE 1
+CREATE FUNCTION
+ok 37 - current processing owner can reserve an attempt
+ok 38 - stale token cannot authorize transport
+ok 39 - job token cannot authorize another case
+ok 40 - unknown job cannot authorize transport
+UPDATE 1
+ok 41 - expired lease cannot authorize transport even when its token matches
+ok 42 - lease denials consume no transport reservations
+UPDATE 1
+ok 43 - reclaimed job rejects the previous worker
+ok 44 - replacement owner resumes within the same cumulative case allowance
+UPDATE 1
+ok 45 - old input job cannot authorize work after intake changes
+ok 46 - reclaim and input revision do not reset cumulative reservations
+ok 47 - null processing token is rejected before lease matching
+ok 48 - null execution envelope cannot disable an explicit fence
+ROLLBACK

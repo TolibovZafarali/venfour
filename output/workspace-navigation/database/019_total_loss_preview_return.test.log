@@ -1,0 +1,95 @@
+BEGIN
+CREATE EXTENSION
+SET
+1..51
+ok 1 - preview email jobs have RLS enabled
+ok 2 - anon cannot directly read or mutate the email queue
+ok 3 - authenticated cannot directly read or mutate the email queue
+ok 4 - service_role cannot directly read or mutate the email queue
+ok 5 - public.request_total_loss_preview_recovery(uuid,text,text,text) is service-only
+ok 6 - public.reserve_total_loss_preview_email(uuid,uuid) is service-only
+ok 7 - public.finish_total_loss_preview_email(uuid,uuid,boolean) is service-only
+ok 8 - public.total_loss_preview_access_allowed_internal(uuid,text) remains internal
+ok 9 - public.enqueue_total_loss_preview_completion() remains internal
+ok 10 - public.record_total_loss_analysis_guest_origin() remains internal
+ok 11 - public.dispatch_total_loss_preview_emails() remains internal
+INSERT 0 4
+CREATE FUNCTION
+
+
+
+
+
+ok 12 - every completed guest result queues an email, including neutral and insufficient outcomes
+ok 13 - guest origin is derived from ownership rather than caller input
+ok 14 - preview return does not require a paid-review snapshot
+
+ok 15 - an analysis started by a permanent account does not receive the guest completion email
+
+ok 16 - processing alone does not send a ready email
+
+UPDATE 1
+ok 17 - an analysis can finish after its original guest verifies their email
+ok 18 - guest-origin completion is retained after identity verification
+ok 19 - the verified current owner can receive the original guest completion email
+ok 20 - repeating successful completion remains idempotent
+ok 21 - repeating completion never duplicates the ready email
+SELECT 1
+ok 22 - a ready email can be reserved for an insufficient-evidence result
+ok 23 - preview recovery reuses the existing email-bound identity claim contract
+ok 24 - a second worker cannot deliver a live leased email
+ok 25 - a different lease cannot acknowledge the email
+ok 26 - delivery failure records a retry
+ok 27 - failed delivery backs off without storing provider details
+ok 28 - email failure never changes the completed analysis
+UPDATE 1
+ok 29 - retry reuses a still-valid claim
+ok 30 - successful delivery is recorded
+ok 31 - sent emails are never reserved again
+GRANT
+SET
+{"sub":"f1000000-0000-4000-8000-000000000004","role":"authenticated","is_anonymous":false}
+ok 32 - a verified different email cannot claim the preview
+{"sub":"f1000000-0000-4000-8000-000000000003","role":"authenticated","is_anonymous":false}
+ok 33 - verifying the Contact Details email recovers the exact result
+ok 34 - the verified owner can read the same saved case
+{"sub":"f1000000-0000-4000-8000-000000000001","role":"authenticated","is_anonymous":true}
+ok 35 - the old anonymous session cannot read the transferred case
+RESET
+ok 36 - recovery preserves the original saved analysis run
+
+ok 37 - an unknown email creates no recovery job
+
+ok 38 - the verified current owner can request a fresh link without their session
+
+ok 39 - repeated recovery requests do not duplicate a pending email
+UPDATE 1
+SELECT 1
+ok 40 - an expired or consumed claim gets a fresh identity claim
+ok 41 - fresh recovery can be delivered
+INSERT 0 1
+UPDATE 1
+
+ok 42 - email-only recovery chooses the most recent eligible result
+UPDATE 1
+ok 43 - contact changes prevent delivery to the old address
+ok 44 - an unauthorized queued email is cancelled
+UPDATE 1
+ok 45 - a delayed ready email cannot describe an analysis that is now processing
+ok 46 - superseded completion messages are cancelled
+SELECT 1
+UPDATE 1
+ok 47 - a new worker can resume an expired lease
+ok 48 - a crashed worker cannot acknowledge the replacement lease
+UPDATE 1
+ok 49 - delivery attempts are bounded
+ok 50 - an exhausted delivery is retained for safe operational review
+
+UPDATE 1
+
+UPDATE 1
+
+UPDATE 1
+
+ok 51 - target throttling bounds recovery mail requests even when queue entries are consumed
+ROLLBACK

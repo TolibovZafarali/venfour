@@ -67,7 +67,7 @@ function AnalysisErrorState({ kind, onRetry }: AnalysisErrorStateProps) {
       ? "We couldn’t find this analysis."
       : "We couldn’t load your analysis.";
   const description = invalid
-    ? "Check the link you received, or return to your saved appraisals."
+    ? "Check the link you received, or choose an appraisal from your account menu."
     : kind === "not-found"
       ? "The link may be incorrect, or this review may belong to a different account."
       : "We couldn’t open your saved review right now. Try again in a moment.";

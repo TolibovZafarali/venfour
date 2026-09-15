@@ -1,0 +1,28 @@
+BEGIN
+CREATE EXTENSION
+SET
+1..18
+ok 1 - browser roles cannot preserve provider facts
+ok 2 - service role can preserve a conflict
+SELECT 1
+ALTER TABLE
+UPDATE 1
+ok 3 - initial lookup can claim
+ok 4 - initial explicit fact is cached
+ok 5 - invalid conflict fails
+ok 6 - stale expected digest cannot replace facts
+ok 7 - VIN must remain bound
+ok 8 - vehicle facts must remain bound
+ok 9 - prior contradictory observations cannot disappear
+ok 10 - additional contradictory evidence is retained
+ok 11 - ambiguous retry is idempotent
+ok 12 - later analysis receives the conflict
+ok 13 - all conflicting evidence stays exact
+ok 14 - conflicts use the existing one-day cache lifetime
+ok 15 - conflict cannot be reassured by this RPC
+UPDATE 1
+ok 16 - expired evidence is not revived
+claimed|
+ok 17 - pending generation cannot be replaced
+ok 18 - claim fencing remains effective
+ROLLBACK

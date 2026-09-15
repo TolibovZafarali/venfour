@@ -1,0 +1,160 @@
+BEGIN
+CREATE EXTENSION
+SET
+SELECT 1
+ALTER TABLE
+UPDATE 1
+UPDATE 1
+UPDATE 1
+UPDATE 1
+UPDATE 1
+UPDATE 1
+UPDATE 1
+INSERT 0 2
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+UPDATE 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+UPDATE 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+UPDATE 1
+UPDATE 1
+INSERT 0 4
+INSERT 0 2
+INSERT 0 3
+INSERT 0 1
+INSERT 0 3
+INSERT 0 1
+ok 1 - private staff index has no direct authenticated read grant
+ok 2 - broad projection helper cannot be called by browser roles
+ok 3 - anonymous role cannot invoke the staff list
+ok 4 - service role receives no additional staff API grants
+ok 5 - public staff RPCs are stable pinned security definers
+SET
+SET
+ok 6 - nonstaff list rejected
+ok 7 - nonstaff overview rejected
+ok 8 - nonstaff operational record detail rejected
+ok 9 - nonstaff customer details rejected
+ok 10 - nonstaff case detail rejected
+SET
+ok 11 - anonymous membership cannot grant staff access
+ok 12 - anonymous membership cannot read demand-loaded record details
+SET
+ok 13 - unknown resource rejected
+ok 14 - unbounded page rejected
+ok 15 - zero page rejected
+ok 16 - unknown filters rejected
+ok 17 - nonstring filters rejected
+ok 18 - invalid boolean filter rejected
+ok 19 - invalid UUID filter rejected
+ok 20 - oversized search rejected
+ok 21 - sort allowlist enforced
+ok 22 - record detail accepts only its four supported resources
+ok 23 - record detail rejects blank identifiers
+ok 24 - record detail rejects oversized identifiers
+ok 25 - unknown record is unavailable
+ok 26 - record ID is scoped to its selected resource
+ok 27 - demand-loaded records exclude documents associated with diminished value
+ok 28 - record detail retains exact case lineage
+ok 29 - record endpoint adds no anonymous or service-role grant
+ok 30 - every list resource omits demand-loaded sections
+ok 31 - a requested report record returns full metadata sections
+ok 32 - a requested activity record returns its safe details
+ok 33 - case and customer detail retain full investigation sections
+ok 34 - demand-loaded activity still excludes raw event details
+ok 35 - matching count includes both total-loss cases and excludes diminished value
+ok 36 - tied timestamps use descending ID order
+ok 37 - pagination returns next tied row without duplication
+ok 38 - out-of-range page is empty while retaining complete count
+ok 39 - registered accounts without cases remain visible
+ok 40 - customer detail reports zero cases explicitly
+ok 41 - customers defaults to registered accounts
+ok 42 - guest filter exposes case-linked anonymous identities
+ok 43 - anonymous identities without total-loss cases remain outside directory
+ok 44 - diminished-value case detail is unavailable
+ok 45 - paid current task is authoritative over old initial failures
+ok 46 - old initial failure does not flag a successful paid workflow
+ok 47 - vehicle search matches canonical vehicle details
+ok 48 - search no-results is distinct from missing dataset
+ok 49 - package work items do not inflate parent job counts
+ok 50 - package child work metadata appears in detail sections
+ok 51 - finished and historical jobs do not count as currently processing
+ok 52 - generated reports preserve recorded publication state
+ok 53 - report current-version and current-publication facts are distinct
+ok 54 - unlinked generated report documents are not mislabeled as customer uploads
+ok 55 - uploaded document projection preserves its actual source
+ok 56 - billing returns recorded order state
+ok 57 - billing identifies test mode
+ok 58 - billing preserves exact recorded currency and minor-unit amount
+ok 59 - no purchase is an empty order set, not a fabricated payment status
+ok 60 - workflow activity preserves customer-reported provenance
+ok 61 - raw event details and message contents are excluded
+ok 62 - account projection excludes authentication metadata and secrets
+ok 63 - processing projection excludes lease and dispatch tokens
+ok 64 - overview attention count matches complete filtered dataset
+ok 65 - overview processing count matches complete filtered dataset
+ok 66 - overview registered count matches default account directory
+ok 67 - overview preview lists stay bounded
+ok 68 - reads expose retrieval timestamps
+RESET
+INSERT 0 1
+INSERT 0 1
+UPDATE 1
+SET
+ok 69 - third processing family exposes insurer-response metadata
+ok 70 - current pending response counts as one operational processing job
+ok 71 - response job metadata never includes original response content
+RESET
+INSERT 0 1
+UPDATE 1
+INSERT 0 1
+SET
+ok 72 - an unpublished replacement remains draft
+ok 73 - draft report has no fabricated publication timestamp
+ok 74 - older published version preserves its supersession fact
+ok 75 - review for current package replacement flags current case attention
+ok 76 - report attention filtering remains accurate without loading review detail sections
+RESET
+INSERT 0 3
+INSERT 0 1
+INSERT 0 1
+SET
+ok 77 - failed refund flags current operational attention
+ok 78 - active payment dispute is distinguished from historical dispute outcomes
+ok 79 - refund reversal transaction is explicitly included in billing detail
+ok 80 - billing includes itemized dispute metadata
+RESET
+INSERT 0 1
+INSERT 0 1
+UPDATE 1
+UPDATE 1
+SET
+ok 81 - a successful successor refund clears historical refund failure attention
+ok 82 - billing and case attention agree after refund recovery
+ok 83 - refund does not imply revoked access
+ok 84 - billing activity stays identical with detail aggregates omitted
+ok 85 - ledger history is absent until the order detail is requested
+RESET
+DELETE 1
+SET
+ok 86 - membership revocation takes effect on next request
+ok 87 - membership revocation also closes the record detail endpoint
+1..87
+ROLLBACK

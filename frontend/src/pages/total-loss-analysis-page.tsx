@@ -14,6 +14,7 @@ import {
   useSubmitCaseAnalysisMutation,
   hasAttemptedAutomaticSubmission,
   markAutomaticSubmission,
+  automaticSubmissionRequested,
 } from "@/features/analyses/case-analysis-queries";
 import { caseAnalysisInput } from "@/features/analyses/api/case-analysis";
 import {
@@ -88,7 +89,7 @@ function CompletedTotalLossAnalysis({
           </Button>
         ) : null}
         <Button asChild variant="ghost">
-          <Link to="/appraisals">Return to appraisals</Link>
+          <Link to="/contact">Contact support</Link>
         </Button>
       </StateCard>
     );
@@ -158,6 +159,7 @@ function AuthenticatedTotalLossAnalysisPage({
       analysis?.status !== "not_submitted" ||
       analysis.submissionAvailability?.available === false ||
       !input ||
+      !automaticSubmissionRequested(userId, caseId, input) ||
       submitMutation.isPending ||
       autoSubmittedCaseRef.current === input.expectedAnalysisInputId ||
       hasAttemptedAutomaticSubmission(userId, caseId, input)
@@ -220,7 +222,7 @@ function AuthenticatedTotalLossAnalysisPage({
           </Button>
         ) : null}
         <Button asChild variant="ghost">
-          <Link to="/appraisals">Return to appraisals</Link>
+          <Link to="/contact">Contact support</Link>
         </Button>
       </StateCard>
     );
@@ -247,7 +249,7 @@ function AuthenticatedTotalLossAnalysisPage({
       (analysis.status === "processing" &&
         processingLeaseExpired(analysis.processingExpiresAt, leaseClock)) ||
       (analysis.status === "not_submitted" && !submitMutation.isPending &&
-        (!input || hasAttemptedAutomaticSubmission(userId, caseId, input)));
+        (!input || !automaticSubmissionRequested(userId, caseId, input) || hasAttemptedAutomaticSubmission(userId, caseId, input)));
     const submissionError =
       (analysis.status === "not_submitted" || needsResume) &&
       submitMutation.isError
@@ -335,7 +337,7 @@ function AuthenticatedTotalLossAnalysisPage({
         : recoveryRequired ? (supportEmail ? <Button asChild><a href={`mailto:${supportEmail}?subject=Interrupted%20value%20check`}>Contact support</a></Button> : null)
         : analysis.retryable ? <Button disabled={submitMutation.isPending} onClick={submitCurrentInput}><RefreshCw className="size-4" aria-hidden />{processingInterrupted ? "Continue value check" : "Retry value check"}</Button>
         : <Button onClick={() => void analysisQuery.refetch()}>Try again</Button>}
-      {!issue && !reportNeeded ? <Button asChild variant="outline"><Link to="/appraisals">Return to appraisals</Link></Button> : null}
+      {!issue && !reportNeeded ? <Button asChild variant="outline"><Link to="/contact">Contact support</Link></Button> : null}
     </StateCard>;
   }
 
@@ -378,10 +380,10 @@ export function TotalLossAnalysisPage() {
         kind="error"
         eyebrow="Invalid appraisal link"
         heading="This appraisal link isn’t valid."
-        description="Check the complete link, or return to your total-loss appraisals."
+        description="Check the complete link, or choose an appraisal from your account menu."
       >
         <Button asChild>
-          <Link to="/appraisals">Return to appraisals</Link>
+          <Link to="/contact">Contact support</Link>
         </Button>
       </StateCard>
     );

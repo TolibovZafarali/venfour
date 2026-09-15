@@ -8,6 +8,7 @@ import venfourMark from "../../../assets/brand/venfour-mark.svg";
 import type { AdminDiminishedValueDependencies } from "@/features/admin/diminished-value/dependencies";
 import type { AuthService } from "@/features/auth";
 import { appraisalCaseQueryKeys } from "@/features/cases/queries";
+import { automaticSubmissionRequested, requestAutomaticSubmission } from "@/features/analyses/case-analysis-queries";
 import type { AppraisalCaseService } from "@/features/cases/service";
 import type { CustomerProfileService } from "@/features/customer-profile";
 import {
@@ -284,7 +285,7 @@ describe("Venfour application", () => {
     document.cookie = "venfour.app-session=1; Domain=venfour.com; Path=/; Secure";
     try {
       const { router } = renderTestApp(["/app"], { authService: createTestAuthService(null) });
-      expect(await screen.findByRole("heading", { name: "Your reviews, in one place." })).toBeVisible();
+      expect(await screen.findByRole("heading", { name: "Continue your appraisal" })).toBeVisible();
       expect(screen.getByRole("button", { name: "Sign in" })).toBeVisible();
       expect(router.state.location.pathname).toBe("/app");
     } finally {
@@ -293,79 +294,13 @@ describe("Venfour application", () => {
     }
   });
 
-  test("uses the account portal navigation on permanent signed-in appraisals", async () => {
-    const user = userEvent.setup();
-    renderTestApp(["/appraisals"], {
-      authService: createTestAuthService(createTestSession()),
-    });
-
-    const primaryNavigation = await screen.findByRole("navigation", {
-      name: "Primary navigation",
-    });
-    expect(
-      within(primaryNavigation).getByRole("link", {
-        name: "Guided valuation review",
-      }),
-    ).toHaveAttribute("href", "/app");
-    expect(
-      within(primaryNavigation).queryByRole("link", { name: "My appraisals" }),
-    ).not.toBeInTheDocument();
-    expect(
-      within(primaryNavigation).getByRole("link", { name: "Methodology" }),
-    ).toHaveAttribute("href", "/methodology");
-    expect(
-      within(primaryNavigation).getByRole("link", { name: "Contact" }),
-    ).toHaveAttribute("href", "/contact");
-    expect(
-      within(primaryNavigation).queryByRole("link", { name: "Total Loss" }),
-    ).not.toBeInTheDocument();
-
-    const shellHeader = primaryNavigation.closest("header");
-    expect(shellHeader).not.toBeNull();
-    if (!shellHeader) {
-      throw new Error("The primary navigation was not inside the app shell header.");
-    }
-    expect(
-      within(shellHeader).queryByRole("link", { name: "Get Started" }),
-    ).not.toBeInTheDocument();
-
-    const footerNavigation = screen.getByRole("navigation", {
-      name: "Footer navigation",
-    });
-    expect(
-      within(footerNavigation).getByRole("link", {
-        name: "Guided valuation review",
-      }),
-    ).toHaveAttribute("href", "/app");
-    expect(
-      within(footerNavigation).queryByRole("link", { name: "My appraisals" }),
-    ).not.toBeInTheDocument();
-    expect(
-      within(footerNavigation).queryByRole("link", { name: "Total Loss" }),
-    ).not.toBeInTheDocument();
-
-    await user.click(
-      screen.getByRole("button", { name: "Open navigation" }),
-    );
-    const mobileNavigation = screen.getByRole("navigation", {
-      name: "Mobile navigation",
-    });
-    expect(
-      within(mobileNavigation).getByRole("link", {
-        name: "Guided valuation review",
-      }),
-    ).toHaveAttribute("href", "/app");
-    expect(
-      within(mobileNavigation).getByRole("link", {
-        name: "Start a new appraisal",
-      }),
-    ).toHaveAttribute("href", expect.stringContaining("/start?"));
-    expect(
-      within(mobileNavigation).getByText("ada@example.com"),
-    ).toBeVisible();
-    expect(
-      within(mobileNavigation).queryByRole("link", { name: "Total Loss" }),
-    ).not.toBeInTheDocument();
+  test("keeps the legacy entry header focused on the account menu", async () => {
+    renderTestApp(["/appraisals"], { authService: createTestAuthService(createTestSession()) });
+    const account = await screen.findByRole("button", { name: "Account for ada@example.com" });
+    expect(account).toBeVisible();
+    expect(screen.queryByText("Customer portal")).not.toBeInTheDocument();
+    expect(screen.queryByRole("navigation", { name: "Primary navigation" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "My appraisals" })).not.toBeInTheDocument();
   });
 
   test("does not flash public navigation while the appraisals audience resolves", async () => {
@@ -395,7 +330,7 @@ describe("Venfour application", () => {
     await act(async () => resolveSession?.(createTestSession()));
 
     expect(
-      await screen.findByRole("navigation", { name: "Primary navigation" }),
+      await screen.findByRole("button", { name: "Account for ada@example.com" }),
     ).toBeVisible();
   });
 
@@ -574,6 +509,9 @@ describe("Venfour application", () => {
       name: "Account for ada@example.com",
     });
     expect(account).toHaveTextContent("Ada");
+    const pendingCaseId = "33333333-3333-4333-8333-333333333333";
+    const pendingInput = { expectedAnalysisInputId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", expectedAnalysisInputRevision: 1 };
+    requestAutomaticSubmission(session.user.id, pendingCaseId, pendingInput);
 
     queryClient.setQueryData(
       appraisalCaseQueryKeys.list(session.user.id),
@@ -598,6 +536,7 @@ describe("Venfour application", () => {
       queryClient.getQueryData(appraisalCaseQueryKeys.list(session.user.id)),
     ).toBeUndefined();
     expect(readTotalLossDraft()).toEqual({ ok: true, draft: null });
+    expect(automaticSubmissionRequested(session.user.id, pendingCaseId, pendingInput)).toBe(false);
   });
 
   test("keeps an anonymous session signed out in the shell and skips staff access", async () => {

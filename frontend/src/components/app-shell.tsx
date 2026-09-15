@@ -45,9 +45,10 @@ const mobileLinkClassName =
   "inline-flex min-h-12 items-center border-b border-ink/10 py-2 text-sm font-medium text-ink/75 transition-colors last:border-b-0 hover:bg-white/35 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand/60 motion-reduce:transition-none";
 
 export function AppShell() {
+  const { auth } = useAuth();
   return (
     <SignInDialogProvider>
-      <FreeValuationProcessingProvider>
+      <FreeValuationProcessingProvider accountControl={isPermanentAuthState(auth) ? <AccountControl /> : null}>
         <AppShellContent />
       </FreeValuationProcessingProvider>
     </SignInDialogProvider>
@@ -62,7 +63,8 @@ function AppShellContent() {
   const previewReturnRoute = useMatch("/auth/callback/preview/:caseId/:claimId");
   const previewReadyRoute = useMatch("/auth/callback/preview-ready/:caseId/:claimId");
   const findReviewRoute = useMatch("/find-review");
-  const productFlowRoute = Boolean(localStatusRoute || analysisRoute || totalLossCaseRoute || previewReturnRoute || previewReadyRoute || findReviewRoute);
+  const appEntryRoute = useMatch("/app");
+  const productFlowRoute = Boolean(appEntryRoute || appraisalsRoute || localStatusRoute || analysisRoute || totalLossCaseRoute || previewReturnRoute || previewReadyRoute || findReviewRoute);
   const location = useLocation();
   const publicSite = routeAudience(location.pathname) === "public";
   const productionPublicPage = publicSiteOnly || (publicSite && hostAudience() === "public");
@@ -184,13 +186,8 @@ function AppShellContent() {
   const onHomePage = location.pathname === "/";
   const guestReturn = useGuestAnalysisReturn(onHomePage && !productionPublicPage);
   const workspaceAction = useWorkspaceEntryAction(publicSite && !productionPublicPage);
-  const accountPortalRoute = Boolean(appraisalsRoute);
-  const resolvingPortalAudience =
-    accountPortalRoute && auth.status === "loading";
-  const permanentPortal =
-    Boolean(appraisalsRoute) && isPermanentAuthState(auth);
   const focusedCaseAccountHeader =
-    location.pathname === "/app" || location.pathname.startsWith("/partners") ||
+    location.pathname === "/app" || Boolean(appraisalsRoute) || location.pathname.startsWith("/partners") ||
     completedReviewRoute ||
     (Boolean(totalLossCaseRoute) && isPermanentAuthState(auth));
   const totalLossHref = onHomePage ? "#total-loss" : publicHref("/#total-loss");
@@ -275,7 +272,7 @@ function AppShellContent() {
             >
               <div className="flex min-w-0 items-center gap-3 sm:gap-4">
                 <Link
-                  to={publicHref()}
+                  to={hostAudience() === "application" || (!publicSite && isPermanentAuthState(auth)) ? applicationHref("/app") : publicHref()}
                   className="notranslate inline-flex min-h-11 select-none items-center gap-[0.5625rem] rounded-md text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
                   aria-label="Venfour home"
                   translate="no"
@@ -298,10 +295,6 @@ function AppShellContent() {
                   <span className="hidden border-l border-ink/10 pl-4 text-[0.6875rem] font-semibold tracking-[0.12em] text-copy/80 uppercase sm:block">
                     Staff review
                   </span>
-                ) : permanentPortal ? (
-                  <span className="hidden border-l border-ink/10 pl-4 text-[0.6875rem] font-semibold tracking-[0.12em] text-copy/80 uppercase sm:block">
-                    Customer portal
-                  </span>
                 ) : null}
               </div>
 
@@ -319,91 +312,47 @@ function AppShellContent() {
                   }
                   staffReviewHref={staffReviewHref}
                 />
-              ) : resolvingPortalAudience ? (
-                <div
-                  className="flex min-h-11 shrink-0 items-center gap-2"
-                  data-home-navigation-state="loading"
-                  aria-live="polite"
-                >
-                  <span className="sr-only">Checking sign-in status</span>
-                  <span
-                    className="hidden h-2.5 w-20 animate-pulse rounded-full bg-ink/10 lg:block motion-reduce:animate-none"
-                    aria-hidden
-                  />
-                  <span
-                    className="h-9 w-11 animate-pulse rounded-lg bg-ink/10 lg:hidden motion-reduce:animate-none"
-                    aria-hidden
-                  />
-                </div>
               ) : (
                 <>
                   <nav
                     className="hidden shrink-0 items-center gap-1 lg:flex lg:gap-2"
                     aria-label="Primary navigation"
                   >
-                    {permanentPortal ? (
-                      <>
-                        <Link
-                          to={applicationHref("/app")}
-                          className={primaryLinkClassName}
-                          aria-current={onHomePage ? "page" : undefined}
-                        >
-                          Guided valuation review
-                        </Link>
-                        <Link
-                          to="/methodology"
-                          className={primaryLinkClassName}
-                        >
-                          Methodology
-                        </Link>
-                        <Link to="/contact" className={primaryLinkClassName}>
-                          Contact
-                        </Link>
-                        <AccountControl
-                          onStaffNavigationRequest={requestStaffNavigation}
-                          staffReviewHref={staffReviewHref}
-                        />
-                      </>
-                    ) : (
-                      <>
-                        <a href={totalLossHref} className={primaryLinkClassName}>
-                          Total Loss
-                        </a>
-                        <a
-                          href={diminishedValueHref}
-                          className={primaryLinkClassName}
-                        >
-                          Diminished Value
-                        </a>
-                        <a
-                          href={howItWorksHref}
-                          className={primaryLinkClassName}
-                        >
-                          How It Works
-                        </a>
-                        <AccountControl
-                          publicSessionHint={productionPublicPage ? publicSessionHint : undefined}
-                          onStaffNavigationRequest={requestStaffNavigation}
-                          staffReviewHref={staffReviewHref}
-                        />
-                        {guestReturn.pending ? (
-                          <span className="ml-1 inline-flex min-h-11 w-40 items-center justify-center rounded-lg bg-brand/10" role="status">
-                            <span className="sr-only">Checking your saved review…</span>
-                            <span className="h-2 w-20 animate-pulse rounded-full bg-brand/20 motion-reduce:animate-none" aria-hidden />
-                          </span>
-                        ) : <Link
-                          to={primaryActionHref}
-                          className="ml-1 inline-flex min-h-11 items-center rounded-lg border border-blue-300/20 bg-brand px-4 text-[0.8125rem] font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.2),0_8px_20px_-12px_rgba(21,94,239,0.95)] transition-colors hover:bg-[#2b6cf4] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 focus-visible:ring-offset-2 motion-reduce:transition-none"
-                        >
-                          {primaryActionLabel}
-                        </Link>}
-                      </>
-                    )}
+                    <a href={totalLossHref} className={primaryLinkClassName}>
+                      Total Loss
+                    </a>
+                    <a
+                      href={diminishedValueHref}
+                      className={primaryLinkClassName}
+                    >
+                      Diminished Value
+                    </a>
+                    <a
+                      href={howItWorksHref}
+                      className={primaryLinkClassName}
+                    >
+                      How It Works
+                    </a>
+                    <AccountControl
+                      publicSessionHint={productionPublicPage ? publicSessionHint : undefined}
+                      onStaffNavigationRequest={requestStaffNavigation}
+                      staffReviewHref={staffReviewHref}
+                    />
+                    {guestReturn.pending ? (
+                      <span className="ml-1 inline-flex min-h-11 w-40 items-center justify-center rounded-lg bg-brand/10" role="status">
+                        <span className="sr-only">Checking your saved review…</span>
+                        <span className="h-2 w-20 animate-pulse rounded-full bg-brand/20 motion-reduce:animate-none" aria-hidden />
+                      </span>
+                    ) : <Link
+                      to={primaryActionHref}
+                      className="ml-1 inline-flex min-h-11 items-center rounded-lg border border-blue-300/20 bg-brand px-4 text-[0.8125rem] font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.2),0_8px_20px_-12px_rgba(21,94,239,0.95)] transition-colors hover:bg-[#2b6cf4] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 focus-visible:ring-offset-2 motion-reduce:transition-none"
+                    >
+                      {primaryActionLabel}
+                    </Link>}
                   </nav>
 
                   <div className="flex shrink-0 items-center gap-1.5 lg:hidden">
-                    {!permanentPortal ? (
-                      guestReturn.pending ? (
+                    {guestReturn.pending ? (
                         <span className="inline-flex min-h-11 w-24 items-center justify-center rounded-lg bg-brand/10" role="status">
                           <span className="sr-only">Checking your saved review…</span>
                           <span className="h-2 w-12 animate-pulse rounded-full bg-brand/20 motion-reduce:animate-none" aria-hidden />
@@ -415,8 +364,7 @@ function AppShellContent() {
                         onClick={() => setMobileNavigationOpen(false)}
                       >
                         {primaryActionLabel}
-                      </Link>
-                    ) : null}
+                      </Link>}
                     <button
                       ref={mobileNavigationButtonRef}
                       type="button"
@@ -457,7 +405,6 @@ function AppShellContent() {
             {!startFlowRoute &&
             !adminRoute &&
             !productFlowRoute &&
-            !resolvingPortalAudience &&
             mobileNavigationOpen ? (
               <nav
                 id="mobile-navigation"
@@ -468,58 +415,33 @@ function AppShellContent() {
                 aria-label="Mobile navigation"
               >
                 <div className="mx-auto flex w-full max-w-7xl flex-col py-2">
-                  {permanentPortal ? (
-                    <>
-                      <MobileAccountControl
-                        onAction={() => setMobileNavigationOpen(false)}
-                        staffReviewHref={staffReviewHref}
-                      />
-                      <Link
-                        to="/methodology"
-                        className={mobileLinkClassName}
-                        onClick={() => setMobileNavigationOpen(false)}
-                      >
-                        Methodology
-                      </Link>
-                      <Link
-                        to="/contact"
-                        className={mobileLinkClassName}
-                        onClick={() => setMobileNavigationOpen(false)}
-                      >
-                        Contact
-                      </Link>
-                    </>
-                  ) : (
-                    <>
-                      <a
-                        href={totalLossHref}
-                        className={mobileLinkClassName}
-                        onClick={() => setMobileNavigationOpen(false)}
-                      >
-                        Total Loss
-                      </a>
-                      <a
-                        href={diminishedValueHref}
-                        className={mobileLinkClassName}
-                        onClick={() => setMobileNavigationOpen(false)}
-                      >
-                        Diminished Value
-                      </a>
-                      <a
-                        href={howItWorksHref}
-                        className={mobileLinkClassName}
-                        onClick={() => setMobileNavigationOpen(false)}
-                      >
-                        How It Works
-                      </a>
-                      <MobileAccountControl
-                        className="border-t-0"
-                        publicSessionHint={productionPublicPage ? publicSessionHint : undefined}
-                        onAction={() => setMobileNavigationOpen(false)}
-                        staffReviewHref={staffReviewHref}
-                      />
-                    </>
-                  )}
+                  <a
+                    href={totalLossHref}
+                    className={mobileLinkClassName}
+                    onClick={() => setMobileNavigationOpen(false)}
+                  >
+                    Total Loss
+                  </a>
+                  <a
+                    href={diminishedValueHref}
+                    className={mobileLinkClassName}
+                    onClick={() => setMobileNavigationOpen(false)}
+                  >
+                    Diminished Value
+                  </a>
+                  <a
+                    href={howItWorksHref}
+                    className={mobileLinkClassName}
+                    onClick={() => setMobileNavigationOpen(false)}
+                  >
+                    How It Works
+                  </a>
+                  <MobileAccountControl
+                    className="border-t-0"
+                    publicSessionHint={productionPublicPage ? publicSessionHint : undefined}
+                    onAction={() => setMobileNavigationOpen(false)}
+                    staffReviewHref={staffReviewHref}
+                  />
                 </div>
               </nav>
             ) : null}
@@ -581,7 +503,7 @@ function AppShellContent() {
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex flex-col items-start gap-1 sm:flex-row sm:items-center sm:gap-5">
                 <Link
-                  to={publicHref()}
+                  to={hostAudience() === "application" || (!publicSite && isPermanentAuthState(auth)) ? applicationHref("/app") : publicHref()}
                   className="notranslate inline-flex min-h-11 select-none items-center gap-2 rounded-sm text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
                   aria-label="Venfour home"
                   translate="no"
@@ -610,88 +532,65 @@ function AppShellContent() {
                 ) : null}
               </div>
 
-              {!resolvingPortalAudience ? (
-                <nav aria-label="Footer navigation">
-                  <ul className="flex flex-wrap gap-x-5 gap-y-3">
-                    {permanentPortal ? (
-                      <>
-                        <li>
-                          <Link to={applicationHref("/app")} className={footerLinkClassName}>
-                            Guided valuation review
-                          </Link>
-                        </li>
-                      </>
-                    ) : (
-                      <>
-                        <li>
-                          <a
-                            href={totalLossHref}
-                            className={footerLinkClassName}
-                          >
-                            Total Loss
-                          </a>
-                        </li>
-                        <li>
-                          <a
-                            href={diminishedValueHref}
-                            className={footerLinkClassName}
-                          >
-                            Diminished Value
-                          </a>
-                        </li>
-                      </>
-                    )}
-                    <li>
-                      <Link to="/methodology" className={footerLinkClassName}>
-                        Methodology
-                      </Link>
-                    </li>
-                    <li>
-                      <Link to="/terms" className={footerLinkClassName}>
-                        Terms
-                      </Link>
-                    </li>
-                    <li>
-                      <Link to="/privacy" className={footerLinkClassName}>
-                        Privacy
-                      </Link>
-                    </li>
-                    <li>
-                      <Link to="/cookies" className={footerLinkClassName}>
-                        Cookie Policy
-                      </Link>
-                    </li>
-                    <li>
-                      <Link to="/referral-partners" className={footerLinkClassName}>
-                        Referral partners
-                      </Link>
-                    </li>
-                    <li>
-                      <Link to="/contact" className={footerLinkClassName}>
-                        Contact
-                      </Link>
-                    </li>
-                    <li>
-                      <button
-                        type="button"
-                        className={footerLinkClassName}
-                        onClick={openPreferences}
-                      >
-                        Cookie preferences
-                      </button>
-                    </li>
-                  </ul>
-                </nav>
-              ) : (
-                <div
-                  className="flex min-h-11 items-center gap-2"
-                  data-footer-navigation-state="loading"
-                  aria-hidden
-                >
-                  <span className="h-2.5 w-20 animate-pulse rounded-full bg-ink/10 motion-reduce:animate-none" />
-                  <span className="h-2.5 w-14 animate-pulse rounded-full bg-ink/10 motion-reduce:animate-none" />
-                </div>
-              )}
+              <nav aria-label="Footer navigation">
+                <ul className="flex flex-wrap gap-x-5 gap-y-3">
+                  <li>
+                    <a
+                      href={totalLossHref}
+                      className={footerLinkClassName}
+                    >
+                      Total Loss
+                    </a>
+                  </li>
+                  <li>
+                    <a
+                      href={diminishedValueHref}
+                      className={footerLinkClassName}
+                    >
+                      Diminished Value
+                    </a>
+                  </li>
+                  <li>
+                    <Link to="/methodology" className={footerLinkClassName}>
+                      Methodology
+                    </Link>
+                  </li>
+                  <li>
+                    <Link to="/terms" className={footerLinkClassName}>
+                      Terms
+                    </Link>
+                  </li>
+                  <li>
+                    <Link to="/privacy" className={footerLinkClassName}>
+                      Privacy
+                    </Link>
+                  </li>
+                  <li>
+                    <Link to="/cookies" className={footerLinkClassName}>
+                      Cookie Policy
+                    </Link>
+                  </li>
+                  <li>
+                    <Link to="/referral-partners" className={footerLinkClassName}>
+                      Referral partners
+                    </Link>
+                  </li>
+                  <li>
+                    <Link to="/contact" className={footerLinkClassName}>
+                      Contact
+                    </Link>
+                  </li>
+                  <li>
+                    <button
+                      type="button"
+                      className={footerLinkClassName}
+                      onClick={openPreferences}
+                    >
+                      Cookie preferences
+                    </button>
+                  </li>
+                </ul>
+              </nav>
             </div>
             <p
               className="mt-4 border-t border-line pt-4 text-xs text-copy"

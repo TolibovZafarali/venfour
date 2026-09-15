@@ -1,0 +1,62 @@
+BEGIN
+CREATE EXTENSION
+SET
+1..37
+ok 1 - the reusable vehicle-configuration validator exists
+ok 2 - the validator is immutable, strict, invoker-rights, and pins an empty search path
+ok 3 - only table-writing roles can execute the validator
+ok 4 - total-loss vehicle configuration is nullable JSONB without a browser-independent default
+ok 5 - diminished-value vehicle configuration is nullable JSONB without a browser-independent default
+ok 6 - total-loss details enforce the reusable vehicle-configuration validator
+ok 7 - diminished-value details enforce the reusable vehicle-configuration validator
+ok 8 - both detail tables require a complete vehicle identity behind provider configuration
+ok 9 - the staff diminished-value detail projection retains provider vehicle identity
+ok 10 - authenticated customers can read and write total-loss configuration identity
+ok 11 - authenticated customers can read and write diminished-value configuration identity
+ok 12 - a normalized provider alias set is valid
+ok 13 - the documented provider, value-length, and alias-count boundaries are accepted
+ok 14 - non-objects, missing or extra keys, and wrong value types are rejected
+ok 15 - provider ids outside the bounded lowercase safe pattern are rejected
+ok 16 - only trim and version provider fields are accepted
+ok 17 - empty, oversized, and non-string value arrays are rejected
+ok 18 - unnormalized whitespace and overlong provider values are rejected
+ok 19 - comma, control, and bidirectional-control provider values are rejected
+ok 20 - provider values must be unique case-insensitively
+INSERT 0 1
+INSERT 0 2
+INSERT 0 1
+INSERT 0 1
+SELECT 1
+71111111-1111-4111-8111-111111111111
+authenticated
+SET
+ok 21 - an owner can retain the provider identity behind a total-loss configuration
+ok 22 - an owner can retain the provider identity behind a diminished-value configuration
+RESET
+ok 23 - a configuration change advances total-loss fences and clears confirmation and stale extraction state exactly like trim changes
+ok 24 - a configuration change advances the diminished-value material revision
+ok 25 - the analysis snapshot preserves every latest claim field and adds vehicle configuration
+ok 26 - the analysis snapshot retains the exact provider identity rather than the display label
+UPDATE 1
+ok 27 - a total-loss canonical trim-label refresh preserves the exact provider identity
+UPDATE 1
+ok 28 - changing the total-loss year, make, or model clears stale provider identity
+UPDATE 1
+UPDATE 1
+ok 29 - a diminished-value canonical trim-label refresh preserves the exact provider identity
+UPDATE 1
+ok 30 - changing the diminished-value year, make, or model clears stale provider identity
+UPDATE 1
+UPDATE 1
+ok 31 - adopting a different report upload clears the provider identity from the prior vehicle
+UPDATE 1
+UPDATE 1
+ok 32 - adopting report intake clears provider identity from the manual vehicle selection
+ok 33 - total-loss provider identity cannot exist behind incomplete vehicle fields
+ok 34 - diminished-value provider identity cannot exist behind incomplete vehicle fields
+ok 35 - the total-loss table rejects an unsafe provider identity
+ok 36 - the diminished-value table rejects an inexact provider identity shape
+SELECT 1
+UPDATE 1
+ok 37 - an unchanged diminished-value configuration remains revision-neutral
+ROLLBACK

@@ -1,7 +1,6 @@
 import { applicationHref, hostAudience } from "@/app/site-boundary";
 import { publicSiteOnly } from "@/config/public-site";
 import {
-  CarFront,
   CircleUserRound,
   ClipboardList,
   LogOut,
@@ -23,6 +22,7 @@ import {
 } from "@/features/auth/user-display";
 import { useNewTotalLossAppraisalHref } from "@/features/total-loss/new-appraisal";
 import { cn } from "@/lib/utils";
+import { AppraisalSwitcher } from "@/features/cases/appraisal-switcher";
 
 const focusRingClassName =
   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 focus-visible:ring-offset-2";
@@ -136,7 +136,7 @@ export function AccountControl({
           <DropdownMenu.Content
             align="end"
             sideOffset={8}
-            className="z-[72] min-w-56 rounded-xl border border-white/80 bg-white p-1.5 shadow-[0_20px_56px_-24px_rgba(11,31,51,0.5)]"
+            className="z-[72] w-80 max-w-[calc(100vw-2rem)] max-h-[var(--radix-dropdown-menu-content-available-height)] overflow-y-auto rounded-xl border border-white/80 bg-white p-1.5 shadow-[0_20px_56px_-24px_rgba(11,31,51,0.5)]"
           >
             <DropdownMenu.Label className="px-2.5 py-2 text-xs text-copy">
               <span className="block font-semibold text-ink">Signed in as</span>
@@ -144,22 +144,15 @@ export function AccountControl({
                 {identityLabel}
               </span>
             </DropdownMenu.Label>
-            <DropdownMenu.Item asChild>
-              <Link
-                to={applicationHref("/app")}
-                className="flex min-h-10 w-full items-center gap-2 rounded-lg px-2.5 text-sm font-medium text-ink outline-none transition-colors hover:bg-surface focus:bg-surface"
-              >
-                <CarFront className="size-4" aria-hidden />
-                Guided valuation review
-              </Link>
-            </DropdownMenu.Item>
+            <AppraisalSwitcher />
+            <DropdownMenu.Separator className="my-1 h-px bg-line" />
             <DropdownMenu.Item asChild>
               <Link
                 to={applicationHref(newAppraisalHref)}
                 className="flex min-h-10 w-full items-center gap-2 rounded-lg px-2.5 text-sm font-medium text-ink outline-none transition-colors hover:bg-surface focus:bg-surface"
               >
                 <Plus className="size-4" aria-hidden />
-                Start a new appraisal
+                Start new appraisal
               </Link>
             </DropdownMenu.Item>
             {staffReviewHref ? (
@@ -276,21 +269,14 @@ export function MobileAccountControl({
         Signed in as{" "}
         <span className="font-semibold text-ink">{identityLabel}</span>
       </p>
-      <Link
-        to={applicationHref("/app")}
-        className="mt-1 inline-flex min-h-11 w-full items-center gap-2 rounded-lg px-1 text-sm font-medium text-ink/75 transition-colors hover:bg-white/35 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand/60"
-        onClick={onAction}
-      >
-        <CarFront className="size-4" aria-hidden />
-        Guided valuation review
-      </Link>
+      <AppraisalSwitcher menu={false} onAction={onAction} />
       <Link
         to={applicationHref(newAppraisalHref)}
         className="mt-1 inline-flex min-h-11 w-full items-center gap-2 rounded-lg px-1 text-sm font-medium text-ink/75 transition-colors hover:bg-white/35 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand/60"
         onClick={onAction}
       >
         <Plus className="size-4" aria-hidden />
-        Start a new appraisal
+        Start new appraisal
       </Link>
       {staffReviewHref ? (
         <Link

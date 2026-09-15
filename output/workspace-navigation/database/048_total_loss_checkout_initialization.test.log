@@ -1,0 +1,76 @@
+BEGIN
+CREATE EXTENSION
+SET
+SET
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE TABLE
+INSERT 0 5
+ok 1 - initializer is available to service workers
+ok 2 - initializer denies anon
+ok 3 - initializer denies authenticated
+ok 4 - initializer has definer isolation
+ok 5 - eligibility helper is private for anon
+ok 6 - eligibility helper is private for authenticated
+ok 7 - eligibility helper is private for service_role
+ok 8 - snapshot RLS and direct-write restrictions retained
+ok 9 - context exposes the exact completed input revision
+ok 10 - different owner is rejected
+ok 11 - stale run is rejected
+ok 12 - stale input is rejected
+ok 13 - stale revision is rejected
+ok 14 - stale report is rejected
+ok 15 - stale reportRevision is rejected
+ok 16 - upload without extraction cannot initialize
+ok 17 - cannot fabricate an underpayment classification
+ok 18 - interrupted analysis cannot initialize
+ok 19 - legacy unsupported classification does not create an unusable workflow
+ok 20 - rejections create no snapshots
+ok 21 - rejections create no workflows
+SELECT 1
+ok 22 - context initializes without changing methodology
+ok 23 - estimate initializes without changing methodology
+ok 24 - insufficient initializes without changing methodology
+ok 25 - signal initializes without changing methodology
+ok 26 - identical initialization is idempotent
+ok 27 - changed frozen payload cannot replace existing history
+ok 28 - listing context is frozen with exact report and no invented valuation
+ok 29 - initialization preserves sealed free input
+ok 30 - initialization preserves free artifact
+ok 31 - preliminary history remains immutable
+ok 32 - ready listing context can reach checkout
+ok 33 - checkout preflight rejects another owner
+48200000-0000-4000-8000-000000000001
+SET
+ok 34 - existing claim resolver exposes the secured continuation
+RESET
+SELECT 1
+ok 35 - review-ready context reserves the existing trusted price contract
+ok 36 - trusted order is 199 USD
+ok 37 - existing report wrapper binds the exact accepted report
+ok 38 - repeated checkout reuses the order
+ok 39 - no duplicate order is created
+ok 40 - initialization and reservation do not grant entitlement
+ok 41 - report remains immutable after reservation
+SELECT 1
+SELECT 1
+SELECT 1
+ok 42 - old prepared report cannot be silently reused
+INSERT 0 1
+UPDATE 1
+UPDATE 1
+UPDATE 1
+ok 43 - new ready report requires explicit new preparation
+UPDATE 1
+UPDATE 1
+ok 44 - explicit current replacement gets a new preparation generation
+ok 45 - replacement preparation repeats idempotently
+ok 46 - replacement can continue to checkout without another free analysis
+ok 47 - replacement preserves original immutable snapshot byte-for-byte
+ok 48 - both report preparation generations remain in history
+ok 49 - preparation history cannot be rewritten
+UPDATE 1
+ok 50 - new underpayment-classified snapshot still enforces its exact report revision
+1..50
+ROLLBACK

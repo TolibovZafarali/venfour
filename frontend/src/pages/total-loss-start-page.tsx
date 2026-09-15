@@ -17,7 +17,7 @@ import {
   CURRENT_SERVICE_TERMS_VERSION,
 } from "@/features/customer-profile/types";
 import { FreeValuationProcessing } from "@/features/analyses/components/free-valuation-processing";
-import { caseAnalysisQueryKeys } from "@/features/analyses/case-analysis-queries";
+import { caseAnalysisQueryKeys, requestAutomaticSubmission } from "@/features/analyses/case-analysis-queries";
 import { getCaseAnalysis } from "@/features/analyses/api/case-analysis";
 import { useCreateOrGetAppraisalCaseMutation } from "@/features/cases/mutations";
 import {
@@ -220,6 +220,8 @@ function TotalLossDraftBootstrapGate({
     TOTAL_LOSS_INTAKE_CORRECTION_INTENT;
   const invalidCorrectionIntent = correctionRequested && !correctionIntent;
   const conflictingCaseIntents = Boolean(explicitCaseId && newCaseId);
+  const waitingForStart = new URLSearchParams(location.search).get("entry") === "resume" &&
+    !explicitCaseId && !newCaseId && !startupChoice.continued;
   const invalidExplicitCaseId = Boolean(
     explicitCaseId && !UUID_PATTERN.test(explicitCaseId),
   );
@@ -256,7 +258,7 @@ function TotalLossDraftBootstrapGate({
     service: caseService,
     referralCode,
     userId:
-      dependencies && !explicitCaseId && !newCaseId && !correctionRequested
+      dependencies && !explicitCaseId && !newCaseId && !correctionRequested && !waitingForStart
         ? userId
         : null,
   });
@@ -309,7 +311,7 @@ function TotalLossDraftBootstrapGate({
   const showStartupChoice =
     !explicitCaseId &&
     !correctionRequested &&
-    !(storedDraft && (storedDraft.mode || hasMeaningfulManualDraft(storedDraft)));
+    (waitingForStart || !(storedDraft && (storedDraft.mode || hasMeaningfulManualDraft(storedDraft))));
   const startupDetailsQuery = useTotalLossDetailsQuery({
     service: dependencies?.totalLossDetailsService ?? null,
     userId,
@@ -1894,7 +1896,7 @@ function TotalLossIntakeFlowContent({
       if (accessClaimId) {
         try {
           await sendMagicLink(normalized.email, {
-            returnTo: "/appraisals",
+            returnTo: `/total-loss/cases/${caseId}/analysis`,
             callbackParameters: { case_claim: accessClaimId },
           });
           const sentAt = new Date().toISOString();
@@ -1950,6 +1952,9 @@ function TotalLossIntakeFlowContent({
         userId,
         expectedUpdatedAt: serverUpdatedAtRef.current,
       });
+      if (confirmed.analysisInputId && confirmed.analysisInputRevision) {
+        requestAutomaticSubmission(userId, caseId, { expectedAnalysisInputId: confirmed.analysisInputId, expectedAnalysisInputRevision: confirmed.analysisInputRevision });
+      }
       serverUpdatedAtRef.current = confirmed.updatedAt;
       queryClient.setQueryData(
         totalLossQueryKeys.details(userId, caseId),
@@ -3080,8 +3085,8 @@ function LoadingCard() {
 }
 
 function UnavailableCaseCard() {
-  return <ValuationStatus compact headingLevel="h2" kind="error" heading="This saved appraisal cannot be opened from this link." description="Open your appraisals to continue from the case’s current stage.">
-    <Link className={primaryFlowButtonClassName} to="/appraisals">View my appraisals</Link>
+  return <ValuationStatus compact headingLevel="h2" kind="error" heading="This saved appraisal cannot be opened from this link." description="Return to your saved appraisal, or choose another from your account menu.">
+    <Link className={primaryFlowButtonClassName} to="/app">Return to your appraisal</Link>
   </ValuationStatus>;
 }
 

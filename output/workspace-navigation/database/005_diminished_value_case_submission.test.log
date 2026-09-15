@@ -1,0 +1,93 @@
+BEGIN
+CREATE EXTENSION
+SET
+SET
+1..73
+ok 1 - diminished-value details table exists
+ok 2 - diminished-value details have row-level security enabled
+ok 3 - case_id is the one-to-one primary key
+ok 4 - case_id references the provider-neutral parent case
+ok 5 - details cascade when their parent case is removed
+ok 6 - drafts begin at the first editable step
+ok 7 - new details begin at server revision zero
+ok 8 - submitted_at begins nullable without a browser-controlled default
+ok 9 - details have a server revision trigger
+ok 10 - submission is a SECURITY DEFINER RPC returning only its receipt type
+ok 11 - submission pins an empty search path
+ok 12 - PUBLIC cannot execute any diminished-value function
+ok 13 - anonymous clients cannot execute diminished-value functions
+ok 14 - authenticated clients receive only the submission and storage authorization surface
+ok 15 - service credentials cannot impersonate a customer submission
+ok 16 - revision is browser-readable and server-controlled
+ok 17 - submitted_at is browser-readable and server-controlled
+ok 18 - anonymous reads and browser detail deletion are unavailable
+ok 19 - the shared bucket retains its portable 50 MiB server limit
+ok 20 - DV document authorization is a search-path-pinned SECURITY DEFINER helper
+INSERT 0 2
+INSERT 0 6
+INSERT 0 1
+INSERT 0 3
+CREATE TABLE
+GRANT
+SET
+SET
+ok 21 - a customer can create details for their owned DV draft
+ok 22 - new details use safe draft and version defaults
+ok 23 - a customer cannot create details for another user
+ok 24 - DV details cannot be attached to a total-loss parent
+ok 25 - a customer reads only their own DV details
+ok 26 - an exact draft revision can be progressively saved
+ok 27 - a material save advances the server revision once
+ok 28 - a no-op retry is accepted at the same revision
+ok 29 - a no-op retry does not create a false revision
+ok 30 - complete is never an editable draft step
+ok 31 - a browser cannot forge the optimistic revision
+ok 32 - a browser cannot forge the submission time
+ok 33 - a browser cannot forge the submitted parent status
+ok 34 - submission rejects an incomplete draft
+ok 35 - a rejected submission leaves both durable state markers untouched
+ok 36 - submission rejects a future accident date
+ok 37 - submission rejects an incomplete manual vehicle identity
+ok 38 - a customer cannot submit another user case
+ok 39 - the DV submission RPC rejects a total-loss parent
+ok 40 - a missing case uses the same unavailable ownership boundary
+ok 41 - the remaining required fields can be saved at the expected revision
+ok 42 - a complete owned DV draft submits authoritatively
+ok 43 - the RPC returns submitted state and the server-incremented receipt revision
+ok 44 - submission atomically persists one database timestamp, status, activity, and revision
+ok 45 - a committed submission can be retried safely
+ok 46 - duplicate submission returns the original timestamp and revision
+ok 47 - submitted details are immutable to the browser
+ok 48 - the rejected post-submission edit leaves material data unchanged
+SET
+ok 49 - another authenticated user cannot observe an existing submission receipt
+SET
+ok 50 - the exact owned draft DV namespace is authorized
+ok 51 - an owned draft accepts an exact PDF document path and safe display name
+ok 52 - an owned draft accepts an exact canonical image document path
+ok 53 - the canonical object extension must match the display filename format
+ok 54 - the owner can list persisted documents for resuming the draft
+ok 55 - an unsupported canonical extension is denied
+ok 56 - a non-UUID document object name is denied
+ok 57 - an extra path segment cannot escape the exact DV namespace
+ok 58 - an unsafe original display filename is denied
+ok 59 - an unnormalized original display filename is denied
+ok 60 - a document cannot target another user case under the caller namespace
+ok 61 - DV objects cannot be updated, renamed, or moved
+SET
+ok 62 - another user cannot list the first user documents
+ok 63 - another user delete attempt safely affects no documents
+RESET
+ok 64 - cross-user deletion leaves the owner documents intact
+SET
+SET
+ok 65 - the owner can remove an exact document while the case is draft
+ok 66 - a removed draft document can be replaced by a new UUID object
+ok 67 - integrated policies reject arbitrary Total-Loss objects while preserving Diminished Value documents
+ok 68 - a draft with persisted documents can be submitted
+ok 69 - document mutation authorization closes immediately after submission
+ok 70 - submitted documents remain privately readable to their owner
+ok 71 - a submitted case rejects new documents
+ok 72 - a submitted case rejects document deletion
+ok 73 - a submitted case rejects document metadata replacement
+ROLLBACK

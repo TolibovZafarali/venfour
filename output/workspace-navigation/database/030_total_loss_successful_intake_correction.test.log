@@ -1,0 +1,48 @@
+BEGIN
+CREATE EXTENSION
+SET
+1..18
+INSERT 0 2
+INSERT 0 2
+INSERT 0 2
+INSERT 0 2
+INSERT 0 2
+CREATE TABLE
+GRANT
+INSERT 0 1
+INSERT 0 1
+ok 1 - only the trusted service role can prepare successful-result correction
+SET
+ok 2 - an owned successful preliminary result is prepared before its freeze
+RESET
+ok 3 - preparing correction reopens the same appraisal case
+ok 4 - preparation alone does not change the confirmed input or its revision fences
+ok 5 - the prior completed job and immutable analysis run remain historical
+UPDATE 1
+SET
+ok 6 - replaying preparation for the same unchanged draft is idempotent
+RESET
+ok 7 - idempotent draft preparation performs no additional case write
+SET
+ok 8 - another user cannot prepare correction
+ok 9 - a stale analysis input identity cannot prepare correction
+ok 10 - a stale analysis input revision cannot prepare correction
+RESET
+ok 11 - rejected owner and input fences leave the case unchanged
+UPDATE 1
+SET
+ok 12 - a stale case version cannot reopen a completed result
+RESET
+ok 13 - stale case-version rejection performs no parent transition
+INSERT 0 1
+SET
+ok 14 - the first immutable preliminary snapshot freezes intake correction
+RESET
+ok 15 - snapshot-frozen rejection leaves foundational case input unchanged
+INSERT 0 1
+SET
+ok 16 - a paid claim workflow also denies stale correction requests
+RESET
+ok 17 - correction preparation never creates another appraisal case
+ok 18 - all completed analysis lineage remains immutable after allowed and denied preparation
+ROLLBACK

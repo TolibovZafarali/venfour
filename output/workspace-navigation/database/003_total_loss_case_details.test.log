@@ -1,0 +1,238 @@
+BEGIN
+CREATE EXTENSION
+SET
+SET
+1..166
+ok 1 - total_loss_intake_mode exists
+ok 2 - total_loss_intake_mode has the intended values
+ok 3 - the report-upload lease return type exists
+ok 4 - the report-upload lease exposes only its typed coordination result
+ok 5 - the public report-metadata return type exists
+ok 6 - finalize and cancel return only the public details projection
+ok 7 - total_loss_case_details table exists
+ok 8 - total_loss_case_details has row-level security enabled
+ok 9 - the details table contains the public intake fields and internal upload coordination fields
+ok 10 - all details and lease columns use the intended PostgreSQL types
+ok 11 - the owner-visible recovery gate is generated only from private in-flight upload state
+ok 12 - insurer vehicle valuation uses numeric(12,2)
+ok 13 - case_id is the one-to-one primary key
+ok 14 - case_id references appraisal_cases.id
+ok 15 - details are removed when the parent case is removed
+ok 16 - created_at is a required server-generated timestamp
+ok 17 - updated_at is a required server-generated timestamp
+ok 18 - the details table has a server timestamp trigger
+ok 19 - the details table constrains mileage to nonnegative values
+ok 20 - the details table constrains insurer valuation to positive values
+ok 21 - the details table requires complete internal lease state
+ok 22 - authenticated clients may use the intake enum
+ok 23 - authenticated clients may consume typed lease results
+ok 24 - authenticated clients may consume public details RPC results
+ok 25 - anonymous clients cannot select total-loss details
+ok 26 - anonymous clients cannot mutate total-loss details
+ok 27 - authenticated clients may select every public details field
+ok 28 - authenticated table reads cannot expose internal lease state
+ok 29 - authenticated clients may insert only customer-entered intake fields
+ok 30 - authenticated clients cannot directly insert report metadata or internal lease state
+ok 31 - authenticated clients cannot provide audit timestamps during insert
+ok 32 - authenticated clients may update customer-entered intake fields
+ok 33 - authenticated clients cannot directly update report metadata or internal lease state
+ok 34 - authenticated clients cannot move details or update audit timestamps
+ok 35 - authenticated clients have no details delete API
+ok 36 - the trusted service role can manage all total-loss details fields
+ok 37 - authenticated clients may insert a reserved stable case ID
+ok 38 - stable IDs do not expose browser-controlled status transitions
+ok 39 - all report-upload RPC and storage authorization functions exist
+ok 40 - report-upload RPCs use SECURITY DEFINER for their narrow ownership checks
+ok 41 - finalize and cancel return only the public details composite
+ok 42 - PUBLIC has no EXECUTE privilege on report-upload functions
+ok 43 - anonymous clients cannot execute report-upload functions
+ok 44 - authenticated clients may execute only the typed report-upload surface
+ok 45 - the trusted service role may execute the report-upload lifecycle
+ok 46 - authenticated clients cannot call the details timestamp trigger directly
+INSERT 0 2
+INSERT 0 9
+INSERT 0 5
+CREATE TABLE
+GRANT
+SET
+ok 47 - anonymous clients are denied public details at runtime
+ok 48 - anonymous clients are denied report-upload RPCs at runtime
+RESET
+SET
+SET
+ok 49 - acquire rejects a NULL upload attempt identifier
+ok 50 - renew rejects a NULL upload attempt identifier
+ok 51 - mark-ready rejects a NULL upload attempt identifier
+ok 52 - recovery rejects a NULL upload attempt identifier
+ok 53 - finalize rejects a NULL upload attempt identifier
+ok 54 - cancel rejects a NULL upload attempt identifier
+ok 55 - a customer cannot bypass the locked total-loss draft RPC with a direct insert
+RESET
+INSERT 0 1
+SET
+SET
+ok 56 - the privileged fixture used by details tests receives draft status
+ok 57 - a direct retry remains denied at the customer authorization boundary
+ok 58 - a denied direct retry cannot duplicate the privileged fixture
+ok 59 - a customer cannot spoof created_at during details creation
+ok 60 - a customer cannot directly insert report metadata
+ok 61 - a customer cannot forge an internal report-upload lease
+ok 62 - a customer can insert partial details for their own total-loss case
+ok 63 - an authenticated customer can select the public details projection
+ok 64 - an authenticated table wildcard cannot expose internal lease columns
+ok 65 - a customer cannot select another account details row
+ok 66 - a customer cannot directly update report metadata
+ok 67 - a customer cannot directly update internal lease state
+ok 68 - a customer can update mutable intake fields on their own details
+ok 69 - an intake update advances only updated_at with database time
+ok 70 - valuation precision persists while the browser cannot author the intake completion marker
+ok 71 - negative mileage is rejected
+ok 72 - a non-positive insurer valuation is rejected
+ok 73 - a customer cannot spoof updated_at
+ok 74 - a customer cannot reattach details to another case
+ok 75 - a customer cannot delete their own details through the browser API
+ok 76 - a customer cannot attach details to another customer case
+ok 77 - a customer cannot attach total-loss details to a diminished-value case
+SET
+ok 78 - another customer cannot see the first customer details
+ok 79 - a cross-customer update is safely reduced to no rows
+RESET
+ok 80 - a cross-customer update cannot alter the first customer details
+SET
+SET
+ok 81 - a customer cannot acquire an upload lease for another account case
+ok 82 - a customer cannot reclaim another account report upload
+ok 83 - an owner cannot use recovery reclaim when no upload lease is active
+ok 84 - a customer cannot acquire an upload lease for a wrong-service case
+ok 85 - a customer cannot acquire an upload lease for a non-draft case
+ok 86 - renew cannot reach another account case
+ok 87 - mark-ready cannot reach a wrong-service case
+ok 88 - finalize cannot reach another account case
+ok 89 - cancel cannot reach a wrong-service case
+ok 90 - NULL acquisition atomically creates missing report details and a lease
+RESET
+ok 91 - NULL acquisition persists one report-mode details row with a preparing lease
+SET
+SET
+ok 92 - retrying a lost NULL acquisition with the reserved token is idempotent
+ok 93 - NULL acquisition with a different token cannot replace existing details
+ok 94 - a new report without prior metadata can be marked ready without a backup
+ok 95 - an initial ready upload can be cancelled when no prior report needs recovery
+ok 96 - retrying the same cancellation token is idempotent
+RESET
+ok 97 - cancellation records its idempotency token and clears the complete lease
+UPDATE 1
+SET
+SET
+ok 98 - a committed cancellation retry remains idempotent after parent status changes
+RESET
+UPDATE 1
+ok 99 - NULL acquisition and cancellation leave the parent status in draft
+SET
+SET
+ok 100 - a cancelled token cannot write a reserved report object
+ok 101 - NULL acquisition cannot overwrite an existing details row
+ok 102 - acquisition rejects a stale public details version
+ok 103 - an exact public details version acquires the owned draft lease
+RESET
+ok 104 - acquisition snapshots the public details version without advancing it
+SET
+SET
+ok 105 - a second acquisition cannot replace an unexpired active lease
+ok 106 - a stale token cannot renew an active lease
+ok 107 - the exact active token can renew its lease
+ok 108 - the canonical report path cannot be written during the preparing phase
+ok 109 - a reserved backup path rejects metadata for a stale token
+ok 110 - a stale token cannot mark another upload ready
+ok 111 - an initial upload can advance from preparing to ready
+ok 112 - retrying mark-ready with the same token and backup state is idempotent
+RESET
+ok 113 - mark-ready preserves the exact token and public details version
+SET
+SET
+ok 114 - finalization requires a canonical object carrying the active token
+ok 115 - the canonical report path rejects a stale storage token
+ok 116 - an active token cannot write into another account report path
+ok 117 - the ready token can write the deterministic private canonical path
+ok 118 - finalization rejects display filenames containing path separators
+ok 119 - finalization rejects control characters in display filenames
+ok 120 - finalization rejects bidirectional override characters in display filenames
+ok 121 - finalization rejects non-PDF display filenames
+ok 122 - finalization rejects uncollapsed whitespace in display filenames
+ok 123 - finalization rejects untrimmed display filenames
+RESET
+ok 124 - unsafe filename rejection preserves report metadata and the active ready lease
+SET
+SET
+ok 125 - a stale token cannot finalize another upload
+ok 126 - the exact token atomically finalizes report metadata
+ok 127 - retrying the committed finalization token is idempotent
+RESET
+ok 128 - finalization commits the first metadata once and clears the complete lease
+ok 129 - finalization touches parent activity while leaving status in draft
+UPDATE 1
+SET
+SET
+ok 130 - a committed finalization retry remains idempotent after parent status changes
+RESET
+UPDATE 1
+SET
+SET
+ok 131 - a finalized token is stale for future reserved-path writes
+ok 132 - a customer cannot directly delete the committed canonical report
+SET
+ok 133 - a customer cannot bypass canonical deletion by renaming the reserved object
+RESET
+ok 134 - the committed canonical object remains at its deterministic path
+SET
+SET
+ok 135 - an exact post-finalization version can acquire a replacement lease
+ok 136 - replacement cannot become ready until the committed report is backed up
+ok 137 - the preparing replacement token can write its deterministic backup path
+ok 138 - a token-matched backup permits replacement to become ready
+ok 139 - replacement mark-ready is idempotent with the same backup state
+ok 140 - the owner can read the recovery gate without access to private lease state
+ok 141 - a prior upload token cannot replace the canonical object
+SET
+ok 142 - the ready replacement token can overwrite the deterministic canonical object
+ok 143 - an owner can immediately take over an unexpired recoverable replacement
+ok 144 - the takeover token resumes the interrupted replacement in recovery mode
+ok 145 - the interrupted replacement token loses the lease after recovery takeover
+ok 146 - the recovery takeover token can re-fence the retained backup object
+ok 147 - the recovery takeover token can restore and re-fence the canonical report
+ok 148 - the takeover token can complete recovery without waiting for lease expiry
+RESET
+ok 149 - completed takeover recovery preserves the new lease for immediate retry
+SET
+SET
+ok 150 - the recovered lease can immediately begin the replacement again
+ok 151 - a backed-up replacement can finalize with its exact token
+ok 152 - replacement finalization is idempotent for the committed token
+RESET
+ok 153 - replacement finalization commits only the first metadata and releases the lease
+UPDATE 1
+SET
+SET
+ok 154 - a stale finalized token cannot delete a newer replacement backup
+RESET
+ok 155 - the backup remains after a stale-token delete attempt
+UPDATE 1
+SET
+SET
+ok 156 - the most recently finalized token can clean up its own backup
+RESET
+ok 157 - initial and replacement report finalization never advance parent status
+SET
+SET
+ok 158 - a separate owned draft can acquire a lease for concurrency testing
+ok 159 - the concurrency-test upload can be marked ready
+ok 160 - the concurrency-test upload stores its token-matched canonical object
+ok 161 - customer-entered details can change while an upload is in flight
+ok 162 - finalization refuses to overwrite details changed during the upload
+ok 163 - a conflicted initial upload can release its lease without report metadata
+RESET
+ok 164 - a conflict preserves public report metadata and clears its cancelled lease
+ok 165 - optimistic upload conflicts leave the parent status in draft
+DELETE 1
+ok 166 - deleting a parent case cascades to its one-to-one details row
+ROLLBACK

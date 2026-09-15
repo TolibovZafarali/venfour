@@ -19,6 +19,19 @@ export const caseAnalysisQueryKeys = {
 };
 
 const submissions = new Map<string, Promise<CaseAnalysisStatus>>();
+const requestedSubmissions = new Map<string, number>();
+
+export function clearAutomaticSubmissionRequests() {
+  requestedSubmissions.clear();
+}
+
+export function requestAutomaticSubmission(userId: string, caseId: string, input: CaseAnalysisInput) {
+  requestedSubmissions.set(submissionKey(userId, caseId, input), Date.now() + 30_000);
+}
+
+export function automaticSubmissionRequested(userId: string, caseId: string, input: CaseAnalysisInput) {
+  return (requestedSubmissions.get(submissionKey(userId, caseId, input)) ?? 0) > Date.now();
+}
 
 function submissionKey(userId: string, caseId: string, input: CaseAnalysisInput) {
   return `venfour:analysis-submit:${userId}:${caseId}:${input.expectedAnalysisInputId}`;
@@ -30,6 +43,7 @@ export function hasAttemptedAutomaticSubmission(userId: string, caseId: string, 
 }
 
 export function markAutomaticSubmission(userId: string, caseId: string, input: CaseAnalysisInput) {
+  requestedSubmissions.delete(submissionKey(userId, caseId, input));
   try { window.sessionStorage.setItem(submissionKey(userId, caseId, input), "started"); }
   catch { /* Server input and lease fencing still prevent duplicate work. */ }
 }

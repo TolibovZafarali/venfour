@@ -1,0 +1,74 @@
+BEGIN
+CREATE EXTENSION
+SET
+1..27
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+CREATE TABLE
+GRANT
+SET
+SET
+ok 1 - the existing manual confirmation contract permits an omitted insurer offer
+INSERT 0 1
+RESET
+SET
+ok 2 - confirmed intake starts its original analysis
+RESET
+UPDATE 1
+SET
+ok 3 - a nonretryable failure returns the case to its editable draft lifecycle
+ok 4 - unchanged nonretryable input does not automatically rerun analysis
+RESET
+SET
+SET
+ok 5 - reading completed intake restores facts and contact without clearing completion or lineage
+ok 6 - the owner persists a corrected offer through the existing version-fenced update
+ok 7 - material correction rotates both input fences and clears completion without losing saved facts
+RESET
+SET
+ok 8 - changed inputs cannot resolve the prior failed analysis as their current result
+ok 9 - saving corrected fields alone cannot run analysis before explicit confirmation
+RESET
+SET
+SET
+ok 10 - explicit resubmission confirms the corrected intake on the same case
+INSERT 0 1
+RESET
+SET
+ok 11 - corrected manual confirmation can be resumed safely before its analysis request arrives
+ok 12 - corrected confirmation creates a new run and job for the corrected authoritative snapshot
+RESET
+UPDATE 1
+ok 13 - correction never creates a duplicate appraisal case
+ok 14 - the original nonretryable job remains intact as historical input lineage
+SET
+ok 15 - a duplicate resubmission observes the single current processing job
+ok 16 - the corrected analysis completes under its own processing token and run identity
+ok 17 - ordinary completed-intake status resumes the corrected current result
+ok 18 - ordinary completed-intake submit is still idempotent and does not rerun analysis
+RESET
+SET
+SET
+ok 19 - ordinary completed intake remains immutable without explicit recovery authority
+RESET
+ok 20 - only the historical failed job and one corrected-input job exist
+ok 21 - only the corrected-input immutable result was persisted
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+SET
+SET
+ok 22 - a finalized report can be confirmed before its first analysis claim
+INSERT 0 1
+ok 23 - the confirmed draft can acquire a replacement report upload lease
+RESET
+ok 24 - replacement lease coordination retains completion and current input identity
+SET
+ok 25 - a confirmed report with an active replacement lease legitimately has no current job
+ok 26 - analysis safely offers report recovery while the replacement upload is pending
+RESET
+ok 27 - report recovery leaves the owned draft editable without claiming analysis
+ROLLBACK

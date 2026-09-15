@@ -1,0 +1,99 @@
+BEGIN
+CREATE EXTENSION
+SET
+1..26
+SET
+SELECT 1
+ALTER TABLE
+UPDATE 1
+UPDATE 1
+UPDATE 1
+UPDATE 1
+UPDATE 1
+UPDATE 1
+UPDATE 1
+INSERT 0 2
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+UPDATE 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+UPDATE 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+UPDATE 1
+UPDATE 1
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+ok 1 - frozen vehicle projection is internal to the trusted context assembler
+ok 2 - report intake legitimately leaves every manual vehicle column null
+ok 3 - report VIN remains extracted evidence rather than customer-confirmed input
+SET
+b1000000-0000-4000-8000-000000000001
+authenticated
+SELECT 1
+RESET
+SET
+SELECT 1
+SELECT 1
+ok 4 - actual report response RPC context uses complete frozen report facts despite null manual columns
+ok 5 - new processing attempts explicitly identify the frozen vehicle context version
+ok 6 - vehicle output preserves the existing six-field downstream contract
+RESET
+ok 7 - processing job pins the exact published report and frozen paid source
+ok 8 - mutable draft vehicle values cannot override the frozen paid vehicle
+ok 9 - invalid frozen source digest fails closed
+ok 10 - published report cannot select an incompatible source digest
+ok 11 - published report cannot select an incompatible assessment digest
+ok 12 - source outside the frozen preliminary revision fails closed
+ok 13 - a digest-consistent source with a conflicting embedded run identity fails closed
+ok 14 - missing authoritative required vehicle evidence fails closed
+ok 15 - report source without its frozen extraction fails closed
+ok 16 - digest-consistent extracted vehicle conflict cannot silently win
+ok 17 - frozen artifact content cannot change behind its saved artifact digest
+ok 18 - equivalent extraction whitespace and casing preserve canonical vehicle identity
+ok 19 - conflicting frozen customer and extracted VIN values fail closed
+ok 20 - malformed scalar subject vehicle fails with a bounded source error
+ok 21 - another case cannot borrow the paid report vehicle source
+ok 22 - all invalid-source probes roll back their fixture mutations
+SET
+SELECT 1
+RESET
+SET
+SELECT 1
+SELECT 1
+ok 23 - ordinary response correction keeps the exact original frozen vehicle context
+RESET
+ok 24 - correction preserves immutable source report lineage while creating a new response job
+UPDATE 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+UPDATE 1
+UPDATE 1
+SET
+SELECT 1
+RESET
+SET
+SELECT 1
+SELECT 1
+ok 25 - a distinct second response round reuses the same frozen claim vehicle
+RESET
+ok 26 - original response correction and later round keep one paid report source identity
+ROLLBACK

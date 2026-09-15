@@ -1,0 +1,61 @@
+BEGIN
+CREATE EXTENSION
+SET
+SET
+1..31
+CREATE FUNCTION
+INSERT 0 3
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+ok 1 - report preparation has separate storage
+ok 2 - report RLS enabled
+ok 3 - customer cannot mark report ready
+ok 4 - trusted transition RPC only
+ok 5 - another owner cannot read report context
+ok 6 - free completion is not full readiness
+ok 7 - checkout fails closed without report
+ok 8 - reservation enforces report gate
+SELECT 1
+SELECT 1
+ok 9 - upload is not implicitly ready
+ok 10 - cannot finalize a missing file
+GRANT
+SET
+44100000-0000-4000-8000-000000000002
+ok 11 - another owner cannot upload into the report lease
+44100000-0000-4000-8000-000000000001
+ok 12 - incorrect upload size is rejected
+ok 13 - non-PDF storage type is rejected
+ok 14 - owner can upload the exact prepared PDF
+UPDATE 0
+DELETE 0
+RESET
+ok 15 - report bytes cannot be replaced or deleted by the owner
+UPDATE 1
+UPDATE 1
+ok 16 - stale extraction worker cannot confirm
+UPDATE 1
+ok 17 - unresolved conflict prevents payment
+ok 18 - printed extraction cannot be rewritten
+UPDATE 1
+ok 19 - report facts alone do not permit payment
+{"id": "00f24961-2870-4402-929d-fc9dda1b8a8c", "case_id": "44200000-0000-4000-8000-000000000001", "report_id": "44a00000-0000-4000-8000-000000000001", "created_at": "2026-09-15T15:45:32.007598+00:00", "calculation": {"artifact": {"runId": "012367af-f998-42d7-a22a-eabffbf060fe", "result": {"discrepancyResult": {"classification": "POTENTIAL_UNDERVALUE", "evidenceStrength": "MODERATE"}, "preliminaryQualification": {"outcome": "CLEAR_MARKET_VALUE_GAP", "marketClassification": "POTENTIAL_UNDERVALUE", "qualificationVersion": "1", "unresolvedMaterialChecks": [], "applicableMaterialReviewComplete": true}}}, "presentation": {"runId": "012367af-f998-42d7-a22a-eabffbf060fe", "assessment": {"classification": "POTENTIAL_UNDERVALUE", "evidenceStrength": "MODERATE"}}, "newProviderRequests": 0}, "source_run_id": "44500000-0000-4000-8000-000000000001", "review_version": "1", "document_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "report_revision": 5, "source_input_id": "44300000-0000-4000-8000-000000000001", "calculation_digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee", "source_input_revision": 1}
+ok 20 - report and strict evidence become ready
+ok 21 - free input is unchanged
+ok 22 - free result is unchanged
+SELECT 1
+ok 23 - checkout atomically binds the accepted report
+ok 24 - purchased readiness is immutable
+ok 25 - checkout source cannot disappear
+ok 26 - owner storage updates cannot replace accepted report bytes
+ok 27 - package report RPC is service only
+ok 28 - service cannot call the source trigger directly
+ok 29 - new purchases must freeze the accepted report
+ok 30 - paid assessments retain report calculation binding
+ok 31 - extraction time is retained for immutable source provenance
+ROLLBACK

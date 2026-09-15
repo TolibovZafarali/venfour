@@ -1,0 +1,121 @@
+BEGIN
+CREATE EXTENSION
+SET
+SET
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE TABLE
+INSERT 0 8
+UPDATE 8
+INSERT 0 1
+INSERT 0 1
+ok 1 - manual approval is required on installation
+ok 2 - RLS enabled for total_loss_payment_approval_settings
+ok 3 - RLS enabled for total_loss_payment_approval_decisions
+ok 4 - direct writes denied to anon on total_loss_payment_approval_settings
+ok 5 - direct writes denied to authenticated on total_loss_payment_approval_settings
+ok 6 - direct writes denied to service_role on total_loss_payment_approval_settings
+ok 7 - direct writes denied to anon on total_loss_payment_approval_decisions
+ok 8 - direct writes denied to authenticated on total_loss_payment_approval_decisions
+ok 9 - direct writes denied to service_role on total_loss_payment_approval_decisions
+ok 10 - renamed bypass denied to anon: checkout_preflight_before_approval_internal
+ok 11 - renamed bypass denied to authenticated: checkout_preflight_before_approval_internal
+ok 12 - renamed bypass denied to service_role: checkout_preflight_before_approval_internal
+ok 13 - renamed bypass denied to anon: initialize_post_continue_before_approval_internal
+ok 14 - renamed bypass denied to authenticated: initialize_post_continue_before_approval_internal
+ok 15 - renamed bypass denied to service_role: initialize_post_continue_before_approval_internal
+ok 16 - renamed bypass denied to anon: reserve_checkout_before_approval_internal
+ok 17 - renamed bypass denied to authenticated: reserve_checkout_before_approval_internal
+ok 18 - renamed bypass denied to service_role: reserve_checkout_before_approval_internal
+ok 19 - anonymous role cannot approve
+ok 20 - strict readiness passes independently
+ok 21 - strict-ready but unapproved cannot pay
+ok 22 - direct continuation is blocked without approval
+ok 23 - direct reservation is blocked without approval
+53200000-0000-4000-8000-000000000001
+SET
+ok 24 - customer cannot read launch queue
+ok 25 - customer cannot self-approve
+RESET
+53300000-0000-4000-8000-000000000001
+ok 26 - staff queue includes only current qualifying cases
+ok 27 - old or foreign report cannot be approved
+ok 28 - old input cannot be approved
+ok 29 - old evidence digest cannot be approved
+ok 30 - approval cannot be reused across cases
+SELECT 1
+ok 31 - identical retry returns the same durable decision
+ok 32 - retry does not insert another decision
+ok 33 - exact current approved synthetic lineage becomes eligible
+ok 34 - approval cannot bypass ownership
+ok 35 - another strict-ready case remains blocked
+ok 36 - decision records staff, time, and exact immutable lineage
+ok 37 - decision history cannot be rewritten
+ok 38 - decision history cannot be deleted
+ok 39 - current approval invalidates on case
+ok 40 - current approval invalidates on owner
+ok 41 - current approval invalidates on input ID
+ok 42 - current approval invalidates on input revision
+ok 43 - current approval invalidates on report ID
+ok 44 - current approval invalidates on report revision
+ok 45 - current approval invalidates on document digest
+ok 46 - current approval invalidates on assessment ID
+ok 47 - current approval invalidates on assessment version
+ok 48 - current approval invalidates on evidence digest
+ok 49 - current approval invalidates on assessment payload
+ok 50 - current approval invalidates on source snapshot
+ok 51 - current approval invalidates on readiness recalculation
+ok 52 - current approval invalidates on input facts
+{"id": "43887013-1eef-49bc-826f-3bf82a99eb5c", "decision": "approved", "createdAt": "2026-09-15T15:45:47.917879+00:00"}
+{"id": "8ca7b191-5cac-4487-81bf-be40e0a55301", "decision": "approved", "createdAt": "2026-09-15T15:45:48.029792+00:00"}
+{"id": "360e3823-8185-4204-a779-6868ffd47b30", "decision": "approved", "createdAt": "2026-09-15T15:45:48.153506+00:00"}
+{"id": "fbd3dd6e-89fa-40db-8074-5521d7549b33", "decision": "approved", "createdAt": "2026-09-15T15:45:48.28368+00:00"}
+{"id": "47d175e5-ddd9-48b9-862f-6923729efc56", "decision": "approved", "createdAt": "2026-09-15T15:45:48.422747+00:00"}
+UPDATE 1
+ok 53 - saved input edit invalidates prior approval
+{"id": "38a2fd47-3e94-41dc-957b-bf94095a5aec", "status": "uploading", "case_id": "53100000-0000-4000-8000-000000000003", "revision": 1, "byte_size": 124, "readiness": null, "created_at": "2026-09-15T15:45:48.444271+00:00", "extraction": null, "updated_at": "2026-09-15T15:45:48.444271+00:00", "extracted_at": null, "source_run_id": "d876d2c7-12fc-4861-bbda-1c0ad845f1ff", "storage_bucket": "case-files", "document_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "source_input_id": "4bf7aba3-0242-4381-8384-8d000f594f1b", "processing_token": null, "storage_owner_id": "53200000-0000-4000-8000-000000000003", "original_filename": "replacement.pdf", "storage_object_name": "53200000-0000-4000-8000-000000000003/53100000-0000-4000-8000-000000000003/review-reports/38a2fd47-3e94-41dc-957b-bf94095a5aec.pdf", "processing_expires_at": null}
+ok 54 - actual replacement PDF invalidates approval
+{"id": "a522d26d-9045-431c-a3c4-8dfaf5c65549", "decision": "held", "createdAt": "2026-09-15T15:45:48.574425+00:00"}
+{"id": "e8be7e41-06ac-4905-92a1-26ac7c1747e4", "decision": "declined", "createdAt": "2026-09-15T15:45:48.706413+00:00"}
+ok 55 - latest hold or decline blocks approved lineage
+ok 56 - latest hold or decline blocks approved lineage
+DELETE 1
+ok 57 - missing setting blocks even an exact approval
+INSERT 0 1
+ok 58 - invalid setting cannot be stored
+ALTER TABLE
+UPDATE 1
+ALTER TABLE
+UPDATE 1
+ok 59 - staff cannot override insufficient evidence
+ok 60 - insufficient case is excluded from approval queue
+INSERT 0 1
+53200000-0000-4000-8000-000000000007
+ok 61 - even staff cannot approve their own case
+53300000-0000-4000-8000-000000000001
+ok 62 - exact approved lineage may initialize the existing checkout workflow
+ok 63 - server preflight allows the approved synthetic lineage
+INSERT 0 1
+UPDATE 1
+INSERT 0 1
+53300000-0000-4000-8000-000000000001
+UPDATE 1
+{"id": "2ce9c026-441d-4b94-a698-e367e143e4d5", "decision": "approved", "createdAt": "2026-09-15T15:45:51.922522+00:00"}
+ok 64 - approved guest can prepare the ordinary claim workflow
+53200000-0000-4000-8000-000000000009
+SELECT 1
+53500000-0000-4000-8000-000000000001
+ok 65 - approved guest case transfers through the existing claim function
+ok 66 - guest transfer preserves strict evidence readiness
+ok 67 - actual ownership transfer invalidates the guest approval
+ok 68 - claimed customer cannot pay using the former guest approval
+53300000-0000-4000-8000-000000000001
+ok 69 - claimed customer returns to the staff queue for current-owner approval
+{"id": "4168f8cb-612a-446c-b425-48edd037ab9d", "decision": "approved", "createdAt": "2026-09-15T15:45:56.259861+00:00"}
+ok 70 - fresh staff approval restores checkout after the real guest claim transition
+ok 71 - no payment created
+ok 72 - no entitlement created
+ok 73 - no checkout session or reservation created
+1..73
+ROLLBACK

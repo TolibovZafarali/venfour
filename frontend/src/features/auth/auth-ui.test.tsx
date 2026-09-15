@@ -490,11 +490,9 @@ describe("account control", () => {
     expect(account).toHaveTextContent("Jordan");
     await user.click(account);
     expect(screen.getByText("owner@example.com")).toBeVisible();
-    expect(
-      screen.getByRole("menuitem", { name: "Guided valuation review" }),
-    ).toHaveAttribute("href", "/app");
+    expect(screen.queryByRole("menuitem", { name: "Guided valuation review" })).not.toBeInTheDocument();
     const newAppraisal = screen.getByRole("menuitem", {
-      name: "Start a new appraisal",
+      name: "Start new appraisal",
     });
     const newAppraisalUrl = new URL(
       newAppraisal.getAttribute("href") ?? "",
@@ -533,7 +531,7 @@ describe("account control", () => {
       screen.queryByRole("button", { name: /Account for/ }),
     ).not.toBeInTheDocument();
     expect(
-      screen.queryByRole("link", { name: "My appraisals" }),
+      screen.queryByRole("link", { name: "Saved appraisal" }),
     ).not.toBeInTheDocument();
   });
 
@@ -590,7 +588,7 @@ describe("account control", () => {
     await waitFor(() => expect(trigger).toHaveFocus());
   });
 
-  test("links a signed-in mobile customer to their guided review and a new appraisal", async () => {
+  test("lets a signed-in mobile customer start an appraisal", async () => {
     const user = userEvent.setup();
     const onAction = vi.fn();
     render(
@@ -607,12 +605,8 @@ describe("account control", () => {
       </MemoryRouter>,
     );
 
-    const guidedReview = await screen.findByRole("link", {
-      name: "Guided valuation review",
-    });
-    expect(guidedReview).toHaveAttribute("href", "/app");
-    const newAppraisal = screen.getByRole("link", {
-      name: "Start a new appraisal",
+    const newAppraisal = await screen.findByRole("link", {
+      name: "Start new appraisal",
     });
     const newAppraisalUrl = new URL(
       newAppraisal.getAttribute("href") ?? "",
@@ -625,7 +619,7 @@ describe("account control", () => {
         newAppraisalUrl.searchParams.get("newCaseId") ?? "",
       ),
     ).toBe(true);
-    await user.click(guidedReview);
+    await user.click(newAppraisal);
     expect(onAction).toHaveBeenCalledOnce();
   });
 });
@@ -747,7 +741,7 @@ describe("auth callback", () => {
         [
           { path: "/auth/callback/*", element: <AuthCallbackPage /> },
           {
-            path: "/total-loss/cases/:caseId/claim/checkout",
+            path: "/total-loss/cases/:caseId",
             element: <h1>Saved case checkout</h1>,
           },
         ],
@@ -917,7 +911,7 @@ describe("auth callback", () => {
     },
   );
 
-  test("keeps the verified session and routes a claimed case through appraisals", async () => {
+  test("keeps the verified session and resumes the claimed case", async () => {
     const guestSession = anonymousSessionFor("existing-guest");
     const permanentSession = sessionFor("claim-owner");
     const completeIdentityClaim = vi.fn<
@@ -943,7 +937,7 @@ describe("auth callback", () => {
     const router = createMemoryRouter(
       [
         { path: "/auth/callback/*", element: <AuthCallbackPage /> },
-        { path: "/appraisals", element: <h1>My appraisals</h1> },
+        { path: "/total-loss/cases/:caseId", element: <h1>Saved appraisal</h1> },
       ],
       {
         initialEntries: [
@@ -963,16 +957,16 @@ describe("auth callback", () => {
     );
 
     expect(
-      await screen.findByRole("heading", { name: "My appraisals" }),
+      await screen.findByRole("heading", { name: "Saved appraisal" }),
     ).toBeVisible();
-    expect(router.state.location.pathname).toBe("/appraisals");
+    expect(router.state.location.pathname).toBe("/total-loss/cases/77777777-7777-4777-8777-777777777777");
     expect(service.verifyEmailOtp).toHaveBeenCalledWith("claim-token");
     expect(completeIdentityClaim).toHaveBeenCalledOnce();
     expect(completeIdentityClaim).toHaveBeenCalledWith(CASE_CLAIM_ID);
     expect(service.restoreSession).not.toHaveBeenCalled();
   });
 
-  test("returns a completed post-Continue claim directly to its trusted checkout", async () => {
+  test("returns a completed post-Continue claim through its trusted workspace", async () => {
     const guestSession = anonymousSessionFor("existing-guest");
     const permanentSession = sessionFor("claim-owner");
     const trustedCaseId = "77777777-7777-4777-8777-777777777777";
@@ -998,7 +992,7 @@ describe("auth callback", () => {
       [
         { path: "/auth/callback/*", element: <AuthCallbackPage /> },
         {
-          path: "/total-loss/cases/:caseId/claim/checkout",
+          path: "/total-loss/cases/:caseId",
           element: <h1>Complete your valuation review</h1>,
         },
       ],
@@ -1025,7 +1019,7 @@ describe("auth callback", () => {
       }),
     ).toBeVisible();
     expect(router.state.location.pathname).toBe(
-      `/total-loss/cases/${trustedCaseId}/claim/checkout`,
+      `/total-loss/cases/${trustedCaseId}`,
     );
     expect(service.verifyEmailOtp).toHaveBeenCalledWith("claim-token");
     expect(completeIdentityClaim).toHaveBeenCalledWith(CASE_CLAIM_ID);
@@ -1055,7 +1049,7 @@ describe("auth callback", () => {
       [
         { path: "/auth/callback/*", element: <AuthCallbackPage /> },
         {
-          path: "/total-loss/cases/:caseId/claim/checkout",
+          path: "/total-loss/cases/:caseId",
           element: <h1>Complete your valuation review</h1>,
         },
       ],
@@ -1080,7 +1074,7 @@ describe("auth callback", () => {
       }),
     ).toBeVisible();
     expect(router.state.location.pathname).toBe(
-      `/total-loss/cases/${trustedCaseId}/claim/checkout`,
+      `/total-loss/cases/${trustedCaseId}`,
     );
     expect(completeIdentityClaim).toHaveBeenCalledOnce();
     expect(service.exchangeCodeForSession).not.toHaveBeenCalled();

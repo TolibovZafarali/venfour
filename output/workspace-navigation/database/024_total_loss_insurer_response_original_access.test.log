@@ -1,0 +1,58 @@
+BEGIN
+CREATE EXTENSION
+SET
+1..18
+INSERT 0 2
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+UPDATE 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+UPDATE 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+UPDATE 1
+UPDATE 1
+INSERT 0 3
+INSERT 0 6
+INSERT 0 5
+UPDATE 5
+ok 1 - private original locators are available only through the service role
+SET
+ok 2 - the entitled owner can access the sealed submitted original
+ok 3 - a correction retaining an attachment resolves the same immutable original
+ok 4 - a replacement correction resolves its own original without overwriting predecessors
+ok 5 - a different owner cannot authorize the response original
+ok 6 - a response identifier cannot cross the requested case boundary
+ok 7 - text-only responses do not invent an original download
+ok 8 - a pending document cannot be downloaded through a response link
+ok 9 - an unsubmitted response cannot authorize even a ready document
+ok 10 - outbound messages do not authorize insurer-response originals
+ok 11 - a missing authenticated owner does not authorize an original
+RESET
+UPDATE 1
+ok 12 - suspended entitlement cannot authorize an original
+UPDATE 1
+ok 13 - revoked entitlement cannot authorize an original
+UPDATE 1
+UPDATE 1
+ok 14 - anonymous accounts cannot authorize response originals
+UPDATE 1
+ok 15 - unconfirmed accounts cannot authorize response originals
+UPDATE 1
+ok 16 - authorizing an original leaves sealed document immutability unchanged
+ok 17 - authorizing an original leaves confirmed attachment linkage immutable
+ok 18 - authorized locators remain in the exact case document namespace
+ROLLBACK
