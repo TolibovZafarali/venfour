@@ -11,7 +11,7 @@
 .valuation-status--compact { min-height: 0; padding-block: 48px; }
 .valuation-status--compact .valuation-surface__background { display: none; }
 .valuation-status--compact .valuation-status__heading { font-size: 28px; }
-body:not(:has([data-customer-workspace])):has([data-valuation-status]) .header-glass { background: transparent; border-color: transparent; box-shadow: none; backdrop-filter: none; }
+:root:not([data-visual-system="app"]) body:not(:has([data-customer-workspace])):has([data-valuation-status]) .header-glass { background: transparent; border-color: transparent; box-shadow: none; backdrop-filter: none; }
 #main-content:has([data-valuation-status]) + footer { background: var(--canvas); }
 #main-content:has(.valuation-surface:not(.valuation-status--compact)) + footer {
   background: transparent;
