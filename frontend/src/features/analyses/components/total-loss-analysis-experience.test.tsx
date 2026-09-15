@@ -503,7 +503,8 @@ describe("versioned preliminary results", () => {
   it.each(["ESTIMATE", "LISTING_CONTEXT", "INSUFFICIENT"] as const)("keeps PDF continuation available for %s without bypassing payment readiness", outcome => {
     show(preliminaryAnalysis({ outcome }));
     expect(screen.getByRole("link", { name: "Upload insurer valuation report" })).toHaveAttribute("href", reportPath);
-    expect(screen.getByText("No payment at this step")).toBeVisible();
+    expect(screen.getByText("Free upload and confirmation.")).toBeVisible();
+    expect(screen.getByText("Optional full review: $199.")).toBeVisible();
     expect(screen.queryByRole("button", { name: "Pay for review" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Continue my review" })).not.toBeInTheDocument();
   });

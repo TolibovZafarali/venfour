@@ -145,7 +145,7 @@ function PreliminaryAnalysisResult({
       ? "Comparable listing prices"
       : "We need more market evidence.";
   const summary = estimate
-    ? "An independent starting point for understanding your vehicle’s value."
+    ? null
     : context
       ? "Useful price context, not an estimate of your vehicle’s value."
       : "Your details are saved. The available market evidence doesn’t yet support a reliable range.";
@@ -173,13 +173,12 @@ function PreliminaryAnalysisResult({
           <h1 id={headingId} className="preliminary-result__heading">{heading}</h1>
           {range ? <section className="preliminary-result__range" aria-labelledby={`${headingId}-range`}>
             <h2 id={`${headingId}-range`} className="sr-only">{estimate ? "Preliminary estimated range" : onePrice ? "Observed asking price" : "Observed asking-price span"}</h2>
-            <p className="preliminary-result__amounts"><span>{formatMoneyCents(range.lowCents)}</span>{!onePrice ? <><span className="preliminary-result__range-separator">–</span><span>{formatMoneyCents(range.highCents)}</span></> : null}</p>
+            <p className="preliminary-result__amounts"><span>{formatMoneyCents(range.lowCents)}</span>{!onePrice ? <span className="preliminary-result__range-end"><span className="preliminary-result__range-separator">–</span><span>{formatMoneyCents(range.highCents)}</span></span> : null}</p>
             <p className="preliminary-result__basis">
               {result.evidenceBasis === "LOSS_DATE_HISTORICAL"
                 ? `${sampleLabel} · Prices verified around your date of loss`
                 : `${sampleLabel} · Current asking prices`}
             </p>
-            {result.evidenceBasis !== "LOSS_DATE_HISTORICAL" ? <p className="preliminary-result__basis-note">Not a loss-date valuation.</p> : null}
             {comparison ? <>
               <MarketRangeComparison
                 minimum={{ cents: range.lowCents, display: formatMoneyCents(range.lowCents) }}
@@ -191,7 +190,11 @@ function PreliminaryAnalysisResult({
               <p className="preliminary-result__basis">{insurerLabel} is {comparison.position === "BELOW_RANGE" ? "below" : comparison.position === "ABOVE_RANGE" ? "above" : "within"} this preliminary range. This alone does not establish a settlement difference.</p>
             </> : null}
           </section> : null}
-          <p className="preliminary-result__summary">{summary}</p>
+          {summary ? <p className="preliminary-result__summary">{summary}</p> : null}
+          {range ? <div className="preliminary-result__caveats">
+            {result.evidenceBasis !== "LOSS_DATE_HISTORICAL" ? <p>Not a loss-date valuation.</p> : null}
+            <p>Asking prices aren’t guaranteed sale prices or settlement amounts.</p>
+          </div> : null}
           <details className="preliminary-result__details">
             <summary>{result.limitations.length ? `Evidence details · ${result.limitations.length} ${result.limitations.length === 1 ? "limitation" : "limitations"}` : "Evidence details"}<ChevronDown aria-hidden /></summary>
             <div className="preliminary-result__details-content">
@@ -208,42 +211,29 @@ function PreliminaryAnalysisResult({
               {result.limitations.length > 0 ? <ul className="preliminary-result__limitations" aria-label="What limits this result">{result.limitations.map(limitation => <li key={limitation}>{limitation}</li>)}</ul> : null}
             </div>
           </details>
-          <p className="preliminary-result__disclaimer">Asking prices aren’t guaranteed sale prices or settlement amounts.</p>
         </div>
 
         <section className="preliminary-result__next" aria-labelledby={`${headingId}-next`}>
-          <p className="preliminary-result__eyebrow">Your next step</p>
-          <h2 id={`${headingId}-next`}>A closer look at your insurer’s valuation.</h2>
-          <p className="preliminary-result__next-description">Your report shows how the insurer reached its number. We’ll examine the details against independent market evidence.</p>
+          <h2 id={`${headingId}-next`}>Check your insurer’s valuation.</h2>
+          <p className="preliminary-result__next-description">Upload your report to see how your insurer reached its number.</p>
           {reportUploadAction || insurerReportPath ? <div className="preliminary-result__action">
-            {reportUploadAction ?? <>
-              <Button asChild size="lg" className="valuation-result__upload-action"><Link to={insurerReportPath!}>Upload insurer valuation report<ArrowRight aria-hidden /></Link></Button>
-              <p className="valuation-result__payment-note">No payment at this step</p>
-            </>}
+            {reportUploadAction ?? <Button asChild size="lg" className="valuation-result__upload-action"><Link to={insurerReportPath!}>Upload insurer valuation report<ArrowRight aria-hidden /></Link></Button>}
           </div> : null}
-          <p className="preliminary-result__sequence">Upload and confirm your report for free. The full review is $199 if you choose to continue.</p>
+          <p className="preliminary-result__sequence"><span>Free upload and confirmation.</span> <span>Optional full review: $199.</span></p>
+          <details className="preliminary-result__details preliminary-result__review-details">
+            <summary>What does the full review include?<ChevronDown aria-hidden /></summary>
+            <div className="preliminary-result__details-content">
+              <dl className="preliminary-result__checks">
+                <div><dt>Vehicle details</dt><dd>The trim, mileage and equipment recorded for your vehicle.</dd></div>
+                <div><dt>Comparable vehicles</dt><dd>How closely the insurer’s selected vehicles match yours.</dd></div>
+                <div><dt>Valuation adjustments</dt><dd>How mileage, condition and equipment affected the valuation.</dd></div>
+              </dl>
+              <p className="preliminary-result__deliverables">You receive clear findings, a valuation evidence report, and guidance for raising supported concerns with your adjuster.</p>
+              <p className="preliminary-result__purchase-note">We check your report and evidence before payment is available. You choose whether to continue.</p>
+            </div>
+          </details>
         </section>
       </div>
-
-      <section className="preliminary-result__scope" aria-labelledby={`${headingId}-scope`}>
-        <h2 id={`${headingId}-scope`}>What we examine in your insurer’s report</h2>
-        <dl className="preliminary-result__checks">
-          <div><dt>Vehicle details</dt><dd>The trim, mileage and equipment recorded for your vehicle.</dd></div>
-          <div><dt>Comparable vehicles</dt><dd>How closely the insurer’s selected vehicles match yours.</dd></div>
-          <div><dt>Valuation adjustments</dt><dd>How mileage, condition and equipment affected the valuation.</dd></div>
-        </dl>
-      </section>
-
-      <section className="preliminary-result__purchase" aria-labelledby={`${headingId}-purchase`}>
-        <div className="preliminary-result__price">
-          <h2 id={`${headingId}-purchase`}>The full review</h2>
-          <p><strong>$199</strong><span>One-time payment</span></p>
-        </div>
-        <div className="preliminary-result__deliverables">
-          <p>Clear findings, a valuation evidence report, and guidance for raising supported concerns with your adjuster.</p>
-          <p>We check your report and evidence before payment is available. You choose whether to continue.</p>
-        </div>
-      </section>
     </div>
   </ValuationSurface>;
 }
