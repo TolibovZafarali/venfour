@@ -84,9 +84,9 @@ export function PublicHomePage() {
               <h1
                 data-home-entrance="heading"
                 aria-label="Your Vehicle’s Value, Made Clear."
-                className="font-hero text-[2.875rem] leading-[0.98] font-bold tracking-[-0.035em] text-ink sm:text-[3.25rem] lg:text-[4rem] xl:text-[4.75rem] 2xl:text-[5rem]"
+                className="font-hero text-[clamp(1rem,9.75vw,2.875rem)] leading-[0.98] font-bold tracking-[-0.035em] whitespace-nowrap text-ink sm:text-[3.25rem] lg:text-[4rem] xl:text-[4.75rem] 2xl:text-[5rem]"
               >
-                <span className="block sm:whitespace-nowrap">Your Vehicle’s Value,</span>
+                <span className="block">Your Vehicle’s Value,</span>
                 <span className="block">Made Clear.</span>
               </h1>
               <p data-home-entrance="copy" data-home-order="1" className="mx-auto mt-6 max-w-xl text-base leading-7 text-copy sm:text-lg sm:leading-8">
