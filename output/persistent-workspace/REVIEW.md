@@ -6,7 +6,7 @@ Local visual redesign for review. Nothing has been deployed.
 
 The Free Result now gives the range the strongest emphasis, followed by one short next-step explanation and one upload button. Current-market versus loss-date context remains visible. Listing context stays distinct from an estimate. Dates, listing examples, and detailed limitations remain available in an expandable evidence section; its label calls out the number of limitations.
 
-The upload button opens an accessible modal over the same mounted result. The `?upload=report` URL restores the modal after refresh and works with browser Back/Forward. Escape and Close restore focus to the upload button. The modal traps focus, locks background scrolling, and keeps upload, extraction, fact confirmations, strict review, and payment readiness inside the same dialog. It leaves the report flow only after the customer explicitly chooses to continue to checkout. Invalid PDFs and incomplete reports remain recoverable in the modal. A choice made during confirmation survives closing and reopening the modal in the same workspace, and is discarded if the report revision or issue changes. Refresh restores the persisted stage; an unsubmitted choice is not saved across a full browser reload.
+The upload button opens an accessible modal over the same mounted result. The `?upload=report` URL restores the modal after refresh and works with browser Back/Forward. Escape and Close restore focus to the upload button. The modal traps focus, locks background scrolling, and keeps upload, extraction, fact confirmations, and strict processing inside the same dialog. When processing completes, the modal closes automatically and returns to Free Result with the saved-report status and eligible payment action. Confirmations and errors remain in the modal. Checkout starts only when the customer chooses Continue to payment. Invalid PDFs and incomplete reports remain recoverable in the modal. A choice made during confirmation survives closing and reopening the modal in the same workspace, and is discarded if the report revision or issue changes. Refresh restores the persisted stage; an unsubmitted choice is not saved across a full browser reload.
 
 [Free Result](http://127.0.0.1:4186/_local/workspace?state=free) · [Upload modal](http://127.0.0.1:4186/_local/workspace?state=upload)
 
@@ -25,7 +25,7 @@ The normal workspace is 880px wide, including its responsive gutters. At 1440px,
 | Existing route | Shared presentation |
 | --- | --- |
 | `/total-loss/cases/:caseId/analysis` | Loading, recovery, free estimate, listing context, and insufficient evidence |
-| `/total-loss/cases/:caseId/review-report` | Opens the report modal over the saved Free Result, including extraction, confirmation, strict review, and payment readiness |
+| `/total-loss/cases/:caseId/review-report` | Opens the report modal over the saved Free Result, including extraction, confirmation, and strict processing; completed reports return automatically to Free Result |
 | `/total-loss/cases/:caseId/claim/*` | Checkout, payment return, paid processing, completed review, evidence, request preparation, waiting, insurer response, follow-up, and case record |
 | `/start?service=total-loss&caseId=…` | Existing-case intake and correction, using the original form |
 | `/analyses/:runId` | Saved analysis and status views |
@@ -41,7 +41,7 @@ New-appraisal entry remains the intake experience. Account-menu switching remain
 | Free result | [Open](http://127.0.0.1:4186/_local/workspace?state=free) | [Desktop](desktop-free-result.png) |
 | Report upload modal | [Open](http://127.0.0.1:4186/_local/workspace?state=upload) | [Desktop](desktop-report-upload-modal.png), [390px](mobile390-report-upload-modal.png), [320px](mobile320-report-upload-modal.png) |
 | Fact confirmation | [Open](http://127.0.0.1:4186/_local/workspace?state=confirmation) | [Desktop modal](desktop-confirmation-modal.png), [320px modal](mobile320-confirmation-modal.png) |
-| Payment ready | [Open](http://127.0.0.1:4186/_local/workspace?state=ready) | [Desktop modal](desktop-automatic-payment.png), [390px modal](mobile390-automatic-payment.png) |
+| Payment ready | [Open](http://127.0.0.1:4186/_local/workspace?state=ready) | [Desktop result](desktop-free-result-after-upload.png), [390px result](mobile390-free-result-after-upload.png) |
 | Checkout | [Open](http://127.0.0.1:4186/_local/workspace?state=payment) | [Desktop](desktop-payment.png) |
 | Paid processing | [Open](http://127.0.0.1:4186/_local/workspace?state=paid) | [Desktop](desktop-paid-processing.png) |
 | Completed review | [Open](http://127.0.0.1:4186/_local/workspace?state=completed) | [Desktop](desktop-completed-result.png), [390px](mobile390-completed.png) |
@@ -80,3 +80,21 @@ The modal now moves from confirmation through automated checks to **Ready for yo
 The migration was rehearsed in a new network-isolated database with all repository migrations. The shared local database has unrelated pending migrations and was not changed. No hosted database, provider service, or deployment was changed. See [automatic payment verification](automatic-payment-validation.json) for this follow-up's results.
 
 Automatic-payment verification passed: 77 backend tests, 55 affected frontend tests, and 2,729 database assertions across 53 suites. Build, TypeScript, contracts, lint, and diff checks passed. Browser checks confirmed confirmation → automated review → readiness in one modal, refresh recovery, and explicit continuation to checkout. Desktop and 390px views were inspected. No live provider calls or deployment occurred.
+
+## Automatic return after report processing
+
+A fresh completed report status closes the modal and replaces its URL with the same case's Free Result. Processing, unresolved confirmations, failed reads, and upload errors keep the modal open. Cached readiness alone cannot dismiss it. Completed reports with insufficient evidence return to a saved-report explanation without enabling payment.
+
+Free Result reads the existing owner-scoped report status so that reload restores the correct next action. The existing checkout component and exact input/report/review version payload are shared with the modal. Automatic completion does not initialize checkout or submit payment; the customer still chooses Continue to payment. Keyboard focus returns to that action, or to the saved-result status when payment is unavailable.
+
+Verified with fictional local browser data on desktop and 390px: confirmation → processing → automatic modal closure, Free Result refresh, and explicit continuation to checkout. No backend or database changes were required for this follow-up.
+
+Automatic-return verification: 2,076 frontend tests passed, 3 skipped; build, TypeScript, contracts, lint, and diff checks passed. See [the latest verification](modal-return-validation.json). Not deployed.
+
+## Modal alignment
+
+The report progress line fills the modal's content width. Primary buttons, including Choose PDF and Confirm and continue, align to the right. These changes are scoped to the modal stylesheet.
+
+Browser checks verified the progress line matches both content edges on desktop and 390px mobile. Confirmation buttons align to the right at desktop, 390px, and 320px, retain a 44px touch target, and introduce no horizontal overflow. Upload alignment was also checked at 390px. Build, TypeScript, contracts, lint, and diff checks passed. No workflow changes or deployment occurred in this follow-up.
+
+Screenshots: [desktop loading](desktop-modal-processing-alignment.png), [mobile loading](mobile390-modal-processing-alignment.png), [desktop confirmation](desktop-modal-confirmation-alignment.png), [mobile confirmation](mobile390-modal-confirmation-alignment.png).

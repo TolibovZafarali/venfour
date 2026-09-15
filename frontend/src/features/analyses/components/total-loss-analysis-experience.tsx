@@ -190,9 +190,11 @@ function PreliminaryAnalysisResult({
       </section> : null}
 
       {reportUploadAction || insurerReportPath ? <div className="valuation-result__actions valuation-result__next-step">
-        {range ? <p className="valuation-result__next-copy">Next, check your insurer’s valuation and adjustments.</p> : null}
-        {reportUploadAction ?? <Button asChild size="lg" className="valuation-result__upload-action"><Link to={insurerReportPath!}>Upload insurer valuation report<ArrowRight aria-hidden /></Link></Button>}
-        <p className="valuation-result__payment-note">No payment at this step</p>
+        {reportUploadAction ?? <>
+          {range ? <p className="valuation-result__next-copy">Next, check your insurer’s valuation and adjustments.</p> : null}
+          <Button asChild size="lg" className="valuation-result__upload-action"><Link to={insurerReportPath!}>Upload insurer valuation report<ArrowRight aria-hidden /></Link></Button>
+          <p className="valuation-result__payment-note">No payment at this step</p>
+        </>}
       </div> : null}
       <details className="valuation-result__details">
         <summary>{result.limitations.length ? `Evidence details · ${result.limitations.length} ${result.limitations.length === 1 ? "limitation" : "limitations"}` : "Evidence details"}<ChevronDown aria-hidden /></summary>

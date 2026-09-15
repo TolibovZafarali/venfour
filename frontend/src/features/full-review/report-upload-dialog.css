@@ -8,10 +8,13 @@
 .report-upload-dialog .workspace-stage__description { margin-top: 14px; font-size: 14px; line-height: 1.65; }
 .report-upload-dialog .workspace-upload { align-items: center; text-align: center; max-width: none; margin-top: 24px; padding: 26px 20px; background: #f1f5fc; }
 .report-upload-dialog .workspace-upload__hint { max-width: 300px; }
+.report-upload-dialog .workspace-upload__button { align-self: flex-end; }
 .report-upload-dialog .workspace-report-help { margin-top: 18px; }
 .report-upload-dialog .workspace-report-file { align-items: flex-start; }
 .report-upload-dialog .workspace-report-file > div { min-width: 0; }
 .report-upload-dialog .workspace-report-file strong { overflow-wrap: anywhere; }
+.report-upload-dialog .workspace-processing__line { width: 100%; max-width: none; margin-inline: auto; }
+.report-upload-dialog .workspace-stage [data-slot="button"][data-variant="default"] { display: flex; width: fit-content; max-width: 100%; height: auto; min-height: 44px; margin-inline-start: auto; white-space: normal; text-align: center; }
 .report-upload-dialog .workspace-confirmation { margin-top: 20px; }
 .report-upload-dialog .workspace-confirmation fieldset { min-width: 0; }
 .report-upload-dialog .workspace-confirmation label { min-width: 0; overflow-wrap: anywhere; }

@@ -1,0 +1,40 @@
+{
+  "scope": "Automatically close the report modal after fresh completed processing and return to Free Result with the saved report status and explicit continuation.",
+  "frontend": {
+    "files": 123,
+    "passedFiles": 122,
+    "skippedFiles": 1,
+    "passedTests": 2076,
+    "skippedTests": 3,
+    "failedTests": 0
+  },
+  "checks": {
+    "build": "passed",
+    "typecheck": "passed during build",
+    "contracts": "passed during build",
+    "lint": "passed",
+    "diffCheck": "passed"
+  },
+  "behavior": {
+    "freshCompletedReportClosesModal": true,
+    "confirmationsAndErrorsStayInModal": true,
+    "cachedReadinessDoesNotDismiss": true,
+    "refreshRestoresFreeResultAction": true,
+    "paymentIsExplicit": true,
+    "checkoutPayloadPreserved": true,
+    "focusRestored": true
+  },
+  "browser": {
+    "fixture": "fictional local services",
+    "desktopAnd390pxVerified": true,
+    "consoleErrors": 0,
+    "viewportReset": true,
+    "screenshots": [
+      "desktop-free-result-after-upload.png",
+      "mobile390-free-result-after-upload.png"
+    ]
+  },
+  "backendChanged": false,
+  "databaseChanged": false,
+  "deployed": false
+}

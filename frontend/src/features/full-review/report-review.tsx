@@ -7,13 +7,15 @@ import { Button } from "@/components/ui/button";
 import { validateTotalLossPdf } from "@/features/total-loss/validation";
 import { ContinueReviewAction } from "@/features/total-loss-claim/components/continue-review-action";
 import { confirmFullReview, extractFullReview, fullReviewKey, getFullReview, uploadFullReview, type FullReviewState } from "@/features/full-review/api";
+import { fullReviewContinuationInput } from "./continuation";
 
 export interface ReportConfirmationDraft { readonly key: string; readonly answer: string }
 
-export function FullReviewReport({ caseId, userId, accessToken, headingLevel = "h1", onBusyChange, confirmationDraft, onConfirmationDraftChange }: {
+export function FullReviewReport({ caseId, userId, accessToken, headingLevel = "h1", onBusyChange, onComplete, confirmationDraft, onConfirmationDraftChange }: {
   caseId: string; userId: string; accessToken: string;
   headingLevel?: "h1" | "h2";
   onBusyChange?: (busy: boolean) => void;
+  onComplete?: () => void;
   confirmationDraft?: ReportConfirmationDraft | null;
   onConfirmationDraftChange?: (draft: ReportConfirmationDraft) => void;
 }) {
@@ -35,6 +37,12 @@ export function FullReviewReport({ caseId, userId, accessToken, headingLevel = "
     else setLocalAnswer(value);
   }
   const preparing = state?.status === "extracting" || state?.paymentReadiness.status === "processing";
+  const continuationInput = fullReviewContinuationInput(state);
+  const completed = state?.status === "ready" && state.ready && !!state.report && !state.issues.length
+    && ["eligible", "insufficient"].includes(state.paymentReadiness.status);
+  useEffect(() => {
+    if (completed && query.isFetchedAfterMount && !query.isFetching && !query.isError && !busy && !recovering && !error) onComplete?.();
+  }, [completed, query.isFetchedAfterMount, query.isFetching, query.isError, busy, recovering, error, onComplete]);
   useEffect(() => {
     onBusyChange?.(busy);
     return () => onBusyChange?.(false);
@@ -117,12 +125,9 @@ export function FullReviewReport({ caseId, userId, accessToken, headingLevel = "
           <Button className="mt-4" disabled={busy || !answer.trim()} type="submit">Confirm and continue</Button>
         </fieldset>
       </form> : null}
-      {state.ready ? state.checkoutAvailable && state.paymentReadiness.eligible && state.paymentReadiness.reviewId && state.paymentReadiness.version && state.paymentReadiness.digest && state.report && state.analysisInputId && state.analysisInputRevision
+      {state.ready ? continuationInput
         ? <ContinueReviewAction accessToken={accessToken} caseId={caseId} userId={userId} label="Continue to payment"
-            input={{ expectedAnalysisInputId: state.analysisInputId, expectedAnalysisInputRevision: state.analysisInputRevision,
-              expectedReportId: state.report.id, expectedReportRevision: state.report.revision,
-              expectedStrictReviewId: state.paymentReadiness.reviewId, expectedStrictReviewVersion: state.paymentReadiness.version,
-              expectedStrictReviewDigest: state.paymentReadiness.digest }} />
+            input={continuationInput} />
         : state.paymentReadiness.status === "insufficient"
           ? <p className="workspace-report-status" role="status">We don’t yet have enough reliable market evidence to offer the full review. Your report and free result are saved.</p>
           : state.paymentReadiness.status === "not_evaluated" && !state.locked

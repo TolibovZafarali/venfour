@@ -1,15 +1,17 @@
 {
   "baseline": "d468b05ac5f417155b51c72541f9e0b474cef45c",
   "reportMutationControllerUnchanged": true,
-  "reportQueryPolicyUnchanged": true,
+  "reportQueryPolicyUnchanged": false,
   "reportApiCallsAndCheckoutInputUnchanged": true,
   "routePathsUnchanged": true,
   "protectedChanges": [
     "supabase/migrations/20260915000300_automatic_payment_eligibility.sql"
   ],
   "reportView": "frontend/src/features/full-review/report-review.tsx",
-  "presentation": "One modal owns all report stages. Saved report routes use the same customer workspace. Confirmation choices stay scoped to the report revision and issue while the modal is closed.",
+  "presentation": "Upload, confirmations, and processing stay in the modal. A fresh completed report status closes it and returns to Free Result. The same continuation component uses the same versioned checkout payload.",
   "intentionalPaymentPolicyChange": "supabase/migrations/20260915000300_automatic_payment_eligibility.sql",
   "paymentEligibilityAndReportReleaseFunctionsUnchanged": true,
-  "protectedChangeReason": "Explicit customer request to disable manual approval for payment; existing eligibility and report release functions remain unchanged."
+  "protectedChangeReason": "Explicit customer request to disable manual approval for payment; existing eligibility and report release functions remain unchanged.",
+  "queryPolicyChange": "Free Result observes the existing owner/case-scoped report query and polls unfinished processing while the modal is closed; the modal retains its original query policy.",
+  "checkoutPayloadVerifiedByTests": true
 }
