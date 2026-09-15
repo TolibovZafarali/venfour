@@ -154,7 +154,7 @@ function ProcessingEnvironment({ options, exiting, accountControl }: { options: 
   return (
     <div
       ref={surfaceRef}
-      className="free-valuation-processing page-gradient-analysis"
+      className="free-valuation-processing"
       data-free-valuation-processing
       data-phase={phase}
       data-needs-action={Boolean(error || notice) || undefined}

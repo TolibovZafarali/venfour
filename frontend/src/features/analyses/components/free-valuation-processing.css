@@ -1,14 +1,18 @@
 html:has([data-free-valuation-processing]:not([data-exiting])) { overflow: hidden; scrollbar-gutter: auto; }
 .free-valuation-processing {
-  --valuation-signal-color: var(--brand);
+  --canvas: #ffffff;
+  --ink: #171717;
+  --copy: #525252;
+  --valuation-signal-color: #808080;
   position: fixed;
   inset: 0;
   z-index: 60;
   overflow-x: hidden;
   overflow-y: auto;
   min-height: 100svh;
-  background-color: var(--canvas);
+  background: var(--canvas);
   color: var(--ink);
+  color-scheme: light;
   isolation: isolate;
   outline: none;
   opacity: 1;
