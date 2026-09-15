@@ -1,5 +1,5 @@
 import { applicationHref, hostAudience, publicHref, routeAudience } from "@/app/site-boundary";
-import { publicSiteOnly } from "@/config/public-site";
+import { publicSiteOnly, publicIntakeClosed } from "@/config/public-site";
 import { useWorkspaceEntryAction } from "@/features/cases/workspace-entry";
 import { Menu, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -198,10 +198,10 @@ function AppShellContent() {
     ? "#diminished-value"
     : publicHref("/#diminished-value");
   const howItWorksHref = onHomePage ? "#how-it-works" : publicHref("/#how-it-works");
-  const primaryActionHref = publicSiteOnly ? "/contact" : productionPublicPage
+  const primaryActionHref = publicIntakeClosed ? "/contact" : productionPublicPage
     ? applicationHref(publicSessionHint ? "/app" : "/start?service=total-loss")
     : isPermanentAuthState(auth) ? workspaceAction.href : guestReturn.action?.href ?? applicationHref("/start?service=total-loss");
-  const primaryActionLabel = publicSiteOnly ? "Contact Venfour" : productionPublicPage
+  const primaryActionLabel = publicIntakeClosed ? "Contact Venfour" : productionPublicPage
     ? publicSessionHint ? "Open app" : "Get Started"
     : isPermanentAuthState(auth) ? workspaceAction.label : guestReturn.action?.label ?? "Get Started";
   const requestStaffNavigation = () => {

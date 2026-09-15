@@ -154,11 +154,20 @@ class FullReviewService:
                 status = "extraction_failed"
         if status == "extraction_failed":
             readiness = report_failure("REPORT_EXTRACTION_FAILED")
+        payment = payment_readiness(context)
+        approval = context.get("payment_approval")
+        if payment["eligible"] and (
+            not isinstance(approval, Mapping)
+            or approval.get("configured") is not True
+            or approval.get("approved") is not True
+            or approval.get("status") not in {"approved", "not_required"}
+        ):
+            payment = {**payment, "eligible": False, "status": "awaiting_approval"}
         return {"caseId": context["case_id"], "stage": "full_review", "status": status,
                 "analysisInputId": context.get("source_input_id"),
                 "analysisInputRevision": context.get("source_input_revision", (context.get("input") or {}).get("analysis_input_revision")),
                 "ready": status == "ready" and readiness.get("ready") is True,
-                "paymentReadiness": payment_readiness(context),
+                "paymentReadiness": payment,
                 "issues": copy.deepcopy(readiness.get("issues", [])), "message": readiness["message"],
                 "report": {"id": report["id"], "filename": report["original_filename"], "revision": report["revision"]} if report else None,
                 "canReuseReport": bool(context.get("existing_report")) and report is None,

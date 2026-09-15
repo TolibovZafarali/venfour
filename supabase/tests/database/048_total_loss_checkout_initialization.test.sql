@@ -19,6 +19,16 @@ begin
       'outcome','CLEAR_MARKET_VALUE_GAP','unresolvedMaterialChecks','[]'::jsonb,'applicableMaterialReviewComplete',true))),
    'presentation',jsonb_build_object('runId',reviewed,'assessment',jsonb_build_object('classification',classification,'evidenceStrength',strength)));
  if not public.complete_total_loss_full_review_work(w,token,(ctx->'report'->>'revision')::bigint,calc,repeat('e',64)) then raise exception 'Fixture review not completed'; end if;
+ -- Explicit staff approval for this synthetic qualifying fixture only.
+ if public.total_loss_full_review_ready(c,u) then
+   insert into auth.users(id,email,email_confirmed_at,is_anonymous)
+     values('53f00000-0000-4000-8000-000000000001','payment-fixture-reviewer@example.test',now(),false) on conflict(id) do nothing;
+   insert into public.staff_members(user_id) values('53f00000-0000-4000-8000-000000000001') on conflict(user_id) do nothing;
+   result:=jsonb_build_object('previousSubject',current_setting('request.jwt.claim.sub',true));
+   perform set_config('request.jwt.claim.sub','53f00000-0000-4000-8000-000000000001',true);
+   perform public.staff_payment_approval_decide(c,public.payment_approval_lineage_internal(public.get_total_loss_full_review_context(c,u)),'approved',gen_random_uuid());
+   perform set_config('request.jwt.claim.sub',coalesce(result->>'previousSubject',''),true);
+ end if;
  return public.get_total_loss_full_review_context(c,u)->'strict_review';
 end $$;
 

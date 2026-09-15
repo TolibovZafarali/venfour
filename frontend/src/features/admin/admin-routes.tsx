@@ -1,4 +1,5 @@
 import { AdminCommunicationsPage } from "@/features/admin/communications/page";
+import { AdminPaymentApprovalsPage } from "@/features/admin/payment-approvals/page";
 import type { RouteObject } from "react-router";
 
 import { AdminCaseOperationsAccessGate } from "@/features/admin/case-operations/admin-access-gate";
@@ -26,6 +27,7 @@ export const adminRoute: RouteObject = {
         { path: "reports", element: <AdminReportsPage /> },
         { path: "processing", element: <AdminProcessingPage /> },
         { path: "payments", element: <AdminPaymentsPage /> },
+        { path: "payment-approvals", element: <AdminPaymentApprovalsPage /> },
         { path: "communications", element: <AdminCommunicationsPage /> },
         { path: "activity", element: <AdminActivityPage /> },
         { element: <ReferralManagerGate />, children: [

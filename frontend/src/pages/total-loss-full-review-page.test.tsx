@@ -24,13 +24,14 @@ function show(value = initial) {
 }
 beforeEach(() => { vi.clearAllMocks(); });
 describe("report before payment", () => {
-  it.each(["insufficient", "processing", "failed", "not_evaluated"] as const)("keeps facts-ready %s evidence out of checkout", async status => {
+  it.each(["insufficient", "processing", "failed", "not_evaluated", "awaiting_approval"] as const)("keeps facts-ready %s evidence out of checkout", async status => {
     show({ ...ready, checkoutAvailable: false, paymentReadiness: { ...initial.paymentReadiness, status } });
     expect(await screen.findByText("insurer.pdf")).toBeVisible();
     expect(screen.queryByRole("button", { name: "Continue to secure checkout" })).not.toBeInTheDocument();
     expect(screen.queryByText(/GOOD|WEAK|LOW|INSUFFICIENT_EVIDENCE/)).not.toBeInTheDocument();
-    expect(screen.queryByText(/before payment|no payment has been taken/i)).not.toBeInTheDocument();
+    if (status !== "awaiting_approval") expect(screen.queryByText(/before payment|no payment has been taken/i)).not.toBeInTheDocument();
     if (status === "insufficient") expect(screen.getByText(/don’t yet have enough reliable market evidence/)).toBeVisible();
+    if (status === "awaiting_approval") expect(screen.getByRole("heading", { name: "Your review is ready for a final Venfour check." })).toBeVisible();
     expect(continuation).not.toHaveBeenCalled();
   });
   it("recovers a lost upload response from persisted state without a reload", async () => {

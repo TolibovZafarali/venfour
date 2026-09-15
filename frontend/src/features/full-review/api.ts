@@ -10,7 +10,7 @@ export interface FullReviewState {
   analysisInputId: string | null; analysisInputRevision: number | null; checkoutAvailable: boolean;
   status: "report_required" | "uploading" | "uploaded" | "extracting" | "needs_confirmation" | "ready" | "report_invalid" | "extraction_failed";
   ready: boolean; issues: FullReviewIssue[]; message: string;
-  paymentReadiness: { status: "not_evaluated" | "processing" | "eligible" | "insufficient" | "failed";
+  paymentReadiness: { status: "not_evaluated" | "processing" | "eligible" | "insufficient" | "failed" | "awaiting_approval";
     eligible: boolean; reviewId: string | null; version: string | null; digest: string | null };
   report: { id: string; filename: string; revision: number } | null;
   canReuseReport: boolean; locked: boolean;
@@ -30,7 +30,7 @@ function checked(value: FullReviewState, caseId: string): FullReviewState {
       || !Array.isArray(value.issues) || typeof value.message !== "string" || typeof value.locked !== "boolean"
       || (value.report && (!uuidPattern.test(value.report.id) || !positiveRevision(value.report.revision)))
       || (value.ready && (value.status !== "ready" || !value.report || value.issues.length))
-      || !payment || !["not_evaluated", "processing", "eligible", "insufficient", "failed"].includes(payment.status)
+      || !payment || !["not_evaluated", "processing", "eligible", "insufficient", "failed", "awaiting_approval"].includes(payment.status)
       || typeof payment.eligible !== "boolean"
       || payment.eligible !== (payment.status === "eligible")
       || (payment.eligible && (!value.ready || typeof payment.reviewId !== "string" || !uuidPattern.test(payment.reviewId)

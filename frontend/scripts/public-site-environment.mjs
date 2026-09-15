@@ -5,7 +5,10 @@ export function validatePublicSiteEnvironment(environment) {
     throw new Error("The public website build must explicitly select the public-only production origin.");
   }
   if (!isEmail(environment.VITE_SUPPORT_EMAIL)) throw new Error("The public website requires its published support address.");
-  const allowed = new Set(["VITE_PUBLIC_SITE_ONLY", "VITE_PUBLIC_ORIGIN", "VITE_SUPPORT_EMAIL"]);
+  if (environment.VITE_PUBLIC_INTAKE_OPEN && !["true", "false"].includes(environment.VITE_PUBLIC_INTAKE_OPEN)) {
+    throw new Error("Public intake availability must be explicitly true or false.");
+  }
+  const allowed = new Set(["VITE_PUBLIC_SITE_ONLY", "VITE_PUBLIC_ORIGIN", "VITE_SUPPORT_EMAIL", "VITE_PUBLIC_INTAKE_OPEN"]);
   if (Object.entries(environment).some(([name, value]) => name.startsWith("VITE_") && value && !allowed.has(name))) {
     throw new Error("Application and provider configuration must be absent from the public website build.");
   }

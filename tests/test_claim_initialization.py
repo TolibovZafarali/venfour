@@ -176,6 +176,10 @@ class ClaimInitializationTests(unittest.TestCase):
             url = f"/api/v1/appraisal-cases/{self.case}/full-review"
             response = client.get(url, headers={"Authorization": "Bearer owner-token"})
             self.assertEqual(response.status_code, 200, response.text)
+            self.assertFalse(response.json()["checkoutAvailable"])
+            self.assertEqual(response.json()["paymentReadiness"]["status"], "awaiting_approval")
+            self.context["payment_approval"] = {"configured": True, "required": True, "approved": True, "status": "approved"}
+            response = client.get(url, headers={"Authorization": "Bearer owner-token"})
             self.assertTrue(response.json()["checkoutAvailable"])
             self.assertTrue(response.json()["ready"])
             saved_review = self.context.pop("strict_review")

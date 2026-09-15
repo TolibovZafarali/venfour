@@ -14,9 +14,6 @@ from types import SimpleNamespace
 from urllib.parse import urlsplit
 from uuid import UUID, uuid4
 
-import psycopg
-from psycopg.rows import dict_row
-from psycopg.types.json import Jsonb
 from starlette.concurrency import run_in_threadpool
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
@@ -80,6 +77,9 @@ def gateway_from_status(status):
 
 @contextmanager
 def local_database():
+    import psycopg
+    from psycopg.rows import dict_row
+
     status = local_status()
     with psycopg.connect(status["DB_URL"], row_factory=dict_row) as connection:
         yield connection
@@ -178,6 +178,8 @@ def synthetic_artifact(run_id, *, no_dispute=False):
 
 
 def create_fixture(owner_id, mode):
+    from psycopg.types.json import Jsonb
+
     require_local()
     if mode not in MODES:
         raise ValueError("Unknown fixture mode")

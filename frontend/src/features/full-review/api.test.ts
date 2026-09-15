@@ -15,6 +15,13 @@ const pdf = () => new File(["%PDF-simulated"], "report.pdf", { type: "applicatio
 beforeEach(() => { vi.clearAllMocks(); mock.postForm.mockResolvedValue(ready); });
 
 describe("private report upload", () => {
+  it("accepts a saved review awaiting approval and rejects premature checkout", async () => {
+    const waiting = { ...ready, checkoutAvailable: false, paymentReadiness: { ...ready.paymentReadiness, status: "awaiting_approval", eligible: false } };
+    mock.postForm.mockResolvedValueOnce(waiting);
+    await expect(uploadFullReview(caseId, "fixture-token", pdf())).resolves.toEqual(waiting);
+    mock.postForm.mockResolvedValueOnce({ ...waiting, checkoutAvailable: true });
+    await expect(uploadFullReview(caseId, "fixture-token", pdf())).rejects.toThrow("verify the saved report");
+  });
   it("sends one authenticated PDF to the owner-checked server upload and extraction boundary", async () => {
     const file = pdf();
     expect(await uploadFullReview(caseId, "fixture-token", file)).toEqual(ready);

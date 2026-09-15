@@ -5,7 +5,7 @@ import type { AuthService } from "@/features/auth";
 import { environment } from "@/config/env";
 import { renderTestApp } from "@/test/render";
 
-vi.mock("@/config/public-site", () => ({ publicSiteOnly: true }));
+vi.mock("@/config/public-site", () => ({ publicSiteOnly: true, publicIntakeClosed: true }));
 
 const session: Session = {
   access_token: "synthetic-token", refresh_token: "synthetic-refresh", expires_in: 3600, token_type: "bearer",

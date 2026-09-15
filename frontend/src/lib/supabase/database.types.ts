@@ -5107,6 +5107,12 @@ export type Database = {
       }
     }
     Functions: {
+      staff_payment_approval_queue: { Args: Record<PropertyKey, never>; Returns: Json }
+      staff_payment_approval_decide: {
+        Args: { requested_case_id: string; expected_lineage: Json; requested_decision: string; requested_request_id: string }
+        Returns: Json
+      }
+
       acquire_total_loss_report_upload: {
         Args: {
           case_id: string

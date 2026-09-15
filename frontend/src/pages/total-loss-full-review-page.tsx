@@ -17,7 +17,7 @@ export function FullReviewReport({ caseId, userId, accessToken }: { caseId: stri
   const [recovering, setRecovering] = useState(false);
   const query = useQuery({ queryKey: fullReviewKey(userId, caseId), queryFn: ({ signal }) => getFullReview(caseId, accessToken, signal),
     enabled: !busy,
-    refetchInterval: (q) => (recovering && !q.state.data?.report) || ["uploading", "uploaded", "extracting"].includes(q.state.data?.status ?? "") || q.state.data?.paymentReadiness.status === "processing" ? 3000 : false });
+    refetchInterval: (q) => (recovering && !q.state.data?.report) || ["uploading", "uploaded", "extracting"].includes(q.state.data?.status ?? "") || q.state.data?.paymentReadiness.status === "processing" ? 3000 : q.state.data?.paymentReadiness.status === "awaiting_approval" ? 15000 : false });
   const [error, setError] = useState<string | null>(null);
   const [answer, setAnswer] = useState("");
   const state = query.data;
@@ -101,6 +101,8 @@ export function FullReviewReport({ caseId, userId, accessToken }: { caseId: stri
                 expectedStrictReviewDigest: state.paymentReadiness.digest }} />
           : state.paymentReadiness.status === "insufficient"
             ? <p className="mt-6 rounded-xl border border-line p-4 text-sm leading-6 text-copy" role="status">We don’t yet have enough reliable market evidence to offer the full review. Your report and free result are saved.</p>
+            : state.paymentReadiness.status === "awaiting_approval"
+              ? <div className="mt-6 rounded-xl border border-line p-5" role="status"><h2 className="font-medium text-ink">Your review is ready for a final Venfour check.</h2><p className="mt-2 text-sm leading-6 text-copy">We’re completing a final review before payment becomes available. Your case is saved, and you can return here to check its progress.</p></div>
             : state.paymentReadiness.status === "not_evaluated" && !state.locked
               ? <Button className="mt-5" disabled={busy} onClick={() => void run(() => extractFullReview(caseId, accessToken))}>Check review availability</Button>
               : !preparing ? <p className="mt-6 rounded-xl border border-line p-4 text-sm leading-6 text-copy" role="status">The full review is not available right now. Your report and free result are saved.</p> : null

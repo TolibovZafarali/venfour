@@ -671,7 +671,7 @@ class SupabaseHttpGateway:
         })
 
     def full_review_ready(self, case_id: str, user_id: str) -> bool:
-        result = self._rpc("total_loss_full_review_ready", {
+        result = self._rpc("total_loss_payment_approved", {
             "requested_case_id": _canonical_uuid(case_id, "Case ID"),
             "requested_user_id": _canonical_uuid(user_id, "User ID"),
         })

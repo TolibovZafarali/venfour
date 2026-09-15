@@ -22,6 +22,7 @@ const navigation = [
   { label: "Reports", href: "/admin/reports", icon: Files },
   { label: "Processing", href: "/admin/processing", icon: Workflow },
   { label: "Payments", href: "/admin/payments", icon: CreditCard },
+  { label: "Payment approvals", href: "/admin/payment-approvals", icon: ClipboardList },
   { label: "Communications", href: "/admin/communications", icon: Mail },
   { label: "Activity", href: "/admin/activity", icon: Activity },
 ];

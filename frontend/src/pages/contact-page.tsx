@@ -1,5 +1,5 @@
 import { applicationHref } from "@/app/site-boundary";
-import { publicSiteOnly } from "@/config/public-site";
+import { publicIntakeClosed } from "@/config/public-site";
 import { Link, useSearchParams } from "react-router";
 
 import { Button } from "@/components/ui/button";
@@ -100,8 +100,8 @@ export function ContactPage() {
         )}
       </PublicPageSection>
 
-      <PublicPageSection title={publicSiteOnly ? "Current service availability" : "Current service entry points"}>
-        {publicSiteOnly ? <p>Online Total Loss reviews are opening soon. Contact Venfour with questions about availability or an existing review. Diminished Value intake remains paused.</p> :
+      <PublicPageSection title={publicIntakeClosed ? "Current service availability" : "Current service entry points"}>
+        {publicIntakeClosed ? <p>Online Total Loss reviews are opening soon. Contact Venfour with questions about availability or an existing review. Diminished Value intake remains paused.</p> :
         <p>
           Start a Total Loss review with or without an insurer valuation report
           through the{" "}

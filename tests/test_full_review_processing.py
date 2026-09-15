@@ -31,18 +31,41 @@ class FullReviewProcessingTests(unittest.TestCase):
         self.service = FullReviewService(self.gateway)
         self.service.extract(CASE, USER)
 
-    def test_completed_extraction_is_reused_and_strict_positive_result_opens_gate(self):
+    def test_completed_extraction_is_reused_and_strict_positive_result_awaits_approval(self):
         before = copy.deepcopy(self.gateway.context["report"])
         result = self.processor.execute(self.gateway.work["id"])
         self.assertEqual(result.state, "completed")
         public = self.service.status(CASE, USER)
         self.assertTrue(public["ready"])
-        self.assertTrue(public["paymentReadiness"]["eligible"])
+        self.assertFalse(public["paymentReadiness"]["eligible"])
+        self.assertEqual(public["paymentReadiness"]["status"], "awaiting_approval")
+        self.gateway.context["payment_approval"] = {"configured": True, "required": True, "approved": True, "status": "approved"}
+        self.assertTrue(self.service.status(CASE, USER)["paymentReadiness"]["eligible"])
         self.assertEqual(public["paymentReadiness"]["version"], "1")
         self.assertEqual(self.gateway.context["report"], before)
         self.processor.execute(self.gateway.work["id"])
         self.ingestion.ingest.assert_not_called()
         self.assertEqual(self.gateway.context["strict_review"]["calculation"]["newProviderRequests"], 0)
+
+    def test_missing_invalid_held_and_stale_approval_never_unlock_payment(self):
+        self.processor.execute(self.gateway.work["id"])
+        for approval in (None, {}, {"approved": True},
+            {"configured": False, "approved": True, "status": "approved"},
+            {"configured": True, "approved": "true", "status": "approved"},
+            {"configured": True, "approved": False, "status": "awaiting_approval"},
+            {"configured": True, "approved": False, "status": "held"},
+            {"configured": True, "approved": False, "status": "declined"}):
+            with self.subTest(approval=approval):
+                self.gateway.context["payment_approval"] = approval
+                state = self.service.status(CASE, USER)
+                self.assertFalse(state["paymentReadiness"]["eligible"])
+                self.assertEqual(state["paymentReadiness"]["status"], "awaiting_approval")
+
+    def test_approval_does_not_override_a_changed_report_revision(self):
+        self.processor.execute(self.gateway.work["id"])
+        self.gateway.context["payment_approval"] = {"configured": True, "approved": True, "status": "approved"}
+        self.gateway.context["report"]["revision"] += 1
+        self.assertFalse(self.service.status(CASE, USER)["paymentReadiness"]["eligible"])
 
     def test_stale_completion_never_replaces_a_newer_preparation(self):
         with patch.object(self.gateway, "complete_full_review_work", return_value=False), patch.object(self.gateway, "fail_full_review_work") as fail:

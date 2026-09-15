@@ -5,6 +5,8 @@ const valid = { VITE_PUBLIC_SITE_ONLY: "true", VITE_PUBLIC_ORIGIN: "https://venf
 describe("public website environment", () => {
   it("accepts only the explicit public website configuration", () => {
     expect(() => validatePublicSiteEnvironment(valid)).not.toThrow();
+    expect(() => validatePublicSiteEnvironment({ ...valid, VITE_PUBLIC_INTAKE_OPEN: "true" })).not.toThrow();
+    expect(() => validatePublicSiteEnvironment({ ...valid, VITE_PUBLIC_INTAKE_OPEN: "yes" })).toThrow();
     expect(() => validatePublicSiteEnvironment({ ...valid, VITE_PUBLIC_SITE_ONLY: "false" })).toThrow();
     expect(() => validatePublicSiteEnvironment({ ...valid, VITE_PUBLIC_ORIGIN: "https://staging.venfour.com" })).toThrow();
   });

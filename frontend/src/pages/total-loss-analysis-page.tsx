@@ -104,7 +104,7 @@ function CompletedTotalLossAnalysis({
       }
       continueAction={
         caseId
-          ? <Button asChild size="lg" className="mt-6"><Link to={`/total-loss/cases/${caseId}/review-report`}>Upload your insurer’s report to continue</Link></Button>
+          ? <Button asChild size="lg" className="mt-6 h-auto max-w-full whitespace-normal text-center"><Link to={`/total-loss/cases/${caseId}/review-report`}>Upload your insurer’s report to continue</Link></Button>
           : undefined
       }
       reviewIntakePath={reviewIntakePath}
