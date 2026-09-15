@@ -2,6 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 import type { Session, SupabaseClient } from "@supabase/supabase-js";
 
 import { environment } from "@/config/env";
+import { isValidEmailOtp } from "@/features/auth/email-otp-input";
 import type { CompleteTotalLossIdentityClaimResult } from "@/features/total-loss/data-types";
 import {
   createTotalLossIdentityService,
@@ -208,7 +209,7 @@ export function createClaimEmailOtpService({
         throw new ClaimEmailOtpError(retiredPending.code);
       }
       const pendingRetry = input.token === "" && pending !== null && pendingMatches(pending, input);
-      if (!pendingRetry && (input.token.length !== 6 || !/^\d{6}$/.test(input.token))) {
+      if (!pendingRetry && !isValidEmailOtp(input.token)) {
         throw new ClaimEmailOtpError("invalid_code");
       }
       const operation = startOperation(input);

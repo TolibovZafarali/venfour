@@ -12,6 +12,7 @@ import {
 import {
   emailOtpCaretOffset,
   formatEmailOtp,
+  isValidEmailOtp,
   rawEmailOtp,
 } from "@/features/auth/email-otp-input";
 import {
@@ -176,8 +177,8 @@ export function SignInDialog({
     event.preventDefault();
     if (busyRef.current) return;
     const token = rawEmailOtp(code);
-    if (token.length !== 6) {
-      setError("Enter the six-digit code from your email.");
+    if (!isValidEmailOtp(token)) {
+      setError("Enter the complete code from your email.");
       return;
     }
     busyRef.current = true;
@@ -255,7 +256,7 @@ export function SignInDialog({
             </Dialog.Title>
             <Dialog.Description className="mt-2 text-sm leading-6 text-copy">
               {emailSent
-                ? "Enter the six-digit code below to finish signing in."
+                ? "Enter the code from your email to finish signing in."
                 : intentDescriptions[intent]}
             </Dialog.Description>
           </div>

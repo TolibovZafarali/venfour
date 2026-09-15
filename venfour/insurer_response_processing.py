@@ -57,6 +57,7 @@ MAX_RESPONSE_TEXT_CHARACTERS = 100_000
 MAX_CONTEXT_COLLECTION_ITEMS = 50
 DEFAULT_RESPONSE_ANALYSIS_DISPATCH_LIMIT = 25
 MAX_RESPONSE_ANALYSIS_DISPATCH_LIMIT = 100
+MAX_RESPONSE_ANALYSIS_DISPATCH_RECOVERIES = 5
 DEFAULT_RESPONSE_ANALYSIS_RECONCILIATION_INTERVAL_SECONDS = 30.0
 
 
@@ -427,12 +428,13 @@ class CloudTasksInsurerResponseJobDispatcher:
         *,
         client: Any | None = None,
         already_exists_errors: tuple[type[BaseException], ...] | None = None,
+        not_found_errors: tuple[type[BaseException], ...] | None = None,
     ) -> None:
         if not isinstance(configuration, CloudTasksConfiguration):
             raise TypeError("configuration must be CloudTasksConfiguration")
         if client is None:
             try:
-                from google.api_core.exceptions import AlreadyExists
+                from google.api_core.exceptions import AlreadyExists, NotFound
                 from google.cloud import tasks_v2
             except ImportError as exc:  # pragma: no cover - optional prod dep
                 raise InsurerResponseDispatchUnavailableError(
@@ -445,13 +447,19 @@ class CloudTasksInsurerResponseJobDispatcher:
                     "Cloud Tasks support is unavailable"
                 ) from exc
             selected_already_exists = (AlreadyExists,)
+            selected_not_found = (NotFound,)
         else:
             selected_already_exists = already_exists_errors or ()
-        if not callable(getattr(client, "create_task", None)):
-            raise TypeError("Cloud Tasks client must expose create_task")
+            selected_not_found = not_found_errors or ()
+        if any(
+            not callable(getattr(client, name, None))
+            for name in ("create_task", "get_task")
+        ):
+            raise TypeError("Cloud Tasks client must expose create_task and get_task")
         self._configuration = configuration
         self._client = client
         self._already_exists_errors = selected_already_exists
+        self._not_found_errors = selected_not_found
 
     @staticmethod
     def _task_id(job_id: str, attempt_count: int) -> str:
@@ -459,10 +467,13 @@ class CloudTasksInsurerResponseJobDispatcher:
         selected_attempt = _dispatch_attempt_count(attempt_count)
         return f"ira-{canonical_job_id}-attempt-{selected_attempt}"
 
-    def _task_name(self, job_id: str, attempt_count: int) -> str:
+    def _task_name(
+        self, job_id: str, attempt_count: int, recovery: int = 0
+    ) -> str:
+        suffix = f"-recovery-{recovery}" if recovery else ""
         return (
             f"{self._configuration.queue_path}/tasks/"
-            f"{self._task_id(job_id, attempt_count)}"
+            f"{self._task_id(job_id, attempt_count)}{suffix}"
         )
 
     def _target_url(self, job_id: str) -> str:
@@ -473,8 +484,41 @@ class CloudTasksInsurerResponseJobDispatcher:
             f"{quote(canonical_job_id, safe='')}/execute"
         )
 
-    def dispatch(self, job_id: str, attempt_count: int) -> str:
-        task_name = self._task_name(job_id, attempt_count)
+    def _find_active(self, job_id: str, task_name: str) -> str | None:
+        try:
+            task = self._client.get_task(
+                request={"name": task_name},
+                timeout=self._configuration.request_timeout_seconds,
+                retry=None,
+            )
+        except self._not_found_errors:
+            return None
+        except Exception as exc:
+            raise InsurerResponseDispatchUnavailableError(
+                "Response analysis task existence could not be verified"
+            ) from exc
+
+        def field(value: Any, key: str) -> Any:
+            if isinstance(value, Mapping):
+                return value.get(key)
+            return getattr(value, key, None)
+
+        request = field(task, "http_request")
+        oidc = field(request, "oidc_token")
+        if (
+            field(task, "name") != task_name
+            or field(request, "url") != self._target_url(job_id)
+            or field(request, "http_method") not in ("POST", 1)
+            or field(oidc, "audience") != self._configuration.oidc_audience
+            or field(oidc, "service_account_email")
+            != self._configuration.oidc_service_account
+        ):
+            raise InsurerResponseDispatchUnavailableError(
+                "Existing response analysis task has unexpected delivery configuration"
+            )
+        return task_name
+
+    def _dispatch_task(self, job_id: str, task_name: str) -> str | None:
         task = {
             "name": task_name,
             "http_request": {
@@ -495,9 +539,10 @@ class CloudTasksInsurerResponseJobDispatcher:
                     "task": task,
                 },
                 timeout=self._configuration.request_timeout_seconds,
+                retry=None,
             )
         except self._already_exists_errors:
-            return task_name
+            return self._find_active(job_id, task_name)
         except Exception as exc:
             raise InsurerResponseDispatchUnavailableError(
                 "Response analysis dispatch is unavailable"
@@ -512,6 +557,18 @@ class CloudTasksInsurerResponseJobDispatcher:
                 "Cloud Tasks returned an unexpected task identity"
             )
         return task_name
+
+    def dispatch(self, job_id: str, attempt_count: int) -> str:
+        # Replaying the same bounded chain finds the existing replacement after
+        # a restart or lost acknowledgement, without changing execution attempts.
+        for recovery in range(MAX_RESPONSE_ANALYSIS_DISPATCH_RECOVERIES + 1):
+            task_name = self._task_name(job_id, attempt_count, recovery)
+            active = self._dispatch_task(job_id, task_name)
+            if active is not None:
+                return active
+        raise InsurerResponseDispatchUnavailableError(
+            "Response analysis task delivery recovery limit was reached"
+        )
 
     def close(self) -> None:
         close = getattr(self._client, "close", None)

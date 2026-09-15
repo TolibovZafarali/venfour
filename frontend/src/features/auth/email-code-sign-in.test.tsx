@@ -140,7 +140,7 @@ describe("email code sign-in", () => {
     const user = userEvent.setup();
     setup();
     const input = (await requestCode(user)) as HTMLInputElement;
-    await user.paste("ab12 3-4567z");
+    await user.paste("ab12 3-456z");
     expect(input).toHaveValue("123-456");
     input.setSelectionRange(4, 4);
     await user.keyboard("{Backspace}");
@@ -154,7 +154,7 @@ describe("email code sign-in", () => {
     expect(input.selectionStart).toBe(3);
   });
 
-  test("verifies pasted digits inline and restores the full destination without another callback", async () => {
+  test.each(["123456", "12345678"])("verifies %s inline and restores the full destination without another callback", async (token) => {
     const user = userEvent.setup();
     const { service, router, close } = setup();
     const input = await requestCode(user);
@@ -167,8 +167,8 @@ describe("email code sign-in", () => {
     );
     expect(input).toHaveFocus();
     expect(input).toHaveAttribute("autocomplete", "one-time-code");
-    await user.paste("123-456");
-    expect(input).toHaveValue("123-456");
+    await user.paste(token);
+    expect(input).toHaveValue(token.slice(0, 3) + "-" + token.slice(3));
     expect(JSON.stringify(window.localStorage)).not.toContain("123456");
     expect(JSON.stringify(window.localStorage)).not.toContain("123-456");
     await user.click(
@@ -177,7 +177,7 @@ describe("email code sign-in", () => {
     await screen.findByRole("heading", { name: "Signed in destination" });
     expect(service.verifyEmailCode).toHaveBeenCalledExactlyOnceWith(
       EMAIL,
-      "123456",
+      token,
     );
     expect(close).toHaveBeenCalledWith(false);
     expect(router.state.location).toMatchObject({
@@ -210,7 +210,7 @@ describe("email code sign-in", () => {
       screen.getByRole("button", { name: "Verify and sign in" }),
     );
     expect(screen.getByRole("alert")).toHaveTextContent(
-      "Enter the six-digit code",
+      "Enter the complete code",
     );
     expect(verify).not.toHaveBeenCalled();
     await user.click(input);

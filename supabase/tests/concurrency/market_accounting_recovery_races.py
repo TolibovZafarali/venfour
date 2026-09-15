@@ -33,7 +33,7 @@ def main():
         operations += [('active_inventory','enrichment',None),('vehicle_terms','baseline',None)]
         operations += operations[:]*2
         with ThreadPoolExecutor(max_workers=12) as pool:
-            replies=list(pool.map(lambda op:races.reserve(identity,*op),operations))
+            replies=list(pool.map(lambda op:races.reserve(identity,*op,retry_lock_timeout=True),operations))
         assert sum(r['allowed'] for r in replies)==20
         assert races.reserve(identity)['reasonCode']=='MARKET_CASE_BUDGET_EXHAUSTED'
         results['canary']={'concurrentAttempts':len(replies),'reserved':20,'overspent':False}
@@ -41,7 +41,7 @@ def main():
         identity=races.fixture(races.account())
         payload={**identity,'reservationId':str(uuid4()),'endpoint':'active_inventory','phase':'baseline','vinKey':None,'estimatedCostMicros':None}
         def same_request(_):
-            return json.loads(races.psql("select public.reserve_market_request_attempt('"+json.dumps(payload)+"'::jsonb);"))
+            return json.loads(races.psql("select public.reserve_market_request_attempt('"+json.dumps(payload)+"'::jsonb);",retry_lock_timeout=True))
         with ThreadPoolExecutor(max_workers=12) as pool: replies=list(pool.map(same_request,range(24)))
         assert sum(r['allowed'] for r in replies)==1
         assert all(r['allowed'] or r['reasonCode']=='MARKET_ATTEMPT_ALREADY_RESERVED' for r in replies)

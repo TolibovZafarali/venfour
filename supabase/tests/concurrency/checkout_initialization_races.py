@@ -20,15 +20,17 @@ class CheckoutRaces(SubmissionRaces):
         case = str(uuid4())
         self.cases.append(case)
         source = (Path(__file__).parents[1] / "database/048_total_loss_checkout_initialization.test.sql").read_text()
+        strict = re.search(r"create function pg_temp\.strict_review_fixture\([\s\S]+?\nend \$\$;", source)
         helper = re.search(r"create function pg_temp\.checkout_initialization_fixture\([\s\S]+?\n\$\$;", source)
-        assert helper is not None
-        return json.loads(self.psql(helper.group() + f"\nselect pg_temp.checkout_initialization_fixture('{case}','{self.owner}');"))
+        assert strict is not None and helper is not None
+        return json.loads(self.psql(strict.group() + "\n" + helper.group()
+                                   + f"\nselect pg_temp.checkout_initialization_fixture('{case}','{self.owner}');"))
 
     def initialize(self, f):
         presentation = json.dumps(f["presentation"]).replace("'", "''")
         return f"""select public.initialize_total_loss_post_continue('{f['case']}','{f['owner']}',
           '{f['run']}','{f['input']}',{f['revision']},'{f['report']}',{f['reportRevision']},
-          '{presentation}'::jsonb,'{f['digest']}');"""
+          '{presentation}'::jsonb,'{f['digest']}','{f['strictReview']}','1','{f['strictDigest']}');"""
 
     def reserve(self, f, request):
         return f"""select row_to_json(r) from public.reserve_total_loss_checkout('{f['case']}','{f['owner']}',
@@ -80,7 +82,7 @@ class CheckoutRaces(SubmissionRaces):
               'attempts',(select count(*) from public.checkout_attempts where case_id='{f['case']}'),
               'reportBindings',(select count(*) from public.total_loss_checkout_review_reports where case_id='{f['case']}'));"""))
             if scenario in ("report_revision_wins", "report_replacement_wins", "ownership_wins"):
-                assert reply == ("not_found" if scenario == "ownership_wins" else "stale")
+                assert reply == ("not_found" if scenario == "ownership_wins" else "not_ready"), (scenario, reply)
                 assert not any(counts.values())
             elif scenario == "duplicate_orders":
                 reply = json.loads(reply)

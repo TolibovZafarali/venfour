@@ -55,7 +55,7 @@ const CLAIM_ID = "44444444-4444-4444-8444-444444444444";
 const CLAIM_PATH = `/total-loss/cases/${CASE_ID}/claim`;
 const CHECKOUT_PATH = `${CLAIM_PATH}/checkout`;
 const CONTACT_EMAIL = "owner@example.com";
-const CODE_LABEL = "Enter the 6-digit code we sent to your email";
+const CODE_LABEL = "Enter the code we sent to your email";
 
 function sessionFor(identity: "anonymous" | "permanent") {
   const id = identity === "anonymous" ? ANONYMOUS_USER_ID : PERMANENT_USER_ID;
@@ -223,14 +223,14 @@ describe("local purchase email verification", () => {
       signal: expect.any(AbortSignal),
     });
     expect(auth.service.sendMagicLink).not.toHaveBeenCalled();
-    expect(screen.getByText("We sent a 6-digit code to ow••••@example.com")).toBeVisible();
+    expect(screen.getByText("We sent a verification code to ow••••@example.com")).toBeVisible();
     expect(screen.queryByRole("textbox", { name: "Email used for this claim" })).not.toBeInTheDocument();
     expect(router.state.location.pathname).toBe(CHECKOUT_PATH);
     expect(paymentInitialization).not.toHaveBeenCalled();
   });
 
-  it.each(["123456", "123-456", "123 456", "a1b2c3!4@5#6"])(
-    "formats pasted %s and sends only six raw digits for verification",
+  it.each(["123456", "123-456", "123 456", "a1b2c3!4@5#6", "12345678", "1234-5678"])(
+    "formats pasted %s and preserves all raw digits for verification",
     async (pasted) => {
       installClaimHandlers();
       const user = userEvent.setup();
@@ -238,7 +238,8 @@ describe("local purchase email verification", () => {
       const input = await requestCode(user);
       await user.click(input);
       await user.paste(pasted);
-      expect(input).toHaveValue("123-456");
+      const token = pasted.replace(/[^0-9]/gu, "");
+      expect(input).toHaveValue(token.slice(0, 3) + "-" + token.slice(3));
       await user.click(screen.getByRole("button", { name: "Verify" }));
       expect(otp.verifyCodeAndClaim).toHaveBeenCalledExactlyOnceWith({
         caseId: CASE_ID,
@@ -246,7 +247,7 @@ describe("local purchase email verification", () => {
         email: CONTACT_EMAIL,
         expectedUserId: ANONYMOUS_USER_ID,
         signal: expect.any(AbortSignal),
-        token: "123456",
+        token,
       });
       expect(input).toHaveValue("");
     },
@@ -344,7 +345,7 @@ describe("local purchase email verification", () => {
     await user.click(screen.getByRole("button", { name: "Already have a code?" }));
     const input = await screen.findByRole("textbox", { name: CODE_LABEL });
     expect(screen.getByText("Use the newest code sent to ow••••@example.com")).toBeVisible();
-    expect(screen.queryByText("We sent a 6-digit code to ow••••@example.com")).not.toBeInTheDocument();
+    expect(screen.queryByText("We sent a verification code to ow••••@example.com")).not.toBeInTheDocument();
     expect(otp.sendCode).not.toHaveBeenCalled();
     expect(window.localStorage.getItem(retryKey)).toBe(retryAt);
     expect(renewedRequests).toHaveLength(2);

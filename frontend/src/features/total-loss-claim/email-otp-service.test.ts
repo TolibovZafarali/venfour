@@ -132,20 +132,20 @@ describe("inline claim email verification", () => {
     expect(h.unsubscribe).toHaveBeenCalledOnce();
   });
 
-  it("verifies raw digits in memory, completes the secure claim, then publishes the permanent session", async () => {
+  it.each(["123456", "12345678"])("verifies %s in memory, completes the secure claim, then publishes the permanent session", async (token) => {
     const h = harness();
-    await expect(h.service.verifyCodeAndClaim(input)).resolves.toMatchObject({
+    await expect(h.service.verifyCodeAndClaim({ ...input, token })).resolves.toMatchObject({
       caseId: CASE_ID, ownerUserId: OWNER_ID, claimPurpose: "post_continue", outcome: "claimed",
     });
-    expect(h.verifyOtp).toHaveBeenCalledExactlyOnceWith({ email: EMAIL, token: "123456", type: "email" });
+    expect(h.verifyOtp).toHaveBeenCalledExactlyOnceWith({ email: EMAIL, token, type: "email" });
     expect(h.rpc).toHaveBeenCalledExactlyOnceWith("complete_total_loss_case_claim_with_context", { claim_id: CLAIM_ID });
     expect(h.events).toEqual(["verify", "claim", "install"]);
     expect(h.installSession).toHaveBeenCalledWith(h.mainClient, h.verifiedSession, GUEST_ID, expect.any(Function));
     expect(h.dispose).toHaveBeenCalledOnce();
   });
 
-  it.each(["", "123-456", "123 456", "12345", "1234567", "１２３４５６", "12345x", "123456\n"])(
-    "rejects a token other than six raw ASCII digits: %j", async (token) => {
+  it.each(["", "123-456", "123 456", "12345", "1234567", "１２３４５６", "12345x", "123456\n", "12345678\n", "123456789"])(
+    "rejects a token other than six or eight raw ASCII digits: %j", async (token) => {
       const h = harness();
       await expect(h.service.verifyCodeAndClaim({ ...input, token })).rejects.toMatchObject({ code: "invalid_code" });
       expect(h.verifyOtp).not.toHaveBeenCalled();

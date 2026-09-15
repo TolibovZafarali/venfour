@@ -15,6 +15,7 @@ import json
 import os
 import subprocess
 import sys
+import time
 from uuid import uuid4
 
 
@@ -31,13 +32,21 @@ class BudgetRaces:
         self.cases = []
         self.psql("select 1")
 
-    def psql(self, statement):
-        result = subprocess.run(
-            ["docker", "exec", "-i", self.container, "psql", "-U", "supabase_admin",
-             "-d", "postgres", "-v", "ON_ERROR_STOP=1", "-qAt", "-f", "-"],
-            input=statement, text=True, capture_output=True, check=True,
-        )
-        return result.stdout.strip()
+    def psql(self, statement, *, retry_lock_timeout=False):
+        for attempt in range(2 if retry_lock_timeout else 1):
+            try:
+                result = subprocess.run(
+                    ["docker", "exec", "-i", self.container, "psql", "-U", "supabase_admin",
+                     "-d", "postgres", "-v", "ON_ERROR_STOP=1", "-qAt", "-f", "-"],
+                    input=statement, text=True, capture_output=True, check=True,
+                )
+                return result.stdout.strip()
+            except subprocess.CalledProcessError as error:
+                if not retry_lock_timeout or attempt or "lock timeout" not in error.stderr:
+                    raise
+                # Match the production gateway's one retry of the unchanged message.
+                time.sleep(0.1)
+        raise AssertionError("Reservation retry did not return")
 
     def fixture(self, account, *, monthly=10000, prior=0, rate=10000):
         case, job, token, input_id = (str(uuid4()) for _ in range(4))
@@ -84,13 +93,14 @@ class BudgetRaces:
         self.accounts.append(account)
         return account
 
-    def reserve(self, identity, endpoint="active_inventory", phase="baseline", vin=None):
+    def reserve(self, identity, endpoint="active_inventory", phase="baseline", vin=None, *, retry_lock_timeout=False):
         request = {**identity, "reservationId": str(uuid4()), "endpoint": endpoint,
                    "phase": phase, "vinKey": vin, "estimatedCostMicros": None}
         # JSON originates entirely from UUIDs and explicit fixture values above.
         payload = json.dumps(request).replace("'", "''")
         return json.loads(self.psql(
-            f"set statement_timeout='30s'; select public.reserve_market_request_attempt('{payload}'::jsonb);"
+            f"set statement_timeout='30s'; select public.reserve_market_request_attempt('{payload}'::jsonb);",
+            retry_lock_timeout=retry_lock_timeout,
         ))
 
     def sixty_attempt_case(self):
@@ -116,7 +126,7 @@ class BudgetRaces:
         assert self.reserve(old_identity)["reasonCode"] == "MARKET_SEARCH_EXECUTION_LEASE_UNAVAILABLE"
         excess = [("active_inventory", "enrichment", hashlib.sha256(uuid4().bytes).hexdigest()) for _ in range(20)]
         with ThreadPoolExecutor(max_workers=12) as executor:
-            replies = list(executor.map(lambda item: self.reserve(identity, *item), operations[30:] + excess))
+            replies = list(executor.map(lambda item: self.reserve(identity, *item, retry_lock_timeout=True), operations[30:] + excess))
         assert sum(row["allowed"] for row in replies) == 30, "Concurrent resumed execution exceeded or lost case headroom"
         assert self.reserve(identity)["reasonCode"] == "MARKET_CASE_BUDGET_EXHAUSTED"
         case = identity["caseId"]
@@ -140,7 +150,7 @@ class BudgetRaces:
         for identity in identities:
             identity["accountLimits"] = identities[0]["accountLimits"]
         with ThreadPoolExecutor(max_workers=12) as executor:
-            replies = list(executor.map(self.reserve, identities))
+            replies = list(executor.map(lambda identity: self.reserve(identity, retry_lock_timeout=True), identities))
         assert sum(row["allowed"] for row in replies) == accepted
         assert all(row["allowed"] or row["reasonCode"] == reason for row in replies)
         assert int(self.psql(f"select count(*) from public.market_request_attempts where account_key='{account}';")) == accepted

@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import unittest
+from concurrent.futures import ThreadPoolExecutor
+from copy import deepcopy
+from threading import Lock
 from types import SimpleNamespace
 from typing import Any
 
@@ -11,6 +14,7 @@ from venfour.insurer_response_processing import (
     InsurerResponseDispatchUnavailableError,
     InsurerResponseExecutionResult,
     InsurerResponseProcessingContractError,
+    MAX_RESPONSE_ANALYSIS_DISPATCH_RECOVERIES,
     TotalLossInsurerResponseCoordinator,
 )
 from venfour.package_processing import CloudTasksConfiguration
@@ -34,22 +38,67 @@ def _configuration() -> CloudTasksConfiguration:
     )
 
 
+class _AlreadyExists(Exception):
+    pass
+
+
+class _NotFound(Exception):
+    pass
+
+
 class _CloudTasksClient:
     def __init__(self, *, error: Exception | None = None) -> None:
         self.error = error
         self.calls: list[tuple[dict[str, Any], float]] = []
+        self.get_calls: list[tuple[dict[str, Any], float]] = []
+        self.tasks: dict[str, dict[str, Any]] = {}
+        self.tombstones: set[str] = set()
+        self.get_error: Exception | None = None
+        self.lost_acknowledgement = False
+        self.lock = Lock()
         self.closed = False
 
     def create_task(
-        self, *, request: dict[str, Any], timeout: float
+        self, *, request: dict[str, Any], timeout: float, retry: None
     ) -> SimpleNamespace:
-        self.calls.append((request, timeout))
-        if self.error is not None:
-            raise self.error
-        return SimpleNamespace(name=request["task"]["name"])
+        assert retry is None
+        with self.lock:
+            self.calls.append((deepcopy(request), timeout))
+            if self.error is not None:
+                raise self.error
+            name = request["task"]["name"]
+            if name in self.tasks or name in self.tombstones:
+                raise _AlreadyExists()
+            self.tasks[name] = deepcopy(request["task"])
+            if self.lost_acknowledgement:
+                self.lost_acknowledgement = False
+                raise TimeoutError("private acknowledgement failure")
+            return SimpleNamespace(name=name)
+
+    def get_task(
+        self, *, request: dict[str, Any], timeout: float, retry: None
+    ) -> dict[str, Any]:
+        assert retry is None
+        with self.lock:
+            self.get_calls.append((request, timeout))
+            if self.get_error is not None:
+                raise self.get_error
+            if request["name"] not in self.tasks:
+                raise _NotFound()
+            return deepcopy(self.tasks[request["name"]])
 
     def close(self) -> None:
         self.closed = True
+
+
+def _cloud_dispatcher(
+    client: _CloudTasksClient,
+) -> CloudTasksInsurerResponseJobDispatcher:
+    return CloudTasksInsurerResponseJobDispatcher(
+        _configuration(), client=client,
+        already_exists_errors=(_AlreadyExists,),
+        not_found_errors=(_NotFound,),
+    )
 
 
 class _Dispatcher:
@@ -106,9 +155,7 @@ class _Processor:
 class CloudTasksInsurerResponseDispatcherTests(unittest.TestCase):
     def test_task_identity_is_deterministic_per_job_attempt(self) -> None:
         client = _CloudTasksClient()
-        dispatcher = CloudTasksInsurerResponseJobDispatcher(
-            _configuration(), client=client
-        )
+        dispatcher = _cloud_dispatcher(client)
 
         first = dispatcher.dispatch(JOB_ID, 0)
         replay = dispatcher.dispatch(JOB_ID, 0)
@@ -143,19 +190,158 @@ class CloudTasksInsurerResponseDispatcherTests(unittest.TestCase):
         )
 
     def test_already_existing_task_is_success_and_client_closes(self) -> None:
-        class AlreadyExists(Exception):
-            pass
-
-        client = _CloudTasksClient(error=AlreadyExists())
-        dispatcher = CloudTasksInsurerResponseJobDispatcher(
-            _configuration(),
-            client=client,
-            already_exists_errors=(AlreadyExists,),
-        )
-
-        self.assertTrue(dispatcher.dispatch(JOB_ID, 2).endswith("attempt-2"))
+        client = _CloudTasksClient()
+        dispatcher = _cloud_dispatcher(client)
+        first = dispatcher.dispatch(JOB_ID, 2)
+        self.assertEqual(dispatcher.dispatch(JOB_ID, 2), first)
+        self.assertEqual(client.get_calls, [({"name": first}, 10.0)])
+        self.assertEqual(len(client.tasks), 1)
         dispatcher.close()
         self.assertTrue(client.closed)
+
+    def test_deleted_task_recovers_and_restart_reuses_active_replacement(self) -> None:
+        client = _CloudTasksClient()
+        dispatcher = _cloud_dispatcher(client)
+        original = dispatcher.dispatch(JOB_ID, 0)
+        client.tombstones.add(original)
+        del client.tasks[original]
+
+        replacement = dispatcher.dispatch(JOB_ID, 0)
+        self.assertEqual(replacement, original + "-recovery-1")
+        restarted = _cloud_dispatcher(client)
+        self.assertEqual(restarted.dispatch(JOB_ID, 0), replacement)
+        self.assertEqual(set(client.tasks), {replacement})
+        self.assertEqual(len(client.calls), 5)
+        self.assertEqual(len(client.get_calls), 3)
+
+    def test_multiple_deleted_deliveries_recover_without_execution_increment(self) -> None:
+        client = _CloudTasksClient()
+        dispatcher = _cloud_dispatcher(client)
+        original = dispatcher.dispatch(JOB_ID, 2)
+        latest = original
+        for recovery in range(1, 4):
+            client.tombstones.add(latest)
+            del client.tasks[latest]
+            latest = _cloud_dispatcher(client).dispatch(JOB_ID, 2)
+            self.assertEqual(latest, original + f"-recovery-{recovery}")
+        self.assertEqual(set(client.tasks), {latest})
+
+    def test_lost_create_acknowledgement_reuses_task_after_restart(self) -> None:
+        client = _CloudTasksClient()
+        client.lost_acknowledgement = True
+        with self.assertRaises(InsurerResponseDispatchUnavailableError):
+            _cloud_dispatcher(client).dispatch(JOB_ID, 0)
+        self.assertEqual(len(client.calls), 1)
+        self.assertEqual(len(client.tasks), 1)
+        name = _cloud_dispatcher(client).dispatch(JOB_ID, 0)
+        self.assertEqual(set(client.tasks), {name})
+        self.assertFalse(name.endswith("recovery-1"))
+
+    def test_replacement_acknowledgement_loss_replays_same_chain(self) -> None:
+        client = _CloudTasksClient()
+        original = _cloud_dispatcher(client).dispatch(JOB_ID, 0)
+        client.tombstones.add(original)
+        del client.tasks[original]
+        client.lost_acknowledgement = True
+        with self.assertRaises(InsurerResponseDispatchUnavailableError):
+            _cloud_dispatcher(client).dispatch(JOB_ID, 0)
+        replacement = _cloud_dispatcher(client).dispatch(JOB_ID, 0)
+        self.assertEqual(replacement, original + "-recovery-1")
+        self.assertEqual(set(client.tasks), {replacement})
+
+    def test_existing_task_accepts_sdk_attribute_fields(self) -> None:
+        client = _CloudTasksClient()
+        dispatcher = _cloud_dispatcher(client)
+        name = dispatcher.dispatch(JOB_ID, 0)
+        request = client.tasks[name]["http_request"]
+        task = SimpleNamespace(
+            name=name,
+            http_request=SimpleNamespace(
+                http_method=1,
+                url=request["url"],
+                oidc_token=SimpleNamespace(**request["oidc_token"]),
+            ),
+        )
+        client.get_task = lambda **_: task
+        self.assertEqual(dispatcher.dispatch(JOB_ID, 0), name)
+        self.assertEqual(len(client.tasks), 1)
+
+    def test_concurrent_reconcilers_share_one_replacement(self) -> None:
+        client = _CloudTasksClient()
+        original = _cloud_dispatcher(client).dispatch(JOB_ID, 0)
+        client.tombstones.add(original)
+        del client.tasks[original]
+        with ThreadPoolExecutor(max_workers=12) as pool:
+            names = list(pool.map(
+                lambda _: _cloud_dispatcher(client).dispatch(JOB_ID, 0),
+                range(24),
+            ))
+        self.assertEqual(set(names), {original + "-recovery-1"})
+        self.assertEqual(set(client.tasks), set(names))
+
+    def test_existing_task_delivery_mismatch_never_advances(self) -> None:
+        for field in ("name", "url", "method", "audience", "account", "request", "oidc"):
+            with self.subTest(field=field):
+                client = _CloudTasksClient()
+                dispatcher = _cloud_dispatcher(client)
+                name = dispatcher.dispatch(JOB_ID, 0)
+                task = client.tasks[name]
+                request = task["http_request"]
+                if field == "name":
+                    task["name"] = "another-task"
+                elif field == "url":
+                    request["url"] = "https://unexpected.example.test"
+                elif field == "method":
+                    request["http_method"] = "GET"
+                elif field == "audience":
+                    request["oidc_token"]["audience"] = "unexpected"
+                elif field == "account":
+                    request["oidc_token"]["service_account_email"] = "unexpected"
+                elif field == "request":
+                    del task["http_request"]
+                else:
+                    del request["oidc_token"]
+                with self.assertRaisesRegex(
+                    InsurerResponseDispatchUnavailableError,
+                    "unexpected delivery configuration",
+                ):
+                    dispatcher.dispatch(JOB_ID, 0)
+                self.assertEqual(len(client.calls), 2)
+                self.assertEqual(set(client.tasks), {name})
+
+    def test_ambiguous_task_lookup_does_not_create_replacement(self) -> None:
+        for error in (TimeoutError("private timeout"), PermissionError("private denial")):
+            with self.subTest(error=type(error).__name__):
+                client = _CloudTasksClient()
+                dispatcher = _cloud_dispatcher(client)
+                name = dispatcher.dispatch(JOB_ID, 0)
+                client.get_error = error
+                with self.assertRaisesRegex(
+                    InsurerResponseDispatchUnavailableError, "could not be verified"
+                ):
+                    dispatcher.dispatch(JOB_ID, 0)
+                self.assertEqual(len(client.calls), 2)
+                self.assertEqual(set(client.tasks), {name})
+
+    def test_create_outage_does_not_advance_delivery(self) -> None:
+        client = _CloudTasksClient(error=TimeoutError("private outage"))
+        with self.assertRaisesRegex(
+            InsurerResponseDispatchUnavailableError, "dispatch is unavailable"
+        ):
+            _cloud_dispatcher(client).dispatch(JOB_ID, 0)
+        self.assertEqual(len(client.calls), 1)
+        self.assertEqual(client.get_calls, [])
+        self.assertEqual(client.tasks, {})
+
+    def test_confirmed_missing_chain_has_explicit_recovery_limit(self) -> None:
+        client = _CloudTasksClient(error=_AlreadyExists())
+        with self.assertRaisesRegex(
+            InsurerResponseDispatchUnavailableError, "recovery limit was reached"
+        ):
+            _cloud_dispatcher(client).dispatch(JOB_ID, 0)
+        self.assertEqual(len(client.calls), MAX_RESPONSE_ANALYSIS_DISPATCH_RECOVERIES + 1)
+        self.assertEqual(len(client.get_calls), len(client.calls))
+        self.assertEqual(client.tasks, {})
 
     def test_invalid_job_or_attempt_is_rejected_before_network_io(self) -> None:
         client = _CloudTasksClient()

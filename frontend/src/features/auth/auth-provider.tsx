@@ -24,6 +24,7 @@ import {
   storeAuthReturnLocation,
 } from "@/features/auth/return-location";
 import { updatePublicSessionHint } from "@/features/auth/public-session-hint";
+import { isValidEmailOtp } from "@/features/auth/email-otp-input";
 import {
   defaultTurnstileController,
   type TurnstileController,
@@ -332,7 +333,7 @@ export function AuthProvider({
 
   const completeEmailCode = useCallback<AuthContextValue["completeEmailCode"]>(
     async (email, token) => {
-      if (!/^\d{6}$/u.test(token)) throw new Error("Enter the six-digit code from your email.");
+      if (!isValidEmailOtp(token)) throw new Error("Enter the complete code from your email.");
       const session = await requireService().verifyEmailCode(email, token);
       if (isAnonymousUser(session.user) || !session.user.email_confirmed_at ||
         session.user.email?.trim().toLowerCase() !== email.trim().toLowerCase()) {

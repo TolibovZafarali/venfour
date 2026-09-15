@@ -1,1 +1,1 @@
-export { rawEmailOtp, formatEmailOtp, emailOtpCaretOffset } from "@/features/auth/email-otp-input";
+export { rawEmailOtp, formatEmailOtp, emailOtpCaretOffset, isValidEmailOtp } from "@/features/auth/email-otp-input";

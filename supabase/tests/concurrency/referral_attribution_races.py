@@ -134,14 +134,17 @@ class ReferralRaces:
 
     def prepare_order(self, case_id, owner):
         suite = Path(__file__).parents[1] / "database" / "038_referral_partner_attribution.test.sql"
-        helper = re.search(r"create function pg_temp\.prepare_referral_commerce_case\([\s\S]+?\nend;\n\$\$;", suite.read_text())
-        assert helper is not None, "The shared commerce fixture helper is unavailable"
+        source = suite.read_text()
+        strict = re.search(r"create function pg_temp\.strict_review_fixture\([\s\S]+?\nend \$\$;", source)
+        helper = re.search(r"create function pg_temp\.prepare_referral_commerce_case\([\s\S]+?\nend;\n\$\$;", source)
+        assert strict is not None and helper is not None, "The shared commerce fixture helpers are unavailable"
         now = datetime.now(timezone.utc)
         self.session_id = f"cs_test_referral_race_{self.run_id}"
         self.payment_id = f"pi_referral_race_{self.run_id}"
         self.webhook_tokens = [uuid4(), uuid4()]
         self.purchase_time = now - timedelta(seconds=2)
         with self.connect("commerce_seed") as connection:
+            connection.execute(strict.group())
             connection.execute(helper.group())
             connection.execute("select pg_temp.prepare_referral_commerce_case(%s,%s,%s)", (case_id, owner, f"referral-race-{owner.hex}@example.test"))
             connection.execute("set local role service_role")
@@ -196,6 +199,9 @@ class ReferralRaces:
             # This affects only this transaction, never other sessions' trigger behavior.
             connection.execute("set local session_replication_role=replica")
             cases = [row["id"] for row in connection.execute("select id from public.appraisal_cases where user_id=any(%s)", (self.users,)).fetchall()]
+            connection.execute("set local storage.allow_delete_query='true'")
+            connection.execute("""delete from storage.objects where bucket_id='case-files'
+                and name in (select storage_object_name from public.total_loss_full_review_reports where case_id=any(%s))""", (cases,))
             tables = connection.execute("""select c.relname from pg_class c join pg_namespace n on n.oid=c.relnamespace
                 where n.nspname='public' and c.relkind in ('r','p') and exists(select 1 from pg_attribute a
                 where a.attrelid=c.oid and a.attname='case_id' and not a.attisdropped)""").fetchall()

@@ -17,6 +17,7 @@ import {
 import {
   emailOtpCaretOffset,
   formatEmailOtp,
+  isValidEmailOtp,
   rawEmailOtp,
 } from "@/features/total-loss-claim/email-otp-input";
 import {
@@ -233,7 +234,7 @@ export function EmailOtpClaimPanel({
 
   const verifyCode = async () => {
     const token = rawEmailOtp(code);
-    if (busyRef.current || !pendingClaim || (!canRetrySession && (token.length !== 6 || expired))) return;
+    if (busyRef.current || !pendingClaim || (!canRetrySession && (!isValidEmailOtp(token) || expired))) return;
     busyRef.current = true;
     setOperation("verifying");
     onVerificationPendingChange?.(true);
@@ -280,10 +281,10 @@ export function EmailOtpClaimPanel({
           onSubmit={(event) => { event.preventDefault(); void verifyCode(); }}
         >
           <p className="text-sm leading-6 text-copy" role="status">
-            {deliveryConfirmed ? "We sent a 6-digit code to " : "Use the newest code sent to "}{maskedClaimEmail(claim.contactEmail)}
+            {deliveryConfirmed ? "We sent a verification code to " : "Use the newest code sent to "}{maskedClaimEmail(claim.contactEmail)}
           </p>
           <label className="mt-4 block text-sm font-medium leading-6 text-ink" htmlFor="claim-verification-code">
-            Enter the 6-digit code we sent to your email
+            Enter the code we sent to your email
           </label>
           <div className="mt-2 flex flex-wrap items-start gap-3">
             <input
@@ -328,12 +329,12 @@ export function EmailOtpClaimPanel({
                 }
               }}
             />
-            <Button className="min-h-12 min-w-24" type="submit" disabled={busy || (!canRetrySession && (rawEmailOtp(code).length !== 6 || expired))}>
+            <Button className="min-h-12 min-w-24" type="submit" disabled={busy || (!canRetrySession && (!isValidEmailOtp(rawEmailOtp(code)) || expired))}>
               {operation === "verifying" || operation === "completing" ? <LoaderCircle className="size-4 animate-spin motion-reduce:animate-none" aria-hidden /> : null}
               {operation === "verifying" || operation === "completing" ? "Verifying…" : "Verify"}
             </Button>
           </div>
-          <p id="claim-verification-help" className="mt-2 text-xs leading-5 text-copy">Use the newest code. You can paste all six digits.</p>
+          <p id="claim-verification-help" className="mt-2 text-xs leading-5 text-copy">Use the newest code. You can paste the complete code.</p>
           {expired && !canRetrySession ? <p className="mt-3 text-sm leading-6 text-red-700" role="alert">This verification request has expired. Request a new code to continue.</p> : null}
         </form>
       ) : <p className="mt-3 max-w-xl text-sm leading-6 text-copy">Verify your saved email to securely save your report and claim progress.</p>}
