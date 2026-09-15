@@ -1,18 +1,13 @@
 [data-customer-workspace]:has(.checkout-page) {
   --workspace-width: 70rem;
-  --canvas: #f8f7f4;
   --surface: #f2f1ed;
   --copy: #62676d;
   --line: #dddedb;
   --primary: var(--ink);
-  background: var(--canvas);
 }
 
-[data-customer-workspace]:has(.checkout-page)::before { background: none; }
 [data-customer-workspace]:has(.checkout-page) .header-glass {
-  background: var(--canvas);
   border-bottom: 1px solid var(--line);
-  backdrop-filter: none;
 }
 [data-customer-workspace]:has(.checkout-page) .customer-workspace { padding-top: 32px; padding-bottom: 64px; }
 [data-customer-workspace]:has(.checkout-page) .customer-workspace__context { min-height: 0; margin-bottom: 38px; }
