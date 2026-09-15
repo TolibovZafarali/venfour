@@ -154,7 +154,7 @@ function CookiePreferencesDialog({
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-[60] bg-ink/28 backdrop-blur-[2px] data-[state=closed]:animate-out data-[state=closed]:fade-out data-[state=open]:animate-in data-[state=open]:fade-in motion-reduce:animate-none" />
-        <Dialog.Content className="fixed top-1/2 left-1/2 z-[61] max-h-[calc(100svh-2rem)] w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border border-white/80 bg-white p-5 shadow-[0_28px_80px_-28px_rgba(11,31,51,0.55)] focus:outline-none sm:p-6">
+        <Dialog.Content data-product-overlay className="fixed top-1/2 left-1/2 z-[61] max-h-[calc(100svh-2rem)] w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border border-white/80 bg-white p-5 shadow-[0_28px_80px_-28px_rgba(11,31,51,0.55)] focus:outline-none sm:p-6">
           <div className="pr-10">
             <Dialog.Title className="text-xl font-semibold tracking-[-0.025em] text-ink">
               Cookie preferences

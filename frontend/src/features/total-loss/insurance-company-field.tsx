@@ -234,7 +234,7 @@ export function InsuranceCompanyField({
           </div>
         </Popover.Anchor>
         <Popover.Portal>
-          <Popover.Content
+          <Popover.Content data-product-overlay
             align="start"
             sideOffset={6}
             onOpenAutoFocus={(event) => event.preventDefault()}

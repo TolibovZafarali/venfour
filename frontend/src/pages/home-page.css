@@ -1,12 +1,12 @@
 @layer components {
-  .home-section {
+  :root:not([data-visual-system="app"]) .home-section {
     width: 100%;
     max-width: 80rem;
     margin-inline: auto;
     padding: 4rem 1.25rem;
   }
 
-  .home-eyebrow {
+  :root:not([data-visual-system="app"]) .home-eyebrow {
     color: var(--brand-strong);
     font-size: 0.6875rem;
     font-weight: 600;
@@ -15,7 +15,7 @@
     text-transform: uppercase;
   }
 
-  .home-service {
+  :root:not([data-visual-system="app"]) .home-service {
     display: flex;
     flex-direction: column;
     min-width: 0;
@@ -24,13 +24,13 @@
     border-radius: 1.25rem;
   }
 
-  .home-service-active {
+  :root:not([data-visual-system="app"]) .home-service-active {
     border-color: rgb(21 94 239 / 0.2);
     background: #fff;
     box-shadow: 0 8px 32px -24px rgb(11 31 51 / 0.24);
   }
 
-  .home-service-icon {
+  :root:not([data-visual-system="app"]) .home-service-icon {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -41,7 +41,7 @@
     background: var(--brand-soft);
   }
 
-  .home-comparison {
+  :root:not([data-visual-system="app"]) .home-comparison {
     min-width: 0;
     overflow: hidden;
     border: 1px solid rgb(146 161 178 / 0.3);
@@ -50,28 +50,28 @@
     box-shadow: 0 18px 54px -32px rgb(11 31 51 / 0.28);
   }
 
-  .home-comparison-row {
+  :root:not([data-visual-system="app"]) .home-comparison-row {
     --comparison-delay: 140ms;
   }
 
-  .home-comparison-row + .home-comparison-row {
+  :root:not([data-visual-system="app"]) .home-comparison-row + .home-comparison-row {
     --comparison-delay: 240ms;
   }
 
-  .home-comparison-intro {
+  :root:not([data-visual-system="app"]) .home-comparison-intro {
     --comparison-delay: 80ms;
   }
 
-  .home-comparison-note {
+  :root:not([data-visual-system="app"]) .home-comparison-note {
     --comparison-delay: 360ms;
   }
 
   @media (prefers-reduced-motion: no-preference) {
-    .home-comparison[data-scroll-reveal="entering"] :is(.home-comparison-intro, .home-comparison-row, .home-comparison-note) {
+    :root:not([data-visual-system="app"]) .home-comparison[data-scroll-reveal="entering"] :is(.home-comparison-intro, .home-comparison-row, .home-comparison-note) {
       animation: home-comparison-open 520ms cubic-bezier(.2, .7, .2, 1) var(--comparison-delay) backwards;
     }
 
-    .home-comparison[data-scroll-reveal="entering"] .home-comparison-bar {
+    :root:not([data-visual-system="app"]) .home-comparison[data-scroll-reveal="entering"] .home-comparison-bar {
       transform-origin: left center;
       animation: home-comparison-bar-open 520ms cubic-bezier(.2, .7, .2, 1) calc(var(--comparison-delay) + 100ms) backwards;
     }
@@ -87,30 +87,30 @@
     to { transform: scaleX(1); }
   }
 
-  .home-faq summary::-webkit-details-marker {
+  :root:not([data-visual-system="app"]) .home-faq summary::-webkit-details-marker {
     display: none;
   }
 
-  .home-faq details[open] summary {
+  :root:not([data-visual-system="app"]) .home-faq details[open] summary {
     color: var(--brand-strong);
   }
 
   @media (min-width: 640px) {
-    .home-section {
+    :root:not([data-visual-system="app"]) .home-section {
       padding: 5rem 2rem;
     }
 
-    .home-service {
+    :root:not([data-visual-system="app"]) .home-service {
       padding: 2rem;
     }
   }
 
   @media (min-width: 1024px) {
-    .home-section {
+    :root:not([data-visual-system="app"]) .home-section {
       padding: 6rem 2.5rem;
     }
 
-    .home-service {
+    :root:not([data-visual-system="app"]) .home-service {
       padding: 2.5rem;
     }
   }

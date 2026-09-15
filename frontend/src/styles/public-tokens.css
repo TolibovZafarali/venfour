@@ -1,0 +1,41 @@
+/* Public presentation is the default before the document boundary mounts. */
+:root {
+  --background: #ffffff;
+  --foreground: #0b1f33;
+  --card: #ffffff;
+  --card-foreground: #0b1f33;
+  --popover: #ffffff;
+  --popover-foreground: #0b1f33;
+  --primary: var(--brand-blue);
+  --primary-foreground: #ffffff;
+  --secondary: #eef4ff;
+  --secondary-foreground: #004eeb;
+  --muted: #f1f4f7;
+  --muted-foreground: #506277;
+  --accent: #eef4ff;
+  --accent-foreground: #004eeb;
+  --destructive: oklch(0.577 0.245 27.325);
+  --brand: var(--brand-blue);
+  --brand-strong: var(--brand-blue-strong);
+  --brand-soft: #eef4ff;
+  --brand-subtle: #d9e5ff;
+  --ink: #0b1f33;
+  --copy: #506277;
+  --surface: #f5f7fa;
+  --canvas: #f3f6f9;
+  --line: #d9e1e8;
+  --line-strong: #92a1b2;
+  --market: #19816b;
+  --market-strong: #0e6655;
+  --market-soft: #eaf7f2;
+  --market-light: #65d5b4;
+  --amber: #d18a23;
+  --amber-strong: #8a4b08;
+  --amber-soft: #fff5e5;
+  --evidence: #0b1f33;
+  --report-canvas: #f5f7fa;
+  --border: #d9e1e8;
+  --input: #8291a3;
+  --ring: var(--brand-blue);
+  --radius: 0.625rem;
+}

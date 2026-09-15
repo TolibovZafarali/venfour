@@ -1042,7 +1042,7 @@ describe("Venfour application", () => {
     expect(searchParams.get("service")).toBe("total-loss");
     expect(searchParams.get("campaign")).toBe("renewal");
     expect(
-      screen.getByRole("heading", { name: "Start your Total Loss review" }),
+      await screen.findByRole("heading", { name: "Start your Total Loss review" }),
     ).toBeVisible();
     expect(
       screen.queryByRole("heading", { name: "Upload your insurance value report" }),

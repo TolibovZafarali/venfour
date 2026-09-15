@@ -1,3 +1,5 @@
+import { applyVisualSystem } from "@/app/visual-system";
+applyVisualSystem(location.pathname);
 import { createRoot } from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createBrowserRouter, RouterProvider, Navigate, Outlet, Link } from 'react-router';

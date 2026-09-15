@@ -1,0 +1,68 @@
+[
+  {
+    "page": "before-public-contact-1440.png",
+    "shape": [
+      1413,
+      1440,
+      3
+    ],
+    "max_channel_delta": 2,
+    "changed_pixels": 294347,
+    "mean_channel_delta": 0.05298992818012634
+  },
+  {
+    "page": "before-public-terms-1440.png",
+    "shape": [
+      2430,
+      1440,
+      3
+    ],
+    "max_channel_delta": 4,
+    "changed_pixels": 602844,
+    "mean_channel_delta": 0.06507744627343393
+  },
+  {
+    "page": "before-public-home-390.png",
+    "shape": [
+      5157,
+      390,
+      3
+    ],
+    "max_channel_delta": 0,
+    "changed_pixels": 0,
+    "mean_channel_delta": 0.0
+  },
+  {
+    "page": "before-public-terms-390.png",
+    "shape": [
+      3505,
+      390,
+      3
+    ],
+    "max_channel_delta": 0,
+    "changed_pixels": 0,
+    "mean_channel_delta": 0.0
+  },
+  {
+    "page": "before-public-contact-390.png",
+    "shape": [
+      1739,
+      390,
+      3
+    ],
+    "max_channel_delta": 0,
+    "changed_pixels": 0,
+    "mean_channel_delta": 0.0
+  },
+  {
+    "page": "before-public-home-1440.png",
+    "shape": [
+      4165,
+      1440,
+      3
+    ],
+    "max_channel_delta": 0,
+    "changed_pixels": 0,
+    "mean_channel_delta": 0.0
+  }
+]

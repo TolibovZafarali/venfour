@@ -62,11 +62,25 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
+  document.documentElement.removeAttribute("data-visual-system");
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
 });
 
 describe("blue action hover", () => {
+  it("disables decorative hover in app documents and resumes on public navigation", async () => {
+    const button = blueButton();
+    document.documentElement.dataset.visualSystem = "app";
+    point(button);
+    expect(load).not.toHaveBeenCalled();
+    document.documentElement.dataset.visualSystem = "public";
+    point(button);
+    await ready();
+    expect(button.querySelector("canvas")).not.toBeNull();
+    document.documentElement.dataset.visualSystem = "app";
+    advance();
+    expect(button.querySelector("[data-blue-button-fluid]")).toBeNull();
+  });
   it("loads the simulation only on eligible pointer hover and leaves actions immediate", async () => {
     const submit = vi.fn((event: React.FormEvent) => event.preventDefault());
     render(<form onSubmit={submit}><Button style={{ backgroundColor: "#155eef" }} type="submit">Continue</Button></form>);

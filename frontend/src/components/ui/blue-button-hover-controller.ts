@@ -60,7 +60,7 @@ export function installBlueButtonHover({ loadRenderer = () => import("./blue-but
     leavingAt: number | null;
   } | null = null;
 
-  const allowed = () => !motion.matches && finePointer.matches && document.visibilityState !== "hidden";
+  const allowed = () => document.documentElement.dataset.visualSystem !== "app" && !motion.matches && finePointer.matches && document.visibilityState !== "hidden";
   const stop = () => {
     if (animationFrame) cancelAnimationFrame(animationFrame);
     animationFrame = 0;

@@ -4,7 +4,10 @@ import { createRoot } from "react-dom/client";
 import { AppProvider } from "@/app/app-provider";
 import { createAppQueryClient } from "@/app/query-client";
 import { createAppRouter } from "@/app/router";
+import { applyVisualSystem } from "@/app/visual-system";
 import "@/styles/index.css";
+
+applyVisualSystem(window.location.pathname);
 
 const rootElement = document.getElementById("root");
 

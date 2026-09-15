@@ -5,6 +5,7 @@ import { RouterProvider } from "react-router";
 import type { RouterProviderProps } from "react-router";
 
 import { BlueButtonHover } from "@/components/ui/blue-button-hover";
+import { VisualSystemProvider } from "@/app/visual-system-provider";
 import { publicSiteOnly } from "@/config/public-site";
 import { clearAutomaticSubmissionRequests } from "@/features/analyses/case-analysis-queries";
 
@@ -189,6 +190,7 @@ export function AppProvider({
 
   return (
     <QueryClientProvider client={queryClient}>
+      <VisualSystemProvider router={router} />
       <BlueButtonHover />
       <AuthProvider
         service={authService}

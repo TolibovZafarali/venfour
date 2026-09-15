@@ -1,0 +1,28 @@
+[
+  {
+    "width": 1440,
+    "url": "http://127.0.0.1:4186/start?service=total-loss&newCaseId=1b9aa331-7d6a-4174-813e-c8b226dcd63f",
+    "system": "app",
+    "heading": "Start your Total Loss review",
+    "headings": [
+      "2024 Hyundai Elantra SEL"
+    ],
+    "text": "Skip to content\nVenfour\nJordan\nChoose an appraisal service\nTotal Loss\nDiminished Value\n\nTOTAL LOSS VALUATION\n\nStart your Total Loss review\n\nUpload your insurer’s valuation report from any provider, or continue without one. Venfour will gather the facts needed for independent market research and a truthful evidence review.\n\nILLUSTRATIVE EXAMPLE\n\n2024 Hyundai Elantra SEL\nInsurer valuation\n$19,050\nLocal market evidence\n$20,480\nPotential value gap\n+$1,430\n\n12 comparable vehicles · within 87 miles\n\nInsurer valuation\n$19,050\nMarket evidence\n$20,480\n\nA Total Loss review compares the insurer’s stated valuation with relevant market evidence when that value is available. Report-specific findings depend on the evidence supplied.\n\nDo you have your insurance valuation report?\nI have my valuation report\nUpload the valuation report your insurance company used, regardless of provider.\nSelect\nI don’t have the report\nEnter the vehicle and claim details needed for an independent market review.\nSelect\nContinue\nLocal preview · Fictional data\nAll states",
+    "body": "rgb(255, 255, 255)",
+    "overflow": false,
+    "gradients": 0
+  },
+  {
+    "width": 390,
+    "url": "http://127.0.0.1:4186/start?service=total-loss&newCaseId=6d67910f-8585-4445-82ca-81e01e83356c&view=intake",
+    "system": "app",
+    "heading": "Start your Total Loss review",
+    "headings": [
+      "2024 Hyundai Elantra SEL"
+    ],
+    "text": "Skip to content\nVenfour\nJordan\nBack to services\nDo you have your insurance valuation report?\nI have my valuation report\nUpload the valuation report your insurance company used, regardless of provider.\nSelect\nI don’t have the report\nEnter the vehicle and claim details needed for an independent market review.\nSelect\nContinue\nLocal preview · Fictional data\nAll states",
+    "body": "rgb(255, 255, 255)",
+    "overflow": false,
+    "gradients": 0
+  }
+]

@@ -243,10 +243,10 @@ export function IntakeDatePicker({
           </button>
         </Popover.Trigger>
         <Popover.Portal>
-          <Popover.Content
+          <Popover.Content data-product-overlay
             align="start"
             sideOffset={8}
-            className="z-50 w-[min(21rem,calc(100vw-2rem))] rounded-xl border border-line bg-white p-4 shadow-[0_24px_70px_-30px_rgba(11,31,51,0.45)] outline-none"
+            className="z-50 w-[min(21rem,calc(100vw-2rem))] rounded-xl border border-line bg-white p-4 shadow-sm outline-none"
           >
             <div className="flex items-center justify-between gap-2">
               <button
@@ -687,7 +687,7 @@ export function FlowCard({ children, className, busy }: FlowCardProps) {
   return (
     <section
       className={cn(
-        "rounded-2xl border border-line bg-white p-5 shadow-[0_22px_64px_-48px_rgba(11,31,51,0.42)] sm:p-7 lg:p-8",
+        "rounded-2xl border border-line bg-white p-5 shadow-sm sm:p-7 lg:p-8",
         className,
       )}
       aria-busy={busy || undefined}
@@ -758,7 +758,7 @@ export function IntakeProgress({
                 "intake-progress-segment absolute inset-y-0 min-w-0 rounded-xl border",
                 completed && "border-brand bg-brand",
                 active &&
-                  "border-brand bg-brand shadow-[0_8px_24px_-18px_rgba(21,94,239,0.8)]",
+                  "border-brand bg-brand shadow-sm",
                 step > current && "border-line bg-surface/75",
                 !visible && "pointer-events-none opacity-0",
               )}

@@ -180,18 +180,18 @@ export function EmbeddedPayment({
           appearance: {
             theme: "stripe",
             variables: {
-              colorPrimary: "#155eef", colorText: "#0b1f33", colorTextSecondary: "#62676d",
+              colorPrimary: "#191919", colorText: "#1a1a1a", colorTextSecondary: "#626262",
               colorDanger: "#b91c1c", colorBackground: "#ffffff", borderRadius: "4px",
               fontFamily: "-apple-system, BlinkMacSystemFont, Segoe UI, system-ui, sans-serif",
               fontSizeBase: "16px", fontSizeSm: "13px", spacingUnit: "4px", gridRowSpacing: "20px",
             },
             rules: {
-              ".Input": { border: "1px solid #bfc4c5", boxShadow: "none", padding: "12px" },
+              ".Input": { border: "1px solid #bfbfbf", boxShadow: "none", padding: "12px" },
               ".Input:focus": { borderColor: "#155eef", boxShadow: "0 0 0 1px #155eef" },
               ".Input--invalid": { borderColor: "#b91c1c" },
               ".Input--invalid:focus": { borderColor: "#b91c1c", boxShadow: "0 0 0 1px #b91c1c" },
-              ".Label": { marginBottom: "8px", color: "#62676d", fontWeight: "400" },
-              ".Block": { borderColor: "#dddedb", boxShadow: "none", borderRadius: "4px" },
+              ".Label": { marginBottom: "8px", color: "#626262", fontWeight: "400" },
+              ".Block": { borderColor: "#dedede", boxShadow: "none", borderRadius: "4px" },
             },
           },
         },

@@ -1,0 +1,61 @@
+/* The document boundary includes body-mounted dialogs, menus and status portals. */
+:root[data-visual-system="app"] {
+  color-scheme: light;
+
+  ::selection { background: #e5e5e5; color: #171717; }
+
+  .header-glass,
+  [data-customer-workspace] .header-glass {
+    background: #ffffff;
+    border-bottom: 1px solid var(--line);
+    border-radius: 0;
+    box-shadow: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  .appraisal-start-gradient,
+  .appraisal-start-flow-panel { background: #ffffff; }
+  .appraisal-start-intro-panel { background: #ffffff; }
+  .appraisal-start-intro-panel::after {
+    background: var(--line);
+    box-shadow: none;
+  }
+  @media (min-width: 64rem) {
+    .appraisal-start-intro-panel { border-right: 1px solid var(--line); }
+  }
+
+  :is([data-product-overlay], [aria-labelledby="cookie-consent-title"]) {
+    background: #ffffff;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    box-shadow: 0 4px 20px rgb(0 0 0 / 0.08);
+    backdrop-filter: none;
+  }
+
+  [data-slot="button"] { border-radius: 4px; }
+  [data-slot="button"][data-variant="link"] { color: var(--link); }
+  [data-slot="button"][data-variant="destructive"] { background: var(--surface); }
+  [data-slot="button"][data-variant="destructive"]:hover { background: #eeeeee; }
+  [data-slot="button"]:active { transform: none; }
+  [data-blue-button-fluid] { display: none; }
+
+  @media (prefers-reduced-motion: reduce) { scroll-behavior: auto; }
+}
+
+@layer components {
+  :root[data-visual-system="app"] {
+    /* Restore a visible keyboard indicator above legacy shared focus suppression. */
+    :where(a[href], button, summary, input, select, textarea, [tabindex]:not([tabindex="-1"]), [role="button"], [role="menuitem"], [role="option"], [role="switch"], [role="tab"]):focus-visible {
+      outline: 2px solid var(--ring) !important;
+      outline-offset: 3px !important;
+      filter: none;
+    }
+    :where(label:has(input[type="checkbox"]:focus-visible), label:has(input[type="radio"]:focus-visible), label:has(input[type="file"]:focus-visible)),
+    .peer[type="file"]:focus-visible ~ * {
+      outline: 2px solid var(--ring) !important;
+      outline-offset: 3px !important;
+    }
+
+  }
+}

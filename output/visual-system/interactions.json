@@ -1,0 +1,138 @@
+[
+  {
+    "width": 1440,
+    "name": "cookie-switch",
+    "tag": "BUTTON",
+    "role": "switch",
+    "label": "Allow analytics",
+    "focusVisible": true,
+    "outline": "oklab(0.53672 -0.0311147 -0.226465 / 0.58736) solid 2px",
+    "boxShadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px",
+    "border": "0px solid rgb(229, 229, 229)",
+    "color": "rgb(23, 23, 23)",
+    "background": "rgb(115, 115, 115)"
+  },
+  {
+    "width": 1440,
+    "name": "cookie-switch-space",
+    "before": "false",
+    "after": "true"
+  },
+  {
+    "width": 1440,
+    "name": "upload-action",
+    "tag": "BUTTON",
+    "role": null,
+    "label": null,
+    "focusVisible": true,
+    "outline": "rgb(21, 94, 239) solid 2px",
+    "boxShadow": "none",
+    "border": "1px solid rgba(0, 0, 0, 0)",
+    "color": "rgb(255, 255, 255)",
+    "background": "rgb(23, 23, 23)"
+  },
+  {
+    "width": 1440,
+    "name": "report-file",
+    "tag": "INPUT",
+    "role": null,
+    "label": "Choose the complete valuation PDF",
+    "focusVisible": true,
+    "outline": "rgb(21, 94, 239) solid 2px",
+    "boxShadow": "none",
+    "border": "0px solid rgb(229, 229, 229)",
+    "color": "rgb(23, 23, 23)",
+    "background": "rgba(0, 0, 0, 0)"
+  },
+  {
+    "width": 1440,
+    "name": "file-label-focus",
+    "label": {
+      "outline": "rgb(21, 94, 239) solid 2px",
+      "shadow": "none",
+      "focusWithin": true,
+      "html": "<label for=\"full-review-report\" class=\"workspace-upload\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-upload\" aria-hidden=\"true\"><path d=\"M12 3"
+    }
+  },
+  {
+    "width": 1440,
+    "name": "checkout-field",
+    "tag": "INPUT",
+    "role": null,
+    "label": null,
+    "focusVisible": true,
+    "outline": "rgb(21, 94, 239) solid 2px",
+    "boxShadow": "none",
+    "border": "1px solid rgb(23, 23, 23)",
+    "color": "rgb(23, 23, 23)",
+    "background": "rgb(255, 255, 255)"
+  },
+  {
+    "width": 390,
+    "name": "cookie-switch",
+    "tag": "BUTTON",
+    "role": "switch",
+    "label": "Allow analytics",
+    "focusVisible": true,
+    "outline": "oklab(0.53672 -0.0311147 -0.226465 / 0.516252) solid 2px",
+    "boxShadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px",
+    "border": "0px solid rgb(229, 229, 229)",
+    "color": "rgb(23, 23, 23)",
+    "background": "rgb(115, 115, 115)"
+  },
+  {
+    "width": 390,
+    "name": "cookie-switch-space",
+    "before": "false",
+    "after": "true"
+  },
+  {
+    "width": 390,
+    "name": "upload-action",
+    "tag": "BUTTON",
+    "role": null,
+    "label": null,
+    "focusVisible": true,
+    "outline": "rgb(21, 94, 239) solid 2px",
+    "boxShadow": "none",
+    "border": "1px solid rgba(0, 0, 0, 0)",
+    "color": "rgb(255, 255, 255)",
+    "background": "rgb(23, 23, 23)"
+  },
+  {
+    "width": 390,
+    "name": "report-file",
+    "tag": "INPUT",
+    "role": null,
+    "label": "Choose the complete valuation PDF",
+    "focusVisible": true,
+    "outline": "rgb(21, 94, 239) solid 2px",
+    "boxShadow": "none",
+    "border": "0px solid rgb(229, 229, 229)",
+    "color": "rgb(23, 23, 23)",
+    "background": "rgba(0, 0, 0, 0)"
+  },
+  {
+    "width": 390,
+    "name": "file-label-focus",
+    "label": {
+      "outline": "rgb(21, 94, 239) solid 2px",
+      "shadow": "none",
+      "focusWithin": true,
+      "html": "<label for=\"full-review-report\" class=\"workspace-upload\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-upload\" aria-hidden=\"true\"><path d=\"M12 3"
+    }
+  },
+  {
+    "width": 390,
+    "name": "checkout-field",
+    "tag": "INPUT",
+    "role": null,
+    "label": null,
+    "focusVisible": true,
+    "outline": "rgb(21, 94, 239) solid 2px",
+    "boxShadow": "none",
+    "border": "1px solid rgb(23, 23, 23)",
+    "color": "rgb(23, 23, 23)",
+    "background": "rgb(255, 255, 255)"
+  }
+]

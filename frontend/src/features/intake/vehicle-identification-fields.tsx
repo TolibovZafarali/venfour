@@ -134,7 +134,7 @@ export function VehicleIdentificationFields({
               className={cn(
                 "flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-lg border px-2 text-center text-sm font-semibold transition-[background-color,border-color,box-shadow,color,transform] duration-300 ease-out focus-within:ring-2 focus-within:ring-brand focus-within:ring-offset-1 active:scale-[0.99] motion-reduce:transition-none sm:px-3",
                 entryMethod === method
-                  ? "border-transparent bg-white text-brand shadow-[0_8px_22px_-18px_rgba(21,94,239,0.9)]"
+                  ? "border-transparent bg-white text-brand shadow-sm"
                   : "border-transparent text-copy hover:border-line hover:bg-white/60 hover:text-ink",
                 methodDisabled && "cursor-not-allowed opacity-65",
               )}
@@ -474,7 +474,7 @@ function VinEntryField({
           aria-invalid={errorMessage ? true : undefined}
           aria-describedby={statusId}
           className={cn(
-            "min-h-14 w-full rounded-xl border bg-white py-3 pl-12 pr-4 font-mono text-base font-semibold uppercase tracking-[0.09em] text-ink shadow-[0_12px_30px_-24px_rgba(11,31,51,0.5)] transition-[border-color,box-shadow,background-color] placeholder:font-normal placeholder:tracking-[0.04em] placeholder:text-copy/40 hover:border-line-strong focus-visible:border-brand focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand/10 disabled:cursor-wait motion-reduce:transition-none sm:text-lg sm:tracking-[0.12em]",
+            "min-h-14 w-full rounded-xl border bg-white py-3 pl-12 pr-4 font-mono text-base font-semibold uppercase tracking-[0.09em] text-ink shadow-sm transition-[border-color,box-shadow,background-color] placeholder:font-normal placeholder:tracking-[0.04em] placeholder:text-copy/40 hover:border-line-strong focus-visible:border-brand focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand/10 disabled:cursor-wait motion-reduce:transition-none sm:text-lg sm:tracking-[0.12em]",
             visualState === "loading" &&
               "border-brand/45 bg-brand-soft/25 pr-12",
             visualState === "success" &&

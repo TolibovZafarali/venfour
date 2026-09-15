@@ -31,7 +31,7 @@ html:has([data-free-valuation-processing]:not([data-exiting])) { overflow: hidde
 .free-valuation-processing__brand { display: inline-flex; align-items: center; gap: 9px; min-height: 44px; flex-shrink: 0; }
 .free-valuation-processing__brand img { width: 28px; height: 28px; }
 .free-valuation-processing__brand span { font-size: 20px; line-height: 1; font-weight: 600; letter-spacing: -.035em; }
-.free-valuation-processing__brand:focus-visible, .free-valuation-processing__retry:focus-visible, .free-valuation-processing__development button:focus-visible { outline: 2px solid var(--brand); outline-offset: 5px; border-radius: 4px; }
+.free-valuation-processing__brand:focus-visible, .free-valuation-processing__retry:focus-visible, .free-valuation-processing__development button:focus-visible { outline: 2px solid var(--ring); outline-offset: 5px; border-radius: 4px; }
 .free-valuation-processing__development { display: flex; align-items: center; gap: 18px; font-size: 10px; line-height: 1.5; color: var(--copy); }
 .free-valuation-processing__development button { min-height: 44px; color: var(--brand); cursor: pointer; text-decoration: underline; text-decoration-color: var(--brand-subtle); text-underline-offset: 4px; }
 .free-valuation-processing__development button:hover { color: var(--brand-strong); text-decoration-color: currentColor; }

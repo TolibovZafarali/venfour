@@ -24,7 +24,7 @@ type Signal = SignalMotion & {
   color: string;
 };
 
-const SIGNAL_COLORS = ["64, 108, 123", "82, 118, 128", "97, 123, 132", "60, 119, 118"];
+const SIGNAL_COLORS = ["96, 96, 96", "112, 112, 112", "128, 128, 128", "80, 80, 80"];
 const TAU = Math.PI * 2;
 
 function createSignals(count: number): Signal[] {

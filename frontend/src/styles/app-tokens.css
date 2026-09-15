@@ -1,0 +1,55 @@
+/* Workspace surfaces use white or equal-channel grayscale. Accent is functional. */
+:root[data-visual-system="app"] {
+  --background: #ffffff;
+  --foreground: #171717;
+  --card: #ffffff;
+  --card-foreground: #171717;
+  --popover: #ffffff;
+  --popover-foreground: #171717;
+  --primary: #171717;
+  --primary-foreground: #ffffff;
+  --secondary: #f5f5f5;
+  --secondary-foreground: #262626;
+  --muted: #f5f5f5;
+  --muted-foreground: #525252;
+  --accent: #f5f5f5;
+  --accent-foreground: #171717;
+  --destructive: #b91c1c;
+  --brand: #171717;
+  --brand-strong: #000000;
+  --brand-soft: #f5f5f5;
+  --brand-subtle: #e5e5e5;
+  --ink: #171717;
+  --copy: #525252;
+  --surface: #f5f5f5;
+  --canvas: #ffffff;
+  --line: #e5e5e5;
+  --line-strong: #737373;
+  --market: #404040;
+  --market-strong: #262626;
+  --market-soft: #f5f5f5;
+  --market-light: #a3a3a3;
+  --amber: #737373;
+  --amber-strong: #404040;
+  --amber-soft: #f5f5f5;
+  --evidence: #171717;
+  --report-canvas: #ffffff;
+  --border: #e5e5e5;
+  --input: #737373;
+  --ring: var(--brand-blue);
+  --link: var(--brand-blue-strong);
+  --selection: var(--brand-blue);
+  --radius: 0.375rem;
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.04);
+  --shadow-md: 0 2px 8px rgb(0 0 0 / 0.06);
+  --shadow-lg: 0 4px 16px rgb(0 0 0 / 0.08);
+  --shadow-xl: 0 6px 24px rgb(0 0 0 / 0.1);
+  --shadow-2xl: 0 8px 32px rgb(0 0 0 / 0.12);
+  /* Legacy validation panels retain their status text with neutral surfaces. */
+  --color-red-50: #f5f5f5;
+  --color-red-100: #eeeeee;
+  --color-red-200: #d4d4d4;
+  --color-amber-50: #f5f5f5;
+  --color-amber-100: #eeeeee;
+  --color-amber-200: #d4d4d4;
+}

@@ -25,7 +25,7 @@ export function ClaimWorkflowCard({
   return (
     <div
       className={cn(
-        "claim-workflow-card rounded-[1.75rem] border border-line/80 bg-white p-6 shadow-[0_32px_90px_-56px_rgba(11,31,51,0.55)] sm:p-8 lg:p-10",
+        "claim-workflow-card rounded-xl border border-line/80 bg-white p-6 shadow-sm sm:p-8 lg:p-10",
         className,
       )}
     >

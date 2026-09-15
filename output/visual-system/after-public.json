@@ -1,0 +1,80 @@
+[
+  {
+    "name": "home",
+    "width": 1440,
+    "title": "Vehicle Valuation Reviews After an Accident | Venfour",
+    "errors": [],
+    "metrics": {
+      "body": "rgb(255, 255, 255)",
+      "height": 4165,
+      "width": 1440,
+      "text": "Skip to content\nVenfour\nTotal Loss\nDiminished Value\nHow It Works\nSign In\nGet Started\nYour Vehicle’s Value,\nMade Clear.\n\nUnderstand your total-loss valuation, see how it compares wi",
+      "gradients": 6
+    }
+  },
+  {
+    "name": "contact",
+    "width": 1440,
+    "title": "Contact Venfour",
+    "errors": [],
+    "metrics": {
+      "body": "rgb(255, 255, 255)",
+      "height": 1413,
+      "width": 1440,
+      "text": "Skip to content\nVenfour\nTotal Loss\nDiminished Value\nHow It Works\nSign In\nGet Started\n\nCONTACT\n\nQuestions about Venfour\n\nUse this page for help with a Total Loss review, a diminishe",
+      "gradients": 3
+    }
+  },
+  {
+    "name": "terms",
+    "width": 1440,
+    "title": "Terms of Use | Venfour",
+    "errors": [],
+    "metrics": {
+      "body": "rgb(255, 255, 255)",
+      "height": 2430,
+      "width": 1440,
+      "text": "Skip to content\nVenfour\nTotal Loss\nDiminished Value\nHow It Works\nSign In\nGet Started\n\nTERMS OF USE\n\nTerms for using Venfour\n\nThese terms describe Venfour’s current supported total-",
+      "gradients": 3
+    }
+  },
+  {
+    "name": "home",
+    "width": 390,
+    "title": "Vehicle Valuation Reviews After an Accident | Venfour",
+    "errors": [],
+    "metrics": {
+      "body": "rgb(255, 255, 255)",
+      "height": 5157,
+      "width": 390,
+      "text": "Skip to content\nVenfour\nGet Started\nYour Vehicle’s Value,\nMade Clear.\n\nUnderstand your total-loss valuation, see how it compares with the market, and know what to discuss with your",
+      "gradients": 6
+    }
+  },
+  {
+    "name": "contact",
+    "width": 390,
+    "title": "Contact Venfour",
+    "errors": [],
+    "metrics": {
+      "body": "rgb(255, 255, 255)",
+      "height": 1739,
+      "width": 390,
+      "text": "Skip to content\nVenfour\nGet Started\n\nCONTACT\n\nQuestions about Venfour\n\nUse this page for help with a Total Loss review, a diminished-value request, or Venfour’s handling of your in",
+      "gradients": 3
+    }
+  },
+  {
+    "name": "terms",
+    "width": 390,
+    "title": "Terms of Use | Venfour",
+    "errors": [],
+    "metrics": {
+      "body": "rgb(255, 255, 255)",
+      "height": 3505,
+      "width": 390,
+      "text": "Skip to content\nVenfour\nGet Started\n\nTERMS OF USE\n\nTerms for using Venfour\n\nThese terms describe Venfour’s current supported total-loss review and the present availability of its d",
+      "gradients": 3
+    }
+  }
+]

@@ -19,7 +19,7 @@ html:has([data-completed-review]) { scrollbar-gutter: stable; }
 .completed-analysis .review-action-reserve { visibility: hidden; }
 .completed-analysis .review-action-icon { display: grid; place-items: center; flex: 0 0 1rem; }
 .completed-analysis :is(.review-primary, .review-back) { transition: background-color 180ms, color 180ms, box-shadow 180ms; }
-.completed-analysis .review-primary:active:not(:disabled) { box-shadow: inset 0 2px 5px rgb(0 20 70 / 16%); }
+.completed-analysis .review-primary:active:not(:disabled) { box-shadow: inset 0 2px 5px rgb(19 19 19 / 16%); }
 
 @media (prefers-reduced-motion: reduce) {
   :is(.completed-analysis, .completed-review-progress-host) .review-progress-fill { transition: none; }

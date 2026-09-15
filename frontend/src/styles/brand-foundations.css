@@ -1,0 +1,8 @@
+/* The logo assets and these brand foundations are shared by both sites. */
+:root {
+  --brand-blue: #155eef;
+  --brand-blue-strong: #004eeb;
+  --brand-font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+  --brand-font-hero: "Söhne", "Sohne", -apple-system, BlinkMacSystemFont, "Helvetica Neue", "Segoe UI", system-ui, sans-serif;
+  --brand-font-wordmark: "Avenir Next", "Century Gothic", "Trebuchet MS", sans-serif;
+}

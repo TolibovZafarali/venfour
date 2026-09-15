@@ -406,7 +406,7 @@ function SavedAnalysisResult({
             <Button
               type="button"
               size="lg"
-              className="report-action-focus mt-6 min-h-13 w-full gap-3 rounded-xl bg-brand px-7 text-base font-semibold text-white shadow-[0_8px_20px_-10px_rgba(21,94,239,0.55)] hover:bg-brand-strong sm:w-auto sm:min-w-72"
+              className="report-action-focus mt-6 min-h-13 w-full gap-3 rounded-xl bg-brand px-7 text-base font-semibold text-white shadow-sm hover:bg-brand-strong sm:w-auto sm:min-w-72"
               data-future-next-step
             >
               Continue my review

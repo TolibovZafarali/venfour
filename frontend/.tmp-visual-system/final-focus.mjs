@@ -1,0 +1,13 @@
+import {chromium} from '/Users/zafaralitolibov/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright/index.mjs';
+import fs from 'node:fs/promises';
+const browser=await chromium.launch({headless:true,channel:'chrome'});const results=[];
+for(const width of [1440,390])for(const reducedMotion of ['reduce','no-preference']){
+ const context=await browser.newContext({viewport:{width,height:width===1440?900:844},reducedMotion});await context.route('**/*',r=>new URL(r.request().url()).hostname==='127.0.0.1'?r.continue():r.abort());const page=await context.newPage();
+ await page.goto('http://127.0.0.1:4179/admin/referral-partners/00061003-7000-4000-8000-000000000001',{waitUntil:'networkidle'});await page.waitForTimeout(350);
+ const cb=page.locator('input[type=checkbox]').first();await cb.focus();await page.keyboard.press('Space');const box=await cb.evaluate(e=>{const s=getComputedStyle(e),l=getComputedStyle(e.closest('label'));return{checked:e.checked,focusVisible:e.matches(':focus-visible'),outline:s.outline,labelOutline:l.outline}});await cb.screenshot({path:`output/visual-system/checkbox-${width}-${reducedMotion}.png`});
+ await page.goto('http://127.0.0.1:4186/_local/workspace?state=completed',{waitUntil:'networkidle'});await page.waitForTimeout(400);const accept=page.getByRole('button',{name:'Accept All',exact:true});if(await accept.isVisible())await accept.click();
+ const completed=await page.evaluate(()=>({focused:document.activeElement?.tagName,outline:getComputedStyle(document.querySelector('.completed-review')||document.querySelector('main')).outline,overflow:document.documentElement.scrollWidth>innerWidth,background:getComputedStyle(document.body).backgroundColor,animations:document.getAnimations().filter(a=>a.playState==='running').map(a=>({target:a.effect?.target?.className,duration:a.effect?.getTiming().duration}))}));
+ if(reducedMotion==='no-preference')await page.screenshot({path:`output/visual-system/after-app-completed-normal-${width}.png`,fullPage:true,animations:'disabled'});
+ await page.goto('http://127.0.0.1:4186/_local/workspace?state=processing',{waitUntil:'networkidle'});await page.waitForTimeout(400);const processing=await page.evaluate(()=>({overflow:document.documentElement.scrollWidth>innerWidth,animations:document.getAnimations().filter(a=>a.playState==='running').map(a=>({target:a.effect?.target?.className,duration:a.effect?.getTiming().duration}))}));results.push({width,reducedMotion,box,completed,processing});console.log(JSON.stringify(results.at(-1)));await context.close();
+}
+await fs.writeFile('output/visual-system/final-focus.json',JSON.stringify(results,null,2));await browser.close();

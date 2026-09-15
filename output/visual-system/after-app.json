@@ -1,0 +1,1306 @@
+[
+  {
+    "name": "free",
+    "width": 1440,
+    "url": "http://127.0.0.1:4186/total-loss/cases/33333333-3333-4333-8333-333333333333/analysis",
+    "errors": [],
+    "metrics": {
+      "visualSystem": "app",
+      "body": "rgb(255, 255, 255)",
+      "scrollWidth": 1425,
+      "viewport": 1440,
+      "gradients": [],
+      "tinted": [],
+      "colors": {
+        "rgb(255, 255, 255)": 3,
+        "rgb(23, 23, 23)": 2
+      },
+      "surface": [
+        {
+          "tag": "BODY",
+          "cls": "",
+          "text": "Skip to contentVenfourJordan2026 Hyundai Kona SETotal-loss reviewAnalysis c",
+          "background": "rgb(255, 255, 255)",
+          "width": 1425,
+          "height": 900
+        },
+        {
+          "tag": "DIV",
+          "cls": "relative flex min-h-svh flex-col bg-background",
+          "text": "Skip to contentVenfourJordan2026 Hyundai Kona SETotal-loss reviewAnalysis c",
+          "background": "rgb(255, 255, 255)",
+          "width": 1425,
+          "height": 900
+        }
+      ],
+      "headings": [
+        "Your preliminary value range.",
+        "Preliminary estimated range"
+      ],
+      "text": "Skip to content\nVenfour\nJordan\n\n2026 Hyundai Kona SE\n\nTotal-loss review\n\nAnalysis complete. Your preliminary value range.\n\nFree valuation\n\nYour preliminary value range.\nPreliminary estimated range\n\n$23,000\n–\n$25,400\n\n6 independent vehicles · Current asking prices\n\nNot a loss-date valuation.\n\nNext, check your insurer’s valuation and adjustments.\n\nUpload insurer valuation report\n\nNo payment at this step\n\nEvidence details\n\nAsking prices aren’t guaranteed sale prices or settlement amounts.\n\nTerms\nPr"
+    }
+  },
+  {
+    "name": "intake",
+    "width": 1440,
+    "url": "http://127.0.0.1:4186/start?service=total-loss&caseId=33333333-3333-4333-8333-333333333333",
+    "errors": [],
+    "metrics": {
+      "visualSystem": "app",
+      "body": "rgb(255, 255, 255)",
+      "scrollWidth": 1425,
+      "viewport": 1440,
+      "gradients": [],
+      "tinted": [],
+      "colors": {
+        "rgb(255, 255, 255)": 9,
+        "rgb(23, 23, 23)": 4,
+        "oklab(0.970145 0.0000441968 0.0000194311 / 0.75)": 2,
+        "rgb(245, 245, 245)": 1
+      },
+      "surface": [
+        {
+          "tag": "BODY",
+          "cls": "",
+          "text": "Skip to contentVenfourJordan2026 Hyundai Kona SETotal-loss reviewYour saved",
+          "background": "rgb(255, 255, 255)",
+          "width": 1425,
+          "height": 912.125
+        },
+        {
+          "tag": "DIV",
+          "cls": "relative flex min-h-svh flex-col bg-background",
+          "text": "Skip to contentVenfourJordan2026 Hyundai Kona SETotal-loss reviewYour saved",
+          "background": "rgb(255, 255, 255)",
+          "width": 1425,
+          "height": 912.125
+        }
+      ],
+      "headings": [
+        "Your appraisal details",
+        "Tell us about your vehicle"
+      ],
+      "text": "Skip to content\nVenfour\nJordan\n\n2026 Hyundai Kona SE\n\nTotal-loss review\n\nYour saved details\n\nYour appraisal details\nTell us about your vehicle\n\nUse your VIN for the quickest match, or choose your vehicle from the lists.\n\nHow would you like to identify your vehicle?\nUse my VIN\nSelect vehicle details\nYear\nSelect year\n2027\n2026\n2025\n2024\n2023\n2022\n2021\n2020\n2019\n2018\n2017\n2016\n2015\n2014\n2013\n2012\n2011\n2010\n2009\n2008\n2007\n2006\n2005\n2004\n2003\n2002\n2001\n2000\n1999\n1998\n1997\n1996\n1995\n1994\n1993\n1992\n199"
+    }
+  },
+  {
+    "name": "checkout",
+    "width": 1440,
+    "url": "http://127.0.0.1:4186/total-loss/cases/33333333-3333-4333-8333-333333333333/claim/checkout",
+    "errors": [],
+    "metrics": {
+      "visualSystem": "app",
+      "body": "rgb(255, 255, 255)",
+      "scrollWidth": 1425,
+      "viewport": 1440,
+      "gradients": [],
+      "tinted": [],
+      "colors": {
+        "rgb(255, 255, 255)": 13,
+        "rgb(23, 23, 23)": 2
+      },
+      "surface": [
+        {
+          "tag": "BODY",
+          "cls": "",
+          "text": "Skip to contentVenfourJordan2026 Hyundai Kona SETotal-loss reviewSecure che",
+          "background": "rgb(255, 255, 255)",
+          "width": 1425,
+          "height": 1698.03125
+        },
+        {
+          "tag": "DIV",
+          "cls": "relative flex min-h-svh flex-col bg-background",
+          "text": "Skip to contentVenfourJordan2026 Hyundai Kona SETotal-loss reviewSecure che",
+          "background": "rgb(255, 255, 255)",
+          "width": 1425,
+          "height": 1698.03125
+        }
+      ],
+      "headings": [
+        "Complete your purchase",
+        "Your account",
+        "Payment details",
+        "Order summary"
+      ],
+      "text": "Skip to content\nVenfour\nJordan\n\n2026 Hyundai Kona SE\n\nTotal-loss review\n\nSecure checkout\n\nComplete your purchase\n\nAn independent review of your insurer’s vehicle valuation.\n\nYour account\n\npr••••@example.com\nVerified\n\nYour claim is securely tied to this verified account.\n\nPayment details\nCardholder name and billing address\nCardholder name\nCountry\nAddress line 1\nAddress line 2\nCity\nState\nZIP code\nCard details\n\nPayment preview · no transaction\n\nCard number\nExpiration\nSecurity code\n\nTotal due\n$199.0"
+    }
+  },
+  {
+    "name": "completed",
+    "width": 1440,
+    "url": "http://127.0.0.1:4186/total-loss/cases/33333333-3333-4333-8333-333333333333/claim/review/result",
+    "errors": [],
+    "metrics": {
+      "visualSystem": "app",
+      "body": "rgb(255, 255, 255)",
+      "scrollWidth": 1425,
+      "viewport": 1440,
+      "gradients": [],
+      "tinted": [],
+      "colors": {
+        "rgb(255, 255, 255)": 4,
+        "rgb(23, 23, 23)": 7,
+        "rgb(245, 245, 245)": 1,
+        "rgb(115, 115, 115)": 2
+      },
+      "surface": [
+        {
+          "tag": "BODY",
+          "cls": "",
+          "text": "Skip to contentVenfourJordan2026 Hyundai Kona SETotal-loss reviewYour resul",
+          "background": "rgb(255, 255, 255)",
+          "width": 1425,
+          "height": 942.53125
+        },
+        {
+          "tag": "DIV",
+          "cls": "relative flex min-h-svh flex-col bg-background",
+          "text": "Skip to contentVenfourJordan2026 Hyundai Kona SETotal-loss reviewYour resul",
+          "background": "rgb(255, 255, 255)",
+          "width": 1425,
+          "height": 942.53125
+        },
+        {
+          "tag": "DIV",
+          "cls": "value-summary",
+          "text": "Original insurer valuation$18,000Selected advertised-price range$20,000 to ",
+          "background": "rgb(255, 255, 255)",
+          "width": 800,
+          "height": 347.765625
+        }
+      ],
+      "headings": [
+        "Your result",
+        "Material undervalue signal"
+      ],
+      "text": "Skip to content\nVenfour\nJordan\n\n2026 Hyundai Kona SE\n\nTotal-loss review\nCase section\nYour result — current\nInsurer review — complete\nMarket evidence — complete\nWhat it means — complete\nRequest preparation\nWaiting for insurer\nInsurer response\nResponse review\nYour result\nMaterial undervalue signal\n\nThe original insurer valuation appears low compared with the selected market listings.\n\nOriginal insurer valuation\n$18,000\nSelected advertised-price range\n$20,000 to $22,000\nSelected median\n$21,000\nHow "
+    }
+  },
+  {
+    "name": "waiting",
+    "width": 1440,
+    "url": "http://127.0.0.1:4186/total-loss/cases/33333333-3333-4333-8333-333333333333/claim/review/waiting",
+    "errors": [],
+    "metrics": {
+      "visualSystem": "app",
+      "body": "rgb(255, 255, 255)",
+      "scrollWidth": 1425,
+      "viewport": 1440,
+      "gradients": [],
+      "tinted": [],
+      "colors": {
+        "rgb(255, 255, 255)": 4,
+        "rgb(23, 23, 23)": 3,
+        "rgb(245, 245, 245)": 1
+      },
+      "surface": [
+        {
+          "tag": "BODY",
+          "cls": "",
+          "text": "Skip to contentVenfourCase historyJordan2026 Hyundai Kona SETotal-loss revi",
+          "background": "rgb(255, 255, 255)",
+          "width": 1425,
+          "height": 956.1875
+        },
+        {
+          "tag": "DIV",
+          "cls": "relative flex min-h-svh flex-col bg-background",
+          "text": "Skip to contentVenfourCase historyJordan2026 Hyundai Kona SETotal-loss revi",
+          "background": "rgb(255, 255, 255)",
+          "width": 1425,
+          "height": 956.1875
+        }
+      ],
+      "headings": [
+        "Waiting for the insurer’s response",
+        "What happens now"
+      ],
+      "text": "Skip to content\nVenfour\nCase history\nJordan\n\n2026 Hyundai Kona SE\n\nTotal-loss review\nCase section\nYour result — complete\nInsurer review — complete\nMarket evidence — complete\nWhat it means — complete\nInitial request — complete\nWaiting for insurer — current\nInsurer response\nResponse review\n\nFull valuation review\n\nWaiting for the insurer’s response\n\nBased on your confirmation, Venfour recorded that you sent your reconsideration request with the valuation report attached.\n\nRequest recorded: Sep 15, "
+    }
+  },
+  {
+    "name": "processing",
+    "width": 1440,
+    "url": "http://127.0.0.1:4186/total-loss/cases/33333333-3333-4333-8333-333333333333/analysis",
+    "errors": [],
+    "metrics": {
+      "visualSystem": "app",
+      "body": "rgb(255, 255, 255)",
+      "scrollWidth": 1425,
+      "viewport": 1440,
+      "gradients": [],
+      "tinted": [],
+      "colors": {
+        "rgb(255, 255, 255)": 3,
+        "rgb(23, 23, 23)": 1,
+        "rgb(229, 229, 229)": 1
+      },
+      "surface": [
+        {
+          "tag": "BODY",
+          "cls": "",
+          "text": "Skip to contentVenfourJordan2026 Hyundai Kona SETotal-loss reviewYour valua",
+          "background": "rgb(255, 255, 255)",
+          "width": 1425,
+          "height": 900
+        },
+        {
+          "tag": "DIV",
+          "cls": "relative flex min-h-svh flex-col bg-background",
+          "text": "Skip to contentVenfourJordan2026 Hyundai Kona SETotal-loss reviewYour valua",
+          "background": "rgb(255, 255, 255)",
+          "width": 1425,
+          "height": 900
+        }
+      ],
+      "headings": [
+        "Reviewing your vehicle."
+      ],
+      "text": "Skip to content\nVenfour\nJordan\n\n2026 Hyundai Kona SE\n\nTotal-loss review\n\nYour valuation review\n\nReviewing your vehicle.\n\nYour progress is saved. You can safely leave and pick up here later.\n\nTerms\nPrivacy\nLocal preview · Fictional data\nAll states"
+    }
+  },
+  {
+    "name": "case-resume",
+    "width": 1440,
+    "url": "http://127.0.0.1:4186/total-loss/cases/33333333-3333-4333-8333-333333333333/claim/review/result",
+    "errors": [],
+    "metrics": {
+      "visualSystem": "app",
+      "body": "rgb(255, 255, 255)",
+      "scrollWidth": 1425,
+      "viewport": 1440,
+      "gradients": [],
+      "tinted": [],
+      "colors": {
+        "rgb(255, 255, 255)": 4,
+        "rgb(23, 23, 23)": 7,
+        "rgb(245, 245, 245)": 1,
+        "rgb(115, 115, 115)": 2
+      },
+      "surface": [
+        {
+          "tag": "BODY",
+          "cls": "",
+          "text": "Skip to contentVenfourJordan2026 Hyundai Kona SETotal-loss reviewYour resul",
+          "background": "rgb(255, 255, 255)",
+          "width": 1425,
+          "height": 942.53125
+        },
+        {
+          "tag": "DIV",
+          "cls": "relative flex min-h-svh flex-col bg-background",
+          "text": "Skip to contentVenfourJordan2026 Hyundai Kona SETotal-loss reviewYour resul",
+          "background": "rgb(255, 255, 255)",
+          "width": 1425,
+          "height": 942.53125
+        },
+        {
+          "tag": "DIV",
+          "cls": "value-summary",
+          "text": "Original insurer valuation$18,000Selected advertised-price range$20,000 to ",
+          "background": "rgb(255, 255, 255)",
+          "width": 800,
+          "height": 347.765625
+        }
+      ],
+      "headings": [
+        "Your result",
+        "Material undervalue signal"
+      ],
+      "text": "Skip to content\nVenfour\nJordan\n\n2026 Hyundai Kona SE\n\nTotal-loss review\nCase section\nYour result — current\nInsurer review — complete\nMarket evidence — complete\nWhat it means — complete\nRequest preparation\nWaiting for insurer\nInsurer response\nResponse review\nYour result\nMaterial undervalue signal\n\nThe original insurer valuation appears low compared with the selected market listings.\n\nOriginal insurer valuation\n$18,000\nSelected advertised-price range\n$20,000 to $22,000\nSelected median\n$21,000\nHow "
+    }
+  },
+  {
+    "name": "admin",
+    "width": 1440,
+    "url": "http://127.0.0.1:4179/admin",
+    "errors": [],
+    "metrics": {
+      "visualSystem": "app",
+      "body": "rgb(255, 255, 255)",
+      "scrollWidth": 1440,
+      "viewport": 1440,
+      "gradients": [],
+      "tinted": [],
+      "colors": {
+        "rgb(255, 255, 255)": 15,
+        "rgb(17, 17, 17)": 1,
+        "rgb(41, 41, 41)": 1,
+        "rgb(64, 64, 64)": 1,
+        "rgb(51, 51, 51)": 1,
+        "rgb(245, 245, 245)": 4
+      },
+      "surface": [
+        {
+          "tag": "BODY",
+          "cls": "",
+          "text": "Synthetic staff preview · no email sentOverviewReferral partnersBusiness jo",
+          "background": "rgb(255, 255, 255)",
+          "width": 1440,
+          "height": 1336.875
+        },
+        {
+          "tag": "DIV",
+          "cls": "admin-workspace",
+          "text": "Skip to contentVenfourWORKSPACEOverviewCasesNeeds attention2CustomersReport",
+          "background": "rgb(255, 255, 255)",
+          "width": 1440,
+          "height": 1296.875
+        },
+        {
+          "tag": "SECTION",
+          "cls": "admin-panel",
+          "text": "Needs attentionThe five most recently active cases with recorded issues.Vie",
+          "background": "rgb(255, 255, 255)",
+          "width": 593.453125,
+          "height": 441.875
+        },
+        {
+          "tag": "SECTION",
+          "cls": "admin-panel",
+          "text": "Recent case activityThe latest eight recorded workflow events.View allCusto",
+          "background": "rgb(255, 255, 255)",
+          "width": 494.53125,
+          "height": 807.5
+        }
+      ],
+      "headings": [
+        "Overview",
+        "Needs attention",
+        "Recent case activity"
+      ],
+      "text": "Synthetic staff preview · no email sent\nOverview\nReferral partners\nBusiness journey\nReset partners\nPreview state\npopulated\nlarge\nempty\nloading\nerror\ndenied\nstaff-only\nemail-disabled\nsave-error\nSkip to content\nVenfour\nWORKSPACE\nOverview\nCases\nNeeds attention\n2\nCustomers\nReports\nProcessing\nPayments\nPayment approvals\nCommunications\nActivity\nReferral partners\nS\nStaff\nstaff@example.com\nSign out\nWorkspace\nOverview\nOverview\n\nThe state of your workspace. Start with what needs your attention.\n\nRefresh\nAc"
+    }
+  },
+  {
+    "name": "admin-cases",
+    "width": 1440,
+    "url": "http://127.0.0.1:4179/admin/cases",
+    "errors": [],
+    "metrics": {
+      "visualSystem": "app",
+      "body": "rgb(255, 255, 255)",
+      "scrollWidth": 1440,
+      "viewport": 1440,
+      "gradients": [],
+      "tinted": [],
+      "colors": {
+        "rgb(255, 255, 255)": 13,
+        "rgb(17, 17, 17)": 1,
+        "rgb(41, 41, 41)": 1,
+        "rgb(64, 64, 64)": 1,
+        "rgb(51, 51, 51)": 1,
+        "rgb(245, 245, 245)": 19,
+        "rgb(115, 115, 115)": 2
+      },
+      "surface": [
+        {
+          "tag": "BODY",
+          "cls": "",
+          "text": "Synthetic staff preview · no email sentOverviewReferral partnersBusiness jo",
+          "background": "rgb(255, 255, 255)",
+          "width": 1440,
+          "height": 1219.78125
+        },
+        {
+          "tag": "DIV",
+          "cls": "admin-workspace",
+          "text": "Skip to contentVenfourWORKSPACEOverviewCasesNeeds attention2CustomersReport",
+          "background": "rgb(255, 255, 255)",
+          "width": 1440,
+          "height": 1179.78125
+        },
+        {
+          "tag": "DIV",
+          "cls": "admin-collection-surface",
+          "text": "Search casesFiltersCurrent case stageAll statusesIntake not startedIntake i",
+          "background": "rgb(255, 255, 255)",
+          "width": 1112,
+          "height": 946
+        },
+        {
+          "tag": "DIV",
+          "cls": "admin-table-wrap",
+          "text": "CasesCustomerVehicle / caseCurrent stageAttentionLast activityActionsNWNoah",
+          "background": "rgb(255, 255, 255)",
+          "width": 1110,
+          "height": 661
+        }
+      ],
+      "headings": [
+        "Cases"
+      ],
+      "text": "Synthetic staff preview · no email sent\nOverview\nReferral partners\nBusiness journey\nReset partners\nPreview state\npopulated\nlarge\nempty\nloading\nerror\ndenied\nstaff-only\nemail-disabled\nsave-error\nSkip to content\nVenfour\nWORKSPACE\nOverview\nCases\nNeeds attention\n2\nCustomers\nReports\nProcessing\nPayments\nPayment approvals\nCommunications\nActivity\nReferral partners\nS\nStaff\nstaff@example.com\nSign out\nWorkspace\nCases\nCases\n\nEvery total-loss case, its current stage, and any recorded issues.\n\nRefresh\nSearch c"
+    }
+  },
+  {
+    "name": "admin-payments",
+    "width": 1440,
+    "url": "http://127.0.0.1:4179/admin/payments",
+    "errors": [],
+    "metrics": {
+      "visualSystem": "app",
+      "body": "rgb(255, 255, 255)",
+      "scrollWidth": 1440,
+      "viewport": 1440,
+      "gradients": [],
+      "tinted": [],
+      "colors": {
+        "rgb(255, 255, 255)": 11,
+        "rgb(17, 17, 17)": 1,
+        "rgb(64, 64, 64)": 1,
+        "rgb(41, 41, 41)": 1,
+        "rgb(51, 51, 51)": 1,
+        "rgb(245, 245, 245)": 10,
+        "rgb(115, 115, 115)": 1
+      },
+      "surface": [
+        {
+          "tag": "BODY",
+          "cls": "",
+          "text": "Synthetic staff preview · no email sentOverviewReferral partnersBusiness jo",
+          "background": "rgb(255, 255, 255)",
+          "width": 1440,
+          "height": 970.78125
+        },
+        {
+          "tag": "DIV",
+          "cls": "admin-workspace",
+          "text": "Skip to contentVenfourWORKSPACEOverviewCasesNeeds attention2CustomersReport",
+          "background": "rgb(255, 255, 255)",
+          "width": 1440,
+          "height": 930.78125
+        },
+        {
+          "tag": "DIV",
+          "cls": "admin-collection-surface",
+          "text": "Search paymentsFiltersOrder statusAll statusesPendingPaidPartially refunded",
+          "background": "rgb(255, 255, 255)",
+          "width": 1112,
+          "height": 697
+        },
+        {
+          "tag": "DIV",
+          "cls": "admin-table-wrap",
+          "text": "PaymentsOrder / caseAmount / modePayment statusCustomer accessLast activity",
+          "background": "rgb(255, 255, 255)",
+          "width": 1110,
+          "height": 412
+        }
+      ],
+      "headings": [
+        "Payments"
+      ],
+      "text": "Synthetic staff preview · no email sent\nOverview\nReferral partners\nBusiness journey\nReset partners\nPreview state\npopulated\nlarge\nempty\nloading\nerror\ndenied\nstaff-only\nemail-disabled\nsave-error\nSkip to content\nVenfour\nWORKSPACE\nOverview\nCases\nNeeds attention\n2\nCustomers\nReports\nProcessing\nPayments\nPayment approvals\nCommunications\nActivity\nReferral partners\nS\nStaff\nstaff@example.com\nSign out\nWorkspace\nPayments\nPayments\n\nUnderstand each order, its financial history, and the customer’s access.\n\nRefr"
+    }
+  },
+  {
+    "name": "admin-partners",
+    "width": 1440,
+    "url": "http://127.0.0.1:4179/admin/referral-partners",
+    "errors": [],
+    "metrics": {
+      "visualSystem": "app",
+      "body": "rgb(255, 255, 255)",
+      "scrollWidth": 1440,
+      "viewport": 1440,
+      "gradients": [],
+      "tinted": [],
+      "colors": {
+        "rgb(255, 255, 255)": 12,
+        "rgb(17, 17, 17)": 1,
+        "rgb(64, 64, 64)": 1,
+        "rgb(41, 41, 41)": 1,
+        "rgb(51, 51, 51)": 1,
+        "rgb(23, 23, 23)": 1
+      },
+      "surface": [
+        {
+          "tag": "BODY",
+          "cls": "",
+          "text": "Synthetic staff preview · no email sentOverviewReferral partnersBusiness jo",
+          "background": "rgb(255, 255, 255)",
+          "width": 1440,
+          "height": 1160.734375
+        },
+        {
+          "tag": "DIV",
+          "cls": "admin-workspace",
+          "text": "Skip to contentVenfourWORKSPACEOverviewCasesNeeds attention2CustomersReport",
+          "background": "rgb(255, 255, 255)",
+          "width": 1440,
+          "height": 1120.734375
+        },
+        {
+          "tag": "SECTION",
+          "cls": "partner-card",
+          "text": "Search businessesBusinessStatusCommissionUpdatedPrairie Example Collision (",
+          "background": "rgb(255, 255, 255)",
+          "width": 1060,
+          "height": 707.9375
+        }
+      ],
+      "headings": [
+        "Referral partners"
+      ],
+      "text": "Synthetic staff preview · no email sent\nOverview\nReferral partners\nBusiness journey\nReset partners\nPreview state\npopulated\nlarge\nempty\nloading\nerror\ndenied\nstaff-only\nemail-disabled\nsave-error\nSkip to content\nVenfour\nWORKSPACE\nOverview\nCases\nNeeds attention\n2\nCustomers\nReports\nProcessing\nPayments\nPayment approvals\nCommunications\nActivity\nReferral partners\nS\nStaff\nstaff@example.com\nSign out\nWorkspace\nReferral partners\nReferral partners\n\nInvite businesses, review their details, and complete their "
+    }
+  },
+  {
+    "name": "partner",
+    "width": 1440,
+    "url": "http://127.0.0.1:4179/partners/00061004-7000-4000-8000-000000000001",
+    "errors": [],
+    "metrics": {
+      "visualSystem": "app",
+      "body": "rgb(255, 255, 255)",
+      "scrollWidth": 1440,
+      "viewport": 1440,
+      "gradients": [],
+      "tinted": [],
+      "colors": {
+        "rgb(255, 255, 255)": 13,
+        "rgb(245, 245, 245)": 11
+      },
+      "surface": [
+        {
+          "tag": "BODY",
+          "cls": "",
+          "text": "Synthetic business preview · fictional data · no email sentAdmin previewRes",
+          "background": "rgb(255, 255, 255)",
+          "width": 1440,
+          "height": 2169.890625
+        },
+        {
+          "tag": "DIV",
+          "cls": "partner-workspace",
+          "text": "VenfourPartner workspaceSign outOzark Example Motor Services (fictional)Act",
+          "background": "rgb(255, 255, 255)",
+          "width": 1440,
+          "height": 2111.890625
+        },
+        {
+          "tag": "SECTION",
+          "cls": "partner-card",
+          "text": "Referral activityReviews appear after the customer submits their intake. Ea",
+          "background": "rgb(255, 255, 255)",
+          "width": 1060,
+          "height": 896.546875
+        }
+      ],
+      "headings": [
+        "Ozark Example Motor Services (fictional)",
+        "Your partnership details",
+        "Referral link",
+        "Referral activity",
+        "Agreement history",
+        "NON-BINDING demonstration partner agreement"
+      ],
+      "text": "Synthetic business preview · fictional data · no email sent\nAdmin preview\nResume journey\nDashboard with referrals\nRestart journey\nPreview screen\nFull onboarding journey\nCompany details\nWaiting for approval\nDashboard with referrals\nVenfour\nPartner workspace\nSign out\nOzark Example Motor Services (fictional)\n\nActive\n\nYour workspace\nYour partnership details\nLegal business name\nOzark Example Motor Services Demonstration LLC\nAgreed commission per qualifying purchase\n$17.50\nVerified contact email\ndemon"
+    }
+  },
+  {
+    "name": "partner-onboarding",
+    "width": 1440,
+    "url": "http://127.0.0.1:4179/partners/00061002-7000-4000-8000-000000000001",
+    "errors": [],
+    "metrics": {
+      "visualSystem": "app",
+      "body": "rgb(255, 255, 255)",
+      "scrollWidth": 1440,
+      "viewport": 1440,
+      "gradients": [],
+      "tinted": [],
+      "colors": {
+        "rgb(255, 255, 255)": 15,
+        "rgb(23, 23, 23)": 2
+      },
+      "surface": [
+        {
+          "tag": "BODY",
+          "cls": "",
+          "text": "Synthetic business preview · fictional data · no email sentAdmin previewRes",
+          "background": "rgb(255, 255, 255)",
+          "width": 1440,
+          "height": 1375.671875
+        },
+        {
+          "tag": "DIV",
+          "cls": "partner-workspace",
+          "text": "VenfourPartner workspaceSign outRiverbend Example Auto (fictional)Onboardin",
+          "background": "rgb(255, 255, 255)",
+          "width": 1440,
+          "height": 1317.671875
+        },
+        {
+          "tag": "FORM",
+          "cls": "partner-card partner-form",
+          "text": "Your business detailsYour verified contact email is demonstration-2@example",
+          "background": "rgb(255, 255, 255)",
+          "width": 1060,
+          "height": 579.515625
+        }
+      ],
+      "headings": [
+        "Riverbend Example Auto (fictional)",
+        "Your business details",
+        "Review your agreement",
+        "Agreement history"
+      ],
+      "text": "Synthetic business preview · fictional data · no email sent\nAdmin preview\nResume journey\nDashboard with referrals\nRestart journey\nPreview screen\nFull onboarding journey\nCompany details\nWaiting for approval\nDashboard with referrals\nVenfour\nPartner workspace\nSign out\nRiverbend Example Auto (fictional)\n\nOnboarding\n\nYour workspace\nYour business details\n\nYour verified contact email is demonstration-2@example.test. These details will be included in your agreement.\n\nLegal business name *\nContact full n"
+    }
+  },
+  {
+    "name": "free",
+    "width": 390,
+    "url": "http://127.0.0.1:4186/total-loss/cases/33333333-3333-4333-8333-333333333333/analysis",
+    "errors": [],
+    "metrics": {
+      "visualSystem": "app",
+      "body": "rgb(255, 255, 255)",
+      "scrollWidth": 375,
+      "viewport": 390,
+      "gradients": [],
+      "tinted": [],
+      "colors": {
+        "rgb(255, 255, 255)": 3,
+        "rgb(23, 23, 23)": 2
+      },
+      "surface": [
+        {
+          "tag": "BODY",
+          "cls": "",
+          "text": "Skip to contentVenfourJordan2026 Hyundai Kona SETotal-loss reviewAnalysis c",
+          "background": "rgb(255, 255, 255)",
+          "width": 375,
+          "height": 844
+        },
+        {
+          "tag": "DIV",
+          "cls": "relative flex min-h-svh flex-col bg-background",
+          "text": "Skip to contentVenfourJordan2026 Hyundai Kona SETotal-loss reviewAnalysis c",
+          "background": "rgb(255, 255, 255)",
+          "width": 375,
+          "height": 844
+        }
+      ],
+      "headings": [
+        "Your preliminary value range.",
+        "Preliminary estimated range"
+      ],
+      "text": "Skip to content\nVenfour\nJordan\n\n2026 Hyundai Kona SE\n\nTotal-loss review\n\nAnalysis complete. Your preliminary value range.\n\nFree valuation\n\nYour preliminary value range.\nPreliminary estimated range\n\n$23,000\n–\n$25,400\n\n6 independent vehicles · Current asking prices\n\nNot a loss-date valuation.\n\nNext, check your insurer’s valuation and adjustments.\n\nUpload insurer valuation report\n\nNo payment at this step\n\nEvidence details\n\nAsking prices aren’t guaranteed sale prices or settlement amounts.\n\nTerms\nPr"
+    }
+  },
+  {
+    "name": "intake",
+    "width": 390,
+    "url": "http://127.0.0.1:4186/start?service=total-loss&caseId=33333333-3333-4333-8333-333333333333",
+    "errors": [],
+    "metrics": {
+      "visualSystem": "app",
+      "body": "rgb(255, 255, 255)",
+      "scrollWidth": 375,
+      "viewport": 390,
+      "gradients": [],
+      "tinted": [],
+      "colors": {
+        "rgb(255, 255, 255)": 9,
+        "rgb(23, 23, 23)": 4,
+        "oklab(0.970145 0.0000441968 0.0000194311 / 0.75)": 2,
+        "rgb(245, 245, 245)": 1
+      },
+      "surface": [
+        {
+          "tag": "BODY",
+          "cls": "",
+          "text": "Skip to contentVenfourJordan2026 Hyundai Kona SETotal-loss reviewYour saved",
+          "background": "rgb(255, 255, 255)",
+          "width": 375,
+          "height": 1138.09375
+        },
+        {
+          "tag": "DIV",
+          "cls": "relative flex min-h-svh flex-col bg-background",
+          "text": "Skip to contentVenfourJordan2026 Hyundai Kona SETotal-loss reviewYour saved",
+          "background": "rgb(255, 255, 255)",
+          "width": 375,
+          "height": 1138.09375
+        }
+      ],
+      "headings": [
+        "Your appraisal details",
+        "Tell us about your vehicle"
+      ],
+      "text": "Skip to content\nVenfour\nJordan\n\n2026 Hyundai Kona SE\n\nTotal-loss review\n\nYour saved details\n\nYour appraisal details\nTell us about your vehicle\n\nUse your VIN for the quickest match, or choose your vehicle from the lists.\n\nHow would you like to identify your vehicle?\nUse my VIN\nSelect vehicle details\nYear\nSelect year\n2027\n2026\n2025\n2024\n2023\n2022\n2021\n2020\n2019\n2018\n2017\n2016\n2015\n2014\n2013\n2012\n2011\n2010\n2009\n2008\n2007\n2006\n2005\n2004\n2003\n2002\n2001\n2000\n1999\n1998\n1997\n1996\n1995\n1994\n1993\n1992\n199"
+    }
+  },
+  {
+    "name": "checkout",
+    "width": 390,
+    "url": "http://127.0.0.1:4186/total-loss/cases/33333333-3333-4333-8333-333333333333/claim/checkout",
+    "errors": [],
+    "metrics": {
+      "visualSystem": "app",
+      "body": "rgb(255, 255, 255)",
+      "scrollWidth": 375,
+      "viewport": 390,
+      "gradients": [],
+      "tinted": [],
+      "colors": {
+        "rgb(255, 255, 255)": 13,
+        "rgb(23, 23, 23)": 2
+      },
+      "surface": [
+        {
+          "tag": "BODY",
+          "cls": "",
+          "text": "Skip to contentVenfourJordan2026 Hyundai Kona SETotal-loss reviewSecure che",
+          "background": "rgb(255, 255, 255)",
+          "width": 375,
+          "height": 2248.734375
+        },
+        {
+          "tag": "DIV",
+          "cls": "relative flex min-h-svh flex-col bg-background",
+          "text": "Skip to contentVenfourJordan2026 Hyundai Kona SETotal-loss reviewSecure che",
+          "background": "rgb(255, 255, 255)",
+          "width": 375,
+          "height": 2248.734375
+        }
+      ],
+      "headings": [
+        "Complete your purchase",
+        "Your account",
+        "Payment details",
+        "Order summary"
+      ],
+      "text": "Skip to content\nVenfour\nJordan\n\n2026 Hyundai Kona SE\n\nTotal-loss review\n\nSecure checkout\n\nComplete your purchase\n\nAn independent review of your insurer’s vehicle valuation.\n\nYour account\n\npr••••@example.com\nVerified\n\nYour claim is securely tied to this verified account.\n\nPayment details\nCardholder name and billing address\nCardholder name\nCountry\nAddress line 1\nAddress line 2\nCity\nState\nZIP code\nCard details\n\nPayment preview · no transaction\n\nCard number\nExpiration\nSecurity code\n\nTotal due\n$199.0"
+    }
+  },
+  {
+    "name": "completed",
+    "width": 390,
+    "url": "http://127.0.0.1:4186/total-loss/cases/33333333-3333-4333-8333-333333333333/claim/review/result",
+    "errors": [],
+    "metrics": {
+      "visualSystem": "app",
+      "body": "rgb(255, 255, 255)",
+      "scrollWidth": 375,
+      "viewport": 390,
+      "gradients": [],
+      "tinted": [],
+      "colors": {
+        "rgb(255, 255, 255)": 4,
+        "rgb(23, 23, 23)": 7,
+        "rgb(245, 245, 245)": 1,
+        "rgb(115, 115, 115)": 2
+      },
+      "surface": [
+        {
+          "tag": "BODY",
+          "cls": "",
+          "text": "Skip to contentVenfourJordan2026 Hyundai Kona SETotal-loss reviewYour resul",
+          "background": "rgb(255, 255, 255)",
+          "width": 375,
+          "height": 1001.90625
+        },
+        {
+          "tag": "DIV",
+          "cls": "relative flex min-h-svh flex-col bg-background",
+          "text": "Skip to contentVenfourJordan2026 Hyundai Kona SETotal-loss reviewYour resul",
+          "background": "rgb(255, 255, 255)",
+          "width": 375,
+          "height": 1001.90625
+        },
+        {
+          "tag": "DIV",
+          "cls": "value-summary",
+          "text": "Original insurer valuation$18,000Selected advertised-price range$20,000 to ",
+          "background": "rgb(255, 255, 255)",
+          "width": 335,
+          "height": 408.53125
+        }
+      ],
+      "headings": [
+        "Your result",
+        "Material undervalue signal"
+      ],
+      "text": "Skip to content\nVenfour\nJordan\n\n2026 Hyundai Kona SE\n\nTotal-loss review\nCase section\nYour result — current\nInsurer review — complete\nMarket evidence — complete\nWhat it means — complete\nRequest preparation\nWaiting for insurer\nInsurer response\nResponse review\nYour result\nMaterial undervalue signal\n\nThe original insurer valuation appears low compared with the selected market listings.\n\nOriginal insurer valuation\n$18,000\nSelected advertised-price range\n$20,000 to $22,000\nSelected median\n$21,000\nHow "
+    }
+  },
+  {
+    "name": "waiting",
+    "width": 390,
+    "url": "http://127.0.0.1:4186/total-loss/cases/33333333-3333-4333-8333-333333333333/claim/review/waiting",
+    "errors": [],
+    "metrics": {
+      "visualSystem": "app",
+      "body": "rgb(255, 255, 255)",
+      "scrollWidth": 375,
+      "viewport": 390,
+      "gradients": [],
+      "tinted": [],
+      "colors": {
+        "rgb(255, 255, 255)": 4,
+        "rgb(23, 23, 23)": 3,
+        "rgb(245, 245, 245)": 1
+      },
+      "surface": [
+        {
+          "tag": "BODY",
+          "cls": "",
+          "text": "Skip to contentVenfourCase historyJordan2026 Hyundai Kona SETotal-loss revi",
+          "background": "rgb(255, 255, 255)",
+          "width": 375,
+          "height": 1110.640625
+        },
+        {
+          "tag": "DIV",
+          "cls": "relative flex min-h-svh flex-col bg-background",
+          "text": "Skip to contentVenfourCase historyJordan2026 Hyundai Kona SETotal-loss revi",
+          "background": "rgb(255, 255, 255)",
+          "width": 375,
+          "height": 1110.640625
+        }
+      ],
+      "headings": [
+        "Waiting for the insurer’s response",
+        "What happens now"
+      ],
+      "text": "Skip to content\nVenfour\nJordan\n\n2026 Hyundai Kona SE\n\nTotal-loss review\nCase section\nYour result — complete\nInsurer review — complete\nMarket evidence — complete\nWhat it means — complete\nInitial request — complete\nWaiting for insurer — current\nInsurer response\nResponse review\n\nFull valuation review\n\nWaiting for the insurer’s response\n\nBased on your confirmation, Venfour recorded that you sent your reconsideration request with the valuation report attached.\n\nRequest recorded: Sep 15, 2026, 7:00 AM"
+    }
+  },
+  {
+    "name": "processing",
+    "width": 390,
+    "url": "http://127.0.0.1:4186/total-loss/cases/33333333-3333-4333-8333-333333333333/analysis",
+    "errors": [],
+    "metrics": {
+      "visualSystem": "app",
+      "body": "rgb(255, 255, 255)",
+      "scrollWidth": 375,
+      "viewport": 390,
+      "gradients": [],
+      "tinted": [],
+      "colors": {
+        "rgb(255, 255, 255)": 3,
+        "rgb(23, 23, 23)": 1,
+        "rgb(229, 229, 229)": 1
+      },
+      "surface": [
+        {
+          "tag": "BODY",
+          "cls": "",
+          "text": "Skip to contentVenfourJordan2026 Hyundai Kona SETotal-loss reviewYour valua",
+          "background": "rgb(255, 255, 255)",
+          "width": 375,
+          "height": 844
+        },
+        {
+          "tag": "DIV",
+          "cls": "relative flex min-h-svh flex-col bg-background",
+          "text": "Skip to contentVenfourJordan2026 Hyundai Kona SETotal-loss reviewYour valua",
+          "background": "rgb(255, 255, 255)",
+          "width": 375,
+          "height": 844
+        }
+      ],
+      "headings": [
+        "Reviewing your vehicle."
+      ],
+      "text": "Skip to content\nVenfour\nJordan\n\n2026 Hyundai Kona SE\n\nTotal-loss review\n\nYour valuation review\n\nReviewing your vehicle.\n\nYour progress is saved. You can safely leave and pick up here later.\n\nTerms\nPrivacy\nLocal preview · Fictional data\nAll states"
+    }
+  },
+  {
+    "name": "case-resume",
+    "width": 390,
+    "url": "http://127.0.0.1:4186/total-loss/cases/33333333-3333-4333-8333-333333333333/claim/review/result",
+    "errors": [],
+    "metrics": {
+      "visualSystem": "app",
+      "body": "rgb(255, 255, 255)",
+      "scrollWidth": 375,
+      "viewport": 390,
+      "gradients": [],
+      "tinted": [],
+      "colors": {
+        "rgb(255, 255, 255)": 4,
+        "rgb(23, 23, 23)": 7,
+        "rgb(245, 245, 245)": 1,
+        "rgb(115, 115, 115)": 2
+      },
+      "surface": [
+        {
+          "tag": "BODY",
+          "cls": "",
+          "text": "Skip to contentVenfourJordan2026 Hyundai Kona SETotal-loss reviewYour resul",
+          "background": "rgb(255, 255, 255)",
+          "width": 375,
+          "height": 1001.90625
+        },
+        {
+          "tag": "DIV",
+          "cls": "relative flex min-h-svh flex-col bg-background",
+          "text": "Skip to contentVenfourJordan2026 Hyundai Kona SETotal-loss reviewYour resul",
+          "background": "rgb(255, 255, 255)",
+          "width": 375,
+          "height": 1001.90625
+        },
+        {
+          "tag": "DIV",
+          "cls": "value-summary",
+          "text": "Original insurer valuation$18,000Selected advertised-price range$20,000 to ",
+          "background": "rgb(255, 255, 255)",
+          "width": 335,
+          "height": 408.53125
+        }
+      ],
+      "headings": [
+        "Your result",
+        "Material undervalue signal"
+      ],
+      "text": "Skip to content\nVenfour\nJordan\n\n2026 Hyundai Kona SE\n\nTotal-loss review\nCase section\nYour result — current\nInsurer review — complete\nMarket evidence — complete\nWhat it means — complete\nRequest preparation\nWaiting for insurer\nInsurer response\nResponse review\nYour result\nMaterial undervalue signal\n\nThe original insurer valuation appears low compared with the selected market listings.\n\nOriginal insurer valuation\n$18,000\nSelected advertised-price range\n$20,000 to $22,000\nSelected median\n$21,000\nHow "
+    }
+  },
+  {
+    "name": "admin",
+    "width": 390,
+    "url": "http://127.0.0.1:4179/admin",
+    "errors": [],
+    "metrics": {
+      "visualSystem": "app",
+      "body": "rgb(255, 255, 255)",
+      "scrollWidth": 390,
+      "viewport": 390,
+      "gradients": [],
+      "tinted": [],
+      "colors": {
+        "rgb(255, 255, 255)": 15,
+        "rgb(245, 245, 245)": 4
+      },
+      "surface": [
+        {
+          "tag": "BODY",
+          "cls": "",
+          "text": "Synthetic staff preview · no email sentOverviewReferral partnersBusiness jo",
+          "background": "rgb(255, 255, 255)",
+          "width": 390,
+          "height": 2000.03125
+        },
+        {
+          "tag": "DIV",
+          "cls": "admin-workspace",
+          "text": "Skip to contentVenfourWORKSPACEOverviewCasesNeeds attention2CustomersReport",
+          "background": "rgb(255, 255, 255)",
+          "width": 390,
+          "height": 1900.03125
+        },
+        {
+          "tag": "SECTION",
+          "cls": "admin-panel",
+          "text": "Needs attentionThe five most recently active cases with recorded issues.Vie",
+          "background": "rgb(255, 255, 255)",
+          "width": 356,
+          "height": 465.5625
+        },
+        {
+          "tag": "SECTION",
+          "cls": "admin-panel",
+          "text": "Recent case activityThe latest eight recorded workflow events.View allCusto",
+          "background": "rgb(255, 255, 255)",
+          "width": 356,
+          "height": 794.5
+        }
+      ],
+      "headings": [
+        "Overview",
+        "Needs attention",
+        "Recent case activity"
+      ],
+      "text": "Synthetic staff preview · no email sent\nOverview\nReferral partners\nBusiness journey\nReset partners\npopulated\nlarge\nempty\nloading\nerror\ndenied\nstaff-only\nemail-disabled\nsave-error\nSkip to content\nWorkspace\nOverview\nOverview\n\nThe state of your workspace. Start with what needs your attention.\n\nRefresh\nActive cases\n5\nTotal-loss cases in progress\nNeeds attention\n2\nRecorded issues to investigate\nProcessing jobs\n1\nJobs currently in progress\nRegistered accounts\n6\nIncluding accounts without cases\nNeeds a"
+    }
+  },
+  {
+    "name": "admin-cases",
+    "width": 390,
+    "url": "http://127.0.0.1:4179/admin/cases",
+    "errors": [],
+    "metrics": {
+      "visualSystem": "app",
+      "body": "rgb(255, 255, 255)",
+      "scrollWidth": 390,
+      "viewport": 390,
+      "gradients": [],
+      "tinted": [],
+      "colors": {
+        "rgb(255, 255, 255)": 9,
+        "rgb(245, 245, 245)": 13,
+        "rgb(115, 115, 115)": 2
+      },
+      "surface": [
+        {
+          "tag": "BODY",
+          "cls": "",
+          "text": "Synthetic staff preview · no email sentOverviewReferral partnersBusiness jo",
+          "background": "rgb(255, 255, 255)",
+          "width": 390,
+          "height": 2427.96875
+        },
+        {
+          "tag": "DIV",
+          "cls": "admin-workspace",
+          "text": "Skip to contentVenfourWORKSPACEOverviewCasesNeeds attention2CustomersReport",
+          "background": "rgb(255, 255, 255)",
+          "width": 390,
+          "height": 2327.96875
+        },
+        {
+          "tag": "DIV",
+          "cls": "admin-collection-surface",
+          "text": "Search casesFiltersCurrent case stageAll statusesIntake not startedIntake i",
+          "background": "rgb(255, 255, 255)",
+          "width": 356,
+          "height": 2098.78125
+        },
+        {
+          "tag": "DIV",
+          "cls": "admin-table-wrap",
+          "text": "CasesCustomerVehicle / caseCurrent stageAttentionLast activityActionsNWNoah",
+          "background": "rgb(255, 255, 255)",
+          "width": 354,
+          "height": 1854.28125
+        }
+      ],
+      "headings": [
+        "Cases"
+      ],
+      "text": "Synthetic staff preview · no email sent\nOverview\nReferral partners\nBusiness journey\nReset partners\npopulated\nlarge\nempty\nloading\nerror\ndenied\nstaff-only\nemail-disabled\nsave-error\nSkip to content\nWorkspace\nCases\nCases\n\nEvery total-loss case, its current stage, and any recorded issues.\n\nRefresh\nSearch cases\nFilters\n\n6 records\n· Updated Sep 7, 2026, 4:00 PM\n\nCases\nNW\nNoah Williams\n\ncustomer6@example.com\n\nRegistered account\n\n2021 Honda CR-V EX\n\n#00000015\nResolved\nNo recorded issues\nSep 7, 2026\n3:00 "
+    }
+  },
+  {
+    "name": "admin-payments",
+    "width": 390,
+    "url": "http://127.0.0.1:4179/admin/payments",
+    "errors": [],
+    "metrics": {
+      "visualSystem": "app",
+      "body": "rgb(255, 255, 255)",
+      "scrollWidth": 390,
+      "viewport": 390,
+      "gradients": [],
+      "tinted": [],
+      "colors": {
+        "rgb(255, 255, 255)": 9,
+        "rgb(245, 245, 245)": 4,
+        "rgb(115, 115, 115)": 1
+      },
+      "surface": [
+        {
+          "tag": "BODY",
+          "cls": "",
+          "text": "Synthetic staff preview · no email sentOverviewReferral partnersBusiness jo",
+          "background": "rgb(255, 255, 255)",
+          "width": 390,
+          "height": 1601.265625
+        },
+        {
+          "tag": "DIV",
+          "cls": "admin-workspace",
+          "text": "Skip to contentVenfourWORKSPACEOverviewCasesNeeds attention2CustomersReport",
+          "background": "rgb(255, 255, 255)",
+          "width": 390,
+          "height": 1501.265625
+        },
+        {
+          "tag": "DIV",
+          "cls": "admin-collection-surface",
+          "text": "Search paymentsFiltersOrder statusAll statusesPendingPaidPartially refunded",
+          "background": "rgb(255, 255, 255)",
+          "width": 356,
+          "height": 1272.078125
+        },
+        {
+          "tag": "DIV",
+          "cls": "admin-table-wrap",
+          "text": "PaymentsOrder / caseAmount / modePayment statusCustomer accessLast activity",
+          "background": "rgb(255, 255, 255)",
+          "width": 354,
+          "height": 1027.578125
+        }
+      ],
+      "headings": [
+        "Payments"
+      ],
+      "text": "Synthetic staff preview · no email sent\nOverview\nReferral partners\nBusiness journey\nReset partners\npopulated\nlarge\nempty\nloading\nerror\ndenied\nstaff-only\nemail-disabled\nsave-error\nSkip to content\nWorkspace\nPayments\nPayments\n\nUnderstand each order, its financial history, and the customer’s access.\n\nRefresh\nSearch payments\nFilters\n\n3 records\n· Updated Sep 7, 2026, 4:00 PM\n\nPayments\nOrder 00000402\n\nNoah Williams\n\nTotal-loss review\n\n#00000015\n\nUSD 149.00\n\nTest\nRefunded\n\nActive\n\nRefund access retained"
+    }
+  },
+  {
+    "name": "admin-partners",
+    "width": 390,
+    "url": "http://127.0.0.1:4179/admin/referral-partners",
+    "errors": [],
+    "metrics": {
+      "visualSystem": "app",
+      "body": "rgb(255, 255, 255)",
+      "scrollWidth": 390,
+      "viewport": 390,
+      "gradients": [],
+      "tinted": [],
+      "colors": {
+        "rgb(255, 255, 255)": 12,
+        "rgb(23, 23, 23)": 1
+      },
+      "surface": [
+        {
+          "tag": "BODY",
+          "cls": "",
+          "text": "Synthetic staff preview · no email sentOverviewReferral partnersBusiness jo",
+          "background": "rgb(255, 255, 255)",
+          "width": 390,
+          "height": 1717.5
+        },
+        {
+          "tag": "DIV",
+          "cls": "admin-workspace",
+          "text": "Skip to contentVenfourWORKSPACEOverviewCasesNeeds attention2CustomersReport",
+          "background": "rgb(255, 255, 255)",
+          "width": 390,
+          "height": 1617.5
+        },
+        {
+          "tag": "SECTION",
+          "cls": "partner-card",
+          "text": "Search businessesBusinessStatusCommissionUpdatedPrairie Example Collision (",
+          "background": "rgb(255, 255, 255)",
+          "width": 350,
+          "height": 1183.71875
+        }
+      ],
+      "headings": [
+        "Referral partners"
+      ],
+      "text": "Synthetic staff preview · no email sent\nOverview\nReferral partners\nBusiness journey\nReset partners\npopulated\nlarge\nempty\nloading\nerror\ndenied\nstaff-only\nemail-disabled\nsave-error\nSkip to content\nWorkspace\nReferral partners\nReferral partners\n\nInvite businesses, review their details, and complete their agreements.\n\nAgreement templates\nAdd a referral partner\nSearch businesses\nBusiness\tStatus\tCommission\tUpdated\nPrairie Example Collision (fictional)\ndemonstration-1@example.test\n\tOnboarding\t$10.00\tSep"
+    }
+  },
+  {
+    "name": "partner",
+    "width": 390,
+    "url": "http://127.0.0.1:4179/partners/00061004-7000-4000-8000-000000000001",
+    "errors": [],
+    "metrics": {
+      "visualSystem": "app",
+      "body": "rgb(255, 255, 255)",
+      "scrollWidth": 390,
+      "viewport": 390,
+      "gradients": [],
+      "tinted": [],
+      "colors": {
+        "rgb(255, 255, 255)": 13,
+        "rgb(245, 245, 245)": 11
+      },
+      "surface": [
+        {
+          "tag": "BODY",
+          "cls": "",
+          "text": "Synthetic business preview · fictional data · no email sentAdmin previewRes",
+          "background": "rgb(255, 255, 255)",
+          "width": 390,
+          "height": 3421.3125
+        },
+        {
+          "tag": "DIV",
+          "cls": "partner-workspace",
+          "text": "VenfourPartner workspaceSign outOzark Example Motor Services (fictional)Act",
+          "background": "rgb(255, 255, 255)",
+          "width": 390,
+          "height": 3273.75
+        },
+        {
+          "tag": "SECTION",
+          "cls": "partner-card",
+          "text": "Your partnership detailsLegal business nameOzark Example Motor Services Dem",
+          "background": "rgb(255, 255, 255)",
+          "width": 350,
+          "height": 498.71875
+        },
+        {
+          "tag": "SECTION",
+          "cls": "partner-card",
+          "text": "Referral linkShare this link with customers who could benefit from a total-",
+          "background": "rgb(255, 255, 255)",
+          "width": 350,
+          "height": 375.734375
+        },
+        {
+          "tag": "SECTION",
+          "cls": "partner-card",
+          "text": "Referral activityReviews appear after the customer submits their intake. Ea",
+          "background": "rgb(255, 255, 255)",
+          "width": 350,
+          "height": 1578.859375
+        }
+      ],
+      "headings": [
+        "Ozark Example Motor Services (fictional)",
+        "Your partnership details",
+        "Referral link",
+        "Referral activity",
+        "Agreement history",
+        "NON-BINDING demonstration partner agreement"
+      ],
+      "text": "Synthetic business preview · fictional data · no email sent\nAdmin preview\nResume journey\nDashboard with referrals\nRestart journey\nPreview screen\nFull onboarding journey\nCompany details\nWaiting for approval\nDashboard with referrals\nVenfour\nPartner workspace\nSign out\nOzark Example Motor Services (fictional)\n\nActive\n\nYour workspace\nYour partnership details\nLegal business name\nOzark Example Motor Services Demonstration LLC\nAgreed commission per qualifying purchase\n$17.50\nVerified contact email\ndemon"
+    }
+  },
+  {
+    "name": "partner-onboarding",
+    "width": 390,
+    "url": "http://127.0.0.1:4179/partners/00061002-7000-4000-8000-000000000001",
+    "errors": [],
+    "metrics": {
+      "visualSystem": "app",
+      "body": "rgb(255, 255, 255)",
+      "scrollWidth": 390,
+      "viewport": 390,
+      "gradients": [],
+      "tinted": [],
+      "colors": {
+        "rgb(255, 255, 255)": 15,
+        "rgb(23, 23, 23)": 2
+      },
+      "surface": [
+        {
+          "tag": "BODY",
+          "cls": "",
+          "text": "Synthetic business preview · fictional data · no email sentAdmin previewRes",
+          "background": "rgb(255, 255, 255)",
+          "width": 390,
+          "height": 1934.671875
+        },
+        {
+          "tag": "DIV",
+          "cls": "partner-workspace",
+          "text": "VenfourPartner workspaceSign outRiverbend Example Auto (fictional)Onboardin",
+          "background": "rgb(255, 255, 255)",
+          "width": 390,
+          "height": 1787.109375
+        },
+        {
+          "tag": "FORM",
+          "cls": "partner-card partner-form",
+          "text": "Your business detailsYour verified contact email is demonstration-2@example",
+          "background": "rgb(255, 255, 255)",
+          "width": 350,
+          "height": 969.015625
+        }
+      ],
+      "headings": [
+        "Riverbend Example Auto (fictional)",
+        "Your business details",
+        "Review your agreement",
+        "Agreement history"
+      ],
+      "text": "Synthetic business preview · fictional data · no email sent\nAdmin preview\nResume journey\nDashboard with referrals\nRestart journey\nPreview screen\nFull onboarding journey\nCompany details\nWaiting for approval\nDashboard with referrals\nVenfour\nPartner workspace\nSign out\nRiverbend Example Auto (fictional)\n\nOnboarding\n\nYour workspace\nYour business details\n\nYour verified contact email is demonstration-2@example.test. These details will be included in your agreement.\n\nLegal business name *\nContact full n"
+    }
+  }
+]

@@ -4,14 +4,14 @@
 
 .completed-analysis .sent-request-recorded {
   margin: -0.75rem 0 1.75rem;
-  color: var(--review-muted, #56657b);
+  color: var(--review-muted, var(--copy));
   font-size: 0.8125rem;
   line-height: 1.6;
 }
 
 .completed-analysis .sent-request-content {
   margin-bottom: 2rem;
-  border-block: 1px solid var(--review-line, #dce3ee);
+  border-block: 1px solid var(--review-line, var(--line));
 }
 
 .completed-analysis .sent-request-details {
@@ -19,7 +19,7 @@
   gap: 1rem;
   margin: 0;
   padding-block: 1.5rem;
-  border-bottom: 1px solid var(--review-line, #dce3ee);
+  border-bottom: 1px solid var(--review-line, var(--line));
 }
 
 .completed-analysis .sent-request-details > div {
@@ -30,14 +30,14 @@
 }
 
 .completed-analysis .sent-request-details dt {
-  color: var(--review-muted, #56657b);
+  color: var(--review-muted, var(--copy));
   font-size: 0.8125rem;
 }
 
 .completed-analysis .sent-request-details dd {
   min-width: 0;
   margin: 0;
-  color: var(--review-ink, #172b46);
+  color: var(--review-ink, var(--ink));
   font-size: 0.9375rem;
   line-height: 1.6;
   white-space: pre-wrap;
@@ -47,7 +47,7 @@
 .completed-analysis .sent-request-body {
   margin: 0;
   padding-block: 1.75rem;
-  color: var(--review-ink, #172b46);
+  color: var(--review-ink, var(--ink));
   font-size: 0.9375rem;
   line-height: 1.8;
   white-space: pre-wrap;

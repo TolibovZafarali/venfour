@@ -1,4 +1,5 @@
 import { applicationHref, hostAudience, publicHref, routeAudience } from "@/app/site-boundary";
+import { visualSystemForLocation } from "@/app/visual-system";
 import { publicSiteOnly, publicIntakeClosed } from "@/config/public-site";
 import { useWorkspaceEntryAction } from "@/features/cases/workspace-entry";
 import { Menu, X } from "lucide-react";
@@ -30,7 +31,6 @@ import { usePublicSessionHint } from "@/features/auth/public-session-hint";
 import { CookieConsent } from "@/features/privacy/cookie-consent";
 import { useCookieConsent } from "@/features/privacy/cookie-consent-context";
 import { cn } from "@/lib/utils";
-import { appRouteGradientClassName } from "@/pages/page-gradients";
 import { useHomeSmoothScroll } from "@/pages/use-home-smooth-scroll";
 import { FreeValuationProcessingProvider } from "@/features/analyses/components/free-valuation-processing";
 import { CustomerWorkspace } from "@/components/customer-workspace";
@@ -74,10 +74,11 @@ function AppShellContent({ workspace, workspaceCaseId }: { workspace: boolean; w
   const productFlowRoute = Boolean(appEntryRoute || appraisalsRoute || localStatusRoute || analysisRoute || totalLossCaseRoute || previewReturnRoute || previewReadyRoute || findReviewRoute);
   const location = useLocation();
   const publicSite = routeAudience(location.pathname) === "public";
+  const appVisualSystem = visualSystemForLocation(location.pathname) === "app";
   const productionPublicPage = publicSiteOnly || (publicSite && hostAudience() === "public");
   const publicSessionHint = usePublicSessionHint();
   const completedReviewRoute = /^\/total-loss\/cases\/[^/]+\/claim\/(overview|evidence|request|activity|guide(?:\/.*)?|review(?:\/.*)?)\/?$/.test(location.pathname);
-  const adminRoute = location.pathname.startsWith("/admin/");
+  const adminRoute = location.pathname === "/admin" || location.pathname.startsWith("/admin/");
   const startFlowRoute =
     location.pathname === "/start" || location.pathname === "/total-loss/start";
   const matches = useMatches();
@@ -215,7 +216,7 @@ function AppShellContent({ workspace, workspaceCaseId }: { workspace: boolean; w
     ? applicationHref("/admin")
     : undefined;
   const visibleHeaderDetached =
-    headerDetached && !startFlowRoute && !productFlowRoute;
+    !appVisualSystem && headerDetached && !startFlowRoute && !productFlowRoute;
   const homeHeaderJoined =
     onHomePage && !visibleHeaderDetached && !mobileNavigationOpen;
   const detachedHeaderMaxWidth =
@@ -311,7 +312,7 @@ function AppShellContent({ workspace, workspaceCaseId }: { workspace: boolean; w
                   {completedReviewRoute ? <div ref={setCompletedReviewActionsHost} /> : null}
                   <AccountControl className="shrink-0" onStaffNavigationRequest={requestStaffNavigation} staffReviewHref={staffReviewHref} />
                 </div>
-              ) : productFlowRoute ? null : startFlowRoute || adminRoute ? (
+              ) : productFlowRoute ? null : startFlowRoute || adminRoute || appVisualSystem ? (
                 <AccountControl
                   className="shrink-0"
                   onStaffNavigationRequest={requestStaffNavigation}
@@ -410,7 +411,8 @@ function AppShellContent({ workspace, workspaceCaseId }: { workspace: boolean; w
               />
             ) : null}
 
-            {!startFlowRoute &&
+            {!appVisualSystem &&
+            !startFlowRoute &&
             !adminRoute &&
             !productFlowRoute &&
             mobileNavigationOpen ? (
@@ -469,10 +471,7 @@ function AppShellContent({ workspace, workspaceCaseId }: { workspace: boolean; w
       ) : null}
       <main
         id="main-content"
-        className={cn(
-          "flex flex-1",
-          !workspace && !completedReviewRoute && appRouteGradientClassName(location.pathname),
-        )}
+        className="flex flex-1"
         tabIndex={-1}
       >
         <CompletedReviewProgressHostContext.Provider
@@ -487,7 +486,7 @@ function AppShellContent({ workspace, workspaceCaseId }: { workspace: boolean; w
           </CompletedReviewNavigationHostContext.Provider>
         </CompletedReviewProgressHostContext.Provider>
       </main>
-      {productFlowRoute || workspace ? (
+      {(appVisualSystem && !startFlowRoute && !adminRoute) || productFlowRoute || workspace ? (
         <footer className="relative z-10 shrink-0 bg-canvas px-5 py-2 sm:px-8">
           <nav
             aria-label="Legal"
@@ -507,7 +506,7 @@ function AppShellContent({ workspace, workspaceCaseId }: { workspace: boolean; w
             </Link>
           </nav>
         </footer>
-      ) : !startFlowRoute && !adminRoute ? (
+      ) : !appVisualSystem && !startFlowRoute && !adminRoute ? (
         <footer className="site-footer-gradient relative z-10 shrink-0 border-t border-line bg-surface">
           <div className="mx-auto w-full max-w-7xl px-5 py-6 sm:px-8 sm:py-7">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">

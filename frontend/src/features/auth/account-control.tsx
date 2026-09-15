@@ -136,7 +136,7 @@ export function AccountControl({
           </button>
         </DropdownMenu.Trigger>
         <DropdownMenu.Portal>
-          <DropdownMenu.Content
+          <DropdownMenu.Content data-product-overlay
             align="end"
             sideOffset={8}
             className="z-[72] w-80 max-w-[calc(100vw-2rem)] max-h-[var(--radix-dropdown-menu-content-available-height)] overflow-y-auto rounded-xl border border-white/80 bg-white p-1.5 shadow-[0_20px_56px_-24px_rgba(11,31,51,0.5)]"
