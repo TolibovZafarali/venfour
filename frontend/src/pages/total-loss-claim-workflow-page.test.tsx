@@ -14,7 +14,10 @@ import type {
 } from "@/features/total-loss-claim/contracts";
 import { totalLossClaimQueryKeys } from "@/features/total-loss-claim/queries";
 import { server } from "@/test/mocks/server";
-import { renderTestApp } from "@/test/render";
+import { renderTestApp as renderApp } from "@/test/render";
+
+const renderTestApp: typeof renderApp = (entries, options) =>
+  renderApp(entries, { customerProfileService: null, ...options });
 
 const stripeMock = vi.hoisted(() => ({
   confirm: vi.fn(),
@@ -654,7 +657,7 @@ describe("total-loss customer workflow", () => {
 
     expect(
       await screen.findByRole("heading", {
-        name: "Your full valuation review",
+        name: "Complete your purchase",
       }),
     ).toBeVisible();
     expect((await screen.findAllByText(/199\.00/u))[0]).toBeVisible();
@@ -730,7 +733,7 @@ describe("total-loss customer workflow", () => {
 
     expect(
       await screen.findByRole("heading", {
-        name: "Your full valuation review",
+        name: "Complete your purchase",
       }),
     ).toBeVisible();
     expect(router.state.location.pathname).toBe(`${CLAIM_BASE}/checkout`);
@@ -764,7 +767,7 @@ describe("total-loss customer workflow", () => {
 
     expect(
       await screen.findByRole("heading", {
-        name: "Your full valuation review",
+        name: "Complete your purchase",
       }),
     ).toBeVisible();
     expect(router.state.location.pathname).toBe(`${CLAIM_BASE}/checkout`);

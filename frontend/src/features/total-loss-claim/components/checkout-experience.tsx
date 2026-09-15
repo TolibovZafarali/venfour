@@ -1,8 +1,6 @@
 import {
-  CheckCircle2,
   LockKeyhole,
   LoaderCircle,
-  ShieldCheck,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
@@ -24,6 +22,7 @@ import {
   useTotalLossCheckoutReconciliationMutation,
 } from "@/features/total-loss-claim/queries";
 import { totalLossClaimViewPath } from "@/features/total-loss-claim/workflow-route";
+import "./checkout-experience.css";
 
 export function CheckoutScreen({
   accessToken,
@@ -58,58 +57,59 @@ export function CheckoutScreen({
   const onResume = useCallback(() => setSearchParameters({}, { replace: true }), [setSearchParameters]);
 
   return (
+    <div className="checkout-page">
     <ClaimWorkflowFrame>
-      <div className="workspace-stage mb-8">
-        <p className="workspace-stage__eyebrow">Full valuation review</p>
-        <h1 className="workspace-stage__heading">Your full valuation review</h1>
-        <p className="workspace-stage__description">Get a completed evidence review, an organized valuation package, and clear guidance for your discussion with the insurance adjuster.</p>
+      <div className="checkout-introduction">
+        <p className="checkout-eyebrow"><LockKeyhole size={13} aria-hidden />Secure checkout</p>
+        <h1>Complete your purchase</h1>
+        <p>An independent review of your insurer’s vehicle valuation.</p>
       </div>
-      {canceled ? <p className="mb-6 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900" role="status">Checkout was canceled. Your claim and purchase progress are saved.</p> : null}
-      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
-        <ClaimWorkflowCard className="min-w-0">
-          <section aria-labelledby="secure-claim-heading">
-            <h2 id="secure-claim-heading" className="flex items-center gap-3 text-lg font-semibold text-ink"><span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-brand-soft text-sm text-brand" aria-hidden>1</span>Secure your claim</h2>
-            <div className="mt-5 sm:pl-11">
+      {canceled ? <p className="checkout-notice" role="status">Checkout was canceled. Your claim and purchase progress are saved.</p> : null}
+      <div className="checkout-columns">
+        <div className="checkout-form-column">
+          <section aria-labelledby="secure-claim-heading" className="checkout-account">
+            <h2 id="secure-claim-heading" className="checkout-section-heading">Your account</h2>
+            <div className="checkout-account-content">
               {verified ? (
-                <div className="rounded-xl border border-market/25 bg-market-soft/45 px-4 py-4">
-                  <p className="flex flex-wrap items-center gap-x-3 gap-y-2 text-sm font-semibold text-ink"><span className="break-all">{claim.contactEmail ? maskedClaimEmail(claim.contactEmail) : "Your saved email"}</span><span className="inline-flex items-center gap-1.5 text-market-strong"><CheckCircle2 className="size-4" aria-hidden />Verified</span></p>
-                  <p className="mt-2 text-sm leading-6 text-copy">Your claim is securely saved to your account.</p>
+                <div>
+                  <p className="checkout-account-identity"><span>{claim.contactEmail ? maskedClaimEmail(claim.contactEmail) : "Your saved email"}</span><span className="checkout-verified">Verified</span></p>
+                  <p className="checkout-account-note">Your claim is securely tied to this verified account.</p>
                 </div>
               ) : <SecureClaimPanel accessToken={accessToken} claim={claim} onAccessStateChanged={onRefresh} onVerificationPendingChange={onVerificationPendingChange} userId={userId} />}
             </div>
           </section>
-          <section aria-labelledby="payment-heading" className="mt-8 border-t border-line pt-8">
-            <h2 id="payment-heading" className="flex items-center gap-3 text-lg font-semibold text-ink"><span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-brand-soft text-sm text-brand" aria-hidden>2</span>Payment information</h2>
-            <div className="mt-5 sm:pl-11">
-              <div className="mb-5 flex items-baseline justify-between gap-3 text-sm"><span className="text-copy">Valuation evidence package</span><span className="shrink-0 font-semibold text-ink">{quote.isPending ? "Loading…" : (price ?? "Price unavailable")}</span></div>
+          <section aria-labelledby="payment-heading" className="checkout-payment">
+            <h2 id="payment-heading" className="checkout-section-heading">Payment details</h2>
+            <div className="checkout-payment-content">
               {!verified ? (
                 <>
-                  <div className="flex gap-3 rounded-xl border border-dashed border-line bg-surface/65 p-5"><LockKeyhole className="mt-0.5 size-5 shrink-0 text-copy" aria-hidden /><p className="text-sm leading-6 text-copy">Verify your email above to continue with payment.</p></div>
-                  <Button disabled className="mt-6 min-h-12 w-full" type="button">Complete purchase</Button>
+                  <p className="checkout-notice">Verify your email above to continue with payment.</p>
+                  <Button disabled className="checkout-submit" type="button">Complete purchase</Button>
                 </>
               ) : confirming ? (
                 <PaymentConfirmation accessToken={accessToken} caseId={caseId} checkoutSessionId={searchParameters.get("session_id")} onRefresh={onRefresh} onResume={onResume} userId={userId} />
               ) : paymentReady ? (
-                <EmbeddedPayment key={`${caseId}:${userId}`} accessToken={accessToken} caseId={caseId} onConfirm={onConfirm} userId={userId} />
+                <EmbeddedPayment key={`${caseId}:${userId}`} accessToken={accessToken} caseId={caseId} onConfirm={onConfirm} priceLabel={price} userId={userId} />
               ) : quote.isPending ? <p className="py-5 text-sm text-copy" role="status">Loading your purchase details…</p> : (
                 <div><Button asChild className="mb-4" variant="outline"><Link to={`/total-loss/cases/${caseId}/review-report`}>Check your insurer valuation report</Link></Button><WorkflowError>Payment is not available right now. Your claim is saved, and no payment has been taken on this page.</WorkflowError><Button className="mt-4" variant="outline" type="button" onClick={() => { void quote.refetch(); void onRefresh(); }}>Check availability</Button></div>
               )}
-              <p className="mt-4 flex items-center justify-center gap-1.5 text-xs text-copy"><ShieldCheck className="size-3.5" aria-hidden />Secure payment powered by Stripe</p>
-              <p className="mt-2 text-center text-xs text-copy">Fair-result refund policy</p>
+              <p className="checkout-payment-security">Secure payment powered by Stripe</p>
             </div>
           </section>
-        </ClaimWorkflowCard>
-        <aside aria-label="Purchase summary" className="rounded-[1.5rem] border border-line bg-surface/70 p-6 lg:sticky lg:top-6">
-          <h2 className="text-lg font-semibold tracking-[-0.02em] text-ink">Your valuation evidence package</h2>
-          <ul className="mt-5 space-y-4 text-sm leading-6 text-copy">
-            {["Completed review of the insurer’s valuation and relevant market evidence", "An organized Venfour Total-Loss Valuation Evidence Package", "Guided preparation of a neutral reconsideration request when supported"].map((item) => <li key={item} className="flex gap-2.5"><CheckCircle2 className="mt-1 size-4 shrink-0 text-brand" aria-hidden />{item}</li>)}
+        </div>
+        <aside aria-label="Purchase summary" className="checkout-summary">
+          <h2 className="checkout-section-heading">Order summary</h2>
+          <div className="checkout-order-item"><h3>Valuation Evidence Review</h3><span>{quote.isPending ? "Loading…" : (price ?? "Unavailable")}</span></div>
+          <ul className="checkout-inclusions">
+            {["Review of the insurer’s valuation and relevant market evidence", "Venfour Total-Loss Valuation Evidence Package", "Guided reconsideration request preparation when supported"].map((item) => <li key={item}>{item}</li>)}
           </ul>
-          <div className="mt-6 flex items-baseline justify-between gap-3 border-t border-line pt-5"><span className="text-sm font-medium text-copy">Total</span><span className="text-3xl font-semibold tracking-[-0.035em] text-ink">{quote.isPending ? "Loading…" : (price ?? "Unavailable")}</span></div>
-          {quote.data?.currency ? <p className="mt-1 text-right text-xs text-copy">{quote.data.currency.toUpperCase()} · One-time payment</p> : null}
-          <div className="mt-6 border-t border-line pt-5"><h3 className="text-sm font-semibold text-ink">Fair-result refund policy</h3><p className="mt-2 text-xs leading-5 text-copy">If the completed review does not support a dispute, Venfour will explain the result, refund your purchase under the fair-result policy, and retain report access for your records.</p><p className="mt-3 text-xs leading-5 text-copy">Payment does not guarantee a higher settlement. The insurer’s valuation may be reasonably supported.</p></div>
+          <dl className="checkout-summary-total"><div><dt>Total</dt><dd>{quote.isPending ? "Loading…" : (price ?? "Unavailable")}</dd></div></dl>
+          <p className="checkout-payment-terms">{quote.data?.currency ? `${quote.data.currency.toUpperCase()} · ` : ""}One-time payment · No subscription</p>
+          <div className="checkout-policy"><h3>Fair-result policy</h3><p>If our completed review does not identify reasonable support for a valuation dispute, we’ll explain the result and refund the purchase under our fair-result policy.</p><p className="checkout-disclaimer">Payment does not guarantee a higher insurance settlement.</p></div>
         </aside>
       </div>
     </ClaimWorkflowFrame>
+    </div>
   );
 }
 

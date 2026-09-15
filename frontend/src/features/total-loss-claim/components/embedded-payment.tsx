@@ -6,7 +6,7 @@ import {
 } from "@stripe/react-stripe-js/checkout";
 import { loadStripe } from "@stripe/stripe-js/pure";
 import type { Stripe } from "@stripe/stripe-js";
-import { LoaderCircle, LockKeyhole } from "lucide-react";
+import { LoaderCircle } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -28,9 +28,11 @@ function stripeFor(publishableKey: string) {
 
 function PaymentForm({
   onConfirm,
+  priceLabel,
   sessionId,
 }: {
   readonly onConfirm: (sessionId: string) => void;
+  readonly priceLabel?: string | null;
   readonly sessionId: string;
 }) {
   const checkout = useCheckoutElements();
@@ -79,9 +81,9 @@ function PaymentForm({
       ) : checkout.type === "error" ? (
         <WorkflowError>Payment fields could not load. Refresh to reopen your saved checkout.</WorkflowError>
       ) : (
-        <div className="space-y-6">
+        <div className="checkout-field-groups">
           <div>
-            <h3 className="mb-3 text-sm font-medium text-ink">Cardholder name and billing address</h3>
+            <h3 className="checkout-field-heading">Cardholder name and billing address</h3>
             <BillingAddressElement
               options={{ display: { name: "full" }, fields: { phone: "never" } }}
               onReady={() => setBillingReady(true)}
@@ -91,19 +93,23 @@ function PaymentForm({
               }}
             />
           </div>
-          <PaymentElement
-            options={{ layout: "accordion", fields: { billingDetails: "never" }, wallets: { link: "never", applePay: "never", googlePay: "never" } }}
-            onReady={() => setReady(true)}
-            onLoadError={() => {
-              setReady(false);
-              setError("Payment fields could not load. Refresh to reopen your saved checkout.");
-            }}
-          />
+          <div>
+            <h3 className="checkout-field-heading">Card details</h3>
+            <PaymentElement
+              options={{ layout: "accordion", fields: { billingDetails: "never" }, wallets: { link: "never", applePay: "never", googlePay: "never" } }}
+              onReady={() => setReady(true)}
+              onLoadError={() => {
+                setReady(false);
+                setError("Payment fields could not load. Refresh to reopen your saved checkout.");
+              }}
+            />
+          </div>
         </div>
       )}
       {error ? <WorkflowError>{error}</WorkflowError> : null}
-      <Button className="mt-6 min-h-12 w-full" disabled={checkout.type !== "success" || !ready || !billingReady || submitting} type="submit">
-        {submitting ? <LoaderCircle className="size-4 animate-spin motion-reduce:animate-none" aria-hidden /> : <LockKeyhole className="size-4" aria-hidden />}
+      {priceLabel ? <p className="checkout-confirm-total"><span>Total due</span><strong>{priceLabel}</strong></p> : null}
+      <Button className="checkout-submit" disabled={checkout.type !== "success" || !ready || !billingReady || submitting} type="submit">
+        {submitting ? <LoaderCircle className="size-4 animate-spin motion-reduce:animate-none" aria-hidden /> : null}
         {submitting ? "Confirming payment…" : "Complete purchase"}
       </Button>
     </form>
@@ -114,11 +120,13 @@ export function EmbeddedPayment({
   accessToken,
   caseId,
   onConfirm,
+  priceLabel,
   userId,
 }: {
   readonly accessToken: string;
   readonly caseId: string;
   readonly onConfirm: (sessionId: string | null) => void;
+  readonly priceLabel?: string | null;
   readonly userId: string;
 }) {
   const { mutateAsync } = useTotalLossCheckoutMutation({ accessToken, caseId, userId });
@@ -171,12 +179,25 @@ export function EmbeddedPayment({
           syncAddressCheckbox: "none",
           appearance: {
             theme: "stripe",
-            variables: { colorPrimary: "#2457D6", colorText: "#0b1f33", colorDanger: "#b91c1c", borderRadius: "10px", fontFamily: "system-ui, sans-serif" },
+            variables: {
+              colorPrimary: "#155eef", colorText: "#0b1f33", colorTextSecondary: "#62676d",
+              colorDanger: "#b91c1c", colorBackground: "#ffffff", borderRadius: "4px",
+              fontFamily: "-apple-system, BlinkMacSystemFont, Segoe UI, system-ui, sans-serif",
+              fontSizeBase: "16px", fontSizeSm: "13px", spacingUnit: "4px", gridRowSpacing: "20px",
+            },
+            rules: {
+              ".Input": { border: "1px solid #bfc4c5", boxShadow: "none", padding: "12px" },
+              ".Input:focus": { borderColor: "#155eef", boxShadow: "0 0 0 1px #155eef" },
+              ".Input--invalid": { borderColor: "#b91c1c" },
+              ".Input--invalid:focus": { borderColor: "#b91c1c", boxShadow: "0 0 0 1px #b91c1c" },
+              ".Label": { marginBottom: "8px", color: "#62676d", fontWeight: "400" },
+              ".Block": { borderColor: "#dddedb", boxShadow: "none", borderRadius: "4px" },
+            },
           },
         },
       }}
     >
-      <PaymentForm sessionId={checkout.checkoutSessionId} onConfirm={onConfirm} />
+      <PaymentForm sessionId={checkout.checkoutSessionId} onConfirm={onConfirm} priceLabel={priceLabel} />
     </CheckoutElementsProvider>
   );
 }

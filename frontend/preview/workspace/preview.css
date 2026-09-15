@@ -11,8 +11,9 @@
 .preview-launcher nav a { display: flex; flex-direction: column; gap: 8px; padding: 18px; border: 1px solid #dce3ef; border-radius: 10px; color: #1a2942; background: #fff; }
 .preview-launcher nav a:hover { border-color: #155eef; }
 .preview-launcher nav span { font-size: 12px; color: #59667b; line-height: 1.5; }
-.payment-preview { display: grid; gap: 16px; color: #59667b; font-size: 13px; }
+.payment-preview { display: grid; gap: 20px; color: var(--copy); font-size: 13px; }
 .payment-preview > p { font-size: 11px; }
 .payment-preview label { display: grid; gap: 8px; }
-.payment-preview input { display: block; width: 100%; min-height: 44px; padding: 10px; border: 1px solid #dce3ef; border-radius: 6px; background: white; font-size: 14px; }
+.payment-preview input { display: block; width: 100%; min-width: 0; min-height: 48px; padding: 12px; border: 1px solid #bfc4c5; border-radius: 4px; background: white; color: var(--ink); font-size: 16px; box-shadow: none; }
+.payment-preview input:focus-visible { outline: 1px solid var(--brand); border-color: var(--brand); }
 .payment-preview > div { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }

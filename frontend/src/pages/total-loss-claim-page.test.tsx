@@ -139,7 +139,7 @@ describe("total-loss claim page", () => {
     });
 
     expect(
-      await screen.findByRole("heading", { name: "Your full valuation review" }),
+      await screen.findByRole("heading", { name: "Complete your purchase" }),
     ).toBeVisible();
     expect(screen.getByText("ow••••@example.com")).toBeVisible();
     expect(router.state.location.pathname).toBe(`${CLAIM_PATH}/checkout`);
@@ -403,7 +403,7 @@ describe("total-loss claim page", () => {
     );
 
     await waitFor(() => expect(screen.getByText("Verified")).toBeVisible());
-    const securedHeading = screen.getByRole("heading", { name: "Your full valuation review" });
+    const securedHeading = screen.getByRole("heading", { name: "Complete your purchase" });
     expect(securedHeading).toBeVisible();
     const securedCard = securedHeading.closest("section");
     expect(securedCard).not.toBeNull();
