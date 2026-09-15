@@ -14,6 +14,9 @@ export interface FreeValuationProcessingOptions {
 }
 
 export const FreeValuationProcessingContext = createContext<{
+  inline?: boolean;
   show: (owner: symbol, options: FreeValuationProcessingOptions) => void;
   hide: (owner: symbol) => void;
 } | null>(null);
+
+export const InlineValuationProcessingContext = createContext<FreeValuationProcessingOptions | null>(null);

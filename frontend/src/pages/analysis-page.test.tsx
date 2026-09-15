@@ -1107,7 +1107,7 @@ describe("analysis results page", () => {
     ).toBeVisible();
   });
 
-  test("uses the shared processing environment while retrieving a saved analysis", () => {
+  test("keeps saved-analysis loading inside the shared workspace", () => {
     server.use(
       http.get("*/api/v1/analyses/:runId", async () => {
         await delay("infinite");
@@ -1118,8 +1118,9 @@ describe("analysis results page", () => {
     renderTestApp([analysisPath]);
 
     expect(screen.getByRole("heading", { name: "Opening your valuation" })).toBeVisible();
-    expect(document.querySelector("[data-free-valuation-processing] canvas")).toBeInTheDocument();
-    expect(screen.queryByRole("navigation")).not.toBeInTheDocument();
+    expect(document.querySelector("[data-free-valuation-processing]")).not.toBeInTheDocument();
+    expect(document.querySelector(".customer-workspace")).toBeInTheDocument();
+    expect(screen.getByRole("navigation", { name: "Legal" })).toBeVisible();
   });
 
   test("shows a specific not-found state for an unknown analysis", async () => {

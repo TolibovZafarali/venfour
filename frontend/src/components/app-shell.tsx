@@ -33,6 +33,7 @@ import { cn } from "@/lib/utils";
 import { appRouteGradientClassName } from "@/pages/page-gradients";
 import { useHomeSmoothScroll } from "@/pages/use-home-smooth-scroll";
 import { FreeValuationProcessingProvider } from "@/features/analyses/components/free-valuation-processing";
+import { CustomerWorkspace } from "@/components/customer-workspace";
 import venfourMark from "../../../assets/brand/venfour-mark.svg";
 
 const primaryLinkClassName =
@@ -46,16 +47,22 @@ const mobileLinkClassName =
 
 export function AppShell() {
   const { auth } = useAuth();
+  const caseRoute = useMatch("/total-loss/cases/:caseId/*");
+  const analysisRoute = useMatch("/analyses/:runId");
+  const location = useLocation();
+  const search = new URLSearchParams(location.search);
+  const intakeCaseId = location.pathname === "/start" && search.get("service") !== "diminished-value" ? search.get("caseId") : null;
+  const workspace = Boolean(caseRoute || analysisRoute || intakeCaseId);
   return (
     <SignInDialogProvider>
-      <FreeValuationProcessingProvider accountControl={isPermanentAuthState(auth) ? <AccountControl /> : null}>
-        <AppShellContent />
+      <FreeValuationProcessingProvider inline={workspace} accountControl={isPermanentAuthState(auth) ? <AccountControl /> : null}>
+        <AppShellContent workspace={workspace} workspaceCaseId={caseRoute?.params.caseId ?? intakeCaseId ?? undefined} />
       </FreeValuationProcessingProvider>
     </SignInDialogProvider>
   );
 }
 
-function AppShellContent() {
+function AppShellContent({ workspace, workspaceCaseId }: { workspace: boolean; workspaceCaseId?: string }) {
   const localStatusRoute = useMatch("/_local/status-experience");
   const analysisRoute = useMatch("/analyses/:runId");
   const totalLossCaseRoute = useMatch("/total-loss/cases/:caseId/*");
@@ -187,7 +194,7 @@ function AppShellContent() {
   const guestReturn = useGuestAnalysisReturn(onHomePage && !productionPublicPage);
   const workspaceAction = useWorkspaceEntryAction(publicSite && !productionPublicPage);
   const focusedCaseAccountHeader =
-    location.pathname === "/app" || Boolean(appraisalsRoute) || location.pathname.startsWith("/partners") ||
+    workspace || location.pathname === "/app" || Boolean(appraisalsRoute) || location.pathname.startsWith("/partners") ||
     completedReviewRoute ||
     (Boolean(totalLossCaseRoute) && isPermanentAuthState(auth));
   const totalLossHref = onHomePage ? "#total-loss" : publicHref("/#total-loss");
@@ -221,7 +228,7 @@ function AppShellContent() {
     : "duration-[360ms] ease-[cubic-bezier(0.4,0,0.2,1)]";
 
   return (
-    <div className="relative flex min-h-svh flex-col bg-background" data-completed-review={completedReviewRoute || undefined}>
+    <div className="relative flex min-h-svh flex-col bg-background" data-customer-workspace={workspace || undefined} data-completed-review={completedReviewRoute || undefined}>
       <span
         ref={headerSentinelRef}
         className="pointer-events-none absolute top-0 left-0 h-px w-px"
@@ -265,6 +272,7 @@ function AppShellContent() {
             <div
               className={cn(
                 "mx-auto flex min-h-16 w-full items-center justify-between gap-4 px-5 py-2.5 sm:px-8",
+                workspace && "workspace-header-content",
                 analysisRoute || adminRoute
                   ? "max-w-[90rem] lg:px-10"
                   : "max-w-7xl",
@@ -453,7 +461,7 @@ function AppShellContent() {
           Local test: upload your own report. Market listings and prices are simulated; results do not establish your vehicle’s value.
         </div>
       ) : null}
-      {completedReviewRoute ? (
+      {completedReviewRoute && !workspace ? (
         <div
           className="completed-review-navigation-host"
           ref={setCompletedReviewNavigationHost}
@@ -463,7 +471,7 @@ function AppShellContent() {
         id="main-content"
         className={cn(
           "flex flex-1",
-          !completedReviewRoute && appRouteGradientClassName(location.pathname),
+          !workspace && !completedReviewRoute && appRouteGradientClassName(location.pathname),
         )}
         tabIndex={-1}
       >
@@ -472,12 +480,14 @@ function AppShellContent() {
         >
           <CompletedReviewNavigationHostContext.Provider value={completedReviewNavigationHost}>
             <CompletedReviewActionsHostContext.Provider value={completedReviewActionsHost}>
-              <Outlet />
+              {workspace ? <CustomerWorkspace caseId={workspaceCaseId} navigation={
+                <div className="completed-review-navigation-host" ref={setCompletedReviewNavigationHost} />
+              }><Outlet /></CustomerWorkspace> : <Outlet />}
             </CompletedReviewActionsHostContext.Provider>
           </CompletedReviewNavigationHostContext.Provider>
         </CompletedReviewProgressHostContext.Provider>
       </main>
-      {productFlowRoute ? (
+      {productFlowRoute || workspace ? (
         <footer className="relative z-10 shrink-0 bg-canvas px-5 py-2 sm:px-8">
           <nav
             aria-label="Legal"

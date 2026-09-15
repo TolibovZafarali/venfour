@@ -29,6 +29,7 @@ class ClaimInitializationTests(unittest.TestCase):
         self.case, self.user, self.input_id, self.report_id = (str(uuid4()) for _ in range(4))
         self.context = {
             "case_id": self.case, "user_id": self.user,
+            "payment_approval": {"configured": True, "required": False, "approved": True, "status": "not_required"},
             "source_run_id": self.artifact.run_id, "source_input_id": self.input_id,
             "source_input_revision": 2, "input": {"analysis_input_revision": 2},
             "artifact": self.artifact.to_dict(),
@@ -176,11 +177,8 @@ class ClaimInitializationTests(unittest.TestCase):
             url = f"/api/v1/appraisal-cases/{self.case}/full-review"
             response = client.get(url, headers={"Authorization": "Bearer owner-token"})
             self.assertEqual(response.status_code, 200, response.text)
-            self.assertFalse(response.json()["checkoutAvailable"])
-            self.assertEqual(response.json()["paymentReadiness"]["status"], "awaiting_approval")
-            self.context["payment_approval"] = {"configured": True, "required": True, "approved": True, "status": "approved"}
-            response = client.get(url, headers={"Authorization": "Bearer owner-token"})
             self.assertTrue(response.json()["checkoutAvailable"])
+            self.assertEqual(response.json()["paymentReadiness"]["status"], "eligible")
             self.assertTrue(response.json()["ready"])
             saved_review = self.context.pop("strict_review")
             self.assertFalse(client.get(url, headers={"Authorization": "Bearer owner-token"}).json()["checkoutAvailable"])

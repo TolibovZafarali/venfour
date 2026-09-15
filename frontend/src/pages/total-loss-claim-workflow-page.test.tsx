@@ -650,7 +650,7 @@ describe("total-loss customer workflow", () => {
 
     expect(
       await screen.findByRole("heading", {
-        name: "Complete your valuation review",
+        name: "Your full valuation review",
       }),
     ).toBeVisible();
     expect((await screen.findAllByText(/129\.00/u))[0]).toBeVisible();
@@ -724,7 +724,7 @@ describe("total-loss customer workflow", () => {
 
     expect(
       await screen.findByRole("heading", {
-        name: "Complete your valuation review",
+        name: "Your full valuation review",
       }),
     ).toBeVisible();
     expect(router.state.location.pathname).toBe(`${CLAIM_BASE}/checkout`);
@@ -758,7 +758,7 @@ describe("total-loss customer workflow", () => {
 
     expect(
       await screen.findByRole("heading", {
-        name: "Complete your valuation review",
+        name: "Your full valuation review",
       }),
     ).toBeVisible();
     expect(router.state.location.pathname).toBe(`${CLAIM_BASE}/checkout`);

@@ -1,0 +1,29 @@
+.report-upload-overlay { position: fixed; inset: 0; z-index: 70; background: #17243b66; backdrop-filter: blur(5px); animation: report-dialog-arrive 180ms ease-out; }
+.report-upload-dialog { position: fixed; z-index: 71; top: 50%; left: 50%; transform: translate(-50%, -50%); width: min(560px, calc(100% - 32px)); max-height: calc(100dvh - 40px); overflow: hidden; border: 1px solid #ffffffb3; border-radius: 20px; background: #fcfdff; color: var(--ink); box-shadow: 0 24px 100px #14264b26; animation: report-dialog-arrive 180ms ease-out; }
+.report-upload-dialog__body { max-height: calc(100dvh - 42px); overflow-y: auto; overscroll-behavior: contain; padding: 36px; }
+.report-upload-dialog:focus { outline: none; }
+.report-upload-dialog .workspace-stage { animation: none; }
+.report-upload-dialog .workspace-stage__eyebrow { margin-bottom: 12px; padding-right: 32px; }
+.report-upload-dialog .workspace-stage__heading { max-width: 380px; padding-right: 16px; font-size: clamp(25px, 4vw, 32px); line-height: 1.2; }
+.report-upload-dialog .workspace-stage__description { margin-top: 14px; font-size: 14px; line-height: 1.65; }
+.report-upload-dialog .workspace-upload { align-items: center; text-align: center; max-width: none; margin-top: 24px; padding: 26px 20px; background: #f1f5fc; }
+.report-upload-dialog .workspace-upload__hint { max-width: 300px; }
+.report-upload-dialog .workspace-report-help { margin-top: 18px; }
+.report-upload-dialog .workspace-report-file { align-items: flex-start; }
+.report-upload-dialog .workspace-report-file > div { min-width: 0; }
+.report-upload-dialog .workspace-report-file strong { overflow-wrap: anywhere; }
+.report-upload-dialog .workspace-confirmation { margin-top: 20px; }
+.report-upload-dialog .workspace-confirmation fieldset { min-width: 0; }
+.report-upload-dialog .workspace-confirmation label { min-width: 0; overflow-wrap: anywhere; }
+.report-upload-dialog .report-action-focus { min-width: 0; max-width: 100%; height: auto; white-space: normal; }
+.report-upload-dialog .valuation-surface__background { display: none; }
+.report-upload-dialog .valuation-status { min-height: 180px; padding: 20px 0; }
+.report-upload-dialog .valuation-status__heading { font-size: 26px; }
+.report-upload-dialog__close { position: absolute; top: 14px; right: 14px; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; color: var(--copy); cursor: pointer; }
+.report-upload-dialog__close:hover { background: #eaf0f9; color: var(--ink); }
+.report-upload-dialog__close:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+.report-upload-dialog__close:disabled { opacity: .35; cursor: wait; }
+.report-upload-dialog__close svg { width: 19px; height: 19px; }
+@keyframes report-dialog-arrive { from { opacity: 0; } to { opacity: 1; } }
+@media (max-width: 639px) { .report-upload-dialog { width: calc(100% - 24px); max-height: calc(100dvh - 24px); border-radius: 16px; } .report-upload-dialog__body { max-height: calc(100dvh - 26px); padding: 30px 22px 24px; } .report-upload-dialog .workspace-upload { padding: 22px 14px; } }
+@media (prefers-reduced-motion: reduce) { .report-upload-overlay, .report-upload-dialog { animation: none; } }

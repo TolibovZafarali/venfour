@@ -3,7 +3,7 @@ import {
   ShieldCheck,
   RefreshCw,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link, useLocation, useParams } from "react-router";
 
 import { Button } from "@/components/ui/button";
@@ -24,6 +24,7 @@ import { FreeValuationProcessing } from "@/features/analyses/components/free-val
 import { useAnalysisQuery } from "@/features/analyses/queries";
 import { ApiError } from "@/lib/api/client";
 import { totalLossIntakeCorrectionPath } from "@/features/total-loss/intake-correction";
+import { ReportUploadDialog } from "@/features/full-review/report-upload-dialog";
 
 const canonicalUuid4Pattern =
   /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
@@ -46,11 +47,13 @@ function CompletedTotalLossAnalysis({
   intakeCorrectionAllowed,
   runId,
   userId,
+  reportUploadAction,
 }: {
   readonly accessToken: string;
   readonly intakeCorrectionAllowed: boolean;
   readonly runId: string;
   readonly userId: string;
+  readonly reportUploadAction: ReactNode;
 }) {
   const resultQuery = useAnalysisQuery({ accessToken, runId, userId });
   const { caseId } = useParams();
@@ -103,11 +106,8 @@ function CompletedTotalLossAnalysis({
           ? totalLossIntakeCorrectionPath(caseId, "insurer-offer")
           : undefined
       }
-      continueAction={
-        caseId
-          ? <Button asChild size="lg" className="mt-6 h-auto max-w-full whitespace-normal text-center"><Link to={`/total-loss/cases/${caseId}/review-report`}>Upload your insurer’s report to continue</Link></Button>
-          : undefined
-      }
+      continueAction={reportUploadAction}
+      reportUploadAction={reportUploadAction}
       reviewIntakePath={reviewIntakePath}
       insurerReportPath={caseId ? `/total-loss/cases/${caseId}/review-report` : undefined}
     />
@@ -118,10 +118,12 @@ function AuthenticatedTotalLossAnalysisPage({
   accessToken,
   caseId,
   userId,
+  reportUploadAction,
 }: {
   readonly accessToken: string;
   readonly caseId: string;
   readonly userId: string;
+  readonly reportUploadAction: ReactNode;
 }) {
   const autoSubmittedCaseRef = useRef<string | null>(null);
   const analysisQuery = useCaseAnalysisQuery({ accessToken, caseId, userId });
@@ -363,11 +365,22 @@ function AuthenticatedTotalLossAnalysisPage({
       intakeCorrectionAllowed={analysis.intakeCorrectionAllowed === true}
       runId={analysis.runId}
       userId={userId}
+      reportUploadAction={reportUploadAction}
     />
   );
 }
 
-export function TotalLossAnalysisPage() {
+function SavedReportBackground({ accessToken, caseId, userId, reportUploadAction }: {
+  accessToken: string; caseId: string; userId: string; reportUploadAction: ReactNode;
+}) {
+  const query = useCaseAnalysisQuery({ accessToken, caseId, userId });
+  const analysis = query.data;
+  return analysis?.status === "completed" && canonicalUuid4Pattern.test(analysis.runId)
+    ? <CompletedTotalLossAnalysis accessToken={accessToken} runId={analysis.runId} userId={userId} intakeCorrectionAllowed={analysis.intakeCorrectionAllowed === true} reportUploadAction={reportUploadAction} />
+    : <StateCard heading="Your valuation review" description="Review your insurer’s report in this workspace." />;
+}
+
+export function TotalLossAnalysisPage({ reportWorkspace = false }: { reportWorkspace?: boolean } = {}) {
   const { caseId = "" } = useParams();
   const location = useLocation();
   const { auth } = useAuth();
@@ -430,10 +443,10 @@ export function TotalLossAnalysisPage() {
   }
 
   return (
-    <AuthenticatedTotalLossAnalysisPage
-      accessToken={auth.session.access_token}
-      caseId={caseId}
-      userId={auth.user.id}
-    />
+    <ReportUploadDialog key={`${auth.user.id}:${caseId}`} accessToken={auth.session.access_token} caseId={caseId} userId={auth.user.id} reportWorkspace={reportWorkspace}>
+      {reportUploadAction => reportWorkspace
+        ? <SavedReportBackground accessToken={auth.session.access_token} caseId={caseId} userId={auth.user.id} reportUploadAction={reportUploadAction} />
+        : <AuthenticatedTotalLossAnalysisPage accessToken={auth.session.access_token} caseId={caseId} userId={auth.user.id} reportUploadAction={reportUploadAction} />}
+    </ReportUploadDialog>
   );
 }

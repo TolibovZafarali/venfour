@@ -18,7 +18,7 @@ vi.mock("@/features/analyses/components/valuation-signal-field", () => ({
 const USER_ID = "11111111-1111-4111-8111-111111111111";
 const CASE_ID = "22222222-2222-4222-8222-222222222222";
 const casePath = `/total-loss/cases/${CASE_ID}/analysis`;
-const progressHeading = "Preparing your valuation";
+const progressHeading = "Reviewing your vehicle.";
 const materialResultHeading =
   "Your insurer may be undervaluing your vehicle.";
 
@@ -95,9 +95,9 @@ describe("total-loss case analysis page", () => {
     await waitFor(() => expect(postCount).toBe(1));
     expect(authorization).toBe(`Bearer access-${USER_ID}`);
     expect(submittedInput).toEqual({ expectedAnalysisInputId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", expectedAnalysisInputRevision: 1 });
-    expect(screen.queryByRole("banner")).not.toBeInTheDocument();
-    expect(screen.queryByRole("navigation")).not.toBeInTheDocument();
-    expect(screen.queryByRole("contentinfo")).not.toBeInTheDocument();
+    expect(screen.getByRole("banner")).toBeVisible();
+    expect(screen.getByRole("navigation", { name: "Legal" })).toBeVisible();
+    expect(screen.getByRole("contentinfo")).toBeVisible();
     expect(screen.getByRole("button", { name: /Account for/ })).toBeVisible();
     expect(screen.getByRole("link", { name: "Venfour home" })).toBeVisible();
   });
@@ -178,7 +178,7 @@ describe("total-loss case analysis page", () => {
         name: progressHeading,
       }),
     ).toBeVisible();
-    expect(screen.queryByRole("navigation", { name: "Legal" })).not.toBeInTheDocument();
+    expect(screen.getByRole("navigation", { name: "Legal" })).toBeVisible();
     expect(
       await screen.findByRole(
         "heading",
@@ -227,7 +227,7 @@ describe("total-loss case analysis page", () => {
       await screen.findByRole("heading", { name: materialResultHeading }),
     ).toBeVisible();
     expect(
-      screen.getByRole("link", { name: "Upload your insurer’s report to continue" }),
+      screen.getByRole("button", { name: "Upload insurer valuation report" }),
     ).toBeVisible();
     expect(
       screen.queryByRole("link", { name: "Review your details" }),

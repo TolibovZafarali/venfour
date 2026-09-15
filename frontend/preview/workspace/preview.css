@@ -1,0 +1,18 @@
+@import "../../src/styles/index.css";
+@source "../../src";
+@source ".";
+
+.workspace-preview-note { position: fixed; bottom: 8px; right: 12px; z-index: 80; display: flex; gap: 10px; align-items: center; padding: 4px 10px; border: 1px solid #dae2f0; border-radius: 8px; background: #fcfdffff; color: #59667b; font: 10px/1.5 system-ui; }
+.workspace-preview-note a { display: inline-flex; align-items: center; min-height: 28px; color: #155eef; text-decoration: underline; text-underline-offset: 3px; }
+.preview-launcher { max-width: 960px; margin: 0 auto; padding: 48px 24px 80px; font-family: var(--font-sans); }
+.preview-launcher h1 { font-size: 36px; letter-spacing: -.04em; }
+.preview-launcher p { margin-top: 14px; line-height: 1.7; color: #59667b; }
+.preview-launcher nav { display: grid; grid-template-columns: repeat(auto-fit,minmax(230px,1fr)); gap: 12px; margin-top: 28px; }
+.preview-launcher nav a { display: flex; flex-direction: column; gap: 8px; padding: 18px; border: 1px solid #dce3ef; border-radius: 10px; color: #1a2942; background: #fff; }
+.preview-launcher nav a:hover { border-color: #155eef; }
+.preview-launcher nav span { font-size: 12px; color: #59667b; line-height: 1.5; }
+.payment-preview { display: grid; gap: 16px; color: #59667b; font-size: 13px; }
+.payment-preview > p { font-size: 11px; }
+.payment-preview label { display: grid; gap: 8px; }
+.payment-preview input { display: block; width: 100%; min-height: 44px; padding: 10px; border: 1px solid #dce3ef; border-radius: 6px; background: white; font-size: 14px; }
+.payment-preview > div { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }

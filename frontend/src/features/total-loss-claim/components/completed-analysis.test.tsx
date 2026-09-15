@@ -1319,7 +1319,7 @@ describe("completed-analysis guided progression", () => {
     expect(await screen.findByText("You chose to continue challenging")).toBeVisible();
     expect(screen.queryByRole("link", { name: /Prepare my follow-up|View sent follow-up/u })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Continue challenging" })).not.toBeInTheDocument();
-    await user.click(screen.getByRole("link", { name: "Return to current case step" }));
+    await user.click(screen.getByRole("link", { name: "Current case step" }));
     expect(await screen.findByRole("button", { name: "Continue challenging" })).toBeVisible();
     expect(installed.claim()).toEqual(current);
     expect(installed.responseWrites).toEqual([]);
@@ -1903,7 +1903,7 @@ describe("completed-analysis guided progression", () => {
     );
     expect(screen.getByRole("progressbar", { name: "Case journey" })).toHaveAttribute("aria-valuenow", "5.5");
     expect(screen.getByText(/does not monitor.*cannot verify delivery, receipt, or detect a response automatically/iu)).toBeVisible();
-    expect(screen.getByText(/return to this case.*I received a response/iu)).toBeVisible();
+    expect(screen.getByText(/When the insurer responds, choose.*I received a response/iu)).toBeVisible();
     expect(screen.queryByText(/delivery confirmed|insurer received|response.*within \d/iu)).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "I received a response" })).toBeVisible();
     const reviewNavigation = screen.getByRole("navigation", { name: "Review navigation" });
@@ -2942,9 +2942,9 @@ describe("completed-analysis guided progression", () => {
     const user = userEvent.setup();
     const { router } = renderJourney("report", "meaning");
 
-    expect(await screen.findByRole("button", { name: "Return to case status" })).toBeVisible();
+    expect(await screen.findByRole("button", { name: "Case status" })).toBeVisible();
     expect(screen.queryByRole("button", { name: "Prepare my request" })).not.toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Return to case status" }));
+    await user.click(screen.getByRole("button", { name: "Case status" }));
     expect(await screen.findByRole("heading", { name: "Waiting for the insurer’s response" })).toBeVisible();
     expect(router.state.location.pathname).toBe(`${BASE}/review/waiting`);
   });
@@ -2974,7 +2974,7 @@ describe("completed-analysis guided progression", () => {
     const user = userEvent.setup();
     const view = renderJourney("report", "result");
     await user.click(await screen.findByRole("link", { name: "What it means" }));
-    await user.click(await screen.findByRole("button", { name: "Return to case status" }));
+    await user.click(await screen.findByRole("button", { name: "Case status" }));
     await waitFor(() => expect(view.router.state.location.pathname).toBe(`${BASE}/review/${stage}`));
     expect(screen.getByRole("region", { name: "Completed analysis" })).toHaveAttribute("data-stage", stage.replaceAll("-", "_"));
     expect(saved.claim()).toEqual(claim);

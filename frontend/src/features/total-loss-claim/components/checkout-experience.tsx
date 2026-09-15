@@ -1,7 +1,5 @@
 import {
-  AlertCircle,
   CheckCircle2,
-  ArrowLeft,
   LockKeyhole,
   LoaderCircle,
   ShieldCheck,
@@ -61,13 +59,10 @@ export function CheckoutScreen({
 
   return (
     <ClaimWorkflowFrame>
-      <Link className="mb-6 inline-flex min-h-11 items-center gap-2 text-sm font-medium text-copy hover:text-ink" to={`/total-loss/cases/${encodeURIComponent(caseId)}/analysis`}>
-        <ArrowLeft className="size-4" aria-hidden /> Back to your valuation
-      </Link>
-      <div className="mb-8 max-w-3xl">
-        <p className="text-xs font-semibold tracking-[0.14em] text-brand uppercase">Your valuation review</p>
-        <h1 className="mt-3 text-3xl font-semibold tracking-[-0.04em] text-ink sm:text-4xl lg:text-5xl">Complete your valuation review</h1>
-        <p className="mt-4 max-w-2xl text-base leading-7 text-copy">Get a completed evidence review, an organized valuation package, and clear guidance for your discussion with the insurance adjuster.</p>
+      <div className="workspace-stage mb-8">
+        <p className="workspace-stage__eyebrow">Full valuation review</p>
+        <h1 className="workspace-stage__heading">Your full valuation review</h1>
+        <p className="workspace-stage__description">Get a completed evidence review, an organized valuation package, and clear guidance for your discussion with the insurance adjuster.</p>
       </div>
       {canceled ? <p className="mb-6 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900" role="status">Checkout was canceled. Your claim and purchase progress are saved.</p> : null}
       <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
@@ -299,7 +294,6 @@ export function ProcessingScreen({
   const needsAttention =
     fulfillment === "needs_attention" ||
     claim.journey?.nextState === "needs_attention";
-  const Icon = needsAttention ? AlertCircle : LoaderCircle;
   const heading = needsAttention
     ? "We need to check a detail in your case"
     : exception
@@ -312,31 +306,21 @@ export function ProcessingScreen({
       : "Venfour is validating the evidence and preparing the customer-ready report. This may take a little time.";
 
   return (
-    <ClaimWorkflowFrame>
-      <ClaimWorkflowCard>
-        <span className="flex size-12 items-center justify-center rounded-full bg-brand-soft text-brand">
-          <Icon
-            className={
-              needsAttention
-                ? "size-6"
-                : "size-6 animate-spin motion-reduce:animate-none"
-            }
-            aria-hidden
-          />
-        </span>
-        <p className="mt-6 text-sm font-semibold tracking-[0.12em] text-brand uppercase">
+    <section className="workspace-stage">
+        <p className="workspace-stage__eyebrow">
           {needsAttention ? "Case status" : "Report preparation"}
         </p>
-        <h1 className="mt-3 max-w-3xl text-3xl font-semibold tracking-[-0.04em] text-ink sm:text-4xl">
+        <h1 className="workspace-stage__heading">
           {heading}
         </h1>
         <p
-          className="mt-5 max-w-3xl text-base leading-7 text-copy"
+          className="workspace-stage__description"
           aria-live="polite"
           aria-busy={!needsAttention}
         >
           {description}
         </p>
+        {!needsAttention ? <div className="workspace-processing__line" aria-hidden /> : null}
         {claim.journey?.retryable || needsAttention ? (
           <div className="mt-7 flex flex-wrap gap-3">
             <Button
@@ -353,15 +337,11 @@ export function ProcessingScreen({
             ) : null}
           </div>
         ) : null}
-        <div className="mt-8 flex gap-3 rounded-2xl border border-line bg-surface/60 p-5">
-          <ShieldCheck className="mt-0.5 size-5 shrink-0 text-brand" aria-hidden />
-          <p className="text-sm leading-6 text-copy">
+          <p className="workspace-report-status">
             {needsAttention
               ? "Your case remains saved. Checking again only refreshes its status; it does not repeat any completed payment or processing step."
               : "You can close this browser and return to your saved case. Report preparation continues independently of this page."}
           </p>
-        </div>
-      </ClaimWorkflowCard>
-    </ClaimWorkflowFrame>
+    </section>
   );
 }

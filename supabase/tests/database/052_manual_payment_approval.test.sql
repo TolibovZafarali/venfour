@@ -88,7 +88,9 @@ insert into auth.users(id,email,email_confirmed_at,is_anonymous)
   values('53300000-0000-4000-8000-000000000001','launch-reviewer@example.test',now(),false);
 insert into public.staff_members(user_id) values('53300000-0000-4000-8000-000000000001');
 
-select ok((select manual_approval_required from public.total_loss_payment_approval_settings),'manual approval is required on installation');
+select ok((select not manual_approval_required from public.total_loss_payment_approval_settings),'manual payment approval is disabled on installation');
+-- Exercise retained decision history and access controls in an isolated transaction.
+update public.total_loss_payment_approval_settings set manual_approval_required=true;
 select ok((select relrowsecurity from pg_class where oid=('public.'||name)::regclass),'RLS enabled for '||name)
 from unnest(array['total_loss_payment_approval_settings','total_loss_payment_approval_decisions']) name;
 select ok(not has_table_privilege(role,'public.'||name,'INSERT,UPDATE,DELETE'),'direct writes denied to '||role||' on '||name)
@@ -219,5 +221,31 @@ select ok((select checkout_available from public.authorize_total_loss_checkout_p
 select is((select count(*) from public.payment_transactions),0::bigint,'no payment created');
 select is((select count(*) from public.case_entitlements),0::bigint,'no entitlement created');
 select is((select count(*) from public.checkout_attempts),0::bigint,'no checkout session or reservation created');
+
+-- Disabling launch supervision preserves strict eligibility and historical decisions.
+update public.total_loss_payment_approval_settings set manual_approval_required=false;
+create temp table previous_decisions as select count(*) total from public.total_loss_payment_approval_decisions;
+select is(jsonb_array_length(public.staff_payment_approval_queue()),0,'disabled supervision has no approval queue');
+select ok(public.total_loss_payment_approved((f->>'case')::uuid,(f->>'owner')::uuid),
+  'qualifying case can pay without a current approval: '||name)
+  from approval_fixture where name in ('other','hold','decline');
+select ok(not public.total_loss_payment_approved((f->>'case')::uuid,(f->>'owner')::uuid),
+  'automated eligibility still blocks invalid evidence: '||name)
+  from approval_fixture where name in ('input','report','insufficient');
+select ok(not public.total_loss_payment_approved((f->>'case')::uuid,'53300000-0000-4000-8000-000000000001'),
+  'disabling supervision does not bypass case ownership') from approval_fixture where name='other';
+select is(public.get_total_loss_full_review_context((f->>'case')::uuid,(f->>'owner')::uuid)#>>'{payment_approval,status}',
+  'not_required','customer state declares no manual approval requirement') from approval_fixture where name='other';
+select is(pg_temp.initialize_checkout(f),'created','unapproved qualifying case can initialize checkout') from approval_fixture where name='other';
+select is(pg_temp.initialize_checkout(f),'existing','repeated automatic continuation is idempotent') from approval_fixture where name='other';
+select ok((select checkout_available from public.authorize_total_loss_checkout_preflight((f->>'case')::uuid,(f->>'owner')::uuid)),
+  'server preflight allows payment without staff approval') from approval_fixture where name='other';
+select lives_ok($$select public.reserve_total_loss_checkout('53100000-0000-4000-8000-000000000007','53200000-0000-4000-8000-000000000007',
+  gen_random_uuid(),'total_loss_advisory_package','v1','price_fixture',19900,'USD','terms','refund',false)$$,
+  'existing checkout reservation succeeds without staff approval');
+select is((select count(*) from public.total_loss_payment_approval_decisions),(select total from previous_decisions),
+  'automatic checkout neither creates nor deletes historical approval decisions');
+select is((select count(*) from public.payment_transactions),0::bigint,'automatic eligibility creates no payment');
+select is((select count(*) from public.case_entitlements),0::bigint,'automatic eligibility creates no paid entitlement');
 select * from finish();
 rollback;

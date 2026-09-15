@@ -32,7 +32,6 @@ import { ReferralPartnersPage } from "@/pages/referral-partners-page";
 import { RouteErrorPage } from "@/pages/route-error-page";
 import { TermsPage } from "@/pages/terms-page";
 import { TotalLossAnalysisPage } from "@/pages/total-loss-analysis-page";
-import { TotalLossFullReviewPage } from "@/pages/total-loss-full-review-page";
 import { TotalLossClaimPage } from "@/pages/total-loss-claim-page";
 import { TotalLossClaimWorkflowPage } from "@/pages/total-loss-claim-workflow-page";
 
@@ -149,7 +148,7 @@ const combinedRoutes: RouteObject[] = [
       },
       {
         path: "total-loss/cases/:caseId/review-report",
-        element: <TotalLossFullReviewPage />,
+        element: <TotalLossAnalysisPage reportWorkspace />,
         handle: metadata("Your Insurer Report | Venfour", "Prepare your saved valuation report for the full review."),
       },
       {

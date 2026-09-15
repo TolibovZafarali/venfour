@@ -2563,7 +2563,7 @@ describe("/start?service=total-loss", () => {
     expect(screen.queryByRole("heading", { name: "Contact details" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Review & analyze" })).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Venfour home" })).toBeVisible();
-    const signals = screen.getByTestId("valuation-signals");
+    expect(screen.getByTestId("valuation-signals")).toBeVisible();
     await act(async () => confirmationGate.resolve());
 
     await waitFor(() =>
@@ -2571,7 +2571,8 @@ describe("/start?service=total-loss", () => {
         `/total-loss/cases/${CASE_ID}/analysis`,
       ),
     );
-    expect(screen.getByTestId("valuation-signals")).toBe(signals);
+    expect(screen.queryByTestId("valuation-signals")).not.toBeInTheDocument();
+    expect(document.querySelector(".customer-workspace")).toBeInTheDocument();
     expect(harness.saveContactAndBeginClaim).toHaveBeenCalledOnce();
     expect(harness.confirmIntake).toHaveBeenCalledWith({
       caseId: CASE_ID,
@@ -2838,7 +2839,7 @@ describe("/start?service=total-loss", () => {
     expect(
       await screen.findByRole("heading", {
         level: 1,
-        name: "Preparing your valuation",
+        name: "This value check needs to resume.",
       }),
     ).toBeVisible();
     expect(screen.queryByText("Your information is ready")).not.toBeInTheDocument();

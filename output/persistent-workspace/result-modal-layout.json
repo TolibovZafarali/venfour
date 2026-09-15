@@ -1,0 +1,62 @@
+[
+  {
+    "width": 1440,
+    "free": {
+      "heading": "center",
+      "overflow": false,
+      "rangeFont": "58px"
+    },
+    "modal": {
+      "bodyLocked": true,
+      "height": 551.875,
+      "insideViewport": true,
+      "overflow": false,
+      "width": 560
+    }
+  },
+  {
+    "width": 768,
+    "free": {
+      "heading": "center",
+      "overflow": false,
+      "rangeFont": "38.4px"
+    },
+    "modal": {
+      "bodyLocked": true,
+      "height": 548.796875,
+      "insideViewport": true,
+      "overflow": false,
+      "width": 560
+    }
+  },
+  {
+    "width": 390,
+    "free": {
+      "heading": "center",
+      "overflow": false,
+      "rangeFont": "33.15px"
+    },
+    "modal": {
+      "bodyLocked": true,
+      "height": 532.171875,
+      "insideViewport": true,
+      "overflow": false,
+      "width": 351
+    }
+  },
+  {
+    "width": 320,
+    "free": {
+      "heading": "center",
+      "overflow": false,
+      "rangeFont": "30px"
+    },
+    "modal": {
+      "bodyLocked": true,
+      "height": 577.765625,
+      "insideViewport": true,
+      "overflow": false,
+      "width": 281
+    }
+  }
+]

@@ -285,34 +285,17 @@ describe("/start appraisal intake", () => {
     expect(flow).toHaveAttribute("data-mobile-stage-visible", "false");
   });
 
-  it("removes a total-loss caseId only for the pushed diminished-value entry", async () => {
-    const user = userEvent.setup();
+  it("keeps an identified total-loss appraisal in its workspace without the public service selector", async () => {
     const caseId = TOTAL_LOSS_CASE_ID;
     const { router } = renderTestApp([
       `/start?service=total-loss&caseId=${caseId}&campaign=renewal`,
     ]);
 
-    await user.click(screen.getByRole("radio", { name: "Diminished Value" }));
-
-    await waitFor(() =>
-      expect(
-        new URLSearchParams(router.state.location.search).get("service"),
-      ).toBe("diminished-value"),
-    );
-    let searchParams = new URLSearchParams(router.state.location.search);
-    expect(router.state.historyAction).toBe("PUSH");
-    expect(searchParams.get("caseId")).toBeNull();
-    expect(searchParams.get("campaign")).toBe("renewal");
-
-    await act(async () => {
-      await router.navigate(-1);
-    });
-    await waitFor(() =>
-      expect(
-        new URLSearchParams(router.state.location.search).get("service"),
-      ).toBe("total-loss"),
-    );
-    searchParams = new URLSearchParams(router.state.location.search);
+    expect(await screen.findByRole("heading", { name: "Your appraisal details" })).toBeVisible();
+    expect(screen.queryByRole("radio", { name: "Diminished Value" })).not.toBeInTheDocument();
+    expect(document.querySelector(".customer-workspace")).toBeInTheDocument();
+    const searchParams = new URLSearchParams(router.state.location.search);
+    expect(searchParams.get("service")).toBe("total-loss");
     expect(searchParams.get("caseId")).toBe(caseId);
     expect(searchParams.get("campaign")).toBe("renewal");
   });

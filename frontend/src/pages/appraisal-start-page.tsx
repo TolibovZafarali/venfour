@@ -134,6 +134,7 @@ export function AppraisalStartPage() {
 
   return (
     <AppraisalStartLayout
+      caseWorkspace={totalLossSelected && Boolean(new URLSearchParams(location.search).get("caseId"))}
       service={service}
       mobileView={mobileView}
       onServiceChange={handleServiceChange}

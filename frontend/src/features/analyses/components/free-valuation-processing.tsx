@@ -2,7 +2,7 @@ import { useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, u
 import type { ReactNode } from "react";
 import { createPortal } from "react-dom";
 
-import { FreeValuationProcessingContext } from "./free-valuation-processing-context";
+import { FreeValuationProcessingContext, InlineValuationProcessingContext } from "./free-valuation-processing-context";
 import type { FreeValuationProcessingOptions } from "./free-valuation-processing-context";
 import { ValuationSignalField } from "./valuation-signal-field";
 import venfourMark from "../../../../../assets/brand/venfour-mark.svg";
@@ -23,7 +23,7 @@ interface Presentation {
 }
 
 // The shell owns this surface so intake and analysis can hand it off without remounting.
-export function FreeValuationProcessingProvider({ children, accountControl }: { children: ReactNode; accountControl?: ReactNode }) {
+export function FreeValuationProcessingProvider({ children, accountControl, inline = false }: { children: ReactNode; accountControl?: ReactNode; inline?: boolean }) {
   const [presentation, setPresentation] = useState<Presentation | null>(null);
   const ownerRef = useRef<symbol | null>(null);
   const exitTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -56,21 +56,23 @@ export function FreeValuationProcessingProvider({ children, accountControl }: { 
     }, reduced ? 0 : 1800);
   }, [clearTimers]);
   useEffect(() => clearTimers, [clearTimers]);
-  const context = useMemo(() => ({ show, hide }), [show, hide]);
+  const context = useMemo(() => ({ show, hide, inline }), [show, hide, inline]);
 
   return (
     <FreeValuationProcessingContext.Provider value={context}>
+      <InlineValuationProcessingContext.Provider value={inline && presentation && !presentation.exiting ? presentation.options : null}>
       <div
-        inert={Boolean(presentation && !presentation.exiting)}
-        aria-hidden={presentation && !presentation.exiting ? true : undefined}
-        style={{ visibility: presentation && !presentation.exiting ? "hidden" : undefined }}
+        inert={Boolean(!inline && presentation && !presentation.exiting)}
+        aria-hidden={!inline && presentation && !presentation.exiting ? true : undefined}
+        style={{ visibility: !inline && presentation && !presentation.exiting ? "hidden" : undefined }}
       >
         {children}
       </div>
-      {presentation ? createPortal(
+      {!inline && presentation ? createPortal(
         <ProcessingEnvironment options={presentation.options} exiting={presentation.exiting} accountControl={accountControl} />,
         document.body,
       ) : null}
+      </InlineValuationProcessingContext.Provider>
     </FreeValuationProcessingContext.Provider>
   );
 }
@@ -83,6 +85,25 @@ export function FreeValuationProcessing({ reviewKey, heading, description, phase
   }, [context, owner, reviewKey, heading, description, phase, vehicle, notice, error, onRetry, retryDisabled, development]);
   useLayoutEffect(() => () => context?.hide(owner), [context, owner]);
   return null;
+}
+
+export function InlineValuationProcessingBoundary({ children }: { children: ReactNode }) {
+  const options = useContext(InlineValuationProcessingContext);
+  return <>
+    <div hidden={Boolean(options)} inert={Boolean(options)}>{children}</div>
+    {options ? <WorkspaceProcessing options={options} /> : null}
+  </>;
+}
+
+function WorkspaceProcessing({ options }: { options: FreeValuationProcessingOptions }) {
+  const { heading, description, phase, error, onRetry, retryDisabled, notice } = options;
+  return <section className="workspace-stage workspace-processing" aria-busy={!error || undefined}>
+    <p className="workspace-stage__eyebrow">{error ? "Your appraisal is saved" : "Your valuation review"}</p>
+    <h1 className="workspace-stage__heading">{error ? "Let’s try again" : heading ?? (phase === "reviewing" ? "Reviewing your vehicle." : phase === "preparing" ? "Preparing your details." : "Opening your saved review.")}</h1>
+    <p className="workspace-stage__description" role={error ? "alert" : "status"}>{error || description || "Your progress is saved. You can safely leave and pick up here later."}</p>
+    {!error ? <div className="workspace-processing__line" aria-hidden /> : onRetry ? <button className="free-valuation-processing__retry" type="button" onClick={onRetry} disabled={retryDisabled}>Try again</button> : null}
+    {notice ? <p className="workspace-report-status" role="status">{notice}</p> : null}
+  </section>;
 }
 
 function ProcessingEnvironment({ options, exiting, accountControl }: { options: FreeValuationProcessingOptions; exiting: boolean; accountControl?: ReactNode }) {

@@ -8,7 +8,7 @@ export function ClaimWorkflowFrame({
 }) {
   return (
     <section className="w-full bg-transparent">
-      <div className="mx-auto w-full max-w-6xl px-5 py-10 sm:px-8 sm:py-14 lg:px-10 lg:py-16">
+      <div className="claim-workflow-frame mx-auto w-full max-w-6xl px-5 py-10 sm:px-8 sm:py-14 lg:px-10 lg:py-16">
         {children}
       </div>
     </section>
@@ -25,7 +25,7 @@ export function ClaimWorkflowCard({
   return (
     <div
       className={cn(
-        "rounded-[1.75rem] border border-line/80 bg-white p-6 shadow-[0_32px_90px_-56px_rgba(11,31,51,0.55)] sm:p-8 lg:p-10",
+        "claim-workflow-card rounded-[1.75rem] border border-line/80 bg-white p-6 shadow-[0_32px_90px_-56px_rgba(11,31,51,0.55)] sm:p-8 lg:p-10",
         className,
       )}
     >

@@ -1066,7 +1066,7 @@ describe("Venfour application", () => {
     );
     expect(header.getAllByRole("link")).toHaveLength(1);
     expect(header.getByRole("link", { name: "Venfour home" })).toBeVisible();
-    expect(header.queryByRole("button")).not.toBeInTheDocument();
+    expect(header.getByRole("button", { name: "Account for ada@example.com" })).toBeVisible();
     expect(header.queryByRole("navigation")).not.toBeInTheDocument();
     const legal = within(screen.getByRole("navigation", { name: "Legal" }));
     expect(legal.getAllByRole("link")).toHaveLength(2);

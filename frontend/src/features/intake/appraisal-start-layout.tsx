@@ -71,6 +71,7 @@ export function ServiceSelector({
 }
 
 export interface AppraisalStartLayoutProps {
+  caseWorkspace?: boolean;
   service: AppraisalServiceSlug;
   mobileView: "overview" | "intake";
   onServiceChange: (service: AppraisalServiceSlug) => void;
@@ -86,6 +87,7 @@ export interface AppraisalStartLayoutProps {
 }
 
 export function AppraisalStartLayout({
+  caseWorkspace = false,
   service,
   mobileView,
   onServiceChange,
@@ -99,6 +101,11 @@ export function AppraisalStartLayout({
   children,
   className,
 }: AppraisalStartLayoutProps) {
+  if (caseWorkspace) return <section className="workspace-stage" data-appraisal-start-page data-appraisal-service={service}>
+    <p className="workspace-stage__eyebrow">Your saved details</p>
+    <h1 className="workspace-stage__heading">Your appraisal details</h1>
+    <div className="mt-7" data-appraisal-start-flow data-total-loss-flow data-mobile-stage-visible="true">{children}</div>
+  </section>;
   return (
     <div
       className={cn(

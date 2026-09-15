@@ -219,7 +219,7 @@ export function CompletedAnalysis(props: CompletedAnalysisProps) {
   const previous = stage === "resolution" || stage === "result" || stage === "response_received" || stage === "response_reviewing" || stage === "response_reviewed" ? null : stage === "follow_up" ? path("response-reviewed") : stage === "insurer" ? path("result") : stage === "market" ? path(manual ? "result" : "insurer") : stage === "meaning" ? path("market") : stage === "response" ? path(responsePath) : path("meaning");
   const next = stage === "result" ? manual ? "market" : "insurer" : stage === "insurer" ? "market" : stage === "market" ? "meaning" : "request";
   const nextPath = stage === "meaning" && sent ? workspace.currentPath : path(next);
-  const requestAction = sent ? "Return to case status" : hasDraft ? "Review my request" : "Prepare my request";
+  const requestAction = sent ? "Case status" : hasDraft ? "Review my request" : "Prepare my request";
   const action = stage === "result" && !manual ? "See how the insurer reached its value" : stage === "result" || stage === "insurer" ? "See the market evidence" : stage === "market" ? "Compare the values" : requestAction;
   const showWaitingAction = stage === "waiting" && canRecordResponse;
   const showContinueAction = stage !== "resolution" && stage !== "request" && stage !== "follow_up" && stage !== "waiting" && stage !== "response" && stage !== "response_received" && stage !== "response_reviewing" && stage !== "response_reviewed" && (stage !== "meaning" || sent || (!closed && report.conclusion.continuingSupported));
@@ -328,8 +328,9 @@ export function CompletedAnalysis(props: CompletedAnalysisProps) {
       <CaseJourneyProgress progress={workspace.progress} sections={workspace.sections} />
       <CaseWorkspaceNavigation workspace={workspace} stage={stage} pending={progression.pending} />
       <NegotiationHistoryDialog key={`${location.pathname}:${location.search}`} caseId={caseId} history={claim.negotiationHistory ?? []} userId={userId} vehicleDescription={displayed(report.subjectVehicle.description, "Your vehicle")} />
-      {historical ? <p className="case-history-view-notice">You are viewing a saved response and its review. Your current case step has not changed.<br /><Link to={workspace.currentPath}>Return to current case step</Link></p> : null}
+      {historical ? <p className="case-history-view-notice">You are viewing a saved response and its review. Your current case step has not changed.<br /><Link to={workspace.currentPath}>Current case step</Link></p> : null}
       <div className="review-stage-content" data-view={stage}>
+      {stage !== "result" && stage !== "response" ? <p className="completed-workspace-eyebrow workspace-stage__eyebrow">Full valuation review</p> : null}
       {stage === "resolution" ? closed ? <>
         <h1>Your case record</h1>
         <p className="review-lead">Review your original valuation, report, and saved negotiation using the case sections and history above.</p>
@@ -420,7 +421,7 @@ export function CompletedAnalysis(props: CompletedAnalysisProps) {
         {claim.insurerResponse && !canRecordResponse ? <p className="review-note" data-review-entrance="supporting">You recorded the insurer’s response on <RecordedTime value={claim.insurerResponse.receivedAt} />. <Link to={`${path("response-received")}?view=saved`}>View the insurer’s response</Link></p> : <div className="sent-next-steps">
         <h2 data-review-entrance="supporting" data-review-order="0">What happens now</h2>
         <p data-review-entrance="supporting" data-review-order="1">Your case remains active while you wait. Venfour does not monitor your email or the insurer, so it cannot verify delivery, receipt, or detect a response automatically.</p>
-        <p data-review-entrance="supporting" data-review-order="2">Keep your sent email, attached report, and the insurer’s written reply. When the insurer responds, return to this case and choose “I received a response” to continue.</p>
+        <p data-review-entrance="supporting" data-review-order="2">Keep your sent email, attached report, and the insurer’s written reply. When the insurer responds, choose “I received a response” to continue.</p>
         </div>}
         <ReportFileRow {...props} />
       </> : null}

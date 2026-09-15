@@ -97,7 +97,7 @@ select is((select count(*) from public.list_owned_case_operations() where owner_
 select ok((select bool_and(vehicle_label='2024 Honda Accord' and has_full_review_report) from public.list_owned_case_operations()),'vehicle identity and report continuation are projected');
 select is((select workspace_status from public.list_owned_case_operations() where case_id='54200000-0000-4000-8000-000000000001'),'review_prepared','prepared review remains a report workspace before checkout');
 select is((select workspace_status from public.list_owned_case_operations() where case_id='54200000-0000-4000-8000-000000000002'),'uploading','unfinished upload is resumed');
-select ok(not public.total_loss_payment_approved('54200000-0000-4000-8000-000000000001','54100000-0000-4000-8000-000000000001'),'navigation never grants manual payment approval');
+select is((select count(*) from public.total_loss_payment_approval_decisions),0::bigint,'navigation never creates a manual payment decision');
 
 create function pg_temp.navigation_fingerprint() returns text language plpgsql as $$
 declare item record; digest text; combined text := '';
@@ -113,7 +113,7 @@ select count(*) from public.list_owned_case_operations();
 select count(*) from public.list_owned_case_operations();
 select public.get_account_workspace_role();
 select is(pg_temp.navigation_fingerprint(),(select digest from navigation_before),'opening and reopening leaves every public table byte-identical');
-select ok((select manual_approval_required from public.total_loss_payment_approval_settings),'manual first-payment supervision remains required');
+select ok((select not manual_approval_required from public.total_loss_payment_approval_settings),'customer continuation does not require manual payment approval');
 select is((select count(*) from public.commerce_orders),0::bigint,'no checkout or payment created');
 
 insert into public.staff_members(user_id) values('54100000-0000-4000-8000-000000000001');

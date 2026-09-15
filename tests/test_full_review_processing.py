@@ -20,6 +20,7 @@ class FullReviewProcessingTests(unittest.TestCase):
         fixture = strict_fixture()
         self.gateway = MemoryGateway(Path(self.temp.name), artifact=fixture["artifact"])
         self.gateway.context.update(artifact=fixture["artifact"], input=fixture["input"],
+            payment_approval={"configured": True, "required": False, "approved": True, "status": "not_required"},
             source_run_id=fixture["artifact"]["runId"], report={
                 "id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", "case_id": CASE, "revision": 4,
                 "status": "ready", "original_filename": "synthetic.pdf", "byte_size": 123,
@@ -31,16 +32,14 @@ class FullReviewProcessingTests(unittest.TestCase):
         self.service = FullReviewService(self.gateway)
         self.service.extract(CASE, USER)
 
-    def test_completed_extraction_is_reused_and_strict_positive_result_awaits_approval(self):
+    def test_completed_extraction_is_reused_and_strict_positive_result_can_pay_without_staff(self):
         before = copy.deepcopy(self.gateway.context["report"])
         result = self.processor.execute(self.gateway.work["id"])
         self.assertEqual(result.state, "completed")
         public = self.service.status(CASE, USER)
         self.assertTrue(public["ready"])
-        self.assertFalse(public["paymentReadiness"]["eligible"])
-        self.assertEqual(public["paymentReadiness"]["status"], "awaiting_approval")
-        self.gateway.context["payment_approval"] = {"configured": True, "required": True, "approved": True, "status": "approved"}
-        self.assertTrue(self.service.status(CASE, USER)["paymentReadiness"]["eligible"])
+        self.assertTrue(public["paymentReadiness"]["eligible"])
+        self.assertEqual(public["paymentReadiness"]["status"], "eligible")
         self.assertEqual(public["paymentReadiness"]["version"], "1")
         self.assertEqual(self.gateway.context["report"], before)
         self.processor.execute(self.gateway.work["id"])
@@ -61,9 +60,8 @@ class FullReviewProcessingTests(unittest.TestCase):
                 self.assertFalse(state["paymentReadiness"]["eligible"])
                 self.assertEqual(state["paymentReadiness"]["status"], "awaiting_approval")
 
-    def test_approval_does_not_override_a_changed_report_revision(self):
+    def test_automatic_eligibility_does_not_override_a_changed_report_revision(self):
         self.processor.execute(self.gateway.work["id"])
-        self.gateway.context["payment_approval"] = {"configured": True, "approved": True, "status": "approved"}
         self.gateway.context["report"]["revision"] += 1
         self.assertFalse(self.service.status(CASE, USER)["paymentReadiness"]["eligible"])
 

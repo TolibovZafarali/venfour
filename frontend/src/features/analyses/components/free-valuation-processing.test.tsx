@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   FreeValuationProcessing,
   FreeValuationProcessingProvider,
+  InlineValuationProcessingBoundary,
 } from "./free-valuation-processing";
 import type { FreeValuationProcessingOptions } from "./free-valuation-processing-context";
 
@@ -47,6 +48,31 @@ afterEach(() => {
 });
 
 describe("free valuation processing environment", () => {
+  it.each([false, true])("keeps the case shell, saved input, and account menu mounted during inline processing (reduced motion: %s)", (reduced) => {
+    vi.stubGlobal("matchMedia", vi.fn(() => ({ matches: reduced })));
+    const openAccount = vi.fn();
+    const view = (processing: boolean) => <FreeValuationProcessingProvider inline>
+      <header><button onClick={openAccount}>Appraisal account</button></header>
+      <main><InlineValuationProcessingBoundary><input aria-label="Saved input" defaultValue="Authored detail" />{processing ? <FreeValuationProcessing phase="reviewing" reviewKey="saved-case" /> : <h1>Saved result</h1>}</InlineValuationProcessingBoundary></main>
+      <footer>Terms and privacy</footer>
+    </FreeValuationProcessingProvider>;
+    const rendered = render(view(true));
+    const account = screen.getByRole("button", { name: "Appraisal account" });
+    const main = screen.getByRole("main");
+    const savedInput = screen.getByLabelText("Saved input");
+    expect(savedInput).not.toBeVisible();
+    expect(screen.getByRole("heading", { name: "Reviewing your vehicle." })).toBeVisible();
+    expect(document.querySelector("[data-free-valuation-processing]")).not.toBeInTheDocument();
+    expect(account.closest("[inert]")).toBeNull();
+    fireEvent.click(account);
+    expect(openAccount).toHaveBeenCalledOnce();
+    rendered.rerender(view(false));
+    expect(screen.getByRole("main")).toBe(main);
+    expect(screen.getByRole("button", { name: "Appraisal account" })).toBe(account);
+    expect(screen.getByRole("heading", { name: "Saved result" })).toBeVisible();
+    expect(screen.getByRole("textbox", { name: "Saved input" })).toBe(savedInput);
+    expect(savedInput).toHaveValue("Authored detail");
+  });
   it("keeps account switching interactive while the underlying workspace is hidden", () => {
     const openAccount = vi.fn();
     render(<FreeValuationProcessingProvider accountControl={<button onClick={openAccount}>Open account</button>}>

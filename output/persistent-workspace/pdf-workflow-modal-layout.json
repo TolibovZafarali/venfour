@@ -1,0 +1,182 @@
+[
+  {
+    "width": 1440,
+    "phase": "extracting",
+    "closeVisible": true,
+    "heading": "Reading your valuation report.",
+    "insideViewport": true,
+    "overflow": false,
+    "scrollable": false
+  },
+  {
+    "width": 1440,
+    "phase": "confirmation",
+    "closeVisible": true,
+    "heading": "One detail to confirm.",
+    "insideViewport": true,
+    "overflow": false,
+    "scrollable": false
+  },
+  {
+    "width": 1440,
+    "phase": "strict",
+    "closeVisible": true,
+    "heading": "Reviewing your report and evidence.",
+    "insideViewport": true,
+    "overflow": false,
+    "scrollable": false
+  },
+  {
+    "width": 1440,
+    "phase": "approval",
+    "closeVisible": true,
+    "heading": "Your review is ready for a final Venfour check.",
+    "insideViewport": true,
+    "overflow": false,
+    "scrollable": false
+  },
+  {
+    "width": 1440,
+    "phase": "ready",
+    "closeVisible": true,
+    "heading": "Your full review is ready.",
+    "insideViewport": true,
+    "overflow": false,
+    "scrollable": false
+  },
+  {
+    "width": 768,
+    "phase": "extracting",
+    "closeVisible": true,
+    "heading": "Reading your valuation report.",
+    "insideViewport": true,
+    "overflow": false,
+    "scrollable": false
+  },
+  {
+    "width": 768,
+    "phase": "confirmation",
+    "closeVisible": true,
+    "heading": "One detail to confirm.",
+    "insideViewport": true,
+    "overflow": false,
+    "scrollable": false
+  },
+  {
+    "width": 768,
+    "phase": "strict",
+    "closeVisible": true,
+    "heading": "Reviewing your report and evidence.",
+    "insideViewport": true,
+    "overflow": false,
+    "scrollable": false
+  },
+  {
+    "width": 768,
+    "phase": "approval",
+    "closeVisible": true,
+    "heading": "Your review is ready for a final Venfour check.",
+    "insideViewport": true,
+    "overflow": false,
+    "scrollable": false
+  },
+  {
+    "width": 768,
+    "phase": "ready",
+    "closeVisible": true,
+    "heading": "Your full review is ready.",
+    "insideViewport": true,
+    "overflow": false,
+    "scrollable": false
+  },
+  {
+    "width": 390,
+    "phase": "extracting",
+    "closeVisible": true,
+    "heading": "Reading your valuation report.",
+    "insideViewport": true,
+    "overflow": false,
+    "scrollable": false
+  },
+  {
+    "width": 390,
+    "phase": "confirmation",
+    "closeVisible": true,
+    "heading": "One detail to confirm.",
+    "insideViewport": true,
+    "overflow": false,
+    "scrollable": false
+  },
+  {
+    "width": 390,
+    "phase": "strict",
+    "closeVisible": true,
+    "heading": "Reviewing your report and evidence.",
+    "insideViewport": true,
+    "overflow": false,
+    "scrollable": false
+  },
+  {
+    "width": 390,
+    "phase": "approval",
+    "closeVisible": true,
+    "heading": "Your review is ready for a final Venfour check.",
+    "insideViewport": true,
+    "overflow": false,
+    "scrollable": false
+  },
+  {
+    "width": 390,
+    "phase": "ready",
+    "closeVisible": true,
+    "heading": "Your full review is ready.",
+    "insideViewport": true,
+    "overflow": false,
+    "scrollable": false
+  },
+  {
+    "width": 320,
+    "phase": "extracting",
+    "closeVisible": true,
+    "heading": "Reading your valuation report.",
+    "insideViewport": true,
+    "overflow": false,
+    "scrollable": false
+  },
+  {
+    "width": 320,
+    "phase": "confirmation",
+    "closeVisible": true,
+    "heading": "One detail to confirm.",
+    "insideViewport": true,
+    "overflow": false,
+    "scrollable": false
+  },
+  {
+    "width": 320,
+    "phase": "strict",
+    "closeVisible": true,
+    "heading": "Reviewing your report and evidence.",
+    "insideViewport": true,
+    "overflow": false,
+    "scrollable": false
+  },
+  {
+    "width": 320,
+    "phase": "approval",
+    "closeVisible": true,
+    "heading": "Your review is ready for a final Venfour check.",
+    "insideViewport": true,
+    "overflow": false,
+    "scrollable": false
+  },
+  {
+    "width": 320,
+    "phase": "ready",
+    "closeVisible": true,
+    "heading": "Your full review is ready.",
+    "insideViewport": true,
+    "overflow": false,
+    "scrollable": false
+  }
+]

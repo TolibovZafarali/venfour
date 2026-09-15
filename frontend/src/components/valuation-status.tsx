@@ -28,7 +28,7 @@ export function ValuationStatus({ heading, description, eyebrow, kind = "secure"
   const id = useId();
   const processing = useContext(FreeValuationProcessingContext);
   return <>
-    {kind === "loading" && processing && !compact ? <FreeValuationProcessing phase="connecting" heading={heading} description={typeof description === "string" ? description : undefined} /> : null}
+    {kind === "loading" && processing && !processing.inline && !compact ? <FreeValuationProcessing phase="connecting" heading={heading} description={typeof description === "string" ? description : undefined} /> : null}
     <ValuationSurface className={cn("valuation-status", compact && "valuation-status--compact")} data-valuation-status={kind} aria-labelledby={id} role={kind === "error" ? "alert" : undefined} aria-live={kind === "loading" ? "polite" : undefined} aria-busy={kind === "loading" || undefined}>
       <div className="valuation-status__content">
         {eyebrow ? <p className="valuation-status__eyebrow">{eyebrow}</p> : null}

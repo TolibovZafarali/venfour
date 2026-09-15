@@ -1,0 +1,2008 @@
+[
+  {
+    "label": "desktop-upload",
+    "header": {
+      "height": 64,
+      "width": 880,
+      "x": 280,
+      "y": 0
+    },
+    "heading": {
+      "height": 49.1328125,
+      "width": 660,
+      "x": 320,
+      "y": 208
+    },
+    "headings": [
+      "Add your insurer’s valuation report"
+    ],
+    "overflow": false,
+    "shells": 1,
+    "stage": {
+      "height": 461.328125,
+      "width": 800,
+      "x": 320,
+      "y": 176
+    },
+    "url": "/total-loss/cases/33333333-3333-4333-8333-333333333333/review-report",
+    "width": 1440,
+    "workspace": {
+      "height": 876,
+      "width": 880,
+      "x": 280,
+      "y": 64
+    }
+  },
+  {
+    "label": "desktop-upload-refresh",
+    "header": {
+      "height": 64,
+      "width": 880,
+      "x": 280,
+      "y": 0
+    },
+    "heading": {
+      "height": 49.1328125,
+      "width": 660,
+      "x": 320,
+      "y": 208
+    },
+    "headings": [
+      "Add your insurer’s valuation report"
+    ],
+    "overflow": false,
+    "shells": 1,
+    "stage": {
+      "height": 461.328125,
+      "width": 800,
+      "x": 320,
+      "y": 176
+    },
+    "url": "/total-loss/cases/33333333-3333-4333-8333-333333333333/review-report",
+    "width": 1440,
+    "workspace": {
+      "height": 876,
+      "width": 880,
+      "x": 280,
+      "y": 64
+    }
+  },
+  {
+    "label": "desktop-free-history-back",
+    "header": {
+      "height": 64,
+      "width": 880,
+      "x": 280,
+      "y": 0
+    },
+    "heading": {
+      "height": 49.1328125,
+      "width": 660,
+      "x": 320,
+      "y": 208
+    },
+    "headings": [
+      "Your preliminary vehicle-value range."
+    ],
+    "overflow": false,
+    "shells": 1,
+    "stage": {
+      "height": 618.4140625,
+      "width": 800,
+      "x": 320,
+      "y": 176
+    },
+    "url": "/total-loss/cases/33333333-3333-4333-8333-333333333333/analysis",
+    "width": 1440,
+    "workspace": {
+      "height": 876,
+      "width": 880,
+      "x": 280,
+      "y": 64
+    }
+  },
+  {
+    "label": "upload-to-extraction",
+    "header": {
+      "height": 64,
+      "width": 880,
+      "x": 280,
+      "y": 0
+    },
+    "heading": {
+      "height": 49.1328125,
+      "width": 660,
+      "x": 320,
+      "y": 208
+    },
+    "headings": [
+      "Reading your valuation report."
+    ],
+    "overflow": false,
+    "shells": 1,
+    "stage": {
+      "height": 260.6328125,
+      "width": 800,
+      "x": 320,
+      "y": 176
+    },
+    "url": "/total-loss/cases/33333333-3333-4333-8333-333333333333/review-report",
+    "width": 1440,
+    "workspace": {
+      "height": 876,
+      "width": 880,
+      "x": 280,
+      "y": 64
+    }
+  },
+  {
+    "label": "extraction-to-confirmation",
+    "header": {
+      "height": 64,
+      "width": 880,
+      "x": 280,
+      "y": 0
+    },
+    "heading": {
+      "height": 49.1328125,
+      "width": 660,
+      "x": 320,
+      "y": 208
+    },
+    "headings": [
+      "One detail to confirm."
+    ],
+    "overflow": false,
+    "shells": 1,
+    "stage": {
+      "height": 464.6328125,
+      "width": 800,
+      "x": 320,
+      "y": 176
+    },
+    "url": "/total-loss/cases/33333333-3333-4333-8333-333333333333/review-report",
+    "width": 1440,
+    "workspace": {
+      "height": 876,
+      "width": 880,
+      "x": 280,
+      "y": 64
+    }
+  },
+  {
+    "label": "confirmation-to-strict-review",
+    "header": {
+      "height": 64,
+      "width": 880,
+      "x": 280,
+      "y": 0
+    },
+    "heading": {
+      "height": 49.1328125,
+      "width": 660,
+      "x": 320,
+      "y": 208
+    },
+    "headings": [
+      "Reviewing your report and evidence."
+    ],
+    "overflow": false,
+    "shells": 1,
+    "stage": {
+      "height": 260.6328125,
+      "width": 800,
+      "x": 320,
+      "y": 176
+    },
+    "url": "/total-loss/cases/33333333-3333-4333-8333-333333333333/review-report",
+    "width": 1440,
+    "workspace": {
+      "height": 876,
+      "width": 880,
+      "x": 280,
+      "y": 64
+    }
+  },
+  {
+    "label": "approval-after-confirmation",
+    "header": {
+      "height": 64,
+      "width": 880,
+      "x": 280,
+      "y": 0
+    },
+    "heading": {
+      "height": 98.265625,
+      "width": 660,
+      "x": 320,
+      "y": 208
+    },
+    "headings": [
+      "Your review is ready for a final Venfour check."
+    ],
+    "overflow": false,
+    "shells": 1,
+    "stage": {
+      "height": 301.765625,
+      "width": 800,
+      "x": 320,
+      "y": 176
+    },
+    "url": "/total-loss/cases/33333333-3333-4333-8333-333333333333/review-report",
+    "width": 1440,
+    "workspace": {
+      "height": 876,
+      "width": 880,
+      "x": 280,
+      "y": 64
+    }
+  },
+  {
+    "label": "switch-to-second-appraisal",
+    "header": {
+      "height": 64,
+      "width": 880,
+      "x": 280,
+      "y": 0
+    },
+    "heading": {
+      "height": 98.265625,
+      "width": 660,
+      "x": 320,
+      "y": 208
+    },
+    "headings": [
+      "Your review is ready for a final Venfour check."
+    ],
+    "overflow": false,
+    "shells": 1,
+    "stage": {
+      "height": 301.765625,
+      "width": 800,
+      "x": 320,
+      "y": 176
+    },
+    "url": "/total-loss/cases/77777777-7777-4777-8777-777777777777/review-report",
+    "width": 1440,
+    "workspace": {
+      "height": 876,
+      "width": 880,
+      "x": 280,
+      "y": 64
+    }
+  },
+  {
+    "label": "desktop-payment-ready",
+    "header": {
+      "height": 64,
+      "width": 880,
+      "x": 280,
+      "y": 0
+    },
+    "heading": {
+      "height": 49.1328125,
+      "width": 660,
+      "x": 320,
+      "y": 208
+    },
+    "headings": [
+      "Your full review is ready."
+    ],
+    "overflow": false,
+    "shells": 1,
+    "stage": {
+      "height": 258.1328125,
+      "width": 800,
+      "x": 320,
+      "y": 176
+    },
+    "url": "/total-loss/cases/33333333-3333-4333-8333-333333333333/review-report",
+    "width": 1440,
+    "workspace": {
+      "height": 876,
+      "width": 880,
+      "x": 280,
+      "y": 64
+    }
+  },
+  {
+    "label": "ready-to-payment",
+    "header": {
+      "height": 64,
+      "width": 880,
+      "x": 272.5,
+      "y": 0
+    },
+    "heading": {
+      "height": 49.1328125,
+      "width": 660,
+      "x": 312.5,
+      "y": 208
+    },
+    "headings": [
+      "Your full valuation review"
+    ],
+    "overflow": false,
+    "shells": 1,
+    "stage": {
+      "height": 831.6328125,
+      "width": 800,
+      "x": 312.5,
+      "y": 176
+    },
+    "url": "/total-loss/cases/33333333-3333-4333-8333-333333333333/claim/checkout",
+    "width": 1440,
+    "workspace": {
+      "height": 983.6328125,
+      "width": 880,
+      "x": 272.5,
+      "y": 64
+    }
+  },
+  {
+    "label": "desktop-paid-processing",
+    "header": {
+      "height": 64,
+      "width": 880,
+      "x": 272.5,
+      "y": 0
+    },
+    "heading": {
+      "height": 49.1328125,
+      "width": 768,
+      "x": 312.5,
+      "y": 280
+    },
+    "headings": [
+      "We’re preparing your valuation report"
+    ],
+    "overflow": false,
+    "shells": 1,
+    "stage": {
+      "height": 323.1328125,
+      "width": 800,
+      "x": 312.5,
+      "y": 176
+    },
+    "url": "/total-loss/cases/33333333-3333-4333-8333-333333333333/claim/processing",
+    "width": 1440,
+    "workspace": {
+      "height": 876,
+      "width": 880,
+      "x": 272.5,
+      "y": 64
+    }
+  },
+  {
+    "label": "desktop-completed-result",
+    "header": {
+      "height": 64,
+      "width": 880,
+      "x": 272.5,
+      "y": 0
+    },
+    "heading": {
+      "height": 14.6328125,
+      "width": 63.296875,
+      "x": 312.5,
+      "y": 240.640625
+    },
+    "headings": [
+      "Your result"
+    ],
+    "overflow": false,
+    "shells": 1,
+    "stage": {
+      "height": 662.7265625,
+      "width": 800,
+      "x": 312.5,
+      "y": 240.640625
+    },
+    "url": "/total-loss/cases/33333333-3333-4333-8333-333333333333/claim/review/result",
+    "width": 1440,
+    "workspace": {
+      "height": 879.3671875,
+      "width": 880,
+      "x": 272.5,
+      "y": 64
+    }
+  },
+  {
+    "label": "desktop-completed-aligned",
+    "header": {
+      "height": 64,
+      "width": 880,
+      "x": 272.5,
+      "y": 0
+    },
+    "heading": {
+      "height": 18,
+      "width": 63.296875,
+      "x": 312.5,
+      "y": 176
+    },
+    "headings": [
+      "Your result"
+    ],
+    "overflow": false,
+    "shells": 1,
+    "stage": {
+      "height": 666.09375,
+      "width": 800,
+      "x": 312.5,
+      "y": 176
+    },
+    "url": "/total-loss/cases/33333333-3333-4333-8333-333333333333/claim/review/result",
+    "width": 1440,
+    "workspace": {
+      "height": 876,
+      "width": 880,
+      "x": 272.5,
+      "y": 64
+    }
+  },
+  {
+    "label": "desktop-market-evidence",
+    "header": {
+      "height": 64,
+      "width": 880,
+      "x": 272.5,
+      "y": 0
+    },
+    "heading": {
+      "height": 49.1328125,
+      "width": 640,
+      "x": 312.5,
+      "y": 176
+    },
+    "headings": [
+      "What the market evidence showed"
+    ],
+    "overflow": false,
+    "shells": 1,
+    "stage": {
+      "height": 785.78125,
+      "width": 800,
+      "x": 312.5,
+      "y": 176
+    },
+    "url": "/total-loss/cases/33333333-3333-4333-8333-333333333333/claim/review/market",
+    "width": 1440,
+    "workspace": {
+      "height": 937.78125,
+      "width": 880,
+      "x": 272.5,
+      "y": 64
+    }
+  },
+  {
+    "label": "desktop-waiting",
+    "header": {
+      "height": 64,
+      "width": 880,
+      "x": 272.5,
+      "y": 0
+    },
+    "heading": {
+      "height": 49.1328125,
+      "width": 624,
+      "x": 312.5,
+      "y": 208
+    },
+    "headings": [
+      "Waiting for the insurer’s response"
+    ],
+    "overflow": false,
+    "shells": 1,
+    "stage": {
+      "height": 680.2578125,
+      "width": 800,
+      "x": 312.5,
+      "y": 176
+    },
+    "url": "/total-loss/cases/33333333-3333-4333-8333-333333333333/claim/review/waiting",
+    "width": 1440,
+    "workspace": {
+      "height": 876,
+      "width": 880,
+      "x": 272.5,
+      "y": 64
+    }
+  },
+  {
+    "label": "desktop-response-form",
+    "header": {
+      "height": 64,
+      "width": 880,
+      "x": 272.5,
+      "y": 0
+    },
+    "heading": {
+      "height": 49.1328125,
+      "width": 660,
+      "x": 312.5,
+      "y": 238.1953125
+    },
+    "headings": [
+      "Add the insurer’s response"
+    ],
+    "overflow": false,
+    "shells": 1,
+    "stage": {
+      "height": 891.7734375,
+      "width": 800,
+      "x": 312.5,
+      "y": 176
+    },
+    "url": "/total-loss/cases/33333333-3333-4333-8333-333333333333/claim/review/response",
+    "width": 1440,
+    "workspace": {
+      "height": 1043.7734375,
+      "width": 880,
+      "x": 272.5,
+      "y": 64
+    }
+  },
+  {
+    "label": "response-draft-refresh",
+    "header": {
+      "height": 64,
+      "width": 880,
+      "x": 272.5,
+      "y": 0
+    },
+    "heading": {
+      "height": 49.1328125,
+      "width": 660,
+      "x": 312.5,
+      "y": 208
+    },
+    "headings": [
+      "Add the insurer’s response"
+    ],
+    "overflow": false,
+    "shells": 1,
+    "stage": {
+      "height": 809.5625,
+      "width": 800,
+      "x": 312.5,
+      "y": 176
+    },
+    "url": "/total-loss/cases/33333333-3333-4333-8333-333333333333/claim/review/response",
+    "width": 1440,
+    "workspace": {
+      "height": 961.5625,
+      "width": 880,
+      "x": 272.5,
+      "y": 64
+    }
+  },
+  {
+    "label": "desktop-saved-intake",
+    "header": {
+      "height": 64,
+      "width": 880,
+      "x": 272.5,
+      "y": 0
+    },
+    "heading": {
+      "height": 49.1328125,
+      "width": 660,
+      "x": 312.5,
+      "y": 208
+    },
+    "headings": [
+      "Your appraisal details"
+    ],
+    "overflow": false,
+    "shells": 1,
+    "stage": {
+      "height": 636.1328125,
+      "width": 800,
+      "x": 312.5,
+      "y": 176
+    },
+    "url": "/start",
+    "width": 1440,
+    "workspace": {
+      "height": 876,
+      "width": 880,
+      "x": 272.5,
+      "y": 64
+    }
+  },
+  {
+    "label": "tablet-upload",
+    "header": {
+      "height": 64,
+      "width": 753,
+      "x": 0,
+      "y": 0
+    },
+    "heading": {
+      "height": 35.09375,
+      "width": 660,
+      "x": 30.71875,
+      "y": 208
+    },
+    "headings": [
+      "Add your insurer’s valuation report"
+    ],
+    "overflow": false,
+    "shells": 1,
+    "stage": {
+      "height": 447.2890625,
+      "width": 691.5625,
+      "x": 30.71875,
+      "y": 176
+    },
+    "url": "/total-loss/cases/33333333-3333-4333-8333-333333333333/review-report",
+    "width": 768,
+    "workspace": {
+      "height": 900,
+      "width": 753,
+      "x": 0,
+      "y": 64
+    }
+  },
+  {
+    "label": "tablet-free",
+    "header": {
+      "height": 64,
+      "width": 753,
+      "x": 0,
+      "y": 0
+    },
+    "heading": {
+      "height": 35.09375,
+      "width": 660,
+      "x": 30.71875,
+      "y": 208
+    },
+    "headings": [
+      "Your preliminary vehicle-value range."
+    ],
+    "overflow": false,
+    "shells": 1,
+    "stage": {
+      "height": 587.578125,
+      "width": 691.5625,
+      "x": 30.71875,
+      "y": 176
+    },
+    "url": "/total-loss/cases/33333333-3333-4333-8333-333333333333/analysis",
+    "width": 768,
+    "workspace": {
+      "height": 900,
+      "width": 753,
+      "x": 0,
+      "y": 64
+    }
+  },
+  {
+    "label": "tablet-confirmation",
+    "header": {
+      "height": 64,
+      "width": 753,
+      "x": 0,
+      "y": 0
+    },
+    "heading": {
+      "height": 35.09375,
+      "width": 660,
+      "x": 30.71875,
+      "y": 208
+    },
+    "headings": [
+      "One detail to confirm."
+    ],
+    "overflow": false,
+    "shells": 1,
+    "stage": {
+      "height": 450.59375,
+      "width": 691.5625,
+      "x": 30.71875,
+      "y": 176
+    },
+    "url": "/total-loss/cases/33333333-3333-4333-8333-333333333333/review-report",
+    "width": 768,
+    "workspace": {
+      "height": 900,
+      "width": 753,
+      "x": 0,
+      "y": 64
+    }
+  },
+  {
+    "label": "tablet-payment",
+    "header": {
+      "height": 64,
+      "width": 753,
+      "x": 0,
+      "y": 0
+    },
+    "heading": {
+      "height": 35.09375,
+      "width": 660,
+      "x": 30.71875,
+      "y": 208
+    },
+    "headings": [
+      "Your full valuation review"
+    ],
+    "overflow": false,
+    "shells": 1,
+    "stage": {
+      "height": 1256.09375,
+      "width": 691.5625,
+      "x": 30.71875,
+      "y": 176
+    },
+    "url": "/total-loss/cases/33333333-3333-4333-8333-333333333333/claim/checkout",
+    "width": 768,
+    "workspace": {
+      "height": 1408.09375,
+      "width": 753,
+      "x": 0,
+      "y": 64
+    }
+  },
+  {
+    "label": "tablet-paid",
+    "header": {
+      "height": 64,
+      "width": 753,
+      "x": 0,
+      "y": 0
+    },
+    "heading": {
+      "height": 35.09375,
+      "width": 660,
+      "x": 30.71875,
+      "y": 208
+    },
+    "headings": [
+      "We’re preparing your valuation report"
+    ],
+    "overflow": false,
+    "shells": 1,
+    "stage": {
+      "height": 240.59375,
+      "width": 691.5625,
+      "x": 30.71875,
+      "y": 176
+    },
+    "url": "/total-loss/cases/33333333-3333-4333-8333-333333333333/claim/processing",
+    "width": 768,
+    "workspace": {
+      "height": 900,
+      "width": 753,
+      "x": 0,
+      "y": 64
+    }
+  },
+  {
+    "label": "tablet-completed",
+    "header": {
+      "height": 64,
+      "width": 753,
+      "x": 0,
+      "y": 0
+    },
+    "heading": {
+      "height": 18,
+      "width": 63.296875,
+      "x": 30.71875,
+      "y": 176
+    },
+    "headings": [
+      "Your result"
+    ],
+    "overflow": false,
+    "shells": 1,
+    "stage": {
+      "height": 652.0546875,
+      "width": 691.5625,
+      "x": 30.71875,
+      "y": 176
+    },
+    "url": "/total-loss/cases/33333333-3333-4333-8333-333333333333/claim/review/result",
+    "width": 768,
+    "workspace": {
+      "height": 900,
+      "width": 753,
+      "x": 0,
+      "y": 64
+    }
+  },
+  {
+    "label": "tablet-waiting",
+    "header": {
+      "height": 64,
+      "width": 753,
+      "x": 0,
+      "y": 0
+    },
+    "heading": {
+      "height": 35.09375,
+      "width": 624,
+      "x": 30.71875,
+      "y": 208
+    },
+    "headings": [
+      "Waiting for the insurer’s response"
+    ],
+    "overflow": false,
+    "shells": 1,
+    "stage": {
+      "height": 666.21875,
+      "width": 691.5625,
+      "x": 30.71875,
+      "y": 176
+    },
+    "url": "/total-loss/cases/33333333-3333-4333-8333-333333333333/claim/review/waiting",
+    "width": 768,
+    "workspace": {
+      "height": 900,
+      "width": 753,
+      "x": 0,
+      "y": 64
+    }
+  },
+  {
+    "label": "mobile390-free",
+    "header": {
+      "height": 64,
+      "width": 375,
+      "x": 0,
+      "y": 0
+    },
+    "heading": {
+      "height": 70.1875,
+      "width": 335,
+      "x": 20,
+      "y": 188
+    },
+    "headings": [
+      "Your preliminary vehicle-value range."
+    ],
+    "overflow": false,
+    "shells": 1,
+    "stage": {
+      "height": 655.71875,
+      "width": 335,
+      "x": 20,
+      "y": 156
+    },
+    "url": "/total-loss/cases/33333333-3333-4333-8333-333333333333/analysis",
+    "width": 390,
+    "workspace": {
+      "height": 775.71875,
+      "width": 375,
+      "x": 0,
+      "y": 64
+    }
+  },
+  {
+    "label": "mobile390-upload",
+    "header": {
+      "height": 64,
+      "width": 375,
+      "x": 0,
+      "y": 0
+    },
+    "heading": {
+      "height": 70.1875,
+      "width": 335,
+      "x": 20,
+      "y": 188
+    },
+    "headings": [
+      "Add your insurer’s valuation report"
+    ],
+    "overflow": false,
+    "shells": 1,
+    "stage": {
+      "height": 504.578125,
+      "width": 335,
+      "x": 20,
+      "y": 156
+    },
+    "url": "/total-loss/cases/33333333-3333-4333-8333-333333333333/review-report",
+    "width": 390,
+    "workspace": {
+      "height": 720,
+      "width": 375,
+      "x": 0,
+      "y": 64
+    }
+  },
+  {
+    "label": "mobile390-confirmation",
+    "header": {
+      "height": 64,
+      "width": 375,
+      "x": 0,
+      "y": 0
+    },
+    "heading": {
+      "height": 35.09375,
+      "width": 335,
+      "x": 20,
+      "y": 188
+    },
+    "headings": [
+      "One detail to confirm."
+    ],
+    "overflow": false,
+    "shells": 1,
+    "stage": {
+      "height": 560.59375,
+      "width": 335,
+      "x": 20,
+      "y": 156
+    },
+    "url": "/total-loss/cases/33333333-3333-4333-8333-333333333333/review-report",
+    "width": 390,
+    "workspace": {
+      "height": 720,
+      "width": 375,
+      "x": 0,
+      "y": 64
+    }
+  },
+  {
+    "label": "mobile390-approval",
+    "header": {
+      "height": 64,
+      "width": 375,
+      "x": 0,
+      "y": 0
+    },
+    "heading": {
+      "height": 70.1875,
+      "width": 335,
+      "x": 20,
+      "y": 188
+    },
+    "headings": [
+      "Your review is ready for a final Venfour check."
+    ],
+    "overflow": false,
+    "shells": 1,
+    "stage": {
+      "height": 270.1875,
+      "width": 335,
+      "x": 20,
+      "y": 156
+    },
+    "url": "/total-loss/cases/33333333-3333-4333-8333-333333333333/review-report",
+    "width": 390,
+    "workspace": {
+      "height": 720,
+      "width": 375,
+      "x": 0,
+      "y": 64
+    }
+  },
+  {
+    "label": "mobile390-payment",
+    "header": {
+      "height": 64,
+      "width": 375,
+      "x": 0,
+      "y": 0
+    },
+    "heading": {
+      "height": 35.09375,
+      "width": 335,
+      "x": 20,
+      "y": 188
+    },
+    "headings": [
+      "Your full valuation review"
+    ],
+    "overflow": false,
+    "shells": 1,
+    "stage": {
+      "height": 1453.09375,
+      "width": 335,
+      "x": 20,
+      "y": 156
+    },
+    "url": "/total-loss/cases/33333333-3333-4333-8333-333333333333/claim/checkout",
+    "width": 390,
+    "workspace": {
+      "height": 1573.09375,
+      "width": 375,
+      "x": 0,
+      "y": 64
+    }
+  },
+  {
+    "label": "mobile390-paid",
+    "header": {
+      "height": 64,
+      "width": 375,
+      "x": 0,
+      "y": 0
+    },
+    "heading": {
+      "height": 70.1875,
+      "width": 335,
+      "x": 20,
+      "y": 188
+    },
+    "headings": [
+      "We’re preparing your valuation report"
+    ],
+    "overflow": false,
+    "shells": 1,
+    "stage": {
+      "height": 321.1875,
+      "width": 335,
+      "x": 20,
+      "y": 156
+    },
+    "url": "/total-loss/cases/33333333-3333-4333-8333-333333333333/claim/processing",
+    "width": 390,
+    "workspace": {
+      "height": 720,
+      "width": 375,
+      "x": 0,
+      "y": 64
+    }
+  },
+  {
+    "label": "mobile390-completed",
+    "header": {
+      "height": 64,
+      "width": 375,
+      "x": 0,
+      "y": 0
+    },
+    "heading": {
+      "height": 18,
+      "width": 335,
+      "x": 20,
+      "y": 156
+    },
+    "headings": [
+      "Your result"
+    ],
+    "overflow": false,
+    "shells": 1,
+    "stage": {
+      "height": 757.4453125,
+      "width": 335,
+      "x": 20,
+      "y": 156
+    },
+    "url": "/total-loss/cases/33333333-3333-4333-8333-333333333333/claim/review/result",
+    "width": 390,
+    "workspace": {
+      "height": 877.4453125,
+      "width": 375,
+      "x": 0,
+      "y": 64
+    }
+  },
+  {
+    "label": "mobile390-waiting",
+    "header": {
+      "height": 64,
+      "width": 375,
+      "x": 0,
+      "y": 0
+    },
+    "heading": {
+      "height": 70.1875,
+      "width": 335,
+      "x": 20,
+      "y": 196
+    },
+    "headings": [
+      "Waiting for the insurer’s response"
+    ],
+    "overflow": false,
+    "shells": 1,
+    "stage": {
+      "height": 874.75,
+      "width": 335,
+      "x": 20,
+      "y": 156
+    },
+    "url": "/total-loss/cases/33333333-3333-4333-8333-333333333333/claim/review/waiting",
+    "width": 390,
+    "workspace": {
+      "height": 994.75,
+      "width": 375,
+      "x": 0,
+      "y": 64
+    }
+  },
+  {
+    "label": "mobile390-processing",
+    "header": {
+      "height": 64,
+      "width": 375,
+      "x": 0,
+      "y": 0
+    },
+    "heading": {
+      "height": 35.09375,
+      "width": 335,
+      "x": 20,
+      "y": 188
+    },
+    "headings": [
+      "Reviewing your vehicle."
+    ],
+    "overflow": false,
+    "shells": 1,
+    "stage": {
+      "height": 168.09375,
+      "width": 335,
+      "x": 20,
+      "y": 156
+    },
+    "url": "/total-loss/cases/33333333-3333-4333-8333-333333333333/analysis",
+    "width": 390,
+    "workspace": {
+      "height": 720,
+      "width": 375,
+      "x": 0,
+      "y": 64
+    }
+  },
+  {
+    "label": "mobile390-intake",
+    "header": {
+      "height": 64,
+      "width": 375,
+      "x": 0,
+      "y": 0
+    },
+    "heading": {
+      "height": 35.09375,
+      "width": 335,
+      "x": 20,
+      "y": 188
+    },
+    "headings": [
+      "Your appraisal details"
+    ],
+    "overflow": false,
+    "shells": 1,
+    "stage": {
+      "height": 894.09375,
+      "width": 335,
+      "x": 20,
+      "y": 156
+    },
+    "url": "/start",
+    "width": 390,
+    "workspace": {
+      "height": 1014.09375,
+      "width": 375,
+      "x": 0,
+      "y": 64
+    }
+  },
+  {
+    "label": "mobile320-free",
+    "header": {
+      "height": 64,
+      "width": 305,
+      "x": 0,
+      "y": 0
+    },
+    "heading": {
+      "height": 70.1875,
+      "width": 265,
+      "x": 20,
+      "y": 188
+    },
+    "headings": [
+      "Your preliminary vehicle-value range."
+    ],
+    "overflow": false,
+    "shells": 1,
+    "stage": {
+      "height": 728.1640625,
+      "width": 265,
+      "x": 20,
+      "y": 156
+    },
+    "url": "/total-loss/cases/33333333-3333-4333-8333-333333333333/analysis",
+    "width": 320,
+    "workspace": {
+      "height": 848.1640625,
+      "width": 305,
+      "x": 0,
+      "y": 64
+    }
+  },
+  {
+    "label": "mobile320-upload",
+    "header": {
+      "height": 64,
+      "width": 305,
+      "x": 0,
+      "y": 0
+    },
+    "heading": {
+      "height": 70.1875,
+      "width": 265,
+      "x": 20,
+      "y": 188
+    },
+    "headings": [
+      "Add your insurer’s valuation report"
+    ],
+    "overflow": false,
+    "shells": 1,
+    "stage": {
+      "height": 527.078125,
+      "width": 265,
+      "x": 20,
+      "y": 156
+    },
+    "url": "/total-loss/cases/33333333-3333-4333-8333-333333333333/review-report",
+    "width": 320,
+    "workspace": {
+      "height": 647.078125,
+      "width": 305,
+      "x": 0,
+      "y": 64
+    }
+  },
+  {
+    "label": "mobile320-confirmation",
+    "header": {
+      "height": 64,
+      "width": 305,
+      "x": 0,
+      "y": 0
+    },
+    "heading": {
+      "height": 35.09375,
+      "width": 265,
+      "x": 20,
+      "y": 188
+    },
+    "headings": [
+      "One detail to confirm."
+    ],
+    "overflow": false,
+    "shells": 1,
+    "stage": {
+      "height": 629.09375,
+      "width": 265,
+      "x": 20,
+      "y": 156
+    },
+    "url": "/total-loss/cases/33333333-3333-4333-8333-333333333333/review-report",
+    "width": 320,
+    "workspace": {
+      "height": 749.09375,
+      "width": 305,
+      "x": 0,
+      "y": 64
+    }
+  },
+  {
+    "label": "mobile320-approval",
+    "header": {
+      "height": 64,
+      "width": 305,
+      "x": 0,
+      "y": 0
+    },
+    "heading": {
+      "height": 105.28125,
+      "width": 265,
+      "x": 20,
+      "y": 188
+    },
+    "headings": [
+      "Your review is ready for a final Venfour check."
+    ],
+    "overflow": false,
+    "shells": 1,
+    "stage": {
+      "height": 329.78125,
+      "width": 265,
+      "x": 20,
+      "y": 156
+    },
+    "url": "/total-loss/cases/33333333-3333-4333-8333-333333333333/review-report",
+    "width": 320,
+    "workspace": {
+      "height": 596,
+      "width": 305,
+      "x": 0,
+      "y": 64
+    }
+  },
+  {
+    "label": "mobile320-payment",
+    "header": {
+      "height": 64,
+      "width": 305,
+      "x": 0,
+      "y": 0
+    },
+    "heading": {
+      "height": 70.1875,
+      "width": 265,
+      "x": 20,
+      "y": 188
+    },
+    "headings": [
+      "Your full valuation review"
+    ],
+    "overflow": false,
+    "shells": 1,
+    "stage": {
+      "height": 1652.6875,
+      "width": 265,
+      "x": 20,
+      "y": 156
+    },
+    "url": "/total-loss/cases/33333333-3333-4333-8333-333333333333/claim/checkout",
+    "width": 320,
+    "workspace": {
+      "height": 1772.6875,
+      "width": 305,
+      "x": 0,
+      "y": 64
+    }
+  },
+  {
+    "label": "mobile320-paid",
+    "header": {
+      "height": 64,
+      "width": 305,
+      "x": 0,
+      "y": 0
+    },
+    "heading": {
+      "height": 70.1875,
+      "width": 265,
+      "x": 20,
+      "y": 188
+    },
+    "headings": [
+      "We’re preparing your valuation report"
+    ],
+    "overflow": false,
+    "shells": 1,
+    "stage": {
+      "height": 321.1875,
+      "width": 265,
+      "x": 20,
+      "y": 156
+    },
+    "url": "/total-loss/cases/33333333-3333-4333-8333-333333333333/claim/processing",
+    "width": 320,
+    "workspace": {
+      "height": 596,
+      "width": 305,
+      "x": 0,
+      "y": 64
+    }
+  },
+  {
+    "label": "mobile320-completed",
+    "header": {
+      "height": 64,
+      "width": 305,
+      "x": 0,
+      "y": 0
+    },
+    "heading": {
+      "height": 18,
+      "width": 265,
+      "x": 20,
+      "y": 156
+    },
+    "headings": [
+      "Your result"
+    ],
+    "overflow": false,
+    "shells": 1,
+    "stage": {
+      "height": 925.2890625,
+      "width": 265,
+      "x": 20,
+      "y": 156
+    },
+    "url": "/total-loss/cases/33333333-3333-4333-8333-333333333333/claim/review/result",
+    "width": 320,
+    "workspace": {
+      "height": 1045.2890625,
+      "width": 305,
+      "x": 0,
+      "y": 64
+    }
+  },
+  {
+    "label": "mobile320-waiting",
+    "header": {
+      "height": 64,
+      "width": 305,
+      "x": 0,
+      "y": 0
+    },
+    "heading": {
+      "height": 70.1875,
+      "width": 265,
+      "x": 20,
+      "y": 196
+    },
+    "headings": [
+      "Waiting for the insurer’s response"
+    ],
+    "overflow": false,
+    "shells": 1,
+    "stage": {
+      "height": 1005.796875,
+      "width": 265,
+      "x": 20,
+      "y": 156
+    },
+    "url": "/total-loss/cases/33333333-3333-4333-8333-333333333333/claim/review/waiting",
+    "width": 320,
+    "workspace": {
+      "height": 1125.796875,
+      "width": 305,
+      "x": 0,
+      "y": 64
+    }
+  },
+  {
+    "label": "mobile320-processing",
+    "header": {
+      "height": 64,
+      "width": 305,
+      "x": 0,
+      "y": 0
+    },
+    "heading": {
+      "height": 70.1875,
+      "width": 265,
+      "x": 20,
+      "y": 188
+    },
+    "headings": [
+      "Reviewing your vehicle."
+    ],
+    "overflow": false,
+    "shells": 1,
+    "stage": {
+      "height": 203.1875,
+      "width": 265,
+      "x": 20,
+      "y": 156
+    },
+    "url": "/total-loss/cases/33333333-3333-4333-8333-333333333333/analysis",
+    "width": 320,
+    "workspace": {
+      "height": 596,
+      "width": 305,
+      "x": 0,
+      "y": 64
+    }
+  },
+  {
+    "label": "mobile320-intake",
+    "header": {
+      "height": 64,
+      "width": 305,
+      "x": 0,
+      "y": 0
+    },
+    "heading": {
+      "height": 35.09375,
+      "width": 265,
+      "x": 20,
+      "y": 188
+    },
+    "headings": [
+      "Your appraisal details"
+    ],
+    "overflow": false,
+    "shells": 1,
+    "stage": {
+      "height": 928.09375,
+      "width": 265,
+      "x": 20,
+      "y": 156
+    },
+    "url": "/start",
+    "width": 320,
+    "workspace": {
+      "height": 1048.09375,
+      "width": 305,
+      "x": 0,
+      "y": 64
+    }
+  },
+  {
+    "label": "mobile320-waiting-final",
+    "header": {
+      "height": 64,
+      "width": 305,
+      "x": 0,
+      "y": 0
+    },
+    "heading": {
+      "height": 70.1875,
+      "width": 265,
+      "x": 20,
+      "y": 188
+    },
+    "headings": [
+      "Waiting for the insurer’s response"
+    ],
+    "overflow": false,
+    "shells": 1,
+    "stage": {
+      "height": 997.796875,
+      "width": 265,
+      "x": 20,
+      "y": 156
+    },
+    "url": "/total-loss/cases/33333333-3333-4333-8333-333333333333/claim/review/waiting",
+    "width": 320,
+    "workspace": {
+      "height": 1117.796875,
+      "width": 305,
+      "x": 0,
+      "y": 64
+    }
+  },
+  {
+    "label": "final-desktop-free",
+    "header": {
+      "height": 64,
+      "width": 880,
+      "x": 272.5,
+      "y": 0
+    },
+    "heading": {
+      "height": 49.1328125,
+      "width": 660,
+      "x": 312.5,
+      "y": 208
+    },
+    "headings": [
+      "Your preliminary vehicle-value range."
+    ],
+    "overflow": false,
+    "shells": 1,
+    "stage": {
+      "height": 618.4140625,
+      "width": 800,
+      "x": 312.5,
+      "y": 176
+    },
+    "url": "/total-loss/cases/33333333-3333-4333-8333-333333333333/analysis",
+    "width": 1440,
+    "workspace": {
+      "height": 876,
+      "width": 880,
+      "x": 272.5,
+      "y": 64
+    }
+  },
+  {
+    "label": "final-desktop-upload",
+    "header": {
+      "height": 64,
+      "width": 880,
+      "x": 272.5,
+      "y": 0
+    },
+    "heading": {
+      "height": 49.1328125,
+      "width": 660,
+      "x": 312.5,
+      "y": 208
+    },
+    "headings": [
+      "Add your insurer’s valuation report"
+    ],
+    "overflow": false,
+    "shells": 1,
+    "stage": {
+      "height": 461.328125,
+      "width": 800,
+      "x": 312.5,
+      "y": 176
+    },
+    "url": "/total-loss/cases/33333333-3333-4333-8333-333333333333/review-report",
+    "width": 1440,
+    "workspace": {
+      "height": 876,
+      "width": 880,
+      "x": 272.5,
+      "y": 64
+    }
+  },
+  {
+    "label": "final-desktop-extracting",
+    "header": {
+      "height": 64,
+      "width": 880,
+      "x": 272.5,
+      "y": 0
+    },
+    "heading": {
+      "height": 49.1328125,
+      "width": 660,
+      "x": 312.5,
+      "y": 208
+    },
+    "headings": [
+      "Reading your valuation report."
+    ],
+    "overflow": false,
+    "shells": 1,
+    "stage": {
+      "height": 260.6328125,
+      "width": 800,
+      "x": 312.5,
+      "y": 176
+    },
+    "url": "/total-loss/cases/33333333-3333-4333-8333-333333333333/review-report",
+    "width": 1440,
+    "workspace": {
+      "height": 876,
+      "width": 880,
+      "x": 272.5,
+      "y": 64
+    }
+  },
+  {
+    "label": "final-desktop-confirmation",
+    "header": {
+      "height": 64,
+      "width": 880,
+      "x": 272.5,
+      "y": 0
+    },
+    "heading": {
+      "height": 49.1328125,
+      "width": 660,
+      "x": 312.5,
+      "y": 208
+    },
+    "headings": [
+      "One detail to confirm."
+    ],
+    "overflow": false,
+    "shells": 1,
+    "stage": {
+      "height": 464.6328125,
+      "width": 800,
+      "x": 312.5,
+      "y": 176
+    },
+    "url": "/total-loss/cases/33333333-3333-4333-8333-333333333333/review-report",
+    "width": 1440,
+    "workspace": {
+      "height": 876,
+      "width": 880,
+      "x": 272.5,
+      "y": 64
+    }
+  },
+  {
+    "label": "final-desktop-strict",
+    "header": {
+      "height": 64,
+      "width": 880,
+      "x": 272.5,
+      "y": 0
+    },
+    "heading": {
+      "height": 49.1328125,
+      "width": 660,
+      "x": 312.5,
+      "y": 208
+    },
+    "headings": [
+      "Reviewing your report and evidence."
+    ],
+    "overflow": false,
+    "shells": 1,
+    "stage": {
+      "height": 260.6328125,
+      "width": 800,
+      "x": 312.5,
+      "y": 176
+    },
+    "url": "/total-loss/cases/33333333-3333-4333-8333-333333333333/review-report",
+    "width": 1440,
+    "workspace": {
+      "height": 876,
+      "width": 880,
+      "x": 272.5,
+      "y": 64
+    }
+  },
+  {
+    "label": "final-desktop-approval",
+    "header": {
+      "height": 64,
+      "width": 880,
+      "x": 272.5,
+      "y": 0
+    },
+    "heading": {
+      "height": 98.265625,
+      "width": 660,
+      "x": 312.5,
+      "y": 208
+    },
+    "headings": [
+      "Your review is ready for a final Venfour check."
+    ],
+    "overflow": false,
+    "shells": 1,
+    "stage": {
+      "height": 301.765625,
+      "width": 800,
+      "x": 312.5,
+      "y": 176
+    },
+    "url": "/total-loss/cases/33333333-3333-4333-8333-333333333333/review-report",
+    "width": 1440,
+    "workspace": {
+      "height": 876,
+      "width": 880,
+      "x": 272.5,
+      "y": 64
+    }
+  },
+  {
+    "label": "final-desktop-ready",
+    "header": {
+      "height": 64,
+      "width": 880,
+      "x": 272.5,
+      "y": 0
+    },
+    "heading": {
+      "height": 49.1328125,
+      "width": 660,
+      "x": 312.5,
+      "y": 208
+    },
+    "headings": [
+      "Your full review is ready."
+    ],
+    "overflow": false,
+    "shells": 1,
+    "stage": {
+      "height": 258.1328125,
+      "width": 800,
+      "x": 312.5,
+      "y": 176
+    },
+    "url": "/total-loss/cases/33333333-3333-4333-8333-333333333333/review-report",
+    "width": 1440,
+    "workspace": {
+      "height": 876,
+      "width": 880,
+      "x": 272.5,
+      "y": 64
+    }
+  },
+  {
+    "label": "final-desktop-payment",
+    "header": {
+      "height": 64,
+      "width": 880,
+      "x": 272.5,
+      "y": 0
+    },
+    "heading": {
+      "height": 49.1328125,
+      "width": 660,
+      "x": 312.5,
+      "y": 208
+    },
+    "headings": [
+      "Your full valuation review"
+    ],
+    "overflow": false,
+    "shells": 1,
+    "stage": {
+      "height": 831.6328125,
+      "width": 800,
+      "x": 312.5,
+      "y": 176
+    },
+    "url": "/total-loss/cases/33333333-3333-4333-8333-333333333333/claim/checkout",
+    "width": 1440,
+    "workspace": {
+      "height": 983.6328125,
+      "width": 880,
+      "x": 272.5,
+      "y": 64
+    }
+  },
+  {
+    "label": "final-desktop-paid",
+    "header": {
+      "height": 64,
+      "width": 880,
+      "x": 272.5,
+      "y": 0
+    },
+    "heading": {
+      "height": 49.1328125,
+      "width": 660,
+      "x": 312.5,
+      "y": 208
+    },
+    "headings": [
+      "We’re preparing your valuation report"
+    ],
+    "overflow": false,
+    "shells": 1,
+    "stage": {
+      "height": 254.6328125,
+      "width": 800,
+      "x": 312.5,
+      "y": 176
+    },
+    "url": "/total-loss/cases/33333333-3333-4333-8333-333333333333/claim/processing",
+    "width": 1440,
+    "workspace": {
+      "height": 876,
+      "width": 880,
+      "x": 272.5,
+      "y": 64
+    }
+  },
+  {
+    "label": "final-desktop-completed",
+    "header": {
+      "height": 64,
+      "width": 880,
+      "x": 272.5,
+      "y": 0
+    },
+    "heading": {
+      "height": 18,
+      "width": 63.296875,
+      "x": 312.5,
+      "y": 176
+    },
+    "headings": [
+      "Your result"
+    ],
+    "overflow": false,
+    "shells": 1,
+    "stage": {
+      "height": 666.09375,
+      "width": 800,
+      "x": 312.5,
+      "y": 176
+    },
+    "url": "/total-loss/cases/33333333-3333-4333-8333-333333333333/claim/review/result",
+    "width": 1440,
+    "workspace": {
+      "height": 876,
+      "width": 880,
+      "x": 272.5,
+      "y": 64
+    }
+  },
+  {
+    "label": "final-desktop-waiting",
+    "header": {
+      "height": 64,
+      "width": 880,
+      "x": 272.5,
+      "y": 0
+    },
+    "heading": {
+      "height": 49.1328125,
+      "width": 624,
+      "x": 312.5,
+      "y": 208
+    },
+    "headings": [
+      "Waiting for the insurer’s response"
+    ],
+    "overflow": false,
+    "shells": 1,
+    "stage": {
+      "height": 680.2578125,
+      "width": 800,
+      "x": 312.5,
+      "y": 176
+    },
+    "url": "/total-loss/cases/33333333-3333-4333-8333-333333333333/claim/review/waiting",
+    "width": 1440,
+    "workspace": {
+      "height": 876,
+      "width": 880,
+      "x": 272.5,
+      "y": 64
+    }
+  },
+  {
+    "label": "final-desktop-processing",
+    "header": {
+      "height": 64,
+      "width": 880,
+      "x": 272.5,
+      "y": 0
+    },
+    "heading": {
+      "height": 49.1328125,
+      "width": 660,
+      "x": 312.5,
+      "y": 208
+    },
+    "headings": [
+      "Reviewing your vehicle."
+    ],
+    "overflow": false,
+    "shells": 1,
+    "stage": {
+      "height": 159.3828125,
+      "width": 800,
+      "x": 312.5,
+      "y": 176
+    },
+    "url": "/total-loss/cases/33333333-3333-4333-8333-333333333333/analysis",
+    "width": 1440,
+    "workspace": {
+      "height": 876,
+      "width": 880,
+      "x": 272.5,
+      "y": 64
+    }
+  },
+  {
+    "label": "final-desktop-intake",
+    "header": {
+      "height": 64,
+      "width": 880,
+      "x": 272.5,
+      "y": 0
+    },
+    "heading": {
+      "height": 49.1328125,
+      "width": 660,
+      "x": 312.5,
+      "y": 208
+    },
+    "headings": [
+      "Your appraisal details"
+    ],
+    "overflow": false,
+    "shells": 1,
+    "stage": {
+      "height": 636.1328125,
+      "width": 800,
+      "x": 312.5,
+      "y": 176
+    },
+    "url": "/start",
+    "width": 1440,
+    "workspace": {
+      "height": 876,
+      "width": 880,
+      "x": 272.5,
+      "y": 64
+    }
+  }
+]

@@ -441,13 +441,15 @@ describe("versioned preliminary results", () => {
     /></MemoryRouter>);
   }
 
-  it("shows asking-price context without translating the strict verdict into a vehicle value or fairness claim", () => {
+  it("shows asking-price context without translating the strict verdict into a vehicle value or fairness claim", async () => {
     const analysis = preliminaryAnalysis();
     const saved = structuredClone(analysis);
     const { container } = show(analysis);
     expect(screen.getByRole("heading", { name: "Comparable listing prices" })).toBeVisible();
     expect(screen.getByRole("region", { name: "Observed asking-price span" })).toHaveTextContent("$23,077–$25,333");
-    expect(screen.getByText(/don’t yet establish the value of your vehicle/)).toBeVisible();
+    expect(screen.getByText(/not an estimate of your vehicle’s value/)).toBeVisible();
+    expect(screen.getByText(/certification premium has not been adjusted/)).not.toBeVisible();
+    await userEvent.setup().click(screen.getByText("Evidence details · 2 limitations"));
     expect(screen.getByText(/2 listings in current advertised inventory as of September 14, 2026/)).toBeVisible();
     expect(screen.getByText(/14,725 miles · 103.2 miles away · Certified listing/)).toBeVisible();
     expect(screen.getByText(/18,812 miles · 183.5 miles away/)).toBeVisible();
@@ -465,22 +467,23 @@ describe("versioned preliminary results", () => {
     const price = screen.getByRole("region", { name: "Observed asking price" });
     expect(price).toHaveTextContent("$23,077");
     expect(price).not.toHaveTextContent("–");
-    expect(screen.getByText(/1 listing in current advertised inventory/)).toBeVisible();
+    expect(screen.getByText("1 listing · Current asking prices")).toBeVisible();
   });
 
   it("shows a supported current estimate without implying a comparable insurer shortfall", () => {
     show(preliminaryAnalysis({ outcome: "ESTIMATE", sampleSize: 4, estimatedRange: { lowCents: 2_180_000, highCents: 2_260_000 }, listingPriceSpan: null, limitations: [], insurerComparison: { insurerValueCents: 2_000_000, position: "BELOW_RANGE" } }));
-    expect(screen.getByRole("heading", { name: "Your preliminary vehicle-value range." })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Your preliminary value range." })).toBeVisible();
     expect(screen.getByRole("region", { name: "Preliminary estimated range" })).toHaveTextContent("$21,800–$22,600");
-    expect(screen.getByText(/This is not a loss-date valuation/)).toBeVisible();
+    expect(screen.getByText("Not a loss-date valuation.")).toBeVisible();
     expect(screen.queryByRole("figure")).not.toBeInTheDocument();
     expect(screen.queryByText("$20,000")).not.toBeInTheDocument();
     expect(screen.queryByText(/undervaluing|appears fair|worth pursuing/)).not.toBeInTheDocument();
     expect(screen.queryByRole("list", { name: "Comparable listing examples" })).not.toBeInTheDocument();
   });
 
-  it("shows only the backend-authorized insurer comparison for a verified loss-date estimate", () => {
+  it("shows only the backend-authorized insurer comparison for a verified loss-date estimate", async () => {
     show(preliminaryAnalysis({ outcome: "ESTIMATE", evidenceBasis: "LOSS_DATE_HISTORICAL", evidenceDate: "2026-08-11", sampleSize: 4, estimatedRange: { lowCents: 2_180_000, highCents: 2_260_000 }, listingPriceSpan: null, limitations: [], insurerComparison: { insurerValueCents: 2_000_000, position: "BELOW_RANGE" } }));
+    await userEvent.setup().click(screen.getByText("Evidence details"));
     expect(screen.getByText(/advertised prices verified around your date of loss, August 11, 2026/)).toBeVisible();
     expect(screen.getByRole("figure", { name: "Insurer’s valuation: $20,000. Estimated market range: $21,800 to $22,600." })).toBeVisible();
     expect(screen.getByText(/is below this preliminary range/)).toBeVisible();
@@ -500,9 +503,19 @@ describe("versioned preliminary results", () => {
   it.each(["ESTIMATE", "LISTING_CONTEXT", "INSUFFICIENT"] as const)("keeps PDF continuation available for %s without bypassing payment readiness", outcome => {
     show(preliminaryAnalysis({ outcome }));
     expect(screen.getByRole("link", { name: "Upload insurer valuation report" })).toHaveAttribute("href", reportPath);
-    expect(screen.getByText(/check the report and review readiness before payment is available/)).toBeVisible();
+    expect(screen.getByText("No payment at this step")).toBeVisible();
     expect(screen.queryByRole("button", { name: "Pay for review" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Continue my review" })).not.toBeInTheDocument();
+  });
+
+  it("uses the dedicated report action while ignoring a payment continuation on a preliminary result", async () => {
+    const upload = vi.fn();
+    render(<MemoryRouter><TotalLossAnalysisResult analysis={preliminaryAnalysis()}
+      reportUploadAction={<button onClick={upload}>Upload insurer valuation report</button>}
+      continueAction={<button>Pay for review</button>} /></MemoryRouter>);
+    await userEvent.setup().click(screen.getByRole("button", { name: "Upload insurer valuation report" }));
+    expect(upload).toHaveBeenCalledOnce();
+    expect(screen.queryByRole("button", { name: "Pay for review" })).not.toBeInTheDocument();
   });
 
   it("keeps a provider interruption distinct from insufficient evidence", () => {

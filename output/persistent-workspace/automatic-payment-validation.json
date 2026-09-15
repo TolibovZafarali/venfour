@@ -1,0 +1,56 @@
+{
+  "scope": "Disable manual payment approval using the existing supervision setting and its default; preserve automated evidence, ownership, checkout, and report-release checks.",
+  "migration": "supabase/migrations/20260915000300_automatic_payment_eligibility.sql",
+  "migrationRehearsal": {
+    "migrationsApplied": 75,
+    "network": "none",
+    "manualApprovalRequired": false,
+    "sharedLocalDatabaseChanged": false,
+    "hostedDatabaseChanged": false
+  },
+  "backend": {
+    "tests": 77,
+    "passed": true,
+    "seconds": 409.267,
+    "suites": [
+      "full_review",
+      "full_review_processing",
+      "claim_initialization",
+      "report_release_gate",
+      "report_processing",
+      "paid_recovery"
+    ]
+  },
+  "frontend": {
+    "tests": 55,
+    "files": 4,
+    "passed": true
+  },
+  "database": {
+    "assertions": 2729,
+    "files": 53,
+    "failedFiles": 0,
+    "details": "automatic-payment-database-results.json"
+  },
+  "build": "passed",
+  "typecheck": "passed during build",
+  "contracts": "passed during build",
+  "lint": "passed",
+  "diffCheck": "passed",
+  "browser": {
+    "fixture": "fictional local services",
+    "confirmationToAutomatedChecksToPaymentReady": true,
+    "sameModal": true,
+    "refreshRestoresReadiness": true,
+    "explicitContinuationOpensCheckout": true,
+    "oldApprovalPreviewResolvesToReadiness": true,
+    "desktopAnd390pxChecked": true,
+    "viewportReset": true
+  },
+  "screenshots": [
+    "desktop-automatic-payment.png",
+    "mobile390-automatic-payment.png"
+  ],
+  "liveProviderCalls": 0,
+  "deployed": false
+}

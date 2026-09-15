@@ -111,7 +111,7 @@ export function NegotiationHistoryDialog(props: NegotiationHistoryProps) {
   const messageCount = new Set(props.history.flatMap((round) => [round.outbound.communicationId, ...(round.followUp ? [round.followUp.communicationId] : [])])).size;
   const responseCount = props.history.reduce((count, round) => count + round.responses.length, 0);
   const trigger = <Dialog.Trigger asChild>
-    <button className="case-history-trigger" type="button"><History aria-hidden="true" />Case history</button>
+    <button className="case-history-trigger" type="button" aria-label="Case history" title="Case history"><History aria-hidden="true" /><span>Case history</span></button>
   </Dialog.Trigger>;
   return <Dialog.Root open={open} onOpenChange={setOpen}>
     {host ? createPortal(trigger, host) : trigger}

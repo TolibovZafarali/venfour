@@ -1,0 +1,36 @@
+{
+  "success": true,
+  "testFiles": 123,
+  "tests": 2075,
+  "passed": 2072,
+  "failed": 0,
+  "pending": 3,
+  "contractCheck": "passed",
+  "typecheck": "passed",
+  "lint": "passed",
+  "productionBuild": "passed",
+  "diffCheck": "passed",
+  "buildNote": "Vite reports a non-blocking large-chunk warning.",
+  "browserWidths": [
+    1440,
+    768,
+    390,
+    320
+  ],
+  "browserEvidence": "Fictional local services using production routes and components; no real payment or provider calls.",
+  "reducedMotion": "Automated preference tests and loaded CSS inspection; no native browser preference emulation.",
+  "deployment": "Not deployed",
+  "passedTestFiles": 122,
+  "skippedTestFiles": 1,
+  "modalChecks": [
+    "All report stages remain in the same modal",
+    "Saved report route reopens the modal",
+    "No free-analysis submission on report-route entry",
+    "Confirmation choice survives close and reopen",
+    "Confirmation choice cannot cross report revisions",
+    "Fresh persisted-state recovery",
+    "Explicit continuation to checkout",
+    "20 responsive report-stage views"
+  ],
+  "latestFollowUp": "automatic-payment-validation.json"
+}
