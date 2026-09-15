@@ -1,0 +1,52 @@
+[
+  {
+    "width": 1440,
+    "reducedMotion": "reduce",
+    "outline": "rgb(21, 94, 239) solid 2px"
+  },
+  {
+    "width": 1440,
+    "reducedMotion": "reduce",
+    "url": "http://127.0.0.1:4186/total-loss/cases/33333333-3333-4333-8333-333333333333/claim/review/insurer",
+    "navTop": 64,
+    "overflow": false,
+    "heading": "How your insurer reached its value",
+    "progressUnchanged": true,
+    "errors": []
+  },
+  {
+    "width": 1440,
+    "reducedMotion": "no-preference",
+    "outline": "rgb(21, 94, 239) solid 2px"
+  },
+  {
+    "width": 1440,
+    "reducedMotion": "no-preference",
+    "url": "http://127.0.0.1:4186/total-loss/cases/33333333-3333-4333-8333-333333333333/claim/review/insurer",
+    "navTop": 64,
+    "overflow": false,
+    "heading": "How your insurer reached its value",
+    "progressUnchanged": true,
+    "errors": []
+  },
+  {
+    "width": 390,
+    "reducedMotion": "reduce",
+    "url": "http://127.0.0.1:4186/total-loss/cases/33333333-3333-4333-8333-333333333333/claim/review/insurer",
+    "navTop": 64,
+    "overflow": false,
+    "heading": "How your insurer reached its value",
+    "progressUnchanged": true,
+    "errors": []
+  },
+  {
+    "width": 390,
+    "reducedMotion": "no-preference",
+    "url": "http://127.0.0.1:4186/total-loss/cases/33333333-3333-4333-8333-333333333333/claim/review/insurer",
+    "navTop": 64,
+    "overflow": false,
+    "heading": "How your insurer reached its value",
+    "progressUnchanged": true,
+    "errors": []
+  }
+]

@@ -1,0 +1,1676 @@
+[
+  {
+    "width": 1440,
+    "reducedMotion": "no-preference",
+    "stage": "insurer",
+    "events": [
+      {
+        "type": "animationstart",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-focus-enter"
+      }
+    ],
+    "lingering": 0,
+    "footer": 0,
+    "overflow": false,
+    "heading": "How your insurer reached its value",
+    "focus": "completed-analysis",
+    "errors": []
+  },
+  {
+    "width": 1440,
+    "reducedMotion": "no-preference",
+    "stage": "market",
+    "events": [
+      {
+        "type": "animationstart",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-focus-enter"
+      }
+    ],
+    "lingering": 0,
+    "footer": 0,
+    "overflow": false,
+    "heading": "What the market evidence showed",
+    "focus": "completed-analysis",
+    "errors": []
+  },
+  {
+    "width": 1440,
+    "reducedMotion": "no-preference",
+    "stage": "meaning",
+    "events": [
+      {
+        "type": "animationstart",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-focus-enter"
+      }
+    ],
+    "lingering": 0,
+    "footer": 0,
+    "overflow": false,
+    "heading": "What the comparison means",
+    "focus": "completed-analysis",
+    "errors": []
+  },
+  {
+    "width": 1440,
+    "reducedMotion": "no-preference",
+    "stage": "result",
+    "events": [
+      {
+        "type": "animationstart",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-focus-enter"
+      }
+    ],
+    "lingering": 0,
+    "footer": 0,
+    "overflow": false,
+    "heading": "Your result",
+    "focus": "completed-analysis",
+    "errors": []
+  },
+  {
+    "width": 1440,
+    "reducedMotion": "no-preference",
+    "stage": "insurer",
+    "events": [
+      {
+        "type": "animationstart",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-focus-enter"
+      }
+    ],
+    "lingering": 0,
+    "footer": 0,
+    "overflow": false,
+    "heading": "How your insurer reached its value",
+    "focus": "completed-analysis",
+    "errors": []
+  },
+  {
+    "width": 1440,
+    "reducedMotion": "reduce",
+    "stage": "insurer",
+    "events": [],
+    "lingering": 0,
+    "footer": 0,
+    "overflow": false,
+    "heading": "How your insurer reached its value",
+    "focus": "completed-analysis",
+    "errors": []
+  },
+  {
+    "width": 1440,
+    "reducedMotion": "reduce",
+    "stage": "market",
+    "events": [],
+    "lingering": 0,
+    "footer": 0,
+    "overflow": false,
+    "heading": "What the market evidence showed",
+    "focus": "completed-analysis",
+    "errors": []
+  },
+  {
+    "width": 1440,
+    "reducedMotion": "reduce",
+    "stage": "meaning",
+    "events": [],
+    "lingering": 0,
+    "footer": 0,
+    "overflow": false,
+    "heading": "What the comparison means",
+    "focus": "completed-analysis",
+    "errors": []
+  },
+  {
+    "width": 1440,
+    "reducedMotion": "reduce",
+    "stage": "result",
+    "events": [],
+    "lingering": 0,
+    "footer": 0,
+    "overflow": false,
+    "heading": "Your result",
+    "focus": "completed-analysis",
+    "errors": []
+  },
+  {
+    "width": 1440,
+    "reducedMotion": "reduce",
+    "stage": "insurer",
+    "events": [],
+    "lingering": 0,
+    "footer": 0,
+    "overflow": false,
+    "heading": "How your insurer reached its value",
+    "focus": "completed-analysis",
+    "errors": []
+  },
+  {
+    "width": 390,
+    "reducedMotion": "no-preference",
+    "stage": "insurer",
+    "events": [
+      {
+        "type": "animationstart",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-focus-enter"
+      }
+    ],
+    "lingering": 0,
+    "footer": 0,
+    "overflow": false,
+    "heading": "How your insurer reached its value",
+    "focus": "completed-analysis",
+    "errors": []
+  },
+  {
+    "width": 390,
+    "reducedMotion": "no-preference",
+    "stage": "market",
+    "events": [
+      {
+        "type": "animationstart",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-focus-enter"
+      }
+    ],
+    "lingering": 0,
+    "footer": 0,
+    "overflow": false,
+    "heading": "What the market evidence showed",
+    "focus": "completed-analysis",
+    "errors": []
+  },
+  {
+    "width": 390,
+    "reducedMotion": "no-preference",
+    "stage": "meaning",
+    "events": [
+      {
+        "type": "animationstart",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-focus-enter"
+      }
+    ],
+    "lingering": 0,
+    "footer": 0,
+    "overflow": false,
+    "heading": "What the comparison means",
+    "focus": "completed-analysis",
+    "errors": []
+  },
+  {
+    "width": 390,
+    "reducedMotion": "no-preference",
+    "stage": "result",
+    "events": [
+      {
+        "type": "animationstart",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-focus-enter"
+      }
+    ],
+    "lingering": 0,
+    "footer": 0,
+    "overflow": false,
+    "heading": "Your result",
+    "focus": "completed-analysis",
+    "errors": []
+  },
+  {
+    "width": 390,
+    "reducedMotion": "no-preference",
+    "stage": "insurer",
+    "events": [
+      {
+        "type": "animationstart",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationstart",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-focus-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-opacity-enter"
+      },
+      {
+        "type": "animationend",
+        "name": "scroll-focus-enter"
+      }
+    ],
+    "lingering": 0,
+    "footer": 0,
+    "overflow": false,
+    "heading": "How your insurer reached its value",
+    "focus": "completed-analysis",
+    "errors": []
+  },
+  {
+    "width": 390,
+    "reducedMotion": "reduce",
+    "stage": "insurer",
+    "events": [],
+    "lingering": 0,
+    "footer": 0,
+    "overflow": false,
+    "heading": "How your insurer reached its value",
+    "focus": "completed-analysis",
+    "errors": []
+  },
+  {
+    "width": 390,
+    "reducedMotion": "reduce",
+    "stage": "market",
+    "events": [],
+    "lingering": 0,
+    "footer": 0,
+    "overflow": false,
+    "heading": "What the market evidence showed",
+    "focus": "completed-analysis",
+    "errors": []
+  },
+  {
+    "width": 390,
+    "reducedMotion": "reduce",
+    "stage": "meaning",
+    "events": [],
+    "lingering": 0,
+    "footer": 0,
+    "overflow": false,
+    "heading": "What the comparison means",
+    "focus": "completed-analysis",
+    "errors": []
+  },
+  {
+    "width": 390,
+    "reducedMotion": "reduce",
+    "stage": "result",
+    "events": [],
+    "lingering": 0,
+    "footer": 0,
+    "overflow": false,
+    "heading": "Your result",
+    "focus": "completed-analysis",
+    "errors": []
+  },
+  {
+    "width": 390,
+    "reducedMotion": "reduce",
+    "stage": "insurer",
+    "events": [],
+    "lingering": 0,
+    "footer": 0,
+    "overflow": false,
+    "heading": "How your insurer reached its value",
+    "focus": "completed-analysis",
+    "errors": []
+  }
+]

@@ -14,4 +14,6 @@ Start with **Free result** and choose **Upload insurer valuation report**. The b
 
 Saved-intake and insurer-response screens support visual inspection. Their live write and document-delivery services are intentionally not connected. The payment example uses a fictional $199 price.
 
+Completed review is a fixed saved-state preview: its reading checkpoints are already complete and its journey remains at the result stage. Navigating between sections demonstrates the real page transitions, but does not advance the progress line. In the application, the line advances when a new checkpoint is saved; revisiting completed sections does not move it backward.
+
 See [the visual review and verification notes](../../../output/persistent-workspace/REVIEW.md).

@@ -1464,6 +1464,9 @@ describe("total-loss customer workflow", () => {
     const initial = renderTestApp([CLAIM_BASE], { authService: authService() });
     const navigation = await screen.findByRole("navigation", { name: "Case sections" });
     const progressBar = screen.getByRole("progressbar", { name: "Case journey" });
+    expect(navigation.closest(".customer-workspace__context")).toBeNull();
+    expect(navigation.parentElement?.nextElementSibling).toHaveAttribute("id", "main-content");
+    expect(progressBar.compareDocumentPosition(navigation) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     const progressLabel = progressBar.getAttribute("aria-valuetext");
     expect(initial.router.state.location.pathname).toBe(`${CLAIM_BASE}/review/waiting`);
 

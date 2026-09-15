@@ -59,10 +59,9 @@ export function ReportUploadDialog({ caseId, userId, accessToken, reportWorkspac
   const trigger = <Dialog.Trigger asChild>
       <Button size="lg" className="valuation-result__upload-action">Upload insurer valuation report<Upload aria-hidden /></Button>
     </Dialog.Trigger>;
-  const action = <div ref={actionRef} tabIndex={-1}>
-    <p className="valuation-result__next-copy" role={completed ? "status" : undefined}>{completed
-      ? state.paymentReadiness.status === "insufficient" ? "Your report is saved. There isn’t enough reliable evidence to offer the full review yet." : "Your insurer’s report is saved. You’re ready to continue."
-      : "Next, check your insurer’s valuation and adjustments."}</p>
+  const action = <div ref={actionRef} tabIndex={-1} data-report-review-complete={completed || undefined}>
+    {completed ? <p className="valuation-result__next-copy" role="status">{state.paymentReadiness.status === "insufficient" ? "Your report is saved. There isn’t enough reliable evidence to offer the full review yet." : "Your insurer’s report is saved. You’re ready to continue."}</p>
+      : <p className="valuation-result__next-copy valuation-result__upload-introduction">Next, check your insurer’s valuation and adjustments.</p>}
     {continuationInput ? <ContinueReviewAction accessToken={accessToken} caseId={caseId} userId={userId} label="Continue to payment" input={continuationInput} /> : completed
       ? state.paymentReadiness.status === "eligible" ? <p className="valuation-result__payment-note">Payment is unavailable right now. Please try again later.</p> : null
       : <>{trigger}<p className="valuation-result__payment-note">No payment at this step</p></>}

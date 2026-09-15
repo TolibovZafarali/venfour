@@ -7,9 +7,16 @@ html:has([data-customer-workspace])::-webkit-scrollbar { display: revert; }
   --workspace-width: 55rem;
   --workspace-gutter: clamp(20px, 4vw, 40px);
   isolation: isolate;
-  background: var(--canvas);
+  background: #f8fafd;
 }
-[data-customer-workspace]::before { content: none; }
+[data-customer-workspace]::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: radial-gradient(ellipse 85% 65% at 85% 0%, #eaf1fd80, transparent 75%), linear-gradient(160deg, #fbfcfe, #f6f8fc);
+}
 [data-customer-workspace] .header-glass {
   background: var(--surface);
   border: 0;
@@ -23,12 +30,10 @@ html:has([data-customer-workspace])::-webkit-scrollbar { display: revert; }
   padding-inline: var(--workspace-gutter);
 }
 [data-customer-workspace] #main-content { background: transparent; }
-[data-customer-workspace] > footer { display: block; background: transparent; border: 0; box-shadow: none; }
 .customer-workspace { width: 100%; min-width: 0; max-width: var(--workspace-width); margin-inline: auto; padding: 28px var(--workspace-gutter) 40px; }
-.customer-workspace__context { display: flex; align-items: center; justify-content: space-between; gap: 20px; min-height: 48px; margin-bottom: 36px; }
+.customer-workspace__context { flex: 1; min-width: 0; text-align: center; }
 .customer-workspace__identity { min-width: 0; }
-.customer-workspace__identity p { color: var(--ink); font-size: 13px; font-weight: 550; line-height: 1.5; overflow-wrap: anywhere; }
-.customer-workspace__identity span { display: block; margin-top: 3px; color: var(--copy); font-size: 11px; line-height: 1.5; }
+.customer-workspace__identity p { color: var(--ink); font-size: 13px; font-weight: 550; line-height: 1.5; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .customer-workspace__stage { min-width: 0; }
 .workspace-stage { width: 100%; min-width: 0; animation: workspace-content-arrive 240ms ease-out both; }
 .workspace-stage__eyebrow { margin: 0 0 14px; color: var(--copy); font-size: 12px; font-weight: 550; line-height: 1.5; }
@@ -56,11 +61,7 @@ html:has([data-customer-workspace])::-webkit-scrollbar { display: revert; }
 [data-customer-workspace] .claim-workflow-card { padding: 0; background: transparent; border: 0; border-radius: 0; box-shadow: none; }
 [data-customer-workspace] .claim-workflow-card > h1 { font-size: clamp(30px, 3.2vw, 42px); font-weight: 450; line-height: 1.17; letter-spacing: -.04em; }
 [data-customer-workspace] .completed-analysis { max-width: none; padding: 0; color: var(--ink); }
-[data-customer-workspace] .completed-review-navigation-host { max-width: 45%; min-width: 0; }
-[data-customer-workspace] .case-workspace-navigation { padding: 0; }
-[data-customer-workspace] .case-workspace-navigation .case-workspace-sections { display: none; }
-[data-customer-workspace] .case-workspace-mobile { display: block; }
-[data-customer-workspace] .case-workspace-mobile select { display: block; max-width: 100%; min-height: 44px; padding: 8px 2px; border: 0; background: transparent; color: var(--copy); font: inherit; font-size: 12px; }
+[data-customer-workspace] > .completed-review-navigation-host { width: 100%; min-width: 0; }
 [data-customer-workspace]:has([data-has-vehicle]) .completed-analysis .review-vehicle { display: none; }
 [data-customer-workspace] .completed-analysis .result-heading { margin-bottom: 14px; }
 [data-customer-workspace] .completed-analysis .result-heading h1 { color: var(--copy); font-size: 12px; font-weight: 550; line-height: 1.5; letter-spacing: 0; }
@@ -73,7 +74,7 @@ html:has([data-customer-workspace])::-webkit-scrollbar { display: revert; }
 [data-customer-workspace] .completed-analysis .response-heading > p:last-child { font-size: 15px; line-height: 1.75; }
 [data-customer-workspace] .completed-analysis .review-lead { font-size: 15px; line-height: 1.75; }
 [data-customer-workspace] .completed-analysis [data-view="waiting"] { padding-top: 0; }
-[data-customer-workspace] .completed-analysis [data-scroll-reveal="entering"] { animation: workspace-content-arrive 240ms ease-out both; }
+[data-customer-workspace] .completed-analysis [data-scroll-reveal] { --scroll-entrance-duration: 240ms; --scroll-entrance-blur: 0px; }
 
 .workspace-upload { position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 10px; max-width: 600px; margin-top: 30px; padding: 28px; border: 1px dashed #b8b8b8; border-radius: 8px; background: var(--surface); cursor: pointer; transition: border-color 180ms ease, background 180ms ease; }
 .workspace-upload:hover, .workspace-upload:focus-within { background: var(--surface); border-color: var(--copy); }
@@ -107,13 +108,12 @@ html:has([data-customer-workspace])::-webkit-scrollbar { display: revert; }
   [data-customer-workspace] .case-history-trigger span { display: none; }
   [data-customer-workspace] .workspace-header-content:has(.case-history-trigger) [aria-haspopup="menu"] { max-width: 84px; }
   .customer-workspace { padding-top: 16px; padding-bottom: 28px; }
-  .customer-workspace__context { gap: 12px; margin-bottom: 28px; }
-  .customer-workspace__identity p { font-size: 12px; }
+  [data-customer-workspace] .workspace-header-content [data-brand-wordmark] { display: none; }
+  .customer-workspace__identity p { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; white-space: normal; font-size: 11px; line-height: 1.3; }
   .workspace-stage__description, [data-customer-workspace] :is(.valuation-result__summary, .valuation-status__description) { font-size: 14px; }
   .workspace-upload { margin-top: 24px; padding: 22px; }
   [data-customer-workspace] .valuation-result__actions { max-width: none; }
   [data-customer-workspace] .valuation-result__actions > a { max-width: 100%; height: auto; white-space: normal; text-align: center; }
-  [data-customer-workspace] .case-workspace-mobile select { font-size: 11px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .workspace-stage, [data-customer-workspace] :is(.valuation-result__content, .valuation-status__content), .workspace-processing__line::after { animation: none; }

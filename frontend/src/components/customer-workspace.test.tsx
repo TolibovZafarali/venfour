@@ -43,6 +43,8 @@ describe("persistent customer workspace", () => {
     const frame = container.querySelector(".customer-workspace");
     const header = container.querySelector("header");
     const identity = container.querySelector(".customer-workspace__context");
+    expect(header?.contains(identity)).toBe(true);
+    expect(frame?.querySelector(".customer-workspace__context")).toBeNull();
     await user.click(screen.getByRole("button", { name: "Upload insurer valuation report" }));
     await screen.findByRole("heading", { name: "Add your insurer’s valuation report" });
     expect(container.querySelector("[data-customer-workspace]")).toBe(shell);

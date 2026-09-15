@@ -1,0 +1,44 @@
+[
+  {
+    "width": 1440,
+    "state": "waiting",
+    "identityInHeader": true,
+    "text": "2026 Hyundai Kona SE",
+    "bodyIdentity": 0,
+    "overflow": false,
+    "headerHeight": 64,
+    "overlaps": false,
+    "navTop": 64,
+    "divider": "0px",
+    "footer": 0,
+    "errors": []
+  },
+  {
+    "width": 390,
+    "state": "waiting",
+    "identityInHeader": true,
+    "text": "2026 Hyundai Kona SE",
+    "bodyIdentity": 0,
+    "overflow": false,
+    "headerHeight": 64,
+    "overlaps": false,
+    "navTop": 64,
+    "divider": "0px",
+    "footer": 0,
+    "errors": []
+  },
+  {
+    "width": 320,
+    "state": "waiting",
+    "identityInHeader": true,
+    "text": "2026 Hyundai Kona SE",
+    "bodyIdentity": 0,
+    "overflow": false,
+    "headerHeight": 64,
+    "overlaps": false,
+    "navTop": 64,
+    "divider": "0px",
+    "footer": 0,
+    "errors": []
+  }
+]

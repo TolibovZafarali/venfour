@@ -5,9 +5,10 @@ presentations:
 
 - `venfour.com`: public marketing and acquisition, with the existing colors,
   gradients, glass header, and editorial layouts.
-- `app.venfour.com`: a professional appraisal and claims workspace, with pure
-  white page backgrounds, black typography and primary controls, and neutral
-  grayscale secondary surfaces, text, and borders.
+- `app.venfour.com`: a professional appraisal and claims workspace, with black
+  typography and primary controls, neutral component surfaces, text, and borders.
+  Customer workspace pages retain a subtle gradient background; other app pages
+  use white backgrounds.
 
 ## Document boundary
 
@@ -37,7 +38,8 @@ workflow authorities.
 | `AppShell` | Fixed white app header and existing compact workspace chrome; public navigation, detached glass header, and marketing footer remain public |
 | Auth, cookie preferences, and intake popovers | Shared markup with `data-product-overlay`; only app documents receive the crisp white panel treatment |
 | Button hover controller | Decorative fluid hover remains available only in the public presentation |
-| Workflow, admin, customer workspace, and partner CSS | White page backgrounds and neutral component colors, with restrained geometry |
+| `components/customer-workspace.css` | Subtle customer workspace gradient and full-width case steps directly below the header progress line |
+| Workflow, admin, and partner CSS | White page backgrounds and neutral component colors, with restrained geometry |
 | Embedded payment appearance | Explicit neutral colors for payment fields rendered inside the payment provider's iframe |
 
 ## Rules for future app pages
@@ -45,9 +47,11 @@ workflow authorities.
 Use semantic tokens such as `bg-background`, `text-ink`, `text-copy`, `border-line`,
 and `bg-surface`. Page backgrounds use `--background` or `--canvas`, both pure
 white. Secondary surfaces may use `--surface` (`#f5f5f5`). Every neutral color has
-equal red, green, and blue channels. Do not add cream, ivory, beige, warm gray,
-cool tinted gray, gradients, glass effects, decorative illustrations, or colored
-card backgrounds.
+equal red, green, and blue channels. The customer workspace has an explicit,
+scoped gradient background in `customer-workspace.css`. Keep that background
+separate from cards, controls, and overlays. Do not spread gradient treatments
+to those components, or introduce glass effects, decorative illustrations, or
+colored card backgrounds.
 
 Default primary actions are black. Blue is reserved for functional accents using
 `--link`, `--ring`, or `--selection`; it is not a heading or background decoration.
@@ -77,7 +81,7 @@ sizes whenever either shared tokens or the shell changes. Check computed colors,
 keyboard focus, overflow, and reduced motion. Synthetic local previews verify
 presentation without starting real provider, customer, or payment operations.
 
-## Local review, September 15, 2026
+## Initial split review, September 15, 2026
 
 - Compared public Home, Contact, and Terms at 1440px and 390px against captures
   taken before implementation. Layout, typography, and visual treatments were
@@ -103,3 +107,21 @@ presentation without starting real provider, customer, or payment operations.
 Screenshots and browser observations are saved in `output/visual-system/`.
 The standalone dashboard preview now initializes the same document presentation
 as the application, because it does not use `AppProvider`.
+
+## Customer workspace refinement
+
+The customer workspace restores its previous subtle blue-gray gradient while
+keeping the neutral component palette and shared public/app boundary. Case steps
+now appear immediately below the header progress line without a bottom divider.
+The vehicle name is centered between the Venfour logo and account controls in the
+header, without a secondary review label.
+Desktop labels use the full width of the line and the same ordered section model;
+mobile uses the existing accessible section selector in that position. Section
+availability, current-stage calculation, navigation, and workflow state remain
+unchanged.
+
+The customer workspace omits the shell footer. Review entrances use the shared
+animation lifecycle with a 240ms fade and no blur, so completed animations clean
+up and replay on later section visits. Reduced-motion preferences remain honored.
+The progress line represents saved case progress, not the section currently being
+viewed; visiting an earlier section does not move saved progress backward.

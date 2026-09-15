@@ -1,0 +1,5 @@
+
+> venfour-frontend@0.1.0 test
+> vitest run src/features/analyses/components/total-loss-analysis-experience.test.tsx src/features/full-review/report-upload-dialog.test.tsx src/pages/total-loss-analysis-page.test.tsx --reporter=json --outputFile=../output/free-valuation-result/tests.json
+
+JSON report written to /Users/zafaralitolibov/Documents/venfour/output/free-valuation-result/tests.json

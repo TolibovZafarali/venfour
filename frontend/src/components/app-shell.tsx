@@ -33,7 +33,7 @@ import { useCookieConsent } from "@/features/privacy/cookie-consent-context";
 import { cn } from "@/lib/utils";
 import { useHomeSmoothScroll } from "@/pages/use-home-smooth-scroll";
 import { FreeValuationProcessingProvider } from "@/features/analyses/components/free-valuation-processing";
-import { CustomerWorkspace } from "@/components/customer-workspace";
+import { CustomerWorkspace, CustomerWorkspaceIdentity } from "@/components/customer-workspace";
 import venfourMark from "../../../assets/brand/venfour-mark.svg";
 
 const primaryLinkClassName =
@@ -307,6 +307,8 @@ function AppShellContent({ workspace, workspaceCaseId }: { workspace: boolean; w
                 ) : null}
               </div>
 
+              {workspace ? <CustomerWorkspaceIdentity caseId={workspaceCaseId} /> : null}
+
               {focusedCaseAccountHeader ? (
                 <div className="flex items-center gap-4">
                   {completedReviewRoute ? <div ref={setCompletedReviewActionsHost} /> : null}
@@ -458,16 +460,16 @@ function AppShellContent({ workspace, workspaceCaseId }: { workspace: boolean; w
           </div>
         </header>
       </div>
-      {environment.localMarketFixturesEnabled ? (
-        <div role="note" className="relative z-10 bg-amber-50 px-5 py-2 text-center text-sm text-amber-950">
-          Local test: upload your own report. Market listings and prices are simulated; results do not establish your vehicle’s value.
-        </div>
-      ) : null}
-      {completedReviewRoute && !workspace ? (
+      {completedReviewRoute ? (
         <div
           className="completed-review-navigation-host"
           ref={setCompletedReviewNavigationHost}
         />
+      ) : null}
+      {environment.localMarketFixturesEnabled ? (
+        <div role="note" className="relative z-10 bg-amber-50 px-5 py-2 text-center text-sm text-amber-950">
+          Local test: upload your own report. Market listings and prices are simulated; results do not establish your vehicle’s value.
+        </div>
       ) : null}
       <main
         id="main-content"
@@ -479,14 +481,12 @@ function AppShellContent({ workspace, workspaceCaseId }: { workspace: boolean; w
         >
           <CompletedReviewNavigationHostContext.Provider value={completedReviewNavigationHost}>
             <CompletedReviewActionsHostContext.Provider value={completedReviewActionsHost}>
-              {workspace ? <CustomerWorkspace caseId={workspaceCaseId} navigation={
-                <div className="completed-review-navigation-host" ref={setCompletedReviewNavigationHost} />
-              }><Outlet /></CustomerWorkspace> : <Outlet />}
+              {workspace ? <CustomerWorkspace caseId={workspaceCaseId}><Outlet /></CustomerWorkspace> : <Outlet />}
             </CompletedReviewActionsHostContext.Provider>
           </CompletedReviewNavigationHostContext.Provider>
         </CompletedReviewProgressHostContext.Provider>
       </main>
-      {(appVisualSystem && !startFlowRoute && !adminRoute) || productFlowRoute || workspace ? (
+      {workspace ? null : (appVisualSystem && !startFlowRoute && !adminRoute) || productFlowRoute ? (
         <footer className="relative z-10 shrink-0 bg-canvas px-5 py-2 sm:px-8">
           <nav
             aria-label="Legal"

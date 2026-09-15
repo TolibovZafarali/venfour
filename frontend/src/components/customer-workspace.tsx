@@ -7,21 +7,22 @@ import type { AppraisalCaseService } from "@/features/cases/service";
 import { InlineValuationProcessingBoundary } from "@/features/analyses/components/free-valuation-processing";
 import "./customer-workspace.css";
 
-export function CustomerWorkspace({ children, caseId, navigation }: {
+export function CustomerWorkspace({ children, caseId }: {
   children: ReactNode;
   caseId?: string;
-  navigation?: ReactNode;
 }) {
+  return <div className="customer-workspace" data-workspace-case={caseId}>
+    <div className="customer-workspace__stage"><InlineValuationProcessingBoundary>{children}</InlineValuationProcessingBoundary></div>
+  </div>;
+}
+
+export function CustomerWorkspaceIdentity({ caseId }: { caseId?: string }) {
   const { auth } = useAuth();
   const service = useAppraisalCaseService();
-  return <div className="customer-workspace" data-workspace-case={caseId}>
-    <div className="customer-workspace__context">
-      {caseId && service && auth.status === "signedIn"
-        ? <WorkspaceIdentity caseId={caseId} service={service} userId={auth.user.id} />
-        : <div className="customer-workspace__identity"><p>Your appraisal</p><span>Total-loss review</span></div>}
-      {navigation}
-    </div>
-    <div className="customer-workspace__stage"><InlineValuationProcessingBoundary>{children}</InlineValuationProcessingBoundary></div>
+  return <div className="customer-workspace__context">
+    {caseId && service && auth.status === "signedIn"
+      ? <WorkspaceIdentity caseId={caseId} service={service} userId={auth.user.id} />
+      : <div className="customer-workspace__identity"><p>Your appraisal</p></div>}
   </div>;
 }
 
@@ -35,7 +36,6 @@ function WorkspaceIdentity({ caseId, service, userId }: { caseId: string; servic
   });
   const item = query.data?.find(item => item.id === caseId && item.userId === userId);
   return <div className="customer-workspace__identity" aria-label="Appraisal context" data-has-vehicle={Boolean(item?.vehicleLabel?.trim()) || undefined}>
-    <p>{item?.vehicleLabel?.trim() || "Your appraisal"}</p>
-    <span>Total-loss review</span>
+    <p title={item?.vehicleLabel?.trim() || "Your appraisal"}>{item?.vehicleLabel?.trim() || "Your appraisal"}</p>
   </div>;
 }

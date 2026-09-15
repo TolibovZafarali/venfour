@@ -1,0 +1,89 @@
+{
+  "environment": "Local preview with fictional data and browser-local services",
+  "uploadOpenAndClose": true,
+  "focusRestored": true,
+  "reportConfirmation": true,
+  "processing": true,
+  "rangeUnchanged": true,
+  "completionRestored": true,
+  "paymentExplicit": true,
+  "url": "http://127.0.0.1:4186/total-loss/cases/33333333-3333-4333-8333-333333333333/claim/checkout",
+  "requests": [
+    {
+      "method": "GET",
+      "path": "/api/v1/appraisal-cases/33333333-3333-4333-8333-333333333333/analysis"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/appraisal-cases/33333333-3333-4333-8333-333333333333/full-review"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/analyses/11111111-1111-4111-8111-111111111111"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/appraisal-cases/33333333-3333-4333-8333-333333333333/full-review/report"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/appraisal-cases/33333333-3333-4333-8333-333333333333/full-review"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/appraisal-cases/33333333-3333-4333-8333-333333333333/full-review"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/appraisal-cases/33333333-3333-4333-8333-333333333333/full-review"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/appraisal-cases/33333333-3333-4333-8333-333333333333/full-review/confirmation"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/appraisal-cases/33333333-3333-4333-8333-333333333333/full-review"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/appraisal-cases/33333333-3333-4333-8333-333333333333/full-review"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/appraisal-cases/33333333-3333-4333-8333-333333333333/full-review"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/appraisal-cases/33333333-3333-4333-8333-333333333333/analysis"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/appraisal-cases/33333333-3333-4333-8333-333333333333/full-review"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/analyses/11111111-1111-4111-8111-111111111111"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/appraisal-cases/33333333-3333-4333-8333-333333333333/post-continue"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/appraisal-cases/33333333-3333-4333-8333-333333333333/checkout-quote"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/appraisal-cases/33333333-3333-4333-8333-333333333333/claim"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/appraisal-cases/33333333-3333-4333-8333-333333333333/checkout-sessions"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/appraisal-cases/33333333-3333-4333-8333-333333333333/claim"
+    }
+  ]
+}
