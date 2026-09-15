@@ -33,11 +33,21 @@
     backdrop-filter: none;
   }
 
+  /* Controls use one surface, with color feedback and an inset keyboard indicator. */
+  :is(button, a[href], summary, input, select, textarea, [role="button"], [role="menuitem"], [role="option"], [role="switch"], [role="tab"], label:has(input)) {
+    box-shadow: none;
+    filter: none;
+  }
+  :is(button, a[href], summary, input, select, textarea, [role="button"], [role="menuitem"], [role="option"], [role="switch"], [role="tab"], label:has(input)):is(:hover, :active, :focus, :focus-within) {
+    box-shadow: none;
+    filter: none;
+    scale: none;
+  }
+
   [data-slot="button"] { border-radius: 4px; }
   [data-slot="button"][data-variant="link"] { color: var(--link); }
   /* Solid primary actions share the same hover and pressed color in every flow. */
   :is(button, a[href], [role="button"]):is(.bg-brand, .bg-primary, [data-slot="button"][data-variant="default"], .review-primary, .request-button-primary, .free-valuation-processing__retry) {
-    box-shadow: var(--shadow-sm);
     &:is(:hover, :active):not(:disabled):not([aria-disabled="true"]):not([aria-busy="true"]) {
       background-color: var(--brand-strong);
       border-color: var(--brand-strong);
@@ -54,10 +64,9 @@
     color: var(--link-hover);
   }
 
-  /* Selection gets a small marker and a faint tint, while labels stay dark. */
-  label.border:not(.bg-brand):has(> input[type="radio"]:checked:not(:disabled)) {
+  /* Selection uses a faint tint, while labels stay dark. */
+  label.border:not(.bg-brand):not(.bg-ink):has(> input[type="radio"]:checked:not(:disabled)) {
     background-color: var(--selection-surface);
-    box-shadow: inset 2px 0 0 var(--selection);
   }
   :is(input[type="checkbox"], input[type="radio"]) { accent-color: var(--selection); }
   [role="switch"][data-state="checked"]:is(:hover, :active):not(:disabled) { background-color: var(--brand-strong); }
@@ -65,25 +74,39 @@
 
   [data-slot="button"][data-variant="destructive"] { background: var(--surface); }
   [data-slot="button"][data-variant="destructive"]:hover { background: #eeeeee; }
-  [data-slot="button"]:active { transform: none; }
+  [data-slot="button"]:active { transform: none; translate: none; }
   [data-blue-button-fluid] { display: none; }
 
   @media (prefers-reduced-motion: reduce) { scroll-behavior: auto; }
 }
 
-@layer components {
+@layer base {
   :root[data-visual-system="app"] {
-    /* Restore a visible keyboard indicator above legacy shared focus suppression. */
-    :where(a[href], button, summary, input, select, textarea, [tabindex]:not([tabindex="-1"]), [role="button"], [role="menuitem"], [role="option"], [role="switch"], [role="tab"]):focus-visible {
+    /* Keep control feedback within its existing surface, including portal content. */
+    :where(a[href], button, summary, input, select, textarea, [tabindex]:not([tabindex="-1"]), [role="button"], [role="menuitem"], [role="option"], [role="checkbox"], [role="radio"], [role="combobox"], [role="switch"], [role="tab"], label:has(input), .workspace-upload),
+    .peer[type="file"] ~ * {
+      outline: none !important;
+      outline-offset: 0 !important;
+      box-shadow: none !important;
+    }
+    :where(a[href], button, summary, input, select, textarea, [tabindex]:not([tabindex="-1"]), [role="button"], [role="menuitem"], [role="option"], [role="checkbox"], [role="radio"], [role="combobox"], [role="switch"], [role="tab"]):focus-visible {
       outline: 2px solid var(--ring) !important;
-      outline-offset: 3px !important;
+      outline-offset: -2px !important;
       filter: none;
     }
     :where(label:has(input[type="checkbox"]:focus-visible), label:has(input[type="radio"]:focus-visible), label:has(input[type="file"]:focus-visible)),
     .peer[type="file"]:focus-visible ~ * {
       outline: 2px solid var(--ring) !important;
-      outline-offset: 3px !important;
+      outline-offset: -2px !important;
     }
-
+    [data-vehicle-method-switch] label.bg-brand:has(input:focus-visible) {
+      outline-color: var(--primary-foreground) !important;
+      outline-offset: -3px !important;
+    }
+    /* Editable fields change their own border on pointer or keyboard focus. */
+    :where(input:not([type="checkbox"], [type="radio"], [type="file"], [type="button"], [type="submit"], [type="reset"], [type="range"], [type="color"]), select, textarea, [role="combobox"]):focus {
+      border-color: var(--brand) !important;
+      outline: none !important;
+    }
   }
 }

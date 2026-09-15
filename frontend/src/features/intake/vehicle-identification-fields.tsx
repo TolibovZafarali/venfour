@@ -132,9 +132,9 @@ export function VehicleIdentificationFields({
             <label
               key={method}
               className={cn(
-                "flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-lg border px-2 text-center text-sm font-semibold transition-[background-color,border-color,box-shadow,color,transform] duration-300 ease-out focus-within:ring-2 focus-within:ring-brand focus-within:ring-offset-1 active:scale-[0.99] motion-reduce:transition-none sm:px-3",
+                "flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-lg border px-2 text-center text-sm font-semibold transition-colors duration-150 motion-reduce:transition-none sm:px-3",
                 entryMethod === method
-                  ? "border-transparent bg-white text-brand shadow-sm"
+                  ? "border-brand bg-brand text-white"
                   : "border-transparent text-copy hover:border-line hover:bg-white/60 hover:text-ink",
                 methodDisabled && "cursor-not-allowed opacity-65",
               )}
@@ -148,7 +148,9 @@ export function VehicleIdentificationFields({
                 disabled={methodDisabled}
                 onChange={() => onEntryMethodChange(method)}
               />
-              <Icon className="size-4 shrink-0" aria-hidden />
+              {entryMethod === method
+                ? <CheckCircle2 className="size-4 shrink-0" aria-hidden />
+                : <Icon className="size-4 shrink-0" aria-hidden />}
               {label}
             </label>
           ))}

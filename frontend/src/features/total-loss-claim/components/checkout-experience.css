@@ -6,9 +6,6 @@
   border-bottom: 1px solid var(--line);
 }
 [data-customer-workspace]:has(.checkout-page) .customer-workspace { padding-top: 32px; padding-bottom: 64px; }
-[data-customer-workspace]:has(.checkout-page) .customer-workspace__context { min-height: 0; margin-bottom: 38px; }
-[data-customer-workspace]:has(.checkout-page) .customer-workspace__identity { display: flex; align-items: baseline; flex-wrap: wrap; gap: 6px 12px; }
-[data-customer-workspace]:has(.checkout-page) .customer-workspace__identity span { margin: 0; }
 
 .checkout-page { color: var(--ink); }
 .checkout-introduction { margin-bottom: 48px; }
@@ -30,9 +27,6 @@
 .checkout-field-heading { margin-bottom: 14px; font-size: 13px; font-weight: 500; line-height: 1.5; color: var(--ink); }
 .checkout-payment-security { margin-top: 14px; font-size: 12px; line-height: 1.5; color: var(--copy); text-align: center; }
 .checkout-page [data-slot="button"] { border-radius: 4px; }
-@layer base {
-  .checkout-page [data-slot="button"]:focus-visible { outline: 2px solid var(--ring) !important; outline-offset: 3px !important; }
-}
 .checkout-page .checkout-submit { width: 100%; min-height: 50px; margin-top: 20px; font-size: 14px; font-weight: 550; letter-spacing: .005em; transition: background-color 150ms, opacity 150ms; }
 .checkout-page .checkout-submit:disabled { opacity: 1; background: var(--line); color: var(--copy); cursor: not-allowed; }
 .checkout-confirm-total { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; padding-top: 26px; margin-top: 28px; border-top: 1px solid var(--line); font-size: 14px; }
@@ -65,7 +59,6 @@
 }
 @media (max-width: 639px) {
   [data-customer-workspace]:has(.checkout-page) .customer-workspace { padding-top: 22px; padding-bottom: 40px; }
-  [data-customer-workspace]:has(.checkout-page) .customer-workspace__context { margin-bottom: 28px; }
   .checkout-introduction { margin-bottom: 32px; }
   .checkout-introduction .checkout-eyebrow { margin-bottom: 12px; }
   .checkout-introduction > p:last-child { font-size: 14px; }
@@ -76,3 +69,9 @@
 @media (prefers-reduced-motion: reduce) {
   .checkout-page .checkout-submit { transition: none; }
 }
+
+.checkout-preparation__eyebrow { margin-bottom: 12px; color: var(--brand); font-size: 12px; font-weight: 500; }
+.checkout-preparation__heading { max-width: 26rem; font-size: 23px; font-weight: 500; line-height: 1.3; letter-spacing: -.025em; text-wrap: balance; }
+.checkout-preparation__description { margin-top: 16px; color: var(--copy); font-size: 14px; line-height: 1.75; }
+.checkout-preparation .workspace-processing__line { margin-top: 24px; }
+.checkout-preparation .workspace-report-status { margin-top: 24px; }

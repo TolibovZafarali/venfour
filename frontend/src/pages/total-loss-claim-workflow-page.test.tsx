@@ -445,16 +445,57 @@ describe("total-loss customer workflow", () => {
       screen.queryByText("We’re preparing your valuation report"),
     ).not.toBeInTheDocument();
     paid = true;
-    await waitFor(
-      () =>
-        expect(router.state.location.pathname).toBe(`${CLAIM_BASE}/processing`),
-      { timeout: 4_000 },
-    );
     expect(
-      await screen.findByText("We’re preparing your valuation report"),
+      await screen.findByText("We’re preparing your valuation report", {}, { timeout: 4_000 }),
     ).toBeVisible();
+    expect(router.state.location.pathname).toBe(`${CLAIM_BASE}/checkout`);
+    expect(screen.getByRole("complementary", { name: "Purchase summary" })).toBeVisible();
+    expect(screen.queryByTestId("stripe-payment-element")).not.toBeInTheDocument();
     expect(initializationCalls).toBe(1);
   });
+
+  it.each(["checkout?payment=confirming&session_id=cs_test_paid", "processing", "checkout/return?session_id=cs_test_paid"])(
+    "resumes paid work at checkout from %s without reopening payment, then opens the released report",
+    async (entry) => {
+      let ready = false;
+      let paymentRequests = 0;
+      useClaimHandler(() => {
+        const claim = claimProjection({ journey: ready ? "guide_result" : "processing", fulfillmentState: ready ? "report_ready" : "finalizing" });
+        return { ...claim, commerce: { ...claim.commerce, amountMinorUnits: 14900, currency: "USD" } };
+      });
+      server.use(
+        http.get("*/api/v1/appraisal-cases/:caseId/checkout-quote", () => {
+          paymentRequests += 1;
+          return HttpResponse.json({ amountMinorUnits: 19900, availability: "available", currency: "USD" });
+        }),
+        http.post("*/api/v1/appraisal-cases/:caseId/checkout-sessions", () => {
+          paymentRequests += 1;
+          return HttpResponse.json(embeddedSession());
+        }),
+        http.post("*/api/v1/appraisal-cases/:caseId/checkout-reconciliation", () => {
+          paymentRequests += 1;
+          return HttpResponse.json(embeddedSession());
+        }),
+      );
+      const initial = renderTestApp([`${CLAIM_BASE}/${entry}`], { authService: authService() });
+      expect(await screen.findByRole("heading", { name: "We’re preparing your valuation report" })).toBeVisible();
+      expect(initial.router.state.location.pathname).toBe(`${CLAIM_BASE}/checkout`);
+      expect(screen.getByText("Payment received")).toBeVisible();
+      expect(screen.getAllByText("$149.00")).toHaveLength(2);
+      expect(screen.queryByTestId("stripe-payment-element")).not.toBeInTheDocument();
+      const savedLocation = initial.router.state.location;
+      initial.unmount();
+      const reopened = renderTestApp([`${savedLocation.pathname}${savedLocation.search}`], { authService: authService() });
+      expect(await screen.findByRole("heading", { name: "We’re preparing your valuation report" })).toBeVisible();
+      ready = true;
+      await act(async () => {
+        await reopened.queryClient.invalidateQueries({ queryKey: totalLossClaimQueryKeys.detail(USER_ID, CASE_ID) });
+      });
+      await waitFor(() => expect(reopened.router.state.location.pathname).toBe(`${CLAIM_BASE}/review/result`));
+      expect(paymentRequests).toBe(0);
+      expect(stripeMock.confirm).not.toHaveBeenCalled();
+    },
+  );
 
   it("keeps a declined or canceled authentication attempt on the payment form", async () => {
     stripeMock.confirm.mockResolvedValue({
@@ -1037,7 +1078,7 @@ describe("total-loss customer workflow", () => {
           name: "We need to check a detail in your case",
         }),
       ).toBeVisible();
-      expect(router.state.location.pathname).toBe(`${CLAIM_BASE}/processing`);
+      expect(router.state.location.pathname).toBe(`${CLAIM_BASE}/checkout`);
       expect(
         screen.queryByRole("navigation", { name: "Case sections" }),
       ).not.toBeInTheDocument();

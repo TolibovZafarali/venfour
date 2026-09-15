@@ -103,7 +103,8 @@ export function useTotalLossCheckoutQuoteQuery({
   accessToken,
   caseId,
   userId,
-}: ClaimIdentityOptions) {
+  enabled = true,
+}: ClaimIdentityOptions & { readonly enabled?: boolean }) {
   return useQuery({
     queryKey: totalLossClaimQueryKeys.quote(userId, caseId),
     queryFn: ({ signal }) => {
@@ -112,7 +113,7 @@ export function useTotalLossCheckoutQuoteQuery({
       }
       return getTotalLossCheckoutQuote(caseId, accessToken, signal);
     },
-    enabled: Boolean(accessToken && userId),
+    enabled: enabled && Boolean(accessToken && userId),
     refetchOnWindowFocus: false,
     retry: false,
     staleTime: 60_000,

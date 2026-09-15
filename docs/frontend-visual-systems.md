@@ -39,7 +39,7 @@ workflow authorities.
 | Button hover controller | Decorative fluid hover remains available only in the public presentation |
 | `components/customer-workspace.css` | White customer workspace and full-width case steps directly below the header progress line |
 | Workflow, admin, and partner CSS | White page backgrounds and neutral component colors, with restrained geometry |
-| Embedded payment appearance | Neutral payment fields with the resolved document primary color for selection and focus inside the provider iframe |
+| Embedded payment appearance | Neutral payment fields with the resolved document primary color for selection and a blue focus border inside the provider iframe |
 
 ## Rules for future app pages
 
@@ -56,7 +56,8 @@ The app defines its accent in `app-tokens.css`; public brand tokens stay separat
 | --- | --- | --- |
 | `--brand`, `--primary` | `#2563EB` | Main action, progress fill, small evidence or status emphasis |
 | `--brand-strong`, `--link-hover` | `#1D4ED8` | Hover and pressed primary actions and important links |
-| `--link`, `--ring`, `--selection` | Primary accent | Important links, visible keyboard focus, selected controls |
+| `--link`, `--selection` | Primary accent | Important links and selected controls |
+| `--ring` | Dark ink | Inset keyboard focus within the control |
 | `--selection-surface` | 5% primary accent on white | Selected radio choices and the current appraisal in a menu |
 | `--brand-soft`, `--accent`, `--surface` | Neutral gray | General supporting surfaces and secondary controls |
 
@@ -64,9 +65,15 @@ Use the shared Button for primary actions. Its app hover and pressed treatment
 also covers existing intake, review, request, and authentication actions. Keep
 secondary actions neutral and disabled primary actions gray. Preserve dark
 headings, body text, prices, and large conclusions; use blue only where it
-clarifies an action, state, or small data mark.
+clarifies an action, state, or small data mark. App fields and buttons use flat
+surfaces without hover shadows, focus halos, brightness filters, or press movement.
+Editable fields, including payment fields, change their existing border to the
+primary blue on focus, without an outline or halo. Other controls retain a neutral
+inset keyboard indicator. The selected vehicle-identification option uses a solid
+primary-blue fill, white text, and a checkmark.
 Do not turn every label, icon, link, or border blue. The selected control tint is
 an exception for small interactive surfaces, not a general card background.
+Do not add blue left-edge borders or inset selection stripes.
 
 Small warning/error/success indicators may retain a semantic color when their
 text or icon communicates the same meaning. Their surrounding surfaces remain

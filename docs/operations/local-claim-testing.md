@@ -169,8 +169,10 @@ authorized initialization. Card number, expiry, and CVC stay in Stripe-hosted
 iframes and go directly to Stripe; Venfour has no raw card input or proxy.
 
 Successful confirmation stays on the purchase page while the server reconciles.
-Only authoritative entitlement routes to `/claim/processing`; the browser cannot
-grant access. Orders, attempts, payment transactions, entitlements, refunds,
+Authoritative payment state replaces the form with report preparation on the same
+`/claim/checkout` page; the browser cannot grant access. Existing processing and
+checkout-return links resume that page. Released reports open their normal review
+route, and reopening paid work never initializes another checkout. Orders, attempts, payment transactions, entitlements, refunds,
 disputes, and the entitlement-to-package hook keep their existing contracts.
 
 Test the following using Stripe's [official sandbox cards](https://docs.stripe.com/testing):

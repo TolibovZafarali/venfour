@@ -50,7 +50,8 @@ describe("total-loss claim authoritative route decisions", () => {
   it.each([
     ["checkout", `/total-loss/cases/${CASE_ID}/claim/checkout`],
     ["checkout_confirmation", `/total-loss/cases/${CASE_ID}/claim/checkout`],
-    ["processing", `/total-loss/cases/${CASE_ID}/claim/processing`],
+    ["processing", `/total-loss/cases/${CASE_ID}/claim/checkout`],
+    ["needs_attention", `/total-loss/cases/${CASE_ID}/claim/checkout`],
     ["guide_result", `/total-loss/cases/${CASE_ID}/claim/review/result`],
     ["guide_insurer_review", `/total-loss/cases/${CASE_ID}/claim/review/insurer`],
     ["guide_valuation", `/total-loss/cases/${CASE_ID}/claim/review/market`],

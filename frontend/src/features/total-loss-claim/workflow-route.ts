@@ -106,7 +106,7 @@ export function routeForJourneyState(
       return totalLossClaimViewPath(caseId, "checkout");
     case "processing":
     case "needs_attention":
-      return totalLossClaimViewPath(caseId, "processing");
+      return totalLossClaimViewPath(caseId, "checkout");
     case "guide_result":
     case "no_dispute":
       return totalLossClaimViewPath(caseId, "result");

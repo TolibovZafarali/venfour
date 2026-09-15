@@ -189,9 +189,9 @@ export function EmbeddedPayment({
             },
             rules: {
               ".Input": { border: "1px solid #bfbfbf", boxShadow: "none", padding: "12px" },
-              ".Input:focus": { borderColor: accentColor, boxShadow: `0 0 0 1px ${accentColor}` },
+              ".Input:focus": { borderColor: accentColor, boxShadow: "none" },
               ".Input--invalid": { borderColor: "#b91c1c" },
-              ".Input--invalid:focus": { borderColor: "#b91c1c", boxShadow: "0 0 0 1px #b91c1c" },
+              ".Input--invalid:focus": { borderColor: "#b91c1c", boxShadow: "none" },
               ".Label": { marginBottom: "8px", color: "#626262", fontWeight: "400" },
               ".Block": { borderColor: "#dedede", boxShadow: "none", borderRadius: "4px" },
             },

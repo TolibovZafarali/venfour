@@ -37,7 +37,7 @@
   --report-canvas: #ffffff;
   --border: #e5e5e5;
   --input: #737373;
-  --ring: var(--brand);
+  --ring: var(--ink);
   --link: var(--brand);
   --link-hover: var(--brand-strong);
   --selection: var(--brand);

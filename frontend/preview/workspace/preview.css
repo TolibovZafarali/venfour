@@ -15,5 +15,5 @@
 .payment-preview > p { font-size: 11px; }
 .payment-preview label { display: grid; gap: 8px; }
 .payment-preview input { display: block; width: 100%; min-width: 0; min-height: 48px; padding: 12px; border: 1px solid #bfc4c5; border-radius: 4px; background: white; color: var(--ink); font-size: 16px; box-shadow: none; }
-.payment-preview input:focus-visible { outline: 1px solid var(--brand); border-color: var(--brand); }
+.payment-preview input:focus { border-color: var(--brand); }
 .payment-preview > div { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }

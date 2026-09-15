@@ -182,6 +182,8 @@ export function claimProjection({
   return {
     caseId: CASE_ID,
     commerce: {
+      amountMinorUnits: 19900,
+      currency: "USD",
       checkoutAvailable: journey === "checkout",
       entitlementStatus: journey === "checkout" ? null : entitlementStatus,
       nextTask: journey,

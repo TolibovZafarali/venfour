@@ -7,11 +7,7 @@ import {
   isPermanentAuthState,
   useAuth,
 } from "@/features/auth";
-import {
-  CheckoutReturnScreen,
-  CheckoutScreen,
-  ProcessingScreen,
-} from "@/features/total-loss-claim/components/checkout-experience";
+import { CheckoutScreen } from "@/features/total-loss-claim/components/checkout-experience";
 import { ClaimStateCard } from "@/features/total-loss-claim/components/claim-state-card";
 import { CompletedAnalysis } from "@/features/total-loss-claim/components/completed-analysis";
 import { CompletedAnalysisModeGate } from "@/features/total-loss-claim/components/completed-analysis-mode-gate";
@@ -19,9 +15,11 @@ import type { TotalLossClaimSecured } from "@/features/total-loss-claim/contract
 import { useTotalLossClaimQuery } from "@/features/total-loss-claim/queries";
 import {
   authoritativeTotalLossClaimPath,
+  resolvedTotalLossClaimJourneyState,
   canonicalCompletedAnalysisPath,
   isCompletedAnalysisView,
   totalLossClaimBasePath,
+  totalLossClaimViewPath,
   type TotalLossClaimWorkflowView,
 } from "@/features/total-loss-claim/workflow-route";
 import { ApiError } from "@/lib/api/client";
@@ -55,13 +53,14 @@ function WorkflowContent({
   const [searchParameters] = useSearchParams();
   const location = useLocation();
   const authoritativePath = authoritativeTotalLossClaimPath(claim);
-  const nextState = claim.journey?.nextState;
+  const nextState = resolvedTotalLossClaimJourneyState(claim);
 
   if (view === "checkout") {
     const canCheckout =
       nextState === "checkout" ||
       nextState === "checkout_confirmation" ||
-      (!claim.journey && claim.commerce?.nextTask === "checkout");
+      nextState === "processing" ||
+      nextState === "needs_attention";
     if (!canCheckout && authoritativePath) {
       return <Navigate replace to={authoritativePath} />;
     }
@@ -77,39 +76,11 @@ function WorkflowContent({
     );
   }
 
-  if (view === "checkout_return") {
-    const sessionId = searchParameters.get("session_id");
-    const canConfirm =
-      nextState === "checkout_confirmation" ||
-      nextState === "checkout" ||
-      (!claim.journey && claim.commerce?.paymentStatus === "pending");
-    if (!canConfirm && authoritativePath) {
-      return <Navigate replace to={authoritativePath} />;
-    }
-    return (
-      <CheckoutReturnScreen
-        accessToken={accessToken}
-        caseId={caseId}
-        checkoutSessionId={sessionId}
-        claim={claim}
-        onRefresh={refetch}
-        userId={userId}
-      />
-    );
-  }
-
-  if (view === "processing") {
-    const canProcess =
-      nextState === "processing" ||
-      nextState === "needs_attention" ||
-      (!claim.journey &&
-        ["purchase_complete", "finalizing", "exception_review"].includes(
-          claim.commerce?.nextTask ?? claim.workflow?.currentTask ?? "",
-        ));
-    if (!canProcess && authoritativePath) {
-      return <Navigate replace to={authoritativePath} />;
-    }
-    return <ProcessingScreen claim={claim} onRefresh={refetch} />;
+  if (view === "checkout_return" || view === "processing") {
+    const checkoutPath = totalLossClaimViewPath(caseId, "checkout");
+    // Existing return and processing links resume the same saved checkout.
+    const destination = authoritativePath ?? checkoutPath;
+    return <Navigate replace to={`${destination}${view === "checkout_return" && destination === checkoutPath ? location.search : ""}`} />;
   }
 
   if (!isCompletedAnalysisView(view) || !completedAnalysisIsAvailable(claim) || !claim.report) {
