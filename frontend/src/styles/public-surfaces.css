@@ -434,7 +434,7 @@
   }
 
   :root:not([data-visual-system="app"]) .header-glass {
-    background:
+    --header-glass-background:
       radial-gradient(
         ellipse at 12% -95%,
         rgb(255 255 255 / 0.96),
@@ -451,6 +451,7 @@
         rgb(230 240 250 / 0.54) 50%,
         rgb(255 255 255 / 0.68) 100%
       );
+    background: var(--header-glass-background);
     -webkit-backdrop-filter: blur(28px) saturate(170%) contrast(104%);
     backdrop-filter: blur(28px) saturate(170%) contrast(104%);
     box-shadow:
@@ -471,6 +472,61 @@
       inset 0 -1px 0 rgb(255 255 255 / 0.36),
       0 22px 54px -26px rgb(11 31 51 / 0.32),
       0 7px 20px -14px rgb(11 31 51 / 0.24);
+  }
+
+  .mobile-navigation {
+    display: grid;
+    grid-template-rows: 0fr;
+    opacity: 0;
+    visibility: hidden;
+    transition:
+      grid-template-rows 320ms cubic-bezier(0.22, 1, 0.36, 1),
+      opacity 200ms ease,
+      visibility 0s 320ms;
+  }
+
+  .mobile-navigation[data-open="true"] {
+    grid-template-rows: 1fr;
+    opacity: 1;
+    visibility: visible;
+    transition-delay: 0s;
+  }
+
+  @media (width < 64rem) {
+    :root:not([data-visual-system="app"]) .home-header .header-glass {
+      position: relative;
+      isolation: isolate;
+      background: transparent;
+      -webkit-backdrop-filter: none;
+      backdrop-filter: none;
+      border-bottom: 1px solid transparent;
+      box-shadow: none;
+    }
+
+    :root:not([data-visual-system="app"]) .home-header .header-glass::before {
+      position: absolute;
+      inset: 0;
+      z-index: -1;
+      background: var(--header-glass-background);
+      -webkit-backdrop-filter: blur(28px) saturate(170%) contrast(104%);
+      backdrop-filter: blur(28px) saturate(170%) contrast(104%);
+      border-bottom: 1px solid rgb(11 31 51 / 0.12);
+      opacity: 0;
+      transition: opacity 360ms cubic-bezier(0.4, 0, 0.2, 1);
+      content: "";
+      pointer-events: none;
+    }
+
+    :root:not([data-visual-system="app"]) .home-header .header-glass:not(.home-header-joined)::before {
+      opacity: 1;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .mobile-navigation,
+    :root:not([data-visual-system="app"]) .home-header .header-glass::before {
+      transition: none;
+    }
   }
 
 }

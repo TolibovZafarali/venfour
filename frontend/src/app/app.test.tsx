@@ -463,7 +463,10 @@ describe("Venfour application", () => {
 
     renderTestApp(["/"], { authService });
 
-    expect(screen.getByText("Checking sign-in status")).toBeInTheDocument();
+    expect(
+      within(screen.getByRole("navigation", { name: "Primary navigation" }))
+        .getByText("Checking sign-in status"),
+    ).toBeInTheDocument();
     expect(
       within(screen.getByRole("banner")).queryByRole("navigation", {
         name: "Primary navigation",
@@ -525,7 +528,7 @@ describe("Venfour application", () => {
     ).toBe(true);
 
     await user.click(account);
-    expect(screen.getByText("ada@example.com")).toBeVisible();
+    expect(within(screen.getByRole("menu")).getByText("ada@example.com")).toBeVisible();
     await user.click(screen.getByRole("menuitem", { name: "Sign Out" }));
 
     await waitFor(() => expect(signOut).toHaveBeenCalledOnce());
@@ -610,7 +613,7 @@ describe("Venfour application", () => {
       screen.getByRole("button", { name: "Account for ada@example.com" }),
     );
     expect(
-      screen.getByText("ada@example.com"),
+      within(screen.getByRole("menu")).getByText("ada@example.com"),
     ).toBeVisible();
     expect(
       screen.getByRole("menuitem", { name: "Sign Out" }),

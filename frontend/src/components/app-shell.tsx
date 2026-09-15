@@ -16,7 +16,6 @@ import {
 import { isPageMetadata, useDocumentMetadata } from "@/app/document-metadata";
 import { CompletedReviewActionsHostContext, CompletedReviewNavigationHostContext, CompletedReviewProgressHostContext } from "@/components/completed-review-progress-host";
 import { supportEmail } from "@/config/support";
-import { environment } from "@/config/env";
 import { useAdminDiminishedValueDependencies } from "@/features/admin/diminished-value/dependencies";
 import { useStaffAccessQuery } from "@/features/admin/diminished-value/queries";
 import {
@@ -246,9 +245,11 @@ function AppShellContent({ workspace, workspaceCaseId }: { workspace: boolean; w
           data-header-state={visibleHeaderDetached ? "detached" : "integrated"}
           className={cn(
             "absolute top-0 right-0 left-0 transition-[top,left,right] motion-reduce:transition-none",
+            onHomePage && "home-header max-lg:transition-none",
             headerMotionClassName,
-            visibleHeaderDetached &&
-              "top-3 right-3 left-3 sm:right-4 sm:left-4",
+            visibleHeaderDetached && (onHomePage
+              ? "lg:top-3 lg:right-4 lg:left-4"
+              : "top-3 right-3 left-3 sm:right-4 sm:left-4"),
           )}
           onKeyDown={(event) => {
             if (mobileNavigationOpen && event.key === "Escape") {
@@ -260,14 +261,17 @@ function AppShellContent({ workspace, workspaceCaseId }: { workspace: boolean; w
           <div
             className={cn(
               "header-glass mx-auto w-full max-w-[100vw] transition-[max-width,border-color,border-radius,box-shadow] motion-reduce:transition-none",
+              onHomePage && "max-lg:transition-none",
               homeHeaderJoined ? "overflow-visible" : "overflow-hidden",
               glassMotionClassName,
               visibleHeaderDetached
-                ? "rounded-2xl outline outline-1 -outline-offset-1 outline-white/75"
+                ? onHomePage
+                  ? "lg:rounded-2xl lg:outline lg:outline-1 lg:-outline-offset-1 lg:outline-white/75"
+                  : "rounded-2xl outline outline-1 -outline-offset-1 outline-white/75"
                 : homeHeaderJoined
                   ? "home-header-joined"
-                  : "border-b border-line/60",
-              visibleHeaderDetached && detachedHeaderMaxWidth,
+                  : onHomePage ? "lg:border-b lg:border-line/60" : "border-b border-line/60",
+              visibleHeaderDetached && (onHomePage ? "lg:max-w-7xl" : detachedHeaderMaxWidth),
             )}
           >
             <div
@@ -416,44 +420,47 @@ function AppShellContent({ workspace, workspaceCaseId }: { workspace: boolean; w
             {!appVisualSystem &&
             !startFlowRoute &&
             !adminRoute &&
-            !productFlowRoute &&
-            mobileNavigationOpen ? (
+            !productFlowRoute ? (
               <nav
                 id="mobile-navigation"
-                className={cn(
-                  "border-t border-ink/10 bg-transparent px-5 lg:hidden",
-                  visibleHeaderDetached && "rounded-b-2xl",
-                )}
+                className="mobile-navigation lg:hidden"
                 aria-label="Mobile navigation"
+                data-open={mobileNavigationOpen}
+                aria-hidden={!mobileNavigationOpen}
+                inert={!mobileNavigationOpen}
               >
-                <div className="mx-auto flex w-full max-w-7xl flex-col py-2">
-                  <a
-                    href={totalLossHref}
-                    className={mobileLinkClassName}
-                    onClick={() => setMobileNavigationOpen(false)}
-                  >
-                    Total Loss
-                  </a>
-                  <a
-                    href={diminishedValueHref}
-                    className={mobileLinkClassName}
-                    onClick={() => setMobileNavigationOpen(false)}
-                  >
-                    Diminished Value
-                  </a>
-                  <a
-                    href={howItWorksHref}
-                    className={mobileLinkClassName}
-                    onClick={() => setMobileNavigationOpen(false)}
-                  >
-                    How It Works
-                  </a>
-                  <MobileAccountControl
-                    className="border-t-0"
-                    publicSessionHint={productionPublicPage ? publicSessionHint : undefined}
-                    onAction={() => setMobileNavigationOpen(false)}
-                    staffReviewHref={staffReviewHref}
-                  />
+                <div className="min-h-0 overflow-hidden">
+                  <div className="border-t border-ink/10 bg-transparent px-5">
+                    <div className="mx-auto flex w-full max-w-7xl flex-col py-2">
+                      <a
+                        href={totalLossHref}
+                        className={mobileLinkClassName}
+                        onClick={() => setMobileNavigationOpen(false)}
+                      >
+                        Total Loss
+                      </a>
+                      <a
+                        href={diminishedValueHref}
+                        className={mobileLinkClassName}
+                        onClick={() => setMobileNavigationOpen(false)}
+                      >
+                        Diminished Value
+                      </a>
+                      <a
+                        href={howItWorksHref}
+                        className={mobileLinkClassName}
+                        onClick={() => setMobileNavigationOpen(false)}
+                      >
+                        How It Works
+                      </a>
+                      <MobileAccountControl
+                        className="border-t-0"
+                        publicSessionHint={productionPublicPage ? publicSessionHint : undefined}
+                        onAction={() => setMobileNavigationOpen(false)}
+                        staffReviewHref={staffReviewHref}
+                      />
+                    </div>
+                  </div>
                 </div>
               </nav>
             ) : null}
@@ -465,11 +472,6 @@ function AppShellContent({ workspace, workspaceCaseId }: { workspace: boolean; w
           className="completed-review-navigation-host"
           ref={setCompletedReviewNavigationHost}
         />
-      ) : null}
-      {environment.localMarketFixturesEnabled ? (
-        <div role="note" className="relative z-10 bg-amber-50 px-5 py-2 text-center text-sm text-amber-950">
-          Local test: upload your own report. Market listings and prices are simulated; results do not establish your vehicle’s value.
-        </div>
       ) : null}
       <main
         id="main-content"
