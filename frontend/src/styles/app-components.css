@@ -54,13 +54,22 @@
     scale: none;
   }
 
+  /* Keep every button stationary; feedback changes only its existing colors. */
+  :is(button, [role="button"], [data-slot="button"], input[type="button"], input[type="submit"], input[type="reset"]) {
+    &, &:is(:hover, :active, :focus, :focus-visible) {
+      transform: none;
+      translate: none;
+      scale: none;
+      transition-property: color, background-color, border-color, opacity;
+    }
+  }
+
   [data-slot="button"] { border-radius: 4px; }
   [data-slot="button"][data-variant="link"] { color: var(--link); }
-  /* Solid primary actions share the same hover and pressed color in every flow. */
+  /* Primary actions deepen in color without changing size or position. */
   :is(button, a[href], [role="button"]):is(.bg-brand, .bg-primary, [data-slot="button"][data-variant="default"], .review-primary, .request-button-primary, .free-valuation-processing__retry) {
     &:is(:hover, :active):not(:disabled):not([aria-disabled="true"]):not([aria-busy="true"]) {
       background-color: var(--brand-strong);
-      border-color: var(--brand-strong);
     }
     &:is(:disabled, [aria-disabled="true"]) {
       background-color: var(--line);
@@ -84,7 +93,6 @@
 
   [data-slot="button"][data-variant="destructive"] { background: var(--surface); }
   [data-slot="button"][data-variant="destructive"]:hover { background: #eeeeee; }
-  [data-slot="button"]:active { transform: none; translate: none; }
   [data-blue-button-fluid] { display: none; }
 
   @media (prefers-reduced-motion: reduce) { scroll-behavior: auto; }
