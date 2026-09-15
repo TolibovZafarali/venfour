@@ -80,6 +80,23 @@ describe.each(["/app", "/appraisals", "/"])("workspace entry from %s", entry => 
 });
 
 describe("account audiences", () => {
+  it.each(["/", "/app", "/appraisals"].flatMap(entry => [
+    { entry, anonymous: false }, { entry, anonymous: true },
+  ]))("sends application visitors to intake from $entry with anonymous=$anonymous", async ({ entry, anonymous }) => {
+    host.audience = "application";
+    const guest = session(); guest.user.is_anonymous = true;
+    const service = caseService([]);
+    const { router } = renderTestApp([entry], {
+      appraisalCaseService: service,
+      authService: authService(anonymous ? guest : null),
+    });
+    await waitFor(() => expect(router.state.location.pathname).toBe("/start"));
+    expect(router.state.historyAction).toBe("REPLACE");
+    expect(screen.queryByRole("heading", { name: "Continue your appraisal" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Your Vehicle’s Value, Made Clear." })).not.toBeInTheDocument();
+    expect(service.listAppraisalCases).not.toHaveBeenCalled();
+    expect(service.createAppraisalCase).not.toHaveBeenCalled();
+  });
   it.each(["/app", "/appraisals"])("keeps signed-out and guest visitors behind normal sign-in at %s", async entry => {
     const service = caseService([appraisalCase()]);
     renderTestApp([entry], { appraisalCaseService: service, authService: authService(null) });

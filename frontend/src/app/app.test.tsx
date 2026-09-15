@@ -285,9 +285,9 @@ describe("Venfour application", () => {
     document.cookie = "venfour.app-session=1; Domain=venfour.com; Path=/; Secure";
     try {
       const { router } = renderTestApp(["/app"], { authService: createTestAuthService(null) });
-      expect(await screen.findByRole("heading", { name: "Continue your appraisal" })).toBeVisible();
-      expect(screen.getByRole("button", { name: "Sign in" })).toBeVisible();
-      expect(router.state.location.pathname).toBe("/app");
+      await waitFor(() => expect(router.state.location.pathname).toBe("/start"));
+      expect(screen.getByRole("button", { name: "Sign In" })).toBeVisible();
+      expect(screen.queryByRole("heading", { name: "Continue your appraisal" })).not.toBeInTheDocument();
     } finally {
       browserEnvironment.jsdom.cookieJar.removeAllCookiesSync();
       browserEnvironment.jsdom.reconfigure({ url: originalUrl });

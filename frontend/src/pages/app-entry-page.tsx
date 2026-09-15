@@ -2,6 +2,7 @@ import { Navigate, Link } from "react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect } from "react";
 
+import { hostAudience } from "@/app/site-boundary";
 import { Button } from "@/components/ui/button";
 import { ValuationStatus } from "@/components/valuation-status";
 import { clearAutomaticSubmissionRequests } from "@/features/analyses/case-analysis-queries";
@@ -94,6 +95,7 @@ export function AppEntryPage() {
   const { openSignIn } = useSignInDialog();
   if (auth.status === "loading") return <ValuationStatus kind="loading" heading="Opening your workspace" description="Finding your saved reviews." />;
   if (auth.status === "unavailable") return <ValuationStatus kind="error" heading="We couldn’t open your workspace" description={auth.reason}><Button asChild variant="outline"><Link to="/contact">Contact support</Link></Button></ValuationStatus>;
+  if (!isPermanentAuthState(auth) && hostAudience() === "application") return <Navigate replace to="/start" />;
   if (!isPermanentAuthState(auth)) return <ValuationStatus heading="Continue your appraisal" description="Sign in to pick up where you left off."><Button onClick={() => openSignIn({ returnTo: "/app" })}>Sign in</Button><Button asChild variant="outline"><Link to="/start?service=total-loss">Start new appraisal</Link></Button></ValuationStatus>;
   return <WorkspaceEntry userId={auth.user.id} />;
 }
