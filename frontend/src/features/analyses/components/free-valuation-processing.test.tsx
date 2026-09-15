@@ -48,6 +48,26 @@ afterEach(() => {
 });
 
 describe("free valuation processing environment", () => {
+  it.each([false, true])("shows full-screen report processing over a case workspace and releases the result (reduced motion: %s)", async (reduced) => {
+    vi.stubGlobal("matchMedia", vi.fn(() => ({ matches: reduced })));
+    const view = (processing: boolean) => <FreeValuationProcessingProvider inline>
+      <main id="main-content" tabIndex={-1}>
+        {processing ? <FreeValuationProcessing fullScreen phase="preparing" heading="Preparing your report" /> : <h1>Your completed report</h1>}
+      </main>
+    </FreeValuationProcessingProvider>;
+    const rendered = render(view(true));
+    const stars = screen.getByTestId("valuation-signals");
+    expect(screen.getByRole("heading", { name: "Preparing your report" })).toBeVisible();
+    expect(document.getElementById("main-content")?.closest("[inert]")).not.toBeNull();
+    rendered.rerender(view(false));
+    expect(screen.getByRole("heading", { name: "Your completed report" })).toBeVisible();
+    expect(screen.getByTestId("valuation-signals")).toBe(stars);
+    expect(document.querySelector("[data-free-valuation-processing]")).toHaveAttribute("data-exiting", "true");
+    await act(async () => vi.advanceTimersByTimeAsync(reduced ? 10 : 1900));
+    expect(screen.queryByTestId("valuation-signals")).not.toBeInTheDocument();
+    expect(screen.getByRole("main")).toHaveFocus();
+  });
+
   it.each([false, true])("keeps the case shell, saved input, and account menu mounted during inline processing (reduced motion: %s)", (reduced) => {
     vi.stubGlobal("matchMedia", vi.fn(() => ({ matches: reduced })));
     const openAccount = vi.fn();

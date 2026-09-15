@@ -43,12 +43,11 @@ export function CheckoutScreen({
   const [searchParameters, setSearchParameters] = useSearchParams();
   const verified = claim.state === "secured";
   const nextState = resolvedTotalLossClaimJourneyState(claim);
-  const processing = verified && (nextState === "processing" || nextState === "needs_attention");
-  const quote = useTotalLossCheckoutQuoteQuery({ accessToken, caseId, userId, enabled: !processing });
-  const currency = processing ? claim.commerce?.currency : quote.data?.currency;
-  const confirming = verified && (searchParameters.get("payment") === "confirming" || Boolean(searchParameters.get("session_id")) || claim.journey?.nextState === "checkout_confirmation");
-  const price = formatCommercePrice(processing ? claim.commerce?.amountMinorUnits : quote.data?.amountMinorUnits, currency, null);
-  const summaryPrice = processing ? (price ?? "—") : quote.isPending ? "Loading…" : (price ?? "Unavailable");
+  const quote = useTotalLossCheckoutQuoteQuery({ accessToken, caseId, userId, enabled: true });
+  const currency = quote.data?.currency;
+  const confirming = verified && (searchParameters.get("payment") === "confirming" || Boolean(searchParameters.get("session_id")) || nextState === "checkout_confirmation");
+  const price = formatCommercePrice(quote.data?.amountMinorUnits, currency, null);
+  const summaryPrice = quote.isPending ? "Loading…" : (price ?? "Unavailable");
   const paymentReady = verified && claim.commerce?.checkoutAvailable && quote.data?.availability === "available" && Boolean(price);
   const onConfirm = useCallback((sessionId: string | null) => {
     const parameters = new URLSearchParams();
@@ -64,10 +63,10 @@ export function CheckoutScreen({
     <ClaimWorkflowFrame>
       <div className="checkout-introduction">
         <p className="checkout-eyebrow"><LockKeyhole size={13} aria-hidden />Secure checkout</p>
-        <h1>{processing ? "Your purchase" : "Complete your purchase"}</h1>
+        <h1>Complete your purchase</h1>
         <p>An independent review of your insurer’s vehicle valuation.</p>
       </div>
-      {canceled && !processing ? <p className="checkout-notice" role="status">Checkout was canceled. Your claim and purchase progress are saved.</p> : null}
+      {canceled ? <p className="checkout-notice" role="status">Checkout was canceled. Your claim and purchase progress are saved.</p> : null}
       <div className="checkout-columns">
         <div className="checkout-form-column">
           <section aria-labelledby="secure-claim-heading" className="checkout-account">
@@ -82,15 +81,13 @@ export function CheckoutScreen({
             </div>
           </section>
           <section aria-labelledby="payment-heading" className="checkout-payment">
-            <h2 id="payment-heading" className="checkout-section-heading">{processing ? "Purchase status" : "Payment details"}</h2>
+            <h2 id="payment-heading" className="checkout-section-heading">{confirming ? "Payment processing" : "Payment details"}</h2>
             <div className="checkout-payment-content">
               {!verified ? (
                 <>
                   <p className="checkout-notice">Verify your email above to continue with payment.</p>
                   <Button disabled className="checkout-submit" type="button">Complete purchase</Button>
                 </>
-              ) : processing ? (
-                <ReportPreparationStatus claim={claim} onRefresh={onRefresh} />
               ) : confirming ? (
                 <PaymentConfirmation accessToken={accessToken} caseId={caseId} checkoutSessionId={searchParameters.get("session_id")} onRefresh={onRefresh} onResume={onResume} userId={userId} />
               ) : paymentReady ? (
@@ -98,7 +95,7 @@ export function CheckoutScreen({
               ) : quote.isPending ? <p className="py-5 text-sm text-copy" role="status">Loading your purchase details…</p> : (
                 <div><Button asChild className="mb-4" variant="outline"><Link to={`/total-loss/cases/${caseId}/review-report`}>Check your insurer valuation report</Link></Button><WorkflowError>Payment is not available right now. Your claim is saved, and no payment has been taken on this page.</WorkflowError><Button className="mt-4" variant="outline" type="button" onClick={() => { void quote.refetch(); void onRefresh(); }}>Check availability</Button></div>
               )}
-              {!processing ? <p className="checkout-payment-security">Secure payment powered by Stripe</p> : null}
+              <p className="checkout-payment-security">Secure payment powered by Stripe</p>
             </div>
           </section>
         </div>
@@ -110,7 +107,6 @@ export function CheckoutScreen({
           </ul>
           <dl className="checkout-summary-total"><div><dt>Total</dt><dd>{summaryPrice}</dd></div></dl>
           <p className="checkout-payment-terms">{currency ? `${currency.toUpperCase()} · ` : ""}One-time payment · No subscription</p>
-          {processing && !price ? <p className="checkout-payment-terms">Your saved receipt has the payment details.</p> : null}
           <div className="checkout-policy"><h3>Fair-result policy</h3><p>If our completed review does not identify reasonable support for a valuation dispute, we’ll explain the result and refund the purchase under our fair-result policy.</p><p className="checkout-disclaimer">Payment does not guarantee a higher insurance settlement.</p></div>
         </aside>
       </div>
@@ -180,69 +176,5 @@ function PaymentConfirmation({
       <p className="mt-3 text-sm leading-6 text-copy">We’re waiting for secure payment confirmation before preparing your package. You can safely refresh or close this page and return to your saved claim.</p>
       {delayed ? <><p className="mt-3 text-sm leading-6 text-copy">Confirmation is taking a little longer. Please don’t start another purchase.</p><Button className="mt-4" variant="outline" type="button" onClick={() => { setDelayed(false); setRetry((value) => value + 1); }}>Check payment again</Button></> : null}
     </div>
-  );
-}
-
-function ReportPreparationStatus({
-  claim,
-  onRefresh,
-}: {
-  readonly claim: TotalLossClaimSecured;
-  readonly onRefresh: () => Promise<unknown>;
-}) {
-  const fulfillment = claim.journey?.fulfillmentState ?? "finalizing";
-  const exception = fulfillment === "exception_review";
-  const needsAttention =
-    fulfillment === "needs_attention" ||
-    resolvedTotalLossClaimJourneyState(claim) === "needs_attention";
-  const heading = needsAttention
-    ? "We need to check a detail in your case"
-    : exception
-      ? "We’re checking a detail before your report is ready"
-      : "We’re preparing your valuation report";
-  const description = needsAttention
-    ? "Venfour could not safely move your case forward yet. Your case and any completed payment remain recorded; check again or contact support if this continues."
-    : exception
-      ? "A detail needs an additional quality check before the report can be released. There’s nothing you need to do right now."
-      : "Venfour is validating the evidence and preparing the customer-ready report. This may take a little time.";
-
-  return (
-    <section className="checkout-preparation">
-        <p className="checkout-preparation__eyebrow">
-          {needsAttention ? "Case status" : claim.commerce?.paymentStatus === "succeeded" ? "Payment received" : "Report preparation"}
-        </p>
-        <h3 className="checkout-preparation__heading">
-          {heading}
-        </h3>
-        <p
-          className="checkout-preparation__description"
-          aria-live="polite"
-          aria-busy={!needsAttention}
-        >
-          {description}
-        </p>
-        {!needsAttention ? <div className="workspace-processing__line" aria-hidden /> : null}
-        {claim.journey?.retryable || needsAttention ? (
-          <div className="mt-7 flex flex-wrap gap-3">
-            <Button
-              onClick={() => void onRefresh()}
-              type="button"
-              variant="outline"
-            >
-              Check again
-            </Button>
-            {needsAttention ? (
-              <Button asChild variant="ghost">
-                <Link to="/contact">Contact support</Link>
-              </Button>
-            ) : null}
-          </div>
-        ) : null}
-          <p className="workspace-report-status">
-            {needsAttention
-              ? "Your case remains saved. Checking again only refreshes its status; it does not repeat any completed payment or processing step."
-              : "You can close this browser and return to your saved case. Report preparation continues independently of this page."}
-          </p>
-    </section>
   );
 }

@@ -8,6 +8,7 @@ import {
   useAuth,
 } from "@/features/auth";
 import { CheckoutScreen } from "@/features/total-loss-claim/components/checkout-experience";
+import { ReportProcessingScreen } from "@/features/total-loss-claim/components/report-processing-screen";
 import { ClaimStateCard } from "@/features/total-loss-claim/components/claim-state-card";
 import { CompletedAnalysis } from "@/features/total-loss-claim/components/completed-analysis";
 import { CompletedAnalysisModeGate } from "@/features/total-loss-claim/components/completed-analysis-mode-gate";
@@ -58,9 +59,7 @@ function WorkflowContent({
   if (view === "checkout") {
     const canCheckout =
       nextState === "checkout" ||
-      nextState === "checkout_confirmation" ||
-      nextState === "processing" ||
-      nextState === "needs_attention";
+      nextState === "checkout_confirmation";
     if (!canCheckout && authoritativePath) {
       return <Navigate replace to={authoritativePath} />;
     }
@@ -76,11 +75,18 @@ function WorkflowContent({
     );
   }
 
-  if (view === "checkout_return" || view === "processing") {
+  if (view === "processing") {
+    if (nextState === "processing" || nextState === "needs_attention") {
+      return <ReportProcessingScreen claim={claim} onRefresh={refetch} />;
+    }
+    if (authoritativePath) return <Navigate replace to={authoritativePath} />;
+  }
+
+  if (view === "checkout_return") {
     const checkoutPath = totalLossClaimViewPath(caseId, "checkout");
-    // Existing return and processing links resume the same saved checkout.
+    // Keep payment reconciliation parameters only while payment is pending.
     const destination = authoritativePath ?? checkoutPath;
-    return <Navigate replace to={`${destination}${view === "checkout_return" && destination === checkoutPath ? location.search : ""}`} />;
+    return <Navigate replace to={`${destination}${destination === checkoutPath ? location.search : ""}`} />;
   }
 
   if (!isCompletedAnalysisView(view) || !completedAnalysisIsAvailable(claim) || !claim.report) {

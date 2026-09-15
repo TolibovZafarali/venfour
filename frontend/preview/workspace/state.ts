@@ -20,7 +20,8 @@ export const scenarios = [
   ["strict", "Strict review", "Review of saved report and market evidence."],
   ["ready", "Ready for payment", "Review complete; explicit continuation."],
   ["payment", "Payment", "Simulated fields and example price; no charge."],
-  ["paid", "Paid processing", "Fictional paid case awaiting its report."],
+  ["confirming", "Payment processing", "Payment confirmation at checkout, followed by report preparation."],
+  ["paid", "Preparing valuation report", "Full-screen stars while the paid report is checked and prepared."],
   ["completed", "Completed review", "Existing review, evidence, and section navigation."],
   ["waiting", "Waiting for response", "The existing insurer-response workflow."],
   ["processing", "Free valuation processing", "Processing within the stable shell."],
@@ -48,7 +49,7 @@ export function resetScenario(phase: Scenario) {
 export function scenarioPath(phase: Scenario) {
   const base = `/total-loss/cases/${CASE_ID}`;
   return phase === "zero" ? "/app" : phase === "intake" ? `/start?service=total-loss&caseId=${CASE_ID}` : phase === "upload" ? `${base}/analysis?upload=report` : ["free", "listing", "insufficient", "processing"].includes(phase) ? `${base}/analysis`
-    : phase === "payment" ? `${base}/claim/checkout` : phase === "paid" ? `${base}/claim/processing`
+    : phase === "payment" || phase === "confirming" ? `${base}/claim/checkout` : phase === "paid" ? `${base}/claim/processing`
     : phase === "completed" ? `${base}/claim/review/result` : phase === "waiting" ? `${base}/claim/review/waiting` : `${base}/review-report`;
 }
 function record(method: string, path: string) {
@@ -66,17 +67,17 @@ function reportState(caseId: string): FullReviewState {
   }
   if (caseId === OTHER_CASE_ID) phase = "ready";
   const hasReport = !["free", "upload", "listing", "insufficient", "processing", "zero"].includes(phase);
-  const ready = ["strict", "ready", "payment", "paid", "completed", "waiting"].includes(phase);
+  const ready = ["strict", "ready", "payment", "confirming", "paid", "completed", "waiting"].includes(phase);
   return {
     caseId, stage: "full_review", analysisInputId: RUN_ID, analysisInputRevision: 3,
     status: ready ? "ready" : phase === "confirmation" ? "needs_confirmation" : phase === "extracting" || phase === "strict" ? "extracting" : "report_required",
-    ready, checkoutAvailable: phase === "ready", locked: ["payment", "paid", "completed", "waiting"].includes(phase), canReuseReport: false,
+    ready, checkoutAvailable: phase === "ready", locked: ["payment", "confirming", "paid", "completed", "waiting"].includes(phase), canReuseReport: false,
     report: hasReport ? { id: REPORT_ID, revision: 1, filename: snapshot().filename ?? "Insurer_valuation_report.pdf" } : null,
     message: phase === "confirmation" ? "Confirm this detail so we can finish your review." : "Your report is saved.",
     issues: phase === "confirmation" ? [{ field: "mileage", code: "REPORT_FACT_CONFLICT", message: "Which mileage should the full review use?", reportValue: 32000, savedValue: 30000 }] : [],
     paymentReadiness: {
-      status: ["ready", "payment", "paid", "completed", "waiting"].includes(phase) ? "eligible" : phase === "strict" ? "processing" : "not_evaluated",
-      eligible: ["ready", "payment", "paid", "completed", "waiting"].includes(phase),
+      status: ["ready", "payment", "confirming", "paid", "completed", "waiting"].includes(phase) ? "eligible" : phase === "strict" ? "processing" : "not_evaluated",
+      eligible: ["ready", "payment", "confirming", "paid", "completed", "waiting"].includes(phase),
       reviewId: "88888888-8888-4888-8888-888888888888", version: "1", digest: "a".repeat(64),
     },
   };
@@ -85,7 +86,12 @@ function claim(caseId: string) {
   const phase = snapshot().phase;
   const progress = completedEducationSteps();
   if (phase === "waiting") progress.send = { completedAt: NOW, viewedAt: NOW, skippedAt: null };
-  const value = claimProjection({ journey: phase === "payment" ? "checkout" : phase === "paid" ? "processing" : phase === "waiting" ? "awaiting_insurer_response" : "guide_result", progress, fulfillmentState: phase === "paid" ? "finalizing" : undefined });
+  const value = claimProjection({ journey: phase === "payment" || phase === "confirming" ? "checkout" : phase === "paid" ? "processing" : phase === "waiting" ? "awaiting_insurer_response" : "guide_result", progress, fulfillmentState: phase === "paid" ? "finalizing" : undefined });
+  if (phase === "confirming") return {
+    ...value, caseId,
+    commerce: { ...value.commerce, checkoutAvailable: false, paymentStatus: "pending", orderStatus: "pending", nextTask: "checkout_confirmation" },
+    journey: { ...value.journey, nextState: "checkout_confirmation" },
+  };
   return { ...value, caseId, report: phase === "paid" ? null : value.report };
 }
 function freeResult() {
@@ -148,7 +154,7 @@ export const previewAuth: AuthService = {
 export function previewCases(): AppraisalCase[] {
   const phase = snapshot().phase;
   if (phase === "zero") return [];
-  const base: AppraisalCase = { id: CASE_ID, userId: USER_ID, serviceType: "total_loss", status: "check_complete", createdAt: NOW, updatedAt: NOW, lastActivityAt: NOW, caseStage: "analysis_complete", analysisStatus: "completed", vehicleLabel: "2026 Hyundai Kona SE", hasFullReviewReport: !["free", "upload", "listing", "insufficient", "processing"].includes(phase), hasTotalLossClaimWorkflow: ["payment", "paid", "completed", "waiting"].includes(phase), workspaceStatus: phase === "waiting" ? "awaiting_insurer_response" : phase === "completed" ? "report_ready" : undefined };
+  const base: AppraisalCase = { id: CASE_ID, userId: USER_ID, serviceType: "total_loss", status: "check_complete", createdAt: NOW, updatedAt: NOW, lastActivityAt: NOW, caseStage: "analysis_complete", analysisStatus: "completed", vehicleLabel: "2026 Hyundai Kona SE", hasFullReviewReport: !["free", "upload", "listing", "insufficient", "processing"].includes(phase), hasTotalLossClaimWorkflow: ["payment", "confirming", "paid", "completed", "waiting"].includes(phase), workspaceStatus: phase === "waiting" ? "awaiting_insurer_response" : phase === "completed" ? "report_ready" : undefined };
   return [{ ...base, ...(phase === "intake" ? { status: "draft" as const, hasFullReviewReport: false, analysisStatus: null, caseStage: undefined } : {}) }, { ...base, id: OTHER_CASE_ID, vehicleLabel: "2024 Hyundai Elantra Limited", lastActivityAt: "2026-09-12T12:00:00Z", hasFullReviewReport: true, hasTotalLossClaimWorkflow: false, workspaceStatus: "review_prepared" }];
 }
 const unexpectedWrite = async () => { record("BLOCKED", "case-write"); throw new Error("Case writes are disabled in this preview."); };

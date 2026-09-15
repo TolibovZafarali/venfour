@@ -11,6 +11,7 @@ export interface FreeValuationProcessingOptions {
   readonly onRetry?: () => void;
   readonly retryDisabled?: boolean;
   readonly development?: boolean;
+  readonly fullScreen?: boolean;
 }
 
 export const FreeValuationProcessingContext = createContext<{

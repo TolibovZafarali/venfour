@@ -57,18 +57,19 @@ export function FreeValuationProcessingProvider({ children, accountControl, inli
   }, [clearTimers]);
   useEffect(() => clearTimers, [clearTimers]);
   const context = useMemo(() => ({ show, hide, inline }), [show, hide, inline]);
+  const displayInline = inline && !presentation?.options.fullScreen;
 
   return (
     <FreeValuationProcessingContext.Provider value={context}>
-      <InlineValuationProcessingContext.Provider value={inline && presentation && !presentation.exiting ? presentation.options : null}>
+      <InlineValuationProcessingContext.Provider value={displayInline && presentation && !presentation.exiting ? presentation.options : null}>
       <div
-        inert={Boolean(!inline && presentation && !presentation.exiting)}
-        aria-hidden={!inline && presentation && !presentation.exiting ? true : undefined}
-        style={{ visibility: !inline && presentation && !presentation.exiting ? "hidden" : undefined }}
+        inert={Boolean(!displayInline && presentation && !presentation.exiting)}
+        aria-hidden={!displayInline && presentation && !presentation.exiting ? true : undefined}
+        style={{ visibility: !displayInline && presentation && !presentation.exiting ? "hidden" : undefined }}
       >
         {children}
       </div>
-      {!inline && presentation ? createPortal(
+      {!displayInline && presentation ? createPortal(
         <ProcessingEnvironment options={presentation.options} exiting={presentation.exiting} accountControl={accountControl} />,
         document.body,
       ) : null}
@@ -77,12 +78,12 @@ export function FreeValuationProcessingProvider({ children, accountControl, inli
   );
 }
 
-export function FreeValuationProcessing({ reviewKey, heading, description, phase = "reviewing", vehicle, notice, error, onRetry, retryDisabled, development }: FreeValuationProcessingOptions) {
+export function FreeValuationProcessing({ reviewKey, heading, description, phase = "reviewing", vehicle, notice, error, onRetry, retryDisabled, development, fullScreen }: FreeValuationProcessingOptions) {
   const context = useContext(FreeValuationProcessingContext);
   const [owner] = useState(() => Symbol("valuation-processing"));
   useLayoutEffect(() => {
-    context?.show(owner, { reviewKey, heading, description, phase, vehicle, notice, error, onRetry, retryDisabled, development });
-  }, [context, owner, reviewKey, heading, description, phase, vehicle, notice, error, onRetry, retryDisabled, development]);
+    context?.show(owner, { reviewKey, heading, description, phase, vehicle, notice, error, onRetry, retryDisabled, development, fullScreen });
+  }, [context, owner, reviewKey, heading, description, phase, vehicle, notice, error, onRetry, retryDisabled, development, fullScreen]);
   useLayoutEffect(() => () => context?.hide(owner), [context, owner]);
   return null;
 }

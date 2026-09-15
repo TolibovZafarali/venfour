@@ -446,16 +446,17 @@ describe("total-loss customer workflow", () => {
     ).not.toBeInTheDocument();
     paid = true;
     expect(
-      await screen.findByText("We’re preparing your valuation report", {}, { timeout: 4_000 }),
+      await screen.findByRole("heading", { name: "We’re preparing your valuation report" }, { timeout: 4_000 }),
     ).toBeVisible();
-    expect(router.state.location.pathname).toBe(`${CLAIM_BASE}/checkout`);
-    expect(screen.getByRole("complementary", { name: "Purchase summary" })).toBeVisible();
+    expect(router.state.location.pathname).toBe(`${CLAIM_BASE}/processing`);
+    expect(screen.queryByRole("complementary", { name: "Purchase summary" })).not.toBeInTheDocument();
+    expect(document.querySelector("[data-free-valuation-processing]")).toBeVisible();
     expect(screen.queryByTestId("stripe-payment-element")).not.toBeInTheDocument();
     expect(initializationCalls).toBe(1);
   });
 
   it.each(["checkout?payment=confirming&session_id=cs_test_paid", "processing", "checkout/return?session_id=cs_test_paid"])(
-    "resumes paid work at checkout from %s without reopening payment, then opens the released report",
+    "resumes the dedicated report loading page from %s without reopening payment, then opens the released report",
     async (entry) => {
       let ready = false;
       let paymentRequests = 0;
@@ -479,9 +480,10 @@ describe("total-loss customer workflow", () => {
       );
       const initial = renderTestApp([`${CLAIM_BASE}/${entry}`], { authService: authService() });
       expect(await screen.findByRole("heading", { name: "We’re preparing your valuation report" })).toBeVisible();
-      expect(initial.router.state.location.pathname).toBe(`${CLAIM_BASE}/checkout`);
-      expect(screen.getByText("Payment received")).toBeVisible();
-      expect(screen.getAllByText("$149.00")).toHaveLength(2);
+      expect(initial.router.state.location.pathname).toBe(`${CLAIM_BASE}/processing`);
+      expect(document.querySelector("[data-free-valuation-processing]")).toBeVisible();
+      expect(screen.queryByRole("complementary", { name: "Purchase summary" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("heading", { name: "Confirming your payment" })).not.toBeInTheDocument();
       expect(screen.queryByTestId("stripe-payment-element")).not.toBeInTheDocument();
       const savedLocation = initial.router.state.location;
       initial.unmount();
@@ -1078,7 +1080,7 @@ describe("total-loss customer workflow", () => {
           name: "We need to check a detail in your case",
         }),
       ).toBeVisible();
-      expect(router.state.location.pathname).toBe(`${CLAIM_BASE}/checkout`);
+      expect(router.state.location.pathname).toBe(`${CLAIM_BASE}/processing`);
       expect(
         screen.queryByRole("navigation", { name: "Case sections" }),
       ).not.toBeInTheDocument();

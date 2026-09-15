@@ -3,9 +3,9 @@
 @source ".";
 
 .workspace-preview-note { position: fixed; bottom: 8px; right: 12px; z-index: 80; display: flex; gap: 10px; align-items: center; padding: 4px 10px; border: 1px solid #dae2f0; border-radius: 8px; background: #fcfdffff; color: #59667b; font: 10px/1.5 system-ui; }
-.workspace-preview-note a { display: inline-flex; align-items: center; gap: 4px; min-height: 28px; color: #155eef; text-decoration: underline; text-underline-offset: 3px; }
+.workspace-preview-note :is(a, button) { display: inline-flex; align-items: center; gap: 4px; min-height: 28px; color: #155eef; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
 html:has([data-free-valuation-processing]) .workspace-preview-note { max-width: calc(100vw - 24px); flex-wrap: wrap; justify-content: flex-end; }
-html:has([data-free-valuation-processing]) .workspace-preview-note a { min-height: 44px; }
+html:has([data-free-valuation-processing]) .workspace-preview-note :is(a, button) { min-height: 44px; }
 .preview-launcher { max-width: 960px; margin: 0 auto; padding: 48px 24px 80px; font-family: var(--font-sans); }
 .preview-launcher h1 { font-size: 36px; letter-spacing: -.04em; }
 .preview-launcher p { margin-top: 14px; line-height: 1.7; color: #59667b; }
