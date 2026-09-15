@@ -154,7 +154,7 @@ function installClaimHandlers() {
         ? secured() : secureRequired()),
     ),
     http.get("*/api/v1/appraisal-cases/:caseId/checkout-quote", () => HttpResponse.json({
-      amountMinorUnits: 12900, availability: "available", currency: "USD",
+      amountMinorUnits: 19900, availability: "available", currency: "USD",
     })),
     http.post("*/api/v1/appraisal-cases/:caseId/checkout-sessions", () => {
       paymentInitialization();

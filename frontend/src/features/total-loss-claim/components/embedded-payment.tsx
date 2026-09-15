@@ -1,4 +1,5 @@
 import {
+  BillingAddressElement,
   CheckoutElementsProvider,
   PaymentElement,
   useCheckoutElements,
@@ -35,6 +36,7 @@ function PaymentForm({
   const checkout = useCheckoutElements();
   const [submitting, setSubmitting] = useState(false);
   const [ready, setReady] = useState(false);
+  const [billingReady, setBillingReady] = useState(false);
   const [loadingDelayed, setLoadingDelayed] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const submittingRef = useRef(false);
@@ -46,7 +48,7 @@ function PaymentForm({
   }, [checkout.type]);
 
   const confirm = async () => {
-    if (checkout.type !== "success" || submittingRef.current || !ready) return;
+    if (checkout.type !== "success" || submittingRef.current || !ready || !billingReady) return;
     submittingRef.current = true;
     setSubmitting(true);
     setError(null);
@@ -77,17 +79,30 @@ function PaymentForm({
       ) : checkout.type === "error" ? (
         <WorkflowError>Payment fields could not load. Refresh to reopen your saved checkout.</WorkflowError>
       ) : (
-        <PaymentElement
-          options={{ layout: "accordion", wallets: { link: "never", applePay: "never", googlePay: "never" } }}
-          onReady={() => setReady(true)}
-          onLoadError={() => {
-            setReady(false);
-            setError("Payment fields could not load. Refresh to reopen your saved checkout.");
-          }}
-        />
+        <div className="space-y-6">
+          <div>
+            <h3 className="mb-3 text-sm font-medium text-ink">Cardholder name and billing address</h3>
+            <BillingAddressElement
+              options={{ display: { name: "full" }, fields: { phone: "never" } }}
+              onReady={() => setBillingReady(true)}
+              onLoadError={() => {
+                setBillingReady(false);
+                setError("Billing fields could not load. Refresh to reopen your saved checkout.");
+              }}
+            />
+          </div>
+          <PaymentElement
+            options={{ layout: "accordion", fields: { billingDetails: "never" }, wallets: { link: "never", applePay: "never", googlePay: "never" } }}
+            onReady={() => setReady(true)}
+            onLoadError={() => {
+              setReady(false);
+              setError("Payment fields could not load. Refresh to reopen your saved checkout.");
+            }}
+          />
+        </div>
       )}
       {error ? <WorkflowError>{error}</WorkflowError> : null}
-      <Button className="mt-6 min-h-12 w-full" disabled={checkout.type !== "success" || !ready || submitting} type="submit">
+      <Button className="mt-6 min-h-12 w-full" disabled={checkout.type !== "success" || !ready || !billingReady || submitting} type="submit">
         {submitting ? <LoaderCircle className="size-4 animate-spin motion-reduce:animate-none" aria-hidden /> : <LockKeyhole className="size-4" aria-hidden />}
         {submitting ? "Confirming payment…" : "Complete purchase"}
       </Button>
@@ -153,6 +168,7 @@ export function EmbeddedPayment({
       options={{
         clientSecret: checkout.clientSecret,
         elementsOptions: {
+          syncAddressCheckbox: "none",
           appearance: {
             theme: "stripe",
             variables: { colorPrimary: "#2457D6", colorText: "#0b1f33", colorDanger: "#b91c1c", borderRadius: "10px", fontFamily: "system-ui, sans-serif" },

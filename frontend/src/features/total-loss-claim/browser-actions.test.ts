@@ -30,7 +30,7 @@ describe("total-loss email and price browser actions", () => {
   });
 
   it("formats only a server-provided amount and currency", () => {
-    expect(formatCommercePrice(12900, "USD", null)).toMatch(/129\.00/u);
+    expect(formatCommercePrice(19900, "USD", null)).toMatch(/199\.00/u);
     expect(formatCommercePrice(null, null, null)).toBeNull();
     expect(formatCommercePrice(null, null, "Server unavailable")).toBe(
       "Server unavailable",

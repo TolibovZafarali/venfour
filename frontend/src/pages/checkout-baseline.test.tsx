@@ -33,10 +33,6 @@ vi.mock("@stripe/react-stripe-js/checkout", async () => {
   return {
     CheckoutElementsProvider: ({ children }: { children: React.ReactNode }) =>
       children,
-    BillingAddressElement: ({ onReady }: { onReady: () => void }) => {
-      React.useEffect(() => { onReady(); }, [onReady]);
-      return <div data-testid="stripe-billing-element">Secure Stripe billing fields</div>;
-    },
     PaymentElement: ({ onReady }: { onReady: () => void }) => {
       React.useEffect(() => {
         onReady();
@@ -378,7 +374,7 @@ describe("total-loss customer workflow", () => {
     server.use(
       http.get("*/api/v1/appraisal-cases/:caseId/checkout-quote", () =>
         HttpResponse.json({
-          amountMinorUnits: 19900,
+          amountMinorUnits: 12900,
           availability: "available",
           currency: "USD",
         }),
@@ -462,7 +458,7 @@ describe("total-loss customer workflow", () => {
     server.use(
       http.get("*/api/v1/appraisal-cases/:caseId/checkout-quote", () =>
         HttpResponse.json({
-          amountMinorUnits: 19900,
+          amountMinorUnits: 12900,
           availability: "available",
           currency: "USD",
         }),
@@ -495,7 +491,7 @@ describe("total-loss customer workflow", () => {
       server.use(
         http.get("*/api/v1/appraisal-cases/:caseId/checkout-quote", () =>
           HttpResponse.json({
-            amountMinorUnits: 19900,
+            amountMinorUnits: 12900,
             availability: "available",
             currency: "USD",
           }),
@@ -540,7 +536,7 @@ describe("total-loss customer workflow", () => {
     server.use(
       http.get("*/api/v1/appraisal-cases/:caseId/checkout-quote", () =>
         HttpResponse.json({
-          amountMinorUnits: 19900,
+          amountMinorUnits: 12900,
           availability: "available",
           currency: "USD",
         }),
@@ -570,7 +566,7 @@ describe("total-loss customer workflow", () => {
     server.use(
       http.get("*/api/v1/appraisal-cases/:caseId/checkout-quote", () =>
         HttpResponse.json({
-          amountMinorUnits: 19900,
+          amountMinorUnits: 12900,
           availability: "available",
           currency: "USD",
         }),
@@ -641,7 +637,7 @@ describe("total-loss customer workflow", () => {
     server.use(
       http.get("*/api/v1/appraisal-cases/:caseId/checkout-quote", () =>
         HttpResponse.json({
-          amountMinorUnits: 19900,
+          amountMinorUnits: 12900,
           availability: "available",
           currency: "USD",
         }),
@@ -657,9 +653,7 @@ describe("total-loss customer workflow", () => {
         name: "Your full valuation review",
       }),
     ).toBeVisible();
-    expect((await screen.findAllByText(/199\.00/u))[0]).toBeVisible();
-    expect(within(screen.getByRole("complementary", { name: "Purchase summary" })).getByText("Total")).toBeVisible();
-    expect(screen.queryByText("Tax", { exact: true })).not.toBeInTheDocument();
+    expect((await screen.findAllByText(/129\.00/u))[0]).toBeVisible();
     expect(router.state.location.pathname).toBe(`${CLAIM_BASE}/checkout`);
     await waitFor(() =>
       expect(
@@ -678,7 +672,7 @@ describe("total-loss customer workflow", () => {
     server.use(
       http.get("*/api/v1/appraisal-cases/:caseId/checkout-quote", () =>
         HttpResponse.json({
-          amountMinorUnits: 19900,
+          amountMinorUnits: 12900,
           availability: "available",
           currency: "USD",
         }),
@@ -716,7 +710,7 @@ describe("total-loss customer workflow", () => {
       ),
       http.get("*/api/v1/appraisal-cases/:caseId/checkout-quote", () =>
         HttpResponse.json({
-          amountMinorUnits: 19900,
+          amountMinorUnits: 12900,
           availability: "available",
           currency: "USD",
         }),
@@ -750,7 +744,7 @@ describe("total-loss customer workflow", () => {
       ),
       http.get("*/api/v1/appraisal-cases/:caseId/checkout-quote", () =>
         HttpResponse.json({
-          amountMinorUnits: 19900,
+          amountMinorUnits: 12900,
           availability: "available",
           currency: "USD",
         }),

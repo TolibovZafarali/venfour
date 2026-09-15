@@ -9,6 +9,7 @@ import {
 import { useState } from "react";
 import { Link } from "react-router";
 import { DropdownMenu } from "radix-ui";
+import type { User } from "@supabase/supabase-js";
 
 import { getFriendlyAuthError } from "@/features/auth/auth-errors";
 import {
@@ -17,12 +18,15 @@ import {
 } from "@/features/auth/auth-context";
 import { useSignInDialog } from "@/features/auth/sign-in-dialog-context";
 import {
-  getUserAccountLabel,
+  getUserFullName,
   getUserIdentityLabel,
 } from "@/features/auth/user-display";
 import { useNewTotalLossAppraisalHref } from "@/features/total-loss/new-appraisal";
 import { cn } from "@/lib/utils";
 import { AppraisalSwitcher } from "@/features/cases/appraisal-switcher";
+import { useCustomerProfileService } from "@/features/customer-profile/service-context";
+import { useCustomerProfileQuery } from "@/features/customer-profile/queries";
+import type { CustomerProfileService } from "@/features/customer-profile/service";
 
 const focusRingClassName =
   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 focus-visible:ring-offset-2";
@@ -97,7 +101,6 @@ export function AccountControl({
     );
   }
 
-  const accountLabel = getUserAccountLabel(auth.user);
   const identityLabel = getUserIdentityLabel(auth.user);
 
   const performSignOut = async () => {
@@ -129,7 +132,7 @@ export function AccountControl({
             aria-label={`Account for ${identityLabel}`}
           >
             <CircleUserRound className="size-4 shrink-0" aria-hidden />
-            <span className="truncate">{accountLabel}</span>
+            <span className="truncate"><AccountName user={auth.user} /></span>
           </button>
         </DropdownMenu.Trigger>
         <DropdownMenu.Portal>
@@ -194,6 +197,24 @@ export function AccountControl({
       </DropdownMenu.Root>
     </>
   );
+}
+
+function AccountName({ user }: { user: User }) {
+  const service = useCustomerProfileService();
+  const fallback = getUserFullName(user)?.split(/\s+/)[0] ?? "Account";
+  return service
+    ? <ProfileAccountName service={service} userId={user.id} fallback={fallback} />
+    : fallback;
+}
+
+function ProfileAccountName({ service, userId, fallback }: {
+  service: CustomerProfileService;
+  userId: string;
+  fallback: string;
+}) {
+  const { data } = useCustomerProfileQuery({ service, userId });
+  const name = data?.userId === userId ? data.fullName?.trim() : null;
+  return name ? name.split(/\s+/)[0] : fallback;
 }
 
 interface MobileAccountControlProps {

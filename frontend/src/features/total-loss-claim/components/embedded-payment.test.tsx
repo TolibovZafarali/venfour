@@ -8,6 +8,9 @@ const payment = vi.hoisted(() => ({
   confirm: vi.fn(),
   initialize: vi.fn(),
   loadStripe: vi.fn(async () => ({})),
+  billingReady: true,
+  billingOptions: vi.fn(),
+  paymentOptions: vi.fn(),
   checkoutType: "success" as "loading" | "success",
 }));
 
@@ -16,7 +19,13 @@ vi.mock("@stripe/react-stripe-js/checkout", async () => {
   const { useEffect } = await import("react");
   return {
     CheckoutElementsProvider: ({ children }: { children: ReactNode }) => children,
-    PaymentElement: ({ onReady }: { onReady: () => void }) => {
+    BillingAddressElement: ({ onReady, onLoadError, options }: { onReady: () => void; onLoadError: () => void; options: unknown }) => {
+      payment.billingOptions(options);
+      useEffect(() => { if (payment.billingReady) onReady(); }, [onReady]);
+      return <div>Secure billing fields<button type="button" onClick={onLoadError}>Simulate billing load failure</button></div>;
+    },
+    PaymentElement: ({ onReady, options }: { onReady: () => void; options: unknown }) => {
+      payment.paymentOptions(options);
       useEffect(() => { onReady(); }, [onReady]);
       return <div>Secure payment fields</div>;
     },
@@ -47,6 +56,9 @@ function pendingConfirmation() {
 describe("embedded payment confirmation", () => {
   beforeEach(() => {
     payment.checkoutType = "success";
+    payment.billingReady = true;
+    payment.billingOptions.mockClear();
+    payment.paymentOptions.mockClear();
     payment.confirm.mockReset();
     payment.initialize.mockReset();
     payment.initialize.mockResolvedValue({
@@ -70,6 +82,33 @@ describe("embedded payment confirmation", () => {
       userId="22222222-2222-4222-8222-222222222222"
     />
   );
+
+  it("collects name and billing with Stripe without asking for email, phone, or shipping", async () => {
+    const view = render(loadingPayment());
+    expect(await screen.findByText("Secure billing fields")).toBeVisible();
+    expect(payment.billingOptions).toHaveBeenCalledWith({ display: { name: "full" }, fields: { phone: "never" } });
+    expect(payment.paymentOptions).toHaveBeenCalledWith(expect.objectContaining({ fields: { billingDetails: "never" } }));
+    expect(view.container.querySelector("input")).toBeNull();
+    expect(payment.confirm).not.toHaveBeenCalled();
+  });
+
+  it("blocks confirmation until both Elements are ready and after a billing load failure", async () => {
+    payment.billingReady = false;
+    const view = render(loadingPayment());
+    const button = await screen.findByRole("button", { name: "Complete purchase" });
+    expect(button).toBeDisabled();
+    fireEvent.submit(button.closest("form")!);
+    expect(payment.confirm).not.toHaveBeenCalled();
+    payment.billingReady = true;
+    view.rerender(loadingPayment());
+    await waitFor(() => expect(button).toBeEnabled());
+    payment.billingReady = false;
+    fireEvent.click(screen.getByRole("button", { name: "Simulate billing load failure" }));
+    expect(button).toBeDisabled();
+    expect(screen.getByRole("alert")).toHaveTextContent("Billing fields could not load");
+    fireEvent.submit(button.closest("form")!);
+    expect(payment.confirm).not.toHaveBeenCalled();
+  });
 
   it("offers an explicit same-page reload after persistent loading without retrying or confirming payment", async () => {
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });

@@ -2,6 +2,7 @@ import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { StrictMode } from "react";
 import type { Session } from "@supabase/supabase-js";
+import { QueryClientProvider } from "@tanstack/react-query";
 import { createMemoryRouter, MemoryRouter, RouterProvider } from "react-router";
 import { describe, expect, test, vi } from "vitest";
 
@@ -22,6 +23,9 @@ import {
 } from "@/features/total-loss/dependencies";
 import type { TotalLossIdentityService } from "@/features/total-loss/identity-service";
 import { appleSession } from "@/test/fixtures/apple-session";
+import { createAppQueryClient } from "@/app/query-client";
+import { CustomerProfileServiceProvider, type CustomerProfile, type CustomerProfileService } from "@/features/customer-profile";
+import { customerProfileQueryKeys } from "@/features/customer-profile/queries";
 
 const CASE_CLAIM_ID = "88888888-8888-4888-8888-888888888888";
 
@@ -410,6 +414,43 @@ describe("sign-in dialog", () => {
 });
 
 describe("account control", () => {
+  test.each([
+    { savedName: "  Jordan Rivera  ", metadataName: undefined, profileOwner: "owner", expected: "Jordan" },
+    { savedName: "Jordan Rivera", metadataName: "Old Name", profileOwner: "owner", expected: "Jordan" },
+    { savedName: "   ", metadataName: "Morgan Chen", profileOwner: "owner", expected: "Morgan" },
+    { savedName: "Another Customer", metadataName: undefined, profileOwner: "another-owner", expected: "Account" },
+  ])("uses the current profile name with a safe fallback: $expected", async ({ savedName, metadataName, profileOwner, expected }) => {
+    const profile = { userId: profileOwner, fullName: savedName } as CustomerProfile;
+    const profileService: CustomerProfileService = {
+      getProfile: vi.fn(async () => profile),
+      confirmProfile: vi.fn(),
+    };
+    const client = createAppQueryClient({ retry: false });
+    client.setQueryData(customerProfileQueryKeys.user("previous-owner"), { userId: "previous-owner", fullName: "Previous Customer" });
+    render(
+      <QueryClientProvider client={client}>
+        <MemoryRouter>
+          <AuthProvider service={createService({ getSession: vi.fn(async () => sessionFor("owner", metadataName)) })}>
+            <CustomerProfileServiceProvider service={profileService}>
+              <SignInDialogProvider><AccountControl /></SignInDialogProvider>
+            </CustomerProfileServiceProvider>
+          </AuthProvider>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+    const account = await screen.findByRole("button", { name: "Account for owner@example.com" });
+    await waitFor(() => expect(profileService.getProfile).toHaveBeenCalledWith("owner"));
+    await waitFor(() => expect(client.getQueryData(customerProfileQueryKeys.user("owner"))).toEqual(profile));
+    expect(account).toHaveTextContent(expected);
+    expect(account).not.toHaveTextContent("owner@example.com");
+    expect(account).not.toHaveTextContent("Previous");
+    expect(profileService.confirmProfile).not.toHaveBeenCalled();
+    if (profileOwner === "owner") {
+      act(() => client.setQueryData(customerProfileQueryKeys.user("owner"), { ...profile, fullName: "Taylor Smith" }));
+      await waitFor(() => expect(account).toHaveTextContent("Taylor"));
+    }
+  });
+
   test("displays a returning Apple relay account without a name and signs out normally", async () => {
     const user = userEvent.setup();
     const session = appleSession("private-owner@privaterelay.appleid.com");
@@ -427,7 +468,8 @@ describe("account control", () => {
     const account = await screen.findByRole("button", {
       name: `Account for ${session.user.email}`,
     });
-    expect(account).toHaveTextContent(session.user.email!);
+    expect(account).toHaveTextContent("Account");
+    expect(account).not.toHaveTextContent(session.user.email!);
     await user.click(account);
     await user.click(screen.getByRole("menuitem", { name: "Sign Out" }));
     expect(service.signOut).toHaveBeenCalledOnce();

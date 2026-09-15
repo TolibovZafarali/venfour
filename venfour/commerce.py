@@ -26,6 +26,8 @@ from venfour.supabase_gateway import (
 
 
 STRIPE_PROVIDER = "stripe"
+TOTAL_LOSS_LAUNCH_AMOUNT_MINOR_UNITS = 19900
+TOTAL_LOSS_LAUNCH_CURRENCY = "USD"
 MAX_STRIPE_WEBHOOK_BODY_BYTES = 256 * 1024
 MAX_PROVIDER_IDENTIFIER_CHARACTERS = 255
 SAFE_CODE_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}")
@@ -362,6 +364,13 @@ class StripeCommerceConfiguration:
                     or not isinstance(self.expected_currency, str)
                     or re.fullmatch(r"[A-Z]{3}", self.expected_currency) is None):
                 raise ValueError("Expected checkout price configuration is invalid")
+        if self.livemode:
+            if self.expected_amount_minor_units is None:
+                object.__setattr__(self, "expected_amount_minor_units", TOTAL_LOSS_LAUNCH_AMOUNT_MINOR_UNITS)
+                object.__setattr__(self, "expected_currency", TOTAL_LOSS_LAUNCH_CURRENCY)
+            elif (self.expected_amount_minor_units != TOTAL_LOSS_LAUNCH_AMOUNT_MINOR_UNITS
+                    or self.expected_currency != TOTAL_LOSS_LAUNCH_CURRENCY):
+                raise ValueError("Live checkout requires the USD 199.00 launch price")
 
     @property
     def livemode(self) -> bool:
@@ -789,12 +798,15 @@ class StripeSdkGateway:
             "ui_mode": "elements",
             "payment_method_types": ["card"],
             "adaptive_pricing": {"enabled": False},
+            "billing_address_collection": "required",
+            "phone_number_collection": {"enabled": False},
+            "automatic_tax": {"enabled": False},
             "line_items": [{"price": price_id, "quantity": 1}],
             "customer_email": customer_email,
             "client_reference_id": order_id,
             "return_url": return_url,
             "metadata": metadata,
-            "payment_intent_data": {"metadata": metadata},
+            "payment_intent_data": {"metadata": metadata, "receipt_email": customer_email},
         }
         options = {"idempotency_key": idempotency_key}
         try:
@@ -807,7 +819,24 @@ class StripeSdkGateway:
                 or exc.__cause__.http_status != 400
             ):
                 raise
-            legacy_parameters = dict(parameters)
+            # Recover attempts created before billing collection without changing
+            # the idempotency key or risking a second Checkout Session.
+            previous_parameters = {
+                key: value for key, value in parameters.items()
+                if key not in {"billing_address_collection", "phone_number_collection", "automatic_tax"}
+            }
+            previous_parameters["payment_intent_data"] = {"metadata": metadata}
+            try:
+                value = self._provider_call(
+                    self._client.v1.checkout.sessions.create, previous_parameters, options
+                )
+            except CommerceProviderError as previous_exc:
+                if (not isinstance(previous_exc.__cause__, stripe.IdempotencyError)
+                        or previous_exc.__cause__.http_status != 400):
+                    raise
+            else:
+                return self._checkout_session(value, fallback_price_id=price_id)
+            legacy_parameters = dict(previous_parameters)
             del legacy_parameters["ui_mode"]
             del legacy_parameters["return_url"]
             legacy_path = (

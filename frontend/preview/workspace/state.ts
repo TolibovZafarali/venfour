@@ -3,6 +3,7 @@ import type { AuthService } from "@/features/auth";
 import type { AuthStateChangeListener } from "@/features/auth/auth-service";
 import type { AppraisalCaseService } from "@/features/cases/service";
 import type { AppraisalCase } from "@/features/cases/types";
+import type { CustomerProfileService } from "@/features/customer-profile";
 import type { FullReviewState } from "@/features/full-review/api";
 import type { TotalLossDependencies } from "@/features/total-loss/dependencies";
 import type { TotalLossCaseDetails } from "@/features/total-loss/data-types";
@@ -117,12 +118,22 @@ export function installPreviewFetch() {
       ? { status: "processing", attemptCount: 1, processingExpiresAt: new Date(Date.now() + 600000).toISOString(), analysisInputId: RUN_ID, analysisInputRevision: 3 }
       : { status: "completed", attemptCount: 1, intakeCorrectionAllowed: true, runId: RUN_ID, analysisInputId: RUN_ID, analysisInputRevision: 3 });
     if (url.pathname.includes("/analyses/") && method === "GET") return Response.json(freeResult());
-    if (url.pathname.endsWith("/checkout-quote") && method === "GET") return Response.json({ amountMinorUnits: 12900, availability: "available", currency: "USD" });
+    if (url.pathname.endsWith("/checkout-quote") && method === "GET") return Response.json({ amountMinorUnits: 19900, availability: "available", currency: "USD" });
     if (url.pathname.endsWith("/checkout-sessions") && method === "POST") return Response.json({ checkoutStatus: "open", checkoutUrl: null, checkoutSessionId: "cs_test_workspace_preview", clientSecret: "cs_test_workspace_preview_secret_fixture", publishableKey: "pk_test_visual_fixture", uiMode: "elements", entitlementStatus: null, orderStatus: "pending", state: "checkout_ready" });
     throw new Error(`Unimplemented preview request: ${method} ${url.pathname}`);
   };
 }
 const session = { access_token: "workspace-preview", refresh_token: "workspace-preview", expires_in: 3600, token_type: "bearer", user: { id: USER_ID, aud: "authenticated", created_at: NOW, email: "preview@example.com", app_metadata: {}, user_metadata: {}, is_anonymous: false } } as Session;
+export const previewProfileService: CustomerProfileService = {
+  getProfile: async userId => userId === USER_ID ? {
+    userId, fullName: "Jordan Rivera", fullNameConfirmedAt: NOW,
+    serviceTermsVersion: "2026-08-23", serviceTermsAcknowledgedAt: NOW,
+    privacyNoticeVersion: "2026-08-23", privacyNoticeAcknowledgedAt: NOW,
+    operationalFollowUpAllowed: false, operationalFollowUpUpdatedAt: NOW,
+    createdAt: NOW, updatedAt: NOW,
+  } : null,
+  confirmProfile: async () => { throw new Error("Profile writes are disabled in this preview."); },
+};
 const listeners = new Set<AuthStateChangeListener>();
 const signedIn = async () => { localStorage.removeItem("venfour-workspace-preview-signed-out"); listeners.forEach(listener => listener("SIGNED_IN", session)); return session; };
 const simulatedSignIn = async (redirectTo: string) => { const url = new URL(redirectTo); url.searchParams.set("code", "simulated-login"); location.assign(url); };

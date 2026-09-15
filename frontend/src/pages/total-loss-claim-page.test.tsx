@@ -97,7 +97,7 @@ function secureRequiredResponse() {
 
 describe("total-loss claim page", () => {
   beforeEach(() => {
-    server.use(http.get("*/api/v1/appraisal-cases/:caseId/checkout-quote", () => HttpResponse.json({ amountMinorUnits: 12900, availability: "available", currency: "USD" })));
+    server.use(http.get("*/api/v1/appraisal-cases/:caseId/checkout-quote", () => HttpResponse.json({ amountMinorUnits: 19900, availability: "available", currency: "USD" })));
   });
   it("shows an authorized anonymous owner the saved email and sends a case-bound magic link", async () => {
     let resolverAuthorization: string | null = null;

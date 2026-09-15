@@ -755,7 +755,7 @@ describe("total-loss claim API", () => {
         ({ request }) => {
           authorization = request.headers.get("Authorization");
           return HttpResponse.json({
-            amountMinorUnits: 12900,
+            amountMinorUnits: 19900,
             availability: "available",
             currency: "USD",
           });
@@ -770,7 +770,7 @@ describe("total-loss claim API", () => {
     await expect(
       getTotalLossCheckoutQuote(CASE_ID, "access-token"),
     ).resolves.toEqual({
-      amountMinorUnits: 12900,
+      amountMinorUnits: 19900,
       availability: "available",
       currency: "USD",
     });

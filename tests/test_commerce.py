@@ -81,7 +81,7 @@ DISPUTE_ID = "dp_test_dispute_12345"
 CURRENT_DISPUTE_ID = "du_test_dispute_12345"
 EVENT_ID = "evt_test_event_12345"
 PROCESSING_TOKEN = "b0000000-0000-4000-8000-00000000000b"
-AMOUNT = 9900
+AMOUNT = 19900
 CURRENCY = "USD"
 NOW = 1_800_000_000
 SECRET_KEY = "sk" + "_test_123456789012345678901234"
@@ -640,9 +640,29 @@ class CommerceConfigurationTests(unittest.TestCase):
         self.assertFalse(test.livemode)
         self.assertEqual(test.public_app_origin, "http://localhost:5173")
         self.assertTrue(live.livemode)
+        self.assertEqual((live.expected_amount_minor_units, live.expected_currency), (19900, "USD"))
         self.assertNotIn(SECRET_KEY, repr(test))
         self.assertNotIn(WEBHOOK_SECRET, repr(test))
         self.assertNotIn(PUBLISHABLE_KEY, repr(test))
+
+    def test_live_checkout_rejects_non_launch_pins_and_preserves_sandbox_prices(self) -> None:
+        live_keys = {
+            "secret_key": "sk" + "_live_123456789012345678901234",
+            "publishable_key": "pk" + "_live_123456789012345678901234",
+        }
+        for amount, currency in ((100, "USD"), (12900, "USD"), (19900, "CAD")):
+            with self.subTest(amount=amount, currency=currency), self.assertRaises(ValueError):
+                configuration(**live_keys, expected_amount_minor_units=amount, expected_currency=currency)
+        local = configuration(expected_amount_minor_units=100, expected_currency="USD")
+        self.assertEqual(local.expected_amount_minor_units, 100)
+        for amount in (100, 12900):
+            provider, database = RecordingProvider(), RecordingDatabase()
+            provider.price = stripe_price(unit_amount=amount, livemode=True)
+            commerce = TotalLossCommerceService(database, provider, configuration(**live_keys))
+            with self.subTest(amount=amount), self.assertRaises(CommerceConflictError):
+                commerce.create_checkout(CASE_ID, "owner-token", CLIENT_REQUEST_ID)
+            self.assertFalse(any(name == "reserve_total_loss_checkout" for name, _ in database.calls))
+            self.assertFalse(any(name == "create_checkout_session" for name, _ in provider.calls))
 
     def test_configuration_requires_exact_supported_key_and_identifier_shapes(self) -> None:
         for overrides in (
@@ -3439,13 +3459,37 @@ class FakeStripeClient:
 
 
 class StripeSdkGatewayTests(unittest.TestCase):
+    def test_billing_rollout_recovers_previous_elements_parameters_with_same_key(self) -> None:
+        client = FakeStripeClient()
+        gateway = StripeSdkGateway(configuration(), client=client)
+        with patch.object(client.checkout.sessions, "create", side_effect=[
+            stripe.IdempotencyError("Request parameters differ", http_status=400),
+            client.checkout.sessions.value,
+        ]) as create:
+            session = gateway.create_checkout_session(
+                case_id=CASE_ID, order_id=ORDER_ID, checkout_attempt_id=ATTEMPT_ID,
+                price_id=PRICE_ID, customer_email=EMAIL,
+                return_url="https://app.venfour.example/complete",
+                idempotency_key=f"venfour:checkout:v1:{ATTEMPT_ID}",
+            )
+        self.assertEqual(session.id, SESSION_ID)
+        current, options = create.call_args_list[0].args
+        previous, previous_options = create.call_args_list[1].args
+        self.assertEqual(options, previous_options)
+        self.assertEqual(previous, {
+            **{key: value for key, value in current.items()
+               if key not in {"billing_address_collection", "phone_number_collection", "automatic_tax", "payment_intent_data"}},
+            "payment_intent_data": {"metadata": current["metadata"]},
+        })
+
     def test_exact_idempotency_mismatch_recovers_legacy_parameters_with_same_key(self) -> None:
         client = FakeStripeClient()
         legacy = {**client.checkout.sessions.value, "ui_mode": "hosted", "client_secret": None}
         gateway = StripeSdkGateway(configuration(), client=client)
         with patch.object(
             client.checkout.sessions, "create",
-            side_effect=[stripe.IdempotencyError("Request parameters differ", http_status=400), legacy],
+            side_effect=[stripe.IdempotencyError("Request parameters differ", http_status=400),
+                         stripe.IdempotencyError("Request parameters differ", http_status=400), legacy],
         ) as create:
             session = gateway.create_checkout_session(
                 case_id=CASE_ID, order_id=ORDER_ID, checkout_attempt_id=ATTEMPT_ID,
@@ -3454,8 +3498,9 @@ class StripeSdkGatewayTests(unittest.TestCase):
                 idempotency_key=f"venfour:checkout:v1:{ATTEMPT_ID}",
             )
         self.assertEqual(session.ui_mode, "hosted")
-        current_params, current_options = create.call_args_list[0].args
-        legacy_params, legacy_options = create.call_args_list[1].args
+        current_params, current_options = create.call_args_list[1].args
+        legacy_params, legacy_options = create.call_args_list[2].args
+        self.assertEqual(create.call_args_list[0].args[1], current_options)
         self.assertEqual(current_options, legacy_options)
         self.assertEqual(legacy_options, {"idempotency_key": f"venfour:checkout:v1:{ATTEMPT_ID}"})
         self.assertEqual(
@@ -3530,6 +3575,13 @@ class StripeSdkGatewayTests(unittest.TestCase):
         self.assertEqual(result.client_secret, CLIENT_SECRET)
         self.assertEqual(params["payment_method_types"], ["card"])
         self.assertEqual(params["adaptive_pricing"], {"enabled": False})
+        self.assertEqual(params["billing_address_collection"], "required")
+        self.assertEqual(params["phone_number_collection"], {"enabled": False})
+        self.assertNotIn("shipping_address_collection", params)
+        self.assertNotIn("shipping_options", params)
+        self.assertEqual(params["automatic_tax"], {"enabled": False})
+        self.assertEqual(params["customer_email"], EMAIL)
+        self.assertEqual(params["payment_intent_data"], {"metadata": params["metadata"], "receipt_email": EMAIL})
         self.assertEqual(params["line_items"], [{"price": PRICE_ID, "quantity": 1}])
         self.assertEqual(
             set(params["metadata"]),
