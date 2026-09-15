@@ -93,7 +93,7 @@ Automatic-return verification: 2,076 frontend tests passed, 3 skipped; build, Ty
 
 ## Modal alignment
 
-The report progress line fills the modal's content width. Primary buttons, including Choose PDF and Confirm and continue, align to the right. These changes are scoped to the modal stylesheet.
+The report progress line fills the modal's content width. Confirm and continue aligns to the right. Choose PDF is centered within the upload area. These changes are scoped to the modal stylesheet.
 
 Browser checks verified the progress line matches both content edges on desktop and 390px mobile. Confirmation buttons align to the right at desktop, 390px, and 320px, retain a 44px touch target, and introduce no horizontal overflow. Upload alignment was also checked at 390px. Build, TypeScript, contracts, lint, and diff checks passed. No workflow changes or deployment occurred in this follow-up.
 

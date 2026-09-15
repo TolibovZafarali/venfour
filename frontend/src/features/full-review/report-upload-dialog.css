@@ -8,7 +8,6 @@
 .report-upload-dialog .workspace-stage__description { margin-top: 14px; font-size: 14px; line-height: 1.65; }
 .report-upload-dialog .workspace-upload { align-items: center; text-align: center; max-width: none; margin-top: 24px; padding: 26px 20px; background: #f1f5fc; }
 .report-upload-dialog .workspace-upload__hint { max-width: 300px; }
-.report-upload-dialog .workspace-upload__button { align-self: flex-end; }
 .report-upload-dialog .workspace-report-help { margin-top: 18px; }
 .report-upload-dialog .workspace-report-file { align-items: flex-start; }
 .report-upload-dialog .workspace-report-file > div { min-width: 0; }
