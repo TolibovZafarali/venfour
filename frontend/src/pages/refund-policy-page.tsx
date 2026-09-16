@@ -1,4 +1,5 @@
 import { publicHref } from "@/app/site-boundary";
+import { refundRequestSubject, supportEmail } from "@/config/support";
 
 const policyLinkClassName = "font-medium text-neutral-900 underline decoration-neutral-400 underline-offset-4 hover:decoration-current focus-visible:outline-2 focus-visible:outline-offset-4";
 
@@ -76,14 +77,40 @@ export function RefundPolicyPage() {
               </p>
             </div>
 
-            <div className="mt-7">
-              <h3>How to request a manual refund</h3>
-              <ol className="mt-3 list-decimal space-y-3 pl-5 marker:text-neutral-900">
-                <li><a href={publicHref("/contact?topic=fair-result-refund")} className={policyLinkClassName}>Contact Venfour</a> through the published support channel within the 30-day deadline. Identify your case and the date you received the insurer’s final written response.</li>
-                <li>Provide the final written response or revised valuation and documentation showing that you submitted the supported reconsideration request and evidence.</li>
-                <li>Venfour manually verifies the original valuation, final valuation, and whether the required reconsideration process was followed. We may request additional documentation reasonably necessary to verify eligibility.</li>
-                <li>If eligible, Venfour approves and processes a full refund of the applicable Venfour purchase through the original payment method.</li>
-              </ol>
+            <div id="how-to-request-a-refund" className="mt-7 scroll-mt-24">
+              <h3>How to request a refund</h3>
+              <p>
+                For a manual refund when your final increase is under $1,000,{" "}
+                {supportEmail ? <a href={`mailto:${supportEmail}?subject=${encodeURIComponent(refundRequestSubject)}`} className={policyLinkClassName}>email {supportEmail}</a> : <a href={publicHref("/contact?topic=fair-result-refund")} className={policyLinkClassName}>contact Venfour</a>}
+                {" "}within the 30-day deadline. Include:
+              </p>
+              <ul className="mt-3 list-disc space-y-2 pl-5 marker:text-neutral-900">
+                <li>Your full name</li>
+                <li>The email address associated with your Venfour account</li>
+                <li>Your Venfour case number or ID</li>
+                <li>Your insurance company’s name</li>
+                <li>The insurer’s final written response and the date you received it</li>
+                <li>Any revised valuation report or revised offer provided by the insurer</li>
+                <li>A short explanation of the final outcome</li>
+                <li>A copy or confirmation of the Venfour-supported reconsideration request and supporting evidence you sent to your insurer</li>
+              </ul>
+              <p>
+                Please attach the insurer’s final documentation. Venfour needs it
+                to verify the final vehicle-valuation increase against the original
+                insurer valuation associated with your case at the time of purchase.
+              </p>
+              <p><span className="font-medium text-neutral-900">Suggested subject:</span> {refundRequestSubject}</p>
+              <p>
+                Please do not send Social Security numbers, bank-account
+                information, full payment-card numbers, or other unnecessary
+                sensitive information.
+              </p>
+              <p>
+                We’ll review your request manually and may ask for additional
+                documentation reasonably necessary to verify eligibility. If
+                eligible, we’ll process a full refund of the applicable Venfour
+                purchase through your original payment method.
+              </p>
             </div>
 
             <div className="mt-7">

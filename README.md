@@ -305,7 +305,7 @@ The staging build requires these public browser variables:
 ```text
 VITE_API_BASE_URL=
 VITE_STAGING_ORIGIN=https://staging.venfour.com
-VITE_SUPPORT_EMAIL=<monitored address approved for publication>
+VITE_SUPPORT_EMAIL=support@venfour.com
 VITE_SUPABASE_URL=https://<project-ref>.supabase.co
 VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
 VITE_TURNSTILE_SITE_KEY=<public staging widget site key>

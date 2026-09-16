@@ -1,9 +1,9 @@
-import { applicationHref } from "@/app/site-boundary";
+import { applicationHref, publicHref } from "@/app/site-boundary";
 import { publicIntakeClosed } from "@/config/public-site";
 import { Link, useSearchParams } from "react-router";
 
 import { Button } from "@/components/ui/button";
-import { supportEmail } from "@/config/support";
+import { refundRequestSubject, supportEmail } from "@/config/support";
 import {
   PublicPage,
   PublicPageSection,
@@ -17,11 +17,11 @@ function contactContentFor(topic: string | null) {
         eyebrow: "Fair-Result Refund Policy",
         title: "Get help with a refund",
         introduction:
-          "Use the published support channel to ask about either refund protection or request a manual review of your insurer’s final outcome.",
+          "Email us with questions about either refund protection or to request a manual review of your insurer’s final outcome.",
         sectionTitle: "Contact refund support",
         emailCopy:
           "For a manual refund request, contact us within 30 days after receiving the insurer’s final written response. Identify your case and the date you received that response. Provide the final response or revised valuation and evidence that you submitted the supported reconsideration request; Venfour may ask for additional reasonable documentation.",
-        emailSubject: "Fair-Result Refund Policy request",
+        emailSubject: refundRequestSubject,
         unavailableCopy:
           "Venfour has not yet published a support address here. Use only a support channel published by Venfour for your purchase; do not send claim documents to an unlisted address.",
       };
@@ -69,7 +69,7 @@ function contactContentFor(topic: string | null) {
         eyebrow: "Contact",
         title: "Questions about Venfour",
         introduction:
-          "Use this page for help with a Total Loss review, a diminished-value request, or Venfour’s handling of your information.",
+          "Email us for refund requests, payment questions, case questions, account or access problems, and general customer support.",
         sectionTitle: "Contact support",
         emailCopy:
           "Email is the current support channel. Describe what you were trying to do and what happened. Avoid sending another copy of your valuation report or additional sensitive documents unless they are specifically needed.",
@@ -95,6 +95,13 @@ export function ContactPage() {
         {supportEmail ? (
           <>
             <p>{content.emailCopy}</p>
+            {searchParams.get("topic") === "fair-result-refund" && (
+              <p>
+                <a href={publicHref("/refund-policy#how-to-request-a-refund")} className={publicTextLinkClassName}>
+                  See what to include in your refund request
+                </a>.
+              </p>
+            )}
             <Button asChild className="mt-2" size="lg">
               <a
                 href={`mailto:${supportEmail}?subject=${encodeURIComponent(content.emailSubject)}`}

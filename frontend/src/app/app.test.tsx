@@ -34,7 +34,20 @@ describe("Venfour application", () => {
     expect(manual.getByRole("row", { name: /\$0–\$999\.99/u })).toHaveTextContent("Qualifies if the other manual requirements are met");
     expect(manual.getByRole("row", { name: /\$1,000 or more/u })).toHaveTextContent("Does not qualify under this path");
     expect(manual.getByText(/at the time of purchase.+not your final settlement check/u)).toBeVisible();
-    expect(manual.getByRole("link", { name: "Contact Venfour" })).toHaveAttribute("href", "/contact?topic=fair-result-refund");
+    expect(manual.getByRole("heading", { name: "How to request a refund" })).toBeVisible();
+    expect(manual.getByRole("link", { name: "email support@venfour.com" })).toHaveAttribute(
+      "href", "mailto:support@venfour.com?subject=Refund%20request%20%E2%80%94%20Venfour%20case%20%5Bcase%20number%5D",
+    );
+    expect(manual.getByRole("list")).toHaveTextContent("Your full name");
+    expect(manual.getByRole("list")).toHaveTextContent("The email address associated with your Venfour account");
+    expect(manual.getByRole("list")).toHaveTextContent("Your Venfour case number or ID");
+    expect(manual.getByRole("list")).toHaveTextContent("Your insurance company’s name");
+    expect(manual.getByRole("list")).toHaveTextContent("The insurer’s final written response");
+    expect(manual.getByRole("list")).toHaveTextContent("Any revised valuation report or revised offer");
+    expect(manual.getByRole("list")).toHaveTextContent("A short explanation of the final outcome");
+    expect(manual.getByText(/Please attach.+original insurer valuation.+at the time of purchase/u)).toBeVisible();
+    expect(manual.getByText(/Please do not send Social Security numbers.+unnecessary sensitive information/u)).toBeVisible();
+    expect(manual.getByText(/review your request manually.+additional documentation.+original payment method/u)).toBeVisible();
     expect(manual.queryByText(/retain access/u)).not.toBeInTheDocument();
   });
 

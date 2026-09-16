@@ -336,7 +336,7 @@ function AuthenticatedTotalLossAnalysisPage({
       description={recoveryRequired ? "Your case information is saved. We need to recover the interrupted check before continuing. Please contact support for help." : processingInterrupted ? "A temporary processing problem interrupted the check. Your case information is saved. You can try to continue from the saved progress." : issue ? `Check the ${ordinaryFields[issue.field]} you entered so we can continue.` : reportNeeded ? "We need the information in your insurer’s valuation report to take this review further. Your saved details are still here." : "We couldn’t finish the check right now. Your information is saved."}>
       {correctionPath ? <Button asChild><Link to={correctionPath}>Review your details</Link></Button>
         : reportNeeded ? <Button asChild><Link to={`/total-loss/cases/${caseId}/review-report`}>Upload insurer valuation PDF</Link></Button>
-        : recoveryRequired ? (supportEmail ? <Button asChild><a href={`mailto:${supportEmail}?subject=Interrupted%20value%20check`}>Contact support</a></Button> : null)
+        : recoveryRequired ? (supportEmail ? <Button asChild><a href={`mailto:${supportEmail}?subject=Interrupted%20value%20check`}>Email support</a></Button> : null)
         : analysis.retryable ? <Button disabled={submitMutation.isPending} onClick={submitCurrentInput}><RefreshCw className="size-4" aria-hidden />{processingInterrupted ? "Continue value check" : "Retry value check"}</Button>
         : <Button onClick={() => void analysisQuery.refetch()}>Try again</Button>}
       {!issue && !reportNeeded ? <Button asChild variant="outline"><Link to="/contact">Contact support</Link></Button> : null}
