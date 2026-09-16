@@ -1,0 +1,1617 @@
+{
+  "schemaVersion": "1",
+  "identity": {
+    "title": "Vehicle Valuation Review",
+    "reportSeriesId": "ee0c74ea-2988-4a42-8b90-1bdce09f06d2",
+    "reportVersionId": "2dcb8a94-1da3-4d9f-beb6-a485fe216bca",
+    "finalAssessmentId": "bddbf4fd-f475-4c55-9dde-ba731272b50f",
+    "caseId": "c0cc6d81-9f66-4ae3-949f-dedb811b3bda",
+    "versionNumber": 1,
+    "versionLabel": "v1",
+    "generatedAt": "2026-09-09T21:53:01.531655Z",
+    "issueDate": "2026-09-09",
+    "suggestedFilename": "Venfour_Valuation_Evidence_C0CC6D819F66_v1.pdf",
+    "templateVersion": "2"
+  },
+  "lineage": {
+    "sourceSnapshotId": "ce4214a6-f6b3-4bf5-94ef-5541d68255ce",
+    "analysisRunId": "e6ba2a4a-4b11-4af2-89c6-81dd2640c0ea",
+    "finalAssessmentId": "bddbf4fd-f475-4c55-9dde-ba731272b50f",
+    "sourceSnapshotDigest": "2af74fbb30a2a498793d28d4bf862350dd3fd66dfd9d98979d760561249819a5",
+    "analysisArtifactDigest": "24dc91887d3b17462f2330dc4ae99de316db0745a5375754720b696ccbd89d9f",
+    "finalAssessmentDigest": "cfb03ac7b6ab861242d1dbe0ec84e929e657d3dfd50aeade44eeb164f304a94e",
+    "assessmentMethodologyVersion": "1"
+  },
+  "evidenceCutoff": {
+    "lossDate": "2026-08-26",
+    "analysisCreatedAt": "2026-09-09T21:50:15.031090Z",
+    "currentObservedDate": "2026-09-09",
+    "historicalEvidenceDate": "2026-08-26",
+    "historicalProviderAsOfDate": "2026-09-09"
+  },
+  "purposeAndScope": {
+    "intendedUse": "Organize valuation evidence for an informed request that the insurer reconsider the vehicle valuation.",
+    "scopeStatement": "This self-service evidence package summarizes the frozen insurer, customer, market, and deterministic calculation records identified below.",
+    "reviewedEvidence": [
+      {
+        "label": "Customer-confirmed intake facts",
+        "description": "Vehicle and claim context retained in the immutable source snapshot.",
+        "evidenceLabel": "CUSTOMER_SUPPLIED"
+      },
+      {
+        "label": "Insurer valuation report extraction",
+        "description": "Normalized report facts and insurer comparables frozen with the source document digest.",
+        "evidenceLabel": "INSURER_EXTRACTED"
+      },
+      {
+        "label": "Deterministic analysis artifact",
+        "description": "The immutable analysis run, calculations, findings, and limitations.",
+        "evidenceLabel": "AUTOMATED_CALCULATION"
+      },
+      {
+        "label": "Independent market records",
+        "description": "Selected external advertised-price evidence retained by the analysis engine.",
+        "evidenceLabel": "MARKET_EVIDENCE"
+      }
+    ],
+    "physicalInspectionPerformed": false,
+    "certifiedAppraisal": false,
+    "legalDetermination": false
+  },
+  "executiveConclusion": {
+    "classification": "MATERIAL_UNDERVALUE_SIGNAL",
+    "classificationLabel": "Material undervaluation signal",
+    "continuationStatus": "SUPPORTS_CONTINUATION",
+    "evidenceStrength": "STRONG",
+    "evidenceBasis": "LOSS_DATE_HISTORICAL",
+    "summary": "The deterministic assessment identified a material undervaluation signal in the reviewed evidence. The stated range is a range of selected advertised prices, not a point actual-cash-value determination or guaranteed settlement amount.",
+    "insurerValuation": {
+      "value": {
+        "minorUnits": 1700000,
+        "currency": "USD",
+        "display": "$17,000.00"
+      },
+      "evidenceLabel": "INSURER_EXTRACTED",
+      "evidenceIds": [
+        "ev_ade035076319340e6c2036a9d263e710139583581e54effe31ba133f523aa68e"
+      ]
+    },
+    "supportedAdvertisedPriceRange": {
+      "semantics": "SELECTED_ADVERTISED_PRICE_RANGE",
+      "evidenceBasis": "LOSS_DATE_HISTORICAL",
+      "low": {
+        "minorUnits": 2000000,
+        "currency": "USD",
+        "display": "$20,000.00"
+      },
+      "median": {
+        "minorUnits": 2020000,
+        "currency": "USD",
+        "display": "$20,200.00"
+      },
+      "high": {
+        "minorUnits": 2060000,
+        "currency": "USD",
+        "display": "$20,600.00"
+      },
+      "evidenceLabel": "AUTOMATED_CALCULATION",
+      "evidenceIds": [
+        "ev_8ae07c7b905cb123b217acb3764cc2a3440515c167805b924bcabcd7f57f1bd3"
+      ]
+    },
+    "pointAcvDetermined": false
+  },
+  "subjectVehicle": {
+    "vehicleDisplay": "2024 Hyundai Elantra SEL",
+    "facts": [
+      {
+        "key": "vin",
+        "label": "VIN",
+        "value": null,
+        "displayValue": "Unavailable",
+        "evidenceLabel": "UNAVAILABLE",
+        "evidenceIds": []
+      },
+      {
+        "key": "year",
+        "label": "Year",
+        "value": 2024,
+        "displayValue": "2,024",
+        "evidenceLabel": "INSURER_EXTRACTED",
+        "evidenceIds": [
+          "ev_15f0f21549a6c9239c864ae84de6a60c7058475a65aafa7fa2579cc396637d21"
+        ]
+      },
+      {
+        "key": "make",
+        "label": "Make",
+        "value": "Hyundai",
+        "displayValue": "Hyundai",
+        "evidenceLabel": "INSURER_EXTRACTED",
+        "evidenceIds": [
+          "ev_8629a4e00f9ab4e270dd9dfbf1c9183cc3fd56444a5e7e5daa3fb08d22512a8d"
+        ]
+      },
+      {
+        "key": "model",
+        "label": "Model",
+        "value": "Elantra",
+        "displayValue": "Elantra",
+        "evidenceLabel": "INSURER_EXTRACTED",
+        "evidenceIds": [
+          "ev_a85d9696e9fec15242fba82295ed77bbaf662a0a5aa5eec5ccea0873c9e84d05"
+        ]
+      },
+      {
+        "key": "trim",
+        "label": "Trim",
+        "value": "SEL",
+        "displayValue": "SEL",
+        "evidenceLabel": "INSURER_EXTRACTED",
+        "evidenceIds": [
+          "ev_d34da97c1e34b6ff60d78d33fd7512163bd66bcc10d08e196e928f97ddc1ac5b"
+        ]
+      },
+      {
+        "key": "vehicleConfiguration",
+        "label": "Drivetrain / configuration",
+        "value": null,
+        "displayValue": "Unavailable",
+        "evidenceLabel": "UNAVAILABLE",
+        "evidenceIds": []
+      },
+      {
+        "key": "mileage",
+        "label": "Mileage",
+        "value": 50000,
+        "displayValue": "50,000",
+        "evidenceLabel": "INSURER_EXTRACTED",
+        "evidenceIds": [
+          "ev_41810891ec9c151c1b2d7d38ef7b61992bc964fb3bd8033e57539d4aa548a478"
+        ]
+      },
+      {
+        "key": "postalCode",
+        "label": "Loss-location postal code",
+        "value": "63026",
+        "displayValue": "63026",
+        "evidenceLabel": "INSURER_EXTRACTED",
+        "evidenceIds": [
+          "ev_0227e6286c7eb28a9f1543781c7e2e4cbc588dc8df53e0fc245b260741991a49"
+        ]
+      },
+      {
+        "key": "lossDate",
+        "label": "Date of loss",
+        "value": "2026-08-26",
+        "displayValue": "2026-08-26",
+        "evidenceLabel": "INSURER_EXTRACTED",
+        "evidenceIds": [
+          "ev_528d3924bd6e42103209b2f2cf426ecf54f4f2d744493dcacf41046764e83426"
+        ]
+      },
+      {
+        "key": "optionsPackages",
+        "label": "Relevant equipment / packages",
+        "value": null,
+        "displayValue": "Unavailable",
+        "evidenceLabel": "UNAVAILABLE",
+        "evidenceIds": []
+      },
+      {
+        "key": "priorTitleStatus",
+        "label": "Prior title status",
+        "value": null,
+        "displayValue": "Unavailable",
+        "evidenceLabel": "UNAVAILABLE",
+        "evidenceIds": []
+      },
+      {
+        "key": "condition",
+        "label": "Customer-described condition",
+        "value": null,
+        "displayValue": "Unavailable",
+        "evidenceLabel": "UNAVAILABLE",
+        "evidenceIds": []
+      },
+      {
+        "key": "existingDamageDescription",
+        "label": "Customer-described prior damage",
+        "value": null,
+        "displayValue": "Unavailable",
+        "evidenceLabel": "UNAVAILABLE",
+        "evidenceIds": []
+      }
+    ]
+  },
+  "insurerValuationReviewed": {
+    "insurerName": {
+      "key": "insurerName",
+      "label": "Insurer",
+      "value": "Example Insurance",
+      "displayValue": "Example Insurance",
+      "evidenceLabel": "INSURER_EXTRACTED",
+      "evidenceIds": [
+        "ref_e754d3e2ef5607ef39de15a03928bcb050456680e042d445357601d0990bf452"
+      ]
+    },
+    "claimReference": {
+      "key": "claimReference",
+      "label": "Confirmed claim / report reference",
+      "value": "FICTIONAL-expansion",
+      "displayValue": "FICTIONAL-expansion",
+      "evidenceLabel": "INSURER_EXTRACTED",
+      "evidenceIds": [
+        "ref_1212e4575a02c559249a91ffa6beb89347fccd2b7839e308843195ef9dfe847f"
+      ]
+    },
+    "source": "REPORT",
+    "valuation": {
+      "minorUnits": 1700000,
+      "currency": "USD",
+      "display": "$17,000.00"
+    },
+    "evidenceLabel": "INSURER_EXTRACTED",
+    "evidenceIds": [
+      "ev_ade035076319340e6c2036a9d263e710139583581e54effe31ba133f523aa68e"
+    ]
+  },
+  "insurerComparableReview": {
+    "methodologyTreatment": "DESCRIPTIVE_ONLY",
+    "weightingStatus": "NOT_DETERMINED_BY_V1",
+    "methodologyStatement": "Every insurer comparable available in the frozen assessment is shown descriptively. V1 does not assign a professional retained, challenged, or excluded weight.",
+    "summary": {
+      "totalCount": 0,
+      "adjustedValues": {
+        "count": 0,
+        "range": {
+          "cents": null,
+          "display": null
+        },
+        "dispersion": {
+          "display": null,
+          "basisPoints": null
+        },
+        "medianPrice": {
+          "cents": null,
+          "display": null
+        },
+        "maximumPrice": {
+          "cents": null,
+          "display": null
+        },
+        "minimumPrice": {
+          "cents": null,
+          "display": null
+        },
+        "centralHalfRange": {
+          "cents": null,
+          "display": null
+        },
+        "medianAbsoluteDeviation": {
+          "cents": null,
+          "display": null
+        }
+      },
+      "netAdjustments": {
+        "count": 0,
+        "range": {
+          "cents": null,
+          "display": null
+        },
+        "median": {
+          "cents": null,
+          "display": null
+        },
+        "maximum": {
+          "cents": null,
+          "display": null
+        },
+        "minimum": {
+          "cents": null,
+          "display": null
+        }
+      },
+      "advertisedPrices": {
+        "count": 0,
+        "range": {
+          "cents": null,
+          "display": null
+        },
+        "dispersion": {
+          "display": null,
+          "basisPoints": null
+        },
+        "medianPrice": {
+          "cents": null,
+          "display": null
+        },
+        "maximumPrice": {
+          "cents": null,
+          "display": null
+        },
+        "minimumPrice": {
+          "cents": null,
+          "display": null
+        },
+        "centralHalfRange": {
+          "cents": null,
+          "display": null
+        },
+        "medianAbsoluteDeviation": {
+          "cents": null,
+          "display": null
+        }
+      },
+      "pairedValueCount": 0,
+      "adjustmentDirection": null,
+      "pairedValueMissingCount": 0,
+      "adjustedValueMissingCount": 0,
+      "unavailableAdjustmentCount": 0,
+      "undisclosedAdjustmentCount": 0,
+      "advertisedPriceMissingCount": 0,
+      "fullyDisclosedAdjustmentCount": 0,
+      "partiallyDisclosedAdjustmentCount": 0
+    },
+    "comparables": []
+  },
+  "independentMarketEvidence": {
+    "primary": {
+      "role": "PRIMARY",
+      "evidenceBasis": "LOSS_DATE_HISTORICAL",
+      "label": "Primary loss-date historical evidence",
+      "description": "Resolved listings active on the loss date form the primary external evidence set selected by Phase 3D.",
+      "provider": "marketcheck",
+      "evidenceDate": "2026-08-26",
+      "selectedCount": 9,
+      "prices": {
+        "count": 9,
+        "range": {
+          "cents": 60000,
+          "display": "$600.00"
+        },
+        "dispersion": {
+          "display": "1.24%",
+          "basisPoints": 124
+        },
+        "medianPrice": {
+          "cents": 2020000,
+          "display": "$20,200.00"
+        },
+        "maximumPrice": {
+          "cents": 2060000,
+          "display": "$20,600.00"
+        },
+        "minimumPrice": {
+          "cents": 2000000,
+          "display": "$20,000.00"
+        },
+        "centralHalfRange": {
+          "cents": 25000,
+          "display": "$250.00"
+        },
+        "medianAbsoluteDeviation": {
+          "cents": 20000,
+          "display": "$200.00"
+        }
+      }
+    },
+    "secondary": {
+      "role": "SECONDARY",
+      "evidenceBasis": "CURRENT_MARKET",
+      "label": "Secondary current market evidence",
+      "description": "Current evidence is retained as secondary context and is not combined with the primary loss-date historical price set.",
+      "provider": "marketcheck",
+      "evidenceDate": "2026-09-09",
+      "selectedCount": 2,
+      "prices": {
+        "count": 2,
+        "range": {
+          "cents": 10000,
+          "display": "$100.00"
+        },
+        "dispersion": {
+          "display": "0.25%",
+          "basisPoints": 25
+        },
+        "medianPrice": {
+          "cents": 2005000,
+          "display": "$20,050.00"
+        },
+        "maximumPrice": {
+          "cents": 2010000,
+          "display": "$20,100.00"
+        },
+        "minimumPrice": {
+          "cents": 2000000,
+          "display": "$20,000.00"
+        },
+        "centralHalfRange": {
+          "cents": 0,
+          "display": "$0.00"
+        },
+        "medianAbsoluteDeviation": {
+          "cents": 5000,
+          "display": "$50.00"
+        }
+      }
+    },
+    "comparables": [
+      {
+        "role": "PRIMARY",
+        "evidenceBasis": "LOSS_DATE_HISTORICAL",
+        "source": "marketcheck",
+        "sourceListingId": "fictional-0",
+        "vehicleDisplay": "2024 Hyundai Elantra SEL",
+        "vin": "KMHLM4AG0RU000000",
+        "mileage": 50000,
+        "advertisedPrice": "$20,000.00",
+        "dealer": "Fictional Dealer 0",
+        "location": "Customer postal area, MO, 63026",
+        "distanceMiles": 0.0,
+        "rank": 1,
+        "score": 100,
+        "tier": "Strong match",
+        "temporalBasis": "Verified active on the evidence date from stored lifecycle records",
+        "evidenceDate": "2026-08-26",
+        "evidenceLabel": "MARKET_EVIDENCE",
+        "evidenceIds": [
+          "ev_50743d4003c8f6e1a865593bddae16ff1bf890973a18d8f2c869a1e5cc62f266"
+        ]
+      },
+      {
+        "role": "PRIMARY",
+        "evidenceBasis": "LOSS_DATE_HISTORICAL",
+        "source": "marketcheck",
+        "sourceListingId": "fictional-1",
+        "vehicleDisplay": "2024 Hyundai Elantra SEL",
+        "vin": "KMHLM4AG0RU000001",
+        "mileage": 50020,
+        "advertisedPrice": "$20,100.00",
+        "dealer": "Fictional Dealer 1",
+        "location": "Customer postal area, MO, 63026",
+        "distanceMiles": 0.0,
+        "rank": 2,
+        "score": 99.98,
+        "tier": "Strong match",
+        "temporalBasis": "Verified active on the evidence date from stored lifecycle records",
+        "evidenceDate": "2026-08-26",
+        "evidenceLabel": "MARKET_EVIDENCE",
+        "evidenceIds": [
+          "ev_712e542cb5be73f1f40d15044b12eb44354a9e9a719cc906da376b2ab4c9fd81"
+        ]
+      },
+      {
+        "role": "PRIMARY",
+        "evidenceBasis": "LOSS_DATE_HISTORICAL",
+        "source": "marketcheck",
+        "sourceListingId": "fictional-100",
+        "vehicleDisplay": "2024 Hyundai Elantra SEL",
+        "vin": "KMHLM4AG0RU000100",
+        "mileage": 50000,
+        "advertisedPrice": "$20,000.00",
+        "dealer": "Fictional Dealer 100",
+        "location": "Marion-Herrin, IL Micro Area, MO, 63026",
+        "distanceMiles": 98.77,
+        "rank": 3,
+        "score": 94.07,
+        "tier": "Strong match",
+        "temporalBasis": "Verified active on the evidence date from stored lifecycle records",
+        "evidenceDate": "2026-08-26",
+        "evidenceLabel": "MARKET_EVIDENCE",
+        "evidenceIds": [
+          "ev_359943b41c51d3bb3772ff5d24f98d9cc73bd1294c55cfba6efcf149266a7403"
+        ]
+      },
+      {
+        "role": "PRIMARY",
+        "evidenceBasis": "LOSS_DATE_HISTORICAL",
+        "source": "marketcheck",
+        "sourceListingId": "fictional-101",
+        "vehicleDisplay": "2024 Hyundai Elantra SEL",
+        "vin": "KMHLM4AG0RU000101",
+        "mileage": 50020,
+        "advertisedPrice": "$20,100.00",
+        "dealer": "Fictional Dealer 101",
+        "location": "Marion-Herrin, IL Micro Area, MO, 63026",
+        "distanceMiles": 98.77,
+        "rank": 4,
+        "score": 94.05,
+        "tier": "Strong match",
+        "temporalBasis": "Verified active on the evidence date from stored lifecycle records",
+        "evidenceDate": "2026-08-26",
+        "evidenceLabel": "MARKET_EVIDENCE",
+        "evidenceIds": [
+          "ev_cf4ef05661a75caf09dbe533f9d75166665ee2aa7e58b4356d59a3cf150be413"
+        ]
+      },
+      {
+        "role": "PRIMARY",
+        "evidenceBasis": "LOSS_DATE_HISTORICAL",
+        "source": "marketcheck",
+        "sourceListingId": "fictional-102",
+        "vehicleDisplay": "2024 Hyundai Elantra SEL",
+        "vin": "KMHLM4AG0RU000102",
+        "mileage": 50040,
+        "advertisedPrice": "$20,200.00",
+        "dealer": "Fictional Dealer 102",
+        "location": "Marion-Herrin, IL Micro Area, MO, 63026",
+        "distanceMiles": 98.77,
+        "rank": 5,
+        "score": 94.03,
+        "tier": "Strong match",
+        "temporalBasis": "Verified active on the evidence date from stored lifecycle records",
+        "evidenceDate": "2026-08-26",
+        "evidenceLabel": "MARKET_EVIDENCE",
+        "evidenceIds": [
+          "ev_f50d61880d41f95e6f97f67097f4afadcd1e6bd49b041c3fd3d08d667a6da073"
+        ]
+      },
+      {
+        "role": "PRIMARY",
+        "evidenceBasis": "LOSS_DATE_HISTORICAL",
+        "source": "marketcheck",
+        "sourceListingId": "fictional-103",
+        "vehicleDisplay": "2024 Hyundai Elantra SEL",
+        "vin": "KMHLM4AG0RU000103",
+        "mileage": 50060,
+        "advertisedPrice": "$20,300.00",
+        "dealer": "Fictional Dealer 103",
+        "location": "Marion-Herrin, IL Micro Area, MO, 63026",
+        "distanceMiles": 98.77,
+        "rank": 6,
+        "score": 94.01,
+        "tier": "Strong match",
+        "temporalBasis": "Verified active on the evidence date from stored lifecycle records",
+        "evidenceDate": "2026-08-26",
+        "evidenceLabel": "MARKET_EVIDENCE",
+        "evidenceIds": [
+          "ev_a964d1929d0f163c10175c9bad3bd7398c33644ba2a4efc5da23d3231bcf6e08"
+        ]
+      },
+      {
+        "role": "PRIMARY",
+        "evidenceBasis": "LOSS_DATE_HISTORICAL",
+        "source": "marketcheck",
+        "sourceListingId": "fictional-104",
+        "vehicleDisplay": "2024 Hyundai Elantra SEL",
+        "vin": "KMHLM4AG0RU000104",
+        "mileage": 50080,
+        "advertisedPrice": "$20,400.00",
+        "dealer": "Fictional Dealer 104",
+        "location": "Marion-Herrin, IL Micro Area, MO, 63026",
+        "distanceMiles": 98.77,
+        "rank": 7,
+        "score": 93.99,
+        "tier": "Strong match",
+        "temporalBasis": "Verified active on the evidence date from stored lifecycle records",
+        "evidenceDate": "2026-08-26",
+        "evidenceLabel": "MARKET_EVIDENCE",
+        "evidenceIds": [
+          "ev_dbb0b739d8839032e9a3ffa1902456286e1e820fe698d04d24f11371bbf96df3"
+        ]
+      },
+      {
+        "role": "PRIMARY",
+        "evidenceBasis": "LOSS_DATE_HISTORICAL",
+        "source": "marketcheck",
+        "sourceListingId": "fictional-105",
+        "vehicleDisplay": "2024 Hyundai Elantra SEL",
+        "vin": "KMHLM4AG0RU000105",
+        "mileage": 50100,
+        "advertisedPrice": "$20,500.00",
+        "dealer": "Fictional Dealer 105",
+        "location": "Marion-Herrin, IL Micro Area, MO, 63026",
+        "distanceMiles": 98.77,
+        "rank": 8,
+        "score": 93.97,
+        "tier": "Strong match",
+        "temporalBasis": "Verified active on the evidence date from stored lifecycle records",
+        "evidenceDate": "2026-08-26",
+        "evidenceLabel": "MARKET_EVIDENCE",
+        "evidenceIds": [
+          "ev_c3bfca15d05c60854df76f592d7cafec1d679446b06fe8751e93385336a82b9f"
+        ]
+      },
+      {
+        "role": "PRIMARY",
+        "evidenceBasis": "LOSS_DATE_HISTORICAL",
+        "source": "marketcheck",
+        "sourceListingId": "fictional-106",
+        "vehicleDisplay": "2024 Hyundai Elantra SEL",
+        "vin": "KMHLM4AG0RU000106",
+        "mileage": 50120,
+        "advertisedPrice": "$20,600.00",
+        "dealer": "Fictional Dealer 106",
+        "location": "Marion-Herrin, IL Micro Area, MO, 63026",
+        "distanceMiles": 98.77,
+        "rank": 9,
+        "score": 93.95,
+        "tier": "Strong match",
+        "temporalBasis": "Verified active on the evidence date from stored lifecycle records",
+        "evidenceDate": "2026-08-26",
+        "evidenceLabel": "MARKET_EVIDENCE",
+        "evidenceIds": [
+          "ev_d09cce3422393fd57dc049443f8976d6eaebe95a0a9743971f757890c9f2b613"
+        ]
+      },
+      {
+        "role": "SECONDARY",
+        "evidenceBasis": "CURRENT_MARKET",
+        "source": "marketcheck",
+        "sourceListingId": "fictional-0",
+        "vehicleDisplay": "2024 Hyundai Elantra SEL",
+        "vin": "KMHLM4AG0RU000000",
+        "mileage": 50000,
+        "advertisedPrice": "$20,000.00",
+        "dealer": "Fictional Dealer 0",
+        "location": "Customer postal area, MO, 63026",
+        "distanceMiles": 0.0,
+        "rank": 1,
+        "score": 100,
+        "tier": "Strong match",
+        "temporalBasis": "Current market listing",
+        "evidenceDate": "2026-09-09",
+        "evidenceLabel": "MARKET_EVIDENCE",
+        "evidenceIds": [
+          "ev_184581be9986111638dbd8f7648bc7f45ba8789669d706ea6bff070e62927593"
+        ]
+      },
+      {
+        "role": "SECONDARY",
+        "evidenceBasis": "CURRENT_MARKET",
+        "source": "marketcheck",
+        "sourceListingId": "fictional-1",
+        "vehicleDisplay": "2024 Hyundai Elantra SEL",
+        "vin": "KMHLM4AG0RU000001",
+        "mileage": 50020,
+        "advertisedPrice": "$20,100.00",
+        "dealer": "Fictional Dealer 1",
+        "location": "Customer postal area, MO, 63026",
+        "distanceMiles": 0.0,
+        "rank": 2,
+        "score": 99.98,
+        "tier": "Strong match",
+        "temporalBasis": "Current market listing",
+        "evidenceDate": "2026-09-09",
+        "evidenceLabel": "MARKET_EVIDENCE",
+        "evidenceIds": [
+          "ev_a09101ed7b0337404f8253caf070da3b12f50b6463257e2a6e02afd004e4d9ec"
+        ]
+      }
+    ],
+    "marketSearchContext": {
+      "baselineStatus": "SUFFICIENT",
+      "summary": "The search reached its target of strong comparable evidence.",
+      "stopReasons": [
+        {
+          "stream": "current",
+          "code": "HISTORICAL_BASELINE_SUFFICIENT_CURRENT_CONTEXT_ONLY",
+          "description": "Current listings were checked as context after sufficient loss-date evidence was found."
+        },
+        {
+          "stream": "historical",
+          "code": "SUFFICIENT_STRONG_EVIDENCE",
+          "description": "Enough strong matches were verified for the search target."
+        }
+      ]
+    },
+    "higherPricedComparableListings": {
+      "title": "Higher-priced comparable listings",
+      "disclosure": "These deliberately selected higher asking prices are supporting examples, not typical market prices or verified sale prices. They do not change the broader market valuation or establish a guaranteed increase.",
+      "affectsBaselineValuation": false,
+      "searchStatus": "COMPLETE_BOUNDED_PASS",
+      "listings": [
+        {
+          "identity": "vin:kmhlm4ag0ru000104",
+          "vehicle": "2024 Hyundai Elantra SEL",
+          "mileage": 50080,
+          "askingPriceCents": 2040000,
+          "askingPriceDisplay": "$20,400.00",
+          "distanceMiles": 98.77,
+          "relevantDate": "2026-08-26",
+          "temporalBasis": "Loss-date historical listing",
+          "source": "marketcheck",
+          "priceSource": "history",
+          "listingUrl": "https://local-market.invalid/vehicles/104",
+          "matchingFacts": [
+            {
+              "label": "Body",
+              "value": "Sedan"
+            },
+            {
+              "label": "Engine",
+              "value": "2.0L I4"
+            },
+            {
+              "label": "Fuel",
+              "value": "Unleaded"
+            },
+            {
+              "label": "Transmission",
+              "value": "Automatic"
+            }
+          ],
+          "materialDifferences": [
+            "mileage: subject 50000; listing 50080"
+          ],
+          "limitations": [
+            "The asking price is not a verified completed-sale price.",
+            "This selected higher price is not presented as a typical market price.",
+            "This example does not establish entitlement to or guarantee a higher settlement.",
+            "No independent dollar adjustments were made for differences between vehicles.",
+            "Certification benefits were not fully verified and are not used to justify this listing's premium.",
+            "Warranty benefits were not fully verified and are not used to justify this listing's premium.",
+            "Optional accessories were not fully verified and are not used to justify this listing's premium.",
+            "Listing mileage is 80 miles higher than the subject vehicle. No independent mileage adjustment was calculated."
+          ],
+          "reasonCodes": [
+            "STRICT_VERIFIED_MATCH",
+            "ABOVE_INDEPENDENT_BASELINE_MEDIAN",
+            "QUALITY_BEFORE_ASKING_PRICE"
+          ]
+        },
+        {
+          "identity": "vin:kmhlm4ag0ru000105",
+          "vehicle": "2024 Hyundai Elantra SEL",
+          "mileage": 50100,
+          "askingPriceCents": 2050000,
+          "askingPriceDisplay": "$20,500.00",
+          "distanceMiles": 98.77,
+          "relevantDate": "2026-08-26",
+          "temporalBasis": "Loss-date historical listing",
+          "source": "marketcheck",
+          "priceSource": "history",
+          "listingUrl": "https://local-market.invalid/vehicles/105",
+          "matchingFacts": [
+            {
+              "label": "Body",
+              "value": "Sedan"
+            },
+            {
+              "label": "Engine",
+              "value": "2.0L I4"
+            },
+            {
+              "label": "Fuel",
+              "value": "Unleaded"
+            },
+            {
+              "label": "Transmission",
+              "value": "Automatic"
+            }
+          ],
+          "materialDifferences": [
+            "mileage: subject 50000; listing 50100"
+          ],
+          "limitations": [
+            "The asking price is not a verified completed-sale price.",
+            "This selected higher price is not presented as a typical market price.",
+            "This example does not establish entitlement to or guarantee a higher settlement.",
+            "No independent dollar adjustments were made for differences between vehicles.",
+            "Certification benefits were not fully verified and are not used to justify this listing's premium.",
+            "Warranty benefits were not fully verified and are not used to justify this listing's premium.",
+            "Optional accessories were not fully verified and are not used to justify this listing's premium.",
+            "Listing mileage is 100 miles higher than the subject vehicle. No independent mileage adjustment was calculated."
+          ],
+          "reasonCodes": [
+            "STRICT_VERIFIED_MATCH",
+            "ABOVE_INDEPENDENT_BASELINE_MEDIAN",
+            "QUALITY_BEFORE_ASKING_PRICE"
+          ]
+        },
+        {
+          "identity": "vin:kmhlm4ag0ru000106",
+          "vehicle": "2024 Hyundai Elantra SEL",
+          "mileage": 50120,
+          "askingPriceCents": 2060000,
+          "askingPriceDisplay": "$20,600.00",
+          "distanceMiles": 98.77,
+          "relevantDate": "2026-08-26",
+          "temporalBasis": "Loss-date historical listing",
+          "source": "marketcheck",
+          "priceSource": "history",
+          "listingUrl": "https://local-market.invalid/vehicles/106",
+          "matchingFacts": [
+            {
+              "label": "Body",
+              "value": "Sedan"
+            },
+            {
+              "label": "Engine",
+              "value": "2.0L I4"
+            },
+            {
+              "label": "Fuel",
+              "value": "Unleaded"
+            },
+            {
+              "label": "Transmission",
+              "value": "Automatic"
+            }
+          ],
+          "materialDifferences": [
+            "mileage: subject 50000; listing 50120"
+          ],
+          "limitations": [
+            "The asking price is not a verified completed-sale price.",
+            "This selected higher price is not presented as a typical market price.",
+            "This example does not establish entitlement to or guarantee a higher settlement.",
+            "No independent dollar adjustments were made for differences between vehicles.",
+            "Certification benefits were not fully verified and are not used to justify this listing's premium.",
+            "Warranty benefits were not fully verified and are not used to justify this listing's premium.",
+            "Optional accessories were not fully verified and are not used to justify this listing's premium.",
+            "Listing mileage is 120 miles higher than the subject vehicle. No independent mileage adjustment was calculated."
+          ],
+          "reasonCodes": [
+            "STRICT_VERIFIED_MATCH",
+            "ABOVE_INDEPENDENT_BASELINE_MEDIAN",
+            "QUALITY_BEFORE_ASKING_PRICE"
+          ]
+        }
+      ]
+    }
+  },
+  "adjustmentsAndCalculations": {
+    "methodologyStatement": "Only stored deterministic calculations are shown. No report-generation adjustment or professional weighting is added.",
+    "calculations": [
+      {
+        "code": "PRIMARY_EVIDENCE_COMPARISON",
+        "label": "Primary evidence comparison",
+        "description": "Deterministic comparison of the insurer valuation with the selected primary advertised-price median.",
+        "values": [
+          {
+            "key": "externalMedian",
+            "label": "External advertised-price median",
+            "value": 2020000,
+            "displayValue": "$20,200.00",
+            "evidenceLabel": "AUTOMATED_CALCULATION",
+            "evidenceIds": [
+              "ev_fc1f9a33f3c0eefe93c86ec105f2f21d60083986c8eb1b2c0729b9f789381aba"
+            ]
+          },
+          {
+            "key": "insurerValuation",
+            "label": "Insurer valuation reviewed",
+            "value": 1700000,
+            "displayValue": "$17,000.00",
+            "evidenceLabel": "AUTOMATED_CALCULATION",
+            "evidenceIds": [
+              "ev_fc1f9a33f3c0eefe93c86ec105f2f21d60083986c8eb1b2c0729b9f789381aba"
+            ]
+          },
+          {
+            "key": "difference",
+            "label": "Median difference",
+            "value": 320000,
+            "displayValue": "$3,200.00",
+            "evidenceLabel": "AUTOMATED_CALCULATION",
+            "evidenceIds": [
+              "ev_fc1f9a33f3c0eefe93c86ec105f2f21d60083986c8eb1b2c0729b9f789381aba"
+            ]
+          },
+          {
+            "key": "differencePercent",
+            "label": "Median difference percent",
+            "value": 1882,
+            "displayValue": "18.82%",
+            "evidenceLabel": "AUTOMATED_CALCULATION",
+            "evidenceIds": [
+              "ev_fc1f9a33f3c0eefe93c86ec105f2f21d60083986c8eb1b2c0729b9f789381aba"
+            ]
+          },
+          {
+            "key": "rangePosition",
+            "label": "Insurer position in selected range",
+            "value": "BELOW_OBSERVED_RANGE",
+            "displayValue": "BELOW_OBSERVED_RANGE",
+            "evidenceLabel": "AUTOMATED_CALCULATION",
+            "evidenceIds": [
+              "ev_fc1f9a33f3c0eefe93c86ec105f2f21d60083986c8eb1b2c0729b9f789381aba"
+            ]
+          }
+        ],
+        "evidenceLabel": "AUTOMATED_CALCULATION",
+        "evidenceIds": [
+          "ev_fc1f9a33f3c0eefe93c86ec105f2f21d60083986c8eb1b2c0729b9f789381aba"
+        ]
+      }
+    ]
+  },
+  "evidenceReconciliation": {
+    "summary": "The supported range follows directly from the minimum, median, and maximum advertised prices in the selected primary evidence set. No point actual-cash value or independent dollar adjustment was added.",
+    "basis": "LOSS_DATE_HISTORICAL",
+    "pointAcvDetermined": false,
+    "evidenceLabel": "DETERMINISTIC_FINDING",
+    "evidenceIds": [
+      "ev_8ae07c7b905cb123b217acb3764cc2a3440515c167805b924bcabcd7f57f1bd3"
+    ]
+  },
+  "preliminaryVersusFinal": {
+    "status": "CONFIRMED",
+    "summary": "The final assessment confirms the preliminary result without a material change.",
+    "final": {
+      "classification": "MATERIAL_UNDERVALUE_SIGNAL",
+      "supportedRange": {
+        "currency": "USD",
+        "lowMinorUnits": 2000000,
+        "highMinorUnits": 2060000,
+        "medianMinorUnits": 2020000
+      }
+    },
+    "preliminary": {
+      "classification": "MATERIAL_UNDERVALUE_SIGNAL",
+      "supportedRange": {
+        "currency": "USD",
+        "lowMinorUnits": 2000000,
+        "highMinorUnits": 2060000,
+        "medianMinorUnits": 2020000
+      }
+    },
+    "reasonCodes": [
+      "UNCHANGED_EVIDENCE"
+    ],
+    "materialChange": false,
+    "classificationChanged": false,
+    "rangeAvailabilityChanged": false,
+    "absoluteChangesMinorUnits": {
+      "lowMinorUnits": 0,
+      "highMinorUnits": 0,
+      "medianMinorUnits": 0
+    },
+    "percentageChangesBasisPoints": {
+      "lowMinorUnits": 0,
+      "highMinorUnits": 0,
+      "medianMinorUnits": 0
+    }
+  },
+  "findings": [
+    {
+      "code": "HISTORICAL_PRIMARY_EVIDENCE",
+      "label": "Historical evidence is primary",
+      "description": "Resolved listings active on the loss date provide the primary external comparison.",
+      "evidenceLabel": "DETERMINISTIC_FINDING",
+      "evidenceIds": [
+        "ev_3b887d82f94b0255c8a120d809339ff4757033b56533fb7ac3a04c0d42fcd400"
+      ]
+    },
+    {
+      "code": "CURRENT_EVIDENCE_SECONDARY",
+      "label": "Current evidence is secondary",
+      "description": "Current inventory is secondary context and is not combined with the loss-date historical price set.",
+      "evidenceLabel": "DETERMINISTIC_FINDING",
+      "evidenceIds": [
+        "ev_0f2d7507c3d4e6579dafd188d62d2e639e17567901a4c5c382583b4cfc8a1436"
+      ]
+    },
+    {
+      "code": "EXTERNAL_COMPARISON_SET_BOUNDED",
+      "label": "External comparison set was bounded",
+      "description": "Lower-ranked eligible external records outside the policy comparison-set limit were excluded.",
+      "evidenceLabel": "DETERMINISTIC_FINDING",
+      "evidenceIds": [
+        "ev_ac7f179f57aea939b0f0c1d1c90815b023f1e90d63814a16dc50e364962aa3ce"
+      ]
+    },
+    {
+      "code": "EXTERNAL_MEDIAN_ABOVE_CCC",
+      "label": "External median is above the insurer valuation",
+      "description": "The selected external advertised-price median is above the insurer valuation or stated offer.",
+      "evidenceLabel": "DETERMINISTIC_FINDING",
+      "evidenceIds": [
+        "ev_c16fdf54e25f54182c26e7774aeb1de86092278159064edf99ec5dbd40d97879"
+      ]
+    },
+    {
+      "code": "CCC_BELOW_EXTERNAL_RANGE",
+      "label": "Insurer valuation is below the external range",
+      "description": "The insurer valuation or stated offer is below the selected external advertised-price range.",
+      "evidenceLabel": "DETERMINISTIC_FINDING",
+      "evidenceIds": [
+        "ev_6c917dffbcbcaac4a8f9ab1996d5a8a60f8371d1413fe4b42406fa20af0bb8d8"
+      ]
+    },
+    {
+      "code": "MATERIAL_GAP_THRESHOLD_MET",
+      "label": "Material gap threshold was met",
+      "description": "The stored primary median gap meets the material screening threshold with strong loss-date historical evidence.",
+      "evidenceLabel": "DETERMINISTIC_FINDING",
+      "evidenceIds": [
+        "ev_849e668d32e4da21406d90209b852cd6f666a8dc2db6c2f7c3e08f3b9c15cd7e"
+      ]
+    }
+  ],
+  "assumptionsAndLimitations": {
+    "assumptions": [
+      {
+        "code": "NO_PHYSICAL_VEHICLE_INSPECTION",
+        "label": "No physical vehicle inspection",
+        "description": "Venfour did not physically inspect the subject vehicle for this evidence package.",
+        "evidenceLabel": "ASSUMPTION",
+        "evidenceIds": []
+      }
+    ],
+    "limitations": [
+      {
+        "code": "NOT_AN_INDEPENDENT_APPRAISAL",
+        "label": "Not an independent appraisal",
+        "description": "This evidence comparison is not an independent vehicle appraisal.",
+        "evidenceLabel": "DETERMINISTIC_FINDING",
+        "evidenceIds": [
+          "ev_14d633d38bdf60fd35fb37153ec93dc4b1af8ab02e1642302f8cfe44977953e6"
+        ]
+      },
+      {
+        "code": "DOES_NOT_CALCULATE_LEGAL_SETTLEMENT",
+        "label": "Does not calculate a legal settlement",
+        "description": "This analysis does not calculate a legally owed settlement amount.",
+        "evidenceLabel": "DETERMINISTIC_FINDING",
+        "evidenceIds": [
+          "ev_6c82702ef2cb2c7c507436249edc14e90b6688249ec3016954eb57c1b44a9e56"
+        ]
+      },
+      {
+        "code": "POLICY_THRESHOLDS_NOT_LEGAL_STANDARDS",
+        "label": "Policy thresholds are not legal standards",
+        "description": "Classification thresholds are screening-policy thresholds, not legal or industry standards.",
+        "evidenceLabel": "DETERMINISTIC_FINDING",
+        "evidenceIds": [
+          "ev_717c0f3313540e0287595d282b2fc5b07e0242aacc43b17f2b6f34d963b6180b"
+        ]
+      },
+      {
+        "code": "NEGOTIATION_OUTPUT_NOT_INCLUDED",
+        "label": "Negotiation output is not included",
+        "description": "Negotiation, demand, and action guidance are not included.",
+        "evidenceLabel": "DETERMINISTIC_FINDING",
+        "evidenceIds": [
+          "ev_0de08a418171a03e1f83f59bcc7918a8d494a6e0d7dd94333b828913e52aeb8b"
+        ]
+      },
+      {
+        "code": "ADVERTISED_PRICES_NOT_TRANSACTIONS",
+        "label": "Advertised prices are not completed transactions",
+        "description": "Advertised listing prices are not verified completed-sale prices.",
+        "evidenceLabel": "DETERMINISTIC_FINDING",
+        "evidenceIds": [
+          "ev_0cec8604bbc17167bceddc9662a3b40ff96aa8e33bae6a52b6c92b3a38d9b1c8"
+        ]
+      },
+      {
+        "code": "NO_INDEPENDENT_MILEAGE_ADJUSTMENT",
+        "label": "No independent mileage adjustment",
+        "description": "Mileage differences are reported without an independent dollar-per-mile adjustment.",
+        "evidenceLabel": "DETERMINISTIC_FINDING",
+        "evidenceIds": [
+          "ev_ba9a01d93c5a1e7148096077143202de744f866884024fea6abde7c2737b28b5"
+        ]
+      },
+      {
+        "code": "NO_INDEPENDENT_CONDITION_ADJUSTMENT",
+        "label": "No independent condition adjustment",
+        "description": "No independently invented vehicle-condition adjustment is applied.",
+        "evidenceLabel": "DETERMINISTIC_FINDING",
+        "evidenceIds": [
+          "ev_02ee3769e644557128303eb3a1a980cbd7e9c3775775569462613685721d8947"
+        ]
+      },
+      {
+        "code": "NO_INDEPENDENT_OPTIONS_ADJUSTMENT",
+        "label": "No independent options adjustment",
+        "description": "No independently invented option, package, or equipment adjustment is applied.",
+        "evidenceLabel": "DETERMINISTIC_FINDING",
+        "evidenceIds": [
+          "ev_f130aaec3f318a4bdf79dd63685bb9c334b58ba2b76fa7bc21d5c609e47a428f"
+        ]
+      },
+      {
+        "code": "PROVIDER_COVERAGE_LIMITED",
+        "label": "Provider coverage is limited",
+        "description": "Provider evidence may not capture every vehicle available in the relevant market.",
+        "evidenceLabel": "DETERMINISTIC_FINDING",
+        "evidenceIds": [
+          "ev_0f4a48668e091c219f052b248f470abf3f4ba6bb5dcdbc3073fe6972796f3dc9"
+        ]
+      },
+      {
+        "code": "CURRENT_LISTINGS_NOT_LOSS_DATE_EVIDENCE",
+        "label": "Current listings are not loss-date evidence",
+        "description": "Current inventory is current-market context and is not proof of loss-date conditions.",
+        "evidenceLabel": "DETERMINISTIC_FINDING",
+        "evidenceIds": [
+          "ev_284cca678419940e02e4369176ecdffbdc49d325016fdeafb361403376a5b91c"
+        ]
+      },
+      {
+        "code": "HISTORICAL_DATE_LEVEL_ONLY",
+        "label": "Historical evidence is date-level only",
+        "description": "Historical activity is established at calendar-date level; the exact loss time within that day is unavailable.",
+        "evidenceLabel": "DETERMINISTIC_FINDING",
+        "evidenceIds": [
+          "ev_678a796482017b42f363e697b1edbc3847c4e1475d73a647b4f91cdb0179b40e"
+        ]
+      },
+      {
+        "code": "BOUNDED_EXTERNAL_COMPARISON_SET",
+        "label": "External comparison set is bounded",
+        "description": "External statistics use the bounded best-ranked eligible set selected without reference to price.",
+        "evidenceLabel": "DETERMINISTIC_FINDING",
+        "evidenceIds": [
+          "ev_6a1912f26287a88ba536eb46fd123277ef432ebfb3d117bb64d096108eeccbc8"
+        ]
+      }
+    ]
+  },
+  "sourceEvidenceIndex": [
+    {
+      "evidenceId": "ev_0227e6286c7eb28a9f1543781c7e2e4cbc588dc8df53e0fc245b260741991a49",
+      "evidenceLabel": "INSURER_EXTRACTED",
+      "sourceArtifact": "ANALYSIS_RUN",
+      "jsonPointer": "/result/discrepancyRequest/lossVehicle/postalCode",
+      "sourceIdentity": "postalCode",
+      "locationPrecision": "JSON_POINTER",
+      "pageNumber": null
+    },
+    {
+      "evidenceId": "ev_02ee3769e644557128303eb3a1a980cbd7e9c3775775569462613685721d8947",
+      "evidenceLabel": "DETERMINISTIC_FINDING",
+      "sourceArtifact": "ANALYSIS_RUN",
+      "jsonPointer": "/result/discrepancyResult/limitations/6",
+      "sourceIdentity": "limitation:NO_INDEPENDENT_CONDITION_ADJUSTMENT",
+      "locationPrecision": "JSON_POINTER",
+      "pageNumber": null
+    },
+    {
+      "evidenceId": "ev_0cec8604bbc17167bceddc9662a3b40ff96aa8e33bae6a52b6c92b3a38d9b1c8",
+      "evidenceLabel": "DETERMINISTIC_FINDING",
+      "sourceArtifact": "ANALYSIS_RUN",
+      "jsonPointer": "/result/discrepancyResult/limitations/4",
+      "sourceIdentity": "limitation:ADVERTISED_PRICES_NOT_TRANSACTIONS",
+      "locationPrecision": "JSON_POINTER",
+      "pageNumber": null
+    },
+    {
+      "evidenceId": "ev_0de08a418171a03e1f83f59bcc7918a8d494a6e0d7dd94333b828913e52aeb8b",
+      "evidenceLabel": "DETERMINISTIC_FINDING",
+      "sourceArtifact": "ANALYSIS_RUN",
+      "jsonPointer": "/result/discrepancyResult/limitations/3",
+      "sourceIdentity": "limitation:NEGOTIATION_OUTPUT_NOT_INCLUDED",
+      "locationPrecision": "JSON_POINTER",
+      "pageNumber": null
+    },
+    {
+      "evidenceId": "ev_0f2d7507c3d4e6579dafd188d62d2e639e17567901a4c5c382583b4cfc8a1436",
+      "evidenceLabel": "DETERMINISTIC_FINDING",
+      "sourceArtifact": "ANALYSIS_RUN",
+      "jsonPointer": "/result/discrepancyResult/findings/1",
+      "sourceIdentity": "finding:CURRENT_EVIDENCE_SECONDARY",
+      "locationPrecision": "JSON_POINTER",
+      "pageNumber": null
+    },
+    {
+      "evidenceId": "ev_0f4a48668e091c219f052b248f470abf3f4ba6bb5dcdbc3073fe6972796f3dc9",
+      "evidenceLabel": "DETERMINISTIC_FINDING",
+      "sourceArtifact": "ANALYSIS_RUN",
+      "jsonPointer": "/result/discrepancyResult/limitations/8",
+      "sourceIdentity": "limitation:PROVIDER_COVERAGE_LIMITED",
+      "locationPrecision": "JSON_POINTER",
+      "pageNumber": null
+    },
+    {
+      "evidenceId": "ev_14d633d38bdf60fd35fb37153ec93dc4b1af8ab02e1642302f8cfe44977953e6",
+      "evidenceLabel": "DETERMINISTIC_FINDING",
+      "sourceArtifact": "ANALYSIS_RUN",
+      "jsonPointer": "/result/discrepancyResult/limitations/0",
+      "sourceIdentity": "limitation:NOT_AN_INDEPENDENT_APPRAISAL",
+      "locationPrecision": "JSON_POINTER",
+      "pageNumber": null
+    },
+    {
+      "evidenceId": "ev_15f0f21549a6c9239c864ae84de6a60c7058475a65aafa7fa2579cc396637d21",
+      "evidenceLabel": "INSURER_EXTRACTED",
+      "sourceArtifact": "ANALYSIS_RUN",
+      "jsonPointer": "/result/discrepancyRequest/lossVehicle/year",
+      "sourceIdentity": "year",
+      "locationPrecision": "JSON_POINTER",
+      "pageNumber": null
+    },
+    {
+      "evidenceId": "ev_184581be9986111638dbd8f7648bc7f45ba8789669d706ea6bff070e62927593",
+      "evidenceLabel": "MARKET_EVIDENCE",
+      "sourceArtifact": "ANALYSIS_RUN",
+      "jsonPointer": "/result/discrepancyResult/currentExternalSummary/selectedEvidence/0",
+      "sourceIdentity": "currentExternalSummary:fictional-0",
+      "locationPrecision": "JSON_POINTER",
+      "pageNumber": null
+    },
+    {
+      "evidenceId": "ev_284cca678419940e02e4369176ecdffbdc49d325016fdeafb361403376a5b91c",
+      "evidenceLabel": "DETERMINISTIC_FINDING",
+      "sourceArtifact": "ANALYSIS_RUN",
+      "jsonPointer": "/result/discrepancyResult/limitations/9",
+      "sourceIdentity": "limitation:CURRENT_LISTINGS_NOT_LOSS_DATE_EVIDENCE",
+      "locationPrecision": "JSON_POINTER",
+      "pageNumber": null
+    },
+    {
+      "evidenceId": "ev_359943b41c51d3bb3772ff5d24f98d9cc73bd1294c55cfba6efcf149266a7403",
+      "evidenceLabel": "MARKET_EVIDENCE",
+      "sourceArtifact": "ANALYSIS_RUN",
+      "jsonPointer": "/result/discrepancyResult/historicalExternalSummary/selectedEvidence/2",
+      "sourceIdentity": "historicalExternalSummary:fictional-100",
+      "locationPrecision": "JSON_POINTER",
+      "pageNumber": null
+    },
+    {
+      "evidenceId": "ev_3b887d82f94b0255c8a120d809339ff4757033b56533fb7ac3a04c0d42fcd400",
+      "evidenceLabel": "DETERMINISTIC_FINDING",
+      "sourceArtifact": "ANALYSIS_RUN",
+      "jsonPointer": "/result/discrepancyResult/findings/0",
+      "sourceIdentity": "finding:HISTORICAL_PRIMARY_EVIDENCE",
+      "locationPrecision": "JSON_POINTER",
+      "pageNumber": null
+    },
+    {
+      "evidenceId": "ev_41810891ec9c151c1b2d7d38ef7b61992bc964fb3bd8033e57539d4aa548a478",
+      "evidenceLabel": "INSURER_EXTRACTED",
+      "sourceArtifact": "ANALYSIS_RUN",
+      "jsonPointer": "/result/discrepancyRequest/lossVehicle/mileage",
+      "sourceIdentity": "mileage",
+      "locationPrecision": "JSON_POINTER",
+      "pageNumber": null
+    },
+    {
+      "evidenceId": "ev_50743d4003c8f6e1a865593bddae16ff1bf890973a18d8f2c869a1e5cc62f266",
+      "evidenceLabel": "MARKET_EVIDENCE",
+      "sourceArtifact": "ANALYSIS_RUN",
+      "jsonPointer": "/result/discrepancyResult/historicalExternalSummary/selectedEvidence/0",
+      "sourceIdentity": "historicalExternalSummary:fictional-0",
+      "locationPrecision": "JSON_POINTER",
+      "pageNumber": null
+    },
+    {
+      "evidenceId": "ev_528d3924bd6e42103209b2f2cf426ecf54f4f2d744493dcacf41046764e83426",
+      "evidenceLabel": "INSURER_EXTRACTED",
+      "sourceArtifact": "ANALYSIS_RUN",
+      "jsonPointer": "/result/discrepancyRequest/lossDate",
+      "sourceIdentity": "lossDate",
+      "locationPrecision": "JSON_POINTER",
+      "pageNumber": null
+    },
+    {
+      "evidenceId": "ev_678a796482017b42f363e697b1edbc3847c4e1475d73a647b4f91cdb0179b40e",
+      "evidenceLabel": "DETERMINISTIC_FINDING",
+      "sourceArtifact": "ANALYSIS_RUN",
+      "jsonPointer": "/result/discrepancyResult/limitations/10",
+      "sourceIdentity": "limitation:HISTORICAL_DATE_LEVEL_ONLY",
+      "locationPrecision": "JSON_POINTER",
+      "pageNumber": null
+    },
+    {
+      "evidenceId": "ev_6a1912f26287a88ba536eb46fd123277ef432ebfb3d117bb64d096108eeccbc8",
+      "evidenceLabel": "DETERMINISTIC_FINDING",
+      "sourceArtifact": "ANALYSIS_RUN",
+      "jsonPointer": "/result/discrepancyResult/limitations/11",
+      "sourceIdentity": "limitation:BOUNDED_EXTERNAL_COMPARISON_SET",
+      "locationPrecision": "JSON_POINTER",
+      "pageNumber": null
+    },
+    {
+      "evidenceId": "ev_6c82702ef2cb2c7c507436249edc14e90b6688249ec3016954eb57c1b44a9e56",
+      "evidenceLabel": "DETERMINISTIC_FINDING",
+      "sourceArtifact": "ANALYSIS_RUN",
+      "jsonPointer": "/result/discrepancyResult/limitations/1",
+      "sourceIdentity": "limitation:DOES_NOT_CALCULATE_LEGAL_SETTLEMENT",
+      "locationPrecision": "JSON_POINTER",
+      "pageNumber": null
+    },
+    {
+      "evidenceId": "ev_6c917dffbcbcaac4a8f9ab1996d5a8a60f8371d1413fe4b42406fa20af0bb8d8",
+      "evidenceLabel": "DETERMINISTIC_FINDING",
+      "sourceArtifact": "ANALYSIS_RUN",
+      "jsonPointer": "/result/discrepancyResult/findings/4",
+      "sourceIdentity": "finding:CCC_BELOW_EXTERNAL_RANGE",
+      "locationPrecision": "JSON_POINTER",
+      "pageNumber": null
+    },
+    {
+      "evidenceId": "ev_712e542cb5be73f1f40d15044b12eb44354a9e9a719cc906da376b2ab4c9fd81",
+      "evidenceLabel": "MARKET_EVIDENCE",
+      "sourceArtifact": "ANALYSIS_RUN",
+      "jsonPointer": "/result/discrepancyResult/historicalExternalSummary/selectedEvidence/1",
+      "sourceIdentity": "historicalExternalSummary:fictional-1",
+      "locationPrecision": "JSON_POINTER",
+      "pageNumber": null
+    },
+    {
+      "evidenceId": "ev_717c0f3313540e0287595d282b2fc5b07e0242aacc43b17f2b6f34d963b6180b",
+      "evidenceLabel": "DETERMINISTIC_FINDING",
+      "sourceArtifact": "ANALYSIS_RUN",
+      "jsonPointer": "/result/discrepancyResult/limitations/2",
+      "sourceIdentity": "limitation:POLICY_THRESHOLDS_NOT_LEGAL_STANDARDS",
+      "locationPrecision": "JSON_POINTER",
+      "pageNumber": null
+    },
+    {
+      "evidenceId": "ev_849e668d32e4da21406d90209b852cd6f666a8dc2db6c2f7c3e08f3b9c15cd7e",
+      "evidenceLabel": "DETERMINISTIC_FINDING",
+      "sourceArtifact": "ANALYSIS_RUN",
+      "jsonPointer": "/result/discrepancyResult/findings/5",
+      "sourceIdentity": "finding:MATERIAL_GAP_THRESHOLD_MET",
+      "locationPrecision": "JSON_POINTER",
+      "pageNumber": null
+    },
+    {
+      "evidenceId": "ev_8629a4e00f9ab4e270dd9dfbf1c9183cc3fd56444a5e7e5daa3fb08d22512a8d",
+      "evidenceLabel": "INSURER_EXTRACTED",
+      "sourceArtifact": "ANALYSIS_RUN",
+      "jsonPointer": "/result/discrepancyRequest/lossVehicle/make",
+      "sourceIdentity": "make",
+      "locationPrecision": "JSON_POINTER",
+      "pageNumber": null
+    },
+    {
+      "evidenceId": "ev_8ae07c7b905cb123b217acb3764cc2a3440515c167805b924bcabcd7f57f1bd3",
+      "evidenceLabel": "AUTOMATED_CALCULATION",
+      "sourceArtifact": "ANALYSIS_RUN",
+      "jsonPointer": "/result/discrepancyResult/historicalExternalSummary/prices",
+      "sourceIdentity": "historicalExternalSummary:prices",
+      "locationPrecision": "JSON_POINTER",
+      "pageNumber": null
+    },
+    {
+      "evidenceId": "ev_a09101ed7b0337404f8253caf070da3b12f50b6463257e2a6e02afd004e4d9ec",
+      "evidenceLabel": "MARKET_EVIDENCE",
+      "sourceArtifact": "ANALYSIS_RUN",
+      "jsonPointer": "/result/discrepancyResult/currentExternalSummary/selectedEvidence/1",
+      "sourceIdentity": "currentExternalSummary:fictional-1",
+      "locationPrecision": "JSON_POINTER",
+      "pageNumber": null
+    },
+    {
+      "evidenceId": "ev_a85d9696e9fec15242fba82295ed77bbaf662a0a5aa5eec5ccea0873c9e84d05",
+      "evidenceLabel": "INSURER_EXTRACTED",
+      "sourceArtifact": "ANALYSIS_RUN",
+      "jsonPointer": "/result/discrepancyRequest/lossVehicle/model",
+      "sourceIdentity": "model",
+      "locationPrecision": "JSON_POINTER",
+      "pageNumber": null
+    },
+    {
+      "evidenceId": "ev_a964d1929d0f163c10175c9bad3bd7398c33644ba2a4efc5da23d3231bcf6e08",
+      "evidenceLabel": "MARKET_EVIDENCE",
+      "sourceArtifact": "ANALYSIS_RUN",
+      "jsonPointer": "/result/discrepancyResult/historicalExternalSummary/selectedEvidence/5",
+      "sourceIdentity": "historicalExternalSummary:fictional-103",
+      "locationPrecision": "JSON_POINTER",
+      "pageNumber": null
+    },
+    {
+      "evidenceId": "ev_ac7f179f57aea939b0f0c1d1c90815b023f1e90d63814a16dc50e364962aa3ce",
+      "evidenceLabel": "DETERMINISTIC_FINDING",
+      "sourceArtifact": "ANALYSIS_RUN",
+      "jsonPointer": "/result/discrepancyResult/findings/2",
+      "sourceIdentity": "finding:EXTERNAL_COMPARISON_SET_BOUNDED",
+      "locationPrecision": "JSON_POINTER",
+      "pageNumber": null
+    },
+    {
+      "evidenceId": "ev_ade035076319340e6c2036a9d263e710139583581e54effe31ba133f523aa68e",
+      "evidenceLabel": "INSURER_EXTRACTED",
+      "sourceArtifact": "ANALYSIS_RUN",
+      "jsonPointer": "/result/discrepancyResult/cccVehicleValuationCents",
+      "sourceIdentity": "insurer-valuation",
+      "locationPrecision": "JSON_POINTER",
+      "pageNumber": null
+    },
+    {
+      "evidenceId": "ev_ba9a01d93c5a1e7148096077143202de744f866884024fea6abde7c2737b28b5",
+      "evidenceLabel": "DETERMINISTIC_FINDING",
+      "sourceArtifact": "ANALYSIS_RUN",
+      "jsonPointer": "/result/discrepancyResult/limitations/5",
+      "sourceIdentity": "limitation:NO_INDEPENDENT_MILEAGE_ADJUSTMENT",
+      "locationPrecision": "JSON_POINTER",
+      "pageNumber": null
+    },
+    {
+      "evidenceId": "ev_c16fdf54e25f54182c26e7774aeb1de86092278159064edf99ec5dbd40d97879",
+      "evidenceLabel": "DETERMINISTIC_FINDING",
+      "sourceArtifact": "ANALYSIS_RUN",
+      "jsonPointer": "/result/discrepancyResult/findings/3",
+      "sourceIdentity": "finding:EXTERNAL_MEDIAN_ABOVE_CCC",
+      "locationPrecision": "JSON_POINTER",
+      "pageNumber": null
+    },
+    {
+      "evidenceId": "ev_c2a9c256c1618bef96ac83b644c70ed3d3360d74394f54d30b34d9b254003452",
+      "evidenceLabel": "AUTOMATED_CALCULATION",
+      "sourceArtifact": "ANALYSIS_RUN",
+      "jsonPointer": "/result/discrepancyResult/currentExternalSummary/prices",
+      "sourceIdentity": "currentExternalSummary:prices",
+      "locationPrecision": "JSON_POINTER",
+      "pageNumber": null
+    },
+    {
+      "evidenceId": "ev_c3bfca15d05c60854df76f592d7cafec1d679446b06fe8751e93385336a82b9f",
+      "evidenceLabel": "MARKET_EVIDENCE",
+      "sourceArtifact": "ANALYSIS_RUN",
+      "jsonPointer": "/result/discrepancyResult/historicalExternalSummary/selectedEvidence/7",
+      "sourceIdentity": "historicalExternalSummary:fictional-105",
+      "locationPrecision": "JSON_POINTER",
+      "pageNumber": null
+    },
+    {
+      "evidenceId": "ev_cf4ef05661a75caf09dbe533f9d75166665ee2aa7e58b4356d59a3cf150be413",
+      "evidenceLabel": "MARKET_EVIDENCE",
+      "sourceArtifact": "ANALYSIS_RUN",
+      "jsonPointer": "/result/discrepancyResult/historicalExternalSummary/selectedEvidence/3",
+      "sourceIdentity": "historicalExternalSummary:fictional-101",
+      "locationPrecision": "JSON_POINTER",
+      "pageNumber": null
+    },
+    {
+      "evidenceId": "ev_d09cce3422393fd57dc049443f8976d6eaebe95a0a9743971f757890c9f2b613",
+      "evidenceLabel": "MARKET_EVIDENCE",
+      "sourceArtifact": "ANALYSIS_RUN",
+      "jsonPointer": "/result/discrepancyResult/historicalExternalSummary/selectedEvidence/8",
+      "sourceIdentity": "historicalExternalSummary:fictional-106",
+      "locationPrecision": "JSON_POINTER",
+      "pageNumber": null
+    },
+    {
+      "evidenceId": "ev_d34da97c1e34b6ff60d78d33fd7512163bd66bcc10d08e196e928f97ddc1ac5b",
+      "evidenceLabel": "INSURER_EXTRACTED",
+      "sourceArtifact": "ANALYSIS_RUN",
+      "jsonPointer": "/result/discrepancyRequest/lossVehicle/trim",
+      "sourceIdentity": "trim",
+      "locationPrecision": "JSON_POINTER",
+      "pageNumber": null
+    },
+    {
+      "evidenceId": "ev_dbb0b739d8839032e9a3ffa1902456286e1e820fe698d04d24f11371bbf96df3",
+      "evidenceLabel": "MARKET_EVIDENCE",
+      "sourceArtifact": "ANALYSIS_RUN",
+      "jsonPointer": "/result/discrepancyResult/historicalExternalSummary/selectedEvidence/6",
+      "sourceIdentity": "historicalExternalSummary:fictional-104",
+      "locationPrecision": "JSON_POINTER",
+      "pageNumber": null
+    },
+    {
+      "evidenceId": "ev_f130aaec3f318a4bdf79dd63685bb9c334b58ba2b76fa7bc21d5c609e47a428f",
+      "evidenceLabel": "DETERMINISTIC_FINDING",
+      "sourceArtifact": "ANALYSIS_RUN",
+      "jsonPointer": "/result/discrepancyResult/limitations/7",
+      "sourceIdentity": "limitation:NO_INDEPENDENT_OPTIONS_ADJUSTMENT",
+      "locationPrecision": "JSON_POINTER",
+      "pageNumber": null
+    },
+    {
+      "evidenceId": "ev_f50d61880d41f95e6f97f67097f4afadcd1e6bd49b041c3fd3d08d667a6da073",
+      "evidenceLabel": "MARKET_EVIDENCE",
+      "sourceArtifact": "ANALYSIS_RUN",
+      "jsonPointer": "/result/discrepancyResult/historicalExternalSummary/selectedEvidence/4",
+      "sourceIdentity": "historicalExternalSummary:fictional-102",
+      "locationPrecision": "JSON_POINTER",
+      "pageNumber": null
+    },
+    {
+      "evidenceId": "ev_fc1f9a33f3c0eefe93c86ec105f2f21d60083986c8eb1b2c0729b9f789381aba",
+      "evidenceLabel": "AUTOMATED_CALCULATION",
+      "sourceArtifact": "ANALYSIS_RUN",
+      "jsonPointer": "/result/discrepancyResult/primaryComparison",
+      "sourceIdentity": "primaryComparison",
+      "locationPrecision": "JSON_POINTER",
+      "pageNumber": null
+    },
+    {
+      "evidenceId": "ev_fdf61447ba5f6a8ed5794a71f3078c74fb22edbcf214e2a1299d80965a41c072",
+      "evidenceLabel": "AUTOMATED_CALCULATION",
+      "sourceArtifact": "ANALYSIS_RUN",
+      "jsonPointer": "/result/discrepancyResult/secondaryComparisons",
+      "sourceIdentity": "secondaryComparisons",
+      "locationPrecision": "JSON_POINTER",
+      "pageNumber": null
+    },
+    {
+      "evidenceId": "ref_1212e4575a02c559249a91ffa6beb89347fccd2b7839e308843195ef9dfe847f",
+      "evidenceLabel": "INSURER_EXTRACTED",
+      "sourceArtifact": "SOURCE_SNAPSHOT",
+      "jsonPointer": "/extraction/normalizedReport/report/claimReferenceNumber",
+      "sourceIdentity": "claimReference",
+      "locationPrecision": "JSON_POINTER",
+      "pageNumber": null
+    },
+    {
+      "evidenceId": "ref_e754d3e2ef5607ef39de15a03928bcb050456680e042d445357601d0990bf452",
+      "evidenceLabel": "INSURER_EXTRACTED",
+      "sourceArtifact": "SOURCE_SNAPSHOT",
+      "jsonPointer": "/extraction/normalizedReport/report/insurer",
+      "sourceIdentity": "insurerName",
+      "locationPrecision": "JSON_POINTER",
+      "pageNumber": null
+    }
+  ],
+  "exhibits": [],
+  "reportDigest": "d97ca66d11db17faba715ec87cd2737c79b7a42261474d181b144d6d14905e1f",
+  "reviewContext": {
+    "vehicleDisplay": "2024 Hyundai Elantra SEL",
+    "trimVerified": true,
+    "vin": "KMHLM4AG0RU900002",
+    "sourceDocumentName": "expansion.pdf",
+    "sourceProvider": "CCC",
+    "comparables": [
+      {
+        "evidenceId": "ev_50743d4003c8f6e1a865593bddae16ff1bf890973a18d8f2c869a1e5cc62f266",
+        "listingUrl": "https://local-market.invalid/vehicles/0",
+        "differences": []
+      },
+      {
+        "evidenceId": "ev_712e542cb5be73f1f40d15044b12eb44354a9e9a719cc906da376b2ab4c9fd81",
+        "listingUrl": "https://local-market.invalid/vehicles/1",
+        "differences": [
+          "20 miles higher than subject."
+        ]
+      },
+      {
+        "evidenceId": "ev_359943b41c51d3bb3772ff5d24f98d9cc73bd1294c55cfba6efcf149266a7403",
+        "listingUrl": "https://local-market.invalid/vehicles/100",
+        "differences": []
+      },
+      {
+        "evidenceId": "ev_cf4ef05661a75caf09dbe533f9d75166665ee2aa7e58b4356d59a3cf150be413",
+        "listingUrl": "https://local-market.invalid/vehicles/101",
+        "differences": [
+          "20 miles higher than subject."
+        ]
+      },
+      {
+        "evidenceId": "ev_f50d61880d41f95e6f97f67097f4afadcd1e6bd49b041c3fd3d08d667a6da073",
+        "listingUrl": "https://local-market.invalid/vehicles/102",
+        "differences": [
+          "40 miles higher than subject."
+        ]
+      },
+      {
+        "evidenceId": "ev_a964d1929d0f163c10175c9bad3bd7398c33644ba2a4efc5da23d3231bcf6e08",
+        "listingUrl": "https://local-market.invalid/vehicles/103",
+        "differences": [
+          "60 miles higher than subject."
+        ]
+      },
+      {
+        "evidenceId": "ev_dbb0b739d8839032e9a3ffa1902456286e1e820fe698d04d24f11371bbf96df3",
+        "listingUrl": "https://local-market.invalid/vehicles/104",
+        "differences": [
+          "80 miles higher than subject."
+        ]
+      },
+      {
+        "evidenceId": "ev_c3bfca15d05c60854df76f592d7cafec1d679446b06fe8751e93385336a82b9f",
+        "listingUrl": "https://local-market.invalid/vehicles/105",
+        "differences": [
+          "100 miles higher than subject."
+        ]
+      },
+      {
+        "evidenceId": "ev_d09cce3422393fd57dc049443f8976d6eaebe95a0a9743971f757890c9f2b613",
+        "listingUrl": "https://local-market.invalid/vehicles/106",
+        "differences": [
+          "120 miles higher than subject."
+        ]
+      },
+      {
+        "evidenceId": "ev_184581be9986111638dbd8f7648bc7f45ba8789669d706ea6bff070e62927593",
+        "listingUrl": "https://local-market.invalid/vehicles/0",
+        "differences": []
+      },
+      {
+        "evidenceId": "ev_a09101ed7b0337404f8253caf070da3b12f50b6463257e2a6e02afd004e4d9ec",
+        "listingUrl": "https://local-market.invalid/vehicles/1",
+        "differences": [
+          "20 miles higher than subject."
+        ]
+      }
+    ],
+    "searchDescription": "The recorded search used 2 search areas, with 100-mile radii around those search centers."
+  }
+}

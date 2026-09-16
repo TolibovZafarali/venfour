@@ -1,0 +1,13 @@
+
+> venfour-frontend@0.1.0 test
+> vitest run src/features/total-loss-claim/customer-message-copy.test.ts src/features/total-loss-claim/components/message-preparation.test.tsx
+
+
+ RUN  v4.1.10 /Users/zafaralitolibov/Documents/venfour/frontend
+
+
+ Test Files  2 passed (2)
+      Tests  71 passed (71)
+   Start at  11:20:19
+   Duration  20.42s (transform 355ms, setup 516ms, import 398ms, tests 19.19s, environment 1.14s)
+

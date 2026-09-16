@@ -31,7 +31,7 @@ const failure = (status: number) => HttpResponse.json({ error: { code: "REFERRAL
 beforeEach(() => sessionStorage.clear());
 
 describe("referral onboarding", () => {
-  test("uses the shared sign-in modal and returns to the exact invitation after email verification", async () => {
+  test("shows sign-in fields immediately and returns to the exact invitation after email verification", async () => {
     const user = userEvent.setup();
     const service = authService(null);
     const getInvitation = vi.fn();
@@ -43,13 +43,13 @@ describe("referral onboarding", () => {
     }));
     const path = `/partners/invitations/${INVITATION}`;
     const app = renderTestApp([`${path}?from=invitation#onboarding`], { authService: service });
-    await user.click(await screen.findByRole("button", { name: "Sign in" }));
-    const dialog = within(await screen.findByRole("dialog", { name: "Sign in to Venfour" }));
-    expect(dialog.getByRole("button", { name: "Continue with Google" })).toBeVisible();
-    expect(dialog.getByRole("button", { name: "Continue with Apple" })).toBeVisible();
+    const signIn = within(await screen.findByRole("region", { name: "Business sign in" }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(signIn.getByRole("button", { name: "Continue with Google" })).toBeVisible();
+    expect(signIn.getByRole("button", { name: "Continue with Apple" })).toBeVisible();
     expect(getInvitation).not.toHaveBeenCalled();
-    await user.type(dialog.getByRole("textbox", { name: "Email address" }), "partner@example.test");
-    await user.click(dialog.getByRole("button", { name: "Continue with Email" }));
+    await user.type(signIn.getByRole("textbox", { name: "Email address" }), "partner@example.test");
+    await user.click(signIn.getByRole("button", { name: "Continue with Email" }));
     await user.type(await screen.findByRole("textbox", { name: "Sign-in code" }), "123456");
     await user.click(screen.getByRole("button", { name: "Verify and sign in" }));
     await screen.findByRole("heading", { name: "You’re invited to partner with Venfour" });

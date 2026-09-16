@@ -11,7 +11,7 @@
     "generatedAt": "2026-09-09T21:53:01.531655Z",
     "issueDate": "2026-09-09",
     "suggestedFilename": "Venfour_Valuation_Evidence_C0CC6D819F66_v1.pdf",
-    "templateVersion": "2"
+    "templateVersion": "3"
   },
   "lineage": {
     "sourceSnapshotId": "ce4214a6-f6b3-4bf5-94ef-5541d68255ce",
@@ -1532,7 +1532,7 @@
     }
   ],
   "exhibits": [],
-  "reportDigest": "d97ca66d11db17faba715ec87cd2737c79b7a42261474d181b144d6d14905e1f",
+  "reportDigest": "cbb6a1348a6d88db5832379adf7d024412c1d99063fdd727a9c8fa7bceecefcf",
   "reviewContext": {
     "vehicleDisplay": "2024 Hyundai Elantra SEL",
     "trimVerified": true,
@@ -1543,75 +1543,90 @@
       {
         "evidenceId": "ev_50743d4003c8f6e1a865593bddae16ff1bf890973a18d8f2c869a1e5cc62f266",
         "listingUrl": "https://local-market.invalid/vehicles/0",
-        "differences": []
+        "differences": [],
+        "distanceReference": "ZIP 63026"
       },
       {
         "evidenceId": "ev_712e542cb5be73f1f40d15044b12eb44354a9e9a719cc906da376b2ab4c9fd81",
         "listingUrl": "https://local-market.invalid/vehicles/1",
         "differences": [
           "20 miles higher than subject."
-        ]
+        ],
+        "distanceReference": "ZIP 63026"
       },
       {
         "evidenceId": "ev_359943b41c51d3bb3772ff5d24f98d9cc73bd1294c55cfba6efcf149266a7403",
         "listingUrl": "https://local-market.invalid/vehicles/100",
-        "differences": []
+        "differences": [],
+        "distanceReference": "ZIP 63026"
       },
       {
         "evidenceId": "ev_cf4ef05661a75caf09dbe533f9d75166665ee2aa7e58b4356d59a3cf150be413",
         "listingUrl": "https://local-market.invalid/vehicles/101",
         "differences": [
           "20 miles higher than subject."
-        ]
+        ],
+        "distanceReference": "ZIP 63026"
       },
       {
         "evidenceId": "ev_f50d61880d41f95e6f97f67097f4afadcd1e6bd49b041c3fd3d08d667a6da073",
         "listingUrl": "https://local-market.invalid/vehicles/102",
         "differences": [
           "40 miles higher than subject."
-        ]
+        ],
+        "distanceReference": "ZIP 63026"
       },
       {
         "evidenceId": "ev_a964d1929d0f163c10175c9bad3bd7398c33644ba2a4efc5da23d3231bcf6e08",
         "listingUrl": "https://local-market.invalid/vehicles/103",
         "differences": [
           "60 miles higher than subject."
-        ]
+        ],
+        "distanceReference": "ZIP 63026"
       },
       {
         "evidenceId": "ev_dbb0b739d8839032e9a3ffa1902456286e1e820fe698d04d24f11371bbf96df3",
         "listingUrl": "https://local-market.invalid/vehicles/104",
         "differences": [
           "80 miles higher than subject."
-        ]
+        ],
+        "distanceReference": "ZIP 63026"
       },
       {
         "evidenceId": "ev_c3bfca15d05c60854df76f592d7cafec1d679446b06fe8751e93385336a82b9f",
         "listingUrl": "https://local-market.invalid/vehicles/105",
         "differences": [
           "100 miles higher than subject."
-        ]
+        ],
+        "distanceReference": "ZIP 63026"
       },
       {
         "evidenceId": "ev_d09cce3422393fd57dc049443f8976d6eaebe95a0a9743971f757890c9f2b613",
         "listingUrl": "https://local-market.invalid/vehicles/106",
         "differences": [
           "120 miles higher than subject."
-        ]
+        ],
+        "distanceReference": "ZIP 63026"
       },
       {
         "evidenceId": "ev_184581be9986111638dbd8f7648bc7f45ba8789669d706ea6bff070e62927593",
         "listingUrl": "https://local-market.invalid/vehicles/0",
-        "differences": []
+        "differences": [],
+        "distanceReference": "ZIP 63026"
       },
       {
         "evidenceId": "ev_a09101ed7b0337404f8253caf070da3b12f50b6463257e2a6e02afd004e4d9ec",
         "listingUrl": "https://local-market.invalid/vehicles/1",
         "differences": [
           "20 miles higher than subject."
-        ]
+        ],
+        "distanceReference": "ZIP 63026"
       }
     ],
-    "searchDescription": "The recorded search used 2 search areas, with 100-mile radii around those search centers."
+    "searchDescription": "2 recorded search areas: 100 miles around ZIP 63026; 100 miles around Marion-Herrin, IL Micro Area.",
+    "distanceReference": "ZIP 63026",
+    "searchFilters": "2024 Hyundai Elantra SEL FWD",
+    "selectionDescription": "Ranked by year, trim, mileage, distance; price was not a selection criterion.",
+    "sharedVehicleDescription": "2024 Hyundai Elantra SEL"
   }
 }

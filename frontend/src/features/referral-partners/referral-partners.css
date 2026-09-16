@@ -2,6 +2,9 @@
 .partner-topbar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 1rem max(1.25rem, calc((100vw - 1100px) / 2)); border-bottom: 1px solid #e5e5e5; background: #fff; }
 .partner-topbar nav { display: flex; align-items: center; gap: 1rem; }
 .partner-topbar a { text-decoration: none; color: inherit; font-weight: 600; }
+.partner-brand { display: inline-flex; min-height: 44px; align-items: center; gap: .5625rem; flex-shrink: 0; }
+.partner-brand img { width: 28px; height: 28px; }
+.partner-brand span { font-size: 1.25rem; line-height: 1; letter-spacing: -.035em; }
 .partner-page { width: 100%; max-width: 1100px; margin-inline: auto; padding: 2.5rem 1.25rem 5rem; }
 .partner-page h1, .partner-state h1 { font-size: clamp(1.75rem, 3vw, 2.5rem); letter-spacing: -.035em; font-weight: 600; line-height: 1.15; }
 .partner-page-header { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 1rem; margin-bottom: 2rem; }
@@ -24,6 +27,17 @@
 .partner-text-button { text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
 .partner-state { width: min(100%, 540px); margin: 3rem auto; padding: 2rem 1.25rem; }
 .partner-state > button { margin-top: 1rem; }
+.partner-sign-in { width: min(100%, 400px); margin: clamp(1rem, 5vh, 3rem) auto 0; }
+.partner-sign-in-eyebrow { margin-bottom: 1rem; color: #737373; font-size: .75rem; font-weight: 500; letter-spacing: .08em; text-transform: uppercase; }
+.partner-page .partner-sign-in h1 { max-width: 13ch; font-size: clamp(1.875rem, 5vw, 2.25rem); line-height: 1.15; letter-spacing: -.04em; }
+.partner-sign-in-heading > p:last-child { margin-top: 1rem; line-height: 1.65; }
+.partner-sign-in input { box-shadow: none; }
+.partner-sign-in input:focus-visible { outline: none; border-color: #2563eb; box-shadow: none; }
+.partner-sign-in-divider { display: flex; align-items: center; gap: 1rem; margin-block: 1.5rem; color: #737373; font-size: .75rem; }
+.partner-sign-in-divider::before, .partner-sign-in-divider::after { content: ""; flex: 1; height: 1px; background: #e5e5e5; }
+.partner-sign-in-policies { display: flex; justify-content: center; gap: 1.5rem; margin-top: 2rem; font-size: .75rem; color: #737373; }
+.partner-sign-in-policies a { padding-block: .75rem; text-underline-offset: 3px; }
+.partner-sign-in-policies a:hover { color: #171717; text-decoration: underline; }
 .partner-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 1.25rem; margin-block: 1.5rem; }
 .partner-summary dt { font-size: .8rem; color: #666666; margin-bottom: .3rem; }
 .partner-summary dd { font-size: .9375rem; font-weight: 500; overflow-wrap: anywhere; }

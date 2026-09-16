@@ -26,9 +26,12 @@ def write_sample(report, output, name):
     (output / f"fictional-{name}.json").write_text(json.dumps(report, indent=2) + "\n")
     for old_page in output.glob(f"fictional-{name}-page-*.png"):
         old_page.unlink()
+    for old_page in output.glob(f"fictional-{name}-gray-*.png"):
+        old_page.unlink()
     with pymupdf.open(stream=pdf, filetype="pdf") as document:
         for number, page in enumerate(document, 1):
             page.get_pixmap(matrix=pymupdf.Matrix(1.5, 1.5), alpha=False).save(output / f"fictional-{name}-page-{number}.png")
+            page.get_pixmap(matrix=pymupdf.Matrix(1.5, 1.5), colorspace=pymupdf.csGRAY, alpha=False).save(output / f"fictional-{name}-gray-{number}.png")
     return {"file": path.name, "pages": manifest.page_count, "sha256": manifest.pdf_sha256}
 
 
@@ -51,7 +54,7 @@ def main():
     results = [write_sample(report, args.output, args.name)]
     if args.edge_cases:
         missing = copy.deepcopy(report)
-        missing["reviewContext"].update(vin=None, trimVerified=False, vehicleDisplay="2024 Synthetic Sedan")
+        missing["reviewContext"].update(vin=None, trimVerified=False, vehicleDisplay="2024 Synthetic Sedan", sharedVehicleDescription="2024 Synthetic Sedan")
         for key in ("insurerName", "claimReference"):
             missing["insurerValuationReviewed"][key].update(value=None, displayValue="Unavailable", evidenceLabel="UNAVAILABLE", evidenceIds=[])
         results.append(write_sample(missing, args.output, "missing-identification"))
@@ -65,9 +68,13 @@ def main():
         stress["independentMarketEvidence"]["comparables"] = []
         for number in range(18):
             row = copy.deepcopy(primary[number % len(primary)])
-            row.update(vin=f"FICTIONALVIN{number:05}", dealer="Fictional International Automotive and Specialty Vehicle Retail Center " * 2,
+            row.update(vin=f"FICTIONALVIN{number:05}", sourceListingId=f"fictional-layout-{number}", dealer="Fictional International Automotive and Specialty Vehicle Retail Center " * 2,
                        vehicleDisplay="2024 Synthetic Sedan Extended Touring Special Equipment Edition")
             stress["independentMarketEvidence"]["comparables"].append(row)
+        stress["independentMarketEvidence"]["secondary"] = None
+        stress["independentMarketEvidence"]["primary"]["selectedCount"] = 18
+        stress["independentMarketEvidence"]["primary"]["prices"]["count"] = 18
+        stress["reviewContext"]["sharedVehicleDescription"] = None
         stress["reviewContext"]["comparables"][0]["listingUrl"] = "https://listings.invalid/" + "long-vehicle-reference-" * 60
         results.append(write_sample(stress, args.output, "large-set"))
         # These variants exercise layout only; they are not new analysis results.

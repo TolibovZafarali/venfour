@@ -1,48 +1,58 @@
-# Vehicle Valuation Review — local samples
+# Vehicle Valuation Review — final refinement
 
-All samples are fictional test data. They are local design and regression evidence, not customer reports or production-release proof.
+Fictional local test data. Template/renderer 3 preserves the advertised-price-only analysis. No point ACV, settlement target or independent dollar adjustment was introduced.
 
-The supplied sample keeps its exact frozen evidence and assessment. The original PDF remains unchanged at `output/local-market/completed-expansion-report.pdf` (10 pages). The redesigned version has 3 pages.
+## Samples
 
-## Files
+- [Expanded search](fictional-expansion-review.pdf) — 2 pages. Original frozen fictional sample: nine vehicles and two 100-mile search areas.
+- [Complete case](fictional-complete-review.pdf) — 2 pages. Offline analysis with five market vehicles and three insurer comparables.
+- [Missing identification](fictional-missing-identification.pdf) — 2 pages. Presentation stress fixture; missing optional facts and identity limitations are disclosed.
+- [Insufficient evidence](fictional-insufficient-evidence.pdf) — 1 page. Presentation stress fixture without eligible comparables; no increase requested.
+- [Large comparable set](fictional-large-set.pdf) — 4 pages. Presentation stress fixture: 18 distinct fictional identities, long names and URLs; count and headline price statistics match the rows.
+- [No supported discrepancy](fictional-no-discrepancy.pdf) — 2 pages. Offline analysis: lower-priced evidence retained; no increase requested.
+- [Weak evidence](fictional-weak-evidence.pdf) — 2 pages. Offline analysis: only two market vehicles; explicitly qualified conclusion.
+- [Current-market evidence](fictional-current-market.pdf) — 2 pages. Offline analysis: current observations are separate from loss-date evidence.
 
-- [Original fictional sample, redesigned](fictional-expansion-review.pdf) — 3 page(s). Same frozen source and assessment as the original ten-page report; nine primary vehicles and two later observations.
-  [Page 1](fictional-expansion-review-page-1.png) · [Page 2](fictional-expansion-review-page-2.png) · [Page 3](fictional-expansion-review-page-3.png)
-- [Complete case](fictional-complete-review.pdf) — 3 page(s). Offline fixture analysis with five primary vehicles and three insurer comparables.
-  [Page 1](fictional-complete-review-page-1.png) · [Page 2](fictional-complete-review-page-2.png) · [Page 3](fictional-complete-review-page-3.png)
-- [Missing optional identification](fictional-missing-identification.pdf) — 3 page(s). Presentation stress fixture; VIN, insurer and claim omitted, unverified trim disclosed.
-  [Page 1](fictional-missing-identification-page-1.png) · [Page 2](fictional-missing-identification-page-2.png) · [Page 3](fictional-missing-identification-page-3.png)
-- [Insufficient evidence](fictional-insufficient-evidence.pdf) — 1 page(s). Presentation stress fixture without eligible market or insurer comparable rows; no forced reconsideration request.
-  [Page 1](fictional-insufficient-evidence-page-1.png)
-- [Large comparable set](fictional-large-set.pdf) — 5 page(s). Presentation stress fixture with 18 long comparable rows and long source URLs. Headline statistics are retained from the base fixture solely for layout testing.
-  [Page 1](fictional-large-set-page-1.png) · [Page 2](fictional-large-set-page-2.png) · [Page 3](fictional-large-set-page-3.png) · [Page 4](fictional-large-set-page-4.png) · [Page 5](fictional-large-set-page-5.png)
-- [No supported discrepancy](fictional-no-discrepancy.pdf) — 3 page(s). Offline fixture analysis with no material discrepancy; no increase requested.
-  [Page 1](fictional-no-discrepancy-page-1.png) · [Page 2](fictional-no-discrepancy-page-2.png) · [Page 3](fictional-no-discrepancy-page-3.png)
-- [Weak evidence](fictional-weak-evidence.pdf) — 3 page(s). Offline fixture analysis with only two primary vehicles; the limitation is stated prominently.
-  [Page 1](fictional-weak-evidence-page-1.png) · [Page 2](fictional-weak-evidence-page-2.png) · [Page 3](fictional-weak-evidence-page-3.png)
-- [Current-market evidence](fictional-current-market.pdf) — 3 page(s). Offline fixture analysis using current observations without verified loss-date evidence.
-  [Page 1](fictional-current-market-page-1.png) · [Page 2](fictional-current-market-page-2.png) · [Page 3](fictional-current-market-page-3.png)
+[Open all 17 pages in color and grayscale](index.html). PNGs and contact sheets are saved here. Prior template-2 sample bytes remain in `template-2/`.
 
-All 24 pages were rendered and visually inspected. Six `inspection-*.jpg` contact sheets show the full set. [Open the page gallery](index.html).
+## Final changes
 
-## Evidence and release boundary
+The compact market description distinguishes recorded search filters from selected vehicle mileages, labels each search area and distance origin, and names providers readably. Case-specific reasons use the recorded count, characteristics and asking prices. Historical/current observations are cross-referenced without combining statistics. Insurer values and adjustments remain clearly attributed. Natural flow and repeated table headers replace fixed page breaks; a minimum space check prevents orphaned source headings.
 
-The analysis remains an advertised-price comparison, not a point ACV or settlement determination. No valuation calculation, comparable eligibility or selection policy changed. The new template projects the accepted frozen claim reference and available source links. It creates no corrections or source-page citations where none exist.
+No frozen analysis changed. The five analysis samples passed source-bound validation with their original financial conclusions, market evidence, insurer data, calculations and limitations unchanged. The three stress variants are presentation tests, not new analyses. Subject inclusion, duplicates within a comparison set, or count/statistic mismatches now trigger the existing human-review validation failure; no rows or statistics are repaired. No such upstream issue was found in the five analysis samples.
 
-Template and renderer version 2 retain the exact-byte legacy renderer. The review prompt is version 2. The prior checked-in provider qualification is unchanged and does not qualify this release. A fresh provider-backed evaluation through the established release process is required before rollout. No paid-provider requests, deployment, production regeneration, customer emails, commits or pushes were performed.
+## Palette
 
-## Reproduce
+White `#ffffff`, charcoal `#171717`, muted text `#454545`, gray rules `#d4d4d4`, existing application brand-strong blue `#1d4ed8`, and pale brand tint `#eef4ff`. Accent contrast is 6.70:1 on white and 6.07:1 on tint. Labels, values and underlined links remain understandable without color. Body: 10.5 pt; tables/source notes: 9 pt; footers: 8 pt.
+
+## Validation
+
+124 distinct backend regression tests passed across rendering, evidence, source prices, processing, review and release/evaluation gates. The old long-table stress fixture initially failed the new duplicate check; its synthetic identities/counts were corrected, and its rerun passed. Final focused run: 20 tests passed. Email/preview frontend suites: 71 tests passed. The email required no changes. Templates 1 and 2 still reproduce their golden PDF hashes exactly. All 17 pages across eight samples were visually inspected in both color and grayscale, including the final source-heading placement and insurer-row grouping. `git diff --check` passed.
+
+No live/paid provider calls, deployment, production regeneration, emails, payment-policy changes, commits or pushes occurred.
+
+## Evidence limitations
+
+Listing prices do not establish ACV or settlement owed. Missing source-page citations remain disclosed. Missing subject or comparable VINs limit identity verification. Current observations do not establish loss-date values. No documented correction is invented. Private or credential-bearing URLs remain excluded.
+
+## Exact qualification required before rollout
+
+Run the existing 20-case live reviewer suite with secure configured credentials and the intended approved model:
+
+```sh
+.venv/bin/python -m tests.report_review_provider_eval
+```
+
+Not run in this task. It must achieve 20/20 labeled outcomes, including release decisions, with template/renderer 3, review prompt 3 and review schema 1. The returned model identifier must match the approved release model. Only the actual measured successful attestation may replace the qualification artifact through the established release process; approved runtime model, prompt, schema and suite settings must match. The old checked-in prompt-1 qualification remains unchanged and fails closed for this build.
+
+- Prompt digest: `2561eac1eff04ad596cc49c18b1a252e04e56836960b829f5ce62cf2b27a0cf1`
+- Review-schema digest: `11839c12f40f8212c41cd2e3736baa131f46a963fdd83a25bbca1b41e92280f6`
+- Input-contract digest: `dcd0dfe6e0888dd3271e08323dcc1a3221732eb18a1b3eed0eefe804f4b9be30`
+- Suite digest: `f06b5fe5460a95d61f9e2f5ff6d36b46e79133c53c5ba137fe4dc2e2d1dc298c`
+
+## Reproduce previews
 
 ```sh
 PYTHONPATH=. .venv/bin/python scripts/preview_valuation_review.py output/pdf/valuation-review/frozen-expansion.json --name expansion-review
 PYTHONPATH=. .venv/bin/python scripts/preview_valuation_review.py output/pdf/valuation-review/frozen-complete.json --name complete-review --edge-cases
 ```
-
-The three stress variants are explicitly presentation-only; the complete, current-market, weak-evidence and no-discrepancy cases come from offline fixture analysis. Frozen source/assessment envelopes, report JSON and sample digests are saved alongside the PDFs.
-
-
-## Validation
-
-128 distinct backend tests passed across report rendering, provenance, source-price projection, processing, full review, release gates and evaluation qualification. The final render/provenance run contained 49 tests (including one repeated release-qualification check); processing/full-review contained 38; release/review/evaluation contained 42. Logs are included here. The existing email/preview frontend suites passed 71 tests.
-
-The five frozen analysis samples were checked against their original financial conclusions, market evidence, insurer comparables, calculations and limitations; those sections are unchanged. Source-bound validation and PDF validation passed. Every page of all eight sample PDFs was visually inspected. The legacy renderer reproduces the captured original PDF SHA-256 exactly.

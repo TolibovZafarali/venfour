@@ -33,9 +33,14 @@
         "vin": {"type": ["string", "null"]},
         "sourceDocumentName": {"type": ["string", "null"]}, "sourceProvider": {"type": ["string", "null"]},
         "searchDescription": {"type": ["string", "null"]},
+        "searchFilters": {"type": ["string", "null"]},
+        "selectionDescription": {"type": ["string", "null"]},
+        "distanceReference": {"type": ["string", "null"]},
+        "sharedVehicleDescription": {"type": ["string", "null"]},
         "comparables": {"type": "array", "items": {"type": "object", "additionalProperties": false,
           "required": ["evidenceId", "listingUrl", "differences"], "properties": {
             "evidenceId": {"type": "string"}, "listingUrl": {"type": ["string", "null"]},
+            "distanceReference": {"type": ["string", "null"]},
             "differences": {"type": "array", "items": {"type": "string"}}
           }}}
       }
@@ -330,7 +335,7 @@
       ],
       "properties": {
         "title": { "enum": ["Venfour Total-Loss Valuation Evidence Package", "Vehicle Valuation Review"] },
-        "templateVersion": { "const": "2" },
+        "templateVersion": { "enum": ["2", "3"] },
         "reportSeriesId": { "$ref": "#/$defs/uuid" },
         "reportVersionId": { "$ref": "#/$defs/uuid" },
         "finalAssessmentId": { "$ref": "#/$defs/uuid" },

@@ -11,7 +11,7 @@
     "generatedAt": "2026-08-26T20:00:00Z",
     "issueDate": "2026-08-26",
     "suggestedFilename": "Venfour_Valuation_Evidence_000000000000_v1.pdf",
-    "templateVersion": "2"
+    "templateVersion": "3"
   },
   "lineage": {
     "sourceSnapshotId": "00000000-0000-4000-8000-000000000115",
@@ -1417,7 +1417,7 @@
     }
   ],
   "exhibits": [],
-  "reportDigest": "d50b1fd0a00e5d7c7d56d907a86270f9fd3a468f83577ff1270d43eea1530938",
+  "reportDigest": "82879675dd6eb103b8bb5bd7cc88e5ecaf34bb2efa0ca991b562fa9649fa3141",
   "reviewContext": {
     "vehicleDisplay": "2024 Synthetic Sedan SEL",
     "trimVerified": true,
@@ -1428,37 +1428,46 @@
       {
         "evidenceId": "ev_dee3aa8fdba59d60f6ea282c1a6a2f99e84cd3adcf0b53fd9c12a3e41e5e3099",
         "listingUrl": "https://listings.invalid/synthetic-current/1",
-        "differences": []
+        "differences": [],
+        "distanceReference": "ZIP 63026"
       },
       {
         "evidenceId": "ev_467230885a08808e8354462093c4446d772115a2528fc07ba4fcb923a791a002",
         "listingUrl": "https://listings.invalid/synthetic-current/2",
         "differences": [
           "500 miles higher than subject."
-        ]
+        ],
+        "distanceReference": "ZIP 63026"
       },
       {
         "evidenceId": "ev_e9d5cb638e2a47fee4056b5af65bd911f9556e675b869d9ce819975c706ab725",
         "listingUrl": "https://listings.invalid/synthetic-current/3",
         "differences": [
           "1,000 miles higher than subject."
-        ]
+        ],
+        "distanceReference": "ZIP 63026"
       },
       {
         "evidenceId": "ev_79cd68edb1ee00e83830c9a824bd5fc90150ee8d2c94a2ddb3db7f3d83c88dff",
         "listingUrl": "https://listings.invalid/synthetic-current/4",
         "differences": [
           "1,500 miles higher than subject."
-        ]
+        ],
+        "distanceReference": "ZIP 63026"
       },
       {
         "evidenceId": "ev_992e0fc39e561c84aff6928dcb17132a89f982133a5bc277ba3af4c23a455992",
         "listingUrl": "https://listings.invalid/synthetic-current/5",
         "differences": [
           "2,000 miles higher than subject."
-        ]
+        ],
+        "distanceReference": "ZIP 63026"
       }
     ],
-    "searchDescription": "The recorded current-market search radius was 250 miles."
+    "searchDescription": "Recorded search: 250 miles around ZIP 63026.",
+    "distanceReference": "ZIP 63026",
+    "searchFilters": "2024 Synthetic Sedan SEL",
+    "selectionDescription": "Ranked by year, trim, mileage, distance; price was not a selection criterion.",
+    "sharedVehicleDescription": "2024 Synthetic Sedan SEL"
   }
 }

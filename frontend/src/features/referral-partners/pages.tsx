@@ -1,9 +1,11 @@
 import { useState, type FormEvent } from "react";
+import venfourMark from "../../../../assets/brand/venfour-mark.svg";
 import { Link, Outlet, useLocation, useNavigate, useParams } from "react-router";
 
 import { useDocumentMetadata } from "@/app/document-metadata";
 import { Button } from "@/components/ui/button";
-import { SignInDialogProvider, useAuth, useSignInDialog } from "@/features/auth";
+import { SignInDialogProvider, useAuth } from "@/features/auth";
+import { SignInPanel } from "@/features/auth/sign-in-dialog";
 
 import { AgreementText, PartnerBusinessSummary, PartnerError, PartnerField, PartnerHistory, PartnerState, RevisionNotice, SignatureForm } from "./components";
 import { formatPartnerDate, formatPartnerMoney, partnerDeliveryLabel, partnerStatusLabel } from "./presentation";
@@ -30,13 +32,12 @@ function PartnerWorkspaceContent() {
   const [pending, setPending] = useState(false);
   useDocumentMetadata({ title: "Referral Partner Workspace | Venfour", description: "Private referral partner onboarding and agreements." });
   const exit = async () => { setPending(true); setError(null); try { await signOut(); } catch (failure) { setError(failure); } finally { setPending(false); } };
-  return <div className="partner-workspace"><header className="partner-topbar"><Link to="/referral-partners">Venfour</Link><nav aria-label="Partner navigation"><Link to="/partners">Partner workspace</Link>{userId && <Button variant="outline" disabled={pending} onClick={() => void exit()}>{pending ? "Signing out…" : "Sign out"}</Button>}</nav></header><main className="partner-page" id="main-content"><PartnerError error={error} />{auth.status === "loading" ? <PartnerState title="Checking your sign-in…" /> : auth.status === "unavailable" ? <PartnerState title="Sign in is temporarily unavailable"><p>Please try again later.</p></PartnerState> : !userId ? <PartnerSignIn /> : <Outlet key={userId} />}</main></div>;
+  return <div className="partner-workspace"><header className="partner-topbar"><Link to="/referral-partners" className="partner-brand notranslate" aria-label="Venfour home" translate="no"><img src={venfourMark} width={28} height={28} alt="" aria-hidden data-brand-logo="venfour" /><span className="font-brand" data-brand-wordmark="venfour">Venfour</span></Link><nav aria-label="Partner navigation"><Link to="/partners">Partner workspace</Link>{userId && <Button variant="outline" disabled={pending} onClick={() => void exit()}>{pending ? "Signing out…" : "Sign out"}</Button>}</nav></header><main className="partner-page" id="main-content"><PartnerError error={error} />{auth.status === "loading" ? <PartnerState title="Checking your sign-in…" /> : auth.status === "unavailable" ? <PartnerState title="Sign in is temporarily unavailable"><p>Please try again later.</p></PartnerState> : !userId ? <PartnerSignIn /> : <Outlet key={userId} />}</main></div>;
 }
 
 function PartnerSignIn() {
-  const { openSignIn } = useSignInDialog();
   const location = useLocation();
-  return <PartnerState title="Sign in to your partner workspace"><p>Use the email address that received your Venfour invitation to continue your onboarding or open your business dashboard.</p><Button onClick={() => openSignIn({ intent: "partner-onboarding", returnTo: `${location.pathname}${location.search}${location.hash}` })}>Sign in</Button></PartnerState>;
+  return <SignInPanel returnTo={`${location.pathname}${location.search}${location.hash}`} />;
 }
 
 export function PartnerInvitationPage() {

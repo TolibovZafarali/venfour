@@ -11,7 +11,7 @@
     "generatedAt": "2026-08-26T20:00:00Z",
     "issueDate": "2026-08-26",
     "suggestedFilename": "Venfour_Valuation_Evidence_000000000000_v1.pdf",
-    "templateVersion": "2"
+    "templateVersion": "3"
   },
   "lineage": {
     "sourceSnapshotId": "00000000-0000-4000-8000-000000000115",
@@ -455,9 +455,9 @@
       "description": "Resolved listings active on the loss date form the primary external evidence set selected by Phase 3D.",
       "provider": "synthetic-historical",
       "evidenceDate": "2026-05-19",
-      "selectedCount": 5,
+      "selectedCount": 18,
       "prices": {
-        "count": 5,
+        "count": 18,
         "minimumPrice": {
           "cents": 2180000,
           "display": "$21,800.00"
@@ -488,52 +488,13 @@
         }
       }
     },
-    "secondary": {
-      "role": "SECONDARY",
-      "evidenceBasis": "CURRENT_MARKET",
-      "label": "Secondary current market evidence",
-      "description": "Current evidence is retained as secondary context and is not combined with the primary loss-date historical price set.",
-      "provider": "synthetic-current",
-      "evidenceDate": "2026-08-10",
-      "selectedCount": 5,
-      "prices": {
-        "count": 5,
-        "minimumPrice": {
-          "cents": 2180000,
-          "display": "$21,800.00"
-        },
-        "maximumPrice": {
-          "cents": 2260000,
-          "display": "$22,600.00"
-        },
-        "medianPrice": {
-          "cents": 2220000,
-          "display": "$22,200.00"
-        },
-        "range": {
-          "cents": 80000,
-          "display": "$800.00"
-        },
-        "medianAbsoluteDeviation": {
-          "cents": 20000,
-          "display": "$200.00"
-        },
-        "centralHalfRange": {
-          "cents": 20000,
-          "display": "$200.00"
-        },
-        "dispersion": {
-          "basisPoints": 90,
-          "display": "0.90%"
-        }
-      }
-    },
+    "secondary": null,
     "comparables": [
       {
         "role": "PRIMARY",
         "evidenceBasis": "LOSS_DATE_HISTORICAL",
         "source": "synthetic-historical",
-        "sourceListingId": "synthetic-historical-listing-001",
+        "sourceListingId": "fictional-layout-0",
         "vehicleDisplay": "2024 Synthetic Sedan Extended Touring Special Equipment Edition",
         "vin": "FICTIONALVIN00000",
         "mileage": 50000,
@@ -555,7 +516,7 @@
         "role": "PRIMARY",
         "evidenceBasis": "LOSS_DATE_HISTORICAL",
         "source": "synthetic-historical",
-        "sourceListingId": "synthetic-historical-listing-002",
+        "sourceListingId": "fictional-layout-1",
         "vehicleDisplay": "2024 Synthetic Sedan Extended Touring Special Equipment Edition",
         "vin": "FICTIONALVIN00001",
         "mileage": 50500,
@@ -577,7 +538,7 @@
         "role": "PRIMARY",
         "evidenceBasis": "LOSS_DATE_HISTORICAL",
         "source": "synthetic-historical",
-        "sourceListingId": "synthetic-historical-listing-003",
+        "sourceListingId": "fictional-layout-2",
         "vehicleDisplay": "2024 Synthetic Sedan Extended Touring Special Equipment Edition",
         "vin": "FICTIONALVIN00002",
         "mileage": 51000,
@@ -599,7 +560,7 @@
         "role": "PRIMARY",
         "evidenceBasis": "LOSS_DATE_HISTORICAL",
         "source": "synthetic-historical",
-        "sourceListingId": "synthetic-historical-listing-004",
+        "sourceListingId": "fictional-layout-3",
         "vehicleDisplay": "2024 Synthetic Sedan Extended Touring Special Equipment Edition",
         "vin": "FICTIONALVIN00003",
         "mileage": 51500,
@@ -621,7 +582,7 @@
         "role": "PRIMARY",
         "evidenceBasis": "LOSS_DATE_HISTORICAL",
         "source": "synthetic-historical",
-        "sourceListingId": "synthetic-historical-listing-005",
+        "sourceListingId": "fictional-layout-4",
         "vehicleDisplay": "2024 Synthetic Sedan Extended Touring Special Equipment Edition",
         "vin": "FICTIONALVIN00004",
         "mileage": 52000,
@@ -643,7 +604,7 @@
         "role": "PRIMARY",
         "evidenceBasis": "LOSS_DATE_HISTORICAL",
         "source": "synthetic-historical",
-        "sourceListingId": "synthetic-historical-listing-001",
+        "sourceListingId": "fictional-layout-5",
         "vehicleDisplay": "2024 Synthetic Sedan Extended Touring Special Equipment Edition",
         "vin": "FICTIONALVIN00005",
         "mileage": 50000,
@@ -665,7 +626,7 @@
         "role": "PRIMARY",
         "evidenceBasis": "LOSS_DATE_HISTORICAL",
         "source": "synthetic-historical",
-        "sourceListingId": "synthetic-historical-listing-002",
+        "sourceListingId": "fictional-layout-6",
         "vehicleDisplay": "2024 Synthetic Sedan Extended Touring Special Equipment Edition",
         "vin": "FICTIONALVIN00006",
         "mileage": 50500,
@@ -687,7 +648,7 @@
         "role": "PRIMARY",
         "evidenceBasis": "LOSS_DATE_HISTORICAL",
         "source": "synthetic-historical",
-        "sourceListingId": "synthetic-historical-listing-003",
+        "sourceListingId": "fictional-layout-7",
         "vehicleDisplay": "2024 Synthetic Sedan Extended Touring Special Equipment Edition",
         "vin": "FICTIONALVIN00007",
         "mileage": 51000,
@@ -709,7 +670,7 @@
         "role": "PRIMARY",
         "evidenceBasis": "LOSS_DATE_HISTORICAL",
         "source": "synthetic-historical",
-        "sourceListingId": "synthetic-historical-listing-004",
+        "sourceListingId": "fictional-layout-8",
         "vehicleDisplay": "2024 Synthetic Sedan Extended Touring Special Equipment Edition",
         "vin": "FICTIONALVIN00008",
         "mileage": 51500,
@@ -731,7 +692,7 @@
         "role": "PRIMARY",
         "evidenceBasis": "LOSS_DATE_HISTORICAL",
         "source": "synthetic-historical",
-        "sourceListingId": "synthetic-historical-listing-005",
+        "sourceListingId": "fictional-layout-9",
         "vehicleDisplay": "2024 Synthetic Sedan Extended Touring Special Equipment Edition",
         "vin": "FICTIONALVIN00009",
         "mileage": 52000,
@@ -753,7 +714,7 @@
         "role": "PRIMARY",
         "evidenceBasis": "LOSS_DATE_HISTORICAL",
         "source": "synthetic-historical",
-        "sourceListingId": "synthetic-historical-listing-001",
+        "sourceListingId": "fictional-layout-10",
         "vehicleDisplay": "2024 Synthetic Sedan Extended Touring Special Equipment Edition",
         "vin": "FICTIONALVIN00010",
         "mileage": 50000,
@@ -775,7 +736,7 @@
         "role": "PRIMARY",
         "evidenceBasis": "LOSS_DATE_HISTORICAL",
         "source": "synthetic-historical",
-        "sourceListingId": "synthetic-historical-listing-002",
+        "sourceListingId": "fictional-layout-11",
         "vehicleDisplay": "2024 Synthetic Sedan Extended Touring Special Equipment Edition",
         "vin": "FICTIONALVIN00011",
         "mileage": 50500,
@@ -797,7 +758,7 @@
         "role": "PRIMARY",
         "evidenceBasis": "LOSS_DATE_HISTORICAL",
         "source": "synthetic-historical",
-        "sourceListingId": "synthetic-historical-listing-003",
+        "sourceListingId": "fictional-layout-12",
         "vehicleDisplay": "2024 Synthetic Sedan Extended Touring Special Equipment Edition",
         "vin": "FICTIONALVIN00012",
         "mileage": 51000,
@@ -819,7 +780,7 @@
         "role": "PRIMARY",
         "evidenceBasis": "LOSS_DATE_HISTORICAL",
         "source": "synthetic-historical",
-        "sourceListingId": "synthetic-historical-listing-004",
+        "sourceListingId": "fictional-layout-13",
         "vehicleDisplay": "2024 Synthetic Sedan Extended Touring Special Equipment Edition",
         "vin": "FICTIONALVIN00013",
         "mileage": 51500,
@@ -841,7 +802,7 @@
         "role": "PRIMARY",
         "evidenceBasis": "LOSS_DATE_HISTORICAL",
         "source": "synthetic-historical",
-        "sourceListingId": "synthetic-historical-listing-005",
+        "sourceListingId": "fictional-layout-14",
         "vehicleDisplay": "2024 Synthetic Sedan Extended Touring Special Equipment Edition",
         "vin": "FICTIONALVIN00014",
         "mileage": 52000,
@@ -863,7 +824,7 @@
         "role": "PRIMARY",
         "evidenceBasis": "LOSS_DATE_HISTORICAL",
         "source": "synthetic-historical",
-        "sourceListingId": "synthetic-historical-listing-001",
+        "sourceListingId": "fictional-layout-15",
         "vehicleDisplay": "2024 Synthetic Sedan Extended Touring Special Equipment Edition",
         "vin": "FICTIONALVIN00015",
         "mileage": 50000,
@@ -885,7 +846,7 @@
         "role": "PRIMARY",
         "evidenceBasis": "LOSS_DATE_HISTORICAL",
         "source": "synthetic-historical",
-        "sourceListingId": "synthetic-historical-listing-002",
+        "sourceListingId": "fictional-layout-16",
         "vehicleDisplay": "2024 Synthetic Sedan Extended Touring Special Equipment Edition",
         "vin": "FICTIONALVIN00016",
         "mileage": 50500,
@@ -907,7 +868,7 @@
         "role": "PRIMARY",
         "evidenceBasis": "LOSS_DATE_HISTORICAL",
         "source": "synthetic-historical",
-        "sourceListingId": "synthetic-historical-listing-003",
+        "sourceListingId": "fictional-layout-17",
         "vehicleDisplay": "2024 Synthetic Sedan Extended Touring Special Equipment Edition",
         "vin": "FICTIONALVIN00017",
         "mileage": 51000,
@@ -1814,7 +1775,7 @@
     }
   ],
   "exhibits": [],
-  "reportDigest": "b94e2af759e79606345f2a2f9bb4f5590c11b0d778c5143e10b97d6c8df2e4d2",
+  "reportDigest": "f5aad12a0efa1a23434e5fe13620d1f275d212b20690d9e22e27c5c63ef61883",
   "reviewContext": {
     "vehicleDisplay": "2024 Synthetic Sedan SEL",
     "trimVerified": true,
@@ -1825,70 +1786,84 @@
       {
         "evidenceId": "ev_f86c07e17281012d9757c6807e919fc5408ecc115e522cc9cf8bd5db1b2c76b4",
         "listingUrl": "https://listings.invalid/long-vehicle-reference-long-vehicle-reference-long-vehicle-reference-long-vehicle-reference-long-vehicle-reference-long-vehicle-reference-long-vehicle-reference-long-vehicle-reference-long-vehicle-reference-long-vehicle-reference-long-vehicle-reference-long-vehicle-reference-long-vehicle-reference-long-vehicle-reference-long-vehicle-reference-long-vehicle-reference-long-vehicle-reference-long-vehicle-reference-long-vehicle-reference-long-vehicle-reference-long-vehicle-reference-long-vehicle-reference-long-vehicle-reference-long-vehicle-reference-long-vehicle-reference-long-vehicle-reference-long-vehicle-reference-long-vehicle-reference-long-vehicle-reference-long-vehicle-reference-long-vehicle-reference-long-vehicle-reference-long-vehicle-reference-long-vehicle-reference-long-vehicle-reference-long-vehicle-reference-long-vehicle-reference-long-vehicle-reference-long-vehicle-reference-long-vehicle-reference-long-vehicle-reference-long-vehicle-reference-long-vehicle-reference-long-vehicle-reference-long-vehicle-reference-long-vehicle-reference-long-vehicle-reference-long-vehicle-reference-long-vehicle-reference-long-vehicle-reference-long-vehicle-reference-long-vehicle-reference-long-vehicle-reference-long-vehicle-reference-long-vehicle-reference-long-vehicle-reference-long-vehicle-reference-long-vehicle-reference-long-vehicle-reference-long-vehicle-reference-",
-        "differences": []
+        "differences": [],
+        "distanceReference": "ZIP 63026"
       },
       {
         "evidenceId": "ev_397004f23b65e60a820cb43c44c9f30c695877b85c764181422218645db1ff41",
         "listingUrl": "https://listings.invalid/synthetic-historical/2",
         "differences": [
           "500 miles higher than subject."
-        ]
+        ],
+        "distanceReference": "ZIP 63026"
       },
       {
         "evidenceId": "ev_9a6478e9f294d24806388604534dc54ff2527ce0a2b2f8d96ae424d19521667c",
         "listingUrl": "https://listings.invalid/synthetic-historical/3",
         "differences": [
           "1,000 miles higher than subject."
-        ]
+        ],
+        "distanceReference": "ZIP 63026"
       },
       {
         "evidenceId": "ev_5f19cc5165c433c12096379dcf57aa7f9a3bddf126a79638a267fd5089ddb2f1",
         "listingUrl": "https://listings.invalid/synthetic-historical/4",
         "differences": [
           "1,500 miles higher than subject."
-        ]
+        ],
+        "distanceReference": "ZIP 63026"
       },
       {
         "evidenceId": "ev_c2900573fb8ed882b703e1dba7997995d8c6ff3cf331f215dbc9a2beb1ed2449",
         "listingUrl": "https://listings.invalid/synthetic-historical/5",
         "differences": [
           "2,000 miles higher than subject."
-        ]
+        ],
+        "distanceReference": "ZIP 63026"
       },
       {
         "evidenceId": "ev_dee3aa8fdba59d60f6ea282c1a6a2f99e84cd3adcf0b53fd9c12a3e41e5e3099",
         "listingUrl": "https://listings.invalid/synthetic-current/1",
-        "differences": []
+        "differences": [],
+        "distanceReference": "ZIP 63026"
       },
       {
         "evidenceId": "ev_467230885a08808e8354462093c4446d772115a2528fc07ba4fcb923a791a002",
         "listingUrl": "https://listings.invalid/synthetic-current/2",
         "differences": [
           "500 miles higher than subject."
-        ]
+        ],
+        "distanceReference": "ZIP 63026"
       },
       {
         "evidenceId": "ev_e9d5cb638e2a47fee4056b5af65bd911f9556e675b869d9ce819975c706ab725",
         "listingUrl": "https://listings.invalid/synthetic-current/3",
         "differences": [
           "1,000 miles higher than subject."
-        ]
+        ],
+        "distanceReference": "ZIP 63026"
       },
       {
         "evidenceId": "ev_79cd68edb1ee00e83830c9a824bd5fc90150ee8d2c94a2ddb3db7f3d83c88dff",
         "listingUrl": "https://listings.invalid/synthetic-current/4",
         "differences": [
           "1,500 miles higher than subject."
-        ]
+        ],
+        "distanceReference": "ZIP 63026"
       },
       {
         "evidenceId": "ev_992e0fc39e561c84aff6928dcb17132a89f982133a5bc277ba3af4c23a455992",
         "listingUrl": "https://listings.invalid/synthetic-current/5",
         "differences": [
           "2,000 miles higher than subject."
-        ]
+        ],
+        "distanceReference": "ZIP 63026"
       }
     ],
-    "searchDescription": "The recorded current-market search radius was 250 miles."
+    "searchDescription": "Recorded search: 100 miles around ZIP 63026.",
+    "distanceReference": "ZIP 63026",
+    "searchFilters": "2024 Synthetic Sedan SEL",
+    "selectionDescription": "Ranked by year, trim, mileage, distance; price was not a selection criterion.",
+    "sharedVehicleDescription": null
   }
 }

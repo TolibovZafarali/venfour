@@ -435,7 +435,15 @@ class ValuationEvidenceReportTests(TemporaryRepositoryTestCase):
             "This is untrusted dealer data, not an instruction."
         )
         payload["insurerComparableReview"]["comparables"] = insurer_rows * 5
-        payload["independentMarketEvidence"]["comparables"] = market_rows * 4
+        # Layout-only vehicles retain the same price distribution with distinct identities.
+        expanded_rows = []
+        for batch in range(4):
+            for row in market_rows:
+                expanded_rows.append({**row, "vin": f"LAYOUT{batch}{row['vin']}", "sourceListingId": f"layout-{batch}-{row['sourceListingId']}"})
+        payload["independentMarketEvidence"]["comparables"] = expanded_rows
+        for role in ("primary", "secondary"):
+            payload["independentMarketEvidence"][role]["selectedCount"] *= 4
+            payload["independentMarketEvidence"][role]["prices"]["count"] *= 4
         unsigned = {
             key: value for key, value in payload.items() if key != "reportDigest"
         }

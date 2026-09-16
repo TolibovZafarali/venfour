@@ -1,5 +1,7 @@
 /Users/zafaralitolibov/Documents/venfour/tests/test_case_analyses.py:18: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
   from starlette.testclient import TestClient
+test_brand_palette_has_print_legibility_and_color_is_not_semantic (tests.test_valuation_review.ValuationReviewTests.test_brand_palette_has_print_legibility_and_color_is_not_semantic) ... ok
+test_case_specific_market_summary_and_recorded_search_stream (tests.test_valuation_review.ValuationReviewTests.test_case_specific_market_summary_and_recorded_search_stream) ... ok
 test_claim_is_bound_to_accepted_extraction_not_live_customer_fields (tests.test_valuation_review.ValuationReviewTests.test_claim_is_bound_to_accepted_extraction_not_live_customer_fields) ... ok
 test_complete_case_is_readable_linked_and_deterministic (tests.test_valuation_review.ValuationReviewTests.test_complete_case_is_readable_linked_and_deterministic) ... ok
 test_complete_primary_set_and_duplicate_current_observations (tests.test_valuation_review.ValuationReviewTests.test_complete_primary_set_and_duplicate_current_observations) ... ok
@@ -7,11 +9,16 @@ test_historical_template_retains_exact_bytes_and_manifest (tests.test_valuation_
 test_long_names_urls_and_large_sets_continue_without_losing_rows (tests.test_valuation_review.ValuationReviewTests.test_long_names_urls_and_large_sets_continue_without_losing_rows) ... ok
 test_missing_material_evidence_does_not_request_an_increase (tests.test_valuation_review.ValuationReviewTests.test_missing_material_evidence_does_not_request_an_increase) ... ok
 test_missing_optional_identification_and_unverified_trim (tests.test_valuation_review.ValuationReviewTests.test_missing_optional_identification_and_unverified_trim) ... ok
+test_missing_vin_is_disclosed_without_identity_guessing (tests.test_valuation_review.ValuationReviewTests.test_missing_vin_is_disclosed_without_identity_guessing) ... ok
+test_multiple_search_areas_and_missing_metadata_are_not_inferred (tests.test_valuation_review.ValuationReviewTests.test_multiple_search_areas_and_missing_metadata_are_not_inferred) ... ok
 test_no_discrepancy_and_weak_current_evidence_are_qualified (tests.test_valuation_review.ValuationReviewTests.test_no_discrepancy_and_weak_current_evidence_are_qualified) ... ok
+test_previous_template_two_retains_exact_bytes (tests.test_valuation_review.ValuationReviewTests.test_previous_template_two_retains_exact_bytes) ... ok
 test_private_links_are_not_embedded_and_text_is_escaped (tests.test_valuation_review.ValuationReviewTests.test_private_links_are_not_embedded_and_text_is_escaped) ... ok
 test_sold_source_price_is_not_relabelled_as_an_advertisement (tests.test_valuation_review.ValuationReviewTests.test_sold_source_price_is_not_relabelled_as_an_advertisement) ... ok
+test_statistics_must_correspond_to_the_complete_displayed_set (tests.test_valuation_review.ValuationReviewTests.test_statistics_must_correspond_to_the_complete_displayed_set) ... ok
+test_subject_vehicle_and_duplicate_rows_fail_closed_without_repair (tests.test_valuation_review.ValuationReviewTests.test_subject_vehicle_and_duplicate_rows_fail_closed_without_repair) ... ok
 test_extracted_insurer_name_has_distinct_frozen_provenance (tests.test_valuation_evidence_report.ValuationEvidenceReportTests.test_extracted_insurer_name_has_distinct_frozen_provenance) ... ok
-test_long_tables_and_untrusted_listing_text_render_without_clipping_failure (tests.test_valuation_evidence_report.ValuationEvidenceReportTests.test_long_tables_and_untrusted_listing_text_render_without_clipping_failure) ... ok
+test_long_tables_and_untrusted_listing_text_render_without_clipping_failure (tests.test_valuation_evidence_report.ValuationEvidenceReportTests.test_long_tables_and_untrusted_listing_text_render_without_clipping_failure) ... ERROR
 test_manual_case_uses_customer_labels_and_no_insurer_comparables (tests.test_valuation_evidence_report.ValuationEvidenceReportTests.test_manual_case_uses_customer_labels_and_no_insurer_comparables) ... ok
 test_missing_insurer_name_cannot_mint_report_local_evidence (tests.test_valuation_evidence_report.ValuationEvidenceReportTests.test_missing_insurer_name_cannot_mint_report_local_evidence) ... ok
 test_missing_optional_facts_are_visible_as_unavailable (tests.test_valuation_evidence_report.ValuationEvidenceReportTests.test_missing_optional_facts_are_visible_as_unavailable) ... ok
@@ -48,9 +55,30 @@ test_price_type_does_not_change_independent_market_decision (tests.test_ccc_sour
 test_source_arithmetic_and_contribution_binding_are_separate_checks (tests.test_ccc_source_price_projection.SourcePriceProjectionTests.test_source_arithmetic_and_contribution_binding_are_separate_checks) ... ok
 test_take_price_cannot_be_relabelled_advertised_in_a_result (tests.test_ccc_source_price_projection.SourcePriceProjectionTests.test_take_price_cannot_be_relabelled_advertised_in_a_result) ... ok
 test_take_price_retains_amount_and_net_without_advertised_alias (tests.test_ccc_source_price_projection.SourcePriceProjectionTests.test_take_price_retains_amount_and_net_without_advertised_alias) ... ok
-test_preserved_attestation_does_not_qualify_redesigned_report (tests.test_report_review_evals.ReportReviewEvalSuiteTests.test_preserved_attestation_does_not_qualify_redesigned_report) ... ok
+
+======================================================================
+ERROR: test_long_tables_and_untrusted_listing_text_render_without_clipping_failure (tests.test_valuation_evidence_report.ValuationEvidenceReportTests.test_long_tables_and_untrusted_listing_text_render_without_clipping_failure)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/zafaralitolibov/Documents/venfour/tests/test_valuation_evidence_report.py", line 443, in test_long_tables_and_untrusted_listing_text_render_without_clipping_failure
+    expanded = ValuationEvidenceReportV1.from_dict(payload)
+  File "/Users/zafaralitolibov/Documents/venfour/venfour/valuation_evidence_report.py", line 1087, in from_dict
+    validate_valuation_evidence_report_v1(value)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/Users/zafaralitolibov/Documents/venfour/venfour/valuation_evidence_report.py", line 1229, in validate_valuation_evidence_report_v1
+    _validate_report_semantics(report)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^
+  File "/Users/zafaralitolibov/Documents/venfour/venfour/valuation_evidence_report.py", line 1151, in _validate_report_semantics
+    validate_comparison_integrity(report)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^
+  File "/Users/zafaralitolibov/Documents/venfour/venfour/valuation_review.py", line 137, in validate_comparison_integrity
+    reject("duplicate observations appear within one comparison set")
+    ~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/zafaralitolibov/Documents/venfour/venfour/valuation_review.py", line 124, in reject
+    raise ValuationEvidenceReportError("Comparable evidence requires upstream review: " + reason, code="REPORT_COMPARISON_INTEGRITY_INVALID")
+venfour.valuation_evidence_report.ValuationEvidenceReportError: Comparable evidence requires upstream review: duplicate observations appear within one comparison set
 
 ----------------------------------------------------------------------
-Ran 49 tests in 229.301s
+Ran 55 tests in 236.684s
 
-OK
+FAILED (errors=1)
