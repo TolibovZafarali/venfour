@@ -20,6 +20,21 @@ beforeEach(() => {
 });
 
 describe("interactive message preview", () => {
+  it("uses the vehicle subject when no claim number is available", async () => {
+    phase = "message-details";
+    resetMessagePreview(phase);
+    const initial = messagePreview(phase).claim;
+    const details = await updateTotalLossSendingDetails(CASE_ID, "preview", {
+      adjusterName: null, adjusterEmail: "claims@example.com", adjusterEmailConfirmed: true,
+      claimReference: null, claimReferenceConfirmed: false,
+      expectedRevision: initial.sendingDetails!.revision, expectedWorkflowRevision: initial.workflow!.revision,
+    });
+    expect(details.sendingDetails.claimReferenceConfirmed).toBe(false);
+    const generated = await prepareTotalLossMessage(CASE_ID, "preview", crypto.randomUUID(), details.workflowRevision);
+    expect(generated.draft.subject).toBe("Vehicle valuation review — 2026 Hyundai Kona");
+    expect(generated.messageVersion.body).toBe(generated.draft.body);
+  });
+
   it("saves an inline response once, preserves its original text, and keeps corrections linked", async () => {
     phase = "waiting";
     resetMessagePreview(phase);
@@ -113,7 +128,7 @@ describe("interactive message preview", () => {
     });
     const generated = await prepareTotalLossMessage(CASE_ID, "preview", crypto.randomUUID(), details.workflowRevision);
     expect(generated.draft.recipient).toBe("claims@example.com");
-    expect(generated.draft.body).toContain("DEMO-123");
+    expect(generated.draft.subject).toContain("DEMO-123");
     resetMessagePreview("message");
     expect(messagePreview("message").claim.messageDraft).toBeNull();
     expect(messagePreview("message").claim.sendingDetails?.claimReference).toBe("CLM-42");

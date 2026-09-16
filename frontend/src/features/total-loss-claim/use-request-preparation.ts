@@ -81,10 +81,6 @@ export function useRequestPreparation(options: RequestPreparationOptions) {
       setError("Enter the adjuster’s valid email address.");
       return;
     }
-    if (!reference.trim()) {
-      setError("Enter the claim or reference number.");
-      return;
-    }
     creatingRef.current = true;
     setCreating(true);
     setError(null);
@@ -93,16 +89,16 @@ export function useRequestPreparation(options: RequestPreparationOptions) {
       if (!pendingGenerated.current) {
         if (
           !details.adjusterEmailConfirmed ||
-          !details.claimReferenceConfirmed ||
+          (Boolean(reference.trim()) && !details.claimReferenceConfirmed) ||
           email.trim() !== details.adjusterEmail ||
-          reference.trim() !== details.claimReference
+          reference.trim() !== (details.claimReference ?? "")
         ) {
           const result = await saveDetails({
             adjusterName: details.adjusterName,
             adjusterEmail: email.trim(),
             adjusterEmailConfirmed: true,
-            claimReference: reference.trim(),
-            claimReferenceConfirmed: true,
+            claimReference: reference.trim() || null,
+            claimReferenceConfirmed: Boolean(reference.trim()),
             expectedRevision: details.revision,
             expectedWorkflowRevision: revision,
           });

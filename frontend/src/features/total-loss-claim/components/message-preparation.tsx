@@ -373,7 +373,6 @@ function SendingDetails({
   readonly attempted: boolean;
 }) {
   const emailError = attempted && !EMAIL_PATTERN.test(email.trim());
-  const referenceError = attempted && !reference.trim();
   const emailConfirmed = Boolean(
     details.adjusterEmail && details.adjusterEmailConfirmed,
   );
@@ -417,18 +416,14 @@ function SendingDetails({
           </label>
           <input
             aria-describedby="request-reference-help"
-            aria-invalid={Boolean(referenceError) || undefined}
             disabled={pending}
             id="request-claim-reference"
             maxLength={200}
             onChange={(event) => onReference(event.target.value)}
-            required
             value={reference}
           />
-          <span className={referenceError ? "request-field-error" : "request-field-help"} id="request-reference-help">
-            {referenceError
-              ? "Enter your claim number."
-              : "You can find this on your insurer’s letters or emails."}
+          <span className="request-field-help" id="request-reference-help">
+            Optional. Include it if available; otherwise we’ll identify your vehicle in the subject.
           </span>
         </div>
       ) : (

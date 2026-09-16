@@ -2,6 +2,7 @@ import type { TotalLossClaimSecured, TotalLossInsurerResponse, TotalLossMessageD
 import { EMAIL_PATTERN, validationError } from "@/features/total-loss-claim/request-state";
 import { CASE_ID, REPORT_ID, claimProjection, completedEducationSteps } from "./claim-fixtures";
 import { responsePayload } from "./response-fixtures";
+import { renderReconsiderationPreview } from "./reconsideration-message";
 
 type MutableClaim = { -readonly [K in keyof TotalLossClaimSecured]: TotalLossClaimSecured[K] };
 type Reply = { status: number; data: unknown };
@@ -22,8 +23,14 @@ function newDraft(claim: MutableClaim): TotalLossMessageDraft {
   return {
     draftId: crypto.randomUUID(), reportVersionId: REPORT_ID, purpose: "initial_reconsideration", revision: 1,
     recipient: claim.sendingDetails!.adjusterEmail,
-    subject: `Vehicle valuation review - Claim ${claim.sendingDetails!.claimReference}`,
-    body: `Hello ${claim.sendingDetails!.adjusterName},\n\nThank you for your help with claim ${claim.sendingDetails!.claimReference} for my ${claim.report!.subjectVehicle.description}. I would appreciate another review of the ${claim.report!.conclusion.insurerValuation.formatted} vehicle valuation.\n\nI've attached a market evidence report with comparable listings advertised from ${claim.report!.conclusion.supportedRange!.low.formatted} to ${claim.report!.conclusion.supportedRange!.high.formatted}. These are asking prices, with vehicle differences and limitations explained in the report.\n\nCould you please reconsider the valuation based on this evidence and reply with any updated valuation? If you reach a different conclusion, a brief explanation of the relevant comparables or adjustments would help me understand.\n\nThank you for your time and help,\n${claim.sendingDetails!.customerName}`,
+    ...renderReconsiderationPreview({
+      claimNumber: claim.sendingDetails!.claimReference,
+      adjusterName: claim.sendingDetails!.adjusterName,
+      yearMakeModel: "2026 Hyundai Kona", trim: "SE",
+      insurerAmountMinorUnits: claim.report!.conclusion.insurerValuation.amountMinorUnits,
+      customerName: claim.sendingDetails!.customerName, customerPhone: null,
+      findingCode: "CCC_BELOW_EXTERNAL_RANGE",
+    }),
     updatedAt: now(),
   };
 }
@@ -98,9 +105,9 @@ export function messagePreview(phase: MessageScenario, storage: Storage = sessio
       if (path === "/message-draft" && method === "GET") return ok({ messageDraft: claim.messageDraft });
       if (path === "/sending-details" && method === "PUT") {
         if (!active() || body.expectedRevision !== claim.sendingDetails!.revision || body.expectedWorkflowRevision !== revision()) return conflict("The sending details changed. Refresh and try again.");
-        if (typeof body.adjusterEmail !== "string" || !EMAIL_PATTERN.test(body.adjusterEmail) || typeof body.claimReference !== "string" || !body.claimReference.trim() || !body.adjusterEmailConfirmed || !body.claimReferenceConfirmed) return conflict("Enter your adjuster’s email and claim number.");
-        claim.sendingDetails = { ...claim.sendingDetails!, adjusterEmail: body.adjusterEmail, claimReference: body.claimReference,
-          adjusterEmailConfirmed: true, claimReferenceConfirmed: true, revision: claim.sendingDetails!.revision + 1 };
+        if (typeof body.adjusterEmail !== "string" || !EMAIL_PATTERN.test(body.adjusterEmail) || (body.claimReference !== null && (typeof body.claimReference !== "string" || !body.claimReference.trim() || !body.claimReferenceConfirmed)) || !body.adjusterEmailConfirmed) return conflict("Check the adjuster’s email and any claim number you entered.");
+        claim.sendingDetails = { ...claim.sendingDetails!, adjusterEmail: body.adjusterEmail, claimReference: body.claimReference as string | null,
+          adjusterEmailConfirmed: true, claimReferenceConfirmed: body.claimReferenceConfirmed === true, revision: claim.sendingDetails!.revision + 1 };
         bump(); persist();
         return ok({ sendingDetails: claim.sendingDetails, workflowRevision: revision() });
       }
@@ -114,7 +121,7 @@ export function messagePreview(phase: MessageScenario, storage: Storage = sessio
         persist(); return ok(claim.messageDraft);
       }
       if (path === "/message/prepare" && method === "POST") return record(path, body, () => {
-        if (!active() || body.expectedWorkflowRevision !== revision() || !claim.sendingDetails?.adjusterEmailConfirmed || !claim.sendingDetails.claimReferenceConfirmed) return conflict("Check your sending details and refresh the preview.");
+        if (!active() || body.expectedWorkflowRevision !== revision() || !claim.sendingDetails?.adjusterEmailConfirmed || (claim.sendingDetails.claimReference && !claim.sendingDetails.claimReferenceConfirmed)) return conflict("Check your sending details and refresh the preview.");
         claim.messageDraft ??= newDraft(claim);
         const draft = claim.messageDraft;
         const message: TotalLossPreparedMessageVersion = {

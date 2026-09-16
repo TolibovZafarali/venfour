@@ -3,7 +3,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
 
-select plan(55);
+select plan(56);
 
 insert into auth.users (id, email, email_confirmed_at, is_anonymous)
 values
@@ -343,8 +343,15 @@ insert into m6_report_payload values (jsonb_build_object(
     )
   ),
   'subjectVehicle', jsonb_build_object(
-    'vehicleDisplay', '2022 Honda Accord EX-L', 'vin', '1HGCM82633A004352'
+    'vehicleDisplay', '2022 Honda Accord EX-L', 'vin', '1HGCM82633A004352',
+    'facts', jsonb_build_array(
+      jsonb_build_object('key','year','value',2022,'evidenceLabel','INSURER_EXTRACTED','evidenceIds',jsonb_build_array('ev_' || repeat('a',64))),
+      jsonb_build_object('key','make','value','Honda','evidenceLabel','INSURER_EXTRACTED','evidenceIds',jsonb_build_array('ev_' || repeat('a',64))),
+      jsonb_build_object('key','model','value','Accord','evidenceLabel','INSURER_EXTRACTED','evidenceIds',jsonb_build_array('ev_' || repeat('a',64))),
+      jsonb_build_object('key','trim','value','EX-L','evidenceLabel','INSURER_EXTRACTED','evidenceIds',jsonb_build_array('ev_' || repeat('a',64)))
+    )
   ),
+  'sourceEvidenceIndex', jsonb_build_array(jsonb_build_object('evidenceId','ev_' || repeat('a',64))),
   'insurerValuationReviewed', jsonb_build_object(
     'insurerName', jsonb_build_object(
       'value', 'Example Insurance', 'displayValue', 'Example Insurance'
@@ -925,21 +932,19 @@ select public.prepare_total_loss_customer_message(
 select ok(
   (
     select response #>> '{messageVersion,state}' = 'prepared'
-      and response #>> '{draft,subject}' = 'Vehicle valuation review - Claim CLM 123'
-      and response #>> '{draft,body}' like 'Hello Alex Adjuster,%'
-      and response #>> '{draft,body}' like '%CLM 123%'
+      and response #>> '{draft,subject}' = 'Vehicle valuation review — Claim CLM 123'
+      and response #>> '{draft,body}' like 'Hi Alex,%'
       and response #>> '{draft,body}' like '%2022 Honda Accord EX-L%'
-      and response #>> '{draft,body}' like '%$18,000.00 vehicle valuation%'
-      and response #>> '{draft,body}' like '%advertised from $20,000.00 to $22,000.00%'
-      and response #>> '{draft,body}' like '%These are asking prices%'
-      and response #>> '{draft,body}' like E'%Thank you for your time and help,\nDelivery Customer'
+      and response #>> '{draft,body}' like '%$18,000.00 valuation%'
+      and response #>> '{draft,body}' like '%reconsidered based on the attached valuation review%'
+      and response #>> '{draft,body}' like E'%Best,\nDelivery Customer'
     from m6_prepare_v1
   ),
-  'new messages use saved names, claim and vehicle facts with qualified advertised prices'
+  'new messages use saved names, claim and vehicle facts without inventing a revised value'
 );
 
 select ok(
-  (select response #>> '{draft,body}' like '%Could you please reconsider the valuation%'
+  (select response #>> '{draft,body}' like '%Could you please take another look%'
     and response #>> '{draft,body}' like '%a brief explanation%'
     and response #>> '{draft,body}' !~ '(Venfour_|Unavailable|Claims Representative|settlement target)'
     and cardinality(regexp_split_to_array(response #>> '{draft,body}', E'\\s+')) < 170
@@ -1200,6 +1205,14 @@ select public.put_total_loss_education_progress(
   ))
 );
 
+select public.put_total_loss_sending_details(
+  'f2000000-0000-4000-8000-000000000001', null, null, 'adjuster@example.test', false, true,
+  (select (sending_details ->> 'revision')::bigint from public.resolve_total_loss_case_claim(
+    'f2000000-0000-4000-8000-000000000001')),
+  (select workflow_revision from public.resolve_total_loss_case_claim(
+    'f2000000-0000-4000-8000-000000000001'))
+);
+
 create temporary table m6_prepare_v2 on commit drop as
 select public.prepare_total_loss_customer_message(
   'f2000000-0000-4000-8000-000000000001',
@@ -1209,13 +1222,17 @@ select public.prepare_total_loss_customer_message(
   ))
 ) as response;
 
+select is((select response #>> '{draft,subject}' from m6_prepare_v2),
+  'Vehicle valuation review — 2022 Honda Accord',
+  'an owner with a confirmed recipient can prepare a message without a claim number');
+
 select ok(
   (
     select current.response #>> '{draft,draftId}' <>
         prior.response #>> '{draft,draftId}'
       and current.response #>> '{draft,reportVersionId}' =
         'fe000000-0000-4000-8000-000000000002'
-      and current.response #>> '{draft,body}' like '%attached a market evidence report%'
+      and current.response #>> '{draft,body}' like '%attached valuation review%'
       and current.response #>> '{draft,body}' not like '%_v2.pdf%'
     from m6_prepare_v2 as current
     cross join m6_prepare_v1 as prior

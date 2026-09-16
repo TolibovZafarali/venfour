@@ -1,0 +1,100 @@
+{
+  "report": {
+    "executiveConclusion": {
+      "pointAcvDetermined": false,
+      "insurerValuation": {
+        "value": {
+          "minorUnits": 1800045,
+          "currency": "USD",
+          "display": "$999,999.99"
+        }
+      },
+      "supportedAdvertisedPriceRange": {
+        "low": {
+          "minorUnits": 2000000
+        },
+        "median": {
+          "minorUnits": 2100000
+        },
+        "high": {
+          "minorUnits": 2200000
+        }
+      }
+    },
+    "subjectVehicle": {
+      "vehicleDisplay": "2022 Honda Accord UNVERIFIED-TRIM",
+      "facts": [
+        {
+          "key": "year",
+          "value": 2022,
+          "evidenceLabel": "INSURER_EXTRACTED",
+          "evidenceIds": [
+            "ev_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          ]
+        },
+        {
+          "key": "make",
+          "value": "Honda",
+          "evidenceLabel": "INSURER_EXTRACTED",
+          "evidenceIds": [
+            "ev_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          ]
+        },
+        {
+          "key": "model",
+          "value": "Accord",
+          "evidenceLabel": "INSURER_EXTRACTED",
+          "evidenceIds": [
+            "ev_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          ]
+        },
+        {
+          "key": "trim",
+          "value": "EX-L",
+          "evidenceLabel": "INSURER_EXTRACTED",
+          "evidenceIds": [
+            "ev_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          ]
+        }
+      ]
+    },
+    "sourceEvidenceIndex": [
+      {
+        "evidenceId": "ev_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    ],
+    "findings": [
+      {
+        "code": "CCC_ADJUSTMENTS_REDUCE_COMPARABLE_VALUES",
+        "evidenceLabel": "DETERMINISTIC_FINDING",
+        "evidenceIds": [
+          "ev_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        ]
+      },
+      {
+        "code": "EXTERNAL_MEDIAN_ABOVE_CCC",
+        "evidenceLabel": "DETERMINISTIC_FINDING",
+        "evidenceIds": [
+          "ev_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        ]
+      },
+      {
+        "code": "CCC_BELOW_EXTERNAL_RANGE",
+        "evidenceLabel": "DETERMINISTIC_FINDING",
+        "evidenceIds": [
+          "ev_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        ]
+      }
+    ]
+  },
+  "details": {
+    "claimReference": "CLM-42",
+    "adjusterName": "Alex Morgan"
+  },
+  "contact": {
+    "first_name": "Jordan",
+    "last_name": "Rivera",
+    "full_name": "Jordan Rivera",
+    "phone_number": "+1 (312) 555-0102"
+  }
+}

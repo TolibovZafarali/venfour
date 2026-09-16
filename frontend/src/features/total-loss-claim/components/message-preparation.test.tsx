@@ -722,6 +722,27 @@ beforeEach(() => {
 });
 
 describe("case request preparation", () => {
+  it("prepares the canonical server message when a claim number is unavailable", async () => {
+    const initial = claim({ messageDraft: null });
+    const generated = draft({
+      subject: "Vehicle valuation review — 2022 Honda Accord",
+      body: "Hello,\n\nThank you for your help with my claim.\n\nI’m respectfully requesting reconsideration based on the attached valuation review.",
+    });
+    let preparations = 0;
+    server.use(http.post(`${API}/message/prepare`, () => {
+      preparations += 1;
+      return HttpResponse.json(prepared(generated, 8));
+    }));
+    renderRequest({ ...initial, sendingDetails: {
+      ...initial.sendingDetails!, claimReference: null, claimReferenceConfirmed: false,
+    } });
+    expect(screen.getByRole("textbox", { name: "Claim number" })).not.toBeRequired();
+    await userEvent.setup().click(screen.getByRole("button", { name: "Create my message" }));
+    expect(await screen.findByRole("textbox", { name: "Message" })).toHaveValue(generated.body);
+    expect(screen.getByRole("textbox", { name: "Subject" })).toHaveValue(generated.subject);
+    expect(preparations).toBe(1);
+  });
+
   it.each(["inline", "footer"] as const)("requires only missing sending details with the %s action without changing education", async (placement) => {
     const initial = claim({ messageDraft: null });
     const details = {
