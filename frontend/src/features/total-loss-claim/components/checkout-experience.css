@@ -51,8 +51,9 @@
 .checkout-inclusions > div { padding-block: 15px; border-bottom: 1px solid var(--line); }
 .checkout-inclusions > div:first-child { padding-top: 0; }
 .checkout-inclusions > div:last-child { border-bottom: 0; padding-bottom: 0; }
-.checkout-inclusions dt { font-size: 14px; font-weight: 600; line-height: 1.5; }
-.checkout-inclusions dd { margin-top: 4px; color: var(--copy); font-size: 14px; line-height: 1.55; }
+.checkout-inclusions dt { display: grid; grid-template-columns: 20px minmax(0, 1fr); column-gap: 12px; align-items: start; font-size: 14px; font-weight: 600; line-height: 1.5; }
+.checkout-inclusion-icon { margin-top: .5px; color: var(--copy); }
+.checkout-inclusions dd { margin-top: 4px; margin-inline-start: 32px; color: var(--copy); font-size: 14px; line-height: 1.55; }
 .checkout-policy { margin-top: 24px; padding-top: 22px; border-top: 1px solid var(--line); }
 .checkout-policy h2 { margin: 0 0 8px; font-size: 14px; font-weight: 600; line-height: 1.5; }
 .checkout-policy p { color: var(--copy); font-size: 14px; line-height: 1.6; }

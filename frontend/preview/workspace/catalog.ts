@@ -42,10 +42,11 @@ export const categories: Category[] = [
   ] },
   { id: "review", title: "Completed review", description: "Open each part of the completed customer report.", screens: [
     ...states("completed"),
-    ...[["insurer", "Insurer explanation"], ["market", "Market evidence"], ["meaning", "Comparison meaning"], ["request", "Prepare request"]].map(([id, title]) => screen(`review-${id}`, title, `${base}/claim/review/${id}`, "Saved report with completed reading checkpoints.", "completed")),
-    ...states("send"),
+    ...[["insurer", "Insurer explanation"], ["market", "Market evidence"], ["meaning", "Comparison meaning"]].map(([id, title]) => screen(`review-${id}`, title, `${base}/claim/review/${id}`, "Saved report with completed reading checkpoints.", "completed")),
+    screen("review-request", "Prepare your message · Interactive", `${base}/claim/review/request`, "Create, edit, download a sample report, and simulate sending. Nothing is sent.", "message"),
+    ...states("message-details", "send"),
   ] },
-  { id: "response", title: "Insurer response & outcome", description: "Waiting, saved responses, follow-up, and case closure.", screens: states("waiting", "response", "response-received", "response-reviewing", "response-reviewed", "follow-up", "resolution") },
+  { id: "response", title: "Insurer response & outcome", description: "Waiting, saved responses, follow-up, and case closure.", screens: states("waiting", "response", "response-received", "response-reviewing", "response-reviewed", "follow-up", "acceptance", "resolution") },
   { id: "admin", title: "Admin", description: "Staff operations with fictional customers, cases, and payments.", screens: [
     ...[["", "Overview"], ["cases", "Cases"], ["customers", "Customers"], ["reports", "Reports"], ["processing", "Processing"], ["payments", "Payments"], ["payment-approvals", "Payment approvals"], ["communications", "Communications"], ["activity", "Activity"], ["referral-partners", "Referral partners"], ["referral-partners/templates", "Agreement templates"]].map(([id, title]) => screen(`admin-${id || "overview"}`, title, `/admin${id ? `/${id}` : ""}?state=populated`, "Shared staff page with local demonstration records.")),
     screen("admin-case", "Case detail", "/admin/cases/00000010-3333-4333-8333-333333333333?state=populated", "Customer, report, analysis, and operation history."),

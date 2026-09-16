@@ -157,7 +157,7 @@ export function useRequestPreparation(options: RequestPreparationOptions) {
     } catch {
       await options.onRefresh().catch(() => undefined);
       setError(
-        "We couldn’t create your request draft. Your case is saved; try again.",
+        "We couldn’t create your message. Your case is saved; try again.",
       );
     } finally {
       creatingRef.current = false;

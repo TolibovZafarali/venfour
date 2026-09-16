@@ -153,7 +153,7 @@ describe("persistent case workspace projection", () => {
       resolution: { code: "CUSTOMER_STOPPED_PURSUING", resolvedAt: NOW, customerConfirmed: true, clientRequestId: CASE_ID, offerId: null, amountMinorUnits: null, currency: null, amountSource: null, recommendationId: null, decisionId: null, responseId: null },
     };
 
-    expect(workspace(closed).sections.find((section) => section.stage === "request")).toMatchObject({ label: "Initial request", available: true, complete: true });
+    expect(workspace(closed).sections.find((section) => section.stage === "request")).toMatchObject({ label: "Prepare your message", available: true, complete: true });
     expect(workspace({ ...closed, negotiationHistory: [] }).sections.some((section) => section.stage === "request")).toBe(false);
   });
 
@@ -166,7 +166,7 @@ describe("persistent case workspace projection", () => {
     expect(result.currentPath).toBe(`${BASE}/resolution`);
     expect(result.currentLabel).toBe("Case complete");
     expect(result.progress.isCaseClosed).toBe(true);
-    expect(result.sections.find((section) => section.stage === "resolution")?.label).toBe("Case outcome");
+    expect(result.sections.find((section) => section.stage === "case_record")).toMatchObject({ label: "Your case record", href: `${BASE}/resolution?view=record`, available: true, current: true });
     expect(result.sections.map((section) => section.label)).not.toContain("Resolution");
     expect(result.currentLabel).not.toBe("Case closed");
     expect(result.sections.filter((section) => ["result", "insurer", "market", "meaning", "response_received", "response_reviewed", "resolution"].includes(section.stage)).every((section) => section.available)).toBe(true);
@@ -183,9 +183,9 @@ describe("persistent case workspace projection", () => {
     const saved = { ...claim("follow_up_preparation", TOTAL_LOSS_EDUCATION_STEPS), insurerResponse: continued };
     const result = workspace(saved, intakeMode);
     expect(result.currentPath).toBe(`${BASE}/follow-up`);
-    expect(result.currentLabel).toBe("Prepare follow-up");
+    expect(result.currentLabel).toBe("Prepare your follow-up");
     expect(result.sections.find((section) => section.stage === "follow_up")).toMatchObject({ available: true, complete: false, current: true });
-    expect(result.sections.find((section) => section.stage === "request")).toMatchObject({ label: "Initial request", available: true, complete: true });
+    expect(result.sections.find((section) => section.stage === "request")).toMatchObject({ label: "Prepare your message", available: true, complete: true });
     expect(result.sections.find((section) => section.stage === "response_reviewed")).toMatchObject({ available: true, complete: true });
     const accepted = workspace({ ...saved, insurerResponse: { ...continued, decision: { ...continued.decision, choice: "ACCEPT_OFFER" } } }, intakeMode);
     expect(accepted.sections.some((section) => section.stage === "follow_up")).toBe(false);
@@ -241,6 +241,7 @@ describe("persistent case workspace projection", () => {
       complete: false,
       current: true,
     });
+    expect(result.sections.at(-1)).toMatchObject({ stage: "case_record", label: "Your case record", available: false, complete: false, current: false });
     expect(result.sections.map((section) => section.label)).not.toContain("Confirm outcome");
     expect(result.currentLabel).not.toBe("Awaiting finalization");
   });
@@ -250,7 +251,7 @@ describe("persistent case workspace projection", () => {
     expect(result.currentStage).toBe("result");
     expect(result.sections.filter((section) => section.available).map((section) => section.stage)).toEqual(["result"]);
     expect(result.sections.some((section) => section.complete)).toBe(false);
-    expect(result.sections.find((section) => section.stage === "response_received")).toMatchObject({ available: false, complete: false });
+    expect(result.sections.find((section) => section.stage === "response_received")).toBeUndefined();
     const reviewed = workspace({ ...claim("insurer_response_reviewed"), insurerResponse: response("completed") });
     expect(result.sections).toHaveLength(reviewed.sections.length);
     expect(result.sections.findIndex((section) => section.stage === "waiting")).toBe(reviewed.sections.findIndex((section) => section.stage === "waiting"));
@@ -296,7 +297,7 @@ describe("persistent case workspace projection", () => {
   it("keeps request and waiting available after sending without completing active waiting", () => {
     const result = workspace(claim("awaiting_insurer_response", TOTAL_LOSS_EDUCATION_STEPS));
     expect(result.currentPath).toBe(`${BASE}/waiting`);
-    expect(result.sections.find((section) => section.stage === "request")).toMatchObject({ label: "Initial request", href: `${BASE}/request`, available: true, complete: true });
+    expect(result.sections.find((section) => section.stage === "request")).toMatchObject({ label: "Prepare your message", href: `${BASE}/request`, available: true, complete: true });
     expect(result.sections.find((section) => section.stage === "waiting")).toMatchObject({ available: true, complete: false, current: true });
     expect(result.progress.current.id).toBe("waiting_for_insurer");
   });
@@ -340,7 +341,7 @@ describe("persistent case workspace projection", () => {
   });
 
   it.each([
-    ["insurer_response_received", "pending", "response_received", "response_reviewing", false],
+    ["insurer_response_received", "pending", "response_reviewing", "response_reviewing", false],
     ["insurer_response_reviewing", "processing", "response_reviewing", "response_reviewing", false],
     ["insurer_response_reviewed", "completed", "response_reviewed", "response_reviewed", true],
     ["insurer_response_review_unavailable", "retryable_failed", "response_reviewing", "response_reviewing", false],
@@ -348,10 +349,10 @@ describe("persistent case workspace projection", () => {
     const result = workspace({ ...claim(state, TOTAL_LOSS_EDUCATION_STEPS), insurerResponse: response(processingState) });
     expect(result.currentStage).toBe(currentStage);
     expect(result.sections.find((section) => section.stage === "waiting")).toMatchObject({ available: true, complete: true, current: false });
-    expect(result.sections.find((section) => section.stage === "response_received")).toMatchObject({ label: "Insurer response", href: `${BASE}/response-received?view=saved`, available: true, complete: true });
+    expect(result.sections.find((section) => section.stage === "response_received")).toBeUndefined();
     expect(result.currentPath).not.toContain("?");
-    expect(result.sections.find((section) => section.label === "Response review")).toMatchObject({ stage: reviewStage, available: state !== "insurer_response_received", complete });
-    expect(result.sections.find((section) => section.stage === "request")?.label).toBe("Initial request");
+    expect(result.sections.find((section) => section.label === "Response review")).toMatchObject({ stage: reviewStage, available: true, complete, current: true });
+    expect(result.sections.find((section) => section.stage === "request")?.label).toBe("Prepare your message");
     if (state === "insurer_response_review_unavailable") expect(result.currentLabel).toBe("Response review needs attention");
   });
 

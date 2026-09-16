@@ -102,6 +102,7 @@ interface NegotiationHistoryProps {
   readonly userId: string;
   readonly vehicleDescription?: string;
   readonly onNavigate?: () => void;
+  readonly expandResponses?: boolean;
 }
 
 export function NegotiationHistoryDialog(props: NegotiationHistoryProps) {
@@ -139,7 +140,7 @@ export function NegotiationHistoryDialog(props: NegotiationHistoryProps) {
   </Dialog.Root>;
 }
 
-export function NegotiationHistory({ caseId, history, userId, onNavigate }: NegotiationHistoryProps) {
+export function NegotiationHistory({ caseId, history, userId, onNavigate, expandResponses = false }: NegotiationHistoryProps) {
   if (!history.length) return null;
   const sentIds = new Set<string>();
   return <div className="case-history">
@@ -152,7 +153,7 @@ export function NegotiationHistory({ caseId, history, userId, onNavigate }: Nego
           {history.length > 1 ? <div className="case-history-round-label">Exchange {String(round.roundNumber).padStart(2, "0")}</div> : null}
           {showOutbound ? <SentHistoryMessage message={round.outbound} label={round.roundNumber === 1 ? "Initial request" : "Follow-up"} /> : null}
           {round.responses.map((response) => <Fragment key={response.responseId}>
-            <article className="case-history-response case-history-event" data-kind="response">
+            {expandResponses ? <SavedResponseRecord response={response} caseId={caseId} /> : <article className="case-history-response case-history-event" data-kind="response">
               <span className="case-history-marker" aria-hidden="true"><MessageSquare /></span>
               <h3>{response.supersedesResponseId ? "Corrected insurer response" : "Insurer response"}</h3>
               <p className="case-history-entry-meta">Recorded <RecordedTime value={response.receivedAt} /></p>
@@ -163,7 +164,7 @@ export function NegotiationHistory({ caseId, history, userId, onNavigate }: Nego
                 {response.analysis && response.analysisEvidence ? <Link onClick={onNavigate} to={`${totalLossClaimViewPath(caseId, "review_response_reviewed")}?response=${encodeURIComponent(response.responseId)}`}>Venfour review{response.decision ? " and decision" : ""}<ArrowUpRight aria-hidden="true" /></Link> : <span className="case-history-review-status">{response.processingState === "pending" || response.processingState === "processing" ? "Review in progress" : "Review unavailable"}</span>}
               </div>
               {response.decision ? <div className="case-history-decision"><Check aria-hidden="true" /><div><p><span>Your decision</span>{response.decision.choice === "ACCEPT_OFFER" ? "Accept offer" : "Continue challenging"}</p><RecordedTime value={response.decision.recordedAt} /></div></div> : null}
-            </article>
+            </article>}
             {round.supersededFollowUpDrafts
               .filter((draft) => draft.sourceResponseId === response.responseId)
               .map((draft) => <SupersededDraftHistory caseId={caseId} draftRecord={draft} key={draft.draft.draftId} userId={userId} />)}
@@ -173,4 +174,33 @@ export function NegotiationHistory({ caseId, history, userId, onNavigate }: Nego
       })}
     </ol>
   </div>;
+}
+
+function SavedResponseRecord({ response, caseId }: {
+  readonly response: TotalLossNegotiationHistoryRound["responses"][number];
+  readonly caseId: string;
+}) {
+  const review = response.analysis && response.analysisEvidence ? response.analysis : null;
+  return <details className="case-history-response case-history-event case-history-message case-record-history-response" data-kind="response">
+    <summary>
+      <span className="case-history-marker" aria-hidden="true"><MessageSquare /></span>
+      <span className="case-history-entry-title">{response.supersedesResponseId ? "Corrected insurer response" : "Insurer response"}</span>
+      <span className="case-history-entry-meta">Recorded <RecordedTime value={response.receivedAt} /></span>
+      <span className="case-history-disclosure"><span className="case-history-show">View reply</span><span className="case-history-hide">Hide reply</span><ChevronDown aria-hidden="true" /></span>
+    </summary>
+    <div className="case-history-message-content">
+      {response.text ? <blockquote className="case-history-response-preview">{response.text}</blockquote> : null}
+      {response.document ? <p className="case-history-attachment"><FileText aria-hidden="true" />{response.document.originalFilename}</p> : null}
+      <div className="case-history-links"><Link to={`${totalLossClaimViewPath(caseId, "review_response_received")}?view=saved&response=${encodeURIComponent(response.responseId)}`}>View full response<ArrowUpRight aria-hidden="true" /></Link></div>
+      {review ? <details className="case-record-review">
+        <summary>Venfour review<ChevronDown aria-hidden="true" size={16} /></summary>
+        <dl>
+          <div><dt>What your insurer said</dt><dd>{review.analysisSummary.whatInsurerSaid}</dd></div>
+          <div><dt>What this means</dt><dd>{review.analysisSummary.whatThisMeans}</dd></div>
+        </dl>
+        <div className="case-history-links"><Link to={`${totalLossClaimViewPath(caseId, "review_response_reviewed")}?response=${encodeURIComponent(response.responseId)}`}>Read the full review<ArrowUpRight aria-hidden="true" /></Link></div>
+      </details> : <p className="case-history-review-status">{response.processingState === "pending" || response.processingState === "processing" ? "Review in progress" : "Review unavailable"}</p>}
+      {response.decision ? <div className="case-history-decision"><Check aria-hidden="true" /><div><p><span>Your decision</span>{response.decision.choice === "ACCEPT_OFFER" ? "Accept offer" : "Continue challenging"}</p><RecordedTime value={response.decision.recordedAt} /></div></div> : null}
+    </div>
+  </details>;
 }

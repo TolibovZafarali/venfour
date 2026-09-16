@@ -9,9 +9,11 @@ import type { TotalLossDependencies } from "@/features/total-loss/dependencies";
 import type { TotalLossCaseDetails } from "@/features/total-loss/data-types";
 import { materialUndervalueAnalysis } from "@/test/fixtures/analysis-presentation";
 import { CASE_ID, OTHER_CASE_ID, USER_ID, REPORT_ID, RUN_ID, NOW, claimProjection, completedEducationSteps } from "./claim-fixtures";
+import { isMessageScenario, messagePreview, resetMessagePreview, messageCasePath } from "./message-flow";
 import { waitForEntryPreview } from "./entry-preview";
 
 import { responseScenarios, isResponseScenario, responseClaim, responsePayload } from "./response-fixtures";
+import { createSyntheticResponseFlow } from "./response-flow";
 
 export const scenarios = [
   ...responseScenarios,
@@ -27,9 +29,11 @@ export const scenarios = [
   ["payment", "Payment", import.meta.env.VITE_WORKSPACE_STRIPE_SANDBOX ? "Stripe test fields; payment submission disabled." : "Simulated fields and example price; no charge."],
   ["confirming", "Payment processing", "Payment confirmation at checkout, followed by report preparation."],
   ["paid", "Preparing valuation report", "Full-screen stars while the paid report is checked and prepared."],
-  ["send", "Review and send", "A saved reconsideration draft ready to review."],
+  ["message", "Prepare your message · Interactive", "Create, edit, and simulate sending a fictional message. Edits survive refresh."],
+  ["message-details", "Message · Missing details", "Enter an adjuster’s email and claim number, then create your message."],
+  ["send", "Review your message · Interactive", "Start with a saved draft, edit it, and simulate sent confirmation."],
   ["completed", "Completed review", "Existing review, evidence, and section navigation."],
-  ["waiting", "Waiting for response", "The existing insurer-response workflow."],
+  ["waiting", "Waiting for insurer · Interactive", "Start with a fictional sent message, open the sample report, and try the response form."],
   ["processing", "Free valuation processing", "Processing within the stable shell."],
   ["intake", "Saved appraisal details", "Existing-case intake within the same shell."],
   ["zero", "Zero-case customer", "Passive start without creating a case."],
@@ -49,6 +53,7 @@ export function snapshot(): Snapshot {
 function save(value: Snapshot) { localStorage.setItem(storageKey, JSON.stringify(value)); }
 function setPhase(phase: Scenario, transition = false, filename = snapshot().filename) { save({ ...snapshot(), phase, transition, filename, changed: Date.now() }); }
 export function resetScenario(phase: Scenario) {
+  if (isMessageScenario(phase)) resetMessagePreview(phase);
   save({ phase, transition: false, changed: Date.now(), paymentFieldsEmpty: phase === "payment-unverified" });
   localStorage.removeItem("venfour-workspace-preview-signed-out");
   localStorage.removeItem(`venfour:claim-email-code-cooldown:${GUEST_USER_ID}`);
@@ -56,11 +61,11 @@ export function resetScenario(phase: Scenario) {
 }
 export function scenarioPath(phase: Scenario) {
   const base = `/total-loss/cases/${CASE_ID}`;
-  if (isResponseScenario(phase)) return `${base}/claim/review/${phase}`;
-  if (phase === "send") return `${base}/claim/review/request`;
+  if (isResponseScenario(phase)) return `${base}/claim/review/${phase === "acceptance" ? "resolution" : phase}`;
+  if (isMessageScenario(phase)) return `${base}/claim/review/${phase === "waiting" ? "waiting" : "request"}`;
   return phase === "zero" ? "/app" : phase === "intake" ? `/start?service=total-loss&caseId=${CASE_ID}` : phase === "upload" ? `${base}/analysis?upload=report` : ["free", "listing", "insufficient", "processing"].includes(phase) ? `${base}/analysis`
     : phase === "payment-unverified" || phase === "payment" || phase === "confirming" ? `${base}/claim/checkout` : phase === "paid" ? `${base}/claim/processing`
-    : phase === "completed" ? `${base}/claim/review/result` : phase === "waiting" ? `${base}/claim/review/waiting` : `${base}/review-report`;
+    : phase === "completed" ? `${base}/claim/review/result` : `${base}/review-report`;
 }
 function record(method: string, path: string) {
   const requests = JSON.parse(sessionStorage.getItem("venfour-workspace-preview-requests") ?? "[]");
@@ -77,29 +82,37 @@ function reportState(caseId: string): FullReviewState {
   }
   if (caseId === OTHER_CASE_ID) phase = "ready";
   const hasReport = !["free", "upload", "listing", "insufficient", "processing", "zero"].includes(phase);
-  const ready = ["strict", "ready", "payment-unverified", "payment", "confirming", "paid", "completed", "send", "waiting"].includes(phase);
+  const ready = ["strict", "ready", "payment-unverified", "payment", "confirming", "paid", "completed", "message", "message-details", "send", "waiting"].includes(phase);
   return {
     caseId, stage: "full_review", analysisInputId: RUN_ID, analysisInputRevision: 3,
     status: ready ? "ready" : phase === "confirmation" ? "needs_confirmation" : phase === "extracting" || phase === "strict" ? "extracting" : "report_required",
-    ready, checkoutAvailable: phase === "ready", locked: ["payment-unverified", "payment", "confirming", "paid", "completed", "send", "waiting"].includes(phase), canReuseReport: false,
+    ready, checkoutAvailable: phase === "ready", locked: ["payment-unverified", "payment", "confirming", "paid", "completed", "message", "message-details", "send", "waiting"].includes(phase), canReuseReport: false,
     report: hasReport ? { id: REPORT_ID, revision: 1, filename: snapshot().filename ?? "Insurer_valuation_report.pdf" } : null,
     message: phase === "confirmation" ? "Confirm this detail so we can finish your review." : "Your report is saved.",
     issues: phase === "confirmation" ? [{ field: "mileage", code: "REPORT_FACT_CONFLICT", message: "Which mileage should the full review use?", reportValue: 32000, savedValue: 30000 }] : [],
     paymentReadiness: {
-      status: ["ready", "payment-unverified", "payment", "confirming", "paid", "completed", "send", "waiting"].includes(phase) ? "eligible" : phase === "strict" ? "processing" : "not_evaluated",
-      eligible: ["ready", "payment-unverified", "payment", "confirming", "paid", "completed", "send", "waiting"].includes(phase),
+      status: ["ready", "payment-unverified", "payment", "confirming", "paid", "completed", "message", "message-details", "send", "waiting"].includes(phase) ? "eligible" : phase === "strict" ? "processing" : "not_evaluated",
+      eligible: ["ready", "payment-unverified", "payment", "confirming", "paid", "completed", "message", "message-details", "send", "waiting"].includes(phase),
       reviewId: "88888888-8888-4888-8888-888888888888", version: "1", digest: "a".repeat(64),
     },
   };
 }
 const responseCache = new Map<string, ReturnType<typeof responseClaim>>();
+function responsePreviewKey(phase: Parameters<typeof responseClaim>[0]) {
+  return `venfour:response-review-preview:${phase}:${snapshot().changed}`;
+}
 function savedResponseClaim(phase: Parameters<typeof responseClaim>[0]) {
-  const key = `${phase}:${snapshot().changed}`;
-  if (!responseCache.has(key)) responseCache.set(key, responseClaim(phase));
+  const key = responsePreviewKey(phase);
+  if (!responseCache.has(key)) {
+    let saved: ReturnType<typeof responseClaim> | null = null;
+    try { saved = JSON.parse(sessionStorage.getItem(key) ?? "null"); } catch { /* Use the fictional starting state if local data is unreadable. */ }
+    responseCache.set(key, saved ?? responseClaim(phase));
+  }
   return responseCache.get(key)!;
 }
 function claim(caseId: string) {
   const phase = snapshot().phase;
+  if (isMessageScenario(phase) && caseId === CASE_ID) return responsePayload(messagePreview(phase).claim);
   if (isResponseScenario(phase)) return { ...responsePayload(savedResponseClaim(phase)), caseId };
   if (phase === "payment-unverified") return {
     caseId, state: "secure_required", contactEmail: "preview@example.com", commerce: null, workflow: null,
@@ -131,6 +144,24 @@ export function installPreviewFetch() {
     const method = init?.method ?? (input instanceof Request ? input.method : "GET");
     record(method, url.pathname);
     if (url.origin !== location.origin) throw new Error("External requests are disabled in the workspace preview.");
+    const messagePhase = snapshot().phase;
+    if (isMessageScenario(messagePhase) && url.pathname.startsWith(messageCasePath + "/")) {
+      const body = method === "GET" ? {} : JSON.parse(typeof init?.body === "string" ? init.body : input instanceof Request ? await input.clone().text() : "{}");
+      const reply = messagePreview(messagePhase).handle(url.pathname.slice(messageCasePath.length), method, body);
+      if (reply) return Response.json(reply.data, { status: reply.status });
+    }
+    if (isResponseScenario(messagePhase) && url.pathname === `${messageCasePath}/reports/${REPORT_ID}/download` && method === "GET") return Response.json({
+      downloadUrl: new URL("/fixtures/message-preview-report.pdf", location.origin).href,
+      expiresAt: new Date(Date.now() + 3600000).toISOString(), suggestedFilename: "Sample_Valuation_Report.pdf",
+    });
+    if ((messagePhase === "response-reviewed" || messagePhase === "follow-up" || messagePhase === "acceptance") && url.pathname.startsWith(messageCasePath + "/")) {
+      const value = savedResponseClaim(messagePhase);
+      const key = responsePreviewKey(messagePhase);
+      const flow = createSyntheticResponseFlow(value, () => sessionStorage.setItem(key, JSON.stringify(value)), sessionStorage, `${key}:receipts`);
+      const body = method === "GET" ? {} : JSON.parse(typeof init?.body === "string" ? init.body : input instanceof Request ? await input.clone().text() : "{}");
+      const reply = flow.handle(url.pathname.slice(messageCasePath.length), method, body);
+      if (reply) return Response.json(reply.data, { status: reply.status });
+    }
     const caseId = url.pathname.match(/appraisal-cases\/([^/]+)/)?.[1] ?? CASE_ID;
     if (url.pathname.endsWith("/full-review/report") && method === "POST") {
       const file = (init?.body as FormData).get("report") as File;
@@ -193,7 +224,7 @@ export const previewAuth: AuthService = {
 export function previewCases(): AppraisalCase[] {
   const phase = snapshot().phase;
   if (phase === "zero") return [];
-  const base: AppraisalCase = { id: CASE_ID, userId: phase === "payment-unverified" ? GUEST_USER_ID : USER_ID, serviceType: "total_loss", status: "check_complete", createdAt: NOW, updatedAt: NOW, lastActivityAt: NOW, caseStage: "analysis_complete", analysisStatus: "completed", vehicleLabel: "2026 Hyundai Kona SE", hasFullReviewReport: !["free", "upload", "listing", "insufficient", "processing"].includes(phase), hasTotalLossClaimWorkflow: isResponseScenario(phase) || ["payment-unverified", "payment", "confirming", "paid", "completed", "send", "waiting"].includes(phase), workspaceStatus: phase === "waiting" ? "awaiting_insurer_response" : phase === "completed" ? "report_ready" : undefined };
+  const base: AppraisalCase = { id: CASE_ID, userId: phase === "payment-unverified" ? GUEST_USER_ID : USER_ID, serviceType: "total_loss", status: "check_complete", createdAt: NOW, updatedAt: NOW, lastActivityAt: NOW, caseStage: "analysis_complete", analysisStatus: "completed", vehicleLabel: "2026 Hyundai Kona SE", hasFullReviewReport: !["free", "upload", "listing", "insufficient", "processing"].includes(phase), hasTotalLossClaimWorkflow: isResponseScenario(phase) || ["payment-unverified", "payment", "confirming", "paid", "completed", "message", "message-details", "send", "waiting"].includes(phase), workspaceStatus: isResponseScenario(phase) && savedResponseClaim(phase).resolution ? "case_closed" : phase === "waiting" ? "awaiting_insurer_response" : phase === "completed" ? "report_ready" : undefined };
   return [{ ...base, ...(phase === "intake" ? { status: "draft" as const, hasFullReviewReport: false, analysisStatus: null, caseStage: undefined } : {}) }, { ...base, id: OTHER_CASE_ID, vehicleLabel: "2024 Hyundai Elantra Limited", lastActivityAt: "2026-09-12T12:00:00Z", hasFullReviewReport: true, hasTotalLossClaimWorkflow: false, workspaceStatus: "review_prepared" }];
 }
 const previewDraft = (userId: string): AppraisalCase => ({ id: CASE_ID, userId, serviceType: "total_loss", status: "draft", createdAt: NOW, updatedAt: NOW, lastActivityAt: NOW });

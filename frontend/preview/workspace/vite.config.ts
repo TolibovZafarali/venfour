@@ -23,6 +23,7 @@ export default defineConfig({
     },
   }],
   resolve: { alias: [
+    { find: "@/features/total-loss-claim/browser-actions", replacement: path.resolve(import.meta.dirname, "message-browser-actions.ts") },
     { find: "@/app/site-boundary", replacement: path.resolve(import.meta.dirname, "site-boundary.ts") },
     { find: "@/features/total-loss-claim/email-otp-service", replacement: path.resolve(import.meta.dirname, "verification-preview.ts") },
     ...(!checkout ? [

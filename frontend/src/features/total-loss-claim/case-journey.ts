@@ -22,7 +22,6 @@ export type TotalLossCaseJourneyStepId =
   | "prepare_request"
   | "send_request"
   | "waiting_for_insurer"
-  | "response_received"
   | "response_reviewing"
   | "prepare_follow_up"
   | "waiting_for_follow_up_response"
@@ -73,10 +72,6 @@ const journeySteps = {
     id: "waiting_for_insurer",
     label: "Waiting for insurer",
   },
-  response_received: {
-    id: "response_received",
-    label: "Response received",
-  },
   response_reviewing: {
     id: "response_reviewing",
     label: "Reviewing response",
@@ -87,7 +82,7 @@ const journeySteps = {
   },
   prepare_follow_up: {
     id: "prepare_follow_up",
-    label: "Prepare follow-up",
+    label: "Prepare your follow-up",
   },
   waiting_for_follow_up_response: {
     id: "waiting_for_follow_up_response",
@@ -119,7 +114,6 @@ function currentStepId(
     case "response":
       return "waiting_for_insurer";
     case "response_received":
-      return "response_received";
     case "response_reviewing":
       return "response_reviewing";
     case "response_reviewed":
@@ -172,7 +166,6 @@ export function totalLossCaseJourneyProgress({
       journeySteps.prepare_request,
       journeySteps.send_request,
       journeySteps.waiting_for_insurer,
-      journeySteps.response_received,
       journeySteps.response_reviewing,
       journeySteps.response_reviewed,
     );

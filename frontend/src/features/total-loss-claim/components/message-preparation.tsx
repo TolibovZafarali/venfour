@@ -1,4 +1,4 @@
-import { ArrowRight, Check, Copy, LoaderCircle, Mail } from "lucide-react";
+import { Check, ChevronDown, Copy, LoaderCircle, Mail, SquarePen } from "lucide-react";
 import { useId, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
@@ -16,7 +16,9 @@ import {
 import { useRequestDraft } from "@/features/total-loss-claim/use-request-draft";
 import { useRequestPreparation } from "@/features/total-loss-claim/use-request-preparation";
 import type { RequestPreparationOptions } from "@/features/total-loss-claim/use-request-preparation";
+import { MessageStepHeading } from "./message-step-heading";
 import { StableActionLabel } from "./stable-action-label";
+import { FollowUpHeading, SentFollowUp } from "./follow-up-message";
 
 interface MessagePreparationProps extends RequestPreparationOptions {
   readonly actionContainer?: HTMLElement | null;
@@ -32,15 +34,20 @@ function RequestError({ children }: { readonly children: React.ReactNode }) {
   );
 }
 
+
+function UpcomingMessageStep({ number, title, description }: { readonly number: number; readonly title: string; readonly description: string }) {
+  return <section className="message-flow-step" role="listitem" data-state="upcoming"><MessageStepHeading number={number} title={title} state="upcoming" description={description} /></section>;
+}
+
 function RequestRecorded(props: RequestPreparationOptions) {
   return (
     <section className="request-recorded" aria-label="Request status">
       <span className="request-recorded-icon" aria-hidden="true">
         <Check />
       </span>
-      <h2>Request marked as sent</h2>
+      <h2>Message marked as sent</h2>
       <p role="status">
-        You reported sending the request. Venfour cannot verify email delivery
+        You reported sending the message. Venfour cannot verify email delivery
         or receipt.
       </p>
       <p>Keep a copy of the email, the report, and any response from your insurer.</p>
@@ -77,25 +84,32 @@ export function DraftEditor({
   });
   const fieldId = useId();
   const confirmationHeading = useRef<HTMLHeadingElement>(null);
+  const draftHeading = useRef<HTMLHeadingElement>(null);
   const confirmationPanel = useRef<HTMLElement>(null);
   const openButton = useRef<HTMLButtonElement>(null);
   const restoreOpenFocus = useRef(false);
   const [acknowledgedMessage, setAcknowledgedMessage] = useState<TotalLossPreparedMessageVersion | null>(null);
   const hasSharedMessage = Boolean(editor.sharedMessage);
+  const reviewComplete = hasSharedMessage;
   const sentAcknowledged = hasSharedMessage && acknowledgedMessage === editor.sharedMessage;
   const shareEmail = (kind: "open" | "copy") => {
     setAcknowledgedMessage(null);
     void editor.shareEmail(kind);
   };
   useLayoutEffect(() => {
-    if (hasSharedMessage) {
-      confirmationHeading.current?.focus({ preventScroll: true });
-      confirmationPanel.current?.scrollIntoView?.({ block: "nearest", behavior: "instant" });
-    } else if (restoreOpenFocus.current) {
+    draftHeading.current?.focus({ preventScroll: true });
+    draftHeading.current?.scrollIntoView?.({ block: "nearest", behavior: "instant" });
+  }, [followUpDraftId]);
+  useLayoutEffect(() => {
+    if (!hasSharedMessage && restoreOpenFocus.current) {
       restoreOpenFocus.current = false;
       openButton.current?.focus({ preventScroll: true });
+    } else if (hasSharedMessage) {
+      confirmationHeading.current?.focus({ preventScroll: true });
+      confirmationPanel.current?.scrollIntoView?.({ block: "nearest", behavior: "instant" });
     }
   }, [hasSharedMessage]);
+  if (editor.sent && followUpDraftId && props.claim.followUp && editor.confirmedMessage) return <SentFollowUp followUp={{ ...props.claim.followUp, sentMessage: editor.confirmedMessage }} />;
   if (editor.sent) return <RequestRecorded {...props} />;
 
   const primaryAction = editor.sharedMessage ? (
@@ -124,17 +138,17 @@ export function DraftEditor({
       ref={openButton}
       type="button"
     >
-      <StableActionLabel reserve="Preparing email…">{editor.action === "open" ? "Preparing email…" : "Open email app"}</StableActionLabel>
-      {editor.action === "open" ? <LoaderCircle className="request-spinner" aria-hidden="true" /> : <ArrowRight aria-hidden="true" />}
+      <StableActionLabel reserve="Preparing email…">{editor.action === "open" ? "Preparing email…" : "Open my email app"}</StableActionLabel>
+      {editor.action === "open" ? <LoaderCircle className="request-spinner" aria-hidden="true" /> : <Mail aria-hidden="true" />}
     </button>
   );
 
   return (
-    <section className="request-review" aria-label={followUpDraftId ? "Follow-up draft" : "Request draft"}>
-      <header className="request-heading" data-review-entrance="primary" data-review-order="0">
-        <h1>{followUpDraftId ? "Review and send your follow-up" : "Review and send your request"}</h1>
-        <p>{followUpDraftId ? "This follow-up responds to the insurer’s saved response using the evidence reviewed when you chose to continue. Review and edit it before sending from your email app." : "Review the message below. When it’s ready, open it in your email app, attach the valuation report, and send it."}</p>
-      </header>
+    <section className="request-review" data-message-substep aria-label={followUpDraftId ? "Follow-up draft" : "Request draft"}>
+      {followUpDraftId ? <FollowUpHeading /> : <header className="request-heading" data-review-entrance="primary" data-review-order="0">
+        <h1>Prepare your message</h1>
+        <p>Review the details and message here, then send it from your email app.</p>
+      </header>}
       {editor.blocker.state === "blocked" ? (
         <div className="request-save-recovery" role="alertdialog" aria-labelledby={`${fieldId}-leave-heading`} aria-describedby={`${fieldId}-leave-description`}>
           <h2 id={`${fieldId}-leave-heading`}>Leave your unsaved changes?</h2>
@@ -148,13 +162,11 @@ export function DraftEditor({
       ) : editor.dirty ? (
         <p className="request-notice" role="status">{editor.restored ? "Your unfinished edits were restored. " : ""}Your edits are preserved in this tab until they can be saved.</p>
       ) : null}
-      <div className="request-send-layout" data-confirming={hasSharedMessage || undefined}>
-        <aside className="request-evidence-panel" data-review-entrance="secondary" data-review-order="1" aria-labelledby={`${fieldId}-evidence`}>
-          <h2 id={`${fieldId}-evidence`}>Evidence to attach</h2>
-          <ReportFileRow {...props} variant="attachment" />
-          <p className="request-attachment-note">Attach this PDF in your email app before sending.</p>
-        </aside>
-        <div className="request-draft-column" data-review-entrance="supporting" data-review-order="2">
+      <div className="message-flow" role="list" aria-label={followUpDraftId ? "Follow-up steps" : "Message steps"}>
+        <section className="message-flow-step" role="listitem" data-state="complete"><MessageStepHeading number={1} title={followUpDraftId ? "Create your follow-up" : "Check your details"} state="complete" description={followUpDraftId ? "Your draft is ready to review." : editor.content.recipient} /></section>
+        <section className="message-flow-step" role="listitem" data-state={reviewComplete ? "complete" : "active"} aria-current={!reviewComplete ? "step" : undefined}>
+          <MessageStepHeading number={2} title={followUpDraftId ? "Review and send your message" : "Review your message"} state={reviewComplete ? "complete" : "active"} description={reviewComplete ? editor.content.subject : "Make any changes before opening your email app."} headingRef={draftHeading} />
+          <div className="message-flow-content" hidden={reviewComplete}>
           <div className="request-composer">
             <div className="request-composer-header">
               <span className="request-composer-title" aria-hidden="true">
@@ -251,7 +263,7 @@ export function DraftEditor({
                 ) : null}
               </div>
             </fieldset>
-            <div className="request-composer-actions">
+            {!followUpDraftId ? <div className="request-composer-actions">
               <button
                 className="request-button request-button-text"
                 disabled={editor.action !== null || editor.conflict}
@@ -261,7 +273,7 @@ export function DraftEditor({
                 {editor.action === "copy" ? <LoaderCircle className="request-spinner" aria-hidden="true" /> : <Copy aria-hidden="true" />}
                 <StableActionLabel reserve="Copy email">{editor.action === "copy" ? "Copying…" : "Copy email"}</StableActionLabel>
               </button>
-            </div>
+            </div> : null}
           </div>
           {editor.saveError ? (
             <div className="request-save-recovery">
@@ -276,14 +288,26 @@ export function DraftEditor({
               </button>
             </div>
           ) : null}
-          {editor.notice ? <p className="request-notice" role="status">{editor.notice}</p> : null}
-          {editor.error ? <RequestError>{editor.error}</RequestError> : null}
-        </div>
+          {!hasSharedMessage && editor.notice ? <p className="request-notice" role="status">{editor.notice}</p> : null}
+          {!hasSharedMessage && editor.error ? <RequestError>{editor.error}</RequestError> : null}
+        <aside className="request-evidence-panel" data-review-entrance="secondary" data-review-order="3" aria-labelledby={`${fieldId}-evidence`}>
+          <h2 id={`${fieldId}-evidence`}>Your report to attach</h2>
+          <ReportFileRow {...props} variant="attachment" />
+          <p className="request-attachment-note">Download this report and attach it when you send your email.</p>
+          {actionContainer === undefined && !editor.sharedMessage ? <div className="message-local-actions">
+            {followUpDraftId ? <button className="request-button request-button-text" type="button" disabled={editor.action !== null || editor.conflict} onClick={() => shareEmail("copy")}><Copy aria-hidden="true" />{editor.action === "copy" ? "Copying…" : "Copy message"}</button> : null}
+            {primaryAction}
+          </div> : null}
+        </aside>
+          </div>
+        </section>
         {editor.sharedMessage ? (
-          <section className="request-sent-confirmation" aria-labelledby={`${fieldId}-sent-confirmation`} ref={confirmationPanel}>
-            <h2 id={`${fieldId}-sent-confirmation`} ref={confirmationHeading} tabIndex={-1}>
-              Sent the email with the report attached?
-            </h2>
+          <section className="message-flow-step request-sent-confirmation" role="listitem" data-state="active" aria-current="step" aria-labelledby={`${fieldId}-sent-confirmation`} ref={confirmationPanel}>
+            <MessageStepHeading number={3} title={followUpDraftId ? "Mark as sent" : "Sent the email with the report attached?"} state="active" headingRef={confirmationHeading} id={`${fieldId}-sent-confirmation`} />
+            <div className="message-flow-content">
+            <p className="message-send-instructions">Attach your report and send the email from your email app. Then confirm below so we can track your next step.</p>
+            {editor.notice ? <p className="request-notice" role="status">{editor.notice}</p> : null}
+            {!followUpDraftId ? <ReportFileRow {...props} variant="attachment" /> : null}
             <dl className="request-confirmation-details">
               <dt>To</dt>
               <dd>{editor.sharedMessage.recipient}</dd>
@@ -297,7 +321,7 @@ export function DraftEditor({
                 onChange={(event) => setAcknowledgedMessage(event.target.checked ? editor.sharedMessage : null)}
                 type="checkbox"
               />
-              <span>I sent the email with this PDF attached.</span>
+              <span>I sent the email with the report attached.</span>
             </label>
             <div className="request-confirmation-actions">
               <button
@@ -312,13 +336,14 @@ export function DraftEditor({
               >
                 Not yet
               </button>
+              {actionContainer === undefined ? primaryAction : null}
+            </div>
+            {editor.error ? <RequestError>{editor.error}</RequestError> : null}
             </div>
           </section>
-        ) : null}
+        ) : <UpcomingMessageStep number={3} title={followUpDraftId ? "Mark as sent" : "Send with your report"} description="Use your email app, then confirm you’ve sent it." />}
       </div>
-      {actionContainer ? createPortal(primaryAction, actionContainer) : actionContainer === undefined ? (
-        <div className="request-editor-actions" aria-label="Request actions">{primaryAction}</div>
-      ) : null}
+      {actionContainer ? createPortal(primaryAction, actionContainer) : null}
     </section>
   );
 }
@@ -360,7 +385,7 @@ function SendingDetails({
       {!emailConfirmed ? (
         <div className="request-field">
           <label htmlFor="request-adjuster-email">
-            Adjuster or claims email
+            Your adjuster’s email
           </label>
           <input
             aria-describedby="request-email-help"
@@ -377,18 +402,18 @@ function SendingDetails({
           <span className={emailError ? "request-field-error" : "request-field-help"} id="request-email-help">
             {emailError
               ? "Enter the adjuster’s valid email address."
-              : "Required so the request is addressed to your insurer."}
+              : "Use your adjuster’s email or the claims email provided by your insurer."}
           </span>
         </div>
       ) : (
         <p className="request-confirmed-fact">
-          Recipient: <strong>{details.adjusterEmail}</strong>
+          <span>Your adjuster’s email</span><strong>{details.adjusterEmail}</strong>
         </p>
       )}
       {!referenceConfirmed ? (
         <div className="request-field">
           <label htmlFor="request-claim-reference">
-            Claim or reference number
+            Claim number
           </label>
           <input
             aria-describedby="request-reference-help"
@@ -402,13 +427,13 @@ function SendingDetails({
           />
           <span className={referenceError ? "request-field-error" : "request-field-help"} id="request-reference-help">
             {referenceError
-              ? "Enter the claim or reference number."
-              : "Required so the insurer can identify your claim."}
+              ? "Enter your claim number."
+              : "You can find this on your insurer’s letters or emails."}
           </span>
         </div>
       ) : (
         <p className="request-confirmed-fact">
-          Claim reference: <strong>{details.claimReference}</strong>
+          <span>Claim number</span><strong>{details.claimReference}</strong>
         </p>
       )}
     </div>
@@ -458,8 +483,8 @@ export function MessagePreparation({
       form={formId}
       type="submit"
     >
-      <StableActionLabel reserve="Create my request">{preparation.creating ? "Creating draft…" : "Create my request"}</StableActionLabel>
-      {preparation.creating ? <LoaderCircle className="request-spinner" aria-hidden="true" /> : <ArrowRight aria-hidden="true" />}
+      <StableActionLabel reserve="Create my message">{preparation.creating ? "Creating draft…" : "Create my message"}</StableActionLabel>
+      {preparation.creating ? <LoaderCircle className="request-spinner" aria-hidden="true" /> : <SquarePen aria-hidden="true" />}
     </button>
   );
 
@@ -474,35 +499,29 @@ export function MessagePreparation({
       }}
     >
       <header className="request-heading" data-review-entrance="primary" data-review-order="0">
-        <h1>Prepare your request</h1>
+        <h1>Prepare your message</h1>
         <p>
-          {intakeMode === "manual"
-            ? "We’ll prepare an editable email asking the insurer to review the offer using the attached market evidence and respond in writing. If you also want the insurer’s full valuation report—including the comparable vehicles and adjustments used—add that request to the draft before sending."
-            : "We’ll prepare an editable email asking the insurer to review its valuation using the market evidence and respond in writing."}
+          Review the details and message here, then send it from your email app.
         </p>
       </header>
-      <div data-review-entrance="secondary">
-        <p className="request-package-intro">
-          Your valuation report contains the supporting valuation information and
-          comparable-vehicle evidence. You’ll attach it when you send the email from your email app.
-        </p>
-        <ReportFileRow {...props} />
-      </div>
-      <div data-review-entrance="supporting">
+      <div className="message-flow" role="list" aria-label="Message steps" data-review-entrance="supporting">
+        <section className="message-flow-step" role="listitem" data-state="active" aria-current="step">
+          <MessageStepHeading number={1} title="Check your details" state="active" description="We’ll use these details to address your message." id={`${formId}-details-heading`} />
+          <div className="message-flow-content">
         {details ? (
-          <>
+          <div className="message-details">
             <dl className="request-known-details">
               {availableFact(details.insurerName) ? (
-                <>
+                <div>
                   <dt>Insurance company</dt>
                   <dd>{details.insurerName}</dd>
-                </>
+                </div>
               ) : null}
               {availableFact(details.customerName) ? (
-                <>
+                <div>
                   <dt>Vehicle owner</dt>
                   <dd>{details.customerName}</dd>
-                </>
+                </div>
               ) : null}
             </dl>
             <SendingDetails
@@ -514,24 +533,35 @@ export function MessagePreparation({
               onReference={preparation.setReference}
               pending={preparation.creating}
             />
-          </>
+          </div>
         ) : (
           <div className="request-save-recovery">
             <RequestError>
-              Sending details are temporarily unavailable. Try refreshing your saved case before preparing a request.
+              We couldn’t load your sending details. Try again to continue.
             </RequestError>
             <button className="request-button request-button-secondary" onClick={() => void props.onRefresh()} type="button">
               Try again
             </button>
+            {actionContainer === undefined ? <div className="message-local-actions">{createAction}</div> : null}
           </div>
         )}
+        <details className="message-report">
+          <summary>Your report is ready <ChevronDown size={16} aria-hidden="true" /></summary>
+          <p>Download this report and attach it when you send your email.</p>
+          <ReportFileRow {...props} variant="attachment" />
+        </details>
+        {intakeMode === "manual" ? <p className="message-manual-note">You can also ask for your insurer’s full valuation report by adding that request to your message.</p> : null}
+        <div className="message-local-actions"><p>This creates a draft. Nothing is sent yet.</p>{actionContainer === undefined && details ? createAction : null}</div>
         <div className="request-action-bar request-prepare-actions" data-navigation-action={actionContainer !== undefined || undefined}>
           {!preparation.reviewCompleted ? (
-            <p>Complete the review before preparing your request.</p>
+            <p>Complete the review before creating your message.</p>
           ) : null}
           {preparation.error ? <RequestError>{preparation.error}</RequestError> : null}
-          {actionContainer === undefined ? createAction : null}
         </div>
+          </div>
+        </section>
+        <UpcomingMessageStep number={2} title="Review your message" description="Read and edit the email we prepare for you." />
+        <UpcomingMessageStep number={3} title="Send with your report" description="Use your email app, then confirm you’ve sent it." />
       </div>
       {actionContainer ? createPortal(createAction, actionContainer) : null}
     </form>

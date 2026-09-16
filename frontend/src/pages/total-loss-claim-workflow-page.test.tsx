@@ -897,13 +897,15 @@ describe("total-loss customer workflow", () => {
     renderTestApp([`${CLAIM_BASE}/review/result`], { authService: authService() });
     const completed = await screen.findByRole("region", { name: "Completed analysis" });
     expect(within(completed).getByRole("heading", { level: 1, name: "Your result" })).toBeVisible();
-    for (const value of ["$18,000", "$21,000", "$3,000 below the selected median"]) {
+    for (const value of ["$18,000", "$20,000", "$22,000"]) {
       expect(within(completed).getByText(value, { exact: true })).toBeVisible();
     }
-    expect(within(completed).getByText("$20,000 to $22,000", { exact: true })).toBeVisible();
+    expect(within(completed).getByText("Asking prices for similar vehicles")).toBeVisible();
+    expect(within(completed).queryByText("Selected median")).not.toBeInTheDocument();
+    expect(within(completed).queryByText("$3,000 below the selected median")).not.toBeInTheDocument();
     expect(within(completed).queryByRole("table")).not.toBeInTheDocument();
     expect(within(completed).queryByRole("textbox", { name: "Message" })).not.toBeInTheDocument();
-    expect(within(completed).queryByRole("button", { name: "Create my request" })).not.toBeInTheDocument();
+    expect(within(completed).queryByRole("button", { name: "Create my message" })).not.toBeInTheDocument();
     expect(within(completed).queryByRole("button", { name: "Download report" })).not.toBeInTheDocument();
     expect(within(completed).queryByText("Unavailable")).not.toBeInTheDocument();
     expect(progressWrites).toBe(0);
@@ -997,7 +999,8 @@ describe("total-loss customer workflow", () => {
     expect(within(restored).getAllByRole("heading", { level: 1 })).toHaveLength(1);
     expect(within(restored).getByRole("textbox", { name: "Message" })).toHaveValue(draft().body);
     expect(within(restored).getByRole("button", { name: "Copy email" })).toBeEnabled();
-    expect(within(within(restored).getByRole("navigation", { name: "Review navigation" })).getByRole("button", { name: "Open email app" })).toBeEnabled();
+    expect(within(restored).getByRole("button", { name: "Open my email app" })).toBeEnabled();
+    expect(within(within(restored).getByRole("navigation", { name: "Review navigation" })).queryByRole("button")).not.toBeInTheDocument();
   });
 
   it("does not normalize or save legacy drafts until request actions are explicitly opened", async () => {
@@ -1311,7 +1314,7 @@ describe("total-loss customer workflow", () => {
     const { router } = renderTestApp([CLAIM_BASE], { authService: authService() });
     await screen.findByRole("region", { name: "Completed analysis" });
     expect(router.state.location.pathname).toBe(`${CLAIM_BASE}/review/${stage}`);
-    expect(screen.queryByRole("heading", { name: "How your insurer reached its value" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "How your insurer valued your vehicle" })).not.toBeInTheDocument();
     expect(detailsMock.getDetails).toHaveBeenCalledWith({ caseId: CASE_ID, userId: USER_ID });
   });
 
@@ -1324,7 +1327,7 @@ describe("total-loss customer workflow", () => {
       await screen.findByRole("region", { name: "Completed analysis" });
       expect(router.state.location.pathname).toBe(`${CLAIM_BASE}/review/market`);
       expect(router.state.location.search).toBe("");
-      expect(screen.queryByRole("heading", { name: "How your insurer reached its value" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("heading", { name: "How your insurer valued your vehicle" })).not.toBeInTheDocument();
       expect(screen.queryByRole("table", { name: "Insurer comparables" })).not.toBeInTheDocument();
     },
   );
@@ -1442,7 +1445,7 @@ describe("total-loss customer workflow", () => {
     expect(within(completed).queryByRole("button", { name: "Create request draft" })).not.toBeInTheDocument();
     expect(within(completed).getByRole("button", { name: "View report" })).toBeEnabled();
     expect(within(completed).getByRole("button", { name: "Download report" })).toBeEnabled();
-    expect(within(completed).getByText(/does not support a higher valuation request/u)).toBeVisible();
+    expect(within(completed).getByText("We didn’t find clear support for a higher value.")).toBeVisible();
   });
 
   it("continues polling a no-dispute refund while preserving report access", async () => {
@@ -1477,7 +1480,7 @@ describe("total-loss customer workflow", () => {
     expect(resolverCalls).toBeGreaterThanOrEqual(2);
   });
 
-  it("restores persisted sent confirmation and timestamp when the case is reopened", async () => {
+  it("restores the waiting step and access to the saved message when the case is reopened", async () => {
     const progress = educationSteps(true);
     progress.send.completedAt = NOW;
     useClaimHandler(() => claimProjection({ journey: "awaiting_insurer_response", progress, withDraft: true }));
@@ -1485,19 +1488,17 @@ describe("total-loss customer workflow", () => {
     const completed = await screen.findByRole("region", { name: "Completed analysis" });
     expect(initial.router.state.location.pathname).toBe(`${CLAIM_BASE}/review/waiting`);
     const status = completed;
-    expect(within(status).getByRole("heading", { name: "Waiting for the insurer’s response" })).toBeVisible();
+    expect(within(status).getByRole("heading", { name: "Waiting for insurer" })).toBeVisible();
     expect(status).toHaveAttribute("data-stage", "waiting");
-    expect(status.querySelector("time")).toHaveAttribute("datetime", NOW);
-    expect(status.querySelector("time")).toHaveTextContent("Aug 29, 2026");
+    expect(within(status).getByRole("link", { name: "View my message" })).toHaveAttribute("href", `${CLAIM_BASE}/review/request`);
     expect(within(completed).queryByRole("button", { name: "Create request draft" })).not.toBeInTheDocument();
     expect(within(completed).queryByRole("textbox", { name: "Recipient" })).not.toBeInTheDocument();
     const reopenedUrl = initial.router.state.location.pathname;
     initial.unmount();
     renderTestApp([reopenedUrl], { authService: authService() });
     const restored = await screen.findByRole("region", { name: "Completed analysis" });
-    expect(within(restored).getByRole("heading", { name: "Waiting for the insurer’s response" })).toBeVisible();
-    expect(restored.querySelector("time")).toHaveAttribute("datetime", NOW);
-    expect(restored.querySelector("time")).toHaveTextContent("Aug 29, 2026");
+    expect(within(restored).getByRole("heading", { name: "Waiting for insurer" })).toBeVisible();
+    expect(within(restored).getByRole("link", { name: "View my message" })).toHaveAttribute("href", `${CLAIM_BASE}/review/request`);
     expect(within(restored).queryByRole("button", { name: "Mark as sent" })).not.toBeInTheDocument();
     expect(within(restored).getByRole("button", { name: "I received a response" })).toBeVisible();
     expect(within(restored).queryByRole("button", { name: "Upload insurer response" })).not.toBeInTheDocument();
@@ -1539,14 +1540,14 @@ describe("total-loss customer workflow", () => {
     const progressLabel = progressBar.getAttribute("aria-valuetext");
     expect(initial.router.state.location.pathname).toBe(`${CLAIM_BASE}/review/waiting`);
 
-    await user.click(within(navigation).getByRole("link", { name: /^Initial request/u }));
-    expect(await screen.findByRole("heading", { name: "Your sent request" })).toBeVisible();
+    await user.click(within(navigation).getByRole("link", { name: /^Prepare your message/u }));
+    expect(await screen.findByText("You marked your message as sent. Keep a copy of your email and the attached report.")).toBeVisible();
     expect(screen.getByLabelText("Request message")).toHaveTextContent(originalBody);
     expect(initial.router.state.location.pathname).toBe(`${CLAIM_BASE}/review/request`);
     expect(screen.queryByRole("textbox", { name: "Message" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /copy email|open email app|mark as sent/iu })).not.toBeInTheDocument();
     expect(progressBar).toHaveAttribute("aria-valuetext", progressLabel);
-    expect(within(navigation).getByRole("link", { name: /^Initial request/u })).toHaveAttribute("aria-current", "page");
+    expect(within(navigation).getByRole("link", { name: /^Prepare your message/u })).toHaveAttribute("aria-current", "page");
     await act(async () => {
       await initial.queryClient.refetchQueries({ type: "active" });
       await new Promise((resolve) => window.setTimeout(resolve, 725));
@@ -1557,16 +1558,19 @@ describe("total-loss customer workflow", () => {
 
     initial.unmount();
     const refreshed = renderTestApp([`${CLAIM_BASE}/review/request`], { authService: authService() });
-    expect(await screen.findByRole("heading", { name: "Your sent request" })).toBeVisible();
+    expect(await screen.findByText("You marked your message as sent. Keep a copy of your email and the attached report.")).toBeVisible();
     expect(screen.getByLabelText("Request message")).toHaveTextContent(originalBody);
     expect(refreshed.router.state.location.pathname).toBe(`${CLAIM_BASE}/review/request`);
     expect(screen.getByRole("progressbar", { name: "Case journey" })).toHaveAttribute("aria-valuetext", progressLabel);
     expect(screen.queryByRole("textbox", { name: "Message" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "See what happens next" }));
+    expect(await screen.findByRole("heading", { name: "Waiting for insurer" })).toBeVisible();
+    expect(refreshed.router.state.location.pathname).toBe(`${CLAIM_BASE}/review/waiting`);
     expect(writes).toBe(0);
     refreshed.unmount();
 
     const resumed = renderTestApp([CLAIM_BASE], { authService: authService() });
-    expect(await screen.findByRole("heading", { name: "Waiting for the insurer’s response" })).toBeVisible();
+    expect(await screen.findByRole("heading", { name: "Waiting for insurer" })).toBeVisible();
     expect(resumed.router.state.location.pathname).toBe(`${CLAIM_BASE}/review/waiting`);
     expect(writes).toBe(0);
   });
@@ -1581,7 +1585,7 @@ describe("total-loss customer workflow", () => {
     await screen.findByRole("region", { name: "Completed analysis" });
     expect(
       screen.queryByRole("heading", {
-        name: "Waiting for the insurer’s response",
+        name: "Waiting for insurer",
       }),
     ).not.toBeInTheDocument();
     expect(
@@ -1591,7 +1595,7 @@ describe("total-loss customer workflow", () => {
       screen.queryByRole("link", { name: "Prepare request" }),
     ).not.toBeInTheDocument();
     expect(
-      screen.queryByRole("heading", { name: "Request marked as sent" }),
+      screen.queryByRole("heading", { name: "Message marked as sent" }),
     ).not.toBeInTheDocument();
   });
 });

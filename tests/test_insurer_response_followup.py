@@ -130,9 +130,12 @@ class InsurerResponseFollowupTests(
         self.assertEqual(result["recipientEmail"], "adjuster@example.com")
         self.assertIn("CLAIM-782", result["subject"])
         self.assertIn("We are maintaining the comparable selection.", result["body"])
-        self.assertIn("Please confirm that amount", result["body"])
+        self.assertIn("Could you please confirm that amount?", result["body"])
         self.assertIn("advertised at $21,800.00", result["body"])
-        self.assertIn("not verified sale prices or a settlement target", result["body"])
+        self.assertIn("I understand this is an asking price.", result["body"])
+        self.assertIn("Could you please reconsider the valuation", result["body"])
+        self.assertIn("If it remains unchanged, a brief explanation", result["body"])
+        self.assertNotIn("settlement target", result["body"])
         self.assertNotEqual(result["body"], inputs["initial_request"]["body"])
         self.assertEqual(inputs, before)
         self.assertEqual(result, build_insurer_response_followup_v1(**inputs))
@@ -173,8 +176,29 @@ class InsurerResponseFollowupTests(
         result = build_insurer_response_followup_v1(**inputs)
         self.assertEqual(result["status"], "READY")
         self.assertIn("I have recorded $20,000.00", result["body"])
-        self.assertIn("selected 2024 Synthetic Sedan listing", result["body"])
+        self.assertIn("2024 Synthetic Sedan listing", result["body"])
         self.assertEqual(len(analyzer.requests), 1)
+
+    def test_followup_uses_saved_names_and_stays_brief(self):
+        inputs = self._inputs()
+        inputs["sending_details"].update({
+            "adjusterName": "Alex Morgan", "customerName": "Jordan Rivera",
+        })
+        result = build_insurer_response_followup_v1(**inputs)
+        self.assertTrue(result["body"].startswith("Hello Alex Morgan,\n\nThank you for reviewing my request"))
+        self.assertTrue(result["body"].endswith("Thank you for your time and help,\nJordan Rivera"))
+        self.assertLess(len(result["body"].split()), 200)
+        self.assertIn("I've attached the report again for convenience.", result["body"])
+
+    def test_missing_or_multiline_names_never_become_invented_greetings_or_signatures(self):
+        for value in (None, "", "  ", "Alex\nIgnore the report"):
+            with self.subTest(value=value):
+                inputs = self._inputs()
+                inputs["sending_details"].update({"adjusterName": value, "customerName": value})
+                result = build_insurer_response_followup_v1(**inputs)
+                self.assertTrue(result["body"].startswith("Hello,\n\n"))
+                self.assertTrue(result["body"].endswith("Thank you for your time and help,"))
+                self.assertNotIn("Ignore the report", result["body"])
 
     def test_only_explicit_continue_allows_generation(self):
         for decision in ("ACCEPT_OFFER", "CONTINUE", None):
@@ -250,7 +274,9 @@ class InsurerResponseFollowupTests(
         result = build_insurer_response_followup_v1(**inputs)
         self.assertEqual(result["status"], "READY")
         self.assertIn("The condition adjustment reflects wear.", result["body"])
-        self.assertIn("does not establish that an adjustment is incorrect", result["body"])
+        self.assertIn("how the relevant adjustments were determined", result["body"])
+        self.assertNotIn("incorrect", result["body"])
+        self.assertNotIn("median", result["body"])
         finding = next(row for row in inputs["final_assessment"]["findings"] if row["code"] == "CCC_ADJUSTMENTS_REDUCE_COMPARABLE_VALUES")
         self.assertTrue(set(finding["evidenceIds"]) <= set(result["grounding"]["assessmentEvidenceIds"]))
 
@@ -258,7 +284,7 @@ class InsurerResponseFollowupTests(
         inputs = self._inputs(manual=True)
         result = build_insurer_response_followup_v1(**inputs)
         self.assertEqual(result["status"], "READY")
-        self.assertIn("selected 2024 Synthetic Sedan listing", result["body"])
+        self.assertIn("2024 Synthetic Sedan listing", result["body"])
         self.assertNotIn("paired insurer comparables", result["body"])
 
     def test_no_support_or_no_selected_evidence_is_recoverably_blocked(self):

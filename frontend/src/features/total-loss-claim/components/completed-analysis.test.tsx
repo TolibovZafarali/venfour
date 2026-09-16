@@ -40,7 +40,7 @@ vi.mock("@/features/total-loss-claim/components/message-preparation", async (imp
   MessagePreparation: (props: React.ComponentProps<typeof original.MessagePreparation>) => {
     if (request.useRealEditor) return <original.MessagePreparation {...props} />;
     request.render(props);
-    return <><h1>{props.claim.messageDraft ? "Review and send your request" : "Prepare your request"}</h1><div data-testid="request-controls">Request controls</div></>;
+    return <><h1>{props.claim.messageDraft ? "Review your message" : "Prepare your message"}</h1><div data-testid="request-controls">Request controls</div></>;
   },
 };
 });
@@ -840,49 +840,154 @@ describe("completed-analysis guided progression", () => {
     }));
     const view = renderJourney("report", "resolution");
     const user = userEvent.setup();
-    await screen.findByRole("heading", { name: "Complete acceptance with your insurer" });
+    await screen.findByRole("heading", { name: "Confirm acceptance" });
     expect(saved.claim().resolution).toBeUndefined();
     expect(writes).toHaveLength(0);
     expect(screen.getByText(provenanceLabel)).toBeVisible();
     expect(screen.getByText("$20,100.00 USD")).toBeVisible();
+    const progressBefore = screen.getByRole("progressbar", { name: "Case journey" }).getAttribute("aria-valuenow");
+    const steps = within(screen.getByRole("list", { name: "Acceptance steps" })).getAllByRole("listitem");
+    expect(steps).toHaveLength(3);
+    await user.click(within(steps[0]!).getByRole("button", { name: "Record a different outcome" }));
+    expect(within(steps[0]!).getByRole("form", { name: "Choose case outcome" })).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Review acceptance steps" })).not.toBeInTheDocument();
+    expect(writes).toHaveLength(0);
+    await user.click(screen.getByRole("button", { name: "Back to this offer" }));
+    expect(screen.queryByRole("form", { name: "Choose case outcome" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Review acceptance steps" }));
+    expect(writes).toHaveLength(0);
+    await user.click(screen.getByRole("button", { name: "I accepted this offer with my insurer" }));
+    expect(screen.getByRole("progressbar", { name: "Case journey" })).toHaveAttribute("aria-valuenow", progressBefore);
+    await user.click(screen.getByRole("button", { name: "Not yet" }));
+    expect(writes).toHaveLength(0);
     await user.click(screen.getByRole("button", { name: "I accepted this offer with my insurer" }));
     expect(writes).toHaveLength(0);
-    await user.click(screen.getByRole("button", { name: "Confirm accepted and resolve case" }));
-    expect(await screen.findByRole("heading", { name: "Case resolved" })).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Close my Venfour case" }));
+    expect(await screen.findByRole("heading", { name: "Case closed" })).toBeVisible();
+    expect(screen.getByRole("progressbar", { name: "Case journey" })).toHaveAttribute("aria-valuenow", progressBefore);
+    expect(within(screen.getByRole("navigation", { name: "Case sections" })).getByRole("link", { name: "Confirm acceptance" })).toHaveAttribute("aria-current", "page");
+    await waitFor(() => expect(document.querySelector(".case-closure-celebration")).toHaveAttribute("aria-hidden", "true"));
+    expect(document.querySelectorAll('.closure-confetti-flight[data-side="left"]')).toHaveLength(32);
+    expect(document.querySelectorAll('.closure-confetti-flight[data-side="right"]')).toHaveLength(32);
     expect(writes).toEqual([{ clientRequestId: expect.any(String), workflowRevision: 15, resolutionCode: "ACCEPTED_VERIFIED_OFFER", decisionId: decided.decision!.decisionId, offerId: decided.usableOffer!.offerId, amountMinorUnits: null, currency: null }]);
     expect(saved.claim().resolution?.amountSource).toBe(offerSource);
-    expect(screen.getByText(`${provenanceLabel} · exact saved offer · acceptance confirmed by you`)).toBeVisible();
+    expect(screen.getByText(`${provenanceLabel} · acceptance confirmed by you`)).toBeVisible();
     expect(document.querySelector(".review-actions")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Close my Venfour case" })).not.toBeInTheDocument();
+    expect(within(screen.getByRole("list", { name: "Acceptance steps" })).getAllByRole("listitem").every(step => step.getAttribute("data-state") === "complete")).toBe(true);
+    await user.click(screen.getByRole("link", { name: "View my case record" }));
+    expect(await screen.findByRole("heading", { name: "Your case record" })).toBeVisible();
+    expect(view.router.state.location.search).toBe("?view=record");
+    expect(within(screen.getByRole("navigation", { name: "Case sections" })).getByRole("link", { name: "Your case record" })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("combobox", { name: "Case section" })).toHaveValue("case_record");
+    const record = screen.getByRole("region", { name: "Saved case record" });
+    expect(within(record).getByText("Acceptance confirmed by you")).toBeVisible();
+    expect(within(record).getByText(provenanceLabel)).toBeVisible();
+    expect(within(record).getByRole("button", { name: "View PDF" })).toBeVisible();
+    expect(within(record).getByRole("button", { name: "Download PDF" })).toBeVisible();
+    expect(within(record).queryByRole("button", { name: "Back to my cases" })).not.toBeInTheDocument();
+    expect(within(record).queryByText("Your saved record is read-only.")).not.toBeInTheDocument();
+    const savedReply = record.querySelector(".case-record-history-response")!;
+    expect(savedReply).not.toHaveAttribute("open");
+    await user.click(savedReply.querySelector("summary")!);
+    expect(savedReply).toHaveAttribute("open");
+    const savedReview = savedReply.querySelector(".case-record-review")!;
+    await user.click(savedReview.querySelector("summary")!);
+    expect(within(savedReview as HTMLElement).getByText("What this means")).toBeVisible();
+    expect(within(savedReview as HTMLElement).getByRole("link", { name: "Read the full review" })).toHaveAttribute("href", `${BASE}/review/response-reviewed?response=${history[0]!.responses[0]!.responseId}`);
     const bar = screen.getByRole("progressbar", { name: "Case journey" });
     expect(bar.getAttribute("aria-valuenow")).toBe(bar.getAttribute("aria-valuemax"));
     expect(bar).toHaveAttribute("aria-valuetext", "Case complete.");
     expect(saved.claim().negotiationHistory).toHaveLength(3);
     await user.click(screen.getByRole("button", { name: "Case history" }));
-    const sentMessages = document.querySelectorAll(".case-history-message > summary");
+    const historyDialog = screen.getByRole("dialog", { name: "Case history" });
+    const sentMessages = historyDialog.querySelectorAll(".case-history-message > summary");
     expect(sentMessages).toHaveLength(3);
     for (const message of sentMessages) {
       expect(message).toHaveTextContent(/Sent.*Version 1/u);
       expect(message.querySelector("time")).toHaveAttribute("datetime", NOW);
     }
     expect(document.querySelector(".case-history")?.querySelector("input, textarea, button")).toBeNull();
-    const reviewLinks = screen.getAllByRole("link", { name: /Venfour review/u });
+    const reviewLinks = within(historyDialog).getAllByRole("link", { name: /Venfour review/u });
     expect(reviewLinks).toHaveLength(3);
     await user.click(reviewLinks[0]!);
-    expect(await screen.findByText("You chose to continue challenging")).toBeVisible();
+    expect(await screen.findByText("You chose to ask the insurer to reconsider.")).toBeVisible();
+    const outcome = screen.getByRole("region", { name: "Recorded case outcome" });
+    expect(within(outcome).getByRole("heading", { name: "Case closed" })).toBeVisible();
+    expect(within(outcome).getByText("Offer you accepted")).toBeVisible();
+    expect(within(outcome).getByText(`${offerSource === "CUSTOMER_RECORDED" ? "Offer amount entered by you" : "Offer shown in your insurer’s reply"} · Acceptance confirmed by you`)).toBeVisible();
+    expect(outcome.querySelector("time")).not.toHaveTextContent(/AM|PM/u);
+    expect(within(outcome).queryByRole("button")).not.toBeInTheDocument();
     expect(screen.queryByRole("dialog", { name: "Case history" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /Correct this response|Accept offer|Continue challenging|Close case/u })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Correct response|Accept this offer|Ask the insurer to reconsider|Close case/u })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Prepare my follow-up" })).not.toBeInTheDocument();
     await act(() => view.router.navigate(`${BASE}/review/request`));
-    expect(await screen.findByRole("heading", { name: "Your sent request" })).toBeVisible();
+    expect(await screen.findByText("You marked your message as sent. Keep a copy of your email and the attached report.")).toBeVisible();
     expect(screen.getByLabelText("Request message")).toHaveTextContent(history[0]!.outbound.body);
     expect(screen.queryByText(/This message was not confirmed as sent/u)).not.toBeInTheDocument();
     expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
     await act(() => view.router.navigate(`${BASE}/review/result`));
     await screen.findByRole("heading", { name: "Your result" });
-    await user.click(screen.getByRole("button", { name: "See how the insurer reached its value" }));
-    expect(await screen.findByRole("heading", { name: "How your insurer reached its value" })).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "See how your insurer calculated it" }));
+    expect(await screen.findByRole("heading", { name: "How your insurer valued your vehicle" })).toBeVisible();
     expect(saved.writes).toEqual([]);
     expect(saved.draftWrites).not.toHaveBeenCalled();
+  });
+
+  it("retries the same acceptance confirmation after a failed request and reload", async () => {
+    const response = recommendedResponse();
+    const decided = decisionResponse(response, { clientRequestId: USER_ID, recommendationId: response.recommendation!.recommendationId, choice: "ACCEPT_OFFER", offerId: response.usableOffer!.offerId, workflowRevision: 15 });
+    const saved = installClaim(reviewedClaim(decided));
+    const writes: TotalLossCaseResolutionInput[] = [];
+    server.use(http.post(`${API}/claim/resolution`, async ({ request }) => {
+      const input = await request.json() as TotalLossCaseResolutionInput;
+      writes.push(input);
+      if (writes.length === 1) return HttpResponse.json({ error: { code: "UNAVAILABLE", message: "Try again" } }, { status: 503 });
+      const closed = closeSavedClaim(saved.claim(), input);
+      saved.setClaim(closed);
+      return HttpResponse.json({ state: "resolved", resolution: closed.resolution, workflowRevision: closed.workflow!.revision });
+    }));
+    let view = renderJourney("report", "resolution");
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: "Review acceptance steps" }));
+    await user.click(screen.getByRole("button", { name: "I accepted this offer with my insurer" }));
+    await user.click(screen.getByRole("button", { name: "Close my Venfour case" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("We couldn’t confirm closure");
+    expect(document.querySelector(".case-closure-celebration")).toBeNull();
+    expect(saved.claim().resolution).toBeUndefined();
+    view.unmount();
+    view = renderJourney("report", "resolution");
+    await user.click(await screen.findByRole("button", { name: "Retry closure confirmation" }));
+    expect(await screen.findByRole("heading", { name: "Case closed" })).toBeVisible();
+    expect(writes).toHaveLength(2);
+    expect(writes[1]).toEqual(writes[0]);
+    view.unmount();
+    renderJourney("report", "resolution");
+    expect(await screen.findByRole("link", { name: "View my case record" })).toBeVisible();
+    expect(document.querySelector(".case-closure-celebration")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Close my Venfour case" })).not.toBeInTheDocument();
+    expect(writes).toHaveLength(2);
+  });
+
+  it("requires a refreshed review when acceptance closure encounters a changed case", async () => {
+    const response = recommendedResponse();
+    const decided = decisionResponse(response, { clientRequestId: USER_ID, recommendationId: response.recommendation!.recommendationId, choice: "ACCEPT_OFFER", offerId: response.usableOffer!.offerId, workflowRevision: 15 });
+    const saved = installClaim(reviewedClaim(decided));
+    const writes = vi.fn();
+    server.use(http.post(`${API}/claim/resolution`, () => {
+      writes();
+      return HttpResponse.json({ error: { code: "CONFLICT", message: "Case changed" } }, { status: 409 });
+    }));
+    renderJourney("report", "resolution");
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: "Review acceptance steps" }));
+    await user.click(screen.getByRole("button", { name: "I accepted this offer with my insurer" }));
+    await user.click(screen.getByRole("button", { name: "Close my Venfour case" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Your case changed");
+    expect(screen.getByRole("button", { name: "Retry closure confirmation" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Refresh case" })).toBeEnabled();
+    expect(saved.claim().resolution).toBeUndefined();
+    expect(writes).toHaveBeenCalledOnce();
   });
 
   it.each(["manual", "report"] as const)("shows closure only on the final %s workspace section", async (intakeMode) => {
@@ -900,8 +1005,10 @@ describe("completed-analysis guided progression", () => {
     expect(await screen.findByRole("button", { name: "Close case" })).toBeVisible();
   });
 
-  it.each([false, true])("manually resolves without Accept and optional customer-reported amount=%s", async (withAmount) => {
-    const saved = installClaim(reviewedClaim());
+  it.each([[false, false, false], [true, false, false], [true, true, false], [true, false, true]])("records an alternative outcome with amount=%s from acceptance=%s via account=%s", async (withAmount, fromAcceptance, fromAccount) => {
+    const response = recommendedResponse();
+    const decided = decisionResponse(response, { clientRequestId: USER_ID, recommendationId: response.recommendation!.recommendationId, choice: "ACCEPT_OFFER", offerId: response.usableOffer!.offerId, workflowRevision: 15 });
+    const saved = installClaim(reviewedClaim(fromAcceptance ? decided : response));
     const writes: TotalLossCaseResolutionInput[] = [];
     server.use(http.post(`${API}/claim/resolution`, async ({ request: update }) => {
       const input = await update.json() as TotalLossCaseResolutionInput;
@@ -910,18 +1017,32 @@ describe("completed-analysis guided progression", () => {
       saved.setClaim(closed);
       return HttpResponse.json({ state: "resolved", resolution: closed.resolution, workflowRevision: closed.workflow!.revision });
     }));
-    renderJourney("report", "response-reviewed");
+    const view = renderJourney("report", fromAccount ? "response-reviewed?close=case" : fromAcceptance ? "resolution" : "response-reviewed");
     const user = userEvent.setup();
-    await user.click(await screen.findByRole("button", { name: "Close case" }));
+    if (fromAccount) {
+      await screen.findByRole("dialog", { name: "Close your Venfour case" });
+      expect(writes).toHaveLength(0);
+      await user.click(screen.getByRole("button", { name: "Keep case open" }));
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+      expect(writes).toHaveLength(0);
+      await act(() => view.router.navigate(`${BASE}/review/response-reviewed?close=case`));
+      await screen.findByRole("dialog", { name: "Close your Venfour case" });
+    } else await user.click(await screen.findByRole("button", { name: fromAcceptance ? "Record a different outcome" : "Close case" }));
     if (withAmount) await user.type(screen.getByRole("textbox", { name: /Final amount/u }), "21500.25");
     await user.click(screen.getByRole("button", { name: "Confirm and close case" }));
-    expect(await screen.findByRole("heading", { name: "Case resolved" })).toBeVisible();
+    expect(await screen.findByRole("heading", { name: "Your case record" })).toBeVisible();
     expect(writes[0]).toMatchObject({ resolutionCode: "RESOLVED_WITH_INSURER", decisionId: null, offerId: null, amountMinorUnits: withAmount ? 2150025 : null, currency: withAmount ? "USD" : null });
     expect(saved.claim().resolution?.amountSource).toBe(withAmount ? "CUSTOMER_REPORTED" : null);
-    if (withAmount) expect(screen.getByText("Final amount reported by you")).toBeVisible();
+    if (withAmount) {
+      expect(screen.getByText("Final amount reported by you")).toBeVisible();
+      expect(document.querySelector(".case-record-amount")).toHaveTextContent("$21,500.25");
+    } else {
+      expect(document.querySelector(".case-record-amount")).toBeNull();
+      expect(screen.getByText("Outcome confirmed by you. No final amount was recorded.")).toBeVisible();
+    }
     expect(screen.queryByText("Customer-reported insurer offer", { exact: false })).not.toBeInTheDocument();
     expect(screen.queryByText("Offer shown in insurer response", { exact: false })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Accept offer" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("radio", { name: "Accept this offer" })).not.toBeInTheDocument();
   });
 
   it("closes as stopped pursuing without recording a settlement or allowing draft mutations", async () => {
@@ -936,14 +1057,15 @@ describe("completed-analysis guided progression", () => {
     }));
     const view = renderJourney("report", "response-reviewed");
     const user = userEvent.setup();
-    await screen.findByText("You chose to continue challenging");
+    await screen.findByText("You chose to ask the insurer to reconsider.");
     expect(screen.queryByRole("button", { name: "Close case" })).not.toBeInTheDocument();
     await act(() => view.router.navigate(`${BASE}/review/follow-up`));
     await user.click(await screen.findByRole("button", { name: "Close case" }));
     await user.click(screen.getByRole("radio", { name: "I’m no longer pursuing this" }));
     expect(screen.queryByRole("textbox", { name: /Final amount/u })).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Confirm and close case" }));
-    expect(await screen.findByRole("heading", { name: "Case closed" })).toBeVisible();
+    expect(await screen.findByRole("heading", { name: "Your case record" })).toBeVisible();
+    expect(document.querySelector(".case-record-amount")).toBeNull();
     expect(document.querySelector(".review-actions")).toBeNull();
     expect(screen.getByText(/This does not record a settlement with your insurer/u)).toBeVisible();
     await act(() => view.router.navigate(`${BASE}/review/follow-up`));
@@ -962,14 +1084,14 @@ describe("completed-analysis guided progression", () => {
     });
     installClaim(closed);
     renderJourney("report", "follow-up");
-    expect(await screen.findByRole("heading", { name: "Your sent follow-up" })).toBeVisible();
+    expect(await screen.findByRole("heading", { name: "Prepare your follow-up" })).toBeVisible();
     expect(screen.getByLabelText("Follow-up message")).toHaveTextContent(current.followUp!.sentMessage!.body);
-    const recorded = screen.getByText(/You confirmed sending this message on/u);
+    const recorded = screen.getByText(/Sent · Recorded/u);
     expect(recorded).toHaveTextContent("Version 1");
     expect(recorded.querySelector("time")).toHaveAttribute("datetime", current.followUp!.sentMessage!.customerReportedSentAt);
     expect(screen.queryByText(/This message was not confirmed as sent/u)).not.toBeInTheDocument();
     expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /Mark as sent|Copy email|Open email app/u })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Mark as sent|Copy email|Open my email app/u })).not.toBeInTheDocument();
   });
 
   it("retries an uncertain closure with the same request and rejects stale confirmation", async () => {
@@ -1001,13 +1123,13 @@ describe("completed-analysis guided progression", () => {
     renderJourney("report");
     const user = userEvent.setup();
     expect(await screen.findByRole("heading", { name: "Case closed" })).toBeVisible();
-    await user.click(screen.getByRole("button", { name: "See how the insurer reached its value" }));
-    expect(await screen.findByRole("heading", { name: "How your insurer reached its value" })).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "See how your insurer calculated it" }));
+    expect(await screen.findByRole("heading", { name: "How your insurer valued your vehicle" })).toBeVisible();
     expect(saved.writes).toEqual([]);
     expect(screen.queryByRole("button", { name: "Close case" })).not.toBeInTheDocument();
   });
 
-  it.each(["manual", "report"] as const)("navigates %s follow-up confirmation to waiting when the live claim refresh replaces the editor", async (intakeMode) => {
+  it.each(["manual", "report"] as const)("holds %s follow-up progress through sent confirmation and reload until explicit continuation", async (intakeMode) => {
     const saved = installClaim(followUpJourneyClaim());
     const sent = followUpJourneyClaim(true);
     server.use(http.post(`${API}/follow-up/sent`, async ({ request: update }) => {
@@ -1020,20 +1142,41 @@ describe("completed-analysis guided progression", () => {
         negotiationRoundId: sent.followUp!.sentMessage!.negotiationRoundId, customerReportedSentAt: NOW,
       });
     }));
-    const view = renderJourney(intakeMode, "follow-up");
+    let view = renderJourney(intakeMode, "follow-up");
     const user = userEvent.setup();
     vi.spyOn(navigator.clipboard, "writeText").mockResolvedValue(undefined);
-    await user.click(await screen.findByRole("button", { name: "Copy email" }));
-    await user.click(await screen.findByRole("checkbox", { name: "I sent the email with this PDF attached." }));
+    await user.click(await screen.findByRole("button", { name: "Copy message" }));
+    const before = screen.getByRole("progressbar", { name: "Case journey" }).getAttribute("aria-valuetext");
+    const beforeValue = screen.getByRole("progressbar", { name: "Case journey" }).getAttribute("aria-valuenow");
+    expect(screen.queryByRole("button", { name: "Track your insurer’s reply" })).not.toBeInTheDocument();
+    await user.click(await screen.findByRole("checkbox", { name: "I sent the email with the report attached." }));
     await user.click(screen.getByRole("button", { name: "Mark as sent" }));
-    expect(await screen.findByRole("heading", { name: "Waiting for the insurer’s response" })).toBeVisible();
+    expect(await screen.findByText("You marked your follow-up as sent. Keep a copy of your email and the attached report.")).toBeVisible();
+    expect(view.router.state.location.pathname).toBe(`${BASE}/review/follow-up`);
+    expect(screen.getByRole("progressbar", { name: "Case journey" })).toHaveAttribute("aria-valuetext", before);
+    expect(screen.getByRole("progressbar", { name: "Case journey" })).toHaveAttribute("aria-valuenow", beforeValue);
+    expect(screen.getByRole("link", { name: "Prepare your follow-up" })).toHaveAttribute("aria-current", "page");
+    view.unmount();
+    view = renderJourney(intakeMode, "follow-up");
+    await screen.findByRole("button", { name: "Track your insurer’s reply" });
+    expect(screen.getByRole("progressbar", { name: "Case journey" })).toHaveAttribute("aria-valuetext", before);
+    expect(screen.getByRole("progressbar", { name: "Case journey" })).toHaveAttribute("aria-valuenow", beforeValue);
+    await user.click(screen.getByRole("button", { name: "Track your insurer’s reply" }));
+    expect(await screen.findByRole("heading", { name: "Waiting for insurer" })).toBeVisible();
     expect(view.router.state.location.pathname).toBe(`${BASE}/review/waiting`);
     expect(screen.queryByRole("textbox", { name: "Message" })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "View my follow-up" })).toHaveAttribute("href", `${BASE}/review/follow-up`);
+    expect(screen.getByText("You marked your follow-up as sent. Come back here when your insurer replies.")).toBeVisible();
   });
 
-  it.each(["manual", "report"] as const)("navigates %s initial confirmation to Waiting even when mutation refresh unmounts the editor", async (intakeMode) => {
+  it.each(["manual", "report"] as const)("holds %s request progress through sent confirmation and reload until the next-step action", async (intakeMode) => {
     request.useRealEditor = true;
-    const saved = installClaim(claimProjection(BEFORE_REQUEST));
+    const initial = claimProjection(BEFORE_REQUEST);
+    const saved = installClaim({
+      ...initial,
+      journey: { fulfillmentState: "report_ready", nextState: "prepare_request", retryable: false },
+      workflow: { ...initial.workflow!, currentTask: "prepare_request" },
+    });
     const sent = waitingClaim();
     const message = sent.negotiationHistory![0]!.outbound;
     const sentWrites: unknown[] = [];
@@ -1053,21 +1196,40 @@ describe("completed-analysis guided progression", () => {
         });
       }),
     );
-    const view = renderJourney(intakeMode, "request");
+    let view = renderJourney(intakeMode, "request");
     const user = userEvent.setup();
     vi.spyOn(navigator.clipboard, "writeText").mockResolvedValue(undefined);
     await user.click(await screen.findByRole("button", { name: "Copy email" }));
-    await user.click(await screen.findByRole("checkbox", { name: "I sent the email with this PDF attached." }));
+    expect(screen.queryByRole("button", { name: "See what happens next" })).not.toBeInTheDocument();
+    const progressBefore = screen.getByRole("progressbar", { name: "Case journey" }).getAttribute("aria-valuenow");
+    const progressLabelBefore = screen.getByRole("progressbar", { name: "Case journey" }).getAttribute("aria-valuetext");
+    await user.click(await screen.findByRole("checkbox", { name: "I sent the email with the report attached." }));
     await user.dblClick(screen.getByRole("button", { name: "Mark as sent" }));
 
-    expect(await screen.findByRole("heading", { name: "Waiting for the insurer’s response" })).toBeVisible();
-    expect(view.router.state.location.pathname).toBe(`${BASE}/review/waiting`);
+    expect(await screen.findByText("You marked your message as sent. Keep a copy of your email and the attached report.")).toBeVisible();
+    expect(view.router.state.location.pathname).toBe(`${BASE}/review/request`);
+    expect(screen.getByRole("button", { name: "See what happens next" })).toBeEnabled();
+    expect(screen.getByRole("progressbar", { name: "Case journey" })).toHaveAttribute("aria-valuenow", progressBefore);
+    expect(screen.getByRole("progressbar", { name: "Case journey" })).toHaveAttribute("aria-valuetext", progressLabelBefore);
+    expect(screen.getByRole("link", { name: "Prepare your message" }).closest("li")).toHaveAttribute("data-current", "true");
+    expect(screen.getByRole("link", { name: "Waiting for insurer" }).closest("li")).not.toHaveAttribute("data-current");
     expect(screen.queryByRole("textbox", { name: "Message" })).not.toBeInTheDocument();
     expect(sentWrites).toHaveLength(1);
     expect(sentWrites[0]).toMatchObject({ messageVersionId: message.messageVersionId });
     await act(() => view.queryClient.refetchQueries({ type: "active" }));
-    expect(screen.getByRole("heading", { name: "Waiting for the insurer’s response" })).toBeVisible();
+    expect(view.router.state.location.pathname).toBe(`${BASE}/review/request`);
+    view.unmount();
+    view = renderJourney(intakeMode, "request");
+    await screen.findByRole("button", { name: "See what happens next" });
+    expect(screen.getByRole("progressbar", { name: "Case journey" })).toHaveAttribute("aria-valuenow", progressBefore);
+    await user.click(screen.getByRole("button", { name: "See what happens next" }));
+    expect(await screen.findByRole("heading", { name: "Waiting for insurer" })).toBeVisible();
     expect(view.router.state.location.pathname).toBe(`${BASE}/review/waiting`);
+    const advanced = screen.getByRole("progressbar", { name: "Case journey" }).getAttribute("aria-valuenow");
+    expect(Number(advanced)).toBe(Number(progressBefore) + 1);
+    await user.click(screen.getByRole("link", { name: "View my message" }));
+    await screen.findByRole("button", { name: "See what happens next" });
+    expect(screen.getByRole("progressbar", { name: "Case journey" })).toHaveAttribute("aria-valuenow", advanced);
     expect(saved.claim().negotiationHistory).toHaveLength(1);
   });
 
@@ -1092,22 +1254,31 @@ describe("completed-analysis guided progression", () => {
     const view = renderJourney("report", followUp ? "follow-up" : "request");
     const user = userEvent.setup();
     vi.spyOn(navigator.clipboard, "writeText").mockResolvedValue(undefined);
-    await user.click(await screen.findByRole("button", { name: "Copy email" }));
-    await user.click(await screen.findByRole("checkbox", { name: "I sent the email with this PDF attached." }));
+    await user.click(await screen.findByRole("button", { name: followUp ? "Copy message" : "Copy email" }));
+    await user.click(await screen.findByRole("checkbox", { name: "I sent the email with the report attached." }));
     await user.click(screen.getByRole("button", { name: "Mark as sent" }));
 
-    expect(await screen.findByRole("heading", { name: "Waiting for the insurer’s response" })).toBeVisible();
+    if (followUp) {
+      await screen.findByText("You marked your follow-up as sent. Keep a copy of your email and the attached report.");
+      expect(view.router.state.location.pathname).toBe(`${BASE}/review/follow-up`);
+      await user.click(screen.getByRole("button", { name: "Track your insurer’s reply" }));
+    } else {
+      expect(await screen.findByText("You marked your message as sent. Keep a copy of your email and the attached report.")).toBeVisible();
+      expect(view.router.state.location.pathname).toBe(`${BASE}/review/request`);
+      await user.click(screen.getByRole("button", { name: "See what happens next" }));
+    }
+    expect(await screen.findByRole("heading", { name: "Waiting for insurer" })).toBeVisible();
     expect(view.router.state.location.pathname).toBe(`${BASE}/review/waiting`);
     expect(sentWrites).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ messageVersionId: message.messageVersionId }));
     expect(screen.queryByRole("button", { name: "Mark as sent" })).not.toBeInTheDocument();
     view.unmount();
     const refreshed = renderJourney("report", "waiting");
-    expect(await screen.findByRole("heading", { name: "Waiting for the insurer’s response" })).toBeVisible();
+    expect(await screen.findByRole("heading", { name: "Waiting for insurer" })).toBeVisible();
     expect(refreshed.router.state.location.pathname).toBe(`${BASE}/review/waiting`);
     expect(sentWrites).toHaveBeenCalledTimes(1);
   });
 
-  it("uses the resolver's latest state if the case progresses before initial sent refresh completes", async () => {
+  it("continues to the resolver's latest state if the case progresses before initial sent refresh completes", async () => {
     request.useRealEditor = true;
     const saved = installClaim(claimProjection(BEFORE_REQUEST));
     const reviewed = reviewedClaim();
@@ -1124,9 +1295,12 @@ describe("completed-analysis guided progression", () => {
     const user = userEvent.setup();
     vi.spyOn(navigator.clipboard, "writeText").mockResolvedValue(undefined);
     await user.click(await screen.findByRole("button", { name: "Copy email" }));
-    await user.click(await screen.findByRole("checkbox", { name: "I sent the email with this PDF attached." }));
+    await user.click(await screen.findByRole("checkbox", { name: "I sent the email with the report attached." }));
     await user.click(screen.getByRole("button", { name: "Mark as sent" }));
-    expect(await screen.findByRole("heading", { name: "What the insurer’s response means" })).toBeVisible();
+    expect(await screen.findByText("You marked your message as sent. Keep a copy of your email and the attached report.")).toBeVisible();
+    expect(view.router.state.location.pathname).toBe(`${BASE}/review/request`);
+    await user.click(screen.getByRole("button", { name: "See what happens next" }));
+    expect(await screen.findByRole("heading", { name: "Your response review" })).toBeVisible();
     expect(view.router.state.location.pathname).toBe(`${BASE}/review/response-reviewed`);
   });
 
@@ -1150,14 +1324,14 @@ describe("completed-analysis guided progression", () => {
     const user = userEvent.setup();
     vi.spyOn(navigator.clipboard, "writeText").mockResolvedValue(undefined);
     await user.click(await screen.findByRole("button", { name: "Copy email" }));
-    await user.click(await screen.findByRole("checkbox", { name: "I sent the email with this PDF attached." }));
+    await user.click(await screen.findByRole("checkbox", { name: "I sent the email with the report attached." }));
     await user.click(screen.getByRole("button", { name: "Mark as sent" }));
     await user.click(screen.getByRole("link", { name: "Market evidence" }));
-    expect(await screen.findByRole("heading", { name: "What the market evidence showed" })).toBeVisible();
+    expect(await screen.findByRole("heading", { name: "Similar vehicles we found" })).toBeVisible();
     await act(async () => { release?.(); });
     await waitFor(() => expect(view.queryClient.getQueryData<TotalLossClaimSecured>(totalLossClaimQueryKeys.detail(USER_ID, CASE_ID))?.journey?.nextState).toBe("awaiting_insurer_response"));
     expect(view.router.state.location.pathname).toBe(`${BASE}/review/market`);
-    expect(screen.getByRole("heading", { name: "What the market evidence showed" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Similar vehicles we found" })).toBeVisible();
   });
 
   it("does not move a customer who left the follow-up while sent confirmation was pending", async () => {
@@ -1178,15 +1352,15 @@ describe("completed-analysis guided progression", () => {
     const view = renderJourney("report", "follow-up");
     const user = userEvent.setup();
     vi.spyOn(navigator.clipboard, "writeText").mockResolvedValue(undefined);
-    await user.click(await screen.findByRole("button", { name: "Copy email" }));
-    await user.click(await screen.findByRole("checkbox", { name: "I sent the email with this PDF attached." }));
+    await user.click(await screen.findByRole("button", { name: "Copy message" }));
+    await user.click(await screen.findByRole("checkbox", { name: "I sent the email with the report attached." }));
     await user.click(screen.getByRole("button", { name: "Mark as sent" }));
-    await user.click(screen.getByRole("link", { name: "Initial request" }));
-    expect(await screen.findByRole("heading", { name: "Your sent request" })).toBeVisible();
+    await user.click(screen.getByRole("link", { name: "Prepare your message" }));
+    expect(await screen.findByText("You marked your message as sent. Keep a copy of your email and the attached report.")).toBeVisible();
     await act(async () => { release?.(); });
     await waitFor(() => expect(view.queryClient.getQueryData<TotalLossClaimSecured>(totalLossClaimQueryKeys.detail(USER_ID, CASE_ID))?.followUp?.state).toBe("sent"));
     expect(view.router.state.location.pathname).toBe(`${BASE}/review/request`);
-    expect(screen.getByRole("heading", { name: "Your sent request" })).toBeVisible();
+    expect(screen.getByText("You marked your message as sent. Keep a copy of your email and the attached report.")).toBeVisible();
   });
 
   it.each(["manual", "report"] as const)("resumes the same %s follow-up and keeps the original request and response review reachable", async (intakeMode) => {
@@ -1194,15 +1368,15 @@ describe("completed-analysis guided progression", () => {
     const installed = installClaim(current);
     const view = renderJourney(intakeMode, "follow-up");
     const user = userEvent.setup();
-    expect(await screen.findByRole("heading", { name: "Review and send your follow-up" })).toBeVisible();
+    expect(await screen.findByRole("heading", { name: "Prepare your follow-up" })).toBeVisible();
     expect(screen.getByRole("textbox", { name: "Message" })).toHaveValue(current.followUp!.draft!.body);
-    await user.click(screen.getByRole("link", { name: "Initial request" }));
-    expect(await screen.findByRole("heading", { name: "Your sent request" })).toBeVisible();
+    await user.click(screen.getByRole("link", { name: "Prepare your message" }));
+    expect(await screen.findByText("You marked your message as sent. Keep a copy of your email and the attached report.")).toBeVisible();
     expect(screen.getByLabelText("Request message")).toHaveTextContent(current.messageDraft!.body);
     await user.click(screen.getByRole("link", { name: "Response review" }));
-    expect(await screen.findByText("You chose to continue challenging")).toBeVisible();
+    expect(await screen.findByText("You chose to ask the insurer to reconsider.")).toBeVisible();
     await user.click(screen.getByRole("link", { name: "Review my follow-up" }));
-    expect(await screen.findByRole("heading", { name: "Review and send your follow-up" })).toBeVisible();
+    expect(await screen.findByRole("heading", { name: "Prepare your follow-up" })).toBeVisible();
     expect(installed.draftWrites).not.toHaveBeenCalled();
     expect(installed.responseWrites).toHaveLength(0);
     expect(view.router.state.location.pathname).toBe(`${BASE}/review/follow-up`);
@@ -1227,14 +1401,14 @@ describe("completed-analysis guided progression", () => {
     const view = renderJourney("report", "response-reviewed");
     const user = userEvent.setup();
 
-    expect(await screen.findByText("You chose to continue challenging")).toBeVisible();
-    await user.click(screen.getByRole("button", { name: "Correct this response" }));
+    expect(await screen.findByText("You chose to ask the insurer to reconsider.")).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Correct response" }));
     const responseText = screen.getByRole("textbox", { name: /^Paste the response/iu });
     await user.clear(responseText);
     await user.type(responseText, "Corrected insurer response for the current review.");
     await user.click(screen.getByRole("button", { name: "Save corrected response" }));
 
-    expect(await screen.findByRole("heading", { name: "Venfour is reviewing the insurer’s response" })).toBeVisible();
+    expect(await screen.findByRole("heading", { name: "Your response is saved" })).toBeVisible();
     expect(view.router.state.location.pathname).toBe(`${BASE}/review/response-reviewing`);
     expect(installed.claim().followUp).toBeNull();
     expect(installed.claim().insurerResponse?.supersedesResponseId).toBe(current.insurerResponse!.responseId);
@@ -1253,7 +1427,7 @@ describe("completed-analysis guided progression", () => {
 
     await act(() => view.router.navigate(`${BASE}/review/follow-up`));
     await waitFor(() => expect(view.router.state.location.pathname).toBe(`${BASE}/review/response-reviewing`));
-    expect(await screen.findByRole("heading", { name: "Venfour is reviewing the insurer’s response" })).toBeVisible();
+    expect(await screen.findByRole("heading", { name: "Your response is saved" })).toBeVisible();
   });
 
   it("keeps an untouched superseded draft separate from the corrected response’s new current editor", async () => {
@@ -1264,7 +1438,7 @@ describe("completed-analysis guided progression", () => {
     renderJourney("report", "follow-up");
     const user = userEvent.setup();
 
-    expect(await screen.findByRole("heading", { name: "Review and send your follow-up" })).toBeVisible();
+    expect(await screen.findByRole("heading", { name: "Prepare your follow-up" })).toBeVisible();
     expect(screen.getByRole("textbox", { name: "Subject" })).toHaveValue(activeDraft.subject);
     expect(screen.getByRole("textbox", { name: "Message" })).toHaveValue(activeDraft.body);
     expect(screen.getByRole("textbox", { name: "Subject" })).not.toHaveValue(historicalDraft.subject);
@@ -1285,13 +1459,16 @@ describe("completed-analysis guided progression", () => {
     const installed = installClaim(original);
     const user = userEvent.setup();
     const view = renderJourney("report", "waiting");
-    expect(await screen.findByRole("heading", { name: "Waiting for the insurer’s response" })).toBeVisible();
+    expect(await screen.findByRole("heading", { name: "Waiting for insurer" })).toBeVisible();
     await user.click(screen.getByRole("button", { name: "I received a response" }));
     expect(await screen.findByRole("textbox", { name: /^Paste the response/iu })).toHaveValue("");
     expect(screen.queryByRole("button", { name: "Save corrected response" })).not.toBeInTheDocument();
     await user.type(screen.getByRole("textbox", { name: /^Paste the response/iu }), "The insurer has replied again.");
     await user.click(screen.getByRole("button", { name: "Save response" }));
-    expect(await screen.findByRole("heading", { name: "Venfour is reviewing the insurer’s response" })).toBeVisible();
+    expect(await screen.findByText("Response saved", { exact: true })).toBeVisible();
+    expect(view.router.state.location.pathname).toBe(`${BASE}/review/waiting`);
+    await user.click(screen.getByRole("button", { name: "View response review" }));
+    expect(await screen.findByRole("heading", { name: "Your response is saved" })).toBeVisible();
     expect(installed.responseWrites[0]).toMatchObject({ outboundCommunicationId: original.followUp!.sentMessage!.communicationId, supersedesResponseId: null });
     expect(original.insurerResponse!.text).toBe("We can revise the offer to $20,100.");
     expect(view.router.state.location.pathname).toBe(`${BASE}/review/response-reviewing`);
@@ -1302,7 +1479,7 @@ describe("completed-analysis guided progression", () => {
     const installed = installClaim(current);
     const user = userEvent.setup();
     const view = renderJourney("report", "response-reviewed");
-    await screen.findByRole("heading", { name: "What the insurer’s response means" });
+    await screen.findByRole("heading", { name: "Your response review" });
     await user.click(screen.getByRole("button", { name: "Case history" }));
     expect(screen.getAllByRole("link", { name: "View response" })).toHaveLength(3);
     expect(screen.getAllByText("Follow-up", { selector: ".case-history-entry-title" })).toHaveLength(2);
@@ -1311,16 +1488,16 @@ describe("completed-analysis guided progression", () => {
       await user.click(responseLink);
       expect(await screen.findByText(`Saved insurer response ${index + 1}`)).toBeVisible();
       expect(screen.getByText(/current case step has not changed/u)).toBeVisible();
-      expect(screen.queryByRole("button", { name: "Correct this response" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Correct response" })).not.toBeInTheDocument();
       expect(view.router.state.location.search).toContain(round.responses[0]!.responseId);
       await user.click(screen.getByRole("button", { name: "Case history" }));
     }
     await user.click(screen.getAllByRole("link", { name: "Venfour review and decision" })[0]!);
-    expect(await screen.findByText("You chose to continue challenging")).toBeVisible();
+    expect(await screen.findByText("You chose to ask the insurer to reconsider.")).toBeVisible();
     expect(screen.queryByRole("link", { name: /Prepare my follow-up|View sent follow-up/u })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Continue challenging" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("radio", { name: "Ask the insurer to reconsider" })).not.toBeInTheDocument();
     await user.click(screen.getByRole("link", { name: "Current case step" }));
-    expect(await screen.findByRole("button", { name: "Continue challenging" })).toBeVisible();
+    expect(await screen.findByRole("radio", { name: "Ask the insurer to reconsider" })).toBeVisible();
     expect(installed.claim()).toEqual(current);
     expect(installed.responseWrites).toEqual([]);
     expect(installed.writes).toEqual([]);
@@ -1362,12 +1539,12 @@ describe("completed-analysis guided progression", () => {
     const user = userEvent.setup();
 
     renderJourney("report", "response-reviewed");
-    await screen.findByRole("heading", { name: "What the insurer’s response means" });
+    await screen.findByRole("heading", { name: "Your response review" });
     expect(screen.getByText(/Offer shown in insurer response:/u, { selector: ".response-decision-offer" })).toBeVisible();
     await user.click(screen.getByRole("button", { name: "Case history" }));
     const historicalReviews = screen.getAllByRole("link", { name: "Venfour review and decision" });
     await user.click(historicalReviews.at(-1)!);
-    expect(await screen.findByText("You chose to accept $20,100.00")).toBeVisible();
+    expect(await screen.findByText("You chose to accept $20,100.00.")).toBeVisible();
     expect(screen.getByText(/Customer-reported insurer offer\. This saved choice applies to the exact offer in this response/u)).toBeVisible();
     expect(screen.getByText(/current case step has not changed/u)).toBeVisible();
     expect(installed.responseWrites).toEqual([]);
@@ -1399,10 +1576,10 @@ describe("completed-analysis guided progression", () => {
     const decided = decisionResponse(response, { clientRequestId: USER_ID, recommendationId: response.recommendation!.recommendationId, choice: "ACCEPT_OFFER", offerId: response.usableOffer!.offerId, workflowRevision: 15 });
     installClaim(reviewedClaim(decided));
     const view = renderJourney("report", "waiting");
-    expect(await screen.findByRole("heading", { name: "Complete acceptance with your insurer" })).toBeVisible();
+    expect(await screen.findByRole("heading", { name: "Confirm acceptance" })).toBeVisible();
     expect(screen.getByText(/Your case remains open until you explicitly confirm/u)).toBeVisible();
     expect(screen.queryByRole("button", { name: "I received a response" })).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Review the offer, recommendation, and your decision" })).toHaveAttribute("href", `${BASE}/review/response-reviewed`);
+    expect(screen.getByRole("link", { name: "Revisit your response review" })).toHaveAttribute("href", `${BASE}/review/response-reviewed`);
     expect(document.querySelector(".review-actions")).toBeNull();
     expect(view.router.state.location.pathname).toBe(`${BASE}/review/resolution`);
   });
@@ -1410,10 +1587,10 @@ describe("completed-analysis guided progression", () => {
   it("does not expose new response intake without the resolver's applicable sent outbound", async () => {
     installClaim({ ...waitingClaim(), responseIntake: null });
     const view = renderJourney("report", "response");
-    expect(await screen.findByRole("heading", { name: "Waiting for the insurer’s response" })).toBeVisible();
+    expect(await screen.findByRole("heading", { name: "Waiting for insurer" })).toBeVisible();
     expect(screen.queryByRole("button", { name: "I received a response" })).not.toBeInTheDocument();
     const reviewNavigation = screen.getByRole("navigation", { name: "Review navigation" });
-    expect(within(reviewNavigation).getByRole("link", { name: "Back" })).toBeVisible();
+    expect(within(reviewNavigation).getByRole("link", { name: "View my message" })).toHaveAttribute("href", `${BASE}/review/request`);
     expect(reviewNavigation.children).toHaveLength(1);
     expect(view.router.state.location.pathname).toBe(`${BASE}/review/waiting`);
   });
@@ -1441,20 +1618,20 @@ describe("completed-analysis guided progression", () => {
       expect(navigation.parentElement).toBe(navigationHost);
       expect(document.querySelector(".completed-analysis")?.contains(navigation)).toBe(false);
       expect(within(navigation).queryByText("Current step", { exact: true })).not.toBeInTheDocument();
-      expect(progress).toHaveAttribute("aria-valuemax", "8");
-      expect(progress.firstElementChild).toHaveStyle({ transform: "scaleX(0.0625)" });
+      expect(progress).toHaveAttribute("aria-valuemax", "7");
+      expect(progress.firstElementChild).toHaveStyle({ transform: `scaleX(${0.5 / 7})` });
 
-      await user.click(screen.getByRole("button", { name: "See how the insurer reached its value" }));
-      expect(await screen.findByRole("heading", { name: "How your insurer reached its value" })).toBeVisible();
+      await user.click(screen.getByRole("button", { name: "See how your insurer calculated it" }));
+      expect(await screen.findByRole("heading", { name: "How your insurer valued your vehicle" })).toBeVisible();
       expect(within(headerHost).getByRole("progressbar", { name: "Case journey" })).toBe(progress);
       expect(progress).toHaveAttribute("aria-valuenow", "1.5");
-      expect(progress.firstElementChild).toHaveStyle({ transform: "scaleX(0.1875)" });
+      expect(progress.firstElementChild).toHaveStyle({ transform: `scaleX(${1.5 / 7})` });
       await user.click(within(navigation).getByRole("link", { name: "Your result" }));
       expect(await screen.findByRole("heading", { name: "Your result" })).toBeVisible();
       expect(within(navigation).getByRole("link", { name: "Your result" })).toHaveAttribute("aria-current", "page");
       expect(within(navigation).getByRole("link", { name: "Insurer review" }).parentElement).toHaveAttribute("data-current", "true");
       expect(progress).toHaveAttribute("aria-valuenow", "1.5");
-      expect(progress.firstElementChild).toHaveStyle({ transform: "scaleX(0.1875)" });
+      expect(progress.firstElementChild).toHaveStyle({ transform: `scaleX(${1.5 / 7})` });
     } finally {
       view.unmount();
     }
@@ -1467,19 +1644,20 @@ describe("completed-analysis guided progression", () => {
 
     const navigation = await screen.findByRole("navigation", { name: "Case sections" });
     expect(within(navigation).getByRole("link", { name: /^Your result/u })).toHaveAttribute("aria-current", "page");
-    for (const label of ["Insurer review", "Market evidence", "What it means", "Request preparation", "Waiting for insurer"]) {
+    for (const label of ["Insurer review", "Market evidence", "What it means", "Prepare your message", "Waiting for insurer"]) {
       expect(within(within(navigation).getByRole("list")).getByText(label, { exact: true })).toBeVisible();
       expect(within(navigation).getByRole("option", { name: label })).toBeDisabled();
       expect(within(navigation).queryByRole("link", { name: new RegExp(`^${label}`, "u") })).not.toBeInTheDocument();
     }
-    for (const label of ["Insurer response", "Response review"]) {
+    expect(within(navigation).queryByText("Insurer response", { exact: true })).not.toBeInTheDocument();
+    for (const label of ["Response review"]) {
       expect(within(navigation).queryByRole("link", { name: new RegExp(`^${label}`, "u") })).not.toBeInTheDocument();
     }
     expect(saved.writes).toEqual([]);
     expect(saved.draftWrites).not.toHaveBeenCalled();
 
-    await user.click(screen.getByRole("button", { name: "See how the insurer reached its value" }));
-    expect(await screen.findByRole("heading", { name: "How your insurer reached its value" })).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "See how your insurer calculated it" }));
+    expect(await screen.findByRole("heading", { name: "How your insurer valued your vehicle" })).toBeVisible();
     expect(within(navigation).getByRole("link", { name: /^Your result/u })).toHaveAttribute("href", `${BASE}/review/result`);
     expect(within(navigation).getByRole("link", { name: /^Insurer review/u })).toHaveAttribute("aria-current", "page");
     expect(within(navigation).queryByRole("link", { name: /^Market evidence/u })).not.toBeInTheDocument();
@@ -1509,9 +1687,9 @@ describe("completed-analysis guided progression", () => {
 
     const sections = [
       ["Your result", "Your result", "result"],
-      ...(intakeMode === "report" ? [["Insurer review", "How your insurer reached its value", "insurer"]] : []),
-      ["Market evidence", "What the market evidence showed", "market"],
-      ["What it means", "What the comparison means", "meaning"],
+      ...(intakeMode === "report" ? [["Insurer review", "How your insurer valued your vehicle", "insurer"]] : []),
+      ["Market evidence", "Similar vehicles we found", "market"],
+      ["What it means", "What this means for you", "meaning"],
     ];
     for (const [label, heading, stage] of sections) {
       await user.click(within(navigation).getByRole("link", { name: new RegExp(`^${label}`, "u") }));
@@ -1522,7 +1700,7 @@ describe("completed-analysis guided progression", () => {
       expect(progress).toHaveAttribute("aria-valuetext", savedProgressLabel);
     }
     await act(() => view.router.navigate(-1));
-    expect(await screen.findByRole("heading", { name: "What the market evidence showed" })).toBeVisible();
+    expect(await screen.findByRole("heading", { name: "Similar vehicles we found" })).toBeVisible();
     await act(() => view.queryClient.refetchQueries({ type: "active" }));
     expect(progress).toHaveAttribute("aria-valuenow", savedProgress);
     expect(saved.claim().workflow!.revision).toBe(originalRevision);
@@ -1533,7 +1711,7 @@ describe("completed-analysis guided progression", () => {
 
     view.unmount();
     renderJourney(intakeMode, "market");
-    expect(await screen.findByRole("heading", { name: "What the market evidence showed" })).toBeVisible();
+    expect(await screen.findByRole("heading", { name: "Similar vehicles we found" })).toBeVisible();
     expect(screen.getByRole("progressbar", { name: "Case journey" })).toHaveAttribute("aria-valuetext", savedProgressLabel);
     expect(within(screen.getByRole("navigation", { name: "Case sections" })).getByRole("link", { name: /^Market evidence/u })).toHaveAttribute("aria-current", "page");
     expect(saved.claim().workflow!.revision).toBe(originalRevision);
@@ -1548,10 +1726,10 @@ describe("completed-analysis guided progression", () => {
       journey: { fulfillmentState: "report_ready", nextState: "prepare_request", retryable: false },
     });
     const view = renderJourney("report", "market");
-    expect(await screen.findByRole("heading", { name: "What the market evidence showed" })).toBeVisible();
+    expect(await screen.findByRole("heading", { name: "Similar vehicles we found" })).toBeVisible();
     const navigation = screen.getByRole("navigation", { name: "Case sections" });
     const progress = screen.getByRole("progressbar", { name: "Case journey" });
-    expect(progress).toHaveAttribute("aria-valuetext", "Step 5 of 8: Prepare request");
+    expect(progress).toHaveAttribute("aria-valuetext", "Step 5 of 7: Prepare request");
     expect(progress).toHaveAttribute("data-current-step", "prepare_request");
     expect(request.render).not.toHaveBeenCalled();
     const initialRevision = saved.claim().workflow!.revision;
@@ -1560,10 +1738,10 @@ describe("completed-analysis guided progression", () => {
     saved.setClaim({ ...saved.claim(), messageDraft: projection.messageDraft });
     await act(() => view.queryClient.refetchQueries({ type: "active" }));
 
-    await waitFor(() => expect(progress).toHaveAttribute("aria-valuetext", "Step 5 of 8: Send request"));
+    await waitFor(() => expect(progress).toHaveAttribute("aria-valuetext", "Step 5 of 7: Send request"));
     expect(progress).toHaveAttribute("data-current-step", "send_request");
     expect(view.router.state.location.pathname).toBe(`${BASE}/review/market`);
-    expect(screen.getByRole("heading", { name: "What the market evidence showed" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Similar vehicles we found" })).toBeVisible();
     expect(within(navigation).getByRole("link", { name: /^Market evidence/u })).toHaveAttribute("aria-current", "page");
     expect(request.render).not.toHaveBeenCalled();
     expect(saved.writes).toEqual([]);
@@ -1609,7 +1787,7 @@ describe("completed-analysis guided progression", () => {
       }], {} as IntersectionObserver));
       expect(entrance).toHaveAttribute("data-scroll-reveal", "entering");
 
-      await user.click(screen.getByRole("button", { name: "See how the insurer reached its value" }));
+      await user.click(screen.getByRole("button", { name: "See how your insurer calculated it" }));
       await waitFor(() => expect(saved.writes).toHaveLength(1));
       expect(screen.getByRole("button", { name: "Saving progress…" })).toBeDisabled();
       expect(screen.getByRole("heading", { name: "Your result" })).toBeVisible();
@@ -1618,7 +1796,7 @@ describe("completed-analysis guided progression", () => {
       expect(entrance).toHaveAttribute("data-scroll-reveal", "entering");
 
       await act(async () => { release(); await pendingSave; });
-      expect(await screen.findByRole("heading", { name: "How your insurer reached its value" })).toBeVisible();
+      expect(await screen.findByRole("heading", { name: "How your insurer valued your vehicle" })).toBeVisible();
       expect(saved.claim().education?.steps.result.completedAt).toBe(NOW);
       expect(view.router.state.location.pathname).toBe(`${BASE}/review/insurer`);
       expect(screen.getByRole("region", { name: "Completed analysis" })).toBe(section);
@@ -1632,8 +1810,8 @@ describe("completed-analysis guided progression", () => {
         expect(await screen.findByRole("heading", { name: "Your result" })).toBeVisible();
         expect(view.router.state.location.pathname).toBe(`${BASE}/review/result`);
         expect(section.querySelectorAll("h1")).toHaveLength(1);
-        await user.click(screen.getByRole("button", { name: "See how the insurer reached its value" }));
-        expect(await screen.findByRole("heading", { name: "How your insurer reached its value" })).toBeVisible();
+        await user.click(screen.getByRole("button", { name: "See how your insurer calculated it" }));
+        expect(await screen.findByRole("heading", { name: "How your insurer valued your vehicle" })).toBeVisible();
         expect(view.router.state.location.pathname).toBe(`${BASE}/review/insurer`);
         expect(screen.getByRole("region", { name: "Completed analysis" })).toBe(section);
         expect(section.querySelector(".review-stage-content")).toBe(content);
@@ -1656,11 +1834,11 @@ describe("completed-analysis guided progression", () => {
     const user = userEvent.setup();
     renderJourney("report", "insurer");
 
-    await user.click(await screen.findByRole("button", { name: "See the market evidence" }));
+    await user.click(await screen.findByRole("button", { name: "See the vehicles we found" }));
     const back = screen.getByRole("link", { name: "Back" });
     expect(back).toHaveAttribute("aria-disabled", "true");
     await act(async () => { release(); await pendingSave; });
-    expect(await screen.findByRole("heading", { name: "What the market evidence showed" })).toBeVisible();
+    expect(await screen.findByRole("heading", { name: "Similar vehicles we found" })).toBeVisible();
   });
 
   it("does not navigate away from a route chosen while an acknowledgement is still saving", async () => {
@@ -1668,13 +1846,13 @@ describe("completed-analysis guided progression", () => {
     const pending = new Promise<void>((resolve) => { release = resolve; });
     const saved = installClaim(claimProjection(), undefined, () => pending);
     const { router } = renderJourney("report");
-    await userEvent.setup().click(await screen.findByRole("button", { name: "See how the insurer reached its value" }));
+    await userEvent.setup().click(await screen.findByRole("button", { name: "See how your insurer calculated it" }));
     await waitFor(() => expect(saved.writes).toHaveLength(1));
     await act(() => router.navigate(`${BASE}/review/market`));
     await act(async () => { release(); await pending; });
     await waitFor(() => expect(saved.claim().education?.steps.result.completedAt).toBe(NOW));
     expect(router.state.location.pathname).toBe(`${BASE}/review/market`);
-    expect(screen.getByRole("heading", { name: "What the market evidence showed" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Similar vehicles we found" })).toBeVisible();
   });
 
   it("walks report owners through the four evidence stages with ordered revision-fenced acknowledgements before mounting request controls", async () => {
@@ -1683,47 +1861,53 @@ describe("completed-analysis guided progression", () => {
     const { router } = renderJourney("report");
 
     expect(await screen.findByRole("heading", { name: "Your result" })).toBeVisible();
-    expect(screen.getByText("$20,490")).toBeVisible();
-    expect(screen.getByText("The original insurer valuation appears low compared with the selected market listings.")).toBeVisible();
-    expect(screen.getByText("$1,444 below the selected median")).toBeVisible();
+    expect(screen.getByText("Your insurer’s original value")).toBeVisible();
+    expect(screen.getByText("Asking prices for similar vehicles")).toBeVisible();
+    expect(screen.getByText("We found similar vehicles listed for higher prices. Our findings support asking your insurance company to review its value.")).toBeVisible();
+    expect(screen.queryByText("$1,444 below the selected median")).not.toBeInTheDocument();
+    expect(screen.queryByText("Selected median")).not.toBeInTheDocument();
+    expect(screen.getByRole("img", { name: /Your insurer’s value is below this asking-price range/u })).toBeVisible();
     expect(screen.queryByText(/stored difference|completed evidence/iu)).not.toBeInTheDocument();
     expect(screen.queryByText(/midpoint|evidence strength|percentage difference/iu)).not.toBeInTheDocument();
     expect(request.render).not.toHaveBeenCalled();
     expect(saved.writes).toEqual([]);
 
-    await user.click(screen.getByRole("button", { name: "See how the insurer reached its value" }));
-    expect(await screen.findByRole("heading", { name: "How your insurer reached its value" })).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "See how your insurer calculated it" }));
+    expect(await screen.findByRole("heading", { name: "How your insurer valued your vehicle" })).toBeVisible();
     expect(router.state.location.pathname).toBe(`${BASE}/review/insurer`);
-    expect(screen.getByText("Your insurer’s report includes 1 comparable vehicle.")).toBeVisible();
-    expect(screen.getByText("The advertised-price median was $19,800. After the report’s adjustments, the median was $19,500.")).toBeVisible();
-    expect(screen.getByText(/Some adjustment details were only partially disclosed/u)).toBeVisible();
+    expect(screen.getByText("Their report includes 1 vehicle for comparison.")).toBeVisible();
+    expect(screen.getByRole("list", { name: "How to read your insurer’s calculation" })).toBeVisible();
+    expect(screen.getByText("Some adjustment details were missing, so we couldn’t check every change.")).toBeVisible();
     expect(screen.queryByText(/available for 0|not provided for 0|0 comparables/u)).not.toBeInTheDocument();
-    expect(screen.getByRole("table", { name: "Insurer comparables" })).not.toBeVisible();
-    await user.click(screen.getByText("Insurer comparable details"));
-    expect(screen.getByRole("table", { name: "Insurer comparables" })).toBeVisible();
+    expect(screen.getByText("2022 Insurer Example Sedan")).not.toBeVisible();
+    await user.click(screen.getByText("See the vehicles they used"));
+    expect(screen.getByText("2022 Insurer Example Sedan")).toBeVisible();
+    await user.click(screen.getByText("2022 Insurer Example Sedan"));
     expect(screen.getByText("-$500")).toBeVisible();
     expect(request.render).not.toHaveBeenCalled();
 
-    await user.click(screen.getByRole("button", { name: "See the market evidence" }));
-    expect(await screen.findByRole("heading", { name: "What the market evidence showed" })).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "See the vehicles we found" }));
+    expect(await screen.findByRole("heading", { name: "Similar vehicles we found" })).toBeVisible();
     expect(router.state.location.pathname).toBe(`${BASE}/review/market`);
-    await user.click(screen.getByText("See selected market listings"));
-    const marketTable = screen.getByRole("table", { name: "Selected market listings" });
-    expect(within(marketTable).getByText("Example Motors")).toBeVisible();
-    expect(within(marketTable).getByText("Chicago, IL")).toBeVisible();
-    expect(within(marketTable).getByText("12.5 mi")).toBeVisible();
+    const listing = screen.getByRole("region", { name: "Vehicle listings" });
+    await user.click(within(listing).getByText("2022 Market Example Sedan"));
+    expect(within(listing).getByText("Example Motors")).toBeVisible();
+    expect(within(listing).getByText(/Chicago, IL/u)).toBeVisible();
+    expect(within(listing).getByText("12.5 miles")).toBeVisible();
 
-    await user.click(screen.getByRole("button", { name: "Compare the values" }));
-    expect(await screen.findByRole("heading", { name: "What the comparison means" })).toBeVisible();
-    expect(screen.getByText("The original insurer valuation is below the selected advertised-price range. Even the lowest listing used for this comparison, at $19,800, was $754 higher.")).toBeVisible();
-    expect(screen.getByText("The original valuation is $1,444 below the selected median of $20,490.")).toBeVisible();
+    await user.click(screen.getByRole("button", { name: /Compare with your insurer’s (?:value|offer)/u }));
+    expect(await screen.findByRole("heading", { name: "What this means for you" })).toBeVisible();
+    expect(screen.getByText("The lowest asking price in this comparison was $19,800—$754 above your insurer’s value.")).toBeVisible();
+    expect(screen.getByText("Your insurer’s original value is $1,444 below the middle asking price.")).not.toBeVisible();
+    await user.click(screen.getByText("More about this comparison"));
+    expect(screen.getByText("Your insurer’s original value is $1,444 below the middle asking price.")).toBeVisible();
     expect(screen.getByText("This comparison does not add dollar adjustments for differences in condition.")).toBeVisible();
-    expect(screen.queryByText("The original insurer valuation appears low compared with the selected market listings.")).not.toBeInTheDocument();
+    expect(screen.queryByText("We found similar vehicles listed for higher prices. Our findings support asking your insurance company to review its value.")).not.toBeInTheDocument();
     expect(request.render).not.toHaveBeenCalled();
     expect(screen.queryByText("The full package records additional provider coverage limitations.")).not.toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Review my request" }));
+    await user.click(screen.getByRole("button", { name: "Review my message" }));
     expect(await screen.findByTestId("request-controls")).toBeVisible();
-    expect(screen.getByRole("heading", { name: "Review and send your request" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Review your message" })).toBeVisible();
     expect(router.state.location.pathname).toBe(`${BASE}/review/request`);
     expect(saved.writes).toEqual(BEFORE_REQUEST.map((step, index) => ({ step, state: "completed", expectedWorkflowRevision: 7 + index })));
     expect(saved.draftWrites).not.toHaveBeenCalled();
@@ -1734,31 +1918,33 @@ describe("completed-analysis guided progression", () => {
     const user = userEvent.setup();
     const { router } = renderJourney("manual");
     expect(await screen.findByRole("heading", { name: "Your result" })).toBeVisible();
-    expect(screen.getByText("Original insurer offer")).toBeVisible();
-    expect(screen.getByText("Original offer")).toBeVisible();
-    expect(screen.getByText("The original offer you entered appears low compared with the selected market listings.")).toBeVisible();
-    expect(screen.getByText(/did not provide the insurer.s valuation report/iu)).toBeVisible();
-    expect(screen.queryByRole("button", { name: "See how the insurer reached its value" })).not.toBeInTheDocument();
+    expect(screen.getByText("Original offer you entered")).toBeVisible();
+    expect(screen.getByRole("img", { name: /The offer you entered is below this asking-price range/u })).toBeVisible();
+    expect(screen.getByText("We found similar vehicles listed for higher prices. Our findings support asking your insurance company to review its offer.")).toBeVisible();
+    expect(screen.getByText(/You entered an offer without an insurer’s report/u)).toBeVisible();
+    expect(screen.queryByRole("button", { name: "See how your insurer calculated it" })).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "See the market evidence" }));
-    expect(await screen.findByRole("heading", { name: "What the market evidence showed" })).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "See similar vehicles" }));
+    expect(await screen.findByRole("heading", { name: "Similar vehicles we found" })).toBeVisible();
     expect(saved.writes.map(({ step }) => step)).toEqual(["result"]);
-    expect(screen.queryByText("Insurer comparable details")).not.toBeInTheDocument();
+    expect(screen.queryByText("See the vehicles they used")).not.toBeInTheDocument();
     expect(screen.queryByText("2022 Insurer Example Sedan")).not.toBeInTheDocument();
     await user.click(backControl());
     expect(await screen.findByRole("heading", { name: "Your result" })).toBeVisible();
-    await user.click(screen.getByRole("button", { name: "See the market evidence" }));
-    expect(await screen.findByRole("heading", { name: "What the market evidence showed" })).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "See similar vehicles" }));
+    expect(await screen.findByRole("heading", { name: "Similar vehicles we found" })).toBeVisible();
     expect(saved.writes.map(({ step }) => step)).toEqual(["result"]);
 
-    await user.click(screen.getByRole("button", { name: "Compare the values" }));
-    expect(await screen.findByRole("heading", { name: "What the comparison means" })).toBeVisible();
+    await user.click(screen.getByRole("button", { name: /Compare with your insurer’s (?:value|offer)/u }));
+    expect(await screen.findByRole("heading", { name: "What this means for you" })).toBeVisible();
     expect(saved.writes.map(({ step }) => step)).toEqual(BEFORE_MEANING);
-    expect(screen.getByText("The original offer you entered is below the selected advertised-price range. Even the lowest listing used for this comparison, at $19,800, was $754 higher.")).toBeVisible();
-    expect(screen.getByText("The original offer is $1,444 below the selected median of $20,490.")).toBeVisible();
+    expect(screen.getByText("The lowest asking price in this comparison was $19,800—$754 above the offer you entered.")).toBeVisible();
+    expect(screen.getByText("The offer you entered is $1,444 below the middle asking price.")).not.toBeVisible();
+    await user.click(screen.getByText("More about this comparison"));
+    expect(screen.getByText("The offer you entered is $1,444 below the middle asking price.")).toBeVisible();
     expect(screen.queryByText(/Your insurer valued|Your insurer’s valuation is below/u)).not.toBeInTheDocument();
-    expect(screen.getByText(/cannot review which comparable vehicles or adjustments/iu)).toBeVisible();
-    await user.click(screen.getByRole("button", { name: "Review my request" }));
+    expect(screen.getByText("You entered an offer without an insurer’s report, so we couldn’t check how your insurer calculated it.")).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Review my message" }));
     expect(await screen.findByTestId("request-controls")).toBeVisible();
     expect(router.state.location.pathname).toBe(`${BASE}/review/request`);
     expect(saved.writes).toEqual(BEFORE_REQUEST.map((step, index) => ({ step, state: "completed", expectedWorkflowRevision: 7 + index })));
@@ -1768,27 +1954,27 @@ describe("completed-analysis guided progression", () => {
     const saved = installClaim(claimProjection(BEFORE_MEANING));
     const user = userEvent.setup();
     const view = renderJourney(intakeMode, "meaning");
-    expect(await screen.findByRole("heading", { name: "What the comparison means" })).toBeVisible();
+    expect(await screen.findByRole("heading", { name: "What this means for you" })).toBeVisible();
     await user.click(backControl());
-    expect(await screen.findByRole("heading", { name: "What the market evidence showed" })).toBeVisible();
+    expect(await screen.findByRole("heading", { name: "Similar vehicles we found" })).toBeVisible();
     await act(() => view.router.navigate(-1));
-    expect(await screen.findByRole("heading", { name: "What the comparison means" })).toBeVisible();
+    expect(await screen.findByRole("heading", { name: "What this means for you" })).toBeVisible();
     await act(() => view.router.navigate(1));
-    expect(await screen.findByRole("heading", { name: "What the market evidence showed" })).toBeVisible();
-    await user.click(screen.getByRole("button", { name: "Compare the values" }));
-    expect(await screen.findByRole("heading", { name: "What the comparison means" })).toBeVisible();
+    expect(await screen.findByRole("heading", { name: "Similar vehicles we found" })).toBeVisible();
+    await user.click(screen.getByRole("button", { name: /Compare with your insurer’s (?:value|offer)/u }));
+    expect(await screen.findByRole("heading", { name: "What this means for you" })).toBeVisible();
     expect(saved.writes).toEqual([]);
     view.unmount();
     renderJourney(intakeMode, "meaning");
-    expect(await screen.findByRole("heading", { name: "What the comparison means" })).toBeVisible();
+    expect(await screen.findByRole("heading", { name: "What this means for you" })).toBeVisible();
     expect(saved.writes).toEqual([]);
     expect(saved.draftWrites).not.toHaveBeenCalled();
     expect(request.render).not.toHaveBeenCalled();
   });
 
   it.each([
-    { intakeMode: "report" as const, stage: "meaning", initial: BEFORE_MEANING, failed: "what_next" as const, action: "Review my request", first: "report", destination: "request" },
-    { intakeMode: "manual" as const, stage: "market", initial: ["result"] as TotalLossEducationStep[], failed: "valuation" as const, action: "Compare the values", first: "insurer_review", destination: "meaning" },
+    { intakeMode: "report" as const, stage: "meaning", initial: BEFORE_MEANING, failed: "what_next" as const, action: "Review my message", first: "report", destination: "request" },
+    { intakeMode: "manual" as const, stage: "market", initial: ["result"] as TotalLossEducationStep[], failed: "valuation" as const, action: /Compare with your insurer’s (?:value|offer)/u, first: "insurer_review", destination: "meaning" },
   ])("retains a successful first acknowledgement when the $intakeMode $stage sequence must be retried", async ({ intakeMode, stage, initial, failed, action, first, destination }) => {
     const saved = installClaim(claimProjection(initial), failed);
     const user = userEvent.setup();
@@ -1819,11 +2005,9 @@ describe("completed-analysis guided progression", () => {
     const projection = claimProjection(BEFORE_REQUEST);
     installClaim({ ...projection, messageDraft: null });
     renderJourney("report", "request");
-    expect(await screen.findByRole("heading", { name: "Prepare your request" })).toBeVisible();
+    expect(await screen.findByRole("heading", { name: "Prepare your message" })).toBeVisible();
     expect(screen.getByTestId("request-controls")).toBeVisible();
-    expect(request.render).toHaveBeenLastCalledWith(expect.objectContaining({
-      actionContainer: screen.getByRole("navigation", { name: "Review navigation" }),
-    }));
+    expect(request.render.mock.lastCall?.[0]).not.toHaveProperty("actionContainer");
   });
 
   it("preserves an old skipped compatibility marker rather than trying to rewrite it on a later manual visit", async () => {
@@ -1840,8 +2024,8 @@ describe("completed-analysis guided progression", () => {
     });
     const user = userEvent.setup();
     renderJourney("manual", "market");
-    await user.click(await screen.findByRole("button", { name: "Compare the values" }));
-    expect(await screen.findByRole("heading", { name: "What the comparison means" })).toBeVisible();
+    await user.click(await screen.findByRole("button", { name: /Compare with your insurer’s (?:value|offer)/u }));
+    expect(await screen.findByRole("heading", { name: "What this means for you" })).toBeVisible();
     expect(saved.writes).toEqual([{ step: "valuation", state: "completed", expectedWorkflowRevision: 7 }]);
     expect(saved.claim().education!.steps.insurer_review).toEqual({ viewedAt: null, completedAt: null, skippedAt: NOW });
   });
@@ -1878,12 +2062,13 @@ describe("completed-analysis guided progression", () => {
     });
     const user = userEvent.setup();
     const { router } = renderJourney("report", "insurer");
-    expect(await screen.findByRole("heading", { name: "How your insurer reached its value" })).toBeVisible();
-    expect(screen.getByText("No insurer comparables were available in the report for this review.")).toBeVisible();
+    expect(await screen.findByRole("heading", { name: "How your insurer valued your vehicle" })).toBeVisible();
+    expect(screen.getByText("The vehicle comparisons weren’t available for us to review.")).toBeVisible();
+    expect(screen.queryByRole("list", { name: "How to read your insurer’s calculation" })).not.toBeInTheDocument();
     expect(screen.queryByText(/\b0 (?:insurer|comparable)|available for 0|not provided for 0/u)).not.toBeInTheDocument();
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
-    await user.click(screen.getByText("Insurer comparable details"));
-    expect(screen.getByText("No insurer comparables were available in the report.")).toBeVisible();
+    await user.click(screen.getByText("See the vehicles they used"));
+    expect(screen.getByText("Vehicle details weren’t available in the report.")).toBeVisible();
     expect(screen.getByRole("region", { name: "Completed analysis" }).textContent).not.toMatch(/\bUnavailable\b|DESCRIPTIVE_ONLY|NOT_DETERMINED_BY_V1/u);
     await act(() => router.navigate(`${BASE}/review/result`));
     expect(await screen.findByRole("heading", { name: "Your result" })).toBeVisible();
@@ -1892,44 +2077,71 @@ describe("completed-analysis guided progression", () => {
   });
 
   it("shows a persisted customer-reported sent state without mounting the editor or claiming delivery", async () => {
+    const user = userEvent.setup();
     const projection = waitingClaim();
     installClaim({ ...projection, journey: { fulfillmentState: "awaiting_insurer_response", nextState: "awaiting_insurer_response", retryable: false }, workflow: { currentTask: "awaiting_insurer_response", phase: "initial_request", revision: 13 } });
     renderJourney("report", "waiting");
-    expect(await screen.findByRole("heading", { name: "Waiting for the insurer’s response" })).toBeVisible();
-    expect(screen.getByText(/Based on your confirmation.*recorded.*sent/iu)).toBeVisible();
+    expect(await screen.findByRole("heading", { name: "Waiting for insurer" })).toBeVisible();
+    expect(screen.getByText("You marked your message as sent. Come back here when your insurer replies.")).toBeVisible();
     expect(screen.getByRole("progressbar", { name: "Case journey" })).toHaveAttribute(
       "aria-valuetext",
       "Current stage: Waiting for insurer. Case active.",
     );
     expect(screen.getByRole("progressbar", { name: "Case journey" })).toHaveAttribute("aria-valuenow", "5.5");
-    expect(screen.getByText(/does not monitor.*cannot verify delivery, receipt, or detect a response automatically/iu)).toBeVisible();
-    expect(screen.getByText(/When the insurer responds, choose.*I received a response/iu)).toBeVisible();
+    expect(screen.getByText("Venfour doesn’t monitor your inbox or confirm email delivery.")).toBeVisible();
+    expect(screen.getByText("Add the insurer’s response here so we can help you understand it.")).toBeVisible();
     expect(screen.queryByText(/delivery confirmed|insurer received|response.*within \d/iu)).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "I received a response" })).toBeVisible();
     const reviewNavigation = screen.getByRole("navigation", { name: "Review navigation" });
-    expect(within(reviewNavigation).getByRole("link", { name: "Back" })).toBeVisible();
-    expect(within(reviewNavigation).getByRole("button", { name: "I received a response" })).toBeVisible();
+    expect(within(reviewNavigation).getByRole("link", { name: "View my message" })).toBeVisible();
+    expect(within(reviewNavigation).queryByRole("button", { name: "I received a response" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /offer|negotiat|close/iu })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "See what happens next" })).not.toBeInTheDocument();
     expect(request.render).not.toHaveBeenCalled();
+    const steps = within(screen.getByRole("list", { name: "Response steps" })).getAllByRole("listitem");
+    expect(steps.map((step) => step.getAttribute("data-state"))).toEqual(["active", "upcoming"]);
+    expect(steps[0]).toHaveAttribute("aria-current", "step");
+    expect(within(steps[0]!).getByRole("heading", { name: "Wait for a reply" })).toBeVisible();
+    expect(within(steps[0]!).getByRole("button", { name: "I received a response" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "View report" })).not.toBeVisible();
+    await user.click(screen.getByText("Your valuation report"));
+    expect(screen.getByRole("button", { name: "View report" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Download report" })).toBeVisible();
   });
 
-  it("records an offer-only insurer response once and advances to the reviewing state", async () => {
+  it("records an offer-only response once and waits for the customer to open its review", async () => {
     const projection = waitingClaim();
     const installed = installClaim({
       ...projection,
       journey: { fulfillmentState: "awaiting_insurer_response", nextState: "awaiting_insurer_response", retryable: false },
       workflow: { currentTask: "awaiting_insurer_response", phase: "initial_request", revision: 13 },
     });
-    renderJourney("report", "waiting");
+    const view = renderJourney("report", "waiting");
     const user = userEvent.setup();
 
     await user.click(await screen.findByRole("button", { name: "I received a response" }));
     expect(await screen.findByRole("heading", { name: "Add the insurer’s response" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Waiting for insurer" })).toBeVisible();
+    expect(view.router.state.location.pathname).toBe(`${BASE}/review/waiting`);
+    expect(view.router.state.location.search).toBe("?reply=add");
+    expect(screen.getByRole("progressbar", { name: "Case journey" })).toHaveAttribute("aria-valuenow", "5.5");
+    const steps = within(screen.getByRole("list", { name: "Response steps" })).getAllByRole("listitem");
+    expect(steps.map((step) => step.getAttribute("data-state"))).toEqual(["complete", "active"]);
+    expect(steps[1]).toHaveAttribute("aria-current", "step");
+    expect(within(steps[1]!).getByRole("textbox", { name: /^Paste the response/iu })).toBeVisible();
+    expect(within(steps[1]!).getByRole("button", { name: "Save response" })).toBeVisible();
     await user.type(screen.getByRole("textbox", { name: /^Revised offer/iu }), "21125.50");
     const save = screen.getByRole("button", { name: "Save response" });
     await Promise.all([user.click(save), user.click(save)]);
 
-    expect(await screen.findByRole("heading", { name: "Venfour is reviewing the insurer’s response" })).toBeVisible();
+    expect(await screen.findByText("Response saved", { exact: true })).toBeVisible();
+    expect(view.router.state.location.pathname).toBe(`${BASE}/review/waiting`);
+    expect(screen.getByRole("progressbar", { name: "Case journey" })).toHaveAttribute("aria-valuenow", "5.5");
+    expect(screen.getByRole("link", { name: "Waiting for insurer" }).closest("li")).toHaveAttribute("data-current", "true");
+    expect(within(screen.getByRole("navigation", { name: "Case sections" })).queryByText("Insurer response", { exact: true })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "View response review" }));
+    expect(await screen.findByRole("heading", { name: "Your response is saved" })).toBeVisible();
+    expect(screen.getByRole("progressbar", { name: "Case journey" })).toHaveAttribute("aria-valuenow", "6.5");
     expect(installed.responseWrites).toHaveLength(1);
     expect(installed.responseWrites[0]).toMatchObject({
       documentId: null,
@@ -1939,21 +2151,19 @@ describe("completed-analysis guided progression", () => {
       revisedOfferMinorUnits: 2_112_550,
       supersedesResponseId: null,
     });
-    expect(screen.getByText(/comparing what the insurer said with the request/iu)).toBeVisible();
-    expect(screen.getByRole("region", { name: "Valuation report" })).toBeVisible();
+    expect(screen.getByText("The review will begin automatically.")).toBeVisible();
+    expect(screen.queryByRole("region", { name: "Valuation report" })).not.toBeInTheDocument();
 
-    await user.click(
-      screen.getByText("View the saved insurer response"),
-    );
-    expect(screen.getByText("$21,125.50")).toBeVisible();
+    expect(screen.queryByText("View insurer’s reply")).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "Correct this response" }));
+    await user.click(screen.getByRole("button", { name: "Correct response" }));
     expect(await screen.findByText("Correct saved response")).toBeVisible();
+    expect(screen.getByRole("textbox", { name: /^Revised offer/iu })).toHaveValue("$21,125.50");
     const pasted = screen.getByRole("textbox", { name: /^Paste the response/iu });
     await user.type(pasted, "  Exact corrected reply.\n");
     await user.click(screen.getByRole("button", { name: "Save corrected response" }));
 
-    expect(await screen.findByRole("heading", { name: "Venfour is reviewing the insurer’s response" })).toBeVisible();
+    expect(await screen.findByRole("heading", { name: "Your response is saved" })).toBeVisible();
     expect(installed.responseWrites).toHaveLength(2);
     expect(installed.responseWrites[1]).toMatchObject({
       responseText: "  Exact corrected reply.\n",
@@ -1961,6 +2171,60 @@ describe("completed-analysis guided progression", () => {
       supersedesResponseId: "99999999-9999-4999-8999-999999999999",
     });
     expect(installed.responseWrites[1].clientRequestId).not.toBe(installed.responseWrites[0].clientRequestId);
+  });
+
+  it.each(["manual", "report"] as const)("keeps a saved %s response at waiting through refresh and background review until continuing", async (intakeMode) => {
+    const installed = installClaim(waitingClaim());
+    const user = userEvent.setup();
+    let view = renderJourney(intakeMode, "waiting");
+    await user.click(await screen.findByRole("button", { name: "I received a response" }));
+    const before = screen.getByRole("progressbar", { name: "Case journey" }).getAttribute("aria-valuenow");
+    await user.type(screen.getByRole("textbox", { name: /^Paste the response/iu }), "Please review this reply.");
+    await user.click(screen.getByRole("button", { name: "Save response" }));
+    expect(await screen.findByText("Response saved", { exact: true })).toBeVisible();
+    expect(screen.getByRole("progressbar", { name: "Case journey" })).toHaveAttribute("aria-valuenow", before);
+    view.unmount();
+    view = renderJourney(intakeMode, "waiting?reply=add");
+    expect(await screen.findByText("Response saved", { exact: true })).toBeVisible();
+    expect(screen.queryByRole("textbox", { name: /^Paste the response/iu })).not.toBeInTheDocument();
+    expect(screen.getByRole("progressbar", { name: "Case journey" })).toHaveAttribute("aria-valuenow", before);
+
+    const saved = installed.claim();
+    installed.setClaim({
+      ...saved,
+      insurerResponse: { ...saved.insurerResponse!, processingState: "completed", analysis: reviewedResponseAnalysis(), analysisEvidence: reviewedResponseEvidence() },
+      journey: { fulfillmentState: "insurer_response_reviewed", nextState: "insurer_response_reviewed", retryable: false },
+      workflow: { ...saved.workflow!, currentTask: "insurer_response_reviewed", revision: saved.workflow!.revision + 1 },
+    });
+    await act(() => view.queryClient.refetchQueries({ type: "active" }));
+    expect(view.router.state.location.pathname).toBe(`${BASE}/review/waiting`);
+    expect(screen.getByRole("progressbar", { name: "Case journey" })).toHaveAttribute("aria-valuenow", before);
+    expect(screen.getByRole("link", { name: "Response review" }).closest("li")).not.toHaveAttribute("data-current");
+    await user.click(screen.getByRole("button", { name: "View response review" }));
+    await waitFor(() => expect(view.router.state.location.pathname).toBe(`${BASE}/review/response-reviewed`));
+    expect(screen.getByRole("progressbar", { name: "Case journey" })).toHaveAttribute("aria-valuenow", String(Number(before) + 1));
+    await user.click(screen.getByRole("link", { name: "Waiting for insurer" }));
+    expect(screen.getByRole("progressbar", { name: "Case journey" })).toHaveAttribute("aria-valuenow", String(Number(before) + 1));
+    expect(installed.responseWrites).toHaveLength(1);
+  });
+
+  it("keeps the inline response and its draft on the waiting page after refresh and protected navigation", async () => {
+    const installed = installClaim(waitingClaim());
+    const user = userEvent.setup();
+    const first = renderJourney("report", "waiting");
+    await user.click(await screen.findByRole("button", { name: "I received a response" }));
+    await user.type(screen.getByRole("textbox", { name: /^Paste the response/iu }), "Please review this exact reply.");
+    await user.click(screen.getByRole("link", { name: "View my message" }));
+    expect(await screen.findByRole("alertdialog")).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Keep editing" }));
+    expect(screen.getByRole("heading", { name: "Response details" })).toHaveFocus();
+    expect(first.router.state.location.pathname).toBe(`${BASE}/review/waiting`);
+    first.unmount();
+    const resumed = renderJourney("report", "waiting");
+    await act(() => resumed.router.navigate(`${BASE}/review/waiting?reply=add`));
+    expect(await screen.findByRole("textbox", { name: /^Paste the response/iu })).toHaveValue("Please review this exact reply.");
+    expect(screen.getByRole("heading", { name: "Waiting for insurer" })).toBeVisible();
+    expect(installed.responseWrites).toEqual([]);
   });
 
   it("restores unsaved response text and offer after a remount and protected navigation", async () => {
@@ -2006,24 +2270,24 @@ describe("completed-analysis guided progression", () => {
     await user.type(await screen.findByRole("textbox", { name: /^Paste the response/iu }), "Original submitted reply");
     expect(window.sessionStorage.length).toBeGreaterThan(0);
     await user.click(screen.getByRole("button", { name: "Save response" }));
-    await screen.findByRole("heading", { name: "Venfour is reviewing the insurer’s response" });
+    await screen.findByRole("heading", { name: "Your response is saved" });
     expect(window.sessionStorage.length).toBe(0);
     const afterSubmit = new Event("beforeunload", { cancelable: true });
     window.dispatchEvent(afterSubmit);
     expect(afterSubmit.defaultPrevented).toBe(false);
 
-    await user.click(screen.getByRole("button", { name: "Correct this response" }));
+    await user.click(screen.getByRole("button", { name: "Correct response" }));
     expect(await screen.findByRole("textbox", { name: /^Paste the response/iu })).toHaveValue("Original submitted reply");
     await user.clear(screen.getByRole("textbox", { name: /^Paste the response/iu }));
     await user.type(screen.getByRole("textbox", { name: /^Paste the response/iu }), "Corrected saved reply");
     expect(window.sessionStorage.length).toBeGreaterThan(0);
     await user.click(screen.getByRole("button", { name: "Save corrected response" }));
-    await screen.findByRole("heading", { name: "Venfour is reviewing the insurer’s response" });
+    await screen.findByRole("heading", { name: "Your response is saved" });
     expect(window.sessionStorage.length).toBe(0);
     expect(installed.responseWrites).toHaveLength(2);
     expect(installed.responseWrites[1].supersedesResponseId).toBe("99999999-9999-4999-8999-999999999999");
 
-    await user.click(screen.getByRole("button", { name: "Correct this response" }));
+    await user.click(screen.getByRole("button", { name: "Correct response" }));
     expect(await screen.findByRole("textbox", { name: /^Paste the response/iu })).toHaveValue("Corrected saved reply");
     expect(window.sessionStorage.length).toBe(0);
   });
@@ -2046,7 +2310,7 @@ describe("completed-analysis guided progression", () => {
     renderJourney("report", "response");
     await user.type(await screen.findByRole("textbox", { name: /^Paste the response/iu }), "Already saved despite an interrupted acknowledgement.");
     await user.click(screen.getByRole("button", { name: "Save response" }));
-    expect(await screen.findByRole("heading", { name: "Venfour is reviewing the insurer’s response" })).toBeVisible();
+    expect(await screen.findByRole("heading", { name: "Your response is saved" })).toBeVisible();
     expect(window.sessionStorage.length).toBe(0);
     expect(writes).toHaveLength(1);
   });
@@ -2110,7 +2374,7 @@ describe("completed-analysis guided progression", () => {
     if (retain) expect(screen.getByText("insurer-response.png")).toBeVisible();
     else expect(screen.queryByText("insurer-response.png")).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Save corrected response" }));
-    await screen.findByRole("heading", { name: "Venfour is reviewing the insurer’s response" });
+    await screen.findByRole("heading", { name: "Your response is saved" });
     expect(installed.responseWrites).toHaveLength(1);
     expect(installed.responseWrites[0]).toMatchObject({
       documentId: null,
@@ -2168,7 +2432,7 @@ describe("completed-analysis guided progression", () => {
     await user.upload(document.querySelector<HTMLInputElement>('input[type="file"]')!, responseFile(changedBytes ? 4 : 3));
     await waitFor(() => expect(screen.queryByRole("button", { name: "Choose file again" })).not.toBeInTheDocument());
     await user.click(screen.getByRole("button", { name: "Save response" }));
-    await screen.findByRole("heading", { name: "Venfour is reviewing the insurer’s response" });
+    await screen.findByRole("heading", { name: "Your response is saved" });
 
     expect(installed.responseUploadWrites).toHaveLength(2);
     const retry = installed.responseUploadWrites[1];
@@ -2198,7 +2462,7 @@ describe("completed-analysis guided progression", () => {
     expect(screen.getByRole("alert")).toHaveTextContent(/choose.*file again|remove it/iu);
     await user.click(screen.getByRole("button", { name: "Remove" }));
     await user.click(screen.getByRole("button", { name: "Save response" }));
-    await screen.findByRole("heading", { name: "Venfour is reviewing the insurer’s response" });
+    await screen.findByRole("heading", { name: "Your response is saved" });
     expect(installed.responseWrites).toHaveLength(1);
     expect(installed.responseWrites[0]).toMatchObject({
       documentId: null,
@@ -2225,7 +2489,7 @@ describe("completed-analysis guided progression", () => {
     await user.click(screen.getByRole("button", { name: "Keep editing" }));
     expect(screen.getByRole("textbox", { name: /^Paste the response/iu })).toHaveValue("Keep this unsaved response");
     await user.click(screen.getByRole("button", { name: "Save response" }));
-    expect(await screen.findByRole("heading", { name: "Venfour is reviewing the insurer’s response" })).toBeVisible();
+    expect(await screen.findByRole("heading", { name: "Your response is saved" })).toBeVisible();
   });
 
   it("prepares, privately uploads, and records an original response file", async () => {
@@ -2251,7 +2515,9 @@ describe("completed-analysis guided progression", () => {
     expect(await screen.findByText("insurer-response.png")).toBeVisible();
     await user.click(screen.getByRole("button", { name: "Save response" }));
 
-    expect(await screen.findByRole("heading", { name: "Venfour is reviewing the insurer’s response" })).toBeVisible();
+    expect(await screen.findByText("Response saved", { exact: true })).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "View response review" }));
+    expect(await screen.findByRole("heading", { name: "Your response is saved" })).toBeVisible();
     expect(installed.responseUploadWrites).toHaveLength(1);
     expect(installed.responseUploadWrites[0]).toMatchObject({
       byteSize: file.size,
@@ -2279,8 +2545,8 @@ describe("completed-analysis guided progression", () => {
 
   it.each([
     ["insurer_response_received", "pending", "response-received?view=saved"],
-    ["insurer_response_reviewing", "processing", "response-reviewing"],
-    ["insurer_response_reviewed", "completed", "response-reviewed"],
+    ["insurer_response_reviewing", "processing", "response-received?view=saved"],
+    ["insurer_response_reviewed", "completed", "response-received?view=saved"],
   ] as const)("securely views and downloads the same-case saved original while %s", async (state, processingState, stage) => {
     const response = responseWithDocument(processingState);
     const installed = installClaim({
@@ -2301,9 +2567,6 @@ describe("completed-analysis guided progression", () => {
     const user = userEvent.setup();
     renderJourney("report", stage);
     await screen.findByRole("navigation", { name: "Case sections" });
-    if (stage !== "response-received?view=saved") {
-      await user.click(screen.getByText("View the saved insurer response"));
-    }
     expect(accesses).toEqual([]);
 
     await user.click(screen.getByRole("button", { name: "View original" }));
@@ -2402,60 +2665,71 @@ describe("completed-analysis guided progression", () => {
 
     expect(
       await screen.findByRole("heading", {
-        name: "What the insurer’s response means",
+        name: "Your response review",
       }),
     ).toBeVisible();
-    expect(screen.getByRole("heading", { name: "Insurer’s response" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "How they responded" })).not.toBeVisible();
+    await user.click(screen.getByText("About this review"));
+    expect(screen.getByRole("heading", { name: "How they responded" })).not.toBeVisible();
+    await user.click(screen.getByText("Read the full review"));
     expect(screen.getByRole("heading", { name: "What changed" })).toBeVisible();
     expect(
       screen.getByRole("heading", { name: "How they responded" }),
     ).toBeVisible();
-    expect(screen.getByRole("heading", { name: "What matters" })).toBeVisible();
+    expect(screen.getByRole("tab", { name: "Their reply" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByText("What still needs an answer")).not.toBeVisible();
+    expect(screen.queryByRole("region", { name: "Valuation report" })).not.toBeInTheDocument();
     expect(
-      screen.getByRole("heading", { name: "Venfour’s recommendation" }),
+      screen.getByRole("heading", { name: "What we recommend" }),
     ).toBeVisible();
     expect(screen.getByText("$19,046")).toBeVisible();
     expect(screen.getAllByText("$20,100.00").length).toBeGreaterThan(0);
     expect(screen.getByText("Original insurer valuation")).toBeVisible();
-    expect(screen.getByText("Revised offer in the response — matched to your entry")).toBeVisible();
+    expect(screen.getAllByText("Revised offer in the response — matched to your entry", { selector: "dt" })[0]).toBeVisible();
     expect(screen.queryByText("Previous insurer valuation")).not.toBeInTheDocument();
     expect(screen.getByText("Partially accepted")).toBeVisible();
     expect(screen.getByText("Recommendation unavailable")).toBeVisible();
     expect(screen.queryByText("Review their revised offer")).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Accept offer" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Continue challenging" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("radio", { name: "Accept this offer" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("radio", { name: "Ask the insurer to reconsider" })).not.toBeInTheDocument();
     expect(document.querySelector(".review-actions")).toBeNull();
-    const basisControls = screen.getAllByText(/^Basis:/u);
-    expect(basisControls.length).toBeGreaterThan(0);
-    await user.click(basisControls[0]);
+    const sources = screen.getByText("View supporting sources").closest("details")!;
+    await user.click(within(sources).getByText("View supporting sources"));
+    expect(within(sources).getByText("Insurer response", { exact: true })).toBeVisible();
+    expect(within(sources).getByText(/We can revise the offer to \$20,100\./u)).toBeVisible();
+    expect(within(sources).getByText("Your request", { exact: true })).toBeVisible();
+    expect(within(sources).getByText("Please review the valuation and selected market evidence.")).toBeVisible();
     expect(
-      within(basisControls[0].parentElement!).getByText(
-        /We can revise the offer to \$20,100\./u,
-      ),
-    ).toBeVisible();
-    const caseBasis = basisControls.find((control) =>
-      control.textContent?.includes("existing case evidence"),
-    );
-    expect(caseBasis).toBeDefined();
-    if (!caseBasis!.parentElement?.hasAttribute("open")) {
-      await user.click(caseBasis!);
-    }
-    expect(
-      within(caseBasis!.parentElement!).getByText(
-        "Please review the valuation and selected market evidence.",
-      ),
-    ).toBeVisible();
-    expect(
-      screen.getAllByText("We can revise the offer to $20,100.").length,
+      screen.getAllByText(/We can revise the offer to \$20,100\./u).length,
     ).toBeGreaterThan(0);
     expect(
       screen.getAllByText("Please review the valuation and selected market evidence.").length,
     ).toBeGreaterThan(0);
+    const progress = screen.getByRole("progressbar", { name: "Case journey" }).getAttribute("aria-valuetext");
+    await user.click(screen.getByRole("tab", { name: "Open questions" }));
+    expect(screen.getByRole("heading", { name: "What still needs an answer" })).toBeVisible();
+    expect(screen.getByText("The selected market listings were not addressed.")).toBeVisible();
+    expect(screen.getByText("The insurer repeated its prior comparable methodology.")).not.toBeVisible();
+    await user.click(screen.getByText("The original comparable set remains appropriate."));
+    expect(screen.getByText("The insurer repeated its prior comparable methodology.")).toBeVisible();
+    const questions = screen.getByRole("tab", { name: "Open questions" });
+    questions.focus();
+    await user.keyboard("{End}");
+    expect(screen.getByRole("tab", { name: "Review notes" })).toHaveFocus();
+    expect(screen.getByRole("heading", { name: "How this review was made" })).toBeVisible();
     expect(
       screen.getByText(/does not recalculate the vehicle’s value or change the published report/iu),
     ).toBeVisible();
+    await user.keyboard("{Home}");
+    expect(screen.getByRole("tab", { name: "Their reply" })).toHaveFocus();
+    expect(screen.getByRole("heading", { name: "How they responded" })).toBeVisible();
+    await user.keyboard("{ArrowRight}");
+    expect(screen.getByRole("tab", { name: "Open questions" })).toHaveAttribute("aria-selected", "true");
+    await user.keyboard("{ArrowLeft}");
+    expect(screen.getByRole("tab", { name: "Their reply" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("progressbar", { name: "Case journey" })).toHaveAttribute("aria-valuetext", progress);
     expect(
-      screen.queryByRole("button", { name: /reply|send|negotiate/iu }),
+      screen.queryByRole("button", { name: /send|negotiate/iu }),
     ).not.toBeInTheDocument();
   });
 
@@ -2463,9 +2737,9 @@ describe("completed-analysis guided progression", () => {
     installClaim(reviewedClaim());
     renderJourney("manual", "response-reviewed");
 
-    expect(await screen.findByRole("heading", { name: "What the insurer’s response means" })).toBeVisible();
+    expect(await screen.findByRole("heading", { name: "Your response review" })).toBeVisible();
     expect(screen.getByText("Original insurer offer")).toBeVisible();
-    expect(screen.getByText("Revised offer in the response — matched to your entry")).toBeVisible();
+    expect(screen.getAllByText("Revised offer in the response — matched to your entry", { selector: "dt" })[0]).toBeVisible();
     expect(screen.queryByText("Previous insurer valuation")).not.toBeInTheDocument();
     expect(document.querySelector(".review-actions")).toBeNull();
   });
@@ -2501,21 +2775,20 @@ describe("completed-analysis guided progression", () => {
     renderJourney("report", "response-reviewed");
 
     await screen.findByRole("heading", {
-      name: "What the insurer’s response means",
+      name: "Your response review",
     });
-    const customerBasis = screen.getAllByText(/^Basis:/u).find((control) =>
-      control.textContent?.includes("revised-offer amount you recorded"),
-    );
-    expect(customerBasis).toBeDefined();
-    expect(customerBasis).not.toHaveTextContent("part of the insurer response");
-    await userEvent.click(customerBasis!);
-    expect(
-      within(customerBasis!.parentElement!).getByText("Amount you recorded"),
-    ).toBeVisible();
+    await userEvent.click(screen.getByText("About this review"));
+    await userEvent.click(screen.getByText("Read the full review"));
+    const offerSources = screen.getByText("Sources for this amount").closest("details")!;
+    await userEvent.click(within(offerSources).getByText("Sources for this amount"));
+    expect(within(offerSources).getByText("Amount you recorded")).toBeVisible();
+    expect(within(offerSources).queryByText("Insurer response", { exact: true })).not.toBeInTheDocument();
+    expect(within(offerSources).queryByText("Your request", { exact: true })).not.toBeInTheDocument();
+
   });
 
   it.each([
-    ["CONTINUE_CHALLENGING", "Continue challenging"],
+    ["CONTINUE_CHALLENGING", "Ask the insurer to reconsider"],
     ["NO_CLEAR_RECOMMENDATION", "No clear recommendation"],
   ] as const)("presents the persisted %s recommendation without making a customer choice on view", async (state, label) => {
     installClaim(reviewedClaim(recommendedResponse(state)));
@@ -2524,14 +2797,17 @@ describe("completed-analysis guided progression", () => {
       writes(); return new HttpResponse(null, { status: 500 });
     }));
     const view = renderJourney("report", "response-reviewed");
-    await screen.findByRole("heading", { name: "Venfour’s recommendation" });
-    const card = screen.getByRole("heading", { name: "Venfour’s recommendation" }).parentElement!;
+    await screen.findByRole("heading", { name: "What we recommend" });
+    const card = screen.getByRole("heading", { name: "What we recommend" }).closest("section")!;
     expect(within(card).getByText(label, { selector: "strong" })).toBeVisible();
-    expect(screen.getByRole("button", { name: "Accept offer" })).toBeEnabled();
-    expect(screen.getByRole("button", { name: "Continue challenging" })).toBeEnabled();
+    expect(screen.getByRole("radio", { name: "Accept this offer" })).toBeEnabled();
+    expect(screen.getByRole("radio", { name: "Ask the insurer to reconsider" })).toBeEnabled();
     expect(screen.getByText(/Customer-reported insurer offer:/u, { selector: ".response-decision-offer" })).toBeVisible();
     expect(screen.queryByText("Review their revised offer")).not.toBeInTheDocument();
+    expect(screen.getByText("The revised amount was compared with the saved evidence range.")).not.toBeVisible();
+    await userEvent.click(screen.getByText(state === "NO_CLEAR_RECOMMENDATION" ? "About this review" : "Why we suggest this"));
     expect(screen.getByText("The revised amount was compared with the saved evidence range.")).toBeVisible();
+    expect(screen.getByRole("heading", { name: "How they responded" })).not.toBeVisible();
     expect(writes).not.toHaveBeenCalled();
     expect(window.sessionStorage.length).toBe(0);
     await act(async () => { await view.queryClient.invalidateQueries(); });
@@ -2557,10 +2833,12 @@ describe("completed-analysis guided progression", () => {
     }));
     const user = userEvent.setup();
     const first = renderJourney("report", "response-reviewed");
-    const label = choice === "ACCEPT_OFFER" ? "Accept offer" : "Continue challenging";
-    const button = await screen.findByRole("button", { name: label });
+    const label = choice === "ACCEPT_OFFER" ? "Accept this offer" : "Ask the insurer to reconsider";
+    const radio = await screen.findByRole("radio", { name: label });
+    expect(screen.getByRole("button", { name: "Save my choice" })).toBeDisabled();
+    await user.click(radio);
     expect(writes).toHaveLength(0);
-    await user.dblClick(button);
+    await user.dblClick(screen.getByRole("button", { name: "Save my choice" }));
     await waitFor(() => expect(writes).toHaveLength(1));
     expect(screen.getByRole("button", { name: "Saving choice…" })).toBeDisabled();
     expect(writes[0]).toEqual({
@@ -2569,18 +2847,63 @@ describe("completed-analysis guided progression", () => {
       workflowRevision: 15,
     });
     await act(async () => { release?.(); });
-    const recorded = choice === "ACCEPT_OFFER" ? "You chose to accept $20,100.00" : "You chose to continue challenging";
+    const recorded = choice === "ACCEPT_OFFER" ? "You chose to accept $20,100.00." : "You chose to ask the insurer to reconsider.";
     expect(await screen.findByText(recorded)).toBeVisible();
-    expect(screen.queryByRole("button", { name: "Accept offer" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Continue challenging" })).not.toBeInTheDocument();
-    expect(window.sessionStorage.length).toBe(0);
-    expect(screen.getByText(choice === "ACCEPT_OFFER" ? /case is ready for confirmation and remains open/u : /Your choice is saved\. Review and send/u)).toBeVisible();
+    expect(screen.queryByRole("radio", { name: "Accept this offer" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("radio", { name: "Ask the insurer to reconsider" })).not.toBeInTheDocument();
+    expect(Object.keys(window.sessionStorage).filter((key) => key.startsWith("venfour:response-decision-attempt:"))).toHaveLength(0);
+    expect(screen.getByText(/Nothing has been sent to the insurer/u)).toBeVisible();
     expect(screen.queryByRole("link", { name: "Prepare my follow-up" })).toBe(choice === "ACCEPT_OFFER" ? null : screen.getByRole("link", { name: "Prepare my follow-up" }));
     first.unmount();
     renderJourney("report", "response-reviewed");
     expect(await screen.findByText(recorded)).toBeVisible();
     expect(writes).toHaveLength(1);
-    expect(screen.getByText(recommendationState === "NO_CLEAR_RECOMMENDATION" ? "No clear recommendation" : "Continue challenging", { selector: ".response-recommendation > strong" })).toBeVisible();
+    expect(screen.getByText(recommendationState === "NO_CLEAR_RECOMMENDATION" ? "No clear recommendation" : "Ask the insurer to reconsider", { selector: ".response-recommendation > strong" })).toBeVisible();
+  });
+
+  it.each(["ACCEPT_OFFER", "CONTINUE_CHALLENGING"] as const)("keeps review progress in place after saving %s and refreshing until the customer continues", async (choice) => {
+    const initial = reviewedClaim();
+    const installed = installClaim(initial);
+    server.use(http.post(`${API}/claim/insurer-responses/:responseId/decision`, async ({ request }) => {
+      const input = await request.json() as TotalLossResponseDecisionInput;
+      const response = decisionResponse(initial.insurerResponse!, input);
+      const next: TotalLossClaimSecured = choice === "ACCEPT_OFFER"
+        ? { ...initial, insurerResponse: response, workflow: { ...initial.workflow!, revision: 16 } }
+        : { ...followUpJourneyClaim(), insurerResponse: response, followUp: {
+          ...followUpJourneyClaim().followUp!, state: "available", draft: null, preparedMessage: null,
+          decisionId: response.decision!.decisionId,
+        } };
+      installed.setClaim(next);
+      return HttpResponse.json({ state: "insurer_response_reviewed", response: publicInsurerResponseProjection(response), workflowRevision: 16 });
+    }));
+    const user = userEvent.setup();
+    const first = renderJourney("report", "response-reviewed");
+    const radio = await screen.findByRole("radio", { name: choice === "ACCEPT_OFFER" ? "Accept this offer" : "Ask the insurer to reconsider" });
+    const progress = screen.getByRole("progressbar", { name: "Case journey" });
+    const label = progress.getAttribute("aria-valuetext");
+    const reviewSection = screen.getByRole("link", { name: "Response review" }).closest("li")!;
+    const completeIcon = reviewSection.querySelector("svg")!.getAttribute("class");
+    await user.click(radio);
+    await user.click(screen.getByRole("button", { name: "Save my choice" }));
+    await screen.findByText("Choice saved");
+    await act(async () => { await first.queryClient.invalidateQueries(); });
+    expect(first.router.state.location.pathname).toBe(`${BASE}/review/response-reviewed`);
+    expect(progress).toHaveAttribute("aria-valuenow", "6.5");
+    expect(progress).toHaveAttribute("aria-valuemax", "7");
+    expect(progress).toHaveAttribute("aria-valuetext", label);
+    expect(reviewSection.querySelector("svg")!.getAttribute("class")).toBe(completeIcon);
+    expect(screen.getByRole("link", { name: "Response review" })).toHaveAttribute("aria-current", "page");
+    const nextLabel = choice === "ACCEPT_OFFER" ? "Review acceptance steps" : "Prepare my follow-up";
+    expect(screen.getByRole("link", { name: nextLabel })).toBeVisible();
+    expect(screen.getByRole("link", { name: nextLabel })).toHaveFocus();
+    first.unmount();
+    const resumed = renderJourney("report", "response-reviewed");
+    const next = await screen.findByRole("link", { name: nextLabel });
+    expect(screen.getByRole("progressbar", { name: "Case journey" })).toHaveAttribute("aria-valuetext", label);
+    await user.click(next);
+    await waitFor(() => expect(resumed.router.state.location.pathname).toBe(`${BASE}/review/${choice === "ACCEPT_OFFER" ? "resolution" : "follow-up"}`));
+    expect(screen.getByRole("progressbar", { name: "Case journey" })).toHaveAttribute("aria-valuenow", "7.5");
+    expect(Object.keys(sessionStorage).some((key) => key.startsWith("venfour:decision-continuation:"))).toBe(false);
   });
 
   it("offers Continue without inventing an Accept action from the analyzed amount", async () => {
@@ -2588,8 +2911,8 @@ describe("completed-analysis guided progression", () => {
     renderJourney("report", "response-reviewed");
     expect(await screen.findByText("No clear recommendation")).toBeVisible();
     expect(screen.getAllByText("$20,100.00").length).toBeGreaterThan(0);
-    expect(screen.queryByRole("button", { name: "Accept offer" })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Continue challenging" })).toBeEnabled();
+    expect(screen.queryByRole("radio", { name: "Accept this offer" })).not.toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "Ask the insurer to reconsider" })).toBeEnabled();
     expect(screen.getByText("There isn’t a clearly supported offer amount available to accept from this response.")).toBeVisible();
     expect(screen.queryByText("Customer-reported insurer offer", { exact: false })).not.toBeInTheDocument();
     expect(screen.queryByText("Offer shown in insurer response", { exact: false })).not.toBeInTheDocument();
@@ -2609,22 +2932,23 @@ describe("completed-analysis guided progression", () => {
     }));
     const user = userEvent.setup();
     const first = renderJourney("report", "response-reviewed");
-    await user.click(await screen.findByRole("button", { name: "Accept offer" }));
+    await user.click(await screen.findByRole("radio", { name: "Accept this offer" }));
+    await user.click(screen.getByRole("button", { name: "Save my choice" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("couldn’t confirm");
-    expect(window.sessionStorage.length).toBe(1);
+    expect(window.sessionStorage.length).toBe(2);
     const beforeUnload = new Event("beforeunload", { cancelable: true });
     window.dispatchEvent(beforeUnload);
     expect(beforeUnload.defaultPrevented).toBe(true);
     first.unmount();
     renderJourney("report", "response-reviewed");
-    const retry = await screen.findByRole("button", { name: "Retry saving Accept offer" });
+    const retry = await screen.findByRole("button", { name: "Retry saving choice" });
     expect(writes).toHaveLength(1);
-    expect(screen.getByRole("button", { name: "Continue challenging" })).toBeDisabled();
+    expect(screen.getByRole("radio", { name: "Ask the insurer to reconsider" })).toBeDisabled();
     await user.click(retry);
-    expect(await screen.findByText("You chose to accept $20,100.00")).toBeVisible();
+    expect(await screen.findByText("You chose to accept $20,100.00.")).toBeVisible();
     expect(writes).toHaveLength(2);
     expect(writes[1]).toEqual(writes[0]);
-    expect(window.sessionStorage.length).toBe(0);
+    expect(Object.keys(window.sessionStorage).filter((key) => key.startsWith("venfour:response-decision-attempt:"))).toHaveLength(0);
   });
 
   it("reconciles a lost write acknowledgement with the persisted decision without a second choice", async () => {
@@ -2638,11 +2962,12 @@ describe("completed-analysis guided progression", () => {
       return HttpResponse.json({ error: { code: "SERVICE_UNAVAILABLE", message: "Connection interrupted." } }, { status: 503 });
     }));
     renderJourney("report", "response-reviewed");
-    await userEvent.click(await screen.findByRole("button", { name: "Continue challenging" }));
-    expect(await screen.findByText("You chose to continue challenging")).toBeVisible();
+    await userEvent.click(await screen.findByRole("radio", { name: "Ask the insurer to reconsider" }));
+    await userEvent.click(screen.getByRole("button", { name: "Save my choice" }));
+    expect(await screen.findByText("You chose to ask the insurer to reconsider.")).toBeVisible();
     expect(writes).toHaveBeenCalledTimes(1);
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
-    expect(window.sessionStorage.length).toBe(0);
+    expect(Object.keys(window.sessionStorage).filter((key) => key.startsWith("venfour:response-decision-attempt:"))).toHaveLength(0);
   });
 
   it("rebases only the workflow revision when explicitly retrying an unchanged decision", async () => {
@@ -2661,14 +2986,15 @@ describe("completed-analysis guided progression", () => {
       return HttpResponse.json({ state: "insurer_response_reviewed", response: publicInsurerResponseProjection(response), workflowRevision: 17 });
     }));
     renderJourney("report", "response-reviewed");
-    await userEvent.click(await screen.findByRole("button", { name: "Accept offer" }));
+    await userEvent.click(await screen.findByRole("radio", { name: "Accept this offer" }));
+    await userEvent.click(screen.getByRole("button", { name: "Save my choice" }));
     await screen.findByRole("alert");
-    await userEvent.click(screen.getByRole("button", { name: "Retry saving Accept offer" }));
-    expect(await screen.findByText("You chose to accept $20,100.00")).toBeVisible();
+    await userEvent.click(screen.getByRole("button", { name: "Retry saving choice" }));
+    expect(await screen.findByText("You chose to accept $20,100.00.")).toBeVisible();
     expect(writes).toHaveLength(2);
     expect(writes[0].workflowRevision).toBe(15);
     expect(writes[1]).toEqual({ ...writes[0], workflowRevision: 16 });
-    expect(window.sessionStorage.length).toBe(0);
+    expect(Object.keys(window.sessionStorage).filter((key) => key.startsWith("venfour:response-decision-attempt:"))).toHaveLength(0);
   });
 
   it("isolates pending choices from a corrected response and its new recommendation", async () => {
@@ -2680,17 +3006,19 @@ describe("completed-analysis guided progression", () => {
       return HttpResponse.json({ error: { code: "SERVICE_UNAVAILABLE", message: "Try again." } }, { status: 503 });
     }));
     const view = renderJourney("report", "response-reviewed");
-    await userEvent.click(await screen.findByRole("button", { name: "Accept offer" }));
+    await userEvent.click(await screen.findByRole("radio", { name: "Accept this offer" }));
+    await userEvent.click(screen.getByRole("button", { name: "Save my choice" }));
     await screen.findByRole("alert");
     const old = initial.insurerResponse!;
     const corrected = { ...recommendedResponse(), responseId: "dddddddd-dddd-4ddd-8ddd-dddddddddddd", supersedesResponseId: old.responseId,
       recommendation: { ...old.recommendation!, recommendationId: "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee", analysisResultId: "ffffffff-ffff-4fff-8fff-ffffffffffff" } };
     installed.setClaim(reviewedClaim(corrected));
     await act(async () => { await view.queryClient.invalidateQueries(); });
-    expect(await screen.findByRole("button", { name: "Accept offer" })).toBeEnabled();
-    expect(screen.getByRole("button", { name: "Continue challenging" })).toBeEnabled();
-    expect(screen.queryByRole("button", { name: "Retry saving Accept offer" })).not.toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: "Continue challenging" }));
+    expect(await screen.findByRole("radio", { name: "Accept this offer" })).toBeEnabled();
+    expect(screen.getByRole("radio", { name: "Ask the insurer to reconsider" })).toBeEnabled();
+    expect(screen.queryByRole("button", { name: "Retry saving choice" })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("radio", { name: "Ask the insurer to reconsider" }));
+    await userEvent.click(screen.getByRole("button", { name: "Save my choice" }));
     await waitFor(() => expect(writes).toHaveLength(2));
     expect(writes[1].recommendationId).toBe(corrected.recommendation.recommendationId);
     expect(writes[1].clientRequestId).not.toBe(writes[0].clientRequestId);
@@ -2769,7 +3097,7 @@ describe("completed-analysis guided progression", () => {
     renderJourney("report", "response-reviewed");
 
     await screen.findByRole("heading", {
-      name: "What the insurer’s response means",
+      name: "Your response review",
     });
     expect(screen.getByText("Amount read from the document")).toBeVisible();
     expect(
@@ -2779,9 +3107,9 @@ describe("completed-analysis guided progression", () => {
       screen.getByText(/does not replace.*saved insurer document.*check the original/iu),
     ).toBeVisible();
     expect(
-      screen.getByText("Revised offer from the insurer document"),
+      screen.getAllByText("Revised offer from the insurer document", { selector: "dt" })[0],
     ).toBeVisible();
-    expect(screen.queryByRole("button", { name: "Accept offer" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("radio", { name: "Accept this offer" })).not.toBeInTheDocument();
     expect(screen.queryByText("Customer-reported insurer offer", { exact: false })).not.toBeInTheDocument();
     expect(screen.queryByText("Offer shown in insurer response", { exact: false })).not.toBeInTheDocument();
   });
@@ -2836,7 +3164,7 @@ describe("completed-analysis guided progression", () => {
 
     expect(
       await screen.findByRole("heading", {
-        name: "Venfour is reviewing the insurer’s response",
+        name: "Your response is saved",
       }),
     ).toBeVisible();
     expect(retryBodies).toHaveLength(1);
@@ -2879,7 +3207,7 @@ describe("completed-analysis guided progression", () => {
       expect(
         screen.queryByRole("button", { name: "Try review again" }),
       ).not.toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "Correct this response" })).toBeVisible();
+      expect(screen.getByRole("button", { name: "Correct response" })).toBeVisible();
     },
   );
 
@@ -2924,7 +3252,7 @@ describe("completed-analysis guided progression", () => {
     ).toBeVisible();
     expect(
       screen.getByText(
-        "Venfour could not reliably read and analyze the submitted document. The original response remains saved, and no case evidence or valuation has changed.",
+        "We couldn’t reliably read this document. Your original reply is saved. You can paste the reply or add a clearer file using Correct response.",
       ),
     ).toBeVisible();
     expect(
@@ -2943,9 +3271,9 @@ describe("completed-analysis guided progression", () => {
     const { router } = renderJourney("report", "meaning");
 
     expect(await screen.findByRole("button", { name: "Case status" })).toBeVisible();
-    expect(screen.queryByRole("button", { name: "Prepare my request" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Prepare my message" })).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Case status" }));
-    expect(await screen.findByRole("heading", { name: "Waiting for the insurer’s response" })).toBeVisible();
+    expect(await screen.findByRole("heading", { name: "Waiting for insurer" })).toBeVisible();
     expect(router.state.location.pathname).toBe(`${BASE}/review/waiting`);
   });
 
@@ -2986,8 +3314,8 @@ describe("completed-analysis guided progression", () => {
   it("keeps the review frame and request URL when saved sent state replaces editing with read-only content", async () => {
     const saved = installClaim(claimProjection(BEFORE_REQUEST));
     const view = renderJourney("report", "request");
-    expect(await screen.findByRole("heading", { name: "Review and send your request" })).toBeVisible();
-    expect(screen.queryByRole("heading", { name: "Waiting for the insurer’s response" })).not.toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Review your message" })).toBeVisible();
+    expect(screen.queryByRole("heading", { name: "Waiting for insurer" })).not.toBeInTheDocument();
     const section = screen.getByRole("region", { name: "Completed analysis" });
     const content = section.querySelector(".review-stage-content");
     expect(content).not.toBeNull();
@@ -3000,7 +3328,7 @@ describe("completed-analysis guided progression", () => {
     })));
     await act(() => view.queryClient.refetchQueries({ type: "active" }));
 
-    expect(await screen.findByRole("heading", { name: "Your sent request" })).toBeVisible();
+    expect(await screen.findByText("You marked your message as sent. Keep a copy of your email and the attached report.")).toBeVisible();
     expect(view.router.state.location.pathname).toBe(`${BASE}/review/request`);
     expect(screen.getByRole("region", { name: "Completed analysis" })).toBe(section);
     expect(section.querySelector(".review-stage-content")).toBe(content);
@@ -3030,12 +3358,19 @@ describe("completed-analysis guided progression", () => {
     const progress = screen.getByRole("progressbar", { name: "Case journey" });
     const progressLabel = progress.getAttribute("aria-valuetext");
     expect(document.querySelector(".review-actions")).toBeNull();
+    if (processingState !== "completed") {
+      expect(screen.getByRole("heading", { name: processingState === "pending"
+        ? "Your response is saved" : "Reviewing the insurer’s reply" })).toBeVisible();
+      expect(screen.getByText("You can leave this page and return later. Your review will appear here when it’s ready.")).toBeVisible();
+      expect(within(navigation).getByRole("link", { name: /^Response review/u })).toHaveAttribute("aria-current", "page");
+      expect(screen.queryByText(originalClaim.insurerResponse!.text!)).not.toBeInTheDocument();
+    }
 
     await user.click(within(navigation).getByRole("link", { name: /^Your result/u }));
     expect(await screen.findByRole("heading", { name: "Your result" })).toBeVisible();
     expect(progress).toHaveAttribute("aria-valuetext", progressLabel);
-    await user.click(within(navigation).getByRole("link", { name: /^Initial request/u }));
-    expect(await screen.findByRole("heading", { name: "Your sent request" })).toBeVisible();
+    await user.click(within(navigation).getByRole("link", { name: /^Prepare your message/u }));
+    expect(await screen.findByText("You marked your message as sent. Keep a copy of your email and the attached report.")).toBeVisible();
     expect(view.router.state.location.pathname).toBe(`${BASE}/review/request`);
     expect(screen.queryByTestId("request-controls")).not.toBeInTheDocument();
     expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
@@ -3047,21 +3382,23 @@ describe("completed-analysis guided progression", () => {
     expect(screen.queryByRole("button", { name: "I received a response" })).not.toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Completed analysis" })).toHaveAttribute("data-stage", "waiting");
     expect(progress).toHaveAttribute("aria-valuetext", progressLabel);
+    const responseSteps = within(screen.getByRole("list", { name: "Response steps" })).getAllByRole("listitem");
+    expect(responseSteps.map((step) => step.getAttribute("data-state"))).toEqual(["complete", "complete"]);
+    expect(screen.queryByText("Check your inbox for your insurer’s response.")).not.toBeInTheDocument();
 
-    await user.click(within(navigation).getByRole("link", { name: /^Insurer response/u }));
-    expect(await screen.findByRole("heading", { name: "The insurer’s response is saved" })).toBeVisible();
-    expect(view.router.state.location.pathname).toBe(`${BASE}/review/response-received`);
-    expect(view.router.state.location.search).toBe("?view=saved");
-    expect(screen.getByText("We can revise the offer to $20,100.")).toBeVisible();
-    expect(screen.getByRole("button", { name: "Correct this response" })).toBeVisible();
-    expect(within(navigation).getByRole("link", { name: /^Insurer response/u })).toHaveAttribute("aria-current", "page");
+    expect(within(navigation).queryByRole("link", { name: /^Insurer response/u })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "View response review" }));
+    await screen.findByRole("heading", { name: "Your response review" });
+    expect(view.router.state.location.pathname).toBe(`${BASE}/review/${initialStage}`);
+    expect(screen.queryByText("View insurer’s reply")).not.toBeInTheDocument();
+    const correction = screen.getByRole("button", { name: "Correct response" });
+    expect(correction.closest(".response-review-heading")).not.toBeNull();
+    expect(screen.getAllByRole("button", { name: "Correct response" })).toHaveLength(1);
+    expect(within(navigation).getByRole("link", { name: /^Response review/u })).toHaveAttribute("aria-current", "page");
     expect(progress).toHaveAttribute("aria-valuetext", progressLabel);
-    if (journeyState !== "insurer_response_received") {
-      expect(within(navigation).getByRole("link", { name: /^Response review/u })).toHaveAttribute("href", `${BASE}/review/${initialStage}`);
-    }
+    expect(within(navigation).getByRole("link", { name: /^Response review/u })).toHaveAttribute("href", `${BASE}/review/${initialStage}`);
     await act(() => view.queryClient.refetchQueries({ type: "active" }));
-    expect(view.router.state.location.pathname).toBe(`${BASE}/review/response-received`);
-    expect(view.router.state.location.search).toBe("?view=saved");
+    expect(view.router.state.location.pathname).toBe(`${BASE}/review/${initialStage}`);
     expect(saved.claim()).toEqual(originalClaim);
     expect(saved.writes).toEqual([]);
     expect(saved.responseWrites).toEqual([]);
@@ -3070,8 +3407,11 @@ describe("completed-analysis guided progression", () => {
     expect(request.render).not.toHaveBeenCalled();
 
     view.unmount();
-    renderJourney("report", "response-received?view=saved");
-    expect(await screen.findByRole("heading", { name: "The insurer’s response is saved" })).toBeVisible();
+    const resumed = renderJourney("report", initialStage);
+    await screen.findByRole("heading", { name: "Your response review" });
+    expect(screen.queryByText("View insurer’s reply")).not.toBeInTheDocument();
+    await act(() => resumed.router.navigate(`${BASE}/review/response-received?view=saved`));
+    expect(await screen.findByText("We can revise the offer to $20,100.")).toBeVisible();
     expect(screen.getByRole("progressbar", { name: "Case journey" })).toHaveAttribute("aria-valuetext", progressLabel);
     expect(saved.claim().workflow!.revision).toBe(15);
     expect(saved.responseWrites).toEqual([]);
@@ -3081,9 +3421,9 @@ describe("completed-analysis guided progression", () => {
     const projection = claimProjection(BEFORE_REQUEST);
     installClaim({ ...projection, journey: { ...projection.journey!, nextState: "prepare_request" } });
     const { router } = renderJourney("report", "waiting");
-    expect(await screen.findByRole("heading", { name: "Review and send your request" })).toBeVisible();
+    expect(await screen.findByRole("heading", { name: "Review your message" })).toBeVisible();
     expect(router.state.location.pathname).toBe(`${BASE}/review/request`);
-    expect(screen.queryByRole("heading", { name: "Waiting for the insurer’s response" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Waiting for insurer" })).not.toBeInTheDocument();
   });
 
   it("explains current listing timing once without treating a historical query date as available historical listings", async () => {
@@ -3102,9 +3442,11 @@ describe("completed-analysis guided progression", () => {
       },
     } });
     renderJourney("report", "market");
-    expect(await screen.findByRole("heading", { name: "What the market evidence showed" })).toBeVisible();
-    expect(screen.getByText(/^Venfour selected 1 current listing for /u)).toBeVisible();
-    expect(screen.getByText("This listing was collected on Aug 28, 2026. It shows the market when collected, not necessarily on the date of loss.")).toBeVisible();
+    expect(await screen.findByRole("heading", { name: "Similar vehicles we found" })).toBeVisible();
+    expect(screen.getByText("We used 1 similar vehicle for this comparison.")).toBeVisible();
+    expect(screen.getByText("Prices recorded on Aug 28, 2026. They may differ from prices on your date of loss.")).toBeVisible();
+    expect(screen.queryByText(/Listed on your date of loss/u)).not.toBeInTheDocument();
+    expect(screen.queryByText("Selected median")).not.toBeInTheDocument();
     expect(screen.queryByText(/verified as active|historical evidence (?:was|is) unavailable|limited historical coverage/u)).not.toBeInTheDocument();
     expect(screen.queryByText(/Evidence used for the comparison|Current advertised-price evidence/u)).not.toBeInTheDocument();
     expect(screen.getByText(/Current listings form the primary external evidence set selected by Phase 3D/u)).not.toBeVisible();
@@ -3128,14 +3470,15 @@ describe("completed-analysis guided progression", () => {
       },
     } });
     renderJourney("report", "market");
-    expect(await screen.findByRole("heading", { name: "What the market evidence showed" })).toBeVisible();
-    expect(screen.getByText("Venfour selected 3 historical listings for similar vehicles.")).toBeVisible();
+    expect(await screen.findByRole("heading", { name: "Similar vehicles we found" })).toBeVisible();
+    expect(screen.getByText("We used 3 similar vehicles for this comparison.")).toBeVisible();
     expect(screen.getByText("$19,800 to $22,263")).toBeVisible();
-    expect(screen.getByText("These listings were verified as active on Aug 1, 2026, the date used for this comparison.")).toBeVisible();
-    expect(screen.getByText("A further 1 current listing provides additional context from Aug 28, 2026. It is not included in the range above. Current listings do not establish prices on the date of loss.")).toBeVisible();
+    expect(screen.getByText("Listed on your date of loss, Aug 1, 2026.")).toBeVisible();
+    expect(screen.getByText("We also found 1 current listing for additional context from Aug 28, 2026. It is not included in the price range above. Current listings do not establish prices on your date of loss.")).toBeVisible();
     expect(screen.queryByText(/selected 4|3 current listings|additional historical/u)).not.toBeInTheDocument();
-    await userEvent.setup().click(screen.getByText("See selected market listings"));
-    expect(screen.getByRole("table", { name: "Selected market listings" })).toBeVisible();
+    expect(screen.getByRole("region", { name: "Vehicle listings" })).toBeVisible();
+    expect(screen.getAllByText("Used in this comparison")).toHaveLength(3);
+    expect(screen.getByText("Additional context")).toBeVisible();
     expect(screen.getByText("$25,000")).toBeVisible();
   });
 
@@ -3148,15 +3491,15 @@ describe("completed-analysis guided progression", () => {
       marketEvidence: { ...report.marketEvidence, primary: { ...report.marketEvidence.primary!, label: null, description: null, evidenceDate: null } },
     } });
     renderJourney("manual", "market");
-    expect(await screen.findByRole("heading", { name: "What the market evidence showed" })).toBeVisible();
-    expect(screen.getByText(/^Venfour selected 1 listing for /u)).toBeVisible();
-    expect(screen.getByText("The listing details explain when each price was observed.")).toBeVisible();
+    expect(await screen.findByRole("heading", { name: "Similar vehicles we found" })).toBeVisible();
+    expect(screen.getByText("We used 1 similar vehicle for this comparison.")).toBeVisible();
+    expect(screen.getByText("The listing details explain when each price was recorded.")).toBeVisible();
     expect(screen.queryByText(/listing was collected on|verified as active|insurer’s comparable vehicles|insurer’s adjustments/u)).not.toBeInTheDocument();
   });
 
   it.each([
-    { insurer: 2300000, insurerLabel: "$23,000", difference: -251000, differenceLabel: "-$2,510", result: "$2,510 above the selected median", meaning: "The original valuation is $2,510 above the selected median of $20,490.", position: "above" },
-    { insurer: 2049000, insurerLabel: "$20,490", difference: 0, differenceLabel: "$0", result: "Matches the selected median", meaning: "The original valuation matches the selected median of $20,490.", position: "within" },
+    { insurer: 2300000, insurerLabel: "$23,000", difference: -251000, differenceLabel: "-$2,510", result: "$2,510 above the selected median", meaning: "Your insurer’s original value is $2,510 above the middle asking price.", position: "above" },
+    { insurer: 2049000, insurerLabel: "$20,490", difference: 0, differenceLabel: "$0", result: "Matches the selected median", meaning: "Your insurer’s original value matches the middle asking price.", position: "within" },
   ])("describes the signed median comparison and $position range position without implying an increase", async ({ insurer, insurerLabel, difference, differenceLabel, result, meaning, position }) => {
     const projection = claimProjection(BEFORE_MEANING);
     const report = projection.report!;
@@ -3166,12 +3509,16 @@ describe("completed-analysis guided progression", () => {
     } });
     const { router } = renderJourney("report", "result");
     expect(await screen.findByRole("heading", { name: "Your result" })).toBeVisible();
-    expect(screen.getByText(result)).toBeVisible();
+    expect(screen.queryByText(result)).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "We didn’t find clear support for a higher value" })).toBeVisible();
+    expect(screen.getByRole("img", { name: new RegExp(`Your insurer’s value is ${position} this asking-price range`, "u") })).toBeVisible();
     expect(screen.queryByText(/appears low/u)).not.toBeInTheDocument();
     await act(() => router.navigate(`${BASE}/review/meaning`));
-    expect(await screen.findByRole("heading", { name: "What the comparison means" })).toBeVisible();
+    expect(await screen.findByRole("heading", { name: "What this means for you" })).toBeVisible();
+    expect(screen.getByText(meaning)).not.toBeVisible();
+    await userEvent.setup().click(screen.getByText("More about this comparison"));
     expect(screen.getByText(meaning)).toBeVisible();
-    expect(screen.getByText(`The original insurer valuation is ${position} the selected advertised-price range.`)).toBeVisible();
+    expect(screen.getByText(`Your insurer’s original value is ${position} the asking-price range.`)).toBeVisible();
     expect(screen.queryByText(/Even the lowest listing|reasonable basis to ask/u)).not.toBeInTheDocument();
     expect(saved.writes).toEqual([]);
   });
@@ -3196,12 +3543,31 @@ describe("completed-analysis guided progression", () => {
     });
     const { router } = renderJourney(intakeMode, "request");
 
-    expect(await screen.findByRole("heading", { name: "What the comparison means" })).toBeVisible();
+    expect(await screen.findByRole("heading", { name: "What this means for you" })).toBeVisible();
     expect(router.state.location.pathname).toBe(`${BASE}/review/meaning`);
     expect(screen.getByRole("progressbar", { name: "Case journey" })).toHaveAttribute("aria-valuetext", `Step 1 of ${total}: Understand result`);
     expect(screen.queryByText(report.suggestedFilename)).not.toBeInTheDocument();
     expect(screen.getByText("PDF report · Issued Aug 29, 2026")).toBeVisible();
     expect(screen.queryByRole("button", { name: /request/iu })).not.toBeInTheDocument();
+  });
+
+  it.each([false, true])("keeps limited-search context visible when continuing is %s", async (continuingSupported) => {
+    const projection = claimProjection([]);
+    const report = projection.report!;
+    installClaim({ ...projection, report: {
+      ...report,
+      conclusion: { ...report.conclusion, continuingSupported, classificationLabel: "No material discrepancy identified" },
+      marketEvidence: { ...report.marketEvidence, marketSearchContext: {
+        baselineStatus: "LIMITED", summary: "Limited evidence", stopReasons: [],
+      } },
+    } });
+    renderJourney("report", "result");
+    expect(await screen.findByRole("heading", { name: continuingSupported ? "Your insurer’s value may be low" : "We couldn’t make a clear comparison" })).toBeVisible();
+    expect(screen.getByText(/Our search for similar vehicles was limited/u)).toBeVisible();
+    if (!continuingSupported) {
+      expect(screen.getByText(/This does not mean your insurer’s value is correct/u)).toBeVisible();
+      expect(screen.queryByText(/Our findings support asking/u)).not.toBeInTheDocument();
+    }
   });
 
   it("omits monetary comparisons when the insurer value is missing or currencies differ", async () => {
@@ -3214,13 +3580,18 @@ describe("completed-analysis guided progression", () => {
     const view = renderJourney("manual", "result");
     expect(await screen.findByRole("heading", { name: "Your result" })).toBeVisible();
     expect(screen.queryByText(/Not stated|Unavailable|selected median|Selected advertised-price range/u)).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "We couldn’t make a clear comparison" })).toBeVisible();
+    expect(screen.queryByRole("img", { name: /asking-price range/u })).not.toBeInTheDocument();
     view.unmount();
     installClaim({ ...projection, report: {
       ...report,
       conclusion: { ...report.conclusion, insurerValuation: { ...report.conclusion.insurerValuation, currency: "CAD" } },
     } });
-    renderJourney("manual", "meaning");
-    expect(await screen.findByRole("heading", { name: "What the comparison means" })).toBeVisible();
+    const mismatched = renderJourney("manual", "result");
+    expect(await screen.findByRole("heading", { name: "Your result" })).toBeVisible();
+    expect(screen.queryByRole("img", { name: /asking-price range/u })).not.toBeInTheDocument();
+    await act(() => mismatched.router.navigate(`${BASE}/review/meaning`));
+    expect(await screen.findByRole("heading", { name: "What this means for you" })).toBeVisible();
     expect(screen.queryByText(/Even the lowest listing|The offer is .*selected median|offer you entered is below/u)).not.toBeInTheDocument();
   });
 
@@ -3236,9 +3607,9 @@ describe("completed-analysis guided progression", () => {
       },
     } });
     renderJourney("report", "insurer");
-    expect(await screen.findByRole("heading", { name: "How your insurer reached its value" })).toBeVisible();
-    expect(screen.getByText("Your insurer’s report includes 2 comparable vehicles.")).toBeVisible();
-    expect(screen.getByText("The disclosed advertised prices had a median of $19,800. The disclosed adjusted values had a median of $19,500.")).toBeVisible();
+    expect(await screen.findByRole("heading", { name: "How your insurer valued your vehicle" })).toBeVisible();
+    expect(screen.getByText("Their report includes 2 vehicles for comparison.")).toBeVisible();
+    expect(screen.queryByText(/Advertised-price median|Adjusted-value median/u)).not.toBeInTheDocument();
     expect(screen.queryByText(/After the report’s adjustments/u)).not.toBeInTheDocument();
   });
 });

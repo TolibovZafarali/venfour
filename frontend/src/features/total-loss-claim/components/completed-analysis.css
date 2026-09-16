@@ -128,13 +128,24 @@
 .completed-analysis .meaning-limitations ul { margin-bottom: 1rem; }
 .completed-analysis .waiting-case-status { display: inline-flex; align-items: center; gap: .55rem; width: fit-content; margin-bottom: 1.25rem; color: var(--review-accent); font-size: .75rem; line-height: 1.4; font-weight: 650; letter-spacing: .08em; text-transform: uppercase; }
 .completed-analysis .waiting-case-status span { width: .5rem; height: .5rem; border-radius: 50%; background: currentColor; box-shadow: 0 0 0 4px rgb(89 89 89 / 10%); }
-.completed-analysis .sent-heading { max-width: 39rem; }
-.completed-analysis .sent-heading h1 { margin-bottom: 1rem; }
-.completed-analysis .sent-recorded { font-size: .8125rem; margin-top: 1rem; }
-.completed-analysis .sent-recorded time { font-variant-numeric: tabular-nums; }
-.completed-analysis .sent-next-steps { margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid var(--review-line); max-width: 42rem; }
-.completed-analysis .sent-next-steps h2 { margin-bottom: .75rem; }
-.completed-analysis .sent-next-steps p + p { margin-top: 1rem; }
+.completed-analysis .waiting-heading { max-width: 40rem; }
+.completed-analysis .waiting-heading h1 { margin-bottom: 1rem; }
+.completed-analysis .waiting-flow { margin-top: 2rem; }
+.completed-analysis .waiting-report { margin-top: .65rem; }
+.completed-analysis .waiting-report > summary { display: flex; align-items: center; gap: .6rem; width: fit-content; min-height: 44px; color: var(--copy); font-size: .8125rem; cursor: pointer; list-style: none; }
+.completed-analysis .waiting-report > summary::-webkit-details-marker { display: none; }
+.completed-analysis .waiting-report > summary:focus-visible { outline: 2px solid var(--ring); outline-offset: 3px; }
+.completed-analysis .waiting-report[open] > summary svg { transform: rotate(180deg); }
+.completed-analysis .waiting-report .report-file-attachment { margin: .75rem 0 .25rem; }
+.completed-analysis .waiting-guidance { margin: 0; font-size: .875rem; line-height: 1.75; }
+.completed-analysis .waiting-note { margin: 1rem 0 0; color: var(--review-muted); font-size: .75rem; line-height: 1.7; }
+.completed-analysis .waiting-saved-response { font-size: .8125rem; }
+.completed-analysis .waiting-saved-response p { margin: 0 0 .75rem; color: var(--review-muted); }
+.completed-analysis[data-stage="waiting"] .review-actions { margin-top: 2rem; }
+@media (max-width: 540px) {
+  .completed-analysis[data-stage="waiting"] .review-actions:has(> .review-primary) { flex-wrap: wrap; }
+  .completed-analysis[data-stage="waiting"] .review-actions > .review-primary { flex: 0 0 100%; min-height: 52px; margin-inline-start: auto; }
+}
 .completed-analysis .review-prerequisite { padding: 1rem; border-left: 2px solid var(--line-strong); background: var(--surface); margin-bottom: 1rem; }
 .completed-analysis .review-error { color: var(--destructive); padding: 1rem; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; margin-bottom: 1rem; }
 
@@ -227,3 +238,96 @@
 .completed-analysis .review-stage-content > .report-file { margin-top: 1.5rem; }
 .completed-analysis :is(input, textarea, summary, [tabindex]) { scroll-margin-block: 5.5rem calc(2rem + env(safe-area-inset-bottom, 0px)); }
 .completed-analysis .review-lead + .market-evidence-context { margin-top: 1rem; }
+
+.completed-analysis[data-stage="result"] { max-width: 52rem; }
+.completed-analysis[data-stage="result"] .result-heading { justify-content: flex-start; flex-wrap: wrap; gap: .35rem 1rem; margin-bottom: 1.75rem; }
+.completed-analysis[data-stage="result"] .result-heading h1 { color: var(--review-muted); font-size: .875rem; font-weight: 500; letter-spacing: 0; }
+.completed-analysis[data-stage="result"] .review-vehicle { text-align: left; }
+.completed-analysis[data-stage="result"] .result-heading .review-vehicle { padding-left: 1rem; border-left: 1px solid var(--review-line); }
+.completed-analysis[data-stage="result"] .result-conclusion { max-width: 38rem; }
+.completed-analysis .result-values { margin-top: 2rem; padding: 1.75rem; border: 1px solid var(--review-line); border-radius: 12px; background: var(--background); }
+.completed-analysis .result-values-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); gap: 1.5rem; }
+.completed-analysis .result-values-grid > div { min-width: 0; }
+.completed-analysis .result-values-grid > div + div { padding-left: 1.5rem; border-left: 1px solid var(--review-line); }
+.completed-analysis .result-values-grid > div:only-child { grid-column: 1 / -1; }
+.completed-analysis .result-values dt { color: var(--review-muted); font-size: .8125rem; line-height: 1.5; margin-bottom: .7rem; }
+.completed-analysis .result-values dd { font-size: clamp(1.5rem, 2.5vw, 1.875rem); font-weight: 550; letter-spacing: -.035em; line-height: 1.3; font-variant-numeric: tabular-nums; }
+.completed-analysis .result-values dd > span { display: inline-block; }
+.completed-analysis .result-values .result-values-to { font-size: .875rem; font-weight: 400; color: var(--review-muted); margin-inline: .3rem; letter-spacing: 0; }
+.completed-analysis .result-values-note { margin-top: 1.25rem; padding-top: 1rem; border-top: 1px solid var(--review-line); font-size: .8125rem; line-height: 1.6; }
+.completed-analysis .result-comparison { margin: 1.5rem 0 0; padding-top: 1.25rem; border-top: 1px solid var(--review-line); }
+.completed-analysis .result-comparison-legend { display: flex; flex-wrap: wrap; gap: .6rem 1.5rem; color: var(--review-muted); font-size: .75rem; line-height: 1.5; }
+.completed-analysis .result-comparison-legend > span { display: inline-flex; align-items: center; gap: .5rem; }
+.completed-analysis .result-comparison-key-value { width: .6rem; height: .6rem; border-radius: 50%; background: var(--review-ink); flex-shrink: 0; }
+.completed-analysis .result-comparison-key-range { width: 1.25rem; height: .6rem; border-radius: 3px; background: color-mix(in srgb, var(--review-accent) 18%, var(--background)); border: 1px solid var(--review-accent); flex-shrink: 0; }
+.completed-analysis .result-comparison-chart { position: relative; height: 40px; margin-top: .75rem; }
+.completed-analysis .result-comparison-chart::before { content: ""; position: absolute; inset: 19px 0 auto; height: 2px; background: var(--review-line); }
+.completed-analysis .result-comparison-range { position: absolute; top: 13px; left: var(--comparison-start); width: max(4px, var(--comparison-width)); height: 14px; border: 1px solid var(--review-accent); border-radius: 4px; background: color-mix(in srgb, var(--review-accent) 18%, var(--background)); }
+.completed-analysis .result-comparison-chart[data-single-price] .result-comparison-range { width: 20px; transform: translateX(-50%); }
+.completed-analysis .result-comparison-point { position: absolute; top: 12px; left: var(--comparison-value); width: 16px; height: 16px; transform: translateX(-50%); border: 3px solid var(--background); border-radius: 50%; background: var(--review-ink); box-shadow: 0 0 0 1px var(--review-ink); }
+.completed-analysis .result-comparison-direction { display: flex; justify-content: space-between; gap: 1rem; color: var(--review-muted); font-size: .6875rem; }
+.completed-analysis .result-comparison figcaption { margin-top: 1rem; color: var(--review-ink); font-size: .875rem; line-height: 1.6; }
+.completed-analysis .result-next { margin-top: 2rem; font-size: .9375rem; line-height: 1.6; }
+.completed-analysis[data-stage="result"] .review-actions { margin-top: 1rem; padding-top: 0; border-top: 0; justify-content: flex-end; }
+.completed-analysis[data-stage="result"] .review-actions > .review-primary:only-child { margin-inline-start: auto; width: auto; }
+@media (max-width: 600px) {
+  .completed-analysis[data-stage="result"] .result-heading { display: flex; align-items: flex-start; flex-direction: column; gap: .3rem; margin-bottom: 1.5rem; }
+  .completed-analysis[data-stage="result"] .result-heading .review-vehicle { padding-left: 0; border-left: 0; margin-top: 0; }
+  .completed-analysis .result-values { margin-top: 1.5rem; padding: 1.25rem; }
+  .completed-analysis .result-values-grid { grid-template-columns: minmax(0, 1fr); gap: 1.25rem; }
+  .completed-analysis .result-values-grid > div + div { padding-left: 0; padding-top: 1.25rem; border-left: 0; border-top: 1px solid var(--review-line); }
+  .completed-analysis .result-values dd { font-size: 1.75rem; }
+  .completed-analysis[data-stage="result"] .review-actions > .review-primary:only-child { width: 100%; }
+}
+
+.completed-analysis .insurer-calculation { margin-top: 1.75rem; padding: 1.5rem; border: 1px solid var(--review-line); border-radius: 12px; background: var(--background); }
+.completed-analysis .insurer-calculation ol { display: grid; grid-template-columns: 1fr 1.1fr 1fr; gap: 2.5rem; padding: 0; list-style: none; }
+.completed-analysis .insurer-calculation li { position: relative; display: flex; flex-direction: column; gap: .5rem; min-width: 0; margin: 0; }
+.completed-analysis .insurer-calculation li > span { color: var(--review-muted); font-size: .75rem; line-height: 1.5; }
+.completed-analysis .insurer-calculation .insurer-calculation-label { font-size: .8125rem; }
+.completed-analysis .insurer-calculation strong { font-size: 1.625rem; line-height: 1.25; font-weight: 550; letter-spacing: -.025em; font-variant-numeric: tabular-nums; }
+.completed-analysis .insurer-calculation li:nth-child(2) strong { font-size: 1.25rem; line-height: 1.625; }
+.completed-analysis .insurer-calculation li > svg { position: absolute; width: 1.1rem; height: 1.1rem; right: -1.8rem; top: 2.15rem; color: var(--review-muted); stroke-width: 1.5; }
+.completed-analysis .insurer-calculation-value { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 1rem; }
+.completed-analysis .insurer-calculation-value > span { color: var(--review-muted); font-size: .875rem; }
+.completed-analysis .insurer-checks { margin-top: 1.75rem; }
+.completed-analysis .insurer-checks h2 { font-size: 1rem; margin-bottom: .65rem; }
+.completed-analysis .insurer-checks p { font-size: .9375rem; line-height: 1.65; }
+.completed-analysis .insurer-checks p + p { margin-top: .35rem; }
+.completed-analysis .insurer-checks .review-note { font-size: .8125rem; margin-top: .75rem; }
+.completed-analysis .insurer-next { margin-top: 1.75rem; font-size: .9375rem; }
+.completed-analysis[data-stage="insurer"] .review-actions { margin-top: 1rem; padding-top: 0; border-top: 0; }
+@media (max-width: 600px) {
+  .completed-analysis .insurer-calculation { padding: 1.25rem; }
+  .completed-analysis .insurer-calculation ol { grid-template-columns: minmax(0, 1fr); gap: 2.25rem; }
+  .completed-analysis .insurer-calculation li { gap: .3rem; }
+  .completed-analysis .insurer-calculation li > svg { top: auto; right: auto; left: 0; bottom: -1.65rem; transform: rotate(90deg); }
+}
+
+.completed-analysis .market-price-summary { margin-top: 1.75rem; padding: 1.5rem 1.75rem; border: 1px solid var(--review-line); border-radius: 12px; background: var(--background); }
+.completed-analysis .market-price-range dt { color: var(--review-muted); font-size: .875rem; margin-bottom: .5rem; }
+.completed-analysis .market-price-range dd { font-size: clamp(1.625rem, 3vw, 2rem); line-height: 1.25; font-weight: 550; letter-spacing: -.035em; font-variant-numeric: tabular-nums; }
+.completed-analysis .market-price-summary > .review-note { margin-top: .75rem; font-size: .8125rem; }
+.completed-analysis .market-price-timing { margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--review-line); font-size: .875rem; line-height: 1.6; }
+.completed-analysis :is(.market-history-note, .market-additional-context) { margin-top: 1.25rem; }
+.completed-analysis .market-next { margin-top: 1.75rem; font-size: .9375rem; }
+.completed-analysis[data-stage="market"] .review-actions { margin-top: 1rem; padding-top: 0; border-top: 0; }
+@media (max-width: 600px) {
+  .completed-analysis .market-price-summary { padding: 1.25rem; }
+}
+
+.completed-analysis .meaning-recommendation { margin-top: 1.5rem; }
+.completed-analysis .meaning-recommendation h2 { max-width: 42rem; font-size: clamp(1.125rem, 2vw, 1.375rem); line-height: 1.45; font-weight: 550; letter-spacing: -.02em; }
+.completed-analysis .meaning-recommendation p { margin-top: .6rem; font-size: .9375rem; line-height: 1.65; }
+.completed-analysis[data-stage="meaning"] .result-values { margin-top: 1.5rem; }
+.completed-analysis .meaning-cautions { margin-top: 1.5rem; font-size: .875rem; line-height: 1.65; color: var(--review-muted); }
+.completed-analysis .meaning-cautions p + p { margin-top: .65rem; }
+.completed-analysis .meaning-cautions ul { margin-top: .65rem; }
+.completed-analysis .meaning-details { margin-top: 1.5rem; }
+.completed-analysis .meaning-details .completed-evidence__body { font-size: .875rem; line-height: 1.65; }
+.completed-analysis .meaning-details p + p { margin-top: .75rem; }
+.completed-analysis .meaning-median { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: .5rem 1.5rem; margin-bottom: .75rem; }
+.completed-analysis .meaning-median dt { color: var(--review-muted); }
+.completed-analysis .meaning-median dd { font-size: 1.25rem; font-weight: 550; font-variant-numeric: tabular-nums; }
+.completed-analysis .meaning-next { margin-top: 1.5rem; font-size: .9375rem; line-height: 1.65; }
+.completed-analysis[data-stage="meaning"] .review-actions { margin-top: 1rem; padding-top: 0; border-top: 0; }

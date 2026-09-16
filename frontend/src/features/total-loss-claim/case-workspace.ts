@@ -21,7 +21,7 @@ import {
 } from "./workflow-route";
 
 export interface CaseWorkspaceSection {
-  readonly stage: TotalLossCaseJourneyStage;
+  readonly stage: TotalLossCaseJourneyStage | "case_record";
   readonly label: string;
   readonly href: string;
   readonly available: boolean;
@@ -60,7 +60,8 @@ export function createCaseWorkspace({
   const routeStage = reviewStages.find((stage) =>
     totalLossClaimViewPath(claim.caseId, `review_${stage}`) === currentPath,
   ) ?? "result";
-  const currentStage = completedAnalysisStage(
+  const receivedResponse = routeStage === "response_received";
+  const currentStage = receivedResponse ? "response_reviewing" : completedAnalysisStage(
     `review_${routeStage}`, new URLSearchParams(), intakeMode,
   );
   const progress = totalLossCaseJourneyProgress({
@@ -81,17 +82,18 @@ export function createCaseWorkspace({
     ));
   const sections: CaseWorkspaceSection[] = [];
   const add = (
-    stage: TotalLossCaseJourneyStage,
+    stage: CaseWorkspaceSection["stage"],
     label: string,
     available: boolean,
     complete: boolean,
   ) => sections.push({
     stage,
     label,
-    href: `${totalLossClaimViewPath(claim.caseId, `review_${stage}`)}${stage === "response_received" ? "?view=saved" : ""}`,
+    href: stage === "case_record" ? `${totalLossClaimViewPath(claim.caseId, "review_resolution")}?view=record` : receivedResponse && stage === "response_reviewing" ? currentPath
+      : `${totalLossClaimViewPath(claim.caseId, `review_${stage}`)}${stage === "response_received" ? "?view=saved" : ""}`,
     available,
     complete,
-    current: stage === currentStage,
+    current: closed ? stage === "case_record" : stage === currentStage,
   });
   const addEducation = (
     stage: "result" | "insurer" | "market" | "meaning",
@@ -114,23 +116,23 @@ export function createCaseWorkspace({
   const sent = requestIsSent(claim);
   const response = claim.insurerResponse;
   if ((!closed && report.conclusion.continuingSupported) || sent) {
-    add("request", sent ? "Initial request" : "Request preparation",
+    add("request", "Prepare your message",
       sent || requestReviewComplete(claim, report.reportId), sent);
-    if (!closed) add("waiting", "Waiting for insurer", sent, Boolean(response) && claim.followUp?.state !== "sent");
+    add("waiting", "Waiting for insurer", sent, closed || Boolean(response) && claim.followUp?.state !== "sent");
   }
   if ((!closed && report.conclusion.continuingSupported) || sent || response) {
-    add("response_received", "Insurer response", Boolean(response), Boolean(response));
     const reviewed = response?.processingState === "completed" &&
       Boolean(response.analysis && response.analysisEvidence);
     const reviewAvailable = reviewed || currentStage === "response_reviewing" || currentStage === "response_reviewed";
     add(reviewed ? "response_reviewed" : "response_reviewing", "Response review", reviewAvailable, reviewed);
   }
   if (response?.decision?.choice === "CONTINUE_CHALLENGING" && (!closed || claim.followUp?.sentMessage || claim.followUp?.draft)) {
-    add("follow_up", claim.followUp?.state === "sent" ? "Sent follow-up" : "Follow-up request", true, claim.followUp?.state === "sent");
+    add("follow_up", "Prepare your follow-up", true, claim.followUp?.state === "sent");
   }
 
   const awaitingFinalization = !closed && Boolean(currentAcceptedOffer(claim));
-  if (closed || awaitingFinalization) add("resolution", closed ? "Case outcome" : "Confirm acceptance", true, closed);
+  if (awaitingFinalization || claim.resolution?.code === "ACCEPTED_VERIFIED_OFFER") add("resolution", "Confirm acceptance", true, closed);
+  if (closed || awaitingFinalization) add("case_record", "Your case record", closed, closed);
   return {
     currentStage,
     currentPath,

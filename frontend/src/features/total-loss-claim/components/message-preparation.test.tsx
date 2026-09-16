@@ -47,7 +47,7 @@ const REPORT_ID = "44444444-4444-4444-8444-444444444444";
 const DRAFT_ID = "55555555-5555-4555-8555-555555555555";
 const VERSION_ID = "66666666-6666-4666-8666-666666666666";
 const USER_ID = "22222222-2222-4222-8222-222222222222";
-const SENT_ACKNOWLEDGEMENT = "I sent the email with this PDF attached.";
+const SENT_ACKNOWLEDGEMENT = "I sent the email with the report attached.";
 const NOW = "2026-08-29T18:00:00.000Z";
 const API = "*/api/v1/appraisal-cases/:caseId";
 const amount = (value: number) => ({
@@ -300,21 +300,28 @@ describe("follow-up preparation with the shared request editor", () => {
     }));
     const view = renderRequest(current, undefined, { followUp: true });
     expect(writes).toHaveLength(0);
+    expect(within(screen.getByRole("list", { name: "Follow-up steps" })).getAllByRole("listitem")).toHaveLength(3);
     expect(screen.getByRole("heading", { name: "Prepare your follow-up" })).toBeVisible();
-    await userEvent.click(screen.getByRole("button", { name: "Prepare my follow-up" }));
-    expect(await screen.findByRole("heading", { name: "Review and send your follow-up" })).toBeVisible();
+    await userEvent.click(screen.getByRole("button", { name: "Create my follow-up" }));
+    expect(await screen.findByRole("heading", { name: "Prepare your follow-up" })).toBeVisible();
     expect(writes).toEqual([{ decisionId: current.followUp!.decisionId }]);
     expect(screen.getByRole("textbox", { name: "Message" })).toHaveValue(followUpProjection().draft!.body);
+    const steps = within(screen.getByRole("list", { name: "Follow-up steps" })).getAllByRole("listitem");
+    expect(steps.map(step => step.getAttribute("data-state"))).toEqual(["complete", "active", "upcoming"]);
+    expect(within(steps[1]!).getByRole("textbox", { name: "Message" })).toBeVisible();
+    expect(within(steps[1]!).getByRole("region", { name: "Valuation report" })).toBeVisible();
+    expect(within(steps[1]!).getByRole("button", { name: "Open my email app" })).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Mark as sent" })).not.toBeInTheDocument();
     view.unmount();
     renderRequest(followUpClaim(), undefined, { followUp: true });
-    expect(screen.getByRole("heading", { name: "Review and send your follow-up" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Prepare your follow-up" })).toBeVisible();
     expect(writes).toHaveLength(1);
   });
 
   it("leaves an Accept decision without follow-up controls or generation", () => {
     const current = followUpClaim("available");
     renderRequest({ ...current, followUp: null, insurerResponse: { ...current.insurerResponse!, decision: { ...current.insurerResponse!.decision!, choice: "ACCEPT_OFFER" } } }, undefined, { followUp: true });
-    expect(screen.queryByRole("button", { name: "Prepare my follow-up" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Create my follow-up" })).not.toBeInTheDocument();
     expect(screen.queryByRole("textbox", { name: "Message" })).not.toBeInTheDocument();
   });
 
@@ -347,9 +354,14 @@ describe("follow-up preparation with the shared request editor", () => {
     renderRequest(current, undefined, { followUp: true, onSent });
     await user.clear(screen.getByRole("textbox", { name: "Subject" }));
     await user.type(screen.getByRole("textbox", { name: "Subject" }), "My reviewed follow-up");
-    await user.click(screen.getByRole("button", { name: kind === "copy" ? "Copy email" : "Open email app" }));
+    await user.click(screen.getByRole("button", { name: kind === "copy" ? "Copy message" : "Open my email app" }));
     await screen.findByRole("checkbox", { name: SENT_ACKNOWLEDGEMENT });
     expect(calls).toEqual(["save", "prepare"]);
+    const steps = within(screen.getByRole("list", { name: "Follow-up steps" })).getAllByRole("listitem");
+    expect(steps.map(step => step.getAttribute("data-state"))).toEqual(["complete", "complete", "active"]);
+    expect(within(steps[2]!).getByRole("checkbox", { name: SENT_ACKNOWLEDGEMENT })).toBeVisible();
+    expect(within(steps[2]!).getByRole("button", { name: "Mark as sent" })).toBeDisabled();
+    expect(within(steps[2]!).queryByRole("region", { name: "Valuation report" })).not.toBeInTheDocument();
     if (kind === "copy") expect(clipboard).toHaveBeenCalledWith(expect.stringContaining("Subject: My reviewed follow-up"));
     else expect(new URL(vi.mocked(openDefaultEmailApp).mock.calls[0]![0]).searchParams.get("subject")).toBe("My reviewed follow-up");
     expect(screen.getByRole("button", { name: "Mark as sent" })).toBeDisabled();
@@ -377,7 +389,7 @@ describe("follow-up preparation with the shared request editor", () => {
     const user = userEvent.setup();
     const clipboard = vi.spyOn(navigator.clipboard, "writeText").mockResolvedValue(undefined);
     renderRequest(current, undefined, { followUp: true });
-    const actionName = kind === "copy" ? "Copy email" : "Open email app";
+    const actionName = kind === "copy" ? "Copy message" : "Open my email app";
 
     await user.click(screen.getByRole("button", { name: actionName }));
     await screen.findByRole("checkbox", { name: SENT_ACKNOWLEDGEMENT });
@@ -428,7 +440,7 @@ describe("follow-up preparation with the shared request editor", () => {
   it("hides a generated editor when the current case can no longer verify its sources", async () => {
     server.use(http.post(`${API}/follow-up`, () => HttpResponse.json(followUpProjection())));
     const view = renderRequest(followUpClaim("available"), undefined, { followUp: true });
-    await userEvent.click(screen.getByRole("button", { name: "Prepare my follow-up" }));
+    await userEvent.click(screen.getByRole("button", { name: "Create my follow-up" }));
     await screen.findByRole("textbox", { name: "Message" });
     view.refresh(followUpClaim("unavailable"));
     expect(screen.queryByRole("textbox", { name: "Message" })).not.toBeInTheDocument();
@@ -438,7 +450,7 @@ describe("follow-up preparation with the shared request editor", () => {
   it("shows the immutable sent version instead of a newer or different draft", () => {
     const current = followUpClaim("sent");
     renderRequest({ ...current, followUp: { ...current.followUp!, draft: { ...current.followUp!.draft!, body: "Different draft body" } } }, undefined, { followUp: true });
-    expect(screen.getByRole("heading", { name: "Your sent follow-up" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Prepare your follow-up" })).toBeVisible();
     expect(screen.getByLabelText("Follow-up message")).toHaveTextContent(current.followUp!.sentMessage!.body);
     expect(screen.queryByText("Different draft body")).not.toBeInTheDocument();
     expect(screen.queryByRole("textbox", { name: "Message" })).not.toBeInTheDocument();
@@ -692,12 +704,13 @@ describe("request edits across section navigation", () => {
     const user = userEvent.setup();
     vi.spyOn(navigator.clipboard, "writeText").mockResolvedValue(undefined);
     renderRequest(current, undefined, { followUp });
-    await user.click(screen.getByRole("button", { name: "Copy email" }));
+    await user.click(screen.getByRole("button", { name: followUp ? "Copy message" : "Copy email" }));
     await screen.findByRole("checkbox", { name: SENT_ACKNOWLEDGEMENT });
     preserveRequestDraft(recoveryKey, { recipient: currentDraft.recipient!, subject: "", body: "Obsolete local recovery" }, currentDraft, true);
     await user.click(screen.getByRole("checkbox", { name: SENT_ACKNOWLEDGEMENT }));
     await user.click(screen.getByRole("button", { name: "Mark as sent" }));
-    await screen.findByRole("heading", { name: "Request marked as sent" });
+    if (followUp) await screen.findByText("You marked your follow-up as sent. Keep a copy of your email and the attached report.");
+    else await screen.findByRole("heading", { name: "Message marked as sent" });
     expect(window.sessionStorage.getItem(recoveryKey)).toBeNull();
     expect(screen.queryByRole("textbox", { name: "Message" })).not.toBeInTheDocument();
   });
@@ -755,36 +768,39 @@ describe("case request preparation", () => {
       onDraftStateChange,
     });
     expect(
-      screen.getByRole("heading", { name: "Prepare your request" }),
+      screen.getByRole("heading", { name: "Prepare your message" }),
     ).toBeVisible();
     expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
     expect(onDraftStateChange).toHaveBeenLastCalledWith(false);
     expect(screen.queryByRole("textbox", { name: "Message" })).not.toBeInTheDocument();
     expect(operations).toEqual([]);
-    if (actionContainer) expect(actionContainer).toContainElement(screen.getByRole("button", { name: "Create my request" }));
+    expect(screen.getByRole("list", { name: "Message steps" }).querySelector('[aria-current="step"] h2')).toHaveTextContent("Check your details");
+    expect(screen.getByText("This creates a draft. Nothing is sent yet.")).toBeVisible();
+    if (actionContainer) expect(actionContainer).toContainElement(screen.getByRole("button", { name: "Create my message" }));
     await user.click(
-      screen.getByRole("button", { name: "Create my request" }),
+      screen.getByRole("button", { name: "Create my message" }),
     );
     expect(
-      screen.getByRole("textbox", { name: "Adjuster or claims email" }),
+      screen.getByRole("textbox", { name: "Your adjuster’s email" }),
     ).toHaveAttribute("aria-invalid", "true");
     expect(operations).toEqual([]);
     await user.type(
-      screen.getByRole("textbox", { name: "Adjuster or claims email" }),
+      screen.getByRole("textbox", { name: "Your adjuster’s email" }),
       "adjuster@example.com",
     );
     await user.type(
-      screen.getByRole("textbox", { name: "Claim or reference number" }),
+      screen.getByRole("textbox", { name: "Claim number" }),
       "CLM-42",
     );
     await user.click(
-      screen.getByRole("button", { name: "Create my request" }),
+      screen.getByRole("button", { name: "Create my message" }),
     );
     expect(
-      await screen.findByRole("heading", { level: 1, name: "Review and send your request" }),
+      await screen.findByRole("heading", { level: 2, name: "Review your message" }),
     ).toBeVisible();
     expect(onDraftStateChange).toHaveBeenLastCalledWith(true);
-    expect(screen.queryByRole("button", { name: "Create my request" })).not.toBeInTheDocument();
+    expect(screen.getByRole("list", { name: "Message steps" }).querySelector('[aria-current="step"] h2')).toHaveTextContent("Review your message");
+    expect(screen.queryByRole("button", { name: "Create my message" })).not.toBeInTheDocument();
     expect(operations).toEqual(["details", "prepare"]);
     expect(payloads[0]).toMatchObject({
       adjusterEmailConfirmed: true,
@@ -827,8 +843,8 @@ describe("case request preparation", () => {
           },
         },
       }));
-      expect(screen.getByRole("button", { name: "Create my request" })).toBeDisabled();
-      const form = screen.getByRole("heading", { name: "Prepare your request" }).closest("form");
+      expect(screen.getByRole("button", { name: "Create my message" })).toBeDisabled();
+      const form = screen.getByRole("heading", { name: "Prepare your message" }).closest("form");
       expect(form).not.toBeNull();
       fireEvent.submit(form!);
       expect(await screen.findByRole("alert")).toHaveTextContent(
@@ -844,7 +860,7 @@ describe("case request preparation", () => {
       messageDraft: null,
       education: { ...education(), reportVersionId: "99999999-9999-4999-8999-999999999999" },
     }));
-    expect(screen.getByRole("button", { name: "Create my request" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Create my message" })).toBeDisabled();
   });
 
   it("uses refreshed review progress and the current workflow revision for preparation", async () => {
@@ -857,14 +873,14 @@ describe("case request preparation", () => {
     );
     const user = userEvent.setup();
     const rendered = renderRequest(claim({ messageDraft: null, education: education(false) }));
-    expect(screen.getByRole("button", { name: "Create my request" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Create my message" })).toBeDisabled();
     const refreshed = claim({ messageDraft: null });
     rendered.refresh({
       ...refreshed,
       workflow: { ...refreshed.workflow!, revision: 12 },
     });
-    await user.click(screen.getByRole("button", { name: "Create my request" }));
-    expect(await screen.findByRole("heading", { name: "Review and send your request" })).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Create my message" }));
+    expect(await screen.findByRole("heading", { name: "Review your message" })).toBeVisible();
     expect(attempts).toHaveLength(1);
     expect(attempts[0]).toMatchObject({ expectedWorkflowRevision: 12 });
   });
@@ -878,8 +894,8 @@ describe("case request preparation", () => {
         }),
       }),
     );
-    expect(screen.getByRole("heading", { name: "Prepare your request" })).toBeVisible();
-    expect(screen.queryByRole("heading", { name: "Review and send your request" })).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Prepare your message" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Review your message" }).closest("[data-state]")).toHaveAttribute("data-state", "upcoming");
     expect(screen.queryByRole("textbox", { name: "Message" })).not.toBeInTheDocument();
   });
 
@@ -905,13 +921,13 @@ describe("case request preparation", () => {
     );
     const user = userEvent.setup();
     renderRequest(claim({ messageDraft: null }));
-    await user.click(screen.getByRole("button", { name: "Create my request" }));
+    await user.click(screen.getByRole("button", { name: "Create my message" }));
     expect(await screen.findByRole("alert")).toHaveTextContent(
-      "We couldn’t create your request draft.",
+      "We couldn’t create your message.",
     );
     expect(screen.queryByRole("textbox", { name: "Message" })).not.toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Create my request" }));
-    expect(await screen.findByRole("heading", { name: "Review and send your request" })).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Create my message" }));
+    expect(await screen.findByRole("heading", { name: "Review your message" })).toBeVisible();
     expect(attempts).toBe(2);
   });
 
@@ -921,26 +937,26 @@ describe("case request preparation", () => {
     expect(screen.getByText("adjuster@example.com")).toBeVisible();
     expect(screen.getByText("CLM-42")).toBeVisible();
     expect(screen.queryByText("Unavailable")).not.toBeInTheDocument();
-    expect(screen.getByText("We’ll prepare an editable email asking the insurer to review its valuation using the market evidence and respond in writing.")).toBeVisible();
+    expect(screen.getByText("Review the details and message here, then send it from your email app.")).toBeVisible();
     expect(screen.queryByText("You can review and edit the email before sending it. Nothing is sent automatically.")).not.toBeInTheDocument();
   });
 
   it("explains both requests for a manual case without claiming an insurer report was reviewed", () => {
     renderRequest(claim({ messageDraft: null }), undefined, { intakeMode: "manual" });
-    expect(screen.getByText("We’ll prepare an editable email asking the insurer to review the offer using the attached market evidence and respond in writing. If you also want the insurer’s full valuation report—including the comparable vehicles and adjustments used—add that request to the draft before sending.")).toBeVisible();
+    expect(screen.getByText("Review the details and message here, then send it from your email app.")).toBeVisible();
     expect(screen.queryByText("Nothing is sent automatically. You’ll send the email from your own account.")).not.toBeInTheDocument();
     expect(screen.queryByText(/review its valuation/u)).not.toBeInTheDocument();
-    expect(screen.getByText("Your valuation report contains the supporting valuation information and comparable-vehicle evidence. You’ll attach it when you send the email from your email app.")).toBeVisible();
+    expect(screen.getByText("You can also ask for your insurer’s full valuation report by adding that request to your message.")).toBeVisible();
   });
 
   it("keeps the evidence available with one manual attachment reminder", () => {
     renderRequest();
-    expect(screen.getByText("Attach this PDF in your email app before sending.")).toBeVisible();
+    expect(screen.getByText("Download this report and attach it when you send your email.")).toBeVisible();
     const evidence = screen.getByRole("region", { name: "Valuation report" });
     expect(within(evidence).getByRole("button", { name: "View report" })).toBeEnabled();
     expect(within(evidence).getByRole("button", { name: "Download report" })).toBeEnabled();
     expect(screen.queryByText(report().suggestedFilename)).not.toBeInTheDocument();
-    expect(screen.queryByRole("list")).not.toBeInTheDocument();
+    expect(screen.getByRole("list", { name: "Message steps" }).querySelector('[aria-current="step"] h2')).toHaveTextContent("Review your message");
     expect(screen.queryByRole("button", { name: "Mark as sent" })).not.toBeInTheDocument();
   });
 
@@ -948,10 +964,10 @@ describe("case request preparation", () => {
     const onRefresh = vi.fn(async () => undefined);
     renderRequest(claim({ messageDraft: null, sendingDetails: null }), onRefresh);
 
-    expect(screen.getByRole("alert")).toHaveTextContent("Sending details are temporarily unavailable");
+    expect(screen.getByRole("alert")).toHaveTextContent("We couldn’t load your sending details.");
     await userEvent.setup().click(screen.getByRole("button", { name: "Try again" }));
     expect(onRefresh).toHaveBeenCalledTimes(1);
-    expect(screen.getByRole("button", { name: "Create my request" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Create my message" })).toBeDisabled();
   });
 
   it("saves owner-voiced generated copy before preparing or copying the email", async () => {
@@ -1038,7 +1054,7 @@ describe("case request preparation", () => {
       }),
     );
     await user.click(
-      screen.getByRole("button", { name: "Create my request" }),
+      screen.getByRole("button", { name: "Create my message" }),
     );
     expect(await screen.findByRole("textbox", { name: "Message" })).toHaveValue(
       "I am requesting written reconsideration of the vehicle valuation for claim CLM-42.",
@@ -1215,7 +1231,7 @@ describe("case request preparation", () => {
     const onSent = vi.fn();
     const actionContainer = placement === "footer" ? renderRequestFooter() : undefined;
     renderRequest(undefined, undefined, { actionContainer, onSent });
-    const openAction = screen.getByRole("button", { name: "Open email app" });
+    const openAction = screen.getByRole("button", { name: "Open my email app" });
     if (actionContainer) {
       expect(actionContainer).toContainElement(openAction);
       expect(actionContainer).not.toContainElement(screen.getByRole("button", { name: "Copy email" }));
@@ -1233,13 +1249,14 @@ describe("case request preparation", () => {
     const confirmation = await screen.findByRole("heading", { level: 2, name: "Sent the email with the report attached?" });
     expect(confirmation).toBeVisible();
     expect(confirmation).toHaveFocus();
+    expect(screen.getByRole("list", { name: "Message steps" }).querySelector('[aria-current="step"] h2')).toHaveTextContent("Sent the email with the report attached?");
     expect(order).toEqual(["save", "prepare"]);
     expect(copied).toHaveBeenCalledWith(
       "Subject: Updated subject\n\nMy exact updated request.",
     );
     expect(sentCalls).toBe(0);
     expect(onSent).not.toHaveBeenCalled();
-    expect(screen.queryByRole("button", { name: "Open email app" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Open my email app" })).not.toBeInTheDocument();
     const confirmAction = screen.getByRole("button", { name: "Mark as sent" });
     expect(confirmAction).toHaveAccessibleDescription("Sent the email with the report attached?");
     if (actionContainer) expect(actionContainer).toContainElement(confirmAction);
@@ -1254,13 +1271,13 @@ describe("case request preparation", () => {
     await waitFor(() => expect(sentCalls).toBe(1));
     expect(screen.getByRole("button", { name: "Recording…" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Not yet" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Copy email" })).toBeDisabled();
-    expect(screen.getByRole("textbox", { name: "Message" })).toBeDisabled();
+    expect(screen.getByText("Copy email").closest("button")).toBeDisabled();
+    expect(screen.getByLabelText("Message")).toBeDisabled();
     expect(acknowledgement).toBeDisabled();
     expect(onSent).not.toHaveBeenCalled();
     await act(async () => releaseSent());
     expect(
-      await screen.findByRole("heading", { name: "Request marked as sent" }),
+      await screen.findByRole("heading", { name: "Message marked as sent" }),
     ).toBeVisible();
     expect(sentCalls).toBe(1);
     expect(onSent).toHaveBeenCalledTimes(1);
@@ -1290,7 +1307,7 @@ describe("case request preparation", () => {
     const user = userEvent.setup();
     const actionContainer = placement === "footer" ? renderRequestFooter() : undefined;
     renderRequest(undefined, undefined, { actionContainer });
-    const openAction = screen.getByRole("button", { name: "Open email app" });
+    const openAction = screen.getByRole("button", { name: "Open my email app" });
     if (actionContainer) expect(actionContainer).toContainElement(openAction);
     openAction.focus();
     await user.keyboard("{Enter}");
@@ -1306,6 +1323,10 @@ describe("case request preparation", () => {
     await waitFor(() => expect(opened).toBe(1));
     expect(sentCalls).toBe(0);
     await user.tab();
+    expect(screen.getByRole("button", { name: "Download report" })).toHaveFocus();
+    await user.tab();
+    expect(screen.getByRole("button", { name: "View report" })).toHaveFocus();
+    await user.tab();
     const acknowledgement = screen.getByRole("checkbox", { name: SENT_ACKNOWLEDGEMENT });
     expect(acknowledgement).toHaveFocus();
     expect(acknowledgement).not.toBeChecked();
@@ -1319,7 +1340,7 @@ describe("case request preparation", () => {
     expect(
       screen.queryByRole("button", { name: "Mark as sent" }),
     ).not.toBeInTheDocument();
-    const restoredOpenAction = screen.getByRole("button", { name: "Open email app" });
+    const restoredOpenAction = screen.getByRole("button", { name: "Open my email app" });
     expect(restoredOpenAction).toBeVisible();
     expect(restoredOpenAction).toHaveFocus();
     if (actionContainer) expect(actionContainer).toContainElement(restoredOpenAction);
@@ -1351,7 +1372,7 @@ describe("case request preparation", () => {
     const user = userEvent.setup();
     const actionContainer = renderRequestFooter();
     renderRequest(undefined, undefined, { actionContainer });
-    const openAction = within(actionContainer).getByRole("button", { name: "Open email app" });
+    const openAction = within(actionContainer).getByRole("button", { name: "Open my email app" });
     await user.dblClick(openAction);
     await waitFor(() => expect(prepareCalls).toBe(1));
     expect(within(actionContainer).getByRole("button", { name: "Preparing email…" })).toBeDisabled();
@@ -1385,12 +1406,12 @@ describe("case request preparation", () => {
     const user = userEvent.setup();
     const actionContainer = renderRequestFooter();
     renderRequest(undefined, undefined, { actionContainer });
-    await user.click(within(actionContainer).getByRole("button", { name: "Open email app" }));
+    await user.click(within(actionContainer).getByRole("button", { name: "Open my email app" }));
     const nextAction = await within(actionContainer).findByRole("button", { name: "Mark as sent" });
     await user.dblClick(nextAction);
     expect(nextAction).toBeDisabled();
     expect(screen.getByRole("checkbox", { name: SENT_ACKNOWLEDGEMENT })).not.toBeChecked();
-    expect(screen.getByRole("heading", { name: "Review and send your request" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Review your message" })).toBeVisible();
     expect(sentCalls).toBe(0);
   });
 
@@ -1404,7 +1425,7 @@ describe("case request preparation", () => {
     renderRequest(undefined, undefined, { actionContainer });
     await user.click(screen.getByRole("button", { name: "Copy email" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("We couldn’t copy the email.");
-    expect(within(actionContainer).getByRole("button", { name: "Open email app" })).toBeEnabled();
+    expect(within(actionContainer).getByRole("button", { name: "Open my email app" })).toBeEnabled();
     expect(screen.queryByRole("button", { name: "Mark as sent" })).not.toBeInTheDocument();
   });
 
@@ -1429,8 +1450,9 @@ describe("case request preparation", () => {
     await user.click(await screen.findByRole("checkbox", { name: SENT_ACKNOWLEDGEMENT }));
     expect(within(actionContainer).getByRole("button", { name: "Mark as sent" })).toBeEnabled();
 
+    await user.click(screen.getByRole("button", { name: "Not yet" }));
     await user.click(screen.getByRole("button", { name: "Copy email" }));
-    await waitFor(() => expect(screen.getByRole("button", { name: "Copy email" })).toBeEnabled());
+    await screen.findByRole("heading", { name: "Sent the email with the report attached?" });
     expect(screen.getByRole("checkbox", { name: SENT_ACKNOWLEDGEMENT })).not.toBeChecked();
     const confirmAction = within(actionContainer).getByRole("button", { name: "Mark as sent" });
     expect(confirmAction).toBeDisabled();
@@ -1475,6 +1497,7 @@ describe("case request preparation", () => {
     await user.click(await screen.findByRole("checkbox", { name: SENT_ACKNOWLEDGEMENT }));
     expect(within(actionContainer).getByRole("button", { name: "Mark as sent" })).toBeEnabled();
 
+    await user.click(screen.getByRole("button", { name: "Not yet" }));
     await user.click(message);
     await user.type(message, " Revised.");
     expect(message).toHaveFocus();
@@ -1486,12 +1509,13 @@ describe("case request preparation", () => {
     expect(confirmAction).toBeDisabled();
     await user.click(confirmAction);
     expect(sentPayloads).toEqual([]);
-    expect(screen.getByRole("textbox", { name: "Message" })).toBe(message);
+    expect(screen.getByLabelText("Message")).toBe(message);
+    expect(message).not.toBeVisible();
     expect(message).toHaveValue(`${draft().body} Revised.`);
 
     await user.click(acknowledgement);
     await user.click(confirmAction);
-    expect(await screen.findByRole("heading", { name: "Request marked as sent" })).toBeVisible();
+    expect(await screen.findByRole("heading", { name: "Message marked as sent" })).toBeVisible();
     expect(prepareCalls).toBe(2);
     expect(sentPayloads).toEqual([expect.objectContaining({
       confirmedReportAttached: true,
@@ -1516,12 +1540,13 @@ describe("case request preparation", () => {
       await screen.findByRole("button", { name: "Mark as sent" }),
     ).toBeVisible();
     expect(screen.getByRole("heading", { name: "Sent the email with the report attached?" })).toHaveFocus();
+    await user.click(screen.getByRole("button", { name: "Not yet" }));
     await user.click(message);
     await user.type(message, " Updated.");
     expect(screen.getByRole("textbox", { name: "Message" })).toBe(message);
     expect(message).toHaveFocus();
     expect(message).toHaveValue(`${draft().body} Updated.`);
-    const restoredOpenAction = screen.getByRole("button", { name: "Open email app" });
+    const restoredOpenAction = screen.getByRole("button", { name: "Open my email app" });
     expect(actionContainer).toContainElement(restoredOpenAction);
     expect(restoredOpenAction).not.toHaveFocus();
     expect(screen.queryByRole("button", { name: "Mark as sent" })).not.toBeInTheDocument();
@@ -1685,7 +1710,7 @@ describe("case request preparation", () => {
       await screen.findByRole("button", { name: "Mark as sent" }),
     );
     expect(
-      await screen.findByRole("heading", { name: "Request marked as sent" }),
+      await screen.findByRole("heading", { name: "Message marked as sent" }),
     ).toBeVisible();
     expect(onRefresh).toHaveBeenCalledTimes(1);
   });
@@ -1712,7 +1737,7 @@ describe("case request preparation", () => {
     );
     expect(onRefresh).toHaveBeenCalledTimes(1);
     expect(onSent).not.toHaveBeenCalled();
-    expect(screen.getByRole("heading", { name: "Review and send your request" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Review your message" })).toBeVisible();
   });
 
   it("reports persisted sent success even if the following refresh is unavailable", async () => {
@@ -1733,7 +1758,7 @@ describe("case request preparation", () => {
     await user.click(await screen.findByRole("checkbox", { name: SENT_ACKNOWLEDGEMENT }));
     await user.click(await screen.findByRole("button", { name: "Mark as sent" }));
     await waitFor(() => expect(onSent).toHaveBeenCalledTimes(1));
-    expect(screen.getByRole("heading", { name: "Request marked as sent" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Message marked as sent" })).toBeVisible();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 

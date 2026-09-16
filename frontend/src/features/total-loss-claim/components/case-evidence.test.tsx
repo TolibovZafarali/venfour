@@ -185,36 +185,28 @@ describe("completed case evidence", () => {
         amount: "$25,541", type: "TAKE", typeLabel: "Take Price", label: "Take Price",
       } }],
     } }} />);
-    const table = screen.getByRole("table", { name: "Insurer comparables" });
-    expect(within(table).getByRole("columnheader", { name: "Source price" })).toBeVisible();
-    expect(within(table).getByText("Take Price")).toBeVisible();
-    expect(within(table).getByText("$25,541")).toBeVisible();
-    expect(within(table).queryByRole("columnheader", { name: "Advertised price" })).not.toBeInTheDocument();
+    const vehicle = screen.getByRole("group", { name: "2022 Insurer Vehicle 1" });
+    expect(within(vehicle).getByText("Take Price")).toBeVisible();
+    expect(within(vehicle).getByText("$25,541")).toBeVisible();
+    expect(within(vehicle).queryByText("Asking price")).not.toBeInTheDocument();
   });
 
   it("keeps every selected market listing and source detail in backend order", () => {
     render(<CaseEvidence report={report()} />);
-    const table = screen.getByRole("table", { name: "Selected market listings" });
-    expect(
-      within(table).getAllByRole("rowheader").map((cell) => cell.textContent),
-    ).toEqual(Array.from({ length: 7 }, (_, index) => `2022 Market Vehicle ${index + 1}`));
-    const firstRow = within(table).getAllByRole("row")[1];
-    expect(within(firstRow).getAllByRole("cell").map((cell) => cell.textContent)).toEqual([
-      "31,500 mi",
-      "$21,000",
-      "12.5 mi",
-      "Dealer 1",
-      "Chicago, IL",
-      "Aug 28, 2026",
-      "Current listing",
-      "Primary comparison evidence",
-    ]);
+    const listings = screen.getByRole("region", { name: "Vehicle listings" });
+    const rows = within(listings).getAllByRole("group");
+    expect(rows.map(row => row.getAttribute("aria-label"))).toEqual(Array.from({ length: 7 }, (_, index) => `2022 Market Vehicle ${index + 1}`));
+    const first = rows[0];
+    for (const value of ["$21,000", "12.5 miles", "Dealer 1", "Aug 28, 2026", "Current listing", "Used in this comparison"]) {
+      expect(within(first).getByText(value)).toBeVisible();
+    }
+    expect(within(first).getByText("31,500 miles · Chicago, IL")).toBeVisible();
     expect(screen.getByText("Dealer 7")).toBeVisible();
     expect(screen.queryByText("PRIMARY")).not.toBeInTheDocument();
     expect(screen.queryByText("CURRENT_MARKET")).not.toBeInTheDocument();
   });
 
-  it("preserves every insurer adjustment and distinguishes non-disclosure from unavailability", () => {
+  it("preserves every insurer adjustment and distinguishes non-disclosure from unavailability", async () => {
     const data = report();
     render(<CaseEvidence report={{
       ...data,
@@ -226,22 +218,17 @@ describe("completed case evidence", () => {
         } : comparable),
       },
     }} />);
-    const table = screen.getByRole("table", { name: "Insurer comparables" });
-    expect(within(table).getAllByRole("rowheader")).toHaveLength(7);
-    const firstRow = within(table).getAllByRole("row")[1];
-    expect(within(firstRow).getAllByRole("cell").map((cell) => cell.textContent)).toEqual([
-      "30,000 mi",
-      "$18,500",
-      "$18,000",
-      "Not disclosed",
-      "Not disclosed",
-      "-$120",
-      "$200",
-      "$0",
-      "$450",
-      "25%",
-    ]);
-    expect(within(table).getByText("Details not provided")).toBeVisible();
+    const vehicles = screen.getAllByRole("group");
+    expect(vehicles.filter(row => row.classList.contains("insurer-vehicle"))).toHaveLength(7);
+    const first = screen.getByRole("group", { name: "2022 Insurer Vehicle 1" });
+    await userEvent.setup().click(within(first).getByText("2022 Insurer Vehicle 1"));
+    for (const value of ["30,000 miles", "$18,500", "$18,000", "-$120", "$200", "$0", "$450", "25%", "Not disclosed"]) {
+      expect(within(first).getByText(value)).toBeVisible();
+    }
+    expect(within(first).getByText("Adjustment details: not disclosed.")).toBeVisible();
+    const second = screen.getByRole("group", { name: "2022 Insurer Vehicle 2" });
+    await userEvent.setup().click(within(second).getByText("2022 Insurer Vehicle 2"));
+    expect(within(second).getByText("Adjustment details: details not provided.")).toBeVisible();
     expect(screen.queryByText("Unavailable")).not.toBeInTheDocument();
   });
 
@@ -264,21 +251,22 @@ describe("completed case evidence", () => {
         }],
       },
     }} />);
-    const table = screen.getByRole("table", { name: "Selected market listings" });
-    expect(within(table).getByRole("rowheader")).toHaveTextContent("Selected listing 1");
-    const row = within(table).getAllByRole("row")[1];
-    expect(within(row).getAllByRole("cell").map((cell) => cell.textContent)).toEqual([
-      "—", "—", "0 mi", "—", "—", "Not stated", "Not stated", "Not stated",
-    ]);
+    const row = screen.getByRole("group", { name: "Vehicle listing 1" });
+    expect(within(row).getByText("Mileage not provided · Location not provided")).toBeVisible();
+    expect(within(row).getByText("0 miles")).toBeVisible();
+    expect(within(row).getAllByText("Not provided")).toHaveLength(2);
+    expect(within(row).getByText("Comparison role not specified")).toBeVisible();
+    expect(within(row).queryByText("$0")).not.toBeInTheDocument();
+
   });
 
   it("opens each evidence source only through explicit inspection", async () => {
     render(<><InsurerEvidenceDetails report={report()} /><MarketEvidenceDetails report={report()} /></>);
     expect(screen.getByText("Dealer 7")).not.toBeVisible();
-    await userEvent.setup().click(screen.getByText("See selected market listings"));
+    await userEvent.setup().click(screen.getByText("2022 Market Vehicle 7"));
     expect(screen.getByText("Dealer 7")).toBeVisible();
     expect(screen.getByText("2022 Insurer Vehicle 1")).not.toBeVisible();
-    await userEvent.setup().click(screen.getByText("Insurer comparable details"));
+    await userEvent.setup().click(screen.getByText("See the vehicles they used"));
     expect(screen.getByText("2022 Insurer Vehicle 1")).toBeVisible();
     expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
   });
@@ -290,8 +278,8 @@ describe("completed case evidence", () => {
       insurerEvidence: { ...data.insurerEvidence, comparableCount: 0, comparables: [] },
       marketEvidence: { ...data.marketEvidence, comparables: [], primary: null },
     }} />);
-    expect(screen.getByText("No comparable market listings were available.")).toBeVisible();
-    expect(screen.getByText("No insurer comparables were available in the report.")).toBeVisible();
+    expect(screen.getByText("No vehicle listings were available to show.")).toBeVisible();
+    expect(screen.getByText("Vehicle details weren’t available in the report.")).toBeVisible();
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
     await userEvent.setup().click(screen.getByText("Evidence dates and methodology"));
     expect(screen.getByText("Your valuation report contains the complete methodology, limitations, and technical evidence.")).toBeVisible();
@@ -318,7 +306,7 @@ describe("completed case evidence", () => {
       },
     }} />);
     expect(screen.getByText("Disclosed advertised prices ranged from $18,000 to $20,000.")).not.toBeVisible();
-    await userEvent.setup().click(screen.getByText("Insurer comparable details"));
+    await userEvent.setup().click(screen.getByText("See the vehicles they used"));
     expect(screen.getByText("Disclosed advertised prices ranged from $18,000 to $20,000.")).toBeVisible();
     expect(screen.queryByText(/Disclosed adjusted values ranged/u)).not.toBeInTheDocument();
     expect(screen.queryByText(/Unavailable|Not stated to/u)).not.toBeInTheDocument();

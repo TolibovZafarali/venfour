@@ -4,6 +4,8 @@
 
 .workspace-preview-note { position: fixed; bottom: 8px; right: 12px; z-index: 80; display: flex; flex-wrap: wrap; max-width: calc(100vw - 24px); gap: 4px 10px; align-items: center; padding: 4px 10px; border: 1px solid #dae2f0; border-radius: 8px; background: #fcfdffff; color: #59667b; font: 10px/1.5 system-ui; }
 .workspace-preview-note :is(a, button) { display: inline-flex; align-items: center; gap: 4px; min-height: 28px; color: #155eef; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.workspace-preview-note[data-message-demo] { position: static; width: fit-content; margin: 16px 12px 12px auto; }
+.workspace-preview-note[data-message-demo] :is(a, button) { min-height: 44px; }
 .entry-preview-controls { position: fixed; z-index: 80; bottom: 54px; left: 50%; transform: translateX(-50%); display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 4px 16px; width: max-content; max-width: calc(100% - 24px); padding: 6px 16px; border: 1px solid var(--line); border-radius: 12px; background: white; color: var(--copy); box-shadow: 0 4px 24px #00000008; font-size: 12px; }
 .entry-preview-controls :is(a, button) { display: inline-flex; align-items: center; min-height: 44px; color: var(--brand); text-underline-offset: 4px; cursor: pointer; }
 .entry-preview-controls :is(a, button):hover { text-decoration: underline; }

@@ -1,16 +1,15 @@
 import { ArrowRight, LoaderCircle } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import { Link } from "react-router";
 
 import type { TotalLossFollowUp } from "../contracts";
 import { useTotalLossFollowUpGenerationMutation } from "../queries";
 import type { RequestPreparationOptions } from "../use-request-preparation";
 import { totalLossClaimViewPath } from "../workflow-route";
-import { RecordedTime } from "./completed-analysis-visuals";
+import { FollowUpHeading, SentFollowUp } from "./follow-up-message";
 import { DraftEditor } from "./message-preparation";
-import { ReportFileRow } from "./published-report-actions";
 import { StableActionLabel } from "./stable-action-label";
+import { MessageStepHeading } from "./message-step-heading";
 
 function unavailableExplanation(reasonCode: string | null) {
   switch (reasonCode) {
@@ -34,29 +33,7 @@ function unavailableExplanation(reasonCode: string | null) {
   }
 }
 
-export function SentFollowUp({ followUp }: { readonly followUp: TotalLossFollowUp }) {
-  const message = followUp.sentMessage;
-  if (!message) return null;
-  return (
-    <section className="sent-request" aria-labelledby="sent-follow-up-heading">
-      <header className="request-heading" data-review-entrance="primary">
-        <h1 id="sent-follow-up-heading">Your sent follow-up</h1>
-        <p>The follow-up you confirmed sending in response to the saved insurer reply.</p>
-      </header>
-      <p className="sent-request-recorded" data-review-entrance="supporting">You confirmed sending this message on <RecordedTime value={message.customerReportedSentAt} />. Version {message.versionNumber}.</p>
-      <div className="sent-request-content" data-review-entrance="secondary">
-        <dl className="sent-request-details">
-          <div><dt>To</dt><dd>{message.recipient}</dd></div>
-          <div><dt>Subject</dt><dd>{message.subject}</dd></div>
-        </dl>
-        <p className="sent-request-body" aria-label="Follow-up message">{message.body}</p>
-      </div>
-    </section>
-  );
-}
-
-export function FollowUpPreparation({ actionContainer, onSent, onSentAttempt, ...props }: RequestPreparationOptions & {
-  readonly actionContainer?: HTMLElement | null;
+export function FollowUpPreparation({ onSent, onSentAttempt, ...props }: RequestPreparationOptions & {
   readonly onSent?: () => void;
   readonly onSentAttempt?: (messageVersionId: string) => void;
 }) {
@@ -97,23 +74,28 @@ export function FollowUpPreparation({ actionContainer, onSent, onSentAttempt, ..
       locked.current = false;
     }
   };
-  if (followUp?.sentMessage) return <><SentFollowUp followUp={followUp} /><ReportFileRow {...props} /></>;
-  if (followUp?.state === "draft" && followUp.draft) return <DraftEditor {...props} actionContainer={actionContainer} draft={followUp.draft} followUpDraftId={followUp.draft.draftId} initialPreparedMessage={followUp.preparedMessage} key={followUp.draft.draftId} onSent={onSent} onSentAttempt={(messageVersionId) => { sentConfirmationRequested.current = true; onSentAttempt?.(messageVersionId); }} workflowRevision={claim.workflow?.revision ?? 1} />;
+  if (followUp?.sentMessage) return <SentFollowUp followUp={followUp} />;
+  if (followUp?.state === "draft" && followUp.draft) return <DraftEditor {...props} draft={followUp.draft} followUpDraftId={followUp.draft.draftId} initialPreparedMessage={followUp.preparedMessage} key={followUp.draft.draftId} onSent={onSent} onSentAttempt={(messageVersionId) => { sentConfirmationRequested.current = true; onSentAttempt?.(messageVersionId); }} workflowRevision={claim.workflow?.revision ?? 1} />;
 
-  const createAction = <button className={actionContainer === undefined ? "request-button request-button-primary" : "review-primary"} disabled={mutation.isPending} type="button" onClick={() => void create()}>
-    <StableActionLabel reserve="Prepare my follow-up">{mutation.isPending ? "Preparing follow-up…" : followUp?.state === "unavailable" || error ? "Retry preparation" : "Prepare my follow-up"}</StableActionLabel>
+  const createAction = <button className="request-button request-button-primary" disabled={mutation.isPending} type="button" onClick={() => void create()}>
+    <StableActionLabel reserve="Create my follow-up">{mutation.isPending ? "Creating follow-up…" : followUp?.state === "unavailable" || error ? "Retry preparation" : "Create my follow-up"}</StableActionLabel>
     {mutation.isPending ? <LoaderCircle className="request-spinner" aria-hidden="true" /> : <ArrowRight aria-hidden="true" />}
   </button>;
   return <section className="request-prepare" aria-label="Follow-up preparation">
-    <header className="request-heading" data-review-entrance="primary">
-      <h1>Prepare your follow-up</h1>
-      <p>You chose to continue challenging. Venfour will prepare an editable response focused on the remaining issues supported by your saved case evidence.</p>
-    </header>
-    <p className="request-package-intro" data-review-entrance="secondary">Your follow-up uses the saved report, the request being answered, the latest insurer response, and its response analysis. You control the final wording and send it from your email app.</p>
-    {followUp?.state === "unavailable" ? <p className="request-error" role="status">{unavailableExplanation(followUp.reasonCode)}</p> : null}
-    {error ? <p className="request-error" role="alert">{error}</p> : null}
-    <p className="review-note"><Link to={totalLossClaimViewPath(caseId, "review_response_reviewed")}>Review the response analysis and your decision</Link></p>
-    <ReportFileRow {...props} />
-    {actionContainer ? createPortal(createAction, actionContainer) : actionContainer === undefined ? <div className="request-editor-actions">{createAction}</div> : null}
+    <FollowUpHeading />
+    <div className="message-flow" role="list" aria-label="Follow-up steps">
+      <section className="message-flow-step" role="listitem" data-state="active" aria-current="step">
+        <MessageStepHeading number={1} title="Create your follow-up" state="active" description="Start with a draft based on your case and the insurer’s reply." />
+        <div className="message-flow-content">
+          <p className="message-send-instructions">We’ll focus on the remaining points supported by your case evidence. You can edit the message before sending it.</p>
+          {followUp?.state === "unavailable" ? <p className="request-error" role="status">{unavailableExplanation(followUp.reasonCode)}</p> : null}
+          {error ? <p className="request-error" role="alert">{error}</p> : null}
+          <p className="review-note"><Link to={totalLossClaimViewPath(caseId, "review_response_reviewed")}>Revisit your response review</Link></p>
+          <div className="message-local-actions">{createAction}</div>
+        </div>
+      </section>
+      <section className="message-flow-step" role="listitem" data-state="upcoming"><MessageStepHeading number={2} title="Review and send your message" state="upcoming" description="Check your draft, attach the report, and open your email app." /></section>
+      <section className="message-flow-step" role="listitem" data-state="upcoming"><MessageStepHeading number={3} title="Mark as sent" state="upcoming" description="Confirm once you’ve sent the email with your report." /></section>
+    </div>
   </section>;
 }

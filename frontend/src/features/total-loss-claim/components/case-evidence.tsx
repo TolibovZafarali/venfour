@@ -30,10 +30,6 @@ function EvidenceDisclosure({
   );
 }
 
-function EvidenceCell({ label, children }: { readonly label: string; readonly children: ReactNode }) {
-  return <td role="cell" data-label={label}>{children}</td>;
-}
-
 export function MethodologyDisclosure({ report, intakeMode = "report" }: ReportProps & { readonly intakeMode?: TotalLossIntakeMode }) {
   const context = report.marketEvidence.evidenceDateContext;
   return (
@@ -79,7 +75,7 @@ export function MarketSearchLimitations({ report }: { report: Pick<TotalLossPubl
   const context = report.marketEvidence.marketSearchContext;
   if (context?.baselineStatus !== "LIMITED") return null;
   return <aside className="completed-evidence market-search-limitations" aria-label="Comparable search limitations">
-    <h2>Comparable search limitations</h2>
+    <h2>What we couldn’t check</h2>
     <p>{context.summary}</p>
     <ul>{context.stopReasons.map((reason) => <li key={`${reason.stream}:${reason.code}`}>{reason.stream === "historical" ? "Loss-date evidence" : "Current evidence"}: {reason.description}</li>)}</ul>
   </aside>;
@@ -87,81 +83,70 @@ export function MarketSearchLimitations({ report }: { report: Pick<TotalLossPubl
 
 export function InsurerEvidenceDetails({ report, open }: ReportProps) {
   const rows = report.insurerEvidence.comparables;
-  return (
-    <EvidenceDisclosure label="Insurer comparable details" open={open}>
-      <div className="completed-evidence__introduction">
-        <p>These are the values and adjustments disclosed in your insurer’s report. Missing details do not mean an adjustment was improper.</p>
-        <p>Reported contribution shows the percentage the insurer assigned to a comparable. Venfour has not assigned its own accepted, challenged, or excluded weights.</p>
+  return <EvidenceDisclosure label="See the vehicles they used" open={open}>
+    {rows.length ? <>
+      <p className="insurer-vehicles-intro">Open a vehicle to see the changes listed in your insurer’s report.</p>
+      <div className="insurer-vehicles">
+        {rows.map((row, index) => {
+          const vehicle = displayed(row.vehicle, `Vehicle ${index + 1} in their report`);
+          return <details className="insurer-vehicle" key={`${index}:${row.vehicle}`} aria-label={vehicle}>
+            <summary>
+              <span className="insurer-vehicle-identity"><strong>{vehicle}</strong><span>{row.mileage === null ? "Mileage not provided" : numeric(row.mileage, " miles")}</span></span>
+              <span className="insurer-vehicle-price"><span>{row.sourcePrice?.typeLabel ?? "Asking price"}</span><strong>{displayed(row.sourcePrice ? row.sourcePrice.amount : row.advertisedPrice, "Not provided")}</strong></span>
+              <span className="insurer-vehicle-price"><span>After adjustments</span><strong>{displayed(row.adjustedValue, "Not provided")}</strong></span>
+              <ChevronDown aria-hidden="true" size={18} />
+            </summary>
+            <div className="insurer-vehicle-details">
+              <p>Adjustment details: {disclosureLabel(row.adjustmentDisclosure).toLowerCase()}.</p>
+              <dl>
+                <div><dt>Condition</dt><dd>{displayed(row.adjustments.condition, "Not disclosed")}</dd></div>
+                <div><dt>Mileage</dt><dd>{displayed(row.adjustments.mileage, "Not disclosed")}</dd></div>
+                <div><dt>Options and features</dt><dd>{displayed(row.adjustments.options, "Not disclosed")}</dd></div>
+                <div><dt>Equipment packages</dt><dd>{displayed(row.adjustments.package, "Not disclosed")}</dd></div>
+                <div className="insurer-vehicle-total"><dt>Total adjustment</dt><dd>{displayed(row.netAdjustment, "Not disclosed")}</dd></div>
+                {row.contributionPercent !== null ? <div><dt>Weight in the insurer’s calculation</dt><dd>{numeric(row.contributionPercent, "%")}</dd></div> : null}
+              </dl>
+              <p className="review-note">These changes and any weighting come from your insurer’s report. Missing details do not mean a change was wrong.</p>
+            </div>
+          </details>;
+        })}
       </div>
+      {report.insurerEvidence.comparableCount > rows.length ? <p className="review-note">Details are available here for {rows.length} of the {report.insurerEvidence.comparableCount} vehicles in the report.</p> : null}
       {(["advertisedPrices", "adjustedValues"] as const).map((kind) => {
         const summary = report.insurerEvidence.summary[kind];
-        return summary && summary.count > 1 && summary.low?.amountMinorUnits != null && summary.high?.amountMinorUnits != null && displayed(summary.low.formatted, "") && displayed(summary.high.formatted, "") ? <p key={kind}>{kind === "advertisedPrices" ? "Disclosed advertised prices" : "Disclosed adjusted values"} ranged from {moneyLabel(summary.low)} to {moneyLabel(summary.high)}.</p> : null;
+        return summary && summary.count > 1 && summary.low?.amountMinorUnits != null && summary.high?.amountMinorUnits != null && displayed(summary.low.formatted, "") && displayed(summary.high.formatted, "") ? <p className="review-note" key={kind}>{kind === "advertisedPrices" ? "Disclosed advertised prices" : "Disclosed adjusted values"} ranged from {moneyLabel(summary.low)} to {moneyLabel(summary.high)}.</p> : null;
       })}
-      {rows.length ? (
-        <div className="evidence-table completed-evidence__table" role="region" aria-label="Insurer comparable table">
-          <table role="table">
-            <caption>Insurer comparables</caption>
-            <thead role="rowgroup"><tr role="row">
-              <th scope="col">Vehicle</th><th scope="col">Mileage</th>
-              <th scope="col">{rows.some((row) => row.sourcePrice) ? "Source price" : "Advertised price"}</th><th scope="col">Adjusted value</th>
-              <th scope="col">Net adjustment</th><th scope="col">Disclosure status</th>
-              <th scope="col">Condition adjustment</th><th scope="col">Mileage adjustment</th>
-              <th scope="col">Options adjustment</th><th scope="col">Package adjustment</th>
-              <th scope="col">Reported contribution</th>
-            </tr></thead>
-            <tbody role="rowgroup">{rows.map((row, index) => (
-              <tr role="row" key={`${index}:${row.vehicle}`}>
-                <th role="rowheader" scope="row">{displayed(row.vehicle, `Insurer comparable ${index + 1}`)}</th>
-                <EvidenceCell label="Mileage">{numeric(row.mileage, " mi")}</EvidenceCell>
-                <EvidenceCell label={row.sourcePrice?.typeLabel ?? "Advertised price"}>{displayed(row.sourcePrice?.amount ?? row.advertisedPrice)}{row.sourcePrice ? <span className="block text-xs">{row.sourcePrice.typeLabel}</span> : null}</EvidenceCell>
-                <EvidenceCell label="Adjusted value">{displayed(row.adjustedValue)}</EvidenceCell>
-                <EvidenceCell label="Net adjustment">{displayed(row.netAdjustment, "Not disclosed")}</EvidenceCell>
-                <EvidenceCell label="Disclosure status">{disclosureLabel(row.adjustmentDisclosure)}</EvidenceCell>
-                <EvidenceCell label="Condition adjustment">{displayed(row.adjustments.condition, "Not disclosed")}</EvidenceCell>
-                <EvidenceCell label="Mileage adjustment">{displayed(row.adjustments.mileage, "Not disclosed")}</EvidenceCell>
-                <EvidenceCell label="Options adjustment">{displayed(row.adjustments.options, "Not disclosed")}</EvidenceCell>
-                <EvidenceCell label="Package adjustment">{displayed(row.adjustments.package, "Not disclosed")}</EvidenceCell>
-                <EvidenceCell label="Reported contribution">{numeric(row.contributionPercent, "%")}</EvidenceCell>
-              </tr>
-            ))}</tbody>
-          </table>
-        </div>
-      ) : <p className="completed-evidence__empty">No insurer comparables were available in the report.</p>}
-    </EvidenceDisclosure>
-  );
+    </> : <p className="completed-evidence__empty">Vehicle details weren’t available in the report.</p>}
+  </EvidenceDisclosure>;
 }
 
 export function MarketEvidenceDetails({ report, open }: ReportProps) {
   const rows = report.marketEvidence.comparables;
-  return (
-    <EvidenceDisclosure label={rows.length ? "See selected market listings" : "Market listing details"} open={open}>
-      {rows.length ? <p className="completed-evidence__introduction">Explore the selected listings, including mileage, dealer, location, and dates.</p> : null}
-      {rows.length ? (
-        <div className="evidence-table completed-evidence__table" role="region" aria-label="Selected market listing table">
-          <table role="table">
-            <caption>Selected market listings</caption>
-            <thead role="rowgroup"><tr role="row">
-              <th scope="col">Vehicle</th><th scope="col">Mileage</th>
-              <th scope="col">Advertised price</th><th scope="col">Distance</th>
-              <th scope="col">Dealer</th><th scope="col">Location</th>
-              <th scope="col">Evidence date</th><th scope="col">Listing context</th><th scope="col">Evidence role</th>
-            </tr></thead>
-            <tbody role="rowgroup">{rows.map((row, index) => (
-              <tr role="row" key={`${index}:${row.vehicle}`}>
-                <th role="rowheader" scope="row">{displayed(row.vehicle, `Selected listing ${index + 1}`)}</th>
-                <EvidenceCell label="Mileage">{numeric(row.mileage, " mi")}</EvidenceCell>
-                <EvidenceCell label="Advertised price">{displayed(row.advertisedPrice)}</EvidenceCell>
-                <EvidenceCell label="Distance">{numeric(row.distanceMiles, " mi")}</EvidenceCell>
-                <EvidenceCell label="Dealer">{displayed(row.dealer)}</EvidenceCell>
-                <EvidenceCell label="Location">{displayed(row.location)}</EvidenceCell>
-                <EvidenceCell label="Evidence date">{dateLabel(row.evidenceDate)}</EvidenceCell>
-                <EvidenceCell label="Listing context">{temporalLabel(row.temporalBasis)}</EvidenceCell>
-                <EvidenceCell label="Evidence role">{roleLabel(row.role)}</EvidenceCell>
-              </tr>
-            ))}</tbody>
-          </table>
-        </div>
-      ) : <p className="completed-evidence__empty">No comparable market listings were available.</p>}
-    </EvidenceDisclosure>
-  );
+  return <section className="market-vehicles" aria-label="Vehicle listings">
+    {rows.length ? <>
+      <p className="market-vehicles-intro">Open a vehicle to see its source and listing details.</p>
+      {rows.map((row, index) => {
+        const vehicle = displayed(row.vehicle, `Vehicle listing ${index + 1}`);
+        const role = roleLabel(row.role);
+        const purpose = role === "Primary comparison evidence" ? "Used in this comparison" : role === "Additional context evidence" ? "Additional context" : "Comparison role not specified";
+        return <details className="market-vehicle" key={`${index}:${row.vehicle}`} aria-label={vehicle} open={open || undefined} data-review-entrance="supporting" data-review-order={index}>
+          <summary>
+            <span className="market-vehicle-identity"><strong>{vehicle}</strong><span>{row.mileage === null ? "Mileage not provided" : numeric(row.mileage, " miles")} · {displayed(row.location, "Location not provided")}</span><span className="market-vehicle-purpose">{purpose}</span></span>
+            <span className="market-vehicle-price"><span>Asking price</span><strong>{displayed(row.advertisedPrice, "Not provided")}</strong></span>
+            <ChevronDown aria-hidden="true" size={18} />
+          </summary>
+          <div className="market-vehicle-details">
+            <dl>
+              <div><dt>Dealer</dt><dd>{displayed(row.dealer, "Not provided")}</dd></div>
+              <div><dt>Distance from you</dt><dd>{row.distanceMiles === null ? "Not provided" : numeric(row.distanceMiles, " miles")}</dd></div>
+              <div><dt>Price recorded</dt><dd>{dateLabel(row.evidenceDate)}</dd></div>
+              <div><dt>Listing timing</dt><dd>{temporalLabel(row.temporalBasis)}</dd></div>
+            </dl>
+            {role === "Additional context evidence" ? <p>This listing provides additional context and is not included in the comparison’s price range.</p> : null}
+            {purpose === "Comparison role not specified" && role !== "Not stated" ? <p>{role}</p> : null}
+          </div>
+        </details>;
+      })}
+    </> : <p className="completed-evidence__empty">No vehicle listings were available to show.</p>}
+  </section>;
 }

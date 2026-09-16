@@ -2,6 +2,18 @@
   min-width: 0;
 }
 
+.completed-analysis .message-flow .sent-request-recorded { margin: 0 0 1.25rem; font-size: 0.75rem; }
+.completed-analysis .message-sent-copy { margin: 0.6rem 0 0 2.65rem; }
+.completed-analysis .message-sent-copy > summary { display: flex; align-items: center; gap: 0.6rem; min-height: 44px; width: fit-content; color: var(--copy); font-size: 0.8125rem; cursor: pointer; list-style: none; }
+.completed-analysis .message-sent-copy > summary::-webkit-details-marker { display: none; }
+.completed-analysis .message-sent-copy > summary:focus-visible { outline: 2px solid var(--ring); outline-offset: 3px; }
+.completed-analysis .message-sent-copy[open] > summary svg { transform: rotate(180deg); }
+.completed-analysis .message-sent-copy .sent-request-body { margin-top: 0.6rem; padding: 1rem; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); font-size: 0.875rem; }
+
+@media (max-width: 540px) {
+  .completed-analysis .message-sent-copy { margin-left: 0; }
+}
+
 .completed-analysis .sent-request-recorded {
   margin: -0.75rem 0 1.75rem;
   color: var(--review-muted, var(--copy));

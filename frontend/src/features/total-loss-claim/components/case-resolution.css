@@ -1,14 +1,17 @@
-.case-resolution-banner { margin-bottom: 2rem; padding: 1.4rem 1.6rem; border: 1px solid var(--line); border-radius: 0.5rem; background: var(--surface); color: var(--ink); }
-.case-resolution-banner h2 { margin: 0 0 0.55rem; font-size: 1.25rem; font-weight: 650; }
-.case-resolution-banner p { margin: 0.65rem 0 0; font-size: 0.9rem; line-height: 1.65; }
-.case-resolution-banner .case-resolution-amount { font-size: 1.4rem; font-weight: 600; }
-.case-resolution-amount span { display: block; font-size: 0.8rem; font-weight: 400; }
-.case-finalization { max-width: 48rem; }
-.case-finalization > p { margin-block: 1.25rem; }
-.case-finalization > a { display: block; margin-block: 1.5rem; text-decoration: underline; text-underline-offset: 0.2em; }
-.case-finalization-offer { margin-block: 2rem; padding-block: 1.5rem; border-block: 1px solid var(--line); }
-.case-finalization-offer dt { color: var(--copy); font-size: 0.9rem; }
-.case-finalization-offer dd { margin: 0.5rem 0 0; font-size: clamp(1.7rem, 5vw, 2.4rem); letter-spacing: -0.04em; }
+.completed-analysis .case-resolution-banner { margin-bottom: 2rem; padding: 1.25rem 1.5rem; border: 1px solid var(--line); border-radius: 12px; background: var(--background); color: var(--ink); }
+.completed-analysis .case-resolution-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem 1rem; }
+.completed-analysis .case-resolution-heading h2 { display: flex; align-items: center; gap: 0.5rem; margin: 0; font-size: 0.9375rem; font-weight: 550; }
+.completed-analysis .case-resolution-heading h2 svg { width: 1rem; height: 1rem; color: var(--copy); stroke-width: 1.75; }
+.completed-analysis .case-resolution-heading time { color: var(--copy); font-size: 0.75rem; white-space: nowrap; }
+.completed-analysis .case-resolution-banner .case-resolution-amount { display: flex; align-items: baseline; flex-wrap: wrap; gap: 0.5rem; margin-top: 1rem; color: var(--ink); font-size: clamp(1.75rem, 4vw, 2rem); font-weight: 550; line-height: 1.2; letter-spacing: -0.035em; font-variant-numeric: tabular-nums; }
+.completed-analysis .case-resolution-amount span { font-size: 0.75rem; font-weight: 400; color: var(--copy); letter-spacing: normal; }
+.completed-analysis .case-resolution-banner .case-resolution-outcome { margin-top: 1rem; color: var(--ink); font-size: 1rem; font-weight: 500; line-height: 1.5; }
+.completed-analysis .case-resolution-banner .case-resolution-outcome[data-with-amount="true"] { margin-top: 0.375rem; font-size: 0.8125rem; font-weight: 400; }
+.completed-analysis .case-resolution-banner .case-resolution-source { margin-top: 0.75rem; color: var(--copy); font-size: 0.75rem; line-height: 1.65; }
+.completed-analysis .case-resolution-banner .case-resolution-availability { margin-top: 1rem; color: var(--copy); font-size: 0.8125rem; line-height: 1.6; }
+@media (max-width: 540px) {
+  .completed-analysis .case-resolution-banner { padding: 1rem; }
+}
 .case-manual-closure { margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--line); }
 .case-close-trigger { min-height: 44px; padding: 0.5rem 0; color: var(--copy); text-decoration: underline; text-underline-offset: 0.25em; font-size: 0.875rem; }
 .case-closure-confirmation { margin-top: 1rem; padding: 1.5rem; background: var(--surface); border: 1px solid var(--line); border-radius: 0.5rem; }
@@ -23,6 +26,66 @@
 .case-closure-confirmation button + button { margin-top: 0.75rem; }
 .case-close-trigger:focus-visible, .case-finalization a:focus-visible, .case-closure-confirmation input:focus-visible { outline: 2px solid var(--ring); outline-offset: 4px; }
 @media (max-width: 640px) {
-  .case-resolution-banner, .case-closure-confirmation { padding: 1.2rem; }
+  .case-closure-confirmation { padding: 1.2rem; }
   .case-finalization .request-button, .case-closure-confirmation .request-button { width: 100%; white-space: normal; text-align: center; }
 }
+
+.completed-analysis .acceptance-flow { max-width: none; }
+.completed-analysis .acceptance-offer { margin: 0 0 1.25rem; }
+.completed-analysis .acceptance-offer dt { color: var(--copy); font-size: 0.8125rem; }
+.completed-analysis .acceptance-offer dd { margin: 0.4rem 0 0; font-size: clamp(1.7rem, 5vw, 2.3rem); font-weight: 550; letter-spacing: -0.04em; font-variant-numeric: tabular-nums; }
+.completed-analysis .acceptance-source { margin: 0 0 1rem; color: var(--copy); font-size: 0.75rem; line-height: 1.65; }
+.completed-analysis .acceptance-review-link { display: inline-flex; align-items: center; min-height: 44px; color: var(--copy); font-size: 0.8125rem; text-decoration: underline; text-underline-offset: 3px; }
+.completed-analysis .acceptance-confirmation { margin: 0; padding: 0; border: 0; border-radius: 0; background: transparent; }
+.completed-analysis .acceptance-confirmation p { margin: 0 0 1rem; color: var(--copy); font-size: 0.8125rem; line-height: 1.65; }
+.completed-analysis .acceptance-confirmation strong { color: var(--ink); font-weight: 550; }
+.completed-analysis .acceptance-confirmation-actions { display: flex; justify-content: flex-end; align-items: center; flex-wrap: wrap; gap: 0.75rem; margin-top: 1.5rem; }
+.completed-analysis .acceptance-confirmation-actions button + button { margin: 0; }
+.completed-analysis .acceptance-confirmation-actions .request-button-text { margin-right: auto; }
+.completed-analysis .acceptance-record-action { display: flex; justify-content: flex-end; margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid var(--line); }
+.completed-analysis .acceptance-record-action .review-primary { gap: 1rem; }
+@media (max-width: 640px) {
+  .completed-analysis .acceptance-flow .request-button { width: auto; max-width: 100%; }
+  .completed-analysis .acceptance-flow .message-local-actions .request-button { flex-shrink: 1; }
+  .completed-analysis .acceptance-record-action .review-primary { width: 100%; }
+}
+
+.completed-analysis .case-manual-closure-embedded { margin-top: 0.5rem; padding-top: 0; border-top: 0; }
+.completed-analysis .case-close-trigger { font-size: 0.8125rem; }
+.completed-analysis .case-closure-confirmation:not(.acceptance-confirmation) { padding: 1.25rem; background: var(--background); border-radius: 12px; }
+.completed-analysis .case-manual-closure-embedded .case-closure-confirmation { margin-top: 0.5rem; }
+.completed-analysis .case-closure-confirmation legend { margin-bottom: 1rem; font-size: 0.9375rem; }
+.completed-analysis .case-closure-choice { gap: 0.75rem; align-items: flex-start; margin-top: 0.625rem; padding: 0.875rem 1rem; border: 1px solid var(--line); border-radius: 8px; font-size: 0.8125rem; cursor: pointer; }
+.completed-analysis .case-closure-choice[data-selected="true"] { border-color: var(--brand); background: color-mix(in srgb, var(--brand) 3%, var(--background)); }
+.completed-analysis .case-closure-choice input { flex-shrink: 0; width: 1rem; height: 1rem; margin-top: 0.15rem; }
+.completed-analysis .case-closure-choice span { font-weight: 500; line-height: 1.5; }
+.completed-analysis .case-closure-choice small { display: block; margin-top: 0.25rem; color: var(--copy); font-size: 0.75rem; font-weight: 400; }
+.completed-analysis .case-closure-amount { margin-top: 1.25rem; font-size: 0.8125rem; }
+.completed-analysis .case-closure-amount input { max-width: 100%; background: var(--background); }
+.completed-analysis .case-closure-amount span { font-size: 0.75rem; }
+.completed-analysis .case-closure-confirmation:not(.acceptance-confirmation) p { margin-top: 1rem; font-size: 0.75rem; line-height: 1.65; }
+@media (max-width: 540px) {
+  .completed-analysis .case-closure-confirmation:not(.acceptance-confirmation) { padding: 1rem; }
+  .completed-analysis .case-closure-choice { padding: 0.75rem; }
+  .completed-analysis .case-manual-closure-embedded .acceptance-confirmation-actions .request-button { width: 100%; }
+}
+
+.case-closure-dialog { position: fixed; top: 50%; left: 50%; z-index: 73; transform: translate(-50%, -50%); width: min(34rem, calc(100% - 2rem)); max-height: calc(100svh - 2rem); overflow-y: auto; padding: 1.5rem; border: 1px solid var(--line); border-radius: 12px; background: var(--background); color: var(--ink); box-shadow: var(--shadow-2xl); }
+.case-closure-dialog-heading { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+.case-closure-dialog-heading h2 { margin: 0; font-size: 1.25rem; font-weight: 550; letter-spacing: -0.02em; }
+.case-closure-dialog > p { margin: 0.5rem 0 1rem; color: var(--copy); font-size: 0.8125rem; line-height: 1.65; }
+.case-closure-dialog .case-closure-confirmation { margin: 0; padding: 0; border: 0; background: transparent; }
+.case-closure-dialog .case-closure-confirmation legend { font-size: 0.875rem; }
+.case-closure-dialog .case-closure-choice { font-size: 0.8125rem; padding-block: 0.75rem; }
+.case-closure-dialog .case-closure-choice span { font-weight: 500; }
+.case-closure-dialog .case-closure-choice small { display: block; margin-top: 0.2rem; color: var(--copy); font-size: 0.75rem; font-weight: 400; }
+.case-closure-dialog .case-closure-amount { font-size: 0.8125rem; }
+.case-closure-dialog .case-closure-amount span, .case-closure-dialog .case-closure-confirmation p { color: var(--copy); font-size: 0.75rem; line-height: 1.65; }
+.case-closure-dialog .acceptance-confirmation-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 0.75rem; margin-top: 1.5rem; }
+.case-closure-dialog .acceptance-confirmation-actions button + button { margin: 0; }
+.case-closure-dialog .request-button { display: inline-flex; align-items: center; justify-content: center; gap: 0.6rem; min-height: 44px; margin: 0; padding: 0.7rem 1rem; border: 1px solid var(--line); border-radius: 8px; font-size: 0.8125rem; font-weight: 500; line-height: 1.4; }
+.case-closure-dialog .request-button-primary { background: var(--brand); border-color: var(--brand); color: white; }
+.case-closure-dialog .request-button-primary:hover:not(:disabled) { background: var(--brand-strong); }
+.case-closure-dialog .request-button:disabled { opacity: 0.6; cursor: not-allowed; }
+.case-closure-dialog :is(button, input):focus-visible { outline: 2px solid var(--ring); outline-offset: 3px; }
+.case-closure-dialog .request-error { color: var(--danger, #b91c1c); }

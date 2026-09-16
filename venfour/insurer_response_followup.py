@@ -33,7 +33,7 @@ from venfour.presentation import FINDING_DESCRIPTIONS
 
 
 INSURER_RESPONSE_FOLLOWUP_SCHEMA_VERSION = "1"
-INSURER_RESPONSE_FOLLOWUP_TEMPLATE_VERSION = "1"
+INSURER_RESPONSE_FOLLOWUP_TEMPLATE_VERSION = "2"
 _IDENTITIES = (
     "caseId", "responseId", "analysisResultId", "recommendationId", "decisionId",
     "reportId", "finalAssessmentId", "initialCommunicationId",
@@ -205,7 +205,7 @@ def _market_evidence(
         return None
     amount = _format_money(price["cents"], currency)
     description = (
-        f"The existing Venfour report includes a selected {vehicle} listing "
+        f"The report includes a {vehicle} listing "
         f"advertised at {amount}."
     )
     return description, list(row["evidenceIds"])
@@ -314,48 +314,54 @@ def build_insurer_response_followup_v1(
     if not _clean_line(vehicle_label, 250):
         return blocked("SOURCE_INFORMATION_UNAVAILABLE")
     identification = f"claim {claim}" if claim else f"the total-loss valuation of my {vehicle_label}"
-    paragraphs = ["Hello,", f"Thank you for your response regarding {identification}."]
+    adjuster_name = _clean_line(details.get("adjusterName"), 200)
+    customer_name = _clean_line(details.get("customerName"), 250)
+    paragraphs = [
+        f"Hello {adjuster_name}," if adjuster_name else "Hello,",
+        f"Thank you for reviewing my request for {identification}.",
+    ]
     response_refs: set[str] = set(analysis["analysisSummary"]["responseEvidenceRefs"])
     case_refs = {request_ref}
     evidence_ids = set(vehicle["evidenceIds"])
     quote = _literal_reason(analysis, response)
     if quote:
-        paragraphs.append(f'Your response says, “{quote[0]}” I would appreciate clarification on how that reasoning applies to the evidence in the existing Venfour report.')
+        paragraphs.append(f'You noted: “{quote[0]}”')
         response_refs.add(quote[1])
     offer = projected["offer"]
     visual_offer = analysis["revisedOffer"]["visualSourceInterpretation"] is not None
     if offer is not None and not visual_offer:
         value = _format_money(offer["amountMinorUnits"], offer["currency"])
         if offer["source"] == "RESPONSE_TEXT":
-            paragraphs.append(f"I understand the vehicle valuation amount in your response is {value}. Please explain how this amount was calculated.")
+            paragraphs[-1] += f" I understand the vehicle valuation amount in your response is {value}."
         else:
-            paragraphs.append(f"I have recorded {value} as the vehicle valuation amount. Please confirm that amount and explain how it was calculated.")
+            paragraphs[-1] += f" I have recorded {value} as the vehicle valuation amount. Could you please confirm that amount?"
         response_refs.update(analysis["revisedOffer"]["responseEvidenceRefs"])
     elif visual_offer or analysis["revisedOffer"]["status"] == "UNCLEAR":
-        paragraphs.append("Please confirm the vehicle valuation amount in writing so I can review it accurately.")
+        paragraphs[-1] += " Could you please confirm the vehicle valuation amount in writing?"
 
     topic = _response_topic(nodes, response, case)
     adjustment = _finding(final_assessment, "CCC_ADJUSTMENTS_REDUCE_COMPARABLE_VALUES")
     if topic in {"condition", "mileage", "equipment", "adjustments"} and adjustment:
         paragraphs.append(
-            "The existing report records that adjustments reduce the median of the paired insurer comparables. "
-            "This describes their effect and does not establish that an adjustment is incorrect. "
-            "Could you explain the basis for the relevant adjustments and how they apply to my vehicle?"
+            "The report shows that adjustments lowered the comparable values. "
+            "Could you please explain how the relevant adjustments were determined "
+            "and how they apply to my vehicle?"
         )
         evidence_ids.update(adjustment["evidenceIds"])
     else:
         paragraphs.append(
-            market[0] + " Could you explain how the selected comparable evidence in that report "
-            "was considered, including any differences that affect its relevance to my vehicle?"
+            market[0] + " I understand this is an asking price. Could you please explain "
+            "how this listing was considered, including any relevant differences from my vehicle?"
         )
         evidence_ids.update(market[1])
     for node in nodes:
         response_refs.update(node.get("responseEvidenceRefs", []))
         case_refs.update(node.get("caseEvidenceRefs", []))
     paragraphs.extend([
-        "Please review the remaining valuation questions and reconsider the amount if the evidence supports a change. "
-        "The report's advertised prices are supporting evidence, not verified sale prices or a settlement target.",
-        "Thank you.",
+        "I've attached the report again for convenience. Could you please reconsider the valuation "
+        "in light of this evidence and reply with any updated valuation? If it remains unchanged, "
+        "a brief explanation would help me understand.",
+        "Thank you for your time and help," + (f"\n{customer_name}" if customer_name else ""),
     ])
     request_subject = re.sub(r"^(?:Follow-up:\s*)+", "", subject, flags=re.I)
     followup_subject = f"Follow-up: {request_subject}"

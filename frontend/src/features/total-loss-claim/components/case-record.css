@@ -1,0 +1,29 @@
+.completed-analysis .case-record-heading > div { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+.completed-analysis .case-record-closed { display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.3rem 0.6rem; background: var(--surface); border: 1px solid var(--line); border-radius: 6px; color: var(--copy); font-size: 0.75rem; white-space: nowrap; }
+.completed-analysis .case-record h2 { margin: 0 0 1.25rem; font-size: 1rem; font-weight: 600; letter-spacing: -0.01em; }
+.completed-analysis .case-record-outcome { padding: 1.75rem; border: 1px solid var(--line); border-radius: 16px; background: var(--background); }
+.completed-analysis .case-record-outcome-title { margin: 0 0 0.75rem; font-size: 1.125rem; font-weight: 500; }
+.completed-analysis .case-record-amount { color: var(--ink); line-height: 1.2; display: flex; align-items: baseline; flex-wrap: wrap; gap: 0.6rem; margin: 0 0 1rem; font-size: clamp(2rem, 5vw, 2.75rem); font-weight: 550; letter-spacing: -0.04em; font-variant-numeric: tabular-nums; }
+.completed-analysis .case-record-amount span { color: var(--copy); font-size: 0.8125rem; font-weight: 400; letter-spacing: normal; }
+.completed-analysis .case-record-source, .completed-analysis .case-record-date { margin: 0.3rem 0 0; color: var(--copy); font-size: 0.8125rem; line-height: 1.65; }
+.completed-analysis .case-record-date { margin-top: 1.25rem; padding-top: 1rem; border-top: 1px solid var(--line); font-size: 0.75rem; }
+.completed-analysis .case-record-section { margin-top: 2.5rem; }
+.completed-analysis .case-record-section-note { margin: -0.5rem 0 1.5rem; color: var(--copy); font-size: 0.8125rem; line-height: 1.65; }
+.completed-analysis .case-record .report-file { margin: 0; padding: 1.25rem; border: 1px solid var(--line); border-radius: 12px; }
+.completed-analysis .case-record .report-file-title { font-size: 0.875rem; }
+.completed-analysis .case-record .report-file-meta { font-size: 0.75rem; }
+.completed-analysis .case-record .report-file-actions .request-button { min-height: 44px; padding: 0.5rem 0.75rem; font-size: 0.8125rem; }
+.completed-analysis .case-record-history-response .case-history-response-preview { display: block; overflow: visible; -webkit-line-clamp: unset; }
+.completed-analysis .case-record .case-history ol { list-style: none; padding: 0; margin: 0; }
+.case-record-review { margin-top: 1rem; border-top: 1px solid var(--line); padding-top: 0.5rem; }
+.case-record-review > summary { display: flex; align-items: center; justify-content: space-between; gap: 1rem; min-height: 44px; cursor: pointer; list-style: none; font-size: 0.8125rem; font-weight: 550; }
+.case-record-review > summary::-webkit-details-marker { display: none; }
+.case-record-review[open] > summary svg { transform: rotate(180deg); }
+.completed-analysis .case-record-review dl { margin: 0.75rem 0; }
+.case-record-review dt { margin-top: 1rem; color: var(--ink); font-size: 0.75rem; font-weight: 550; }
+.completed-analysis .case-record-review dd { margin: 0.35rem 0 0; color: var(--copy); font-size: 0.8125rem; line-height: 1.7; white-space: pre-wrap; overflow-wrap: anywhere; }
+@media (max-width: 540px) {
+  .completed-analysis .case-record-heading > div { flex-wrap: wrap; }
+  .completed-analysis .case-record-outcome { padding: 1.25rem; border-radius: 12px; }
+  .completed-analysis .case-record .report-file { padding: 1rem; }
+}

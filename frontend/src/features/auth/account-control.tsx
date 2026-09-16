@@ -23,6 +23,7 @@ import {
 } from "@/features/auth/user-display";
 import { useNewTotalLossAppraisalHref } from "@/features/total-loss/new-appraisal";
 import { cn } from "@/lib/utils";
+import { CaseAccountMenuActions } from "@/features/total-loss-claim/components/case-account-menu";
 import { AppraisalSwitcher } from "@/features/cases/appraisal-switcher";
 import { useCustomerProfileService } from "@/features/customer-profile/service-context";
 import { useCustomerProfileQuery } from "@/features/customer-profile/queries";
@@ -148,6 +149,7 @@ export function AccountControl({
               </span>
             </DropdownMenu.Label>
             <AppraisalSwitcher />
+            <CaseAccountMenuActions />
             <DropdownMenu.Separator className="my-1 h-px bg-line" />
             <DropdownMenu.Item asChild>
               <Link

@@ -1,4 +1,4 @@
-import { Download, ExternalLink, FileText, LoaderCircle } from "lucide-react";
+import { Download, ExternalLink, File, LoaderCircle } from "lucide-react";
 
 import type { TotalLossPublishedReport } from "../contracts";
 import { dateLabel } from "../report-format";
@@ -11,7 +11,7 @@ interface ReportActionProps {
   readonly caseId: string;
   readonly report: TotalLossPublishedReport;
   readonly userId: string;
-  readonly variant?: "default" | "attachment";
+  readonly variant?: "default" | "attachment" | "record";
 }
 
 export function ReportFileRow({ report, variant = "default", ...identity }: ReportActionProps) {
@@ -20,24 +20,25 @@ export function ReportFileRow({ report, variant = "default", ...identity }: Repo
     reportVersionId: report.reportId,
   });
   const attachment = variant === "attachment";
+  const viewLabel = variant === "record" ? "View PDF" : "View report";
+  const downloadLabel = variant === "record" ? "Download PDF" : "Download report";
   const viewAction = (
     <button key="view" className={`request-button ${attachment ? "request-button-text" : "request-button-utility"}`} type="button" disabled={pendingAction !== null} onClick={() => void open(true)}>
       {pendingAction === "view" ? <LoaderCircle aria-hidden="true" className="request-spinner" /> : <ExternalLink aria-hidden="true" />}
-      <StableActionLabel reserve="View report">{pendingAction === "view" ? "Opening…" : "View report"}</StableActionLabel>
+      <StableActionLabel reserve={viewLabel}>{pendingAction === "view" ? "Opening…" : viewLabel}</StableActionLabel>
     </button>
   );
   const downloadAction = (
     <button key="download" className={`request-button ${attachment ? "request-button-secondary" : "request-button-utility"}`} type="button" disabled={pendingAction !== null} onClick={() => void open(false)}>
       {pendingAction === "download" ? <LoaderCircle aria-hidden="true" className="request-spinner" /> : <Download aria-hidden="true" />}
-      <StableActionLabel reserve="Preparing report…">{pendingAction === "download" ? "Preparing report…" : "Download report"}</StableActionLabel>
+      <StableActionLabel reserve="Preparing report…">{pendingAction === "download" ? "Preparing report…" : downloadLabel}</StableActionLabel>
     </button>
   );
 
   return (
     <div className={`report-file${attachment ? " report-file-attachment" : ""}`} data-review-entrance="supporting" role="region" aria-label="Valuation report">
       <div className="report-file-document" aria-hidden="true">
-        <FileText strokeWidth={1.4} />
-        <span>PDF</span>
+        <File strokeWidth={1.5} />
       </div>
       <div className="report-file-content">
         <p className="report-file-title">{attachment ? "Valuation report" : "Your valuation report"}</p>

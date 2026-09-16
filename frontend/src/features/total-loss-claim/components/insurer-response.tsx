@@ -2,6 +2,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import {
   ArrowRight,
   CheckCircle2,
+  ChevronDown,
   CircleAlert,
   Download,
   Eye,
@@ -10,7 +11,6 @@ import {
   Paperclip,
   RefreshCw,
   RotateCcw,
-  ScanSearch,
   Trash2,
   Upload,
 } from "lucide-react";
@@ -128,8 +128,10 @@ function offerLabel(amountMinorUnits: number, currency: string) {
 
 type InsurerResponseFormProps = InsurerResponseIdentity & {
   readonly actionContainer: HTMLElement | null;
-  readonly onRecorded: (state: TotalLossClaimJourneyState) => void;
+  readonly onRecorded?: (state: TotalLossClaimJourneyState) => void;
+  readonly onRecordAttempt?: (clientRequestId: string) => void;
   readonly correction?: TotalLossInsurerResponse | null;
+  readonly inline?: boolean;
 };
 
 export function InsurerResponseForm(props: InsurerResponseFormProps) {
@@ -146,7 +148,9 @@ function InsurerResponseEditor({
   claim,
   onRefresh,
   onRecorded,
+  onRecordAttempt,
   correction,
+  inline = false,
   userId,
 }: InsurerResponseFormProps) {
   const existing = correction ?? null;
@@ -192,6 +196,9 @@ function InsurerResponseEditor({
   const { responseText, offer, retainDocument, attachment, clientRequestId } = draft.content;
 
   useEffect(() => () => { selectionEpoch.current += 1; }, []);
+  useEffect(() => {
+    if (inline) responseHeading.current?.focus({ preventScroll: true });
+  }, [inline]);
 
   const changed = (patch: Parameters<typeof draft.edit>[0]) => {
     draft.edit(patch);
@@ -307,6 +314,7 @@ function InsurerResponseEditor({
         documentId = preparation.documentId;
       }
 
+      onRecordAttempt?.(clientRequestId);
       const recorded = await recordResponse.mutateAsync({
         clientRequestId,
         documentId,
@@ -320,7 +328,7 @@ function InsurerResponseEditor({
       });
       draft.submitted();
       await onRefresh().catch(() => undefined);
-      onRecorded(recorded.state);
+      onRecorded?.(recorded.state);
     } catch (caught) {
       await onRefresh().catch(() => undefined);
       const refreshedQuery = queryClient.getQueryState<TotalLossClaimResolver>(
@@ -333,7 +341,7 @@ function InsurerResponseEditor({
       ) {
         draft.submitted();
         const resumedState = resolvedTotalLossClaimJourneyState(refreshed);
-        if (resumedState) onRecorded(resumedState);
+        if (resumedState) onRecorded?.(resumedState);
         return;
       }
       setError(
@@ -354,13 +362,17 @@ function InsurerResponseEditor({
   };
 
   const disabled = pending || validatingFile;
+  const saveAction = <button className={inline ? "request-button request-button-primary" : "review-primary"} disabled={disabled} onClick={() => void submit()} type="button">
+    <StableActionLabel reserve="Saving response…">{pending ? "Saving response…" : existing ? "Save corrected response" : "Save response"}</StableActionLabel>
+    {pending ? <LoaderCircle className="request-spinner" aria-hidden="true" /> : <ArrowRight aria-hidden="true" />}
+  </button>;
   return (
-    <section className="insurer-response-form" aria-labelledby={`${fieldId}-heading`}>
-      <header className="response-heading" data-review-entrance="primary">
+    <section className="insurer-response-form" data-inline={inline || undefined} aria-labelledby={`${fieldId}-heading`}>
+      {inline ? <h3 className="sr-only" id={`${fieldId}-heading`} ref={responseHeading} tabIndex={-1}>Response details</h3> : <header className="response-heading" data-review-entrance="primary">
         <p className="response-eyebrow">{existing ? "Correct saved response" : "Insurer response"}</p>
         <h1 id={`${fieldId}-heading`} ref={responseHeading} tabIndex={-1}>Add the insurer’s response</h1>
         <p>Save what the insurer sent. Venfour will review it against the request and evidence in this case.</p>
-      </header>
+      </header>}
 
       {draft.blocker.state === "blocked" ? (
         <div className="response-draft-notice" role="alertdialog" aria-labelledby={`${fieldId}-leave-heading`} aria-describedby={`${fieldId}-leave-description`} onKeyDown={(event) => {
@@ -396,7 +408,7 @@ function InsurerResponseEditor({
         </p>
       )}
 
-      <div className="response-fields" data-review-entrance="secondary">
+      <div className="response-fields" data-review-entrance={inline ? undefined : "secondary"}>
         <div className="response-shared-field">
           <IntakeTextareaField
             id={`${fieldId}-text`}
@@ -494,13 +506,7 @@ function InsurerResponseEditor({
       </div>
 
       {error ? <p className="response-submit-error request-error" role="alert">{error}</p> : null}
-      {actionContainer ? createPortal(
-        <button className="review-primary" disabled={disabled} onClick={() => void submit()} type="button">
-          <StableActionLabel reserve="Saving response…">{pending ? "Saving response…" : existing ? "Save corrected response" : "Save response"}</StableActionLabel>
-          {pending ? <LoaderCircle className="request-spinner" aria-hidden="true" /> : <ArrowRight aria-hidden="true" />}
-        </button>,
-        actionContainer,
-      ) : null}
+      {inline ? <div className="message-local-actions">{saveAction}</div> : actionContainer ? createPortal(saveAction, actionContainer) : null}
     </section>
   );
 }
@@ -605,10 +611,41 @@ function CorrectionAction({ onCorrect }: { readonly onCorrect?: () => void }) {
         type="button"
       >
         <RotateCcw aria-hidden="true" />
-        Correct this response
+        Correct response
       </button>
     </div>
   );
+}
+
+function ResponseReviewHeading({ headingId, onCorrect }: { readonly headingId: string; readonly onCorrect?: () => void }) {
+  return <header className="response-review-heading" data-review-entrance="primary">
+    <div className="response-review-title-row">
+      <h1 id={headingId}>Your response review</h1>
+      {onCorrect ? <button className="request-button request-button-utility" onClick={onCorrect} type="button">
+        <RotateCcw aria-hidden="true" />Correct response
+      </button> : null}
+    </div>
+    <p className="review-lead">Understand the insurer’s reply and choose what to do next.</p>
+  </header>;
+}
+
+function ResponseReviewProgress({ headingId, onCorrect, pending }: {
+  readonly onCorrect?: () => void;
+  readonly headingId: string;
+  readonly pending: boolean;
+}) {
+  return <>
+    <ResponseReviewHeading headingId={headingId} onCorrect={onCorrect} />
+    <div className="response-review-state-panel" data-review-entrance="secondary" role="status">
+      <LoaderCircle className="request-spinner" aria-hidden="true" />
+      <div>
+        <h2>{pending ? "Your response is saved" : "Reviewing the insurer’s reply"}</h2>
+        <p>{pending ? "The review will begin automatically."
+          : "We’re comparing their reply with your request and the evidence saved in your case."}</p>
+        <p className="response-state-note">You can leave this page and return later. Your review will appear here when it’s ready.</p>
+      </div>
+    </div>
+  </>;
 }
 
 export function InsurerResponseReceived({
@@ -617,10 +654,15 @@ export function InsurerResponseReceived({
   response,
   onCorrect,
   userId,
+  showReviewProgress = false,
 }: InsurerResponseAccess & {
   readonly onCorrect?: () => void;
   readonly response: TotalLossInsurerResponse;
+  readonly showReviewProgress?: boolean;
 }) {
+  if (showReviewProgress) return <section className="insurer-response-received" aria-labelledby="insurer-response-received-heading">
+    <ResponseReviewProgress headingId="insurer-response-received-heading" pending={response.processingState === "pending"} onCorrect={onCorrect} />
+  </section>;
   return (
     <section
       className="insurer-response-received"
@@ -635,9 +677,7 @@ export function InsurerResponseReceived({
           The insurer’s response is saved
         </h1>
         <p className="review-lead" role="status">
-          {response.processingState === "pending"
-            ? "It is now part of this case. Venfour is preparing to review it against the evidence already saved here."
-            : "The response you recorded remains part of this case."}
+          The response you recorded remains part of this case.
         </p>
       </div>
       <p className="sent-recorded" data-review-entrance="supporting">
@@ -703,15 +743,18 @@ function recommendationLabel(
   category: TotalLossResponseRecommendation["state"],
 ) {
   switch (category) {
-    case "ACCEPT_OFFER": return "Accept offer";
-    case "CONTINUE_CHALLENGING": return "Continue challenging";
+    case "ACCEPT_OFFER": return "Accept this offer";
+    case "CONTINUE_CHALLENGING": return "Ask the insurer to reconsider";
     case "NO_CLEAR_RECOMMENDATION": return "No clear recommendation";
   }
 }
 
-function ResponseDecisionArea({ accessToken, caseId, claim, onRefresh, response, userId, readOnly = false }: InsurerResponseIdentity & {
+function ResponseDecisionArea({ accessToken, actionContainer, caseId, claim, onContinue, onDecisionAttempt, onRefresh, response, userId, readOnly = false }: InsurerResponseIdentity & {
   readonly response: TotalLossInsurerResponse & { readonly recommendation: TotalLossResponseRecommendation };
   readonly readOnly?: boolean;
+  readonly actionContainer: HTMLElement | null;
+  readonly onDecisionAttempt: (clientRequestId: string) => void;
+  readonly onContinue: () => void;
 }) {
   const { recommendation, usableOffer } = response;
   const key = responseDecisionAttemptKey(userId, caseId, response.responseId, recommendation.recommendationId);
@@ -719,6 +762,8 @@ function ResponseDecisionArea({ accessToken, caseId, claim, onRefresh, response,
   const mutation = useTotalLossInsurerResponseDecisionMutation({ accessToken, caseId, userId, responseId: response.responseId });
   const [attempt, setAttempt] = useState(() => readOnly || response.decision ? null : readResponseDecisionAttempt(key, recommendation.recommendationId, usableOffer));
   const attemptRef = useRef(attempt);
+  const [selection, setSelection] = useState<TotalLossResponseDecisionChoice | null>(attempt?.choice ?? null);
+  const choiceId = useId();
   const [acknowledged, setAcknowledged] = useState<TotalLossResponseDecision | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
@@ -726,6 +771,17 @@ function ResponseDecisionArea({ accessToken, caseId, claim, onRefresh, response,
   const locked = useRef(false);
   const confirmed = useRef(Boolean(response.decision));
   const decision = response.decision ?? acknowledged;
+  const decisionId = decision?.decisionId;
+  const continuationFocused = useRef(false);
+
+  useEffect(() => {
+    if (!decisionId || !attemptRef.current || !actionContainer || continuationFocused.current) return;
+    const next = actionContainer.querySelector<HTMLAnchorElement>(".review-primary");
+    if (next) {
+      continuationFocused.current = true;
+      next.focus({ preventScroll: true });
+    }
+  }, [actionContainer, decisionId]);
 
   useEffect(() => {
     if (readOnly || !response.decision) return;
@@ -769,6 +825,7 @@ function ResponseDecisionArea({ accessToken, caseId, claim, onRefresh, response,
     setPending(true);
     setError(null);
     try {
+      onDecisionAttempt(input.clientRequestId);
       const result = await mutation.mutateAsync(input);
       if (!result.response.decision) throw new Error("The saved choice could not be verified.");
       confirm(result.response.decision);
@@ -796,46 +853,55 @@ function ResponseDecisionArea({ accessToken, caseId, claim, onRefresh, response,
     }
   };
 
+  const nextLabel = decision?.choice === "ACCEPT_OFFER" ? "Review acceptance steps"
+    : claim.followUp?.state === "sent" ? "View sent follow-up" : claim.followUp?.draft ? "Review my follow-up" : "Prepare my follow-up";
   return (
-    <div className="response-decision" aria-labelledby="response-decision-heading">
-      <h3 id="response-decision-heading">Your decision</h3>
-      {decision ? (
-        <div className="response-decision-recorded" role="status">
-          <CheckCircle2 aria-hidden="true" />
-          <div>
-            <strong>{decision.choice === "ACCEPT_OFFER"
-              ? `You chose to accept ${offerLabel(decision.amountMinorUnits!, decision.currency!)}`
-              : "You chose to continue challenging"}</strong>
-            <p>Recorded <RecordedTime value={decision.recordedAt} />.</p>
-            <p>{decision.choice === "ACCEPT_OFFER"
-              ? `${insurerOfferProvenanceLabel(usableOffer!.source)}. ${readOnly ? "This saved choice applies to the exact offer in this response. Your current case step is shown above." : "Your choice is saved for this exact offer. Your case is ready for confirmation and remains open. Nothing has been sent to the insurer."}`
-              : readOnly ? "This decision is preserved with this saved response. Any resulting follow-up is available in case history." : claim.followUp?.state === "sent" ? "You confirmed sending your follow-up. Your case remains open while you wait for the insurer." : "Your choice is saved. Review and send a focused follow-up based on the saved response and supporting evidence."}</p>
-            {decision.choice === "CONTINUE_CHALLENGING" && !readOnly ? <Link className="request-button request-button-primary" to={totalLossClaimViewPath(caseId, "review_follow_up")}>{claim.followUp?.state === "sent" ? "View sent follow-up" : claim.followUp?.draft ? "Review my follow-up" : "Prepare my follow-up"}</Link> : null}
-            {decision.choice === "ACCEPT_OFFER" && !readOnly ? <Link className="request-button request-button-primary" to={totalLossClaimViewPath(caseId, "review_resolution")}>Complete acceptance with insurer</Link> : null}
-          </div>
+    <div className="response-decision">
+      {decision ? <div className="response-decision-recorded" role="status">
+        <CheckCircle2 aria-hidden="true" />
+        <div>
+          <strong>Choice saved</strong>
+          <p>{decision.choice === "ACCEPT_OFFER"
+            ? `You chose to accept ${offerLabel(decision.amountMinorUnits!, decision.currency!)}.`
+            : "You chose to ask the insurer to reconsider."}</p>
+          <p>Recorded <RecordedTime value={decision.recordedAt} />.</p>
+          <p>{decision.choice === "ACCEPT_OFFER"
+            ? `${insurerOfferProvenanceLabel(usableOffer!.source)}. ${readOnly ? "This saved choice applies to the exact offer in this response. Your current case step is shown above." : "Your case is still open. Nothing has been sent to the insurer. Next, review the steps to accept this offer."}`
+            : readOnly ? "This decision is preserved with this saved response. Any resulting follow-up is available in case history."
+              : claim.followUp?.state === "sent" ? "You confirmed sending your follow-up. Your case remains open while you wait for the insurer."
+                : "Nothing has been sent to the insurer. Next, prepare a follow-up using your saved evidence."}</p>
         </div>
-      ) : readOnly ? <p>No decision was recorded for this saved response version.</p> : (
-        <>
-          <p>The decision is yours, even if you choose differently from Venfour’s recommendation. Saving a choice does not contact the insurer or close your case.</p>
-          {usableOffer ? <p className="response-decision-offer">{insurerOfferProvenanceLabel(usableOffer.source)}: <strong>{offerLabel(usableOffer.amountMinorUnits, usableOffer.currency)}</strong></p>
-            : <p>There isn’t a clearly supported offer amount available to accept from this response.</p>}
-          {attempt && !pending ? <p className="response-decision-notice" role="status">Your {attempt.choice === "ACCEPT_OFFER" ? "Accept offer" : "Continue challenging"} choice still needs confirmation. Retry saving that same choice.</p> : null}
-          {storageUnavailable ? <p className="response-decision-notice">This browser could not preserve the pending choice. Keep this page open until saving is confirmed.</p> : null}
-          {error ? <p className="request-error" role="alert">{error}</p> : null}
-          <div className="response-decision-actions">
-            {usableOffer ? <button className={`request-button ${recommendation.state === "ACCEPT_OFFER" ? "request-button-primary" : "request-button-secondary"}`} type="button" disabled={pending || Boolean(attempt && attempt.choice !== "ACCEPT_OFFER") || !claim.workflow}
-              onClick={() => void choose("ACCEPT_OFFER")}>
-              {pending && attempt?.choice === "ACCEPT_OFFER" ? <LoaderCircle className="request-spinner" aria-hidden="true" /> : null}
-              {pending && attempt?.choice === "ACCEPT_OFFER" ? "Saving choice…" : attempt?.choice === "ACCEPT_OFFER" ? "Retry saving Accept offer" : "Accept offer"}
-            </button> : null}
-            <button className={`request-button ${recommendation.state === "CONTINUE_CHALLENGING" || !usableOffer ? "request-button-primary" : "request-button-secondary"}`} type="button" disabled={pending || Boolean(attempt && attempt.choice !== "CONTINUE_CHALLENGING") || !claim.workflow}
-              onClick={() => void choose("CONTINUE_CHALLENGING")}>
-              {pending && attempt?.choice === "CONTINUE_CHALLENGING" ? <LoaderCircle className="request-spinner" aria-hidden="true" /> : null}
-              {pending && attempt?.choice === "CONTINUE_CHALLENGING" ? "Saving choice…" : attempt?.choice === "CONTINUE_CHALLENGING" ? "Retry saving Continue challenging" : "Continue challenging"}
-            </button>
-          </div>
-        </>
-      )}
+      </div> : readOnly ? <p>No decision was recorded for this saved response version.</p> : <>
+        <p>Choose what you want to do. Saving your choice does not contact the insurer or close your case.</p>
+        {usableOffer ? <p className="response-decision-offer">{insurerOfferProvenanceLabel(usableOffer.source)}: <strong>{offerLabel(usableOffer.amountMinorUnits, usableOffer.currency)}</strong></p>
+          : <p>There isn’t a clearly supported offer amount available to accept from this response.</p>}
+        <fieldset className="response-choice-options" disabled={pending || !claim.workflow}>
+          <legend className="sr-only">Choose what to do next</legend>
+          {(["CONTINUE_CHALLENGING", ...(usableOffer ? ["ACCEPT_OFFER"] : [])] as TotalLossResponseDecisionChoice[]).map((choice) => <label key={choice} className="response-choice-option" data-selected={selection === choice || undefined}>
+            <input type="radio" name={choiceId} value={choice} aria-label={recommendationLabel(choice)} checked={selection === choice}
+              disabled={Boolean(attempt && attempt.choice !== choice)} onChange={() => setSelection(choice)} />
+            <span><strong>{recommendationLabel(choice)}</strong><span>{choice === "ACCEPT_OFFER"
+              ? "Review the steps to accept the offer shown above."
+              : "Prepare a follow-up using your response and case evidence."}</span>
+              {recommendation.state === choice ? <small>Recommended</small> : null}
+            </span>
+          </label>)}
+        </fieldset>
+        {attempt && !pending ? <p className="response-decision-notice" role="status">Your choice still needs confirmation. Retry saving that same choice.</p> : null}
+        {storageUnavailable ? <p className="response-decision-notice">This browser could not preserve the pending choice. Keep this page open until saving is confirmed.</p> : null}
+        {error ? <p className="request-error" role="alert">{error}</p> : null}
+        <div className="message-local-actions">
+          <button className="request-button request-button-primary" disabled={pending || !selection || !claim.workflow} type="button" onClick={() => selection && void choose(selection)}>
+            {pending ? <LoaderCircle className="request-spinner" aria-hidden="true" /> : null}
+            {pending ? "Saving choice…" : attempt ? "Retry saving choice" : "Save my choice"}
+          </button>
+        </div>
+      </>}
+      {decision && !readOnly && actionContainer ? createPortal(<nav className="review-actions response-review-next" aria-label="Review navigation">
+        <Link className="review-primary" onClick={onContinue} to={totalLossClaimViewPath(caseId, decision.choice === "ACCEPT_OFFER" ? "review_resolution" : "review_follow_up")}>
+          {nextLabel}<span className="review-action-icon"><ArrowRight aria-hidden="true" /></span>
+        </Link>
+      </nav>, actionContainer) : null}
     </div>
   );
 }
@@ -843,43 +909,30 @@ function ResponseDecisionArea({ accessToken, caseId, claim, onRefresh, response,
 function BasisReferences({
   caseEvidenceRefs,
   evidence,
+  label = "View sources",
   responseEvidenceRefs,
 }: {
   readonly caseEvidenceRefs?: readonly string[];
   readonly evidence: TotalLossInsurerResponseAnalysisEvidence;
+  readonly label?: string;
   readonly responseEvidenceRefs?: readonly string[];
 }) {
-  const caseCount = caseEvidenceRefs?.length ?? 0;
-  const responseItems = (responseEvidenceRefs ?? []).map((reference) =>
+  const responseItems = [...new Set(responseEvidenceRefs ?? [])].map((reference) =>
     evidence.responseEvidence.find((item) => item.evidenceRef === reference),
   ).filter((item): item is NonNullable<typeof item> => Boolean(item));
-  const caseItems = (caseEvidenceRefs ?? []).map((reference) =>
+  const caseItems = [...new Set(caseEvidenceRefs ?? [])].map((reference) =>
     evidence.caseEvidence.find((item) => item.evidenceRef === reference),
   ).filter((item): item is NonNullable<typeof item> => Boolean(item));
-  const customerSuppliedCount = responseItems.filter(
-    (item) => item.sourceType === "CUSTOMER_SUPPLIED_OFFER",
-  ).length;
-  const insurerResponseCount = responseItems.length - customerSuppliedCount;
-  if (!responseItems.length && !caseCount) return null;
-  const parts = [
-    insurerResponseCount
-      ? `${insurerResponseCount} ${insurerResponseCount === 1 ? "part" : "parts"} of the insurer response`
-      : null,
-    customerSuppliedCount
-      ? customerSuppliedCount === 1
-        ? "the revised-offer amount you recorded"
-        : `${customerSuppliedCount} revised-offer amounts you recorded`
-      : null,
-    caseCount
-      ? `${caseCount} ${caseCount === 1 ? "item" : "items"} in the existing case evidence`
-      : null,
-  ].filter((part): part is string => Boolean(part));
+  const sourceCount = responseItems.length + caseItems.length;
+  if (!sourceCount) return null;
   const excerpt = (value: string) =>
     value.length > 360 ? `${value.slice(0, 357).trimEnd()}…` : value;
   return (
     <details className="response-analysis-basis">
       <summary>
-        Basis: {new Intl.ListFormat("en-US", { type: "conjunction" }).format(parts)}
+        <span>{label}</span>
+        <span className="response-source-count">{sourceCount}</span>
+        <ChevronDown aria-hidden="true" />
       </summary>
       <ul aria-label="Supporting evidence">
         {responseItems.map((item) => (
@@ -1000,104 +1053,159 @@ export function InsurerResponseReviewing({
     }
   };
 
-  return (
-    <section
-      className="insurer-response-reviewing"
-      aria-labelledby="insurer-response-reviewing-heading"
-    >
-      <p className="waiting-case-status" data-review-entrance="supporting">
-        <span aria-hidden="true" />
-        {processing ? "Reviewing response" : "Response review"}
-      </p>
-      <div className="response-review-status" data-review-entrance="primary">
-        <div
-          className="response-review-status-mark"
-          data-state={processing ? "processing" : "attention"}
-          aria-hidden="true"
-        >
-          {processing ? (
-            <ScanSearch />
-          ) : (
-            <CircleAlert />
-          )}
-        </div>
+  return <section className="insurer-response-reviewing" aria-labelledby="insurer-response-reviewing-heading">
+    {processing ? <ResponseReviewProgress headingId="insurer-response-reviewing-heading" pending={response.processingState === "pending"} onCorrect={onCorrect} /> : <>
+      <ResponseReviewHeading headingId="insurer-response-reviewing-heading" onCorrect={onCorrect} />
+      <div className="response-review-state-panel" data-review-entrance="secondary">
+        <CircleAlert aria-hidden="true" />
         <div>
-          <h1 id="insurer-response-reviewing-heading">
-            {processing
-              ? "Venfour is reviewing the insurer’s response"
-              : unsupported
-                ? "This response could not be fully reviewed"
-                : unreadable
-                  ? "This document could not be reviewed"
-                  : "The response review could not be completed"}
-          </h1>
-          <p className="review-lead" role="status">
-            {processing
-              ? "Venfour is comparing what the insurer said with the request, valuation, and evidence already saved in this case."
-              : unsupported
-                ? "Venfour could not reliably interpret the submitted material. The original response remains saved, and no case evidence or valuation has changed."
-                : unreadable
-                  ? "Venfour could not reliably read and analyze the submitted document. The original response remains saved, and no case evidence or valuation has changed."
-                  : retryable
-                    ? "The review stopped before an explanation could be completed. The original response remains saved, and you can try the review again."
-                    : "Venfour could not complete a reliable explanation. The original response remains saved, and no case evidence or valuation has changed."}
-          </p>
+          <h2>{unsupported ? "This response could not be fully reviewed"
+            : unreadable ? "This document could not be reviewed"
+              : "The response review could not be completed"}</h2>
+          <p role="status">{unsupported
+            ? "We couldn’t reliably interpret this material. Your original reply is saved. You can add clearer text or a different file using Correct response."
+            : unreadable ? "We couldn’t reliably read this document. Your original reply is saved. You can paste the reply or add a clearer file using Correct response."
+              : retryable ? "The review stopped before it could finish. Your original reply is saved. Try the review again."
+                : "We couldn’t complete a reliable review. Your original reply is saved. Use Correct response to add anything that is missing."}</p>
+          <p className="response-state-note">Your valuation and case evidence have not changed.</p>
+          {retryable && !readOnly ? <div className="response-review-retry">
+            {retryError ? <p className="request-error" role="alert">{retryError}</p> : null}
+            <button className="request-button request-button-primary" disabled={retry.isPending} onClick={() => void retryReview()} type="button">
+              {retry.isPending ? <LoaderCircle className="request-spinner" aria-hidden="true" /> : <RefreshCw aria-hidden="true" />}
+              {retry.isPending ? "Restarting review…" : "Try review again"}
+            </button>
+          </div> : null}
         </div>
       </div>
-      <p className="sent-recorded" data-review-entrance="supporting">
-        Response recorded: <RecordedTime value={response.receivedAt} />
-      </p>
-      {retryable && !readOnly ? (
-        <div className="response-review-retry" data-review-entrance="secondary">
-          {retryError ? (
-            <p className="request-error" role="alert">
-              {retryError}
-            </p>
-          ) : null}
-          <button
-            className="request-button request-button-primary"
-            disabled={retry.isPending}
-            onClick={() => void retryReview()}
-            type="button"
-          >
-            {retry.isPending ? (
-              <LoaderCircle className="request-spinner" aria-hidden="true" />
-            ) : (
-              <RefreshCw aria-hidden="true" />
-            )}
-            {retry.isPending ? "Restarting review…" : "Try review again"}
-          </button>
-        </div>
-      ) : null}
-      <details className="response-original-material" data-review-entrance="secondary">
-        <summary>View the saved insurer response</summary>
-        <SavedResponseMaterial accessToken={accessToken} caseId={caseId} response={response} userId={userId} />
-      </details>
-      <div data-review-entrance="supporting">
-        <CorrectionAction onCorrect={onCorrect} />
+    </>}
+
+  </section>;
+}
+
+function FullResponseReview({ analysis, evidence, recommendation }: {
+  readonly analysis: TotalLossInsurerResponseAnalysis;
+  readonly evidence: TotalLossInsurerResponseAnalysisEvidence;
+  readonly recommendation: TotalLossResponseRecommendation | null;
+}) {
+  const [activeTab, setActiveTab] = useState(0);
+  const id = useId();
+  const tabs = ["Their reply", "Open questions", "Review notes"];
+  const newOffer = analysis.revisedOffer;
+  const hasOffer = newOffer.status === "PRESENT" && newOffer.amountMinorUnits !== null && newOffer.currency !== null;
+  const limitations = [...new Set([...(recommendation?.limitations ?? []), ...analysis.inputCoverage.limitations])]
+    .filter((text) => !analysis.uncertainties.some((item) => item.description === text));
+
+  return <details className="response-full-review">
+    <summary><span>Read the full review</span><ChevronDown aria-hidden="true" /></summary>
+    <div className="response-full-review-content">
+      <div className="response-review-tabs" role="tablist" aria-label="Full review sections">
+        {tabs.map((label, index) => <button key={label} id={`${id}-tab-${index}`} role="tab" type="button"
+          aria-selected={activeTab === index} aria-controls={`${id}-panel-${index}`} tabIndex={activeTab === index ? 0 : -1}
+          onClick={() => setActiveTab(index)} onKeyDown={(event) => {
+            const next = event.key === "ArrowRight" ? (index + 1) % tabs.length
+              : event.key === "ArrowLeft" ? (index + tabs.length - 1) % tabs.length
+                : event.key === "Home" ? 0 : event.key === "End" ? tabs.length - 1 : null;
+            if (next === null) return;
+            event.preventDefault();
+            setActiveTab(next);
+            event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>("button")[next]?.focus();
+          }}>{label}</button>)}
       </div>
-      <p className="response-analysis-disclosure" data-review-entrance="supporting">
-        This step interprets the insurer response using evidence already in the
-        case. It does not recalculate the vehicle’s value, change the published
-        report, or send a reply.
-      </p>
-    </section>
-  );
+      <div className="response-full-panel" id={`${id}-panel-0`} role="tabpanel" aria-labelledby={`${id}-tab-0`} hidden={activeTab !== 0} tabIndex={0}>
+        <div className="response-reply-summary">
+          <div className="response-reply-heading"><h3>How they responded</h3><span>{dispositionLabel(analysis.requestDisposition.category)}</span></div>
+          <p>{analysis.requestDisposition.summary}</p>
+          <BasisReferences evidence={evidence} label="Sources for this summary" {...analysis.requestDisposition} />
+        </div>
+        {hasOffer ? <div className="response-offer-source">
+          <dl><div><dt>{analysisOfferSourceLabel(newOffer)}</dt><dd>{offerLabel(newOffer.amountMinorUnits!, newOffer.currency!)}</dd></div></dl>
+          <BasisReferences evidence={evidence} label="Sources for this amount" responseEvidenceRefs={newOffer.responseEvidenceRefs} />
+        </div> : null}
+        <div className="response-review-topics">
+          <details className="response-review-topic">
+            <summary><span>What their reply means</span><ChevronDown aria-hidden="true" /></summary>
+            <div>
+              <p>{analysis.analysisSummary.whatThisMeans}</p>
+              <BasisReferences evidence={evidence} {...analysis.analysisSummary} />
+              {analysis.insurerPosition.summary !== analysis.analysisSummary.whatThisMeans ? <>
+                <h4>The insurer’s position</h4><p>{analysis.insurerPosition.summary}</p>
+                <BasisReferences evidence={evidence} {...analysis.insurerPosition} />
+              </> : null}
+            </div>
+          </details>
+          {analysis.importantChanges.length ? <details className="response-review-topic">
+            <summary><span>Changes in their reply</span><ChevronDown aria-hidden="true" /></summary>
+            <div><ul className="response-review-notes">{analysis.importantChanges.map((change, index) => <li key={index}>
+              <p>{change.description}</p><BasisReferences evidence={evidence} {...change} />
+            </li>)}</ul></div>
+          </details> : null}
+          {analysis.responsePoints.map((point, index) => <details className="response-review-topic" key={`${index}:${point.topic}`}>
+            <summary><span>{point.topic}</span><ChevronDown aria-hidden="true" /></summary>
+            <div>
+              <p className="response-topic-outcome">{responsePointLabel(point.disposition)}</p>
+              <dl className="response-point-explanation">
+                <div><dt>What the insurer said</dt><dd>{point.whatInsurerSaid}</dd></div>
+                <div><dt>What this means for you</dt><dd>{point.whatThisMeans}</dd></div>
+              </dl>
+              <BasisReferences evidence={evidence} {...point} />
+            </div>
+          </details>)}
+        </div>
+      </div>
+      <div className="response-full-panel" id={`${id}-panel-1`} role="tabpanel" aria-labelledby={`${id}-tab-1`} hidden={activeTab !== 1} tabIndex={0}>
+        <h3>What still needs an answer</h3>
+        {analysis.unresolvedIssues.length ? <ul className="response-review-notes">
+          {analysis.unresolvedIssues.map((issue, index) => <li key={index}><p>{issue.description}</p><BasisReferences evidence={evidence} {...issue} /></li>)}
+        </ul> : <p>No unresolved questions were identified in this review. Check the review notes for any limits.</p>}
+        {analysis.insurerArguments.length ? <div className="response-insurer-reasons">
+          <h4>The insurer’s reasons</h4>
+          <div className="response-review-topics">{analysis.insurerArguments.map((argument, index) => <details className="response-review-topic" key={index}>
+            <summary><span>{argument.argument}</span><ChevronDown aria-hidden="true" /></summary>
+            <div><p>{argument.whatItReliesOn}</p><BasisReferences evidence={evidence} {...argument} /></div>
+          </details>)}</div>
+        </div> : null}
+      </div>
+      <div className="response-full-panel" id={`${id}-panel-2`} role="tabpanel" aria-labelledby={`${id}-tab-2`} hidden={activeTab !== 2} tabIndex={0}>
+        <h3>How this review was made</h3>
+        <p>This explanation uses the insurer response and the valuation evidence already saved in this case. It does not recalculate the vehicle’s value or change the published report.</p>
+        <p className="response-review-confidence">{confidenceLabel(analysis.confidence)} based on the available material.</p>
+        {limitations.length || analysis.uncertainties.length ? <div className="response-review-limits">
+          <h4>Keep in mind</h4>
+          <ul className="response-review-notes">
+            {limitations.map((text) => <li key={text}><p>{text}</p></li>)}
+            {analysis.uncertainties.map((item, index) => <li key={`uncertainty-${index}`}><p>{item.description}</p><BasisReferences evidence={evidence} {...item} /></li>)}
+          </ul>
+        </div> : null}
+      </div>
+    </div>
+  </details>;
+}
+
+function RecommendationExplanation({ analysis, evidence, recommendation }: {
+  readonly analysis: TotalLossInsurerResponseAnalysis;
+  readonly evidence: TotalLossInsurerResponseAnalysisEvidence;
+  readonly recommendation: TotalLossResponseRecommendation | null;
+}) {
+  const reasons = [...new Set(recommendation?.reasons.length ? recommendation.reasons : [analysis.analysisSummary.whatThisMeans])];
+  return <details className="response-review-details">
+    <summary><span>{recommendation && recommendation.state !== "NO_CLEAR_RECOMMENDATION" ? "Why we suggest this" : "About this review"}</span><ChevronDown aria-hidden="true" /></summary>
+    <div className="response-reasoning-body">
+      <ul className="response-reasoning-points">
+        {reasons.map((reason) => <li key={reason}>{reason}</li>)}
+      </ul>
+      <BasisReferences evidence={evidence} label="View supporting sources" {...(recommendation ?? analysis.analysisSummary)} />
+      <FullResponseReview analysis={analysis} evidence={evidence} recommendation={recommendation} />
+    </div>
+  </details>;
 }
 
 export function InsurerResponseReviewed({
-  accessToken,
-  caseId,
-  claim,
-  onCorrect,
-  onRefresh,
-  originalInsurerValue,
-  originalInsurerValueLabel,
-  readOnly = false,
-  response,
-  userId,
+  accessToken, caseId, claim, onContinue, onCorrect, onDecisionAttempt, onRefresh,
+  originalInsurerValue, originalInsurerValueLabel, readOnly = false, response, userId,
 }: InsurerResponseIdentity & {
   readonly onCorrect?: () => void;
+  readonly onDecisionAttempt: (clientRequestId: string) => void;
+  readonly onContinue: () => void;
   readonly originalInsurerValue: TotalLossMoney;
   readonly originalInsurerValueLabel: "Original insurer offer" | "Original insurer valuation";
   readonly readOnly?: boolean;
@@ -1106,232 +1214,61 @@ export function InsurerResponseReviewed({
     readonly analysisEvidence: TotalLossInsurerResponseAnalysisEvidence;
   };
 }) {
-  const { analysis, analysisEvidence } = response;
+  const { analysis, analysisEvidence, recommendation } = response;
+  const [actionContainer, setActionContainer] = useState<HTMLElement | null>(null);
   const newOffer = analysis.revisedOffer;
   const originalValue = supportedPriorValue(originalInsurerValue, newOffer.currency);
-  const hasOffer =
-    newOffer.status === "PRESENT" &&
-    newOffer.amountMinorUnits !== null &&
-    newOffer.currency !== null;
-  const partialDocument =
-    analysis.inputCoverage.document === "UNREADABLE" ||
-    analysis.inputCoverage.document === "UNSUPPORTED";
+  const hasOffer = newOffer.status === "PRESENT" && newOffer.amountMinorUnits !== null && newOffer.currency !== null;
+  const partialDocument = analysis.inputCoverage.document === "UNREADABLE" || analysis.inputCoverage.document === "UNSUPPORTED";
+  const limitations = [...new Set([
+    ...(recommendation?.limitations ?? []), ...analysis.inputCoverage.limitations,
+    ...analysis.uncertainties.map((item) => item.description),
+  ])];
 
-  return (
-    <section
-      className="insurer-response-reviewed"
-      aria-labelledby="insurer-response-reviewed-heading"
-    >
-      <p className="waiting-case-status" data-review-entrance="supporting">
-        <span aria-hidden="true" />
-        {!readOnly && response.decision?.choice === "ACCEPT_OFFER" ? "Confirm acceptance" : "Response reviewed"}
-      </p>
-      <div className="response-reviewed-heading" data-review-entrance="primary">
-        <div className="response-review-status-mark" data-state="complete" aria-hidden="true">
-          <CheckCircle2 />
+  return <section className="insurer-response-reviewed" aria-labelledby="insurer-response-reviewed-heading">
+    <ResponseReviewHeading headingId="insurer-response-reviewed-heading" onCorrect={onCorrect} />
+    <div className="message-flow response-review-flow" data-review-entrance="secondary">
+      <section className="message-flow-step response-review-section" aria-labelledby="response-change-heading">
+        <div className="response-section-heading"><span className="message-step-marker" aria-hidden="true">1</span><h2 id="response-change-heading">What changed</h2></div>
+        <div className="response-section-content">
+          <p className="response-change-summary">{analysis.analysisSummary.whatInsurerSaid}</p>
+          {hasOffer ? <dl className="response-offer-change" data-paired={Boolean(originalValue)}>
+            {originalValue ? <div><dt>{originalInsurerValueLabel}</dt><dd>{originalValue}</dd></div> : null}
+            <div><dt>{analysisOfferSourceLabel(newOffer)}</dt><dd>{offerLabel(newOffer.amountMinorUnits!, newOffer.currency!)}</dd></div>
+          </dl> : <p className="response-no-offer">{newOffer.status === "ABSENT" ? "No new offer was included in this response." : "We couldn’t confirm a new offer from this response."}</p>}
+          {newOffer.visualSourceInterpretation ? <div className="response-visual-transcription">
+            <strong>Amount read from the document</strong><p>“{newOffer.visualSourceInterpretation.derivedText}”</p>
+            <small>This text was read from the document image. It does not replace the saved insurer document. Check the original before relying on the amount.</small>
+          </div> : null}
+          <p className="response-change-meaning">{analysis.analysisSummary.whatThisMeans}</p>
         </div>
-        <div>
-          <h1 id="insurer-response-reviewed-heading">
-            What the insurer’s response means
-          </h1>
-          <p className="review-lead">
-            Venfour reviewed the saved response in the context of the request,
-            valuation, and evidence already in this case.
-          </p>
+      </section>
+      <section className="message-flow-step response-review-section" aria-labelledby="response-recommendation-heading">
+        <div className="response-section-heading"><span className="message-step-marker" aria-hidden="true">2</span><h2 id="response-recommendation-heading">What we recommend</h2></div>
+        <div className="response-section-content response-recommendation">
+          <strong>{recommendation ? recommendationLabel(recommendation.state) : "Recommendation unavailable"}</strong>
+          <p>{recommendation ? recommendation.summary : "This saved review does not yet have an evidence-based recommendation. Your analysis and original response remain available."}</p>
+          <div className="response-review-cautions">
+            <p>{confidenceLabel(analysis.confidence)} based on the available material.</p>
+            {partialDocument ? <p>Venfour could not reliably interpret the submitted document. The explanation uses only the other response material that was available.</p> : null}
+            {limitations.length ? <ul>{limitations.map((text) => <li key={text}>{text}</li>)}</ul> : null}
+          </div>
+          <RecommendationExplanation analysis={analysis} evidence={analysisEvidence} recommendation={recommendation} />
         </div>
-      </div>
-
-      <section className="response-analysis-section" data-review-entrance="secondary">
-        <h2>Insurer’s response</h2>
-        <div className="response-analysis-summary">
-          <div>
-            <h3>What the insurer said</h3>
-            <p>{analysis.analysisSummary.whatInsurerSaid}</p>
-          </div>
-          <div>
-            <h3>What this means for your case</h3>
-            <p>{analysis.analysisSummary.whatThisMeans}</p>
-          </div>
-        </div>
-        <BasisReferences
-          evidence={analysisEvidence}
-          {...analysis.analysisSummary}
-        />
       </section>
-
-      <section className="response-analysis-section" data-review-entrance="secondary">
-        <h2>What changed</h2>
-        {hasOffer ? (
-          <dl className="response-offer-change">
-            {originalValue ? (
-              <div>
-                <dt>{originalInsurerValueLabel}</dt>
-                <dd>{originalValue}</dd>
-              </div>
-            ) : null}
-            <div>
-              <dt>{analysisOfferSourceLabel(newOffer)}</dt>
-              <dd>
-                {offerLabel(newOffer.amountMinorUnits!, newOffer.currency!)}
-              </dd>
-            </div>
-          </dl>
-        ) : null}
-        {newOffer.visualSourceInterpretation ? (
-          <div className="response-visual-transcription">
-            <strong>Amount read from the document</strong>
-            <p>“{newOffer.visualSourceInterpretation.derivedText}”</p>
-            <small>
-              This text was read from the document image. It does not replace
-              the saved insurer document. Check the original before relying on
-              the amount.
-            </small>
-          </div>
-        ) : null}
-        {analysis.importantChanges.length ? (
-          <ul className="response-analysis-list">
-            {analysis.importantChanges.map((change, index) => (
-              <li key={`${index}:${change.description}`}>
-                <p>{change.description}</p>
-                <BasisReferences evidence={analysisEvidence} {...change} />
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p>{analysis.insurerPosition.summary}</p>
-        )}
-        {hasOffer ? (
-          <BasisReferences
-            evidence={analysisEvidence}
-            responseEvidenceRefs={newOffer.responseEvidenceRefs}
-          />
-        ) : null}
-      </section>
-
-      <section className="response-analysis-section" data-review-entrance="secondary">
-        <h2>How they responded</h2>
-        <p className="response-disposition">
-          <span>{dispositionLabel(analysis.requestDisposition.category)}</span>
-          {analysis.requestDisposition.summary}
-        </p>
-        <BasisReferences evidence={analysisEvidence} {...analysis.requestDisposition} />
-        {analysis.responsePoints.length ? (
-          <div className="response-points">
-            {analysis.responsePoints.map((point, index) => (
-              <article key={`${index}:${point.topic}`}>
-                <header>
-                  <h3>{point.topic}</h3>
-                  <span>{responsePointLabel(point.disposition)}</span>
-                </header>
-                <dl>
-                  <div>
-                    <dt>What the insurer said</dt>
-                    <dd>{point.whatInsurerSaid}</dd>
-                  </div>
-                  <div>
-                    <dt>What this means</dt>
-                    <dd>{point.whatThisMeans}</dd>
-                  </div>
-                </dl>
-                <BasisReferences evidence={analysisEvidence} {...point} />
-              </article>
-            ))}
-          </div>
-        ) : null}
-      </section>
-
-      <section className="response-analysis-section" data-review-entrance="secondary">
-        <h2>What matters</h2>
-        {analysis.insurerArguments.length ? (
-          <div className="response-arguments">
-            {analysis.insurerArguments.map((argument, index) => (
-              <article key={`${index}:${argument.argument}`}>
-                <h3>{argument.argument}</h3>
-                <p>{argument.whatItReliesOn}</p>
-                <BasisReferences evidence={analysisEvidence} {...argument} />
-              </article>
-            ))}
-          </div>
-        ) : (
-          <p>{analysis.insurerPosition.summary}</p>
-        )}
-        {analysis.unresolvedIssues.length ? (
-          <div className="response-unresolved">
-            <h3>Still unresolved</h3>
-            <ul>
-              {analysis.unresolvedIssues.map((issue, index) => (
-                <li key={`${index}:${issue.description}`}>
-                  <p>{issue.description}</p>
-                  <BasisReferences evidence={analysisEvidence} {...issue} />
-                </li>
-              ))}
-            </ul>
-          </div>
-        ) : null}
-      </section>
-
-      <section className="response-analysis-section response-recommendation" data-review-entrance="primary">
-        <h2>Venfour’s recommendation</h2>
-        {response.recommendation ? <>
-          <strong>{recommendationLabel(response.recommendation.state)}</strong>
-          <p>{response.recommendation.summary}</p>
-          {response.recommendation.reasons.length ? <ul className="response-recommendation-reasons">{response.recommendation.reasons.map((reason, index) => <li key={`${index}:${reason}`}>{reason}</li>)}</ul> : null}
-          <BasisReferences evidence={analysisEvidence} {...response.recommendation} />
-          {response.recommendation.limitations.length ? <ul className="response-recommendation-limitations">{response.recommendation.limitations.map((limitation, index) => <li key={`${index}:${limitation}`}>{limitation}</li>)}</ul> : null}
-          <ResponseDecisionArea
-            key={`${userId}:${caseId}:${response.responseId}:${response.recommendation.recommendationId}:${readOnly}`}
+      <section className="message-flow-step response-review-section" aria-labelledby="response-choice-heading">
+        <div className="response-section-heading"><span className="message-step-marker" aria-hidden="true">3</span><h2 id="response-choice-heading">Your choice</h2></div>
+        <div className="response-section-content">
+          {recommendation ? <ResponseDecisionArea
+            key={`${userId}:${caseId}:${response.responseId}:${recommendation.recommendationId}:${readOnly}`}
             accessToken={accessToken} caseId={caseId} claim={claim} onRefresh={onRefresh} userId={userId}
-            response={{ ...response, recommendation: response.recommendation }}
-            readOnly={readOnly}
-          />
-        </> : <>
-          <strong>Recommendation unavailable</strong>
-          <p>This saved review does not yet have an evidence-based Accept or Continue recommendation. Your analysis and original response remain available.</p>
-        </>}
+            response={{ ...response, recommendation }} readOnly={readOnly} actionContainer={actionContainer}
+            onDecisionAttempt={onDecisionAttempt} onContinue={onContinue}
+          /> : <p>There’s no recommendation to act on yet. You can read the review and find the insurer’s reply in your case history.</p>}
+        </div>
       </section>
+    </div>
+    <div ref={setActionContainer} />
 
-      <section className="response-analysis-foundation" data-review-entrance="supporting">
-        <h2>What this explanation is based on</h2>
-        <p>
-          This explanation uses the insurer response and the valuation evidence
-          already saved in this case. It does not recalculate the vehicle’s
-          value or change the published report.
-        </p>
-        <p>{confidenceLabel(analysis.confidence)} based on the available material.</p>
-        {partialDocument ? (
-          <p>
-            Venfour could not reliably interpret the submitted document. The
-            explanation uses only the other response material that was available.
-          </p>
-        ) : null}
-        {analysis.inputCoverage.limitations.length ? (
-          <ul>
-            {analysis.inputCoverage.limitations.map((limitation) => (
-              <li key={limitation}>{limitation}</li>
-            ))}
-          </ul>
-        ) : null}
-        {analysis.uncertainties.length ? (
-          <div className="response-uncertainties">
-            <h3>Uncertainty to keep in mind</h3>
-            <ul>
-              {analysis.uncertainties.map((uncertainty, index) => (
-                <li key={`${index}:${uncertainty.description}`}>
-                  {uncertainty.description}
-                </li>
-              ))}
-            </ul>
-          </div>
-        ) : null}
-      </section>
-
-      <details className="response-original-material" data-review-entrance="supporting">
-        <summary>View the saved insurer response</summary>
-        <SavedResponseMaterial accessToken={accessToken} caseId={caseId} response={response} userId={userId} />
-      </details>
-      <div data-review-entrance="supporting">
-        <CorrectionAction onCorrect={onCorrect} />
-      </div>
-    </section>
-  );
+  </section>;
 }

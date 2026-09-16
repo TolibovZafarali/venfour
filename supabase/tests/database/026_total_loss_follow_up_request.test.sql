@@ -479,7 +479,7 @@ select is(public.resolve_total_loss_follow_up_generation_context(
   (payload #>> '{sourceIdentity,decisionId}')::uuid),null::jsonb,'another owner cannot obtain follow-up generation sources')
   from scenario where name='context';
 insert into scenario values('generation',jsonb_build_object(
-  'schemaVersion','1','templateVersion','1','status','READY','generationDigest',repeat('a',64),
+  'schemaVersion','1','templateVersion','2','status','READY','generationDigest',repeat('a',64),
   'recipientEmail','adjuster@example.test','subject','Follow-up valuation review',
   'body','Thank you for your response. Please explain how the previously supplied valuation evidence was considered.',
   'grounding',jsonb_build_object('responseEvidenceRefs',jsonb_build_array('response_'||repeat('a',64)),
@@ -509,6 +509,18 @@ select throws_ok($$select public.store_total_loss_follow_up_draft(
   jsonb_set((select payload from scenario where name='generation'),'{grounding,responseEvidenceRefs}',
     jsonb_build_array('response_'||repeat('f',64))))$$,'22023','Follow-up generated content is invalid.',
   'unknown evidence citations cannot be persisted by the generation gate');
+select throws_ok($$select public.store_total_loss_follow_up_draft(
+  'b2000000-0000-4000-8000-000000000001','b1000000-0000-4000-8000-000000000001',
+  (select (payload #>> '{sourceIdentity,decisionId}')::uuid from scenario where name='context'),
+  (select payload ->> 'contextDigest' from scenario where name='context'),
+  jsonb_set((select payload from scenario where name='generation'),'{templateVersion}','"3"'::jsonb))$$,
+  '22023','Follow-up generation is invalid.','unrecognized template versions still fail closed');
+select throws_ok($$select public.store_total_loss_follow_up_draft(
+  'b2000000-0000-4000-8000-000000000001','b1000000-0000-4000-8000-000000000001',
+  (select (payload #>> '{sourceIdentity,decisionId}')::uuid from scenario where name='context'),
+  (select payload ->> 'contextDigest' from scenario where name='context'),
+  (select payload - 'templateVersion' from scenario where name='generation'))$$,
+  '22023','Follow-up generation is invalid.','missing template versions still fail closed');
 insert into scenario select 'generated',public.store_total_loss_follow_up_draft(
   'b2000000-0000-4000-8000-000000000001','b1000000-0000-4000-8000-000000000001',
   (payload #>> '{sourceIdentity,decisionId}')::uuid,payload ->> 'contextDigest',(select payload from scenario where name='generation'))
@@ -520,6 +532,9 @@ select is(public.store_total_loss_follow_up_draft(
   (select payload from scenario where name='generated'),'duplicate generation resumes the same draft') from scenario where name='context';
 select is((select count(*)::integer from public.total_loss_message_drafts
   where case_id='b2000000-0000-4000-8000-000000000001' and purpose='follow_up_reconsideration'),1,'generation retries create one follow-up');
+select is((select generation_template_version from public.total_loss_message_drafts
+  where id=(select (payload #>> '{draft,draftId}')::uuid from scenario where name='generated')),
+  'follow-up-v2','the stored draft retains the actual copy template version');
 select is((select original_content from public.total_loss_communications where id='be300000-0000-4000-8000-000000000001'),
   'Please review the attached evidence and reconsider the vehicle valuation.','original sent request remains unchanged');
 -- Probe corrections in a rolled-back subtransaction so the main send scenario

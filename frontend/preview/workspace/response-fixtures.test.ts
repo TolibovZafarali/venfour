@@ -13,7 +13,16 @@ describe("response screen fixtures", () => {
     expect(claim.state).toBe("secured");
     if (claim.state !== "secured") throw new Error("Expected a saved claim");
     expect(claim.journey?.nextState).toBe(fixture.journey?.nextState);
-    if (phase === "follow-up") expect(claim.followUp?.draft?.body).toContain("Please explain");
+    if (phase === "follow-up") {
+      expect(claim.followUp?.state).toBe("available");
+      expect(claim.followUp?.draft).toBeNull();
+      expect(claim.insurerResponse?.decision?.choice).toBe("CONTINUE_CHALLENGING");
+    }
+    if (phase === "acceptance") {
+      expect(claim.resolution).toBeUndefined();
+      expect(claim.insurerResponse?.decision?.choice).toBe("ACCEPT_OFFER");
+      expect(claim.insurerResponse?.decision?.offerId).toBe(claim.insurerResponse?.usableOffer?.offerId);
+    }
     if (phase === "resolution") expect(claim.resolution?.amountSource).toBe("CUSTOMER_REPORTED");
   });
 });

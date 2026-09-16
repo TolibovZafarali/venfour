@@ -11,6 +11,7 @@ import type {
   TotalLossMessageDraft,
   TotalLossPreparedMessageVersion,
   TotalLossPublishedReport,
+  TotalLossSentCommunication,
 } from "@/features/total-loss-claim/contracts";
 import { normalizeCustomerRequestBody } from "@/features/total-loss-claim/customer-message-copy";
 import {
@@ -107,6 +108,7 @@ export function useRequestDraft({
   const [pendingRecovery, setPendingRecovery] = useState(Boolean(recovery.pendingContent));
   const [notice, setNotice] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
+  const [confirmedMessage, setConfirmedMessage] = useState<TotalLossSentCommunication | null>(null);
   const [sharedMessage, setSharedMessage] =
     useState<TotalLossPreparedMessageVersion | null>(null);
   const contentRef = useRef(content);
@@ -456,13 +458,14 @@ export function useRequestDraft({
     setAction("sent");
     setError(null);
     try {
-      await recordSent({
+      const result = await recordSent({
         clientRequestId: sentRequestId.current,
         expectedWorkflowRevision: revisionRef.current,
         messageVersionId: sharedMessage.messageVersionId,
       });
       sentRef.current = true;
       clearRequestDraftRecovery(recoveryKey);
+      setConfirmedMessage({ ...sharedMessage, ...result, state: "sent" });
       setSent(true);
       await onRefresh().catch(() => undefined);
       if (mountedRef.current) onSent?.();
@@ -481,6 +484,7 @@ export function useRequestDraft({
     action,
     blocker,
     confirmSent,
+    confirmedMessage,
     conflict,
     content,
     dirty,

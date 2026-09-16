@@ -21,6 +21,29 @@ html:has([data-completed-review]) { scrollbar-gutter: stable; }
 .completed-analysis :is(.review-primary, .review-back) { transition: background-color 180ms, color 180ms, box-shadow 180ms; }
 .completed-analysis .review-primary:active:not(:disabled) { box-shadow: inset 0 2px 5px rgb(19 19 19 / 16%); }
 
+.completed-analysis .insurer-calculation li:nth-child(2) { --insurer-step-delay: 180ms; }
+.completed-analysis .insurer-calculation li:nth-child(3) { --insurer-step-delay: 360ms; }
+.completed-analysis .insurer-calculation li[data-scroll-reveal="entering"] {
+  animation-name: insurer-step-enter, scroll-focus-enter;
+  animation-duration: 480ms;
+  animation-delay: var(--insurer-step-delay, 0ms);
+}
+@keyframes insurer-step-enter {
+  from { opacity: 0; transform: translate(var(--insurer-step-x, -10px), var(--insurer-step-y, 0px)); }
+  to { opacity: 1; transform: translate(0, 0); }
+}
+@media (max-width: 600px) {
+  .completed-analysis .insurer-calculation li { --insurer-step-x: 0px; --insurer-step-y: 8px; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   :is(.completed-analysis, .completed-review-progress-host) .review-progress-fill { transition: none; }
+}
+
+@media (prefers-reduced-motion: reduce), print {
+  .completed-analysis .insurer-calculation li[data-scroll-reveal] {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
 }

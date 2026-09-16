@@ -213,7 +213,7 @@ const combinedRoutes: RouteObject[] = [
       {
         path: "total-loss/cases/:caseId/claim/review/request",
         element: <TotalLossClaimWorkflowPage view="review_request" />,
-        handle: metadata("Prepare Your Reconsideration Request | Venfour", "Review your completed total-loss valuation and supporting evidence."),
+        handle: metadata("Prepare Your Message | Venfour", "Review your completed total-loss valuation and supporting evidence."),
       },
       {
         path: "total-loss/cases/:caseId/claim/review/waiting",
@@ -343,7 +343,7 @@ const combinedRoutes: RouteObject[] = [
         path: "total-loss/cases/:caseId/claim/guide/send",
         element: <TotalLossClaimWorkflowPage view="send" />,
         handle: metadata(
-          "Prepare Your Reconsideration Request | Venfour",
+          "Prepare Your Message | Venfour",
           "Review, copy, and open your valuation reconsideration email request.",
         ),
       },

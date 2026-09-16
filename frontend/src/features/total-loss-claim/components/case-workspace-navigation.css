@@ -3,7 +3,7 @@
 .completed-analysis > .case-workspace-navigation { margin-bottom: 2.25rem; }
 .case-workspace-navigation .case-workspace-sections { display: grid; gap: 0; padding: 0; margin: 0; list-style: none; }
 .case-workspace-navigation .case-workspace-sections li { min-width: 0; margin: 0; }
-.case-workspace-sections :is(a, .case-workspace-unavailable) { display: flex; align-items: center; justify-content: center; gap: .4rem; min-height: 2.75rem; height: 100%; padding: .5rem; font-size: .8125rem; line-height: 1.35; text-decoration: none; }
+.case-workspace-sections :is(a, .case-workspace-unavailable) { display: flex; flex-direction: row; align-items: center; justify-content: center; gap: .4rem; min-height: 2.75rem; height: 100%; padding: .5rem .25rem; text-align: center; font-size: .75rem; line-height: 1.35; text-decoration: none; }
 .case-workspace-sections a { color: var(--review-muted); }
 .case-workspace-sections a:hover { color: var(--review-accent); text-decoration: underline; text-underline-offset: 4px; }
 .case-workspace-sections a[aria-current="page"] { color: var(--review-accent); text-decoration: underline; text-underline-offset: 4px; }
@@ -14,7 +14,7 @@
 .case-workspace-mobile { display: none; }
 .case-workspace-navigation :is(a, select):focus-visible { outline: 3px solid var(--ring); outline-offset: -3px; border-radius: 3px; }
 .case-workspace-navigation [aria-disabled="true"] { opacity: .6; cursor: wait; }
-@media (max-width: 1023px) {
+@media (max-width: 1279px) {
   .case-workspace-navigation { padding: .375rem 1.25rem; }
   .completed-analysis > .case-workspace-navigation { margin-bottom: 1.75rem; }
   .case-workspace-navigation .case-workspace-sections { display: none; }
@@ -24,4 +24,10 @@
 @media (max-width: 359px) {
   .case-workspace-navigation { padding-inline: 1rem; }
   .case-workspace-mobile select { font-size: .8125rem; }
+}
+
+.case-workspace-sections :is(a, .case-workspace-unavailable) > span { max-width: 100%; white-space: nowrap; }
+
+@media (min-width: 1280px) and (max-width: 1439px) {
+  .case-workspace-sections :is(a, .case-workspace-unavailable) { font-size: .6875rem; padding-inline: .125rem; }
 }

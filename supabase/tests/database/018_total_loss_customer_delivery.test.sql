@@ -3,7 +3,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
 
-select plan(53);
+select plan(55);
 
 insert into auth.users (id, email, email_confirmed_at, is_anonymous)
 values
@@ -925,12 +925,32 @@ select public.prepare_total_loss_customer_message(
 select ok(
   (
     select response #>> '{messageVersion,state}' = 'prepared'
-      and response #>> '{draft,body}' like '%Example Insurance%'
+      and response #>> '{draft,subject}' = 'Vehicle valuation review - Claim CLM 123'
+      and response #>> '{draft,body}' like 'Hello Alex Adjuster,%'
       and response #>> '{draft,body}' like '%CLM 123%'
-      and response #>> '{draft,body}' like '%Venfour_Valuation_Evidence_F20000000000_v1.pdf%'
+      and response #>> '{draft,body}' like '%2022 Honda Accord EX-L%'
+      and response #>> '{draft,body}' like '%$18,000.00 vehicle valuation%'
+      and response #>> '{draft,body}' like '%advertised from $20,000.00 to $22,000.00%'
+      and response #>> '{draft,body}' like '%These are asking prices%'
+      and response #>> '{draft,body}' like E'%Thank you for your time and help,\nDelivery Customer'
     from m6_prepare_v1
   ),
-  'deterministic preparation uses the confirmed claim, insurer, report, and filename facts'
+  'new messages use saved names, claim and vehicle facts with qualified advertised prices'
+);
+
+select ok(
+  (select response #>> '{draft,body}' like '%Could you please reconsider the valuation%'
+    and response #>> '{draft,body}' like '%a brief explanation%'
+    and response #>> '{draft,body}' !~ '(Venfour_|Unavailable|Claims Representative|settlement target)'
+    and cardinality(regexp_split_to_array(response #>> '{draft,body}', E'\\s+')) < 170
+    from m6_prepare_v1),
+  'the request stays brief and courteous without internal filenames or settlement promises'
+);
+
+select ok(
+  position('assert_total_loss_customer_case_open_internal' in
+    pg_get_functiondef('public.prepare_total_loss_customer_message(uuid,uuid,bigint)'::regprocedure)) > 0,
+  'copy changes preserve the closed-case mutation guard'
 );
 
 select is(
@@ -1195,7 +1215,8 @@ select ok(
         prior.response #>> '{draft,draftId}'
       and current.response #>> '{draft,reportVersionId}' =
         'fe000000-0000-4000-8000-000000000002'
-      and current.response #>> '{draft,body}' like '%_v2.pdf%'
+      and current.response #>> '{draft,body}' like '%attached a market evidence report%'
+      and current.response #>> '{draft,body}' not like '%_v2.pdf%'
     from m6_prepare_v2 as current
     cross join m6_prepare_v1 as prior
   ),

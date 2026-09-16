@@ -6,9 +6,10 @@ export const responseScenarios = [
   ["response", "Add insurer response", "The response form for a sent request."],
   ["response-received", "Response received", "A saved written response and revised offer."],
   ["response-reviewing", "Reviewing response", "The response review in progress."],
-  ["response-reviewed", "Response reviewed", "A fictional completed response review and available choices."],
-  ["follow-up", "Follow-up request", "A prepared follow-up to the saved insurer response."],
-  ["resolution", "Case outcome", "A recorded customer-reported case closure."],
+  ["response-reviewed", "Response reviewed · Interactive", "Review a fictional reply, save your choice, and continue when ready."],
+  ["follow-up", "Prepare your follow-up · Interactive", "Create, edit, and simulate sending a follow-up. Continue when ready."],
+  ["acceptance", "Confirm acceptance · Interactive", "Review an offer, confirm acceptance, and close a fictional case."],
+  ["resolution", "Your case record", "A saved outcome, report, and expandable case history."],
 ] as const;
 export type ResponseScenario = typeof responseScenarios[number][0];
 export function isResponseScenario(phase: string): phase is ResponseScenario {
@@ -45,8 +46,11 @@ export function responseClaim(phase: ResponseScenario): TotalLossClaimSecured {
       clientRequestId: crypto.randomUUID(), recommendationId: claim.insurerResponse!.recommendation!.recommendationId,
       workflowRevision: claim.workflow!.revision, choice: "CONTINUE_CHALLENGING", offerId: null,
     });
-    flow.handle("/follow-up", "POST", { clientRequestId: crypto.randomUUID(), decisionId: claim.insurerResponse!.decision!.decisionId });
   }
+  if (phase === "acceptance") flow.handle(`/claim/insurer-responses/${response.responseId}/decision`, "POST", {
+    clientRequestId: crypto.randomUUID(), recommendationId: claim.insurerResponse!.recommendation!.recommendationId,
+    workflowRevision: claim.workflow!.revision, choice: "ACCEPT_OFFER", offerId: claim.insurerResponse!.usableOffer!.offerId,
+  });
   if (phase === "resolution") flow.handle("/claim/resolution", "POST", {
     clientRequestId: crypto.randomUUID(), workflowRevision: claim.workflow!.revision,
     resolutionCode: "RESOLVED_WITH_INSURER", decisionId: null, offerId: null, amountMinorUnits: 1950000, currency: "USD",

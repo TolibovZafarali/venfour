@@ -48,12 +48,11 @@ describe("total-loss case journey progress", () => {
       "prepare_request",
       "send_request",
       "waiting_for_insurer",
-      "response_received",
       "response_reviewing",
       "response_reviewed",
     ]);
     expect(waiting.position).toBe(7);
-    expect(waiting.total).toBe(10);
+    expect(waiting.total).toBe(9);
     expect(waiting.current.label).toBe("Waiting for insurer");
     expect(waiting.isCaseActive).toBe(true);
   });
@@ -62,12 +61,12 @@ describe("total-loss case journey progress", () => {
     expect(progress("request")).toMatchObject({
       current: { id: "prepare_request" },
       position: 5,
-      total: 10,
+      total: 9,
     });
     expect(progress("request", { hasDraft: true })).toMatchObject({
       current: { id: "send_request" },
       position: 6,
-      total: 10,
+      total: 9,
     });
   });
 
@@ -75,12 +74,12 @@ describe("total-loss case journey progress", () => {
     expect(progress("insurer", { intakeMode: "manual" })).toMatchObject({
       current: { id: "review_market_evidence" },
       position: 2,
-      total: 9,
+      total: 8,
     });
     expect(progress("waiting", { intakeMode: "manual" })).toMatchObject({
       current: { id: "waiting_for_insurer" },
       position: 6,
-      total: 9,
+      total: 8,
       isCaseActive: true,
     });
   });
@@ -109,21 +108,21 @@ describe("total-loss case journey progress", () => {
     expect(progress("waiting", { continuingSupported: false })).toMatchObject({
       current: { id: "waiting_for_insurer" },
       position: 7,
-      total: 10,
+      total: 9,
       isCaseActive: true,
     });
   });
 
   it.each([
-    ["response_reviewing", "response_reviewing", 9, true],
-    ["response_reviewed", "response_reviewed", 10, false],
+    ["response_reviewing", "response_reviewing", 8, true],
+    ["response_reviewed", "response_reviewed", 9, false],
   ] as const)(
     "preserves the server-authoritative %s step if report continuation changes",
     (stage, id, position, isCaseActive) => {
       expect(progress(stage, { continuingSupported: false })).toMatchObject({
         current: { id },
         position,
-        total: 10,
+        total: 9,
         isCaseActive,
       });
     },
@@ -133,25 +132,25 @@ describe("total-loss case journey progress", () => {
     expect(progress("response", { hasDraft: true })).toMatchObject({
       current: { id: "waiting_for_insurer" },
       position: 7,
-      total: 10,
+      total: 9,
       isCaseActive: true,
     });
     expect(progress("response_received", { hasDraft: true })).toMatchObject({
-      current: { id: "response_received" },
+      current: { id: "response_reviewing" },
       position: 8,
-      total: 10,
-      isCaseActive: false,
+      total: 9,
+      isCaseActive: true,
     });
     expect(progress("response_reviewing", { hasDraft: true })).toMatchObject({
       current: { id: "response_reviewing" },
-      position: 9,
-      total: 10,
+      position: 8,
+      total: 9,
       isCaseActive: true,
     });
     expect(progress("response_reviewed", { hasDraft: true })).toMatchObject({
       current: { id: "response_reviewed" },
-      position: 10,
-      total: 10,
+      position: 9,
+      total: 9,
       isCaseActive: false,
     });
   });

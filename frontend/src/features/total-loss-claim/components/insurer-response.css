@@ -32,6 +32,8 @@
 .completed-analysis .response-offer-field { min-width: 0; }
 .completed-analysis .response-submit-error { margin-top: 1.5rem; }
 .completed-analysis .response-draft-status { max-width: 42rem; margin-top: 1rem; font-size: .8rem; line-height: 1.6; }
+.completed-analysis .insurer-response-form[data-inline] .response-draft-status { margin-top: 0; font-size: .75rem; }
+.completed-analysis .insurer-response-form[data-inline] .response-fields { margin-top: 1.25rem; }
 .completed-analysis .response-draft-notice { margin-top: 1.25rem; padding: 1rem 1.2rem; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
 .completed-analysis .response-draft-notice h2 { margin-bottom: .45rem; font-size: 1rem; }
 .completed-analysis .response-draft-notice p { font-size: .875rem; }
@@ -62,11 +64,6 @@
 @keyframes response-review-pulse { 50% { opacity: .58; transform: scale(.94); } }
 .completed-analysis .response-review-retry { display: flex; flex-wrap: wrap; align-items: center; gap: 1rem; margin-top: 1.5rem; }
 .completed-analysis .response-review-retry .request-error { flex-basis: 100%; }
-.completed-analysis .response-original-material { margin-top: 2rem; border-block: 1px solid var(--review-line); }
-.completed-analysis .response-original-material summary { min-height: 52px; padding-block: .9rem; color: var(--review-ink); font-size: .875rem; font-weight: 600; cursor: pointer; }
-.completed-analysis .response-original-material[open] summary { border-bottom: 1px solid var(--review-line); }
-.completed-analysis .response-original-material .response-summary { margin: 0; }
-.completed-analysis .response-original-material .response-summary > div:first-child { border-top: 0; }
 .completed-analysis .response-analysis-disclosure { max-width: 43rem; margin-top: 1.5rem; font-size: .8rem; line-height: 1.65; }
 .completed-analysis .response-analysis-section { max-width: 46rem; margin-top: 2.25rem; padding-top: 1.75rem; border-top: 1px solid var(--review-line); }
 .completed-analysis .response-analysis-section > h2 { margin-bottom: 1rem; }
@@ -158,4 +155,114 @@
 
 @media (prefers-reduced-motion: reduce) {
   .completed-analysis .response-review-status-mark[data-state="processing"] svg { animation: none; }
+}
+
+.completed-analysis .response-review-title-row { display: flex; align-items: center; justify-content: space-between; gap: 1.5rem; }
+.completed-analysis .response-review-title-row h1 { min-width: 0; margin: 0; }
+.completed-analysis .response-review-title-row > .request-button { flex-shrink: 0; min-height: 44px; padding-inline: .25rem; font-size: .8125rem; }
+.completed-analysis .response-review-heading > .review-lead { margin-top: .85rem; }
+@media (max-width: 600px) {
+  .completed-analysis .response-review-title-row { flex-direction: column-reverse; align-items: stretch; gap: .75rem; }
+  .completed-analysis .response-review-title-row > .request-button { align-self: flex-end; }
+}
+.completed-analysis .response-review-flow { margin-top: 2rem; }
+.completed-analysis .response-section-heading { display: grid; grid-template-columns: 28px minmax(0, 1fr); align-items: center; gap: .9rem; }
+.completed-analysis .response-section-heading h2 { margin: 0; font-size: .9375rem; font-weight: 600; }
+.completed-analysis .response-section-content { min-width: 0; padding: 1.15rem 0 0 2.65rem; }
+.completed-analysis .response-section-content > p { font-size: .875rem; line-height: 1.7; }
+.completed-analysis .response-change-summary { color: var(--review-ink); }
+.completed-analysis .response-review-flow .response-offer-change { margin: 1.15rem 0; background: var(--review-line); }
+.completed-analysis .response-review-flow .response-offer-change > div { background: var(--surface); }
+.completed-analysis .response-offer-change[data-paired="false"] { grid-template-columns: 1fr; }
+.completed-analysis .response-no-offer { margin-top: 1rem; padding: .85rem 1rem; border-radius: 8px; background: var(--surface); }
+.completed-analysis .response-review-flow .response-recommendation { border: 0; border-radius: 0; background: transparent; }
+.completed-analysis .response-review-flow .response-recommendation > strong { color: var(--review-ink); font-size: 1.2rem; font-weight: 600; }
+.completed-analysis .response-review-cautions { margin-top: 1.1rem; color: var(--review-muted); font-size: .75rem; line-height: 1.65; }
+.completed-analysis .response-review-cautions p { font-size: inherit; }
+.completed-analysis .response-review-cautions p + p { margin-top: .5rem; }
+.completed-analysis .response-review-cautions ul { display: grid; gap: .35rem; padding-left: 1rem; margin: .4rem 0 0; }
+.completed-analysis .response-review-details { margin-top: 1.2rem; border: 1px solid var(--review-line); border-radius: 10px; background: var(--background); overflow: clip; }
+.completed-analysis .response-review-details > summary { display: flex; justify-content: space-between; align-items: center; gap: 1rem; min-height: 48px; padding: .9rem 1rem; color: var(--review-ink); font-size: .8125rem; font-weight: 550; cursor: pointer; list-style: none; }
+.completed-analysis .response-review-details > summary:hover { background: var(--surface); }
+.completed-analysis .response-review-details summary::-webkit-details-marker { display: none; }
+.completed-analysis .response-review-details summary:focus-visible { outline: 2px solid var(--review-accent); outline-offset: -3px; border-radius: 6px; }
+.completed-analysis .response-review-details summary > svg { flex-shrink: 0; width: 15px; height: 15px; color: var(--review-muted); transition: transform 160ms ease; }
+.completed-analysis .response-review-details details[open] > summary > svg,
+.completed-analysis .response-review-details[open] > summary > svg { transform: rotate(180deg); }
+.completed-analysis .response-review-details > .response-reasoning-body { padding: .15rem 1rem 0; }
+.completed-analysis .response-reasoning-points { display: grid; gap: .65rem; margin: 0 0 .7rem; padding: 0 0 0 1rem; color: var(--review-ink); font-size: .875rem; line-height: 1.75; }
+.completed-analysis .response-reasoning-points:has(> li:only-child) { list-style: none; padding-left: 0; }
+.completed-analysis .response-reasoning-points li::marker { color: var(--review-muted); }
+.completed-analysis .response-full-review { border-top: 1px solid var(--review-line); }
+.completed-analysis .response-full-review > summary { display: flex; align-items: center; justify-content: space-between; gap: 1rem; min-height: 48px; padding: .85rem 0; list-style: none; font-size: .8125rem; font-weight: 500; cursor: pointer; }
+.completed-analysis .response-full-review-content { padding: .2rem 0 0; }
+.completed-analysis .response-review-tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-bottom: 1px solid var(--review-line); }
+.completed-analysis .response-review-tabs > button { appearance: none; min-width: 0; min-height: 48px; padding: .65rem .35rem; border: 0; border-bottom: 2px solid transparent; background: transparent; color: var(--review-muted); font: inherit; font-size: .75rem; line-height: 1.45; cursor: pointer; }
+.completed-analysis .response-review-tabs > button:hover { color: var(--review-ink); background: var(--surface); }
+.completed-analysis .response-review-tabs > button[aria-selected="true"] { border-bottom-color: var(--review-accent); color: var(--review-accent); font-weight: 550; }
+.completed-analysis :is(.response-review-tabs > button, .response-full-panel):focus-visible { outline: 2px solid var(--review-accent); outline-offset: -3px; border-radius: 4px; }
+.completed-analysis .response-full-panel { padding: 1.2rem 0 .8rem; }
+.completed-analysis .response-full-panel[hidden] { display: none; }
+.completed-analysis .response-full-panel h3 { margin: 0 0 .6rem; font-size: .875rem; line-height: 1.5; }
+.completed-analysis .response-full-panel h4 { margin: 1rem 0 .5rem; font-size: .8125rem; font-weight: 550; line-height: 1.5; }
+.completed-analysis .response-full-panel :is(p, dd) { color: var(--review-muted); font-size: .8125rem; line-height: 1.7; overflow-wrap: anywhere; }
+.completed-analysis .response-reply-heading { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: .2rem .75rem; margin-bottom: .6rem; }
+.completed-analysis .response-reply-heading h3 { margin: 0; }
+.completed-analysis .response-reply-heading > span { color: var(--review-muted); font-size: .75rem; }
+.completed-analysis .response-full-panel .response-offer-source { margin-top: 1rem; }
+.completed-analysis .response-offer-source dl > div { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .5rem 1rem; padding: .8rem 1rem; border-radius: 8px; background: var(--surface); }
+.completed-analysis .response-offer-source dt { flex: 1 1 9rem; color: var(--review-muted); font-size: .75rem; line-height: 1.55; }
+.completed-analysis .response-offer-source dd { color: var(--review-ink); font-size: 1.05rem; font-weight: 550; font-variant-numeric: tabular-nums; }
+.completed-analysis .response-review-topics { margin-top: .9rem; }
+.completed-analysis .response-review-topic { border-top: 1px solid var(--review-line); }
+.completed-analysis .response-review-topic > summary { display: flex; align-items: center; justify-content: space-between; gap: .8rem; min-height: 48px; padding: .8rem 0; list-style: none; font-size: .8125rem; font-weight: 500; line-height: 1.6; cursor: pointer; }
+.completed-analysis .response-review-topic > summary:hover { color: var(--review-accent); }
+.completed-analysis .response-review-topic > div { padding: 0 0 .65rem; }
+.completed-analysis .response-full-panel .response-topic-outcome { margin-bottom: .7rem; font-size: .75rem; }
+.completed-analysis .response-point-explanation { display: grid; gap: .8rem; }
+.completed-analysis .response-point-explanation dt { margin-bottom: .2rem; color: var(--review-ink); font-size: .75rem; font-weight: 550; }
+.completed-analysis .response-review-notes { display: grid; gap: .85rem; padding-left: 1rem; color: var(--review-muted); font-size: .8125rem; }
+.completed-analysis .response-insurer-reasons { margin-top: 1.25rem; }
+.completed-analysis .response-insurer-reasons > h4 { margin-bottom: 0; }
+.completed-analysis .response-insurer-reasons .response-review-topics { margin-top: .5rem; }
+.completed-analysis .response-review-confidence { margin-top: 1rem; }
+.completed-analysis .response-review-limits { margin-top: 1.1rem; }
+.completed-analysis .response-review-details .response-analysis-basis { margin: 0; font-size: .75rem; }
+.completed-analysis .response-review-details .response-analysis-basis > summary { display: flex; align-items: center; gap: .45rem; min-height: 44px; max-width: 100%; padding: .6rem 0; color: var(--review-muted); font-weight: 500; list-style: none; }
+.completed-analysis .response-review-details .response-analysis-basis > summary:hover { color: var(--review-ink); }
+.completed-analysis .response-review-details .response-analysis-basis .response-source-count { display: grid; place-items: center; flex-shrink: 0; min-width: 1.25rem; height: 1.25rem; padding-inline: .25rem; border-radius: 4px; background: var(--surface); color: var(--review-muted); font-size: .6875rem; }
+.completed-analysis .response-review-details .response-analysis-basis > ul { margin: .1rem 0 1rem; padding-left: .8rem; border-left: 1px solid var(--review-line); gap: .9rem; }
+.completed-analysis .response-review-details .response-analysis-basis li { padding: 0; border: 0; border-radius: 0; background: transparent; gap: .25rem; }
+.completed-analysis .response-review-details .response-analysis-basis strong { font-weight: 550; letter-spacing: 0; }
+@media (prefers-reduced-motion: reduce) {
+  .completed-analysis .response-review-details summary > svg { transition: none; }
+}
+.completed-analysis .response-review-flow .response-decision { padding: 0; margin: 0; border: 0; }
+.completed-analysis .response-review-flow .response-decision > p:first-child { margin-top: 0; }
+.completed-analysis .response-choice-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; min-width: 0; margin: 1.2rem 0 0; padding: 0; border: 0; }
+.completed-analysis .response-choice-option { display: flex; align-items: flex-start; gap: .65rem; min-width: 0; padding: 1rem; border: 1px solid var(--review-line); border-radius: 10px; cursor: pointer; transition: border-color 160ms ease, background-color 160ms ease; }
+.completed-analysis .response-choice-option:only-of-type { grid-column: 1 / -1; }
+.completed-analysis .response-choice-option:hover { border-color: var(--review-muted); }
+.completed-analysis .response-choice-option[data-selected] { border-color: var(--review-accent); background: color-mix(in srgb, var(--review-accent) 4%, var(--background)); }
+.completed-analysis .response-choice-option:focus-within { outline: 2px solid var(--review-accent); outline-offset: 3px; }
+.completed-analysis .response-choice-option input { flex: 0 0 auto; width: 1rem; height: 1rem; margin: .2rem 0 0; accent-color: var(--review-accent); }
+.completed-analysis .response-choice-option > span { display: grid; gap: .5rem; min-width: 0; }
+.completed-analysis .response-choice-option strong { color: var(--review-ink); font-size: .8125rem; line-height: 1.5; font-weight: 600; }
+.completed-analysis .response-choice-option span span { color: var(--review-muted); font-size: .75rem; line-height: 1.6; }
+.completed-analysis .response-choice-option small { width: fit-content; font-size: .6875rem; font-weight: 550; color: var(--review-accent); }
+.completed-analysis .response-choice-option:has(input:disabled) { cursor: default; opacity: .65; }
+.completed-analysis .response-review-next { justify-content: flex-end; margin-top: 1rem; padding-top: 0; border-top: 0; }
+.completed-analysis .response-review-state-panel { display: grid; grid-template-columns: 24px minmax(0, 1fr); gap: 1rem; margin-top: 2rem; padding: 1.75rem; border: 1px solid var(--review-line); border-radius: 14px; }
+.completed-analysis .response-review-state-panel > svg { width: 22px; height: 22px; margin-top: .1rem; color: var(--review-muted); }
+.completed-analysis .response-review-state-panel h2 { margin-bottom: .6rem; font-size: 1rem; }
+.completed-analysis .response-review-state-panel p { font-size: .875rem; line-height: 1.7; }
+.completed-analysis .response-review-state-panel .response-state-note { margin-top: 1rem; font-size: .8125rem; }
+@media (max-width: 600px) {
+  .completed-analysis .response-section-content { padding-left: 0; }
+  .completed-analysis .response-choice-options { grid-template-columns: 1fr; }
+  .completed-analysis .response-review-state-panel { padding: 1.2rem; gap: .75rem; }
+  .completed-analysis .response-review-next > .review-primary { width: 100%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .completed-analysis .response-choice-option { transition: none; }
 }

@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 
 import type {
@@ -81,16 +82,21 @@ function claim(overrides: Partial<TotalLossClaimSecured> = {}): TotalLossClaimSe
 }
 
 describe("SentRequest", () => {
-  it("preserves the saved message as plain text and uses the recorded confirmation time", () => {
+  it("keeps the three completed sections and preserves the saved message in an expandable copy", async () => {
+    const user = userEvent.setup();
     const { container } = render(<SentRequest claim={claim()} report={report} />);
 
-    expect(screen.getByRole("heading", { name: "Your sent request" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Prepare your message" })).toBeVisible();
     expect(screen.getByText("adjuster@example.test")).toBeVisible();
     expect(screen.getByText("Valuation reconsideration — Claim CLM-42")).toBeVisible();
     expect(screen.getByLabelText("Request message").textContent).toBe(BODY);
     expect(screen.getByLabelText("Request message").children).toHaveLength(0);
     expect(container.querySelector("time")).toHaveAttribute("dateTime", RECORDED_AT);
     expect(screen.getByText(/Sent · Recorded/u)).toHaveTextContent("Version 3");
+    expect(screen.getByRole("list", { name: "Message steps" }).querySelectorAll('[data-state="complete"]')).toHaveLength(3);
+    expect(screen.getByLabelText("Request message")).not.toBeVisible();
+    await user.click(screen.getByText("View your sent message"));
+    expect(screen.getByLabelText("Request message")).toBeVisible();
   });
 
   it("has no editable fields or sending controls and leaves its input unchanged", () => {
@@ -167,7 +173,7 @@ describe("SentRequest", () => {
     });
     rerender(<SentRequest claim={closed} report={report} />);
 
-    expect(screen.getByRole("heading", { name: "Your sent request" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Prepare your message" })).toBeVisible();
     expect(screen.getByText(/Sent · Recorded/u)).toHaveTextContent("Version 3");
     expect(screen.getByLabelText("Request message").textContent).toBe(BODY);
     expect(container.querySelector("time")).toHaveAttribute("dateTime", RECORDED_AT);
@@ -181,7 +187,7 @@ describe("SentRequest", () => {
 
     expect(screen.getByText(/saved request details are unavailable for this report/iu)).toBeVisible();
     expect(screen.queryByLabelText("Request message")).not.toBeInTheDocument();
-    expect(screen.queryByRole("heading", { name: "Your sent request" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Prepare your message" })).not.toBeInTheDocument();
     expect(container.querySelector("time")).toBeNull();
   });
 
@@ -252,7 +258,7 @@ describe("SentRequest", () => {
     );
 
     expect(screen.queryByLabelText("Request message")).not.toBeInTheDocument();
-    expect(screen.queryByRole("heading", { name: "Your sent request" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Prepare your message" })).not.toBeInTheDocument();
     expect(screen.getByText(/not confirmed as sent/u)).toBeVisible();
     expect(container.querySelector("time")).toBeNull();
   });

@@ -1,4 +1,4 @@
-import { LoaderCircle } from "lucide-react";
+import { FileSearch, FileText, LoaderCircle, MessageSquareReply, Send } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 
@@ -114,10 +114,22 @@ export function CheckoutScreen({
         <aside aria-labelledby="checkout-included-heading" className="checkout-package-details">
           <h2 id="checkout-included-heading" className="checkout-summary-eyebrow">Included with your review</h2>
           <dl className="checkout-inclusions">
-            <div><dt>Your insurer’s valuation, reviewed</dt><dd>Review of the vehicle details, comparable vehicles, and adjustments in your insurer’s report.</dd></div>
-            <div><dt>A report you can share</dt><dd>A downloadable PDF with the findings and supporting market evidence.</dd></div>
-            <div><dt>A request prepared for your case</dt><dd>A personalized reconsideration request for you to review and send when the evidence supports it.</dd></div>
-            <div><dt>Guidance after the insurer replies</dt><dd>Assessment of the response you share and guidance on your next step.</dd></div>
+            <div>
+              <dt><FileSearch aria-hidden="true" className="checkout-inclusion-icon" size={20} strokeWidth={1.75} /><span>Your insurer’s valuation, reviewed</span></dt>
+              <dd>Review of the vehicle details, comparable vehicles, and adjustments in your insurer’s report.</dd>
+            </div>
+            <div>
+              <dt><FileText aria-hidden="true" className="checkout-inclusion-icon" size={20} strokeWidth={1.75} /><span>A report you can share</span></dt>
+              <dd>A downloadable PDF with the findings and supporting market evidence.</dd>
+            </div>
+            <div>
+              <dt><Send aria-hidden="true" className="checkout-inclusion-icon" size={20} strokeWidth={1.75} /><span>A request prepared for your case</span></dt>
+              <dd>A personalized reconsideration request for you to review and send when the evidence supports it.</dd>
+            </div>
+            <div>
+              <dt><MessageSquareReply aria-hidden="true" className="checkout-inclusion-icon" size={20} strokeWidth={1.75} /><span>Guidance after the insurer replies</span></dt>
+              <dd>Assessment of the response you share and guidance on your next step.</dd>
+            </div>
           </dl>
           <section aria-labelledby="checkout-refund-heading" className="checkout-policy">
             <h2 id="checkout-refund-heading">Fair-Result Refund Protection</h2>

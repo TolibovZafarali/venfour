@@ -4,13 +4,12 @@ import { createPortal } from "react-dom";
 import { Link, useNavigate } from "react-router";
 
 import { useCompletedReviewNavigationHost } from "@/components/completed-review-progress-host";
-import type { TotalLossCaseJourneyStage } from "../case-journey";
 import type { CaseWorkspace } from "../case-workspace";
 import "./case-workspace-navigation.css";
 
 export function CaseWorkspaceNavigation({ workspace, stage, pending }: {
   readonly workspace: CaseWorkspace;
-  readonly stage: TotalLossCaseJourneyStage;
+  readonly stage: CaseWorkspace["sections"][number]["stage"];
   readonly pending: boolean;
 }) {
   const selectId = useId();
@@ -31,10 +30,10 @@ export function CaseWorkspaceNavigation({ workspace, stage, pending }: {
                 onClick={(event) => { if (pending) event.preventDefault(); }}
               >
                 {section.complete ? <Check aria-hidden="true" /> : <Circle aria-hidden="true" />}
-                {section.label}
+                <span>{section.label}</span>
               </Link>
             ) : (
-              <span className="case-workspace-unavailable"><Circle aria-hidden="true" />{section.label}</span>
+              <span className="case-workspace-unavailable"><Circle aria-hidden="true" /><span>{section.label}</span></span>
             )}
           </li>
         ))}
