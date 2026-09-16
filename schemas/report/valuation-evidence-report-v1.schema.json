@@ -335,7 +335,7 @@
       ],
       "properties": {
         "title": { "enum": ["Venfour Total-Loss Valuation Evidence Package", "Vehicle Valuation Review"] },
-        "templateVersion": { "enum": ["2", "3"] },
+        "templateVersion": { "enum": ["2", "3", "4"] },
         "reportSeriesId": { "$ref": "#/$defs/uuid" },
         "reportVersionId": { "$ref": "#/$defs/uuid" },
         "finalAssessmentId": { "$ref": "#/$defs/uuid" },

@@ -137,7 +137,7 @@
       "title": "Missing material limitation",
       "humanLabeled": true,
       "basePackage": "SUPPORTABLE",
-      "mutation": { "target": "REPORT_JSON", "operation": "REMOVE", "jsonPointer": "/assumptionsAndLimitations/limitations/4", "before": "Advertised prices are not guaranteed transaction prices", "after": null },
+      "mutation": { "target": "REPORT_JSON_AND_PDF", "operation": "REMOVE", "jsonPointer": "/assumptionsAndLimitations/limitations/4", "before": "Advertised-price caveat in report JSON and rendered PDF; original validation manifest retained as stale proof", "after": null },
       "expected": { "recommendation": "HUMAN_REVIEW", "requiredConfidence": null, "gateDisposition": "HUMAN_REVIEW", "failedMandatoryChecks": ["LIMITATIONS"], "findingCategories": ["LIMITATIONS"], "untrustedInstructionDetected": false },
       "rationale": "Material uncertainty and evidence boundaries must remain visible."
     },

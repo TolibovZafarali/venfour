@@ -6,11 +6,19 @@
 !schemas/**
 !scripts/
 !scripts/**
+scripts/dev-showcase.mjs
+scripts/prepare_local_showcase.py
 !venfour/
 !venfour/**
 !data/
 !data/geography/
 !data/geography/**
+!config/
+!config/report-review-eval-attestation-v1.json
+!tests/
+!tests/fixtures/
+!tests/fixtures/report_review/
+!tests/fixtures/report_review/eval_cases_v1.json
 
 **/__pycache__/
 **/*.py[cod]

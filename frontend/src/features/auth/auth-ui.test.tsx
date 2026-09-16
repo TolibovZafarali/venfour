@@ -26,6 +26,8 @@ import { appleSession } from "@/test/fixtures/apple-session";
 import { createAppQueryClient } from "@/app/query-client";
 import { CustomerProfileServiceProvider, type CustomerProfile, type CustomerProfileService } from "@/features/customer-profile";
 import { customerProfileQueryKeys } from "@/features/customer-profile/queries";
+import * as authCompletion from "@/features/auth/auth-completion";
+import { AdminCaseOperationsDependenciesProvider } from "@/features/admin/case-operations/dependencies";
 
 const CASE_CLAIM_ID = "88888888-8888-4888-8888-888888888888";
 
@@ -667,6 +669,78 @@ describe("account control", () => {
 });
 
 describe("auth callback", () => {
+  test.each(["", "?code=staff-code", "?token_hash=staff-token&type=email"])(
+    "checks staff membership once before requesting the admin document: %s",
+    async (parameters) => {
+      const decision = createDeferred<boolean>();
+      const isStaff = vi.fn(() => decision.promise);
+      const replaceDocument = vi.fn();
+      const navigateAfterAuth = authCompletion.navigateAfterAuth;
+      const navigation = vi.spyOn(authCompletion, "navigateAfterAuth").mockImplementation(
+        (destination, navigate) => navigateAfterAuth(destination, navigate, replaceDocument),
+      );
+      try {
+        storeAuthReturnLocation("/start?service=total-loss");
+        const service = createService({
+          getSession: vi.fn(async () => parameters ? null : sessionFor("staff")),
+        });
+        const router = createMemoryRouter([
+          { path: "/auth/callback", element: <AuthCallbackPage /> },
+        ], { initialEntries: [`/auth/callback${parameters}`] });
+        render(
+          <StrictMode>
+            <AdminCaseOperationsDependenciesProvider dependencies={{
+              caseService: { isStaff, listCases: vi.fn(), getTotalLossCase: vi.fn() },
+            }}>
+              <AuthProvider service={service}><RouterProvider router={router} /></AuthProvider>
+            </AdminCaseOperationsDependenciesProvider>
+          </StrictMode>,
+        );
+        await waitFor(() => expect(isStaff).toHaveBeenCalledOnce());
+        expect(replaceDocument).not.toHaveBeenCalled();
+        await act(async () => decision.resolve(true));
+        await waitFor(() => expect(replaceDocument).toHaveBeenCalledExactlyOnceWith("/admin"));
+        expect(router.state.location.pathname).toBe("/auth/callback");
+        expect(isStaff).toHaveBeenCalledOnce();
+      } finally {
+        navigation.mockRestore();
+      }
+    },
+  );
+
+  test.each(["?code=expired", "?error=access_denied"])(
+    "returns partner callback failures to business sign-in: %s",
+    async (parameters) => {
+      const originalUrl = window.location.href;
+      const browserEnvironment = globalThis as typeof globalThis & {
+        jsdom: { reconfigure(options: { url: string }): void };
+      };
+      browserEnvironment.jsdom.reconfigure({ url: "https://partners.venfour.com/auth/callback" });
+      try {
+        const user = userEvent.setup();
+        const service = createService({
+          exchangeCodeForSession: vi.fn(async () => { throw new Error("Invalid sign-in code"); }),
+        });
+        storeAuthReturnLocation("/earnings");
+        const router = createMemoryRouter([
+          { path: "/auth/callback", element: <AuthCallbackPage /> },
+          { path: "/sign-in", element: <h1>Business sign in</h1> },
+        ], { initialEntries: [`/auth/callback${parameters}`] });
+        render(<AuthProvider service={service}><RouterProvider router={router} /></AuthProvider>);
+
+        await user.click(await screen.findByRole("button", { name: "Try signing in again" }));
+
+        expect(await screen.findByRole("heading", { name: "Business sign in" })).toBeVisible();
+        expect(router.state.location.pathname).toBe("/sign-in");
+        expect(router.state.historyAction).toBe("REPLACE");
+        expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+        expect(window.localStorage.getItem("venfour.auth.return-location")).toBe("/earnings");
+      } finally {
+        browserEnvironment.jsdom.reconfigure({ url: originalUrl });
+      }
+    },
+  );
+
   test.each(["new", "returning", "relay"])(
     "restores the protected case destination for a %s Apple user",
     async (kind) => {

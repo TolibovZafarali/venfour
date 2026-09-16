@@ -31,6 +31,23 @@ const failure = (status: number) => HttpResponse.json({ error: { code: "REFERRAL
 beforeEach(() => sessionStorage.clear());
 
 describe("referral onboarding", () => {
+  test("opens public policies from the separate partner sign-in host", async () => {
+    const originalUrl = window.location.href;
+    const browserEnvironment = globalThis as typeof globalThis & {
+      jsdom: { reconfigure(options: { url: string }): void };
+    };
+    try {
+      browserEnvironment.jsdom.reconfigure({ url: "https://partners.venfour.com/" });
+      renderTestApp(["/partners"], { authService: authService(null) });
+      const signIn = within(await screen.findByRole("region", { name: "Business sign in" }));
+      for (const name of ["Terms", "Privacy", "Cookies"]) {
+        expect(signIn.getByRole("link", { name })).toHaveAttribute("href", `https://venfour.com/${name.toLowerCase()}`);
+      }
+    } finally {
+      browserEnvironment.jsdom.reconfigure({ url: originalUrl });
+    }
+  });
+
   test.each(["ready", "queued", "failed"] as const)("shows the active workspace with a %s agreement document", async (documentStatus) => {
     const user = userEvent.setup();
     const current = detail();

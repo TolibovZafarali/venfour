@@ -12,6 +12,7 @@ from tests import test_package_processing_api as package_api_tests
 from tests.test_package_processing_api import _Processor, _Verifier
 from venfour.package_processing import CloudTasksWorkItemDispatcher, TotalLossPackageCoordinator, PackageDispatchUnavailableError
 from venfour.paid_runtime import paid_release_configuration_status
+from venfour.report_review import REPORT_REVIEW_PROMPT_VERSION
 from venfour.report_review_evals import report_review_eval_suite_digest
 
 
@@ -69,7 +70,7 @@ class DeliveryDatabase(FakeDatabase):
 def release_environment():
     return {'OPENAI_API_KEY':'synthetic-key', 'OPENAI_REPORT_REVIEW_MODEL':'gpt-5.6-sol',
         'OPENAI_REPORT_REVIEW_APPROVED_MODEL':'gpt-5.6-sol',
-        'OPENAI_REPORT_REVIEW_APPROVED_PROMPT_VERSION':'1',
+        'OPENAI_REPORT_REVIEW_APPROVED_PROMPT_VERSION':REPORT_REVIEW_PROMPT_VERSION,
         'OPENAI_REPORT_REVIEW_APPROVED_SCHEMA_VERSION':'1',
         'OPENAI_REPORT_REVIEW_APPROVED_EVAL_SUITE_DIGEST':report_review_eval_suite_digest(),
         'OPENAI_REPORT_RELEASE_GATE_ENABLED':'true'}

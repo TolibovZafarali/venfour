@@ -28,8 +28,8 @@
     "status": { "const": "PASS" },
     "reportVersionId": { "type": "string", "format": "uuid" },
     "reportDigest": { "$ref": "#/$defs/digest" },
-    "rendererVersion": { "enum": ["1", "2", "3"] },
-    "templateVersion": { "enum": ["1", "2", "3"] },
+    "rendererVersion": { "enum": ["1", "2", "3", "4"] },
+    "templateVersion": { "enum": ["1", "2", "3", "4"] },
     "filename": { "const": "valuation-evidence-package.pdf" },
     "mediaType": { "const": "application/pdf" },
     "pdfSha256": { "$ref": "#/$defs/digest" },
@@ -42,7 +42,7 @@
     "unresolvedPlaceholders": { "type": "array", "maxItems": 0, "items": { "type": "string" } },
     "manifestDigest": { "$ref": "#/$defs/digest" }
   },
-  "allOf": [{"if": {"properties": {"templateVersion": {"const": "1"}}}, "then": {"properties": {"rendererVersion": {"const": "1"}, "mandatorySectionChecks": {"minItems": 12}}}, "else": {"if": {"properties": {"templateVersion": {"const": "2"}}}, "then": {"properties": {"rendererVersion": {"const": "2"}}}, "else": {"properties": {"rendererVersion": {"const": "3"}}}}}],
+  "allOf": [{"if": {"properties": {"templateVersion": {"const": "1"}}}, "then": {"properties": {"rendererVersion": {"const": "1"}, "mandatorySectionChecks": {"minItems": 12}}}, "else": {"if": {"properties": {"templateVersion": {"const": "2"}}}, "then": {"properties": {"rendererVersion": {"const": "2"}}}, "else": {"if": {"properties": {"templateVersion": {"const": "3"}}}, "then": {"properties": {"rendererVersion": {"const": "3"}}}, "else": {"properties": {"rendererVersion": {"const": "4"}}}}}}],
   "$defs": {
     "digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
     "check": {

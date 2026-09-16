@@ -1,0 +1,19 @@
+@import "../../src/styles/index.css";
+@source "../../src";
+@source ".";
+
+.showcase-notice { position: relative; z-index: 50; background: #f5f5f5; border-bottom: 1px solid #ddd; padding: 12px 24px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 20px; font: 12px/1.5 Arial, sans-serif; color: #333; }
+.showcase-notice nav { display: flex; flex-wrap: wrap; gap: 18px; margin-left: auto; }
+.showcase-notice a, .showcase-intro a { text-decoration: underline; text-underline-offset: 3px; }
+.showcase-intro { max-width: 860px; padding: 64px 24px 100px; margin: 0 auto; color: #171717; line-height: 1.7; }
+.showcase-eyebrow { text-transform: uppercase; letter-spacing: .13em; font-size: 12px; }
+.showcase-intro h1 { font-size: clamp(30px, 5vw, 48px); font-weight: 550; line-height: 1.15; margin: 20px 0; }
+.showcase-lead { font-size: 21px; margin-bottom: 20px; }
+.showcase-intro h2 { font-size: 21px; margin: 32px 0 12px; font-weight: 550; }
+.showcase-intro ol, .showcase-intro ul { padding-left: 22px; list-style: revert; }
+.showcase-intro li { margin: 8px 0; }
+.showcase-actions { display: flex; flex-wrap: wrap; gap: 22px; align-items: center; margin: 28px 0; }
+.showcase-actions .showcase-primary { background: #171717; color: white; padding: 13px 20px; text-decoration: none; border-radius: 4px; }
+.showcase-provenance { border-top: 1px solid #ddd; margin-top: 40px; padding-top: 22px; font-size: 14px; }
+.showcase-provenance summary { font-weight: 600; cursor: pointer; margin-bottom: 18px; }
+@media (max-width: 600px) { .showcase-notice { padding: 10px 16px; }.showcase-notice nav { margin-left: 0; }.showcase-intro { padding-top: 36px; } }

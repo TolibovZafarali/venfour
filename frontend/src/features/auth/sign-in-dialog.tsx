@@ -5,9 +5,11 @@ import { Link, useNavigate } from "react-router";
 import { Dialog } from "radix-ui";
 
 import appleLogo from "@/assets/apple-logo-white.svg";
+import { publicHref } from "@/app/site-boundary";
 import {
   completeCaseClaim,
   completedAuthReturnLocation,
+  navigateAfterAuth,
 } from "@/features/auth/auth-completion";
 import {
   emailOtpCaretOffset,
@@ -20,6 +22,7 @@ import {
   readCaseClaimCallbackParameter,
 } from "@/features/auth/return-location";
 import { useTotalLossDependencies } from "@/features/total-loss/dependencies";
+import { useAdminCaseOperationsDependencies } from "@/features/admin/case-operations/dependencies";
 
 import { getFriendlyAuthError } from "@/features/auth/auth-errors";
 import { isAnonymousAuthState, useAuth } from "@/features/auth/auth-context";
@@ -93,6 +96,7 @@ function SignInExperience({
   } = useAuth();
   const navigate = useNavigate();
   const dependencies = useTotalLossDependencies();
+  const staffService = useAdminCaseOperationsDependencies()?.caseService;
   const [email, setEmail] = useState("");
   const [emailSent, setEmailSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -218,14 +222,15 @@ function SignInExperience({
           throw claimError;
         }
       }
-      if (!mountedRef.current) return;
-      const destination = completedAuthReturnLocation(
+      const destination = await completedAuthReturnLocation(
         caseClaim,
         completedClaim,
+        staffService,
       );
+      if (!mountedRef.current) return;
       onSignInComplete?.();
       onOpenChange(false);
-      void navigate(destination, { replace: true });
+      navigateAfterAuth(destination, navigate);
     } catch (signInError) {
       if (mountedRef.current)
         setError(getFriendlyAuthError(signInError, "verify-code"));
@@ -534,10 +539,10 @@ function SignInExperience({
 
         {!inline && emailForm}
 
-        {inline ? <p className="partner-sign-in-policies"><Link to="/terms">Terms</Link><Link to="/privacy">Privacy</Link><Link to="/cookies">Cookies</Link></p> : <p className="mt-5 border-t border-line pt-4 text-xs leading-5 text-copy">
+        {inline ? <p className="partner-sign-in-policies"><Link to={publicHref("/terms")}>Terms</Link><Link to={publicHref("/privacy")}>Privacy</Link><Link to={publicHref("/cookies")}>Cookies</Link></p> : <p className="mt-5 border-t border-line pt-4 text-xs leading-5 text-copy">
           Venfour will ask you to confirm its{" "}
           <Link
-            to="/terms"
+            to={publicHref("/terms")}
             className={`rounded-sm font-medium text-ink underline decoration-ink/25 underline-offset-4 hover:text-brand ${focusRingClassName}`}
             onClick={() => onOpenChange(false)}
           >
@@ -545,7 +550,7 @@ function SignInExperience({
           </Link>{" "}
           and acknowledge its{" "}
           <Link
-            to="/privacy"
+            to={publicHref("/privacy")}
             className={`rounded-sm font-medium text-ink underline decoration-ink/25 underline-offset-4 hover:text-brand ${focusRingClassName}`}
             onClick={() => onOpenChange(false)}
           >
@@ -553,7 +558,7 @@ function SignInExperience({
           </Link>{" "}
           after sign-in. You can also review the{" "}
           <Link
-            to="/cookies"
+            to={publicHref("/cookies")}
             className={`rounded-sm font-medium text-ink underline decoration-ink/25 underline-offset-4 hover:text-brand ${focusRingClassName}`}
             onClick={() => onOpenChange(false)}
           >

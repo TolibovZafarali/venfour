@@ -474,7 +474,7 @@
       0 7px 20px -14px rgb(11 31 51 / 0.24);
   }
 
-  .mobile-navigation {
+  :root:not([data-visual-system="app"]) .mobile-navigation {
     display: grid;
     grid-template-rows: 0fr;
     opacity: 0;
@@ -485,7 +485,7 @@
       visibility 0s 320ms;
   }
 
-  .mobile-navigation[data-open="true"] {
+  :root:not([data-visual-system="app"]) .mobile-navigation[data-open="true"] {
     grid-template-rows: 1fr;
     opacity: 1;
     visibility: visible;
@@ -523,7 +523,7 @@
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .mobile-navigation,
+    :root:not([data-visual-system="app"]) .mobile-navigation,
     :root:not([data-visual-system="app"]) .home-header .header-glass::before {
       transition: none;
     }

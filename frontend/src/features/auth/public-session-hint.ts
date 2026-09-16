@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from "react";
 
-import { hostAudience } from "@/app/site-boundary";
+import { APPLICATION_ORIGIN, hostAudience } from "@/app/site-boundary";
 
 const COOKIE_NAME = "venfour.app-session";
 const COOKIE_ATTRIBUTES = "Domain=venfour.com; Path=/; Secure; SameSite=Lax";
@@ -9,7 +9,7 @@ const HINT_LIFETIME_SECONDS = 15 * 60;
 // This nonsecret hint changes navigation labels only. App authentication and
 // authorization always use the session stored on the application origin.
 export function updatePublicSessionHint(permanentSession: boolean) {
-  if (hostAudience() !== "application" || typeof document === "undefined") return;
+  if (typeof window === "undefined" || typeof document === "undefined" || window.location.origin !== APPLICATION_ORIGIN) return;
   try {
     document.cookie = `${COOKIE_NAME}=${permanentSession ? "1" : ""}; ${COOKIE_ATTRIBUTES}; Max-Age=${permanentSession ? HINT_LIFETIME_SECONDS : 0}`;
   } catch {

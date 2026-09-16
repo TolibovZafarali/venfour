@@ -149,6 +149,7 @@ function installClaimHandlers() {
   const renewedRequests: { authorization: string | null; body: string }[] = [];
   const paymentInitialization = vi.fn();
   server.use(
+    http.get("*/rest/v1/total_loss_case_details", () => HttpResponse.json(null)),
     http.get("*/api/v1/appraisal-cases/:caseId/claim", ({ request }) =>
       HttpResponse.json(request.headers.get("Authorization") === `Bearer access-${PERMANENT_USER_ID}`
         ? secured() : secureRequired()),

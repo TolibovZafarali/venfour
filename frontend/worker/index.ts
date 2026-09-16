@@ -334,6 +334,14 @@ async function handleProductionRequest(request: Request, env: Env, configuration
   if (![APP_ORIGIN, PARTNER_ORIGIN].includes(url.origin)) {
     return jsonResponse(421, "PRODUCTION_HOST_REQUIRED", "This request is not addressed to the production application host.");
   }
+  if (url.origin === PARTNER_ORIGIN) {
+    const partnerApiPath = /^\/api\/v1\/partners\/(?:access|operations|agreements\/[0-9a-f-]{36}\/document)$/iu.test(url.pathname);
+    if ((isApiRequest(url.pathname) && !partnerApiPath) ||
+      url.pathname === "/webhooks" || url.pathname.startsWith("/webhooks/") ||
+      url.pathname === "/admin" || url.pathname.startsWith("/admin/")) {
+      return jsonResponse(404, "NOT_FOUND", "This endpoint was not found.");
+    }
+  }
   if (url.pathname === STRIPE_WEBHOOK_PATH) {
     if (request.method !== "POST") return stripeWebhookMethodNotAllowedResponse();
     return proxyToApi(request, configuration, dependencies);

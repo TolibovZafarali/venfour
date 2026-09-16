@@ -6,6 +6,8 @@
 !schemas/**
 !scripts/
 !scripts/**
+scripts/dev-showcase.mjs
+scripts/prepare_local_showcase.py
 !venfour/
 !venfour/**
 !data/

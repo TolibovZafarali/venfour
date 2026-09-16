@@ -15,6 +15,8 @@ import {
 } from "@/features/total-loss/dependencies";
 import type { TotalLossIdentityService } from "@/features/total-loss/identity-service";
 import { appleSession } from "@/test/fixtures/apple-session";
+import * as authCompletion from "@/features/auth/auth-completion";
+import { AdminCaseOperationsDependenciesProvider } from "@/features/admin/case-operations/dependencies";
 
 const EMAIL = "owner@example.com";
 const CLAIM = "88888888-8888-4888-8888-888888888888";
@@ -26,6 +28,7 @@ function setup(
     claim?: TotalLossIdentityService["completeIdentityClaim"];
     returnTo?: string;
     callbackPage?: boolean;
+    isStaff?: () => Promise<boolean>;
   } = {},
 ) {
   const service: AuthService = {
@@ -80,7 +83,11 @@ function setup(
             : null
         }
       >
-        <RouterProvider router={router} />
+        <AdminCaseOperationsDependenciesProvider dependencies={options.isStaff ? {
+          caseService: { isStaff: options.isStaff, listCases: vi.fn(), getTotalLossCase: vi.fn() },
+        } : null}>
+          <RouterProvider router={router} />
+        </AdminCaseOperationsDependenciesProvider>
       </TotalLossDependenciesProvider>
     </AuthProvider>,
   );
@@ -97,6 +104,28 @@ async function requestCode(user: ReturnType<typeof userEvent.setup>) {
 }
 
 describe("email code sign-in", () => {
+  test("requests the protected admin document after a staff member enters an email code", async () => {
+    const user = userEvent.setup();
+    const replaceDocument = vi.fn();
+    const navigateAfterAuth = authCompletion.navigateAfterAuth;
+    const navigation = vi.spyOn(authCompletion, "navigateAfterAuth").mockImplementation(
+      (destination, navigate) => navigateAfterAuth(destination, navigate, replaceDocument),
+    );
+    try {
+      const isStaff = vi.fn(async () => true);
+      const { router, close } = setup({ returnTo: "/start?service=total-loss", isStaff });
+      await requestCode(user);
+      await user.paste("123456");
+      await user.click(screen.getByRole("button", { name: "Verify and sign in" }));
+      await waitFor(() => expect(replaceDocument).toHaveBeenCalledExactlyOnceWith("/admin"));
+      expect(isStaff).toHaveBeenCalledOnce();
+      expect(close).toHaveBeenCalledExactlyOnceWith(false);
+      expect(router.state.location.pathname).toBe("/");
+    } finally {
+      navigation.mockRestore();
+    }
+  });
+
   test("retries a missing-token case link with a code and completes the claim only once", async () => {
     const user = userEvent.setup();
     storeAuthReturnLocation("/saved-case?step=review");

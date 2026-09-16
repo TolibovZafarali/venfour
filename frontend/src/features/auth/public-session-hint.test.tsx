@@ -43,7 +43,7 @@ describe("public navigation session hint", () => {
   });
 
   it.each([
-    "https://venfour.com", "https://www.venfour.com", "https://staging.venfour.com",
+    "https://venfour.com", "https://www.venfour.com", "https://partners.venfour.com", "https://staging.venfour.com",
     "http://app.venfour.com", "https://app.venfour.com.example", "http://localhost:5173",
   ])("does not let %s write or clear the app hint", origin => {
     browserEnvironment.jsdom.reconfigure({ url: "https://app.venfour.com" });

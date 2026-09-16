@@ -10,6 +10,7 @@ from unittest import mock
 
 from tests import test_report_review as _review_fixture
 from tests.report_review_provider_eval import (
+    ADVERTISED_PRICE_CAVEAT,
     LIVE_PROVIDER_MAX_ATTEMPTS,
     SyntheticReportReviewEvalMaterializer,
     _review_with_operational_retries,
@@ -50,11 +51,11 @@ from venfour.report_review_evals import (
 
 
 EXPECTED_SUITE_DIGEST = (
-    "f06b5fe5460a95d61f9e2f5ff6d36b46e79133c53c5ba137fe4dc2e2d1dc298c"
+    "e21eddff7a987662ac6bbfcdefd314ce77f56b1391f3c7f14da5dfc0602a2f24"
 )
 RELEASE_QUALIFIED_MODEL = "gpt-5.6-sol"
 EXPECTED_PROMPT_TEMPLATE_DIGEST = (
-    "2561eac1eff04ad596cc49c18b1a252e04e56836960b829f5ce62cf2b27a0cf1"
+    "3d2eabf4381acf77bf72d9bccb124d5fa0752d5e452e48d8be7dce1dc4ce69ae"
 )
 EXPECTED_REVIEW_SCHEMA_DIGEST = (
     "11839c12f40f8212c41cd2e3736baa131f46a963fdd83a25bbca1b41e92280f6"
@@ -63,10 +64,10 @@ EXPECTED_REVIEW_INPUT_CONTRACT_DIGEST = (
     "dcd0dfe6e0888dd3271e08323dcc1a3221732eb18a1b3eed0eefe804f4b9be30"
 )
 EXPECTED_EVAL_SUITE_SCHEMA_DIGEST = (
-    "0e6a52a7b8faede15619efcce15006633f11160b8a1f7ef69b187d30de653a0c"
+    "756f18b9f395c8b3fdd40667e5286d3f04e46ad06598bff63520e101d7b79f2a"
 )
-PRESERVED_ATTESTATION_DIGEST = (
-    "f32b3a9f79b3f15b538ae6651ae9cdeecc118ea84194296a15b78432bfef8a32"
+RELEASE_ATTESTATION_DIGEST = (
+    "0a2ad93d844d6d68447adb1036f13dc06260b236288c6244e83cca15bc26f131"
 )
 
 
@@ -328,6 +329,23 @@ class ReportReviewEvalSuiteTests(_review_fixture.ReportReviewFixture):
                         request.pdf_validation_manifest["pdfSha256"],
                         request.digests["pdfDigest"],
                     )
+                elif target == "REPORT_JSON_AND_PDF":
+                    self.assertEqual(case["scenarioId"], "missing_material_limitation")
+                    original = materializer._bases[case["basePackage"]]
+                    mutated_pdf = materializer._remove_pdf_limitation(original["pdf"])
+                    self.assertEqual(request.digests["pdfDigest"], hashlib.sha256(mutated_pdf).hexdigest())
+                    self.assertNotEqual(request.digests["pdfDigest"], hashlib.sha256(original["pdf"]).hexdigest())
+                    self.assertEqual(request.to_dict()["pdf"]["validationManifest"], original["pdfManifest"])
+                    self.assertNotEqual(request.pdf_validation_manifest["reportDigest"], request.digests["reportDigest"])
+                    self.assertNotEqual(request.pdf_validation_manifest["pdfSha256"], request.digests["pdfDigest"])
+                    self.assertNotEqual(request.pdf_validation_manifest["extractedTextDigest"], hashlib.sha256(request.pdf_extracted_text.encode("utf-8")).hexdigest())
+                    normalized_original = " ".join(original["pdfText"].split())
+                    self.assertEqual(normalized_original.count(ADVERTISED_PRICE_CAVEAT), 1)
+                    expected_text = " ".join(normalized_original.replace(ADVERTISED_PRICE_CAVEAT, "").split())
+                    self.assertEqual(" ".join(request.pdf_extracted_text.split()), expected_text)
+                    self.assertNotIn("ADVERTISED_PRICES_NOT_TRANSACTIONS", {item["code"] for item in request.report["assumptionsAndLimitations"]["limitations"]})
+                    self.assertEqual(request.to_dict()["sourceSnapshot"], original["source"])
+                    self.assertEqual(request.to_dict()["finalAssessment"], original["assessment"])
                 elif target == "NONE":
                     self.assertEqual(
                         request.report["reportDigest"],
@@ -487,9 +505,9 @@ class ReportReviewEvalSuiteTests(_review_fixture.ReportReviewFixture):
                             expected_model_identifier=RELEASE_QUALIFIED_MODEL,
                         )
 
-    def test_preserved_attestation_does_not_qualify_redesigned_report(self) -> None:
+    def test_checked_in_attestation_qualifies_current_report_and_rejects_stale_prompt(self) -> None:
         persisted = json.loads(REPORT_REVIEW_EVAL_ATTESTATION_PATH.read_text())
-        self.assertEqual(persisted["artifactDigest"], PRESERVED_ATTESTATION_DIGEST)
+        self.assertEqual(persisted["artifactDigest"], RELEASE_ATTESTATION_DIGEST)
         self.assertEqual(persisted["passedCaseCount"], 20)
         self.assertEqual(persisted["totalCaseCount"], 20)
         self.assertTrue(persisted["allPassed"])
@@ -500,10 +518,23 @@ class ReportReviewEvalSuiteTests(_review_fixture.ReportReviewFixture):
         self.assertEqual(persisted["reviewInputContractDigest"], EXPECTED_REVIEW_INPUT_CONTRACT_DIGEST)
         self.assertEqual(persisted["evalSuiteDigest"], EXPECTED_SUITE_DIGEST)
         self.assertEqual(persisted["evalSuiteSchemaDigest"], EXPECTED_EVAL_SUITE_SCHEMA_DIGEST)
-        self.assertEqual(persisted["promptVersion"], "1")
-        self.assertNotEqual(persisted["promptTemplateDigest"], report_review_prompt_template_digest())
-        with self.assertRaises(ReportReviewEvalError):
-            load_report_review_eval_attestation(expected_model_identifier=RELEASE_QUALIFIED_MODEL)
+        self.assertEqual(persisted["promptVersion"], REPORT_REVIEW_PROMPT_VERSION)
+        self.assertEqual(persisted["promptTemplateDigest"], report_review_prompt_template_digest())
+        self.assertEqual(
+            load_report_review_eval_attestation(expected_model_identifier=RELEASE_QUALIFIED_MODEL).to_dict(),
+            persisted,
+        )
+        stale = copy.deepcopy(persisted)
+        stale["promptVersion"] = "3"
+        stale["promptTemplateDigest"] = "2561eac1eff04ad596cc49c18b1a252e04e56836960b829f5ce62cf2b27a0cf1"
+        stale["artifactDigest"] = canonical_package_digest({
+            key: value for key, value in stale.items() if key != "artifactDigest"
+        })
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "stale-prompt-qualification.json"
+            path.write_text(json.dumps(stale), encoding="utf-8")
+            with self.assertRaises(ReportReviewEvalError):
+                load_report_review_eval_attestation(expected_model_identifier=RELEASE_QUALIFIED_MODEL, path=path)
 
     def test_checked_in_attestation_fails_closed_for_release_identity_drift(
         self,

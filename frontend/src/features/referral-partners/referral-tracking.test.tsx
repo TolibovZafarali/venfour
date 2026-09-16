@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import type { Session } from "@supabase/supabase-js";
 import { http, HttpResponse } from "msw";
 import { beforeEach, describe, expect, test, vi } from "vitest";
+import QRCode from "qrcode";
 import type { AuthService } from "@/features/auth";
 import { server } from "@/test/mocks/server";
 import { renderTestApp } from "@/test/render";
@@ -69,6 +70,22 @@ describe("private referral projections", () => {
 });
 
 describe("partner referral dashboards", () => {
+  test("downloads a QR image for the same customer referral URL", async () => {
+    const user = userEvent.setup();
+    const encode = vi.spyOn(QRCode, "toString");
+    const createUrl = vi.fn<(blob: Blob) => string>().mockReturnValue("blob:referral-qr");
+    vi.stubGlobal("URL", class extends URL { static createObjectURL = createUrl; static revokeObjectURL = vi.fn(); });
+    const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(function (this: HTMLAnchorElement) {
+      expect(this.download).toBe("venfour-referral-qr.svg");
+      expect(this.href).toBe("blob:referral-qr");
+    });
+    api(); renderTestApp([`/partners/${PARTNER}`], { authService: authService() });
+    await user.click(await screen.findByRole("button", { name: "Download QR code" }));
+    await waitFor(() => expect(click).toHaveBeenCalledOnce());
+    expect(encode).toHaveBeenCalledWith(`${window.location.origin}/r/${CODE}`, expect.objectContaining({ type: "svg", margin: 4 }));
+    expect(createUrl.mock.calls[0][0]).toBeInstanceOf(Blob);
+    encode.mockRestore(); click.mockRestore(); vi.unstubAllGlobals();
+  });
   test("shows a copyable stable link and only opaque submitted referral information", async () => {
     const user = userEvent.setup(), clipboard = vi.spyOn(navigator.clipboard, "writeText").mockResolvedValue();
     api(); renderTestApp([`/partners/${PARTNER}`], { authService: authService() });
@@ -89,6 +106,7 @@ describe("partner referral dashboards", () => {
     await user.click(await screen.findByRole("button", { name: "Pause referral link" }));
     expect(await screen.findByRole("button", { name: "Resume referral link" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "Copy referral link" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Download QR code" })).toBeDisabled();
     expect(screen.getByRole("textbox", { name: "Your referral link" })).toHaveValue(`${window.location.origin}/r/${CODE}`);
     await user.click(screen.getByRole("button", { name: "Resume referral link" }));
     expect(await screen.findByRole("button", { name: "Pause referral link" })).toBeEnabled();

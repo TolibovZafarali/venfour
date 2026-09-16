@@ -56,16 +56,10 @@ def public_listing_url(value):
         return None
 
 
-def project_review_context(source, assessment):
-    context = project_previous_context(source, assessment)
-    result = source["analysis"]["artifact"]["result"]
-    historical = assessment["evidenceBasis"] == "LOSS_DATE_HISTORICAL"
-    search = result.get("marketSearch") or {}
-    request = ((search.get("input") or {}).get("historicalRequest" if historical else "currentRequest")
-               or (result.get("historicalMarketResult" if historical else "currentMarketResult") or {}).get("request") or {})
-    filters = " ".join(str(request[key]) for key in ("year", "make", "model", "trim", "drivetrain") if request.get(key))
+def _recorded_search_scope(result, search, stream):
+    request = ((search.get("input") or {}).get(stream + "Request")
+               or (result.get(stream + "MarketResult") or {}).get("request") or {})
     # Use only centers actually queried for this evidence stream, not planned areas.
-    stream = "historical" if historical else "current"
     centers = []
     for event in search.get("events", []):
         operation = event.get("operation") or {}
@@ -79,13 +73,32 @@ def project_review_context(source, assessment):
             radius = center.get("radiusMiles")
             if label and isinstance(radius, (int, float)):
                 areas.append(f"{radius:g} miles around {label}")
-        context["searchDescription"] = f"{len(centers)} recorded search area{'s' if len(centers) != 1 else ''}: " + "; ".join(areas) + "." if len(areas) == len(centers) else "Search-area details are incomplete in the recorded search."
-    elif search:
-        context["searchDescription"] = "Search-area details were not retained for these observations."
-    elif request.get("postalCode") and request.get("radiusMiles"):
-        context["searchDescription"] = f"Recorded search: {request['radiusMiles']:g} miles around ZIP {request['postalCode']}."
-    else:
-        context["searchDescription"] = "Search-area details were not retained."
+        return (f"{len(centers)} recorded search area{'s' if len(centers) != 1 else ''}: " + "; ".join(areas) + "."
+                if len(areas) == len(centers) else "Search-area details are incomplete in the recorded search.")
+    if search:
+        return "Search-area details were not retained for these observations."
+    if request.get("postalCode") and request.get("radiusMiles"):
+        return f"{request['radiusMiles']:g} miles around ZIP {request['postalCode']}."
+    return "Search-area details were not retained."
+
+
+def project_review_context(source, assessment):
+    context = project_previous_context(source, assessment)
+    result = source["analysis"]["artifact"]["result"]
+    historical = assessment["evidenceBasis"] == "LOSS_DATE_HISTORICAL"
+    search = result.get("marketSearch") or {}
+    request = ((search.get("input") or {}).get("historicalRequest" if historical else "currentRequest")
+               or (result.get("historicalMarketResult" if historical else "currentMarketResult") or {}).get("request") or {})
+    filters = " ".join(str(request[key]) for key in ("year", "make", "model", "trim", "drivetrain") if request.get(key))
+    streams = {"historical" if historical else "current"}
+    for role in ("primary", "secondary"):
+        for row in assessment["externalEvidence"]["selectedComparables"][role]:
+            streams.add("historical" if row["facts"]["evidenceBasis"] == "LOSS_DATE_HISTORICAL" else "current")
+    context["searchDescription"] = " ".join(
+        f"{label} search: {_recorded_search_scope(result, search, stream)}"
+        for stream, label in (("historical", "Historical"), ("current", "Current-market"))
+        if stream in streams
+    )
     origin = (search.get("origin") or {}).get("postalCode") if search else request.get("postalCode")
     context["distanceReference"] = f"ZIP {origin}" if origin else None
     context["searchFilters"] = filters or None

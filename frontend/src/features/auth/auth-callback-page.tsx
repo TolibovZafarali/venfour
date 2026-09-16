@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { Link, useLocation, useNavigate } from "react-router";
 
-import { completeCaseClaim, completedAuthReturnLocation } from "@/features/auth/auth-completion";
+import { completeCaseClaim, completedAuthReturnLocation, navigateAfterAuth } from "@/features/auth/auth-completion";
 import { getFriendlyAuthError } from "@/features/auth/auth-errors";
 import { SignInDialog } from "@/features/auth/sign-in-dialog";
 import {
@@ -19,10 +19,13 @@ import {
 } from "@/features/auth/return-location";
 import { useTotalLossDependencies } from "@/features/total-loss/dependencies";
 import type { CompleteTotalLossIdentityClaimResult } from "@/features/total-loss/data-types";
+import { isPartnerHost, partnerWorkspacePath } from "@/features/referral-partners/urls";
+import { useAdminCaseOperationsDependencies } from "@/features/admin/case-operations/dependencies";
 
 interface CompletedAuthCallback {
   readonly claim: CompleteTotalLossIdentityClaimResult | null;
   readonly session: Session;
+  readonly destination: string;
 }
 
 export function AuthCallbackPage() {
@@ -35,6 +38,7 @@ export function AuthCallbackPage() {
   const location = useLocation();
   const navigate = useNavigate();
   const totalLossDependencies = useTotalLossDependencies();
+  const staffService = useAdminCaseOperationsDependencies()?.caseService;
   const callback = useMemo(
     () => readAuthCallbackParameters(location),
     [location],
@@ -53,7 +57,7 @@ export function AuthCallbackPage() {
   const navigationStartedRef = useRef(false);
   const claimCompletionRef = useRef<{
     key: string;
-    promise: Promise<CompleteTotalLossIdentityClaimResult | null>;
+    promise: Promise<string>;
   } | null>(null);
 
   useEffect(() => {
@@ -78,25 +82,22 @@ export function AuthCallbackPage() {
           claimCompletionRef.current = {
             key: claimKey,
             promise:
-              caseClaim.kind === "claim"
+              (caseClaim.kind === "claim"
                 ? completeCaseClaim(
                     totalLossDependencies?.totalLossIdentityService,
                     caseClaim.claimId,
                     auth.user.id,
                   )
-                : Promise.resolve(null),
+                : Promise.resolve(null)).then((completedClaim) =>
+                  completedAuthReturnLocation(caseClaim, completedClaim, staffService),
+                ),
           };
         }
         void claimCompletionRef.current.promise
-          .then((completedClaim) => {
+          .then((destination) => {
             if (navigationStartedRef.current) return;
             navigationStartedRef.current = true;
-            void navigate(
-              completedAuthReturnLocation(caseClaim, completedClaim),
-              {
-                replace: true,
-              },
-            );
+            navigateAfterAuth(destination, navigate);
           })
           .catch((error: unknown) => {
             setCompletionError(getFriendlyAuthError(error, "callback"));
@@ -147,19 +148,18 @@ export function AuthCallbackPage() {
               throw claimError;
             }
           }
-          return { claim: completedClaim, session };
+          const destination = await completedAuthReturnLocation(caseClaim, completedClaim, staffService);
+          return { claim: completedClaim, session, destination };
         }),
       };
     }
 
     let active = true;
     void completionRef.current.promise
-      .then(({ claim: completedClaim }) => {
+      .then(({ destination }) => {
         if (!active || navigationStartedRef.current) return;
         navigationStartedRef.current = true;
-        void navigate(completedAuthReturnLocation(caseClaim, completedClaim), {
-          replace: true,
-        });
+        navigateAfterAuth(destination, navigate);
       })
       .catch((error: unknown) => {
         if (active) {
@@ -185,6 +185,7 @@ export function AuthCallbackPage() {
     restoreSession,
     retryOpen,
     totalLossDependencies?.totalLossIdentityService,
+    staffService,
   ]);
 
   const error =
@@ -208,7 +209,13 @@ export function AuthCallbackPage() {
               <button
                 type="button"
                 className="mt-6 inline-flex min-h-11 items-center justify-center rounded-lg bg-brand px-4 text-sm font-semibold text-white hover:bg-brand-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
-                onClick={() => setRetryOpen(true)}
+                onClick={() => {
+                  if (isPartnerHost()) {
+                    void navigate(partnerWorkspacePath("sign-in"), { replace: true });
+                  } else {
+                    setRetryOpen(true);
+                  }
+                }}
               >
                 Try signing in again
               </button>

@@ -182,11 +182,22 @@ class ValuationReviewTests(unittest.TestCase):
         self.assertEqual(hashlib.sha256(pdf).hexdigest(),fixture["pdfSha256"])
         self.assertEqual(validate_valuation_evidence_report_pdf_v1(pdf,fixture["report"]).template_version,"2")
 
+    def test_previous_template_three_retains_source_replay_and_exact_bytes(self):
+        fixture=json.loads(Path("tests/fixtures/report/legacy-report-v3.json").read_text())
+        validate_valuation_evidence_report_v1(fixture["report"],source_snapshot=self.source,final_assessment=self.assessment)
+        pdf=render_valuation_evidence_report_pdf_v1(fixture["report"])
+        self.assertEqual(hashlib.sha256(pdf).hexdigest(),fixture["pdfSha256"])
+        self.assertEqual(validate_valuation_evidence_report_pdf_v1(pdf,fixture["report"]).template_version,"3")
+        self.assertEqual(fixture["report"]["reviewContext"]["searchDescription"],"Recorded search: 100 miles around ZIP 63026.")
+        self.assertEqual(self.report["identity"]["templateVersion"],"4")
+        validate_valuation_evidence_report_v1(self.report,source_snapshot=self.source,final_assessment=self.assessment)
+        self.assertIn("Current-market search: 250 miles",self.report["reviewContext"]["searchDescription"])
+
     def test_case_specific_market_summary_and_recorded_search_stream(self):
         pdf,_=self.render(); text=self.text(pdf)
-        for phrase in ("5 vehicles (distinct VINs)", "50,000-52,000", "100 miles around ZIP 63026", "Fictional historical market records", "The figures above use all 5", "6 mi from ZIP 63026", "$19,800.00", "Insurer-adjusted: $20,000.00"):
+        for phrase in ("5 vehicles (distinct VINs)", "50,000-52,000", "Historical search: 100 miles around ZIP 63026", "Current-market search: 250 miles around ZIP 63026", "Fictional historical market records", "The figures above use all 5", "6 mi from ZIP 63026", "$19,800.00", "Insurer-adjusted: $20,000.00"):
             self.assertIn(phrase,text)
-        for phrase in ("250 miles around", "complete selected primary set", "accepted evidence", "synthetic-historical", "underpayment", "identical vehicles"):
+        for phrase in ("complete selected primary set", "accepted evidence", "synthetic-historical", "underpayment", "identical vehicles"):
             self.assertNotIn(phrase,text)
         with pymupdf.open(stream=pdf,filetype="pdf") as doc:
             self.assertIn("C1",doc[0].get_text())
@@ -197,14 +208,20 @@ class ValuationReviewTests(unittest.TestCase):
         result["marketSearch"]={"input":{"historicalRequest":result["historicalMarketResult"]["request"]},"events":[
             {"operation":{"kind":"discovery","stream":"historical","purpose":"baseline","center":{"id":"customer","postalCode":"63026","radiusMiles":100}}},
             {"operation":{"kind":"discovery","stream":"historical","purpose":"baseline","center":{"id":"other","label":"Second recorded area","radiusMiles":100}}},
+            {"operation":{"kind":"discovery","stream":"current","purpose":"baseline","center":{"id":"customer","postalCode":"63026","radiusMiles":250}}},
+            {"operation":{"kind":"discovery","stream":"current","purpose":"supporting","center":{"id":"other","label":"Supplemental area","radiusMiles":500}}},
         ],"origin":{"postalCode":"63026"}}
+        result["marketSearch"]["centers"] = [{"id":"planned","label":"Unqueried area","radiusMiles":750}]
         context=project_review_context(source,self.assessment)
-        self.assertIn("2 recorded search areas",context["searchDescription"])
+        self.assertIn("Historical search: 2 recorded search areas",context["searchDescription"])
         self.assertEqual(context["searchDescription"].count("100 miles"),2)
+        self.assertIn("Current-market search: 1 recorded search area: 250 miles around ZIP 63026",context["searchDescription"])
         self.assertNotIn("200",context["searchDescription"])
+        self.assertNotIn("500",context["searchDescription"])
+        self.assertNotIn("750",context["searchDescription"])
         result.pop("marketSearch");result.pop("historicalMarketResult")
         context=project_review_context(source,self.assessment)
-        self.assertEqual(context["searchDescription"],"Search-area details were not retained.")
+        self.assertEqual(context["searchDescription"],"Historical search: Search-area details were not retained. Current-market search: 250 miles around ZIP 63026.")
         self.assertIsNone(context["distanceReference"])
         self.assertIsNone(context["searchFilters"])
 
@@ -249,6 +266,8 @@ class ValuationReviewTests(unittest.TestCase):
         source=copy.deepcopy(self.source)
         source["analysis"]["artifact"]["result"]["currentMarketResult"]["request"]["postalCode"]="12345"
         context=project_review_context(source,self.assessment)
+        self.assertIn("Historical search: 100 miles around ZIP 63026",context["searchDescription"])
+        self.assertIn("Current-market search: 250 miles around ZIP 12345",context["searchDescription"])
         details={row["evidenceId"]:row for row in context["comparables"]}
         for role,origin in (("primary","ZIP 63026"),("secondary","ZIP 12345")):
             row=self.assessment["externalEvidence"]["selectedComparables"][role][0]

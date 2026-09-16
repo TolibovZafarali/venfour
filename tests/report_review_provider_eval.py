@@ -56,6 +56,10 @@ from venfour.valuation_evidence_report import (
 
 
 LIVE_PROVIDER_MAX_ATTEMPTS = 3
+ADVERTISED_PRICE_CAVEAT = (
+    "Advertised prices are asking amounts, not verified completed sales "
+    "or an independently adjusted vehicle value."
+)
 
 
 def _review_with_operational_retries(
@@ -258,6 +262,13 @@ class SyntheticReportReviewEvalMaterializer:
         selected = copy.deepcopy(self._bases[base_key])
         report = selected["report"]
         pdf_text = self._mutate(case["scenarioId"], report, selected["pdfText"])
+        pdf = selected["pdf"]
+        if case["mutation"]["target"] == "REPORT_JSON_AND_PDF":
+            if case["scenarioId"] != "missing_material_limitation":
+                raise ValueError("Unsupported combined report/PDF mutation")
+            pdf = self._remove_pdf_limitation(pdf)
+            with pymupdf.open(stream=pdf, filetype="pdf") as document:
+                pdf_text = "\n".join(page.get_text("text") for page in document)
         unsigned = {
             key: value for key, value in report.items() if key != "reportDigest"
         }
@@ -271,11 +282,10 @@ class SyntheticReportReviewEvalMaterializer:
                 {"code": "REPORT_PROJECTION", "status": "PASS"},
             ],
         }
-        # REPORT_JSON scenarios model post-validation tampering. Preserve the
-        # original PDF bytes, text, and signed validation manifest so the
-        # reviewer sees the real stale binding as well as the labeled defect.
-        # Refreshing only manifest digests would falsely claim that mutated
-        # content passed the deterministic renderer and validator.
+        # Post-validation mutations retain the original validation manifest.
+        # REPORT_JSON preserves PDF bytes/text; REPORT_JSON_AND_PDF changes
+        # actual PDF bytes and extracts their text, leaving both bindings stale.
+        # Never claim that tampered content passed rendering or validation.
         request = build_report_review_input_v1(
             case_id=source["lineage"]["caseId"],
             source_snapshot_id=source["lineage"]["sourceSnapshotId"],
@@ -285,13 +295,28 @@ class SyntheticReportReviewEvalMaterializer:
             final_assessment=selected["assessment"],
             report=report,
             report_digest=report["reportDigest"],
-            pdf_digest=hashlib.sha256(selected["pdf"]).hexdigest(),
+            pdf_digest=hashlib.sha256(pdf).hexdigest(),
             pdf_extracted_text=pdf_text,
             deterministic_validation_manifest=deterministic_manifest,
             pdf_validation_manifest=selected["pdfManifest"],
             source_document_included=False,
         )
         return request, report["executiveConclusion"]["continuationStatus"]
+
+    @staticmethod
+    def _remove_pdf_limitation(pdf: bytes) -> bytes:
+        with pymupdf.open(stream=pdf, filetype="pdf") as document:
+            matches = 0
+            for page in document:
+                rectangles = page.search_for(ADVERTISED_PRICE_CAVEAT)
+                for rectangle in rectangles:
+                    page.add_redact_annot(rectangle, fill=(1, 1, 1))
+                    matches += 1
+                if rectangles:
+                    page.apply_redactions(images=0, graphics=0)
+            if not matches:
+                raise ValueError("Expected advertised-price PDF caveat was absent")
+            return document.tobytes(garbage=4, deflate=True, no_new_id=True)
 
 
 class LiveProviderEvalExecutor:

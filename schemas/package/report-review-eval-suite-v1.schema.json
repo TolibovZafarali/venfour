@@ -108,6 +108,7 @@
           "enum": [
             "NONE",
             "REPORT_JSON",
+            "REPORT_JSON_AND_PDF",
             "PDF_TEXT",
             "SOURCE_DOCUMENT",
             "PACKAGE_EVIDENCE"

@@ -17,6 +17,8 @@ export function ReferralTracking({ partnerId, audience, presentation = "card" }:
   const access = useReferralAccess(audience);
   const [page, setPage] = useState(1);
   const [copyResult, setCopyResult] = useState<{ url: string; copied: boolean } | null>(null);
+  const [qrError, setQrError] = useState(false);
+  const [qrPending, setQrPending] = useState(false);
   const summary = useReferralQuery(audience, "referral_summary", { partner_id: partnerId }, parsePartnerReferralSummary, access.allowed);
   const referrals = useReferralQuery(audience, "referral_list", { partner_id: partnerId, page, page_size: 25 }, parsePartnerReferralList, access.allowed);
   const earnings = usePartnerEarnings(partnerId, audience, page, access.allowed && dashboard);
@@ -26,6 +28,24 @@ export function ReferralTracking({ partnerId, audience, presentation = "card" }:
   const copy = async () => {
     try { await navigator.clipboard.writeText(url); setCopyResult({ url, copied: true }); }
     catch { setCopyResult({ url, copied: false }); }
+  };
+  const downloadQr = async () => {
+    if (!link || link.status === "paused") return;
+    setQrPending(true);
+    setQrError(false);
+    try {
+      const { default: QRCode } = await import("qrcode");
+      const svg = await QRCode.toString(url, { type: "svg", errorCorrectionLevel: "M", margin: 4, width: 512 });
+      const href = URL.createObjectURL(new Blob([svg], { type: "image/svg+xml" }));
+      const anchor = document.createElement("a");
+      anchor.href = href;
+      anchor.download = "venfour-referral-qr.svg";
+      document.body.append(anchor);
+      anchor.click();
+      anchor.remove();
+      window.setTimeout(() => URL.revokeObjectURL(href), 1000);
+    } catch { setQrError(true); }
+    finally { setQrPending(false); }
   };
   const toggle = async () => {
     if (!link) return;
@@ -42,8 +62,10 @@ export function ReferralTracking({ partnerId, audience, presentation = "card" }:
         <div className="partner-referral-link-row">
           <label className="partner-field"><span>Your referral link</span><input value={url} readOnly onFocus={(event) => event.currentTarget.select()} /></label>
           <Button variant={dashboard ? "default" : "outline"} disabled={link.status === "paused"} onClick={() => void copy()}>Copy referral link</Button>
+          <Button variant="outline" disabled={link.status === "paused" || qrPending} onClick={() => void downloadQr()}>{qrPending ? "Preparing QR code…" : "Download QR code"}</Button>
         </div>
         {copyResult?.url === url && <p role="status">{copyResult.copied ? "Referral link copied." : "Copying is unavailable. Select the link above and copy it."}</p>}
+        {qrError && <p role="alert">The QR code could not be downloaded. Try again or copy your referral link.</p>}
         <p className="partner-referral-link-status">{link.status === "paused" ? "Paused — this link does not attribute new reviews. Previously attributed reviews remain recorded." : "Active — customers can use this link to start a new review."}</p>
         {audience === "staff" && <Button variant="outline" disabled={mutation.pending} onClick={() => void toggle()}>{mutation.pending ? "Updating link…" : link.status === "paused" ? "Resume referral link" : "Pause referral link"}</Button>}
         <PartnerError error={mutation.error} />

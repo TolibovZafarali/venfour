@@ -1,8 +1,16 @@
 # Referral partner proposal: owner review and release boundary
 
+On September 16, the owner authorized release of the existing agreement and
+business rules for collision-center onboarding. Published template version 1 is
+`a7160001-7000-4000-8000-000000000002`, an exact copy of the retained proposal's
+title, sixteen sections, and structured $50/$75 policy. The original held draft
+remains intact. Publication used the existing authenticated manager operation;
+partner consent, immutable signatures, and manager countersignature still apply.
+See [the release setup](../operations/partner-onboarding-release-2026-09-16.md).
+
 The complete proposed text is in [referral-partner-agreement-draft.md](referral-partner-agreement-draft.md). Revision `2026-09-16.1` is DRAFT. The canonical content and structured policy are in `venfour/data/referral_partner_agreement_draft.json`. The unsigned PDF is generated with `.venv/bin/python scripts/render_partner_agreement_draft.py`.
 
-No production migration, invitation, signature, email, payout, or domain change was performed. Local synthetic signatures are not contracts. The database migration seeds a held draft in the existing template system. Managers can edit it but cannot publish it, remove its hold, or prepare an agreement from it through the current operations. Releasing it requires a separate reviewed change, not a UI toggle. Editing the bundled proposal also requires updating the migration seed, readable text, and PDF; the consistency test detects drift.
+The proposal was originally prepared locally. Current hosted deployment and configuration status is recorded in the [September 16 launch report](../operations/production-launch-2026-09-16.md). Local synthetic signatures are not contracts. The database migration seeds a held draft in the existing template system. Managers can edit it but cannot publish it, remove its hold, or prepare an agreement from it through the current operations. Releasing it requires a separate reviewed change, not a UI toggle. Editing the bundled proposal also requires updating the migration seed, readable text, and PDF; the consistency test detects drift.
 
 ## Administrative decisions proposed for approval
 

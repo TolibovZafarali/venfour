@@ -633,10 +633,23 @@ describe("partner domain and readable referral redirects", () => {
     expect(callback.status).toBe(200); expect(callback.headers.get("location")).toBeNull();
     expect(callback.headers.get("referrer-policy")).toBe("no-referrer");
     const fetch = vi.fn(async () => new Response('{}'));
-    const response = await handleRequest(new Request("https://partners.venfour.com/api/partners/operations", { method: "POST", headers: { Origin: "https://app.venfour.com" } }), production(), dependencies(fetch));
+    const response = await handleRequest(new Request("https://partners.venfour.com/api/v1/partners/operations", { method: "POST", headers: { Origin: "https://app.venfour.com" } }), production(), dependencies(fetch));
     expect(response.status).toBe(403); expect(fetch).not.toHaveBeenCalled();
-    const sameOrigin = await handleRequest(new Request("https://partners.venfour.com/api/partners/operations", { method: "POST", headers: { Origin: "https://partners.venfour.com" } }), production(), dependencies(fetch));
+    const sameOrigin = await handleRequest(new Request("https://partners.venfour.com/api/v1/partners/operations", { method: "POST", headers: { Origin: "https://partners.venfour.com" } }), production(), dependencies(fetch));
     expect(sameOrigin.status).toBe(200); expect(fetch).toHaveBeenCalledOnce();
+  });
+  it.each(["/api/v1/staff/referral-partners/access", "/api/v1/appraisal-cases", "/api/v1/partners/../staff/referral-partners/access", "/api/v1/partners/%2e%2e%2fstaff/referral-partners/access", "/api/v1/partners/operations/extra", "/webhooks/stripe", "/admin", "/admin/referral-partners"])("does not expose application-only path %s through the partner host", async path => {
+    const fetch = vi.fn();
+    const response = await handleRequest(new Request(`https://partners.venfour.com${path}`, { method: "POST" }), production(), dependencies(fetch));
+    expect(response.status).toBe(404);
+    expect(response.headers.get("cache-control")).toContain("no-store");
+    expect(fetch).not.toHaveBeenCalled();
+  });
+  it.each(["/health", "/api/v1/partners/access", "/api/v1/partners/agreements/11111111-1111-4111-8111-111111111111/document"])("retains shared backend connectivity for %s", async path => {
+    const fetch = vi.fn(async () => new Response('{}'));
+    const response = await handleRequest(new Request(`https://partners.venfour.com${path}`), production(), dependencies(fetch));
+    expect(response.status).toBe(200);
+    expect(fetch).toHaveBeenCalledOnce();
   });
   it.each(["/r/ozark-auto", `/r/${"a".repeat(48)}`, "/admin/partners/ozark-auto"])("routes public %s into the authenticated application without exposing data", async path => {
     const fetch = vi.fn();
